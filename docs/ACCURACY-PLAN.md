@@ -23,14 +23,19 @@ per-seat term**: every seat's walk now sits within a few tenths of a common −0
 **What is left is the release, that common residual, and the spread within a group** — the six
 warheads of one rocket landing a median 2.3-2.6 m apart from release probes 0.20 m apart, which item
 40 did not touch (1.05x, unresolved) and which is now co-dominant. **That spread is the bus's
-0.86 m tube ring, which every release prediction averages away** (3db). **The floor under this
-configuration is 0.64 m, or ~1.2 m as the endpoint prints it.** One of the two endpoints 3cv found
+0.86 m tube ring, which every release prediction averages away** (3db). **And the group's centre
+carries the bus's spin, which every round is thrown with at twice its physical size and no prediction
+sees** (3dd). **The floor under this
+configuration is 0.64 m as 3cv priced it — ≈0.54 m with the crossing search at its measured mean, and
+≈0.50 m once item 40b ships — and `--endpoint landing` reads it at 0.1 m rather than adding a metre
+of print to it** (3dc). One of the two endpoints 3cv found
 not closing was the trace scoring each burst against the wrong instant, fixed in `a1a1ae5` (3cy).
 
-The entries to read are **3da** (item 40 flown, including two predictions that were wrong), **3cy**
+The entries to read are **3dd** (item 42, the spin), **3db** (item 41, the ring), **3dc** (item 40b),
+**3da** (item 40 flown, including two predictions that were wrong), **3cy**
 (what the instrument can and cannot see), **3cv** (where the metres were) and **3cu**. **The order to
-work in is now 41 (3db), then the predictor's crossing tolerance** — the other half of item 40's row, which
-moves the aim loop and so needs a night of its own. Item 41 has an endpoint and a gate:
+work in is now 42 and 41 (3dd, 3db)** — built, off and unflown, and between them the group's centre
+and its width — **then 40b (3dc)**, which moves the aim loop and needs a night of its own. Item 41 has an endpoint and a gate:
 `--endpoint spread` resolves x1.15 at twenty blocks (`d779413`). The 2026-09-08 block below is
 history, and two of its items have since been overturned.
 
@@ -7416,7 +7421,8 @@ release-probe line and the trace's own probe, taken ~2 ms apart on the same roun
 |1.30| m (max 6.10), and |trace probe − landing| is 2.26 m against a 0.58 m walk.
 
 **The honest floor for this configuration is 0.64 m** — height quantum 0.478 ⊕ `CrossingToleranceMetres`
-0.400 ⊕ staircase 0.025 ⊕ ruler 0.134 — or **≈1.2 m** including the endpoint's own 1 m print quantum,
+0.400 ⊕ staircase 0.025 ⊕ ruler 0.134 (**corrected in 3dc**: the tolerance's term is 0.20 m on average, 0.400 being its worst case,
+which makes this floor ≈0.54 m, and ≈0.50 m once item 40b ships) — or **≈1.2 m** including the endpoint's own 1 m print quantum,
 consistent with `KINETIC-FLOOR.md`'s 0.32 m at a steeper rung. Items 39 and 40 together project to
 ~1.1 m, so **this ladder reaches its floor**: below it needs the print widened, the crossing tolerance
 bisected finer, and a steeper arrival.
@@ -7621,6 +7627,7 @@ scripts with it; everything below is re-read from the logs.
 | **per seat: median over seats of (\|base walk\| − \|query walk\|)** | **+0.810 m [+0.422, +1.042]** | 8 seats | **0.0015** |
 | **per seat: median over seats of (\|slope\| base − query), walk on frame ms** | **+0.0607 m/ms [+0.0481, +0.0677]** | 8 seats | **0.0005** |
 | landing, `--paired` | **0.66x [0.55, 0.90]** | 18 of 20 | 0.003 |
+| landing on the 0.1 m ruler, `--endpoint landing` | 0.70x [0.60, 0.86] | 18 of 20 | 0.004 |
 | walk, ratio | 0.54x [0.47, 0.60] | 20 of 20 | 0.002 |
 | walk, `signed-walk` | +0.519 m [+0.397, +0.769] | 17 of 20 | 0.021 |
 | cross, `signed-cross` | −0.033 m [−0.051, −0.026] | 3 of 20 positive | 0.016 |
@@ -7698,7 +7705,7 @@ Nothing was flown for it.
 
 **The cause.** The MIRV bus's six tubes sit on a **0.86 m-radius ring** perpendicular to the release
 line, all pointing along +X (`Arsenal.MirvBus`), and every round spawns at its own mouth with the
-same velocity. **Every release prediction uses the mean mouth** — `ProbeRelease` through
+bus's velocity plus the spin that mouth is sweeping at — `ω × r`, which the prediction also leaves out. **Every release prediction uses the mean mouth** — `ProbeRelease` through
 `TryMeanReleaseStateEcl`, whose own doc says that what each tube does differently "is dispersion,
 and no single aim can remove it". So the aim loop lands the mean state on the target and the six
 land on the ground image of the ring around it. The release probes read 0.20 m apart because they
@@ -7747,7 +7754,7 @@ mean, and the inertial projection.
 its own mouth, `ω × r`, which goes round the ring once like the ring itself and is not in the kick,
 because the probe leaves spin out. If the bus rolls it could be as large as the kick. A flown ring
 that survives **turned by about 90°** is that signature, and the landing line now carries each
-warhead's downrange and cross, which can show it.
+warhead's downrange and cross, which can show it. `CancelSpinAtSeparation` removes it (3dd).
 
 **Declared for when it flies — not flown, and not to be flown until asked.** Priced on this night's
 corrected arm, the configuration that will fly, which is the check 3da's first wrong prediction
@@ -7771,7 +7778,150 @@ mm/s, median 4, and it tracks the landing centroid at **Spearman +0.32 (p < 0.00
 for the probe's own centroid, the centroid climbing 1.53 → 3.33 m across the sweep at 0.59 m per
 mm/s — the Kepler downrange sensitivity. **The fix is not "put spin in the probe"**:
 `TryMeanReleaseStateEcl` leaves it out because feeding it to guidance was measured driving the cutoff
-residual 0.15 → 4.31 m/s. It needs a diagnostic first, and a night of its own.
+residual 0.15 → 4.31 m/s. **But a round does carry it** — `WeaponSystem.Commit` builds
+`platformVel + spinVel + launchDir × LaunchSpeed` — so it can be cancelled per round at separation,
+after the aim is committed, which is a one-shot rather than an input to any loop. At the Kepler map's
+591 m per m/s the median 4 mm/s sweep is worth up to ~2 m if it lies downrange — the size of the
+whole centre offset — and its per-tube part, `ω × ring`, is the turned ring item 41's focus leaves
+behind. A per-warhead diagnostic comes first, and the spin lever arm itself has to be checked: `Commit`
+differences two ecliptic positions for it, and a mispaired instant there is hundreds of metres.
+**Checked in 3dd: the instants pair, and the fault is the centre of mass counted twice.**
+
+## 3dc. Item 40b: the predictor stopped 0.20 m deep, and that is the common walk — 2026-09-13
+
+Read off the 80 traced warheads of `2026-09-12-query`'s `query` arm, the shipped configuration.
+Nothing was flown for it.
+
+**The trace's surface line cannot measure it.** "The prediction flies to Y m" is the height field
+read at the *round's* landing point, not where the prediction stopped, and the prediction's depth is
+printed nowhere. It is recoverable anyway: every re-fly is a fresh prediction, so its stop depth is a
+fresh draw, while the round stops on the surface.
+
+| reading | value | the tolerance alone predicts |
+| --- | --- | --- |
+| landing walk, downrange | −0.248 m, sd 0.115 | |
+| **landing minus the mean of the late re-flies** | **−0.201 m [−0.212, −0.189], short on 80 of 80** | −0.199 |
+| scatter of the re-fly walks within one flight | 0.099 m | 0.100 |
+| mean of the late re-fly walks | −0.047 m | 0 |
+| the round's own stop against its surface | 0.0 m on 80 of 80 | 0 |
+
+**So 0.20 m of the common −0.25 m walk is this, and the other −0.05 m is the round's own divergence**,
+already present before the last re-fly. The landing walk tracks the probe's own early re-flies at
+r +0.84 — both carry the release probe's depth draw, which explains 77% of the walk's variance.
+
+**The cause.** `ImpactPredictor.TryPredict` halves its step until a sample lands no more than
+`CrossingToleranceMetres` (0.25 m) under the ground and returns that sample. After 11-12 halvings from
+a 729 m air step the accepted depth is spread over nearly the whole tolerance, a mean of 0.125 m, which
+at `cot γ` 1.59 is 0.20 m long. The aim loop drives that long reading onto the target, so the warheads
+land 0.20 m short. **3cy's "~0.4 m" is the worst case, not the mean**, and so is 3cv's 0.400 on the
+floor; and on stepped relief a step taller than the tolerance can hold a stop that deep.
+
+**Built behind `IcbmConfig.PredictionStopsOnTheSurface`, off, unflown (`2aa13ff`).** The same search,
+with the crossing placed linearly between the last sample above the ground and the first below — the
+rule `Slug`'s own stop obeys — threaded through the release probe, the per-cycle aim prediction, the
+holding cost and `WarheadTrace`. The bomb sight steps a `Slug` and needs nothing. It costs nothing, and
+storing the surface the search already reads removes a duplicate lookup on both paths, 42.8 → 31.3
+per prediction; the switch off matches a frozen copy of today's search bit for bit. Headless over 64
+arcs on nine grounds at 32° and 7°: off, stops average 0.11-0.13 m under; on, within 0.0003 m on
+average and 0.019 m at worst, and the downrange effect matches `cot γ` within 0.3%. Eight mutations
+each fail between 7 and 17 of the 19 tests.
+
+**What it is worth, priced on the configuration that will fly: 0.998x at the ground.** A one-signed
+0.20 m under a 2 m scatter is nearly invisible now, and it is a metre-level term rather than a present
+one — 3cv's arithmetic again.
+
+**Declared for when it flies.** A one-signed term across every seat, so the pooled `signed-walk` is
+exactly the right endpoint (SHOT-PROTOCOL's table): **+0.20 m**, −0.25 → −0.05, power 1.00 against a
+null of ±0.05. Mechanism checks per flight: the late re-fly scatter 0.098 → ≤ 0.02 m, the step from
+the late re-flies to the landing −0.201 → ~−0.01, and the r +0.84 link with the early re-flies
+collapsing. The landing 0.998x **will not resolve**, and cross and the group spread should not move.
+**Refuted** by the signed walk moving less than +0.10 m, the re-fly scatter staying above 0.05, or the
+landing still stepping more than −0.10 m below the late re-flies.
+
+**Two instrument findings on the way.** `WarheadTrace.Finish` carried the landing point into the
+frame-end lookup by the body centre's velocity alone, so "the round is X m off its own surface" read a
+mean −0.16 m on the shipped arm while the round's own stop read 0.0 — fixed to carry the spin as well
+(`98c73c5`), the same fault `60d255d` fixed in `GroundSample`. And item 40's landing reads **0.70x [0.60, 0.86]** on
+the 0.1 m ruler (`--endpoint landing`, `222a875`) against 0.66x on the whole-metre one: the same
+verdict on an interval 27% narrower, the point nearer one.
+
+## 3dd. Item 42: every warhead is thrown with twice the bus's spin, and nothing predicts it — 2026-09-13
+
+Found in the code and priced headlessly. Nothing was flown for it.
+
+**The cause.** `WeaponSystem.Commit` throws each round at
+`platformVel + ω × (mouth − centre of mass) + launchDir × LaunchSpeed`, and `TryMeanReleaseStateEcl`
+leaves the spin term out on purpose — fed to guidance it drove the cutoff residual 0.15 → 4.31 m/s,
+because a loop chases a transient. So each warhead leaves with a velocity error the aim was never
+solved for. Its **common** part, `ω × (mean mouth − CoM)`, moves the group's *centre*; its **ring**
+part, `ω × ring`, goes round the ring once, and for a roll it survives item 41's position-only focus
+turned a quarter turn. The logged sweep is 1-6 mm/s, median 4.
+
+**And the lever arm counts the centre of mass twice.** A vehicle's `GetPositionEcl()` already *is* its
+centre of mass — `LauncherPart.TryGetTubeMuzzleEcl` says so and subtracts `CenterOfMassAsmb` — and
+`KsaWorld.CentreOfMassEcl` adds `CenterOfMassAsmb` to it again, so the arm is `mouth − 2 × offset`.
+KSA's own rule for a part split off a turning craft is `mouth − CenterOfMassAsmb`. A split bus keeps the
+whole rocket's assembly origin, so on the staged bus of `SOLVER SCALE 8` the offset is **2.44 m** along
+the axis: the arm to the tubes' mean reads 4.78 m against a true 2.34, and the release probe's own
+logged "2.3 m off the orbit position" agrees with the true one. A pitch or yaw rate therefore throws
+**2.04x the physical common spin**; roll and the ring part are untouched. It is not the epoch fault 3db
+suspected: `SampleWorld` and the release share an instant. **The logged sweep is on that doubled scale,
+which is what the rounds really carry**, so 3db's +0.32 correlation is about their actual velocity.
+
+| correction, headless, a bus throwing ~4 mm/s | 340 s at 32° | 1,500 s at 46° |
+| --- | --- | --- |
+| none | centre **1.25 m** off, 1.58 m across | centre 4.82 m off, 2.82 m across |
+| ring focus only | centre unmoved | centre unmoved |
+| spin cancellation only | centre 0.00 cm | centre 0.00 cm |
+| both | **0.40 cm across** | 0.05 cm across |
+
+**A 1.25 m centre offset is most of what stands between the shot and a metre** — on the item 40 night
+the centre was ~0.92 of a rocket's 2.05 m mean distance — which makes this the largest term now
+known, and the one to fly first for the median.
+
+**Built, as three commits.**
+
+- **The diagnostic (`84c9bdd`), always logged**, one line per warhead: `spin at separation on <craft>:
+  round N from tube N, A m from the centre of mass, turning at W mrad/s -- common (…) mm/s thrown, (…)
+  about the centre of mass; ring (…) mm/s; lands (…) m from the spin thrown, (…) m from the spin about
+  the centre of mass, (…) m from the ring`, resolved in the release probe's arrival frame. The landing
+  shifts come from `ReleaseFocus.TryLandingShift` and agree with flown landings through drag to
+  0.27 cm. It logs whatever the switches say, so **a `base` arm tests the term for free**.
+- **The cancellation (`b50d6b0`), `IcbmConfig.CancelSpinAtSeparation`, off, unflown**, independent of
+  `FocusTubesOnTheAim`: at separation it gives back exactly the spin the round was *thrown* with. Exact
+  rather than minimum-norm — the minimum-norm kick is 0.44-0.85x the size and lands 0.34 cm out
+  against 0.20, and a smaller kick buys nothing because it costs no propellant. Cancelling the thrown
+  spin rather than the physical one makes it exact with or without the lever-arm fix. **It is not the
+  transient the probe excludes spin for**: a one-shot at separation, after the aim is committed, feeds
+  no loop. Every mutation — no cancellation, sign flipped, common part only, ring part only — fails its
+  tests.
+- **The lever-arm fix (`f18e46b`), deliberately not on `dev`**, on `arm/spin-lever-arm`. It takes a
+  tube's spin off the assembly frame in `Commit` and `TryMeanReleaseStateEcl`, and deletes
+  `CentreOfMassEcl`; its tests fail against the doubled arm. It is not behind a switch and **it changes
+  every round every turning launcher throws**: the bus's release-gate sweep halves, so a bus may release
+  sooner, and a rail on a rolling aircraft loses a velocity of roll rate times its offset. Unflown, so
+  whether and when it lands is a decision to make rather than a default.
+
+**Declared for when it flies.** On a build carrying the diagnostic and the switch but not the arm fix,
+so `base` is exactly `dev`:
+
+- **Primary: `--endpoint centre`**, which the components `7e079ea` prints make readable. The size of
+  the gain is **not priced yet**, and deliberately: the headless 1.25 m is one bus's rate in one
+  direction, and the flown rate and direction are what the diagnostic's first night measures.
+- **Mechanism check:** regress each `base` warhead's landing (downrange, cross) on its logged "lands …
+  from the spin thrown". A slope near **1** says the term is real at its thrown size; the "about the
+  centre of mass" prediction should then read about **2**.
+- **Refuted by** a slope under 0.5, or the cancellation arm's centres not moving by what `base`'s
+  diagnostic predicted. What neither switch touches is the release probe's own residual.
+
+**How to fly 41 and 42.** Their primary endpoints are nearly orthogonal — `centre` and `spread` — and
+headlessly they do not interact, so one four-arm night
+(`base|ring:FocusTubesOnTheAim=true|spin:CancelSpinAtSeparation=true|both:FocusTubesOnTheAim=true,CancelSpinAtSeparation=true`)
+would answer both. **But `shot-report` compares each arm against `base` pairwise**, so each comparison is
+two rockets against two per shot rather than a factorial four against four, and SHOT-PROTOCOL §1 says
+seat-levelling is too noisy at four arms to trust. **Two two-arm nights is the protocol's answer**, and
+spin first, since the centre is what the median needs; the `base` arm of the spin night also measures
+the ring's turned residual through the diagnostic, which prices item 41's night before it flies.
 
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
@@ -7900,9 +8050,9 @@ what 20b is flying against.
 | ~~38~~ | ~~Release on a reading inside the trim's floor~~, and keep going while passes improve — `IcbmConfig.ReleaseInsideTheTrimFloor` | **flown 2026-09-12, 20 paired blocks — SHIPPED ON** | **release probe 0.72x [0.58, 0.88] and the landing 0.61x [0.53, 0.74], each won on 17 of 20.** The reading released on 6.80 → 4.95 m, those over 10 m 16 → 1 of 80, in four passes rather than five. Predicted 0.80x on the probe — **3cu** |
 | ~~39~~ | ~~Lower the floor with KSA's pulse mode~~ — `IcbmConfig.PulseTrim` | **flown twice 2026-09-12, 40 paired blocks — SHIPPED ON.** Refuted on the first build, four causes fixed (`7569b0a`), then **the landing 0.47x [0.41, 0.57] and the release probe 0.44x [0.26, 0.56], each won on 20 of 20**: the median rocket 6.0 → 2.5 m, the reading released on 4.75 → 0.90, and `clock`/trim endings 10 of 80 → **0 of 80**. Was: **NOT SHIPPED on the first build.** The fourth was the write — the jets left in pulse mode during a hold, which is what the three worst flights were. Smoked repaired: the frozen-hold tail is back to base's 7.3 s from 93.0, nulls finish at 0.0020 m/s, the reading released on is 0.75 m against base's 5.75, and no `clock` or trim endings | **3cu** — the primary won (release probe **0.50x [0.36, 0.86]**, 16 of 20, against 0.40x predicted) **and the declared refutation fired**: `clock` and trim endings 0 → **10 of 80**, three releasing 0.3-1.1 km out. The phase pulsed at a side component with 2.541 m/s on a withheld axis, ran a median 54 s against clocks that judge a hold, and struck six live axes off. Nulls do finish at 0.0020 m/s against 0.0210, so the idea stands |
 | ~~40~~ | ~~The ground lookup's rotation phase~~ — `IcbmConfig.GroundQueryAtOwnEpoch` | **flown 2026-09-12, 20 paired blocks — SHIPPED ON** | **per seat the walk's magnitude +0.810 m (p=0.0015) and its slope on frame time +0.0607 m/ms (p=0.0005), `--per-seat`; the landing 0.66x [0.55, 0.90] on 18 of 20, the walk 0.54x on 20 of 20.** Between-seat sd 2.61 → 0.06 m, walks over 2 m 25 of 80 → none, the worst rocket 11.7 → 5.3 m. Seat 4's slope −0.083 m/ms against the −0.082 measured before the fix. Two predictions were wrong and are recorded as such — **3da, 3cz, 3cw** |
-| **40b** | **The predictor's crossing tolerance** (+0.18 m, ~0.4 m long) | **not built** | **3cy, 3da** — split off item 40. Not instrumentation: the aim loop reads the same predictor, so bisecting it finer moves where rounds land and needs a night of its own |
+| **40b** | **The predictor's crossing stop** — 0.20 m deep on average, 0.20 m long at 32° | **built behind `IcbmConfig.PredictionStopsOnTheSurface` (`2aa13ff`), off, unflown** | **3dc** — it is 0.20 m of the common −0.25 m walk: the landing sits −0.201 m below the late re-flies on 80 of 80, against −0.199 from the tolerance alone. Placing the crossing between the samples either side of the ground takes stops from 0.11-0.13 m under to within a millimetre headlessly, at no cost. Declared: `signed-walk` +0.20 m at power 1.00; the landing 0.998x and will not resolve |
 | **41** | **The spread between the six warheads of one rocket** — ~2.4 m at the ground from release probes 0.20 m apart | **cause found (3db); the focus kick built behind `IcbmConfig.FocusTubesOnTheAim`, off, unflown** | **3db** — the bus's six tubes sit on a 0.86 m ring and every release prediction uses the mean mouth, so the aim loop lands the mean state and the six land on the ring's ground image: the once-round harmonic in tube angle carries 0.958 of the variance against a 0.40 null. A separation kick of 1.5-2.4 mm/s focuses each round on the mean's impact without moving the centre — headlessly 175 cm across to 0.4 cm. Declared: `--endpoint spread` ~0.2x at power 1.00 (MDE ×1.15); the landing 0.87x and will not resolve |
-| **42** | **The tube spin the release probe leaves out** — 1-6 mm/s at release | **found, correlational, not built** | **3db** — tracks the landing centroid at Spearman +0.32 (p < 0.001) at 0.59 m per mm/s, the Kepler downrange sensitivity, where the probe's own centroid reads −0.05. It moves the centre, not the width. Feeding spin to guidance was measured driving the cutoff residual 0.15 → 4.31 m/s, so the fix is not to put it in the probe; it needs a diagnostic first |
+| **42** | **The bus's spin every warhead is thrown with** — 1-6 mm/s, at twice its physical size | **cause found (3dd); diagnostic always logged (`84c9bdd`), `CancelSpinAtSeparation` off and unflown (`b50d6b0`); the lever-arm fix unflown and not on `dev` (`arm/spin-lever-arm`)** | **3dd** — `Commit` throws `ω × (mouth − CoM)` and the probe leaves it out; `CentreOfMassEcl` counts the centre of mass twice, a 2.44 m error on the staged bus, so rounds carry 2.04x the physical common spin. Headless, 4 mm/s moves the centre 1.25 m — most of what stands between the shot and a metre. Declared: `--endpoint centre` primary, unpriced until the diagnostic's first night; the mechanism check a slope near 1 on the thrown spin. Fly before 41 |
 | ~~34b~~ | ~~Feed the hold forward~~ | **flown and lost 2026-09-10** | **+234 m against a 7 m term** — 30x out of scale. The mechanism stands; a blanket offset on every cycle does not, because the release happens when the loop stops rather than a fixed dwell later. **3co** |
 | ~~31~~ | ~~Stop stage disposal shedding debris~~ | **built 2026-09-09, unflown** | `KsaWorld.Remove` → `Universe.DestroyVehicle`, which sheds nothing where `DestroyVehicleFromEvent` sheds twelve. **3ci/3bv** — inference, not measurement: it removes the only discriminator, but nothing yet proves it breaks the chain |
 | **32** | **Record the per-arm descent step**, or hold the world step for the whole flight | small | **3ci** — the arms never overlap in time and steep always falls in a faster-running world, which confounds *every* `ArrivalPreference` night ever flown, 3cd and 3ch included |
