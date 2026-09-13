@@ -81,11 +81,8 @@ internal static class ReleaseFocus
         double b1 = Vec.Dot(moved, across);
         double b2 = Vec.Dot(moved, square);
 
-        const double Step = VelocityStepMetresPerSecond;
-
-        if (!TryColumn(new double3(Step, 0, 0), out double3 alongX)
-            || !TryColumn(new double3(0, Step, 0), out double3 alongY)
-            || !TryColumn(new double3(0, 0, Step), out double3 alongZ))
+        if (!TryVelocityColumns(mu, positionCci, velocityCci, flightSeconds, arrived,
+                                out double3 alongX, out double3 alongY, out double3 alongZ))
         {
             return false;
         }
@@ -107,6 +104,87 @@ internal static class ReleaseFocus
 
         kickCci = -(row1 * y1 + row2 * y2);
         return Vec.IsFinite(kickCci);
+    }
+
+    /// <summary>
+    /// Where a round lands from where the release prediction lands, for what its own release state adds
+    /// to the one predicted: its mouth's offset, and a velocity of its own.
+    ///
+    /// <para>The same sensitivities <see cref="TryKick"/> cancels, read forwards, so a flight that
+    /// kicks nothing can still be checked against them: the ring's image is item 41, the spin's
+    /// item 42. <c>docs/ACCURACY-PLAN.md</c> 3db.</para>
+    ///
+    /// <para>The displacement is slid along the arrival <em>as the ground sees it</em> back onto the
+    /// height it arrived at, since a displacement along that line is only an earlier or later arrival
+    /// at the same place. What is left lies in the ground's plane at the arrival.</para>
+    /// </summary>
+    /// <param name="offsetCci">Where the round's mouth sits from the predicted one, as a length in a direction.</param>
+    /// <param name="velocityOffsetCci">What the round leaves with beyond the predicted velocity.</param>
+    /// <param name="shiftCci">In the body's inertial frame at the arrival, square to local up there.</param>
+    public static bool TryLandingShift(BallisticBody body, double3 positionCci, double3 velocityCci,
+                                       double flightSeconds, double3 offsetCci, double3 velocityOffsetCci,
+                                       out double3 shiftCci)
+    {
+        shiftCci = Vec.Zero;
+
+        if (!body.IsUsable || !(flightSeconds > 0.0) || !double.IsFinite(flightSeconds)) return false;
+        if (!Vec.IsFinite(positionCci) || !Vec.IsFinite(velocityCci)) return false;
+        if (!Vec.IsFinite(offsetCci) || !Vec.IsFinite(velocityOffsetCci)) return false;
+
+        double mu = body.Mu;
+
+        if (!Kepler.TryCoast(mu, positionCci, velocityCci, flightSeconds, out double3 arrived,
+                             out double3 arrivalVelocity))
+        {
+            return false;
+        }
+
+        double3 up = Vec.Unit(arrived);
+        double3 alongGround = arrivalVelocity - body.GroundVelocityCci(arrived);
+        double sinking = -Vec.Dot(alongGround, up);
+        if (!(sinking > 0.0)) return false;
+
+        double3 moved = Vec.Zero;
+
+        if (Vec.Len2(offsetCci) > 0.0)
+        {
+            if (!Kepler.TryCoast(mu, positionCci + offsetCci, velocityCci, flightSeconds,
+                                 out double3 offsetArrived, out _))
+            {
+                return false;
+            }
+
+            moved += offsetArrived - arrived;
+        }
+
+        if (Vec.Len2(velocityOffsetCci) > 0.0)
+        {
+            if (!TryVelocityColumns(mu, positionCci, velocityCci, flightSeconds, arrived,
+                                    out double3 alongX, out double3 alongY, out double3 alongZ))
+            {
+                return false;
+            }
+
+            moved += alongX * velocityOffsetCci.X + alongY * velocityOffsetCci.Y
+                     + alongZ * velocityOffsetCci.Z;
+        }
+
+        shiftCci = moved + alongGround * (Vec.Dot(moved, up) / sinking);
+        return Vec.IsFinite(shiftCci);
+    }
+
+    // How far the arrival moves per metre a second of release velocity along each axis, one coast per
+    // axis. Linear on purpose: a solve against millimetres a second wants the slope, not a difference
+    // of two coasts that far apart.
+    private static bool TryVelocityColumns(double mu, double3 positionCci, double3 velocityCci,
+                                           double flightSeconds, double3 arrived,
+                                           out double3 alongX, out double3 alongY, out double3 alongZ)
+    {
+        alongY = alongZ = Vec.Zero;
+
+        return TryColumn(new double3(VelocityStepMetresPerSecond, 0, 0), out alongX)
+               && TryColumn(new double3(0, VelocityStepMetresPerSecond, 0), out alongY)
+               && TryColumn(new double3(0, 0, VelocityStepMetresPerSecond), out alongZ);
 
         bool TryColumn(double3 nudge, out double3 column)
         {
@@ -117,7 +195,7 @@ internal static class ReleaseFocus
                 return false;
             }
 
-            column = (nudgedArrived - arrived) / Step;
+            column = (nudgedArrived - arrived) / VelocityStepMetresPerSecond;
             return Vec.IsFinite(column);
         }
     }

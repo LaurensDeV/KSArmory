@@ -89,6 +89,41 @@ public static class FireGeometry
     }
 
     /// <summary>
+    /// The arm a point on a craft swings on as the craft turns: from its centre of mass, in the craft's
+    /// own assembly frame, turned into the world's.
+    ///
+    /// <para>No position enters it, so it pairs with any sample of the craft taken this frame. Both
+    /// terms are the assembly frame's and are differenced here, because KSA's craft position already
+    /// <em>is</em> the centre of mass: a part is placed at it plus
+    /// <c>PositionVehicleAsmb − CenterOfMassAsmb</c>, turned (<c>Vehicle.GetMatrixAsmb2Ego</c>).
+    /// Measuring to that position plus <c>CenterOfMassAsmb</c> counts the offset twice, and a staged
+    /// craft keeps the whole rocket's assembly origin — 2.44 m past the bus's centre of mass.</para>
+    /// </summary>
+    public static double3 LeverArm(doubleQuat asmb2World, double3 pointVehicleAsmb, double3 centreOfMassAsmb)
+    {
+        double3 arm = asmb2World * (pointVehicleAsmb - centreOfMassAsmb);
+        return Vec.IsFinite(arm) ? arm : Vec.Zero;
+    }
+
+    /// <summary>
+    /// The velocity a point on a turning craft already has, taken from the craft's own frame.
+    ///
+    /// <para>The engine's rule for a part it splits off a turning vehicle, which is
+    /// <c>BodyRates × (PositionVehicleAsmb − CenterOfMassAsmb)</c> turned into the world. The same
+    /// answer as <see cref="SpinVelocity"/> given a mouth and a pivot from one sample, with nothing to
+    /// pair.</para>
+    /// </summary>
+    /// <param name="angularVelocity">The craft's rotation in the world's frame, rad/s.</param>
+    public static double3 SpinVelocityAt(double3 angularVelocity, doubleQuat asmb2World,
+                                         double3 pointVehicleAsmb, double3 centreOfMassAsmb)
+    {
+        if (!Vec.IsFinite(angularVelocity)) return Vec.Zero;
+
+        double3 spin = Vec.Cross(angularVelocity, LeverArm(asmb2World, pointVehicleAsmb, centreOfMassAsmb));
+        return Vec.IsFinite(spin) ? spin : Vec.Zero;
+    }
+
+    /// <summary>
     /// Rotation carrying <see cref="NoseAxis"/> onto <paramref name="direction"/>, so a round's
     /// body points the way it is travelling.
     /// </summary>

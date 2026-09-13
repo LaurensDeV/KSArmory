@@ -241,6 +241,20 @@ internal interface IManualFire : IWeaponPlatform, IWeaponLoadout
     bool TryTubeOffsetFromMeanEcl(int tube, out double3 offsetEcl);
 
     /// <summary>
+    /// How fast one tube's mouth is moving because the craft is turning, from the centre of mass in
+    /// the craft's own assembly frame — the velocity KSA itself gives a part it splits off a turning
+    /// vehicle.
+    ///
+    /// <para>No position enters it, so it carries no frame's motion. It is what the spin
+    /// <em>should</em> be, which is not necessarily what a round was thrown with:
+    /// <see cref="Slug.SpinVelocityEcl"/> says that.</para>
+    /// </summary>
+    /// <param name="tube">Counted from zero, in the order the profile lists them.</param>
+    /// <param name="armEcl">The mouth from the centre of mass. A couple of metres on a bus, which is
+    /// the check that the rest means anything.</param>
+    bool TryTubeSpinEcl(int tube, out double3 spinEcl, out double3 armEcl, out double3 angularVelocityEcl);
+
+    /// <summary>
     /// Whether a decoupler holds this launcher on, so it could be let off the stack it rode up.
     ///
     /// <para>A property of the part rather than of the craft, and knowable before the shot rather

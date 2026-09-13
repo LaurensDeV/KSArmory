@@ -2058,6 +2058,8 @@ internal sealed class IcbmComputer
 
             ReleaseProbe? probe = ProbeRelease();
 
+            if (released is not null) SayTheSpin(weapon, released, probe);
+
             // Before the trace, which reads the round's release state as it begins.
             if (Config.FocusTubesOnTheAim && released is not null) FocusOnTheAim(weapon, released, probe);
 
@@ -2283,6 +2285,75 @@ internal sealed class IcbmComputer
     private static string Said(double3 parts)
         => $" ({parts.X:+0.0;-0.0;0.0} up, {parts.Y:+0.0;-0.0;0.0} downrange,"
            + $" {parts.Z:+0.0;-0.0;0.0} cross)";
+
+    // What the bus's rotation threw this warhead with, and where that and its tube's ring put it on the
+    // ground beside the probe's own impact. Printed whether or not anything is kicked, so a night
+    // flying no kick can regress each landing on it: slope one if the term is real. Every vector is
+    // resolved in the probe's arrival frame, the one its landing line is. ACCURACY-PLAN.md 3db.
+    private void SayTheSpin(IManualFire weapon, Slug released, ReleaseProbe? probe)
+    {
+        string who = KsaWorld.DisplayName(Craft);
+        string what = RoundLabel.For(released.Tube);
+
+        try
+        {
+            if (probe is not { } from || Parent is not { } parent)
+            {
+                Log.Info($"spin at separation on {who}: {what} not measured -- no release probe");
+                return;
+            }
+
+            int tube = released.Tube - 1;
+
+            if (!weapon.TryTubeOffsetFromMeanEcl(tube, out double3 offsetEcl)
+                || !weapon.TryTubeSpinEcl(tube, out double3 spinEcl, out double3 armEcl, out double3 angularEcl)
+                || !ArrivalFrame.TryAt(from.Impact.PointCci, from.Impact.VelocityCci, out ArrivalFrame frame))
+            {
+                Log.Info($"spin at separation on {who}: {what} not measured -- its tube would not resolve");
+                return;
+            }
+
+            doubleQuat cce2Cci = parent.GetCce2Cci();
+            double3 offset = offsetEcl.Transform(cce2Cci);
+            double3 aboutCentre = spinEcl.Transform(cce2Cci);
+            double3 thrown = released.SpinVelocityEcl.Transform(cce2Cci);
+            double3 ring = Vec.Cross(angularEcl, offsetEcl).Transform(cce2Cci);
+
+            if (!ReleaseFocus.TryLandingShift(Body, from.PositionCci, from.VelocityCci, from.Impact.Seconds,
+                                              Vec.Zero, thrown, out double3 thrownLands)
+                || !ReleaseFocus.TryLandingShift(Body, from.PositionCci, from.VelocityCci, from.Impact.Seconds,
+                                                 Vec.Zero, aboutCentre, out double3 centreLands)
+                || !ReleaseFocus.TryLandingShift(Body, from.PositionCci, from.VelocityCci, from.Impact.Seconds,
+                                                 offset, Vec.Zero, out double3 ringLands))
+            {
+                Log.Info($"spin at separation on {who}: {what} not measured -- no landing solves on this arc");
+                return;
+            }
+
+            // Common is the spin less the ring's share, which is the same whichever arm it was
+            // thrown on: the ring is the mouth from the tubes' mean, and that pairs with nothing.
+            Log.Info($"spin at separation on {who}: {what} from tube {released.Tube}, "
+                     + $"{Vec.Len(armEcl):F3} m from the centre of mass, turning at "
+                     + $"{Vec.Len(angularEcl) * 1000.0:F3} mrad/s -- common "
+                     + $"{PerSecond(frame.Resolve(thrown - ring))} mm/s thrown, "
+                     + $"{PerSecond(frame.Resolve(aboutCentre - ring))} about the centre of mass; ring "
+                     + $"{PerSecond(frame.Resolve(ring))} mm/s; lands "
+                     + $"{OnGround(frame.Resolve(thrownLands))} m from the spin thrown, "
+                     + $"{OnGround(frame.Resolve(centreLands))} m from the spin about the centre of mass, "
+                     + $"{OnGround(frame.Resolve(ringLands))} m from the ring");
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"spin at separation on {who}: {what} not measured -- {e.Message}");
+        }
+    }
+
+    private static string PerSecond(double3 parts)
+        => $"({parts.X * 1000.0:+0.000;-0.000;0.000} up, {parts.Y * 1000.0:+0.000;-0.000;0.000} downrange, "
+           + $"{parts.Z * 1000.0:+0.000;-0.000;0.000} cross)";
+
+    private static string OnGround(double3 parts)
+        => $"({parts.Y:+0.000;-0.000;0.000} downrange, {parts.Z:+0.000;-0.000;0.000} cross)";
 
     // The state a release prediction was flown from, and what it said. The mean mouth, never a tube:
     // the probe line's miss is the aim loop's own reading.

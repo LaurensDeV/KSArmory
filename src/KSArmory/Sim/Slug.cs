@@ -109,6 +109,17 @@ internal sealed class Slug : IProjectile
 
     public double3 PositionEcl { get; private set; }
     public double3 VelocityEcl { get; private set; }
+
+    /// <summary>
+    /// What its launcher's rotation gave it at the tube, already inside <see cref="VelocityEcl"/>.
+    ///
+    /// <para>Kept as thrown rather than re-derived: a release prediction leaves spin out, so this is
+    /// the whole of what the round's velocity adds to the one predicted, whatever arm it was measured
+    /// on.</para>
+    /// </summary>
+    /// <remarks>A velocity difference, so it carries no frame's motion.</remarks>
+    public double3 SpinVelocityEcl { get; init; }
+
     public double3 OffsetFromPlatform { get; private set; }
     private double3 LaunchOffset { get; set; }
     public double3 TravelSinceLaunch => OffsetFromPlatform - LaunchOffset;

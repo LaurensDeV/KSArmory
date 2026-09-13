@@ -185,5 +185,27 @@ public class FireGeometryTests
         Assert.True(Vec.Len(FireGeometry.SpinVelocity(new double3(0, 0, 1), bad, double3.Zero)) < 1e-12);
     }
 
+    /// <summary>
+    /// The spin at a point is the engine's own rule for a part it splits off a turning craft:
+    /// <c>BodyRates × (PositionVehicleAsmb − CenterOfMassAsmb)</c>, crossed in the body frame and then
+    /// turned. The centre of mass sits well off the assembly origin, as it does on a staged bus.
+    /// </summary>
+    [Fact]
+    public void SpinAtAPointIsTheEnginesOwnSplitRule()
+    {
+        doubleQuat asmb2World = doubleQuat.CreateFromAxisAngle(Vec.Unit(new double3(0.3, -0.8, 0.5)), 2.1);
+        double3 bodyRates = new(0.02, -0.05, 0.03);
+        double3 centreOfMass = new(-2.4426, 0.11, -0.07);
+        double3 mouth = new(-0.1025, 0.43, 0.74478);
+
+        double3 engine = asmb2World * Vec.Cross(bodyRates, mouth - centreOfMass);
+        double3 spin = FireGeometry.SpinVelocityAt(asmb2World * bodyRates, asmb2World, mouth, centreOfMass);
+
+        Assert.True(Vec.Len(engine) > 0.05, "the test geometry is degenerate");
+        Assert.True(Vec.Len(spin - engine) < 1e-12, $"{Fmt(spin)} against the engine's {Fmt(engine)}");
+        Assert.Equal(Vec.Len(mouth - centreOfMass),
+                     Vec.Len(FireGeometry.LeverArm(asmb2World, mouth, centreOfMass)), 12);
+    }
+
     private static string Fmt(double3 v) => $"({v.X:F4}, {v.Y:F4}, {v.Z:F4})";
 }

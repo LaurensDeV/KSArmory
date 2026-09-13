@@ -371,16 +371,62 @@ internal static class LauncherPart
         double3 platformEcl, out double3 ecl)
     {
         ecl = Vec.Zero;
-        if (!TryGetTubeMuzzlePartFrame(pods, profile, tubeIndex, out double3 partFrame)) return false;
+        if (!TryGetTubeMuzzleVehicleAsmb(launcher, pods, profile, tubeIndex, out double3 inVehicle)) return false;
 
         try
         {
             // Measured from the centre of mass, because that is what platformEcl is:
             // GetPositionEcl returns the centre of mass while PositionVehicleAsmb is from the
             // assembly origin, and adding one to the other is out by the whole offset.
-            double3 inVehicle = launcher.PositionVehicleAsmb + launcher.Asmb2VehicleAsmb * partFrame;
             ecl = platformEcl + platform.Asmb2Ego * (inVehicle - platform.CenterOfMassAsmb);
             return Vec.IsFinite(ecl);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Where one tube's mouth sits in the vehicle's own assembly frame, which every placement of it in
+    /// the world is turned and offset from.
+    /// </summary>
+    public static bool TryGetTubeMuzzleVehicleAsmb(Part launcher, Part? pods, LauncherProfile profile,
+                                                   int tubeIndex, out double3 vehicleAsmb)
+    {
+        vehicleAsmb = Vec.Zero;
+        if (!TryGetTubeMuzzlePartFrame(pods, profile, tubeIndex, out double3 partFrame)) return false;
+
+        try
+        {
+            vehicleAsmb = launcher.PositionVehicleAsmb + launcher.Asmb2VehicleAsmb * partFrame;
+            return Vec.IsFinite(vehicleAsmb);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// How fast one tube's mouth moves because the craft is turning, and the arm it swings on — off
+    /// the assembly frame, as <see cref="FireGeometry.SpinVelocityAt"/> takes them.
+    /// </summary>
+    public static bool TryGetTubeSpinEcl(Vehicle platform, Part launcher, Part? pods, LauncherProfile profile,
+                                         int tubeIndex, double3 angularVelocityEcl,
+                                         out double3 spinEcl, out double3 armEcl)
+    {
+        spinEcl = armEcl = Vec.Zero;
+        if (!TryGetTubeMuzzleVehicleAsmb(launcher, pods, profile, tubeIndex, out double3 mouth)) return false;
+
+        try
+        {
+            doubleQuat asmb2Ecl = platform.Asmb2Ego;
+            double3 centreOfMass = platform.CenterOfMassAsmb;
+
+            armEcl = FireGeometry.LeverArm(asmb2Ecl, mouth, centreOfMass);
+            spinEcl = FireGeometry.SpinVelocityAt(angularVelocityEcl, asmb2Ecl, mouth, centreOfMass);
+            return Vec.IsFinite(armEcl) && Vec.IsFinite(spinEcl);
         }
         catch
         {

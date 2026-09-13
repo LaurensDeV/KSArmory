@@ -1747,6 +1747,18 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                                                         out offsetEcl);
     }
 
+    /// <inheritdoc cref="IManualFire.TryTubeSpinEcl"/>
+    public bool TryTubeSpinEcl(int tube, out double3 spinEcl, out double3 armEcl, out double3 angularVelocityEcl)
+    {
+        spinEcl = armEcl = angularVelocityEcl = Vec.Zero;
+
+        if (Platform is null || Launcher is null || !TubesResolved) return false;
+
+        angularVelocityEcl = KsaWorld.AngularVelocityEcl(Platform);
+        return LauncherPart.TryGetTubeSpinEcl(Platform, Launcher, PodsPart, Profile, tube, angularVelocityEcl,
+                                              out spinEcl, out armEcl);
+    }
+
     public bool FireAt(double3 pointEcl)
     {
         if (!Vec.IsFinite(pointEcl)) { Announce("refused: designation is not a position"); return false; }
@@ -1923,6 +1935,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                 LaunchAnchorPartFrame = launchAnchorPartFrame,
                 ReleaseHeadingEcl = releaseHeading,
                 LaunchAttitude = Platform?.Asmb2Ego ?? doubleQuat.Identity,
+                SpinVelocityEcl = spinVel,
                 Aimpoint = aim,
             }
             : new Interceptor(launchPos, launchVel, aim.Handle, tube + 1, PlatformEcl, frameVel)
