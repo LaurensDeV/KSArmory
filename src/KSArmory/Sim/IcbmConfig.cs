@@ -527,12 +527,16 @@ internal sealed class IcbmConfig
     /// translation, so the spin in between is left in: ~416 m/s at this latitude times the crossing's
     /// own distance into the frame, which the mod already prints and whose median is 11 ms.</para>
     ///
-    /// <para><b>Off, and unflown.</b> Over 320 warheads the step from the last re-fly to the landing
-    /// is linear in that crossing time at R² 0.98 on the worst seat, every intercept ~0, the pooled
-    /// correlation only −0.14 — so it is per-seat signed rather than global, which is what a
-    /// gradient times a fixed displacement must be. <c>docs/ACCURACY-PLAN.md</c> 3cw.</para>
+    /// <para>What it costs is that displacement times the seat's own height gradient, so it is signed
+    /// per seat rather than global, and a pooled signed endpoint cancels it.</para>
+    ///
+    /// <para><b>On.</b> Flown over 20 paired shots: the landing 0.66x [0.55, 0.90], won on 18 of 20,
+    /// and the walk 0.54x [0.47, 0.60] on all 20. The worst rocket 11.7 → 5.3 m, and walks of 2 m or
+    /// more 25 of 80 → none. Every seat's walk collapses onto one residual near −0.25 m, and its slope
+    /// against the frame's own duration goes to nothing — on seat 4 from −0.083 m/ms, which three
+    /// earlier nights had measured at −0.082. <c>docs/ACCURACY-PLAN.md</c> 3cw, 3da.</para>
     /// </summary>
-    public bool GroundQueryAtOwnEpoch;
+    public bool GroundQueryAtOwnEpoch = true;
 
     /// <summary>Pointing error under which the coast hold lets go, in degrees.</summary>
     public double QuietCoastDeg = 0.5;

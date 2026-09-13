@@ -244,7 +244,8 @@ internal sealed class Slug : IProjectile
     /// It is per-seat signed rather than global, because what it costs is that displacement's own
     /// height gradient. <c>docs/ACCURACY-PLAN.md</c> 3cw.</para>
     ///
-    /// <para><b>Off</b>, and unflown. Needs <see cref="GroundQueryDriftAt"/> to do anything.</para>
+    /// <para>Off on a bare round, and needs <see cref="GroundQueryDriftAt"/> to do anything.
+    /// <see cref="IcbmConfig.GroundQueryAtOwnEpoch"/> sets it at release, and ships on.</para>
     /// </summary>
     public bool GroundQueryAtOwnEpoch { get; set; }
 
