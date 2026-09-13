@@ -926,6 +926,10 @@ What to record next time, in this order, because each answers a different half:
       `Ksa/GroundTest.cs`.
 - [ ] Does the **ring** sit where it lands? A ring in the wrong place with a bomb that arrives
       correctly is the sight; a bomb that goes nowhere near the ring is the round.
+- [ ] Designate a point, fly level, and release with the ring on it. The bomb lands within tens of
+      metres of it, with the `detonated on the ground, N m from the aim point` line to say how far.
+      Hundreds of metres off is the tail kit; `./tools/scenario.sh drop` flies the same release
+      unattended and says which of the sight, the release and the fall the miss belongs to.
 - [ ] The log line for the release, and the whole `KSArmory.log`.
 
 ### 7.1e Drag, and what a round does once it leaves the air

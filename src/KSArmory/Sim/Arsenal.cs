@@ -280,9 +280,8 @@ public static class Arsenal
         // that moves — see GuidanceMode.Inertial. Undesignated it is a dumb bomb, which is also
         // what the real one is when released ballistically.
         //
-        // Three g of fin authority against a missile's thirty-five, and no gravity compensation at
-        // all: the autopilot's job here is to steer the fall, not to resist it. Compensating would
-        // have it hold altitude, which is the one thing a bomb cannot do.
+        // It steers the fall it predicts onto the designation -- see TailKit -- so there is no
+        // gravity compensation to set: gravity is part of the prediction, not an error to cancel.
         Guidance = GuidanceMode.Inertial,
         NavConstant = 3f,
         // 0.4 g, not the 3 g this first carried. A tail kit steers with body lift off a 330 mm
@@ -291,7 +290,6 @@ public static class Arsenal
         // correct a release error of a few hundred metres, not to glide -- at 3 g it flew a
         // kilometre of cross-range per kilometre of drop, which is a winged weapon's footprint.
         MaxLateralG = 0.4f,
-        GravityCompensation = 0f,
 
         LaunchSpeed = 4f,
         BoostSeconds = 0f,

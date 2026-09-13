@@ -495,9 +495,10 @@ internal sealed class Slug : IProjectile
         double3 accel = Medium.Buoyancy(gravity, munition, mediumDensityRatio);
         accel -= Medium.Drag(localVelocity, munition, mediumDensityRatio);
 
-        // A guided tail kit: fin authority on a fall, not a motor. Same navigation law the
-        // missiles use, so a bomb leads a point on a turning planet for the same reason a round
-        // leads a crossing aircraft - and clamped by the profile to a few g rather than thirty.
+        // A guided tail kit: fin authority on a fall, not a motor. It steers the fall onto the point
+        // rather than chasing a line of sight -- see TailKit -- because a store released from a
+        // climb flies away from where it will land, and proportional navigation reads that as a
+        // target it is losing: 125 m off a designation a 153 m/s climb was already falling onto.
         //
         // Both terms are differenced here rather than upstream: the target is a place on the
         // ground, so its velocity is the planet's ~29.8 km/s plus its spin, and steering on
@@ -513,9 +514,10 @@ internal sealed class Slug : IProjectile
         {
             double3 aimPos = aim.PositionEcl + aim.VelocityEcl * (elapsedInFrame - frameSeconds);
 
-            SteeringCommandEcl = Interceptor.GuidanceAccel(aimPos - PositionEcl,
-                                                           aim.VelocityEcl - VelocityEcl,
-                                                           localVelocity, gravity, munition);
+            SteeringCommandEcl = TailKit.Command(aimPos - PositionEcl, aim.VelocityEcl - VelocityEcl,
+                                                 localVelocity, gravity,
+                                                 -Medium.Drag(localVelocity, munition, mediumDensityRatio),
+                                                 munition);
             accel += SteeringCommandEcl;
         }
 

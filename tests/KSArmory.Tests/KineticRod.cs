@@ -59,7 +59,7 @@ internal static class KineticRod
     /// the right model at these Mach numbers and is generous rather than conservative: it credits
     /// the whole flank as a flat plate. <b>Nothing in the mod computes this.</b>
     /// <see cref="MunitionProfile.MaxLateralG"/> is a fiat limit and
-    /// <see cref="Interceptor.GuidanceAccel"/> applies it whatever the air is doing, so this is the
+    /// <see cref="TailKit.Command"/> applies it whatever the air is doing, so this is the
     /// physics the mod would need to acquire before a rod's authority meant anything.</para>
     /// </summary>
     public static double AvailableG(double dynamicPressurePa, double alphaDeg)
@@ -80,14 +80,8 @@ internal static class KineticRod
     /// </summary>
     /// <param name="maxLateralG">Fin authority ceiling, in g.</param>
     /// <param name="guidance">Whether it steers at all.</param>
-    /// <param name="gravityCompensation">
-    /// How much of local gravity the steering biases out before it commands anything. Zero is what
-    /// the B61's tail kit uses, on the reasoning that a bomb's autopilot steers the fall rather than
-    /// resisting it.
-    /// </param>
     public static MunitionProfile Profile(double maxLateralG,
-                                          GuidanceMode guidance = GuidanceMode.Inertial,
-                                          double gravityCompensation = 0.0) => new()
+                                          GuidanceMode guidance = GuidanceMode.Inertial) => new()
     {
         Name = "ROD",
         DisplayName = "kinetic rod",
@@ -95,8 +89,6 @@ internal static class KineticRod
         Guidance = guidance,
         NavConstant = 3f,
         MaxLateralG = (float)maxLateralG,
-
-        GravityCompensation = (float)gravityCompensation,
 
         LaunchSpeed = 0f,
         BoostSeconds = 0f,

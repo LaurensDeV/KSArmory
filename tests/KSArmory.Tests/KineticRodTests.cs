@@ -235,16 +235,13 @@ public class KineticRodTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// <b>Too little authority is worse than none.</b> Proportional navigation nulls the
-    /// line-of-sight rate, and against a point on the ground five hundred kilometres away it starts
-    /// commanding from the first step — so a kit that cannot finish the turn it began spends its
-    /// whole flight off the arc it was on and arrives nowhere near either answer.
-    ///
-    /// <para>Which is why <em>gating the fins on dynamic pressure is not only realism</em>: it is
-    /// what keeps the law quiet until there is enough authority to be worth using.</para>
+    /// <b>Any authority helps.</b> The kit steers the landing it predicts, so fins that cannot finish
+    /// the correction still move that landing the right way. A law nulling the line-of-sight rate
+    /// against a point five hundred kilometres away commanded from the first step, spent the flight
+    /// off the arc it was on, and below a g left more than no steering at all.
     /// </summary>
     [Fact]
-    public void HowMuchAuthorityBeforeSteeringHelpsAtAll()
+    public void HowMuchAuthorityBeforeSteeringHelps()
     {
         KineticRod.Entry entry = new(EntryAltitude, 7_400.0, 10.0);
         const double error = 600.0;
@@ -260,8 +257,8 @@ public class KineticRodTests(ITestOutputHelper Out)
             Out.WriteLine($"  {g,6:F2} g flat {fiat,12:F0} m"
                           + (g <= 0.0 ? "   (no steering at all — the error itself)" : string.Empty));
 
-            // The whole point of the table: there is a band where steering loses.
-            if (g is > 0.0 and <= 1.0) Assert.True(fiat > unsteered, $"{g} g left {fiat:F0} m");
+            // The whole point of the table: there is no authority at which steering loses.
+            if (g > 0.0) Assert.True(fiat <= unsteered, $"{g} g left {fiat:F0} m, unsteered {unsteered:F0} m");
         }
 
         foreach (double alpha in new[] { 2.0, 5.0, 10.0 })
@@ -344,17 +341,19 @@ public class KineticRodTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// <b>Where the shipped steering law stops working, and why.</b> Proportional navigation with
-    /// no gravity bias flattens a shallow arc: it reads a target below and ahead, pulls to null the
-    /// line-of-sight rate, and turns a fall into a glide. The cross-track error goes to nothing and
-    /// the rod lands tens of kilometres long.
+    /// <b>A shallow entry stays a fall.</b> The kit steers only what moves the landing it predicts,
+    /// so a target below and ahead is not something to fly towards. A law nulling the line-of-sight
+    /// rate read it that way, pulled up, and turned a two or three degree entry into a glide that
+    /// landed tens of kilometres long with the cross-track error gone.
     ///
-    /// <para>The two axes have to be reported apart. One scalar miss reads as "the guidance did
-    /// nothing", which is the opposite of what happened.</para>
+    /// <para>The two axes are reported apart. One scalar miss reads as "the guidance did nothing",
+    /// which is the opposite of what a glide is.</para>
     /// </summary>
     [Fact]
-    public void WhereProportionalNavigationTurnsAFallIntoAGlide()
+    public void ASteeredFallStaysAFallFromAShallowEntry()
     {
+        double worst = 0.0, worstAt = 0.0;
+
         KineticRod.Authority aero = KineticRod.Authority.FromDynamicPressure(10.0, 20.0);
 
         Out.WriteLine("a 600 m cross-track error, entering at 7.7 km/s -- 98% of circular -- by how steep");
@@ -375,81 +374,45 @@ public class KineticRodTests(ITestOutputHelper Out)
                           + $"  {flight.ArrivalSpeed,6:F0} m/s at {flight.ArrivalGammaDeg,5:F1} deg");
 
             double left = DeorbitShot.GroundMetres(flight.GroundFixedCci, aim);
-
-            if (gammaDeg <= 3.0) Assert.True(left > 10_000.0, $"{gammaDeg} deg left only {left:F0} m");
-            else Assert.True(left < Arrived, $"{gammaDeg} deg left {left:F0} m");
+            if (left > worst) (worst, worstAt) = (left, gammaDeg);
         }
+
+        Assert.True(worst < Arrived, $"a {worstAt} deg entry left {worst:F0} m");
     }
 
     /// <summary>
-    /// Whether the bias the glide leaves can be tuned out of the shipped law with the one knob it
-    /// has. <see cref="MunitionProfile.GravityCompensation"/> is what stops the round fighting the
-    /// fall — a bomb wants none of it, and the question is whether a rod does.
+    /// Whether one rod arrives from every entry it could be given. A result from a single geometry
+    /// is a coincidence until it has been asked about a second.
     /// </summary>
     [Fact]
-    public void WhetherGravityCompensationRescuesTheGlide()
-    {
-        BallisticArc.Solution arc = DeorbitShot.Shot(out double3 from, out _);
-        KineticRod.Authority aero = KineticRod.Authority.FromDynamicPressure(10.0, 20.0);
-
-        double3 unguided = KineticRod.Fly(KineticRod.Profile(0.0, GuidanceMode.None),
-                                          from, arc.RequiredVelocityCci, null).GroundFixedCci;
-        double3 aim = KineticRod.Displace(unguided, 600.0, lateral: true);
-
-        Out.WriteLine("the 3,459 km shot, 600 m cross-track, by how much gravity is biased out");
-
-        foreach (double compensation in new[] { 0.0, 0.25, 0.5, 0.75, 1.0 })
-        {
-            MunitionProfile rod = KineticRod.Profile(aero.CeilingG, GuidanceMode.Inertial, compensation);
-            KineticRod.Flight flight = KineticRod.Fly(rod, from, arc.RequiredVelocityCci, aim, aero);
-            (double along, double across) = KineticRod.MissComponents(flight.GroundFixedCci, aim);
-
-            Out.WriteLine($"  {compensation,4:F2} -> {along / 1000.0,9:F2} km down-track, {across,8:F1} m across, "
-                          + $"arrived {flight.ArrivalSpeed:F0} m/s at {flight.ArrivalGammaDeg:F1} deg");
-        }
-    }
-
-    /// <summary>
-    /// Whether the number that rescued one shot rescues the rest of them. A knob tuned on a single
-    /// geometry is a coincidence until it has been asked about a second.
-    /// </summary>
-    [Fact]
-    public void WhetherThatNumberHoldsAcrossEntryAngles()
+    public void ItArrivesFromEveryEntryAngleAndSpeed()
     {
         KineticRod.Authority aero = KineticRod.Authority.FromDynamicPressure(10.0, 20.0);
 
         Out.WriteLine("worst of a 600 m cross-track and a 600 m down-track error, in metres left over");
         Out.WriteLine("  entry            5.0 km/s       7.0 km/s       7.7 km/s");
 
-        foreach (double compensation in new[] { 0.0, 0.5, 1.0 })
+        double worstCell = 0.0;
+        string worstAt = string.Empty;
+
+        foreach (double gammaDeg in new[] { 2.0, 3.0, 5.0, 10.0, 30.0 })
         {
-            Out.WriteLine($"  gravity biased out by {compensation:F2}:");
+            string row = $"  {gammaDeg,4:F0} deg";
 
-            foreach (double gammaDeg in new[] { 2.0, 3.0, 5.0, 10.0, 30.0 })
+            foreach (double speed in new[] { 5_000.0, 7_000.0, 7_700.0 })
             {
-                string row = $"  {gammaDeg,4:F0} deg";
+                double worst = Worst(new KineticRod.Entry(EntryAltitude, speed, gammaDeg));
+                if (worst > worstCell) (worstCell, worstAt) = (worst, $"{gammaDeg} deg at {speed} m/s");
 
-                foreach (double speed in new[] { 5_000.0, 7_000.0, 7_700.0 })
-                {
-                    double worst = Worst(new KineticRod.Entry(EntryAltitude, speed, gammaDeg),
-                                         compensation);
-
-                    // Fully biasing out gravity is the only setting that closes every cell. Half
-                    // of it looks like a fix on one geometry and leaves 188 km at two degrees.
-                    if (compensation >= 1.0)
-                    {
-                        Assert.True(worst < Arrived,
-                                    $"{gammaDeg} deg at {speed} m/s left {worst:F1} m fully compensated");
-                    }
-
-                    row += $" {worst,14:F1}";
-                }
-
-                Out.WriteLine(row);
+                row += $" {worst,14:F1}";
             }
+
+            Out.WriteLine(row);
         }
 
-        double Worst(KineticRod.Entry entry, double compensation)
+        Assert.True(worstCell < Arrived, $"{worstAt} left {worstCell:F1} m");
+
+        double Worst(KineticRod.Entry entry)
         {
             double3 unguided = KineticRod.Fly(KineticRod.Profile(0.0, GuidanceMode.None), entry, null)
                 .GroundFixedCci;
@@ -458,12 +421,11 @@ public class KineticRodTests(ITestOutputHelper Out)
             foreach (bool lateral in new[] { true, false })
             {
                 double3 aim = KineticRod.Displace(unguided, 600.0, lateral);
-                MunitionProfile rod = KineticRod.Profile(aero.CeilingG, GuidanceMode.Inertial,
-                                                         compensation);
 
                 worst = Math.Max(worst,
                                  DeorbitShot.GroundMetres(
-                                     KineticRod.Fly(rod, entry, aim, aero).GroundFixedCci, aim));
+                                     KineticRod.Fly(KineticRod.Profile(aero.CeilingG), entry, aim, aero)
+                                         .GroundFixedCci, aim));
             }
 
             return worst;
@@ -651,18 +613,15 @@ public class KineticRodTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// <b>The flat limit the profile holds is not a limit a rod can be given.</b>
-    /// <see cref="MunitionProfile.MaxLateralG"/> is applied by <see cref="Interceptor.GuidanceAccel"/>
-    /// whatever the air is doing, so a rod released above the atmosphere steers for the whole coast
-    /// — five minutes of it on the flown shot — and arrives a thousand kilometres short at every
-    /// value tried, with gravity biased out or not.
-    ///
-    /// <para>Which makes the dynamic-pressure gate the first missing piece rather than a refinement:
-    /// what a rod needs is not a different number in that field but for the field to stop applying
-    /// where there is nothing to push against.</para>
+    /// <b>A flat limit is one a rod can be given.</b> <see cref="MunitionProfile.MaxLateralG"/>
+    /// applies whatever the air is doing, so a rod released above the atmosphere steers for the whole
+    /// coast — five minutes of it on the flown shot. The kit steers the landing it predicts, so what
+    /// it does up there moves that landing towards the designation and no further. A law nulling the
+    /// line-of-sight rate arrived a thousand kilometres short at every value tried, which is what
+    /// made gating the fins on the air look like the first missing piece.
     /// </summary>
     [Fact]
-    public void WhyAFlatAuthorityCannotBeGivenToARod()
+    public void AFlatAuthorityCanBeGivenToARod()
     {
         BallisticArc.Solution arc = DeorbitShot.Shot(out double3 from, out _);
 
@@ -670,46 +629,30 @@ public class KineticRodTests(ITestOutputHelper Out)
                                           from, arc.RequiredVelocityCci, null).GroundFixedCci;
         double3 aim = KineticRod.Displace(unguided, 600.0, lateral: true);
 
-        Out.WriteLine("the flown 3,459 km shot, 600 m cross-track error");
-        Out.WriteLine("            comp 0.0        comp 1.0     (metres left over)");
+        Out.WriteLine("the flown 3,459 km shot, 600 m cross-track error, in metres left over");
+
+        double worst = 0.0;
 
         foreach (double g in new[] { 0.4, 1.0, 3.0, 10.0, 35.0 })
         {
-            string row = $"  {g,5:F1} g flat";
-
-            foreach (double compensation in new[] { 0.0, 1.0 })
-            {
-                MunitionProfile rod = KineticRod.Profile(g, GuidanceMode.Inertial, compensation);
-                KineticRod.Flight flight = KineticRod.Fly(rod, from, arc.RequiredVelocityCci, aim,
-                                                          KineticRod.Authority.Fiat(g));
-                double left = DeorbitShot.GroundMetres(flight.GroundFixedCci, aim);
-
-                Assert.True(left > 100_000.0,
-                            $"{g} g flat at comp {compensation} left {left:F0} m — the flat "
-                            + "authority stopped being catastrophic, which is what this pins");
-
-                row += $" {left,15:F0}";
-            }
-
-            Out.WriteLine(row);
-        }
-
-        foreach (double compensation in new[] { 0.0, 1.0 })
-        {
-            KineticRod.Authority aero = KineticRod.Authority.FromDynamicPressure(10.0, 20.0);
-            MunitionProfile rod = KineticRod.Profile(aero.CeilingG, GuidanceMode.Inertial, compensation);
-            KineticRod.Flight flight = KineticRod.Fly(rod, from, arc.RequiredVelocityCci, aim, aero);
+            KineticRod.Flight flight = KineticRod.Fly(KineticRod.Profile(g), from, arc.RequiredVelocityCci,
+                                                      aim, KineticRod.Authority.Fiat(g));
             double left = DeorbitShot.GroundMetres(flight.GroundFixedCci, aim);
+            worst = Math.Max(worst, left);
 
-            Out.WriteLine($"  gated on the air, comp {compensation:F1}: {left:F1} m left, "
-                          + $"steered {flight.SteeredSeconds:F0} s of {flight.Seconds:F0} s, "
-                          + $"peak {flight.PeakG:F1} g");
-
-            // The B61's tail kit biases out nothing, and on this arc that is the difference
-            // between arriving and falling short by a county.
-            if (compensation >= 1.0) Assert.True(left < Arrived, $"gated and compensated left {left:F1} m");
-            else Assert.True(left > 10_000.0, $"gated and uncompensated left only {left:F1} m");
+            Out.WriteLine($"  {g,5:F1} g flat {left,12:F1}");
         }
+
+        KineticRod.Authority aero = KineticRod.Authority.FromDynamicPressure(10.0, 20.0);
+        KineticRod.Flight gated = KineticRod.Fly(KineticRod.Profile(aero.CeilingG), from,
+                                                 arc.RequiredVelocityCci, aim, aero);
+        double gatedLeft = DeorbitShot.GroundMetres(gated.GroundFixedCci, aim);
+
+        Out.WriteLine($"  gated on the air: {gatedLeft:F1} m left, steered {gated.SteeredSeconds:F0} s "
+                      + $"of {gated.Seconds:F0} s, peak {gated.PeakG:F1} g");
+
+        Assert.True(worst < Arrived, $"a flat authority left {worst:F1} m");
+        Assert.True(gatedLeft < Arrived, $"gated on the air it left {gatedLeft:F1} m");
     }
 
     /// <summary>Close enough that nothing else in this file is what decided it.</summary>

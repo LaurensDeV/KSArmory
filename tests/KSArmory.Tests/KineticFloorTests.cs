@@ -572,8 +572,8 @@ public class KineticFloorTests(ITestOutputHelper Out)
     /// <summary>
     /// What a tail kit could still take out, given a perfect aim point.
     ///
-    /// <para>The warhead is flown with <see cref="GuidanceMode.Inertial"/> — the same proportional
-    /// navigation the bomb uses — from a state deliberately displaced, and the miss it converges to
+    /// <para>The warhead is flown with <see cref="GuidanceMode.Inertial"/> — the same tail kit the
+    /// bomb uses — from a state deliberately displaced, and the miss it converges to
     /// is what terminal guidance is worth against everything upstream of it. The lateral limit is
     /// swept because it is the one number a re-entry body genuinely cannot have much of.</para>
     /// </summary>

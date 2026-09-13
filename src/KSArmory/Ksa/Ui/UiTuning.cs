@@ -235,10 +235,15 @@ internal sealed partial class Ui
             // worse than no slider: it reads as the setting having no effect.
             if (_fit.Steers)
             {
-                // Every steering round uses these, a tail kit on a falling store included.
+                // Every steering round uses these two, a tail kit on a falling store included.
                 ImGui.SliderFloat("Nav constant N", ref _munition.NavConstant, 1f, 8f);
                 ImGui.SliderFloat("Max lateral (g)", ref _munition.MaxLateralG, 0f, 80f);
-                ImGui.SliderFloat("Gravity compensation", ref _munition.GravityCompensation, 0f, 1.5f);
+
+                // A tail kit steers the fall it predicts, gravity included, so it has none to cancel.
+                if (_munition.Guidance != GuidanceMode.Inertial)
+                {
+                    ImGui.SliderFloat("Gravity compensation", ref _munition.GravityCompensation, 0f, 1.5f);
+                }
                 ImGui.SliderFloat("Fin deflection (deg)", ref _munition.FinDeflectionDeg, 0f, 30f);
                 Tip("Drawn only; it steers nothing. It is set larger than life, or the blades do not read.");
 

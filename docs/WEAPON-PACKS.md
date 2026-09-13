@@ -126,7 +126,7 @@ Four rules that between them explain most refusals:
 | `MaxFlightSeconds` | `30` | after which it self-destructs |
 | `MinRange`, `MaxRange` | `0`, `20000` | engagement envelope, m |
 | `DragK` | `3.0e-5` | drag over frontal area; larger bleeds speed faster |
-| `GravityCompensation` | `1` | how much of gravity guidance cancels |
+| `GravityCompensation` | `1` | how much of gravity guidance cancels; a tail kit (`Inertial`) steers the fall it predicts and ignores it |
 | `NeutralDensityRatio` | `0` | density it floats at. Near `840` and it swims — that is a torpedo |
 | `SeparationSeconds` | `0` | coast before the motor lights |
 | `FuseRadius` | `15` | proximity burst, m |

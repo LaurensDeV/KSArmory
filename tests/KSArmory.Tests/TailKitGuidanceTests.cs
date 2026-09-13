@@ -151,10 +151,94 @@ public class TailKitGuidanceTests
         double3 r = new(-2000.0, 4000.0, 0);
         double3 v = new(-200.0, 0, 0);
 
-        double3 command = Interceptor.GuidanceAccel(r, v, v, GravityAt(new double3(PlanetRadius, 0, 0)),
-                                                    munition);
+        double3 command = TailKit.Command(r, v, v, GravityAt(new double3(PlanetRadius, 0, 0)), Vec.Zero,
+                                          munition);
 
         Assert.True(Vec.Len(command) <= munition.MaxLateralAccel + 1e-9,
                     $"commanded {Vec.Len(command):F1} m/s^2 against a {munition.MaxLateralAccel:F1} limit");
+    }
+
+    /// <summary>
+    /// A release already on its ballistic solution stays on it. A law chasing the line of sight
+    /// reads the turn gravity puts into that line as an error, and steered these releases 152 m to
+    /// 405 m short of the point they were about to hit.
+    /// </summary>
+    [Theory]
+    [InlineData(700.0, 150.0)]
+    [InlineData(1500.0, 200.0)]
+    [InlineData(3000.0, 250.0)]
+    public void TheShippedKitLeavesAReleaseOnItsSolutionAlone(double altitude, double speed)
+    {
+        MunitionProfile b61 = Catalogue.MunitionNamed("B61");
+
+        double3 ballistic = Release(b61, altitude, speed, aimEcl: null);
+        double3 guided = Release(b61, altitude, speed, ballistic);
+
+        Assert.True(Vec.Len(guided - ballistic) < 30.0,
+                    $"released onto its own impact from {altitude:F0} m at {speed:F0} m/s, the kit "
+                    + $"steered it {Vec.Len(guided - ballistic):F0} m off");
+    }
+
+    /// <summary>
+    /// A store thrown up from a climb, or let go from a hover, still arrives. It is flying away from
+    /// where it will land, or barely moving, and a law chasing the line of sight turned the wrong way
+    /// with the fins able to reach the point: 100 m off from a 100 m/s climb, 144 m and 306 m from
+    /// 153 and 200 m/s, 90 m from a hover.
+    /// </summary>
+    [Theory]
+    [InlineData(0.0, 200.0, 0.0)]
+    [InlineData(100.0, 200.0, 0.0)]
+    [InlineData(153.0, 0.0, 200.0)]
+    [InlineData(200.0, 0.0, 200.0)]
+    public void AStoreGoingAwayFromWhereItLandsStillArrives(double climb, double along, double across)
+    {
+        MunitionProfile b61 = Catalogue.MunitionNamed("B61");
+
+        double3 aim = OnSurface(Thrown(b61, climb, aimEcl: null) + new double3(0, along, across));
+        double miss = Vec.Len(Thrown(b61, climb, aim) - aim);
+
+        Assert.True(miss < 10.0,
+                    $"thrown up at {climb:F0} m/s onto a point {along:F0} m along and {across:F0} m "
+                    + $"across from its fall, it landed {miss:F0} m off");
+    }
+
+    // Straight up from 1000 m with the rack's ejector push across the climb, as the drop scenario
+    // releases it; a climb of zero is a hover.
+    private static double3 Thrown(MunitionProfile munition, double climb, double3? aimEcl)
+    {
+        double3 start = new(PlanetRadius + 1000.0, 0, 0);
+        Slug bomb = new(start, new double3(climb, 0, 3.1), null, 1, start, double3.Zero)
+        {
+            Munition = munition,
+            Ground = new Ball(),
+        };
+
+        for (int i = 0; i < 60 * 200 && bomb.State == RoundState.Flying; i++)
+        {
+            TargetState? target = aimEcl is { } aim ? new TargetState(aim, double3.Zero, 0.0) : null;
+            bomb.Update(Dt, target, GravityAt(bomb.PositionEcl), double3.Zero, start, munition);
+        }
+
+        return bomb.PositionEcl;
+    }
+
+    // A release in level flight over the ball. Undesignated, the kit has nothing to steer at and the
+    // store falls on ballistics alone.
+    private static double3 Release(MunitionProfile munition, double altitude, double speed, double3? aimEcl)
+    {
+        double3 start = new(PlanetRadius + altitude, 0, 0);
+        Slug bomb = new(start, new double3(0, speed, 0), null, 1, start, double3.Zero)
+        {
+            Munition = munition,
+            Ground = new Ball(),
+        };
+
+        for (int i = 0; i < 60 * 120 && bomb.State == RoundState.Flying; i++)
+        {
+            TargetState? target = aimEcl is { } aim ? new TargetState(aim, double3.Zero, 0.0) : null;
+            bomb.Update(Dt, target, GravityAt(bomb.PositionEcl), double3.Zero, start, munition);
+        }
+
+        return bomb.PositionEcl;
     }
 }

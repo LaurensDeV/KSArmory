@@ -335,7 +335,11 @@ public sealed class MunitionProfile
     /// </summary>
     public float SeparationSeconds;
 
-    /// <summary>Fraction of local gravity the autopilot compensates for.</summary>
+    /// <summary>
+    /// Fraction of local gravity the autopilot compensates for. Not read by
+    /// <see cref="GuidanceMode.Inertial"/>, which steers the fall it predicts — see
+    /// <see cref="TailKit"/>.
+    /// </summary>
     public float GravityCompensation = 1f;
 
     /// <summary>

@@ -329,19 +329,20 @@ pixel it was worth.
 
 ## 8. Terminal guidance has no floor of its own
 
-`Sim/Slug.cs` already carries `GuidanceMode.Inertial` — the same proportional navigation the bomb
-uses, at whatever lateral limit the profile declares. Flown from a 30-degree arrival with the
-release deliberately displaced across the track
+`Sim/Slug.cs` already carries `GuidanceMode.Inertial` — the same tail kit the bomb uses,
+`Sim/TailKit.cs`, steering the landing it predicts at whatever lateral limit the profile declares.
+Flown from a 30-degree arrival with the release deliberately displaced across the track
 (`WhatATerminallyGuidedRoundCanStillTakeOut`):
 
 | displaced | 0.5 g | 2 g | 6 g | 20 g | unguided |
 | --- | --- | --- | --- | --- | --- |
-| 500 m | 411 m | **2.32 m** | 2.32 m | 2.32 m | 500 m |
-| 5 km | 4,291 m | 2,218 m | **2.33 m** | 2.33 m | 4,999 m |
-| 50 km | 49,268 m | 47,102 m | 41,307 m | 19,260 m | 49,990 m |
+| 500 m | **2.32 m** | 2.32 m | 2.32 m | 2.32 m | 500 m |
+| 5 km | 4,281 m | 2,125 m | **2.32 m** | 2.32 m | 4,999 m |
+| 50 km | 49,268 m | 47,099 m | 41,281 m | 18,984 m | 49,990 m |
 
-So: **2 g clears half a kilometre, 6 g clears five, and 20 g cannot clear fifty.** Terminal guidance
-is a way of removing the guidance budget, not the flight-time budget.
+So: **half a g clears half a kilometre, 6 g clears five, and 20 g cannot clear fifty.** Terminal
+guidance is a way of removing the guidance budget, not the flight-time budget. A law chasing the
+line of sight needed 2 g for the same half kilometre, and left 411 m at half a g.
 
 The couple of metres it settles on is **entirely the step**, not the law
 (`WhereTheSteeredRoundsLastFewMetresComeFrom`):
@@ -349,12 +350,12 @@ The couple of metres it settles on is **entirely the step**, not the law
 | nav constant | 5 ms | 1 ms | 0.25 ms |
 | --- | --- | --- | --- |
 | 3 | 2.32 m | 0.47 m | 0.09 m |
-| 4 | 2.32 m | 0.47 m | 0.09 m |
-| 6 | 2.32 m | 0.46 m | 0.09 m |
+| 4 | 2.32 m | 0.46 m | 0.09 m |
+| 6 | 2.32 m | 0.46 m | 0.00 m |
 
-First order in the sub-step at 0.465 m per ms, and flat in the nav constant. **Proportional
-navigation contributes nothing of its own** — a steered round is bounded by the integrator, by where
-it thinks the target is, and by the same ground model as an unguided one, and by nothing else.
+First order in the sub-step at 0.465 m per ms, and flat in the nav constant. **The steering law
+contributes nothing of its own** — a steered round is bounded by the integrator, by where it thinks
+the target is, and by the same ground model as an unguided one, and by nothing else.
 
 ### And it removes the arrival angle, which is the whole of the unguided budget
 
@@ -365,10 +366,10 @@ a 500 m release error steered out at each arrival):
 
 | arrival | `cot γ` | unguided | 2 g at 5 ms | at 1 ms | at 0.25 ms |
 | --- | --- | --- | --- | --- | --- |
-| **7.1 deg** | 8.03 | 498.51 m | **2.32 m** | 0.45 m | 0.00 m |
-| 15 deg | 3.73 | 499.60 m | 2.32 m | 0.46 m | 0.09 m |
-| 30 deg | 1.73 | 499.89 m | 2.32 m | 0.47 m | 0.09 m |
-| 60 deg | 0.58 | 499.96 m | 2.33 m | 0.47 m | 0.13 m |
+| **7.1 deg** | 8.03 | 498.40 m | **2.32 m** | 0.46 m | 0.00 m |
+| 15 deg | 3.73 | 499.59 m | 2.32 m | 0.46 m | 0.09 m |
+| 30 deg | 1.73 | 499.89 m | 2.32 m | 0.46 m | 0.09 m |
+| 60 deg | 0.58 | 499.96 m | 2.32 m | 0.47 m | 0.16 m |
 
 **The arrival angle is worth a couple of centimetres to a steered round and a factor of eight to a
 ballistic one.** The reason is what `cot(gamma)` actually multiplies: errors the round *cannot see*.
@@ -442,8 +443,8 @@ guidance work makes it one; the geometry has to change.
 
 ### A terminally guided kinetic round
 
-**About 2.3 m as the flight model stands, and about 0.5 m at a 1 ms sub-step** — provided it has at
-least 2 g of authority and is told within a few hundred metres where to go.
+**About 2.3 m as the flight model stands, and about 0.5 m at a 1 ms sub-step** — provided it has the
+authority for its release error, which is half a g for a few hundred metres.
 
 It is bounded by exactly the same integrator and the same ground model as the unguided round, and it
 buys nothing at all against them. What it buys is immunity to everything *upstream*: the cant, the
