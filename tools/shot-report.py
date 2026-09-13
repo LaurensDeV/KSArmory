@@ -31,6 +31,11 @@ whose sign belongs to the seat. Pooled, it cancels; each seat against itself, it
 `--endpoint spread` is the odd one out: every other endpoint asks where a group went, and this asks
 how wide it is -- the one quantity the post-cutoff aim loop cannot reach, because it is over before
 the warheads separate.
+
+`--endpoint landing` is `miss` read off each warhead's 0.1 m line rather than the FLIGHT line's whole
+metre, which cannot see a metre. `centre` and `dispersion` split that miss into where the group went
+and how wide it is, off the downrange and cross the line carries -- checked only on a synthetic log
+until a night flies with them.
 """
 
 import argparse
@@ -211,7 +216,12 @@ GROUND_SAMPLE = re.compile(r"warhead trace: ground sample: (?:over a (?P<ms>[\d.
 # quantity readable at all, the VERDICT line's own `spread` being 10 m-quantised on a 2 m number.
 GROUPIMPACT = re.compile(
     r"round \d+(?: on (?P<craft>.+?))? down\s+(?P<miss>[\d.]+)\s*(?P<unit>km|m)"
-    r"\s*from the aim point after")
+    r"\s*from the aim point after"
+    # Where that warhead landed in the arrival frame, signed and in the same unit rule. Optional, so
+    # a line written before the components were printed matches exactly as it did; a component the
+    # game could not resolve prints `unknown` and leaves the pair absent rather than half-read.
+    r"(?:\s*\d+\s*s\s*\((?P<down>[-+]?[\d.]+)\s*(?P<down_unit>km|m)\s+downrange,"
+    r"\s*(?P<cross>[-+]?[\d.]+)\s*(?P<cross_unit>km|m)\s+cross\))?")
 
 # What ended the post-boost correction, which is the one thing that decides whether the aim loop
 # was allowed to finish. Every Finish() in Sim/PostBoostAim.cs, in the order it is tested, plus the
@@ -452,7 +462,7 @@ def read_shot(out_path, log_path, craft=None):
             "arrival_ms": [], "trace_km": [], "walk_m": [], "walk_down": [], "walk_cross": [],
             "early_s": [], "final_down": [], "final_cross": [], "final_aim": [],
             "trace_named": False, "own_impacts": [], "bursts": 0, "frame_ms": [],
-            "group_m": [], "group_named": False,
+            "group_m": [], "group_named": False, "group_parts": [], "group_old_print": False,
             "release_km": [], "probe_named": False,
             "band_deg": [], "impacts": [],
             "why": None, "passes": None, "owed": None, "why_named": False, "gave_up": False,
@@ -532,6 +542,18 @@ def read_shot(out_path, log_path, craft=None):
     group, shot["group_named"] = _traces(GROUPIMPACT, log, craft)
     shot["group_m"] = [float(m.group("miss")) * (1000.0 if m.group("unit") == "km" else 1.0)
                        for m in group]
+    # `Distance.Say` prints km only from a kilometre, so a km print below one is the older F2 form --
+    # a 10 m quantum on a metre-level miss.
+    shot["group_old_print"] = any(m.group("unit") == "km" and float(m.group("miss")) < 1.0
+                                  for m in group)
+
+    # Aligned with group_m, None where a line carries no components, so a flight missing one
+    # warhead's pair is visibly short rather than scored on five as though they were six.
+    shot["group_parts"] = [
+        (float(m.group("down")) * (1000.0 if m.group("down_unit") == "km" else 1.0),
+         float(m.group("cross")) * (1000.0 if m.group("cross_unit") == "km" else 1.0))
+        if m.group("down") is not None else None
+        for m in group]
 
     landings, shot["trace_named"] = _traces(FINAL_WALK, log, craft)
     for m in landings:
@@ -866,6 +888,38 @@ def _say_loop_left(shots, order):
     print()
 
 
+def _say_decomposition(shots, key, order, section=False):
+    """Per arm: where each rocket's group went, how wide it is, and the landing the two make up.
+
+    Beside every endpoint rather than as one, because the question it answers comes before choosing
+    one: a change to the width barely moves the landing while the centre is the larger term, and
+    only the two side by side say which term a change moved. Pooled over seats, so for scale only.
+    Prints nothing for a night whose landing lines carry no components.
+    """
+    rows = defaultdict(list)
+    for s in shots:
+        if not (s.get(key) and usable(s)):
+            continue
+        got = _centre_and_dispersion(s)
+        if got is not None:
+            rows[s[key]].append((got[0], got[1], statistics.fmean(s["group_m"])))
+    if not rows:
+        return
+
+    title = "what one rocket's miss is made of (medians over flights, pooled over seats)"
+    print(f"\n== {title}" if section else f"   {title}")
+    print(f"   {'arm':<14}{'centre m':>10}{'dispersion m':>14}{'landing m':>11}{'flights':>9}")
+    for name in order:
+        if name not in rows:
+            continue
+        centre, dispersion, landing = zip(*rows[name])
+        print(f"   {name:<14}{statistics.median(centre):>10.2f}{statistics.median(dispersion):>14.2f}"
+              f"{statistics.median(landing):>11.2f}{len(centre):>9}")
+    print("   centre^2 + dispersion^2 is each group's mean squared distance in the ground plane")
+    if not section:
+        print()
+
+
 def paired(root, shots, endpoint="miss", levels_from=None, per_seat=False):
     """Compare the variants flown INSIDE each shot, which is the only comparison this
     instrument currently supports.
@@ -961,6 +1015,20 @@ def paired(root, shots, endpoint="miss", levels_from=None, per_seat=False):
             if len([a for a in burst_by_arm if burst_by_arm[a]]) == 1:
                 print("      !! ALL ON ONE ARM -- that is an exclusion falling on the difference")
                 print("         under test, not a coverage note. Read the ratio with it in mind.")
+        # Said by reason, because the reasons want different things: an unnamed or km-printed night
+        # can only be re-flown, where one merely without components can still be read on `landing`.
+        if endpoint in GROUP_ENDPOINTS:
+            why = defaultdict(int)
+            for r in flown:
+                reason = _group_refusal(r, need_parts=endpoint != "landing")
+                if reason:
+                    why[reason] += 1
+            if why:
+                print("   not scored: " + ", ".join(f"{n} {reason}" for reason, n in
+                                                     sorted(why.items(), key=lambda kv: -kv[1])))
+            if not got:
+                sys.exit(_group_refused(endpoint, label, why))
+
         if not got:
             sys.exit(f"   nothing in this night carries an attributable {label}, so there is "
                      f"no comparison to make on it.\n"
@@ -1005,6 +1073,7 @@ def paired(root, shots, endpoint="miss", levels_from=None, per_seat=False):
     print()
 
     _say_loop_left(shots, order)
+    _say_decomposition(shots, "within", order)
 
     fit = _seat_offsets if signed else _seat_levels
     levels, lopsided = fit(shots, score) if not per_seat else ({}, [])
@@ -2080,9 +2149,9 @@ def _spread_score(shot):
     every night flown so far released six and `usable` already requires all of them to arrive.
 
     **It is a spread of DISTANCES from the aim, a lower bound on the spread on the ground.** Six
-    warheads 2 m out in six directions read zero here. Nothing in the log carries their positions,
-    so this is the available reading rather than the ideal one, and it is what 3cv's 2.0 m was
-    measured as.
+    warheads 2 m out in six directions read zero here. `_dispersion_score` reads positions, off the
+    components a landing line carries when it carries them; this is what reads every named night,
+    and it is what 3cv's 2.0 m was measured as.
 
     A flight is one rocket, so the group is already an aggregate and the endpoint must not aggregate
     it again: this returns ONE number per flight, exactly as `miss` returns one mean per flight, and
@@ -2097,6 +2166,110 @@ def _spread_score(shot):
     if shot.get("seat") is not None and not shot.get("group_named"):
         return None
     return max(max(shot["group_m"]) - min(shot["group_m"]), SPREAD_FLOOR_M)
+
+
+# The components print at 0.1 m like the distance, so a group centre or width under this is inside
+# the print rather than zero. A guard for the log, not a cost: it can only bind where every warhead
+# of a group, or its centroid, falls in one bin.
+PARTS_FLOOR_M = 0.1
+
+
+def _group_refusal(shot, need_parts=False):
+    """Why this flight's landing lines cannot be scored, or None when they can.
+
+    The reasons are kept apart because they want different answers from whoever reads the coverage
+    line: an unnamed or kilometre-printed night can only be re-flown, where a night that is merely
+    short of components can still be read on `landing`.
+    """
+    got = shot.get("group_m", ())
+    if not got:
+        return "no landing lines"
+    if shot.get("seat") is not None and not shot.get("group_named"):
+        return "unnamed"
+    if shot.get("group_old_print"):
+        return "printed in km"
+    # The same warheads the FLIGHT line's mean is over, or the two endpoints are not one quantity.
+    if shot.get("arrived") is not None and len(got) != shot["arrived"]:
+        return "short of the arrived count"
+    if need_parts and (len(got) < 2 or any(p is None for p in shot.get("group_parts", ()))):
+        return "no components"
+    return None
+
+
+GROUP_ENDPOINTS = ("landing", "centre", "dispersion")
+
+
+def _group_refused(endpoint, label, why):
+    """The exit for a night none of whose flights a landing-line endpoint can score, and why."""
+    head = (f"   nothing in this night carries an attributable {label}, so there is no comparison "
+            "to make on it.\n")
+    if why.get("unnamed") or why.get("printed in km"):
+        return head + ("   Its landing lines predate a1a1ae5: they name no craft, so a warhead cannot be "
+                       "given to its\n"
+                       "   rocket -- seats 5 and 6 land 100 m apart, ACCURACY-PLAN.md 3ce -- and they "
+                       "print in km to two\n"
+                       "   places, a 10 m quantum on a metre-level miss. Score it on --endpoint miss.")
+    if why.get("no components"):
+        return head + ("   Its landing lines carry no downrange and cross, which arrived with 7e079ea, and "
+                       "a distance\n"
+                       "   alone cannot tell where a group went from how wide it is. Read the same "
+                       "flights on\n"
+                       "   --endpoint landing, or fly a night on a build that prints the components.")
+    return head + "   Every flight was refused: " + ", ".join(
+        f"{n} {reason}" for reason, n in sorted(why.items(), key=lambda kv: -kv[1])) + "."
+
+
+def _landing_score(shot):
+    """The mean of this rocket's per-warhead distances from the aim, in metres.
+
+    **The quantity `miss` scores, at a tenth of its quantum.** The FLIGHT line prints the mean in
+    kilometres to three places, a whole metre, which a metre-level shot cannot be read through --
+    the fixed unit `Sim/Distance.cs` exists to avoid. The named landing lines carry each warhead at
+    0.1 m, so their mean is the same number to within half a metre plus a twentieth -- checked flight
+    by flight on 2026-09-12-query, where it never exceeds 0.50 m.
+    """
+    if _group_refusal(shot):
+        return None
+    return max(statistics.fmean(shot["group_m"]), PARTS_FLOOR_M)
+
+
+def _centre_and_dispersion(shot):
+    """The group's centroid distance from the aim and its rms about that centroid, both in the
+    ground plane, or None.
+
+    **A miss is two terms and a distance cannot separate them.** Six warheads 2 m out on one side
+    and six 2 m out on a ring about the aim read the same mean distance; item 41 acts on the second
+    and the aim loop on the first. The rms is taken over n, not n-1, because that makes
+    centre^2 + dispersion^2 exactly the mean squared distance in the plane -- a decomposition rather
+    than two numbers that happen to sit beside each other.
+    """
+    if _group_refusal(shot, need_parts=True):
+        return None
+    parts = shot["group_parts"]
+    down = statistics.fmean(d for d, _ in parts)
+    cross = statistics.fmean(c for _, c in parts)
+    centre = math.hypot(down, cross)
+    dispersion = math.sqrt(statistics.fmean((d - down) ** 2 + (c - cross) ** 2 for d, c in parts))
+    return centre, dispersion
+
+
+def _centre_score(shot):
+    """Where this rocket's group went: the distance of its centroid from the aim, in metres."""
+    got = _centre_and_dispersion(shot)
+    return None if got is None else max(got[0], PARTS_FLOOR_M)
+
+
+def _dispersion_score(shot):
+    """How wide this rocket's group is about its own centre, in metres rms.
+
+    **The rms, not a range, and not yet measured.** `spread` took worst minus best because it ranked
+    best on the null of the paired log ratio, and the same ranking is the way to choose here -- but
+    it needs a night whose landing lines carry components, and none has flown. Until one does, the
+    rms is the principled pick: it is the one width that completes the decomposition beside
+    `_centre_score`, where a 2D range has no such identity.
+    """
+    got = _centre_and_dispersion(shot)
+    return None if got is None else max(got[1], PARTS_FLOOR_M)
 
 
 def _signed_walk_score(shot):
@@ -2149,11 +2322,19 @@ def _signed_cross_score(shot):
 #
 # `spread` is the one that is not about where a group went but about how wide it is -- the only
 # endpoint measuring something the aim correction cannot reach, because it is already over by then.
+#
+# `landing` is `miss` off the per-warhead lines, because a whole-metre print cannot see a metre.
+# `centre` and `dispersion` split it into where the group went and how wide it is, off the
+# components; neither has been read on a night that flew them.
 ENDPOINTS = {
     "miss": ("miss at the ground", "km", lambda s: s["mean"], False),
     "walk": ("downrange walk after release", "m", _walk_score, False),
     "release": ("miss the shot already has at release", "m", _release_score, False),
     "spread": ("spread within one rocket's group", "m", _spread_score, False),
+    "landing": ("mean landing distance of one rocket's warheads", "m", _landing_score, False),
+    "centre": ("distance of one rocket's group centre from the aim", "m", _centre_score, False),
+    "dispersion": ("rms of one rocket's warheads about their own centre", "m",
+                   _dispersion_score, False),
     "signed-walk": ("SIGNED downrange walk after release", "m", _signed_walk_score, True),
     "signed-cross": ("SIGNED cross-track walk after release", "m", _signed_cross_score, True),
 }
@@ -2684,8 +2865,10 @@ def main():
                     help="what --paired scores on: the miss at the ground, the walk after "
                          "release, which is the part of it the arrival angle acts on, a "
                          "signed-* difference in metres, which is the only form that can resolve "
-                         "a term whose sign belongs to the seat, or the spread within one "
-                         "rocket's group, which is the only one the aim correction cannot reach")
+                         "a term whose sign belongs to the seat, the spread within one "
+                         "rocket's group, which is the only one the aim correction cannot reach, "
+                         "or landing, centre and dispersion: the miss off each warhead's 0.1 m "
+                         "line, and that miss split into where the group went and how wide it is")
     ap.add_argument("--levels-from", metavar="DIR",
                     help="fit the seat levels from another night, so the divisor cannot absorb "
                          "any of the arm under test")
@@ -2788,6 +2971,8 @@ def main():
                 continue
             print(f"     {arm:<14} n={st['n']:<3} median {st['median']:.2f}  "
                   f"mean {st['mean']:.2f}  range {st['min']:.2f}-{st['max']:.2f}")
+
+    _say_decomposition(shots, "arm", arms, section=True)
 
     print("\n== attribution (medians over usable shots)")
     print(f"   {'arm':<14}{'residual':>9}{'own km':>8}{'trim rel':>9}{'probe km':>9}"

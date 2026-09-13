@@ -253,6 +253,8 @@ is a maximum over six warheads — the noisiest of the four numbers `ShotGroup.J
 six tube mouths sit on a 0.86 m ring about the release line while every release prediction uses the
 mean mouth, so a group lands on the ground image of that ring, at whatever roll the bus happened to
 hold (`docs/ACCURACY-PLAN.md` 3db). `spread` gets its own table in the report and its own verdict.
+At a metre-level shot read the mean as `--endpoint landing`: the FLIGHT line prints it to a whole
+metre (below, after `spread`).
 
 **Comparison: Wilcoxon rank-sum, exact null.** Ranks, because at n=12 nothing here is normal and a
 t-test on a lognormal tail is a machine for generating significant nonsense. Exact rather than the
@@ -342,6 +344,8 @@ So the rule is about the *shape of the term*, not about which endpoint is newer:
 | **per-seat signed** — a gradient times a displacement | **`--per-seat`**, below. The pooled signed figure under-reports it, and the ratio censors it |
 | a magnitude with no meaningful sign | `walk`, and check how many flights hit the floor |
 | **how wide the group is**, rather than where it went | `spread` — the only endpoint the aim correction cannot reach, because it is over before the warheads separate |
+| **the miss itself, at a metre-level shot** | `landing` — `miss` off each warhead's 0.1 m line, where `miss`'s own print is a whole metre |
+| **where the group's centre went**, or **how wide it is about that centre** | `centre` and `dispersion` — the miss split in two off the landing line's components. **Checked only on a synthetic log**, below |
 
 **And `signed-cross` is a control channel, not a null.** It is near zero for most arms and genuinely
 is not for some: `2026-09-12-order` resolves it at **−0.161 m [−0.170, −0.139], 0 of 20 shots
@@ -468,9 +472,9 @@ and on the null; only the magnitude moved.
 Three things to know before reading one:
 
 * **It is a spread of *distances from the aim*, not of positions.** Six warheads 2 m out in six
-  directions read zero. The landing line carries each warhead's downrange and cross since item 41's
-  build, and `shot-report.py` does not read them yet, so this is still the available reading rather
-  than the ideal one.
+  directions read zero. `--endpoint dispersion` reads positions, off the components the landing line
+  carries since `7e079ea` — but no night has flown them, so this stays the endpoint that has been
+  measured.
 * **A range's expectation grows with the group size**, so a night mixing five- and six-warhead
   groups would read the mix. Every flight of every night flown so far released six, and `usable`
   already requires all of them to arrive.
@@ -493,6 +497,53 @@ its own bin does not move the per-shot variance measurably at this n.
 randomisation while the interval beside it comes from the sign test, so a night can print
 **RESOLVED with an interval spanning zero** — `2026-09-11-ground` reads `+2.103 m [−0.176, +3.039]`
 at shot-flip p=0.008. The ratio path has the same property. Read the flip.
+
+### `--endpoint landing`, `centre` and `dispersion`: the miss at a metre, and the two terms in it
+
+**`miss` is blind at a metre.** It scores the FLIGHT line's mean, printed in kilometres to three
+places — a whole metre. On `2026-09-12-query` its 160 flights take **12 distinct values**, seats 1
+and 2 level at exactly 2.00 m, and the pooled median prints `0.00` for both arms: `Sim/Distance.cs`'s
+fixed unit going blind as the shot improves, one layer up.
+
+**`landing` is the same quantity off the named 0.1 m lines** — the mean of one rocket's per-warhead
+distances. The two may differ by the FLIGHT print's half metre plus a twentieth; on `query` the worst
+of 160 is **0.50 m**, on two flights, and `landing` takes 116 distinct values. Read on that night:
+
+| | levelled | shot-flip p | un-levelled |
+| --- | --- | --- | --- |
+| `miss` | 0.66x [0.55, 0.90] | 0.003 | 0.76x [0.62, 0.80] |
+| `landing` | 0.70x [0.60, 0.86] | 0.004 | 0.78x [0.63, 0.85] |
+
+**The same verdict on an interval 27% narrower on the log scale**, with the point nearer 1. It
+refuses what `spread` refuses and says which reason applied: a night before `a1a1ae5` names no craft
+and prints F2 km, and a flight with fewer lines than warheads arrived is not the set the FLIGHT mean
+is over.
+
+**A miss is two terms, and a distance cannot separate them.** Six warheads 2 m out on one side and
+six on a 2 m ring about the aim read the same `landing`; the aim loop moves the first and item 41 the
+second. `centre` is the distance of the group's centroid from the aim and `dispersion` the rms of
+the six about it, both off the `(+1.8 m downrange, -0.9 m cross)` the landing line carries since
+`7e079ea`. The rms is over n, so **`centre² + dispersion²` is exactly the mean squared distance in
+the ground plane**, and the mean planar distance lies between `centre` and that root. Whenever a
+night carries the components, both reports print the three side by side per arm, whatever endpoint
+was asked for.
+
+* **The components are in the ground plane and the distance is not.** The line does not print the
+  arrival frame's up axis, so on a flown night `landing` can exceed `√(centre² + dispersion²)` by
+  that term.
+* **`dispersion` is an rms because it completes the decomposition, not because it was ranked.**
+  `spread` earned max−min on the null scatter of the paired ratio; the same ranking decides this one,
+  and it needs a night that carries the components.
+* **A night without them is refused**, with a pointer to `landing`, rather than scored as zero.
+
+**Both have been checked only on a synthetic log**, which checks the parse and the arithmetic and
+measures nothing. Each of `query`'s 960 warheads was given a position consistent with its logged
+distance — the 0.86 m tube ring through 3db's gains (1.85 downrange, 0.93 cross per metre, a
+1.59 m × 0.80 m ellipse) at a random roll, the centroid fitted, each point rescaled onto its distance
+— and written in the new format. Every parsed component is within the 0.05 m print, `centre` and
+`dispersion` are within 0.04 m of their unrounded values, the identity holds to 10⁻¹⁴ m², and neither
+inequality breaks on any of the 160 flights. That night reads `dispersion` at 0.98x because the model
+gave both arms one ring: the construction, not a finding.
 
 ## 2. The baseline
 
