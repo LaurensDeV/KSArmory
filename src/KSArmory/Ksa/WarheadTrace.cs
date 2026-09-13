@@ -50,6 +50,10 @@ internal sealed class WarheadTrace
     /// two of the eight sit 100 m apart, so recovering it from the landing coordinate does not work
     /// either. Same fault the cutoff line and <c>why_it_ended</c> already carry a name for.
     /// </param>
+    /// <param name="StopOnTheSurface">
+    /// Whether the prediction's crossing is placed on the ground, as the computer's own are. The walk
+    /// is read against this probe, so it has to stop by the rule the aim was set by.
+    /// </param>
     internal readonly record struct Setup(
         Celestial Parent,
         BallisticBody Body,
@@ -58,7 +62,8 @@ internal sealed class WarheadTrace
         double PredictStepSeconds,
         Func<double3, double> TerrainRadiusAt,
         Func<double3, double> DensityRatioAt,
-        string Craft = "");
+        string Craft = "",
+        bool StopOnTheSurface = false);
 
     // How often the round's own state is written down, and how often the prediction is re-flown from
     // it. Only the second is expensive - about two hundred RK4 steps at release, falling to a
@@ -518,7 +523,8 @@ internal sealed class WarheadTrace
         => ImpactPredictor.TryPredict(setup.Body, positionCci, velocityCci, setup.PredictStepSeconds,
                                       ImpactPredictor.DefaultMaxSeconds, out hit,
                                       setup.TerrainRadiusAt, null,
-                                      new ImpactPredictor.Drag(setup.DensityRatioAt, setup.Warhead));
+                                      new ImpactPredictor.Drag(setup.DensityRatioAt, setup.Warhead),
+                                      stopOnTheSurface: setup.StopOnTheSurface);
 
     // Ecl to the parent's inertial frame, both terms from this frame's samples. The subtraction is
     // what removes the ~29.8 km/s carrier exactly rather than approximately, which is the whole

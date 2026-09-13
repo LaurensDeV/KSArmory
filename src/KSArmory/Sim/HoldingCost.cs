@@ -64,7 +64,8 @@ internal static class HoldingCost
     public static bool TryMeasure(BallisticBody body, double3 positionCci, double3 velocityCci,
                                   double3 kickCci, double stepSeconds, out double metresPerSecond,
                                   ImpactPredictor.Drag? drag = null,
-                                  double probeSeconds = ProbeSeconds)
+                                  double probeSeconds = ProbeSeconds,
+                                  bool stopOnTheSurface = false)
     {
         metresPerSecond = double.NaN;
 
@@ -72,7 +73,7 @@ internal static class HoldingCost
         if (!Vec.IsFinite(positionCci) || !Vec.IsFinite(velocityCci) || !Vec.IsFinite(kickCci)) return false;
         if (kickCci.Equals(Vec.Zero)) return false;
 
-        if (!TryWorth(body, positionCci, velocityCci, kickCci, stepSeconds, drag,
+        if (!TryWorth(body, positionCci, velocityCci, kickCci, stepSeconds, drag, stopOnTheSurface,
                       out double3 nowCci))
         {
             return false;
@@ -86,7 +87,7 @@ internal static class HoldingCost
             return false;
         }
 
-        if (!TryWorth(body, laterPos, laterVel, kickCci, stepSeconds, drag,
+        if (!TryWorth(body, laterPos, laterVel, kickCci, stepSeconds, drag, stopOnTheSurface,
                       out double3 laterCci))
         {
             return false;
@@ -106,20 +107,23 @@ internal static class HoldingCost
     // How far the release impulse moves the impact, from one state.
     private static bool TryWorth(BallisticBody body, double3 positionCci, double3 velocityCci,
                                  double3 kickCci, double stepSeconds,
-                                 ImpactPredictor.Drag? drag, out double3 offsetCci)
+                                 ImpactPredictor.Drag? drag, bool stopOnTheSurface,
+                                 out double3 offsetCci)
     {
         offsetCci = Vec.Zero;
 
         if (!ImpactPredictor.TryPredict(body, positionCci, velocityCci, stepSeconds,
                                         ImpactPredictor.DefaultMaxSeconds,
-                                        out ImpactPredictor.Impact plain, null, null, drag))
+                                        out ImpactPredictor.Impact plain, null, null, drag,
+                                        stopOnTheSurface: stopOnTheSurface))
         {
             return false;
         }
 
         if (!ImpactPredictor.TryPredict(body, positionCci, velocityCci + kickCci, stepSeconds,
                                         ImpactPredictor.DefaultMaxSeconds,
-                                        out ImpactPredictor.Impact kicked, null, null, drag))
+                                        out ImpactPredictor.Impact kicked, null, null, drag,
+                                        stopOnTheSurface: stopOnTheSurface))
         {
             return false;
         }

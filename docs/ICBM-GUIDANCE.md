@@ -256,7 +256,10 @@ crossing search accepted the first sample **below** the ground, so a tolerance w
 step* left the answer a few metres deep — which at 7 km/s on a shallow arc is tens of metres
 downrange, always downrange, and reads as guidance error. `CrossingToleranceMetres` bisects on how
 deep the answer is instead, which is the thing that actually matters and is the same number on
-every body.
+every body. That bounds the error without centring it: the answer is still under the ground, half
+the tolerance deep on average, which is 0.20 m long at a 32° arrival.
+`IcbmConfig.PredictionStopsOnTheSurface` places it between the samples that bracket the crossing
+instead, and is off.
 
 **The residual has exactly one lever.** An engine stops on a frame boundary, so the last frame adds
 `acceleration x step x throttle` and the best any cutoff rule can do is stop at the nearer of the

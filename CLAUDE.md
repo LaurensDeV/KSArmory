@@ -1427,7 +1427,11 @@ imprecise.** `ImpactPredictor` accepted the first point below the ground, so a t
 as a *time step* left the answer metres deep — which at 7 km/s on a shallow arc is tens of metres
 downrange, **always** downrange, and reads exactly like guidance error. On the Moon, where arcs are
 shallower still, it was kilometres. `CrossingToleranceMetres` bisects on how deep the answer is
-instead: the thing that actually matters, and the same number on every body.
+instead: the thing that actually matters, and the same number on every body. **That bounds the bias
+and does not remove it.** The answer is still the first sample below, spread across the tolerance,
+so it sits half of it deep on average — 0.20 m long at 32°, flown, which the aim loop turns into
+rounds landing that much short. `IcbmConfig.PredictionStopsOnTheSurface` places the crossing between
+the two samples that bracket it, for no lookup, and is off until flown.
 
 **It is `Cci`, and everything the ascent gates on is dynamic pressure.** A half-hour flight in the
 ecliptic carries 54 million kilometres of the planet's own travel; a body's spin axis is exactly

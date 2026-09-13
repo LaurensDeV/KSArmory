@@ -515,6 +515,17 @@ internal sealed partial class Ui
             + "put it. Off: only the travel comes off, and the query reads ground that has turned "
             + "under the round by a few metres.");
 
+        bool onSurface = config.PredictionStopsOnTheSurface;
+        if (ImGui.Checkbox("Predictions stop on the surface", ref onSurface))
+        {
+            config.PredictionStopsOnTheSurface = onSurface;
+        }
+        Tip("On: a predicted impact is placed where the arc meets the ground, between the last step "
+            + "above it and the first below, as a warhead places its own. Off: it is the first step "
+            + $"found up to {ImpactPredictor.CrossingToleranceMetres:F2} m under the ground, so every "
+            + "prediction the aim reads is long by that depth times cot of the arrival angle -- about "
+            + "0.2 m at 32 deg -- and the warheads land that much short.");
+
         bool focus = config.FocusTubesOnTheAim;
         if (ImGui.Checkbox("Warheads are kicked onto the tubes' mean impact", ref focus))
         {

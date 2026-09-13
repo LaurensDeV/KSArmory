@@ -2265,7 +2265,8 @@ internal sealed class IcbmComputer
         return new WarheadTrace.Setup(parent, Body, warhead, _trueAimCci, PredictStepSeconds,
                                       _terrainRadius ??= TerrainRadiusAt,
                                       _densityRatio ??= DensityRatioAt,
-                                      KsaWorld.DisplayName(Craft));
+                                      KsaWorld.DisplayName(Craft),
+                                      Config.PredictionStopsOnTheSurface);
     }
 
     // What the prediction says about the state the warhead is actually leaving on, beside where the
@@ -2353,7 +2354,8 @@ internal sealed class IcbmComputer
             if (!ImpactPredictor.TryPredict(Body, positionCci, velocityCci, PredictStepSeconds,
                                             ImpactPredictor.DefaultMaxSeconds,
                                             out ImpactPredictor.Impact hit, TerrainRadiusAt, null,
-                                            new ImpactPredictor.Drag(DensityRatioAt, warhead)))
+                                            new ImpactPredictor.Drag(DensityRatioAt, warhead),
+                                            stopOnTheSurface: Config.PredictionStopsOnTheSurface))
             {
                 Log.Info("release probe: no impact predicted from the release state");
                 return null;
@@ -2889,7 +2891,8 @@ internal sealed class IcbmComputer
 
             if (HoldingCost.TryMeasure(Body, positionCci, velocityCci, ReleaseImpulseCci(),
                                        PredictStepSeconds, out double measured,
-                                       new ImpactPredictor.Drag(_densityRatio ??= DensityRatioAt, warhead)))
+                                       new ImpactPredictor.Drag(_densityRatio ??= DensityRatioAt, warhead),
+                                       stopOnTheSurface: Config.PredictionStopsOnTheSurface))
             {
                 if (!double.IsFinite(_holdingCost) || Math.Abs(measured - _holdingCost) > 0.05)
                 {
@@ -3038,7 +3041,8 @@ internal sealed class IcbmComputer
 
         if (ImpactPredictor.TryPredict(Body, fromCci, alongCci, PredictStepSeconds,
                                        ImpactPredictor.DefaultMaxSeconds, out ImpactPredictor.Impact hit,
-                                       TerrainRadiusAt, _path, air))
+                                       TerrainRadiusAt, _path, air,
+                                       stopOnTheSurface: Config.PredictionStopsOnTheSurface))
         {
             // The predictor un-carries its impact by its own flight time, which puts the ground
             // point in the body-fixed frame of the instant the arc *departs*. Mid-burn that instant

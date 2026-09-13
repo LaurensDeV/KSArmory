@@ -36,6 +36,10 @@ internal static class ImpactPredictor
     /// downrange: at 7 km/s on a shallow arc, stopping ten metres deep is tens of metres long. It
     /// is the entire floor under the miss distance once guidance is closing to centimetres a
     /// second, and it flatters nothing — it makes every shot look worse than it is.</para>
+    ///
+    /// <para>The accepted depth is spread over nearly the whole of it, so the mean is about half:
+    /// 0.20 m long at a 32° arrival, flown. <c>stopOnTheSurface</c> keeps the same search and
+    /// places the answer on the ground instead.</para>
     /// </summary>
     public const double CrossingToleranceMetres = 0.25;
 
@@ -88,12 +92,20 @@ internal static class ImpactPredictor
     /// error, it is what the aim correction converges against, and until it could be varied from
     /// outside nobody could say what it was worth.</para>
     /// </param>
+    /// <param name="stopOnTheSurface">
+    /// Report where the arc meets the ground between the last sample above it and the first below,
+    /// rather than that first sample. Same search, same lookups; only the accepted point moves.
+    ///
+    /// <para>Linear across that bracket, which is under a metre of track: the rule a warhead's own
+    /// stop obeys across its sub-step, so the prediction and the round stop on one surface.</para>
+    /// </param>
     public static bool TryPredict(BallisticBody body, double3 positionCci, double3 velocityCci,
                                   double stepSeconds, double maxSeconds, out Impact impact,
                                   Func<double3, double>? terrainRadiusAt = null,
                                   List<double3>? pathCci = null,
                                   Drag? drag = null,
-                                  double atmosphericStepSeconds = double.NaN)
+                                  double atmosphericStepSeconds = double.NaN,
+                                  bool stopOnTheSurface = false)
     {
         double inAir = atmosphericStepSeconds > 0.0 && double.IsFinite(atmosphericStepSeconds)
                            ? atmosphericStepSeconds
@@ -126,7 +138,8 @@ internal static class ImpactPredictor
         // Starting below the surface is a launch from inside the terrain sample, not an impact.
         // Climbing out of it is normal on the pad, so the first crossing is only believed once the
         // vehicle has been above ground at least once.
-        bool everAboveGround = r.Length() > SurfaceUnder(body, r, t, terrainRadiusAt);
+        double surfaceHere = SurfaceUnder(body, r, t, terrainRadiusAt);
+        bool everAboveGround = r.Length() > surfaceHere;
 
         while (t < maxSeconds)
         {
@@ -137,7 +150,8 @@ internal static class ImpactPredictor
 
             if (!Vec.IsFinite(rNext) || !Vec.IsFinite(vNext)) return false;
 
-            bool below = rNext.Length() <= SurfaceUnder(body, rNext, tNext, terrainRadiusAt);
+            double surfaceNext = SurfaceUnder(body, rNext, tNext, terrainRadiusAt);
+            bool below = rNext.Length() <= surfaceNext;
 
             if (below && everAboveGround)
             {
@@ -146,12 +160,24 @@ internal static class ImpactPredictor
                 // halving retries from the same state, so this is a bisection on the arrival time
                 // and it stops on how deep the answer is rather than on how small the step got —
                 // which is the thing that actually matters and is scale-free across bodies.
-                double depth = SurfaceUnder(body, rNext, tNext, terrainRadiusAt) - rNext.Length();
+                double depth = surfaceNext - rNext.Length();
 
                 if (depth > CrossingToleranceMetres && h > MinRefineSeconds)
                 {
                     h *= 0.5;
                     continue;
+                }
+
+                if (stopOnTheSurface)
+                {
+                    // r is the last sample above ground, so the clearance is positive and the
+                    // fraction is inside the bracket.
+                    double clearance = r.Length() - surfaceHere;
+                    double f = Math.Clamp(clearance / (clearance + depth), 0.0, 1.0);
+
+                    rNext = r + (rNext - r) * f;
+                    vNext = v + (vNext - v) * f;
+                    tNext = t + h * f;
                 }
 
                 impact = new Impact(rNext, body.UncarryCci(rNext, tNext), vNext, tNext);
@@ -176,6 +202,7 @@ internal static class ImpactPredictor
             r = rNext;
             v = vNext;
             t = tNext;
+            surfaceHere = surfaceNext;
             pathCci?.Add(r);
 
             if (pathCci is { Count: > 4096 }) pathCci.RemoveAt(pathCci.Count - 1);

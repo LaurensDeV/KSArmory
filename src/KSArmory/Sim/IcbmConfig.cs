@@ -539,6 +539,24 @@ internal sealed class IcbmConfig
     public bool GroundQueryAtOwnEpoch = true;
 
     /// <summary>
+    /// Put every prediction's ground crossing on the surface rather than on the first step under it —
+    /// <see cref="ImpactPredictor"/>'s <c>stopOnTheSurface</c>, for the aim, the release probe, the
+    /// holding cost and the trace.
+    ///
+    /// <para><b>The crossing search only ever stops below the ground.</b> It accepts a step up to
+    /// <see cref="ImpactPredictor.CrossingToleranceMetres"/> deep, spread over most of that, so every
+    /// prediction reads long by the depth times <c>cot(gamma)</c> while a warhead stops on the
+    /// surface — and the aim loop, landing its predictions on the target, lands the rounds that much
+    /// short. Over 80 traced warheads the step from the late re-flies to the landing is −0.201 m
+    /// [−0.212, −0.189], short on all 80, against −0.199 from the tolerance at 32°: 0.20 of the
+    /// −0.25 m walk. <c>docs/ACCURACY-PLAN.md</c> 40b.</para>
+    ///
+    /// <para><b>Off</b>, and not flown. Linear between the last step above the ground and the first
+    /// below it, which is the rule the warhead's own stop obeys, on the same steps and lookups.</para>
+    /// </summary>
+    public bool PredictionStopsOnTheSurface;
+
+    /// <summary>
     /// Give each warhead the separation velocity that lands it where the tubes' mean would —
     /// <see cref="ReleaseFocus"/>.
     ///
