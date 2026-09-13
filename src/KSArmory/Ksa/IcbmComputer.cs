@@ -2061,7 +2061,10 @@ internal sealed class IcbmComputer
             if (released is not null) SayTheSpin(weapon, released, probe);
 
             // Before the trace, which reads the round's release state as it begins.
-            if (Config.FocusTubesOnTheAim && released is not null) FocusOnTheAim(weapon, released, probe);
+            if ((Config.FocusTubesOnTheAim || Config.CancelSpinAtSeparation) && released is not null)
+            {
+                KickAtSeparation(weapon, released, probe);
+            }
 
             BeginTrace(weapon);
         }
@@ -2360,9 +2363,10 @@ internal sealed class IcbmComputer
     private readonly record struct ReleaseProbe(double3 PositionCci, double3 VelocityCci,
                                                 ImpactPredictor.Impact Impact);
 
-    // The separation velocity that lands this tube's round where the probe's mean lands, solved from
-    // the probe's own state and flight time so nothing is flown twice. docs/ACCURACY-PLAN.md item 41.
-    private void FocusOnTheAim(IManualFire weapon, Slug released, ReleaseProbe? probe)
+    // The separation velocity this tube's round leaves with, solved from the probe's own state and
+    // flight time so nothing is flown twice: its ring focused on the probe's impact, the spin it was
+    // thrown with given back, or both. docs/ACCURACY-PLAN.md items 41 and 42.
+    private void KickAtSeparation(IManualFire weapon, Slug released, ReleaseProbe? probe)
     {
         string who = KsaWorld.DisplayName(Craft);
         string what = RoundLabel.For(released.Tube);
@@ -2375,33 +2379,56 @@ internal sealed class IcbmComputer
                 return;
             }
 
-            if (!weapon.TryTubeOffsetFromMeanEcl(released.Tube - 1, out double3 offsetEcl))
+            doubleQuat cce2Cci = parent.GetCce2Cci();
+            double3 offsetCci = Vec.Zero;
+
+            if (Config.FocusTubesOnTheAim)
             {
-                Log.Info($"focus on {who}: {what} not kicked -- its tube's offset would not resolve");
-                return;
+                if (!weapon.TryTubeOffsetFromMeanEcl(released.Tube - 1, out double3 offsetEcl))
+                {
+                    Log.Info($"focus on {who}: {what} not kicked -- its tube's offset would not resolve");
+                    return;
+                }
+
+                offsetCci = offsetEcl.Transform(cce2Cci);
             }
 
-            double3 offsetCci = offsetEcl.Transform(parent.GetCce2Cci());
+            ReleaseFocus.Separation kick = ReleaseFocus.Kick(Body, from.PositionCci, from.VelocityCci,
+                                                             from.Impact.Seconds, offsetCci,
+                                                             released.SpinVelocityEcl.Transform(cce2Cci),
+                                                             Config.FocusTubesOnTheAim,
+                                                             Config.CancelSpinAtSeparation);
 
-            if (!ReleaseFocus.TryKick(Body, from.PositionCci, from.VelocityCci, from.Impact.Seconds,
-                                      offsetCci, out double3 kickCci))
+            if (Config.FocusTubesOnTheAim && !kick.RingFocused)
             {
-                Log.Info($"focus on {who}: {what} not kicked -- no kick solves on this arc");
-                return;
+                Log.Info(kick.SpinCancelled
+                             ? $"focus on {who}: {what}'s ring not focused -- no kick solves on this arc"
+                             : $"focus on {who}: {what} not kicked -- no kick solves on this arc");
+
+                if (!kick.SpinCancelled) return;
             }
 
-            if (!released.TryAddSeparationVelocity(kickCci.Transform(parent.GetCci2Cce())))
+            if (!released.TryAddSeparationVelocity(kick.KickCci.Transform(parent.GetCci2Cce())))
             {
                 Log.Info($"focus on {who}: {what} not kicked -- it has already flown a step");
                 return;
             }
 
-            // The angle is what says it is a solve: -offset/T would read 180.
-            double angle = Vec.AngleBetween(kickCci, offsetCci) * 180.0 / Math.PI;
+            if (kick.RingFocused)
+            {
+                // The angle is what says it is a solve: -offset/T would read 180.
+                double angle = Vec.AngleBetween(kick.RingKickCci, offsetCci) * 180.0 / Math.PI;
 
-            Log.Info($"focus on {who}: tube {released.Tube} sits {Vec.Len(offsetCci):F3} m off the "
-                     + $"tubes' mean, so {what} is kicked {Vec.Len(kickCci) * 1000.0:F3} mm/s, "
-                     + $"{angle:F1} deg from that offset, for a {from.Impact.Seconds:F0} s flight");
+                Log.Info($"focus on {who}: tube {released.Tube} sits {Vec.Len(offsetCci):F3} m off the "
+                         + $"tubes' mean, so {what} is kicked {Vec.Len(kick.RingKickCci) * 1000.0:F3} mm/s, "
+                         + $"{angle:F1} deg from that offset, for a {from.Impact.Seconds:F0} s flight");
+            }
+
+            if (kick.SpinCancelled)
+            {
+                Log.Info($"focus on {who}: {what} is given back the "
+                         + $"{Vec.Len(released.SpinVelocityEcl) * 1000.0:F3} mm/s of spin it was thrown with");
+            }
         }
         catch (Exception e)
         {

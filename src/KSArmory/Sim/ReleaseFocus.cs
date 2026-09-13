@@ -106,6 +106,32 @@ internal static class ReleaseFocus
         return Vec.IsFinite(kickCci);
     }
 
+    /// <summary>What <see cref="Kick"/> gives a round, and which of its two parts it could give.</summary>
+    internal readonly record struct Separation(double3 KickCci, double3 RingKickCci, bool RingFocused,
+                                               bool SpinCancelled);
+
+    /// <summary>
+    /// The whole velocity a round is given as it separates: its ring focused on the mean's impact, the
+    /// spin it was thrown with given back, both, or neither.
+    ///
+    /// <para>The spin comes back exactly rather than as the least velocity cancelling where it lands,
+    /// so the round leaves on the very state the release prediction flew, whatever the arc, the air or
+    /// the arm the spin was measured on. <c>docs/ACCURACY-PLAN.md</c> items 41 and 42.</para>
+    /// </summary>
+    /// <param name="spinCci">What the round was thrown with at its mouth: <see cref="Slug.SpinVelocityEcl"/>, turned.</param>
+    public static Separation Kick(BallisticBody body, double3 positionCci, double3 velocityCci,
+                                  double flightSeconds, double3 offsetCci, double3 spinCci,
+                                  bool focusRing, bool cancelSpin)
+    {
+        double3 ringKick = Vec.Zero;
+        bool focused = focusRing && TryKick(body, positionCci, velocityCci, flightSeconds, offsetCci, out ringKick);
+        if (!focused) ringKick = Vec.Zero;
+
+        bool cancelled = cancelSpin && Vec.IsFinite(spinCci);
+
+        return new Separation(cancelled ? ringKick - spinCci : ringKick, ringKick, focused, cancelled);
+    }
+
     /// <summary>
     /// Where a round lands from where the release prediction lands, for what its own release state adds
     /// to the one predicted: its mouth's offset, and a velocity of its own.

@@ -536,6 +536,16 @@ internal sealed partial class Ui
             + "its own mouth with the same velocity, and the group lands as that ring's image -- a "
             + "couple of metres across, turned by the bus's roll.");
 
+        bool cancelSpin = config.CancelSpinAtSeparation;
+        if (ImGui.Checkbox("Warheads leave the bus's spin behind", ref cancelSpin))
+        {
+            config.CancelSpinAtSeparation = cancelSpin;
+        }
+        Tip("On: each warhead is given back the velocity the bus's rotation threw it with at its mouth, "
+            + "so it leaves on the state the release prediction flew. Off: it keeps it -- a few "
+            + "millimetres a second that move the group's centre a metre or more and turn the ring "
+            + "that is left.");
+
         bool quiet = config.QuietCoast;
         if (ImGui.Checkbox("Let go of the attitude while coasting", ref quiet))
         {

@@ -573,6 +573,29 @@ internal sealed class IcbmConfig
     /// </summary>
     public bool FocusTubesOnTheAim;
 
+    /// <summary>
+    /// Give each warhead back the velocity the bus's rotation threw it with, so it leaves on the state
+    /// the release prediction flew — <see cref="ReleaseFocus.Kick"/>.
+    ///
+    /// <para>A turning bus throws each round with the spin at its own mouth, which every release
+    /// prediction leaves out. The part the six share moves the group's centre; the part that goes
+    /// round the ring turns whatever ring is left. Headless at 340 s and 32°, 4 mm/s of it moves the
+    /// centre 1.26 m, and 4.8 m on a 1,500 s flight. <c>docs/ACCURACY-PLAN.md</c> item 42.</para>
+    ///
+    /// <para><b>Not the transient a loop was fed.</b> The mean release state leaves spin out because
+    /// guidance given it chased it — a cutoff residual of 0.15 m/s became 4.31. This is one velocity
+    /// on a round that has already left, after the aim has stopped, and nothing reads it back.</para>
+    ///
+    /// <para>Exactly the spin, not the least kick that cancels its ground image: that is 0.44-0.85 of
+    /// the size at 340 s and lands 0.34 cm out where this lands 0.20, which is the ring kick's own, for
+    /// three coasts where this costs none. Independent of <see cref="FocusTubesOnTheAim"/>, so a night
+    /// can fly either alone.</para>
+    ///
+    /// <para><b>Off</b>, and not flown. With both on, every warhead lands within 0.2 cm of the tubes'
+    /// mean impact at 340 s.</para>
+    /// </summary>
+    public bool CancelSpinAtSeparation;
+
     /// <summary>Pointing error under which the coast hold lets go, in degrees.</summary>
     public double QuietCoastDeg = 0.5;
 
