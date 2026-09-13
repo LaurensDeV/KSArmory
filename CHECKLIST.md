@@ -1305,6 +1305,13 @@ the same band section 7.1b needs — fly one engagement and check both.
 - [ ] Drop a B61 on nothing. The chase rides it all the way down and holds on the burst.
 - [ ] A chased round that expires while still closing hands the view straight back, logging
       `chase: the round expired, nothing to hold on`, rather than holding three seconds on nothing.
+- [x] Switch vessels with `[` or `]` while a chase rides a round, and again while it holds on the
+      burst. The view is back in the orbit camera on the craft switched to and the mouse rotates
+      it; the log says `chase: the view was taken over by hand (vessel), standing down`. A view
+      that will not rotate is still in Fixed, and the mode was not put back.
+      **Confirmed in flight.**
+- [ ] Take the view back through **View → Orbit Camera** during a chase. The camera orbits the
+      launching craft rather than the spot the round was at, and the log says `(camera mode)`.
 
 ### 7.6g The switcher — the panel's list, one row per craft
 

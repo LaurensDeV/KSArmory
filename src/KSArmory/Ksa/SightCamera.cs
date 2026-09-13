@@ -213,9 +213,7 @@ internal sealed class SightCamera : IViewPose
     /// <para>Leaving flight is the case. The recording names a camera mode and a craft to follow
     /// that belonged to the flight scene, and restoring them once the editor is up writes a dead
     /// scene's camera onto the live one — which is a view the player cannot account for and did
-    /// not ask for. The new scene sets up its own camera, so neither is worth handing back; the
-    /// same reason <see cref="ChaseCamera"/> drops its own recording when the player takes the
-    /// view outright.</para>
+    /// not ask for. The new scene sets up its own camera, so neither is worth handing back.</para>
     ///
     /// <para><b>The field of view is not the scene's, and is put back anyway.</b> It is a
     /// preference on a camera object that outlives every scene, so nothing resets it and no later
@@ -361,25 +359,9 @@ internal sealed class SightCamera : IViewPose
         => ViewClaim.StillOurs(KsaWorld.MainViewIsFixed(),
                                KsaWorld.MainViewFollows(_followed), outranked);
 
-    // Gives back whichever half of the view the player did not take for themselves.
-    //
-    // Symmetric on purpose. Whichever of the mode and the follow they changed is their decision and
-    // is left alone; the other is still the mod's leavings and is put back. Leaving both would
-    // strand them -- a vessel switch leaves Fixed standing, and Fixed is a mode no input can
-    // leave -- and restoring both would drag them off the very thing they just chose.
     private void StandDown()
     {
-        bool modeIsOurs = KsaWorld.MainViewIsFixed();
-        bool followIsOurs = KsaWorld.MainViewFollows(_followed);
-
-        KsaWorld.StopDrivingMainView();
-
-        // Always. The field is the one thing neither half of a takeover restores and no zoom key
-        // can return to, so it is handed back whoever took the view and however.
-        KsaWorld.TrySetMainViewFov(_saved.FovDeg);
-
-        if (followIsOurs && KsaWorld.CanFollow(_saved.Following)) KsaWorld.RestoreFollow(_saved);
-        if (modeIsOurs) KsaWorld.RestoreMainViewMode(_saved);
+        bool modeIsOurs = KsaWorld.StandDownMainView(_saved, _followed);
 
         _saved = default;
         _followed = null;

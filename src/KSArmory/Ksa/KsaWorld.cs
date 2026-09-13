@@ -3434,6 +3434,34 @@ internal static class KsaWorld
     }
 
     /// <summary>
+    /// Gives back whichever half of the main view the player did not take, for a borrower whose
+    /// view has been taken over by hand. Every borrower stands down through here, so none of them
+    /// can leave behind something the others would have put back.
+    ///
+    /// <para>Whichever of the mode and the follow the player changed is theirs and stays; the other
+    /// is the mod's leavings and goes back. Leaving both strands them — a vessel switch leaves Fixed
+    /// standing, and Fixed is a mode no input can leave — and restoring both drags them off the very
+    /// thing they just chose. The field is handed back either way, because neither half restores it
+    /// and no zoom key reaches it.</para>
+    /// </summary>
+    /// <returns>True if the mode was still the mod's, which is what a vessel switch looks like.</returns>
+    public static bool StandDownMainView(MainView saved, IFollowable? followed)
+    {
+        if (!saved.Valid) return false;
+
+        bool modeIsOurs = MainViewIsFixed();
+        bool followIsOurs = MainViewFollows(followed);
+
+        StopDrivingMainView();
+        TrySetMainViewFov(saved.FovDeg);
+
+        if (followIsOurs && CanFollow(saved.Following)) RestoreFollow(saved);
+        if (modeIsOurs) RestoreMainViewMode(saved);
+
+        return modeIsOurs;
+    }
+
+    /// <summary>
     /// Points the main camera at something of the mod's own, so the engine resolves its position
     /// in its own frame pass rather than the mod handing over one sampled somewhere else.
     /// </summary>

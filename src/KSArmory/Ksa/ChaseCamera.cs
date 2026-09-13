@@ -151,20 +151,7 @@ internal sealed class ChaseCamera : IViewPose
     /// <summary>Hands the view back, if it was taken. Safe to call at any time.</summary>
     public void Release()
     {
-        _holding = 0.0;
-        _round = null;
-        Aim = null;
-
-        // All of these belong to the engagement that has just ended. The blend left finished would
-        // cut straight to the round next time instead of travelling onto it; the flight time is
-        // what the whole stand-off curve is measured against, so carrying it over calibrates the
-        // next chase against an engagement it has nothing to do with -- the second chase of a
-        // session opens at about 11 m instead of the 26 it is meant to.
-        _blend = 1.0;
-        _flightAtTake = 0.0;
-        _behind = Behind;
-        _above = Above;
-        _interest.Reset();
+        EndEngagement();
 
         // Keyed on holding the view, not on having a round: the hold after a burst has no round
         // and is exactly when the view still has to be given back.
@@ -189,15 +176,36 @@ internal sealed class ChaseCamera : IViewPose
             if (_refusedFrames < GiveUpAfterFrames) return;
         }
 
-        // After the hand-back, not before: while the view is still ours the followable is what the
-        // engine resolves the camera through, and untracking it first leaves that resolving off a
-        // round the chase has already let go of.
+        LetGo();
+        Log.Info("chase: released the main view");
+    }
+
+    // All of these belong to the engagement that has just ended. The blend left finished would cut
+    // straight to the round next time instead of travelling onto it; the flight time is what the
+    // whole stand-off curve is measured against, so carrying it over calibrates the next chase
+    // against an engagement it has nothing to do with -- the second chase of a session opens at
+    // about 11 m instead of the 26 it is meant to.
+    private void EndEngagement()
+    {
+        _holding = 0.0;
+        _round = null;
+        Aim = null;
+        _blend = 1.0;
+        _flightAtTake = 0.0;
+        _behind = Behind;
+        _above = Above;
+        _interest.Reset();
+    }
+
+    // Only once the view has been handed back: while it is still ours the followable is what the
+    // engine resolves the camera through, and untracking it first leaves that resolving off a round
+    // the chase has already let go of.
+    private void LetGo()
+    {
         _followed.Track(null, null);
         _aimFromRound = null;
-
         _saved = default;
         _refusedFrames = 0;
-        Log.Info("chase: released the main view");
     }
 
     /// <summary>Follows one round for one frame.</summary>
@@ -233,15 +241,16 @@ internal sealed class ChaseCamera : IViewPose
         // Ahead of the hold below, and keyed on holding the view rather than on having a round: the
         // linger after a burst is LingerSeconds during which the view is still this camera's, and a
         // vessel switched in that window has to be noticed here -- Release reaching it first puts
-        // the player back on the craft they have just left.
+        // the player back on the craft they have just left. The half they did not take still goes
+        // back: a vessel switch leaves the view in Fixed, which no input can leave.
         if (_saved.Valid && !StillOurs())
         {
-            _round = null;
-            Aim = null;
-            _holding = 0.0;
-            _saved = default;   // dropped, not restored: the view is already theirs
+            bool modeIsOurs = KsaWorld.StandDownMainView(_saved, _followed);
             PassOverEverythingFlying(battery);
-            Log.Info("chase: the view was taken over by hand, standing down");
+            EndEngagement();
+            LetGo();
+            Log.Info($"chase: the view was taken over by hand ({(modeIsOurs ? "vessel" : "camera mode")}), "
+                     + "standing down");
             return;
         }
 

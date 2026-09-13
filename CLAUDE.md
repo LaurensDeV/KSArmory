@@ -2408,8 +2408,10 @@ be handed straight back, and one still turning onto its target is picked up once
 **Reclaiming it has to switch the setting off, not just release the view once.** The setting is
 what asks for it, so a borrower that stands down and leaves the request standing takes the view
 straight back on the next frame — one frame of the player's camera, then the mod's again, which
-reads as it refusing to let go. `StandDown` therefore restores what the view was *following*,
-because the mod changed that, and leaves the *mode* alone, because the player chose it.
+reads as it refusing to let go. A stand-down gives back whichever half the player did not take —
+the follow after a mode change, the mode after a vessel switch — and the sight and the chase both
+go through `KsaWorld.StandDownMainView` to do it, because a borrower that drops its recording
+instead leaves the view in Fixed, which no input can leave.
 
 The camera follows the launcher's own craft while the sight holds it, whatever the player was
 following. `FixedController` places the camera at `following.GetPositionEcl() + CameraOffset`
