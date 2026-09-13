@@ -1013,7 +1013,7 @@ internal sealed class BallisticScenario
                 return;
             }
 
-            double miss = MissFromAim(round);
+            double miss = MissFromAim(round, out string resolved);
             _group.Arrive(miss);
 
             // Named, and in the unit that shows it. This is the only line carrying where each
@@ -1023,7 +1023,7 @@ internal sealed class BallisticScenario
             string whose = _computer is { } owner ? $" on {KsaWorld.DisplayName(owner.Craft)}" : "";
 
             _landed.Add(double.IsFinite(miss)
-                ? $"{what}{whose} down {Distance.Say(miss)} from the aim point after {round.Age:F0} s"
+                ? $"{what}{whose} down {Distance.Say(miss)} from the aim point after {round.Age:F0} s{resolved}"
                 : $"{what}{whose} down after {round.Age:F0} s, and where could not be measured");
         }
         catch
@@ -1036,17 +1036,48 @@ internal sealed class BallisticScenario
     // the frame it burst in and the aim point is a place on a turning planet, so the aim has to be
     // carried to the same instant - up to half a kilometre of the frame's own motion otherwise, in
     // one direction, which reads as a common bias on every warhead of the group.
-    private double MissFromAim(IProjectile round)
+    //
+    // Resolved into the arrival frame as well, so a group reads as a dispersion rather than as six
+    // distances: downrange carries the fall and the timing, cross carries the plane. Only the miss
+    // needs its instants paired; the frame's axes are directions, and a frame's travel moves no
+    // direction.
+    private double MissFromAim(IProjectile round, out string resolved)
     {
+        resolved = "";
+
         if (_computer is not { } computer || computer.Parent is not { } parent) return double.NaN;
         if (computer.TargetEcl() is not { } aimEcl) return double.NaN;
 
         double3 aimAtBurst = aimEcl + KsaWorld.GroundVelocityAt(parent, aimEcl)
                                       * round.DetonationElapsedInFrame;
 
-        double miss = Vec.Len(round.PositionEcl - aimAtBurst);
-        return double.IsFinite(miss) ? miss : double.NaN;
+        double3 missEcl = round.PositionEcl - aimAtBurst;
+        double miss = Vec.Len(missEcl);
+        if (!double.IsFinite(miss)) return double.NaN;
+
+        try
+        {
+            doubleQuat cce2Cci = parent.GetCce2Cci();
+            double3 aimCci = (aimEcl - parent.GetPositionEcl()).Transform(cce2Cci);
+            double3 arrivingCci = (round.VelocityEcl - parent.GetVelocityEcl()).Transform(cce2Cci);
+
+            if (ArrivalFrame.TryAt(aimCci, arrivingCci, out ArrivalFrame frame))
+            {
+                double3 parts = frame.Resolve(missEcl.Transform(cce2Cci));
+                resolved = $" ({Signed(parts.Y)} downrange, {Signed(parts.Z)} cross)";
+            }
+        }
+        catch
+        {
+            // The distance stands on its own; losing the components loses no reading anything scores.
+        }
+
+        return miss;
     }
+
+    // Signed in the unit that shows it, so a component parses the same way the distance beside it does.
+    private static string Signed(double metres)
+        => metres >= 0.0 ? "+" + Distance.Say(metres) : Distance.Say(metres);
 
     private static string WhereItStands(IcbmComputer computer)
     {
