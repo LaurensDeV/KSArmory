@@ -10,22 +10,28 @@ constant" to "there is a bug, and the engine has a lever nobody used".
 
 ## Where it stands after 2026-09-12 — read this first
 
-**The one-line version: the shot is 2.5 m median per rocket, down from 17 before five fixes that all
+**The one-line version: the shot is 2.0 m median per rocket, down from 17 before six fixes that all
 ship on** — the warhead stopping on stale ground (3cs), the post-boost loop deciding each pass on a
 reading fifteen seconds old (3ct), the round's own first-order integrator (item 37), the loop
-trimming on readings its own trim could not improve (item 38), and the trim finishing its null in
-pulses rather than whole frames (item 39, **0.47x at the ground on 20 of 20 shots**, which took it
-5.0 → 2.5). **Of what is left, 3cv measured only 0.78 m as bias and the rest as scatter** — the
-release probe carried 4.09 m rms downrange and 2.98 cross before item 39 halved it, the fall 2.02,
-and the six warheads of one rocket land 2.0 m apart from release probes 0.20 m apart. **The floor
-under this configuration is 0.64 m, or ~1.2 m as the endpoint prints it**, and two of the three
-declared endpoints do not close to better than ~2 m — which now matters, because the shot is 2.5.
+trimming on readings its own trim could not improve (item 38), the trim finishing its null in pulses
+rather than whole frames (item 39, 5.0 → 2.5), and the round asking the ground where it was at its
+own instant rather than where the planet's spin had since carried it (item 40, **0.66x at the
+ground on 18 of 20 shots**, 2.7 → 2.0, the worst rocket 11.7 → 5.3). **What item 40 removed was the
+per-seat term**: every seat's walk now sits within a few tenths of a common −0.25 m, where it spanned
+−2.8 to +5.5.
 
-The entries to read are **3cv** (where the metres are), **3cu** (items 37-39, including the one that
-was refuted and repaired), **3cw** (item 40) and **3ct**. **The order to work in is now 40, then 41**
-— item 39 shipped, which is what makes 40 worth attacking at all. Item 41 is rankable at last: the
-scenario prints the group in metres and names its craft (`a1a1ae5`), and `--endpoint spread` scores
-it. The 2026-09-08 block below is history, and two of its items have since been overturned.
+**What is left is the release, that common residual, and the spread within a group** — the six
+warheads of one rocket landing a median 2.3-2.6 m apart from release probes 0.20 m apart, which item
+40 did not touch (1.05x, unresolved) and which is now co-dominant. **The floor under this
+configuration is 0.64 m, or ~1.2 m as the endpoint prints it.** One of the two endpoints 3cv found
+not closing was the trace scoring each burst against the wrong instant, fixed in `a1a1ae5` (3cy).
+
+The entries to read are **3da** (item 40 flown, including two predictions that were wrong), **3cy**
+(what the instrument can and cannot see), **3cv** (where the metres were) and **3cu**. **The order to
+work in is now 41, then the predictor's crossing tolerance** — the other half of item 40's row, which
+moves the aim loop and so needs a night of its own. Item 41 has an endpoint and a gate:
+`--endpoint spread` resolves x1.15 at twenty blocks (`d779413`). The 2026-09-08 block below is
+history, and two of its items have since been overturned.
 
 1. **The walk is fixed and ships (3cr, 3cs).** A warhead stopped on the height it sampled at the top
    of its last frame, 40-90 m of track back. `IcbmConfig.ResampleGroundAtImpact`, now on by
@@ -46,8 +52,8 @@ it. The 2026-09-08 block below is history, and two of its items have since been 
    inside a floor derived from that band, with an improvement threshold that tracks the miss, flew
    **0.72x on the release probe and 0.61x at the ground**, each on 17 of 20 shots, and ships on:
    the reading a rocket releases on 6.80 → 4.95 m, and its landing 8.0 → 5.0. **What is left of the
-   floor is the band itself**, and item 39 is the way past it — pulsing the jets rather than holding
-   them, built and off, worth 0.0135 → 0.0013 m/s headlessly.
+   floor is the band itself**, and item 39 was the way past it — pulsing the jets rather than holding
+   them, which shipped at 0.47x (3cu).
 4. **The walk's last 2 m was the round's own first-order integrator, and it ships fixed (item 37,
    3cu).** Reading gravity where a sub-step begins and moving on the velocity it ends with held an
    extra `a·h/2` for the whole fall: +1.73 m on 20 of 20 shots, its magnitude 0.37x, and the cross
@@ -63,8 +69,18 @@ it. The 2026-09-08 block below is history, and two of its items have since been 
 7. **One instrument fault fixed.** `shot-report.py`'s shot-flip null refitted seat levels that
    `--levels-from` had borrowed, and read p=0.005 where the honest test says 0.082 (3cq). No earlier
    verdict changes. And 3cd/3ck's arrival-angle null had a confound — the steep arm fell on slower
-   frames, so its stale-ground error was larger — which the re-read removes. Whether the angle buys
-   anything now is open, not predicted.
+   frames, so its stale-ground error was larger — which the re-read removes. What the angle buys
+   is <=0.5 m, and it stays parked (3cx).
+8. **The per-seat ground term was the planet's spin, and it ships fixed (item 40, 3da).** A terrain
+   query is answered at the frame's end rotation and the round back-dated only the body's travel,
+   so it read ground that had turned under it by `|ω×r|` times its own distance into the frame.
+   Over 20 paired blocks the landing went **0.66x** and the walk **0.54x on every shot**, and per
+   seat the walk's slope against frame time went to nothing — on seat 4 from −0.083 m/ms, against
+   the −0.082 three earlier nights had measured.
+9. **The instrument was mostly fine and wrong in three places (3cy).** The trace scored each burst
+   against an aim a sub-frame late — up to +8 m of miss no warhead had — the walk endpoint floored
+   44% of flights, and item 41 had no endpoint at all. All three are fixed. A per-seat-signed term
+   still has no test in `tools/`: pooled, it cancels (3da).
 
 ## Where it stood after 2026-09-08
 
@@ -7588,6 +7604,85 @@ failure to move is not a refutation. What *would* refute it: the per-seat regres
 against the printed `ground sample: over a X ms frame` failing to collapse toward zero on the
 corrected arm, where seat 4 read -0.082 m/ms across three nights.
 
+## 3da. Item 40 flown: the per-seat term was the spin, and it ships — 2026-09-12
+
+`2026-09-12-query`, 20 paired blocks, 160 flights, `base|query:GroundQueryAtOwnEpoch=true`, flown as
+declared in 3cz. Every flight passed 6 of 6 and KSA's own log carries no exception. The WSL instance
+crashed after block 20 had landed, taking the batch's closing printout and the scratch scoring
+scripts with it; everything below is re-read from the logs.
+
+| endpoint | query vs base | shots | shot-flip p |
+| --- | --- | --- | --- |
+| **per seat: median over seats of (\|base walk\| − \|query walk\|)** | **+0.810 m** | 8 seats | **0.001** |
+| **per seat: median over seats of (\|slope\| base − query), walk on frame ms** | **+0.0607 m/ms** | 8 seats | **0.0001** |
+| landing, `--paired` | **0.66x [0.55, 0.90]** | 18 of 20 | 0.003 |
+| walk, ratio | 0.54x [0.47, 0.60] | 20 of 20 | 0.002 |
+| walk, `signed-walk` | +0.519 m [+0.397, +0.769] | 17 of 20 | 0.021 |
+| cross, `signed-cross` | −0.033 m [−0.051, −0.026] | 3 of 20 positive | 0.016 |
+| spread within a group | 1.05x [0.90, 1.14] | 9 of 20 | 0.416 — unresolved |
+
+The median rocket landed **2.72 → 2.05 m**, its 90th percentile 7.1 → 4.0, the worst 11.7 → 5.3, and
+rockets under 2 m 25 → 36 of 80.
+
+**The declared primary, per seat, never levelled:**
+
+| seat | base walk | query walk | base slope | query slope |
+| --- | --- | --- | --- | --- |
+| 1 | +0.10 | −0.27 | +0.0173 | +0.0021 |
+| 2 | −0.26 | −0.25 | −0.0022 | +0.0000 |
+| 3 | **−2.81** | −0.15 | **−0.2544** | −0.0051 |
+| 4 | −1.36 | −0.16 | −0.0832 | +0.0027 |
+| 5 | **−2.81** | −0.28 | **−0.1675** | −0.0016 |
+| 6 | **+5.49** | −0.31 | **+0.3029** | −0.0050 |
+| 7 | −0.71 | −0.29 | −0.0457 | −0.0047 |
+| 8 | −0.48 | −0.21 | −0.0077 | +0.0020 |
+
+Median walks in metres and slopes in m/ms, n = 10 and 10 on every seat. The between-seat sd of the
+walk goes **2.61 → 0.06 m**, walks of 2 m or more **25 of 80 → none**, and the worst single walk
+7.95 → 0.51 m.
+
+**Why this is the mechanism and not a coincidence of the roster.** The arm flips per shot, so each
+seat is its own control: seat 6 walked a median +5.49 m on `base` and −0.31 on `query`, on the same
+ground at the same aim point, and no `query` flight anywhere walked past 0.51 m. The refutation 3cz
+declared — the slope against the frame's own duration failing to collapse — is the opposite of what
+happened, and on seat 4 the `base` slope reads **−0.083 m/ms against the −0.082** three earlier nights
+had measured before the fix existed. And the report's own terrain test, which knows nothing of the
+mechanism, grades it: relief against the landing ratio **rho = −0.93, p = 0.001**, seat 6 on 1.9 m of
+relief at 0.43x and seats 1 and 2 on almost none at 1.00x.
+
+**Nothing else moved.** Endings `floor`/`noimprov`/`payback` were 27/3/50 on `base` and 22/3/55 on
+`query`, with no `clock` ending and no trim giving up; the coast, the trim's debt and the arc read the
+same on both arms.
+
+**Two predictions were wrong, and one reading was mis-compared.**
+
+1. **"The landing will not resolve" was stale arithmetic.** 3cw priced that sentence against 3cu's
+   ±5 m release scatter, which item 39 had since halved — and the same entry had already computed
+   the post-39 figure as **0.66x**, which is what flew. The declaration took the wrong one of 3cw's
+   two sentences. The lesson is 3cv's, one level up: price a term against the scatter *measured on
+   the configuration that will fly*.
+2. **`signed-cross` is not a null.** It resolved at −0.033 m, 6% of the downrange effect, consistent
+   with an eastward displacement projecting onto both axes at this site — and with 3cy's finding that
+   `2026-09-12-order` resolves it too.
+3. **+0.59 m is a landing figure, not a walk figure.** It was compared mid-night against the per-seat
+   walk magnitude, which is a different quantity; the like-for-like match is 0.66x predicted against
+   0.66x flown.
+
+**The pooled signed walk under-reports this term, and on five blocks gave it the wrong sign.** On
+blocks 9, 12, 14, 16 and 17 `base`'s pooled median walk read *nearer zero* than `query`'s while a
+`base` seat was walking 2-8 m, because a median of four seats discards the one carrying the effect.
+Over twenty blocks it still resolved at +0.519 m, since seven of eight seats sit on the same side,
+against +0.810 per seat. SHOT-PROTOCOL's table says to read such a term per seat; the test that does
+lived in a scratch script, and the crash deleted it. That is the instrument gap this night exposed.
+
+**What item 40's row still holds.** The predictor's crossing tolerance (+0.18 m, ~0.4 m long in 3cy)
+was not flown and is not instrumentation: the aim loop reads the same predictor, so it moves where
+rounds land. It is split off as 40b.
+
+Ships on: `IcbmConfig.GroundQueryAtOwnEpoch = true`. `WarheadTrace.GroundSample`'s counterfactual now
+un-walks the query by the same velocity the round walked it with, spin included — before, it read the
+spin step as part of what an unpaired lookup would have held on every shipped flight.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -7714,7 +7809,8 @@ what 20b is flying against.
 | ~~37~~ | ~~Integrate a warhead's fall to second order~~ — `IcbmConfig.SecondOrderWarheads` | **flown 2026-09-12, 20 paired blocks — SHIPPED ON** | **signed walk +1.73 m [+1.54, +1.88], won 20 of 20 and 8 of 8 seats; its magnitude 0.37x [0.30, 0.44]; cross +0.19 → +0.03 m.** The walk was the round's own first-order step, 1.986 m short of the exact conic headlessly. The landing unmoved at 1.05x [0.94, 1.59], unresolved — 2 m one-signed under a ±5 m release scatter — **3cu** |
 | ~~38~~ | ~~Release on a reading inside the trim's floor~~, and keep going while passes improve — `IcbmConfig.ReleaseInsideTheTrimFloor` | **flown 2026-09-12, 20 paired blocks — SHIPPED ON** | **release probe 0.72x [0.58, 0.88] and the landing 0.61x [0.53, 0.74], each won on 17 of 20.** The reading released on 6.80 → 4.95 m, those over 10 m 16 → 1 of 80, in four passes rather than five. Predicted 0.80x on the probe — **3cu** |
 | ~~39~~ | ~~Lower the floor with KSA's pulse mode~~ — `IcbmConfig.PulseTrim` | **flown twice 2026-09-12, 40 paired blocks — SHIPPED ON.** Refuted on the first build, four causes fixed (`7569b0a`), then **the landing 0.47x [0.41, 0.57] and the release probe 0.44x [0.26, 0.56], each won on 20 of 20**: the median rocket 6.0 → 2.5 m, the reading released on 4.75 → 0.90, and `clock`/trim endings 10 of 80 → **0 of 80**. Was: **NOT SHIPPED on the first build.** The fourth was the write — the jets left in pulse mode during a hold, which is what the three worst flights were. Smoked repaired: the frozen-hold tail is back to base's 7.3 s from 93.0, nulls finish at 0.0020 m/s, the reading released on is 0.75 m against base's 5.75, and no `clock` or trim endings | **3cu** — the primary won (release probe **0.50x [0.36, 0.86]**, 16 of 20, against 0.40x predicted) **and the declared refutation fired**: `clock` and trim endings 0 → **10 of 80**, three releasing 0.3-1.1 km out. The phase pulsed at a side component with 2.541 m/s on a withheld axis, ran a median 54 s against clocks that judge a hold, and struck six live axes off. Nulls do finish at 0.0020 m/s against 0.0210, so the idea stands |
-| **40** | **The ground lookup's rotation phase** (±3 m by seat) **and the predictor's crossing tolerance** (+0.18 m) | **built behind `IcbmConfig.GroundQueryAtOwnEpoch` (`3daa73b`), smoked, flying 2026-09-12** | **3cz, 3cw, 3cv** — the terrain query is answered at the frame's rotation while only the translation is back-dated. Sign pinned headlessly first: forward 0.00 m from the correct point, uncorrected 13.83, **reversed 27.67 — doubled**. Primary is the **per-seat signed walk**, never seat-levelled, +0.59 m predicted against a 0.361 m MDE; the landing will not resolve. The crossing tolerance is **not** instrumentation — it moves the aim loop, so it is a night of its own |
+| ~~40~~ | ~~The ground lookup's rotation phase~~ — `IcbmConfig.GroundQueryAtOwnEpoch` | **flown 2026-09-12, 20 paired blocks — SHIPPED ON** | **per seat the walk's magnitude +0.810 m (p=0.001) and its slope on frame time +0.0607 m/ms (p=0.0001); the landing 0.66x [0.55, 0.90] on 18 of 20, the walk 0.54x on 20 of 20.** Between-seat sd 2.61 → 0.06 m, walks over 2 m 25 of 80 → none, the worst rocket 11.7 → 5.3 m. Seat 4's slope −0.083 m/ms against the −0.082 measured before the fix. Two predictions were wrong and are recorded as such — **3da, 3cz, 3cw** |
+| **40b** | **The predictor's crossing tolerance** (+0.18 m, ~0.4 m long) | **not built** | **3cy, 3da** — split off item 40. Not instrumentation: the aim loop reads the same predictor, so bisecting it finer moves where rounds land and needs a night of its own |
 | **41** | **The spread between the six warheads of one rocket** — 2.0 m at the ground from release probes 0.20 m apart | **rankable: print and endpoint both unblocked, nothing built yet** | **3cv, 3cy** — it appears entirely during the fall and does not follow the terrain (r +0.03). The landing line prints metres and names its craft (`a1a1ae5`) and `shot-report.py --paired --endpoint spread` scores worst-minus-best per rocket, so it can be ranked at last: the null per-shot sd of the log ratio on `2026-09-12-query` is 0.211, an **MDE of ×1.15 at twenty blocks** [×1.08, ×1.19] against the audit's ×0.75 gate, with the seven flown blocks agreeing at ×1.14 and the 0.1 m print now worth 1.6% of the 2.50 m median spread rather than 16%. `WarheadTrace` still covers round 1 only (item 30b), and round 1 minus the group mean is +1.81 m median at sd 3.47 — larger than the shot |
 | ~~34b~~ | ~~Feed the hold forward~~ | **flown and lost 2026-09-10** | **+234 m against a 7 m term** — 30x out of scale. The mechanism stands; a blanket offset on every cycle does not, because the release happens when the loop stops rather than a fixed dwell later. **3co** |
 | ~~31~~ | ~~Stop stage disposal shedding debris~~ | **built 2026-09-09, unflown** | `KsaWorld.Remove` → `Universe.DestroyVehicle`, which sheds nothing where `DestroyVehicleFromEvent` sheds twelve. **3ci/3bv** — inference, not measurement: it removes the only discriminator, but nothing yet proves it breaks the chain |
