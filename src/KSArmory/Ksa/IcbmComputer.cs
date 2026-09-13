@@ -2045,14 +2045,22 @@ internal sealed class IcbmComputer
 
             // On the round rather than the munition: the profile is one instance shared by every
             // rocket in the world, and a paired night needs each rocket to fly its own setting.
-            if (weapon is IRoundsInFlight { Rounds: { Count: > 0 } flying } && flying[^1] is Slug released)
+            Slug? released = weapon is IRoundsInFlight { Rounds: { Count: > 0 } flying }
+                                 ? flying[^1] as Slug
+                                 : null;
+
+            if (released is not null)
             {
                 released.ResampleGroundNearImpact = Config.ResampleGroundAtImpact;
                 released.SecondOrder = Config.SecondOrderWarheads;
                 released.GroundQueryAtOwnEpoch = Config.GroundQueryAtOwnEpoch;
             }
 
-            ProbeRelease();
+            ReleaseProbe? probe = ProbeRelease();
+
+            // Before the trace, which reads the round's release state as it begins.
+            if (Config.FocusTubesOnTheAim && released is not null) FocusOnTheAim(weapon, released, probe);
+
             BeginTrace(weapon);
         }
 
@@ -2275,10 +2283,64 @@ internal sealed class IcbmComputer
         => $" ({parts.X:+0.0;-0.0;0.0} up, {parts.Y:+0.0;-0.0;0.0} downrange,"
            + $" {parts.Z:+0.0;-0.0;0.0} cross)";
 
-    private void ProbeRelease()
+    // The state a release prediction was flown from, and what it said. The mean mouth, never a tube:
+    // the probe line's miss is the aim loop's own reading.
+    private readonly record struct ReleaseProbe(double3 PositionCci, double3 VelocityCci,
+                                                ImpactPredictor.Impact Impact);
+
+    // The separation velocity that lands this tube's round where the probe's mean lands, solved from
+    // the probe's own state and flight time so nothing is flown twice. docs/ACCURACY-PLAN.md item 41.
+    private void FocusOnTheAim(IManualFire weapon, Slug released, ReleaseProbe? probe)
     {
-        if (Parent is not { } parent) return;
-        if (_warhead is not { } warhead) return;
+        string who = KsaWorld.DisplayName(Craft);
+        string what = RoundLabel.For(released.Tube);
+
+        try
+        {
+            if (probe is not { } from || Parent is not { } parent)
+            {
+                Log.Info($"focus on {who}: {what} not kicked -- no release probe to solve against");
+                return;
+            }
+
+            if (!weapon.TryTubeOffsetFromMeanEcl(released.Tube - 1, out double3 offsetEcl))
+            {
+                Log.Info($"focus on {who}: {what} not kicked -- its tube's offset would not resolve");
+                return;
+            }
+
+            double3 offsetCci = offsetEcl.Transform(parent.GetCce2Cci());
+
+            if (!ReleaseFocus.TryKick(Body, from.PositionCci, from.VelocityCci, from.Impact.Seconds,
+                                      offsetCci, out double3 kickCci))
+            {
+                Log.Info($"focus on {who}: {what} not kicked -- no kick solves on this arc");
+                return;
+            }
+
+            if (!released.TryAddSeparationVelocity(kickCci.Transform(parent.GetCci2Cce())))
+            {
+                Log.Info($"focus on {who}: {what} not kicked -- it has already flown a step");
+                return;
+            }
+
+            // The angle is what says it is a solve: -offset/T would read 180.
+            double angle = Vec.AngleBetween(kickCci, offsetCci) * 180.0 / Math.PI;
+
+            Log.Info($"focus on {who}: tube {released.Tube} sits {Vec.Len(offsetCci):F3} m off the "
+                     + $"tubes' mean, so {what} is kicked {Vec.Len(kickCci) * 1000.0:F3} mm/s, "
+                     + $"{angle:F1} deg from that offset, for a {from.Impact.Seconds:F0} s flight");
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"focus on {who}: {what} not kicked -- {e.Message}");
+        }
+    }
+
+    private ReleaseProbe? ProbeRelease()
+    {
+        if (Parent is not { } parent) return null;
+        if (_warhead is not { } warhead) return null;
 
         try
         {
@@ -2294,7 +2356,7 @@ internal sealed class IcbmComputer
                                             new ImpactPredictor.Drag(DensityRatioAt, warhead)))
             {
                 Log.Info("release probe: no impact predicted from the release state");
-                return;
+                return null;
             }
 
             double3 cce = hit.GroundFixedPointCci.Transform(parent.GetCci2Cce());
@@ -2332,10 +2394,13 @@ internal sealed class IcbmComputer
                       + $"{parent.GetLatitudeFromCce(cce):F3},{parent.GetLongitudeFromCce(cce):F3}, "
                       + $"{Distance.Say(miss)} from the target{resolved}, "
                       + $"{hit.Seconds:F0} s of flight{thrown}");
+
+            return new ReleaseProbe(positionCci, velocityCci, hit);
         }
         catch
         {
             // A probe that throws inside the frame hook is worse than one that says nothing.
+            return null;
         }
     }
 

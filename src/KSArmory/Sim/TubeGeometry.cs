@@ -87,6 +87,32 @@ public static class TubeGeometry
     }
 
     /// <summary>
+    /// Where one tube's mouth sits from the mean of all of them, in the launcher part's frame.
+    ///
+    /// <para>The mean is what a release prediction flies, so this is the whole of what one round
+    /// starts from that the prediction does not. Built in the part frame on purpose: turning it
+    /// into the world is a rotation and carries none of the ecliptic's motion, where differencing
+    /// two world positions would.</para>
+    /// </summary>
+    public static bool TryOffsetFromMeanPartFrame(LauncherProfile profile, int tubeIndex,
+                                                  double3 podPosition, doubleQuat podRotation,
+                                                  out double3 offset)
+    {
+        offset = Vec.Zero;
+        if (!TryMuzzlePartFrame(profile, tubeIndex, podPosition, podRotation, out double3 mine)) return false;
+
+        double3 sum = Vec.Zero;
+        for (int tube = 0; tube < profile.TubeCount; tube++)
+        {
+            if (!TryMuzzlePartFrame(profile, tube, podPosition, podRotation, out double3 mouth)) return false;
+            sum += mouth;
+        }
+
+        offset = mine - sum / profile.TubeCount;
+        return Vec.IsFinite(offset);
+    }
+
+    /// <summary>
     /// Where one barrel's muzzle sits in the launcher part's frame, given where the cannon
     /// currently are. False for a barrel this launcher does not have.
     /// </summary>

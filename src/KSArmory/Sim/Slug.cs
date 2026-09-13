@@ -124,6 +124,22 @@ internal sealed class Slug : IProjectile
         for (int i = 0; i < _trail.Count; i++) _trail[i] += offsetDelta;
     }
 
+    /// <summary>
+    /// Add a velocity the round leaves its tube with, on top of the one it was released with.
+    ///
+    /// <para>Refused once the round has taken a step. A kick is solved against the state the round
+    /// was released in, so one landing on a round already in flight is a velocity change nobody
+    /// solved for.</para>
+    /// </summary>
+    /// <param name="kickEcl">A velocity difference, so it carries no frame's motion.</param>
+    public bool TryAddSeparationVelocity(double3 kickEcl)
+    {
+        if (Age != 0.0 || State != RoundState.Flying || !Vec.IsFinite(kickEcl)) return false;
+
+        VelocityEcl += kickEcl;
+        return true;
+    }
+
     public double3 VelocityLocal => VelocityEcl - _frameVelocityEcl;
     public double Speed => Vec.Len(VelocityLocal);
     public double DistanceFlown { get; private set; }

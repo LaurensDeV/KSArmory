@@ -218,7 +218,7 @@ internal interface IManualFire : IWeaponPlatform, IWeaponLoadout
     ///
     /// <para>Averaged over the tubes because there is one aim for all of them and the cants cancel
     /// in the mean by construction. What each tube does <em>differently</em> is dispersion, and no
-    /// single aim can remove it.</para>
+    /// single aim can remove it — a velocity per round can, which is <see cref="ReleaseFocus"/>.</para>
     /// </summary>
     /// <param name="spinSpeed">
     /// How fast the tubes are being swept by the vehicle's own rotation, which is deliberately
@@ -228,6 +228,17 @@ internal interface IManualFire : IWeaponPlatform, IWeaponLoadout
     /// all, not to the prediction of where the round goes once released.
     /// </param>
     bool TryMeanReleaseStateEcl(out double3 positionEcl, out double3 velocityEcl, out double spinSpeed);
+
+    /// <summary>
+    /// Where one tube's mouth sits from the mean <see cref="TryMeanReleaseStateEcl"/> predicts from,
+    /// as a length in a direction.
+    ///
+    /// <para>Off the part frame and turned rather than differenced from world positions, so it carries
+    /// none of the ecliptic's ~29.8 km/s: 30 m of fictitious offset per millisecond of mismatch, which a
+    /// kick solved against it would fire faithfully into the ground.</para>
+    /// </summary>
+    /// <param name="tube">Counted from zero, in the order the profile lists them.</param>
+    bool TryTubeOffsetFromMeanEcl(int tube, out double3 offsetEcl);
 
     /// <summary>
     /// Whether a decoupler holds this launcher on, so it could be let off the stack it rode up.

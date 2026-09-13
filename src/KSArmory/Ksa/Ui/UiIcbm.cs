@@ -515,6 +515,16 @@ internal sealed partial class Ui
             + "put it. Off: only the travel comes off, and the query reads ground that has turned "
             + "under the round by a few metres.");
 
+        bool focus = config.FocusTubesOnTheAim;
+        if (ImGui.Checkbox("Warheads are kicked onto the tubes' mean impact", ref focus))
+        {
+            config.FocusTubesOnTheAim = focus;
+        }
+        Tip("On: each warhead leaves its tube with a few millimetres a second of its own, solved so "
+            + "the ring the tubes sit on does not land around the aim point. Off: every warhead leaves "
+            + "its own mouth with the same velocity, and the group lands as that ring's image -- a "
+            + "couple of metres across, turned by the bus's roll.");
+
         bool quiet = config.QuietCoast;
         if (ImGui.Checkbox("Let go of the attitude while coasting", ref quiet))
         {

@@ -333,6 +333,36 @@ internal static class LauncherPart
     }
 
     /// <summary>
+    /// Where one tube's mouth sits from the mean of all of them, turned into Ecl.
+    ///
+    /// <para>No position enters it — only the part frame and two rotations — so it pairs with any
+    /// sample of the craft taken this frame, where differencing two mouths' world positions would
+    /// carry whatever separates the instants they were read at.</para>
+    /// </summary>
+    public static bool TryGetTubeOffsetFromMeanEcl(Vehicle platform, Part launcher, Part? pods,
+                                                   LauncherProfile profile, int tubeIndex,
+                                                   out double3 offsetEcl)
+    {
+        offsetEcl = Vec.Zero;
+
+        try
+        {
+            if (!TubeGeometry.TryOffsetFromMeanPartFrame(profile, tubeIndex, PodOffset(pods),
+                                                         PodRotation(pods), out double3 inPart))
+            {
+                return false;
+            }
+
+            offsetEcl = platform.Asmb2Ego * (launcher.Asmb2VehicleAsmb * inPart);
+            return Vec.IsFinite(offsetEcl);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
     /// The same point as <see cref="TryGetTubeMuzzlePartFrame"/> in Ecl, for the round the
     /// simulation actually flies.
     /// </summary>

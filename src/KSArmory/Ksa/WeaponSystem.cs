@@ -1736,6 +1736,17 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         return Vec.IsFinite(positionEcl) && Vec.IsFinite(velocityEcl);
     }
 
+    /// <inheritdoc cref="IManualFire.TryTubeOffsetFromMeanEcl"/>
+    public bool TryTubeOffsetFromMeanEcl(int tube, out double3 offsetEcl)
+    {
+        offsetEcl = Vec.Zero;
+
+        if (Platform is null || Launcher is null || !TubesResolved || !Profile.LaunchAlongTube) return false;
+
+        return LauncherPart.TryGetTubeOffsetFromMeanEcl(Platform, Launcher, PodsPart, Profile, tube,
+                                                        out offsetEcl);
+    }
+
     public bool FireAt(double3 pointEcl)
     {
         if (!Vec.IsFinite(pointEcl)) { Announce("refused: designation is not a position"); return false; }

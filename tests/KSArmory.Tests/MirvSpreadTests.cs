@@ -10,6 +10,10 @@ namespace KSArmory.Tests;
 /// <para>A bus's tubes are canted six degrees at six clock positions, so each warhead is ejected on
 /// its own vector. There is one aim for all six, so no aim correction can remove it — the bus has
 /// to turn between releases and put each tube in turn on the same line.</para>
+///
+/// <para>Each leaves from its own mouth, a metre off the tubes' mean. Turning the bus cannot remove
+/// that ring, so re-pointed is a few tens of metres on this shallow arrival rather than one point;
+/// <see cref="ReleaseFocusTests"/> is what does.</para>
 /// </summary>
 public class MirvSpreadTests(ITestOutputHelper Out)
 {
@@ -45,7 +49,13 @@ public class MirvSpreadTests(ITestOutputHelper Out)
         Tube[] tubes = CantedRing.Tubes;
 
         double3[] axes = new double3[tubes.Length];
-        for (int i = 0; i < tubes.Length; i++) axes[i] = Vec.Unit(busAttitude * tubes[i].Direction);
+        double3 meanMouth = Vec.Zero;
+
+        for (int i = 0; i < tubes.Length; i++)
+        {
+            axes[i] = Vec.Unit(busAttitude * tubes[i].Direction);
+            meanMouth += tubes[i].Position / tubes.Length;
+        }
 
         double3 reference = ReleasePointing.ReferenceAxis(axes);
         double3[] landed = new double3[tubes.Length];
@@ -54,11 +64,14 @@ public class MirvSpreadTests(ITestOutputHelper Out)
         {
             // Through the function under test, not by asserting the answer: a re-pointed bus throws
             // along the reference because it has been turned there, which is the claim.
-            double3 thrown = repoint
-                ? Vec.Unit(ReleasePointing.Repoint(axes[tube], reference) * axes[tube])
-                : axes[tube];
+            doubleQuat turn = repoint ? ReleasePointing.Repoint(axes[tube], reference) : doubleQuat.Identity;
+            double3 thrown = Vec.Unit(turn * axes[tube]);
 
-            Assert.True(ImpactPredictor.TryPredict(Earth, fromCci,
+            // From its own mouth rather than the mean, carried round by the same turn: the ring is
+            // what re-pointing cannot remove.
+            double3 mouth = fromCci + turn * (busAttitude * (tubes[tube].Position - meanMouth));
+
+            Assert.True(ImpactPredictor.TryPredict(Earth, mouth,
                                                    velocityCci + (thrown * LoudKick.MetresPerSecond),
                                                    2.0, 20_000.0, out ImpactPredictor.Impact hit,
                                                    null, null,
@@ -77,7 +90,7 @@ public class MirvSpreadTests(ITestOutputHelper Out)
             }
         }
 
-        log?.WriteLine($"  {(repoint ? "re-pointed" : "as canted ")}: {worst:F0} m across the six");
+        log?.WriteLine($"  {(repoint ? "re-pointed" : "as canted ")}: {worst:F1} m across the six");
         return worst;
     }
 
@@ -104,8 +117,9 @@ public class MirvSpreadTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// And turning the bus so each tube fires along the mean brings them onto one impact. The
-    /// answer must not depend on the bus's roll — the cant is about the bus's own axis.
+    /// And turning the bus so each tube fires along the mean takes the cant's kilometre out, leaving
+    /// only the ring the mouths sit on. The answer must not depend on the bus's roll — the cant is
+    /// about the bus's own axis.
     /// </summary>
     [Theory]
     [InlineData(0.0)]

@@ -538,6 +538,23 @@ internal sealed class IcbmConfig
     /// </summary>
     public bool GroundQueryAtOwnEpoch = true;
 
+    /// <summary>
+    /// Give each warhead the separation velocity that lands it where the tubes' mean would —
+    /// <see cref="ReleaseFocus"/>.
+    ///
+    /// <para>Every release prediction is of the mean of the six mouths, and every round leaves its
+    /// own, on a 0.86 m ring square to the release line. So the aim loop lands the mean on the target
+    /// and the rounds on the ring's ground image around it, turned by a roll nothing holds: at a 32°
+    /// arrival a metre of offset lands 1.85 m downrange in the plane and 0.93 m across out of it. Over
+    /// 960 warheads the once-round harmonic in tube angle holds 0.958 of the variance within a group.
+    /// <c>docs/ACCURACY-PLAN.md</c> item 41.</para>
+    ///
+    /// <para><b>Off</b>, and not flown. Headless on the traced arc the kick is 1.5-2.4 mm/s and the
+    /// six go from 1.75 m across to 4 mm; over a ring the kicks sum to nothing, so the group's centre
+    /// and the aim loop reading it stay where they were. Five Kepler coasts a warhead.</para>
+    /// </summary>
+    public bool FocusTubesOnTheAim;
+
     /// <summary>Pointing error under which the coast hold lets go, in degrees.</summary>
     public double QuietCoastDeg = 0.5;
 
