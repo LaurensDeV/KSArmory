@@ -3,8 +3,8 @@ using Brutal.ImGuiApi;
 namespace KSArmory;
 
 /// <summary>
-/// What belongs to the session rather than to any one installation: the world clock, what gets
-/// drawn, and what gets heard.
+/// What belongs to the session rather than to any one installation: the world clock, the teams,
+/// what gets drawn, and what gets heard.
 ///
 /// <para>Separate from the per-system panes because the test in <c>CLAUDE.md</c> is whether two
 /// sites could sensibly disagree, and none of this passes it — there is one screen, one pair of
@@ -77,7 +77,7 @@ internal sealed partial class Ui
     }
 
     // Everything that belongs to the session and to playing with the mod: what is drawn, what is
-    // heard, and the one setting that changes how the weapons behave.
+    // heard, the teams, and the settings that change how the weapons behave.
     //
     // A window rather than a tree on the main panel, because the panel is a list of the systems in
     // the world and that list is the only thing on it that changes as the world does.
@@ -85,9 +85,44 @@ internal sealed partial class Ui
     {
         if (ImGui.CollapsingHeader("Display", ImGuiTreeNodeFlags.DefaultOpen)) DrawDisplayPane();
         if (ImGui.CollapsingHeader("Sound")) DrawSoundPane();
+        if (ImGui.CollapsingHeader("Teams", ImGuiTreeNodeFlags.DefaultOpen)) DrawTeamsPane();
 
         ImGui.SeparatorText("Weapons");
         DrawWarpHold();
+    }
+
+    // The roster of team names. The session's rather than a craft's, because a name labels a craft
+    // the same way whoever is looking at it; which side each installation takes stays with it.
+    private void DrawTeamsPane()
+    {
+        List<string> teams = _config.TeamNames;
+        string? removed = null;
+
+        if (teams.Count == 0) ImGui.TextDisabled("No teams: every contact classifies as Unknown.");
+
+        for (int i = 0; i < teams.Count; i++)
+        {
+            ImGui.TextColored(TeamColour(i), teams[i]);
+            ImGui.SameLine();
+
+            ImGui.PushID(i);
+            if (ImGui.SmallButton("Remove")) removed = teams[i];
+            Tip("Takes every craft off this team, and out of every craft's allied and neutral lists.");
+            ImGui.PopID();
+        }
+
+        // After the loop, so the list is not shortened under the index walking it.
+        if (removed is not null) ForgetTeam(removed);
+
+        if (TextField("Add team", ref _newTeamEntry) && Teams.Declare(teams, _newTeamEntry) is not null)
+        {
+            _newTeamEntry = string.Empty;
+        }
+
+        ImGui.SameLine();
+        Help("KSA has no team field. A craft joins a team when the team's name appears anywhere in "
+             + "its name, so \"Red\" also matches \"Redstone\". Longest match wins. Name teams "
+             + "distinctly.");
     }
 
     // The developer tools, in a window of their own rather than a section of the settings one.

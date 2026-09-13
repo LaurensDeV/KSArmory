@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-173 types and 501 members across 7 assemblies.
+174 types and 509 members across 7 assemblies.
 
 ## Brutal.Concurrency
 
@@ -161,6 +161,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `bool BeginItemTooltip()`
 - `bool BeginMainMenuBar()`
 - `bool BeginMenu(Brutal.ImGuiApi.ImString, bool)`
+- `bool BeginPopup(Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiWindowFlags)`
 - `bool BeginTabBar(Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiTabBarFlags)`
 - `bool BeginTabItem(Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiTabItemFlags)`
 - `bool BeginTable(Brutal.ImGuiApi.ImString, int, Brutal.ImGuiApi.ImGuiTableFlags, ref System.Nullable`1<Brutal.Numerics.float2>, float)`
@@ -170,11 +171,14 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `bool InputDouble(Brutal.ImGuiApi.ImString, ref double, double, double, Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiInputTextFlags)`
 - `bool InputText(Brutal.ImGuiApi.ImString, System.ReadOnlySpan`1<byte>, Brutal.ImGuiApi.ImGuiInputTextFlags, Brutal.ImGuiApi.ImGuiInputTextCallback, Brutal.Pointers.Ptr)`
 - `bool InputTextMultiline(Brutal.ImGuiApi.ImString, System.ReadOnlySpan`1<byte>, ref System.Nullable`1<Brutal.Numerics.float2>, Brutal.ImGuiApi.ImGuiInputTextFlags, Brutal.ImGuiApi.ImGuiInputTextCallback, Brutal.Pointers.Ptr)`
+- `bool InputTextWithHint(Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImString, System.ReadOnlySpan`1<byte>, Brutal.ImGuiApi.ImGuiInputTextFlags, Brutal.ImGuiApi.ImGuiInputTextCallback, Brutal.Pointers.Ptr)`
 - `bool IsItemClicked(Brutal.ImGuiApi.ImGuiMouseButton)`
 - `bool IsItemHovered(Brutal.ImGuiApi.ImGuiHoveredFlags)`
 - `bool IsMouseClicked(Brutal.ImGuiApi.ImGuiMouseButton, bool)`
 - `bool IsMouseDown(Brutal.ImGuiApi.ImGuiMouseButton)`
+- `bool IsWindowAppearing()`
 - `bool IsWindowHovered(Brutal.ImGuiApi.ImGuiHoveredFlags)`
+- `bool MenuItem(Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImString, bool, bool)`
 - `bool MenuItem(Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImString, ref bool, bool)`
 - `bool RadioButton(Brutal.ImGuiApi.ImString, bool)`
 - `bool Selectable(Brutal.ImGuiApi.ImString, bool, Brutal.ImGuiApi.ImGuiSelectableFlags, ref System.Nullable`1<Brutal.Numerics.float2>)`
@@ -189,16 +193,19 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `float GetTextLineHeight()`
 - `uint ColorConvertFloat4ToU32(ref Brutal.Numerics.float4)`
 - `void BeginDisabled(bool)`
+- `void CloseCurrentPopup()`
 - `void Dummy(ref Brutal.Numerics.float2)`
 - `void End()`
 - `void EndDisabled()`
 - `void EndMainMenuBar()`
 - `void EndMenu()`
+- `void EndPopup()`
 - `void EndTabBar()`
 - `void EndTabItem()`
 - `void EndTable()`
 - `void EndTooltip()`
 - `void NewLine()`
+- `void OpenPopup(Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiPopupFlags)`
 - `void PopID()`
 - `void PopStyleColor(int)`
 - `void PopTextWrapPos()`
@@ -209,6 +216,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `void SameLine(float, float)`
 - `void Separator()`
 - `void SeparatorText(Brutal.ImGuiApi.ImString)`
+- `void SetKeyboardFocusHere(int)`
 - `void SetNextItemWidth(float)`
 - `void SetNextWindowBgAlpha(float)`
 - `void SetNextWindowPos(ref Brutal.Numerics.float2, Brutal.ImGuiApi.ImGuiCond, ref System.Nullable`1<Brutal.Numerics.float2>)`
@@ -252,6 +260,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 *referenced as a type only*
 
 ### Brutal.ImGuiApi.ImGuiMouseButton
+
+*referenced as a type only*
+
+### Brutal.ImGuiApi.ImGuiPopupFlags
 
 *referenced as a type only*
 

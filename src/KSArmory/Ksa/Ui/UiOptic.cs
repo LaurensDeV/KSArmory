@@ -244,12 +244,6 @@ internal sealed partial class Ui
         DrawDirectorIff(head, policy);
     }
 
-    // Who this director will look at. Its own, not the weapon's: a head finds its own targets
-    // through its own sensor, and a craft can carry one with no armament at all.
-    //
-    // The team is picked off the session roster rather than typed. A second free-text box would
-    // share _ownTeamEntry with the weapon's, so typing in one would show in the other; and the
-    // roster is the list of names that exist, which is what a picker wants anyway.
     // What the head is following right now, and the only way to stop it.
     //
     // A status, kept apart from the team picker below, which is a policy: one says what the head is
@@ -279,6 +273,9 @@ internal sealed partial class Ui
         ImGui.TextDisabled("  shift-click the world to point it at something");
     }
 
+    // Who this director will look at. Its own, not the weapon's: a head finds its own targets
+    // through its own sensor, and a craft can carry one with no armament at all. The team is picked
+    // off the session's roster, which is the list of names that exist.
     private void DrawDirectorIff(OpticalHead head, OpticConfig policy)
     {
         IffPolicy iff = policy.Iff;
@@ -293,7 +290,7 @@ internal sealed partial class Ui
         // explained an implementation decision to somebody who never asked.
         if (_config.TeamNames.Count == 0)
         {
-            ImGui.TextDisabled("no teams declared; add one under Teams and IFF to sort contacts");
+            ImGui.TextDisabled("no teams declared; add them under KSArmory settings to sort contacts");
             return;
         }
 

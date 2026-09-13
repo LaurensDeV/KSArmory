@@ -306,13 +306,26 @@ public class IffTests
 
     private static readonly string[] Declared = ["Red", "Blue", "Green"];
 
+    /// <summary>
+    /// No team is not a stop on the way round, so every team is reached without passing through
+    /// it. Taking a craft off every team is the flag's right-click menu.
+    /// </summary>
     [Fact]
-    public void TheFlagStepsThroughTheDeclaredTeamsThenNone()
+    public void TheFlagStepsThroughTheDeclaredTeamsAndWrapsToTheFirst()
     {
         Assert.Equal("Red", Teams.Next(null, Declared));
         Assert.Equal("Blue", Teams.Next("Red", Declared));
         Assert.Equal("Green", Teams.Next("Blue", Declared));
-        Assert.Null(Teams.Next("Green", Declared));
+        Assert.Equal("Red", Teams.Next("Green", Declared));
+    }
+
+    [Fact]
+    public void WithTwoTeamsTheFlagIsAToggle()
+    {
+        string[] two = ["Cats", "Dogs"];
+
+        Assert.Equal("Dogs", Teams.Next("Cats", two));
+        Assert.Equal("Cats", Teams.Next("Dogs", two));
     }
 
     [Fact]
@@ -332,5 +345,55 @@ public class IffTests
     {
         Assert.Null(Teams.Next(null, []));
         Assert.Null(Teams.Next("Red", []));
+    }
+
+    // ---- Declaring and removing teams ------------------------------------
+
+    [Fact]
+    public void ADeclaredTeamIsTrimmedAndABlankOneIsNot()
+    {
+        List<string> roster = [];
+
+        Assert.Equal("Cats", Teams.Declare(roster, "  Cats "));
+        Assert.Null(Teams.Declare(roster, "   "));
+        Assert.Null(Teams.Declare(roster, null));
+        Assert.Equal(new[] { "Cats" }, roster);
+    }
+
+    /// <summary>
+    /// A name typed in another case is the team that already exists, and the craft is put on the
+    /// roster's spelling: two entries differing only in case would be one team listed twice.
+    /// </summary>
+    [Fact]
+    public void DeclaringATeamThatExistsInAnotherCaseAnswersWithTheOneThatExists()
+    {
+        List<string> roster = ["Cats"];
+
+        Assert.Equal("Cats", Teams.Declare(roster, "cats"));
+        Assert.Single(roster);
+    }
+
+    /// <summary>
+    /// A policy still holding a removed team still has a side: every team reads hostile against it,
+    /// while the switcher lists its craft under No team.
+    /// </summary>
+    [Fact]
+    public void ForgettingATeamTakesItOutOfEveryPartOfThePolicy()
+    {
+        var own = new IffPolicy { OwnTeam = "Cats" };
+        own.Forget("cats");
+
+        Assert.Null(own.OwnTeam);
+        Assert.Equal(Allegiance.Unknown, own.Classify("Dogs"));
+
+        var other = new IffPolicy { OwnTeam = "Dogs" };
+        other.AlliedTeams.Add("Cats");
+        other.NeutralTeams.Add("Birds");
+        other.Forget("Cats");
+        other.Forget("Birds");
+
+        Assert.Equal("Dogs", other.OwnTeam);
+        Assert.Empty(other.AlliedTeams);
+        Assert.Empty(other.NeutralTeams);
     }
 }

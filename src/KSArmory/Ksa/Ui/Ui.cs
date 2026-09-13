@@ -43,8 +43,8 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     private readonly List<OpticalHeads.Entry> _headScratch = [];
     private readonly List<WeaponSystems.Entry> _weaponScratch = [];
     private KSA.Vehicle? _managed;
-    private string _ownTeamEntry = string.Empty;
     private string _newTeamEntry = string.Empty;
+    private string _menuTeamEntry = string.Empty;
 
     public bool Visible = true;
 
@@ -490,30 +490,75 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
             + "the burst, or about two seconds after the round has nothing left to arrive at.");
     }
 
+    // A click opens the menu, because it is the control a new player tries first and creating the
+    // first team is in it. Right-click steps to the next team without opening anything.
     private void DrawTeamButton(KSA.Vehicle craft)
     {
-        IReadOnlyList<string> teams = _config.TeamNames;
+        List<string> teams = _config.TeamNames;
         string? team = TeamOf(craft);
         int group = GroupOf(team, teams);
 
         ImColor8 ink = group < teams.Count ? Ink(TeamColour(group)) : OffInk;
 
-        if (IconButton("##team", Icon.Flag, ink, lit: false) && teams.Count > 0)
+        if (IconButton("##team", Icon.Flag, ink, lit: false)) ImGui.OpenPopup("##teams");
+
+        // Straight after the button, while it is still the last item.
+        if (ImGui.IsItemClicked(ImGuiMouseButton.Right) && teams.Count > 0)
         {
-            string? next = Teams.Next(team, teams);
-
-            foreach (WeaponSystems.Entry e in _rowSystems) e.Policy.Iff.OwnTeam = next;
-            foreach (OpticalHeads.Entry h in _rowHeads) h.Policy.Iff.OwnTeam = next;
-
-            // The Teams and IFF tab edits a text buffer of its own, which would go on showing the
-            // team this replaced.
-            if (ReferenceEquals(craft, Focused)) _ownTeamEntry = next ?? string.Empty;
+            SetTeam(Teams.Next(team, teams));
         }
 
-        Tip(teams.Count == 0
-            ? "No teams declared yet. Add them on the Teams and IFF tab of any craft's window."
-            : $"On {team ?? "no team"}: the side it fights for, which its IFF sorts every contact "
-              + "against. Click for the next declared team.");
+        Tip($"On {team ?? "no team"}: the side it fights for, which its IFF sorts every contact "
+            + (teams.Count == 0
+               ? "against. Click to create the first team."
+               : "against. Click to pick a team or create one, or right-click for the next team."));
+
+        if (!ImGui.BeginPopup("##teams")) return;
+
+        DrawTeamMenu(teams, team, group);
+        ImGui.EndPopup();
+    }
+
+    private void DrawTeamMenu(List<string> teams, string? team, int group)
+    {
+        for (int i = 0; i < teams.Count; i++)
+        {
+            ImGui.PushStyleColor(ImGuiCol.Text, TeamColour(i));
+            if (ImGui.MenuItem($"{teams[i]}##{i}", string.Empty, group == i)) SetTeam(teams[i]);
+            ImGui.PopStyleColor();
+        }
+
+        if (teams.Count > 0) ImGui.Separator();
+
+        ImGui.PushStyleColor(ImGuiCol.Text, Grey);
+        if (ImGui.MenuItem("No team", string.Empty, team is null)) SetTeam(null);
+        ImGui.PopStyleColor();
+
+        ImGui.Separator();
+
+        if (ImGui.IsWindowAppearing())
+        {
+            _menuTeamEntry = string.Empty;
+
+            // With nothing to pick, creating a team is the only reason the menu is open.
+            if (teams.Count == 0) ImGui.SetKeyboardFocusHere(0);
+        }
+
+        ImGui.SetNextItemWidth(ImGui.GetFontSize() * 10f);
+        if (TextField("##newteam", ref _menuTeamEntry, "New team")
+            && Teams.Declare(teams, _menuTeamEntry) is { } created)
+        {
+            SetTeam(created);
+            ImGui.CloseCurrentPopup();
+        }
+        Tip("Type a name and press Enter to create the team and put this craft on it.");
+    }
+
+    // Every system and director on the row's craft: a craft fights for one side.
+    private void SetTeam(string? team)
+    {
+        foreach (WeaponSystems.Entry e in _rowSystems) e.Policy.Iff.OwnTeam = team;
+        foreach (OpticalHeads.Entry h in _rowHeads) h.Policy.Iff.OwnTeam = team;
     }
 
     // The side an installation fights for: its selected weapon's, or its director's when it
@@ -828,13 +873,14 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         else set.Remove(team);
     }
 
-    private void Remember(string? team)
+    // Out of every policy in the world rather than the one on screen: a policy still holding a
+    // removed team keeps it as its side.
+    private void ForgetTeam(string team)
     {
-        if (string.IsNullOrWhiteSpace(team)) return;
-        if (!_config.TeamNames.Contains(team, StringComparer.OrdinalIgnoreCase))
-        {
-            _config.TeamNames.Add(team);
-        }
+        _config.TeamNames.RemoveAll(t => string.Equals(t, team, StringComparison.OrdinalIgnoreCase));
+
+        foreach (WeaponSystems.Entry e in _batteries.All) e.Policy.Iff.Forget(team);
+        foreach (OpticalHeads.Entry h in _heads.All) h.Policy.Iff.Forget(team);
     }
 
     private static float4 AllegianceColour(Allegiance a) => a switch
@@ -847,16 +893,17 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
 
     // ImGui.InputText wants a fixed byte buffer, so each field owns one and the string is
     // marshalled either side of the call.
-    private static bool TextField(string label, ref string value)
+    private static bool TextField(string label, ref string value, string? hint = null)
     {
         Span<byte> buffer = stackalloc byte[64];
         int written = System.Text.Encoding.UTF8.GetBytes(value.AsSpan(), buffer);
         buffer[Math.Min(written, buffer.Length - 1)] = 0;
 
-        if (!ImGui.InputText(label, buffer, ImGuiInputTextFlags.EnterReturnsTrue, null, default))
-        {
-            return false;
-        }
+        bool entered = hint is null
+            ? ImGui.InputText(label, buffer, ImGuiInputTextFlags.EnterReturnsTrue, null, default)
+            : ImGui.InputTextWithHint(label, hint, buffer, ImGuiInputTextFlags.EnterReturnsTrue, null, default);
+
+        if (!entered) return false;
 
         int end = buffer.IndexOf((byte)0);
         value = System.Text.Encoding.UTF8.GetString(buffer[..(end < 0 ? buffer.Length : end)]);

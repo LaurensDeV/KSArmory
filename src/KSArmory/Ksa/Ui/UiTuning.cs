@@ -12,33 +12,25 @@ namespace KSArmory;
 /// </summary>
 internal sealed partial class Ui
 {
+    // Which side this one system takes against the session's teams, which are declared in the
+    // settings window. Picked off that roster rather than typed, so a typo cannot declare a team.
     private void DrawIff()
     {
-        if (TextField("Own team", ref _ownTeamEntry))
+        ImGui.Text($"Own team: {_policy.Iff.OwnTeam ?? "none"}");
+        Tip("This system's alone. The flag beside the craft in the panel's list sets every weapon "
+            + "and director on it at once.");
+        if (_policy.Iff.OwnTeam is null)
         {
-            _policy.Iff.OwnTeam = string.IsNullOrWhiteSpace(_ownTeamEntry) ? null : _ownTeamEntry.Trim();
-            Remember(_policy.Iff.OwnTeam);
-        }
-
-        ImGui.SameLine();
-        Help("KSA has no team field. A craft joins a team when the team's name appears anywhere in "
-             + "its name, so \"Red\" also matches \"Redstone\". Longest match wins. Name teams "
-             + "distinctly.");
-        ImGui.SameLine();
-        ImGui.TextDisabled(_policy.Iff.OwnTeam is null ? "(none - everything is Unknown)" : "");
-
-        if (TextField("Add team", ref _newTeamEntry) && !string.IsNullOrWhiteSpace(_newTeamEntry))
-        {
-            Remember(_newTeamEntry.Trim());
-            _newTeamEntry = string.Empty;
+            ImGui.SameLine();
+            ImGui.TextDisabled("- everything is Unknown");
         }
 
         if (_config.TeamNames.Count == 0)
         {
-            ImGui.TextDisabled("  no teams declared; every contact classifies as Unknown");
+            ImGui.TextDisabled("  no teams declared; add them under KSArmory settings");
         }
 
-        for (int i = _config.TeamNames.Count - 1; i >= 0; i--)
+        for (int i = 0; i < _config.TeamNames.Count; i++)
         {
             string team = _config.TeamNames[i];
             bool own = string.Equals(team, _policy.Iff.OwnTeam, StringComparison.OrdinalIgnoreCase);
@@ -46,35 +38,31 @@ internal sealed partial class Ui
             bool allied = _policy.Iff.AlliedTeams.Contains(team);
             bool neutral = _policy.Iff.NeutralTeams.Contains(team);
 
-            ImGui.TextColored(AllegianceColour(_policy.Iff.Classify(team)), $"  {team}");
-            ImGui.SameLine();
+            ImGui.PushID(i);
 
-            if (own)
+            ImGui.PushStyleColor(ImGuiCol.Text, AllegianceColour(_policy.Iff.Classify(team)));
+            if (ImGui.RadioButton(team, own)) _policy.Iff.OwnTeam = own ? null : team;
+            ImGui.PopStyleColor();
+            Tip(own ? "This system's own team. Click to take it off." : "Click to make it this system's own team.");
+
+            if (!own)
             {
-                ImGui.TextDisabled("own team");
-            }
-            else
-            {
-                if (ImGui.Checkbox($"allied##a{i}", ref allied))
+                ImGui.SameLine();
+                if (ImGui.Checkbox("allied", ref allied))
                 {
                     Toggle(_policy.Iff.AlliedTeams, team, allied);
                     if (allied) _policy.Iff.NeutralTeams.Remove(team);
                 }
+
                 ImGui.SameLine();
-                if (ImGui.Checkbox($"neutral##n{i}", ref neutral))
+                if (ImGui.Checkbox("neutral", ref neutral))
                 {
                     Toggle(_policy.Iff.NeutralTeams, team, neutral);
                     if (neutral) _policy.Iff.AlliedTeams.Remove(team);
                 }
             }
 
-            ImGui.SameLine();
-            if (ImGui.Button($"remove##t{i}"))
-            {
-                _config.TeamNames.RemoveAt(i);
-                _policy.Iff.AlliedTeams.Remove(team);
-                _policy.Iff.NeutralTeams.Remove(team);
-            }
+            ImGui.PopID();
         }
 
         ImGui.Separator();

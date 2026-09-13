@@ -54,9 +54,10 @@ public static class Teams
     }
 
     /// <summary>
-    /// The team after <paramref name="current"/> in the declared order, then none, then the first
-    /// again — what a switcher row's flag steps through. A team no longer declared steps to the
-    /// first, and with nothing declared there is nothing to step to.
+    /// The team after <paramref name="current"/> in the declared order, wrapping to the first —
+    /// what a switcher row's flag steps through. None is not a stop on the way round, so two teams
+    /// are one click apart; none and a team no longer declared both step to the first, and with
+    /// nothing declared there is nothing to step to.
     /// </summary>
     public static string? Next(string? current, IReadOnlyList<string> teamNames)
     {
@@ -67,11 +68,34 @@ public static class Teams
         {
             if (string.Equals(teamNames[i], current, StringComparison.OrdinalIgnoreCase))
             {
-                return i + 1 < teamNames.Count ? teamNames[i + 1] : null;
+                return teamNames[(i + 1) % teamNames.Count];
             }
         }
 
         return teamNames[0];
+    }
+
+    /// <summary>
+    /// Adds a team to the roster, trimmed, and answers with the name as the roster holds it. A blank
+    /// name declares nothing, and one already there in any case is that team, because teams are
+    /// matched without regard to case everywhere else.
+    /// </summary>
+    public static string? Declare(List<string> teamNames, string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return null;
+
+        string trimmed = name.Trim();
+
+        for (int i = 0; i < teamNames.Count; i++)
+        {
+            if (string.Equals(teamNames[i], trimmed, StringComparison.OrdinalIgnoreCase))
+            {
+                return teamNames[i];
+            }
+        }
+
+        teamNames.Add(trimmed);
+        return trimmed;
     }
 }
 
@@ -142,4 +166,17 @@ public sealed class IffPolicy
 
     /// <summary>Classify and decide in one step.</summary>
     public bool MayEngageTeam(string? contactTeam) => MayEngage(Classify(contactTeam));
+
+    /// <summary>
+    /// Takes a team out of this policy entirely, for a team no longer declared. A policy still
+    /// holding it as its own still has a side: every other team reads hostile against it, while the
+    /// switcher lists its craft under No team.
+    /// </summary>
+    public void Forget(string team)
+    {
+        if (string.Equals(OwnTeam, team, StringComparison.OrdinalIgnoreCase)) OwnTeam = null;
+
+        AlliedTeams.Remove(team);
+        NeutralTeams.Remove(team);
+    }
 }
