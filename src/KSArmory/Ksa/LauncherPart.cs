@@ -545,23 +545,20 @@ internal static class LauncherPart
     }
 
     /// <summary>
-    /// Puts a round body where its simulated round actually is, pointing the way it is going.
+    /// Puts a round body where its simulated round actually is, at the attitude it is drawn at.
     ///
-    /// <para><paramref name="travelEcl"/> and <paramref name="directionEcl"/> come straight off
-    /// the <see cref="Interceptor"/>: the travel since launch and an airspeed vector, both in
-    /// Ecl. Two rotations take them into the subpart's frame — the vehicle's attitude, then the
-    /// launcher part's own mounting — because <c>PositionParentAsmb</c> is measured in the
-    /// parent part's frame, not the vehicle's.</para>
-    ///
-    /// <para>The mesh is modelled nose-along-+X, so the orientation is whatever rotation carries
-    /// +X onto the flight direction.</para>
+    /// <para><paramref name="travelEcl"/> comes straight off the round and
+    /// <paramref name="attitudeEcl"/> off <see cref="BodyAttitude.Turn"/>, both in Ecl. Two
+    /// rotations take them into the subpart's frame — the vehicle's attitude, then the launcher
+    /// part's own mounting — because <c>PositionParentAsmb</c> is measured in the parent part's
+    /// frame, not the vehicle's.</para>
     /// </summary>
     public static bool TryPlaceMissile(
         Vehicle platform, Part launcher, Part missile,
-        double3 launchAnchorPartFrame, double3 travelEcl, double3 directionEcl,
-        double3 releaseHeadingEcl, doubleQuat launchAttitude)
+        double3 launchAnchorPartFrame, double3 travelEcl, doubleQuat attitudeEcl,
+        doubleQuat launchAttitude)
         => TryPlaceMissile(platform, launcher, missile, launchAnchorPartFrame, travelEcl,
-                           directionEcl, releaseHeadingEcl, launchAttitude, out _, out _);
+                           attitudeEcl, launchAttitude, out _, out _);
 
     /// <summary>
     /// As above, and reports the transform it used so a fin set can be hung on the same one -
@@ -569,8 +566,8 @@ internal static class LauncherPart
     /// </summary>
     public static bool TryPlaceMissile(
         Vehicle platform, Part launcher, Part missile,
-        double3 launchAnchorPartFrame, double3 travelEcl, double3 directionEcl,
-        double3 releaseHeadingEcl, doubleQuat launchAttitude,
+        double3 launchAnchorPartFrame, double3 travelEcl, doubleQuat attitudeEcl,
+        doubleQuat launchAttitude,
         out double3 position, out doubleQuat rotation)
     {
         position = Vec.Zero;
@@ -592,8 +589,7 @@ internal static class LauncherPart
                                                           ecl2Asmb, asmb2Part, sinceLaunch);
             if (!Vec.IsFinite(position)) return false;
 
-            rotation = TubeGeometry.BodyRotationPartFrame(directionEcl, releaseHeadingEcl,
-                                                          launchAttitude, ecl2Asmb, asmb2Part);
+            rotation = TubeGeometry.BodyRotationPartFrame(attitudeEcl, ecl2Asmb, asmb2Part);
 
             missile.PositionParentAsmb = position;
             missile.PositionParentAsmbSafe = position;
@@ -610,6 +606,20 @@ internal static class LauncherPart
         }
     }
 
+
+    /// <summary>The attitude a round leaves this launcher at. See <see cref="TubeGeometry.ReleaseAttitudeEcl"/>.</summary>
+    public static doubleQuat ReleaseAttitudeEcl(Part launcher, double3 releaseHeadingEcl, doubleQuat launchAttitude)
+    {
+        try
+        {
+            return TubeGeometry.ReleaseAttitudeEcl(releaseHeadingEcl, launchAttitude,
+                                                   doubleQuat.Conjugate(launcher.Asmb2VehicleAsmb));
+        }
+        catch
+        {
+            return FireGeometry.RotationFromNose(releaseHeadingEcl);
+        }
+    }
 
     private static Part? FindSubPart(Part launcher, string? marker)
     {

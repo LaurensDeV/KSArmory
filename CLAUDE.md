@@ -1584,12 +1584,15 @@ subparts, scaled to nothing until fired, with their transform written each frame
   flight-path angle one for one: **51° over a 5 km drop**, at 1–5°/s. Solving in the part frame
   glues it to the craft besides, a degree per degree the launcher turns on rounds already gone. The
   fins are not involved — `FinMixer` is drawn only, and no fin model holds a roll the drawing
-  invents. So a body leaves at the launcher's roll and swings onto where it points now along the
-  **great circle from where it left**, the one path that adds none. Stateless, because
-  `ReleaseHeadingEcl` and `LaunchAttitude` already record the release, and it is `AimFrame`'s
-  carry-the-reference-forward answer again.
+  invents. So a body leaves at the launcher's roll and is **turned on from where it was last
+  drawn**, a frame's turn at a time about the axis square to its nose and the airflow, which adds
+  none — at a rate the dynamic pressure sets. Not re-derived from the release each frame: a store
+  thrown upwards comes down facing the other way, there is no one turn between opposite directions,
+  and a derived attitude flipped over the top of the climb and rolled 2.2° a frame about its nose
+  on the way down. It is `AimFrame`'s carry-the-reference-forward answer again.
 
-`RoundBodyAnchorTests` and `FireGeometryTests` hold the first two, `TubeGeometryTests` the third.
+`RoundBodyAnchorTests` and `FireGeometryTests` hold the first two, `TubeGeometryTests` and
+`ThrownStoreAttitudeTests` the third.
 
 **A scenario cannot place a craft through the *system XML*, but the mod can place one itself.**
 `LoadVehicleFromLibrary` in a system XML resolves through `DefaultVehicleSaves`, whose

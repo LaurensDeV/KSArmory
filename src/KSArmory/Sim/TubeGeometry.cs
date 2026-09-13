@@ -387,58 +387,37 @@ public static class TubeGeometry
     }
 
     /// <summary>
-    /// Which way a round in flight points — nose <em>and</em> roll — in the launcher part's frame.
-    /// <paramref name="directionEcl"/> must be the round's <em>local</em> velocity: Ecl velocity
-    /// carries ~29.8 km/s of orbital motion and would point every round the same way.
+    /// The attitude a round leaves at, body to ecliptic: as it sat in its tube, at the launcher's
+    /// own roll.
     ///
     /// <para><b>A nose direction does not decide a rotation, and the leftover is the roll.</b>
-    /// Swinging the mesh's nose axis onto the flight direction by the shortest arc leaves that
-    /// roll to whatever the arc happens to give — which is a function of the direction, so it
-    /// changes as the round noses over. The mesh's nose is square to the plane a fall sweeps
-    /// through, and the residual then tracks the flight-path angle one for one: 51° of roll over a
-    /// 5 km drop, 59° over a 2 km one, at 1–5°/s. A missile barely shows it because proportional
-    /// navigation hardly turns; a bomb is the round whose direction changes by tens of degrees.
-    /// Nothing aerodynamic is involved either way — <see cref="FinMixer"/> is drawn only.</para>
-    ///
-    /// <para>So the attitude is built <em>in the ecliptic</em> and carried into the part frame
-    /// afterwards, rather than being solved in the part frame. It leaves the tube at the
-    /// launcher's own roll and is swung onto where it points now along the great circle from where
-    /// it left, which is the one path that adds no roll about the nose. Building it in the part
-    /// frame instead glues the roll to the launching craft: measured at a degree of roll per degree
-    /// the craft turns, on rounds that had already gone. Same rule as
-    /// <see cref="IProjectile.ReleaseHeadingEcl"/>, which fixed the nose for that reason and left
-    /// the roll.</para>
-    ///
-    /// <para>The path is forgotten, not integrated, so a round that reverses through exactly half a
-    /// turn from its release heading has no great circle to travel and
-    /// <see cref="Vec.RotationFromTo"/>'s snap decides its roll. Nothing this mod fires does that;
-    /// a bomb turns through less than a right angle.</para>
+    /// Swinging the mesh's nose onto the flight direction by the shortest arc leaves that roll to
+    /// whatever the arc happens to give, which changes as the round noses over: 51° of roll over a
+    /// 5 km drop, at 1–5°/s. Nothing aerodynamic is involved either way — <see cref="FinMixer"/> is
+    /// drawn only. So the attitude lives <em>in the ecliptic</em>, starts here, and
+    /// <see cref="BodyAttitude.Turn"/> carries it a frame's turn at a time, which adds no roll about
+    /// the nose. Building it in the part frame instead glues the roll to the launching craft:
+    /// measured at a degree of roll per degree the craft turns, on rounds that had already
+    /// gone.</para>
     /// </summary>
-    /// <param name="releaseHeadingEcl">
-    /// What it left along, captured at launch. Degenerate falls back to the shortest arc, which is
-    /// the old behaviour and still points the nose correctly.
-    /// </param>
-    /// <param name="launchAttitude">The platform's attitude when it left, as Asmb2Ecl.</param>
-    public static doubleQuat BodyRotationPartFrame(double3 directionEcl, double3 releaseHeadingEcl,
-                                                   doubleQuat launchAttitude,
-                                                   doubleQuat ecl2Asmb, doubleQuat asmb2Part)
+    /// <param name="releaseHeadingEcl">What it left along, captured at launch.</param>
+    /// <param name="launchAttitude">The platform's attitude when it left, as Asmb2Ecl. Unset falls
+    /// back to the shortest arc onto the heading, which still points the nose correctly.</param>
+    public static doubleQuat ReleaseAttitudeEcl(double3 releaseHeadingEcl, doubleQuat launchAttitude,
+                                                doubleQuat asmb2Part)
     {
-        doubleQuat ecl2Part = asmb2Part * ecl2Asmb;
+        if (!Vec.IsFinite(releaseHeadingEcl) || Vec.Len2(releaseHeadingEcl) < 1e-9) return doubleQuat.Identity;
+        if (!IsRotation(launchAttitude)) return FireGeometry.RotationFromNose(releaseHeadingEcl);
 
-        if (!IsRotation(launchAttitude) || !Vec.IsFinite(releaseHeadingEcl)
-            || Vec.Len2(releaseHeadingEcl) < 1e-9)
-        {
-            return FireGeometry.RotationFromNose(ecl2Part * directionEcl);
-        }
-
-        // The body as it sat in its tube, then that same attitude in the ecliptic -- which is the
-        // frame it stops being the launcher's business in.
         doubleQuat ecl2PartAtLaunch = asmb2Part * doubleQuat.Conjugate(launchAttitude);
         doubleQuat seated = FireGeometry.RotationFromNose(ecl2PartAtLaunch * releaseHeadingEcl);
-        doubleQuat atRelease = doubleQuat.Conjugate(ecl2PartAtLaunch) * seated;
-
-        return ecl2Part * (Vec.RotationFromTo(releaseHeadingEcl, directionEcl) * atRelease);
+        return doubleQuat.Conjugate(ecl2PartAtLaunch) * seated;
     }
+
+    /// <summary>A body's ecliptic attitude, as the rotation its subpart is written with.</summary>
+    public static doubleQuat BodyRotationPartFrame(doubleQuat attitudeEcl, doubleQuat ecl2Asmb,
+                                                   doubleQuat asmb2Part)
+        => asmb2Part * ecl2Asmb * attitudeEcl;
 
     /// <summary>
     /// Per-axis scale for a fin set. X is along the body, so length is untouched and Y and Z carry

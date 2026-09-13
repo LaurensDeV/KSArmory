@@ -60,8 +60,9 @@ public class ReleaseAttitudeTests
     {
         double3 fast = new(0, 0, 900);              // nothing like the release heading
 
-        double3 drawn = BodyAttitude.Heading(fast, Tube, mediumDensityRatio: 0.0);
+        doubleQuat released = TubeGeometry.ReleaseAttitudeEcl(Tube, doubleQuat.Identity, doubleQuat.Identity);
+        doubleQuat drawn = BodyAttitude.Turn(released, fast, mediumDensityRatio: 0.0, seconds: 60.0);
 
-        Assert.Equal(0.0, Vec.AngleBetween(drawn, Tube), 9);
+        Assert.Equal(0.0, Vec.AngleBetween(drawn * FireGeometry.NoseAxis, Tube), 9);
     }
 }

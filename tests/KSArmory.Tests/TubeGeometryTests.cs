@@ -664,30 +664,29 @@ public class TubeGeometryTests
     private static readonly double3 MeshUp = new(0, 0, 1);
 
     [Fact]
-    public void ABodyPointsAlongTheDirectionItIsGiven()
+    public void ABodyLeavesAlongItsReleaseHeading()
     {
-        double3 direction = new(0, 0, 400);
+        double3 release = new(0, 0, 400);
 
-        doubleQuat rotation = TubeGeometry.BodyRotationPartFrame(direction, new double3(0, 1, 0),
-                                                                 doubleQuat.Identity,
-                                                                 doubleQuat.Identity, doubleQuat.Identity);
+        doubleQuat rotation = TubeGeometry.BodyRotationPartFrame(
+            TubeGeometry.ReleaseAttitudeEcl(release, doubleQuat.Identity, doubleQuat.Identity),
+            doubleQuat.Identity, doubleQuat.Identity);
 
-        // The mesh is built nose-along +X, so the rotation must carry +X onto the flight direction.
-        AssertClose(Vec.Unit(direction), Vec.Unit(rotation * FireGeometry.NoseAxis), "body nose");
+        // The mesh is built nose-along +X, so the rotation must carry +X onto the release heading.
+        AssertClose(Vec.Unit(release), Vec.Unit(rotation * FireGeometry.NoseAxis), "body nose");
     }
 
     [Fact]
-    public void ABodysHeadingIsConvertedThroughBothFrames()
+    public void ABodysAttitudeIsConvertedThroughBothFrames()
     {
-        // A direction expressed in Ecl has to come back through the vehicle's attitude and the
+        // An attitude held in Ecl has to come back through the vehicle's attitude and the
         // launcher's own mounting before it means anything to a subpart transform.
         doubleQuat ecl2Asmb = doubleQuat.CreateFromAxisAngle(new double3(0, 0, 1), Math.PI / 2);
         doubleQuat asmb2Part = doubleQuat.CreateFromAxisAngle(new double3(1, 0, 0), Math.PI / 2);
 
         double3 directionEcl = new(300, 0, 0);
 
-        doubleQuat rotation = TubeGeometry.BodyRotationPartFrame(directionEcl, new double3(0, 1, 0),
-                                                                 doubleQuat.Identity,
+        doubleQuat rotation = TubeGeometry.BodyRotationPartFrame(FireGeometry.RotationFromNose(directionEcl),
                                                                  ecl2Asmb, asmb2Part);
         double3 expected = Vec.Unit(asmb2Part * (ecl2Asmb * directionEcl));
 
@@ -707,15 +706,18 @@ public class TubeGeometryTests
     {
         double3 release = new(0, 1, 0);
         double3 acrossThePlane = new(1, 0, 0);
+        doubleQuat attitude = TubeGeometry.ReleaseAttitudeEcl(release, doubleQuat.Identity, doubleQuat.Identity);
 
         for (double deg = 0; deg <= 89; deg += 1)
         {
             double rad = deg * Math.PI / 180.0;
             var direction = new double3(0, Math.Cos(rad), -Math.Sin(rad)) * 250.0;
 
-            doubleQuat rotation = TubeGeometry.BodyRotationPartFrame(
-                direction, release, doubleQuat.Identity, doubleQuat.Identity, doubleQuat.Identity);
+            attitude = BodyAttitude.Turn(attitude, direction, 1.0, 1.0);
+            doubleQuat rotation = TubeGeometry.BodyRotationPartFrame(attitude, doubleQuat.Identity,
+                                                                     doubleQuat.Identity);
 
+            AssertClose(Vec.Unit(direction), rotation * FireGeometry.NoseAxis, $"nose {deg:F0} deg over");
             double outOfPlane = Vec.Dot(Vec.Unit(rotation * MeshUp), acrossThePlane);
 
             Assert.True(Math.Abs(outOfPlane) < 1e-9,
@@ -741,6 +743,9 @@ public class TubeGeometryTests
         double3? nose = null;
         double3? up = null;
 
+        doubleQuat attitude = BodyAttitude.Turn(TubeGeometry.ReleaseAttitudeEcl(release, launchAttitude, asmb2Part),
+                                                direction, 1.0, 1.0);
+
         for (double deg = 0; deg <= 180; deg += 15)
         {
             // Rolling about the round's own flight direction, which is the case that cancels in
@@ -749,8 +754,7 @@ public class TubeGeometryTests
                              * launchAttitude;
             doubleQuat ecl2Asmb = doubleQuat.Conjugate(now);
 
-            doubleQuat rotation = TubeGeometry.BodyRotationPartFrame(direction, release,
-                                                                     launchAttitude, ecl2Asmb, asmb2Part);
+            doubleQuat rotation = TubeGeometry.BodyRotationPartFrame(attitude, ecl2Asmb, asmb2Part);
 
             // Back out to the ecliptic, which is the frame the player sees the round in.
             doubleQuat part2Ecl = doubleQuat.Conjugate(asmb2Part * ecl2Asmb);
@@ -778,8 +782,8 @@ public class TubeGeometryTests
         doubleQuat asmb2Part = doubleQuat.CreateFromAxisAngle(new double3(1, 0, 0), 0.4);
         doubleQuat launchAttitude = doubleQuat.Conjugate(ecl2Asmb);
 
-        doubleQuat rotation = TubeGeometry.BodyRotationPartFrame(release, release, launchAttitude,
-                                                                 ecl2Asmb, asmb2Part);
+        doubleQuat rotation = TubeGeometry.BodyRotationPartFrame(
+            TubeGeometry.ReleaseAttitudeEcl(release, launchAttitude, asmb2Part), ecl2Asmb, asmb2Part);
         doubleQuat seated = FireGeometry.RotationFromNose(asmb2Part * (ecl2Asmb * release));
 
         AssertClose(seated * FireGeometry.NoseAxis, rotation * FireGeometry.NoseAxis, "nose at release");
@@ -787,25 +791,20 @@ public class TubeGeometryTests
     }
 
     /// <summary>
-    /// A round with nothing recorded about how it left — one loaded from a save written before the
-    /// field existed — still gets its nose put right, on the shortest arc it always used.
+    /// A round with no launch attitude recorded — one loaded from a save written before the field
+    /// existed — still leaves along its heading, on the shortest arc it always used.
     /// </summary>
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public void WithNothingRecordedAboutTheReleaseTheNoseIsStillRight(bool haveHeading)
+    [Fact]
+    public void WithNoLaunchAttitudeRecordedTheNoseIsStillRight()
     {
-        double3 direction = new(0, 240, -70);
+        double3 release = new(0, 240, -70);
         doubleQuat ecl2Asmb = doubleQuat.CreateFromAxisAngle(new double3(0, 0, 1), 0.9);
         doubleQuat asmb2Part = doubleQuat.CreateFromAxisAngle(new double3(1, 0, 0), 0.4);
 
         doubleQuat rotation = TubeGeometry.BodyRotationPartFrame(
-            direction,
-            haveHeading ? new double3(0, 1, 0) : Vec.Zero,
-            haveHeading ? default : doubleQuat.Identity,   // never-set attitude, alongside a heading
-            ecl2Asmb, asmb2Part);
+            TubeGeometry.ReleaseAttitudeEcl(release, default, asmb2Part), ecl2Asmb, asmb2Part);
 
-        AssertClose(Vec.Unit(asmb2Part * (ecl2Asmb * direction)),
+        AssertClose(Vec.Unit(asmb2Part * (ecl2Asmb * release)),
                     Vec.Unit(rotation * FireGeometry.NoseAxis), "body nose");
     }
 

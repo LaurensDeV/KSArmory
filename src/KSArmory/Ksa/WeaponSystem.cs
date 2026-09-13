@@ -37,6 +37,13 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     // DropRound, which are the only two ways in or out.
     private readonly HashSet<IProjectile> _roundSet = new(ReferenceEqualityComparer.Instance);
 
+    // What each round's body was last drawn at, and at what age. Turned on from there rather than
+    // re-derived from the release, because a store thrown upwards comes down facing the other way
+    // and there is no one turn between opposite directions.
+    private readonly Dictionary<IProjectile, DrawnAttitude> _drawnAttitudes = new(ReferenceEqualityComparer.Instance);
+
+    private readonly record struct DrawnAttitude(doubleQuat Ecl, double Age);
+
     // Craft an unguided round could run into, rebuilt at most once a frame.
     private readonly List<TargetState> _contactScratch = [];
     private bool _contactsFresh;
@@ -1420,9 +1427,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                 continue;
             }
 
-            // Along the airflow once there is enough of it to mean anything, easing off the tube
-            // the round left before that. A store released rather than fired has no airspeed at
-            // the moment it lets go, so the tube is the only thing that says which way it points.
+            // Leaves at the attitude it sat in its tube at, and turns onto the airflow as that gains
+            // authority. A store released rather than fired has no airspeed at the moment it lets
+            // go, so the tube is the only thing that says which way it points.
             //
             // The tube, emphatically not Boresight. A bomb sight boresights MountNormal -- its
             // mounting face's outward normal -- while a tube points along +Y, so the two are
@@ -1442,13 +1449,23 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                                       : Boresight;
 
             // Density where the round actually is: in vacuum nothing weathervanes, so a store keeps
-            // the attitude it left the tube with however fast it is travelling.
-            double3 heading = BodyAttitude.Heading(round.VelocityLocal, release,
-                                                   KsaWorld.MediumDensityRatioAt(platform, round.PositionEcl));
+            // the attitude it left the tube with however fast it is travelling. Turned across the
+            // round's own age since the last draw, so a paused world turns nothing.
+            double density = KsaWorld.MediumDensityRatioAt(platform, round.PositionEcl);
+            DrawnAttitude drawn = _drawnAttitudes.TryGetValue(round, out DrawnAttitude was)
+                                      ? was
+                                      : new DrawnAttitude(LauncherPart.ReleaseAttitudeEcl(launcher, release,
+                                                                                          round.LaunchAttitude),
+                                                          0.0);
+
+            drawn = new DrawnAttitude(BodyAttitude.Turn(drawn.Ecl, round.VelocityLocal, density,
+                                                        round.Age - drawn.Age),
+                                      round.Age);
+            _drawnAttitudes[round] = drawn;
 
             if (!LauncherPart.TryPlaceMissile(platform, launcher, _missileBodies[index],
                                               round.LaunchAnchorPartFrame, round.TravelSinceLaunch,
-                                              heading, release, round.LaunchAttitude,
+                                              drawn.Ecl, round.LaunchAttitude,
                                               out double3 bodyPos, out doubleQuat bodyRot))
             {
                 RoundBodiesWork = false;
@@ -1535,13 +1552,14 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                 // heading that was wrong to begin with. Print all three rather than guess.
                 double rho = KsaWorld.MediumDensityRatioAt(platform, r.PositionEcl);
                 double spd = Vec.Len(r.VelocityLocal);
+                double3 drawnNose = drawn.Ecl * FireGeometry.NoseAxis;
                 Log.Debug(() =>
                     $"attitude t{r.Tube}: rho {rho:F4} speed {spd:F1} m/s q {rho * spd * spd:F1} " +
                     $"(needs {BodyAttitude.NoAuthoritySpeed * BodyAttitude.NoAuthoritySpeed:F0} to " +
                     $"start, {BodyAttitude.FullAuthoritySpeed * BodyAttitude.FullAuthoritySpeed:F0} " +
                     $"for full) | drawn-vs-velocity " +
-                    $"{double.RadiansToDegrees(Vec.AngleBetween(heading, r.VelocityLocal)):F1} deg, drawn-vs-release " +
-                    $"{double.RadiansToDegrees(Vec.AngleBetween(heading, r.ReleaseHeadingEcl)):F1} deg");
+                    $"{double.RadiansToDegrees(Vec.AngleBetween(drawnNose, r.VelocityLocal)):F1} deg, drawn-vs-release " +
+                    $"{double.RadiansToDegrees(Vec.AngleBetween(drawnNose, r.ReleaseHeadingEcl)):F1} deg");
 
                 if (rho <= 0.0 && platform.Parent is Celestial medium)
                     Log.Debug(() => $"  no medium -- {KsaWorld.MediumDiagnosis(medium, r.PositionEcl)}");
@@ -2201,6 +2219,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     private void DropRound(int index)
     {
         _roundSet.Remove(_rounds[index]);
+        _drawnAttitudes.Remove(_rounds[index]);
         _rounds.RemoveAt(index);
     }
 
@@ -2208,6 +2227,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     {
         _rounds.Clear();
         _roundSet.Clear();
+        _drawnAttitudes.Clear();
     }
 
     /// <summary>

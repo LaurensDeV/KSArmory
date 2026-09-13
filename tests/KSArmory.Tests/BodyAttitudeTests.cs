@@ -11,33 +11,38 @@ namespace KSArmory.Tests;
 /// </summary>
 public class BodyAttitudeTests
 {
+    private const double Dt = 1.0 / 60.0;
+
     private static readonly double3 Forward = new(0, 1, 0);
     private static readonly double3 Down = new(0, 0, -1);
+
+    private static readonly doubleQuat AlongForward = FireGeometry.RotationFromNose(Forward);
 
     /// <summary>
     /// A bomb at the instant of release has centimetres per second of airspeed in whatever
     /// direction the ejector left it, and pointing along that puts it sideways.
     /// </summary>
     [Fact]
-    public void AStoreWithNoAirflowKeepsTheHeadingItLeftOn()
+    public void AStoreWithNoAirflowKeepsTheAttitudeItLeftAt()
     {
         double3 dribble = new(0.04, -0.02, 0.31);
 
         Assert.True(Vec.Len(dribble) > 1e-3, "the old guard would have accepted this as a heading");
 
-        double3 heading = BodyAttitude.Heading(dribble, Forward);
+        double3 nose = Nose(BodyAttitude.Turn(AlongForward, dribble, 1.0, 1.0));
 
-        Assert.True(Vec.Len(heading - Forward) < 1e-9,
-                    $"pointed {Fmt(heading)} instead of along the rack");
+        Assert.True(Vec.Len(nose - Forward) < 1e-9, $"pointed {Fmt(nose)} instead of along the rack");
     }
 
     /// <summary>Once it is really flying, the airflow decides and nothing else.</summary>
     [Fact]
     public void AtSpeedTheAirflowDecides()
     {
-        double3 heading = BodyAttitude.Heading(Down * 300.0, Forward);
+        doubleQuat attitude = AlongForward;
+        for (int i = 0; i < 60; i++) attitude = BodyAttitude.Turn(attitude, Down * 300.0, 1.0, Dt);
 
-        Assert.True(Vec.Len(heading - Down) < 1e-9, $"pointed {Fmt(heading)} instead of down");
+        double3 nose = Nose(attitude);
+        Assert.True(Vec.Len(nose - Down) < 1e-6, $"pointed {Fmt(nose)} instead of down");
     }
 
     /// <summary>
@@ -47,20 +52,20 @@ public class BodyAttitudeTests
     [Fact]
     public void ItNosesOverInsteadOfSnapping()
     {
-        double3 last = Forward;
+        doubleQuat attitude = AlongForward;
         double worst = 0.0;
 
         // Straight down, accelerating under gravity, sampled every frame.
-        for (double t = 0.0; t < 6.0; t += 1.0 / 60.0)
+        for (double t = 0.0; t < 6.0; t += Dt)
         {
-            double3 heading = BodyAttitude.Heading(Down * (9.81 * t), Forward);
+            doubleQuat next = BodyAttitude.Turn(attitude, Down * (9.81 * t), 1.0, Dt);
 
-            worst = Math.Max(worst, Vec.AngleBetween(last, heading));
-            last = heading;
+            worst = Math.Max(worst, Vec.AngleBetween(Nose(attitude), Nose(next)));
+            attitude = next;
         }
 
         // It ends up pointing down...
-        Assert.True(Vec.Len(last - Down) < 1e-6, $"ended up {Fmt(last)}");
+        Assert.True(Vec.Len(Nose(attitude) - Down) < 1e-6, $"ended up {Fmt(Nose(attitude))}");
 
         // ...having got there without ever jumping. Whole degrees per frame, not tens.
         Assert.True(double.RadiansToDegrees(worst) < 3.0,
@@ -68,26 +73,35 @@ public class BodyAttitudeTests
     }
 
     /// <summary>
-    /// A round released backwards cancels to nothing halfway across the band. Rare, and the
-    /// release attitude is the better answer than a zero vector normalised into anything.
+    /// Over the top of a vertical throw the airflow reverses between two frames. There is no single
+    /// turn between opposite directions, so the body has to go over rather than flip.
     /// </summary>
     [Fact]
-    public void OpposedDirectionsDoNotCancelToNothing()
+    public void ARoundGoingBackwardsTurnsOverRatherThanFlipping()
     {
-        double3 heading = BodyAttitude.Heading(Forward * -21.0, Forward);
+        doubleQuat attitude = AlongForward;
+        double worst = 0.0;
 
-        Assert.True(Vec.Len2(heading) > 0.5, "a heading must be a direction");
-        Assert.True(double.IsFinite(heading.X) && double.IsFinite(heading.Y)
-                    && double.IsFinite(heading.Z));
+        for (double t = 0.0; t < 3.0; t += Dt)
+        {
+            doubleQuat next = BodyAttitude.Turn(attitude, Forward * -21.0, 1.0, Dt);
+
+            worst = Math.Max(worst, Vec.AngleBetween(Nose(attitude), Nose(next)));
+            attitude = next;
+        }
+
+        Assert.True(Vec.Len(Nose(attitude) + Forward) < 1e-6, $"ended up {Fmt(Nose(attitude))}");
+        Assert.True(double.RadiansToDegrees(worst) < 15.0,
+                    $"turned {double.RadiansToDegrees(worst):F1} deg in one frame");
     }
 
-    /// <summary>Nothing usable either way still yields a direction rather than a zero vector.</summary>
+    /// <summary>Nothing usable leaves the attitude as it was, rather than a rotation of NaNs.</summary>
     [Fact]
-    public void ThereIsAlwaysAHeading()
+    public void NothingUsableLeavesTheAttitudeAlone()
     {
-        double3 heading = BodyAttitude.Heading(new double3(double.NaN, 0, 0), Vec.Zero);
-
-        Assert.True(Vec.Len2(heading) > 0.5);
+        Assert.Equal(AlongForward, BodyAttitude.Turn(AlongForward, new double3(double.NaN, 0, 0), 1.0, Dt));
+        Assert.Equal(AlongForward, BodyAttitude.Turn(AlongForward, Down * 300.0, 1.0, double.NaN));
+        Assert.Equal(AlongForward, BodyAttitude.Turn(AlongForward, Down * 300.0, double.NaN, Dt));
     }
 
     /// <summary>
@@ -109,17 +123,18 @@ public class BodyAttitudeTests
         doubleQuat seated = FireGeometry.RotationFromNose(tubeAxis);
 
         // What the body is drawn at on the frame it is released, with no airspeed yet.
-        doubleQuat released = FireGeometry.RotationFromNose(BodyAttitude.Heading(Vec.Zero, tubeAxis));
+        doubleQuat released = BodyAttitude.Turn(
+            TubeGeometry.ReleaseAttitudeEcl(tubeAxis, doubleQuat.Identity, doubleQuat.Identity),
+            Vec.Zero, 1.0, Dt);
 
-        Assert.True(Vec.AngleBetween(Turn(seated), Turn(released)) < 1e-9,
+        Assert.True(Vec.AngleBetween(Nose(seated), Nose(released)) < 1e-9,
                     "a released store must not move from where it was seated");
 
         // And the boresight, the other value to hand here, is exactly across it.
-        doubleQuat boresighted =
-            FireGeometry.RotationFromNose(BodyAttitude.Heading(Vec.Zero, TubeGeometry.TraverseAxis));
+        doubleQuat boresighted = TubeGeometry.ReleaseAttitudeEcl(TubeGeometry.TraverseAxis,
+                                                                 doubleQuat.Identity, doubleQuat.Identity);
 
-        Assert.Equal(90.0, double.RadiansToDegrees(
-                         Vec.AngleBetween(Turn(seated), Turn(boresighted))), 6);
+        Assert.Equal(90.0, double.RadiansToDegrees(Vec.AngleBetween(Nose(seated), Nose(boresighted))), 6);
     }
 
     /// <summary>
@@ -133,38 +148,36 @@ public class BodyAttitudeTests
     public void AStoreReleasedInVacuumDoesNotWeathervaneOntoItsOrbitalVelocity()
     {
         double3 orbital = new(7330.0, 0, 0);          // prograde, square across the tube
-        double3 tube = Forward;
 
         Assert.True(Vec.Len(orbital) > BodyAttitude.FullAuthoritySpeed,
                     "the speed-only rule would have handed this full authority");
 
         // A real thermosphere rather than a hard zero, so this exercises the dynamic-pressure rule
         // and not the guard in front of it: at 1e-11 of sea level, 7.3 km/s is 5e-4 of the band.
-        double3 vacuum = BodyAttitude.Heading(orbital, tube, mediumDensityRatio: 1e-11);
-        Assert.True(Vec.Len(vacuum - tube) < 1e-9,
+        double3 vacuum = Nose(BodyAttitude.Turn(AlongForward, orbital, 1e-11, 10.0));
+        Assert.True(Vec.Len(vacuum - Forward) < 1e-9,
                     $"released in vacuum it must keep the tube attitude, got {Fmt(vacuum)}");
 
-        Assert.True(Vec.Len(BodyAttitude.Heading(orbital, tube, 0.0) - tube) < 1e-9,
+        Assert.True(Vec.Len(Nose(BodyAttitude.Turn(AlongForward, orbital, 0.0, 10.0)) - Forward) < 1e-9,
                     "and a hard zero density must not divide by anything either");
 
         // ...and the same round low down, where there IS air, still noses over as it always did.
-        double3 inAir = BodyAttitude.Heading(orbital, tube, mediumDensityRatio: 1.0);
+        double3 inAir = Nose(BodyAttitude.Turn(AlongForward, orbital, 1.0, 1.0));
         Assert.True(Vec.Len(inAir - Vec.Unit(orbital)) < 1e-9,
                     $"in air the airflow still decides, got {Fmt(inAir)}");
     }
 
     /// <summary>The sea-level band is unchanged, so every round fired before vacuum behaves alike.</summary>
     [Theory]
-    [InlineData(1.0, true)]
-    [InlineData(41.0, false)]
-    public void TheSeaLevelBandIsExactlyWhereItWas(double speed, bool keepsRelease)
+    [InlineData(1.0, 0.0)]
+    [InlineData(41.0, 1.0)]
+    public void TheSeaLevelBandIsExactlyWhereItWas(double speed, double authority)
     {
-        double3 heading = BodyAttitude.Heading(Down * speed, Forward, mediumDensityRatio: 1.0);
-        Assert.Equal(keepsRelease, Vec.Len(heading - Forward) < 1e-9);
+        Assert.Equal(authority, BodyAttitude.Authority(Down * speed, mediumDensityRatio: 1.0), 12);
     }
 
     // Where a rotation carries the body mesh's nose, which is what is actually seen.
-    private static double3 Turn(doubleQuat q) => double3.Transform(FireGeometry.NoseAxis, q);
+    private static double3 Nose(doubleQuat q) => double3.Transform(FireGeometry.NoseAxis, q);
 
     private static string Fmt(double3 v) => $"({v.X:F3}, {v.Y:F3}, {v.Z:F3})";
 }

@@ -3,17 +3,20 @@ using Brutal.Numerics;
 namespace KSArmory;
 
 /// <summary>
-/// Which way a round in flight is pointing.
+/// Which way a round in flight is pointing, carried from one drawn frame to the next.
 ///
-/// <para>Along the airflow, once there is any — but a round released rather than fired has none
-/// at the moment it lets go, and normalising a near-zero vector yields whatever direction the
-/// residual happened to have. Every other round leaves its tube at between 25 and 1100 m/s and is
-/// never near that; a bomb starts at nothing and builds up.</para>
+/// <para>Onto the airflow, at a rate the airflow sets. A round released rather than fired has none
+/// at the moment it lets go, so it keeps the attitude it was seated at: a real store leaves its rack
+/// pointing where the rack pointed and noses over as its fins gain authority, which is a second or
+/// two rather than an instant. Every other round leaves its tube at 25 m/s or more and is on its
+/// airflow within a frame.</para>
 ///
-/// <para>The band is not only a guard against noise. A real store leaves its rack pointing where
-/// the rack pointed and noses over as its fins gain authority, which is a second or two rather
-/// than an instant — so easing across the band is closer to the thing than snapping at a
-/// threshold would be, and it costs no per-round state.</para>
+/// <para><b>Carried, not derived.</b> A heading worked out afresh each frame has to get from the
+/// release direction to the airflow in one step, and a store thrown upwards comes down pointing
+/// the opposite way from its rack. There is no single turn between opposite directions, so the body
+/// flipped over the top of the climb and rolled about its nose on the way down, wherever the tail
+/// kit moved the flight. Turning what was drawn last frame never asks for more than a frame's
+/// turn.</para>
 ///
 /// <para><b>What turns a body is dynamic pressure, not speed.</b> Speed alone is the same number
 /// in a hurricane and in orbit, and a body released in vacuum keeps the attitude it was let go
@@ -22,44 +25,67 @@ namespace KSArmory;
 /// </summary>
 internal static class BodyAttitude
 {
-    /// <summary>Below this, in m/s, the airflow says nothing and the release attitude stands.</summary>
+    /// <summary>Below this, in m/s, the airflow says nothing and the attitude stands.</summary>
     public const double NoAuthoritySpeed = 2.0;
 
-    /// <summary>Above this the airflow decides entirely.</summary>
+    /// <summary>Above this the airflow turns the body at the full rate.</summary>
     public const double FullAuthoritySpeed = 40.0;
 
+    /// <summary>
+    /// How fast a body the airflow has full authority over turns onto it. Far past anything a round
+    /// flies — thirty g at 700 m/s is 24 deg/s — so nothing in real air visibly lags its flight;
+    /// what it bounds is a turn with nothing in between, over the top of a vertical throw.
+    /// </summary>
+    public const double FullAuthorityTurnRateDegPerSecond = 720.0;
+
     // The band as dynamic pressure — density ratio times speed squared. Calibrated so that at sea
-    // level, where the ratio is 1, the two speeds above are exactly the band edges: every round
-    // this mod fired before anything reached vacuum behaves identically.
+    // level, where the ratio is 1, the two speeds above are exactly the band edges.
     private const double NoAuthorityPressure = NoAuthoritySpeed * NoAuthoritySpeed;
     private const double FullAuthorityPressure = FullAuthoritySpeed * FullAuthoritySpeed;
 
+    // Square to the mesh's nose, so a body tipping about it keeps its own axis still.
+    private static readonly double3 MeshSide = new(0, 0, 1);
+
+    /// <summary>How much say the airflow has over the body, from none to all of it.</summary>
     /// <param name="velocityLocal">Velocity relative to the air, which is the ground's frame.</param>
-    /// <param name="releaseHeading">Where the launcher was pointing — what a store leaves along.</param>
     /// <param name="mediumDensityRatio">Air density where the round is, against sea level. Zero in
-    /// vacuum, where the release attitude stands however fast the round is going.</param>
-    public static double3 Heading(double3 velocityLocal, double3 releaseHeading,
-                                  double mediumDensityRatio = 1.0)
+    /// vacuum, where the airflow has no say however fast the round is going.</param>
+    public static double Authority(double3 velocityLocal, double mediumDensityRatio = 1.0)
     {
-        double3 fallback = Vec.IsFinite(releaseHeading) && Vec.Len2(releaseHeading) > 1e-9
-                               ? Vec.Unit(releaseHeading)
-                               : new double3(0, 1, 0);
+        if (!Vec.IsFinite(velocityLocal)) return 0.0;
+        if (!double.IsFinite(mediumDensityRatio) || mediumDensityRatio <= 0.0) return 0.0;
 
-        if (!Vec.IsFinite(velocityLocal)) return fallback;
-        if (!double.IsFinite(mediumDensityRatio) || mediumDensityRatio <= 0.0) return fallback;
+        double pressure = mediumDensityRatio * Vec.Len2(velocityLocal);
+        return Math.Clamp((pressure - NoAuthorityPressure) / (FullAuthorityPressure - NoAuthorityPressure),
+                          0.0, 1.0);
+    }
 
-        double speed = Vec.Len(velocityLocal);
-        double pressure = mediumDensityRatio * speed * speed;
-        if (pressure <= NoAuthorityPressure) return fallback;
+    /// <summary>
+    /// A body's attitude, body to ecliptic, turned toward the airflow for
+    /// <paramref name="seconds"/>. The turn is about the axis square to the nose and the airflow,
+    /// so it adds no roll about the nose.
+    /// </summary>
+    /// <param name="velocityLocal">Velocity relative to the air. <em>Local</em>: an ecliptic
+    /// velocity carries ~29.8 km/s of orbital motion and would point every round the same way.</param>
+    public static doubleQuat Turn(doubleQuat attitudeEcl, double3 velocityLocal,
+                                  double mediumDensityRatio, double seconds)
+    {
+        double authority = Authority(velocityLocal, mediumDensityRatio);
+        if (authority <= 0.0 || !double.IsFinite(seconds) || seconds <= 0.0) return attitudeEcl;
 
+        double3 nose = attitudeEcl * FireGeometry.NoseAxis;
         double3 along = Vec.Unit(velocityLocal);
-        if (pressure >= FullAuthorityPressure) return along;
 
-        double t = (pressure - NoAuthorityPressure) / (FullAuthorityPressure - NoAuthorityPressure);
-        double3 eased = fallback + (along - fallback) * t;
+        double rate = double.DegreesToRadians(FullAuthorityTurnRateDegPerSecond) * authority;
+        double turn = Math.Min(Vec.AngleBetween(nose, along), rate * seconds);
+        if (!(turn > 0.0)) return attitudeEcl;
 
-        // Opposed directions cancel to nothing halfway across the band. Rare -- it needs a store
-        // released backwards -- and the release attitude is the better answer when it happens.
-        return Vec.Len2(eased) > 1e-9 ? Vec.Unit(eased) : fallback;
+        // Dead astern there is no one turn onto the airflow, so the body tips over about an axis of
+        // its own rather than one picked off the ecliptic.
+        double3 axis = Vec.Cross(nose, along);
+        if (Vec.Len2(axis) < 1e-12) axis = attitudeEcl * MeshSide;
+
+        doubleQuat turned = doubleQuat.CreateFromAxisAngle(Vec.Unit(axis), turn) * attitudeEcl;
+        return Vec.IsFinite(turned * FireGeometry.NoseAxis) ? turned : attitudeEcl;
     }
 }
