@@ -111,10 +111,10 @@ internal static class NuclearClouds
     /// <para>Silent for a conventional warhead: a 500 lb bomb does not grow a mushroom, and
     /// deciding that here rather than at the call site keeps every caller from having to know.</para>
     /// </summary>
-    public static void Begin(double3 burstEcl, Vehicle? near, double chargeKg)
+    public static void Begin(double3 burstEcl, Vehicle? near, double chargeKg, Celestial? known = null)
     {
         if (chargeKg < MushroomCloud.ThresholdKg) return;
-        if (Detonation.BodyFor(near) is not { } body) return;
+        if (Detonation.BodyFor(near, known) is not { } body) return;
         if (!Vec.IsFinite(burstEcl)) return;
         if (!PlumeSmoke.Available) return;
 

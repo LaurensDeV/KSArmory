@@ -3032,16 +3032,18 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // apart, and a 30 mm shell cannot paint a missile's fireball.
         if (_config.DrawExplosions)
         {
+            // EffectBody as well as the nearest craft: a system whose launcher has been destroyed
+            // has no platform to ask, and a store aimed at the ground has no target craft either.
             Detonation.Show(_burstKilled ? Detonation.Fireball : Detonation.Airburst,
                             DrawnBurstEcl(round, burst), round.TargetRef as Vehicle ?? Platform,
-                            (float)Warhead.EffectScale(round.Munition.ChargeKg));
+                            (float)Warhead.EffectScale(round.Munition.ChargeKg), EffectBody);
 
             // And a cloud, for a charge large enough to have made one. It outlives this system --
             // NuclearClouds keeps it, because a mushroom stands there long after the launcher has
             // moved on or been destroyed.
             NuclearClouds.Begin(DrawnBurstEcl(round, burst),
                                 round.TargetRef as Vehicle ?? Platform,
-                                round.Munition.ChargeKg);
+                                round.Munition.ChargeKg, EffectBody);
         }
 
         // Outside the drawing switch: a burst that cannot be seen but can be heard is still

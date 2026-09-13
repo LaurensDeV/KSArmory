@@ -150,8 +150,12 @@ internal static class Detonation
     /// Any craft close to the burst, used only to find which body to hang the effect on. The
     /// round's own target or the firing platform both do.
     /// </param>
+    /// <param name="body">
+    /// The body the firing system is over, for when no craft near the burst is left to ask.
+    /// </param>
     /// <param name="scale">Multiplies particle size and speed, so a bigger warhead looks bigger.</param>
-    public static void Show(string emitterId, double3 burstEcl, Vehicle? near, float scale = 1f)
+    public static void Show(string emitterId, double3 burstEcl, Vehicle? near, float scale = 1f,
+                            Celestial? body = null)
     {
         // A large charge is drawn as several bursts spread through the ball rather than one burst
         // with everything about it multiplied.
@@ -169,11 +173,11 @@ internal static class Detonation
 
         if (count > 1)
         {
-            ShowSpread(emitterId, burstEcl, near, per, count, ReferenceFireballMetres * scale);
+            ShowSpread(emitterId, burstEcl, near, per, count, ReferenceFireballMetres * scale, body);
             return;
         }
 
-        string why = TryShow(emitterId, burstEcl, near, scale);
+        string why = TryShow(emitterId, burstEcl, near, scale, body);
         if (why.Length == 0) return;
 
         // A silent refusal is indistinguishable from a wrong frame, a disabled renderer and a
@@ -196,7 +200,7 @@ internal static class Detonation
     // same twice, and even, which a random scatter is not at these counts -- clumps and a bare
     // patch read as a mistake rather than as an explosion.
     private static void ShowSpread(string emitterId, double3 burstEcl, Vehicle? near,
-                                   float scale, int count, double radius)
+                                   float scale, int count, double radius, Celestial? body)
     {
         string first = "";
 
@@ -218,7 +222,7 @@ internal static class Detonation
                 at += new double3(ring * Math.Cos(phi), ring * Math.Sin(phi), z) * out2;
             }
 
-            string why = TryShow(emitterId, at, near, scale);
+            string why = TryShow(emitterId, at, near, scale, body);
             if (why.Length > 0 && first.Length == 0) first = why;
         }
 
@@ -228,14 +232,15 @@ internal static class Detonation
     private static readonly HashSet<string> _reported = [];
 
     // Empty on success, otherwise why not.
-    private static string TryShow(string emitterId, double3 burstEcl, Vehicle? near, float scale)
+    private static string TryShow(string emitterId, double3 burstEcl, Vehicle? near, float scale,
+                                  Celestial? known)
     {
         if (!Vec.IsFinite(burstEcl)) return "burst position is not finite";
         if (!float.IsFinite(scale) || scale <= 0f) return $"bad scale {scale}";
 
         try
         {
-            if (BodyFor(near) is not { } body)
+            if (BodyFor(near, known) is not { } body)
             {
                 return "no celestial to hang it on";
             }
@@ -318,13 +323,15 @@ internal static class Detonation
         }
     }
 
-    // The body to hang the effect on: whatever the craft nearest the burst is bound to, falling
-    // back to the craft being flown. Both are within a physics bubble of the burst, which is the
-    // only accuracy this needs.
+    // The body to hang the effect on: whatever the craft nearest the burst is bound to, then the
+    // body the firing system knows it is over, then the craft being flown's. All are within a
+    // physics bubble of the burst, which is the only accuracy this needs. The middle one is a
+    // round whose launcher has been destroyed, where the nearest craft is often the one flown.
     /// <summary>Which body to hang an effect on, given something near it.</summary>
-    internal static Celestial? BodyFor(Vehicle? near)
+    internal static Celestial? BodyFor(Vehicle? near, Celestial? known = null)
     {
         if (KsaWorld.IsAlive(near) && near!.Parent is Celestial body) return body;
+        if (known is not null) return known;
         if (KsaWorld.ControlledVehicle?.Parent is Celestial fallback) return fallback;
 
         return null;
