@@ -1339,6 +1339,20 @@ the same band section 7.1b needs — fly one engagement and check both.
 - [ ] "..." opens the craft's full window.
 - [ ] The icons draw cleanly at the UI scale in use: nothing clipped, nothing off-centre.
 
+### 7.6h Shift-click locking onto a craft
+
+Unflown. The pick is the hull the cursor ray meets, then a craft's centre within 24 px.
+
+- [ ] Shift-click a craft close enough to fill a good part of the screen, **near its edge** rather
+      than its middle, wherever KSA outlines it in orange. The log says
+      `lock: <craft> is under the pointer` and then `tracking <craft>`, never
+      `tracking Earth <lat>, <lon>`.
+- [ ] Shift-click a distant craft only a few pixels across. It still locks, through the centre
+      grace, with no `is under the pointer` line.
+- [ ] Shift-click open ground beside a craft. It designates the ground.
+- [ ] Shift-click a craft standing behind a ridge from the camera. The ridge wins: ground, not
+      the hidden craft.
+
 ---
 
 ## 12. The ballistic computer — flown, and landing inside a hundred metres

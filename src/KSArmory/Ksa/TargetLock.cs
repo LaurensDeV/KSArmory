@@ -201,10 +201,18 @@ internal static class TargetLock
            && ImGui.IsMouseClicked(ImGuiMouseButton.Left, repeat: false)
            && ImGui.GetIO().KeyShift;
 
-    // The craft nearest the cursor on screen, or null. The installation's own platform is
-    // excluded: designating the thing it is bolted to points it at its own mounting.
+    // The craft under the pointer, or null. The hull first, so a craft wearing KSA's hover outline
+    // is the one locked however far its centre is from the pointer; then a centre within
+    // MinPickPixels, for craft too small or far off for the pointer to land on. The installation's
+    // own platform is excluded: designating the thing it is bolted to points it at its own mounting.
     private static Vehicle? TryPickCraft(Vehicle platform)
     {
+        if (KsaWorld.CraftUnderCursor(exclude: platform) is { } under)
+        {
+            Log.Info($"lock: {KsaWorld.DisplayName(under)} is under the pointer");
+            return under;
+        }
+
         List<Vehicle> craft = [];
         KsaWorld.CollectVehicles(craft);
 

@@ -2568,8 +2568,10 @@ internal static class KsaWorld
     // The ray is Ego, and the distance it reports is along it from the camera, so it is the range
     // wanted here with no conversion. Ego is a pure translation of Ecl, so the direction is the
     // same in both -- only an origin would need care.
-    private static bool TryCursorCraftRange(double3 eye, double3 direction, out double range)
+    private static bool TryCursorCraftHit(double3 eye, double3 direction, Vehicle? exclude,
+                                          out Vehicle? hitCraft, out double range)
     {
+        hitCraft = null;
         range = double.MaxValue;
 
         try
@@ -2580,14 +2582,9 @@ internal static class KsaWorld
 
             CollectVehicles(_pickScratch);
 
-            Vehicle? own = ControlledVehicle;
-
             foreach (Vehicle craft in _pickScratch)
             {
-                // The craft being flown is usually the one carrying the launcher, and it sits
-                // under the cursor for most of an orbit view. Snapping the aim onto it would whip
-                // the turret round to point at its own hull every time the pointer crossed it.
-                if (ReferenceEquals(craft, own)) continue;
+                if (ReferenceEquals(craft, exclude)) continue;
 
                 double radius = MeanRadius(craft);
                 if (!(radius > 0.0)) continue;
@@ -2615,7 +2612,11 @@ internal static class KsaWorld
                     }
 
                     onMesh = true;
-                    if (hit > 0.0 && hit < range) range = hit;
+                    if (hit > 0.0 && hit < range)
+                    {
+                        range = hit;
+                        hitCraft = craft;
+                    }
                 }
 
                 // A kitten has no mesh to hit: its only part is Core's KittenBackPackPart, whose
@@ -2627,7 +2628,11 @@ internal static class KsaWorld
                 if (!onMesh && !HasPickableMesh(parts))
                 {
                     double toSphere = Vec.Len(onSphere - eye);
-                    if (toSphere > 0.0 && toSphere < range) range = toSphere;
+                    if (toSphere > 0.0 && toSphere < range)
+                    {
+                        range = toSphere;
+                        hitCraft = craft;
+                    }
                 }
             }
 
@@ -2637,6 +2642,36 @@ internal static class KsaWorld
         {
             return false;
         }
+    }
+
+    // The craft being flown is usually the one carrying the launcher, and it sits under the cursor
+    // for most of an orbit view. Snapping the aim onto it would whip the turret round to point at
+    // its own hull every time the pointer crossed it.
+    private static bool TryCursorCraftRange(double3 eye, double3 direction, out double range)
+        => TryCursorCraftHit(eye, direction, ControlledVehicle, out _, out range);
+
+    /// <summary>
+    /// The craft the cursor is over, judged by its hull rather than by where its centre lands on
+    /// screen, or null.
+    ///
+    /// <para>A craft close enough to fill a patch of the screen is under the pointer wherever on it
+    /// the click lands, while its centre can be far outside any fixed grace. The cast is
+    /// <c>Part.RayCastEgo</c>, the one KSA highlights parts with, so a craft wearing the engine's
+    /// hover outline is the craft this answers. Ground nearer along the ray hides it.</para>
+    /// </summary>
+    public static Vehicle? CraftUnderCursor(Vehicle? exclude)
+    {
+        if (!TryCursorRayEcl(out double3 eye, out double3 direction)) return null;
+
+        if (!TryCursorCraftHit(eye, direction, exclude, out Vehicle? craft, out double range))
+        {
+            return null;
+        }
+
+        bool groundFirst = TryCursorGroundPoint(out double3 ground, out _, out _, out _)
+                           && Vec.Len(ground - eye) < range;
+
+        return groundFirst ? null : craft;
     }
 
     // Whether a ray could ever hit this craft. Mirrors what RayCastEgo actually tests -- one level
