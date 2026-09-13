@@ -454,7 +454,8 @@ internal sealed class WarheadTrace
     //
     // Two displacements are folded together in that error and the flown log cannot separate them:
     // the round's own travel over the ground within the frame, and the frame-newer body sample
-    // Ksa/GroundTest.cs differences the lookup against, worth bodyVelocityEcl*dt. This prints the
+    // Ksa/GroundTest.cs differences the lookup against, worth the ground's velocity times dt -- the
+    // body's travel, and its spin under the round. This prints the
     // height field at the sampled point and at that point back-dated by the second term, so the two
     // are read apart on KSA's own terrain rather than argued about. docs/KSA-FRAME-ORDER.md section 5
     // is the epoch table; WeaponSystem.AirDensityIntoFrame is the same correction already applied to
@@ -469,11 +470,14 @@ internal sealed class WarheadTrace
             return "ground sample: the round recorded none";
         }
 
-        // Backwards, because Slug now samples at the round's own epoch and this is the
-        // counterfactual: where the lookup used to land, one frame of the body's motion ahead.
-        // Going FORWARD from here would apply the correction a second time, which is worse than
-        // either -- flown, -12.3 m held against -208.5 m doubled.
-        double3 asItUsedTo = sampledAt - setup.Parent.GetVelocityEcl() * step;
+        // The counterfactual is the lookup un-back-dated, so it goes backwards by the same velocity
+        // the round walked it forward with: the body's travel, plus its spin under the round when it
+        // asks at its own epoch. Going FORWARD would apply the correction a second time, which is
+        // worse than either -- flown, -12.3 m held against -208.5 m doubled.
+        double3 walkedBy = round.GroundQueryAtOwnEpoch
+            ? KsaWorld.GroundVelocityAt(setup.Parent, sampledAt)
+            : setup.Parent.GetVelocityEcl();
+        double3 asItUsedTo = sampledAt - walkedBy * step;
 
         bool read = GroundTest.Shared.TryGround(sampledAt, out double3 _, out double asRead);
         bool paired = GroundTest.Shared.TryGround(asItUsedTo, out double3 _, out double asUnpaired);
