@@ -468,8 +468,9 @@ and on the null; only the magnitude moved.
 Three things to know before reading one:
 
 * **It is a spread of *distances from the aim*, not of positions.** Six warheads 2 m out in six
-  directions read zero. Nothing in the log carries their positions, so this is the available reading
-  rather than the ideal one.
+  directions read zero. The landing line carries each warhead's downrange and cross since item 41's
+  build, and `shot-report.py` does not read them yet, so this is still the available reading rather
+  than the ideal one.
 * **A range's expectation grows with the group size**, so a night mixing five- and six-warhead
   groups would read the mix. Every flight of every night flown so far released six, and `usable`
   already requires all of them to arrive.
