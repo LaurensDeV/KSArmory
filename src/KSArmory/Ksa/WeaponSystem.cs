@@ -1834,15 +1834,107 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             return false;
         }
 
-        double3 platformVel = KsaWorld.VelocityEcl(Platform);
-        double3 frameVel = KsaWorld.GroundVelocityAt(Platform, PlatformEcl);
+        Launch launch = LaunchFrom(tube, aim);
+
+        // A seeker round released outside its own gimbal limit never steers and never recovers, so
+        // this is the last point at which that is still a refusal rather than a round flying away
+        // for its whole life. The tube goes back: the shot was never taken.
+        // Operator-held waives the gimbal limit, because a launcher that cannot be pointed has no
+        // way to bring a designated place inside it -- the rail's 92 to 116 degrees off is that,
+        // and is a limit on the seeker rather than a fault. A launcher that *trains* has no
+        // such excuse: waiving it there lets a round leave along a stale tube and says nothing.
+        double3 toAim = aim.PositionEcl - launch.Position;
+        if (!FireGate.CanGuideOntoAimpoint(Munition.Guidance,
+                                           aim.Kind == AimpointKind.Ground && !Profile.Trains,
+                                           Munition.SeekerFovRad, launch.Direction, toAim))
+        {
+            _magazine.Return(tube);
+            double offDeg = double.RadiansToDegrees(Vec.AngleBetween(toAim, launch.Direction));
+            Announce($"refused: {what} is {offDeg:F0} deg off the tube, "
+                     + $"past the seeker's {Munition.SeekerFovDeg:F0} deg - point the launcher at it");
+            return false;
+        }
+
+        // Motorless rounds are slugs: no seeker, lock, boost or command link, so an Interceptor
+        // with its steering switched off would be that whole flight model behind guards. Which
+        // implementation a munition gets is decided here and only here.
+        //
+        // Inertial is on this side of the split rather than the missile side: a guided tail kit
+        // steers a fall, it does not fly one. It is the same ballistics, the same drag and the
+        // same ground the bomb sight flies - with a few g of fin authority added inside Slug.
+        //
+        // platformVel is the frame the round launches into. Passing it here is what makes the body
+        // orientable on its very first drawn frame - see the Interceptor constructor.
+        AddRound(!Munition.Powered
+            ? new Slug(launch.Position, launch.Velocity, aim.Handle, tube + 1, PlatformEcl, launch.FrameVelocity)
+            {
+                Munition = Munition,
+                LaunchAnchorPartFrame = launch.AnchorPartFrame,
+                ReleaseHeadingEcl = launch.Heading,
+                LaunchAttitude = Platform?.Asmb2Ego ?? doubleQuat.Identity,
+                SpinVelocityEcl = launch.Spin,
+                Aimpoint = aim,
+            }
+            : new Interceptor(launch.Position, launch.Velocity, aim.Handle, tube + 1, PlatformEcl,
+                              launch.FrameVelocity)
+            {
+                Munition = Munition,
+                LaunchAnchorPartFrame = launch.AnchorPartFrame,
+                ReleaseHeadingEcl = launch.Heading,
+                LaunchAttitude = Platform?.Asmb2Ego ?? doubleQuat.Identity,
+
+                // What the round inherited rather than earned, so the motor can push along the
+                // round instead of along the craft's track. Differenced here from the two terms
+                // rather than passed as one: both are this frame's samples and the ecliptic's
+                // ~29.8 km/s cancels in the subtraction. Zero for a launcher standing still.
+                LaunchFrameVelocityLocal = launch.PlatformVelocity - launch.FrameVelocity,
+                Aimpoint = aim,
+            });
+        _salvoTimer = Profile.SalvoSpacing;
+
+        Announce(aim.Kind == AimpointKind.None
+                     ? $"round {tube + 1} released - {what}"
+                     : $"round {tube + 1} away at {what}"
+                       + Ejection(launch.Direction, launch.PlatformVelocity, launch.Position, launch.Spin));
+        return true;
+    }
+
+    /// <inheritdoc cref="IWeaponSystemView.TryNextReleaseEcl"/>
+    public bool TryNextReleaseEcl(out double3 positionEcl, out double3 velocityEcl)
+    {
+        positionEcl = Vec.Zero;
+        velocityEcl = Vec.Zero;
+
+        if (Platform is null || Launcher is null || !TubesResolved) return false;
+
+        Launch launch = LaunchFrom(Math.Max(NextTube, 0), Aimpoint.Nothing);
+        positionEcl = launch.Position;
+        velocityEcl = launch.Velocity;
+
+        return launch.FromTube && Vec.IsFinite(positionEcl) && Vec.IsFinite(velocityEcl);
+    }
+
+    // Where a round from one tube leaves, which way it is pushed and pointed, and what it leaves
+    // with. One expression for the release and for anything predicting it: a sight solved from a
+    // tidier launch than the round gets puts its ring where the round does not go -- 94 m, flown,
+    // off a climbing rack whose ejector throws a store 50 degrees off its axis.
+    private readonly record struct Launch(bool FromTube, double3 Position, double3 AnchorPartFrame,
+                                          double3 Direction, double3 Heading, double3 Spin,
+                                          double3 Velocity, double3 PlatformVelocity,
+                                          double3 FrameVelocity);
+
+    private Launch LaunchFrom(int tube, Aimpoint aim)
+    {
+        Vehicle platform = Platform!;
+        double3 platformVel = KsaWorld.VelocityEcl(platform);
+        double3 frameVel = KsaWorld.GroundVelocityAt(platform, PlatformEcl);
 
         // From the tube itself, using where the pods are aimed. The ring about the boresight
         // below is a fallback for a launcher with no pods: it ignores traverse and elevation.
         double3 launchAnchorPartFrame = Vec.Zero;
         double3 tubeMouth = Vec.Zero;
         bool fromTube = Launcher is not null && TubesResolved
-                        && LauncherPart.TryGetTubeMuzzleEcl(Platform, Launcher, PodsPart, Profile, tube,
+                        && LauncherPart.TryGetTubeMuzzleEcl(platform, Launcher, PodsPart, Profile, tube,
                                                             PlatformEcl, out tubeMouth)
                         // Seated, not at the mouth: the body mesh is modelled about its centre,
                         // so anchoring at the mouth starts the round half out of the tube. From
@@ -1863,7 +1955,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // needs and what a laid one must not do.
         double3 tubeAxis = Vec.Zero;
         bool alongTube = fromTube && Profile.LaunchAlongTube
-                         && LauncherPart.TryGetTubeAxisEcl(Platform, Launcher!, PodsPart, Profile, tube, out tubeAxis);
+                         && LauncherPart.TryGetTubeAxisEcl(platform, Launcher!, PodsPart, Profile, tube, out tubeAxis);
 
         // Nothing to point at is not the origin of the ecliptic. A released round takes the tube's
         // own direction, and the no-tube fallback takes the boresight -- reading aim.PositionEcl
@@ -1888,75 +1980,13 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                                      ? Vec.Unit(tubeAxis)
                                      : launchDir;
 
-        // A seeker round released outside its own gimbal limit never steers and never recovers, so
-        // this is the last point at which that is still a refusal rather than a round flying away
-        // for its whole life. The tube goes back: the shot was never taken.
-        // Operator-held waives the gimbal limit, because a launcher that cannot be pointed has no
-        // way to bring a designated place inside it -- the rail's 92 to 116 degrees off is that,
-        // and is a limit on the seeker rather than a fault. A launcher that *trains* has no
-        // such excuse: waiving it there lets a round leave along a stale tube and says nothing.
-        double3 toAim = aim.PositionEcl - launchPos;
-        if (!FireGate.CanGuideOntoAimpoint(Munition.Guidance,
-                                           aim.Kind == AimpointKind.Ground && !Profile.Trains,
-                                           Munition.SeekerFovRad, launchDir, toAim))
-        {
-            _magazine.Return(tube);
-            double offDeg = double.RadiansToDegrees(Vec.AngleBetween(toAim, launchDir));
-            Announce($"refused: {what} is {offDeg:F0} deg off the tube, "
-                     + $"past the seeker's {Munition.SeekerFovDeg:F0} deg - point the launcher at it");
-            return false;
-        }
-
         // The tube is already moving if the platform is turning, and a released store keeps that.
         // Measured from the centre of mass, which is what the craft actually pivots about.
-        double3 spinVel = Platform is null
-                              ? Vec.Zero
-                              : FireGeometry.SpinVelocity(KsaWorld.AngularVelocityEcl(Platform),
-                                                          launchPos,
-                                                          KsaWorld.CentreOfMassEcl(Platform));
+        double3 spinVel = FireGeometry.SpinVelocity(KsaWorld.AngularVelocityEcl(platform), launchPos,
+                                                    KsaWorld.CentreOfMassEcl(platform));
 
-        double3 launchVel = platformVel + spinVel + launchDir * Munition.LaunchSpeed;
-
-        // Motorless rounds are slugs: no seeker, lock, boost or command link, so an Interceptor
-        // with its steering switched off would be that whole flight model behind guards. Which
-        // implementation a munition gets is decided here and only here.
-        //
-        // Inertial is on this side of the split rather than the missile side: a guided tail kit
-        // steers a fall, it does not fly one. It is the same ballistics, the same drag and the
-        // same ground the bomb sight flies - with a few g of fin authority added inside Slug.
-        //
-        // platformVel is the frame the round launches into. Passing it here is what makes the body
-        // orientable on its very first drawn frame - see the Interceptor constructor.
-        AddRound(!Munition.Powered
-            ? new Slug(launchPos, launchVel, aim.Handle, tube + 1, PlatformEcl, frameVel)
-            {
-                Munition = Munition,
-                LaunchAnchorPartFrame = launchAnchorPartFrame,
-                ReleaseHeadingEcl = releaseHeading,
-                LaunchAttitude = Platform?.Asmb2Ego ?? doubleQuat.Identity,
-                SpinVelocityEcl = spinVel,
-                Aimpoint = aim,
-            }
-            : new Interceptor(launchPos, launchVel, aim.Handle, tube + 1, PlatformEcl, frameVel)
-            {
-                Munition = Munition,
-                LaunchAnchorPartFrame = launchAnchorPartFrame,
-                ReleaseHeadingEcl = releaseHeading,
-                LaunchAttitude = Platform?.Asmb2Ego ?? doubleQuat.Identity,
-
-                // What the round inherited rather than earned, so the motor can push along the
-                // round instead of along the craft's track. Differenced here from the two terms
-                // rather than passed as one: both are this frame's samples and the ecliptic's
-                // ~29.8 km/s cancels in the subtraction. Zero for a launcher standing still.
-                LaunchFrameVelocityLocal = platformVel - frameVel,
-                Aimpoint = aim,
-            });
-        _salvoTimer = Profile.SalvoSpacing;
-
-        Announce(aim.Kind == AimpointKind.None
-                     ? $"round {tube + 1} released - {what}"
-                     : $"round {tube + 1} away at {what}{Ejection(launchDir, platformVel, launchPos, spinVel)}");
-        return true;
+        return new Launch(fromTube, launchPos, launchAnchorPartFrame, launchDir, releaseHeading, spinVel,
+                          platformVel + spinVel + (launchDir * Munition.LaunchSpeed), platformVel, frameVel);
     }
 
     /// <summary>

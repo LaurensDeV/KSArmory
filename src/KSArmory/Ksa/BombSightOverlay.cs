@@ -1,4 +1,5 @@
 using Brutal.Numerics;
+using KSA;
 
 namespace KSArmory;
 
@@ -100,50 +101,16 @@ internal sealed class BombSightOverlay
         // where it lands if nothing is designated -- which is the release cue either way.
         if (battery.Munition.Powered) { Clear(); return; }
 
-        if (!LauncherPart.TryGetTubeMuzzleEcl(platform, battery.Launcher, battery.PodsPart,
-                                              battery.Profile, 0, battery.PlatformEcl,
-                                              out double3 releaseEcl))
+        if (!TryReleaseState(battery, platform, out double3 releaseEcl, out double3 releaseVelocity))
         {
             Clear();
             return;
         }
 
-        double3 tubeEcl = LauncherPart.TryGetTubeAxisEcl(platform, battery.Launcher,
-                                                         battery.PodsPart, battery.Profile, 0,
-                                                         out double3 axis)
-                              ? axis
-                              : battery.Boresight;
-
-        double3 craftVel = KsaWorld.VelocityEcl(platform);
-        double3 groundVel = KsaWorld.GroundVelocityAt(platform, battery.PlatformEcl);
-
         // Into a scratch list, so a failed solve leaves the last good one on screen. A sight that
         // blanks for a frame reads as broken, and the answer it had a quarter of a second ago is
         // still very nearly right.
-        // Flown in the ground's frame, not the ecliptic's, and that is the whole trick.
-        //
-        // Ecliptic velocities here are ~29.8 km/s of Earth's orbit, so a round integrated in them
-        // moves 1.5 km per step -- while GroundTest resolves each predicted position against the
-        // planet where it is *now*, which has not moved. One step in, the round reads as being a
-        // kilometre and a half underground and the trajectory ends immediately, leaving the pipper
-        // at the release point plus one step of orbital motion: kilometres out, fixed to the
-        // ecliptic, and indifferent to which way the craft is pointing.
-        //
-        // Taking the release velocity relative to the ground removes the carrier. What is left is
-        // the motion the ground sees, the predicted positions stay next to the planet the terrain
-        // is sampled from, and the path comes out already in the frame it has to be drawn in.
-        // The airspeed is unchanged: the frame's velocity is subtracted here instead of inside.
-        bool ok = BombSight.TryPredict(
-            releaseEcl,
-            craftVel - groundVel + tubeEcl * battery.Munition.LaunchSpeed,
-            Vec.Zero,
-            battery.Munition,
-            at => KsaWorld.GravityAt(platform, at),
-            at => KsaWorld.MediumDensityRatioAt(platform, at),
-            Ground(),
-            IntegrationStep,
-            _next,
-            out double3 impact);
+        bool ok = Fly(battery, platform, releaseEcl, releaseVelocity, _next, out double3 impact);
 
         // A store that cannot reach the ground inside BombSight.MaxSteps has no pipper, and it will
         // still have none a frame later -- so back off rather than re-flying 2048 steps at the
@@ -179,10 +146,66 @@ internal sealed class BombSightOverlay
             _sinceTrace = 0.0;
             Log.Debug(() =>
                 $"bomb sight: {flightSeconds:F1} s of fall, "
-                + $"speed over the ground {Vec.Len(craftVel - groundVel):F0} m/s, "
+                + $"release speed over the ground {Vec.Len(releaseVelocity):F0} m/s, "
                 + $"impact {Vec.Len(_impactOffset):F0} m from the craft");
         }
     }
+
+    /// <summary>
+    /// Where a store released this instant would land, solved now rather than read off the ring,
+    /// which can be <see cref="SolveIntervalSeconds"/> old.
+    /// </summary>
+    public bool TryPredictNow(WeaponSystem battery, out double3 impactEcl)
+    {
+        impactEcl = Vec.Zero;
+        if (battery.Platform is not { } platform || battery.Munition.Powered) return false;
+
+        return TryReleaseState(battery, platform, out double3 releaseEcl, out double3 velocity)
+               && Fly(battery, platform, releaseEcl, velocity, _next, out impactEcl);
+    }
+
+    /// <summary>
+    /// The same flight from a release state handed in rather than read off the rack. Given the state
+    /// a round actually left with, the difference from <see cref="TryPredictNow"/> is exactly what
+    /// the sight assumes about the release.
+    /// </summary>
+    public bool TryPredictFrom(WeaponSystem battery, double3 releaseEcl, double3 velocityOverGround,
+                               out double3 impactEcl)
+    {
+        impactEcl = Vec.Zero;
+        return battery.Platform is { } platform
+               && Fly(battery, platform, releaseEcl, velocityOverGround, _next, out impactEcl);
+    }
+
+    private static bool TryReleaseState(WeaponSystem battery, Vehicle platform,
+                                        out double3 releaseEcl, out double3 velocityOverGround)
+    {
+        velocityOverGround = Vec.Zero;
+        if (!battery.TryNextReleaseEcl(out releaseEcl, out double3 velocityEcl)) return false;
+
+        // Flown in the ground's frame, not the ecliptic's, and that is the whole trick.
+        //
+        // Ecliptic velocities here are ~29.8 km/s of Earth's orbit, so a round integrated in them
+        // moves 1.5 km per step -- while GroundTest resolves each predicted position against the
+        // planet where it is *now*, which has not moved. One step in, the round reads as being a
+        // kilometre and a half underground and the trajectory ends immediately, leaving the pipper
+        // at the release point plus one step of orbital motion: kilometres out, fixed to the
+        // ecliptic, and indifferent to which way the craft is pointing.
+        //
+        // Taking the release velocity relative to the ground removes the carrier. What is left is
+        // the motion the ground sees, the predicted positions stay next to the planet the terrain
+        // is sampled from, and the path comes out already in the frame it has to be drawn in.
+        // The airspeed is unchanged: the frame's velocity is subtracted here instead of inside.
+        velocityOverGround = velocityEcl - KsaWorld.GroundVelocityAt(platform, battery.PlatformEcl);
+        return true;
+    }
+
+    private bool Fly(WeaponSystem battery, Vehicle platform, double3 releaseEcl,
+                     double3 velocityOverGround, List<double3> path, out double3 impactEcl)
+        => BombSight.TryPredict(releaseEcl, velocityOverGround, Vec.Zero, battery.Munition,
+                                at => KsaWorld.GravityAt(platform, at),
+                                at => KsaWorld.MediumDensityRatioAt(platform, at),
+                                Ground(), IntegrationStep, path, out impactEcl);
 
     // Reset per solve: the cache exists to skip lookups down one trajectory, not to remember the
     // last one, and a sample kept from the previous frame's fall would be trusted from the wrong

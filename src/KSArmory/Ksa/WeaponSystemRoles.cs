@@ -325,6 +325,12 @@ internal interface IWeaponSystemView : IRoundsInFlight, IWeaponLoadout
     /// <summary>Current radar boresight in Ecl.</summary>
     double3 Boresight { get; }
 
+    /// <summary>
+    /// Where the next store would leave and the velocity it would leave with, in Ecl — the launch
+    /// a release makes, ejector and spin included, so a sight flown from it predicts the release.
+    /// </summary>
+    bool TryNextReleaseEcl(out double3 positionEcl, out double3 velocityEcl);
+
     int Ammo { get; }
 
     /// <summary>True when the tubes are where the profile says they are.</summary>
