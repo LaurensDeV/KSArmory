@@ -51,4 +51,52 @@ public class AirSampleEpochTests
         Assert.True(asked.Min() <= -dt * 0.5,
                     $"the earliest sample was only {asked.Min():F4} s back on a {dt:F4} s frame");
     }
+
+    /// <summary>
+    /// A missile reads the same back-dated air. Handed the frame's single sample instead, a round
+    /// low over a site near sea level reads a frame of the planet's travel as altitude, lands below
+    /// the waterline, and water drag stops it the moment its motor does.
+    /// </summary>
+    [Fact]
+    public void AMissileLowOverTheSeaFliesThroughAirNotWater()
+    {
+        const double radius = 6_371_000.0;
+        const double dt = 1.0 / 60.0;
+
+        // The planet's travel laid along the local vertical, which is where it reads as altitude.
+        double3 up = new(1, 0, 0);
+        double3 planetVelocity = up * 29_800.0;
+
+        // Air above the mean surface and water below it: the cliff an altitude error falls off.
+        static double Medium(double3 position, double3 centre)
+            => Vec.Len(position - centre) - radius < 0.0 ? 840.0 : 1.0;
+
+        var round = new Interceptor(up * (radius + 100.0), planetVelocity + new double3(0, 300, 0),
+                                    null, 1, Vec.Zero, planetVelocity)
+        {
+            Munition = BuiltIns.Missile57E6,
+        };
+
+        double3 centre = Vec.Zero;
+
+        // Four seconds, so the motor has stopped and only the medium is left holding the speed.
+        for (int i = 0; i < 240 && round.State == RoundState.Flying; i++)
+        {
+            // The world advances first: the body's sample belongs to the end of the step the round
+            // is about to be flown across.
+            centre += planetVelocity * dt;
+            double3 sampled = centre;
+
+            RoundDriver.Fly(round, dt, null, Vec.Zero, planetVelocity, Vec.Zero, round.Munition,
+                            Medium(round.PositionEcl, sampled),
+                            new RoundFields(null,
+                                            (at, seconds) => Medium(at - (planetVelocity * seconds), sampled),
+                                            null));
+        }
+
+        double speed = Vec.Len(round.VelocityEcl - planetVelocity);
+        Assert.True(speed > 250.0,
+                    $"the missile slowed to {speed:F0} m/s: it was flown through water, a frame of "
+                    + "the planet's travel below where it is");
+    }
 }

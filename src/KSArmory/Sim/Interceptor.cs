@@ -87,6 +87,17 @@ internal sealed class Interceptor : IProjectile
     // What the round last flew through, so it can say what step it needs before the next one.
     private double _lastDensity;
 
+    /// <summary>
+    /// The air where the round is, asked per sub-step and back-dated as a <see cref="Slug"/> asks
+    /// it. Null holds the frame's single sample.
+    ///
+    /// <para>Not a refinement for a missile, however much its guidance dominates its flight. The body
+    /// its altitude is measured from was sampled at the frame's end, so the frame's sample reads up to
+    /// a frame of the planet's ~30 km/s as altitude — below the waterline for a round leaving a site
+    /// near sea level, where the drag is 840 times the air's and stops it when the motor does.</para>
+    /// </summary>
+    public Func<double3, double, double>? AirDensityAt { get; set; }
+
     public RoundState State { get; private set; } = RoundState.Flying;
 
     /// <inheritdoc cref="IProjectile.ShootDown"/>
@@ -319,7 +330,10 @@ internal sealed class Interceptor : IProjectile
 
         for (int i = 0; i < steps && State == RoundState.Flying; i++)
         {
-            Step(h, elapsed, dt, target, gravity, frameVelocityEcl, munition, mediumDensityRatio);
+            double density = AirDensityAt?.Invoke(PositionEcl, elapsed - dt) ?? mediumDensityRatio;
+            if (!double.IsFinite(density) || density < 0.0) density = mediumDensityRatio;
+
+            Step(h, elapsed, dt, target, gravity, frameVelocityEcl, munition, density);
             elapsed += h;
         }
 

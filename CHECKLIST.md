@@ -547,6 +547,13 @@ Do all of this at `simspeed 1`.
 **If it fails:** "refused: …" in the log tells you which gate stopped it — no launcher,
 empty, or target gone.
 
+### 4.1a A low shot from a site near sea level, at 1x
+
+- [ ] From a Pantsir parked near the coast, fire at a target on the ground or skimming it, at 1x.
+      The rounds keep flying after the motor burns out and reach the target. The fault this checks
+      reads in the log as `expired after 30.0s - ... flew 0.8 km, final speed 19 m/s`: a round
+      flown through water because its altitude was read a frame of the planet's travel low.
+
 ### 4.2 The round guides
 
 - [ ] The tracer visibly **turns** toward the target rather than flying straight.

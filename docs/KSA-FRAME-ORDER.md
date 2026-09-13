@@ -374,11 +374,11 @@ The per-sub-step density callback is the exception. `WeaponSystem.AirDensityInto
 MediumAtRound(positionEcl - (_bodyVelocityEcl * secondsIntoFrame))
 ```
 
-and `Slug` now passes `elapsed - dt`, so at the first sub-step the round is moved forward by a full
-`bodyVelocityEcl * dt` and the pair land on one instant. **That correction is right, and it is the
-one the other three are missing.** It reaches only `Slug`, and only through the callback — an
-`Interceptor`, and a `Slug` with `AirDensityAt` unset, uses the uncorrected once-a-frame
-`mediumDensity` instead.
+and `Slug` and `Interceptor` both pass `elapsed - dt`, so at the first sub-step the round is moved
+forward by a full `bodyVelocityEcl * dt` and the pair land on one instant. **That correction is
+right, and it is the one the other three are missing.** It reaches a round only through the
+callback — one with `AirDensityAt` unset uses the uncorrected once-a-frame `mediumDensity`, which
+reads a missile low over a site near sea level as under the water.
 
 ### Why the experiment in the comment does not settle it
 

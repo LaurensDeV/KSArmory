@@ -87,8 +87,7 @@ internal static class RoundDriver
     {
         // Assigned rather than assigned-if-present: a caller that means "hold this field" says so
         // by passing nothing for it, and that has to be distinguishable from a caller that simply
-        // did not reach this line. Only a Slug reads them — an interceptor's flight is dominated by
-        // its own guidance rather than by the field it flies through.
+        // did not reach this line.
         if (round is Slug slug)
         {
             slug.GravityAt = fields.GravityAt;
@@ -97,6 +96,13 @@ internal static class RoundDriver
             slug.GroundCentreDriftAt = fields.GroundCentreDriftAt;
             slug.GroundQueryDriftAt = fields.GroundQueryDriftAt;
             slug.ApproachAt = fields.ApproachAt;
+        }
+        else if (round is Interceptor missile)
+        {
+            // The air alone. An interceptor's flight is dominated by its own guidance rather than by
+            // gravity or the ground, but the medium decides whether it flies at all: held for the
+            // frame, a round low over the sea reads as under it.
+            missile.AirDensityAt = fields.AirDensityAt;
         }
 
         round.Update(dt, target, gravity, frameVelocityEcl, platformEcl, munition, mediumDensityRatio);
