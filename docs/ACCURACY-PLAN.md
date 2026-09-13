@@ -7923,6 +7923,51 @@ seat-levelling is too noisy at four arms to trust. **Two two-arm nights is the p
 spin first, since the centre is what the median needs; the `base` arm of the spin night also measures
 the ring's turned residual through the diagnostic, which prices item 41's night before it flies.
 
+### Item 42 smoked, and its night declared — 2026-09-13
+
+**Smoked** on one paired block, `2026-09-13-spin-smoke`, 4 `base` and 4 `spin`: all eight passed 6 of 6,
+endings 6 `payback` and 2 `floor` with no `clock` and no trim give-up, and KSA's own log clean. The
+diagnostic printed on all 48 warheads and the cancellation on exactly the 24 of the `spin` rockets. The
+landing line's components parse on 8 of 8 flights, so `centre` and `dispersion` have now read a flown
+log rather than only a synthetic one.
+
+What it read inside each flight, where there is no seat term:
+
+- **The doubled arm, as flown.** The common spin thrown is **2.043–2.046x** the about-the-centre-of-mass
+  figure on all 48 warheads, against 3dd's 2.04x.
+- **The width is the ring, not the spin.** Each group's six sit 0.98–1.61 m rms about their own centroid;
+  taking off each warhead's logged ring shift leaves **0.05–0.53 m**, and taking off its own spin's
+  departure from the group's leaves 1.02–1.54. So `dispersion` should not move on this night, and item
+  41's focus is priced at roughly 0.25x on it, as 3db has it.
+- **The centre follows the logged shift on 7 of 8 flights.** On `base`, removing each flight's mean thrown
+  shift moves its centre 4.14 → 2.98, 6.23 → 3.50 and 1.59 → 0.69 m, and 1.00 → 1.44 on the fourth; on
+  `spin`, adding back what was cancelled would have moved all four outward, 0.47–2.30 → 1.10–2.96 m. The
+  eight per-flight ratios run 0.30–1.44x, median **0.50x**, and all assume the slope of 1 the mechanism
+  check tests. The smoke's own slopes, +1.8 ± 1.3 downrange and +1.66 ± 0.25 cross on four flights, are
+  no reading.
+
+**Declared before it flies:**
+
+```bash
+KSARMORY_SCENARIO_SAVE='SOLVER SCALE 8' ./tools/shot-batch.sh --paired 'base|spin:CancelSpinAtSeparation=true' \
+    --aim 26.485S,68.148W --blocks 24 --out ~/shots/2026-09-13-spin    # about five hours
+```
+
+* **Primary: `--endpoint centre`, `--paired`, seat-levelled. Predicted ~0.5x**, the smoke's median
+  counterfactual.
+* **24 blocks rather than 20**, because no night has scored `centre` and its null scatter, so its
+  minimum detectable effect, is unknown. Four more blocks is fifty minutes of a night nobody is using.
+* **Mechanism check, as declared above:** each `base` flight's centroid regressed on its warheads' mean
+  "lands … from the spin thrown", downrange and cross — slope ~1, and ~2 on "about the centre of mass".
+  The same slope on `spin` should be ~0.
+* **Beside it:** `landing`, ~0.6x if the night's centre-to-dispersion split is the smoke's 2.9 m to 1.4;
+  `dispersion` and `spread` ~1.0x, where 0.8x or below would say the cancellation reaches a ring the smoke
+  says it cannot.
+* **Refuted by** a `base` slope under 0.5, a `spin` slope near `base`'s, or the centre not moving while the
+  `base` slope reads 1 — which would put the centre in something the diagnostic does not see.
+* **Watch:** `clock` and trim endings stay at 0, and KSA's own log on every shot. The lever-arm fix is not
+  in this build and is not what the night decides.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -8052,7 +8097,7 @@ what 20b is flying against.
 | ~~40~~ | ~~The ground lookup's rotation phase~~ — `IcbmConfig.GroundQueryAtOwnEpoch` | **flown 2026-09-12, 20 paired blocks — SHIPPED ON** | **per seat the walk's magnitude +0.810 m (p=0.0015) and its slope on frame time +0.0607 m/ms (p=0.0005), `--per-seat`; the landing 0.66x [0.55, 0.90] on 18 of 20, the walk 0.54x on 20 of 20.** Between-seat sd 2.61 → 0.06 m, walks over 2 m 25 of 80 → none, the worst rocket 11.7 → 5.3 m. Seat 4's slope −0.083 m/ms against the −0.082 measured before the fix. Two predictions were wrong and are recorded as such — **3da, 3cz, 3cw** |
 | **40b** | **The predictor's crossing stop** — 0.20 m deep on average, 0.20 m long at 32° | **built behind `IcbmConfig.PredictionStopsOnTheSurface` (`2aa13ff`), off, unflown** | **3dc** — it is 0.20 m of the common −0.25 m walk: the landing sits −0.201 m below the late re-flies on 80 of 80, against −0.199 from the tolerance alone. Placing the crossing between the samples either side of the ground takes stops from 0.11-0.13 m under to within a millimetre headlessly, at no cost. Declared: `signed-walk` +0.20 m at power 1.00; the landing 0.998x and will not resolve |
 | **41** | **The spread between the six warheads of one rocket** — ~2.4 m at the ground from release probes 0.20 m apart | **cause found (3db); the focus kick built behind `IcbmConfig.FocusTubesOnTheAim`, off, unflown** | **3db** — the bus's six tubes sit on a 0.86 m ring and every release prediction uses the mean mouth, so the aim loop lands the mean state and the six land on the ring's ground image: the once-round harmonic in tube angle carries 0.958 of the variance against a 0.40 null. A separation kick of 1.5-2.4 mm/s focuses each round on the mean's impact without moving the centre — headlessly 175 cm across to 0.4 cm. Declared: `--endpoint spread` ~0.2x at power 1.00 (MDE ×1.15); the landing 0.87x and will not resolve |
-| **42** | **The bus's spin every warhead is thrown with** — 1-6 mm/s, at twice its physical size | **cause found (3dd); diagnostic always logged (`84c9bdd`), `CancelSpinAtSeparation` off and unflown (`b50d6b0`); the lever-arm fix unflown and not on `dev` (`arm/spin-lever-arm`)** | **3dd** — `Commit` throws `ω × (mouth − CoM)` and the probe leaves it out; `CentreOfMassEcl` counts the centre of mass twice, a 2.44 m error on the staged bus, so rounds carry 2.04x the physical common spin. Headless, 4 mm/s moves the centre 1.25 m — most of what stands between the shot and a metre. Declared: `--endpoint centre` primary, unpriced until the diagnostic's first night; the mechanism check a slope near 1 on the thrown spin. Fly before 41 |
+| **42** | **The bus's spin every warhead is thrown with** — 1-6 mm/s, at twice its physical size | **cause found (3dd); diagnostic always logged (`84c9bdd`), `CancelSpinAtSeparation` off and unflown (`b50d6b0`); the lever-arm fix unflown and not on `dev` (`arm/spin-lever-arm`); smoked 2026-09-13, and `2026-09-13-spin` declared — 24 blocks on `--endpoint centre`, predicted ~0.5x** | **3dd** — `Commit` throws `ω × (mouth − CoM)` and the probe leaves it out; `CentreOfMassEcl` counts the centre of mass twice, a 2.44 m error on the staged bus, so rounds carry 2.04x the physical common spin. Headless, 4 mm/s moves the centre 1.25 m — most of what stands between the shot and a metre. Declared: `--endpoint centre` primary, unpriced until the diagnostic's first night; the mechanism check a slope near 1 on the thrown spin. Fly before 41 |
 | ~~34b~~ | ~~Feed the hold forward~~ | **flown and lost 2026-09-10** | **+234 m against a 7 m term** — 30x out of scale. The mechanism stands; a blanket offset on every cycle does not, because the release happens when the loop stops rather than a fixed dwell later. **3co** |
 | ~~31~~ | ~~Stop stage disposal shedding debris~~ | **built 2026-09-09, unflown** | `KsaWorld.Remove` → `Universe.DestroyVehicle`, which sheds nothing where `DestroyVehicleFromEvent` sheds twelve. **3ci/3bv** — inference, not measurement: it removes the only discriminator, but nothing yet proves it breaks the chain |
 | **32** | **Record the per-arm descent step**, or hold the world step for the whole flight | small | **3ci** — the arms never overlap in time and steep always falls in a faster-running world, which confounds *every* `ArrivalPreference` night ever flown, 3cd and 3ch included |
