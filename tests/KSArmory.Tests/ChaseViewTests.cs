@@ -498,4 +498,43 @@ public class ChaseViewTests
         Assert.False(ok);
         Assert.True(Vec.IsFinite(facing), "a refusal still has to hand back a direction");
     }
+
+    /// <summary>
+    /// A lift carried from the last frame survives the axis passing the vertical. Derived afresh
+    /// from local up it jumps there, so the eye swaps sides of the round and the view of it turns
+    /// round: a bomb falling onto a point below it.
+    /// </summary>
+    [Fact]
+    public void ACarriedLiftDoesNotJumpAsTheAxisPassesTheVertical()
+    {
+        double3 carried = Vec.Zero;
+        double3 lastFresh = Vec.Zero;
+        double worstFresh = 0.0;
+        double worstCarried = 0.0;
+
+        for (int step = -50; step <= 50; step++)
+        {
+            double tilt = double.DegreesToRadians(step * 0.2);
+            var down = new double3(Math.Sin(tilt), 1e-3, -Math.Cos(tilt));
+
+            ChaseView.TryPose(Vec.Zero, down * 120.0, down * 400.0, Up, EngineAxis, 26.0, 6.0, 120.0,
+                              out _, out _, out double3 fresh);
+            ChaseView.TryPose(Vec.Zero, down * 120.0, down * 400.0, Up, EngineAxis, 26.0, 6.0, 120.0,
+                              carried, out _, out _, out double3 carriedNow);
+
+            if (step > -50)
+            {
+                worstFresh = Math.Max(worstFresh, Vec.AngleBetween(lastFresh, fresh));
+                worstCarried = Math.Max(worstCarried, Vec.AngleBetween(carried, carriedNow));
+            }
+
+            lastFresh = fresh;
+            carried = carriedNow;
+        }
+
+        Assert.True(worstFresh > double.DegreesToRadians(60.0),
+                    $"the sweep never made a fresh lift jump (worst {double.RadiansToDegrees(worstFresh):F1} deg)");
+        Assert.True(worstCarried < double.DegreesToRadians(5.0),
+                    $"the carried lift turned {double.RadiansToDegrees(worstCarried):F1} deg in one step");
+    }
 }

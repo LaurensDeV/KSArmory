@@ -327,9 +327,18 @@ public sealed class KSArmoryMod
 
         // After the watch camera: both write the view, and the chase takes it outright, so
         // letting the watch nudge afterwards would fight it every frame.
-        if (_roster.For(_ui.Focused) is { } chased)
+        //
+        // A ridden round whose craft has been destroyed is followed through its own system first.
+        // That system is on no craft the panel can focus any more, so asking the panel lets go of
+        // the round in mid-fall and leaves the view where the round was.
+        if (_chase.RiddenSystem is { Platform: null } riding)
         {
-            _chase.Apply(chased.Battery, chased.Policy.ChaseRounds && KsaWorld.InFlight,
+            _chase.Apply(riding, enabled: true, dt, _lastSimStep, _config.FreezeChaseTransition,
+                         _sight.BaseFovDeg);
+        }
+        else if (_roster.For(_ui.Focused) is { } chased)
+        {
+            _chase.Apply(chased.Battery, chased.Policy.ChaseRounds && KsaWorld.InFlightScene,
                          dt, _lastSimStep, _config.FreezeChaseTransition, _sight.BaseFovDeg);
         }
         else

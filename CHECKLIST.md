@@ -1318,6 +1318,18 @@ the same band section 7.1b needs — fly one engagement and check both.
       when it expires.
 - [ ] Pause inside those two seconds. The chase stays until the world runs again.
 - [ ] Drop a B61 on nothing. The chase rides it all the way down and holds on the burst.
+- [ ] Drop a B61 designated on the ground below, from a hover and from level flight. The chase closes
+      in steadily for the whole fall: no lunge in the first seconds, and no pull back out before the
+      burst.
+- [ ] Drop a B61 onto a point almost straight below the craft, so the chase looks nearly straight
+      down. The bomb never appears to turn half a round as the view passes over the point, and the
+      log has no `chase: the eye swung ... deg round the round in one frame` warning.
+- [ ] Drop a B61 and lose the craft that dropped it before the bomb lands. The log says
+      `pinned platform lost` but no `chase: released the main view` until after the burst: the chase
+      rides the fall to the ground (the bomb itself cannot be drawn once its craft is gone), holds on
+      the burst, and then leaves the view over it where it can be orbited, rather than off in space.
+      The fireball and the cloud still appear, with no `no burst ... no celestial to hang it on`
+      warning.
 - [ ] A chased round that expires while still closing hands the view straight back, logging
       `chase: the round expired, nothing to hold on`, rather than holding three seconds on nothing.
 - [x] Switch vessels with `[` or `]` while a chase rides a round, and again while it holds on the

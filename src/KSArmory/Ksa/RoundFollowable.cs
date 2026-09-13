@@ -63,6 +63,26 @@ internal sealed class RoundFollowable : IFollowable
         _anchorOffset = round.OffsetFromPlatform;
     }
 
+    /// <summary>
+    /// Holds wherever it is now, fixed to the ground under that point, with nothing tracked.
+    ///
+    /// <para>For a view handed back with nothing to hand it to: the craft it was taken from has
+    /// been destroyed, so the view goes on following this. Untracked instead, its last position is
+    /// an ecliptic point the planet leaves behind at ~30 km/s, and the camera goes with it.</para>
+    /// </summary>
+    public void HoldWhereItIs()
+    {
+        double3 here = GetPositionEcl();
+
+        _round = null;
+        _source = null;
+        _platform = null;
+        _anchor = null;
+
+        _burstBody = KsaWorld.TryAnchorToGround(here, out object? body, out double3 anchor) ? body : null;
+        _burstAnchor = anchor;
+    }
+
     /// <summary>Where the round was last seen, for when it stops existing mid-frame.</summary>
     public double3 LastPositionEcl { get; private set; }
 

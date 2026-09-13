@@ -50,6 +50,71 @@ public class ChaseInterestTests
         Assert.Equal(still, carried, 1e-6);
     }
 
+    /// <summary>
+    /// A store released barely closing on a point below it still has its fall to count down. The
+    /// line of sight reads the same release as minutes away.
+    /// </summary>
+    [Fact]
+    public void AStoreReleasedBarelyClosingHasItsFallToCountDown()
+    {
+        var gravity = new double3(0, 0, -9.80665);
+        var bomb = new double3(0, 0, 700);
+        var drift = new double3(3, 0, 0);
+        var target = new double3(500, 0, 0);
+
+        Assert.True(ChaseInterest.TimeToGo(bomb, drift, target, Vec.Zero) > 100.0);
+        Assert.Equal(Math.Sqrt(2.0 * 700.0 / 9.80665),
+                     ChaseInterest.TimeToFall(bomb, drift, target, Vec.Zero, gravity), 1e-6);
+    }
+
+    /// <summary>
+    /// And it runs down on every frame, past a point the store misses as well. The line-of-sight
+    /// countdown turns round as the store goes by, which is the chase pulling back out just before
+    /// the burst.
+    /// </summary>
+    [Fact]
+    public void AFallRunsDownAllTheWayPastAMissedPoint()
+    {
+        var gravity = new double3(0, 0, -9.80665);
+        var position = new double3(0, 0, 700);
+        var velocity = new double3(150, 0, 0);
+        var target = new double3(1_600, 230, 0);
+
+        double lastFall = double.PositiveInfinity;
+        double lastLine = double.NaN;
+        bool lineTurnedRound = false;
+
+        while (position.Z > 0.0)
+        {
+            double fall = ChaseInterest.TimeToFall(position, velocity, target, Vec.Zero, gravity);
+            Assert.True(fall < lastFall, $"the fall grew from {lastFall:F2} s to {fall:F2} s at {position.Z:F0} m");
+            lastFall = fall;
+
+            double line = ChaseInterest.TimeToGo(position, velocity, target, Vec.Zero);
+            if (double.IsFinite(line) && double.IsFinite(lastLine) && line > lastLine) lineTurnedRound = true;
+            lastLine = line;
+
+            velocity += gravity * Frame;
+            position += velocity * Frame;
+        }
+
+        Assert.True(lineTurnedRound, "the case never showed the line-of-sight countdown turning round");
+    }
+
+    [Fact]
+    public void SharedMotionDoesNotReachTheFall()
+    {
+        var gravity = new double3(0, 0, -9.80665);
+        var bomb = new double3(0, 0, 900);
+        var velocity = new double3(200, 0, -40);
+        var target = new double3(2_000, 0, 0);
+
+        double still = ChaseInterest.TimeToFall(bomb, velocity, target, Vec.Zero, gravity);
+        double carried = ChaseInterest.TimeToFall(bomb + Far, velocity + Carrier, target + Far, Carrier, gravity);
+
+        Assert.Equal(still, carried, 1e-6);
+    }
+
     [Fact]
     public void ARoundClosingOnSomethingIsNeverGivenUpOn()
     {

@@ -47,6 +47,35 @@ internal sealed class ChaseInterest
     }
 
     /// <summary>
+    /// Seconds until a falling store comes down to the height of what it is aimed at, from how far
+    /// above it the store is and how fast it is descending — or NaN with no gravity to fall in.
+    ///
+    /// <para>A store's countdown rather than <see cref="TimeToGo"/>, which is badly posed for a fall.
+    /// Released with its carrier's motion a store is barely closing on a point below it, which the
+    /// line of sight reads as minutes; passing beside that point it stops closing again, which
+    /// reads as the fall getting longer. Height does neither: it runs down on every frame.</para>
+    /// </summary>
+    public static double TimeToFall(double3 roundEcl, double3 roundVelocityEcl,
+                                    double3 targetEcl, double3 targetVelocityEcl, double3 gravity)
+    {
+        double g = Vec.Len(gravity);
+        if (!(g > 1e-9) || !double.IsFinite(g)) return double.NaN;
+
+        double3 up = -gravity / g;
+
+        // Differenced here, for the same reason as TimeToGo: both carry the ecliptic's motion.
+        double height = Vec.Dot(roundEcl - targetEcl, up);
+        double descending = -Vec.Dot(roundVelocityEcl - targetVelocityEcl, up);
+
+        if (!double.IsFinite(height) || !double.IsFinite(descending)) return double.NaN;
+        if (height <= 0.0) return 0.0;
+
+        // Drag-free, so it reaches zero a little before the ground does. The camera only needs it
+        // to run down.
+        return (-descending + Math.Sqrt((descending * descending) + (2.0 * g * height))) / g;
+    }
+
+    /// <summary>
     /// Whether the round will end by arriving: closing on something, or a store the ground stops.
     /// A bomb dropped on nothing is the second, and its arrival is what the chase is for.
     /// </summary>

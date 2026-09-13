@@ -1864,7 +1864,9 @@ body's position while there is one, and the round's own against its anchor once 
 is exact rather than approximate precisely because there is no part to disagree with it.
 
 So a shell keeps its tracer for its whole flight and a missile keeps its flame while the motor
-burns. **A missile that has finished boosting is invisible**, having neither. The motor sound and
+burns. **A missile that has finished boosting is invisible**, having neither, and so is a bomb. The chase
+camera still rides such a round to its burst: it keeps the system it is riding rather than asking
+the panel, which has nothing left it can focus that owns the round. The motor sound and
 the diagnostic gizmo overlay are also not carried over, both because they convert through a
 `Vehicle` to get camera-relative. `docs/CODE-HEALTH.md` has what closing those would take.
 

@@ -9,6 +9,14 @@ public static class ChaseView
     // about the arithmetic rather than about framing.
     private const double MinAimRange = 1.0;
 
+    /// <summary>The pose with its lift derived afresh, for a camera with no last frame to carry.</summary>
+    public static bool TryPose(double3 roundEcl, double3 velocityLocal, double3? aimEcl,
+                               double3 upHint, double3 engineAxisEcl,
+                               double distanceBehind, double heightAbove, double lookAhead,
+                               out double3 eyeEcl, out double3 forwardEcl, out double3 upEcl)
+        => TryPose(roundEcl, velocityLocal, aimEcl, upHint, engineAxisEcl, distanceBehind,
+                   heightAbove, lookAhead, Vec.Zero, out eyeEcl, out forwardEcl, out upEcl);
+
     /// <summary>
     /// Eye and forward for a camera trailing a round, looking past it at what it is flying at.
     /// </summary>
@@ -27,9 +35,14 @@ public static class ChaseView
     /// <paramref name="upHint"/>, which stays the local vertical and decides the lift. See
     /// <see cref="LeanOffAxis"/> for why the two are different directions.
     /// </param>
+    /// <param name="liftReference">
+    /// Last frame's lift — the side of the axis the eye stood on — or zero to derive it from
+    /// <paramref name="upHint"/>. Comes back as <paramref name="upEcl"/>.
+    /// </param>
     public static bool TryPose(double3 roundEcl, double3 velocityLocal, double3? aimEcl,
                                double3 upHint, double3 engineAxisEcl,
                                double distanceBehind, double heightAbove, double lookAhead,
+                               double3 liftReference,
                                out double3 eyeEcl, out double3 forwardEcl, out double3 upEcl)
     {
         eyeEcl = roundEcl;
@@ -71,16 +84,32 @@ public static class ChaseView
             }
         }
 
-        // A round straight up the hint leaves no sideways reference, so the lift has nowhere to
-        // go. Falling back to any perpendicular keeps the view usable instead of degenerate.
-        double3 up = Vec.Unit(upHint);
-        if (Vec.Len2(up) < 0.5 || Math.Abs(Vec.Dot(up, axis)) > 0.999) up = AnyPerpendicular(axis);
+        // Carried when there is one to carry. Derived from the hint, the lift is whatever part of
+        // the hint lies across the axis, which near the vertical is a sliver pointing the way the
+        // axis leans -- and past a threshold a fixed perpendicular instead. Either reverses the
+        // lift as the axis passes the vertical, so the eye swaps sides and the round appears to turn
+        // half a round: a bomb falling onto a point below it. The caller pulls the carried lift back
+        // towards the hint once a frame, which is what keeps it from drifting.
+        double3 carried = liftReference - axis * Vec.Dot(liftReference, axis);
+        double3 lift;
 
-        // Lift perpendicular to the axis the eye stands off along, not along the hint: at a steep
-        // climb angle the two are nearly the same direction and the camera would sit in front of
-        // the round.
-        double3 lift = Vec.Unit(up - axis * Vec.Dot(up, axis));
-        if (Vec.Len2(lift) < 0.5) lift = AnyPerpendicular(axis);
+        if (Vec.IsFinite(carried) && Vec.Len2(carried) > 1e-6)
+        {
+            lift = Vec.Unit(carried);
+        }
+        else
+        {
+            // A round straight up the hint leaves no sideways reference, so the lift has nowhere
+            // to go. Falling back to any perpendicular keeps the view usable instead of degenerate.
+            double3 up = Vec.Unit(upHint);
+            if (Vec.Len2(up) < 0.5 || Math.Abs(Vec.Dot(up, axis)) > 0.999) up = AnyPerpendicular(axis);
+
+            // Lift perpendicular to the axis the eye stands off along, not along the hint: at a
+            // steep climb angle the two are nearly the same direction and the camera would sit in
+            // front of the round.
+            lift = Vec.Unit(up - axis * Vec.Dot(up, axis));
+            if (Vec.Len2(lift) < 0.5) lift = AnyPerpendicular(axis);
+        }
 
         eyeEcl = roundEcl - axis * Math.Max(0.0, distanceBehind) + lift * heightAbove;
 
