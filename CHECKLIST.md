@@ -188,7 +188,7 @@ made from reading.
       Safe all, chase and the bomb sight. A **Gun** row holds its belt and its own `live`.
 - [ ] A **Sensor** row holds the lock and the contact. The director's own sensor row says it is
       not the one fire control reads.
-- [ ] A **Fire control** row holds master arm, auto-engage, FIRE, Reset settings and the mouse
+- [ ] A **Fire control** row holds auto-engage, FIRE, Reset settings and the mouse
       controls.
 - [ ] A second launcher of the same kind says **fitted, not run** rather than showing blanks.
 - [ ] The strip above the tabs shows *Clear to fire* / *Holding fire* from **every** tab, plus
@@ -442,7 +442,7 @@ Assets one needs a `<Transform>`.
 - [x] In flight, a **KSArmory** window is visible.
 - [x] Closing it leaves a small **KSArmory** button that reopens it.
 - [ ] The **Components** tab lists the Pantsir's launcher, gun, sensor and fire-control rows.
-- [ ] The strip above the tabs shows the master arm safe and a full twelve-round tally.
+- [ ] The strip above the tabs shows auto-engage off and a full twelve-round tally.
 
 **If it fails:** `no weapons system on this craft` while the part *is* on it means
 `LauncherPart.Find` isn't matching — `Part.Id` may not equal the `PartGameData` Id, or the part
@@ -539,14 +539,13 @@ Do all of this at `simspeed 1`.
 
 ### 4.1 Manual fire
 
-- [ ] Tick **Master arm**. Header turns red, `MASTER ARM: ARMED`.
-- [ ] With a lock, press **FIRE**.
+- [ ] With a lock and nothing else touched, press **FIRE**. There is no arming step.
 - [ ] `Rounds` drops to 11/12; one muzzle dot turns grey.
 - [ ] A tracer leaves that tube with a trail behind it.
 - [ ] Console logs `[KSArmory] round N away at <target> (X.X km)`.
 
-**If it fails:** "refused: …" in the log tells you which gate stopped it — not armed, no
-launcher, empty, or target gone.
+**If it fails:** "refused: …" in the log tells you which gate stopped it — no launcher,
+empty, or target gone.
 
 ### 4.2 The round guides
 
@@ -638,10 +637,11 @@ Do these deliberately — a failure here is the kind that ruins a save.
       your own craft.
 - [x] **5.2** A round fired at a close target does not destroy your own launcher platform
       (the fuse arms 0.6 s after launch specifically to prevent this).
-- [x] **5.3** **Safe all** removes rounds in flight with no detonation, **and disarms**.
-      Without the disarm, an armed system holding a lock fires again immediately and the
+- [ ] **5.3** **Safe all** removes rounds in flight with no detonation, **and turns auto-engage
+      off**. Without that, a guarding system holding a lock fires again immediately and the
       button appears to do nothing.
-- [x] **5.4** Master arm off means nothing launches, even with a valid lock and auto-engage on.
+- [ ] **5.4** With auto-engage off nothing launches on its own, however good the lock, and
+      **FIRE** still does.
 
 ---
 
@@ -1286,7 +1286,7 @@ the same band section 7.1b needs — fly one engagement and check both.
 - [ ] Slew onto a target hard enough to lose it off the edge at high magnification: a **chevron**
       appears at that edge pointing after it, with the range beside it. Behind the camera counts —
       the chevron must point backwards correctly, not at its mirror image.
-- [ ] Master arm, missile count and belt count in the top-left track the panel.
+- [ ] Missile count and belt count in the top-left track the panel.
 - [ ] **Sight symbology** off leaves the target bracket and takes everything else away.
 
 ### 7.6f The chase camera — the turn onto the target, and letting go
@@ -1324,9 +1324,10 @@ the same band section 7.1b needs — fly one engagement and check both.
 - [ ] Craft sit under their team's name in its colour, in the declared order, with "No team" last.
 - [ ] Clicking a name flies it, and the craft being flown is tinted. Right-clicking a name turns
       the view to it and pins its label without taking the seat.
-- [ ] The shield is grey when safe, amber when armed with auto-engage off, green when guarding.
-      One click from grey or amber guards every weapon on the craft; one click from green makes
-      them all safe. The craft's own window agrees afterwards.
+- [ ] The shield is grey when nothing is guarding, amber when some weapons are, green when all
+      are. One click from grey or amber turns auto-engage on for every weapon on the craft; one
+      click from green turns it off. The craft's own window agrees afterwards, FIRE works in every
+      state, and a craft carrying only stores has no shield.
 - [ ] The camera icon chases that craft's rounds once it is flown or its window is open.
 - [ ] Clicking the flag opens a menu: the declared teams in their colours with the current one
       ticked, then **No team**, then a **New team** box. Picking one moves the row to that team's

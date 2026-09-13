@@ -12,7 +12,6 @@ public class SystemSettingsTests
     {
         SystemConfig c = new()
         {
-            Armed = true,
             AutoEngage = true,
             ProtectControlledVehicle = false,
             MissilesEnabled = false,
@@ -44,7 +43,6 @@ public class SystemSettingsTests
 
         SystemSettings.From(saved).ApplyTo(loaded);
 
-        Assert.True(loaded.Armed);
         Assert.True(loaded.AutoEngage);
         Assert.False(loaded.ProtectControlledVehicle);
         Assert.False(loaded.MissilesEnabled);
@@ -251,7 +249,7 @@ public class SystemSettingsTests
         Dictionary<string, Dictionary<string, SystemSettings>> stored = new()
         {
             ["Campaign"] = new() { ["AA Defence Site"] = SystemSettings.From(Configured()) },
-            ["Sandbox"] = new() { ["AA Defence Site"] = new SystemSettings { Armed = false } },
+            ["Sandbox"] = new() { ["AA Defence Site"] = new SystemSettings { AutoEngage = false } },
         };
 
         string json = System.Text.Json.JsonSerializer.Serialize(stored);
@@ -259,9 +257,23 @@ public class SystemSettingsTests
             .Deserialize<Dictionary<string, Dictionary<string, SystemSettings>>>(json)!;
 
         // The same craft name, two saves, two answers -- which is the whole point.
-        Assert.True(back["Campaign"]["AA Defence Site"].Armed);
-        Assert.False(back["Sandbox"]["AA Defence Site"].Armed);
+        Assert.True(back["Campaign"]["AA Defence Site"].AutoEngage);
+        Assert.False(back["Sandbox"]["AA Defence Site"].AutoEngage);
         Assert.Equal("Blue", back["Campaign"]["AA Defence Site"].OwnTeam);
+    }
+
+    /// <summary>
+    /// A settings file carrying an <c>Armed</c> key still loads: the key is ignored rather than
+    /// refused, so every other setting in the file survives it.
+    /// </summary>
+    [Fact]
+    public void AFileThatStillCarriesAMasterArmLoads()
+    {
+        var old = System.Text.Json.JsonSerializer
+            .Deserialize<SystemSettings>("{\"Armed\":true,\"AutoEngage\":true,\"RoundsPerTarget\":3}")!;
+
+        Assert.True(old.AutoEngage);
+        Assert.Equal(3, old.RoundsPerTarget);
     }
 
     /// <summary>
@@ -277,7 +289,7 @@ public class SystemSettingsTests
         var flat = System.Text.Json.JsonSerializer
             .Deserialize<Dictionary<string, SystemSettings>>(legacy)!;
 
-        Assert.True(flat["Old Site"].Armed);
+        Assert.True(flat["Old Site"].AutoEngage);
         Assert.Equal(4, flat["Old Site"].RoundsPerTarget);
 
         // And it must NOT read as the nested shape, which is what makes the fallback necessary

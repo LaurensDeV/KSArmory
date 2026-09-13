@@ -424,13 +424,13 @@ public class ArsenalTests
     /// nothing that shoots can lack one.
     ///
     /// <para>It is a declared role rather than a found part, so a launcher that omits it gets no
-    /// fire-control row — and every control that lives on that row goes with it: master arm, FIRE,
+    /// fire-control row — and every control that lives on that row goes with it: FIRE,
     /// aim with the mouse, fire at the mouse, protecting the craft being flown, and resetting the
-    /// installation. Three of the four launchers shipped without one, so a CIWS could not be armed
+    /// installation. Three of the four launchers shipped without one, so a CIWS could not be fired
     /// from the panel at all.</para>
     ///
     /// <para><c>tools/check-tunables.py</c> cannot catch this and passed throughout: it asks whether
-    /// a setting is written <em>somewhere</em> in the panel, and <c>Armed</c> is — on the one row
+    /// a setting is written <em>somewhere</em> in the panel, and <c>MouseFire</c> is — on the one row
     /// only a Pantsir has. Reachable for one system is not reachable.</para>
     /// </summary>
     [Fact]
@@ -457,8 +457,8 @@ public class ArsenalTests
             }
 
             Assert.True(declares,
-                $"{launcher.DisplayName} declares no fire control, so its panel has no master arm, "
-                + "no FIRE, and no mouse aim");
+                $"{launcher.DisplayName} declares no fire control, so its panel has no FIRE, "
+                + "no mouse aim and no fire at the mouse");
         }
     }
 

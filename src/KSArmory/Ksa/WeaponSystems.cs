@@ -593,7 +593,7 @@ internal sealed class WeaponSystems(Config config)
         => ordinal == 0 ? KsaWorld.DisplayName(craft) : $"{KsaWorld.DisplayName(craft)}#{ordinal + 1}";
 
     /// <summary>
-    /// The system to show when nothing has been chosen — the one being flown if it is armed,
+    /// The system to show when nothing has been chosen — the one being flown if it carries a weapon,
     /// otherwise any of them. Never null while the roster is not empty.
     /// </summary>
     public Vehicle? Default()

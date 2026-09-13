@@ -11,10 +11,10 @@ namespace KSArmory;
 /// <em>while flying</em> and the manage window is not somewhere to be during an attack run. Small,
 /// movable, and it stays where it is put.</para>
 ///
-/// <para>Every weapon shows its ammo and whether it is armed. That is not decoration: a craft
-/// carrying two racks has two magazines and two master arms, so "nothing happened when I pressed
-/// FIRE" is nearly always one of the two, and a switcher that showed only names would leave the
-/// operator to guess which.</para>
+/// <para>Every weapon shows its ammo and whether it is guarding. The ammo is not decoration: a craft
+/// carrying two racks has two magazines, so "nothing happened when I pressed FIRE" is nearly always
+/// one of them being empty, and a switcher that showed only names would leave the operator to guess
+/// which.</para>
 /// </summary>
 internal partial class Ui
 {
@@ -43,7 +43,7 @@ internal partial class Ui
             {
                 ImGui.TextColored(Grey, craft is null
                     ? "no craft"
-                    : "nothing armed on this craft");
+                    : "no weapons on this craft");
             }
             else
             {
@@ -217,12 +217,12 @@ internal partial class Ui
                               && selected.Battery.Profile.PartId == partId;
 
             int ammo = 0, belt = 0;
-            bool anyArmed = false;
+            bool anyGuarding = false;
             foreach (WeaponSystems.Entry s in _stations)
             {
                 ammo += s.Battery.Ammo;
                 if (s.Battery.Profile.HasCannon) belt += s.Battery.GunAmmo;
-                anyArmed |= s.Policy.Armed;
+                anyGuarding |= s.Policy.AutoEngage;
             }
 
             ImGui.PushID(row);
@@ -256,8 +256,8 @@ internal partial class Ui
             if (e.Battery.Profile.HasCannon) ImGui.TextDisabled($"  {belt} belt");
 
             ImGui.SameLine();
-            if (anyArmed) ImGui.TextColored(Red, "ARMED");
-            else ImGui.TextDisabled("safe");
+            if (anyGuarding) ImGui.TextColored(Red, "GUARDING");
+            else ImGui.TextDisabled("manual");
 
             ImGui.PopID();
             row++;
@@ -269,20 +269,8 @@ internal partial class Ui
 
         GatherGroup(selected.Battery.Profile.PartId, _stations);
 
-        // The two controls an operator actually reaches for mid-run, on the selected weapon, so
-        // the switcher is usable without the manage window open at all -- which is the whole point
-        // of it being a window of its own.
-        //
-        // Arming reaches every station of the group: they are one weapon here, and a master arm
-        // that armed one rail of a pair would be a switch that half works.
-        bool armed = selected.Policy.Armed;
-        if (ImGui.Checkbox("Master arm", ref armed))
-        {
-            foreach (WeaponSystems.Entry s in _stations) s.Policy.Armed = armed;
-        }
-
-        ImGui.SameLine(0f, ImGui.GetFrameHeight());
-
+        // The trigger, on the selected weapon, so the switcher is usable without the manage window
+        // open at all -- which is the whole point of it being a window of its own.
         if (ImGui.Button("FIRE")) FireGroup(selected);
 
         // This window is the trigger, so its line has to be about the trigger. Auto-engage off

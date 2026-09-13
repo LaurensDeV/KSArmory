@@ -31,7 +31,7 @@ internal static class LockCueOverlay
     //
     // Red, and it has to be a different hue family from Acquiring rather than a deeper orange:
     // the two mean opposite things, and this is the one that stays on screen -- dwell is under a
-    // second and a hold lasts as long as its reason does. Same red as the panel's ARMED.
+    // second and a hold lasts as long as its reason does. Same red as the switcher's GUARDING.
     private static readonly ImColor8 Refused = new(255, 89, 77, 210);
 
     // Larger than Markers' icon so the two read as different marks when both are on one contact:

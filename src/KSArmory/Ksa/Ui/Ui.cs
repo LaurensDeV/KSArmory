@@ -4,7 +4,7 @@ using Brutal.Numerics;
 namespace KSArmory;
 
 /// <summary>
-/// The operator's panel: master arm, radar and guidance tuning, the track list with
+/// The operator's panel: auto-engage, radar and guidance tuning, the track list with
 /// manual designation, and a rolling event log.
 /// </summary>
 internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHeads heads, IcbmComputers icbms, WarpPolicy warp, WatchCamera watch, CraftMover mover, BurstTool bursts)
@@ -427,7 +427,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         }
 
         string status = _batteries.For(craft) is { } e
-            ? $"{(e.Policy.Armed ? "ARMED" : "safe")}  {Tally(e.Battery)}{Speed(e.Battery)}"
+            ? $"{(e.Policy.AutoEngage ? "GUARDING" : "manual")}  {Tally(e.Battery)}{Speed(e.Battery)}"
             : Describe(inv);
 
         Tip(status + "\n\n" + (flying ? "You are flying it." : "Click to fly it.")
@@ -436,38 +436,41 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
 
     private void DrawGuardButton()
     {
-        Guard guard = Guard.Safe;
-        for (int i = 0; i < _rowSystems.Count; i++)
+        Guard? guard = null;
+        foreach (WeaponSystems.Entry e in _rowSystems)
         {
-            WeaponSystems.Entry e = _rowSystems[i];
-            Guard one = GuardState.Of(e.Policy.Armed, e.Policy.AutoEngage, CanAutoEngage(e));
-            guard = i == 0 ? one : GuardState.Combine(guard, one);
+            if (GuardState.Of(e.Policy.AutoEngage, CanAutoEngage(e)) is not { } one) continue;
+            guard = guard is { } soFar ? GuardState.Combine(soFar, one) : one;
         }
 
-        ImColor8 ink = guard switch
+        // Nothing aboard engages on its own -- a craft carrying only stores -- so there is nothing
+        // to switch, and its FIRE needs nothing switched.
+        if (guard is not { } state) return;
+
+        ImColor8 ink = state switch
         {
             Guard.Guarding => GuardInk,
-            Guard.Armed => ArmedInk,
+            Guard.Partly => PartlyInk,
             _ => OffInk,
         };
 
-        if (IconButton("##guard", Icon.Shield, ink, lit: guard != Guard.Safe))
+        if (IconButton("##guard", Icon.Shield, ink, lit: state != Guard.Off))
         {
-            bool on = GuardState.TurnsOn(guard);
+            bool on = GuardState.TurnsOn(state);
             foreach (WeaponSystems.Entry e in _rowSystems)
             {
-                e.Policy.Armed = on;
                 if (CanAutoEngage(e)) e.Policy.AutoEngage = on;
             }
         }
 
-        Tip(guard switch
+        Tip(state switch
         {
-            Guard.Guarding => "Guarding: armed, and engaging whatever its sensors and IFF allow. "
-                              + "Click to make every weapon on it safe.",
-            Guard.Armed => "Armed, but not standing guard: some or all of its weapons fire only when "
-                           + "told. Click to guard.",
-            _ => "Safe. Click to guard: master arm and auto-engage together, on every weapon on it.",
+            Guard.Guarding => "Guarding: engaging whatever its sensors and IFF allow, on its own. "
+                              + "Click to stop. FIRE works either way.",
+            Guard.Partly => "Partly guarding: some of its weapons engage on their own and some fire "
+                            + "only when you press FIRE. Click to guard with all of them.",
+            _ => "Not guarding: it fires only when you press FIRE. Click to let every weapon on it "
+                 + "engage on its own.",
         });
     }
 
@@ -605,7 +608,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     private static readonly float4 LitButton = new(0.22f, 0.36f, 0.26f, 1f);
     private static readonly float4 FlyingButton = new(0.20f, 0.32f, 0.48f, 1f);
     private static readonly ImColor8 GuardInk = new(100, 240, 120, 255);
-    private static readonly ImColor8 ArmedInk = new(255, 200, 70, 255);
+    private static readonly ImColor8 PartlyInk = new(255, 200, 70, 255);
     private static readonly ImColor8 ChaseInk = new(130, 190, 255, 255);
     private static readonly ImColor8 OffInk = new(140, 140, 150, 255);
     private static readonly ImColor8 Lens = new(24, 26, 32, 255);

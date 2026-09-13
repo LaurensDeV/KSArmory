@@ -112,7 +112,6 @@ internal sealed class BallisticScenario
     private Vehicle? _defendedSite;
     private bool _watchedTheTarget;
     private bool _onThePad;
-    private SystemConfig? _policy;
     private bool _warped;
 
     // What this flight wants the world clock to run at, or NaN for no opinion. Asked for rather
@@ -249,13 +248,13 @@ internal sealed class BallisticScenario
             return null;
         }
 
-        // Held down rather than set once. The site's master arm is restored from the save's own
-        // settings and can come back after the aim is taken, and one frame of it armed is a salvo
+        // Held down rather than set once. The site's auto-engage is restored from the save's own
+        // settings and can come back after the aim is taken, and one frame of it on is a salvo
         // intercepted.
         if (_disarmSite && _defendedSite is { } defended && roster.For(defended) is { } defence
-            && defence.Policy.Armed)
+            && defence.Policy.AutoEngage)
         {
-            defence.Policy.Armed = false;
+            defence.Policy.AutoEngage = false;
 
             if (!_saidDisarm)
             {
@@ -370,7 +369,6 @@ internal sealed class BallisticScenario
                                                   computer.Config.TurnStartMetres);
 
             _computer = computer;
-            _policy = entry?.Policy;
             _loaded = battery.Ammo;
             _ammoWas = battery.Ammo;
             _flownFrom = computer.Craft;
@@ -484,7 +482,7 @@ internal sealed class BallisticScenario
     //
     // Two frames, and that ordering is forced rather than tidy: the phase machine returns "not
     // armed" before running any of itself, so there is no launch solution to gate the staging on
-    // until the master arm is set. Staging without one lights a rocket with nothing steering it.
+    // until the computer is armed. Staging without one lights a rocket with nothing steering it.
     private void Commit()
     {
         if (_computer is not { } computer) return;
@@ -517,21 +515,7 @@ internal sealed class BallisticScenario
             }
 
             computer.Config.Armed = true;
-
-            // Two interlocks, and arming one is not arming the other. The computer's flies the
-            // rocket; the weapon system's is what lets a round leave a tube. With only the first
-            // set, the sequencer decides to release over and over and fire control answers
-            // "holding fire: safe -- master arm is off" every time, so the bus carries the whole
-            // salvo into the ground.
-            if (_policy is { } policy && !policy.Armed)
-            {
-                policy.Armed = true;
-                _say("armed: the ballistic computer and the weapon's master arm");
-            }
-            else
-            {
-                _say("armed");
-            }
+            _say("armed");
 
             return;
         }

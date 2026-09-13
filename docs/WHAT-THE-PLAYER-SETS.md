@@ -53,7 +53,7 @@ changes is that the panel stops presenting them as choices.
 
 | control | what it is |
 | --- | --- |
-| **Armed** | the master arm. Unchanged |
+| **Armed** | the computer's own arm. Unchanged |
 | **Precision — Range** | the one trade, below |
 | **Release automatically** | whether the bus deploys on its own or waits to be told |
 | **Stage automatically** | the same question for the boost phase |

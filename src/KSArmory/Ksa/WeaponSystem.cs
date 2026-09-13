@@ -677,7 +677,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// <summary>
     /// Why the missiles are not launching, or null when nothing is stopping them.
     ///
-    /// <para>Every gate returns quietly and looks identical from outside: an unarmed system, one
+    /// <para>Every gate returns quietly and looks identical from outside: an empty magazine, one
     /// with no lock and one whose drives have not settled all sit there doing nothing. Naming the
     /// first gate that says no is the difference between reading the panel and reading the
     /// source.</para>
@@ -1072,12 +1072,12 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         }
 
         // Rechecked rather than trusted from FireBurst: a frame passes between the click and this
-        // step, and arming, the belt and the lay can all move in it.
-        bool manual = _manualTrigger && _policy.Armed && _policy.GunsEnabled
+        // step, and the switch, the belt and the lay can all move in it.
+        bool manual = _manualTrigger && _policy.GunsEnabled
                       && IsOperational && GunsAreLaid;
 
         bool wantToFire = manual
-                          || _policy.AutoEngage && _policy.Armed && _policy.GunsEnabled
+                          || _policy.AutoEngage && _policy.GunsEnabled
                           && IsOperational && GunsAreLaid
                           && Radar.Locked is { } locked
                           && ThreatModel.MayEngage(locked, _policy.Iff)
@@ -1094,7 +1094,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             {
                 string range = Radar.Locked is { } t ? $"{t.Range:F0} m" : "no lock";
                 return $"cannon: want={wantToFire} ammo={_guns.Ammo} burst={_guns.BurstRemaining} "
-                       + $"cd={_guns.Cooldown:F3} armed={_policy.Armed} auto={_policy.AutoEngage} "
+                       + $"cd={_guns.Cooldown:F3} auto={_policy.AutoEngage} "
                        + $"enabled={_policy.GunsEnabled} laid={GunsAreLaid} drive={_drives.Works(DriveChannel.Guns)} "
                        + $"part={(GunsPart is not null)} range={range} "
                        + $"envelope={Shell.MinRange:F0}-{Shell.MaxRange:F0} m";
@@ -1808,7 +1808,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // empty magazine, which leaves a working cannon with no trigger at all.
         if (Profile.TubeCount == 0) return FireBurst();
 
-        if (!_policy.Armed) { Announce("refused: not armed"); return false; }
         if (Platform is null) { Announce("refused: no platform"); return false; }
         if (!IsOperational) { Announce("refused: no launcher part fitted"); return false; }
 
@@ -1992,13 +1991,12 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// top of a shot the operator is eyeballing walks the shells off the point aimed at, and the
     /// automatic path already computes one for the target it chose.</para>
     ///
-    /// <para>Every refusal is announced. "Nothing happened" is the same symptom for a safe
-    /// launcher, a switched-off cannon, an empty belt and a mount still slewing.</para>
+    /// <para>Every refusal is announced. "Nothing happened" is the same symptom for a switched-off
+    /// cannon, an empty belt and a mount still slewing.</para>
     /// </summary>
     public bool FireBurst()
     {
         if (!Profile.HasCannon) { Announce("refused: no cannon fitted"); return false; }
-        if (!_policy.Armed) { Announce("refused: not armed"); return false; }
         if (Platform is null) { Announce("refused: no platform"); return false; }
         if (!IsOperational) { Announce("refused: no launcher part fitted"); return false; }
         if (!_policy.GunsEnabled) { Announce("refused: cannon switched off"); return false; }
@@ -2139,24 +2137,24 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     }
 
     /// <summary>
-    /// Makes the battery safe: rounds in flight are removed without detonating, and the master arm
-    /// goes off.
+    /// Makes the battery safe: rounds in flight are removed without detonating, and auto-engage goes
+    /// off.
     ///
-    /// <para>Disarming is the point. Clearing the air while armed and auto-engaging simply fires
-    /// again on the next lock, which is the opposite of what anyone reaching for a button called
-    /// "safe" wants at the moment they reach for it.</para>
+    /// <para>Stopping auto-engage is the point. Clearing the air while it is on simply fires again on
+    /// the next lock, which is the opposite of what anyone reaching for a button called "safe" wants
+    /// at the moment they reach for it.</para>
     /// </summary>
     public void SafeAll()
     {
         int n = _rounds.Count;
         ClearRounds();
 
-        bool wasArmed = _policy.Armed;
-        _policy.Armed = false;
+        bool wasEngaging = _policy.AutoEngage;
+        _policy.AutoEngage = false;
 
-        if (n > 0 || wasArmed)
+        if (n > 0 || wasEngaging)
         {
-            Announce($"safe - {n} round(s) removed{(wasArmed ? ", master arm off" : "")}");
+            Announce($"safe - {n} round(s) removed{(wasEngaging ? ", auto-engage off" : "")}");
         }
     }
 

@@ -350,7 +350,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/RadarSignature.cs` | how large a contact looks, and how far that lets the set see it |
 | `Sim/TrackState.cs` | one contact, as the threat model sees it |
 | `Sim/Iff.cs` | which side a contact is on, and whether it may be engaged |
-| `Sim/GuardState.cs` | whether a craft's weapons are standing guard — **the switcher's one switch for master arm and auto-engage together** |
+| `Sim/GuardState.cs` | whether a craft's weapons are standing guard — **the switcher's one switch for auto-engage on every weapon aboard** |
 | `Sim/LineOfSight.cs` | whether a body is between the viewer and something |
 | `Sim/ITerrainHeights.cs` | **the seam a sensor looks over the real skyline through** |
 | `Sim/TerrainMask.cs` | whether a ridge hides a contact, and how few samples that can cost |
@@ -814,7 +814,7 @@ slider under a named part on a named craft reads as belonging to that craft, and
 tab says so at the top, because it is the most surprising thing about it.
 
 The header strip is above the tab bar rather than inside a row for a reason worth keeping: every
-gate in fire control returns quietly, so an unarmed system, one with no lock, one still settling
+gate in fire control returns quietly, so an empty launcher, one with no lock, one still settling
 and one whose drives the engine refused all look identical from outside. `Holding fire: <why>` is
 the only thing that separates them, and it is no use behind a fold or on a tab nobody is looking
 at.
@@ -844,14 +844,25 @@ station is dry is the selected one, because then its refusal is exactly what an 
 read; the fallback when the selection cannot be resolved at all is the system in hand, never null,
 because null paints a green "clear to fire" over a launcher that is holding.
 
-**The master arm, auto-engage and FIRE are on that strip too, and belong there by the same test.**
+**Auto-engage and FIRE are on that strip too, and belong there by the same test.**
 Whether the installation is shooting is about the whole system and no part of it, so the
 fire-control component row is the wrong home for it however sensible the part sounds — that row is
-for what fire control *decides* once armed: rounds per target, what it will not shoot at, and the
-mouse controls.
+for what fire control *decides*: rounds per target, what it will not shoot at, and the mouse
+controls.
+
+**There is no master arm, and FIRE works on a system nobody has touched.** A safety in front of a
+trigger guards an input that can fire by accident, and FIRE is a labelled button pressed on purpose
+— so all one adds there is a step a new player does not know to take, and a weapon that looks
+broken until they find it. BDArmory's arm switch is the same argument from the other side: it
+exists because its fire key is the left mouse button, and its guard mode does not consult it. What
+can surprise a player is a site shooting on its own, so that is the switch: auto-engage, off by
+default. The switcher's shield is auto-engage on every weapon aboard, and a craft carrying only
+stores has no shield. **Fire at the mouse** turns an ordinary click into a shot, and its own opt-in
+tick box is its arming. The ballistic computer keeps its own `Armed`, because a launch cannot be
+taken back.
 
 **Ownership says where a control lives; it does not license how deep.** The two rules are
-independent, and obeying only the first is what buried the master arm and the sight three folds
+independent, and obeying only the first is what buried the fire controls and the sight three folds
 down. So: a component row opens **expanded**, anything reached *during* an engagement — slow
 motion, the target spawner, the log — is at most one window from the panel, and a control that is
 the answer to "why is nothing happening" is never behind a disclosure triangle. A fold is for
@@ -865,7 +876,7 @@ being a second switch.
 
 **A control that opens a window is a button, never a tick box.** A checkmark reads as "this
 setting is on", so a window arriving instead is unannounced and the tick says nothing about where
-it went. Opening a window is an action; tick boxes are for state — armed, auto-engage, what to
+it went. Opening a window is an action; tick boxes are for state — auto-engage, what to
 draw, a tool being active. Tint the button if open/closed is worth showing.
 
 **An explanation is a tooltip; a line under a control is state the operator has to act on.** What a
@@ -907,7 +918,7 @@ is seen at a third of the range, not a hundredth — so a round is a far smaller
 craft that threw it with nothing having to know a round from a craft.
 
 **A setting belongs to a system or to the session, and which one is the whole distinction.**
-`SystemConfig` holds what can differ between two launchers in the same world — armed,
+`SystemConfig` holds what can differ between two launchers in the same world —
 auto-engage, which weapons are live, turret mode, whether the craft
 being flown is protected, and **the IFF policy**, because two sites on opposite sides is exactly
 the case. `Config` holds what cannot: the
@@ -916,8 +927,8 @@ whether two sites could sensibly disagree — a name labels a craft the same way
 at it, and what that name *means* is each system's own.
 
 Weapon *performance* is neither: range, guidance and fuse live on the profiles, because two
-Pantsirs on opposite sides of the map share a flight model and disagree about whether they are
-armed.
+Pantsirs on opposite sides of the map share a flight model and disagree about whether they
+engage on their own.
 
 **Every weapons system in the world runs its own fire control.** `Ksa/WeaponSystems.cs` crews a craft
 the moment a survey recognises a part on it, pins the system there and forgets it when the craft
@@ -962,7 +973,7 @@ a pass invalidates it on the way in.
 
 **A craft carries one weapon system per launcher part, and the player picks between them.**
 `WeaponSystems` keys on the craft *and* the launcher's ordinal, so two rails on one aircraft are
-two weapons: each with its own magazine, drives, rounds in the air and arm switch. The selector on
+two weapons: each with its own magazine, drives, rounds in the air and auto-engage. The selector on
 the header strip chooses which one the panel and the trigger are pointed at, and `For(craft)` is
 what returns it — which is why the sight, the chase camera and the manual trigger all followed the
 selection without changing.
@@ -970,7 +981,7 @@ selection without changing.
 Re-pointing a single system at a different launcher would have been smaller and wrong: the
 magazine is sized and filled per profile, so switching would refill it, and a player could drop,
 switch, drop, switch back and find the bomb had returned. It is also why the settings key carries
-the ordinal past the first — two racks sharing one entry would share an arm switch.
+the ordinal past the first — two racks sharing one entry would share one set of switches.
 
 **What is still not general:** the roster is KSA-facing and unreachable from the test project, so
 only `Sim/WeaponSelection.cs` — the stepping arithmetic — is covered. See `docs/MODULARITY.md`
@@ -1197,7 +1208,7 @@ reaches. Test it for *invariance*: add the same velocity to both inputs, assert 
 not move. `docs/FRAMES-AND-EPOCHS.md` has why, and `BallisticLead` is where it bites hardest.
 
 **Weapon performance lives on profiles, not in `Config`.** `Config` is the *player's* settings:
-armed, auto-engage, what to draw. Range, guidance, fuse and launcher geometry belong to a
+auto-engage, what to draw. Range, guidance, fuse and launcher geometry belong to a
 weapon system and vary per system, so they sit on `SensorProfile`, `MunitionProfile` and
 `LauncherProfile`. The panel edits the profiles of whichever system it is showing, so live
 tuning still works — it just tunes that system rather than the whole mod.

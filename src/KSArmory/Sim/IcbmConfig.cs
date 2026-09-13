@@ -173,7 +173,7 @@ internal sealed class IcbmConfig
     /// <summary>
     /// Let the warheads go by itself once the trajectory is good and the vehicle is high enough.
     ///
-    /// <para>On by default, because the master arm above is already the interlock and a computer
+    /// <para>On by default, because <see cref="Armed"/> is already the interlock and a computer
     /// that flies the whole shot and then waits to be told the obvious is not delivering anything.
     /// It releases only from <see cref="IcbmPhase.Coast"/> above
     /// <see cref="DeployAltitudeMetres"/>, and never from a burn that ended short — a trajectory

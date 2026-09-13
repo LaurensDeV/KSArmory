@@ -36,7 +36,7 @@ public class FireLadderTests
         LockedName = "target",
     };
 
-    private static SystemConfig Armed() => new() { Armed = true };
+    private static SystemConfig Policy() => new();
 
     private static MunitionProfile Round() => new()
     {
@@ -56,11 +56,11 @@ public class FireLadderTests
 
     private static string? Hold(FireConditions now, SystemConfig? policy = null,
                                 MunitionProfile? munition = null)
-        => FireLadder.Holding(now, policy ?? Armed(), munition ?? Round())?.Reason;
+        => FireLadder.Holding(now, policy ?? Policy(), munition ?? Round())?.Reason;
 
     private static bool BindsTrigger(FireConditions now, SystemConfig? policy = null,
                                      MunitionProfile? munition = null)
-        => FireLadder.Holding(now, policy ?? Armed(), munition ?? Round())?.BindsTrigger ?? true;
+        => FireLadder.Holding(now, policy ?? Policy(), munition ?? Round())?.BindsTrigger ?? true;
 
     [Fact]
     public void EverythingSatisfiedIsNotHoldingFire()
@@ -82,35 +82,22 @@ public class FireLadderTests
                      Hold(Ready() with { HasPlatform = false, IsOperational = false }));
     }
 
-    /// <summary>
-    /// Reloading outranks the master arm, so a magazine refilling while the system is safed still
-    /// says so. Both are true; only one of them ends.
-    /// </summary>
     [Fact]
-    public void ReloadingOutranksTheMasterArm()
+    public void AReloadingMagazineSaysSo()
     {
         FireConditions now = Ready() with { MagazineEmpty = true, ReloadSeconds = 7.4 };
 
-        Assert.Equal("reloading (7 s)", Hold(now, new SystemConfig { Armed = false }));
+        Assert.Equal("reloading (7 s)", Hold(now));
     }
 
     /// <summary>
-    /// The master arm outranks every rung below it. It is the switch an operator is most likely to
-    /// have left off, and reporting "no lock" while safed sends them to the radar.
+    /// Nothing stands in front of the trigger on a system nobody has touched. A new player's first
+    /// FIRE is the case: a safety they have to find first reads as a weapon that does not work.
     /// </summary>
     [Fact]
-    public void TheMasterArmOutranksEverythingBelowIt()
+    public void AFreshSystemIsClearToFire()
     {
-        FireConditions now = Ready() with
-        {
-            Ammo = 0,
-            HasFiringSolution = false,
-            TrackCount = 0,
-            IsLaid = false,
-            Locked = null,
-        };
-
-        Assert.Equal("safe -- master arm is off", Hold(now, new SystemConfig { Armed = false }));
+        Assert.Null(FireLadder.Holding(Ready(), new SystemConfig(), Round()));
     }
 
     /// <summary>
@@ -173,11 +160,11 @@ public class FireLadderTests
     public void EachArmamentNamesItsOwnSwitch()
     {
         Assert.Equal("missiles are switched off",
-                     Hold(Ready(), new SystemConfig { Armed = true, MissilesEnabled = false }));
+                     Hold(Ready(), new SystemConfig { MissilesEnabled = false }));
 
         Assert.Equal("cannon are switched off",
                      Hold(Ready() with { HasTubes = false },
-                          new SystemConfig { Armed = true, GunsEnabled = false }));
+                          new SystemConfig { GunsEnabled = false }));
     }
 
     // ---- Who owns the bearing ---------------------------------------------
@@ -275,12 +262,12 @@ public class FireLadderTests
     [Fact]
     public void AutoEngageIsNotAGate()
     {
-        Assert.Null(Hold(Ready(), new SystemConfig { Armed = true, AutoEngage = false }));
+        Assert.Null(Hold(Ready(), new SystemConfig { AutoEngage = false }));
 
         // And it does not mask a real reason either.
         Assert.Equal("no lock",
                      Hold(Ready() with { Locked = null },
-                          new SystemConfig { Armed = true, AutoEngage = false }));
+                          new SystemConfig { AutoEngage = false }));
     }
 
     // ---- What binds the trigger, and what is only automatic fire's ---------
@@ -330,13 +317,12 @@ public class FireLadderTests
         Assert.True(BindsTrigger(Ready() with { Ammo = 0 }));
         Assert.True(BindsTrigger(Ready() with { IsLaid = false }));
         Assert.True(BindsTrigger(Ready() with { Locked = null }));
-        Assert.True(BindsTrigger(Ready(), new SystemConfig { Armed = false }));
     }
 
     /// <summary>Nothing holding is not a hold of either kind.</summary>
     [Fact]
     public void ClearToFireBindsNothing()
     {
-        Assert.Null(FireLadder.Holding(Ready(), Armed(), Round()));
+        Assert.Null(FireLadder.Holding(Ready(), Policy(), Round()));
     }
 }

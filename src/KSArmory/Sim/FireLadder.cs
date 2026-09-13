@@ -76,7 +76,7 @@ internal readonly record struct FireHold(string Reason, bool BindsTrigger);
 /// <summary>
 /// Why a system is not shooting, as the first gate that says no.
 ///
-/// <para>Every gate in fire control returns quietly, so an unarmed system, one with no lock, one
+/// <para>Every gate in fire control returns quietly, so an empty launcher, one with no lock, one
 /// still settling and one whose drives the engine refused all look identical from outside. Naming
 /// the first rung that answers is the difference between reading the panel and reading the
 /// source.</para>
@@ -110,8 +110,6 @@ internal static class FireLadder
         {
             return Binding($"reloading ({now.ReloadSeconds:F0} s)");
         }
-
-        if (!policy.Armed) return Binding("safe -- master arm is off");
 
         if (now.HasTubes)
         {

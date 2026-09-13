@@ -553,12 +553,11 @@ internal sealed class ScenarioRunner
             case Phase.Arming:
                 if (entry is null) return;
 
-                entry.Policy.Armed = true;
                 entry.Policy.AutoEngage = true;
                 entry.Policy.MissilesEnabled = true;
                 _config.DrawOverlays = true;
 
-                Report($"{_name}: armed, {entry.Battery.Ammo} rounds");
+                Report($"{_name}: auto-engage on, {entry.Battery.Ammo} rounds");
                 _phase = Phase.Engaging;
                 return;
 

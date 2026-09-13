@@ -115,7 +115,7 @@ internal sealed partial class Ui
     private void NotSelected()
     {
         ImGui.TextColored(Amber, "not the selected weapon");
-        ImGui.TextDisabled("  it has its own magazine and master arm - pick it in Weapons");
+        ImGui.TextDisabled("  it has its own magazine and auto-engage - pick it in Weapons");
     }
 
     // The launcher: what it holds, how it is laid, and the switches that belong to it.
@@ -218,7 +218,7 @@ internal sealed partial class Ui
 
     // Everything about releasing a weapon, on the part that decides it.
     //
-    // The master arm, auto-engage and FIRE are deliberately *not* here: they belong to the whole
+    // Auto-engage and FIRE are deliberately *not* here: they belong to the whole
     // installation rather than to one part of it, so they sit in the header where they are on
     // screen whichever tab is open. See DrawSystemHeader.
     private void DrawFireControlComponent()
@@ -250,9 +250,7 @@ internal sealed partial class Ui
         ImGui.Checkbox("Fire at the mouse", ref _policy.MouseFire);
         Tip("Click the ground to send a round there. No target and no lock are needed: the ring "
             + "shows where, and turns red when the weapon is empty or not laid, the point is out of "
-            + "reach, or the round could not be guided there. It does not show the master arm.");
-        if (_policy.MouseFire && !_policy.Armed)
-            ImGui.TextColored(Amber, "  Master arm is off, so clicks do nothing.");
+            + "reach, or the round could not be guided there.");
 
         // Last, and alone below a rule. It discards the installation's stored settings, so it is
         // kept clear of anything anyone reaches for in a hurry.
@@ -278,8 +276,8 @@ internal sealed partial class Ui
         if (firing) ImGui.TextColored(Red, arm.Describe(remaining, firing));
         else ImGui.Text(arm.Describe(remaining, firing));
 
-        // Beside its own reading rather than with the master arm. Whether this weapon is live is
-        // a fact about this weapon; what fire control decides is whether anything may shoot.
+        // Beside its own reading rather than on the header strip. Whether this weapon is live is a
+        // fact about this weapon; what fire control decides is whether anything shoots on its own.
         ImGui.SameLine();
         ImGui.Checkbox($"live##{kind}", ref Armament.EnabledIn(_policy, kind));
     }
@@ -305,7 +303,7 @@ internal sealed partial class Ui
     // about the clock when it is stopping the thing working.
     //
     // Above the tab bar rather than inside a tab. Every gate in fire control returns quietly, so
-    // an unarmed system, one with no lock, one still settling and one whose drives the engine
+    // an empty launcher, one with no lock, one still settling and one whose drives the engine
     // refused all look identical from outside: this line is the only thing that separates them,
     // and it is no use on a tab nobody is looking at.
     //
@@ -340,30 +338,31 @@ internal sealed partial class Ui
                                + $"({_battery.LauncherOrdinal + 1})");
         }
 
-        // The three that decide whether anything leaves the rails, immediately above the line that
+        // The two that decide whether anything leaves the rails, immediately above the line that
         // says why it has not. Here rather than on the fire-control component row because they are
-        // about the whole system and no part of it -- which is what this strip is for, and a master
-        // arm is the plainest case of it. Anything folded inside a tab is somewhere nobody looks
-        // when the question is why the launcher is silent.
-        ImGui.Checkbox("Master arm", ref _policy.Armed);
-
-        // Absent on a rack of stores rather than disabled: nothing it carries engages on its own,
-        // so FireLadder answers "released by hand" however this is set. A tick box that cannot
-        // change the answer is worse than no tick box, because it looks like the reason.
+        // about the whole system and no part of it -- which is what this strip is for. Anything
+        // folded inside a tab is somewhere nobody looks when the question is why the launcher is
+        // silent.
+        //
+        // Auto-engage is absent on a rack of stores rather than disabled: nothing it carries engages
+        // on its own, so FireLadder answers "released by hand" however this is set. A tick box that
+        // cannot change the answer is worse than no tick box, because it looks like the reason.
         if (_fit.AutoEngages)
         {
-            ImGui.SameLine();
             ImGui.Checkbox("Auto engage", ref _policy.AutoEngage);
+            Tip("On: it picks whatever its sensors and IFF allow and fires at it by itself. "
+                + "Off: it fires only when you press FIRE.");
+
+            // Spaced off the tick box: FIRE does something the moment it is clicked rather than
+            // setting a state.
+            ImGui.SameLine(0f, ImGui.GetFrameHeight());
         }
 
-        // Spaced off the tick boxes: it is the one control here that does something the moment
-        // it is clicked rather than setting a state.
         // Through the group, not straight at the selected station. Two rails carrying the same
         // store are one weapon with two stations, and firing the selected one reaches the same
         // rail every time -- so the second is never fired at all, however often this is pressed.
         // The switcher's own trigger has always stepped between them; this is the prominent
         // button and did not, which is the one an operator actually uses.
-        ImGui.SameLine(0f, ImGui.GetFrameHeight());
         if (ImGui.Button("FIRE")) FireSelectedGroup();
         // The same three cases WeaponSystem.FireAtLock branches on, in its order.
         Tip(_battery.Profile.TubeCount == 0 ? "Fire one burst now, wherever the guns are pointing."

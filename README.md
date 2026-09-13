@@ -190,9 +190,9 @@ in one go — including the `manifest.toml` entry.
 1. In the editor, attach the **Pantsir-S1 Point Defence System** to your craft. It is under
    *Weapons* and stacks on a 3 m node. It is also its own command source, so a craft consisting of
    nothing but the Pantsir builds and launches.
-2. In flight, tick **Master arm**. Nothing launches while it is safe.
-3. Tick **Auto engage** to let it fire on its own, or leave it off and use **FIRE** against the
-   current lock.
+2. In flight, press **FIRE** to shoot at the current lock. There is nothing to arm first.
+3. Tick **Auto engage** to let it pick targets and fire on its own. It starts off, so a site never
+   opens fire by itself until you say so.
 4. A system stays on the craft carrying its launcher whatever you take control of, so you can
    switch away and watch it defend itself.
 
@@ -200,7 +200,7 @@ The launcher **traverses and elevates onto the target**, and will not fire until
 on the aim point. The radar's own boresight stays local "up" — a hemisphere is what you want for
 a defence site. Green dots mark loaded tubes, grey ones spent.
 
-**Missiles** and **Cannon** can be armed independently. The cannon engage inside 4 km, overlapping
+**Missiles** and **Cannon** can be switched on and off independently. The cannon engage inside 4 km, overlapping
 the missiles' 1.2 km minimum so nothing can sit in a gap between them, and the mount solves a
 ballistic lead for them rather than pointing straight at the contact. Set **Director view** to
 *main view* to look through the tracker, which borrows the player's own camera and hands it back.

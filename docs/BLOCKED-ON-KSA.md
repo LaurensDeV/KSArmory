@@ -553,7 +553,7 @@ mod's own store keys per *craft* by display name, and there is no per-part key t
 round trip.
 
 It also has nothing to configure yet. Weapon *performance* lives on shared profiles, so a per-part
-control there would be the wrong scope, and per-installation *policy* — armed, auto-engage, IFF —
+control there would be the wrong scope, and per-installation *policy* — auto-engage, IFF —
 is a flight decision the panel already covers and already persists. The day a rail can carry more
 than one kind of round, that is an editor decision and this becomes worth solving.
 

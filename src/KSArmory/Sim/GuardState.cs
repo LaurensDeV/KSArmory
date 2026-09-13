@@ -1,18 +1,18 @@
 namespace KSArmory;
 
 /// <summary>
-/// Whether a craft's weapons are standing guard: armed, and engaging on their own. The switcher
-/// row's one switch for master arm and auto-engage together.
+/// Whether a craft's weapons are standing guard: engaging on their own. The switcher row's one
+/// switch, which is auto-engage on every weapon aboard that has one.
 /// </summary>
 internal enum Guard
 {
-    /// <summary>Nothing armed.</summary>
-    Safe,
+    /// <summary>Nothing engages on its own; every weapon fires only when told.</summary>
+    Off,
 
-    /// <summary>Armed, but something on the craft fires only when told.</summary>
-    Armed,
+    /// <summary>Some weapons engage on their own and some fire only when told.</summary>
+    Partly,
 
-    /// <summary>Everything armed and engaging on its own.</summary>
+    /// <summary>Every weapon that can engage on its own is doing so.</summary>
     Guarding,
 }
 
@@ -20,20 +20,20 @@ internal enum Guard
 internal static class GuardState
 {
     /// <summary>
-    /// One weapons system. One that cannot engage on its own — a bomb rack releases when told —
-    /// is guarding once it is armed, or a craft carrying one could never read as guarding.
+    /// One weapons system, or null for one that cannot engage on its own. A bomb rack releases when
+    /// told and has no auto-engage to turn on, so it has no say in whether the craft guards.
     /// </summary>
-    public static Guard Of(bool armed, bool autoEngage, bool autoEngages)
-        => !armed ? Guard.Safe
-         : autoEngage || !autoEngages ? Guard.Guarding
-         : Guard.Armed;
+    public static Guard? Of(bool autoEngage, bool autoEngages)
+        => !autoEngages ? null
+         : autoEngage ? Guard.Guarding
+         : Guard.Off;
 
-    /// <summary>Two systems on one craft: guarding only if both are, safe only if both are.</summary>
-    public static Guard Combine(Guard a, Guard b) => a == b ? a : Guard.Armed;
+    /// <summary>Two systems on one craft: guarding only if both are, off only if both are.</summary>
+    public static Guard Combine(Guard a, Guard b) => a == b ? a : Guard.Partly;
 
     /// <summary>
     /// Whether a click turns guard on. Anything short of every system guarding turns it on, so a
-    /// half-armed craft is one click from guarding rather than one click from safe.
+    /// partly guarding craft is one click from guarding rather than one click from off.
     /// </summary>
     public static bool TurnsOn(Guard now) => now != Guard.Guarding;
 }

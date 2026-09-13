@@ -16,7 +16,6 @@ namespace KSArmory;
 /// </summary>
 public sealed class SystemSettings
 {
-    public bool Armed { get; set; }
     public bool AutoEngage { get; set; }
     public bool ProtectControlledVehicle { get; set; } = true;
 
@@ -50,7 +49,6 @@ public sealed class SystemSettings
 
         return new SystemSettings
         {
-            Armed = config.Armed,
             AutoEngage = config.AutoEngage,
             ProtectControlledVehicle = config.ProtectControlledVehicle,
             ChaseRounds = config.ChaseRounds,
@@ -113,7 +111,6 @@ public sealed class SystemSettings
     {
         ArgumentNullException.ThrowIfNull(config);
 
-        config.Armed = Armed;
         config.AutoEngage = AutoEngage;
         config.ProtectControlledVehicle = ProtectControlledVehicle;
         config.ChaseRounds = ChaseRounds;
@@ -151,8 +148,7 @@ public sealed class SystemSettings
     {
         if (other is null) return true;
 
-        return Armed != other.Armed
-               || AutoEngage != other.AutoEngage
+        return AutoEngage != other.AutoEngage
                || ProtectControlledVehicle != other.ProtectControlledVehicle
                || ChaseRounds != other.ChaseRounds
                || MissilesEnabled != other.MissilesEnabled

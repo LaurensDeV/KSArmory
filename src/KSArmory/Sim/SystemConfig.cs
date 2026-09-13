@@ -71,10 +71,14 @@ public sealed class SystemConfig : ISensorPolicy
     /// </summary>
     public bool DrawBombSight = true;
 
-    /// <summary>Master arm. Nothing launches while this is false.</summary>
-    public bool Armed;
-
-    /// <summary>Engage without asking.</summary>
+    /// <summary>
+    /// Engage on its own: pick what its sensors and IFF allow and fire at it. Off, the weapon fires
+    /// only when told.
+    ///
+    /// <para>The only switch between a weapon and the world, and off by default. There is no master
+    /// arm in front of the trigger: FIRE is a button pressed on purpose, so a safety there prevents no
+    /// accident and only stops a new player's first shot.</para>
+    /// </summary>
     public bool AutoEngage;
 
     /// <summary>
@@ -88,7 +92,7 @@ public sealed class SystemConfig : ISensorPolicy
     public bool ChaseRounds;
 
     /// <summary>
-    /// Which weapons may engage, independently of the master arm.
+    /// Which weapons may engage, independently of auto-engage.
     ///
     /// <para>Two layers on one mount: without a switch each, whichever reaches further takes
     /// every target and the other can never be seen to work.</para>
@@ -115,8 +119,8 @@ public sealed class SystemConfig : ISensorPolicy
     ///
     /// <para>The operator naming a place rather than the radar naming a target. It is the only way
     /// to engage what the sensor will not hand you — terrain, or anything the threat model rejects
-    /// for being too slow to count. Master arm still applies; a designation is an order to shoot,
-    /// not permission to.</para>
+    /// for being too slow to count. The tick box is the permission: until it is on, a click in the
+    /// world is an ordinary click.</para>
     ///
     /// <para>Deliberately not persisted, unlike <see cref="MouseAim"/>. Restoring a tool that only
     /// <em>points</em> costs nothing; restoring one that fires means the first click after loading
