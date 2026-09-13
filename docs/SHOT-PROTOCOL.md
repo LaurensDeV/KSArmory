@@ -249,9 +249,10 @@ record, including the control shot that ruled out the build.
 
 **Endpoint: the group's `mean` miss, on a log scale.** Not `worst`, which is the pass/fail bar and
 is a maximum over six warheads — the noisiest of the four numbers `ShotGroup.Judge` prints. Not
-`spread`, which is a different mechanism (the tube cant against the attitude the burn left) and is
-analysed *beside* the mean, never mixed into it. `spread` gets its own table in the report and its
-own verdict.
+`spread`, which is a different mechanism and is analysed *beside* the mean, never mixed into it: the
+six tube mouths sit on a 0.86 m ring about the release line while every release prediction uses the
+mean mouth, so a group lands on the ground image of that ring, at whatever roll the bus happened to
+hold (`docs/ACCURACY-PLAN.md` 3db). `spread` gets its own table in the report and its own verdict.
 
 **Comparison: Wilcoxon rank-sum, exact null.** Ranks, because at n=12 nothing here is normal and a
 t-test on a lognormal tail is a machine for generating significant nonsense. Exact rather than the
@@ -338,7 +339,7 @@ So the rule is about the *shape of the term*, not about which endpoint is newer:
 | the term is | read |
 | --- | --- |
 | one-signed across every seat | `signed-walk` pooled — it is exactly what that endpoint is for |
-| **per-seat signed** — a gradient times a displacement | **per seat.** The pooled signed figure under-reports it, and the ratio censors it |
+| **per-seat signed** — a gradient times a displacement | **`--per-seat`**, below. The pooled signed figure under-reports it, and the ratio censors it |
 | a magnitude with no meaningful sign | `walk`, and check how many flights hit the floor |
 | **how wide the group is**, rather than where it went | `spread` — the only endpoint the aim correction cannot reach, because it is over before the warheads separate |
 
@@ -349,6 +350,99 @@ positive**. A cross reading that moves is evidence about geometry, not proof of 
 There is deliberately **no signed `release`**: the `release probe:` line carries the components but
 no craft name, so under 3ce's rule one flight's number would be worn by all eight. Nor a signed
 `spread`, which is a magnitude with no direction to have a sign.
+
+### `--per-seat`: each seat against itself
+
+```bash
+./tools/shot-report.py ~/shots/<night> --paired --endpoint signed-walk --per-seat
+```
+
+**A per-shot median over one arm's four seats discards the seat carrying a per-seat term.** On
+`2026-09-12-query` the pooled `signed-walk` gave the fix the wrong sign on five of twenty blocks while
+a `base` seat was walking 2–8 m. Per seat, nothing is pooled and nothing is levelled: each seat's
+median on the arm is set against its own median on `base` **as magnitudes about the probe's zero**, so
+seat 6 coming down from +5.49 m and seat 3 coming up from −2.81 m both score positive. The statistic
+is the median over seats of `|base| − |arm|`.
+
+**The mechanism is checked, not assumed.** Each landing is followed by `ground sample: over a N ms
+frame`, so each seat's walk is fitted against the duration of its own frame, and the second statistic
+is the median over seats of `|slope|` on `base` minus on the arm. A ground displacement times a
+gradient collapses there; a term that shrinks magnitudes some other way does not, and
+`2026-09-12-order` is that case — **+1.667 m per seat at p = 0.0005, slope +0.0012 m/ms at p = 0.94**.
+A night whose logs lack the line says so and prints no slope.
+
+Four things about how it is built:
+
+* **The verdict is the shot flip, drawing exactly the flips `--paired` draws**, so the two relabel the
+  same shots. Relabelling every shot negates both statistics, so the null is symmetric and the rule
+  is two-sided.
+* **The interval resamples shots, never seats.** Eight seats are the roster rather than a sample of
+  one, so an interval over their eight values measures how unlike the hillsides are, which no number
+  of blocks shrinks. Shots are resampled within their labelling, so every seat keeps its count on each
+  arm.
+* **A slope needs five flights with a frame time on each arm at a seat, and the interval five shots
+  in each labelling** (`MIN_SEAT_FLIGHTS`). Below that the seat is refused and named, and no interval
+  is printed.
+* **`--levels-from` is refused**, because each seat is its own control and there is no level to lend.
+
+**Calibrated on pseudo-arms balanced on the real arm per seat, not only per shot.** A fixed seat
+partition flipped as `ShotArms` flips it — which is how the signed endpoints were calibrated — puts
+each seat wholly on one real arm, so this test would read the real effect at full strength. The
+pseudo-arm is instead the real label XOR a partition of two even and two odd seats XOR a per-shot coin
+balanced within each real phase. Every shot then holds two flights of each real arm per pseudo-arm,
+and every seat five of each. Over 400 splits a night, at twenty blocks, against a nominal 2.9% with a
+standard error of 0.8%:
+
+| night | its real arm, per seat | false RESOLVED, magnitude | slope | interval excludes 0, magnitude | slope |
+| --- | --- | --- | --- | --- | --- |
+| `2026-09-12-pulse2` | nothing (p = 0.59, 0.22) | 0.8% | 1.5% | 0.8% | 1.2% |
+| `2026-09-11-read` | nothing (p = 0.85, 0.42) | 2.8% | 3.2% | 0.2% | 0.8% |
+| `2026-09-12-floor` | nothing (p = 0.72, 0.16) | 2.0% | 2.2% | 0.5% | 1.2% |
+| `2026-09-12-order` | magnitude only (p = 0.0005, 0.94) | 0.0% | 1.8% | 1.8% | 0.0% |
+| `2026-09-12-query` | both (p = 0.0015, 0.0005) | 1.0% | 2.5% | 1.0% | 0.5% |
+
+**At most a standard error over nominal where there is nothing to find, and under it where there
+is.** On `order` and `query` the magnitude falls to 0.0% and 1.0%. A flip that unbalances a seat's
+real arms carries the night's own effect into the null, and that costs power rather than validity.
+Every interval excludes zero on 0.0–1.8% of splits.
+
+**Below five, it refuses.** Subsampled to fewer blocks, with nulls from 200 pseudo-arm splits of
+`pulse2` (standard error 1.2%) and power from 100 subsets of `query`'s real arm:
+
+| blocks | flights a seat an arm | flip false RESOLVED, magnitude / slope | ungated interval excludes 0 | `query` resolved, magnitude / slope |
+| --- | --- | --- | --- | --- |
+| 6 | 3 | 0.0% / 0.0% | 26.0% / 16.0% | 0% / 0% |
+| 8 | 4 | 1.0% / 2.0% | 4.0% / 1.5% | 42% / 79% |
+| 10 | 5 | 2.5% / 2.0% | 3.5% / 1.5% | 82% / 99% |
+| 12 | 6 | 3.5% / 1.0% | 2.0% / 2.0% | 97% / 100% |
+
+The flip stays calibrated all the way down and is always printed. Six blocks cannot resolve at all:
+the observed labelling and its mirror are already 2 of 64, and the report says so below seven.
+
+What fails is what the flip does not protect:
+
+* **The interval.** It resamples within a labelling, and a pseudo-arm's labellings hold a quarter of
+  the blocks rather than half, so that column is one or two shots a labelling at six blocks and three
+  at twelve.
+* **A slope from four flights.** It has two degrees of freedom and a t quantile at α of 5.7, against
+  3.9 at five.
+
+So five flights of each arm at a seat before a slope is fitted. The interval is sound from three shots
+a labelling, and it shares the slope's five so that one number decides whether a night is big enough
+to read per seat. On an eight-block night that refuses a slope which would have resolved `query` 79%
+of the time — the price of not printing a per-seat slope nobody can read.
+
+Read on the night it was built for:
+
+```
+   query vs base, per seat: +0.810 m   [+0.422, +1.042] at 97%
+      nearer zero on 7 of 8 seats, shot-flip p=0.0015   RESOLVED
+   query vs base, slope on frame time: +0.0607 m/ms   [+0.0481, +0.0677] at 97%
+      flatter on 8 of 8 seats, shot-flip p=0.0005   RESOLVED
+```
+
+The between-seat sd of the median walk goes from 2.61 m to 0.06 m. The slope's p is the floor of 2,000
+draws; a scratch run of 20,000 put it at 0.0001 and the magnitude at 0.0010.
 
 ### `--endpoint spread`: how far apart one rocket's six warheads land
 
@@ -522,8 +616,8 @@ half of the night.
 | **the deployed DLL's SHA-256** | `shot-batch.sh` | which binary flew. Not a diagnostic — the proof against contamination, see §5. |
 | cutoff residual, and the computer's own predicted miss | `CAPTURE cutoff: residual R m/s, own prediction P km off` | splits the shot at the burn. A large residual is an ascent problem and not the thing under test; a clean cutoff with a bad impact puts the whole miss after the engines stopped. |
 | trim owed at the split and on release | `trim: ... owed X at the split, Y on release` | whether `BusTrim` converged before the warheads went. Item 0's failure mode is releasing with metres a second still owed, and it is invisible in the miss alone. |
-| per tube: degrees off the salvo's line | `warhead away from tube N, D deg off` | the cant, per round — the only per-warhead term that is meant to produce *spread* rather than bias. |
-| **per tube: the release probe's own miss** | `release probe: ... N km from the target` | **the aim's error at the instant of release** — everything upstream of the round. Subtract it from the impact and what is left is the round disagreeing with its own predictor, which is the exact quantity item −1a says is the miss. The single most attributive number available. |
+| per tube: degrees off the salvo's line | `warhead away from tube N, D deg off` | what each tube threw along. The tubes are straight, so this reads near zero; the spread comes from where the mouths *sit* — a 0.86 m ring the release prediction averages away (`ACCURACY-PLAN.md` 3db). |
+| **per tube: the release probe's own miss** | `release probe: ... N m from the target` | **the aim's error at the instant of release** — everything upstream of the round. Subtract it from the impact and what is left is the round disagreeing with its own predictor, which is the exact quantity item −1a says is the miss. The single most attributive number available. |
 | **per tube: `thrown D deg from the platform's track`** | release probe | **the held nose in the velocity frame.** `MIRV-NEXT.md` item 9 asked for it — "costs nothing, and turns the cant from a 141–1,684 m band into one number" — and it is logged; `shot-report.py` medians it per arm. |
 | per warhead: `Cci r=(...) v=(...)` at release | `warhead trace: <round> away` | full precision, deliberately: the seed that re-flies that exact release in `tests/KSArmory.Tests` with no game. **This is what makes a losing night still productive** — a loss gets diagnosed offline instead of costing more flights. |
 | per warhead: arrival speed and degrees below the horizontal | trace probe | every surface-side term scales as `cot γ` and every velocity-side term with the trajectory's sensitivity. If γ varies shot to shot, that is a large share of the scatter, and it can be conditioned on rather than suffered. |

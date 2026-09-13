@@ -25,6 +25,9 @@ endpoints divide, and they exist because a ratio cannot carry a sign: a term who
 the seat is destroyed by the magnitude the ratio needs, and by the floor a positive denominator
 needs -- which is the score for 71 of 160 flights on 2026-09-12-pulse2.
 
+`--per-seat` adds those signed scores up a different way, for the term neither form can read: one
+whose sign belongs to the seat. Pooled, it cancels; each seat against itself, it adds.
+
 `--endpoint spread` is the odd one out: every other endpoint asks where a group went, and this asks
 how wide it is -- the one quantity the post-cutoff aim loop cannot reach, because it is over before
 the warheads separate.
@@ -195,6 +198,12 @@ IMPACT = re.compile(
     r"landed at\s*(?P<lat>-?[\d.]+),\s*(?P<lon>-?[\d.]+)\s*\|\s*"
     r"[-\d.]+\s*m from the aim\s*\|\s*walk from the release probe\s+[-\d.]+\s*m\s*"
     r"\((?P<down>[-+\d.]+)\s*down,\s*(?P<cross>[-+\d.]+)\s*cross\)")
+
+# The frame the round's last ground lookup was taken across. It names no craft, so it belongs to the
+# landing it follows -- on all seven nights of 2026-09-11/12 every one of 1,120 landings was followed
+# by its own before the next landing. Every form clears the landing, so a sample that could not be
+# read is never handed to the next warhead.
+GROUND_SAMPLE = re.compile(r"warhead trace: ground sample: (?:over a (?P<ms>[\d.]+) ms frame)?")
 
 # How far each warhead of one group stopped from the aim -- the only line carrying all six, and so
 # the only reading the spread WITHIN a group can come off. It goes through `Distance.Say`, so a
@@ -442,7 +451,7 @@ def read_shot(out_path, log_path, craft=None):
             "offline": [], "probe_km": [], "thrown": [], "arrival_deg": [],
             "arrival_ms": [], "trace_km": [], "walk_m": [], "walk_down": [], "walk_cross": [],
             "early_s": [], "final_down": [], "final_cross": [], "final_aim": [],
-            "trace_named": False, "own_impacts": [], "bursts": 0,
+            "trace_named": False, "own_impacts": [], "bursts": 0, "frame_ms": [],
             "group_m": [], "group_named": False,
             "release_km": [], "probe_named": False,
             "band_deg": [], "impacts": [],
@@ -537,12 +546,20 @@ def read_shot(out_path, log_path, craft=None):
     # of the ground and the terrain report wants all eight aim points, which is what `--terrain`
     # reading one seat cost it (3cb).
     pending, whose = None, None
+    sampling, sampled_by = False, None
     want = _craft(craft) if craft else None
     for line in log.splitlines():
+        if "ground sample" in line or " burst at" in line:
+            g = GROUND_SAMPLE.search(line)
+            if g and g.group("ms") and sampling and (want is None or sampled_by == want):
+                shot["frame_ms"].append(float(g.group("ms")))
+            sampling = False
+
         m = IMPACT.search(line)
         if m:
             pending = (float(m.group("lat")), float(m.group("lon")), float(m.group("down")))
             whose = _craft(m.group("craft")) if m.group("craft") else None
+            sampling, sampled_by = True, whose
             continue
         m = SURFACE.search(line)
         if m and pending is not None:
@@ -849,7 +866,7 @@ def _say_loop_left(shots, order):
     print()
 
 
-def paired(root, shots, endpoint="miss", levels_from=None):
+def paired(root, shots, endpoint="miss", levels_from=None, per_seat=False):
     """Compare the variants flown INSIDE each shot, which is the only comparison this
     instrument currently supports.
 
@@ -903,7 +920,12 @@ def paired(root, shots, endpoint="miss", levels_from=None):
 
     print(f"== paired within {len(groups)} shot(s) in {root}")
     print(f"   scored on the {label} ({unit})")
-    if signed:
+    if per_seat:
+        print("   PER SEAT: every seat is compared only with itself, so nothing is levelled or pooled "
+              "-- a")
+        print("      term whose sign belongs to the seat adds up across the roster instead of "
+              "cancelling.")
+    elif signed:
         print("   a DIFFERENCE in metres, not a ratio: nothing is floored, the seat level is "
               "subtracted")
         print("      rather than divided out, and the test is whether the difference is zero -- "
@@ -985,7 +1007,7 @@ def paired(root, shots, endpoint="miss", levels_from=None):
     _say_loop_left(shots, order)
 
     fit = _seat_offsets if signed else _seat_levels
-    levels, lopsided = fit(shots, score)
+    levels, lopsided = fit(shots, score) if not per_seat else ({}, [])
     borrowed = ""
 
     # Out of sample when asked for. The divisor is a property of the world -- seat 3 reads 76-108 m
@@ -1008,8 +1030,10 @@ def paired(root, shots, endpoint="miss", levels_from=None):
 
     if levels:
         scale = 1000.0 if unit == "km" else 1.0
+        # Two places either way: a walk level sits on WALK_FLOOR_M's half metre, and a miss level at a
+        # metre-level target is a few metres, both of which whole metres print as 0m-3m.
         each = ", ".join(f"s{s + 1}={levels[s] * scale:+.2f}m" if signed
-                         else f"s{s + 1}={levels[s] * scale:.0f}m" for s in sorted(levels))
+                         else f"s{s + 1}={levels[s] * scale:.2f}m" for s in sorted(levels))
         print(f"   seat levels {'subtracted' if signed else 'divided'} out "
               f"(arm-neutral{borrowed or ', from this night'}): " + each)
         if lopsided:
@@ -1018,6 +1042,11 @@ def paired(root, shots, endpoint="miss", levels_from=None):
         print()
 
     for name in order[1:]:
+        if per_seat:
+            _say_per_seat(groups, base, name, score, unit)
+            _say_graded(groups, base, name, levels, score, shots, unit, signed)
+            continue
+
         ratios, raws, wins, losses = [], [], 0, 0
 
         for shot, per_arm in sorted(groups.items()):
@@ -1385,12 +1414,19 @@ def _say_graded(groups, base, name, levels, score, shots, unit, signed=False):
     if len(rows) < 4:
         return
 
+    # Distance.Say's rule, decided once per table so every row reads in one unit: a km endpoint at a
+    # metre-level target otherwise prints every seat as 0.0.
+    in_m = 1000.0 if unit == "km" else 1.0
+    widest = max(max(abs(r[3]), abs(r[4])) for r in rows) * in_m
+    shown, scale, places = ("km", in_m / 1000.0, 2) if widest >= 1000.0 else ("m", in_m, 1)
+
     print(f"   is the gain graded by the ground under the seat?  ({name} vs {base})")
     print(f"   {'seat':>6}{'n ' + base[:6]:>10}{'n ' + name[:6]:>10}"
-          f"{base[:6] + ' ' + unit:>12}{name[:6] + ' ' + unit:>12}"
+          f"{base[:6] + ' ' + shown:>12}{name[:6] + ' ' + shown:>12}"
           f"{'diff m' if signed else 'ratio':>8}{'relief m':>10}")
     for seat, na, nb, ma, mb, effect, rms in rows:
-        print(f"   {seat + 1:>6}{na:>10}{nb:>10}{ma:>12.1f}{mb:>12.1f}{effect:>8.2f}{rms:>10.1f}")
+        print(f"   {seat + 1:>6}{na:>10}{nb:>10}{ma * scale:>12.{places}f}{mb * scale:>12.{places}f}"
+              f"{effect:>8.2f}{rms:>10.1f}")
 
     # Signed differences straddle zero, so ranking them as they stand ranks the sign and says
     # nothing about the mechanism. The magnitude is the comparable quantity, and it rises with the
@@ -1402,10 +1438,250 @@ def _say_graded(groups, base, name, levels, score, shots, unit, signed=False):
         return
 
     graded = rho > 0 if signed else rho < 0
-    verdict = ("the roughest seats gained most -- the terrain mechanism"
-               if p <= 0.05 and graded else "no grading at this n")
+    if p > 0.05:
+        verdict = "no grading at this n"
+    elif graded:
+        verdict = "the roughest seats gained most -- the terrain mechanism"
+    else:
+        verdict = ("graded the other way -- the roughest seats gained LEAST, against the terrain "
+                   "mechanism")
     what = "|diff|" if signed else "ratio"
     print(f"   rank correlation relief vs {what}: rho={rho:+.2f}, p={p:.3f}   {verdict}")
+    print()
+
+
+# Flights of each arm at a seat before its slope on frame time is fitted, and shots in each labelling
+# before the per-seat interval is printed. Five leaves a slope three degrees of freedom, where its t
+# quantile at ALPHA is 3.9 against 5.7 at two and 21.6 at one. The interval resamples within a
+# labelling and fails first there: from one or two shots it excluded zero on 16-26% of null splits,
+# against 2.9%. The flip stays calibrated below both and is always printed. docs/SHOT-PROTOCOL.md has
+# the sweep, and what the floor costs.
+MIN_SEAT_FLIGHTS = 5
+
+# Resamples behind the per-seat interval, and its own seed so it never shares draws with the flip.
+SEAT_BOOT_DRAWS = 2000
+
+
+def _per_seat_rows(groups, base, name, score):
+    """Every scored flight of a shot that flew both arms, as (shot, seat, is_base, value, frame ms).
+
+    The frame time is kept only for a flight with one landing and one sample: the value is the median
+    of its landings, and a median has no single frame to pair with.
+    """
+    rows, flippable = [], []
+    for g, per_arm in groups.items():
+        if base not in per_arm or name not in per_arm:
+            continue
+        flippable.append(g)
+        for arm in (base, name):
+            for r in per_arm[arm]:
+                v = score(r)
+                if v is None or r.get("seat") is None:
+                    continue
+                one = len(r["frame_ms"]) == 1 and len(r["final_down"]) == 1
+                rows.append((g, r["seat"], arm == base, v, r["frame_ms"][0] if one else None))
+    return rows, flippable
+
+
+def _per_seat_split(rows, flipped):
+    """seat -> (base flights, arm flights), each a list of (value, frame ms), after relabelling."""
+    per = defaultdict(lambda: ([], []))
+    for shot, seat, is_base, v, ms in rows:
+        per[seat][0 if is_base != (shot in flipped) else 1].append((v, ms))
+    return per
+
+
+def _seat_slope(flights):
+    """Least-squares slope of value on frame ms, or None where it cannot mean anything."""
+    pairs = [(ms, v) for v, ms in flights if ms is not None]
+    if len(pairs) < MIN_SEAT_FLIGHTS:
+        return None
+    mx = statistics.fmean(x for x, _ in pairs)
+    my = statistics.fmean(y for _, y in pairs)
+    sxx = sum((x - mx) ** 2 for x, _ in pairs)
+    if sxx <= 0.0:
+        return None
+    return sum((x - mx) * (y - my) for x, y in pairs) / sxx
+
+
+def _per_seat_stats(rows, flipped=frozenset()):
+    """Median over seats of |base| - |arm|: of each seat's median value, and of its slope on frame ms.
+
+    Each seat is compared only with itself, so nothing is levelled and the zero is the release
+    probe's. That is what lets a term whose sign belongs to the seat add up rather than cancel: an arm
+    pulling seat 6 down from +5.49 and seat 3 up from -2.81 scores positive on both.
+    """
+    mags, slopes = [], []
+    for b, q in _per_seat_split(rows, flipped).values():
+        if not b or not q:
+            continue
+        mags.append(abs(statistics.median(v for v, _ in b)) - abs(statistics.median(v for v, _ in q)))
+        sb, sq = _seat_slope(b), _seat_slope(q)
+        if sb is not None and sq is not None:
+            slopes.append(abs(sb) - abs(sq))
+    nan = float("nan")
+    return (statistics.median(mags) if mags else nan, statistics.median(slopes) if slopes else nan)
+
+
+def _per_seat_flip_p(rows, flippable, observed):
+    """`_shot_flip_p` for the per-seat statistics, drawing the same flips in the same order.
+
+    Relabelling every shot swaps |base| and |arm| on every seat and negates both statistics, so the
+    null is symmetric about zero and the absolute rule is two-sided, as it is there.
+    """
+    nan = float("nan")
+    if not flippable:
+        return nan, nan
+
+    rng = random.Random(20260909)
+    hits = [0, 0]
+    for _ in range(FLIP_DRAWS):
+        flipped = {g for g in flippable if rng.random() < 0.5}
+        for i, got in enumerate(_per_seat_stats(rows, flipped)):
+            if not math.isnan(got) and not math.isnan(observed[i]) \
+                    and abs(got) >= abs(observed[i]) - 1e-12:
+                hits[i] += 1
+
+    # An observed zero is p=1 rather than n/a: the walk prints to the centimetre, so a median of
+    # differences lands on exactly zero often enough to matter, and there is no fallback test here.
+    return tuple(nan if math.isnan(o) else (h + 1) / (FLIP_DRAWS + 1)
+                 for h, o in zip(hits, observed))
+
+
+def _per_seat_interval(rows, strata=None):
+    """Percentile bounds at ALPHA on both statistics, resampling whole shots within their labelling.
+
+    Shots rather than seats, because the seats are the roster rather than a sample of one: an interval
+    over the eight seat values measures how unlike each other the hillsides are, which no number of
+    blocks shrinks. Resampling within a labelling keeps every seat at the count of each arm it flew.
+    """
+    by_shot = defaultdict(list)
+    for row in rows:
+        by_shot[row[0]].append(row)
+    if strata is None:
+        strata = defaultdict(list)
+        for g, flights in by_shot.items():
+            strata[frozenset((seat + is_base) % 2 for _, seat, is_base, _, _ in flights)].append(g)
+        strata = list(strata.values())
+
+    nan = float("nan")
+    if not strata or min(len(s) for s in strata) < MIN_SEAT_FLIGHTS:
+        return (nan, nan), (nan, nan)
+
+    rng = random.Random(20260913)
+    got = ([], [])
+    for _ in range(SEAT_BOOT_DRAWS):
+        drawn = []
+        for shots_in in strata:
+            for _k in range(len(shots_in)):
+                drawn.extend(by_shot[shots_in[rng.randrange(len(shots_in))]])
+        for i, v in enumerate(_per_seat_stats(drawn)):
+            if not math.isnan(v):
+                got[i].append(v)
+
+    def bounds(values):
+        if len(values) < SEAT_BOOT_DRAWS // 2:
+            return float("nan"), float("nan")
+        values.sort()
+        lo = values[int(ALPHA / 2 * len(values))]
+        hi = values[min(len(values) - 1, math.ceil((1 - ALPHA / 2) * len(values)) - 1)]
+        return lo, hi
+
+    return bounds(got[0]), bounds(got[1])
+
+
+def _say_per_seat(groups, base, name, score, unit):
+    """The per-seat verdict, with the slope on frame time as the check that it is the mechanism."""
+    rows, flippable = _per_seat_rows(groups, base, name, score)
+    split = _per_seat_split(rows, frozenset())
+    seats = sorted(s for s, (b, q) in split.items() if b and q)
+    if not seats:
+        print(f"   {name}: no seat flew both it and {base}")
+        print()
+        return
+
+    timed = sum(1 for r in rows if r[4] is not None)
+    print(f"   per seat, each against itself ({name} vs {base}): |{base}| - |{name}| is positive "
+          "where the arm")
+    print("      holds the seat nearer zero; the slope is the value on the frame the ground was "
+          "read across")
+    print(f"   {'seat':>6}{base[:6] + ' ' + unit:>10}{name[:6] + ' ' + unit:>10}{'|b|-|a|':>9}"
+          f"{base[:6] + ' ' + unit + '/ms':>12}{name[:6] + ' ' + unit + '/ms':>12}{'|b|-|a|':>10}"
+          f"{'n':>8}{'timed':>8}")
+
+    medians = {base: [], name: []}
+    for seat in seats:
+        b, q = split[seat]
+        mb, mq = statistics.median(v for v, _ in b), statistics.median(v for v, _ in q)
+        medians[base].append(mb)
+        medians[name].append(mq)
+        sb, sq = _seat_slope(b), _seat_slope(q)
+        shown = (f"{sb:>+12.4f}{sq:>+12.4f}{abs(sb) - abs(sq):>+10.4f}"
+                 if sb is not None and sq is not None
+                 else f"{'-' if sb is None else f'{sb:+.4f}':>12}"
+                      f"{'-' if sq is None else f'{sq:+.4f}':>12}{'-':>10}")
+        nb = sum(1 for _, ms in b if ms is not None)
+        nq = sum(1 for _, ms in q if ms is not None)
+        print(f"   {seat + 1:>6}{mb:>+10.2f}{mq:>+10.2f}{abs(mb) - abs(mq):>+9.2f}{shown}"
+              f"{f'{len(b)}/{len(q)}':>8}{f'{nb}/{nq}':>8}")
+
+    if len(seats) > 1:
+        print(f"   between-seat sd of the median: {base} {statistics.stdev(medians[base]):.2f} {unit}, "
+              f"{name} {statistics.stdev(medians[name]):.2f} {unit}")
+    print()
+
+    mag, slope = _per_seat_stats(rows)
+    p_mag, p_slope = _per_seat_flip_p(rows, flippable, (mag, slope))
+    (mlo, mhi), (slo, shi) = _per_seat_interval(rows)
+    level = int((1 - ALPHA) * 100)
+
+    def verdict(p):
+        if math.isnan(p):
+            return "shot-flip n/a"
+        return f"shot-flip p={p:.4f}" + ("   RESOLVED" if p <= ALPHA else "   unresolved")
+
+    def between(lo, hi, places):
+        if math.isnan(lo):
+            return f"(no interval under {MIN_SEAT_FLIGHTS} shots a labelling)"
+        return f"[{lo:+.{places}f}, {hi:+.{places}f}] at {level}%"
+
+    nearer = sum(1 for s in seats
+                 if abs(statistics.median(v for v, _ in split[s][0]))
+                 > abs(statistics.median(v for v, _ in split[s][1])))
+    print(f"   {name} vs {base}, per seat: {mag:+.3f} {unit}   {between(mlo, mhi, 3)}")
+    print(f"      nearer zero on {nearer} of {len(seats)} seats, {verdict(p_mag)}")
+
+    # The observed labelling and its mirror are two of the 2^k a relabelling can draw, so below this
+    # no night can resolve however large the term.
+    if 2.0 / 2 ** len(flippable) > ALPHA:
+        print(f"      !! {len(flippable)} shots: no relabelling can reach p<={ALPHA} -- fly more "
+              "blocks before reading a verdict")
+
+    if timed == 0:
+        print("   the slope on frame time: NOT AVAILABLE -- no landing in this night is followed by a")
+        print("      `ground sample: over a N ms frame` line, so the mechanism cannot be checked here.")
+        print()
+        return
+
+    sloped = [s for s in seats
+              if _seat_slope(split[s][0]) is not None and _seat_slope(split[s][1]) is not None]
+    refused = [s for s in seats if s not in sloped]
+    if not sloped:
+        print(f"   the slope on frame time: REFUSED on every seat -- no seat has {MIN_SEAT_FLIGHTS} "
+              "flights with a frame")
+        print(f"      time on both arms ({timed} of {len(rows)} scored flights carry one), and below "
+              "that a slope is its own noise.")
+        print()
+        return
+
+    flatter = sum(1 for s in sloped
+                  if abs(_seat_slope(split[s][0])) > abs(_seat_slope(split[s][1])))
+    print(f"   {name} vs {base}, slope on frame time: {slope:+.4f} {unit}/ms   "
+          f"{between(slo, shi, 4)}")
+    print(f"      flatter on {flatter} of {len(sloped)} seats, {verdict(p_slope)}")
+    if refused:
+        print("      refused on " + ", ".join(f"s{s + 1}" for s in refused)
+              + f": fewer than {MIN_SEAT_FLIGHTS} flights with a frame time on an arm")
     print()
 
 
@@ -2413,9 +2689,23 @@ def main():
     ap.add_argument("--levels-from", metavar="DIR",
                     help="fit the seat levels from another night, so the divisor cannot absorb "
                          "any of the arm under test")
+    ap.add_argument("--per-seat", action="store_true",
+                    help="with --paired and a signed-* endpoint: compare each seat only with "
+                         "itself -- how much nearer zero the arm holds it, and how much flatter "
+                         "its slope on frame time -- for a term whose sign belongs to the seat")
     ap.add_argument("--terrain", action="store_true",
                     help="the relief under the impacts, and whether it is shaping the misses")
     args = ap.parse_args()
+
+    # A flag rather than an endpoint: an endpoint is what one flight scores, and this is a different
+    # way of adding the same signed scores up. A ratio endpoint is already a floored magnitude, so its
+    # per-seat magnitude is the censoring this exists to get past.
+    if args.per_seat and not (args.paired and ENDPOINTS[args.endpoint][3]):
+        sys.exit("--per-seat reads a signed endpoint per seat: pass --paired --endpoint "
+                 "signed-walk or signed-cross")
+    if args.per_seat and args.levels_from:
+        sys.exit("--per-seat levels nothing -- every seat is its own control -- so --levels-from "
+                 "has nothing to lend it")
 
     # Ahead of load(), which wants shots.tsv and a full parse. This reads the logs directly, so it
     # answers after a single shot -- which is the whole point of it.
@@ -2437,7 +2727,7 @@ def main():
         return
 
     if args.paired:
-        paired(root, shots, args.endpoint, args.levels_from)
+        paired(root, shots, args.endpoint, args.levels_from, args.per_seat)
         return
 
     if args.endpoint != "miss":
