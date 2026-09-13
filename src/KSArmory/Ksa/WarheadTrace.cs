@@ -372,7 +372,12 @@ internal sealed class WarheadTrace
 
             // Carried into the frame every live lookup is made in, so GroundTest -- which takes an
             // Ecl point and finds the body itself -- reads the same geometry rather than the leak.
-            double3 landingEcl = round.PositionEcl + (setup.Parent.GetPositionEcl() - parentAtBurst);
+            // By the ground's velocity, spin included: the lookup is answered at the frame's end
+            // rotation, and without the spin a round stopped exactly on its surface reads a mean
+            // 0.16 m off it.
+            double3 landingEcl = round.PositionEcl
+                                 - KsaWorld.GroundVelocityAt(setup.Parent, round.PositionEcl)
+                                   * round.DetonationElapsedInFrame;
 
             // The burst is somewhere inside this frame while _worldSeconds is at its edge, and
             // DetonationElapsedInFrame is that offset - negative, between -dt and zero. At 7 km/s a
