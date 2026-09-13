@@ -17,10 +17,11 @@ namespace KSArmory;
 /// the harness screenshots when it sees one, so the pictures at least arrive without anyone
 /// sitting through the flight.</para>
 ///
-/// <para>Two shapes of scenario, and this file owns the half they share: the request, the save, the
-/// clocks and the verdict. An engagement is short enough to run inline; a ballistic shot is seven
-/// minutes of flight with a state machine of its own, and lives in
-/// <see cref="BallisticScenario"/>.</para>
+/// <para>Three shapes of scenario, and this file owns the half they share: the request, the save,
+/// the clocks and the verdict. An engagement is short enough to run inline; a ballistic shot is
+/// seven minutes of flight with a state machine of its own, and lives in
+/// <see cref="BallisticScenario"/>; a store let go off a climbing craft lives in
+/// <see cref="DropScenario"/>.</para>
 /// </summary>
 internal sealed class ScenarioRunner
 {
@@ -36,6 +37,7 @@ internal sealed class ScenarioRunner
         Engaging,
         Flying,
         Settling,
+        Dropping,
         Done,
     }
 
@@ -45,6 +47,7 @@ internal sealed class ScenarioRunner
     private string _name = string.Empty;
     private TestTarget.Profile _profile;
     private BallisticScenario? _ballistic;
+    private DropScenario? _drop;
 
     // Held rather than passed, because the flights are crewed once the world has loaded rather
     // than when the run is asked for.
@@ -91,11 +94,18 @@ internal sealed class ScenarioRunner
     // The world needs a few seconds after load before a craft is flyable and a battery is crewed.
     private const double SettleSeconds = 4.0;
 
-    public ScenarioRunner(Config config, WarpPolicy warp)
+    public ScenarioRunner(Config config, WarpPolicy warp, Func<WeaponSystem, BombSightOverlay> sightFor)
     {
         _config = config;
         _warp = warp;
+        _sightFor = sightFor;
     }
+
+    // A drop is judged against the sight the player sees, not a second one kept here.
+    private readonly Func<WeaponSystem, BombSightOverlay> _sightFor;
+
+    // A load, a climb and a fall, with the game's own start-up inside it.
+    private const double DropBudgetSeconds = 300.0;
 
     // The policy has to be told when the harness moves the world, or it reads the mod's own
     // deliberate request as a competing writer and stands down for the rest of the salvo.
@@ -369,6 +379,12 @@ internal sealed class ScenarioRunner
             return;
         }
 
+        if (_name == "drop")
+        {
+            BeginDrop(named.Length > 1 ? named[1].Trim() : string.Empty);
+            return;
+        }
+
         _profile = _name switch
         {
             "overhead" => TestTarget.Profile.Overhead,
@@ -379,6 +395,20 @@ internal sealed class ScenarioRunner
         _budget = EngagementBudgetSeconds;
         _phase = Phase.LoadingSave;
         Report($"{_name}: START profile={_profile} save='{_save}'");
+    }
+
+    private void BeginDrop(string arguments)
+    {
+        if (!DropScenario.Request.TryParse(arguments, out DropScenario.Request drop, out string trouble))
+        {
+            Finish($"FAIL the request could not be read -- {trouble}");
+            return;
+        }
+
+        _drop = new DropScenario(drop, line => Report($"{_name}: {line}"), _sightFor);
+        _budget = DropBudgetSeconds;
+        _phase = Phase.LoadingSave;
+        Report($"{_name}: START {drop.Describe()} save='{_save}'");
     }
 
     private void BeginBallistic(string arguments)
@@ -503,6 +533,8 @@ internal sealed class ScenarioRunner
 
                 if (_save.Length > 0)
                 {
+                    _drop?.NoteTheWorldBeforeTheLoad();
+
                     try
                     {
                         GameSaves.LoadSaveGame(_save);
@@ -515,7 +547,13 @@ internal sealed class ScenarioRunner
                     }
                 }
 
-                _phase = _isBallistic ? Phase.Flying : Phase.WaitingForWorld;
+                _phase = _isBallistic ? Phase.Flying
+                         : _drop is not null ? Phase.Dropping
+                         : Phase.WaitingForWorld;
+                return;
+
+            case Phase.Dropping:
+                if (_drop!.Update(roster, dt, playerStep) is { } outcome) Finish(outcome);
                 return;
 
             case Phase.Flying:
@@ -625,6 +663,7 @@ internal sealed class ScenarioRunner
     // a timeout reads as a healthy shot and points the reader at the wrong rocket.
     private string Stuck()
     {
+        if (_drop is not null) return $"{_phase}, {_drop.Where}";
         if (_ballistic is null || _phase != Phase.Flying) return _phase.ToString();
 
         for (int i = 0; i < _flights.Count; i++)
@@ -642,6 +681,7 @@ internal sealed class ScenarioRunner
     {
         _phase = Phase.Done;
         for (int i = 0; i < _flights.Count; i++) _flights[i].Release();
+        _drop?.Release();
         Report($"{_name}: {outcome}");
         Report($"{_name}: END");
     }

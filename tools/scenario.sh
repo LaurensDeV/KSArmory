@@ -5,6 +5,8 @@
 #   ./tools/scenario.sh head-on          # build, deploy, launch, fly it, report
 #   ./tools/scenario.sh overhead
 #   ./tools/scenario.sh passing
+#   ./tools/scenario.sh drop             # a B61 off a climbing rocket, landing against the sight
+#   ./tools/scenario.sh drop:1500,30,dumb,8   # ...at 1500 m, 30 deg over, unguided, craft lost 8 s on
 #   ./tools/scenario.sh mirv             # the ballistic shot, end to end
 #   ./tools/scenario.sh mirv:26.485S,68.148W       # ...at somewhere else
 #   ./tools/scenario.sh mirv:26.485S,68.148W,2     # ...and pass only under 2 km
@@ -110,6 +112,13 @@ case "${SCENARIO%%:*}" in
         SAVE="${KSARMORY_SCENARIO_SAVE:-rocket missile}"
         SYSTEM="${KSARMORY_SCENARIO_SYSTEM:-}"
         ;;
+    drop)
+        # A rocket standing on the ground with the rack on its side. The scenario flies it up, so
+        # nothing about the save has to be in the air already.
+        SAVE="${KSARMORY_SCENARIO_SAVE:-B61-13}"
+        SYSTEM="${KSARMORY_SCENARIO_SYSTEM:-}"
+        DEADLINE_SECONDS=420
+        ;;
     mirv)
         # No save by default: the rocket is the operator's, wherever they keep it, and a scenario
         # that insists on one particular save is one that only works on one machine.
@@ -127,7 +136,7 @@ case "${SCENARIO%%:*}" in
         SYSTEM="${KSARMORY_SCENARIO_SYSTEM:-SolLite}"
         ;;
     *)
-        echo "usage: $0 {head-on|overhead|passing|mirv[:<lat>,<lon>[,<km>]]}" \
+        echo "usage: $0 {head-on|overhead|passing|drop[:<m>[,<deg>[,guided|dumb[,<s>]]]]|mirv[:<lat>,<lon>[,<km>]]}" \
              "[--keep] [--shots] [--no-deploy]" >&2
         exit 2
         ;;
@@ -282,6 +291,12 @@ while (( SECONDS < DEADLINE )); do
     [[ -n "$VERDICT" ]] && break
     sleep 2
 done
+
+# What a drop's verdict cannot say: whether the view behaved while it rode the store down.
+if [[ "${SCENARIO%%:*}" == "drop" ]]; then
+    echo "   chase: $(grep -c 'eye swung' "$LOG" || true) eye swing warning(s);" \
+         "$(grep -oE 'chase: (taking|holding on the burst|released)[^,]*' "$LOG" | tr '\n' ';')"
+fi
 
 echo
 case "$VERDICT" in

@@ -231,6 +231,7 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
 ./tools/run.sh --attach                    # follow a game that's already running
 ./tools/scenario.sh head-on                # fly one engagement unattended and report pass/fail
 ./tools/scenario.sh mirv                   # ...or the whole ballistic shot, and score the group
+./tools/scenario.sh drop                   # ...or a B61 off a climbing rocket, against the sight
 ./tools/shot-batch.sh --arms base=dev,x=arm/x --blocks 12   # fly a night of them, interleaved
 ./tools/shot-report.py ~/shots/<night>     # ...and say what it settled -- read SHOT-PROTOCOL.md
 ./tools/ksa-user-dir.sh                    # where KSA keeps Logs/, mods/ and saves on this box
@@ -449,6 +450,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/TestTarget.cs` | spawns drones to shoot at, from the panel |
 | `Ksa/ScenarioRunner.cs` | flies a scripted scenario with nobody watching, and says what happened |
 | `Ksa/BallisticScenario.cs` | the ballistic one of those — designate, arm, stage, and report what the warheads did |
+| `Ksa/DropScenario.cs` | the store one — fly a craft up, let a store go, and say where it landed against the sight and against a flight off the state it actually left with |
 | `Ksa/CraftMover.cs` | picks a craft up and sets it down elsewhere, from the panel |
 | `Ksa/BurstTool.cs` | click the world to set off a warhead there, from the panel |
 | `Ksa/Designator.cs` | click the world to shoot at that spot, with no target and no lock |
