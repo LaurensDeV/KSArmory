@@ -38,9 +38,10 @@ internal static class ReleaseFocus
     /// The most the release probe's miss may be given back as a separation velocity, in metres a second.
     ///
     /// <para>A separation that could correct metres a second would be a guidance burn nobody pays for.
-    /// The 2 m the payback rule leaves costs 3.2 mm/s downrange and 6.0 across at 340 s; this clears
-    /// both and stays under twice the 6 mm/s of spin a separation already gives back, so a miss needing
-    /// more is not the loop's residual.</para>
+    /// A 2 m miss, where the payback rule usually releases, costs 3.2 mm/s downrange and 6.0 across at
+    /// 340 s; this clears both and stays under twice the 6 mm/s of spin a separation already gives back.
+    /// A long correction cycle raises that threshold — one of 23.4 s released 6 m out and would have
+    /// asked about 12.6 mm/s — so the cap refuses that tail, 1 flight in 80 on the shipped arm.</para>
     /// </summary>
     public const double MaxMissKickMetresPerSecond = 0.010;
 
