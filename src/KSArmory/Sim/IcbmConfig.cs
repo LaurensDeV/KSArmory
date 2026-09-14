@@ -591,10 +591,13 @@ internal sealed class IcbmConfig
     /// three coasts where this costs none. Independent of <see cref="FocusTubesOnTheAim"/>, so a night
     /// can fly either alone.</para>
     ///
-    /// <para><b>Off</b>, and not flown. With both on, every warhead lands within 0.2 cm of the tubes'
-    /// mean impact at 340 s.</para>
+    /// <para><b>On.</b> Flown over 24 paired shots: the group's centre 0.55x [0.49, 0.60] on 22 of 24 and
+    /// the landing 0.70x [0.65, 0.80] on 23 of 24, with the group's width unmoved at 1.00x. Off, each
+    /// group's centre follows its warheads' logged thrown spin at slope 1.15; on, at −0.03. Headless, with
+    /// both on, every warhead lands within 0.2 cm of the tubes' mean impact at 340 s.
+    /// <c>docs/ACCURACY-PLAN.md</c> 3de.</para>
     /// </summary>
-    public bool CancelSpinAtSeparation;
+    public bool CancelSpinAtSeparation = true;
 
     /// <summary>Pointing error under which the coast hold lets go, in degrees.</summary>
     public double QuietCoastDeg = 0.5;
