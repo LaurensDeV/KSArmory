@@ -630,6 +630,24 @@ internal sealed class IcbmConfig
     /// </summary>
     public bool CancelProbeMissAtSeparation;
 
+    /// <summary>
+    /// Measure the miss <see cref="CancelProbeMissAtSeparation"/> cancels as the chord between the probe's
+    /// impact and the target on the ground as it lies, rather than square to local up —
+    /// <see cref="ReleaseFocus.TryMissOnTheGround"/>.
+    ///
+    /// <para>The kick moves the arc square to its arrival, and a crossing slides back along the arrival onto
+    /// the ground it is measured on. Over ground falling away downrange at <c>g</c> a miss taken square to up
+    /// is cancelled wrong by <c>1 − tan γ / (tan γ − g)</c> of itself: headless at 32°, 0.14 and 0.19 of it at
+    /// slopes of ∓0.10 and 0.19 and 0.31 at ∓0.15, where level ground leaves 0.001, and a side slope of 0.20
+    /// turns a 1 m cross miss into 0.31 m of range. On the item 43 smoke a rocket released 2.3 m short kept 14%
+    /// of it in its own kicked prediction. Measured along the chord, one kick lands within 2 mm on every one of
+    /// those grounds. <c>docs/ACCURACY-PLAN.md</c> 43b.</para>
+    ///
+    /// <para>Two lookups of the height field a warhead, and nothing without
+    /// <see cref="CancelProbeMissAtSeparation"/>. <b>Off</b>, and not flown.</para>
+    /// </summary>
+    public bool ProbeMissFollowsTheGround;
+
     /// <summary>Pointing error under which the coast hold lets go, in degrees.</summary>
     public double QuietCoastDeg = 0.5;
 

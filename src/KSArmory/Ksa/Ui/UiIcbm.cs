@@ -556,6 +556,16 @@ internal sealed partial class Ui
             + $"{ReleaseFocus.MaxMissKickMetresPerSecond * 1000.0:F0} mm/s. Off: the warheads leave on "
             + "the state the aim loop stopped at, which it predicts to land a metre or so short.");
 
+        bool followGround = config.ProbeMissFollowsTheGround;
+        if (ImGui.Checkbox("Measure that miss over the ground as it lies", ref followGround))
+        {
+            config.ProbeMissFollowsTheGround = followGround;
+        }
+        Tip("On: the miss the warheads are kicked off is the chord between the probe's impact and the aim "
+            + "point on the real ground, so a slope under the target does not scale the correction. Off: it is "
+            + "measured square to local up, and ground sloping 0.1 lands a fifth of the miss short or long. "
+            + "Does nothing unless the kick above is on.");
+
         bool quiet = config.QuietCoast;
         if (ImGui.Checkbox("Let go of the attitude while coasting", ref quiet))
         {

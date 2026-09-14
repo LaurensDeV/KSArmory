@@ -106,9 +106,14 @@ internal static class ReleaseFocus
     /// instant: <see cref="ImpactPredictor.Impact.GroundFixedPointCci"/>.
     /// </param>
     /// <param name="targetCci">Where that prediction was aimed, at the same instant.</param>
+    /// <param name="groundRadiusAt">
+    /// The ground's radius under a point fixed to it at this state's instant, to measure the miss as
+    /// <see cref="TryMissOnTheGround"/> does; null, or a chord that cannot be trusted, measures it square
+    /// to local up.
+    /// </param>
     public static bool TryMissKick(BallisticBody body, double3 positionCci, double3 velocityCci,
                                    double flightSeconds, double3 impactCci, double3 targetCci,
-                                   out double3 kickCci)
+                                   out double3 kickCci, Func<double3, double>? groundRadiusAt = null)
     {
         kickCci = Vec.Zero;
 
@@ -118,7 +123,10 @@ internal static class ReleaseFocus
 
         double3 up = Vec.Unit(impactCci);
         double3 miss = impactCci - targetCci;
-        double3 alongGround = miss - up * Vec.Dot(miss, up);
+        double3 alongGround = groundRadiusAt is not null
+                              && TryMissOnTheGround(impactCci, targetCci, groundRadiusAt, out double3 chord)
+            ? chord
+            : miss - up * Vec.Dot(miss, up);
 
         if (Vec.Len2(alongGround) == 0.0) return true;
 
@@ -131,6 +139,42 @@ internal static class ReleaseFocus
         // Both points are fixed to the ground at the release, and by the arrival the ground has turned.
         return TryCancel(body, positionCci, velocityCci, flightSeconds, arrived, arrivalVelocity,
                          body.CarryCci(alongGround, flightSeconds), out kickCci);
+    }
+
+    /// <summary>
+    /// The miss from a target to an impact along the ground as it lies: both lifted onto the ground at their
+    /// own directions, so the chord between them rises with whatever slope is under it.
+    ///
+    /// <para><b>What the kick has to cancel on ground that is not level.</b> The arc is moved square to its
+    /// arrival by the miss's component there, and a crossing slides back along the arrival onto whatever
+    /// surface the miss was measured on. Measured square to local up, a miss over ground falling away
+    /// downrange at <c>g</c> is cancelled wrong by <c>1 − tan γ / (tan γ − g)</c> of itself — a fifth of it at
+    /// 0.1 on a 32° arrival. Measured along the chord, it is cancelled on the ground the round meets.</para>
+    ///
+    /// <para>False where either lookup gives no ground or the chord rises further than it runs: a lookup that
+    /// fails reads as the mean sphere, which under high ground is kilometres from the other end's answer.</para>
+    /// </summary>
+    /// <param name="groundRadiusAt">The ground's radius under a point fixed to it, as a prediction reads it.</param>
+    public static bool TryMissOnTheGround(double3 impactCci, double3 targetCci, Func<double3, double> groundRadiusAt,
+                                          out double3 chordCci)
+    {
+        chordCci = Vec.Zero;
+
+        if (!Vec.IsFinite(impactCci) || !Vec.IsFinite(targetCci)) return false;
+        if (Vec.Len2(impactCci) == 0.0 || Vec.Len2(targetCci) == 0.0) return false;
+
+        double impactRadius = groundRadiusAt(impactCci);
+        double targetRadius = groundRadiusAt(targetCci);
+        if (!(impactRadius > 0.0) || !(targetRadius > 0.0) || !double.IsFinite(impactRadius + targetRadius)) return false;
+
+        double3 up = Vec.Unit(impactCci);
+        double3 chord = up * impactRadius - Vec.Unit(targetCci) * targetRadius;
+        double rise = Vec.Dot(chord, up);
+
+        if (!(Math.Abs(rise) <= Vec.Len(chord - up * rise))) return false;
+
+        chordCci = chord;
+        return true;
     }
 
     // The smallest velocity whose displacement at the arrival cancels movedCci square to the arrival
@@ -175,8 +219,12 @@ internal static class ReleaseFocus
         return Vec.IsFinite(kickCci);
     }
 
-    /// <summary>Where a release prediction lands and what it was aimed at, both fixed to the ground at the release.</summary>
-    internal readonly record struct ProbeMiss(double3 ImpactCci, double3 TargetCci);
+    /// <summary>
+    /// Where a release prediction lands and what it was aimed at, both fixed to the ground at the release, and
+    /// the ground to measure the miss between them over — null for square to local up.
+    /// </summary>
+    internal readonly record struct ProbeMiss(double3 ImpactCci, double3 TargetCci,
+                                              Func<double3, double>? GroundRadiusAt = null);
 
     /// <summary>What became of the release probe's miss at a separation.</summary>
     internal enum MissOutcome { NotAsked, Cancelled, Unsolved, OverTheCap }
@@ -222,7 +270,7 @@ internal static class ReleaseFocus
         if (cancelMiss is { } probe)
         {
             if (!TryMissKick(body, positionCci, velocityCci, flightSeconds, probe.ImpactCci, probe.TargetCci,
-                             out missKick))
+                             out missKick, probe.GroundRadiusAt))
             {
                 missKick = Vec.Zero;
                 miss = MissOutcome.Unsolved;

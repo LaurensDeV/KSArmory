@@ -2406,7 +2406,8 @@ internal sealed class IcbmComputer
             }
 
             ReleaseFocus.ProbeMiss? miss = Config.CancelProbeMissAtSeparation
-                ? new ReleaseFocus.ProbeMiss(from.Impact.GroundFixedPointCci, from.TargetCci)
+                ? new ReleaseFocus.ProbeMiss(from.Impact.GroundFixedPointCci, from.TargetCci,
+                                             Config.ProbeMissFollowsTheGround ? TerrainRadiusAt : null)
                 : null;
 
             ReleaseFocus.Separation kick = ReleaseFocus.Kick(Body, from.PositionCci, from.VelocityCci,
@@ -2484,7 +2485,24 @@ internal sealed class IcbmComputer
         if (!ArrivalFrame.TryAt(from.Impact.PointCci, from.Impact.VelocityCci, out ArrivalFrame frame)) return "";
 
         double3 atArrival = Body.CarryCci(from.Impact.GroundFixedPointCci - from.TargetCci, from.Impact.Seconds);
-        return $" {OnGround(frame.Resolve(atArrival))} m";
+        return $" {OnGround(frame.Resolve(atArrival))} m{GroundRiseSaid(from)}";
+    }
+
+    // How steeply the ground climbs from the aim to the impact, read whichever way the miss is measured:
+    // a miss taken square to up is cancelled wrong by that slope, so it is the per-flight check on the
+    // cancellation. ReleaseFocus.TryMissOnTheGround has the geometry.
+    private string GroundRiseSaid(in ReleaseProbe from)
+    {
+        if (!ReleaseFocus.TryMissOnTheGround(from.Impact.GroundFixedPointCci, from.TargetCci, TerrainRadiusAt,
+                                             out double3 chord))
+        {
+            return " over ground whose rise could not be read";
+        }
+
+        double3 up = Vec.Unit(from.Impact.GroundFixedPointCci);
+        double rise = Vec.Dot(chord, up);
+        double run = Vec.Len(chord - up * rise);
+        return run > 0.0 ? $" over ground rising {rise / run:+0.000;-0.000;0.000} from the aim to the impact" : "";
     }
 
     private ReleaseProbe? ProbeRelease()
