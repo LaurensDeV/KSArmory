@@ -551,10 +551,13 @@ internal sealed class IcbmConfig
     /// [−0.212, −0.189], short on all 80, against −0.199 from the tolerance at 32°: 0.20 of the
     /// −0.25 m walk. <c>docs/ACCURACY-PLAN.md</c> 40b.</para>
     ///
-    /// <para><b>Off</b>, and not flown. Linear between the last step above the ground and the first
-    /// below it, which is the rule the warhead's own stop obeys, on the same steps and lookups.</para>
+    /// <para><b>On.</b> Linear between the last step above the ground and the first below it, which is
+    /// the rule the warhead's own stop obeys, on the same steps and lookups. Flown over 20 paired shots
+    /// beside <see cref="FocusTubesOnTheAim"/>: the signed walk +0.200 m [+0.176, +0.239] on 20 of 20, the
+    /// step from the late re-flies to the landing −0.212 m → −0.007, and their scatter 0.085 m → 0.008.
+    /// The group's centre read 1.12x [0.91, 1.38], unresolved. <c>docs/ACCURACY-PLAN.md</c> 3dg.</para>
     /// </summary>
-    public bool PredictionStopsOnTheSurface;
+    public bool PredictionStopsOnTheSurface = true;
 
     /// <summary>
     /// Give each warhead the separation velocity that lands it where the tubes' mean would —

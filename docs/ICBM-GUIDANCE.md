@@ -259,7 +259,7 @@ deep the answer is instead, which is the thing that actually matters and is the 
 every body. That bounds the error without centring it: the answer is still under the ground, half
 the tolerance deep on average, which is 0.20 m long at a 32° arrival.
 `IcbmConfig.PredictionStopsOnTheSurface` places it between the samples that bracket the crossing
-instead, and is off.
+instead, and is on: flown, the landing's step below the late re-flies went from −0.212 m to −0.007.
 
 **The residual has exactly one lever.** An engine stops on a frame boundary, so the last frame adds
 `acceleration x step x throttle` and the best any cutoff rule can do is stop at the nearer of the

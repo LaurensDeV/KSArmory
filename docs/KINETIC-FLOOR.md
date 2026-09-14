@@ -44,7 +44,7 @@ correction with the span narrowed rather than removed.
 | **the round's integrator** | **82–153 m** | **1.1 m** | `Interceptor.SubStep` = 5 ms, symplectic Euler in `Sim/Slug.cs` | yes, linear in the step — 10x the sub-steps for 10x the accuracy |
 | **the ground sampled once a frame** | 10–39 m | 0.2–0.8 m | `Slug.Update` calls `IGroundTest` before the sub-step loop | yes, at one height query per sub-step |
 | **the height field's own quantum** | 2.40 m | 0.01 m | `R16_UNORM` over 19,561 m = 0.2985 m | **no** — it is the shipped texture |
-| **the predictor's ground crossing** | 2.01 m | 0.01 m | `ImpactPredictor.CrossingToleranceMetres` = 0.25 m | yes, for no lookup, by placing the crossing between the samples that bracket it — `IcbmConfig.PredictionStopsOnTheSurface`, off |
+| **the predictor's ground crossing** | 2.01 m | 0.01 m | `ImpactPredictor.CrossingToleranceMetres` = 0.25 m | yes, for no lookup, by placing the crossing between the samples that bracket it — `IcbmConfig.PredictionStopsOnTheSurface`, on |
 | **the float terrain staircase** | ≤ 0.9 m | ≤ 0.02 m | `Celestial.cs:833` packs the direction to `float3`. **This is a horizontal tread (~0.38 m of ground) times the local slope, not a vertical quantum** — centimetres on ordinary ground, and it does not belong beside the 0.2985 m vertical quantum as if it were the same kind of term | **no** — inside the engine |
 | **the ecliptic's own arithmetic** | 1.8 mm | 1.8 mm | `double3` at 1.5e11 m; ulp 30.5 um | no, and it does not matter |
 | **the engine clock** | ≤ 104 mm | ≤ 104 mm | `UniverseTime` is Int128 ns; `SimStep.DeltaTime` is the unrounded double | no, and it does not matter |
@@ -170,7 +170,8 @@ deliberate bias rather than a symmetric error — the bisection stops on how dee
 the answer is always below the surface, so always downrange. `ErrorBudgetTests` measures it at 18 cm
 actual at that 7.1-degree arrival, and about half of it at the angle the mod flies. Flown at 32° it
 is 0.20 m long on average. Placing the crossing between the two samples that bracket it removes it
-for no lookup — `IcbmConfig.PredictionStopsOnTheSurface`, off and unflown.
+for no lookup — `IcbmConfig.PredictionStopsOnTheSurface`, on: flown, the landing's step below the late
+re-flies went from −0.212 m to −0.007 (`ACCURACY-PLAN.md` 3dg).
 
 | arrival | m of ground per m of height | quantum | crossing | both |
 | --- | --- | --- | --- | --- |

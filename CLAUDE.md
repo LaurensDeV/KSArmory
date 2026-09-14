@@ -1446,7 +1446,8 @@ instead: the thing that actually matters, and the same number on every body. **T
 and does not remove it.** The answer is still the first sample below, spread across the tolerance,
 so it sits half of it deep on average — 0.20 m long at 32°, flown, which the aim loop turns into
 rounds landing that much short. `IcbmConfig.PredictionStopsOnTheSurface` places the crossing between
-the two samples that bracket it, for no lookup, and is off until flown.
+the two samples that bracket it, for no lookup, and ships on: flown, the landing's step below the late
+re-flies went from −0.212 m to −0.007.
 
 **It is `Cci`, and everything the ascent gates on is dynamic pressure.** A half-hour flight in the
 ecliptic carries 54 million kilometres of the planet's own travel; a body's spin axis is exactly
