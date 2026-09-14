@@ -8147,6 +8147,56 @@ KSARMORY_SCENARIO_SAVE='SOLVER SCALE 8' ./tools/shot-batch.sh --paired 'base|bot
 * **Watch:** `clock` and trim endings stay at 0 — 40b changes every prediction the loop reads — and KSA's own log
   on every shot. Each switch that ships does so as its own commit, quoting its own endpoint.
 
+## 3dg. Items 41 and 40b flown: the width and the fall both gone, and both ship — 2026-09-14
+
+`2026-09-14-both`, 20 paired blocks, 160 flights, `base|both:FocusTubesOnTheAim=true,PredictionStopsOnTheSurface=true`
+on `c31b6a0`, flown as declared in 3df. Every flight passed 6 of 6 and KSA's own log was clean on every shot. Frame
+time 28.2 ms; endings `floor`/`noimprov`/`payback` 23/0/57 on `base` and 17/1/62 on `both`, with no `clock` ending
+and no trim give-up.
+
+| endpoint | both vs base | shots | shot-flip p | declared |
+| --- | --- | --- | --- | --- |
+| **`dispersion`, 41's primary** | **0.08x [0.08, 0.08]** | 20 of 20 | < 0.001 | ~0.08x, the report's floor |
+| **`signed-walk`, 40b's primary** | **+0.200 m [+0.176, +0.239]** | 20 of 20 | 0.013 | +0.20 m |
+| `landing` | 0.74x [0.63, 0.97] | 15 of 20 | 0.004 | ~0.75x |
+| `spread` | 0.05x [0.05, 0.06] | 20 of 20 | 0.001 | ~0.08x |
+| `centre` | 1.12x [0.91, 1.38] | 8 of 20 | 0.239 — unresolved | ~0.95x |
+
+The median rocket landed **1.56 → 1.27 m**, its 90th percentile 2.49 → 2.31, the best 1.00 → 0.22, and rockets
+under a metre **0 → 26 of 80**. The worst was one `both` rocket at 5.75 m, all six on one point: a release 6 m
+out under a 7 m `payback` threshold that a 23.4 s correction cycle had set.
+
+**The mechanism checks, per flight:**
+
+| | `base` | `both` | declared |
+| --- | --- | --- | --- |
+| each warhead's slope on its logged ring shift | +0.997 ± 0.008 | **+0.006 ± 0.001** | under 0.07 |
+| a group's rms about its own centre | 1.293 m | **0.035 m** | |
+| landing − late re-flies, round 1 | −0.212 m, sd 0.049, short on 80 of 80 | **−0.007 m**, sd 0.036, short on 47 | about −0.01 |
+| re-fly scatter within a flight | 0.085 m | **0.008 m** | at or under 0.02 |
+| the fall, centroid − probe, downrange | −0.230 m | −0.030 m | |
+
+480 warheads and 80 traced flights an arm. Neither switch's refutation fired.
+
+**The pair's refutation sat on its edge, and is recorded as unresolved rather than as no difference.** The
+centre was declared refuted outside [0.8, 1.1]; its point is 1.12x and its interval, [0.91, 1.38], covers the
+0.95x predicted and admits 38% worse. 41 cannot be the cause — its ring shifts sum to zero on every flight — so
+if it is real it is 40b, which every prediction the aim loop reads goes through. The release probe's horizontal
+miss did read **1.39x** larger on `both` (14 of 20, shot-flip p = 0.029), but that comparison is two rulers:
+`base`'s probe reads with the old crossing stop, 0.21 m long, which shrinks the short misses most releases are.
+Carried to the surface by `base`'s own measured step it is **1.22x** (13 of 20, p = 0.12). No mechanism turned
+up — the holding cost read 0.270 m/s on `base` against 0.275, the `payback` threshold 2 m on both, the cycle 8.6
+against 9.1 s — and the loop's own reading noise fell tenfold. The landings, which share one ruler, put `both`'s
+centroid 0.13 m nearer the target on average (−0.69 m against −0.82) with a wider spread (1.27 against 1.14 m sd
+downrange). Item 43 cancels each release's miss, so its night re-measures the release on this configuration.
+
+**What a rocket's miss is now: its centre, and nothing else.** The width is 0.04 m and the fall −0.03 m, so the
+1.25 m median centre is the aim loop's release residual (3df) — which is exactly what item 43 cancels. On this
+arm its estimated kick is a median 2.5 mm/s, and 1 of 80 flights would pass its 10 mm/s cap, none 15.
+
+**Ships on:** `IcbmConfig.FocusTubesOnTheAim = true` (`9ff3a4e`) and `IcbmConfig.PredictionStopsOnTheSurface = true`,
+each as its own commit.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -8274,10 +8324,10 @@ what 20b is flying against.
 | ~~38~~ | ~~Release on a reading inside the trim's floor~~, and keep going while passes improve — `IcbmConfig.ReleaseInsideTheTrimFloor` | **flown 2026-09-12, 20 paired blocks — SHIPPED ON** | **release probe 0.72x [0.58, 0.88] and the landing 0.61x [0.53, 0.74], each won on 17 of 20.** The reading released on 6.80 → 4.95 m, those over 10 m 16 → 1 of 80, in four passes rather than five. Predicted 0.80x on the probe — **3cu** |
 | ~~39~~ | ~~Lower the floor with KSA's pulse mode~~ — `IcbmConfig.PulseTrim` | **flown twice 2026-09-12, 40 paired blocks — SHIPPED ON.** Refuted on the first build, four causes fixed (`7569b0a`), then **the landing 0.47x [0.41, 0.57] and the release probe 0.44x [0.26, 0.56], each won on 20 of 20**: the median rocket 6.0 → 2.5 m, the reading released on 4.75 → 0.90, and `clock`/trim endings 10 of 80 → **0 of 80**. Was: **NOT SHIPPED on the first build.** The fourth was the write — the jets left in pulse mode during a hold, which is what the three worst flights were. Smoked repaired: the frozen-hold tail is back to base's 7.3 s from 93.0, nulls finish at 0.0020 m/s, the reading released on is 0.75 m against base's 5.75, and no `clock` or trim endings | **3cu** — the primary won (release probe **0.50x [0.36, 0.86]**, 16 of 20, against 0.40x predicted) **and the declared refutation fired**: `clock` and trim endings 0 → **10 of 80**, three releasing 0.3-1.1 km out. The phase pulsed at a side component with 2.541 m/s on a withheld axis, ran a median 54 s against clocks that judge a hold, and struck six live axes off. Nulls do finish at 0.0020 m/s against 0.0210, so the idea stands |
 | ~~40~~ | ~~The ground lookup's rotation phase~~ — `IcbmConfig.GroundQueryAtOwnEpoch` | **flown 2026-09-12, 20 paired blocks — SHIPPED ON** | **per seat the walk's magnitude +0.810 m (p=0.0015) and its slope on frame time +0.0607 m/ms (p=0.0005), `--per-seat`; the landing 0.66x [0.55, 0.90] on 18 of 20, the walk 0.54x on 20 of 20.** Between-seat sd 2.61 → 0.06 m, walks over 2 m 25 of 80 → none, the worst rocket 11.7 → 5.3 m. Seat 4's slope −0.083 m/ms against the −0.082 measured before the fix. Two predictions were wrong and are recorded as such — **3da, 3cz, 3cw** |
-| **40b** | **The predictor's crossing stop** — 0.20 m deep on average, 0.20 m long at 32° | **built behind `IcbmConfig.PredictionStopsOnTheSurface` (`2aa13ff`), off, unflown** | **3dc** — it is 0.20 m of the common −0.25 m walk: the landing sits −0.201 m below the late re-flies on 80 of 80, against −0.199 from the tolerance alone. Placing the crossing between the samples either side of the ground takes stops from 0.11-0.13 m under to within a millimetre headlessly, at no cost. Declared: `signed-walk` +0.20 m at power 1.00; the landing 0.998x and will not resolve |
-| **41** | **The spread between the six warheads of one rocket** — ~2.4 m at the ground from release probes 0.20 m apart | **cause found (3db); the focus kick built behind `IcbmConfig.FocusTubesOnTheAim`, off, unflown** | **3db** — the bus's six tubes sit on a 0.86 m ring and every release prediction uses the mean mouth, so the aim loop lands the mean state and the six land on the ring's ground image: the once-round harmonic in tube angle carries 0.958 of the variance against a 0.40 null. A separation kick of 1.5-2.4 mm/s focuses each round on the mean's impact without moving the centre — headlessly 175 cm across to 0.4 cm. Declared: `--endpoint spread` ~0.2x at power 1.00 (MDE ×1.15); the landing 0.87x and will not resolve |
+| ~~40b~~ | ~~The predictor's crossing stop~~ — `IcbmConfig.PredictionStopsOnTheSurface` | **flown 2026-09-14, 20 paired blocks beside 41 — SHIPPED ON: `signed-walk` +0.200 m [+0.176, +0.239] on 20 of 20, the step from the late re-flies −0.212 → −0.007 m and their scatter 0.085 → 0.008; the pair's centre 1.12x [0.91, 1.38], unresolved (3dg)** | **3dc** — it is 0.20 m of the common −0.25 m walk: the landing sits −0.201 m below the late re-flies on 80 of 80, against −0.199 from the tolerance alone. Placing the crossing between the samples either side of the ground takes stops from 0.11-0.13 m under to within a millimetre headlessly, at no cost. Declared: `signed-walk` +0.20 m at power 1.00; the landing 0.998x and will not resolve |
+| ~~41~~ | ~~The spread between the six warheads of one rocket~~ — `IcbmConfig.FocusTubesOnTheAim` | **flown 2026-09-14, 20 paired blocks beside 40b — SHIPPED ON (`9ff3a4e`): `dispersion` 0.08x [0.08, 0.08] on 20 of 20 at the report's floor, a group's rms 1.29 → 0.035 m, ring slope +0.997 → +0.006 (3dg)** | **3db** — the bus's six tubes sit on a 0.86 m ring and every release prediction uses the mean mouth, so the aim loop lands the mean state and the six land on the ring's ground image: the once-round harmonic in tube angle carries 0.958 of the variance against a 0.40 null. A separation kick of 1.5-2.4 mm/s focuses each round on the mean's impact without moving the centre — headlessly 175 cm across to 0.4 cm. Declared: `--endpoint spread` ~0.2x at power 1.00 (MDE ×1.15); the landing 0.87x and will not resolve |
 | ~~42~~ | ~~The bus's spin every warhead is thrown with~~ — `IcbmConfig.CancelSpinAtSeparation` | **flown 2026-09-13, 24 paired blocks — SHIPPED ON** | **centre 0.55x [0.49, 0.60] on 22 of 24, the landing 0.70x [0.65, 0.80] on 23 of 24, dispersion 1.00x.** Each centroid follows its logged thrown spin at slope +1.15 on `base` and −0.03 on `spin`; the median rocket 2.30 → 1.74 m, rockets under 2 m 33 → 62 of 96. What the centre has left is a one-signed −1.05 m downrange, unattributed. The lever-arm fix (`f18e46b`, `arm/spin-lever-arm`) is still unflown and off `dev` — **3de, 3dd** |
-| **43** | **The aim loop's lag at release** — the probe released on reads −0.83 m downrange and scatters 1.21 m sd, most of the centre | **designed (3df); being built behind a switch** | **3df** — `payback` releases once the miss is under one cycle of the walk the holding cost drives, so each reading acted on is a cycle stale: −0.98 m on `payback` endings against −0.13 on `floor`, and the impact walks short at 0.98x the logged cost. Cancel each probe's miss at separation with `ReleaseFocus.TryKick`'s solve, ~4 mm/s, feeding no loop — which is what 3co's feed-forward did and lost on. Counterfactually the centre 1.26 → 0.22 m. Fly after 41 and 40b |
+| **43** | **The aim loop's lag at release** — the probe released on reads −0.83 m downrange and scatters 1.21 m sd, most of the centre | **designed (3df); built behind `IcbmConfig.CancelProbeMissAtSeparation` (`e485742`), off, unflown — refused past 10 mm/s, cancelled along the ground so 40b's depth stays 40b's** | **3df** — `payback` releases once the miss is under one cycle of the walk the holding cost drives, so each reading acted on is a cycle stale: −0.98 m on `payback` endings against −0.13 on `floor`, and the impact walks short at 0.98x the logged cost. Cancel each probe's miss at separation with `ReleaseFocus.TryKick`'s solve, ~4 mm/s, feeding no loop — which is what 3co's feed-forward did and lost on. Counterfactually the centre 1.26 → 0.22 m. Fly after 41 and 40b |
 | ~~34b~~ | ~~Feed the hold forward~~ | **flown and lost 2026-09-10** | **+234 m against a 7 m term** — 30x out of scale. The mechanism stands; a blanket offset on every cycle does not, because the release happens when the loop stops rather than a fixed dwell later. **3co** |
 | ~~31~~ | ~~Stop stage disposal shedding debris~~ | **built 2026-09-09, unflown** | `KsaWorld.Remove` → `Universe.DestroyVehicle`, which sheds nothing where `DestroyVehicleFromEvent` sheds twelve. **3ci/3bv** — inference, not measurement: it removes the only discriminator, but nothing yet proves it breaks the chain |
 | **32** | **Record the per-arm descent step**, or hold the world step for the whole flight | small | **3ci** — the arms never overlap in time and steep always falls in a faster-running world, which confounds *every* `ArrivalPreference` night ever flown, 3cd and 3ch included |
