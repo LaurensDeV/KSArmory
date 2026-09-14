@@ -34,8 +34,9 @@ the warheads separate.
 
 `--endpoint landing` is `miss` read off each warhead's 0.1 m line rather than the FLIGHT line's whole
 metre, which cannot see a metre. `centre` and `dispersion` split that miss into where the group went
-and how wide it is, off the downrange and cross the line carries -- checked only on a synthetic log
-until a night flies with them.
+and how wide it is, off the downrange and cross the line carries. Read a width on `dispersion`, not
+`spread`: moving only the centre read 1.00x on the first and 0.85x on the second on 2026-09-13-spin,
+because a range of distances from the aim narrows as the group comes in.
 """
 
 import argparse
@@ -2262,11 +2263,10 @@ def _centre_score(shot):
 def _dispersion_score(shot):
     """How wide this rocket's group is about its own centre, in metres rms.
 
-    **The rms, not a range, and not yet measured.** `spread` took worst minus best because it ranked
-    best on the null of the paired log ratio, and the same ranking is the way to choose here -- but
-    it needs a night whose landing lines carry components, and none has flown. Until one does, the
-    rms is the principled pick: it is the one width that completes the decomposition beside
-    `_centre_score`, where a 2D range has no such identity.
+    **The rms, not a range, and not yet ranked.** `spread` took worst minus best because it ranked
+    best on the null of the paired log ratio, and the same ranking is the way to choose here; it has
+    not been run. Until it is, the rms is the principled pick: it is the one width that completes the
+    decomposition beside `_centre_score`, where a 2D range has no such identity.
     """
     got = _centre_and_dispersion(shot)
     return None if got is None else max(got[1], PARTS_FLOOR_M)

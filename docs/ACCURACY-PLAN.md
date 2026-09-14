@@ -23,20 +23,22 @@ per-seat term**: every seat's walk now sits within a few tenths of a common −0
 **What is left is the release, that common residual, and the spread within a group** — the six
 warheads of one rocket landing a median 2.3-2.6 m apart from release probes 0.20 m apart, which item
 40 did not touch (1.05x, unresolved) and which is now co-dominant. **That spread is the bus's
-0.86 m tube ring, which every release prediction averages away** (3db). **And the group's centre
-carries the bus's spin, which every round is thrown with at twice its physical size and no prediction
-sees** (3dd). **The floor under this
+0.86 m tube ring, which every release prediction averages away** (3db). **The bus's spin, which every
+round is thrown with at twice its physical size, is now given back at separation: the group's centre
+0.55x and the landing 0.70x, the median rocket 2.30 → 1.74 m** (3de). **The floor under this
 configuration is 0.64 m as 3cv priced it — ≈0.54 m with the crossing search at its measured mean, and
 ≈0.50 m once item 40b ships — and `--endpoint landing` reads it at 0.1 m rather than adding a metre
 of print to it** (3dc). One of the two endpoints 3cv found
 not closing was the trace scoring each burst against the wrong instant, fixed in `a1a1ae5` (3cy).
 
-The entries to read are **3dd** (item 42, the spin), **3db** (item 41, the ring), **3dc** (item 40b),
-**3da** (item 40 flown, including two predictions that were wrong), **3cy**
-(what the instrument can and cannot see), **3cv** (where the metres were) and **3cu**. **The order to
-work in is now 42 and 41 (3dd, 3db)** — built, off and unflown, and between them the group's centre
-and its width — **then 40b (3dc)**, which moves the aim loop and needs a night of its own. Item 41 has an endpoint and a gate:
-`--endpoint spread` resolves x1.15 at twenty blocks (`d779413`). The 2026-09-08 block below is
+The entries to read are **3de** (item 42 flown and shipped), **3dd** (the spin), **3db** (item 41, the
+ring), **3dc** (item 40b), **3da** (item 40 flown, including two predictions that were wrong), **3cy**
+(what the instrument can and cannot see), **3cv** (where the metres were) and **3cu**. **A rocket's miss
+is now a 1.26 m centre and a 1.28 m width, level, and the order to work in is 41 (3db)** — built, off
+and unflown, priced on the shipped configuration at ~0.2x on `dispersion` (3de) — **then the centre's
+one-signed −1.05 m downrange (3de)**, of which **40b (3dc)** is a fifth. Item 41's declared endpoint is
+`--endpoint spread`, x1.15 at twenty blocks (`d779413`), which is sound for a change that leaves the
+centre where it is; `dispersion` reads the same width without depending on that. The 2026-09-08 block below is
 history, and two of its items have since been overturned.
 
 1. **The walk is fixed and ships (3cr, 3cs).** A warhead stopped on the height it sampled at the top
@@ -7968,6 +7970,64 @@ KSARMORY_SCENARIO_SAVE='SOLVER SCALE 8' ./tools/shot-batch.sh --paired 'base|spi
 * **Watch:** `clock` and trim endings stay at 0, and KSA's own log on every shot. The lever-arm fix is not
   in this build and is not what the night decides.
 
+## 3de. Item 42 flown: the centre 0.55x, and the spin ships — 2026-09-14
+
+`2026-09-13-spin`, 24 paired blocks, 192 flights, `base|spin:CancelSpinAtSeparation=true` on `57b4eaf`,
+flown as declared in 3dd. Every flight passed 6 of 6 and KSA's own log carries no exception on any shot.
+Frame time 27.8 ms with two correction passes at the median shot; endings `floor`/`noimprov`/`payback`
+13/0/83 on `base` and 17/1/78 on `spin`, with no `clock` ending and no trim give-up.
+
+| endpoint | spin vs base | shots | shot-flip p | declared |
+| --- | --- | --- | --- | --- |
+| **`centre`, the primary** | **0.55x [0.49, 0.60]** | 22 of 24 | **0.001** | ~0.5x |
+| `landing` | 0.70x [0.65, 0.80] | 23 of 24 | 0.001 | ~0.6x |
+| `miss`, the batch's own | 0.72x [0.63, 0.74] | 22 of 24 | 0.008 | |
+| `dispersion` | 1.00x [0.98, 1.01] | 15 of 24 | 0.679 — unresolved | ~1.0x |
+| `spread` | 0.85x [0.80, 0.94] | 19 of 24 | 0.020 | ~1.0x — **wrong**, below |
+
+Un-levelled, the centre reads 0.53x [0.46, 0.65] and the landing 0.68x [0.62, 0.74]. The median rocket
+landed **2.30 → 1.74 m**, its 90th percentile 4.47 → 2.70, the worst 6.08 → 4.32, and rockets under 2 m
+**33 → 62 of 96**. The median group centre went 2.10 → 1.26 m.
+
+**The mechanism check, as declared** — each flight's centroid regressed on its six warheads' mean "lands
+… from the spin thrown", n = 96 an arm:
+
+| arm | downrange slope | cross slope | r² | slope on "about the centre of mass" |
+| --- | --- | --- | --- | --- |
+| `base` | **+1.145 ± 0.077** | **+1.149 ± 0.085** | 0.70, 0.66 | +2.34, +2.35 |
+| `spin` | −0.026 ± 0.076 | −0.033 ± 0.075 | 0.00, 0.00 | |
+
+The term is real at its thrown size and the cancellation takes all of it; neither refutation fired. The
+thrown common spin reads **2.043–2.046x** the about-the-centre-of-mass figure on every warhead, which is
+3dd's doubled arm as flown. `base` turned at a median 0.77 mrad/s, and `spin` gave back a median 3.64 mm/s
+a warhead.
+
+**The slope is 1.15, not 1** — two standard errors over. The logged shift is
+`ReleaseFocus.TryLandingShift`, which agrees with headless flights through drag to 0.27 cm, so either the
+flown sensitivity is larger or something that moves with the spin moves the centre with it. The `spin`
+arm's slope is zero either way, so the cancellation removes that part too.
+
+**One prediction was wrong.** `spread` resolved at 0.85x where 1.0x was declared, and the endpoint is the
+reason rather than the ring: `spread` is a range of *distances from the aim*, which narrows as a ring's
+centre comes in while the ring stays exactly as wide. `dispersion`, which reads positions, is 1.00x
+[0.98, 1.01] on the same flights. SHOT-PROTOCOL describes that construction; the declaration applied it to
+`dispersion` and not to `spread`, and SHOT-PROTOCOL now says which to read.
+
+**What the miss is now: a centre of 1.26 m and a width of 1.28 m rms, level with each other.**
+
+- **The width is the ring**, item 41. On the `spin` arm — the configuration now shipping — taking each
+  warhead's logged ring shift off leaves **0.29 m of 1.29 m** rms, per-flight median 0.17x, so 41's focus
+  is priced at ~0.2x on `dispersion`. On `base` it leaves 0.39 m of 1.32, the difference being the spin's
+  own ring part, which this switch already gives back.
+- **What is left of the centre is one-signed.** The `spin` arm's centroid sits a mean **−1.05 m
+  downrange, short on 76 of 96 flights**, and −0.09 m across; the regression's intercept is −1.06 m on
+  both arms, so none of it is the spin. 40b's 0.20 m short (3dc) is in the same direction and a fifth of
+  it. The rest is unattributed, and it is now the largest one-signed term in the centre.
+
+**Ships on:** `IcbmConfig.CancelSpinAtSeparation = true`. The lever-arm fix (`f18e46b`,
+`arm/spin-lever-arm`) was not in this build, this night says nothing about it, and it is still a decision
+rather than a default. The cancellation gives back the spin actually thrown, so it stays right either way.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -8097,7 +8157,7 @@ what 20b is flying against.
 | ~~40~~ | ~~The ground lookup's rotation phase~~ — `IcbmConfig.GroundQueryAtOwnEpoch` | **flown 2026-09-12, 20 paired blocks — SHIPPED ON** | **per seat the walk's magnitude +0.810 m (p=0.0015) and its slope on frame time +0.0607 m/ms (p=0.0005), `--per-seat`; the landing 0.66x [0.55, 0.90] on 18 of 20, the walk 0.54x on 20 of 20.** Between-seat sd 2.61 → 0.06 m, walks over 2 m 25 of 80 → none, the worst rocket 11.7 → 5.3 m. Seat 4's slope −0.083 m/ms against the −0.082 measured before the fix. Two predictions were wrong and are recorded as such — **3da, 3cz, 3cw** |
 | **40b** | **The predictor's crossing stop** — 0.20 m deep on average, 0.20 m long at 32° | **built behind `IcbmConfig.PredictionStopsOnTheSurface` (`2aa13ff`), off, unflown** | **3dc** — it is 0.20 m of the common −0.25 m walk: the landing sits −0.201 m below the late re-flies on 80 of 80, against −0.199 from the tolerance alone. Placing the crossing between the samples either side of the ground takes stops from 0.11-0.13 m under to within a millimetre headlessly, at no cost. Declared: `signed-walk` +0.20 m at power 1.00; the landing 0.998x and will not resolve |
 | **41** | **The spread between the six warheads of one rocket** — ~2.4 m at the ground from release probes 0.20 m apart | **cause found (3db); the focus kick built behind `IcbmConfig.FocusTubesOnTheAim`, off, unflown** | **3db** — the bus's six tubes sit on a 0.86 m ring and every release prediction uses the mean mouth, so the aim loop lands the mean state and the six land on the ring's ground image: the once-round harmonic in tube angle carries 0.958 of the variance against a 0.40 null. A separation kick of 1.5-2.4 mm/s focuses each round on the mean's impact without moving the centre — headlessly 175 cm across to 0.4 cm. Declared: `--endpoint spread` ~0.2x at power 1.00 (MDE ×1.15); the landing 0.87x and will not resolve |
-| **42** | **The bus's spin every warhead is thrown with** — 1-6 mm/s, at twice its physical size | **cause found (3dd); diagnostic always logged (`84c9bdd`), `CancelSpinAtSeparation` off and unflown (`b50d6b0`); the lever-arm fix unflown and not on `dev` (`arm/spin-lever-arm`); smoked 2026-09-13, and `2026-09-13-spin` declared — 24 blocks on `--endpoint centre`, predicted ~0.5x** | **3dd** — `Commit` throws `ω × (mouth − CoM)` and the probe leaves it out; `CentreOfMassEcl` counts the centre of mass twice, a 2.44 m error on the staged bus, so rounds carry 2.04x the physical common spin. Headless, 4 mm/s moves the centre 1.25 m — most of what stands between the shot and a metre. Declared: `--endpoint centre` primary, unpriced until the diagnostic's first night; the mechanism check a slope near 1 on the thrown spin. Fly before 41 |
+| ~~42~~ | ~~The bus's spin every warhead is thrown with~~ — `IcbmConfig.CancelSpinAtSeparation` | **flown 2026-09-13, 24 paired blocks — SHIPPED ON** | **centre 0.55x [0.49, 0.60] on 22 of 24, the landing 0.70x [0.65, 0.80] on 23 of 24, dispersion 1.00x.** Each centroid follows its logged thrown spin at slope +1.15 on `base` and −0.03 on `spin`; the median rocket 2.30 → 1.74 m, rockets under 2 m 33 → 62 of 96. What the centre has left is a one-signed −1.05 m downrange, unattributed. The lever-arm fix (`f18e46b`, `arm/spin-lever-arm`) is still unflown and off `dev` — **3de, 3dd** |
 | ~~34b~~ | ~~Feed the hold forward~~ | **flown and lost 2026-09-10** | **+234 m against a 7 m term** — 30x out of scale. The mechanism stands; a blanket offset on every cycle does not, because the release happens when the loop stops rather than a fixed dwell later. **3co** |
 | ~~31~~ | ~~Stop stage disposal shedding debris~~ | **built 2026-09-09, unflown** | `KsaWorld.Remove` → `Universe.DestroyVehicle`, which sheds nothing where `DestroyVehicleFromEvent` sheds twelve. **3ci/3bv** — inference, not measurement: it removes the only discriminator, but nothing yet proves it breaks the chain |
 | **32** | **Record the per-arm descent step**, or hold the world step for the whole flight | small | **3ci** — the arms never overlap in time and steep always falls in a faster-running world, which confounds *every* `ArrivalPreference` night ever flown, 3cd and 3ch included |

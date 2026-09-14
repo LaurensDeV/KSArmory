@@ -345,7 +345,7 @@ So the rule is about the *shape of the term*, not about which endpoint is newer:
 | a magnitude with no meaningful sign | `walk`, and check how many flights hit the floor |
 | **how wide the group is**, rather than where it went | `spread` — the only endpoint the aim correction cannot reach, because it is over before the warheads separate |
 | **the miss itself, at a metre-level shot** | `landing` — `miss` off each warhead's 0.1 m line, where `miss`'s own print is a whole metre |
-| **where the group's centre went**, or **how wide it is about that centre** | `centre` and `dispersion` — the miss split in two off the landing line's components. **Checked only on a synthetic log**, below |
+| **where the group's centre went**, or **how wide it is about that centre** | `centre` and `dispersion` — the miss split in two off the landing line's components. **First flown on `2026-09-13-spin`**, below |
 
 **And `signed-cross` is a control channel, not a null.** It is near zero for most arms and genuinely
 is not for some: `2026-09-12-order` resolves it at **−0.161 m [−0.170, −0.139], 0 of 20 shots
@@ -473,8 +473,9 @@ Three things to know before reading one:
 
 * **It is a spread of *distances from the aim*, not of positions.** Six warheads 2 m out in six
   directions read zero. `--endpoint dispersion` reads positions, off the components the landing line
-  carries since `7e079ea` — but no night has flown them, so this stays the endpoint that has been
-  measured.
+  carries since `7e079ea`, and the difference is not academic: on `2026-09-13-spin` bringing the
+  group's centre in read **0.85x [0.80, 0.94]** on `spread` and **1.00x [0.98, 1.01]** on `dispersion`,
+  with the ring untouched. A change that moves the centre is read on `dispersion`, never on `spread`.
 * **A range's expectation grows with the group size**, so a night mixing five- and six-warhead
   groups would read the mix. Every flight of every night flown so far released six, and `usable`
   already requires all of them to arrive.
@@ -533,10 +534,14 @@ was asked for.
   that term.
 * **`dispersion` is an rms because it completes the decomposition, not because it was ranked.**
   `spread` earned max−min on the null scatter of the paired ratio; the same ranking decides this one,
-  and it needs a night that carries the components.
+  and `2026-09-13-spin` is the first flown night carrying the components to run it on.
 * **A night without them is refused**, with a pointer to `landing`, rather than scored as zero.
 
-**Both have been checked only on a synthetic log**, which checks the parse and the arithmetic and
+**First flown on `2026-09-13-spin`**, 192 flights, all carrying the components, and the split did what
+it is for: item 42 took `centre` to 0.55x [0.49, 0.60] and left `dispersion` at 1.00x [0.98, 1.01] on
+the same flights (`ACCURACY-PLAN.md` 3de).
+
+**Before that, both were checked on a synthetic log**, which checks the parse and the arithmetic and
 measures nothing. Each of `query`'s 960 warheads was given a position consistent with its logged
 distance — the 0.86 m tube ring through 3db's gains (1.85 downrange, 0.93 cross per metre, a
 1.59 m × 0.80 m ellipse) at a random roll, the centroid fitted, each point rescaled onto its distance
