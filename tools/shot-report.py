@@ -520,6 +520,7 @@ def read_shot(out_path, log_path, craft=None):
     # measured cot(gamma) acting there rather than on the walk.
     own_probes, shot["probe_named"] = _release_probes(log, craft)
     shot["release_km"] = [float(h.group(2)) / 1000.0 for h in own_probes]
+    shot["release_quantum"] = max((_print_quantum(h.group(2)) for h in own_probes), default=1.0)
     shot["thrown"] = [v for (v,) in _floats(THROWN, log)]
     for _, aim, speed, deg in (t for t in _floats(TRACEPROBE, log, 4)):
         shot["trace_km"].append(aim / 1000.0)
@@ -547,6 +548,10 @@ def read_shot(out_path, log_path, craft=None):
     # a 10 m quantum on a metre-level miss.
     shot["group_old_print"] = any(m.group("unit") == "km" and float(m.group("miss")) < 1.0
                                   for m in group)
+    # The step the metre-printed lines move in, which is what a group reading zero is inside. Lines
+    # past a kilometre are left out: a group that far out never floors, and their 10 m step would.
+    shot["group_quantum"] = max((_print_quantum(m.group("miss")) for m in group if m.group("unit") == "m"),
+                                default=PARTS_FLOOR_M)
 
     # Aligned with group_m, None where a line carries no components, so a flight missing one
     # warhead's pair is visibly short rather than scored on five as though they were six.
@@ -2081,16 +2086,17 @@ def load(root):
 WALK_FLOOR_M = 0.5
 
 
-# The release probe prints F0 metres, so here a zero really does mean "under half a metre" rather
-# than "exactly none", and this is the smallest the instrument can distinguish. It censors 3 of 160
-# on the same night, because a pre-release miss is tens of metres where a walk is ones.
+# A printed zero means "under half a step" rather than "exactly none", and half a step is the
+# smallest the probe line can distinguish -- so `_release_score` floors at half the step each flight's
+# own probes printed. This is half of a whole metre, the step of a log that carries no probe; at that
+# step it censors 3 of 160 on the same night.
 RELEASE_FLOOR_M = 0.5
 
 
-# The impact line prints F1 metres, so a group reading zero is one whose six warheads all fell in
-# one bin -- a spread under the print rather than none. A guard, not a cost: a spread cannot cross
-# zero the way a walk can, and the tightest group on 2026-09-12-query is 1.30 m -- thirteen times
-# this.
+# A group reading zero is one whose six warheads all fell in one bin -- a spread under the print
+# rather than none. A guard, not a cost: a spread cannot cross zero the way a walk can.
+# `_group_floor` takes the step each flight's landing lines printed; this is the F1 step, for a
+# flight carrying none.
 SPREAD_FLOOR_M = 0.1
 
 
@@ -2110,7 +2116,8 @@ def _release_score(shot):
         return None
     if shot.get("seat") is not None and not shot.get("probe_named"):
         return None
-    return max(statistics.median(abs(v) for v in shot["release_km"]) * 1000.0, RELEASE_FLOOR_M)
+    floor = shot["release_quantum"] / 2.0 if "release_quantum" in shot else RELEASE_FLOOR_M
+    return max(statistics.median(abs(v) for v in shot["release_km"]) * 1000.0, floor)
 
 
 def _walk_score(shot):
@@ -2166,13 +2173,28 @@ def _spread_score(shot):
         return None
     if shot.get("seat") is not None and not shot.get("group_named"):
         return None
-    return max(max(shot["group_m"]) - min(shot["group_m"]), SPREAD_FLOOR_M)
+    return max(max(shot["group_m"]) - min(shot["group_m"]), _group_floor(shot, SPREAD_FLOOR_M))
 
 
-# The components print at 0.1 m like the distance, so a group centre or width under this is inside
-# the print rather than zero. A guard for the log, not a cost: it can only bind where every warhead
-# of a group, or its centroid, falls in one bin.
+# The components print in the same step as the distance, so a group centre or width under it is
+# inside the print rather than zero. A guard for the log, not a cost: it can only bind where every
+# warhead of a group, or its centroid, falls in one bin. The F1 step, for a night read without one.
 PARTS_FLOOR_M = 0.1
+
+
+def _print_quantum(number):
+    """The step a printed metre figure moves in: 0.1 for `1.3`, 0.001 for `1.304`."""
+    return 10.0 ** -len(number.partition(".")[2])
+
+
+def _group_floor(shot, fallback):
+    """The smallest group quantity this flight's landing lines can say is not zero, in metres.
+
+    **The print, not a constant.** Item 43 cancels the centre the aim loop leaves, and a group that
+    lands inside a 0.1 m step reads that step on both arms of anything flown after it. Taken off the
+    lines themselves, so a night printed at F1 floors exactly where it always did.
+    """
+    return shot.get("group_quantum", fallback)
 
 
 def _group_refusal(shot, need_parts=False):
@@ -2226,12 +2248,13 @@ def _landing_score(shot):
     **The quantity `miss` scores, at a tenth of its quantum.** The FLIGHT line prints the mean in
     kilometres to three places, a whole metre, which a metre-level shot cannot be read through --
     the fixed unit `Sim/Distance.cs` exists to avoid. The named landing lines carry each warhead at
-    0.1 m, so their mean is the same number to within half a metre plus a twentieth -- checked flight
-    by flight on 2026-09-12-query, where it never exceeds 0.50 m.
+    0.1 m, or at a millimetre on a build printing `Distance.Measure`, so their mean is the same number
+    to within half a metre plus half their step -- checked flight by flight on 2026-09-12-query, where
+    it never exceeds 0.50 m.
     """
     if _group_refusal(shot):
         return None
-    return max(statistics.fmean(shot["group_m"]), PARTS_FLOOR_M)
+    return max(statistics.fmean(shot["group_m"]), _group_floor(shot, PARTS_FLOOR_M))
 
 
 def _centre_and_dispersion(shot):
@@ -2257,7 +2280,7 @@ def _centre_and_dispersion(shot):
 def _centre_score(shot):
     """Where this rocket's group went: the distance of its centroid from the aim, in metres."""
     got = _centre_and_dispersion(shot)
-    return None if got is None else max(got[0], PARTS_FLOOR_M)
+    return None if got is None else max(got[0], _group_floor(shot, PARTS_FLOOR_M))
 
 
 def _dispersion_score(shot):
@@ -2269,7 +2292,7 @@ def _dispersion_score(shot):
     decomposition beside `_centre_score`, where a 2D range has no such identity.
     """
     got = _centre_and_dispersion(shot)
-    return None if got is None else max(got[1], PARTS_FLOOR_M)
+    return None if got is None else max(got[1], _group_floor(shot, PARTS_FLOOR_M))
 
 
 def _signed_walk_score(shot):

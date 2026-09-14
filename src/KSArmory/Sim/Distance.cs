@@ -31,4 +31,15 @@ internal static class Distance
 
         return Math.Abs(metres) < KilometreFrom ? $"{metres:F1} m" : $"{metres / 1000.0:F2} km";
     }
+
+    /// <summary>
+    /// One distance for a line a script reads: metres to the millimetre below a kilometre, and
+    /// <see cref="Say"/>'s form above it, so a parser taking either unit reads both.
+    ///
+    /// <para>A shot group lands inside the tenth of a metre <see cref="Say"/> prints, and an endpoint
+    /// resolves nothing finer than the line it is parsed from — so the harness's own lines carry the
+    /// millimetre where a person's readout keeps the tenth.</para>
+    /// </summary>
+    public static string Measure(double metres)
+        => double.IsFinite(metres) && Math.Abs(metres) < KilometreFrom ? $"{metres:F3} m" : Say(metres);
 }

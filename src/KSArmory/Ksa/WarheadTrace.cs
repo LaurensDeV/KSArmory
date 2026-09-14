@@ -188,7 +188,7 @@ internal sealed class WarheadTrace
             Log.Info($"warhead trace: probe from the round's own state ->"
                      + $" {LatLon(setup, hit.GroundFixedPointCci)},"
                      + $" {hit.Seconds:F1} s of flight,"
-                     + $" {Ground(setup, hit.GroundFixedPointCci, setup.TrueAimCci):F0} m from the aim,"
+                     + $" {Ground(setup, hit.GroundFixedPointCci, setup.TrueAimCci):F3} m from the aim,"
                      + $" arriving at {Vec.Len(hit.VelocityCci):F0} m/s,"
                      + $" {ArrivalAngleDeg(hit):F1} deg below the horizontal");
 

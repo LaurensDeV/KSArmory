@@ -50,4 +50,19 @@ public class DistanceTests
     [InlineData(double.PositiveInfinity)]
     public void AnUnreadableDistanceSaysSoRatherThanReadingZero(double metres)
         => Assert.Equal("unknown", Distance.Say(metres));
+
+    /// <summary>
+    /// A harness line carries the millimetre a group now lands inside, and keeps the unit rule a
+    /// parser reads <see cref="Distance.Say"/> by.
+    /// </summary>
+    [Theory]
+    [InlineData(0.0, "0.000 m")]
+    [InlineData(0.043, "0.043 m")]
+    [InlineData(-0.0304, "-0.030 m")]
+    [InlineData(1.2716, "1.272 m")]
+    [InlineData(999.9, "999.900 m")]
+    [InlineData(1_000.0, "1.00 km")]
+    [InlineData(double.NaN, "unknown")]
+    public void AMeasuredDistanceCarriesTheMillimetre(double metres, string said)
+        => Assert.Equal(said, Distance.Measure(metres));
 }

@@ -2288,8 +2288,8 @@ internal sealed class IcbmComputer
     // height-reference error, downrange is energy or timing, cross is the plane or the clock.
     // docs/FRAMES-AND-EPOCHS.md, "Measure vectors, not magnitudes".
     private static string Said(double3 parts)
-        => $" ({parts.X:+0.0;-0.0;0.0} up, {parts.Y:+0.0;-0.0;0.0} downrange,"
-           + $" {parts.Z:+0.0;-0.0;0.0} cross)";
+        => $" ({parts.X:+0.000;-0.000;0.000} up, {parts.Y:+0.000;-0.000;0.000} downrange,"
+           + $" {parts.Z:+0.000;-0.000;0.000} cross)";
 
     // What the bus's rotation threw this warhead with, and where that and its tube's ring put it on the
     // ground beside the probe's own impact. Printed whether or not anything is kicked, so a night
@@ -2543,7 +2543,7 @@ internal sealed class IcbmComputer
 
             Log.Info($"release probe: predicted from the release state -> "
                       + $"{parent.GetLatitudeFromCce(cce):F3},{parent.GetLongitudeFromCce(cce):F3}, "
-                      + $"{Distance.Say(miss)} from the target{resolved}, "
+                      + $"{Distance.Measure(miss)} from the target{resolved}, "
                       + $"{hit.Seconds:F0} s of flight{thrown}");
 
             return new ReleaseProbe(positionCci, velocityCci, hit, _trueAimCci);

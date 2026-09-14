@@ -1007,7 +1007,7 @@ internal sealed class BallisticScenario
             string whose = _computer is { } owner ? $" on {KsaWorld.DisplayName(owner.Craft)}" : "";
 
             _landed.Add(double.IsFinite(miss)
-                ? $"{what}{whose} down {Distance.Say(miss)} from the aim point after {round.Age:F0} s{resolved}"
+                ? $"{what}{whose} down {Distance.Measure(miss)} from the aim point after {round.Age:F0} s{resolved}"
                 : $"{what}{whose} down after {round.Age:F0} s, and where could not be measured");
         }
         catch
@@ -1061,7 +1061,7 @@ internal sealed class BallisticScenario
 
     // Signed in the unit that shows it, so a component parses the same way the distance beside it does.
     private static string Signed(double metres)
-        => metres >= 0.0 ? "+" + Distance.Say(metres) : Distance.Say(metres);
+        => metres >= 0.0 ? "+" + Distance.Measure(metres) : Distance.Measure(metres);
 
     private static string WhereItStands(IcbmComputer computer)
     {

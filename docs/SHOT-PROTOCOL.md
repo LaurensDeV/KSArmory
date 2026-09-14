@@ -321,8 +321,9 @@ more budget makes a *stopped* shot converge. What the night showed is that the p
 pairwise **log**-ratio and a ratio has no answer at or below zero. That costs a floor, and
 `WALK_FLOOR_M` is where it bites: on `2026-09-12-pulse2` **71 of 160 flights score the floor rather
 than their walk**, and seats 1, 2 and 8 are forced to a per-seat ratio of exactly 1.00. Simulated, a
-true 0.7x reads **0.84x** — about half the effect censored away. (`RELEASE_FLOOR_M` is a different
-and much smaller thing: the release probe genuinely prints whole metres, which costs 3 of 160.)
+true 0.7x reads **0.84x** — about half the effect censored away. (The `release` floor is a different
+and much smaller thing: half the step the trace's release probe prints, which at whole metres cost 3
+of 160, and which follows the print to half a millimetre on a build printing `Distance.Measure`.)
 
 **`--endpoint signed-walk` and `signed-cross` are the way out.** No `abs`, no floor, a **difference
 in metres** rather than a ratio, and the per-seat level subtracted rather than divided — the
@@ -344,7 +345,7 @@ So the rule is about the *shape of the term*, not about which endpoint is newer:
 | **per-seat signed** — a gradient times a displacement | **`--per-seat`**, below. The pooled signed figure under-reports it, and the ratio censors it |
 | a magnitude with no meaningful sign | `walk`, and check how many flights hit the floor |
 | **how wide the group is**, rather than where it went | `spread` — the only endpoint the aim correction cannot reach, because it is over before the warheads separate |
-| **the miss itself, at a metre-level shot** | `landing` — `miss` off each warhead's 0.1 m line, where `miss`'s own print is a whole metre |
+| **the miss itself, at a metre-level shot** | `landing` — `miss` off each warhead's own line, at 0.1 m or a millimetre, where `miss`'s own print is a whole metre |
 | **where the group's centre went**, or **how wide it is about that centre** | `centre` and `dispersion` — the miss split in two off the landing line's components. **First flown on `2026-09-13-spin`**, below |
 
 **And `signed-cross` is a control channel, not a null.** It is near zero for most arms and genuinely
@@ -493,6 +494,13 @@ while the estimate is still moving.
 standard deviation, and a max−min of two of them 0.041 m — **1.6% of the 2.50 m median spread**,
 where the old 1 m quantum contributed 0.41 m, or 16%. Re-scoring with every value dithered inside
 its own bin does not move the per-shot variance measurably at this n.
+
+**It is material again once a group lands inside it, so the floors follow the print.** With the width
+at 0.035 m (3dg) and item 43 aimed at the centre, every group endpoint on the arm reads the 0.1 m step
+rather than the group. The landing line and both release probes print through `Distance.Measure` —
+a millimetre below a kilometre — and `shot-report.py` takes each flight's floor off the step its own
+lines printed: a whole step for `spread`, `landing`, `centre` and `dispersion`, half of one for
+`release`. A night printed at 0.1 m floors exactly where it did.
 
 **One incoherence to know about, and it predates the signed endpoints.** The verdict is read off the
 randomisation while the interval beside it comes from the sign test, so a night can print
