@@ -7720,7 +7720,7 @@ are one prediction six times, not because the releases are tight.
 | a 1 m release offset through a Kepler map of the traced state | 1.85 m downrange in plane, 0.93 cross, 0.71 along the velocity |
 | the ring alone, simulated | spread median 2.1-2.2 m, p90 3.0 — flown 2.40 and 3.31 |
 | first-harmonic amplitude against the group's distance from its aim | 0.74 m at 1-1.5 m, levelling at 1.60-1.70 beyond 3 m — the ellipse's long axis |
-| fitted roll, repeated by seat? | resultant 0.10-0.39 against 0.22 random — KSA leaves the roll free, so no fixed per-tube offset exists |
+| fitted roll, repeated by seat? | resultant 0.10-0.39 against 0.22 random — KSA leaves the roll free, so no fixed per-tube offset exists. **Not on `2026-09-13-spin`**, where round 1's ring shift is +1.385 m downrange, sd 0.020, on 96 flights (3df) |
 
 **What it refutes.** Release order: the six probes of a group do not drift across the releases
 (−0.004 ± 0.002 m per release), and the +0.117 m-per-release trend is the ring projected onto a
@@ -7770,9 +7770,9 @@ asks for:
 
 The mechanism check is the once-round share collapsing from 0.958 toward the ~0.40 null. It is
 **refuted** by a spread of 0.6x or more, a share still at 0.8 or more — a surviving, mis-scaled ring
-— or a spread near 4.8 m, which is the kick's sign reversed. **The walk is not a clean control on
-this arm**: round 1's ring offset is part of its walk from the mean-state probe today, so focusing
-the ring moves it.
+— or a spread near 4.8 m, which is the kick's sign reversed. **The walk is a clean control on
+this arm after all**: the trace begins after the kick, and round 1's walk does not follow its ring shift
+(r +0.09 over 96 flights, 3df).
 
 **Item 42, separate and only correlational: the tube spin the probe leaves out.** It moves the
 group's *centre*, not its width, so item 41 does not touch it. The sweep logged at release is 1-6
@@ -8005,7 +8005,9 @@ a warhead.
 **The slope is 1.15, not 1** — two standard errors over. The logged shift is
 `ReleaseFocus.TryLandingShift`, which agrees with headless flights through drag to 0.27 cm, so either the
 flown sensitivity is larger or something that moves with the spin moves the centre with it. The `spin`
-arm's slope is zero either way, so the cancellation removes that part too.
+arm's slope is zero either way, so the cancellation removes that part too. **Within a group, where no
+release residual enters, the spin's departure lands at 0.94 ± 0.04 of its shift (3df)** — so the 1.15 is
+most likely the release residual confounding the across-flight fit.
 
 **One prediction was wrong.** `spread` resolved at 0.85x where 1.0x was declared, and the endpoint is the
 reason rather than the ring: `spread` is a range of *distances from the aim*, which narrows as a ring's
@@ -8027,6 +8029,123 @@ centre comes in while the ring stays exactly as wide. `dispersion`, which reads 
 **Ships on:** `IcbmConfig.CancelSpinAtSeparation = true`. The lever-arm fix (`f18e46b`,
 `arm/spin-lever-arm`) was not in this build, this night says nothing about it, and it is still a decision
 rather than a default. The cancellation gives back the spin actually thrown, so it stays right either way.
+
+## 3df. After item 42: the centre is the aim loop's lag, and the route to a metre — 2026-09-14
+
+Read off `2026-09-13-spin` by three investigations; nothing was flown for it. Numbers are the `spin` arm,
+the shipped configuration, n = 96 flights, unless marked.
+
+**The −1.05 m short decomposes exactly.**
+
+| term, downrange | `spin` | `base` |
+| --- | --- | --- |
+| group centroid as landed | **−1.053 m** (se 0.125), short on 76 of 96 | −0.966 |
+| release probe — the aim loop's own last reading | **−0.828 m** (se 0.124), short on 73 of 96 | −0.830 |
+| ring shift, mean of the six | 0.000 | 0.000 |
+| spin shift | cancelled | +0.087, taken off |
+| landing − probe — the fall | **−0.224 m**, sd 0.060 | −0.223, sd 0.43 |
+| sum | −1.052 | |
+
+The fall is item 40b's: the step from the late re-flies to the landing reads −0.191 ± 0.050 m, short on 96
+of 96. **The probe's −0.83 m is the aim loop's lag.** Flights ending on `payback` release on −0.98 m (n =
+78, short 60) and on `floor` on −0.13 m (n = 17); `base` splits the same way, −0.94 against −0.15, and so
+did `2026-09-12-query`, −0.72 and −0.86 against −0.05. After release, with the bias and the kick unchanged,
+the predicted miss grows at a median +0.32 m/s on 94 of 94 flights released a metre or more short, at
+**0.98x each flight's logged holding cost** (n = 117). So while the bus holds, its impact walks short at the
+rate `HoldingCost` measures, each reading the loop acts on is one cycle of that walk stale, and `payback`
+releases once the miss is under exactly that much. It is not the response gain: flights at 1.00 read
+−0.90 m (n = 122), above it −0.70 (n = 70). This is 3co's term, eight times smaller than it was on 09-11
+— and feeding the hold forward into the loop is what 3co lost thirty times over on.
+
+**It is most of the centre's scatter as well as its mean.** With the mean taken off, the centroid still
+scatters 1.22 m sd downrange and 0.62 m across; the release probe alone scatters 1.21 and 0.61, and the
+fall adds 0.06 and 0.03. Its seat means run +0.32 to −2.18 m (F = 6.63, p = 3×10⁻⁶).
+
+**Item 43, designed: cancel the probe's own miss at separation.** Once the aim is committed, each warhead
+is given the minimum-norm velocity — `ReleaseFocus.TryKick`'s solve — that moves its predicted impact back
+by the probe's miss, about 4 mm/s. One velocity on a round already leaving, feeding nothing that reads it
+back, which is what separates it from 3co. Counterfactually it takes the centre **1.26 → 0.22 m** and leaves
+40b's fall. Being built behind a switch.
+
+**Item 41 reviewed, and ready.** Within each group the logged ring shift predicts where a warhead lands
+relative to its group's centroid at slope **+0.999 ± 0.007** over 1,152 components of 576 warheads (+1.003 ±
+0.009 on `base`), per flight a median 0.999 [p10 0.78, p90 1.14], with no cross term above 0.045, so no
+turned ring. The composition with the shipped cancellation is exact: the ring kick handles only the offset
+against the unspun mean probe, and the spin given back already includes `ω × ring`. All 576 warheads were
+kicked before their first step; the six releases span a median 91 ms (max 115), and the group's mean ring
+shift is at most 0.02 cm. Headless with both on, over 96 cases of arc, bus rate, roll phase, lever arm and
+probe error, the six land within 0.4 cm at 340 s and the centre moves 0.000 cm. One hardening fix landed
+first (`b2c674f`): an unresolvable offset no longer costs a round its spin as well.
+
+**Three earlier readings are corrected in place.** The bus's roll **repeats on this save** — round 1's ring
+shift is +1.385 m downrange, sd 0.020, over 96 flights — so 3db's "the roll is free" does not hold here. The
+traced walk carries **no** ring — its mean is −0.229 m against round 1's +1.385 m, r +0.09 — because the
+trace begins after the kick, so 3db's warning that the walk is not a clean control is withdrawn. And within a
+group the spin's own departure lands at **0.94 ± 0.04** of its logged shift, so 3de's across-flight slope of
+1.15 is most likely the release residual confounding it rather than an undersold sensitivity.
+
+**The budget**, counterfactual at slope 1, on the ground-plane landing (the mean of six distances):
+
+| case | landing median | p90 | centre | dispersion |
+| --- | --- | --- | --- | --- |
+| as flown | 1.67 m | 2.65 | 1.26 | 1.29 |
+| 41, the ring focused | 1.26 | 2.58 | 1.26 | 0.29 |
+| 40b alone | 1.67 | 2.59 | 1.24 | 1.29 |
+| 41 and 40b | 1.25 | 2.45 | 1.24 | 0.29 |
+| 43, each probe's miss cancelled | 1.25 | 1.41 | 0.22 | 1.29 |
+| the ring, the lag and the fall all removed | 0.24 | 0.50 | | |
+
+The same flights read 1.74 m on `shot-report`'s 3-D `landing`. The 0.29 m the ring leaves is the ground's
+slope across it, which a focus putting all six through one point should not leave, so that row is an upper
+bound. The last row is under 3cv's ≈0.54 m floor, which was priced before the ring or the lag had been found
+and is due re-pricing; the arrival angle has nothing left to buy in it, since it scales only the 0.06 m fall.
+
+**The order: 41 and 40b on one two-arm night, then 43.** Their mechanisms separate per flight — 41 is read on
+`dispersion`, which 40b cannot move because it shifts all six alike, and 40b on the traced walk, which starts
+after the kick — while a four-arm factorial would put the seat levelling back where SHOT-PROTOCOL §1 says it
+is too noisy. What the shared arm gives up is attributing a surprise on `landing` or `centre` to one switch.
+
+### Items 41 and 40b smoked, and their night declared — 2026-09-14
+
+**Smoked** on one paired block, `2026-09-14-both-smoke`, 4 `base` and 4 `both` (`FocusTubesOnTheAim` and
+`PredictionStopsOnTheSurface` on) on `b2c674f`: all eight passed 6 of 6 on `floor` and `payback` endings, KSA's
+own log clean, trace coverage full. All 24 `both` warheads logged `sits 0.860 m` and a kick of 2.25–2.49 mm/s;
+none logged not kicked, not focused or already flown a step, and all 48 were given back their spin. One block,
+so seats rather than arms — but both mechanisms read inside each flight, where there is no seat term:
+
+| inside each group | `base` | `both` |
+| --- | --- | --- |
+| rms about the group's centroid | 1.337 m | **0.031 m** |
+| its slope on the logged ring shift | +1.042 | **−0.011** |
+| landing − late re-flies, round 1 | −0.184 m, short on 4 of 4 | **−0.020 m**, short on 2 of 4 |
+| re-fly scatter within a flight | 0.091 m | **0.018 m** |
+
+**The width is gone rather than down to 3df's 0.29 m** — that residual was the ground's slope across the ring,
+which a focus through one point does not leave. 40b's step and scatter land where 3dc declared them. The kick
+logs 161–177° from its tube's offset, where `−o/T` would read 180; a `−o/T` kick leaves about 12% of the ring,
+and this one left 0.03 m, so the solve is what flew.
+
+**Declared before it flies:**
+
+```bash
+KSARMORY_SCENARIO_SAVE='SOLVER SCALE 8' ./tools/shot-batch.sh --paired 'base|both:FocusTubesOnTheAim=true,PredictionStopsOnTheSurface=true' \
+    --aim 26.485S,68.148W --blocks 20 --out ~/shots/2026-09-14-both    # about four hours
+```
+
+* **Two primaries, one per switch, each on an endpoint the other cannot move.** Item 41 on
+  **`--endpoint dispersion`, predicted ~0.08x** — and that is the report's 0.1 m `PARTS_FLOOR_M` over `base`'s
+  ~1.3 m, not the width, which the smoke puts at 0.03 m; the within-group rms per flight is the reading of the
+  width itself. Item 40b on **`--endpoint signed-walk`, predicted +0.20 m** (3dc; +0.19 on the shipped arm, 3df).
+* **Beside them:** `spread` ~0.08x, on its own 0.1 m floor and honest here because the centre barely moves;
+  `landing` ~0.75x, the group now landing on its centre; `centre` ~0.95x from 40b's 0.20 m, which may not resolve.
+* **Mechanism checks per flight:** the ring slope under 0.07 on `both` and about 1 on `base`; the step from the
+  late re-flies to the landing about −0.01 m on `both` against −0.19 on `base`, with the re-fly scatter at or
+  under 0.02 m.
+* **Refuted,** for 41, by `dispersion` at 0.6x or above, a ring slope of 0.3 or more, or one near 2 (the kick's
+  sign reversed); for 40b, by the signed walk moving less than +0.10 m, the re-fly scatter above 0.05 m, or the
+  step still more than −0.10 m; and for the pair, by `centre` outside [0.8, 1.1], which neither switch predicts.
+* **Watch:** `clock` and trim endings stay at 0 — 40b changes every prediction the loop reads — and KSA's own log
+  on every shot. Each switch that ships does so as its own commit, quoting its own endpoint.
 
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
@@ -8158,6 +8277,7 @@ what 20b is flying against.
 | **40b** | **The predictor's crossing stop** — 0.20 m deep on average, 0.20 m long at 32° | **built behind `IcbmConfig.PredictionStopsOnTheSurface` (`2aa13ff`), off, unflown** | **3dc** — it is 0.20 m of the common −0.25 m walk: the landing sits −0.201 m below the late re-flies on 80 of 80, against −0.199 from the tolerance alone. Placing the crossing between the samples either side of the ground takes stops from 0.11-0.13 m under to within a millimetre headlessly, at no cost. Declared: `signed-walk` +0.20 m at power 1.00; the landing 0.998x and will not resolve |
 | **41** | **The spread between the six warheads of one rocket** — ~2.4 m at the ground from release probes 0.20 m apart | **cause found (3db); the focus kick built behind `IcbmConfig.FocusTubesOnTheAim`, off, unflown** | **3db** — the bus's six tubes sit on a 0.86 m ring and every release prediction uses the mean mouth, so the aim loop lands the mean state and the six land on the ring's ground image: the once-round harmonic in tube angle carries 0.958 of the variance against a 0.40 null. A separation kick of 1.5-2.4 mm/s focuses each round on the mean's impact without moving the centre — headlessly 175 cm across to 0.4 cm. Declared: `--endpoint spread` ~0.2x at power 1.00 (MDE ×1.15); the landing 0.87x and will not resolve |
 | ~~42~~ | ~~The bus's spin every warhead is thrown with~~ — `IcbmConfig.CancelSpinAtSeparation` | **flown 2026-09-13, 24 paired blocks — SHIPPED ON** | **centre 0.55x [0.49, 0.60] on 22 of 24, the landing 0.70x [0.65, 0.80] on 23 of 24, dispersion 1.00x.** Each centroid follows its logged thrown spin at slope +1.15 on `base` and −0.03 on `spin`; the median rocket 2.30 → 1.74 m, rockets under 2 m 33 → 62 of 96. What the centre has left is a one-signed −1.05 m downrange, unattributed. The lever-arm fix (`f18e46b`, `arm/spin-lever-arm`) is still unflown and off `dev` — **3de, 3dd** |
+| **43** | **The aim loop's lag at release** — the probe released on reads −0.83 m downrange and scatters 1.21 m sd, most of the centre | **designed (3df); being built behind a switch** | **3df** — `payback` releases once the miss is under one cycle of the walk the holding cost drives, so each reading acted on is a cycle stale: −0.98 m on `payback` endings against −0.13 on `floor`, and the impact walks short at 0.98x the logged cost. Cancel each probe's miss at separation with `ReleaseFocus.TryKick`'s solve, ~4 mm/s, feeding no loop — which is what 3co's feed-forward did and lost on. Counterfactually the centre 1.26 → 0.22 m. Fly after 41 and 40b |
 | ~~34b~~ | ~~Feed the hold forward~~ | **flown and lost 2026-09-10** | **+234 m against a 7 m term** — 30x out of scale. The mechanism stands; a blanket offset on every cycle does not, because the release happens when the loop stops rather than a fixed dwell later. **3co** |
 | ~~31~~ | ~~Stop stage disposal shedding debris~~ | **built 2026-09-09, unflown** | `KsaWorld.Remove` → `Universe.DestroyVehicle`, which sheds nothing where `DestroyVehicleFromEvent` sheds twelve. **3ci/3bv** — inference, not measurement: it removes the only discriminator, but nothing yet proves it breaks the chain |
 | **32** | **Record the per-arm descent step**, or hold the world step for the whole flight | small | **3ci** — the arms never overlap in time and steep always falls in a faster-running world, which confounds *every* `ArrivalPreference` night ever flown, 3cd and 3ch included |
