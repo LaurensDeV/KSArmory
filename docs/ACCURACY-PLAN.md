@@ -8197,6 +8197,59 @@ arm its estimated kick is a median 2.5 mm/s, and 1 of 80 flights would pass its 
 **Ships on:** `IcbmConfig.FocusTubesOnTheAim = true` (`9ff3a4e`) and `IcbmConfig.PredictionStopsOnTheSurface = true`,
 each as its own commit.
 
+### Item 43 smoked, and its night declared — 2026-09-14
+
+**Smoked** on one paired block, `2026-09-14-miss-smoke`, 4 `base` and 4 `miss` on `fcf7ae9`: all eight passed 6 of 6
+on `floor` and `payback` endings, KSA's own log clean, frame time 29.3 ms. All 24 `miss` warheads were kicked, a
+median 2.44 mm/s and at most 3.97; none was refused by the cap or unsolved. One block, so seats rather than arms —
+but the mechanism reads inside each flight:
+
+| per flight | `base` | `miss` |
+| --- | --- | --- |
+| the group's centroid on its release probe, downrange | slope +1.003 ± 0.019 | **+0.168 ± 0.067** |
+| mean centroid downrange, against the probe's | −1.725 m against −1.696 | **−0.096 m** against −1.104 |
+| the kicked round's own prediction on the probe, traced round 1 | +1.006 ± 0.017 | **+0.198 ± 0.077** |
+| the fall after that prediction | −0.025 m | −0.028 m |
+
+**The kick did not take the whole miss, and what it left is in the solve rather than the fall.** Three rockets landed
+within 0.1 m of the aim from probes 0.39–1.49 m out; `GeoSat FAT 6` released 2.3 m short and landed 0.4 m short, with
+−0.07 m of that after its kicked prediction. Four flights on a 0.1 m print cannot say whether it is a fraction of
+every miss — the solve is linearised on a vacuum coast (`ReleaseFocus.TryMissKick` flies `Kepler.TryCoast`) for a
+round that falls through air — or one flight across two bins.
+
+**So the night flies the millimetre print**, `ef7e670` on `fcf7ae9`: the landing line and both release probes print
+through `Distance.Measure`, and `shot-report.py`'s floors follow each line's own step. Nothing between the smoked
+build and the flown one changes a flight.
+
+`~/shots/scripts-2026-09-14/miss43.py <night>` reads the table above. On `2026-09-14-both`, switch off on both arms,
+it reproduces 3dg: slope +0.998 downrange and +1.001 across, the fall −0.030 m, median centre 1.251 m.
+
+**Declared before it flies:**
+
+```bash
+KSARMORY_SCENARIO_SAVE='SOLVER SCALE 8' ./tools/shot-batch.sh --paired 'base|miss:CancelProbeMissAtSeparation=true' \
+    --aim 26.485S,68.148W --blocks 20 --out ~/shots/2026-09-14-miss    # about four hours
+```
+
+* **Primary: `--endpoint centre`, predicted between 0.03x and 0.2x.** At a millimetre the floor no longer binds. A
+  kick taking all of the probe's miss leaves the fall, 0.03 m against `base`'s ~1.25 m; the smoke's +0.17, if it
+  holds, leaves ~0.2x. Where between them it lands is the night's second finding.
+* **The solve's residual, per flight:** the slope of the kicked round's own prediction on its release probe over the
+  traced rounds — about 1 on `base`, and on `miss` the fraction of the miss the kick leaves, predicted between 0 and
+  0.2. A fraction that resolves names the next item: size the kick on the predictor that flies the drag.
+* **Beside it:** `landing` about as `centre`; `dispersion` 1.00x, ~0.035 m on both arms.
+* **`--endpoint release` is not a control on this night.** It reads the warhead trace's probe, flown from the round's
+  state *after* the kick, so on `miss` it is the kick's own predicted residual. The pre-kick probe — the mean mouth's,
+  which 3dg asked to re-measure on one ruler — is read per arm by `miss43.py`, arm-neutral by construction and recorded
+  either way.
+* **A control:** `signed-walk` +0.00 m — the fall from the kicked prediction, which the switch cannot move.
+* **Mechanism checks:** six kicks a flight at a median ~2.5 mm/s, a flight or two in 80 over the 10 mm/s cap, and no
+  `no kick solves`.
+* **Refuted** by `centre` at 0.5x or above, the kicked prediction's slope on `miss` at 0.5 or more — or near 2, the
+  kick's sign reversed — kicks over the cap on more than 4 of 80 flights, or `signed-walk` moving by more than 0.10 m.
+* **Watch:** `clock` and trim endings stay at 0, KSA's own log on every shot, and shot 1's landing lines printing three
+  places and scoring on `--endpoint centre` without a refusal.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -8327,7 +8380,7 @@ what 20b is flying against.
 | ~~40b~~ | ~~The predictor's crossing stop~~ — `IcbmConfig.PredictionStopsOnTheSurface` | **flown 2026-09-14, 20 paired blocks beside 41 — SHIPPED ON: `signed-walk` +0.200 m [+0.176, +0.239] on 20 of 20, the step from the late re-flies −0.212 → −0.007 m and their scatter 0.085 → 0.008; the pair's centre 1.12x [0.91, 1.38], unresolved (3dg)** | **3dc** — it is 0.20 m of the common −0.25 m walk: the landing sits −0.201 m below the late re-flies on 80 of 80, against −0.199 from the tolerance alone. Placing the crossing between the samples either side of the ground takes stops from 0.11-0.13 m under to within a millimetre headlessly, at no cost. Declared: `signed-walk` +0.20 m at power 1.00; the landing 0.998x and will not resolve |
 | ~~41~~ | ~~The spread between the six warheads of one rocket~~ — `IcbmConfig.FocusTubesOnTheAim` | **flown 2026-09-14, 20 paired blocks beside 40b — SHIPPED ON (`9ff3a4e`): `dispersion` 0.08x [0.08, 0.08] on 20 of 20 at the report's floor, a group's rms 1.29 → 0.035 m, ring slope +0.997 → +0.006 (3dg)** | **3db** — the bus's six tubes sit on a 0.86 m ring and every release prediction uses the mean mouth, so the aim loop lands the mean state and the six land on the ring's ground image: the once-round harmonic in tube angle carries 0.958 of the variance against a 0.40 null. A separation kick of 1.5-2.4 mm/s focuses each round on the mean's impact without moving the centre — headlessly 175 cm across to 0.4 cm. Declared: `--endpoint spread` ~0.2x at power 1.00 (MDE ×1.15); the landing 0.87x and will not resolve |
 | ~~42~~ | ~~The bus's spin every warhead is thrown with~~ — `IcbmConfig.CancelSpinAtSeparation` | **flown 2026-09-13, 24 paired blocks — SHIPPED ON** | **centre 0.55x [0.49, 0.60] on 22 of 24, the landing 0.70x [0.65, 0.80] on 23 of 24, dispersion 1.00x.** Each centroid follows its logged thrown spin at slope +1.15 on `base` and −0.03 on `spin`; the median rocket 2.30 → 1.74 m, rockets under 2 m 33 → 62 of 96. What the centre has left is a one-signed −1.05 m downrange, unattributed. The lever-arm fix (`f18e46b`, `arm/spin-lever-arm`) is still unflown and off `dev` — **3de, 3dd** |
-| **43** | **The aim loop's lag at release** — the probe released on reads −0.83 m downrange and scatters 1.21 m sd, most of the centre | **designed (3df); built behind `IcbmConfig.CancelProbeMissAtSeparation` (`e485742`), off, unflown — refused past 10 mm/s, cancelled along the ground so 40b's depth stays 40b's** | **3df** — `payback` releases once the miss is under one cycle of the walk the holding cost drives, so each reading acted on is a cycle stale: −0.98 m on `payback` endings against −0.13 on `floor`, and the impact walks short at 0.98x the logged cost. Cancel each probe's miss at separation with `ReleaseFocus.TryKick`'s solve, ~4 mm/s, feeding no loop — which is what 3co's feed-forward did and lost on. Counterfactually the centre 1.26 → 0.22 m on the spin arm. **Next to fly**: priced on the shipped arm (3dg) at a median rocket of 1.27 → ~0.05 m, a bound at the probe's 0.1 m print, with 1 flight in 80 refused by the cap |
+| **43** | **The aim loop's lag at release** — the probe released on reads −0.83 m downrange and scatters 1.21 m sd, most of the centre | **designed (3df); built behind `IcbmConfig.CancelProbeMissAtSeparation` (`e485742`), off, unflown — refused past 10 mm/s, cancelled along the ground so 40b's depth stays 40b's** | **3df** — `payback` releases once the miss is under one cycle of the walk the holding cost drives, so each reading acted on is a cycle stale: −0.98 m on `payback` endings against −0.13 on `floor`, and the impact walks short at 0.98x the logged cost. Cancel each probe's miss at separation with `ReleaseFocus.TryKick`'s solve, ~4 mm/s, feeding no loop — which is what 3co's feed-forward did and lost on. Counterfactually the centre 1.26 → 0.22 m on the spin arm. **Next to fly**: priced on the shipped arm (3dg) at a median rocket of 1.27 → ~0.05 m, a bound at the probe's 0.1 m print, with 1 flight in 80 refused by the cap. **Smoked 2026-09-14, and its night declared on the millimetre print (after 3dg)**: every kick fired, and on four flights the kicked prediction kept +0.20 ± 0.08 of the probe's miss — in the solve, not the fall |
 | ~~34b~~ | ~~Feed the hold forward~~ | **flown and lost 2026-09-10** | **+234 m against a 7 m term** — 30x out of scale. The mechanism stands; a blanket offset on every cycle does not, because the release happens when the loop stops rather than a fixed dwell later. **3co** |
 | ~~31~~ | ~~Stop stage disposal shedding debris~~ | **built 2026-09-09, unflown** | `KsaWorld.Remove` → `Universe.DestroyVehicle`, which sheds nothing where `DestroyVehicleFromEvent` sheds twelve. **3ci/3bv** — inference, not measurement: it removes the only discriminator, but nothing yet proves it breaks the chain |
 | **32** | **Record the per-arm descent step**, or hold the world step for the whole flight | small | **3ci** — the arms never overlap in time and steep always falls in a faster-running world, which confounds *every* `ArrivalPreference` night ever flown, 3cd and 3ch included |
