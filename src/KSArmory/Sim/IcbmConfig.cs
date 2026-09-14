@@ -567,11 +567,14 @@ internal sealed class IcbmConfig
     /// 960 warheads the once-round harmonic in tube angle holds 0.958 of the variance within a group.
     /// <c>docs/ACCURACY-PLAN.md</c> item 41.</para>
     ///
-    /// <para><b>Off</b>, and not flown. Headless on the traced arc the kick is 1.5-2.4 mm/s and the
-    /// six go from 1.75 m across to 4 mm; over a ring the kicks sum to nothing, so the group's centre
-    /// and the aim loop reading it stay where they were. Five Kepler coasts a warhead.</para>
+    /// <para><b>On.</b> Flown over 20 paired shots beside <see cref="PredictionStopsOnTheSurface"/>, on an
+    /// endpoint that switch cannot move: a group's rms about its own centre 1.29 m → 0.035 m, the report's
+    /// floor of 0.08x on 20 of 20, and each warhead's slope on its logged ring shift +0.997 → +0.006. The
+    /// kick is 2.2-2.5 mm/s, and over a ring the kicks sum to nothing, so the group's centre and the aim
+    /// loop reading it stay where they were. Five Kepler coasts a warhead. <c>docs/ACCURACY-PLAN.md</c>
+    /// 3dg.</para>
     /// </summary>
-    public bool FocusTubesOnTheAim;
+    public bool FocusTubesOnTheAim = true;
 
     /// <summary>
     /// Give each warhead back the velocity the bus's rotation threw it with, so it leaves on the state
