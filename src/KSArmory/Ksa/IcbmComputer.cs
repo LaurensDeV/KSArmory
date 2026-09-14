@@ -2381,25 +2381,33 @@ internal sealed class IcbmComputer
 
             doubleQuat cce2Cci = parent.GetCce2Cci();
             double3 offsetCci = Vec.Zero;
+            bool focusRing = Config.FocusTubesOnTheAim;
 
-            if (Config.FocusTubesOnTheAim)
+            // An offset that will not resolve costs the ring, never the spin: the two are independent.
+            if (focusRing)
             {
-                if (!weapon.TryTubeOffsetFromMeanEcl(released.Tube - 1, out double3 offsetEcl))
+                if (weapon.TryTubeOffsetFromMeanEcl(released.Tube - 1, out double3 offsetEcl))
                 {
-                    Log.Info($"focus on {who}: {what} not kicked -- its tube's offset would not resolve");
-                    return;
+                    offsetCci = offsetEcl.Transform(cce2Cci);
                 }
+                else
+                {
+                    focusRing = false;
+                    Log.Info(Config.CancelSpinAtSeparation
+                                 ? $"focus on {who}: {what}'s ring not focused -- its tube's offset would not resolve"
+                                 : $"focus on {who}: {what} not kicked -- its tube's offset would not resolve");
 
-                offsetCci = offsetEcl.Transform(cce2Cci);
+                    if (!Config.CancelSpinAtSeparation) return;
+                }
             }
 
             ReleaseFocus.Separation kick = ReleaseFocus.Kick(Body, from.PositionCci, from.VelocityCci,
                                                              from.Impact.Seconds, offsetCci,
                                                              released.SpinVelocityEcl.Transform(cce2Cci),
-                                                             Config.FocusTubesOnTheAim,
+                                                             focusRing,
                                                              Config.CancelSpinAtSeparation);
 
-            if (Config.FocusTubesOnTheAim && !kick.RingFocused)
+            if (focusRing && !kick.RingFocused)
             {
                 Log.Info(kick.SpinCancelled
                              ? $"focus on {who}: {what}'s ring not focused -- no kick solves on this arc"
