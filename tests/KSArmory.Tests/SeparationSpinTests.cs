@@ -398,7 +398,64 @@ public class SeparationSpinTests(ITestOutputHelper Out)
         }
     }
 
-    /// <summary>With the spin not given back, a separation is exactly what the ring focus alone gave.</summary>
+    /// <summary>
+    /// The ring focused, the spin given back and the release probe's own miss cancelled, together: every
+    /// warhead lands on the target the mean missed, and the miss's kick is the one it solves alone.
+    /// </summary>
+    [Theory]
+    [InlineData(Arc.Traced)]
+    [InlineData(Arc.Long)]
+    public void AllThreeLandEveryWarheadOnTheTarget(Arc arc)
+    {
+        Flight flight = FlightFor(arc);
+        Tubes tubes = TubesFor(flight, 0.37, TurningBodyRates);
+
+        Assert.True(ImpactPredictor.TryPredict(Earth, flight.PositionCci, flight.VelocityCci, 2.0, 20_000.0,
+                                               out ImpactPredictor.Impact probe, null, null,
+                                               new ImpactPredictor.Drag(DensityAt, Arsenal.ReentryVehicleMk21),
+                                               stopOnTheSurface: true));
+        Assert.True(ArrivalFrame.TryAt(probe.PointCci, probe.VelocityCci, out ArrivalFrame frame));
+
+        // The mean lands a metre short and a third of one across, which is the shape the loop leaves.
+        double3 offAtArrival = frame.Downrange * -1.0 + frame.Cross * 0.3;
+        double3 target = Vec.Unit(flight.MeanGroundCci - Earth.UncarryCci(offAtArrival, probe.Seconds)) * R;
+        ReleaseFocus.ProbeMiss miss = new(probe.GroundFixedPointCci, target);
+
+        Group both = Fly(flight, tubes, Correction.Both);
+        Assert.True(Vec.Len(both.Centre) < OnePoint && Vec.Len(flight.MeanGroundCci - target) > 1.0,
+                    "ring and spin do not already land the six on a mean a metre off the target");
+
+        double worst = 0.0;
+
+        for (int tube = 0; tube < tubes.OffsetsCci.Length; tube++)
+        {
+            double3 offset = tubes.OffsetsCci[tube];
+            double3 spin = tubes.SpinsCci[tube];
+
+            ReleaseFocus.Separation all = ReleaseFocus.Kick(Earth, flight.PositionCci, flight.VelocityCci,
+                                                            probe.Seconds, offset, spin, true, true, miss);
+            ReleaseFocus.Separation alone = ReleaseFocus.Kick(Earth, flight.PositionCci, flight.VelocityCci,
+                                                              probe.Seconds, offset, spin, false, false, miss);
+
+            Assert.True(all.RingFocused && all.SpinCancelled, "a term was not given, so they cannot interfere");
+            Assert.Equal(ReleaseFocus.MissOutcome.Cancelled, all.Miss);
+            Assert.InRange(Vec.Len(all.MissKickCci), 0.0002, ReleaseFocus.MaxMissKickMetresPerSecond);
+            Assert.Equal(alone.MissKickCci, all.MissKickCci);
+            Assert.Equal(all.RingKickCci - spin + all.MissKickCci, all.KickCci);
+
+            double3 landed = flight.MeanGroundCci + LandedFromTheMean(flight, offset, spin + all.KickCci);
+            worst = Math.Max(worst, Vec.Len(landed - target));
+        }
+
+        Out.WriteLine($"  {arc} all three: worst warhead {worst * 100.0:F2} cm from the target");
+
+        Assert.True(worst < OnePoint, $"a warhead is {worst * 100.0:F2} cm from the target");
+    }
+
+    /// <summary>
+    /// With the spin not given back, a separation is exactly what the ring focus alone gave; and with the
+    /// probe's miss not asked for, exactly what ring and spin gave.
+    /// </summary>
     [Fact]
     public void WithTheCancellationOffTheKickIsTheRingFocusExactly()
     {
@@ -418,6 +475,12 @@ public class SeparationSpinTests(ITestOutputHelper Out)
             Assert.Equal(Vec.Zero, Kick(false, false).KickCci);
             Assert.Equal(-spin, Kick(false, true).KickCci);
             Assert.Equal(ringKick - spin, Kick(true, true).KickCci);
+
+            foreach ((bool ring, bool cancel) in new[] { (true, false), (false, false), (false, true), (true, true) })
+            {
+                Assert.Equal(ReleaseFocus.MissOutcome.NotAsked, Kick(ring, cancel).Miss);
+                Assert.Equal(Vec.Zero, Kick(ring, cancel).MissKickCci);
+            }
 
             ReleaseFocus.Separation Kick(bool ring, bool cancel)
                 => ReleaseFocus.Kick(Earth, flight.PositionCci, flight.VelocityCci, flight.Seconds, offset, spin,

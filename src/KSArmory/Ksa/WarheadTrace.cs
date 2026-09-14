@@ -135,8 +135,9 @@ internal sealed class WarheadTrace
     ///
     /// <para>This is <em>not</em> the same probe <see cref="IcbmComputer"/> already writes at
     /// release: that one is flown from the bus's orbit state plus an assumed offset and kick, and
-    /// this one from the round's own position and velocity. The gap between the two lines is what
-    /// the tube did that the mean release state could not express.</para>
+    /// this one from the round's own position and velocity, after every separation kick. The gap
+    /// between the two lines is what the tube and the separation did that the mean release state
+    /// could not express, and the walk from this one is the fall alone.</para>
     /// </summary>
     public void Begin(IProjectile round, in Setup setup)
     {

@@ -599,6 +599,31 @@ internal sealed class IcbmConfig
     /// </summary>
     public bool CancelSpinAtSeparation = true;
 
+    /// <summary>
+    /// Give each warhead the least velocity that moves the release probe's own impact onto the target
+    /// along the ground — <see cref="ReleaseFocus.TryMissKick"/>.
+    ///
+    /// <para>The aim loop stops on its payback rule while the predicted impact drifts short at the
+    /// holding cost, so the state the warheads leave on is already predicted to miss. Over 192 flights
+    /// each group's centre lands a mean 1.05 m short of the aim, short on 76 of 96 on the shipped arm:
+    /// 0.83 m of it is in the release probe and 0.22 m is the fall, which
+    /// <see cref="PredictionStopsOnTheSurface"/> is for. Each probe's miss taken off its own group's
+    /// landings puts the median centre at 0.22 m, from 1.26.</para>
+    ///
+    /// <para><b>Not the hold fed forward</b>, which the loop chases: one velocity on a round that has
+    /// already left, after the aim has committed, read back by nothing. Refused past
+    /// <see cref="ReleaseFocus.MaxMissKickMetresPerSecond"/>, so a miss the loop failed to close cannot
+    /// be flown out by a separation. Independent of the two above, and summed with them.</para>
+    ///
+    /// <para><b>Along the ground only</b>, so a crossing the probe found under the surface keeps its
+    /// depth — 28 cm of ground on the traced arc — for <see cref="PredictionStopsOnTheSurface"/>.</para>
+    ///
+    /// <para><b>Off</b>, and not flown. Headless at 340 s and 32°, a probe landing 1.0 m short and 0.3 m
+    /// across is kicked 1.7 mm/s and lands 0.7 mm from the target; with the ring and the spin on as well,
+    /// every warhead lands within 0.3 cm. Four Kepler coasts a warhead.</para>
+    /// </summary>
+    public bool CancelProbeMissAtSeparation;
+
     /// <summary>Pointing error under which the coast hold lets go, in degrees.</summary>
     public double QuietCoastDeg = 0.5;
 

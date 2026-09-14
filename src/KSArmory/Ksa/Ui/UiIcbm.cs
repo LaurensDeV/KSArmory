@@ -546,6 +546,16 @@ internal sealed partial class Ui
             + "millimetres a second that move the group's centre a metre or more and turn the ring "
             + "that is left.");
 
+        bool cancelMiss = config.CancelProbeMissAtSeparation;
+        if (ImGui.Checkbox("Warheads are kicked off the release probe's miss", ref cancelMiss))
+        {
+            config.CancelProbeMissAtSeparation = cancelMiss;
+        }
+        Tip("On: each warhead leaves with the least velocity that moves the release probe's predicted "
+            + "impact onto the aim point along the ground -- a few millimetres a second, refused past "
+            + $"{ReleaseFocus.MaxMissKickMetresPerSecond * 1000.0:F0} mm/s. Off: the warheads leave on "
+            + "the state the aim loop stopped at, which it predicts to land a metre or so short.");
+
         bool quiet = config.QuietCoast;
         if (ImGui.Checkbox("Let go of the attitude while coasting", ref quiet))
         {

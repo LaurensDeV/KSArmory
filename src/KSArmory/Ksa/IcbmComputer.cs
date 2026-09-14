@@ -2060,8 +2060,10 @@ internal sealed class IcbmComputer
 
             if (released is not null) SayTheSpin(weapon, released, probe);
 
-            // Before the trace, which reads the round's release state as it begins.
-            if ((Config.FocusTubesOnTheAim || Config.CancelSpinAtSeparation) && released is not null)
+            // Before the trace, which reads the round's release state as it begins: its walk from its own
+            // probe then measures the fall and none of the separation.
+            if ((Config.FocusTubesOnTheAim || Config.CancelSpinAtSeparation || Config.CancelProbeMissAtSeparation)
+                && released is not null)
             {
                 KickAtSeparation(weapon, released, probe);
             }
@@ -2358,14 +2360,15 @@ internal sealed class IcbmComputer
     private static string OnGround(double3 parts)
         => $"({parts.Y:+0.000;-0.000;0.000} downrange, {parts.Z:+0.000;-0.000;0.000} cross)";
 
-    // The state a release prediction was flown from, and what it said. The mean mouth, never a tube:
-    // the probe line's miss is the aim loop's own reading.
+    // The state a release prediction was flown from, what it said, and the aim it said it against in
+    // that same frame. The mean mouth, never a tube: the probe line's miss is the aim loop's own reading.
     private readonly record struct ReleaseProbe(double3 PositionCci, double3 VelocityCci,
-                                                ImpactPredictor.Impact Impact);
+                                                ImpactPredictor.Impact Impact, double3 TargetCci);
 
     // The separation velocity this tube's round leaves with, solved from the probe's own state and
     // flight time so nothing is flown twice: its ring focused on the probe's impact, the spin it was
-    // thrown with given back, or both. docs/ACCURACY-PLAN.md items 41 and 42.
+    // thrown with given back, the probe's own miss cancelled, or any of them. docs/ACCURACY-PLAN.md
+    // items 41 and 42.
     private void KickAtSeparation(IManualFire weapon, Slug released, ReleaseProbe? probe)
     {
         string who = KsaWorld.DisplayName(Craft);
@@ -2382,8 +2385,9 @@ internal sealed class IcbmComputer
             doubleQuat cce2Cci = parent.GetCce2Cci();
             double3 offsetCci = Vec.Zero;
             bool focusRing = Config.FocusTubesOnTheAim;
+            bool beyondTheRing = Config.CancelSpinAtSeparation || Config.CancelProbeMissAtSeparation;
 
-            // An offset that will not resolve costs the ring, never the spin: the two are independent.
+            // An offset that will not resolve costs the ring, never the other two: all three are independent.
             if (focusRing)
             {
                 if (weapon.TryTubeOffsetFromMeanEcl(released.Tube - 1, out double3 offsetEcl))
@@ -2393,28 +2397,50 @@ internal sealed class IcbmComputer
                 else
                 {
                     focusRing = false;
-                    Log.Info(Config.CancelSpinAtSeparation
+                    Log.Info(beyondTheRing
                                  ? $"focus on {who}: {what}'s ring not focused -- its tube's offset would not resolve"
                                  : $"focus on {who}: {what} not kicked -- its tube's offset would not resolve");
 
-                    if (!Config.CancelSpinAtSeparation) return;
+                    if (!beyondTheRing) return;
                 }
             }
+
+            ReleaseFocus.ProbeMiss? miss = Config.CancelProbeMissAtSeparation
+                ? new ReleaseFocus.ProbeMiss(from.Impact.GroundFixedPointCci, from.TargetCci)
+                : null;
 
             ReleaseFocus.Separation kick = ReleaseFocus.Kick(Body, from.PositionCci, from.VelocityCci,
                                                              from.Impact.Seconds, offsetCci,
                                                              released.SpinVelocityEcl.Transform(cce2Cci),
                                                              focusRing,
-                                                             Config.CancelSpinAtSeparation);
+                                                             Config.CancelSpinAtSeparation,
+                                                             miss);
+
+            bool missGiven = kick.Miss == ReleaseFocus.MissOutcome.Cancelled;
+            bool anything = kick.RingFocused || kick.SpinCancelled || missGiven;
 
             if (focusRing && !kick.RingFocused)
             {
-                Log.Info(kick.SpinCancelled
+                Log.Info(anything
                              ? $"focus on {who}: {what}'s ring not focused -- no kick solves on this arc"
                              : $"focus on {who}: {what} not kicked -- no kick solves on this arc");
-
-                if (!kick.SpinCancelled) return;
             }
+
+            string missSaid = miss is null ? "" : ProbeMissSaid(from);
+
+            if (kick.Miss == ReleaseFocus.MissOutcome.Unsolved)
+            {
+                Log.Info($"focus on {who}: {what}'s release probe miss{missSaid} not cancelled -- "
+                         + "no kick solves on this arc");
+            }
+            else if (kick.Miss == ReleaseFocus.MissOutcome.OverTheCap)
+            {
+                Log.Info($"focus on {who}: {what}'s release probe miss{missSaid} not cancelled -- its "
+                         + $"{Vec.Len(kick.MissKickCci) * 1000.0:F3} mm/s kick is over the "
+                         + $"{ReleaseFocus.MaxMissKickMetresPerSecond * 1000.0:F1} mm/s cap");
+            }
+
+            if (!anything) return;
 
             if (!released.TryAddSeparationVelocity(kick.KickCci.Transform(parent.GetCci2Cce())))
             {
@@ -2437,11 +2463,28 @@ internal sealed class IcbmComputer
                 Log.Info($"focus on {who}: {what} is given back the "
                          + $"{Vec.Len(released.SpinVelocityEcl) * 1000.0:F3} mm/s of spin it was thrown with");
             }
+
+            if (missGiven)
+            {
+                Log.Info($"focus on {who}: {what} is kicked {Vec.Len(kick.MissKickCci) * 1000.0:F3} mm/s to "
+                         + $"cancel the release probe's miss{missSaid}");
+            }
         }
         catch (Exception e)
         {
             Log.Warn($"focus on {who}: {what} not kicked -- {e.Message}");
         }
+    }
+
+    // The miss the kick cancels, along the ground and carried to the arrival the frame's axes stand at.
+    // The probe line resolves it uncarried, which turns it by the planet's spin over the flight: 1.4 deg
+    // at 340 s, a couple of centimetres across for every metre downrange.
+    private string ProbeMissSaid(in ReleaseProbe from)
+    {
+        if (!ArrivalFrame.TryAt(from.Impact.PointCci, from.Impact.VelocityCci, out ArrivalFrame frame)) return "";
+
+        double3 atArrival = Body.CarryCci(from.Impact.GroundFixedPointCci - from.TargetCci, from.Impact.Seconds);
+        return $" {OnGround(frame.Resolve(atArrival))} m";
     }
 
     private ReleaseProbe? ProbeRelease()
@@ -2503,7 +2546,7 @@ internal sealed class IcbmComputer
                       + $"{Distance.Say(miss)} from the target{resolved}, "
                       + $"{hit.Seconds:F0} s of flight{thrown}");
 
-            return new ReleaseProbe(positionCci, velocityCci, hit);
+            return new ReleaseProbe(positionCci, velocityCci, hit, _trueAimCci);
         }
         catch
         {
