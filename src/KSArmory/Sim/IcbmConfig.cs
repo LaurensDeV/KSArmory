@@ -645,10 +645,12 @@ internal sealed class IcbmConfig
     /// of it in its own kicked prediction. Measured along the chord, one kick lands within 2 mm on every one of
     /// those grounds. <c>docs/ACCURACY-PLAN.md</c> 43b.</para>
     ///
-    /// <para>Two lookups of the height field a warhead, and nothing without
-    /// <see cref="CancelProbeMissAtSeparation"/>. <b>Off</b>, and not flown.</para>
+    /// <para><b>On</b>, flown over 12 paired blocks: the group's centre 0.20x [0.14, 0.36] on 12 of 12, the
+    /// median rocket 0.157 → 0.039 m, with each centroid's downrange following <c>dh · cot γ</c> at +0.850
+    /// square to up and −0.067 along the chord. Two lookups of the height field a warhead, and nothing without
+    /// <see cref="CancelProbeMissAtSeparation"/>. <c>docs/ACCURACY-PLAN.md</c> 3di.</para>
     /// </summary>
-    public bool ProbeMissFollowsTheGround;
+    public bool ProbeMissFollowsTheGround = true;
 
     /// <summary>Pointing error under which the coast hold lets go, in degrees.</summary>
     public double QuietCoastDeg = 0.5;
