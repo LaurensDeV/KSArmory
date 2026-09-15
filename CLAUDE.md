@@ -2055,9 +2055,9 @@ craft under the mouse, the line of sight stands, because there the operator is j
 its reach a gun is thrown as far as it goes along the line to the target instead —
 `BallisticLead.TrySolveFlownOrReach`, within the shell's own lifetime — and the header strip and the
 designation mark say so, because laid along the line of sight a shell sent 24 km lands a kilometre or two
-out and nothing on screen tells the two apart. The line is straight, so far past reach on a small body the
-farthest point along it is under the ground and the shell lands short of the reach named: 3.9 km of 90.3
-from Mars, flown, against about 20 m of dip at 35 km on Earth.
+out and nothing on screen tells the two apart. It is searched **over the ground** when the target is on it,
+each place with its own ground's motion: along the straight line a place far out is under the ground, and
+from Mars the shell came down 3.9 km short of the 90.3 km it was said to reach.
 
 **And the reach is the whole reach.** Near it a lobbed shell comes down steeper than it went up, so
 turning the barrel along the miss moves its path mostly along itself and takes out less every pass: on a

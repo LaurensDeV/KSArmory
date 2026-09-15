@@ -312,29 +312,40 @@ public static class BallisticLead
     // turn that would take a miss out grows without bound, and one taken whole lands on the far side of it.
     private const double MaxTurnRadians = 0.1;
 
+    /// <summary>A place a shell can be sent: where it is, and how it moves.</summary>
+    public readonly record struct Place(double3 Position, double3 Velocity, double3 Acceleration);
+
     /// <summary>
-    /// <see cref="TrySolveFlown"/>, or, for a target out of reach, the farthest point along the line to it
-    /// the shell can get to within its lifetime.
+    /// <see cref="TrySolveFlown"/>, or, for a target out of reach, the farthest place on the way to it the
+    /// shell can get to.
     ///
     /// <para>A gun given nothing it can reach has only the line of sight to lay along, which leaves the
     /// barrel near level and the shell a kilometre or two out whatever the range. Thrown as far as it
     /// goes instead, it lands as close to the target as the gun allows.</para>
     ///
-    /// <para>Found by halving along that line, up to <see cref="ReachHalvings"/> solves. A target that has
-    /// not moved far is settled by confirming the last answer instead — that point still solves and a
+    /// <para><b>Over the ground, where the target is on it.</b> The straight line to a place far out runs
+    /// under the ground between: from Mars the point 90.3 km along it was 1,457 m under, and the shell laid
+    /// through it came down 3.9 km short of it. <paramref name="along"/> gives places on the ground instead,
+    /// each moving as its own ground does; without it they are on the straight line and move with the
+    /// target.</para>
+    ///
+    /// <para>Found by halving along the way, up to <see cref="ReachHalvings"/> solves. A target that has
+    /// not moved far is settled by confirming the last answer instead — that place still solves and a
     /// little further does not — which is three.</para>
     /// </summary>
     /// <param name="reachHint">Last frame's <paramref name="reachFraction"/>, or one when there was none.</param>
     /// <param name="reachFraction">
-    /// One when the target itself was solved; otherwise how far along the line to it the lay reaches.
+    /// One when the target itself was solved; otherwise how far along the way to it the lay reaches.
     /// </param>
+    /// <param name="along">The place that fraction of the way to the target, or null for the straight line.</param>
     public static bool TrySolveFlownOrReach(double3 shooterPos, double3 shooterVelocity, double3 groundVelocity,
                                             double3 groundAcceleration, double3 bodyVelocity,
                                             double3 targetPos, double3 targetVelocity, double3 targetAccelerationEcl,
                                             DragShape? targetDragShape,
                                             MunitionProfile munition, Func<double3, double3> gravityAt,
                                             Func<double3, double> densityAt, double3 directionHint, double reachHint,
-                                            out double3 aimPoint, out double flightTimeSeconds, out double reachFraction)
+                                            out double3 aimPoint, out double flightTimeSeconds, out double reachFraction,
+                                            Func<double, Place?>? along = null)
     {
         reachFraction = 1.0;
 
@@ -349,9 +360,19 @@ public static class BallisticLead
         double3 hint = directionHint;
 
         bool Solves(double fraction, out double3 aim, out double time)
-            => TrySolveFlown(shooterPos, shooterVelocity, groundVelocity, groundAcceleration, bodyVelocity,
-                             shooterPos + (toTarget * fraction), targetVelocity, targetAccelerationEcl,
-                             targetDragShape, munition, gravityAt, densityAt, hint, out aim, out time);
+        {
+            aim = default;
+            time = 0.0;
+
+            Place? place = along is null
+                               ? new Place(shooterPos + (toTarget * fraction), targetVelocity, targetAccelerationEcl)
+                               : along(fraction);
+
+            return place is { } at
+                   && TrySolveFlown(shooterPos, shooterVelocity, groundVelocity, groundAcceleration, bodyVelocity,
+                                    at.Position, at.Velocity, at.Acceleration, targetDragShape, munition, gravityAt,
+                                    densityAt, hint, out aim, out time);
+        }
 
         double near = 0.0;
         double far = 1.0;
@@ -394,9 +415,40 @@ public static class BallisticLead
         return found;
     }
 
-    // A thousandth of the line: 24 m at 24 km, inside what the fall scatters a shell by anyway.
+    // A thousandth of the way: 24 m at 24 km, inside what the fall scatters a shell by anyway.
     private const double ReachResolution = 0.001;
     private const int ReachHalvings = 12;
+
+    /// <summary>
+    /// The places on the ground on the way from under one point to under another, for
+    /// <see cref="TrySolveFlownOrReach"/>: round the body's centre, each at the ground's own height there and
+    /// moving as that ground does. Null where the ground cannot be read, and for two points on opposite sides
+    /// of the body, which have no one way round.
+    /// </summary>
+    internal static Func<double, Place?> AlongTheGround(IGroundTest ground, double3 from, double3 to,
+                                                        Func<double3, double3> velocityAt,
+                                                        Func<double3, double3> accelerationAt)
+        => fraction =>
+        {
+            if (!ground.TryGround(to, out double3 centre, out double radius) || !(radius > 0.0)) return null;
+
+            double3 start = Vec.Unit(from - centre);
+            double3 end = Vec.Unit(to - centre);
+            double angle = Vec.AngleBetween(start, end);
+            if (!Vec.IsFinite(start) || !Vec.IsFinite(end) || !(angle < Math.PI - 1e-6)) return null;
+
+            double3 way = angle > 1e-12
+                              ? Vec.Unit((start * Math.Sin((1.0 - fraction) * angle)) + (end * Math.Sin(fraction * angle)))
+                              : end;
+
+            if (!ground.TryGround(centre + (way * radius), out double3 under, out double height) || !(height > 0.0))
+            {
+                return null;
+            }
+
+            double3 at = under + (way * height);
+            return Vec.IsFinite(at) ? new Place(at, velocityAt(at), accelerationAt(at)) : null;
+        };
 
     // One shell and the target it is flying at, in the ground's frame: every position an offset from
     // the mount and every velocity against the air. So the point density is read at is where over the

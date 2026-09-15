@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Brutal.Numerics;
 using Xunit;
 using Xunit.Abstractions;
@@ -44,6 +45,16 @@ public class ReachAlongTheGroundTests(ITestOutputHelper output)
     {
         double3 fromCentre = p - Centre;
         return Math.Atan2(fromCentre.X, fromCentre.Z) * Radius / 1000.0;
+    }
+
+    private sealed class Sphere : IGroundTest
+    {
+        public bool TryGround(double3 positionEcl, out double3 centreEcl, out double surfaceRadius)
+        {
+            centreEcl = Centre;
+            surfaceRadius = Radius;
+            return true;
+        }
     }
 
     // Fires a shell along a direction and flies it a frame at a time until it crosses the ground, as the gun
@@ -127,5 +138,50 @@ public class ReachAlongTheGroundTests(ITestOutputHelper output)
                          + $"landed {miss:F1} m from it");
 
         Assert.True(miss < Shell.LethalRadius, $"landed {miss:F1} m from the place");
+    }
+
+    /// <summary>
+    /// Beyond reach the shell lands on the place the lay says it reaches. Along the straight line to a place
+    /// that far out, the place is kilometres under the ground and the shell meets the ground first.
+    /// </summary>
+    [Fact]
+    public void BeyondReachTheShellLandsOnThePlaceTheLayReaches()
+    {
+        double best = LongestReachKm(out _);
+        double3 place = Ground(1.8 * best);
+
+        Func<double, BallisticLead.Place?> along =
+            BallisticLead.AlongTheGround(new Sphere(), Vec.Zero, place, _ => Vec.Zero, _ => Vec.Zero);
+
+        var clock = Stopwatch.StartNew();
+        Assert.True(BallisticLead.TrySolveFlownOrReach(Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero, place, Vec.Zero,
+                                                       Vec.Zero, null, Shell, GravityAt, DensityAt, Vec.Zero, 1.0,
+                                                       out double3 lay, out _, out double fraction, along));
+        double searchMs = clock.Elapsed.TotalMilliseconds;
+        Assert.InRange(fraction, 0.05, 0.999);
+
+        double3 reached = along(fraction)!.Value.Position;
+        var landed = FlyToGround(lay);
+        Assert.True(landed.HasValue, "the shell never came down");
+        double miss = Vec.Len(landed!.Value.Landed - reached);
+
+        // The same search along the straight line, for what it put the shell short of.
+        Assert.True(BallisticLead.TrySolveFlownOrReach(Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero, place, Vec.Zero,
+                                                       Vec.Zero, null, Shell, GravityAt, DensityAt, Vec.Zero, 1.0,
+                                                       out double3 straightLay, out _, out double straightFraction));
+        double3 straightPoint = place * straightFraction;
+        var straightLanded = FlyToGround(straightLay);
+        Assert.True(straightLanded.HasValue, "the straight-line shell never came down");
+        double straightMiss = Vec.Len(straightLanded!.Value.Landed - straightPoint);
+
+        output.WriteLine($"aimed {1.8 * best:F0} km, longest reach {best:F1} km; over the ground reaches "
+                         + $"{SurfaceKm(reached):F1} km and lands {miss:F1} m from it (search {searchMs:F0} ms); "
+                         + $"along the line the point is {Radius - Vec.Len(straightPoint - Centre):F0} m under and the "
+                         + $"shell lands {straightMiss:F0} m from it");
+
+        Assert.True(miss < Shell.LethalRadius, $"landed {miss:F1} m from the place the lay reaches");
+        Assert.True(SurfaceKm(landed.Value.Landed) >= 0.97 * best,
+                    $"landed {SurfaceKm(landed.Value.Landed):F1} km out where {best:F1} km was reachable");
+        Assert.True(straightMiss > 1_000.0, $"the straight line only missed by {straightMiss:F0} m, so this proves nothing");
     }
 }

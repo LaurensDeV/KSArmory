@@ -1181,11 +1181,18 @@ the mesh and the XML, and the suite.
       is 173.3 km in 310 s, and a place at 156 km is laid to land 0.2 m from it (`ReachAlongTheGroundTests`);
       following each shell for its 120 s life, the lay stopped at 90.3 km. **Confirmed on 2026.9.10.5438**
       with the shot below: laid to its longest reach, 174.1 km, down after 307.7 s, no exception in KSA's log.
-- [ ] Beyond reach on a small body the shell lands short of the reach it names. From Mars, laid to 90.3 km
-      of a place 199.7 km out, it came down 3.9 km short of that. The reach is a point on the straight line
-      to the place, which on Mars dips 1,457 m under the ground there, and a shell laid through it meets
-      the ground first: modelled at 85.2 km after 112.7 s. On Earth at 35 km the same dip is about 20 m,
-      which is why the 35 km shot landed on its stated reach.
+- [x] Beyond reach on a small body the shell lands on the reach it names. From Mars, laid to 90.3 km of a
+      place 199.7 km out along the straight line, it came down 3.9 km short of that: the point was 1,457 m
+      under the ground, and a shell laid through it meets the ground first. The reach is searched over the
+      ground now. Headlessly a place 312 km out is thrown 173.4 km and lands 0.1 m from the place named,
+      where along the straight line the point was 3,525 m under and the shell landed 5,063 m from it
+      (`ReachAlongTheGroundTests`). **Confirmed on 2026.9.10.5438** with `KSARMORY_SCENARIO_SYSTEM=Sol
+      KSARMORY_SCENARIO_SITE=Mars,15,-160 gunnery:1,ground,,,312000`: `driving a gun laid to its longest
+      reach, 174.1 km`, and the shell came down 136,997.5 m from the place, which on a sphere of the mount's
+      radius is 174.08 km from the mount. On Earth `gunnery:1,ground,,,35000` still lays to 23.7 km and lands
+      11,291.7 m short, against 11,289.0 before, and `scenario.sh drop` still lands 0 m from the ring. The
+      first search took 215 ms of one frame from Mars, against 69 ms along the straight line with a
+      two-minute horizon, and 76 ms on Earth; what it costs the frames after has not been measured.
 - [x] Shift-click a craft parked about 10 km out and fire. The log says `driving a gun laid on it 9.7 km
       out` rather than `driving at 9.7 km`, and the shell arrives at the craft. **Confirmed by hand on
       2026.9.10.5438**: laid on it 9.7 km out from a mountainside, struck on contact 11.8 s after it

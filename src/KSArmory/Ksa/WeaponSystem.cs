@@ -1012,7 +1012,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     // what it is given, and the shell leaves the muzzle along it. The landing is shallow enough that a
     // metre of launch height is over ten metres of range, so a solve from the mount lands long.
     private bool TryGunLay(double3 targetEcl, double3 targetVelocityEcl, double3 targetAccelerationEcl,
-                           out double3 partFrame)
+                           bool onTheGround, out double3 partFrame)
     {
         partFrame = default;
 
@@ -1035,12 +1035,18 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             && Vec.Len(fromMount - _gunLayFromMount) < ReachReuseFraction * Vec.Len(fromMount))
         {
             _gunLayRangeMetres = Vec.Len(targetEcl - muzzle);
-            _gunLayShortMetres = (1.0 - _gunLayReach) * _gunLayRangeMetres;
+            _gunLayShortMetres = Math.Max(0.0, _gunLayRangeMetres - _gunLayReachMetres);
             return LauncherPart.TryDirectionToPartFrame(platform, Launcher, _groundLayDirection, out partFrame);
         }
 
-        // Beyond reach it is thrown as far as it goes along the line to the target, not laid along that
-        // line: see BallisticLead.TrySolveFlownOrReach.
+        // Beyond reach it is thrown as far as it goes on the way to the target -- over the ground, where the
+        // target is on it -- not laid along the line to it: see BallisticLead.TrySolveFlownOrReach.
+        Func<double, BallisticLead.Place?>? along = onTheGround
+            ? BallisticLead.AlongTheGround(GroundTest.Shared, muzzle, targetEcl,
+                                           at => KsaWorld.GroundVelocityAt(platform, at),
+                                           at => KsaWorld.GroundAccelerationAt(platform, at))
+            : null;
+
         if (!BallisticLead.TrySolveFlownOrReach(muzzle, KsaWorld.VelocityEcl(platform),
                                                 KsaWorld.GroundVelocityAt(platform, PlatformEcl),
                                                 KsaWorld.GroundAccelerationAt(platform, PlatformEcl),
@@ -1049,7 +1055,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                                                 null, Shell,
                                                 _leadGravityAt ??= LeadGravityAt, _leadDensityAt ??= LeadDensityAt,
                                                 _groundLayDirection, _gunLayReach,
-                                                out double3 lay, out _, out _gunLayReach))
+                                                out double3 lay, out _, out _gunLayReach, along))
         {
             _groundLayDirection = Vec.Zero;
             _gunLayReach = 1.0;
@@ -1057,18 +1063,24 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             return false;
         }
 
+        double3 reached = _gunLayReach >= 1.0 ? targetEcl
+                          : along?.Invoke(_gunLayReach) is { } place ? place.Position
+                          : muzzle + ((targetEcl - muzzle) * _gunLayReach);
+
         _gunLaySearchedAt = _clock;
         _gunLayFromMount = fromMount;
         _gunLayRangeMetres = Vec.Len(targetEcl - muzzle);
-        _gunLayShortMetres = (1.0 - _gunLayReach) * _gunLayRangeMetres;
+        _gunLayReachMetres = Vec.Len(reached - muzzle);
+        _gunLayShortMetres = Math.Max(0.0, _gunLayRangeMetres - _gunLayReachMetres);
         _groundLayDirection = lay - muzzle;
         return LauncherPart.TryDirectionToPartFrame(platform, Launcher, _groundLayDirection, out partFrame);
     }
 
-    // How far along the line to its target the last gun lay reaches, one when all the way, and when and
-    // against where that was searched for. Kept between frames; the two distances are this frame's,
-    // cleared in UpdateTurret.
+    // How far along the way to its target the last gun lay reaches, one when all the way, how far from the
+    // muzzle the place it reaches is, and when and against where that was searched for. Kept between frames;
+    // the other two distances are this frame's, cleared in UpdateTurret.
     private double _gunLayReach = 1.0;
+    private double _gunLayReachMetres;
     private double _gunLaySearchedAt = double.NegativeInfinity;
     private double3 _gunLayFromMount;
     private double _gunLayRangeMetres;
@@ -1093,7 +1105,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         return Platform is { } platform
                && TryGunLay(groundEcl, groundVelocityEcl, KsaWorld.GroundAccelerationAt(platform, groundEcl),
-                            out partFrame);
+                            onTheGround: true, out partFrame);
     }
 
     // Where the last ground lay pointed, so the next solve starts beside it.
@@ -1410,7 +1422,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                          KsaWorld.RestsOnSurface(designated)
                              ? KsaWorld.GroundAccelerationAt(Platform, Designation.PositionEcl)
                              : KsaWorld.AccelerationEcl(designated),
-                         out partFrame))
+                         onTheGround: KsaWorld.RestsOnSurface(designated), out partFrame))
         {
             SayGunLaid("a gun laid on it");
             return true;
