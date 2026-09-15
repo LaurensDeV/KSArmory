@@ -1640,6 +1640,12 @@ Unflown. The pick is the hull the cursor ray meets, then a craft's centre within
 - [ ] Shift-click open ground beside a craft. It designates the ground.
 - [ ] Shift-click a craft standing behind a ridge from the camera. The ridge wins: ground, not
       the hidden craft.
+- [x] Shift-click a hill seen side-on from low down. It designates the hill under the pointer, not
+      the terrain behind it. **Confirmed by hand on 2026.9.10.5438.**
+- [ ] The same pick sets a craft down with **Move craft with the mouse**, sets off a burst with the
+      burst tool and aims click-to-shoot. Set a craft down on a hillside, and on a plateau well above
+      sea level seen at a shallow angle: it lands under the pointer on the first click, where before
+      it took several clicks walking in towards the spot.
 
 ---
 

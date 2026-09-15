@@ -366,6 +366,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/LineOfSight.cs` | whether a body is between the viewer and something |
 | `Sim/ITerrainHeights.cs` | **the seam a sensor looks over the real skyline through** |
 | `Sim/TerrainMask.cs` | whether a ridge hides a contact, and how few samples that can cost |
+| `Sim/TerrainRay.cs` | where the pointer meets the ground — **the first place the ray goes under it**, walked from the eye, because the mean sphere's hit refined by the height there lands behind a hill seen side-on |
 | `Sim/TerrainMap.cs` | a local east/north frame on a body, and the square of ground drawn around it |
 | `Sim/Picking.cs` | what the cursor's ray meets, and what is nearest it on screen |
 | `Sim/Reticle.cs` | the gunner's sight as strokes on a screen — geometry only |

@@ -923,11 +923,13 @@ internal static class KsaWorld
     }
 
     /// <summary>
-    /// Where the cursor's ray meets a celestial surface, as a place a craft can be put.
+    /// Where the cursor's ray first meets a celestial's ground, as a place a craft can be put or a
+    /// round can be sent.
     ///
     /// <para>Nearest body hit, not the one being orbited: pointing at a moon on the horizon should
-    /// mean the moon. The mean sphere, so a mountain is not accounted for — the engine's own
-    /// placement settles the craft onto the real terrain, and this only has to say where.</para>
+    /// mean the moon. Walked out from the eye by <see cref="TerrainRay"/>, because the ray meets the
+    /// ground where it first goes under it — the mean sphere's hit refined by the height under that
+    /// answer lands behind a hill seen side-on, on the terrain beyond what the pointer is on.</para>
     /// </summary>
     public static bool TryCursorGroundPoint(out double3 groundEcl,
                                             out double latitudeDeg, out double longitudeDeg,
@@ -942,8 +944,8 @@ internal static class KsaWorld
         {
             if (!TryCursorRayEcl(out double3 eye, out double3 direction)) return false;
             if (Universe.CurrentSystem is not { } system) return false;
+
             Celestial? nearest = null;
-            double3 nearestHit = default;
             double nearestRange = double.MaxValue;
 
             for (int i = 0; i < system.Count; i++)
@@ -951,84 +953,33 @@ internal static class KsaWorld
                 if (system.GetIndex(i) is not Celestial body) continue;
 
                 double3 centre = body.GetPositionEcl();
+                double top = MaxTerrainHeightMetres(body);
 
-                // Only from outside. TryHitSphere answers with the far-side exit when the origin
-                // is within the sphere -- correct for pointing at a planet from space, and a point
-                // through the planet when picking ground the camera is standing on.
-                if (Vec.Len(eye - centre) <= body.MeanRadius) continue;
-
-                if (!Picking.TryHitSphere(eye, direction, centre, body.MeanRadius, out double3 hit))
-                {
-                    continue;
-                }
-
-                double range = Vec.Len2(hit - eye);
-                if (range >= nearestRange) continue;
-
-                nearest = body;
-                nearestHit = hit;
-                nearestRange = range;
-            }
-
-            if (nearest is null) return false;
-
-            // The mean sphere is not the surface. A ray at a mountain -- or at a launch pad --
-            // meets the real surface well before the sphere, so the answer taken from that first
-            // hit lands past where the pointer is. Re-intersect against the height under the
-            // answer until it stops moving.
-            //
-            // The height goes into the *radius*, never added to the point afterwards. Raising a
-            // hit radially moves it off the ray, and a point off the ray is not under the cursor:
-            // that error is zero at ground level and grows with every metre of elevation, so it
-            // is worst over high ground such as a pad.
-            double3 centreEcl = nearest.GetPositionEcl();
-            double lastMoved = double.MaxValue;
-
-            // Six passes: the guard below exits the moment one stops improving, so the extra
-            // passes are only spent where they are converging, and at shallow depression angles
-            // three is well short of the answer.
-            for (int pass = 0; pass < 6; pass++)
-            {
-                double3 dirCce = Vec.Unit(nearestHit - centreEcl);
-                if (!Vec.IsFinite(dirCce) || Vec.Len(dirCce) < 0.5) break;
-
-                double height = nearest.GetTerrainHeightFromDirCce(dirCce, accurate: true);
-                if (!double.IsFinite(height)) break;
+                // Far enough to cross the whole body. Only the part below its highest ground is
+                // walked, and the walk stops at the first place it is under it.
+                double reach = 2.0 * (Vec.Len(eye - centre) + body.MeanRadius + top);
 
                 // Terrain only. A launch pad is 8 m of pedestal 40 m across, and adding it here
                 // models it as an 8 m thicker planet: at 5 km the resolved point moves 2.8 km, and
                 // sweeping the cursor over the pad edge swings the bearing from the mount through
                 // 168 degrees between one pixel and the next. Where a structure's surface is has
-                // no answer in this engine -- see docs/BLOCKED-ON-KSA.md -- and a wrong one that
-                // reaches to the horizon is worse than none.
-                double radius = nearest.MeanRadius + height;
-
-                // Never inflate the sphere out past the eye. Terrain under the cursor being higher
-                // than the eye is ordinary -- a hillside, a pad, or simply standing on ground the
-                // pass sampled a few hundred metres away -- and from inside, the "hit" is the exit
-                // on the far side of the planet. Up to a diameter of it, which fire control then
-                // accepts and shoots at. The last good answer is closer than none.
-                if (radius >= Vec.Len(eye - centreEcl)) break;
-
-                if (!Picking.TryHitSphere(eye, direction, centreEcl, radius, out double3 refined))
+                // no answer in this engine -- see docs/BLOCKED-ON-KSA.md.
+                if (!TerrainRay.TryFirstHit(eye, direction, reach, centre, body.MeanRadius, top,
+                                            new TerrainHeights(body, accurate: true), out double range)
+                    || range >= nearestRange)
                 {
-                    // Grazing: the raised surface is missed where the mean sphere was caught.
-                    break;
+                    continue;
                 }
 
-                // The passes are a fixed-point iteration whose gain is the terrain slope over the
-                // tangent of the depression angle. Above one it walks away from the answer rather
-                // than onto it, and from ground level that is most of the screen. Keep the better
-                // sample: taking the step and then breaking returns the pass that walked away.
-                double moved = Vec.Len(refined - nearestHit);
-                if (moved >= lastMoved) break;
-
-                nearestHit = refined;
-                lastMoved = moved;
+                nearest = body;
+                nearestRange = range;
             }
 
-            double3 cce = nearestHit - centreEcl;
-            groundEcl = nearestHit;
+            if (nearest is null) return false;
+
+            groundEcl = eye + (Vec.Unit(direction) * nearestRange);
+
+            double3 cce = groundEcl - nearest.GetPositionEcl();
             latitudeDeg = nearest.GetLatitudeFromCce(cce);
             longitudeDeg = nearest.GetLongitudeFromCce(cce);
             bodyName = nearest.Id ?? string.Empty;
