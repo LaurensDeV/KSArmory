@@ -2049,7 +2049,9 @@ craft under the mouse, the line of sight stands, because there the operator is j
 its reach a gun is thrown as far as it goes along the line to the target instead —
 `BallisticLead.TrySolveFlownOrReach`, within the shell's own lifetime — and the header strip and the
 designation mark say so, because laid along the line of sight a shell sent 24 km lands a kilometre or two
-out and nothing on screen tells the two apart.
+out and nothing on screen tells the two apart. The line is straight, so far past reach on a small body the
+farthest point along it is under the ground and the shell lands short of the reach named: 3.9 km of 90.3
+from Mars, flown, against about 20 m of dip at 35 km on Earth.
 
 **And the reach is the whole reach.** Near it a lobbed shell comes down steeper than it went up, so
 turning the barrel along the miss moves its path mostly along itself and takes out less every pass: on a
@@ -2714,10 +2716,11 @@ should not be weakened without understanding what they buy:
   for the bomb, the reentry vehicle and the 5"/54 shell, and nothing else, because it costs a terrain
   sample per round per frame and a CIWS burst is 150 shells in the air. The 5"/54 is on the list
   because both halves of that trade go the other way for it: a few dozen shells in the air at most, each
-  alive long enough that one missing would fall through the planet. Its lifetime is two minutes, which is
-  long enough for any shell to come down, so the ground ends a long shot rather than the clock ending it
-  in mid-air — and the flown lead is searched within that same lifetime, so it is the gun's reach as
-  well. So a 20 mm shell still passes through
+  alive long enough that one missing would fall through the planet. Its lifetime is two minutes, which on
+  Earth is long enough for any shell to come down, so the ground ends a long shot rather than the clock
+  ending it in mid-air — and the flown lead is searched within that same lifetime, so it is the gun's
+  reach as well. Under a weaker pull the clock binds first: from Mars the lay reaches 90.3 km at the
+  lifetime's limit, and a steep shell is ended in the air. So a 20 mm shell still passes through
   a hill and a missile that misses still carries on into space. A reentry vehicle also re-reads the
   ground under every sub-step within 200 m of it, because a frame's first sample is the height of
   ground it has already left — `IcbmConfig.ResampleGroundAtImpact`, 0.30x on the walk, flown.

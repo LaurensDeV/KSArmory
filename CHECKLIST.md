@@ -1164,11 +1164,23 @@ the mesh and the XML, and the suite.
       `KSARMORY_SCENARIO_SAVE="KABOOM" gunnery:2,passing,12,200,1500`: 2 of 2 crossing drones had a burst
       inside the 4 m lethal radius, 4 bursts at 0.0 m about 2 km out from 96 shells, no missile fired, and
       unspent shells expired at 9.0 s after 4.2 km at 261 m/s. No exception in KSA's log.
-- [ ] A shell over a body with thin air flies further than over Earth. Drag is measured against Earth's
-      sea-level air over every body, where it was each body's own sea level.
-- [ ] Fire a shell high with nothing to aim at. It flies until it lands and never vanishes in mid-air.
-      With a 30 s life, on 2026.9.10.5438, shells were removed 23.3 km out while still doing 766 m/s,
-      and the longest reach the lay could find stopped at the same 23.7 km.
+- [x] A shell over a body with thin air flies further than over Earth. Drag is measured against Earth's
+      sea-level air over every body, where it was each body's own sea level. **Confirmed on
+      2026.9.10.5438** from Mars, with `KSARMORY_SCENARIO_SYSTEM=Sol KSARMORY_SCENARIO_SITE=Mars,15,-160
+      gunnery:1,ground,,,200000`: 2,097 m up the mount read the air as 0.0135 of the reference, which is
+      Mars's 0.02 kg/m³ over 1.225 at that height, where each body's own sea level would have read 0.83.
+      The lay reached 90.3 km and the shell came down about 86.4 km out after 114.5 s, where Earth's
+      reach is 23.7 km and the old reading predicts 31 km. No exception in KSA's log.
+- [ ] Fire a shell high on Earth with nothing to aim at. It flies until it lands and never vanishes in
+      mid-air. With a 30 s life, on 2026.9.10.5438, shells were removed 23.3 km out while still doing
+      766 m/s, and the longest reach the lay could find stopped at the same 23.7 km. Not on Mars: there
+      the two-minute life is the gun's reach, which the flight above landed at 114.5 s of, and a 45°
+      shell would be ended about 40 km up while still climbing.
+- [ ] Beyond reach on a small body the shell lands short of the reach it names. From Mars, laid to 90.3 km
+      of a place 199.7 km out, it came down 3.9 km short of that. The reach is a point on the straight line
+      to the place, which on Mars dips 1,457 m under the ground there, and a shell laid through it meets
+      the ground first: modelled at 85.2 km after 112.7 s. On Earth at 35 km the same dip is about 20 m,
+      which is why the 35 km shot landed on its stated reach.
 - [x] Shift-click a craft parked about 10 km out and fire. The log says `driving a gun laid on it 9.7 km
       out` rather than `driving at 9.7 km`, and the shell arrives at the craft. **Confirmed by hand on
       2026.9.10.5438**: laid on it 9.7 km out from a mountainside, struck on contact 11.8 s after it

@@ -274,10 +274,11 @@ public static class Arsenal
         BoostSeconds = 0f,
         BoostAccel = 0f,
 
-        // Long enough for any shell to come down: 45 degrees at 807 m/s lands after 116 s with no air at
-        // all, and air only shortens it. The ground ends every real shot first, so this sweeps up a shell
-        // that never lands rather than bounding how far one goes -- and a flown lead is only searched
-        // within it, so it is the gun's reach too. A long barrage at 40 rpm is a few dozen in the air.
+        // Long enough for any shell to come down on Earth: 45 degrees at 807 m/s lands after 116 s with no air
+        // at all, and air only shortens it, so there the ground ends every real shot first. Under a weaker pull
+        // it does not: on Mars this clock ends a steep shell in the air and the gun's reach at 90 km. A flown
+        // lead is only searched within it, so it is the gun's reach everywhere. A long barrage at 40 rpm is a
+        // few dozen in the air.
         MaxFlightSeconds = 120f,
 
         // The 70 lb shell at 127 mm, with the coefficient that gives the range table's 23.69 km at 47 degrees
