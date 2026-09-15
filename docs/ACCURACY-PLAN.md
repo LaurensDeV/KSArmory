@@ -8416,6 +8416,61 @@ order of magnitude above where the shot now is, and is due re-pricing.
 
 **Ships on:** `IcbmConfig.ProbeMissFollowsTheGround = true`, as its own commit.
 
+## 3dj. Item 44: the warhead's drag from what it is — 2026-09-15
+
+Every round the guns fire now takes its drag from its mass, calibre and coefficient (`CLAUDE.md`, "A round's drag is
+what it is"); the Mk 21 kept its hand-typed `DragK` because every baseline here rests on it. That constant is
+**1.5e-5**, a ballistic coefficient of about 8,400 lb/ft², above the 100 to 5,000 published for ICBM warheads. A Mk 21
+is believed to weigh 200 to 270 kg on a 55 cm base; at 270 kg and a slender cone's hypersonic 0.1 its drag is
+**5.39e-5, 3.6x** the constant's, about 2,300 lb/ft².
+
+`IcbmConfig.WarheadDragFromItsShape` flies one rocket's warheads that way. `IcbmComputer` swaps the launcher's round
+(`IManualFire.FlyRoundsAs`) before it reads it, so the prediction, the aim loop, the kick and the warheads it lets go
+are one profile, and logs `warheads drag from their shape, k 5.390E-005` once.
+
+**Priced headlessly**, a second-order warhead against `ImpactPredictor` with the same drag:
+
+| start | `DragK` | prediction to round | arrives at | arrival angle | flight |
+| --- | --- | --- | --- | --- | --- |
+| the flown release state, 943 km | 1.5e-5 | 8.87 m | 5,049 m/s | 32.28° | 398 s |
+| | **5.39e-5** | **9.44 m** | **2,838 m/s** | 32.64° | 400 s |
+| a deorbit from 200 km | 1.5e-5 | 57.49 m | 2,515 m/s | 8.21° | 377 s |
+| | **5.39e-5** | 69.26 m | 726 m/s | 22.24° | 394 s |
+
+At this mod's arrival angle the round loses 44% of its impact speed and its disagreement with a drag-aware
+prediction grows by 6%. Everything the aim loop and the kick close sees that same prediction, so what could move
+the landing is only what they leave: the fall after the kicked prediction, −0.02 m at the shipped drag.
+
+### 44 smoked, and its night declared — 2026-09-15
+
+**Smoked** on one paired block, `2026-09-16-shape-smoke`, 4 `base` and 4 `shape` on `7b2485b` and KSA 2026.9.10.5438:
+all eight passed 6 of 6, endings `floor`/`payback` 2/2 on each arm, no `clock` or trim ending, frame time 27.8 ms, and
+KSA's own log clean. The four `shape` computers each logged `warheads drag from their shape, k 5.390E-005`. It is the
+first paired night on 5438; an unpaired `mirv` on the same save at 22:58 passed 8 of 8 with every group under a metre.
+One block, so seats rather than arms: `base` centre 0.03 m and landing 0.03, `shape` 0.07 and 0.08, on seats 2, 4, 6
+and 8, two of the three roughest. **The mechanism reads inside each flight:** the release probes arrive at
+**5,551–5,629 m/s on `base` and 3,978–4,187 m/s on `shape`**, at 32.0–32.4° on both.
+
+**Declared before it flies:**
+
+```bash
+KSARMORY_SCENARIO_SAVE='SOLVER SCALE 8' ./tools/shot-batch.sh --paired 'base|shape:WarheadDragFromItsShape=true' \
+    --aim 26.485S,68.148W --blocks 12 --out ~/shots/2026-09-16-shape    # about two and a half hours
+```
+
+This night asks whether the physical round costs precision, not whether it buys any.
+
+* **Primary: `--endpoint landing`, predicted 1.0x.** Ships on if the interval's upper bound is under 1.5x; stays off
+  if the median is 1.5x or above.
+* **Beside it:** `centre` about as `landing`; `dispersion` 1.00x, since every warhead of a group carries one profile.
+* **Mechanism per flight:** `shape` arrives about a quarter slower than `base`, at the same angle.
+* **The control:** `signed-walk`, the fall after the kicked prediction, predicted to grow in magnitude from `base`'s
+  −0.02 m, because drag is what that fall integrates.
+* **Refuted** by `landing` at 1.5x or above, the arrival angle differing between arms by more than a degree, or a
+  `shape` computer not logging the swap.
+* **Watch:** no `clock` or trim endings, no shot timed out and no rocket destroyed in its ascent, and KSA's own log on
+  every launch.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -8548,6 +8603,7 @@ what 20b is flying against.
 | ~~42~~ | ~~The bus's spin every warhead is thrown with~~ — `IcbmConfig.CancelSpinAtSeparation` | **flown 2026-09-13, 24 paired blocks — SHIPPED ON** | **centre 0.55x [0.49, 0.60] on 22 of 24, the landing 0.70x [0.65, 0.80] on 23 of 24, dispersion 1.00x.** Each centroid follows its logged thrown spin at slope +1.15 on `base` and −0.03 on `spin`; the median rocket 2.30 → 1.74 m, rockets under 2 m 33 → 62 of 96. What the centre has left is a one-signed −1.05 m downrange, unattributed. The lever-arm fix (`f18e46b`, `arm/spin-lever-arm`) is still unflown and off `dev` — **3de, 3dd** |
 | ~~43~~ | ~~**The aim loop's lag at release**~~ — `IcbmConfig.CancelProbeMissAtSeparation` | **flown 2026-09-14/15, 16 paired blocks — SHIPPED ON: `centre` 0.10x [0.09, 0.15] on 16 of 16, the median rocket 1.29 → 0.14 m, each centroid's slope on its probe +1.003 → +0.011; shots 17–20 lost to KSA's update modal (3dh)** | **3df** — `payback` releases once the miss is under one cycle of the walk the holding cost drives, so each reading acted on is a cycle stale: −0.98 m on `payback` endings against −0.13 on `floor`, and the impact walks short at 0.98x the logged cost. Cancel each probe's miss at separation with `ReleaseFocus.TryKick`'s solve, ~4 mm/s, feeding no loop — which is what 3co's feed-forward did and lost on. Counterfactually the centre 1.26 → 0.22 m on the spin arm. **Next to fly**: priced on the shipped arm (3dg) at a median rocket of 1.27 → ~0.05 m, a bound at the probe's 0.1 m print, with 1 flight in 80 refused by the cap. **Smoked 2026-09-14, and its night declared on the millimetre print (after 3dg)**: every kick fired, and on four flights the kicked prediction kept +0.20 ± 0.08 of the probe's miss — in the solve, not the fall |
 | ~~43b~~ | ~~**The miss kick over relief**~~ — measured square to up, a height difference `Δh` between the probe's impact and the target lands the round `Δh · cot γ` off: 14–31% of a miss over a 0.10–0.15 slope, and a side slope turns a cross miss into range | **flown 2026-09-15, 12 paired blocks — SHIPPED ON: `centre` 0.20x [0.14, 0.36] on 12 of 12, the median rocket 0.157 → 0.039 m, each centroid's downrange on `dh · cot γ` +0.850 square to up against −0.067 along the chord (3di)** | **43b** — cancel the chord between the two ends on the ground with the same solve: within 1.7 mm headlessly on every slope. Flown, relief explains the smoke's and shot 1's leftovers where a slope per seat explains none |
+| **44** | **The warhead's drag from what it is** — `IcbmConfig.WarheadDragFromItsShape`: a Mk 21 at 270 kg on its 55 cm base at a slender cone's 0.1, where the hand-typed constant is 3.6x less drag | smoke, then 12 paired blocks | **3dj** — not a precision lever but the round made physical: headlessly from the flown release state it arrives at 2,838 m/s against 5,049 and lands 9.44 m from its drag-aware prediction against 8.87. The prediction, the aim loop and the kick all read the same profile, so the landing should not move much |
 | ~~34b~~ | ~~Feed the hold forward~~ | **flown and lost 2026-09-10** | **+234 m against a 7 m term** — 30x out of scale. The mechanism stands; a blanket offset on every cycle does not, because the release happens when the loop stops rather than a fixed dwell later. **3co** |
 | ~~31~~ | ~~Stop stage disposal shedding debris~~ | **built 2026-09-09, unflown** | `KsaWorld.Remove` → `Universe.DestroyVehicle`, which sheds nothing where `DestroyVehicleFromEvent` sheds twelve. **3ci/3bv** — inference, not measurement: it removes the only discriminator, but nothing yet proves it breaks the chain |
 | **32** | **Record the per-arm descent step**, or hold the world step for the whole flight | small | **3ci** — the arms never overlap in time and steep always falls in a faster-running world, which confounds *every* `ArrivalPreference` night ever flown, 3cd and 3ch included |
