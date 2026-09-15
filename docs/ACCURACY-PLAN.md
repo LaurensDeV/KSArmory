@@ -10,7 +10,7 @@ constant" to "there is a bug, and the engine has a lever nobody used".
 
 ## Where it stands after 2026-09-15 — read this first
 
-**The one-line version: the shot is 0.14 m median per rocket, down from 17 before ten fixes that all
+**The one-line version: the shot is 0.04 m median per rocket, down from 17 before eleven fixes that all
 ship on.** The first six took it to 2.0 m — the warhead stopping on stale ground (3cs), the post-boost loop deciding each pass on a
 reading fifteen seconds old (3ct), the round's own first-order integrator (item 37), the loop
 trimming on readings its own trim could not improve (item 38), the trim finishing its null in pulses
@@ -20,24 +20,25 @@ ground on 18 of 20 shots**, 2.7 → 2.0, the worst rocket 11.7 → 5.3). **What 
 per-seat term**: every seat's walk now sits within a few tenths of a common −0.25 m, where it spanned
 −2.8 to +5.5.
 
-**What is left is the ground under the release.** The spin every warhead was thrown with is given
-back at separation (3de: the centre 0.55x), the six warheads of a rocket land on one point (3dg: a
-group's rms 1.29 → 0.035 m), every prediction stops on the surface (3dg: the fall −0.23 → −0.03 m), and
-each warhead is kicked off its release probe's own miss (3dh: the centre 0.10x). **So the median rocket
-lands 0.14 m out, 54 of 64 under half a metre, and what it still misses by runs along the track** —
-0.33 m of downrange scatter against 0.03 across, the shape of 43b's relief term. Landing lines and both
-release probes print to the millimetre (`ef7e670`), and `shot-report.py`'s floors follow the print.
-3cv's ≈0.54 m floor predates the ring and the lag and is due re-pricing.
+**What is left is the fall and a few centimetres along the track.** The spin every warhead was thrown
+with is given back at separation (3de: the centre 0.55x), the six warheads of a rocket land on one point
+(3dg: a group's rms 1.29 → 0.035 m), every prediction stops on the surface (3dg: the fall −0.23 → −0.03 m),
+and each warhead is kicked off its release probe's own miss (3dh: the centre 0.10x), measured along the
+ground as it lies (3di: 0.20x). **So the median rocket lands 0.04 m out, and every one of 48 under half a
+metre** — a −0.02 m mean downrange, which is the fall after the kicked prediction, and 0.05 m of downrange
+scatter against 0.005 across. Landing lines and both release probes print to the millimetre (`ef7e670`),
+and `shot-report.py`'s floors follow the print. 3cv's ≈0.54 m floor sits an order of magnitude above the
+shot and is due re-pricing.
 
-The entries to read are **3dh** (item 43 flown and shipped, and KSA's update modal that cost four
-shots), **43b** (the kick over relief, designed and built off), **3dg** (items 41 and 40b flown and
-shipped), **3df** (the centre is the aim loop's lag, and item 43 designed), **3de** (item 42 flown),
+The entries to read are **3di** (item 43b flown and shipped), **3dh** (item 43 flown and shipped, and
+KSA's update modal that cost four shots), **43b** (the kick over relief, designed), **3dg** (items 41 and
+40b flown and shipped), **3df** (the centre is the aim loop's lag, and item 43 designed), **3de** (item 42 flown),
 **3dd** (the spin), **3db** (the ring), **3dc** (40b), **3da** (item 40 flown, including two predictions
-that were wrong), **3cy** (what the instrument can and cannot see), **3cv** and **3cu**. **The order to
-work in is now item 43b** — built behind `IcbmConfig.ProbeMissFollowsTheGround` (`f4505d1`), off: its
-night is `base|ground:ProbeMissFollowsTheGround=true` with 43 on in both, and its smoke — which closed
-KSA's update modal (`0599515`) — put what 43 leaves on `dh · cot γ` at slope +0.995 per flight; the night
-is declared after 3dh. The lever-arm fix (`arm/spin-lever-arm`) stays a decision rather than a default. The
+that were wrong), **3cy** (what the instrument can and cannot see), **3cv** and **3cu**. **Nothing is
+declared next.** What is left — the fall's −0.02 m, 0.05 m of downrange scatter, and `base`'s slope on
+`dh · cot γ` reading 0.85 rather than 1 (3di) — has not been priced, and 3cv's floor is where to start.
+Scenarios close KSA's popups (`0599515`), which a published KSA build newer than the install needs. The
+lever-arm fix (`arm/spin-lever-arm`) stays a decision rather than a default. The
 2026-09-08 block below is history, and two of its items have since been overturned.
 
 1. **The walk is fixed and ships (3cr, 3cs).** A warhead stopped on the height it sampled at the top
@@ -8377,6 +8378,44 @@ twelve can resolve.
 * **Watch:** every shot's output says `closed KSA's UpdateAvailablePopup`, no rocket is destroyed in its ascent and no
   shot times out, `clock` and trim endings stay at 0, and KSA's own log on every shot.
 
+## 3di. Item 43b flown: the centre 0.20x, and it ships — 2026-09-15
+
+`2026-09-15-ground`, 12 paired blocks of `base|ground:ProbeMissFollowsTheGround=true` on `90dbb13`, 43 on in both, as
+declared. Every flight passed 6 of 6 and no shot timed out; all twelve shots logged `closed KSA's UpdateAvailablePopup`,
+no rocket was destroyed in its ascent, and KSA's own log was clean on every launch. Frame time 27.5 ms; endings
+`floor`/`payback` 8/40 on `base` and 13/35 on `ground`, with no `clock` or trim ending.
+
+| endpoint | `ground` vs `base` | shots | shot-flip p | declared |
+| --- | --- | --- | --- | --- |
+| **`centre`, primary** | **0.20x [0.14, 0.36]** | 12 of 12 | 0.008 | 0.15x–0.35x |
+| `landing` | 0.25x [0.19, 0.38] | 12 of 12 | 0.009 | about as `centre` |
+| `signed-walk`, the control | +0.001 m [−0.005, +0.019] | 6 of 12 | 0.929 — unresolved | +0.00 m |
+| `dispersion` | 0.94x [0.70, 1.38] | 8 of 12 | 0.619 — unresolved | 1.00x |
+
+The median rocket's centre went **0.157 → 0.039 m**, and all 48 `ground` groups landed under half a metre, against 42 of
+48.
+
+**The mechanism, per flight** (`miss43.py`):
+
+| | `base` | `ground` | declared |
+| --- | --- | --- | --- |
+| each centroid's downrange on `dh · cot γ` | +0.850 ± 0.024 | **−0.067 ± 0.020** | about +1; under 0.3 |
+| centroid scatter, downrange / across | 0.362 / 0.031 m | **0.047 / 0.005 m** | |
+| centroid mean downrange | −0.155 m | −0.021 m | |
+| the fall after the kicked prediction | −0.039 m | −0.020 m | |
+| kicks | 288, none refused; median 2.15 mm/s | 288, none refused; median 2.08 | at most 4 of 96 over the cap |
+
+No refutation fired.
+
+**`base`'s slope reads 0.85 rather than the smoke's 0.995, and why is not measured.** Along the chord the leftover is
+−0.067 of the same term, 7% the other way. Both are small against what the chord removes.
+
+**What is left is the fall and a few centimetres along the track**: a −0.021 m mean downrange, which is the −0.020 m
+fall after the kicked prediction, and 0.047 m of downrange scatter against 0.005 across. 3cv's ≈0.54 m floor sits an
+order of magnitude above where the shot now is, and is due re-pricing.
+
+**Ships on:** `IcbmConfig.ProbeMissFollowsTheGround = true`, as its own commit.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -8508,7 +8547,7 @@ what 20b is flying against.
 | ~~41~~ | ~~The spread between the six warheads of one rocket~~ — `IcbmConfig.FocusTubesOnTheAim` | **flown 2026-09-14, 20 paired blocks beside 40b — SHIPPED ON (`9ff3a4e`): `dispersion` 0.08x [0.08, 0.08] on 20 of 20 at the report's floor, a group's rms 1.29 → 0.035 m, ring slope +0.997 → +0.006 (3dg)** | **3db** — the bus's six tubes sit on a 0.86 m ring and every release prediction uses the mean mouth, so the aim loop lands the mean state and the six land on the ring's ground image: the once-round harmonic in tube angle carries 0.958 of the variance against a 0.40 null. A separation kick of 1.5-2.4 mm/s focuses each round on the mean's impact without moving the centre — headlessly 175 cm across to 0.4 cm. Declared: `--endpoint spread` ~0.2x at power 1.00 (MDE ×1.15); the landing 0.87x and will not resolve |
 | ~~42~~ | ~~The bus's spin every warhead is thrown with~~ — `IcbmConfig.CancelSpinAtSeparation` | **flown 2026-09-13, 24 paired blocks — SHIPPED ON** | **centre 0.55x [0.49, 0.60] on 22 of 24, the landing 0.70x [0.65, 0.80] on 23 of 24, dispersion 1.00x.** Each centroid follows its logged thrown spin at slope +1.15 on `base` and −0.03 on `spin`; the median rocket 2.30 → 1.74 m, rockets under 2 m 33 → 62 of 96. What the centre has left is a one-signed −1.05 m downrange, unattributed. The lever-arm fix (`f18e46b`, `arm/spin-lever-arm`) is still unflown and off `dev` — **3de, 3dd** |
 | ~~43~~ | ~~**The aim loop's lag at release**~~ — `IcbmConfig.CancelProbeMissAtSeparation` | **flown 2026-09-14/15, 16 paired blocks — SHIPPED ON: `centre` 0.10x [0.09, 0.15] on 16 of 16, the median rocket 1.29 → 0.14 m, each centroid's slope on its probe +1.003 → +0.011; shots 17–20 lost to KSA's update modal (3dh)** | **3df** — `payback` releases once the miss is under one cycle of the walk the holding cost drives, so each reading acted on is a cycle stale: −0.98 m on `payback` endings against −0.13 on `floor`, and the impact walks short at 0.98x the logged cost. Cancel each probe's miss at separation with `ReleaseFocus.TryKick`'s solve, ~4 mm/s, feeding no loop — which is what 3co's feed-forward did and lost on. Counterfactually the centre 1.26 → 0.22 m on the spin arm. **Next to fly**: priced on the shipped arm (3dg) at a median rocket of 1.27 → ~0.05 m, a bound at the probe's 0.1 m print, with 1 flight in 80 refused by the cap. **Smoked 2026-09-14, and its night declared on the millimetre print (after 3dg)**: every kick fired, and on four flights the kicked prediction kept +0.20 ± 0.08 of the probe's miss — in the solve, not the fall |
-| **43b** | **The miss kick over relief** — measured square to up, a height difference `Δh` between the probe's impact and the target lands the round `Δh · cot γ` off: 14–31% of a miss over a 0.10–0.15 slope, and a side slope turns a cross miss into range | **designed; built behind `IcbmConfig.ProbeMissFollowsTheGround`, off, unflown — smoked 2026-09-15 and its night declared (after 3dh): on the smoke what 43 leaves follows `dh · cot γ` at +0.995 per flight, and along the chord the centre is 0.037 m** | **43b** — cancel the chord between the two ends on the ground with the same solve: within 1.7 mm headlessly on every slope. Flown, relief explains the smoke's and shot 1's leftovers where a slope per seat explains none |
+| ~~43b~~ | ~~**The miss kick over relief**~~ — measured square to up, a height difference `Δh` between the probe's impact and the target lands the round `Δh · cot γ` off: 14–31% of a miss over a 0.10–0.15 slope, and a side slope turns a cross miss into range | **flown 2026-09-15, 12 paired blocks — SHIPPED ON: `centre` 0.20x [0.14, 0.36] on 12 of 12, the median rocket 0.157 → 0.039 m, each centroid's downrange on `dh · cot γ` +0.850 square to up against −0.067 along the chord (3di)** | **43b** — cancel the chord between the two ends on the ground with the same solve: within 1.7 mm headlessly on every slope. Flown, relief explains the smoke's and shot 1's leftovers where a slope per seat explains none |
 | ~~34b~~ | ~~Feed the hold forward~~ | **flown and lost 2026-09-10** | **+234 m against a 7 m term** — 30x out of scale. The mechanism stands; a blanket offset on every cycle does not, because the release happens when the loop stops rather than a fixed dwell later. **3co** |
 | ~~31~~ | ~~Stop stage disposal shedding debris~~ | **built 2026-09-09, unflown** | `KsaWorld.Remove` → `Universe.DestroyVehicle`, which sheds nothing where `DestroyVehicleFromEvent` sheds twelve. **3ci/3bv** — inference, not measurement: it removes the only discriminator, but nothing yet proves it breaks the chain |
 | **32** | **Record the per-arm descent step**, or hold the world step for the whole flight | small | **3ci** — the arms never overlap in time and steep always falls in a faster-running world, which confounds *every* `ArrivalPreference` night ever flown, 3cd and 3ch included |
