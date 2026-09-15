@@ -131,9 +131,12 @@ internal static class LockCueOverlay
 
         // Answered where the operator is looking rather than on a tab. This is the whole reason
         // fire control names its first refusal instead of returning quietly.
+        //
+        // Under the bracket, not beside it: the chase HUD's range and a designation's readout are
+        // both written to the right of the same target.
         if (phase == LockPhase.Held && battery.Hold is { } why)
         {
-            draw.AddText(new float2(at.X + Half * 1.8f + 4f, at.Y - 6f), colour, why);
+            draw.AddText(new float2(at.X - Half * 1.8f, at.Y + Half * 1.8f + 4f), colour, why);
         }
     }
 

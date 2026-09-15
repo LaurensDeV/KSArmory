@@ -95,6 +95,18 @@ internal interface IEffectSource : IRoundsInFlight
 
     /// <summary>True while the cannon are firing, which is what holds a flash and a sound open.</summary>
     bool GunsFiring { get; }
+
+    /// <summary>Rounds the cannon have fired so far, so a consumer can tell each new one from the last.</summary>
+    int GunShotsFired { get; }
+
+    /// <summary>Simulated seconds since the cannon last fired; infinite before the first round.</summary>
+    double GunSecondsSinceShot { get; }
+
+    /// <summary>
+    /// Whether this shell is drawn as a body, or will be once the next sync lends it the free one —
+    /// so what marks a shell that has no body can stand aside for one that does.
+    /// </summary>
+    bool ShellDrawnAsBody(IProjectile round);
 }
 
 /// <summary>

@@ -50,6 +50,13 @@ internal static class Medium
     public const double NoticeableDensity = 1e-4;
 
     /// <summary>
+    /// Everything accelerating an unpowered round: the pull less its buoyancy, and its drag through the
+    /// air at <paramref name="airVelocity"/>.
+    /// </summary>
+    public static double3 Coasting(double3 pull, double3 airVelocity, MunitionProfile munition, double densityRatio)
+        => Buoyancy(pull, munition, densityRatio) - Drag(airVelocity, munition, densityRatio);
+
+    /// <summary>
     /// The drag deceleration, as a vector to <b>subtract</b> from a round's acceleration.
     ///
     /// <para>Quadratic in airspeed, so a coasting round bleeds speed instead of holding it, and

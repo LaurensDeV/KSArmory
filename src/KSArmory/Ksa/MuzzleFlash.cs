@@ -6,12 +6,16 @@ namespace KSArmory;
 
 /// <summary>
 /// The flash at the cannon's muzzles: one endless emitter per barrel cluster, held open while the
-/// gun is firing and handed back the moment it stops.
+/// gun is firing and for a moment after each round, then handed back.
 ///
 /// <para>Per battery rather than per round, which is the whole design. A CIWS cycles at 75 rounds
 /// a second; taking a burst emitter from the pool that often would drain it within a second and
 /// leave nothing anywhere in the world able to spawn particles again. A gun firing is one
 /// continuous event, so it gets one continuous emitter.</para>
+///
+/// <para>The moment after each round is for a gun too slow to hold a burst open. A one-round burst
+/// opens and closes inside a single step, so by the time anything asks whether the gun is firing it
+/// already is not, and a flash gated on that alone never appears.</para>
 ///
 /// <para>One per cluster rather than one per mount: a Pantsir's sponsons are 3.9 m apart and their
 /// mean is on the hull between them, where no barrel is. Both flash at the same instant, so they
@@ -33,6 +37,9 @@ internal sealed class MuzzleFlash
 {
     private const string FlashId = "KSArmoryMuzzleFlash";
 
+    // Simulated time, so a paused world holds the flash rather than letting it expire unseen.
+    private const double ShotFlashSeconds = 0.12;
+
     private sealed class Live
     {
         public required Celestial Body;
@@ -50,7 +57,7 @@ internal sealed class MuzzleFlash
     public void Update(IEffectSource battery)
     {
         bool wanted = battery.PlumesEnabled
-                      && battery.GunsFiring
+                      && (battery.GunsFiring || battery.GunSecondsSinceShot < ShotFlashSeconds)
                       && battery.Platform is not null
                       && battery.HasGunFlash();
 

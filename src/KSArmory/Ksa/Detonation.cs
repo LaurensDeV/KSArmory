@@ -63,19 +63,22 @@ internal static class Detonation
     /// The bang. One-shot and untracked, unlike a motor: a burst is over before anything could
     /// want to move or stop it.
     /// </summary>
-    public static void Bang(double3 burstEcl, Vehicle? near, float scale, Config config)
+    public static void Bang(double3 burstEcl, Vehicle? near, float scale, Config config,
+                            string? soundId = null)
     {
         if (!config.BurstSound) return;
+        if (soundId is { Length: 0 }) return;
 
         try
         {
             if (near is null) return;
-            if (ModLibrary.Get<SoundBehavior>(config.BurstSoundId ?? DefaultBurstId) is not { } sound)
+            string id = soundId ?? config.BurstSoundId ?? DefaultBurstId;
+            if (ModLibrary.Get<SoundBehavior>(id) is not { } sound)
             {
                 if (!_warnedNoBang)
                 {
                     _warnedNoBang = true;
-                    Log.Warn($"burst sound '{config.BurstSoundId ?? DefaultBurstId}' does not resolve");
+                    Log.Warn($"burst sound '{id}' does not resolve");
                 }
                 return;
             }
@@ -97,8 +100,9 @@ internal static class Detonation
             sound.Play(spatial, Math.Clamp(config.BurstVolume * scale, 0.05f, 1f), out IChannel? channel);
 
             // And deeper. A big charge puts its energy at low frequencies, so pitch falls as the
-            // warhead grows: a shell cracks, a missile thumps.
-            if (channel is not null)
+            // warhead grows: a shell cracks, a missile thumps. A munition's own recording is already
+            // the size of its charge, so it is played as recorded.
+            if (channel is not null && soundId is null)
             {
                 channel.PitchMultiplier = Math.Clamp(1.18f - (0.32f * scale), 0.8f, 1.2f);
             }

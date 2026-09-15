@@ -27,7 +27,7 @@ What that machinery gives any system built on it:
 
 ## What ships with it
 
-Seven weapon systems, each a different shape of launcher on the same machinery:
+Eight weapon systems, each a different shape of launcher on the same machinery:
 
 **Pantsir-S1 Point Defence System** — a buildable 8×8 vehicle carrying twelve missiles in two pods
 of six, twin 30 mm autocannon, a tracking array, a spinning search radar, and an electro-optical
@@ -58,6 +58,12 @@ and then sustains where the AMRAAM only boosts, so it still holds speed at the f
 all. 1550 rounds of 20 mm at 4500 a minute, effective to 1486 m, with its radome elevating on the
 same trunnion as the barrels so the track antenna stays boresighted with them. Elevation runs from
 −25° to +85°.
+
+**5"/54 Mk 42** — a five-inch naval gun mount that stacks on a 3 m node, and the Phalanx turned
+inside out: 40 rounds a minute rather than 4500, reaching 15.7 km rather than 1.5, and shells that
+burst in the air at the predicted intercept rather than having to hit. One press fires one shell;
+the barrel recoils in its slide, and the shell itself is drawn in flight. The mount, its shell and
+their textures were made for this mod by **Mallikas**.
 
 **B61 bomb rack** — the one that neither aims nor fires: it lets a bomb go and the ground does the
 rest. One B61-12 on a rack that surface-attaches to an aircraft, and a sight that draws the ring
@@ -397,8 +403,8 @@ API this is built on.
 - The wheels are geometry. KSA has no wheel or suspension module, so the vehicle is placed rather
   than driven.
 - Rounds hit terrain only where their profile asks for it, because it costs a height sample per
-  round per frame and a CIWS burst is 150 shells: the bomb and the reentry vehicle do, so a shell
-  still passes through a hill and a missile that misses carries on into space. Structures are not
+  round per frame and a CIWS burst is 150 shells: the bomb, the reentry vehicle and the 5"/54 shell
+  do, so a 20 mm shell still passes through a hill and a missile that misses carries on into space. Structures are not
   collided with at all.
 - The radar can mask against the real skyline and ships not doing it. `TerrainSamples` is the
   number of height lookups one contact may cost and defaults to zero, which is the body's mean
@@ -558,10 +564,10 @@ several of the files carry a note saying "do not simplify this", and those notes
 
 [MIT](LICENSE).
 
-That covers everything in this repository: the C# mod, the tooling, and the art, all of which is
-generated or authored here. The one thing that came from outside is the cannon recording under
-`tools/audio/`, which is CC0 and carries no condition on redistribution — see the README beside
-it.
+That covers the C# mod, the tooling, and the art generated or authored here. Two things came from
+outside. The Phalanx's cannon recording under `tools/audio/` is CC0 and carries no condition on
+redistribution — see the README beside it. And the 5"/54 Mk 42's model, shell and textures were made
+for this mod by Mallikas.
 
 It does **not** cover Kitten Space Agency itself. The mod compiles against KSA's assemblies but
 never redistributes them: `Import/` is gitignored, the project references them with

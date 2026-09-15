@@ -881,6 +881,23 @@ LAUNCHER_GEOMETRY = {
     "AmraamRail": (None, "AMRAAM rail"),      # authored -- see AUTHORED_LAUNCHERS below
     "HarmRail": (None, "HARM rail"),          # authored, as above
     "MirvBus": (None, "MIRV bus"),            # authored, clustered -- CLUSTER_LAUNCHERS
+    "Mk42": (None, "Mk 42 mount"),            # authored gun -- AUTHORED_GUNS below
+}
+
+# Launchers whose art was authored AND whose weapon is a gun, so there is no tube and no seat to
+# check. What can drift instead is each written down twice: the trunnion, as the part XML's <Position>
+# for the cannon and for the barrel riding it, against TurretPivot + GunPivotFromTurret; the muzzle,
+# as the barrel mesh's forward end against GunMuzzles; and the shell, as its mesh against the
+# munition's BodyLength, centred, because fire control takes a round's origin for its centre.
+#
+# The CIWS is a gun too and is not here: its art is generated, so muzzles.json can be compared
+# against. An authored gun has no such file.
+#
+#   profile -> (part Id, cannon SubPart, barrel SubPart or None, mesh the muzzle is measured on,
+#               munition profile, shell mesh or None, label)
+AUTHORED_GUNS = {
+    "Mk42": ("KSArmory_Prefab_Mk42", "KSArmory_Mk42_Cannon", "KSArmory_Mk42_Barrel",
+             "KSArmory_Subpart_Mk42Barrel", "Shell5In54", "KSArmory_Subpart_Mk42Shell", "Mk 42 mount"),
 }
 
 # Launchers whose art was authored rather than generated, and whose geometry is therefore checked
@@ -902,6 +919,111 @@ AUTHORED_LAUNCHERS = {
     "NukeRack": ("KSArmory_Prefab_NukeRack", "KSArmory_NukeRack_B6100",
                  "KSArmory_Subpart_B61", "NukeB61", "nuclear rack"),
 }
+
+
+def check_authored_gun_geometry(profile, part_id, cannon_id, barrel_id, muzzle_mesh, munition,
+                                shell_mesh, label):
+    """Checks one authored gun against the mesh and the XML that place it.
+
+    No disagreement here fails anything in a build: the mount loads, traverses and elevates, and the
+    shells leave from somewhere that is not the end of the barrel, or the barrel swings on a trunnion
+    of its own and parts company with the breech.
+    """
+    text = (MOD / "Sim" / "Arsenal.cs").read_text()
+
+    found = _as_match(profile_block(text, profile))
+    if found is None:
+        print(f"  MISSING Arsenal.{profile}", file=sys.stderr)
+        return 1, 1
+    block = found.group(1)
+
+    def vector(field):
+        m = re.search(rf"{field}\s*=\s*new\(\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\)", block)
+        return [float(v) for v in m.groups()] if m else None
+
+    placed, bounds = {}, {}
+    for path in sorted(MOD.glob("KSArmory*.xml")):
+        root = ET.parse(path).getroot()
+        for part in root.findall("Part"):
+            if part.get("Id") != part_id:
+                continue
+            for sub in part.findall("SubPart"):
+                position = sub.find("Transform/Position")
+                if position is not None:
+                    placed[sub.get("Id")] = [float(position.get(axis, "0")) for axis in "XYZ"]
+        for atlas in root.findall(".//MeshAtlas"):
+            glb = MOD / atlas.get("Path", "")
+            if not glb.is_file():
+                continue
+            gltf = meshinfo.read_glb_json(str(glb))
+            for mesh in gltf.get("meshes", []):
+                if mesh.get("name") in (muzzle_mesh, shell_mesh):
+                    bounds[mesh["name"]] = meshinfo.mesh_bounds(gltf, mesh)
+
+    problems = checked = 0
+
+    def report(kind, message):
+        nonlocal problems
+        print(f"  {kind} {message}", file=sys.stderr)
+        problems += 1
+
+    def fmt(v):
+        return "(" + ", ".join(f"{x:.5f}" for x in v) + ")"
+
+    turret, gun = vector("TurretPivot"), vector("GunPivotFromTurret")
+    if turret is None or gun is None:
+        print(f"  MISSING Arsenal.{profile}.TurretPivot or .GunPivotFromTurret", file=sys.stderr)
+        return 1, 1
+    trunnion = [turret[i] + gun[i] for i in range(3)]
+
+    for sub_id in (cannon_id, barrel_id):
+        if sub_id is None:
+            continue
+        checked += 1
+        if sub_id not in placed:
+            report("MISSING", f'<SubPart Id="{sub_id}"> position in the part XML')
+        elif any(abs(placed[sub_id][i] - trunnion[i]) > 5e-4 for i in range(3)):
+            report("STALE", f'<SubPart Id="{sub_id}"> is at {fmt(placed[sub_id])}, but '
+                            f"Arsenal.{profile}'s trunnion is {fmt(trunnion)}")
+
+    checked += 1
+    muzzles = re.search(r"GunMuzzles\s*=\s*\[(.*?)\]", block, re.S)
+    barrels = (re.findall(r"new\(\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\)", muzzles.group(1))
+               if muzzles else [])
+    tip = bounds.get(muzzle_mesh)
+    if not barrels:
+        report("MISSING", f"Arsenal.{profile}.GunMuzzles")
+    elif tip is None or tip[0] is None:
+        report("MISSING", f"mesh {muzzle_mesh} in any declared atlas")
+    else:
+        for barrel in barrels:
+            if abs(float(barrel[1]) - tip[1][1]) > 5e-4:
+                report("STALE", f"Arsenal.{profile}.GunMuzzles: barrel ends at Y={barrel[1]} "
+                                f"but {muzzle_mesh} reaches {tip[1][1]:.5f}")
+                break
+
+    if shell_mesh is not None:
+        checked += 1
+        shell = bounds.get(shell_mesh)
+        round_block = _as_match(profile_block(text, munition))
+        length = re.search(r"BodyLength\s*=\s*([\d.]+)f", round_block.group(1)) if round_block else None
+        if shell is None or shell[0] is None:
+            report("MISSING", f"mesh {shell_mesh} in any declared atlas")
+        elif length is None:
+            report("MISSING", f"Arsenal.{munition}.BodyLength")
+        else:
+            lo, hi = shell
+            if abs((hi[0] - lo[0]) - float(length.group(1))) > 5e-4:
+                report("STALE", f"Arsenal.{munition}.BodyLength = {length.group(1)}, "
+                                f"but {shell_mesh} is {hi[0] - lo[0]:.5f} long")
+            if abs(hi[0] + lo[0]) / 2 > 5e-4:
+                report("STALE", f"{shell_mesh} is centred at X={(hi[0] + lo[0]) / 2:.5f}; fire control "
+                                "takes a round's origin for the centre of its body")
+
+    if problems == 0:
+        print(f"  {label} gun geometry: trunnion, barrel, {len(barrels)} muzzle(s)"
+              + (" and shell" if shell_mesh else "") + " match the mesh and the XML")
+    return problems, checked
 
 
 def check_authored_launcher_geometry(profile, part_id, seat_id, mesh_id, munition, label):
@@ -1346,7 +1468,9 @@ def check_launcher_geometry():
             p, c = check_cluster_launcher_geometry(profile, *CLUSTER_LAUNCHERS[profile])
             problems += p; checked += c
             continue
-        if profile in AUTHORED_LAUNCHERS:
+        if profile in AUTHORED_GUNS:
+            p, c = check_authored_gun_geometry(profile, *AUTHORED_GUNS[profile])
+        elif profile in AUTHORED_LAUNCHERS:
             p, c = check_authored_launcher_geometry(profile, *AUTHORED_LAUNCHERS[profile])
         elif trains(text, profile):
             p, c = check_turret_launcher_geometry(profile, key, label)

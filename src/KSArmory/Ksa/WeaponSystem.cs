@@ -228,6 +228,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// <summary>The cannon, which pitch with the launcher. Null if this system carries none.</summary>
     public Part? GunsPart { get; private set; }
 
+    /// <summary>The barrel that recoils inside the cannon, when the profile declares one.</summary>
+    public Part? BarrelPart { get; private set; }
+
     /// <summary>
     /// A carried director's base, which rides the traverse. Null if this launcher carries none.
     ///
@@ -317,6 +320,12 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     private bool _loggedSubParts;
     private double _spinPhase;
     private readonly List<Part> _missileBodies = [];
+    private readonly List<Part> _shellBodies = [];
+    private readonly List<int> _freedShellBodies = [];
+    private BodyPool<IProjectile> _shellPool = new(0);
+    private bool _warnedShellPool;
+    private int _gunShotsFired;
+    private double _lastGunShotClock = double.NegativeInfinity;
     private readonly List<Part> _finBodies = [];
 
     // Which tubes still hold a round, and which fires next. See Magazine — the bookkeeping is pure
@@ -376,6 +385,17 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
     /// <summary>True while the cannon are mid-burst, so the panel can say so.</summary>
     public bool GunsFiring => _guns.Firing;
+
+    public int GunShotsFired => _gunShotsFired;
+
+    public double GunSecondsSinceShot => _clock - _lastGunShotClock;
+
+    // A free slot counts: a body is lent at draw time, and a tracer adopts a shell within two frames
+    // of it leaving, so asking only who holds one hands every new shell a tracer first.
+    public bool ShellDrawnAsBody(IProjectile round)
+        => RoundLabel.IsGunRound(round.Tube)
+           && _shellBodies.Count > 0 && RoundBodiesWork && _config.UseRoundBodies
+           && (_shellPool.Holds(round) || _shellPool.InUse < _shellPool.Capacity);
 
     // Simulated, not player, seconds -- so the sweep holds still with a paused world and slows
     // with the panel's slow-motion, which is the whole point of watching it.
@@ -595,6 +615,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         PodsPart = Launcher is null ? null : LauncherPart.FindPods(Launcher, Profile);
         RadarPart = Launcher is null ? null : LauncherPart.FindRadar(Launcher, Profile);
         GunsPart = Launcher is null ? null : LauncherPart.FindGuns(Launcher, Profile);
+        BarrelPart = Launcher is null ? null : LauncherPart.FindBarrel(Launcher, Profile);
         OpticBasePart = Launcher is null ? null : LauncherPart.FindOpticBase(Launcher, Profile);
         MountEcl = LauncherPart.ResolveOriginEcl(Platform, Launcher);
 
@@ -606,10 +627,31 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         if (Launcher is not null && !_loggedSubParts)
         {
             _loggedSubParts = true;
-            LauncherPart.FindMissiles(Launcher, Munition, _missileBodies);
-            LauncherPart.FindFins(Launcher, Munition, _finBodies);
+            // Tube bodies only where there are tubes. A gun's round and a launcher's missile can be
+            // one profile, and a missile search would then take the shell bodies for its own.
+            if (Profile.TubeCount > 0)
+            {
+                LauncherPart.FindMissiles(Launcher, Munition, _missileBodies);
+                LauncherPart.FindFins(Launcher, Munition, _finBodies);
+            }
+            else
+            {
+                _missileBodies.Clear();
+                _finBodies.Clear();
+            }
+
+            if (Profile.HasCannon && Shell.BodyMarker is not null) LauncherPart.FindMissiles(Launcher, Shell, _shellBodies);
+            else _shellBodies.Clear();
+            HideShellBodies();
+            _shellPool = new BodyPool<IProjectile>(_shellBodies.Count);
+
             Log.Info($"launcher subparts: {LauncherPart.DescribeSubParts(Launcher)}");
-            Log.Debug($"round bodies found: {_missileBodies.Count}, fin sets {_finBodies.Count} (need {Profile.TubeCount})");
+            Log.Debug($"round bodies found: {_missileBodies.Count}, fin sets {_finBodies.Count} (need {Profile.TubeCount}), "
+                      + $"shell bodies {_shellBodies.Count}");
+            if (Profile.HasCannon && Shell.BodyMarker is { } shellMarker && _shellBodies.Count == 0)
+            {
+                Log.Warn($"no shell bodies match '{shellMarker}' - shells will draw as tracers only");
+            }
             // Only where one was declared. A rack and a rail have no turret by design, so an
             // unguarded warning opens every session with a fault report about a launcher that is
             // working exactly as its profile says. The panel already draws this distinction --
@@ -619,7 +661,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             {
                 Log.Warn("turret subpart not found - the turret will not slew");
             }
-            if (_missileBodies.Count == 0) Log.Warn("no round bodies - rounds will draw as tracers only");
+            if (Profile.TubeCount > 0 && _missileBodies.Count == 0) Log.Warn("no round bodies - rounds will draw as tracers only");
 
             // The art declares the bodies and the profile declares the tubes, in two files that
             // validate-parts.py is what normally keeps equal. A WARN rather than the DEBUG line
@@ -975,21 +1017,27 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         if (!GunsHaveTheEngagement(aim)) return aim.PositionEcl;
 
         MunitionProfile shell = Catalogue.MunitionNamed(Profile.GunMunition!);
-        double3 gravity = Platform is null ? Vec.Zero : KsaWorld.GravityAt(Platform, MountEcl);
 
         // The flight time comes back from the same solve that produced the aim point, which is
         // what a timed fuse needs: a burst time derived separately would go off somewhere the gun
         // is not pointing. Without it FuseSeconds stays zero and Slug falls back to proximity, so
         // the panel's timed-airburst switch has nothing to act on.
-        if (!BallisticLead.TrySolve(MountEcl, KsaWorld.VelocityEcl(Platform!),
-                                    aim.PositionEcl, aim.VelocityEcl,
-                                    shell.LaunchSpeed, gravity, out double3 lead,
-                                    out double flightTime))
+        //
+        // Flown through the air the shell will meet, against the same ground frame FireGun launches
+        // it into: a fuse timed as if the shell kept its muzzle speed bursts short by what drag took.
+        if (!BallisticLead.TrySolveFlown(MountEcl, KsaWorld.VelocityEcl(Platform!),
+                                         KsaWorld.GroundVelocityAt(Platform!, PlatformEcl),
+                                         aim.PositionEcl, aim.VelocityEcl, aim.AccelerationEcl, aim.DragShape,
+                                         shell, _leadGravityAt ??= LeadGravityAt,
+                                         _leadDensityAt ??= LeadDensityAt,
+                                         _gunLeadDirection, out double3 lead, out double flightTime))
         {
+            _gunLeadDirection = Vec.Zero;
             return aim.PositionEcl;
         }
 
         _gunFlightTime = flightTime;
+        _gunLeadDirection = lead - MountEcl;
 
         // Recorded rather than recomputed at the missile gate: a solve that fails leaves the ring
         // on the target, which the missiles can use, so only the write that actually happened
@@ -999,6 +1047,20 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         return lead;
     }
+
+    // Where the last lead pointed, so a solve starts next to its answer and a frame costs a pass or
+    // two rather than the whole search.
+    private double3 _gunLeadDirection;
+
+    // Whichever body the platform is on, so a lead on the Moon flies in its pull and its lack of air.
+    private double3 LeadGravityAt(double3 positionEcl)
+        => Platform is null ? Vec.Zero : KsaWorld.GravityAt(Platform, positionEcl);
+
+    private double LeadDensityAt(double3 positionEcl)
+        => Platform is null ? 1.0 : KsaWorld.MediumDensityRatioAt(Platform, positionEcl);
+
+    private Func<double3, double3>? _leadGravityAt;
+    private Func<double3, double>? _leadDensityAt;
 
     // Whether the cannon are the weapon this engagement belongs to: inside their envelope, and
     // with the missiles either switched off or unable to reach.
@@ -1035,7 +1097,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // A null track is the tail of a burst whose target died: the shell is unguided and aimed
         // by the turret, so it still flies, with nothing to fuse against.
         // The muzzle in the launcher's own frame. Anything drawn against the round -- the tracer,
-        // and a body if one is ever declared -- is placed from this plus the travel since launch,
+        // and the shell's body -- is placed from this plus the travel since launch,
         // never from the platform's analytic position, which sits metres off a landed craft.
         TubeGeometry.TryGunMuzzlePartFrame(Profile, barrel, guns.PositionParentAsmb,
                                            guns.Asmb2ParentAsmb, out double3 muzzlePart);
@@ -1045,6 +1107,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         {
             Munition = shell,
             LaunchAnchorPartFrame = muzzlePart,
+            ReleaseHeadingEcl = axis,
+            LaunchAttitude = Platform?.Asmb2Ego ?? doubleQuat.Identity,
         };
         if (track is not null)
         {
@@ -1054,8 +1118,20 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             // Flak: burst at the intercept the ring was laid on. Without a solve there is no time
             // to burn, and the shell falls back to its proximity fuse.
             if (shell.TimedFuse) slug.FuseSeconds = _gunFlightTime;
+
+            // How far the barrel is off the lead as the round leaves. A gun still laying misses by that
+            // angle times the range, which from the burst alone reads exactly like a lead error.
+            if (_ringIsOnGunLead && Vec.Len2(_gunLeadDirection) > 0.0)
+            {
+                double off = Vec.AngleBetween(axis, _gunLeadDirection);
+                double reach = Vec.Len(_gunLeadDirection);
+                Log.Debug(() => $"  shell away: barrel {off * 1000.0:F2} mrad off the lead, "
+                                + $"{off * reach:F1} m at the aim point, fuse {_gunFlightTime:F2} s");
+            }
         }
         AddRound(slug);
+        _gunShotsFired++;
+        _lastGunShotClock = _clock;
     }
 
     // The cannon, which run on their own belt and their own envelope.
@@ -1328,6 +1404,18 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             Refuse(DriveChannel.Guns, "cannon elevation");
         }
 
+        // Drawn only: the round has left before the barrel moves, so a refused write freezes a
+        // barrel and nothing that shoots. Held with the cannon, or it slides off a frozen breech.
+        if (BarrelPart is not null && _drives.Works(DriveChannel.Recoil) && _drives.Works(DriveChannel.Guns)
+            && !LauncherPart.TryApplyBarrelAim(BarrelPart, Profile, Turret.BearingRad, Turret.ElevationRad,
+                                               GunRecoil.Offset(_clock - _lastGunShotClock,
+                                                                Profile.GunRecoilMetres,
+                                                                Profile.GunRecoilSeconds,
+                                                                Profile.GunReturnSeconds)))
+        {
+            Refuse(DriveChannel.Recoil, "barrel recoil");
+        }
+
         // A carried director's base, taken round by the traverse and given no aim of its own. The
         // head above it reads this transform back rather than being handed the bearing, so it must
         // be written before any head is updated — which is the order KSArmoryMod runs them in.
@@ -1366,6 +1454,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// something that travels kilometres rather than turning on the spot, which is why the
     /// gizmo tracers stay available as a fallback.</para>
     ///
+    /// <para>A gun's shells have no tube, so each borrows a body from a pool while it flies and is
+    /// placed through the same call from the muzzle it left.</para>
+    ///
     /// <para>Rounds are indexed from one, so tube N is body N-1.</para>
     /// </summary>
     /// <para><b>Called every rendered frame, not every simulation step.</b> Writing a subpart
@@ -1375,7 +1466,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     public void SyncRoundBodies()
     {
         if (Platform is not { } platform || Launcher is not { } launcher) return;
-        if (_missileBodies.Count == 0 || !RoundBodiesWork) return;
+        if ((_missileBodies.Count == 0 && _shellBodies.Count == 0) || !RoundBodiesWork) return;
 
         // Switched off by the operator: hide every body so the tracers are what is seen, rather
         // than leaving twelve missiles frozen wherever they were last written.
@@ -1383,8 +1474,11 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         {
             for (int i = 0; i < _missileBodies.Count; i++) LauncherPart.HideMissile(_missileBodies[i]);
             for (int i = 0; i < _finBodies.Count; i++) LauncherPart.HideMissile(_finBodies[i]);
+            HideShellBodies();
             return;
         }
+
+        if (!SyncShellBodies(platform, launcher)) return;
 
         // Both counts, because they come from different files and can disagree: the bodies are
         // what the art declares, TubeCount is what the profile does. Sizing this by one and
@@ -1586,6 +1680,68 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             LauncherPart.HideMissile(_missileBodies[i]);
             HideFinsFor(i);
         }
+    }
+
+    // A shell has no tube to key a body to, so it borrows one from the pool for as long as it flies.
+    // False when the engine refused a body, which turns bodies off for this system.
+    private bool SyncShellBodies(Vehicle platform, Part launcher)
+    {
+        if (_shellBodies.Count == 0) return true;
+
+        _freedShellBodies.Clear();
+        _shellPool.ReleaseWhere(r => r.State != RoundState.Flying || !_roundSet.Contains(r), _freedShellBodies);
+        foreach (int slot in _freedShellBodies) LauncherPart.HideMissile(_shellBodies[slot]);
+
+        foreach (IProjectile round in _rounds)
+        {
+            if (!RoundLabel.IsGunRound(round.Tube) || round.State != RoundState.Flying) continue;
+
+            int slot = _shellPool.SlotFor(round);
+            if (slot < 0)
+            {
+                if (!_warnedShellPool)
+                {
+                    _warnedShellPool = true;
+                    Log.Info($"all {_shellBodies.Count} shell bodies on {Profile.DisplayName} are in the air; "
+                             + "further shells draw as tracers until one lands");
+                }
+                continue;
+            }
+
+            double3 release = Vec.IsFinite(round.ReleaseHeadingEcl) && Vec.Len2(round.ReleaseHeadingEcl) > 1e-9
+                                  ? round.ReleaseHeadingEcl
+                                  : Boresight;
+
+            // A missile's attitude rule, keyed by the round rather than by a tube: it leaves at the
+            // launcher's roll and swings onto the airflow without adding any.
+            double density = KsaWorld.MediumDensityRatioAt(platform, round.PositionEcl);
+            DrawnAttitude drawn = _drawnAttitudes.TryGetValue(round, out DrawnAttitude was)
+                                      ? was
+                                      : new DrawnAttitude(LauncherPart.ReleaseAttitudeEcl(launcher, release,
+                                                                                          round.LaunchAttitude),
+                                                          0.0);
+            drawn = new DrawnAttitude(BodyAttitude.Turn(drawn.Ecl, round.VelocityLocal, density,
+                                                        round.Age - drawn.Age),
+                                      round.Age);
+            _drawnAttitudes[round] = drawn;
+
+            if (!LauncherPart.TryPlaceMissile(platform, launcher, _shellBodies[slot],
+                                              round.LaunchAnchorPartFrame, round.TravelSinceLaunch,
+                                              drawn.Ecl, round.LaunchAttitude))
+            {
+                RoundBodiesWork = false;
+                HideShellBodies();
+                Announce("round bodies rejected by the engine; falling back to tracers");
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private void HideShellBodies()
+    {
+        for (int i = 0; i < _shellBodies.Count; i++) LauncherPart.HideMissile(_shellBodies[i]);
+        _shellPool.Clear();
     }
 
     // The threat the turret should be watching when there is no firing solution yet.
@@ -2282,6 +2438,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         _loggedSubParts = false;
         _missileBodies.Clear();
         _finBodies.Clear();
+        HideShellBodies();
+        _shellBodies.Clear();
 
         // A different platform deserves a fresh assessment: a latch left set from the stack it came
         // off means IsLaid never goes true and the launcher holds fire without saying why.
@@ -2690,6 +2848,30 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             : $", {miss / 1000.0:F1} km from the aim point{where}";
     }
 
+    // A timed shell's burst against the craft it was fired at, split along that craft's track, up and
+    // right, beside what a lead assuming the craft held its velocity would have missed by. The two
+    // agreeing is an unled acceleration; the first near zero while the second is large is the lead
+    // accounting for it. The track is taken against the ground, because the craft's ecliptic velocity
+    // points along the planet's orbit rather than along anything it is doing.
+    private void LogLeadCheck(IProjectile round)
+    {
+        if (round is not Slug { BurstOnTime: true } shell || round.Aimpoint.Kind != AimpointKind.Vehicle) return;
+        if (Platform is not { } platform || SampleTarget(round) is not { } target) return;
+
+        double3 targetAtBurst = target.PositionEcl + (target.VelocityEcl * round.DetonationElapsedInFrame);
+        double3 up = -KsaWorld.GravityAt(platform, targetAtBurst);
+        double3 track = round.Aimpoint.VelocityEcl - KsaWorld.GroundVelocityAt(platform, targetAtBurst);
+        if (!Vec.IsFinite(targetAtBurst) || !Vec.IsFinite(up) || !Vec.IsFinite(track)) return;
+
+        LeadError.Split miss = LeadError.Resolve(round.PositionEcl - targetAtBurst, track, up);
+        LeadError.Split steady = LeadError.Resolve(
+            LeadError.SteadyTargetMiss(round.Aimpoint.VelocityEcl, target.VelocityEcl, shell.FuseSeconds),
+            track, up);
+
+        Log.Info($"  lead check: burst {miss} of the target; a lead assuming it held its velocity "
+                 + $"would have missed by {steady}");
+    }
+
     // Both places as latitude and longitude. A distance says a shot missed; only the direction says
     // what kind of miss it was - short or long is energy, left or right is the plane or the clock,
     // and the two want completely different things looked at.
@@ -2866,6 +3048,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         };
 
         Announce($"{RoundLabel.For(round.Tube)} detonated{fuse} {how}{MissFromAimpoint(round)}");
+        LogLeadCheck(round);
 
         // Which effect is decided after the blast sweep, once it is known whether anything died.
         _burstKilled = false;
@@ -2898,7 +3081,12 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             double3 targetVel = KsaWorld.VelocityEcl(logTarget);
 
             double atBurst = Vec.Len(targetEcl + targetVel * intoFrame - burst);
-            double drawn = Vec.Len(round.OffsetFromPlatform - (targetEcl - PlatformEcl));
+
+            // The round's offset at its own instant, not at the frame's end; both sides back-dated.
+            double3 offsetAtBurst = DrawAnchor.OffsetAtBurst(round.OffsetFromPlatform,
+                                                             KsaWorld.VelocityEcl(Platform!), intoFrame);
+            double drawn = Vec.Len(offsetAtBurst - (targetEcl + (targetVel * intoFrame) - PlatformEcl
+                                                    - (KsaWorld.VelocityEcl(Platform!) * intoFrame)));
 
             // The separation as *rendered*. Everything above is the analytic frame the simulation
             // works in; KSA draws a vehicle at its physics position, which is not the same place.
@@ -2907,7 +3095,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             // atBurst agree, the round is killing the target and being painted somewhere else.
             double onScreen = -1.0;
             if (KsaWorld.HasAnchor && KsaWorld.TryVehicleEgo(logTarget, out double3 targetEgo))
-                onScreen = Vec.Len(KsaWorld.AnchorEgo + round.OffsetFromPlatform - targetEgo);
+                onScreen = Vec.Len(KsaWorld.AnchorEgo + offsetAtBurst - targetEgo);
 
             Log.Debug(() =>
                 $"  detonation: fuse {round.MissDistance:F1} m, atBurst {atBurst:F1} m, " +
@@ -3049,7 +3237,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // Outside the drawing switch: a burst that cannot be seen but can be heard is still
         // information, and the effects tick box is about what is drawn.
         Detonation.Bang(DrawnBurstEcl(round, burst), round.TargetRef as Vehicle ?? Platform,
-                        (float)Warhead.EffectScale(round.Munition.ChargeKg), _config);
+                        (float)Warhead.EffectScale(round.Munition.ChargeKg), _config,
+                        round.Munition.BurstSoundId);
     }
 
     // Whether the blast sweep just now found something to destroy. Only meaningful inside the
@@ -3067,7 +3256,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     {
         if (Platform is not { } platform) return analyticEcl;
         if (!KsaWorld.TryVehicleEgo(platform, out double3 platformEgo)) return analyticEcl;
-        if (!KsaWorld.TryEgoToEcl(platformEgo + round.OffsetFromPlatform, out double3 drawn))
+
+        double3 offset = DrawAnchor.OffsetAtBurst(round.OffsetFromPlatform, KsaWorld.VelocityEcl(platform),
+                                                  round.DetonationElapsedInFrame);
+        if (!KsaWorld.TryEgoToEcl(platformEgo + offset, out double3 drawn))
         {
             return analyticEcl;
         }
@@ -3277,6 +3469,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // Hide the round bodies that were riding those interceptors, or they freeze mid-air.
         for (int i = 0; i < _missileBodies.Count; i++) LauncherPart.HideMissile(_missileBodies[i]);
         for (int i = 0; i < _finBodies.Count; i++) LauncherPart.HideMissile(_finBodies[i]);
+        HideShellBodies();
 
         if (hadRounds) Announce($"rounds abandoned: {why}");
         else Log.Debug(() => $"tracking reset: {why}");

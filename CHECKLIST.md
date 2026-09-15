@@ -566,6 +566,12 @@ Drones are clones of your own craft, so no second craft needed.
 
 Arm the battery *before* the drone arrives — with **Auto engage** on it will handle the rest.
 
+- [ ] Spawn a drone while the world is running, several times in a row. The spawner now waits for the
+      vehicle worker to release the shapes registry before building the drone. Racing it built half a
+      vehicle, logged `test target spawn failed: … shapes registry cannot be mutated while the vehicle
+      update is stepping`, and the game died on a `NullReferenceException` a fifth of a second later.
+      Expect at most a one-frame stall on the button press, and never that line.
+
 Doing it by hand instead: launch a craft, leave it flying, launch a second with the launcher
 and switch control. Two craft parked on the pad won't work — nothing is moving, and the radar
 filters out anything below *Min target speed* (default 15 m/s).
@@ -787,13 +793,20 @@ Untested in game. `MunitionProfile.TimedFuse` makes the cannon fuse each shell f
 flight time of the lead solution it was aimed with; the proximity fuse still fires first if
 something arrives early.
 
-- [ ] Enable `TimedFuse` on the gun munition and fire at a crossing drone. Shells burst **at** the
-      target's predicted position rather than flying past it.
-- [ ] The burst is visible. A 0.16 kg shell scales to a 0.2 effect, floored for drawing only —
-      whether that reads at all at engagement range is unknown.
+**The 5"/54 is the first weapon to ship with it on** (7.1d3), so this path now runs whether or not
+anybody sets out to test it — where before it was a field nothing enabled. Everything below is
+therefore about the Mk 42 unless the box says otherwise, and the last box has become the
+regression test rather than a curiosity.
+
+- [ ] Fire the Mk 42 at a crossing drone. Shells burst **at** the target's predicted position
+      rather than flying past it.
+- [ ] The burst is visible. The Mk 42's 3.3 kg charge is twenty times the 20 mm's, so this is the
+      one case where the drawn effect should read on its own without the floor — if it does not,
+      the floor is hiding something rather than helping.
 - [ ] A burst with the target already dead does not count as a hit. `MissDistance` is infinity when
       nothing is being tracked, and the kill path must not treat that as zero.
-- [ ] With `TimedFuse` off, nothing about the cannon changed.
+- [ ] The CIWS is unchanged. Its 20 mm leaves `TimedFuse` off, so the whole flak path must still be
+      inert for it: same burst behaviour, same kills, nothing bursting early in the air.
 
 ### 7.1c Horizon masking
 
@@ -959,6 +972,162 @@ is genuinely new:
 - [ ] **A LAU-7 and a LAU-128 on separate craft in one world.** Two fixed launchers with different
       rounds and different seekers is the case the per-system profiles exist for, and it has never
       been run.
+
+### 7.1d3 The 5"/54 Mk 42 mount — it loads and crews; nothing it does has been seen
+
+**Confirmed from the log**, first version: it registers (`ready - ... 5"/54 Mk 42`), is crewed, and
+resolves its turret and cannon by name, with no asset or XML error in KSA's own log. One shell was
+fired and fell through the planet, reaching 725 km/s — which is what `HitsTerrain` on its profile now
+stops, and that is unflown too.
+
+Everything below is Mallikas's second version — a barrel that recoils, a shell body and a painted texture set — and none of it has been flown. The headless gates are green:
+`checkmesh.py` clean, `validate-parts.py` holding the trunnion, the barrel, the muzzle and the shell to
+the mesh and the XML, and the suite.
+
+**The model**
+
+- [ ] It renders painted rather than white or magenta, and the shell body carries its olive and yellow.
+- [ ] It sits upright on a 3 m node with the barrel forward. The model was rotated into part space by
+      a map baked into the vertices, and a frame error there is the mount on its side, not something subtle.
+- [ ] The barrel stays in the cannon through a full traverse and from -15 to +85. It rides the
+      cannon's trunnion, so it should never part from the breech; if it does, the barrel's `<Position>`
+      and the trunnion disagree.
+- [ ] Nothing checks the barrel against the gun house roof at high elevation: `checkswept.py` sweeps
+      only the vehicles named in `vehicles()`, and this is not one.
+
+**Recoil**
+
+- [ ] Each shot runs the barrel back and eases it home in about two thirds of a second. The numbers
+      are set by eye; if it reads as a twitch or a slide, `GunRecoilMetres`, `GunRecoilSeconds` and
+      `GunReturnSeconds` are the three to move.
+- [ ] Pausing freezes a barrel mid-recoil rather than finishing it: recoil runs on simulated time.
+
+**Shell bodies**
+
+- [x] A shell in flight is drawn as the shell. **Seen in game.**
+- [ ] It flies nose first and carries its olive and yellow; easiest from the chase camera, since at
+      807.7 m/s it covers thirteen metres a frame.
+- [ ] A shell drawn as a body has no streak line and no glowing tracer on it. Those are for a shell
+      with nothing else on screen, and were drawn on top of the body when it was first seen.
+- [ ] A shell that bursts or lands takes its body with it; nothing is left hanging in the air.
+- [ ] With more than ten in the air the rest draw as streaks and tracers, and the log says so once.
+- [ ] The shell is 78 mm across where a real five-inch shell is 127 mm. Worth a look against the bore
+      before asking Mallikas whether that was meant.
+- [ ] The Pantsir's missiles and the CIWS still draw as before, streaks and tracers included. Tube
+      bodies are now searched only on a launcher with tubes, so a CIWS session should also stop
+      opening with `no round bodies`.
+
+**Accuracy against a target that is not flying straight**
+
+- [ ] Long shots hit a test drone. Flown before this, the miss matched half a gravity drop times the
+      flight time squared at every range — 38 m at 2.8 s, 255 m at 7.3 s, 470 m at 8.7 s — because
+      the lead predicted the drone along its velocity and an unpowered drone slows and falls. The
+      lead now adds the target's own acceleration, read off the engine with gravity put back.
+- [ ] After each timed burst, `lead check` splits the burst's offset along the drone's track, up and
+      right, beside what a lead assuming it held its velocity would have missed by. With the fix
+      working the first is small while the second is large. If the two still agree, the acceleration
+      never reached the lead.
+- [ ] A craft in steady level flight is led as it was: it is held up, so its acceleration reads near
+      zero. If shots against one start missing, the engine's `AccelerationBody` does not mean what
+      `KsaWorld.AccelerationEcl` assumes.
+- [ ] A distant craft on rails may carry a stale measured acceleration. Worth one engagement.
+- [ ] Timed bursts land on the drone at range, not short of it. The lead timed the fuse as distance
+      over muzzle speed, and the air slows the shell: flown, the misses grew with flight time, 16 m at
+      2.9 s to 201 m at 6.5 s, and headlessly the same lead bursts 1.6 km short at 15.7 km. The lead now
+      flies the shell through `Medium.Drag` and the body's own pull, and headlessly bursts within a
+      metre on Earth, the Moon, Mars and a 250 km asteroid (`FlownLeadTests`). `lead check` along the
+      track should now be metres, not hundreds.
+      **Flown 2026-09-14** with `scenario.sh gunnery` (4 drones passing 3 km off at 250 m/s): inside
+      ~4 km, 5–11 m; further out the burst lands *behind* the drone, 152 m at 8.4 s, 77 m at 8.0 s,
+      26 m at 7.3 s. That is the target's prediction, not the shell's: a velocity-only lead would have
+      been 294 m ahead, so holding the drone's current deceleration for the whole flight overshoots a
+      drag that eases as it slows. A persistent −5 m along track and +3 m right remain at short range.
+      **Flown again** with the target's drag flown as drag (`BallisticLead.Flight`), same scenario:
+      median 11.4 m against 17.4, every drone with a burst inside the lethal radius against one, and
+      the first shell at 6.3 km and 8.3 s a contact hit where it had been 152 m behind. Along track
+      the bursts are now 2–9 m.
+- [ ] A burst that breaks parts off a target no longer throws the next leads high. It did: the
+      engine's `AccelerationBody` is an accelerometer — the step's change of velocity less gravity,
+      over the step, impulses included — so it spikes on a blast, and the lead flew the spike, 36–40 m
+      high on the next shells and 154–232 m on a fragment tumbling away. Reading the median change of
+      velocity over half a second *instead* **lost, flown**: median 16.0 m against 11.4, because it
+      lags — every first shell 16 m behind its drone at 8.3 s — and the ±25 m vertical misses after a
+      hit stayed, so those were never accelerometer spikes. The radar now keeps the accelerometer and
+      overrules it with the history only when they disagree by more than 3 m/s²
+      (`AccelerationEstimate.Believe`). **Flown once**, same scenario: PASS, every drone killed by
+      its first shell on contact at 6.3 km and 8.3 s. The first shell killing means no shot was
+      fired after a hit, so the case the check exists for was not exercised.
+- [ ] Most shells go at something already dead, **by choice**. 47 of 66 in one run: about four of
+      every five fired at a target are still in the air when the first kills it, and the gun then
+      engages the pieces the kill split it into. Those come from `PartFailure.IsolateAndDestroy`,
+      which splits at joints and marks nothing, so only the small pieces `ShedDebris` makes carry
+      `IsDebris` — and those are no longer threats. Kept as a barrage, as the real mount fires, with
+      599 rounds to spend; a shoot-look-shoot cap and not engaging uncontrollable pieces were both
+      considered and declined.
+- [x] A burst is drawn where the shell was when it went off, not beside it. **Seen in game.** Reported from play as
+      airbursts jumping to one side of the target: a round's offset on the frame it bursts pairs its
+      mid-frame position with the frame-end platform, so the burst carried the platform's ecliptic
+      motion over the rest of that frame — 377 m at 60 fps, always the same way
+      (`BurstOffsetTests`, `DrawAnchor.OffsetAtBurst`). Missile bursts go through the same call and
+      should have stopped jumping too; not yet looked at.
+- [ ] Long shots are biased high and behind. `scenario.sh gunnery:3,passing,55,300,4000`: from 13.2 km
+      (18 s) the bursts run −12 m along the drone's track and +15 m up, peaking at −41 m and +62 m
+      around 12 km and closing to −6/+16 m by 8 km; median 43 m. A velocity-only lead would have been
+      700 m and 1.2 km out. The lead is predicting about half a metre a second squared more fall and
+      slowing than the drone has.
+      **Measured since** (`gunnery:2,overhead,30,300,1500`, the drone's own motion logged twice a
+      second): no lift and no push, and a drag coefficient that drifts — 1.09e-3 to 0.82e-3 over the
+      pass — with the accelerometer and the velocity agreeing within 3%. The barrel is within 0.06 mrad
+      of the lead at every shot, so it is not the gun still laying. The engine's drag has no Mach or
+      speed term: it is a drag box fixed to the body (`BoundingBoxCdA`) plus a skin term, and the
+      drone holds its attitude while its path bends, so the air meets a different area — 65.8 m²
+      falling to 52.9 while slowing over that area held at 0.6125 to four places. The lead now flies
+      the target's drag box against its turning airflow (`Sim/DragShape.cs`). A fit of the coefficient
+      against airspeed was flown first and fixed the 9 km pass but not the 12.6 km one, because it was
+      the wrong law. Flown overhead at 300 m/s, three drones each: at 9 km the first shell burst on
+      every drone at 7 km; at 12.6 km, where the first five had burst 35–49 m off, the first shell
+      burst on every drone at 10 km. Then three drones each, first shell on every one: passing
+      (250 m/s, 3 km off, 6.3 km), head-on (6 km), overhead from 15 km (12.4 km), overhead at 150 m/s
+      (9.3 km), and tumbling at 20°/s (7 km), where the area predicted half a second ahead matched
+      the engine's within 0.1 m². With the engine lit the lead first held the thrust, and every burst
+      went 19.5 m and further under the drone as it burned mass away; carrying the mass flow off the
+      engines' exhaust velocity put the first shell on every drone at 8.1 km. Incoming rounds now
+      report their pull and drag, unflown against a gun. The whole model is a copy of today's
+      engine drag, which RocketWerkz are reworking — `docs/BLOCKED-ON-KSA.md`.
+- [ ] The Phalanx and the Pantsir's cannon go through the same flown lead. Their shells are short-lived,
+      so the change is small, but it is unflown: a CIWS against a crossing drone should hit as before.
+- [ ] Frame time with a Mk 42 tracking is not visibly worse. A solve flies the shell a few hundred steps
+      per pass and starts from the last frame's answer; it has not been measured in a frame.
+
+**Firing and sound**
+
+- [ ] One press is one shell, with one flash and one gunshot, and auto-engage fires at
+      40 rpm. The first flight of this version fired a 20-round burst from one press — a minute of
+      firing, with the flash and a machine-gun loop held open the whole time.
+- [ ] The flash shows at all. A one-round burst closes inside the step it opens, so the flash is held
+      for 0.12 s after each shot rather than for as long as a burst is open. If nothing appears, that
+      hold is too short for the emitter to spawn anything.
+- [ ] No machine-gun rattle. A gun with a gunshot and no loop of its own gets no loop, rather than the
+      Phalanx's.
+- [ ] A shell's burst makes no sound, on purpose. An empty
+      `BurstSoundId` is silence; if the synthesised default explosion plays instead, that check is
+      not being reached.
+- [ ] If a sound is silent, grep `KSArmory.log` for `does not resolve`.
+- [ ] With shells committed and the chase camera riding one, the lock cue's `salvo committed` sits
+      under its bracket and the chase's range beside the target, not on top of each other. Both
+      were written to the right of the target at one height.
+- [ ] The CIWS and the Pantsir sound and flash as they did. Neither names a sound, so both still get
+      the shared recording retuned to their rate, and their bursts hold the flash open as before.
+
+**Still true from the first version**
+
+- [ ] The colliders are declared at the modelled pose, so a raised barrel collides where it is not.
+- [ ] The mass is the real mount's, **61.4 tonnes**, three times the first version's guess. A 3 m
+      stack under it may now sag or break where it held before.
+- [ ] It engages at range: `MaxRange` 15.7 km against the CIWS's 1.5, shells about 23 seconds out at
+      the far end, so the track has to survive far longer than any gun here has needed.
+- [ ] Twenty shell bodies, not ten: at 40 rpm and 23 s of flight sixteen can be in the air. The ten
+      added came after the first ten, so a save holding the first version still loads.
 
 ### 7.1f Releasing a bomb
 

@@ -153,6 +153,24 @@ public sealed class Turret
     /// <summary>Sends the launcher back to rest: facing forward, pods at their modelled pose.</summary>
     public void Stow() => Stow(RestElevationRad);
 
+    /// <summary>
+    /// Puts the elevation at <paramref name="restElevationRad"/> the first time a launcher is
+    /// configured onto this drive, and never after.
+    ///
+    /// <para>The first frame writes wherever the drive thinks it is, so a drive left at
+    /// <see cref="DefaultRestElevation"/> jumps a barrel modelled level up to 55° and slews it home.
+    /// Only once, because a drive that has moved is somewhere real.</para>
+    /// </summary>
+    public void SeatElevation(double restElevationRad)
+    {
+        if (_seated || !double.IsFinite(restElevationRad)) return;
+
+        ElevationRad = restElevationRad;
+        _seated = true;
+    }
+
+    private bool _seated;
+
     /// <summary>Stows to a given elevation rather than this launcher's own rest pose.</summary>
     public void Stow(double restElevationRad)
     {

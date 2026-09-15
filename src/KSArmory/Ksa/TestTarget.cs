@@ -42,13 +42,15 @@ internal static class TestTarget
     /// <param name="speed">Drone speed relative to the platform (m/s).</param>
     /// <param name="missDistance">How close it passes (m). Ignored for <see cref="Profile.HeadOn"/>.</param>
     /// <param name="craftName">Stock craft to fly, e.g. "Gemini7". Null clones the platform.</param>
+    /// <param name="bodyRates">How fast it leaves turning, in its own axes (rad/s).</param>
     public static Vehicle? Spawn(
         Vehicle platform,
         Profile profile,
         double secondsToClosestApproach,
         double speed,
         double missDistance,
-        string? craftName = null)
+        string? craftName = null,
+        double3 bodyRates = default)
     {
         try
         {
@@ -149,10 +151,16 @@ internal static class TestTarget
             Log.Debug($"  orbit: pe = {orbit.Periapsis / 1000.0:F1} km, ap = {orbit.Apoapsis / 1000.0:F1} km, " +
                      $"ecc = {orbit.Eccentricity:F4}");
 
+            // Held from the parts until the drone is placed. Building a vehicle mutates the shapes
+            // registry, the vehicle worker holds that for its whole run, and a hook of this mod can
+            // land inside the run. Racing it builds half a vehicle, which the game does not survive;
+            // this waits the run out instead, at the cost of one worker step on a button press.
+            using ShapesUnlock shapes = ConstraintSim.UnlockShapesBlocking();
+
             DroneBlueprint blueprint = BuildDroneParts(platform, craftName);
 
             string id = $"AD Test Drone {++_counter}";
-            Vehicle drone = CreateDroneVehicle(blueprint, system, platform, parent, id, orbit);
+            Vehicle drone = CreateDroneVehicle(blueprint, system, platform, parent, id, orbit, bodyRates);
 
             // Constructing the Vehicle is not enough to put it in the world: without this,
             // CelestialSystem.UpdatePerFrameData never walks it, so its cached Ecl position stays
@@ -312,14 +320,14 @@ internal static class TestTarget
     // the save names a character, see VehicleTemplate, which branches on Character != null.
     private static Vehicle CreateDroneVehicle(
         DroneBlueprint blueprint, CelestialSystem system, Vehicle platform,
-        IParentBody parent, string id, Orbit orbit)
+        IParentBody parent, string id, Orbit orbit, double3 bodyRates)
     {
         if (!string.IsNullOrEmpty(blueprint.Character))
         {
             try
             {
                 return new KittenEva(system, blueprint.Character, platform.Body2Cce,
-                                     bodyRates: new double3(0, 0, 0), parent, id,
+                                     bodyRates: bodyRates, parent, id,
                                      blueprint.Parts.Root, orbit);
             }
             catch (Exception e)
@@ -332,7 +340,7 @@ internal static class TestTarget
             }
         }
 
-        return Vehicle.CreateVehicle(system, platform.Body2Cce, bodyRates: new double3(0, 0, 0),
+        return Vehicle.CreateVehicle(system, platform.Body2Cce, bodyRates: bodyRates,
                                      parent, id, blueprint.Parts.Root, orbit);
     }
 

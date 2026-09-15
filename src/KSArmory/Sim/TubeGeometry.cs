@@ -186,6 +186,21 @@ public static class TubeGeometry
                          profile.GunReferenceElevationRad, bearingRad, elevationRad);
 
     /// <summary>
+    /// A barrel recoiling inside the cannon: the cannon's own pose, run back along the bore.
+    ///
+    /// <para>It shares the cannon's trunnion, so traverse and elevation are the cannon's exactly and
+    /// the slide is all it adds. A barrel with a trunnion of its own would part company with the
+    /// breech at every elevation but the one it was modelled at.</para>
+    /// </summary>
+    public static DrivePose BarrelPose(LauncherProfile profile, double bearingRad, double elevationRad,
+                                       double recoilMetres)
+    {
+        DrivePose gun = GunPose(profile, bearingRad, elevationRad);
+        double3 back = gun.Rotation * (GunAxisGunFrame(profile) * -recoilMetres);
+        return new DrivePose(gun.Position + back, gun.Rotation);
+    }
+
+    /// <summary>
     /// An assembly that elevates about a trunnion offset from the traverse axis, then rides the
     /// turret round. Because the trunnion is offset, the position moves with the traverse and has
     /// to be rewritten too.

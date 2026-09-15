@@ -7,9 +7,11 @@ anything and is the shipped example of a launcher with nothing that moves, a **L
 carrying one AIM-120C, which is that same launcher with ten times the reach and the first *round*
 whose art was authored rather than generated, a **LAU-118 rail** carrying one AGM-88 HARM, which
 is the one that cannot engage an aircraft at all and whose target has a say in whether it is one, a
-**Mk 15 Phalanx CIWS** that stacks on a 3 m node and is the one with no missiles at all, and a
-**B61 rack**, which is the one that neither aims nor fires: it lets a bomb go and the ground does
-the rest. Two sights come with them, and they are the
+**Mk 15 Phalanx CIWS** that stacks on a 3 m node and is the one with no missiles at all, a
+**5"/54 Mk 42 mount**, which is the other one with none and the opposite weapon — forty rounds a
+minute to the Phalanx's four and a half thousand, and shells that burst on a time fuze rather than
+having to hit — and a **B61 rack**, which is the one that neither aims nor fires: it lets a bomb go
+and the ground does the rest. Two sights come with them, and they are the
 same instrument on different mechanisms: an **EO director** on a mast, and a **Rafael LITENING
 pod**, whose whole nose rolls about the pod's centreline while the sight nods within it.
 
@@ -233,6 +235,7 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
 ./tools/scenario.sh head-on                # fly one engagement unattended and report pass/fail
 ./tools/scenario.sh mirv                   # ...or the whole ballistic shot, and score the group
 ./tools/scenario.sh drop                   # ...or a B61 off a climbing rocket, against the sight
+./tools/scenario.sh gunnery                # ...or a gun against drones crossing past it, every shell scored
 ./tools/shot-batch.sh --arms base=dev,x=arm/x --blocks 12   # fly a night of them, interleaved
 ./tools/shot-report.py ~/shots/<night>     # ...and say what it settled -- read SHOT-PROTOCOL.md
 ./tools/ksa-user-dir.sh                    # where KSA keeps Logs/, mods/ and saves on this box
@@ -298,6 +301,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/CoarseGroundTest.cs` | the sight's ground test, which skips the lookups a falling round cannot need |
 | `Sim/MushroomCloud.cs` | the shape of a nuclear cloud over time, as offsets from the burst |
 | `Sim/Magazine.cs` | which tubes hold a round, which fires next, what each body does |
+| `Sim/BodyPool.cs` | bodies lent to rounds with no tube to key one to — **a shell borrows one for as long as it flies**, and one arriving when every body is lent draws as a tracer |
 | `Sim/RoundLabel.cs` | what to call a round in a line somebody reads — **the one place the tube field's sentinel is decoded**, because a shell has no tube |
 | `Sim/TubeGeometry.cs` | tube positions and directions, pod and radar pose, body placement |
 | `Sim/Turret.cs` | rate-limited traverse and elevation drives |
@@ -347,7 +351,11 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/OpticHold.cs` | **why a director is not looking at what it has bracketed** — the same question for the sight, in the precedence the head's own aim applies |
 | `Sim/DriveStatus.cs` | which drives the engine is still accepting writes for, latched per channel |
 | `Sim/GunChannel.cs` | the cannon's belt, burst position and next-round timing |
-| `Sim/BallisticLead.cs` | where an unguided round must be aimed to arrive where the target will be |
+| `Sim/GunRecoil.cs` | how far a barrel has run back since the gun fired — **drawn only**, because the round has left before the barrel moves |
+| `Sim/BallisticLead.cs` | where an unguided round must be aimed to arrive where the target will be — **its acceleration included**, because a lead on velocity alone misses anything slowing or falling by ½·a·t² — and **flown through the air and the pull of whichever body it is on**, because distance over muzzle speed times a five-inch fuse 3.5 s early at 15.7 km, 2 km short |
+| `Sim/AccelerationEstimate.cs` | the engine's accelerometer, **checked against how the contact's velocity actually changed** — the reading includes every impulse over one step and misled a lead by 232 m, while the history lags and, used as the reading, put every first shell 16 m behind |
+| `Sim/DragShape.cs` | a craft's drag and mass **as the engine computes them** — a box fixed to the body over its mass, turned with the body's rates, and a mass its engines burn away — so a craft holding its attitude while its path bends changes its drag, one tumbling changes it faster, and one under power still has all of it and pushes harder as it lightens; a lead holding the coefficient put every first shell 25 m behind and above |
+| `Sim/LeadError.cs` | where a shell burst relative to its target, along the target's track, up and right — beside what a steady-target lead would have missed by, which is what tells an unled acceleration from a wrong aim |
 | `Sim/Aimpoint.cs` | what a round is shooting at — craft, component or coordinate |
 | `Sim/ThreatModel.cs` | CPA threat classification, priority, engagement envelope |
 | `Sim/RadarSignature.cs` | how large a contact looks, and how far that lets the set see it |
@@ -435,7 +443,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/MotorSound.cs` | the rocket motor you can hear, one spatialised channel per burning round |
 | `Ksa/MotorPlume.cs` | the flame at the nozzle, one pooled emitter per burning round |
 | `Ksa/MuzzleFlash.cs` | the flash at the cannon's muzzles, one pooled emitter per firing system |
-| `Ksa/GunSound.cs` | the cannon you can hear, one looping channel pitched by its fire rate |
+| `Ksa/GunSound.cs` | the cannon you can hear: one looping channel per firing system, and a gunshot per round from a gun slow enough to be heard shot by shot |
 | `Ksa/TracerTrail.cs` | tracers, an emitter riding a shell rather than thrown from the muzzle |
 | `Ksa/Sight.cs` | paints the gunner's sight over the camera the optical head drives |
 | `Ksa/SightSurface.cs` | **which window that sight paints on** — and the draw list that reaches it, because a camera window's picture is a window and the main view's is not |
@@ -454,6 +462,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/ScenarioRunner.cs` | flies a scripted scenario with nobody watching, and says what happened |
 | `Ksa/BallisticScenario.cs` | the ballistic one of those — designate, arm, stage, and report what the warheads did |
 | `Ksa/DropScenario.cs` | the store one — fly a craft up, let a store go, and say where it landed against the sight and against a flight off the state it actually left with |
+| `Ksa/GunneryScenario.cs` | the gun one — drones crossing past a mount one at a time, and **every shell scored where it burst**, because the first detonation says a gun can hit and nothing about how well |
 | `Ksa/CraftMover.cs` | picks a craft up and sets it down elsewhere, from the panel |
 | `Ksa/BurstTool.cs` | click the world to set off a warhead there, from the panel |
 | `Ksa/Designator.cs` | click the world to shoot at that spot, with no target and no lock |
@@ -465,7 +474,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `src/KSArmory/KSArmory*.xml` | the parts, the warhead effects, the sounds and one stock character — at the mod root, mirroring Core |
 | `src/KSArmory/KSArmory/Weapons.xml` | **this mod's own weapons, as data** — read by `PackScan`'s convention like any pack's, not by KSA |
 | `src/KSArmory/Meshes/`, `Textures/` | art. `KSArmory_MeshAtlas.glb` is generated — rebuild with `tools/model/build.sh`; every other atlas is **authored**, and its `.blend` is not in this repository |
-| `src/KSArmory/Sounds/` | the explosions, generated by `tools/sounds.py`; the cannon, cut from a recording by `tools/cut-cannon.py` |
+| `src/KSArmory/Sounds/` | the explosions, generated by `tools/sounds.py`; the cannon, cut from a recording by `tools/cut-cannon.py`; the Mk 42's gunshot, cut from its recording by `tools/mk42-sounds.py` |
 | `src/KSArmory/mod.toml` | serves as both the content-mod and StarMap manifest |
 | `tests/KSArmory.Tests/` | links the KSA-free sources and flies engagements headlessly |
 | `KSArmory.sln` | both projects, for editors only — every script builds a csproj directly |
@@ -478,7 +487,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 518 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 529 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -513,6 +522,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/model/ciws.py` | the Phalanx CIWS: a gun with no missiles, on a 3 m stack node |
 | `tools/model/optic.py` | the EO director: the sight, as a part anything can carry |
 | `tools/model/import-litening.py` | reframes the hand-modelled pod into what KSA reads |
+| `tools/model/mk42-textures.py` | composes the Mk 42's KSA maps, mount and shell, from the set its author paints — **rerun it on every version he sends**, because the unwraps are his and nothing else has to move |
 | `tools/model/preview-glb.py` | renders any `.glb` from a few angles, so an authored asset can be judged before it is declared |
 | `tools/model/preview.sh` | runs that from WSL, which is the only comfortable way: Blender is a Windows binary and wants Windows paths for the script *and* for everywhere it writes |
 | `tools/model/checkmesh.py` | finds unpaired node/mesh names, zero-UV-area triangles and coplanar faces in a `.glb`; takes several at once, and `--compare` diffs two atlases by geometry *and* node transform |
@@ -526,7 +536,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/shot-report.py` | what that night settled — the rank test, the effect with its interval, the arms to stop flying, and **whether the ground under the target was shaping the misses** |
 | `tools/sounds.py` | synthesises the explosion samples, and the fallback cannon behind `--synth-cannon` |
 | `tools/cut-cannon.py` | cuts a gunfire recording into spin-up, loop and tail, on measured envelope boundaries |
-| `tools/audio/` | the CC0 Phalanx recording the cannon is cut from, and its provenance |
+| `tools/mk42-sounds.py` | cuts the Mk 42's recording into its mono gunshot |
+| `tools/audio/` | the recordings the shipped gun sounds are cut from — the CC0 Phalanx and the Mk 42's — and the provenance of each |
 | `tools/logo.py` | the Kessler Systems wordmark and icon, into `branding/` |
 | `branding/` | the generated logo the README and SpaceDock point at |
 
@@ -725,9 +736,14 @@ neither of them is longer than a page.
    **A shipped part's subpart list is append-only.** KSA pairs a saved part with its current
    definition positionally, bounding the loop by the save and indexing the definition, so removing
    a `<SubPart>` throws `IndexOutOfRangeException` from inside `Popup.DrawAll` and **terminates the
-   game** on every save holding that part. Adding and renaming are both free. Leave a stub to hold
+   game** on every save holding that part. Adding is free. Leave a stub to hold
    the count, or repair the saves with `tools/repair-saves.py`;
    `docs/KSA-MODDING-NOTES.md` has the loop.
+
+   **Nor is a shipped `<Part>` Id renameable.** A save names it (`PartRef InstanceOf`), and loading
+   one throws `PartTemplate is null` from `PartInstance.GetTemplate` — also terminating the game.
+   A save names each subpart's template the same way (`SubPartRef InstanceOf`), so treat those as
+   fixed too until a rename of one alone has been loaded.
 3. **Register it — in `Sim/Arsenal.cs`, and in *both* registries.** One `LauncherProfile`, naming
    the munition and sensor it uses, with the geometry `build.sh` prints; add a `MunitionProfile`
    and a `SensorProfile` too if the round or the set differ. Then teach `validate-parts.py` to
@@ -1064,7 +1080,7 @@ Do the private repo *before* pushing here, or CI fails on the lock it cannot sat
 member that keeps its name and signature and changes its *meaning* — a different reference
 frame, different units, a reordered enum — compiles clean and is wrong in flight. That is what
 the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from 684,000 lines to the files
-defining the 179 types this mod actually uses.
+defining the 182 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 45 in total, 14 MB —
@@ -1226,6 +1242,12 @@ from a tidier model than the round obeys is a sight that lies at the moment it m
 re-solved a few times a second rather than per frame, and the integration step is a *separate*
 number from the refresh interval — sharing them puts 55 m of fall between terrain samples, and
 the ring then hops between two places.
+
+**The gun's lead flies a copy of the engine's drag, and RocketWerkz are working on aerodynamics.**
+`Sim/DragShape.cs` is today's `PhysicsStates.ComputeDrag` — a body-fixed box over the mass, no lift,
+no Mach — and nothing fails when the engine's changes. `docs/BLOCKED-ON-KSA.md` has the flown check
+that confirms the copy, and what to do when it stops matching. The lead also reads what no radar
+could — mass, fuel, body rates — so it is true to the game's physics, not to a real director.
 
 **The ballistic computer solves where to stop and flies everything else.**
 `docs/ICBM-GUIDANCE.md` is the whole account; four things there are worth not re-deciding.
@@ -1579,7 +1601,9 @@ that is the same number as the launching craft's velocity; a store released from
 does not measure its airspeed against it.
 
 **Rounds are drawn as real subparts, anchored to the tube they left.** Twelve `Missile`
-subparts, scaled to nothing until fired, with their transform written each frame. Three rules:
+subparts, scaled to nothing until fired, with their transform written each frame. A gun's shells
+leave no tube, so each borrows a body from `Sim/BodyPool.cs` and is placed through the same call from
+the muzzle. Three rules:
 
 - **Anchor to the tube, add only the travel *since* launch.** `OffsetFromPlatform` is measured
   from the platform's *analytic* orbit position; a subpart is placed against the vehicle's
@@ -2573,9 +2597,11 @@ should not be weakened without understanding what they buy:
   not. Sub-pixel at any range anyone watches from, and nothing the mod can do about it.
 
 - Rounds collide with terrain only when their profile asks. `MunitionProfile.HitsTerrain` is set
-  for the bomb and the reentry vehicle and nothing else, because it costs a terrain sample per
-  round per frame and a CIWS burst is 150 shells in the air — so a shell still passes through a
-  hill and a missile that misses still carries on into space. A reentry vehicle also re-reads the
+  for the bomb, the reentry vehicle and the 5"/54 shell, and nothing else, because it costs a terrain
+  sample per round per frame and a CIWS burst is 150 shells in the air. The 5"/54 is on the list
+  because both halves of that trade go the other way for it: twenty shells in the air at most, each alive
+  long enough that one missing would fall through the planet. So a 20 mm shell still passes through
+  a hill and a missile that misses still carries on into space. A reentry vehicle also re-reads the
   ground under every sub-step within 200 m of it, because a frame's first sample is the height of
   ground it has already left — `IcbmConfig.ResampleGroundAtImpact`, 0.30x on the walk, flown.
   Structures are not collided with at all: where a launch

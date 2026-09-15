@@ -171,6 +171,30 @@
     <AoRoughMetal Path="Textures/KSArmory_B61_PBR.png" Category="Vessel" />
   </PbrMaterial>
 
+  <!--
+    The 5"/54 Mk 42 mount's atlas: the mount, its recoiling barrel and its shell.
+
+    Modelled, unwrapped and painted by Mallikas, and reframed into part space here. He paints the
+    mount as a Blender map set and the shell as a single image; tools/model/mk42-textures.py composes
+    both into what KSA reads. The unwraps are his, so a later version of either drops onto the same
+    UVs and nothing here moves.
+
+    Two materials in one atlas, because the shell has an unwrap and an image of its own.
+  -->
+  <MeshAtlas Path="Meshes/KSArmory_Mk42.glb" />
+
+  <PbrMaterial Id="KSArmory_Mk42_Material">
+    <Diffuse Path="Textures/KSArmory_Mk42_Diffuse.png" Category="Vessel" />
+    <Normal Path="Textures/KSArmory_Mk42_Normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Textures/KSArmory_Mk42_PBR.png" Category="Vessel" />
+  </PbrMaterial>
+
+  <PbrMaterial Id="KSArmory_Mk42Shell_Material">
+    <Diffuse Path="Textures/KSArmory_Mk42Shell_Diffuse.png" Category="Vessel" />
+    <Normal Path="Textures/KSArmory_Mk42Shell_Normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Textures/KSArmory_Mk42Shell_PBR.png" Category="Vessel" />
+  </PbrMaterial>
+
   <!-- KAMAZ-6560 8x8 chassis: wheels, hull, deck, cab, stowage. -->
   <SubPart Id="KSArmory_Chassis_SubPart">
     <PartModel Id="KSArmory_Subpart_Chassis_Model">
@@ -516,6 +540,57 @@
     </PartModel>
     <MeshView>
       <Mesh Id="KSArmory_Subpart_Pods_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!-- 5"/54 Mk 42 mount. Base is fixed; the gun house traverses and the cannon elevates in it. -->
+  <SubPart Id="KSArmory_Mk42Base_SubPart">
+    <PartModel Id="KSArmory_Subpart_Mk42Base_Model">
+      <Mesh Id="KSArmory_Subpart_Mk42Base" />
+      <Material Id="KSArmory_Mk42_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_Mk42Base_VM" />
+    </MeshView>
+  </SubPart>
+
+  <SubPart Id="KSArmory_Mk42Turret_SubPart">
+    <PartModel Id="KSArmory_Subpart_Mk42Turret_Model">
+      <Mesh Id="KSArmory_Subpart_Mk42Turret" />
+      <Material Id="KSArmory_Mk42_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_Mk42Turret_VM" />
+    </MeshView>
+  </SubPart>
+
+  <SubPart Id="KSArmory_Mk42Cannon_SubPart">
+    <PartModel Id="KSArmory_Subpart_Mk42Cannon_Model">
+      <Mesh Id="KSArmory_Subpart_Mk42Cannon" />
+      <Material Id="KSArmory_Mk42_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_Mk42Cannon_VM" />
+    </MeshView>
+  </SubPart>
+
+  <SubPart Id="KSArmory_Mk42Barrel_SubPart">
+    <PartModel Id="KSArmory_Subpart_Mk42Barrel_Model">
+      <Mesh Id="KSArmory_Subpart_Mk42Barrel" />
+      <Material Id="KSArmory_Mk42_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_Mk42Barrel_VM" />
+    </MeshView>
+  </SubPart>
+
+  <SubPart Id="KSArmory_Mk42Shell_SubPart">
+    <PartModel Id="KSArmory_Subpart_Mk42Shell_Model">
+      <Mesh Id="KSArmory_Subpart_Mk42Shell" />
+      <Material Id="KSArmory_Mk42Shell_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_Mk42Shell_VM" />
     </MeshView>
   </SubPart>
 
@@ -1336,4 +1411,170 @@
 
   </Part>
 
+
+  <!--
+    5"/54 Mk 42 single enclosed mount, 2.83 m tall on a 3 m stack node.
+
+    Stacks rather than surface-attaching, like the CIWS: a connector with no <Flags> is a node
+    connector, and a deck gun mounts on a deck. One connector, at the bottom, because nothing
+    stacks on top of a gun.
+
+    Geometry authored by Mallikas. +X is up the stack, +Y the way the gun faces at rest.
+  -->
+  <Part Id="KSArmory_Prefab_Mk42">
+
+    <SubPart Id="KSArmory_Mk42_Base" InstanceOf="KSArmory_Mk42Base_SubPart" />
+
+    <!--
+      Traverses about the stack centreline, 17 mm above the mounting face where the mesh origin
+      sits. validate-parts.py reads a marker's placement out of the Transform, so it is written out.
+      Keep in step with Arsenal.Mk42.TurretPivot.
+    -->
+    <SubPart Id="KSArmory_Mk42_Turret" InstanceOf="KSArmory_Mk42Turret_SubPart">
+      <Transform>
+        <Position X="0.01664" Y="0.00000" Z="0.00000" />
+      </Transform>
+    </SubPart>
+
+    <!--
+      Elevates on the trunnion, 1.55 m up the mount and 0.48 m forward of its centreline. The mesh
+      is exported recentred on that trunnion, so KSA swings it in place and the offset comes back
+      here. Keep in step with TurretPivot + GunPivotFromTurret in Arsenal.Mk42.
+    -->
+    <SubPart Id="KSArmory_Mk42_Cannon" InstanceOf="KSArmory_Mk42Cannon_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="0.00000" />
+      </Transform>
+    </SubPart>
+
+    <!--
+      Everything below is appended after the cannon: a saved part is paired with this list by
+      position, so an entry can be added at the end and never removed.
+
+      The barrel, on the cannon's own trunnion. It runs back along the bore when the gun fires and
+      otherwise moves exactly as the cannon do.
+    -->
+    <SubPart Id="KSArmory_Mk42_Barrel" InstanceOf="KSArmory_Mk42Barrel_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="0.00000" />
+      </Transform>
+    </SubPart>
+
+    <!--
+      Shell bodies, lent to shells in flight and hidden otherwise. Twenty, because a timed shell flies
+      up to 23 s at the gun's full reach and the gun fires one every 1.5 s; a shell finding none free
+      draws as a tracer. Parked in the breech, where the gun house hides them until the mod first
+      runs, and a centimetre apart, because identical bodies on one point share every plane they have.
+      The second ten were added after the first shipped, so they come after them.
+    -->
+    <SubPart Id="KSArmory_Mk42_Shell00" InstanceOf="KSArmory_Mk42Shell_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="-0.04500" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mk42_Shell01" InstanceOf="KSArmory_Mk42Shell_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="-0.03500" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mk42_Shell02" InstanceOf="KSArmory_Mk42Shell_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="-0.02500" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mk42_Shell03" InstanceOf="KSArmory_Mk42Shell_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="-0.01500" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mk42_Shell04" InstanceOf="KSArmory_Mk42Shell_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="-0.00500" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mk42_Shell05" InstanceOf="KSArmory_Mk42Shell_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="0.00500" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mk42_Shell06" InstanceOf="KSArmory_Mk42Shell_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="0.01500" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mk42_Shell07" InstanceOf="KSArmory_Mk42Shell_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="0.02500" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mk42_Shell08" InstanceOf="KSArmory_Mk42Shell_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="0.03500" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mk42_Shell09" InstanceOf="KSArmory_Mk42Shell_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="0.04500" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mk42_Shell10" InstanceOf="KSArmory_Mk42Shell_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="-0.09500" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mk42_Shell11" InstanceOf="KSArmory_Mk42Shell_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="-0.08500" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mk42_Shell12" InstanceOf="KSArmory_Mk42Shell_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="-0.07500" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mk42_Shell13" InstanceOf="KSArmory_Mk42Shell_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="-0.06500" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mk42_Shell14" InstanceOf="KSArmory_Mk42Shell_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="-0.05500" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mk42_Shell15" InstanceOf="KSArmory_Mk42Shell_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="0.05500" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mk42_Shell16" InstanceOf="KSArmory_Mk42Shell_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="0.06500" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mk42_Shell17" InstanceOf="KSArmory_Mk42Shell_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="0.07500" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mk42_Shell18" InstanceOf="KSArmory_Mk42Shell_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="0.08500" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mk42_Shell19" InstanceOf="KSArmory_Mk42Shell_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="0.09500" />
+      </Transform>
+    </SubPart>
+
+    <!-- Node attach at the mounting face. No ToSurface flag: this one stacks. -->
+    <Connector Id="_mk42ConnectorBase">
+      <Transform>
+        <Position X="0.00000" />
+        <Rotation X="3.14159" Z="3.14159" />
+      </Transform>
+    </Connector>
+
+  </Part>
 </Assets>

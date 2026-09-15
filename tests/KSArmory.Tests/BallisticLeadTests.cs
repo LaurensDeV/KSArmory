@@ -213,4 +213,51 @@ public class BallisticLeadTests
                                             new double3(1000, 0, 0), new double3(4000, 0, 0),
                                             MuzzleSpeed, NoGravity, out _, out _));
     }
+
+    /// <summary>
+    /// A target that is slowing or falling is not where its velocity says it will be. Flown against
+    /// unpowered drones, the five-inch gun missed by half a gravity's drop times the flight time
+    /// squared at every range: 38 m at 2.8 s, 255 m at 7.3 s.
+    /// </summary>
+    [Fact]
+    public void AnAcceleratingTargetIsMetWhereItWillBeRatherThanWhereItsVelocityPoints()
+    {
+        double3 target = new(6000, 0, 3000);
+        double3 velocity = new(-300, 50, 0);
+        double3 acceleration = new(12, 0, -9.80665);    // slowing along its track, and falling
+
+        Assert.True(BallisticLead.TrySolve(Vec.Zero, Vec.Zero, target, velocity, acceleration,
+                                           MuzzleSpeed, NoGravity, out double3 aim, out double flight));
+
+        double3 roundAt = Vec.Unit(aim) * (MuzzleSpeed * flight);
+        double3 targetAt = target + velocity * flight + acceleration * (0.5 * flight * flight);
+
+        Assert.True(Vec.Len(roundAt - targetAt) < 1.0, $"missed by {Vec.Len(roundAt - targetAt):F1} m");
+    }
+
+    [Fact]
+    public void LeadingOnVelocityAloneMissesAnAcceleratingTargetByHalfATSquared()
+    {
+        double3 target = new(6000, 0, 3000);
+        double3 velocity = new(-300, 50, 0);
+        double3 acceleration = new(12, 0, -9.80665);
+
+        Assert.True(BallisticLead.TrySolve(Vec.Zero, Vec.Zero, target, velocity, MuzzleSpeed, NoGravity,
+                                           out double3 aim, out double flight));
+
+        double3 roundAt = Vec.Unit(aim) * (MuzzleSpeed * flight);
+        double3 targetAt = target + velocity * flight + acceleration * (0.5 * flight * flight);
+        double expected = 0.5 * Vec.Len(acceleration) * flight * flight;
+
+        Assert.True(expected > 100.0, $"a {flight:F1} s shot leaves {expected:F0} m unled");
+        Assert.Equal(expected, Vec.Len(roundAt - targetAt), 3);
+    }
+
+    [Fact]
+    public void ANonFiniteAccelerationIsRefusedRatherThanPropagated()
+    {
+        Assert.False(BallisticLead.TrySolve(Vec.Zero, Vec.Zero, new double3(4000, 0, 0), Vec.Zero,
+                                            new double3(double.NaN, 0, 0), MuzzleSpeed, NoGravity,
+                                            out _, out _));
+    }
 }

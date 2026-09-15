@@ -33,8 +33,9 @@ namespace KSArmory;
 /// separation from its launcher, so drawing it needs that launcher — see
 /// <c>docs/FRAMES-AND-EPOCHS.md</c>.
 /// </param>
+/// <param name="accelerationEcl">Its pull and its drag at that instant, gravity included.</param>
 internal sealed class RoundContact(IProjectile round, string? firedBy, KSA.Vehicle? anchor,
-                                   double3 positionEcl, double3 velocityEcl) : IContact
+                                   double3 positionEcl, double3 velocityEcl, double3 accelerationEcl) : IContact
 {
     public IProjectile Round { get; } = round;
 
@@ -64,6 +65,14 @@ internal sealed class RoundContact(IProjectile round, string? firedBy, KSA.Vehic
     public double3 PositionEcl => positionEcl;
 
     public double3 VelocityEcl => velocityEcl;
+
+    // Coasting only: a motor still burning would be held for the whole of a shell's flight when it
+    // stops in seconds, and the radar's history of the velocity takes over while it burns.
+    public double3 AccelerationEcl => accelerationEcl;
+
+    public bool IsDebris => false;
+
+    public DragShape? DragShape => null;
 
     /// <summary>
     /// The drawn position, which is the launcher's drawn position plus the round's own flight —

@@ -408,9 +408,9 @@ public sealed class KSArmoryMod
 
             using (_budget.Measure("ui")) _ui.Draw();
 
-            // Outside the overlay switch on purpose: a shell has no subpart body, so this is the
+            // Outside the overlay switch on purpose: for a shell with no subpart body this is the
             // round itself rather than an annotation of it, and behind a debug switch a firing
-            // cannon puts almost nothing on screen.
+            // cannon puts almost nothing on screen. A shell drawn as a body is skipped inside.
             if (KsaWorld.InFlight)
             {
                 using (_budget.Measure("shells")) foreach (WeaponSystems.Entry e in _roster.All) Visuals.DrawShellStream(e.Battery);
@@ -992,7 +992,7 @@ public sealed class KSArmoryMod
             WeaponSystem system = e.Battery;
             if (system.Platform is not { } platform) continue;
 
-            AddAirborne(system.Rounds, KsaWorld.DisplayName(platform), platform, step);
+            AddAirborne(system.Rounds, KsaWorld.DisplayName(platform), platform, KsaWorld.ParentBody(platform), step);
         }
 
         // And the ones whose launcher has been destroyed. They are still in the air, so they are
@@ -1005,21 +1005,34 @@ public sealed class KSArmoryMod
         IReadOnlyList<WeaponSystem> loose = _roster.Loose;
         for (int i = 0; i < loose.Count; i++)
         {
-            AddAirborne(loose[i].Rounds, loose[i].LooseName, null, step);
+            AddAirborne(loose[i].Rounds, loose[i].LooseName, null, loose[i].EffectBody, step);
         }
     }
 
     private void AddAirborne(IReadOnlyList<IProjectile> rounds, string firedBy,
-                             KSA.Vehicle? anchor, double step)
+                             KSA.Vehicle? anchor, Celestial? body, double step)
     {
         for (int i = 0; i < rounds.Count; i++)
         {
             IProjectile r = rounds[i];
             if (r.State != RoundState.Flying) continue;
 
-            _airborne.Add(new RoundContact(r, firedBy, anchor,
-                                           r.PositionEcl + r.VelocityEcl * step, r.VelocityEcl));
+            double3 at = r.PositionEcl + r.VelocityEcl * step;
+            _airborne.Add(new RoundContact(r, firedBy, anchor, at, r.VelocityEcl, CoastingAcceleration(r, body, at)));
         }
+    }
+
+    // What a sensor holding the round would measure while it coasts: the same pull and the same drag
+    // the round is flown with, so a lead against it is flown against the round's own model.
+    private static double3 CoastingAcceleration(IProjectile round, Celestial? body, double3 at)
+    {
+        if (body is null) return Vec.Zero;
+
+        double3 air = round.VelocityEcl - KsaWorld.GroundVelocityAt(body, at);
+        double3 total = Medium.Coasting(KsaWorld.GravityAt(body, at), air, round.Munition,
+                                        KsaWorld.MediumDensityRatioAt(body, at));
+
+        return Vec.IsFinite(total) ? total : Vec.Zero;
     }
 
     // Says how much simulated time the clamp threw away, and how often. OverrunLog holds the

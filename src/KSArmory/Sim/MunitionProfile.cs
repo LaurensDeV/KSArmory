@@ -391,6 +391,12 @@ public sealed class MunitionProfile
     public float ChargeKg = 20f;
 
     /// <summary>
+    /// The sound of this round's burst, by <c>ModLibrary</c> Id. Null uses the session's; empty is
+    /// silence, which is not the same thing as not saying.
+    /// </summary>
+    public string? BurstSoundId { get; init; }
+
+    /// <summary>
     /// Whether the ground stops this round.
     ///
     /// <para>Off for everything that flies at aircraft, which is why a shell passes through a hill

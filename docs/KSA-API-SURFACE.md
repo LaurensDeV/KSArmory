@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-179 types and 518 members across 7 assemblies.
+182 types and 529 members across 7 assemblies.
 
 ## Brutal.Concurrency
 
@@ -345,6 +345,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `float MassFlowRate`
 - `float Thrust`
+- `float get_ExhaustVelocity()`
 
 ### KSA.Astronomical
 
@@ -366,6 +367,11 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.AttitudeControlSystem
 
 *referenced as a type only*
+
+### KSA.BoundingBoxCdA
+
+- `Brutal.Numerics.float3 Negative`
+- `Brutal.Numerics.float3 Positive`
 
 ### KSA.BubbleFrame
 
@@ -444,6 +450,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.Astronomical GetIndex(int)`
 - `KSA.LookupCollection`1<KSA.Astronomical> get_All()`
 - `int get_Count()`
+
+### KSA.ConstraintSim
+
+- `KSA.ShapesUnlock UnlockShapesBlocking()`
 
 ### KSA.Control
 
@@ -944,6 +954,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `string get_Id()`
 
+### KSA.ShapesUnlock
+
+*referenced as a type only*
+
 ### KSA.SimSpeed
 
 - `void .ctor(double)`
@@ -1014,6 +1028,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.Vehicle
 
+- `Brutal.Numerics.double3 get_AccelerationBody()`
 - `Brutal.Numerics.double3 get_AngularAccelerationBody()`
 - `Brutal.Numerics.double3 get_BodyRates()`
 - `Brutal.Numerics.double3 get_CenterOfMassAsmb()`
@@ -1036,6 +1051,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `bool IsAnyEnginePropellantAvailable()`
 - `bool get_HasPhysicsBubble()`
 - `bool get_IsControllable()`
+- `bool get_IsDebris()`
 - `bool get_IsDisposed()`
 - `float GetManualThrottle()`
 - `float GetMinThrottle()`
@@ -1044,6 +1060,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `int get_BubbleVehicleCount()`
 - `ref KSA.BubbleOrigin get_BubbleOrigin()`
 - `ref KSA.StructuralLoad get_StructuralLoad()`
+- `ref KSA.VehicleProperties get_Props()`
 - `void PrepareWorker(KSA.SimStep)`
 - `void ProcessInput(KSA.InputAction, Brutal.GlfwApi.GlfwKeyAction, Brutal.GlfwApi.GlfwModifier)`
 - `void SetControlPart(KSA.Part, Connector)`
@@ -1067,6 +1084,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.VehicleProperties
 
+- `KSA.BoundingBoxCdA AerodynamicCdABody`
+- `float TotalPropellantMass`
+- `float TotalSurfaceArea`
+- `float get_TotalMass()`
 - `void SetOnRails(bool)`
 
 ### KSA.VehicleReferenceFrame

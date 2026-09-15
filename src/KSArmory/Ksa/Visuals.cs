@@ -92,8 +92,12 @@ internal static class Visuals
         foreach (IProjectile round in system.Rounds)
         {
             // Negative tube numbers mark the cannon; the magazine owns zero and up, and a missile
-            // has a real subpart body of its own.
-            if (!RoundLabel.IsGunRound(round.Tube) || round.State != RoundState.Flying) continue;
+            // has a real subpart body of its own. So may a shell, and then the body is the round.
+            if (!RoundLabel.IsGunRound(round.Tube) || round.State != RoundState.Flying
+                || system.ShellDrawnAsBody(round))
+            {
+                continue;
+            }
 
             // Local, never VelocityEcl: the latter carries 29.8 km/s of ecliptic motion and would
             // lay every streak along the same direction whatever the gun did.

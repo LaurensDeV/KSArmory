@@ -238,6 +238,58 @@ public static class Arsenal
         ChargeKg = 0.05f,
     };
 
+    /// <summary>
+    /// The 5"/54's anti-aircraft shell, on a time fuze.
+    ///
+    /// <para>Muzzle velocity (807.7 m/s) and the 3.3 kg burster are the real round's, and 15.7 km is
+    /// how far out the mount engages. Drag is set for its 31.75 kg: what carries a projectile is its
+    /// sectional density, and this one has two hundred times the 20 mm's mass for twelve times the
+    /// frontal area.</para>
+    ///
+    /// <para><b>The fuze is the weapon.</b> A 20 mm round has to touch what it kills, so a CIWS
+    /// makes up for a small charge with volume; this one bursts in the air at the flight time the
+    /// lead solution asked for, which is what let a gun this slow engage aircraft at all. Through
+    /// <see cref="Warhead"/> the 3.3 kg gives it about 11 m of lethal radius against the 20 mm's
+    /// 2.7 — so it need not be close, which is just as well at forty rounds a minute.</para>
+    ///
+    /// <para>This is the mechanical time fuze rather than the VT: it bursts where the target was
+    /// predicted to be, so a manoeuvring target is missed by however far it manoeuvred. The
+    /// proximity fuse still runs underneath it, hull-gated like any other shell.</para>
+    /// </summary>
+    public static readonly MunitionProfile Shell5In54 = new()
+    {
+        // The floor is where the fuze has armed, not a limit of the gun.
+        MinRange = 350f,
+        MaxRange = 15_700f,   // what the envelope is built around
+
+        Name = "5IN54",
+        DisplayName = "5\"/54 HEDP",
+        BodyMarker = "Mk42_Shell",
+        BodyLength = 0.42825f,
+        BurstSoundId = "",   // silent until it has a recording that can ship
+
+        LaunchSpeed = 807.7f,
+        BoostSeconds = 0f,
+        BoostAccel = 0f,
+
+        // 15.7 km straight up takes 23 s through the air; 30 leaves room without keeping shells alive
+        // that can no longer reach anything. At 40 rpm that is still twenty in the air at most, which
+        // is the opposite of the CIWS's problem.
+        MaxFlightSeconds = 30f,
+
+        DragK = 1.62e-6f,
+
+        TimedFuse = true,
+        FuseRadius = 12f,
+        FuseArmSeconds = 0.45f,
+        ChargeKg = 3.3f,
+
+        // The ground stops it. Without that, a shell that misses has thirty seconds to fall through
+        // the planet and leaves the far side at hundreds of kilometres a second. The terrain sample
+        // this costs is per round, and a gun firing every 1.5 s has twenty in the air at most.
+        HitsTerrain = true,
+    };
+
     // ---- Sensors --------------------------------------------------------
     /// <summary>
     /// A B61-pattern tactical nuclear bomb, at its lowest selectable yield.
@@ -534,6 +586,31 @@ public static class Arsenal
 
     };
 
+    /// <summary>
+    /// The Mk 68 fire control that lays the mount: the gun's eyes, sitting off the mount rather than
+    /// on it.
+    ///
+    /// <para>Longer-ranged than the CIWS's set and much narrower, which is the same trade read the
+    /// other way: a director is pointed at one aircraft and tracks it, where a CIWS set watches
+    /// everything close. It sees past the gun's own reach, because a shell needs over twenty
+    /// seconds to arrive at it and the track has to be mature before the first one leaves.</para>
+    /// </summary>
+    public static readonly SensorProfile FireControlMk68 = new()
+    {
+        Name = "MK68",
+        DisplayName = "Mk 68 fire control",
+        Scope = ScopePresentation.Search,
+
+        Range = 18_000f,
+        ConeDeg = 80f,
+
+        ThreatRadius = 15_700f,
+        ThreatHorizonSeconds = 30f,
+        LockSeconds = 1.2f,
+
+        Emits = true,
+    };
+
     // ---- Launchers ------------------------------------------------------
     /// <summary>
     /// The designation set on a post-boost vehicle: where the warheads are being sent.
@@ -818,6 +895,72 @@ public static class Arsenal
     };
 
     /// <summary>
+    /// 5"/54 Mk 42 single enclosed mount: the second launcher here that carries no missiles, and
+    /// the first that is not point defence.
+    ///
+    /// <para>Same shape as the CIWS — <c>Tubes</c> empty, the gun is the weapon — and the opposite
+    /// weapon. Forty rounds a minute against four and a half thousand, fifteen kilometres against
+    /// one and a half, and a shell that bursts in the air rather than one that has to hit. A CIWS
+    /// is the last layer; this is the first.</para>
+    ///
+    /// <para>Geometry authored in Blender by Mallikas, reframed into part space rather than
+    /// generated — so unlike <c>tools/model/ciws.py</c> there is no script these numbers can be
+    /// checked against, and the pivots below are the ones the export actually carries.</para>
+    /// </summary>
+    public static readonly LauncherProfile Mk42 = new()
+    {
+        PartId = "KSArmory_Prefab_Mk42",
+        DisplayName = "5\"/54 Mk 42",
+        Munition = "5IN54",
+        Sensor = "MK68",
+
+        TurretMarker = "Mk42_Turret",
+        GunsMarker = "Mk42_Cannon",
+        GunBarrelMarker = "Mk42_Barrel",
+
+        // No missiles. The gun is the weapon.
+        Tubes = [],
+
+        // The gun house traverses about the stack centreline. The trunnion sits forward of it, the
+        // way a gun house carries its bustle aft to balance the barrel.
+        TurretPivot = new(0.01664, 0.00000, 0.00000),
+        GunPivotFromTurret = new(1.53777, 0.48097, 0.00000),
+        GunReferenceElevationRad = 0.0,           // modelled level
+
+        GunMunition = "5IN54",
+        GunMuzzles = [new(0.00000, 4.18860, 0.00000)],
+
+        // The real mount: 40 deg/s in train, 25 in elevation, and -15 to +85. Slow, which is why
+        // it is laid by a director rather than by eye.
+        SlewRateDeg = 40f,
+        ElevationRateDeg = 25f,
+        MinElevationDeg = -15f,
+        MaxElevationDeg = 85f,
+        ForwardMinElevationDeg = -15f,
+        SettleSeconds = 0.4f,
+
+        // The ready-service load the mount's own drums and hoists hold, fired at its automatic rate of
+        // forty a minute. A burst is one round with no gap after it, so a press is one shell and
+        // auto-engage fires at the gun's own rate: a burst is sized for a gun that fires faster than
+        // anybody presses a button.
+        GunAmmo = 599,
+        GunRoundsPerMinute = 40f,
+        GunBurstRounds = 1,
+        GunBurstGapSeconds = 0f,
+        GunReloadSeconds = 0f,
+
+        // Drawn only, and set by eye against this model rather than taken from the real mount.
+        GunRecoilMetres = 0.30f,
+        GunRecoilSeconds = 0.08f,
+        GunReturnSeconds = 0.60f,
+
+        GunshotSoundId = "KSArmoryMk42Gunshot",
+
+        // No missile magazine to refill; see the CIWS for why this cannot be left at the default.
+        ReloadSeconds = 0f,
+    };
+
+    /// <summary>
     /// The optical sight a bomb is released on. Not a radar and not a seeker: it exists so the
     /// system has something to draw and something to name what is ahead, because a rack that
     /// engages nothing by itself still has to tell the operator what it is over.
@@ -995,12 +1138,13 @@ public static class Arsenal
     // ---- Registry -------------------------------------------------------
 
     public static readonly IReadOnlyList<LauncherProfile> Launchers =
-        [SidewinderRail, AmraamRail, HarmRail, Ciws, NukeRack, MirvBus];
+        [SidewinderRail, AmraamRail, HarmRail, Ciws, NukeRack, MirvBus, Mk42];
     public static readonly IReadOnlyList<MunitionProfile> Munitions =
-        [Missile9J, Missile120C, MissileAgm88, Cannon20Mm, NukeB61, ReentryVehicleMk21];
+        [Missile9J, Missile120C, MissileAgm88, Cannon20Mm, NukeB61, ReentryVehicleMk21,
+         Shell5In54];
     public static readonly IReadOnlyList<SensorProfile> Sensors =
         [SeekerHeadAim9, SeekerHeadAim120, SeekerHeadAgm88, SearchRadarVps2,
-         BombSight, EoSensor, PodSensor, BusDesignation];
+         BombSight, EoSensor, PodSensor, BusDesignation, FireControlMk68];
 
     /// <summary>
     /// Optical heads. Most are parts in their own right; one rides a launcher's turret, and
@@ -1098,6 +1242,18 @@ public static class Arsenal
                 new(WeaponRole.Sensor, SearchRadarVps2.DisplayName),
                 new(WeaponRole.Gun, Cannon20Mm.DisplayName),
                 new(WeaponRole.FireControl, "Mk 15 fire control"),
+            ],
+        },
+        new ComponentProfile
+        {
+            PartId = Mk42.PartId,
+            Role = WeaponRole.Launcher,
+            DisplayName = Mk42.DisplayName,
+            Provides =
+            [
+                new(WeaponRole.Sensor, FireControlMk68.DisplayName),
+                new(WeaponRole.Gun, Shell5In54.DisplayName),
+                new(WeaponRole.FireControl, "Mk 68 fire control"),
             ],
         },
         new ComponentProfile

@@ -7,6 +7,9 @@
 #   ./tools/scenario.sh passing
 #   ./tools/scenario.sh drop             # a B61 off a climbing rocket, landing against the sight
 #   ./tools/scenario.sh drop:1500,30,dumb,8   # ...at 1500 m, 30 deg over, unguided, craft lost 8 s on
+#   ./tools/scenario.sh gunnery          # a gun against drones crossing past it, every shell scored
+#   ./tools/scenario.sh gunnery:6,passing,40,300,4000   # ...6 drones, 12 km out at 300 m/s, 4 km off
+#   ./tools/scenario.sh gunnery:3,overhead,30,300,1500,20,burn   # ...tumbling at 20 deg/s, engine lit
 #   ./tools/scenario.sh mirv             # the ballistic shot, end to end
 #   ./tools/scenario.sh mirv:26.485S,68.148W       # ...at somewhere else
 #   ./tools/scenario.sh mirv:26.485S,68.148W,2     # ...and pass only under 2 km
@@ -120,6 +123,13 @@ case "${SCENARIO%%:*}" in
         SYSTEM="${KSARMORY_SCENARIO_SYSTEM:-}"
         DEADLINE_SECONDS=420
         ;;
+    gunnery)
+        # A save with a gun standing on the ground; the drones are spawned into it one at a time.
+        # The mod's own budget is sized from the request, so this only has to outlast it.
+        SAVE="${KSARMORY_SCENARIO_SAVE:-5inch_gun}"
+        SYSTEM="${KSARMORY_SCENARIO_SYSTEM:-}"
+        DEADLINE_SECONDS=1800
+        ;;
     mirv)
         # No save by default: the rocket is the operator's, wherever they keep it, and a scenario
         # that insists on one particular save is one that only works on one machine.
@@ -137,7 +147,7 @@ case "${SCENARIO%%:*}" in
         SYSTEM="${KSARMORY_SCENARIO_SYSTEM:-SolLite}"
         ;;
     *)
-        echo "usage: $0 {head-on|overhead|passing|drop[:<m>[,<deg>[,guided|dumb[,<s>]]]]|mirv[:<lat>,<lon>[,<km>]]}" \
+        echo "usage: $0 {head-on|overhead|passing|drop[:<m>[,<deg>[,guided|dumb[,<s>]]]]|gunnery[:<drones>[,passing|overhead|head-on[,<s>[,<m/s>[,<m>[,<deg/s spin>[,burn]]]]]]]|mirv[:<lat>,<lon>[,<km>]]}" \
              "[--keep] [--shots] [--no-deploy]" >&2
         exit 2
         ;;

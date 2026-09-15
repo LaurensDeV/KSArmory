@@ -63,6 +63,10 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
     // Held between scans so a contact's dwell time survives track rebuilds.
     private readonly Dictionary<object, double> _dwell = new();
 
+    // Each contact's velocity history, carried between scans the same way. Two maps swapped each
+    // scan, so what was not seen this scan is dropped and starts again if it comes back.
+    private Dictionary<object, AccelerationEstimate> _acceleration = new(ReferenceEqualityComparer.Instance);
+    private Dictionary<object, AccelerationEstimate> _accelerationNext = new(ReferenceEqualityComparer.Instance);
     // An index over Tracks, with the same lifetime: cleared and refilled by every scan. Reference
     // equality because a handle is an identity rather than a value -- everything else that matches
     // one uses ReferenceEquals, and a contact type that ever overrode Equals would silently fold
@@ -104,6 +108,7 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
         if (_sensor.Emits && _policy.RadarSilent)
         {
             _dwell.Clear();
+            _acceleration.Clear();
             Locked = null;
             return;
         }
@@ -147,6 +152,9 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
             }
         }
 
+        (_acceleration, _accelerationNext) = (_accelerationNext, _acceleration);
+        _accelerationNext.Clear();
+
         // Refresh dwell bookkeeping, dropping anything no longer seen, and index the tracks by
         // handle in the same pass.
         _dwell.Clear();
@@ -175,6 +183,12 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
         double3 targetPos = contact.PositionEcl;
         double3 targetVel = contact.VelocityEcl;
 
+        // The engine's accelerometer, unless how the velocity has actually changed says it is wrong:
+        // an impulse or a tumbling frame. See AccelerationEstimate.
+        if (!_acceleration.Remove(contact.Handle, out AccelerationEstimate? history)) history = new AccelerationEstimate();
+        history.Add(targetVel, dt);
+        _accelerationNext[contact.Handle] = history;
+        double3 acceleration = history.Believe(contact.AccelerationEcl);
         if (_sensor.HorizonMasking
             && KsaWorld.IsOccluded(originEcl, targetPos, _sensor.TerrainMarginMetres, out _))
         {
@@ -207,12 +221,14 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
             Contact = contact,
             PositionEcl = targetPos,
             VelocityEcl = targetVel,
+            AccelerationEcl = acceleration,
+            DragShape = contact.DragShape,
             Range = a.Range,
             ClosingSpeed = a.ClosingSpeed,
             ClosestApproach = a.ClosestApproach,
             TimeToClosestApproach = a.TimeToClosestApproach,
             HeldSeconds = _dwell.GetValueOrDefault(contact.Handle) + dt,
-            IsThreat = a.IsThreat && _policy.Iff.MayEngage(allegiance),
+            IsThreat = a.IsThreat && !contact.IsDebris && _policy.Iff.MayEngage(allegiance),
             Team = team,
             Allegiance = allegiance,
         });
@@ -256,6 +272,7 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
         Tracks.Clear();
         _byHandle.Clear();
         _dwell.Clear();
+        _acceleration.Clear();
         Locked = null;
         Watched = null;
         ManualDesignation = null;

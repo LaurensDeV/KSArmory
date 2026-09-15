@@ -43,6 +43,18 @@ internal interface IContact
 
     double3 VelocityEcl { get; }
 
+    /// <summary>Everything accelerating it, gravity included. Zero where that is not known.</summary>
+    double3 AccelerationEcl { get; }
+
+    /// <summary>
+    /// Wreckage a failure shed. Tracked, and never engaged: a burst that breaks a craft leaves pieces
+    /// still flying and still closing, and shooting them spends shells on something already dead.
+    /// </summary>
+    bool IsDebris { get; }
+
+    /// <summary>Its drag box and attitude as the engine flies it, or null where there is none to read.</summary>
+    DragShape? DragShape { get; }
+
     /// <summary>
     /// Where it is drawn, which is not where it is simulated — see <c>docs/FRAMES-AND-EPOCHS.md</c>.
     /// False when it cannot be placed, which the overlay reads as "draw nothing".
@@ -86,6 +98,12 @@ internal sealed class VehicleContact(Vehicle vehicle) : IContact
     public double3 PositionEcl => KsaWorld.PositionEcl(Vehicle);
 
     public double3 VelocityEcl => KsaWorld.VelocityEcl(Vehicle);
+
+    public double3 AccelerationEcl => KsaWorld.AccelerationEcl(Vehicle);
+
+    public bool IsDebris => KsaWorld.IsDebris(Vehicle);
+
+    public DragShape? DragShape => KsaWorld.DragShapeOf(Vehicle);
 
     public bool TryDrawEgo(out double3 posEgo) => KsaWorld.TryVehicleEgo(Vehicle, out posEgo);
 }

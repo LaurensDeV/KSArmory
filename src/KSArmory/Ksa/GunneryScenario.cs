@@ -1,0 +1,384 @@
+using Brutal.Numerics;
+using KSA;
+
+namespace KSArmory;
+
+/// <summary>
+/// A gun shooting at drones one after another, with every shell it fires scored where it burst.
+///
+/// <para>The engagement scenarios end on the first detonation, which says a gun can hit and nothing
+/// about how well — and a flak gun's first shell is rarely its best. This keeps shooting, crosses each
+/// drone past the mount rather than diving it onto it, and reports each burst's distance from the
+/// target, its range and its fuse time, then the spread of them against the shell's lethal radius.</para>
+///
+/// <para>A drone is judged with its pieces. A burst that breaks parts off one leaves several craft
+/// named after it, all still flying and all still engaged, so a drone is over when none of them is
+/// left or its pass is — and whatever is left then is taken out of the world before the next one
+/// comes, or its shells would be scored against the wrong drone.</para>
+/// </summary>
+internal sealed class GunneryScenario
+{
+    // How long after its closest approach a drone is given before it is taken out of the world: long
+    // enough for the shells fired at it on the way past to arrive.
+    private const double PassSeconds = 15.0;
+
+    // Between one drone going and the next arriving, so no shell fired at the last is scored against
+    // the next.
+    private const double GapSeconds = 3.0;
+
+    /// <summary>What to fly: <c>drones,profile,seconds,speed,miss,spin,burn</c>, every field optional.</summary>
+    /// <param name="SpinDegPerSecond">How fast each drone leaves tumbling, so its drag area and thrust turn under the lead.</param>
+    /// <param name="Burn">Whether each drone flies with its engine lit, so it is not slowing while its drag is not zero.</param>
+    public readonly record struct Request(int Drones, TestTarget.Profile Profile, double Seconds,
+                                          double Speed, double MissMetres, double SpinDegPerSecond, bool Burn)
+    {
+        public static Request Default => new(4, TestTarget.Profile.PassingBy, 30.0, 250.0, 3000.0, 0.0, false);
+
+        /// <summary>Wall clock the whole run may take, the game's own start included.</summary>
+        public double BudgetSeconds => 90.0 + (Drones * (Seconds + PassSeconds + GapSeconds + 20.0));
+
+        public static bool TryParse(string text, out Request request, out string trouble)
+        {
+            request = Default;
+            trouble = string.Empty;
+
+            string[] f = text.Split(',', StringSplitOptions.TrimEntries);
+            string At(int i) => i < f.Length ? f[i] : string.Empty;
+
+            int drones = request.Drones;
+            if (At(0).Length > 0 && (!int.TryParse(At(0), out drones) || drones < 1))
+            {
+                trouble = $"'{At(0)}' is not a number of drones";
+                return false;
+            }
+
+            TestTarget.Profile profile = request.Profile;
+            if (At(1).Length > 0)
+            {
+                switch (At(1))
+                {
+                    case "passing": profile = TestTarget.Profile.PassingBy; break;
+                    case "overhead": profile = TestTarget.Profile.Overhead; break;
+                    case "head-on": profile = TestTarget.Profile.HeadOn; break;
+                    default:
+                        trouble = $"'{At(1)}' is not passing, overhead or head-on";
+                        return false;
+                }
+            }
+
+            if (!Positive(At(2), request.Seconds, out double seconds, ref trouble)
+                || !Positive(At(3), request.Speed, out double speed, ref trouble)
+                || !Positive(At(4), request.MissMetres, out double miss, ref trouble))
+            {
+                return false;
+            }
+
+            double spin = request.SpinDegPerSecond;
+            if (At(5).Length > 0
+                && (!double.TryParse(At(5), System.Globalization.NumberStyles.Float,
+                                     System.Globalization.CultureInfo.InvariantCulture, out spin) || !(spin >= 0.0)))
+            {
+                trouble = $"'{At(5)}' is not a spin in degrees a second";
+                return false;
+            }
+
+            bool burn = request.Burn;
+            if (At(6).Length > 0)
+            {
+                switch (At(6))
+                {
+                    case "burn": burn = true; break;
+                    case "coast": burn = false; break;
+                    default:
+                        trouble = $"'{At(6)}' is not burn or coast";
+                        return false;
+                }
+            }
+
+            request = new Request(drones, profile, seconds, speed, miss, spin, burn);
+            return true;
+        }
+
+        private static bool Positive(string text, double fallback, out double value, ref string trouble)
+        {
+            value = fallback;
+            if (text.Length == 0) return true;
+            if (double.TryParse(text, System.Globalization.NumberStyles.Float,
+                                System.Globalization.CultureInfo.InvariantCulture, out value) && value > 0.0)
+            {
+                return true;
+            }
+
+            trouble = $"'{text}' is not a positive number";
+            return false;
+        }
+
+        public string Describe()
+            => $"{Drones} drone(s) {Profile}, {Speed:F0} m/s, {Seconds:F0} s out ({Speed * Seconds / 1000.0:F1} km), "
+               + $"passing {MissMetres:F0} m off"
+               + (SpinDegPerSecond > 0.0 ? $", tumbling at {SpinDegPerSecond:F0} deg/s" : string.Empty)
+               + (Burn ? ", engine lit" : string.Empty);
+    }
+
+    // Off every body axis, so the tumble turns the airflow across all three faces rather than about one.
+    private static readonly double3 SpinAxis = Vec.Unit(new double3(0.3, 1.0, 0.5));
+
+    private readonly Request _request;
+    private readonly Action<string> _report;
+    private readonly Action<IProjectile> _onRoundEnded;
+
+    private WeaponSystem? _wired;
+    private double _lethal = double.NaN;
+
+    private Vehicle? _drone;
+    private string _droneName = string.Empty;
+    private bool _seenPieces;
+    private double _nearest = double.PositiveInfinity;
+    private readonly List<Vehicle> _pieces = [];
+
+    private int _spawned;
+    private int _hit;
+    private double _sinceSpawn;
+    private double _gap;
+
+    private readonly List<(double RangeKm, double Miss)> _bursts = [];
+    private int _onProximity;
+    private int _expired;
+    private int _unscored;
+
+    public GunneryScenario(Request request, Action<string> report)
+    {
+        _request = request;
+        _report = report;
+        _onRoundEnded = OnRoundEnded;
+    }
+
+    /// <summary>One frame. Null while the run goes on, the verdict once it is over.</summary>
+    public string? Update(WeaponSystems.Entry entry, double dt)
+    {
+        WeaponSystem gun = entry.Battery;
+
+        if (gun.Profile.GunMunition is not { } munition) return $"FAIL {gun.Profile.DisplayName} carries no gun";
+
+        if (!ReferenceEquals(_wired, gun))
+        {
+            Release();
+            gun.RoundEnded = _onRoundEnded;
+            _wired = gun;
+            _lethal = Warhead.LethalRadius(Catalogue.MunitionNamed(munition).ChargeKg);
+        }
+
+        if (_drone is not null)
+        {
+            _sinceSpawn += dt;
+
+            // Held down every frame: the throttle is a key the mod holds, not a setting it makes.
+            if (_request.Burn) VehicleCommand.DriveThrottle(_drone, 1.0);
+
+            SampleDrone(gun.Platform!, dt);
+            CollectPieces();
+            if (_pieces.Count > 0) _seenPieces = true;
+
+            // A drone that has not reached the world yet has no pieces either, so none only counts
+            // once there were some.
+            bool gone = _seenPieces && _pieces.Count == 0;
+            if (!gone && _sinceSpawn < _request.Seconds + PassSeconds) return null;
+
+            if (_nearest <= _lethal) _hit++;
+
+            _report($"drone {_spawned}: nearest burst {(double.IsFinite(_nearest) ? $"{_nearest:F1} m" : "none")}, "
+                    + (gone ? "nothing of it left flying"
+                            : $"{_pieces.Count} piece(s) still flying, taken out of the world"));
+
+            foreach (Vehicle piece in _pieces) KsaWorld.Remove(piece);
+
+            _drone = null;
+            _gap = 0.0;
+        }
+
+        // Shells still in the air were fired at the drone just gone, and are scored as its.
+        if (gun.Rounds.Count > 0) return null;
+
+        _gap += dt;
+        if (_gap < GapSeconds) return null;
+
+        if (_spawned >= _request.Drones) return Verdict(gun);
+
+        _drone = TestTarget.Spawn(gun.Platform!, _request.Profile, _request.Seconds, _request.Speed,
+                                  _request.MissMetres, "Gemini7",
+                                  SpinAxis * double.DegreesToRadians(_request.SpinDegPerSecond));
+        if (_drone is null) return "FAIL could not spawn a target";
+        if (_request.Burn) VehicleCommand.SetEngine(_drone, true);
+
+        _spawned++;
+        _droneName = KsaWorld.DisplayName(_drone);
+        _seenPieces = false;
+        _haveVelocity = false;
+        _lastShape = null;
+        _nearest = double.PositiveInfinity;
+        _sinceSpawn = 0.0;
+        _report($"drone {_spawned} of {_request.Drones} away as '{_droneName}', {gun.GunShotsFired} shell(s) fired so far");
+        return null;
+    }
+
+    public void Release()
+    {
+        if (_wired is not null && _wired.RoundEnded == _onRoundEnded) _wired.RoundEnded = null;
+        _wired = null;
+    }
+
+    private const double SampleEverySeconds = 0.5;
+
+    private double3 _lastVelocity;
+    private double _sampleSeconds;
+    private bool _haveVelocity;
+
+    // What the drone is doing to its velocity, twice a second, as the lead models it: slowing along
+    // the airflow read as a drag coefficient, and whatever pushes it across that. The lead holds the
+    // coefficient and the push as they are at the shot, so a miss that is neither the gun nor the
+    // shell is one of those two changing. Measured off the accelerometer the lead reads and off the
+    // velocity itself, because the two can disagree.
+    private void SampleDrone(Vehicle platform, double dt)
+    {
+        if (_drone is null || !KsaWorld.IsAlive(_drone)) return;
+
+        double3 velocity = KsaWorld.VelocityEcl(_drone);
+        if (!_haveVelocity)
+        {
+            _lastVelocity = velocity;
+            _sampleSeconds = 0.0;
+            _haveVelocity = true;
+            return;
+        }
+
+        _sampleSeconds += dt;
+        if (_sampleSeconds < SampleEverySeconds) return;
+
+        double3 position = KsaWorld.PositionEcl(_drone);
+        double3 pull = KsaWorld.GravityAt(platform, position);
+        double3 air = velocity - KsaWorld.GroundVelocityAt(platform, position);
+        double density = KsaWorld.MediumDensityRatioAt(platform, position);
+
+        string accelerometer = Split(KsaWorld.AccelerationEcl(_drone) - pull, air, pull, density);
+        string flown = Split(((velocity - _lastVelocity) * (1.0 / _sampleSeconds)) - pull, air, pull, density);
+
+        // The engine's drag area is a function of where the air meets the body, not of airspeed, so the
+        // airflow in the drone's own frame is what a coefficient that drifts has to be read against.
+        double3 flowBody = Vec.Unit(air).Transform(doubleQuat.Conjugate(_drone.Body2Cce));
+
+        // The drag area the lead flies, for that airflow: if drag is only this, the measured slowing over
+        // v² ρ, times the mass, over the area stays constant through the pass. And the area the shape read
+        // at the last sample said it would have now, carried through the turn: the check on the tumble.
+        DragShape? shape = KsaWorld.DragShapeOf(_drone);
+        double area = shape?.AreaFacing(air) ?? double.NaN;
+        double predicted = _lastShape?.AreaFacing(air, _sampleSeconds) ?? double.NaN;
+        double airspeed = Vec.Len(air);
+        double slowing = -Vec.Dot(KsaWorld.AccelerationEcl(_drone) - pull, Vec.Unit(air));
+        double perArea = shape is { } s && area > 0.0 && density > 1e-6
+            ? slowing * s.Mass / (airspeed * airspeed * density * area)
+            : double.NaN;
+        double turning = shape is { } t ? double.RadiansToDegrees(Vec.Len(t.BodyRates)) : double.NaN;
+
+        Log.Debug(() => $"  drone {_spawned} at {_sinceSpawn:F1} s: {airspeed:F0} m/s, density {density:F3}; "
+                        + $"accelerometer {accelerometer}; velocity {flown}; "
+                        + $"airflow in body {flowBody.X:F3},{flowBody.Y:F3},{flowBody.Z:F3}; turning {turning:F1} deg/s; "
+                        + $"drag area {area:F3} m2 against {predicted:F3} predicted, slowing per area {perArea:F4}");
+
+        _lastVelocity = velocity;
+        _lastShape = shape;
+        _sampleSeconds = 0.0;
+    }
+
+    private DragShape? _lastShape;
+
+    // A felt acceleration as the lead splits it: along the airflow, as a drag coefficient where it is
+    // slowing, and across it, up and sideways.
+    private static string Split(double3 felt, double3 air, double3 pull, double density)
+    {
+        double speed = Vec.Len(air);
+        if (!(speed > 1.0) || !Vec.IsFinite(felt)) return "n/a";
+
+        double3 along = Vec.Unit(air);
+        double3 up = Vec.Unit(Vec.RejectFrom(-pull, along));
+
+        double alongAccel = Vec.Dot(felt, along);
+        double3 across = felt - (along * alongAccel);
+        double acrossUp = Vec.Dot(across, up);
+        double acrossSide = Vec.Len(across - (up * acrossUp));
+        double k = density > 1e-6 ? -alongAccel / (speed * speed * density) : double.NaN;
+
+        return $"along {alongAccel:F2} (k {k:E2}), up {acrossUp:F2}, side {acrossSide:F2}";
+    }
+
+    // The drone and everything a burst broke off it: a piece is named after what it came off.
+    private void CollectPieces()
+    {
+        _pieces.Clear();
+
+        foreach (Vehicle vehicle in KsaWorld.Vehicles)
+        {
+            if (!KsaWorld.IsAlive(vehicle)) continue;
+
+            string name = KsaWorld.DisplayName(vehicle);
+            if (name == _droneName || name.StartsWith(_droneName + "_", StringComparison.Ordinal)) _pieces.Add(vehicle);
+        }
+    }
+
+    private void OnRoundEnded(IProjectile round)
+    {
+        if (round is not Slug shell) return;
+
+        if (shell.State == RoundState.Expired)
+        {
+            _expired++;
+            _report($"shell expired after {shell.Age:F1} s");
+            return;
+        }
+
+        if (!double.IsFinite(shell.MissDistance))
+        {
+            _unscored++;
+            _report($"shell burst after {shell.Age:F1} s; what it was aimed at broke up before it arrived");
+            return;
+        }
+
+        double rangeKm = Vec.Len(shell.OffsetFromPlatform) / 1000.0;
+        _bursts.Add((rangeKm, shell.MissDistance));
+        _nearest = Math.Min(_nearest, shell.MissDistance);
+        if (!shell.BurstOnTime) _onProximity++;
+
+        _report($"burst {_bursts.Count}: drone {_spawned}, {rangeKm:F2} km out, "
+                + (shell.BurstOnTime ? $"timed at {shell.FuseSeconds:F2} s" : $"on proximity after {shell.Age:F2} s")
+                + $", {shell.MissDistance:F1} m from the target");
+    }
+
+    private string Verdict(WeaponSystem gun)
+    {
+        Release();
+
+        string tally = $"{_hit} of {_spawned} drones had a burst inside the {_lethal:F1} m lethal radius, "
+                       + $"{gun.GunShotsFired} shells fired, {_expired} expired, {_unscored} aimed at pieces gone before they arrived";
+
+        if (_bursts.Count == 0) return $"FAIL no shell burst with a target to score against; {tally}";
+
+        List<double> all = [.. _bursts.Select(b => b.Miss).Order()];
+        double median = all[all.Count / 2];
+        double ninety = all[Math.Min(all.Count - 1, (int)Math.Ceiling(0.9 * all.Count) - 1)];
+        int inside = all.Count(m => m <= _lethal);
+
+        return (median <= _lethal ? "PASS " : "FAIL ")
+               + $"{all.Count} bursts ({_onProximity} on proximity): median {median:F1} m, 90% within {ninety:F1} m, "
+               + $"worst {all[^1]:F1} m, {inside} inside the lethal radius; by range {Band(0.0, 4.0)}, "
+               + $"{Band(4.0, 6.0)}, {Band(6.0, double.PositiveInfinity)}; {tally}";
+    }
+
+    // The misses in one band of range, because a gun's accuracy is a function of how far it is shooting
+    // and a single median over a whole pass hides which end is wrong.
+    private string Band(double fromKm, double toKm)
+    {
+        List<double> misses = [.. _bursts.Where(b => b.RangeKm >= fromKm && b.RangeKm < toKm).Select(b => b.Miss).Order()];
+        string label = double.IsPositiveInfinity(toKm) ? $"beyond {fromKm:F0} km" : $"{fromKm:F0}-{toKm:F0} km";
+
+        return misses.Count == 0 ? $"{label} none" : $"{label} {misses.Count} at median {misses[misses.Count / 2]:F1} m";
+    }
+}

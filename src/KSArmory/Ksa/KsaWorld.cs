@@ -214,6 +214,51 @@ internal static class KsaWorld
     public static bool IsAlive(Vehicle? v) => v is { IsDisposed: false };
 
     /// <summary>
+    /// Whether a craft is wreckage, as KSA marks the pieces <c>PartFailure.ShedDebris</c> breaks off.
+    /// The craft they came off is not marked, so it stays a target until it is destroyed.
+    /// </summary>
+    public static bool IsDebris(Vehicle v)
+    {
+        try
+        {
+            return IsAlive(v) && v.IsDebris;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// A craft's drag as <c>PhysicsStates.ComputeDrag</c> computes it: the body-fixed
+    /// <c>AerodynamicCdABody</c> plus a tenth of the surface area, over its mass, in the air of the body
+    /// it flies over — with its attitude and turn. Null when any of it cannot be read, which includes a
+    /// body with no air.
+    /// </summary>
+    public static DragShape? DragShapeOf(Vehicle v)
+    {
+        try
+        {
+            if (!IsAlive(v) || ParentBody(v)?.GetAtmosphereReference()?.Physical is not { } air) return null;
+
+            ref readonly VehicleProperties props = ref v.Props;
+            float3 positive = props.AerodynamicCdABody.Positive;
+            float3 negative = props.AerodynamicCdABody.Negative;
+            var shape = new DragShape(new double3(positive.X, positive.Y, positive.Z),
+                                      new double3(negative.X, negative.Y, negative.Z),
+                                      0.1 * props.TotalSurfaceArea, v.Body2Cce, v.BodyRates,
+                                      props.TotalMass, air.SeaLevelDensity,
+                                      v.FlightComputer.ActiveEnginePerformanceMax.ExhaustVelocity,
+                                      props.TotalPropellantMass);
+            return shape.IsUsable ? shape : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
     /// Whether the engine is propagating this vehicle analytically rather than integrating it.
     ///
     /// <para>The distinction is the whole accuracy question for a coast. On rails the state is an
@@ -1380,6 +1425,29 @@ internal static class KsaWorld
         }
     }
 
+    /// <summary>
+    /// Everything accelerating a craft, in Ecl: the engine's measured acceleration with gravity put
+    /// back.
+    ///
+    /// <para><c>AccelerationBody</c> is what an accelerometer aboard would read — thrust, drag and
+    /// lift, with gravity integrated separately and left out — and on the ground it is the reaction
+    /// holding the craft up. Adding the pull back is what makes a coasting drone read as falling and
+    /// a parked craft read as still. Zero if any of it cannot be read.</para>
+    /// </summary>
+    public static double3 AccelerationEcl(Vehicle vehicle)
+    {
+        try
+        {
+            double3 measured = vehicle.AccelerationBody.Transform(vehicle.Body2Cce);
+            double3 total = measured + GravityAt(vehicle, PositionEcl(vehicle));
+            return Vec.IsFinite(total) ? total : Vec.Zero;
+        }
+        catch
+        {
+            return Vec.Zero;
+        }
+    }
+
     /// <summary>The same pull, asked of the body directly — for a round with no craft left.</summary>
     public static double3 GravityAt(Celestial body, double3 positionEcl,
                                    double3 bodyOffsetEcl = default)
@@ -1661,7 +1729,9 @@ internal static class KsaWorld
 
     /// <summary>
     /// Takes a vehicle out of the world without breaking it up. Same threading rule as
-    /// <see cref="Destroy"/>.
+    /// <see cref="Destroy"/>, and it takes that barrier itself: removing a vehicle also mutates the
+    /// shapes registry, which the vehicle worker holds for its whole run, and a removal refused
+    /// half-way left the physics bubble indexing a vehicle list one shorter than it thought.
     ///
     /// <para><c>DestroyVehicleFromEvent</c> runs the engine's failure machinery, which ends in
     /// <c>PartFailure.ShedDebris(vehicle, 12)</c> — so destroying one spent stage can leave up to
@@ -1677,6 +1747,9 @@ internal static class KsaWorld
         if (!IsAlive(v)) return;
         try
         {
+            WaitForVehicleSolvers();
+            using ShapesUnlock shapes = ConstraintSim.UnlockShapesBlocking();
+
             Universe.DestroyVehicle(v, CrewDisposition.EndMission);
             InvalidateCensus();
         }
@@ -3064,9 +3137,10 @@ internal static class KsaWorld
     /// <para><b>It deliberately does not rebuild the vehicle's derived data.</b> Nothing here
     /// modifies a part tree, and the engine does not do it either when it switches which vehicle is
     /// followed and controlled — <c>Camera.SetFollow</c> sets <c>ControlledVehicle</c> and stops.
-    /// The rebuild reaches the shapes registry, which is locked for the whole vehicle update, and
-    /// every frame of this mod runs inside that lock; it threw from here on every handover after a
-    /// decoupler split. There is no later hook to move it to, and there does not need to be.</para>
+    /// The rebuild reaches the shapes registry, which the vehicle worker holds for its whole run, and
+    /// this mod's hooks land inside that run whenever the worker has not finished; it threw from here
+    /// on handovers after a decoupler split. There does not need to be a way round it here.
+    /// <c>TestTarget</c>, which has to build a vehicle, waits the run out instead.</para>
     /// </summary>
     /// <returns>False if the craft is gone, or the engine refused any part of it.</returns>
     public static bool GoTo(Vehicle? vehicle)

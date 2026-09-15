@@ -109,6 +109,10 @@ internal static class LauncherPart
     public static Part? FindGuns(Part launcher, LauncherProfile profile)
         => FindSubPart(launcher, profile.GunsMarker);
 
+    /// <summary>A barrel that recoils inside the cannon. Null for a launcher with none.</summary>
+    public static Part? FindBarrel(Part launcher, LauncherProfile profile)
+        => FindSubPart(launcher, profile.GunBarrelMarker);
+
     /// <summary>A carried director's base, which rides the traverse. Null for a launcher with none.</summary>
     public static Part? FindOpticBase(Part launcher, LauncherProfile profile)
         => FindSubPart(launcher, profile.OpticBaseMarker);
@@ -706,6 +710,28 @@ internal static class LauncherPart
         catch (Exception e)
         {
             Log.Warn($"guns: could not write aim ({e.GetType().Name}: {e.Message})");
+            return false;
+        }
+    }
+
+    /// <summary>Carries the barrel with the cannon and runs it back along the bore.</summary>
+    public static bool TryApplyBarrelAim(Part barrel, LauncherProfile profile, double bearingRad,
+                                         double elevationRad, double recoilMetres)
+    {
+        try
+        {
+            DrivePose pose = TubeGeometry.BarrelPose(profile, bearingRad, elevationRad, recoilMetres);
+
+            barrel.Asmb2ParentAsmb = pose.Rotation;
+            barrel.Asmb2ParentAsmbSafe = pose.Rotation;
+            barrel.PositionParentAsmb = pose.Position;
+            barrel.PositionParentAsmbSafe = pose.Position;
+            barrel.ResetCachedPosMatrixValues();
+            return true;
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"barrel: could not write recoil ({e.GetType().Name}: {e.Message})");
             return false;
         }
     }

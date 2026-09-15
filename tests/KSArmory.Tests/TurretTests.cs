@@ -15,6 +15,38 @@ public class TurretTests
     private static readonly double ElevRate = double.DegreesToRadians(45);
 
     [Fact]
+    public void Configure_StartsAFreshDriveAtItsLaunchersRestPose()
+    {
+        // The Mk 42 is modelled level. A drive left at the default writes 55 degrees on the first
+        // frame, and the barrel jumps up on load and slews back down.
+        LauncherProfile mount = Arsenal.Mk42;
+        Assert.True(Math.Abs(mount.RestElevationRad - Turret.DefaultRestElevation) > 0.1,
+                    "this needs a launcher that does not rest at the default");
+
+        var turret = new Turret();
+        mount.ConfigureTurret(turret);
+
+        Assert.Equal(mount.RestElevationRad, turret.ElevationRad, 9);
+    }
+
+    [Fact]
+    public void Configure_LeavesADriveThatHasMovedWhereItIs()
+    {
+        // Configured every frame the launcher is resolved, so seating it again would snap a laid gun
+        // back to rest.
+        var turret = new Turret();
+        Arsenal.Mk42.ConfigureTurret(turret);
+
+        turret.Stow(0.7);
+        turret.Update(10.0, ElevRate, ElevRate);
+        Assert.Equal(0.7, turret.ElevationRad, 9);
+
+        Arsenal.Mk42.ConfigureTurret(turret);
+
+        Assert.Equal(0.7, turret.ElevationRad, 9);
+    }
+
+    [Fact]
     public void BearingTo_ForwardIsZero()
     {
         // +Y is the turret's rest facing, which must be bearing zero.

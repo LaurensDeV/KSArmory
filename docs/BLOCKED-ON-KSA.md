@@ -39,6 +39,9 @@ happen rather than a member that moved.
   within 250 m of the aim, then leads a `Ccf` bubble that catches that bus before it splits on
   nearly every shot. Its off-gravity should read ~0 and its split debt the usual 0.3-0.5 m/s. See
   the entry below
+- [ ] **`PhysicsStates.ComputeDrag` is still a body-fixed drag box over the mass, with no lift, no
+  Mach term and no aerodynamic torque** — RocketWerkz are working on aerodynamics. The day this
+  changes, the gun's lead is leading on yesterday's physics; see the entry below
 
 **Rechecked against 2026.9.10.5438: all twelve open items still blocked, the fictitious forces
 arrived, and partial damage moved again.** A part's crash tolerance is now derived from its collider volume against a
@@ -70,6 +73,52 @@ passes remain the frame viewport's alone and the first two entries stand. `Uncom
 does not mention `Character` at all; `KittenRenderable` writes an attachment's transform and
 submits its draw in consecutive statements; `KSA.Rendering.PostProcessing` is an anti-aliasing
 pass and a tone curve.
+
+---
+
+## Aerodynamics are being worked on, and the gun's lead is a copy of today's
+
+**Not blocked — the opposite.** Nothing here is missing. It is recorded because the author has it
+from RocketWerkz that aerodynamics are being worked on (2026-09-14), and this mod copies the
+current model by hand in a place no tool will flag when it changes.
+
+**What is copied.** `PhysicsStates.ComputeDrag` and `BoundingBoxCdA.ComputeCdA`, as of
+2026.9.7.5402: drag = `(ComputeCdA(airflow in the body frame) + 0.1 × TotalSurfaceArea) × ½ρv²`,
+against the mass, then an implicit damping factor `1 / (1 + F·dt / (m·v))` that is negligible at
+these speeds and is not copied. The box is `VehicleProperties.AerodynamicCdABody`: each face's area
+weighted 0.3 on +X, 1.0 on −X and 1.2 on the sides, by how squarely the air meets it. There is **no
+Mach term, no lift and no aerodynamic torque**. `Sim/DragShape.cs` is the copy and
+`KsaWorld.DragShapeOf` reads the terms off a craft; `Sim/BallisticLead.cs` flies a target on it.
+
+**How it was confirmed, so the check can be repeated.** `scenario.sh gunnery:1,overhead,30,300,1500`
+logs every half second a drone's slowing times its mass over `v² × density ratio × area`. On today's
+engine that held at **0.6125 — ½ × 1.225 — to four places** while the drag area changed by 20%, and
+with `,20` appended (a 20°/s tumble) the area predicted half a second ahead matched the engine's
+within 0.1 m². If either stops holding after an update, the copy is out of date.
+
+**What else the lead assumes, which aerodynamics would also break.**
+- Whatever accelerates a target besides gravity and this drag is its **engine**, held fixed to the
+  body and scaled up as its mass burns away (`DragShape.ExhaustVelocity`, `PropellantMass`). Lift
+  would be read as thrust: the right size at the shot, then wrong, because lift follows the airflow
+  and the airspeed rather than the body and the mass. Flown with `,0,burn` appended: holding the
+  thrust put every burst 19.5 m and further under a burning drone, and burning the mass away put
+  the first shell on it.
+- A tumbling craft keeps its **body rates** for the whole of a shell's flight. True while nothing
+  aerodynamic torques it; an aerodynamic moment that weathervanes a craft into the wind would turn
+  it away from the predicted attitude within seconds.
+- A **round's** drag is `Medium.Drag`, a coefficient on airspeed squared with no Mach term. That is
+  this mod's own model rather than the engine's, and a real shell's drag changes a lot through the
+  speed of sound.
+
+**What to do when it lands**, cheapest first: re-run the two logged checks above; if the new drag is
+still a function of the body, the airflow and the mass, extend `DragShape` to it; if it gains lift or
+a moment, carry that in the same place, since the body's attitude is already being flown. Holding
+the measured acceleration is the fallback, and it is what a target without a shape still gets.
+
+**And it is not a real fire-control system either.** The lead reads the target's mass, fuel, drag box
+and body rates straight out of the engine — nothing a radar could measure. It hits because it knows
+the game's true state under the game's simple physics. A realistic director would estimate all of
+it from the track and miss more, especially against a target that manoeuvres.
 
 ---
 

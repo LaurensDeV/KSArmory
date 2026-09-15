@@ -23,6 +23,9 @@ namespace KSArmory;
 /// in five carries a tracer on a real gun; every round tracing reads as a rod of light rather than
 /// as gunfire. It also bounds the cost: at 75 rounds a second an emitter each would drain the
 /// shared pool in well under a second and leave nothing in the world able to spawn particles.</para>
+///
+/// <para>A shell drawn as a body gets none, and hands back one it already had: the body is the
+/// round, and a glowing trail on top of it marks something already on screen.</para>
 /// </summary>
 internal sealed class TracerTrail
 {
@@ -77,7 +80,11 @@ internal sealed class TracerTrail
         foreach (IProjectile round in battery.Rounds)
         {
             // Negative tube numbers mark the cannon; the magazine owns zero and up.
-            if (RoundLabel.IsGunRound(round.Tube) && round.State == RoundState.Flying) _candidates.Add(round);
+            if (RoundLabel.IsGunRound(round.Tube) && round.State == RoundState.Flying
+                && !battery.ShellDrawnAsBody(round))
+            {
+                _candidates.Add(round);
+            }
         }
 
         // Keep the ones already lit before taking on new ones. Swapping which shells are traced
@@ -118,7 +125,8 @@ internal sealed class TracerTrail
         foreach (KeyValuePair<IProjectile, Live> kv in _tracing)
         {
             if (!ReferenceEquals(kv.Value.Owner, battery)) continue;
-            if (kv.Key.State != RoundState.Flying || !battery.Rounds.Contains(kv.Key))
+            if (kv.Key.State != RoundState.Flying || !battery.Rounds.Contains(kv.Key)
+                || battery.ShellDrawnAsBody(kv.Key))
             {
                 _finished.Add(kv.Key);
             }

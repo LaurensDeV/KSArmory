@@ -37,3 +37,13 @@ rather than typed in, so a different recording of the same shape works without e
 
 If this recording ever has to go, `tools/sounds.py --synth-cannon` regenerates the synthesised
 cannon it replaced and `KSArmorySounds.xml` goes back to a single looping `<Sound>`.
+
+## The 5"/54 Mk 42
+
+| File | Source | Licence |
+| --- | --- | --- |
+| `mk42/Mk42_Gunshot.wav` | recorded for this mod by its author | ships under the mod's own MIT licence |
+
+The gun's gunshot, one per round. Kept stereo as recorded, so the cut can be remade:
+`./tools/mk42-sounds.py` writes the mono `src/KSArmory/Sounds/KSArmory_Mk42_Gunshot.wav` from it, and
+`--report` prints what it would write. The shell's burst has no sound of its own.

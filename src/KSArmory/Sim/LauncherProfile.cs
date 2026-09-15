@@ -85,6 +85,12 @@ public sealed class LauncherProfile
     public string? GunsMarker { get; init; }
 
     /// <summary>
+    /// A barrel that runs back along the bore when the cannon fire. It rides the cannon's trunnion
+    /// rather than one of its own. Null for cannon with nothing that recoils.
+    /// </summary>
+    public string? GunBarrelMarker { get; init; }
+
+    /// <summary>
     /// An optical director's base, riding the traverse. Null for a launcher carrying none, which
     /// is most of them.
     ///
@@ -252,6 +258,30 @@ public sealed class LauncherProfile
     /// <summary>Seconds to feed a fresh belt. Zero disables cannon resupply.</summary>
     public float GunReloadSeconds = 20f;
 
+    /// <summary>
+    /// How far the barrel runs back (m), how long the run takes, and how long counter-recoil takes to
+    /// bring it back into battery (s). Drawn only: the round has left before the barrel moves.
+    /// </summary>
+    public float GunRecoilMetres;
+    public float GunRecoilSeconds = 0.08f;
+    public float GunReturnSeconds = 0.6f;
+
+    /// <summary>
+    /// The cannon's sound while firing, by <c>ModLibrary</c> Id. Null plays the shared recording,
+    /// retuned toward this gun's rate; a gun naming its own is played as recorded, because a
+    /// recording of the right gun has nothing to be retuned toward.
+    /// </summary>
+    public string? GunSoundId { get; init; }
+
+    /// <summary>
+    /// A one-shot for every round fired, by <c>ModLibrary</c> Id. Null for none.
+    ///
+    /// <para>For a gun slow enough to be heard shot by shot. Past a few hundred rounds a minute the
+    /// gunshots fuse into a pitch, and that is what <see cref="GunSoundId"/> carries instead. A gun
+    /// with a gunshot and no <see cref="GunSoundId"/> has no loop at all, rather than the shared one.</para>
+    /// </summary>
+    public string? GunshotSoundId { get; init; }
+
     /// <summary>Seconds between rounds, derived from the cyclic rate.</summary>
     public double GunRoundInterval => GunRoundsPerMinute > 0f ? 60.0 / GunRoundsPerMinute : 0.0;
 
@@ -271,5 +301,6 @@ public sealed class LauncherProfile
         turret.ForwardArcRad = float.DegreesToRadians(ForwardArcDeg);
         turret.ForwardPlateauRad = float.DegreesToRadians(ForwardPlateauDeg);
         turret.RestElevationRad = RestElevationRad;
+        turret.SeatElevation(RestElevationRad);
     }
 }

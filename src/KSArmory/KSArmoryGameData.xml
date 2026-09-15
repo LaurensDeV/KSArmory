@@ -636,4 +636,55 @@
     </Collider>
   </PartGameData>
 
+
+  <PartGameData Id="KSArmory_Prefab_Mk42" DisplayName="5&quot;/54 Mk 42 mount">
+    <EditorTag Value="Weapons" />
+    <Diameter M="3" />
+
+    <!--
+      No Radial or NoFaceSnapping tag and no ToSurface flag on the connector: this part STACKS,
+      like the CIWS. It mates with the top node of any 3 m tank, decoupler or adapter.
+    -->
+    <Connector Id="_mk42ConnectorBase" />
+
+    <!--
+      About 61 tonnes, the real mount's weight: a Mk 42 is a heavy gun house for a light gun,
+      because it carries its own ammunition hoists.
+    -->
+    <SolidSphereMass>
+      <Mass Kg="61400" />
+      <Radius M="1.40" />
+    </SolidSphereMass>
+
+    <!--
+      Boxes at the modelled pose, as the CIWS declares its radome: the gun house and the barrel
+      both move, and a collider that tracked them would have to be rebuilt every frame.
+    -->
+    <Collider Id="KSArmory_Mk42Collider">
+      <!-- Base ring, resting on the mounting face at X = 0. -->
+      <Box Id="KSArmory_Mk42BaseCollider">
+        <LocationAsmb X="0.156" Y="0" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.31" />
+        <LengthY M="2.45" />
+        <LengthZ M="2.46" />
+      </Box>
+      <!-- The traversing gun house. Its bustle reaches further aft than its face does forward. -->
+      <Box Id="KSArmory_Mk42HouseCollider">
+        <LocationAsmb X="1.559" Y="-0.245" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="2.58" />
+        <LengthY M="3.41" />
+        <LengthZ M="2.81" />
+      </Box>
+      <!-- The barrel beyond the house, level. -->
+      <Box Id="KSArmory_Mk42BarrelCollider">
+        <LocationAsmb X="1.554" Y="3.064" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.21" />
+        <LengthY M="3.21" />
+        <LengthZ M="0.21" />
+      </Box>
+    </Collider>
+  </PartGameData>
 </Assets>

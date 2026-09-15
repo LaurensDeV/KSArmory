@@ -21,7 +21,8 @@ namespace KSArmory;
 /// the clocks and the verdict. An engagement is short enough to run inline; a ballistic shot is
 /// seven minutes of flight with a state machine of its own, and lives in
 /// <see cref="BallisticScenario"/>; a store let go off a climbing craft lives in
-/// <see cref="DropScenario"/>.</para>
+/// <see cref="DropScenario"/>; and a gun scored shell by shell against drones lives in
+/// <see cref="GunneryScenario"/>.</para>
 /// </summary>
 internal sealed class ScenarioRunner
 {
@@ -48,6 +49,7 @@ internal sealed class ScenarioRunner
     private TestTarget.Profile _profile;
     private BallisticScenario? _ballistic;
     private DropScenario? _drop;
+    private GunneryScenario? _gunnery;
 
     // Held rather than passed, because the flights are crewed once the world has loaded rather
     // than when the run is asked for.
@@ -389,6 +391,12 @@ internal sealed class ScenarioRunner
             return;
         }
 
+        if (_name == "gunnery")
+        {
+            BeginGunnery(named.Length > 1 ? named[1].Trim() : string.Empty);
+            return;
+        }
+
         _profile = _name switch
         {
             "overhead" => TestTarget.Profile.Overhead,
@@ -413,6 +421,24 @@ internal sealed class ScenarioRunner
         _budget = DropBudgetSeconds;
         _phase = Phase.LoadingSave;
         Report($"{_name}: START {drop.Describe()} save='{_save}'");
+    }
+
+    private void BeginGunnery(string arguments)
+    {
+        if (!GunneryScenario.Request.TryParse(arguments, out GunneryScenario.Request gunnery, out string trouble))
+        {
+            Finish($"FAIL the request could not be read -- {trouble}");
+            return;
+        }
+
+        _gunnery = new GunneryScenario(gunnery, line => Report($"{_name}: {line}"));
+
+        // Nobody is watching, and whether a miss was the barrel still laying is only in the debug log.
+        Log.Threshold = Log.Level.Debug;
+
+        _budget = gunnery.BudgetSeconds;
+        _phase = Phase.LoadingSave;
+        Report($"{_name}: START {gunnery.Describe()} save='{_save}'");
     }
 
     private void BeginBallistic(string arguments)
@@ -605,6 +631,7 @@ internal sealed class ScenarioRunner
 
                 entry.Policy.AutoEngage = true;
                 entry.Policy.MissilesEnabled = true;
+                entry.Policy.GunsEnabled = true;
                 _config.DrawOverlays = true;
 
                 Report($"{_name}: auto-engage on, {entry.Battery.Ammo} rounds");
@@ -613,6 +640,13 @@ internal sealed class ScenarioRunner
 
             case Phase.Engaging:
                 if (entry is null) return;
+
+                if (_gunnery is not null)
+                {
+                    if (_gunnery.Update(entry, dt) is { } scored) Finish(scored);
+                    return;
+                }
+
                 Engage(entry, dt);
                 return;
         }
@@ -694,6 +728,7 @@ internal sealed class ScenarioRunner
         _phase = Phase.Done;
         for (int i = 0; i < _flights.Count; i++) _flights[i].Release();
         _drop?.Release();
+        _gunnery?.Release();
         Report($"{_name}: {outcome}");
         Report($"{_name}: END");
     }
