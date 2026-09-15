@@ -153,6 +153,24 @@ internal partial class Ui
     {
         WeaponSystem speaking = TriggerSystem(inHand);
 
+        DrawHoldReason(speaking, autoEngage);
+        DrawBeyondReach(speaking);
+    }
+
+    // Not a hold: the trigger still fires, and the shell is thrown as far as it goes. Said under the
+    // trigger because an aim point out of reach looks exactly like one in reach until the shell lands.
+    private static void DrawBeyondReach(WeaponSystem speaking)
+    {
+        double shortBy = speaking.GunLayShortMetres;
+        if (!(shortBy > 1.0)) return;
+
+        double range = speaking.GunLayRangeMetres;
+        ImGui.TextColored(Amber, $"Aim point beyond reach: {range / 1000.0:F1} km, the gun reaches "
+                                 + $"{(range - shortBy) / 1000.0:F1} km -- shells land {shortBy / 1000.0:F1} km short");
+    }
+
+    private void DrawHoldReason(WeaponSystem speaking, bool autoEngage)
+    {
         if (speaking.Hold is not { } why)
         {
             ImGui.TextColored(Green, autoEngage ? "Clear to fire" : "Clear to fire -- on the trigger");

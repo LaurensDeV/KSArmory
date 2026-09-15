@@ -1115,6 +1115,15 @@ the mesh and the XML, and the suite.
       (`GroundLayTests`).
 - [ ] Over sky, or over a craft, mouse aim still lays along the line of sight: nothing about the air
       fight changed.
+- [x] Designate ground well past the Mk 42's reach, past 23.7 km, and fire. The shell lands as far out
+      along that line as it can get rather than a kilometre or two away. Before, on 2026.9.10.5438: 23.3 km
+      was laid to land, and 24.2 km fell back to `driving at 24.2 km`, the line of sight, and came down
+      short. Headless, a place 35.5 km out is thrown 23.67 km, where the best elevation reaches 23.68 km
+      (`GroundLayTests`). **Confirmed on 2026.9.10.5438** with `gunnery:1,ground,,,35000`: `driving a gun
+      laid to its longest reach, 23.7 km, 11.3 km short of it at 35.0 km`, and the shell came down 82.2 s
+      later 11,289 m short of the place, at 23.7 km, with no exception in KSA's log.
+- [ ] The same by hand, with the mouse as well as a designation. The header strip says `Aim point beyond
+      reach` and `the gun reaches` names the number, and the designation mark says it under the range.
 - [x] Designate ground just inside the longest reach, 22 km out, and fire. The log says `a gun laid to
       land`, not `beyond reach`, and the shell comes down on the place. **Confirmed on 2026.9.10.5438**
       with `gunnery:1,ground,,,22000` on the range-table drag, second-order shells and the centre carried:

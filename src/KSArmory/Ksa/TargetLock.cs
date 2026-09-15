@@ -154,7 +154,13 @@ internal static class TargetLock
             if (inView)
             {
                 DrawReticle(draw, at, colour);
-                DrawReadout(draw, at, what, range, closing, colour);
+                // Off the system, which only reports a shortfall while its own gun lay drives it.
+                string? beyond = system is { GunLayShortMetres: > 1.0 } laid
+                                     ? $"beyond reach -- the gun reaches "
+                                       + $"{(laid.GunLayRangeMetres - laid.GunLayShortMetres) / 1000.0:F1} km"
+                                     : null;
+
+                DrawReadout(draw, at, what, range, closing, colour, beyond);
             }
             else
             {
@@ -182,7 +188,7 @@ internal static class TargetLock
     // its direction rather than by the sign alone: "-40 m/s" reads as a speed that is somehow
     // negative, where "opening" says what the target is doing.
     private static void DrawReadout(ImDrawListPtr draw, float2 at, string what,
-                                    double range, double closing, ImColor8 colour)
+                                    double range, double closing, ImColor8 colour, string? warning = null)
     {
         string distance = range >= 1000.0 ? $"{range / 1000.0:F2} km" : $"{range:F0} m";
         string speed = Math.Abs(closing) < 0.5
@@ -192,7 +198,13 @@ internal static class TargetLock
         var origin = new float2(at.X + TickOut + 6f, at.Y - TickIn);
         draw.AddText(origin, colour, what);
         draw.AddText(new float2(origin.X, origin.Y + LineHeight), colour, $"{distance}   {speed}");
+
+        // Under the range it is about, and in a colour of its own: the mark otherwise reads the same in
+        // reach and out of it.
+        if (warning is not null) draw.AddText(new float2(origin.X, origin.Y + (2f * LineHeight)), BeyondReach, warning);
     }
+
+    private static readonly ImColor8 BeyondReach = new(255, 90, 60, 235);
 
     // Shift and the left button, and not while a panel window wants the mouse -- otherwise every
     // click on the panel behind the sight also redesignates.

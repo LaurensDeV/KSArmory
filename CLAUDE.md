@@ -2045,7 +2045,11 @@ level fire meets the dirt. `WeaponSystem.TryGunLay` flies the solve a tracked ta
 the ground under the cursor, a designated place, or a designated craft — which keeps the ground's pace
 while it rests on something and carries its own acceleration while it flies. Laid along the line of
 sight instead, a craft designated 9.7 km out drew a shell that came down about halfway. Over sky, or a
-craft under the mouse, the line of sight stands, because there the operator is judging the lead.
+craft under the mouse, the line of sight stands, because there the operator is judging the lead. Beyond
+its reach a gun is thrown as far as it goes along the line to the target instead —
+`BallisticLead.TrySolveFlownOrReach`, within the shell's own lifetime — and the header strip and the
+designation mark say so, because laid along the line of sight a shell sent 24 km lands a kilometre or two
+out and nothing on screen tells the two apart.
 
 **And the reach is the whole reach.** Near it a lobbed shell comes down steeper than it went up, so
 turning the barrel along the miss moves its path mostly along itself and takes out less every pass: on a

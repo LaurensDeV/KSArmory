@@ -282,6 +282,35 @@ public class GroundLayTests(ITestOutputHelper output)
     }
 
     /// <summary>
+    /// A place beyond reach. Laid along the line of sight the shell lands a kilometre or two out; laid on
+    /// the farthest point along that line it can get to, it goes as far as any elevation throws it within
+    /// its lifetime.
+    /// </summary>
+    [Fact]
+    public void BeyondReachTheShellIsThrownAsFarAsItGoes()
+    {
+        // Half as far again as the longest reach, which is out of it whatever the drag and the lifetime are.
+        double best = LongestReachKm();
+        double3 beyond = Ground(best * 1.5);
+
+        Assert.False(BallisticLead.TrySolveFlown(Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero,beyond, Vec.Zero, Vec.Zero,
+                                                 null, Shell, GravityAt, DensityAt, Vec.Zero, out _, out _));
+
+        Assert.True(BallisticLead.TrySolveFlownOrReach(Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero,beyond, Vec.Zero,
+                                                       Vec.Zero, null, Shell, GravityAt, DensityAt, Vec.Zero, 1.0,
+                                                       out double3 lay, out _, out double fraction));
+        Assert.InRange(fraction, 0.05, 0.999);
+
+        var landed = FlyToGround(lay);
+        Assert.True(landed.HasValue, "the shell never came down");
+        double reached = SurfaceKm(landed!.Value.Landed);
+
+        output.WriteLine($"beyond reach: aimed {best * 1.5:F1} km, laid {fraction:P1} of the way, landed {reached:F2} km, "
+                         + $"best elevation {best:F2} km");
+        Assert.True(reached >= 0.97 * best, $"landed {reached:F2} km out where {best:F2} km was reachable");
+    }
+
+    /// <summary>
     /// Near the longest reach the shell comes down steeper than it went up, so turning the barrel up moves its
     /// path mostly along itself: a turn along the miss takes out less of it every pass, and the lay gives up on
     /// a place the gun can reach. Tried on the shipped drag and on almost none.
@@ -308,5 +337,25 @@ public class GroundLayTests(ITestOutputHelper output)
         output.WriteLine($"{0.97 * best:F2} km of {best:F2}: laid {elevation:F2} deg, {flight:F1} s, landed {miss:F1} m from the point");
 
         Assert.True(miss < shell.LethalRadius, $"landed {miss:F1} m from the point");
+    }
+
+    /// <summary>
+    /// The last answer is kept and confirmed rather than searched for again: a lay held on something out of
+    /// reach costs a few solves a frame, not a dozen.
+    /// </summary>
+    [Fact]
+    public void TheLastReachIsReusedWhenItStillHolds()
+    {
+        double3 beyond = Ground(40.0);
+
+        Assert.True(BallisticLead.TrySolveFlownOrReach(Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero,beyond, Vec.Zero,
+                                                       Vec.Zero, null, Shell, GravityAt, DensityAt, Vec.Zero, 1.0,
+                                                       out double3 first, out _, out double fraction));
+        Assert.True(BallisticLead.TrySolveFlownOrReach(Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero,beyond, Vec.Zero,
+                                                       Vec.Zero, null, Shell, GravityAt, DensityAt, first, fraction,
+                                                       out double3 again, out _, out double reused));
+
+        Assert.Equal(fraction, reused, 9);
+        Assert.True(Vec.AngleBetween(first, again) < 1e-4, $"{Vec.AngleBetween(first, again)} rad apart");
     }
 }

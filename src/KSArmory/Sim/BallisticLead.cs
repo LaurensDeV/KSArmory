@@ -312,6 +312,92 @@ public static class BallisticLead
     // turn that would take a miss out grows without bound, and one taken whole lands on the far side of it.
     private const double MaxTurnRadians = 0.1;
 
+    /// <summary>
+    /// <see cref="TrySolveFlown"/>, or, for a target out of reach, the farthest point along the line to it
+    /// the shell can get to within its lifetime.
+    ///
+    /// <para>A gun given nothing it can reach has only the line of sight to lay along, which leaves the
+    /// barrel near level and the shell a kilometre or two out whatever the range. Thrown as far as it
+    /// goes instead, it lands as close to the target as the gun allows.</para>
+    ///
+    /// <para>Found by halving along that line, up to <see cref="ReachHalvings"/> solves. A target that has
+    /// not moved far is settled by confirming the last answer instead — that point still solves and a
+    /// little further does not — which is three.</para>
+    /// </summary>
+    /// <param name="reachHint">Last frame's <paramref name="reachFraction"/>, or one when there was none.</param>
+    /// <param name="reachFraction">
+    /// One when the target itself was solved; otherwise how far along the line to it the lay reaches.
+    /// </param>
+    public static bool TrySolveFlownOrReach(double3 shooterPos, double3 shooterVelocity, double3 groundVelocity,
+                                            double3 groundAcceleration, double3 bodyVelocity,
+                                            double3 targetPos, double3 targetVelocity, double3 targetAccelerationEcl,
+                                            DragShape? targetDragShape,
+                                            MunitionProfile munition, Func<double3, double3> gravityAt,
+                                            Func<double3, double> densityAt, double3 directionHint, double reachHint,
+                                            out double3 aimPoint, out double flightTimeSeconds, out double reachFraction)
+    {
+        reachFraction = 1.0;
+
+        if (TrySolveFlown(shooterPos, shooterVelocity, groundVelocity, groundAcceleration, bodyVelocity, targetPos,
+                          targetVelocity, targetAccelerationEcl, targetDragShape, munition, gravityAt, densityAt,
+                          directionHint, out aimPoint, out flightTimeSeconds))
+        {
+            return true;
+        }
+
+        double3 toTarget = targetPos - shooterPos;
+        double3 hint = directionHint;
+
+        bool Solves(double fraction, out double3 aim, out double time)
+            => TrySolveFlown(shooterPos, shooterVelocity, groundVelocity, groundAcceleration, bodyVelocity,
+                             shooterPos + (toTarget * fraction), targetVelocity, targetAccelerationEcl,
+                             targetDragShape, munition, gravityAt, densityAt, hint, out aim, out time);
+
+        double near = 0.0;
+        double far = 1.0;
+        bool found = false;
+
+        if (reachHint > 0.0 && reachHint < 1.0 && Solves(reachHint, out double3 atHint, out double hintTime))
+        {
+            found = true;
+            near = reachHint;
+            aimPoint = atHint;
+            flightTimeSeconds = hintTime;
+            hint = atHint - shooterPos;
+
+            if (!Solves(Math.Min(1.0, reachHint + ReachResolution), out _, out _))
+            {
+                reachFraction = reachHint;
+                return true;
+            }
+        }
+
+        for (int i = 0; i < ReachHalvings && far - near > ReachResolution; i++)
+        {
+            double mid = 0.5 * (near + far);
+
+            if (Solves(mid, out double3 aim, out double time))
+            {
+                found = true;
+                near = mid;
+                aimPoint = aim;
+                flightTimeSeconds = time;
+                hint = aim - shooterPos;
+            }
+            else
+            {
+                far = mid;
+            }
+        }
+
+        reachFraction = near;
+        return found;
+    }
+
+    // A thousandth of the line: 24 m at 24 km, inside what the fall scatters a shell by anyway.
+    private const double ReachResolution = 0.001;
+    private const int ReachHalvings = 12;
+
     // One shell and the target it is flying at, in the ground's frame: every position an offset from
     // the mount and every velocity against the air. So the point density is read at is where over the
     // ground each will be, not where the ecliptic will have carried that point by then.

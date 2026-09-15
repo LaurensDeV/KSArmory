@@ -1025,22 +1025,66 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                              ? atMuzzle
                              : MountEcl;
 
-        if (!BallisticLead.TrySolveFlown(muzzle, KsaWorld.VelocityEcl(platform),
-                                         KsaWorld.GroundVelocityAt(platform, PlatformEcl),
-                                         KsaWorld.GroundAccelerationAt(platform, PlatformEcl),
-                                         KsaWorld.BodyVelocityAt(platform),
-                                         targetEcl, targetVelocityEcl, targetAccelerationEcl,
-                                         null, Shell,
-                                         _leadGravityAt ??= LeadGravityAt, _leadDensityAt ??= LeadDensityAt,
-                                         _groundLayDirection, out double3 lay, out _))
+        double3 fromMount = targetEcl - PlatformEcl;
+
+        // Out of reach last time, and the target has barely moved against the mount since: a fresh search
+        // lands on the same answer, and each one flies shells for most of their life. Reused for half a
+        // second, or until the target moves a fifth of a percent of the range -- 48 m at 24 km.
+        if (_gunLayReach < 1.0 && Vec.Len2(_groundLayDirection) > 0.0
+            && _clock - _gunLaySearchedAt < ReachReuseSeconds
+            && Vec.Len(fromMount - _gunLayFromMount) < ReachReuseFraction * Vec.Len(fromMount))
+        {
+            _gunLayRangeMetres = Vec.Len(targetEcl - muzzle);
+            _gunLayShortMetres = (1.0 - _gunLayReach) * _gunLayRangeMetres;
+            return LauncherPart.TryDirectionToPartFrame(platform, Launcher, _groundLayDirection, out partFrame);
+        }
+
+        // Beyond reach it is thrown as far as it goes along the line to the target, not laid along that
+        // line: see BallisticLead.TrySolveFlownOrReach.
+        if (!BallisticLead.TrySolveFlownOrReach(muzzle, KsaWorld.VelocityEcl(platform),
+                                                KsaWorld.GroundVelocityAt(platform, PlatformEcl),
+                                                KsaWorld.GroundAccelerationAt(platform, PlatformEcl),
+                                                KsaWorld.BodyVelocityAt(platform),
+                                                targetEcl, targetVelocityEcl, targetAccelerationEcl,
+                                                null, Shell,
+                                                _leadGravityAt ??= LeadGravityAt, _leadDensityAt ??= LeadDensityAt,
+                                                _groundLayDirection, _gunLayReach,
+                                                out double3 lay, out _, out _gunLayReach))
         {
             _groundLayDirection = Vec.Zero;
+            _gunLayReach = 1.0;
+            _gunLayShortMetres = 0.0;
             return false;
         }
 
+        _gunLaySearchedAt = _clock;
+        _gunLayFromMount = fromMount;
+        _gunLayRangeMetres = Vec.Len(targetEcl - muzzle);
+        _gunLayShortMetres = (1.0 - _gunLayReach) * _gunLayRangeMetres;
         _groundLayDirection = lay - muzzle;
         return LauncherPart.TryDirectionToPartFrame(platform, Launcher, _groundLayDirection, out partFrame);
     }
+
+    // How far along the line to its target the last gun lay reaches, one when all the way, and when and
+    // against where that was searched for. Kept between frames; the two distances are this frame's,
+    // cleared in UpdateTurret.
+    private double _gunLayReach = 1.0;
+    private double _gunLaySearchedAt = double.NegativeInfinity;
+    private double3 _gunLayFromMount;
+    private double _gunLayRangeMetres;
+    private double _gunLayShortMetres;
+
+    private const double ReachReuseSeconds = 0.5;
+    private const double ReachReuseFraction = 0.002;
+
+    /// <summary>
+    /// How far short of what the gun is laid on this frame its shell is thrown, because that is beyond
+    /// the gun's reach: zero within reach, and zero when no gun lay is driving the turret.
+    /// </summary>
+    public double GunLayShortMetres => _gunLayShortMetres;
+
+    /// <summary>How far away what the gun is laid on this frame is, or zero when no gun lay is driving.</summary>
+    public double GunLayRangeMetres => _gunLayRangeMetres;
 
     // A place on the ground, which keeps its place as the ground turns.
     private bool TryGunGroundLay(double3 groundEcl, double3 groundVelocityEcl, out double3 partFrame)
@@ -1333,12 +1377,29 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // See AimOriginEcl.
         double3 origin = AimOriginEcl;
 
+        // Keyed apart when the shell is thrown short, so moving out of reach and back is said again.
+        void SayGunLaid(string how)
+        {
+            double km = Vec.Len(Designation.PositionEcl - origin) / 1000.0;
+
+            if (_gunLayShortMetres > 1.0)
+            {
+                WhyNotDesignated("driving beyond reach",
+                                 $"a gun laid to its longest reach, "
+                                 + $"{(_gunLayRangeMetres - _gunLayShortMetres) / 1000.0:F1} km, "
+                                 + $"{_gunLayShortMetres / 1000.0:F1} km short of it at {km:F1} km");
+            }
+            else
+            {
+                WhyNotDesignated("driving", $"{how} {km:F1} km out");
+            }
+        }
+
         // A place on the ground is somewhere a gun's shell has to land, not a line to lay it on.
         if (Designation.Kind == AimpointKind.Ground
             && TryGunGroundLay(Designation.PositionEcl, Designation.VelocityEcl, out partFrame))
         {
-            WhyNotDesignated("driving",
-                             $"a gun laid to land {Vec.Len(Designation.PositionEcl - origin) / 1000.0:F1} km out");
+            SayGunLaid("a gun laid to land");
             return true;
         }
 
@@ -1351,8 +1412,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                              : KsaWorld.AccelerationEcl(designated),
                          out partFrame))
         {
-            WhyNotDesignated("driving",
-                             $"a gun laid on it {Vec.Len(Designation.PositionEcl - origin) / 1000.0:F1} km out");
+            SayGunLaid("a gun laid on it");
             return true;
         }
 
@@ -1394,7 +1454,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         string tail = detail.Length > 0 ? $" {detail}" : "";
 
-        if (state == "driving")
+        // Every driving state is said as driving. They are keyed apart only so a change between them,
+        // such as going out of reach, is said again.
+        if (state.StartsWith("driving", StringComparison.Ordinal))
         {
             Log.Info($"{Profile.DisplayName}: turret on {DesignationName} -- driving{tail}");
             return;
@@ -1420,6 +1482,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // cannot leave a stale claim on the ring.
         _ringIsOnCursor = false;
         _ringAimValid = false;
+        _gunLayRangeMetres = 0.0;
+        _gunLayShortMetres = 0.0;
 
         if (_policy.TurretSpin)
         {
