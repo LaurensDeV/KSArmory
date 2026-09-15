@@ -7,7 +7,7 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// The one place this mod patches the game, and the only way to point a vehicle at all.
+/// One of the places this mod patches the game, and the only way to point a vehicle at all.
 ///
 /// <para>KSA double-buffers a vehicle's flight computer across the frame.
 /// <c>ApplyVehicleSolvers</c> writes the worker's result over it, <c>ExecuteNextVehicleSolvers</c>

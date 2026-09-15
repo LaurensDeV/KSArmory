@@ -416,9 +416,10 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/BombSightOverlay.cs` | the pipper: the impact ring and the arc down to it |
 | `Ksa/IcbmComputer.cs` | **one craft's ballistic computer** — reads the world, runs the program, flies the rocket |
 | `Ksa/IcbmComputers.cs` | one per craft this mod recognises a weapon on, crewed and forgotten with it |
-| `Ksa/AttitudeHook.cs` | **one of the three places this mod patches the game** — the only window in which an attitude command survives |
+| `Ksa/AttitudeHook.cs` | **one of the four places this mod patches the game** — the only window in which an attitude command survives |
 | `Ksa/PreRenderHook.cs` | the second — **a step before the render on a frame that draws no UI**, because StarMap has no hook that is both |
 | `Ksa/WorldReloadHook.cs` | the third — **that a save was loaded**, which nothing else can tell: the mod never leaves the flight scene across one |
+| `Ksa/RoundBodyDrawHook.cs` | the fourth — **a launcher's rounds drawn after the engine has culled the launcher**, because a body is one of its parts and KSA draws none of a craft under a pixel across |
 | `Ksa/VehicleCommand.cs` | **the only place this mod flies somebody else's rocket** — attitude, throttle, ignition, staging |
 | `Ksa/IcbmOverlay.cs` | the arc it is on and the ring it is aimed at |
 | `Ksa/WarheadTrace.cs` | **one warhead against the prediction of it**, re-flown from where it has got to — measurement only, off by default, and the discriminator is whether the two part *smoothly* or in a *step* |
@@ -489,7 +490,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 533 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 537 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -1481,7 +1482,7 @@ angle-of-attack limiter on pressure rather than density or altitude is what make
 Moon work without anything knowing the Moon has no air — thin air at two kilometres a second is
 still kilopascals.
 
-**Attitude is written from a Harmony prefix, and it is one of three patches.** KSA
+**Attitude is written from a Harmony prefix, and it is one of four patches.** KSA
 double-buffers a vehicle's flight computer: `ApplyVehicleSolvers` writes the worker's result over
 it, `ExecuteNextVehicleSolvers` snapshots it for the next worker, and *then* the GUI pass runs — so
 a command written from any StarMap hook is not in the snapshot and is overwritten before anything
@@ -1528,6 +1529,17 @@ as an earlier one, which is what a clock-rewind test would not do. And the failu
 patch that does not apply is logged once and costs one reload's worth of stale rounds.
 `WeaponSystems.Discard` is the reset it drives — **not `Clear`**, because `Clear` writes the
 settings down first, and the settings about to be read belong to the save being opened.
+
+**The fourth is what keeps a long shot visible.** `Vehicle.UpdateRenderData` draws none of a craft
+whose bounding sphere is under a pixel across from the camera, and a round's body is a subpart of its
+launcher — so a chase camera 3.7 m behind a 5"/54 shell lost it part-way down a 60 km shot while the
+mod went on placing it. On a 1440p screen at a 50° field a craft is under a pixel 1.65 km out for every
+metre it is across — the Mk 42 mount in `5inch_gun` went under at 20.1 km, flown — and
+`Ksa/RoundBodyDrawHook.cs` logs the number the first time it draws. It
+postfixes that method, asks the engine's own pixel test again and draws the parts exactly when the engine did not,
+and only for a craft with rounds in the air: never twice, and a launcher drawn at under a pixel is
+nothing anyone sees. `public virtual`, so pinned like `AttitudeHook`; a patch that does not apply leaves
+the cull.
 
 **`Ksa/VehicleCommand.cs` is the only place this mod flies somebody else's rocket**, and every write
 in it is one the game already makes for itself: the flight computer's `Custom` attitude target,
@@ -2592,7 +2604,8 @@ should not be weakened without understanding what they buy:
   step-only form.
 
 - Round bodies survive at long range: measured in flight to **79.5 km with 0.0 m drift**, never
-  dropping the subpart link and never culled or clamped. The gizmo tracers stay on as a fallback
+  dropping the subpart link or clamped. They are culled with their launcher once it is under a pixel
+  across, which `Ksa/RoundBodyDrawHook.cs` draws past. The gizmo tracers stay on as a fallback
   anyway, and `WeaponSystem.RoundBodiesWork` still turns the whole thing off if a write is
   refused — the engine is under no obligation to keep behaving this way.
 - The guns elevate on the same solution as the pods — one turret, one aim. The cannon have a

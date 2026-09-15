@@ -1604,6 +1604,13 @@ the same band section 7.1b needs — fly one engagement and check both.
       **Confirmed in flight.**
 - [ ] Take the view back through **View → Orbit Camera** during a chase. The camera orbits the
       launching craft rather than the spot the round was at, and the log says `(camera mode)`.
+- [x] Chase a Mk 42 shell on a long shot, 60 km out with `gunnery:1,ground,,,60000`. The shell stays in
+      the picture the whole way down, and the log says once how far from the camera the mount went under
+      a pixel and that it is being drawn anyway. Before, on 2026.9.10.5438, it vanished part-way while the
+      mod went on placing it 3.7 m ahead of the camera: `Vehicle.UpdateRenderData` draws none of a craft
+      under a pixel across, and the shell's body is one of the mount's parts. **Confirmed on
+      2026.9.10.5438** with the hook: `NewRocket_1 is 1.00 px across 20.1 km from the camera ... drawing it
+      anyway`, and screenshots 12 s and 58 s later show the shell's body ahead of the camera, at 1440p.
 
 ### 7.6g The switcher — the panel's list, one row per craft
 

@@ -60,7 +60,7 @@ Do not push yet if you want to inspect the diff first — it is local either way
 ./tools/ksa-api-diff.sh ../ksa-game-assemblies
 ```
 
-This reads `docs/KSA-API-SURFACE.md` — the 533 members this mod genuinely binds to, extracted
+This reads `docs/KSA-API-SURFACE.md` — the 537 members this mod genuinely binds to, extracted
 from the compiled assembly's metadata — against the new corpus, and answers two questions:
 
 **Missing members.** Mechanical and precise. Each one is a break you must fix. `MOVED` means it
@@ -108,6 +108,7 @@ claim still holds.
 | Core's flags on `Radial`, `NoFaceSnapping` | `Content/Core/CoreEditorTagsGameData.xml` | Attachment behaviour changes with nothing failing. |
 | `GetTerrainHeightFromDirCce`, `MaxTerrainHeightApprox` | `Celestial.cs` | Terrain masking and the bomb's ground test both answer against the wrong surface. |
 | `GetPositionEgo` returns the **drawn** position, not the analytic one | `Camera.cs` | The sight's bracket and the head's aim go back to missing the target by metres. |
+| `Vehicle.UpdateRenderData` draws no part of a craft under one pixel across, by `GetObjectDiameterPixels` on `MeanRadius` | `Vehicle.cs`, `Camera.cs` | `RoundBodyDrawHook` re-asks a test that no longer matches: a long shot's body vanishes again, or a craft's parts are drawn twice. |
 | A particle feels gravity times `1 - airDensity / Density`, with no air below 100 Pa, and an unknown XML element is dropped without a word | `ParticleEmitter.cs`, `ParticleEmitterReference.cs` | Every smoke stage in `KSArmoryParticles.xml` sinks instead of rising, and the tracers fall. |
 | `ExplosionSystem.SpawnPreset` sizes a burst by `IntensityJ / 5e10`, floored at 0.05, and Core's presets keep their Ids and fireball radii | `ExplosionSystem.cs`, `ExplosionIntensity.cs`, `Content/Core/ExplosionAssets.xml` | Warheads go off at the wrong size, or not at all. `Sim/WarheadExplosion.cs` copies the floor and two radii, and the load log's `warhead explosion ... DID NOT RESOLVE` names a lost Id. |
 | `Part.CrashTolerancePascals` is derived from collider volume against `PartStructuralLimits.BaseStrength` | `Part.cs`, `PartStructuralLimits.cs` | `BlastDamage.ReferencePascals` stops being KSA's `BaseStrength`, and every warhead's reach against every part moves by the cube root of the difference. Move the constant with it. |

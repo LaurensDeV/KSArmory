@@ -156,6 +156,10 @@ public sealed class KSArmoryMod
         // the flight scene across it. A refusal costs one reload's worth of stale rounds.
         WorldReloadHook.Install();
 
+        // A round's body is a part of its launcher, and KSA draws none of a craft under a pixel across.
+        // A refusal leaves that cull, so a long shot's body vanishes where it always did.
+        RoundBodyDrawHook.Install(craft => _roster?.HasRoundsInFlight(craft) == true);
+
         _roster = new WeaponSystems(_config);
         _heads = new OpticalHeads(_config);
         _icbms = new IcbmComputers(_config);
@@ -838,6 +842,7 @@ public sealed class KSArmoryMod
         AttitudeHook.Remove();
         PreRenderHook.Remove();
         WorldReloadHook.Remove();
+        RoundBodyDrawHook.Remove();
         KsaWorld.ResetSimStepTracking();
         _roster = null;
         _ui = null;
@@ -1150,6 +1155,7 @@ public sealed class KSArmoryMod
         AttitudeHook.Remove();
         PreRenderHook.Remove();
         WorldReloadHook.Remove();
+        RoundBodyDrawHook.Remove();
         Log.Error("too many faults - air defence disabled for this session");
     }
 }

@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-182 types and 533 members across 7 assemblies.
+182 types and 537 members across 7 assemblies.
 
 ## Brutal.Concurrency
 
@@ -406,6 +406,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `double CurrentAltitudeKm`
 - `double DistanceToNearbyCelestialKm`
 - `double DistanceToNearbyCelestialSurfaceMeanKm`
+- `double GetObjectDiameterPixels(double, double)`
 - `double NearbyCelestialTerrainHeight`
 - `float GetFieldOfView()`
 - `void LookAt(Brutal.Numerics.double3, Brutal.Numerics.double3, Brutal.Numerics.double3)`
@@ -831,6 +832,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `System.ReadOnlySpan`1<KSA.Part> get_Parts()`
 - `int get_Count()`
 - `void RecomputeAllDerivedData()`
+- `void UpdateRenderData(ref Brutal.Numerics.double4x4, bool, KSA.IViewport, int)`
 
 ### KSA.PerAxisAttitudeControlSystem
 
@@ -1055,6 +1057,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `bool get_IsControllable()`
 - `bool get_IsDebris()`
 - `bool get_IsDisposed()`
+- `bool get_IsEditedVehicle()`
 - `float GetManualThrottle()`
 - `float GetMinThrottle()`
 - `float get_PropellantMass()`
@@ -1068,6 +1071,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `void SetControlPart(KSA.Part, Connector)`
 - `void TeleportToLocation(KSA.Celestial, double, double)`
 - `void UpdateAfterPartTreeModification()`
+- `void UpdateRenderData(KSA.IViewport, int)`
 
 ### KSA.VehicleDestructionCause
 

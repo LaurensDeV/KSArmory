@@ -66,6 +66,18 @@ internal sealed class WeaponSystems(Config config)
     /// <summary>Systems still flying rounds for a craft that no longer exists.</summary>
     public IReadOnlyList<WeaponSystem> Loose => _loose;
 
+    /// <summary>Whether any weapon aboard this craft has rounds in the air, which draw as its parts.</summary>
+    public bool HasRoundsInFlight(Vehicle craft)
+    {
+        foreach (KeyValuePair<(Vehicle Craft, int Ordinal), Entry> kv in _entries)
+        {
+            if (!ReferenceEquals(kv.Key.Craft, craft)) continue;
+            foreach (IProjectile _ in kv.Value.Battery.Rounds) return true;
+        }
+
+        return false;
+    }
+
     /// <summary>
     /// The shortest step any round in the world needs, and whether there is anything up at all.
     ///
