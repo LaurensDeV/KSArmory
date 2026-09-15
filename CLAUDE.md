@@ -2067,6 +2067,16 @@ falls under a gravity the ground does not feel: a 5"/54 on flat ground at 28.6°
 8 km and 33 m at 15 km, every shell within a metre of the others — where against a drone at the same
 range the same error is under a metre of height and inside the fuse.
 
+**And it turns under the shell, not only with it.** The lay is flown in a frame carried with the mount's
+ground against a planet sampled once, so a pull read at the mount plus the offset treats the centre as
+keeping pace with the gun while the ground carries the gun round it — 465 m/s on the equator. The pull
+turns the wrong way by V·t/R and the shell lands g·V·t³/6R off: nothing over a CIWS's two seconds, a
+metre at twenty, and 79.8 m on a 60 km shot that flew 92 s, flown twice. `TrySolveFlown` takes the body's
+velocity beside the ground's and reads the round's pull and air where it is against the moved centre.
+**Not the target's**: its acceleration was measured against the pull at the start and what holds it up is
+held with it, so turning its pull alone walks a place on the ground away by as much as the round's own
+correction brings it back.
+
 The conversion is the part worth being careful with, and it is **three** corrections rather than
 one. `Camera.ScreenToEgoRay` divides by *its own* `FramebufferSize` while ImGui reports the cursor
 across every window, so the cursor has to be offset into the viewport **and scaled from viewport

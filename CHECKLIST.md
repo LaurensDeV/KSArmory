@@ -1115,6 +1115,23 @@ the mesh and the XML, and the suite.
       (`GroundLayTests`).
 - [ ] Over sky, or over a craft, mouse aim still lays along the line of sight: nothing about the air
       fight changed.
+- [x] Designate ground just inside the longest reach, 22 km out, and fire. The log says `a gun laid to
+      land`, not `beyond reach`, and the shell comes down on the place. **Confirmed on 2026.9.10.5438**
+      with `gunnery:1,ground,,,22000` on the range-table drag, second-order shells and the centre carried:
+      `driving a gun laid to land 22.0 km out`, 64.9 s in the air, down 8.1 m from the place and 7.6 m
+      short, where holding the centre still costs about 29 m at that flight time. The log's `burst moved
+      119.7 m to where the round is drawn` was the burst carried to the end of its step with the planet's
+      29.8 km/s, which is correct: over nine logged bursts that line is 29.8 km/s times how far into the
+      step each one struck, and it now reports only what is left after that carry. The lay used to turn the barrel
+      along its miss, which near the longest reach moves a lobbed shell's path mostly along itself: on a
+      shell with almost no drag nothing past 55 km of a 64.8 km reach could be laid. Headless now, 97% of
+      the longest reach lands inside the lethal radius on the range table's drag (22.97 km, 6.9 m) and on
+      almost none (`GroundLayTests`). **Flown twice on 2026.9.10.5438 on the almost-airless drag** with
+      `gunnery:1,ground,,,60000`: laid to land, 92.4 s in the air, and down 79.8 m from the place, 19.9 m
+      long, both times. The lay held the planet's centre still against the gun while the ground carried
+      the gun round it, which headlessly on a world spinning like Earth is g·V·t³/6R: 1 m at 15 km, 7 m at
+      30, 25 m at 45 and 79–83 m at 60. With the centre carried, the same 60 km shot lands 3.3 and 5.5 m
+      off headlessly (`GroundLayTests`).
 - [ ] Fire the Mk 42 at 47° with nothing to aim at. The shell comes down about 23.7 km out, as the real
       gun's range table has it, rather than 65 km. `DragCoefficient` is fitted to that: headlessly 23.69 km at
       47.25° in 83.6 s, and 16.1 km straight up against the real 14.8, which one constant cannot match.

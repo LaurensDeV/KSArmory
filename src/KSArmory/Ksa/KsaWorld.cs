@@ -1370,6 +1370,26 @@ internal static class KsaWorld
         }
     }
 
+    /// <summary>
+    /// The velocity of the body a craft's ground belongs to: <see cref="GroundVelocityAt(Vehicle, double3)"/>
+    /// without the spin. The craft's own where there is no body or it cannot be read, which makes the ground and
+    /// the body one motion and so carries nothing round.
+    /// </summary>
+    public static double3 BodyVelocityAt(Vehicle platform)
+    {
+        try
+        {
+            if (platform.Parent is not Celestial body) return SafeVelocityEcl(platform);
+
+            double3 velocity = body.GetVelocityEcl();
+            return Vec.IsFinite(velocity) ? velocity : SafeVelocityEcl(platform);
+        }
+        catch
+        {
+            return SafeVelocityEcl(platform);
+        }
+    }
+
     // Inside another method's catch block, so it may not throw itself. VelocityEcl is a bare
     // property read with no guard of its own, and the case this exists for is a platform that has
     // just been disposed -- which is exactly when it throws.

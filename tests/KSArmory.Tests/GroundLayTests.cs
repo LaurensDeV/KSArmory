@@ -27,14 +27,14 @@ public class GroundLayTests(ITestOutputHelper output)
     private static MunitionProfile Shell => Arsenal.Shell5In54;
 
     // The same shell with no air to fly through and no fuse, for the world that turns.
-    private static MunitionProfile Airless() => new()
+    private static MunitionProfile Airless(float lifetimeSeconds = 40f) => new()
     {
         Name = "GroundLayAirless",
         DisplayName = "airless five-inch",
         LaunchSpeed = Shell.LaunchSpeed,
         DragK = 0f,
         NeutralDensityRatio = 0f,
-        MaxFlightSeconds = 40f,
+        MaxFlightSeconds = lifetimeSeconds,
         FuseRadius = 0f,
         FuseArmSeconds = 0f,
         ChargeKg = Shell.ChargeKg,
@@ -153,7 +153,7 @@ public class GroundLayTests(ITestOutputHelper output)
     {
         double3 ground = Ground(km);
 
-        Assert.True(BallisticLead.TrySolveFlown(Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero, ground, Vec.Zero, Vec.Zero,
+        Assert.True(BallisticLead.TrySolveFlown(Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero,ground, Vec.Zero, Vec.Zero,
                                                 null, Shell, GravityAt, DensityAt, Vec.Zero,
                                                 out double3 lay, out double flight));
         Assert.True(flight < Shell.MaxFlightSeconds, $"{flight:F1} s is past the shell's {Shell.MaxFlightSeconds} s");
@@ -196,7 +196,7 @@ public class GroundLayTests(ITestOutputHelper output)
 
         bool Lay(double3 frameAcceleration, double3 targetAcceleration, out double3 lay)
             => BallisticLead.TrySolveFlown(Vec.Zero, VelocityOf(Vec.Zero), VelocityOf(Vec.Zero), frameAcceleration,
-                                           ground, VelocityOf(ground), targetAcceleration, null, shell,
+                                           Vec.Zero, ground, VelocityOf(ground), targetAcceleration, null, shell,
                                            GravityAt, _ => 0.0, Vec.Zero, out lay, out _);
 
         double MissFrom(double3 lay)
@@ -224,6 +224,43 @@ public class GroundLayTests(ITestOutputHelper output)
     }
 
     /// <summary>
+    /// Earth's own spin, on the equator, a place 60 km out to the east and to the north. The ground carries the
+    /// mount round the centre at 465 m/s for the minute and a half the shell flies, so a lay that reads the pull
+    /// as if the centre kept pace with the mount lands 80 m off.
+    /// </summary>
+    [Theory]
+    [InlineData(1.0, 0.0)]
+    [InlineData(0.0, 1.0)]
+    public void OnAWorldSpinningLikeEarthALongShotLandsOnThePlace(double east, double north)
+    {
+        double3 spin = new(0, 7.2921e-5, 0);
+        double3 VelocityOf(double3 p) => Vec.Cross(spin, p - Centre);
+        double3 AccelerationOf(double3 p) => Vec.Cross(spin, Vec.Cross(spin, p - Centre));
+
+        MunitionProfile shell = Airless(150f);
+        double angle = 60_000.0 / Radius;
+        double3 place = Centre + (Vec.Unit(new double3(east, north, 0)) * (Math.Sin(angle) * Radius))
+                        + new double3(0, 0, Math.Cos(angle) * Radius);
+
+        Assert.True(BallisticLead.TrySolveFlown(Vec.Zero, VelocityOf(Vec.Zero), VelocityOf(Vec.Zero), AccelerationOf(Vec.Zero),
+                                                Vec.Zero, place, VelocityOf(place), AccelerationOf(place), null, shell,
+                                                GravityAt, _ => 0.0, Vec.Zero, out double3 lay, out double flight));
+
+        var landed = FlyToGround(lay, VelocityOf(Vec.Zero), shell);
+        Assert.True(landed.HasValue, "the shell never came down");
+
+        // Where the place has turned to by then, about the spin axis through the centre.
+        double a = spin.Y * landed!.Value.Seconds;
+        double3 r = place - Centre;
+        double3 moved = Centre + new double3((r.X * Math.Cos(a)) + (r.Z * Math.Sin(a)), r.Y,
+                                             (-r.X * Math.Sin(a)) + (r.Z * Math.Cos(a)));
+        double miss = Vec.Len(landed.Value.Landed - moved);
+        output.WriteLine($"{(east > 0.0 ? "east" : "north")}: {flight:F1} s, landed {miss:F1} m from the place");
+
+        Assert.True(miss < Shell.LethalRadius, $"landed {miss:F1} m from the place");
+    }
+
+    /// <summary>
     /// An acceleration shared by the ground, the target and the gravity field is the frame's, and cannot
     /// reach the lay: it cancels out of everything the round and the target feel against the ground.
     /// </summary>
@@ -233,10 +270,10 @@ public class GroundLayTests(ITestOutputHelper output)
         double3 ground = Ground(8.0);
         double3 common = new(0.3, -0.2, 0.4);
 
-        Assert.True(BallisticLead.TrySolveFlown(Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero, ground, Vec.Zero, Vec.Zero,
+        Assert.True(BallisticLead.TrySolveFlown(Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero,ground, Vec.Zero, Vec.Zero,
                                                 null, Shell, GravityAt, DensityAt, Vec.Zero,
                                                 out double3 still, out double stillFlight));
-        Assert.True(BallisticLead.TrySolveFlown(Vec.Zero, Vec.Zero, Vec.Zero, common, ground, Vec.Zero, common,
+        Assert.True(BallisticLead.TrySolveFlown(Vec.Zero, Vec.Zero, Vec.Zero, common, Vec.Zero, ground, Vec.Zero, common,
                                                 null, Shell, p => GravityAt(p) + common, DensityAt, Vec.Zero,
                                                 out double3 shared, out double sharedFlight));
 
@@ -258,7 +295,7 @@ public class GroundLayTests(ITestOutputHelper output)
         double best = LongestReachKm(shell);
         double3 ground = Ground(0.97 * best);
 
-        Assert.True(BallisticLead.TrySolveFlown(Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero, ground, Vec.Zero, Vec.Zero,
+        Assert.True(BallisticLead.TrySolveFlown(Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero,ground, Vec.Zero, Vec.Zero,
                                                 null, shell, GravityAt, DensityAt, Vec.Zero,
                                                 out double3 lay, out double flight),
                     $"no lay onto {0.97 * best:F2} km, where {best:F2} km is reachable");

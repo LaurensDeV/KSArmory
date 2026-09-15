@@ -163,6 +163,12 @@ public static class BallisticLead
     /// How that ground is accelerating — on a world that turns, the spin carrying it round. Taken off the
     /// round's and the target's accelerations alike, so neither falls under a gravity the ground does not feel.
     /// </param>
+    /// <param name="bodyVelocity">
+    /// The velocity of the body that ground belongs to. The ground carries the mount round the body's centre at
+    /// the difference, so the pull and the air are read where the round is against where that centre has gone:
+    /// held still against the mount, the pull turns the wrong way by that speed times the time over the radius,
+    /// and a 5"/54 laid 60 km out on Earth came down 80 m off.
+    /// </param>
     /// <param name="gravityAt">
     /// The pull at a position at the current instant. A field rather than one vector, because on a
     /// small world it turns under the shell: 3.6° across 15.7 km of a 250 km body.
@@ -170,7 +176,7 @@ public static class BallisticLead
     /// <param name="densityAt">Air density as a multiple of sea level, at a position at the current instant.</param>
     /// <param name="directionHint">Where the previous solve pointed, or zero. Only where the search starts.</param>
     public static bool TrySolveFlown(double3 shooterPos, double3 shooterVelocity, double3 groundVelocity,
-                                     double3 groundAcceleration,
+                                     double3 groundAcceleration, double3 bodyVelocity,
                                      double3 targetPos, double3 targetVelocity, double3 targetAccelerationEcl,
                                      DragShape? targetDragShape,
                                      MunitionProfile munition, Func<double3, double3> gravityAt,
@@ -187,7 +193,7 @@ public static class BallisticLead
         double muzzleSpeed = munition.LaunchSpeed;
         if (!(muzzleSpeed > 0.0) || !double.IsFinite(muzzleSpeed)) return false;
         if (!Vec.IsFinite(shooterPos) || !Vec.IsFinite(shooterVelocity) || !Vec.IsFinite(groundVelocity)
-            || !Vec.IsFinite(groundAcceleration)
+            || !Vec.IsFinite(groundAcceleration) || !Vec.IsFinite(bodyVelocity)
             || !Vec.IsFinite(targetPos) || !Vec.IsFinite(targetVelocity)
             || !Vec.IsFinite(targetAccelerationEcl) || !Vec.IsFinite(directionHint))
         {
@@ -211,7 +217,7 @@ public static class BallisticLead
 
         var flight = new Flight(shooterPos, shooterVelocity - groundVelocity, targetPos - shooterPos,
                                 targetVelocity - groundVelocity, targetAccelerationEcl, targetDragShape,
-                                groundAcceleration, munition, gravityAt, densityAt);
+                                groundAcceleration, groundVelocity - bodyVelocity, munition, gravityAt, densityAt);
 
         // A pass that converges takes most of the miss out. One that has not cut it by a fifth in several
         // passes is walking, and a target out of reach is the usual cause: flying every remaining pass to
@@ -327,6 +333,10 @@ public static class BallisticLead
         // The ground's own acceleration, which the round and the target are both flown against.
         private readonly double3 _frameAcceleration;
 
+        // How fast that ground carries the frame round the body's centre. The body is sampled once, where it
+        // was when the flight began, so the round's lookups are carried back by what the frame has travelled.
+        private readonly double3 _frameSpin;
+
         // What is left of the target's acceleration once gravity and drag are taken out — an engine,
         // or lift — held as it was measured, and turned with the body when its shape says it is turning.
         private readonly double3 _targetPush;
@@ -347,11 +357,12 @@ public static class BallisticLead
         private readonly double _targetBurnSeconds;
 
         public Flight(double3 mount, double3 mountVelocity, double3 targetOffset, double3 targetVelocity,
-                      double3 targetAcceleration, DragShape? targetShape, double3 frameAcceleration,
+                      double3 targetAcceleration, DragShape? targetShape, double3 frameAcceleration, double3 frameSpin,
                       MunitionProfile munition, Func<double3, double3> gravityAt, Func<double3, double> densityAt)
         {
             _mount = mount;
             _frameAcceleration = frameAcceleration;
+            _frameSpin = frameSpin;
             _mountVelocity = mountVelocity;
             _targetOffset = targetOffset;
             _targetVelocity = targetVelocity;
@@ -438,7 +449,7 @@ public static class BallisticLead
 
         private State Advance(State s, double h)
         {
-            double3 roundKick = RoundAcceleration(s.Round, s.RoundVelocity);
+            double3 roundKick = RoundAcceleration(s.Round, s.RoundVelocity, s.Time);
             double3 targetKick = TargetAcceleration(s.Target, s.TargetVelocity, s.Time);
 
             var mid = new State(s.Round + (s.RoundVelocity * (0.5 * h)), s.RoundVelocity + (roundKick * (0.5 * h)),
@@ -446,18 +457,27 @@ public static class BallisticLead
                                 s.Time + (0.5 * h));
 
             return new State(s.Round + (mid.RoundVelocity * h),
-                             s.RoundVelocity + (RoundAcceleration(mid.Round, mid.RoundVelocity) * h),
+                             s.RoundVelocity + (RoundAcceleration(mid.Round, mid.RoundVelocity, mid.Time) * h),
                              s.Target + (mid.TargetVelocity * h),
                              s.TargetVelocity + (TargetAcceleration(mid.Target, mid.TargetVelocity, mid.Time) * h),
                              s.Time + h);
         }
 
-        private double3 RoundAcceleration(double3 x, double3 v)
-            => Medium.Coasting(Pull(_gravityAt, _mount + x) - _frameAcceleration, v, _munition,
-                               Density(_densityAt, _mount + x));
+        private double3 RoundAcceleration(double3 x, double3 v, double t)
+        {
+            double3 at = Sampled(x, t);
+            return Medium.Coasting(Pull(_gravityAt, at) - _frameAcceleration, v, _munition, Density(_densityAt, at));
+        }
+
+        // Where the round is t seconds in against the body as it was sampled. The spin's own turn of that
+        // velocity moves it a fifth of a metre over a minute and a half of flight, and is left out.
+        private double3 Sampled(double3 offset, double t) => _mount + offset + (_frameSpin * t);
 
         private double3 TargetAcceleration(double3 y, double3 w, double t)
         {
+            // Read where the frame began, unlike the round's: the target's acceleration was measured against the
+            // pull there, and what holds it up is held with it. Turning the pull alone walks a place on the
+            // ground away by as much as the round's own correction brings it back.
             double3 pull = Pull(_gravityAt, _mount + y) - _frameAcceleration;
 
             if (_targetShape is { } shape)
