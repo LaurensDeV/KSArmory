@@ -1604,6 +1604,13 @@ the same band section 7.1b needs — fly one engagement and check both.
       **Confirmed in flight.**
 - [ ] Take the view back through **View → Orbit Camera** during a chase. The camera orbits the
       launching craft rather than the spot the round was at, and the log says `(camera mode)`.
+- [x] Chase a shell low over the ground at 1x. The view holds steady rather than flipping up and
+      down several metres a frame. **Measured in flight on 2026.9.10.5438** with
+      `KSARMORY_SCENARIO_CHASE=1 KSARMORY_SCENARIO_SPEEDS=0.05,0.1,0.25,1 ./tools/scenario.sh gunnery:1,ground,,,12000`:
+      203 frames at 1x jumped by up to 60 m while the camera was under about 175 m, then none with
+      it down to 10 m.
+- [ ] The same by eye at 0.1x and 0.25x, chasing a Mk 42 shell at BIG BOOM's tank stack on the
+      machine that showed it at 34 fps. The scenario measured the camera; nobody has watched the fix.
 - [x] Chase a Mk 42 shell on a long shot, 60 km out with `gunnery:1,ground,,,60000`. The shell stays in
       the picture the whole way down, and the log says once how far from the camera the mount went under
       a pixel and that it is being drawn anyway. Before, on 2026.9.10.5438, it vanished part-way while the

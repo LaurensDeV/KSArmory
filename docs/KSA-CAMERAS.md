@@ -154,14 +154,22 @@ Position:
   whole tree finds no consumer. It appears vestigial in this build.
 - `Translate` is `LocalPosition += translation` in body-fixed axes when following (`Camera.cs:186-196`).
 
-`ClampCamera()` (`Camera.cs:628-642`) runs at the top of every `Camera.OnFrame`, for every viewport,
-whenever `Program.Editor == null`. If altitude ≤ 0.5 m it **overwrites `PositionEcl`** onto the
+`ClampCamera()` (`Camera.cs:628-634`) runs at the top of every `Camera.OnFrame` (`:482-484`), for every
+viewport, whenever `Program.Editor == null`, straight after the controller has placed the camera
+(`GameViewport.cs:118-119`). `TryGetSurfaceClampPositionEcl(0.5)` (`:636-653`) measures **this**
+camera: `Program.FindNearbyCelestial(this)`, then `celestial.GetPositionCce(this)` against the mean
+radius plus the terrain height there. At 0.5 m or less it **overwrites `PositionEcl`** onto the
 surface. Two traps in it:
-- It reads `Program.GetNearbyCelestial()` and `Program.GetCurrentAltitudeKm()`, both of which resolve
-  `Program.GetCamera()` = **`FrameViewport`'s** camera (`Program.cs:4859-4862`, `:2513-2524`,
-  `:599-602`), not `this`. A secondary viewport's camera is clamped against the *main* camera's altitude.
-- `Program.GetCurrentAltitudeKm` calls `positionCce.Normalized()` (`Program.cs:2521`) — see §8, that
-  throws on a zero vector.
+- **It measures the camera in the viewport pass, before any mod has stepped.** A following camera's
+  `PositionEcl` is `_following.GetPositionEcl() + PositionCce` (`Camera.cs:110-131`), so the clamp reads
+  the followed object's answer at that moment against a planet `PrepareFrame` has already moved. An
+  object answering from a sample a mod took last frame is a step behind it, and the clamp sees the
+  camera low by the planet's vertical speed times the step — 9.4 km/s at the gunnery scenario's site,
+  150 m at 1x. It pushes the camera up on the frames where that reaches the ground, and the push is
+  stored in `PositionCce`, so it survives to the render. `Ksa/WeaponSystem.TryRoundEffectEcl` reads
+  its anchor live for this reason.
+- It normalises the camera's position from the celestial's centre (`Camera.cs:645`) — see §8 for what a
+  zero vector does.
 
 `camera.NearbyCelestial` and `CurrentAltitudeKm` are only ever computed for the `FrameViewport`
 camera (`Program.OnFrameCelestials`, `Program.cs:2480-2511`), so on a secondary viewport they are
@@ -683,7 +691,7 @@ Ordered by how easily a mod trips it. Reminder: **there is no try/catch in the f
 | 8 | `OrbitController.cs:513`, `:580` | `MeanRadius == 0` on the followed object | no throw — `Infinity`/`NaN` camera, everything vanishes |
 | 9 | `FixedController.cs:104`, `OrbitController.cs:319` | `CameraReferenceFrame.Parent` on something whose `Orbit` is null | `NullReferenceException` |
 | 10 | `IVAController.cs:40` | `Seat == null` while `Following == LastFollowing` (reachable only by writing the public `LastFollowing`) | `NullReferenceException` |
-| 11 | `Program.cs:2521` (`GetCurrentAltitudeKm`, reached from `Camera.ClampCamera`) | camera exactly at the nearby celestial's centre | `DivideByZeroException` |
+| 11 | `Program.cs:2661` (`GetCurrentAltitudeKm`, reached from `OnFrameCelestials`), and the same normalise in `Camera.ClampCamera` (`Camera.cs:645`) | camera exactly at the nearby celestial's centre | `DivideByZeroException` |
 | 12 | `FlyController.cs:601`, `:639`, `:647` | invalid frame/target combination passed to its `GetFrame2Ecl` | `InvalidOperationException` / `NotImplementedException` |
 | 13 | `OrbitController.cs:211` | out-of-range `CameraReferenceFrame` reaching `AlertCameraReference` | `IndexOutOfRangeException` |
 | 14 | `Camera.cs:478` (`UpdateProjection`) | a non-invertible projection (ortho half-height and aspect are guarded, so this needs `AspectRatio` = 0/NaN, i.e. a zero-height framebuffer) | `Exception("Tried to assign non-invertible projection matrix")` |
@@ -748,9 +756,9 @@ Non-crashing misbehaviour worth the same attention:
   view must say so and offer its own way back** — `Ksa/SightCamera.cs` releases from the panel,
   and the panel names the View menu because no reflex works.
 
-- `Camera.ClampCamera` on a secondary viewport uses the **main** viewport's altitude
-  (`Camera.cs:628-642` vs `Program.cs:4859-4862`, `:2513-2524`) — it can teleport a secondary camera
-  to a planet surface for no reason visible in that viewport.
+- `Camera.ClampCamera` measures each camera through the object it follows, in the viewport pass and
+  before any mod has stepped (§3) — so a followed object answering from a sample a frame old has its
+  camera pushed off the ground for no reason visible in that viewport.
 - `IVAController.OnSwitchOn`/`OnFrame` and `MapController.OnFrame` bail by cycling
   `Program.HoveredViewport` / `Program.SetCameraMode`, i.e. **a different viewport from the one that
   failed** (`IVAController.cs:31`, `:36`, `:159`, `:167`; `MapController.cs:129`).

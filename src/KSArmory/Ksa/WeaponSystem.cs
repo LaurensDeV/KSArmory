@@ -105,9 +105,13 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// <inheritdoc cref="IEffectSource.TryRoundEffectEcl"/>
     public bool TryRoundEffectEcl(IProjectile round, out double3 ecl)
     {
-        if (_looseBody is not null)
+        // Anchored to where the craft or body is now rather than to the sample this system last
+        // stepped against. Once it has stepped this frame those are one number. Before that -- the
+        // engine's viewport pass, where it clamps a camera following a round to the ground -- the
+        // sample is a step behind the planet, which at 1x reads a chase camera 150 m up as underground.
+        if (_looseBody is { } body)
         {
-            ecl = PlatformEcl + round.OffsetFromPlatform;
+            ecl = KsaWorld.PositionEcl(body) + round.OffsetFromPlatform;
             return Vec.IsFinite(ecl);
         }
 
@@ -115,7 +119,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         if (Platform is not { } platform || Launcher is not { } launcher) return false;
 
         return LauncherPart.TryGetBodyEcl(platform, launcher, round.LaunchAnchorPartFrame,
-                                          round.TravelSinceLaunch, PlatformEcl,
+                                          round.TravelSinceLaunch, KsaWorld.PositionEcl(platform),
                                           round.LaunchAttitude, out ecl);
     }
 

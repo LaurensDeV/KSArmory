@@ -2377,6 +2377,16 @@ through the same method and the engine converts at phases the mod does not choos
 moves when the mod steps disagrees with itself inside one frame. This one moves by the round's own
 flight, which is metres; `round.PositionEcl` moves by a whole step of the ecliptic's ~29.8 km/s.
 
+**And the anchor under that expression is read live, because the engine clamps the camera to the
+ground before the mod has stepped.** `Camera.OnFrame` runs `ClampCamera` in the viewport pass, where it
+measures the camera through the followed round against a planet `PrepareFrame` has already moved. A
+platform position cached at the mod's last step is a step behind that planet, so the clamp saw a chase
+camera lower than it was by the planet's vertical speed times the step — 9.4 km/s where the gunnery
+scenario flies, 150 m at 1x — and pushed it up on the frames where that reached the ground and not on
+the others. Flown at 1x: 203 frames jumping by up to 60 m, then none with the camera down to 10 m. Once
+the mod has stepped the live read and the cached sample are one number, so nothing the mesh, the plume
+or the tracer is paired with moved.
+
 **A burst is anchored to the body it happened over, and nothing else will do.** The linger holds
 the view on the burst for three seconds, which is long enough for every wrong anchor to show:
 against the launching craft it flies off with it, and as a bare ecliptic point the planet leaves it
