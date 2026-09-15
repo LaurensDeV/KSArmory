@@ -77,6 +77,9 @@ internal sealed class ScenarioRunner
     // at some speeds and not others, which nobody can flip between by hand while a shell is flying.
     private bool _chase;
     private double[] _speeds = [];
+
+    // Where a gunnery run sets its mount down first, for shooting somewhere no save is.
+    private (string Body, double LatitudeDeg, double LongitudeDeg)? _site;
     private int _speedIndex = -1;
     private double _speedHeldFor;
 
@@ -407,6 +410,27 @@ internal sealed class ScenarioRunner
             _speeds = [.. speeds];
         }
 
+        // "site=Mars,15,-160": a gunnery run sets its mount down there before it shoots, for a body no save is on.
+        _site = null;
+        foreach (string option in options)
+        {
+            if (!option.StartsWith("site=", StringComparison.Ordinal)) continue;
+
+            string[] fields = option["site=".Length..].Split(',');
+            if (fields.Length == 3 && fields[0].Length > 0
+                && double.TryParse(fields[1], System.Globalization.NumberStyles.Float,
+                                   System.Globalization.CultureInfo.InvariantCulture, out double latitude)
+                && double.TryParse(fields[2], System.Globalization.NumberStyles.Float,
+                                   System.Globalization.CultureInfo.InvariantCulture, out double longitude))
+            {
+                _site = (fields[0], latitude, longitude);
+            }
+            else
+            {
+                Log.Warn($"scenario: ignored '{option}' -- a site is site=<body>,<latitude>,<longitude>");
+            }
+        }
+
         // "name" or "name|save". Skipping the configuration dialog gets the game past a dialog,
         // not into a scene: settings.toml's startVehicle is only ever read *by* that dialog, so
         // without one the game sits at a menu and nothing is ever in flight. Loading a save is
@@ -472,14 +496,18 @@ internal sealed class ScenarioRunner
             return;
         }
 
-        _gunnery = new GunneryScenario(gunnery, line => Report($"{_name}: {line}"));
+        _gunnery = new GunneryScenario(gunnery, line => Report($"{_name}: {line}")) { Site = _site };
 
         // Nobody is watching, and whether a miss was the barrel still laying is only in the debug log.
         Log.Threshold = Log.Level.Debug;
 
-        _budget = gunnery.BudgetSeconds;
+        // A site is usually another body: the full system loads slower, and the mount settles where it lands.
+        const double SiteBudgetSeconds = 60.0;
+        _budget = gunnery.BudgetSeconds + (_site is null ? 0.0 : SiteBudgetSeconds);
         _phase = Phase.LoadingSave;
-        Report($"{_name}: START {gunnery.Describe()} save='{_save}'");
+        Report($"{_name}: START {gunnery.Describe()}"
+               + (_site is { } site ? $", from {site.Body} at {site.LatitudeDeg:F2}, {site.LongitudeDeg:F2}" : string.Empty)
+               + $" save='{_save}'");
     }
 
     private void BeginBallistic(string arguments)

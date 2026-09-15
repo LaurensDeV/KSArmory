@@ -201,6 +201,8 @@ internal sealed class GunneryScenario
             _lethal = Warhead.LethalRadius(Catalogue.MunitionNamed(munition).ChargeKg);
         }
 
+        if (!PlaceMount(gun.Platform!, dt, out string? away)) return away;
+
         if (_request.Ground || _request.AtCraft) return UpdateGround(gun, dt);
 
         if (_drone is not null)
@@ -400,6 +402,52 @@ internal sealed class GunneryScenario
         _report($"burst {_bursts.Count}: drone {_spawned}, {rangeKm:F2} km out, "
                 + (shell.BurstOnTime ? $"timed at {shell.FuseSeconds:F2} s" : $"on proximity after {shell.Age:F2} s")
                 + $", {shell.MissDistance:F1} m from the target");
+    }
+
+    /// <summary>
+    /// Where to set the firing craft down before anything is shot at: a body, a latitude and a longitude.
+    /// Null shoots from where the save left it.
+    /// </summary>
+    public (string Body, double LatitudeDeg, double LongitudeDeg)? Site { get; init; }
+
+    private bool _siteRequested;
+    private bool _siteSettled;
+    private double _sinceSite;
+
+    // The mount set down somewhere no save puts it -- another body's air, gravity and ground -- and left to
+    // settle as a placed craft is. True once it has, when the air it reads there is said once.
+    private bool PlaceMount(Vehicle platform, double dt, out string? failed)
+    {
+        failed = null;
+        if (Site is not { } site || _siteSettled) return true;
+
+        if (!_siteRequested)
+        {
+            if (!KsaWorld.TryPlaceOnSurface(platform, site.Body, site.LatitudeDeg, site.LongitudeDeg))
+            {
+                failed = $"FAIL could not set the mount down on {site.Body} at {site.LatitudeDeg:F2}, {site.LongitudeDeg:F2}";
+                return false;
+            }
+
+            _siteRequested = true;
+            _report($"set the mount down on {site.Body} at {site.LatitudeDeg:F2}, {site.LongitudeDeg:F2}");
+            return false;
+        }
+
+        _sinceSite += dt;
+        if (_sinceSite < PlaceSettleSeconds) return false;
+
+        _siteSettled = true;
+        double3 at = KsaWorld.PositionEcl(platform);
+        if (platform.Parent is not Celestial body || body.Id != site.Body)
+        {
+            failed = $"FAIL the mount is not on {site.Body} after being set down there";
+            return false;
+        }
+
+        _report($"on {body.Id}: the air here is {KsaWorld.MediumDensityRatioAt(platform, at):G3} of the reference "
+                + $"({KsaWorld.MediumDiagnosis(body, at)})");
+        return true;
     }
 
     private bool _designated;
