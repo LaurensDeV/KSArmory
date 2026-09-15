@@ -1240,6 +1240,17 @@ What to record next time, in this order, because each answers a different half:
       `Ksa/GroundTest.cs`.
 - [ ] Does the **ring** sit where it lands? A ring in the wrong place with a bomb that arrives
       correctly is the sight; a bomb that goes nowhere near the ring is the round.
+- [x] The ring allows for the planet's turn. `BombSight` flies the fall against where the ground has
+      carried the release round the centre, reads the terrain where the round is in that turning frame,
+      and puts the ring on the ground that will be under the landing: headlessly a 5 km drop at 250 m/s
+      over the equator and 150 m ridges lands 0.6–0.7 m from the ring, where holding the planet still put
+      it 36.5 m off heading east and 16.4 m heading north, and reading the terrain at the carried point
+      26.7 and 190.6 m (`BombSightSpinTests`). **Confirmed on 2026.9.10.5438** with
+      `./tools/scenario.sh drop`: released at 1001 m, down 36.3 s later 0 m from the ring (E 0, N 0) and
+      0 m from a flight off the release state, with no exception in KSA's log. Reading the terrain at the
+      carried point, the same scenario had landed 16 m off, almost all of it height. That release is
+      near vertical over KSC and a kilometre up, so the turn it exercises is small: a long level drop at
+      the equator has not been flown.
 - [ ] Designate a point, fly level, and release with the ring on it. The bomb lands within tens of
       metres of it, with the `detonated on the ground, N m from the aim point` line to say how far.
       Hundreds of metres off is the tail kit; `./tools/scenario.sh drop` flies the same release

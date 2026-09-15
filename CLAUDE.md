@@ -1246,6 +1246,16 @@ re-solved a few times a second rather than per frame, and the integration step i
 number from the refresh interval — sharing them puts 55 m of fall between terrain samples, and
 the ring then hops between two places.
 
+**And it is flown against a planet that turns.** The fall is flown in a frame carried with the ground
+under the release, against a planet sampled once, so `BombSight.TryPredict` reads gravity and air where
+the round is against where that ground has carried the frame round the centre, takes the frame's own
+acceleration off the pull, and carries the landing back onto the ground that will be under it. **The
+terrain is the exception**: the frame turns with the ground, so the height under a point in it is the
+height that was there at release, and read at the carried point it comes from 15 km upwind. Over 150 m
+ridges, holding the planet still put the ring 36.5 m from where a 5 km drop at 250 m/s strikes heading
+east and 16.4 m heading north, against the drop scenario's 30 m bar; the upwind height put it 26.7 and
+190.6 m off; and the sight as it is, 0.6 and 0.7 m (`BombSightSpinTests`).
+
 **The gun's lead flies a copy of the engine's drag, and RocketWerkz are working on aerodynamics.**
 `Sim/DragShape.cs` is today's `PhysicsStates.ComputeDrag` — a body-fixed box over the mass, no lift,
 no Mach — and nothing fails when the engine's changes. `docs/BLOCKED-ON-KSA.md` has the flown check

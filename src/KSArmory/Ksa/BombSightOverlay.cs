@@ -202,7 +202,12 @@ internal sealed class BombSightOverlay
 
     private bool Fly(WeaponSystem battery, Vehicle platform, double3 releaseEcl,
                      double3 velocityOverGround, List<double3> path, out double3 impactEcl)
-        => BombSight.TryPredict(releaseEcl, velocityOverGround, Vec.Zero, battery.Munition,
+        => BombSight.TryPredict(releaseEcl, velocityOverGround,
+                                KsaWorld.GroundVelocityAt(platform, battery.PlatformEcl),
+                                KsaWorld.GroundAccelerationAt(platform, battery.PlatformEcl),
+                                KsaWorld.BodyVelocityAt(platform),
+                                at => KsaWorld.GroundVelocityAt(platform, at),
+                                battery.Munition,
                                 at => KsaWorld.GravityAt(platform, at),
                                 at => KsaWorld.MediumDensityRatioAt(platform, at),
                                 Ground(), IntegrationStep, path, out impactEcl);
