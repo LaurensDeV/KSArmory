@@ -30,10 +30,12 @@
   named "grow" shrinks the particle to nothing on a quadratic curve. Every smoke stage here has a W,
   and a stage that grows without one is imploding.
 
-  GravityStrength is set on every stage, and it must be: it defaults to 1, so anything that does
-  not say otherwise falls at full local gravity. That is right for debris and wrong for everything
-  else - a fireball that falls looks like it ended early because it drops out of view, and smoke
-  that falls sinks into the ground within a second.
+  Density is set on every stage, and it must be: a stage without one falls at full local gravity.
+  That is right for debris and wrong for everything else - a fireball that falls looks like it
+  ended early because it drops out of view, and smoke that falls sinks into the ground within a
+  second. KSA scales gravity by 1 - airDensity / Density, so each value is 1.225 / (1 - g) for the
+  fraction g of gravity the stage should feel in sea-level air. Thinner air lifts less, and below
+  100 Pa KSA counts no air at all: there every stage falls at full gravity whatever it says.
 
   InheritVelocity is off on the bursts and ON for the motor plume, and the difference is not the
   parent. A burst is placed where it goes off and has no motion of its own to carry; a plume hangs
@@ -60,7 +62,7 @@
       bloom is what it is for. Then fire, fragments and smoke.
     -->
 
-    <ParticleEmitter Id="KSArmoryFireball">
+    <ParticleEmitter Id="KSArmoryFireball" Density="1.225">
         <MaxParticles Value="48" />
         <Mesh Id="ParticleSphere"/>
         <Renderer>SimpleColor</Renderer>
@@ -76,7 +78,6 @@
         <EmitterExtents X="1" Y="0" Z="0"/>
         <SpawnRate Value="48"/>
         <Force X="0" Y="0" Z="0" />
-        <GravityStrength Value="0.0"/>
         <ParticleColor X="22" Y="10" Z="3" W="1"/>
         <ParticleColorShift X="0.3" Y="0.15" Z="0"/>
         <ParticleLifespan X="0.25" Y="0.7"/>
@@ -87,7 +88,7 @@
         <ParticleExtra X="0.55" Y="0" Z="0" W="0"/>
         <ParticleAngularVelocity X="4" Y="4" Z="4"/>
 
-        <ParticleEmitters>
+        <ParticleEmitters Density="1.167">
             <MaxParticles Value="72" />
             <Mesh Id="ParticleSphere"/>
             <Renderer>Volumetric</Renderer>
@@ -102,7 +103,6 @@
             <EmitterExtents X="1" Y="0" Z="0"/>
             <SpawnRate Value="72"/>
             <Force X="0" Y="0" Z="0" />
-            <GravityStrength Value="-0.05"/>
             <EmitterExtra X="0.1" Y="0.01" Z="0" W="3.5"/>
             <Opacity Value="0.22"/>
             <ParticleColor X="6" Y="2" Z="0.3" W="1"/>
@@ -114,7 +114,7 @@
             <ParticleVelocityShift Value="0.9"/>
             <ParticleExtra X="0.7" Y="0" Z="0" W="0"/>
         </ParticleEmitters>
-        <ParticleEmitters>
+        <ParticleEmitters Density="3.062">
             <MaxParticles Value="96" />
             <Mesh Id="ParticleSphere"/>
             <Renderer>SimpleColor</Renderer>
@@ -129,7 +129,6 @@
             <EmitterExtents X="0.6" Y="0" Z="0"/>
             <SpawnRate Value="96"/>
             <Force X="0" Y="0" Z="0" />
-            <GravityStrength Value="0.6"/>
             <ParticleColor X="7" Y="2.4" Z="0.4" W="1"/>
             <ParticleColorShift X="0.5" Y="0.3" Z="0"/>
             <ParticleLifespan X="1.8" Y="4.5"/>
@@ -140,7 +139,7 @@
             <ParticleExtra X="0.55" Y="0" Z="0" W="0"/>
             <ParticleAngularVelocity X="9" Y="9" Z="9"/>
         </ParticleEmitters>
-        <ParticleEmitters>
+        <ParticleEmitters Density="1.094">
             <MaxParticles Value="64" />
             <Mesh Id="ParticleSphere"/>
             <Renderer>Volumetric</Renderer>
@@ -154,7 +153,6 @@
             <EmitterExtents X="1" Y="0" Z="0"/>
             <SpawnRate Value="64"/>
             <Force X="0" Y="0" Z="0" />
-            <GravityStrength Value="-0.12"/>
             <EmitterExtra X="0.1" Y="0.01" Z="0" W="3.5"/>
             <Opacity Value="0.05"/>
             <ParticleColor X="0.30" Y="0.26" Z="0.24" W="1"/>
@@ -173,7 +171,7 @@
       eye is most of what watching an engagement is for, so it must not grow into a small fireball.
     -->
 
-    <ParticleEmitter Id="KSArmoryAirburst">
+    <ParticleEmitter Id="KSArmoryAirburst" Density="1.225">
         <MaxParticles Value="40" />
         <Mesh Id="ParticleSphere"/>
         <Renderer>SimpleColor</Renderer>
@@ -189,7 +187,6 @@
         <EmitterExtents X="0.6" Y="0" Z="0"/>
         <SpawnRate Value="40"/>
         <Force X="0" Y="0" Z="0" />
-        <GravityStrength Value="0.0"/>
         <ParticleColor X="5" Y="4" Z="3" W="1"/>
         <ParticleColorShift X="0.2" Y="0.2" Z="0"/>
         <ParticleLifespan X="0.4" Y="1.0"/>
@@ -200,7 +197,7 @@
         <ParticleExtra X="0.55" Y="0" Z="0" W="0"/>
         <ParticleAngularVelocity X="4" Y="4" Z="4"/>
 
-        <ParticleEmitters>
+        <ParticleEmitters Density="1.114">
             <MaxParticles Value="28" />
             <Mesh Id="ParticleSphere"/>
             <Renderer>Volumetric</Renderer>
@@ -214,7 +211,6 @@
             <EmitterExtents X="0.6" Y="0" Z="0"/>
             <SpawnRate Value="28"/>
             <Force X="0" Y="0" Z="0" />
-            <GravityStrength Value="-0.1"/>
             <EmitterExtra X="0.1" Y="0.01" Z="0" W="3.5"/>
             <Opacity Value="0.14"/>
             <ParticleColor X="0.40" Y="0.36" Z="0.33" W="1"/>
@@ -241,10 +237,10 @@
       reading as exhaust and starts hiding the round, which is what the chase camera looks at.
       A long lifespan on something moving this fast also draws a streak kilometres long.
 
-      GravityStrength is zero and says so, because it defaults to 1 - see the note at the top of
-      this file. Exhaust that falls looks like the motor stopped.
+      Density is sea-level air's, so the flame floats - see the note at the top of this file.
+      Exhaust that falls looks like the motor stopped.
     -->
-    <ParticleEmitter Id="KSArmoryMotorPlume">
+    <ParticleEmitter Id="KSArmoryMotorPlume" Density="1.225">
         <MaxParticles Value="64" />
         <Mesh Id="ParticleSphere"/>
         <Renderer>SimpleColor</Renderer>
@@ -260,7 +256,6 @@
         <SpawnRate Value="90"/>
         <Force X="0" Y="0" Z="0" />
         <InheritVelocity Value="true"/>
-        <GravityStrength Value="0.0"/>
         <ParticleColor X="12" Y="6" Z="2" W="1"/>
         <ParticleColorShift X="0.35" Y="0.2" Z="0"/>
         <ParticleLifespan X="0.05" Y="0.14"/>
@@ -284,7 +279,7 @@
       long lifespan at this spawn rate builds a permanent fireball round the barrels instead.
       Colour components above 1 are HDR, which is what makes it bloom rather than read as paint.
     -->
-    <ParticleEmitter Id="KSArmoryMuzzleFlash">
+    <ParticleEmitter Id="KSArmoryMuzzleFlash" Density="1.225">
         <MaxParticles Value="64" />
         <Mesh Id="ParticleSphere"/>
         <Renderer>SimpleColor</Renderer>
@@ -300,7 +295,6 @@
         <SpawnRate Value="220"/>
         <Force X="0" Y="0" Z="0" />
         <InheritVelocity Value="false"/>
-        <GravityStrength Value="0.0"/>
         <ParticleColor X="20" Y="11" Z="3" W="1"/>
         <ParticleColorShift X="0.3" Y="0.2" Z="0"/>
         <ParticleLifespan X="0.04" Y="0.11"/>
@@ -311,7 +305,7 @@
         <ParticleExtra X="0.5" Y="0" Z="0" W="0"/>
 
         <!-- Propellant smoke, which is what says the gun has been firing rather than just fired. -->
-        <ParticleEmitters>
+        <ParticleEmitters Density="1.189">
             <MaxParticles Value="96" />
             <Mesh Id="Plane"/>
             <Renderer>Billboard</Renderer>
@@ -334,7 +328,6 @@
             <SpawnRate Value="55"/>
             <Force X="0" Y="0" Z="0" />
             <InheritVelocity Value="false"/>
-            <GravityStrength Value="-0.03"/>
             <ParticleColor X="0.36" Y="0.33" Z="0.30" W="0.30"/>
             <ParticleLifespan X="0.9" Y="2.4"/>
             <ParticleSpawnLogic>ScatterFromCenter</ParticleSpawnLogic>
@@ -359,10 +352,10 @@
       stationary, and the streak comes entirely from the emitter having moved between frames, which
       at 1100 m/s is 18 m a frame.
 
-      GravityStrength is zero, and says so because it defaults to 1: these mark where the shell has
-      been, and a mark that falls is a mark in the wrong place.
+      Density is sea-level air's, so the marks float: they show where the shell has been, and a
+      mark that falls is a mark in the wrong place.
     -->
-    <ParticleEmitter Id="KSArmoryTracer">
+    <ParticleEmitter Id="KSArmoryTracer" Density="1.225">
         <MaxParticles Value="64" />
         <Mesh Id="ParticleSphere"/>
         <Renderer>SimpleColor</Renderer>
@@ -388,7 +381,6 @@
 
         <Force X="0" Y="0" Z="0" />
         <InheritVelocity Value="false"/>
-        <GravityStrength Value="0.0"/>
         <ParticleColor X="18" Y="7" Z="1.5" W="1"/>
         <ParticleColorShift X="0.2" Y="0.08" Z="0"/>
         <ParticleSpawnLogic>ScatterFromCenter</ParticleSpawnLogic>

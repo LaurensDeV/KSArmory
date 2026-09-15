@@ -130,9 +130,11 @@ bindings grew function-pointer overloads that made a `null` text-input callback 
 Numerics rewrite (2026.6 to 2026.9) was read member by member and changes no meaning. What compiles
 clean and still has to be flown or looked at:
 
-- [ ] **Burst smoke sinks and the tracers fall.** `GravityStrength` is gone from the particle schema
-      and the XML deserialiser drops it without a word, so every stage falls at full gravity. KSA's
-      replacement is buoyancy, `Density` — `docs/KSA-MODDING-NOTES.md` — and no stage sets one yet.
+- [ ] **Burst smoke rises and the tracers hang.** `GravityStrength` is gone from the particle schema
+      and the XML deserialiser drops it without a word, so every stage fell at full gravity until
+      each was given a `Density`. The values reproduce the old behaviour in sea-level air only:
+      higher up the smoke rises less, and below 100 Pa everything falls. Watch a burst at a low
+      site and one at altitude.
 - [ ] **The fireball is always the volumetric one.** The volumetric renderer draws on every install
       now, so the billboard fallback emitters were deleted. Look at one.
 - [x] **KSA draws its own explosion on every kill and every broken part**, on top of `Detonation`'s,
