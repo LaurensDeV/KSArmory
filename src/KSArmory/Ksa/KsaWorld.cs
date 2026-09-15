@@ -326,12 +326,10 @@ internal static class KsaWorld
     /// The bubble's reference frame, and how high its origin sits — <c>Cci</c>, <c>Ccf</c>, or null
     /// when there is no bubble to ask.
     ///
-    /// <para><b>This is the discriminator for the whole off-rails divergence, and it is one
-    /// boolean.</b> `PhysicsStates.TryToPutOnRails` returns a coasting vehicle to rails only when
-    /// the bubble origin is <c>Cci</c>; in a <c>Ccf</c> bubble there is no path back at all. And
-    /// `ComputeDerivatives` drops the centrifugal and Coriolis terms for any member above its own
-    /// <c>InPhysicsRadius</c> while the frame stays <c>Ccf</c> — a deficit of
-    /// <c>2w x v + w x (w x r)</c>, which is 0.42 m/s^2 at 2.9 km/s.</para>
+    /// <para><b>This is the discriminator for staying off rails, and it is one boolean.</b>
+    /// `PhysicsStates.TryToPutOnRails` returns a coasting vehicle to rails only when the bubble
+    /// origin is <c>Cci</c>; in a <c>Ccf</c> bubble there is no path back at all, and a member is
+    /// integrated, with the rotating-frame terms, for as long as the bubble holds it.</para>
     ///
     /// <para>The frame is the <em>bubble's</em>, taken from its heaviest member, so a spent stage
     /// left below the near-surface radius holds the whole bubble in <c>Ccf</c> while the bus coasts

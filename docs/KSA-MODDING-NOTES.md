@@ -1,6 +1,6 @@
 # KSA modding notes
 
-Everything here comes out of the shipped assemblies of **KSA build 2026.9.7.5402**, read with
+Everything here comes out of the shipped assemblies of **KSA build 2026.9.10.5438**, read with
 `tools/apidump`, or out of the StarMap sources. KSA is pre-release and unofficially moddable:
 none of this is documented by RocketWerkz, and **it will drift between game builds**. Re-run
 the dumper rather than trusting this file after an update.
@@ -143,7 +143,7 @@ out, `ReleaseSecondaryViewport` gives it back, and `AvailableSecondaryCount` say
 ```csharp
 static CelestialSystem? CurrentSystem { get; private set; }
 static void DestroyVehicle(Vehicle, CrewDisposition = EndMission);
-static void DestroyVehicleFromEvent(Vehicle, VehicleDestructionEvent);   // how you kill something
+static void DestroyVehicleFromEvent(Vehicle, VehicleDestructionEvent);   // how you kill something; KSA adds its own explosion
 static UniverseTime GetElapsedTime();
 ```
 
@@ -297,19 +297,19 @@ Worth knowing:
   the hardcoded message `ParticleSystem` uses when an emitter in the tree has no renderer, i.e. the
   by-Id child does not resolve back to its definition. Inline `<ParticleEmitters>` blocks are the
   form every emitter Core uses in play, and they work.
-- **`Volumetric` is the screen-space renderer and is OFF by default.**
-  `ParticleSystem.WriteCommandsColorTranslucent` only issues its draw commands when
-  `GameSettings.Graphics.ScreenSpaceParticles` is on, and that setting defaults to `false`. A
-  volumetric emitter otherwise resolves, acquires, registers, spawns, ages and draws **nothing**,
-  with no error anywhere. Ship a fallback variant too and pick at runtime — `Detonation` does.
-- **`Billboard` is the ungated soft renderer.** It is an alpha-blended camera-facing quad
-  (`BillboardParticleFrag`, `BlendColorAlpha`, no cull) sampling a `<MaterialId>`, and nothing in
-  the graphics settings turns it off. With a soft-edged sprite it is what smoke should be on a
-  default install: a sprite with no edge cannot read as a ball, however many overlap. Use
+- **Nothing gates a renderer but `GameSettings.Graphics.Particles`**, and that stops the whole
+  system: an emitter resolves, acquires and registers and still draws nothing while it is off.
+- **`Billboard` is the soft renderer for a sprite.** It is an alpha-blended camera-facing quad
+  (`BillboardParticleFrag`, `BlendColorAlpha`, no cull) sampling a `<MaterialId>`. With a
+  soft-edged sprite a cloud of them cannot read as a ball, however many overlap. Use
   `<Mesh Id="Plane"/>`, and `ParticleColor`'s W is its alpha.
-- **`GravityStrength` defaults to 1**, so anything that does not set it falls at full local
-  gravity — about 20 m in two seconds. Core sets it on every emitter. A **negative** value flips
-  the gravity vector, which is buoyancy for free and is how smoke rises.
+- **`Density` is buoyancy, and a stage without one falls at full local gravity** — about 20 m in
+  two seconds. It is an attribute on the `<ParticleEmitter>` or `<ParticleEmitters>` element, and
+  `ParticleEmitter.ApplyAtmosphereResponse` scales gravity by `1 - airDensity / Density`, clamped
+  to ±1: matching the air floats, lighter rises, and Core's metal debris says 7800. **Below 100 Pa
+  it counts no air**, so in vacuum every stage falls at full gravity whatever it says. `Drag`
+  beside it decays velocity as `exp(-Drag x dt)`, scaled by air density over 1.225
+  (`SimpleMovement.comp`).
 - **The pool is finite and shared.** `EmitterPool.Get` returns false when not enough emitters are
   free, so a salvo can starve it. Handle the false — an effect is decoration.
 

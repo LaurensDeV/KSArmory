@@ -905,8 +905,8 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         buffer[Math.Min(written, buffer.Length - 1)] = 0;
 
         bool entered = hint is null
-            ? ImGui.InputText(label, buffer, ImGuiInputTextFlags.EnterReturnsTrue, null, default)
-            : ImGui.InputTextWithHint(label, hint, buffer, ImGuiInputTextFlags.EnterReturnsTrue, null, default);
+            ? ImGui.InputText(label, buffer, ImGuiInputTextFlags.EnterReturnsTrue)
+            : ImGui.InputTextWithHint(label, hint, buffer, ImGuiInputTextFlags.EnterReturnsTrue);
 
         if (!entered) return false;
 

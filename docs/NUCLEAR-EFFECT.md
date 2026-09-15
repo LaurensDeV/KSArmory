@@ -17,7 +17,7 @@ KSA has exactly four raymarched volumetric renderers. Two are reachable.
 | | Reach | Shape | Frame | Life | Gated on |
 | --- | --- | --- | --- | --- | --- |
 | **Volumetric trail** (the SRB smoke) | one reflected field | chain of swept capsules | **CCF, body-fixed** | 1200 s | clouds + atmosphere |
-| **Volumetric particles** | fully public, already used | sphere / torus / cone / capsule spawn volumes | world | per particle | **screen-space particles, default off** |
+| **Volumetric particles** | fully public, already used | sphere / torus / cone / capsule spawn volumes | world | per particle | particles setting |
 | Volumetric exhaust | public call, but its instance list is cleared before any StarMap hook | analytic nozzle plume | | | needs Harmony |
 | Clouds | reflected field, and pointless | planet-wide shell | | | — |
 

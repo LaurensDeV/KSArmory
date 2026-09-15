@@ -60,7 +60,7 @@ Do not push yet if you want to inspect the diff first — it is local either way
 ./tools/ksa-api-diff.sh ../ksa-game-assemblies
 ```
 
-This reads `docs/KSA-API-SURFACE.md` — the 520 members this mod genuinely binds to, extracted
+This reads `docs/KSA-API-SURFACE.md` — the 518 members this mod genuinely binds to, extracted
 from the compiled assembly's metadata — against the new corpus, and answers two questions:
 
 **Missing members.** Mechanical and precise. Each one is a break you must fix. `MOVED` means it
@@ -108,6 +108,8 @@ claim still holds.
 | Core's flags on `Radial`, `NoFaceSnapping` | `Content/Core/CoreEditorTagsGameData.xml` | Attachment behaviour changes with nothing failing. |
 | `GetTerrainHeightFromDirCce`, `MaxTerrainHeightApprox` | `Celestial.cs` | Terrain masking and the bomb's ground test both answer against the wrong surface. |
 | `GetPositionEgo` returns the **drawn** position, not the analytic one | `Camera.cs` | The sight's bracket and the head's aim go back to missing the target by metres. |
+| A particle feels gravity times `1 - airDensity / Density`, with no air below 100 Pa, and an unknown XML element is dropped without a word | `ParticleEmitter.cs`, `ParticleEmitterReference.cs` | Every smoke stage in `KSArmoryParticles.xml` sinks instead of rising, and the tracers fall. |
+| `Part.CrashTolerancePascals` is derived from collider volume against `PartStructuralLimits.BaseStrength` | `Part.cs`, `PartStructuralLimits.cs` | A warhead breaks more or fewer parts at the same range, and `BlastDamage.ReferencePascals`' comment stops being true. |
 
 Add a row whenever a fix depends on the engine *doing* something rather than *declaring* it.
 

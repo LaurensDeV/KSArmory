@@ -116,9 +116,8 @@ internal static class VehicleCommand
     /// <c>PhysicsStates.TryToPutOnRails</c> returns a coasting vehicle to rails only when the
     /// bubble's origin frame is <c>Cci</c>; a bubble whose heaviest member sits below the
     /// near-surface radius is <c>Ccf</c>, and inside one there is no path back. A bus that goes
-    /// quiet in a <c>Ccf</c> bubble therefore stays integrated for the whole coast — and above its
-    /// own <c>InPhysicsRadius</c> it is integrated with the rotating-frame accelerations switched
-    /// off, which is the ~4 m/s of non-gravitational push. <c>docs/ACCURACY-PLAN.md</c> 3bv.</para>
+    /// quiet in a <c>Ccf</c> bubble therefore stays integrated for the whole coast rather than
+    /// propagated as a conic. <c>docs/ACCURACY-PLAN.md</c> 3bv.</para>
     ///
     /// <para>A rails <c>Freefall</c> vehicle takes <c>ApplyFreefallMotion</c> and an exact conic
     /// whatever the frame, and <c>UpdateFromAnalytic</c> handles a <c>Ccf</c> origin correctly, so

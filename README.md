@@ -87,7 +87,7 @@ dependency on KSArmory and hands it a file of definitions; KSArmory never looks 
 no list of them. `KSArmory-example-mod` is a complete worked example — a Mk 82 bomb rack, which
 used to ship here — and `docs/WEAPON-PACKS.md` is the reference.
 
-> Built against KSA build `2026.9.7.5402`. KSA is pre-release and has no official code-modding
+> Built against KSA build `2026.9.10.5438`. KSA is pre-release and has no official code-modding
 > API; this uses the community [StarMap](https://github.com/StarMapLoader/StarMap) loader and
 > may need updating when the game does. The community
 > [wiki](https://kittenspaceagency.wiki.gg/) is a useful reference for the game itself.
@@ -96,7 +96,7 @@ used to ship here — and `docs/WEAPON-PACKS.md` is the reference.
 
 ### What you need first
 
-- **Kitten Space Agency.** Built against build `2026.9.7.5402`; a different build may need a
+- **Kitten Space Agency.** Built against build `2026.9.10.5438`; a different build may need a
   rebuild of the mod. **Windows and Linux both work** — the mod is a portable .NET assembly with
   no native code, so the single release archive is the same on either.
 - **[StarMap](https://github.com/StarMapLoader/StarMap/releases)**, the community mod loader.
@@ -176,7 +176,7 @@ and the **KSArmory** panel appears once you are in flight.
 | Symptom | Cause |
 | --- | --- |
 | No `KSArmory.log` at all | StarMap never ran the mod. Check the `manifest.toml` entry, and that you launched `StarMap.exe`. |
-| Part missing from the editor | The asset XML did not load. `KittenSpaceAgency.log` is where XML and asset errors appear. |
+| Part missing from the editor | The asset XML did not load. KSA's own log, the newest `KittenSpaceAgency.*.log` in the same folder, is where XML and asset errors appear. |
 | Part is there but nothing happens in flight | The DLL did not load, but the XML did — check `mod.toml`'s `EntryAssembly = "KSArmory"` matches the DLL name. |
 | Part renders untextured or invisible | `Meshes/` or `Textures/` did not come across, or the folder layout was flattened. |
 | Panel says `no weapons system on this craft` | The part is not on the craft you are flying, or its Id did not match a registered launcher. |

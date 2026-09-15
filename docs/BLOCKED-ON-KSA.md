@@ -8,7 +8,7 @@ Each entry cites what the decompiled corpus says, so a claim can be rechecked af
 rather than taken on trust. **Recheck this file when the game moves** — the whole point of it is
 that some of these will quietly become possible.
 
-Findings are against KSA **2026.9.7.5402**. Paths are relative to
+Findings are against KSA **2026.9.10.5438**. Paths are relative to
 `../ksa-game-assemblies/current/src`.
 
 ## Recheck after a KSA update
@@ -31,32 +31,32 @@ happen rather than a member that moved.
 - [x] **A hook between applying the vehicle solvers and snapshotting them** — delete `Ksa/AttitudeHook.cs`'s patch the day this exists
 - [x] **A menu-bar hook a mod can register into** — delete `Ksa/Ui/ModMenuEntry.cs` the day this exists
 - [x] **`DistanceReference.IsValid()` stops requiring 100 km** — go back to `IsValid()` on the atmosphere and the ocean the day it does
-- [ ] **A high vehicle in a `Ccf` bubble led from inside the radius gets its fictitious forces** —
-  **fixed in RocketWerkz revision 5429**, which is newer than 2026.9.7.5402 and not released as of
-  2026-09-11. On the build that carries it, read the new condition in
-  `PhysicsStates.ComputeDerivatives`, then retire the frame gate: it drops and re-flies any shot
-  with a rotating-frame probe on an unsplit bus, and on a fixed build those shots are sound. Key it
-  on the off-gravity instead. To see the fix rather than wait for it — the tail is ~1% of shots —
+- [ ] ~~A high vehicle in a `Ccf` bubble led from inside the radius gets its fictitious forces~~ —
+  **arrived in 2026.9.10.5438**, see below; the mod has not taken it up. Retire the frame gate: it
+  drops and re-flies any shot with a rotating-frame probe on an unsplit bus, and on this build those
+  shots are sound. Key it on the off-gravity instead. To see the fix rather than wait for it — the tail is ~1% of shots —
   hold one rocket's split and release ~90 s past the rest: the harness's defence site, moved to
   within 250 m of the aim, then leads a `Ccf` bubble that catches that bus before it splits on
   nearly every shot. Its off-gravity should read ~0 and its split debt the usual 0.3-0.5 m/s. See
   the entry below
 
-**Twelve of the thirteen rechecked against 2026.9.4.5400 and still blocked; partial damage is the
-one that moved** — KSA grew a real part-failure system, and the entry below says what it is and what
-taking it up would mean.
+**Rechecked against 2026.9.10.5438: all twelve open items still blocked, the fictitious forces
+arrived, and partial damage moved again.** A part's crash tolerance is now derived from its collider volume against a
+9 MPa base at 330 kg/m³ and clamped to 0.1–100 MPa (`PartStructuralLimits.cs:8-39`,
+`Part.cs:839-854`), and every queued failure and every `DestroyVehicleFromEvent` now spawns an
+engine explosion (`PartFailureEvent.cs:38-67`, `Universe.cs:1908-1916`).
 
-**2026.9.7.5402 changes none of it, and that is mechanical rather than a re-reading.** It is a
-managed-identical rebuild of 2026.9.4.5400: the decompiled corpus is byte-identical across the two
-but for three `AssemblyInfo.cs` version stamps, and `ksa-api-diff.sh` reports no file defining a
-type this mod uses was touched. Every claim below therefore stands on the same source text it was
-written against, citations included. Its one real change — a crash from an incorrect data stride
-in thumbnail rendering — is in native `VulkanEx.dll`, which nothing decompiles; everything on this
-list is a question about the managed API, so the corpus answers all of them.
+**The explosion system that came with it is public, and nothing below was written knowing it.**
+`ExplosionFlashSystem.Spawn` places a point light that every viewport draws
+(`ExplosionFlashSystem.cs:26`, `:73-91`; eight slots shared with the engine), and
+`ExplosionSystem.SpawnPreset` fires a declared `<Explosion>` — emitters, volumes, a flash and a
+sound — from an anchor with no vehicle (`ExplosionSystem.cs:217`, `:471-476`). Its volumes draw
+through the volumetric trail renderer, only over a body with an atmosphere and with clouds on, and
+its intensity clamps at 100x of 5e10 J, so a nuclear cloud would still be authored rather than
+scaled.
 
-**Except in the secondary-viewport entry, whose citations were re-derived against 2026.9.7.5402
-when the sight was taught to paint on a camera window** — that entry's line numbers, and its list
-of what such a window does and does not render, are current.
+**The secondary-viewport entry's line numbers are against 2026.9.7.5402**; its list of what such a
+window does and does not render was rechecked against 2026.9.10.5438 and holds.
 
 The other line numbers below are against **2026.8.22.5348** and have not been re-derived: 2026.9.4.5400
 replaced the `Viewport` class with `IViewport` / `ViewportBase` / `GameViewport` and moved the list
@@ -75,11 +75,15 @@ pass and a tone curve.
 
 ## A physics bubble that spans the near-surface radius strips a high vehicle's fictitious forces
 
-**Fixed upstream in revision 5429**, not released as of 2026-09-11 — *"Fixed fictitious forces not
-being applied to a vehicle above the physics radius but in a CCF-based bubble led by another vehicle
-inside the radius."* That is the first of the three fixes proposed below. The rails half is not
-mentioned: a rotating bubble may still have no path back to rails, which leaves such a vehicle
-integrated rather than propagated — correctly, now. Everything below describes 2026.9.7.5402.
+**Fixed in 2026.9.10.5438**, which carries revision 5429 — *"Fixed fictitious forces not being
+applied to a vehicle above the physics radius but in a CCF-based bubble led by another vehicle
+inside the radius."* That is the first of the three fixes proposed below: `ComputeDerivatives` now
+applies the centrifugal term to every member of a `Ccf` bubble, and Coriolis to every member not in
+contact, keyed on the bubble's frame rather than on `InPhysicsRadius` (`PhysicsStates.cs:853-867`).
+The rails half is not fixed: `TryToPutOnRails` still returns a vehicle to rails only from a `Cci`
+bubble (`:803-825`), so such a vehicle is integrated rather than propagated — correctly, now. The
+merge and split gates were rewritten per cluster in the same build (`PhysicsBubble.cs:340-358`), so
+how a bubble that size forms may have moved too. Everything below describes 2026.9.7.5402.
 
 **What this costs:** roughly one shot in thirty loses every warhead it has, by 3 to 113 km. On the
 eight nights carrying the diagnostic, 3.0% of flights carry **99.1% of the total summed miss**. It is

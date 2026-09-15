@@ -98,6 +98,9 @@ and it is confirmed.
 | `2049-2050` | `Network.Tick()`, `Glfw.PollEvents()` |
 | `2051-2062` | two early returns: window closing, and a font rebuild (§7) |
 
+On 2026.9.10.5438 `Glfw.PollEvents()` runs before `InputEvents.ApplyInputEvents()` rather than after
+the solvers are queued; the rest of this order, and everything below that depends on it, is the same.
+
 `Vehicle.PrepareWorker` — the one method this mod patches, from `Ksa/AttitudeHook.cs` — is reached
 from `ExecuteNextVehicleSolvers` at `Program.cs:2047`, i.e. *inside* `PrepareFrame` and before any
 mod hook of any kind runs. That is why an attitude command written from a StarMap hook is

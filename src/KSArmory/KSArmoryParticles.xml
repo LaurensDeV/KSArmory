@@ -9,20 +9,12 @@
   tree has no renderer: the by-Id child did not resolve back to its definition. Inline nesting is
   the form every emitter Core actually uses in play, and it works. The duplication is deliberate.
 
-  THERE ARE TWO OF EVERYTHING, and the reason is not stylistic. The Volumetric renderer is KSA's
-  screen-space particle renderer, and ParticleSystem.WriteCommandsColorTranslucent only issues its
-  draw commands when GameSettings.Graphics.ScreenSpaceParticles is on - which defaults to OFF. A
-  volumetric emitter therefore resolves, acquires, registers, spawns, ages and draws absolutely
-  nothing on a default install. Detonation picks the variant that will actually render.
-
-  Volumetric is worth the trouble where it works: SimpleColor draws each particle as a solid mesh,
-  so a cloud of them reads as a heap of balls however it is coloured, while Volumetric at a low
+  Burst smoke is Volumetric, never SimpleColor: SimpleColor draws each particle as a solid mesh, so
+  a cloud of them reads as a heap of balls however it is coloured, while Volumetric at a low
   Opacity accumulates into density where particles overlap.
 
-  The solid variant's smoke is therefore NOT SimpleColor: it is Billboard, which is an
-  alpha-blended camera-facing quad sampling a material and is not gated by any setting. A soft
-  sprite does not read as a ball because it has no edge. That is the whole trick, and it is why
-  tools/model/smokepuff.py exists.
+  The muzzle smoke is Billboard, an alpha-blended camera-facing quad sampling a material. A soft
+  sprite does not read as a ball because it has no edge, and tools/model/smokepuff.py makes it.
 
   Colour components above 1 are deliberate - Core's ThrusterSparks runs at 15/11/6 - because the
   renderer is HDR and that is what makes a fireball bloom rather than read as flat orange paint.
@@ -62,11 +54,10 @@
     </PbrMaterial>
 
 
-    <!-- ============ the two fireballs ============ -->
+    <!-- ============ the fireball ============ -->
     <!--
-      Both open with the same flash - the stage that blooms, and the one that must not be
-      volumetric because bloom is what it is for. Then fire, fragments and smoke, or for the solid
-      variant fragments and smoke only.
+      Opens with the flash - the stage that blooms, and the one that must not be volumetric because
+      bloom is what it is for. Then fire, fragments and smoke.
     -->
 
     <ParticleEmitter Id="KSArmoryFireball">
@@ -176,92 +167,10 @@
         </ParticleEmitters>
     </ParticleEmitter>
 
-    <ParticleEmitter Id="KSArmoryFireballSolid">
-        <MaxParticles Value="48" />
-        <Mesh Id="ParticleSphere"/>
-        <Renderer>SimpleColor</Renderer>
-        <Updaters>SimpleMovement</Updaters>
-        <Updaters>GrowOnSpawn</Updaters>
-        <Updaters>ShrinkOverLifetime</Updaters>
-        <Updaters>HueShift</Updaters>
-        <Updaters>ModelMatrix</Updaters>
-        <Updaters>Age</Updaters>
-        <SpawnMode>Burst</SpawnMode>
-        <EmitterSpawnLogic>Sphere</EmitterSpawnLogic>
-        <EmitterSize Value="2"/>
-        <EmitterExtents X="1" Y="0" Z="0"/>
-        <SpawnRate Value="48"/>
-        <Force X="0" Y="0" Z="0" />
-        <GravityStrength Value="0.0"/>
-        <ParticleColor X="22" Y="10" Z="3" W="1"/>
-        <ParticleColorShift X="0.3" Y="0.15" Z="0"/>
-        <ParticleLifespan X="0.25" Y="0.7"/>
-        <ParticleSpawnLogic>ScatterFromCenter</ParticleSpawnLogic>
-        <ParticleSize X="0.7" Y="2.0"/>
-        <ParticleVelocity X="16" Y="16" Z="16"/>
-        <ParticleVelocityShift Value="0.8"/>
-        <ParticleExtra X="0.55" Y="0" Z="0" W="0"/>
-        <ParticleAngularVelocity X="4" Y="4" Z="4"/>
-
-        <ParticleEmitters>
-            <MaxParticles Value="96" />
-            <Mesh Id="ParticleSphere"/>
-            <Renderer>SimpleColor</Renderer>
-            <Updaters>SimpleMovement</Updaters>
-            <Updaters>ShrinkOverLifetime</Updaters>
-            <Updaters>HueShift</Updaters>
-            <Updaters>ModelMatrix</Updaters>
-            <Updaters>Age</Updaters>
-            <SpawnMode>Burst</SpawnMode>
-            <EmitterSpawnLogic>Sphere</EmitterSpawnLogic>
-            <EmitterSize Value="1.5"/>
-            <EmitterExtents X="0.6" Y="0" Z="0"/>
-            <SpawnRate Value="96"/>
-            <Force X="0" Y="0" Z="0" />
-            <GravityStrength Value="0.6"/>
-            <ParticleColor X="7" Y="2.4" Z="0.4" W="1"/>
-            <ParticleColorShift X="0.5" Y="0.3" Z="0"/>
-            <ParticleLifespan X="1.8" Y="4.5"/>
-            <ParticleSpawnLogic>MoveAwayFromCenter</ParticleSpawnLogic>
-            <ParticleSize X="0.1" Y="0.35"/>
-            <ParticleVelocity X="60" Y="60" Z="60"/>
-            <ParticleVelocityShift Value="1"/>
-            <ParticleExtra X="0.55" Y="0" Z="0" W="0"/>
-            <ParticleAngularVelocity X="9" Y="9" Z="9"/>
-        </ParticleEmitters>
-        <ParticleEmitters>
-            <MaxParticles Value="56" />
-            <Mesh Id="Plane"/>
-            <Renderer>Billboard</Renderer>
-            <MaterialId Value="KSArmorySmokeMaterial"/>
-            <Updaters>SimpleMovement</Updaters>
-            <Updaters>GrowOverLifetime</Updaters>
-            <!-- W is the grow ratio: without it the curve runs to zero and the smoke implodes. -->
-            <EmitterExtra W="3.5"/>
-            <Updaters>ModelMatrix</Updaters>
-            <Updaters>Age</Updaters>
-            <SpawnMode>Burst</SpawnMode>
-            <EmitterSpawnLogic>Sphere</EmitterSpawnLogic>
-            <EmitterSize Value="3"/>
-            <EmitterExtents X="1" Y="0" Z="0"/>
-            <SpawnRate Value="56"/>
-            <Force X="0" Y="0" Z="0" />
-            <GravityStrength Value="-0.12"/>
-            <ParticleColor X="0.30" Y="0.27" Z="0.25" W="0.55"/>
-            <ParticleLifespan X="4.0" Y="8.0"/>
-            <ParticleSpawnLogic>ScatterFromCenter</ParticleSpawnLogic>
-            <ParticleSize X="3.0" Y="7.0"/>
-            <ParticleVelocity X="4" Y="4" Z="4"/>
-            <ParticleVelocityShift Value="0.9"/>
-            <ParticleExtra X="0.8" Y="0" Z="0" W="0"/>
-        </ParticleEmitters>
-    </ParticleEmitter>
-
-    <!-- ============ the two airbursts ============ -->
+    <!-- ============ the airburst ============ -->
     <!--
       A round that fused but did not kill: a flash and a wisp. Telling a near miss from a hit by
-      eye is most of what watching an engagement is for, so neither must grow into a small
-      fireball.
+      eye is most of what watching an engagement is for, so it must not grow into a small fireball.
     -->
 
     <ParticleEmitter Id="KSArmoryAirburst">
@@ -312,61 +221,6 @@
             <ParticleLifespan X="2.0" Y="4.0"/>
             <ParticleSpawnLogic>ScatterFromCenter</ParticleSpawnLogic>
             <ParticleSize X="3.5" Y="7.0"/>
-            <ParticleVelocity X="3" Y="3" Z="3"/>
-            <ParticleVelocityShift Value="0.9"/>
-            <ParticleExtra X="0.8" Y="0" Z="0" W="0"/>
-        </ParticleEmitters>
-    </ParticleEmitter>
-
-    <ParticleEmitter Id="KSArmoryAirburstSolid">
-        <MaxParticles Value="40" />
-        <Mesh Id="ParticleSphere"/>
-        <Renderer>SimpleColor</Renderer>
-        <Updaters>SimpleMovement</Updaters>
-        <Updaters>GrowOnSpawn</Updaters>
-        <Updaters>ShrinkOverLifetime</Updaters>
-        <Updaters>HueShift</Updaters>
-        <Updaters>ModelMatrix</Updaters>
-        <Updaters>Age</Updaters>
-        <SpawnMode>Burst</SpawnMode>
-        <EmitterSpawnLogic>Sphere</EmitterSpawnLogic>
-        <EmitterSize Value="2.5"/>
-        <EmitterExtents X="0.6" Y="0" Z="0"/>
-        <SpawnRate Value="40"/>
-        <Force X="0" Y="0" Z="0" />
-        <GravityStrength Value="0.0"/>
-        <ParticleColor X="5" Y="4" Z="3" W="1"/>
-        <ParticleColorShift X="0.2" Y="0.2" Z="0"/>
-        <ParticleLifespan X="0.4" Y="1.0"/>
-        <ParticleSpawnLogic>ScatterFromCenter</ParticleSpawnLogic>
-        <ParticleSize X="1.0" Y="3.0"/>
-        <ParticleVelocity X="22" Y="22" Z="22"/>
-        <ParticleVelocityShift Value="0.8"/>
-        <ParticleExtra X="0.55" Y="0" Z="0" W="0"/>
-        <ParticleAngularVelocity X="4" Y="4" Z="4"/>
-
-        <ParticleEmitters>
-            <MaxParticles Value="24" />
-            <Mesh Id="Plane"/>
-            <Renderer>Billboard</Renderer>
-            <MaterialId Value="KSArmorySmokeMaterial"/>
-            <Updaters>SimpleMovement</Updaters>
-            <Updaters>GrowOverLifetime</Updaters>
-            <!-- W is the grow ratio: without it the curve runs to zero and the smoke implodes. -->
-            <EmitterExtra W="3.5"/>
-            <Updaters>ModelMatrix</Updaters>
-            <Updaters>Age</Updaters>
-            <SpawnMode>Burst</SpawnMode>
-            <EmitterSpawnLogic>Sphere</EmitterSpawnLogic>
-            <EmitterSize Value="1.8"/>
-            <EmitterExtents X="0.6" Y="0" Z="0"/>
-            <SpawnRate Value="24"/>
-            <Force X="0" Y="0" Z="0" />
-            <GravityStrength Value="-0.1"/>
-            <ParticleColor X="0.32" Y="0.30" Z="0.28" W="0.5"/>
-            <ParticleLifespan X="2.0" Y="4.0"/>
-            <ParticleSpawnLogic>ScatterFromCenter</ParticleSpawnLogic>
-            <ParticleSize X="4.0" Y="8.0"/>
             <ParticleVelocity X="3" Y="3" Z="3"/>
             <ParticleVelocityShift Value="0.9"/>
             <ParticleExtra X="0.8" Y="0" Z="0" W="0"/>

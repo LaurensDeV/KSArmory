@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-180 types and 520 members across 7 assemblies.
+179 types and 518 members across 7 assemblies.
 
 ## Brutal.Concurrency
 
@@ -569,7 +569,6 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.GameSettings+GraphicsSettings
 
 - `bool Particles`
-- `bool ScreenSpaceParticles`
 
 ### KSA.GenericMeshRenderer
 
@@ -663,10 +662,6 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.JobSystems
 
 - `Brutal.Concurrency.Jobs.JobScheduler VehicleSolver`
-
-### KSA.KeyHash
-
-- `KSA.KeyHash Make(System.ReadOnlySpan`1<char>)`
 
 ### KSA.KittenEva
 

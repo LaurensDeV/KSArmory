@@ -186,7 +186,7 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
 ## Environment
 
 - **KSA install**: `/mnt/c/Program Files/Kitten Space Agency` (Windows game, WSL dev)
-- **KSA build these notes were taken against**: `2026.9.7.5402`
+- **KSA build these notes were taken against**: `2026.9.10.5438`
 - The system `dotnet` is 8.0 and **cannot build this** — the mod targets **net10.0**
   (`error NETSDK1045`). A .NET 10 SDK is installed at `~/.dotnet`.
   **Use `tools/build.sh` / `tools/test.sh`**, which source `tools/env.sh` to fix PATH. Bare
@@ -204,8 +204,9 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
   launched from there.
 - **The mod writes its own log** to `<KSA user dir>/Logs/KSArmory.log`, readable from WSL;
   `./tools/ksa-user-dir.sh` prints that directory and `./tools/run.sh --attach` follows the log.
-  `Console.WriteLine` only reaches stdout, and KSA's `KittenSpaceAgency.log` is written by its
-  internal logger which mods cannot reach — so the mod's own file is the debugging channel.
+  `Console.WriteLine` only reaches stdout, and KSA's own log — one per session, the newest
+  `KittenSpaceAgency.<yymmdd-hhmmss>.<pid>.log` in the same folder — is written by its internal
+  logger which mods cannot reach, so the mod's own file is the debugging channel.
   KSA's log is still the place to look for mod discovery and asset/XML errors.
 
 ## Commands
@@ -477,7 +478,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 520 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 518 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -1063,7 +1064,7 @@ Do the private repo *before* pushing here, or CI fails on the lock it cannot sat
 member that keeps its name and signature and changes its *meaning* — a different reference
 frame, different units, a reordered enum — compiles clean and is wrong in flight. That is what
 the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from 684,000 lines to the files
-defining the 180 types this mod actually uses.
+defining the 179 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 45 in total, 14 MB —
@@ -1748,9 +1749,10 @@ payload, and no profile says anything about damage. `Sim/BlastDamage.cs` is the 
 given overpressure is felt at a fixed *scaled* distance and pressure near the burst falls as the
 cube of it, so the radius at which a part's tolerance is reached goes as `(W/P)^(1/3)` — which is
 `Warhead.LethalRadius` with a second cube root on the strength ratio. `BlastDamage.ReferencePascals` is
-KSA's own reference strength, so a part of that strength fails at *exactly* the lethal radius and
-the 57E6's flown calibration does not move: it now says which part it was calibrated on. The engine
-clamps a tolerance to 0.1–20 MPa, which is 3.11x to 0.53x of that radius, and the weak end is capped
+3 MPa, so a part of that strength fails at *exactly* the lethal radius and the 57E6's flown
+calibration does not move: it says which part it was calibrated on. KSA's own base strength is
+9 MPa, which reaches 0.69x of it. The engine clamps a tolerance to 0.1–100 MPa, which is 3.11x to
+0.31x of that radius, and the weak end is capped
 at `BlastRadius` — the radius the panel, the overlay and the near-miss line all describe the weapon
 by, and a damage rule reaching past it would make all three lie.
 

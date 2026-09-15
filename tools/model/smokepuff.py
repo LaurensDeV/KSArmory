@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
 """
-Generates the soft particle sprite the smoke is drawn with.
+Generates the soft particle sprite the muzzle smoke is drawn with.
 
-Why this exists: KSA's Volumetric renderer makes convincing smoke out of overlapping spheres,
-but it is the *screen-space* renderer and only draws when the player has Screen Space Particles
-switched on, which is off by default. The Billboard renderer has no such gate - it is an
-alpha-blended camera-facing quad sampling a material - so smoke that has to work on a default
-install is a billboard with a soft sprite on it. Solid spheres are the thing that reads as a
-heap of balls; a soft-edged sprite does not, because it has no edge.
+Why this exists: KSA's Billboard renderer is an alpha-blended camera-facing quad sampling a
+material, so the smoke it draws is only as soft as the sprite. Solid spheres are the thing that
+reads as a heap of balls; a soft-edged sprite does not, because it has no edge.
 
 The sprite is a radial falloff raised to a power, with a little value noise so a cloud of them
 does not look like a cloud of identical discs. Alpha carries the shape; RGB is white so

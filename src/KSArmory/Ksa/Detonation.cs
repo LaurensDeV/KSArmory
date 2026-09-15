@@ -18,38 +18,15 @@ namespace KSArmory;
 /// </summary>
 internal static class Detonation
 {
-    // Two of each. The Volumetric renderer is KSA's screen-space particle renderer, and its draw
-    // commands are only issued when GameSettings.Graphics.ScreenSpaceParticles is on -- which
-    // defaults to off. A volumetric emitter on a default install resolves, acquires, registers,
-    // spawns, ages and draws nothing at all, with no error anywhere.
-    private const string FireballVolumetric = "KSArmoryFireball";
-    private const string FireballSolid = "KSArmoryFireballSolid";
-    private const string AirburstVolumetric = "KSArmoryAirburst";
-    private const string AirburstSolid = "KSArmoryAirburstSolid";
-
     /// <summary>The kill: a bright ball with fire, fragments and smoke.</summary>
-    public static string Fireball => SoftParticles ? FireballVolumetric : FireballSolid;
+    public const string Fireball = "KSArmoryFireball";
 
     /// <summary>A round that fused and did not kill. Smaller and paler on purpose.</summary>
-    public static string Airburst => SoftParticles ? AirburstVolumetric : AirburstSolid;
-
-    /// <summary>
-    /// Whether the volumetric renderer will actually draw. Off by default in KSA, and the
-    /// difference between smoke that looks like smoke and smoke that looks like a heap of balls.
-    /// </summary>
-    public static bool SoftParticles
-    {
-        get
-        {
-            try { return GameSettings.Current.Graphics.ScreenSpaceParticles; }
-            catch { return false; }
-        }
-    }
+    public const string Airburst = "KSArmoryAirburst";
 
     // Reported once per distinct reason rather than per round: a twelve-round salvo would
     // otherwise bury the engagement it belongs to. Keyed by emitter Id, not a single flag,
-    // because the variant changes with a graphics setting and each variant is worth describing
-    // on its own.
+    // because the fireball and the airburst are each worth describing on their own.
     private static readonly HashSet<string> _describedBursts = [];
 
     /// <summary>

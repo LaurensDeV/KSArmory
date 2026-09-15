@@ -271,13 +271,12 @@ internal partial class Ui
         bool changed;
         if (multiline is null)
         {
-            changed = ImGui.InputText(label, buffer, ImGuiInputTextFlags.None, null, default);
+            changed = ImGui.InputText(label, buffer, ImGuiInputTextFlags.None);
         }
         else
         {
             float2? size = multiline;
-            changed = ImGui.InputTextMultiline(label, buffer, in size, ImGuiInputTextFlags.None,
-                                               null, default);
+            changed = ImGui.InputTextMultiline(label, buffer, in size, ImGuiInputTextFlags.None);
         }
 
         if (!changed) return false;

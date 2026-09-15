@@ -7,7 +7,8 @@ namespace KSArmory;
 ///
 /// The file matters: StarMap mods only reach stdout, which lands in whatever terminal launched
 /// the game and is awkward to read (and impossible to read after the fact). KSA's own
-/// <c>KittenSpaceAgency.log</c> is written by its internal logger, which mods cannot reach.
+/// per-session <c>KittenSpaceAgency.*.log</c> is written by its internal logger, which mods cannot
+/// reach.
 /// So this mod keeps its own, in the same folder, where it can be tailed from outside the game.
 ///
 /// Lines are batched rather than written one at a time. A salvo at full rate is hundreds of

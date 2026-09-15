@@ -123,6 +123,51 @@ Four things changed shape and need watching, worst first:
 
 Also unflown on this build: everything the previous retarget listed as unwatched, and the turret.
 
+**Retargeted to KSA `2026.9.10.5438` — the managed surface moved, and most of what matters does not
+show in a build.** Three things were compile errors: `GameSettings.Graphics.ScreenSpaceParticles`
+is gone, `KeyHash` now lives in `Planet.Render.Core.dll` under the same namespace, and the ImGui
+bindings grew function-pointer overloads that made a `null` text-input callback ambiguous. The
+Numerics rewrite (2026.6 to 2026.9) was read member by member and changes no meaning. What compiles
+clean and still has to be flown or looked at:
+
+- [ ] **Burst smoke sinks and the tracers fall.** `GravityStrength` is gone from the particle schema
+      and the XML deserialiser drops it without a word, so every stage falls at full gravity. KSA's
+      replacement is buoyancy, `Density` — `docs/KSA-MODDING-NOTES.md` — and no stage sets one yet.
+- [ ] **The fireball is always the volumetric one.** The volumetric renderer draws on every install
+      now, so the billboard fallback emitters were deleted. Look at one.
+- [ ] **KSA draws its own explosion on every kill and every broken part**, on top of `Detonation`'s,
+      from `DestroyVehicleFromEvent` and `PartFailureEvent.Apply`. Two fireballs may not be wanted.
+- [ ] **Parts break at different ranges.** `CrashTolerancePascals` now comes from collider volume
+      against a 9 MPa base at 330 kg/m³, clamped to 0.1–100 MPa, while `BlastDamage.ReferencePascals`
+      stays 3 MPa. Compare the parts-broken count against 4.4a's 7 of 21.
+- [ ] **The stack's delta-v may read lower mid-flight.** `SequencePerformanceList.TotalDeltaV` skips
+      sequences already passed in flight mode, and `IcbmProgram` judges reach on it.
+- [ ] **The rotating-frame fix is in** — `docs/BLOCKED-ON-KSA.md` — so the frame gate that re-flies
+      a shot with a rotating-frame probe is now dropping sound shots. Not retired.
+- [ ] **Cost, and comparability.** Bubbles now step to mid-step merge horizons, `FxDeformation` runs
+      every step for every vehicle, `ExplosionSystem.Update` runs every frame, and KSA's explosion
+      volumes share the trail renderer's globals that `PlumeSmoke.Tune` writes. No `SolverLoad` or
+      `FrameBudget` number from an earlier build compares, and no shot does either: the new
+      Numerics may fuse multiply-adds, so arms flown on 5402 and 5438 differ by more than the arm.
+
+| Scenario | Result |
+| --- | --- |
+| `head-on` | **PASS** — detonation at 17 m, **2 parts broken off the 21-part drone, and no kill** |
+
+The pass is the harness's — engagement over, no rounds left — and it is not the kill 5402 flew. The
+same scenario on 5402 burst at 16 m, broke 7 parts and fragmented the drone into 11 vehicles; here 2
+broke, below the fragment guard's 11, and the drone flew on. That is the crash-tolerance change and
+nothing else, and it is the evidence for whether `ReferencePascals` should move with KSA's base.
+
+Everything else in the session was clean: the three patches installed (`Vehicle.PrepareWorker`,
+`Program.OnFrameCelestials`, `Program.OnGameLoaded`), the trail renderer bound, the rail's body and
+tube resolved, all four fireball stages registered, and the stamp read `built for KSA
+2026.9.10.5438, running 2026.9.10.5438 - reporting on`. KSA's own log has no warning or error, and
+ModMenu injected its menu entry. **KSA's log is now per session**,
+`Logs/KittenSpaceAgency.<yymmdd-hhmmss>.<pid>.log`, and it records nothing about the part failures.
+Its last line comes before the burst, so either this build logs no crash tolerances or the harness's
+`taskkill` lost the buffer — the `.abnormal-exit.log` beside it is that kill. Only the rail flew.
+
 **Retargeted to KSA `2026.9.7.5402`, and flown — nothing in the *managed* surface moved.**
 RocketWerkz's note for 5402 is one line: *fixed crash for incorrect data stride for thumbnail
 rendering*. That fix is in code this corpus cannot see, and the distinction is worth keeping.
@@ -301,7 +346,7 @@ tail -F "$(./tools/ksa-user-dir.sh)/Logs/KSArmory.log"
 ```
 
 It is truncated at each launch, so it always shows the current session. KSA's own log
-(`KittenSpaceAgency.log`, same folder) covers mod discovery and asset loading — that is where
+(the newest `KittenSpaceAgency.*.log`, same folder) covers mod discovery and asset loading — that is where
 part XML errors would appear.
 
 The in-game console is a nice-to-have: toggle with **`\`** (backslash), `help` lists commands,
@@ -316,7 +361,7 @@ If you cannot find it, ignore it — the log files cover everything on this chec
 ### 1.1 The mod loads
 
 - [x] Launch via **`StarMap.exe`**, not `KSA.exe`.
-- [x] `KittenSpaceAgency.log` contains `INFO found mod 'KSArmory'`.
+- [x] `KittenSpaceAgency.*.log` contains `INFO found mod 'KSArmory'`.
 - [x] StarMap prints `Loaded mod: KSArmory from manifest`.
 - [x] `Logs/KSArmory.log` contains `loading (mod id: KSArmory)`.
 - [ ] Then `ready - <every registered launcher>, safe.`
@@ -333,7 +378,7 @@ points at the right KSA folder. An exception mentioning TOML means the `assets` 
 
 ### 1.2 No XML parse errors
 
-- [x] Nothing in `KittenSpaceAgency.log` about failing to load `KSArmoryAssets.xml` or
+- [x] Nothing in `KittenSpaceAgency.*.log` about failing to load `KSArmoryAssets.xml` or
       `KSArmoryGameData.xml`.
 
 Re-check after any XML edit.
@@ -1700,7 +1745,7 @@ section that proves it, and it is the failure that produced a 3,255 km miss befo
 Most useful, in order:
 
 1. `Logs/KSArmory.log` — the whole file. Especially `ERROR` lines with stack traces.
-   `Logs/KittenSpaceAgency.log` too if the part or XML is misbehaving.
+   the newest `Logs/KittenSpaceAgency.*.log` too if the part or XML is misbehaving.
 2. Which checklist item failed and what you saw instead.
 3. A screenshot for anything visual (2.2 especially).
 4. For guidance misses: the fuse trigger ranges off the `detonated` lines and the closest
