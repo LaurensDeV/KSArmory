@@ -624,11 +624,13 @@ internal sealed class IcbmConfig
     /// <para><b>Along the ground only</b>, so a crossing the probe found under the surface keeps its
     /// depth — 28 cm of ground on the traced arc — for <see cref="PredictionStopsOnTheSurface"/>.</para>
     ///
-    /// <para><b>Off</b>, and not flown. Headless at 340 s and 32°, a probe landing 1.0 m short and 0.3 m
-    /// across is kicked 1.7 mm/s and lands 0.7 mm from the target; with the ring and the spin on as well,
-    /// every warhead lands within 0.3 cm. Four Kepler coasts a warhead.</para>
+    /// <para><b>On</b>, flown over 16 paired blocks: the group's centre 0.10x [0.09, 0.15] on 16 of 16, the
+    /// median rocket 1.29 → 0.14 m and under half a metre on 54 of 64, with each centroid following its
+    /// release probe at slope +0.011 where it followed at +1.003. What it leaves runs along the track, 0.33 m
+    /// of scatter against 0.03 across — <see cref="ProbeMissFollowsTheGround"/>'s term. Four Kepler coasts a
+    /// warhead. <c>docs/ACCURACY-PLAN.md</c> 3dh.</para>
     /// </summary>
-    public bool CancelProbeMissAtSeparation;
+    public bool CancelProbeMissAtSeparation = true;
 
     /// <summary>
     /// Measure the miss <see cref="CancelProbeMissAtSeparation"/> cancels as the chord between the probe's
