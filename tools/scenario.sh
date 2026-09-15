@@ -13,6 +13,7 @@
 #   ./tools/scenario.sh head-on --keep   # leave the game running afterwards
 #   ./tools/scenario.sh head-on --shots  # ...and screenshot on CAPTURE (whole screen, opt-in)
 #   ./tools/scenario.sh mirv --no-deploy # fly whatever is already in the mods folder
+#   KSARMORY_SCENARIO_VERBOSE=1 ./tools/scenario.sh head-on   # ...logging at DEBUG, per-part blast sweep included
 #
 # The gap this closes is not headless rendering -- KSA ships Windows-only natives and threads its
 # simulation through a Vulkan renderer, so there is no headless to have. It is that verifying a
@@ -158,7 +159,8 @@ mkdir -p "$USER_DIR/Logs"
 {
     printf '%s|%s\n' "$SCENARIO" "$SAVE"
     printf '%s\n%s\n' "$ARMS" "$ARM_PHASE"
-    printf '%s %s\n' "${KSARMORY_SCENARIO_KEEPSTAGES:+keepstages}" "${KSARMORY_SCENARIO_TRACE:+trace}"
+    printf '%s %s %s\n' "${KSARMORY_SCENARIO_KEEPSTAGES:+keepstages}" "${KSARMORY_SCENARIO_TRACE:+trace}" \
+        "${KSARMORY_SCENARIO_VERBOSE:+verbose}"
 } > "$USER_DIR/Logs/scenario.txt"
 
 # KSA shows a configuration dialog at startup and waits for START KSA to be clicked, which is

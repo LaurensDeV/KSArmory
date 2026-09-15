@@ -3130,6 +3130,20 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         BlastDamage.Sweep(burst, elapsed, KsaWorld.VelocityEcl(v),
                           CollectionsMarshal.AsSpan(_partScratch), munition, _failedParts);
 
+        // KSA logs no part's crash tolerance, and it is what sets a warhead's reach against that part.
+        if (Log.Threshold <= Log.Level.Debug)
+        {
+            string craft = KsaWorld.DisplayName(v);
+            double3 velocity = KsaWorld.VelocityEcl(v);
+            foreach (DamageablePart p in _partScratch)
+            {
+                double gap = BlastSweep.SurfaceGap(p.PositionEcl, velocity, elapsed, burst, p.RadiusMetres);
+                double reach = BlastDamage.FailureRadius(munition.ChargeKg, p.CrashTolerancePascals);
+                Log.Debug($"blast on {craft}: {_partHandles[p.Index].Id} gap {gap:F1} m, reach {reach:F1} m "
+                          + $"at {p.CrashTolerancePascals / 1e6:F2} MPa{(gap <= reach ? ", breaks" : string.Empty)}");
+            }
+        }
+
         if (_failedParts.Count == 0)
         {
             // The sweep answered, and the answer was that nothing was near enough. Only a verdict

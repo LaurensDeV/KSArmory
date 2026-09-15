@@ -360,6 +360,10 @@ internal sealed class ScenarioRunner
         _keepStages = Array.IndexOf(options, "keepstages") >= 0;
         _traceWarhead = Array.IndexOf(options, "trace") >= 0;
 
+        // Nobody can tick Verbose log in a scripted run, and the developer detail -- the per-part
+        // blast sweep among it -- is only ever wanted from one.
+        if (Array.IndexOf(options, "verbose") >= 0) Log.Threshold = Log.Level.Debug;
+
         // "name" or "name|save". Skipping the configuration dialog gets the game past a dialog,
         // not into a scene: settings.toml's startVehicle is only ever read *by* that dialog, so
         // without one the game sits at a menu and nothing is ever in flight. Loading a save is
