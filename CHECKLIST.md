@@ -135,11 +135,12 @@ clean and still has to be flown or looked at:
       replacement is buoyancy, `Density` — `docs/KSA-MODDING-NOTES.md` — and no stage sets one yet.
 - [ ] **The fireball is always the volumetric one.** The volumetric renderer draws on every install
       now, so the billboard fallback emitters were deleted. Look at one.
-- [ ] **KSA draws its own explosion on every kill and every broken part**, on top of `Detonation`'s,
-      from `DestroyVehicleFromEvent` and `PartFailureEvent.Apply`. Two fireballs may not be wanted.
-- [ ] **Parts break at different ranges.** `CrashTolerancePascals` now comes from collider volume
-      against a 9 MPa base at 330 kg/m³, clamped to 0.1–100 MPa, while `BlastDamage.ReferencePascals`
-      stays 3 MPa. Compare the parts-broken count against 4.4a's 7 of 21.
+- [x] **KSA draws its own explosion on every kill and every broken part**, on top of `Detonation`'s,
+      from `DestroyVehicleFromEvent` and `PartFailureEvent.Apply`. Kept on purpose: KSA's explosion
+      is wanted alongside the mod's.
+- [x] **Parts break at different ranges.** `CrashTolerancePascals` now comes from collider volume
+      against a 9 MPa base at 330 kg/m³, clamped to 0.1–100 MPa, and `BlastDamage.ReferencePascals`
+      moved with it to 9 MPa — flown below.
 - [ ] **The stack's delta-v may read lower mid-flight.** `SequencePerformanceList.TotalDeltaV` skips
       sequences already passed in flight mode, and `IcbmProgram` judges reach on it.
 - [ ] **The rotating-frame fix is in** — `docs/BLOCKED-ON-KSA.md` — so the frame gate that re-flies
@@ -152,14 +153,24 @@ clean and still has to be flown or looked at:
 
 | Scenario | Result |
 | --- | --- |
-| `head-on` | **PASS** — detonation at 17 m, **2 parts broken off the 21-part drone, and no kill** |
+| `head-on`, reference 3 MPa | **PASS** — burst at 17 m, **2 of the drone's parts broken, and no kill** |
+| `head-on`, reference 9 MPa | **PASS** — burst at 17 m, 2 broken |
+| `head-on`, reference 9 MPa, verbose | **PASS** — burst at 15 m, **6 broken** |
 
-The pass is the harness's — engagement over, no rounds left — and it is not the kill 5402 flew. The
-same scenario on 5402 burst at 16 m, broke 7 parts and fragmented the drone into 11 vehicles; here 2
-broke, below the fragment guard's 11, and the drone flew on. That is the crash-tolerance change and
-nothing else, and it is the evidence for whether `ReferencePascals` should move with KSA's base.
+A pass is the harness's — engagement over, no rounds left — and not a kill: 5402 burst at 16 m and
+broke 7, fragmenting the drone into 11 vehicles, and none of these reached the fragment guard's 11.
 
-Everything else in the session was clean: the three patches installed (`Vehicle.PrepareWorker`,
+**`ReferencePascals` moved to 9 MPa, and the verbose flight is what settled it.** KSA did not rescale
+strength uniformly. Against the tolerances its 5402 log printed, the drone's 20 damageable parts rose
+2.09x on the geometric mean — the service module 8.5x (1.5 to 12.7 MPa) and the RCS blocks 3.8-5.4x,
+while two tanks weakened to 0.46-0.60x and the engine's authored 3 MPa did not move — so no anchor
+reproduces 5402, and 6.3 MPa would match the mean exactly. At 9 MPa a typical part's reach is 1.13x
+5402's and the seven parts 5402 broke average 1.04x; at 3 MPa those are 0.78x and 0.72x. 9 MPa is the
+nearer, and it is KSA's own constant, which the next update can follow. The burst distance moves the
+count more than the anchor does: the weak parts sit 14-16 m from a burst at 15-17 m, right at their
+reach. `KSARMORY_SCENARIO_VERBOSE=1` puts every part's gap, reach and tolerance in the mod's log.
+
+Everything else in all three was clean: the three patches installed (`Vehicle.PrepareWorker`,
 `Program.OnFrameCelestials`, `Program.OnGameLoaded`), the trail renderer bound, the rail's body and
 tube resolved, all four fireball stages registered, and the stamp read `built for KSA
 2026.9.10.5438, running 2026.9.10.5438 - reporting on`. KSA's own log has no warning or error, and

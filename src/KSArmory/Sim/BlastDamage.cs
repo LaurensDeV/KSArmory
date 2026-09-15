@@ -48,16 +48,18 @@ internal static class BlastDamage
     ///
     /// <para>A part this strong fails at exactly the lethal radius, so the mod's flown 57E6
     /// numbers still mean what they meant: the calibration is unchanged and this only says which
-    /// part it was calibrated <em>on</em>. It is not KSA's own <c>BaseStrength</c>, which is 9 MPa
-    /// at a reference density of 330 kg/m³, so a part the engine rates at its base reaches 0.69x
-    /// the lethal radius.</para>
+    /// part it was calibrated <em>on</em>. The value is KSA's own <c>BaseStrength</c> — the
+    /// tolerance the engine derives for a part at its reference density — and it is written here
+    /// rather than read from there because nothing under <c>Sim/</c> may reference KSA. <b>It has
+    /// to move when KSA's does</b>, or every warhead's reach against every part moves by the cube
+    /// root of the change.</para>
     ///
     /// <para>It is worth knowing where the extremes land. The engine clamps a tolerance to
-    /// 0.1–100 MPa, so the flimsiest part reaches 3.11x the lethal radius and the densest 0.31x —
+    /// 0.1–100 MPa, so the flimsiest part reaches 4.48x the lethal radius and the densest 0.45x —
     /// and the weak end is capped at the blast radius anyway, which for the 57E6 is 3x. So the
     /// outer radius stays the honest limit of the weapon and nothing outside it is touched.</para>
     /// </summary>
-    public const double ReferencePascals = 3.0e6;
+    public const double ReferencePascals = 9.0e6;
 
     /// <summary>
     /// How near this warhead has to go off to break a part of that strength.

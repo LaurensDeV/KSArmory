@@ -1749,10 +1749,11 @@ payload, and no profile says anything about damage. `Sim/BlastDamage.cs` is the 
 given overpressure is felt at a fixed *scaled* distance and pressure near the burst falls as the
 cube of it, so the radius at which a part's tolerance is reached goes as `(W/P)^(1/3)` — which is
 `Warhead.LethalRadius` with a second cube root on the strength ratio. `BlastDamage.ReferencePascals` is
-3 MPa, so a part of that strength fails at *exactly* the lethal radius and the 57E6's flown
-calibration does not move: it says which part it was calibrated on. KSA's own base strength is
-9 MPa, which reaches 0.69x of it. The engine clamps a tolerance to 0.1–100 MPa, which is 3.11x to
-0.31x of that radius, and the weak end is capped
+KSA's own base strength, so a part of that strength fails at *exactly* the lethal radius and the
+57E6's flown calibration does not move: it says which part it was calibrated on. **It has to move
+when KSA's does**, or every warhead's reach against every part moves by the cube root of the
+change. The engine clamps a tolerance to 0.1–100 MPa, which is 4.48x to 0.45x of that radius, and
+the weak end is capped
 at `BlastRadius` — the radius the panel, the overlay and the near-miss line all describe the weapon
 by, and a damage rule reaching past it would make all three lie.
 
