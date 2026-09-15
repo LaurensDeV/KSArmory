@@ -1105,6 +1105,21 @@ the mesh and the XML, and the suite.
 - [ ] Frame time with a Mk 42 tracking is not visibly worse. A solve flies the shell a few hundred steps
       per pass and starts from the last frame's answer; it has not been measured in a frame.
 
+**Aiming at the ground**
+
+- [ ] Mouse-aim the Mk 42 at flat ground 2, 8 and 15 km out and fire. The shells come down under the
+      cursor, not short of it, and the barrel visibly elevates further as the cursor moves out. Laid
+      along the line of sight it had fired level and landed within a kilometre or two whatever the
+      range. Headless, the flown lay lands within 8 m out to 15 km on a round Earth
+      (`GroundLayTests`).
+- [ ] Over sky, or over a craft, mouse aim still lays along the line of sight: nothing about the air
+      fight changed.
+- [x] `scenario.sh gunnery:3,ground,,,8000` designates the ground 8 km out and passes with the median
+      landing inside the 11 m lethal radius. Flown: 4.0–4.8 m short at 8 km and 3.4 m short at 15 km.
+      Laid from the mount rather than the muzzle the 8 km shells landed 25 m long, and before the lay
+      allowed for the ground turning they were 15 m long at 8 km and 33 m at 15 km.
+      `gunnery:1,overhead,30,300,1500` still bursts 0.0 m from the drone.
+
 **Firing and sound**
 
 - [ ] One press is one shell, with one flash and one gunshot, and auto-engage fires at

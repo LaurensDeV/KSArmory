@@ -1365,6 +1365,31 @@ internal static class KsaWorld
     }
 
     /// <summary>
+    /// How that ground frame is accelerating: its spin carrying it round the axis.
+    ///
+    /// <para>What a round flown against the ground has to be told, or it falls under a gravity the
+    /// ground does not feel. At 28.6 degrees on Earth that is 0.026 m/s² of lift, and a 5"/54 laid on
+    /// flat ground without it landed 15 m long at 8 km and 33 m at 15 km.</para>
+    /// </summary>
+    public static double3 GroundAccelerationAt(Vehicle platform, double3 positionEcl)
+    {
+        try
+        {
+            if (platform.Parent is not Celestial body) return Vec.Zero;
+
+            double3 spin = ((IParentBody)body).GetAngularVelocityCce();
+            double3 fromCentre = positionEcl - body.GetPositionEcl();
+            if (!Vec.IsFinite(spin) || !Vec.IsFinite(fromCentre)) return Vec.Zero;
+
+            return Vec.Cross(spin, Vec.Cross(spin, fromCentre));
+        }
+        catch
+        {
+            return Vec.Zero;
+        }
+    }
+
+    /// <summary>
     /// The same ground frame, asked of the body directly.
     ///
     /// <para>Which is what it always was: the platform above is consulted only to reach its parent
@@ -2621,6 +2646,18 @@ internal static class KsaWorld
     }
 
     /// <summary>
+    /// Where the cursor's ray meets the ground, when the ground is the first thing it meets. False
+    /// over sky or over a craft, which give a shell nowhere to land.
+    /// </summary>
+    public static bool TryCursorGroundEcl(out double3 groundEcl)
+    {
+        SolveCursorAim();
+        groundEcl = _cursorAimGround;
+
+        return _cursorAimValid && _cursorAimOnGround && Vec.IsFinite(groundEcl);
+    }
+
+    /// <summary>
     /// Drops the frame's cached cursor solve. Called once where the simulation is stepped.
     /// </summary>
     public static void BeginFrame()
@@ -2648,6 +2685,8 @@ internal static class KsaWorld
     private static double3 _cursorAimOrigin;
     private static double3 _cursorAimDirection;
     private static double _cursorAimRange;
+    private static bool _cursorAimOnGround;
+    private static double3 _cursorAimGround;
 
     // How far along the ray the nearest craft is, if it meets one.
     //
@@ -2797,9 +2836,8 @@ internal static class KsaWorld
 
         // The terrain-refined hit, not the mean sphere: the sphere is sea level, so over a pad it
         // sits below the ground and puts the aim point past what the pointer is actually on.
-        double range = TryCursorGroundPoint(out double3 ground, out _, out _, out _)
-                           ? Vec.Len(ground - eye)
-                           : CursorSkyRange;
+        bool onGround = TryCursorGroundPoint(out double3 ground, out _, out _, out _);
+        double range = onGround ? Vec.Len(ground - eye) : CursorSkyRange;
 
         // Whatever the ray meets first, which need not be the planet. Tested only against
         // celestials, a cursor held on a craft resolves to the ground *behind* it and the aim goes
@@ -2808,13 +2846,20 @@ internal static class KsaWorld
         if (TryCursorCraftRange(eye, direction, out double onCraft) && onCraft < range)
         {
             range = onCraft;
+            onGround = false;
         }
 
-        if (!double.IsFinite(range) || range <= 0.0) range = CursorSkyRange;
+        if (!double.IsFinite(range) || range <= 0.0)
+        {
+            range = CursorSkyRange;
+            onGround = false;
+        }
 
         _cursorAimOrigin = eye;
         _cursorAimDirection = direction;
         _cursorAimRange = range;
+        _cursorAimGround = ground;
+        _cursorAimOnGround = onGround;
         _cursorAimValid = true;
     }
 

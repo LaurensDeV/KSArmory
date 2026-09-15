@@ -20,6 +20,16 @@ internal static class TestTarget
     // random so repeated runs are comparable.
     private const double AzimuthRadians = 0.0;
 
+    /// <summary>The level direction from a platform that every drone is spawned along.</summary>
+    public static double3 ApproachBearing(Vehicle platform)
+    {
+        double3 up = KsaWorld.LocalUp(platform);
+        double3 east = Vec.AnyPerpendicular(up);
+        double3 north = Vec.Cross(up, east);
+
+        return (east * Math.Cos(AzimuthRadians)) + (north * Math.Sin(AzimuthRadians));
+    }
+
     /// <summary>How the drone is aimed relative to the battery.</summary>
     public enum Profile
     {
@@ -98,7 +108,7 @@ internal static class TestTarget
             // Direction from the battery to the spawn point: elevation above the horizon,
             // azimuth around it.
             double elev = double.DegreesToRadians(elevationDeg);
-            double3 azimuth = east * Math.Cos(AzimuthRadians) + north * Math.Sin(AzimuthRadians);
+            double3 azimuth = ApproachBearing(platform);
             double3 spawnDir = up * Math.Sin(elev) + azimuth * Math.Cos(elev);
 
             double3 spawnEcl = originEcl + Vec.Unit(spawnDir) * spawnRange;

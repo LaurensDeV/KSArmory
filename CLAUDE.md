@@ -463,7 +463,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/ScenarioRunner.cs` | flies a scripted scenario with nobody watching, and says what happened |
 | `Ksa/BallisticScenario.cs` | the ballistic one of those — designate, arm, stage, and report what the warheads did |
 | `Ksa/DropScenario.cs` | the store one — fly a craft up, let a store go, and say where it landed against the sight and against a flight off the state it actually left with |
-| `Ksa/GunneryScenario.cs` | the gun one — drones crossing past a mount one at a time, and **every shell scored where it burst**, because the first detonation says a gun can hit and nothing about how well |
+| `Ksa/GunneryScenario.cs` | the gun one — drones crossing past a mount one at a time, and **every shell scored where it burst**, because the first detonation says a gun can hit and nothing about how well. `ground` scores shells against a designated place instead, short or long |
 | `Ksa/CraftMover.cs` | picks a craft up and sets it down elsewhere, from the panel |
 | `Ksa/BurstTool.cs` | click the world to set off a warhead there, from the panel |
 | `Ksa/Designator.cs` | click the world to shoot at that spot, with no target and no lock |
@@ -2010,6 +2010,19 @@ ahead of the radar *and* ahead of the tracking
 switch — with it on the operator is the sensor, so needing to enable radar tracking first would be
 surprising. Auto-engage still decides when to shoot, and `Aiming` counts mouse aim so `IsLaid`
 still makes the drives settle: without that, rounds leave along a tube that is still swinging.
+
+**A gun-only mount over the ground is laid to land there, not along the line to it.** A shell only
+goes where it is thrown, and the cursor cannot be put above a point on flat ground — so the line of
+sight leaves the barrel level and the shell short by its whole drop, and caps the range at wherever
+level fire meets the dirt. `WeaponSystem.TryGunGroundLay` flies the solve a tracked target's lead
+uses onto the ground under the cursor, or onto a designated place. Over sky or a craft the line of
+sight stands, because there the operator is judging the lead.
+
+**And the ground a shell is flown against turns.** `BallisticLead.TrySolveFlown` takes the ground's
+acceleration beside its velocity and takes it off the round and the target alike. Without it the shell
+falls under a gravity the ground does not feel: a 5"/54 on flat ground at 28.6° N landed 15 m long at
+8 km and 33 m at 15 km, every shell within a metre of the others — where against a drone at the same
+range the same error is under a metre of height and inside the fuse.
 
 The conversion is the part worth being careful with, and it is **three** corrections rather than
 one. `Camera.ScreenToEgoRay` divides by *its own* `FramebufferSize` while ImGui reports the cursor

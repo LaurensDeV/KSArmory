@@ -151,7 +151,7 @@ public class FlownLeadTests(ITestOutputHelper output)
         MunitionProfile shell = Shell();
 
         return flown
-            ? BallisticLead.TrySolveFlown(Vec.Zero, Vec.Zero, Vec.Zero, target, velocity, acceleration, null, shell,
+            ? BallisticLead.TrySolveFlown(Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero, target, velocity, acceleration, null, shell,
                                           world.GravityAt, world.DensityAt, Vec.Zero, out aim, out flight)
             : BallisticLead.TrySolve(Vec.Zero, Vec.Zero, target, velocity, acceleration, shell.LaunchSpeed,
                                      world.GravityAt(Vec.Zero), out aim, out flight);
@@ -234,7 +234,7 @@ public class FlownLeadTests(ITestOutputHelper output)
         double3 velocity = Vec.Unit(new double3(-0.5, 0.85, -0.15)) * speed;   // crossing, closing, sinking
         var drone = new Coasting(earth, start, velocity, deceleration);
 
-        Assert.True(BallisticLead.TrySolveFlown(Vec.Zero, Vec.Zero, Vec.Zero, start, velocity, drone.AccelerationAtStart,
+        Assert.True(BallisticLead.TrySolveFlown(Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero, start, velocity, drone.AccelerationAtStart,
                                                 null, Shell(), earth.GravityAt, earth.DensityAt, Vec.Zero,
                                                 out double3 aim, out double flight));
         Slug shot = Fire(earth, aim, flight, drone.At);
@@ -363,7 +363,7 @@ public class FlownLeadTests(ITestOutputHelper output)
 
         Slug Shot(double3 reported)
         {
-            Assert.True(BallisticLead.TrySolveFlown(Vec.Zero, Vec.Zero, Vec.Zero, start, velocity, reported, null, Shell(),
+            Assert.True(BallisticLead.TrySolveFlown(Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero, start, velocity, reported, null, Shell(),
                                                     earth.GravityAt, earth.DensityAt, Vec.Zero,
                                                     out double3 aim, out double flight));
             return Fire(earth, aim, flight, round.At);
@@ -393,7 +393,7 @@ public class FlownLeadTests(ITestOutputHelper output)
 
     private static Slug LedShot(World world, double3 start, double3 velocity, Coasting drone, DragShape? given)
     {
-        Assert.True(BallisticLead.TrySolveFlown(Vec.Zero, Vec.Zero, Vec.Zero, start, velocity, drone.AccelerationAtStart,
+        Assert.True(BallisticLead.TrySolveFlown(Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero, start, velocity, drone.AccelerationAtStart,
                                                 given, Shell(), world.GravityAt, world.DensityAt, Vec.Zero,
                                                 out double3 aim, out double flight));
         return Fire(world, aim, flight, drone.At);
@@ -424,7 +424,7 @@ public class FlownLeadTests(ITestOutputHelper output)
 
         Assert.True(BallisticLead.TrySolve(Vec.Zero, Vec.Zero, target, velocity, shell.LaunchSpeed, Vec.Zero,
                                            out double3 closed, out double closedFlight));
-        Assert.True(BallisticLead.TrySolveFlown(Vec.Zero, Vec.Zero, Vec.Zero, target, velocity, Vec.Zero, null, shell,
+        Assert.True(BallisticLead.TrySolveFlown(Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero, target, velocity, Vec.Zero, null, shell,
                                                 _ => Vec.Zero, _ => 0.0, Vec.Zero,
                                                 out double3 flown, out double flownFlight));
 
@@ -447,10 +447,10 @@ public class FlownLeadTests(ITestOutputHelper output)
         double3 velocity = new(0, 250, 0);
         double3 common = new(cx, cy, cz);
 
-        Assert.True(BallisticLead.TrySolveFlown(shooter, Vec.Zero, Vec.Zero, target, velocity, Vec.Zero, null, Shell(),
+        Assert.True(BallisticLead.TrySolveFlown(shooter, Vec.Zero, Vec.Zero, Vec.Zero, target, velocity, Vec.Zero, null, Shell(),
                                                 p => earth.GravityAt(p - shooter), p => earth.DensityAt(p - shooter),
                                                 Vec.Zero, out double3 still, out double stillFlight));
-        Assert.True(BallisticLead.TrySolveFlown(shooter, common, common, target, velocity + common, Vec.Zero, null, Shell(),
+        Assert.True(BallisticLead.TrySolveFlown(shooter, common, common, Vec.Zero, target, velocity + common, Vec.Zero, null, Shell(),
                                                 p => earth.GravityAt(p - shooter), p => earth.DensityAt(p - shooter),
                                                 Vec.Zero, out double3 moving, out double movingFlight));
 
@@ -466,7 +466,7 @@ public class FlownLeadTests(ITestOutputHelper output)
         double3 velocity = new(0, 280, 0);
 
         Assert.True(Solve(earth, flown: true, target, velocity, Vec.Zero, out double3 cold, out double coldFlight));
-        Assert.True(BallisticLead.TrySolveFlown(Vec.Zero, Vec.Zero, Vec.Zero, target, velocity, Vec.Zero, null, Shell(),
+        Assert.True(BallisticLead.TrySolveFlown(Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero, target, velocity, Vec.Zero, null, Shell(),
                                                 earth.GravityAt, earth.DensityAt, new double3(0.3, -0.9, 0.2),
                                                 out double3 hinted, out double hintedFlight));
 

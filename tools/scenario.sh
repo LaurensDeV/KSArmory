@@ -10,6 +10,7 @@
 #   ./tools/scenario.sh gunnery          # a gun against drones crossing past it, every shell scored
 #   ./tools/scenario.sh gunnery:6,passing,40,300,4000   # ...6 drones, 12 km out at 300 m/s, 4 km off
 #   ./tools/scenario.sh gunnery:3,overhead,30,300,1500,20,burn   # ...tumbling at 20 deg/s, engine lit
+#   ./tools/scenario.sh gunnery:3,ground,,,8000          # ...3 shells at the ground 8 km out, short or long
 #   ./tools/scenario.sh mirv             # the ballistic shot, end to end
 #   ./tools/scenario.sh mirv:26.485S,68.148W       # ...at somewhere else
 #   ./tools/scenario.sh mirv:26.485S,68.148W,2     # ...and pass only under 2 km
@@ -147,7 +148,7 @@ case "${SCENARIO%%:*}" in
         SYSTEM="${KSARMORY_SCENARIO_SYSTEM:-SolLite}"
         ;;
     *)
-        echo "usage: $0 {head-on|overhead|passing|drop[:<m>[,<deg>[,guided|dumb[,<s>]]]]|gunnery[:<drones>[,passing|overhead|head-on[,<s>[,<m/s>[,<m>[,<deg/s spin>[,burn]]]]]]]|mirv[:<lat>,<lon>[,<km>]]}" \
+        echo "usage: $0 {head-on|overhead|passing|drop[:<m>[,<deg>[,guided|dumb[,<s>]]]]|gunnery[:<drones>[,passing|overhead|head-on|ground[,<s>[,<m/s>[,<m>[,<deg/s spin>[,burn]]]]]]]|mirv[:<lat>,<lon>[,<km>]]}" \
              "[--keep] [--shots] [--no-deploy]" >&2
         exit 2
         ;;

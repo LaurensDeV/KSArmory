@@ -999,6 +999,46 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                && LauncherPart.TryDirectionToPartFrame(Platform, Launcher, dirEcl, out partFrame);
     }
 
+    // A gun-only mount laid to land on a place on the ground, rather than along the line to it. A shell
+    // only arrives where it was thrown, and on flat ground the line of sight leaves the barrel level and
+    // the shell in the dirt a few hundred metres out. Flown as a tracked target's lead is, onto a target
+    // that keeps its place on the turning ground. False for a launcher with tubes, whose rounds steer.
+    //
+    // From the muzzle, with the bore laid parallel to the solution: the drive lays the bore parallel to
+    // what it is given, and the shell leaves the muzzle along it. The landing is shallow enough that a
+    // metre of launch height is over ten metres of range, so a solve from the mount lands long.
+    private bool TryGunGroundLay(double3 groundEcl, double3 groundVelocityEcl, out double3 partFrame)
+    {
+        partFrame = default;
+
+        if (Profile.TubeCount > 0 || Profile.GunMunition is null) return false;
+        if (Platform is not { } platform || Launcher is null) return false;
+
+        double3 muzzle = GunsPart is { } guns
+                         && LauncherPart.TryGetGunMuzzleEcl(platform, Launcher, guns, Profile, 0, PlatformEcl,
+                                                            out double3 atMuzzle, out _)
+                             ? atMuzzle
+                             : MountEcl;
+
+        if (!BallisticLead.TrySolveFlown(muzzle, KsaWorld.VelocityEcl(platform),
+                                         KsaWorld.GroundVelocityAt(platform, PlatformEcl),
+                                         KsaWorld.GroundAccelerationAt(platform, PlatformEcl),
+                                         groundEcl, groundVelocityEcl, KsaWorld.GroundAccelerationAt(platform, groundEcl),
+                                         null, Shell,
+                                         _leadGravityAt ??= LeadGravityAt, _leadDensityAt ??= LeadDensityAt,
+                                         _groundLayDirection, out double3 lay, out _))
+        {
+            _groundLayDirection = Vec.Zero;
+            return false;
+        }
+
+        _groundLayDirection = lay - muzzle;
+        return LauncherPart.TryDirectionToPartFrame(platform, Launcher, _groundLayDirection, out partFrame);
+    }
+
+    // Where the last ground lay pointed, so the next solve starts beside it.
+    private double3 _groundLayDirection;
+
     // Where the turret points: the target itself while the missiles have the engagement, and a
     // ballistic solution once the cannon do.
     //
@@ -1027,6 +1067,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // it into: a fuse timed as if the shell kept its muzzle speed bursts short by what drag took.
         if (!BallisticLead.TrySolveFlown(MountEcl, KsaWorld.VelocityEcl(Platform!),
                                          KsaWorld.GroundVelocityAt(Platform!, PlatformEcl),
+                                         KsaWorld.GroundAccelerationAt(Platform!, PlatformEcl),
                                          aim.PositionEcl, aim.VelocityEcl, aim.AccelerationEcl, aim.DragShape,
                                          shell, _leadGravityAt ??= LeadGravityAt,
                                          _leadDensityAt ??= LeadDensityAt,
@@ -1263,6 +1304,15 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // See AimOriginEcl.
         double3 origin = AimOriginEcl;
 
+        // A place on the ground is somewhere a gun's shell has to land, not a line to lay it on.
+        if (Designation.Kind == AimpointKind.Ground
+            && TryGunGroundLay(Designation.PositionEcl, Designation.VelocityEcl, out partFrame))
+        {
+            WhyNotDesignated("driving",
+                             $"a gun laid to land {Vec.Len(Designation.PositionEcl - origin) / 1000.0:F1} km out");
+            return true;
+        }
+
         if (!LauncherPart.TryDirectionToPartFrame(Platform, Launcher,
                                                   Designation.PositionEcl - origin, out partFrame))
         {
@@ -1350,7 +1400,18 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             // drives stay rate-limited, so this points towards the cursor rather than snapping.
             _ringIsOnGunLead = false;
             _ringIsOnCursor = true;
-            Turret.Track(cursorFrame);
+
+            // Over ground a gun is laid to land where the cursor is. Over sky or a craft the operator
+            // is the solution, as FireBurst says.
+            if (KsaWorld.TryCursorGroundEcl(out double3 ground)
+                && TryGunGroundLay(ground, KsaWorld.GroundVelocityAt(Platform!, ground), out double3 layFrame))
+            {
+                Turret.Track(layFrame);
+            }
+            else
+            {
+                Turret.Track(cursorFrame);
+            }
         }
         else if (Designation.Kind != AimpointKind.None && TryDesignatedAim(out double3 designated))
         {
@@ -2190,10 +2251,11 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// <summary>
     /// Opens a cannon burst along wherever the mount is already laid.
     ///
-    /// <para>The operator is the fire-control solution here: mouse aim puts the barrels under the
-    /// cursor and this pulls the trigger. It solves no lead for that reason — a lead applied on
-    /// top of a shot the operator is eyeballing walks the shells off the point aimed at, and the
-    /// automatic path already computes one for the target it chose.</para>
+    /// <para>The operator is the fire-control solution here: mouse aim lays the barrels and this
+    /// pulls the trigger. Over the sky it solves no lead — one applied on top of a shot the operator
+    /// is eyeballing walks the shells off the point aimed at, and the automatic path already computes
+    /// one for the target it chose. Over the ground the lay is already the solution, because the drop
+    /// onto a point on flat ground cannot be eyeballed: the cursor cannot be put above it.</para>
     ///
     /// <para>Every refusal is announced. "Nothing happened" is the same symptom for a switched-off
     /// cannon, an empty belt and a mount still slewing.</para>

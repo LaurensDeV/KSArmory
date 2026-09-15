@@ -146,7 +146,8 @@ public static class BallisticLead
     ///
     /// <para>The flight is measured against the ground the round flies over, because that is what
     /// its drag reads — so the mount's, the target's and the air's velocities are all differenced
-    /// here, and motion common to the three cannot reach the answer.</para>
+    /// here, and motion common to the three cannot reach the answer. So is the ground's acceleration,
+    /// which on a world that turns is not zero.</para>
     ///
     /// <para>The target is flown too. Its acceleration is split into gravity, a drag along its
     /// airspeed and whatever is left, and the drag is carried as a drag — so a craft coasting in air
@@ -158,6 +159,10 @@ public static class BallisticLead
     /// its thrust turns with it; null holds the coefficient it was measured with.
     /// </param>
     /// <param name="groundVelocity">The motion of the air at the mount: what the round's airspeed is measured against.</param>
+    /// <param name="groundAcceleration">
+    /// How that ground is accelerating — on a world that turns, the spin carrying it round. Taken off the
+    /// round's and the target's accelerations alike, so neither falls under a gravity the ground does not feel.
+    /// </param>
     /// <param name="gravityAt">
     /// The pull at a position at the current instant. A field rather than one vector, because on a
     /// small world it turns under the shell: 3.6° across 15.7 km of a 250 km body.
@@ -165,6 +170,7 @@ public static class BallisticLead
     /// <param name="densityAt">Air density as a multiple of sea level, at a position at the current instant.</param>
     /// <param name="directionHint">Where the previous solve pointed, or zero. Only where the search starts.</param>
     public static bool TrySolveFlown(double3 shooterPos, double3 shooterVelocity, double3 groundVelocity,
+                                     double3 groundAcceleration,
                                      double3 targetPos, double3 targetVelocity, double3 targetAccelerationEcl,
                                      DragShape? targetDragShape,
                                      MunitionProfile munition, Func<double3, double3> gravityAt,
@@ -181,6 +187,7 @@ public static class BallisticLead
         double muzzleSpeed = munition.LaunchSpeed;
         if (!(muzzleSpeed > 0.0) || !double.IsFinite(muzzleSpeed)) return false;
         if (!Vec.IsFinite(shooterPos) || !Vec.IsFinite(shooterVelocity) || !Vec.IsFinite(groundVelocity)
+            || !Vec.IsFinite(groundAcceleration)
             || !Vec.IsFinite(targetPos) || !Vec.IsFinite(targetVelocity)
             || !Vec.IsFinite(targetAccelerationEcl) || !Vec.IsFinite(directionHint))
         {
@@ -193,8 +200,9 @@ public static class BallisticLead
             double3 pull = gravityAt(shooterPos);
             if (!Vec.IsFinite(pull)) pull = Vec.Zero;
 
-            direction = TrySolve(shooterPos, shooterVelocity, targetPos, targetVelocity, targetAccelerationEcl,
-                                 muzzleSpeed, pull, out double3 vacuum, out _)
+            direction = TrySolve(shooterPos, shooterVelocity, targetPos, targetVelocity,
+                                 targetAccelerationEcl - groundAcceleration, muzzleSpeed, pull - groundAcceleration,
+                                 out double3 vacuum, out _)
                 ? Vec.Unit(vacuum - shooterPos)
                 : Vec.Unit(targetPos - shooterPos);
 
@@ -203,7 +211,7 @@ public static class BallisticLead
 
         var flight = new Flight(shooterPos, shooterVelocity - groundVelocity, targetPos - shooterPos,
                                 targetVelocity - groundVelocity, targetAccelerationEcl, targetDragShape,
-                                munition, gravityAt, densityAt);
+                                groundAcceleration, munition, gravityAt, densityAt);
 
         for (int i = 0; i < MaxPasses; i++)
         {
@@ -251,6 +259,9 @@ public static class BallisticLead
         private readonly Func<double3, double3> _gravityAt;
         private readonly Func<double3, double> _densityAt;
 
+        // The ground's own acceleration, which the round and the target are both flown against.
+        private readonly double3 _frameAcceleration;
+
         // What is left of the target's acceleration once gravity and drag are taken out — an engine,
         // or lift — held as it was measured, and turned with the body when its shape says it is turning.
         private readonly double3 _targetPush;
@@ -271,10 +282,11 @@ public static class BallisticLead
         private readonly double _targetBurnSeconds;
 
         public Flight(double3 mount, double3 mountVelocity, double3 targetOffset, double3 targetVelocity,
-                      double3 targetAcceleration, DragShape? targetShape, MunitionProfile munition,
-                      Func<double3, double3> gravityAt, Func<double3, double> densityAt)
+                      double3 targetAcceleration, DragShape? targetShape, double3 frameAcceleration,
+                      MunitionProfile munition, Func<double3, double3> gravityAt, Func<double3, double> densityAt)
         {
             _mount = mount;
+            _frameAcceleration = frameAcceleration;
             _mountVelocity = mountVelocity;
             _targetOffset = targetOffset;
             _targetVelocity = targetVelocity;
@@ -376,11 +388,12 @@ public static class BallisticLead
         }
 
         private double3 RoundAcceleration(double3 x, double3 v)
-            => Medium.Coasting(Pull(_gravityAt, _mount + x), v, _munition, Density(_densityAt, _mount + x));
+            => Medium.Coasting(Pull(_gravityAt, _mount + x) - _frameAcceleration, v, _munition,
+                               Density(_densityAt, _mount + x));
 
         private double3 TargetAcceleration(double3 y, double3 w, double t)
         {
-            double3 pull = Pull(_gravityAt, _mount + y);
+            double3 pull = Pull(_gravityAt, _mount + y) - _frameAcceleration;
 
             if (_targetShape is { } shape)
             {

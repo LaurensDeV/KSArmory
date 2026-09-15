@@ -11,6 +11,10 @@ namespace KSArmory;
 /// drone past the mount rather than diving it onto it, and reports each burst's distance from the
 /// target, its range and its fuse time, then the spread of them against the shell's lethal radius.</para>
 ///
+/// <para>Or at the ground: <c>ground</c> designates a place that far out and scores where each shell
+/// comes down against it, short or long — the check on a gun laid to land there rather than along the
+/// line of sight to it.</para>
+///
 /// <para>A drone is judged with its pieces. A burst that breaks parts off one leaves several craft
 /// named after it, all still flying and all still engaged, so a drone is over when none of them is
 /// left or its pass is — and whatever is left then is taken out of the world before the next one
@@ -26,16 +30,25 @@ internal sealed class GunneryScenario
     // the next.
     private const double GapSeconds = 3.0;
 
-    /// <summary>What to fly: <c>drones,profile,seconds,speed,miss,spin,burn</c>, every field optional.</summary>
+    // Longest a shell fired at the ground may be in the air: the 5"/54's whole life, and some.
+    private const double ShellFlightSeconds = 35.0;
+
+    /// <summary>
+    /// What to fly: <c>drones,profile,seconds,speed,miss,spin,burn</c>, every field optional. The
+    /// <c>ground</c> profile fires <c>drones</c> shells at the ground <c>miss</c> metres out instead.
+    /// </summary>
     /// <param name="SpinDegPerSecond">How fast each drone leaves tumbling, so its drag area and thrust turn under the lead.</param>
     /// <param name="Burn">Whether each drone flies with its engine lit, so it is not slowing while its drag is not zero.</param>
+    /// <param name="Ground">Shoot at a place on the ground rather than at drones.</param>
     public readonly record struct Request(int Drones, TestTarget.Profile Profile, double Seconds,
-                                          double Speed, double MissMetres, double SpinDegPerSecond, bool Burn)
+                                          double Speed, double MissMetres, double SpinDegPerSecond, bool Burn,
+                                          bool Ground = false)
     {
         public static Request Default => new(4, TestTarget.Profile.PassingBy, 30.0, 250.0, 3000.0, 0.0, false);
 
         /// <summary>Wall clock the whole run may take, the game's own start included.</summary>
-        public double BudgetSeconds => 90.0 + (Drones * (Seconds + PassSeconds + GapSeconds + 20.0));
+        public double BudgetSeconds => 90.0 + (Drones * (Ground ? GapSeconds + ShellFlightSeconds
+                                                                : Seconds + PassSeconds + GapSeconds + 20.0));
 
         public static bool TryParse(string text, out Request request, out string trouble)
         {
@@ -53,6 +66,7 @@ internal sealed class GunneryScenario
             }
 
             TestTarget.Profile profile = request.Profile;
+            bool ground = false;
             if (At(1).Length > 0)
             {
                 switch (At(1))
@@ -60,8 +74,9 @@ internal sealed class GunneryScenario
                     case "passing": profile = TestTarget.Profile.PassingBy; break;
                     case "overhead": profile = TestTarget.Profile.Overhead; break;
                     case "head-on": profile = TestTarget.Profile.HeadOn; break;
+                    case "ground": ground = true; break;
                     default:
-                        trouble = $"'{At(1)}' is not passing, overhead or head-on";
+                        trouble = $"'{At(1)}' is not passing, overhead, head-on or ground";
                         return false;
                 }
             }
@@ -95,7 +110,7 @@ internal sealed class GunneryScenario
                 }
             }
 
-            request = new Request(drones, profile, seconds, speed, miss, spin, burn);
+            request = new Request(drones, profile, seconds, speed, miss, spin, burn, ground);
             return true;
         }
 
@@ -114,7 +129,9 @@ internal sealed class GunneryScenario
         }
 
         public string Describe()
-            => $"{Drones} drone(s) {Profile}, {Speed:F0} m/s, {Seconds:F0} s out ({Speed * Seconds / 1000.0:F1} km), "
+            => Ground
+                ? $"{Drones} shell(s) at the ground {MissMetres / 1000.0:F1} km out"
+                : $"{Drones} drone(s) {Profile},{Speed:F0} m/s, {Seconds:F0} s out ({Speed * Seconds / 1000.0:F1} km), "
                + $"passing {MissMetres:F0} m off"
                + (SpinDegPerSecond > 0.0 ? $", tumbling at {SpinDegPerSecond:F0} deg/s" : string.Empty)
                + (Burn ? ", engine lit" : string.Empty);
@@ -167,6 +184,8 @@ internal sealed class GunneryScenario
             _wired = gun;
             _lethal = Warhead.LethalRadius(Catalogue.MunitionNamed(munition).ChargeKg);
         }
+
+        if (_request.Ground) return UpdateGround(gun, dt);
 
         if (_drone is not null)
         {
@@ -328,6 +347,12 @@ internal sealed class GunneryScenario
     {
         if (round is not Slug shell) return;
 
+        if (_request.Ground)
+        {
+            ScoreLanding(shell);
+            return;
+        }
+
         if (shell.State == RoundState.Expired)
         {
             _expired++;
@@ -350,6 +375,112 @@ internal sealed class GunneryScenario
         _report($"burst {_bursts.Count}: drone {_spawned}, {rangeKm:F2} km out, "
                 + (shell.BurstOnTime ? $"timed at {shell.FuseSeconds:F2} s" : $"on proximity after {shell.Age:F2} s")
                 + $", {shell.MissDistance:F1} m from the target");
+    }
+
+    private bool _designated;
+    private int _fired;
+    private readonly List<(double Miss, double Along)> _landings = [];
+
+    // A place on the ground that far out, and one shell at a time onto it, each off a lay that has
+    // settled since the last came down.
+    private string? UpdateGround(WeaponSystem gun, double dt)
+    {
+        if (!_designated)
+        {
+            if (!TryGroundOut(gun.Platform!, _request.MissMetres, out Aimpoint place))
+            {
+                return $"FAIL found no ground {_request.MissMetres / 1000.0:F1} km out";
+            }
+
+            gun.Designate(place, $"the ground {_request.MissMetres / 1000.0:F1} km out");
+            _designated = true;
+            _report($"designated the ground {_request.MissMetres / 1000.0:F1} km out");
+            return null;
+        }
+
+        if (gun.Rounds.Count > 0)
+        {
+            _gap = 0.0;
+            return null;
+        }
+
+        _gap += dt;
+        if (_gap < GapSeconds) return null;
+        if (_fired >= _request.Drones) return GroundVerdict();
+        if (!gun.ReadyToFire) return null;
+
+        if (gun.FireBurst())
+        {
+            _fired++;
+            _gap = 0.0;
+        }
+
+        return null;
+    }
+
+    // Along the bearing the drones come in on, which the mount is known to traverse to, and dropped onto
+    // the terrain there. Anchored to the body, so it keeps its place as the planet turns.
+    private static bool TryGroundOut(Vehicle platform, double metres, out Aimpoint place)
+    {
+        place = Aimpoint.Nothing;
+
+        double3 guess = KsaWorld.PositionEcl(platform) + (TestTarget.ApproachBearing(platform) * metres);
+        if (!GroundTest.Shared.TryGround(guess, out double3 centre, out double radius)) return false;
+
+        double3 ground = centre + (Vec.Unit(guess - centre) * radius);
+        if (!KsaWorld.TryAnchorToGround(ground, out object? body, out double3 anchor)) return false;
+
+        place = Aimpoint.OnGround(body!, anchor, ground, KsaWorld.GroundVelocityAt(platform, ground));
+        return true;
+    }
+
+    // Where a shell came down against the designated place, re-read from the body at this instant and
+    // carried back to the moment it struck, and how far of that is short or long.
+    private void ScoreLanding(Slug shell)
+    {
+        if (shell.State == RoundState.Expired)
+        {
+            _expired++;
+            _report($"shell expired after {shell.Age:F1} s without coming down");
+            return;
+        }
+
+        Aimpoint place = _wired?.Designation ?? Aimpoint.Nothing;
+        if (place.Kind != AimpointKind.Ground
+            || !KsaWorld.TryGroundAnchorEcl(place.Handle, place.Anchor, out double3 at, out double3 velocity))
+        {
+            _unscored++;
+            _report($"shell came down after {shell.Age:F1} s with no designated ground to score it against");
+            return;
+        }
+
+        double3 aim = at + (velocity * shell.DetonationElapsedInFrame);
+        double3 mount = shell.PositionEcl - shell.OffsetFromPlatform;
+        double3 miss = shell.PositionEcl - aim;
+        double along = Vec.Dot(miss, Vec.Unit(aim - mount));
+
+        _landings.Add((Vec.Len(miss), along));
+        _report($"shell {_landings.Count}: came down {Vec.Len(miss):F1} m from the point, "
+                + $"{Math.Abs(along):F1} m {(along < 0.0 ? "short" : "long")}, after {shell.Age:F1} s"
+                + (shell.HitGround ? string.Empty : ", in the air"));
+    }
+
+    private string GroundVerdict()
+    {
+        Release();
+
+        string tally = $"{_fired} shell(s) fired at the ground {_request.MissMetres / 1000.0:F1} km out, "
+                       + $"{_expired} expired, {_unscored} unscored";
+        if (_landings.Count == 0) return $"FAIL no shell came down to score; {tally}";
+
+        List<double> misses = [.. _landings.Select(l => l.Miss).Order()];
+        List<double> alongs = [.. _landings.Select(l => l.Along).Order()];
+        double median = misses[misses.Count / 2];
+        double along = alongs[alongs.Count / 2];
+
+        return (median <= _lethal ? "PASS " : "FAIL ")
+               + $"{misses.Count} came down: median {median:F1} m from the point, worst {misses[^1]:F1} m, "
+               + $"median {Math.Abs(along):F1} m {(along < 0.0 ? "short" : "long")}; {tally}";
     }
 
     private string Verdict(WeaponSystem gun)
