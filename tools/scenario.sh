@@ -12,6 +12,8 @@
 #   ./tools/scenario.sh gunnery:3,overhead,30,300,1500,20,burn   # ...tumbling at 20 deg/s, engine lit
 #   ./tools/scenario.sh gunnery:3,ground,,,8000          # ...3 shells at the ground 8 km out, short or long
 #   KSARMORY_SCENARIO_SAVE="BIG BOOM" ./tools/scenario.sh gunnery:1,craft   # ...a shell at the nearest craft
+#   KSARMORY_SCENARIO_CHASE=1 KSARMORY_SCENARIO_SPEEDS=0.05,0.1,0.25,1 ./tools/scenario.sh gunnery:1,ground,,,12000
+#                                        # ...ride the shell's chase, 15 s of wall clock at each world speed
 #   ./tools/scenario.sh mirv             # the ballistic shot, end to end
 #   ./tools/scenario.sh mirv:26.485S,68.148W       # ...at somewhere else
 #   ./tools/scenario.sh mirv:26.485S,68.148W,2     # ...and pass only under 2 km
@@ -171,8 +173,9 @@ mkdir -p "$USER_DIR/Logs"
 {
     printf '%s|%s\n' "$SCENARIO" "$SAVE"
     printf '%s\n%s\n' "$ARMS" "$ARM_PHASE"
-    printf '%s %s %s\n' "${KSARMORY_SCENARIO_KEEPSTAGES:+keepstages}" "${KSARMORY_SCENARIO_TRACE:+trace}" \
-        "${KSARMORY_SCENARIO_VERBOSE:+verbose}"
+    printf '%s %s %s %s %s\n' "${KSARMORY_SCENARIO_KEEPSTAGES:+keepstages}" "${KSARMORY_SCENARIO_TRACE:+trace}" \
+        "${KSARMORY_SCENARIO_VERBOSE:+verbose}" "${KSARMORY_SCENARIO_CHASE:+chase}" \
+        "${KSARMORY_SCENARIO_SPEEDS:+speeds=$KSARMORY_SCENARIO_SPEEDS}"
 } > "$USER_DIR/Logs/scenario.txt"
 
 # KSA shows a configuration dialog at startup and waits for START KSA to be clicked, which is

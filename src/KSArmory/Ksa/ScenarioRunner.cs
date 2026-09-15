@@ -73,6 +73,22 @@ internal sealed class ScenarioRunner
     private double _lastComplaint;
     private string _save = string.Empty;
 
+    // A chase ridden through a list of world speeds, one stretch each. For a camera fault that shows
+    // at some speeds and not others, which nobody can flip between by hand while a shell is flying.
+    private bool _chase;
+    private double[] _speeds = [];
+    private int _speedIndex = -1;
+    private double _speedHeldFor;
+
+    // Wall clock, because the faults this is for are per frame. The first stretch waits out the
+    // chase's own transition at one times speed, so no speed's numbers carry the ease.
+    private const double ChaseSettleSeconds = 4.0;
+    private const double SpeedHoldSeconds = 15.0;
+
+    // Simulated seconds between world dumps while chasing: at 0.05x the default three is a minute of
+    // wall clock, which a speed held for fifteen seconds never reaches.
+    private const float ChaseDumpSeconds = 0.25f;
+
     // Longest an engagement may take before it is called a failure. Generous: a 20 km engagement at
     // 300 m/s closing is over a minute of flight before anything is decided.
     private const double EngagementBudgetSeconds = 90.0;
@@ -366,6 +382,31 @@ internal sealed class ScenarioRunner
         // blast sweep among it -- is only ever wanted from one.
         if (Array.IndexOf(options, "verbose") >= 0) Log.Threshold = Log.Level.Debug;
 
+        _chase = Array.IndexOf(options, "chase") >= 0;
+
+        // "speeds=0.05,0.1,1": held a stretch each once the first round is up. One that does not read
+        // as a positive speed is dropped and said, rather than failing a run that can still fly the rest.
+        foreach (string option in options)
+        {
+            if (!option.StartsWith("speeds=", StringComparison.Ordinal)) continue;
+
+            List<double> speeds = [];
+            foreach (string field in option["speeds=".Length..].Split(',', StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (double.TryParse(field, System.Globalization.NumberStyles.Float,
+                                    System.Globalization.CultureInfo.InvariantCulture, out double speed) && speed > 0.0)
+                {
+                    speeds.Add(speed);
+                }
+                else
+                {
+                    Log.Warn($"scenario: ignored world speed '{field}'");
+                }
+            }
+
+            _speeds = [.. speeds];
+        }
+
         // "name" or "name|save". Skipping the configuration dialog gets the game past a dialog,
         // not into a scene: settings.toml's startVehicle is only ever read *by* that dialog, so
         // without one the game sits at a menu and nothing is ever in flight. Loading a save is
@@ -635,11 +676,16 @@ internal sealed class ScenarioRunner
                 _config.DrawOverlays = true;
 
                 Report($"{_name}: auto-engage on, {entry.Battery.Ammo} rounds");
+
+                if (_chase) RideTheChase(entry);
+
                 _phase = Phase.Engaging;
                 return;
 
             case Phase.Engaging:
                 if (entry is null) return;
+
+                if (_speeds.Length > 0) StepWorldSpeeds(entry.Battery, playerStep);
 
                 if (_gunnery is not null)
                 {
@@ -649,6 +695,48 @@ internal sealed class ScenarioRunner
 
                 Engage(entry, dt);
                 return;
+        }
+    }
+
+    // The chase only takes a view already on the firing craft, and only rides the craft the panel is
+    // focused on, which follows control -- so both are put there rather than left to the save.
+    private void RideTheChase(WeaponSystems.Entry entry)
+    {
+        entry.Policy.ChaseRounds = true;
+        _config.DiagnosticDump = true;
+        _config.DiagnosticIntervalSeconds = ChaseDumpSeconds;
+        _budget += ChaseSettleSeconds + (SpeedHoldSeconds * _speeds.Length);
+
+        bool onIt = KsaWorld.GoTo(entry.Battery.Platform);
+        string speeds = _speeds.Length > 0
+            ? $", then {string.Join(", ", Array.ConvertAll(_speeds, s => $"{s:0.###}x"))} for {SpeedHoldSeconds:F0} s each"
+            : string.Empty;
+
+        Report($"{_name}: chase on{(onIt ? string.Empty : " -- but the view could not be put on the craft")}{speeds}");
+    }
+
+    // One times speed until the chase has settled onto the first round, then each speed in turn. The
+    // policy is told, or it reads the harness's own request as somebody overriding it.
+    private void StepWorldSpeeds(WeaponSystem gun, double playerStep)
+    {
+        if (_speedIndex >= _speeds.Length) return;
+        if (_speedIndex < 0 && gun.Rounds.Count == 0) return;
+
+        _speedHeldFor += playerStep;
+        if (_speedHeldFor < (_speedIndex < 0 ? ChaseSettleSeconds : SpeedHoldSeconds)) return;
+
+        _speedHeldFor = 0.0;
+        if (++_speedIndex >= _speeds.Length) return;
+
+        double speed = _speeds[_speedIndex];
+        if (KsaWorld.SetSimulationSpeed(speed))
+        {
+            _warp.NoteOurOwnRequest(speed);
+            Report($"{_name}: world at {speed:0.###}x");
+        }
+        else
+        {
+            Report($"{_name}: world speed {speed:0.###}x refused");
         }
     }
 
