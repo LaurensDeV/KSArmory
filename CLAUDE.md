@@ -2391,7 +2391,10 @@ or the tracer is paired with moved.
 the view on the burst for three seconds, which is long enough for every wrong anchor to show:
 against the launching craft it flies off with it, and as a bare ecliptic point the planet leaves it
 89 km behind. `KsaWorld.TryAnchorToGround` and `TryGroundAnchorEcl` are an exact pair, and the
-craft is kept only as the fallback for a burst no body could be resolved for.
+craft is kept only as the fallback for a burst no body could be resolved for. And it is anchored
+where the burst is at the end of the frame, never at the round's own position, which is taken at the
+instant inside the step it went off: the ground has moved on since by up to a frame of the planet's
+~30 km/s, 400 m at 60 fps, and a hold aimed at the raw position looks that far wide of the explosion.
 
 It only shows on a small body. The same error exists on Earth and is dwarfed there: what makes it
 visible is that a camera translation displaces an object by roughly `1/range`, and the terrain a
@@ -2512,6 +2515,22 @@ store the ground stops is exempt — a bomb dropped on nothing ends by arriving,
 what the chase is for. The same test decides the take, so a round going nowhere is not taken only to
 be handed straight back, and one still turning onto its target is picked up once it closes. An
 **expiry** gets no linger either: nothing went off.
+
+**The chase stops short of the arrival and watches it go in.** Riding the round all the way held the
+burst from the last pose — a few metres behind it, inside the explosion the linger is there to show.
+So once what the round has left, time to go times its speed, is inside `ChaseView.StopShortMetres`,
+the eye is held on the ground where it is and only the look follows the round in, and the linger
+holds on the burst from there. Six fireball radii with a 60 m floor: every conventional round is
+watched from about 60 m, a 300-tonne bomb from a kilometre and a 20-kiloton warhead from four. What it
+has left is the soonest of three countdowns — the closing curve's own, the line of sight to the
+target, and the fall to the ground under a round the ground stops — because a store's own countdown
+is the fall to its aim's height, which a shell fired level at a craft reaches long after it has hit.
+Flown on a 5"/54 shell 8 km out: stopped about 90 ms before it landed and held on the burst from 59 m.
+
+**And it stands off in the round's own lengths.** The stand-off was framed on the 57E6's 3.1 m body,
+so a 0.43 m shell chased from 26 m was a speck. `ChaseView.StandOffScale` multiplies all four
+distances by `BodyLength` against that — 3.6 m behind the shell — bounded to 0.1–2, so the closest
+approach stays clear of the engine's 0.1 m near plane and a pack's long store is not chased from afar.
 
 **Reclaiming it has to switch the setting off, not just release the view once.** The setting is
 what asks for it, so a borrower that stands down and leaves the request standing takes the view

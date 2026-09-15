@@ -1115,6 +1115,9 @@ the mesh and the XML, and the suite.
       (`GroundLayTests`).
 - [ ] Over sky, or over a craft, mouse aim still lays along the line of sight: nothing about the air
       fight changed.
+- [ ] Chase a shell onto a hillside. It stops short well before it lands. On a 9.9 km ground shot
+      from the mountainside it stopped 29 ms before and held on the burst from 4 m: the countdown
+      is the fall to the ground straight below, and the slope ahead is met first.
 - [x] `scenario.sh gunnery:3,ground,,,8000` designates the ground 8 km out and passes with the median
       landing inside the 11 m lethal radius. Flown: 4.0–4.8 m short at 8 km and 3.4 m short at 15 km.
       Laid from the mount rather than the muzzle the 8 km shells landed 25 m long, and before the lay
@@ -1611,6 +1614,15 @@ the same band section 7.1b needs — fly one engagement and check both.
       it down to 10 m.
 - [ ] The same by eye at 0.1x and 0.25x, chasing a Mk 42 shell at BIG BOOM's tank stack on the
       machine that showed it at 34 fps. The scenario measured the camera; nobody has watched the fix.
+- [ ] Chase a Mk 42 shell onto the ground, and again onto a craft. About 60 m before it arrives the
+      camera stops where it is, turns after the shell as it flies on, and holds on the burst from
+      there, logging `chase: stopping short of where <shell> arrives, to watch it go in`. The view
+      never ends up inside the explosion.
+- [ ] Chase a B61 onto the ground. The camera stops about a kilometre short and watches the burst
+      from there.
+- [ ] The shell is chased from its own lengths away: it fills about as much of the picture as a
+      Pantsir missile does, rather than being a speck 26 m ahead, and the closing log line's
+      stand-off agrees.
 - [x] Chase a Mk 42 shell on a long shot, 60 km out with `gunnery:1,ground,,,60000`. The shell stays in
       the picture the whole way down, and the log says once how far from the camera the mount went under
       a pixel and that it is being drawn anyway. Before, on 2026.9.10.5438, it vanished part-way while the

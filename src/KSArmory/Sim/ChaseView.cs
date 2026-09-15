@@ -289,6 +289,46 @@ public static class ChaseView
     private const double Sharpness = 0.5;
 
     /// <summary>
+    /// How far short of its arrival a chase stops riding a round and watches it go in: clear of the
+    /// fireball by a margin that grows with it, and never so close that a small one fills the view.
+    /// </summary>
+    public static double StopShortMetres(double chargeKg)
+        => Math.Max(MinStopShortMetres, StopShortFireballs * Warhead.FireballRadius(chargeKg));
+
+    /// <summary>
+    /// Whether a round is near enough its arrival to stop and watch. The distance left is the time to
+    /// go times the speed it is covering it at, and with either unknown the chase never stops.
+    /// </summary>
+    public static bool StopsShort(double timeToGo, double speed, double stopShortMetres)
+        => double.IsFinite(timeToGo) && double.IsFinite(speed) && timeToGo >= 0.0
+           && timeToGo * speed <= stopShortMetres;
+
+    /// <summary>
+    /// How much of the chase's stand-off a round of this length gets, measured against the missile
+    /// the stand-off was framed on — so a shell fills as much of the picture as a missile does.
+    /// </summary>
+    public static double StandOffScale(double bodyLength)
+        => double.IsFinite(bodyLength) && bodyLength > 0.0
+               ? Math.Clamp(bodyLength / FramedBodyLength, MinStandOffScale, MaxStandOffScale)
+               : 1.0;
+
+    // The 57E6's body, which the chase's stand-off distances were chosen around.
+    private const double FramedBodyLength = 3.10;
+
+    // A 5-inch shell is 0.14 of it. The floor keeps the closest approach -- 7 m, so 0.7 m at the floor --
+    // clear of the engine's 0.1 m near plane; the ceiling keeps a pack's long store from being chased
+    // from afar.
+    private const double MinStandOffScale = 0.1;
+    private const double MaxStandOffScale = 2.0;
+
+    // A conventional round's fireball is under 11 m, so every one is watched from about this far.
+    private const double MinStopShortMetres = 60.0;
+
+    // Six radii out, so the whole ball and what it throws are in frame: a 300-tonne bomb is watched
+    // from a kilometre and a 20-kiloton warhead from four.
+    private const double StopShortFireballs = 6.0;
+
+    /// <summary>
     /// Eases a camera from where the player had it onto the chase pose, turning the look from the
     /// round onto what it is flying at.
     ///

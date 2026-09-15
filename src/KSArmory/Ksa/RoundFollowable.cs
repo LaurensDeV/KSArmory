@@ -44,17 +44,20 @@ internal sealed class RoundFollowable : IFollowable
     }
 
     /// <summary>Holds where the round went off, for looking at the burst.</summary>
-    public void HoldAgainst(Vehicle? platform, IProjectile round)
+    /// <param name="burstEcl">
+    /// The burst carried to the end of the frame, which is the instant the ground is anchored at —
+    /// never the round's own position, which is taken at the instant inside the step it went off.
+    /// </param>
+    public void HoldAgainst(Vehicle? platform, IProjectile round, double3 burstEcl)
     {
         _round = null;
-        LastPositionEcl = round.PositionEcl;
+        LastPositionEcl = burstEcl;
 
         // Body-fixed, because a burst happens over ground and ground turns. Against the launching
         // craft instead it flies away with it, which for a rocket still under thrust is hundreds
         // of metres across a three-second linger; as a bare ecliptic point the planet leaves it
         // behind at ~29.8 km/s, which is 89 km over the same three seconds.
-        _burstBody = KsaWorld.TryAnchorToGround(round.PositionEcl, out object? body,
-                                                out double3 anchor)
+        _burstBody = KsaWorld.TryAnchorToGround(burstEcl, out object? body, out double3 anchor)
                      ? body
                      : null;
         _burstAnchor = anchor;
@@ -81,6 +84,24 @@ internal sealed class RoundFollowable : IFollowable
 
         _burstBody = KsaWorld.TryAnchorToGround(here, out object? body, out double3 anchor) ? body : null;
         _burstAnchor = anchor;
+    }
+
+    /// <summary>
+    /// Holds a stated point, fixed to the ground under it, with nothing tracked: where a chase stops
+    /// to watch its round arrive. Against the craft when no body will take it, as a burst is.
+    /// </summary>
+    public void HoldAt(Vehicle? platform, double3 pointEcl)
+    {
+        _round = null;
+        _source = null;
+        _platform = null;
+        LastPositionEcl = pointEcl;
+
+        _burstBody = KsaWorld.TryAnchorToGround(pointEcl, out object? body, out double3 anchor) ? body : null;
+        _burstAnchor = anchor;
+
+        _anchor = _burstBody is null ? platform : null;
+        _anchorOffset = platform is not null ? pointEcl - KsaWorld.PositionEcl(platform) : Vec.Zero;
     }
 
     /// <summary>Where the round was last seen, for when it stops existing mid-frame.</summary>

@@ -3294,13 +3294,15 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         }
     }
 
-    // Where the burst has to be put so it appears where the round was *drawn*.
+    // Where the burst has to be put so it appears where the round was *drawn*, at the end of the step the
+    // explosion is anchored in.
     //
-    // round.PositionEcl is the analytic position the simulation works in; a vehicle is drawn at
-    // its physics position, and the two differ - which is the whole reason DrawAnchor exists and
-    // why round bodies are anchored to the tube rather than to the orbit position. The particle
-    // system takes Ecl, so the drawn position is converted back through the camera rather than
-    // the analytic one being handed over.
+    // round.PositionEcl is where the round struck, part-way through the step, while the explosion is fixed
+    // to the body as it is at the step's end -- so the burst is carried to that instant with the platform,
+    // which near Earth is up to a step of 29.8 km/s: hundreds of metres, and correct. The camera round
+    // trip also carries a vehicle's physics-against-analytic gap where the camera follows one in the
+    // platform's bubble. What is left after the carry is the only part that would be the drawing and the
+    // simulation disagreeing.
     private double3 DrawnBurstEcl(IProjectile round, double3 analyticEcl)
     {
         if (Platform is not { } platform) return analyticEcl;
@@ -3313,8 +3315,13 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             return analyticEcl;
         }
 
-        double slip = Vec.Len(drawn - analyticEcl);
-        if (slip > 1.0) Log.Debug(() => $"  burst moved {slip:F1} m to where the round is drawn");
+        double3 carried = analyticEcl - (KsaWorld.VelocityEcl(platform) * round.DetonationElapsedInFrame);
+        double residual = Vec.Len(drawn - carried);
+        if (residual > 1.0)
+        {
+            Log.Debug(() => $"  burst drawn {residual:F1} m from where the round struck, after carrying it "
+                            + $"{Vec.Len(carried - analyticEcl):F1} m to the step's end");
+        }
 
         return drawn;
     }

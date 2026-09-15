@@ -354,6 +354,9 @@ internal sealed class GunneryScenario
     {
         if (round is not Slug shell) return;
 
+        // What a chase riding the shell shows as it lands, which no line in the log can say.
+        if (_request.Ground || _request.AtCraft) _report("CAPTURE landing");
+
         if (_request.AtCraft)
         {
             ScoreStrike(shell);
