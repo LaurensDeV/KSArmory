@@ -652,6 +652,16 @@ internal sealed class IcbmConfig
     /// </summary>
     public bool ProbeMissFollowsTheGround = true;
 
+    /// <summary>
+    /// Fly this rocket's warheads with the Mk 21's drag from its mass, calibre and coefficient —
+    /// <see cref="Arsenal.Mk21WithDragFromShape"/>, 3.6x the constant's drag — and predict them the same way,
+    /// since the prediction reads the launcher's round.
+    ///
+    /// <para><b>Off</b>, pending its night: every flown baseline rests on the constant, and more drag steepens
+    /// the shallowest arrival the round can make and lengthens what the air does to the fall.</para>
+    /// </summary>
+    public bool WarheadDragFromItsShape;
+
     /// <summary>Pointing error under which the coast hold lets go, in degrees.</summary>
     public double QuietCoastDeg = 0.5;
 

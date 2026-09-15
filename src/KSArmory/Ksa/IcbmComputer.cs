@@ -518,6 +518,15 @@ internal sealed class IcbmComputer
 
         // What the prediction is of. The bus cuts off above the air; the warheads it drops fly all
         // the way down through it, and they are the things that have to arrive.
+        // Before the round is read, so the prediction and the warheads it lets go are the same profile.
+        if (Config.WarheadDragFromItsShape && release is { } launcher
+            && launcher.Munition.Name == Arsenal.ReentryVehicleMk21.Name && !launcher.Munition.DragFromShape)
+        {
+            launcher.FlyRoundsAs(Arsenal.Mk21WithDragFromShape(launcher.Munition));
+            Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)}: warheads drag from their shape, "
+                     + $"k {launcher.Munition.AppliedDragK:E3}");
+        }
+
         _warhead = release?.Munition;
 
         // Read every frame, not inside DriveTrim: that returns early whenever the trim is off or

@@ -586,4 +586,31 @@ public class ArsenalTests
                         + $"{m.MaxFaithfulStepSeconds:F3} s it claims to integrate faithfully");
         }
     }
+
+    /// <summary>
+    /// The Mk 21 with its drag from what it is differs from the Mk 21 in its drag and nothing else: a paired night
+    /// compares the two, so anything else that differed would be measured with it.
+    /// </summary>
+    [Fact]
+    public void TheMk21WithDragFromItsShapeDiffersOnlyInItsDrag()
+    {
+        MunitionProfile rv = Arsenal.ReentryVehicleMk21;
+        MunitionProfile shape = Arsenal.Mk21WithDragFromShape(rv);
+
+        Assert.False(rv.DragFromShape);
+        Assert.True(shape.DragFromShape);
+        Assert.Equal(0.5 * 1.225 * 0.1 * Math.PI * 0.275 * 0.275 / 270.0, shape.AppliedDragK, 9);
+        Assert.InRange(shape.AppliedDragK / rv.AppliedDragK, 3.5, 3.7);
+
+        Assert.Equal(rv.Name, shape.Name);
+        Assert.Equal(rv.LaunchSpeed, shape.LaunchSpeed);
+        Assert.Equal(rv.SubStepSeconds, shape.SubStepSeconds);
+        Assert.Equal(rv.MaxFlightSeconds, shape.MaxFlightSeconds);
+        Assert.Equal(rv.ChargeKg, shape.ChargeKg);
+        Assert.Equal(rv.FuseArmSeconds, shape.FuseArmSeconds);
+        Assert.Equal(rv.HitsTerrain, shape.HitsTerrain);
+        Assert.Equal(rv.Guidance, shape.Guidance);
+        Assert.Equal(rv.BodyLength, shape.BodyLength);
+        Assert.False(rv.DragFromShape, "making the copy changed the registered round");
+    }
 }

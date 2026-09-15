@@ -566,6 +566,15 @@ internal sealed partial class Ui
             + "measured square to local up, and ground sloping 0.1 lands a fifth of the miss short or long. "
             + "Does nothing unless the kick above is on.");
 
+        bool shapeDrag = config.WarheadDragFromItsShape;
+        if (ImGui.Checkbox("Warheads drag as what they are", ref shapeDrag))
+        {
+            config.WarheadDragFromItsShape = shapeDrag;
+        }
+        Tip("On: this rocket's warheads fly, and are predicted, with a Mk 21's drag from its 270 kg on a 55 cm base at "
+            + "a slender cone's 0.1 -- 3.6 times the drag of the constant they carry otherwise. Off: the constant, "
+            + "which every flown baseline rests on.");
+
         bool quiet = config.QuietCoast;
         if (ImGui.Checkbox("Let go of the attitude while coasting", ref quiet))
         {

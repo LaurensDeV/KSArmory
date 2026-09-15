@@ -287,6 +287,15 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// <inheritdoc cref="Profile"/>
     public MunitionProfile Munition { get; private set; } = MunitionProfile.None;
 
+    /// <summary>
+    /// Flies this system's rounds as another profile of the same round from here on. Refused for a different
+    /// round, whose magazine, bodies and reach this system was not built for.
+    /// </summary>
+    public void FlyRoundsAs(MunitionProfile munition)
+    {
+        if (munition.Name == Munition.Name) Munition = munition;
+    }
+
     // The cannon's round, which is a different profile from the missile above and carries its own
     // reach. Falls back to the missile so a launcher with no cannon still answers.
     private MunitionProfile Shell => Profile.GunMunition is { } named

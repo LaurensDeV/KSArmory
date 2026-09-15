@@ -474,6 +474,22 @@ public static class Arsenal
         PreferredStepSeconds = 0.180f,
         HitsTerrain = true,
     };
+
+    /// <summary>
+    /// A Mk 21 with its drag from what it is rather than the constant it carries: the 200 to 270 kg it is
+    /// believed to weigh, taken at 270, on its 55 cm base, at a slender cone's hypersonic 0.1. About
+    /// 2,300 lb/ft² of ballistic coefficient, inside the 100 to 5,000 published for ICBM warheads, and 3.6x
+    /// the constant's drag. What <see cref="IcbmConfig.WarheadDragFromItsShape"/> flies; not registered, so
+    /// nothing else can.
+    /// </summary>
+    internal static MunitionProfile Mk21WithDragFromShape(MunitionProfile mk21)
+    {
+        MunitionProfile round = mk21.Copy();
+        round.MassKg = 270f;
+        round.CalibreMm = 550f;
+        round.DragCoefficient = 0.1f;
+        return round;
+    }
     /// <summary>
     /// The rail's own infrared search head: short-ranged, narrow, and pointed where the rail is.
     ///

@@ -219,6 +219,12 @@ internal interface IManualFire : IWeaponPlatform, IWeaponLoadout
     bool FireAt(double3 pointEcl);
 
     /// <summary>
+    /// Flies the rounds as another profile of the same round from here on, which is what a ballistic computer's
+    /// arm changes one rocket's warheads with. Refused for a different round.
+    /// </summary>
+    void FlyRoundsAs(MunitionProfile munition);
+
+    /// <summary>
     /// The state a released round would actually leave with, averaged over the tubes.
     ///
     /// <para>A ballistic computer predicts from the craft's own orbit state, and a round does not

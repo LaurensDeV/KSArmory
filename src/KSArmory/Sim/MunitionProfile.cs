@@ -390,6 +390,9 @@ public sealed class MunitionProfile
     /// <summary>The drag constant the round is flown with, k in <c>a = -k*|v|*v</c> in reference air.</summary>
     public double AppliedDragK => DragFromShape ? Medium.DragK(MassKg, CalibreMm, DragCoefficient) : DragK;
 
+    /// <summary>The same round as a profile of its own, which edits to this one do not reach.</summary>
+    internal MunitionProfile Copy() => (MunitionProfile)MemberwiseClone();
+
     // ---- Warhead --------------------------------------------------------
     /// <summary>Proximity fuse trigger radius (m).</summary>
     public float FuseRadius = 15f;
