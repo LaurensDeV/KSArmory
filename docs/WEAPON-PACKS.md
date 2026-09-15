@@ -131,7 +131,7 @@ Four rules that between them explain most refusals:
 | `SeparationSeconds` | `0` | coast before the motor lights |
 | `FuseRadius` | `15` | proximity burst, m |
 | `TimedFuse` | `false` | flak: also burst at the flight time the lead solution asked for. The proximity fuse still runs |
-| `FuseArmSeconds` | `0.6` | dead time after release |
+| `FuseArmSeconds` | `0.6` | how long the proximity fuse is dead after release. A shell still strikes what it touches |
 | `ChargeKg` | `20` | **the warhead, as one number.** Lethal radius, blast radius and fireball are all derived from it by the cube-root law, so doubling it multiplies reach by 1.26 |
 | `HitsTerrain` | `false` | stops at the ground. Costs a terrain sample per round per frame |
 | `BodyLength` | `3.10` | m, for drawing |

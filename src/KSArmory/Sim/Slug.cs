@@ -562,7 +562,10 @@ internal sealed class Slug : IProjectile
                 Vec.Len(t.PositionEcl + t.VelocityEcl * backdate - PositionEcl));
         }
 
-        if (Age >= munition.FuseArmSeconds)
+        // Touching does not wait for the fuze; only its reach does. A shell runs into anything in its
+        // way before it has armed, as it runs into the ground, and until then its proximity fuse is dead.
+        double trigger = Age >= munition.FuseArmSeconds ? munition.FuseRadius : 0.0;
+
         {
             bool struck = false;
             double soonest = double.MaxValue;
@@ -582,7 +585,7 @@ internal sealed class Slug : IProjectile
                 // the nearest bystander as how close the round came to what it was shooting at.
                 if (target is null) ClosestApproach = Math.Min(ClosestApproach, Vec.Len(r));
 
-                if (ContactSweep.TryStrike(r, v, h, munition.FuseRadius, body.Radius,
+                if (ContactSweep.TryStrike(r, v, h, trigger, body.Radius,
                                            Hull, body.Handle,
                                            out double when, out double miss)
                     && when < soonest)

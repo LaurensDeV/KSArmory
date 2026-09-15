@@ -1827,7 +1827,7 @@ does, so a proximity-fused missile keeps bursting near an airframe, which is wha
 The hook is deliberately *not* on `IProjectile`, because putting it there is an invitation to
 wire it into the missile.
 
-Three rules hold that together:
+Four rules hold that together:
 
 - **The sphere only rejects; the hull decides.** A craft's `MeanRadius` is the half-diagonal of
   its bounding box — a number built for orbital clearance margins, standing ten metres clear of
@@ -1840,6 +1840,10 @@ Three rules hold that together:
 - **A round names what it struck.** Fire control decides what to shoot at; it does not decide
   what a shell in the air passes through. Scoring a strike on a bystander against the *target's*
   lethal range destroys something the round never reached.
+- **Touching does not wait for the fuze to arm.** Arming delays how far the proximity fuse reaches,
+  never whether a shell runs into something, the way the ground has always stopped one. The 5"/54
+  arms 363 m out, and a tank stack 180 m from the mount was flown straight through while the ground
+  behind it stopped every shell. The mount itself is never a contact candidate.
 
 **A round can be shot down, and that needed a path of its own rather than a wider blast.** A round
 is not a `Vehicle`, so none of the machinery above reaches one: `ContactCandidates` collects craft,

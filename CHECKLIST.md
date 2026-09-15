@@ -713,7 +713,8 @@ Do these deliberately — a failure here is the kind that ruins a save.
 - [x] **5.1** With **Never target the vehicle I'm flying** ticked, it never locks or fires on
       your own craft.
 - [x] **5.2** A round fired at a close target does not destroy your own launcher platform
-      (the fuse arms 0.6 s after launch specifically to prevent this).
+      (the launcher is in neither its own contact nor its own blast sweep, and the proximity fuse
+      arms late on top of that).
 - [ ] **5.3** **Safe all** removes rounds in flight with no detonation, **and turns auto-engage
       off**. Without that, a guarding system holding a lock fires again immediately and the
       button appears to do nothing.
@@ -1119,6 +1120,14 @@ the mesh and the XML, and the suite.
       Laid from the mount rather than the muzzle the 8 km shells landed 25 m long, and before the lay
       allowed for the ground turning they were 15 m long at 8 km and 33 m at 15 km.
       `gunnery:1,overhead,30,300,1500` still bursts 0.0 m from the drone.
+
+**Striking what is close**
+
+- [x] A shell strikes a craft nearer than its fuze's 363 m arming distance rather than flying through
+      it. Flown on the "BIG BOOM" save with `gunnery:3,craft`: the tank stack 180 m out was struck by
+      the first shell at 182 m after 0.22 s, detonated on contact, and destroyed. Before the fix every
+      shell in that save passed through and came down on the ground behind.
+- [ ] Shoot at a craft beside the mount by hand. It is struck; the mount itself never is.
 
 **Firing and sound**
 

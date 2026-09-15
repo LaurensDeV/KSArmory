@@ -377,8 +377,10 @@ public sealed class MunitionProfile
     /// </summary>
     public bool TimedFuse;
 
-    /// <summary>Fuse stays safe for this long after launch, so a round cannot kill its own
-    /// platform.</summary>
+    /// <summary>
+    /// The proximity fuse stays safe for this long after launch. A shell still strikes anything it
+    /// touches before then, as it strikes the ground; only the fuse's reach waits.
+    /// </summary>
     public float FuseArmSeconds = 0.6f;
 
     /// <summary>

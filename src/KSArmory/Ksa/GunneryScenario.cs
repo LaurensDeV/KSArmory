@@ -13,7 +13,8 @@ namespace KSArmory;
 ///
 /// <para>Or at the ground: <c>ground</c> designates a place that far out and scores where each shell
 /// comes down against it, short or long — the check on a gun laid to land there rather than along the
-/// line of sight to it.</para>
+/// line of sight to it. Or at a craft: <c>craft</c> designates the nearest one and scores whether each
+/// shell struck it, which is the check that nothing near the mount can be flown through.</para>
 ///
 /// <para>A drone is judged with its pieces. A burst that breaks parts off one leaves several craft
 /// named after it, all still flying and all still engaged, so a drone is over when none of them is
@@ -35,19 +36,21 @@ internal sealed class GunneryScenario
 
     /// <summary>
     /// What to fly: <c>drones,profile,seconds,speed,miss,spin,burn</c>, every field optional. The
-    /// <c>ground</c> profile fires <c>drones</c> shells at the ground <c>miss</c> metres out instead.
+    /// <c>ground</c> profile fires <c>drones</c> shells at the ground <c>miss</c> metres out instead, and
+    /// <c>craft</c> at the nearest other craft.
     /// </summary>
     /// <param name="SpinDegPerSecond">How fast each drone leaves tumbling, so its drag area and thrust turn under the lead.</param>
     /// <param name="Burn">Whether each drone flies with its engine lit, so it is not slowing while its drag is not zero.</param>
     /// <param name="Ground">Shoot at a place on the ground rather than at drones.</param>
+    /// <param name="AtCraft">Shoot at the nearest other craft rather than at drones.</param>
     public readonly record struct Request(int Drones, TestTarget.Profile Profile, double Seconds,
                                           double Speed, double MissMetres, double SpinDegPerSecond, bool Burn,
-                                          bool Ground = false)
+                                          bool Ground = false, bool AtCraft = false)
     {
         public static Request Default => new(4, TestTarget.Profile.PassingBy, 30.0, 250.0, 3000.0, 0.0, false);
 
         /// <summary>Wall clock the whole run may take, the game's own start included.</summary>
-        public double BudgetSeconds => 90.0 + (Drones * (Ground ? GapSeconds + ShellFlightSeconds
+        public double BudgetSeconds => 90.0 + (Drones * (Ground || AtCraft ? GapSeconds + ShellFlightSeconds
                                                                 : Seconds + PassSeconds + GapSeconds + 20.0));
 
         public static bool TryParse(string text, out Request request, out string trouble)
@@ -67,6 +70,7 @@ internal sealed class GunneryScenario
 
             TestTarget.Profile profile = request.Profile;
             bool ground = false;
+            bool craft = false;
             if (At(1).Length > 0)
             {
                 switch (At(1))
@@ -75,8 +79,9 @@ internal sealed class GunneryScenario
                     case "overhead": profile = TestTarget.Profile.Overhead; break;
                     case "head-on": profile = TestTarget.Profile.HeadOn; break;
                     case "ground": ground = true; break;
+                    case "craft": craft = true; break;
                     default:
-                        trouble = $"'{At(1)}' is not passing, overhead, head-on or ground";
+                        trouble = $"'{At(1)}' is not passing, overhead, head-on, ground or craft";
                         return false;
                 }
             }
@@ -110,7 +115,7 @@ internal sealed class GunneryScenario
                 }
             }
 
-            request = new Request(drones, profile, seconds, speed, miss, spin, burn, ground);
+            request = new Request(drones, profile, seconds, speed, miss, spin, burn, ground, craft);
             return true;
         }
 
@@ -129,7 +134,9 @@ internal sealed class GunneryScenario
         }
 
         public string Describe()
-            => Ground
+            => AtCraft
+                ? $"{Drones} shell(s) at the nearest craft"
+                : Ground
                 ? $"{Drones} shell(s) at the ground {MissMetres / 1000.0:F1} km out"
                 : $"{Drones} drone(s) {Profile},{Speed:F0} m/s, {Seconds:F0} s out ({Speed * Seconds / 1000.0:F1} km), "
                + $"passing {MissMetres:F0} m off"
@@ -185,7 +192,7 @@ internal sealed class GunneryScenario
             _lethal = Warhead.LethalRadius(Catalogue.MunitionNamed(munition).ChargeKg);
         }
 
-        if (_request.Ground) return UpdateGround(gun, dt);
+        if (_request.Ground || _request.AtCraft) return UpdateGround(gun, dt);
 
         if (_drone is not null)
         {
@@ -347,6 +354,12 @@ internal sealed class GunneryScenario
     {
         if (round is not Slug shell) return;
 
+        if (_request.AtCraft)
+        {
+            ScoreStrike(shell);
+            return;
+        }
+
         if (_request.Ground)
         {
             ScoreLanding(shell);
@@ -387,14 +400,11 @@ internal sealed class GunneryScenario
     {
         if (!_designated)
         {
-            if (!TryGroundOut(gun.Platform!, _request.MissMetres, out Aimpoint place))
-            {
-                return $"FAIL found no ground {_request.MissMetres / 1000.0:F1} km out";
-            }
+            if (!TryPlace(gun.Platform!, out Aimpoint place, out string what)) return $"FAIL found no {what}";
 
-            gun.Designate(place, $"the ground {_request.MissMetres / 1000.0:F1} km out");
+            gun.Designate(place, what);
             _designated = true;
-            _report($"designated the ground {_request.MissMetres / 1000.0:F1} km out");
+            _report($"designated {what}");
             return null;
         }
 
@@ -406,7 +416,10 @@ internal sealed class GunneryScenario
 
         _gap += dt;
         if (_gap < GapSeconds) return null;
-        if (_fired >= _request.Drones) return GroundVerdict();
+
+        // A craft that has been destroyed takes its designation with it, and leaves nothing to fire at.
+        bool done = _fired >= _request.Drones || (_request.AtCraft && gun.Designation.Kind == AimpointKind.None);
+        if (done) return _request.AtCraft ? CraftVerdict() : GroundVerdict();
         if (!gun.ReadyToFire) return null;
 
         if (gun.FireBurst())
@@ -463,6 +476,74 @@ internal sealed class GunneryScenario
         _report($"shell {_landings.Count}: came down {Vec.Len(miss):F1} m from the point, "
                 + $"{Math.Abs(along):F1} m {(along < 0.0 ? "short" : "long")}, after {shell.Age:F1} s"
                 + (shell.HitGround ? string.Empty : ", in the air"));
+    }
+
+    private string _craftName = string.Empty;
+    private int _struck;
+
+    // What this run shoots at: the nearest other craft, or the ground that far out.
+    private bool TryPlace(Vehicle platform, out Aimpoint place, out string what)
+    {
+        if (!_request.AtCraft)
+        {
+            what = $"the ground {_request.MissMetres / 1000.0:F1} km out";
+            return TryGroundOut(platform, _request.MissMetres, out place);
+        }
+
+        place = Aimpoint.Nothing;
+        what = "other craft";
+        if (NearestCraft(platform) is not { } craft) return false;
+
+        double3 at = KsaWorld.PositionEcl(craft);
+        _craftName = KsaWorld.DisplayName(craft);
+        what = $"'{_craftName}' {Vec.Len(at - KsaWorld.PositionEcl(platform)):F0} m away";
+        place = Aimpoint.OnVehicle(craft, at, KsaWorld.VelocityEcl(craft), KsaWorld.MeanRadius(craft));
+        return true;
+    }
+
+    private static Vehicle? NearestCraft(Vehicle platform)
+    {
+        double3 from = KsaWorld.PositionEcl(platform);
+        Vehicle? nearest = null;
+        double best = double.MaxValue;
+
+        foreach (Vehicle vehicle in KsaWorld.Vehicles)
+        {
+            if (ReferenceEquals(vehicle, platform) || !KsaWorld.IsAlive(vehicle)) continue;
+
+            double range = Vec.Len(KsaWorld.PositionEcl(vehicle) - from);
+            if (range >= best) continue;
+
+            best = range;
+            nearest = vehicle;
+        }
+
+        return nearest;
+    }
+
+    // Whether a shell ended against the designated craft or a piece of it, or somewhere else.
+    private void ScoreStrike(Slug shell)
+    {
+        string name = shell.StruckBody is Vehicle struck ? KsaWorld.DisplayName(struck) : string.Empty;
+        bool onCraft = name.Length > 0
+                       && (name == _craftName || name.StartsWith(_craftName + "_", StringComparison.Ordinal));
+        double range = Vec.Len(shell.OffsetFromPlatform);
+
+        if (onCraft) _struck++;
+
+        _report($"shell {_fired}: "
+                + (onCraft ? $"struck '{name}' {range:F0} m out after {shell.Age:F2} s"
+                   : shell.State == RoundState.Expired ? $"expired after {shell.Age:F1} s"
+                   : shell.HitGround ? $"came down on the ground {range:F0} m out"
+                   : $"burst {range:F0} m out without touching the craft"));
+    }
+
+    private string CraftVerdict()
+    {
+        Release();
+
+        return (_fired > 0 && _struck == _fired ? "PASS " : "FAIL ")
+               + $"{_struck} of {_fired} shell(s) struck '{_craftName}'";
     }
 
     private string GroundVerdict()

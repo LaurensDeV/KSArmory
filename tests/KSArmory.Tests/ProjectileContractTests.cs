@@ -210,7 +210,10 @@ public class ProjectileContractTests
         Assert.Equal(RoundState.Detonated, round.State);
     }
 
-    /// <summary>A safed fuse must not fire, whatever passes it.</summary>
+    /// <summary>
+    /// A safed fuse must not fire, whatever passes it. Passes, not strikes: the body sits off the
+    /// round's path, because a shell still runs into what it touches before it has armed.
+    /// </summary>
     [Theory]
     [MemberData(nameof(AllKinds))]
     public void TheFuseStaysSafeUntilArmed(Kind kind)
@@ -220,7 +223,7 @@ public class ProjectileContractTests
         munition.FuseRadius = 50f;
 
         IProjectile round = Make(kind, Vec.Zero, new double3(100, 0, 0), Vec.Zero, Vec.Zero);
-        var target = new TargetState(new double3(1, 0, 0), Vec.Zero, 1.0);
+        var target = new TargetState(new double3(1, 5, 0), Vec.Zero, 1.0);
 
         round.Update(1.0 / 60.0, target, NoGravity, Vec.Zero, Vec.Zero, munition);
 

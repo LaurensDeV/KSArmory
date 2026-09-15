@@ -3047,7 +3047,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     }
 
     // Every craft a round could run into this frame, the platform excepted: a mount does not
-    // shoot the craft it is bolted to, and a shell is armed 33 m from the muzzle anyway.
+    // shoot the craft it is bolted to.
     //
     // Built at most once a frame rather than once per round -- a burst is dozens of shells and the
     // world does not move between them.
