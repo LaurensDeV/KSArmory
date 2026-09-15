@@ -213,6 +213,22 @@ public static class BallisticLead
                                 targetVelocity - groundVelocity, targetAccelerationEcl, targetDragShape,
                                 groundAcceleration, munition, gravityAt, densityAt);
 
+        // A pass that converges takes most of the miss out. One that has not cut it by a fifth in several
+        // passes is walking, and a target out of reach is the usual cause: flying every remaining pass to
+        // the end of a long-lived shell's flight is what waiting it out would cost, every frame.
+        const double StallProgress = 0.8;
+        const int StallPasses = 4;
+        double bestMiss = double.MaxValue;
+        int stalled = 0;
+
+        // How a turn of the barrel moves the miss, as the three columns of a matrix, corrected along each turn by
+        // what that turn did (Broyden's update) -- so no pass flies more than its one shell.
+        double3 byX = Vec.Zero, byY = Vec.Zero, byZ = Vec.Zero;
+        double3 lastMiss = Vec.Zero, lastTurn = Vec.Zero;
+
+        static double3 Moves(double3 byX, double3 byY, double3 byZ, double3 turn)
+            => (byX * turn.X) + (byY * turn.Y) + (byZ * turn.Z);
+
         for (int i = 0; i < MaxPasses; i++)
         {
             if (!flight.TryClosestApproach(direction * muzzleSpeed, out double time,
@@ -225,21 +241,70 @@ public static class BallisticLead
             double reach = Vec.Len(round);
             if (!(reach > 1.0)) return false;
 
-            if (Vec.Len(miss) <= FlownToleranceMetres)
+            double missBy = Vec.Len(miss);
+            if (missBy <= FlownToleranceMetres)
             {
                 aimPoint = shooterPos + (direction * Vec.Len(target));
                 flightTimeSeconds = time;
                 return Vec.IsFinite(aimPoint);
             }
 
-            // Turned past where it went by as far as it missed: over the same flight a small turn
-            // moves the burst by the reach times the angle, so each pass takes most of the miss out.
-            direction = Vec.Unit((direction * reach) + miss);
+            if (missBy < bestMiss * StallProgress)
+            {
+                bestMiss = missBy;
+                stalled = 0;
+            }
+            else if (++stalled >= StallPasses)
+            {
+                return false;
+            }
+
+            // Flat, a turn moves the shell by the reach times the angle, and turning along the miss takes it out.
+            // Lobbed, the shell comes down steeper than it went up, so a turn upwards moves its path mostly along
+            // itself: turned along the miss the correction shrinks by the square of that cosine and is gone before
+            // the barrel reaches 45 degrees -- a shell that goes 64.8 km could not be laid past 55. So the flat
+            // answer is only where it starts, and what a turn really does is learnt from the turns flown.
+            if (i == 0)
+            {
+                byX = new double3(-reach, 0, 0);
+                byY = new double3(0, -reach, 0);
+                byZ = new double3(0, 0, -reach);
+            }
+            else if (Vec.Len2(lastTurn) > 0.0)
+            {
+                double3 surprise = (miss - lastMiss - Moves(byX, byY, byZ, lastTurn)) / Vec.Len2(lastTurn);
+                byX += surprise * lastTurn.X;
+                byY += surprise * lastTurn.Y;
+                byZ += surprise * lastTurn.Z;
+            }
+
+            // The turn square to the barrel that best takes out the miss, by least squares.
+            double3 up = Vec.AnyPerpendicular(direction);
+            double3 side = Vec.Cross(direction, up);
+            double3 byUp = Moves(byX, byY, byZ, up);
+            double3 bySide = Moves(byX, byY, byZ, side);
+            double uu = Vec.Dot(byUp, byUp), us = Vec.Dot(byUp, bySide), ss = Vec.Dot(bySide, bySide);
+            double towardsUp = -Vec.Dot(byUp, miss), towardsSide = -Vec.Dot(bySide, miss);
+            double det = (uu * ss) - (us * us);
+
+            double3 turn = det > 1e-9 * uu * ss
+                ? (up * (((ss * towardsUp) - (us * towardsSide)) / det)) + (side * (((uu * towardsSide) - (us * towardsUp)) / det))
+                : Vec.RejectFrom(miss, direction) / reach;
+            if (!Vec.IsFinite(turn)) turn = Vec.RejectFrom(miss, direction) / reach;
+            turn = Vec.ClampLength(turn, Math.Max(MaxTurnRadians, 2.0 * missBy / reach));
+
+            lastMiss = miss;
+            lastTurn = turn;
+            direction = Vec.Unit(direction + turn);
         }
 
         // Out of passes is walking rather than converging, as in the fixed-point solve above.
         return false;
     }
+
+    // The most a pass turns the barrel while the miss is small against the reach. Near the longest reach the
+    // turn that would take a miss out grows without bound, and one taken whole lands on the far side of it.
+    private const double MaxTurnRadians = 0.1;
 
     // One shell and the target it is flying at, in the ground's frame: every position an offset from
     // the mount and every velocity against the air. So the point density is read at is where over the

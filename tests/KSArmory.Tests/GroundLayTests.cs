@@ -40,6 +40,21 @@ public class GroundLayTests(ITestOutputHelper output)
         ChargeKg = Shell.ChargeKg,
     };
 
+    // The same shell with almost no drag, which lobs it nearly three times as far and brings it down at a
+    // different angle: the lay has to find the longest reach on either.
+    private static MunitionProfile NearlyAirless() => new()
+    {
+        Name = "GroundLayNearlyAirless",
+        DisplayName = "nearly airless five-inch",
+        LaunchSpeed = Shell.LaunchSpeed,
+        DragK = 1.62e-6f,
+        NeutralDensityRatio = Shell.NeutralDensityRatio,
+        MaxFlightSeconds = Shell.MaxFlightSeconds,
+        FuseRadius = 0f,
+        FuseArmSeconds = 0f,
+        ChargeKg = Shell.ChargeKg,
+    };
+
     private static double3 GravityAt(double3 p)
     {
         double3 toCentre = Centre - p;
@@ -227,5 +242,34 @@ public class GroundLayTests(ITestOutputHelper output)
 
         Assert.True(Vec.AngleBetween(still, shared) < 1e-6, $"{Vec.AngleBetween(still, shared)} rad apart");
         Assert.Equal(stillFlight, sharedFlight, 3);
+    }
+
+    /// <summary>
+    /// Near the longest reach the shell comes down steeper than it went up, so turning the barrel up moves its
+    /// path mostly along itself: a turn along the miss takes out less of it every pass, and the lay gives up on
+    /// a place the gun can reach. Tried on the shipped drag and on almost none.
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void NearTheLongestReachTheShellIsStillLaidToLand(bool nearlyAirless)
+    {
+        MunitionProfile shell = nearlyAirless ? NearlyAirless() : Shell;
+        double best = LongestReachKm(shell);
+        double3 ground = Ground(0.97 * best);
+
+        Assert.True(BallisticLead.TrySolveFlown(Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero, ground, Vec.Zero, Vec.Zero,
+                                                null, shell, GravityAt, DensityAt, Vec.Zero,
+                                                out double3 lay, out double flight),
+                    $"no lay onto {0.97 * best:F2} km, where {best:F2} km is reachable");
+
+        var landed = FlyToGround(lay, munition: shell);
+        Assert.True(landed.HasValue, "the shell never came down");
+
+        double miss = Vec.Len(landed!.Value.Landed - ground);
+        double elevation = double.RadiansToDegrees(Math.Asin(Vec.Unit(lay).Z));
+        output.WriteLine($"{0.97 * best:F2} km of {best:F2}: laid {elevation:F2} deg, {flight:F1} s, landed {miss:F1} m from the point");
+
+        Assert.True(miss < shell.LethalRadius, $"landed {miss:F1} m from the point");
     }
 }

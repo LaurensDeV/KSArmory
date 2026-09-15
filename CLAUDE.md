@@ -2035,6 +2035,13 @@ level fire meets the dirt. `WeaponSystem.TryGunGroundLay` flies the solve a trac
 uses onto the ground under the cursor, or onto a designated place. Over sky or a craft the line of
 sight stands, because there the operator is judging the lead.
 
+**And the reach is the whole reach.** Near it a lobbed shell comes down steeper than it went up, so
+turning the barrel along the miss moves its path mostly along itself and takes out less every pass: on a
+shell with almost no drag the lay gave up at 55 km of a 64.8 km reach, and read everything past as out of
+it. `TrySolveFlown` learns what a turn does to the miss from the turns it has already flown (Broyden's
+update), still one flight a pass, and lays 97% of the reach inside the lethal radius on the range table's
+drag and on almost none.
+
 **A round's drag is what it is, not a number typed for it.** `MunitionProfile.MassKg`, `CalibreMm` and
 `DragCoefficient` give `k = ½ρ·Cd·A/m` in Earth's sea-level air — the rule BDArmory Continued computes
 every bullet's ballistic coefficient with, at a Cd of 0.295. Constants typed by hand were 45 times too
