@@ -725,10 +725,33 @@ mod — so the loader contract is known-good.
 by the part's engine module. A self-simulated round is not a part with an engine, so that path is
 closed and `GameAudio.PlaySound` is the one to use.
 
+## Explosions — KSA's own, from a point with no vehicle
+
+`ExplosionSystem.SpawnPreset(id, in ExplosionContext)` fires a declared `<Explosion>` with its
+flash, sound, volumes and emitters. Core ships `PopSmallExplosion`, `MetalBurst`, `SmallFire` and
+`Explosion_Conflagration` in `Content/Core/ExplosionAssets.xml`; `Ksa/Detonation.cs` is the worked
+example.
+
+- **Leave `Vehicle` null and set `Anchor`**: a `BubbleOrigin` on a `Celestial`, `BubbleFrame.Ccf`,
+  with the body-fixed point as `PositionBub`. With no vehicle the anchor is used as given, and a
+  stage whose anchor's parent is not a `Celestial` is dropped.
+- **Size is `IntensityJ / 5e10`, clamped to 0.05–100, as its cube root.** A 66 kg warhead is 0.0055
+  and goes off at the floor like everything else conventional, so pick the preset for size.
+- **`AmbientPressurePa` gates the stages.** Debris has air and vacuum variants split at 500 Pa, and
+  `PopSmallExplosion`'s smoke needs 5 kPa. Zero is vacuum.
+- **Main thread only**, or the request is dropped with a warning. Above 1200x warp the emitters and
+  volumes are skipped, and the flash and the sound still play.
+- **A volume needs an atmosphere, clouds and upscaling**, or its `FallbackEmitterId` fires instead.
+  The flash takes one of eight point-light slots shared with the engine.
+- **`DestroyVehicleFromEvent` and `PartFailureEvent.Apply` spawn their own**, routed by propellant
+  mass, so a mod's kill gets an explosion whether or not it asks for one.
+- **A missing Id warns in KSA's log, rate-limited, and nowhere else.** Ask
+  `ModLibrary.TryGet<ExplosionReference>` at load.
+
 ## Particle emitters can follow something that moves
 
-`Ksa/Detonation.cs` uses one-shot bursts pinned to a body-fixed point, but the emitter is not
-limited to that. `emitter.Context` has `Astronomical`, `Vehicle` **and** `Part` fields, and
+A one-shot emitter pinned to a body-fixed point is the simple case, but the emitter is not limited
+to that. `emitter.Context` has `Astronomical`, `Vehicle` **and** `Part` fields, and
 `emitter.Origin` is a `BubbleOrigin` carrying `BubFrame`, `PositionBub` **and `VelocityBub`** —
 so a continuously-spawning emitter re-anchored each frame is expressible. `SpawnRate`,
 `MaximumParticleCount` and `ParticleInfo.Lifespan` are all writable.

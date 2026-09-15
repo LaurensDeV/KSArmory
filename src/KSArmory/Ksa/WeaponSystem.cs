@@ -3050,9 +3050,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         Announce($"{RoundLabel.For(round.Tube)} detonated{fuse} {how}{MissFromAimpoint(round)}");
         LogLeadCheck(round);
 
-        // Which effect is decided after the blast sweep, once it is known whether anything died.
-        _burstKilled = false;
-
         // Craft this burst has already reached, so the splash sweep does not judge the one the
         // round struck a second time. Per burst rather than per frame: two rounds of a salvo
         // bursting at opposite ends of one booster must each break their own parts, where a craft
@@ -3155,7 +3152,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             if (round.MissDistance <= round.Munition.LethalRadius + hitContact.MeanRadius)
             {
                 hit.ShootDown();
-                _burstKilled = true;
                 Announce($"intercepted {hitContact.DisplayName} at {round.MissDistance:F1} m");
             }
         }
@@ -3174,7 +3170,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             if (BlastSweep.Effect(gap, round.Munition) != BlastEffect.Lethal) continue;
 
             other.ShootDown();
-            _burstKilled = true;
             Announce($"intercepted {contact.DisplayName} at {gap:F0} m");
         }
 
@@ -3215,16 +3210,14 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             }
         }
 
-        // After the sweep, so a kill and a miss look different. Sized off the charge, which is
-        // also what the damage radii come from -- so what is seen and what died cannot drift
-        // apart, and a 30 mm shell cannot paint a missile's fireball.
+        // Sized off the charge, which is also what the damage radii come from, so a 30 mm shell
+        // cannot set off a missile's explosion. Whatever the burst killed gets KSA's own on top.
         if (_config.DrawExplosions)
         {
             // EffectBody as well as the nearest craft: a system whose launcher has been destroyed
             // has no platform to ask, and a store aimed at the ground has no target craft either.
-            Detonation.Show(_burstKilled ? Detonation.Fireball : Detonation.Airburst,
-                            DrawnBurstEcl(round, burst), round.TargetRef as Vehicle ?? Platform,
-                            (float)Warhead.EffectScale(round.Munition.ChargeKg), EffectBody);
+            Detonation.Explode(DrawnBurstEcl(round, burst), round.Munition.ChargeKg,
+                               round.TargetRef as Vehicle ?? Platform, EffectBody);
 
             // And a cloud, for a charge large enough to have made one. It outlives this system --
             // NuclearClouds keeps it, because a mushroom stands there long after the launcher has
@@ -3233,17 +3226,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                                 round.TargetRef as Vehicle ?? Platform,
                                 round.Munition.ChargeKg, EffectBody);
         }
-
-        // Outside the drawing switch: a burst that cannot be seen but can be heard is still
-        // information, and the effects tick box is about what is drawn.
-        Detonation.Bang(DrawnBurstEcl(round, burst), round.TargetRef as Vehicle ?? Platform,
-                        (float)Warhead.EffectScale(round.Munition.ChargeKg), _config,
-                        round.Munition.BurstSoundId);
     }
-
-    // Whether the blast sweep just now found something to destroy. Only meaningful inside the
-    // detonation it belongs to.
-    private bool _burstKilled;
 
     // Where the burst has to be put so it appears where the round was *drawn*.
     //
@@ -3373,7 +3356,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         if (added == 0) return true;
 
-        _burstKilled = true;
         Announce($"{added} part(s) broken off {KsaWorld.DisplayName(v)}");
         return true;
     }
@@ -3383,7 +3365,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         if (_pendingKills.Contains(v)) return true;
 
         _pendingKills.Add(v);
-        _burstKilled = true;
         return true;
     }
 

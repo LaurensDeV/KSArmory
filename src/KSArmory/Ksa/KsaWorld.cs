@@ -1666,6 +1666,28 @@ internal static class KsaWorld
     }
 
     /// <summary>
+    /// Air pressure at a point over a body, in pascals: zero above the air, and where it cannot be
+    /// read. What KSA gates an explosion's smoke and its air or vacuum debris on.
+    /// </summary>
+    public static float AtmosphericPressureAt(Celestial body, double3 positionEcl)
+    {
+        try
+        {
+            if (body.GetAtmosphereReference()?.Physical is not { } air) return 0f;
+
+            double altitude = Math.Max(Vec.Len(positionEcl - body.GetPositionEcl()) - body.MeanRadius, 0.0);
+            if (altitude >= air.Height) return 0f;
+
+            double pressure = air.GetAtmosphericPressureAtAltitude(altitude);
+            return double.IsFinite(pressure) && pressure > 0.0 ? (float)pressure : 0f;
+        }
+        catch
+        {
+            return 0f;
+        }
+    }
+
+    /// <summary>
     /// Why <see cref="MediumDensityRatioAt(Celestial, double3)"/> answered what it did, for the
     /// log. Every early return there is silent, and from outside a vacuum reading and an
     /// unreadable atmosphere are the same 0.0.

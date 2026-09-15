@@ -172,10 +172,10 @@ public sealed class KSArmoryMod
         // KSA, so without a record the only symptom is a kitten with no gun -- and that looks
         // identical whether the XML never loaded, a reference did not resolve, or the mesh did.
         Log.Info($"particles graphics setting: {(Detonation.ParticlesEnabled ? "on" : "OFF")}");
-        Log.Info($"warhead effect {Detonation.Fireball}: "
-                 + $"{(Detonation.Resolves(Detonation.Fireball) ? "ok" : "DID NOT RESOLVE")}");
-        Log.Info($"warhead effect {Detonation.Airburst}: "
-                 + $"{(Detonation.Resolves(Detonation.Airburst) ? "ok" : "DID NOT RESOLVE")}");
+        foreach (string preset in WarheadExplosion.Presets)
+        {
+            Log.Info($"warhead explosion {preset}: {(Detonation.Resolves(preset) ? "ok" : "DID NOT RESOLVE")}");
+        }
     }
 
     // Logged whether or not anything registered. A pack that is installed but disabled, or whose

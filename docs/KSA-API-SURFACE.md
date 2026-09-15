@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-182 types and 529 members across 7 assemblies.
+182 types and 533 members across 7 assemblies.
 
 ## Brutal.Concurrency
 
@@ -78,14 +78,12 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### Brutal.Numerics.float2
 
 - `Brutal.Numerics.float2 op_Addition(Brutal.Numerics.float2, Brutal.Numerics.float2)`
-- `Brutal.Numerics.float2 op_Multiply(Brutal.Numerics.float2, float)`
 - `float X`
 - `float Y`
 - `void .ctor(float, float)`
 
 ### Brutal.Numerics.float3
 
-- `Brutal.Numerics.float3 op_Multiply(Brutal.Numerics.float3, float)`
 - `float X`
 - `float Y`
 - `float Z`
@@ -500,6 +498,16 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.double3 Transform(Brutal.Numerics.double3, Brutal.Numerics.double4x4)`
 - `Brutal.Numerics.double3 Transform(Brutal.Numerics.double3, Brutal.Numerics.doubleQuat)`
 
+### KSA.ExplosionContext
+
+- `KSA.BubbleOrigin Anchor`
+- `float AmbientPressurePa`
+- `float IntensityJ`
+
+### KSA.ExplosionSystem
+
+- `void SpawnPreset(string, ref KSA.ExplosionContext)`
+
 ### KSA.FixedController
 
 - `Brutal.Numerics.double3 CameraOffset`
@@ -704,6 +712,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `!!0 Get<1>(string)`
 - `KSA.Mod Find(string)`
 - `KSA.ModManifest Manifest`
+- `bool TryGet<1>(string, ref !!0)`
 - `string get_LocalModsFolderPath()`
 
 ### KSA.ModManifest
@@ -837,6 +846,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `bool IsValid()`
 - `double GetAtmosphericDensityAtAltitude(double)`
 - `double GetAtmosphericPressure(KSA.Camera)`
+- `double GetAtmosphericPressureAtAltitude(double)`
 
 ### KSA.PhysicsBubble
 
@@ -895,7 +905,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.Vehicle Target`
 - `System.Collections.Generic.List`1<KSA.Rendering.Lighting.Light> Lights`
 
-### KSA.Rendering.Particles.ParticleEmitterReference
+### KSA.Rendering.Particles.ExplosionReference
 
 *referenced as a type only*
 
@@ -907,15 +917,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 *referenced as a type only*
 
-### KSA.Rendering.Particles.ParticleEmitter`2+EmitterShapeInfo
-
-*referenced as a type only*
-
 ### KSA.Rendering.Particles.ParticleEmitter`2+Handle
-
-*referenced as a type only*
-
-### KSA.Rendering.Particles.ParticleEmitter`2+ParticleSpawnInfo
 
 *referenced as a type only*
 

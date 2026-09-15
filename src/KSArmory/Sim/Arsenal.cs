@@ -266,7 +266,6 @@ public static class Arsenal
         DisplayName = "5\"/54 HEDP",
         BodyMarker = "Mk42_Shell",
         BodyLength = 0.42825f,
-        BurstSoundId = "",   // silent until it has a recording that can ship
 
         LaunchSpeed = 807.7f,
         BoostSeconds = 0f,
@@ -304,8 +303,8 @@ public static class Arsenal
     /// that is a 7.8 km lethal radius, which in this game is most of a launch site's horizon —
     /// playable is a different question from real, and this ships at the bottom of the range.</para>
     ///
-    /// <para>It is drawn far smaller than it kills, which is deliberate and unavoidable: see
-    /// <see cref="Warhead.MaximumEffectScale"/>.</para>
+    /// <para>It goes off far smaller than it kills, which is unavoidable: KSA's explosion stops
+    /// growing at a hundred times its reference energy. See <see cref="WarheadExplosion"/>.</para>
     /// </summary>
     public static readonly MunitionProfile NukeB61 = new()
     {

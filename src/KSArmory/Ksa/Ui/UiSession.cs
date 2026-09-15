@@ -173,7 +173,8 @@ internal sealed partial class Ui
 
         ImGui.SeparatorText("Effects");
         ImGui.Checkbox("Warhead effects", ref _config.DrawExplosions);
-        Tip("The fireball, not a debug line -- kept when the world overlay is off.");
+        Tip("KSA's own explosion, flash and sound included -- not a debug line, so kept when the "
+            + "world overlay is off.");
 
         ImGui.Checkbox("Rocket motor plume", ref _config.MotorPlume);
         Tip("The flame at the nozzle while the motor burns.");
@@ -231,12 +232,6 @@ internal sealed partial class Ui
     // switch is on -- a slider that does nothing is worse than no slider.
     private void DrawSoundPane()
     {
-        ImGui.Checkbox("Explosion sound", ref _config.BurstSound);
-        if (_config.BurstSound)
-        {
-            ImGui.SliderFloat("Explosion volume", ref _config.BurstVolume, 0f, 1f);
-        }
-
         ImGui.Checkbox("Rocket motor sound", ref _config.MotorSound);
         if (_config.MotorSound)
         {

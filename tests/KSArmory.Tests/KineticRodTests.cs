@@ -672,7 +672,7 @@ public class KineticRodTests(ITestOutputHelper Out)
 
         Assert.Equal(0.0, rod.LethalRadius);
         Assert.Equal(0.0, rod.BlastRadius);
-        Assert.Equal(0.0, Warhead.EffectScale(rod.ChargeKg));
+        Assert.Null(WarheadExplosion.PresetFor(rod.ChargeKg));
 
         // The kill path is `MissDistance <= LethalRadius + MeanRadius`, so with no charge the
         // craft's own bounding sphere is the whole envelope. A hull strike reports zero, which is

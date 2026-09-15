@@ -135,11 +135,17 @@ clean and still has to be flown or looked at:
       each was given a `Density`. The values reproduce the old behaviour in sea-level air only:
       higher up the smoke rises less, and below 100 Pa everything falls. Watch a burst at a low
       site and one at altitude.
-- [ ] **The fireball is always the volumetric one.** The volumetric renderer draws on every install
-      now, so the billboard fallback emitters were deleted. Look at one.
-- [x] **KSA draws its own explosion on every kill and every broken part**, on top of `Detonation`'s,
-      from `DestroyVehicleFromEvent` and `PartFailureEvent.Apply`. Kept on purpose: KSA's explosion
-      is wanted alongside the mod's.
+- [ ] **A warhead goes off as KSA's own explosion**, flash and sound included: `PopSmallExplosion`
+      for a cannon shell, `SmallFire` for a missile or the 5"/54, `Explosion_Conflagration` from
+      41 kg up and for a nuclear yield. Look at one of each, and grep the newest
+      `KittenSpaceAgency.*.log` for `ExplosionSystem:`, which is where a dropped one says so.
+      Flown, not watched: `head-on` set off `SmallFire` for the AIM-9J at 43 kPa and
+      `gunnery:1,overhead,30,300,1500` for all seven 5"/54 shells at 47 kPa, with every preset
+      resolving at load and no `no explosion` in the mod's log. KSA's own log cannot say: under a
+      scenario it ends before the first burst.
+- [x] **KSA draws its own explosion on every kill and every broken part**, from
+      `DestroyVehicleFromEvent` and `PartFailureEvent.Apply`, on top of the warhead's. Kept on
+      purpose.
 - [x] **Parts break at different ranges.** `CrashTolerancePascals` now comes from collider volume
       against a 9 MPa base at 330 kg/m³, clamped to 0.1–100 MPa, and `BlastDamage.ReferencePascals`
       moved with it to 9 MPa — flown below.
@@ -854,8 +860,8 @@ and nothing under `Sim/` can reach the wiring.
       engagement fired the whole belt and the missile arrived regardless.
 - [ ] The intercepted round disappears — from the scope, from the world, and its body with it. Its
       own launcher says `round N was shot down after <t>s`.
-- [ ] It does **not** explode where it was intercepted. `ShotDown` is not `Detonated`, and a
-      fireball there means something is reading the two as one.
+- [ ] It does **not** explode where it was intercepted. `ShotDown` is not `Detonated`, and an
+      explosion there means something is reading the two as one.
 - [ ] The defender's **missiles** can do it too, by proximity rather than contact. Needs a target
       further out than the 1.2 km minimum range — inside that the cannon is the only answer, which
       is what `holding fire: target out of reach` says when it happens.
@@ -1109,9 +1115,8 @@ the mesh and the XML, and the suite.
       hold is too short for the emitter to spawn anything.
 - [ ] No machine-gun rattle. A gun with a gunshot and no loop of its own gets no loop, rather than the
       Phalanx's.
-- [ ] A shell's burst makes no sound, on purpose. An empty
-      `BurstSoundId` is silence; if the synthesised default explosion plays instead, that check is
-      not being reached.
+- [ ] A shell's burst is KSA's `SmallFire`, and sounds like it. The shell carries no burst sound of its
+      own any more.
 - [ ] If a sound is silent, grep `KSArmory.log` for `does not resolve`.
 - [ ] With shells committed and the chase camera riding one, the lock cue's `salvo committed` sits
       under its bracket and the chase's range beside the target, not on top of each other. Both
@@ -1555,7 +1560,7 @@ the same band section 7.1b needs — fly one engagement and check both.
       `pinned platform lost` but no `chase: released the main view` until after the burst: the chase
       rides the fall to the ground (the bomb itself cannot be drawn once its craft is gone), holds on
       the burst, and then leaves the view over it where it can be orbited, rather than off in space.
-      The fireball and the cloud still appear, with no `no burst ... no celestial to hang it on`
+      The explosion and the cloud still appear, with no `no explosion ... no celestial to hang it on`
       warning.
 - [ ] Right-drag while a chase rides a bomb. The camera swings round it the way the orbit camera
       does — drag down to look from above — with the bomb staying where it was on screen and the

@@ -47,9 +47,7 @@ internal sealed class BurstTool
 
         double3 at = groundEcl + (up * Math.Max(radius, 2.0));
 
-        Detonation.Show(config.BurstFireball ? Detonation.Fireball : Detonation.Airburst,
-                        at, KsaWorld.ControlledVehicle,
-                        (float)Warhead.EffectScale(chargeKg));
+        Detonation.Explode(at, chargeKg, KsaWorld.ControlledVehicle);
 
         // From the GROUND point, not the lifted one. The lift above exists so the ball is not drawn
         // half-buried, and is right for the ball -- but the cloud is built as offsets from whatever
@@ -62,7 +60,7 @@ internal sealed class BurstTool
         // made a cloud, so the tool does not need to know and cannot disagree with the real path.
         NuclearClouds.Begin(groundEcl, KsaWorld.ControlledVehicle, chargeKg);
 
-        Log.Info($"burst tool: {(config.BurstFireball ? "fireball" : "airburst")}, "
+        Log.Info($"burst tool: {WarheadExplosion.PresetFor(chargeKg) ?? "no explosion"}, "
                  + (config.BurstNuclear
                         ? $"{config.BurstYieldKt:F2} kt"
                         : $"{chargeKg:F2} kg")

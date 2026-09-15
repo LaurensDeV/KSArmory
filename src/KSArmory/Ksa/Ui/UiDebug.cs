@@ -49,27 +49,25 @@ internal sealed partial class Ui
                 ImGui.SliderFloat("Charge (kg)", ref _config.BurstChargeKg, 0.01f, 500f,
                                   "%.2f", ImGuiSliderFlags.Logarithmic);
                 ImGui.TextDisabled($"  lethal {Warhead.LethalRadius(_config.BurstChargeKg):F0} m, "
-                                   + $"fireball {Warhead.FireballRadius(_config.BurstChargeKg):F0} m");
+                                   + $"goes off as {WarheadExplosion.PresetFor(_config.BurstChargeKg) ?? "nothing"}");
                 Tip("The marker under the cursor is drawn at the lethal radius.");
             }
-
-            ImGui.Checkbox("Fireball (off: airburst)", ref _config.BurstFireball);
         }
 
         // Straight overhead, for when the pointer is not the question -- it needs no aim and no
         // ground under it, so it still answers "does the effect work at all".
-        if (ImGui.Button("Burst overhead")) FireTestBurst(Detonation.Fireball);
-        Tip("Sets off a burst 100 m over the system shown.");
+        if (ImGui.Button("Burst overhead")) FireTestBurst();
+        Tip("Sets off the tool's charge 100 m over the system shown.");
 
         if (!Detonation.ParticlesEnabled)
         {
             ImGui.TextColored(Red, "KSA's Particles graphics setting is OFF");
-            ImGui.TextDisabled("  nothing will draw until it is turned back on");
+            ImGui.TextDisabled("  explosions flash and sound, and throw no sparks or debris");
         }
     }
 
     // A burst overhead, where it cannot be missed.
-    private void FireTestBurst(string emitterId)
+    private void FireTestBurst()
     {
         if (!_crewed || _battery.Platform is not { } platform)
         {
@@ -77,9 +75,10 @@ internal sealed partial class Ui
             return;
         }
 
+        double chargeKg = BurstTool.ChargeOf(_config);
         double3 at = KsaWorld.PositionEcl(platform) + KsaWorld.LocalUp(platform) * 100.0;
-        Log.Info($"test burst: {emitterId} 100 m over {KsaWorld.DisplayName(platform)}");
-        Detonation.Show(emitterId, at, platform);
+        Log.Info($"test burst: {chargeKg:G3} kg 100 m over {KsaWorld.DisplayName(platform)}");
+        Detonation.Explode(at, chargeKg, platform);
     }
 
     // Inline beside the other test aids rather than on a component row: it is not something a

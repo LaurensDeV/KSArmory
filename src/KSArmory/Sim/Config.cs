@@ -117,15 +117,6 @@ public sealed class Config
     /// </summary>
     public bool DirtyNuclearSmoke = true;
 
-    /// <summary>Play a bang when a warhead goes off.</summary>
-    public bool BurstSound = true;
-
-    /// <summary>Its volume, scaled again by the size of the charge before it is played.</summary>
-    public float BurstVolume = 0.9f;
-
-    /// <summary>Which sound, by <c>ModLibrary</c> Id. Null borrows Core's separation charge.</summary>
-    public string? BurstSoundId;
-
     /// <summary>
     /// Which sound to use, by <c>ModLibrary</c> Id. Null takes Core's engine loop, which resolves
     /// on every install; a mod-supplied Id only resolves once that asset actually ships.
@@ -217,9 +208,6 @@ public sealed class Config
     /// Off by default: while it is on, a click on the world is an explosion.</para>
     /// </summary>
     public bool BurstTool;
-
-    /// <summary>Fireball rather than the paler airburst.</summary>
-    public bool BurstFireball = true;
 
     /// <summary>
     /// Explosive charge for a hand-fired burst (kg). The same figure a round carries, so the tool
@@ -384,7 +372,7 @@ public sealed class Config
     public bool DrawLockCue = true;
 
     /// <summary>
-    /// Show a fireball where a warhead goes off.
+    /// Set off KSA's own explosion where a warhead goes off, its flash and sound included.
     ///
     /// <para>Not part of <see cref="DrawOverlays"/>: that is diagnostic drawing that says what the
     /// mod thinks, and this is the engagement itself. Turning the debug lines off should leave the
