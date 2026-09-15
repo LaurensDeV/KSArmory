@@ -495,6 +495,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
 | `docs/BLOCKED-ON-KSA.md` | **what the mod cannot build**, with the engine reason and what would unblock it |
+| `docs/LAY-COST.md` | **a plan, not a record** — what a gun lay beyond reach costs a frame, and four measured ways to make it cheaper, none merged |
 | `docs/ICBM-GUIDANCE.md` | **the ballistic computer** — the algorithm, the frames, the cutoff, and what has not been flown |
 | `docs/ACCURACY-PLAN.md` | **the ranked plan, and the one to read first** — what four investigations found on 2026-08-30, including the bug that was the long-range bimodality and the sub-frame cutoff the engine has and the mod never reached |
 | `docs/EIGHT-ROCKETS.md` | **the plan for accuracy at eight rockets** — where the instrument stands, what limits it, and what to fly next, ranked |
