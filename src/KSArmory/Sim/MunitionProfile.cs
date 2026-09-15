@@ -344,7 +344,8 @@ public sealed class MunitionProfile
 
     /// <summary>
     /// Medium density ratio at which this round is neutrally buoyant, in the same units as
-    /// <see cref="DragK"/> is scaled by — multiples of sea-level air. Zero disables buoyancy.
+    /// <see cref="DragK"/> is scaled by — multiples of Earth's sea-level air,
+    /// <see cref="Medium.ReferenceDensityKgPerM3"/>. Zero disables buoyancy.
     ///
     /// <para>A torpedo sits near 840, the density of water, so it neither sinks nor rises once
     /// submerged while still falling normally through air. Gravity is scaled by
@@ -354,12 +355,37 @@ public sealed class MunitionProfile
     public float NeutralDensityRatio;
 
     /// <summary>
-    /// Quadratic drag coefficient, k in <c>a = -k*|v|*v</c>, <b>at sea level</b>.
+    /// The round's mass in flight (kg): with <see cref="CalibreMm"/> and <see cref="DragCoefficient"/>,
+    /// what its drag is computed from.
+    ///
+    /// <para><b>The rule, wherever a round can follow it.</b> A drag constant typed by hand is a number
+    /// nothing checks, and can be forty times out with nothing looking wrong. Mass, calibre and a
+    /// coefficient for the shape are facts that can be looked up, and the coefficient of anything shaped
+    /// like a shell sits near 0.3. All three or none; with none, <see cref="DragK"/> stands.</para>
+    /// </summary>
+    public float MassKg;
+
+    /// <summary>Frontal diameter (mm).</summary>
+    public float CalibreMm;
+
+    /// <summary>Drag coefficient for the round's shape, against its frontal area: about 0.3 for a supersonic shell.</summary>
+    public float DragCoefficient;
+
+    /// <summary>
+    /// Quadratic drag by hand, k in <c>a = -k*|v|*v</c> in reference air — for a round no constant
+    /// coefficient describes, or whose flown calibration rests on its value. Ignored when
+    /// <see cref="MassKg"/>, <see cref="CalibreMm"/> and <see cref="DragCoefficient"/> are all given.
     ///
     /// <para>Scaled at runtime by the density where the round is, so one profile is correct on the
     /// pad, climbing out and in orbit. Zero disables drag outright.</para>
     /// </summary>
     public float DragK = 3.0e-5f;
+
+    /// <summary>Whether the drag comes from mass, calibre and coefficient rather than from <see cref="DragK"/>.</summary>
+    public bool DragFromShape => MassKg > 0f && CalibreMm > 0f && DragCoefficient > 0f;
+
+    /// <summary>The drag constant the round is flown with, k in <c>a = -k*|v|*v</c> in reference air.</summary>
+    public double AppliedDragK => DragFromShape ? Medium.DragK(MassKg, CalibreMm, DragCoefficient) : DragK;
 
     // ---- Warhead --------------------------------------------------------
     /// <summary>Proximity fuse trigger radius (m).</summary>

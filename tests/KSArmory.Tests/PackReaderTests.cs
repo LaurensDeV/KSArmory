@@ -297,6 +297,25 @@ public class PackReaderTests
         }
     }
 
+    /// <summary>
+    /// A round's drag from what it is: mass, calibre and coefficient come through and decide it over any DragK,
+    /// and a round given only some of them is refused rather than flying on a DragK nobody meant.
+    /// </summary>
+    [Fact]
+    public void ARoundsDragComesFromItsMassCalibreAndCoefficient()
+    {
+        MunitionProfile round = Read(Wrap(
+            """<Munition Name="Shell" DisplayName="Shell" MassKg="31.75" CalibreMm="127" DragCoefficient="0.306" DragK="9" />"""))
+            .Munitions[0];
+
+        Assert.True(round.DragFromShape);
+        Assert.InRange(round.AppliedDragK, 7.45e-5, 7.51e-5);
+
+        PackContents partial = Read(Wrap("""<Munition Name="Half" DisplayName="Half" MassKg="31.75" CalibreMm="127" />"""));
+        Assert.Empty(partial.Munitions);
+        Assert.Contains(partial.Faults, f => f.ToString().Contains("DragCoefficient", StringComparison.Ordinal));
+    }
+
     [Fact]
     public void AVectorIsThreeNumbersAndAnythingElseIsRefused()
     {

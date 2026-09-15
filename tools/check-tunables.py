@@ -95,6 +95,12 @@ EXEMPT = {
         "ballistic coefficient, which belongs to the round rather than to the operator",
     "MunitionProfile.NeutralDensityRatio":
         "as above",
+    "MunitionProfile.MassKg":
+        "what the round is, which its drag is computed from -- the round's rather than the operator's",
+    "MunitionProfile.CalibreMm":
+        "as above",
+    "MunitionProfile.DragCoefficient":
+        "as above",
     "MunitionProfile.HitsTerrain":
         "costs a terrain sample per round per frame; a weapon's design, not a preference",
     "MunitionProfile.TimedFuse":

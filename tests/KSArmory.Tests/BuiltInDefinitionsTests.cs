@@ -66,6 +66,10 @@ public class BuiltInDefinitionsTests
             Assert.Equal(was.MinRange, now.MinRange);
             Assert.Equal(was.MaxRange, now.MaxRange);
             Assert.Equal(was.DragK, now.DragK, 9);
+            Assert.Equal(was.MassKg, now.MassKg);
+            Assert.Equal(was.CalibreMm, now.CalibreMm);
+            Assert.Equal(was.DragCoefficient, now.DragCoefficient);
+            Assert.Equal(was.AppliedDragK, now.AppliedDragK, 12);
             Assert.Equal(was.FuseRadius, now.FuseRadius);
             Assert.Equal(was.FuseArmSeconds, now.FuseArmSeconds);
             Assert.Equal(was.ChargeKg, now.ChargeKg);

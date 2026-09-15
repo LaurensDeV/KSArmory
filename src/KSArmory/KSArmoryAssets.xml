@@ -1461,9 +1461,9 @@
     </SubPart>
 
     <!--
-      Shell bodies, lent to shells in flight and hidden otherwise. Twenty, because a timed shell flies
-      up to 23 s at the gun's full reach and the gun fires one every 1.5 s; a shell finding none free
-      draws as a tracer. Parked in the breech, where the gun house hides them until the mod first
+      Shell bodies, lent to shells in flight and hidden otherwise. Twenty: a timed shell flies up to
+      43 s to the edge of its 15.7 km envelope and the gun fires one every 1.5 s, so a long engagement
+      can have more shells up than bodies, and a shell finding none free draws as a tracer. Parked in the breech, where the gun house hides them until the mod first
       runs, and a centimetre apart, because identical bodies on one point share every plane they have.
       The second ten were added after the first shipped, so they come after them.
     -->

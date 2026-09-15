@@ -125,7 +125,8 @@ Four rules that between them explain most refusals:
 | `BoostAccel` | `520` | m/s² while burning |
 | `MaxFlightSeconds` | `30` | after which it self-destructs |
 | `MinRange`, `MaxRange` | `0`, `20000` | engagement envelope, m |
-| `DragK` | `3.0e-5` | drag over frontal area; larger bleeds speed faster |
+| `MassKg`, `CalibreMm`, `DragCoefficient` | *none* | **what the round's drag is computed from**: mass in flight (kg), frontal diameter (mm), and a coefficient for its shape — about `0.3` for a supersonic shell. All three or none; a round given only some is refused |
+| `DragK` | `3.0e-5` | drag by hand, k in a = k·v² in Earth's sea-level air, for a round no constant coefficient describes — a bomb through the speed of sound, a missile shedding its booster. Ignored when the three above are given |
 | `GravityCompensation` | `1` | how much of gravity guidance cancels; a tail kit (`Inertial`) steers the fall it predicts and ignores it |
 | `NeutralDensityRatio` | `0` | density it floats at. Near `840` and it swims — that is a torpedo |
 | `SeparationSeconds` | `0` | coast before the motor lights |

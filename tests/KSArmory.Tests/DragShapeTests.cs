@@ -17,7 +17,7 @@ public class DragShapeTests
         Body2Ecl: attitude,
         BodyRates: rates,
         Mass: 1000.0,
-        SeaLevelDensity: 1.225,
+        ReferenceDensity: 1.225,
         ExhaustVelocity: 0.0,
         PropellantMass: 0.0);
 
@@ -113,7 +113,7 @@ public class DragShapeTests
         Assert.False(new DragShape(Vec.Zero, Vec.Zero, 0.0, doubleQuat.Identity, Vec.Zero, 1.0, 1.225, 0.0, 0.0).IsUsable);
         Assert.False((Drone(doubleQuat.Identity) with { Mass = 0.0 }).IsUsable);
         Assert.False((Drone(doubleQuat.Identity) with { PropellantMass = 1000.0 }).IsUsable);
-        Assert.False((Drone(doubleQuat.Identity) with { SeaLevelDensity = double.NaN }).IsUsable);
+        Assert.False((Drone(doubleQuat.Identity) with { ReferenceDensity = double.NaN }).IsUsable);
         Assert.True(Drone(doubleQuat.Identity).IsUsable);
     }
 }

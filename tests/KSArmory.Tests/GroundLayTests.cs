@@ -79,7 +79,7 @@ public class GroundLayTests(ITestOutputHelper output)
         var nowhere = new TargetState(new double3(0, 0, 1.0e9), Vec.Zero, 0.0);
         double3 before = slug.PositionEcl;
 
-        for (double t = 0.0; slug.State == RoundState.Flying && t < 40.0; t += Frame)
+        for (double t = 0.0; slug.State == RoundState.Flying && t < shell.MaxFlightSeconds + 1.0; t += Frame)
         {
             slug.Update(Frame, nowhere, GravityAt(slug.PositionEcl), Vec.Zero, Vec.Zero, shell,
                         shell.DragK > 0f ? DensityAt(slug.PositionEcl) : 0.0);
@@ -97,6 +97,37 @@ public class GroundLayTests(ITestOutputHelper output)
         }
 
         return null;
+    }
+
+    // The farthest any elevation throws the shell within its lifetime, flown a frame at a time.
+    private static double LongestReachKm(MunitionProfile? munition = null)
+    {
+        MunitionProfile shell = munition ?? Shell;
+        double best = 0.0;
+        for (double deg = 5.0; deg <= 60.0; deg += 1.0)
+        {
+            double rad = double.DegreesToRadians(deg);
+            if (FlyToGround(new double3(Math.Cos(rad), 0, Math.Sin(rad)), munition: shell) is { } flown
+                && flown.Seconds <= shell.MaxFlightSeconds)
+            {
+                best = Math.Max(best, SurfaceKm(flown.Landed));
+            }
+        }
+
+        return best;
+    }
+
+    /// <summary>
+    /// The shell's drag is its mass, calibre and coefficient, and those give the real gun's range table: 23.69 km
+    /// at 47 degrees.
+    /// </summary>
+    [Fact]
+    public void TheShellReachesTheRangeTablesLongestRange()
+    {
+        double best = LongestReachKm();
+        output.WriteLine($"longest reach {best:F2} km");
+
+        Assert.InRange(best, 23.3, 24.1);
     }
 
     [Theory]

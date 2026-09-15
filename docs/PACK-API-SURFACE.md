@@ -11,7 +11,7 @@ ignored.
 
 `docs/WEAPON-PACKS.md` is the same surface written for the author, with the reasons attached.
 
-**Definition schema 1.** 8 elements, 113 attributes, 15 entry-point lines.
+**Definition schema 1.** 8 elements, 116 attributes, 15 entry-point lines.
 
 ## Entry point
 
@@ -64,6 +64,9 @@ to build; widening it to take a profile type would put that back.
 | `SeparationSeconds` | number | `0` |
 | `GravityCompensation` | number | `1` |
 | `NeutralDensityRatio` | number | `0` |
+| `MassKg` | number | `0` |
+| `CalibreMm` | number | `0` |
+| `DragCoefficient` | number | `0` |
 | `DragK` | number | `3.0e-5` |
 | `FuseRadius` | number | `15` |
 | `TimedFuse` | true or false | `false` |

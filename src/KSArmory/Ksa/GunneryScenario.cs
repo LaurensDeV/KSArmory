@@ -32,7 +32,7 @@ internal sealed class GunneryScenario
     private const double GapSeconds = 3.0;
 
     // Longest a shell fired at the ground may be in the air: the 5"/54's whole life, and some.
-    private const double ShellFlightSeconds = 35.0;
+    private const double ShellFlightSeconds = 125.0;
 
     /// <summary>
     /// What to fly: <c>drones,profile,seconds,speed,miss,spin,burn</c>, every field optional. The

@@ -141,8 +141,8 @@ public static class BallisticLead
     ///
     /// <para>Distance over muzzle speed falls short of the real flight time by whatever speed the
     /// air takes away, and the lead, the drop and a timed fuse all hang off that one number. A
-    /// five-inch shell 15.7 km out at 80° flies 22.7 s, not the 19.4 s the division gives, so a
-    /// fuse set from it bursts 1.9 km short. Flown, all three come off one trajectory.</para>
+    /// five-inch shell 15.7 km out at 80° flies 43.4 s, not the 19.4 s the division gives, so a
+    /// fuse set from it bursts 5.5 km short. Flown, all three come off one trajectory.</para>
     ///
     /// <para>The flight is measured against the ground the round flies over, because that is what
     /// its drag reads — so the mount's, the target's and the air's velocities are all differenced

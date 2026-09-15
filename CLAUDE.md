@@ -276,7 +276,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/PackFault.cs` | one definition that was refused, and the reason an author can act on |
 | `Sim/WeaponSurvey.cs` | reads a weapons system off a craft the mod did not design |
 | `Sim/LauncherProfile.cs` | one launch platform: part Id, tube geometry, drives |
-| `Sim/MunitionProfile.cs` | one round: boost, guidance, fuse, warhead |
+| `Sim/MunitionProfile.cs` | one round: boost, guidance, drag, fuse, warhead — **its drag from its mass, calibre and coefficient**, not a constant typed for it |
 | `Sim/Warhead.cs` | explosive charge to lethal, blast and fireball radius |
 | `Sim/WarheadExplosion.cs` | which of KSA's explosions a warhead goes off as — **the preset carries the size**, because KSA's floor swallows every conventional charge |
 | `Sim/SensorProfile.cs` | one sensor: range, cone, threat model |
@@ -295,7 +295,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/BlastDamage.cs` | which parts of a craft a burst breaks — **nothing here picks a part**: each is judged on its own distance and the strength the engine derived for it |
 | `Sim/TargetAllocation.cs` | what one craft's weapons have in the air **between them** — the unit that over-commits is the craft, not the weapon |
 | `Sim/RoundReach.cs` | whether a round the ground stops can still get to it — **the reaper for a store that will never arrive**, because a long fall is long rather than stuck |
-| `Sim/Medium.cs` | what the air or water a round flies through does to it — buoyancy and drag, shared by every round |
+| `Sim/Medium.cs` | what the air or water a round flies through does to it — buoyancy and drag, shared by every round, against **one reference air for every body**, so a round is dragged by the air actually there |
 | `Sim/ContactSweep.cs` | the contact rule: whether a round runs into a body over one step |
 | `Sim/IHullTest.cs` | **the seam a kinetic round asks whether it truly touched something** |
 | `Sim/IGroundTest.cs` | where the ground is under a round, for the one round the terrain stops |
@@ -353,7 +353,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/DriveStatus.cs` | which drives the engine is still accepting writes for, latched per channel |
 | `Sim/GunChannel.cs` | the cannon's belt, burst position and next-round timing |
 | `Sim/GunRecoil.cs` | how far a barrel has run back since the gun fired — **drawn only**, because the round has left before the barrel moves |
-| `Sim/BallisticLead.cs` | where an unguided round must be aimed to arrive where the target will be — **its acceleration included**, because a lead on velocity alone misses anything slowing or falling by ½·a·t² — and **flown through the air and the pull of whichever body it is on**, because distance over muzzle speed times a five-inch fuse 3.5 s early at 15.7 km, 2 km short |
+| `Sim/BallisticLead.cs` | where an unguided round must be aimed to arrive where the target will be — **its acceleration included**, because a lead on velocity alone misses anything slowing or falling by ½·a·t² — and **flown through the air and the pull of whichever body it is on**, because distance over muzzle speed times a five-inch fuse 24 s early at 15.7 km, 5.5 km short |
 | `Sim/AccelerationEstimate.cs` | the engine's accelerometer, **checked against how the contact's velocity actually changed** — the reading includes every impulse over one step and misled a lead by 232 m, while the history lags and, used as the reading, put every first shell 16 m behind |
 | `Sim/DragShape.cs` | a craft's drag and mass **as the engine computes them** — a box fixed to the body over its mass, turned with the body's rates, and a mass its engines burn away — so a craft holding its attitude while its path bends changes its drag, one tumbling changes it faster, and one under power still has all of it and pushes harder as it lightens; a lead holding the coefficient put every first shell 25 m behind and above |
 | `Sim/LeadError.cs` | where a shell burst relative to its target, along the target's track, up and right — beside what a steady-target lead would have missed by, which is what tells an unled acceleration from a wrong aim |
@@ -2035,6 +2035,25 @@ level fire meets the dirt. `WeaponSystem.TryGunGroundLay` flies the solve a trac
 uses onto the ground under the cursor, or onto a designated place. Over sky or a craft the line of
 sight stands, because there the operator is judging the lead.
 
+**A round's drag is what it is, not a number typed for it.** `MunitionProfile.MassKg`, `CalibreMm` and
+`DragCoefficient` give `k = ½ρ·Cd·A/m` in Earth's sea-level air — the rule BDArmory Continued computes
+every bullet's ballistic coefficient with, at a Cd of 0.295. Constants typed by hand were 45 times too
+light on the 5"/54 and 30–45 times on both cannons, and nothing looked wrong until a lifetime was raised and
+a shell flew 65 km; a shape's coefficient sits near 0.3, so a wrong one shows. The 5"/54's 0.306 gives its
+range table's 23.69 km at 47°, and one constant cannot also give the ceiling — 16.1 km straight up against
+14.8 — because real drag peaks near Mach 1. `DragK` stays for what no constant coefficient describes: a
+bomb's drag rises through the speed of sound, a missile's changes as it burns and drops its booster, and
+every flown ballistic baseline rests on the Mk 21's. `ArsenalTests.EveryRoundsDragComesFromWhatItIsUnlessNamedHere`
+names them, so a new round cannot join them by accident.
+
+**And the air is the air that is there.** A density ratio is a multiple of `Medium.ReferenceDensityKgPerM3`,
+1.225 kg/m³, over every body, and `DragShape` reads a craft's drag against the same. Divided by each body's
+own sea level instead, a round over Mars flew through air as thick as Earth's.
+
+**And a gun's shells step second order**, as a released warhead does (`Slug.SecondOrder`). A first-order
+step moves on the velocity a frame ends with, and against that drag it leaves a shell metres off the path
+the lead was flown on: 3.8 m at 15.7 km at 60 fps against 1.3 m, and more as the frame rate falls.
+
 **And the ground a shell is flown against turns.** `BallisticLead.TrySolveFlown` takes the ground's
 acceleration beside its velocity and takes it off the round and the target alike. Without it the shell
 falls under a gravity the ground does not feel: a 5"/54 on flat ground at 28.6° N landed 15 m long at
@@ -2661,8 +2680,11 @@ should not be weakened without understanding what they buy:
 - Rounds collide with terrain only when their profile asks. `MunitionProfile.HitsTerrain` is set
   for the bomb, the reentry vehicle and the 5"/54 shell, and nothing else, because it costs a terrain
   sample per round per frame and a CIWS burst is 150 shells in the air. The 5"/54 is on the list
-  because both halves of that trade go the other way for it: twenty shells in the air at most, each alive
-  long enough that one missing would fall through the planet. So a 20 mm shell still passes through
+  because both halves of that trade go the other way for it: a few dozen shells in the air at most, each
+  alive long enough that one missing would fall through the planet. Its lifetime is two minutes, which is
+  long enough for any shell to come down, so the ground ends a long shot rather than the clock ending it
+  in mid-air — and the flown lead is searched within that same lifetime, so it is the gun's reach as
+  well. So a 20 mm shell still passes through
   a hill and a missile that misses still carries on into space. A reentry vehicle also re-reads the
   ground under every sub-step within 200 m of it, because a frame's first sample is the height of
   ground it has already left — `IcbmConfig.ResampleGroundAtImpact`, 0.30x on the walk, flown.

@@ -111,7 +111,11 @@ internal sealed class TracerTrail
 
             // Measured off the youngest shell already traced rather than off a clock: the spacing
             // wanted is between tracers, and their own ages are what that is.
-            double spacing = round.Munition.MaxFlightSeconds * SpacingOfLife / MaxTracers;
+            // Over thirty seconds of life at most: a shell the ground stops is given two minutes so the
+            // clock sweeps up only one that never lands, and it lands long before -- spacing over the whole
+            // of that leaves the emitters idle between tracers.
+            const double SpacedLifeSeconds = 30.0;
+            double spacing = Math.Min(round.Munition.MaxFlightSeconds, SpacedLifeSeconds) * SpacingOfLife / MaxTracers;
             if (newest < spacing) break;
 
             if (!Follow(round, battery)) continue;

@@ -38,6 +38,9 @@
     a true contact, so the fuse is the smallest radius a round travelling 960 m/s can be tested
     against without stepping past it.
 
+    Its drag is its 390 g at 30 mm with a shell's coefficient, so it reaches 4 km through the air in about
+    8.4 s, arriving at under 300 m/s; MaxFlightSeconds is sized to get there.
+
     No BodyMarker: twelve missile bodies exist because a salvo is twelve rounds, and a burst is
     hundreds. Shells are drawn as tracers only.
 
@@ -48,9 +51,9 @@
   -->
   <Munition Name="30MM" DisplayName="2A38M 30 mm cannon"
             LaunchSpeed="960" BoostSeconds="0" BoostAccel="0"
-            MinRange="200" MaxRange="4000" MaxFlightSeconds="6"
+            MinRange="200" MaxRange="4000" MaxFlightSeconds="9"
 
-            DragK="1.1e-5"
+            MassKg="0.39" CalibreMm="30" DragCoefficient="0.3"
 
             FuseRadius="3" FuseArmSeconds="0.05" ChargeKg="0.16" />
 

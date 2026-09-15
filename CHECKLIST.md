@@ -1115,6 +1115,34 @@ the mesh and the XML, and the suite.
       (`GroundLayTests`).
 - [ ] Over sky, or over a craft, mouse aim still lays along the line of sight: nothing about the air
       fight changed.
+- [ ] Fire the Mk 42 at 47° with nothing to aim at. The shell comes down about 23.7 km out, as the real
+      gun's range table has it, rather than 65 km. `DragCoefficient` is fitted to that: headlessly 23.69 km at
+      47.25° in 83.6 s, and 16.1 km straight up against the real 14.8, which one constant cannot match.
+- [x] Re-fly the passing drones on the range-table drag. Every first-shell number in 7.1d3 was flown on
+      the almost-airless drag, and a lead now has longer to be wrong in. **Confirmed on 2026.9.10.5438**
+      with `gunnery`: 4 of 4 drones had a burst inside the 11 m lethal radius, the first on each 6.0–6.2 km
+      out after about 10 s of flight and all 5 at 0.0 m, from 28 shells, with no exception in KSA's log.
+- [ ] The same overhead and far out (`gunnery:3,overhead,...`). A shell to 15.7 km now takes 36–43 s
+      rather than 20–23, and the envelope's far edge straight up is near the shell's ceiling.
+- [ ] Gun shells step second order (`Slug.SecondOrder`). Headlessly at 60 fps a shell 15.7 km out bursts
+      1.3 m from its target against 3.8 m first order (`FlownLeadTests`); a CIWS and a Pantsir burst
+      should look and score as before.
+- [x] The Phalanx still reaches 1486 m and a burst still kills a crossing drone. Its 20 mm round's drag is
+      now its mass, calibre and coefficient, 44 times the constant it had: headlessly it takes 2.1 s to
+      get there and arrives at under half its muzzle speed, and it lives 2.5 s rather than 2. **Confirmed
+      on 2026.9.10.5438** with `KSARMORY_SCENARIO_SAVE="CIWS" gunnery:3,passing,15,200,500`: 3 of 3
+      crossing drones had a burst inside the 2.7 m lethal radius, 7 bursts at 0.0 m from 1,550 shells, and
+      no exception in KSA's log.
+- [x] The Pantsir's 30 mm reaches 4 km and still hits: 30 times its old drag, about 8.4 s to get there
+      at under 300 m/s, and it lives 9 s rather than 6. **Confirmed on 2026.9.10.5438** with
+      `KSARMORY_SCENARIO_SAVE="KABOOM" gunnery:2,passing,12,200,1500`: 2 of 2 crossing drones had a burst
+      inside the 4 m lethal radius, 4 bursts at 0.0 m about 2 km out from 96 shells, no missile fired, and
+      unspent shells expired at 9.0 s after 4.2 km at 261 m/s. No exception in KSA's log.
+- [ ] A shell over a body with thin air flies further than over Earth. Drag is measured against Earth's
+      sea-level air over every body, where it was each body's own sea level.
+- [ ] Fire a shell high with nothing to aim at. It flies until it lands and never vanishes in mid-air.
+      With a 30 s life, on 2026.9.10.5438, shells were removed 23.3 km out while still doing 766 m/s,
+      and the longest reach the lay could find stopped at the same 23.7 km.
 - [ ] Chase a shell onto a hillside. It stops short well before it lands. On a 9.9 km ground shot
       from the mountainside it stopped 29 ms before and held on the burst from 4 m: the countdown
       is the fall to the ground straight below, and the slope ahead is met first.
@@ -1156,10 +1184,11 @@ the mesh and the XML, and the suite.
 - [ ] The colliders are declared at the modelled pose, so a raised barrel collides where it is not.
 - [ ] The mass is the real mount's, **61.4 tonnes**, three times the first version's guess. A 3 m
       stack under it may now sag or break where it held before.
-- [ ] It engages at range: `MaxRange` 15.7 km against the CIWS's 1.5, shells about 23 seconds out at
+- [ ] It engages at range: `MaxRange` 15.7 km against the CIWS's 1.5, shells 36–43 seconds out at
       the far end, so the track has to survive far longer than any gun here has needed.
-- [ ] Twenty shell bodies, not ten: at 40 rpm and 23 s of flight sixteen can be in the air. The ten
-      added came after the first ten, so a save holding the first version still loads.
+- [ ] Twenty shell bodies, not ten: at 40 rpm and 43 s of flight nearly thirty can be in the air, and
+      the ones past twenty draw as tracers. The ten added came after the first ten, so a save holding
+      the first version still loads.
 
 ### 7.1f Releasing a bomb
 

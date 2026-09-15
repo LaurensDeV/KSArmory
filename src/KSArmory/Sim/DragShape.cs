@@ -25,7 +25,9 @@ namespace KSArmory;
 /// <param name="Body2Ecl">The craft's attitude.</param>
 /// <param name="BodyRates">How fast it is turning, in its own axes (rad/s), held over a prediction.</param>
 /// <param name="Mass">Its mass (kg).</param>
-/// <param name="SeaLevelDensity">Sea-level density of the air it flies in (kg/m³).</param>
+/// <param name="ReferenceDensity">
+/// The density a ratio of one stands for (kg/m³): <see cref="Medium.ReferenceDensityKgPerM3"/>, whatever body it flies over.
+/// </param>
 /// <param name="ExhaustVelocity">
 /// Its engines' thrust over their mass flow (m/s), zero with none. Throttle-independent, so the mass
 /// flow follows from the thrust it is measured under: flown, a burning drone's push rose from 21.0 to
@@ -33,7 +35,7 @@ namespace KSArmory;
 /// </param>
 /// <param name="PropellantMass">What it has left to burn (kg), which is when the thrust stops.</param>
 public readonly record struct DragShape(double3 Positive, double3 Negative, double Skin, doubleQuat Body2Ecl,
-                                        double3 BodyRates, double Mass, double SeaLevelDensity,
+                                        double3 BodyRates, double Mass, double ReferenceDensity,
                                         double ExhaustVelocity, double PropellantMass)
 {
     /// <summary>The mass flow that gives it <paramref name="thrustNow"/> of acceleration (kg/s).</summary>
@@ -60,14 +62,14 @@ public readonly record struct DragShape(double3 Positive, double3 Negative, doub
 
     /// <summary>
     /// The drag acceleration on it at <paramref name="airVelocity"/>, in a medium
-    /// <paramref name="densityRatio"/> times sea-level air, <paramref name="seconds"/> from now.
+    /// <paramref name="densityRatio"/> times the reference air, <paramref name="seconds"/> from now.
     /// </summary>
     public double3 DragAcceleration(double3 airVelocity, double densityRatio, double seconds = 0.0)
     {
         double airspeed = Vec.Len(airVelocity);
         if (!(airspeed > 0.0) || !(densityRatio > 0.0)) return Vec.Zero;
 
-        double perSpeed = 0.5 * SeaLevelDensity * densityRatio * AreaFacing(airVelocity, seconds) * airspeed / Mass;
+        double perSpeed = 0.5 * ReferenceDensity * densityRatio * AreaFacing(airVelocity, seconds) * airspeed / Mass;
         return airVelocity * -perSpeed;
     }
 
@@ -86,7 +88,7 @@ public readonly record struct DragShape(double3 Positive, double3 Negative, doub
            && Positive.X >= 0.0 && Positive.Y >= 0.0 && Positive.Z >= 0.0
            && Negative.X >= 0.0 && Negative.Y >= 0.0 && Negative.Z >= 0.0 && Skin >= 0.0
            && (Positive.X + Positive.Y + Positive.Z + Negative.X + Negative.Y + Negative.Z + Skin) > 0.0
-           && Mass > 0.0 && double.IsFinite(Mass) && SeaLevelDensity > 0.0 && double.IsFinite(SeaLevelDensity)
+           && Mass > 0.0 && double.IsFinite(Mass) && ReferenceDensity > 0.0 && double.IsFinite(ReferenceDensity)
            && ExhaustVelocity >= 0.0 && double.IsFinite(ExhaustVelocity)
            && PropellantMass >= 0.0 && PropellantMass < Mass;
 

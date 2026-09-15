@@ -187,6 +187,29 @@ public class ArsenalTests
     }
 
     /// <summary>
+    /// A round's drag is computed from what it is. The rounds that still carry a constant by hand are named here
+    /// with the reason, so a new one cannot join them by accident: a bomb's drag rises through the speed of sound
+    /// and a missile's changes as it burns and sheds its booster, which one coefficient cannot follow, and every
+    /// flown ballistic baseline rests on the reentry vehicle's.
+    /// </summary>
+    [Fact]
+    public void EveryRoundsDragComesFromWhatItIsUnlessNamedHere()
+    {
+        string[] byHand = ["AIM9J", "AIM120C", "AGM88", "57E6", "B61", "MK21"];
+
+        foreach (MunitionProfile round in Catalogue.Munitions)
+        {
+            Assert.True(round.DragFromShape != byHand.Contains(round.Name),
+                        $"{round.Name}: drag {(round.DragFromShape ? "from its shape" : "by hand")}");
+        }
+
+        foreach (LauncherProfile launcher in Catalogue.Launchers)
+        {
+            if (launcher.GunMunition is { } gun) Assert.True(Catalogue.MunitionNamed(gun).DragFromShape, gun);
+        }
+    }
+
+    /// <summary>
     /// The rail is the shipped example of a launcher with nothing that moves, so the shape
     /// <see cref="AFixedLauncherIsJustAProfileWithNothingThatMoves"/> describes has to hold for a
     /// real entry rather than only for one the test builds.

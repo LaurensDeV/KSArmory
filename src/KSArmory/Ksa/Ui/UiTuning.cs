@@ -260,7 +260,7 @@ internal sealed partial class Ui
             }
 
             ImGui.SliderFloat("Launch speed (m/s)", ref _munition.LaunchSpeed, 5f, 300f);
-            ImGui.SliderFloat("Max flight time (s)", ref _munition.MaxFlightSeconds, 3f, 90f);
+            ImGui.SliderFloat("Max flight time (s)", ref _munition.MaxFlightSeconds, 3f, 180f);
 
             // The envelope the battery commits inside, which is not how far the round can fly:
             // the set sees 36 km and the round reaches 20, and firing at everything detected

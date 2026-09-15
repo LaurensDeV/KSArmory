@@ -226,12 +226,16 @@ public static class Arsenal
         BoostSeconds = 0f,
         BoostAccel = 0f,
 
-        // Just past the gun's own 1486 m reach, not four times it. At 1100 m/s five seconds is
-        // 5.5 km of flight that can hit nothing, and at 75 rounds a second it keeps 375 shells in
-        // the air to do it: every one stepped, drawn and logged.
-        MaxFlightSeconds = 2f,
+        // Just past the gun's own 1486 m reach, which through the air it takes 2.1 s to get to, and not
+        // four times it: at 75 rounds a second every second of life is 75 more shells in the air, each
+        // one stepped, drawn and logged.
+        MaxFlightSeconds = 2.5f,
 
-        DragK = 1.3e-5f,
+        // A full-calibre 20 mm round of 102 g, which is what the fuse and charge model: it arrives at the
+        // edge of reach with under half its muzzle speed.
+        MassKg = 0.102f,
+        CalibreMm = 20f,
+        DragCoefficient = 0.3f,
 
         FuseRadius = 2.5f,
         FuseArmSeconds = 0.03f,
@@ -242,9 +246,8 @@ public static class Arsenal
     /// The 5"/54's anti-aircraft shell, on a time fuze.
     ///
     /// <para>Muzzle velocity (807.7 m/s) and the 3.3 kg burster are the real round's, and 15.7 km is
-    /// how far out the mount engages. Drag is set for its 31.75 kg: what carries a projectile is its
-    /// sectional density, and this one has two hundred times the 20 mm's mass for twelve times the
-    /// frontal area.</para>
+    /// how far out the mount engages. Its drag is its 31.75 kg at 127 mm with a shell's coefficient, which
+    /// is what gives the range table's 23.7 km.</para>
     ///
     /// <para><b>The fuze is the weapon.</b> A 20 mm round has to touch what it kills, so a CIWS
     /// makes up for a small charge with volume; this one bursts in the air at the flight time the
@@ -271,21 +274,27 @@ public static class Arsenal
         BoostSeconds = 0f,
         BoostAccel = 0f,
 
-        // 15.7 km straight up takes 23 s through the air; 30 leaves room without keeping shells alive
-        // that can no longer reach anything. At 40 rpm that is still twenty in the air at most, which
-        // is the opposite of the CIWS's problem.
-        MaxFlightSeconds = 30f,
+        // Long enough for any shell to come down: 45 degrees at 807 m/s lands after 116 s with no air at
+        // all, and air only shortens it. The ground ends every real shot first, so this sweeps up a shell
+        // that never lands rather than bounding how far one goes -- and a flown lead is only searched
+        // within it, so it is the gun's reach too. A long barrage at 40 rpm is a few dozen in the air.
+        MaxFlightSeconds = 120f,
 
-        DragK = 1.62e-6f,
+        // The 70 lb shell at 127 mm, with the coefficient that gives the range table's 23.69 km at 47 degrees
+        // through an 8 km scale height -- a shell's usual 0.3, near enough. One constant cannot also give the
+        // ceiling: straight up it reaches 16.1 km against 14.8, as real drag peaks near Mach 1.
+        MassKg = 31.75f,
+        CalibreMm = 127f,
+        DragCoefficient = 0.306f,
 
         TimedFuse = true,
         FuseRadius = 12f,
         FuseArmSeconds = 0.45f,
         ChargeKg = 3.3f,
 
-        // The ground stops it. Without that, a shell that misses has thirty seconds to fall through
+        // The ground stops it. Without that, a shell that misses has two minutes to fall through
         // the planet and leaves the far side at hundreds of kilometres a second. The terrain sample
-        // this costs is per round, and a gun firing every 1.5 s has twenty in the air at most.
+        // this costs is per round, and a gun firing every 1.5 s has a few dozen in the air at most.
         HitsTerrain = true,
     };
 
@@ -355,6 +364,9 @@ public static class Arsenal
         // already ample - a 5 km drop is 34 s - and this is headroom rather than a fix.
         MaxFlightSeconds = 300f,
 
+        // By hand rather than from mass and calibre: a bomb's drag rises steeply through the speed of sound,
+        // which no constant coefficient follows -- one fitted to its subsonic shape lets it fall supersonic.
+        // This is a Mk 82's terminal velocity, about 280 m/s.
         DragK = 1.25e-4f,
         FuseRadius = 0f,
 
@@ -417,7 +429,8 @@ public static class Arsenal
 
         MaxFlightSeconds = 1800f,
 
-        // An order of magnitude below the Mk 82's: a dense cone is what a heatshield is for.
+        // An order of magnitude below the Mk 82's: a dense cone is what a heatshield is for. By hand, because
+        // every flown accuracy baseline of the ballistic computer rests on this value.
         DragK = 1.5e-5f,
 
         // A fifth of the default, and the whole of what is left of this weapon's error. Flown at

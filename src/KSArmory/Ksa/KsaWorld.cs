@@ -239,7 +239,7 @@ internal static class KsaWorld
     {
         try
         {
-            if (!IsAlive(v) || ParentBody(v)?.GetAtmosphereReference()?.Physical is not { } air) return null;
+            if (!IsAlive(v) || ParentBody(v)?.GetAtmosphereReference()?.Physical is null) return null;
 
             ref readonly VehicleProperties props = ref v.Props;
             float3 positive = props.AerodynamicCdABody.Positive;
@@ -247,7 +247,7 @@ internal static class KsaWorld
             var shape = new DragShape(new double3(positive.X, positive.Y, positive.Z),
                                       new double3(negative.X, negative.Y, negative.Z),
                                       0.1 * props.TotalSurfaceArea, v.Body2Cce, v.BodyRates,
-                                      props.TotalMass, air.SeaLevelDensity,
+                                      props.TotalMass, Medium.ReferenceDensityKgPerM3,
                                       v.FlightComputer.ActiveEnginePerformanceMax.ExhaustVelocity,
                                       props.TotalPropellantMass);
             return shape.IsUsable ? shape : null;
@@ -1572,13 +1572,14 @@ internal static class KsaWorld
     }
 
     /// <summary>
-    /// Density of whatever the round is flying through, as a multiple of the parent body's
-    /// sea-level air density.
+    /// Density of whatever the round is flying through, as a multiple of
+    /// <see cref="Medium.ReferenceDensityKgPerM3"/> — Earth's sea-level air, whatever body this is.
     ///
-    /// <para>1.0 at sea level, 0.0 in vacuum and above the atmosphere, and roughly 840 below the
-    /// waterline. A <em>ratio</em> rather than an absolute density so a munition's drag
-    /// coefficient keeps meaning what it did when it was tuned; one scale covers air and water, so
-    /// a torpedo simply carries a much smaller <see cref="MunitionProfile.DragK"/>.</para>
+    /// <para>1.0 at Earth's sea level, 0.0 in vacuum and above the atmosphere, and roughly 840 below
+    /// Earth's waterline. One reference for every body, because a round's drag belongs to the round and
+    /// the air: divided by each body's own sea level, a round would be dragged through thin air as hard
+    /// as through Earth's. One scale covers air and water, so a torpedo simply carries a much smaller
+    /// drag.</para>
     ///
     /// <para>Falls back to 1.0, not 0.0, when the atmosphere cannot be read: a round that keeps
     /// its tuned drag is a far less confusing failure than one that silently loses all of it and
@@ -1625,14 +1626,14 @@ internal static class KsaWorld
             OceanReference? ocean = body.GetOceanReference();
             if (ocean is { } sea && sea.Density > 0.0 && altitude < sea.Level)
             {
-                double water = sea.Density / seaLevel;
+                double water = sea.Density / Medium.ReferenceDensityKgPerM3;
                 return double.IsFinite(water) && water > 0.0 ? water : 1.0;
             }
 
             if (altitude < 0.0) altitude = 0.0;
             if (altitude >= air.Height) return 0.0;
 
-            double ratio = air.GetAtmosphericDensityAtAltitude(altitude) / seaLevel;
+            double ratio = air.GetAtmosphericDensityAtAltitude(altitude) / Medium.ReferenceDensityKgPerM3;
             return double.IsFinite(ratio) && ratio >= 0.0 ? ratio : 1.0;
         }
         catch

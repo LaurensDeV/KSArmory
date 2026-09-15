@@ -165,6 +165,9 @@ public static class PackReader
             SeparationSeconds = r.Number("SeparationSeconds", 0f),
             GravityCompensation = r.Number("GravityCompensation", 1f),
             NeutralDensityRatio = r.Number("NeutralDensityRatio", 0f),
+            MassKg = r.Number("MassKg", 0f),
+            CalibreMm = r.Number("CalibreMm", 0f),
+            DragCoefficient = r.Number("DragCoefficient", 0f),
             DragK = r.Number("DragK", 3.0e-5f),
 
             FuseRadius = r.Number("FuseRadius", 15f),
@@ -175,6 +178,10 @@ public static class PackReader
 
             Stages = r.Stages(),
         };
+
+        // A round given part of what its drag is computed from would fly on DragK without a word.
+        int shape = (round.MassKg > 0f ? 1 : 0) + (round.CalibreMm > 0f ? 1 : 0) + (round.DragCoefficient > 0f ? 1 : 0);
+        if (shape is 1 or 2) r.Fault("MassKg, CalibreMm and DragCoefficient go together: give all three, or none and DragK");
 
         if (!r.Sound()) return;
         if (Duplicate(round.Name, into, m => m.Name, r)) return;

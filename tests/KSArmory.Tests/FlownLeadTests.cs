@@ -129,7 +129,7 @@ public class FlownLeadTests(ITestOutputHelper output)
         LaunchSpeed = Arsenal.Shell5In54.LaunchSpeed,
         DragK = dragK >= 0f ? dragK : Arsenal.Shell5In54.DragK,
         NeutralDensityRatio = 0f,
-        MaxFlightSeconds = 40f,
+        MaxFlightSeconds = Arsenal.Shell5In54.MaxFlightSeconds,
         FuseRadius = 0f,
         FuseArmSeconds = 0f,
         TimedFuse = true,
@@ -142,8 +142,12 @@ public class FlownLeadTests(ITestOutputHelper output)
         return new double3(Math.Cos(e), 0, Math.Sin(e)) * (rangeKm * 1000.0);
     }
 
-    private static Func<double, (double3 P, double3 V)> Steady(double3 target, double3 velocity, double3 acceleration)
-        => t => (target + (velocity * t) + (acceleration * (0.5 * t * t)), velocity + (acceleration * t));
+    // A target holding the thrust it was measured with: its acceleration at the start, gravity included, the
+    // pull turning as it moves and what holds it up held. A straight line is not that -- across 10 km of a
+    // round world it climbs 8 m -- and a lead modelling the held push met one 3-5 m off after half a minute.
+    private static Func<double, (double3 P, double3 V)> Steady(World world, double3 target, double3 velocity,
+                                                              double3 acceleration)
+        => new Coasting(target, velocity, (p, _, _) => world.GravityAt(p) + (acceleration - world.GravityAt(target))).At;
 
     private static bool Solve(World world, bool flown, double3 target, double3 velocity, double3 acceleration,
                               out double3 aim, out double flight)
@@ -165,12 +169,13 @@ public class FlownLeadTests(ITestOutputHelper output)
         var slug = new Slug(Vec.Zero, Vec.Unit(aim) * shell.LaunchSpeed, null, -1, Vec.Zero, Vec.Zero)
         {
             Munition = shell,
+            SecondOrder = true,   // as the gun fires them
             FuseSeconds = fuseSeconds,
             GravityAt = (p, _) => world.GravityAt(p),
             AirDensityAt = (p, _) => world.DensityAt(p),
         };
 
-        for (double t = 0.0; slug.State == RoundState.Flying && t < 45.0; t += Frame)
+        for (double t = 0.0; slug.State == RoundState.Flying && t < shell.MaxFlightSeconds + 1.0; t += Frame)
         {
             // Advanced to the end of the frame being handed over: the round back-dates it. A point
             // target, because a shell passing within a body's radius strikes it before the fuse is due.
@@ -204,11 +209,11 @@ public class FlownLeadTests(ITestOutputHelper output)
         double3 acceleration = new(0, 0, falling);
 
         Assert.True(Solve(world, flown: true, target, velocity, acceleration, out double3 aim, out double flight));
-        Slug shot = Fire(world, aim, flight, Steady(target, velocity, acceleration));
+        Slug shot = Fire(world, aim, flight, Steady(world, target, velocity, acceleration));
 
         Assert.True(Solve(world, flown: false, target, velocity, acceleration, out double3 unflownAim,
                           out double unflown));
-        Slug unflownShot = Fire(world, unflownAim, unflown, Steady(target, velocity, acceleration));
+        Slug unflownShot = Fire(world, unflownAim, unflown, Steady(world, target, velocity, acceleration));
 
         output.WriteLine($"{worldName,-8} {rangeKm,5:F1} km at {elevationDeg,2:F0} deg, crossing {crossing,3:F0} m/s: "
                          + $"flown {flight,5:F2} s -> {shot.MissDistance,5:F2} m; "
@@ -410,7 +415,7 @@ public class FlownLeadTests(ITestOutputHelper output)
         double3 target = At(15.7, 80.0);
 
         Assert.True(Solve(earth, flown: false, target, Vec.Zero, Vec.Zero, out double3 aim, out double flight));
-        Slug shot = Fire(earth, aim, flight, Steady(target, Vec.Zero, Vec.Zero));
+        Slug shot = Fire(earth, aim, flight, Steady(earth, target, Vec.Zero, Vec.Zero));
 
         Assert.True(shot.MissDistance > 1_000.0, $"burst only {shot.MissDistance:F0} m from the target");
     }

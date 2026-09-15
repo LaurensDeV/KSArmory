@@ -151,7 +151,9 @@ public class RoundInterceptTests
     [Fact]
     public void SamplingAnIncomingRoundAtTheWrongEndOfTheStepMovesItMetres()
     {
-        double3 hostileVel = new(-900, 200, 0);
+        // The slip is a step of the hostile's motion square to the closing velocity, so it is the speed across
+        // that makes it: at 200 m/s, against a shell slowed by its drag, one step is 1.4 m and inside the body.
+        double3 hostileVel = new(-900, 400, 0);
 
         double atEnd = ClosestApproachWith(carryTheSampleForward: true, hostileVel);
         double atStart = ClosestApproachWith(carryTheSampleForward: false, hostileVel);
