@@ -43,15 +43,20 @@ internal sealed class GunneryScenario
     /// <param name="Burn">Whether each drone flies with its engine lit, so it is not slowing while its drag is not zero.</param>
     /// <param name="Ground">Shoot at a place on the ground rather than at drones.</param>
     /// <param name="AtCraft">Shoot at the nearest other craft rather than at drones.</param>
+    /// <param name="PlaceCraftMetres">
+    /// With <c>craft</c>, set the nearest craft down this far out along the drones' bearing before shooting
+    /// at it. Zero shoots at it where it stands.
+    /// </param>
     public readonly record struct Request(int Drones, TestTarget.Profile Profile, double Seconds,
                                           double Speed, double MissMetres, double SpinDegPerSecond, bool Burn,
-                                          bool Ground = false, bool AtCraft = false)
+                                          bool Ground = false, bool AtCraft = false, double PlaceCraftMetres = 0.0)
     {
         public static Request Default => new(4, TestTarget.Profile.PassingBy, 30.0, 250.0, 3000.0, 0.0, false);
 
         /// <summary>Wall clock the whole run may take, the game's own start included.</summary>
-        public double BudgetSeconds => 90.0 + (Drones * (Ground || AtCraft ? GapSeconds + ShellFlightSeconds
-                                                                : Seconds + PassSeconds + GapSeconds + 20.0));
+        public double BudgetSeconds => 90.0 + (PlaceCraftMetres > 0.0 ? PlaceSettleSeconds + 10.0 : 0.0)
+                                       + (Drones * (Ground || AtCraft ? GapSeconds + ShellFlightSeconds
+                                                                      : Seconds + PassSeconds + GapSeconds + 20.0));
 
         public static bool TryParse(string text, out Request request, out string trouble)
         {
@@ -115,7 +120,10 @@ internal sealed class GunneryScenario
                 }
             }
 
-            request = new Request(drones, profile, seconds, speed, miss, spin, burn, ground, craft);
+            // At a craft the distance is where to set it down, and only when one was asked for.
+            double place = craft && At(4).Length > 0 ? miss : 0.0;
+
+            request = new Request(drones, profile, seconds, speed, miss, spin, burn, ground, craft, place);
             return true;
         }
 
@@ -136,6 +144,7 @@ internal sealed class GunneryScenario
         public string Describe()
             => AtCraft
                 ? $"{Drones} shell(s) at the nearest craft"
+                  + (PlaceCraftMetres > 0.0 ? $", set down {PlaceCraftMetres / 1000.0:F1} km out" : string.Empty)
                 : Ground
                 ? $"{Drones} shell(s) at the ground {MissMetres / 1000.0:F1} km out"
                 : $"{Drones} drone(s) {Profile},{Speed:F0} m/s, {Seconds:F0} s out ({Speed * Seconds / 1000.0:F1} km), "
@@ -399,10 +408,52 @@ internal sealed class GunneryScenario
 
     // A place on the ground that far out, and one shell at a time onto it, each off a lay that has
     // settled since the last came down.
+    // Set down once, then left to settle: the engine builds the resting state over a few frames, and a
+    // craft designated mid-teleport is not where it will be.
+    private const double PlaceSettleSeconds = 8.0;
+    private Vehicle? _placedCraft;
+    private double _sincePlaced;
+
+    // The nearest craft set down that far out along the drones' bearing, so a long shot at something on
+    // the ground can be flown from a save that parks it beside the mount. True once it has settled.
+    private bool PlaceCraft(Vehicle platform, double dt, out string? failed)
+    {
+        failed = null;
+
+        if (_placedCraft is null)
+        {
+            if (NearestCraft(platform) is not { } craft)
+            {
+                failed = "FAIL found no other craft to set down";
+                return false;
+            }
+
+            double3 guess = KsaWorld.PositionEcl(platform)
+                            + (TestTarget.ApproachBearing(platform) * _request.PlaceCraftMetres);
+            if (!KsaWorld.TryLatitudeLongitude(guess, out string body, out double lat, out double lon)
+                || !KsaWorld.TryPlaceOnSurface(craft, body, lat, lon))
+            {
+                failed = $"FAIL could not set '{KsaWorld.DisplayName(craft)}' down "
+                         + $"{_request.PlaceCraftMetres / 1000.0:F1} km out";
+                return false;
+            }
+
+            _placedCraft = craft;
+            _sincePlaced = 0.0;
+            _report($"set '{KsaWorld.DisplayName(craft)}' down at {lat:F4}, {lon:F4}");
+            return false;
+        }
+
+        _sincePlaced += dt;
+        return _sincePlaced >= PlaceSettleSeconds;
+    }
+
     private string? UpdateGround(WeaponSystem gun, double dt)
     {
         if (!_designated)
         {
+            if (_request.PlaceCraftMetres > 0.0 && !PlaceCraft(gun.Platform!, dt, out string? failed)) return failed;
+
             if (!TryPlace(gun.Platform!, out Aimpoint place, out string what)) return $"FAIL found no {what}";
 
             gun.Designate(place, what);
@@ -495,7 +546,9 @@ internal sealed class GunneryScenario
 
         place = Aimpoint.Nothing;
         what = "other craft";
-        if (NearestCraft(platform) is not { } craft) return false;
+
+        // The one set down, not whatever is nearest now: moving it out can leave another craft closer.
+        if ((_placedCraft ?? NearestCraft(platform)) is not { } craft) return false;
 
         double3 at = KsaWorld.PositionEcl(craft);
         _craftName = KsaWorld.DisplayName(craft);

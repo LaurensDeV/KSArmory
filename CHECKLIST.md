@@ -1160,6 +1160,15 @@ the mesh and the XML, and the suite.
 - [ ] Fire a shell high with nothing to aim at. It flies until it lands and never vanishes in mid-air.
       With a 30 s life, on 2026.9.10.5438, shells were removed 23.3 km out while still doing 766 m/s,
       and the longest reach the lay could find stopped at the same 23.7 km.
+- [x] Shift-click a craft parked about 10 km out and fire. The log says `driving a gun laid on it 9.7 km
+      out` rather than `driving at 9.7 km`, and the shell arrives at the craft. **Confirmed by hand on
+      2026.9.10.5438**: laid on it 9.7 km out from a mountainside, struck on contact 11.8 s after it
+      left, one part broken off each of twelve pieces. Before the change the same shot drew
+      `driving at 9.7 km` and came down on the ground about 8.8 s out, roughly halfway.
+      `gunnery:1,craft,,,10000` on BIG BOOM flies it unattended.
+- [ ] The burst line of a shell fired at a designated craft says how far from the aim point it went
+      off. It did not on the shot above, and why is not known: the shell is handed the craft as its
+      target and its aim point, which is what that line reads.
 - [ ] Chase a shell onto a hillside. It stops short well before it lands. On a 9.9 km ground shot
       from the mountainside it stopped 29 ms before and held on the burst from 4 m: the countdown
       is the fall to the ground straight below, and the slope ahead is met first.

@@ -992,6 +992,34 @@ internal static class KsaWorld
     }
 
     /// <summary>
+    /// Where on the body nearest it a point is, as the latitude and longitude a craft can be set down
+    /// at with <see cref="TryPlaceOnSurface"/>.
+    /// </summary>
+    public static bool TryLatitudeLongitude(double3 pointEcl, out string bodyName,
+                                            out double latitudeDeg, out double longitudeDeg)
+    {
+        bodyName = string.Empty;
+        latitudeDeg = double.NaN;
+        longitudeDeg = double.NaN;
+
+        if (!TryAnchorToGround(pointEcl, out object? found, out _) || found is not Celestial body) return false;
+
+        try
+        {
+            double3 cce = pointEcl - body.GetPositionEcl();
+            latitudeDeg = body.GetLatitudeFromCce(cce);
+            longitudeDeg = body.GetLongitudeFromCce(cce);
+            bodyName = body.Id ?? string.Empty;
+
+            return double.IsFinite(latitudeDeg) && double.IsFinite(longitudeDeg);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Sets a craft down at a latitude and longitude on the body it is nearest.
     ///
     /// <para><c>Vehicle.TeleportToLocation</c> does the work, and doing it this way rather than by
@@ -1441,6 +1469,22 @@ internal static class KsaWorld
         catch
         {
             return Vec.Zero;
+        }
+    }
+
+    /// <summary>
+    /// Whether a craft is resting on something — ground, water or another craft — and so moves with the
+    /// surface under it rather than on its own.
+    /// </summary>
+    public static bool RestsOnSurface(Vehicle vehicle)
+    {
+        try
+        {
+            return vehicle.Situation.HasAnyContact();
+        }
+        catch
+        {
+            return false;
         }
     }
 

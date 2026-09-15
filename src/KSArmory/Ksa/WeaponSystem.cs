@@ -1003,15 +1003,16 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                && LauncherPart.TryDirectionToPartFrame(Platform, Launcher, dirEcl, out partFrame);
     }
 
-    // A gun-only mount laid to land on a place on the ground, rather than along the line to it. A shell
-    // only arrives where it was thrown, and on flat ground the line of sight leaves the barrel level and
-    // the shell in the dirt a few hundred metres out. Flown as a tracked target's lead is, onto a target
-    // that keeps its place on the turning ground. False for a launcher with tubes, whose rounds steer.
+    // A gun-only mount laid so its shell arrives where it is sent, rather than along the line to it. A
+    // shell only arrives where it was thrown: on flat ground the line of sight leaves the barrel level and
+    // the shell in the dirt a few hundred metres out, and at a craft 9.7 km off it comes down about
+    // halfway. Flown as a tracked target's lead is. False for a launcher with tubes, whose rounds steer.
     //
     // From the muzzle, with the bore laid parallel to the solution: the drive lays the bore parallel to
     // what it is given, and the shell leaves the muzzle along it. The landing is shallow enough that a
     // metre of launch height is over ten metres of range, so a solve from the mount lands long.
-    private bool TryGunGroundLay(double3 groundEcl, double3 groundVelocityEcl, out double3 partFrame)
+    private bool TryGunLay(double3 targetEcl, double3 targetVelocityEcl, double3 targetAccelerationEcl,
+                           out double3 partFrame)
     {
         partFrame = default;
 
@@ -1028,7 +1029,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                                          KsaWorld.GroundVelocityAt(platform, PlatformEcl),
                                          KsaWorld.GroundAccelerationAt(platform, PlatformEcl),
                                          KsaWorld.BodyVelocityAt(platform),
-                                         groundEcl, groundVelocityEcl, KsaWorld.GroundAccelerationAt(platform, groundEcl),
+                                         targetEcl, targetVelocityEcl, targetAccelerationEcl,
                                          null, Shell,
                                          _leadGravityAt ??= LeadGravityAt, _leadDensityAt ??= LeadDensityAt,
                                          _groundLayDirection, out double3 lay, out _))
@@ -1039,6 +1040,16 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         _groundLayDirection = lay - muzzle;
         return LauncherPart.TryDirectionToPartFrame(platform, Launcher, _groundLayDirection, out partFrame);
+    }
+
+    // A place on the ground, which keeps its place as the ground turns.
+    private bool TryGunGroundLay(double3 groundEcl, double3 groundVelocityEcl, out double3 partFrame)
+    {
+        partFrame = default;
+
+        return Platform is { } platform
+               && TryGunLay(groundEcl, groundVelocityEcl, KsaWorld.GroundAccelerationAt(platform, groundEcl),
+                            out partFrame);
     }
 
     // Where the last ground lay pointed, so the next solve starts beside it.
@@ -1141,15 +1152,20 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // must never be mistaken for a missile that could claim a tube back. It is a sentinel
         // rather than an index, so nothing may print it -- RoundLabel is what reads it back.
         //
-        // A null track is the tail of a burst whose target died: the shell is unguided and aimed
-        // by the turret, so it still flies, with nothing to fuse against.
+        // A null track is a craft designated by hand, or the tail of a burst whose target died. The
+        // shell is unguided and aimed by the turret either way; a designated craft still gives it
+        // something to fuse against and to be scored on.
         // The muzzle in the launcher's own frame. Anything drawn against the round -- the tracer,
         // and the shell's body -- is placed from this plus the travel since launch,
         // never from the platform's analytic position, which sits metres off a landed craft.
         TubeGeometry.TryGunMuzzlePartFrame(Profile, barrel, guns.PositionParentAsmb,
                                            guns.Asmb2ParentAsmb, out double3 muzzlePart);
 
-        Slug slug = new(muzzle, platformVel + axis * shell.LaunchSpeed, track?.Contact.Handle,
+        bool designatedCraft = track is null && Designation.Kind == AimpointKind.Vehicle
+                               && Designation.Handle is Vehicle designated && KsaWorld.IsAlive(designated);
+
+        Slug slug = new(muzzle, platformVel + axis * shell.LaunchSpeed,
+                        track?.Contact.Handle ?? (designatedCraft ? Designation.Handle : null),
                         -(barrel + 1), PlatformEcl, frameVel)
         {
             Munition = shell,
@@ -1162,6 +1178,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             // 15.7 km at 60 fps against 1.3 m second order, and worse as the frame rate falls.
             SecondOrder = true,
         };
+        if (designatedCraft) slug.Aimpoint = Designation;
+
         if (track is not null)
         {
             slug.Aimpoint = Aimpoint.OnVehicle(track.Contact.Handle, track.PositionEcl, track.VelocityEcl,
@@ -1321,6 +1339,20 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         {
             WhyNotDesignated("driving",
                              $"a gun laid to land {Vec.Len(Designation.PositionEcl - origin) / 1000.0:F1} km out");
+            return true;
+        }
+
+        // So is a craft. Resting on something it moves with the ground under it; flying, it carries its
+        // own acceleration, which the lead flies it along.
+        if (Designation.Kind == AimpointKind.Vehicle && Designation.Handle is Vehicle designated
+            && TryGunLay(Designation.PositionEcl, Designation.VelocityEcl,
+                         KsaWorld.RestsOnSurface(designated)
+                             ? KsaWorld.GroundAccelerationAt(Platform, Designation.PositionEcl)
+                             : KsaWorld.AccelerationEcl(designated),
+                         out partFrame))
+        {
+            WhyNotDesignated("driving",
+                             $"a gun laid on it {Vec.Len(Designation.PositionEcl - origin) / 1000.0:F1} km out");
             return true;
         }
 

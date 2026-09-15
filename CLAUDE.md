@@ -2031,9 +2031,11 @@ still makes the drives settle: without that, rounds leave along a tube that is s
 **A gun-only mount over the ground is laid to land there, not along the line to it.** A shell only
 goes where it is thrown, and the cursor cannot be put above a point on flat ground — so the line of
 sight leaves the barrel level and the shell short by its whole drop, and caps the range at wherever
-level fire meets the dirt. `WeaponSystem.TryGunGroundLay` flies the solve a tracked target's lead
-uses onto the ground under the cursor, or onto a designated place. Over sky or a craft the line of
-sight stands, because there the operator is judging the lead.
+level fire meets the dirt. `WeaponSystem.TryGunLay` flies the solve a tracked target's lead uses onto
+the ground under the cursor, a designated place, or a designated craft — which keeps the ground's pace
+while it rests on something and carries its own acceleration while it flies. Laid along the line of
+sight instead, a craft designated 9.7 km out drew a shell that came down about halfway. Over sky, or a
+craft under the mouse, the line of sight stands, because there the operator is judging the lead.
 
 **And the reach is the whole reach.** Near it a lobbed shell comes down steeper than it went up, so
 turning the barrel along the miss moves its path mostly along itself and takes out less every pass: on a

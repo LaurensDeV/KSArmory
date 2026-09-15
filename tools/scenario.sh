@@ -12,6 +12,7 @@
 #   ./tools/scenario.sh gunnery:3,overhead,30,300,1500,20,burn   # ...tumbling at 20 deg/s, engine lit
 #   ./tools/scenario.sh gunnery:3,ground,,,8000          # ...3 shells at the ground 8 km out, short or long
 #   KSARMORY_SCENARIO_SAVE="BIG BOOM" ./tools/scenario.sh gunnery:1,craft   # ...a shell at the nearest craft
+#   KSARMORY_SCENARIO_SAVE="BIG BOOM" ./tools/scenario.sh gunnery:1,craft,,,10000   # ...set down 10 km out first
 #   KSARMORY_SCENARIO_CHASE=1 KSARMORY_SCENARIO_SPEEDS=0.05,0.1,0.25,1 ./tools/scenario.sh gunnery:1,ground,,,12000
 #                                        # ...ride the shell's chase, 15 s of wall clock at each world speed
 #   ./tools/scenario.sh mirv             # the ballistic shot, end to end
