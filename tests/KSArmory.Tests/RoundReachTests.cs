@@ -123,4 +123,51 @@ public class RoundReachTests
         Assert.Equal(Approach.Unknown, RoundReach.Classify(Mu, At(400_000), nan, Ceiling));
         Assert.Equal(Approach.Unknown, RoundReach.Classify(0.0, At(400_000), Circular(400_000), Ceiling));
     }
+
+    // Under the lowest ground the height field could hold.
+    private const double Floor = Surface - 9_000.0;
+
+    // 807 m/s at 45 degrees, the 5"/54's muzzle speed lobbed as far as it goes.
+    private static readonly double3 Lobbed = new(570, 570, 0);
+
+    /// <summary>
+    /// A shell in the air on a path whose lowest point is deep under the ground can only end on the ground,
+    /// and drag only lowers that point, so nothing needs a clock to end it.
+    /// </summary>
+    [Fact]
+    public void AShellLobbedThroughTheAirCanOnlyLand()
+    {
+        Assert.Equal(Approach.Landing, RoundReach.Classify(Mu, At(1_000), Lobbed, Ceiling, Floor));
+    }
+
+    [Fact]
+    public void AnOrbitSkimmingTheAirIsNotCertainToLand()
+    {
+        Assert.Equal(Approach.Arriving, RoundReach.Classify(Mu, At(20_000), Circular(20_000), Ceiling, Floor));
+    }
+
+    /// <summary>
+    /// A round already under the lowest ground has gone through ground nobody could read, and would pass
+    /// through the planet with nothing but the clock to end it.
+    /// </summary>
+    [Fact]
+    public void UnderTheLowestGroundItIsNotLanding()
+    {
+        Assert.Equal(Approach.Arriving, RoundReach.Classify(Mu, At(-20_000), new double3(-100, 10, 0), Ceiling, Floor));
+    }
+
+    [Theory]
+    [InlineData(0.0)]
+    [InlineData(double.NaN)]
+    public void WithNoFloorNothingIsCertainToLand(double floor)
+    {
+        Assert.Equal(Approach.Arriving, RoundReach.Classify(Mu, At(1_000), Lobbed, Ceiling, floor));
+    }
+
+    [Fact]
+    public void AboveTheCeilingAFloorChangesNothing()
+    {
+        Assert.Equal(Approach.Coasting, RoundReach.Classify(Mu, At(250_000), Circular(250_000) * 0.5, Ceiling, Floor));
+        Assert.Equal(Approach.Impossible, RoundReach.Classify(Mu, At(400_000), Circular(400_000), Ceiling, Floor));
+    }
 }

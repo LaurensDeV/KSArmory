@@ -1582,6 +1582,25 @@ internal static class KsaWorld
     }
 
     /// <summary>
+    /// A radius the ground on this body is never below: the mean radius less as far as its highest ground
+    /// stands above it. Zero where that cannot be read, which never lets a round off its clock.
+    /// </summary>
+    public static double LowestGroundRadius(Celestial body)
+    {
+        try
+        {
+            double radius = body.MeanRadius;
+            double depth = MaxTerrainHeightMetres(body);
+
+            return radius > 0.0 && double.IsFinite(depth) && depth >= 0.0 && radius > depth ? radius - depth : 0.0;
+        }
+        catch
+        {
+            return 0.0;
+        }
+    }
+
+    /// <summary>
     /// The radius at which arriving begins on this body: the top of its atmosphere, or its highest
     /// ground where it has none. Zero when neither can be read, which callers take as "do not
     /// judge".

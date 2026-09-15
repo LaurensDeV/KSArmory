@@ -198,7 +198,10 @@ public sealed class MunitionProfile
         return 0f;
     }
 
-    /// <summary>Round self-destructs this long after launch.</summary>
+    /// <summary>
+    /// Round self-destructs this long after launch. For a round the ground stops, only time on a path that is
+    /// not certain to end on the ground counts: see <see cref="RoundReach"/>.
+    /// </summary>
     public float MaxFlightSeconds = 30f;
 
     /// <summary>

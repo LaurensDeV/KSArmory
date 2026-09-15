@@ -155,4 +155,22 @@ public class RoundReapTests
 
         Assert.Equal(RoundState.Expired, shell.State);
     }
+
+    /// <summary>
+    /// A path that can only end on the ground runs no clock, however long the fall: a 5"/54 lobbed under
+    /// Mars's pull stays up past its two minutes, and ending it on those was what ended the gun's reach.
+    /// </summary>
+    [Fact]
+    public void APathThatCanOnlyLandRunsNoClock()
+    {
+        MunitionProfile gun = Arsenal.Shell5In54;
+        Assert.True(gun.HitsTerrain);
+
+        Slug shell = Released(gun);
+        shell.ApproachAt = (_, _) => Approach.Landing;
+
+        Fly(shell, gun.MaxFlightSeconds * 3.0, density: 0.0);
+
+        Assert.Equal(RoundState.Flying, shell.State);
+    }
 }

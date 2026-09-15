@@ -174,9 +174,8 @@ internal sealed class Slug : IProjectile
     // A round the ground DOES stop is different. It ends by arriving, so the clock is asked only
     // about the part of the flight where arriving is possible - time spent above the atmosphere is
     // a coast, not a round going nowhere. What has to be caught instead is the one that can never
-    // arrive at all, which is a question about the trajectory: see RoundReach. Between them the
-    // two are bounded at both ends, which a clock that stops on its own would not be - arriving
-    // means entering the air, and entering the air starts the clock.
+    // arrive at all, which is a question about the trajectory: see RoundReach. A path that can only
+    // end on the ground runs no clock, because the ground ends it.
     private void Reap(MunitionProfile munition, double dt)
     {
         if (State != RoundState.Flying) return;
@@ -191,10 +190,10 @@ internal sealed class Slug : IProjectile
             return;
         }
 
-        // Held only for a coast that is going somewhere. Everything else runs the clock, including
-        // Unknown -- a round that can be neither judged nor stopped must not be immortal, and on a
-        // body with no atmosphere there is no air to have started it.
-        if (approach != Approach.Coasting) _arrivingSeconds += dt;
+        // Held for a coast that is going somewhere and for a path that can only land. Everything else runs
+        // the clock, including Unknown -- a round that can be neither judged nor stopped must not be
+        // immortal, and on a body with no atmosphere there is no air to have started it.
+        if (approach is not (Approach.Coasting or Approach.Landing)) _arrivingSeconds += dt;
 
         if (_arrivingSeconds >= munition.MaxFlightSeconds) State = RoundState.Expired;
     }

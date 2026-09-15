@@ -405,6 +405,9 @@ public static class BallisticLead
     {
         private const double Step = Medium.FaithfulStepInAir;
 
+        // Over the time straight up takes on flat ground, for a world whose ground falls away under a long shot.
+        private const double FallHorizonMargin = 1.25;
+
         // Below this a target has no airspeed to read a drag off.
         private const double MinTargetSpeed = 1.0;
 
@@ -496,7 +499,17 @@ public static class BallisticLead
             round = Vec.Zero;
             target = _targetOffset;
 
+            // A round the ground stops runs no clock while its path can only land, so it is followed as long as a
+            // shell leaving this fast could stay up under the pull here -- straight up, with margin for a round
+            // world, and air only shortens it. From Mars the longest reach is past three minutes, where following
+            // it for its two-minute life ended the gun's reach at 90 km. Anything else is followed for its life.
             double horizon = _munition.MaxFlightSeconds > 0f ? _munition.MaxFlightSeconds : DefaultHorizonSeconds;
+            if (_munition.HitsTerrain)
+            {
+                double straightUp = 2.0 * Vec.Len(_mountVelocity + ejection)
+                                    / Vec.Len(Pull(_gravityAt, _mount) - _frameAcceleration);
+                if (double.IsFinite(straightUp) && straightUp > 0.0) horizon = FallHorizonMargin * straightUp;
+            }
             var now = new State(Vec.Zero, _mountVelocity + ejection, _targetOffset, _targetVelocity, 0.0);
 
             double closing = now.Closing;

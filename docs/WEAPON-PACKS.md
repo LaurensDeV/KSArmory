@@ -123,7 +123,7 @@ Four rules that between them explain most refusals:
 | `LaunchSpeed` | `45` | m/s imparted at release. A rail imparts almost nothing |
 | `BoostSeconds` | `2.4` | motor burn |
 | `BoostAccel` | `520` | m/s² while burning |
-| `MaxFlightSeconds` | `30` | after which it self-destructs |
+| `MaxFlightSeconds` | `30` | after which it self-destructs. For a round the ground stops, only time on a path that is not certain to land counts, so a long fall is never cut short |
 | `MinRange`, `MaxRange` | `0`, `20000` | engagement envelope, m |
 | `MassKg`, `CalibreMm`, `DragCoefficient` | *none* | **what the round's drag is computed from**: mass in flight (kg), frontal diameter (mm), and a coefficient for its shape — about `0.3` for a supersonic shell. All three or none; a round given only some is refused |
 | `DragK` | `3.0e-5` | drag by hand, k in a = k·v² in Earth's sea-level air, for a round no constant coefficient describes — a bomb through the speed of sound, a missile shedding its booster. Ignored when the three above are given |

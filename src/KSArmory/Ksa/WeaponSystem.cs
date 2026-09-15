@@ -2791,7 +2791,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         return RoundReach.Classify(KsaWorld.BodyMu(body),
                                          positionEcl - KsaWorld.PositionEcl(body),
                                          velocityEcl - _bodyVelocityEcl,
-                                         ceiling);
+                                         ceiling, KsaWorld.LowestGroundRadius(body));
     }
 
     // The round moves through a frame; the body it is measured against does not, because KSA

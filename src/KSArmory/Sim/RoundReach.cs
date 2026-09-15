@@ -20,8 +20,16 @@ internal enum Approach
     /// </summary>
     Coasting,
 
-    /// <summary>Inside the region where arriving happens, so the clock runs.</summary>
+    /// <summary>
+    /// Where arriving happens, on a path this cannot vouch for ending on the ground, so the clock runs.
+    /// </summary>
     Arriving,
+
+    /// <summary>
+    /// Where arriving happens, on a path that can only end on the ground. The ground is the reaper, so the
+    /// clock is held.
+    /// </summary>
+    Landing,
 }
 
 /// <summary>
@@ -39,12 +47,18 @@ internal enum Approach
 /// is exact out there because there is no drag to bend it, and it cannot be undone later because
 /// drag only ever lowers a periapsis.</para>
 ///
-/// <para><b>Three states and not two, because the clock has to be able to run.</b> Holding it for
-/// everything that is not failing leaves a round nothing reaps at all: a body with no atmosphere
-/// never starts an air clock, so a store falling towards the Moon would have had only the ground to
-/// end it, and nothing whatsoever where the ground could not be read.
-/// <see cref="Approach.Arriving"/> is therefore geometric rather than atmospheric — below the
-/// ceiling, whatever the ceiling is made of.</para>
+/// <para><b>And a path that can only end on the ground needs no clock at all.</b> Inside the ceiling the
+/// conic is no longer the whole flight, but it still bounds it: one whose lowest point is under the lowest
+/// the ground can be ends on the ground, for the same reason. A shell lobbed under a weak pull stays up for
+/// minutes — from Mars a 5"/54 at its longest reach flies past its two-minute clock — and reaping it on
+/// the clock was what ended its reach there.</para>
+///
+/// <para><b>The clock still has to be able to run.</b> Holding it for everything that is not failing
+/// leaves a round nothing reaps at all: a body with no atmosphere never starts an air clock, so a store
+/// falling towards the Moon would have had only the ground to end it, and nothing whatsoever where the
+/// ground could not be read. <see cref="Approach.Arriving"/> is therefore geometric rather than
+/// atmospheric — below the ceiling, whatever the ceiling is made of — and it stays on the clock for what
+/// the conic cannot vouch for: a path skimming above the lowest ground, and a round already under it.</para>
 /// </summary>
 internal static class RoundReach
 {
@@ -53,17 +67,24 @@ internal static class RoundReach
     /// ground on a body that does not. Not the mean radius — a conic that clears the mean sphere
     /// can still meet a mountain, and this is asked in order to <em>destroy</em> a round.
     /// </param>
+    /// <param name="floorRadius">
+    /// A radius the ground is never below, or zero where that cannot be read, which never answers
+    /// <see cref="Approach.Landing"/>.
+    /// </param>
     public static Approach Classify(double mu, double3 positionCci, double3 velocityCci,
-                                    double ceilingRadius)
+                                    double ceilingRadius, double floorRadius = 0.0)
     {
         if (!(ceilingRadius > 0.0) || !Vec.IsFinite(positionCci) || !Vec.IsFinite(velocityCci))
         {
             return Approach.Unknown;
         }
 
-        // Inside it, so the question is behind us and the clock is the right instrument again:
-        // whatever the conic said, the round is now where arriving happens.
-        if (Vec.Len(positionCci) <= ceilingRadius) return Approach.Arriving;
+        // Inside it the round is where arriving happens, and the clock is the right instrument again --
+        // unless the path can only end on the ground, which nothing inside can undo.
+        if (Vec.Len(positionCci) <= ceilingRadius)
+        {
+            return EndsOnTheGround(mu, positionCci, velocityCci, floorRadius) ? Approach.Landing : Approach.Arriving;
+        }
 
         double periapsis = Kepler.PeriapsisRadius(mu, positionCci, velocityCci);
 
@@ -74,5 +95,15 @@ internal static class RoundReach
         if (!double.IsFinite(periapsis)) return Approach.Unknown;
 
         return periapsis <= ceilingRadius ? Approach.Coasting : Approach.Impossible;
+    }
+
+    // A round already under the floor has gone through ground that could not be read, and only the clock
+    // will end it.
+    private static bool EndsOnTheGround(double mu, double3 positionCci, double3 velocityCci, double floorRadius)
+    {
+        if (!(floorRadius > 0.0) || Vec.Len(positionCci) <= floorRadius) return false;
+
+        double periapsis = Kepler.PeriapsisRadius(mu, positionCci, velocityCci);
+        return double.IsFinite(periapsis) && periapsis <= floorRadius;
     }
 }

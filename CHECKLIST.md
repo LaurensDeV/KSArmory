@@ -1171,11 +1171,16 @@ the mesh and the XML, and the suite.
       Mars's 0.02 kg/m³ over 1.225 at that height, where each body's own sea level would have read 0.83.
       The lay reached 90.3 km and the shell came down about 86.4 km out after 114.5 s, where Earth's
       reach is 23.7 km and the old reading predicts 31 km. No exception in KSA's log.
-- [ ] Fire a shell high on Earth with nothing to aim at. It flies until it lands and never vanishes in
-      mid-air. With a 30 s life, on 2026.9.10.5438, shells were removed 23.3 km out while still doing
-      766 m/s, and the longest reach the lay could find stopped at the same 23.7 km. Not on Mars: there
-      the two-minute life is the gun's reach, which the flight above landed at 114.5 s of, and a 45°
-      shell would be ended about 40 km up while still climbing.
+- [ ] Fire a shell high with nothing to aim at, on Earth and from Mars. It flies until it lands and never
+      vanishes in mid-air: a path that can only end on the ground runs no clock. With a 30 s life, on
+      2026.9.10.5438, shells were removed 23.3 km out while still doing 766 m/s; with a two-minute one the
+      clock was the gun's reach from Mars, where the shell above landed at 114.5 s of 120, and a 45° shell
+      would have been ended about 40 km up. The 312 km shot below flew 307.7 s and came down on the ground;
+      a steep one has not been flown.
+- [x] From Mars the gun reaches past its two-minute clock. Headlessly on a Mars-sized world the longest reach
+      is 173.3 km in 310 s, and a place at 156 km is laid to land 0.2 m from it (`ReachAlongTheGroundTests`);
+      following each shell for its 120 s life, the lay stopped at 90.3 km. **Confirmed on 2026.9.10.5438**
+      with the shot below: laid to its longest reach, 174.1 km, down after 307.7 s, no exception in KSA's log.
 - [ ] Beyond reach on a small body the shell lands short of the reach it names. From Mars, laid to 90.3 km
       of a place 199.7 km out, it came down 3.9 km short of that. The reach is a point on the straight line
       to the place, which on Mars dips 1,457 m under the ground there, and a shell laid through it meets

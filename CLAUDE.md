@@ -1950,14 +1950,20 @@ happens, and what catches the store that can *never* arrive is `Sim/RoundReach.c
 lowest point is above the ceiling never reaches it, which is exact out there because there is no
 drag to bend it and because drag only ever lowers a periapsis.
 
-**Three states and not two, because the clock has to be able to run.** Holding it for everything
-that is not failing leaves a round nothing reaps at all — a body with no atmosphere never starts an
-air clock, so a store falling towards the Moon has only the ground to end it and nothing whatsoever
-where the ground cannot be read. So `Approach.Arriving` is **geometric rather than atmospheric**:
-below the ceiling, whatever the ceiling is made of, which on an airless body is its highest ground.
-`Unknown` runs the clock too, so a round that can be neither classified nor stopped cannot be
-immortal — and since it then advances every step, it *is* the age limit, which is what every round
-had before any of this.
+**And a path that can only land runs no clock at all.** Inside the ceiling, a conic whose lowest point is
+under the lowest the ground can be — the mean radius less the highest terrain — ends on the ground for
+the same reason, so `Approach.Landing` holds the clock and the ground is the reaper. A shell lobbed under a
+weak pull stays up for minutes: from Mars a 5"/54 at its longest reach flies past its two-minute clock, and
+reaping it on that clock, with the lay searched only within the same clock, ended the gun's reach at 90 km.
+
+**The clock still has to be able to run.** Holding it for everything that is not failing leaves a round
+nothing reaps at all — a body with no atmosphere never starts an air clock, so a store falling towards the
+Moon has only the ground to end it and nothing whatsoever where the ground cannot be read. So
+`Approach.Arriving` is **geometric rather than atmospheric**: below the ceiling, whatever the ceiling is
+made of, which on an airless body is its highest ground — and it keeps the clock for what the conic cannot
+vouch for, a path skimming above the lowest ground and a round already under it. `Unknown` runs the clock
+too, so a round that can be neither classified nor stopped cannot be immortal — and since it then advances
+every step, it *is* the age limit, which is what every round had before any of this.
 
 The 120 s the B61 shipped with was a coast being counted against a fall. A release at 100 km takes
 **152 s** to arrive and one at 250 km **246 s**, nearly all of it above the air, so the bomb was
@@ -2716,11 +2722,10 @@ should not be weakened without understanding what they buy:
   for the bomb, the reentry vehicle and the 5"/54 shell, and nothing else, because it costs a terrain
   sample per round per frame and a CIWS burst is 150 shells in the air. The 5"/54 is on the list
   because both halves of that trade go the other way for it: a few dozen shells in the air at most, each
-  alive long enough that one missing would fall through the planet. Its lifetime is two minutes, which on
-  Earth is long enough for any shell to come down, so the ground ends a long shot rather than the clock
-  ending it in mid-air — and the flown lead is searched within that same lifetime, so it is the gun's
-  reach as well. Under a weaker pull the clock binds first: from Mars the lay reaches 90.3 km at the
-  lifetime's limit, and a steep shell is ended in the air. So a 20 mm shell still passes through
+  alive long enough that one missing would fall through the planet. Its path can only end on the ground, so
+  no clock runs and the ground ends a long shot, and the flown lead follows it as long as a shell that fast
+  could stay up under the pull at the mount; its two minutes are left for a shell nobody can judge. So a
+  20 mm shell still passes through
   a hill and a missile that misses still carries on into space. A reentry vehicle also re-reads the
   ground under every sub-step within 200 m of it, because a frame's first sample is the height of
   ground it has already left — `IcbmConfig.ResampleGroundAtImpact`, 0.30x on the walk, flown.
