@@ -3519,6 +3519,99 @@ internal static class KsaWorld
         }
     }
 
+    /// <summary>
+    /// Whether KSA is throwing away the held controls on this craft this frame, and which of its reasons
+    /// applies.
+    ///
+    /// <para><b>The throttle and the trim this mod drives are held controls.</b>
+    /// <c>Vehicle.PrepareWorker</c> clears them on the controlled vehicle, before reading them, whenever the
+    /// UI holds the keyboard, that vehicle is marked inactive, or the world runs past 30x — so the craft
+    /// being flown keeps whatever throttle it had while any modal or text field has focus. KSA opens such a
+    /// modal by itself at every launch once a build newer than the install is published.</para>
+    /// </summary>
+    public static bool DiscardsHeldControls(Vehicle craft, out string why)
+    {
+        why = "";
+        if (!ReferenceEquals(Program.ControlledVehicle, craft)) return false;
+
+        try
+        {
+            if (Brutal.ImGuiApi.ImGui.GetIO().WantCaptureKeyboard)
+            {
+                why = KSA.Popup.AnyOpen ? "a KSA popup holds the keyboard" : "the UI holds the keyboard";
+            }
+            else if (!Program.IsControlledVehicleActive)
+            {
+                why = "the controlled vehicle is marked inactive";
+            }
+            else if (SimulationSpeed > 30.0)
+            {
+                why = "the world runs past 30x";
+            }
+        }
+        catch
+        {
+            return false;
+        }
+
+        return why.Length > 0;
+    }
+
+    /// <summary>
+    /// Closes every popup KSA has open, for a scenario nobody is there to click through.
+    ///
+    /// <para><b>A modal takes the keyboard, and with it the controlled vehicle's throttle</b> —
+    /// <see cref="DiscardsHeldControls"/>. A rocket under one keeps full throttle through a staging that
+    /// needs it lowered, past its airframe's limit.</para>
+    ///
+    /// <para>Closed through the popup's own public <c>Active</c> flag, the one its buttons clear, on the
+    /// engine's private list. If that list moves this closes nothing and warns once.</para>
+    /// </summary>
+    /// <returns>The type names of what was closed, empty when nothing was open.</returns>
+    public static IReadOnlyList<string> CloseEnginePopups()
+    {
+        if (!KSA.Popup.AnyOpen) return [];
+        if (EnginePopups() is not { } popups) return [];
+
+        List<string> closed = [];
+        foreach (KSA.Popup popup in popups)
+        {
+            if (!popup.Active) continue;
+            popup.Active = false;
+            closed.Add(popup.GetType().Name);
+        }
+
+        return closed;
+    }
+
+    private static FieldInfo? _popupListField;
+    private static bool _lookedForPopupList;
+
+    private static List<KSA.Popup>? EnginePopups()
+    {
+        if (!_lookedForPopupList)
+        {
+            _lookedForPopupList = true;
+            _popupListField = typeof(KSA.Popup).GetField("Popups", BindingFlags.NonPublic | BindingFlags.Static);
+
+            if (_popupListField?.FieldType != typeof(List<KSA.Popup>))
+            {
+                Log.Warn("Popup.Popups has moved - a scenario cannot close KSA's popups, and one left open "
+                         + "holds the throttle of the craft being flown");
+                _popupListField = null;
+            }
+        }
+
+        try
+        {
+            return _popupListField?.GetValue(null) as List<KSA.Popup>;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     // The engine's own controller, kept so it can be put back. Static because there is one main
     // viewport and the swap outlives any single borrower of it.
     private static FixedController? _stockFixedController;

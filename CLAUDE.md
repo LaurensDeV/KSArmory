@@ -477,7 +477,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 516 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 520 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -1063,7 +1063,7 @@ Do the private repo *before* pushing here, or CI fails on the lock it cannot sat
 member that keeps its name and signature and changes its *meaning* — a different reference
 frame, different units, a reordered enum — compiles clean and is wrong in flight. That is what
 the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from 684,000 lines to the files
-defining the 179 types this mod actually uses.
+defining the 180 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 45 in total, 14 MB —
@@ -1511,6 +1511,15 @@ the keyboard calls — ordinary calls, not patches; the prefix above is only the
 The aiming rotation is laid out exactly as KSA's own `GetTgt2Cci` lays it out rather than to a
 layout of this mod's own, because guessing which body axis is the nose — and getting that wrong —
 is a vehicle holding a perfectly steady attitude ninety degrees from the one asked for.
+
+**And the throttle and the trim are held controls, which KSA drops on the craft being flown.**
+`Vehicle.PrepareWorker` clears them on `Program.ControlledVehicle`, before reading them, whenever the
+UI holds the keyboard, that vehicle is marked inactive, or the world runs past 30x. So a modal, the
+console or a focused text field freezes the controlled rocket's throttle mid-burn, and KSA opens a modal
+by itself at every launch once a newer build is published — a rocket under it keeps full throttle
+through a staging that needs it lowered, past its airframe's limit. `ScenarioRunner` closes KSA's popups
+while it runs and `IcbmComputer` says when it is happening; a player typing into a panel during a burn
+is not handled. `docs/KSA-MODDING-NOTES.md` has the engine code.
 
 **The pointing deadband is a high-water mark, and it has to be put back each frame.** KSA widens
 `AngleDeadband` to whatever one control period of the minimum thruster impulse can produce — a

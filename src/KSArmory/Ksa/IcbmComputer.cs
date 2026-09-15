@@ -100,6 +100,7 @@ internal sealed class IcbmComputer
     private bool _saidStructuralLimit;
     private bool _saidLongStep;
     private bool _saidOverLimit;
+    private bool _saidHeldControlsDiscarded;
 
     private double _owedAtSplit = double.NaN;
     private Vehicle? _separatedFrom;
@@ -714,6 +715,17 @@ internal sealed class IcbmComputer
         if (Command.EngineOn)
         {
             _throttleAchieved = VehicleCommand.DriveThrottle(Craft, Command.Throttle);
+
+            // A held control the engine drops reads exactly like a throttle on its way down, until the
+            // airframe comes apart. The gap is past the servo's own tolerance, so a settled throttle is quiet.
+            if (!_saidHeldControlsDiscarded && Math.Abs(_throttleAchieved - Command.Throttle) > 0.05
+                && KsaWorld.DiscardsHeldControls(Craft, out string discarded))
+            {
+                _saidHeldControlsDiscarded = true;
+                Log.Warn($"{KsaWorld.DisplayName(Craft)}: KSA is discarding the throttle this computer holds -- "
+                         + $"{discarded}, so it stays at {_throttleAchieved:F3} against {Command.Throttle:F3}, "
+                         + "and the trim's thrusters are dropped the same way");
+            }
 
             StructuralLoad load = Craft.StructuralLoad;
 

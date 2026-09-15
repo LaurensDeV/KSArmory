@@ -751,6 +751,30 @@ itself runs on worker threads via `VehicleUpdateTask`; do not mutate vehicle sta
 
 Never destroy vehicles while iterating `Program.VehiclesInFrame` — copy to a list first.
 
+## Held controls are cleared on the controlled vehicle while the UI has the keyboard
+
+`Vehicle.ProcessInput` sets bits — `EngineFlags.ThrottleUp`/`ThrottleDown`, `ThrusterCommandFlags` —
+that persist until released, and `Vehicle.PrepareWorker` moves them into the vehicle's manual inputs.
+Its first act is:
+
+```csharp
+if (Program.ControlledVehicle == this && (!Program.IsControlledVehicleActive
+    || ImGui.GetIO().WantCaptureKeyboard || Universe.GetSimulationSpeed() > 30.0))
+{
+    ClearHeldPlayerInput();   // thruster flags, sprint, grab, engine flags
+}
+```
+
+So anything written through the keyboard channel is discarded on the craft being flown whenever an
+ImGui window has the keyboard, and every other vehicle keeps it. A Harmony prefix on `PrepareWorker`
+does not escape it: the clear runs inside the body, after the prefix.
+
+`VersionInfo.CheckOnLaunch` runs at every launch whatever `[system] checkForUpdates` says — that setting
+only gates the menu's "Check for Update" — and a newer server version raises `UpdateAvailablePopup`, a
+console modal that stays until a button is clicked. Popups sit on `Popup`'s private static `Popups`
+list, `Popup.AnyOpen` is public, and setting a popup's public `Active` to false is how its own buttons
+close it.
+
 ## Re-running the research
 
 ```bash

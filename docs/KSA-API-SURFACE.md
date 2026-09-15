@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-179 types and 516 members across 7 assemblies.
+180 types and 520 members across 7 assemblies.
 
 ## Brutal.Concurrency
 
@@ -270,6 +270,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### Brutal.ImGuiApi.ImGuiIOPtr
 
 - `ref bool get_KeyShift()`
+- `ref bool get_WantCaptureKeyboard()`
 - `ref bool get_WantCaptureMouse()`
 
 ### Brutal.ImGuiApi.ImGuiInputTextCallback
@@ -844,6 +845,11 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `void .ctor()`
 
+### KSA.Popup
+
+- `bool Active`
+- `bool get_AnyOpen()`
+
 ### KSA.Program
 
 - `KSA.Camera GetMainCamera()`
@@ -855,6 +861,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.Vehicle get_ControlledVehicle()`
 - `KSA.VehicleEditor Editor`
 - `System.ReadOnlySpan`1<KSA.Vehicle> get_VehiclesInFrame()`
+- `bool IsControlledVehicleActive`
 - `int ResourceFrameIndex`
 - `void OnGameLoaded()`
 - `void SetCameraUbo(KSA.IViewport)`

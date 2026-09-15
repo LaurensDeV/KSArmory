@@ -495,6 +495,14 @@ internal sealed class ScenarioRunner
         if (_phase is Phase.Idle or Phase.Done) return;
         if (!double.IsFinite(playerStep) || playerStep <= 0.0) return;
 
+        // Nobody is there to click a popup away, and an open one holds the controlled rocket's throttle.
+        IReadOnlyList<string> closed = KsaWorld.CloseEnginePopups();
+        if (closed.Count > 0)
+        {
+            Report($"{_name}: closed KSA's {string.Join(", ", closed)}, which holds the throttle of the craft "
+                   + "being flown while it is open");
+        }
+
         double dt = double.IsFinite(simStep) && simStep > 0.0 ? simStep : 0.0;
 
         _elapsed += playerStep;

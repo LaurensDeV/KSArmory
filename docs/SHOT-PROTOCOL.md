@@ -739,6 +739,12 @@ rather than the tree.
   `KSARMORY_SCENARIO_SAVE` are exported if the defaults are not right.
 - **Windows will not sleep, hibernate, or turn the display off**, and Windows Update is not going
   to reboot. A night that sleeps at shot 12 is a night lost.
+- **Nothing is left holding the keyboard.** Once RocketWerkz publish a build newer than the install,
+  every launch opens an UPDATE AVAILABLE modal, and a modal clears the held controls of the vehicle
+  being flown — seat 1, which then keeps full throttle through its first staging and breaks up, and
+  the shot times out 40 minutes later. `KittenSpaceAgency.log` says `a new version of KSA is
+  available` when it applies. `ScenarioRunner` closes KSA's popups while it runs, and the smoke's
+  output says `closed KSA's UpdateAvailablePopup` when it did.
 - One shot flown by hand end to end, to confirm the aim point produces a verdict rather than a
   timeout. Fifty timeouts is the same information as one.
 - **Check the ground under the aim point**, on that one hand-flown shot:
