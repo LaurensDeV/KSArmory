@@ -8577,8 +8577,13 @@ nothing scored on them.
 **What flies through it is `IcbmComputer.PredictedMissMetres`**, which `PostBoostAim` compares against the
 trim floor and the payback cost — the two gates that end the correction loop, and the endings 3di and 3dk
 report. Both sit at 7–8 m, where the old form is 0.1 mm out. So the aim loop was never hurt by this and the
-flown change is bounded far below what a night could resolve; it has not been flown and does not need to be.
-Fixed in `3a4b152`, `atan2(|a × b|, a·b)`, exact to the last bit at both endpoints.
+flown change is bounded far below what a night could resolve. Fixed in `3a4b152`,
+`atan2(|a × b| , a·b)`, exact to the last bit at both endpoints.
+
+**Verified in flight on `2026-09-16-walk`**, incidentally and conclusively: the trace's walk magnitude is
+`SurfaceRadius × AngleBetween`, and it now prints `0.0254 m` beside components of
+`(−0.0242 down, +0.0079 cross)` whose own magnitude is 0.0255. Under `acos` that line read **0.0000** for
+every flight of the last two nights.
 
 **One thing it uncovered.** `PostBoostAimTests`' rotation-invariance case drifted at exactly half the band
 rate, which reaches `SteadyWithinDegrees` on the eighth step to the last bit — so which side of a `<=` the
