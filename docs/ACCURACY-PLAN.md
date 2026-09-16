@@ -9349,6 +9349,72 @@ unambiguously wrong rather than un-benchmarked. **Unverified in game.**
 the one number that would turn this reconstruction into a confirmation, and it is one line beside
 `ArrivalAngleDeg`.
 
+## 3dx. The round's drag is read at the wrong instant, and it is removable exactly — 2026-09-16
+
+`Sim/Slug.cs` reads the air and the pull **half a sub-step on** for a second-order round — the comment above
+the lookups says so outright, *"a second-order round reads both half a sub-step on, where its kick belongs"* —
+and the **speed the drag is taken at is not**. `Step` differences `VelocityEcl`, which is not touched until
+after the acceleration is built, so the drag is `k·ρ_mid·|v₀|·v₀` where it should be `k·ρ_mid·|v_mid|·v_mid`.
+
+**It is one-signed by construction.** Drag is quadratic in that speed and a re-entering warhead sheds about
+450 m/s², so `|v₀| > |v_mid|` at **every** sub-step: the drag is always too large, the round always sheds too
+much speed, and it always lands **short**. On every azimuth, at every site, regardless of terrain — which is
+the shape of the walk's bias exactly.
+
+**Headless**, at the flown 877 km / 32° release, the round's disagreement with `ImpactPredictor`:
+
+| `SubStepSeconds` | 5.00 ms | 2.50 ms | **1.00 ms** | 0.50 ms | 0.25 ms |
+| --- | --- | --- | --- | --- | --- |
+| drag at the start-of-step velocity | 19.872 mm | 11.343 mm | **4.669 mm** | 2.334 mm | 1.182 mm |
+| drag at the **midpoint** velocity | 0.023 mm | 0.001 mm | **0.001 mm** | 0.001 mm | 0.003 mm |
+
+**So the 4.7 mm 3dn priced as the round's integrator order is not truncation paid for the order chosen.** It
+is one mis-paired argument, and pairing it takes the two models to agreement at a **micron** — removable
+exactly rather than halveable. That line item is retired.
+
+Built as `IcbmConfig.DragAtMidpointVelocity`, **off**, because every flown baseline rests on the current
+behaviour. One extra `Medium.Drag` per sub-step, which is arithmetic rather than a lookup, and a no-op for a
+first-order round, which has no midpoint to read.
+
+### The night, declared before it flies — and flown at 5 ms on purpose
+
+**The obvious night cannot work, and pricing it first is what caught that.** At the shipped 1 ms the effect is
+4.7 mm against a signed-walk whose residual sd is 26.6 mm after seat-levelling and regressing out `apart`. At
+12 blocks that is `SE = 5.42 mm`, `t = 0.87`, and **14% power** — 80% would want about 125 blocks, twenty-five
+hours, for a term the rig has already resolved to a micron.
+
+**But the mechanism is linear in the sub-step**, and that is a lever on the *signal* rather than the noise:
+
+| flown at | effect | t at 12 blocks | power |
+| --- | --- | --- | --- |
+| 1.00 ms (shipped) | 4.67 mm | 0.87 | **14%** |
+| 2.50 ms | 11.34 mm | 2.09 | 55% |
+| **5.00 ms** | **19.85 mm** | **3.66** | **96%** |
+
+So both arms fly at **5 ms** and differ only in where the drag's velocity is read. Confirming it there confirms
+it at 1 ms, because the term's *linearity in the sub-step* is the prediction being tested — and the rig already
+has the 1 ms number. It is also **cheaper**: 5 ms is a fifth of the sub-steps, and `MaxSubSteps` is
+`max(64, 0.32/0.005) = 64`, so `SubStep × MaxSubSteps` stays at 0.320 s and the faithful step does not move.
+
+```bash
+KSARMORY_SCENARIO_SAVE='SOLVER SCALE 8' ./tools/shot-batch.sh \
+    --paired 'base:WarheadSubStepMs=5|mid:WarheadSubStepMs=5,DragAtMidpointVelocity=true' \
+    --aim 26.485S,68.148W --blocks 12 --out ~/shots/2026-09-16-midpoint
+```
+
+* **Primary: `signed-walk`**, seat-levelled, predicted **+19.85 mm toward zero** — from `base`'s walk at 5 ms
+  to within a millimetre of zero. Ships on if the interval excludes zero and contains the prediction.
+* **The mechanism, per flight**: `mid`'s walk should be **near zero in absolute terms**, not merely smaller.
+  That is a far stronger claim than a ratio and the rig is unambiguous about it.
+* **Beside it**: `landing` and `centre`, predicted to improve but **possibly unresolvable** — the walk's bias
+  sits inside a larger scatter and 3cv's rule applies.
+* **The control**: `dispersion`, predicted 1.00x. This is a bias term, not a scatter one.
+* **Refuted** by `signed-walk` not moving toward zero, or by `mid` landing further from zero than `base`.
+* **The confound to state now**: 5 ms is not the shipped sub-step, so this measures the *mechanism* and not the
+  shipped configuration. If it confirms, shipping `DragAtMidpointVelocity` at 1 ms rests on the rig's linearity
+  rather than on a flown 1 ms arm — which is the trade being made deliberately, for twenty-three hours.
+* **Watch**: frame time (5 ms should be *faster* than shipped), no `clock` or trim endings, KSA's own log.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
