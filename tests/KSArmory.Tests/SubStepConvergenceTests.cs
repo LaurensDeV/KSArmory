@@ -179,4 +179,37 @@ public class SubStepConvergenceTests(ITestOutputHelper Out)
         Out.WriteLine("   A sub-step term is ONE-SIGNED across states; scatter here would mean the");
         Out.WriteLine("   sub-step also amplifies whatever separates two release states.");
     }
+
+    /// <summary>
+    /// And whether the frame the sub-steps divide changes the answer. It must not: the round cuts
+    /// each frame into <c>ceil(dt / SubStep)</c> pieces, so the piece is the same size whatever the
+    /// frame is — but the cap is <c>max(64, ceil(MaxFaithfulStep / SubStep))</c>, and a night flown
+    /// at a different warp is a different frame, so this is measured rather than assumed.
+    /// </summary>
+    [Fact]
+    public void TheFrameTheSubStepsDivideDoesNotChangeTheBias()
+    {
+        double[] frames = [8.33, 35.0, 70.0, 152.9, 300.0];
+        double[] steps = [4.0, 1.0, 0.25];
+
+        double3 truth = FlyToGround(0.0625, 35.0, 0.0, out _, out double3 tv);
+        Assert.True(ArrivalFrame.TryAt(truth, tv, out ArrivalFrame frame));
+
+        Out.WriteLine("down bias against the 0.0625 ms answer, in mm\n");
+        Out.WriteLine($"{"frame (ms)",12} {"4 ms",14} {"1 ms",14} {"0.25 ms",14}");
+
+        foreach (double f in frames)
+        {
+            List<string> cells = [];
+            foreach (double st in steps)
+            {
+                double3 at = FlyToGround(st, f, 0.0, out _, out _);
+                cells.Add($"{frame.Resolve(at - truth).Y * 1000.0,14:F3}");
+            }
+            Out.WriteLine($"{f,12:F2}{string.Concat(cells)}");
+        }
+
+        Out.WriteLine("\n   The flown night runs at 152.9 ms frames, 8x warp; the declared predictions");
+        Out.WriteLine("   (-21.899 / -5.360 / -1.072 mm) were computed at 35 ms.");
+    }
 }
