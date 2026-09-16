@@ -9754,6 +9754,79 @@ would remove the term identically.
 * **`SimClock.State.Skipped` is advisory**: its own doc says to abandon rounds rather than step them, and
   `KSArmoryMod` computes it only to call `ReportOverrun` and then steps with the clamped value anyway.
 
+## 3ed. The kick injects its own prediction's noise, and that is the largest per-round error — 2026-09-16
+
+Read off `2026-09-16-terrain`'s `terrain` arm, 288 warheads in 48 rockets, and **reproduced independently**
+before being written down.
+
+Each warhead is kicked to cancel **its own** release probe's miss. Take each rocket's six warheads, subtract
+the rocket's mean from both the probe's miss and the landing, and regress one on the other:
+
+| channel | slope | r | probe deviation sd | landing deviation sd |
+| --- | --- | --- | --- | --- |
+| **downrange** | **−0.869 ± 0.046 m/m** | **−0.743** | 18.1 mm | 21.2 mm |
+| cross | −0.135 ± 0.039 | −0.201 | 3.5 mm | 2.4 mm |
+
+**A slope of zero would mean the kick cancels a real per-warhead difference. A slope of −1 means it is
+cancelling its own prediction's *noise* and injecting it into the landing.** It measures −0.87.
+
+So about **87% of the per-warhead variation in the release probe is not a real difference between the
+warheads' flights** — and the kick faithfully removes it, putting **~15.7 mm** of landing error into each
+round that was not there before. Across rockets the same kick works: the rocket-common probe miss, sd 0.67 m,
+is cancelled to well under 1%. It is only the *differential* that is being chased.
+
+**This is the single largest per-round landing error in the dataset**, and unlike everything else on the
+backlog it is **caused by a correction rather than left by one**.
+
+### Why the walk could not see it
+
+The walk is measured against each warhead's **post-separation** prediction, so the kick is inside its
+reference and cancels out of it exactly (walk-down against the probe's downrange miss: **r = 0.007**). That is
+why five investigations into the walk never touched this: it lands in the **aim-point miss**, which is the
+quantity a player actually gets, and the walk is blind to it by construction.
+
+**A term can be the biggest thing in the shot and invisible to the instrument the shot is being improved
+through.** That is the lesson worth keeping from this one.
+
+### What the fix looks like
+
+The ring offset is **real geometry** and must stay per warhead — the six mouths genuinely sit 0.86 m apart.
+The **probe miss** is a property of the rocket: one aim, one arc, six release states 0.15 s apart. Its
+per-warhead variation is therefore mostly the prediction's own numerical scatter, and cancelling it is
+cancelling noise.
+
+So: **solve the miss kick once per rocket** — off the mean of the six probes, or off the first — and keep the
+ring kick per warhead. That removes the injected term without touching anything that is real.
+
+**Not built, and it wants a prediction before it flies**: the within-rocket downrange scatter should fall from
+21.2 mm toward the ~10 mm that is left when the injected part is removed, and the group's *centre* should not
+move at all, since the injected term sums to zero over six.
+
+### What else the night's decomposition settled
+
+* **The one real covariate in the walk is the engine's frame time, and it is a BLOCK-level effect.** Block-mean
+  cross walk against block-mean frame time: **r = 0.921, p = 2e-5, +0.264 mm/ms**, replicated on the `base`
+  arm at +0.201. Within a block there is **no signal at all** (r = 0.003), so the effective n is **12, not 48**,
+  and every other block-level driver is perfectly confounded with it.
+* **That partly explains the vacuum third.** Splitting each walk at the atmosphere top, `cross @ entry ~ dt`
+  gives **R² = 0.753** — so the above-atmosphere *cross* walk is the integration step, which is consistent
+  with the per-frame airspeed reference (3dx Rank 2) in both shape and size. The above-atmosphere **down**
+  walk remains unexplained (R² = 0.101).
+* **The honest ceiling on the down walk is poor.** Cross-validated, frame time plus seat removes 36% of its
+  variance, leaving **18.9 mm** of 23.57; the saturated block-plus-seat ceiling leaves **15.6 mm**. So
+  **two-thirds to four-fifths of the down walk is still unexplained** after everything found today. The cross
+  channel is in far better shape: 5.67 → 2.8 mm honest, 2.1 mm ceiling.
+* **The seat is 36% of the down variance** and it is not terrain: seat 5 is the only positive one (+13.5 mm)
+  and seat 7 the most negative (−39.2), F(7,40) = 4.34, p = 0.0012. Every geometric covariate — latitude,
+  azimuth, relief, arrival floor — is **100% determined by the seat** in this design and cannot be separated
+  from it. Two azimuths in one block, or one seat flown at two frame rates, is what would.
+* **The noise floor at n = 48 over 118 covariates is |r| = 0.43.** Nothing in the down channel clears it. The
+  three that came closest — trim owed at release 0.465, at split 0.426, sim rate 0.420 — sit **at** it and
+  should not be built on.
+* **49b did only what it claims.** The above-atmosphere walk is unmoved (p = 0.38 down, 0.59 cross), engine
+  conditions match to 0.5%, the surface gap is 0.000 on 48 of 48, and the variance ratio is **2.61** — 62% of
+  the down variance removed, against the 57% predicted, inside an F-interval of 1.5–4.6.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
