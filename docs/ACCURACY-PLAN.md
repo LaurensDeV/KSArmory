@@ -9415,6 +9415,33 @@ KSARMORY_SCENARIO_SAVE='SOLVER SCALE 8' ./tools/shot-batch.sh \
   rather than on a flown 1 ms arm — which is the trade being made deliberately, for twenty-three hours.
 * **Watch**: frame time (5 ms should be *faster* than shipped), no `clock` or trim endings, KSA's own log.
 
+### Smoked, and it deviates from the declaration in two ways worth stating first — 2026-09-16
+
+One paired block, `2026-09-16-midpoint-smoke`, 4 `base` and 4 `mid` on `04dec51`. PASS, 8 of 8 rockets 6 of 6,
+no exceptions, nothing timed out. All eight logged `warheads integrate at 5.000 ms`; the arm split 4/4.
+
+**The mechanism engages** — `base` walks **−153.5 mm** and `mid` **−29.0 mm**, and only the drag swap could do
+that. But two things are not what was declared, and they are recorded **before** the night rather than
+explained after it:
+
+1. **`base`'s walk at 5 ms is −153.5 mm, where the rig said −19.9.** A factor of 7.7. The rig-to-flight gap has
+   run through this whole investigation — 4.7 mm against 11–21 at the shipped step, about 3× — and it is
+   *larger* at a coarser step, so something else in flight also grows with the sub-step.
+2. **`mid` is −29.0 mm, not ~0.** The declared strong form was "near zero in absolute terms", and it is not
+   met. The rig's claim that the two models agree to a micron does not transfer.
+
+**The night flies anyway, and the primary is unchanged.** The *difference* is ~125 mm against a declared
+19.85, so the power argument is stronger rather than weaker, and the direction is right. What the smoke has
+already cost is the **strong** form of the prediction: this night can now show that the drag pairing removes
+most of a large term, and can no longer show that it removes all of one the rig sized correctly.
+
+n = 4 an arm, and `base`'s four are −191.8, −32.4, −400.0, +10.1 mm — a spread far wider than the effect, so
+none of the above is a measurement. It is a check that the apparatus works.
+
+**One gap the smoke exposed and closed** (`96065b2`): `DragAtMidpointVelocity` wrote nothing to the log, so
+whether the arm engaged had to be *inferred from the walks* — an inference about the thing under test rather
+than a check on the apparatus. It now says so, as the sub-step swap already did.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
