@@ -291,6 +291,85 @@ public class PredictorStepGapTests(ITestOutputHelper Out)
     }
 
     /// <summary>
+    /// <b>The last difference between this rig and the flight that a rig can have.</b> Items 45-47
+    /// closed the predictor's step, the frame rate, the integrator's order, the surface and the
+    /// atmosphere, and the flown walk has no per-seat structure — 7 of 8 seats at −23 to −33 mm
+    /// against a 7.3x spread in relief — so it is a common systematic rather than terrain.
+    ///
+    /// <para>What is left is the planet turning. The round measures its airspeed against the ground
+    /// and <see cref="ImpactPredictor"/> subtracts <c>GroundVelocityCci</c> for the same reason, so
+    /// both carry the rotation and any disagreement between them shows only here. The rig has flown
+    /// a still planet throughout, which is the one case where every such term is identically zero.
+    /// <c>docs/ACCURACY-PLAN.md</c> 3dp.</para>
+    /// </summary>
+    [Fact]
+    public void WhatThePlanetsRotationAddsToTheGapBetweenTheTwoModels()
+    {
+        const double EarthSpin = 7.2921159e-5;
+        BallisticBody still = Earth;
+        BallisticBody spinning = new(Mu, R, new double3(0, 0, 1), EarthSpin);
+
+        double3 velocity = ReleaseArc(out double3 from, out double3 _);
+        MunitionProfile warhead = Arsenal.ReentryVehicleMk21;
+
+        Out.WriteLine($"{"body",10} {"gap to the prediction (mm)",28}");
+
+        foreach ((string name, BallisticBody body) in new[]
+                 {
+                     ("still", still), ("spinning", spinning),
+                 })
+        {
+            Slug round = new(from, velocity, null, 1, from, Vec.Zero)
+            {
+                Munition = warhead,
+                ResampleGroundNearImpact = true,
+                SecondOrder = true,
+            };
+
+            RoundFields fields = new(
+                GravityAt: (point, _) => GravityAt(point),
+                AirDensityAt: (point, _) => DensityAt(point),
+                Ground: new Ball());
+
+            const double dt = 1.0 / 60.0;
+            double elapsed = 0.0;
+
+            for (int i = 0; i < 60 * 3000 && round.State == RoundState.Flying; i++)
+            {
+                // The air the round measures its airspeed against, which is what carries the spin.
+                double3 air = body.GroundVelocityCci(round.PositionEcl);
+
+                RoundDriver.Fly(round, dt, null, GravityAt(round.PositionEcl), air, from,
+                                warhead, DensityAt(round.PositionEcl), fields);
+                elapsed += dt;
+            }
+
+            Assert.NotEqual(RoundState.Flying, round.State);
+
+            // Both sides as a place on the ground, so two flights of different length compare.
+            //
+            // The flight time is the round's OWN, not the loop's frame count: it stops partway
+            // through its last frame, and DetonationElapsedInFrame is how far back from that
+            // frame's end. Un-carrying by the frame count instead over-rotates by up to one dt,
+            // which at 465 m/s of equatorial ground is metres -- measured at 5,820 mm against the
+            // 4.67 mm the same pair reads on a still planet. The un-carry makes this comparison
+            // worth 0.465 m per millisecond of timing disagreement, which is the thing to know.
+            double3 landed = body.UncarryCci(round.PositionEcl,
+                                             elapsed + round.DetonationElapsedInFrame);
+
+            Assert.True(ImpactPredictor.TryPredict(body, from, velocity, 2.0, 12_000.0,
+                                                   out ImpactPredictor.Impact hit, null, null,
+                                                   new ImpactPredictor.Drag(DensityAt, warhead),
+                                                   atmosphericStepSeconds: 0.25,
+                                                   stopOnTheSurface: true));
+
+            Out.WriteLine($"{name,10} {GroundMetres(hit.GroundFixedPointCci, landed) * 1000.0,28:F2}");
+        }
+
+        Out.WriteLine("\nthe flown walk is about 21 mm, one-signed and common to every seat.");
+    }
+
+    /// <summary>
     /// The frame rate, which is what a throughput lever would move. It never reaches a 1 ms
     /// sub-step, so nothing bought there can be spent here — the two levers are independent.
     /// </summary>
