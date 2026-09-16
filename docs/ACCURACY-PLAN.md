@@ -8945,11 +8945,15 @@ established before the round meets any atmosphere.
 
 ### What is left, and why the rig cannot answer it
 
-Eight candidates are now closed: the predictor's step, the frame rate, the round's integrator order, the
-surface the two models stop on, the rig's atmosphere, terrain, the planet's rotation, and μ. **With everything
-matched the rig's two models agree to 0.40 mm while the flight shows 21 mm**, so the remainder is something a
-rig structurally cannot have — the `Ecl` frame carrier, `BodyFallEcl` and the tidal term it approximates, warp
-during the coast, or the round being taken off rails.
+**Nine candidates are now closed**: the predictor's step, the frame rate, the round's integrator order, the
+surface the two models stop on, the rig's atmosphere, terrain, the planet's rotation, μ, and — checked because
+warp makes it plausible — **the sub-step cap**. `MaxSubSteps` is 320 for a Mk 21 at a 1 ms sub-step, so it binds
+past a 320 ms simulated step; over 34,830 samples the largest step seen is **189.9 ms** and the cap binds on
+**0 of them**, so the round gets its full 1 ms throughout and `WarpPolicy` is holding the step where it should.
+
+**With everything matched the rig's two models agree to 0.40 mm while the flight shows 21 mm**, so the
+remainder is something a rig structurally cannot have — the `Ecl` frame carrier, `BodyFallEcl` and the tidal
+term it approximates, or the round being taken off rails.
 
 **The vacuum third is the place to look**, because there only gravity and the two integrators act, and both are
 now known to agree to under a millimetre in a rig. The next cheap read is whether the walk grows **per frame or
