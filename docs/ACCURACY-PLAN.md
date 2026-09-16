@@ -8983,6 +8983,37 @@ increments of 0.1.
 **`2026-09-16-walk` was stopped two shots in and re-flown on the widened print**, rather than spend two and a
 half hours logging at a resolution that cannot answer what it is flying for.
 
+### 3dr. The ground-sample line was naming the wrong quantity — 2026-09-16
+
+Chasing item 48 off the named lines, the obvious pairing is each warhead's walk against the
+`ground sample: over a X ms frame` beside it. At n=16 that read a slope of **−2.6e−03 m/ms, r = −0.44**,
+which is the sign a per-frame term predicts — and it is not one.
+
+**That number is not a frame time.** `Slug` sets `GroundSampledOverSeconds` to `-DetonationElapsedInFrame`
+at the crossing whenever `ResampleGroundNearImpact` is on, which is shipped, and only to the frame's `dt`
+without it. So the shipped line reports **how far back from the frame's end the round crossed** — the
+crossing phase, which is exactly what item 40 ran on. Regressing the walk on it looks like a per-frame test
+and re-asks item 40's question instead.
+
+The field's own doc says which it is. The **log line** did not, and the mislabel had already propagated:
+`shot-report.py` stores it as `frame_ms` and `_seat_slope`'s docstring called it "frame ms". Nothing was
+computed wrongly — `_seat_slope` is *meant* to run on the phase — but every reader of the tool was being
+told the wrong name for its input.
+
+Fixed in `2469ca4`: the line names which quantity it is, prints to the millimetre, and `shot-report.py`
+reads either wording so nights logged before this stay readable.
+
+**Item 48 still wants a discriminator.** `dt_ms` is the genuine frame time, is already collected, and is
+what `regime()` reports — so the honest route is the shot-level regression at n=12 rather than anything
+per-warhead. The per-interval method is dead for a different reason (3dq) and the per-flight one cannot be
+attributed at all, because the dense `warhead trace N:` samples carry no craft name and eight rockets
+interleave in one log.
+
+**Third instrument fault in a day, and a different species from the other two.** The `acos` ruler and the
+surface line were *too coarse* or *mis-epoched* — they reported the wrong number. This one reported the
+right number under the wrong name, which is worse in one specific way: it invites a correct calculation on
+the wrong quantity, and the answer looks reasonable.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
