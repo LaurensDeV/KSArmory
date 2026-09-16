@@ -35,10 +35,12 @@ common-mode. What is left is the two integrators, and the ruler that was measuri
 The entries to read are **3di** (item 43b flown and shipped), **3dh** (item 43 flown and shipped, and
 KSA's update modal that cost four shots), **43b** (the kick over relief, designed), **3dg** (items 41 and
 40b flown and shipped), **3df** (the centre is the aim loop's lag, and item 43 designed), **3de** (item 42 flown),
-**3dm** (item 45 answered), **3dl** (the floor re-priced, and the ruler), **3dd** (the spin), **3db** (the ring), **3dc** (40b), **3da** (item 40 flown, including two predictions
-that were wrong), **3cy** (what the instrument can and cannot see), **3cv** and **3cu**. **What is declared next is item 45b** (3dm): the fall is
-the round's own 1 ms sub-step — not the predictor's, which a 40x sweep moves 0.002 mm — worth 1.54 m at
-this arrival and untouched by the frame rate. The arm is built and unflown. `base`'s slope on `dh · cot γ` reading 0.85 rather than 1 was the
+**3dn** (45b stopped, and the rig fault that caused it), **3dm** (item 45), **3dl** (the floor re-priced, and the ruler), **3dd** (the spin), **3db** (the ring), **3dc** (40b), **3da** (item 40 flown, including two predictions
+that were wrong), **3cy** (what the instrument can and cannot see), **3cv** and **3cu**. **What is declared next is item 46** (3dn): the fall is **not**
+the round's sub-step after all — 3dm priced a first-order warhead and the flown one is second order, so the
+lever is 4 mm and 45b was stopped one shot in. The predictor's step (0.002 mm), the frame rate and the
+integrator's order are all ruled out, so what is left is the two models disagreeing about the air, the ground
+or the instant — and the trace already prints a line about the last of those. `base`'s slope on `dh · cot γ` reading 0.85 rather than 1 was the
 43b-off arm and is moot on shipped code, which reads −0.014 ± 0.030.
 Scenarios close KSA's popups (`0599515`), which a published KSA build newer than the install needs. The
 lever-arm fix (`arm/spin-lever-arm`) stays a decision rather than a default. The
@@ -8627,7 +8629,12 @@ Euler must be:
 | --- | --- | --- | --- | --- | --- | --- |
 | gap to the prediction | 6.53 m | 3.73 m | **1.54 m** | 0.77 m | 0.39 m | 0.19 m |
 
-The Mk 21 flies at 1 ms, so **1.54 m at a 32° arrival**. `MunitionProfile.SubStepSeconds` already
+**⚠ That row is a first-order warhead, and nothing flies one — corrected in 3dn.** `Slug.SecondOrder`
+defaults to false and the rig left it alone; the flown round is second order and its gap at 1 ms is **4.7 mm**,
+which makes 45b a 4 mm lever rather than an 18 mm one. The row is kept because the pair of columns is the
+finding. Everything else in this entry stands.
+
+The Mk 21 flies at 1 ms, so 1.54 m at a 32° arrival *for a round nothing flies*. `MunitionProfile.SubStepSeconds` already
 documents the sensitivity and already carries a measured table — 145.3 / 68.8 / 22.9 / 7.6 m at
 5.00 / 2.50 / 1.00 / 0.50 ms — but that is priced *on a shallow arrival*, where it is 30.6 m/ms. The
 32° figure, **1.54 m/ms**, is the one this mod's shot is actually made at and was not written down.
@@ -8736,6 +8743,61 @@ to believe, and the next question is what the flown walk actually is rather than
 
 **Flying now** as `2026-09-16-substep`, 12 blocks, as declared.
 
+## 3dn. 3dm's number was a first-order round, and 45b is a 4 mm lever — 2026-09-16
+
+**The night was stopped one shot in.** 3dm priced the round's sub-step at 1.54 m/ms at the flown arrival and
+declared 45b on it. That figure is for a **first-order** warhead, and nothing flies one.
+
+`Slug.SecondOrder` is a property defaulting to **false**; `IcbmConfig.SecondOrderWarheads` ships **true** and
+`IcbmComputer` sets it on every released warhead. The rig left the property alone. Flying the round the game
+actually flies, with drag, at the same 32° arrival:
+
+| `SubStepSeconds` | 5.00 ms | 2.50 ms | **1.00 ms** | 0.50 ms | 0.25 ms | 0.125 ms |
+| --- | --- | --- | --- | --- | --- | --- |
+| **second order — flown** | 19.9 mm | 11.3 mm | **4.7 mm** | 2.3 mm | 1.2 mm | 0.6 mm |
+| first order — what 3dm measured | 6.53 m | 3.73 m | 1.54 m | 0.77 m | 0.39 m | 0.19 m |
+
+**So the shipped warhead disagrees with its own prediction by 4.7 mm, and `WarheadSubStepMs=0.125` recovers
+4.1 mm of a 21 mm walk** — a fifth of it, about 2 mm on a 31 mm centre, or 0.94×. Twelve paired blocks resolve
+about 0.68×. The night could not have seen it at any number of blocks anyone would fly, so it was stopped
+rather than run to a null that would have read as "the sub-step does not matter in flight" when what is true is
+"the arm was four millimetres".
+
+**`RoundIntegratorOrderTests` already said this and was not read.** It pins second order at 0.000 m from the
+conic and halving the sub-step at 0.000 m — *in vacuum*, where second order is exact for a conic, so it does
+not settle the case with drag. The sweep above is that case: the gap does not vanish, and it is still
+millimetres. Both files are worth keeping for that difference.
+
+**Third instance of one fault, and it is worth naming.** A rig priced itself rather than the round —
+`RoundFields.Held` holding air density for the whole frame (13.75 m against 3.72), a geometry picked by range
+instead of arrival angle (49.8° against 20.3°), and now `SecondOrder` left at its default. **All three are
+defaults that read as "unset" and fly as something real**, and each was invisible in the answer: the sweep was
+clean, monotonic and first-order in the step every time. The rule that catches them is
+`RoundFields.Held`'s own — *the round the game flies is spelled by passing what the game passes*, and anything
+a rig leaves alone is a claim about the flight that nobody checked.
+
+### What 45b is now, and what is still open
+
+`IcbmConfig.WarheadSubStepMs` **stays in the tree and stays off**, like `QuietCoastAfterCorrection` and
+`WarheadDragFromItsShape`: built, smoked, priced at 4 mm, and cheap to fly if the walk ever comes down far
+enough for 4 mm to matter. It is not worth a night at a 21 mm walk.
+
+**The flown walk's −21 mm is therefore still unexplained**, and the sub-step accounts for at most a fifth of
+it. That is the open question, and 3dm's other two results stand and narrow it:
+
+* the **predictor's** step is not it — 0.002 mm over a 40× sweep;
+* the **frame rate** is not it — a 1 ms sub-step is below any frame, and 1/30 and 1/60 land in the same place;
+* the **round's integrator order** is not it — the flown one is already second order, worth 4.7 mm.
+
+So what is left is something neither model's *integration* controls: the two disagreeing about the air, the
+ground, or the instant. **The next cheap thing is to ask the flown logs rather than a rig** — the trace already
+prints `surface at the landing point`, and on the 09-16 night it read the round and the prediction **1.5 m
+apart in surface radius on one seat and 0.2 m on another**, which at cot γ = 1.6 is metres of ground and cannot
+both be true of a 21 mm walk. Read that line across a night before building anything.
+
+**And the smoke's hint was right for the wrong reason.** The block below read `base` −0.030 and `fine` −0.035
+and was set aside as seats; it was seats, and the arm was also 4 mm. Being right by luck is not being right.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -8840,7 +8902,8 @@ what 20b is flying against.
 | ~~1~~ | ~~Diagnostic: log what a warp was started over the top of~~ | done | confirmed: 6 others burning |
 | ~~2~~ | ~~Fix: fold `!NeedsShortSteps` over every computer~~ | done | 8 of 8 at 33 ms; median 32.34 -> 8.80 km on one pair |
 | ~~45~~ | ~~Price the fall against the predictor's step, headlessly~~ | done | **refuted: the predictor's step moves the arrival 0.002 mm over a 40x sweep. It is the round's own 1 ms sub-step, 1.54 m at a 32 deg arrival, and the frame rate never reaches it** — 3dm |
-| **45b** | **Fly the Mk 21 at a finer sub-step**, declared on `signed-walk`. **Arm built and unflown** (`07ec597`), `WarheadSubStepMs=0.125` | 12 paired shots | 3dm: the walk −0.021 m → ~−0.003, the landing perhaps 0.8x |
+| ~~45b~~ | ~~Fly the Mk 21 at a finer sub-step~~ | **stopped one shot in** | **the lever is 4 mm, not 18: 3dm priced a first-order round and the flown one is second order. Arm kept, off** — 3dn |
+| **46** | **Read `surface at the landing point` across a night.** The trace already prints it and it read 1.5 m and 0.2 m apart on two seats — metres of ground at cot γ, against a 21 mm walk | 0 shots | 3dn: the walk is unexplained and neither integrator controls it |
 | **2b** | The 20 s clearance knife-edge — the second branch, now the largest at long range | 12 paired shots | 12,902 km: 8.80 km -> ? |
 | ~~3~~ | ~~**Diagnostic**: log the release residual and `_response` per flight~~ | done | `release summary`, read by `shot-report.py`; 3x |
 | ~~4~~ | ~~Measure `dMiss/dV` at both flown geometries~~ | done | **the residual is worth 36 m per m/s, not 884** — 3x |
