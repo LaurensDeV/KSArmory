@@ -89,6 +89,22 @@ internal sealed class Slug : IProjectile
     private double _arrivingSeconds;
 
     /// <summary>
+    /// Solve the ground crossing against the terrain under it rather than against the chord joining
+    /// the sub-step's two height samples.
+    /// </summary>
+    /// <remarks>
+    /// <para>The endpoint samples are a whole sub-step apart — <b>5.5 m of ground</b> at a 5,500 m/s
+    /// arrival — so interpolating between them stops the round where the <em>chord</em> meets its
+    /// path, and the prediction point-samples the height field. The two therefore stop on different
+    /// surfaces, separated by the ground's curvature over that span, which is why the disagreement
+    /// scales with relief and carries <b>57% of the walk's variance</b>.</para>
+    ///
+    /// <para>One extra height query, on the frame a round lands and only for a round that
+    /// <see cref="ResampleGroundNearImpact"/>. <c>docs/ACCURACY-PLAN.md</c> 3dv.</para>
+    /// </remarks>
+    public bool StopOnTheTerrain { get; set; }
+
+    /// <summary>
     /// Take the drag at the sub-step's midpoint velocity rather than at the velocity it starts with.
     /// </summary>
     /// <remarks>
@@ -701,6 +717,47 @@ internal sealed class Slug : IProjectile
                 // is not where the curvature lives.
                 double f = Math.Clamp(was > 0.0 ? was / (was - now) : 0.0, 0.0, 1.0);
 
+                // That solves against the CHORD joining two height samples a whole sub-step apart --
+                // 5.5 m of ground at a 5,500 m/s arrival -- so the round stops where the chord meets
+                // its path rather than where the terrain does, and the two differ by the ground's
+                // curvature over that span. It is why the round and its prediction disagree about
+                // the stopping surface by tens of millimetres on rough ground, which is 57% of the
+                // walk's variance. One query at the crossing and one false-position step from the
+                // same bracket; the terrain moves by centimetres over the correction, so a second
+                // iteration would buy nothing. docs/ACCURACY-PLAN.md 3dv.
+                double crossRadius = radiusWas + (radiusNow - radiusWas) * f;
+
+                if (StopOnTheTerrain && reread && was > 0.0)
+                {
+                    double atCross = elapsedInFrame + h * f - frameSeconds;
+                    double3 crossEcl = before + stepEcl * f;
+
+                    if (TryRadiusUnder(crossEcl, atCross, out double there))
+                    {
+                        double alt = Vec.Len(crossEcl - GroundCentre(atCross)) - there;
+
+                        crossRadius = there;
+
+                        if (Math.Abs(was - alt) > 1e-12)
+                        {
+                            f = Math.Clamp(f * was / (was - alt), 0.0, 1.0);
+
+                            // Read again where the refinement actually put it. The step is
+                            // millimetres, so this changes nothing about where the round stops --
+                            // it is what makes GroundRadiusUsed the radius under GroundSampledAtEcl
+                            // rather than the radius under the point that solved for it, which was
+                            // 5.9 mm out on a metre of relief every forty. The pair is what the
+                            // trace's surface line compares, and 46c reads that line.
+                            if (TryRadiusUnder(before + stepEcl * f,
+                                               elapsedInFrame + h * f - frameSeconds,
+                                               out double settled))
+                            {
+                                crossRadius = settled;
+                            }
+                        }
+                    }
+                }
+
                 PositionEcl = before + stepEcl * f;
                 MissDistance = 0.0;
                 HitGround = true;
@@ -711,7 +768,7 @@ internal sealed class Slug : IProjectile
                 // measurements report rather than the frame's first sample.
                 if (reread)
                 {
-                    _groundRadius = radiusWas + (radiusNow - radiusWas) * f;
+                    _groundRadius = crossRadius;
                     _groundSampledAtEcl = GroundQueryAt(PositionEcl, DetonationElapsedInFrame);
                     _groundSampledOverSeconds = -DetonationElapsedInFrame;
                 }

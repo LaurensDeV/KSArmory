@@ -517,6 +517,19 @@ internal sealed partial class Ui
             + "it takes the round's disagreement with its own prediction from 4.669 mm to 0.001. Off "
             + "pending its night, because every flown baseline rests on the current behaviour.");
 
+        bool onTerrain = config.StopWarheadsOnTheTerrain;
+        if (ImGui.Checkbox("Warheads stop on the terrain, not a chord of it", ref onTerrain))
+        {
+            config.StopWarheadsOnTheTerrain = onTerrain;
+        }
+        Tip("On: once the crossing is bracketed, the ground is read again where it actually is and the "
+            + "crossing solved from that. Off: it is solved between two height samples a whole sub-step "
+            + "apart -- 5.5 m of ground at a re-entry speed -- so the round stops where that chord meets "
+            + "its path while its prediction point-samples the height field, and the two differ by the "
+            + "ground's curvature over the span. Headless on ground rolling a metre every forty: 31.4 mm "
+            + "off the surface against 0.4. Flat ground is unchanged. Two height queries on the frame a "
+            + "round lands, and none on any other.");
+
         bool ownEpoch = config.GroundQueryAtOwnEpoch;
         if (ImGui.Checkbox("Warheads ask the ground at their own instant", ref ownEpoch))
         {

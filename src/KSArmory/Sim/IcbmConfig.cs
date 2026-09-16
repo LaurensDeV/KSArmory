@@ -542,6 +542,30 @@ internal sealed class IcbmConfig
     public bool DragAtMidpointVelocity;
 
     /// <summary>
+    /// Solve a released warhead's ground crossing against the terrain under it rather than against
+    /// the chord joining the sub-step's two height samples — <see cref="Slug.StopOnTheTerrain"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>The two samples are a whole sub-step apart, <b>5.5 m of ground</b> at a 5,500 m/s
+    /// arrival, so the round stops where the chord meets its path while the prediction point-samples
+    /// the height field. They stop on different surfaces, separated by the ground's curvature over
+    /// that span — which is why their disagreement scales with relief, and why it carries
+    /// <b>57% of the walk's variance</b> (3dt, 3dv).</para>
+    ///
+    /// <para><b>Headless over ground rolling a metre every forty</b>, the round stops
+    /// <b>31.4 mm</b> off the true surface solving against the chord and <b>0.4 mm</b> against the
+    /// terrain, and the two land 69 mm apart. Flat ground is unchanged to a micron, as it must be:
+    /// there the chord <em>is</em> the surface.</para>
+    ///
+    /// <para><b>Off pending its night.</b> Two height queries on the frame a round lands — one to
+    /// find the crossing, one to record what it settled on — and nothing on any other frame.
+    /// 3dy is the reason this goes first: it is the largest component of the walk's scatter, and
+    /// until it is gone a midpoint-drag arm cannot be resolved at any affordable number of
+    /// blocks.</para>
+    /// </remarks>
+    public bool StopWarheadsOnTheTerrain;
+
+    /// <summary>
     /// Ask the ground where it was at the sub-step's own instant — <see cref="Slug.GroundQueryAtOwnEpoch"/>.
     ///
     /// <para>A terrain query is a direction, and the engine resolves it in the frame the surface
