@@ -35,11 +35,13 @@ common-mode. What is left is the two integrators, and the ruler that was measuri
 The entries to read are **3di** (item 43b flown and shipped), **3dh** (item 43 flown and shipped, and
 KSA's update modal that cost four shots), **43b** (the kick over relief, designed), **3dg** (items 41 and
 40b flown and shipped), **3df** (the centre is the aim loop's lag, and item 43 designed), **3de** (item 42 flown),
-**3dp** (item 47, and the vacuum third), **3do** (item 46: the surface line was measuring its own epoch), **3dn** (45b stopped, and the rig fault that caused it), **3dm** (item 45), **3dl** (the floor re-priced, and the ruler), **3dd** (the spin), **3db** (the ring), **3dc** (40b), **3da** (item 40 flown, including two predictions
-that were wrong), **3cy** (what the instrument can and cannot see), **3cv** and **3cu**. **What is declared next is item 48** (3dp): a third of the walk is made
-**in vacuum**, above KSA's 167 km air ceiling, so drag cannot own that part — and the sample lines already
-carry the step, so whether it grows per frame or per second costs no shots. Eight candidates for the
-21 mm fall are now closed: the predictor's step (0.002 mm over a 40x sweep), the frame rate, the round's
+**3dt** (the night: 46c real, 47 overturned, 48 unresolved), **3ds** (why 47 was wrong), **3dp** (item 47, and the vacuum third), **3do** (item 46: the surface line was measuring its own epoch), **3dn** (45b stopped, and the rig fault that caused it), **3dm** (item 45), **3dl** (the floor re-priced, and the ruler), **3dd** (the spin), **3db** (the ring), **3dc** (40b), **3da** (item 40 flown, including two predictions
+that were wrong), **3cy** (what the instrument can and cannot see), **3cv** and **3cu**. **What is declared next is item 49** (3dt), and the night that asked three questions answered
+two: the **surface disagreement between the two height-field readers is real** — slope −0.953 [−1.120, −0.786],
+r = −0.755, 29 mm of height and 46 mm of ground — and it explains the walk's **scatter** rather than its bias.
+**Terrain is back**: 3dp closed it through a 10 mm print that could not have seen it, and at 0.1 mm \|walk\|
+tracks relief at r = +0.777. **Item 48 is unresolved** and needs a paired frame-rate arm rather than
+incidental variation. Nine candidates for the fall are closed: the predictor's step (0.002 mm over a 40x sweep), the frame rate, the round's
 integrator order (4.7 mm of it), the surface the two models stop on (it does not reach the ground at all),
 the rig's atmosphere (the game's exactly), **terrain** (no per-seat structure left), **the planet's rotation**
 (0.40 mm in a rig that now has it) and **μ** (one number, not two). With everything matched the rig's two
@@ -9094,6 +9096,83 @@ either night — and 3do's finding that the surface disagreement explains the sc
 the same way. The likely shape is **two terms**: a rough-ground scatter that is per-seat, and a one-signed
 17–21 mm that is not. Item 48 asks about the second and is unaffected.
 
+## 3dt. The gathering night: 46c real, 47 overturned, 48 unresolved — 2026-09-16
+
+`2026-09-16-walk`, 12 unpaired blocks of shipped code on `31ccf35` and KSA 2026.9.10.5438, 96 flights, **12 of
+12 PASS 6 of 6**, none timed out, no rocket destroyed in its ascent. Centre **0.02 m**, landing **0.03 m**,
+dispersion 0.01. Endings `floor`/`payback`/`noimprov` 67/26/3, no `clock` or trim ending. **One** held-control
+warning all night — seat 1 on shot 009, throttle stuck at 0.117 against 0.030 for a frame while the UI held the
+keyboard; that flight still passed 6 of 6 and its walk is unremarkable, so it is recorded rather than dropped.
+
+Flown to answer three questions, all declared before the read.
+
+### 46c — the surface disagreement is REAL, and it is a scatter term
+
+| | declared | measured, n = 96 |
+| --- | --- | --- |
+| slope of walk on `apart` | — | **−0.953 m/m [−1.120, −0.786]**, r = −0.755 |
+| **real** (interval excludes 0) | the first question | **yes** |
+| wholly geometric (contains −1.59) | probably not | **no** — attenuation 0.60× |
+| share of the **bias** | ≈ 0 | **−5%** |
+| share of the **scatter** | — | **r² = 0.57** |
+| CONTROL: cross channel on the same x | ~0 | **+0.055, r = +0.394** |
+
+**The two height-field readers disagreeing is a genuine contributor to the walk** — 29 mm of height, 46 mm of
+ground — and the broken line had hidden it completely, reading +0.013 and r = +0.40 where the repaired one
+reads −0.95 and −0.755.
+
+**And it explains the scatter, not the bias**, exactly as declared: `slope × mean(apart)` is +0.5 mm against a
+mean walk of −11.4 mm. 3cv's rule cuts both ways and an r of 0.76 on the scatter is not an account of a
+one-signed term.
+
+**The control is impure and that bounds the claim.** The cross channel should carry no such term and regresses
+at r = +0.394. So some of the −0.953 is something both channels see — seat, terrain, or the arrival frame
+itself — and the honest reading is that the surface term is real and its *size* is not yet pinned. The
+declared dilution check would need `apart`'s error variance at 0.67× its true variance, which is plausible and
+unverified.
+
+### 47 — terrain is NOT ruled out, and 3dp is overturned
+
+| | shape night, 10 mm print | this night, 0.1 mm print |
+| --- | --- | --- |
+| \|walk\| on sub-km relief | r = **+0.062** | **r = +0.777**, slope +1.04 mm per m of relief |
+| signed walk on relief | r = +0.23 | r = +0.18 |
+| seat means, \|walk\| | 23–33 mm | **9.6–34.0 mm** |
+
+3dp closed terrain on a reading that could not have seen it: every seat mean fell inside one 10 mm bin. At
+0.1 mm the three roughest seats carry the three largest walks and the correlation is 0.78 at n = 8 seats.
+
+**The two nights do not disagree** — quantisation attenuates toward zero, so +0.062 is what +0.777 looks like
+through a 10 mm print. The earlier night was blind and its silence was read as evidence. That is a different
+and more dangerous mistake than two conflicting measurements.
+
+**What survives 3dp**: the *signed* walk still has no seat structure on either night. So the shape is **two
+terms** — a per-seat magnitude that tracks rough ground, and a one-signed ~11–21 mm that does not — and only
+the second is what item 48 asks about.
+
+### 48 — UNRESOLVED, as declared, and the point estimate leans the wrong way
+
+| | |
+| --- | --- |
+| frame time across shots | **17.4–34.2 ms**, a 62% spread — wider than the 23% priced |
+| slope of mean walk on median `dt` | **−5.57e−04 m/ms ± 6.6e−04**, r = −0.260 |
+| 95% interval | **[−1.84e−03, +7.28e−04]** |
+| per-frame predicts | **+4.21e−04** — inside the interval |
+| per-second predicts | **0** — also inside |
+
+**Both inside, so UNRESOLVED**, which is the declared outcome and is not a null. The interval rules out a
+per-frame term more than about four times the predicted size, and nothing else.
+
+**The point estimate is negative, which is the opposite sign to per-frame** — and worth recording because at 4
+shots it looked the other way. The two fastest shots (17.4 and 18.1 ms) carried walks of +0.001 and −0.003
+against −0.021 to −0.028 at 25–30 ms, and a per-frame term predicts *more* walk at a faster frame, not less.
+**That is also exactly what the pre-declared confound predicts**: fast frames are the regime where the
+correction loop runs 1.17–3.38 passes against 0.23–0.25, so the loop and the frame rate cannot be separated
+here. Pre-registering it is the only reason this is a caveat rather than a discovery.
+
+**Next for 48 is ranked item 8**, `minTargetFrameRate` as a paired arm: it varies the frame rate *within* a
+world, so both arms share one regime and the confound cancels — which incidental variation cannot do at any n.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -9202,8 +9281,10 @@ what 20b is flying against.
 | ~~46~~ | ~~Read `surface at the landing point` across a night~~ | done | **the line was measuring its own epoch, not a surface: the walk regresses on it at +0.013 m/m where a real one predicts −1.59. Fixed and unverified** — 3do |
 | ~~46b~~ | ~~Confirm the repaired surface line collapses toward zero~~ | done, verified in game | **55x: sd 1.46 m -> 0.026 m. The residue is real — 26 mm of height, 42 mm of ground — and the same order as the walk** — 3do |
 | **46c** | **Read the repaired surface residue across a night.** 42 mm of ground against a 25 mm walk, but the slope is +0.32 where a real one gives −1.59, and n=8 cannot decide | free with whatever flies next | 3do |
-| ~~47~~ | ~~Re-read whether the walk still has per-seat structure~~ | done | **none left: 7 of 8 seats at −23 to −33 mm against a 7.3x spread in relief, r=+0.23. Terrain, rotation and μ all closed** — 3dp |
-| **48** | **Does the vacuum third grow per frame or per second?** The coast runs under warp 1.0x-8.0x, which varies the simulated step eightfold at constant frame time and separates the two. **Was blocked on the walk's 10 mm print; widened to 0.1 mm in `31ccf35` and re-flying** | 0 shots, on `2026-09-16-walk` | 3dp, 3dq: the cleanest remaining handle on a common one-signed 21 mm |
+| ~~47~~ | ~~Re-read whether the walk still has per-seat structure~~ | done, then **OVERTURNED** | **3dp read it through a 10 mm print and could not have seen it. At 0.1 mm \|walk\| on relief is r = +0.777: terrain drives the MAGNITUDE. The signed term is still common** — 3ds, 3dt |
+| **49** | **Make the two height-field readers one call.** `GetTerrainHeightFromDirCce` for the round against `...Ccf` for the prediction disagree by 29 mm of height, 46 mm of ground, and that is r = −0.755 of the walk's scatter | small, then a paired night | 3dt: the largest named term in the walk, and the control is impure so its size is not pinned |
+| **48** | ~~Does the walk grow per frame or per second?~~ **UNRESOLVED on incidental frame-rate variation**, as declared — the interval admits both, and the fast shots are also the fast *regime*, so the correction loop and the frame rate cannot be separated | flown | 3dt |
+| **48b** | **Re-ask 48 with ranked item 8's `minTargetFrameRate` as a paired arm**, which varies the frame rate WITHIN a world so both arms share one regime and the confound cancels | 12 paired shots | 3dt: incidental variation cannot answer this at any n |
 | **2b** | The 20 s clearance knife-edge — the second branch, now the largest at long range | 12 paired shots | 12,902 km: 8.80 km -> ? |
 | ~~3~~ | ~~**Diagnostic**: log the release residual and `_response` per flight~~ | done | `release summary`, read by `shot-report.py`; 3x |
 | ~~4~~ | ~~Measure `dMiss/dV` at both flown geometries~~ | done | **the residual is worth 36 m per m/s, not 884** — 3x |
