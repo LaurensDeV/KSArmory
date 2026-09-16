@@ -227,11 +227,12 @@ public class TerrainStaircaseTests(ITestOutputHelper Out)
     [Fact]
     public void OverGroundTheSubStepMovesTheScatterAndNotOnlyTheBias()
     {
-        double[] steps = [4.0, 1.0, 0.25];
+        double[] steps = [4.0, 1.0, 0.25, 0.0625, 0.03125];
         const double Slope = 0.15;
         double[] nudges = [.. Enumerable.Range(0, 40).Select(i => -1.0 + i * 0.05)];
 
-        Out.WriteLine($"ground slope {Slope}, 40 release states, prediction at its shipped 0.25 s\n");
+        Out.WriteLine($"ground slope {Slope}, 40 release states, prediction at its shipped 0.25 s");
+        Out.WriteLine("the engine's float terrain tread is 0.31 m of ground\n");
         Out.WriteLine($"{"round sub-step (ms)",21} {"bracket (m)",13} {"walk bias (mm)",16} {"walk sd (mm)",14}");
 
         Dictionary<double, double> sd = [];
