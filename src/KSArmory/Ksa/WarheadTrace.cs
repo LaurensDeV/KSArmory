@@ -545,6 +545,11 @@ internal sealed class WarheadTrace
         // they are almost all zero and a rate read off them is quantisation. Measured: whether the
         // walk grows per frame or per simulated second reads r = -0.185 against +0.083 on 399
         // intervals, which is noise either way. ACCURACY-PLAN.md 3dq.
+        //
+        // Deliberately NOT Distance.Say, which is this repo's general answer to a fixed unit going
+        // blind: every reader of this line -- shot-report.py, miss43.py, the scratch scripts --
+        // parses the components as bare metres, and a unit that changes with the value silently
+        // rescales a night's worth of them. The magnitude carries a unit because it always has.
         return $" | walk from the release probe {metres:F4} m"
                + $" ({Vec.Dot(separation, _probeAlong):+0.0000;-0.0000;0.0000} down,"
                + $" {Vec.Dot(separation, _probeCross):+0.0000;-0.0000;0.0000} cross)";
