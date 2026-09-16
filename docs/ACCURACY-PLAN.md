@@ -9874,6 +9874,30 @@ Which is the walk again in miniature — the round not flying what the predictor
 the same order as the walk's own 23.57 mm sd. The two are plausibly one term seen from two directions, and
 nothing here establishes that.
 
+### 30b's night, declared before it flies — 2026-09-16
+
+Unpaired, shipped code, 12 blocks. **No arm**: the question needs volume and attribution, not a comparison, and
+3dy's arithmetic still holds — at 23.6 mm of scatter neither built arm resolves in twelve blocks, so one would
+ride along without settling anything.
+
+```bash
+KSARMORY_SCENARIO_SAVE='SOLVER SCALE 8' ./tools/shot-batch.sh --arms base=HEAD \
+    --aim 26.485S,68.148W --blocks 12 --out ~/shots/2026-09-16-sixtrace
+```
+
+**The question**: is the 21.2 mm within-rocket landing deviation the same term as the 23.6 mm walk?
+
+* **Apparatus, checked on shot 001 before the rest is believed**: **six** `round N away` lines per rocket
+  against today's one, 48 traces in a world, and every sample line carrying its craft and round. If the traces
+  do not all begin, or the identity suffix is missing, stop and fix rather than fly eleven more.
+* **The read**: per rocket, the six warheads' walks against their six landings. If the within-rocket walk
+  deviation *is* the landing deviation — slope ≈ 1, and their sds agree — the two are one term and five
+  investigations have been circling one thing. If the walk's within-rocket spread is much smaller than the
+  landing's, they are two ~20 mm terms and the budget is worse than it reads.
+* **The control**: the walk's *pooled* sd must stay at 23.6 mm. Tracing more warheads cannot change the
+  quantity; if it does, the extra traces are perturbing what they measure.
+* **Watch**: frame time against 44.9 ms, since the whole cost argument is that 48 traces do not move it.
+
 **Nothing to build.** The next honest step is to ask whether the within-rocket landing deviation *is* the walk:
 they are the same size, and the walk is already traced for round 1 of each rocket. Tracing more than round 1
 (item 30b, unbuilt) would answer it directly.
