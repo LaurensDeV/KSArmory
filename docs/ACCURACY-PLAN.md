@@ -8926,8 +8926,12 @@ baseline arm). Seven of eight seats sit between −23 and −33 mm:
 Against a **7.3× spread in relief**, the walk regresses on roughness at **r = +0.23** signed and **+0.06** on
 magnitude — nothing. Seat 6 is the one outlier and carries a 98 mm sd on six flights, so it is one flight
 rather than a seat. **Item 40 took the per-seat term out and none has come back at this scale**, which closes
-terrain and makes what is left a *common systematic* — a better thing to chase, because a uniform one-signed
-offset has a single cause.
+terrain and makes what is left a *common systematic*.
+
+> **⚠ That conclusion was drawn through a 10 mm print and is in doubt — see 3ds.** The walk printed two
+> decimals on this night, so every seat mean above landed in one 10 mm bin and the spread *could not* show.
+> Re-read at 0.1 mm on `2026-09-16-walk`, the seat means span **0.009–0.043 m** and |walk| regresses on
+> roughness at **r = +0.778** against the +0.062 here. Terrain may not be closed after all.
 
 **The planet's rotation is not it either.** The rig had flown a still planet throughout, which is the one case
 where every rotation term is identically zero, so it was the last difference a rig could still have. Adding
@@ -9059,6 +9063,36 @@ them, which is exactly when a decision rule has to be fixed. `dt48.py`, shot lev
 surface line were *too coarse* or *mis-epoched* — they reported the wrong number. This one reported the
 right number under the wrong name, which is worse in one specific way: it invites a correct calculation on
 the wrong quantity, and the answer looks reasonable.
+
+### 3ds. Item 47 was read through a 10 mm print, and terrain may be back — 2026-09-16
+
+Partial, at 9 of 12 shots; the full read follows when `2026-09-16-walk` lands. Recorded now because it
+contradicts a conclusion made earlier the same day and that should not wait for a tidier moment.
+
+3dp closed terrain on the shape night: |walk| regressed on sub-km relief at **r = +0.062** across a 7.3×
+spread, and the seat means sat between −23 and −33 mm. **Both readings were quantisation.** The walk printed
+two decimals there, so every seat mean fell in one 10 mm bin and no structure could survive the print.
+
+Re-read at 0.1 mm over 72 warheads:
+
+| seat | 7 | 1 | 8 | 2 | 5 | 4 | 6 | 3 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| \|walk\|, mm | 9.4 | 12.9 | 15.3 | 17.9 | 18.2 | 36.7 | 43.1 | 30.1 |
+| sub-km rms relief, m | 7.1 | 3.3 | 2.8 | 5.1 | 6.8 | 12.0 | 15.8 | 20.5 |
+
+The three roughest seats carry the three largest walks, and |walk| on roughness reads **r = +0.778** (n = 8
+seats). The *signed* walk still shows nothing (r = +0.14), which is consistent: rough ground displaces the
+stop in whichever direction the local slope runs, so it inflates the magnitude without a preferred sign.
+
+**This is the fourth instrument fault biting a conclusion rather than merely a measurement**, and the first
+where it reversed one. The print was widened for item 48; it changed item 47's answer on the way past, which
+is the argument for widening an endpoint the moment it is within an order of magnitude of what it measures
+rather than when something fails.
+
+**What it does not change**: the walk's **bias** is still common — the signed term has no seat structure on
+either night — and 3do's finding that the surface disagreement explains the scatter and not the bias points
+the same way. The likely shape is **two terms**: a rough-ground scatter that is per-seat, and a one-signed
+17–21 mm that is not. Item 48 asks about the second and is unaffected.
 
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
