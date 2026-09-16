@@ -212,6 +212,11 @@ round, the prediction and the aim point all read the same treads. What it does i
 under how finely the surface can be *asked about*, and turn any residual miss into a height jump of
 `tread x local slope`.
 
+**Not biasing is not the same as costing nothing.** The round brackets its ground crossing across one
+sub-step and the prediction refines its own to under a metre, so the two land on *different treads*
+and the difference is a scatter rather than an offset — the packing multiplies the walk's sd by
+**1.1x to 1.6x** at the slopes under the target (`TerrainStaircaseTests`, `docs/ACCURACY-PLAN.md` 3eh).
+
 Nothing in this mod can reach it.
 
 ### What is between the samples, and whether it is ground

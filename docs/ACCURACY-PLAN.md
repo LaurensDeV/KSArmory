@@ -9902,6 +9902,195 @@ KSARMORY_SCENARIO_SAVE='SOLVER SCALE 8' ./tools/shot-batch.sh --arms base=HEAD \
 they are the same size, and the walk is already traced for round 1 of each rocket. Tracing more than round 1
 (item 30b, unbuilt) would answer it directly.
 
+## 3ef. The walk and the kick's injection are two independent terms — 2026-09-17
+
+`~/shots/2026-09-16-sixtrace`, 12/12 PASS, no exceptions, **576 traced warheads — 96 rockets by
+six**, the first night with every released warhead traced rather than the first.
+
+**The control, and the way it was mis-specified.** The declared control was "the pooled walk sd must
+still read 23.57 mm". It read **26.52**. That is not a perturbation: tracing all six changes *which*
+warheads are in the sample, so the pooled number legitimately moves. Posed properly — round 1 alone,
+the population the 23.57 was measured on — it reads **25.54 mm**, a 1.08x night-to-night swing.
+**A control has to name the population, not just the statistic.**
+
+### The declared read: is the walk the same thing as the landing's within-rocket deviation?
+
+Declared rule: slope ~ 1 with matching sds means one term; a walk spread far under the landing's
+means two. Regressing the within-rocket landing deviation on the walk:
+
+| | slope | r | within-rocket walk sd | landing sd |
+| --- | --- | --- | --- | --- |
+| down | +0.425 [+0.290, +0.559] | +0.249 | 19.53 mm | 33.24 mm |
+| cross | +0.663 [+0.554, +0.772] | +0.445 | 2.19 mm | 3.26 mm |
+
+Both intervals **exclude 1 and exclude 0**: partially related, neither identical nor independent.
+
+### The sharper read, and it overturns 3ee's explanation
+
+Regressing the within-rocket **landing** deviation on the **probe's**, n=558:
+
+    down   slope -1.090 +/- 0.052   r = -0.667   r^2 = 0.444
+    cross  slope -0.294 +/- 0.040   r = -0.296
+
+3ed measured -0.869 on 48 warheads; at twelve times the data it is **-1.090, whose 2-sigma interval
+[-1.194, -0.986] contains -1 and excludes 0.** Write `L = T - P`: slope 0 means the probe measures a
+real per-warhead difference and the kick is right; slope -1 means the probe's differential is
+uncorrelated with the true one and the kick injects it one for one. **It is -1.**
+
+**3ee said that differential was real and 3ed's reading was the error. That is half right.** 3ee's
+headless measurement stands — six releases 28 ms apart with a fixed ejection genuinely land 15.51 mm
+apart. What it does not establish is that the *probe-miss* kick is what removes it, and this night
+says it is not: the **tube-offset kick already gives the ring back exactly** (the tube's offset
+regresses on the walk at **r = +0.000**, and on the rocket-mean walk at r = -0.000). The real
+geometric differential is spent before the miss kick is applied, and what the miss kick then cancels
+behaves as noise.
+
+**3ee's "bad trade" was also a different fix from the one worth testing.** It priced *latching on
+warhead 1*, which gives all six a common offset and does cost the centre 33.6 -> 38.0 mm. Kicking by
+the six-warhead **mean** leaves the centre alone by construction. That distinction was not drawn.
+
+### The walk and the probe are independent
+
+| within-rocket | walk sd | probe sd | walk on probe |
+| --- | --- | --- | --- |
+| down | 19.80 mm | 20.65 mm | r = **-0.058** (r^2 0.003) |
+| cross | 2.19 mm | 3.27 mm | r = -0.063 |
+
+Two independent terms of nearly equal size. The walk is blind to the kick by construction — it is
+measured against the warhead's own post-separation prediction, taken after the kick — and this
+confirms it empirically.
+
+**But the walk does not pass into the landing at unit gain, and assuming it does is wrong.** The
+landing deviation regresses on the walk at **+0.426**, not 1. Since the two predictors are mutually
+uncorrelated their shares of the landing's variance add, and the honest decomposition of the
+within-rocket **down** landing scatter of 33.76 mm is by share, not in quadrature:
+
+| | r^2 of var(dL) | equivalent |
+| --- | --- | --- |
+| the kick injecting its own probe's differential | 0.445 | **22.51 mm** |
+| the walk | 0.062 | **8.43 mm** |
+| unexplained | 0.493 | **23.71 mm** |
+
+**Half the within-rocket landing scatter is still unaccounted for**, and the walk — the instrument
+this programme has spent most of its nights on — is the smallest of the three.
+
+The reason the walk enters at 0.426 rather than 1 is worth recording: `landing = prediction + walk`
+by definition, so a gain under 1 means the two **anti-correlate**. The prediction's own
+within-rocket deviation works out at **34.62 mm** with `r = -0.329` against the walk. A warhead
+whose prediction is further out walks partly back toward it.
+
+### The counterfactuals, and why none of them is buildable
+
+Priced per rocket over 93 rockets with all six landed and probed. The kick's cap never binds — the
+miss kicks run to a **max of 3.817 mm/s against a 10 mm/s cap** — so the arithmetic approximates
+nothing away.
+
+| median, mm | centre | dispersion | worst warhead |
+| --- | --- | --- | --- |
+| today (kick by own probe) | 21.92 | 8.62 | 31.32 |
+| kick by the six-mean | 21.92 | 8.91 | 31.89 |
+| no kick at all | **459.01** | 8.91 | 478.11 |
+
+**The kick's mean is load-bearing and enormous** — removing it costs 459 mm of centre, 0/93 rockets
+better, p = 2e-28. Only its *differential* is noise.
+
+A declared estimator search (`mean`, `median`, `clip-k`, `shrink-s`), trained on blocks 1-6 and
+tested on the untouched 7-12, picked **shrink-0.5** — kick by the mean plus half the deviation. On
+the held-out half it passes the declared bar: median worst 0.999x, rms worst 0.872x, better on
+34/45 rockets, sign test **p = 0.0008**.
+
+**And it cannot be confirmed in flight.** Its effect is a *tail compression*, not an improvement:
+the rms of the worst warhead falls 0.87x while the median does not move at all. Simulating nights
+from the measured distributions:
+
+| design | power at p<0.05 |
+| --- | --- |
+| ordinary paired night, 48 rockets an arm | **10%** |
+| 4 nights, 384 an arm | 46% |
+| within-rocket split, 3 warheads each way, 96 rockets | **4.8%** — the false-positive rate |
+
+The within-rocket design fails because the effect lives in a group's **worst** warhead, an order
+statistic no per-warhead design reaches. So `shrink-0.5` is recorded as a **measured hypothesis that
+no affordable flown design can confirm**, and CLAUDE.md's rule stands: it is not a `fix` until it has
+been flown. Not built.
+
+---
+
+## 3eg. The warhead sub-step is a pure downrange bias, worth -5.36 mm at the shipped 1 ms — 2026-09-17
+
+No shots. `SubStepConvergenceTests` flies the **real `Slug` through the real `RoundDriver`** — not
+the predictor — from the flown release geometry (877 km, arriving ~32 deg) down to a sphere, at
+seven sub-steps.
+
+| sub-step | landing vs the converged answer |
+| --- | --- |
+| 4 ms | -21.899 mm |
+| 2 ms | -10.764 mm |
+| **1 ms — what the Mk 21 ships** | **-5.360 mm** |
+| 0.5 ms | -2.501 mm |
+| 0.25 ms | -1.072 mm |
+
+**First order in the step**: each halving halves the error. Across twenty release states the term is
+**one-signed — down sd 0.002 mm, and exactly 0.000 mm in cross at every step.**
+
+So the sub-step is **about half the walk's -10.3 mm down bias and none of its 19.8 mm scatter.** That
+separation is what the flown data could not make: frame time and sub-step are both block-level in a
+night, and observing cannot push either past n=12. The impact-frame `dt` is identical for all six
+warheads of a rocket (sd 0.000), so there is no warhead-level version of the question.
+
+`IcbmConfig.WarheadSubStepMs` was already built and already documented "off, pending its night". Its
+night is declared in `~/shots/scripts-2026-09-17/DECLARE-substep-night.md` and flying: three arms one
+line apart (1 ms shipped, 4.0, 0.25), five blocks, each arm once per block. The primary read is the
+**slope of the flown walk on the predicted sub-step bias**, which must be 1 and is powered at 6.7
+sigma; the falsifier is that **cross must not move**, since headless says it is exactly zero there.
+
+**The night is not powered for `fine` against `base` on its own** — 4.288 mm against 14.74 mm of
+rocket-to-rocket noise at 40 an arm is 25%. That is stated in the declaration so it cannot be claimed
+afterwards.
+
+---
+
+## 3eh. What is left of the walk's scatter is the ground — 2026-09-17
+
+No shots. With the sub-step ruled out as a pure bias, the walk's 19.8 mm of within-rocket scatter
+needs a source that varies warhead to warhead. The headless rig flies to a **sphere**; the game flies
+to **terrain**, and the two do not bracket their crossing equally:
+
+- the prediction refines its crossing to **under a metre** of track (`ImpactPredictor`,
+  `stopOnTheSurface`)
+- the round brackets it across **one sub-step** — 5.5 m at 1 ms and 5,500 m/s
+
+**What slope is actually under the target.** From the night's own kick lines, `|ground rise| / probe
+miss` over 558 warheads: median **0.149**, 75th percentile **0.345**, 90th **0.823**. The ground at
+the aim site is rough.
+
+`TerrainStaircaseTests` flies the round and its prediction to one relief, 80 release states, with the
+engine's `float3` direction packing (`Celestial.cs:833`) on and off:
+
+| peak slope | walk sd, packed | walk sd, exact | ratio |
+| --- | --- | --- | --- |
+| 0.05 | 3.07 mm | 1.94 mm | 1.6x |
+| 0.10 | 5.91 mm | 3.62 mm | 1.6x |
+| **0.15 — the site's median** | **14.46 mm** | 13.12 mm | 1.1x |
+| 0.20 | 11.09 mm | 9.26 mm | 1.2x |
+| **0.35 — its 75th percentile** | **27.81 mm** | 19.08 mm | 1.5x |
+
+**The flown 19.8 mm sits between the site's median slope and its 75th percentile.** The walk's bias
+stays near -4 mm at every slope, matching 3eg's -5.36 mm independently — so **terrain contributes
+scatter and not bias**, which is exactly the shape the flown walk has.
+
+**And it corrects a reading of our own terrain note.** `docs/KSA-TERRAIN.md` and
+`docs/KINETIC-FLOOR.md` both say the float staircase "is deterministic and identical for every
+caller, so it biases nothing — the round, the prediction and the aim point all read the same treads."
+That is true **of the bias and only of the bias**. The round and the prediction resolve their
+crossings at *different points along the track*, so they read **different treads**, and a tread is
+`0.31 m x local slope` of height which `cot gamma` = 1.59 then multiplies. Measured above, the
+packing multiplies the walk's sd by **1.1x to 1.6x**. Nothing in this mod can reach it.
+
+The fixture is a bounded sinusoid rather than the engine's field, so this establishes the **size and
+the mechanism, not a fraction**. What it closes is the question of whether the residual scatter needs
+a cause elsewhere: it does not.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.

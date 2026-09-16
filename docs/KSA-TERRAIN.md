@@ -107,7 +107,13 @@ directions, the tread is **0.31 m** and the worst displacement over 20,000 rando
 So below about a third of a metre the modifier stack answers with one value: **the surface is a
 staircase.** It is deterministic and identical for every caller, so it biases nothing — the round,
 the prediction and the aim point all read the same treads. What it does is put a floor under how
-finely the surface can be asked about at all. The base term is unaffected: `SampleHeightBicubic` is
+finely the surface can be asked about at all.
+
+**It biases nothing and it still scatters**, because two callers do not ask at the same place. The
+round brackets its ground crossing across one sub-step — 5.5 m of track at 1 ms and 5,500 m/s — and
+`ImpactPredictor` refines its own to under a metre, so the two resolve onto *different treads* of the
+same staircase. Measured headlessly (`TerrainStaircaseTests`), the packing multiplies the walk's
+scatter by **1.1x to 1.6x** across the slopes actually under the target. `docs/ACCURACY-PLAN.md` 3eh. The base term is unaffected: `SampleHeightBicubic` is
 `double` throughout and its texel samples are exact 16-bit integers.
 
 A body with no normal map returns before any of this, in `double`.
