@@ -156,6 +156,34 @@ public class PredictorStepGapTests(ITestOutputHelper Out)
     }
 
     /// <summary>
+    /// The <em>round</em>, stated rather than assumed, beside the geometry above. Three rig faults in
+    /// one session all had this shape — a default that reads as "unset" and flies as something real —
+    /// so what the rig flies is pinned against what the game flies rather than left to inspection.
+    /// <c>docs/ACCURACY-PLAN.md</c> 3dn.
+    /// </summary>
+    [Fact]
+    public void TheRigFliesTheRoundTheGameFlies()
+    {
+        MunitionProfile shipped = Arsenal.ReentryVehicleMk21;
+
+        // Drag comes through the profile, so a change to the model reaches the rig by itself. The
+        // Mk 21 is one of the six rounds named in ArsenalTests as keeping a hand-typed constant, so
+        // "a round's drag from its mass, calibre and coefficient" is a no-op for this one.
+        Assert.False(shipped.DragFromShape, "the Mk 21 should still carry its hand-typed DragK");
+        Assert.Equal(shipped.DragK, shipped.AppliedDragK, 12);
+
+        // A density ratio is a multiple of this over every body, which is what the rig's
+        // exp(-h/H) returning 1.0 at the surface means.
+        Assert.Equal(1.225, Medium.ReferenceDensityKgPerM3, 6);
+        Assert.Equal(1.0, DensityAt(new double3(R, 0, 0)), 9);
+
+        // And the integrator order, which is the one that cost a night: the property defaults to
+        // false and IcbmComputer sets it from a config that ships true.
+        Assert.True(new IcbmConfig().SecondOrderWarheads,
+                    "if released warheads stop being second order, this rig's numbers change by 300x");
+    }
+
+    /// <summary>
     /// <b>Refuted.</b> The predictor's two steps were the declared suspect in 3dl, on a 70:1 ratio
     /// against the round. Forty times finer moves the arrival by less than a tenth of a millimetre:
     /// it bisects onto the crossing near the ground, so its step never reaches the answer.
