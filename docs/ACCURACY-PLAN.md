@@ -9620,6 +9620,59 @@ to find the rest of the scatter rather than to fly the drag arm again.
 (2.3–8.3 mm, per-seat sign, 3dx Rank 2), the `Ecl` round-off (2.9 mm, 3dp), the release ring, and whatever
 produces the vacuum third that no mechanism yet explains (3dp). None is priced against the others.
 
+## 3eb. The release kick is solved in vacuum — and it cancels against itself — 2026-09-16
+
+`ReleaseFocus` builds both its arrival and its sensitivity columns from `Kepler.TryCoast`, which contains no
+drag term at all, and propagates them for the flight time of a **drag** arc taken from `ImpactPredictor`.
+Confirmed in the code, and it is real at the flown release:
+
+| | |
+| --- | --- |
+| vacuum arc at the drag flight time | **1,918 m below the surface**, 3.68 km from the drag impact |
+| its speed there | **6,900 m/s** against the drag arrival's 5,569 — 24% high |
+| the arrival direction the solve nulls against | **0.046°** from the real one |
+| the sensitivity columns, drag ÷ vacuum | **1.321 / 1.324 / 1.078** — 32% wrong, and anisotropic |
+
+A 32% sensitivity error against a flown ring residue of 0.6% does not add up, and the reason is the thing
+worth writing down:
+
+**It cancels against itself.** `TryKick` flies the offset's own displacement through the *same* vacuum
+propagator it builds the columns from, so the kick is `−A_vac⁻¹ · d_vac`. Applied to a real round it moves the
+landing by `A_drag · A_vac⁻¹ · d_vac`, and where `A_drag ≈ k·A_vac` the `k` divides out **exactly**. Only the
+*anisotropy* of that ratio survives — 1.32 against 1.08 — and that is a second-order term.
+
+**End to end, measured** (`VacuumArrivalProbe`): a 0.86 m ring offset puts an unkicked round **1.084 m** from
+the mean; the vacuum-solved kick leaves **1.6 mm**, or **0.15%** of it.
+
+### What that settles
+
+* **The vacuum solve is worth ~1.6 mm, not the ~8–10 mm it looks worth from the 32% alone.** Replacing
+  `Kepler.TryCoast` with the drag predictor in the solve — three extra full integrations per column per
+  warhead — buys millimetres. It is *correct* and it is not a priority.
+* **The flown ring residue is 0.6%, four times what the vacuum solve accounts for**, so **its cause is not
+  established**. That is the open question, not the propagator.
+* **The arrival-direction arm is 1.3 mm** on the ring's 1.59 m image, from a 0.046° rotation — a fifteenth of
+  what it estimates to from `v_perp·(1/v_drag − 1/v_vac)`, because the vacuum arc's steeper flight-path angle
+  at its deeper stopping point partly compensates.
+
+### Two real faults found beside it, neither about magnitude
+
+* **`MaxMissKickMetresPerSecond` refuses rather than clamps** (`ReleaseFocus.cs:278-286`). Past the 10 mm/s
+  cap the kick is computed, reported and **discarded**, so a rocket solving at 10.1 mm/s keeps **100%** of its
+  miss instead of being given the 10 that would remove 99% of it. Flown once at 13.998 mm/s with a release
+  7 m out (3dh), about one flight in 80. **Clamping to the cap's direction, or latching the decision on the
+  first warhead, is strictly better than refusing** — and the refusal is per-warhead with no latch, so if the
+  trim ever fires mid-salvo two warheads of one rocket could land metres apart.
+* **`ReleaseFocusTests`' bar is 12× looser than the achieved residue** — `FocusedAcross = 0.05 m` against an
+  actual 0.4 cm. A regression from 4 mm to 40 mm passes the suite in silence.
+
+### The estimate-versus-measurement pattern, now three for three
+
+Every agent this session found a **real mechanism** and **over-estimated its size**: the frame-matrix timing
+(refuted outright), the cross-channel control (the headline survived but the benchmark moved), and this one
+(8–10 mm estimated, 1.6 mm measured). The mechanisms were worth having and none of the magnitudes survived
+contact with a measurement. **Read the code for what is wrong; fly or measure for how much.**
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
