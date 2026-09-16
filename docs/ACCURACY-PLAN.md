@@ -35,7 +35,7 @@ common-mode. What is left is the two integrators, and the ruler that was measuri
 The entries to read are **3di** (item 43b flown and shipped), **3dh** (item 43 flown and shipped, and
 KSA's update modal that cost four shots), **43b** (the kick over relief, designed), **3dg** (items 41 and
 40b flown and shipped), **3df** (the centre is the aim loop's lag, and item 43 designed), **3de** (item 42 flown),
-**3dt** (the night: 46c real, 47 overturned, 48 unresolved), **3ds** (why 47 was wrong), **3dp** (item 47, and the vacuum third), **3do** (item 46: the surface line was measuring its own epoch), **3dn** (45b stopped, and the rig fault that caused it), **3dm** (item 45), **3dl** (the floor re-priced, and the ruler), **3dd** (the spin), **3db** (the ring), **3dc** (40b), **3da** (item 40 flown, including two predictions
+**3dw** (46c re-read: pooling was hiding the geometry), **3dv** (the chord), **3dt** (the night: 46c real, 47 overturned, 48 unresolved), **3ds** (why 47 was wrong), **3dp** (item 47, and the vacuum third), **3do** (item 46: the surface line was measuring its own epoch), **3dn** (45b stopped, and the rig fault that caused it), **3dm** (item 45), **3dl** (the floor re-priced, and the ruler), **3dd** (the spin), **3db** (the ring), **3dc** (40b), **3da** (item 40 flown, including two predictions
 that were wrong), **3cy** (what the instrument can and cannot see), **3cv** and **3cu**. **What is declared next is item 49** (3dt), and the night that asked three questions answered
 two: the **surface disagreement between the two height-field readers is real** — slope −0.953 [−1.120, −0.786],
 r = −0.755, 29 mm of height and 46 mm of ground — and it explains the walk's **scatter** rather than its bias.
@@ -9125,11 +9125,11 @@ reads −0.95 and −0.755.
 mean walk of −11.4 mm. 3cv's rule cuts both ways and an r of 0.76 on the scatter is not an account of a
 one-signed term.
 
-**The control is impure and that bounds the claim.** The cross channel should carry no such term and regresses
-at r = +0.394. So some of the −0.953 is something both channels see — seat, terrain, or the arrival frame
-itself — and the honest reading is that the surface term is real and its *size* is not yet pinned. The
-declared dilution check would need `apart`'s error variance at 0.67× its true variance, which is plausible and
-unverified.
+**The control is impure — and 3dw shows it is supposed to be.** A round stopping higher arrives earlier, so
+the planet has turned less under it and the ground-fixed point shifts east by 0.141 m per m, onto both axes.
+**−1.59 is the wrong null**; with that term it is about −1.48. And the pooled fit here is biased toward zero:
+re-fit per seat, as 3da's protocol requires, the slope is **−1.316 [−1.757, −0.875]**, which contains the
+geometric prediction. The corrected reading is in 3dw.
 
 ### 47 — terrain is NOT ruled out, and 3dp is overturned
 
@@ -9283,6 +9283,71 @@ Worth **the walk's scatter and none of its bias** — 3dt has the walk on `apart
 **It should also shrink with the sub-step**, which is a free prediction to check against: halving the sub-step
 halves the chord and should roughly quarter a curvature term. `IcbmConfig.WarheadSubStepMs` is already built
 and off (3dn), so that is testable without new code.
+
+## 3dw. 46c re-read: the headline survives, and pooling was hiding the geometry — 2026-09-16
+
+No shots. 3dt reported the walk on `apart` at **−0.953 [−1.120, −0.786]** pooled over 96 warheads, called it
+real but **not wholly geometric** against a −cot γ = −1.59 benchmark, and flagged an impure control. All three
+of those readings move.
+
+### The control is impure because it is supposed to be
+
+**A height error at the impact does displace the landing sideways, and it is physics.** The two ground-fixed
+points are each un-carried by *their own* flight time: a round whose surface reads `a` higher crosses earlier
+by `Δt = a/(v sin γ)`, so the planet has turned less far under it and the ground-fixed point shifts **east** by
+`a · v_ground/(v sin γ)` = 415.8/2,951 = **0.141 m per m**, which projects onto both axes. `Sim/Slug.cs`'s
+stopping rule is a scalar radial bracket placed along the velocity chord, so a cross-track *tilt* cannot move
+the round — but the time of flight can, and does.
+
+The repo had already measured this and not connected it: 3db's `signed-cross` "resolved at −0.033 m, **6% of
+the downrange effect**, consistent with an eastward displacement projecting onto both axes at this site."
+**6% then, 5.8% now.**
+
+**So −1.59 was the wrong null.** With the rotation term the geometric prediction is about **−1.45 to −1.48**,
+not −1.59, and part of 3dt's "0.60× attenuation" was a mis-specified benchmark rather than dilution.
+
+### And the confound that would have invalidated it does not fire
+
+The one candidate with no geometric account was a shared frame-phase residual — both `apart` and the walk's
+origin correction scale with the within-frame crossing phase, and `parentAtBurst` carries 29.8 km/s times it.
+Controlling for the phase, which every log already prints:
+
+| | raw | given the phase |
+| --- | --- | --- |
+| cross on `apart` | +0.0548, r = +0.394 | **+0.0498, r = +0.363** |
+| down on `apart` | −0.9530, r = −0.755 | **−0.9428, r = −0.745** |
+
+Both survive essentially untouched. **It is geometry, not frame phase.**
+
+### Pooling was biasing the slope toward zero
+
+`n = 96` is **8 seats × 12 blocks**, not 96 independent draws, and this repo's own protocol says to score a
+per-seat term per seat and never pooled (3da). Re-fit:
+
+| seat | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| slope | −1.36 | −1.15 | −1.30 | −0.65 | −0.95 | −1.65 | **−2.68** | −0.80 |
+| r | −0.45 | −0.50 | −0.92 | −0.76 | −0.57 | −0.76 | −0.93 | −0.42 |
+
+**Mean of the per-seat slopes −1.316 ± 0.225, 95% [−1.757, −0.875]** — an interval **2.6× wider** than the
+pooled one, and one that **contains both −1.48 and −1.59**.
+
+**So the corrected reading of 46c is: the term is real, and it is consistent with being wholly geometric.**
+3dt's "not wholly geometric" was an artefact of pooling across seats whose `apart` distributions differ by an
+order of magnitude (mean |apart| 4.2 to 50.3 mm). Seat 7's −2.68 is unexplained and is the one to look at.
+
+### What is fixed, and what is left
+
+**Fixed** (`9f31f15`): `WarheadTrace.Walk` and the release-probe line resolved a ground-fixed separation
+against arrival axes **without carrying it**, turning the vector by the planet's spin over the fall — 1.4° at
+340 s. `IcbmComputer.ProbeMissSaid` has carried it since it was written and says why in its own comment; these
+two never got it. Worth under 3% of the downrange term, and the only thing in the control that was
+unambiguously wrong rather than un-benchmarked. **Unverified in game.**
+
+**Not settled.** The arrival *azimuth* appears in no log, so the 0.141 coefficient's projection —
+`sin α = 0.39`, a track ~23° off east — is **solved from the observed +0.055 rather than measured**. That is
+the one number that would turn this reconstruction into a confirmation, and it is one line beside
+`ArrivalAngleDeg`.
 
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
