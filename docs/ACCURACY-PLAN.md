@@ -10075,9 +10075,17 @@ engine's `float3` direction packing (`Celestial.cs:833`) on and off:
 | 0.20 | 11.09 mm | 9.26 mm | 1.2x |
 | **0.35 — its 75th percentile** | **27.81 mm** | 19.08 mm | 1.5x |
 
-**The flown 19.8 mm sits between the site's median slope and its 75th percentile.** The walk's bias
-stays near -4 mm at every slope, matching 3eg's -5.36 mm independently — so **terrain contributes
-scatter and not bias**, which is exactly the shape the flown walk has.
+The walk's bias stays near -4 mm at every slope, matching 3eg's -5.36 mm independently — so
+**terrain contributes scatter and not bias**, which is exactly the shape the flown walk has.
+
+> **The absolute sd in that table is a fixture artefact and must not be compared to the flown
+> 19.8 mm.** A nudge step of 0.05 m/s moves the impact about 15.6 m along a 40 m sinusoid, so the
+> sweep **aliases against its own relief**: the identical configuration read **17.455 mm** at 40
+> states spaced 0.05 and **5.593 mm** at 24 spaced 0.08. Three times apart for one physics. What
+> the fixture supports is *comparisons at fixed sampling* — packed against exact, one sub-step
+> against another — and not a number to hold beside a flown one. An earlier draft of this entry
+> claimed the rig reproduced the flown scatter; it does not, and nothing here establishes what
+> fraction of the flown 19.8 mm is terrain.
 
 **And it corrects a reading of our own terrain note.** `docs/KSA-TERRAIN.md` and
 `docs/KINETIC-FLOOR.md` both say the float staircase "is deterministic and identical for every
@@ -10087,9 +10095,23 @@ crossings at *different points along the track*, so they read **different treads
 `0.31 m x local slope` of height which `cot gamma` = 1.59 then multiplies. Measured above, the
 packing multiplies the walk's sd by **1.1x to 1.6x**. Nothing in this mod can reach it.
 
-The fixture is a bounded sinusoid rather than the engine's field, so this establishes the **size and
-the mechanism, not a fraction**. What it closes is the question of whether the residual scatter needs
-a cause elsewhere: it does not.
+The fixture is a bounded sinusoid rather than the engine's field, and it aliases as above, so this
+establishes **a mechanism and a direction, not a size and not a fraction**.
+
+**What it does establish, and this is the useful half**, is that no sub-step reaches the scatter.
+Holding the release states fixed and taking the round's bracket from 5.5 m to 0.2 m — past the
+engine's own 0.31 m tread, a 32-fold narrowing — moves the walk's sd not at all: 17.455, 17.530,
+17.198, 17.580 mm. The bias falls the whole way, -6.131 to -2.538 mm, converging on the terrain's
+own contribution rather than on zero. That comparison holds the sampling fixed, so the aliasing
+above cancels out of it.
+
+**So the walk's scatter is a floor, and `WarheadSubStepMs` is a lever on its bias only.**
+
+Not established: that the arrival angle is the lever on that floor, as `docs/KINETIC-FLOOR.md`
+would predict for a height error times `cot gamma`. A sweep from 20 to 50 degrees came back
+non-monotonic (sd 21.6, 27.5, 5.6, 5.0, 4.1) because each range re-aliases the fixture differently.
+It needs relief at several scales, or phase sampling fine enough to cover the shortest one, before
+it can be asked.
 
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
