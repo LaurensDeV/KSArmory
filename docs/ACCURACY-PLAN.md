@@ -9013,6 +9013,25 @@ per-warhead. The per-interval method is dead for a different reason (3dq) and th
 attributed at all, because the dense `warhead trace N:` samples carry no craft name and eight rockets
 interleave in one log.
 
+**Item 48's read, declared before it is made** — written at 5 shots of 12, with a hint already visible in
+them, which is exactly when a decision rule has to be fixed. `dt48.py`, shot level, `n = 12`:
+
+* **The estimate is the slope of the mean walk on the shot's median frame time**, with a 95% interval.
+  Per-frame predicts `−walk/dt` at the mean, about **+8e−4 m/ms**; per-second predicts **zero**.
+* **PER FRAME** only if the interval contains the per-frame prediction and **excludes** zero.
+  **PER SECOND** only if it contains zero and **excludes** the per-frame prediction.
+  Anything else is **UNRESOLVED**, which is the expected outcome and is not a null.
+* **It is underpowered on purpose and that is priced**: a 23% spread in `dt` moves a per-frame walk about
+  6 mm against ~10 mm of per-shot noise, so n=12 resolves this only if the term is clean. The interval is the
+  result; the point estimate is not.
+* **If unresolved**, the designed version is ranked item 8's `minTargetFrameRate`, which buys a deliberate
+  frame-rate contrast instead of an incidental one — and section 4 already wanted it flown.
+* **The confound to state now**: frame time marks the session regime (`shot-report.regime()`), and the
+  correction loop runs 0.23–0.25 passes per flight in the slow regime against 1.17–3.38 in the fast one. So a
+  slope against `dt` may be the *loop* rather than the walk's own accumulation. The walk is measured after
+  release and the loop ends before it, which is the reason to think it is not — but it is not proof, and a
+  resolved PER FRAME has to survive that objection before it becomes a lever.
+
 **Third instrument fault in a day, and a different species from the other two.** The `acos` ruler and the
 surface line were *too coarse* or *mis-epoched* — they reported the wrong number. This one reported the
 right number under the wrong name, which is worse in one specific way: it invites a correct calculation on
