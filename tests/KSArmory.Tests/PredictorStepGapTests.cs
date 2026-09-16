@@ -28,10 +28,27 @@ public class PredictorStepGapTests(ITestOutputHelper Out)
 {
     private const double Mu = 3.986004418e14;
     private const double R = 6_371_000.0;
+
+    /// <summary>
+    /// KSA's own Earth: <c>Content/Core/Astronomicals.xml</c> gives
+    /// <c>SeaLevelDensity KgPerM3="1.225"</c> and <c>ScaleHeight Km="8"</c>.
+    /// </summary>
     private const double ScaleHeight = 8_000.0;
 
     private static BallisticBody Earth => new(Mu, R, new double3(0, 0, 1), 0.0);
 
+    /// <summary>
+    /// The air the game flies, not a rig's invention.
+    /// <c>PhysicalAtmosphereReference.GetAtmosphericDensityAtAltitude</c> is
+    /// <c>SeaLevelDensity * exp(-h / ScaleHeight)</c>, and
+    /// <see cref="KSArmory.Medium.ReferenceDensityKgPerM3"/> is the same 1.225 Earth's sea level is,
+    /// so the ratio the round is handed reduces to exactly this.
+    /// </summary>
+    /// <remarks>
+    /// KSA cuts the air off at <c>CalculateBoundaryHeight()</c> — <c>-H*ln(1e-9/rho0)</c>, about
+    /// 167 km on Earth — where the density is already 8e-10 of sea level, so leaving the exponential
+    /// running past it is worth nothing to a warhead's drag integral.
+    /// </remarks>
     private static double DensityAt(double3 pointCci)
         => Math.Exp(-Math.Max(0.0, Vec.Len(pointCci) - R) / ScaleHeight);
 
@@ -172,10 +189,12 @@ public class PredictorStepGapTests(ITestOutputHelper Out)
         Assert.False(shipped.DragFromShape, "the Mk 21 should still carry its hand-typed DragK");
         Assert.Equal(shipped.DragK, shipped.AppliedDragK, 12);
 
-        // A density ratio is a multiple of this over every body, which is what the rig's
-        // exp(-h/H) returning 1.0 at the surface means.
+        // The air: KSA's Earth is SeaLevelDensity 1.225 and ScaleHeight 8 km, and the reference
+        // the ratio divides by is the same 1.225 -- so the ratio is exp(-h/8000) and the rig's
+        // atmosphere is the game's rather than a stand-in for it.
         Assert.Equal(1.225, Medium.ReferenceDensityKgPerM3, 6);
         Assert.Equal(1.0, DensityAt(new double3(R, 0, 0)), 9);
+        Assert.Equal(Math.Exp(-1.0), DensityAt(new double3(R + ScaleHeight, 0, 0)), 9);
 
         // And the integrator order, which is the one that cost a night: the property defaults to
         // false and IcbmComputer sets it from a config that ships true.

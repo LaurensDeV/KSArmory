@@ -2074,9 +2074,16 @@ light on the 5"/54 and 30–45 times on both cannons, and nothing looked wrong u
 a shell flew 65 km; a shape's coefficient sits near 0.3, so a wrong one shows. The 5"/54's 0.306 gives its
 range table's 23.69 km at 47°, and one constant cannot also give the ceiling — 16.1 km straight up against
 14.8 — because real drag peaks near Mach 1. `DragK` stays for what no constant coefficient describes: a
-bomb's drag rises through the speed of sound, a missile's changes as it burns and drops its booster, and
-every flown ballistic baseline rests on the Mk 21's. `ArsenalTests.EveryRoundsDragComesFromWhatItIsUnlessNamedHere`
-names them, so a new round cannot join them by accident.
+bomb's drag rises through the speed of sound, and a missile's changes as it burns and drops its
+booster. **The Mk 21 is on that list for a different and weaker reason** — every flown ballistic
+baseline rests on its constant — and that constant is **known unphysical**: 1.5e-5 is a ballistic
+coefficient near 8,400 lb/ft² against the 100 to 5,000 published for reentry vehicles. Item 44 flew
+the physical figure and the *shot* got worse, 0.04 to 0.07 m, because a round entering at 3.6x the
+drag loses more speed low down where `cot γ` multiplies the fall the aim loop cannot see. That is a
+guidance term to find rather than a verdict on the physics, and `docs/ACCURACY-PLAN.md` 3dk and 3dn
+have it: **removing the constant is blocked on that fall, not on the drag model.**
+`ArsenalTests.EveryRoundsDragComesFromWhatItIsUnlessNamedHere` names all six, so a new round cannot
+join them by accident.
 
 **And the air is the air that is there.** A density ratio is a multiple of `Medium.ReferenceDensityKgPerM3`,
 1.225 kg/m³, over every body, and `DragShape` reads a craft's drag against the same. Divided by each body's
