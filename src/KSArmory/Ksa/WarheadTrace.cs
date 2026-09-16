@@ -403,7 +403,7 @@ internal sealed class WarheadTrace
                      + $" | lag {lag * 1000.0:F1}ms = {lag * round.Speed:F0} m at {round.Speed:F0} m/s"
                      + $" over {_lines} sampled frames");
 
-            Log.Info($"warhead trace: {Surfaces(setup, landingEcl, positionCci)}");
+            Log.Info($"warhead trace: {Surfaces(setup, round, landingEcl, positionCci)}");
 
             if (round is Slug sampled) Log.Info($"warhead trace: {GroundSample(setup, sampled, landingEcl)}");
 
@@ -440,25 +440,49 @@ internal sealed class WarheadTrace
     // the one point where it matters. docs/MIRV-NEXT.md item 2 lists a surface disagreement as a
     // candidate for the missing kilometre, and a metre of it is about eleven metres of ground on
     // this arrival.
-    private static string Surfaces(in Setup setup, double3 landingEcl, double3 positionCci)
+    private static string Surfaces(in Setup setup, IProjectile round, double3 landingEcl,
+                                   double3 positionCci)
     {
-        double predicted = setup.TerrainRadiusAt(positionCci);
         double stoppedAt = Vec.Len(positionCci);
 
-        if (!GroundTest.Shared.TryGround(landingEcl, out double3 centreEcl, out double flown))
+        // The surface the round ACTUALLY stopped against, and the point it asked at -- both
+        // recorded by the round at the crossing, back-dated to its own instant within the frame.
+        //
+        // Re-querying GroundTest at the raw landing instead asks the height field at the frame's
+        // END rotation, which is item 40's fault reintroduced in the diagnostic that is supposed to
+        // detect it: measured over 50 traced warheads that read the two surfaces -0.34 +/- 1.46 m
+        // apart, worth 1.64 m of ground at cot(gamma), while the walk it is meant to explain is
+        // 35 mm and regresses on it at +0.013 m/m where a real surface error predicts -1.59.
+        // docs/ACCURACY-PLAN.md 3do.
+        double flown = round is Slug { GroundRadiusUsed: var r } && double.IsFinite(r)
+                           ? r
+                           : double.NaN;
+
+        double3 askedAtEcl = round is Slug asked && Vec.IsFinite(asked.GroundSampledAtEcl)
+                                 && !asked.GroundSampledAtEcl.Equals(Vec.Zero)
+                             ? asked.GroundSampledAtEcl
+                             : landingEcl;
+
+        if (!double.IsFinite(flown))
         {
-            return $"surface at the landing point: the prediction reads {predicted:F1} m,"
-                   + $" the round's own ground test would not answer;"
-                   + $" it stopped {stoppedAt - predicted:+0.0;-0.0} m relative to the prediction's";
+            return "surface at the landing point: the round recorded no surface to compare against";
         }
 
-        double stoppedOn = Vec.Len(landingEcl - centreEcl);
+        // Asked at the same point the round asked at, so what is left between the two numbers is
+        // the two height-field readers disagreeing rather than the instant they were asked at.
+        double3 askedCci = (askedAtEcl - setup.Parent.GetPositionEcl())
+            .Transform(setup.Parent.GetCce2Cci());
+        double predicted = setup.TerrainRadiusAt(askedCci);
 
-        return $"surface at the landing point: the round stopped on {flown:F1} m,"
-               + $" the prediction flies to {predicted:F1} m ({flown - predicted:+0.0;-0.0} m apart);"
-               + $" the round is {stoppedOn - flown:+0.0;-0.0} m off its own surface"
-               + $" and {stoppedAt - predicted:+0.0;-0.0} m off the prediction's";
+        return $"surface at the landing point: the round stopped on {flown:F3} m,"
+               + $" the prediction flies to {predicted:F3} m ({flown - predicted:+0.000;-0.000} m apart,"
+               + $" {(flown - predicted) * CotArrival:+0.000;-0.000} m of ground);"
+               + $" the round is {stoppedAt - predicted:+0.000;-0.000} m off the prediction's";
     }
+
+    // The arrival this mod flies, for turning a height disagreement into the ground it would be
+    // worth. A round comes in at 32 deg, so cot is about 1.59.
+    private const double CotArrival = 1.59;
 
     // Where the round read the ground against where it stopped, which is the whole of its stopping
     // height error and therefore -- times cot(gamma) -- the whole of its walk from the release probe.
