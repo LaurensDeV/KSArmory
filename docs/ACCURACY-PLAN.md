@@ -35,13 +35,16 @@ common-mode. What is left is the two integrators, and the ruler that was measuri
 The entries to read are **3di** (item 43b flown and shipped), **3dh** (item 43 flown and shipped, and
 KSA's update modal that cost four shots), **43b** (the kick over relief, designed), **3dg** (items 41 and
 40b flown and shipped), **3df** (the centre is the aim loop's lag, and item 43 designed), **3de** (item 42 flown),
-**3do** (item 46: the surface line was measuring its own epoch), **3dn** (45b stopped, and the rig fault that caused it), **3dm** (item 45), **3dl** (the floor re-priced, and the ruler), **3dd** (the spin), **3db** (the ring), **3dc** (40b), **3da** (item 40 flown, including two predictions
-that were wrong), **3cy** (what the instrument can and cannot see), **3cv** and **3cu**. **What is declared next is item 47** (3do). Five candidates for the
+**3dp** (item 47, and the vacuum third), **3do** (item 46: the surface line was measuring its own epoch), **3dn** (45b stopped, and the rig fault that caused it), **3dm** (item 45), **3dl** (the floor re-priced, and the ruler), **3dd** (the spin), **3db** (the ring), **3dc** (40b), **3da** (item 40 flown, including two predictions
+that were wrong), **3cy** (what the instrument can and cannot see), **3cv** and **3cu**. **What is declared next is item 48** (3dp): a third of the walk is made
+**in vacuum**, above KSA's 167 km air ceiling, so drag cannot own that part — and the sample lines already
+carry the step, so whether it grows per frame or per second costs no shots. Eight candidates for the
 21 mm fall are now closed: the predictor's step (0.002 mm over a 40x sweep), the frame rate, the round's
-integrator order (4.7 mm of it), the surface the two models stop on (it does not reach the ground at all), and
-the rig's atmosphere (which turns out to be the game's exactly). The rig now sits **4.5x** from the flight
-rather than 73x, and what is left is what a rig cannot have — a rotating planet, real terrain, the frame
-carrier, warp. Terrain is the one that varies per seat, so that is where to look.
+integrator order (4.7 mm of it), the surface the two models stop on (it does not reach the ground at all),
+the rig's atmosphere (the game's exactly), **terrain** (no per-seat structure left), **the planet's rotation**
+(0.40 mm in a rig that now has it) and **μ** (one number, not two). With everything matched the rig's two
+models agree to **0.40 mm** against the flight's 21, so what is left is what a rig structurally cannot have:
+the `Ecl` frame carrier, `BodyFallEcl`, warp, or the round off rails.
 **And this is the term blocking the physical warhead drag**: item 44 lost because a round at 3.6x the drag
 spends longer where this error is made (3dk), so shrinking it is what lets the unphysical 8,400 lb/ft² constant
 go. `base`'s slope on `dh · cot γ` reading 0.85 rather than 1 was the
@@ -8880,6 +8883,74 @@ made, and `signed-walk` moved in exactly that direction (3dk). **Shrink this and
 constant — which is not a physical figure and is on the exclusion list for a weaker reason than the bomb and
 the missiles — can go.** That is the case for spending on it.
 
+## 3dp. Item 47: the walk is common, not terrain — and a third of it is made in vacuum — 2026-09-16
+
+No shots; all of this is re-read off `2026-09-16-shape` plus the headless rig.
+
+**The walk has no per-seat structure left** (`~/shots/scripts-2026-09-16/seat47.py`, 48 traced warheads of the
+baseline arm). Seven of eight seats sit between −23 and −33 mm:
+
+| seat | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| walk down, mm | −23.3 | −25.0 | −33.3 | −25.0 | −23.3 | +11.7 | −26.7 | −25.0 |
+| sub-km rms relief, m | 3.3 | 5.1 | **20.5** | 12.0 | 6.8 | 15.8 | 7.1 | **2.8** |
+
+Against a **7.3× spread in relief**, the walk regresses on roughness at **r = +0.23** signed and **+0.06** on
+magnitude — nothing. Seat 6 is the one outlier and carries a 98 mm sd on six flights, so it is one flight
+rather than a seat. **Item 40 took the per-seat term out and none has come back at this scale**, which closes
+terrain and makes what is left a *common systematic* — a better thing to chase, because a uniform one-signed
+offset has a single cause.
+
+**The planet's rotation is not it either.** The rig had flown a still planet throughout, which is the one case
+where every rotation term is identically zero, so it was the last difference a rig could still have. Adding
+Earth's spin, the round and the prediction agree to **0.40 mm**, against 4.67 mm on a still one — so rotation
+is not the cause and slightly cancels what is there.
+
+> **The trap it set, kept in the test.** Both sides are un-carried into the body-fixed frame, at 465 m/s of
+> equatorial ground, so the comparison is worth **0.465 m per millisecond** of timing disagreement. Un-carrying
+> by the loop's frame count rather than the round's own flight time — it stops partway through its last frame —
+> over-rotates by up to one `dt` and read **5,820 mm**. The absurdity is what caught it.
+
+**And μ matches exactly.** The round flies `KsaWorld.GravityAt`, which uses `((IParentBody)body).Mu`; the
+predictor flies `BallisticBody.Mu`, which `IcbmComputer` builds as `Parent.Mass * GravitationalConstant`. KSA
+defines `IParentBody.Mu => Mass * 6.6743E-11` and the mod's constant is the same `6.6743e-11`, so the two are
+one number and not two. Worth having asked — it is exactly the shape of "same name, different meaning" — but it
+is closed.
+
+### Where the walk is actually made, which is the new thing
+
+The trace re-flies its prediction periodically and prints the running walk beside the altitude, so where the
+term accumulates is already on disk (`where47.py`, 33 flights, 937 km down to 4.5 km):
+
+| altitude | 800+ km | 400–800 | 200–400 | 100–200 | 50–100 | 20–50 | 10–20 | 5–10 | 2–5 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| walk down, mm | +0.7 | −3.3 | −7.5 | −9.2 | −10.6 | −14.5 | −24.6 | −32.1 | −47.0 |
+
+**It accumulates over the whole descent, and a third of it is already there above the atmosphere.** KSA cuts
+the air off at `CalculateBoundaryHeight()`, about **167 km** on Earth, so the −7.5 mm at 200–400 km is made
+where the density is identically zero. Drag cannot be responsible for that part, and neither can anything about
+the air model, the density convention or the round's drag figure.
+
+*(The per-flight "share of the final walk" table in the script is non-monotonic at 7–21 flights a band and is
+not leaned on here; the band means above pool many more samples and are monotonic.)*
+
+**This re-frames item 44 as well.** A physically draggier warhead can only act on the two-thirds made in air,
+and it lost 1.89× on landing — so whatever it did to the fall, it did against a term that is already a third
+established before the round meets any atmosphere.
+
+### What is left, and why the rig cannot answer it
+
+Eight candidates are now closed: the predictor's step, the frame rate, the round's integrator order, the
+surface the two models stop on, the rig's atmosphere, terrain, the planet's rotation, and μ. **With everything
+matched the rig's two models agree to 0.40 mm while the flight shows 21 mm**, so the remainder is something a
+rig structurally cannot have — the `Ecl` frame carrier, `BodyFallEcl` and the tidal term it approximates, warp
+during the coast, or the round being taken off rails.
+
+**The vacuum third is the place to look**, because there only gravity and the two integrators act, and both are
+now known to agree to under a millimetre in a rig. The next cheap read is whether the walk grows **per frame or
+per second** during that phase: the sample lines already carry `dt`, `step` and `sim`, so it costs no shots.
+`2026-09-16-walk` is flying to give that a proper n.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -8988,7 +9059,8 @@ what 20b is flying against.
 | ~~46~~ | ~~Read `surface at the landing point` across a night~~ | done | **the line was measuring its own epoch, not a surface: the walk regresses on it at +0.013 m/m where a real one predicts −1.59. Fixed and unverified** — 3do |
 | ~~46b~~ | ~~Confirm the repaired surface line collapses toward zero~~ | done, verified in game | **55x: sd 1.46 m -> 0.026 m. The residue is real — 26 mm of height, 42 mm of ground — and the same order as the walk** — 3do |
 | **46c** | **Read the repaired surface residue across a night.** 42 mm of ground against a 25 mm walk, but the slope is +0.32 where a real one gives −1.59, and n=8 cannot decide | free with whatever flies next | 3do |
-| **47** | **Re-read whether the walk still has per-seat structure at 21 mm.** Terrain is the one thing a rig cannot have that varies per seat, and item 40 removed the last per-seat term at a much larger scale | 0 shots | 3do: four candidates closed, and the rig now sits 4.5x from the flight rather than 73x |
+| ~~47~~ | ~~Re-read whether the walk still has per-seat structure~~ | done | **none left: 7 of 8 seats at −23 to −33 mm against a 7.3x spread in relief, r=+0.23. Terrain, rotation and μ all closed** — 3dp |
+| **48** | **Does the vacuum third grow per frame or per second?** A third of the walk is made above 167 km where the density is zero, so only gravity and the two integrators act — and a rig says those agree to 0.40 mm. The sample lines already carry `dt`, `step` and `sim` | 0 shots, on `2026-09-16-walk` | 3dp: the cleanest remaining handle on a common one-signed 21 mm |
 | **2b** | The 20 s clearance knife-edge — the second branch, now the largest at long range | 12 paired shots | 12,902 km: 8.80 km -> ? |
 | ~~3~~ | ~~**Diagnostic**: log the release residual and `_response` per flight~~ | done | `release summary`, read by `shot-report.py`; 3x |
 | ~~4~~ | ~~Measure `dMiss/dV` at both flown geometries~~ | done | **the residual is worth 36 m per m/s, not 884** — 3x |
