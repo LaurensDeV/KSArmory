@@ -413,6 +413,76 @@ public class PredictorStepGapTests(ITestOutputHelper Out)
     }
 
     /// <summary>
+    /// <b>What a rig cannot have: the round's position is accumulated in <c>Ecl</c>.</b> Every rig here
+    /// flies the planet at the origin, where |P| is about 7e6 m and a double's ulp is 0.9 nm. In flight
+    /// the ecliptic puts the round at about 1.5e11 m, where the ulp is <b>30 µm</b> — and a 350 s fall
+    /// is 350,000 sub-steps of `PositionEcl += stepEcl`.
+    ///
+    /// <para>Round-to-nearest is unbiased, so this cannot be the walk's one-signed term. It is a
+    /// candidate for its <em>scatter</em>, which has been attributed to terrain
+    /// (<c>docs/ACCURACY-PLAN.md</c> 3ds) — and it is one of the very few things a rig structurally
+    /// cannot reproduce, which is what makes it worth flying deliberately.</para>
+    /// </summary>
+    [Fact]
+    public void AccumulatingThePositionAtEclMagnitudeCostsMillimetres()
+    {
+        double3 velocity = ReleaseArc(out double3 from, out double3 _);
+        MunitionProfile warhead = Arsenal.ReentryVehicleMk21;
+
+        // One astronomical unit along x, which is where a planet actually sits in Ecl.
+        double3 carried = new(1.495978707e11, 0, 0);
+
+        double3 atOrigin = FlyTheRound(from, velocity, warhead, 1.0 / 60.0);
+        double3 atEcl = FlyOffset(from, velocity, warhead, 1.0 / 60.0, carried);
+
+        double apart = Vec.Len(atOrigin - atEcl);
+
+        Out.WriteLine($"ulp at |P| = 7e6 m   : {Math.BitIncrement(7.0e6) - 7.0e6:E2} m");
+        Out.WriteLine($"ulp at |P| = 1.5e11 m: {Math.BitIncrement(1.5e11) - 1.5e11:E2} m");
+        Out.WriteLine($"\nthe same round, flown at the origin and one AU out: {apart * 1000.0:F3} mm apart");
+        Out.WriteLine("the walk's scatter is 36 mm; its bias is 11-21 mm and one-signed.");
+
+        Assert.True(apart < 1.0, $"an unbiased round-off should stay millimetric; {apart:F3} m says "
+                                 + "something else depends on the frame's magnitude");
+    }
+
+    /// <summary>The same flight with every position carried by a constant, as <c>Ecl</c> carries it.</summary>
+    private static double3 FlyOffset(double3 fromCci, double3 velocityCci, MunitionProfile munition,
+                                     double dt, double3 carried)
+    {
+        Slug round = new(fromCci + carried, velocityCci, null, 1, fromCci + carried, Vec.Zero)
+        {
+            Munition = munition,
+            ResampleGroundNearImpact = true,
+            SecondOrder = true,
+        };
+
+        RoundFields fields = new(
+            GravityAt: (point, _) => GravityAt(point - carried),
+            AirDensityAt: (point, _) => DensityAt(point - carried),
+            Ground: new OffsetBall(carried));
+
+        for (int i = 0; i < (int)(3000.0 / dt) && round.State == RoundState.Flying; i++)
+        {
+            RoundDriver.Fly(round, dt, null, GravityAt(round.PositionEcl - carried), Vec.Zero,
+                            Vec.Zero, munition, DensityAt(round.PositionEcl - carried), fields);
+        }
+
+        Assert.NotEqual(RoundState.Flying, round.State);
+        return round.PositionEcl - carried;
+    }
+
+    private sealed class OffsetBall(double3 carried) : IGroundTest
+    {
+        public bool TryGround(double3 positionEcl, out double3 centreEcl, out double surfaceRadius)
+        {
+            centreEcl = carried;
+            surfaceRadius = R;
+            return true;
+        }
+    }
+
+    /// <summary>
     /// The frame rate, which is what a throughput lever would move. It never reaches a 1 ms
     /// sub-step, so nothing bought there can be spent here — the two levers are independent.
     /// </summary>
