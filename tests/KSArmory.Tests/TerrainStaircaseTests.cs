@@ -38,6 +38,9 @@ public class TerrainStaircaseTests(ITestOutputHelper Out)
     /// <summary>The relief a slope implies at the scale a sub-step covers.</summary>
     private const double Wavelength = 40.0;
 
+    /// <summary>Overridden by the wavelength sweep, which asks whether a result is fixture-specific.</summary>
+    private static double ActiveWavelength = 40.0;
+
     /// <summary>
     /// Ground relief bounded at a metre or so, carrying the stated peak slope at the scale a
     /// sub-step crosses — optionally read at a direction packed to single precision, exactly as the
@@ -49,8 +52,8 @@ public class TerrainStaircaseTests(ITestOutputHelper Out)
         double3 dir = Vec.Unit(point);
         if (packed) dir = new double3((float)dir.X, (float)dir.Y, (float)dir.Z);
         double along = R * Math.Atan2(dir.Y, dir.X);
-        double amplitude = slope * Wavelength / (2.0 * Math.PI);
-        return R + amplitude * Math.Sin(2.0 * Math.PI * along / Wavelength);
+        double amplitude = slope * ActiveWavelength / (2.0 * Math.PI);
+        return R + amplitude * Math.Sin(2.0 * Math.PI * along / ActiveWavelength);
     }
 
     private sealed class Ground(double slope, bool packed) : IGroundTest
@@ -77,6 +80,17 @@ public class TerrainStaircaseTests(ITestOutputHelper Out)
     /// <summary>Where the round actually stops, and where its own prediction said it would.</summary>
     private static (double3 Landed, double3 Predicted, double3 Velocity) Fly(double slope, bool packed,
                                                                              double nudge)
+        => Fly(slope, packed, nudge, 0.25);
+
+    private static (double3 Landed, double3 Predicted, double3 Velocity) Fly(double slope, bool packed,
+                                                                             double nudge,
+                                                                             double predictorStep)
+        => Fly(slope, packed, nudge, predictorStep, 1.0);
+
+    private static (double3 Landed, double3 Predicted, double3 Velocity) Fly(double slope, bool packed,
+                                                                             double nudge,
+                                                                             double predictorStep,
+                                                                             double subStepMs)
     {
         double3 v = Release(out double3 from, nudge);
         Ground ground = new(slope, packed);
@@ -85,9 +99,9 @@ public class TerrainStaircaseTests(ITestOutputHelper Out)
                                                out ImpactPredictor.Impact hit,
                                                p => Surface(p, slope, packed), null,
                                                new ImpactPredictor.Drag(DensityAt, Arsenal.ReentryVehicleMk21),
-                                               atmosphericStepSeconds: 0.25, stopOnTheSurface: true));
+                                               atmosphericStepSeconds: predictorStep, stopOnTheSurface: true));
 
-        MunitionProfile warhead = Arsenal.ReentryVehicleMk21;
+        MunitionProfile warhead = Arsenal.RoundAtSubStep(Arsenal.ReentryVehicleMk21, subStepMs / 1000.0);
         Slug round = new(from, v, null, 1, from, Vec.Zero)
         {
             Munition = warhead,
@@ -155,5 +169,132 @@ public class TerrainStaircaseTests(ITestOutputHelper Out)
         Out.WriteLine("\n   Flown, the walk's within-rocket down scatter is 19.8 mm and the sub-step");
         Out.WriteLine("   accounts for none of it (SubStepConvergenceTests: sd 0.002 mm).");
         Out.WriteLine("   The packed column is a term no setting in this mod can reach.");
+    }
+
+    /// <summary>
+    /// The other half of the walk's bias: the <em>prediction's</em> own step.
+    /// </summary>
+    /// <remarks>
+    /// <para>The round integrates at 1 ms — 5.5 m of track — and
+    /// <see cref="ImpactPredictor.AtmosphericStepSeconds"/> is <b>0.25 s</b>, which at 5,500 m/s is
+    /// 1,375 m. If the prediction were converged the walk would read the round's own sub-step bias
+    /// and nothing more, which `SubStepConvergenceTests` puts at -5.36 mm; flown it is -10.3 mm.</para>
+    ///
+    /// <para><c>docs/ACCURACY-PLAN.md</c> records "refining the predictor's step" as ruled out, and
+    /// says in its own retrospective that the test which ruled it out passed <b>no terrain</b> — a
+    /// mean sphere, the one surface a step cannot undersample. This asks it again with ground under
+    /// it.</para>
+    /// </remarks>
+    [Fact]
+    public void ThePredictorsOwnStepIsTheOtherHalfOfTheWalksBias()
+    {
+        double[] predictorSteps = [0.25, 0.125, 0.0625, 0.03125, 0.015625, 0.0078125];
+        const double Slope = 0.15;
+        double[] nudges = [.. Enumerable.Range(0, 40).Select(i => -1.0 + i * 0.05)];
+
+        Out.WriteLine($"round fixed at its shipped 1 ms, ground slope {Slope}, 40 release states\n");
+        Out.WriteLine($"{"predictor step (s)",20} {"walk bias (mm)",16} {"walk sd (mm)",14}");
+
+        foreach (double step in predictorSteps)
+        {
+            List<double> walk = [];
+            foreach (double nudge in nudges)
+            {
+                (double3 landed, double3 predicted, double3 vel) = Fly(Slope, true, nudge, step);
+                Assert.True(ArrivalFrame.TryAt(landed, vel, out ArrivalFrame frame));
+                walk.Add(frame.Resolve(landed - predicted).Y * 1000.0);
+            }
+            double m = walk.Average();
+            double sd = Math.Sqrt(walk.Sum(x => (x - m) * (x - m)) / walk.Count);
+            Out.WriteLine($"{step,20:F7} {m,16:F3} {sd,14:F3}");
+        }
+
+        Out.WriteLine("\n   The round's own sub-step bias at 1 ms is -5.36 mm (SubStepConvergenceTests).");
+        Out.WriteLine("   A converged prediction should leave the walk at that and no more.");
+    }
+
+    /// <summary>
+    /// The sub-step again, but over ground. On a sphere it is a pure bias
+    /// (<see cref="SubStepConvergenceTests"/>, sd 0.002 mm); over terrain the sub-step is the width
+    /// of the bracket the round solves its crossing across — 22 m at 4 ms, 5.5 m at 1 ms, 1.4 m at
+    /// 0.25 ms, against a prediction that refines its own to under a metre — so it should move the
+    /// walk's SCATTER too.
+    /// </summary>
+    /// <remarks>
+    /// This is the quantitative form of the secondary read declared for the 2026-09-17 night, and it
+    /// is written down before that night's arms have been looked at.
+    /// </remarks>
+    [Fact]
+    public void OverGroundTheSubStepMovesTheScatterAndNotOnlyTheBias()
+    {
+        double[] steps = [4.0, 1.0, 0.25];
+        const double Slope = 0.15;
+        double[] nudges = [.. Enumerable.Range(0, 40).Select(i => -1.0 + i * 0.05)];
+
+        Out.WriteLine($"ground slope {Slope}, 40 release states, prediction at its shipped 0.25 s\n");
+        Out.WriteLine($"{"round sub-step (ms)",21} {"bracket (m)",13} {"walk bias (mm)",16} {"walk sd (mm)",14}");
+
+        Dictionary<double, double> sd = [];
+        foreach (double st_ in steps)
+        {
+            List<double> walk = [];
+            foreach (double nudge in nudges)
+            {
+                (double3 landed, double3 predicted, double3 vel) = Fly(Slope, true, nudge, 0.25, st_);
+                Assert.True(ArrivalFrame.TryAt(landed, vel, out ArrivalFrame frame));
+                walk.Add(frame.Resolve(landed - predicted).Y * 1000.0);
+            }
+            double m = walk.Average();
+            double s2 = Math.Sqrt(walk.Sum(x => (x - m) * (x - m)) / walk.Count);
+            sd[st_] = s2;
+            Out.WriteLine($"{st_,21:F2} {st_ / 1000.0 * 5500.0,13:F1} {m,16:F3} {s2,14:F3}");
+        }
+
+        Out.WriteLine($"\n   coarse/base {sd[4.0] / sd[1.0]:F2}x   fine/base {sd[0.25] / sd[1.0]:F2}x");
+        Out.WriteLine("   Flown, the within-rocket walk sd at 1 ms is 19.8 mm.");
+    }
+
+    /// <summary>
+    /// Whether the coarse sub-step's sign flip is real or an artefact of relief tuned to one scale.
+    /// A 4 ms bracket is 22 m of track; against 40 m of relief that is half a wavelength, which is
+    /// not a regime the fixture was built for.
+    /// </summary>
+    [Fact]
+    public void TheCoarseSubStepsSignFlipIsCheckedAgainstTheReliefScale()
+    {
+        double[] wavelengths = [40.0, 100.0, 250.0, 600.0, 1500.0];
+        double[] steps = [4.0, 1.0];
+        const double Slope = 0.15;
+        double[] nudges = [.. Enumerable.Range(0, 24).Select(i => -1.0 + i * 0.08)];
+
+        Out.WriteLine($"slope {Slope} held; only the relief's wavelength changes\n");
+        Out.WriteLine($"{"wavelength (m)",15} {"4 ms bias",12} {"4 ms sd",10} {"1 ms bias",12} {"1 ms sd",10}");
+
+        try
+        {
+            foreach (double w in wavelengths)
+            {
+                ActiveWavelength = w;
+                List<string> cells = [];
+                foreach (double st_ in steps)
+                {
+                    List<double> walk = [];
+                    foreach (double nudge in nudges)
+                    {
+                        (double3 landed, double3 predicted, double3 vel) = Fly(Slope, true, nudge, 0.25, st_);
+                        Assert.True(ArrivalFrame.TryAt(landed, vel, out ArrivalFrame frame));
+                        walk.Add(frame.Resolve(landed - predicted).Y * 1000.0);
+                    }
+                    double m = walk.Average();
+                    double sd = Math.Sqrt(walk.Sum(x => (x - m) * (x - m)) / walk.Count);
+                    cells.Add($"{m,12:F2}{sd,10:F2}");
+                }
+                Out.WriteLine($"{w,15:F0}{string.Concat(cells)}");
+            }
+        }
+        finally { ActiveWavelength = Wavelength; }
+
+        Out.WriteLine("\n   A sign flip that survives every relief scale is the mechanism;");
+        Out.WriteLine("   one that only appears at 40 m is the fixture.");
     }
 }
