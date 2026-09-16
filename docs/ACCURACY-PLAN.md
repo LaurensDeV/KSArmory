@@ -8656,11 +8656,27 @@ nothing flies that way; it is easy to write by accident and impossible to see in
 
 ### The night, declared before it flies
 
-The lever is one field, `Arsenal.ReentryVehicleMk21.SubStepSeconds`, and the count scales with it so
-`MaxFaithfulStepSeconds` does not move and the world's timewarp is untouched. Six warheads at 1 ms
-is about 300 sub-steps a frame; at 0.125 ms it is 2,400, and that cost has not been measured in a
-frame — so **watch the frame time**, which is the one thing that could make this arm lose for a
-reason that is not accuracy.
+The lever is one field, `MunitionProfile.SubStepSeconds`, and the count scales with it so
+`MaxFaithfulStepSeconds` does not move and the world's timewarp is untouched.
+
+**What it costs is sub-steps, and the batch flies 48 warheads at once**:
+
+| step | `MaxSubSteps` | a 28 ms frame, six warheads | ...all 48 | a clamped frame, 48 |
+| --- | --- | --- | --- | --- |
+| **1.000 ms** (shipped) | 320 | 168 | 1,344 | 15,360 |
+| 0.500 ms | 640 | 336 | 2,688 | 30,720 |
+| 0.250 ms | 1,280 | 672 | 5,376 | 61,440 |
+| **0.125 ms** | 2,560 | 1,344 | 10,752 | 122,880 |
+
+That is above the 7,500 a 150-shell burst would cost, which `SubStepSeconds` already names as an
+unmeasured per-frame cost. **The paired design is what makes it flyable anyway**: both arms are
+rockets in *one* world, so a slower world is common-mode and the comparison survives it — and the
+warheads' own accuracy does not depend on the frame at all, because a 1 ms sub-step is already below
+any frame. What a slower world would cost is the ascent and the cutoff, equally on both arms, as
+noise rather than as bias.
+
+So **watch the frame time** against `base`'s 28.8 ms, and if it has moved far, re-fly at 0.5 ms —
+which by the first-order scaling is still a halving of the walk.
 
 * **Primary: `--endpoint signed-walk`**, the fall after the kicked prediction. Predicted to go from
   `base`'s −0.021 m to about **−0.003 m** if the rig's first-order scaling holds in flight, an 8×
