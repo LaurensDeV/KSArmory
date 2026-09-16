@@ -538,14 +538,16 @@ internal sealed class WarheadTrace
         double metres = Ground(setup, atReleaseEpochCci, _probeGroundCci);
         double3 separation = atReleaseEpochCci - _probeGroundCci;
 
-        // Two decimals, because whole metres is not a rounding here -- it is the endpoint's
-        // resolution. About a third of flights walk 3 m or less, so seat 8 reads 0,0,1,1,1,1,1 and
-        // a levelled value can be 0.5, 1.0 or 2.0 from the print alone. Dithering each value inside
-        // its own bin swings the arm ratio by +/-9%, which is a seventh of the effect being
-        // measured, thrown away by a format string. ACCURACY-PLAN.md 3ci.
-        return $" | walk from the release probe {metres:F2} m"
-               + $" ({Vec.Dot(separation, _probeAlong):+0.00;-0.00;0.00} down,"
-               + $" {Vec.Dot(separation, _probeCross):+0.00;-0.00;0.00} cross)";
+        // Four decimals, because the print is the endpoint's resolution and the endpoint has moved
+        // by two orders of magnitude. Whole metres was wrong when the walk was metres (3ci); two
+        // decimals is wrong now it is 21 mm, and it is wrong in a way that hides the question being
+        // asked of it -- the increments BETWEEN re-flies are tenths of a millimetre, so at 10 mm
+        // they are almost all zero and a rate read off them is quantisation. Measured: whether the
+        // walk grows per frame or per simulated second reads r = -0.185 against +0.083 on 399
+        // intervals, which is noise either way. ACCURACY-PLAN.md 3dq.
+        return $" | walk from the release probe {metres:F4} m"
+               + $" ({Vec.Dot(separation, _probeAlong):+0.0000;-0.0000;0.0000} down,"
+               + $" {Vec.Dot(separation, _probeCross):+0.0000;-0.0000;0.0000} cross)";
     }
 
     private bool Predict(in Setup setup, double3 positionCci, double3 velocityCci,
