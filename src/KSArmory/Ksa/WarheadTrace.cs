@@ -522,10 +522,19 @@ internal sealed class WarheadTrace
 
         // Both candidate radii against the truth under the landing point, so the log says what the
         // correction would have been worth on this warhead rather than leaving it to be inferred.
-        return $"ground sample: over a {step * 1000.0:F1} ms frame the body moved"
-               + $" {Vec.Len(setup.Parent.GetVelocityEcl()) * step:F0} m;"
-               + $" the round held {asRead - flown:+0.0;-0.0} m off the true surface,"
-               + $" unpaired it would have held {asUnpaired - flown:+0.0;-0.0} m";
+        // What `step` IS depends on the round, and the two are different quantities: with
+        // ResampleGroundNearImpact -- shipped on -- it is how far back from the frame's end the
+        // round crossed, and without it the frame's whole duration. Saying "over a X ms frame" for
+        // both reads as the frame rate, which it is not: regressing the walk on it looks like a
+        // per-frame test and is actually item 40's crossing-phase residual. ACCURACY-PLAN.md 3dr.
+        string over = round.ResampleGroundNearImpact
+            ? $"crossing {step * 1000.0:F1} ms back from the frame's end"
+            : $"over a {step * 1000.0:F1} ms frame";
+
+        return $"ground sample: {over}, the body moved"
+               + $" {Vec.Len(setup.Parent.GetVelocityEcl()) * step:F1} m;"
+               + $" the round held {asRead - flown:+0.000;-0.000} m off the true surface,"
+               + $" unpaired it would have held {asUnpaired - flown:+0.000;-0.000} m";
     }
 
     // Vector, not magnitude: a bare distance mixes an overshoot with a cross-track error, and which

@@ -209,7 +209,12 @@ IMPACT = re.compile(
 # landing it follows -- on all seven nights of 2026-09-11/12 every one of 1,120 landings was followed
 # by its own before the next landing. Every form clears the landing, so a sample that could not be
 # read is never handed to the next warhead.
-GROUND_SAMPLE = re.compile(r"warhead trace: ground sample: (?:over a (?P<ms>[\d.]+) ms frame)?")
+# Both wordings: the line said "over a X ms frame" for a number that is the CROSSING phase
+# whenever ResampleGroundNearImpact is on, which is shipped. It now says which it is, and
+# this reads either -- old nights stay readable. ACCURACY-PLAN.md 3dr.
+GROUND_SAMPLE = re.compile(
+    r"warhead trace: ground sample: (?:over a (?P<ms>[\d.]+) ms frame"
+    r"|crossing (?P<cross>[\d.]+) ms back from the frame's end)?")
 
 # How far each warhead of one group stopped from the aim -- the only line carrying all six, and so
 # the only reading the spread WITHIN a group can come off. It goes through `Distance.Say`, so a
@@ -579,8 +584,9 @@ def read_shot(out_path, log_path, craft=None):
     for line in log.splitlines():
         if "ground sample" in line or " burst at" in line:
             g = GROUND_SAMPLE.search(line)
-            if g and g.group("ms") and sampling and (want is None or sampled_by == want):
-                shot["frame_ms"].append(float(g.group("ms")))
+            ms = (g.group("ms") or g.group("cross")) if g else None
+            if ms and sampling and (want is None or sampled_by == want):
+                shot["frame_ms"].append(float(ms))
             sampling = False
 
         m = IMPACT.search(line)
@@ -1567,7 +1573,13 @@ def _per_seat_split(rows, flipped):
 
 
 def _seat_slope(flights):
-    """Least-squares slope of value on frame ms, or None where it cannot mean anything."""
+    """Least-squares slope of value on the CROSSING phase, or None where it cannot mean anything.
+
+    Named `frame_ms` throughout for history, and it is not a frame time: with
+    ResampleGroundNearImpact -- shipped -- the round reports how far back from the frame's end it
+    crossed, which is what item 40's per-seat term ran on. A frame duration would be a different
+    quantity and would answer a different question. ACCURACY-PLAN.md 3dr.
+    """
     pairs = [(ms, v) for v, ms in flights if ms is not None]
     if len(pairs) < MIN_SEAT_FLIGHTS:
         return None
