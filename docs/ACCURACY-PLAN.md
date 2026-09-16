@@ -8951,6 +8951,33 @@ now known to agree to under a millimetre in a rig. The next cheap read is whethe
 per second** during that phase: the sample lines already carry `dt`, `step` and `sim`, so it costs no shots.
 `2026-09-16-walk` is flying to give that a proper n.
 
+### 3dq. Item 48 is blocked on the walk's own print — 2026-09-16
+
+**The coast answers item 48 for free, and the print stops it.** Warp runs from 1.0× to 8.0× while the warheads
+fall, so the simulated step varies eightfold at roughly constant frame time — which separates the two
+hypotheses cleanly: a term made **per frame** has a rate inversely proportional to the step, a term made **per
+second** is flat against it.
+
+Measured over **399 vacuum intervals** of `2026-09-16-shape` (`step48.py`), it separates neither: the rate
+regresses on the step at **r = −0.185** and on its reciprocal at **+0.083**, with the per-interval coefficient
+of variation 10.6 and 98.0 respectively. Both are noise.
+
+**The reason is the ruler, again.** `Walk` printed two decimals — **10 mm** — and the increments between
+re-flies are tenths of a millimetre, so nearly every difference is zero or one quantum. 3ci widened this print
+from whole metres *for the same reason* when the walk was metres; the walk is now 21 mm and the same argument
+says four decimals. Widened in `31ccf35`.
+
+**This is the fourth ruler in two days that had quietly gone blind**, after `Vec.AngleBetween`'s 0.134 m floor
+(3dl), `WarheadTrace`'s surface line measuring its own epoch (3do), and the landing print before `ef7e670`.
+They share a shape worth naming: **an instrument sized for the era it was built in, still reporting, now
+reporting mostly its own quantisation.** Each was invisible because it kept producing plausible numbers. The
+check that finds them is to ask, of every endpoint a conclusion rests on, *what is its quantum against what it
+is now measuring* — and this shot's answers are 0.134 m against 0.031, 1.46 m against 0.021, and 10 mm against
+increments of 0.1.
+
+**`2026-09-16-walk` was stopped two shots in and re-flown on the widened print**, rather than spend two and a
+half hours logging at a resolution that cannot answer what it is flying for.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -9060,7 +9087,7 @@ what 20b is flying against.
 | ~~46b~~ | ~~Confirm the repaired surface line collapses toward zero~~ | done, verified in game | **55x: sd 1.46 m -> 0.026 m. The residue is real — 26 mm of height, 42 mm of ground — and the same order as the walk** — 3do |
 | **46c** | **Read the repaired surface residue across a night.** 42 mm of ground against a 25 mm walk, but the slope is +0.32 where a real one gives −1.59, and n=8 cannot decide | free with whatever flies next | 3do |
 | ~~47~~ | ~~Re-read whether the walk still has per-seat structure~~ | done | **none left: 7 of 8 seats at −23 to −33 mm against a 7.3x spread in relief, r=+0.23. Terrain, rotation and μ all closed** — 3dp |
-| **48** | **Does the vacuum third grow per frame or per second?** A third of the walk is made above 167 km where the density is zero, so only gravity and the two integrators act — and a rig says those agree to 0.40 mm. The sample lines already carry `dt`, `step` and `sim` | 0 shots, on `2026-09-16-walk` | 3dp: the cleanest remaining handle on a common one-signed 21 mm |
+| **48** | **Does the vacuum third grow per frame or per second?** The coast runs under warp 1.0x-8.0x, which varies the simulated step eightfold at constant frame time and separates the two. **Was blocked on the walk's 10 mm print; widened to 0.1 mm in `31ccf35` and re-flying** | 0 shots, on `2026-09-16-walk` | 3dp, 3dq: the cleanest remaining handle on a common one-signed 21 mm |
 | **2b** | The 20 s clearance knife-edge — the second branch, now the largest at long range | 12 paired shots | 12,902 km: 8.80 km -> ? |
 | ~~3~~ | ~~**Diagnostic**: log the release residual and `_response` per flight~~ | done | `release summary`, read by `shot-report.py`; 3x |
 | ~~4~~ | ~~Measure `dMiss/dV` at both flown geometries~~ | done | **the residual is worth 36 m per m/s, not 884** — 3x |
