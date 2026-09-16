@@ -9577,6 +9577,49 @@ third, independent point — is not built.
 
 The night's primary is the walk's **sd**, which needs none of this.
 
+## 3ea. Item 49b flown: the walk's scatter 0.62x, and it ships — 2026-09-16
+
+`2026-09-16-terrain`, 12 paired blocks of `base|terrain:StopWarheadsOnTheTerrain=true` on `b3c0948` and KSA
+2026.9.10.5438, **12 of 12 PASS 6 of 6**, no exceptions, nothing timed out, zero held-control warnings.
+
+| endpoint | declared | measured |
+| --- | --- | --- |
+| **the walk's sd, primary** | **0.656×** | **0.619× [0.465, 0.824]** — excludes 1.0, contains the prediction |
+| `\|apart\|`, the mechanism | collapses | **17.667 mm → 0.000**, max 75.000 → 0.000 |
+| `centre`, the ground truth | 0.86×, *not resolvable* | **0.855×**, 2.79 → 2.38 cm median |
+| `signed-walk` mean, the control | unchanged | −15.91 → −17.40 mm, unmoved |
+
+**CONFIRMED on the declared rule**, and the point estimate landed on the prediction: 0.619× against 0.656
+declared. The walk's sd goes **38.09 → 23.57 mm**.
+
+**The control behaved**, which is what says the fix does what it claims rather than something else: the walk's
+*mean* did not move (−15.9 to −17.4 mm), so this removed scatter and left the bias, exactly as a curvature term
+must.
+
+**And `centre` came in at 0.855× against a declared 0.86×** — 2.79 to 2.38 cm — which is the part worth being
+careful about. **That agreement is not evidence.** It was declared unresolvable at 12 blocks and it is: the
+night has no power to distinguish 0.855 from 1.0, and the number matching the prediction to three decimals is
+a coincidence of a single median. It is reported because it was declared, and it should not be quoted as a
+measured improvement.
+
+**Ships on:** `IcbmConfig.StopWarheadsOnTheTerrain = true`, as its own commit.
+
+### What it costs and what it unlocks
+
+**`apart` is now identically zero**, as the smoke warned, so the trace's surface line stops being a diagnostic
+and 46c loses its subject. The next surface question needs a new instrument — the round's stop against the
+height field at a third, independent point — and that is not built. **A debt this fix creates**, recorded
+rather than discovered later.
+
+**What it unlocks is the point.** 3dy could not resolve the midpoint-drag arm because the walk's scatter
+swamped a 4.7 mm one-signed term: 80% power wanted ~180 blocks. At 23.57 mm the same arm re-prices to
+**~75 blocks** — still too many. So this is **necessary and not yet sufficient**, and the honest next step is
+to find the rest of the scatter rather than to fly the drag arm again.
+
+**Where the remaining 23.57 mm is**, from what is already known: the airspeed reference held per frame
+(2.3–8.3 mm, per-seat sign, 3dx Rank 2), the `Ecl` round-off (2.9 mm, 3dp), the release ring, and whatever
+produces the vacuum third that no mechanism yet explains (3dp). None is priced against the others.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
