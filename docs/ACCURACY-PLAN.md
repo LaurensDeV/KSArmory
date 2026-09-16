@@ -35,7 +35,7 @@ common-mode. What is left is the two integrators, and the ruler that was measuri
 The entries to read are **3di** (item 43b flown and shipped), **3dh** (item 43 flown and shipped, and
 KSA's update modal that cost four shots), **43b** (the kick over relief, designed), **3dg** (items 41 and
 40b flown and shipped), **3df** (the centre is the aim loop's lag, and item 43 designed), **3de** (item 42 flown),
-**3dw** (46c re-read: pooling was hiding the geometry), **3dv** (the chord), **3dt** (the night: 46c real, 47 overturned, 48 unresolved), **3ds** (why 47 was wrong), **3dp** (item 47, and the vacuum third), **3do** (item 46: the surface line was measuring its own epoch), **3dn** (45b stopped, and the rig fault that caused it), **3dm** (item 45), **3dl** (the floor re-priced, and the ruler), **3dd** (the spin), **3db** (the ring), **3dc** (40b), **3da** (item 40 flown, including two predictions
+**3dy** (the midpoint night: not confirmed, and why), **3dx** (the drag's mis-paired velocity), **3dw** (46c re-read: pooling was hiding the geometry), **3dv** (the chord), **3dt** (the night: 46c real, 47 overturned, 48 unresolved), **3ds** (why 47 was wrong), **3dp** (item 47, and the vacuum third), **3do** (item 46: the surface line was measuring its own epoch), **3dn** (45b stopped, and the rig fault that caused it), **3dm** (item 45), **3dl** (the floor re-priced, and the ruler), **3dd** (the spin), **3db** (the ring), **3dc** (40b), **3da** (item 40 flown, including two predictions
 that were wrong), **3cy** (what the instrument can and cannot see), **3cv** and **3cu**. **What is declared next is item 49** (3dt), and the night that asked three questions answered
 two: the **surface disagreement between the two height-field readers is real** — slope −0.953 [−1.120, −0.786],
 r = −0.755, 29 mm of height and 46 mm of ground — and it explains the walk's **scatter** rather than its bias.
@@ -9442,6 +9442,70 @@ none of the above is a measurement. It is a check that the apparatus works.
 whether the arm engaged had to be *inferred from the walks* — an inference about the thing under test rather
 than a check on the apparatus. It now says so, as the sub-step swap already did.
 
+## 3dy. The midpoint-drag night: NOT CONFIRMED, and the design was mine to get wrong — 2026-09-16
+
+`2026-09-16-midpoint`, 12 paired blocks on `587f8e3` and KSA 2026.9.10.5438, **12 of 12 PASS 6 of 6**, no
+exceptions, nothing timed out, **zero** held-control warnings. Apparatus clean: one sub-step across both arms
+(`5.000 ms` on all eight rockets) and **288 midpoint-drag lines**, six warheads on each of the four `mid`
+rockets a shot — the arm is verified rather than inferred, which is what `96065b2` was added for.
+
+| endpoint | declared | measured |
+| --- | --- | --- |
+| **`signed-walk`, seat-levelled, primary** | **+19.85 mm** toward zero | **+10.97 mm, 95% [−17.32, +39.25]** |
+| interval excludes zero | required to ship | **no** |
+| `mid` near zero in absolute terms | the rig's strong form | **no** — −49.84 mm |
+
+**NOT CONFIRMED.** The direction is right and the point estimate is about half the prediction, but the
+interval contains zero *and* contains +19.85, so the night rules out neither.
+
+### The power calculation was wrong, and the error is instructive
+
+3dx priced this night at **96% power** and it had **15%**. The mistake:
+
+| | |
+| --- | --- |
+| signal, 1 ms → 5 ms | **4.25×** (4.67 → 19.85 mm) |
+| noise, 1 ms → 5 ms | **2.94×** (36.45 → 107.14 mm sd) |
+| net gain in *t* | **1.45×**, not 4.25× |
+
+**I priced the noise from the 1 ms night and flew the arm at 5 ms.** The walk's scatter is not invariant to the
+sub-step — a good part of it *is* sub-step-driven — so coarsening the step to grow the signal grew the noise
+almost as fast. The amplification bought 1.45×, and 14% power became 15%.
+
+It was foreseeable from data already in hand: the rig's own table shows the *mean* gap scaling linearly with
+the sub-step, and the obvious next question — does the flown *scatter* scale too — was never asked. **A number
+carried from one regime into another where it does not hold**, which is the same shape as the day's other
+faults and this time it cost 2.4 hours rather than a wrong conclusion.
+
+### What the night does establish
+
+* **The mechanism engages in flight.** `mid`'s walk is smaller than `base`'s in mean and in sd
+  (−49.8 against −60.8 mm; 90.9 against 107.1), and per flight on the roughest seat every `mid` value is less
+  negative than its `base` counterpart. Only the drag swap could do that.
+* **Both estimators agree.** The declared per-seat primary gives +10.97 [−17.32, +39.25]; an exploratory
+  per-warhead fit with seat levels and the `apart` covariate gives **+11.75 [−8.88, +32.38]**, t = 1.12. The
+  second was not pre-declared and is reported as exploratory; it narrows the interval and does not cross the
+  verdict.
+* **The rig's strong form is refuted in flight.** `mid` sits at −49.84 mm where the rig said 0.001. So the
+  pairing removes *part* of a large flown term, not the whole of one the rig sized correctly — which the smoke
+  already warned (3dx's smoke note) and this confirms at n = 96.
+
+### What to do about it, and it is an ordering rather than a bigger night
+
+**More blocks will not fix this.** At a 107 mm sd and a 20 mm effect, 80% power wants about **180 blocks**.
+The way through is to cut the scatter rather than to grow the signal or the sample — and the scatter's largest
+named component is already identified and unbuilt:
+
+**Fix 49b first.** The round stops on a *chord* of the terrain rather than on the terrain (3dv), which 3dt
+measured at **57% of the walk's variance**. Removing it should take the walk's sd down by about a third, and
+only then does a midpoint-drag arm become resolvable at a night's worth of blocks.
+
+**So the two fixes are sequenced, not independent** — 49b is not merely the larger of the two, it is the one
+that makes the other measurable. That is the finding this night bought.
+
+`IcbmConfig.DragAtMidpointVelocity` **stays off**: the mechanism is proven headlessly to a micron and the
+flight is consistent with it and underpowered, which is not the same as verified.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -9552,7 +9616,7 @@ what 20b is flying against.
 | **46c** | **Read the repaired surface residue across a night.** 42 mm of ground against a 25 mm walk, but the slope is +0.32 where a real one gives −1.59, and n=8 cannot decide | free with whatever flies next | 3do |
 | ~~47~~ | ~~Re-read whether the walk still has per-seat structure~~ | done, then **OVERTURNED** | **3dp read it through a 10 mm print and could not have seen it. At 0.1 mm \|walk\| on relief is r = +0.777: terrain drives the MAGNITUDE. The signed term is still common** — 3ds, 3dt |
 | ~~49~~ | ~~Make the two height-field readers one call~~ | **premise refuted** | there is one reader, and the two conversion routes are the same quaternion to 1e-15 rad — 3du, 3dv |
-| **49b** | **Stop the round on the terrain rather than on a chord of it.** `Slug.cs:685` blends two height samples a sub-step apart — 5.5 m of ground at a 5,500 m/s arrival — while the prediction point-samples. Re-query at the crossing once `f` is known | one lookup per landing round, then a paired night | 3dv: 57% of the walk's variance, none of its bias |
+| **49b** | **FIRST. Stop the round on the terrain rather than on a chord of it.** 3dy: it is not merely the larger fix, it is the one that makes the drag arm measurable at all — `Slug.cs:685` blends two height samples a sub-step apart — 5.5 m of ground at a 5,500 m/s arrival — while the prediction point-samples. Re-query at the crossing once `f` is known | one lookup per landing round, then a paired night | 3dv: 57% of the walk's variance, none of its bias |
 | **48** | ~~Does the walk grow per frame or per second?~~ **UNRESOLVED on incidental frame-rate variation**, as declared — the interval admits both, and the fast shots are also the fast *regime*, so the correction loop and the frame rate cannot be separated | flown | 3dt |
 | **48b** | **Re-ask 48 with ranked item 8's `minTargetFrameRate` as a paired arm**, which varies the frame rate WITHIN a world so both arms share one regime and the confound cancels | 12 paired shots | 3dt: incidental variation cannot answer this at any n |
 | **2b** | The 20 s clearance knife-edge — the second branch, now the largest at long range | 12 paired shots | 12,902 km: 8.80 km -> ? |
