@@ -41,12 +41,22 @@ internal static class Vec
     public static bool IsFinite(double3 v) =>
         double.IsFinite(v.X) && double.IsFinite(v.Y) && double.IsFinite(v.Z);
 
-    /// <summary>Angle between two vectors in radians, robust at the 0 and pi endpoints.</summary>
+    /// <summary>
+    /// Angle between two vectors in radians, exact at the 0 and pi endpoints as well as between.
+    /// </summary>
+    /// <remarks>
+    /// <c>atan2(|a x b|, a.b)</c> rather than <c>acos(a.b)</c>: near zero the cosine is flat, so a
+    /// separation the dot product cannot resolve below one epsilon of 1.0 reads as exactly nothing.
+    /// That floor is <c>sqrt(2*eps)</c> = 2.1e-8 rad, which taken across a planet's radius is
+    /// <b>0.134 m</b> — larger than a ballistic group's whole miss, so every distance measured this
+    /// way printed 0.000. The sine is steep at both endpoints and the cross product is a
+    /// subtraction, so this form carries no such floor.
+    /// </remarks>
     public static double AngleBetween(double3 a, double3 b)
     {
         double3 ua = Unit(a), ub = Unit(b);
         if (ua.Equals(Zero) || ub.Equals(Zero)) return 0.0;
-        return Math.Acos(Math.Clamp(Dot(ua, ub), -1.0, 1.0));
+        return Math.Atan2(Len(Cross(ua, ub)), Dot(ua, ub));
     }
 
     /// <summary>

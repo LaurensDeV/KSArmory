@@ -295,7 +295,11 @@ public class PostBoostAimTests
     {
         doubleQuat turned = doubleQuat.CreateFromAxisAngle(Vec.Unit(new double3(0.3, -0.8, 0.5)), 1.1);
 
-        double rate = 0.5 * PostBoostAim.SteadyWithinDegrees / PostBoostAim.SteadySeconds;
+        // The factor is 0.45 and not 0.5 because the anchor test is a `<=`: at 0.5 the turn reaches
+        // SteadyWithinDegrees *exactly* on the eighth step, so which side of the band the two
+        // sequencers land on is decided by the last bit of a transcendental rather than by the
+        // rotation. A factor of 4/n for integer n is on that lattice for any band and any step.
+        double rate = 0.45 * PostBoostAim.SteadyWithinDegrees / PostBoostAim.SteadySeconds;
 
         var plain = new PostBoostAim();
         var rotated = new PostBoostAim();
