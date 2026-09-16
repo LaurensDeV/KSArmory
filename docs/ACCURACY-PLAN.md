@@ -8860,6 +8860,29 @@ genuine disagreement between the two height-field readers — `GetTerrainHeightF
 sign, and at eight warheads that is indistinguishable from noise. **Read it across a night**: the line is
 printed by every scripted shot, so it costs nothing and arrives with whatever flies next.
 
+### 46c's read, declared before it is made — 2026-09-16
+
+Written at 6 shots of 12, having already seen the partial: at **n = 48** the walk regresses on the repaired
+surface disagreement at **slope −0.79 m/m, r = −0.71**, where the broken line gave +0.013 and +0.40. A signal
+that strong, seen early, is exactly when the rule has to be fixed.
+
+`surface46.py`, full night, **n ≈ 96**:
+
+* **Real** if the slope's 95% interval **excludes zero**. That alone makes the two height-field readers a
+  contributor to the walk, which the broken line had hidden.
+* **Wholly geometric** only if the interval **contains −cot γ = −1.59**. At −0.79 it will probably not, and the
+  most likely reason is **regression dilution**: `apart` is itself measured, and error in the *predictor*
+  attenuates the slope by the ratio of true to total variance — a factor of two implies the error variance
+  equals the true. That is checkable rather than assumable, by re-reading the same regression on the
+  **magnitude** channel and against the cross channel, which should carry no such term.
+* **It is a scatter term, not the bias, unless the arithmetic says otherwise.** Mean `apart` is −0.000 against
+  a mean walk of −0.016, so `slope × mean(apart)` is about zero and cannot produce a one-signed 17–21 mm.
+  **Report the two separately** and do not let a strong r on the scatter read as an explanation of the bias —
+  3cv's rule about a one-signed term inside a larger scatter cuts both ways.
+* **What it would license**: if the term is real and dilution explains the gap, then the two readers
+  (`GetTerrainHeightFromDirCce` for the round against `...Ccf` for the prediction) disagreeing by ~34 mm of
+  height is worth ~54 mm of ground, and making them one call is a fix rather than a tuning.
+
 ### What the walk is now known not to be
 
 Four candidates are closed, three of them today:
