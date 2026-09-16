@@ -329,6 +329,15 @@ bubble-origin difference and never a timing one, and no amount of re-phasing wil
 > re-reading gravity at the round's own sub-step position against an unshifted centre — was flown
 > as its own change and also lost: `docs/MIRV-NEXT.md` item 2d, priced headlessly at 284 m and
 > flown at a 2.03 km mean against 1.04 without it. **Do not retry either without a mechanism.**
+>
+> **What ships today is neither of them, and it shares a name with the first.** `GravityIntoFrame`
+> now passes `_bodyVelocityEcl * secondsIntoFrame` as a **body offset** — it moves the centre the
+> field is about to the round's own instant and leaves the sample point alone. Expanded, the round's
+> pull is exactly `−μ(ρ + v_cci·h/2)/|·|³`: the ecliptic carrier that the mid-step read adds is
+> cancelled term for term by the body's back-date, so it **equals** the Cci mid-point gravity
+> `ImpactPredictor` evaluates. Derived and checked against KSA's rail code in
+> `docs/ACCURACY-PLAN.md` 3ec. A reader arriving at `WeaponSystem.cs` and finding the name above
+> should not read this warning as covering it.
 
 **`WeaponSystem.UpdateRounds` differences the round's pre-step position against a celestial sample
 one applied step ahead of it, exactly as the air-density lookup did until it was corrected.** The

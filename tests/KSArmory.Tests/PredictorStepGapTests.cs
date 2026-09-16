@@ -440,7 +440,10 @@ public class PredictorStepGapTests(ITestOutputHelper Out)
         Out.WriteLine($"ulp at |P| = 7e6 m   : {Math.BitIncrement(7.0e6) - 7.0e6:E2} m");
         Out.WriteLine($"ulp at |P| = 1.5e11 m: {Math.BitIncrement(1.5e11) - 1.5e11:E2} m");
         Out.WriteLine($"\nthe same round, flown at the origin and one AU out: {apart * 1000.0:F3} mm apart");
-        Out.WriteLine("the walk's scatter is 36 mm; its bias is 11-21 mm and one-signed.");
+        Out.WriteLine("ONE geometry, and with the planet held still so the increment carries none of");
+        Out.WriteLine("the ecliptic's own 29.8 m a sub-step. A replica that carries it reads 1.3-37 mm");
+        Out.WriteLine("over six geometries, mean 10.6 -- so this number is a floor, not the term.");
+        Out.WriteLine("ACCURACY-PLAN.md 3ec.");
 
         Assert.True(apart < 1.0, $"an unbiased round-off should stay millimetric; {apart:F3} m says "
                                  + "something else depends on the frame's magnitude");

@@ -9673,6 +9673,87 @@ Every agent this session found a **real mechanism** and **over-estimated its siz
 (8–10 mm estimated, 1.6 mm measured). The mechanisms were worth having and none of the magnitudes survived
 contact with a measurement. **Read the code for what is wrong; fly or measure for how much.**
 
+## 3ec. The vacuum third: gravity is exactly right, the clock is closed, and the accumulator is the candidate — 2026-09-16
+
+3dp left a third of the walk accumulating above 167 km with no mechanism. Three things settle, and only one
+survives.
+
+### The gravity formulations are equivalent by derivation, not approximately
+
+Writing `ρ` for the round's Cci position, `v_cci` its Cci velocity and `h` the sub-step, the round's pull
+expands to
+
+```
+d = bodyAt − readAt = [B + Vb(e + h/2 − dt)] − [ρ + B + Vb(e − dt) + V·h/2] = −(ρ + v_cci·h/2)
+```
+
+**The ecliptic carrier the mid-step read adds is cancelled term for term by the body's back-date**, so the
+round's gravity *is* the Cci mid-point gravity `ImpactPredictor` evaluates. And `BodyFallEcl` closes the frame:
+KSA moves a celestial on an analytic conic about its parent with `Orbit.Mu => Parent.Mu`, so the rail's
+acceleration is exactly `μ_primary/r²` — which is what `BodyFallEcl` computes. The solar tidal term is dropped
+**identically by both sides**, so it cancels rather than walking.
+
+Residuals, all one-signed and all negligible: the body's linear back-date misses `½A·Δt²` (**0.003 mm**),
+`BodyFallEcl` held across the frame (**0.007 mm**), the two gravity formulas differing by ~2 ulp
+(**3e−7 mm**), and the `toBody` cancellation at 1.5e11 which is exact by Sterbenz (**0.008 mm**).
+
+**This is the highest-leverage code in the mod** — an epoch error here is 2.4 mm per *microsecond* — and it is
+right. `docs/KSA-FRAME-ORDER.md` §5 now says so, because the shipped form shares a name with one that lost.
+
+### The clock channel is closed by the logs, not by argument
+
+`KSArmoryMod` steps rounds by `min(dtSim, faithful)` and the trace by `dtSim`, so a clamped frame would leave
+the round behind the clock its walk is measured against — worth **0.416 mm per microsecond**, one-signed,
+accumulating. Over **113,207 dense samples on 96 warheads** of `2026-09-16-terrain`:
+
+> `_worldSeconds − round.Age` is **identically 0.000 ms**, first 50 s and after 250 s alike.
+
+The clamp never bites: `WarpPolicy` targets `0.6 × PreferredStep` and lands the world well under the 0.32 s
+faithful step. **Closed.**
+
+**And the landing line's `lag` is not this.** It is `atBurst − Age` where `atBurst` carries
+`DetonationElapsedInFrame`, so its median −0.450 ms is the **sub-step crossing offset** — deliberate, correctly
+used in the un-carry, and not a clock separation. Read as one it converts to 180 mm, ten times the whole walk,
+which is how it announces that it is something else.
+
+### What is left is the accumulator, and it is bigger than 3dp recorded
+
+`Slug` accumulates `PositionEcl` in the ecliptic, where the round sits at ~1.5e11 m and a double's **ulp is
+30.5 µm**; `ImpactPredictor` integrates in Cci at ~7e6 m, where it is **0.93 nm** — 33,000× finer. Each of
+~350,000 sub-steps rounds onto that grid, and because the increment is dominated by 29.8 m of ecliptic carrier
+rather than the round's own 5 m, consecutive roundings are **correlated**: it drifts rather than random-walks.
+
+A faithful replica of `Slug`'s exact arithmetic, flown in Ecl and in Cci with nothing else different — no air,
+no terrain — gives **1.3 / 5.6 / 3.7 / 6.3 / 37.4 / 9.5 mm** over six release geometries, **mean 10.6 mm**.
+
+**3dp recorded 2.9 mm for this and that was one draw**, not the term: my own measurement flew a single geometry
+*and* held the planet still, so its increment carried none of the ecliptic motion. The honest figure is a
+heavy-tailed **1.3–37 mm**, and at the 1.0–1.45 position-to-impact sensitivity that is **1.5–50 mm of walk**.
+
+**It is scatter, not bias** — zero-mean across warheads — so it does not touch the −16 mm, and it is a strong
+candidate for a large share of the 23.57 mm that is left. **And it is exactly the thing no rig can have**:
+`WarheadTrace`'s own docstring says every rig "flies a planet at the origin, which is the one case where a
+frame carrier is identically zero." That is this, and it is arithmetic rather than physics.
+
+**The discriminator nothing else has.** The term scales with the *number of sub-steps* while the integration
+error scales with their *size*, so `IcbmConfig.WarheadSubStepMs` moves the two in **opposite directions**: at
+0.5 ms the accumulator's scatter should grow ≈√2 while the integrator's error halves; at 4 ms the reverse.
+No other candidate does that, and the arm is already built (3dn).
+
+**The fix, if it is worth one:** carry a round's position as a body-relative offset plus the body's sample, so
+the accumulator lives at 7e6 rather than 1.5e11. That is a change to `Slug`'s state, not to its physics, and it
+would remove the term identically.
+
+### Also recorded
+
+* **`BodyFallEcl` supplies one link only.** At Earth that is complete because its parent is Sol. A shot around
+  **Luna** would miss the Sun's pull on Earth — `μ_sol/r²` ≈ 5.9 mm/s², hundreds of metres. Not this flight; a
+  latent cliff, and `docs/BLOCKED-ON-KSA.md` is not where it belongs because nothing about KSA blocks it.
+* **`faithful` is a roster-wide minimum**, so one gun round or interceptor in the sky with a shorter
+  `MaxFaithfulStepSeconds` would clamp all 96 warheads and open the clock channel that is otherwise closed.
+* **`SimClock.State.Skipped` is advisory**: its own doc says to abandon rounds rather than step them, and
+  `KSArmoryMod` computes it only to call `ReportOverrun` and then steps with the clamped value anyway.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
