@@ -545,7 +545,17 @@ internal sealed class WarheadTrace
         if (!_haveProbe) return "";
 
         double metres = Ground(setup, atReleaseEpochCci, _probeGroundCci);
-        double3 separation = atReleaseEpochCci - _probeGroundCci;
+
+        // Carried to the epoch the axes stand at. Both points are GROUND-FIXED -- each un-carried by
+        // its own flight time -- while _probeAlong and _probeCross were taken from the arrival, so
+        // resolving the raw separation turns it by the planet's spin over the fall: 1.4 deg at
+        // 340 s, a couple of centimetres across for every metre downrange. IcbmComputer.ProbeMissSaid
+        // has carried it since it was written; this did not. ACCURACY-PLAN.md 3dw.
+        //
+        // The two points are un-carried by slightly DIFFERENT times, and that residue stays: a round
+        // that stops higher arrives earlier and genuinely lands on ground the planet has turned less
+        // far. That is the cross channel's real content, not an artefact to remove.
+        double3 separation = setup.Body.CarryCci(atReleaseEpochCci - _probeGroundCci, _probeSeconds);
 
         // Four decimals, because the print is the endpoint's resolution and the endpoint has moved
         // by two orders of magnitude. Whole metres was wrong when the walk was metres (3ci); two

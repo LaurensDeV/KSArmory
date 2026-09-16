@@ -2588,8 +2588,11 @@ internal sealed class IcbmComputer
             // 32 deg arrival land short, which is a bias and removable, where scatter is neither.
             // That had to be reconstructed by fitting each seat's aim point from its own landings,
             // and this makes it a direct read. ACCURACY-PLAN.md 3co.
+            // Carried like ProbeMissSaid's, and for the reason its comment gives: a ground-fixed
+            // separation resolved against axes taken at the arrival is turned by the planet's spin
+            // over the flight. ACCURACY-PLAN.md 3dw.
             string resolved = ArrivalFrame.TryAt(hit.PointCci, hit.VelocityCci, out ArrivalFrame frame)
-                ? Said(frame.Resolve(hit.GroundFixedPointCci - _trueAimCci))
+                ? Said(frame.Resolve(Body.CarryCci(hit.GroundFixedPointCci - _trueAimCci, hit.Seconds)))
                 : "";
 
             Log.Info($"release probe: predicted from the release state -> "
