@@ -38,7 +38,7 @@ KSA's update modal that cost four shots), **43b** (the kick over relief, designe
 **3dm** (item 45 answered), **3dl** (the floor re-priced, and the ruler), **3dd** (the spin), **3db** (the ring), **3dc** (40b), **3da** (item 40 flown, including two predictions
 that were wrong), **3cy** (what the instrument can and cannot see), **3cv** and **3cu**. **What is declared next is item 45b** (3dm): the fall is
 the round's own 1 ms sub-step — not the predictor's, which a 40x sweep moves 0.002 mm — worth 1.54 m at
-this arrival and untouched by the frame rate. The arm has to be built before it can fly. `base`'s slope on `dh · cot γ` reading 0.85 rather than 1 was the
+this arrival and untouched by the frame rate. The arm is built and unflown. `base`'s slope on `dh · cot γ` reading 0.85 rather than 1 was the
 43b-off arm and is moot on shipped code, which reads −0.014 ± 0.030.
 Scenarios close KSA's popups (`0599515`), which a published KSA build newer than the install needs. The
 lever-arm fix (`arm/spin-lever-arm`) stays a decision rather than a default. The
@@ -8678,15 +8678,21 @@ reason that is not accuracy.
 half hours.
 
 ```bash
-KSARMORY_SCENARIO_SAVE='SOLVER SCALE 8' ./tools/shot-batch.sh --paired 'base|fine:Mk21SubStepMs=0.125' \
+KSARMORY_SCENARIO_SAVE='SOLVER SCALE 8' ./tools/shot-batch.sh --paired 'base|fine:WarheadSubStepMs=0.125' \
     --aim 26.485S,68.148W --blocks 12 --out ~/shots/2026-09-17-substep
 ./tools/shot-report.py --paired --endpoint signed-walk ~/shots/2026-09-17-substep
 ```
 
-**The arm does not exist yet.** `SubStepSeconds` is a profile field rather than an `IcbmConfig`
-setting, so there is nothing for `--paired` to set: building it is a one-line switch on the same
-shape as `WarheadDragFromItsShape`, which `IcbmComputer` already swaps a round profile through
-(`IManualFire.FlyRoundsAs`, `88f3527`). That is the next thing to build, and it is small.
+**The arm is built** (`07ec597`): `IcbmConfig.WarheadSubStepMs`, zero by default, swapping the
+launcher's round through the same `IManualFire.FlyRoundsAs` that `WarheadDragFromItsShape` uses and
+applied after it, so the two compose and either may fly alone. Each computer logs
+`warheads integrate at 0.125 ms` once, which is the line to check before believing a block.
+
+Three things are pinned because each would lose the night quietly rather than loudly: the spec
+itself, that the swap **copies** rather than edits the registered profile — shared by every rocket
+in the world, so an edit would put the arm on *both* arms and read a dead heat — and that
+`MaxSubSteps` scales with the step, so a finer warhead does not shorten `MaxFaithfulStepSeconds` and
+hold the whole world's timewarp down with it.
 
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
@@ -8792,7 +8798,7 @@ what 20b is flying against.
 | ~~1~~ | ~~Diagnostic: log what a warp was started over the top of~~ | done | confirmed: 6 others burning |
 | ~~2~~ | ~~Fix: fold `!NeedsShortSteps` over every computer~~ | done | 8 of 8 at 33 ms; median 32.34 -> 8.80 km on one pair |
 | ~~45~~ | ~~Price the fall against the predictor's step, headlessly~~ | done | **refuted: the predictor's step moves the arrival 0.002 mm over a 40x sweep. It is the round's own 1 ms sub-step, 1.54 m at a 32 deg arrival, and the frame rate never reaches it** — 3dm |
-| **45b** | **Fly the Mk 21 at a finer sub-step**, declared on `signed-walk`. Needs the arm built first — a profile swap on `WarheadDragFromItsShape`'s shape | small, then 12 paired shots | 3dm: the walk −0.021 m → ~−0.003, the landing perhaps 0.8x |
+| **45b** | **Fly the Mk 21 at a finer sub-step**, declared on `signed-walk`. **Arm built and unflown** (`07ec597`), `WarheadSubStepMs=0.125` | 12 paired shots | 3dm: the walk −0.021 m → ~−0.003, the landing perhaps 0.8x |
 | **2b** | The 20 s clearance knife-edge — the second branch, now the largest at long range | 12 paired shots | 12,902 km: 8.80 km -> ? |
 | ~~3~~ | ~~**Diagnostic**: log the release residual and `_response` per flight~~ | done | `release summary`, read by `shot-report.py`; 3x |
 | ~~4~~ | ~~Measure `dMiss/dV` at both flown geometries~~ | done | **the residual is worth 36 m per m/s, not 884** — 3x |
