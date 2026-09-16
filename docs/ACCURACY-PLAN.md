@@ -9827,6 +9827,57 @@ move at all, since the injected term sums to zero over six.
   conditions match to 0.5%, the surface gap is 0.000 on 48 of 48, and the variance ratio is **2.61** — 62% of
   the down variance removed, against the 57% predicted, inside an F-interval of 1.5–4.6.
 
+## 3ee. The probe's per-warhead differential is real, so 3ed's fix is aimed at a phantom — 2026-09-16
+
+No shots. 3ed measured the kick injecting 87% of the per-warhead probe differential into the landing and
+inferred that differential was the prediction's own noise. **It is not.** Two headless measurements
+(`ProbeRepeatabilityTests`), at the flown release, all six brought back to one epoch:
+
+| six releases 28 ms apart on one coasting arc | spread of the predicted landings |
+| --- | --- |
+| **no ejection at all** | **0.00 mm** |
+| a fixed 0.5 m/s ejection, as a tube on an attitude-held bus gives | **15.51 mm** |
+| an ejection along the bus's track, which rotates as it coasts | 32.02 mm |
+
+**The predictor has no state-to-state scatter whatever.** Six points of one arc predict one landing to
+0.00 mm, and coasting **ten seconds** before predicting moves it 0.00 mm. That closes "the probe is
+numerically noisy" outright.
+
+**And the differential is real physics.** The same impulse applied at six instants genuinely produces six
+different arcs — 15.51 mm of spread against the **18.1 mm** measured in flight. The probe is right about it.
+
+> **The epoch trap caught this measurement first, and it is worth recording.** Compared raw, the six
+> predicted landings sit **12.9 m apart per 28 ms frame** — which is **462 m/s**, this latitude's ground
+> speed exactly. `GroundFixedPointCci` un-carries by *its own* flight time, so a release 28 ms later is
+> expressed in a body-fixed frame 28 ms younger. Un-carrying each by its own release offset collapses it to
+> 0.00 mm. Fourth time today that a frame difference has posed as a physical one.
+
+### What that does to 3ed
+
+**3ed's proposed fix — solve the miss kick once per rocket — is doubly wrong**, and neither reason was visible
+without measuring:
+
+1. **It is a bad trade.** The per-warhead deviations sum to zero by construction, so today this term costs the
+   **centre nothing** and the dispersion everything. Latching on warhead 1 gives all six a *common* offset of
+   0.87 × 20.5 = **17.8 mm**, straight into the centre: 33.6 → 38.0 mm, **1.13× worse** on the headline metric
+   to buy 8.8 → ~4 mm on the minor one.
+2. **There is no noise to average.** The differential it would smooth away is real, and the probe predicts it
+   correctly.
+
+**So 3ed's finding stands and its explanation does not.** The kick removes a real per-warhead difference, and
+the flight still deviates 21.2 mm *anti-correlated* with it. That is a sharper question than 3ed asked:
+
+> **The probe is right about how the six differ, the kick removes exactly that, and the rounds still do not
+> land together.**
+
+Which is the walk again in miniature — the round not flying what the predictor predicts — and at 21.2 mm it is
+the same order as the walk's own 23.57 mm sd. The two are plausibly one term seen from two directions, and
+nothing here establishes that.
+
+**Nothing to build.** The next honest step is to ask whether the within-rocket landing deviation *is* the walk:
+they are the same size, and the walk is already traced for round 1 of each rocket. Tracing more than round 1
+(item 30b, unbuilt) would answer it directly.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
