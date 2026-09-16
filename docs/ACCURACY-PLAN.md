@@ -27,16 +27,20 @@ and each warhead is kicked off its release probe's own miss (3dh: the centre 0.1
 ground as it lies (3di: 0.20x). **So the median rocket lands 0.04 m out, and every one of 48 under half a
 metre** — a −0.02 m mean downrange, which is the fall after the kicked prediction, and 0.05 m of downrange
 scatter against 0.005 across. Landing lines and both release probes print to the millimetre (`ef7e670`),
-and `shot-report.py`'s floors follow the print. 3cv's ≈0.54 m floor sits an order of magnitude above the
-shot and is due re-pricing.
+and `shot-report.py`'s floors follow the print. **3cv's ≈0.54 m floor is re-priced in 3dl and does not
+apply**: every term in it is the prediction's error against the true surface, and the kick makes all of them
+common-mode. What is left is the two integrators, and the ruler that was measuring them read 0.000 below
+0.134 m until `3a4b152`.
 
 The entries to read are **3di** (item 43b flown and shipped), **3dh** (item 43 flown and shipped, and
 KSA's update modal that cost four shots), **43b** (the kick over relief, designed), **3dg** (items 41 and
 40b flown and shipped), **3df** (the centre is the aim loop's lag, and item 43 designed), **3de** (item 42 flown),
-**3dd** (the spin), **3db** (the ring), **3dc** (40b), **3da** (item 40 flown, including two predictions
-that were wrong), **3cy** (what the instrument can and cannot see), **3cv** and **3cu**. **Nothing is
-declared next.** What is left — the fall's −0.02 m, 0.05 m of downrange scatter, and `base`'s slope on
-`dh · cot γ` reading 0.85 rather than 1 (3di) — has not been priced, and 3cv's floor is where to start.
+**3dl** (the floor re-priced, and the ruler), **3dd** (the spin), **3db** (the ring), **3dc** (40b), **3da** (item 40 flown, including two predictions
+that were wrong), **3cy** (what the instrument can and cannot see), **3cv** and **3cu**. **What is declared next is
+headless, not a night** (3dl): the fall's −0.02 m and the downrange scatter are the round and
+`ImpactPredictor` disagreeing at a 70:1 step ratio, and that is priced from one release state rather than
+bought with two and a half hours. `base`'s slope on `dh · cot γ` reading 0.85 rather than 1 was the
+43b-off arm and is moot on shipped code, which reads −0.014 ± 0.030.
 Scenarios close KSA's popups (`0599515`), which a published KSA build newer than the install needs. The
 lever-arm fix (`arm/spin-lever-arm`) stays a decision rather than a default. The
 2026-09-08 block below is history, and two of its items have since been overturned.
@@ -8504,6 +8508,103 @@ round**, and any future case for the physical figure has to price that fall firs
 **Left in the tree** as a switch with its night recorded, like `QuietCoastAfterCorrection`: the arm is cheap to re-fly
 if the fall term is ever addressed.
 
+## 3dl. The floor re-priced: the kick makes 3cv's terms common-mode, and the ruler was reading zero — 2026-09-16
+
+3cv's ≈0.50 m floor has sat an order of magnitude above the shot since item 43b, and this is the re-pricing it
+was owed. **It was priced for a question the shot stopped asking.** Its four terms — height quantum 0.478,
+`CrossingToleranceMetres` 0.20, staircase 0.025, ruler 0.134 — are all the *prediction's* error against the
+true surface. Item 43 kicks each warhead by its own release probe's miss, so the round is no longer sent to
+the true ground: it is sent to wherever the probe's ground was. The prediction, the round and the aim point
+all read one height field, and **a term common to all three leaves the measured miss**.
+
+So the quantum does not cancel by luck. It cancels because `TerrainRadiusAt` and `GroundTest` resolve the
+same `GetTerrainHeightFromDirCce`, and the miss is scored against an aim point on that same surface. What
+does *not* cancel is where the two readers disagree — different epochs, different back-dating — which is
+precisely what 3cs, item 40 and item 40b attacked, and what the trace still prints as
+`the prediction flies to ... (-1.5 m apart)` on the rougher seats.
+
+**Measured on the shipped configuration**: the `base` arm of `2026-09-16-shape`, 48 flights, 288 warheads,
+`887f3a5` and KSA 2026.9.10.5438. Components throughout, never magnitudes — see the ruler below.
+
+| term | downrange | cross |
+| --- | --- | --- |
+| release probe **before** the kick | +0.213 ± 0.504 m | −0.026 ± 0.353 m |
+| group centroid, bias | **−0.026 m** | +0.009 m |
+| group centroid, scatter | **0.033 m** | 0.004 m |
+| the fall after the kicked prediction | −0.021 m | — |
+
+Centre median **0.031 m**, landing median 0.035 m, 48 of 48 groups under half a metre. **The decomposition
+closes exactly**: two Gaussians at those means and sds give a median magnitude of 0.031 m and a mean of
+0.036, against 0.031 and 0.035 observed. There is no unexplained term left at this scale.
+
+**The pre-kick probe is still half a metre** — 0.504 m downrange, which is 3cv's floor almost to the
+centimetre. That is the confirmation rather than a coincidence: the floor is real, it is still there, and the
+kick is what stands between it and the ground.
+
+### The ruler was reading zero, and it is the binding instrument term
+
+`Vec.AngleBetween` was `acos(dot(unit, unit))`, and every ground distance in the mod is that angle times a
+radius. Near zero the cosine is flat, so a separation the dot product cannot hold below one epsilon of 1.0
+reads as **exactly nothing**. The floor is `sqrt(2·eps)` = 2.1e-8 rad, which across a planet's radius is
+**0.134 m** — 3cv named it and priced it at 2.7% of a 5 m shot. Against a 0.031 m centre it is four times
+the whole miss.
+
+| true separation | `acos` read | `atan2` reads |
+| --- | --- | --- |
+| 0.010 m | **0.000** | 0.010 |
+| 0.035 m — the shipped landing | **0.000** | 0.035 |
+| 0.100 m | **0.000** | 0.100 |
+| 0.134 m | 0.095 | 0.134 |
+| 0.200 m | 0.190 | 0.200 |
+| 0.500 m | 0.502 | 0.500 |
+| 5.000 m | 5.000 | 5.000 |
+
+Three readouts printed 0.000 for the whole of the last two nights: the release probe's `m from the target`,
+the trace's `m from the aim`, and the trace's walk magnitude. **No verdict flown to date is affected.**
+`BallisticScenario.MissFromAim` is `Vec.Len` on a vector difference, `shot-report.py`'s endpoints and
+`miss43.py` read the resolved components beside each magnitude, and those are subtractions — good to about
+33 µm, which is the Ecl representation quantum at 1.5e11 m. The magnitudes were the only casualties, and
+nothing scored on them.
+
+**What flies through it is `IcbmComputer.PredictedMissMetres`**, which `PostBoostAim` compares against the
+trim floor and the payback cost — the two gates that end the correction loop, and the endings 3di and 3dk
+report. Both sit at 7–8 m, where the old form is 0.1 mm out. So the aim loop was never hurt by this and the
+flown change is bounded far below what a night could resolve; it has not been flown and does not need to be.
+Fixed in `3a4b152`, `atan2(|a × b|, a·b)`, exact to the last bit at both endpoints.
+
+**One thing it uncovered.** `PostBoostAimTests`' rotation-invariance case drifted at exactly half the band
+rate, which reaches `SteadyWithinDegrees` on the eighth step to the last bit — so which side of a `<=` the
+plain and the rotated sequencer landed on was decided by the arithmetic, not by the rotation. It passed only
+because `acos` read both as zero. Moved off that lattice, and it now passes under either form.
+
+### The floor now, and what is left
+
+**The ground is no longer the floor; the two integrators are.** What remains is the −0.021 m fall after the
+kicked prediction and 0.033 m of downrange scatter, and both are the round disagreeing with `ImpactPredictor`
+over a 350 s flight — the kick cancels everything the predictor gets wrong about *where*, and leaves what it
+gets wrong about *flying there*. The two do not fly alike:
+
+| | step in vacuum | step in air |
+| --- | --- | --- |
+| `ImpactPredictor` | `PredictStepSeconds` **2.0 s** | `AtmosphericStepSeconds` **0.25 s** |
+| the round (`Slug`) | the frame, **≈28 ms** | `min(frame, Medium.FaithfulStepInAir 0.05 s)` |
+
+**70× through the coast and 9× through the air.** A 0.021 m departure over 350 s is 6e-5 m/s of accumulated
+velocity difference, a relative error of ~1e-8, which is an ordinary truncation gap between two integrators
+at that step ratio — but it is **not measured**, and the crossing interpolations are ruled out rather than
+assumed: the predictor's final bracket is ~0.17 ms after bisecting to a 0.25 m depth, which at ~140 m/s² of
+clearance curvature is half a micron.
+
+**Next, and it is a headless item — no shots.** Fly a `Slug` and an `ImpactPredictor` from one release state
+with one drag and one body, and vary only the predictor's two steps. If the fall's −0.021 m follows the step,
+the term is truncation and the lever is the predictor's step against the cost of taking it several times a
+second; if it does not, the two models differ somewhere else and that is the thing to find. 3dj already built
+most of this rig to price item 44, so it is an afternoon rather than a night.
+
+**Do not fly a night on this yet.** 3dk's arm resolved 1.89x on a 0.04 → 0.07 m move, so the instrument has
+the resolution — but a 0.021 m bias inside a 0.033 m scatter is 3cv's own rule about a one-signed term, and
+what it is worth at the ground should be priced headlessly before it is bought with two and a half hours.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -8607,6 +8708,7 @@ what 20b is flying against.
 | --- | --- | --- | --- |
 | ~~1~~ | ~~Diagnostic: log what a warp was started over the top of~~ | done | confirmed: 6 others burning |
 | ~~2~~ | ~~Fix: fold `!NeedsShortSteps` over every computer~~ | done | 8 of 8 at 33 ms; median 32.34 -> 8.80 km on one pair |
+| **45** | **Price the fall against the predictor's step, headlessly.** The kick cancels what `ImpactPredictor` gets wrong about *where*; what is left is what it gets wrong about *flying there*, at 2.0 s against the round's 28 ms | 0 shots | **3dl** — the whole of the remaining −0.021 m bias and 0.033 m scatter, and the only declared item |
 | **2b** | The 20 s clearance knife-edge — the second branch, now the largest at long range | 12 paired shots | 12,902 km: 8.80 km -> ? |
 | ~~3~~ | ~~**Diagnostic**: log the release residual and `_response` per flight~~ | done | `release summary`, read by `shot-report.py`; 3x |
 | ~~4~~ | ~~Measure `dMiss/dV` at both flown geometries~~ | done | **the residual is worth 36 m per m/s, not 884** — 3x |
