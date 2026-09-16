@@ -433,10 +433,10 @@ internal static class Diagnostics
             _quietFor = 0.0;
 
             double3 accel = craft.AngularAccelerationBody;
-            Log.Debug($"rates {Deg(rates.X):+0.00;-0.00}/{Deg(rates.Y):+0.00;-0.00}/"
-                      + $"{Deg(rates.Z):+0.00;-0.00} deg/s  "
-                      + $"angular accel {Deg(accel.X):+0.0;-0.0}/{Deg(accel.Y):+0.0;-0.0}/"
-                      + $"{Deg(accel.Z):+0.0;-0.0} deg/s^2  contact={craft.Situation.HasAnyContact()}");
+            Log.Debug($"rates {Deg(rates.X):+0.00;-0.00;0.00}/{Deg(rates.Y):+0.00;-0.00;0.00}/"
+                      + $"{Deg(rates.Z):+0.00;-0.00;0.00} deg/s  "
+                      + $"angular accel {Deg(accel.X):+0.0;-0.0;0.0}/{Deg(accel.Y):+0.0;-0.0;0.0}/"
+                      + $"{Deg(accel.Z):+0.0;-0.0;0.0} deg/s^2  contact={craft.Situation.HasAnyContact()}");
         }
         catch (Exception e)
         {

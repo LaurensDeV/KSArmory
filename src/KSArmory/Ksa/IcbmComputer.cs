@@ -1892,14 +1892,14 @@ internal sealed class IcbmComputer
 
         Log.Info($"coast probe on {KsaWorld.DisplayName(Craft)}: "
                  + $"{AltitudeMetres / 1000.0:F1} km, {Vec.Len(velocityCci):F1} m/s, "
-                 + $"r_dot {Vec.Dot(velocityCci, Vec.Unit(positionCci)):+0.0;-0.0} m/s, "
+                 + $"r_dot {Vec.Dot(velocityCci, Vec.Unit(positionCci)):+0.0;-0.0;0.0} m/s, "
                  + $"density {density:E2}, "
                  + $"predicted miss {miss / 1000.0:F2} km"
-                 + (double.IsFinite(rate) ? $" moving {rate:+0.0;-0.0} m/s" : "")
+                 + (double.IsFinite(rate) ? $" moving {rate:+0.0;-0.0;0.0} m/s" : "")
                  + $", arrives in {hit.Seconds:F0} s, "
                  + $"committed {Program.CommittedArrivalFromNow:F0} s"
                  + lands
-                 + $", state {clockGap:+0.000;-0.000} s behind"
+                 + $", state {clockGap:+0.000;-0.000;0.000} s behind"
                  + (double.IsFinite(pushMps)
                         ? $", off-gravity {pushMps:F4} m/s"
                           // Three sections, not two: a component that lands on negative zero takes

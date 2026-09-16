@@ -2762,7 +2762,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // the round with however fast that lever arm is sweeping. A third of a metre a second of it
         // is a kilometre of miss on this arc, and it is invisible from the orbit state.
         return $" ({Munition.LaunchSpeed:F1} m/s off the tube, {degrees:F0} deg from the platform's"
-               + $" track, launched {radial:+0.0;-0.0} m radially off the orbit position,"
+               + $" track, launched {radial:+0.0;-0.0;0.0} m radially off the orbit position,"
                + $" {Vec.Len(spinVelEcl):F3} m/s of spin at the tube)";
     }
 

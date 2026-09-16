@@ -220,8 +220,8 @@ internal sealed class WarheadTrace
         double drift = 0.5 * magnitude * seconds * seconds;
 
         Log.Info($"warhead trace: the body falls at {magnitude * 1000.0:F3} mm/s2 toward its primary,"
-                 + $" lying ({parts.X:+0.00;-0.00} up, {parts.Y:+0.00;-0.00} downrange,"
-                 + $" {parts.Z:+0.00;-0.00} across) of the arrival"
+                 + $" lying ({parts.X:+0.00;-0.00;0.00} up, {parts.Y:+0.00;-0.00;0.00} downrange,"
+                 + $" {parts.Z:+0.00;-0.00;0.00} across) of the arrival"
                  + $" -- {drift:F0} m of drift over {seconds:F0} s, of which"
                  + $" {Math.Abs(drift * parts.X):F0} m is up");
 
@@ -235,8 +235,8 @@ internal sealed class WarheadTrace
         double3 travel = arrival.Resolve(Vec.Unit(travelEcl));
 
         Log.Info($"warhead trace: the body travels at {speed:F0} m/s,"
-                 + $" lying ({travel.X:+0.00;-0.00} up, {travel.Y:+0.00;-0.00} downrange,"
-                 + $" {travel.Z:+0.00;-0.00} across) of the arrival"
+                 + $" lying ({travel.X:+0.00;-0.00;0.00} up, {travel.Y:+0.00;-0.00;0.00} downrange,"
+                 + $" {travel.Z:+0.00;-0.00;0.00} across) of the arrival"
                  + $" -- one 17 ms frame of it is {speed * 0.017:F0} m of pull-centre offset");
     }
 
@@ -424,9 +424,9 @@ internal sealed class WarheadTrace
                      + $" surfaceRadius {setup.Body.SurfaceRadius:F1}"
                      + (round is Slug slug
                             ? $", crossing tested against {slug.GroundRadiusUsed:F1}"
-                              + $" ({slug.GroundRadiusUsed - Vec.Len(positionCci):+0.0;-0.0} m from where it stopped);"
+                              + $" ({slug.GroundRadiusUsed - Vec.Len(positionCci):+0.0;-0.0;0.0} m from where it stopped);"
                               + $" the round's own view of its stop is"
-                              + $" {slug.StopAltitudeAgainstOwnGround:+0.0;-0.0} m"
+                              + $" {slug.StopAltitudeAgainstOwnGround:+0.0;-0.0;0.0} m"
                             : ", not a Slug"));
         }
         catch
@@ -475,9 +475,9 @@ internal sealed class WarheadTrace
         double predicted = setup.TerrainRadiusAt(askedCci);
 
         return $"surface at the landing point: the round stopped on {flown:F3} m,"
-               + $" the prediction flies to {predicted:F3} m ({flown - predicted:+0.000;-0.000} m apart,"
-               + $" {(flown - predicted) * CotArrival:+0.000;-0.000} m of ground);"
-               + $" the round is {stoppedAt - predicted:+0.000;-0.000} m off the prediction's";
+               + $" the prediction flies to {predicted:F3} m ({flown - predicted:+0.000;-0.000;0.000} m apart,"
+               + $" {(flown - predicted) * CotArrival:+0.000;-0.000;0.000} m of ground);"
+               + $" the round is {stoppedAt - predicted:+0.000;-0.000;0.000} m off the prediction's";
     }
 
     // The arrival this mod flies, for turning a height disagreement into the ground it would be
@@ -533,8 +533,8 @@ internal sealed class WarheadTrace
 
         return $"ground sample: {over}, the body moved"
                + $" {Vec.Len(setup.Parent.GetVelocityEcl()) * step:F1} m;"
-               + $" the round held {asRead - flown:+0.000;-0.000} m off the true surface,"
-               + $" unpaired it would have held {asUnpaired - flown:+0.000;-0.000} m";
+               + $" the round held {asRead - flown:+0.000;-0.000;0.000} m off the true surface,"
+               + $" unpaired it would have held {asUnpaired - flown:+0.000;-0.000;0.000} m";
     }
 
     // Vector, not magnitude: a bare distance mixes an overshoot with a cross-track error, and which
