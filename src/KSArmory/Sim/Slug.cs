@@ -88,6 +88,21 @@ internal sealed class Slug : IProjectile
     // advances every step, which is Age by another name and the behaviour of every round before it.
     private double _arrivingSeconds;
 
+    /// <summary>
+    /// Take the drag at the sub-step's midpoint velocity rather than at the velocity it starts with.
+    /// </summary>
+    /// <remarks>
+    /// <para>The air and the pull are already read half a sub-step on for a
+    /// <see cref="SecondOrder"/> round; the speed the drag is taken at was not. Drag goes as the
+    /// square of it and a re-entering round sheds around 450 m/s², so the start-of-step speed is
+    /// always the larger of the two and the drag always too big — **one-signed, every sub-step, for
+    /// the whole fall**, which puts the round short of its own prediction.</para>
+    ///
+    /// <para>Costs one extra <see cref="Medium.Drag"/> — arithmetic, no lookup — and does nothing
+    /// for a first-order round, which has no midpoint to read. <c>docs/ACCURACY-PLAN.md</c> 3dx.</para>
+    /// </remarks>
+    public bool DragAtMidpointVelocity { get; set; }
+
     /// <inheritdoc cref="IProjectile.FaithfulStepSeconds"/>
     public double FaithfulStepSeconds
         => _lastDensity > Medium.NoticeableDensity
@@ -492,7 +507,20 @@ internal sealed class Slug : IProjectile
 
         // No thrust term between them: a slug coasts from the muzzle.
         double3 accel = Medium.Buoyancy(gravity, munition, mediumDensityRatio);
-        accel -= Medium.Drag(localVelocity, munition, mediumDensityRatio);
+
+        // The air and the pull are read half a sub-step on; the SPEED the drag is taken at was not.
+        // Drag goes as the square of it, and a re-entering round is shedding ~450 m/s2, so the
+        // start-of-step speed is always the larger and the drag always too big -- one-signed, every
+        // sub-step, for the whole fall. Taking the half-kick on the velocity too puts all three at
+        // one instant, which is what the comment above the lookups already claims.
+        double3 dragAt = localVelocity;
+        if (DragAtMidpointVelocity && SecondOrder)
+        {
+            double3 first = accel - Medium.Drag(localVelocity, munition, mediumDensityRatio);
+            dragAt = localVelocity + first * (0.5 * h);
+        }
+
+        accel -= Medium.Drag(dragAt, munition, mediumDensityRatio);
 
         // A guided tail kit: fin authority on a fall, not a motor. It steers the fall onto the point
         // rather than chasing a line of sight -- see TailKit -- because a store released from a
@@ -515,7 +543,7 @@ internal sealed class Slug : IProjectile
 
             SteeringCommandEcl = TailKit.Command(aimPos - PositionEcl, aim.VelocityEcl - VelocityEcl,
                                                  localVelocity, gravity,
-                                                 -Medium.Drag(localVelocity, munition, mediumDensityRatio),
+                                                 -Medium.Drag(dragAt, munition, mediumDensityRatio),
                                                  munition);
             accel += SteeringCommandEcl;
         }

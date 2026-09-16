@@ -520,6 +520,28 @@ internal sealed class IcbmConfig
     public bool SecondOrderWarheads = true;
 
     /// <summary>
+    /// Take a released warhead's drag at the sub-step's midpoint velocity rather than at the velocity
+    /// it starts with — <see cref="Slug.DragAtMidpointVelocity"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>The round's one mis-paired argument.</b> A second-order round already reads the air
+    /// and the pull half a sub-step on; the speed its drag is taken at was not. Drag is quadratic in
+    /// that speed and a re-entering warhead sheds about 450 m/s², so the start-of-step speed is always
+    /// the larger and the drag always too big — one-signed, every sub-step, for the whole fall, which
+    /// puts the round short of its own prediction.</para>
+    ///
+    /// <para><b>Headless it closes the gap outright</b>, at the flown 877 km / 32° release: the round's
+    /// disagreement with <see cref="ImpactPredictor"/> goes from <b>4.669 mm to 0.001 mm</b> at the
+    /// shipped 1 ms sub-step, and stays under 0.03 mm from 5 ms down to 0.25. So what 3dn priced as the
+    /// integrator's order is not truncation paid for the order chosen — it is removable exactly.</para>
+    ///
+    /// <para><b>Off pending its night</b>, because every flown baseline rests on the current
+    /// behaviour. It costs one extra <see cref="Medium.Drag"/> per sub-step, which is arithmetic
+    /// rather than a lookup. <c>docs/ACCURACY-PLAN.md</c> 3dx.</para>
+    /// </remarks>
+    public bool DragAtMidpointVelocity;
+
+    /// <summary>
     /// Ask the ground where it was at the sub-step's own instant — <see cref="Slug.GroundQueryAtOwnEpoch"/>.
     ///
     /// <para>A terrain query is a direction, and the engine resolves it in the frame the surface

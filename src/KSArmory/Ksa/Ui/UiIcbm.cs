@@ -505,6 +505,18 @@ internal sealed partial class Ui
             + "ends with, which carries an extra half-step of gravity for the whole fall -- about 2 m "
             + "short over six minutes.");
 
+        bool midDrag = config.DragAtMidpointVelocity;
+        if (ImGui.Checkbox("Warheads take their drag at the sub-step's midpoint", ref midDrag))
+        {
+            config.DragAtMidpointVelocity = midDrag;
+        }
+        Tip("On: the speed the drag is taken at is read half a sub-step on, where the air and the pull "
+            + "already are. Off: it is the speed the sub-step begins with, and since drag goes as its "
+            + "square and a re-entering warhead sheds about 450 m/s2, that speed is always the larger "
+            + "and the drag always too big -- one-signed, every sub-step, for the whole fall. Headless "
+            + "it takes the round's disagreement with its own prediction from 4.669 mm to 0.001. Off "
+            + "pending its night, because every flown baseline rests on the current behaviour.");
+
         bool ownEpoch = config.GroundQueryAtOwnEpoch;
         if (ImGui.Checkbox("Warheads ask the ground at their own instant", ref ownEpoch))
         {

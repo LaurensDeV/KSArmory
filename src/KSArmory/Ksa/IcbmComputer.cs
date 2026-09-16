@@ -2086,6 +2086,7 @@ internal sealed class IcbmComputer
             {
                 released.ResampleGroundNearImpact = Config.ResampleGroundAtImpact;
                 released.SecondOrder = Config.SecondOrderWarheads;
+                released.DragAtMidpointVelocity = Config.DragAtMidpointVelocity;
                 released.GroundQueryAtOwnEpoch = Config.GroundQueryAtOwnEpoch;
             }
 

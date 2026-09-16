@@ -100,12 +100,13 @@ public class PredictorStepGapTests(ITestOutputHelper Out)
     /// geometry against 3.72 m re-read.
     /// </remarks>
     private static double3 FlyTheRound(double3 fromCci, double3 velocityCci, MunitionProfile munition,
-                                       double dt, bool secondOrder = true)
+                                       double dt, bool secondOrder = true, bool midpointDrag = false)
     {
         Slug round = new(fromCci, velocityCci, null, 1, fromCci, Vec.Zero)
         {
             Munition = munition,
             ResampleGroundNearImpact = true,
+            DragAtMidpointVelocity = midpointDrag,
 
             // What IcbmComputer sets on every released warhead, off IcbmConfig.SecondOrderWarheads.
             // The property defaults to false and nothing flies that way, so a rig that leaves it
@@ -367,6 +368,48 @@ public class PredictorStepGapTests(ITestOutputHelper Out)
         }
 
         Out.WriteLine("\nthe flown walk is about 21 mm, one-signed and common to every seat.");
+    }
+
+    /// <summary>
+    /// <b>The drag's velocity is the round's one mis-paired argument.</b> The air and the pull are
+    /// read half a sub-step on and the speed the drag is taken at is not — and drag is quadratic in
+    /// it while the round is shedding ~450 m/s², so the start-of-step speed is always the larger and
+    /// the drag always too big. One-signed, every sub-step, for the whole fall.
+    ///
+    /// <para>This is what the 4.7 mm of 3dn actually was: not truncation paid for the integrator's
+    /// order, but one argument read at the wrong instant — and so removable rather than halveable.
+    /// <c>docs/ACCURACY-PLAN.md</c> 3dx.</para>
+    /// </summary>
+    [Fact]
+    public void TakingTheDragAtTheMidpointVelocityClosesTheGap()
+    {
+        double3 velocity = ReleaseArc(out double3 from, out double3 _);
+        double3 predicted = Predict(from, velocity, Arsenal.ReentryVehicleMk21, 2.0, 0.25)
+            .GroundFixedPointCci;
+
+        Out.WriteLine($"{"sub-step (ms)",14} {"start-of-step v (mm)",22} {"midpoint v (mm)",18}");
+
+        double shippedAtOneMs = double.NaN, fixedAtOneMs = double.NaN;
+
+        foreach (double ms in new[] { 5.0, 2.5, 1.0, 0.5, 0.25 })
+        {
+            MunitionProfile warhead = AtSubStep(ms / 1000.0);
+            double start = GroundMetres(predicted,
+                FlyTheRound(from, velocity, warhead, 1.0 / 60.0, true, midpointDrag: false)) * 1000.0;
+            double mid = GroundMetres(predicted,
+                FlyTheRound(from, velocity, warhead, 1.0 / 60.0, true, midpointDrag: true)) * 1000.0;
+
+            Out.WriteLine($"{ms,14:F3} {start,22:F3} {mid,18:F3}");
+
+            if (ms == 1.0) { shippedAtOneMs = start; fixedAtOneMs = mid; }
+        }
+
+        Out.WriteLine($"\nat the shipped 1 ms: {shippedAtOneMs:F3} mm -> {fixedAtOneMs:F3} mm");
+        Out.WriteLine("the flown walk is 11-21 mm, one-signed and common to every seat.");
+
+        Assert.True(fixedAtOneMs < shippedAtOneMs * 0.5,
+                    $"pairing the drag's velocity with the air and the pull should close most of the "
+                    + $"gap; {fixedAtOneMs:F3} mm against {shippedAtOneMs:F3} mm says it does not");
     }
 
     /// <summary>
