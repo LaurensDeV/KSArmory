@@ -530,6 +530,18 @@ internal sealed partial class Ui
             + "off the surface against 0.4. Flat ground is unchanged. Two height queries on the frame a "
             + "round lands, and none on any other.");
 
+        bool airPerStep = config.WarheadAirVelocityPerSubStep;
+        if (ImGui.Checkbox("Warheads read the air's motion per sub-step", ref airPerStep))
+        {
+            config.WarheadAirVelocityPerSubStep = airPerStep;
+        }
+        Tip("On: the air's own motion is read where the round is, as its density and the pull already "
+            + "are. Off: the frame's first sample is held for every sub-step of it, so a re-entering "
+            + "round -- which crosses about 150 m of ground in a frame -- has its drag measured "
+            + "against air it has left. The error is square to the airspeed, so it tilts the "
+            + "deceleration rather than resizing it. Headless it moves the landing 3.59 mm. Warheads "
+            + "only; a cannon's shells live seconds over ground metres away, where it is nothing.");
+
         bool ownEpoch = config.GroundQueryAtOwnEpoch;
         if (ImGui.Checkbox("Warheads ask the ground at their own instant", ref ownEpoch))
         {

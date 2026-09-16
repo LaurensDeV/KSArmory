@@ -21,6 +21,13 @@ namespace KSArmory;
 /// is <em>back-dated</em>, because the body it is differenced from was sampled at the frame's end.
 /// </param>
 /// <param name="AirDensityAt">The density at a stated position, back-dated the same way.</param>
+/// <param name="AirVelocityAt">
+/// The motion of the air at a stated position, back-dated the same way — the fourth field of this
+/// kind and the one that was missing. It is the ground's velocity, so it carries the body's spin as
+/// a cross product with the radius and therefore belongs to the <em>place</em> rather than to the
+/// body: over one frame a re-entering round crosses ~150 m of it. Absent, the round holds the
+/// frame's first sample, which is what <see cref="RoundFields.Held"/> means for this term too.
+/// </param>
 /// <param name="Ground">Where the surface is under the round, or null for a round nothing stops.</param>
 /// <param name="ApproachAt">
 /// How far along its arrival a round the ground stops has got, given its ecliptic position and
@@ -42,7 +49,8 @@ internal readonly record struct RoundFields(
     IGroundTest? Ground,
     Func<double, double3>? GroundCentreDriftAt = null,
     Func<double3, double, double3>? GroundQueryDriftAt = null,
-    Func<double3, double3, Approach>? ApproachAt = null)
+    Func<double3, double3, Approach>? ApproachAt = null,
+    Func<double3, double, double3>? AirVelocityAt = null)
 {
     /// <summary>
     /// No lookups at all: every field held at the frame's first sample for the whole frame.
@@ -96,6 +104,7 @@ internal static class RoundDriver
             slug.GroundCentreDriftAt = fields.GroundCentreDriftAt;
             slug.GroundQueryDriftAt = fields.GroundQueryDriftAt;
             slug.ApproachAt = fields.ApproachAt;
+            slug.AirVelocityAt = fields.AirVelocityAt;
         }
         else if (round is Interceptor missile)
         {

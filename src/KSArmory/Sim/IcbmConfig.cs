@@ -566,6 +566,25 @@ internal sealed class IcbmConfig
     public bool StopWarheadsOnTheTerrain = true;
 
     /// <summary>
+    /// Read the air's motion per sub-step rather than holding the frame's first sample —
+    /// <see cref="Slug.AirVelocityAtOwnSubStep"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>The fourth field of its kind, and the one that was held.</b> <see cref="RoundFields"/>
+    /// re-reads gravity, density and the ground inside the sub-step loop because a round moves within
+    /// the frame and those change over that distance. The air's motion is the ground's, and a
+    /// re-entering round crosses about 150 m of it in a frame — so a held sample measures the drag
+    /// against air the round has left. The error is square to the airspeed rather than along it, so
+    /// it tilts the deceleration rather than resizing it, and <see cref="ImpactPredictor"/> recomputes
+    /// the term at every RK stage.</para>
+    ///
+    /// <para><b>Headless it moves the landing 3.59 mm</b> on a spinning planet at the flown release,
+    /// against a walk whose scatter is 23.57 mm after <see cref="StopWarheadsOnTheTerrain"/>. Off
+    /// pending its night. <c>docs/ACCURACY-PLAN.md</c> 3dx Rank 2.</para>
+    /// </remarks>
+    public bool WarheadAirVelocityPerSubStep;
+
+    /// <summary>
     /// Ask the ground where it was at the sub-step's own instant — <see cref="Slug.GroundQueryAtOwnEpoch"/>.
     ///
     /// <para>A terrain query is a direction, and the engine resolves it in the frame the surface

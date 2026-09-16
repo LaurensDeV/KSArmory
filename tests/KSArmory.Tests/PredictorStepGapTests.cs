@@ -483,6 +483,73 @@ public class PredictorStepGapTests(ITestOutputHelper Out)
     }
 
     /// <summary>
+    /// <b>The air's motion is the fourth field that moves with the round, and it was the one held.</b>
+    /// <see cref="RoundFields"/> re-reads gravity, density and the ground inside the sub-step loop —
+    /// its own doc says those are the fields that "change materially over that distance" — while the
+    /// air's velocity was sampled once a frame at the round's pre-step position.
+    ///
+    /// <para>A re-entering round crosses about 150 m of ground in a frame and the air moves with the
+    /// ground, so a held sample measures the drag against air the round has left. The error is square
+    /// to the airspeed rather than along it, so it <b>tilts</b> the deceleration.
+    /// <see cref="ImpactPredictor"/> recomputes the same term at every RK stage, so the difference
+    /// lands squarely in the round's disagreement with its own prediction.
+    /// <c>docs/ACCURACY-PLAN.md</c> 3dx Rank 2.</para>
+    /// </summary>
+    [Fact]
+    public void HoldingTheAirsMotionForAWholeFrameMovesTheLanding()
+    {
+        const double EarthSpin = 7.2921159e-5;
+        BallisticBody spinning = new(Mu, R, new double3(0, 0, 1), EarthSpin);
+
+        double3 velocity = ReleaseArc(out double3 from, out double3 _);
+        MunitionProfile warhead = Arsenal.ReentryVehicleMk21;
+
+        double3 held = FlySpinning(spinning, from, velocity, warhead, perSubStep: false);
+        double3 fresh = FlySpinning(spinning, from, velocity, warhead, perSubStep: true);
+
+        double apart = GroundMetres(held, fresh);
+
+        Out.WriteLine($"air held for the frame against re-read per sub-step: {apart * 1000.0:F3} mm");
+        Out.WriteLine("the walk's scatter is 23.6 mm after the terrain fix; 3dx priced this at 2.3-8.3.");
+
+        Assert.True(apart > 1.0e-4, "re-reading the air's motion should move the landing at all; "
+                                    + $"{apart * 1000.0:F4} mm says the lookup is not reaching the round");
+    }
+
+    /// <summary>The same flight, with the air's motion held for the frame or re-read per sub-step.</summary>
+    private static double3 FlySpinning(BallisticBody body, double3 fromCci, double3 velocityCci,
+                                       MunitionProfile munition, bool perSubStep)
+    {
+        Slug round = new(fromCci, velocityCci, null, 1, fromCci, Vec.Zero)
+        {
+            Munition = munition,
+            ResampleGroundNearImpact = true,
+            SecondOrder = true,
+            AirVelocityAtOwnSubStep = perSubStep,
+        };
+
+        RoundFields fields = new(
+            GravityAt: (point, _) => GravityAt(point),
+            AirDensityAt: (point, _) => DensityAt(point),
+            Ground: new Ball(),
+            AirVelocityAt: (point, _) => body.GroundVelocityCci(point));
+
+        const double dt = 1.0 / 60.0;
+        double elapsed = 0.0;
+
+        for (int i = 0; i < 60 * 3000 && round.State == RoundState.Flying; i++)
+        {
+            RoundDriver.Fly(round, dt, null, GravityAt(round.PositionEcl),
+                            body.GroundVelocityCci(round.PositionEcl), fromCci,
+                            munition, DensityAt(round.PositionEcl), fields);
+            elapsed += dt;
+        }
+
+        Assert.NotEqual(RoundState.Flying, round.State);
+        return body.UncarryCci(round.PositionEcl, elapsed + round.DetonationElapsedInFrame);
+    }
+
+    /// <summary>
     /// The frame rate, which is what a throughput lever would move. It never reaches a 1 ms
     /// sub-step, so nothing bought there can be spent here — the two levers are independent.
     /// </summary>

@@ -89,6 +89,29 @@ internal sealed class Slug : IProjectile
     private double _arrivingSeconds;
 
     /// <summary>
+    /// The air's motion at a stated position and time into the frame, re-read per sub-step.
+    /// </summary>
+    /// <remarks>
+    /// <para>Absent, the round holds the frame's first sample for every sub-step of it — the one
+    /// field of its kind that was held while gravity, density and the ground are re-read. A
+    /// re-entering round crosses about 150 m of ground in a frame, and the air's motion is the
+    /// ground's, so holding it leaves the drag measured against air ω×150 m out of step. Drag is
+    /// square to that error rather than along it, so it <b>tilts</b> the deceleration rather than
+    /// changing its size — and <see cref="ImpactPredictor"/> recomputes the same term at every RK
+    /// stage, so the difference lands in the round's disagreement with its own prediction.</para>
+    ///
+    /// <para><c>docs/ACCURACY-PLAN.md</c> 3dx Rank 2, which measured it at 2.3–8.3 mm with a sign
+    /// that flips with launch azimuth.</para>
+    /// </remarks>
+    public Func<double3, double, double3>? AirVelocityAt { get; set; }
+
+    /// <summary>
+    /// Whether this round reads <see cref="AirVelocityAt"/> per sub-step rather than holding the
+    /// frame's sample. Off, so a round nobody asks behaves exactly as it did.
+    /// </summary>
+    public bool AirVelocityAtOwnSubStep { get; set; }
+
+    /// <summary>
     /// Solve the ground crossing against the terrain under it rather than against the chord joining
     /// the sub-step's two height samples.
     /// </summary>
@@ -494,6 +517,20 @@ internal sealed class Slug : IProjectile
             // Re-read per sub-step when the caller offers it, back-dated exactly as the air is.
             double3 pull = GravityAt?.Invoke(readAt, readWhen) ?? gravity;
             if (!Vec.IsFinite(pull)) pull = gravity;
+
+            // The air's own motion, at the same point and instant as its density. Held for the
+            // frame it is the last of the four that moves with the round and does not follow it.
+            //
+            // Gated on the round rather than on the lookup being supplied, so this reaches a warhead
+            // whose computer asks for it and NOT the gun's shells, which share these fields: a
+            // cannon's rounds live for seconds over ground metres away, where the term is
+            // identically nothing, and their lead is solved by a separate model that would then
+            // disagree with them. The same shape as GroundQueryAtOwnEpoch.
+            if (AirVelocityAtOwnSubStep
+                && AirVelocityAt?.Invoke(readAt, readWhen) is { } moving && Vec.IsFinite(moving))
+            {
+                _frameVelocityEcl = moving;
+            }
 
             Step(h, elapsed, dt, target, pull, munition, density);
             elapsed += h;

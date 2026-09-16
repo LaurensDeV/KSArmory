@@ -2088,6 +2088,7 @@ internal sealed class IcbmComputer
                 released.SecondOrder = Config.SecondOrderWarheads;
                 released.DragAtMidpointVelocity = Config.DragAtMidpointVelocity;
                 released.StopOnTheTerrain = Config.StopWarheadsOnTheTerrain;
+                released.AirVelocityAtOwnSubStep = Config.WarheadAirVelocityPerSubStep;
 
                 // Said, because an arm that cannot be seen in the log is an arm nobody can verify
                 // engaged -- the smoke had to infer it from the walks. The sub-step swap says so a

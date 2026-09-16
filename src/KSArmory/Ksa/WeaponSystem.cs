@@ -2870,6 +2870,15 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     private double3 GroundQueryDriftIntoFrame(double3 positionEcl, double secondsIntoFrame)
         => GroundVelocityAtRound(positionEcl) * secondsIntoFrame;
 
+    // The air's own motion where the round is, rather than where it was when the frame began. The
+    // same reason the density lookup beside it exists: a re-entering round crosses ~150 m of ground
+    // in a frame and the air moves with the ground, so a held sample measures the drag against air
+    // the round has left. ImpactPredictor recomputes this at every RK stage.
+    private double3 AirVelocityIntoFrame(double3 positionEcl, double secondsIntoFrame)
+        => GroundVelocityAtRound(positionEcl);
+
+    private Func<double3, double, double3>? _airVelocityAt;
+
     private Func<double3, double, double3>? _groundQueryDriftAt;
 
     private double3 BodyVelocityEcl()
@@ -2979,7 +2988,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                                             GroundTest.Shared,
                                             _groundDriftAt ??= GroundCentreDriftIntoFrame,
                                             _groundQueryDriftAt ??= GroundQueryDriftIntoFrame,
-                                            _approachAt ??= ApproachAt));
+                                            _approachAt ??= ApproachAt,
+                                            _airVelocityAt ??= AirVelocityIntoFrame));
 
 
             // Paired with the switch below rather than with "no longer flying": a round shot down
