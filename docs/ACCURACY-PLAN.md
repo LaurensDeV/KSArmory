@@ -8834,9 +8834,23 @@ data: `apart` runs on the within-frame phase at **−0.057 m/ms** over a 0.3–3
 **Fixed** (`b9655e3`): the line now reads `Slug.GroundRadiusUsed` and asks `TerrainRadiusAt` at the round's own
 `GroundSampledAtEcl`, so what is left between the two numbers is the two *readers* disagreeing rather than the
 instant they were asked at. Prints to the millimetre and says what the height is worth as ground beside it.
-Measurement only, and **unverified** — the next MIRV scenario prints it and the numbers should collapse toward
-zero. If they do not, the residue is a real reader difference (`GetTerrainHeightFromDirCcf` against
-`GetTerrainHeightFromDirCce`) and *that* is worth chasing.
+Measurement only.
+
+### 46b: verified in game, and the residue is not nothing — 2026-09-16
+
+One `mirv` scenario on `SOLVER SCALE 8`, 8 of 8 rockets PASS 6 of 6, KSA 2026.9.10.5438. The line **collapsed
+55×**: sd **1.46 m → 0.026 m**, range −3.50..+4.00 m → −0.054..+0.023. So the epoch was the bulk of it, as
+predicted, and the repaired line is the one to read from here.
+
+**What is left is real and is the same order as the walk**, which is the part worth not filing away: a residue
+of **26 mm of height**, which is **42 mm of ground** at `cot γ`, against a walk of −25 ± 21 mm. That is a
+genuine disagreement between the two height-field readers — `GetTerrainHeightFromDirCce` for the round against
+`GetTerrainHeightFromDirCcf` for the prediction — asked now at one point and one instant.
+
+**It does not yet explain the walk, and n = 8 cannot decide.** Regressed, the walk runs on the residue at
+**+0.32 m/m, r = +0.41**, where a surface error that reached the ground would give **−1.59** — still the wrong
+sign, and at eight warheads that is indistinguishable from noise. **Read it across a night**: the line is
+printed by every scripted shot, so it costs nothing and arrives with whatever flies next.
 
 ### What the walk is now known not to be
 
@@ -8972,7 +8986,8 @@ what 20b is flying against.
 | ~~45~~ | ~~Price the fall against the predictor's step, headlessly~~ | done | **refuted: the predictor's step moves the arrival 0.002 mm over a 40x sweep. It is the round's own 1 ms sub-step, 1.54 m at a 32 deg arrival, and the frame rate never reaches it** — 3dm |
 | ~~45b~~ | ~~Fly the Mk 21 at a finer sub-step~~ | **stopped one shot in** | **the lever is 4 mm, not 18: 3dm priced a first-order round and the flown one is second order. Arm kept, off** — 3dn |
 | ~~46~~ | ~~Read `surface at the landing point` across a night~~ | done | **the line was measuring its own epoch, not a surface: the walk regresses on it at +0.013 m/m where a real one predicts −1.59. Fixed and unverified** — 3do |
-| **46b** | **Confirm the repaired surface line collapses toward zero**, on the next MIRV scenario. A residue is a real reader difference, `GetTerrainHeightFromDirCcf` against `...Cce`, and that is worth chasing | free on any shot | 3do |
+| ~~46b~~ | ~~Confirm the repaired surface line collapses toward zero~~ | done, verified in game | **55x: sd 1.46 m -> 0.026 m. The residue is real — 26 mm of height, 42 mm of ground — and the same order as the walk** — 3do |
+| **46c** | **Read the repaired surface residue across a night.** 42 mm of ground against a 25 mm walk, but the slope is +0.32 where a real one gives −1.59, and n=8 cannot decide | free with whatever flies next | 3do |
 | **47** | **Re-read whether the walk still has per-seat structure at 21 mm.** Terrain is the one thing a rig cannot have that varies per seat, and item 40 removed the last per-seat term at a much larger scale | 0 shots | 3do: four candidates closed, and the rig now sits 4.5x from the flight rather than 73x |
 | **2b** | The 20 s clearance knife-edge — the second branch, now the largest at long range | 12 paired shots | 12,902 km: 8.80 km -> ? |
 | ~~3~~ | ~~**Diagnostic**: log the release residual and `_response` per flight~~ | done | `release summary`, read by `shot-report.py`; 3x |
