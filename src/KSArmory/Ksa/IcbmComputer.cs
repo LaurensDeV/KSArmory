@@ -2087,6 +2087,15 @@ internal sealed class IcbmComputer
                 released.ResampleGroundNearImpact = Config.ResampleGroundAtImpact;
                 released.SecondOrder = Config.SecondOrderWarheads;
                 released.DragAtMidpointVelocity = Config.DragAtMidpointVelocity;
+
+                // Said, because an arm that cannot be seen in the log is an arm nobody can verify
+                // engaged -- the smoke had to infer it from the walks. The sub-step swap says so a
+                // few lines above; this is the other half of the same night.
+                if (Config.DragAtMidpointVelocity)
+                {
+                    Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)}: warheads take their "
+                             + "drag at the sub-step's midpoint velocity");
+                }
                 released.GroundQueryAtOwnEpoch = Config.GroundQueryAtOwnEpoch;
             }
 
