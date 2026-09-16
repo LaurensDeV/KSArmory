@@ -83,12 +83,17 @@ public class PredictorStepGapTests(ITestOutputHelper Out)
     /// geometry against 3.72 m re-read.
     /// </remarks>
     private static double3 FlyTheRound(double3 fromCci, double3 velocityCci, MunitionProfile munition,
-                                       double dt)
+                                       double dt, bool secondOrder = true)
     {
         Slug round = new(fromCci, velocityCci, null, 1, fromCci, Vec.Zero)
         {
             Munition = munition,
             ResampleGroundNearImpact = true,
+
+            // What IcbmComputer sets on every released warhead, off IcbmConfig.SecondOrderWarheads.
+            // The property defaults to false and nothing flies that way, so a rig that leaves it
+            // alone prices a first-order round: 1.54 m against 0.01 m at the shipped 1 ms.
+            SecondOrder = secondOrder,
         };
 
         RoundFields fields = new(
@@ -188,12 +193,22 @@ public class PredictorStepGapTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// <b>Where the term actually lives.</b> The round integrates symplectic Euler at
-    /// <see cref="MunitionProfile.SubStepSeconds"/> — 1 ms for the Mk 21 — and that is below any
-    /// frame, so the frame rate never reaches it and the sub-step is the only knob.
+    /// <b>The sub-step is worth millimetres on the round the game flies, and metres on one nothing
+    /// flies.</b> <see cref="Slug.SecondOrder"/> defaults to false and
+    /// <see cref="IcbmConfig.SecondOrderWarheads"/> ships true, so a rig that leaves the property
+    /// alone measures a first-order round — 1.54 m at the shipped 1 ms against <b>4.7 mm</b>.
+    ///
+    /// <para>That is what makes <see cref="IcbmConfig.WarheadSubStepMs"/> a dead lever: eight times
+    /// finer recovers 4 mm of a 21 mm flown walk, which no night can resolve.
+    /// <c>docs/ACCURACY-PLAN.md</c> 3dn.</para>
+    ///
+    /// <para>Both columns are kept because the pair is the finding. <c>RoundIntegratorOrderTests</c>
+    /// makes the same point in vacuum, where second order is exact for a conic and the sub-step
+    /// moves the landing 0.000 m; this is the case with drag, where it does not vanish and is still
+    /// millimetres.</para>
     /// </summary>
     [Fact]
-    public void TheRoundsOwnSubStepIsTheWholeOfIt()
+    public void TheSubStepIsMillimetresOnTheRoundTheGameFlies()
     {
         double3 velocity = ReleaseArc(out double3 from, out double3 _);
         double3 predicted = Predict(from, velocity, Arsenal.ReentryVehicleMk21, 2.0, 0.25)
@@ -203,24 +218,29 @@ public class PredictorStepGapTests(ITestOutputHelper Out)
 
         double shipped = double.NaN, finest = double.NaN;
 
+        Out.WriteLine($"{"",14} {"second order (flown)",26} {"first order",18}");
+
         foreach (double ms in new[] { 5.0, 2.5, 1.0, 0.5, 0.25, 0.125 })
         {
             MunitionProfile warhead = AtSubStep(ms / 1000.0);
             double gap = GroundMetres(predicted, FlyTheRound(from, velocity, warhead, 1.0 / 60.0));
+            double first = GroundMetres(predicted,
+                                        FlyTheRound(from, velocity, warhead, 1.0 / 60.0, false));
 
-            Out.WriteLine($"{ms,14:F3} {gap,26:F4}");
+            Out.WriteLine($"{ms,14:F3} {gap,26:F4} {first,18:F4}");
 
             if (ms == 1.0) shipped = gap;
             finest = gap;
         }
 
-        Out.WriteLine($"\nshipped 1 ms {shipped:F4} m, at 0.125 ms {finest:F4} m");
-        Out.WriteLine("MunitionProfile.SubStepSeconds already prices this: 145.3 / 68.8 / 22.9 / 7.6 m");
-        Out.WriteLine("at 5.00 / 2.50 / 1.00 / 0.50 ms on a shallow arrival, against a 0.25 ms reference.");
+        Out.WriteLine($"\nshipped 1 ms {shipped * 1000.0:F1} mm, at 0.125 ms {finest * 1000.0:F1} mm "
+                      + $"-- an arm can recover {(shipped - finest) * 1000.0:F1} mm");
+        Out.WriteLine("the flown walk is 21 mm, so the sub-step is at most a fifth of it and the");
+        Out.WriteLine("arm is far below what twelve paired blocks can resolve.");
 
-        Assert.True(finest < shipped * 0.5,
-                    $"halving the sub-step should still halve the gap; {finest:F4} m against "
-                    + $"{shipped:F4} m says the round is no longer the thing that has not converged");
+        Assert.True(shipped < 0.010,
+                    $"the flown warhead is second order, so its sub-step should be worth millimetres; "
+                    + $"{shipped:F4} m says the rig has stopped flying the round the game flies");
     }
 
     /// <summary>
