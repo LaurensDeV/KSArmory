@@ -8710,6 +8710,32 @@ in the world, so an edit would put the arm on *both* arms and read a dead heat �
 `MaxSubSteps` scales with the step, so a finer warhead does not shorten `MaxFaithfulStepSeconds` and
 hold the whole world's timewarp down with it.
 
+### 45b smoked, and the night launched — 2026-09-16
+
+**Smoked** on one paired block, `2026-09-17-substep-smoke`, 4 `base` and 4 `fine` on `78eb48e` and KSA
+2026.9.10.5438. All eight rockets passed 6 of 6, the shot took 13:38, no exceptions, nothing timed out and no
+rocket was destroyed in its ascent. Endings `floor`/`payback` 6/2, no `clock` or trim ending.
+
+**The mechanism engages on exactly the right seats:** 4 computers logged
+`warheads integrate at 0.125 ms, 2560 sub-steps to a frame at most`, against 4 `base` and 4 `fine` in the arm
+assignment.
+
+**The cost is not there.** Frame time **25.2 ms**, against the 28.8 ms of the `base` night this is measured
+against — the world ran *faster*, not slower, so the table above is a ceiling nothing approached. That was the
+one thing that could have made the arm lose for a reason that is not accuracy, and it is answered.
+
+**One thing gives pause, and it is not evidence.** Over the four flights an arm, the fall after the kicked
+prediction read `base` −0.030 m and `fine` −0.035 m — not moving toward zero, and the centre 0.032 against
+0.054. **A single block cannot compare arms**: the assignment flips per shot across a night, so in one block
+each seat flies one arm only, and seat 3 is 7.3× rougher than seat 8 below a kilometre. This is seats.
+
+But it is worth writing down *before* the night lands, because it is the shape the night would take if the
+flown walk is not the round's truncation at all — which 3dm already flagged from the other side, the rig's
+1.54 m sitting **73× above** the flown 0.021 m. If the night reads a null on `signed-walk`, that is the reading
+to believe, and the next question is what the flown walk actually is rather than how to integrate it finer.
+
+**Flying now** as `2026-09-16-substep`, 12 blocks, as declared.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
