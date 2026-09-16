@@ -9198,24 +9198,23 @@ warheads of `2026-09-16-walk`:
 | mean \|apart\|, mm | 6.5 | 4.2 | 5.3 | 19.2 | 9.1 | 36.7 | 50.3 | 17.8 |
 | sub-km rms relief, m | 2.8 | 3.3 | 5.1 | 6.8 | 7.1 | 12.0 | 15.8 | 20.5 |
 
-**`|apart|` tracks relief at r = +0.656**, slope +1.73 mm per m — so it is the displacement hypothesis, not the
-height one. Solving each seat for the horizontal displacement that would produce its `|apart|` gives
-**0.43–1.59 m, mean 0.99 m**. At this aim's latitude the ground moves at **415.8 m/s**, so a metre is
-**2.4 ms** — comfortably sub-frame, and exactly what two conversions snapshotted a few milliseconds apart
-would produce.
+**`|apart|` tracks relief at r = +0.656**, slope +1.73 mm per m — so it is *not* a common height error.
+
+**But the frame-conversion reading of that was wrong, and 3dv has the mechanism.** Solving each seat for a
+horizontal displacement gave 0.43–1.59 m, mean 0.99, which at this latitude's 415.8 m/s is 2.4 ms — and the
+decompiled engine refutes it outright. `_ccf2Cce` is built on the line *after* `_ccf2Cci` from that very
+value, so the two cannot be out of phase, and `Cce→Cci→Ccf` is algebraically identical to `Cce→Ccf` to
+~1e-15 rad, six nanometres of ground. **A displacement is the wrong parameterisation of a curvature term**;
+see 3dv.
 
 *(The per-seat spread, cv 0.46, is dominated by the gradient proxy: `rms/500 m` stands in for the true local
 slope under each aim point, which no log carries. 33d has wanted that number since it was written.)*
 
-### What the fix is, and why it needs no new binding
+### The frame-conversion fix is NOT needed — see 3dv
 
-The round asks through `GetTerrainHeightFromDirCce` (`Ksa/GroundTest.cs:102`); the prediction converts to Ccf
-itself and calls `GetTerrainHeightFromDirCcf` (`Ksa/IcbmComputer.cs:2855`). **Both time-dependent rotations,
-and not the same one.** Routing the prediction through Cce instead makes the shared engine call do the
-spin conversion for both, and the mod's own `Cci→Cce` hop is the **obliquity**, which is time-independent —
-`IcbmComputer` already states that a body's spin axis is exactly `+Z` in its own Cci, so Cci and Cce differ by
-a fixed tilt and nothing that ticks. `GetCci2Cce()` and `GetTerrainHeightFromDirCce` are both already in
-`docs/KSA-API-SURFACE.md`, so this costs no new surface.
+Routing the prediction's query through Cce was the obvious fix and it would have bought nothing: the two
+conversion routes are provably the same quaternion. **Not implemented**, and the reasoning is kept because the
+route *is* a real asymmetry in the code and the next reader will reach for it too.
 
 **`SurfacePointEcl` (`:3180`) stays as it is.** It builds the *aim point* from a latitude and longitude, which
 is natively Ccf; it is not a query under a moving round and shares none of this.
@@ -9229,6 +9228,61 @@ subject of its own investigation and is not this.
 
 **And the size is not pinned**, because 3dt's control is impure: the cross channel regresses on `apart` at
 r = +0.394 where it should be flat, so some of the −0.953 is shared confound.
+
+## 3dv. The round stops on a chord of the terrain, not on the terrain — 2026-09-16
+
+No shots. 3du read the two queries' 29 mm disagreement as a frame-conversion timing offset. **The decompiled
+engine refutes that**, and the real mechanism is in this mod.
+
+**Why it is not the conversion.** `Celestial.UpdatePerFrameData` writes `_ccf2Cci` and then, on the next line,
+`_ccf2Cce = Concatenate(_ccf2Cci, _cci2Cce)` — the derived frame is built *from* the other at the same instant,
+from one time sample, and nothing else in the corpus assigns any of the three. `Cci↔Cce` is a fixed
+obliquity rotation with no time dependence at all. And `Cce→Cci→Ccf` expands to the identical quaternion as
+`Cce→Ccf`, so the two routes differ by ~1e-15 rad — **six nanometres** of ground. The 2.4e-7 rad has to be in
+the input direction, not the conversion.
+
+### It is in the input, and it is a chord
+
+`Sim/Slug.cs:685`, at the crossing:
+
+```csharp
+_groundRadius = radiusWas + (radiusNow - radiusWas) * f;
+```
+
+**The round stops on a linear blend of two height samples taken a whole sub-step apart** — `radiusWas` under
+the position the sub-step began at, `radiusNow` under the position it ended at. At a 5,500 m/s arrival and a
+1 ms sub-step those two points are **5.5 m apart on the ground**. The prediction, meanwhile, stops on a point
+query (`ImpactPredictor` through `TerrainRadiusAt`).
+
+So the two are not reading the surface at different *places*; they are reading **different surfaces**. The
+round's is the chord joining two samples 5.5 m apart, and the prediction's is the height field itself. What
+separates them is the terrain's **curvature over 5.5 m**, which is why `|apart|` scales with relief
+(r = +0.656, +1.73 mm per m) — and why the "displacement" parameterisation in 3du produced a number that
+looked physical and was not. A chord deviating from a curve is not a displacement of anything.
+
+**The magnitude fits.** At sub-km rms relief of 3–20 m the local gradient runs ~0.006–0.04, so the height
+changes 0.03–0.22 m across a 5.5 m sub-step and the chord's departure from the surface is a fraction of that —
+tens of millimetres, against the 4–50 mm measured per seat.
+
+**And the recorded pair was never matched.** `GroundRadiusUsed` is that blend while `GroundSampledAtEcl` is
+the crossing *point*, so the two fields the trace reports describe different things and always did. The
+diagnostic did not manufacture this — the round really does stop on the chord — but it did make it look like
+a query-frame problem.
+
+### The fix, and what it is worth
+
+Re-query the height **at the crossing point** once `f` is known, instead of blending the endpoints. It is
+chicken-and-egg — `f` is computed from the endpoint radii — so it wants one iteration: blend to get `f`, query
+at the crossing, recompute `f`. **One extra height lookup per round that lands**, which is nothing: only a
+round with `HitsTerrain` reaches here and only on the frame it arrives.
+
+Worth **the walk's scatter and none of its bias** — 3dt has the walk on `apart` at slope −0.953, r = −0.755,
+57% of the variance, against `slope × mean(apart)` of +0.5 mm on a −11.4 mm mean. And 3dt's control is impure
+(cross channel r = +0.394), so the size is bounded rather than known.
+
+**It should also shrink with the sub-step**, which is a free prediction to check against: halving the sub-step
+halves the chord and should roughly quarter a curvature term. `IcbmConfig.WarheadSubStepMs` is already built
+and off (3dn), so that is testable without new code.
 
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
@@ -9339,7 +9393,8 @@ what 20b is flying against.
 | ~~46b~~ | ~~Confirm the repaired surface line collapses toward zero~~ | done, verified in game | **55x: sd 1.46 m -> 0.026 m. The residue is real — 26 mm of height, 42 mm of ground — and the same order as the walk** — 3do |
 | **46c** | **Read the repaired surface residue across a night.** 42 mm of ground against a 25 mm walk, but the slope is +0.32 where a real one gives −1.59, and n=8 cannot decide | free with whatever flies next | 3do |
 | ~~47~~ | ~~Re-read whether the walk still has per-seat structure~~ | done, then **OVERTURNED** | **3dp read it through a 10 mm print and could not have seen it. At 0.1 mm \|walk\| on relief is r = +0.777: terrain drives the MAGNITUDE. The signed term is still common** — 3ds, 3dt |
-| **49** | **Make the two height-field readers one call.** `GetTerrainHeightFromDirCce` for the round against `...Ccf` for the prediction disagree by 29 mm of height, 46 mm of ground, and that is r = −0.755 of the walk's scatter | small, then a paired night | 3dt: the largest named term in the walk, and the control is impure so its size is not pinned |
+| ~~49~~ | ~~Make the two height-field readers one call~~ | **premise refuted** | there is one reader, and the two conversion routes are the same quaternion to 1e-15 rad — 3du, 3dv |
+| **49b** | **Stop the round on the terrain rather than on a chord of it.** `Slug.cs:685` blends two height samples a sub-step apart — 5.5 m of ground at a 5,500 m/s arrival — while the prediction point-samples. Re-query at the crossing once `f` is known | one lookup per landing round, then a paired night | 3dv: 57% of the walk's variance, none of its bias |
 | **48** | ~~Does the walk grow per frame or per second?~~ **UNRESOLVED on incidental frame-rate variation**, as declared — the interval admits both, and the fast shots are also the fast *regime*, so the correction loop and the frame rate cannot be separated | flown | 3dt |
 | **48b** | **Re-ask 48 with ranked item 8's `minTargetFrameRate` as a paired arm**, which varies the frame rate WITHIN a world so both arms share one regime and the confound cancels | 12 paired shots | 3dt: incidental variation cannot answer this at any n |
 | **2b** | The 20 s clearance knife-edge — the second branch, now the largest at long range | 12 paired shots | 12,902 km: 8.80 km -> ? |
