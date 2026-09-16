@@ -9557,6 +9557,26 @@ KSARMORY_SCENARIO_SAVE='SOLVER SCALE 8' ./tools/shot-batch.sh \
   which would mean the fix is doing something other than what it claims.
 * **Watch**: two extra height lookups a landing round — frame time against `base`'s ~28 ms — and KSA's own log.
 
+### Smoked — and it costs an instrument, which is worth knowing first
+
+One paired block, `2026-09-16-terrain-smoke`, PASS, clean, arms 4/4. Mean `|apart|` **7.50 mm on `base` and
+0.00 on `terrain`**, and the walk's *mean* is unchanged — −12.97 against −12.75 — which is exactly the shape
+declared for a scatter fix rather than a bias one.
+
+**`apart` collapses to identically zero, and that is by construction.** With the fix the round records the
+radius it queried at its crossing and the prediction queries the height field at that same point, so the two
+are the same number and their difference is zero whatever the ground is doing. **This does not mean the
+instrument has gone blind on a surviving error** — the headless fixture measures the physical improvement
+independently, 31.4 mm off the true surface against 0.4 — but it does mean **`apart` stops being a diagnostic
+the day this ships**. 46c and anything else reading the trace's surface line lose their subject.
+
+That is a real cost and it is the right trade: the line existed to find this, it found it, and a diagnostic
+that reads zero because the fault is fixed has done its job. But the *next* surface question will need a new
+instrument rather than this one, and the obvious candidate — the round's stop against the height field at a
+third, independent point — is not built.
+
+The night's primary is the walk's **sd**, which needs none of this.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
