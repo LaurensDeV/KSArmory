@@ -260,8 +260,41 @@ terrain rather than by the shot, and re-aiming walks away from the answer instea
 the same failure, with the same gain, as the cursor's ground-point iteration in
 `KsaWorld.TryCursorGroundPoint`, which guards against it by keeping the better sample and breaking.
 
-Whether Earth's terrain is actually that steep at the metre scale is **not measured here** — see
-[What could not be measured](#what-could-not-be-measured).
+### It is that steep, measured — 2026-09-17
+
+That was open until the mod's own release log was read as a slope instrument. Every MIRV release
+prints the ground's rise from the aim to the impact beside the probe's miss, so `|rise| / miss` is a
+slope at the scale the miss actually spans — a **0.47 m median baseline**, which is the metre scale
+this section was asking about. Over 558 warheads at the flown site (26.485S, 68.148W):
+
+| | local slope | loop gain `s/tan(gamma)` | amplification at the flown 31.7 deg |
+| --- | --- | --- | --- |
+| 10th percentile | 0.017 | 0.03 | 1.03x |
+| median | **0.149** | 0.24 | 1.32x |
+| 75th | 0.345 | 0.56 | 2.26x |
+| 90th | **0.823** | **1.33** | **unbounded** |
+| worst of 558 | 2.223 | 3.59 | **unbounded** |
+
+**So a tenth of this site's ground is past gain one at the angle the mod flies.** Not most of it,
+and the median is benign — but the tail is real, it is not a modelling assumption, and it is the
+same tail that decides how much of the walk's scatter the ground accounts for
+(`docs/ACCURACY-PLAN.md` 3eh).
+
+### And the walk is one of the terms it multiplies
+
+`WalkFloorTests` flies the round and its own prediction to relief summed over seven octaves, with
+release states drawn at random. Sweeping the arrival angle at the site's median slope:
+
+| arrival | `cot gamma` | walk scatter | scatter / cot |
+| --- | --- | --- | --- |
+| 20.28 deg | 2.706 | 18.461 mm | 6.823 |
+| 31.73 deg | 1.617 | 5.772 mm | 3.569 |
+| 49.82 deg | 0.844 | 1.358 mm | 1.608 |
+
+**20 to 50 degrees is 13.6x on the walk**, where `cot gamma` alone accounts for 3.2x — a steeper
+arrival shortens the ground one sub-step bracket covers as well as the height-to-ground conversion,
+and the two compound. That makes the arrival angle a **stronger** lever on this term than the table
+above would predict, and the strongest found on the walk in this programme.
 
 ---
 
