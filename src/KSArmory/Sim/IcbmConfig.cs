@@ -557,13 +557,13 @@ internal sealed class IcbmConfig
     /// terrain, and the two land 69 mm apart. Flat ground is unchanged to a micron, as it must be:
     /// there the chord <em>is</em> the surface.</para>
     ///
-    /// <para><b>Off pending its night.</b> Two height queries on the frame a round lands — one to
-    /// find the crossing, one to record what it settled on — and nothing on any other frame.
-    /// 3dy is the reason this goes first: it is the largest component of the walk's scatter, and
-    /// until it is gone a midpoint-drag arm cannot be resolved at any affordable number of
-    /// blocks.</para>
+    /// <para><b>On</b>, flown over 12 paired blocks: the walk's sd **0.619x [0.465, 0.824]**, 38.09 to
+    /// 23.57 mm, against 0.656 declared — and <c>|apart|</c> from 17.667 mm to identically zero. The
+    /// walk's *mean* did not move, which is what says this removed scatter and left the bias, as a
+    /// curvature term must. Two height queries on the frame a round lands and none on any other.
+    /// <c>docs/ACCURACY-PLAN.md</c> 3ea.</para>
     /// </remarks>
-    public bool StopWarheadsOnTheTerrain;
+    public bool StopWarheadsOnTheTerrain = true;
 
     /// <summary>
     /// Ask the ground where it was at the sub-step's own instant — <see cref="Slug.GroundQueryAtOwnEpoch"/>.
