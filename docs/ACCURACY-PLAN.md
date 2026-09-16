@@ -9173,6 +9173,63 @@ here. Pre-registering it is the only reason this is a caveat rather than a disco
 **Next for 48 is ranked item 8**, `minTargetFrameRate` as a paired arm: it varies the frame rate *within* a
 world, so both arms share one regime and the confound cancels — which incidental variation cannot do at any n.
 
+## 3du. Item 49: there is one height field, and the two queries land a metre apart on it — 2026-09-16
+
+No shots. **Item 49 was declared on a false premise** — "make the two height-field readers one call" — and there
+are not two readers. `Celestial` has one, `GetTerrainHeightFromDirCcf`, and the other entry points only convert
+into its frame first:
+
+```csharp
+GetTerrainHeightFromDirCce(d) => GetTerrainHeightFromDirCcf(d.Transform(GetCcf2Cce().Inverse()))
+GetTerrainHeightFromDirCci(d) => GetTerrainHeightFromDirCcf(d.Transform(GetCcf2Cci().Inverse()))
+```
+
+So the 29 mm is **a frame-conversion difference, not a height-field difference**, and the two queries are
+reading one surface at two slightly different places.
+
+### How far apart, measured rather than assumed
+
+If the cause is a common *horizontal* displacement, `|apart|` must scale with each seat's terrain **gradient** —
+one displacement, different heights. If it is a common *height* error, `|apart|` is flat across seats. Over 96
+warheads of `2026-09-16-walk`:
+
+| seat | 8 | 1 | 2 | 5 | 7 | 4 | 6 | 3 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| mean \|apart\|, mm | 6.5 | 4.2 | 5.3 | 19.2 | 9.1 | 36.7 | 50.3 | 17.8 |
+| sub-km rms relief, m | 2.8 | 3.3 | 5.1 | 6.8 | 7.1 | 12.0 | 15.8 | 20.5 |
+
+**`|apart|` tracks relief at r = +0.656**, slope +1.73 mm per m — so it is the displacement hypothesis, not the
+height one. Solving each seat for the horizontal displacement that would produce its `|apart|` gives
+**0.43–1.59 m, mean 0.99 m**. At this aim's latitude the ground moves at **415.8 m/s**, so a metre is
+**2.4 ms** — comfortably sub-frame, and exactly what two conversions snapshotted a few milliseconds apart
+would produce.
+
+*(The per-seat spread, cv 0.46, is dominated by the gradient proxy: `rms/500 m` stands in for the true local
+slope under each aim point, which no log carries. 33d has wanted that number since it was written.)*
+
+### What the fix is, and why it needs no new binding
+
+The round asks through `GetTerrainHeightFromDirCce` (`Ksa/GroundTest.cs:102`); the prediction converts to Ccf
+itself and calls `GetTerrainHeightFromDirCcf` (`Ksa/IcbmComputer.cs:2855`). **Both time-dependent rotations,
+and not the same one.** Routing the prediction through Cce instead makes the shared engine call do the
+spin conversion for both, and the mod's own `Cci→Cce` hop is the **obliquity**, which is time-independent —
+`IcbmComputer` already states that a body's spin axis is exactly `+Z` in its own Cci, so Cci and Cce differ by
+a fixed tilt and nothing that ticks. `GetCci2Cce()` and `GetTerrainHeightFromDirCce` are both already in
+`docs/KSA-API-SURFACE.md`, so this costs no new surface.
+
+**`SurfacePointEcl` (`:3180`) stays as it is.** It builds the *aim point* from a latitude and longitude, which
+is natively Ccf; it is not a query under a moving round and shares none of this.
+
+### What it is worth, and what it is not
+
+**It is a scatter fix.** 3dt measured the walk on `apart` at slope −0.953, r = −0.755 — 57% of the walk's
+variance — while `slope × mean(apart)` is +0.5 mm against a mean walk of −11.4. So closing it should take the
+walk's 36 mm of scatter down substantially and **leave the one-signed 11–21 mm untouched**. That term is the
+subject of its own investigation and is not this.
+
+**And the size is not pinned**, because 3dt's control is impure: the cross channel regresses on `apart` at
+r = +0.394 where it should be flat, so some of the −0.953 is shared confound.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
