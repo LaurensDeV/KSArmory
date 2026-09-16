@@ -9506,6 +9506,57 @@ that makes the other measurable. That is the finding this night bought.
 `IcbmConfig.DragAtMidpointVelocity` **stays off**: the mechanism is proven headlessly to a micron and the
 flight is consistent with it and underpowered, which is not the same as verified.
 
+## 3dz. Item 49b built, and its night declared — 2026-09-16
+
+Built as `IcbmConfig.StopWarheadsOnTheTerrain` (`97b03f9`), off. Once the crossing is bracketed the ground is
+read again where it actually is, one false-position step is taken from the same bracket, and a second query
+records what it settled on. Two height lookups on the frame a round lands, none on any other.
+
+**Headless**, over ground rolling a metre every forty — which is ordinary relief at the scale a sub-step
+covers:
+
+| | stops off the true surface | records its own surface |
+| --- | --- | --- |
+| against the **chord** (current) | **−31.4 mm** | −0.031 mm |
+| against the **terrain** | **−0.4 mm** | 0.000 mm |
+| flat ground | unchanged to a micron | — |
+
+The two land **69 mm apart**. Flat ground is untouched because there the chord *is* the surface, which is the
+control that says this is curvature and not a constant.
+
+**The second query earns its place separately.** Without it `GroundRadiusUsed` was the radius under the point
+that *solved* for the crossing rather than under the crossing itself — **5.9 mm** out on that relief, and it
+would have gone straight into the trace's surface line that 46c reads.
+
+### The night, declared before it flies — and what it cannot show
+
+**Both arms fly the shipped 1 ms sub-step**, so the noise model is `2026-09-16-walk`'s and not a rescaled one.
+That is the correction to 3dx's mistake: a figure carried from one regime into another where it does not hold.
+
+```bash
+KSARMORY_SCENARIO_SAVE='SOLVER SCALE 8' ./tools/shot-batch.sh \
+    --paired 'base|terrain:StopWarheadsOnTheTerrain=true' \
+    --aim 26.485S,68.148W --blocks 12 --out ~/shots/2026-09-16-terrain
+```
+
+| endpoint | predicted | power at 12 blocks |
+| --- | --- | --- |
+| **the walk's sd, primary** | **0.656×** (36.45 → 23.90 mm) | **82%** |
+| `\|apart\|`, the mechanism | collapses toward zero | near-certain |
+| **`centre`, the ground truth** | **0.86×** | **will not resolve** |
+| `signed-walk` mean, a control | unchanged — this is a scatter fix, not a bias one | — |
+
+* **It ships** if the walk's sd ratio's interval excludes 1.0 and `|apart|` collapses.
+* **`centre` at 0.86× is below what a night resolves** — `shot-report`'s MDE is about 0.68× — so a null there
+  is expected and is **not** a refutation. Saying so now is the whole point of declaring it.
+* **What it is worth is therefore stated plainly: about 14% of the group's aim error.** That is real and it is
+  small, and two things justify the night anyway: it is a **correctness** fix — a round should stop on the
+  ground, not on a chord drawn across 5.5 m of it — and 3dy showed it is what makes the midpoint-drag arm
+  measurable at all, since that arm drowns in exactly the scatter this removes.
+* **Refuted** by the walk's sd not falling, by `|apart|` not collapsing, or by `signed-walk`'s mean moving,
+  which would mean the fix is doing something other than what it claims.
+* **Watch**: two extra height lookups a landing round — frame time against `base`'s ~28 ms — and KSA's own log.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
