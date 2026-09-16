@@ -219,4 +219,24 @@ public class ShotArmsTests
         Assert.True(ShotArms.TryApply(arms.For(1), steep, out fault), fault);
         Assert.Equal(0.65, steep.ArrivalPreference, 6);
     }
+
+    /// <summary>
+    /// Item 45b's own spec, pinned for the same reason: the arm is what a night is, and a typo in it
+    /// costs two and a half hours. <c>docs/ACCURACY-PLAN.md</c> 3dm.
+    /// </summary>
+    [Fact]
+    public void TheSubStepSpecParsesAndSetsTheStep()
+    {
+        Assert.True(ShotArms.TryParse("base|fine:WarheadSubStepMs=0.125", out ShotArms arms,
+                                      out string fault), fault);
+        Assert.Equal(2, arms.Count);
+
+        IcbmConfig baseline = new();
+        Assert.True(ShotArms.TryApply(arms.For(0), baseline, out fault), fault);
+        Assert.Equal(0.0, baseline.WarheadSubStepMs, 6);
+
+        IcbmConfig fine = new();
+        Assert.True(ShotArms.TryApply(arms.For(1), fine, out fault), fault);
+        Assert.Equal(0.125, fine.WarheadSubStepMs, 6);
+    }
 }

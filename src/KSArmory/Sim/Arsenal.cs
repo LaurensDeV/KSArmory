@@ -490,6 +490,17 @@ public static class Arsenal
         round.DragCoefficient = 0.1f;
         return round;
     }
+
+    /// <summary>
+    /// The same round integrating at a stated sub-step. What <see cref="IcbmConfig.WarheadSubStepMs"/> flies;
+    /// a copy rather than an edit, because the registered profile is shared by every rocket in the world.
+    /// </summary>
+    internal static MunitionProfile RoundAtSubStep(MunitionProfile round, double seconds)
+    {
+        MunitionProfile stepped = round.Copy();
+        stepped.SubStepSeconds = (float)seconds;
+        return stepped;
+    }
     /// <summary>
     /// The rail's own infrared search head: short-ranged, narrow, and pointed where the rail is.
     ///

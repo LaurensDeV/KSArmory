@@ -575,6 +575,17 @@ internal sealed partial class Ui
             + "a slender cone's 0.1 -- 3.6 times the drag of the constant they carry otherwise. Off: the constant, "
             + "which every flown baseline rests on.");
 
+        float subStepMs = (float)config.WarheadSubStepMs;
+        if (ImGui.SliderFloat("Warhead sub-step (ms)", ref subStepMs, 0f, 5f, "%.3f"))
+        {
+            config.WarheadSubStepMs = subStepMs;
+        }
+        Tip($"How finely this rocket's warheads integrate their own fall. {config.WarheadSubStepMs:F3} ms; "
+            + "0 leaves the round's own 1 ms. It is the whole of what the release kick cannot cancel -- worth "
+            + "1.54 m at a 32 deg arrival and first order, so halving it halves that -- and the predictor's own "
+            + "step buys nothing beside it. What it costs is sub-steps: six warheads at 1 ms is about 300 a "
+            + "frame, at 0.125 ms about 2,400, so watch the frame time.");
+
         bool quiet = config.QuietCoast;
         if (ImGui.Checkbox("Let go of the attitude while coasting", ref quiet))
         {

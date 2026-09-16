@@ -613,4 +613,37 @@ public class ArsenalTests
         Assert.Equal(rv.BodyLength, shape.BodyLength);
         Assert.False(rv.DragFromShape, "making the copy changed the registered round");
     }
+
+    /// <summary>
+    /// The registered profile is shared by every rocket in the world, so a swap that edited it would
+    /// put the arm under test on both arms of a paired night and read a dead heat.
+    /// </summary>
+    [Fact]
+    public void FlyingARoundAtAnotherSubStepLeavesTheRegisteredProfileAlone()
+    {
+        double was = Arsenal.ReentryVehicleMk21.SubStep;
+
+        MunitionProfile fine = Arsenal.RoundAtSubStep(Arsenal.ReentryVehicleMk21, 0.000125);
+
+        Assert.Equal(0.000125, fine.SubStep, 9);
+        Assert.Equal(was, Arsenal.ReentryVehicleMk21.SubStep, 9);
+    }
+
+    /// <summary>
+    /// The sub-step count scales with the step, so a finer warhead does not shorten
+    /// <see cref="MunitionProfile.MaxFaithfulStepSeconds"/> and hold the whole world's timewarp down
+    /// with it — the trap that cost 164 km when the integration clamp and the warp target were
+    /// confused for each other.
+    /// </summary>
+    [Fact]
+    public void AFinerSubStepDoesNotMoveTheFaithfulStep()
+    {
+        MunitionProfile shipped = Arsenal.ReentryVehicleMk21;
+        MunitionProfile fine = Arsenal.RoundAtSubStep(shipped, shipped.SubStep / 8.0);
+
+        Assert.True(fine.SubStep * fine.MaxSubSteps >= shipped.MaxFaithfulStepSeconds,
+                    $"a {fine.SubStep * 1000.0:F3} ms warhead spans only "
+                    + $"{fine.SubStep * fine.MaxSubSteps:F3} s of frame against a faithful step of "
+                    + $"{shipped.MaxFaithfulStepSeconds:F3} s");
+    }
 }

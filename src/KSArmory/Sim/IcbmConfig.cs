@@ -662,6 +662,36 @@ internal sealed class IcbmConfig
     /// </summary>
     public bool WarheadDragFromItsShape;
 
+    /// <summary>
+    /// Fly this rocket's warheads at a stated integration sub-step, in milliseconds, in place of the
+    /// <see cref="MunitionProfile.SubStepSeconds"/> the round carries. Zero leaves the profile alone, and is
+    /// the default.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>This is the whole of what the kick cannot cancel.</b> Each warhead is kicked off its own
+    /// release probe's miss, so everything the prediction gets wrong about <em>where</em> leaves the measured
+    /// miss; what is left is the round and <see cref="ImpactPredictor"/> disagreeing about <em>flying
+    /// there</em>. Headless at the flown release — 877 km, 31.7° — that gap is first order in this step and in
+    /// nothing else: 6.53 / 3.73 / <b>1.54</b> / 0.77 / 0.39 / 0.19 m at 5.00 / 2.50 / <b>1.00</b> / 0.50 /
+    /// 0.25 / 0.125 ms, the Mk 21 flying at 1 ms.</para>
+    ///
+    /// <para><b>The predictor's own step buys nothing</b>, which is what made this the lever rather than the
+    /// obvious alternative: forty times finer on both of its steps moves the arrival 0.002 mm, because it
+    /// bisects onto the crossing near the ground. Nor does the frame rate reach a 1 ms sub-step —
+    /// <c>Slug.Update</c> sub-steps to it whatever the frame is — so this is independent of every throughput
+    /// lever. <c>docs/ACCURACY-PLAN.md</c> 3dm.</para>
+    ///
+    /// <para><b>What it costs is sub-steps.</b> Six warheads at 1 ms is about 300 a frame and at 0.125 ms
+    /// about 2,400, which has not been measured in a frame — so a night flying this watches the frame time as
+    /// well as the miss. The count scales with the step, so <see cref="MunitionProfile.MaxFaithfulStepSeconds"/>
+    /// does not move and the world's timewarp is untouched.</para>
+    ///
+    /// <para><b>Off, pending its night</b>, which is declared on the walk rather than on the landing: the walk
+    /// is 0.021 m of a 0.031 m centre, and a one-signed term inside a comparable scatter is worth less at the
+    /// ground than its own size.</para>
+    /// </remarks>
+    public double WarheadSubStepMs;
+
     /// <summary>Pointing error under which the coast hold lets go, in degrees.</summary>
     public double QuietCoastDeg = 0.5;
 

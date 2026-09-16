@@ -527,6 +527,18 @@ internal sealed class IcbmComputer
                      + $"k {launcher.Munition.AppliedDragK:E3}");
         }
 
+        // After the drag swap and not instead of it: each takes the round as it stands, so the two compose
+        // and a night may fly either alone. Guarded on the value rather than on a flag because the swap is
+        // idempotent only while the step already matches.
+        if (Config.WarheadSubStepMs > 0.0 && release is { } stepped
+            && Math.Abs(stepped.Munition.SubStep - Config.WarheadSubStepMs / 1000.0) > 1e-9)
+        {
+            stepped.FlyRoundsAs(Arsenal.RoundAtSubStep(stepped.Munition, Config.WarheadSubStepMs / 1000.0));
+            Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)}: warheads integrate at "
+                     + $"{stepped.Munition.SubStep * 1000.0:F3} ms, {stepped.Munition.MaxSubSteps} sub-steps "
+                     + "to a frame at most");
+        }
+
         _warhead = release?.Munition;
 
         // Read every frame, not inside DriveTrim: that returns early whenever the trim is off or
