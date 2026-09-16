@@ -140,7 +140,17 @@ internal sealed class IcbmComputer
     private double _sinceThrottleProbe;
     private double3 _lastCommanded;
 
-    private readonly WarheadTrace _trace = new();
+    // One per released warhead rather than one per shot. Six traces on one rocket is what
+    // separates the walk from the within-rocket landing deviation: they measure 23.6 mm and
+    // 21.2 mm and might be one term, and with a single trace per rocket the second can only be
+    // asked through the aim-point miss -- which is a good proxy across the track (r = 0.87) and a
+    // bad one along it (r = 0.13). docs/ACCURACY-PLAN.md 3ee.
+    //
+    // It costs a third of the log and well under one RK4 step a frame: the re-fly is the expensive
+    // half and it is rationed to one every ten seconds, so 48 concurrent traces in an eight-rocket
+    // world do not touch the frame time -- which matters, because frame time is the one covariate
+    // the walk actually tracks and an instrument that moved it would be measuring itself.
+    private readonly List<WarheadTrace> _traces = [];
     private bool _traceWanted;
 
     /// <summary>
@@ -148,10 +158,9 @@ internal sealed class IcbmComputer
     /// frame after the round stops flying, so a harness that ends the run on the last impact ends
     /// it before the report — see <see cref="ScenarioRunner"/>.
     /// </summary>
-    public bool TraceOutstanding => _traceWanted && _trace.Watching;
+    public bool TraceOutstanding => _traceWanted && _traces.Any(t => t.Watching);
     private MunitionProfile? _tracedWarhead;
     private bool _saidTraceStranded;
-    private bool _tracedThisShot;
 
     // Cached rather than converted at each call site: a method group becomes a delegate by
     // allocating one, and the trace builds its Setup on every frame of a four-hundred-second fall.
@@ -420,10 +429,10 @@ internal sealed class IcbmComputer
         // A new aim point is a new shot, and the trace's walk is measured against an aim that has
         // just moved. Whatever is still in the air from the last one is dropped rather than scored
         // against the wrong target.
-        _tracedThisShot = false;
         _tracedWarhead = null;
         _saidTraceStranded = false;
-        _trace.Forget();
+        foreach (WarheadTrace trace in _traces) trace.Forget();
+        _traces.Clear();
 
         Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)} designated {site.Describe()}");
     }
@@ -2249,16 +2258,18 @@ internal sealed class IcbmComputer
     // put rounds in front of everything else that takes it.
     private void BeginTrace(IManualFire weapon)
     {
-        if (!_traceWanted || _tracedThisShot) return;
+        if (!_traceWanted) return;
         if (TraceSetup() is not { } setup) return;
         if (weapon is not IRoundsInFlight inFlight) return;
 
         // The round just fired is the one just appended - nothing runs between FireAt and here.
         if (inFlight.Rounds is not { Count: > 0 } rounds) return;
 
-        _tracedThisShot = true;
         _tracedWarhead = setup.Warhead;
-        _trace.Begin(rounds[^1], setup);
+
+        WarheadTrace trace = new();
+        trace.Begin(rounds[^1], setup);
+        _traces.Add(trace);
     }
 
     // Sample() is what normally re-derives the aim, and it cannot run without the craft. Only the
@@ -2266,7 +2277,7 @@ internal sealed class IcbmComputer
     // where Parent, Body and the warhead profile are latched and do not.
     private void StepTraceLoose(double simStep)
     {
-        if (!_traceWanted || !_trace.Watching) return;
+        if (!_traceWanted || !_traces.Any(t => t.Watching)) return;
         if (Parent is not { } parent) return;
 
         if (Target.IsSet && Target.BodyName == parent.Id)
@@ -2280,8 +2291,14 @@ internal sealed class IcbmComputer
 
     private void StepTrace(double simStep)
     {
-        if (!_traceWanted) { _trace.Forget(); return; }
-        if (!_trace.Watching) return;
+        if (!_traceWanted)
+        {
+            foreach (WarheadTrace trace in _traces) trace.Forget();
+            _traces.Clear();
+            return;
+        }
+
+        if (!_traces.Any(t => t.Watching)) return;
 
         if (TraceSetup() is not { } setup)
         {
@@ -2299,7 +2316,13 @@ internal sealed class IcbmComputer
             return;
         }
 
-        _trace.Update(simStep, setup);
+        // Backwards, because a trace that has finished is dropped here and each holds a round the
+        // roster will let go of; keeping them costs the flight's worth of samples again on reload.
+        for (int i = _traces.Count - 1; i >= 0; i--)
+        {
+            _traces[i].Update(simStep, setup);
+            if (!_traces[i].Watching) _traces.RemoveAt(i);
+        }
     }
 
     private WarheadTrace.Setup? TraceSetup()

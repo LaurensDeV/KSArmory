@@ -312,7 +312,8 @@ internal sealed class WarheadTrace
                   + $" sim={KsaWorld.SimulationSpeed:F2}x"
                   + $" frame={_frames}"
                   + $" alt={altitude / 1000.0:F3}km r={Vec.Len(positionCci):F1}"
-                  + $" v={Vec.Len(velocityCci):F1}m/s local={round.Speed:F1}m/s");
+                  + $" v={Vec.Len(velocityCci):F1}m/s local={round.Speed:F1}m/s"
+                  + Whose(setup, round));
     }
 
     // The expensive line: the same predictor, re-flown from where the round has got to. If the
@@ -343,8 +344,19 @@ internal sealed class WarheadTrace
                   + $" | alt {setup.Body.AltitudeOf(positionCci) / 1000.0:F3}km"
                   + $" v {Vec.Len(velocityCci):F0}m/s"
                   + Walk(setup, atReleaseEpoch)
-                  + $"; {Ground(setup, hit.GroundFixedPointCci, setup.TrueAimCci):F0} m from the aim");
+                  + $"; {Ground(setup, hit.GroundFixedPointCci, setup.TrueAimCci):F0} m from the aim"
+                  + Whose(setup, round));
     }
+
+    // Which warhead a line belongs to, appended rather than prefixed so every reader keyed on
+    // "warhead trace <n>:" keeps working.
+    //
+    // It has to be on the sample lines, not just the named ones: the counter is per trace, so with
+    // six warheads of eight rockets in one log the same `warhead trace 412:` appears 48 times and
+    // concurrent streams sit within a few counts of each other. Keying by arrival time and
+    // predicted lat/lon works and is not something a reader should have to invent.
+    private static string Whose(in Setup setup, IProjectile round)
+        => $" | {setup.Craft} {RoundLabel.For(round.Tube)}";
 
     // Where it actually stopped, and the four things that could put it there: the clock it kept
     // against the world's, the arc it was on against the arc predicted for it, the surface it stopped
