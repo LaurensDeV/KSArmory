@@ -52,14 +52,12 @@ public class PredictorStepGapTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// A release at the flown altitude. The MIRV shots release near 877 km and arrive at 32 degrees
-    /// over about 355 s, and the whole term scales as cot(gamma), so the arrival is what has to
-    /// match rather than the range.
-    /// </summary>
-    /// <summary>
-    /// 1,500 km of ground from 877 km, which arrives at 32 degrees. The range is chosen for the
-    /// <em>arrival</em> and not the other way round: 800 km arrives at 49.8 and 2,600 km at 20.3,
-    /// and every metre here scales as cot(gamma).
+    /// A release at the flown altitude — the MIRV shots release near 877 km — over 1,500 km of
+    /// ground, which arrives at 32 degrees as they do.
+    ///
+    /// <para>The range is chosen for the <em>arrival</em> and not the other way round: 800 km
+    /// arrives at 49.8 degrees and 2,600 km at 20.3, and every metre here scales as
+    /// cot(gamma).</para>
     /// </summary>
     private static double3 ReleaseArc(out double3 from, out double3 target)
     {
