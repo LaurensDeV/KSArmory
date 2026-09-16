@@ -10098,20 +10098,53 @@ packing multiplies the walk's sd by **1.1x to 1.6x**. Nothing in this mod can re
 The fixture is a bounded sinusoid rather than the engine's field, and it aliases as above, so this
 establishes **a mechanism and a direction, not a size and not a fraction**.
 
-**What it does establish, and this is the useful half**, is that no sub-step reaches the scatter.
-Holding the release states fixed and taking the round's bracket from 5.5 m to 0.2 m — past the
-engine's own 0.31 m tread, a 32-fold narrowing — moves the walk's sd not at all: 17.455, 17.530,
-17.198, 17.580 mm. The bias falls the whole way, -6.131 to -2.538 mm, converging on the terrain's
-own contribution rather than on zero. That comparison holds the sampling fixed, so the aliasing
-above cancels out of it.
+### The instrument, rebuilt — and what it retracts
 
-**So the walk's scatter is a floor, and `WarheadSubStepMs` is a lever on its bias only.**
+The aliasing was fixed rather than worked around. `WalkFloorTests` sums relief over **seven octaves
+from 600 m to 9 m**, the shape `docs/KSA-TERRAIN.md` records for `EarthErosion`, and draws release
+states at **random** so there is no step to alias with. Two independent seeds agree to **1.060x**
+where the old fixture moved **3.1x**, and that agreement is a test rather than a note.
 
-Not established: that the arrival angle is the lever on that floor, as `docs/KINETIC-FLOOR.md`
-would predict for a height error times `cot gamma`. A sweep from 20 to 50 degrees came back
-non-monotonic (sd 21.6, 27.5, 5.6, 5.0, 4.1) because each range re-aliases the fixture differently.
-It needs relief at several scales, or phase sampling fine enough to cover the shortest one, before
-it can be asked.
+**On it, two things this entry first claimed are false.**
+
+**The sub-step does move the scatter.** Heavily diminishing, not absent:
+
+| sub-step | bracket | bias | sd across states |
+| --- | --- | --- | --- |
+| 4 ms | 22.0 m | -14.953 mm | 10.141 mm |
+| **1 ms — shipped** | 5.5 m | **-6.620 mm** | **5.772 mm** |
+| 0.25 ms | 1.4 m | -3.021 mm | 5.030 mm |
+
+**And the ground reaches the flown 19.8 mm only through the tail of the site's slopes**, not at its
+median:
+
+| peak slope | packed sd | exact sd | staircase ratio |
+| --- | --- | --- | --- |
+| 0.05 | 1.270 mm | 0.859 mm | 1.48x |
+| **0.149 — the site's median** | **5.772 mm** | 4.217 mm | 1.37x |
+| 0.345 — its 75th | 7.280 mm | 5.730 mm | 1.27x |
+| **0.823 — its 90th** | **35.918 mm** | 27.577 mm | 1.30x |
+
+A target on median ground contributes about 5.8 mm and one on 90th-percentile ground 35.9 mm. The
+flown 19.8 mm sits inside that range, and which part of it the site actually samples is what decides
+the share — **which this still does not measure.** What survives from the first version is the
+staircase's multiplier, 1.27x to 1.48x, and it survives because it is a ratio at fixed sampling.
+
+### And the arrival angle is the lever on it, by more than `cot gamma`
+
+| range | arrival | `cot gamma` | sd | sd / cot |
+| --- | --- | --- | --- | --- |
+| 2,600 km | 20.28° | 2.706 | 18.461 mm | 6.823 |
+| 1,900 km | 26.22° | 2.031 | 9.110 mm | 4.486 |
+| 1,500 km | 31.73° | 1.617 | 5.772 mm | 3.569 |
+| 1,100 km | 40.20° | 1.184 | 1.829 mm | 1.546 |
+| 800 km | 49.82° | 0.844 | 1.358 mm | 1.608 |
+
+`sd / cot` falls from 6.8 to 1.6, so the floor drops **faster** than the height-to-ground conversion
+alone: 20° to 50° is **13.6x** on the walk's scatter where `cot gamma` accounts for 3.2x. A steeper
+arrival shortens the ground one bracket covers *as well as* the conversion, and the two compound.
+That is `docs/ARRIVAL-ANGLE.md`'s thesis holding for a term it had not been applied to, and it is
+the strongest lever found on the walk in this programme.
 
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
