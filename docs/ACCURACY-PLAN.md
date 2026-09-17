@@ -10016,9 +10016,16 @@ from the measured distributions:
 | within-rocket split, 3 warheads each way, 96 rockets | **4.8%** — the false-positive rate |
 
 The within-rocket design fails because the effect lives in a group's **worst** warhead, an order
-statistic no per-warhead design reaches. So `shrink-0.5` is recorded as a **measured hypothesis that
-no affordable flown design can confirm**, and CLAUDE.md's rule stands: it is not a `fix` until it has
-been flown. Not built.
+statistic no per-warhead design reaches. So `shrink-0.5` is recorded as a **measured hypothesis**,
+and CLAUDE.md's rule stands: it is not a `fix` until it has been flown. Not built.
+
+> **Two of the numbers above are wrong, and 3ej corrects them.** The power table was computed on the
+> **mean**-kick and then quoted against `shrink-0.5`, which is a different estimator. And the
+> within-rocket row scored the *median* of each half-group when the effect is in the *worst* — the
+> very order statistic this paragraph names. Re-read on the shipped configuration at 132 rockets,
+> `shrink-0.5` wins **94/132 at p = 1.2e-06**, and a within-rocket split scored on the worst of
+> three reaches **42% at one night and 69% at two**. "No affordable flown design can confirm it" is
+> **withdrawn**.
 
 ---
 
@@ -10248,6 +10255,117 @@ to try, because `steps = ceil(dt / SubStep)` means a varying `dt` quantises diff
 sub-step, and the rig has never been given a jittering clock — which is the fourth time this
 programme has found the rig better-behaved than the game
 (`IcbmFlightRig.StepJitter` was the third).
+## 3ej. The unexplained half is the ground, and 3ef mis-priced the fix — 2026-09-17
+
+No shots. Both nights pooled — 2026-09-16-sixtrace and 2026-09-17-substep, 213 rockets with landings,
+kicks and ground all logged.
+
+### The release ladder does not reach the ground
+
+3ee measured headlessly that six releases 28 ms apart genuinely land **15.51 mm** apart, and 3ef left
+49.3% of the within-rocket landing variance unexplained. If that ladder survived into flight it would
+appear as an effect of **release order**, because release order *is* the 28 ms ladder. Declared in
+`~/shots/scripts-2026-09-17/DECLARE-order.md`; read over 216 rockets:
+
+| | ANOVA across rounds | spread of the six round-means |
+| --- | --- | --- |
+| downrange | F(5,1290) = 0.879, **p = 0.50** | 6.58 mm against 15.51 predicted |
+| cross | F(5,1290) = 4.443, p = 5.8e-4 | 1.48 mm, peaking at round 3 |
+
+**Downrange it is absent.** Cross is significant but *not ordered* — it peaks at round 3 — so by the
+declared rule that is a tube property rather than a release-instant one, and it is 1.48 mm.
+
+So `ReleaseFocus` spends the real ejection differential before it reaches the ground, which is the
+same conclusion the tube offset's **r = +0.000** against the walk reached in 3ef by another route.
+**The unexplained half is not the release ladder.**
+
+### It is the ground, and the ground has a threshold
+
+Ranking rockets by their own six-warhead dispersion and reading what they landed on:
+
+| | n | median dispersion | mean ground rise |
+| --- | --- | --- | --- |
+| tightest quarter | 53 | 3.77 mm | 0.0653 |
+| 2nd | 53 | 6.56 mm | 0.0763 |
+| 3rd | 53 | 11.61 mm | 0.1075 |
+| **loosest quarter** | 54 | **41.18 mm** | **0.2446** |
+
+**Dispersion against the ground's rise is r = +0.360** (n=213, 5% at 0.134); against the probe's own
+miss it is **-0.057**, nothing. The mean probe miss is near-constant across those quartiles
+(0.36–0.41 m), which is why the rise is a slope reading and not a miss reading.
+
+Binned by the terrain loop gain `g = slope / tan(gamma)` from `docs/KINETIC-FLOOR.md` section 5, the
+shape is **a threshold rather than the smooth `1/(1-g)`**:
+
+| gain | n | median dispersion |
+| --- | --- | --- |
+| 0.0 – 0.5 | 95 | 7.58 mm |
+| 0.5 – 1.0 | 42 | 6.79 mm |
+| 0.9 – 1.2 | 11 | **28.45 mm** |
+| past 1.2 | 46 | 20.53 mm |
+
+Flat below, three times worse above. **25% of rockets land past gain one**, where there is no fixed
+point at all.
+
+### And the arrival-angle lever is mostly already spent
+
+The obvious response is to arrive steeper, since `g` falls with `tan(gamma)`. From the measured slope
+distribution over 1,273 warheads (median 0.152, 75th 0.406, 90th 1.092):
+
+| arrival | past gain 1 | median amplification |
+| --- | --- | --- |
+| 20° | 27.5% | 1.72x |
+| **31.73° — what the mod flies** | **16.0%** | **1.33x** |
+| 45° | 11.0% | 1.18x |
+| 60° | 4.0% | 1.10x |
+
+`docs/ARRIVAL-ANGLE.md` prices 15° at 0.8–1.5 km/s over the graze and 20° at 1.4–2.2. **The mod
+already flies 32°**, so the expensive part of this lever has been taken: 32° to 45° buys 16% down to
+11% for kilometres a second. **Not worth a night**, and that is the useful half of the finding — the
+`13.6x` this programme measured on the *walk* floor does not transfer, because the walk is not
+accuracy (3ei).
+
+### 3ef priced the wrong estimator, and the fix is real
+
+3ef's counterfactual table tested the **mean**-kick and reported 56/93 at p = 0.061, then a declared
+search picked `shrink-0.5` and its held-out half read 34/45 at p = 0.0008. **The 10% power figure
+3ef quotes was computed on the mean-kick, and the "no affordable design" conclusion inherited it.**
+Re-read on the shipped configuration only — all of sixtrace plus the substep night's `base` arm,
+132 rockets:
+
+| | n | today | shrink-0.5 | ratio | better | p |
+| --- | --- | --- | --- | --- | --- | --- |
+| **all** | 132 | 33.78 mm | 32.10 mm | 0.950x | **94/132** | **1.2e-06** |
+| below gain 1 | 116 | 31.32 mm | 28.67 mm | 0.915x | 79/116 | 1.2e-04 |
+| **past gain 1** | 16 | 89.14 mm | **70.58 mm** | **0.792x** | 15/16 | 5.2e-04 |
+
+rms of the worst warhead goes 72.21 → 63.34, **0.877x**.
+
+**And it now has a mechanism.** The kick injects its own probe's differential one for one (3ef), the
+ground amplifies whatever a rocket carries, and above gain one it amplifies without bound — so
+removing injected noise pays *most* exactly where the amplification is worst. That is why the benefit
+concentrates in the tail, and it is a prediction the data was not fitted to.
+
+### What it would take to fly, which is the honest blocker
+
+The effect is large **paired** and invisible **unpaired**, because the worst-warhead distribution has
+a heavy tail (median 33.78, rms 72.21) and no two rockets are the same rocket:
+
+| design | statistic | power at one night |
+| --- | --- | --- |
+| ordinary paired night, 48 rockets an arm | worst warhead | **9.7%** |
+| ...at four nights | worst warhead | 25.6% |
+| within-rocket split, 3 warheads each way | median of the three | 4.9% |
+| **within-rocket split** | **worst of the three** | **42.1%** |
+| ...at two nights | worst of the three | 68.8% |
+
+**So there is a design that reaches it, and it is not the one 3ef priced.** A within-rocket split
+makes every rocket-level and block-level term common-mode, and the statistic has to be the *worst* of
+each half-group because that is where the effect lives. It needs plumbing that does not exist —
+`FlyRoundsAs` and the miss kick are both per-launcher — and two nights.
+
+**Still not built and still not a `fix`.** But 3ef's "no affordable flown design can confirm it" is
+withdrawn: two nights at 69% is affordable, and the decision is the user's rather than mine.
 
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
