@@ -535,11 +535,13 @@ internal sealed class IcbmConfig
     /// shipped 1 ms sub-step, and stays under 0.03 mm from 5 ms down to 0.25. So what 3dn priced as the
     /// integrator's order is not truncation paid for the order chosen — it is removable exactly.</para>
     ///
-    /// <para><b>Off pending its night</b>, because every flown baseline rests on the current
-    /// behaviour. It costs one extra <see cref="Medium.Drag"/> per sub-step, which is arithmetic
-    /// rather than a lookup. <c>docs/ACCURACY-PLAN.md</c> 3dx.</para>
+    /// <para><b>On.</b> Unresolvable at 5 ms against a 107 mm walk (3dy); flown again at the shipped 1 ms
+    /// once the walk's two epoch faults were gone and its spread was 3 mm, paired within each world over two
+    /// blocks: the landing's walk moved <b>+4.70 mm</b> downrange against 4.67 predicted, +3.85 and +5.40 by
+    /// block, all of it in the air, cross −0.5 mm. It costs one extra <see cref="Medium.Drag"/> per sub-step.
+    /// <c>docs/ACCURACY-PLAN.md</c> 3dx, 3em.</para>
     /// </remarks>
-    public bool DragAtMidpointVelocity;
+    public bool DragAtMidpointVelocity = true;
 
     /// <summary>
     /// Solve a released warhead's ground crossing against the terrain under it rather than against

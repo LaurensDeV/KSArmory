@@ -514,8 +514,8 @@ internal sealed partial class Ui
             + "already are. Off: it is the speed the sub-step begins with, and since drag goes as its "
             + "square and a re-entering warhead sheds about 450 m/s2, that speed is always the larger "
             + "and the drag always too big -- one-signed, every sub-step, for the whole fall. Headless "
-            + "it takes the round's disagreement with its own prediction from 4.669 mm to 0.001. Off "
-            + "pending its night, because every flown baseline rests on the current behaviour.");
+            + "it takes the round's disagreement with its own prediction from 4.669 mm to 0.001, and "
+            + "flown it moved the landing +4.70 mm against 4.67 predicted.");
 
         bool onTerrain = config.StopWarheadsOnTheTerrain;
         if (ImGui.Checkbox("Warheads stop on the terrain, not a chord of it", ref onTerrain))
