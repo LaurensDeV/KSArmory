@@ -72,10 +72,55 @@ internal static class ImpactPredictor
     /// <param name="Munition">The round whose <c>DragK</c> applies — the warhead, not the bus.</param>
     internal readonly record struct Drag(Func<double3, double> DensityRatioAt, MunitionProfile Munition);
 
-    // How far a closed orbit's lowest point has to clear the mean sphere before it is called safe
-    // without flying it. Terrain stands above that sphere, so the clearance has to be more than any
-    // mountain rather than merely positive.
-    private const double NeverComesDownMargin = 12_000.0;
+    /// <summary>
+    /// How far a closed orbit's lowest point has to clear the mean sphere before it is called safe
+    /// without flying it. Terrain stands above that sphere, so the clearance has to be more than any
+    /// mountain rather than merely positive.
+    /// </summary>
+    public const double NeverComesDownMargin = 12_000.0;
+
+    /// <summary>Which way out a prediction took.</summary>
+    internal enum Exit
+    {
+        Landed,
+
+        /// <summary>The body, the state or the steps could not be flown at all.</summary>
+        Unflyable,
+
+        /// <summary>A closed orbit whose lowest point clears <see cref="NeverComesDownMargin"/>, never flown.</summary>
+        NeverComesDown,
+
+        /// <summary>A step left the finite numbers.</summary>
+        NotFinite,
+
+        /// <summary>Under the ground from the start and not climbing out of it.</summary>
+        Underground,
+
+        /// <summary>The whole horizon flown without a sample under the ground.</summary>
+        OutOfTime,
+    }
+
+    /// <summary>
+    /// How a prediction ended, beside what it read on the way — so a log can tell a trajectory that
+    /// genuinely never comes down from an integration that stopped describing one.
+    /// </summary>
+    /// <param name="PeriapsisRadius">The starting conic's lowest point, NaN for an open one.</param>
+    /// <param name="Steps">Every step tried, the crossing's halvings included.</param>
+    /// <param name="FastestMetresPerSecond">The fastest any finite step came out, against the air or not.</param>
+    /// <param name="DensestRatio">The densest medium any stage of any step read.</param>
+    internal readonly record struct Ending(Exit Exit, double Seconds, double StepSeconds, int Steps,
+                                           double PeriapsisRadius, double FastestMetresPerSecond,
+                                           double DensestRatio)
+    {
+        /// <summary>The ending as a clause of a log line, the periapsis measured off the mean sphere.</summary>
+        public string Said(double surfaceRadius)
+            => $"{Exit} after {Steps} step(s) to {Seconds:F1} s at a {StepSeconds:G3} s step, "
+               + $"fastest {FastestMetresPerSecond:F0} m/s, densest medium {DensestRatio:G3}x the reference air, "
+               + (double.IsFinite(PeriapsisRadius)
+                      ? $"periapsis {(PeriapsisRadius - surfaceRadius) / 1000.0:F1} km off the mean sphere"
+                      : "no closed conic")
+               + $" ({NeverComesDownMargin / 1000.0:F0} km clears it unflown)";
+    }
 
     /// <param name="stepSeconds">The coarse step. Refined automatically at the crossing.</param>
     /// <param name="terrainRadiusAt">
@@ -106,6 +151,18 @@ internal static class ImpactPredictor
                                   Drag? drag = null,
                                   double atmosphericStepSeconds = double.NaN,
                                   bool stopOnTheSurface = false)
+        => TryPredict(body, positionCci, velocityCci, stepSeconds, maxSeconds, out impact, out _,
+                      terrainRadiusAt, pathCci, drag, atmosphericStepSeconds, stopOnTheSurface);
+
+    /// <summary>The same prediction, saying how it ended.</summary>
+    public static bool TryPredict(BallisticBody body, double3 positionCci, double3 velocityCci,
+                                  double stepSeconds, double maxSeconds, out Impact impact,
+                                  out Ending ending,
+                                  Func<double3, double>? terrainRadiusAt = null,
+                                  List<double3>? pathCci = null,
+                                  Drag? drag = null,
+                                  double atmosphericStepSeconds = double.NaN,
+                                  bool stopOnTheSurface = false)
     {
         double inAir = atmosphericStepSeconds > 0.0 && double.IsFinite(atmosphericStepSeconds)
                            ? atmosphericStepSeconds
@@ -114,24 +171,33 @@ internal static class ImpactPredictor
         impact = default;
         pathCci?.Clear();
 
-        if (!body.IsUsable) return false;
-        if (!Vec.IsFinite(positionCci) || !Vec.IsFinite(velocityCci)) return false;
-        if (!(stepSeconds > 0.0) || !(maxSeconds > 0.0)) return false;
+        Reading reading = default;
+        double periapsis = double.NaN;
+        double t = 0.0;
+        double h = stepSeconds;
+        int steps = 0;
+
+        if (!body.IsUsable || !Vec.IsFinite(positionCci) || !Vec.IsFinite(velocityCci)
+            || !(stepSeconds > 0.0) || !(maxSeconds > 0.0))
+        {
+            ending = new Ending(Exit.Unflyable, t, h, steps, periapsis, reading.Fastest, reading.Densest);
+            return false;
+        }
 
         // A closed orbit whose lowest point clears the ground never arrives, and asking the conic
         // costs nothing. Flying it instead means integrating the whole horizon — ten thousand steps,
         // several times a second — to reach the same conclusion about a vehicle in a stable orbit,
         // which is exactly what a computer holding for a burn window is sitting in.
-        double periapsis = Kepler.PeriapsisRadius(body.Mu, positionCci, velocityCci);
+        periapsis = Kepler.PeriapsisRadius(body.Mu, positionCci, velocityCci);
         if (double.IsFinite(periapsis) && periapsis > body.SurfaceRadius + NeverComesDownMargin)
         {
+            ending = new Ending(Exit.NeverComesDown, t, h, steps, periapsis, reading.Fastest, reading.Densest);
             return false;
         }
 
         double3 r = positionCci;
         double3 v = velocityCci;
-        double t = 0.0;
-        double h = stepSeconds;
+        reading.Fastest = Vec.Len(v);
 
         pathCci?.Add(r);
 
@@ -140,15 +206,23 @@ internal static class ImpactPredictor
         // vehicle has been above ground at least once.
         double surfaceHere = SurfaceUnder(body, r, t, terrainRadiusAt);
         bool everAboveGround = r.Length() > surfaceHere;
+        Exit exit = Exit.OutOfTime;
 
         while (t < maxSeconds)
         {
-            if (DensityAt(body, r, drag) > NoticeableDensity) h = Math.Min(h, inAir);
+            if (DensityAt(r, drag, ref reading) > NoticeableDensity) h = Math.Min(h, inAir);
 
-            Step(body, r, v, h, drag, out double3 rNext, out double3 vNext);
+            Step(body, r, v, h, drag, ref reading, out double3 rNext, out double3 vNext);
             double tNext = t + h;
+            steps++;
 
-            if (!Vec.IsFinite(rNext) || !Vec.IsFinite(vNext)) return false;
+            if (!Vec.IsFinite(rNext) || !Vec.IsFinite(vNext))
+            {
+                exit = Exit.NotFinite;
+                break;
+            }
+
+            reading.Fastest = Math.Max(reading.Fastest, Vec.Len(vNext));
 
             double surfaceNext = SurfaceUnder(body, rNext, tNext, terrainRadiusAt);
             bool below = rNext.Length() <= surfaceNext;
@@ -182,6 +256,7 @@ internal static class ImpactPredictor
 
                 impact = new Impact(rNext, body.UncarryCci(rNext, tNext), vNext, tNext);
                 pathCci?.Add(rNext);
+                ending = new Ending(Exit.Landed, tNext, h, steps, periapsis, reading.Fastest, reading.Densest);
                 return true;
             }
 
@@ -192,7 +267,11 @@ internal static class ImpactPredictor
                 // ten thousand steps, several times a second, to answer a question about a vehicle
                 // that is sitting on its pad. A launch site below the mean sphere is the ordinary
                 // way into this, not an edge case.
-                if (!everAboveGround && Vec.Dot(rNext, vNext) <= 0.0) return false;
+                if (!everAboveGround && Vec.Dot(rNext, vNext) <= 0.0)
+                {
+                    exit = Exit.Underground;
+                    break;
+                }
             }
             else
             {
@@ -208,7 +287,14 @@ internal static class ImpactPredictor
             if (pathCci is { Count: > 4096 }) pathCci.RemoveAt(pathCci.Count - 1);
         }
 
+        ending = new Ending(exit, t, h, steps, periapsis, reading.Fastest, reading.Densest);
         return false;
+    }
+
+    private struct Reading
+    {
+        public double Fastest;
+        public double Densest;
     }
 
     private static double SurfaceUnder(BallisticBody body, double3 pointCci, double seconds,
@@ -226,40 +312,43 @@ internal static class ImpactPredictor
         return double.IsFinite(radius) && radius > 0.0 ? radius : body.SurfaceRadius;
     }
 
-    private static double DensityAt(BallisticBody body, double3 pointCci, Drag? drag)
+    private static double DensityAt(double3 pointCci, Drag? drag, ref Reading reading)
     {
         if (drag is not { } air) return 0.0;
 
         double density = air.DensityRatioAt(pointCci);
-        return double.IsFinite(density) && density > 0.0 ? density : 0.0;
+        if (!(double.IsFinite(density) && density > 0.0)) return 0.0;
+
+        reading.Densest = Math.Max(reading.Densest, density);
+        return density;
     }
 
     // Airspeed is measured against the air, which turns with the body - the same frame a round's
     // own drag is measured in, and worth several hundred metres a second at the equator.
-    private static double3 Accel(BallisticBody body, double3 r, double3 v, Drag? drag)
+    private static double3 Accel(BallisticBody body, double3 r, double3 v, Drag? drag, ref Reading reading)
     {
         double3 accel = body.GravityCci(r);
 
-        double density = DensityAt(body, r, drag);
+        double density = DensityAt(r, drag, ref reading);
         if (density <= 0.0 || drag is not { } air) return accel;
 
         return accel - Medium.Drag(v - body.GroundVelocityCci(r), air.Munition, density);
     }
 
     // Classical fourth-order Runge-Kutta.
-    private static void Step(BallisticBody body, double3 r, double3 v, double h, Drag? drag,
+    private static void Step(BallisticBody body, double3 r, double3 v, double h, Drag? drag, ref Reading reading,
                              out double3 rNext, out double3 vNext)
     {
-        double3 k1v = Accel(body, r, v, drag);
+        double3 k1v = Accel(body, r, v, drag, ref reading);
         double3 k1r = v;
 
-        double3 k2v = Accel(body, r + k1r * (h * 0.5), v + k1v * (h * 0.5), drag);
+        double3 k2v = Accel(body, r + k1r * (h * 0.5), v + k1v * (h * 0.5), drag, ref reading);
         double3 k2r = v + k1v * (h * 0.5);
 
-        double3 k3v = Accel(body, r + k2r * (h * 0.5), v + k2v * (h * 0.5), drag);
+        double3 k3v = Accel(body, r + k2r * (h * 0.5), v + k2v * (h * 0.5), drag, ref reading);
         double3 k3r = v + k2v * (h * 0.5);
 
-        double3 k4v = Accel(body, r + k3r * h, v + k3v * h, drag);
+        double3 k4v = Accel(body, r + k3r * h, v + k3v * h, drag, ref reading);
         double3 k4r = v + k3v * h;
 
         rNext = r + (k1r + k2r * 2.0 + k3r * 2.0 + k4r) * (h / 6.0);

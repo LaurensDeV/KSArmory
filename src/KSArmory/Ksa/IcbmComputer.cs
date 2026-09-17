@@ -2660,11 +2660,17 @@ internal sealed class IcbmComputer
 
             if (!ImpactPredictor.TryPredict(Body, positionCci, velocityCci, PredictStepSeconds,
                                             ImpactPredictor.DefaultMaxSeconds,
-                                            out ImpactPredictor.Impact hit, TerrainRadiusAt, null,
+                                            out ImpactPredictor.Impact hit, out ImpactPredictor.Ending ending,
+                                            TerrainRadiusAt, null,
                                             new ImpactPredictor.Drag(DensityRatioAt, warhead),
                                             stopOnTheSurface: Config.PredictionStopsOnTheSurface))
             {
-                Log.Info("release probe: no impact predicted from the release state");
+                // Every exit reads the same from outside, and one of them is a whole horizon flown for
+                // nothing: ACCURACY-PLAN.md 3ep.
+                Log.Info("release probe: no impact predicted from the release state -- "
+                         + $"{ending.Said(Body.SurfaceRadius)}; released {Body.AltitudeOf(positionCci) / 1000.0:F3} km "
+                         + $"up at {Vec.Len(velocityCci):F1} m/s, thrown {Vec.Len(ReleaseImpulseCci()):F3} m/s "
+                         + $"from {Vec.Len(ReleaseOffsetCci()):F2} m off the orbit position");
                 return null;
             }
 
@@ -2709,9 +2715,10 @@ internal sealed class IcbmComputer
 
             return new ReleaseProbe(positionCci, velocityCci, hit, _trueAimCci);
         }
-        catch
+        catch (Exception e)
         {
             // A probe that throws inside the frame hook is worse than one that says nothing.
+            Log.Warn($"release probe: not flown -- {e.Message}");
             return null;
         }
     }

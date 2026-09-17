@@ -171,9 +171,11 @@ internal sealed class WarheadTrace
                      + $" | alt {setup.Body.AltitudeOf(positionCci) / 1000.0:F3} km,"
                      + $" {Vec.Len(velocityCci):F1} m/s inertial");
 
-            if (!Predict(setup, positionCci, velocityCci, out ImpactPredictor.Impact hit))
+            if (!Predict(setup, positionCci, velocityCci, out ImpactPredictor.Impact hit,
+                         out ImpactPredictor.Ending ending))
             {
-                Log.Info("warhead trace: nothing predicted from the round's own release state");
+                Log.Info("warhead trace: nothing predicted from the round's own release state -- "
+                         + ending.Said(setup.Body.SurfaceRadius));
                 return;
             }
 
@@ -332,9 +334,11 @@ internal sealed class WarheadTrace
     {
         ToCci(setup, round, out double3 positionCci, out double3 velocityCci);
 
-        if (!Predict(setup, positionCci, velocityCci, out ImpactPredictor.Impact hit))
+        if (!Predict(setup, positionCci, velocityCci, out ImpactPredictor.Impact hit,
+                     out ImpactPredictor.Ending ending))
         {
-            Log.Debug($"warhead trace {++_lines}: t={_worldSeconds:F2}s -- nothing predicted from here");
+            Log.Debug($"warhead trace {++_lines}: t={_worldSeconds:F2}s -- nothing predicted from here, "
+                      + ending.Exit);
             return;
         }
 
@@ -602,9 +606,9 @@ internal sealed class WarheadTrace
     }
 
     private bool Predict(in Setup setup, double3 positionCci, double3 velocityCci,
-                         out ImpactPredictor.Impact hit)
+                         out ImpactPredictor.Impact hit, out ImpactPredictor.Ending ending)
         => ImpactPredictor.TryPredict(setup.Body, positionCci, velocityCci, setup.PredictStepSeconds,
-                                      ImpactPredictor.DefaultMaxSeconds, out hit,
+                                      ImpactPredictor.DefaultMaxSeconds, out hit, out ending,
                                       setup.TerrainRadiusAt, null,
                                       new ImpactPredictor.Drag(setup.DensityRatioAt, setup.Warhead),
                                       stopOnTheSurface: setup.StopOnTheSurface);
