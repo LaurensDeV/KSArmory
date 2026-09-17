@@ -9717,6 +9717,10 @@ accumulating. Over **113,207 dense samples on 96 warheads** of `2026-09-16-terra
 The clamp never bites: `WarpPolicy` targets `0.6 × PreferredStep` and lands the world well under the 0.32 s
 faithful step. **Closed.**
 
+**Reopened by 3el, and this check is why it hid.** `_worldSeconds` and `round.Age` both sum the step
+`StepGate` hands out, so they agree whether or not that step matches the clock the planets are placed
+on — and it did not, by 0.125 ns a frame.
+
 **And the landing line's `lag` is not this.** It is `atBurst − Age` where `atBurst` carries
 `DetonationElapsedInFrame`, so its median −0.450 ms is the **sub-step crossing offset** — deliberate, correctly
 used in the un-carry, and not a clock separation. Read as one it converts to 180 mm, ten times the whole walk,
@@ -10435,17 +10439,109 @@ differ by that on identical code.
 
 1. **The Chaco is the instrument site.** The walk is 3 mm wide there against 25 mm on the Andes, so
    a change to it shows in a shot or two rather than a night. The Andes measures its own ground.
-2. **The largest term left is per-frame**, and it has been flown three times without a mechanism. 3ei
-   names the first candidate: `steps = ceil(dt / SubStep)` quantises a varying frame differently, and
-   the rig has never been given a jittering clock. The target is a headless rig that reproduces −25
-   down and +11 cross at a 26 ms frame and moves by 1.3–1.7 mm per ms.
+2. **The largest term left is per-frame**, and it has been flown three times without a mechanism.
+   **Answered by 3el: two epoch faults, both fixed.** The frame-time slope was the coast's warp regime
+   and the air's frame length standing in for them.
 3. **Any night comparing sites or builds puts frame time in the model**, or the walk's 1.3–1.7 mm/ms
-   is read as the change.
+   is read as the change. **Moot after 3el** for the walk's mean; still true of anything else a
+   CPU-costing arm changes.
 4. **3ej's within-rocket shrink night is priced on the Andes tail**, where it paid 0.79x past gain
    one. At the Chaco nothing is past gain one, so only 3ej's 0.915x below-gain-one row applies, and
    against a worst warhead dominated by the walk it will be harder still to see. Re-price before
    spending two nights on it.
 5. **The footprint is a working instrument at 2 m**, under 3 m with the probe's kick sharing the cap.
+
+## 3el. The walk was two epoch faults, and the group now lands 4 mm from the aim — 2026-09-17
+
+Three nights at the Chaco (24.0S 62.0W), 8 of 8 PASS on every shot, KSA's own log clean on every session
+but one — which found a third fault. Declared in `~/shots/scripts-2026-09-17/DECLARE-stepclock.md` before
+each batch was read; read by `read-arms.py`, `coastshape.py`, `coastmode.py`, `airmode.py` and
+`walksplit.py` beside it.
+
+### Where the walk accrued
+
+The trace re-flies the prediction from each warhead as it falls. At the Chaco (3ek) the walk grew
+**steadily through the vacuum coast** to −17 down / −5.5 cross by 120 km, then swung **+15 cross in the
+last ten kilometres of air**. Two terms, and each carried the frame-time dependence 3ei and 3ek measured:
+
+| part | slope on its own frame, per warhead |
+| --- | --- |
+| coast, cross | +0.33 mm/ms ± 0.013 |
+| coast, down | +0.68 mm/ms ± 0.11 |
+| air, cross | +0.53 mm/ms ± 0.03, intercept near zero |
+| air, down | +0.02 mm/ms ± 0.30 |
+
+### The coast: the step ran ahead of the planets' clock
+
+Per shot over 28 logged nights, the coast walk rate is **not** a function of frame time. It is two modes:
+**−2.3 to −8.3 mm/100 s on all 13 shots whose coast sat at a non-round warp** (4.3–4.8x, 3.24x) and
+**±1 on all 15 at 8.0x**. The wall frame was 17 ms on every one.
+
+KSA advances `NextTime` by `DeltaTime` **rounded to the nanosecond** and places every celestial there
+(`GetJobSimStep`, `CelestialUpdateTask`); `DeltaTime` itself is reported unrounded. `StepGate` took
+**the longer of the two** — so whenever the rounding went down it integrated the unrounded step, and a
+round ran **0.125 ns a frame** ahead of the ground. At 8.0x the step is a whole nanosecond and nothing
+rounds. 3.7 µm a frame at 29.8 km/s is ~5 mm/100 s of offset along the planet's travel, which lies
+(−0.79 up, +0.12 down, −0.60 across) of the arrival — predicting a walk of (−1.14, −0.60) per unit, both
+negative, and flown at ratios of 1.95–3.3. 3ec had "closed" the clock by comparing `round.Age` with the
+trace's clock, and both sum the same step.
+
+`cb7c78d` logs the step against universe time; `StepGate` now takes the span within a nanosecond:
+
+| | clock drift a frame | coast walk, mm/100 s | landing walk, down |
+| --- | --- | --- | --- |
+| before, 2 shots | +0.0665, +0.0989 ns | −3.84, −5.03 | −24.9, −28.8 mm |
+| after, 6 shots | **0.0000 ns** on all six | **−0.08 to +0.05** | −2.1 to −8.5 mm |
+
+Every coast in both batches sat at 4.2–4.6x, so every shot discriminated. Headless, a replay of KSA's
+arithmetic fails the old rule by 2,481–2,524 ns over 20,000 frames.
+
+### The air: the wind was read where the planet will be
+
+`GroundVelocityAt` measures the spin's radius to the body's **end-of-frame** sample. The held air sample
+is read at the round's pre-step position, and `AirVelocityIntoFrame` ignored its time argument, so both
+carried a frame of the planet's travel into the radius — 750 m at 25 ms, **0.055 m/s of wind in one
+fixed direction**. `AirDensityIntoFrame` beside it was back-dated all along.
+
+3dx priced the per-sub-step air at 3.59 mm headlessly, on a planet at the origin, where this term is
+identically zero. `MovingPlanetProbe` puts the planet 1.5e11 m out at 29.8 km/s, spinning: the undated
+air lands 8.4 mm off at 10 ms and 32.4 mm at 40 ms, proportional to the frame. Flown, both arms carrying
+the clock fix:
+
+| | air frame | air walk, cross | landing walk (down, cross) | group centre from the aim |
+| --- | --- | --- | --- | --- |
+| without | 29.5, 31.0 ms | +29.8, +31.1 mm | (−8.5, +30.0), (−7.8, +31.1) | 31.2, 31.8 mm |
+| **with** | 20.9, 27.4 ms | **+2.0, +2.8 mm** | **(−3.4, +2.3), (−2.1, +3.1)** | **4.3, 3.3 mm** |
+
+Dispersion did not move — 3.60 and 5.07 mm with it, 3.67 and 2.55 without — as a bias fix should not.
+
+### Also ruled out on the way
+
+**The ecliptic accumulator is scatter.** 3ec's candidate — a round's position summed at 1.5e11 m, where
+a double's step is 30.5 µm — moves a landing by up to ±11 mm under a jittering frame and averages near
+zero at every frame rate (`MovingPlanetProbe`). It cannot be a common −17 mm.
+
+### And a third fault the flight turned up
+
+On one session of 36 KSA printed `Update task failed for vehicle(s): GeoSat FAT`, a
+`NullReferenceException` in `SequencePerformanceList.Recompute`, with the engine gauge open on screen.
+For the controlled craft with that gauge or the staging list open, the vehicle worker walks the live
+sequence list during the GUI pass, and the mod staged from the GUI pass. Staging now goes through
+`AttitudeHook`'s `PrepareWorker` window. 32 rockets launched and staged through the second batch with no
+failure, which is consistent with the fix rather than proof of it: the race was one in 36, and whether
+the gauge was open is not recorded. `docs/KSA-FRAME-ORDER.md` §1.
+
+### What it changes
+
+1. **The group lands about 4 mm from the aim at the Chaco, against 27–31 mm the same morning.** Two
+   shots on the fixed build; the next night should confirm it at a count.
+2. **The walk is no longer frame-dependent**, so 3ek's "a worst-warhead score reads the frame rate"
+   no longer holds for these terms. What is left of the walk is a few millimetres of both signs.
+3. **The worst warhead is now about dispersion**, 3–5 mm, which is what 3ej's shrink and the footprint's
+   delivered-against-asked residual are about. Their pricing was done against a 25 mm walk and should be
+   re-read against this.
+4. **The rig lesson, a fifth time:** every rig here put the planet at the origin, which is the one case
+   where a frame carrier is zero. Both faults were carriers. `MovingPlanetProbe` is the rig that has one.
 
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 

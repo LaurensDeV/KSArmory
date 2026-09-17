@@ -1634,6 +1634,12 @@ that is the same number as the launching craft's velocity; a store released from
 **moving** is what separates the two. A round still *inherits* the craft's velocity at launch; it
 does not measure its airspeed against it.
 
+**And the spin is taken at the round's own instant.** The radius it acts on is measured to the body's
+end-of-frame sample, so a read from a round part-way through the frame is back-dated by the body's
+travel exactly as the density read beside it is. Undated, a frame of the planet's 29.8 km/s is a
+steady false wind — 0.055 m/s at 25 ms — and it was 30 mm of cross-range on every warhead
+(`docs/ACCURACY-PLAN.md` 3el).
+
 **Rounds are drawn as real subparts, anchored to the tube they left.** Twelve `Missile`
 subparts, scaled to nothing until fired, with their transform written each frame. A gun's shells
 leave no tube, so each borrows a body from `Sim/BodyPool.cs` and is placed through the same call from
