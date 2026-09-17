@@ -920,13 +920,22 @@ def _say_decomposition(shots, key, order, section=False):
 
     title = "what one rocket's miss is made of (medians over flights, pooled over seats)"
     print(f"\n== {title}" if section else f"   {title}")
-    print(f"   {'arm':<14}{'centre m':>10}{'dispersion m':>14}{'landing m':>11}{'flights':>9}")
+
+    # The unit follows the shot, as Sim/Distance.cs does: at F2 in metres a millimetre-level group
+    # prints 0.00 in every column, which is the whole table saying nothing.
+    every = [statistics.median(c) for name in order if name in rows
+             for c in zip(*rows[name])]
+    scale, unit = (1000.0, "mm") if every and max(every) < 1.0 else (1.0, "m")
+
+    print(f"   {'arm':<14}{'centre ' + unit:>10}{'dispersion ' + unit:>14}{'landing ' + unit:>11}"
+          f"{'flights':>9}")
     for name in order:
         if name not in rows:
             continue
         centre, dispersion, landing = zip(*rows[name])
-        print(f"   {name:<14}{statistics.median(centre):>10.2f}{statistics.median(dispersion):>14.2f}"
-              f"{statistics.median(landing):>11.2f}{len(centre):>9}")
+        print(f"   {name:<14}{statistics.median(centre) * scale:>10.2f}"
+              f"{statistics.median(dispersion) * scale:>14.2f}"
+              f"{statistics.median(landing) * scale:>11.2f}{len(centre):>9}")
     print("   centre^2 + dispersion^2 is each group's mean squared distance in the ground plane")
     if not section:
         print()

@@ -480,10 +480,14 @@ internal sealed class WarheadTrace
     // flat, which is why only a sloped seat shows it. docs/ACCURACY-PLAN.md 3es.
     private static string ProbeStop(in Setup setup, in ImpactPredictor.Impact hit)
     {
-        double ground = setup.TerrainRadiusAt(hit.PointCci);
+        // The GROUND-FIXED point, never the inertial one: TerrainRadiusAt wants the planet's rotation
+        // already taken back out, exactly as ImpactPredictor.SurfaceUnder un-carries before asking. Read
+        // at the raw impact this line said +37.6 m over a 364 s flight, which is the planet's turn and
+        // not a height. Un-carrying is a rotation, so the radius is the same either way.
+        double ground = setup.TerrainRadiusAt(hit.GroundFixedPointCci);
         if (!double.IsFinite(ground)) return "stopping over ground the height field would not answer for";
 
-        double over = Vec.Len(hit.PointCci) - ground;
+        double over = Vec.Len(hit.GroundFixedPointCci) - ground;
         double angle = ArrivalAngleDeg(hit) * Math.PI / 180.0;
         double cot = Math.Abs(Math.Sin(angle)) > 1e-9 ? Math.Cos(angle) / Math.Sin(angle) : double.NaN;
 
