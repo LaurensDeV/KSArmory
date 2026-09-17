@@ -2093,10 +2093,11 @@ bomb's drag rises through the speed of sound, and a missile's changes as it burn
 booster. **The Mk 21 is on that list for a different and weaker reason** — every flown ballistic
 baseline rests on its constant — and that constant is **known unphysical**: 1.5e-5 is a ballistic
 coefficient near 8,400 lb/ft² against the 100 to 5,000 published for reentry vehicles. Item 44 flew
-the physical figure and the *shot* got worse, 0.04 to 0.07 m, because a round entering at 3.6x the
-drag loses more speed low down where `cot γ` multiplies the fall the aim loop cannot see. That is a
-guidance term to find rather than a verdict on the physics, and `docs/ACCURACY-PLAN.md` 3dk and 3dn
-have it: **removing the constant is blocked on that fall, not on the drag model.**
+the physical figure and the *shot* got worse, 0.04 to 0.07 m, with its walk 15 mm further out. Re-flown
+once the walk's epoch faults were fixed (`docs/ACCURACY-PLAN.md` 3eo), **the walk no longer differs and it
+still loses 2.2x — now on the group's spread**, 8.5 mm against 3.0, which is what a separation kick solved
+in vacuum (3eb) would cost a round that feels the air more. **Removing the constant is blocked on that kick,
+not on the drag model.**
 `ArsenalTests.EveryRoundsDragComesFromWhatItIsUnlessNamedHere` names all six, so a new round cannot
 join them by accident.
 

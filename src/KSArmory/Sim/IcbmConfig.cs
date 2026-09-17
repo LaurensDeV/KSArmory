@@ -725,8 +725,10 @@ internal sealed class IcbmConfig
     /// <see cref="Arsenal.Mk21WithDragFromShape"/>, 3.6x the constant's drag — and predict them the same way,
     /// since the prediction reads the launcher's round.
     ///
-    /// <para><b>Off</b>, pending its night: every flown baseline rests on the constant, and more drag steepens
-    /// the shallowest arrival the round can make and lengthens what the air does to the fall.</para>
+    /// <para><b>Off</b>, flown twice and lost both. At the Andes before the walk's epoch faults were fixed, 1.89x
+    /// on landing with the walk 15 mm further out (<c>docs/ACCURACY-PLAN.md</c> 3dk); at the Chaco after them,
+    /// 2.22x on 12 of 12 shots with the walk the same as the constant's and the group's spread 8.5 mm against
+    /// 3.0 (3eo) — the separation kick, solved in vacuum, is the candidate.</para>
     /// </summary>
     public bool WarheadDragFromItsShape;
 

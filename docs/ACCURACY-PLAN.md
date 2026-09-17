@@ -10583,6 +10583,38 @@ The pooled difference is 4.35 mm against a declared 2–4.5, the same way in bot
 **ships on**. With it, the walk that was 25–30 mm at the Chaco this morning is inside half a millimetre, and what is
 left of the miss is the group's own dispersion, 2–3 mm.
 
+## 3eo. Item 44 re-flown on the fixed build: the walk no longer differs, the spread does, and it stays off — 2026-09-17
+
+`~/shots/2026-09-17-shape2`, 12 paired blocks of `base|shape:WarheadDragFromItsShape=true` at the Chaco on `abc4006`
+(3el–3en on), **12 of 12 PASS**, KSA's own log clean on every session, clock drift 0. Declared in
+`~/shots/scripts-2026-09-17/DECLARE-shape-night.md`. `shot-report.py --paired` could not pair these arms ("no shot
+flew both it and base"); read by `shape-progress.py` and `read-paired-walk.py`.
+
+| per rocket, 48 each | worst warhead: best / median / mean / worst | group centre, median | dispersion, median |
+| --- | --- | --- | --- |
+| `base` (shipped) | 3 / **6.0** / 6.8 / 32 mm | 1.3 mm | **3.1 mm** |
+| `shape` | 7 / **14.0** / 50.1 / 1,731 mm | 2.8 mm | **8.5 mm** |
+
+`shape` is worse on **12 of 12 shots**, median ratio **2.22x** — the declared refutation (1.5x) fired, so it
+**stays off**. Arrival 2,830 against 4,930 m/s confirms the arm engaged.
+
+**But it loses for a different reason from 3dk.** The pooled walk is +0.30 down on both arms and −0.40 against
+0.00 cross — 3dk's 15 mm further out is gone, as expected once the air was read correctly. What differs is the
+**spread within each group, 2.7x**, while the centre moves 1.5 mm. That is the shape of 3eb's vacuum-solved
+separation kick: exact in the ratio of sensitivities for a uniform drag, wrong in its anisotropy, and 1.6 mm on the
+constant's round — plausibly several times that on a round with 3.6x the drag. **Not measured; the next thing to
+price headlessly** before a drag-aware kick is built.
+
+**`base` confirms the shipped build at a count**: median worst warhead 6.0 mm over 48 rockets, centre 1.3 mm,
+dispersion 3.1 mm.
+
+**The 1,731 mm outlier is not drag.** Round 6 of shot 11's `GeoSat FAT_1` was released with no separation kick —
+`release probe: no impact predicted from the release state` — on a state 22 ms after five that predicted normally.
+It landed 1 mm from its own trace probe and 1.73 m from the aim. The same failure shows **4 times in 1,152 traced
+landings today, all at the Chaco and on both arms, none in 1,344 at the Andes**, including on a build without any of
+3el–3en. The failing prediction took ~20 ms where its siblings took under 1, so it integrated a long way before
+giving up. Open, and cheap to guard: the salvo's previous probe is 22 ms old.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
