@@ -975,7 +975,7 @@ paths reading different engine calls.
 | input | round | prediction | |
 | --- | --- | --- | --- |
 | gravitational parameter | `((IParentBody)body).Mu` | `Parent.Mass * 6.6743e-11` | the same expression — `Mu` is a default interface member with that body |
-| air density | `MediumDensityRatioAt(body, posEcl)` | the same call, via `Cci -> Ecl` | the `+ parent.GetPositionEcl()` and the `- body.GetPositionEcl()` inside cancel, so the prediction's altitude is `\|pointCci\|` and carries **no epoch term at all** — which is why it needs none of `AirDensityIntoFrame`'s back-dating |
+| air density | `MediumDensityRatioAt(body, posEcl)` | the same field less the ocean, `AirDensityRatioAt`, via `Cci -> Ecl` — equal wherever a warhead flies, above the ground ([ACCURACY-PLAN](ACCURACY-PLAN.md) 3ep) | the `+ parent.GetPositionEcl()` and the `- body.GetPositionEcl()` inside cancel, so the prediction's altitude is `\|pointCci\|` and carries **no epoch term at all** — which is why it needs none of `AirDensityIntoFrame`'s back-dating |
 | the air's motion | `GetAngularVelocityCce() x (posEcl - bodyEcl)` | `(0,0,GetAngularVelocity()) x posCci` | `GetAngularVelocityCce()` *is* the second rotated into `Cce`, and the spin axis is exactly `+Z` in `Cci` |
 | the ground | `GetTerrainHeightFromDirCce` | `GetTerrainHeightFromDirCcf` | one entry point, and the `Cce` one applies the rotation for you off the same per-frame `_ccf2Cci`. Both `accurate: true`, both waterline-clamped |
 

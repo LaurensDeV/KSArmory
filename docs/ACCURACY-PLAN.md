@@ -10613,7 +10613,67 @@ dispersion 3.1 mm.
 It landed 1 mm from its own trace probe and 1.73 m from the aim. The same failure shows **4 times in 1,152 traced
 landings today, all at the Chaco and on both arms, none in 1,344 at the Andes**, including on a build without any of
 3el–3en. The failing prediction took ~20 ms where its siblings took under 1, so it integrated a long way before
-giving up. Open, and cheap to guard: the salvo's previous probe is 22 ms old.
+giving up. **Found in 3ep**: the prediction read the ocean under the land.
+
+## 3ep. The release probe's failures are the ocean under the land, and they are guarded twice — 2026-09-17
+
+**Unflown.** Headless reproduction and three separable commits on `worktree-agent-a35fc917917fc545e`: `b2411dd`
+(the diagnostic), `14e65e9` (the kick borrows a sibling's probe), `1e5b45c` (the prediction reads the air alone).
+
+**What fails.** `KsaWorld.MediumDensityRatioAt` reads the ocean, 837x the reference air, anywhere under the mean
+sphere, whether or not land stands above it. The Chaco's ground is 203.9 m up (`the round stopped on 6371203.888 m`),
+and the 0.25 s air step that crosses it drops up to 670 m at a 32° arrival, so its Runge–Kutta stages sample below
+sea level. Almost always that step ends under the ground and the crossing search throws it away. On a narrow band of
+release states it does not: the water's drag reverses and multiplies the step's velocity, the end point lands above
+the ground at **18.7 km/s**, and the warhead is flown off the planet. No sample is ever under the ground again, so
+the whole six-hour horizon is integrated — **85,343 steps** — and `TryPredict` returns false. That is the ~20 ms. The
+Andes are 4 km up, and no stage there reaches the sea.
+
+Reproduced from round 6's logged release on `GeoSat FAT 4_1` (`2026-09-17-airepoch` shot 3) over flat ground at
+203.9 m, exponential air, and the ocean under the mean sphere (`PredictorEndingTests`, `PredictedMediumTests`):
+
+| 1,000 releases along two seconds of track | found no impact | how | the rest, through the air alone |
+| --- | --- | --- | --- |
+| through the ocean | **4, 0.4%** (flown: 4 in 1,152) | all `OutOfTime`, ~30 ms each (flown ~20) | — |
+| through the air alone | **0** | | **996 of 996 land identically, to the bit** |
+
+Identical because over this ground the ocean is only ever read by a step the crossing discards. Over lower ground it
+does worse than fail: with the ground at 50 m, 8 of 4,000 releases "land" up to 5,210 km away, and at sea level 1,390
+of 4,000 land somewhere other than the air-only answer. Both flown releases fail in the model as logged — this one on
+the shipped round, and 3eo's on the shape arm — each at the start of a band 10–15 m of track wide.
+
+**What was built, each separable:**
+
+1. **The diagnostic** (`chore`). `ImpactPredictor` says which way out it took — landed, unflyable, never comes down,
+   not finite, underground, out of time — with its steps, its final step, the starting periapsis, and the fastest
+   speed and densest medium any stage read. The release probe prints it with the release altitude, speed, impulse
+   and offset, and the trace's own probe prints it too. The refactored predictor matched the old one bit for bit over
+   12,000 predictions.
+2. **The kick borrows** (`fix`). A warhead whose own probe finds nothing is solved against its salvo's last probe that
+   landed, forgotten between salvos and aims and refused past **0.5 s** of simulated time. It is valid unmodified:
+   the state, the impact fixed to the ground then, and the aim then are all one instant, so the spin and the travel
+   cancel and the kick's lever arm, shorter by the age, is what is left — **0.085 mm** on the ground a frame old and
+   **1.76 mm** at the limit, against 1.09 m unkicked (`SalvoProbeTests`). What it cannot see is anything that moved the
+   bus since; across a flown salvo the probe's miss moved at most 3 mm a frame.
+3. **The prediction reads the air alone** (`fix`), as the gun's lay already does (`KsaWorld.AirDensityRatioAt`). A
+   warhead stops at the ground or the waterline and never flies through water. It reaches every consumer of
+   `IcbmComputer.DensityRatioAt`: the release probe, the aim loop's prediction, the holding cost and the trace. This
+   removes the cause; (2) stays as the guard for a probe that fails some other way.
+
+**What a flight should show.** At the Chaco with all three:
+
+- **No `release probe: no impact predicted` line and no `borrows` line.** At the rate flown before, a night of 1,152
+  traced landings with none is 1.8% likely by chance ((1 − 4/1,152)^1,152 ≈ e^−4); 300 landings with none is 35%.
+- **Nothing else moves**: the release probe lines, the walk, the worst warhead and the group as in 3eo's `base`,
+  because at 204 m the air-only prediction is the same number wherever the old one landed.
+
+Built without (3), to see (2) engage, a failure reads `release probe: no impact predicted from the release state --
+OutOfTime after ~85,000 step(s) to 21600.0 s at a 0.25 s step, fastest ~18,700 m/s, densest medium 837x the
+reference air`, then `release probe: round N borrows round M's, ~23 ms old, for its separation -- its own found no
+impact`, then that round's `focus on` lines, and it lands millimetres from the aim instead of 1.7–2.0 m.
+
+Seen in passing and not touched: `IcbmComputer.StepTrace` clears `_missKickSum` every frame the trace is not wanted,
+so with tracing off `ShrinkMissKickToTheGroup` never finds a sibling. It is off at zero and never flown.
 
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
