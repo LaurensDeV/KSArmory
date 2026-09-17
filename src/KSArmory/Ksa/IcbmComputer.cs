@@ -160,6 +160,11 @@ internal sealed class IcbmComputer
     private readonly SalvoProbe _salvoProbe = new();
     private bool _traceWanted;
 
+    // The salvo's kick columns flown through the air, for IcbmConfig.KickThroughTheAir, and the drag they were
+    // flown with: a warhead swapped to another drag between releases is a different flight.
+    private ReleaseFocus.FlownSensitivity? _flownKick;
+    private double _flownKickDragK = double.NaN;
+
     /// <summary>
     /// A warhead is being followed and has not reported yet. The trace reports from a poll one
     /// frame after the round stops flying, so a harness that ends the run on the last impact ends
@@ -443,6 +448,7 @@ internal sealed class IcbmComputer
         _missKickSum = Vec.Zero;
         _missKickCount = 0;
         _salvoProbe.Forget();
+        _flownKick = null;
 
         Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)} designated {site.Describe()}");
     }
@@ -2565,12 +2571,15 @@ internal sealed class IcbmComputer
                 ? (_missKickSum / _missKickCount, 1.0 - Math.Clamp(Config.ShrinkMissKickToTheGroup, 0.0, 1.0))
                 : null;
 
+            ReleaseFocus.FlownSensitivity? throughTheAir =
+                Config.KickThroughTheAir && (focusRing || miss is not null) ? KickColumnsThroughTheAir(from, who, what) : null;
+
             ReleaseFocus.Separation kick = ReleaseFocus.Kick(Body, from.PositionCci, from.VelocityCci,
                                                              from.Impact.Seconds, offsetCci,
                                                              released.SpinVelocityEcl.Transform(cce2Cci),
                                                              focusRing,
                                                              Config.CancelSpinAtSeparation,
-                                                             miss, shrink);
+                                                             miss, shrink, throughTheAir);
 
             bool missGiven = kick.Miss == ReleaseFocus.MissOutcome.Cancelled;
             bool anything = kick.RingFocused || kick.SpinCancelled || missGiven;
@@ -2636,6 +2645,42 @@ internal sealed class IcbmComputer
         {
             Log.Warn($"focus on {who}: {what} not kicked -- {e.Message}");
         }
+    }
+
+    // The salvo's columns flown once and carried to each release, or re-flown when this release is too far along the
+    // coast or over other ground for the ones held. Said on every warhead, so a flight can confirm the arm engaged
+    // and read what it cost in the frame; null, said, solves that warhead in vacuum as the switch off would.
+    private ReleaseFocus.FlownSensitivity? KickColumnsThroughTheAir(in ReleaseProbe from, string who, string what)
+    {
+        if (_warhead is not { } warhead) return null;
+
+        double groundRadius = Vec.Len(from.Impact.PointCci);
+        double dragK = warhead.AppliedDragK;
+
+        if (_flownKick is { } held && held.Covers(from.Impact.Seconds, groundRadius) && dragK == _flownKickDragK)
+        {
+            Log.Info($"focus on {who}: {what}'s kick solved through the air, on columns carried "
+                     + $"{held.FlightSeconds - from.Impact.Seconds:F3} s along the coast");
+            return held;
+        }
+
+        long started = System.Diagnostics.Stopwatch.GetTimestamp();
+
+        _flownKick = ReleaseFocus.FlownSensitivity.TryFly(
+            Body, from.PositionCci, from.VelocityCci,
+            new ReleaseFocus.Air(new ImpactPredictor.Drag(DensityRatioAt, warhead), PredictStepSeconds, groundRadius,
+                                 Config.PredictionStopsOnTheSurface));
+        _flownKickDragK = dragK;
+
+        double ms = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+
+        Log.Info(_flownKick is null
+                     ? $"focus on {who}: {what}'s kick NOT solved through the air -- a column did not come down "
+                       + $"({ms:F2} ms), so it is solved in vacuum"
+                     : $"focus on {who}: {what}'s kick solved through the air, on columns flown for it in {ms:F2} ms "
+                       + $"at k {dragK:E3}");
+
+        return _flownKick;
     }
 
     // The miss the kick cancels, along the ground and carried to the arrival the frame's axes stand at.

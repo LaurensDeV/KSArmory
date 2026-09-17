@@ -613,6 +613,17 @@ internal sealed partial class Ui
             + "a slender cone's 0.1 -- 3.6 times the drag of the constant they carry otherwise. Off: the constant, "
             + "which every flown baseline rests on.");
 
+        bool throughTheAir = config.KickThroughTheAir;
+        if (ImGui.Checkbox("Solve the separation kicks through the air", ref throughTheAir))
+        {
+            config.KickThroughTheAir = throughTheAir;
+        }
+        Tip("On: the kicks that focus the ring and cancel the probe's miss are solved on landings flown with the "
+            + "warheads' own drag -- seven predictions on the salvo's first release, carried to the rest, and the "
+            + "log says what they cost. Off: solved on a vacuum coast, which ends kilometres under the ground and "
+            + "leaves about 2 mm of each group's spread on the constant drag and 9 mm on the drag from the shape. "
+            + "Headless only: NOT FLOWN.");
+
         float subStepMs = (float)config.WarheadSubStepMs;
         if (ImGui.SliderFloat("Warhead sub-step (ms)", ref subStepMs, 0f, 5f, "%.3f"))
         {

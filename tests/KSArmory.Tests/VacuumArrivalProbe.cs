@@ -20,6 +20,9 @@ namespace KSArmory.Tests;
 /// is <b>not</b> the main cause of the flown ring residue, and replacing it buys millimetres rather
 /// than the centimetre it looks worth from the 32% sensitivity error alone.
 /// <c>docs/ACCURACY-PLAN.md</c> 3eb.</para>
+///
+/// <para><b>On the constant's drag.</b> On 3.6x the drag the same solve leaves 0.80% of the ring,
+/// which is the physical round's flown spread — <see cref="KickThroughTheAirTests"/>, 3ep.</para>
 /// </remarks>
 public class VacuumArrivalProbe(ITestOutputHelper Out)
 {
