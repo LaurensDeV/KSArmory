@@ -2135,6 +2135,10 @@ samples the frame's fall: **0.2 m**, five shells of five. **It reads the air alo
 ocean a hair under it stops its shell dead and cannot reach 23 km at all — which is what reading the round
 where it truly is did, until the ocean came out.
 
+**And a lay that solved last frame is re-solved from nothing before it is called out of reach.** Seeded that
+close, near the longest reach the solve could stall, and the fallback laid the gun short and flashed
+"beyond reach" on a place in reach: a shell fired on one of those frames came down 33 m short.
+
 The conversion is the part worth being careful with, and it is **three** corrections rather than
 one. `Camera.ScreenToEgoRay` divides by *its own* `FramebufferSize` while ImGui reports the cursor
 across every window, so the cursor has to be offset into the viewport **and scaled from viewport

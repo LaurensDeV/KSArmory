@@ -368,6 +368,18 @@ public static class BallisticLead
             return true;
         }
 
+        // Once more from nothing before calling it out of reach. Seeded from last frame's answer the first miss is
+        // already small, and near the longest reach the turns that take a small miss out are learnt too slowly to
+        // beat the stall rule -- so a lay that solved last frame failed this one and was thrown to the longest
+        // reach instead, on 47 frames in 300 at 23 km. A search from nothing takes big turns and learns them.
+        if (Vec.Len2(directionHint) > 0.0
+            && TrySolveFlown(shooterPos, shooterVelocity, groundVelocity, groundAcceleration, bodyVelocity, targetPos,
+                             targetVelocity, targetAccelerationEcl, targetDragShape, munition, gravityAt, densityAt,
+                             Vec.Zero, out aimPoint, out flightTimeSeconds, groundVelocityAt))
+        {
+            return true;
+        }
+
         double3 toTarget = targetPos - shooterPos;
         double3 hint = directionHint;
 

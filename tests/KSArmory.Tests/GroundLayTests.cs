@@ -334,6 +334,45 @@ public class GroundLayTests(ITestOutputHelper output)
     }
 
     /// <summary>
+    /// A lay re-solved every frame from last frame's answer, as <c>WeaponSystem</c> lays a gun, with the muzzle
+    /// moving a few centimetres as the barrel settles. Near the longest reach a solve seeded that close could stall
+    /// and fall to the reach search, which lays the gun a reach resolution short and flashes "beyond reach" on a
+    /// place in reach: 47 frames in 300 at 23 km, and a shell fired on one of them landed 33 m short.
+    /// </summary>
+    [Theory]
+    [InlineData(23.0)]
+    [InlineData(23.4)]
+    public void NearTheLongestReachARepeatedLayStaysOnThePlace(double km)
+    {
+        double latitude = double.DegreesToRadians(28.6);
+        double3 spin = new double3(0, Math.Cos(latitude), Math.Sin(latitude)) * 7.2921e-5;
+        double3 VelocityOf(double3 p) => Vec.Cross(spin, p - Centre);
+        double3 AccelerationOf(double3 p) => Vec.Cross(spin, Vec.Cross(spin, p - Centre));
+        double3 place = Ground(km);
+
+        double3 hint = Vec.Zero;
+        double reach = 1.0;
+        int laidShort = 0;
+        Random settling = new(7);
+
+        for (int frame = 0; frame < 300; frame++)
+        {
+            double3 muzzle = new((settling.NextDouble() - 0.5) * 0.1, (settling.NextDouble() - 0.5) * 0.1,
+                                 2.0 + ((settling.NextDouble() - 0.5) * 0.1));
+
+            Assert.True(BallisticLead.TrySolveFlownOrReach(muzzle, VelocityOf(muzzle), VelocityOf(muzzle), AccelerationOf(muzzle),
+                                                           Vec.Zero, place, VelocityOf(place), AccelerationOf(place), null,
+                                                           Shell, GravityAt, DensityAt, hint, reach,
+                                                           out double3 lay, out _, out reach, null, VelocityOf));
+            if (reach < 1.0) laidShort++;
+            hint = lay - muzzle;
+        }
+
+        output.WriteLine($"{km:F1} km: {laidShort} of 300 frames laid short of the place");
+        Assert.Equal(0, laidShort);
+    }
+
+    /// <summary>
     /// An acceleration shared by the ground, the target and the gravity field cancels out of everything the round
     /// and the target feel against the ground. Flown airless under a uniform pull, because the ground's acceleration
     /// is taken to be against the body and so does move where the air and the pull are read -- which a spinning
