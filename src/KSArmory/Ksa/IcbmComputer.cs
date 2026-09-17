@@ -157,6 +157,7 @@ internal sealed class IcbmComputer
     // toward a previous rocket's.
     private double3 _missKickSum = Vec.Zero;
     private int _missKickCount;
+    private readonly SalvoProbe _salvoProbe = new();
     private bool _traceWanted;
 
     /// <summary>
@@ -441,6 +442,7 @@ internal sealed class IcbmComputer
         _traces.Clear();
         _missKickSum = Vec.Zero;
         _missKickCount = 0;
+        _salvoProbe.Forget();
 
         Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)} designated {site.Describe()}");
     }
@@ -577,6 +579,7 @@ internal sealed class IcbmComputer
         // Run down on the world's own clock. Everything else the readout could be aged by stops
         // when this computer stops predicting; the step does not.
         if (double.IsFinite(_arrivalLeft)) _arrivalLeft -= simStep;
+        _salvoProbe.Advance(simStep);
         MeasureRelease(release);
 
         if (!Config.Armed)
@@ -2087,6 +2090,7 @@ internal sealed class IcbmComputer
             if (WarheadsAway == 0)
             {
                 _salvoSize = 1 + weapon.TubesReadyToFire;
+                _salvoProbe.Forget();
                 SayWhatTheLoopLeft();
                 SayWhatTheGroundUnderTheAimIsLike();
             }
@@ -2118,7 +2122,7 @@ internal sealed class IcbmComputer
                 released.GroundQueryAtOwnEpoch = Config.GroundQueryAtOwnEpoch;
             }
 
-            ReleaseProbe? probe = ProbeRelease();
+            ReleaseProbe? probe = ChooseProbe(ProbeRelease(), released);
 
             if (released is not null) SayTheSpin(weapon, released, probe);
 
@@ -2474,10 +2478,27 @@ internal sealed class IcbmComputer
     private static string OnGround(double3 parts)
         => $"({parts.Y:+0.000;-0.000;0.000} downrange, {parts.Z:+0.000;-0.000;0.000} cross)";
 
-    // The state a release prediction was flown from, what it said, and the aim it said it against in
-    // that same frame. The mean mouth, never a tube: the probe line's miss is the aim loop's own reading.
-    private readonly record struct ReleaseProbe(double3 PositionCci, double3 VelocityCci,
-                                                ImpactPredictor.Impact Impact, double3 TargetCci);
+    // Said on its own line and nowhere else, so every line after it keeps the form a night's scripts read.
+    private ReleaseProbe? ChooseProbe(ReleaseProbe? own, Slug? released)
+    {
+        int tube = released?.Tube ?? 0;
+        SalvoProbe.Choice chosen = _salvoProbe.Choose(own, tube);
+        string what = RoundLabel.For(tube);
+
+        if (chosen.Source == SalvoProbe.Source.Borrowed)
+        {
+            Log.Info($"release probe: {what} borrows {RoundLabel.For(chosen.FromTube)}'s, "
+                     + $"{chosen.AgeSeconds * 1000.0:F0} ms old, for its separation -- its own found no impact");
+        }
+        else if (chosen.Source == SalvoProbe.Source.TooOld)
+        {
+            Log.Info($"release probe: {what} has none to borrow -- {RoundLabel.For(chosen.FromTube)}'s is "
+                     + $"{chosen.AgeSeconds * 1000.0:F0} ms old, past the "
+                     + $"{SalvoProbe.MaxAgeSeconds * 1000.0:F0} ms a separation may lean on");
+        }
+
+        return chosen.Probe;
+    }
 
     // The separation velocity this tube's round leaves with, solved from the probe's own state and
     // flight time so nothing is flown twice: its ring focused on the probe's impact, the spin it was
