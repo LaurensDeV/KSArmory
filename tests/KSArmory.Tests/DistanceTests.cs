@@ -52,17 +52,38 @@ public class DistanceTests
         => Assert.Equal("unknown", Distance.Say(metres));
 
     /// <summary>
-    /// A harness line carries the millimetre a group now lands inside, and keeps the unit rule a
-    /// parser reads <see cref="Distance.Say"/> by.
+    /// A harness line carries a tenth of the millimetre, which is what a 2-3 mm dispersion needs, and
+    /// keeps the unit rule a parser reads <see cref="Distance.Say"/> by.
     /// </summary>
     [Theory]
-    [InlineData(0.0, "0.000 m")]
-    [InlineData(0.043, "0.043 m")]
-    [InlineData(-0.0304, "-0.030 m")]
-    [InlineData(1.2716, "1.272 m")]
-    [InlineData(999.9, "999.900 m")]
+    [InlineData(0.0, "0.0000 m")]
+    [InlineData(0.043, "0.0430 m")]
+    [InlineData(-0.0304, "-0.0304 m")]
+    [InlineData(1.2716, "1.2716 m")]
+    [InlineData(999.9, "999.9000 m")]
     [InlineData(1_000.0, "1.00 km")]
     [InlineData(double.NaN, "unknown")]
-    public void AMeasuredDistanceCarriesTheMillimetre(double metres, string said)
+    public void AMeasuredDistanceCarriesATenthOfAMillimetre(double metres, string said)
         => Assert.Equal(said, Distance.Measure(metres));
+
+    /// <summary>
+    /// The print step has to stay under what a night resolves. A worst warhead of 5 mm was five steps
+    /// at the millimetre; the quantum is what this pins, not the format.
+    /// </summary>
+    [Fact]
+    public void ThePrintStepIsWellUnderAGroupsOwnDispersion()
+    {
+        const double Dispersion = 0.0025;
+
+        double step = 0.0;
+        for (double m = 0.005; m < 0.0055; m += 0.00001)
+        {
+            if (Distance.Measure(m) == Distance.Measure(0.005)) continue;
+
+            step = m - 0.005;
+            break;
+        }
+
+        Assert.InRange(step, 1e-9, Dispersion / 10.0);
+    }
 }

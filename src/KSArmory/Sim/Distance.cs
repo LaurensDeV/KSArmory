@@ -33,13 +33,15 @@ internal static class Distance
     }
 
     /// <summary>
-    /// One distance for a line a script reads: metres to the millimetre below a kilometre, and
-    /// <see cref="Say"/>'s form above it, so a parser taking either unit reads both.
+    /// One distance for a line a script reads: metres to a tenth of a millimetre below a kilometre,
+    /// and <see cref="Say"/>'s form above it, so a parser taking either unit reads both.
     ///
-    /// <para>A shot group lands inside the tenth of a metre <see cref="Say"/> prints, and an endpoint
-    /// resolves nothing finer than the line it is parsed from — so the harness's own lines carry the
-    /// millimetre where a person's readout keeps the tenth.</para>
+    /// <para>An endpoint resolves nothing finer than the line it is parsed from, so the harness's own
+    /// lines carry more than a person's readout. <b>The millimetre this printed was sized when a group
+    /// landed inside tens of them</b>, and the shot has since passed it: a worst warhead of 5 mm is
+    /// five print steps and a 2–3 mm dispersion is two, which puts the quantum at a few per cent of
+    /// the variance a night is trying to resolve. That is this file's own lesson arriving on it.</para>
     /// </summary>
     public static string Measure(double metres)
-        => double.IsFinite(metres) && Math.Abs(metres) < KilometreFrom ? $"{metres:F3} m" : Say(metres);
+        => double.IsFinite(metres) && Math.Abs(metres) < KilometreFrom ? $"{metres:F4} m" : Say(metres);
 }

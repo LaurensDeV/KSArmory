@@ -499,9 +499,16 @@ its own bin does not move the per-shot variance measurably at this n.
 **It is material again once a group lands inside it, so the floors follow the print.** With the width
 at 0.035 m (3dg) and item 43 aimed at the centre, every group endpoint on the arm reads the 0.1 m step
 rather than the group. The landing line and both release probes print through `Distance.Measure` —
-a millimetre below a kilometre — and `shot-report.py` takes each flight's floor off the step its own
-lines printed: a whole step for `spread`, `landing`, `centre` and `dispersion`, half of one for
-`release`. A night printed at 0.1 m floors exactly where it did.
+**a tenth of a millimetre** below a kilometre — and `shot-report.py` takes each flight's floor off the
+step its own lines printed: a whole step for `spread`, `landing`, `centre` and `dispersion`, half of
+one for `release`. A night printed at 0.1 m floors exactly where it did, and a night printed finer
+floors finer with nothing to change, because `_print_quantum` reads the step off the number's own text.
+
+**The millimetre went the same way the metre and the 0.1 m did**, and for the same reason: it was
+sized when a group landed inside tens of millimetres. Since 3el–3en the median worst warhead is 5 mm
+and the dispersion 2–3 mm, so the millimetre step was five bins and two — a few per cent of the
+variance a night is trying to resolve, on the endpoint the verdict is read from. That is the fifth
+time a readout has gone blind as the shot improved, which is what `Sim/Distance.cs` exists to say.
 
 **One incoherence to know about, and it predates the signed endpoints.** The verdict is read off the
 randomisation while the interval beside it comes from the sign test, so a night can print
