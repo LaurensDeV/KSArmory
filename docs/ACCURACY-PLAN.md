@@ -8796,6 +8796,12 @@ a rig leaves alone is a claim about the flight that nobody checked.
 `WarheadDragFromItsShape`: built, smoked, priced at 4 mm, and cheap to fly if the walk ever comes down far
 enough for 4 mm to matter. It is not worth a night at a 21 mm walk.
 
+> **Flown on 2026-09-17, and it stays off on evidence rather than on price — 3ei.** Three arms at
+> 4.0, 1.0 and 0.25 ms over 15 shots: the worst warhead reads p = 0.91 and p = 0.57 against the
+> shipped step, so **sixteen times the integration work moves no landing**. The walk meanwhile
+> ranged over 21 mm between those same arms, which is the finding — it is the *instrument* that the
+> sub-step moves, not the shot.
+
 **The flown walk's −21 mm is therefore still unexplained**, and the sub-step accounts for at most a fifth of
 it. That is the open question, and 3dm's other two results stand and narrow it:
 
@@ -10175,7 +10181,7 @@ Only the rms tail is monotonic — 135, 83, 67 — which is the one place a fine
 having, and it is not significant on a median test.
 
 **So `WarheadSubStepMs` stays off**, and it is now off on flown evidence rather than pending a
-night. `docs/MIRV-NEXT.md` item 45b is answered.
+night. Item **45b** is answered — see 3dn, which priced it at 4 mm and left it unflown.
 
 ### The walk moved 21 mm while the landing did not
 
