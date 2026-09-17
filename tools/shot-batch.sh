@@ -227,7 +227,9 @@ else
             exit 1
         fi
 
-        if ! "$REPO_ROOT/tools/build.sh" >"$OUT/arms/$name.build.log" 2>&1; then
+        # 9>&- because the build leaves Roslyn's compiler server running, and an inherited lock
+        # descriptor keeps the lock held for as long as that server lives -- past this batch.
+        if ! "$REPO_ROOT/tools/build.sh" >"$OUT/arms/$name.build.log" 2>&1 9>&-; then
             restore_tree
             echo "error: arm '$name' does not build; see $OUT/arms/$name.build.log" >&2
             exit 1
