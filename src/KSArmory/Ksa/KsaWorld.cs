@@ -98,18 +98,50 @@ internal static class KsaWorld
     {
         SimStep step = Universe.GetLastSimStep();
 
+        if (_consumedThrough is { } from && !step.NextTime.Equals(from))
+        {
+            LastLongerOfStepAndSpan = Math.Max(step.DeltaTime, Span(from, step.NextTime));
+        }
+
+        _consumedThrough = step.NextTime;
+
         // The span, not just the step: a frame in which this mod's hook never ran still advanced
         // the world, and GetLastSimStep reports only the most recent one. Taking a screenshot is
         // exactly that case -- ScreenshotCapture sets Program.DrawUI false and KSA guards the call
         // this mod postfixes with it, so the hook is not called at all. Differenced in Int128
         // nanoseconds because absolute universe time is far too large to subtract as double.
-        return _stepGate.Consume(step.NextTime, step.DeltaTime,
-                                 static (from, to) =>
-                                     (double)(to.Nanoseconds - from.Nanoseconds) / 1e9);
+        return _stepGate.Consume(step.NextTime, step.DeltaTime, Span);
+    }
+
+    private static double Span(UniverseTime from, UniverseTime to)
+        => (double)(to.Nanoseconds - from.Nanoseconds) / 1e9;
+
+    private static UniverseTime? _consumedThrough;
+
+    /// <summary>
+    /// What the last new step would have been as the longer of the reported step and the span.
+    /// Measurement only: <see cref="WarheadTrace"/> sums it beside the step taken, against
+    /// <see cref="SimClockNanoseconds"/>, because the longer runs 0.125 ns a frame ahead of the
+    /// clock the planets are placed on (<c>docs/ACCURACY-PLAN.md</c> 3el).
+    /// </summary>
+    public static double LastLongerOfStepAndSpan { get; private set; }
+
+    /// <summary>Universe time in whole nanoseconds, which is the clock KSA places every celestial on.</summary>
+    public static Int128 SimClockNanoseconds
+    {
+        get
+        {
+            try { return Universe.GetElapsedTime().Nanoseconds; }
+            catch { return Int128.MinValue; }
+        }
     }
 
     /// <summary>Forgets which step was last integrated. For unload and scene changes.</summary>
-    public static void ResetSimStepTracking() => _stepGate.Reset();
+    public static void ResetSimStepTracking()
+    {
+        _stepGate.Reset();
+        _consumedThrough = null;
+    }
 
     /// <summary>True while the simulation is stopped. KSA defines this as speed exactly zero.</summary>
     public static bool IsPaused => Universe.IsPaused();

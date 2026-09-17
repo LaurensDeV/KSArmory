@@ -89,6 +89,8 @@ internal sealed class WarheadTrace
     private double _lastSampleAlt = double.NaN;
     private double _lastSampleAge = double.NaN;
     private double _worldSeconds;
+    private double _longerOfStepAndSpan;
+    private Int128 _clockAtBegin;
     private double _lastAge;
     private double _sinceSample;
     private double _sinceRefly;
@@ -148,6 +150,8 @@ internal sealed class WarheadTrace
         _lastSampleAlt = double.NaN;
         _lastSampleAge = double.NaN;
         _worldSeconds = 0.0;
+        _longerOfStepAndSpan = 0.0;
+        _clockAtBegin = KsaWorld.SimClockNanoseconds;
         _lastAge = round.Age;
         _sinceSample = 0.0;
         _sinceRefly = 0.0;
@@ -252,7 +256,11 @@ internal sealed class WarheadTrace
         {
             _frames++;
 
-            if (double.IsFinite(simStep) && simStep > 0.0) _worldSeconds += simStep;
+            if (double.IsFinite(simStep) && simStep > 0.0)
+            {
+                _worldSeconds += simStep;
+                _longerOfStepAndSpan += KsaWorld.LastLongerOfStepAndSpan;
+            }
             if (double.IsFinite(_remaining)) _remaining -= simStep;
 
             double age = round.Age;
@@ -414,6 +422,13 @@ internal sealed class WarheadTrace
                      + $" probe said {_probeSeconds:F2}s"
                      + $" | lag {lag * 1000.0:F1}ms = {lag * round.Speed:F0} m at {round.Speed:F0} m/s"
                      + $" over {_lines} sampled frames");
+
+            // Against the planets' own clock rather than the mod's: the round's age and _worldSeconds
+            // both sum the step it was handed, so comparing those two cannot see the step being wrong.
+            double elapsed = (double)(KsaWorld.SimClockNanoseconds - _clockAtBegin) / 1e9;
+            Log.Info($"warhead trace: clock: universe time advanced {elapsed:F6} s over {_frames} frames;"
+                     + $" the steps taken ran {(_worldSeconds - elapsed) * 1e9:+0.000;-0.000;0.000} ns from it,"
+                     + $" the longer of step and span {(_longerOfStepAndSpan - elapsed) * 1e9:+0.000;-0.000;0.000} ns");
 
             Log.Info($"warhead trace: {Surfaces(setup, round, landingEcl, positionCci)}");
 

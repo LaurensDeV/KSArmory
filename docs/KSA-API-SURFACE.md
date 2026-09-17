@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-182 types and 537 members across 7 assemblies.
+182 types and 538 members across 7 assemblies.
 
 ## Brutal.Concurrency
 
@@ -1027,6 +1027,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `KSA.UniverseTime op_Subtraction(KSA.UniverseTime, KSA.UniverseTime)`
 - `System.Int128 get_Nanoseconds()`
+- `bool Equals(KSA.UniverseTime)`
 - `double Seconds()`
 - `void .ctor(double)`
 
