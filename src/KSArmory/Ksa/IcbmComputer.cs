@@ -2519,8 +2519,22 @@ internal sealed class IcbmComputer
                 }
             }
 
+            // Each warhead to its own point on a ring, or all six to the designation, which is
+            // what every flight before this did. The spin axis is exactly +Z in a body's own Cci.
+            double3 aimedAt = WarheadFootprint.AimFor(from.TargetCci, new double3(0, 0, 1),
+                                                      Config.WarheadFootprintMetres,
+                                                      released.Tube - 1, weapon.TubeCount);
+
+            if (Config.WarheadFootprintMetres > 0.0
+                && !WarheadFootprint.WithinTheCap(Config.WarheadFootprintMetres, from.Impact.Seconds))
+            {
+                Log.Info($"focus on {who}: {what}'s {Config.WarheadFootprintMetres:F1} m footprint is "
+                         + $"past what the cap can throw on a {from.Impact.Seconds:F0} s flight -- "
+                         + $"{WarheadFootprint.WidestAt(from.Impact.Seconds):F2} m is the widest");
+            }
+
             ReleaseFocus.ProbeMiss? miss = Config.CancelProbeMissAtSeparation
-                ? new ReleaseFocus.ProbeMiss(from.Impact.GroundFixedPointCci, from.TargetCci,
+                ? new ReleaseFocus.ProbeMiss(from.Impact.GroundFixedPointCci, aimedAt,
                                              Config.ProbeMissFollowsTheGround ? TerrainRadiusAt : null)
                 : null;
 

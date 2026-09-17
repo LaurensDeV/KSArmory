@@ -781,6 +781,31 @@ internal sealed class IcbmConfig
     /// </remarks>
     public double ShrinkMissKickToTheGroup;
 
+    /// <summary>
+    /// The radius of the ring each warhead of a salvo is aimed at, in metres. Zero puts all of them
+    /// on the designation, which is every flight before this one.
+    /// </summary>
+    /// <remarks>
+    /// <para>Six 1.80 m reentry vehicles arrive a median <b>8.7 mm</b> apart today, so they
+    /// interpenetrate — rounds do not collide with one another — and burst as one. Spreading them
+    /// is worth more as <b>measurement</b> than as realism: a kick commanded to put every warhead in
+    /// one place cannot be checked, because each is asked for the same thing and any error appears
+    /// as dispersion mixed with everything else. Asked for a known ring, the kick becomes an
+    /// actuator with a delivered-against-asked residual — and it is 44.5% of the within-rocket
+    /// variance (<c>docs/ACCURACY-PLAN.md</c> 3ef).</para>
+    ///
+    /// <para><b>Bounded by the separation cap, not by preference.</b>
+    /// <see cref="ReleaseFocus.MaxMissKickMetresPerSecond"/> is 10 mm/s, which over a 345 s flight is
+    /// about <b>3.5 m</b> — <see cref="WarheadFootprint.WidestAt"/> is the number for a given
+    /// flight. Past it the kick is refused and the warhead flies the group's aim, which from outside
+    /// looks exactly like this setting doing nothing, so the log says which happened.</para>
+    ///
+    /// <para><b>It is not a MIRV footprint.</b> Against a 706 m fireball and a 2 km lethal radius,
+    /// 3.5 m is nothing. Real per-target spread needs the bus to manoeuvre between releases, and the
+    /// cap exists so that a separation cannot become a burn.</para>
+    /// </remarks>
+    public double WarheadFootprintMetres;
+
     /// <summary>Pointing error under which the coast hold lets go, in degrees.</summary>
     public double QuietCoastDeg = 0.5;
 

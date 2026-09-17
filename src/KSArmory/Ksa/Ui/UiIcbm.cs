@@ -624,6 +624,20 @@ internal sealed partial class Ui
             + "is a different thing. What it costs is sub-steps: six warheads at 1 ms is about 300 a frame, "
             + "at 0.25 ms about 3,700 -- and that slowed the world 16%, so watch the frame time.");
 
+        float footprint = (float)config.WarheadFootprintMetres;
+        if (ImGui.SliderFloat("Warhead footprint (m)", ref footprint, 0f, 5f, "%.2f"))
+        {
+            config.WarheadFootprintMetres = footprint;
+        }
+        Tip($"The radius of the ring this rocket's warheads are aimed at. "
+            + $"{config.WarheadFootprintMetres:F2} m; 0 puts all six on the designation, which is every "
+            + "flight so far -- and six 1.8 m reentry vehicles then arrive about 9 mm apart, passing "
+            + "through each other and bursting as one. Spreading them is worth more as measurement than "
+            + "as realism: a kick asked to put every warhead in one place cannot be checked, where one "
+            + "asked for a known ring can. The separation cap allows about 3.5 m on a 345 s flight and "
+            + "the log says when a wider one was refused. It is NOT a MIRV footprint -- the fireball "
+            + "alone is 706 m -- and real per-target spread needs the bus to manoeuvre between releases.");
+
         float shrink = (float)config.ShrinkMissKickToTheGroup;
         if (ImGui.SliderFloat("Shrink miss kick to the group", ref shrink, 0f, 1f, "%.2f"))
         {

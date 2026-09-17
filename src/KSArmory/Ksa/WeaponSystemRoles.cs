@@ -259,6 +259,16 @@ internal interface IManualFire : IWeaponPlatform, IWeaponLoadout
     bool TryTubeOffsetFromMeanEcl(int tube, out double3 offsetEcl);
 
     /// <summary>
+    /// How many tubes those offsets are counted among — the ring's size, not how many are loaded.
+    /// </summary>
+    /// <remarks>
+    /// Beside the offsets rather than anywhere else, because a caller placing a warhead on a
+    /// pattern needs to know which of how many it is holding, and the two answers have to come from
+    /// one launcher or the pattern is drawn against a ring that is not there.
+    /// </remarks>
+    int TubeCount { get; }
+
+    /// <summary>
     /// How fast one tube's mouth is moving because the craft is turning, from the centre of mass in
     /// the craft's own assembly frame — the velocity KSA itself gives a part it splits off a turning
     /// vehicle.

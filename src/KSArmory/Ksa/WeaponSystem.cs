@@ -2108,6 +2108,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         return Vec.IsFinite(positionEcl) && Vec.IsFinite(velocityEcl);
     }
 
+    /// <inheritdoc cref="IManualFire.TubeCount"/>
+    public int TubeCount => _magazine.TubeCount;
+
     /// <inheritdoc cref="IManualFire.TryTubeOffsetFromMeanEcl"/>
     public bool TryTubeOffsetFromMeanEcl(int tube, out double3 offsetEcl)
     {

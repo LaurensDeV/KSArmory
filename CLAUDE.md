@@ -321,6 +321,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/ArrivalBudget.cs` | the steepest arrival the tanks can pay for — **what bounds the angle control**, so a ceiling is seen rather than discovered when the shot falls short |
 | `Sim/ImpactPredictor.cs` | where it would come down if the engines stopped now — flown, not solved |
 | `Sim/ArrivalFrame.cs` | the axes an arrival is measured in — **a drift up costs `cot γ` times the same drift across**, which is eight at the angle this mod flies |
+| `Sim/GroundSlope.cs` | how steep the ground under a target is, and what a round arriving on it pays — **past a loop gain of one there is no fixed point at all** and re-aiming walks away from the answer, which a quarter of rockets at the flown site are; the **gradient**, never a ring's median, because a ring halves a planar slope |
 | `Sim/AimCorrection.cs` | where to aim so it lands on the target — **the solver arrives at a point, a round stops at the ground** |
 | `Sim/AimAuthority.cs` | how far the aim may be moved for what the trim can pay — **an aim the bus cannot reach is worse than a nearer one it can**, because a correction that finishes lands at 140 m and one that does not at 5–45 km |
 | `Sim/BoosterPerformance.cs` | what the stack can still do, as the four numbers guidance needs |
@@ -338,6 +339,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/ReleasePointing.cs` | which way a launcher must hold for one tube to throw along the line the others did |
 | `Sim/ReleaseSequence.cs` | letting a magazine go one round at a time, each along that same line |
 | `Sim/ReleaseFocus.cs` | the velocity each round leaves its tube with so it lands where the tubes' mean does — **the ring the mouths sit on is the group's spread**, and no single aim can remove it; the spin each is thrown with moves the group's centre, and is given back exactly; and the release probe's own miss can be cancelled with them, along the ground and **under a cap, so a separation cannot become a burn** |
+| `Sim/WarheadFootprint.cs` | where each warhead of one salvo is aimed — **all six on the designation is what every flight so far did**, and six 1.8 m vehicles then arrive 9 mm apart and burst as one; a commanded ring is worth more as measurement than as realism, because a kick asked to put every warhead in one place cannot be checked, and it is **bounded by the separation cap at about 3.5 m**, which is nothing beside a 706 m fireball |
 | `Sim/ShotRequest.cs` | where a scripted shot is aimed and the bar it is judged against — **text in**, so the harness's one line is testable headlessly |
 | `Sim/ShotGroup.cs` | where a salvo landed, and whether that is a pass — **scored on the worst warhead**, and one that never arrived counts |
 | `Sim/ShotArms.cs` | which variant each rocket in a world flies — **the comparison moved inside the run**, because the same baseline read 14.49 km and 5.43 km on identical code three hours apart |
