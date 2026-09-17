@@ -2871,14 +2871,21 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     // Read at the point being asked about rather than once per frame: the spin term is a cross
     // product with the radius, so it belongs to the place, not to the body.
     private double3 GroundQueryDriftIntoFrame(double3 positionEcl, double secondsIntoFrame)
-        => GroundVelocityAtRound(positionEcl) * secondsIntoFrame;
+        => GroundVelocityIntoFrame(positionEcl, secondsIntoFrame) * secondsIntoFrame;
 
     // The air's own motion where the round is, rather than where it was when the frame began. The
     // same reason the density lookup beside it exists: a re-entering round crosses ~150 m of ground
     // in a frame and the air moves with the ground, so a held sample measures the drag against air
     // the round has left. ImpactPredictor recomputes this at every RK stage.
     private double3 AirVelocityIntoFrame(double3 positionEcl, double secondsIntoFrame)
-        => GroundVelocityAtRound(positionEcl);
+        => GroundVelocityIntoFrame(positionEcl, secondsIntoFrame);
+
+    // The ground's velocity where a point is at a stated time into the frame. Back-dated exactly as
+    // AirDensityIntoFrame is: the spin is a cross product with the radius, and the radius is measured
+    // to the body's end-of-frame sample, so an undated read carries up to a frame of the body's travel
+    // into it -- 750 m at 25 ms, 0.055 m/s of wind always in one direction (docs/ACCURACY-PLAN.md 3el).
+    private double3 GroundVelocityIntoFrame(double3 positionEcl, double secondsIntoFrame)
+        => GroundVelocityAtRound(positionEcl - (_bodyVelocityEcl * secondsIntoFrame));
 
     private Func<double3, double, double3>? _airVelocityAt;
 
@@ -2959,7 +2966,11 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             // metres apart, which is every shell this mod fires; a warhead 2,700 km downrange is
             // over ground moving in a measurably different direction, and its drag is measured
             // against that. See KsaWorld.GroundVelocityAt.
-            double3 airVelocity = GroundVelocityAtRound(round.PositionEcl);
+            //
+            // Back-dated to the frame's start, which is where the round is: the radius the spin acts
+            // on is measured to the body's end-of-frame sample, a whole frame of its 29.8 km/s away,
+            // and that is 0.055 m/s of wind at 25 ms that tilts the drag one way on every frame.
+            double3 airVelocity = GroundVelocityAtRound(round.PositionEcl + _bodyVelocityEcl * dt);
 
             // Everything it could run into, which is not the same list as what it was aimed at,
             // and the geometry that decides whether it truly met any of them.
