@@ -192,7 +192,9 @@ internal sealed class WarheadTrace
                 _probeCross = arrival.Cross;
             }
 
-            Log.Info($"warhead trace: probe from the round's own state ->"
+            // Named, for the reason the landing line is (3ce): eight rockets write into one log and a
+            // reading that cannot be paired with its seat cannot be read against that seat's ground.
+            Log.Info($"warhead trace on {setup.Craft}: probe from the round's own state ->"
                      + $" {LatLon(setup, hit.GroundFixedPointCci)},"
                      + $" {hit.Seconds:F1} s of flight,"
                      + $" {Ground(setup, hit.GroundFixedPointCci, setup.TrueAimCci):F3} m from the aim,"
