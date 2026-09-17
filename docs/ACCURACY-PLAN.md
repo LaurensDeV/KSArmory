@@ -10765,6 +10765,28 @@ to the constant's?
 Worth flying beside it, and harder to see: `base|air:KickThroughTheAir=true` on the shipped constant, where the
 prediction is 3.1 → about 2.3 mm.
 
+## 3er. Three arms in one world: neither switch clears its bar, and the tail is one seat — 2026-09-17
+
+`~/shots/2026-09-17-threearm`, 12 paired blocks of `base|cair:KickThroughTheAir=true|real:WarheadDragFromItsShape=true,KickThroughTheAir=true`
+at the Chaco on `57c0958`, **12 of 12 PASS**, KSA's own log clean, clock drift within ±0.002 ns, and over ~576 warheads
+**no release probe failed** (3ep) and no kick went unsolved; the air kick flew once per rocket in ≤1.5 ms. Declared in
+`~/shots/scripts-2026-09-17/DECLARE-three-arm-night.md`; read by `threearm.py`.
+
+| 32 rockets each | worst warhead: best / median / mean / worst | dispersion | centre |
+| --- | --- | --- | --- |
+| `base` | 2 / 5.0 / 6.4 / 39 mm | 2.9 mm | 1.4 mm |
+| `cair` | 2 / 4.5 / 6.4 / 33 mm | 2.6 mm | 1.2 mm |
+| `real` | 2 / 4.5 / **5.1** / **11** mm | 2.8 mm | 1.2 mm |
+
+**Against the declared bars:** `cair`'s dispersion is lower on 7 of 12 shots against a bar of 8, and `real`'s worst warhead on
+7 of 12 (2 ties, 3 losses) against a bar of 8. **Neither ships; neither is refuted.** On every summary `real` is at least as good
+as `base`, which is the question that matters for removing the constant — a non-inferiority question the night was not declared
+to answer.
+
+**The tail is one seat.** All four rockets over 12 mm were `GeoSat FAT 5` on the constant-drag arms, never on `real`: misses of up
+to 39 mm almost purely downrange, between siblings that land millimetres apart. Seat 5 is the only aim at this site on a slope
+(0.122 at 1 m; every other seat under 0.03). Open, and under investigation.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
