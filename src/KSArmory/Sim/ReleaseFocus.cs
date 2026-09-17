@@ -253,9 +253,20 @@ internal static class ReleaseFocus
     /// The release probe's impact and target, or null to leave the mean where the aim loop put it.
     /// Refused past <see cref="MaxMissKickMetresPerSecond"/>.
     /// </param>
+    /// <param name="shrinkToward">
+    /// The mean of the miss kicks already applied in this release, and how much of a warhead's own
+    /// departure from it to keep. Null keeps all of it, which is what every flight before this did.
+    ///
+    /// <para>The kick cancels what the probe says <em>this</em> warhead will miss by, and flown that
+    /// differential behaves as noise injected one for one — the landing regresses on it at -1.090,
+    /// an interval containing -1 (<c>docs/ACCURACY-PLAN.md</c> 3ef). Shrinking it toward what the
+    /// siblings already asked for keeps the common part, which is worth 459 mm of centre, and
+    /// discards the part that is not shared.</para>
+    /// </param>
     public static Separation Kick(BallisticBody body, double3 positionCci, double3 velocityCci,
                                   double flightSeconds, double3 offsetCci, double3 spinCci,
-                                  bool focusRing, bool cancelSpin, ProbeMiss? cancelMiss = null)
+                                  bool focusRing, bool cancelSpin, ProbeMiss? cancelMiss = null,
+                                  (double3 Mean, double Keep)? shrinkToward = null)
     {
         double3 ringKick = Vec.Zero;
         bool focused = focusRing && TryKick(body, positionCci, velocityCci, flightSeconds, offsetCci, out ringKick);
@@ -275,14 +286,23 @@ internal static class ReleaseFocus
                 missKick = Vec.Zero;
                 miss = MissOutcome.Unsolved;
             }
-            else if (!(Vec.Len(missKick) <= MaxMissKickMetresPerSecond))
-            {
-                miss = MissOutcome.OverTheCap;
-            }
             else
             {
-                kick += missKick;
-                miss = MissOutcome.Cancelled;
+                // Before the cap, so the cap still bounds what is actually fired.
+                if (shrinkToward is { } toward)
+                {
+                    missKick = toward.Mean + (missKick - toward.Mean) * toward.Keep;
+                }
+
+                if (!(Vec.Len(missKick) <= MaxMissKickMetresPerSecond))
+                {
+                    miss = MissOutcome.OverTheCap;
+                }
+                else
+                {
+                    kick += missKick;
+                    miss = MissOutcome.Cancelled;
+                }
             }
         }
 

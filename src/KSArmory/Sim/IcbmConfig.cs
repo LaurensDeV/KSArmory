@@ -757,6 +757,30 @@ internal sealed class IcbmConfig
     /// </remarks>
     public double WarheadSubStepMs;
 
+    /// <summary>
+    /// How much of a warhead's miss kick to replace with what its siblings already asked for, from
+    /// 0 — its own, which is every flight so far — to 1, the running mean alone.
+    /// </summary>
+    /// <remarks>
+    /// <para>The kick cancels where <em>this</em> warhead's release probe says it will miss. The
+    /// common part of that is worth <b>459 mm of centre</b> and must be kept. The part that differs
+    /// between siblings behaves as noise injected one for one: the within-rocket landing deviation
+    /// regresses on the probe's at <b>-1.090 +/- 0.052</b>, an interval containing -1 and excluding
+    /// 0 (<c>docs/ACCURACY-PLAN.md</c> 3ef).</para>
+    ///
+    /// <para>The mean is over the warheads <b>already released</b>, never the whole six: a salvo
+    /// leaves one tube at a time, 28 ms apart, so the six-warhead mean does not exist when the first
+    /// one goes. Counterfactually over 132 rockets at 0.5 this is <b>0.886x</b> on the median worst
+    /// warhead and 0.900x on its rms, and <b>0.93x</b> on ground past terrain gain one — where the
+    /// ground amplifies without bound and injected noise costs most (3ej).</para>
+    ///
+    /// <para><b>Off, and never flown.</b> Every number above is arithmetic on logged quantities
+    /// rather than a flight. Confirming it needs a within-rocket split — three warheads each way,
+    /// scored on the worst of each half — which reaches 42% power in one night and 69% in two, where
+    /// an ordinary paired night reaches 10%.</para>
+    /// </remarks>
+    public double ShrinkMissKickToTheGroup;
+
     /// <summary>Pointing error under which the coast hold lets go, in degrees.</summary>
     public double QuietCoastDeg = 0.5;
 

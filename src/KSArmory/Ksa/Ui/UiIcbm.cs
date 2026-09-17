@@ -618,10 +618,24 @@ internal sealed partial class Ui
             config.WarheadSubStepMs = subStepMs;
         }
         Tip($"How finely this rocket's warheads integrate their own fall. {config.WarheadSubStepMs:F3} ms; "
-            + "0 leaves the round's own 1 ms. It is the whole of what the release kick cannot cancel -- worth "
-            + "1.54 m at a 32 deg arrival and first order, so halving it halves that -- and the predictor's own "
-            + "step buys nothing beside it. What it costs is sub-steps: six warheads at 1 ms is about 300 a "
-            + "frame, at 0.125 ms about 2,400, so watch the frame time.");
+            + "0 leaves the round's own 1 ms. FLOWN AND IT MOVES NO LANDING: three arms at 4, 1 and 0.25 ms "
+            + "over 15 shots read p = 0.91 and p = 0.57 on the worst warhead against the shipped step, so "
+            + "sixteen times the integration work buys nothing measurable. It moves the WALK by 21 mm, which "
+            + "is a different thing. What it costs is sub-steps: six warheads at 1 ms is about 300 a frame, "
+            + "at 0.25 ms about 3,700 -- and that slowed the world 16%, so watch the frame time.");
+
+        float shrink = (float)config.ShrinkMissKickToTheGroup;
+        if (ImGui.SliderFloat("Shrink miss kick to the group", ref shrink, 0f, 1f, "%.2f"))
+        {
+            config.ShrinkMissKickToTheGroup = shrink;
+        }
+        Tip($"How much of a warhead's own release-probe miss kick to replace with what its siblings "
+            + $"already asked for. {config.ShrinkMissKickToTheGroup:F2}; 0 is its own, which is every flight "
+            + "so far. The shared part of that kick is worth 459 mm of centre and is always kept; the part "
+            + "that differs between siblings behaves as injected noise, and the landing regresses on it at "
+            + "-1.09. Counterfactually 0.5 is 0.89x on the median worst warhead and 0.93x on ground steep "
+            + "enough to amplify without bound. NEVER FLOWN -- every one of those numbers is arithmetic on "
+            + "logged shots rather than a flight.");
 
         bool quiet = config.QuietCoast;
         if (ImGui.Checkbox("Let go of the attitude while coasting", ref quiet))

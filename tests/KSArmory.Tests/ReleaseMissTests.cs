@@ -219,8 +219,64 @@ public class ReleaseMissTests(ITestOutputHelper Out)
         Assert.Equal(Vec.Zero, kick.KickCci);
     }
 
-    private static ReleaseFocus.Separation KickFor(in Probe probe, double3 targetCci)
+    /// <summary>
+    /// `IcbmConfig.ShrinkMissKickToTheGroup`: a warhead's kick pulled toward what its siblings have
+    /// already asked for, keeping the part of the cancellation they share.
+    /// </summary>
+    /// <remarks>
+    /// The shared part is worth 459 mm of centre and is never given up; the part that differs
+    /// between siblings behaves as noise injected one for one, the landing regressing on it at
+    /// −1.090 (<c>docs/ACCURACY-PLAN.md</c> 3ef). The mean is over warheads <em>already released</em>,
+    /// because a salvo leaves one tube at a time and the six-warhead mean does not exist when the
+    /// first one goes.
+    /// </remarks>
+    [Fact]
+    public void ShrinkingTheMissKickPullsItTowardWhatTheSiblingsAsked()
+    {
+        Probe probe = ProbeFor(Arc.Traced);
+        double3 target = TargetOff(probe, -1.0, +0.3);
+
+        ReleaseFocus.Separation own = KickFor(probe, target);
+        Assert.Equal(ReleaseFocus.MissOutcome.Cancelled, own.Miss);
+
+        // A sibling mean clearly apart from its own, so a scheme that ignored it would show.
+        double3 siblings = own.MissKickCci * 0.25;
+
+        ReleaseFocus.Separation half = KickFor(probe, target, (siblings, 0.5));
+        ReleaseFocus.Separation all = KickFor(probe, target, (siblings, 1.0));
+        ReleaseFocus.Separation none = KickFor(probe, target, (siblings, 0.0));
+
+        double3 want = siblings + (own.MissKickCci - siblings) * 0.5;
+
+        Out.WriteLine($"own       {Vec.Len(own.MissKickCci) * 1000.0:F4} mm/s");
+        Out.WriteLine($"siblings  {Vec.Len(siblings) * 1000.0:F4} mm/s");
+        Out.WriteLine($"keep 0.5  {Vec.Len(half.MissKickCci) * 1000.0:F4} mm/s "
+                      + $"(wanted {Vec.Len(want) * 1000.0:F4})");
+        Out.WriteLine($"keep 0.0  {Vec.Len(none.MissKickCci) * 1000.0:F4} mm/s -- the siblings' mean alone");
+
+        Assert.True(Vec.Len(half.MissKickCci - want) < 1e-12, "half is not half way");
+        Assert.True(Vec.Len(all.MissKickCci - own.MissKickCci) < 1e-12, "keeping all of it must change nothing");
+        Assert.True(Vec.Len(none.MissKickCci - siblings) < 1e-12, "keeping none of it must be the mean alone");
+
+        // And it must actually move: a wiring that dropped the parameter would pass the `all` case.
+        Assert.True(Vec.Len(half.MissKickCci - own.MissKickCci) > 1e-6,
+                    "the shrink moved nothing, so nothing here tests it");
+    }
+
+    /// <summary>Asking for no shrink at all is the flight every rocket before this one made.</summary>
+    [Fact]
+    public void NotShrinkingIsExactlyTheOldKick()
+    {
+        Probe probe = ProbeFor(Arc.Traced);
+        double3 target = TargetOff(probe, -1.0, +0.3);
+
+        Assert.Equal(KickFor(probe, target).KickCci, KickFor(probe, target, null).KickCci);
+    }
+
+    private static ReleaseFocus.Separation KickFor(in Probe probe, double3 targetCci,
+                                                   (double3 Mean, double Keep)? shrinkToward = null)
         => ReleaseFocus.Kick(Earth, probe.PositionCci, probe.VelocityCci, probe.Hit.Seconds, Vec.Zero, Vec.Zero,
                              focusRing: false, cancelSpin: false,
-                             new ReleaseFocus.ProbeMiss(probe.Hit.GroundFixedPointCci, targetCci));
+                             new ReleaseFocus.ProbeMiss(probe.Hit.GroundFixedPointCci, targetCci),
+                             shrinkToward);
 }

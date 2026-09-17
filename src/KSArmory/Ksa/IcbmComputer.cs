@@ -151,6 +151,12 @@ internal sealed class IcbmComputer
     // world do not touch the frame time -- which matters, because frame time is the one covariate
     // the walk actually tracks and an instrument that moved it would be measuring itself.
     private readonly List<WarheadTrace> _traces = [];
+
+    // The miss kicks already applied in this release, for IcbmConfig.ShrinkMissKickToTheGroup.
+    // Scoped to one salvo: a warhead is shrunk toward what its own siblings asked for, never
+    // toward a previous rocket's.
+    private double3 _missKickSum = Vec.Zero;
+    private int _missKickCount;
     private bool _traceWanted;
 
     /// <summary>
@@ -433,6 +439,8 @@ internal sealed class IcbmComputer
         _saidTraceStranded = false;
         foreach (WarheadTrace trace in _traces) trace.Forget();
         _traces.Clear();
+        _missKickSum = Vec.Zero;
+        _missKickCount = 0;
 
         Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)} designated {site.Describe()}");
     }
@@ -2295,6 +2303,8 @@ internal sealed class IcbmComputer
         {
             foreach (WarheadTrace trace in _traces) trace.Forget();
             _traces.Clear();
+        _missKickSum = Vec.Zero;
+        _missKickCount = 0;
             return;
         }
 
@@ -2478,12 +2488,18 @@ internal sealed class IcbmComputer
                                              Config.ProbeMissFollowsTheGround ? TerrainRadiusAt : null)
                 : null;
 
+            // Only once a sibling has gone: the first warhead out has nothing to be shrunk toward,
+            // and shrinking it toward zero would throw away the common part the kick is for.
+            (double3, double)? shrink = Config.ShrinkMissKickToTheGroup > 0.0 && _missKickCount > 0
+                ? (_missKickSum / _missKickCount, 1.0 - Math.Clamp(Config.ShrinkMissKickToTheGroup, 0.0, 1.0))
+                : null;
+
             ReleaseFocus.Separation kick = ReleaseFocus.Kick(Body, from.PositionCci, from.VelocityCci,
                                                              from.Impact.Seconds, offsetCci,
                                                              released.SpinVelocityEcl.Transform(cce2Cci),
                                                              focusRing,
                                                              Config.CancelSpinAtSeparation,
-                                                             miss);
+                                                             miss, shrink);
 
             bool missGiven = kick.Miss == ReleaseFocus.MissOutcome.Cancelled;
             bool anything = kick.RingFocused || kick.SpinCancelled || missGiven;
@@ -2507,6 +2523,12 @@ internal sealed class IcbmComputer
                 Log.Info($"focus on {who}: {what}'s release probe miss{missSaid} not cancelled -- its "
                          + $"{Vec.Len(kick.MissKickCci) * 1000.0:F3} mm/s kick is over the "
                          + $"{ReleaseFocus.MaxMissKickMetresPerSecond * 1000.0:F1} mm/s cap");
+            }
+
+            if (kick.Miss == ReleaseFocus.MissOutcome.Cancelled)
+            {
+                _missKickSum += kick.MissKickCci;
+                _missKickCount++;
             }
 
             if (!anything) return;
