@@ -1410,6 +1410,10 @@ keeps a quarter of its speed and lands **54.6 km** short of the vacuum arc, meas
 models from one cutoff state. `ImpactPredictor.Drag` goes through `Medium.Drag` — the same call the
 round makes, because a prediction modelling drag its own way is a second flight model to keep in
 step with the first — and the step comes down only where there is density, so a coast pays nothing.
+**It reads the air alone** (`KsaWorld.AirDensityRatioAt`), as the gun's lay does: the medium is the ocean
+anywhere under the mean sphere, land above it or not, and under 204 m of ground the step crossing it
+reads there and throws the warhead off the planet — the release probe's only flown failure
+(`docs/ACCURACY-PLAN.md` 3ep).
 
 **And the observer has to be reading the same clock as the thing it is scored against.** Mid-burn
 the prediction departs from the *cutoff* state, seconds in the future, so `ImpactPredictor` un-carries

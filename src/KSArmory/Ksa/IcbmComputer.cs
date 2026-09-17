@@ -3271,8 +3271,6 @@ internal sealed class IcbmComputer
 
     private double3 ReleaseOffsetCci() => _releaseMeasured ? _releaseOffsetCci : Vec.Zero;
 
-    // How thick the air is at a point on the arc. The same field the round's own drag is read from,
-    // so the prediction and the round cannot disagree about the atmosphere they are flying through.
     // The same clamp the round's own ground test applies. A height field answers with terrain, so
     // over an ocean it reports the seabed - and 71% of Earth is below its waterline at a mean depth
     // of 3,776 m, which on a seven-degree arrival is about 35 km of ground. Without it the aim is
@@ -3292,6 +3290,10 @@ internal sealed class IcbmComputer
         }
     }
 
+    // How thick the air is at a point on the arc: the field the round's own drag is read from, less the
+    // ocean. A warhead stops at the waterline and never flies through water, but the medium reads ocean
+    // anywhere under the mean sphere, land above it or not -- and under 204 m of ground the air step's
+    // stages reach there, read 837x the air, and throw the prediction off the planet. ACCURACY-PLAN.md 3ep.
     private double DensityRatioAt(double3 pointCci)
     {
         if (Parent is not { } parent) return 0.0;
@@ -3299,7 +3301,7 @@ internal sealed class IcbmComputer
         try
         {
             double3 positionEcl = pointCci.Transform(parent.GetCci2Cce()) + parent.GetPositionEcl();
-            double density = KsaWorld.MediumDensityRatioAt(parent, positionEcl);
+            double density = KsaWorld.AirDensityRatioAt(parent, positionEcl);
             return double.IsFinite(density) && density > 0.0 ? density : 0.0;
         }
         catch

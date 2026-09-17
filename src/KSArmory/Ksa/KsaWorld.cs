@@ -1735,6 +1735,10 @@ internal static class KsaWorld
         }
     }
 
+    /// <summary>The air alone, asked of the body directly — for a warhead's flight predicted from a bus.</summary>
+    public static double AirDensityRatioAt(Celestial body, double3 positionEcl)
+        => MediumDensityRatioAt(body, positionEcl, withOcean: false);
+
     private static double MediumDensityRatioAt(Celestial body, double3 positionEcl, bool withOcean)
     {
         try
