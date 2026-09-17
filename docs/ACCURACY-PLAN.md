@@ -11249,3 +11249,62 @@ apparatus reads one `flown` plus five `carried` per rocket with no `NOT solved`,
 
 **`KickThroughTheAir` on the constant round is not worth its own night** and should ride with `real`, which
 requires it: the physical round on the vacuum kick is an 8.8 mm ring residue and 3eo's 2.22x loss.
+
+## 3eu. Item 44 wins on a declared bar: the physical round is better, not merely as good — 2026-09-18
+
+`~/shots/2026-09-18-realdrag`, **20 paired blocks** of `base|real:WarheadDragFromItsShape=true,KickThroughTheAir=true`
+at the Chaco on `3bc3701`, **20 of 20 PASS**, 80 rockets an arm. Declared before it flew in
+`~/shots/scripts-2026-09-17/DECLARE-realdrag.md`, on 3et's reframing: **non-inferiority at ×1.20 on three
+endpoints**, because the point is to delete a constant known to be unphysical without losing accuracy.
+
+**It did not need the margin.** Every endpoint resolves as an improvement, and every upper bound is under one:
+
+| per rocket | `real`/`base` | one-sided 97.5% upper | shots won |
+| --- | --- | --- | --- |
+| worst warhead | **0.80x** | **0.985x** | 15 of 20 |
+| worst warhead, excluding seat 5 | 0.80x | **0.918x** | 17 of 20 |
+| mean distance | — | — | **18 of 20**, p = 0.000 |
+| dispersion | — | — | **17 of 20**, p = 0.003 |
+
+Pooled over 80 flights an arm: dispersion **3.35 → 2.68 mm**, mean landing **3.45 → 2.90 mm**, centre
+1.53 → 1.20 mm. The centre is **unresolved** (13 of 20, p = 0.26), which is the declared no-penalty
+condition rather than a loss. **All eight seats improved**, 0.64x to 0.93x.
+
+**The mechanism is resolved, and it is the one the switch was built on.** The ring slope — each landing
+about its own group's centre regressed on the ring image its `spin at separation` line logs, pooled over
+both axes through the origin, shot-cluster bootstrap:
+
+| | `base` | `real` |
+| --- | --- | --- |
+| all seats | **+0.151%** [+0.125, +0.177] | **−0.017%** [−0.048, +0.016] |
+| excluding seat 5 | +0.157% [+0.132, +0.181] | −0.013% [−0.042, +0.017] |
+
+Against the declared windows — `real` within ±0.05%, `base` in +0.05% to +0.25% — **all four intervals lie
+wholly inside their bound**, so the verdict is not an artefact of the point estimate. The paired
+within-shot contrast is **−0.168 pp** [−0.215, −0.116], negative in 18 of 20 shots. The method was
+validated by reproducing five published priors exactly (3eq's +0.15/+0.63, 3et's +0.104/+0.030/−0.003) and
+two derived rms columns to 0.01 mm, off `~/shots/scripts-2026-09-14/ring41.py`.
+
+**Apparatus, all as declared:** zero `release probe: no impact predicted`, zero `borrows`, **80 `flown` plus
+400 `carried`** kick lines with zero `NOT solved`, arrival **2,985–3,011 m/s** on `real` against 5,060–5,061
+on `base`, clock drift **−0.002 ns**.
+
+**The one condition that needs stating rather than ticking.** Three rockets passed 20 mm — 21.9 and 31.3 mm
+on `real`, 26.5 mm on `base` — and **all three are seat 5**, the only Chaco aim on a slope (3es). No
+apparatus line explains them because they are not apparatus faults; they are the site's own term, present
+on both arms, and the verdict holds with seat 5 excluded. 49c is the fix aimed at them.
+
+### Why it lost twice before
+
+Item 44 flew 2026-09-16 and lost 1.89x on the landing; 3eo re-flew it on the fixed build and it still lost
+2.2x, **on the group's spread**. Neither was noise, and neither is contradicted here:
+
+* **The kick was solved in vacuum.** A round at 3.6x the drag ends its vacuum arc 7.80 km under the ground
+  against 1.87 km, and 3eq measured the residue going with the depth — 8.81 mm against 2.12. `KickThroughTheAir`
+  removes it, and without it the physical round is an 8.5 mm spread. The two switches are one change.
+* **3er asked the wrong question.** "Lower on 8 of 12" is superiority, on a switch that only has to
+  not-lose; it got 7 and read as neither shipped nor refuted. The bar, not the round, was what failed.
+
+**So the unphysical constant can go.** `DragK = 1.5e-5` is a ballistic coefficient near 8,400 lb/ft² against
+the 100–5,000 published for reentry vehicles, and the physical figure is now better on every endpoint
+measured. Whether it ships is a default flip, and the flags are still off in this commit.
