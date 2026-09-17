@@ -10564,6 +10564,25 @@ Every declared test passed, so it **ships on**. The group centre moves only 3.20
 removing −4.7 mm down leaves **+2 mm down and +2.3 mm cross** that nothing names yet — the walk is now that residual
 plus a dispersion of about 3.4 mm.
 
+## 3en. The air read per sub-step: the residual 3em left goes, and groups land 1.4 mm from the aim — 2026-09-17
+
+`~/shots/2026-09-17-airsub`, two paired blocks of `base|air:WarheadAirVelocityPerSubStep=true` at the Chaco on
+`7bfe97d` (3el's fixes and 3em's midpoint drag on), 2 of 2 PASS, KSA's own log clean, clock drift 0. Declared in
+`~/shots/scripts-2026-09-17/DECLARE-airsubstep-chaco.md`.
+
+A warhead held the air's motion at the frame's first sample for the whole frame, while it crosses about 150 m of
+ground. With the air lookup back-dated (3el) the per-sub-step read measures what it was built for:
+
+| | `base` walk (down, cross) | `air` walk | group centre, `base` → `air` | dispersion, `base` → `air` |
+| --- | --- | --- | --- | --- |
+| block 1 | +3.60, +2.90 mm | +0.05, −0.40 mm | 4.17 → **1.40 mm** | 3.63 → 3.04 mm |
+| block 2 | +2.95, +2.40 mm | +0.20, −0.15 mm | 3.48 → **1.33 mm** | 4.47 → 2.18 mm |
+| pooled | +3.35, +2.55 mm | **+0.15, −0.40 mm** | | |
+
+The pooled difference is 4.35 mm against a declared 2–4.5, the same way in both blocks, all in the air part. It
+**ships on**. With it, the walk that was 25–30 mm at the Chaco this morning is inside half a millimetre, and what is
+left of the miss is the group's own dispersion, 2–3 mm.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
