@@ -10367,6 +10367,86 @@ each half-group because that is where the effect lives. It needs plumbing that d
 **Still not built and still not a `fix`.** But 3ef's "no affordable flown design can confirm it" is
 withdrawn: two nights at 69% is affordable, and the decision is the user's rather than mine.
 
+## 3ek. On flat ground the group is 3.8 mm, and the miss is the frame-time walk — 2026-09-17
+
+`~/shots/2026-09-17-chaco`, **one shot, 8 of 8 PASS**, KSA's own log clean. `SOLVER SCALE 8` aimed at
+**24.0S 62.0W** — the Gran Chaco, 6,179 km from the pad at bearing 159.3° against the flown site's
+6,269 km at 166.6°, with the 84 km aim spread all on the plain. Paired `base|foot:WarheadFootprintMetres=2`.
+Declared in `~/shots/scripts-2026-09-17/DECLARE-chaco-footprint.md` before it flew; read by
+`read-chaco.py` and `chaco-vs-andes.py` beside it. **Four rockets an arm from one world: reported,
+not ranked.**
+
+### The site is flat in KSA, not only on Earth
+
+At 1 m the terrain loop gain has a median of **0.01** and a maximum of **0.20** (one rocket, slope
+0.122); **none is past one**. The ground rise on the base arm's 24 kick lines has a median of
+**0.007**, against a median slope of 0.152 at 26.485S 68.148W (3ej). By the declared test it passes.
+
+### The footprint delivers what it is asked for
+
+- **0 of 24 kicks refused**, no cap warning.
+- The prediction from each round's own state puts it **1.995–2.000 m** from the designation; the
+  landings are **1.970–2.030 m** out.
+- Fitting the commanded ring to each rocket's six landings with one rotation and a common offset
+  leaves a residual rms of **2.3–3.1 mm**, worst 4.7 mm — the base arm's own dispersion. The rotation
+  is 63.6–65.4° on all four and none is mirrored.
+- Every ring's centre sits at **(−24 to −27 down, +10 to +12 cross) mm**, which is the base groups'
+  offset below: the ring is placed around the same point the unspread warheads land on.
+
+**But the ring shares the cap with the probe's own miss kick.** At 2 m the kicks ran a median of
+4.61 mm/s and a maximum of **7.07**, so on this shot refusals would begin under 3 m, not at the
+3.45 m `WarheadFootprint.WidestAt` gives for the ring alone. `IcbmConfig` and the tooltip now say so.
+
+### Flat ground halves the group and leaves the worst warhead where it was
+
+| | rockets | rms dispersion, median | group centre from the aim, median | worst warhead, median |
+| --- | --- | --- | --- | --- |
+| 26.485S 68.148W, shipped config (sixtrace + substep `base`) | 136 | 8.51 mm | 22.09 mm (−15.8 down, +9.0 cross) | 35.0 mm |
+| **24.0S 62.0W, `base`** | **4** | **3.80 mm** | **27.36 mm (−24.6, +12.0)** | **32.0 mm** |
+
+All four rockets group at 3.2–4.1 mm. Only 17 of the 136 on the Andes are as tight as the loosest of
+them, and no Andes shot's median is under 4.79 mm. **It is not the frame rate**: this world ran 26.3 ms
+frames against 36.1, but the two Andes shots nearest that, at 28.3 and 29.1 ms, grouped at 8.12 and
+7.56 mm.
+
+### The worst warhead is the walk, and the walk is the frame time
+
+Where the group centre sits is how far the landing is from each round's own post-kick prediction,
+because that prediction lands within **2 mm** of the aim (median, `base`). That walk, landing minus
+prediction:
+
+| | warheads | down, median [IQR] | cross, median [IQR] |
+| --- | --- | --- | --- |
+| **Chaco** | 48 | **−24.7 [−26.5, −23.2] mm** | **+11.1 [+10.2, +12.2] mm** |
+| Andes | 816 | −11.6 [−25.2, +0.1] mm | +8.2 [+4.6, +11.8] mm |
+
+**One vector, 3 mm wide, on every warhead.** The ground took nothing away from it; it only spread it.
+
+**And its size is the frame time, not the site.** Over the 17 Andes shots the per-shot mean down walk
+runs **+1.34 mm per ms** of frame, which at the Chaco's 26.3 ms predicts **−22.9 mm**; the Chaco's
+mean is **−21.8**. The two fast Andes shots read −23.8 and −28.6. This is 3ei's +1.686 mm/ms,
+replicated a third time.
+
+So on flat ground the worst warhead is about 24 mm of frame-dependent walk plus 4 mm of group. **A
+worst-warhead score is now reading the frame rate**, and two nights flown at different frame rates
+differ by that on identical code.
+
+### What it changes
+
+1. **The Chaco is the instrument site.** The walk is 3 mm wide there against 25 mm on the Andes, so
+   a change to it shows in a shot or two rather than a night. The Andes measures its own ground.
+2. **The largest term left is per-frame**, and it has been flown three times without a mechanism. 3ei
+   names the first candidate: `steps = ceil(dt / SubStep)` quantises a varying frame differently, and
+   the rig has never been given a jittering clock. The target is a headless rig that reproduces −25
+   down and +11 cross at a 26 ms frame and moves by 1.3–1.7 mm per ms.
+3. **Any night comparing sites or builds puts frame time in the model**, or the walk's 1.3–1.7 mm/ms
+   is read as the change.
+4. **3ej's within-rocket shrink night is priced on the Andes tail**, where it paid 0.79x past gain
+   one. At the Chaco nothing is past gain one, so only 3ej's 0.915x below-gain-one row applies, and
+   against a worst warhead dominated by the walk it will be harder still to see. Re-price before
+   spending two nights on it.
+5. **The footprint is a working instrument at 2 m**, under 3 m with the probe's kick sharing the cap.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.

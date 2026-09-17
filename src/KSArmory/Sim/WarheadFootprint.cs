@@ -5,7 +5,7 @@ namespace KSArmory;
 /// <summary>
 /// Where each warhead of one salvo is aimed, as a pattern on the ground around the designation.
 ///
-/// <para>Every warhead this mod has released has been aimed at the <em>same</em> point:
+/// <para>Unless this is set, every warhead is aimed at the <em>same</em> point:
 /// <see cref="ReleaseFocus"/> exists to land each round where the tubes' mean would land, so a
 /// group converges rather than spreading. Flown, six 1.80 m reentry vehicles arrive a median
 /// <b>8.7 mm</b> apart — they interpenetrate, and rounds do not collide with one another, so they
@@ -28,7 +28,7 @@ public static class WarheadFootprint
 {
     /// <summary>
     /// Where warhead <paramref name="index"/> of <paramref name="count"/> is aimed: the designation
-    /// itself when <paramref name="metres"/> is zero, which is every flight before this one.
+    /// itself when <paramref name="metres"/> is zero, which is what ships.
     /// </summary>
     /// <remarks>
     /// A ring rather than a grid, because the tubes are already a ring and the kick that moves a

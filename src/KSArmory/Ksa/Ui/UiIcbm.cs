@@ -630,12 +630,13 @@ internal sealed partial class Ui
             config.WarheadFootprintMetres = footprint;
         }
         Tip($"The radius of the ring this rocket's warheads are aimed at. "
-            + $"{config.WarheadFootprintMetres:F2} m; 0 puts all six on the designation, which is every "
-            + "flight so far -- and six 1.8 m reentry vehicles then arrive about 9 mm apart, passing "
+            + $"{config.WarheadFootprintMetres:F2} m; 0 puts all six on the designation, which is what "
+            + "ships -- and six 1.8 m reentry vehicles then arrive about 9 mm apart, passing "
             + "through each other and bursting as one. Spreading them is worth more as measurement than "
             + "as realism: a kick asked to put every warhead in one place cannot be checked, where one "
-            + "asked for a known ring can. The separation cap allows about 3.5 m on a 345 s flight and "
-            + "the log says when a wider one was refused. It is NOT a MIRV footprint -- the fireball "
+            + "asked for a known ring can. The separation cap is shared with the probe's own miss kick, "
+            + "so refusals begin under 3 m on a 345 s flight, and the log says when one was refused. "
+            + "Flown at 2 m, every warhead landed on its ring. It is NOT a MIRV footprint -- the fireball "
             + "alone is 706 m -- and real per-target spread needs the bus to manoeuvre between releases.");
 
         float shrink = (float)config.ShrinkMissKickToTheGroup;

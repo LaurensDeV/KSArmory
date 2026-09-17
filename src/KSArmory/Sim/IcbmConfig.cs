@@ -783,7 +783,7 @@ internal sealed class IcbmConfig
 
     /// <summary>
     /// The radius of the ring each warhead of a salvo is aimed at, in metres. Zero puts all of them
-    /// on the designation, which is every flight before this one.
+    /// on the designation, which is what ships.
     /// </summary>
     /// <remarks>
     /// <para>Six 1.80 m reentry vehicles arrive a median <b>8.7 mm</b> apart today, so they
@@ -798,7 +798,9 @@ internal sealed class IcbmConfig
     /// <see cref="ReleaseFocus.MaxMissKickMetresPerSecond"/> is 10 mm/s, which over a 345 s flight is
     /// about <b>3.5 m</b> — <see cref="WarheadFootprint.WidestAt"/> is the number for a given
     /// flight. Past it the kick is refused and the warhead flies the group's aim, which from outside
-    /// looks exactly like this setting doing nothing, so the log says which happened.</para>
+    /// looks exactly like this setting doing nothing, so the log says which happened. The probe's own
+    /// miss kick shares the cap: flown at 2 m on a 6,179 km shot the largest kick was 7.07 mm/s, so
+    /// refusals begin under 3 m (<c>docs/ACCURACY-PLAN.md</c> 3ek).</para>
     ///
     /// <para><b>It is not a MIRV footprint.</b> Against a 706 m fireball and a 2 km lethal radius,
     /// 3.5 m is nothing. Real per-target spread needs the bus to manoeuvre between releases, and the
