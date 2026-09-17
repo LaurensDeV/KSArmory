@@ -729,7 +729,7 @@ internal sealed class IcbmConfig
     /// on landing with the walk 15 mm further out (<c>docs/ACCURACY-PLAN.md</c> 3dk); at the Chaco after them,
     /// 2.22x on 12 of 12 shots with the walk the same as the constant's and the group's spread 8.5 mm against
     /// 3.0 (3eo). Headless, that spread is the separation kick solved in vacuum, which leaves 8.8 mm of it on this
-    /// round and 2.1 on the constant (3ep) — <see cref="KickThroughTheAir"/>.</para>
+    /// round and 2.1 on the constant (3eq) — <see cref="KickThroughTheAir"/>.</para>
     /// </summary>
     public bool WarheadDragFromItsShape;
 
@@ -741,7 +741,7 @@ internal sealed class IcbmConfig
     /// ground, and what the solve leaves goes with that depth. Headless at the flown release: 0.19% of the ring's
     /// image on the Mk 21's constant and 0.80% on <see cref="WarheadDragFromItsShape"/> — 2.1 and 8.8 mm of each
     /// group's spread, where 3eo flew 3.1 and 8.5 — and 0.5 and 2.3 mm of its centre off a 0.54 m probe miss.
-    /// Through the air, a micrometre of each. <c>docs/ACCURACY-PLAN.md</c> 3ep.</para>
+    /// Through the air, a micrometre of each. <c>docs/ACCURACY-PLAN.md</c> 3eq.</para>
     ///
     /// <para><b>Off, and UNVERIFIED in flight.</b> Seven predictions on the salvo's first release, carried along the
     /// coast to the rest: 1.7 ms headless, and the log says what each cost in the frame. The spin is given back

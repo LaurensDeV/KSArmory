@@ -22,7 +22,7 @@ namespace KSArmory.Tests;
 /// <c>docs/ACCURACY-PLAN.md</c> 3eb.</para>
 ///
 /// <para><b>On the constant's drag.</b> On 3.6x the drag the same solve leaves 0.80% of the ring,
-/// which is the physical round's flown spread — <see cref="KickThroughTheAirTests"/>, 3ep.</para>
+/// which is the physical round's flown spread — <see cref="KickThroughTheAirTests"/>, 3eq.</para>
 /// </remarks>
 public class VacuumArrivalProbe(ITestOutputHelper Out)
 {

@@ -267,7 +267,7 @@ internal static class ReleaseFocus
     /// under the ground, and the coasted solve cancels the ring's image there; what it leaves on the ground goes
     /// with that depth. Headless at 340 s and 32°: 1.9 km and 0.19% of the image on the Mk 21's constant, 7.8 km
     /// and 0.80% on its drag from its shape — 2.1 and 8.8 mm of the group's spread, against 3.1 and 8.5 flown.
-    /// Flown through the air, 0.001 mm on both. <c>docs/ACCURACY-PLAN.md</c> 3ep.</para>
+    /// Flown through the air, 0.001 mm on both. <c>docs/ACCURACY-PLAN.md</c> 3eq.</para>
     ///
     /// <para><b>Seven flights of the predictor, so it is flown once a salvo</b> and carried along the coast to
     /// each release after it: <see cref="For"/>. Every warhead of a salvo leaves the same arc within a fraction of

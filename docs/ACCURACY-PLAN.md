@@ -9656,7 +9656,7 @@ the mean; the vacuum-solved kick leaves **1.6 mm**, or **0.15%** of it.
 * **The vacuum solve is worth ~1.6 mm, not the ~8–10 mm it looks worth from the 32% alone.** Replacing
   `Kepler.TryCoast` with the drag predictor in the solve — three extra full integrations per column per
   warhead — buys millimetres. It is *correct* and it is not a priority. **On the constant's drag. On 3.6x the
-  drag it is 8.8 mm of each group's spread, and that is 3eo's loss (3ep).**
+  drag it is 8.8 mm of each group's spread, and that is 3eo's loss (3eq).**
 * **The flown ring residue is 0.6%, four times what the vacuum solve accounts for**, so **its cause is not
   established**. That is the open question, not the propagator.
 * **The arrival-direction arm is 1.3 mm** on the ring's 1.59 m image, from a 0.046° rotation — a fifteenth of
@@ -10604,7 +10604,7 @@ flew both it and base"); read by `shape-progress.py` and `read-paired-walk.py`.
 **spread within each group, 2.7x**, while the centre moves 1.5 mm. That is the shape of 3eb's vacuum-solved
 separation kick: exact in the ratio of sensitivities for a uniform drag, wrong in its anisotropy, and 1.6 mm on the
 constant's round — plausibly several times that on a round with 3.6x the drag. **Not measured; the next thing to
-price headlessly** before a drag-aware kick is built. **Priced in 3ep: 8.8 mm against 2.1, going with how far
+price headlessly** before a drag-aware kick is built. **Priced in 3eq: 8.8 mm against 2.1, going with how far
 under the ground the vacuum arc the kick is solved on ends — 7.8 km against 1.9.**
 
 **`base` confirms the shipped build at a count**: median worst warhead 6.0 mm over 48 rockets, centre 1.3 mm,
@@ -10677,7 +10677,7 @@ impact`, then that round's `focus on` lines, and it lands millimetres from the a
 Seen in passing and not touched: `IcbmComputer.StepTrace` clears `_missKickSum` every frame the trace is not wanted,
 so with tracing off `ShrinkMissKickToTheGroup` never finds a sibling. It is off at zero and never flown.
 
-## 3ep. The physical round's spread is the vacuum-solved kick, and a kick through the air is built — 2026-09-17
+## 3eq. The physical round's spread is the vacuum-solved kick, and a kick through the air is built — 2026-09-17
 
 **Priced headlessly, built behind `IcbmConfig.KickThroughTheAir` (off), and not flown.** 3eo's hypothesis, asked
 first of its own logs and then of a rig flying the salvo.

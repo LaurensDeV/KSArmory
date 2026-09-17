@@ -14,7 +14,7 @@ namespace KSArmory.Tests;
 /// is 1.9 km under the ground on the Mk 21's constant and 7.8 km on its drag from its shape, and it leaves 0.19%
 /// and 0.80% of the ring's image: 2.1 and 8.8 mm of each group's spread, against 3.1 and 8.5 mm flown with the
 /// walk's own scatter on top, and the flown landings regress on the logged ring at +0.15% and +0.63%.
-/// <c>docs/ACCURACY-PLAN.md</c> 3ep.</para>
+/// <c>docs/ACCURACY-PLAN.md</c> 3eq.</para>
 ///
 /// <para><b>A planet at the origin is enough here</b>, unlike for the walk: every warhead of a salvo carries the
 /// same frame terms, and what is scored is where the six land against each other and against the probe's own

@@ -2102,7 +2102,7 @@ the physical figure and the *shot* got worse, 0.04 to 0.07 m, with its walk 15 m
 once the walk's epoch faults were fixed (`docs/ACCURACY-PLAN.md` 3eo), **the walk no longer differs and it
 still loses 2.2x — now on the group's spread**, 8.5 mm against 3.0. Headlessly that spread is the separation
 kick solved in vacuum, 8.8 mm against 2.1, and `IcbmConfig.KickThroughTheAir` solves it through the air
-instead (3ep). **Removing the constant is blocked on flying that switch, not on the drag model.**
+instead (3eq). **Removing the constant is blocked on flying that switch, not on the drag model.**
 `ArsenalTests.EveryRoundsDragComesFromWhatItIsUnlessNamedHere` names all six, so a new round cannot
 join them by accident.
 
