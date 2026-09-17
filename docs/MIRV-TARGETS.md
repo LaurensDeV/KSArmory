@@ -108,6 +108,12 @@ before that sweep, so **a bus's warheads cannot destroy one another**. Flown: `G
 as landing, with zero `intercepted` lines in the whole night. `AimSpread`'s fratricide is between
 *rockets*, which is exactly what it says.
 
+**The filter is load-bearing here and was not written for this.** Its comment says a launcher must not
+shoot down its own missiles as they leave the tubes — it fills `_incoming` for the *radar*, and the splash
+sweep at `WeaponSystem.cs:3399` walks that same list. So this plan depends on a list built for targeting
+also being the one the blast reads, which is true today and is nobody's stated invariant. That is what A'
+is for.
+
 So **"put the spare ones on the same target" is free today**: release them together, as the salvo
 already does. Everything below about staggering is kept because it is what a stagger would cost if that
 filter ever changed — and the number says to buy the separation **on the ground, not on the clock**.
