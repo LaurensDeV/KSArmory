@@ -151,6 +151,28 @@ by a verified reflection with a fallback to destroying whole craft.
 
 Same run, same seven parts, after the change: zero exceptions.
 
+### Nor may it stage one
+
+The worker `ExecuteNextVehicleSolvers` queues is *running* while the hooks run, and nearly everything
+it reads is a snapshot. One thing is not. For the controlled craft, while the engine-control gauge or
+the staging list is open, `PhysicsBubble.RunVehiclePostWorkInner` calls
+`Parts.PerformanceSequences.RecomputeForFlight` (`PhysicsBubble.cs:667-670`), which walks the live
+`PartTree.SequenceList` — and `SequenceList.ActivateNextSequence` rebuilds it. A stage fired from a hook
+races that walk. Seen once, on shot 4 of `2026-09-17-stepclock`, with the gauge open:
+
+```
+Update task failed for vehicle(s): GeoSat FAT
+System.NullReferenceException: Object reference not set to an instance of an object.
+   at KSA.SequencePerformanceList.Recompute()
+   at KSA.SequencePerformanceList.RecomputeForFlight(Single ambientPressure)
+   at KSA.PhysicsBubble.RunVehiclePostWorkInner(VehicleUpdateState vehicleState)
+```
+
+Only the controlled craft, only with one of those two panels open, and only when the stage lands on
+the walk — which is why none of the 35 sessions logged before it showed one. `AttitudeHook.Stage`
+queues the stage for `Vehicle.PrepareWorker`, before the worker is queued, which is where the attitude
+is written for the other reason above.
+
 ---
 
 ## 2. `GetLastSimStep()` and `GetElapsedTime()`
@@ -189,8 +211,13 @@ public static SimStep GetJobSimStep(double dtPlayer)
     return new SimStep { PreviousTime = nextTime, NextTime = nextTime + num2, DeltaTime = num2 };
 }
 ```
-`Universe.cs:2264-2276`. So `PreviousTime(k) == NextTime(k−1)` by construction, and summing the
-deltas a mod is handed reproduces elapsed time exactly. `Universe.GetAchivedSpeedFraction()`
+`Universe.cs:2264-2276`. So `PreviousTime(k) == NextTime(k−1)` by construction. **But `NextTime` is
+`DeltaTime` rounded to the nanosecond** — `UniverseTime + double` goes through `Math.Round` — and every
+celestial is placed on `NextTime` (`CelestialUpdateTask.Prepare`), so it is the difference of the
+`NextTime`s, not the sum of the `DeltaTime`s, that reproduces the clock the planets are on. The two
+differ by up to half a nanosecond a frame, which is 15 µm against 29.8 km/s; taken as the longer of the
+two every frame it is 0.125 ns ahead on average and a ~20 mm walk over a warped coast
+(`docs/ACCURACY-PLAN.md` 3el). `Universe.GetAchivedSpeedFraction()`
 (`Universe.cs:1977-1979`, and yes, that is the spelling) is public if the factor is ever wanted.
 
 **The step is sized from the *previous* frame's wall clock, and that is the one genuinely new

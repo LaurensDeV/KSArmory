@@ -808,7 +808,7 @@ internal sealed class IcbmComputer
                     KsaWorld.CollectVehicles(_wasBeforeStage);
                     _awaitingStage = true;
 
-                    VehicleCommand.Stage(Craft);
+                    AttitudeHook.Stage(Craft);
                 }
                 else if (!_saidRefusedStage)
                 {

@@ -66,6 +66,12 @@ internal static class AttitudeHook
     // Those owed one more Direct write, which has to happen in this window like every other one.
     private static readonly HashSet<Vehicle> Restore = [];
 
+    // Craft owed a stage. Staging rebuilds the sequence list the vehicle worker reads, and outside
+    // this window that worker may be running: with the engine-control gauge or the staging list open
+    // KSA recomputes the controlled craft's stage performance off the main thread, and a list rebuilt
+    // under it throws "Update task failed" out of SequencePerformanceList.Recompute.
+    private static readonly HashSet<Vehicle> Staging = [];
+
     private static Harmony? _harmony;
     private static bool _complained;
 
@@ -111,6 +117,7 @@ internal static class AttitudeHook
     public static void Remove()
     {
         Wanted.Clear();
+        Staging.Clear();
 
         try
         {
@@ -189,6 +196,24 @@ internal static class AttitudeHook
         Pulsing.Remove(craft);
     }
 
+    /// <summary>
+    /// Fire this craft's next stage when its worker is next prepared. Staged directly when the hook
+    /// is not installed, because a stage that never fires is worse than one that can race.
+    /// </summary>
+    public static void Stage(Vehicle craft)
+    {
+        if (!KsaWorld.IsAlive(craft)) return;
+
+        if (!Installed)
+        {
+            VehicleCommand.Stage(craft);
+            return;
+        }
+
+        Staging.RemoveWhere(v => !KsaWorld.IsAlive(v));
+        Staging.Add(craft);
+    }
+
     /// <summary>Stop pointing it, and stop quieting it. The vehicle is the player's again.</summary>
     public static void Release(Vehicle craft)
     {
@@ -209,6 +234,8 @@ internal static class AttitudeHook
     {
         try
         {
+            if (Staging.Count > 0 && Staging.Remove(__instance)) VehicleCommand.Stage(__instance);
+
             // Before everything else, and whatever else this craft is doing: the mode decides how a
             // translation command already standing is spent, and it is restated every frame.
             if (Pulsed.Contains(__instance))
@@ -252,6 +279,7 @@ internal static class AttitudeHook
             Pulsing.Remove(__instance);
             Pulsed.Remove(__instance);
             Restore.Remove(__instance);
+            Staging.Remove(__instance);
 
             if (_complained) return;
             _complained = true;

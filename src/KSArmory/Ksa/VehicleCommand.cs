@@ -237,7 +237,10 @@ internal static class VehicleCommand
                                                      : FlightComputerManualThrustMode.Direct);
     }
 
-    /// <summary>Fire the next stage, which is how an engine is lit as well as how one is dropped.</summary>
+    /// <summary>
+    /// Fire the next stage, which is how an engine is lit as well as how one is dropped. Called from
+    /// <see cref="AttitudeHook"/>'s window; anything else asks <see cref="AttitudeHook.Stage"/>.
+    /// </summary>
     public static void Stage(Vehicle craft)
     {
         if (!KsaWorld.IsAlive(craft)) return;

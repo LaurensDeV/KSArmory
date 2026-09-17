@@ -1504,6 +1504,13 @@ with the engine's own error angles at zero. `Vehicle.PrepareWorker` is the only 
 window a mod can reach, which is why `Ksa/AttitudeHook.cs` prefixes it and why cairn5's
 PoweredGuidance does the same.
 
+**Staging goes through the same window, for a different reason.** The worker that snapshot feeds
+is running during the GUI pass, and for the controlled craft, while the engine-control gauge or the
+staging list is open, it walks the live sequence list that `ActivateNextSequence` rebuilds. Staged
+from a hook the two race, and KSA prints `Update task failed` out of
+`SequencePerformanceList.Recompute`. `AttitudeHook.Stage` queues it for the prefix instead;
+`docs/KSA-FRAME-ORDER.md` §1 has the engine code.
+
 **The rule this bends is about *private* methods, and the target is `public virtual`.**
 `AttitudeHook.PinTheSignature` is never called and exists only to put the patched method in this
 assembly's metadata, so `docs/KSA-API-SURFACE.md` tracks it and a KSA signature change is a build

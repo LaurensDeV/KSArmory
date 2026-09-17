@@ -222,7 +222,7 @@ internal sealed class DropScenario
                        : " -- not the controlled craft, so the chase will not ride its store")
                 + $": {_battery.Ammo} x {_battery.Munition.DisplayName}, chase on");
 
-        VehicleCommand.Stage(_craft);
+        AttitudeHook.Stage(_craft);
         _stagedAt = _sim;
         _phase = Phase.Climbing;
         return null;
