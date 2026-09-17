@@ -2100,9 +2100,9 @@ baseline rests on its constant — and that constant is **known unphysical**: 1.
 coefficient near 8,400 lb/ft² against the 100 to 5,000 published for reentry vehicles. Item 44 flew
 the physical figure and the *shot* got worse, 0.04 to 0.07 m, with its walk 15 mm further out. Re-flown
 once the walk's epoch faults were fixed (`docs/ACCURACY-PLAN.md` 3eo), **the walk no longer differs and it
-still loses 2.2x — now on the group's spread**, 8.5 mm against 3.0, which is what a separation kick solved
-in vacuum (3eb) would cost a round that feels the air more. **Removing the constant is blocked on that kick,
-not on the drag model.**
+still loses 2.2x — now on the group's spread**, 8.5 mm against 3.0. Headlessly that spread is the separation
+kick solved in vacuum, 8.8 mm against 2.1, and `IcbmConfig.KickThroughTheAir` solves it through the air
+instead (3ep). **Removing the constant is blocked on flying that switch, not on the drag model.**
 `ArsenalTests.EveryRoundsDragComesFromWhatItIsUnlessNamedHere` names all six, so a new round cannot
 join them by accident.
 

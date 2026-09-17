@@ -9655,7 +9655,8 @@ the mean; the vacuum-solved kick leaves **1.6 mm**, or **0.15%** of it.
 
 * **The vacuum solve is worth ~1.6 mm, not the ~8–10 mm it looks worth from the 32% alone.** Replacing
   `Kepler.TryCoast` with the drag predictor in the solve — three extra full integrations per column per
-  warhead — buys millimetres. It is *correct* and it is not a priority.
+  warhead — buys millimetres. It is *correct* and it is not a priority. **On the constant's drag. On 3.6x the
+  drag it is 8.8 mm of each group's spread, and that is 3eo's loss (3ep).**
 * **The flown ring residue is 0.6%, four times what the vacuum solve accounts for**, so **its cause is not
   established**. That is the open question, not the propagator.
 * **The arrival-direction arm is 1.3 mm** on the ring's 1.59 m image, from a 0.046° rotation — a fifteenth of
@@ -10603,7 +10604,8 @@ flew both it and base"); read by `shape-progress.py` and `read-paired-walk.py`.
 **spread within each group, 2.7x**, while the centre moves 1.5 mm. That is the shape of 3eb's vacuum-solved
 separation kick: exact in the ratio of sensitivities for a uniform drag, wrong in its anisotropy, and 1.6 mm on the
 constant's round — plausibly several times that on a round with 3.6x the drag. **Not measured; the next thing to
-price headlessly** before a drag-aware kick is built.
+price headlessly** before a drag-aware kick is built. **Priced in 3ep: 8.8 mm against 2.1, going with how far
+under the ground the vacuum arc the kick is solved on ends — 7.8 km against 1.9.**
 
 **`base` confirms the shipped build at a count**: median worst warhead 6.0 mm over 48 rockets, centre 1.3 mm,
 dispersion 3.1 mm.
@@ -10674,6 +10676,94 @@ impact`, then that round's `focus on` lines, and it lands millimetres from the a
 
 Seen in passing and not touched: `IcbmComputer.StepTrace` clears `_missKickSum` every frame the trace is not wanted,
 so with tracing off `ShrinkMissKickToTheGroup` never finds a sibling. It is off at zero and never flown.
+
+## 3ep. The physical round's spread is the vacuum-solved kick, and a kick through the air is built — 2026-09-17
+
+**Priced headlessly, built behind `IcbmConfig.KickThroughTheAir` (off), and not flown.** 3eo's hypothesis, asked
+first of its own logs and then of a rig flying the salvo.
+
+### The flown split is the ring's residue, in 3eo's own logs
+
+Each warhead's landing about its own group's centre, regressed on the ring image its `spin at separation` line logs
+(a vacuum `TryLandingShift`, so a direction and a scale rather than the truth), over all 12 shots of
+`~/shots/2026-09-17-shape2`:
+
+| arm | warheads | landing on the logged ring | as rms, on the 1.30 m logged image | within-group rms, pooled | the same with the ring term removed |
+| --- | --- | --- | --- | --- | --- |
+| `base` (constant) | 288 | **+0.15%** (+0.16 down, +0.14 cross) | 1.95 mm | 4.11 mm | 3.61 mm |
+| `shape` | 282 | **+0.63%** (+0.63 down, +0.69 cross) | 8.18 mm | 9.41 mm | 4.65 mm |
+
+Same sign as the image and the same size in both components: the ring is **under-corrected**, four times more on
+`shape`, and that one term is most of the difference in spread between the arms. On shot 1's four `shape` rockets it
+reads by eye: tubes 1 and 2 land 3–13 mm long and tubes 4 and 5 1–15 mm short.
+
+### The rig reproduces it
+
+`KickThroughTheAirTests`: `ReleaseFocusTests`' traced release (852 km, 340 s, 32°), the bus's six tubes on a line
+164° from the track, six releases 22 ms apart along the coast, each with its own probe, the bus's spin (0.757
+mrad/s, 3.6 mm/s common) and a probe miss 0.5 m long and 0.2 m across — kicks of 2.2 mm/s on the ring and 1.1 mm/s
+on the miss, against 2.4 and 1.1–1.3 flown. Landed through `ImpactPredictor` and through the `Slug` as
+`IcbmComputer` configures a released warhead; the two agree to 0.001 mm.
+
+| round | arrives | vacuum arc at the drag flight's time | vacuum-solved kick: spread | its centre | through the air: spread | its centre |
+| --- | --- | --- | --- | --- | --- | --- |
+| constant, `DragK` 1.5e-5 | 5,071 m/s | **1.87 km** under the ground | **2.12 mm** (0.19% of the ring's image) | 0.51 mm | 0.001 mm | 0.0005 mm |
+| shape, 5.39e-5 | 2,923 m/s | **7.80 km** under the ground | **8.81 mm** (0.80%) | 2.26 mm | 0.001 mm | 0.0006 mm |
+| 3eo flown, medians | | | 3.1 / 8.5 mm | 1.3 / 2.8 mm | | |
+
+* **The spread is all ring and the centre is all miss.** The ring alone moves no centre (0.0005 mm); the miss alone
+  spreads nothing (0.0004 mm). The spin is given back exactly and contributes neither.
+* **What the vacuum solve leaves goes with the depth**: 4.2x the depth, 4.2x the residue. `ReleaseFocus` coasts in
+  vacuum for the drag flight's time, so it cancels the ring's image where the vacuum arc is by then, kilometres
+  under the ground. The right kick is the same on both rounds — 2.248 mm/s mean — and the vacuum solve asks 2.243 on
+  the constant and 2.230 on `shape`.
+* **Rig against flight**: 2.1 and 8.8 mm of ring residue against the regression's 1.95 and 8.2 mm; with about
+  2.5 mm of everything else in quadrature, 3.3 and 9.2 against flown medians of 3.1 and 8.5. The centre moves
+  1.75 mm between rounds against 1.5 flown.
+* The planet sits at the origin, which hides frame carriers (3el) — every warhead of one salvo carries the same
+  ones, and what is scored is six landings against each other and the probe.
+
+### What was built
+
+`ReleaseFocus.FlownSensitivity`: the nominal landing and six columns — release position at 1 m, velocity at 0.01
+m/s — flown by `ImpactPredictor` with the probe's drag and step to a sphere through the probe's impact. **Seven
+flights, 1.7–2.1 ms headless**, once a salvo, and `IcbmComputer` logs what they cost in the frame.
+
+**Carried to each later release along the coast**, `δr − τ·δv` and `δv − τ·G·δr`: columns taken as they were cost
+**2.9 mm of spread per second** between the flight and the release (0.22 mm over a salvo's 0.11 s), carried 0.001 mm
+at 1 s and 0.004 mm at 2 s; the gravity-gradient term alone is 0.33 mm at 0.5 s. Re-flown past 2 s, or past 10 m of
+ground radius (0.008 mm at 10 m, 0.04 at 50).
+
+Mutation-checked: solving in vacuum with the columns in hand fails 4 of the 8 tests (8.8 mm), skipping the carry
+fails 4 (1.65 mm at 0.5 s), and dropping the gradient term fails the carry test.
+
+Log lines, per warhead: `kick solved through the air, on columns flown for it in <ms> ms at k <k>` on the first,
+`... on columns carried <s> s along the coast` on the rest, and `kick NOT solved through the air` where a column did
+not come down, which solves that warhead in vacuum.
+
+### Its night, declared before it flies
+
+```bash
+KSARMORY_SCENARIO_SAVE='SOLVER SCALE 8' KSARMORY_SCENARIO_TRACE=1 ./tools/shot-batch.sh \
+    --paired 'base:WarheadDragFromItsShape=true|air:WarheadDragFromItsShape=true,KickThroughTheAir=true' \
+    --aim 24.0S,62.0W --blocks 12 --out ~/shots/2026-09-18-kickair
+```
+
+Both arms fly the physical drag, so this asks one thing: does the kick through the air take `shape`'s spread back
+to the constant's?
+
+* **Primary: within-group dispersion.** `base` about 3eo's `shape`, **8.5 mm** median; `air` predicted **about 3 mm**,
+  the constant's. **Refuted** if `air`'s median is above 5 mm, or better than `base` on fewer than 10 of 12 shots.
+* **Mechanism, per flight**: the landing about its group's centre on the logged ring, `base` about **+0.6%** and `air`
+  within **±0.15%**. And the ring kick `air` logs about **0.8% larger** than `base`'s, tube for tube.
+* **Beside it**: the group's centre, `base` about 2.8 mm and `air` about 1.3; the worst warhead, `base` about 14 mm and
+  `air` about 6.
+* **Apparatus**: every `air` rocket logs `on columns flown for it` once a salvo and `carried` on the other five, each
+  carried under 0.2 s; no `NOT solved through the air`; no such line on `base`. The column flight's milliseconds read
+  against the frame time. 8 of 8 PASS a shot, KSA's own log clean, clock drift 0.
+
+Worth flying beside it, and harder to see: `base|air:KickThroughTheAir=true` on the shipped constant, where the
+prediction is 3.1 → about 2.3 mm.
 
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
