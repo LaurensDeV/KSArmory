@@ -480,8 +480,9 @@ then re-evaluates every celestial at the new elapsed time. So:
   `_lastSimStep.NextTime`.
 - **This mod does not currently notice.** `KsaWorld.ResetSimStepTracking()` is called only from
   `KSArmoryMod`'s unload path, so a save loaded mid-session leaves `StepGate` holding the old
-  `_integratedThrough`. A backward jump is harmless — `StepGate.Consume` only ever *lengthens*, so
-  a negative span is ignored and the reported `DeltaTime` of 0 is what is taken. A forward jump
+  `_integratedThrough`. A backward jump is harmless — `StepGate.Consume` takes the span only within a
+  nanosecond of the reported step or longer, so a negative span is ignored and the reported
+  `DeltaTime` of 0 is what is taken. A forward jump
   hands the mod an enormous span, which `SimClock.Classify` should reject as `Skipped`. See §10;
   neither has been flown.
 

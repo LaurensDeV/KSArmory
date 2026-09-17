@@ -92,4 +92,50 @@ public class SkippedFrameTests
         // The step is what moved the world; a span disagreeing downward does not get to undo it.
         Assert.Equal(0.016, gate.Consume(At(0.020), 0.016, Span), 9);
     }
+
+    /// <summary>
+    /// KSA's own arithmetic: the clock advances by the step rounded to the nanosecond, and every
+    /// celestial is placed on that clock, while the step is reported unrounded
+    /// (<c>Universe.GetJobSimStep</c>, <c>CelestialUpdateTask</c>).
+    /// </summary>
+    [Theory]
+    [InlineData(4.72)]
+    [InlineData(1.9)]
+    [InlineData(10.9)]
+    public void TheRoundsKeepThePlanetsClockAtAWarpThatIsNotAWholeNanosecond(double speed)
+    {
+        StepGate<Stamp> gate = new();
+        Random frames = new(20260917);
+
+        long clock = 1_000_000_000_000L;
+        long startedAt = 0;
+        double integrated = 0.0;
+        double longerOfTheTwo = 0.0;
+
+        for (int i = 0; i < 20_000; i++)
+        {
+            double step = (0.0167 + 0.004 * frames.NextDouble()) * speed;
+            long next = clock + (long)Math.Round(step * 1e9);
+
+            double taken = gate.Consume(new Stamp(next), step, Span);
+
+            if (i == 0) startedAt = next;
+            else
+            {
+                integrated += taken;
+                longerOfTheTwo += Math.Max(step, (next - clock) / 1e9);
+            }
+
+            clock = next;
+        }
+
+        double elapsed = (clock - startedAt) / 1e9;
+
+        // The longer of the two runs ahead by an eighth of a nanosecond a frame, which is what this
+        // test exists to catch -- if the arithmetic stops producing it, nothing here is tested.
+        Assert.True((longerOfTheTwo - elapsed) * 1e9 > 2_000.0,
+                    $"the longer of the two should run ahead; ran {(longerOfTheTwo - elapsed) * 1e9:F1} ns");
+
+        Assert.InRange((integrated - elapsed) * 1e9, -1.0, 1.0);
+    }
 }
