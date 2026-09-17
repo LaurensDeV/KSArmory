@@ -11175,3 +11175,60 @@ as its spread. Untested.
 **What it is worth elsewhere.** At the Chaco it is one seat in eight, so the shot headline barely moves (pooled
 worst warhead 7.0 mm, 6.0 excluding seat 5) — this is about the instrument being clean. At **26.485S 68.148W
 every seat is sloped** (3ej: median 0.152, 75th 0.406, 90th 1.092), so it is on every rocket there.
+
+## 3et. The drag switch is a non-inferiority question, and the flown nights already clear a margin — 2026-09-17
+
+**Re-analysis of flown nights; nothing new flew.** 3er declared "lower on 8 of 12" and got 7, which is why it
+reads as neither shipped nor refuted. **That bar asked the wrong question.** The point of
+`WarheadDragFromItsShape` is to delete a constant known to be unphysical — 1.5e-5 is a ballistic coefficient near
+8,400 lb/ft² against the 100–5,000 published — **without losing accuracy**. That is non-inferiority, and a
+superiority bar on it could only have been met by luck.
+
+Pooled over `2026-09-17-shape2`, `-kickair-smoke` and `-threearm` — **26 shots, 207 rockets**, every contrast
+taken *within* a shot with seat levelling, shot-cluster bootstrap and a within-shot permutation null:
+
+| `real`/base, per rocket | all seats | excluding seat 5 |
+| --- | --- | --- |
+| worst warhead | **0.877x [0.729, 1.026]** | 0.894x |
+| dispersion | **0.831x [0.697, 0.955]** | 0.857x |
+| centre | 1.021x [0.714, 1.404] | 0.998x |
+
+Tails: `base` 1 of 32 over 12 mm (39 mm), `cair` 3 of 32, **`real` 0 of 32, worst 11 mm**. The indirect route
+closes on the direct one — (SV/CV in shape2) × (SA/SV in the smoke) = 0.844x against 0.884x flown — so the
+nights are measuring one thing.
+
+**The mechanism is resolved even though the outcome is not**, and they agree arithmetically. Each landing about
+its group's centre, regressed on the ring image its `spin at separation` line logs: `base` **+0.104%**
+[+0.074, +0.140], `shape` with the vacuum kick **+0.634%**, `cair` **+0.030%**, `real` **−0.003%** [−0.033,
++0.026]. Paired within shot, `real`−base is −0.107 pp [−0.154, −0.064]. Removing a 1.4 mm ring term in
+quadrature from a 3.26 mm rms predicts ×0.89; flown, 0.85x.
+
+**Seat 5 flatters `real`**, because its blow-ups are on the comparator (3es) — which is why every row above is
+given both ways.
+
+**A margin that does not come from the data**: ×1.20 is one print step of `Distance.Measure` on the median
+rocket as it printed then, and a fifth of the 2.22x loss the vacuum kick produced in 3eo, so it still catches a
+recurrence of the failure this switch depends on. The flown Walsh upper bounds are worst 1.164 (1.086 excluding
+seat 5), mean 1.063, dispersion 1.058 — **all inside it, with and without seat 5.** Chosen after seeing them,
+which is exactly what a declaration exists to stop, so it is evidence and not a verdict.
+
+**The night that would finish it — two arms, not three.** Three arms cost ~40% more shots for the same bound,
+and `cair` answers a moot question: if `real` ships, the constant round is retired and the kick ships with it;
+if `real` fails, the kick-on-the-constant question needs 48–64 shots for a 0.3 mm difference, which is the
+protocol's own "not flyable" rule at this scale.
+
+```bash
+KSARMORY_SCENARIO_SAVE='SOLVER SCALE 8' KSARMORY_SCENARIO_TRACE=1 ./tools/shot-batch.sh \
+    --paired 'base|real:WarheadDragFromItsShape=true,KickThroughTheAir=true' \
+    --aim 24.0S,62.0W --blocks 20 --out ~/shots/2026-09-18-realdrag
+```
+
+Twenty blocks is **3.9 h** at the threearm night's 11.7 min a shot, and gives 0.71–0.78 against an exact dead
+heat, 0.99+ against the 0.90x observed, and lets a true 1.10x loss through 14–15% of the time. Sixteen blocks
+at ×1.25 is the short version. **Ship only if all three endpoints hold under ×1.20 both ways**, the centroid
+shifts under ±1.5 mm, `real`'s ring slope is within ±0.05% with base's between +0.05% and +0.25%, and the
+apparatus reads one `flown` plus five `carried` per rocket with no `NOT solved`, no probe failure and arrival
+≈2,950–3,050 m/s against base's ≈5,060.
+
+**`KickThroughTheAir` on the constant round is not worth its own night** and should ride with `real`, which
+requires it: the physical round on the vacuum kick is an 8.8 mm ring residue and 3eo's 2.22x loss.
