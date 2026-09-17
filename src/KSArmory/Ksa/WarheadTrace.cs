@@ -63,7 +63,8 @@ internal sealed class WarheadTrace
         Func<double3, double> TerrainRadiusAt,
         Func<double3, double> DensityRatioAt,
         string Craft = "",
-        bool StopOnTheSurface = false);
+        bool StopOnTheSurface = false,
+        bool StopOnTheTerrain = false);
 
     // How often the round's own state is written down, and how often the prediction is re-flown from
     // it. Only the second is expensive - about two hundred RK4 steps at release, falling to a
@@ -196,7 +197,8 @@ internal sealed class WarheadTrace
                      + $" {hit.Seconds:F1} s of flight,"
                      + $" {Ground(setup, hit.GroundFixedPointCci, setup.TrueAimCci):F3} m from the aim,"
                      + $" arriving at {Vec.Len(hit.VelocityCci):F0} m/s,"
-                     + $" {ArrivalAngleDeg(hit):F1} deg below the horizontal");
+                     + $" {ArrivalAngleDeg(hit):F1} deg below the horizontal,"
+                     + $" {ProbeStop(setup, hit)}");
 
             if (_haveProbe) SayWhereThePrimaryLies(setup, arrival, hit.Seconds);
         }
@@ -471,6 +473,24 @@ internal sealed class WarheadTrace
     // the one point where it matters. docs/MIRV-NEXT.md item 2 lists a surface disagreement as a
     // candidate for the missing kilometre, and a metre of it is about eleven metres of ground on
     // this arrival.
+    // How far over the ground the prediction stopped, and what that is worth once it lands. The crossing
+    // sits on the chord between the samples bracketing it unless PredictionStopsOnTheTerrain is on, and
+    // over the engine's float-packed tread that is up to half a riser of height -- handed to the round as
+    // cot(gamma) times as much ground, because the miss kick is solved against this probe. Zero on the
+    // flat, which is why only a sloped seat shows it. docs/ACCURACY-PLAN.md 3es.
+    private static string ProbeStop(in Setup setup, in ImpactPredictor.Impact hit)
+    {
+        double ground = setup.TerrainRadiusAt(hit.PointCci);
+        if (!double.IsFinite(ground)) return "stopping over ground the height field would not answer for";
+
+        double over = Vec.Len(hit.PointCci) - ground;
+        double angle = ArrivalAngleDeg(hit) * Math.PI / 180.0;
+        double cot = Math.Abs(Math.Sin(angle)) > 1e-9 ? Math.Cos(angle) / Math.Sin(angle) : double.NaN;
+
+        return $"stopping {over:+0.0000;-0.0000;0.0000} m over the ground under it"
+               + (double.IsFinite(cot) ? $" ({over * cot:+0.0000;-0.0000;0.0000} m of ground)" : "");
+    }
+
     private static string Surfaces(in Setup setup, IProjectile round, double3 landingEcl,
                                    double3 positionCci)
     {
@@ -611,7 +631,8 @@ internal sealed class WarheadTrace
                                       ImpactPredictor.DefaultMaxSeconds, out hit, out ending,
                                       setup.TerrainRadiusAt, null,
                                       new ImpactPredictor.Drag(setup.DensityRatioAt, setup.Warhead),
-                                      stopOnTheSurface: setup.StopOnTheSurface);
+                                      stopOnTheSurface: setup.StopOnTheSurface,
+                                      stopOnTheTerrain: setup.StopOnTheTerrain);
 
     // Ecl to the parent's inertial frame, both terms from this frame's samples. The subtraction is
     // what removes the ~29.8 km/s carrier exactly rather than approximately, which is the whole

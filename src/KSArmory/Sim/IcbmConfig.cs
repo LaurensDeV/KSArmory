@@ -628,6 +628,31 @@ internal sealed class IcbmConfig
     public bool PredictionStopsOnTheSurface = true;
 
     /// <summary>
+    /// Put that crossing on the ground under <em>it</em>, rather than on the chord between the ground
+    /// under the two samples bracketing it — <see cref="ImpactPredictor"/>'s <c>stopOnTheTerrain</c>.
+    ///
+    /// <para><b>The other half of 49b.</b> <see cref="PredictionStopsOnTheSurface"/> put the answer on a
+    /// chord; <c>Slug.StopOnTheTerrain</c> then taught the <em>round</em> to re-query at its own crossing
+    /// and step onto the surface. The prediction was never taught the same, and on level ground it does not
+    /// matter, because there the chord <em>is</em> the surface.</para>
+    ///
+    /// <para><b>On a slope it is a whole seat's tail.</b> The bracket is 0.4–1.1 m of track over the
+    /// engine's float-packed 0.31 m tread, so the chord sits up to half a riser off the real ground — and
+    /// because <see cref="ReleaseFocus"/> cancels the chord from the probe's <em>reported</em> impact to the
+    /// aim, that height is handed to the round as <c>cot(gamma)</c> times as much ground. Over eight Chaco
+    /// nights the one seat aimed at a slope (0.122) flies a walk sd of 10–16 mm against the flat seats'
+    /// 1.9–2.2, downrange only, scaling monotonically with the seat's slope and untouched by everything
+    /// 3el–3en fixed.</para>
+    ///
+    /// <para><b>Off, and unflown.</b> Headless, at the flown site's own slope: the landing follows the
+    /// probe's own stop height at r = +0.91, and stopping on the terrain takes the crossing's own height
+    /// over the ground from 0.906 mm to 0.176, the landing scatter 3.28 mm → 1.48, and the correlation to
+    /// −0.24. Level ground moves by nanometres — the chord's own sagitta, which is all there
+    /// is to give back where the ground is flat. Costs one height lookup per prediction that lands. <c>docs/ACCURACY-PLAN.md</c> 3es, ranked 49c.</para>
+    /// </summary>
+    public bool PredictionStopsOnTheTerrain;
+
+    /// <summary>
     /// Give each warhead the separation velocity that lands it where the tubes' mean would —
     /// <see cref="ReleaseFocus"/>.
     ///

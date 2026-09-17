@@ -65,7 +65,8 @@ internal static class HoldingCost
                                   double3 kickCci, double stepSeconds, out double metresPerSecond,
                                   ImpactPredictor.Drag? drag = null,
                                   double probeSeconds = ProbeSeconds,
-                                  bool stopOnTheSurface = false)
+                                  bool stopOnTheSurface = false,
+                                  bool stopOnTheTerrain = false)
     {
         metresPerSecond = double.NaN;
 
@@ -73,7 +74,7 @@ internal static class HoldingCost
         if (!Vec.IsFinite(positionCci) || !Vec.IsFinite(velocityCci) || !Vec.IsFinite(kickCci)) return false;
         if (kickCci.Equals(Vec.Zero)) return false;
 
-        if (!TryWorth(body, positionCci, velocityCci, kickCci, stepSeconds, drag, stopOnTheSurface,
+        if (!TryWorth(body, positionCci, velocityCci, kickCci, stepSeconds, drag, stopOnTheSurface, stopOnTheTerrain,
                       out double3 nowCci))
         {
             return false;
@@ -87,7 +88,7 @@ internal static class HoldingCost
             return false;
         }
 
-        if (!TryWorth(body, laterPos, laterVel, kickCci, stepSeconds, drag, stopOnTheSurface,
+        if (!TryWorth(body, laterPos, laterVel, kickCci, stepSeconds, drag, stopOnTheSurface, stopOnTheTerrain,
                       out double3 laterCci))
         {
             return false;
@@ -107,7 +108,7 @@ internal static class HoldingCost
     // How far the release impulse moves the impact, from one state.
     private static bool TryWorth(BallisticBody body, double3 positionCci, double3 velocityCci,
                                  double3 kickCci, double stepSeconds,
-                                 ImpactPredictor.Drag? drag, bool stopOnTheSurface,
+                                 ImpactPredictor.Drag? drag, bool stopOnTheSurface, bool stopOnTheTerrain,
                                  out double3 offsetCci)
     {
         offsetCci = Vec.Zero;
@@ -115,7 +116,8 @@ internal static class HoldingCost
         if (!ImpactPredictor.TryPredict(body, positionCci, velocityCci, stepSeconds,
                                         ImpactPredictor.DefaultMaxSeconds,
                                         out ImpactPredictor.Impact plain, null, null, drag,
-                                        stopOnTheSurface: stopOnTheSurface))
+                                        stopOnTheSurface: stopOnTheSurface,
+                                        stopOnTheTerrain: stopOnTheTerrain))
         {
             return false;
         }
@@ -123,7 +125,8 @@ internal static class HoldingCost
         if (!ImpactPredictor.TryPredict(body, positionCci, velocityCci + kickCci, stepSeconds,
                                         ImpactPredictor.DefaultMaxSeconds,
                                         out ImpactPredictor.Impact kicked, null, null, drag,
-                                        stopOnTheSurface: stopOnTheSurface))
+                                        stopOnTheSurface: stopOnTheSurface,
+                                        stopOnTheTerrain: stopOnTheTerrain))
         {
             return false;
         }

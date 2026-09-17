@@ -564,6 +564,17 @@ internal sealed partial class Ui
             + "prediction the aim reads is long by that depth times cot of the arrival angle -- about "
             + "0.2 m at 32 deg -- and the warheads land that much short.");
 
+        bool predictOnTerrain = config.PredictionStopsOnTheTerrain;
+        if (ImGui.Checkbox("Predictions stop on the terrain too", ref predictOnTerrain))
+        {
+            config.PredictionStopsOnTheTerrain = predictOnTerrain;
+        }
+        Tip("On: that crossing is put on the ground under itself, one extra height lookup, the way a "
+            + "warhead's own stop is. Off: it sits on the chord between the ground under the two samples "
+            + "around it, which on level ground is the same point and on a slope is up to half a step of "
+            + "the terrain's own tread -- worth cot(gamma) times as much ground, because the separation "
+            + "kick is solved against this prediction. Unflown.");
+
         bool focus = config.FocusTubesOnTheAim;
         if (ImGui.Checkbox("Warheads are kicked onto the tubes' mean impact", ref focus))
         {

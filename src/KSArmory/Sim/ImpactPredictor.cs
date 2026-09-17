@@ -46,6 +46,14 @@ internal static class ImpactPredictor
     // Where the bisection gives up, for an arc arriving too steeply to resolve.
     private const double MinRefineSeconds = 1e-6;
 
+    // How many height lookups stopOnTheTerrain may spend walking its crossing onto the ground, and how
+    // near is near enough to stop. Bounded rather than iterated to convergence: the engine packs its
+    // terrain direction to float, so the surface is a staircase and need not have a fixed point at all.
+    // A millimetre is two orders under the riser this exists to remove.
+    private const int TerrainCrossingSteps = 3;
+
+    private const double TerrainCrossingMetres = 0.001;
+
     /// <summary>
     /// The step used once there is air worth integrating.
     ///
@@ -144,15 +152,28 @@ internal static class ImpactPredictor
     /// <para>Linear across that bracket, which is under a metre of track: the rule a warhead's own
     /// stop obeys across its sub-step, so the prediction and the round stop on one surface.</para>
     /// </param>
+    /// <param name="stopOnTheTerrain">
+    /// Put that crossing on the ground under <em>it</em>, rather than on the chord between the ground
+    /// under the bracket's two ends.
+    ///
+    /// <para>Costs one height lookup per prediction that lands, and on level ground moves the answer by
+    /// nanometres — the chord <em>is</em> the surface there, bar its own sagitta. On a slope the chord sits up to half a riser of the
+    /// engine's float-packed tread off the real ground, and because the separation kick is solved against
+    /// this probe the height is handed to the round as <c>cot γ</c> times as much ground.
+    /// <c>docs/ACCURACY-PLAN.md</c> 3es, ranked 49c; <c>Slug.StopOnTheTerrain</c> is the same correction
+    /// made on the round in 49b.</para>
+    /// </param>
     public static bool TryPredict(BallisticBody body, double3 positionCci, double3 velocityCci,
                                   double stepSeconds, double maxSeconds, out Impact impact,
                                   Func<double3, double>? terrainRadiusAt = null,
                                   List<double3>? pathCci = null,
                                   Drag? drag = null,
                                   double atmosphericStepSeconds = double.NaN,
-                                  bool stopOnTheSurface = false)
+                                  bool stopOnTheSurface = false,
+                                  bool stopOnTheTerrain = false)
         => TryPredict(body, positionCci, velocityCci, stepSeconds, maxSeconds, out impact, out _,
-                      terrainRadiusAt, pathCci, drag, atmosphericStepSeconds, stopOnTheSurface);
+                      terrainRadiusAt, pathCci, drag, atmosphericStepSeconds, stopOnTheSurface,
+                      stopOnTheTerrain);
 
     /// <summary>The same prediction, saying how it ended.</summary>
     public static bool TryPredict(BallisticBody body, double3 positionCci, double3 velocityCci,
@@ -162,7 +183,8 @@ internal static class ImpactPredictor
                                   List<double3>? pathCci = null,
                                   Drag? drag = null,
                                   double atmosphericStepSeconds = double.NaN,
-                                  bool stopOnTheSurface = false)
+                                  bool stopOnTheSurface = false,
+                                  bool stopOnTheTerrain = false)
     {
         double inAir = atmosphericStepSeconds > 0.0 && double.IsFinite(atmosphericStepSeconds)
                            ? atmosphericStepSeconds
@@ -248,6 +270,32 @@ internal static class ImpactPredictor
                     // fraction is inside the bracket.
                     double clearance = r.Length() - surfaceHere;
                     double f = Math.Clamp(clearance / (clearance + depth), 0.0, 1.0);
+
+                    // The chord is drawn between the ground under the two ENDS of the bracket, and
+                    // the ground under the crossing is neither. On a slope that is up to half a
+                    // riser of the engine's own tread, and the miss kick hands it to the round as
+                    // cot(gamma) times as much ground -- the whole of one seat's tail. So ask once
+                    // where the chord says it landed and take a secant step onto the answer, which
+                    // is what Slug.StopOnTheTerrain already does for the round.
+                    if (stopOnTheTerrain)
+                    {
+                        // Secant from the bracket's own top, re-aimed at what the last guess actually
+                        // found. One step leaves a remainder the landing still follows at r = 0.36;
+                        // the second takes it to 0.05, and the third pays for the cases where the
+                        // first guess lands on a different tread from the crossing. Bounded because a
+                        // float-packed staircase has no exact fixed point to converge to, and stopped
+                        // at a millimetre because that is already far under the riser this is for.
+                        for (int i = 0; i < TerrainCrossingSteps; i++)
+                        {
+                            double3 at = r + (rNext - r) * f;
+                            double over = at.Length() - SurfaceUnder(body, at, t + h * f, terrainRadiusAt);
+
+                            if (!double.IsFinite(over) || clearance - over == 0.0) break;
+
+                            f = Math.Clamp(f * clearance / (clearance - over), 0.0, 1.0);
+                            if (Math.Abs(over) < TerrainCrossingMetres) break;
+                        }
+                    }
 
                     rNext = r + (rNext - r) * f;
                     vNext = v + (vNext - v) * f;

@@ -2397,7 +2397,8 @@ internal sealed class IcbmComputer
                                       _terrainRadius ??= TerrainRadiusAt,
                                       _densityRatio ??= DensityRatioAt,
                                       KsaWorld.DisplayName(Craft),
-                                      Config.PredictionStopsOnTheSurface);
+                                      Config.PredictionStopsOnTheSurface,
+                                      Config.PredictionStopsOnTheTerrain);
     }
 
     // What the prediction says about the state the warhead is actually leaving on, beside where the
@@ -2669,7 +2670,8 @@ internal sealed class IcbmComputer
         _flownKick = ReleaseFocus.FlownSensitivity.TryFly(
             Body, from.PositionCci, from.VelocityCci,
             new ReleaseFocus.Air(new ImpactPredictor.Drag(DensityRatioAt, warhead), PredictStepSeconds, groundRadius,
-                                 Config.PredictionStopsOnTheSurface));
+                                 Config.PredictionStopsOnTheSurface,
+                                 Config.PredictionStopsOnTheTerrain));
         _flownKickDragK = dragK;
 
         double ms = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
@@ -2729,7 +2731,8 @@ internal sealed class IcbmComputer
                                             out ImpactPredictor.Impact hit, out ImpactPredictor.Ending ending,
                                             TerrainRadiusAt, null,
                                             new ImpactPredictor.Drag(DensityRatioAt, warhead),
-                                            stopOnTheSurface: Config.PredictionStopsOnTheSurface))
+                                            stopOnTheSurface: Config.PredictionStopsOnTheSurface,
+                                       stopOnTheTerrain: Config.PredictionStopsOnTheTerrain))
             {
                 // Every exit reads the same from outside, and one of them is a whole horizon flown for
                 // nothing: ACCURACY-PLAN.md 3ep.
@@ -3275,7 +3278,8 @@ internal sealed class IcbmComputer
             if (HoldingCost.TryMeasure(Body, positionCci, velocityCci, ReleaseImpulseCci(),
                                        PredictStepSeconds, out double measured,
                                        new ImpactPredictor.Drag(_densityRatio ??= DensityRatioAt, warhead),
-                                       stopOnTheSurface: Config.PredictionStopsOnTheSurface))
+                                       stopOnTheSurface: Config.PredictionStopsOnTheSurface,
+                                       stopOnTheTerrain: Config.PredictionStopsOnTheTerrain))
             {
                 if (!double.IsFinite(_holdingCost) || Math.Abs(measured - _holdingCost) > 0.05)
                 {
@@ -3427,7 +3431,8 @@ internal sealed class IcbmComputer
         if (ImpactPredictor.TryPredict(Body, fromCci, alongCci, PredictStepSeconds,
                                        ImpactPredictor.DefaultMaxSeconds, out ImpactPredictor.Impact hit,
                                        TerrainRadiusAt, _path, air,
-                                       stopOnTheSurface: Config.PredictionStopsOnTheSurface))
+                                       stopOnTheSurface: Config.PredictionStopsOnTheSurface,
+                                       stopOnTheTerrain: Config.PredictionStopsOnTheTerrain))
         {
             // The predictor un-carries its impact by its own flight time, which puts the ground
             // point in the body-fixed frame of the instant the arc *departs*. Mid-burn that instant

@@ -74,11 +74,12 @@ public class ProbeCrossingFloorTests(ITestOutputHelper Out)
     }
 
     private static bool TryProbe(MunitionProfile warhead, double3 p, double3 v, double slope, bool packed,
-                                 out ImpactPredictor.Impact hit)
+                                 out ImpactPredictor.Impact hit, bool onTheTerrain = false)
         => ImpactPredictor.TryPredict(Earth, p, v, 2.0, 12_000.0, out hit,
                                       q => Surface(q, slope, packed), null,
                                       new ImpactPredictor.Drag(DensityAt, warhead),
-                                      atmosphericStepSeconds: 0.25, stopOnTheSurface: true);
+                                      atmosphericStepSeconds: 0.25, stopOnTheSurface: true,
+                                      stopOnTheTerrain: onTheTerrain);
 
     /// <summary>
     /// The prediction's crossing walked onto the terrain along its own arrival, which is what
@@ -151,14 +152,17 @@ public class ProbeCrossingFloorTests(ITestOutputHelper Out)
     {
         double3 v = Release(out double3 from, nudge, range);
 
-        Assert.True(TryProbe(warhead, from, v, slope, packed, out ImpactPredictor.Impact hit));
+        Assert.True(TryProbe(warhead, from, v, slope, packed, out ImpactPredictor.Impact hit,
+                             onTheTerrain: refineTheProbe));
         Assert.True(ArrivalFrame.TryAt(hit.PointCci, hit.VelocityCci, out ArrivalFrame frame));
 
         // The aim loop stops with the predicted impact a little off the target, and the kick's whole
         // job is to give that back. Square to up at the impact, as a miss on the ground is measured.
         double3 aim = hit.GroundFixedPointCci - frame.Downrange * missMetres;
 
-        double3 impact = refineTheProbe ? OnTheTerrain(hit, slope, packed) : hit.GroundFixedPointCci;
+        // The prediction stops where IcbmConfig.PredictionStopsOnTheTerrain says it does, so what is
+        // measured here is the shipped correction rather than a rig's idea of one.
+        double3 impact = hit.GroundFixedPointCci;
 
         ReleaseFocus.Separation kick = ReleaseFocus.Kick(
             Earth, from, v, hit.Seconds, Vec.Zero, Vec.Zero, focusRing: false, cancelSpin: false,
@@ -233,7 +237,10 @@ public class ProbeCrossingFloorTests(ITestOutputHelper Out)
         Assert.True(scatter[0.122] > 2.0, $"the site's own slope scatters only {scatter[0.122]:F3} mm");
     }
 
-    /// <summary>What stopping the prediction on the terrain, rather than on the chord of its own bracket, is worth.</summary>
+    /// <summary>
+    /// What <see cref="IcbmConfig.PredictionStopsOnTheTerrain"/> is worth, flown through the real
+    /// predictor rather than through a refinement done to its answer afterwards.
+    /// </summary>
     [Fact]
     public void StoppingThePredictionOnTheTerrainTakesTheScatterOut()
     {
@@ -241,7 +248,7 @@ public class ProbeCrossingFloorTests(ITestOutputHelper Out)
 
         Out.WriteLine($"{N} random release states each, 0.2 m of probe miss, 1,500 km\n");
 
-        // Flat first: there the chord IS the surface, so the refinement has to change nothing.
+        // Flat first: there the chord is the surface bar its own sagitta, so nothing may move.
         Say("constant, 0.000, as it ships", Sample(11, N, Constant, 0.0, true, 0.2, 1_500_000.0, false));
         Say("constant, 0.000, probe on the terrain", Sample(11, N, Constant, 0.0, true, 0.2, 1_500_000.0, true));
         Out.WriteLine("");
@@ -306,5 +313,70 @@ public class ProbeCrossingFloorTests(ITestOutputHelper Out)
 
             Out.WriteLine("");
         }
+    }
+
+    /// <summary>
+    /// <see cref="IcbmConfig.PredictionStopsOnTheTerrain"/> as it ships, rather than the rig's own
+    /// iterated refinement: one secant step inside the predictor, on the same bracket.
+    /// </summary>
+    /// <remarks>
+    /// This is the regression test for 49c, and it is written to fail against the code before it: with
+    /// the flag off the reported crossing hangs millimetres over the ground on a slope, which is the
+    /// term the miss kick hands to the round. On the flat it moves by <b>nanometres</b> and not by
+    /// nothing — the chord cuts inside the sphere, so there is a sagitta of about `L²/8R` to give back
+    /// even there — and a flat case that moved further than that would mean the lookup was being spent
+    /// where it buys nothing.
+    /// </remarks>
+    [Fact]
+    public void TheShippedFlagPutsTheCrossingOnTheGroundAndLeavesLevelGroundAlone()
+    {
+        MunitionProfile warhead = Arsenal.ReentryVehicleMk21.Copy();
+
+        Out.WriteLine("the predicted crossing's own height over the ground under it, mm\n");
+        Out.WriteLine("slope      off        on      ceiling");
+
+        double flat = 0.0;
+
+        foreach (double slope in new[] { 0.0, 0.030, 0.122, 0.350 })
+        {
+            List<double> off = [], on = [], ceiling = [];
+
+            foreach (double nudge in Nudges())
+            {
+                double3 v = Release(out double3 from, nudge, 1_500_000.0);
+
+                if (!TryProbe(warhead, from, v, slope, packed: true, out ImpactPredictor.Impact chord)) continue;
+                Assert.True(TryProbe(warhead, from, v, slope, packed: true, out ImpactPredictor.Impact terrain,
+                                     onTheTerrain: true));
+
+                off.Add(Math.Abs(AltitudeMm(chord.PointCci, slope, packed: true)));
+                on.Add(Math.Abs(AltitudeMm(terrain.PointCci, slope, packed: true)));
+                ceiling.Add(Math.Abs(AltitudeMm(OnTheTerrain(chord, slope, packed: true), slope, packed: true)));
+
+                if (slope == 0.0) flat = Math.Max(flat, Vec.Len(terrain.PointCci - chord.PointCci) * 1000.0);
+            }
+
+            Assert.NotEmpty(off);
+            double Mean(List<double> xs) => xs.Sum() / xs.Count;
+            Out.WriteLine($"{slope,5:F3} {Mean(off),9:F3} {Mean(on),9:F3} {Mean(ceiling),9:F3}");
+
+            if (slope == 0.0)
+            {
+                Out.WriteLine($"      level ground moved at most {flat:F6} mm");
+                continue;
+            }
+
+            // The whole claim: the crossing comes down onto the ground. Three bounded secant steps
+            // beat walking the answer along its own arrival to convergence, because they re-ask the
+            // height field where the guess actually went rather than following one reading down.
+            Assert.True(Mean(on) < Mean(off) * 0.35,
+                        $"slope {slope}: {Mean(on):F3} mm over the ground against {Mean(off):F3} off");
+        }
+    }
+
+    // Enough release states to sample every phase of the step grid against the tread.
+    private static IEnumerable<double> Nudges()
+    {
+        for (int i = 0; i < 24; i++) yield return -0.6 + i * 0.05;
     }
 }

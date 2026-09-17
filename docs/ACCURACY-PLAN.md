@@ -11146,12 +11146,29 @@ impact* to the aim: whatever height the probe stopped wrong by is handed to the 
 
 | slope | landing, mm | probe's own stop × cot | r | with the crossing refined onto the terrain |
 | --- | --- | --- | --- | --- |
-| 0.000 | 0.17 ± 0.00 | −0.00 ± 0.00 | — | **bit-identical** |
+| 0.000 | 0.17 ± 0.00 | −0.00 ± 0.00 | — | **unmoved** (nanometres: the chord's own sagitta) |
 | 0.030 | 0.16 ± 0.59 | −0.05 ± 0.59 | +0.99 | |
-| **0.122** (this site) | 1.30 ± **3.28** | +0.99 ± 2.96 | **+0.91** | 0.31 ± **1.38**, r → 0.01 |
+| **0.122** (this site) | 1.30 ± **3.28** | +0.99 ± 2.96 | **+0.91** | −0.17 ± **1.48**, r → −0.24 |
 | 0.350 | 4.92 ± 7.92 | +2.98 ± 6.69 | +0.26 | 3.03 ± 7.40 |
 
-So **0.42x on the sd at the flown slope**, and level ground cannot move. The float staircase is about half of
+So **0.45x on the sd at the flown slope**, and level ground cannot move by anything anyone could read —
+the shipped correction shifts it by at most 3 µm, which is a long bracket's own sagitta on this radius.
+
+**Built, and it is three bounded secant steps rather than one** (`IcbmConfig.PredictionStopsOnTheTerrain`,
+off, unflown). Each re-asks the height field where the last guess actually landed, which beats walking the
+first reading down its own arrival to convergence — the crossing's height over the ground, averaged over 24
+release states:
+
+| slope | on the chord | on the terrain | walked down its arrival instead |
+| --- | --- | --- | --- |
+| 0.000 | 0.000 mm | 0.000 | 0.000 |
+| 0.030 | 0.203 | **0.002** | 0.000 |
+| **0.122** | 0.906 | **0.176** | 0.432 |
+| 0.350 | 3.432 | **0.710** | 0.777 |
+
+Bounded rather than converged because a float-packed staircase need not have a fixed point, and stopped at a
+millimetre, which is two orders under the riser. The probe's own stop × cot goes 2.96 mm → **0.04**, so the
+term is gone rather than reduced; what is left of the landing's 1.48 mm is something else. The float staircase is about half of
 it — 3.28 packed against 1.49 with the exact direction. At 0.35 the round's own 1 ms sub-step becomes
 co-dominant, which is the interesting part: **3ei refuted `WarheadSubStepMs` on a build whose landing was
 dominated by the 25 mm frame-time walk 3el has since removed**, and the rig now says the sub-step is worth

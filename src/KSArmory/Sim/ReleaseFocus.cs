@@ -256,7 +256,8 @@ internal static class ReleaseFocus
     /// impact and the target is <see cref="TryMissOnTheGround"/>'s.
     /// </param>
     internal readonly record struct Air(ImpactPredictor.Drag Drag, double StepSeconds, double GroundRadiusMetres,
-                                        bool StopOnTheSurface);
+                                        bool StopOnTheSurface,
+                                        bool StopOnTheTerrain = false);
 
     /// <summary>
     /// How a round's landing moves with its release state, flown through the air: where the nominal state lands
@@ -377,7 +378,8 @@ internal static class ReleaseFocus
             bool TryLand(double3 p, double3 v, out ImpactPredictor.Impact impact)
                 => ImpactPredictor.TryPredict(body, p, v, through.StepSeconds, ImpactPredictor.DefaultMaxSeconds,
                                               out impact, _ => through.GroundRadiusMetres, null, through.Drag,
-                                              stopOnTheSurface: through.StopOnTheSurface);
+                                              stopOnTheSurface: through.StopOnTheSurface,
+                                              stopOnTheTerrain: through.StopOnTheTerrain);
 
             // Ground-fixed landings differenced, then carried: the two arrive at different instants, and a
             // difference of inertial crossings would carry the ground's turn across that gap.
