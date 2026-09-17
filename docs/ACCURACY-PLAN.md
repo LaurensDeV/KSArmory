@@ -10145,6 +10145,103 @@ alone: 20° to 50° is **13.6x** on the walk's scatter where `cot gamma` account
 arrival shortens the ground one bracket covers *as well as* the conversion, and the two compound.
 That is `docs/ARRIVAL-ANGLE.md`'s thesis holding for a term it had not been applied to, and it is
 the strongest lever found on the walk in this programme.
+## 3ei. The sub-step night: it reaches flight, it does not move the landing, and the walk inverts — 2026-09-17
+
+`~/shots/2026-09-17-substep`, **15/15 PASS**, zero exceptions, zero warnings. Three arms one line
+apart on `IcbmConfig.WarheadSubStepMs` — `base` (the Mk 21's shipped 1 ms), `coarse` (4.0),
+`fine` (0.25) — five blocks, each arm once per block, 40 rockets and 240 warheads an arm.
+Declared and twice revised in `~/shots/scripts-2026-09-17/DECLARE-substep-night.md`, every revision
+timestamped against what had been read.
+
+### It reaches the warheads
+
+`coarse` printed `warheads integrate at 4.000 ms, 80 sub-steps` and `fine`
+`0.250 ms, 1280 sub-steps`; `base` printed nothing, which is what a zero setting should do. At the
+flown 152.9 ms frames those need 39 and 612, so **the cap never binds** — and it cannot differ
+between arms by construction, since `MaxSubSteps = ceil(MaxFaithfulStep / SubStep)` makes
+`SubStep x MaxSubSteps` the same 320 ms on every arm.
+
+### And it does not move where the warheads land
+
+| mm from the aim | median worst | rms worst | median centre | median dispersion |
+| --- | --- | --- | --- | --- |
+| `base` — 1 ms | 38.35 | 83.05 | 21.88 | 8.73 |
+| `coarse` — 4 ms | 34.84 | 135.00 | 21.84 | 7.67 |
+| `fine` — 0.25 ms | 39.95 | 66.62 | 26.80 | 8.88 |
+
+Mann-Whitney on the worst warhead against `base`: `coarse` **p = 0.91**, `fine` **p = 0.57**.
+**Sixteen times the integration work changes the group's median accuracy by nothing measurable.**
+Only the rms tail is monotonic — 135, 83, 67 — which is the one place a finer step looks worth
+having, and it is not significant on a median test.
+
+**So `WarheadSubStepMs` stays off**, and it is now off on flown evidence rather than pending a
+night. `docs/MIRV-NEXT.md` item 45b is answered.
+
+### The walk moved 21 mm while the landing did not
+
+| | down walk mean | within-rocket walk sd | cross walk mean |
+| --- | --- | --- | --- |
+| `base` | -13.10 mm | 22.47 mm | +8.13 mm |
+| `coarse` | -1.09 mm | 50.38 mm | +11.66 mm |
+| `fine` | -22.21 mm | 24.79 mm | +3.74 mm |
+
+**This is the night's most useful result and it is about the instrument, not the setting.** The walk
+— the quantity most of this programme's nights have been spent reducing — ranges over **21 mm**
+between arms whose landings are statistically indistinguishable. It is a measure of whether the
+round and its prediction agree, and this night shows that agreement is not accuracy. It sits
+consistently with 3ef, where the walk explained **6.2%** of the within-rocket landing variance.
+
+### Two declared tests failed, and both failures are informative
+
+**The bias inverted.** Regressing the rocket-mean down walk on the headless prediction
+(-22.090 / -5.357 / -1.071 mm), block effects removed:
+
+    alone                      -0.924 +/- 0.232   95% [-1.379, -0.469]
+    with frame dt alongside    -0.819 +/- 0.317   95% [-1.440, -0.199]
+
+Not merely absent — **reversed, and about one for one.** The arm predicted most negative came out
+least (`coarse` -1.09 against -22.09 predicted) and the arm predicted least came out most
+(`fine` -22.21 against -1.07). The magnitudes are close to the predictions with the labels
+exchanged, which the logs rule out as a mislabelling.
+
+**And the cross falsifier failed.** Headless, the sub-step is *exactly* 0.000 mm in cross on every
+surface tried. Flown, cross moves **monotonically with it** — 11.66, 8.13, 3.74 mm, a 7.92 mm spread
+against a declared bar of 2 mm. Whatever the sub-step does to a warhead in this game, the rig does
+not contain it, and the rig flies the same `Slug` through the same `RoundDriver`.
+
+### A confound worth not meeting twice: a setting that costs CPU changes the world's clock
+
+The arms did not fly at the same frame rate, because they could not:
+
+| arm | sub-steps a frame | mean frame | mean sim rate |
+| --- | --- | --- | --- |
+| `coarse` | 39 | 37.92 ms | 2.171x |
+| `base` | 153 | 36.11 ms | 2.085x |
+| `fine` | 612 | 30.40 ms | 1.729x |
+
+`fine` ran **16% shorter frames** than `coarse` at a lower warp. **"One line apart" is not one
+variable in flight** when the line buys work: `WorldSpeed` answers the slower frame with a slower
+clock, and frame time is the one covariate that has ever tracked the walk. It is partly confounded
+with the arm (r = -0.677), and with both in the model the sub-step survives and frame time does not
+(+0.368 +/- 0.752), so it is not the explanation here — but it would have been invisible without
+looking, and the next CPU-costing arm has the same problem.
+
+**And the frame-time covariate replicated exactly.** 2026-09-16-sixtrace put it at **+1.68 mm/ms**
+at n=12 blocks and could not separate it from zero; this night reads **+1.686 +/- 0.566** at n=120
+rockets, an interval that excludes zero. Two nights, two instruments, the same number to three
+figures.
+
+### What is open
+
+Why the walk inverts, and why cross moves at all. Both say the rig is missing something the game
+does to a sub-stepping warhead, and **the rig is not a different integrator** — `Sim/Slug.cs` and
+`Sim/RoundDriver.cs` are linked into the tests wholesale. The differences left are the real height
+field, a frame that varies by its own standard deviation (33 ms about a 36 ms mean, where the rig
+held it constant), the planet's rotation and the carried frames. The varying frame is the first one
+to try, because `steps = ceil(dt / SubStep)` means a varying `dt` quantises differently at each
+sub-step, and the rig has never been given a jittering clock — which is the fourth time this
+programme has found the rig better-behaved than the game
+(`IcbmFlightRig.StepJitter` was the third).
 
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
