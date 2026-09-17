@@ -173,15 +173,25 @@ public static class BallisticLead
     /// The pull at a position at the current instant. A field rather than one vector, because on a
     /// small world it turns under the shell: 3.6° across 15.7 km of a 250 km body.
     /// </param>
-    /// <param name="densityAt">Air density as a multiple of sea level, at a position at the current instant.</param>
+    /// <param name="densityAt">
+    /// Air density as a multiple of sea level, at a position at the current instant — the air alone, never the
+    /// ocean: a target on the sea is on the waterline, and a flight reading water a hair under it never arrives.
+    /// </param>
     /// <param name="directionHint">Where the previous solve pointed, or zero. Only where the search starts.</param>
+    /// <param name="groundVelocityAt">
+    /// The ground's velocity at a position at the current instant, which is the air's; null holds the air still
+    /// against the mount's ground. On a world that turns the air a distance x away moves at the spin times x
+    /// against the mount, 1.7 m/s at 23 km: held still, a 5"/54 laid onto the ground there lands 5-12 m off by
+    /// bearing, and a place on the ground reads as moving through the air.
+    /// </param>
     public static bool TrySolveFlown(double3 shooterPos, double3 shooterVelocity, double3 groundVelocity,
                                      double3 groundAcceleration, double3 bodyVelocity,
                                      double3 targetPos, double3 targetVelocity, double3 targetAccelerationEcl,
                                      DragShape? targetDragShape,
                                      MunitionProfile munition, Func<double3, double3> gravityAt,
                                      Func<double3, double> densityAt, double3 directionHint,
-                                     out double3 aimPoint, out double flightTimeSeconds)
+                                     out double3 aimPoint, out double flightTimeSeconds,
+                                     Func<double3, double3>? groundVelocityAt = null)
     {
         ArgumentNullException.ThrowIfNull(munition);
         ArgumentNullException.ThrowIfNull(gravityAt);
@@ -217,7 +227,8 @@ public static class BallisticLead
 
         var flight = new Flight(shooterPos, shooterVelocity - groundVelocity, targetPos - shooterPos,
                                 targetVelocity - groundVelocity, targetAccelerationEcl, targetDragShape,
-                                groundAcceleration, groundVelocity - bodyVelocity, munition, gravityAt, densityAt);
+                                groundAcceleration, groundVelocity - bodyVelocity, munition, gravityAt, densityAt,
+                                groundVelocity, groundVelocityAt);
 
         // A pass that converges takes most of the miss out. One that has not cut it by a fifth in several
         // passes is walking, and a target out of reach is the usual cause: flying every remaining pass to
@@ -345,13 +356,14 @@ public static class BallisticLead
                                             MunitionProfile munition, Func<double3, double3> gravityAt,
                                             Func<double3, double> densityAt, double3 directionHint, double reachHint,
                                             out double3 aimPoint, out double flightTimeSeconds, out double reachFraction,
-                                            Func<double, Place?>? along = null)
+                                            Func<double, Place?>? along = null,
+                                            Func<double3, double3>? groundVelocityAt = null)
     {
         reachFraction = 1.0;
 
         if (TrySolveFlown(shooterPos, shooterVelocity, groundVelocity, groundAcceleration, bodyVelocity, targetPos,
                           targetVelocity, targetAccelerationEcl, targetDragShape, munition, gravityAt, densityAt,
-                          directionHint, out aimPoint, out flightTimeSeconds))
+                          directionHint, out aimPoint, out flightTimeSeconds, groundVelocityAt))
         {
             return true;
         }
@@ -371,7 +383,7 @@ public static class BallisticLead
             return place is { } at
                    && TrySolveFlown(shooterPos, shooterVelocity, groundVelocity, groundAcceleration, bodyVelocity,
                                     at.Position, at.Velocity, at.Acceleration, targetDragShape, munition, gravityAt,
-                                    densityAt, hint, out aim, out time);
+                                    densityAt, hint, out aim, out time, groundVelocityAt);
         }
 
         double near = 0.0;
@@ -471,6 +483,10 @@ public static class BallisticLead
         private readonly Func<double3, double3> _gravityAt;
         private readonly Func<double3, double> _densityAt;
 
+        // The air's velocity where a point is, and the mount's ground it is measured against.
+        private readonly Func<double3, double3>? _groundVelocityAt;
+        private readonly double3 _groundVelocity;
+
         // The ground's own acceleration, which the round and the target are both flown against.
         private readonly double3 _frameAcceleration;
 
@@ -499,9 +515,12 @@ public static class BallisticLead
 
         public Flight(double3 mount, double3 mountVelocity, double3 targetOffset, double3 targetVelocity,
                       double3 targetAcceleration, DragShape? targetShape, double3 frameAcceleration, double3 frameSpin,
-                      MunitionProfile munition, Func<double3, double3> gravityAt, Func<double3, double> densityAt)
+                      MunitionProfile munition, Func<double3, double3> gravityAt, Func<double3, double> densityAt,
+                      double3 groundVelocity, Func<double3, double3>? groundVelocityAt)
         {
             _mount = mount;
+            _groundVelocity = groundVelocity;
+            _groundVelocityAt = groundVelocityAt;
             _frameAcceleration = frameAcceleration;
             _frameSpin = frameSpin;
             _mountVelocity = mountVelocity;
@@ -512,16 +531,17 @@ public static class BallisticLead
             _densityAt = densityAt;
 
             double3 felt = targetAcceleration - Pull(gravityAt, mount + targetOffset);
-            double speed = Vec.Len(targetVelocity);
+            double3 airspeed = targetVelocity - Wind(mount + targetOffset, 0.0);
+            double speed = Vec.Len(airspeed);
 
             double density = Density(densityAt, mount + targetOffset);
-            double along = speed > MinTargetSpeed ? Vec.Dot(felt, targetVelocity) / speed : 0.0;
+            double along = speed > MinTargetSpeed ? Vec.Dot(felt, airspeed) / speed : 0.0;
 
             if (targetShape is { IsUsable: true } shape)
             {
                 _targetShape = shape;
                 _targetDrag = 0.0;
-                _targetPush = felt - shape.DragAcceleration(targetVelocity, density);
+                _targetPush = felt - shape.DragAcceleration(airspeed, density);
                 _targetMassFlow = shape.MassFlowFor(_targetPush);
                 _targetBurnSeconds = shape.BurnSeconds(_targetMassFlow);
                 return;
@@ -536,7 +556,7 @@ public static class BallisticLead
             if (along < 0.0 && density > Medium.NoticeableDensity)
             {
                 _targetDrag = -along / (speed * speed * density);
-                _targetPush = felt - (targetVelocity * (along / speed));
+                _targetPush = felt - (airspeed * (along / speed));
             }
             else
             {
@@ -617,12 +637,25 @@ public static class BallisticLead
         private double3 RoundAcceleration(double3 x, double3 v, double t)
         {
             double3 at = Sampled(x, t);
-            return Medium.Coasting(Pull(_gravityAt, at) - _frameAcceleration, v, _munition, Density(_densityAt, at));
+            return Medium.Coasting(Pull(_gravityAt, at) - _frameAcceleration, v - Wind(at, t), _munition,
+                                   Density(_densityAt, at));
         }
 
-        // Where the round is t seconds in against the body as it was sampled. The spin's own turn of that
-        // velocity moves it a fifth of a metre over a minute and a half of flight, and is left out.
-        private double3 Sampled(double3 offset, double t) => _mount + offset + (_frameSpin * t);
+        // The air at a sampled point against this frame, which is the mount's ground accelerating with it: on a
+        // world that turns, the spin times the offset from the mount.
+        private double3 Wind(double3 at, double t)
+        {
+            if (_groundVelocityAt is null) return Vec.Zero;
+
+            double3 wind = _groundVelocityAt(at) - _groundVelocity - (_frameAcceleration * t);
+            return Vec.IsFinite(wind) ? wind : Vec.Zero;
+        }
+
+        // Where the round is t seconds in against the body as it was sampled, the frame's own acceleration
+        // included: the spin carries the mount 77 m toward the axis over a 72 s flight, 67 m of it down, and read
+        // without it the air is 0.8% thin where the shell is lowest -- metres of range at 23 km.
+        private double3 Sampled(double3 offset, double t)
+            => _mount + offset + (_frameSpin * t) + (_frameAcceleration * (0.5 * t * t));
 
         private double3 TargetAcceleration(double3 y, double3 w, double t)
         {
@@ -630,18 +663,19 @@ public static class BallisticLead
             // pull there, and what holds it up is held with it. Turning the pull alone walks a place on the
             // ground away by as much as the round's own correction brings it back.
             double3 pull = Pull(_gravityAt, _mount + y) - _frameAcceleration;
+            double3 air = w - Wind(Sampled(y, t), t);
 
             if (_targetShape is { } shape)
             {
                 double mass = shape.MassAt(_targetMassFlow, t);
                 double3 push = t < _targetBurnSeconds ? shape.Carry(_targetPush, t) * (shape.Mass / mass) : Vec.Zero;
-                return pull + push + (shape with { Mass = mass }).DragAcceleration(w, Density(_densityAt, _mount + y), t);
+                return pull + push + (shape with { Mass = mass }).DragAcceleration(air, Density(_densityAt, _mount + y), t);
             }
 
             if (_targetDrag <= 0.0) return pull + _targetPush;
 
-            double airspeed = Vec.Len(w);
-            return pull + _targetPush - (w * (_targetDrag * airspeed * Density(_densityAt, _mount + y)));
+            double airspeed = Vec.Len(air);
+            return pull + _targetPush - (air * (_targetDrag * airspeed * Density(_densityAt, _mount + y)));
         }
 
         private static double3 Pull(Func<double3, double3> gravityAt, double3 at)

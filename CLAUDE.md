@@ -2106,7 +2106,9 @@ own sea level instead, a round over Mars flew through air as thick as Earth's.
 
 **And a gun's shells step second order**, as a released warhead does (`Slug.SecondOrder`). A first-order
 step moves on the velocity a frame ends with, and against that drag it leaves a shell metres off the path
-the lead was flown on: 3.8 m at 15.7 km at 60 fps against 1.3 m, and more as the frame rate falls.
+the lead was flown on: 3.8 m at 15.7 km at 60 fps against 1.3 m, and more as the frame rate falls. **And its
+drag is taken at the sub-step's midpoint speed** (`Slug.DragAtMidpointVelocity`): at the speed a sub-step
+starts with it is always too large, so always short — 2.8 m at 23 km.
 
 **And the ground a shell is flown against turns.** `BallisticLead.TrySolveFlown` takes the ground's
 acceleration beside its velocity and takes it off the round and the target alike. Without it the shell
@@ -2123,6 +2125,15 @@ velocity beside the ground's and reads the round's pull and air where it is agai
 **Not the target's**: its acceleration was measured against the pull at the start and what holds it up is
 held with it, so turning its pull alone walks a place on the ground away by as much as the round's own
 correction brings it back.
+
+**And the air turns with it, so the lay reads the air where the shell is.** Against the mount the air a
+distance x away moves at the spin times x, 1.7 m/s at 23 km, and the frame the lay is flown in falls toward
+the axis by ½·A·t², 67 m down over a 72 s shot. Held still and read without the fall, a 5"/54 laid 23 km
+onto flat ground landed 7.6–10.3 m off, flown. `TrySolveFlown` takes the ground's velocity as a field and
+samples the frame's fall: **0.2 m**, five shells of five. **It reads the air alone**
+(`KsaWorld.AirDensityRatioAt`): a place designated on the sea sits on the waterline, and a lay reading the
+ocean a hair under it stops its shell dead and cannot reach 23 km at all — which is what reading the round
+where it truly is did, until the ocean came out.
 
 The conversion is the part worth being careful with, and it is **three** corrections rather than
 one. `Camera.ScreenToEgoRay` divides by *its own* `FramebufferSize` while ImGui reports the cursor

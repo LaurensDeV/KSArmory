@@ -87,6 +87,8 @@ public class GroundLayTests(ITestOutputHelper output)
                             Vec.Zero, Vec.Zero)
         {
             Munition = shell,
+            SecondOrder = true,
+            DragAtMidpointVelocity = true,
             GravityAt = (p, _) => GravityAt(p),
             AirDensityAt = (p, _) => shell.DragK > 0f ? DensityAt(p) : 0.0,
         };
@@ -163,9 +165,9 @@ public class GroundLayTests(ITestOutputHelper output)
 
         double miss = Vec.Len(landed!.Value.Landed - ground);
         double elevation = double.RadiansToDegrees(Math.Asin(Vec.Unit(lay).Z));
-        output.WriteLine($"{km,4:F1} km: laid {elevation:F2} deg, {flight:F1} s, landed {miss:F1} m from the point");
+        output.WriteLine($"{km,4:F1} km: laid {elevation:F2} deg, {flight:F1} s, landed {miss:F2} m from the point");
 
-        Assert.True(miss < Shell.LethalRadius, $"landed {miss:F1} m from the point");
+        Assert.True(miss < 0.5, $"landed {miss:F2} m from the point");
     }
 
     [Fact]
@@ -261,20 +263,95 @@ public class GroundLayTests(ITestOutputHelper output)
     }
 
     /// <summary>
-    /// An acceleration shared by the ground, the target and the gravity field is the frame's, and cannot
-    /// reach the lay: it cancels out of everything the round and the target feel against the ground.
+    /// On a world that turns, the air turns with it: the air a distance x from the mount moves at the spin times x
+    /// against it. The shell reads the air where it is, as <c>WeaponSystem</c> flies it, and the lay has to read it
+    /// there too -- held still against the mount it lands 5-12 m off at 23 km depending on the bearing, and read
+    /// without the frame's own fall toward the axis, 5-8 m.
+    /// </summary>
+    [Theory]
+    [InlineData(1.0, 0.0)]
+    [InlineData(0.0, 1.0)]
+    [InlineData(-1.0, 0.0)]
+    public void OnAWorldSpinningLikeEarthTheShellFliesTheAirThatTurnsWithIt(double east, double north)
+    {
+        double latitude = double.DegreesToRadians(28.6);
+        double3 axis = new(0, Math.Cos(latitude), Math.Sin(latitude));
+        const double Rate = 7.2921e-5;
+        double3 spin = axis * Rate;
+        double3 VelocityOf(double3 p) => Vec.Cross(spin, p - Centre);
+        double3 AccelerationOf(double3 p) => Vec.Cross(spin, Vec.Cross(spin, p - Centre));
+
+        double angle = 23_000.0 / Radius;
+        double3 place = Centre + (Vec.Unit(new double3(east, north, 0)) * (Math.Sin(angle) * Radius))
+                        + new double3(0, 0, Math.Cos(angle) * Radius);
+
+        Assert.True(BallisticLead.TrySolveFlown(Vec.Zero, VelocityOf(Vec.Zero), VelocityOf(Vec.Zero), AccelerationOf(Vec.Zero),
+                                                Vec.Zero, place, VelocityOf(place), AccelerationOf(place), null, Shell,
+                                                GravityAt, DensityAt, Vec.Zero, out double3 lay, out double flight, VelocityOf));
+
+        var slug = new Slug(Vec.Zero, VelocityOf(Vec.Zero) + (Vec.Unit(lay) * Shell.LaunchSpeed), null, -1, Vec.Zero,
+                            VelocityOf(Vec.Zero))
+        {
+            Munition = Shell,
+            SecondOrder = true,
+            DragAtMidpointVelocity = true,
+            GravityAt = (p, _) => GravityAt(p),
+            AirDensityAt = (p, _) => DensityAt(p),
+        };
+
+        var nowhere = new TargetState(new double3(0, 0, 1.0e9), Vec.Zero, 0.0);
+        double3 before = slug.PositionEcl;
+        double miss = double.NaN;
+
+        for (double t = 0.0; t < Shell.MaxFlightSeconds; t += Frame)
+        {
+            slug.Update(Frame, nowhere, GravityAt(slug.PositionEcl), VelocityOf(slug.PositionEcl), Vec.Zero, Shell,
+                        DensityAt(slug.PositionEcl));
+
+            double above = Vec.Len(slug.PositionEcl - Centre) - Radius;
+            if (above > 0.0)
+            {
+                before = slug.PositionEcl;
+                continue;
+            }
+
+            double was = Vec.Len(before - Centre) - Radius;
+            double f = was / (was - above);
+            double3 landed = before + ((slug.PositionEcl - before) * f);
+
+            // Where the place has turned to by then, about the axis through the centre.
+            double a = Rate * (t + (Frame * f));
+            double3 r = place - Centre;
+            double3 moved = Centre + (r * Math.Cos(a)) + (Vec.Cross(axis, r) * Math.Sin(a))
+                            + (axis * (Vec.Dot(axis, r) * (1.0 - Math.Cos(a))));
+            miss = Vec.Len(landed - moved);
+            break;
+        }
+
+        output.WriteLine($"({east:+0;-0;0}, {north:+0;-0;0}): {flight:F1} s, landed {miss:F2} m from the place");
+
+        Assert.True(miss < 0.5, $"landed {miss:F2} m from the place");
+    }
+
+    /// <summary>
+    /// An acceleration shared by the ground, the target and the gravity field cancels out of everything the round
+    /// and the target feel against the ground. Flown airless under a uniform pull, because the ground's acceleration
+    /// is taken to be against the body and so does move where the air and the pull are read -- which a spinning
+    /// world needs, and a test of the cancellation must not see.
     /// </summary>
     [Fact]
     public void AnAccelerationSharedByTheGroundTheTargetAndGravityDoesNotMoveTheLay()
     {
-        double3 ground = Ground(8.0);
+        double3 ground = new(8_000.0, 0.0, -MountHeight);
         double3 common = new(0.3, -0.2, 0.4);
+        double3 pull = new(0, 0, -SurfaceGravity);
+        MunitionProfile shell = Airless();
 
-        Assert.True(BallisticLead.TrySolveFlown(Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero,ground, Vec.Zero, Vec.Zero,
-                                                null, Shell, GravityAt, DensityAt, Vec.Zero,
+        Assert.True(BallisticLead.TrySolveFlown(Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero, ground, Vec.Zero, Vec.Zero,
+                                                null, shell, _ => pull, _ => 0.0, Vec.Zero,
                                                 out double3 still, out double stillFlight));
         Assert.True(BallisticLead.TrySolveFlown(Vec.Zero, Vec.Zero, Vec.Zero, common, Vec.Zero, ground, Vec.Zero, common,
-                                                null, Shell, p => GravityAt(p) + common, DensityAt, Vec.Zero,
+                                                null, shell, _ => pull + common, _ => 0.0, Vec.Zero,
                                                 out double3 shared, out double sharedFlight));
 
         Assert.True(Vec.AngleBetween(still, shared) < 1e-6, $"{Vec.AngleBetween(still, shared)} rad apart");
@@ -334,9 +411,9 @@ public class GroundLayTests(ITestOutputHelper output)
 
         double miss = Vec.Len(landed!.Value.Landed - ground);
         double elevation = double.RadiansToDegrees(Math.Asin(Vec.Unit(lay).Z));
-        output.WriteLine($"{0.97 * best:F2} km of {best:F2}: laid {elevation:F2} deg, {flight:F1} s, landed {miss:F1} m from the point");
+        output.WriteLine($"{0.97 * best:F2} km of {best:F2}: laid {elevation:F2} deg, {flight:F1} s, landed {miss:F2} m from the point");
 
-        Assert.True(miss < shell.LethalRadius, $"landed {miss:F1} m from the point");
+        Assert.True(miss < 0.5, $"landed {miss:F2} m from the point");
     }
 
     /// <summary>

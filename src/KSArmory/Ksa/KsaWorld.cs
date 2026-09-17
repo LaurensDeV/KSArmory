@@ -1714,6 +1714,28 @@ internal static class KsaWorld
 
     /// <summary>The same medium, asked of the body directly — for a round with no craft left.</summary>
     public static double MediumDensityRatioAt(Celestial body, double3 positionEcl)
+        => MediumDensityRatioAt(body, positionEcl, withOcean: true);
+
+    /// <summary>
+    /// The air alone, with no ocean under it: what a gun's lead flies a shell through on its way to a target.
+    ///
+    /// <para>A place designated on the sea sits on the waterline, and a lay that reads the round where it truly is
+    /// reads its last step a hair under it — the ocean, 840x the air, which stops the shell dead in the lay and
+    /// leaves it unable to converge on a target in reach. A shell never flies through water to get somewhere.</para>
+    /// </summary>
+    public static double AirDensityRatioAt(Vehicle platform, double3 positionEcl)
+    {
+        try
+        {
+            return platform.Parent is Celestial body ? MediumDensityRatioAt(body, positionEcl, withOcean: false) : 1.0;
+        }
+        catch
+        {
+            return 1.0;
+        }
+    }
+
+    private static double MediumDensityRatioAt(Celestial body, double3 positionEcl, bool withOcean)
     {
         try
         {
@@ -1739,7 +1761,7 @@ internal static class KsaWorld
             // (100 m) against that same 100 km bar, so it is false wherever there is water. A
             // body with no ocean hands back null, which is the discriminator that means it.
             OceanReference? ocean = body.GetOceanReference();
-            if (ocean is { } sea && sea.Density > 0.0 && altitude < sea.Level)
+            if (withOcean && ocean is { } sea && sea.Density > 0.0 && altitude < sea.Level)
             {
                 double water = sea.Density / Medium.ReferenceDensityKgPerM3;
                 return double.IsFinite(water) && water > 0.0 ? water : 1.0;

@@ -1045,6 +1045,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         double3 fromMount = targetEcl - PlatformEcl;
 
+
         // Out of reach last time, and the target has barely moved against the mount since: a fresh search
         // lands on the same answer, and each one flies shells for most of their life. Reused for half a
         // second, or until the target moves a fifth of a percent of the range -- 48 m at 24 km.
@@ -1073,13 +1074,15 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                                                 null, Shell,
                                                 _leadGravityAt ??= LeadGravityAt, _leadDensityAt ??= LeadDensityAt,
                                                 _groundLayDirection, _gunLayReach,
-                                                out double3 lay, out _, out _gunLayReach, along))
+                                                out double3 lay, out _, out _gunLayReach, along,
+                                                _leadGroundVelocityAt ??= LeadGroundVelocityAt))
         {
             _groundLayDirection = Vec.Zero;
             _gunLayReach = 1.0;
             _gunLayShortMetres = 0.0;
             return false;
         }
+
 
         double3 reached = _gunLayReach >= 1.0 ? targetEcl
                           : along?.Invoke(_gunLayReach) is { } place ? place.Position
@@ -1162,7 +1165,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                                          aim.PositionEcl, aim.VelocityEcl, aim.AccelerationEcl, aim.DragShape,
                                          shell, _leadGravityAt ??= LeadGravityAt,
                                          _leadDensityAt ??= LeadDensityAt,
-                                         _gunLeadDirection, out double3 lead, out double flightTime))
+                                         _gunLeadDirection, out double3 lead, out double flightTime,
+                                         _leadGroundVelocityAt ??= LeadGroundVelocityAt))
         {
             _gunLeadDirection = Vec.Zero;
             return aim.PositionEcl;
@@ -1188,11 +1192,17 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     private double3 LeadGravityAt(double3 positionEcl)
         => Platform is null ? Vec.Zero : KsaWorld.GravityAt(Platform, positionEcl);
 
+    // The air alone: a target on the sea sits on the waterline, and a lay reading the ocean under it stops its shell.
     private double LeadDensityAt(double3 positionEcl)
-        => Platform is null ? 1.0 : KsaWorld.MediumDensityRatioAt(Platform, positionEcl);
+        => Platform is null ? 1.0 : KsaWorld.AirDensityRatioAt(Platform, positionEcl);
+
+    // The air where the shell is, which on a world that turns is not the air at the mount.
+    private double3 LeadGroundVelocityAt(double3 positionEcl)
+        => Platform is null ? Vec.Zero : KsaWorld.GroundVelocityAt(Platform, positionEcl);
 
     private Func<double3, double3>? _leadGravityAt;
     private Func<double3, double>? _leadDensityAt;
+    private Func<double3, double3>? _leadGroundVelocityAt;
 
     // Whether the cannon are the weapon this engagement belongs to: inside their envelope, and
     // with the missiles either switched off or unable to reach.
@@ -1251,6 +1261,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             // against a heavy shell's drag leaves it metres off the path the lead was solved on: 3.8 m at
             // 15.7 km at 60 fps against 1.3 m second order, and worse as the frame rate falls.
             SecondOrder = true,
+
+            // And drag at the sub-step's midpoint speed. At the speed a sub-step starts with it is always
+            // too large, so always short: 2.8 m at 23 km at the 5 ms sub-step, 0.08 m this way.
+            DragAtMidpointVelocity = true,
         };
         if (designatedCraft) slug.Aimpoint = Designation;
 
