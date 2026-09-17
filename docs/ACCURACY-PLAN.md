@@ -10677,6 +10677,21 @@ impact`, then that round's `focus on` lines, and it lands millimetres from the a
 Seen in passing and not touched: `IcbmComputer.StepTrace` clears `_missKickSum` every frame the trace is not wanted,
 so with tracing off `ShrinkMissKickToTheGroup` never finds a sibling. It is off at zero and never flown.
 
+### And the fix is not a 204 m statement — the waterline is pinned too
+
+"Nothing else moves" above is fenced to this ground, and that fence hides which way the term runs. Re-flying the
+same 1,000 releases with the ground at **sea level** through both media (`PredictedMediumTests`): through the air
+alone every one lands; through the ocean **4 find no impact and 341 land somewhere else, the furthest 5,191 km
+off**. That is 3ep's own headless 1,390 of 4,000 reproduced independently, and it is the failure that matters — at
+204 m the ocean either wrecks the prediction loudly or gives the identical answer, while at the waterline it
+**answers, and the answer is wrong**, with nothing in any log to say so.
+
+So the guard in (2) does not cover a coastal or ocean aim and never could: a borrowed sibling's probe is only
+reached by a probe that *failed*. (3) is what covers it, and the test is at ground zero rather than at 204 m so it
+stays pinned against a regression that would only show over water. The only sea-level target ever flown is the
+12,739 km Pacific shot of 3s (2026-09-01, `-42.0,-179.0`), whose eight walks were 8 mm and steady with **one
+outlier at 584 m** — the shape this predicts, on a build that read the ocean. Not a finding: nothing re-flew it.
+
 ## 3eq. The physical round's spread is the vacuum-solved kick, and a kick through the air is built — 2026-09-17
 
 **Priced headlessly, built behind `IcbmConfig.KickThroughTheAir` (off), and not flown.** 3eo's hypothesis, asked

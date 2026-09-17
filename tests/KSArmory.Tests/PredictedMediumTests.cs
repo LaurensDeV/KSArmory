@@ -35,8 +35,10 @@ public class PredictedMediumTests(ITestOutputHelper Out)
 
         foreach (double3 from in PredictorEndingTests.AlongTheTrack())
         {
-            bool throughTheOcean = Predict(from, PredictorEndingTests.KsaMedium, warhead, out ImpactPredictor.Impact wet);
-            Assert.True(Predict(from, AirAlone, warhead, out ImpactPredictor.Impact dry));
+            bool throughTheOcean = Predict(from, PredictorEndingTests.KsaMedium, warhead,
+                                           PredictorEndingTests.FlownGroundMetres, out ImpactPredictor.Impact wet);
+            Assert.True(Predict(from, AirAlone, warhead, PredictorEndingTests.FlownGroundMetres,
+                                out ImpactPredictor.Impact dry));
 
             if (!throughTheOcean)
             {
@@ -57,10 +59,51 @@ public class PredictedMediumTests(ITestOutputHelper Out)
         Assert.True(oceanFailed > 0);
     }
 
+    /// <summary>
+    /// At the waterline the ocean does not fail loudly — it answers, and the answer is wrong.
+    /// </summary>
+    /// <remarks>
+    /// Under 204 m of ground the stages that read the ocean belong to a step the crossing discards, so a
+    /// prediction it does not wreck is identical. At sea level the ground <i>is</i> the mean sphere, so the
+    /// stages of the step that lands read 837x the air and the impact moves — which no failure path reports
+    /// and no `release probe:` line can show. It is the aim a player clicking an ocean gets.
+    /// </remarks>
+    [Fact]
+    public void AtTheWaterlineTheOceanMovesTheLandingRatherThanFailing()
+    {
+        MunitionProfile warhead = Arsenal.ReentryVehicleMk21;
+        int moved = 0, failed = 0;
+        double worst = 0.0;
+
+        foreach (double3 from in PredictorEndingTests.AlongTheTrack())
+        {
+            Assert.True(Predict(from, AirAlone, warhead, 0.0, out ImpactPredictor.Impact dry));
+
+            if (!Predict(from, PredictorEndingTests.KsaMedium, warhead, 0.0, out ImpactPredictor.Impact wet))
+            {
+                failed++;
+                continue;
+            }
+
+            double apart = Vec.Len(wet.GroundFixedPointCci - dry.GroundFixedPointCci);
+            if (apart == 0.0) continue;
+
+            moved++;
+            worst = Math.Max(worst, apart);
+        }
+
+        Out.WriteLine($"at sea level, through the ocean: {failed} of {PredictorEndingTests.Samples} found no impact "
+                      + $"and {moved} landed somewhere else, the furthest {worst / 1000.0:F1} km off; "
+                      + "through the air alone every one landed");
+
+        Assert.True(moved > 0, "the ocean has to move a landing here, or this pins nothing");
+        Assert.True(worst > 1_000.0, $"a moved landing is a wrong answer, not a rounding; worst {worst:F3} m");
+    }
+
     private static bool Predict(double3 from, Func<double3, double> medium, MunitionProfile warhead,
-                                out ImpactPredictor.Impact hit)
+                                double groundMetres, out ImpactPredictor.Impact hit)
         => ImpactPredictor.TryPredict(Earth, from, PredictorEndingTests.FlownVelocityCci, 2.0,
                                       ImpactPredictor.DefaultMaxSeconds, out hit,
-                                      _ => R + PredictorEndingTests.FlownGroundMetres, null,
+                                      _ => R + groundMetres, null,
                                       new ImpactPredictor.Drag(medium, warhead), stopOnTheSurface: true);
 }
