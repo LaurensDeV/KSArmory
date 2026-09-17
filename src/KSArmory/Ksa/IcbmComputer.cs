@@ -2097,6 +2097,8 @@ internal sealed class IcbmComputer
             {
                 _salvoSize = 1 + weapon.TubesReadyToFire;
                 _salvoProbe.Forget();
+                _missKickSum = Vec.Zero;
+                _missKickCount = 0;
                 SayWhatTheLoopLeft();
                 SayWhatTheGroundUnderTheAimIsLike();
             }
@@ -2349,8 +2351,6 @@ internal sealed class IcbmComputer
         {
             foreach (WarheadTrace trace in _traces) trace.Forget();
             _traces.Clear();
-        _missKickSum = Vec.Zero;
-        _missKickCount = 0;
             return;
         }
 
