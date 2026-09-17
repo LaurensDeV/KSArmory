@@ -544,7 +544,8 @@
       feed from a tank on this part rather than through the mounting connector - the same shape as
       the kitten jetpack, which is the other self-contained thruster set in the game.
 
-      MMH/NTO at roughly 190 kg, which is a Minuteman-class post-boost load.
+      MMH/NTO. The sphere holds 134 kg at KSA's own storage densities - MMH is 505 kg/m3 in
+      Volatiles.xml, not 880 - which is a Minuteman-class post-boost load.
     -->
     <Tank Id="MirvPropellant">
       <SphericalTank>

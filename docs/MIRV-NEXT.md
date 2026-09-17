@@ -606,8 +606,11 @@ The wait is still expensive to the *shot* — see item 2b — so it is now sized
 stage's own bounding sphere, which is what the coarse contact test uses, and capped at **20 s**
 rather than 90.
 
-Never yet exercised: **whether the tank lasts.** ~183 kg of MMH/NTO against a few m/s is comfortable
-on paper and nothing has spent it.
+Never yet exercised: **whether the tank lasts.** **134 kg** of MMH/NTO — read off the save rather than
+estimated, `51.6452` kg of MMH at a mass fraction of `0.3846` — which at KSA's own 2,906 m/s exhaust
+velocity is 143 m/s fore and aft, 101 on one lateral axis, and 72 across both, since `BusTrim` fires
+one at a time and pays the L1 norm. A flown single-target shot spends a median **16.1 m/s** of it, so
+**the guidance cap binds and the tank does not**: `PostBoostAim.MaxTrimMetresPerSecond` is 60.
 
 ## 2. The walk was the planet's own fall toward the Sun — flown, fixed, and a quarter of what it was
 
