@@ -2228,10 +2228,46 @@ internal sealed class IcbmComputer
                      + $"swing {hi - lo:F1} m, below a 1 km wavelength "
                      + $"{fineHi - fineLo:F1} m peak-to-peak and "
                      + $"{Math.Sqrt(sumSquares / counted):F1} m rms");
+
+            SayWhatThatGroundCostsTheShot();
         }
         catch (Exception e)
         {
             Log.Warn($"could not profile the ground under the aim: {e.Message}");
+        }
+    }
+
+    // The terrain's loop gain at the aim, which decides whether re-aiming converges at all. The
+    // profile above is kilometres of the approach; this is the slope where the round actually
+    // stops. A residual miss lands on ground slope*d off and the arrival turns that back into
+    // slope*d/tan(gamma) more, so past gain one there is no fixed point and the group's spread is
+    // the ground's rather than the guidance's -- a quarter of rockets are past it at the site every
+    // baseline has used (docs/ACCURACY-PLAN.md 3ej). Logged before a night is spent on a site
+    // rather than reconstructed from it afterwards.
+    //
+    // Two scales because a height field answers differently at each: metres is what a miss spans,
+    // tens of metres is what the detail textures resolve.
+    private void SayWhatThatGroundCostsTheShot()
+    {
+        double arrivalDeg = Program.Arc?.ArrivalAngleDeg ?? double.NaN;
+        if (!double.IsFinite(arrivalDeg) || arrivalDeg <= 0.0) return;
+
+        MapFrame? frame = MapFrame.TryAt(Vec.Zero, _trueAimCci, new double3(0, 0, 1));
+        if (frame is not { } at) return;
+
+        double radius = Vec.Len(_trueAimCci);
+        double arrival = arrivalDeg * Math.PI / 180.0;
+
+        foreach (double metres in new[] { 1.0, 25.0 })
+        {
+            if (!GroundSlope.TryAround(at, dir => TerrainRadiusAt(dir * radius), metres, 8, arrival,
+                                       out GroundSlope.Reading r))
+            {
+                continue;
+            }
+
+            Log.Info($"ground under the aim on {KsaWorld.DisplayName(Craft)}: at {metres:F0} m, "
+                     + $"{r.Describe()} (arriving {arrivalDeg:F1} deg)");
         }
     }
 
