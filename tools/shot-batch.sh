@@ -363,7 +363,9 @@ cp -f "$USER_DIR/settings.toml" "$OUT/settings.toml.before" 2>/dev/null || true
 # a save whose target is where the operator put it, that is the one thing a batch must not do.
 if [[ "$AIM" == "none" || -z "$AIM" ]]; then
     SCENARIO_ARG="mirv"
-    [[ -n "$BAR" ]] && SCENARIO_ARG="mirv::$BAR"
+    # One field is the bar alone. "mirv::<km>" reads as a single empty-ish field and is refused,
+    # which is what a bar on an unaimed night used to do -- see ShotRequest.TryParse.
+    [[ -n "$BAR" ]] && SCENARIO_ARG="mirv:$BAR"
 else
     SCENARIO_ARG="mirv:$AIM"
     [[ -n "$BAR" ]] && SCENARIO_ARG="$SCENARIO_ARG,$BAR"

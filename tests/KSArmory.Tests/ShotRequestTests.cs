@@ -123,4 +123,30 @@ public class ShotRequestTests
         Assert.Contains("68.148W", said);
         Assert.Contains("3.0 km", said);
     }
+
+    /// <summary>
+    /// A bar with no aim, which is what a night flown at whatever the scene defends needs: the shot is judged
+    /// and the site is not moved. <c>mirv::5</c> -- an empty aim and a bar -- was refused as one field.
+    /// </summary>
+    [Theory]
+    [InlineData("5", 5_000.0)]
+    [InlineData(" 2.5 ", 2_500.0)]
+    public void ABarOnItsOwnJudgesTheShotWithoutNamingAnAim(string arguments, double metres)
+    {
+        Assert.True(ShotRequest.TryParse(arguments, out ShotRequest shot, out string trouble), trouble);
+        Assert.Equal(metres, shot.BarMetres, 6);
+        Assert.False(shot.AimWasGiven);
+        Assert.Equal(ShotRequest.Default.LatitudeDeg, shot.LatitudeDeg, 6);
+        Assert.Equal(ShotRequest.Default.LongitudeDeg, shot.LongitudeDeg, 6);
+    }
+
+    [Theory]
+    [InlineData("nonsense")]
+    [InlineData("0")]
+    [InlineData("-3")]
+    public void ASingleFieldThatIsNotAPositiveBarIsRefused(string arguments)
+    {
+        Assert.False(ShotRequest.TryParse(arguments, out _, out string trouble));
+        Assert.Contains("km", trouble);
+    }
 }

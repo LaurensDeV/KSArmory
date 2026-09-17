@@ -63,6 +63,10 @@ internal readonly record struct ShotRequest(double LatitudeDeg, double Longitude
     /// <para>Two fields are an aim point and three add the bar in kilometres. A hemisphere letter
     /// may stand in for the sign, because that is how coordinates are written down everywhere else
     /// and a request nobody can type from a map is a request nobody uses.</para>
+    ///
+    /// <para>One field is the bar alone, for a shot aimed at whatever the scene defends: a bar without an
+    /// aim is the only way to judge that shot, and it leaves <see cref="AimWasGiven"/> false so the
+    /// scenario does not move the site to a point nobody named.</para>
     /// </summary>
     /// <param name="trouble">
     /// What an operator has to change, or empty. Naming the field is the whole point: a scenario
@@ -78,9 +82,21 @@ internal readonly record struct ShotRequest(double LatitudeDeg, double Longitude
 
         string[] fields = arguments.Split(',');
 
+        if (fields.Length == 1)
+        {
+            if (!TryBar(fields[0], out double barOnly, out trouble))
+            {
+                trouble = $"expected <km>, <lat>,<lon> or <lat>,<lon>,<km> -- {trouble}";
+                return false;
+            }
+
+            shot = Default with { BarMetres = barOnly };
+            return true;
+        }
+
         if (fields.Length is not (2 or 3))
         {
-            trouble = $"expected <lat>,<lon> or <lat>,<lon>,<km>, got {fields.Length} field(s)";
+            trouble = $"expected <km>, <lat>,<lon> or <lat>,<lon>,<km>, got {fields.Length} field(s)";
             return false;
         }
 
@@ -98,20 +114,26 @@ internal readonly record struct ShotRequest(double LatitudeDeg, double Longitude
 
         double bar = DefaultBarMetres;
 
-        if (fields.Length == 3)
-        {
-            if (!double.TryParse(fields[2].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture,
-                                 out double km)
-                || !double.IsFinite(km) || km <= 0.0)
-            {
-                trouble = $"the bar has to be a positive number of kilometres, not '{fields[2].Trim()}'";
-                return false;
-            }
-
-            bar = km * 1000.0;
-        }
+        if (fields.Length == 3 && !TryBar(fields[2], out bar, out trouble)) return false;
 
         shot = new ShotRequest(lat, lon, bar, AimWasGiven: true);
+        return true;
+    }
+
+    // The pass bar, in kilometres on the way in and metres on the way out.
+    private static bool TryBar(string field, out double metres, out string trouble)
+    {
+        metres = DefaultBarMetres;
+        trouble = "";
+
+        if (!double.TryParse(field.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out double km)
+            || !double.IsFinite(km) || km <= 0.0)
+        {
+            trouble = $"the bar has to be a positive number of kilometres, not '{field.Trim()}'";
+            return false;
+        }
+
+        metres = km * 1000.0;
         return true;
     }
 
