@@ -9509,6 +9509,7 @@ only then does a midpoint-drag arm become resolvable at a night's worth of block
 **So the two fixes are sequenced, not independent** — 49b is not merely the larger of the two, it is the one
 that makes the other measurable. That is the finding this night bought.
 
+**Shipped on after 3em**, which flew it again once the walk was 3 mm wide. Recorded here as it stood:
 `IcbmConfig.DragAtMidpointVelocity` **stays off**: the mechanism is proven headlessly to a micron and the
 flight is consistent with it and underpowered, which is not the same as verified.
 
@@ -10542,6 +10543,26 @@ the gauge was open is not recorded. `docs/KSA-FRAME-ORDER.md` §1.
    re-read against this.
 4. **The rig lesson, a fifth time:** every rig here put the planet at the origin, which is the one case
    where a frame carrier is zero. Both faults were carriers. `MovingPlanetProbe` is the rig that has one.
+
+## 3em. Midpoint drag flown again on a quiet walk: +4.70 mm against 4.67, and it ships — 2026-09-17
+
+`~/shots/2026-09-17-midchaco`, two paired blocks of `base|mid:DragAtMidpointVelocity=true` at the Chaco on
+`9c61d37` (3el's fixes on), 2 of 2 PASS, KSA's own log clean, clock drift 0 on every warhead, 24 midpoint lines a
+shot on `mid` and none on `base`. Declared in `~/shots/scripts-2026-09-17/DECLARE-midpoint-chaco.md`; read by
+`read-paired-walk.py`.
+
+3dy flew this at 5 ms against a walk with a 107 mm sd and could not resolve it. After 3el the walk is 3 mm wide, so
+the 1 ms term is larger than the noise and needs no amplification:
+
+| | walk down, `mid` − `base` | cross | air part down, `base` → `mid` |
+| --- | --- | --- | --- |
+| block 1 | +3.85 mm | −0.35 mm | −2.35 → +2.00 |
+| block 2 | +5.40 mm | −0.90 mm | −1.85 → +2.30 |
+| **pooled median** | **+4.70 mm**, predicted +4.67 | **−0.5 mm**, bar ±1.5 | all of it in the air |
+
+Every declared test passed, so it **ships on**. The group centre moves only 3.20 → 2.67 and 4.29 → 3.76 mm, because
+removing −4.7 mm down leaves **+2 mm down and +2.3 mm cross** that nothing names yet — the walk is now that residual
+plus a dispersion of about 3.4 mm.
 
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
