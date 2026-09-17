@@ -10912,6 +10912,7 @@ what 20b is flying against.
 | **46c** | **Read the repaired surface residue across a night.** 42 mm of ground against a 25 mm walk, but the slope is +0.32 where a real one gives −1.59, and n=8 cannot decide | free with whatever flies next | 3do |
 | ~~47~~ | ~~Re-read whether the walk still has per-seat structure~~ | done, then **OVERTURNED** | **3dp read it through a 10 mm print and could not have seen it. At 0.1 mm \|walk\| on relief is r = +0.777: terrain drives the MAGNITUDE. The signed term is still common** — 3ds, 3dt |
 | ~~49~~ | ~~Make the two height-field readers one call~~ | **premise refuted** | there is one reader, and the two conversion routes are the same quaternion to 1e-15 rad — 3du, 3dv |
+| **49c** | **Stop the PREDICTION on the terrain, as 49b stopped the round.** `ImpactPredictor` places its crossing on a chord between bracket samples; over the engine's 0.31 m tread that is up to half a riser of height, and the miss kick hands it to the round as `δ · cot γ`. The one term behind seat 5's tail, untouched by everything 3el–3en fixed | ~12 lines behind `PredictionStopsOnTheTerrain`, one lookup per prediction that lands, then **4 paired shots** — each gives one sloped seat and seven flat controls in the same world | 3es: r = +0.91, and refining it is 0.42x on the sd with level ground bit-identical |
 | **49b** | **FIRST. Stop the round on the terrain rather than on a chord of it.** 3dy: it is not merely the larger fix, it is the one that makes the drag arm measurable at all — `Slug.cs:685` blends two height samples a sub-step apart — 5.5 m of ground at a 5,500 m/s arrival — while the prediction point-samples. Re-query at the crossing once `f` is known | one lookup per landing round, then a paired night | 3dv: 57% of the walk's variance, none of its bias |
 | **48** | ~~Does the walk grow per frame or per second?~~ **UNRESOLVED on incidental frame-rate variation**, as declared — the interval admits both, and the fast shots are also the fast *regime*, so the correction loop and the frame rate cannot be separated | flown | 3dt |
 | **48b** | **Re-ask 48 with ranked item 8's `minTargetFrameRate` as a paired arm**, which varies the frame rate WITHIN a world so both arms share one regime and the confound cancels | 12 paired shots | 3dt: incidental variation cannot answer this at any n |
@@ -11108,3 +11109,69 @@ no terrain passed in — over a mean sphere, which is the one surface a step can
 the reading. The lesson is narrower than the five above and worth stating on its own: **a recorded
 negative is only as good as what its instrument was pointed at, and this file should name that for
 every entry it carries.**
+
+## 3es. Seat 5's tail is the prediction stopping on a chord — the other half of 49b — 2026-09-17
+
+**Logs plus a headless rig; nothing flown.** 3er's tail was four rockets over 12 mm and all four were seat
+`GeoSat FAT 5`, the one aim at the Chaco on a slope (0.122 at 1 m; every other seat under 0.03). Asked across
+**eight Chaco nights, 1,872 warheads**, it is not a tail at all but a standing term that no build has ever
+touched.
+
+| per-rocket medians, mm | seat 5 | the flat seats |
+| --- | --- | --- |
+| walk sd / mean | **10.1–15.8 / +12** | 1.9–2.2 / ±0.5 |
+| landing sd, downrange | **5.4** | 2.4–3.0 |
+| landing sd, cross | 1.8 | 1.5–1.9 |
+
+It scales monotonically with the seat's own slope — 0.122 / 0.026 / 0.016 / ≤0.003 giving walk sd 11.3 / 2.5 /
+1.9 / 1.6–2.0 — and it is **downrange only**. A pure-downrange term that scales with slope is a *height* error
+times `cot γ`. **3el–3en moved the flat seats' walk mean from −24.8 to −0.2 and never touched this**, which is
+what makes it independent of everything fixed this week.
+
+**What it is not.** Not the round's stop: `the round is X m off the prediction's` reads 0.000 m on 529 of 576
+landings. Not the release, the ring or the tubes: those carry cross, and cross barely moves. Not frame time
+(+0.162 ± 0.284 mm/ms at seat 5) nor the crossing phase (−0.037 ± 0.116). Not terrain gain alone: seat 5's is
+1.24x, so amplifying the flat seats' 2.5 mm gives 3.1 and not 11.3.
+
+**The mechanism.** `ImpactPredictor`'s `stopOnTheSurface` places the crossing **linearly between the sample
+above the ground and the first below** — a bracket of 0.4–1.1 m of track. Over the engine's float-packed terrain
+staircase (0.31 m treads, risers of slope × tread) that chord sits up to half a riser off the real surface, and
+`δ · cot γ` is 1.6 δ of ground here. `Slug.cs` already does the other thing — one query at the crossing, a secant
+step, one re-read — which is **exactly 49b, made on the round in 3dv/3ea and never made on the prediction.** The
+error reaches the landing through `ReleaseFocus.TryMissKick`, which cancels the chord from the *probe's reported
+impact* to the aim: whatever height the probe stopped wrong by is handed to the round as `+δ · cot γ`.
+
+**The rig** (`ProbeCrossingFloorTests`, `WalkFloorTests`' seven octaves with the direction packed to `float3` as
+`Celestial` packs it, 24 random release states, scored against the aim rather than as the walk):
+
+| slope | landing, mm | probe's own stop × cot | r | with the crossing refined onto the terrain |
+| --- | --- | --- | --- | --- |
+| 0.000 | 0.17 ± 0.00 | −0.00 ± 0.00 | — | **bit-identical** |
+| 0.030 | 0.16 ± 0.59 | −0.05 ± 0.59 | +0.99 | |
+| **0.122** (this site) | 1.30 ± **3.28** | +0.99 ± 2.96 | **+0.91** | 0.31 ± **1.38**, r → 0.01 |
+| 0.350 | 4.92 ± 7.92 | +2.98 ± 6.69 | +0.26 | 3.03 ± 7.40 |
+
+So **0.42x on the sd at the flown slope**, and level ground cannot move. The float staircase is about half of
+it — 3.28 packed against 1.49 with the exact direction. At 0.35 the round's own 1 ms sub-step becomes
+co-dominant, which is the interesting part: **3ei refuted `WarheadSubStepMs` on a build whose landing was
+dominated by the 25 mm frame-time walk 3el has since removed**, and the rig now says the sub-step is worth
+8.55 → 5.28 mm at slope 0.35 and nothing at 0.122. **Re-ask 45b on the rough site, after this, not before.**
+
+The rig under-reads the flown site ~3.5x (its walk-equivalent is 3.3 mm where seat 5 flies 11.3), because a
+0.122 *peak* slope summed over octaves is gentler at the 0.3 m scale than the real hillside. **Scale the prize,
+not the ratios.**
+
+Seen in one log and worth keeping: in shot 002 seat 5, round 1 read `ground rising −0.007` where its five
+siblings read `+0.120…+0.132` over impacts 20 mm apart — a **27 mm height step across 20 mm of ground**, which
+is the float-packed tread with a 38 mm riser at this slope. That round landed +33 mm where the others landed
+−3 to −22.
+
+**Open.** The flown walk (11.3 mm sd) is twice the flown landing scatter (5.4 mm) where the rig says they are
+one term. Best candidate: the six *release* probes fly from mouths within ~20 mm of each other and often share a
+tread, so their error is partly common-mode and lands in the group's *centre*, while the six *trace* probes fly
+from a 0.86 m ring, ~4 treads apart, and decorrelate. If that is right the fix shrinks seat 5's centre as well
+as its spread. Untested.
+
+**What it is worth elsewhere.** At the Chaco it is one seat in eight, so the shot headline barely moves (pooled
+worst warhead 7.0 mm, 6.0 excluding seat 5) — this is about the instrument being clean. At **26.485S 68.148W
+every seat is sloped** (3ej: median 0.152, 75th 0.406, 90th 1.092), so it is on every rocket there.
