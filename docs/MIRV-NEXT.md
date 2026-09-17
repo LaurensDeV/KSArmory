@@ -3626,7 +3626,7 @@ mechanism behind 8r's ratio and it is not the arrival angle.
 
 ## 8q. The correction is not the miss under a floor — the rig was wrong by 150x, and the floor is the result — 2026-08-26
 
-`~/shots/2026-08-26-1834`, four shots, two arms, both at `MinArrivalAngleDeg = 15`, differing only
+`~/shots/2026-08-26-1836`, four shots, two arms, both at `MinArrivalAngleDeg = 15`, differing only
 in `IcbmConfig.CorrectAim`. Flown to test a headless claim; the claim lost.
 
 ### What was predicted, and what flew
