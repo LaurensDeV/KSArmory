@@ -539,7 +539,8 @@ internal sealed partial class Ui
             + "are. Off: the frame's first sample is held for every sub-step of it, so a re-entering "
             + "round -- which crosses about 150 m of ground in a frame -- has its drag measured "
             + "against air it has left. The error is square to the airspeed, so it tilts the "
-            + "deceleration rather than resizing it. Headless it moves the landing 3.59 mm. Warheads "
+            + "deceleration rather than resizing it. Flown it took the group's centre from about 4 mm "
+            + "off the aim to 1.4. Warheads "
             + "only; a cannon's shells live seconds over ground metres away, where it is nothing.");
 
         bool ownEpoch = config.GroundQueryAtOwnEpoch;

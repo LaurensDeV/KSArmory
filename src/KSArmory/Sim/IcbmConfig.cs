@@ -580,11 +580,12 @@ internal sealed class IcbmConfig
     /// it tilts the deceleration rather than resizing it, and <see cref="ImpactPredictor"/> recomputes
     /// the term at every RK stage.</para>
     ///
-    /// <para><b>Headless it moves the landing 3.59 mm</b> on a spinning planet at the flown release,
-    /// against a walk whose scatter is 23.57 mm after <see cref="StopWarheadsOnTheTerrain"/>. Off
-    /// pending its night. <c>docs/ACCURACY-PLAN.md</c> 3dx Rank 2.</para>
+    /// <para><b>On.</b> Headless it moves the landing 3.59 mm. Flown once the walk was 3 mm wide, paired over two
+    /// blocks at the Chaco: the landing walk went from (+3.35 down, +2.55 cross) to (+0.15, −0.40) mm and the
+    /// group centre from 4.17 and 3.48 mm to 1.40 and 1.33, all of it in the air. <c>docs/ACCURACY-PLAN.md</c>
+    /// 3dx, 3en.</para>
     /// </remarks>
-    public bool WarheadAirVelocityPerSubStep;
+    public bool WarheadAirVelocityPerSubStep = true;
 
     /// <summary>
     /// Ask the ground where it was at the sub-step's own instant — <see cref="Slug.GroundQueryAtOwnEpoch"/>.
