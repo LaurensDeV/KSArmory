@@ -11586,3 +11586,39 @@ anomalous, the floor is not mis-sized, and the reading that suggested both said 
 about the bus. The next measurement is `base|nopulse:PulseTrim=false`, which tests the causal claim with
 no code at all.
 
+
+## 3fa. The pulse guard is a *flight* fix: it repairs a belief that was collapsing 34% — 2026-09-18
+
+**Read off the logs of 3ey and 3ez rather than flown for.** `78e0ee5` was committed as an instrument
+fix — the pulse branch of `Measure` crediting a hold interval to a pulse. **It is not only that.** The
+same one-frame lag runs the other way through the *acceleration* branch, and `_accel` is not a printout:
+`StopBand`, `PulseEntry`, the pulse floor, `refine` and the stall's own progress threshold are all
+computed from it.
+
+**The mechanism, and the arithmetic is exact.** On a pulse→hold transition the interval is driven by the
+pulse — `accel x pulse / step` = `0.564 x 0.001 / 0.0143` = **0.039 m/s²** against a bus of 0.564 — and
+the old guard `_firingFor >= 2 && !_pulsedLast` let it into the smoother. At `AccelerationGain = 0.2`
+each one drags the belief 20% of the way down to 0.039. Three of them, flown:
+
+```
+GeoSat FAT 4_1   0.564 -> 0.460 -> 0.402 -> 0.370   while toGain rose 0.015 -> 0.022, then stalled
+```
+
+**And the collapse tracks the stall.** Over all 32 nulls in `~/shots/2026-09-18-pulseread` and
+`~/shots/2026-09-18-pulsesample` — 11 stalled, 34%, which is 3ey's 36% again:
+
+| | nulls | stalled |
+| --- | --- | --- |
+| belief fell **≥ 15%** | 9 | **7 (78%)** |
+| belief fell < 15% | 23 | 4 (17%) |
+
+Median drop **18% on the nulls that stalled against 1% on the nulls that finished.**
+
+**It is not the whole cause.** Four stalls happened with the belief intact to a tenth of a per cent. What
+every stall does share is the shape: **no stalled null ever got below 0.010 m/s, and every finished one
+reached 0.002–0.003.** So there is a floor at ~0.012 that seven nulls were pushed into by their own
+deflated belief and four reached some other way.
+
+**What follows for the record.** `78e0ee5` says "the reading" and should have said "the loop". The guard
+changes what the bus does, it is **unverified in flight**, and `~/shots/2026-09-18-nopulse` is its first
+— both arms carry it, so base's stall rate there against 3ey's 36% is what sizes it.
