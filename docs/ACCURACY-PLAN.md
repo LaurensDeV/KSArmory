@@ -11354,3 +11354,62 @@ That is noise at this n and a reason to fly **26.485S 68.148W**, where 3ej says 
 (median 0.152, 75th 0.406) rather than one in eight — the term should be on every rocket there, and the
 same night is where 45b has to be re-asked, because the 3es rig says the round's own sub-step binds at
 slope 0.35 and nothing at 0.122.
+
+## 3ew. 49c at the rough site: it works everywhere and finishes nowhere — 2026-09-18
+
+`~/shots/2026-09-18-andesterrain`, **12 paired blocks** of `base|terr:PredictionStopsOnTheTerrain=true` at
+**26.485S 68.148W** on `70b5760` — the first night flown with the physical round and the air kick, so
+`base` here is not the `base` of any earlier Andes night. **12 of 12 PASS**, clock drift −0.001 ns, 96
+rockets carrying both a slope reading and a traced group. Declared in
+`~/shots/scripts-2026-09-18/DECLARE-andes-terrain.md`.
+
+**Within-rocket walk sd, by the seat's own measured slope:**
+
+| slope band | `base` | `terr` | |
+| --- | --- | --- | --- |
+| 0.03–0.15 | 5.71 mm | **2.89 mm** | n = 24 each |
+| 0.15–0.40 | 13.58 mm | **3.87 mm** | n = 6 |
+| **over 0.40** | **30.89 mm** | **14.10 mm** | n = 18 |
+| all | 10.45 mm | **3.45 mm** | n = 48 |
+
+**It works, and it does not finish.** Every band improves by 2.2x to 3.5x, and the site's median rocket
+goes from 10.45 mm of walk sd to 3.45 — the Chaco's own flat-seat figure. But at slopes past 0.40 it
+leaves **14.10 mm**, which is still five times the flat-ground number. That is exactly what 3es's rig
+predicted: at slope 0.35 the round's **own 1 ms sub-step** becomes co-dominant with the chord bias, so a
+tail surviving 49c is the sub-step's. **This is the condition for re-asking 45b**, binned on the seats
+past 0.40, and it is now a measurement rather than a guess.
+
+### The declared primary was ambiguous, and the ambiguity is mine
+
+The declaration said *refuted if `terr`'s walk sd still rises with slope at more than half `base`'s rate*
+and **did not name an estimator**. The two disagree:
+
+| rate of walk sd on slope | `base` | `terr` | |
+| --- | --- | --- | --- |
+| least squares | +58.67 mm | +57.47 mm | 98% — **refuted** |
+| Theil–Sen | +54.83 mm | **+23.66 mm** | 43% — **passes** |
+
+The gap is **one rocket**: `terr` shot 001 seat 4 at **94.6 mm**, worse than anything `base` flew. Seat 4
+is noisy on both arms (`base` flew 41.6, 50.1 and 54.9 mm there), so this is that seat's own scatter
+rather than something the arm introduced — but a single point moving a verdict is the definition of an
+estimator chosen after the fact. **Read the robust line; the least-squares line is reported so nobody
+finds it later and thinks it was hidden.** Any future declaration on a heavy-tailed endpoint has to name
+the estimator before it flies.
+
+### The declared secondary had no data, and that is worth more than the endpoint would have been
+
+The night was declared against **3ej's past-gain-one quartile**, whose median dispersion was 41.18 mm.
+**No rocket on either arm reached gain one**: the gain's median is 0.25, its 90th percentile 0.93 and its
+maximum **0.930**, against 3ej's 75th of 0.406 and 90th of **1.092**.
+
+The site is the same and the aim is the same; what differs is where `AimSpread` put eight seats this
+time. **So "a quarter of rockets land past gain one" is a property of a particular spread, not of the
+site**, and any night declared against that quartile may simply not sample it. The eight seats here
+topped out at slope 0.590, and `gain = slope / tan γ` at a 32° arrival cannot pass one below 0.625.
+
+### The falsifier's premise was wrong, in the fix's favour
+
+It asked that the low-slope seats read the Chaco's 2–3 mm **on both arms**. They do not: at 0.03–0.15
+`base` reads 5.71 mm. Even gentle ground here carries the term, and `terr` is what brings those seats to
+2.89 mm. Nothing moved that should not have; the expectation was calibrated on Chaco flat seats and did
+not transfer.
