@@ -106,7 +106,13 @@ internal readonly record struct TrimSituation(
     /// Whether a trim that stopped improving while already inside its own stop band reports finishing
     /// rather than giving up — <see cref="IcbmConfig.StoppingInsideTheBandIsDone"/>.
     /// </summary>
-    bool StoppingInsideTheBandIsDone = false);
+    bool StoppingInsideTheBandIsDone = false,
+
+    /// <summary>
+    /// Whether a pulse phase that stops closing gives way to holding rather than ending the null —
+    /// <see cref="IcbmConfig.StallFallsBackToHolding"/>.
+    /// </summary>
+    bool StallFallsBackToHolding = false);
 
 /// <summary>What to fire and whether the warheads may go.</summary>
 /// <param name="Acceleration">
@@ -355,6 +361,10 @@ internal sealed class BusTrim
     // Whether the last command was a pulse. A pulse is a millisecond of thrust in a frame, so an
     // acceleration measured across one reads a fraction of the truth — and that reading sizes the
     // pulse floor, charges the budget, and decides whether a direction still moves the bus.
+    // Whether the pulse phase has already given way to holding on this null. One-shot: a second stall
+    // is the hold's own and ends the null, so this cannot become a wait that never ends.
+    private bool _gaveWayToHolding;
+
     private bool _pulsedLast;
 
     // The frame before that. A command reaches the engine's worker one frame after it is written, so
@@ -499,6 +509,7 @@ internal sealed class BusTrim
         _since = 0.0;
         _firingFor = 0;
         _fire = TrimAxes.None;
+        _gaveWayToHolding = false;
         _pulsedLast = false;
         _pulsedBefore = false;
         _pulsingFor = 0.0;
@@ -532,6 +543,7 @@ internal sealed class BusTrim
         _havePrev = false;
         _firingFor = 0;
         _fire = TrimAxes.None;
+        _gaveWayToHolding = false;
         _pulsedLast = false;
         _pulsedBefore = false;
         _pulsingFor = 0.0;
@@ -648,6 +660,7 @@ internal sealed class BusTrim
         // than about this frame: nothing inside PulseEntry is out of a pulse's reach, and past the
         // bound the phase is no longer closing.
         bool refine = fine > 0.0
+                      && !_gaveWayToHolding
                       && _toGain <= PulseEntry(band)
                       && _pulsingFor < PulseSecondsPerNull;
 
@@ -684,6 +697,22 @@ internal sealed class BusTrim
         // to be the phase's own scale. Against the standing one it would give up while working.
         if (Stalled(step, pulse ? 0.25 * fine : ProgressMetresPerSecond))
         {
+            // A hold has about 150 times a pulse phase's authority, and PulseSecondsPerNull exists to
+            // drop a phase that is chasing a receding reference back to one -- but StallSeconds is half
+            // as long, so that guard has never run. Flown, no null owing under 1.5 m/s at the split has
+            // ever stalled and 31 of 53 above it have, which is the shape of a reference the phase
+            // cannot keep up with. ACCURACY-PLAN 3fd.
+            // The clock is reset with it, because the hold that follows is a different regime being
+            // judged by a threshold 24x coarser and deserves its own run at it.
+            if (now.StallFallsBackToHolding && _pulsingFor > 0.0 && !_gaveWayToHolding)
+            {
+                _gaveWayToHolding = true;
+                Restart();
+
+                return Command(TrimAxes.None,
+                               $"the pulse phase stopped closing at {_toGain:F3} m/s -- holding instead");
+            }
+
             // Stopping is not failing. A give-up means "there is no actuator left" to `PostBoostAim`,
             // which then ends with no passes taken and forfeits the whole post-cutoff correction --
             // so a loop that nulled metres per second into its own stop band and then stopped
@@ -819,6 +848,14 @@ internal sealed class BusTrim
     // Against the lowest ever reached rather than the last cycle's, because the number wanders: a
     // bang-bang loop overshoots by a quantum and comes back, so "worse than last time" is the
     // ordinary state of a loop that is working.
+    // Give the progress watch a fresh run. Only for a change of regime: a loop that restarts its own
+    // clock while nothing else changed cannot stall at all.
+    private void Restart()
+    {
+        _lowest = _toGain;
+        _sinceProgress = 0.0;
+    }
+
     private bool Stalled(double step, double progress)
     {
         if (_toGain <= _lowest - progress)

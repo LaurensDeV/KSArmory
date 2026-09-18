@@ -683,6 +683,30 @@ internal sealed class IcbmConfig
     public bool StoppingInsideTheBandIsDone;
 
     /// <summary>
+    /// A pulse phase that stops closing gives way to holding rather than ending the null —
+    /// <see cref="BusTrim"/>.
+    ///
+    /// <para><b>The two clocks are in the wrong order.</b> <c>BusTrim.PulseSecondsPerNull</c> is 20 s
+    /// and exists precisely to drop a pulse phase back to holding when it is chasing a reference that
+    /// runs away from it; <c>BusTrim.StallSeconds</c> is 10 s and ends the whole null. The shorter one
+    /// is always reached first, so that guard has never once run.</para>
+    ///
+    /// <para><b>And a hold is about 150 times the authority.</b> A pulse phase closes at
+    /// <c>accel x pulse / PulseEverySeconds</c>, 3.7 mm/s per second on the shipped bus, where a hold
+    /// closes at the acceleration itself. Flown at 12,902 km, no null owing under 1.5 m/s at the split
+    /// has ever stalled and 31 of 53 above it have — the shape of a phase that cannot keep up rather
+    /// than of an actuator that does not work, since the pulses arrive at the engine's full allowance
+    /// and deliver 1.01x of what they ask. <c>docs/ACCURACY-PLAN.md</c> 3fd.</para>
+    ///
+    /// <para><b>One-shot, and the progress clock restarts with it.</b> A second stall belongs to the
+    /// hold and ends the null, so this cannot become the wait that never ends — which is what the
+    /// deleted <c>arm/trim-band</c> version was, costing 110 s and a worse residual. 3fb.</para>
+    ///
+    /// <para><b>Off, and unflown.</b></para>
+    /// </summary>
+    public bool StallFallsBackToHolding;
+
+    /// <summary>
     /// Give each warhead the separation velocity that lands it where the tubes' mean would —
     /// <see cref="ReleaseFocus"/>.
     ///

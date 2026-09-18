@@ -573,6 +573,15 @@ internal sealed partial class Ui
             + "it reports a give-up, which the aim correction reads as having no actuator left and ends "
             + "with no passes -- forfeiting about 3 km of correction to avoid a residual worth 4 to 12 m.");
 
+        bool fallBack = config.StallFallsBackToHolding;
+        if (ImGui.Checkbox("A pulse phase that stops closing holds instead", ref fallBack))
+        {
+            config.StallFallsBackToHolding = fallBack;
+        }
+        Tip("On: the trim drops back to holding its jets on, which is 150 times a pulse's authority, and "
+            + "gives the null a fresh run at its own clock. Off: the 10 s stall clock ends the whole "
+            + "null first -- at 12,902 km that cost 20 of 56 rockets between 1.2 and 5.4 km.");
+
         bool predictOnTerrain = config.PredictionStopsOnTheTerrain;
         if (ImGui.Checkbox("Predictions stop on the terrain too", ref predictOnTerrain))
         {

@@ -684,4 +684,75 @@ public class BusTrimPulseTests(ITestOutputHelper Out)
                     $"fired {fired * 100.0:F1}% of commands, which is the engine's own allowance -- so "
                     + "this fixture is not in the dead-direction regime it claims to be");
     }
+
+    /// <summary>
+    /// A pulse phase that stops closing gives way to holding, and the hold finishes the null —
+    /// <see cref="IcbmConfig.StallFallsBackToHolding"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>The regression is the 200 s bound, not the verdict.</b> The version this replaces held
+    /// the fallback open on a clock that its own branch returned before advancing, so the trim fired
+    /// nothing until <see cref="BusTrim.MaxSeconds"/> and gave up anyway — 110 s wasted and the
+    /// residual worse. Its fixture flew to 60 s against a 120 s timeout and could not see any of it, so
+    /// this one flies to 200 and asserts the null ended well inside the cap.
+    /// <c>docs/ACCURACY-PLAN.md</c> 3fb.</para>
+    /// </remarks>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void APulsePhaseThatStopsClosingGivesWayToHolding(bool fallBack)
+    {
+        // The runaway reference of 3fd: faster than a pulse phase's 3.7 mm/s per second and far inside
+        // what a hold can answer, which is the whole regime this switch is about.
+        const double DriftMetresPerSecondSquared = 0.08;
+
+        (TrimBus bus, double3 from, double3 reference) = Coasting(WeakJets, WeakJets);
+        Shove(bus, 0.2);
+
+        BusTrim trim = new();
+        trim.Begin();
+
+        double elapsed = 0.0;
+        TrimCommand last = default;
+        TrimCommand pending = default;
+        bool gaveWay = false;
+
+        while (elapsed < 200.0)
+        {
+            last = trim.Update(Step, new TrimSituation(
+                Earth, bus.PositionCci, bus.VelocityCci, from,
+                reference + bus.NoseCci * (DriftMetresPerSecondSquared * elapsed), elapsed,
+                bus.NoseCci, bus.RightCci, bus.DownCci, PulseSeconds: Pulse,
+                StallFallsBackToHolding: fallBack));
+
+            gaveWay |= last.Said.Contains("holding instead");
+
+            if (last.Done) break;
+
+            bus.Step(Earth, pending.Fire, Step, pending.Pulse);
+            pending = last;
+            elapsed += Step;
+        }
+
+        Out.WriteLine($"fall-back {fallBack}: {last.Said} | {elapsed:F1} s, gave up {trim.GaveUp}");
+
+        Assert.True(last.Done, "the null never ended");
+
+        if (fallBack)
+        {
+            Assert.True(gaveWay, "the phase never gave way, so the switch did nothing");
+            Assert.False(trim.GaveUp, $"the hold did not finish the null: {last.Said}");
+
+            // The deleted version's failure, which its own fixture could not reach.
+            Assert.True(elapsed < 0.5 * BusTrim.MaxSeconds,
+                        $"the null ran {elapsed:F1} s against a {BusTrim.MaxSeconds:F0} s cap -- the "
+                        + "fallback is waiting on a clock that is not advancing");
+        }
+        else
+        {
+            Assert.False(gaveWay, "the control arm gave way, so the switch is not what is doing it");
+            Assert.True(trim.GaveUp);
+            Assert.Contains("stopped closing", last.Said);
+        }
+    }
 }
