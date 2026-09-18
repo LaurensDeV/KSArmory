@@ -703,4 +703,48 @@ public sealed class MirvDivertTests(ITestOutputHelper Out)
                           + $"{Vec.Len(MinimumNorm(j, 0.0, 20_000.0)),6:F2} m/s across");
         }
     }
+
+    /// <summary>
+    /// What the flight's <em>pinned</em> arrival costs a divert, against the free clock every other
+    /// number in this file is priced with.
+    /// </summary>
+    /// <remarks>
+    /// <para><see cref="MinimumNorm"/> leaves the arrival instant wherever it falls — two ground
+    /// conditions on three unknowns — and the whole footprint is priced that way. The flight does not:
+    /// <c>IcbmProgram</c> latches the arrival at closed-loop handover and <c>ResolveCoastArc</c> solves
+    /// every later arc to that same instant, so a divert between destinations is an exactly-determined
+    /// three-by-three and strictly dearer.</para>
+    ///
+    /// <para><b>This is the number that decides whether a release loop may keep one arrival for the
+    /// whole itinerary</b>, or has to re-commit it per destination — which would need a re-latch after
+    /// cutoff that does not exist today, the latch living inside <c>Resolve</c>, which the coast never
+    /// reaches.</para>
+    /// </remarks>
+    [Fact]
+    public void ThePinnedArrivalIsWhatADivertActuallyCosts()
+    {
+        Out.WriteLine("a 50 km hop along the track and a 20 km hop across it, m/s\n");
+        Out.WriteLine($"{"",-38}{"free clock",22}{"pinned arrival",24}");
+
+        foreach (Shot shot in new[] { Release2000, Flown6179, Release12902,
+                                      Cutoff2000, Cutoff6179, Cutoff12902 })
+        {
+            Jacobian j = Columns(shot);
+
+            foreach ((double along, double cross, string what) in
+                     new[] { (50_000.0, 0.0, "50 km along"), (0.0, 20_000.0, "20 km across") })
+            {
+                double free = Vec.Len(MinimumNorm(j, along, cross));
+                double pinned = Vec.Len(Solve(j, along, cross, 0.0));
+
+                Out.WriteLine($"{shot.Name,-26}{what,-12}{free,10:F2} m/s{pinned,18:F2} m/s"
+                              + $"{pinned / free,10:F2}x");
+
+                // The pinned solve satisfies one more condition out of the same three unknowns, so it
+                // can never be the cheaper of the two.
+                Assert.True(pinned >= free - 1e-9,
+                            $"{shot.Name} {what}: pinned {pinned:F3} under free {free:F3}");
+            }
+        }
+    }
 }
