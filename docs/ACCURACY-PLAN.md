@@ -11681,3 +11681,38 @@ actuator and at the error being re-created as fast as it is removed.
 **It does not have to be explained to be survivable.** `arm/trim-done` makes the stall non-fatal
 whatever its cause, which is the change with the evidence behind it. A watch sized to a pulse's own
 scale would label the dead axis honestly instead — worth building only if the stall survives the night.
+
+## 3fd. The stall has a threshold, and it is the separation debt — 2026-09-18
+
+Every null across `~/shots/2026-09-18-longrange`, `-pulseread` and `-pulsesample`, bucketed by what the
+decoupler owed the bus at the split — the number `split debt` prints and nothing downstream reads:
+
+| owed at the split | stalled |
+| --- | --- |
+| 0.0 – 1.5 m/s | **0 of 35** |
+| 1.5 – 2.0 | 7 of 23 (30%) |
+| 2.0 – 2.5 | 4 of 4 |
+| 2.5 – 3.5 | 11 of 16 (68%) |
+| 3.5 – 10 | 9 of 10 (90%) |
+
+**Monotone, with a floor at 1.5 m/s that 35 nulls sit under and none of them stalled.** Median debt 2.98
+on the stalls against 1.43 on the ones that finished. The reference's *age* — 2,353 s against 2,357 —
+separates nothing, so this is about how much work the null has, not how stale its solution is.
+
+**It makes one account of everything measured in 3ez, 3fa and 3fc.** A bigger debt is a longer null; the
+arrival is latched, so over that time the velocity the bus is required to have keeps moving; and the
+pulse phase closes at about `accel x pulse / PulseEverySeconds` = **3.7 mm/s per second**. Where the
+reference recedes faster than that, the residual sits at whatever equilibrium the two reach — 0.01 to
+0.03 m/s — and no amount of delivery moves it. That is why the pulses arrive at full size (1.01x, at the
+engine's full allowance) while the number does not fall, and why a stall alternates between the same
+**two** directions: the recession has a direction, and the same components keep regrowing.
+
+**It also vindicates the idea 3fb deleted.** A *hold* has about 150 times a pulse phase's authority and
+would beat the recession outright; `PulseSecondsPerNull` exists precisely to drop a runaway phase back
+to one, and `StallSeconds` is half as long so it has never run. The implementation on `arm/trim-band`
+was broken and had to go; the premise under it is now the best-supported thing on this page.
+
+**Three things to fly, in order.** (1) `arm/trim-done` — make the stall non-fatal, which is worth
+1.2–5.4 km on a third of rockets whatever the cause. (2) A repaired guard that *actually* falls back to
+holding — clear the phase and let `Choose` pick against the wide band. (3) Reduce the debt itself, which
+is upstream of all of it and which nothing has yet tried.
