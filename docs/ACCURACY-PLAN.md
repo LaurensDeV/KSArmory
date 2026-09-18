@@ -11754,6 +11754,22 @@ an artefact of a machine that cannot hold its frame rate.
 Six points apart on 88 flights, against a 36% base rate. **Whatever stalls the trim is not the frame
 rate**, which also means the flown rate is not inflated by this machine's bad nights.
 
+**Nor does it predict the miss**, which is the stronger version of the same question. Over the 112
+rockets of all four long-range nights, split the same way:
+
+| | rockets | median | 90th | over 1 km |
+| --- | --- | --- | --- | --- |
+| failed the frame check | 64 | 0.0 m | 3,168 m | 23 (**35%**) |
+| passed it | 48 | 0.0 m | 3,046 m | 13 (**27%**) |
+
+**Both groups are bimodal in the same way** — a median on the millimetre and a ninetieth percentile
+three kilometres out. What the check rejects is real (`the coast left the inertial frame`, 8 of 8
+probes diverged on shot 003) and it is *not* what makes a third of the rockets miss. The long-range
+defect survives every attempt so far to make it an artefact of the machine or the harness.
+
+**It does cost the night's yield.** Two of the first three shots were rejected, and the earlier nights
+ran 6 of 11 — so reaching 20 accepted blocks is roughly 45 shots and 14 hours, not 6.
+
 **And any reader of a night has to exclude those shots.** `~/shots/scripts-2026-09-18/nopulse-read.py`
 does, because the first version did not and reported 3 of 8 stalled off a flight the night had already
 thrown away.
