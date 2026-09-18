@@ -10918,7 +10918,7 @@ what 20b is flying against.
 | **49b** | **FIRST. Stop the round on the terrain rather than on a chord of it.** 3dy: it is not merely the larger fix, it is the one that makes the drag arm measurable at all — `Slug.cs:685` blends two height samples a sub-step apart — 5.5 m of ground at a 5,500 m/s arrival — while the prediction point-samples. Re-query at the crossing once `f` is known | one lookup per landing round, then a paired night | 3dv: 57% of the walk's variance, none of its bias |
 | **48** | ~~Does the walk grow per frame or per second?~~ **UNRESOLVED on incidental frame-rate variation**, as declared — the interval admits both, and the fast shots are also the fast *regime*, so the correction loop and the frame rate cannot be separated | flown | 3dt |
 | **48b** | **Re-ask 48 with ranked item 8's `minTargetFrameRate` as a paired arm**, which varies the frame rate WITHIN a world so both arms share one regime and the confound cancels | 12 paired shots | 3dt: incidental variation cannot answer this at any n |
-| **2b** | The 20 s clearance knife-edge — the second branch, now the largest at long range | 12 paired shots | 12,902 km: 8.80 km -> ? |
+| ~~2b~~ | ~~The 20 s clearance knife-edge~~ | **STALE, and answered by 3ey.** Its numbers predate `288170a`, which defaulted `KeepOutCoversTheClearance` on and made the abandon branch unreachable — and it contradicted the Dead list below, which already retired the 20→25 arm. Flown 2026-09-18: the gate opens at 3–4 s on 56 of 56 and never abandons. **The long-range miss is `BusTrim.Stalled`** |
 | ~~3~~ | ~~**Diagnostic**: log the release residual and `_response` per flight~~ | done | `release summary`, read by `shot-report.py`; 3x |
 | ~~4~~ | ~~Measure `dMiss/dV` at both flown geometries~~ | done | **the residual is worth 36 m per m/s, not 884** — 3x |
 | ~~5~~ | ~~Derive `HoldingCostsMetresPerSecond`~~ | done | 2,000 km: **110 -> 30 m**, 0.28x; 3l-3w |
@@ -11437,6 +11437,10 @@ Chaco flies — millimetres — so nothing about long range degrades the guidanc
 corrects or it does not, and 36% do not. Item 2b's own figure was 82 of 183, about half; 36% at n=56
 neither confirms nor contradicts that, and seven shots cannot.
 
+**The mechanism named here was wrong, and 3ey has the right one.** This section first read the split as
+item 2b's 20 s clearance knife-edge. It is not: the clearance gate opened at **3–4 s on 56 of 56** and the
+abandonment sentence appears **zero** times. What fires is `BusTrim.Stalled`.
+
 **Why this outranks everything else left.** Every result of 2026-09-17/18 is a few millimetres **at
 6,179 km**. Against a 2 km lethal radius, 3 mm and 300 mm are the same shot and **5.36 km is a miss** —
 so this is the only remaining defect a player could observe, and it is at the range an intercontinental
@@ -11451,3 +11455,87 @@ whether a real night is worth flying. It is.
 `tools/shot-batch.sh:274` does not produce — **`--blocks` does not mean what it appears to for a
 single-arm run, and the cause is not yet found.** And a long-range shot costs **17–20 min**, not the
 12.1–12.4 the 2026-08-31 and 09-01 nights ran at, so any estimate taken off those is 1.5x low.
+
+## 3ey. The long-range miss is a converged trim being called a failure — 2026-09-18
+
+**Two investigations, one from the code and one from the logs, neither having seen the other, on the
+56 rockets of 3ex.** They agree, and they overturn item 2b.
+
+### It is not the clearance knife-edge
+
+| over 56 flights | |
+| --- | --- |
+| `clear of the spent stack at 15 m after 3 s` | 8 |
+| `... after 4 s` | 48 |
+| the abandonment sentence | **0** |
+| `going ahead with no clearance reading` | 0 |
+
+The gate opens at **4 s against a 20 s deadline** — a sixteen-second margin, not a knife-edge. And it
+could not have fired anyway: `288170a` (2026-08-30) defaulted `IcbmConfig.KeepOutCoversTheClearance` on,
+and `PostCutoffSequence.Decide` then makes `Abandon` unreachable — the timeout *starts* the trim rather
+than ending the correction. **Item 2b has been describing the `false` branch for nineteen days**, and the
+plan's own Dead list already said the 20→25 arm was dead while the backlog table still ranked it.
+
+### What fires is `BusTrim.Stalled`, and the separation is total
+
+| | landing ≥ 1 km | landing < 20 m |
+| --- | --- | --- |
+| **the trim gave up** | **20** | 0 |
+| the trim finished | 0 | **36** |
+
+Fisher exact **p = 1.3e-15**, zero misclassifications. Of the five paths that set `GaveUp`, only one was
+ever taken — `the trim stopped closing` — and it fires in the **first** null, the one removing the
+decoupler shove, before `PostBoostAim` has taken a single pass. `TrimGaveUp` reads to `PostBoostAim` as
+*there is no actuator left*, so it finishes with `Cycles == 0` and **the entire post-cutoff aim correction
+is never applied**.
+
+### The trim had already done its job
+
+What was left on the bus when it was declared a failure, against
+`BusTrim.SettledMetresPerSecond = 0.02`:
+
+| left | flights |
+| --- | --- |
+| 0.01 m/s | 10 |
+| 0.02 m/s | 14 |
+| 0.03 m/s | 16 |
+
+Every one is inside or at its own stop band, after nulling 5 m/s. The mod prices that residual itself —
+`trim floor: 8.2 m (0.020 m/s x 408 m per m/s)` — so **the velocity it failed to remove is worth 4–12 m,
+and the correction it forfeited is worth 1.2–5.4 km.**
+
+### So the miss is the forfeited correction, not the uncorrected shove
+
+`miss = owed × sensitivity` is **refuted**: within the bad population the landing regresses on owed
+velocity at r = +0.14, and would need 641 m per m/s against a measured 301–408. What it actually
+regresses on is the loop's own last predicted miss — **r = 0.9994, slope 1.02** over all 56. The burn
+leaves every flight ~3 km of bias; the good flights' passes walk it back to 0–6 m, and the bad flights
+land on it untouched.
+
+### The 10 s stall clock pre-empts the 20 s guard built for this
+
+All 56 first nulls end in the fine pulse phase. `BusTrim.StallSeconds` is **10 s** without beating a
+progress threshold of about 0.4 mm/s, while `PulseSecondsPerNull = 20.0` exists precisely to drop a pulse
+phase back to holding when it is *"chasing a reference that runs away from it"*. **No losing flight
+reached it** — the most any pulsed was 17.2 s — and the winners that did reach 20 s fell back to a hold,
+finished at 0.019–0.027 m/s, and got their corrections. The rescue clock is never allowed to run.
+
+Over the last ten seconds of the null, `_toGain` **rises** on 17 of 20 losers and 5 of 36 winners.
+
+### Nothing else predicts it
+
+Seat χ² p = 0.41, flat across shots and across the evening, frame time 46.5 vs 47.0 ms, ground slope
+splitting 9 flat to 11 sloped. `owed at the split` is a strong tendency and not a rule — AUC 0.912, and
+the ranges overlap: one flight gave up owing 1.60 m/s while another finished owing 4.01.
+
+### What neither investigation can settle, and the line that would
+
+The traces cannot separate **(a)** the committed arrival drifting under a held bus from **(b)** the pulses
+not arriving — `PulseSeconds` is 0.001 against a ~47 ms frame, so the delivered quantum is whatever the
+engine grants. Both produce the same trace, because the measured thruster acceleration is not re-read
+while pulsing.
+
+**What separates them is the Δv one pulse actually delivered** — proper acceleration over the pulse frame
+times that frame's step — printed beside the commanded `accel × PulseSeconds`. Delivered ≈ commanded is
+(a), and the lever is the stall clock; delivered ≪ commanded is (b), and the lever is `PulseSeconds`
+against the frame. **That line ships before any fix**, which is this repository's own rule.
