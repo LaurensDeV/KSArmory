@@ -564,6 +564,15 @@ internal sealed partial class Ui
             + "prediction the aim reads is long by that depth times cot of the arrival angle -- about "
             + "0.2 m at 32 deg -- and the warheads land that much short.");
 
+        bool insideIsDone = config.StoppingInsideTheBandIsDone;
+        if (ImGui.Checkbox("Stopping inside the band is finishing, not giving up", ref insideIsDone))
+        {
+            config.StoppingInsideTheBandIsDone = insideIsDone;
+        }
+        Tip("On: a trim that stops improving while already inside its own stop band reports done. Off: "
+            + "it reports a give-up, which the aim correction reads as having no actuator left and ends "
+            + "with no passes -- forfeiting about 3 km of correction to avoid a residual worth 4 to 12 m.");
+
         bool predictOnTerrain = config.PredictionStopsOnTheTerrain;
         if (ImGui.Checkbox("Predictions stop on the terrain too", ref predictOnTerrain))
         {

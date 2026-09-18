@@ -659,6 +659,30 @@ internal sealed class IcbmConfig
     public bool PredictionStopsOnTheTerrain = true;
 
     /// <summary>
+    /// A trim that stops improving while already inside its own stop band reports finishing rather
+    /// than giving up — <see cref="BusTrim"/>.
+    ///
+    /// <para><b>What a give-up means downstream is "there is no actuator left"</b>, and
+    /// <see cref="PostBoostAim"/> ends on it with no passes taken — so the whole post-cutoff aim
+    /// correction is forfeited. At 12,902 km the burn leaves about 3 km of bias for those passes to
+    /// walk back, and a forfeited correction lands on it untouched: the landing regresses on the
+    /// loop's own last predicted miss at r = 0.9994.</para>
+    ///
+    /// <para><b>The trade is the whole argument.</b> Every losing flight stopped at 0.01–0.03 m/s
+    /// after nulling 5 m/s, and the mod prices that residual itself at 4–12 m of ground. It is being
+    /// traded for 1.2–5.4 km. <c>docs/ACCURACY-PLAN.md</c> 3ey.</para>
+    ///
+    /// <para><b>The threshold is <c>BusTrim.PulseEntry</c> of the band, not the band.</b> The residual
+    /// is a length and the band is per axis — <c>Choose</c> will not pick a component already inside
+    /// it — so the longest vector a hold can leave behind is root-three bands, <b>0.035 against
+    /// 0.020</b>. Of the 20 losing flights at 12,902 km, <b>8 stopped at 0.03 m/s</b> and 7 at 0.02 —
+    /// so the band alone rescues at most 12 of 20 and the entry rescues all of them.</para>
+    ///
+    /// <para><b>Off, and unflown.</b></para>
+    /// </summary>
+    public bool StoppingInsideTheBandIsDone;
+
+    /// <summary>
     /// Give each warhead the separation velocity that lands it where the tubes' mean would —
     /// <see cref="ReleaseFocus"/>.
     ///

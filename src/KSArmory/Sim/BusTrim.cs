@@ -100,7 +100,13 @@ internal readonly record struct TrimSituation(
     /// thruster's own <c>MinimumPulseTime</c>, a millisecond on the shipped bus, which is about
     /// sixteen times finer — so the trim fires normally down to its band and pulses from there.</para>
     /// </summary>
-    double PulseSeconds = 0.0);
+    double PulseSeconds = 0.0,
+
+    /// <summary>
+    /// Whether a trim that stopped improving while already inside its own stop band reports finishing
+    /// rather than giving up — <see cref="IcbmConfig.StoppingInsideTheBandIsDone"/>.
+    /// </summary>
+    bool StoppingInsideTheBandIsDone = false);
 
 /// <summary>What to fire and whether the warheads may go.</summary>
 /// <param name="Acceleration">
@@ -678,7 +684,20 @@ internal sealed class BusTrim
         // to be the phase's own scale. Against the standing one it would give up while working.
         if (Stalled(step, pulse ? 0.25 * fine : ProgressMetresPerSecond))
         {
-            return Finish(gaveUp: true, Left("the trim stopped closing" + PulseDelivery()));
+            // Stopping is not failing. A give-up means "there is no actuator left" to `PostBoostAim`,
+            // which then ends with no passes taken and forfeits the whole post-cutoff correction --
+            // so a loop that nulled metres per second into its own stop band and then stopped
+            // improving must not say it. The residual is worth metres of ground; the correction it
+            // would forfeit is worth kilometres.
+            // Against PulseEntry rather than the band itself, because this is a LENGTH and the band
+            // is per axis: Choose will not pick a component already inside it, so the longest vector
+            // a hold can legitimately leave behind is root-three bands. Flown, the residuals that
+            // stalled run to 0.03 and the band is 0.02, so the band alone calls half of them failures.
+            bool inside = now.StoppingInsideTheBandIsDone && _toGain <= PulseEntry(band);
+
+            return Finish(gaveUp: !inside,
+                          Left((inside ? "the trim settled and stopped improving"
+                                       : "the trim stopped closing") + PulseDelivery()));
         }
 
         // Finished when there is no direction left worth firing, which is the honest definition —

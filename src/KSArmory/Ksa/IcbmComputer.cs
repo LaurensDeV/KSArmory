@@ -1516,7 +1516,8 @@ internal sealed class IcbmComputer
             Program.ReferencePositionCci, referenceVelocity, Program.SecondsSinceReference,
             nose, right, down, _mayTrim, budget, _keepOutTowardCci,
             plan.CeilingMetresPerSecond,
-            Config.PulseTrim ? Config.PulseSeconds : 0.0));
+            Config.PulseTrim ? Config.PulseSeconds : 0.0,
+            Config.StoppingInsideTheBandIsDone));
 
         // The mode goes through the attitude window for the same reason the aim does: applying a
         // worker's results copies the whole flight computer over anything written outside it. The

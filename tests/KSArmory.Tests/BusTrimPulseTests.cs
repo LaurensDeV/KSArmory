@@ -549,4 +549,75 @@ public class BusTrimPulseTests(ITestOutputHelper Out)
         Assert.True(along.Success, last.Said);
         Assert.InRange(double.Parse(along.Groups[1].Value), 0.95, 1.01);
     }
+
+    /// <summary>
+    /// A trim that stopped improving inside its own stop band has finished, and saying it gave up
+    /// forfeits the whole post-cutoff correction — <see cref="IcbmConfig.StoppingInsideTheBandIsDone"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>The threshold is a length against a per-axis band, which is the part that is easy to
+    /// get wrong.</b> <c>Choose</c> will not pick a component already inside the band, so the longest
+    /// vector a hold can leave behind is <c>root-three</c> bands. Flown, the residuals that stalled run
+    /// to 0.03 m/s against a 0.020 band, so testing the length against the band alone still calls half
+    /// of them failures — which is why this fixture asserts the residual is <em>above</em> the band.</para>
+    /// </remarks>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AStallInsideTheBandIsFinishingRatherThanGivingUp(bool insideIsDone)
+    {
+        // The runaway reference of TheDeliveryReadingIsThePulsesAndNotTheHoldBeforeThem -- the only
+        // thing that stalls a bus whose pulses arrive -- at the rate that leaves the residual in the
+        // gap between the band and the entry, which is the gap this switch's threshold is about.
+        const double DriftMetresPerSecondSquared = 0.08;
+
+
+        (TrimBus bus, double3 from, double3 reference) = Coasting(WeakJets, WeakJets);
+        Shove(bus, 0.2);
+
+        BusTrim trim = new();
+        trim.Begin();
+
+        double elapsed = 0.0;
+        TrimCommand last = default;
+        TrimCommand pending = default;
+
+        while (elapsed < 200.0)
+        {
+            last = trim.Update(Step, new TrimSituation(
+                Earth, bus.PositionCci, bus.VelocityCci, from,
+                reference + bus.NoseCci * (DriftMetresPerSecondSquared * elapsed), elapsed,
+                bus.NoseCci, bus.RightCci, bus.DownCci, PulseSeconds: Pulse,
+                StoppingInsideTheBandIsDone: insideIsDone));
+
+            if (last.Done) break;
+
+            bus.Step(Earth, pending.Fire, Step, pending.Pulse);
+            pending = last;
+            elapsed += Step;
+        }
+
+        double band = BusTrim.StopBand(last.Acceleration, Step);
+
+        Out.WriteLine($"inside-is-done {insideIsDone}: {last.Said} | gave up {trim.GaveUp}, "
+                      + $"left {last.ToGainMetresPerSecond:F4} against a {band:F4} band "
+                      + $"and a {BusTrim.PulseEntry(band):F4} entry");
+
+        Assert.True(last.Done, "the null never ended, so there is no verdict to read");
+
+        // The regime, and the whole reason the threshold is PulseEntry: this residual is inside what a
+        // hold may leave and outside the band itself, so the band alone would call it a failure.
+        Assert.InRange(last.ToGainMetresPerSecond, band, BusTrim.PulseEntry(band));
+
+        if (insideIsDone)
+        {
+            Assert.False(trim.GaveUp, "a trim that stopped inside its own band reported no actuator left");
+            Assert.Contains("settled and stopped improving", last.Said);
+        }
+        else
+        {
+            Assert.True(trim.GaveUp, "the control arm did not give up, so the switch is doing nothing");
+            Assert.Contains("stopped closing", last.Said);
+        }
+    }
 }
