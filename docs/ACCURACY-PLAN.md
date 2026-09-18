@@ -11735,3 +11735,25 @@ Median within-world spread **3.36x**. So it is drawn per rocket, at the split, a
 number that predicts whether the trim will stall — which makes it the most valuable unexplained
 quantity on this page. The remaining candidate is the frame the decoupler's impulse lands on, which
 nothing in the log dates.
+
+## 3ff. The stall is not the frame check — 2026-09-18
+
+The first shot of `~/shots/2026-09-18-nopulse` stalled nothing and landed 8 of 8 inside 5 m; the second
+stalled 3 of its 4 `base` rockets and put one 2,591 m out — **and failed `--frame-check`**, so
+`shot-batch.sh` re-flew it and it measures nothing. That is a tempting story: the long-range defect as
+an artefact of a machine that cannot hold its frame rate.
+
+**It is not.** Across the 88 nulls of the three earlier long-range nights, split on whether
+`shot-batch.sh` recorded the shot in `slow.tsv`:
+
+| | rockets | stalled |
+| --- | --- | --- |
+| failed the frame check | 48 | 18 (**38%**) |
+| passed it | 40 | 13 (**32%**) |
+
+Six points apart on 88 flights, against a 36% base rate. **Whatever stalls the trim is not the frame
+rate**, which also means the flown rate is not inflated by this machine's bad nights.
+
+**And any reader of a night has to exclude those shots.** `~/shots/scripts-2026-09-18/nopulse-read.py`
+does, because the first version did not and reported 3 of 8 stalled off a flight the night had already
+thrown away.
