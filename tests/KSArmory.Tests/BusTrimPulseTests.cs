@@ -533,12 +533,20 @@ public class BusTrimPulseTests(ITestOutputHelper Out)
 
         Assert.True(entries > 0, "the phase was never entered from a hold, so nothing could be miscredited");
 
-        Match m = Regex.Match(last.Said, @"([\d.]+)x\)");
+        Match m = Regex.Match(last.Said, @"([\d.]+)x[,)]");
         Assert.True(m.Success, $"no delivery ratio was reported: {last.Said}");
 
         double ratio = double.Parse(m.Groups[1].Value);
         Out.WriteLine($"  delivered/asked = {ratio:F2}x on a bus that grants what it is asked");
 
         Assert.InRange(ratio, 0.90, 1.10);
+
+        // And the reading beside it is calibrated by the same rig: a bus whose control axes are what
+        // the trim thinks they are puts every pulse squarely on the direction asked, so anything under
+        // one in flight is the impulse arriving sideways rather than the reference receding. Those are
+        // the two candidates left for the long-range stall -- docs/ACCURACY-PLAN.md 3fd.
+        Match along = Regex.Match(last.Said, @"([\d.]+) of it along the direction asked");
+        Assert.True(along.Success, last.Said);
+        Assert.InRange(double.Parse(along.Groups[1].Value), 0.95, 1.01);
     }
 }

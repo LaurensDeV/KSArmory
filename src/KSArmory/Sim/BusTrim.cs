@@ -377,6 +377,18 @@ internal sealed class BusTrim
     // it. Kept because it is the only thing that separates a dead thruster from a live one losing a
     // race, and Watch cannot tell them apart from the component alone.
     private double3 _pushDirCci = Vec.Zero;
+
+    // The same direction one and two frames back. A command reaches the engine's worker on the frame
+    // after it is written, so the direction in force across an interval is the one chosen two frames
+    // before its end -- the same contract the pulse guard below obeys.
+    private double3 _pushDirLast = Vec.Zero;
+    private double3 _pushDirBefore = Vec.Zero;
+
+    // How squarely a delivered pulse landed on the direction it was asked for, summed over the pulses
+    // that fired. The delivery reading is a MAGNITUDE, so on its own it cannot tell a reference that is
+    // receding from an impulse arriving sideways -- and those are the two candidates left for the
+    // long-range stall. docs/ACCURACY-PLAN.md 3fd.
+    private double _pulseAlong;
     private double _pushed;
     private double _bestAccel;
     private TrimAxes _watching;
@@ -490,6 +502,9 @@ internal sealed class BusTrim
         _pulses = 0;
         _dead = TrimAxes.None;
         _pushDirCci = Vec.Zero;
+        _pushDirLast = Vec.Zero;
+        _pushDirBefore = Vec.Zero;
+        _pulseAlong = 0.0;
         _pushed = 0.0;
         _watching = TrimAxes.None;
         _watchedFrom = double.NaN;
@@ -520,6 +535,9 @@ internal sealed class BusTrim
         _pulses = 0;
         _dead = TrimAxes.None;
         _pushDirCci = Vec.Zero;
+        _pushDirLast = Vec.Zero;
+        _pushDirBefore = Vec.Zero;
+        _pulseAlong = 0.0;
         _pushed = 0.0;
         _watching = TrimAxes.None;
         _watchedFrom = double.NaN;
@@ -919,7 +937,8 @@ internal sealed class BusTrim
                : $" ({_pulses} pulses commanded, {_pulsesFelt} fired"
                  + (_pulsesFelt > 0 && _pulseAsked > 0.0
                         ? $", asking {_pulseAsked * 1000.0:F3} mm/s and getting {_pulseGot * 1000.0:F3}, "
-                          + $"{_pulseGot / _pulseAsked:F2}x)"
+                          + $"{_pulseGot / _pulseAsked:F2}x, "
+                          + $"{_pulseAlong / _pulsesFelt:F2} of it along the direction asked)"
                         : " -- none of them delivered)");
 
     private void Measure(double step, in TrimSituation now)
@@ -944,6 +963,13 @@ internal sealed class BusTrim
                 _pulseGot += got;
                 _pulseAsked += _accel * _pulseSeconds;
                 _pulsesFelt++;
+
+                if (!_pushDirBefore.Equals(Vec.Zero) && got > 0.0)
+                {
+                    double along = Vec.Dot(((now.VelocityCci - _velocityPrev) / step) - pulled,
+                                           Vec.Unit(_pushDirBefore)) * step / got;
+                    if (double.IsFinite(along)) _pulseAlong += along;
+                }
             }
         }
 
@@ -997,6 +1023,9 @@ internal sealed class BusTrim
         if (fire == TrimAxes.None) _firingFor = 0;
         _fire = fire;
         _said = said;
+        _pushDirBefore = _pushDirLast;
+        _pushDirLast = _pushDirCci;
+
         _pulsedBefore = _pulsedLast;
         _pulsedLast = pulse && fire != TrimAxes.None;
 
