@@ -34,39 +34,52 @@ and that is 8.1 at seven degrees, 4.4 at 12.9, and **1.6 at the 32.0 the mod now
 
 ---
 
-## Seven degrees is the air's answer, not the guidance's
+## Twelve degrees is the air's answer, not the guidance's
 
-The cheapest deorbit leaves on a **3.6 degree** vacuum arc and arrives at **7.1**. Entry bends a graze
+**Re-measured 2026-09-18, when the Mk 21 started flying its real drag** (`docs/ACCURACY-PLAN.md` 3eu).
+Every number in this section was computed at the hand-typed `DragK = 1.5e-5` the round no longer flies;
+the shipped round is **3.59x** that, and the floor moves with it. Both are given below, because the
+constant is still what a paired night flies as its comparator arm. `ShapeDragArrivalTests` reproduces
+every published constant-drag figure exactly and then re-measures each one.
+
+The cheapest deorbit leaves on a **3.6 degree** vacuum arc and the constant arrives at **7.1**; the
+shipped round arrives at **13.2**. Entry bends a graze
 back up: drag kills the horizontal component faster than the vertical, so a shallow arrival is dragged
 toward a terminal angle set by the round rather than by the trajectory it was put on.
 
 That angle is a floor. Braking *less* makes the vacuum arc shallower and the flown arrival no
 shallower at all — measured across every retrograde brake from 120 m/s to a full stop:
 
-| platform | shallowest arrival any brake reaches |
-| --- | --- |
-| circular 300 km | **7.06°** |
-| circular 400 km | **7.00°** |
-| circular 500 km | **6.96°** |
+| platform | the constant | **the shipped round** |
+| --- | --- | --- |
+| circular 300 km | 7.06° | **12.24°** |
+| circular 400 km | 7.00° | **12.09°** |
+| circular 500 km | 6.96° | **11.99°** |
 
-So **five degrees is not reachable with a Mk 21**, and seven is not a choice the guidance made: it is
-the shallowest thing that round can do. It is a **floor**, not a flown figure — every shot this mod
+So **five degrees is not reachable with a Mk 21** — that stands, and more strongly — and twelve is not
+a choice the guidance made: it is the shallowest thing the shipped round can do. It is a **floor**, not a flown figure — every shot this mod
 has flown arrives at 12.9 to 17.5 degrees, comfortably above it, because the arc it is put on is
 steeper than the cheapest deorbit rather than because entry bent it.
 
 The floor belongs to the *round*, and moves a long way with its sectional density:
 
-| `DragK` | vs the Mk 21 | floor | at | keeping | a straight drop lands at |
+| `DragK` | sectional | floor | at | keeping | a straight drop lands at |
 | --- | --- | --- | --- | --- | --- |
 | 1.5e-4 | 0.1x | 17.21° | 2,323 km | 784 m/s | 910 m/s |
-| **1.5e-5** | **1x (Mk 21)** | **7.00°** | 8,565 km | 2,858 m/s | 2,414 m/s |
+| **5.39e-5** | **0.28x — the shipped Mk 21** | **12.09°** | **4,470 km** | **1,391 m/s** | **1,784 m/s** |
+| 1.5e-5 | 1x — the retired constant | 7.00° | 8,565 km | 2,858 m/s | 2,414 m/s |
 | 5e-6 | 3x | 4.43° | 12,857 km | 4,417 m/s | 2,613 m/s |
 | 1.5e-6 | 10x | 2.76° | 15,607 km | 5,994 m/s | 2,687 m/s |
 | 1.5e-7 | 100x | 1.40° | 15,897 km | 7,663 m/s | 2,716 m/s |
 
+The sectional column is relative to the **constant**, which is why the shipped round reads 0.28x: it is
+the draggier round, and a draggier round has the **higher** floor. Shipping it therefore bought
+precision — `cot γ` at the floor falls from 8.1 to 4.3.
+
 A denser rod — which is what "rods of god" means — makes the **shallow** entry survivable and cheap,
 and makes precision worse, because it lowers the floor into the region where `cot γ` is largest. It
-buys nothing at all on a vertical drop: 2,687 m/s against the Mk 21's 2,414, against 2,719 in vacuum.
+buys nothing at all on a vertical drop: 2,687 m/s against the constant's 2,414 and the shipped round's
+1,784, against 2,719 in vacuum.
 
 ---
 
@@ -392,17 +405,26 @@ lives in `ImpactPredictor`, and flying one per candidate flight time would put a
 integration inside a golden section. What that approximation costs, from a 400 km platform onto a
 target 2,224 km ahead:
 
-| floor | arc arrives | flown arrives |
-| --- | --- | --- |
-| 10° | 10.29° | 10.44° |
-| 12° | 12.00° | 12.01° |
-| 15° | 15.00° | 14.85° |
-| 20° | 20.00° | 19.68° |
-| 30° | 30.00° | 29.51° |
+| floor | arc arrives | the constant lands at | **the shipped round lands at** |
+| --- | --- | --- | --- |
+| 10° | 10.29° | 10.44° | **11.93°** |
+| 12° | 12.00° | 12.01° | **12.63°** |
+| 15° | 15.00° | 14.85° | **14.49°** |
+| 20° | 20.00° | 19.68° | **18.54°** |
+| 30° | 30.00° | 29.51° | **27.81°** |
 
-Under half a degree across the useful range, conservative at the shallow end and optimistic at the
-steep. It only diverges where the arrival is already a graze, which is the 3.6° → 7.1° at the top of
-this page and is the regime the floor exists to leave.
+**The half-degree agreement was the constant's, and it is the one claim here that became unsafe rather
+than merely stale.** On the shipped round the approximation is out by up to **2.19°** — 4.4x the bound
+this section was written to establish — and it is what justifies measuring the floor on the arc at all.
+It is still a *bias* rather than a cliff, and it points the safe way: a player asking for 32° now gets
+about 29.7°, which is less precision than asked for and never more. But **a floor set near the round's
+own is no longer delivered to within a fraction of a degree**, and anything reading this table to price
+a rung should use the third column.
+
+What did **not** move is which shots are refused. `IcbmProgram.WhyNot` decides `IcbmReach.TooShallow`
+out of `BallisticArc.TryCheapest` and `BurnWindow.TryFind`, and **neither takes a `MunitionProfile`** —
+the arc search cannot see drag, so a change to the round cannot move a refusal. That is structural
+rather than measured, which is the strongest kind of answer available here.
 
 ### What it costs, asked the other way round
 

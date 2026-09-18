@@ -480,39 +480,77 @@ public class ShapeDragArrivalTests(ITestOutputHelper Out)
     /// <c>docs/ICBM-GUIDANCE.md</c>'s "54.6 km short": the same cutoff state through the vacuum
     /// model and through each round's air.
     ///
-    /// <para>The geometry is <c>PredictedDragTests.Deorbit</c>'s — a 200 km pick-up aimed 2,764 km
-    /// downrange — reproduced here so both rounds fly it. That file's own numbers stay on the
-    /// constant.</para>
+    /// <para>The rig is <c>PredictedDragTests</c>'s, to the planet: a 200 km pick-up aimed 2,764 km
+    /// downrange, a <b>non-spinning</b> Earth, and the <see cref="Slug"/> itself flown at 1/60 s
+    /// rather than the predictor. That is what the published 54.6 km was measured through, so it is
+    /// what reproduces it. That file's own numbers stay on the constant.</para>
     /// </summary>
     [Fact]
     public void TheVacuumVersusDragShortfallForBothRounds()
     {
+        BallisticBody still = new(Mu, R, new double3(0, 0, 1), 0.0);
+
         double3 from = new(R + 200_000.0, 0, 0);
         const double Range = 2_764_000.0;
         double3 target = new(R * Math.Cos(Range / R), R * Math.Sin(Range / R), 0);
         double3 circular = new(0, Math.Sqrt(Mu / (R + 200_000.0)), 0);
 
-        Assert.True(BallisticArc.TryCheapest(Earth, from, circular, target,
+        Assert.True(BallisticArc.TryCheapest(still, from, circular, target,
                                              out BallisticArc.Solution s));
 
-        ImpactPredictor.Impact vac = Fly(from, s.RequiredVelocityCci, null);
-        double vacKm = R * Vec.AngleBetween(from, vac.PointCci) / 1000.0;
+        Assert.True(ImpactPredictor.TryPredict(still, from, s.RequiredVelocityCci, 1.0, 12_000.0,
+                                               out ImpactPredictor.Impact vac));
 
-        Out.WriteLine($"vacuum arc lands {vacKm:F0} km downrange, arriving at "
-                      + $"{Descent(vac.PointCci, vac.VelocityCci):F2} deg "
-                      + $"at {Vec.Len(vac.VelocityCci):F0} m/s");
-        Out.WriteLine("  published: vacuum 2,764 km, round 2,709 km, 54.6 km short");
+        double vacKm = R * Vec.AngleBetween(from, vac.GroundFixedPointCci) / 1000.0;
+
+        Out.WriteLine($"vacuum arc lands {vacKm:F1} km downrange (published 2,764)");
+        Out.WriteLine("  published: the round lands 2,709 km, 54.6 km short");
         Out.WriteLine("");
 
         foreach ((string name, MunitionProfile round) in new[]
                  { ("constant", Constant), ("physical", Physical) })
         {
-            ImpactPredictor.Impact hit = Fly(from, s.RequiredVelocityCci, round);
-            double km = R * Vec.AngleBetween(from, hit.PointCci) / 1000.0;
+            double3 landed = FlyTheRound(from, s.RequiredVelocityCci, round);
+            double km = R * Vec.AngleBetween(from, landed) / 1000.0;
+            double apart = R * Vec.AngleBetween(vac.GroundFixedPointCci, landed) / 1000.0;
 
-            Out.WriteLine($"  {name,-8}: lands {km,7:F1} km, {vacKm - km,6:F1} km short of the "
-                          + $"vacuum arc, arriving {Descent(hit.PointCci, hit.VelocityCci),5:F2} deg "
-                          + $"at {Vec.Len(hit.VelocityCci),5:F0} m/s");
+            Out.WriteLine($"  {name,-8}: lands {km,7:F1} km, {apart,6:F1} km short of the vacuum arc");
+        }
+
+        // The constant's row is the published one, so it is pinned rather than merely printed.
+        Assert.Equal(2_764.0, vacKm, 0);
+    }
+
+    /// <summary>The round itself, flown as <c>PredictedDragTests.FlyTheRound</c> flies it.</summary>
+    private static double3 FlyTheRound(double3 fromCci, double3 velocityCci, MunitionProfile munition)
+    {
+        Slug round = new(fromCci, velocityCci, null, 1, fromCci, Vec.Zero)
+        {
+            Munition = munition,
+            Ground = new Ball(),
+        };
+
+        const double dt = 1.0 / 60.0;
+
+        for (int i = 0; i < 60 * 3000 && round.State == RoundState.Flying; i++)
+        {
+            double r = Vec.Len(round.PositionEcl);
+            double3 gravity = Vec.Unit(-round.PositionEcl) * (Mu / (r * r));
+            round.Update(dt, null, gravity, Vec.Zero, Vec.Zero, munition,
+                         DeorbitShot.DensityAt(round.PositionEcl));
+        }
+
+        Assert.NotEqual(RoundState.Flying, round.State);
+        return round.PositionEcl;
+    }
+
+    private sealed class Ball : IGroundTest
+    {
+        public bool TryGround(double3 positionEcl, out double3 centreEcl, out double surfaceRadius)
+        {
+            centreEcl = Vec.Zero;
+            surfaceRadius = R;
+            return true;
         }
     }
 
@@ -539,7 +577,8 @@ public class ShapeDragArrivalTests(ITestOutputHelper Out)
         Out.WriteLine("what a 10% error in the drag model costs, in ground:");
         Out.WriteLine("  arrival | round    | reach     | brake  | 10% drag moves it");
 
-        foreach (double asked in new[] { 7.5, 10.0, 15.0, 20.0, 30.0, 45.0 })
+        // 32 is on the list because it is where the mod actually arrives, per docs/ARRIVAL-ANGLE.md.
+        foreach (double asked in new[] { 7.5, 10.0, 15.0, 20.0, 30.0, 32.0, 45.0 })
         {
             foreach ((string name, MunitionProfile round, double floor, double floorBrake) in new[]
                      {

@@ -68,10 +68,16 @@ Every large term in the miss is a velocity error multiplied by the trajectory's 
 a height error multiplied by `cot γ` — and both of those belong to the arrival angle, not to the
 loop. At the **12.9 to 17.5 degrees** every shot in this repository has actually arrived at —
 logged 2026-09-02, where the seven was reconstructed and never flown (`docs/ACCURACY-PLAN.md`
-3af) — **no amount of guidance work reaches a metre**: the drag-model term alone is 77 m at the
-table's 15° row and 383 m at 10°, and its only observer shares the model. The 1.8 km this line used
-to quote is the 7.5° row, which is the arrival that was reconstructed and never flown.
-At forty-five degrees the same shot is inside six metres with the residual it already achieves.
+3af) — **no amount of guidance work reaches a metre**: the drag-model term alone is **418 m at 15°**,
+and its only observer shares the model. The 1.8 km this line used to quote is the 7.5° row, which is an
+arrival that was reconstructed, never flown, and is now **below the round's own floor** — since
+2026-09-18 the Mk 21 flies its real drag and cannot arrive shallower than 12.09°, so the 7.5° and 10°
+rows of the table below describe angles this round does not reach. The 77 m and 383 m in that table are
+the retired constant's; the shipped round is about 4.3x each. `ShapeDragArrivalTests` has both.
+At forty-five degrees the same shot was inside six metres with the residual it already achieves — **on
+the constant**. The drag term there goes 2 m to 9 m on the shipped round, so that cell cannot stand as
+written, and the residual columns are that term in quadrature; **nobody has re-run the sensitivity
+columns, so no replacement figure is quoted here rather than a guessed one**.
 
 So this plan is not "make the loop better". It is: **fly the geometry that makes a metre possible,
 then remove the three terms that are still above one at that geometry.** In that order, because the

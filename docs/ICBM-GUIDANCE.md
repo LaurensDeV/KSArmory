@@ -648,11 +648,12 @@ this shot arrives at, a Mk 21 keeps about a quarter of its speed:
 | **~5° — a deorbit** | **11.4 km/km** | **25 %** |
 
 Measured, same cutoff state through both models: the vacuum arc lands 2,764 km downrange and the
-round lands 2,709 km downrange — **54.6 km short**. With the warhead's own `DragK` in the predictor
+constant-drag round 2,709 — **54.6 km short**. **The shipped round lands at 2,626 km, 138 km short**
+(`ShapeDragArrivalTests`), because it flies 3.59x the drag since 2026-09-18. With the warhead's own `DragK` in the predictor
 the two agree to **40 m**.
 
 **And the arrival angle is the round's, not the trajectory's.** No brake from any circular orbit puts
-a Mk 21 on the ground shallower than **7.0°** — drag bends a graze back up to whatever that round's
+a Mk 21 on the ground shallower than **12.0°** — 7.0° was the retired constant's floor — drag bends a graze back up to whatever that round's
 sectional density can hold. So the angle every shot here arrives at was never chosen, and what it
 costs in precision, impact speed and propellant to leave it is `docs/ARRIVAL-ANGLE.md`.
 
