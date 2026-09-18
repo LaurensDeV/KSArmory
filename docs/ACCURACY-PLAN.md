@@ -11622,3 +11622,23 @@ deflated belief and four reached some other way.
 **What follows for the record.** `78e0ee5` says "the reading" and should have said "the loop". The guard
 changes what the bus does, it is **unverified in flight**, and `~/shots/2026-09-18-nopulse` is its first
 — both arms carry it, so base's stall rate there against 3ey's 36% is what sizes it.
+
+## 3fb. `StallWaitsForThePulseGuard` loses and is deleted — 2026-09-18
+
+The other half of `arm/trim-band`: when a pulse phase stops closing, fall back to holding until
+`PulseSecondsPerNull` has run rather than ending the null. **It does not fall back to holding.** The
+branch returns `TrimAxes.None`, which fires nothing, and it returns *before* `_pulsingFor += step` — so
+the clock it waits on never advances and the condition stays true for ever. The trim then sits there,
+firing nothing, until `MaxSeconds = 120` ends it as a give-up anyway.
+
+Headless, on the fixture extended to 200 s: **110 s wasted and the residual worse, 0.0176 → 0.0273 m/s.**
+Its own test flew to 60 s against a 120 s timeout and so could not see any of it.
+
+Branch deleted. What survives is the observation that made it: `StallSeconds` (10 s) is shorter than
+`PulseSecondsPerNull` (20 s), so the guard that exists to drop a runaway phase back to holding has never
+once run. A repair would have to actually hold — clear the phase and let `Choose` pick against the wide
+band — and there is no evidence yet that it is worth building, because 3fa moved most of the stalls onto
+a belief that was collapsing.
+
+The half that survives is `arm/trim-done`, which is `StoppingInsideTheBandIsDone` alone, rebuilt on
+today's `dev` with its threshold corrected to `PulseEntry(band)`.
