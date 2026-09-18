@@ -11547,3 +11547,34 @@ while pulsing.
 times that frame's step — printed beside the commanded `accel × PulseSeconds`. Delivered ≈ commanded is
 (a), and the lever is the stall clock; delivered ≪ commanded is (b), and the lever is `PulseSeconds`
 against the frame. **That line ships before any fix**, which is this repository's own rule.
+
+## 3ez. Every pulse over-delivers, and the floor is sized on what was asked — 2026-09-18
+
+The instrument of 3ey flew at 12,902 km over `~/shots/2026-09-18-pulseread` and
+`~/shots/2026-09-18-pulsesample`. **Eleven stalled nulls, and all eleven deliver more than they ask:**
+
+| ratio, delivered over believed | 1.14 | 1.15 | 1.20 | 1.34 | 1.42 | 1.53 | 1.54 | 1.99 | 2.02 | 2.02 | 2.16 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+
+**It is the delivery that varies, not the belief.** Per fired pulse, what the trim believes a pulse is
+worth spans **0.449–0.565 mm/s** (a factor of 1.26, clustered on the measured 0.56 m/s² thrusters); what
+arrives spans **0.638–1.002** (a factor of 1.57) and is never less.
+
+**So the pulse phase is aiming inside a floor it cannot land in.** `PulseFloorPulses = 3` sizes that
+floor as three *commanded* pulses. At 1.5–2x, one pulse is most of the floor and the phase steps over
+it — which is exactly the trace 3ey reads, a residual climbing 0.021 → 0.030 rather than settling, and
+then a stall.
+
+**This may be the root cause that `StallWaitsForThePulseGuard` and `StoppingInsideTheBandIsDone` only
+mitigate.** Both let the hunt run longer or stop it being fatal; neither stops it happening. A floor
+sized on delivered impulse might.
+
+**And the candidate that fits the numbers is not a single one.** The worst ratios carry the *lowest*
+believed acceleration — 0.449 delivering 0.968 — which points at a stale belief, since `Measure`
+deliberately excludes pulsed frames and a null that pulses from its first frame never re-measures. But
+`0.56 / 0.449` is 1.25 against a measured 2.16, so a stale belief cannot be the whole of it; the engine
+granting a longer pulse than the millisecond asked for is the other half, and neither is confirmed.
+
+**Ruled out by the same instrument:** pulses failing to arrive. That was the competing explanation for
+3ey's stall and it is dead — 123 of 1,200 and 94 of 886 commands fired, about one in ten, which is the
+engine's own allowance rather than a fault, and every one that fired delivered more than asked.
