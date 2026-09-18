@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Brutal.Numerics;
 using Xunit;
 using Xunit.Abstractions;
@@ -418,5 +419,62 @@ public class BusTrimPulseTests(ITestOutputHelper Out)
         // The shove itself is 0.2 m/s; the phase that finishes it must not cost a multiple of that.
         Assert.True(trim.SpentMetresPerSecond < 0.6,
                     $"a pulsing null spent {trim.SpentMetresPerSecond:F3} m/s on a 0.2 m/s shove");
+    }
+
+    /// <summary>
+    /// The stall line says what this null's pulses asked for and what arrived, and it reads
+    /// differently on a bus whose thrusters grant the pulse and one whose do not.
+    /// </summary>
+    /// <remarks>
+    /// <para>Two faults produce an identical trace in flight — a reference drifting faster than the
+    /// pulse phase can null it, and pulses that do not deliver — and 20 of 56 long-range flights ended
+    /// on that trace (<c>docs/ACCURACY-PLAN.md</c> 3ey). The measurement is what separates them, so it
+    /// has to be shown to separate them.</para>
+    ///
+    /// <para><b>The commanded count is not the denominator.</b> The engine grants one pulse per
+    /// <see cref="TrimBus.PulseEverySeconds"/> however often it is asked, so at this step most commands
+    /// deliver nothing by design and a ratio taken over all of them reads about a tenth on a healthy
+    /// bus. The clause counts only the frames that fired, which is the trap this fixture pins.</para>
+    /// </remarks>
+    [Theory]
+    [InlineData(1.0, "grants what it is asked")]
+    [InlineData(0.01, "grants a hundredth")]
+    public void TheStallSaysWhatThePulsesAskedForAndWhatArrived(double granted, string what)
+    {
+        (TrimBus bus, double3 from, double3 reference) = Coasting(WeakJets, WeakJets);
+        Shove(bus, 0.2);
+
+        BusTrim trim = new();
+        trim.Begin();
+
+        // Hold first, so the thrusters are measured; then re-arm into the pulse-only regime a
+        // post-boost pass is actually in.
+        Flight first = Fly(trim, bus, from, reference, pulseSeconds: 0.0);
+        Assert.True(first.Last.Acceleration > 0.1 * WeakJets, "the first pass measured nothing");
+
+        // What the engine grants, against what the trim commands. This is the whole of candidate (b).
+        bus.PulseSeconds = Pulse * granted;
+
+        trim.Resume();
+        Flight flight = Fly(trim, bus, from, reference, Pulse, since: first.Seconds);
+
+        Out.WriteLine($"{what,-24}: {flight.Last.Said}");
+
+        Assert.True(flight.EverPulsed, "the second pass never pulsed");
+
+        if (granted >= 1.0)
+        {
+            // A bus that grants what it is asked does not stall at all: it converges past the band
+            // and finishes. That is the control, and it is a stronger statement than any ratio.
+            Assert.True(flight.Last.Done, $"a bus granting full pulses did not finish: {flight.Last.Said}");
+            Assert.DoesNotContain("stopped closing", flight.Last.Said);
+        }
+        else
+        {
+            // A hundredth of a pulse is under the floor that counts a frame as having fired, so the
+            // line says which of the two faults this is rather than leaving them indistinguishable.
+            Assert.Contains("stopped closing", flight.Last.Said);
+            Assert.Contains("none of them delivered", flight.Last.Said);
+        }
     }
 }

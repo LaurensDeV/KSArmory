@@ -354,6 +354,20 @@ internal sealed class BusTrim
     // How long this null has spent pulsing, against PulseSecondsPerNull.
     private double _pulsingFor;
 
+    // What this null's pulses asked for and what arrived. Two faults produce an identical trace -- a
+    // reference drifting faster than the phase can null it, and pulses that do not deliver -- and only
+    // a measurement separates them. docs/ACCURACY-PLAN.md 3ey.
+    //
+    // The commanded count is NOT the denominator: the engine grants one pulse per its own allowance
+    // however often it is asked, so at a frame shorter than that most commands are meant to deliver
+    // nothing. What discriminates is how much arrived per pulse that FELT like one, against the
+    // thruster's own accel x duration.
+    private double _pulseSeconds;
+    private double _pulseAsked;
+    private double _pulseGot;
+    private int _pulses;
+    private int _pulsesFelt;
+
     // Which way the chosen direction actually pushes, and what the vehicle was measured doing along
     // it. Kept because it is the only thing that separates a dead thruster from a live one losing a
     // race, and Watch cannot tell them apart from the component alone.
@@ -456,6 +470,10 @@ internal sealed class BusTrim
         _fire = TrimAxes.None;
         _pulsedLast = false;
         _pulsingFor = 0.0;
+        _pulsesFelt = 0;
+        _pulseAsked = 0.0;
+        _pulseGot = 0.0;
+        _pulses = 0;
         _dead = TrimAxes.None;
         _pushDirCci = Vec.Zero;
         _pushed = 0.0;
@@ -481,6 +499,10 @@ internal sealed class BusTrim
         _fire = TrimAxes.None;
         _pulsedLast = false;
         _pulsingFor = 0.0;
+        _pulsesFelt = 0;
+        _pulseAsked = 0.0;
+        _pulseGot = 0.0;
+        _pulses = 0;
         _dead = TrimAxes.None;
         _pushDirCci = Vec.Zero;
         _pushed = 0.0;
@@ -568,6 +590,7 @@ internal sealed class BusTrim
         // What a pulse phase reaches past it, off the same call the release floor is priced from so
         // the two cannot disagree. Equal to the band for a bus that does not pulse, which leaves
         // every threshold below exactly as it was.
+        _pulseSeconds = now.PulseSeconds;
         double stop = StopBand(_accel, step, now.PulseSeconds);
         double fine = stop < band ? stop : 0.0;
 
@@ -620,7 +643,7 @@ internal sealed class BusTrim
         // to be the phase's own scale. Against the standing one it would give up while working.
         if (Stalled(step, pulse ? 0.25 * fine : ProgressMetresPerSecond))
         {
-            return Finish(gaveUp: true, Left("the trim stopped closing"));
+            return Finish(gaveUp: true, Left("the trim stopped closing" + PulseDelivery()));
         }
 
         // Finished when there is no direction left worth firing, which is the honest definition —
@@ -649,7 +672,11 @@ internal sealed class BusTrim
         // calls progress, which is what lets that clock trip on a healthy bus.
         if (!pulse) Watch(step, pick, component);
 
-        if (pulse) _pulsingFor += step;
+        if (pulse)
+        {
+            _pulsingFor += step;
+            _pulses++;
+        }
 
         _fire = pick;
         _firingFor++;
@@ -865,12 +892,42 @@ internal sealed class BusTrim
     // Only across an interval the thrusters were in force for the whole of. A command written this
     // frame is copied into the engine's worker on the next one, so the first interval after a
     // change is a mixture and the estimate it gives is somewhere between the two.
+    // What this null's pulses asked for against what arrived. Empty for a null that never pulsed, so a
+    // hold's message is unchanged. The ratio is the point: near one, the pulses are arriving and a
+    // phase that stopped closing was chasing its reference; far below one, they are not, and the lever
+    // is the pulse against the frame rather than the stall clock.
+    private string PulseDelivery()
+        => _pulses == 0
+               ? ""
+               : $" ({_pulses} pulses commanded, {_pulsesFelt} fired"
+                 + (_pulsesFelt > 0 && _pulseAsked > 0.0
+                        ? $", asking {_pulseAsked * 1000.0:F3} mm/s and getting {_pulseGot * 1000.0:F3}, "
+                          + $"{_pulseGot / _pulseAsked:F2}x)"
+                        : " -- none of them delivered)");
+
     private void Measure(double step, in TrimSituation now)
     {
         if (step <= 0.0 || !Vec.IsFinite(now.VelocityCci))
         {
             _havePrev = false;
             return;
+        }
+
+        if (_havePrev && _fire != TrimAxes.None && _pulsedLast)
+        {
+            // What the pulse actually delivered, measured rather than assumed, and kept out of _accel
+            // for the reason the branch below excludes pulsed frames at all.
+            double3 pulled = now.Body.GravityCci(now.PositionCci);
+            double got = Vec.Len(((now.VelocityCci - _velocityPrev) / step) - pulled) * step;
+
+            // A frame the engine granted nothing on is not evidence about delivery, so it is counted
+            // as neither asked nor got: a tenth of one pulse is the floor for "this one fired".
+            if (double.IsFinite(got) && got > 0.1 * _accel * _pulseSeconds)
+            {
+                _pulseGot += got;
+                _pulseAsked += _accel * _pulseSeconds;
+                _pulsesFelt++;
+            }
         }
 
         if (_havePrev && _fire != TrimAxes.None && _firingFor >= 2 && !_pulsedLast)
