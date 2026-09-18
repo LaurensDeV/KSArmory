@@ -11662,15 +11662,21 @@ twelve to forty grants: **it keeps choosing the same component, pulse after puls
 does not fall.** The delivery reading says those pulses arrive (1.01x on the repaired instrument), and
 the residual sits frozen to three decimals for the whole ten seconds.
 
-**The leading candidate is that a pulse phase has no way out of a dead direction.** `Watch` — the thing
-that strikes off a direction which fires without moving its own component — is deliberately skipped
-while pulsing, because a pulse moves a component by a thousandth of what the watch calls progress and
-the clock would trip on a healthy bus. So during a pulse phase a direction that does nothing is
-invisible, the greedy pick keeps returning to it, and nothing escapes.
+**The obvious candidate was a dead direction, and the same logs rule it out.** `Watch` — the thing that
+strikes off a direction which fires without moving its own component — is deliberately skipped while
+pulsing, so during a pulse phase a direction that does nothing is invisible and the greedy pick keeps
+returning to it. That mechanism is real and reachable: `BusTrimPulseTests`
+`APulsePhaseCannotEscapeADirectionThatDoesNothing` builds it on the rig, and the null stalls with
+nothing struck off, exactly as the flown ones do.
 
-**What that does not explain** is why the direction is dead at all: the shipped ring has all six
-translation directions, the keep-out never engaged on any of these flights, and the pair is almost
-always port and the belly.
+**But it leaves a fingerprint the flown stalls do not have.** Grants spent on a dead direction deliver
+nothing to measure, so the fired fraction collapses — **3.4% of commands against the engine's 11.1%
+allowance** on the rig. The two flown stalls fired **123 of 1,200 and 94 of 886**, 10.3% and 10.6%,
+which *is* the allowance, and the repaired instrument reads their delivery at 1.01x of what was asked.
+
+**So the pulses arrive, at full size, along the direction commanded — and the residual does not fall.**
+That is a sharper statement of the open question than 3ey could make, and it points away from the
+actuator and at the error being re-created as fast as it is removed.
 
 **It does not have to be explained to be survivable.** `arm/trim-done` makes the stall non-fatal
 whatever its cause, which is the change with the evidence behind it. A watch sized to a pulse's own
