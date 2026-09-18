@@ -11308,3 +11308,46 @@ Item 44 flew 2026-09-16 and lost 1.89x on the landing; 3eo re-flew it on the fix
 **So the unphysical constant can go.** `DragK = 1.5e-5` is a ballistic coefficient near 8,400 lb/ft² against
 the 100–5,000 published for reentry vehicles, and the physical figure is now better on every endpoint
 measured. Whether it ships is a default flip, and the flags are still off in this commit.
+
+## 3ev. 49c flown: the prediction was hanging 17 mm over the hillside, and seat 5 becomes an ordinary seat — 2026-09-18
+
+`~/shots/2026-09-18-probeterrain`, **4 paired blocks** of `base|terr:PredictionStopsOnTheTerrain=true` at the
+Chaco on `3bc3701`, **4 of 4 PASS**. Four blocks rather than a night because each shot carries its own
+control: seat `GeoSat FAT 5` is the only aim on a slope (0.122) and the other seven are the falsifier, in
+the same world, on the same frame. Declared in `~/shots/scripts-2026-09-17/DECLARE-probe-terrain.md`.
+
+**The mechanism was read directly rather than inferred.** The trace's probe line now prints the prediction's
+own stop height over the ground under it, on both arms, so the term is a reading rather than a residual:
+
+| probe's stop height above the ground, median | `base` | `terr` |
+| --- | --- | --- |
+| **seat 5** (slope 0.122) | **+17.45 mm** | **0.000 mm** |
+| the seven flat seats | 0.000–0.300 mm | 0.000 mm |
+
+That is the declared hypothesis-killer answered the right way: under a millimetre at `base`'s seat 5 would
+have meant 3es was measuring something else, whatever the walk did. It reads seventeen.
+
+**Primary — seat 5's walk, per warhead**, within-rocket sd and the rocket's own mean:
+
+| | `base` | `terr` | declared refutation |
+| --- | --- | --- | --- |
+| sd | **15.36 mm** | **2.20 mm** | above 6 mm |
+| mean | **+18.23 mm** | **−1.45 mm** | above 6 mm |
+
+Seat 5 stops being special: 2.20 mm against the flat seats' 2.38. Its worst warhead goes **23.95 → 6.35 mm**,
+against the ~6 mm predicted. **The falsifier holds** — flat-seat within-rocket walk sd 2.53 (`base`) and
+2.38 (`terr`), both inside the declared 1.4–2.6 window, and the flat-seat mean moves +0.43 → −0.21 mm.
+
+**The watched item was miscalibrated, and is reported rather than passed.** The declaration said to stop if
+`terr`'s aim bias moved more than a metre. The arm medians differ by 11.4 m — but paired by seat the
+difference is **−3.38 m with mixed signs** (4 up, 4 down, −40 to +64 m), and the *same seat on the same arm*
+varies **33 m flight to flight**, worst 200 m. A one-metre threshold sits an order of magnitude inside the
+quantity's own scatter, so it could not have discriminated anything. What it was for is answered directly:
+every seat lands within 4–7.4 mm and the aim response is 1.000 on both arms.
+
+**What four blocks cannot say.** Several flat seats read slightly worse on `terr` (seat 1 4.10 → 5.50 mm,
+seat 8 5.75 → 7.40) at two rockets a seat an arm, while the pooled flat-seat walk does not move at all.
+That is noise at this n and a reason to fly **26.485S 68.148W**, where 3ej says every seat is sloped
+(median 0.152, 75th 0.406) rather than one in eight — the term should be on every rocket there, and the
+same night is where 45b has to be re-asked, because the 3es rig says the round's own sub-step binds at
+slope 0.35 and nothing at 0.122.
