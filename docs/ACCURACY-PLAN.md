@@ -11716,3 +11716,22 @@ was broken and had to go; the premise under it is now the best-supported thing o
 1.2–5.4 km on a third of rockets whatever the cause. (2) A repaired guard that *actually* falls back to
 holding — clear the phase and let `Choose` pick against the wide band. (3) Reduce the debt itself, which
 is upstream of all of it and which nothing has yet tried.
+
+## 3fe. The debt that decides it is drawn per rocket, and nothing explains which — 2026-09-18
+
+3fd makes the separation debt the thing to reduce, so: what sets it? Across the 88 nulls of the three
+long-range nights, every world of eight looks the same — **a floor at 1.15–1.4 m/s, which is the
+decoupler's nominal 1.1, and one or two rockets drawing 3.3 to 5.3.**
+
+Three explanations tested and none of them holds:
+
+| | |
+| --- | --- |
+| **the seat** | medians 1.43 to 2.10 across the eight, and every seat's own range runs 1.2 to 5.3 |
+| **the world** | every shot is mixed — min ~1.2 and max 3.3–5.3 in the *same* world, so not frame rate, warp or solver load |
+| **the order it split in** | medians 1.43 to 2.10 by rank, maxima 3.3–5.3 at every rank |
+
+Median within-world spread **3.36x**. So it is drawn per rocket, at the split, and it is the single
+number that predicts whether the trim will stall — which makes it the most valuable unexplained
+quantity on this page. The remaining candidate is the frame the decoupler's impulse lands on, which
+nothing in the log dates.
