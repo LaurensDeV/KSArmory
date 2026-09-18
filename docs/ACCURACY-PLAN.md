@@ -11642,3 +11642,36 @@ a belief that was collapsing.
 
 The half that survives is `arm/trim-done`, which is `StoppingInsideTheBandIsDone` alone, rebuilt on
 today's `dev` with its threshold corrected to `PulseEntry(band)`.
+
+## 3fc. A stalled null is two axes that will not move — 2026-09-18
+
+Also read off the logs already on disk, and the cleanest separator found so far. `IcbmComputer.Say`
+writes a line only when the sentence's *shape* changes, so the trim log is a record of **axis changes**,
+not of commands. Counting them over the last five seconds of every null in `~/shots/2026-09-18-pulseread`
+and `~/shots/2026-09-18-pulsesample`:
+
+| | axes fired | axis changes in 5 s |
+| --- | --- | --- |
+| the 11 that **stalled** | **2** (3 in two cases) | 8–31 |
+| the 21 that **finished** | **5 or 6** | 116–224 |
+
+**No overlap at all.** At the flown 14.3 ms step a pulse is granted every 0.15 s, about every 10 frames,
+so a null that finishes changes axis **roughly once per granted pulse** — fire the largest component,
+it stops being the largest, move on. That is the loop working. A null that stalls changes axis once in
+twelve to forty grants: **it keeps choosing the same component, pulse after pulse, and that component
+does not fall.** The delivery reading says those pulses arrive (1.01x on the repaired instrument), and
+the residual sits frozen to three decimals for the whole ten seconds.
+
+**The leading candidate is that a pulse phase has no way out of a dead direction.** `Watch` — the thing
+that strikes off a direction which fires without moving its own component — is deliberately skipped
+while pulsing, because a pulse moves a component by a thousandth of what the watch calls progress and
+the clock would trip on a healthy bus. So during a pulse phase a direction that does nothing is
+invisible, the greedy pick keeps returning to it, and nothing escapes.
+
+**What that does not explain** is why the direction is dead at all: the shipped ring has all six
+translation directions, the keep-out never engaged on any of these flights, and the pair is almost
+always port and the belly.
+
+**It does not have to be explained to be survivable.** `arm/trim-done` makes the stall non-fatal
+whatever its cause, which is the change with the evidence behind it. A watch sized to a pulse's own
+scale would label the dead axis honestly instead — worth building only if the stall survives the night.
