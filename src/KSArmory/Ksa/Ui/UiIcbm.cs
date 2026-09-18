@@ -573,7 +573,8 @@ internal sealed partial class Ui
             + "warhead's own stop is. Off: it sits on the chord between the ground under the two samples "
             + "around it, which on level ground is the same point and on a slope is up to half a step of "
             + "the terrain's own tread -- worth cot(gamma) times as much ground, because the separation "
-            + "kick is solved against this prediction. Unflown.");
+            + "kick is solved against this prediction. Flown at both sites: on rough ground it takes the "
+            + "median rocket's walk from 10.45 mm to 3.45, and on the flat it cannot move anything.");
 
         bool focus = config.FocusTubesOnTheAim;
         if (ImGui.Checkbox("Warheads are kicked onto the tubes' mean impact", ref focus))

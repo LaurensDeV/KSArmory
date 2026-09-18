@@ -10914,7 +10914,7 @@ what 20b is flying against.
 | **46c** | **Read the repaired surface residue across a night.** 42 mm of ground against a 25 mm walk, but the slope is +0.32 where a real one gives −1.59, and n=8 cannot decide | free with whatever flies next | 3do |
 | ~~47~~ | ~~Re-read whether the walk still has per-seat structure~~ | done, then **OVERTURNED** | **3dp read it through a 10 mm print and could not have seen it. At 0.1 mm \|walk\| on relief is r = +0.777: terrain drives the MAGNITUDE. The signed term is still common** — 3ds, 3dt |
 | ~~49~~ | ~~Make the two height-field readers one call~~ | **premise refuted** | there is one reader, and the two conversion routes are the same quaternion to 1e-15 rad — 3du, 3dv |
-| **49c** | **Stop the PREDICTION on the terrain, as 49b stopped the round.** `ImpactPredictor` places its crossing on a chord between bracket samples; over the engine's 0.31 m tread that is up to half a riser of height, and the miss kick hands it to the round as `δ · cot γ`. The one term behind seat 5's tail, untouched by everything 3el–3en fixed | ~12 lines behind `PredictionStopsOnTheTerrain`, one lookup per prediction that lands, then **4 paired shots** — each gives one sloped seat and seven flat controls in the same world | 3es: r = +0.91, and refining it is 0.42x on the sd with level ground bit-identical |
+| ~~49c~~ | ~~**Stop the PREDICTION on the terrain, as 49b stopped the round**~~ | **SHIPPED ON.** Flown at both sites: the probe's stop height over the ground +17.45 mm → 0.000 at the Chaco's sloped seat (3ev), and 96 rockets at 26.485S 68.148W take the median walk 10.45 → 3.45 mm with every slope band 2.2–3.5x better (3ew). **Leaves 14.10 mm past slope 0.40**, which is 45b's condition |
 | **49b** | **FIRST. Stop the round on the terrain rather than on a chord of it.** 3dy: it is not merely the larger fix, it is the one that makes the drag arm measurable at all — `Slug.cs:685` blends two height samples a sub-step apart — 5.5 m of ground at a 5,500 m/s arrival — while the prediction point-samples. Re-query at the crossing once `f` is known | one lookup per landing round, then a paired night | 3dv: 57% of the walk's variance, none of its bias |
 | **48** | ~~Does the walk grow per frame or per second?~~ **UNRESOLVED on incidental frame-rate variation**, as declared — the interval admits both, and the fast shots are also the fast *regime*, so the correction loop and the frame rate cannot be separated | flown | 3dt |
 | **48b** | **Re-ask 48 with ranked item 8's `minTargetFrameRate` as a paired arm**, which varies the frame rate WITHIN a world so both arms share one regime and the confound cancels | 12 paired shots | 3dt: incidental variation cannot answer this at any n |
@@ -11157,7 +11157,7 @@ So **0.45x on the sd at the flown slope**, and level ground cannot move by anyth
 the shipped correction shifts it by at most 3 µm, which is a long bracket's own sagitta on this radius.
 
 **Built, and it is three bounded secant steps rather than one** (`IcbmConfig.PredictionStopsOnTheTerrain`,
-off, unflown). Each re-asks the height field where the last guess actually landed, which beats walking the
+which ships **on** since 3ew). Each re-asks the height field where the last guess actually landed, which beats walking the
 first reading down its own arrival to convergence — the crossing's height over the ground, averaged over 24
 release states:
 

@@ -644,13 +644,19 @@ internal sealed class IcbmConfig
     /// 1.9–2.2, downrange only, scaling monotonically with the seat's slope and untouched by everything
     /// 3el–3en fixed.</para>
     ///
-    /// <para><b>Off, and unflown.</b> Headless, at the flown site's own slope: the landing follows the
-    /// probe's own stop height at r = +0.91, and stopping on the terrain takes the crossing's own height
-    /// over the ground from 0.906 mm to 0.176, the landing scatter 3.28 mm → 1.48, and the correlation to
-    /// −0.24. Level ground moves by nanometres — the chord's own sagitta, which is all there
-    /// is to give back where the ground is flat. Costs one height lookup per prediction that lands. <c>docs/ACCURACY-PLAN.md</c> 3es, ranked 49c.</para>
+    /// <para><b>On, and flown at both sites.</b> At the Chaco the prediction's own stop height over the
+    /// ground reads <b>+17.45 mm at the sloped seat and 0.000 with this on</b>, every flat seat under 0.3 mm
+    /// either way; that seat's within-rocket walk sd goes <b>15.36 → 2.20 mm</b> and its worst warhead
+    /// 23.95 → 6.35 (3ev). At 26.485S 68.148W, where every seat is sloped, 96 rockets take the median from
+    /// <b>10.45 → 3.45 mm</b> and every slope band improves 2.2x to 3.5x (3ew).</para>
+    ///
+    /// <para><b>It does not finish the job past slope 0.40</b>, where it leaves 14.10 mm against flat
+    /// ground's 2.9 — which is where 3es's rig says the round's own sub-step becomes co-dominant, and is the
+    /// condition for re-asking <see cref="WarheadSubStepMs"/>. Costs one height lookup per prediction that
+    /// lands, three at most. Level ground cannot move by more than a long bracket's own sagitta, about
+    /// 3 µm. <c>docs/ACCURACY-PLAN.md</c> 3es, 3ev, 3ew.</para>
     /// </summary>
-    public bool PredictionStopsOnTheTerrain;
+    public bool PredictionStopsOnTheTerrain = true;
 
     /// <summary>
     /// Give each warhead the separation velocity that lands it where the tubes' mean would —
