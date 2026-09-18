@@ -620,4 +620,68 @@ public class BusTrimPulseTests(ITestOutputHelper Out)
             Assert.Contains("stopped closing", last.Said);
         }
     }
+
+    /// <summary>
+    /// <b>A pulse phase cannot escape a direction that does nothing</b>, because the watch that would
+    /// strike it off is skipped while pulsing — so the greedy pick returns to it for ever and the null
+    /// ends on the stall clock with nothing struck off.
+    /// </summary>
+    /// <remarks>
+    /// <para>This is the flown signature of <c>docs/ACCURACY-PLAN.md</c> 3fc: of 32 nulls at 12,902 km,
+    /// the 11 that stalled fired on <b>two</b> directions and changed axis once in twelve to forty
+    /// granted pulses, where the 21 that finished fired on five or six and changed about once per
+    /// grant. It demonstrates that the mechanism is reachable; it does not show that it is what
+    /// happened, which needs a flight.</para>
+    ///
+    /// <para>The phase must be entered with no hold before it — <see cref="BusTrim.Resume"/> keeps the
+    /// measured thrust — because a hold <em>does</em> run the watch and would strike the direction off,
+    /// which is the escape the pulse phase has not got.</para>
+    /// </remarks>
+    [Fact]
+    public void APulsePhaseCannotEscapeADirectionThatDoesNothing()
+    {
+        (TrimBus bus, double3 from, double3 reference) = Coasting(WeakJets, WeakJets);
+        Shove(bus, 0.2);
+
+        BusTrim trim = new();
+        trim.Begin();
+
+        // Hold first, so the thrusters are measured and the pulsing band is narrower than the hold's.
+        Flight held = Fly(trim, bus, from, reference, pulseSeconds: 0.0);
+        Assert.True(held.Last.Acceleration > 0.1 * WeakJets, "the first pass measured nothing");
+
+        // Only now: a hold runs the watch, so a direction killed before it would simply be struck off.
+        bus.Dead = TrimAxes.Down | TrimAxes.Up;
+        Shove(bus, alongNose: 0.0, across: 0.004, under: 0.012);
+
+        trim.Resume();
+        Flight flight = Fly(trim, bus, from, reference, Pulse, since: held.Seconds, forSeconds: 200.0);
+
+        Out.WriteLine($"{flight.Last.Said} | {flight.Seconds:F1} s, {flight.PulsingSeconds:F1} s pulsing");
+
+        Assert.False(flight.EverHeld, "it held, so the watch ran and this is not the pulse-only regime");
+        Assert.True(flight.EverPulsed, "it never pulsed");
+
+        // The whole point: the direction that does nothing is never named, and the null ends on the
+        // stall rather than on "nothing left aboard moves the bus".
+        Assert.DoesNotContain("struck off", flight.Last.Said);
+        Assert.Contains("stopped closing", flight.Last.Said);
+
+        // And the reading tells the two stalls apart, which is what makes it worth keeping. A dead
+        // direction shows as a fired fraction far under the engine's own allowance -- one grant per
+        // PulseEverySeconds, about a tenth of the commands at this step -- because the grants spent on
+        // it deliver nothing to measure. Flown, the two stalls of 3ez fired 123 of 1,200 and 94 of 886,
+        // which IS the allowance, so neither of them was this.
+        Match counts = Regex.Match(flight.Last.Said, @"(\d+) pulses commanded, (\d+) fired");
+        Assert.True(counts.Success, flight.Last.Said);
+
+        double fired = double.Parse(counts.Groups[2].Value) / double.Parse(counts.Groups[1].Value);
+        double allowance = Step / TrimBus.PulseEverySeconds;
+
+        Out.WriteLine($"  fired {fired * 100.0:F1}% of commands against a {allowance * 100.0:F1}% allowance");
+
+        Assert.True(fired < 0.5 * allowance,
+                    $"fired {fired * 100.0:F1}% of commands, which is the engine's own allowance -- so "
+                    + "this fixture is not in the dead-direction regime it claims to be");
+    }
 }
