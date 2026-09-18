@@ -184,11 +184,23 @@ public class PredictorStepGapTests(ITestOutputHelper Out)
     {
         MunitionProfile shipped = Arsenal.ReentryVehicleMk21;
 
-        // Drag comes through the profile, so a change to the model reaches the rig by itself. The
-        // Mk 21 is one of the six rounds named in ArsenalTests as keeping a hand-typed constant, so
-        // "a round's drag from its mass, calibre and coefficient" is a no-op for this one.
-        Assert.False(shipped.DragFromShape, "the Mk 21 should still carry its hand-typed DragK");
+        // The registered round still carries the hand-typed constant; what the GAME flies is the
+        // copy IcbmComputer swaps in, which since 3eu is the round's real drag.
+        Assert.False(shipped.DragFromShape, "the registered Mk 21 still carries its hand-typed DragK");
         Assert.Equal(shipped.DragK, shipped.AppliedDragK, 12);
+
+        // So this rig is NOT flying the round the game flies, and that is stated rather than left to
+        // inspection: every number in this file is the retired constant's, at 1/3.6 of the drag a
+        // released warhead now has. Re-measuring them is its own piece of work. Pinned here so the
+        // gap cannot widen quietly -- a second switch flipping under it would fail this line.
+        Assert.True(new IcbmConfig().WarheadDragFromItsShape,
+                    "the game flies Mk21WithDragFromShape; this rig flies the constant and says so");
+        Assert.True(new IcbmConfig().KickThroughTheAir,
+                    "the kick is solved through the air, which this rig does not model at all");
+
+        MunitionProfile flown = Arsenal.Mk21WithDragFromShape(shipped);
+        Assert.True(flown.AppliedDragK > shipped.AppliedDragK * 3.0,
+                    $"the flown round is {flown.AppliedDragK / shipped.AppliedDragK:F1}x this rig's drag");
 
         // The air: KSA's Earth is SeaLevelDensity 1.225 and ScaleHeight 8 km, and the reference
         // the ratio divides by is the same 1.225 -- so the ratio is exp(-h/8000) and the rig's

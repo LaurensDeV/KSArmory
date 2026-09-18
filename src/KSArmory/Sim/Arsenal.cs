@@ -428,8 +428,10 @@ public static class Arsenal
 
         MaxFlightSeconds = 1800f,
 
-        // An order of magnitude below the Mk 82's: a dense cone is what a heatshield is for. By hand, because
-        // every flown accuracy baseline of the ballistic computer rests on this value.
+        // An order of magnitude below the Mk 82's: a dense cone is what a heatshield is for. Kept by hand
+        // although nothing flies it any more -- IcbmConfig.WarheadDragFromItsShape ships on and swaps in the
+        // round's real drag -- because it is the arm a paired night flies as its comparator. It is not a
+        // physical figure: ~8,400 lb/ft2 against the 100 to 5,000 published (ACCURACY-PLAN 3eu).
         DragK = 1.5e-5f,
 
         // A fifth of the default, and the whole of what is left of this weapon's error. Flown at
@@ -479,8 +481,9 @@ public static class Arsenal
     /// A Mk 21 with its drag from what it is rather than the constant it carries: the 200 to 270 kg it is
     /// believed to weigh, taken at 270, on its 55 cm base, at a slender cone's hypersonic 0.1. About
     /// 2,300 lb/ft² of ballistic coefficient, inside the 100 to 5,000 published for ICBM warheads, and 3.6x
-    /// the constant's drag. What <see cref="IcbmConfig.WarheadDragFromItsShape"/> flies; not registered, so
-    /// nothing else can.
+    /// the constant's drag. This is what a released warhead actually flies, since
+    /// <see cref="IcbmConfig.WarheadDragFromItsShape"/> ships on; it is not registered, so nothing else can
+    /// reach it, and the registered profile keeps the constant as the comparator arm.
     /// </summary>
     internal static MunitionProfile Mk21WithDragFromShape(MunitionProfile mk21)
     {

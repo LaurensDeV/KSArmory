@@ -750,13 +750,18 @@ internal sealed class IcbmConfig
     /// <see cref="Arsenal.Mk21WithDragFromShape"/>, 3.6x the constant's drag — and predict them the same way,
     /// since the prediction reads the launcher's round.
     ///
-    /// <para><b>Off</b>, flown twice and lost both. At the Andes before the walk's epoch faults were fixed, 1.89x
-    /// on landing with the walk 15 mm further out (<c>docs/ACCURACY-PLAN.md</c> 3dk); at the Chaco after them,
-    /// 2.22x on 12 of 12 shots with the walk the same as the constant's and the group's spread 8.5 mm against
-    /// 3.0 (3eo). Headless, that spread is the separation kick solved in vacuum, which leaves 8.8 mm of it on this
-    /// round and 2.1 on the constant (3eq) — <see cref="KickThroughTheAir"/>.</para>
+    /// <para><b>On.</b> It lost twice and then won, and the two losses were the vacuum kick rather than the round:
+    /// a warhead at this drag leaves 8.8 mm of the ring's image in its group where the constant leaves 2.1, so this
+    /// switch and <see cref="KickThroughTheAir"/> are one change and neither ships alone. Flown 20 paired blocks at
+    /// the Chaco against a declared ×1.20 non-inferiority bar and past it on every endpoint: worst warhead
+    /// <b>0.80x</b> with a one-sided 97.5% upper bound of <b>0.985</b>, so an improvement rather than merely no
+    /// worse; mean distance lower on 18 of 20 shots and the group's spread on 17 of 20; the centre unresolved;
+    /// all eight seats better. <c>docs/ACCURACY-PLAN.md</c> 3eu, and 3dk and 3eo are the two losses.</para>
+    ///
+    /// <para>The registered profile keeps its hand-typed <c>DragK</c> so a paired night can still fly the old
+    /// baseline as an arm — turning this off is what the comparator now is.</para>
     /// </summary>
-    public bool WarheadDragFromItsShape;
+    public bool WarheadDragFromItsShape = true;
 
     /// <summary>
     /// Solve each warhead's separation kick through the air rather than in vacuum — the ring's image, the arrival
@@ -768,11 +773,17 @@ internal sealed class IcbmConfig
     /// group's spread, where 3eo flew 3.1 and 8.5 — and 0.5 and 2.3 mm of its centre off a 0.54 m probe miss.
     /// Through the air, a micrometre of each. <c>docs/ACCURACY-PLAN.md</c> 3eq.</para>
     ///
-    /// <para><b>Off, and UNVERIFIED in flight.</b> Seven predictions on the salvo's first release, carried along the
-    /// coast to the rest: 1.7 ms headless, and the log says what each cost in the frame. The spin is given back
-    /// exactly either way. Does nothing unless a kick above is on.</para>
+    /// <para><b>On.</b> Seven predictions on the salvo's first release, carried along the coast to the rest:
+    /// 1.7 ms headless, and flown over 80 rockets a median of <b>0.74 ms</b> and a worst of <b>1.51</b>, with no two
+    /// rockets' columns ever landing in the same 10 ms of one frame. The spin is given back exactly either way, and
+    /// this does nothing unless a kick above is on. Flown with <see cref="WarheadDragFromItsShape"/>, which requires
+    /// it: the mechanism endpoint moved +0.151% to −0.017% of the ring's image, every interval inside its declared
+    /// window. <c>docs/ACCURACY-PLAN.md</c> 3eu.</para>
+    ///
+    /// <para><b>On an airless body it cannot help</b>, because the flown columns are then the coasted ones, and it
+    /// still pays for them. Never flown off Earth.</para>
     /// </summary>
-    public bool KickThroughTheAir;
+    public bool KickThroughTheAir = true;
 
     /// <summary>
     /// Fly this rocket's warheads at a stated integration sub-step, in milliseconds, in place of the

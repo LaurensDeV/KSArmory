@@ -2096,16 +2096,19 @@ a shell flew 65 km; a shape's coefficient sits near 0.3, so a wrong one shows. T
 range table's 23.69 km at 47°, and one constant cannot also give the ceiling — 16.1 km straight up against
 14.8 — because real drag peaks near Mach 1. `DragK` stays for what no constant coefficient describes: a
 bomb's drag rises through the speed of sound, and a missile's changes as it burns and drops its
-booster. **The Mk 21 is on that list for a different and weaker reason** — every flown ballistic
-baseline rests on its constant — and that constant is **known unphysical**: 1.5e-5 is a ballistic
-coefficient near 8,400 lb/ft² against the 100 to 5,000 published for reentry vehicles. Item 44 flew
-the physical figure and the *shot* got worse, 0.04 to 0.07 m, with its walk 15 mm further out. Re-flown
-once the walk's epoch faults were fixed (`docs/ACCURACY-PLAN.md` 3eo), **the walk no longer differs and it
-still loses 2.2x — now on the group's spread**, 8.5 mm against 3.0. Headlessly that spread is the separation
-kick solved in vacuum, 8.8 mm against 2.1, and `IcbmConfig.KickThroughTheAir` solves it through the air
-instead (3eq). **Removing the constant is blocked on flying that switch, not on the drag model.**
-`ArsenalTests.EveryRoundsDragComesFromWhatItIsUnlessNamedHere` names all six, so a new round cannot
-join them by accident.
+booster. **The Mk 21 is no longer one of them in flight**: it is registered with the hand-typed
+`DragK` and the computer swaps in the round's real drag, which is what ships. That constant is
+**known unphysical** — 1.5e-5 is a ballistic coefficient near 8,400 lb/ft² against the 100 to 5,000
+published for reentry vehicles — and it now survives only as the arm a paired night flies against.
+
+**It took three nights, and the first two losses were the kick rather than the round.** A warhead at
+3.6x the drag leaves 8.8 mm of the ring's image in its group where the constant leaves 2.1, so
+`IcbmConfig.WarheadDragFromItsShape` and `IcbmConfig.KickThroughTheAir` are **one change and neither
+ships alone**. Together, over 20 paired blocks against a declared non-inferiority bar: worst warhead
+**0.80x** with a 97.5% upper bound of 0.985, the group's spread lower on 17 of 20 shots, the mechanism
+**+0.151% → −0.017%**. `docs/ACCURACY-PLAN.md` 3eu, and 3dk and 3eo are the losses.
+`ArsenalTests.EveryRoundsDragComesFromWhatItIsUnlessNamedHere` names all six registered profiles, so a
+new round cannot join them by accident.
 
 **And the air is the air that is there.** A density ratio is a multiple of `Medium.ReferenceDensityKgPerM3`,
 1.225 kg/m³, over every body, and `DragShape` reads a craft's drag against the same. Divided by each body's

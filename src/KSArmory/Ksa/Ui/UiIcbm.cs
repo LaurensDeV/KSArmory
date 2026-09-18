@@ -620,9 +620,11 @@ internal sealed partial class Ui
         {
             config.WarheadDragFromItsShape = shapeDrag;
         }
-        Tip("On: this rocket's warheads fly, and are predicted, with a Mk 21's drag from its 270 kg on a 55 cm base at "
-            + "a slender cone's 0.1 -- 3.6 times the drag of the constant they carry otherwise. Off: the constant, "
-            + "which every flown baseline rests on.");
+        Tip("On, and shipped: this rocket's warheads fly, and are predicted, with a Mk 21's drag from its 270 kg on "
+            + "a 55 cm base at a slender cone's 0.1 -- 3.6 times the constant they are registered with. Flown over 20 "
+            + "paired blocks: the worst warhead of a group 0.80x, the spread lower on 17 of 20 shots. Off is the old "
+            + "hand-typed constant, which is what a paired night now flies as its comparator. Needs the kick below, "
+            + "which is why they went on together.");
 
         bool throughTheAir = config.KickThroughTheAir;
         if (ImGui.Checkbox("Solve the separation kicks through the air", ref throughTheAir))
@@ -633,7 +635,8 @@ internal sealed partial class Ui
             + "warheads' own drag -- seven predictions on the salvo's first release, carried to the rest, and the "
             + "log says what they cost. Off: solved on a vacuum coast, which ends kilometres under the ground and "
             + "leaves about 2 mm of each group's spread on the constant drag and 9 mm on the drag from the shape. "
-            + "Headless only: NOT FLOWN.");
+            + "Flown: a median 0.74 ms of frame per rocket, worst 1.51, and the ring term it exists to remove went "
+            + "from 0.151% of the image to -0.017%. On an airless body it can only cost, never help.");
 
         float subStepMs = (float)config.WarheadSubStepMs;
         if (ImGui.SliderFloat("Warhead sub-step (ms)", ref subStepMs, 0f, 5f, "%.3f"))

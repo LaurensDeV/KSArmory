@@ -47,9 +47,11 @@ the rig's atmosphere (the game's exactly), **terrain** (no per-seat structure le
 (0.40 mm in a rig that now has it) and **μ** (one number, not two). With everything matched the rig's two
 models agree to **0.40 mm** against the flight's 21, so what is left is what a rig structurally cannot have:
 the `Ecl` frame carrier, `BodyFallEcl`, warp, or the round off rails.
-**And this is the term blocking the physical warhead drag**: item 44 lost because a round at 3.6x the drag
-spends longer where this error is made (3dk), so shrinking it is what lets the unphysical 8,400 lb/ft² constant
-go. `base`'s slope on `dh · cot γ` reading 0.85 rather than 1 was the
+**This was believed to be the term blocking the physical warhead drag** — item 44 lost because a round at
+3.6x the drag spends longer where this error is made (3dk) — and that turned out to be the wrong causal
+chain. **The constant went without this term being shrunk** (3eu): what was actually blocking it was the
+separation kick being solved in vacuum, which `KickThroughTheAir` fixed. The case for spending on the walk
+has to stand on its own now. `base`'s slope on `dh · cot γ` reading 0.85 rather than 1 was the
 43b-off arm and is moot on shipped code, which reads −0.014 ± 0.030.
 Scenarios close KSA's popups (`0599515`), which a published KSA build newer than the install needs. The
 lever-arm fix (`arm/spin-lever-arm`) stays a decision rather than a default. The
@@ -11307,7 +11309,8 @@ Item 44 flew 2026-09-16 and lost 1.89x on the landing; 3eo re-flew it on the fix
 
 **So the unphysical constant can go.** `DragK = 1.5e-5` is a ballistic coefficient near 8,400 lb/ft² against
 the 100–5,000 published for reentry vehicles, and the physical figure is now better on every endpoint
-measured. Whether it ships is a default flip, and the flags are still off in this commit.
+measured. **Both flags ship on from this commit's successor**, and the registered profile keeps its
+hand-typed `DragK` so a paired night can still fly the old baseline as an arm.
 
 ## 3ev. 49c flown: the prediction was hanging 17 mm over the hillside, and seat 5 becomes an ordinary seat — 2026-09-18
 
