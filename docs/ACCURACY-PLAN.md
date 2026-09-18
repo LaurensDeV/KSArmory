@@ -11450,11 +11450,19 @@ the separation kick, where a prediction stops — and this one is in the seconds
 **What this diagnostic cannot say**: anything about why, and nothing statistical. It exists to decide
 whether a real night is worth flying. It is.
 
-**Two notes on the harness, recorded because they cost time.** A `--blocks 2` single-arm run wrote a
-**seven**-shot plan with its block column alternating 1,2,1,2,1,2,1, which the generator at
-`tools/shot-batch.sh:274` does not produce — **`--blocks` does not mean what it appears to for a
-single-arm run, and the cause is not yet found.** And a long-range shot costs **17–20 min**, not the
-12.1–12.4 the 2026-08-31 and 09-01 nights ran at, so any estimate taken off those is 1.5x low.
+**Two notes on the harness, and the first is a finding rather than a quirk.**
+
+**Five of the seven shots failed the frame-rate check and were re-flown.** That is the whole of the
+seven-shot plan on a `--blocks 2` run: `tools/shot-batch.sh:449` re-flies any shot `--frame-check`
+rejects and extends the plan, and `slow.tsv` names all five. So **a long-range night costs about 3.5x
+its nominal block count**, and more importantly the frame rate at 12,902 km is marginal by the
+harness's own standard — which is not a neutral fact for 3ey, because the pulse phase's delivery per
+frame is exactly what the frame rate sets. **The 36% stall rate may be a slow-frame rate.** A long-range
+night has to report its frame distribution beside its endpoint, and a comparison against the Chaco's
+26–47 ms is not like for like.
+
+And a long-range shot costs **17–20 min**, not the 12.1–12.4 the 2026-08-31 and 09-01 nights ran at, so
+any estimate taken off those is 1.5x low.
 
 ## 3ey. The long-range miss is a converged trim being called a failure — 2026-09-18
 
