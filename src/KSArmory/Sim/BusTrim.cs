@@ -383,6 +383,11 @@ internal sealed class BusTrim
     private double _watchedFrom;
     private double _watchingFor;
     private double _toGain = double.NaN;
+
+    // The same debt as a vector, kept only so a caller can say what it is MADE of. The scalar cannot
+    // separate a decoupler pushing along the joint from a lateral term, and at 12,902 km one rocket in
+    // eight draws three to five times the rest -- see docs/ACCURACY-PLAN.md 3fe.
+    private double3 _toGainCci;
     private bool _watched;
     private double _atRelease = double.NaN;
     private double _lowest = double.PositiveInfinity;
@@ -400,6 +405,9 @@ internal sealed class BusTrim
 
     /// <summary>Velocity still to trim off, or NaN before anything has been solved.</summary>
     public double ToGainMetresPerSecond => _toGain;
+
+    /// <summary>The same debt as a vector, for a caller that has to say which way it points.</summary>
+    public double3 ToGainCci => _toGainCci;
 
     /// <summary>
     /// What it owed the moment it was first allowed to push, or NaN if it was never held.
@@ -517,6 +525,7 @@ internal sealed class BusTrim
         _watchedFrom = double.NaN;
         _watchingFor = 0.0;
         _toGain = double.NaN;
+        _toGainCci = Vec.Zero;
         _watched = false;
         _atRelease = double.NaN;
         _lowest = double.PositiveInfinity;
@@ -572,6 +581,7 @@ internal sealed class BusTrim
         }
 
         _toGain = Vec.Len(toGainCci);
+        _toGainCci = toGainCci;
 
         // Watching rather than working. None of the clocks run and nothing is judged: a trim that
         // has not been allowed to push has neither settled nor stalled, and starting its budget

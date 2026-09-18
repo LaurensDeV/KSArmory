@@ -1626,7 +1626,7 @@ internal sealed class IcbmComputer
         if (!double.IsFinite(_owedAtSplit) && double.IsFinite(trim.ToGainMetresPerSecond))
         {
             _owedAtSplit = trim.ToGainMetresPerSecond;
-            SayTheSplitDebt(trim, referenceVelocity, state);
+            SayTheSplitDebt(trim, referenceVelocity, state, nose, right, down);
         }
 
         // Deliberately NOT dropped when the trim reports done. A post-boost pass calls
@@ -2022,17 +2022,27 @@ internal sealed class IcbmComputer
     // BusTrim nulls `Kepler.TryCoast(reference, since).velocity - v`, so exactly four inputs decide
     // it. Printing all four beside the answer turns "the demand is large" into "this term is large",
     // which is the difference between another night of candidates and one reading.
-    private void SayTheSplitDebt(in TrimCommand trim, double3 referenceVelocity, in IcbmState state)
+    private void SayTheSplitDebt(in TrimCommand trim, double3 referenceVelocity, in IcbmState state,
+                                 double3 nose, double3 right, double3 down)
     {
         double3 offPosition = state.PositionCci - Program.ReferencePositionCci;
         double3 offVelocity = state.VelocityCci - referenceVelocity;
+
+        // Which way the debt points, in the frame the trim fires in. The scalar cannot tell a
+        // decoupler pushing along the joint from a lateral term, and one rocket in eight draws three
+        // to five times what the rest do with nothing -- seat, world or split order -- explaining it.
+        // docs/ACCURACY-PLAN.md 3fe.
+        double3 owed = _trim.ToGainCci;
 
         Log.Info($"split debt on {KsaWorld.DisplayName(Craft)}: "
                  + $"owed {trim.ToGainMetresPerSecond:F3} m/s, "
                  + $"{Program.SecondsSinceReference:F2} s since the reference, "
                  + $"{Vec.Len(offPosition) / 1000.0:F3} km from it, "
                  + $"{Vec.Len(offVelocity):F3} m/s off its velocity, "
-                 + $"arc arrives {Program.Arc?.ArrivalAngleDeg ?? double.NaN:F1} deg");
+                 + $"arc arrives {Program.Arc?.ArrivalAngleDeg ?? double.NaN:F1} deg, "
+                 + $"owed along the bus {Vec.Dot(owed, Vec.Unit(nose)):+0.000;-0.000} nose, "
+                 + $"{Vec.Dot(owed, Vec.Unit(right)):+0.000;-0.000} right, "
+                 + $"{Vec.Dot(owed, Vec.Unit(down)):+0.000;-0.000} down");
     }
 
     private bool _releasedTheArrival;
