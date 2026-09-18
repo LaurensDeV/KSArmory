@@ -5,6 +5,20 @@
 and it moved three of the plan's decisions, each marked **priced** where it appears. What it did not
 answer is marked *open*.
 
+**And one thing phase 0 itself got wrong, found 2026-09-18 while designing phase 3.** Every divert figure
+below was priced with the **arrival clock free**, and the flight pins it: `IcbmProgram` latches the arrival
+at closed-loop handover and `ResolveCoastArc` solves every later arc to that same instant. Pinned, a divert
+is an exactly-determined 3x3 rather than a minimum-norm 2x3, and the penalty is **entirely along-track** —
+**2.56x at 6,179 km and 11.94x at 12,902**, against **1.00x across the track at every geometry**, because
+moving a target across the track does not change when it is reached. Along-track is what made the footprint
+an ellipse worth drawing, so **pinned, the reach is much smaller and close to circular**.
+
+That leaves a design decision this doc cannot dodge: either the release loop **re-commits the arrival per
+destination** — which needs a re-latch after cutoff that does not exist today, the latch living inside
+`Resolve`, which the coast never reaches — or the feature advertises a far smaller reach than the tables
+below. `MirvDivertTests.ThePinnedArrivalIsWhatADivertActuallyCosts` has the measurement; **read every
+along-track number below as the free-clock best case.**
+
 The three that moved, in one place:
 
 * **The reach is set by the release epoch, not the range.** `IcbmConfig.ReleaseBeforeArrivalSeconds`
@@ -27,8 +41,10 @@ From the player's side:
 1. Turn on **Designate by clicking the world**, as today.
 2. The ground shows the area this rocket can reach. Hovering outside it greys the cursor ring and says
    **outside reach**; a click there does nothing.
-3. The first click places target 1. The area then shrinks to what the bus can still reach from there,
-   and it shrinks again with every target added.
+3. The first click places target 1. **Before launch that is the whole display** — the bus's own reach
+   cannot honestly be drawn from the pad, because its long axis depends on the arc actually flown and the
+   pad does not know it yet. Targets 2–6 are placed **during the coast**, which is when the footprint is
+   real, and it shrinks with each one added.
 4. The panel lists the targets, how many warheads each gets, and whether the whole set fits the bus's
    fuel and the time left before reentry. Targets can be removed; removing one gives its reach back.
 5. Launch as today. The rocket flies to target 1's trajectory, and after separation the bus releases,
@@ -88,7 +104,22 @@ whatever is left after the ones already chosen, taken along the cheapest order t
 
 * A **ground outline**, draped on the terrain like the existing aim ring (`IcbmOverlay`), in the designation
   colour: the missile's reach before target 1, the bus footprint after.
-* **Recomputed only when the set of targets changes**, never per frame. Target 1's region is a few dozen
+* **Drawn at the ceiling the loop can actually spend**, which is `BusTrim.MaxMetresPerSecond` — 10 m/s, not
+  the 30–45 the budget suggests. At 6,179 km that is about **6.9 x 3.6 km** free-clock, and less pinned.
+  Drawing the larger region first and shrinking it when phase 3 raises the per-pass ceiling is the wrong
+  order.
+* **Before launch, only the missile's reach.** The bus footprint's long axis is `450 · cot γ`, and γ belongs
+  to the arc actually flown rather than the cheapest arc from the pad — measured against three flown
+  geometries the pad's estimate is out by **1.04x, 0.51x and 0.59x**, while the short axis is exact. So
+  there is no honest boundary to draw on the ground before the burn is over, and the footprint belongs to
+  the coast, which is also the only time targets 2–6 are being placed.
+* **In orbit, nothing.** Reach from orbit is a band around the ground track over sixteen revolutions rather
+  than a region around a point, the vehicle is not inside it, and an inclination bounds it in a way no
+  bearing sweep can find. It is also unaffordable: `BurnWindow.TryFind` is 7.1 ms from a 400 km orbit, so a
+  usable ring is **2.6 s**. Say so and draw nothing.
+* **Recomputed only when the set of targets changes**, never per frame. A pad ring is **37–68 ms** with the
+  flight time seeded across the sweep and 112 ms without, so it is built a few bearings a frame rather than
+  in one hitch — `IcbmOverlay.Draw` already costs 11.1 ms of a 15.1 ms mod frame. Target 1's region is a few dozen
   reach solves along bearings, cached until the rocket moves. The footprint is cheap, and **cheaper than
   this plan assumed: the Jacobian already exists.** `ReleaseFocus.FlownSensitivity` builds exactly these
   velocity columns through the air, once per salvo, so the ellipse is the two singular values of its
