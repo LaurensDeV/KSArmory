@@ -11413,3 +11413,41 @@ It asked that the low-slope seats read the Chaco's 2–3 mm **on both arms**. Th
 `base` reads 5.71 mm. Even gentle ground here carries the term, and `terr` is what brings those seats to
 2.89 mm. Nothing moved that should not have; the expectation was calibrated on Chaco flat seats and did
 not transfer.
+
+## 3ex. Item 2b is alive at long range: one rocket in three misses by kilometres — 2026-09-18
+
+`~/shots/2026-09-18-longrange`, **7 shots, 56 rockets, one arm** on `e7ae587` — the build carrying the
+physical drag, the air-solved kick and 49c. Declared in `~/shots/scripts-2026-09-18/DECLARE-longrange.md`
+as a **diagnostic, not a night**: a magnitude question about whether item 2b survived everything since
+2026-09-02.
+
+**Ground truth first**, because 3al's trap is that nights *labelled* 12,902 km flew 6,269: the log reads
+`aimed at scenario aim point (12902 km downrange)`. This is the genuine geometry.
+
+**It survived, and the distribution is two populations rather than a tail:**
+
+| | |
+| --- | --- |
+| under 10 m | **35 of 56**, median **0.0 mm** |
+| between | **1** |
+| over 1 km | **20 of 56 — 36%**, from 1.17 to **5.36 km** |
+
+**There is essentially nothing between 12 m and 1.17 km.** The good population is the same shot the
+Chaco flies — millimetres — so nothing about long range degrades the guidance *as such*. A rocket either
+corrects or it does not, and 36% do not. Item 2b's own figure was 82 of 183, about half; 36% at n=56
+neither confirms nor contradicts that, and seven shots cannot.
+
+**Why this outranks everything else left.** Every result of 2026-09-17/18 is a few millimetres **at
+6,179 km**. Against a 2 km lethal radius, 3 mm and 300 mm are the same shot and **5.36 km is a miss** —
+so this is the only remaining defect a player could observe, and it is at the range an intercontinental
+shot is for. It is also a *different mechanism* from everything shipped: those are all terminal — drag,
+the separation kick, where a prediction stops — and this one is in the seconds after staging.
+
+**What this diagnostic cannot say**: anything about why, and nothing statistical. It exists to decide
+whether a real night is worth flying. It is.
+
+**Two notes on the harness, recorded because they cost time.** A `--blocks 2` single-arm run wrote a
+**seven**-shot plan with its block column alternating 1,2,1,2,1,2,1, which the generator at
+`tools/shot-batch.sh:274` does not produce — **`--blocks` does not mean what it appears to for a
+single-arm run, and the cause is not yet found.** And a long-range shot costs **17–20 min**, not the
+12.1–12.4 the 2026-08-31 and 09-01 nights ran at, so any estimate taken off those is 1.5x low.
