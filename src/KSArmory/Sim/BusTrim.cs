@@ -351,6 +351,11 @@ internal sealed class BusTrim
     // pulse floor, charges the budget, and decides whether a direction still moves the bus.
     private bool _pulsedLast;
 
+    // The frame before that. A command reaches the engine's worker one frame after it is written, so
+    // an interval is only wholly a pulse's or wholly a hold's when the two commands either side of it
+    // agree -- which is the same contract the acceleration branch's own guard is for.
+    private bool _pulsedBefore;
+
     // How long this null has spent pulsing, against PulseSecondsPerNull.
     private double _pulsingFor;
 
@@ -469,6 +474,7 @@ internal sealed class BusTrim
         _firingFor = 0;
         _fire = TrimAxes.None;
         _pulsedLast = false;
+        _pulsedBefore = false;
         _pulsingFor = 0.0;
         _pulsesFelt = 0;
         _pulseAsked = 0.0;
@@ -498,6 +504,7 @@ internal sealed class BusTrim
         _firingFor = 0;
         _fire = TrimAxes.None;
         _pulsedLast = false;
+        _pulsedBefore = false;
         _pulsingFor = 0.0;
         _pulsesFelt = 0;
         _pulseAsked = 0.0;
@@ -913,7 +920,7 @@ internal sealed class BusTrim
             return;
         }
 
-        if (_havePrev && _fire != TrimAxes.None && _pulsedLast)
+        if (_havePrev && _fire != TrimAxes.None && _pulsedLast && _pulsedBefore)
         {
             // What the pulse actually delivered, measured rather than assumed, and kept out of _accel
             // for the reason the branch below excludes pulsed frames at all.
@@ -930,7 +937,7 @@ internal sealed class BusTrim
             }
         }
 
-        if (_havePrev && _fire != TrimAxes.None && _firingFor >= 2 && !_pulsedLast)
+        if (_havePrev && _fire != TrimAxes.None && _firingFor >= 2 && !_pulsedLast && !_pulsedBefore)
         {
             double3 gravity = now.Body.GravityCci(now.PositionCci);
             double3 proper = (now.VelocityCci - _velocityPrev) / step - gravity;
@@ -980,6 +987,7 @@ internal sealed class BusTrim
         if (fire == TrimAxes.None) _firingFor = 0;
         _fire = fire;
         _said = said;
+        _pulsedBefore = _pulsedLast;
         _pulsedLast = pulse && fire != TrimAxes.None;
 
         return new TrimCommand(fire, _done, _toGain, _accel, said, _pulsedLast);

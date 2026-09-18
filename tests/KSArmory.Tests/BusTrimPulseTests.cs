@@ -477,4 +477,68 @@ public class BusTrimPulseTests(ITestOutputHelper Out)
             Assert.Contains("none of them delivered", flight.Last.Said);
         }
     }
+
+    /// <summary>
+    /// A bus granting a known fraction of every pulse must read back as granting that fraction, and
+    /// the interval the phase is entered on is where that goes wrong.
+    /// </summary>
+    /// <remarks>
+    /// <para>A command written this frame reaches the engine's worker on the next one, so the first
+    /// interval of a pulse phase was driven by the <em>hold</em> before it — a whole frame of jets,
+    /// which at this step is sixteen pulses. Credited to the phase, that one interval is most of the
+    /// delivery reading, which is what <c>docs/ACCURACY-PLAN.md</c> 3ez measured at 1.14x to 2.16x
+    /// and took for the thrusters over-delivering.</para>
+    ///
+    /// <para><b>The lag is the whole fixture</b>, and <see cref="Fly"/> does not have it: it applies
+    /// each command on the frame it was written, which is the one epoch where the unguarded reading
+    /// is exact. <c>docs/KSA-FRAME-ORDER.md</c>.</para>
+    /// </remarks>
+    [Fact]
+    public void TheDeliveryReadingIsThePulsesAndNotTheHoldBeforeThem()
+    {
+        // A reference running away faster than a pulse at a time can chase it, which is the only
+        // thing that stalls a bus whose pulses arrive -- and the stall is the line the reading rides
+        // on. Below the band per frame the phase simply finishes; above it the hold never hands over.
+        const double DriftMetresPerSecondSquared = 0.05;
+
+        (TrimBus bus, double3 from, double3 reference) = Coasting(WeakJets, WeakJets);
+        Shove(bus, 0.2);
+
+        BusTrim trim = new();
+        trim.Begin();
+
+        double elapsed = 0.0;
+        TrimCommand last = default;
+        TrimCommand pending = default;
+        int entries = 0;
+
+        while (elapsed < 200.0)
+        {
+            last = trim.Update(Step, new TrimSituation(
+                Earth, bus.PositionCci, bus.VelocityCci, from,
+                reference + bus.NoseCci * (DriftMetresPerSecondSquared * elapsed), elapsed,
+                bus.NoseCci, bus.RightCci, bus.DownCci, PulseSeconds: Pulse));
+
+            if (last.Done) break;
+
+            if (last.Pulse && pending.Fire != TrimAxes.None && !pending.Pulse) entries++;
+
+            // The engine's contract: what arrives this frame is what was written on the last one.
+            bus.Step(Earth, pending.Fire, Step, pending.Pulse);
+            pending = last;
+            elapsed += Step;
+        }
+
+        Out.WriteLine($"{last.Said} | {elapsed:F1} s, {entries} hold-to-pulse entries");
+
+        Assert.True(entries > 0, "the phase was never entered from a hold, so nothing could be miscredited");
+
+        Match m = Regex.Match(last.Said, @"([\d.]+)x\)");
+        Assert.True(m.Success, $"no delivery ratio was reported: {last.Said}");
+
+        double ratio = double.Parse(m.Groups[1].Value);
+        Out.WriteLine($"  delivered/asked = {ratio:F2}x on a bus that grants what it is asked");
+
+        Assert.InRange(ratio, 0.90, 1.10);
+    }
 }

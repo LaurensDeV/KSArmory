@@ -11548,33 +11548,41 @@ times that frame's step — printed beside the commanded `accel × PulseSeconds`
 (a), and the lever is the stall clock; delivered ≪ commanded is (b), and the lever is `PulseSeconds`
 against the frame. **That line ships before any fix**, which is this repository's own rule.
 
-## 3ez. Every pulse over-delivers, and the floor is sized on what was asked — 2026-09-18
+## 3ez. The over-delivery was my own instrument, not the thrusters — 2026-09-18
 
-The instrument of 3ey flew at 12,902 km over `~/shots/2026-09-18-pulseread` and
-`~/shots/2026-09-18-pulsesample`. **Eleven stalled nulls, and all eleven deliver more than they ask:**
+**Retracted the same day it was written.** This section read eleven stalled nulls at
+`~/shots/2026-09-18-pulseread` and `~/shots/2026-09-18-pulsesample` as delivering 1.14x to 2.16x of what
+they asked for, concluded that `PulseFloorPulses` was sized on the wrong quantity, and proposed a floor
+on delivered impulse. **All of that is an artefact of how the reading was taken**, and the floor fix is
+dead.
 
-| ratio, delivered over believed | 1.14 | 1.15 | 1.20 | 1.34 | 1.42 | 1.53 | 1.54 | 1.99 | 2.02 | 2.02 | 2.16 |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+**The fault is an epoch, and the comment above it said so.** A command written this frame reaches the
+engine's worker on the next one, so an interval is only wholly a pulse's when the commands either side of
+it agree — which is exactly what the acceleration branch of `Measure` has always guarded with
+`_firingFor >= 2`. The pulse branch shipped in `133d746` without the equivalent. So the first interval of
+every pulse phase was driven by the **hold** that handed over to it, and a whole frame of jets is
+`accel x step` — **fourteen pulses at the flown 14.3 ms step.** One such interval is most of a phase's
+measured delivery.
 
-**It is the delivery that varies, not the belief.** Per fired pulse, what the trim believes a pulse is
-worth spans **0.449–0.565 mm/s** (a factor of 1.26, clustered on the measured 0.56 m/s² thrusters); what
-arrives spans **0.638–1.002** (a factor of 1.57) and is never less.
+**And the same lag deflated the denominator**, which is why the belief spanned 0.449–0.565 mm/s against
+thrusters measured at 0.56: a pulse interval credited to the *acceleration* branch reads a fraction of
+the bus's authority and is smoothed straight into `_accel`. The two multiply — an inflated numerator over
+a deflated denominator — and between them they reach the whole flown range from a bus doing nothing
+wrong.
 
-**So the pulse phase is aiming inside a floor it cannot land in.** `PulseFloorPulses = 3` sizes that
-floor as three *commanded* pulses. At 1.5–2x, one pulse is most of the floor and the phase steps over
-it — which is exactly the trace 3ey reads, a residual climbing 0.021 → 0.030 rather than settling, and
-then a stall.
+**Measured, on a rig carrying the engine's lag**: a bus granting exactly what it is asked reads
+**14.45x** unguarded and **1.01x** with both branches requiring agreement.
+`BusTrimPulseTests.TheDeliveryReadingIsThePulsesAndNotTheHoldBeforeThem` fails against the old code, and
+it is the first fixture here to model the one-frame command lag at all — `Fly` applies each command on
+the frame it was written, which is the one epoch where the unguarded reading is exact.
 
-**This may be the root cause that `StallWaitsForThePulseGuard` and `StoppingInsideTheBandIsDone` only
-mitigate.** Both let the hunt run longer or stop it being fatal; neither stops it happening. A floor
-sized on delivered impulse might.
+**What survives.** Pulses do arrive: 123 of 1,200 and 94 of 886 commands fired, about one in ten, which
+is `0.15 s` over a 14.3 ms step and is the engine's own allowance rather than a fault. So 3ey's competing
+explanation — pulses not delivering — stays dead, and that was the question the instrument was built to
+answer.
 
-**And the candidate that fits the numbers is not a single one.** The worst ratios carry the *lowest*
-believed acceleration — 0.449 delivering 0.968 — which points at a stale belief, since `Measure`
-deliberately excludes pulsed frames and a null that pulses from its first frame never re-measures. But
-`0.56 / 0.449` is 1.25 against a measured 2.16, so a stale belief cannot be the whole of it; the engine
-granting a longer pulse than the millisecond asked for is the other half, and neither is confirmed.
+**What is open again.** Everything else. The stall of 3ey has no measured cause: the delivery is not
+anomalous, the floor is not mis-sized, and the reading that suggested both said more about `Measure` than
+about the bus. The next measurement is `base|nopulse:PulseTrim=false`, which tests the causal claim with
+no code at all.
 
-**Ruled out by the same instrument:** pulses failing to arrive. That was the competing explanation for
-3ey's stall and it is dead — 123 of 1,200 and 94 of 886 commands fired, about one in ten, which is the
-engine's own allowance rather than a fault, and every one that fired delivered more than asked.
