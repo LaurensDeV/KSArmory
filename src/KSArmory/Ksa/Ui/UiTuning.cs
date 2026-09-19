@@ -124,7 +124,9 @@ internal sealed partial class Ui
             return;
         }
 
-        if (!ImGui.TreeNode("Radar")) return;
+        // Named for the set, because a seeker head or a bomb sight is not a radar. The id stays
+        // fixed so the fold keeps its state when the selected weapon changes.
+        if (!ImGui.TreeNode($"{_sensor.DisplayName}###sensortuning")) return;
 
         ImGui.SliderFloat("Range (m)", ref _sensor.Range, 500f, 40000f);
         ImGui.SliderFloat("Cone half-angle (deg)", ref _sensor.ConeDeg, 5f, 180f);

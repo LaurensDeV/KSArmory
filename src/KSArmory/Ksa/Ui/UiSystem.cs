@@ -201,8 +201,8 @@ internal sealed partial class Ui
 
     // The set: what it is holding right now, and the one switch that belongs to this set rather
     // than to every set of its type. Its numbers are on the Tuning tab, because they belong to the
-    // profile and every system running that loadout shares them; the full scope is the Radar tab,
-    // because a track list is a list and a component row is not the place for one.
+    // profile and every system running that loadout shares them; the full scope is its own tab,
+    // where it has one, because a track list is a list and a component row is not the place for one.
     private void DrawSensorComponent(FoundComponent c, int nth)
     {
         if (!IsSelectedWeapon(nth))
@@ -233,6 +233,8 @@ internal sealed partial class Ui
                 ImGui.TextDisabled("  not transmitting: nothing to home on, and nothing seen either");
         }
 
+        if (ScopeTab(_sensor) is not { } tab) return;
+
         // A button rather than a tick box: it opens a window, and a checkmark reads as "this
         // setting is on" while the window arrives somewhere else unannounced. Tinted while open.
         // The local matters -- TakeScope flips the flag the pop reads. Same defect as Map above.
@@ -240,7 +242,7 @@ internal sealed partial class Ui
         if (scopeTinted) ImGui.PushStyleColor(ImGuiCol.Button, new float4(0.20f, 0.42f, 0.30f, 1f));
         if (ImGui.Button("Scope")) TakeScope(_policy);
         if (scopeTinted) ImGui.PopStyleColor();
-        Tip("Opens or closes a scope of what this set holds, by bearing and range. The Radar tab "
+        Tip($"Opens or closes a scope of what this set holds, by bearing and range. The {tab} tab "
             + "has the same scope above the full track list.");
     }
 
@@ -457,7 +459,7 @@ internal sealed partial class Ui
     {
         if (_battery.Radar.Locked is not { } locked)
         {
-            ImGui.TextColored(Grey, "Radar: no threat");
+            ImGui.TextColored(Grey, "nothing locked");
             return;
         }
 

@@ -719,12 +719,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
                     // tracks for either shows a search that never happened. An anti-radiation
                     // seeker is the exception and gets its own name, because a list of who is
                     // radiating is not a search picture.
-                    string? scope = _sensor.Scope switch
-                    {
-                        ScopePresentation.Search => "Radar",
-                        ScopePresentation.Emitters => "Emitters",
-                        _ => null,
-                    };
+                    string? scope = ScopeTab(_sensor);
 
                     if (scope is not null && ImGui.BeginTabItem(scope))
                     {
@@ -781,6 +776,15 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         }
         return string.Join(", ", parts);
     }
+
+    // The tab a set's picture is shown on, or null for a set that presents none. Everything that
+    // offers a scope asks this, so a seeker never gets a button for a tab it does not have.
+    private static string? ScopeTab(SensorProfile sensor) => sensor.Scope switch
+    {
+        ScopePresentation.Search => "Radar",
+        ScopePresentation.Emitters => "Emitters",
+        _ => null,
+    };
 
     // Plural, and spaced: the enum names are identifiers and read as such on screen.
     private static string GroupName(WeaponRole role) => role switch
