@@ -549,7 +549,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/mk42-sounds.py` | cuts the Mk 42's recording into its mono gunshot |
 | `tools/audio/` | the recordings the shipped gun sounds are cut from — the CC0 Phalanx and the Mk 42's — and the provenance of each |
 | `tools/logo.py` | the Kessler Systems wordmark and icon, into `branding/` |
-| `branding/` | the generated logo the README and SpaceDock point at |
+| `branding/` | the generated logo the README and SpaceDock point at, and `listing-icon.png`, the in-game screenshot the content index shows — **not generated**, and its listing record pins its hash, so replacing it means a new record |
 
 ## 3D model pipeline
 
