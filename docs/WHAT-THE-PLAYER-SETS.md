@@ -1,6 +1,6 @@
 # What the player sets
 
-**A plan, not a record. Nothing here is built.**
+**A plan, not a record.** §6 marks what of it has been built.
 
 The ballistic computer has **24 settings on `IcbmConfig`** and about eighteen of them are research
 instruments that reached the panel because that is where a setting has to go to be reachable — see
@@ -119,7 +119,11 @@ same rig `docs/SHOT-PROTOCOL.md` already describes. Until a cell is flown, that 
    correction against a baseline's 2.45.
 3. **One delta-v line**, need against have, in one place. The reach cases are already shown — see §4.
 4. **Fly the validation matrix**, then show the miss where it is earned.
-5. **Retire the settings** from the panel, keeping them settable from a shot spec.
+5. **Retire the settings** from the panel, keeping them settable from a shot spec. **Partly done:**
+   the Ballistic tab shows the §3 controls and the arrival floor — which `NO ARC ARRIVES` names, so
+   it cannot be folded away — and everything else sits under one **Engineering** fold that opens
+   closed. They are still on the panel, because `check-tunables.py` requires a write for every
+   `IcbmConfig` field; retiring one outright means an `EXEMPT` entry naming why.
 
 Steps 1 and 2 are also the two biggest remaining accuracy items, so this is not a detour from
 `docs/ACCURACY-PLAN.md` — it is the same work with the panel as the deliverable rather than a night

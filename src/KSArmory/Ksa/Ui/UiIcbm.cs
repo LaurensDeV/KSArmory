@@ -53,11 +53,14 @@ internal sealed partial class Ui
 
         ImGui.Text($"Target: {computer.Target.Describe()}");
 
-        // Describe() rounds to three decimals, which is 111 m and right for an overlay label and
-        // wrong for the one place an operator might copy a coordinate down. Printed in full here
-        // rather than made more precise there.
         if (computer.Target.IsSet)
         {
+            ImGui.SameLine();
+            if (ImGui.Button("Clear target")) computer.Designate(AimSite.None);
+
+            // Describe() rounds to three decimals, which is 111 m and right for an overlay label and
+            // wrong for the one place an operator might copy a coordinate down. Printed in full here
+            // rather than made more precise there.
             ImGui.TextDisabled($"  {computer.Target.LatitudeDeg:F7}, {computer.Target.LongitudeDeg:F7}");
         }
 
@@ -76,33 +79,42 @@ internal sealed partial class Ui
         Tip("On: a ring follows the cursor; click the ground to aim there. Shift-click is still the "
             + "lock gesture, and clicks on a window do nothing. Off: enter coordinates below.");
 
-        ImGui.SameLine();
-        if (ImGui.Button("Clear target")) computer.Designate(AimSite.None);
-
-        ImGui.Separator();
-
-        ImGui.InputDouble("Latitude", ref _siteLat, 0.0, 0.0, "%.7f", ImGuiInputTextFlags.None);
-        ImGui.InputDouble("Longitude", ref _siteLon, 0.0, 0.0, "%.7f", ImGuiInputTextFlags.None);
-
-        _siteLat = Math.Clamp(_siteLat, -89.9, 89.9);
-        _siteLon = Math.Clamp(_siteLon, -180.0, 180.0);
+        string resolution = "Typed rather than dragged: a slider spanning half a turn moves about 100 km "
+                            + "per pixel.";
 
         if (parent is not null)
         {
             double lastDigit = 1e-7 * 2.0 * Math.PI * parent.MeanRadius / 360.0;
 
-            ImGui.TextDisabled($"  the last digit is {lastDigit:F2} m of latitude and "
-                               + $"{lastDigit * Math.Cos(_siteLat * Math.PI / 180.0):F2} m of "
-                               + $"longitude on {parent.Id}");
+            resolution = $"The last digit is {lastDigit:F2} m of latitude and "
+                         + $"{lastDigit * Math.Cos(_siteLat * Math.PI / 180.0):F2} m of longitude on "
+                         + $"{parent.Id}. {resolution}";
         }
 
-        TextField("Label", ref _siteLabel);
+        float field = ImGui.GetFontSize() * 7f;
 
-        if (ImGui.Button("Designate those coordinates") && parent is not null)
+        ImGui.SetNextItemWidth(field);
+        ImGui.InputDouble("Lat", ref _siteLat, 0.0, 0.0, "%.7f", ImGuiInputTextFlags.None);
+        Tip(resolution);
+
+        ImGui.SameLine();
+        ImGui.SetNextItemWidth(field);
+        ImGui.InputDouble("Lon", ref _siteLon, 0.0, 0.0, "%.7f", ImGuiInputTextFlags.None);
+        Tip(resolution);
+
+        _siteLat = Math.Clamp(_siteLat, -89.9, 89.9);
+        _siteLon = Math.Clamp(_siteLon, -180.0, 180.0);
+
+        ImGui.SetNextItemWidth(field * 2f);
+        TextField("##sitelabel", ref _siteLabel, "label, optional");
+
+        ImGui.SameLine();
+        if (ImGui.Button("Designate") && parent is not null)
         {
             computer.Designate(new AimSite(parent.Id, _siteLat, _siteLon,
                                            string.IsNullOrWhiteSpace(_siteLabel) ? "" : _siteLabel.Trim()));
         }
+        Tip("Aims at the latitude and longitude above.");
     }
 
     private void DrawIcbmStatus(IcbmComputer computer)
@@ -399,6 +411,137 @@ internal sealed partial class Ui
         Tip("On: draws the arc the vehicle is on. Off: no arc is drawn. The ring on the aim point "
             + "belongs to marking the target, not to this.");
 
+        bool autoRelease = config.AutoRelease;
+        if (ImGui.Checkbox("Release warheads automatically", ref autoRelease)) config.AutoRelease = autoRelease;
+        Tip("On: one at a time from the coast, once past the release altitude. Off: nothing leaves the "
+            + "bus until Release one warhead is pressed.");
+        if (!config.AutoRelease) ImGui.TextDisabled("  nothing leaves the bus until the button above is pressed");
+
+        bool autoStage = config.AutoStage;
+        if (ImGui.Checkbox("Stage automatically", ref autoStage)) config.AutoStage = autoStage;
+        Tip("On: lights the first engine, then fires each stage as the running one runs dry. Off: "
+            + "staging is yours, including the one that lights the first engine.");
+        if (!config.AutoStage) ImGui.TextDisabled("  staging is yours, including the one that lights the first engine");
+
+        // Above Loft, because it overrides it: the two both move the flight time, and a control
+        // that wins an argument reads better before the one it wins it with than after.
+        // Bounded by what the stack can pay for, not by a round number. Arrival angle is bought
+        // with propellant, and the ceiling is a property of this rocket against this target -- so a
+        // fixed 45 lets an operator ask for an angle no arc can be flown at and find out only when
+        // the shot falls short. The mod does not refuse such a shot, which makes the ceiling worth
+        // showing rather than discovering.
+        double afford = computer.Program.SteepestAffordableArrivalDeg;
+        bool bounded = double.IsFinite(afford) && afford >= ArrivalBudget.ResolutionDeg;
+
+        // Never below where the slider already is. The ceiling falls as the tanks empty, and a
+        // maximum that walks down past a live setting silently rewrites it mid-flight.
+        float top = bounded ? (float)Math.Max(afford, config.MinArrivalAngleDeg) : 45f;
+
+        float floor = (float)config.MinArrivalAngleDeg;
+        if (ImGui.SliderFloat("Steepest arrival", ref floor, 0f, top, "%.0f deg minimum"))
+        {
+            config.MinArrivalAngleDeg = Math.Min(floor, top);
+        }
+        Tip("The shallowest the warheads may come in. Steeper is more accurate and costs reach: 15-20 "
+            + "deg is where the trade turns, and it overrides Loft where they disagree. At 0 it is off, "
+            + "and unless Precision against range asks for an angle the cheapest arc wins, which from "
+            + "orbit is a graze at about 7 deg.");
+
+        if (bounded)
+        {
+            bool atTheLimit = config.MinArrivalAngleDeg >= afford - ArrivalBudget.ResolutionDeg;
+
+            ImGui.TextColored(atTheLimit ? Working : Good,
+                              $"  the stack can afford {afford:F0} deg from here");
+        }
+        else if (double.IsFinite(afford))
+        {
+            ImGui.TextColored(Bad, "  the stack cannot afford any arc to that target");
+        }
+        else
+        {
+            ImGui.TextDisabled("  nothing costed yet, so the limit is unknown");
+        }
+
+        // Asked beside achieved, because those two differing is the whole reason this control
+        // exists: before it, the arrival was whatever the cheapest arc happened to give.
+        double planned = computer.Program.Arc?.ArrivalAngleDeg ?? double.NaN;
+        string arriving = double.IsFinite(planned) ? $"; the arc it has arrives at {planned:F0} deg"
+                                                   : "; no arc solved yet";
+
+        ImGui.TextDisabled("  " + (config.MinArrivalAngleDeg < 0.5
+            ? "off" + arriving
+            : $"no shallower than {config.MinArrivalAngleDeg:F0} deg{arriving}"));
+
+        // Beside the floor rather than beside Correct the aim, because the floor is what turns the
+        // correction from the thing that closes the miss into the thing that causes it.
+        if (config.CorrectAim && config.MinArrivalAngleDeg >= 0.5)
+        {
+            ImGui.TextDisabled("  under a floor the search is still moving when the aim correction");
+            ImGui.TextDisabled("  opens, and it reads that as drag: 8.52 km against 0.018 km off,");
+            ImGui.TextDisabled("  headless at 15 -- Correct the aim is under Engineering");
+        }
+
+        float preference = (float)config.ArrivalPreference;
+        if (ImGui.SliderFloat("Precision against range", ref preference, 0.0f, 1.0f, "%.2f"))
+        {
+            config.ArrivalPreference = preference;
+        }
+        Tip("Asks for that fraction of the steepest arrival the tanks can pay for, and never less than "
+            + "the Steepest arrival minimum. Latched once, the first time any arc is affordable. At 0 "
+            + "it is off: the arrival is whatever the cheapest arc gives, or the minimum above.");
+
+        // Closed, and the only fold on the tab. What is above it is what a player decides; what is
+        // under it has a right answer the shipped defaults already hold, and stays reachable so a
+        // shot night can still fly it as an arm.
+        bool engineering = ImGui.CollapsingHeader("Engineering");
+        Tip("Sequencing, the ascent, and the switches paired shot nights fly as arms. The defaults are "
+            + "what ships; changing one here changes the shot, and nothing else on this tab will say so.");
+        if (!engineering) return;
+
+        ImGui.SeparatorText("Shot");
+
+        // A multiplier on the cheapest flight time, shown as one. Printed bare it reads as an
+        // absolute setting, and then 1.00 needs a sentence to explain that it is not.
+        float loft = (float)config.Loft;
+        if (ImGui.SliderFloat("Loft", ref loft, 0.6f, 1.8f, "%.2f x cheapest")) config.Loft = loft;
+        Tip("At 1: minimum energy, the cheapest shot there is. Above 1: a longer flight than the "
+            + "cheapest -- higher, slower, arrives steeper, costs more. Below 1: a shorter flight than "
+            + "the cheapest -- flatter and faster, and costs more. It is not an arrival-angle control: "
+            + "from orbit, raising it makes leaving now dearer too, so the burn window can move to a "
+            + "cheap flat departure and arrive shallower instead. Steepest arrival asks for an angle, "
+            + "and wins where the two disagree.");
+
+        bool correct = config.CorrectAim;
+        if (ImGui.Checkbox("Correct the aim from the prediction", ref correct)) config.CorrectAim = correct;
+        Tip("On: the aim carries what the flown arc loses to drag and to real ground. Off: the aim is "
+            + "the target; the solver's own answer is flown unmodified.");
+
+        bool derive = config.DeriveHoldingCost;
+        if (ImGui.Checkbox("Measure the holding cost", ref derive))
+        {
+            config.DeriveHoldingCost = derive;
+        }
+        Tip("On: measured off the trajectory each pass, so the floor suits the shot. Off: taken from "
+            + "the number below, which is right at one range only.");
+
+        float holding = (float)config.HoldingCostMetresPerSecond;
+        if (ImGui.SliderFloat("Holding cost, m/s", ref holding, 0.0f, 40.0f, "%.1f"))
+        {
+            config.HoldingCostMetresPerSecond = holding;
+        }
+        Tip("What a second of holding the warheads is charged at. The correction stops once the "
+            + $"predicted miss is under {PostBoostAim.FirstCycleSeconds:F0} s of that on its first cycle, "
+            + "and that is the floor under the miss"
+            + (config.HoldingCostMetresPerSecond > 0.0
+                   ? $": {config.HoldingCostMetresPerSecond * PostBoostAim.FirstCycleSeconds:F0} m here. "
+                   : ". ")
+            + $"At 0 it takes {PostBoostAim.HoldingCostsMetresPerSecond:F0} m/s, measured on one flight: "
+            + $"a {PostBoostAim.HoldingCostsMetresPerSecond * PostBoostAim.FirstCycleSeconds:F0} m floor. "
+            + "Only used while Measure the holding cost is off, or before it has measured anything.");
+
+        ImGui.SeparatorText("Release");
+
         float hold = (float)config.ReleaseBeforeArrivalSeconds;
         if (ImGui.SliderFloat("Release at", ref hold, 0f, 900f, "%.0f s before arrival"))
         {
@@ -407,6 +550,19 @@ internal sealed partial class Ui
         Tip("The warheads are held until this long before arrival, so the ejection kick has less "
             + "flight to grow in. At 0 they go as soon as the altitude allows, which is early on the "
             + "way up.");
+
+        bool trim = config.TrimBeforeRelease;
+        if (ImGui.Checkbox("Trim the bus before releasing", ref trim)) config.TrimBeforeRelease = trim;
+        Tip("On: thrusters put it back on the solution after the split, which the burn cannot. Off: the "
+            + "warheads leave on whatever the cutoff and the decoupler left the bus doing.");
+
+        bool repoint = config.RepointBetweenReleases;
+        if (ImGui.Checkbox("Aim each tube before it fires", ref repoint))
+        {
+            config.RepointBetweenReleases = repoint;
+        }
+        Tip("On: turns between releases so every round leaves on the same line. Off: all rounds leave on "
+            + "the attitude the burn ended on, and spread by the tube cant.");
 
         float budget = (float)config.TrimBudgetMetresPerSecond;
         if (ImGui.SliderFloat("Trim budget", ref budget, 0f,
@@ -437,6 +593,131 @@ internal sealed partial class Ui
         Tip("On: the correction stops at the aim the remaining budget can fly it to. Off: the "
             + $"correction may walk {AimCorrection.MaxMetres / 1000.0:F0} km, which one budget cannot "
             + "fly at any range.");
+
+        bool keepOut = config.KeepOutCoversTheClearance;
+        if (ImGui.Checkbox("Keep trimming past the clearance", ref keepOut))
+        {
+            config.KeepOutCoversTheClearance = keepOut;
+        }
+        Tip("On: a clearance that runs out of time stops waiting rather than giving up, and the "
+            + "keep-out withholds the directions that point at the stack. Off: a clearance that runs "
+            + "out of time abandons the trim, and the warheads go on the aim as the burn left it.");
+
+        ImGui.SeparatorText("Ascent");
+
+        float gee = config.MaxAccelerationGee;
+        if (ImGui.SliderFloat("Acceleration limit", ref gee, 0f, 15f, "%.1f g"))
+        {
+            config.MaxAccelerationGee = gee;
+        }
+
+        double now = computer.Program.LastBooster.AccelerationNow / 9.80665;
+        string pulling = double.IsFinite(now) && now > 0.0 ? $"; pulling {now:F1} g now" : "";
+
+        // Reports the airframe's own limit rather than being a second switch for it. There is
+        // nothing to set: the engine destroys the vehicle at that number whatever anybody types,
+        // so the guidance holds under it and this says what it settled on.
+        double airframe = computer.AirframeLimitGee;
+
+        ImGui.TextDisabled("  " + (config.MaxAccelerationGee < 0.05
+            ? airframe > 0.0
+                  ? $"the airframe's own {airframe:F1} g limit only{pulling}"
+                  : "off - full throttle throughout, whatever the stack ends up pulling" + pulling
+            : $"throttled to hold {config.MaxAccelerationGee:F1} g{pulling}"));
+
+        if (airframe > 0.0)
+        {
+            ImGui.TextDisabled($"  KSA destroys this stack at {airframe:F1} g, off its own size; "
+                               + $"the guidance holds it to {airframe * IcbmProgram.StructuralMarginFraction:F1}");
+        }
+
+        float turnStart = (float)config.TurnStartMetres;
+        if (ImGui.SliderFloat("Pitch-over starts (m)", ref turnStart, 100f, 5000f, "%.0f"))
+        {
+            config.TurnStartMetres = turnStart;
+        }
+
+        float turnEnd = (float)config.TurnEndMetres;
+        if (ImGui.SliderFloat("Pitch programme ends (m)", ref turnEnd, 10_000f, 120_000f, "%.0f"))
+        {
+            config.TurnEndMetres = turnEnd;
+        }
+
+        float aoa = (float)config.MaxAngleOfAttackDeg;
+        if (ImGui.SliderFloat("Angle of attack limit (deg)", ref aoa, 1f, 30f, "%.1f"))
+        {
+            config.MaxAngleOfAttackDeg = aoa;
+        }
+        Tip($"The stack is held within {config.MaxAngleOfAttackDeg:F0} deg of the airflow while loaded.");
+
+        float handover = (float)config.HandoverPressurePa;
+        if (ImGui.SliderFloat("Guidance takes over below (Pa)", ref handover, 50f, 20_000f, "%.0f"))
+        {
+            config.HandoverPressurePa = handover;
+        }
+        Tip($"Dynamic pressure, so {config.HandoverPressurePa:F0} Pa means the same thing on a body "
+            + "with no air.");
+
+        float deploy = (float)config.DeployAltitudeMetres;
+        if (ImGui.SliderFloat("Release warheads above (m)", ref deploy, 1_000f, 400_000f, "%.0f"))
+        {
+            config.DeployAltitudeMetres = deploy;
+        }
+
+        ImGui.SeparatorText("Coast");
+
+        bool quiet = config.QuietCoast;
+        if (ImGui.Checkbox("Let go of the attitude while coasting", ref quiet))
+        {
+            config.QuietCoast = quiet;
+        }
+        Tip($"On: stops pointing inside {config.QuietCoastDeg:F1} deg and points again past "
+            + $"{config.ReacquireCoastDeg:F1} deg. A commanded thruster is what takes the bus off "
+            + "rails, and off rails it is integrated rather than coasted. Off: the bus is pointed "
+            + "every frame of the coast, which keeps it off rails throughout.");
+
+        if (config.QuietCoast)
+        {
+            bool afterCorrection = config.QuietCoastAfterCorrection;
+            if (ImGui.Checkbox("  Wait for the correction to finish", ref afterCorrection))
+            {
+                config.QuietCoastAfterCorrection = afterCorrection;
+            }
+            Tip("On: the correction runs the whole coast, so this leaves almost no window -- measured in "
+                + "flight at 417 of 429 coast probes still holding. Off: quiet between trim passes; the "
+                + "trim itself always takes the attitude back.");
+
+            float go = (float)config.QuietCoastDeg;
+            if (ImGui.SliderFloat("  Let go inside (deg)", ref go, 0.05f, 5.0f, "%.2f"))
+            {
+                config.QuietCoastDeg = go;
+            }
+
+            float back = (float)config.ReacquireCoastDeg;
+            if (ImGui.SliderFloat("  Take it back past (deg)", ref back, 0.1f, 20.0f, "%.1f"))
+            {
+                config.ReacquireCoastDeg = back;
+            }
+
+            float ends = (float)config.QuietCoastEndsBeforeReleaseSeconds;
+            if (ImGui.SliderFloat("  Re-point before release (s)", ref ends, 0.0f, 240.0f, "%.0f"))
+            {
+                config.QuietCoastEndsBeforeReleaseSeconds = ends;
+            }
+            Tip($"Back under command {config.QuietCoastEndsBeforeReleaseSeconds:F0} s before the release "
+                + "approach: the release waits for the bus to be steady, and steady is not pointed.");
+
+            bool rails = config.RailsDuringCoast;
+            if (ImGui.Checkbox("  Assert rails while quiet", ref rails))
+            {
+                config.RailsDuringCoast = rails;
+            }
+            Tip("On: the coast is propagated as an exact conic rather than integrated -- the half going "
+                + "quiet alone cannot do, because a Ccf bubble never puts a coasting craft back on rails. "
+                + "Off: quiet only; in a Ccf bubble the engine will not return it to rails on its own.");
+        }
+
+        ImGui.SeparatorText("Research switches");
 
         bool tracks = config.AimThresholdTracksTheMiss;
         if (ImGui.Checkbox("Aim threshold follows the miss", ref tracks))
@@ -696,263 +977,6 @@ internal sealed partial class Ui
             + "-1.09. Counterfactually 0.5 is 0.89x on the median worst warhead and 0.93x on ground steep "
             + "enough to amplify without bound. NEVER FLOWN -- every one of those numbers is arithmetic on "
             + "logged shots rather than a flight.");
-
-        bool quiet = config.QuietCoast;
-        if (ImGui.Checkbox("Let go of the attitude while coasting", ref quiet))
-        {
-            config.QuietCoast = quiet;
-        }
-        Tip($"On: stops pointing inside {config.QuietCoastDeg:F1} deg and points again past "
-            + $"{config.ReacquireCoastDeg:F1} deg. A commanded thruster is what takes the bus off "
-            + "rails, and off rails it is integrated rather than coasted. Off: the bus is pointed "
-            + "every frame of the coast, which keeps it off rails throughout.");
-
-        if (config.QuietCoast)
-        {
-            bool afterCorrection = config.QuietCoastAfterCorrection;
-            if (ImGui.Checkbox("  Wait for the correction to finish", ref afterCorrection))
-            {
-                config.QuietCoastAfterCorrection = afterCorrection;
-            }
-            Tip("On: the correction runs the whole coast, so this leaves almost no window -- measured in "
-                + "flight at 417 of 429 coast probes still holding. Off: quiet between trim passes; the "
-                + "trim itself always takes the attitude back.");
-
-            float go = (float)config.QuietCoastDeg;
-            if (ImGui.SliderFloat("  Let go inside (deg)", ref go, 0.05f, 5.0f, "%.2f"))
-            {
-                config.QuietCoastDeg = go;
-            }
-
-            float back = (float)config.ReacquireCoastDeg;
-            if (ImGui.SliderFloat("  Take it back past (deg)", ref back, 0.1f, 20.0f, "%.1f"))
-            {
-                config.ReacquireCoastDeg = back;
-            }
-
-            float ends = (float)config.QuietCoastEndsBeforeReleaseSeconds;
-            if (ImGui.SliderFloat("  Re-point before release (s)", ref ends, 0.0f, 240.0f, "%.0f"))
-            {
-                config.QuietCoastEndsBeforeReleaseSeconds = ends;
-            }
-            Tip($"Back under command {config.QuietCoastEndsBeforeReleaseSeconds:F0} s before the release "
-                + "approach: the release waits for the bus to be steady, and steady is not pointed.");
-
-            bool rails = config.RailsDuringCoast;
-            if (ImGui.Checkbox("  Assert rails while quiet", ref rails))
-            {
-                config.RailsDuringCoast = rails;
-            }
-            Tip("On: the coast is propagated as an exact conic rather than integrated -- the half going "
-                + "quiet alone cannot do, because a Ccf bubble never puts a coasting craft back on rails. "
-                + "Off: quiet only; in a Ccf bubble the engine will not return it to rails on its own.");
-        }
-
-        float preference = (float)config.ArrivalPreference;
-        if (ImGui.SliderFloat("Precision against range", ref preference, 0.0f, 1.0f, "%.2f"))
-        {
-            config.ArrivalPreference = preference;
-        }
-        Tip("Asks for that fraction of the steepest arrival the tanks can pay for, and never less than "
-            + "the Steepest arrival minimum. Latched once, the first time any arc is affordable. At 0 "
-            + "it is off: the arrival is whatever the cheapest arc gives, or the minimum below.");
-
-        bool derive = config.DeriveHoldingCost;
-        if (ImGui.Checkbox("Measure the holding cost", ref derive))
-        {
-            config.DeriveHoldingCost = derive;
-        }
-        Tip("On: measured off the trajectory each pass, so the floor suits the shot. Off: taken from "
-            + "the number below, which is right at one range only.");
-
-        float holding = (float)config.HoldingCostMetresPerSecond;
-        if (ImGui.SliderFloat("Holding cost, m/s", ref holding, 0.0f, 40.0f, "%.1f"))
-        {
-            config.HoldingCostMetresPerSecond = holding;
-        }
-        Tip("What a second of holding the warheads is charged at. The correction stops once the "
-            + $"predicted miss is under {PostBoostAim.FirstCycleSeconds:F0} s of that on its first cycle, "
-            + "and that is the floor under the miss"
-            + (config.HoldingCostMetresPerSecond > 0.0
-                   ? $": {config.HoldingCostMetresPerSecond * PostBoostAim.FirstCycleSeconds:F0} m here. "
-                   : ". ")
-            + $"At 0 it takes {PostBoostAim.HoldingCostsMetresPerSecond:F0} m/s, measured on one flight: "
-            + $"a {PostBoostAim.HoldingCostsMetresPerSecond * PostBoostAim.FirstCycleSeconds:F0} m floor. "
-            + "Only used while Measure the holding cost is off, or before it has measured anything.");
-
-        bool keepOut = config.KeepOutCoversTheClearance;
-        if (ImGui.Checkbox("Keep trimming past the clearance", ref keepOut))
-        {
-            config.KeepOutCoversTheClearance = keepOut;
-        }
-        Tip("On: a clearance that runs out of time stops waiting rather than giving up, and the "
-            + "keep-out withholds the directions that point at the stack. Off: a clearance that runs "
-            + "out of time abandons the trim, and the warheads go on the aim as the burn left it.");
-
-        // A structural limit rather than a preference, so it sits with the other things that
-        // constrain the flight rather than with the ones that shape it.
-        float gee = config.MaxAccelerationGee;
-        if (ImGui.SliderFloat("Acceleration limit", ref gee, 0f, 15f, "%.1f g"))
-        {
-            config.MaxAccelerationGee = gee;
-        }
-
-        double now = computer.Program.LastBooster.AccelerationNow / 9.80665;
-        string pulling = double.IsFinite(now) && now > 0.0 ? $"; pulling {now:F1} g now" : "";
-
-        // Reports the airframe's own limit rather than being a second switch for it. There is
-        // nothing to set: the engine destroys the vehicle at that number whatever anybody types,
-        // so the guidance holds under it and this says what it settled on.
-        double airframe = computer.AirframeLimitGee;
-
-        ImGui.TextDisabled("  " + (config.MaxAccelerationGee < 0.05
-            ? airframe > 0.0
-                  ? $"the airframe's own {airframe:F1} g limit only{pulling}"
-                  : "off - full throttle throughout, whatever the stack ends up pulling" + pulling
-            : $"throttled to hold {config.MaxAccelerationGee:F1} g{pulling}"));
-
-        if (airframe > 0.0)
-        {
-            ImGui.TextDisabled($"  KSA destroys this stack at {airframe:F1} g, off its own size; "
-                               + $"the guidance holds it to {airframe * IcbmProgram.StructuralMarginFraction:F1}");
-        }
-
-        // Above Loft, because it overrides it: the two both move the flight time, and a control
-        // that wins an argument reads better before the one it wins it with than after.
-        // Bounded by what the stack can pay for, not by a round number. Arrival angle is bought
-        // with propellant, and the ceiling is a property of this rocket against this target -- so a
-        // fixed 45 lets an operator ask for an angle no arc can be flown at and find out only when
-        // the shot falls short. The mod does not refuse such a shot, which makes the ceiling worth
-        // showing rather than discovering.
-        double afford = computer.Program.SteepestAffordableArrivalDeg;
-        bool bounded = double.IsFinite(afford) && afford >= ArrivalBudget.ResolutionDeg;
-
-        // Never below where the slider already is. The ceiling falls as the tanks empty, and a
-        // maximum that walks down past a live setting silently rewrites it mid-flight.
-        float top = bounded ? (float)Math.Max(afford, config.MinArrivalAngleDeg) : 45f;
-
-        float floor = (float)config.MinArrivalAngleDeg;
-        if (ImGui.SliderFloat("Steepest arrival", ref floor, 0f, top, "%.0f deg minimum"))
-        {
-            config.MinArrivalAngleDeg = Math.Min(floor, top);
-        }
-        Tip("The shallowest the warheads may come in. Steeper is more accurate and costs reach: 15-20 "
-            + "deg is where the trade turns, and it overrides Loft where they disagree. At 0 it is off, "
-            + "and unless Precision against range asks for an angle the cheapest arc wins, which from "
-            + "orbit is a graze at about 7 deg.");
-
-        if (bounded)
-        {
-            bool atTheLimit = config.MinArrivalAngleDeg >= afford - ArrivalBudget.ResolutionDeg;
-
-            ImGui.TextColored(atTheLimit ? Working : Good,
-                              $"  the stack can afford {afford:F0} deg from here");
-        }
-        else if (double.IsFinite(afford))
-        {
-            ImGui.TextColored(Bad, "  the stack cannot afford any arc to that target");
-        }
-        else
-        {
-            ImGui.TextDisabled("  nothing costed yet, so the limit is unknown");
-        }
-
-        // Asked beside achieved, because those two differing is the whole reason this control
-        // exists: before it, the arrival was whatever the cheapest arc happened to give.
-        double planned = computer.Program.Arc?.ArrivalAngleDeg ?? double.NaN;
-        string arriving = double.IsFinite(planned) ? $"; the arc it has arrives at {planned:F0} deg"
-                                                   : "; no arc solved yet";
-
-        ImGui.TextDisabled("  " + (config.MinArrivalAngleDeg < 0.5
-            ? "off" + arriving
-            : $"no shallower than {config.MinArrivalAngleDeg:F0} deg{arriving}"));
-
-        // Beside the floor rather than with the other switches, because the floor is what turns it
-        // from the thing that closes the miss into the thing that causes it.
-        bool correct = config.CorrectAim;
-        if (ImGui.Checkbox("Correct the aim from the prediction", ref correct)) config.CorrectAim = correct;
-        Tip("On: the aim carries what the flown arc loses to drag and to real ground. Off: the aim is "
-            + "the target; the solver's own answer is flown unmodified.");
-
-        if (config.CorrectAim && config.MinArrivalAngleDeg >= 0.5)
-        {
-            ImGui.TextDisabled("  under a floor the search is still moving when this opens, and it");
-            ImGui.TextDisabled("  reads that as drag: 8.52 km against 0.018 km off, headless at 15");
-        }
-
-        // A multiplier on the cheapest flight time, shown as one. Printed bare it reads as an
-        // absolute setting, and then 1.00 needs a sentence to explain that it is not.
-        float loft = (float)config.Loft;
-        if (ImGui.SliderFloat("Loft", ref loft, 0.6f, 1.8f, "%.2f x cheapest")) config.Loft = loft;
-        Tip("At 1: minimum energy, the cheapest shot there is. Above 1: a longer flight than the "
-            + "cheapest -- higher, slower, arrives steeper, costs more. Below 1: a shorter flight than "
-            + "the cheapest -- flatter and faster, and costs more. It is not an arrival-angle control: "
-            + "from orbit, raising it makes leaving now dearer too, so the burn window can move to a "
-            + "cheap flat departure and arrive shallower instead. Steepest arrival asks for an angle, "
-            + "and wins where the two disagree.");
-
-        bool autoRelease = config.AutoRelease;
-        if (ImGui.Checkbox("Release warheads automatically", ref autoRelease)) config.AutoRelease = autoRelease;
-        Tip("On: one at a time from the coast, once past the release altitude. Off: nothing leaves the "
-            + "bus until Release one warhead is pressed.");
-        if (!config.AutoRelease) ImGui.TextDisabled("  nothing leaves the bus until the button above is pressed");
-
-        bool trim = config.TrimBeforeRelease;
-        if (ImGui.Checkbox("Trim the bus before releasing", ref trim)) config.TrimBeforeRelease = trim;
-        Tip("On: thrusters put it back on the solution after the split, which the burn cannot. Off: the "
-            + "warheads leave on whatever the cutoff and the decoupler left the bus doing.");
-
-        bool repoint = config.RepointBetweenReleases;
-        if (ImGui.Checkbox("Aim each tube before it fires", ref repoint))
-        {
-            config.RepointBetweenReleases = repoint;
-        }
-        Tip("On: turns between releases so every round leaves on the same line. Off: all rounds leave on "
-            + "the attitude the burn ended on, and spread by the tube cant.");
-
-        bool autoStage = config.AutoStage;
-        if (ImGui.Checkbox("Stage automatically", ref autoStage)) config.AutoStage = autoStage;
-        Tip("On: lights the first engine, then fires each stage as the running one runs dry. Off: "
-            + "staging is yours, including the one that lights the first engine.");
-        if (!config.AutoStage) ImGui.TextDisabled("  staging is yours, including the one that lights the first engine");
-
-        if (ImGui.TreeNode("Ascent"))
-        {
-            float turnStart = (float)config.TurnStartMetres;
-            if (ImGui.SliderFloat("Pitch-over starts (m)", ref turnStart, 100f, 5000f, "%.0f"))
-            {
-                config.TurnStartMetres = turnStart;
-            }
-
-            float turnEnd = (float)config.TurnEndMetres;
-            if (ImGui.SliderFloat("Pitch programme ends (m)", ref turnEnd, 10_000f, 120_000f, "%.0f"))
-            {
-                config.TurnEndMetres = turnEnd;
-            }
-
-            float aoa = (float)config.MaxAngleOfAttackDeg;
-            if (ImGui.SliderFloat("Angle of attack limit (deg)", ref aoa, 1f, 30f, "%.1f"))
-            {
-                config.MaxAngleOfAttackDeg = aoa;
-            }
-            Tip($"The stack is held within {config.MaxAngleOfAttackDeg:F0} deg of the airflow while loaded.");
-
-            float handover = (float)config.HandoverPressurePa;
-            if (ImGui.SliderFloat("Guidance takes over below (Pa)", ref handover, 50f, 20_000f, "%.0f"))
-            {
-                config.HandoverPressurePa = handover;
-            }
-            Tip($"Dynamic pressure, so {config.HandoverPressurePa:F0} Pa means the same thing on a body "
-                + "with no air.");
-
-            float deploy = (float)config.DeployAltitudeMetres;
-            if (ImGui.SliderFloat("Release warheads above (m)", ref deploy, 1_000f, 400_000f, "%.0f"))
-            {
-                config.DeployAltitudeMetres = deploy;
-            }
-
-            ImGui.TreePop();
-        }
     }
 
     private static float4 PhaseColour(IcbmPhase phase) => phase switch
