@@ -1150,8 +1150,11 @@ version by hand** — it will be overwritten. `feat`/`fix`/`perf`/`build`/`rever
 `refactor` cut no release. A commit that does not parse is treated as no release, so a stray `wip`
 cannot publish anything.
 
-That workflow's first job decides the version and creates the release, and the second builds the
-archive and attaches it. `spacedock.yml` then **publishes what is attached to SpaceDock** — called
+That workflow's first job decides the version and creates the release **as a draft**, and the
+second builds the archive, attaches it and publishes the release, so no release is ever public
+without its archive. The content index the Borea mod manager installs from polls GitHub releases,
+and reports one it finds with no archive as broken, in an issue against the listing — and the build
+takes about seventeen minutes for a poll to land in. `spacedock.yml` then **publishes what is attached to SpaceDock** — called
 from the release, or run by hand with a version for a release whose upload failed, because it
 uploads the release's own archive rather than building again. A failed upload request is checked
 against SpaceDock's version list before it fails the run, because SpaceDock's gateway can time out
@@ -1190,7 +1193,8 @@ Three things that will bite:
 
 **Releases** are `./tools/package.sh`, locally or from the release workflow — the archive is
 identical either way. `./tools/publish-release.sh` does both halves from a machine with KSA:
-build, then attach to the release semantic-release created. That is the fallback for when the
+build, then attach to the draft semantic-release created and publish it — not as the latest if a
+newer release is already out, which GitHub would otherwise make it. That is the fallback for when the
 assemblies secret is unavailable, and it refuses rather than guessing if the tag or the release
 does not exist.
 
