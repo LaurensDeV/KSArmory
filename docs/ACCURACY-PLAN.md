@@ -11773,3 +11773,47 @@ ran 6 of 11 — so reaching 20 accepted blocks is roughly 45 shots and 14 hours,
 **And any reader of a night has to exclude those shots.** `~/shots/scripts-2026-09-18/nopulse-read.py`
 does, because the first version did not and reported 3 of 8 stalled off a flight the night had already
 thrown away.
+
+## 3fg. The pulse phase is what the long shot loses to — 2026-09-19
+
+`~/shots/2026-09-18-nopulse`, declared in `~/shots/scripts-2026-09-18/DECLARE-nopulse.md` before it
+flew: `base|nopulse:PulseTrim=false`, `--aim none`, 12,902–13,044 km verified from the log. **Read at
+20 of 28 blocks with the night still flying**; the direction has not moved since block 4.
+
+**The declared primary endpoint was a rate, and it is at zero.**
+
+| | base worse | nopulse worse | tied | sign test |
+| --- | --- | --- | --- | --- |
+| accepted blocks (12), stalls | 7 | **0** | 5 | **p = 0.0078** |
+| accepted blocks, a rocket over 1 km | 6 | **0** | 6 | p = 0.0156 |
+| every block (20), stalls | 13 | **0** | 7 | p = 0.00012 |
+| every block, a rocket over 1 km | 12 | **0** | 8 | p = 0.00024 |
+
+Per rocket, accepted only: **9 of 48 base stalled against 0 of 48**, and 8 of 48 over a kilometre
+against 0. Over every block flown, **19 of 80 against 0 of 80** on both. `nopulse` is not once worse in
+any block, on either endpoint. The declared refutation — "if `nopulse` is not below half of base's
+rate" — is not close.
+
+**And the stall is the miss.** Over the first 32 rockets the two agreed on **31**, the exception being
+a 1.11 km miss with no stall. `shot-report.py`'s own ending table says it independently: of 56 flights,
+those ending on `trim` have a median miss of **2.57 km** against 0.00 for the 46 ending on `floor` or
+`payback`. The largest miss of the night, 6.601 km on shot 020, is a `base` rocket whose bus stalled,
+in a world where both `nopulse` rockets landed at 0.000.
+
+**The mechanism is the release floor, not the actuator.** The two arms leave the correction loop by
+different doors — `base` ends `payback` 13 and `trim` 3, `nopulse` ends `floor` 16 of 16. Pulsing takes
+the trim's band from 0.020 to about 0.003, which takes `ReleaseInsideTheTrimFloor` down with it, which
+keeps the post-cutoff loop correcting instead of releasing — and it is that longer run that is exposed
+to the stall. The pulses themselves are innocent: they arrive at the engine's full allowance and
+deliver 1.01x of what they ask (3ez as corrected, 3fa).
+
+**This does not ship `PulseTrim=false`.** That build was refuted at short range over 20 paired blocks:
+the landing 0.47x and the release probe 0.44x, won on all 20 (3cu). What the night licenses is the
+shape already built on `arm/trim-done`: keep the fine band and **drop to a hold the moment a phase
+stops closing** (`StallFallsBackToHolding`), which converts the `trim` endings into `payback` ones
+without giving up what the pulses buy. `~/shots/scripts-2026-09-18/DECLARE-fallback.md` is written.
+
+**One caveat kept in view.** Base's stall rate is 18.8% on accepted blocks against 3ey's headline 36%,
+because those earlier nights were mostly shots the frame check rejects — and rejected shots run base at
+41% against 15% accepted here. 3ey's 36% is an over-estimate of the accepted-flight rate; the *contrast*
+is untouched, being zero in both strata.
