@@ -44,7 +44,7 @@ internal sealed class Designator
             // pointing rather than at a named place, and the sky is where most of its targets are:
             // requiring a ground hit would leave the CIWS unable to fire at anything above the
             // horizon, which is the one thing a CIWS is for.
-            if (battery.Profile.TubeCount == 0) battery.FireBurst();
+            if (battery.TriggerArmament == ArmamentKind.Belt) battery.FireBurst();
             return;
         }
 
@@ -69,11 +69,11 @@ internal sealed class Designator
         // within the seeker's reach are three refusals that all look like a click doing nothing.
         // The last is the least obvious: a fixed launcher can only shoot where it points.
         //
-        // Asked of whichever weapon the launcher carries. Reading the magazine leaves a gun-only
-        // mount marked refused forever, since its magazine is empty by construction.
+        // Asked of the armament the trigger fires. Reading the magazine leaves a gun marked refused
+        // forever, since a belt is not a magazine.
         bool ready = battery.ReadyToFire;
         double range = battery.Platform is null ? 0.0 : Vec.Len(at - battery.PlatformEcl);
-        bool reaches = range <= battery.Munition.MaxRange;
+        bool reaches = range <= battery.TriggerMunition.MaxRange;
 
         float4 colour = ready && reaches && battery.CanGuideOnto(at) ? MarkerColour : RefusedColour;
 

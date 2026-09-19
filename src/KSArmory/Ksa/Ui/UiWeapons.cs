@@ -103,9 +103,9 @@ internal partial class Ui
         _stationAmmo.Clear();
         foreach (WeaponSystems.Entry s in _stations)
         {
-            // A gun-only mount has no tubes and its belt is what shoots, so asking for rounds
-            // would report every station of it empty and the trigger would never reach one.
-            _stationAmmo.Add(s.Battery.Profile.TubeCount > 0 ? s.Battery.Ammo : s.Battery.GunAmmo);
+            // Whatever the trigger fires. A gun's belt is not its magazine, so asking a gun for
+            // rounds would report every station of it empty and the trigger would never reach one.
+            _stationAmmo.Add(s.Battery.TriggerArmament == ArmamentKind.Tubes ? s.Battery.Ammo : s.Battery.GunAmmo);
         }
 
         return WeaponSelection.NextStation(CollectionsMarshal.AsSpan(_stationAmmo),
@@ -171,13 +171,15 @@ internal partial class Ui
 
     private void DrawHoldReason(WeaponSystem speaking, bool autoEngage)
     {
-        if (speaking.Hold is not { } why)
+        if (speaking.TriggerHold is not { } held)
         {
             ImGui.TextColored(Green, autoEngage ? "Clear to fire" : "Clear to fire -- on the trigger");
             return;
         }
 
-        if (speaking.HoldBindsTrigger)
+        string why = held.Reason;
+
+        if (held.BindsTrigger)
         {
             ImGui.TextColored(Amber, $"Holding fire: {why}");
             return;
@@ -210,6 +212,9 @@ internal partial class Ui
         // take turns, and a list naming each rail separately makes the operator do the bookkeeping.
         // The systems stay separate underneath -- see WeaponSelection.NextStation for why pooling
         // the magazines instead would let a store come back.
+        //
+        // And one per armament: a launcher with tubes and a belt is two weapons, and the trigger
+        // fires one of them.
         int row = 0;
         string? drawn = null;
 
@@ -231,54 +236,12 @@ internal partial class Ui
             GatherGroup(partId, _stations);
 
             WeaponSystems.Entry e = _stations[0];
-            bool isSelected = selected is not null
-                              && selected.Battery.Profile.PartId == partId;
+            IReadOnlyList<Armament> armaments = WeaponFit.Of(e.Battery.Profile, e.Battery.Sensor).Armaments;
 
-            int ammo = 0, belt = 0;
-            bool anyGuarding = false;
-            foreach (WeaponSystems.Entry s in _stations)
+            for (int a = 0; a < armaments.Count; a++)
             {
-                ammo += s.Battery.Ammo;
-                if (s.Battery.Profile.HasCannon) belt += s.Battery.GunAmmo;
-                anyGuarding |= s.Policy.AutoEngage;
+                DrawWeaponRow(craft, selected, e, armaments[a], named: armaments.Count > 1, row++);
             }
-
-            ImGui.PushID(row);
-
-            // The whole row selects, rather than a button beside a label: the row *is* the choice,
-            // and a target the width of the window is one that can be hit without looking.
-            if (ImGui.Selectable($"##row{row}", isSelected, ImGuiSelectableFlags.None,
-                                 new float2(0f, ImGui.GetTextLineHeight() * 1.4f)))
-            {
-                _batteries.Select(craft, e.Ordinal);
-                Focus(Focused);
-            }
-
-            ImGui.SameLine(0f, 0f);
-
-            // Empty is the state worth colouring, because it is the one that makes FIRE do
-            // nothing -- and it is what "the second bomb did not detach" turns out to mean when
-            // the operator is still on the weapon that just fired.
-            float4 tint = ammo <= 0 && belt <= 0 ? Grey : isSelected ? Green : Amber;
-
-            // The station count, because two rails and one rail are different amounts of weapon
-            // and the summed ammo alone does not say which it is.
-            string label = _stations.Count > 1
-                               ? $"{row + 1}. {e.DisplayName}  x{_stations.Count}"
-                               : $"{row + 1}. {e.DisplayName}";
-
-            ImGui.TextColored(tint, label);
-
-            ImGui.SameLine();
-            if (e.Battery.Profile.TubeCount > 0) ImGui.TextDisabled($"  {ammo} round(s)");
-            if (e.Battery.Profile.HasCannon) ImGui.TextDisabled($"  {belt} belt");
-
-            ImGui.SameLine();
-            if (anyGuarding) ImGui.TextColored(Red, "GUARDING");
-            else ImGui.TextDisabled("manual");
-
-            ImGui.PopID();
-            row++;
         }
 
         ImGui.Separator();
@@ -295,5 +258,61 @@ internal partial class Ui
         // blocks nothing FIRE does, and reporting it here is what made a working button look
         // broken.
         DrawHoldLine(selected.Battery, selected.Policy.AutoEngage);
+    }
+
+    // One armament of the group in _stations.
+    private void DrawWeaponRow(KSA.Vehicle? craft, WeaponSystems.Entry? selected, WeaponSystems.Entry e,
+                               Armament arm, bool named, int row)
+    {
+        bool isSelected = selected is not null
+                          && selected.Battery.Profile.PartId == e.Battery.Profile.PartId
+                          && selected.Battery.TriggerArmament == arm.Kind;
+
+        int left = 0;
+        bool anyGuarding = false;
+        foreach (WeaponSystems.Entry s in _stations)
+        {
+            left += arm.Kind == ArmamentKind.Tubes ? s.Battery.Ammo : s.Battery.GunAmmo;
+            anyGuarding |= s.Policy.AutoEngage;
+        }
+
+        ImGui.PushID(row);
+
+        // The whole row selects, rather than a button beside a label: the row *is* the choice,
+        // and a target the width of the window is one that can be hit without looking.
+        if (ImGui.Selectable($"##row{row}", isSelected, ImGuiSelectableFlags.None,
+                             new float2(0f, ImGui.GetTextLineHeight() * 1.4f)))
+        {
+            _batteries.Select(craft, e.Ordinal);
+
+            // Every station, because the trigger steps between them and each fires its own.
+            foreach (WeaponSystems.Entry s in _stations) s.Battery.TriggerArmament = arm.Kind;
+            Focus(Focused);
+        }
+
+        ImGui.SameLine(0f, 0f);
+
+        // Empty is the state worth colouring, because it is the one that makes FIRE do
+        // nothing -- and it is what "the second bomb did not detach" turns out to mean when
+        // the operator is still on the weapon that just fired.
+        float4 tint = left <= 0 ? Grey : isSelected ? Green : Amber;
+
+        // The station count, because two rails and one rail are different amounts of weapon
+        // and the summed ammo alone does not say which it is.
+        string name = named ? $"{e.DisplayName}: {arm.Label}" : e.DisplayName;
+        string label = _stations.Count > 1
+                           ? $"{row + 1}. {name}  x{_stations.Count}"
+                           : $"{row + 1}. {name}";
+
+        ImGui.TextColored(tint, label);
+
+        ImGui.SameLine();
+        ImGui.TextDisabled(arm.Kind == ArmamentKind.Tubes ? $"  {left} round(s)" : $"  {left} belt");
+
+        ImGui.SameLine();
+        if (anyGuarding) ImGui.TextColored(Red, "GUARDING");
+        else ImGui.TextDisabled("manual");
+
+        ImGui.PopID();
     }
 }

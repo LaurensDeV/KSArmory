@@ -278,8 +278,11 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
     }
 
     /// <summary>True when the locked contact has been held long enough to shoot at.</summary>
-    public bool HasFiringSolution =>
-        Locked is not null && Locked.IsThreat && Locked.HeldSeconds >= _sensor.LockSeconds;
+    public bool HasFiringSolution => IsFiringSolution(Locked);
+
+    /// <summary>Whether a track is a threat held long enough to shoot at, whether or not it is the lock.</summary>
+    public bool IsFiringSolution(Track? track) =>
+        track is not null && track.IsThreat && track.HeldSeconds >= _sensor.LockSeconds;
 
     public void Reset()
     {

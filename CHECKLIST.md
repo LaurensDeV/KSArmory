@@ -617,6 +617,18 @@ Do all of this at `simspeed 1`.
 **If it fails:** "refused: …" in the log tells you which gate stopped it — no launcher,
 empty, or target gone.
 
+- [ ] On a Pantsir, the **Weapons** button is on the header strip, and the window lists
+      `Pantsir-S1: Missiles` and `Pantsir-S1: Cannon` as two rows. Select the cannon: the header reads
+      `showing Pantsir-S1 (1): Cannon`, and FIRE with nothing detected fires a burst. The line beside
+      it reads `Auto-engage held: nothing detected -- trigger is clear`, not `Holding fire`.
+- [ ] Back on the missiles, with no threat locked, shift-click a craft the radar can see and press
+      FIRE: a round leaves for *that* craft. The line beside the trigger does not say `Holding fire`
+      about it, even if it is not closing.
+- [ ] Shift-click a craft beyond the radar's reach: the line reads `Holding fire: <name> is not on
+      the radar`, and FIRE refuses with the same words.
+- [ ] With auto-engage on, shift-click a craft that is not a threat and inside the guns' reach: the
+      guns do **not** open fire on it by themselves.
+
 ### 4.1a A low shot from a site near sea level, at 1x
 
 - [ ] From a Pantsir parked near the coast, fire at a target on the ground or skimming it, at 1x.

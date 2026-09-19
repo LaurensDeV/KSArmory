@@ -34,6 +34,7 @@ public class FireLadderTests
         Locked = locked ?? Engageable(),
         LockedIsEmitting = true,
         LockedName = "target",
+        DesignatedName = null,
     };
 
     private static SystemConfig Policy() => new();
@@ -101,15 +102,32 @@ public class FireLadderTests
     }
 
     /// <summary>
-    /// A firing solution comes before the drives, because settling is measured against something to
-    /// settle onto. With no solution the drives are parked and "drives still settling" is a reason
-    /// that will never resolve on its own.
+    /// Something to shoot at comes before the drives, because settling is measured against
+    /// something to settle onto. With nothing locked the drives are parked and "drives still
+    /// settling" is a reason that will never resolve on its own.
     /// </summary>
     [Fact]
     public void AFiringSolutionIsAskedForBeforeTheDrives()
     {
         Assert.Equal("nothing detected",
-                     Hold(Ready() with { HasFiringSolution = false, TrackCount = 0, IsLaid = false }));
+                     Hold(Ready() with
+                     {
+                         HasFiringSolution = false, TrackCount = 0, Locked = null, IsLaid = false,
+                     }));
+    }
+
+    /// <summary>
+    /// But a lock that is not yet a solution has the drives on it — a passer-by the operator
+    /// shift-clicked, or a threat still inside its lock time — so a launcher still swinging onto it
+    /// says so rather than blaming the target.
+    /// </summary>
+    [Fact]
+    public void ALockWithoutASolutionStillWaitsForTheDrives()
+    {
+        FireConditions now = Ready() with { HasFiringSolution = false, IsLaid = false };
+
+        Assert.Equal("drives still settling", Hold(now));
+        Assert.True(BindsTrigger(now));
     }
 
     [Fact]
@@ -138,6 +156,62 @@ public class FireLadderTests
     public void AGunOnlyLauncherReportsItsBelt()
     {
         Assert.Equal("belt empty", Hold(Ready() with { HasTubes = false, BeltEmpty = true }));
+    }
+
+    /// <summary>
+    /// A burst goes where the guns are laid, so nothing about the target stops the trigger. Said as
+    /// a hold that binds, the line beside a working FIRE reads "Holding fire: no lock" — which sends
+    /// an operator looking for a lock the cannon never needed.
+    /// </summary>
+    [Theory]
+    [InlineData(0, false, "nothing detected")]
+    [InlineData(2, false, "no firing solution yet (2 track(s))")]
+    [InlineData(1, true, "no lock")]
+    public void ACannonsTriggerNeedsNothingToShootAt(int tracks, bool solution, string reason)
+    {
+        FireConditions now = Ready() with
+        {
+            HasTubes = false,
+            HasFiringSolution = solution,
+            TrackCount = tracks,
+            Locked = null,
+        };
+
+        Assert.Equal(reason, Hold(now));
+        Assert.False(BindsTrigger(now));
+    }
+
+    /// <summary>And a friendly under the guns is auto-engage's refusal, not the trigger's.</summary>
+    [Fact]
+    public void ACannonsTriggerDoesNotAskTheIff()
+    {
+        TrackState friend = Engageable();
+        friend.Allegiance = Allegiance.Friendly;
+
+        FireConditions now = Ready(friend) with { HasTubes = false };
+
+        Assert.Equal("target is not engageable (IFF)", Hold(now));
+        Assert.False(BindsTrigger(now));
+    }
+
+    /// <summary>
+    /// What the trigger does wait for is the drives, so they come before anything about a target —
+    /// otherwise "nothing detected" calls the trigger clear over guns still swinging.
+    /// </summary>
+    [Fact]
+    public void ACannonWaitsForItsDrivesBeforeATarget()
+    {
+        FireConditions now = Ready() with
+        {
+            HasTubes = false,
+            HasFiringSolution = false,
+            TrackCount = 0,
+            Locked = null,
+            GunsAreLaid = false,
+        };
+
+        Assert.Equal("drives still settling", Hold(now));
+        Assert.True(BindsTrigger(now));
     }
 
     /// <summary>Each weapon settles on its own gear, so neither may be asked about the other's.</summary>
@@ -203,6 +277,25 @@ public class FireLadderTests
     public void NoLockIsReportedAfterTheDrivesAreSettled()
     {
         Assert.Equal("no lock", Hold(Ready() with { Locked = null }));
+    }
+
+    /// <summary>
+    /// A craft the operator shift-clicked is what the trigger shoots, so while the set cannot see it
+    /// the line names it. Counting the tracks the set does hold sends the operator looking at those.
+    /// </summary>
+    [Fact]
+    public void ADesignatedCraftTheSetCannotSeeIsNamed()
+    {
+        FireConditions now = Ready() with
+        {
+            HasFiringSolution = false,
+            TrackCount = 2,
+            Locked = null,
+            DesignatedName = "Drone 3",
+        };
+
+        Assert.Equal("Drone 3 is not on the radar", Hold(now));
+        Assert.True(BindsTrigger(now));
     }
 
     /// <summary>
@@ -285,6 +378,20 @@ public class FireLadderTests
         FireConditions now = Ready() with { Locked = Engageable(range) };
 
         Assert.Contains("out of reach", Hold(now), StringComparison.Ordinal);
+        Assert.False(BindsTrigger(now));
+    }
+
+    /// <summary>
+    /// A lock that is not a solution — a passer-by locked with a shift-click, or a threat inside its
+    /// lock time — is fired at by the trigger, so it does not hold it. Reported as binding, the line
+    /// says "Holding fire" beside a FIRE that launches.
+    /// </summary>
+    [Fact]
+    public void ALockWithoutASolutionDoesNotBindTheTrigger()
+    {
+        FireConditions now = Ready() with { HasFiringSolution = false, TrackCount = 1 };
+
+        Assert.Equal("no firing solution yet (1 track(s))", Hold(now));
         Assert.False(BindsTrigger(now));
     }
 

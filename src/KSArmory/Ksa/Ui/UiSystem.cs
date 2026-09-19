@@ -350,9 +350,11 @@ internal sealed partial class Ui
 
         // Which weapon everything below applies to. A button rather than the switcher itself: it
         // is a window, and switching weapons is done while flying rather than with the manage
-        // window open. A craft with one launcher has nothing to choose and says nothing.
+        // window open. A craft with one launcher carrying one armament has nothing to choose and
+        // says nothing; a Pantsir alone has its missiles and its cannon.
         _batteries.AllOn(Focused, _weaponScratch);
-        if (_weaponScratch.Count > 1)
+        WeaponFit fit = _fit;
+        if (_weaponScratch.Count > 1 || fit.Armaments.Count > 1)
         {
             // Held in a local because the button toggles the very flag that guards the pop.
             // Read twice, a click pops a style it never pushed -- or pushes one it never pops and
@@ -362,10 +364,16 @@ internal sealed partial class Ui
             if (ImGui.Button("Weapons")) _weaponsOpen = !_weaponsOpen;
             if (weaponsTinted) ImGui.PopStyleColor();
 
+            string showing = $"{_battery.Profile.DisplayName} ({_battery.LauncherOrdinal + 1})";
+            if (fit.Armaments.Count > 1 && fit.FirstOf(_battery.TriggerArmament) is { } arm)
+            {
+                showing += $": {arm.Label}";
+            }
+
             ImGui.SameLine();
-            ImGui.TextDisabled($"{_weaponScratch.Count} on this craft — "
-                               + $"showing {_battery.Profile.DisplayName} "
-                               + $"({_battery.LauncherOrdinal + 1})");
+            ImGui.TextDisabled(_weaponScratch.Count > 1
+                                   ? $"{_weaponScratch.Count} on this craft — showing {showing}"
+                                   : $"showing {showing}");
         }
 
         // The two that decide whether anything leaves the rails, immediately above the line that
@@ -377,7 +385,7 @@ internal sealed partial class Ui
         // Auto-engage is absent on a rack of stores rather than disabled: nothing it carries engages
         // on its own, so FireLadder answers "released by hand" however this is set. A tick box that
         // cannot change the answer is worse than no tick box, because it looks like the reason.
-        if (_fit.AutoEngages)
+        if (fit.AutoEngages)
         {
             ImGui.Checkbox("Auto engage", ref _policy.AutoEngage);
             Tip("On: it picks whatever its sensors and IFF allow and fires at it by itself. "
@@ -395,11 +403,13 @@ internal sealed partial class Ui
         // button and did not, which is the one an operator actually uses.
         if (ImGui.Button("FIRE")) FireSelectedGroup();
         // The same three cases WeaponSystem.FireAtLock branches on, in its order.
-        Tip(_battery.Profile.TubeCount == 0 ? "Fire one burst now, wherever the guns are pointing."
+        Tip(_battery.TriggerArmament == ArmamentKind.Belt
+                ? "Fire one burst now, wherever the guns are pointing."
             : !_battery.Munition.Powered
                 ? "Release one store now. A guided store steers onto whatever is designated; an "
                   + "unguided one, or a guided one with nothing designated, simply falls."
-                : "Fire one round at the current lock, now.");
+                : "Fire one round now, at the craft you shift-clicked or else at the radar's lock. "
+                  + "To fire a launcher's cannon instead, pick it in the Weapons window.");
 
         // Auto-engage off is a mode, not a hold: FIRE still works, so saying "holding fire" about
         // it sends the operator looking for a fault that is not there.

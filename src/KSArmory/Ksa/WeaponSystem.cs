@@ -764,14 +764,19 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     public string? Hold { get; private set; } = "not started";
 
     /// <summary>
-    /// Whether <see cref="Hold"/> stops the operator as well as fire control.
+    /// The same ladder asked of the armament the trigger fires, and whether its first rung stops the
+    /// operator as well as fire control.
     ///
-    /// <para>False for the rungs that are automatic fire's economy rather than the round's
-    /// capability — a target out of reach, a salvo already committed. The trigger has never
-    /// consulted those, so a panel that says <c>Holding fire</c> about them describes a refusal
-    /// that does not happen: the button works and the round flies.</para>
+    /// <para>Not <see cref="Hold"/> on a launcher carrying tubes and a belt with the belt selected:
+    /// the missiles wait for a lock and a burst does not, so the missiles' reason beside the
+    /// cannon's trigger names a refusal the burst never makes.</para>
+    ///
+    /// <para>A rung that does not bind is automatic fire's economy rather than the round's
+    /// capability — a target out of reach, a salvo already committed. The trigger does not consult
+    /// those, so a panel that says <c>Holding fire</c> about them describes a refusal that does not
+    /// happen: the button works and the round flies.</para>
     /// </summary>
-    public bool HoldBindsTrigger { get; private set; } = true;
+    public FireHold? TriggerHold { get; private set; } = new("not started", BindsTrigger: true);
 
     // Whether a contact is radiating, which is the only thing an anti-radiation round can steer
     // at. Asked of the handle rather than of the track, because only a craft can carry a set: a
@@ -783,19 +788,15 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     // The ladder itself is Sim/FireLadder.cs; this is only where its inputs are read off the
     // world. Sampled into one value rather than passed as a dozen arguments so no rung can be
     // answered from a later instant than the one above it.
-    private FireHold? Holding()
+    private FireHold? Holding(bool tubes, MunitionProfile munition, Track? locked, string? designated)
     {
-        Track? locked = Radar.Locked;
-
         return FireLadder.Holding(
             new FireConditions
             {
                 HasPlatform = Platform is not null,
                 IsOperational = IsOperational,
 
-                // A launcher with no tubes takes the belt's rungs. Read off the fit rather than
-                // tested here, so the panel and the ladder agree on what this system is.
-                HasTubes = WeaponFit.Of(Profile, Sensor).FirstOf(ArmamentKind.Tubes) is not null,
+                HasTubes = tubes,
 
                 MagazineEmpty = _magazine.IsEmpty,
                 ReloadSeconds = _reloadTimer,
@@ -803,7 +804,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                 SalvoSeconds = _salvoTimer,
                 BeltEmpty = _guns.IsEmpty,
 
-                HasFiringSolution = Radar.HasFiringSolution,
+                HasFiringSolution = Radar.IsFiringSolution(locked),
                 TrackCount = Radar.Tracks.Count,
 
                 IsLaid = IsLaid,
@@ -815,9 +816,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                 Locked = locked,
                 LockedIsEmitting = locked is not null && TargetIsEmitting(locked),
                 LockedName = locked?.Contact.DisplayName ?? "",
+                DesignatedName = designated,
             },
             _policy,
-            Munition);
+            munition);
     }
 
     // Decides which craft the battery is mounted on. The launcher is a physical part, so the
@@ -927,7 +929,11 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
     private void UpdateFireControl(double dt)
     {
-        FireHold? held = Holding();
+        // A launcher with no tubes takes the belt's rungs. Read off the fit rather than tested
+        // here, so the panel and the ladder agree on what this system is.
+        bool tubes = WeaponFit.Of(Profile, Sensor).FirstOf(ArmamentKind.Tubes) is not null;
+
+        FireHold? held = Holding(tubes, Munition, Radar.Locked, designated: null);
         string? hold = held?.Reason;
 
         // Logged on change, not every frame: a panel line answers "why is it not shooting" only
@@ -940,7 +946,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         }
 
         Hold = hold;
-        HoldBindsTrigger = held?.BindsTrigger ?? true;
+        TriggerHold = Holding(tubes && TriggerArmament == ArmamentKind.Tubes, TriggerMunition, TriggerTarget,
+                              Designation.Kind == AimpointKind.Vehicle ? DesignationName : null);
         if (_salvoTimer > 0.0) _salvoTimer = Math.Max(0.0, _salvoTimer - dt);
 
         // Reload cycle.
@@ -2242,12 +2249,12 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         double range = Platform is null ? 0.0 : Vec.Len(pointEcl - PlatformEcl);
 
-        // A gun-only mount shoots where it is pointing, so a designation aims it rather than naming
-        // a place a round is flown to. The reach gate below is about the latter, and running it
-        // here refuses the shot outright rather than letting it fall short -- which left the
-        // cannon silent on ground past the shell's reach while the sky fired, because only the sky
-        // path reaches the trigger. Say the range, because the belt does not come back.
-        if (Profile.TubeCount == 0)
+        // A gun shoots where it is pointing, so a designation aims it rather than naming a place a
+        // round is flown to. The reach gate below is about the latter, and running it here refuses
+        // the shot outright rather than letting it fall short -- which left the cannon silent on
+        // ground past the shell's reach while the sky fired, because only the sky path reaches the
+        // trigger. Say the range, because the belt does not come back.
+        if (TriggerArmament == ArmamentKind.Belt)
         {
             if (Profile.HasCannon && range > Shell.MaxRange)
             {
@@ -2477,6 +2484,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// </summary>
     public bool CanGuideOnto(double3 pointEcl)
     {
+        // A shell is not guided at all, and the trigger on the cannon never asks.
+        if (TriggerArmament == ArmamentKind.Belt) return true;
         if (Platform is null || Launcher is null) return true;
         if (!LauncherPart.TryGetTubeAxisEcl(Platform, Launcher, PodsPart, Profile, 0, out double3 axis))
         {
@@ -2516,10 +2525,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     }
 
     /// <summary>
-    /// Whether a manual shot would be taken right now, asked of whichever weapon the launcher
-    /// actually carries. A gun-only launcher reads zero from the magazine forever.
+    /// Whether a manual shot would be taken right now, asked of the armament the trigger fires. A
+    /// gun reads zero from the magazine forever.
     /// </summary>
-    public bool ReadyToFire => Profile.TubeCount > 0
+    public bool ReadyToFire => TriggerArmament == ArmamentKind.Tubes
                                    ? Ammo > 0 && IsLaid
                                    : Profile.HasCannon && !_guns.IsEmpty && GunsAreLaid;
 
@@ -2587,25 +2596,68 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         return GunFlashPointsEcl(one) > 0;
     }
 
-    /// <summary>Manual trigger: shoots at whatever the radar currently holds.</summary>
+    /// <summary>
+    /// Which of this system's armaments the manual trigger fires.
+    ///
+    /// <para>A launcher carrying tubes and a belt is two weapons to whoever is pulling the trigger,
+    /// and the switcher lists them as two: a trigger that reached only the tubes would leave the
+    /// cannon to auto-engage alone. A launcher with no tubes answers the belt whatever was asked,
+    /// and one with no cannon the tubes.</para>
+    /// </summary>
+    public ArmamentKind TriggerArmament
+    {
+        get => Profile.TubeCount == 0 || _triggerArmament == ArmamentKind.Belt && Profile.HasCannon
+                   ? ArmamentKind.Belt
+                   : ArmamentKind.Tubes;
+        set
+        {
+            if (value == _triggerArmament) return;
+
+            _triggerArmament = value;
+            Log.Info($"{Profile.DisplayName} ({LauncherOrdinal + 1}) trigger on the "
+                     + (TriggerArmament == ArmamentKind.Belt ? "cannon" : "tubes"));
+        }
+    }
+
+    private ArmamentKind _triggerArmament = ArmamentKind.Tubes;
+
+    /// <summary>The round the trigger throws: the shell when it is on the cannon.</summary>
+    public MunitionProfile TriggerMunition => TriggerArmament == ArmamentKind.Belt ? Shell : Munition;
+
+    // What the trigger shoots at. A craft the operator shift-clicked comes ahead of the set's own
+    // pick, because the turret follows the designation and a round sent at the lock would leave
+    // along a bearing the two do not share. Its track rather than the craft, so the IFF and the
+    // allegiance a round is fired under are the set's; null while the set cannot see it.
+    private Track? TriggerTarget => Designation.Kind == AimpointKind.Vehicle
+                                        ? Radar.TrackFor(Designation.Handle)
+                                        : Radar.Locked;
+
+    /// <summary>
+    /// Manual trigger: fires the <see cref="TriggerArmament"/> — a burst along the guns, or a round
+    /// at the craft designated or, failing that, at whatever the radar holds.
+    /// </summary>
     public bool FireAtLock()
     {
-        // A gun-only mount is aimed rather than locked on to, so its trigger is a trigger. Making
-        // it demand a lock first would leave the one weapon that is meant to be hand-aimed as the
-        // only one that cannot be.
-        if (Profile.TubeCount == 0) return FireBurst();
+        // A gun is aimed rather than locked on to, so its trigger is a trigger. Making it demand a
+        // lock first would leave the one weapon that is meant to be hand-aimed as the only one that
+        // cannot be.
+        if (TriggerArmament == ArmamentKind.Belt) return FireBurst();
 
         // A store is released, not launched at something: nothing on the rack has a seeker for a
-        // lock to feed, so demanding one leaves the trigger dead. Same reasoning as the gun-only
-        // mount above -- what is being hand-aimed here is the aircraft.
+        // lock to feed, so demanding one leaves the trigger dead. Same reasoning as the gun above --
+        // what is being hand-aimed here is the aircraft.
         //
         // Asks Powered rather than "is it unguided". A guided tail kit steers after release and is
         // still released, so keying this on guidance left the B61's trigger refusing "no lock" on
         // a rack that has no radar at all.
         if (!Munition.Powered) return Release();
 
-        if (Radar.Locked is null) { Announce("refused: no lock"); return false; }
-        return Fire(Radar.Locked);
+        if (TriggerTarget is { } target) return Fire(target);
+
+        Announce(Designation.Kind == AimpointKind.Vehicle
+                     ? $"refused: {DesignationName} is not on the radar"
+                     : "refused: no lock - shift-click a craft to lock it");
+        return false;
     }
 
     public void Reload()

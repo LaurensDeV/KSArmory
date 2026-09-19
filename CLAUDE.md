@@ -869,6 +869,14 @@ minimum reported `Holding fire: target out of reach` beside a button that then f
 flew at the target — the panel describing a refusal that does not exist. `FireHold.BindsTrigger`
 splits them, and the auto-only ones read `Auto-engage held: … -- trigger is clear`.
 
+**Which gates bind depends on what the trigger fires.** A missile needs something locked to leave
+the rail; a burst goes where the guns are laid, so for a gun everything about a target — nothing
+detected, no lock, IFF — is auto-engage's, and the drives are asked first because they are all its
+trigger waits for. A lock that is not yet a firing solution is auto-engage's for a missile too: the
+trigger fires at whatever is locked. `WeaponSystem.TriggerHold` is the ladder asked of the
+trigger's armament and target, and it is what the line beside a trigger reads; `Hold` stays the one
+automatic fire obeys.
+
 **And the trigger goes through the station group, from every button.** Two rails carrying the same
 store are drawn as one weapon with two stations, and firing the *selected* one reaches the same rail
 every time — so the second is never fired at all, however often the button is pressed.
@@ -876,6 +884,18 @@ every time — so the second is never fired at all, however often the button is 
 reaches `WeaponSystem.FireAtLock`. It has to stay that way: the switcher's own trigger stepped
 correctly from the start while the header's — the prominent one, the one an operator actually
 uses — went straight at the selection.
+
+**And a launcher carrying tubes and a belt is two weapons.** The switcher lists the Pantsir's
+missiles and its cannon as two rows, and `WeaponSystem.TriggerArmament` is which one the trigger
+fires — set on every station of the group, because the trigger steps between them. A trigger that
+reaches only the tubes leaves the cannon to auto-engage alone. `Designator` follows it too, so with
+the cannon selected a click on the world is a burst rather than a missile.
+
+**And the trigger shoots what was shift-clicked.** The turret follows a designated craft ahead of the
+radar's own pick, so `FireAtLock` fires at the set's track *for that craft* rather than at the lock,
+and says so when the set cannot see it. The designation deliberately does not become the radar's
+lock: auto-engage's guns fire at the lock with no threat test, so a craft shift-clicked only to be
+watched — which with the default IFF is any craft — would be shot at.
 
 **And the line beside a trigger describes the station that trigger will reach.** Both come from
 `Ui.NextStationIndex`, which is the point: `Hold` read off the *selected* station says

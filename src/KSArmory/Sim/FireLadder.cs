@@ -59,6 +59,12 @@ internal readonly record struct FireConditions
 
     /// <summary>What to call it, for the one reason that names its target.</summary>
     public required string LockedName { get; init; }
+
+    /// <summary>
+    /// A craft the operator named, which the trigger shoots in place of the set's own pick, or null.
+    /// <see cref="Locked"/> is then its track, and null while the set cannot see it.
+    /// </summary>
+    public required string? DesignatedName { get; init; }
 }
 
 /// <summary>
@@ -93,7 +99,7 @@ internal static class FireLadder
     ///
     /// <para>In order, and the order is the fire sequence's — a rung may only be asked once
     /// everything above it has been satisfied, because several are meaningless otherwise. The
-    /// settling rungs are the clearest case: a launcher with no firing solution has nothing to be
+    /// settling rungs are the clearest case: a launcher with nothing locked has nothing to be
     /// settled <em>onto</em>.</para>
     /// </summary>
     public static FireHold? Holding(in FireConditions now, SystemConfig policy, MunitionProfile munition)
@@ -122,18 +128,27 @@ internal static class FireLadder
         {
             if (!policy.GunsEnabled) return Binding("cannon are switched off");
             if (now.BeltEmpty) return Binding("belt empty");
+
+            // A burst goes where the guns are laid, so the drives are all the trigger waits for.
+            // Every rung below is automatic fire choosing a target.
+            if (!now.GunsAreLaid) return Binding("drives still settling");
         }
 
-        if (!now.HasFiringSolution)
+        bool tubes = now.HasTubes;
+
+        // Nothing to shoot at, asked before the drives: with no lock they are parked, and settling
+        // is measured against nothing. A lock that is not yet a solution is asked about further
+        // down, because the drives are on it and the trigger will fire at it.
+        if (!now.HasFiringSolution && now.Locked is null)
         {
-            return Binding(now.TrackCount == 0
-                               ? "nothing detected"
-                               : $"no firing solution yet ({now.TrackCount} track(s))");
+            return Targeting(tubes, now.DesignatedName is { } named ? $"{named} is not on the radar"
+                                    : now.TrackCount == 0 ? "nothing detected"
+                                    : $"no firing solution yet ({now.TrackCount} track(s))");
         }
 
         // Each weapon settles on its own gear, so a system with no pods must not be asked whether
         // its pods have stopped moving.
-        if (now.HasTubes)
+        if (tubes)
         {
             if (!now.IsLaid) return Binding("drives still settling");
             if (!FireGate.MissilesMayFire(now.RingIsOnGunLead, now.LaunchAlongTube))
@@ -149,12 +164,8 @@ internal static class FireLadder
                 return Binding("the cursor has the bearing");
             }
         }
-        else if (!now.GunsAreLaid)
-        {
-            return Binding("drives still settling");
-        }
 
-        if (now.Locked is not { } locked) return Binding("no lock");
+        if (now.Locked is not { } locked) return Targeting(tubes, "no lock");
 
         // An anti-radiation round has to be pointed at something radiating, and that is a gate on
         // *launching* rather than only on homing. Emission is read in flight and nowhere before it,
@@ -163,10 +174,17 @@ internal static class FireLadder
         // no way to see it. The round then flies straight past everything.
         if (munition.Guidance == GuidanceMode.AntiRadiation && !now.LockedIsEmitting)
         {
-            return Binding($"{now.LockedName} is not radiating");
+            return Targeting(tubes, $"{now.LockedName} is not radiating");
         }
 
-        if (!ThreatModel.MayEngage(locked, policy.Iff)) return Binding("target is not engageable (IFF)");
+        if (!ThreatModel.MayEngage(locked, policy.Iff)) return Targeting(tubes, "target is not engageable (IFF)");
+
+        // A contact that is not closing, or not yet held for the lock time. The trigger fires at
+        // whatever is locked, which is what locking a passer-by with a shift-click is for.
+        if (!now.HasFiringSolution)
+        {
+            return AutoOnly($"no firing solution yet ({now.TrackCount} track(s))");
+        }
 
         // Economy, not capability: another round on this target would be spent rather than wasted,
         // and an operator who asks for it has decided that. The trigger does not consult it.
@@ -194,4 +212,8 @@ internal static class FireLadder
 
     // Stops fire control shooting on its own, and nothing else.
     private static FireHold AutoOnly(string reason) => new(reason, BindsTrigger: false);
+
+    // A missile needs a target to leave the rail; a burst goes where the guns are laid, so for a
+    // gun everything about the target is automatic fire's.
+    private static FireHold Targeting(bool tubes, string reason) => tubes ? Binding(reason) : AutoOnly(reason);
 }
