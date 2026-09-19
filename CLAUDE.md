@@ -529,7 +529,6 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/model/` | the headless Blender generators, and the checkers over what they export — which need neither Blender nor the game |
 | `tools/model/pantsir.py` | the Pantsir, and the entry point that builds the whole atlas |
 | `tools/model/sidewinder.py` | the LAU-7 rail and its AIM-9J, into that same atlas |
-| `tools/model/ciws.py` | the Phalanx CIWS: a gun with no missiles, on a 3 m stack node |
 | `tools/model/optic.py` | the EO director: the sight, as a part anything can carry |
 | `tools/model/import-litening.py` | reframes the hand-modelled pod into what KSA reads |
 | `tools/model/mk42-textures.py` | composes the Mk 42's KSA maps, mount and shell, from the set its author paints — **rerun it on every version he sends**, because the unwraps are his and nothing else has to move |
@@ -561,10 +560,13 @@ interface — so the loop is build, look, adjust rather than emit and hope. **A 
 the geometry before anything is unwrapped, baked or exported**, because everything past that point
 is welded to the shape.
 
-**The headless generator below still builds four parts and still has to keep working.** The
-Pantsir, the CIWS, the LAU-7 rail and the EO director come out of `tools/model/pantsir.py` into one
-atlas sharing one palette material. Keep it working; do not extend it. Everything from here to the
-end of this section is about those four.
+**The headless generator below still builds three parts and still has to keep working.** The
+Pantsir, the LAU-7 rail and the EO director come out of `tools/model/pantsir.py` into one atlas
+sharing one palette material. Keep it working; do not extend it. Everything from here to the end of
+this section is about those three.
+
+The CIWS is not among them any more: it is authored, into an atlas of its own. The generator still
+draws its old boxes' jitter, so the director built after them keeps its planes.
 
 The nuclear rack is not among them: all three of its bodies are authored, into one atlas sharing
 one unwrap. It stopped instancing the generated beam when the B61-12 turned out to hang from
@@ -783,8 +785,10 @@ track antenna, which has to stay boresighted with the barrels, so the housing, t
 dome are one rigid body swinging on a trunnion between two cheeks that traverse. Splitting them —
 dome held upright by the traverse, barrels elevating alone — reads as a mount that articulates in
 a way no real one does. The clearance that makes it work is **a gap in Z**: elevation turns about
-+Z, so the dome being narrower than the gap between the cheeks holds at every pose, and nothing
-else does.
++Z, so the dome being narrower than the gap between the cheeks holds at every pose. The FLIR is the
+one thing outside that gap, and it clears by height instead — it rides at least 0.7 m from the
+trunnion, above anywhere the cheeks reach. `checkswept.py` cannot sweep an authored mesh, so that
+was swept in Blender.
 
 **And it stacks rather than surface-attaching.** A `<Connector>` with no `<Flags>` is a node
 connector; `ToSurface` is the opt-in for radial. So the CIWS sits on top of any 3 m tank, decoupler
@@ -2013,7 +2017,7 @@ only grows a nuclear one. Whatever the burst kills gets KSA's own destruction ex
 
 **The launcher ships its own art, and the asset XML lives at the mod root.** Instancing Core's
 meshes by Id and shipping nothing works, and is the right answer for a part that can be assembled
-from Core's kit; a Pantsir cannot be. The mod carries seven mesh atlases and their textures,
+from Core's kit; a Pantsir cannot be. The mod carries nine mesh atlases and their textures,
 declared with `<MeshAtlas>` and `<PbrMaterial>` exactly as Core does.
 
 The XML sits at `src/KSArmory/*.xml` rather than in an `Assets/` subfolder **on purpose**.
@@ -2762,7 +2766,7 @@ should not be weakened without understanding what they buy:
 - The Pantsir's search volume does not follow its turret, because its profile boresights on local
   "up". `BoresightMode.TurretAxis` exists and nothing registered uses it yet.
 - The generated atlas has no normal or occlusion detail — flat palette swatches only, behind a
-  normal map of one colour. Faceted lighting is the whole look of the four parts `pantsir.py`
+  normal map of one colour. Faceted lighting is the whole look of the three parts `pantsir.py`
   builds, which suits KSA's art style, but it is a floor not a ceiling. The authored atlases are
   baked and carry both.
 - A round that is **not** the one being chased still shows a very slight stutter, millimetres of

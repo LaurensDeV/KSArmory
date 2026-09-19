@@ -60,14 +60,18 @@ SEATED = 0.06
 # 7.0 cm. That was fixed by moving the mount, not by granting it an allowance: an entry here says
 # "this is a joint", and two things that merely overlap are not a joint. Adding a body to an
 # existing assembly is the case to re-run this for.
-ALLOWED = {# The trunnion runs into its bearing, which is the whole point of a trunnion. It is
-           # also the *only* contact the CIWS's two moving groups can ever have: everything else
-           # in the elevating head is narrower than the gap between the cheeks, and elevation
-           # turns about +Z, so a gap in Z cannot be closed by any pose.
-           ("KSArmory_Subpart_CiwsGuns", "KSArmory_Subpart_CiwsTurret"): 0.06,
-           ("KSArmory_Subpart_Guns", "KSArmory_Subpart_Turret"): 0.30,
+ALLOWED = {("KSArmory_Subpart_Guns", "KSArmory_Subpart_Turret"): 0.30,
            ("KSArmory_Subpart_Pods", "KSArmory_Subpart_Turret"): 0.22,
            ("KSArmory_Subpart_Chassis", "KSArmory_Subpart_Turret"): 0.10}
+
+
+# Launchers that train and are not in this atlas. Their art is authored, a whole mesh per body rather
+# than the convex primitives the sweep reasons about, so their travel is checked where they were
+# built. Each names where, so an entry cannot stand in for a sweep nobody did.
+AUTHORED_TRAINERS = {
+    "Ciws": "authored; its head was swept against the cheeks in Blender, -30 to +90",
+    "Mk42": "authored by Mallikas; its travel is his model's, not checked here",
+}
 
 
 def load_bodies(atlas):
@@ -362,12 +366,16 @@ def check_every_articulated_launcher_is_swept(swept):
         block = re.search(rf"{profile}\s*=\s*new\(\)\s*\{{(.*?)\n\s*\}};", arsenal, re.S)
         if block is None or "TurretMarker" not in block.group(1):
             continue                    # does not train, so it has nothing to sweep
+        if profile in AUTHORED_TRAINERS:
+            print(f"  not swept {profile}: {AUTHORED_TRAINERS[profile]}")
+            continue
         if profile not in covered:
             print(f"  UNSWEPT {profile}: it trains and has no entry in vehicles()")
             problems += 1
 
     if problems == 0:
-        print(f"every launcher that trains is swept ({len(covered)} vehicle(s))")
+        print(f"every launcher that trains is swept ({len(covered)} vehicle(s)) "
+              f"or named as authored ({len(AUTHORED_TRAINERS)})")
     print()
     return problems
 
@@ -378,8 +386,10 @@ def vehicles(muzzles):
     One entry per launcher that moves. Sweeping only the first is how a whole vehicle goes
     unchecked while the tool still reports clean: the CIWS had a traverse, an elevating head and
     no coverage at all, because this read the Pantsir's body names and stopped.
+
+    Only generated vehicles are here. An authored one is not in this atlas, and its bodies are not
+    the convex primitives this sweep reasons about.
     """
-    ciws = muzzles["ciws"]
     return [
         {
             "name": "Pantsir S1",
@@ -416,20 +426,6 @@ def vehicles(muzzles):
                         "KSArmory_Subpart_OpticBase": "KSArmory_Subpart_Turret",
                         "KSArmory_Subpart_OpticHead": "KSArmory_Subpart_OpticBase",
                         "KSArmory_Subpart_Turret": "KSArmory_Subpart_Chassis"},
-        },
-        {
-            "name": "Mk 15 Phalanx",
-            "profile": "Ciws",
-            "chassis": "KSArmory_Subpart_CiwsBase",
-            "turret_pivot": ciws["turret_pivot"],
-            "riding": {
-                "KSArmory_Subpart_CiwsTurret": ((0.0, 0.0, 0.0), 0.0),
-                "KSArmory_Subpart_CiwsGuns": (ciws["gun_pivot_from_turret"],
-                                              math.radians(ciws["gun_reference_elevation_deg"])),
-            },
-            "elevating": {"KSArmory_Subpart_CiwsGuns"},
-            "parents": {"KSArmory_Subpart_CiwsGuns": "KSArmory_Subpart_CiwsTurret",
-                        "KSArmory_Subpart_CiwsTurret": "KSArmory_Subpart_CiwsBase"},
         },
     ]
 

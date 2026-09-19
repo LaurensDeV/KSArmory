@@ -195,6 +195,18 @@
     <AoRoughMetal Path="Textures/KSArmory_Mk42Shell_PBR.png" Category="Vessel" />
   </PbrMaterial>
 
+  <!--
+    The Mk 15 Phalanx's atlas: base, traversing cheeks, and the elevating head. Authored in Blender;
+    the three bodies share one unwrap and one material.
+  -->
+  <MeshAtlas Path="Meshes/KSArmory_Ciws.glb" />
+
+  <PbrMaterial Id="KSArmory_Ciws_Material">
+    <Diffuse Path="Textures/KSArmory_Ciws_Diffuse.png" Category="Vessel" />
+    <Normal Path="Textures/KSArmory_Ciws_Normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Textures/KSArmory_Ciws_PBR.png" Category="Vessel" />
+  </PbrMaterial>
+
   <!-- KAMAZ-6560 8x8 chassis: wheels, hull, deck, cab, stowage. -->
   <SubPart Id="KSArmory_Chassis_SubPart">
     <PartModel Id="KSArmory_Subpart_Chassis_Model">
@@ -291,31 +303,31 @@
   <!-- Phalanx-pattern CIWS. Base is fixed; the housing traverses and the guns elevate on it. -->
   <SubPart Id="KSArmory_CiwsBase_SubPart">
     <PartModel Id="KSArmory_Subpart_CiwsBase_Model">
-      <Mesh Id="KSArmory_Subpart_CiwsBase" />
-      <Material Id="KSArmory_Material" />
+      <Mesh Id="KSArmory_Subpart_Mk15Base" />
+      <Material Id="KSArmory_Ciws_Material" />
     </PartModel>
     <MeshView>
-      <Mesh Id="KSArmory_Subpart_CiwsBase_VM" />
+      <Mesh Id="KSArmory_Subpart_Mk15Base_VM" />
     </MeshView>
   </SubPart>
 
   <SubPart Id="KSArmory_CiwsTurret_SubPart">
     <PartModel Id="KSArmory_Subpart_CiwsTurret_Model">
-      <Mesh Id="KSArmory_Subpart_CiwsTurret" />
-      <Material Id="KSArmory_Material" />
+      <Mesh Id="KSArmory_Subpart_Mk15Turret" />
+      <Material Id="KSArmory_Ciws_Material" />
     </PartModel>
     <MeshView>
-      <Mesh Id="KSArmory_Subpart_CiwsTurret_VM" />
+      <Mesh Id="KSArmory_Subpart_Mk15Turret_VM" />
     </MeshView>
   </SubPart>
 
   <SubPart Id="KSArmory_CiwsGuns_SubPart">
     <PartModel Id="KSArmory_Subpart_CiwsGuns_Model">
-      <Mesh Id="KSArmory_Subpart_CiwsGuns" />
-      <Material Id="KSArmory_Material" />
+      <Mesh Id="KSArmory_Subpart_Mk15Guns" />
+      <Material Id="KSArmory_Ciws_Material" />
     </PartModel>
     <MeshView>
-      <Mesh Id="KSArmory_Subpart_CiwsGuns_VM" />
+      <Mesh Id="KSArmory_Subpart_Mk15Guns_VM" />
     </MeshView>
   </SubPart>
 
@@ -1142,16 +1154,16 @@
   </Part>
 
   <!--
-    Phalanx-pattern CIWS, 4.7 m on a 3 m stack node.
+    Mk 15 Phalanx, 4.6 m on a 3 m stack node.
 
     The first part here that STACKS rather than surface-attaching. A connector with no <Flags> is
     a node connector; ToSurface is the opt-in for radial. So this one sits on top of a tank, a
-    decoupler or an adapter the way an engine sits under one, and the flange flares from the 3 m
-    node to the mount's own 2.8 m base.
+    decoupler or an adapter the way an engine sits under one, on a 3 m bolted flange.
 
     One connector, at the bottom. Nothing stacks on top of a gun.
 
-    Geometry from tools/model/ciws.py. +X is up the stack, +Y the way the gun faces at rest.
+    Authored in Blender, so the pivots below are the ones the export carries, and validate-parts.py
+    checks them against Arsenal.Ciws. +X is up the stack, +Y the way the gun faces at rest.
   -->
   <Part Id="KSArmory_Prefab_Ciws">
 
@@ -1160,11 +1172,10 @@
     <!--
       Traverses about the stack centreline. Its mesh is exported recentred on the pivot, so KSA
       spins it in place; the offset comes back here.
-      Keep in step with TURRET_PIVOT in tools/model/ciws.py.
     -->
     <SubPart Id="KSArmory_Ciws_Turret" InstanceOf="KSArmory_CiwsTurret_SubPart">
       <Transform>
-        <Position X="0.10000" Y="0.00000" Z="0.00000" />
+        <Position X="0.80000" Y="0.00000" Z="0.00000" />
       </Transform>
     </SubPart>
 
@@ -1174,11 +1185,10 @@
       and its position every frame. The dome carries the track antenna, which stays boresighted
       with the barrels, so it is one rigid body with them rather than something the traverse
       holds upright while the barrels alone move.
-      Keep in step with GUN_PIVOT in tools/model/ciws.py.
     -->
     <SubPart Id="KSArmory_Ciws_Guns" InstanceOf="KSArmory_CiwsGuns_SubPart">
       <Transform>
-        <Position X="2.30000" Y="0.00000" Z="0.00000" />
+        <Position X="2.25000" Y="0.00000" Z="0.00000" />
       </Transform>
     </SubPart>
 

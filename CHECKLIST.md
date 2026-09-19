@@ -2095,6 +2095,23 @@ section that proves it, and it is the failure that produced a 3,255 km miss befo
 
 ---
 
+## 13. The Mk 15's authored art
+
+The CIWS moved off the generator onto an atlas of its own, `Meshes/KSArmory_Ciws.glb`. Same part Id,
+same three subparts; the pivots, muzzles and colliders moved with the geometry.
+
+- [x] It loads, crews, traverses, elevates and fires from all six barrels — flown on
+      2026-09-19, and judged by eye to look right.
+- [ ] A save holding the old CIWS loads with the new art and nothing in either log complains. The
+      subpart Ids did not change, so it should.
+- [ ] Nothing on the head passes through the cheeks from −25° to +85°, the FLIR included. That was
+      swept in Blender, not by `checkswept.py`, which cannot sweep an authored mesh.
+- [ ] Tracers leave from the muzzle clamp, not from inside the barrels or ahead of them.
+- [ ] No speckle or flicker on the truss plates at range — they are the thinnest geometry in the
+      atlas and the likeliest place for a mip to find the background.
+
+---
+
 ## Reporting back
 
 Most useful, in order:

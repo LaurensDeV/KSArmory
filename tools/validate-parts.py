@@ -875,7 +875,7 @@ def check_editor_tags(core_dir):
 # registered launcher missing from here rather than skipping it.
 LAUNCHER_GEOMETRY = {
     "PantsirS1": (None, "Pantsir"),
-    "Ciws": ("ciws", "CIWS"),
+    "Ciws": (None, "CIWS"),                  # authored gun -- AUTHORED_GUNS below
     "SidewinderRail": ("sidewinder", "rail"),
     "NukeRack": (None, "nuclear rack"),       # beam generated, round authored -- as above
     "AmraamRail": (None, "AMRAAM rail"),      # authored -- see AUTHORED_LAUNCHERS below
@@ -890,12 +890,13 @@ LAUNCHER_GEOMETRY = {
 # as the barrel mesh's forward end against GunMuzzles; and the shell, as its mesh against the
 # munition's BodyLength, centred, because fire control takes a round's origin for its centre.
 #
-# The CIWS is a gun too and is not here: its art is generated, so muzzles.json can be compared
-# against. An authored gun has no such file.
-#
 #   profile -> (part Id, cannon SubPart, barrel SubPart or None, mesh the muzzle is measured on,
 #               munition profile, shell mesh or None, label)
 AUTHORED_GUNS = {
+    # Six barrels round a rotor, and every muzzle is on the one elevating mesh: no barrel subpart,
+    # no shell body, because a 20 mm round is drawn as a tracer.
+    "Ciws": ("KSArmory_Prefab_Ciws", "KSArmory_Ciws_Guns", None,
+             "KSArmory_Subpart_Mk15Guns", "Cannon20Mm", None, "CIWS"),
     "Mk42": ("KSArmory_Prefab_Mk42", "KSArmory_Mk42_Cannon", "KSArmory_Mk42_Barrel",
              "KSArmory_Subpart_Mk42Barrel", "Shell5In54", "KSArmory_Subpart_Mk42Shell", "Mk 42 mount"),
 }

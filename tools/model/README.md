@@ -1,10 +1,10 @@
-# Model pipeline — the four generated parts
+# Model pipeline — the three generated parts
 
 **This is not how new assets are made.** New art is authored in Blender over MCP; see
-`.claude/skills/ksa-blender/SKILL.md`. What follows builds the four parts that already exist this
+`.claude/skills/ksa-blender/SKILL.md`. What follows builds the three parts that already exist this
 way, and has to keep working.
 
-Those four — the Pantsir-S1, the LAU-7 rail, the Mk 15 CIWS and the EO director — are **generated,
+Those three — the Pantsir-S1, the LAU-7 rail and the EO director — are **generated,
 not authored**: `pantsir.py` builds them out of primitives in headless Blender, `palette.py` writes
 the textures, and `build.sh` runs both and installs the results. Nothing here needs the Blender
 UI, and there is no `.blend` to keep in sync — the script *is* the model, which is the one real
@@ -23,8 +23,8 @@ Outputs land in `src/KSArmory/`:
 | `Textures/KSArmory_{Diffuse,PBR,Normal}.png` | the palette |
 | `tools/model/muzzles.json` | launch geometry, checked against the launcher profiles |
 
-Previews (`preview_*.png` — five of the vehicle, and one set each for the missile, the rail and
-the CIWS) go to `C:\Windows\Temp\airdefence-model`, readable from WSL at
+Previews (`preview_*.png` — five of the vehicle, and one set each for the missile and the rail)
+go to `C:\Windows\Temp\airdefence-model`, readable from WSL at
 `/mnt/c/Windows/Temp/airdefence-model`.
 
 ## The loop

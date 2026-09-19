@@ -343,8 +343,8 @@ pass `STARMAP_DIR=...`.
 
 ## How it works
 
-**Four of the parts are generated rather than authored.** The Pantsir, the LAU-7 rail, the CIWS
-and the EO director have no `.blend` file: `tools/model/pantsir.py` builds them out of primitives
+**Three of the parts are generated rather than authored.** The Pantsir, the LAU-7 rail and the
+EO director have no `.blend` file: `tools/model/pantsir.py` builds them out of primitives
 in headless Blender and exports the mesh atlas, while `palette.py` writes the textures as a grid of
 flat swatches that every face is UV-mapped into. One command rebuilds all of it:
 
@@ -530,7 +530,7 @@ because they live there rather than inside `LauncherPart`.
 It is data, not code. Nothing in `Sim/` or `Ksa/` names the Pantsir.
 
 1. Model it — authored in Blender, following `.claude/skills/ksa-blender/SKILL.md`. The headless
-   generator builds the four parts that predate that and is not extended.
+   generator builds the three parts that predate that and is not extended.
 2. Declare the part in `KSArmoryAssets.xml` and `KSArmoryGameData.xml`.
 3. Register a `LauncherProfile` in [`src/KSArmory/Sim/Arsenal.cs`](src/KSArmory/Sim/Arsenal.cs),
    naming the munition and sensor it uses. Add a `MunitionProfile` if the round differs.
