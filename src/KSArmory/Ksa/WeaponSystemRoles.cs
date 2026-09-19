@@ -325,6 +325,12 @@ internal interface IManualFire : IWeaponPlatform, IWeaponLoadout
     /// <summary>Opens a cannon burst along wherever the mount is laid.</summary>
     bool FireBurst();
 
+    /// <summary>Which armament the manual trigger fires, and so which one a click on the world does.</summary>
+    ArmamentKind TriggerArmament { get; }
+
+    /// <summary>The round that armament throws, whose reach a designation is judged against.</summary>
+    MunitionProfile TriggerMunition { get; }
+
     /// <summary>
     /// Whether a manual shot would be taken now, asked of whichever weapon this system carries.
     /// A gun-only system reads zero from the magazine forever, so the magazine cannot answer it.

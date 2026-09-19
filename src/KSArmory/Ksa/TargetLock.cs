@@ -5,8 +5,8 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// Shift-click anything to lock an installation onto it: the turret follows, and a director
-/// fitted beside it watches the same thing.
+/// Shift-click anything to lock an installation onto it: the turret follows, FIRE shoots a craft
+/// named this way, and a director fitted beside it watches the same thing.
 ///
 /// <para><b>It designates; it does not take the player's view.</b> The instruction goes to the
 /// drives, so the picture follows because the mount moved — which is what an operator means by

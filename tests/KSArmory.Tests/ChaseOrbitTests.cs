@@ -140,6 +140,32 @@ public class ChaseOrbitTests
     }
 
     /// <summary>
+    /// A pause is for looking round, so a view the player turned stays turned for as long as the
+    /// world is stopped, and starts back once it runs.
+    /// </summary>
+    [Fact]
+    public void APauseHoldsTheViewWhereThePlayerLeftIt()
+    {
+        ChaseOrbit orbit = new();
+        orbit.Move(0, 0);
+        orbit.Press();
+        orbit.Move(400, -200);
+        orbit.Advance(SimClock.Viewing(Dt, stepSeconds: 0.0), buttonHeld: true);
+        orbit.Release();
+
+        double yaw = orbit.Yaw;
+        double pitch = orbit.Pitch;
+        for (int i = 0; i < 60 * 10; i++) orbit.Advance(SimClock.Viewing(Dt, stepSeconds: 0.0), buttonHeld: false);
+
+        Assert.Equal(yaw, orbit.Yaw);
+        Assert.Equal(pitch, orbit.Pitch);
+
+        for (int i = 0; i < 60 * 5; i++) orbit.Advance(SimClock.Viewing(Dt, stepSeconds: Dt), buttonHeld: false);
+
+        Assert.True(orbit.IsLevel, $"still {orbit.Yaw:F5} rad off five seconds after the pause");
+    }
+
+    /// <summary>
     /// A release made over a panel never reaches the camera, and the drag must end regardless
     /// rather than holding the view off the round until the next right-click.
     /// </summary>

@@ -503,6 +503,28 @@ existing saves die, or leave the `<SubPart>` declared as an inert stub to hold t
 the fix for a mod still in development; it reads the current definitions out of the asset XML, so
 it needs no record of what changed.
 
+### A mod's character ends up in nearly every save, and cannot be taken back out
+
+A roster is dressed from every `<Character>` registered, a mod's included — `KittenRosterData`
+draws from `ModLibrary.AllCharacters` — so about a quarter of the kittens in any save made while a
+mod declaring one was installed wear it. The save records the Id on each `<Kitten>`, and on a
+`<Vehicle>` for one out on EVA, and `KittenEva.CreateKittenFromSaveData` resolves it through
+`ModLibrary.Get`, which throws on an Id nothing declares — inside the same uncaught load as above.
+So removing a character terminates the game on nearly every save, not just ones holding a part.
+`tools/repair-saves.py` re-dresses those kittens in Core's own characters.
+
+### Mods load in manifest order, and Core leads only if the game wrote the manifest
+
+`ModLibrary.LoadAll` loads each mod's asset XML in the order the local `manifest.toml` lists them,
+and a `<Character>` resolves Core's `CharacterCore` **while its file loads**
+(`CharacterReference.OnDataLoad`). `PrepareManifest` copies the game's `Content/manifest.toml`,
+Core first, only when there is no local manifest at all; one that exists without Core gets it
+**appended**. A manager that writes a fresh manifest listing only the mods it installed — Borea
+0.1.0 does — therefore loads every mod before Core, and a mod declaring a character throws
+`CharacterCoreReference is null for 'CharacterCore'` and takes the game down. `mod.toml` has no
+dependency or ordering field, so a mod cannot ask to load after Core. A sound's channel and an
+exhaust template are resolved later, once every mod has loaded, and survive the reorder.
+
 ## Authoring a part with no new art
 
 **Asset Ids resolve in one global library across mods** (`SerializedId` / `ILibraryData`, with

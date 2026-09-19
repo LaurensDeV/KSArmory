@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Builds the mod and attaches it to a GitHub release.
+# Builds the mod, attaches it to a GitHub release, and publishes the release if it is a draft.
 #
 #   ./tools/publish-release.sh              # attach to the release for the current version
 #   ./tools/publish-release.sh v0.1.0       # ...or a specific tag
@@ -55,6 +55,18 @@ ARCHIVE="dist/KSArmory-$VERSION.zip"
 if gh release view "$TAG" >/dev/null 2>&1; then
     echo "attaching $ARCHIVE to $TAG"
     gh release upload "$TAG" "$ARCHIVE" --clobber
+    # semantic-release cuts a draft, and only the release workflow's build job publishes it.
+    if [[ "$(gh release view "$TAG" --json isDraft -q .isDraft)" == "true" ]]; then
+        # GitHub makes a newly published release the latest whatever its version, so finishing an
+        # old draft after a newer release is out would put it back on top.
+        latest=true
+        newest="$(gh release view --json tagName -q .tagName 2>/dev/null || true)"
+        if [[ -n "$newest" && "$(printf '%s\n' "${newest#v}" "$VERSION" | sort -V | tail -1)" != "$VERSION" ]]; then
+            latest=false
+        fi
+        echo "publishing $TAG (latest: $latest)"
+        gh release edit "$TAG" --draft=false --latest="$latest"
+    fi
 elif (( CREATE )); then
     echo "creating release $TAG"
     gh release create "$TAG" "$ARCHIVE" \

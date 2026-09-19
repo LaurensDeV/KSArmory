@@ -258,7 +258,10 @@ internal sealed class ChaseCamera : IViewPose
     }
 
     /// <summary>Follows one round for one frame.</summary>
-    /// <param name="dtPlayer">Wall clock, for how long a burst is lingered on. A viewing duration.</param>
+    /// <param name="dtPlayer">
+    /// Wall clock, for how long a burst is lingered on and how fast a view the player turned eases
+    /// back. Viewing durations, so both stop while the world is paused — see <see cref="SimClock.Viewing"/>.
+    /// </param>
     /// <param name="dtSim">
     /// The simulated step. <b>The transition runs on this, not on player time.</b> It is a camera
     /// move whose whole job is to arrive on a round, so it has to advance at the rate the round
@@ -306,10 +309,12 @@ internal sealed class ChaseCamera : IViewPose
             return;
         }
 
+        double dtViewing = SimClock.Viewing(dtPlayer, dtSim);
+
         // Still watching where the last one went off.
         if (_holding > 0.0)
         {
-            _holding -= Math.Max(0.0, dtPlayer);
+            _holding -= dtViewing;
 
             if (!KsaWorld.TryLookFromMainViewport(_holdOffset, _holdForward, _holdUp,
                                                   Field(unzoomedFovDeg), this)) Release();
@@ -459,9 +464,9 @@ internal sealed class ChaseCamera : IViewPose
         _poseFovDeg = Field(unzoomedFovDeg);
         _freezeTransition = freezeTransition;
 
-        // Player time, because it answers the mouse. The button is read here as well as by the
-        // controller, which never hears a release made over a panel.
-        _orbit.Advance(dtPlayer, ImGui.IsMouseDown(ImGuiMouseButton.Right));
+        // Player time, because it answers the mouse, and held through a pause. The button is read
+        // here as well as by the controller, which never hears a release made over a panel.
+        _orbit.Advance(dtViewing, ImGui.IsMouseDown(ImGuiMouseButton.Right));
         _heightOverAim = round.Munition.HitsTerrain && _aimFromRound is { } groundAim
                              ? -Vec.Dot(groundAim, _poseUp)
                              : double.NaN;
@@ -521,7 +526,7 @@ internal sealed class ChaseCamera : IViewPose
         // Pulled towards local up once a frame, by as much as the view lies across it: not at all
         // while it looks straight down at a point below, where up says nothing about which side of
         // the round is above it.
-        if (SightPicture.TryStableUp(forward, _poseUp, lift, LiftRateRad * Math.Clamp(dtPlayer, 0.0, 0.1),
+        if (SightPicture.TryStableUp(forward, _poseUp, lift, LiftRateRad * Math.Clamp(dtViewing, 0.0, 0.1),
                                      out double3 pulled))
         {
             _poseLift = pulled;

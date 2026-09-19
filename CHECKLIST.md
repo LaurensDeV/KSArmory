@@ -617,6 +617,18 @@ Do all of this at `simspeed 1`.
 **If it fails:** "refused: …" in the log tells you which gate stopped it — no launcher,
 empty, or target gone.
 
+- [ ] On a Pantsir, the **Weapons** button is on the header strip, and the window lists
+      `Pantsir-S1: Missiles` and `Pantsir-S1: Cannon` as two rows. Select the cannon: the header reads
+      `showing Pantsir-S1 (1): Cannon`, and FIRE with nothing detected fires a burst. The line beside
+      it reads `Auto-engage held: nothing detected -- trigger is clear`, not `Holding fire`.
+- [ ] Back on the missiles, with no threat locked, shift-click a craft the radar can see and press
+      FIRE: a round leaves for *that* craft. The line beside the trigger does not say `Holding fire`
+      about it, even if it is not closing.
+- [ ] Shift-click a craft beyond the radar's reach: the line reads `Holding fire: <name> is not on
+      the radar`, and FIRE refuses with the same words.
+- [ ] With auto-engage on, shift-click a craft that is not a threat and inside the guns' reach: the
+      guns do **not** open fire on it by themselves.
+
 ### 4.1a A low shot from a site near sea level, at 1x
 
 - [ ] From a Pantsir parked near the coast, fire at a target on the ground or skimming it, at 1x.
@@ -996,6 +1008,15 @@ the mesh and the XML, and the suite.
 - [ ] It renders painted rather than white or magenta, and the shell body carries its olive and yellow.
 - [ ] It sits upright on a 3 m node with the barrel forward. The model was rotated into part space by
       a map baked into the vertices, and a frame error there is the mount on its side, not something subtle.
+- [x] On a 2 m or a 3 m tank its base sits on the tank's end, not inside it. **Seen in game**; the
+      CIWS, fixed the same way, not looked at. Both
+      nodes were unsized, so KSA mated them on the tank's nested `Internal` node: saved at 1.92 m on a
+      4 m tank rather than 2.00. Only a mount attached afresh moves; a saved one keeps its position.
+- [ ] Moving a Mk 42 on its tank with the craft mover leaves the tank whole. Reported breaking it, and
+      probably not the overlap: parts of one craft never collide. KSA breaks a part whose contact
+      pressure beats its crash tolerance, and a near-empty tank's is the 0.9 MPa floor, which 61.4 t
+      settling at half a metre a second on 3.1 m² already reaches. If it still breaks, `crash
+      tolerance` in KSA's own log says which part and whether this is it.
 - [ ] The barrel stays in the cannon through a full traverse and from -15 to +85. It rides the
       cannon's trunnion, so it should never part from the breech; if it does, the barrel's `<Position>`
       and the trunnion disagree.
@@ -1705,6 +1726,11 @@ the same band section 7.1b needs — fly one engagement and check both.
       does — drag down to look from above — with the bomb staying where it was on screen and the
       cursor hidden while dragging. Let go: it stays a moment, then eases back behind the bomb in
       about a second. The wheel moves in and out and eases back the same way.
+- [ ] Pause while a chase rides a round, right-drag and let go: the view stays where it was put for
+      as long as the game is paused, and eases back behind the round only once it runs again. Pause
+      during the hold on a burst: the view stays on the burst until the game runs, rather than
+      being handed back three seconds later. Through slow motion both still take their usual
+      second or three.
 - [ ] End a drag with the cursor over the panel. The view still eases back rather than staying
       turned. End one over a craft: no part window opens. A plain right-click on a part, with no
       drag, still opens its window.

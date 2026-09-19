@@ -478,7 +478,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/Build.cs` | what build this is, read off the assembly rather than written down |
 | `Ksa/SettingsStore.cs` | per-craft settings across sessions, in JSON beside the log |
 | `Ksa/Log.cs` | the mod's own log file, which is the only debugging channel it has |
-| `src/KSArmory/KSArmory*.xml` | the parts, the warhead effects, the sounds and one stock character — at the mod root, mirroring Core |
+| `src/KSArmory/KSArmory*.xml` | the parts, the warhead effects and the sounds — at the mod root, mirroring Core. **No character**: a mod's character ends up on kittens in nearly every save, which then cannot load without it — `tools/repair-saves.py` re-dresses them |
 | `src/KSArmory/KSArmory/Weapons.xml` | **this mod's own weapons, as data** — read by `PackScan`'s convention like any pack's, not by KSA |
 | `src/KSArmory/Meshes/`, `Textures/` | art. `KSArmory_MeshAtlas.glb` is generated — rebuild with `tools/model/build.sh`; every other atlas is **authored**, and its `.blend` is not in this repository |
 | `src/KSArmory/Sounds/` | the cannon, cut from a recording by `tools/cut-cannon.py`; the Mk 42's gunshot, cut from its recording by `tools/mk42-sounds.py`. A warhead's burst is KSA's own explosion, sound and all |
@@ -549,7 +549,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/mk42-sounds.py` | cuts the Mk 42's recording into its mono gunshot |
 | `tools/audio/` | the recordings the shipped gun sounds are cut from — the CC0 Phalanx and the Mk 42's — and the provenance of each |
 | `tools/logo.py` | the Kessler Systems wordmark and icon, into `branding/` |
-| `branding/` | the generated logo the README and SpaceDock point at |
+| `branding/` | the generated logo the README and SpaceDock point at, and `listing-icon.png`, the in-game screenshot the content index shows — **not generated**, and its listing record pins its hash, so replacing it means a new record |
 
 ## 3D model pipeline
 
@@ -757,6 +757,11 @@ neither of them is longer than a page.
    one throws `PartTemplate is null` from `PartInstance.GetTemplate` — also terminating the game.
    A save names each subpart's template the same way (`SubPartRef InstanceOf`), so treat those as
    fixed too until a rename of one alone has been loaded.
+
+   **A stacking connector carries its diameter as `<Scale>`.** A Core tank has a second, `Internal`
+   node just inside each end, and KSA mates a part there whenever the part's own node is no larger
+   than it. An unsized node is size one, so a 3 m part sinks onto it — 8 cm into a 2 m tank, 24.5 cm
+   into a 3 m one — and nothing reports it. `validate-parts.py` fails an unsized one.
 3. **Register it — in `Sim/Arsenal.cs`, and in *both* registries.** One `LauncherProfile`, naming
    the munition and sensor it uses, with the geometry `build.sh` prints; add a `MunitionProfile`
    and a `SensorProfile` too if the round or the set differ. Then teach `validate-parts.py` to
@@ -864,6 +869,14 @@ minimum reported `Holding fire: target out of reach` beside a button that then f
 flew at the target — the panel describing a refusal that does not exist. `FireHold.BindsTrigger`
 splits them, and the auto-only ones read `Auto-engage held: … -- trigger is clear`.
 
+**Which gates bind depends on what the trigger fires.** A missile needs something locked to leave
+the rail; a burst goes where the guns are laid, so for a gun everything about a target — nothing
+detected, no lock, IFF — is auto-engage's, and the drives are asked first because they are all its
+trigger waits for. A lock that is not yet a firing solution is auto-engage's for a missile too: the
+trigger fires at whatever is locked. `WeaponSystem.TriggerHold` is the ladder asked of the
+trigger's armament and target, and it is what the line beside a trigger reads; `Hold` stays the one
+automatic fire obeys.
+
 **And the trigger goes through the station group, from every button.** Two rails carrying the same
 store are drawn as one weapon with two stations, and firing the *selected* one reaches the same rail
 every time — so the second is never fired at all, however often the button is pressed.
@@ -871,6 +884,18 @@ every time — so the second is never fired at all, however often the button is 
 reaches `WeaponSystem.FireAtLock`. It has to stay that way: the switcher's own trigger stepped
 correctly from the start while the header's — the prominent one, the one an operator actually
 uses — went straight at the selection.
+
+**And a launcher carrying tubes and a belt is two weapons.** The switcher lists the Pantsir's
+missiles and its cannon as two rows, and `WeaponSystem.TriggerArmament` is which one the trigger
+fires — set on every station of the group, because the trigger steps between them. A trigger that
+reaches only the tubes leaves the cannon to auto-engage alone. `Designator` follows it too, so with
+the cannon selected a click on the world is a burst rather than a missile.
+
+**And the trigger shoots what was shift-clicked.** The turret follows a designated craft ahead of the
+radar's own pick, so `FireAtLock` fires at the set's track *for that craft* rather than at the lock,
+and says so when the set cannot see it. The designation deliberately does not become the radar's
+lock: auto-engage's guns fire at the lock with no threat test, so a craft shift-clicked only to be
+watched — which with the default IFF is any craft — would be shot at.
 
 **And the line beside a trigger describes the station that trigger will reach.** Both come from
 `Ui.NextStationIndex`, which is the point: `Hold` read off the *selected* station says
@@ -1150,10 +1175,15 @@ version by hand** — it will be overwritten. `feat`/`fix`/`perf`/`build`/`rever
 `refactor` cut no release. A commit that does not parse is treated as no release, so a stray `wip`
 cannot publish anything.
 
-That workflow's first job decides the version and creates the release, and the second builds the
-archive and attaches it. `spacedock.yml` then **publishes what is attached to SpaceDock** — called
+That workflow's first job decides the version and creates the release **as a draft**, and the
+second builds the archive, attaches it and publishes the release, so no release is ever public
+without its archive. The content index the Borea mod manager installs from polls GitHub releases,
+and reports one it finds with no archive as broken, in an issue against the listing — and the build
+takes about seventeen minutes for a poll to land in. `spacedock.yml` then **publishes what is attached to SpaceDock** — called
 from the release, or run by hand with a version for a release whose upload failed, because it
-uploads the release's own archive rather than building again. All hosted. The release commit
+uploads the release's own archive rather than building again. A failed upload request is checked
+against SpaceDock's version list before it fails the run, because SpaceDock's gateway can time out
+on an upload its backend then completes. All hosted. The release commit
 carries `[skip ci]` so it does not retrigger CI.
 
 SpaceDock needs three settings, and the step skips with a notice if any is missing — a fork cannot
@@ -1188,7 +1218,8 @@ Three things that will bite:
 
 **Releases** are `./tools/package.sh`, locally or from the release workflow — the archive is
 identical either way. `./tools/publish-release.sh` does both halves from a machine with KSA:
-build, then attach to the release semantic-release created. That is the fallback for when the
+build, then attach to the draft semantic-release created and publish it — not as the latest if a
+newer release is already out, which GitHub would otherwise make it. That is the fallback for when the
 assemblies secret is unavailable, and it refuses rather than guessing if the tag or the release
 does not exist.
 
@@ -2557,8 +2588,11 @@ drops a release made over a panel.
 on simulated time* is not only about fire control: the chase transition advances on the step, so
 it holds still through a pause and slows with the panel's slow-motion buttons, which is the whole
 point of having them. On player time it slides the view across a world that is not moving.
-Lingering on a burst is the exception and stays on wall clock — that is a viewing duration, not
-something tracking an object.
+Lingering on a burst, easing a turned view back behind the round and pulling the eye back to local
+up are the exceptions — viewing durations, not things tracking an object — so they run at the
+player's rate through slow motion. **But they stop in a pause**, on `SimClock.Viewing`: a pause is
+for looking, and a view handed back off a burst or swung back behind its round while nothing moves
+takes away what the player stopped the world to see.
 
 **Attaching the view to a round moves the camera before the mod gets a say.** `Camera.SetFollow`
 sets `PositionEcl` to the followed object plus 2.5 mean radii *before* switching what is followed,

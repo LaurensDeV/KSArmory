@@ -1192,11 +1192,16 @@
       </Transform>
     </SubPart>
 
-    <!-- Node attach at the mounting face. No ToSurface flag: this one stacks. -->
+    <!--
+      Node attach at the mounting face. No ToSurface flag: this one stacks. Scale is the node's
+      size, and a part mates a tank's Internal node only if its own is no larger: without it the
+      mount sinks onto that nested node, 8 cm into a 2 m tank and 24.5 cm into a 3 m one.
+    -->
     <Connector Id="_ciwsConnectorBase">
       <Transform>
         <Position X="0.00000" />
         <Rotation X="3.14159" Z="3.14159" />
+        <Scale X="3.00000" Y="3.00000" Z="3.00000" />
       </Transform>
     </Connector>
 
@@ -1578,11 +1583,16 @@
       </Transform>
     </SubPart>
 
-    <!-- Node attach at the mounting face. No ToSurface flag: this one stacks. -->
+    <!--
+      Node attach at the mounting face. No ToSurface flag: this one stacks. Scale is the node's
+      size, and a part mates a tank's Internal node only if its own is no larger: without it the
+      mount sinks onto that nested node, 8 cm into a 2 m tank and 24.5 cm into a 3 m one.
+    -->
     <Connector Id="_mk42ConnectorBase">
       <Transform>
         <Position X="0.00000" />
         <Rotation X="3.14159" Z="3.14159" />
+        <Scale X="3.00000" Y="3.00000" Z="3.00000" />
       </Transform>
     </Connector>
 
