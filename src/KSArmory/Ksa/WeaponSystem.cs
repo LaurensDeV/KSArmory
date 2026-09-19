@@ -3405,10 +3405,12 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             double atBurst = Vec.Len(targetEcl + targetVel * intoFrame - burst);
 
             // The round's offset at its own instant, not at the frame's end; both sides back-dated.
-            double3 offsetAtBurst = DrawAnchor.OffsetAtBurst(round.OffsetFromPlatform,
-                                                             KsaWorld.VelocityEcl(Platform!), intoFrame);
+            // A loose system has no platform to back-date against. Throwing here leaves the round
+            // unreaped, so it bursts again every frame until the fault limit disables the mod.
+            double3 anchorVelocity = Platform is { } host ? KsaWorld.VelocityEcl(host) : Vec.Zero;
+            double3 offsetAtBurst = DrawAnchor.OffsetAtBurst(round.OffsetFromPlatform, anchorVelocity, intoFrame);
             double drawn = Vec.Len(offsetAtBurst - (targetEcl + (targetVel * intoFrame) - PlatformEcl
-                                                    - (KsaWorld.VelocityEcl(Platform!) * intoFrame)));
+                                                    - (anchorVelocity * intoFrame)));
 
             // The separation as *rendered*. Everything above is the analytic frame the simulation
             // works in; KSA draws a vehicle at its physics position, which is not the same place.
