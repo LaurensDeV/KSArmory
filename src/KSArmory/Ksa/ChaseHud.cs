@@ -1,6 +1,5 @@
 using Brutal.ImGuiApi;
 using Brutal.Numerics;
-using KSA;
 
 namespace KSArmory;
 
@@ -38,10 +37,15 @@ internal static class ChaseHud
     public static void Draw(ChaseCamera chase)
     {
         if (chase.Round is not { } round) return;
-        if (round.TargetRef is not Vehicle target || !KsaWorld.IsAlive(target)) return;
+
+        // Whatever it is flying at, not only a craft: a designated place on the ground is what a
+        // bomb arrives at, and refusing one leaves the ride with no bracket and no range at all --
+        // which is the picture of empty sky this exists to prevent. Read off the camera rather
+        // than resolved again, so the bracket is around the point it was aimed at.
+        if (chase.Aim is not { } aim) return;
 
         int viewport = KsaWorld.MainViewportIndex;
-        double3 at = KsaWorld.PositionEcl(target);
+        double3 at = aim.PositionEcl;
 
         if (!KsaWorld.TryProjectIntoViewport(viewport, at, out float2 centre, out _, out int height))
         {

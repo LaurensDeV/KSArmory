@@ -143,9 +143,10 @@ reads the summary.
 
 It is judged on its condensed form: timestamps and levels dropped, numbers
 collapsed, one of each distinct line kept. A log is the same handful of messages
-repeated, so 12 KB becomes about 300 characters — and 12 KB scanned honestly
-means eight model passes at nearly a second each, against one pass over the
-whole thing that reads the first 512 tokens and silently ignores the rest.
+repeated, so a measured 12 KB becomes 25 lines and about 1,600 characters — and
+12 KB scanned honestly means eight model passes at nearly a second each, against
+one pass over the whole thing that reads the first 512 tokens and silently
+ignores the rest.
 
 **Each line is scored separately, not the log as a document.** One abusive line
 among a dozen dull ones dilutes to nothing scored together: measured at `insult`
@@ -156,7 +157,7 @@ still worth having without its attachment, and refusing the whole thing over a
 craft name punishes the wrong part.
 
 **A log that cannot be read through is withheld unread.** Condensing stops at
-32 lines or 8 000 characters, which a real log never approaches and a log with
+96 lines or 8 000 characters, which a real log never approaches and a log with
 no newlines hits immediately. Publishing the part past the cut without scoring
 it would be the one shape of this that fails open.
 
@@ -218,6 +219,6 @@ dotnet run                                  # local, on :5000
 docker build -t ksarmory-feedback .
 ```
 
-Deployment is a container on the VPS behind Caddy, which is configured in the
-private infrastructure repository. `infra/README.md` explains the split: the
-domain and the service live here, the machine lives there.
+Deployment is a container on the VPS behind Caddy, both declared as OpenTofu in
+`infra/services`. `infra/README.md` explains the split: the DNS layer changes
+when a hostname is added, the services layer on every deploy of the image.

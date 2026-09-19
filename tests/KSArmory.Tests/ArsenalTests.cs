@@ -15,10 +15,10 @@ public class ArsenalTests
     [Fact]
     public void EveryLauncherNamesARegisteredMunitionAndSensor()
     {
-        foreach (LauncherProfile launcher in Arsenal.Launchers)
+        foreach (LauncherProfile launcher in Catalogue.Launchers)
         {
-            Assert.Equal(launcher.Munition, Arsenal.MunitionNamed(launcher.Munition).Name);
-            Assert.Equal(launcher.Sensor, Arsenal.SensorNamed(launcher.Sensor).Name);
+            Assert.Equal(launcher.Munition, Catalogue.MunitionNamed(launcher.Munition).Name);
+            Assert.Equal(launcher.Sensor, Catalogue.SensorNamed(launcher.Sensor).Name);
 
             // The cannon's round as well as the missile's. Arsenal.Named falls back to element
             // zero, which for munitions is a 20 kg missile at 45 m/s under a rocket boost: a gun
@@ -26,7 +26,7 @@ public class ArsenalTests
             // fires warheads out of its barrel.
             if (launcher.GunMunition is { } shell)
             {
-                Assert.Equal(shell, Arsenal.MunitionNamed(shell).Name);
+                Assert.Equal(shell, Catalogue.MunitionNamed(shell).Name);
             }
         }
     }
@@ -37,7 +37,7 @@ public class ArsenalTests
         // Discovery is by part Id, so a duplicate would make which system you get depend on
         // registration order.
         var seen = new HashSet<string>();
-        foreach (LauncherProfile launcher in Arsenal.Launchers)
+        foreach (LauncherProfile launcher in Catalogue.Launchers)
         {
             Assert.False(string.IsNullOrWhiteSpace(launcher.PartId));
             Assert.True(seen.Add(launcher.PartId), $"duplicate part Id {launcher.PartId}");
@@ -47,17 +47,17 @@ public class ArsenalTests
     [Fact]
     public void MunitionAndSensorNamesAreUnique()
     {
-        Assert.Equal(Arsenal.Munitions.Count, Arsenal.Munitions.Select(m => m.Name).Distinct().Count());
-        Assert.Equal(Arsenal.Sensors.Count, Arsenal.Sensors.Select(s => s.Name).Distinct().Count());
+        Assert.Equal(Catalogue.Munitions.Count, Catalogue.Munitions.Select(m => m.Name).Distinct().Count());
+        Assert.Equal(Catalogue.Sensors.Count, Catalogue.Sensors.Select(s => s.Name).Distinct().Count());
     }
 
     [Fact]
     public void LauncherLookupMatchesOnPartIdAndRejectsAnythingElse()
     {
-        Assert.Same(Arsenal.PantsirS1, Arsenal.LauncherForPart(Arsenal.PantsirS1.PartId));
-        Assert.Null(Arsenal.LauncherForPart("SomeOtherMod_Prefab_Thing"));
-        Assert.Null(Arsenal.LauncherForPart(null));
-        Assert.Null(Arsenal.LauncherForPart(""));
+        Assert.Same(BuiltIns.PantsirS1, Catalogue.LauncherForPart(BuiltIns.PantsirS1.PartId));
+        Assert.Null(Catalogue.LauncherForPart("SomeOtherMod_Prefab_Thing"));
+        Assert.Null(Catalogue.LauncherForPart(null));
+        Assert.Null(Catalogue.LauncherForPart(""));
     }
 
     [Fact]
@@ -65,14 +65,14 @@ public class ArsenalTests
     {
         // A launcher naming a round that does not exist is a typo in Arsenal, not a reason for
         // the game to fall over mid-flight.
-        Assert.NotNull(Arsenal.MunitionNamed("no such round"));
-        Assert.NotNull(Arsenal.SensorNamed("no such sensor"));
+        Assert.NotNull(Catalogue.MunitionNamed("no such round"));
+        Assert.NotNull(Catalogue.SensorNamed("no such sensor"));
     }
 
     [Fact]
     public void EveryLauncherHasAsManyTubesAsItHasTubePositions()
     {
-        foreach (LauncherProfile launcher in Arsenal.Launchers)
+        foreach (LauncherProfile launcher in Catalogue.Launchers)
         {
             Assert.Equal(launcher.Tubes.Length, launcher.TubeCount);
         }
@@ -88,7 +88,7 @@ public class ArsenalTests
     [Fact]
     public void EveryLauncherCanActuallyShootWithSomething()
     {
-        foreach (LauncherProfile launcher in Arsenal.Launchers)
+        foreach (LauncherProfile launcher in Catalogue.Launchers)
         {
             Assert.True(launcher.TubeCount > 0 || launcher.HasCannon,
                         $"{launcher.DisplayName} has neither tubes nor a cannon");
@@ -102,7 +102,7 @@ public class ArsenalTests
         // be pods or a cannon -- a CIWS traverses a gun and has no launcher assembly at all -- but
         // whichever it declares needs a trunnion offset, because a pivot measured from nothing is
         // an assembly that swings around the mount instead of elevating in place.
-        foreach (LauncherProfile launcher in Arsenal.Launchers)
+        foreach (LauncherProfile launcher in Catalogue.Launchers)
         {
             if (launcher.TurretMarker is null) continue;
 
@@ -126,16 +126,16 @@ public class ArsenalTests
     [Fact]
     public void ProfilesAreSelectableAndDriveTheTurretLimits()
     {
-        (MunitionProfile munition, SensorProfile sensor) = Arsenal.LoadoutFor(Arsenal.PantsirS1);
+        (MunitionProfile munition, SensorProfile sensor) = Catalogue.LoadoutFor(BuiltIns.PantsirS1);
 
         Assert.Equal("57E6", munition.Name);
         Assert.Equal("1RS1", sensor.Name);
 
         var turret = new Turret();
-        Arsenal.PantsirS1.ConfigureTurret(turret);
-        Assert.Equal(float.DegreesToRadians(Arsenal.PantsirS1.MaxElevationDeg), turret.MaxElevationRad, 9);
-        Assert.Equal(float.DegreesToRadians(Arsenal.PantsirS1.ForwardArcDeg), turret.ForwardArcRad, 9);
-        Assert.Equal(float.DegreesToRadians(Arsenal.PantsirS1.ForwardPlateauDeg), turret.ForwardPlateauRad, 9);
+        BuiltIns.PantsirS1.ConfigureTurret(turret);
+        Assert.Equal(float.DegreesToRadians(BuiltIns.PantsirS1.MaxElevationDeg), turret.MaxElevationRad, 9);
+        Assert.Equal(float.DegreesToRadians(BuiltIns.PantsirS1.ForwardArcDeg), turret.ForwardArcRad, 9);
+        Assert.Equal(float.DegreesToRadians(BuiltIns.PantsirS1.ForwardPlateauDeg), turret.ForwardPlateauRad, 9);
     }
 
     /// <summary>
@@ -148,16 +148,16 @@ public class ArsenalTests
     [Fact]
     public void TwoRegisteredSystemsResolveToDifferentWeapons()
     {
-        Assert.True(Arsenal.Launchers.Count >= 2);
+        Assert.True(Catalogue.Launchers.Count >= 2);
 
-        (MunitionProfile pantsirRound, SensorProfile pantsirSet) = Arsenal.LoadoutFor(Arsenal.PantsirS1);
-        (MunitionProfile railRound, SensorProfile railSet) = Arsenal.LoadoutFor(Arsenal.SidewinderRail);
+        (MunitionProfile pantsirRound, SensorProfile pantsirSet) = Catalogue.LoadoutFor(BuiltIns.PantsirS1);
+        (MunitionProfile railRound, SensorProfile railSet) = Catalogue.LoadoutFor(Arsenal.SidewinderRail);
 
         Assert.NotSame(pantsirRound, railRound);
         Assert.NotSame(pantsirSet, railSet);
 
-        Assert.Same(Arsenal.SidewinderRail, Arsenal.LauncherForPart(Arsenal.SidewinderRail.PartId));
-        Assert.Same(Arsenal.PantsirS1, Arsenal.LauncherForPart(Arsenal.PantsirS1.PartId));
+        Assert.Same(Arsenal.SidewinderRail, Catalogue.LauncherForPart(Arsenal.SidewinderRail.PartId));
+        Assert.Same(BuiltIns.PantsirS1, Catalogue.LauncherForPart(BuiltIns.PantsirS1.PartId));
     }
 
     /// <summary>
@@ -184,6 +184,29 @@ public class ArsenalTests
 
         // And it must actually bleed that off, or "coasts" means "holds speed forever".
         Assert.True(round.DragK > 0f);
+    }
+
+    /// <summary>
+    /// A round's drag is computed from what it is. The rounds that still carry a constant by hand are named here
+    /// with the reason, so a new one cannot join them by accident: a bomb's drag rises through the speed of sound
+    /// and a missile's changes as it burns and sheds its booster, which one coefficient cannot follow, and every
+    /// flown ballistic baseline rests on the reentry vehicle's.
+    /// </summary>
+    [Fact]
+    public void EveryRoundsDragComesFromWhatItIsUnlessNamedHere()
+    {
+        string[] byHand = ["AIM9J", "AIM120C", "AGM88", "57E6", "B61", "MK21"];
+
+        foreach (MunitionProfile round in Catalogue.Munitions)
+        {
+            Assert.True(round.DragFromShape != byHand.Contains(round.Name),
+                        $"{round.Name}: drag {(round.DragFromShape ? "from its shape" : "by hand")}");
+        }
+
+        foreach (LauncherProfile launcher in Catalogue.Launchers)
+        {
+            if (launcher.GunMunition is { } gun) Assert.True(Catalogue.MunitionNamed(gun).DragFromShape, gun);
+        }
     }
 
     /// <summary>
@@ -219,7 +242,7 @@ public class ArsenalTests
         Assert.Equal(0f, rail.LaunchLoft);
 
         // And coasts before it steers, so the turn onto the target happens clear of the craft.
-        Assert.True(Arsenal.MunitionNamed(rail.Munition).SeparationSeconds > 0f);
+        Assert.True(Catalogue.MunitionNamed(rail.Munition).SeparationSeconds > 0f);
     }
 
     [Fact]
@@ -239,7 +262,7 @@ public class ArsenalTests
         Assert.Null(fixedLauncher.TurretMarker);
         Assert.Null(fixedLauncher.PodsMarker);
         Assert.Equal(2, fixedLauncher.TubeCount);
-        Assert.NotNull(Arsenal.MunitionNamed(fixedLauncher.Munition));
+        Assert.NotNull(Catalogue.MunitionNamed(fixedLauncher.Munition));
     }
 
     /// <summary>
@@ -251,18 +274,18 @@ public class ArsenalTests
     public void ThePantsirReportsTheRolesItCarriesInside()
     {
         List<SurveyedPart> parts =
-            [new SurveyedPart(Arsenal.PantsirS1.PartId, default, doubleQuat.Identity)];
+            [new SurveyedPart(BuiltIns.PantsirS1.PartId, default, doubleQuat.Identity)];
 
-        WeaponInventory inv = WeaponSurvey.Survey(parts, Arsenal.Components);
+        WeaponInventory inv = WeaponSurvey.Survey(parts, Catalogue.Components);
 
         Assert.Equal(1, inv.CountOf(WeaponRole.Launcher));
         Assert.Equal(1, inv.CountOf(WeaponRole.Sensor));
         Assert.Equal(1, inv.CountOf(WeaponRole.Gun));
 
-        // No camera. The head is its own part now, so a Pantsir on its own has no sight and the
-        // survey has to say so -- a declared role it no longer carries would be a launcher
-        // claiming gear a player has not fitted.
-        Assert.Equal(0, inv.CountOf(WeaponRole.Camera));
+        // The director on its turret roof. Declared rather than found, because it is a subpart of
+        // the launcher and the survey only walks parts -- which is the whole reason Provides
+        // exists. A standalone director fitted beside it is found on its own and counts again.
+        Assert.Equal(1, inv.CountOf(WeaponRole.Camera));
         Assert.Equal(1, inv.CountOf(WeaponRole.FireControl));
     }
 
@@ -275,7 +298,24 @@ public class ArsenalTests
     {
         List<SurveyedPart> parts = [new SurveyedPart("SomeoneElsesTank", default, doubleQuat.Identity)];
 
-        Assert.False(WeaponSurvey.Survey(parts, Arsenal.Components).IsWeaponSystem);
+        Assert.False(WeaponSurvey.Survey(parts, Catalogue.Components).IsWeaponSystem);
+    }
+
+    /// <summary>
+    /// Only the MIRV bus flies the rocket under it. Every other weapon is a weapons system with
+    /// nothing to fly, and a ballistic computer crewed on it is a tab nobody can use.
+    /// </summary>
+    [Fact]
+    public void OnlyTheBusIsGivenABallisticComputer()
+    {
+        foreach (ComponentProfile component in Catalogue.Components)
+        {
+            List<SurveyedPart> parts = [new SurveyedPart(component.PartId, default, doubleQuat.Identity)];
+
+            Assert.True(component.PartId == Arsenal.MirvBus.PartId
+                            == WeaponSurvey.Survey(parts, Catalogue.Components).HasGuidance,
+                        $"{component.DisplayName} gets a ballistic computer only if it is the bus");
+        }
     }
 
     /// <summary>
@@ -289,11 +329,43 @@ public class ArsenalTests
     [Fact]
     public void EveryRegisteredLauncherIsAlsoARecognisedComponent()
     {
-        foreach (LauncherProfile launcher in Arsenal.Launchers)
+        foreach (LauncherProfile launcher in Catalogue.Launchers)
         {
-            Assert.True(Arsenal.Components.Any(c => c.PartId == launcher.PartId),
+            Assert.True(Catalogue.Components.Any(c => c.PartId == launcher.PartId),
                         $"{launcher.DisplayName} ({launcher.PartId}) is registered as a launcher "
                         + "but not as a component, so no craft carrying it becomes a weapons system");
+        }
+    }
+
+    /// <summary>
+    /// The panel decides whether to draw the guidance section from <c>Armament.Steers</c>; the
+    /// system decides which flight model to build when it fires. Two answers to one question, and
+    /// they have to agree for every registered launcher.
+    ///
+    /// <para>The two magazines reach that decision differently, which is what makes this worth
+    /// pinning: a belt is built as a <c>Slug</c> outright, so its munition's <c>Guidance</c> is
+    /// never read and is left at a default that says the opposite. Only a tube reaches the branch.
+    /// Reading either term alone is wrong, and each is wrong about a different launcher — the slot
+    /// alone offers a bomb rack a guidance section, the round alone offers one to a Phalanx.</para>
+    /// </summary>
+    [Fact]
+    public void SteersAgreesWithTheFlightModelForEveryArmament()
+    {
+        foreach (LauncherProfile launcher in Catalogue.Launchers)
+        {
+            WeaponFit fit = WeaponFit.Of(launcher, Catalogue.SensorNamed(launcher.Sensor));
+
+            foreach (Armament arm in fit.Armaments)
+            {
+                bool flownAsInterceptor =
+                    arm.Kind == ArmamentKind.Tubes
+                    && Catalogue.MunitionNamed(arm.Munition).Guidance != GuidanceMode.None;
+
+                Assert.True(arm.Steers == flownAsInterceptor,
+                            $"{launcher.DisplayName} / {arm.Label}: the panel says "
+                            + $"Steers={arm.Steers} while the round is flown as "
+                            + (flownAsInterceptor ? "an Interceptor" : "a Slug"));
+            }
         }
     }
 
@@ -304,13 +376,291 @@ public class ArsenalTests
     [Fact]
     public void EveryLauncherComponentNamesARegisteredLauncher()
     {
-        foreach (ComponentProfile component in Arsenal.Components)
+        foreach (ComponentProfile component in Catalogue.Components)
         {
             if (component.Role != WeaponRole.Launcher) continue;
 
-            Assert.True(Arsenal.Launchers.Any(l => l.PartId == component.PartId),
+            Assert.True(Catalogue.Launchers.Any(l => l.PartId == component.PartId),
                         $"component {component.DisplayName} ({component.PartId}) claims to be a "
                         + "launcher, but no LauncherProfile has that part Id");
         }
+    }
+
+    /// <summary>
+    /// A provided row is declared as a profile's DisplayName, and the panel decides whether that row
+    /// belongs to the crewed system by matching it back against the profile the system is running.
+    /// So the two have to be the same string, resolved from the same registry — anything else is a
+    /// second name for one thing, and it fails silently in the only place nobody can unit-test.
+    ///
+    /// <para>What that costs: a Pantsir reports its working cannon as "fitted, not run" the moment
+    /// the panel matches a row called "2A38M 30 mm cannon" against <c>Armament.Label</c>, which is
+    /// the belt's heading — "Cannon". Fire control reads neither, so the gun fires throughout and
+    /// only the panel lies.</para>
+    /// </summary>
+    [Fact]
+    public void EveryProvidedGunAndSensorRowNamesTheProfileItsSystemRuns()
+    {
+        foreach (LauncherProfile launcher in Catalogue.Launchers)
+        {
+            ComponentProfile? component = null;
+            for (int i = 0; i < Catalogue.Components.Count; i++)
+            {
+                if (Catalogue.Components[i].PartId == launcher.PartId
+                    && Catalogue.Components[i].Role == WeaponRole.Launcher)
+                {
+                    component = Catalogue.Components[i];
+                }
+            }
+
+            Assert.NotNull(component);
+
+            WeaponFit fit = WeaponFit.Of(launcher, Catalogue.SensorNamed(launcher.Sensor));
+
+            foreach (BuiltInComponent provided in component!.Provides)
+            {
+                if (provided.Role == WeaponRole.Sensor)
+                {
+                    Assert.Equal(Catalogue.SensorNamed(launcher.Sensor).DisplayName, provided.DisplayName);
+                }
+                else if (provided.Role == WeaponRole.Gun)
+                {
+                    Assert.True(fit.FirstOf(ArmamentKind.Belt) is not null,
+                        $"{launcher.DisplayName} declares a Gun row and its fit carries no belt");
+
+                    // The question the panel asks, asked here where it can be checked.
+                    Assert.True(fit.Describes(ArmamentKind.Belt, provided.DisplayName),
+                        $"{launcher.DisplayName}'s Gun row is called '{provided.DisplayName}', "
+                        + "which its own fit does not recognise -- the panel will report a working "
+                        + "gun as 'fitted, not run'");
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// The heading a belt is displayed under is not its identity. <c>Armament.Label</c> is
+    /// "Cannon"; the row naming that armament is "2A38M 30 mm cannon". Matching on the first is
+    /// what made every Pantsir report its gun as not run.
+    /// </summary>
+    [Fact]
+    public void AFitDoesNotRecogniseItsArmamentByTheHeadingItIsListedUnder()
+    {
+        WeaponFit fit = WeaponFit.Of(BuiltIns.PantsirS1, BuiltIns.SearchRadar1Rs1);
+        Armament belt = fit.FirstOf(ArmamentKind.Belt)!.Value;
+
+        Assert.True(fit.Describes(ArmamentKind.Belt, BuiltIns.Cannon30Mm.DisplayName));
+
+        // The two are different strings, and only one of them identifies the armament.
+        Assert.NotEqual(belt.Label, BuiltIns.Cannon30Mm.DisplayName);
+        Assert.False(fit.Describes(ArmamentKind.Belt, belt.Label));
+
+        // A launcher with no belt recognises nothing, rather than matching on a null.
+        WeaponFit rail = WeaponFit.Of(Arsenal.SidewinderRail, Arsenal.SeekerHeadAim9);
+        Assert.False(rail.Describes(ArmamentKind.Belt, BuiltIns.Cannon30Mm.DisplayName));
+    }
+
+    /// <summary>
+    /// Every launcher has fire control, because fire control is the thing that decides to shoot and
+    /// nothing that shoots can lack one.
+    ///
+    /// <para>It is a declared role rather than a found part, so a launcher that omits it gets no
+    /// fire-control row — and every control that lives on that row goes with it: FIRE,
+    /// aim with the mouse, fire at the mouse, protecting the craft being flown, and resetting the
+    /// installation. Three of the four launchers shipped without one, so a CIWS could not be fired
+    /// from the panel at all.</para>
+    ///
+    /// <para><c>tools/check-tunables.py</c> cannot catch this and passed throughout: it asks whether
+    /// a setting is written <em>somewhere</em> in the panel, and <c>MouseFire</c> is — on the one row
+    /// only a Pantsir has. Reachable for one system is not reachable.</para>
+    /// </summary>
+    [Fact]
+    public void EveryLauncherProvidesFireControl()
+    {
+        foreach (LauncherProfile launcher in Catalogue.Launchers)
+        {
+            ComponentProfile? component = null;
+            for (int i = 0; i < Catalogue.Components.Count; i++)
+            {
+                if (Catalogue.Components[i].PartId == launcher.PartId
+                    && Catalogue.Components[i].Role == WeaponRole.Launcher)
+                {
+                    component = Catalogue.Components[i];
+                }
+            }
+
+            Assert.True(component is not null, $"{launcher.DisplayName} has no launcher component");
+
+            bool declares = false;
+            foreach (BuiltInComponent provided in component!.Provides)
+            {
+                if (provided.Role == WeaponRole.FireControl) declares = true;
+            }
+
+            Assert.True(declares,
+                $"{launcher.DisplayName} declares no fire control, so its panel has no FIRE, "
+                + "no mouse aim and no fire at the mouse");
+        }
+    }
+
+    /// <summary>
+    /// Which rounds survive their launcher being destroyed, stated as the one thing that decides
+    /// it: whether the steering is aboard the round or back at the shooter.
+    ///
+    /// <para>Every mode has to be named here, so a new one cannot arrive and be quietly assumed
+    /// autonomous — the failure would be a round that goes on steering with nothing behind it,
+    /// which looks exactly like one that is working.</para>
+    /// </summary>
+    [Theory]
+    [InlineData(GuidanceMode.Seeker, false)]
+    [InlineData(GuidanceMode.AntiRadiation, false)]
+    [InlineData(GuidanceMode.CommandLink, true)]
+    // Told the point at release and left to it: nothing to uplink, and nothing to lose.
+    [InlineData(GuidanceMode.Inertial, false)]
+    [InlineData(GuidanceMode.None, false)]
+    public void OnlyACommandLinkRoundNeedsItsLauncher(GuidanceMode mode, bool needsUplink)
+    {
+        MunitionProfile round = new() { Name = "t", DisplayName = "t", Guidance = mode };
+
+        Assert.Equal(needsUplink, round.NeedsUplink);
+    }
+
+    /// <summary>And the list above covers the enum, so adding a mode fails here rather than in flight.</summary>
+    [Fact]
+    public void EveryGuidanceModeIsAccountedFor()
+    {
+        Assert.Equal(5, Enum.GetValues<GuidanceMode>().Length);
+    }
+
+
+    /// <summary>
+    /// A weapon has to be able to be released over the target it was flown to.
+    ///
+    /// <para>Fire control refuses a shot beyond the round's <see cref="MunitionProfile.MaxRange"/>,
+    /// which for anything with a motor is what that motor can manage. A reentry vehicle has no
+    /// motor: its reach is entirely the arc the bus put it on, so reading the field as a
+    /// performance figure caps an intercontinental weapon at whatever number looked reasonable and
+    /// the bus then arrives over its target and refuses to let go — with the only symptom a line in
+    /// a log about a range nobody thought was a limit.</para>
+    /// </summary>
+    [Fact]
+    public void TheReentryVehicleCanBeReleasedAtIntercontinentalRange()
+    {
+        MunitionProfile rv = Catalogue.MunitionNamed(Arsenal.MirvBus.Munition);
+
+        Assert.Equal(GuidanceMode.None, rv.Guidance);
+
+        // Further than any real ballistic missile flies, and short of the geometric limit, which is
+        // half a circumference because past it the short way round is the other way.
+        Assert.True(rv.MaxRange >= 13_000_000f,
+                    $"{rv.DisplayName} can only be let go {rv.MaxRange / 1000f:F0} km from its target");
+
+        // And long enough in the air to get there: half an hour of ballistic flight.
+        Assert.True(rv.MaxFlightSeconds >= 1_500f);
+    }
+
+    /// <summary>
+    /// The reentry vehicle integrates finer than everything else, and nothing else pays for it.
+    ///
+    /// <para>The round's own symplectic Euler is the largest remaining term in a ballistic shot —
+    /// 143 m of the 149 m it lands from its own probe on flat ground, and the slope under a shallow
+    /// arrival multiplies that. Flown at Mahia the correction converged to 15 m and the warheads
+    /// landed 756 m out. The mechanism for this was built and measured and no profile ever set the
+    /// field.</para>
+    ///
+    /// <para>A cannon shell must <em>not</em> inherit it: six warheads at a millisecond is about 300
+    /// sub-steps a frame, a 150-shell burst would be 7,500, and that cost has never been
+    /// measured.</para>
+    /// </summary>
+    [Fact]
+    public void TheReentryVehicleAsksForAFinerStepAndNothingElseDoes()
+    {
+        MunitionProfile rv = Arsenal.ReentryVehicleMk21;
+
+        Assert.True(rv.SubStep < Interceptor.SubStep,
+                    $"the Mk 21 integrates at {rv.SubStep * 1000.0:F2} ms, the shared default");
+
+        foreach (MunitionProfile m in Catalogue.Munitions)
+        {
+            if (ReferenceEquals(m, rv)) continue;
+
+            Assert.True(m.SubStep >= Interceptor.SubStep,
+                        $"{m.Name} asks for {m.SubStep * 1000.0:F2} ms, which nothing has priced");
+        }
+    }
+
+    /// <summary>
+    /// And a finer step must not shorten the round's faithful step, which is what
+    /// <see cref="WarpPolicy"/> holds the world down to. Halving the step with a fixed sub-step cap
+    /// would halve the span one frame may cover and quietly tighten the warp limit for everyone.
+    /// </summary>
+    [Fact]
+    public void AFinerStepDoesNotMoveTheRoundsFaithfulStep()
+    {
+        foreach (MunitionProfile m in Catalogue.Munitions)
+        {
+            Assert.True(m.SubStep * m.MaxSubSteps >= m.MaxFaithfulStepSeconds,
+                        $"{m.Name} spans {m.SubStep * m.MaxSubSteps:F3} s of frame against the "
+                        + $"{m.MaxFaithfulStepSeconds:F3} s it claims to integrate faithfully");
+        }
+    }
+
+    /// <summary>
+    /// The Mk 21 with its drag from what it is differs from the Mk 21 in its drag and nothing else: a paired night
+    /// compares the two, so anything else that differed would be measured with it.
+    /// </summary>
+    [Fact]
+    public void TheMk21WithDragFromItsShapeDiffersOnlyInItsDrag()
+    {
+        MunitionProfile rv = Arsenal.ReentryVehicleMk21;
+        MunitionProfile shape = Arsenal.Mk21WithDragFromShape(rv);
+
+        Assert.False(rv.DragFromShape);
+        Assert.True(shape.DragFromShape);
+        Assert.Equal(0.5 * 1.225 * 0.1 * Math.PI * 0.275 * 0.275 / 270.0, shape.AppliedDragK, 9);
+        Assert.InRange(shape.AppliedDragK / rv.AppliedDragK, 3.5, 3.7);
+
+        Assert.Equal(rv.Name, shape.Name);
+        Assert.Equal(rv.LaunchSpeed, shape.LaunchSpeed);
+        Assert.Equal(rv.SubStepSeconds, shape.SubStepSeconds);
+        Assert.Equal(rv.MaxFlightSeconds, shape.MaxFlightSeconds);
+        Assert.Equal(rv.ChargeKg, shape.ChargeKg);
+        Assert.Equal(rv.FuseArmSeconds, shape.FuseArmSeconds);
+        Assert.Equal(rv.HitsTerrain, shape.HitsTerrain);
+        Assert.Equal(rv.Guidance, shape.Guidance);
+        Assert.Equal(rv.BodyLength, shape.BodyLength);
+        Assert.False(rv.DragFromShape, "making the copy changed the registered round");
+    }
+
+    /// <summary>
+    /// The registered profile is shared by every rocket in the world, so a swap that edited it would
+    /// put the arm under test on both arms of a paired night and read a dead heat.
+    /// </summary>
+    [Fact]
+    public void FlyingARoundAtAnotherSubStepLeavesTheRegisteredProfileAlone()
+    {
+        double was = Arsenal.ReentryVehicleMk21.SubStep;
+
+        MunitionProfile fine = Arsenal.RoundAtSubStep(Arsenal.ReentryVehicleMk21, 0.000125);
+
+        Assert.Equal(0.000125, fine.SubStep, 9);
+        Assert.Equal(was, Arsenal.ReentryVehicleMk21.SubStep, 9);
+    }
+
+    /// <summary>
+    /// The sub-step count scales with the step, so a finer warhead does not shorten
+    /// <see cref="MunitionProfile.MaxFaithfulStepSeconds"/> and hold the whole world's timewarp down
+    /// with it — the trap that cost 164 km when the integration clamp and the warp target were
+    /// confused for each other.
+    /// </summary>
+    [Fact]
+    public void AFinerSubStepDoesNotMoveTheFaithfulStep()
+    {
+        MunitionProfile shipped = Arsenal.ReentryVehicleMk21;
+        MunitionProfile fine = Arsenal.RoundAtSubStep(shipped, shipped.SubStep / 8.0);
+
+        Assert.True(fine.SubStep * fine.MaxSubSteps >= shipped.MaxFaithfulStepSeconds,
+                    $"a {fine.SubStep * 1000.0:F3} ms warhead spans only "
+                    + $"{fine.SubStep * fine.MaxSubSteps:F3} s of frame against a faithful step of "
+                    + $"{shipped.MaxFaithfulStepSeconds:F3} s");
     }
 }

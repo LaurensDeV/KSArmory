@@ -43,11 +43,38 @@ internal interface IContact
 
     double3 VelocityEcl { get; }
 
+    /// <summary>Everything accelerating it, gravity included. Zero where that is not known.</summary>
+    double3 AccelerationEcl { get; }
+
+    /// <summary>
+    /// Wreckage a failure shed. Tracked, and never engaged: a burst that breaks a craft leaves pieces
+    /// still flying and still closing, and shooting them spends shells on something already dead.
+    /// </summary>
+    bool IsDebris { get; }
+
+    /// <summary>Its drag box and attitude as the engine flies it, or null where there is none to read.</summary>
+    DragShape? DragShape { get; }
+
     /// <summary>
     /// Where it is drawn, which is not where it is simulated — see <c>docs/FRAMES-AND-EPOCHS.md</c>.
     /// False when it cannot be placed, which the overlay reads as "draw nothing".
     /// </summary>
     bool TryDrawEgo(out double3 posEgo);
+
+    /// <summary>
+    /// The craft that put this in the air, or null for something nobody launched.
+    ///
+    /// <para>Only so a sensor can disregard its <em>own</em> platform's rounds. IFF cannot do it:
+    /// allegiance decides what may be <em>engaged</em>, and a friendly contact is still tracked —
+    /// correctly, because a sight pointed at a friendly craft is doing its job. What is never
+    /// useful is a set watching its own salvo leave, from metres away, at the top of its
+    /// priority.</para>
+    ///
+    /// <para>Deliberately not "whose side it is on". Two launchers on one team should still see
+    /// each other's rounds, and seeing an incoming missile is the whole reason a round is a
+    /// contact at all.</para>
+    /// </summary>
+    Vehicle? LaunchedFrom { get; }
 }
 
 /// <summary>A craft, seen by a sensor.</summary>
@@ -61,6 +88,9 @@ internal sealed class VehicleContact(Vehicle vehicle) : IContact
 
     public string TeamKey => DisplayName;
 
+    /// <summary>Nothing launched a craft. A sensor skips its own platform by reference instead.</summary>
+    public Vehicle? LaunchedFrom => null;
+
     public double MeanRadius => KsaWorld.MeanRadius(Vehicle);
 
     public bool IsAlive => KsaWorld.IsAlive(Vehicle);
@@ -68,6 +98,12 @@ internal sealed class VehicleContact(Vehicle vehicle) : IContact
     public double3 PositionEcl => KsaWorld.PositionEcl(Vehicle);
 
     public double3 VelocityEcl => KsaWorld.VelocityEcl(Vehicle);
+
+    public double3 AccelerationEcl => KsaWorld.AccelerationEcl(Vehicle);
+
+    public bool IsDebris => KsaWorld.IsDebris(Vehicle);
+
+    public DragShape? DragShape => KsaWorld.DragShapeOf(Vehicle);
 
     public bool TryDrawEgo(out double3 posEgo) => KsaWorld.TryVehicleEgo(Vehicle, out posEgo);
 }

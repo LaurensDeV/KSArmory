@@ -151,7 +151,17 @@ internal static class ThreatModel
     /// and not promised; ties between equal priorities may fall either way.
     /// </summary>
     public static void SortByPriority<T>(List<T> tracks) where T : TrackState
-        => tracks.Sort(static (a, b) => a.Priority.CompareTo(b.Priority));
+        => tracks.Sort(static (a, b) =>
+        {
+            int byPriority = a.Priority.CompareTo(b.Priority);
+
+            // Range breaks the tie, because there is always a tie: every non-threat has a priority
+            // of MaxValue, so a scope holding four of them is comparing four equal keys. List.Sort
+            // is not stable, so without a second key their order is whatever the sort happened to
+            // do -- and an optical director watches Tracks[0], which then means the instrument
+            // picks a different contact with nothing in the world having changed.
+            return byPriority != 0 ? byPriority : a.Range.CompareTo(b.Range);
+        });
 
     /// <summary>
     /// The threat reaching its closest approach soonest, or -1 if nothing qualifies.

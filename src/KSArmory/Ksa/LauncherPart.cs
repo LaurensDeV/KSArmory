@@ -25,9 +25,10 @@ internal static class LauncherPart
     /// Finds a launcher on a vehicle, or null if it carries none.
     ///
     /// <para>Matches against every launcher in <see cref="Arsenal"/> rather than one hardcoded
-    /// Id, so adding a weapon system is a registry entry and needs no change here. Returns the
-    /// first match: several launchers on one craft still give one battery, and sharing ammo
-    /// between them would be a different feature.</para>
+    /// Id, so adding a weapon system is a registry entry and needs no change here. Answers the
+    /// "does this craft carry one at all" question and stops at the first match; a system
+    /// resolves its <em>own</em> launcher through <see cref="FindNth"/> on its ordinal, because
+    /// a craft carries one weapon system per launcher part.</para>
     /// </summary>
     public static (Part Part, LauncherProfile Profile)? Find(Vehicle vehicle)
     {
@@ -36,7 +37,7 @@ internal static class LauncherPart
             ReadOnlySpan<Part> parts = vehicle.Parts.Parts;
             for (int i = 0; i < parts.Length; i++)
             {
-                if (parts[i] is { } part && Arsenal.LauncherForPart(part.Id) is { } profile)
+                if (parts[i] is { } part && Catalogue.LauncherForPart(part.Id) is { } profile)
                 {
                     return (part, profile);
                 }
@@ -64,7 +65,7 @@ internal static class LauncherPart
             ReadOnlySpan<Part> parts = vehicle.Parts.Parts;
             for (int i = 0; i < parts.Length; i++)
             {
-                if (parts[i] is { } part && Arsenal.LauncherForPart(part.Id) is { } profile)
+                if (parts[i] is { } part && Catalogue.LauncherForPart(part.Id) is { } profile)
                 {
                     into.Add((part, profile));
                 }
@@ -108,10 +109,14 @@ internal static class LauncherPart
     public static Part? FindGuns(Part launcher, LauncherProfile profile)
         => FindSubPart(launcher, profile.GunsMarker);
 
-    /// <summary>
-    /// Collects the round subparts, in declaration order, so tube N maps to the same body every
-    /// time. There is one per tube, which is what lets a whole salvo be in the air at once.
-    /// </summary>
+    /// <summary>A barrel that recoils inside the cannon. Null for a launcher with none.</summary>
+    public static Part? FindBarrel(Part launcher, LauncherProfile profile)
+        => FindSubPart(launcher, profile.GunBarrelMarker);
+
+    /// <summary>A carried director's base, which rides the traverse. Null for a launcher with none.</summary>
+    public static Part? FindOpticBase(Part launcher, LauncherProfile profile)
+        => FindSubPart(launcher, profile.OpticBaseMarker);
+
     /// <summary>Collects this round's fin subparts, in tube order. Empty if it has none.</summary>
     public static void FindFins(Part launcher, MunitionProfile munition, List<Part> into)
     {
@@ -136,6 +141,10 @@ internal static class LauncherPart
         }
     }
 
+    /// <summary>
+    /// Collects the round subparts, in declaration order, so tube N maps to the same body every
+    /// time. There is one per tube, which is what lets a whole salvo be in the air at once.
+    /// </summary>
     public static void FindMissiles(Part launcher, MunitionProfile munition, List<Part> into)
     {
         into.Clear();
@@ -251,15 +260,25 @@ internal static class LauncherPart
             missile.Scale = Shown;
             missile.ResetCachedPosMatrixValues();
 
-            // Stowed: flat against the casing, so the round clears the bore.
-            if (fins is not null) TryPlaceFins(fins, seated, rotation, 0.0, munition);
+            // Stowed: flat against the casing, so the round clears the bore. A hinged set has no
+            // stowed state and four blades rather than one, so the caller places those itself —
+            // scaling blade zero to nothing here is how they went missing on the rack.
+            if (fins is not null && munition.FinsPerRound == 0)
+                TryPlaceFins(fins, seated, rotation, 0.0, munition);
             return true;
         }
-        catch
+        catch (Exception e)
         {
+            // A silent false here shrinks the body to a millimetre and says nothing, which reads
+            // in game as a round that simply is not there. Say it once per launcher.
+            if (_seatFailure.Add(profile.PartId))
+                Log.Warn($"seating tube {tubeIndex} of {profile.PartId} failed: {e.GetType().Name}: {e.Message}");
             return false;
         }
     }
+
+    // Launchers already complained about, so a per-frame failure is not a per-frame log.
+    private static readonly HashSet<string> _seatFailure = [];
 
     public static bool TryGetTubeAxisEcl(Vehicle platform, Part launcher, Part? pods, LauncherProfile profile,
                                          int tubeIndex, out double3 axisEcl)
@@ -281,7 +300,6 @@ internal static class LauncherPart
         }
     }
 
-    /// <summary>The same point in Ecl, for the round the simulation actually flies.</summary>
     /// <summary>
     /// Where a round's body is actually <em>drawn</em>, in Ecl.
     ///
@@ -293,7 +311,8 @@ internal static class LauncherPart
     /// </summary>
     public static bool TryGetBodyEcl(Vehicle platform, Part launcher,
                                      double3 launchAnchorPartFrame, double3 travelEcl,
-                                     double3 platformEcl, out double3 ecl)
+                                     double3 platformEcl, doubleQuat launchAttitude,
+                                     out double3 ecl)
     {
         ecl = Vec.Zero;
 
@@ -302,8 +321,9 @@ internal static class LauncherPart
             doubleQuat ecl2Asmb = doubleQuat.Conjugate(platform.Asmb2Ego);
             doubleQuat asmb2Part = doubleQuat.Conjugate(launcher.Asmb2VehicleAsmb);
 
-            double3 partFrame = TubeGeometry.BodyPositionPartFrame(launchAnchorPartFrame, travelEcl,
-                                                                   ecl2Asmb, asmb2Part);
+            double3 partFrame = TubeGeometry.BodyPositionPartFrame(
+                launchAnchorPartFrame, travelEcl, ecl2Asmb, asmb2Part,
+                doubleQuat.Concatenate(launchAttitude, ecl2Asmb));
             if (!Vec.IsFinite(partFrame)) return false;
 
             double3 inVehicle = launcher.PositionVehicleAsmb + (launcher.Asmb2VehicleAsmb * partFrame);
@@ -316,21 +336,101 @@ internal static class LauncherPart
         }
     }
 
+    /// <summary>
+    /// Where one tube's mouth sits from the mean of all of them, turned into Ecl.
+    ///
+    /// <para>No position enters it — only the part frame and two rotations — so it pairs with any
+    /// sample of the craft taken this frame, where differencing two mouths' world positions would
+    /// carry whatever separates the instants they were read at.</para>
+    /// </summary>
+    public static bool TryGetTubeOffsetFromMeanEcl(Vehicle platform, Part launcher, Part? pods,
+                                                   LauncherProfile profile, int tubeIndex,
+                                                   out double3 offsetEcl)
+    {
+        offsetEcl = Vec.Zero;
+
+        try
+        {
+            if (!TubeGeometry.TryOffsetFromMeanPartFrame(profile, tubeIndex, PodOffset(pods),
+                                                         PodRotation(pods), out double3 inPart))
+            {
+                return false;
+            }
+
+            offsetEcl = platform.Asmb2Ego * (launcher.Asmb2VehicleAsmb * inPart);
+            return Vec.IsFinite(offsetEcl);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// The same point as <see cref="TryGetTubeMuzzlePartFrame"/> in Ecl, for the round the
+    /// simulation actually flies.
+    /// </summary>
     public static bool TryGetTubeMuzzleEcl(
         Vehicle platform, Part launcher, Part? pods, LauncherProfile profile, int tubeIndex,
         double3 platformEcl, out double3 ecl)
     {
         ecl = Vec.Zero;
-        if (!TryGetTubeMuzzlePartFrame(pods, profile, tubeIndex, out double3 partFrame)) return false;
+        if (!TryGetTubeMuzzleVehicleAsmb(launcher, pods, profile, tubeIndex, out double3 inVehicle)) return false;
 
         try
         {
             // Measured from the centre of mass, because that is what platformEcl is:
             // GetPositionEcl returns the centre of mass while PositionVehicleAsmb is from the
             // assembly origin, and adding one to the other is out by the whole offset.
-            double3 inVehicle = launcher.PositionVehicleAsmb + launcher.Asmb2VehicleAsmb * partFrame;
             ecl = platformEcl + platform.Asmb2Ego * (inVehicle - platform.CenterOfMassAsmb);
             return Vec.IsFinite(ecl);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Where one tube's mouth sits in the vehicle's own assembly frame, which every placement of it in
+    /// the world is turned and offset from.
+    /// </summary>
+    public static bool TryGetTubeMuzzleVehicleAsmb(Part launcher, Part? pods, LauncherProfile profile,
+                                                   int tubeIndex, out double3 vehicleAsmb)
+    {
+        vehicleAsmb = Vec.Zero;
+        if (!TryGetTubeMuzzlePartFrame(pods, profile, tubeIndex, out double3 partFrame)) return false;
+
+        try
+        {
+            vehicleAsmb = launcher.PositionVehicleAsmb + launcher.Asmb2VehicleAsmb * partFrame;
+            return Vec.IsFinite(vehicleAsmb);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// How fast one tube's mouth moves because the craft is turning, and the arm it swings on — off
+    /// the assembly frame, as <see cref="FireGeometry.SpinVelocityAt"/> takes them.
+    /// </summary>
+    public static bool TryGetTubeSpinEcl(Vehicle platform, Part launcher, Part? pods, LauncherProfile profile,
+                                         int tubeIndex, double3 angularVelocityEcl,
+                                         out double3 spinEcl, out double3 armEcl)
+    {
+        spinEcl = armEcl = Vec.Zero;
+        if (!TryGetTubeMuzzleVehicleAsmb(launcher, pods, profile, tubeIndex, out double3 mouth)) return false;
+
+        try
+        {
+            doubleQuat asmb2Ecl = platform.Asmb2Ego;
+            double3 centreOfMass = platform.CenterOfMassAsmb;
+
+            armEcl = FireGeometry.LeverArm(asmb2Ecl, mouth, centreOfMass);
+            spinEcl = FireGeometry.SpinVelocityAt(angularVelocityEcl, asmb2Ecl, mouth, centreOfMass);
+            return Vec.IsFinite(armEcl) && Vec.IsFinite(spinEcl);
         }
         catch
         {
@@ -399,6 +499,40 @@ internal static class LauncherPart
         }
     }
 
+    /// <summary>
+    /// Places one hinged blade of a cruciform set on its round.
+    ///
+    /// <para>The blade's mesh is recentred on its hinge, so its origin rides the body axis at the
+    /// hinge station and its rotation is the hinge. Composed in that order: deflect about the
+    /// blade's own radial axis first, then roll it into position, then carry both through the
+    /// body's attitude. Rolling first would deflect it about somebody else's hinge.</para>
+    /// </summary>
+    public static bool TryPlaceFin(Part fin, double3 bodyPos, doubleQuat bodyRot,
+                                   double hingeStationPartFrame, double rollRad, double deflectRad)
+    {
+        try
+        {
+            doubleQuat local = doubleQuat.CreateFromAxisAngle(new double3(1, 0, 0), rollRad)
+                               * doubleQuat.CreateFromAxisAngle(new double3(0, 1, 0), deflectRad);
+            doubleQuat rotation = bodyRot * local;
+            double3 position = bodyPos + bodyRot * new double3(hingeStationPartFrame, 0, 0);
+
+            if (!Vec.IsFinite(position)) return false;
+
+            fin.PositionParentAsmb = position;
+            fin.PositionParentAsmbSafe = position;
+            fin.Asmb2ParentAsmb = rotation;
+            fin.Asmb2ParentAsmbSafe = rotation;
+            fin.Scale = Shown;
+            fin.ResetCachedPosMatrixValues();
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     /// <summary>Shrinks a round out of sight. Used for tubes that are loaded or already spent.</summary>
     public static void HideMissile(Part missile)
     {
@@ -415,22 +549,20 @@ internal static class LauncherPart
     }
 
     /// <summary>
-    /// Puts a round body where its simulated round actually is, pointing the way it is going.
+    /// Puts a round body where its simulated round actually is, at the attitude it is drawn at.
     ///
-    /// <para><paramref name="offsetEcl"/> and <paramref name="directionEcl"/> come straight off
-    /// the <see cref="Interceptor"/>: a platform-relative offset and an airspeed vector, both in
-    /// Ecl. Two rotations take them into the subpart's frame — the vehicle's attitude, then the
-    /// launcher part's own mounting — because <c>PositionParentAsmb</c> is measured in the
-    /// parent part's frame, not the vehicle's.</para>
-    ///
-    /// <para>The mesh is modelled nose-along-+X, so the orientation is whatever rotation carries
-    /// +X onto the flight direction.</para>
+    /// <para><paramref name="travelEcl"/> comes straight off the round and
+    /// <paramref name="attitudeEcl"/> off <see cref="BodyAttitude.Turn"/>, both in Ecl. Two
+    /// rotations take them into the subpart's frame — the vehicle's attitude, then the launcher
+    /// part's own mounting — because <c>PositionParentAsmb</c> is measured in the parent part's
+    /// frame, not the vehicle's.</para>
     /// </summary>
     public static bool TryPlaceMissile(
         Vehicle platform, Part launcher, Part missile,
-        double3 launchAnchorPartFrame, double3 travelEcl, double3 directionEcl)
+        double3 launchAnchorPartFrame, double3 travelEcl, doubleQuat attitudeEcl,
+        doubleQuat launchAttitude)
         => TryPlaceMissile(platform, launcher, missile, launchAnchorPartFrame, travelEcl,
-                           directionEcl, out _, out _);
+                           attitudeEcl, launchAttitude, out _, out _);
 
     /// <summary>
     /// As above, and reports the transform it used so a fin set can be hung on the same one -
@@ -438,7 +570,8 @@ internal static class LauncherPart
     /// </summary>
     public static bool TryPlaceMissile(
         Vehicle platform, Part launcher, Part missile,
-        double3 launchAnchorPartFrame, double3 travelEcl, double3 directionEcl,
+        double3 launchAnchorPartFrame, double3 travelEcl, doubleQuat attitudeEcl,
+        doubleQuat launchAttitude,
         out double3 position, out doubleQuat rotation)
     {
         position = Vec.Zero;
@@ -452,11 +585,15 @@ internal static class LauncherPart
             // asmb2Part is currently identity - the launcher is mounted unrotated relative to the
             // vehicle assembly - but PositionParentAsmb is the assembly frame, so the conversion
             // is kept explicit rather than relying on that holding.
+            // How far the craft has turned since this round left. The anchor is a world point
+            // written in the part's frame, so it has to be carried back through that.
+            doubleQuat sinceLaunch = doubleQuat.Concatenate(launchAttitude, ecl2Asmb);
+
             position = TubeGeometry.BodyPositionPartFrame(launchAnchorPartFrame, travelEcl,
-                                                          ecl2Asmb, asmb2Part);
+                                                          ecl2Asmb, asmb2Part, sinceLaunch);
             if (!Vec.IsFinite(position)) return false;
 
-            rotation = TubeGeometry.BodyRotationPartFrame(directionEcl, ecl2Asmb, asmb2Part);
+            rotation = TubeGeometry.BodyRotationPartFrame(attitudeEcl, ecl2Asmb, asmb2Part);
 
             missile.PositionParentAsmb = position;
             missile.PositionParentAsmbSafe = position;
@@ -473,6 +610,20 @@ internal static class LauncherPart
         }
     }
 
+
+    /// <summary>The attitude a round leaves this launcher at. See <see cref="TubeGeometry.ReleaseAttitudeEcl"/>.</summary>
+    public static doubleQuat ReleaseAttitudeEcl(Part launcher, double3 releaseHeadingEcl, doubleQuat launchAttitude)
+    {
+        try
+        {
+            return TubeGeometry.ReleaseAttitudeEcl(releaseHeadingEcl, launchAttitude,
+                                                   doubleQuat.Conjugate(launcher.Asmb2VehicleAsmb));
+        }
+        catch
+        {
+            return FireGeometry.RotationFromNose(releaseHeadingEcl);
+        }
+    }
 
     private static Part? FindSubPart(Part launcher, string? marker)
     {
@@ -542,11 +693,6 @@ internal static class LauncherPart
         }
     }
 
-    /// <summary>
-    /// Traverses and elevates the missile pods. Subparts do not nest in KSA, so the pods are a
-    /// sibling of the turret and both the composed rotation and the position have to be written
-    /// each frame — see <see cref="TubeGeometry.PodPose"/>.
-    /// </summary>
     /// <summary>Pitches the cannon and carries them round with the turret.</summary>
     public static bool TryApplyGunAim(Part guns, LauncherProfile profile, double bearingRad, double elevationRad)
     {
@@ -568,6 +714,33 @@ internal static class LauncherPart
         }
     }
 
+    /// <summary>Carries the barrel with the cannon and runs it back along the bore.</summary>
+    public static bool TryApplyBarrelAim(Part barrel, LauncherProfile profile, double bearingRad,
+                                         double elevationRad, double recoilMetres)
+    {
+        try
+        {
+            DrivePose pose = TubeGeometry.BarrelPose(profile, bearingRad, elevationRad, recoilMetres);
+
+            barrel.Asmb2ParentAsmb = pose.Rotation;
+            barrel.Asmb2ParentAsmbSafe = pose.Rotation;
+            barrel.PositionParentAsmb = pose.Position;
+            barrel.PositionParentAsmbSafe = pose.Position;
+            barrel.ResetCachedPosMatrixValues();
+            return true;
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"barrel: could not write recoil ({e.GetType().Name}: {e.Message})");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Traverses and elevates the missile pods. Subparts do not nest in KSA, so the pods are a
+    /// sibling of the turret and both the composed rotation and the position have to be written
+    /// each frame — see <see cref="TubeGeometry.PodPose"/>.
+    /// </summary>
     public static bool TryApplyPodAim(Part pods, LauncherProfile profile, double bearingRad, double elevationRad)
     {
         try
@@ -607,6 +780,28 @@ internal static class LauncherPart
         catch (Exception e)
         {
             Log.Warn($"search array: could not write spin ({e.GetType().Name}: {e.Message})");
+            return false;
+        }
+    }
+
+    /// <summary>Carries a director's base round with the traverse. Cosmetic to the launcher.</summary>
+    public static bool TryApplyOpticBase(Part opticBase, LauncherProfile profile, double turretBearingRad)
+    {
+        try
+        {
+            DrivePose pose = TubeGeometry.OpticBasePose(profile, turretBearingRad);
+            (double3 position, doubleQuat rotation) = (pose.Position, pose.Rotation);
+
+            opticBase.Asmb2ParentAsmb = rotation;
+            opticBase.Asmb2ParentAsmbSafe = rotation;
+            opticBase.PositionParentAsmb = position;
+            opticBase.PositionParentAsmbSafe = position;
+            opticBase.ResetCachedPosMatrixValues();
+            return true;
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"optic base: could not write pose ({e.GetType().Name}: {e.Message})");
             return false;
         }
     }
@@ -677,16 +872,6 @@ internal static class LauncherPart
     }
 
     /// <summary>
-    /// Position of the launcher part in the ecliptic frame.
-    ///
-    /// Goes via the render frame deliberately: KSA offers <c>Part.PositionEgo</c> as a
-    /// purpose-built helper, and Ego is a pure translation of Ecl, so a round trip through it
-    /// is exact and avoids hand-rolling the assembly-to-world transform chain.
-    ///
-    /// Falls back to the vehicle origin when there is no camera (loading screens), which costs
-    /// at most a couple of metres on a kilometre-scale engagement.
-    /// </summary>
-    /// <summary>
     /// A point given in the launcher part's own frame, in Ecl.
     ///
     /// <para>Same centre-of-mass correction as the tubes: <paramref name="platformEcl"/> is the
@@ -710,6 +895,16 @@ internal static class LauncherPart
         }
     }
 
+    /// <summary>
+    /// Position of the launcher part in the ecliptic frame.
+    ///
+    /// Goes via the render frame deliberately: KSA offers <c>Part.PositionEgo</c> as a
+    /// purpose-built helper, and Ego is a pure translation of Ecl, so a round trip through it
+    /// is exact and avoids hand-rolling the assembly-to-world transform chain.
+    ///
+    /// Falls back to the vehicle origin when there is no camera (loading screens), which costs
+    /// at most a couple of metres on a kilometre-scale engagement.
+    /// </summary>
     public static double3 ResolveOriginEcl(Vehicle vehicle, Part? launcher)
     {
         double3 vehicleEcl = KsaWorld.PositionEcl(vehicle);

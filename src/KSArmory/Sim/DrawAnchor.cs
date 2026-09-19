@@ -38,4 +38,18 @@ internal readonly struct DrawAnchor(double3 ego, double3 ecl)
 
     /// <summary>Maps an ecliptic position from the geometry's epoch into the render frame.</summary>
     public double3 ToEgo(double3 posEcl) => Ego + (posEcl - Ecl);
+
+    /// <summary>
+    /// A round's offset from the platform at the instant it burst, rather than at the end of the
+    /// frame it burst in.
+    ///
+    /// <para>A round's offset is refreshed after every step against the frame-end platform sample,
+    /// and a burst stops the round part-way through the frame — so on that one frame the offset
+    /// pairs a mid-frame position with an end-of-frame platform, and carries the platform's motion
+    /// across the rest of the frame: up to 500 m along the ecliptic near Earth. Drawn from it, the
+    /// burst jumps that far off the shell, always to the same side.</para>
+    /// </summary>
+    /// <param name="elapsedInFrame">The round's <c>DetonationElapsedInFrame</c>: between −dt and zero.</param>
+    public static double3 OffsetAtBurst(double3 offsetFromPlatform, double3 platformVelocityEcl, double elapsedInFrame)
+        => offsetFromPlatform - (platformVelocityEcl * elapsedInFrame);
 }

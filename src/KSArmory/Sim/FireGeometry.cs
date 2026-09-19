@@ -56,22 +56,77 @@ public static class FireGeometry
     }
 
     /// <summary>
+    /// The velocity a tube already has because the platform carrying it is turning.
+    ///
+    /// <para>A launcher one metre off the spin axis of a rolling craft is *moving*, and a store
+    /// released from it keeps that velocity — which is how a spun bus fans its warheads apart.
+    /// Adding only the platform's linear velocity drops every round out as though the craft were
+    /// dead still, however fast it is rotating.</para>
+    ///
+    /// <para>Both positions are taken separately and differenced here rather than being handed a
+    /// pre-computed lever arm: the subtraction carries the whole frame contract, and doing it at a
+    /// call site no test reaches is what <c>docs/FRAMES-AND-EPOCHS.md</c> warns about. It is a
+    /// difference of two points in one frame, so the ecliptic motion both carry cancels exactly —
+    /// which is what <c>SpinVelocityIsUnchangedByTheFramesOwnMotion</c> pins.</para>
+    ///
+    /// <para>Every term is in the same frame; the answer comes back in it too.</para>
+    /// </summary>
+    /// <param name="angularVelocity">The platform's rotation rate, rad/s.</param>
+    /// <param name="tubePosition">Where the round leaves.</param>
+    /// <param name="centreOfMass">The point the platform actually turns about, not its origin —
+    /// those differ by metres on a real stack, and the lever arm is measured from the pivot.</param>
+    public static double3 SpinVelocity(double3 angularVelocity, double3 tubePosition,
+                                       double3 centreOfMass)
+    {
+        if (!Vec.IsFinite(angularVelocity) || !Vec.IsFinite(tubePosition)
+            || !Vec.IsFinite(centreOfMass))
+        {
+            return Vec.Zero;
+        }
+
+        double3 spin = Vec.Cross(angularVelocity, tubePosition - centreOfMass);
+        return Vec.IsFinite(spin) ? spin : Vec.Zero;
+    }
+
+    /// <summary>
+    /// The arm a point on a craft swings on as the craft turns: from its centre of mass, in the craft's
+    /// own assembly frame, turned into the world's.
+    ///
+    /// <para>No position enters it, so it pairs with any sample of the craft taken this frame. Both
+    /// terms are the assembly frame's and are differenced here, because KSA's craft position already
+    /// <em>is</em> the centre of mass: a part is placed at it plus
+    /// <c>PositionVehicleAsmb − CenterOfMassAsmb</c>, turned (<c>Vehicle.GetMatrixAsmb2Ego</c>).
+    /// Measuring to that position plus <c>CenterOfMassAsmb</c> counts the offset twice, and a staged
+    /// craft keeps the whole rocket's assembly origin — 2.44 m past the bus's centre of mass.</para>
+    /// </summary>
+    public static double3 LeverArm(doubleQuat asmb2World, double3 pointVehicleAsmb, double3 centreOfMassAsmb)
+    {
+        double3 arm = asmb2World * (pointVehicleAsmb - centreOfMassAsmb);
+        return Vec.IsFinite(arm) ? arm : Vec.Zero;
+    }
+
+    /// <summary>
+    /// The velocity a point on a turning craft already has, taken from the craft's own frame.
+    ///
+    /// <para>The engine's rule for a part it splits off a turning vehicle, which is
+    /// <c>BodyRates × (PositionVehicleAsmb − CenterOfMassAsmb)</c> turned into the world. The same
+    /// answer as <see cref="SpinVelocity"/> given a mouth and a pivot from one sample, with nothing to
+    /// pair.</para>
+    /// </summary>
+    /// <param name="angularVelocity">The craft's rotation in the world's frame, rad/s.</param>
+    public static double3 SpinVelocityAt(double3 angularVelocity, doubleQuat asmb2World,
+                                         double3 pointVehicleAsmb, double3 centreOfMassAsmb)
+    {
+        if (!Vec.IsFinite(angularVelocity)) return Vec.Zero;
+
+        double3 spin = Vec.Cross(angularVelocity, LeverArm(asmb2World, pointVehicleAsmb, centreOfMassAsmb));
+        return Vec.IsFinite(spin) ? spin : Vec.Zero;
+    }
+
+    /// <summary>
     /// Rotation carrying <see cref="NoseAxis"/> onto <paramref name="direction"/>, so a round's
     /// body points the way it is travelling.
-    ///
-    /// Returns identity for a direction that is zero or already along the nose, and picks an
-    /// arbitrary perpendicular axis for one that is exactly reversed — where the cross product
-    /// is degenerate and would otherwise normalise to NaN.
     /// </summary>
     public static doubleQuat RotationFromNose(double3 direction)
-    {
-        double3 forward = Vec.Unit(direction);
-        if (forward.Equals(Vec.Zero)) return doubleQuat.Identity;
-
-        double dot = Math.Clamp(Vec.Dot(NoseAxis, forward), -1.0, 1.0);
-        if (dot > 0.999999) return doubleQuat.Identity;
-        if (dot < -0.999999) return doubleQuat.CreateFromAxisAngle(new double3(0, 0, 1), Math.PI);
-
-        return doubleQuat.CreateFromAxisAngle(Vec.Unit(Vec.Cross(NoseAxis, forward)), Math.Acos(dot));
-    }
+        => Vec.RotationFromTo(NoseAxis, direction);
 }

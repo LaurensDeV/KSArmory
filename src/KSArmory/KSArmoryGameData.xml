@@ -122,44 +122,43 @@
     </Collider>
   </PartGameData>
 
-  <PartGameData Id="KSArmory_Prefab_BombRack" DisplayName="Mk 82 Bomb Rack">
+  <PartGameData Id="KSArmory_Prefab_NukeRack" DisplayName="B61 Nuclear Bomb">
     <EditorTag Value="Weapons" />
     <EditorTag Value="Radial" />
     <EditorTag Value="NoFaceSnapping" />
     <Diameter M="0.5" />
 
-    <!-- Attaches by the pylon's base to the side of a stack. -->
-    <Connector Id="_brConnectorBase">
+    <Connector Id="_nrConnectorBase">
       <Flags>ToSurface</Flags>
     </Connector>
 
-    <!-- Mk 82 at 227 kg on a 45 kg rack and its pylon. -->
+    <!-- B61-12 at 374 kg on a MAU-12, which is 69 lb. -->
     <SolidSphereMass>
-      <Mass Kg="272" />
+      <Mass Kg="405" />
       <Radius M="0.70" />
     </SolidSphereMass>
 
-    <Collider Id="KSArmory_RackCollider">
-      <!-- Rack and pylon, standing off the mounting face at X = 0. -->
-      <Box Id="KSArmory_RackBeamCollider">
-        <LocationAsmb X="0.15" Y="0.02" Z="0" />
+    <Collider Id="KSArmory_NukeRackCollider">
+      <!-- The MAU-12: 0.813 m long, 0.275 m over its sway braces. -->
+      <Box Id="KSArmory_NukeRackBeamCollider">
+        <LocationAsmb X="0.17" Y="0" Z="0" />
         <Collider2Asmb X="0" Y="0" Z="0" />
-        <LengthX M="0.30" />
-        <LengthY M="1.30" />
-        <LengthZ M="0.24" />
+        <LengthX M="0.34" />
+        <LengthY M="0.82" />
+        <LengthZ M="0.28" />
       </Box>
-      <!-- The bomb on it. -->
-      <Box Id="KSArmory_RackRoundCollider">
-        <LocationAsmb X="0.41" Y="0" Z="0" />
+      <!-- The B61-12 on it: 3.556 m over 330 mm, seated clear of the hooks by its own radius. -->
+      <Box Id="KSArmory_NukeRackRoundCollider">
+        <LocationAsmb X="0.44" Y="0" Z="0" />
         <Collider2Asmb X="0" Y="0" Z="0" />
-        <LengthX M="0.30" />
-        <LengthY M="2.26" />
-        <LengthZ M="0.30" />
+        <LengthX M="0.34" />
+        <LengthY M="3.60" />
+        <LengthZ M="0.34" />
       </Box>
     </Collider>
   </PartGameData>
 
-  <PartGameData Id="KSArmory_Prefab_SidewinderRail" DisplayName="LAU-7 Sidewinder Rail">
+  <PartGameData Id="KSArmory_Prefab_SidewinderRail" DisplayName="AIM-9J Sidewinder">
     <EditorTag Value="Weapons" />
     <EditorTag Value="Radial" />
     <EditorTag Value="NoFaceSnapping" />
@@ -197,6 +196,80 @@
         <LengthX M="0.34" />
         <LengthY M="3.09" />
         <LengthZ M="0.34" />
+      </Box>
+    </Collider>
+  </PartGameData>
+
+  <PartGameData Id="KSArmory_Prefab_AmraamRail" DisplayName="AIM-120C AMRAAM">
+    <EditorTag Value="Weapons" />
+    <EditorTag Value="Radial" />
+    <EditorTag Value="NoFaceSnapping" />
+    <Diameter M="0.55" />
+
+    <!-- Attaches by the pylon's base to the side of a stack. -->
+    <Connector Id="_amConnectorBase">
+      <Flags>ToSurface</Flags>
+    </Connector>
+
+    <!-- AIM-120C-7 at 161.5 kg on a LAU-128 rail and its pylon at 39 kg. -->
+    <SolidSphereMass>
+      <Mass Kg="201" />
+      <Radius M="0.95" />
+    </SolidSphereMass>
+
+    <Collider Id="KSArmory_AmraamRailCollider">
+      <!-- Rail and pylon, standing off the mounting face at X = 0. Bounds off the exported mesh. -->
+      <Box Id="KSArmory_AmraamRailBeamCollider">
+        <LocationAsmb X="0.176" Y="0.145" Z="0.007" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.352" />
+        <LengthY M="2.690" />
+        <LengthZ M="0.158" />
+      </Box>
+      <!-- The round on it, across the fins rather than across the body. -->
+      <Box Id="KSArmory_AmraamRailRoundCollider">
+        <LocationAsmb X="0.424" Y="0.002" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.350" />
+        <LengthY M="3.645" />
+        <LengthZ M="0.350" />
+      </Box>
+    </Collider>
+  </PartGameData>
+
+  <PartGameData Id="KSArmory_Prefab_HarmRail" DisplayName="AGM-88 HARM">
+    <EditorTag Value="Weapons" />
+    <EditorTag Value="Radial" />
+    <EditorTag Value="NoFaceSnapping" />
+    <Diameter M="0.85" />
+
+    <!-- Attaches by the pylon's base to the side of a stack. -->
+    <Connector Id="_hmConnectorBase">
+      <Flags>ToSurface</Flags>
+    </Connector>
+
+    <!-- AGM-88 at 360 kg on a LAU-118 rail and its pylon at 45 kg. -->
+    <SolidSphereMass>
+      <Mass Kg="405" />
+      <Radius M="1.1" />
+    </SolidSphereMass>
+
+    <Collider Id="KSArmory_HarmRailCollider">
+      <!-- Rail and pylon, standing off the mounting face at X = 0. Bounds off the exported mesh. -->
+      <Box Id="KSArmory_HarmRailBeamCollider">
+        <LocationAsmb X="0.223" Y="0.175" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.446" />
+        <LengthY M="2.850" />
+        <LengthZ M="0.144" />
+      </Box>
+      <!-- The round on it, across the control fins rather than across the body. -->
+      <Box Id="KSArmory_HarmRailRoundCollider">
+        <LocationAsmb X="0.540" Y="0" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.802" />
+        <LengthY M="4.170" />
+        <LengthZ M="0.802" />
       </Box>
     </Collider>
   </PartGameData>
@@ -243,6 +316,106 @@
     </Collider>
   </PartGameData>
 
+  <PartGameData Id="KSArmory_Prefab_Rail" DisplayName="14-inch Suspension Rail">
+    <!-- Weapons rather than Structural: it is carriage gear, and it belongs beside the stores it
+         carries rather than next to girders. Both tags carry FaceSnapTargetWhitelist, which is
+         what the comment below depends on. -->
+    <EditorTag Value="Weapons" />
+    <EditorTag Value="NoFaceSnapping" />
+
+    <!--
+      Hidden from the builder rather than deleted. A bare rail carries nothing and is registered as
+      no launcher, so placing one does nothing at all; but a part removed outright stops every
+      saved craft carrying it from loading, and this asset is shared with the stores that ship.
+      PartTemplate.IsHidden is EditorTags.Contains(Hidden), which VehicleEditor checks in the part
+      list, the diameter filter and the root-part test.
+    -->
+    <EditorTag Value="Hidden" />
+    <Diameter M="0.4" />
+
+    <!--
+      No `Radial` tag, and that is the point of this part rather than an omission. Core's `Radial`
+      is a FaceSnapTargetBlacklist, and the blacklist beats the whitelist in HandleSnapping — so a
+      part carrying it silently cannot have anything mounted on it. A rail nothing can be mounted
+      on is a decoration. What makes it attach radially is the ToSurface connector below, which is
+      a different mechanism and unaffected. See docs/KSA-MODDING-NOTES.md.
+    -->
+    <Connector Id="_rlConnectorBase">
+      <Flags>ToSurface</Flags>
+    </Connector>
+
+    <!-- An empty 14-inch rail is a few tens of kilogrammes of alloy. -->
+    <SolidSphereMass>
+      <Mass Kg="42" />
+      <Radius M="0.25" />
+    </SolidSphereMass>
+
+    <!--
+      Straight off the _ColPrim_KSArmory_Rail_Body node in the atlas: a unit box scaled to
+      (0.22006, 0.81257, 0.30768) and offset to (0.11003, 0, 0). Read rather than eyeballed, so
+      the collider is the one the model was authored with.
+    -->
+    <Collider Id="KSArmory_RailCollider">
+      <Box Id="KSArmory_RailBodyCollider">
+        <LocationAsmb X="0.11003" Y="0" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.22006" />
+        <LengthY M="0.81257" />
+        <LengthZ M="0.30768" />
+      </Box>
+    </Collider>
+  </PartGameData>
+
+  <PartGameData Id="KSArmory_Prefab_Litening" DisplayName="LITENING Targeting Pod">
+    <EditorTag Value="Sensors" />
+    <EditorTag Value="Radial" />
+    <EditorTag Value="NoFaceSnapping" />
+    <Diameter M="0.6" />
+
+    <!-- Attaches by its suspension lugs to the underside of a wing, a fuselage or a stack. -->
+    <Connector Id="_ltConnectorBase">
+      <Flags>ToSurface</Flags>
+    </Connector>
+
+    <!--
+      No <Control>, for the same reason the mast director has none: a sight is not a vehicle. It
+      bolts to a craft that already has a command source.
+    -->
+
+    <!-- A LITENING is 220 kg per the Rafael datasheet, on its 42 kg rail. -->
+    <SolidSphereMass>
+      <Mass Kg="262" />
+      <Radius M="0.60" />
+    </SolidSphereMass>
+
+    <Collider Id="KSArmory_LiteningCollider">
+      <!-- The rail, at the part origin. Straight off its own _ColPrim_ node, shifted aft with it. -->
+      <Box Id="KSArmory_LiteningRailCollider">
+        <LocationAsmb X="0.11003" Y="-0.21750" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.22006" />
+        <LengthY M="0.81257" />
+        <LengthZ M="0.30768" />
+      </Box>
+      <!-- The aft body, hanging below the rail. -->
+      <Box Id="KSArmory_LiteningBodyCollider">
+        <LocationAsmb X="0.42" Y="-0.33" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.43" />
+        <LengthY M="1.54" />
+        <LengthZ M="0.43" />
+      </Box>
+      <!-- The rolling nose, at every roll it can reach: a body of revolution, so one box does. -->
+      <Box Id="KSArmory_LiteningNoseCollider">
+        <LocationAsmb X="0.42" Y="0.76" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.44" />
+        <LengthY M="0.68" />
+        <LengthZ M="0.44" />
+      </Box>
+    </Collider>
+  </PartGameData>
+
   <PartGameData Id="KSArmory_Prefab_Ciws" DisplayName="Mk 15 Phalanx CIWS">
     <EditorTag Value="Weapons" />
     <Diameter M="3" />
@@ -262,29 +435,257 @@
     <Collider Id="KSArmory_CiwsCollider">
       <!-- Flange and pedestal, resting on the mounting face at X = 0. -->
       <Box Id="KSArmory_CiwsBaseCollider">
-        <LocationAsmb X="0.34" Y="0" Z="0" />
+        <LocationAsmb X="0.42" Y="0" Z="0" />
         <Collider2Asmb X="0" Y="0" Z="0" />
-        <LengthX M="0.70" />
-        <LengthY M="2.80" />
-        <LengthZ M="2.80" />
+        <LengthX M="0.84" />
+        <LengthY M="2.40" />
+        <LengthZ M="2.40" />
       </Box>
-      <!-- The traversing housing. -->
+      <!-- The turntable and the two cheeks the head swings between. -->
       <Box Id="KSArmory_CiwsHousingCollider">
-        <LocationAsmb X="1.53" Y="0" Z="0" />
+        <LocationAsmb X="1.68" Y="0" Z="0" />
         <Collider2Asmb X="0" Y="0" Z="0" />
-        <LengthX M="1.90" />
-        <LengthY M="1.95" />
-        <LengthZ M="1.95" />
+        <LengthX M="1.76" />
+        <LengthY M="1.30" />
+        <LengthZ M="2.20" />
       </Box>
-      <!-- Radome. -->
+      <!-- Radome, from the box it sits on to the top of the dome. -->
       <Box Id="KSArmory_CiwsRadomeCollider">
-        <LocationAsmb X="3.64" Y="0" Z="0" />
+        <LocationAsmb X="3.59" Y="0" Z="0" />
         <Collider2Asmb X="0" Y="0" Z="0" />
-        <LengthX M="2.20" />
-        <LengthY M="1.62" />
-        <LengthZ M="1.62" />
+        <LengthX M="2.07" />
+        <LengthY M="1.10" />
+        <LengthZ M="1.10" />
       </Box>
     </Collider>
   </PartGameData>
 
+  <!--
+    One attitude-control nozzle, declared once and inherited by all sixteen instances: KSA keys
+    SubPartGameData on the subpart *definition*, not on the instance.
+
+    This is the first thing in this mod that uses KSA's own simulation rather than replacing it.
+    Registering a NEW module type needs Harmony patching into internal update lists, which is why
+    rounds are self-simulated - but RocketThrusterController, Combustor and DeLavalNozzle are
+    modules the engine already registers, so declaring them is reuse, not registration.
+
+    Cribbed from CorePropulsionB_Subpart_RCSSetAThrusterSmallA, with FxExitDiameter changed to
+    match the modelled bell. MMH_NTO at 1.6 is Core's own reaction Id and happens to be exactly
+    what a real post-boost vehicle burns.
+
+    FeedsFrom Parent means the craft's service plumbing supplies it, so the vehicle needs a service
+    propellant tank somewhere - the same as any Core RCS set, which ships no tank either.
+  -->
+  <SubPartGameData Id="KSArmory_MirvRcs_SubPart">
+    <RocketThrusterController Id="MirvACS">
+      <RocketReference Id="Thruster" />
+    </RocketThrusterController>
+    <Rocket Id="Thruster">
+      <Core Id="Chamber" />
+      <Nozzle Id="Nozzle" />
+    </Rocket>
+    <Combustor Id="Chamber">
+      <FeedsFrom Parent="true" />
+      <Plumbing>Service</Plumbing>
+      <Reaction Id="MMH_NTO">
+        <MixtureRatio>1.6</MixtureRatio>
+      </Reaction>
+      <MaxPressure Bar="7" />
+      <ThermalEfficiency Value="0.95" />
+      <!--
+        KSA's floor, and it buys pointing rather than thrust. KSA's attitude tracker
+        will not fire inside a dead zone of 0.5*AngleDeadband + AngleTurnaround, and the turnaround
+        is ten times the rate bit, which is one minimum impulse over the vehicle's inertia. Minimum
+        impulse is thrust x lever arm x this, so shortening it makes the quantum finer without
+        costing any peak authority.
+
+        Measured on the separated bus at Core's value: a 22.11 degree band against a nose whose
+        drift is the largest error left in the shot. CombustorTemplate clamps up to 1 ms at load,
+        so this is as far as the lever goes; the residue is 0.5*AngleDeadband, about 6.4.
+      -->
+      <MinimumPulseTime Seconds="0.001" />
+    </Combustor>
+    <DeLavalNozzle Id="Nozzle">
+      <!--
+        An attitude thruster, sized as one: 0.4 m of exit is a main-engine bell on a 3-tonne bus
+        and the drawn bell beside it is 0.11 m. 0.13 m is about 394 N.
+
+        Flown, it is worth about 1.3 km and nothing else found this year comes close - five shots
+        at 0.4 m land 1.31-1.91 km where four at 0.13 land 0.05-0.43, two distributions that do
+        not overlap. That is far more than the pointing band accounts for, and why it is not
+        understood is written up in docs/MIRV-NEXT.md.
+
+        It is safe on its own: no shot without an arrival floor has ever put the bus into the
+        spent stack, at either size. What collides is a floor plus a bus that cannot shove itself
+        clear, and that is a separation problem rather than a reason to carry a bigger nozzle.
+      -->
+      <ExitDiameter M="0.13" />
+      <FxExitDiameter M="0.11" />
+      <AreaRatio Value="40" />
+      <FlowEfficiency Value="1" />
+      <ExpansionEfficiency Value="0.70" />
+      <!-- The bell exit, in the nozzle subpart's own frame. It fires along its own -X. -->
+      <ExhaustLocation X="-0.090" Y="0.0" Z="0.0" />
+      <ExhaustDirection X="-1.0" Y="0.0" Z="0.0" />
+      <ReactionPlume Default="true">
+        <VolumetricExhaust Id="RCS" />
+      </ReactionPlume>
+      <SoundEvent Action="On" SoundId="DefaultRcsThruster" />
+    </DeLavalNozzle>
+  </SubPartGameData>
+
+  <PartGameData Id="KSArmory_Prefab_MirvBus" DisplayName="Heavy MIRV Bus">
+    <EditorTag Value="Weapons" />
+    <Diameter M="3" />
+
+    <!--
+      A post-boost vehicle carries its own propellant: it separates from the stack and then has to
+      fly for the whole deployment, with nothing upstream left to draw from. So the sixteen nozzles
+      feed from a tank on this part rather than through the mounting connector - the same shape as
+      the kitten jetpack, which is the other self-contained thruster set in the game.
+
+      MMH/NTO. The sphere holds 134 kg at KSA's own storage densities - MMH is 505 kg/m3 in
+      Volatiles.xml, not 880 - which is a Minuteman-class post-boost load.
+    -->
+    <Tank Id="MirvPropellant">
+      <SphericalTank>
+        <LocationAsmb X="0.42" Y="0" Z="0" />
+        <Material Id="Aluminum.2014(s)" />
+        <OuterRadius M="0.34" />
+        <WallThickness Mm="4" />
+        <RoleAffinity>Thruster</RoleAffinity>
+      </SphericalTank>
+    </Tank>
+
+    <!--
+      FeedsFrom on the subpart's Combustor is only half the declaration: the part has to say what
+      supplies it, or KSA logs "no ConsumerFeedWiring wiring for it" at load and nothing fires.
+
+      Id matches the Combustor's, and there is deliberately no SubPartId - one entry covers all
+      sixteen instances of the nozzle, exactly as Core's own RCS sets do.
+    -->
+    <ConsumerFeedWiring Id="Chamber">
+      <FeedsFrom Container="MirvPropellant" />
+    </ConsumerFeedWiring>
+
+    <!--
+      A post-boost vehicle flies itself: that is the whole job, and it starts at the moment it
+      stops being attached to anything that has a command pod. Without <Control /> the sixteen
+      thrusters answer to the stack below and go dead on separation, which is exactly backwards.
+
+      Its own battery for the same reason - a bus is under power from separation to the last
+      warhead, with nothing upstream left to draw from.
+    -->
+    <Control />
+    <Battery>
+      <MaximumCapacity J="50000" />
+    </Battery>
+
+    <!--
+      No Radial or NoFaceSnapping tag and no ToSurface flag on the connector: this part STACKS.
+      It mates with the top node of any 3 m tank, decoupler or adapter.
+    -->
+    <Connector Id="_mirvConnectorBase" />
+
+    <!--
+      Six Mk 21-class RVs on a post-boost vehicle, structure only: the propellant is the tank
+      above rather than this.
+
+      Peacekeeper's throw weight is 3,950 kg for ten RVs and their bus, and its Stage IV runs
+      about 1,450 kg loaded. That puts an Mk 21 near 250 kg, so six on that bus is about 2,950 kg
+      all in: 2,750 here, and the tank carries the rest.
+    -->
+    <SolidSphereMass>
+      <Mass Kg="2750" />
+      <Radius M="1.20" />
+      <!--
+        Seated in the plane of the thruster ring rather than the loaded centroid near X = 1.77.
+        KSA enrols a nozzle in a rotation axis on a torque efficiency over 0.1 and then sums the
+        whole enrolled set into MinRotationalImpulse, which sets the attitude deadband - so an
+        axial offset between the ring and the centre of mass turns all twelve non-axial nozzles
+        into pitch and yaw actuators and coarsens the quantum that aims the release. At X = 0.30
+        their axial lever arm is zero and only the axial pair can pitch: 4.412 against 5.685.
+
+        It is a choice inside a mass model that is already approximate - the six RVs are rounds
+        this mod simulates and carry no KSA mass, so the lump never sheds as they leave.
+      -->
+      <LocationAsmb X="0.30" />
+    </SolidSphereMass>
+
+    <!--
+      Two boxes rather than the atlas's single _ColPrim_ cylinder: most of the volume around the
+      warheads is empty air, and a box pair says so for nothing. The RCS bells reach radius 1.71
+      and are deliberately outside both - small protrusions are not worth colliding.
+    -->
+    <Collider Id="KSArmory_MirvCollider">
+      <!-- Bus, resting on the mounting face at X = 0. -->
+      <Box Id="KSArmory_MirvBusCollider">
+        <LocationAsmb X="0.39" Y="0" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.78" />
+        <LengthY M="3.00" />
+        <LengthZ M="3.00" />
+      </Box>
+      <!-- The warhead cluster: RV tips reach radius 1.06 and X 2.63. -->
+      <Box Id="KSArmory_MirvWarheadCollider">
+        <LocationAsmb X="1.705" Y="0" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="1.85" />
+        <LengthY M="2.20" />
+        <LengthZ M="2.20" />
+      </Box>
+    </Collider>
+  </PartGameData>
+
+
+  <PartGameData Id="KSArmory_Prefab_Mk42" DisplayName="5&quot;/54 Mk 42 mount">
+    <EditorTag Value="Weapons" />
+    <Diameter M="3" />
+
+    <!--
+      No Radial or NoFaceSnapping tag and no ToSurface flag on the connector: this part STACKS,
+      like the CIWS. It mates with the top node of any 3 m tank, decoupler or adapter.
+    -->
+    <Connector Id="_mk42ConnectorBase" />
+
+    <!--
+      About 61 tonnes, the real mount's weight: a Mk 42 is a heavy gun house for a light gun,
+      because it carries its own ammunition hoists.
+    -->
+    <SolidSphereMass>
+      <Mass Kg="61400" />
+      <Radius M="1.40" />
+    </SolidSphereMass>
+
+    <!--
+      Boxes at the modelled pose, as the CIWS declares its radome: the gun house and the barrel
+      both move, and a collider that tracked them would have to be rebuilt every frame.
+    -->
+    <Collider Id="KSArmory_Mk42Collider">
+      <!-- Base ring, resting on the mounting face at X = 0. -->
+      <Box Id="KSArmory_Mk42BaseCollider">
+        <LocationAsmb X="0.156" Y="0" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.31" />
+        <LengthY M="2.45" />
+        <LengthZ M="2.46" />
+      </Box>
+      <!-- The traversing gun house. Its bustle reaches further aft than its face does forward. -->
+      <Box Id="KSArmory_Mk42HouseCollider">
+        <LocationAsmb X="1.559" Y="-0.245" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="2.58" />
+        <LengthY M="3.41" />
+        <LengthZ M="2.81" />
+      </Box>
+      <!-- The barrel beyond the house, level. -->
+      <Box Id="KSArmory_Mk42BarrelCollider">
+        <LocationAsmb X="1.554" Y="3.064" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.21" />
+        <LengthY M="3.21" />
+        <LengthZ M="0.21" />
+      </Box>
+    </Collider>
+  </PartGameData>
 </Assets>

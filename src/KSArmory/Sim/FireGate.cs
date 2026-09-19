@@ -87,7 +87,13 @@ public static class FireGate
         // An unguided round is not being steered anywhere, so there is nothing here to refuse:
         // where it goes was settled by the tube. Command link is steered by the launcher, and an
         // operator-held shot has no other way to reach a place the launcher cannot be pointed at.
-        if (guidance != GuidanceMode.Seeker || operatorHeld) return true;
+        //
+        // An anti-radiation round is gated too: it homes on a different thing from a seeker, but
+        // it homes through the same gimbal, so it is lost off-axis at launch for the same reason.
+        if (guidance is not (GuidanceMode.Seeker or GuidanceMode.AntiRadiation) || operatorHeld)
+        {
+            return true;
+        }
 
         if (!Vec.IsFinite(launchDirection) || !Vec.IsFinite(toAimpoint)) return false;
         if (Vec.Len2(launchDirection) < 1e-12 || Vec.Len2(toAimpoint) < 1e-12) return false;

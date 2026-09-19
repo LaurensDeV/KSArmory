@@ -1,5 +1,4 @@
 using Brutal.Numerics;
-using KSArmory.Sim;
 using Xunit;
 
 namespace KSArmory.Tests;
@@ -15,7 +14,7 @@ public class ChaseViewTests
     [Fact]
     public void TheCameraSitsBehindAndAboveTheRound()
     {
-        bool ok = ChaseView.TryPose(Vec.Zero, new double3(100, 0, 0), Up, EngineAxis,
+        bool ok = ChaseView.TryPose(Vec.Zero, new double3(100, 0, 0), aimEcl: null, Up, EngineAxis,
                                     distanceBehind: 30.0, heightAbove: 8.0, lookAhead: 60.0,
                                     out double3 eye, out double3 forward, out _);
 
@@ -35,12 +34,12 @@ public class ChaseViewTests
         // Handing this VelocityEcl instead of VelocityLocal points every round the same way.
         var local = new double3(0, 700, 0);
 
-        ChaseView.TryPose(Vec.Zero, local, Up, EngineAxis, 30.0, 8.0, 60.0,
+        ChaseView.TryPose(Vec.Zero, local, null, Up, EngineAxis, 30.0, 8.0, 60.0,
                           out double3 eyeA, out double3 forwardA, out _);
 
         // Same call, same local velocity: the common motion never reaches this function at all,
         // which is what makes that impossible to get wrong here rather than at the call site.
-        ChaseView.TryPose(Vec.Zero, local, Up, EngineAxis, 30.0, 8.0, 60.0,
+        ChaseView.TryPose(Vec.Zero, local, null, Up, EngineAxis, 30.0, 8.0, 60.0,
                           out double3 eyeB, out double3 forwardB, out _);
 
         Assert.Equal(eyeA.Y, eyeB.Y, 1e-9);
@@ -51,7 +50,7 @@ public class ChaseViewTests
     [Fact]
     public void AStationaryRoundHasNoBehind()
     {
-        Assert.False(ChaseView.TryPose(Vec.Zero, Vec.Zero, Up, EngineAxis, 30.0, 8.0, 60.0,
+        Assert.False(ChaseView.TryPose(Vec.Zero, Vec.Zero, null, Up, EngineAxis, 30.0, 8.0, 60.0,
                                        out _, out _, out _));
     }
 
@@ -60,7 +59,7 @@ public class ChaseViewTests
     {
         // Straight up the hint: the lift has nowhere to go, and a naive perpendicular is zero.
         // Getting this wrong puts the camera inside the round or rolls the horizon to nonsense.
-        bool ok = ChaseView.TryPose(Vec.Zero, new double3(0, 0, 900), Up, EngineAxis,
+        bool ok = ChaseView.TryPose(Vec.Zero, new double3(0, 0, 900), null, Up, EngineAxis,
                                     30.0, 8.0, 60.0,
                                     out double3 eye, out double3 forward, out double3 up);
 
@@ -81,7 +80,7 @@ public class ChaseViewTests
         // climb, which reads as the chase overshooting.
         var climbing = Vec.Unit(new double3(1, 0, 3)) * 800.0;
 
-        ChaseView.TryPose(Vec.Zero, climbing, Up, EngineAxis, 30.0, 8.0, 60.0,
+        ChaseView.TryPose(Vec.Zero, climbing, null, Up, EngineAxis, 30.0, 8.0, 60.0,
                           out double3 eye, out _, out _);
 
         // Behind means behind: the eye is on the far side of the round from where it is going.
@@ -93,8 +92,8 @@ public class ChaseViewTests
     {
         var nan = new double3(double.NaN, 0, 0);
 
-        Assert.False(ChaseView.TryPose(nan, new double3(100, 0, 0), Up, EngineAxis, 30, 8, 60, out _, out _, out _));
-        Assert.False(ChaseView.TryPose(Vec.Zero, nan, Up, EngineAxis, 30, 8, 60, out _, out _, out _));
+        Assert.False(ChaseView.TryPose(nan, new double3(100, 0, 0), null, Up, EngineAxis, 30, 8, 60, out _, out _, out _));
+        Assert.False(ChaseView.TryPose(Vec.Zero, nan, null, Up, EngineAxis, 30, 8, 60, out _, out _, out _));
     }
 
     [Fact]
@@ -103,7 +102,7 @@ public class ChaseViewTests
         // KSA's fixed camera crosses the view direction with the reference frame's axis and
         // normalises it, so a parallel pair divides by zero and takes the game down. A round
         // launched vertically points exactly there on its first frames.
-        ChaseView.TryPose(Vec.Zero, new double3(0, 0, 900), Up, EngineAxis, 30.0, 8.0, 60.0,
+        ChaseView.TryPose(Vec.Zero, new double3(0, 0, 900), null, Up, EngineAxis, 30.0, 8.0, 60.0,
                           out _, out double3 forward, out _);
 
         Assert.True(Math.Abs(Vec.Dot(forward, Up)) < 0.9995,
@@ -113,7 +112,7 @@ public class ChaseViewTests
     [Fact]
     public void ADiveDoesNotPointStraightDownEither()
     {
-        ChaseView.TryPose(Vec.Zero, new double3(0, 0, -900), Up, EngineAxis, 30.0, 8.0, 60.0,
+        ChaseView.TryPose(Vec.Zero, new double3(0, 0, -900), null, Up, EngineAxis, 30.0, 8.0, 60.0,
                           out _, out double3 forward, out _);
 
         Assert.True(Math.Abs(Vec.Dot(forward, Up)) < 0.9995,
@@ -124,10 +123,174 @@ public class ChaseViewTests
     public void AnOrdinaryFlightPathIsLeftAlone()
     {
         // The tilt must not disturb the common case.
-        ChaseView.TryPose(Vec.Zero, new double3(700, 0, 0), Up, EngineAxis, 30.0, 8.0, 60.0,
+        ChaseView.TryPose(Vec.Zero, new double3(700, 0, 0), null, Up, EngineAxis, 30.0, 8.0, 60.0,
                           out _, out double3 forward, out _);
 
         Assert.True(forward.X > 0.9, $"forward drifted to {forward.X}");
+    }
+
+    /// <summary>
+    /// The whole reason the aim exists. A bomb released from level flight has its target tens of
+    /// degrees below the path it is falling along — 32 here, from five kilometres at 250 m/s — so a
+    /// camera looking along the flight path has it nowhere in frame for the whole fall.
+    /// </summary>
+    [Fact]
+    public void ABombsTargetIsWhatTheViewIsPointedAt()
+    {
+        var aim = new double3(8_000, 0, -5_000);
+
+        ChaseView.TryPose(Vec.Zero, new double3(250, 0, 0), aim, Up, EngineAxis, 30.0, 8.0, 120.0,
+                          out double3 eye, out double3 forward, out _);
+
+        double off = Vec.AngleBetween(forward, aim - eye) * 180.0 / Math.PI;
+
+        Assert.True(off < 0.5, $"the target is {off:F1} deg off the view");
+    }
+
+    /// <summary>
+    /// The ride is of the round, so the round never leaves the middle of the frame however far off
+    /// what it is flying at is. That is what the look-at being taken <em>along</em> the chase axis
+    /// buys: aiming at the target itself puts the round out at whatever angle the two differ by.
+    /// </summary>
+    [Theory]
+    [InlineData(0, 0)]                  // nothing to look at: along the flight path
+    [InlineData(8_000, -5_000)]         // a bomb's target, below the path
+    [InlineData(0, 5_000)]              // abeam, so the chase axis is held at the cone edge
+    public void TheRoundStaysInTheMiddleOfTheFrame(double aheadOfIt, double belowIt)
+    {
+        const double behind = 30.0;
+        const double above = 8.0;
+
+        double3? aim = aheadOfIt == 0 && belowIt == 0
+                       ? null
+                       : new double3(aheadOfIt, 0, belowIt);
+
+        ChaseView.TryPose(Vec.Zero, new double3(250, 0, 0), aim, Up, EngineAxis,
+                          behind, above, 120.0,
+                          out double3 eye, out double3 forward, out _);
+
+        // The eye stands off behind and above, so the round sits below the middle by exactly that
+        // ratio and never by more: the look-at recedes along the same axis it stood off along.
+        double off = Vec.AngleBetween(forward, Vec.Zero - eye);
+
+        Assert.True(off <= Math.Atan2(above, behind) + 1e-9,
+                    $"the round is {off * 180.0 / Math.PI:F1} deg off the view");
+    }
+
+    /// <summary>
+    /// Closing does not hand the aim back to the flight path. A round arriving is only pointing at
+    /// what it arrives at when the target is standing still: proportional navigation flies a
+    /// collision course and holds its lead angle to impact by design, so handing back over the last
+    /// stretch swings the view off the target by that whole angle at the one moment anybody is
+    /// watching it. This case is dead abeam — 100 m away, nothing ahead — which is the geometry
+    /// that handback treated as "the same answer".
+    /// </summary>
+    [Fact]
+    public void ClosingOnTheTargetKeepsTheAimOnIt()
+    {
+        var abeam = new double3(0, 100, 0);
+
+        ChaseView.TryPose(Vec.Zero, new double3(700, 0, 0), abeam, Up, EngineAxis, 30.0, 8.0, 120.0,
+                          out _, out double3 forwardWithAim, out _);
+
+        ChaseView.TryPose(Vec.Zero, new double3(700, 0, 0), null, Up, EngineAxis, 30.0, 8.0, 120.0,
+                          out _, out double3 forwardWithout, out _);
+
+        double moved = Vec.AngleBetween(forwardWithAim, forwardWithout) * 180.0 / Math.PI;
+        Assert.True(moved > 1.0, $"an abeam target inside the look-ahead moved the aim {moved:F1} deg");
+    }
+
+    /// <summary>
+    /// With the target on top of the round there is no line to it left to point along, so the
+    /// flight path is all there is. A guard against normalising nothing, not a framing distance.
+    /// </summary>
+    [Fact]
+    public void ATargetOnTopOfTheRoundLeavesTheFlightPathAlone()
+    {
+        var onTop = new double3(0, 0.2, 0);
+
+        ChaseView.TryPose(Vec.Zero, new double3(700, 0, 0), onTop, Up, EngineAxis, 30.0, 8.0, 120.0,
+                          out double3 withAim, out double3 forwardWithAim, out _);
+
+        ChaseView.TryPose(Vec.Zero, new double3(700, 0, 0), null, Up, EngineAxis, 30.0, 8.0, 120.0,
+                          out double3 without, out double3 forwardWithout, out _);
+
+        Assert.Equal(without.X, withAim.X, 1e-9);
+        Assert.Equal(without.Y, withAim.Y, 1e-9);
+        Assert.Equal(forwardWithout.X, forwardWithAim.X, 1e-9);
+    }
+
+    /// <summary>
+    /// A round that has gone past what it was aimed at sees the line to it swing through abeam and
+    /// reverse. Held inside a cone of the flight path, the rig slides to the edge and stays there;
+    /// built on the raw line it would whip round to face backwards.
+    /// </summary>
+    [Fact]
+    public void TheAimIsHeldNearTheFlightPath()
+    {
+        double Off(double3 aim)
+        {
+            ChaseView.TryPose(Vec.Zero, new double3(700, 0, 0), aim, Up, EngineAxis,
+                              30.0, 8.0, 120.0, out _, out double3 forward, out _);
+
+            return Vec.AngleBetween(forward, new double3(1, 0, 0)) * 180.0 / Math.PI;
+        }
+
+        Assert.True(Off(new double3(0, 5_000, 0)) < 81.0, "abeam swung past the cone");
+        Assert.True(Off(new double3(-3_000, 3_000, 0)) < 81.0, "behind swung past the cone");
+
+        // Dead astern there is no plane to hold, so the flight path stands rather than an
+        // arbitrary perpendicular being picked — the same rule the roll clamps obey.
+        Assert.True(Off(new double3(-5_000, 0, 0)) < 1.0, "an astern target picked a direction");
+    }
+
+    /// <summary>
+    /// Continuity is the whole point of clamping rather than refusing: a target crossing the cone
+    /// edge, and going on round to abeam and behind, must never move the view in a jump.
+    /// </summary>
+    [Fact]
+    public void NothingTheTargetDoesWhipsTheView()
+    {
+        double3 previous = Vec.Zero;
+        double worst = 0.0;
+
+        for (double deg = 0.0; deg <= 175.0; deg += 0.5)
+        {
+            double rad = deg * Math.PI / 180.0;
+            var aim = new double3(Math.Cos(rad), Math.Sin(rad), 0) * 5_000.0;
+
+            ChaseView.TryPose(Vec.Zero, new double3(700, 0, 0), aim, Up, EngineAxis,
+                              30.0, 8.0, 120.0, out _, out double3 forward, out _);
+
+            if (!previous.Equals(Vec.Zero)) worst = Math.Max(worst, Vec.AngleBetween(previous, forward));
+            previous = forward;
+        }
+
+        Assert.True(worst * 180.0 / Math.PI < 1.0, $"the view jumped {worst * 180.0 / Math.PI:F1} deg");
+    }
+
+    /// <summary>
+    /// The round and what it is flying at are two positions in one frame, and this differences them
+    /// itself — so carrying the pair through the ecliptic's ~29.8 km/s must move the eye by exactly
+    /// that and turn the view not at all.
+    /// </summary>
+    [Fact]
+    public void SharedMotionCarriesThePoseWithIt()
+    {
+        var aim = new double3(8_000, 0, -5_000);
+        var step = new double3(496.7, -12.0, 3.5);
+
+        ChaseView.TryPose(Vec.Zero, new double3(250, 0, 0), aim, Up, EngineAxis, 30.0, 8.0, 120.0,
+                          out double3 before, out double3 facingBefore, out _);
+
+        ChaseView.TryPose(step, new double3(250, 0, 0), aim + step, Up, EngineAxis,
+                          30.0, 8.0, 120.0,
+                          out double3 after, out double3 facingAfter, out _);
+
+        Assert.Equal(step.X, after.X - before.X, 1e-9);
+        Assert.Equal(step.Y, after.Y - before.Y, 1e-9);
+        Assert.Equal(step.Z, after.Z - before.Z, 1e-9);
+        Assert.Equal(facingBefore.Z, facingAfter.Z, 1e-12);
     }
 
     [Fact]
@@ -192,19 +355,62 @@ public class ChaseViewTests
                     $"closing does not accelerate: {atStart:F2} m early against {atImpact:F2} m late");
     }
 
+    // A transition from a player's camera parked off to one side of the launcher onto the chase
+    // behind a round, with what it is flying at five kilometres beyond.
+    private static readonly double3 WasEye = new(0, -60, 20);
+    private static readonly double3 ChaseEye = new(-26, 0, 6);
+    private static readonly double3 Chased = Vec.Zero;
+    private static readonly double3 Target = new(5_000, 0, 0);
+
     [Fact]
     public void TheTransitionStartsWhereTheViewWasAndEndsOnTheChase()
     {
-        var was = new double3(0, 0, 0);
-        var chase = new double3(1000, 0, 0);
-        var lookWas = new double3(5000, 0, 0);
-        var lookChase = new double3(5000, 0, 0);
+        ChaseView.TryBlend(WasEye, ChaseEye, Chased, Target, EngineAxis, 0.0,
+                           out double3 atStart, out _);
+        ChaseView.TryBlend(WasEye, ChaseEye, Chased, Target, EngineAxis, 1.0,
+                           out double3 atEnd, out _);
 
-        ChaseView.TryBlend(was, lookWas, chase, lookChase, EngineAxis, 0.0, out double3 atStart, out _);
-        ChaseView.TryBlend(was, lookWas, chase, lookChase, EngineAxis, 1.0, out double3 atEnd, out _);
+        Assert.Equal(0.0, Vec.Len(atStart - WasEye), 1e-9);
+        Assert.Equal(0.0, Vec.Len(atEnd - ChaseEye), 1e-9);
+    }
 
-        Assert.Equal(was.X, atStart.X, 1e-9);
-        Assert.Equal(chase.X, atEnd.X, 1e-9);
+    /// <summary>
+    /// The look starts on the round, which is what the chase is about, and is fully on what it is
+    /// flying at by the end, which is where the settled pose looks.
+    /// </summary>
+    [Fact]
+    public void TheLookTurnsFromTheRoundOntoTheTarget()
+    {
+        ChaseView.TryBlend(WasEye, ChaseEye, Chased, Target, EngineAxis, 0.0,
+                           out double3 eye, out double3 forward);
+        double offRound = Vec.AngleBetween(forward, Chased - eye) * 180.0 / Math.PI;
+
+        ChaseView.TryBlend(WasEye, ChaseEye, Chased, Target, EngineAxis, 1.0,
+                           out eye, out forward);
+        double offTarget = Vec.AngleBetween(forward, Target - eye) * 180.0 / Math.PI;
+
+        Assert.True(offRound < 1e-3, $"the transition opens {offRound:F3} deg off the round");
+        Assert.True(offTarget < 1e-3, $"the transition ends {offTarget:F3} deg off the target");
+    }
+
+    /// <summary>
+    /// Halfway through, the look is halfway between the two as seen from where the eye has got to.
+    /// Lerping the two positions instead is taken over by the far one almost at once: the target is
+    /// over a hundred times further off than the round here, so the view would be on it already.
+    /// </summary>
+    [Fact]
+    public void HalfwayThroughTheLookIsHalfwayRound()
+    {
+        ChaseView.TryBlend(WasEye, ChaseEye, Chased, Target, EngineAxis, 0.5,
+                           out double3 eye, out double3 forward);
+
+        double toRound = Vec.AngleBetween(forward, Chased - eye);
+        double toTarget = Vec.AngleBetween(forward, Target - eye);
+        double apart = Vec.AngleBetween(Chased - eye, Target - eye);
+
+        Assert.True(apart > 0.5, $"the round and the target are only {apart:F2} rad apart");
+        Assert.Equal(toRound, toTarget, 1e-6);
+        Assert.Equal(apart, toRound + toTarget, 1e-6);
     }
 
     /// <summary>
@@ -216,11 +422,12 @@ public class ChaseViewTests
     {
         var was = new double3(0, 0, 0);
         var chase = new double3(1000, 0, 0);
+        var round = new double3(1026, 0, 0);
         var look = new double3(5000, 0, 0);
 
         double At(double t)
         {
-            ChaseView.TryBlend(was, look, chase, look, EngineAxis, t, out double3 eye, out _);
+            ChaseView.TryBlend(was, chase, round, look, EngineAxis, t, out double3 eye, out _);
             return eye.X;
         }
 
@@ -230,45 +437,104 @@ public class ChaseViewTests
     }
 
     /// <summary>
-    /// Both ends are anchored to different moving things and rebuilt every frame. Advancing both
-    /// by a step of shared motion must move the blended eye by exactly that and no more —
-    /// anything else is the ecliptic's ~29.8 km/s leaking in, ~500 m of it per frame at 60 fps.
+    /// Every point is anchored to a different moving thing and rebuilt every frame. Advancing them
+    /// all by a step of shared motion must move the blended eye by exactly that and turn the view
+    /// not at all — anything else is the ecliptic's ~29.8 km/s leaking in, ~500 m of it per frame
+    /// at 60 fps.
     /// </summary>
     [Fact]
     public void SharedMotionCarriesTheWholeTransitionWithIt()
     {
-        var was = new double3(0, 0, 0);
-        var chase = new double3(1000, 0, 0);
-        var look = new double3(5000, 0, 0);
         var step = new double3(496.7, -12.0, 3.5);
 
-        ChaseView.TryBlend(was, look, chase, look, EngineAxis, 0.35, out double3 before, out _);
-        ChaseView.TryBlend(was + step, look + step, chase + step, look + step, EngineAxis, 0.35,
-                           out double3 after, out _);
+        ChaseView.TryBlend(WasEye, ChaseEye, Chased, Target, EngineAxis, 0.35,
+                           out double3 before, out double3 facingBefore);
+        ChaseView.TryBlend(WasEye + step, ChaseEye + step, Chased + step, Target + step, EngineAxis,
+                           0.35, out double3 after, out double3 facingAfter);
 
         Assert.Equal(step.X, after.X - before.X, 1e-9);
         Assert.Equal(step.Y, after.Y - before.Y, 1e-9);
         Assert.Equal(step.Z, after.Z - before.Z, 1e-9);
+        Assert.True(Vec.Len(facingAfter - facingBefore) < 1e-9, "the shared motion turned the view");
     }
 
     /// <summary>
-    /// A round fired back over the launcher turns the view through an about-face. Aiming at points
-    /// rather than interpolating directions is what makes that ordinary: two points are never
-    /// opposed, where two directions collapse to zero length halfway and normalise to NaN, which
-    /// reaches the engine as a camera rotation it divides by.
+    /// A round fired back over the launcher turns the view through an about-face: the round ahead
+    /// of where the view was, what it is flying at behind it. The eye passes over the round on its
+    /// way in behind it, so the turn goes by way of looking down at it, and it must produce a
+    /// direction all the way — a zero-length one reaches the engine as a camera rotation it
+    /// divides by.
     /// </summary>
     [Fact]
     public void TurningThroughAnAboutFaceStillProducesADirection()
     {
-        for (double t = 0.0; t <= 1.0; t += 0.125)
+        var round = new double3(100, 0, 0);
+        var behind = new double3(-5_000, 0, 0);
+        var settled = new double3(126, 0, 6);
+
+        for (double t = 0.0; t <= 1.0; t += 0.0625)
         {
-            bool ok = ChaseView.TryBlend(new double3(0, 0, 0), new double3(1000, 0, 0),
-                                         new double3(10, 0, 0), new double3(-1000, 0, 0), EngineAxis, t,
+            bool ok = ChaseView.TryBlend(Vec.Zero, settled, round, behind, EngineAxis, t,
                                          out _, out double3 facing);
 
-            Assert.True(ok, $"no direction at t={t:F3}");
-            Assert.True(Vec.IsFinite(facing), $"not finite at t={t:F3}");
+            Assert.True(ok, $"no direction at t={t:F4}");
+            Assert.True(Vec.IsFinite(facing), $"not finite at t={t:F4}");
             Assert.Equal(1.0, Vec.Len(facing), 1e-6);
         }
+    }
+
+    /// <summary>
+    /// With the eye exactly between the round and what it is flying at, the two ends of the turn
+    /// lerp to nothing halfway. Refused, which finishes the transition, rather than normalised into
+    /// a NaN the engine would divide by.
+    /// </summary>
+    [Fact]
+    public void AnExactlyOpposedTurnIsRefusedRatherThanNormalised()
+    {
+        bool ok = ChaseView.TryBlend(Vec.Zero, Vec.Zero, new double3(100, 0, 0),
+                                     new double3(-5_000, 0, 0), EngineAxis, 0.5,
+                                     out _, out double3 facing);
+
+        Assert.False(ok);
+        Assert.True(Vec.IsFinite(facing), "a refusal still has to hand back a direction");
+    }
+
+    /// <summary>
+    /// A lift carried from the last frame survives the axis passing the vertical. Derived afresh
+    /// from local up it jumps there, so the eye swaps sides of the round and the view of it turns
+    /// round: a bomb falling onto a point below it.
+    /// </summary>
+    [Fact]
+    public void ACarriedLiftDoesNotJumpAsTheAxisPassesTheVertical()
+    {
+        double3 carried = Vec.Zero;
+        double3 lastFresh = Vec.Zero;
+        double worstFresh = 0.0;
+        double worstCarried = 0.0;
+
+        for (int step = -50; step <= 50; step++)
+        {
+            double tilt = double.DegreesToRadians(step * 0.2);
+            var down = new double3(Math.Sin(tilt), 1e-3, -Math.Cos(tilt));
+
+            ChaseView.TryPose(Vec.Zero, down * 120.0, down * 400.0, Up, EngineAxis, 26.0, 6.0, 120.0,
+                              out _, out _, out double3 fresh);
+            ChaseView.TryPose(Vec.Zero, down * 120.0, down * 400.0, Up, EngineAxis, 26.0, 6.0, 120.0,
+                              carried, out _, out _, out double3 carriedNow);
+
+            if (step > -50)
+            {
+                worstFresh = Math.Max(worstFresh, Vec.AngleBetween(lastFresh, fresh));
+                worstCarried = Math.Max(worstCarried, Vec.AngleBetween(carried, carriedNow));
+            }
+
+            lastFresh = fresh;
+            carried = carriedNow;
+        }
+
+        Assert.True(worstFresh > double.DegreesToRadians(60.0),
+                    $"the sweep never made a fresh lift jump (worst {double.RadiansToDegrees(worstFresh):F1} deg)");
+        Assert.True(worstCarried < double.DegreesToRadians(5.0),
+                    $"the carried lift turned {double.RadiansToDegrees(worstCarried):F1} deg in one step");
     }
 }

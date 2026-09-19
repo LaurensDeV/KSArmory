@@ -120,4 +120,92 @@ public class FireGeometryTests
         double3 forward = FireGeometry.RotationFromNose(new double3(1, 0, 0)) * FireGeometry.NoseAxis;
         Assert.Equal(0.0, Vec.AngleBetween(new double3(1, 0, 0), forward), 6);
     }
+
+    // ---- Spin at release -------------------------------------------------
+
+    /// <summary>Earth's ecliptic motion, which both positions carry and which must cancel.</summary>
+    private static readonly double3 SolarFrame = new(0, 29_800, 0);
+
+    /// <summary>
+    /// The whole frame contract, as an invariance: the answer is a difference of two points, so
+    /// moving the frame they are both expressed in cannot change it.
+    ///
+    /// <para>Handing this a pre-computed lever arm from Ksa/ instead would put that subtraction at
+    /// a call site no test reaches — see docs/FRAMES-AND-EPOCHS.md. At 29.8 km/s, leaking the
+    /// frame's own motion into a cross product is not a small error.</para>
+    /// </summary>
+    [Fact]
+    public void SpinVelocityIsUnchangedByTheFramesOwnMotion()
+    {
+        double3 omega = new(0, 0, 0.35);
+        double3 tube = new(1.73, 0.96, 0);
+        double3 com = new(0.1, 0, -0.4);
+
+        double3 here = FireGeometry.SpinVelocity(omega, tube, com);
+        double3 shifted = FireGeometry.SpinVelocity(omega, tube + SolarFrame, com + SolarFrame);
+
+        Assert.True(Vec.Len(here - shifted) < 1e-9,
+            $"the frame leaked in: {Fmt(here)} against {Fmt(shifted)}");
+        Assert.True(Vec.Len(here) > 0.1, "the test geometry is degenerate");
+    }
+
+    /// <summary>
+    /// A warhead on a spinning bus leaves on a tangent — which is what makes six of them fan
+    /// apart instead of trailing the launcher in a clump.
+    /// </summary>
+    [Fact]
+    public void ATubeOffTheAxisLeavesOnATangent()
+    {
+        double3 omega = new(1.0, 0, 0);                 // rolling about +X
+        double3 com = double3.Zero;
+        double3 tube = new(0, 2.0, 0);                  // 2 m out on +Y
+
+        double3 v = FireGeometry.SpinVelocity(omega, tube, com);
+
+        Assert.Equal(2.0, Vec.Len(v), 9);               // |omega| * r
+        Assert.True(Vec.Len(v - new double3(0, 0, 2.0)) < 1e-9, $"expected +Z tangent, got {Fmt(v)}");
+        Assert.True(Math.Abs(Vec.Dot(Vec.Unit(v), Vec.Unit(tube))) < 1e-9, "a tangent is not radial");
+    }
+
+    /// <summary>A tube on the axis is not going anywhere, however fast the craft rolls.</summary>
+    [Fact]
+    public void ATubeOnTheSpinAxisGainsNothing()
+    {
+        double3 v = FireGeometry.SpinVelocity(new double3(4.0, 0, 0),
+                                              new double3(9.0, 0, 0), double3.Zero);
+        Assert.True(Vec.Len(v) < 1e-12, $"on-axis tube should gain nothing, got {Fmt(v)}");
+    }
+
+    /// <summary>A craft that will not report its spin is not spinning, rather than NaN.</summary>
+    [Fact]
+    public void AnUnreadableSpinIsNotAThrow()
+    {
+        double3 bad = new(double.NaN, 0, 0);
+        Assert.True(Vec.Len(FireGeometry.SpinVelocity(bad, new double3(1, 1, 1), double3.Zero)) < 1e-12);
+        Assert.True(Vec.Len(FireGeometry.SpinVelocity(new double3(0, 0, 1), bad, double3.Zero)) < 1e-12);
+    }
+
+    /// <summary>
+    /// The spin at a point is the engine's own rule for a part it splits off a turning craft:
+    /// <c>BodyRates × (PositionVehicleAsmb − CenterOfMassAsmb)</c>, crossed in the body frame and then
+    /// turned. The centre of mass sits well off the assembly origin, as it does on a staged bus.
+    /// </summary>
+    [Fact]
+    public void SpinAtAPointIsTheEnginesOwnSplitRule()
+    {
+        doubleQuat asmb2World = doubleQuat.CreateFromAxisAngle(Vec.Unit(new double3(0.3, -0.8, 0.5)), 2.1);
+        double3 bodyRates = new(0.02, -0.05, 0.03);
+        double3 centreOfMass = new(-2.4426, 0.11, -0.07);
+        double3 mouth = new(-0.1025, 0.43, 0.74478);
+
+        double3 engine = asmb2World * Vec.Cross(bodyRates, mouth - centreOfMass);
+        double3 spin = FireGeometry.SpinVelocityAt(asmb2World * bodyRates, asmb2World, mouth, centreOfMass);
+
+        Assert.True(Vec.Len(engine) > 0.05, "the test geometry is degenerate");
+        Assert.True(Vec.Len(spin - engine) < 1e-12, $"{Fmt(spin)} against the engine's {Fmt(engine)}");
+        Assert.Equal(Vec.Len(mouth - centreOfMass),
+                     Vec.Len(FireGeometry.LeverArm(asmb2World, mouth, centreOfMass)), 12);
+    }
+
+    private static string Fmt(double3 v) => $"({v.X:F4}, {v.Y:F4}, {v.Z:F4})";
 }

@@ -1,10 +1,22 @@
 using Brutal.Numerics;
 
-namespace KSArmory.Sim;
+namespace KSArmory;
 
 /// <summary>Where to put a camera that rides behind a round in flight.</summary>
 public static class ChaseView
 {
+    // Below this a line has no reliable direction left to take Unit() of. Metres, because it is
+    // about the arithmetic rather than about framing.
+    private const double MinAimRange = 1.0;
+
+    /// <summary>The pose with its lift derived afresh, for a camera with no last frame to carry.</summary>
+    public static bool TryPose(double3 roundEcl, double3 velocityLocal, double3? aimEcl,
+                               double3 upHint, double3 engineAxisEcl,
+                               double distanceBehind, double heightAbove, double lookAhead,
+                               out double3 eyeEcl, out double3 forwardEcl, out double3 upEcl)
+        => TryPose(roundEcl, velocityLocal, aimEcl, upHint, engineAxisEcl, distanceBehind,
+                   heightAbove, lookAhead, Vec.Zero, out eyeEcl, out forwardEcl, out upEcl);
+
     /// <summary>
     /// Eye and forward for a camera trailing a round, looking past it at what it is flying at.
     /// </summary>
@@ -12,15 +24,25 @@ public static class ChaseView
     /// <c>IProjectile.VelocityLocal</c>, never <c>VelocityEcl</c>: the ecliptic's ~29.8 km/s is
     /// shared, so an absolute velocity points every round the same way.
     /// </param>
+    /// <param name="aimEcl">
+    /// What the round is flying at, in <paramref name="roundEcl"/>'s frame, or null when it is
+    /// flying at nothing. Both are positions in one frame and this differences them itself, so a
+    /// translated frame — the round-relative one the caller works in — gives the same answer.
+    /// </param>
     /// <param name="upHint">Away from the planet's centre. A hint; a parallel one is ignored.</param>
     /// <param name="engineAxisEcl">
     /// The axis the engine's camera controller cannot cross — <em>not</em>
     /// <paramref name="upHint"/>, which stays the local vertical and decides the lift. See
     /// <see cref="LeanOffAxis"/> for why the two are different directions.
     /// </param>
-    public static bool TryPose(double3 roundEcl, double3 velocityLocal, double3 upHint,
-                               double3 engineAxisEcl,
+    /// <param name="liftReference">
+    /// Last frame's lift — the side of the axis the eye stood on — or zero to derive it from
+    /// <paramref name="upHint"/>. Comes back as <paramref name="upEcl"/>.
+    /// </param>
+    public static bool TryPose(double3 roundEcl, double3 velocityLocal, double3? aimEcl,
+                               double3 upHint, double3 engineAxisEcl,
                                double distanceBehind, double heightAbove, double lookAhead,
+                               double3 liftReference,
                                out double3 eyeEcl, out double3 forwardEcl, out double3 upEcl)
     {
         eyeEcl = roundEcl;
@@ -32,19 +54,69 @@ public static class ChaseView
         double3 along = Vec.Unit(velocityLocal);
         if (Vec.Len2(along) < 0.5) return false;
 
-        // A round straight up the hint leaves no sideways reference, so the lift has nowhere to
-        // go. Falling back to any perpendicular keeps the view usable instead of degenerate.
-        double3 up = Vec.Unit(upHint);
-        if (Vec.Len2(up) < 0.5 || Math.Abs(Vec.Dot(up, along)) > 0.999) up = AnyPerpendicular(along);
+        double ahead = Math.Max(0.0, lookAhead);
+        double3 axis = along;
+        double lookRange = ahead;
 
-        // Lift perpendicular to the flight path, not along the hint: at a steep climb angle the
-        // two are nearly the same direction and the camera would sit in front of the round.
-        double3 lift = Vec.Unit(up - along * Vec.Dot(up, along));
-        if (Vec.Len2(lift) < 0.5) lift = AnyPerpendicular(along);
+        // The rig stands behind the round on the line to what it is flying at, not on the round's
+        // own flight path. For anything steering onto a target the two are a lead angle apart and
+        // this barely moves; a bomb's target sits tens of degrees below the path it is falling
+        // along, and a camera looking along that path never has it in frame at all.
+        if (aimEcl is { } aim && Vec.IsFinite(aim))
+        {
+            double3 toAim = aim - roundEcl;
+            double range = Vec.Len(toAim);
 
-        eyeEcl = roundEcl - along * Math.Max(0.0, distanceBehind) + lift * heightAbove;
+            // Held to the target all the way in. A round arriving is only pointing at what it
+            // arrives at when the target is not moving: proportional navigation flies a collision
+            // course, which holds a lead angle to impact by design, so handing back to the flight
+            // path over the last stretch swings the view off the target by that whole angle at the
+            // one moment anybody is watching. What that handback was guarding — the line reversing
+            // as the round goes past — is HeldNearFlightPath's job, and it bounds the swing to 80°
+            // whether the round is arriving or long past.
+            //
+            // The look-at stays at least a look-ahead out so the framing does not pitch up as the
+            // range collapses, and MinAimRange is a divide-by-zero guard rather than a distance.
+            if (range > MinAimRange)
+            {
+                axis = HeldNearFlightPath(Vec.Unit(toAim), along);
+                lookRange = Math.Max(range, ahead);
+            }
+        }
 
-        double3 lookAt = roundEcl + along * Math.Max(0.0, lookAhead);
+        // Carried when there is one to carry. Derived from the hint, the lift is whatever part of
+        // the hint lies across the axis, which near the vertical is a sliver pointing the way the
+        // axis leans -- and past a threshold a fixed perpendicular instead. Either reverses the
+        // lift as the axis passes the vertical, so the eye swaps sides and the round appears to turn
+        // half a round: a bomb falling onto a point below it. The caller pulls the carried lift back
+        // towards the hint once a frame, which is what keeps it from drifting.
+        double3 carried = liftReference - axis * Vec.Dot(liftReference, axis);
+        double3 lift;
+
+        if (Vec.IsFinite(carried) && Vec.Len2(carried) > 1e-6)
+        {
+            lift = Vec.Unit(carried);
+        }
+        else
+        {
+            // A round straight up the hint leaves no sideways reference, so the lift has nowhere
+            // to go. Falling back to any perpendicular keeps the view usable instead of degenerate.
+            double3 up = Vec.Unit(upHint);
+            if (Vec.Len2(up) < 0.5 || Math.Abs(Vec.Dot(up, axis)) > 0.999) up = AnyPerpendicular(axis);
+
+            // Lift perpendicular to the axis the eye stands off along, not along the hint: at a
+            // steep climb angle the two are nearly the same direction and the camera would sit in
+            // front of the round.
+            lift = Vec.Unit(up - axis * Vec.Dot(up, axis));
+            if (Vec.Len2(lift) < 0.5) lift = AnyPerpendicular(axis);
+        }
+
+        eyeEcl = roundEcl - axis * Math.Max(0.0, distanceBehind) + lift * heightAbove;
+
+        // Along the axis rather than at the aim itself, so a target held out at the cone edge
+        // leaves the round centred: the ride is of the round, and what it is flying at is what
+        // stands behind it.
+        double3 lookAt = roundEcl + axis * lookRange;
         forwardEcl = lookAt - eyeEcl;
 
         if (Vec.Len2(forwardEcl) < 1e-12) return false;
@@ -53,6 +125,84 @@ public static class ChaseView
         upEcl = lift;
 
         return Vec.IsFinite(eyeEcl) && Vec.IsFinite(forwardEcl);
+    }
+
+    /// <summary>
+    /// The pose turned round the round by the player, and moved in or out along the line from it.
+    ///
+    /// <para>The whole rig turns — eye, view and up together — so the round stays exactly where it
+    /// was in the picture and the view's roll is carried rather than re-derived. With nothing to
+    /// apply it is the pose handed in to the bit, which is what lets a view the player has let go of
+    /// settle onto the chase's own.</para>
+    /// </summary>
+    /// <param name="eyeFromRound">The eye, as a separation from the round.</param>
+    /// <param name="localUp">What the yaw turns about, as KSA's orbit camera turns about the vertical.</param>
+    /// <param name="yaw">See <see cref="ChaseOrbit.Yaw"/>.</param>
+    /// <param name="pitch">See <see cref="ChaseOrbit.Pitch"/>; positive raises the eye.</param>
+    /// <param name="lowestEye">
+    /// How far along <paramref name="localUp"/> the eye may sit from the round, negative being below
+    /// it. The pitch gives way to it and the yaw does not, so a view turned into the ground stops at
+    /// the ground rather than refusing the turn.
+    /// </param>
+    public static void Orbit(double3 eyeFromRound, double3 forward, double3 up, double3 localUp,
+                             double yaw, double pitch, double zoom, double lowestEye,
+                             double3 engineAxisEcl,
+                             out double3 eyeEcl, out double3 forwardEcl, out double3 upEcl)
+    {
+        eyeEcl = eyeFromRound;
+        forwardEcl = forward;
+        upEcl = up;
+
+        if (yaw == 0.0 && pitch == 0.0 && zoom == 1.0) return;
+        if (!Vec.IsFinite(eyeFromRound) || !Vec.IsFinite(forward) || !Vec.IsFinite(up)) return;
+        if (!double.IsFinite(yaw) || !double.IsFinite(pitch) || !(zoom > 0.0) || !double.IsFinite(zoom)) return;
+
+        double3 vertical = Vec.Unit(localUp);
+        if (Vec.Len2(vertical) < 0.5) return;
+
+        // Square to the view and its own up, which has a length however steeply the view looks
+        // down; a right taken off the vertical has none when a round falls straight onto its target.
+        double3 right = Vec.Unit(Vec.Cross(up, forward));
+        if (Vec.Len2(right) < 0.5) right = AnyPerpendicular(forward);
+
+        double3 eye = Turned(pitch, out double3 turnedForward, out double3 turnedUp);
+
+        if (Vec.Dot(eye, vertical) < lowestEye)
+        {
+            double allowed = 0.0;
+            double refused = 1.0;
+
+            // Nothing below the floor is used, and the full turn was: find how much of the pitch the
+            // floor leaves. Falls back to none of it, which is the yaw and zoom alone.
+            for (int i = 0; i < 24; i++)
+            {
+                double mid = 0.5 * (allowed + refused);
+                if (Vec.Dot(Turned(pitch * mid, out _, out _), vertical) >= lowestEye) allowed = mid;
+                else refused = mid;
+            }
+
+            eye = Turned(pitch * allowed, out turnedForward, out turnedUp);
+        }
+
+        forwardEcl = LeanOffAxis(Vec.Unit(turnedForward), engineAxisEcl);
+        upEcl = turnedUp;
+        eyeEcl = eye;
+
+        if (Vec.IsFinite(eyeEcl) && Vec.IsFinite(forwardEcl) && Vec.IsFinite(upEcl)) return;
+
+        eyeEcl = eyeFromRound;
+        forwardEcl = forward;
+        upEcl = up;
+
+        double3 Turned(double withPitch, out double3 f, out double3 u)
+        {
+            doubleQuat q = doubleQuat.CreateFromAxisAngle(vertical, yaw)
+                           * doubleQuat.CreateFromAxisAngle(right, withPitch);
+
+            f = q * forward;
+            u = q * up;
+            return (q * eyeFromRound) * zoom;
+        }
     }
 
     /// <summary>
@@ -88,6 +238,30 @@ public static class ChaseView
     // About 2.6 degrees off the axis: enough for the cross product to have a length to normalise.
     private const double MaxAlongAxis = 0.999;
 
+    // Holds a direction within MaxOffFlightPathDeg of the flight path, keeping the plane the two
+    // lie in. What it bounds is a round that has gone past what it was aimed at: the line to the
+    // target then swings through abeam and reverses, and a rig built on it whips round to face
+    // backwards over a frame or two. Clamping is continuous where refusing is not -- at the bound
+    // the held direction is the wanted one -- so a shot that misses slides to the edge and stays.
+    private static double3 HeldNearFlightPath(double3 direction, double3 along)
+    {
+        double off = Math.Acos(Math.Clamp(Vec.Dot(direction, along), -1.0, 1.0));
+        if (off <= MaxOffFlightPath) return direction;
+
+        double3 across = Vec.RejectFrom(direction, along);
+        if (Vec.Len2(across) < 1e-12) return along;
+
+        return Vec.Unit(Vec.Unit(across) * Math.Sin(MaxOffFlightPath)
+                        + along * Math.Cos(MaxOffFlightPath));
+    }
+
+    // Generous, because the angle a bomb's target sits below its flight path grows with release
+    // height and shrinks with speed and there is no bound on either: 27 degrees from two
+    // kilometres at 200 m/s, 48 from ten. What this is for is the reversal, not a framing rule.
+    private const double MaxOffFlightPathDeg = 80.0;
+
+    private static readonly double MaxOffFlightPath = MaxOffFlightPathDeg * Math.PI / 180.0;
+
     /// <summary>
     /// How far back the camera sits, closing in as the round converges.
     ///
@@ -115,22 +289,72 @@ public static class ChaseView
     private const double Sharpness = 0.5;
 
     /// <summary>
-    /// Eases a camera from where the player had it onto the chase pose, without cutting.
+    /// How far short of its arrival a chase stops riding a round and watches it go in: clear of the
+    /// fireball by a margin that grows with it, and never so close that a small one fills the view.
+    /// </summary>
+    public static double StopShortMetres(double chargeKg)
+        => Math.Max(MinStopShortMetres, StopShortFireballs * Warhead.FireballRadius(chargeKg));
+
+    /// <summary>
+    /// Whether a round is near enough its arrival to stop and watch. The distance left is the time to
+    /// go times the speed it is covering it at, and with either unknown the chase never stops.
+    /// </summary>
+    public static bool StopsShort(double timeToGo, double speed, double stopShortMetres)
+        => double.IsFinite(timeToGo) && double.IsFinite(speed) && timeToGo >= 0.0
+           && timeToGo * speed <= stopShortMetres;
+
+    /// <summary>
+    /// How much of the chase's stand-off a round of this length gets, measured against the missile
+    /// the stand-off was framed on — so a shell fills as much of the picture as a missile does.
+    /// </summary>
+    public static double StandOffScale(double bodyLength)
+        => double.IsFinite(bodyLength) && bodyLength > 0.0
+               ? Math.Clamp(bodyLength / FramedBodyLength, MinStandOffScale, MaxStandOffScale)
+               : 1.0;
+
+    // The 57E6's body, which the chase's stand-off distances were chosen around.
+    private const double FramedBodyLength = 3.10;
+
+    // A 5-inch shell is 0.14 of it. The floor keeps the closest approach -- 7 m, so 0.7 m at the floor --
+    // clear of the engine's 0.1 m near plane; the ceiling keeps a pack's long store from being chased
+    // from afar.
+    private const double MinStandOffScale = 0.1;
+    private const double MaxStandOffScale = 2.0;
+
+    // A conventional round's fireball is under 11 m, so every one is watched from about this far.
+    private const double MinStopShortMetres = 60.0;
+
+    // Six radii out, so the whole ball and what it throws are in frame: a 300-tonne bomb is watched
+    // from a kilometre and a 20-kiloton warhead from four.
+    private const double StopShortFireballs = 6.0;
+
+    /// <summary>
+    /// Eases a camera from where the player had it onto the chase pose, turning the look from the
+    /// round onto what it is flying at.
     ///
-    /// <para>Both ends are looking at much the same thing — the player at the target, the chase
-    /// along a round that is flying at it — so <b>only the position really travels</b> and the aim
-    /// barely moves. That is what makes this calm, and it is why the aim is given as two
-    /// <em>points</em> rather than two directions: interpolating directions turns at a wildly
-    /// uneven rate and collapses to zero length when they oppose, where two points near the same
-    /// target are nearly the same point.</para>
+    /// <para>The look starts on the round and is fully on <paramref name="toLookAtEcl"/> when the
+    /// transition ends, on the same ease the eye travels by. In between it is a lerp of the two
+    /// <b>as seen from wherever the eye has got to</b>, so the round slides from the middle of the
+    /// frame towards where the settled pose puts it while the target comes in behind.</para>
     ///
-    /// <para><b>Both ends must be positions sampled this frame</b>, not stored ones. They are
+    /// <para><b>Both ends of the turn are taken at one depth</b>: the round's direction is carried
+    /// out to the range of the far end before the two are lerped. A round a hundred metres off
+    /// lerped against a target five kilometres away is taken over by the far point almost at once —
+    /// seven-eighths of a 60° turn in the first fifth of the transition. Two points at one depth
+    /// lerp as their directions do, so the turn is spread over the ease; an exactly opposed pair
+    /// lerps to nothing halfway, and is refused rather than normalised into NaN.</para>
+    ///
+    /// <para><b>Every point must be a position sampled this frame</b>, not a stored one. They are
     /// anchored to different moving things, and the ecliptic is inertial — a point captured at the
     /// start and held still falls half a kilometre behind per frame.</para>
     /// </summary>
+    /// <param name="roundEcl">The round being chased, where the turn starts.</param>
+    /// <param name="toLookAtEcl">
+    /// Along the settled view at the range of what the round is flying at, where the turn ends.
+    /// </param>
     /// <param name="t">Progress, 0 at the player's pose and 1 at the chase. Clamped.</param>
-    public static bool TryBlend(double3 fromEcl, double3 fromLookAtEcl,
-                                double3 toEcl, double3 toLookAtEcl,
+    public static bool TryBlend(double3 fromEcl, double3 toEcl,
+                                double3 roundEcl, double3 toLookAtEcl,
                                 double3 engineAxisEcl, double t,
                                 out double3 eyeEcl, out double3 forwardEcl)
     {
@@ -138,7 +362,7 @@ public static class ChaseView
         forwardEcl = Vec.Unit(toLookAtEcl - toEcl);
 
         if (!Vec.IsFinite(fromEcl) || !Vec.IsFinite(toEcl)) return false;
-        if (!Vec.IsFinite(fromLookAtEcl) || !Vec.IsFinite(toLookAtEcl) || !double.IsFinite(t))
+        if (!Vec.IsFinite(roundEcl) || !Vec.IsFinite(toLookAtEcl) || !double.IsFinite(t))
         {
             return false;
         }
@@ -147,7 +371,16 @@ public static class ChaseView
 
         eyeEcl = fromEcl + ((toEcl - fromEcl) * e);
 
-        double3 lookAt = fromLookAtEcl + ((toLookAtEcl - fromLookAtEcl) * e);
+        double depth = Vec.Len(toLookAtEcl - eyeEcl);
+        if (depth < MinAimRange) return false;
+
+        // An eye on top of the round has no direction to it, so the far end is all there is.
+        double3 toRound = roundEcl - eyeEcl;
+        double3 onRound = Vec.Len(toRound) > MinAimRange
+                          ? eyeEcl + (Vec.Unit(toRound) * depth)
+                          : toLookAtEcl;
+
+        double3 lookAt = onRound + ((toLookAtEcl - onRound) * e);
         double3 forward = lookAt - eyeEcl;
 
         if (Vec.Len2(forward) < 1e-6) return false;

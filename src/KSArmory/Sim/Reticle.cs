@@ -59,11 +59,26 @@ public static class Reticle
     /// </param>
     public static int Build(float2 centre, float halfSize, bool settled, Span<ReticleStroke> into,
                             bool ladder = true)
+        => Build(centre, halfSize, settled ? 1f : LockCue.OpenStandoff, settled, into, ladder);
+
+    /// <summary>
+    /// The same sight with the stand-off given continuously rather than as settled or not, so a
+    /// bracket can <em>close</em> over an acquisition instead of snapping between two sizes.
+    ///
+    /// <para><paramref name="standoff"/> multiplies the box: 1 is the closed form,
+    /// <see cref="LockCue.OpenStandoff"/> is the open one, and the bool overload is exactly its
+    /// two ends. <paramref name="settled"/> still chooses the closed <em>detailing</em> — the
+    /// stepped-in cross and the ladder — because those are about having arrived rather than about
+    /// how far the corners have come.</para>
+    /// </summary>
+    public static int Build(float2 centre, float halfSize, float standoff, bool settled,
+                            Span<ReticleStroke> into, bool ladder = true)
     {
         if (into.Length < MaxStrokes) return 0;
         if (!float.IsFinite(centre.X) || !float.IsFinite(centre.Y) || !(halfSize > 0f)) return 0;
+        if (!float.IsFinite(standoff) || !(standoff > 0f)) return 0;
 
-        float box = settled ? halfSize : halfSize * 1.6f;
+        float box = halfSize * standoff;
         float arm = box * 0.38f;                 // how far each corner bracket runs
         int n = 0;
 
@@ -112,5 +127,20 @@ public static class Reticle
         }
 
         return n;
+    }
+
+    /// <summary>
+    /// The range and closing readout under the sight's bracket.
+    /// </summary>
+    /// <remarks>
+    /// A closing speed that rounds to nothing is printed as nothing. A hair either side of zero
+    /// formats as "-0" or "0" and alternates between them frame to frame, which on a target holding
+    /// station is the only thing on the glass that moves.
+    /// </remarks>
+    public static string RangeAndClosing(double rangeMetres, double closingMetresPerSecond)
+    {
+        double closing = Math.Abs(closingMetresPerSecond) < 0.5 ? 0.0 : closingMetresPerSecond;
+
+        return $"{rangeMetres / 1000.0:F2} km   {closing:F0} m/s";
     }
 }

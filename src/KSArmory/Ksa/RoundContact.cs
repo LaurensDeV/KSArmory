@@ -1,16 +1,28 @@
 using Brutal.Numerics;
-using KSArmory.Sim;
 
 namespace KSArmory;
 
 /// <summary>
 /// A round in flight, seen by somebody else's sensor.
 ///
-/// <para>This is what makes an incoming missile a thing that can be shot at. It is the same round
-/// object its own launcher is integrating — held by reference, not copied — so its position and
-/// velocity are always this frame's, and a sensor sees exactly what the simulation says.</para>
+/// <para>This is what makes an incoming missile a thing that can be shot at. The round itself is
+/// held by reference, so what it <em>is</em> — its name, its side, whether it is still flying —
+/// is always current.</para>
+///
+/// <para><b>Its kinematics are a snapshot, and must be.</b> Every system in the world is handed
+/// one of these list before any of them steps, but a round's position is advanced by its
+/// <em>own</em> launcher's update — so a live reference reads as start-of-frame or end-of-frame
+/// depending on which system asks first, and roster order is a dictionary's. Against a 1.8 km/s
+/// closing round that is a whole frame of relative motion, metres of it across the shell's fuse
+/// radius, deciding a hit. Sampled once, every system sees one instant.</para>
 /// </summary>
 /// <param name="round">The round itself, which is also its <see cref="IContact.Handle"/>.</param>
+/// <param name="positionEcl">
+/// Where it will be at the <em>end</em> of this frame's step, which is the phase KSA hands vehicle
+/// state over at and the phase <see cref="TargetState"/> is defined at. See
+/// <c>KSArmoryMod.CollectAirborne</c>, which is the only thing that may build one of these.
+/// </param>
+/// <param name="velocityEcl">Its velocity at that instant, carrying the frame's ~29.8 km/s.</param>
 /// <param name="firedBy">
 /// The system that launched it. Carried so a round inherits its shooter's allegiance: a launcher's
 /// own missiles must read as friendly to everything on its side, or a battery engages its own
@@ -21,22 +33,24 @@ namespace KSArmory;
 /// separation from its launcher, so drawing it needs that launcher — see
 /// <c>docs/FRAMES-AND-EPOCHS.md</c>.
 /// </param>
-internal sealed class RoundContact(IProjectile round, string? firedBy, KSA.Vehicle? anchor) : IContact
+/// <param name="accelerationEcl">Its pull and its drag at that instant, gravity included.</param>
+internal sealed class RoundContact(IProjectile round, string? firedBy, KSA.Vehicle? anchor,
+                                   double3 positionEcl, double3 velocityEcl, double3 accelerationEcl) : IContact
 {
     public IProjectile Round { get; } = round;
 
     public object Handle => Round;
 
     /// <summary>
-    /// Named for the launcher and the tube, which is how the log already identifies a round. The
-    /// cannon use negative tube numbers, so a shell reads as a shell.
+    /// Named for the launcher and the tube, which is how the log already identifies a round.
     /// </summary>
-    public string DisplayName => Round.Tube < 0
-                                 ? $"{firedBy ?? "unknown"} shell"
-                                 : $"{firedBy ?? "unknown"} round {Round.Tube}";
+    public string DisplayName => $"{firedBy ?? "unknown"} {RoundLabel.For(Round.Tube)}";
 
     /// <summary>Its shooter's craft, so a round is on the side that fired it.</summary>
     public string TeamKey => firedBy ?? string.Empty;
+
+    /// <summary>The craft that fired it, so its own sensors can disregard it.</summary>
+    public KSA.Vehicle? LaunchedFrom => anchor;
 
     /// <summary>
     /// A missile's body, not its warhead. Small: it is what a blast is measured against and what a
@@ -48,9 +62,17 @@ internal sealed class RoundContact(IProjectile round, string? firedBy, KSA.Vehic
     /// <summary>Gone the moment it stops flying, whether it hit, burst or timed out.</summary>
     public bool IsAlive => Round.State == RoundState.Flying;
 
-    public double3 PositionEcl => Round.PositionEcl;
+    public double3 PositionEcl => positionEcl;
 
-    public double3 VelocityEcl => Round.VelocityEcl;
+    public double3 VelocityEcl => velocityEcl;
+
+    // Coasting only: a motor still burning would be held for the whole of a shell's flight when it
+    // stops in seconds, and the radar's history of the velocity takes over while it burns.
+    public double3 AccelerationEcl => accelerationEcl;
+
+    public bool IsDebris => false;
+
+    public DragShape? DragShape => null;
 
     /// <summary>
     /// The drawn position, which is the launcher's drawn position plus the round's own flight —

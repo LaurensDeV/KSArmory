@@ -38,7 +38,7 @@ cannot satisfy yet.
 If both say we are up to date, stop — there is nothing to upgrade, and the issue that sent you
 here can be closed.
 
-Write down the new build number. It is needed in three places later.
+Write down the new build number. It is needed in seven places later.
 
 ## 2. Refresh the binaries and the corpus
 
@@ -60,7 +60,7 @@ Do not push yet if you want to inspect the diff first — it is local either way
 ./tools/ksa-api-diff.sh ../ksa-game-assemblies
 ```
 
-This reads `docs/KSA-API-SURFACE.md` — the 315 members this mod genuinely binds to, extracted
+This reads `docs/KSA-API-SURFACE.md` — the 538 members this mod genuinely binds to, extracted
 from the compiled assembly's metadata — against the new corpus, and answers two questions:
 
 **Missing members.** Mechanical and precise. Each one is a break you must fix. `MOVED` means it
@@ -108,6 +108,11 @@ claim still holds.
 | Core's flags on `Radial`, `NoFaceSnapping` | `Content/Core/CoreEditorTagsGameData.xml` | Attachment behaviour changes with nothing failing. |
 | `GetTerrainHeightFromDirCce`, `MaxTerrainHeightApprox` | `Celestial.cs` | Terrain masking and the bomb's ground test both answer against the wrong surface. |
 | `GetPositionEgo` returns the **drawn** position, not the analytic one | `Camera.cs` | The sight's bracket and the head's aim go back to missing the target by metres. |
+| `Vehicle.UpdateRenderData` draws no part of a craft under one pixel across, by `GetObjectDiameterPixels` on `MeanRadius` | `Vehicle.cs`, `Camera.cs` | `RoundBodyDrawHook` re-asks a test that no longer matches: a long shot's body vanishes again, or a craft's parts are drawn twice. |
+| A particle feels gravity times `1 - airDensity / Density`, with no air below 100 Pa, and an unknown XML element is dropped without a word | `ParticleEmitter.cs`, `ParticleEmitterReference.cs` | Every smoke stage in `KSArmoryParticles.xml` sinks instead of rising, and the tracers fall. |
+| `ExplosionSystem.SpawnPreset` sizes a burst by `IntensityJ / 5e10`, floored at 0.05, and Core's presets keep their Ids and fireball radii | `ExplosionSystem.cs`, `ExplosionIntensity.cs`, `Content/Core/ExplosionAssets.xml` | Warheads go off at the wrong size, or not at all. `Sim/WarheadExplosion.cs` copies the floor and two radii, and the load log's `warhead explosion ... DID NOT RESOLVE` names a lost Id. |
+| `Part.CrashTolerancePascals` is derived from collider volume against `PartStructuralLimits.BaseStrength` | `Part.cs`, `PartStructuralLimits.cs` | `BlastDamage.ReferencePascals` stops being KSA's `BaseStrength`, and every warhead's reach against every part moves by the cube root of the difference. Move the constant with it. |
+| Drag is `AerodynamicCdABody` against the body-frame airflow, plus `0.1 × TotalSurfaceArea`, times ½ρv² over the mass — no lift, no Mach, no torque | `PhysicsStates.cs` (`ComputeDrag`), `BoundingBoxCdA.cs` | The gun leads every target on a copy of this. **RocketWerkz are working on aerodynamics**, so expect it to move; `docs/BLOCKED-ON-KSA.md` has the check to fly and what to change. |
 
 Add a row whenever a fix depends on the engine *doing* something rather than *declaring* it.
 
@@ -127,9 +132,9 @@ diff -ru "<old install>/Content/Core" "/mnt/c/Program Files/Kitten Space Agency/
 ```
 
 No old install to hand? The mirror's previous commit has the assemblies but not Core's content, so
-the fallback is to read the deserialised types directly — `PartGameData.cs`, `PartTemplate.cs`,
-`EditorTagDefinition.cs` — and compare their `[XmlElement]` and `[XmlAttribute]` names against what
-`src/KSArmory/KSArmory*.xml` actually writes.
+the fallback is to read the deserialised types directly — `PartGameDataReference.cs`,
+`PartTemplate.cs`, `EditorTagDefinition.cs` — and compare their `[XmlElement]` and `[XmlAttribute]`
+names against what `src/KSArmory/KSArmory*.xml` actually writes.
 
 What to look for, in order of how quietly it fails:
 
@@ -188,9 +193,15 @@ against the new build is asserting someone read it against the new build.
 **history and must not be updated** — "confirmed against 2026.8.5.5168" stays true. It is not in
 the enforced list for exactly that reason.
 
-`docs/KSA-CAMERAS.md` cites `file:line` throughout, and line numbers move on every update. Do not
-try to refresh them all — spot-check the handful a fix actually depended on, and leave the rest
-carrying the build number that says how old they are.
+`docs/KSA-CAMERAS.md`, `docs/KSA-FRAME-ORDER.md`, `docs/KSA-TERRAIN.md` and
+`docs/BLOCKED-ON-KSA.md` cite `file:line` throughout, and line numbers move on every update.
+
+**Leaving them stale does not work, because the build number cannot date them.** `check-docs.sh`
+requires all five prose files to name the build in the lock, so the moment the number is updated
+the file claims to be current and its citations are not — which is how `KSA-CAMERAS.md` came to
+carry 191 dead citations out of 375, against two builds it no longer named. Either re-derive the
+citations in the file you touched, or say in the file which build its citations are against and
+why it differs from the header.
 
 Then regenerate the surface, because fixing breakages usually changes what the mod binds to:
 
@@ -201,7 +212,7 @@ Then regenerate the surface, because fixing breakages usually changes what the m
 ## 7. Verify the whole chain
 
 ```bash
-./tools/check-all.sh                 # all 18, and the pre-push hook runs it anyway
+./tools/check-all.sh                 # all 21, and the pre-push hook runs it anyway
 ./tools/validate-parts.py            # against the install, NOT --offline, so Core is readable
 ./tools/model/checkswept.py          # nothing adrift or passing through anything
 ```

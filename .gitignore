@@ -34,3 +34,6 @@ infra/**/.env
 # StarMap writes this beside whatever directory it was launched from; it belongs to the
 # loader install, not here. setup-starmap.sh skips it for the same reason.
 StarMapConfig.json
+
+# Scratch checkouts for parallel agents. Real git worktrees, not content.
+.claude/worktrees/

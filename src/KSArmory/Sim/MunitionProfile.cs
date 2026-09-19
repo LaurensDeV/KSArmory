@@ -10,12 +10,46 @@ public enum GuidanceMode
     Seeker,
 
     /// <summary>
+    /// The round homes on a radar emission rather than on the airframe carrying it. Inside its
+    /// gimbal limit it steers exactly like a <see cref="Seeker"/> — what differs is what it can
+    /// see at all: a contact that is not radiating is not a target, however large or close.
+    ///
+    /// <para>So the counter is to stop transmitting, and the round answers that the way the real
+    /// weapon does: it carries on to where the emission last came from. Shutting a set down
+    /// therefore saves it only if it also <em>moves</em>, which is the whole tactical shape of
+    /// the thing and the reason this is a guidance mode rather than a filter on target
+    /// selection.</para>
+    /// </summary>
+    AntiRadiation,
+
+    /// <summary>
     /// The launcher tracks the target and uplinks steering commands — the round carries no
     /// seeker. It therefore cannot be blinded by a hard-manoeuvring target, and its gimbal
     /// limit is irrelevant; what breaks the engagement is the *launcher* losing the track.
     /// This is how the 57E6 and most short-range point-defence rounds actually work.
     /// </summary>
     CommandLink,
+
+    /// <summary>
+    /// The round is told where the point is when it leaves, and flies to it on its own reckoning.
+    /// A guided tail kit on a free-fall bomb — the B61-12's is the worked example.
+    ///
+    /// <para><b>It steers but does not seek.</b> There is no seeker to blind, no emission to shut
+    /// down and no uplink to break, so nothing that defeats the other three modes touches it. What
+    /// it cannot do is follow anything: it flies at where the point was when it was designated, so
+    /// a target that moves is a target it misses. That is the whole trade, and it is why this is a
+    /// mode rather than a flag on <see cref="None"/>.</para>
+    ///
+    /// <para>It carries no motor, so it is a <see cref="Slug"/> like any other falling store and
+    /// its authority is whatever <see cref="MunitionProfile.MaxLateralG"/> allows — a few g of fin
+    /// authority, not a missile's thirty-five. It corrects a ballistic fall; it does not extend
+    /// one, and it cannot reach a point the fall was never going to pass near.</para>
+    ///
+    /// <para><see cref="BombSight"/> deliberately knows nothing about this: it flies an
+    /// undesignated round, so the pipper answers "where this lands if you designate nothing"
+    /// rather than predicting the guided path.</para>
+    /// </summary>
+    Inertial,
 
     /// <summary>
     /// The round does not steer at all — a bomb, or an unguided rocket. It leaves the tube and
@@ -38,6 +72,20 @@ public enum GuidanceMode
 /// </summary>
 public sealed class MunitionProfile
 {
+    /// <summary>
+    /// No round at all — what a weapons system holds before it knows what it fires.
+    ///
+    /// <para>Zero reach and zero charge rather than the first registered round's, so an
+    /// unadopted system reads as unarmed instead of as carrying somebody else's missile.</para>
+    /// </summary>
+    public static readonly MunitionProfile None = new()
+    {
+        Name = "",
+        DisplayName = "no round",
+        MaxRange = 0f,
+        ChargeKg = 0f,
+    };
+
     /// <summary>Registry key. Referenced by <see cref="LauncherProfile.Munition"/>.</summary>
     public required string Name { get; init; }
 
@@ -71,6 +119,29 @@ public sealed class MunitionProfile
     /// </summary>
     public float FinDeploySeconds = 0.18f;
 
+    /// <summary>
+    /// Blade travel at full steering demand, in degrees. Zero — the default — leaves the fins
+    /// rigid, so a round that has never been rigged for it is unaffected.
+    ///
+    /// <para>Deliberately larger than life. A real tail kit deflects a few degrees, which on a
+    /// 0.3 m blade is millimetres of tip travel and invisible at any distance anyone watches a
+    /// bomb from. This is the number that decides whether the fins read as working, and it drives
+    /// nothing but what is drawn.</para>
+    /// </summary>
+    public float FinDeflectionDeg;
+
+    /// <summary>
+    /// Where the blades hinge, as a station along the body from its centre (m). Geometry: the
+    /// blade meshes are exported recentred on this, so the two have to agree.
+    /// </summary>
+    public float FinHingeStation;
+
+    /// <summary>
+    /// How many blades one round carries. Zero means the fin subparts are a single set per round
+    /// scaled for deployment, which is the older arrangement and the one the 57E6 uses.
+    /// </summary>
+    public int FinsPerRound;
+
     /// <summary>Fin span while stowed, as a fraction of full. Small enough to clear the bore.</summary>
     public float FinStowedScale = 0.06f;
 
@@ -88,10 +159,11 @@ public sealed class MunitionProfile
     /// </summary>
     ///
     /// <remarks>
-    /// Empty for a single-stage round, which is every round the mod ships. A booster and a
-    /// sustainer are genuinely different accelerations for different durations, and averaging them
-    /// into one gets the burnout speed roughly right and the trajectory wrong: the 57E6 is a
-    /// two-stage missile and is described as one in this file while being flown as a single burn.
+    /// Empty for a single-stage round, which is every round the mod ships. Two <i>powered</i>
+    /// stages are genuinely different accelerations for different durations, and averaging them
+    /// into one gets the burnout speed roughly right and the trajectory wrong. The 57E6 is not
+    /// that case: its second stage carries no motor, so a hard burn and then a coast is the round
+    /// it actually is.
     ///
     /// Kept separate from <see cref="BoostSeconds"/> rather than folding the first stage in, so
     /// every profile that does not care reads exactly as it did.
@@ -126,7 +198,10 @@ public sealed class MunitionProfile
         return 0f;
     }
 
-    /// <summary>Round self-destructs this long after launch.</summary>
+    /// <summary>
+    /// Round self-destructs this long after launch. For a round the ground stops, only time on a path that is
+    /// not certain to end on the ground counts: see <see cref="RoundReach"/>.
+    /// </summary>
     public float MaxFlightSeconds = 30f;
 
     /// <summary>
@@ -139,17 +214,76 @@ public sealed class MunitionProfile
     /// cannot tunnel through its own fuse radius at any speed; what a long step drops is the
     /// curvature, and that error is about half the lateral acceleration times the step squared.
     /// A 35 g endgame round at 0.32 s loses roughly its own fuse radius, which is why 0.32 is the
-    /// default. A round coasting ballistically loses centimetres.
+    /// default.
     ///
     /// It matters because the world is slowed to keep this step, so a weapon that flies for
     /// minutes holds the player's timewarp down for all of them and eventually trips the policy's
-    /// own abandon guard. Raising it for a round that does not manoeuvre costs nothing and is what
-    /// makes a long-range weapon playable.
+    /// own abandon guard.
+    ///
+    /// <b>A ballistic coast is not exempt, and the manoeuvre argument above is not the whole
+    /// story.</b> Gravity is a frame-level argument to <see cref="Slug"/>, held across every
+    /// sub-step, so a coarse frame integrates the fall on a stale one however gently the round is
+    /// flying: measured at <b>4.2 m of downrange per millisecond of frame</b> on the 3,459 km
+    /// deorbit, which is 560 m at the 133 ms an eight-times coast hands out.
+    /// <c>ProbeGapTests</c> has the table and <c>docs/MIRV-NEXT.md</c> item 2 what it is worth.
     ///
     /// The step at which a real intercept starts to degrade is unmeasured. 0.32 s is the value the
     /// shipped rounds fly at, so treat it as a default to keep rather than a licence to raise it.
     /// </remarks>
     public float MaxFaithfulStepSeconds = (float)Interceptor.MaxFaithfulStep;
+
+    /// <summary>
+    /// The step this round would <em>prefer</em> the world ran at, in seconds. Zero takes
+    /// <see cref="MaxFaithfulStepSeconds"/>.
+    ///
+    /// <para><b>Distinct from that field on purpose, because the two do opposite things.</b>
+    /// <c>MaxFaithfulStepSeconds</c> bounds an integration clamp that <em>discards</em> time, so
+    /// tightening it makes the round fall behind the world — measured at fifty kilometres. This one
+    /// reaches <c>WeaponSystems.WarpTargetStep</c> and slows the world instead, which is the only
+    /// one of the two that buys accuracy.</para>
+    ///
+    /// <para>What it buys, for a round that coasts: the gap between a round and the prediction
+    /// aiming it grows at about <b>86 m per millisecond of frame</b>, because the samples it is
+    /// differenced against carry the planet's own ecliptic motion. A ballistic coast at eight times
+    /// runs 194 ms frames; asking for less is asking the world to run slower while the round
+    /// falls.</para>
+    /// </summary>
+    public float PreferredStepSeconds;
+
+    /// <summary>The step this round would rather the world ran at, resolved against the default.</summary>
+    public double PreferredStep => PreferredStepSeconds > 0.0f ? PreferredStepSeconds : MaxFaithfulStepSeconds;
+
+    /// <summary>
+    /// How finely this round integrates its own flight, in seconds. Zero takes
+    /// <see cref="Interceptor.SubStep"/>.
+    ///
+    /// <para><b>It buys accuracy linearly and costs work linearly</b>, which is why it is per round
+    /// rather than one constant. The integrator is symplectic Euler, so the impact moves
+    /// <b>30.6 m per millisecond</b> of step on a shallow arrival — 145.3 / 68.8 / 22.9 / 7.6 m at
+    /// 5.00 / 2.50 / 1.00 / 0.50 ms against a quarter-millisecond reference. Nine tenths of that is
+    /// a genuinely different trajectory rather than an arrival-time error.</para>
+    ///
+    /// <para>A warhead is worth spending it on and a cannon shell is not. Six warheads at a
+    /// millisecond is about 300 sub-steps a frame; a 150-shell burst at the same step is 7,500, and
+    /// that cost has never been measured. So the default stays where the shipped rounds already
+    /// fly and only a round that needs the precision asks for more.</para>
+    ///
+    /// <para><b>The count scales with it so the faithful step does not move.</b> A finer step with
+    /// the same sub-step cap would shorten <see cref="MaxFaithfulStepSeconds"/> for this round and
+    /// hold the whole world's timewarp down with it — which is the trap that cost 164 km when the
+    /// integration clamp and the warp target were confused for each other.</para>
+    /// </summary>
+    public float SubStepSeconds;
+
+    /// <summary>This round's integration step, resolved against the shared default.</summary>
+    public double SubStep => SubStepSeconds > 0.0f ? SubStepSeconds : Interceptor.SubStep;
+
+    /// <summary>
+    /// How many sub-steps one frame may be cut into for this round, chosen so that
+    /// <c>SubStep * MaxSubSteps</c> still spans <see cref="MaxFaithfulStepSeconds"/>.
+    /// </summary>
+    public int MaxSubSteps =>
+        Math.Max(Interceptor.MaxSubSteps, (int)Math.Ceiling(MaxFaithfulStepSeconds / SubStep));
 
     /// <summary>
     /// How far this round can usefully be sent, in metres.
@@ -178,6 +312,19 @@ public sealed class MunitionProfile
     /// </summary>
     public GuidanceMode Guidance = GuidanceMode.CommandLink;
 
+    /// <summary>
+    /// Whether this round is steered <em>by</em> its launcher rather than by anything it carries.
+    ///
+    /// <para>Which is what decides whether it survives losing that launcher. A seeker head and an
+    /// anti-radiation seeker are both aboard the round, so a destroyed shooter costs them nothing —
+    /// an anti-radiation round is already built to outlive the emission it was fired at, and the
+    /// remembered bearing rides on the round. A command-link round carries no seeker at all, so
+    /// there is nothing left to steer it and it coasts.</para>
+    ///
+    /// <para>An unguided round never steered, and answers false: it is not losing anything.</para>
+    /// </summary>
+    public bool NeedsUplink => Guidance == GuidanceMode.CommandLink;
+
     /// <summary>Seeker gimbal limit, half-angle off the round's velocity vector (degrees).</summary>
     public float SeekerFovDeg = 55f;
 
@@ -191,12 +338,17 @@ public sealed class MunitionProfile
     /// </summary>
     public float SeparationSeconds;
 
-    /// <summary>Fraction of local gravity the autopilot compensates for.</summary>
+    /// <summary>
+    /// Fraction of local gravity the autopilot compensates for. Not read by
+    /// <see cref="GuidanceMode.Inertial"/>, which steers the fall it predicts — see
+    /// <see cref="TailKit"/>.
+    /// </summary>
     public float GravityCompensation = 1f;
 
     /// <summary>
     /// Medium density ratio at which this round is neutrally buoyant, in the same units as
-    /// <see cref="DragK"/> is scaled by — multiples of sea-level air. Zero disables buoyancy.
+    /// <see cref="DragK"/> is scaled by — multiples of Earth's sea-level air,
+    /// <see cref="Medium.ReferenceDensityKgPerM3"/>. Zero disables buoyancy.
     ///
     /// <para>A torpedo sits near 840, the density of water, so it neither sinks nor rises once
     /// submerged while still falling normally through air. Gravity is scaled by
@@ -206,12 +358,40 @@ public sealed class MunitionProfile
     public float NeutralDensityRatio;
 
     /// <summary>
-    /// Quadratic drag coefficient, k in <c>a = -k*|v|*v</c>, <b>at sea level</b>.
+    /// The round's mass in flight (kg): with <see cref="CalibreMm"/> and <see cref="DragCoefficient"/>,
+    /// what its drag is computed from.
+    ///
+    /// <para><b>The rule, wherever a round can follow it.</b> A drag constant typed by hand is a number
+    /// nothing checks, and can be forty times out with nothing looking wrong. Mass, calibre and a
+    /// coefficient for the shape are facts that can be looked up, and the coefficient of anything shaped
+    /// like a shell sits near 0.3. All three or none; with none, <see cref="DragK"/> stands.</para>
+    /// </summary>
+    public float MassKg;
+
+    /// <summary>Frontal diameter (mm).</summary>
+    public float CalibreMm;
+
+    /// <summary>Drag coefficient for the round's shape, against its frontal area: about 0.3 for a supersonic shell.</summary>
+    public float DragCoefficient;
+
+    /// <summary>
+    /// Quadratic drag by hand, k in <c>a = -k*|v|*v</c> in reference air — for a round no constant
+    /// coefficient describes, or whose flown calibration rests on its value. Ignored when
+    /// <see cref="MassKg"/>, <see cref="CalibreMm"/> and <see cref="DragCoefficient"/> are all given.
     ///
     /// <para>Scaled at runtime by the density where the round is, so one profile is correct on the
     /// pad, climbing out and in orbit. Zero disables drag outright.</para>
     /// </summary>
     public float DragK = 3.0e-5f;
+
+    /// <summary>Whether the drag comes from mass, calibre and coefficient rather than from <see cref="DragK"/>.</summary>
+    public bool DragFromShape => MassKg > 0f && CalibreMm > 0f && DragCoefficient > 0f;
+
+    /// <summary>The drag constant the round is flown with, k in <c>a = -k*|v|*v</c> in reference air.</summary>
+    public double AppliedDragK => DragFromShape ? Medium.DragK(MassKg, CalibreMm, DragCoefficient) : DragK;
+
+    /// <summary>The same round as a profile of its own, which edits to this one do not reach.</summary>
+    internal MunitionProfile Copy() => (MunitionProfile)MemberwiseClone();
 
     // ---- Warhead --------------------------------------------------------
     /// <summary>Proximity fuse trigger radius (m).</summary>
@@ -229,8 +409,10 @@ public sealed class MunitionProfile
     /// </summary>
     public bool TimedFuse;
 
-    /// <summary>Fuse stays safe for this long after launch, so a round cannot kill its own
-    /// platform.</summary>
+    /// <summary>
+    /// The proximity fuse stays safe for this long after launch. A shell still strikes anything it
+    /// touches before then, as it strikes the ground; only the fuse's reach waits.
+    /// </summary>
     public float FuseArmSeconds = 0.6f;
 
     /// <summary>
@@ -266,6 +448,29 @@ public sealed class MunitionProfile
 
     public float SeekerFovRad => float.DegreesToRadians(SeekerFovDeg);
     public double MaxLateralAccel => MaxLateralG * 9.80665;
+
+    /// <summary>
+    /// Whether the round leaves under its own power. False for a store that is released and then
+    /// falls — a dumb bomb, or one with a guided tail kit, which steers a ballistic path rather
+    /// than flying one.
+    ///
+    /// <para>It picks <see cref="Slug"/> over <see cref="Interceptor"/>, and separately it is why
+    /// a rack's sight looks where its store lands instead of down its own tubes. Both ask this
+    /// rather than testing the mode themselves, so a fifth mode has one place to declare which
+    /// side it is on.</para>
+    /// </summary>
+    public bool Powered => Guidance is not (GuidanceMode.None or GuidanceMode.Inertial);
+
+    /// <summary>
+    /// Whether this round can be steered after it leaves, whatever carries it there.
+    ///
+    /// <para>Wider than <see cref="Powered"/> on purpose: a guided tail kit steers a fall without
+    /// flying one, so it is released like a bomb and still needs something to aim at.</para>
+    /// </summary>
+    public bool Steers => Guidance != GuidanceMode.None;
+
+    /// <summary>Blade travel at full demand, in radians.</summary>
+    public double FinDeflectionRad => float.DegreesToRadians(FinDeflectionDeg);
 }
 
 /// <summary>

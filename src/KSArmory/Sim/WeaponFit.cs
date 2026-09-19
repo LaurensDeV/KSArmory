@@ -39,11 +39,28 @@ public readonly record struct Armament
     public required float ReloadSeconds { get; init; }
 
     /// <summary>
-    /// Whether the guidance numbers reach this armament's rounds. Tubes are flown as
-    /// interceptors and the belt ballistically, which is the battery's choice of flight model
-    /// rather than anything the round declares.
+    /// Whether the guidance numbers reach this armament's rounds.
+    ///
+    /// <para>Both terms, because the two magazines reach the flight model by different routes. A
+    /// belt is built as a <c>Slug</c> outright and never consults
+    /// <see cref="MunitionProfile.Guidance"/> at all — which is why gun munitions leave it at its
+    /// default and why reading the round alone reports a shell as guided. Only a tube reaches the
+    /// branch, and there the round decides: a tube-launched store declaring no guidance is flown
+    /// ballistically, so the slot alone offers a bomb rack a whole guidance section it never
+    /// reads.</para>
     /// </summary>
-    public bool Steers => Kind == ArmamentKind.Tubes;
+    public bool Steers => Kind == ArmamentKind.Tubes
+                          && Catalogue.MunitionNamed(Munition).Guidance != GuidanceMode.None;
+
+    /// <summary>
+    /// Whether this armament's round leaves under its own power, which is what makes the seeker
+    /// and boost numbers mean anything.
+    ///
+    /// <para>Narrower than <see cref="Steers"/> on purpose. A guided tail kit steers a fall: it
+    /// uses the navigation numbers and none of the others, so gating the whole guidance section on
+    /// "steers" hands a bomb rack a seeker field of view and a burn time it never reads.</para>
+    /// </summary>
+    public bool Powered => Kind == ArmamentKind.Tubes && Catalogue.MunitionNamed(Munition).Powered;
 
     public bool Reloads => ReloadSeconds > 0f;
 
@@ -103,6 +120,20 @@ public sealed class WeaponFit
     /// </summary>
     public required bool Searches { get; init; }
 
+    /// <summary>Whether any armament leaves under its own power, so the seeker and boost numbers
+    /// describe something. A rack of guided stores steers without any of them applying.</summary>
+    public bool Powered
+    {
+        get
+        {
+            for (int i = 0; i < Armaments.Count; i++)
+            {
+                if (Armaments[i].Powered) return true;
+            }
+            return false;
+        }
+    }
+
     /// <summary>Whether any armament is flown by the guidance model.</summary>
     public bool Steers
     {
@@ -117,10 +148,47 @@ public sealed class WeaponFit
     }
 
     /// <summary>
+    /// Whether fire control can pick a target and shoot at it without being told to.
+    ///
+    /// <para>The same split <see cref="FireLadder"/> makes: a belt engages on its own, and tubes
+    /// do only if their round leaves under its own power. A rack of stores is released by hand,
+    /// so everything auto-engagement implies — a salvo size, what it may not shoot at, sending
+    /// the drives after the cursor — describes nothing it does.</para>
+    /// </summary>
+    public bool AutoEngages
+    {
+        get
+        {
+            for (int i = 0; i < Armaments.Count; i++)
+            {
+                if (Armaments[i].Kind == ArmamentKind.Belt) return true;
+                if (Armaments[i].Powered) return true;
+            }
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Most rounds one target can be given at once. A salvo comes out of the tubes, so a system
     /// with none has no salvo to size.
     /// </summary>
     public int SalvoCapacity => FirstOf(ArmamentKind.Tubes)?.Capacity ?? 0;
+
+    /// <summary>
+    /// Whether a row named <paramref name="displayName"/> describes this fit's armament of that
+    /// kind — which is how a panel tells a crewed part's row from a second part's.
+    ///
+    /// <para>Here rather than in the panel because it is the only part of that question that can be
+    /// tested, and it is the part that was wrong: a provided row is declared as a
+    /// <em>munition's</em> DisplayName, so it has to be matched against the munition, resolved from
+    /// the registry. Matching <see cref="Armament.Label"/> compares it to the belt's heading —
+    /// "Cannon" against "2A38M 30 mm cannon" — which never agrees, and reports a working gun as
+    /// not run.</para>
+    /// </summary>
+    public bool Describes(ArmamentKind kind, string displayName)
+        => FirstOf(kind) is { } arm
+           && string.Equals(Catalogue.MunitionNamed(arm.Munition).DisplayName, displayName,
+                            StringComparison.Ordinal);
 
     /// <summary>The first armament of a kind, or null when none of that kind is fitted.</summary>
     public Armament? FirstOf(ArmamentKind kind)
@@ -132,7 +200,6 @@ public sealed class WeaponFit
         return null;
     }
 
-    /// <summary>Reads a launcher and the set feeding it as the description above.</summary>
     /// <summary>
     /// Whether anything this system releases falls to the ground on its own.
     ///
@@ -142,6 +209,7 @@ public sealed class WeaponFit
     /// </summary>
     public required bool Drops { get; init; }
 
+    /// <summary>Reads a launcher and the set feeding it as the description above.</summary>
     public static WeaponFit Of(LauncherProfile launcher, SensorProfile sensor)
     {
         List<Armament> armaments = new(2);
@@ -186,24 +254,23 @@ public sealed class WeaponFit
         };
     }
 
-    /// <summary>
-    /// Rounds a full launcher holds: a deep magazine's depth, otherwise one per tube. The same
-    /// two numbers <c>Magazine.Resize</c> reads, so the panel counts down from what the magazine
-    /// was actually filled with.
-    /// </summary>
     // Whether any armament throws something the ground stops. Resolved here rather than in the
-    // panel so a profile field is never the thing a control is gated on -- an unknown munition
-    // name answers no, which draws one control fewer rather than throwing at a tick box.
+    // panel, so a profile field is never the thing a control is gated on.
     private static bool Drop(List<Armament> armaments)
     {
         for (int i = 0; i < armaments.Count; i++)
         {
-            if (Arsenal.MunitionNamed(armaments[i].Munition) is { HitsTerrain: true }) return true;
+            if (Catalogue.MunitionNamed(armaments[i].Munition) is { HitsTerrain: true }) return true;
         }
 
         return false;
     }
 
+    /// <summary>
+    /// Rounds a full launcher holds: a deep magazine's depth, otherwise one per tube. The same
+    /// two numbers <c>Magazine.Resize</c> reads, so the panel counts down from what the magazine
+    /// was actually filled with.
+    /// </summary>
     public static int MagazineCapacity(LauncherProfile launcher)
         => launcher.MagazineDepth > launcher.TubeCount ? launcher.MagazineDepth : launcher.TubeCount;
 }

@@ -21,7 +21,7 @@ public sealed class Config
     // There is deliberately no launcher, round or sensor here. A weapon system belongs to the
     // installation running it, because two sites in one world can be different systems, and a
     // session-wide selection gives every reader whichever installation updated last.
-    // Arsenal.LoadoutFor is what pairs the three.
+    // Catalogue.LoadoutFor is what pairs the three.
 
     /// <summary>
     /// Play a rocket motor while a round is boosting.
@@ -59,22 +59,63 @@ public sealed class Config
     public bool MotorPlume = true;
 
     /// <summary>
+    /// Lay a smoke trail behind a round while its motor burns.
+    ///
+    /// <para>Its own switch rather than riding on <see cref="MotorPlume"/>, because the commitment
+    /// is different: a segment lives <b>1200 seconds</b> and that is a global engine setting, not
+    /// something a mod can shorten for its own trails. Twelve of them across a sky is a deliberate
+    /// look rather than a detail.</para>
+    ///
+    /// <para>The other reason to be able to switch it off: segments are capped at 16,384 per
+    /// celestial body and evicted oldest-first, and a mushroom cloud draws from the same budget.
+    /// A large salvo beside a standing cloud will trim the bottom of that cloud.</para>
+    /// </summary>
+    public bool MotorSmoke = true;
+
+    /// <summary>
+    /// Multiplier on how wide that trail is drawn, against the round's own size.
+    ///
+    /// <para>A look, and the one thing about this that a screen decides rather than a number: the
+    /// engine reaches the expanded radius within five seconds, so it is what the trail is for
+    /// almost all of its life, and whether that reads as a rocket trail or as a rolling bank of
+    /// fog is not answerable from the source.</para>
+    /// </summary>
+    public float MotorSmokeWidth = 1f;
+
+    /// <summary>
     /// Show the little floating button that reopens the panel.
     ///
     /// <para>On by default and worth keeping: the menu-bar entry that replaces it works by
     /// appending to KSA's own bar, which is ImGui behaviour rather than a supported hook. If that
     /// ever stops working, a mod with no way to reopen its panel is unusable.</para>
+    ///
+    /// <para>Drawn whenever it is on, including with <b>ModMenu</b> installed. Suppressing it there
+    /// traded the one route this mod controls for another mod's menu, and left no recovery when
+    /// that did not work: the control that would switch it back on is inside the shut panel.</para>
     /// </summary>
     public bool FloatingPanelButton = true;
 
-    /// <summary>Play a bang when a warhead goes off.</summary>
-    public bool BurstSound = true;
+    /// <summary>
+    /// Draw the mushroom clouds a nuclear burst leaves standing.
+    ///
+    /// <para>Costs about <b>6-8 ms a frame</b> while they stand, measured across the fourteen shots
+    /// of 2026-09-09-walk2: an 18-24 ms burn phase against 23-30 ms once the first warhead is down.
+    /// That is a third of the frame for decoration, and on a scripted shot nobody is watching it.
+    /// A ballistic scenario turns it off for that reason -- see <c>Ksa/ScenarioRunner.cs</c>.</para>
+    ///
+    /// <para>It does not change what a burst <em>does</em>: the blast sweep, the damage and the
+    /// flash are all elsewhere. Only the standing cloud goes.</para>
+    /// </summary>
+    public bool NuclearClouds = true;
 
-    /// <summary>Its volume, scaled again by the size of the charge before it is played.</summary>
-    public float BurstVolume = 0.9f;
-
-    /// <summary>Which sound, by <c>ModLibrary</c> Id. Null borrows Core's separation charge.</summary>
-    public string? BurstSoundId;
+    /// <summary>
+    /// Dirty the smoke of a nuclear cloud rather than leaving it white.
+    ///
+    /// <para>Costs something worth knowing about: the engine carries one trail colour for the whole
+    /// world, so while a cloud stands every solid booster's plume is tinted with it. Held only for
+    /// as long as a cloud is up.</para>
+    /// </summary>
+    public bool DirtyNuclearSmoke = true;
 
     /// <summary>
     /// Which sound to use, by <c>ModLibrary</c> Id. Null takes Core's engine loop, which resolves
@@ -97,6 +138,58 @@ public sealed class Config
     public bool LimitWarpInFlight = true;
 
     /// <summary>
+    /// Take a rocket's spent ascent stages out of the world once they are clear of it, rather than
+    /// leaving them to fall.
+    ///
+    /// <para><b>It buys frame time, which is the only thing that buys simulation rate.</b> The
+    /// engine advances the world by at most a thirtieth of a second per frame, so
+    /// <c>sim rate = 33.3 ms / frame time</c>, and frame time grows at about 2.0 ms per vehicle —
+    /// <c>docs/METRE-LEVEL.md</c> §5b. One rocket sheds four vehicles and keeps two, so a world
+    /// flying several of them spends most of its frame on debris that is falling.</para>
+    ///
+    /// <para><b>Off by default, because it destroys things in the player's world.</b> A spent stage
+    /// arcing back down is part of watching a launch, and nothing else this mod does removes a
+    /// vehicle nobody shot at. It is on for a scripted batch, where the world exists for eight
+    /// minutes and nobody is watching it.</para>
+    ///
+    /// <para>The half a MIRV bus dropped is never taken, whatever this says — see
+    /// <see cref="StageDisposal"/>.</para>
+    /// </summary>
+    public bool DisposeSpentStages;
+
+    /// <summary>
+    /// Break individual parts off a craft a warhead went off near, rather than destroying the
+    /// whole craft or nothing at all.
+    ///
+    /// <para>Each part is judged on its own distance and its own strength, so a burst against a
+    /// booster's tail takes the engines and leaves the payload. The reach comes from the same
+    /// cube-root law the charge obeys — see <see cref="BlastDamage"/> — and the engine's own
+    /// fragment guard decides when losing that many parts destroys the craft anyway, so a warhead
+    /// that engulfs a drone still kills it outright.</para>
+    ///
+    /// <para>Off returns the mod to binary kills: inside the lethal radius the craft is destroyed,
+    /// outside it nothing happens. That is what shipped before KSA had a part-failure model, and
+    /// it is the way back if fragments turn out to cost more frame time than they are worth — one
+    /// craft can become several, and every one of them is simulated.</para>
+    /// </summary>
+    public bool DamageIndividualParts = true;
+
+    /// <summary>
+    /// Count rounds per <em>craft</em> rather than per weapon when deciding whether a target has
+    /// had enough.
+    ///
+    /// <para>Two rails on one aircraft each keep their own tally, so each finds capacity under
+    /// its own <c>RoundsPerTarget</c> and each fires a full salvo at the same target. The limit is
+    /// obeyed twice over and twice the missiles are spent. <see cref="TargetAllocation"/> is the
+    /// shared tally.</para>
+    ///
+    /// <para>Off restores the per-weapon count, which is what shipped before. Worth keeping,
+    /// because it is a real choice rather than a bug: a player who fitted two launchers to put
+    /// four rounds on a target is asking for exactly the behaviour this stops.</para>
+    /// </summary>
+    public bool ShareTargetsAcrossWeapons = true;
+
+    /// <summary>
     /// Substring that marks a craft as belonging to a team, matched against its name.
     ///
     /// <para>KSA has no team field, so a name convention is the only assignment that needs no
@@ -116,14 +209,29 @@ public sealed class Config
     /// </summary>
     public bool BurstTool;
 
-    /// <summary>Fireball rather than the paler airburst.</summary>
-    public bool BurstFireball = true;
-
     /// <summary>
     /// Explosive charge for a hand-fired burst (kg). The same figure a round carries, so the tool
     /// shows what a warhead of that size actually looks like rather than an arbitrary size.
     /// </summary>
     public float BurstChargeKg = 20f;
+
+    /// <summary>
+    /// Make that burst a nuclear one, dialled in kilotons rather than kilograms.
+    ///
+    /// <para>The same code path either way: a nuclear charge is a very large one, and the cloud
+    /// grows itself for anything over <see cref="MushroomCloud.ThresholdKg"/>. What the tick box
+    /// changes is which unit the dial is in, because a slider that has to cover 10 g of shell
+    /// filling and 340 kt on one scale is useful for neither.</para>
+    /// </summary>
+    public bool BurstNuclear;
+
+    /// <summary>
+    /// Yield for that (kt), spanning the B61's own dial.
+    ///
+    /// <para>Kilotons rather than kilograms because that is the unit the thing is specified in, and
+    /// the conversion is exact: a kilotonne of TNT equivalent is a million kilograms of it.</para>
+    /// </summary>
+    public float BurstYieldKt = 0.3f;
 
     /// <summary>
     /// Pick a craft up with one click and set it down with the next.
@@ -154,6 +262,29 @@ public sealed class Config
     /// This turns it back on without needing a different build, which is what a bug report needs.
     /// </summary>
     public bool VerboseLog;
+
+    /// <summary>
+    /// Follow one released warhead all the way down, beside <see cref="ImpactPredictor"/> re-flown
+    /// from wherever it has got to. See <c>Ksa/WarheadTrace.cs</c>.
+    ///
+    /// <para>Off, and a measurement rather than a setting: it decides nothing and costs a
+    /// four-hundred-step re-flight a few times a minute. It answers one question — whether the
+    /// warhead leaves its own release probe smoothly or in a step — and the two have different
+    /// causes and different fixes.</para>
+    ///
+    /// <para>Needs <see cref="VerboseLog"/> for the per-frame half. Without it only the release and
+    /// the impact are written, which says how far but not where it went wrong.</para>
+    /// </summary>
+    public bool TraceWarhead;
+
+    /// <summary>
+    /// Sweep a seated round's fins continuously, the way a guided store exercises them on
+    /// power-up, so the hinges can be watched without dropping the round.
+    ///
+    /// A test aid rather than a weapon setting: it moves nothing but the drawn blades, and two
+    /// launchers in one world could not sensibly disagree about whether it is on.
+    /// </summary>
+    public bool FinTestSweep;
 
     // ---- Visuals --------------------------------------------------------
 
@@ -192,8 +323,23 @@ public sealed class Config
     public bool DrawTurretFacing = true;
 
     /// <summary>
+    /// Diagnostic: a line to the north, and one along each face of the search array as the scope
+    /// believes it is pointing.
+    ///
+    /// <para>What it settles is whether the scope agrees with the vehicle. The sweep is drawn from
+    /// the array's angle carried into the body's own frame, and every step of that is a place a
+    /// sign or a handedness can invert — which draws a sweep that turns the wrong way while looking
+    /// entirely plausible on its own. Put the array's line beside the dish and the question stops
+    /// being a matter of watching carefully.</para>
+    ///
+    /// <para>Off by default: it is a line for settling an argument, not part of the picture.</para>
+    /// </summary>
+    public bool DrawBearingReference;
+
+    /// <summary>
     /// Diagnostic: hold the chase camera still through its transition instead of flying it onto
-    /// the round. It still takes the view and still aims, it simply does not travel.
+    /// the round. It still takes the view and keeps the round in the middle of it, it simply does
+    /// not travel.
     ///
     /// <para>This is a discriminator, not a setting anyone wants on. The transition jitters on an
     /// airless body and the camera's measured altitude over the ground alternates by ±145 m a
@@ -213,7 +359,20 @@ public sealed class Config
     public bool DrawSystemMarkers = true;
 
     /// <summary>
-    /// Show a fireball where a warhead goes off.
+    /// Bracket what the selected weapon is engaging, closing the brackets as the lock matures.
+    ///
+    /// <para>On by default, and deliberately not part of <see cref="DrawOverlays"/>: that is the
+    /// diagnostic gizmo layer, and whether you have a lock is playing rather than debugging. It
+    /// is also the one piece of fire-control state that has to be readable without looking away
+    /// from the target.</para>
+    ///
+    /// <para>Session-wide, because it is a property of the screen rather than of an installation:
+    /// it draws for whichever weapon the trigger is pointed at, and there is only one of those.</para>
+    /// </summary>
+    public bool DrawLockCue = true;
+
+    /// <summary>
+    /// Set off KSA's own explosion where a warhead goes off, its flash and sound included.
     ///
     /// <para>Not part of <see cref="DrawOverlays"/>: that is diagnostic drawing that says what the
     /// mod thinks, and this is the engagement itself. Turning the debug lines off should leave the

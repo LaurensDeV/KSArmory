@@ -70,7 +70,24 @@ DLL_DIR="$TARGET/current/dll"
 # general KSA SDK mirror that other mods build against too, and a corpus covering only
 # KSArmory's eight assemblies would be useless to them - and would quietly stop covering this
 # mod the moment it referenced something new.
+# Except third-party libraries whose real source is public and versioned. The corpus exists
+# because KSA is undocumented and moves silently between builds; a decompilation of a library
+# that publishes its own source is strictly worse than that source, and nothing reads it -
+# tools/apisurface filters the tracked surface to KSA, Brutal, Bepu and StarMap, so these types
+# never reach docs/KSA-API-SURFACE.md and so ksa-api-diff.sh never consults them. 0Harmony alone
+# is 138k lines, which is what a KSA diff would have to be read past.
+#
+# The DLLs stay in current/dll: the mod compiles against 0Harmony.dll, and $DLL_DIR is still the
+# resolver directory below, so what is decompiled here is unaffected by what is skipped.
+SKIP_DECOMPILE=(0Harmony)
+
 mapfile -t NAMES < <(find "$DLL_DIR" -maxdepth 1 -name '*.dll' -printf '%f\n' | sed 's/\.dll$//' | sort)
+for skip in "${SKIP_DECOMPILE[@]}"; do
+    for i in "${!NAMES[@]}"; do
+        [[ ${NAMES[$i]} == "$skip" ]] && unset 'NAMES[$i]'
+    done
+done
+NAMES=("${NAMES[@]}")
 [[ ${#NAMES[@]} -gt 0 ]] || { echo "error: no assemblies in $DLL_DIR" >&2; exit 1; }
 
 SRC="$TARGET/current/src"
@@ -122,8 +139,9 @@ can be built by CI and so that a KSA update produces a readable diff of what cha
 binaries and the decompiled source. Keeping a licensed copy for your own builds is fine;
 publishing it is not.
 
-    current/dll/     the eight assemblies the mod references
-    current/src/     those assemblies decompiled, one folder each
+    current/dll/     every assembly the game and the loader ship, so any KSA mod can build
+    current/src/     those decompiled, one folder each, less third-party libraries that
+                     publish their own source - see SKIP_DECOMPILE in decompile-assemblies.sh
     current/KSA_BUILD    the game build they came from
 
 Both halves are refreshed from a machine with the game installed, from the mod repository:

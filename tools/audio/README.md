@@ -1,9 +1,9 @@
 # Source recordings
 
-Recordings the shipped cannon sound is cut from. **Unlike everything else under `src/KSArmory/`,
-these are not generated**, which is why this folder exists rather than the cuts simply appearing in
-`Sounds/`: a recording has a provenance, and the provenance has to live where the next person will
-find it.
+Recordings the shipped cannon sound is cut from. **Unlike everything else under
+`src/KSArmory/Sounds/`, these are not synthesised**, which is why this folder exists rather than the
+cuts simply appearing in `Sounds/`: a recording has a provenance, and the provenance has to live
+where the next person will find it.
 
 | File | Source | Licence |
 | --- | --- | --- |
@@ -11,7 +11,7 @@ find it.
 
 CC0 places no condition on redistribution, so this ships inside the MIT archive with nothing to
 carry alongside it. **No credit is shipped to players, by choice** — the record above is kept for
-maintenance rather than obligation, so that a recording sitting among otherwise generated assets
+maintenance rather than obligation, so that a recording sitting among otherwise synthesised samples
 can be shown to be safe without anyone having to re-derive where it came from.
 
 Keep the filename as freesound produced it. It encodes the id, which is the only thing that leads
@@ -37,3 +37,13 @@ rather than typed in, so a different recording of the same shape works without e
 
 If this recording ever has to go, `tools/sounds.py --synth-cannon` regenerates the synthesised
 cannon it replaced and `KSArmorySounds.xml` goes back to a single looping `<Sound>`.
+
+## The 5"/54 Mk 42
+
+| File | Source | Licence |
+| --- | --- | --- |
+| `mk42/Mk42_Gunshot.wav` | recorded for this mod by its author | ships under the mod's own MIT licence |
+
+The gun's gunshot, one per round. Kept stereo as recorded, so the cut can be remade:
+`./tools/mk42-sounds.py` writes the mono `src/KSArmory/Sounds/KSArmory_Mk42_Gunshot.wav` from it, and
+`--report` prints what it would write. The shell's burst has no sound of its own.

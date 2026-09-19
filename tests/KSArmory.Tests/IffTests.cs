@@ -236,4 +236,164 @@ public class IffTests
 
         Assert.Equal(Allegiance.Neutral, blue.Classify("Green"));
     }
+
+    // ---- Which team a name puts a craft on -------------------------------
+    //
+    // The half that runs before Classify gets a string. Everything above assumes a team name has
+    // already been resolved off the craft; this is where that resolution can go wrong, and it is
+    // the half that decides what a player's roster actually does.
+
+    private static readonly List<string> Sides = ["Red", "Blue"];
+
+    [Fact]
+    public void ANameCarryingATeamIsOnThatTeam()
+    {
+        Assert.Equal("Red", Teams.TeamFor("Red Leader", Sides));
+    }
+
+    [Fact]
+    public void MatchingIsCaseInsensitive()
+    {
+        Assert.Equal("Blue", Teams.TeamFor("BLUE four", Sides));
+    }
+
+    [Fact]
+    public void ANameCarryingNoTeamIsOnNone()
+    {
+        Assert.Null(Teams.TeamFor("Kerbal X", Sides));
+    }
+
+    [Fact]
+    public void AnEmptyRosterPutsNothingOnATeam()
+    {
+        Assert.Null(Teams.TeamFor("Red Leader", []));
+    }
+
+    /// <summary>A blank entry in the roster matches every name, so it is skipped rather than won by.</summary>
+    [Fact]
+    public void ABlankTeamNameIsNotATeam()
+    {
+        Assert.Null(Teams.TeamFor("Red Leader", ["", "   "]));
+    }
+
+    /// <summary>
+    /// Longest match wins, which is the whole reason the loop does not stop at the first hit:
+    /// listing "Red" and "Red Team" together is exactly the ambiguity a player creates by naming
+    /// their sides that way, and the specific one has to win.
+    /// </summary>
+    [Fact]
+    public void TheLongestMatchWinsWhateverOrderTheRosterIsIn()
+    {
+        Assert.Equal("Red Team", Teams.TeamFor("Red Team Leader", ["Red", "Red Team"]));
+        Assert.Equal("Red Team", Teams.TeamFor("Red Team Leader", ["Red Team", "Red"]));
+    }
+
+    /// <summary>
+    /// The trap, pinned rather than fixed. A substring match is all a craft's display name can
+    /// support, so a name that merely contains a team's is assigned to it — and no ordering or
+    /// longest-match rule separates "Redstone" from "Red", because there is only one candidate.
+    ///
+    /// <para>Here so that whoever changes the matching rule finds out what they have changed. It
+    /// is the documented cost of having no team field to read.</para>
+    /// </summary>
+    [Fact]
+    public void ANameThatMerelyContainsATeamIsStillPutOnIt()
+    {
+        Assert.Equal("Red", Teams.TeamFor("Redstone", Sides));
+    }
+
+    // ---- Stepping a switcher row's flag ----------------------------------
+
+    private static readonly string[] Declared = ["Red", "Blue", "Green"];
+
+    /// <summary>
+    /// No team is not a stop on the way round, so every team is reached without passing through
+    /// it. Taking a craft off every team is the flag's right-click menu.
+    /// </summary>
+    [Fact]
+    public void TheFlagStepsThroughTheDeclaredTeamsAndWrapsToTheFirst()
+    {
+        Assert.Equal("Red", Teams.Next(null, Declared));
+        Assert.Equal("Blue", Teams.Next("Red", Declared));
+        Assert.Equal("Green", Teams.Next("Blue", Declared));
+        Assert.Equal("Red", Teams.Next("Green", Declared));
+    }
+
+    [Fact]
+    public void WithTwoTeamsTheFlagIsAToggle()
+    {
+        string[] two = ["Cats", "Dogs"];
+
+        Assert.Equal("Dogs", Teams.Next("Cats", two));
+        Assert.Equal("Cats", Teams.Next("Dogs", two));
+    }
+
+    [Fact]
+    public void TheFlagMatchesATeamWhateverItsCase()
+        => Assert.Equal("Blue", Teams.Next("red", Declared));
+
+    /// <summary>
+    /// A team that has since been removed from the list would otherwise be a flag that steps to
+    /// nothing, or a row stuck on a team nobody can see.
+    /// </summary>
+    [Fact]
+    public void ATeamNoLongerDeclaredStepsToTheFirst()
+        => Assert.Equal("Red", Teams.Next("Orange", Declared));
+
+    [Fact]
+    public void WithNothingDeclaredThereIsNothingToStepTo()
+    {
+        Assert.Null(Teams.Next(null, []));
+        Assert.Null(Teams.Next("Red", []));
+    }
+
+    // ---- Declaring and removing teams ------------------------------------
+
+    [Fact]
+    public void ADeclaredTeamIsTrimmedAndABlankOneIsNot()
+    {
+        List<string> roster = [];
+
+        Assert.Equal("Cats", Teams.Declare(roster, "  Cats "));
+        Assert.Null(Teams.Declare(roster, "   "));
+        Assert.Null(Teams.Declare(roster, null));
+        Assert.Equal(new[] { "Cats" }, roster);
+    }
+
+    /// <summary>
+    /// A name typed in another case is the team that already exists, and the craft is put on the
+    /// roster's spelling: two entries differing only in case would be one team listed twice.
+    /// </summary>
+    [Fact]
+    public void DeclaringATeamThatExistsInAnotherCaseAnswersWithTheOneThatExists()
+    {
+        List<string> roster = ["Cats"];
+
+        Assert.Equal("Cats", Teams.Declare(roster, "cats"));
+        Assert.Single(roster);
+    }
+
+    /// <summary>
+    /// A policy still holding a removed team still has a side: every team reads hostile against it,
+    /// while the switcher lists its craft under No team.
+    /// </summary>
+    [Fact]
+    public void ForgettingATeamTakesItOutOfEveryPartOfThePolicy()
+    {
+        var own = new IffPolicy { OwnTeam = "Cats" };
+        own.Forget("cats");
+
+        Assert.Null(own.OwnTeam);
+        Assert.Equal(Allegiance.Unknown, own.Classify("Dogs"));
+
+        var other = new IffPolicy { OwnTeam = "Dogs" };
+        other.AlliedTeams.Add("Cats");
+        other.NeutralTeams.Add("Birds");
+        other.Forget("Cats");
+        other.Forget("Birds");
+
+        Assert.Equal("Dogs", other.OwnTeam);
+        Assert.Empty(other.AlliedTeams);
+        Assert.Empty(other.NeutralTeams);
+    }
 }

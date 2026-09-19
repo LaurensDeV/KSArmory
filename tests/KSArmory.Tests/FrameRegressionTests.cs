@@ -24,7 +24,8 @@ public class FrameRegressionTests
 
     private static Interceptor Round(double3 velocity, double3 platformEcl = default,
                                      double3 frameVelocityEcl = default) =>
-        new(new double3(0, 0, 0), velocity, TargetHandle, tube: 1, platformEcl, frameVelocityEcl);
+        new(new double3(0, 0, 0), velocity, TargetHandle, tube: 1, platformEcl, frameVelocityEcl)
+        { Munition = Vacuum() };
 
     /// <summary>
     /// An absolute Ecl position differenced against an anchor captured a frame earlier draws a

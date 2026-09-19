@@ -54,6 +54,34 @@ internal readonly record struct Aimpoint(
     /// <summary>Nothing to arrive at. What a bomb is released with.</summary>
     public static readonly Aimpoint Nothing = new(AimpointKind.None, null, default, default, 0.0);
 
+    /// <summary>
+    /// Whether this has to be re-read from the world every frame.
+    ///
+    /// <para>A place on a body does, always. It is only still in that body's <em>own</em> frame:
+    /// held as the ecliptic coordinate it was when it was named, it is left behind by ~29.8 km/s
+    /// of orbital motion plus up to 465 m/s of spin. Whatever is chasing it — a round, or a sensor
+    /// told to watch it — slides off within a second.</para>
+    /// </summary>
+    public bool NeedsResampling => Kind == AimpointKind.Ground;
+
+    /// <summary>
+    /// Whether this still names anything, given whether its handle is still alive.
+    ///
+    /// <para>A craft that has been destroyed takes its aimpoint with it. Ground and a bare
+    /// coordinate do not — neither can die, and something told to watch a valley should find it
+    /// there on looking back. That asymmetry is why a designation is an aimpoint rather than a
+    /// contact: a contact-shaped one would have to be dropped the moment nothing reported it,
+    /// and nothing ever reports a hillside.</para>
+    /// </summary>
+    public bool Survives(bool handleAlive)
+        => Kind switch
+        {
+            AimpointKind.None => false,
+            AimpointKind.Ground => true,
+            AimpointKind.Point => true,
+            _ => handleAlive,
+        };
+
     /// <summary>A moving craft or component, tracked by handle.</summary>
     public static Aimpoint OnVehicle(object handle, double3 positionEcl, double3 velocityEcl, double radius)
         => new(AimpointKind.Vehicle, handle, positionEcl, velocityEcl, radius);

@@ -23,6 +23,16 @@ internal interface IProjectile
     /// <summary>Seconds since launch.</summary>
     double Age { get; }
 
+    /// <summary>
+    /// The longest step this round can be integrated across <em>right now</em>.
+    ///
+    /// <para>Not a constant, because a round's needs change with where it is: coasting in vacuum it
+    /// can take a step of a third of a second, and the same round entering the atmosphere cannot.
+    /// Asking the round rather than its profile is what lets the world run fast for the long coast
+    /// and slow itself for the minute that matters.</para>
+    /// </summary>
+    double FaithfulStepSeconds { get; }
+
     // ---- Where it is ----------------------------------------------------
 
     /// <summary>Absolute position in the ecliptic frame.</summary>
@@ -65,6 +75,24 @@ internal interface IProjectile
     /// never read by the simulation — it exists so the body can be anchored to its tube.
     /// </summary>
     double3 LaunchAnchorPartFrame { get; set; }
+
+    /// <summary>
+    /// Which way it left, in Ecl. Set at launch and never updated afterwards.
+    ///
+    /// <para>A body released in vacuum keeps the attitude it was let go with. Reading the
+    /// launcher's <em>current</em> tube axis instead ties a round that has already gone to the
+    /// craft that dropped it, so rolling the launcher rolls the rounds in flight with it.</para>
+    /// </summary>
+    double3 ReleaseHeadingEcl { get; set; }
+
+    /// <summary>
+    /// The platform's attitude when this round left, as Asmb2Ecl. Set at launch, never updated.
+    ///
+    /// <para>The launch anchor is a point in the world written down in the launcher's frame, so it
+    /// has to be carried back through however far the craft has turned since. Without this a
+    /// spinning launcher swings every round already in flight around with it.</para>
+    /// </summary>
+    doubleQuat LaunchAttitude { get; set; }
 
     /// <summary>
     /// Which round this is. A launcher flying more than one weapon steps and fuses each by its
@@ -118,10 +146,54 @@ internal interface IProjectile
     // ---- Behaviour -------------------------------------------------------
 
     /// <summary>
+    /// Ends this round because something else destroyed it in the air.
+    ///
+    /// <para>The only state change a projectile does not decide for itself, and the reason it is
+    /// on the interface rather than beside the fuse: what shoots a round down is another weapon,
+    /// which reaches it through this and nothing else. A round already finished ignores it, so a
+    /// shell and a warhead arriving in the same frame cannot end it twice.</para>
+    ///
+    /// <para>Sets no miss distance and fires no warhead. Its own launcher reaps it and says so.</para>
+    /// </summary>
+    void ShootDown();
+
+    /// <summary>
     /// How far this round's fins have deployed, 0 to 1. Returns 1 for anything with no fins to
     /// animate, so the caller needs no special case.
     /// </summary>
     double FinDeployment(MunitionProfile munition);
+
+    /// <summary>
+    /// The lateral acceleration the round is currently commanding, in the ecliptic frame. Zero for
+    /// anything that does not steer, and for anything that has lost what it was steering at.
+    ///
+    /// <para>Presentation only: it is what the blades are drawn deflected by, through
+    /// <see cref="FinMixer"/>. Nothing reads it back, so the flight model is unaffected by whether
+    /// a round has fins drawn at all.</para>
+    /// </summary>
+    double3 SteeringCommandEcl { get; }
+
+    /// <summary>
+    /// Moves every stored offset onto a different anchor, without moving the round.
+    /// </summary>
+    /// <param name="offsetDelta">
+    /// The old anchor's position minus the new one's, both sampled at the same instant. Adding it
+    /// to an offset measured from the old anchor gives the offset from the new one.
+    /// </param>
+    /// <remarks>
+    /// <para>Needed because the offsets are the drawn quantity and there are several of them: the
+    /// current one, the launch one that <see cref="TravelSinceLaunch"/> differences against, and
+    /// every point of the trail. <see cref="OffsetFromPlatform"/> alone self-corrects on the next
+    /// step, so a partial re-anchor looks right and leaves the trail drawn to wherever the old
+    /// anchor was — the width of a planet, when a round outlives the craft that fired it and takes
+    /// the body it is orbiting as its anchor instead.</para>
+    ///
+    /// <para>Shifting the launch offset by the same delta is what keeps
+    /// <see cref="TravelSinceLaunch"/> invariant, which its own contract requires: it is a
+    /// difference of two offsets against one anchor, so it must not notice the anchor changing.
+    /// </para>
+    /// </remarks>
+    void Reanchor(double3 offsetDelta);
 
     /// <summary>
     /// Advances by <paramref name="dt"/> simulated seconds.

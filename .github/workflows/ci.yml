@@ -64,16 +64,18 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
-      - name: Install Pillow
-        run: pip install --quiet pillow
+      # Pillow for the texture and sprite generators, numpy for checkring.py. A missing one is
+      # not a skip: check-all.sh runs the checker and the import error fails the job.
+      - name: Install Pillow and numpy
+        run: pip install --quiet pillow numpy
 
       - name: Install shellcheck
         run: sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
 
       # One script, two callers -- the same discipline check-commit-msg.sh uses. Everything the
       # tooling job checks lives in tools/check-all.sh, so a contributor's pre-push hook and this
-      # job cannot disagree about what "the checks" are. It skips nothing here: shellcheck and
-      # Pillow are installed above, and the assemblies are absent, so the build half is skipped
+      # job cannot disagree about what "the checks" are. It skips nothing here: shellcheck, Pillow
+      # and numpy are installed above, and the assemblies are absent, so the build half is skipped
       # with a notice and covered by the build job below.
       - name: Everything that does not need the game
         run: ./tools/check-all.sh

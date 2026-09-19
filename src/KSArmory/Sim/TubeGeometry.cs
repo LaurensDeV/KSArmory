@@ -24,6 +24,14 @@ public static class TubeGeometry
 
     public static readonly double3 ElevationAxis = new(0, 0, 1);
 
+    /// <summary>
+    /// The host's long axis, which is where a rail points and the direction every tube is
+    /// declared along. Perpendicular to <see cref="TraverseAxis"/>, and that is the whole
+    /// distinction <see cref="BoresightMode.PartForward"/> and
+    /// <see cref="BoresightMode.MountNormal"/> exist to keep apart.
+    /// </summary>
+    public static readonly double3 ForwardAxis = new(0, 1, 0);
+
     /// <summary>How far the turret has traversed, as a rotation in the part's frame.</summary>
     public static doubleQuat TurretRotation(double bearingRad)
         => doubleQuat.CreateFromAxisAngle(TraverseAxis, bearingRad);
@@ -79,30 +87,29 @@ public static class TubeGeometry
     }
 
     /// <summary>
-    /// The shortest rotation carrying one direction onto another.
+    /// Where one tube's mouth sits from the mean of all of them, in the launcher part's frame.
     ///
-    /// <para>The optical head points rather than trains, so unlike every other assembly here it
-    /// has no axis of its own and takes an arbitrary rotation. Antiparallel is the case worth
-    /// handling: the cross product vanishes and any perpendicular axis is equally correct, which
-    /// is a half turn about whichever one is picked rather than a NaN.</para>
+    /// <para>The mean is what a release prediction flies, so this is the whole of what one round
+    /// starts from that the prediction does not. Built in the part frame on purpose: turning it
+    /// into the world is a rotation and carries none of the ecliptic's motion, where differencing
+    /// two world positions would.</para>
     /// </summary>
-    public static doubleQuat RotationFromTo(double3 from, double3 to)
+    public static bool TryOffsetFromMeanPartFrame(LauncherProfile profile, int tubeIndex,
+                                                  double3 podPosition, doubleQuat podRotation,
+                                                  out double3 offset)
     {
-        double3 a = Vec.Unit(from);
-        double3 b = Vec.Unit(to);
-        if (!Vec.IsFinite(a) || !Vec.IsFinite(b) || a.Equals(Vec.Zero) || b.Equals(Vec.Zero))
+        offset = Vec.Zero;
+        if (!TryMuzzlePartFrame(profile, tubeIndex, podPosition, podRotation, out double3 mine)) return false;
+
+        double3 sum = Vec.Zero;
+        for (int tube = 0; tube < profile.TubeCount; tube++)
         {
-            return doubleQuat.Identity;
+            if (!TryMuzzlePartFrame(profile, tube, podPosition, podRotation, out double3 mouth)) return false;
+            sum += mouth;
         }
 
-        double dot = Math.Clamp(Vec.Dot(a, b), -1.0, 1.0);
-        if (dot > 1.0 - 1e-12) return doubleQuat.Identity;
-        if (dot < -1.0 + 1e-12)
-        {
-            return doubleQuat.CreateFromAxisAngle(Vec.AnyPerpendicular(a), Math.PI);
-        }
-
-        return doubleQuat.CreateFromAxisAngle(Vec.Unit(Vec.Cross(a, b)), Math.Acos(dot));
+        offset = mine - sum / profile.TubeCount;
+        return Vec.IsFinite(offset);
     }
 
     /// <summary>
@@ -179,6 +186,21 @@ public static class TubeGeometry
                          profile.GunReferenceElevationRad, bearingRad, elevationRad);
 
     /// <summary>
+    /// A barrel recoiling inside the cannon: the cannon's own pose, run back along the bore.
+    ///
+    /// <para>It shares the cannon's trunnion, so traverse and elevation are the cannon's exactly and
+    /// the slide is all it adds. A barrel with a trunnion of its own would part company with the
+    /// breech at every elevation but the one it was modelled at.</para>
+    /// </summary>
+    public static DrivePose BarrelPose(LauncherProfile profile, double bearingRad, double elevationRad,
+                                       double recoilMetres)
+    {
+        DrivePose gun = GunPose(profile, bearingRad, elevationRad);
+        double3 back = gun.Rotation * (GunAxisGunFrame(profile) * -recoilMetres);
+        return new DrivePose(gun.Position + back, gun.Rotation);
+    }
+
+    /// <summary>
     /// An assembly that elevates about a trunnion offset from the traverse axis, then rides the
     /// turret round. Because the trunnion is offset, the position moves with the traverse and has
     /// to be rewritten too.
@@ -192,6 +214,68 @@ public static class TubeGeometry
             ElevationAxis, referenceElevationRad - elevationRad);
 
         return new DrivePose(profile.TurretPivot + traverse * pivotFromTurret, traverse * elevate);
+    }
+
+    /// <summary>
+    /// How far apart two muzzles can sit and still share one flash (m).
+    ///
+    /// <para>Comfortably above the spacing inside a barrel cluster and comfortably below the gap
+    /// between two of them: a Phalanx's six sit within 0.2 m of each other, and a Pantsir's four
+    /// are in two sponsons 3.5 m apart.</para>
+    /// </summary>
+    public const double GunFlashClusterMetres = 0.6;
+
+    /// <summary>
+    /// Groups muzzles that are close enough to share one flash, and returns how many groups.
+    ///
+    /// <para><b>Averaging every muzzle into one point is wrong for anything but a single cluster.</b>
+    /// A rotary cannon's barrels sit within a hand's breadth, so their mean is on the gun. A mount
+    /// with a sponson either side has its mean <em>between</em> them — on the vehicle's centreline,
+    /// where there is no gun and nothing is firing.</para>
+    ///
+    /// <para>Single-link: a muzzle joins a group if it is within
+    /// <see cref="GunFlashClusterMetres"/> of any muzzle already in it, so a row of barrels stays
+    /// one group however long it is.</para>
+    /// </summary>
+    /// <param name="into">Filled with each muzzle's group index, in the muzzles' own order.</param>
+    public static int ClusterMuzzles(ReadOnlySpan<double3> muzzles, double radius, Span<int> into)
+    {
+        int n = Math.Min(muzzles.Length, into.Length);
+        if (n <= 0) return 0;
+
+        for (int i = 0; i < n; i++) into[i] = -1;
+
+        int groups = 0;
+        for (int i = 0; i < n; i++)
+        {
+            if (into[i] >= 0) continue;
+
+            into[i] = groups;
+
+            // Grow the group until nothing else is within reach of anything already in it.
+            bool grew = true;
+            while (grew)
+            {
+                grew = false;
+                for (int a = 0; a < n; a++)
+                {
+                    if (into[a] != groups) continue;
+
+                    for (int b = 0; b < n; b++)
+                    {
+                        if (into[b] >= 0) continue;
+                        if (Vec.Len(muzzles[b] - muzzles[a]) > radius) continue;
+
+                        into[b] = groups;
+                        grew = true;
+                    }
+                }
+            }
+
+            groups++;
+        }
+
+        return groups;
     }
 
     /// <summary>
@@ -210,6 +294,22 @@ public static class TubeGeometry
     }
 
     /// <summary>
+    /// A carried director's base, riding the traverse and nothing else.
+    ///
+    /// <para>The launcher's whole involvement with a director. The head above it is aimed by its
+    /// own drive against this pose, read back off the engine rather than passed along — so the
+    /// turret never learns it is carrying a sight, and the sight never learns it is on a
+    /// turret.</para>
+    /// </summary>
+    public static DrivePose OpticBasePose(LauncherProfile profile, double bearingRad)
+    {
+        doubleQuat traverse = TurretRotation(bearingRad);
+
+        return new DrivePose(profile.TurretPivot + traverse * profile.OpticBaseFromTurret,
+                             traverse);
+    }
+
+    /// <summary>
     /// The direction a sensor's boresight names, in the launcher part's own frame. False for
     /// <see cref="BoresightMode.LocalUp"/>, which depends on where the parent body is and so is not
     /// a part-frame direction at all — the caller resolves that one.
@@ -220,7 +320,13 @@ public static class TubeGeometry
     {
         switch (mode)
         {
+            // +Y, the axis a tube is declared along. Not TraverseAxis: that is +X, the mounting
+            // face's normal, and a seeker given it searches square to the rail carrying it.
             case BoresightMode.PartForward:
+                partFrame = ForwardAxis;
+                return true;
+
+            case BoresightMode.MountNormal:
                 partFrame = TraverseAxis;
                 return true;
 
@@ -259,17 +365,74 @@ public static class TubeGeometry
     /// origin, and the two differ by metres on a landed craft.
     /// </summary>
     public static double3 BodyPositionPartFrame(double3 anchorPartFrame, double3 travelEcl,
-                                                doubleQuat ecl2Asmb, doubleQuat asmb2Part)
-        => anchorPartFrame + asmb2Part * (ecl2Asmb * travelEcl);
+                                                doubleQuat ecl2Asmb, doubleQuat asmb2Part,
+                                                doubleQuat sinceLaunchAsmb)
+        => CarryAnchor(anchorPartFrame, sinceLaunchAsmb, asmb2Part)
+           + asmb2Part * (ecl2Asmb * travelEcl);
 
     /// <summary>
-    /// Which way a round in flight points, in the launcher part's frame.
-    /// <paramref name="directionEcl"/> must be the round's <em>local</em> velocity: Ecl velocity
-    /// carries ~29.8 km/s of orbital motion and would point every round the same way.
+    /// The launch anchor as it stands now, after the craft has turned underneath it.
+    ///
+    /// <para><b>The anchor is a point in the world, written down in the part's frame.</b> The
+    /// travel term is converted through the craft's <em>current</em> attitude every frame and so
+    /// stays put; the anchor was not, so it rode the craft. Rolling the launcher then swung every
+    /// round already in flight about the craft's own centre — on a stack that lever arm is the
+    /// whole distance from the tube to the centre of mass, which is metres, not millimetres.</para>
+    ///
+    /// <para><paramref name="sinceLaunchAsmb"/> is <c>Conjugate(attitude now) * attitude at
+    /// launch</c>: identity while the craft holds still, so a launcher that never turns is
+    /// untouched by this and every round fired before it behaves exactly as it did.</para>
     /// </summary>
-    public static doubleQuat BodyRotationPartFrame(double3 directionEcl,
-                                                   doubleQuat ecl2Asmb, doubleQuat asmb2Part)
-        => FireGeometry.RotationFromNose(asmb2Part * (ecl2Asmb * directionEcl));
+    public static double3 CarryAnchor(double3 anchorPartFrame, doubleQuat sinceLaunchAsmb,
+                                      doubleQuat asmb2Part)
+    {
+        if (!IsRotation(sinceLaunchAsmb)) return anchorPartFrame;
+
+        double3 carried = asmb2Part * (sinceLaunchAsmb * (doubleQuat.Conjugate(asmb2Part) * anchorPartFrame));
+        return Vec.IsFinite(carried) ? carried : anchorPartFrame;
+    }
+
+    // A quaternion that is not unit length has never been set -- a round from before the field
+    // existed -- so whatever it was going to carry stands as it is rather than being multiplied by
+    // nonsense.
+    private static bool IsRotation(doubleQuat q)
+    {
+        double norm = (q.X * q.X) + (q.Y * q.Y) + (q.Z * q.Z) + (q.W * q.W);
+        return double.IsFinite(norm) && Math.Abs(norm - 1.0) <= 1e-6;
+    }
+
+    /// <summary>
+    /// The attitude a round leaves at, body to ecliptic: as it sat in its tube, at the launcher's
+    /// own roll.
+    ///
+    /// <para><b>A nose direction does not decide a rotation, and the leftover is the roll.</b>
+    /// Swinging the mesh's nose onto the flight direction by the shortest arc leaves that roll to
+    /// whatever the arc happens to give, which changes as the round noses over: 51° of roll over a
+    /// 5 km drop, at 1–5°/s. Nothing aerodynamic is involved either way — <see cref="FinMixer"/> is
+    /// drawn only. So the attitude lives <em>in the ecliptic</em>, starts here, and
+    /// <see cref="BodyAttitude.Turn"/> carries it a frame's turn at a time, which adds no roll about
+    /// the nose. Building it in the part frame instead glues the roll to the launching craft:
+    /// measured at a degree of roll per degree the craft turns, on rounds that had already
+    /// gone.</para>
+    /// </summary>
+    /// <param name="releaseHeadingEcl">What it left along, captured at launch.</param>
+    /// <param name="launchAttitude">The platform's attitude when it left, as Asmb2Ecl. Unset falls
+    /// back to the shortest arc onto the heading, which still points the nose correctly.</param>
+    public static doubleQuat ReleaseAttitudeEcl(double3 releaseHeadingEcl, doubleQuat launchAttitude,
+                                                doubleQuat asmb2Part)
+    {
+        if (!Vec.IsFinite(releaseHeadingEcl) || Vec.Len2(releaseHeadingEcl) < 1e-9) return doubleQuat.Identity;
+        if (!IsRotation(launchAttitude)) return FireGeometry.RotationFromNose(releaseHeadingEcl);
+
+        doubleQuat ecl2PartAtLaunch = asmb2Part * doubleQuat.Conjugate(launchAttitude);
+        doubleQuat seated = FireGeometry.RotationFromNose(ecl2PartAtLaunch * releaseHeadingEcl);
+        return doubleQuat.Conjugate(ecl2PartAtLaunch) * seated;
+    }
+
+    /// <summary>A body's ecliptic attitude, as the rotation its subpart is written with.</summary>
+    public static doubleQuat BodyRotationPartFrame(doubleQuat attitudeEcl, doubleQuat ecl2Asmb,
+                                                   doubleQuat asmb2Part)
+        => asmb2Part * ecl2Asmb * attitudeEcl;
 
     /// <summary>
     /// Per-axis scale for a fin set. X is along the body, so length is untouched and Y and Z carry

@@ -43,6 +43,15 @@
     <None Update="KSArmory*.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <!--
+      This mod's own weapons, read by KSArmory rather than by KSA and therefore deliberately not
+      in mod.toml's assets array. It sits in a KSArmory/ folder because that is where the scan
+      looks inside *every* mod, this one included - the built-ins go through the same path a
+      third-party pack does.
+    -->
+    <None Update="KSArmory\Weapons.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <!-- The launcher's art. Regenerate with tools/model/build.sh; both are committed so a
          plain build does not need Blender. -->
     <None Update="Meshes\**\*.glb">
@@ -75,6 +84,8 @@
     <Reference Include="$(KsaDllDir)Brutal.Core.Strings.dll" Private="false" />
     <Reference Include="$(KsaDllDir)Brutal.ImGui.dll" Private="false" />
     <Reference Include="$(KsaDllDir)Brutal.ImGui.Abstractions.dll" Private="false" />
+    <!-- KeyHash, which keeps the KSA namespace but is defined in this assembly. -->
+    <Reference Include="$(KsaDllDir)Planet.Render.Core.dll" Private="false" />
     <!--
       JobScheduler, for KsaWorld.WaitForVehicleSolvers. Destroying a vehicle removes it from the
       list KSA's solver jobs are enumerating on worker threads, and no mod hook lands in the window
@@ -83,6 +94,19 @@
     <Reference Include="$(KsaDllDir)Brutal.Concurrency.dll" Private="false" />
     <!-- Needed to compile against Vehicle's mass-properties signatures (Symmetric3x3). -->
     <Reference Include="$(KsaDllDir)BepuUtilities.dll" Private="false" />
+    <!--
+      GlfwKeyAction, for VehicleCommand. KSA exposes no way to set a throttle or light an engine
+      except Vehicle.ProcessInput, which takes the key action the keyboard would have sent.
+    -->
+    <Reference Include="$(KsaDllDir)Brutal.Glfw.dll" Private="false" />
+    <!--
+      Harmony, for Ksa/AttitudeHook.cs and nothing else. KSA double-buffers a vehicle's flight
+      computer across the frame and every StarMap hook lands on the wrong side of it, so an
+      attitude command written from one is overwritten before it is ever read - see
+      docs/BLOCKED-ON-KSA.md. It ships with StarMap, so this adds no dependency a player has to
+      install. Private=false for the same reason as the rest: it is already loaded.
+    -->
+    <Reference Include="$(KsaDllDir)0Harmony.dll" Private="false" />
   </ItemGroup>
 
   <!--

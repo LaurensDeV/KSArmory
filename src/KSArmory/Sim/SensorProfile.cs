@@ -1,5 +1,29 @@
 namespace KSArmory;
 
+/// <summary>
+/// What picture, if any, a set puts in front of the operator.
+///
+/// <para>Not every sensor is one somebody reads. A seeker head is aboard the round and cues the
+/// shooter with a growl and a reticle; a designation set has no array to sweep. Presenting either
+/// as a scope of tracks shows a search picture for something that never searched.</para>
+///
+/// <para>The exception is real and is why this is not a flag: an anti-radiation seeker's whole
+/// output <em>is</em> a list of who is radiating and roughly where, and displaying it to the crew
+/// is what a HARM does. That is a different picture from a search scope, not the same one under
+/// another name.</para>
+/// </summary>
+public enum ScopePresentation
+{
+    /// <summary>Nothing to show. A seeker head, a bombsight, a designation set.</summary>
+    None,
+
+    /// <summary>A search picture — what the set is sweeping and what it holds.</summary>
+    Search,
+
+    /// <summary>Who is radiating, and roughly where. A passive anti-radiation seeker's own list.</summary>
+    Emitters,
+}
+
 /// <summary>Where a sensor's search cone points.</summary>
 public enum BoresightMode
 {
@@ -13,10 +37,13 @@ public enum BoresightMode
     LocalUp,
 
     /// <summary>
-    /// The launcher part's own <c>+X</c>, which is its mounting "up".
+    /// The launcher part's own <c>+Y</c> — along the host's long axis, which is where a rail
+    /// points and which way a round leaves it.
     ///
-    /// <para>Follows the platform's attitude, so a launcher on a rocket keeps searching the volume
-    /// it is mounted to face however the craft is oriented.</para>
+    /// <para>Follows the platform's attitude, so a seeker on an aircraft searches ahead of the
+    /// aircraft however it is oriented. This is the one to pair with a tube, because a tube's
+    /// declared direction is <c>+Y</c> too: any other choice searches a volume the launcher
+    /// cannot shoot into.</para>
     /// </summary>
     PartForward,
 
@@ -28,6 +55,17 @@ public enum BoresightMode
     /// <see cref="LocalUp"/> with extra steps.</para>
     /// </summary>
     TurretAxis,
+
+    /// <summary>
+    /// The part's own <c>+X</c> — the outward normal of the face it is bolted to.
+    ///
+    /// <para>What an instrument looking <em>away from its mount</em> wants: a bomb sight under a
+    /// pylon looks down, and a pod stows looking out of its mounting face. Perpendicular to
+    /// <see cref="PartForward"/> by construction at every attitude, so choosing it for a seeker
+    /// gives a set that searches square to the rail it is bolted to and never sees what the
+    /// launcher is pointed at.</para>
+    /// </summary>
+    MountNormal,
 }
 
 /// <summary>
@@ -39,6 +77,19 @@ public enum BoresightMode
 /// </summary>
 public sealed class SensorProfile
 {
+    /// <summary>
+    /// No sensor — what a weapons system sees with before it knows what it is.
+    ///
+    /// <para>Zero range, so it detects nothing rather than inheriting the reach of whichever
+    /// set happens to be registered first.</para>
+    /// </summary>
+    public static readonly SensorProfile None = new()
+    {
+        Name = "",
+        DisplayName = "no sensor",
+        Range = 0f,
+    };
+
     public required string Name { get; init; }
     public required string DisplayName { get; init; }
 
@@ -58,6 +109,16 @@ public sealed class SensorProfile
     public BoresightMode BoresightSource = BoresightMode.LocalUp;
 
     /// <summary>
+    /// What this set puts in front of the operator, if anything. <b>Off by default</b>: a profile
+    /// that says nothing about it gets no scope, which is right for every seeker head and every
+    /// sight in the arsenal and wrong only for a set that genuinely searches.
+    ///
+    /// <para>EXEMPT: what kind of instrument this is, not something an operator tunes. Editing it
+    /// on a live system would claim a set has an array it does not have.</para>
+    /// </summary>
+    public ScopePresentation Scope = ScopePresentation.None;
+
+    /// <summary>
     /// A track counts as a threat if its closest point of approach to the battery falls inside
     /// this radius (m). This is what makes "passing by" targets engageable rather than only
     /// head-on ones.
@@ -72,6 +133,19 @@ public sealed class SensorProfile
 
     /// <summary>Tracks below this relative speed are ignored (m/s), e.g. docked craft.</summary>
     public float MinTargetSpeed = 15f;
+
+    /// <summary>
+    /// Whether the set finds its targets by transmitting. A radar does; an infrared seeker, an
+    /// optical head and a bomb sight do not, and none of them can be homed on.
+    ///
+    /// <para>This is what the set <em>is</em>, not what it is doing — whether it is transmitting
+    /// right now is <c>SystemConfig.RadarSilent</c>, which is the operator's switch and the only
+    /// defence against <see cref="GuidanceMode.AntiRadiation"/> that does not involve moving.</para>
+    ///
+    /// <para>Defaults to false, so a profile that says nothing about emission is invisible to an
+    /// anti-radiation round rather than accidentally becoming a target for one.</para>
+    /// </summary>
+    public bool Emits;
 
     // ---- What the set can tell targets apart by ------------------------------
     //

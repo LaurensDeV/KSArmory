@@ -3,8 +3,8 @@ using Brutal.ImGuiApi;
 namespace KSArmory;
 
 /// <summary>
-/// What belongs to the session rather than to any one installation: the world clock, what gets
-/// drawn, and what gets heard.
+/// What belongs to the session rather than to any one installation: the world clock, the teams,
+/// what gets drawn, and what gets heard.
 ///
 /// <para>Separate from the per-system panes because the test in <c>CLAUDE.md</c> is whether two
 /// sites could sensibly disagree, and none of this passes it — there is one screen, one pair of
@@ -20,12 +20,42 @@ internal sealed partial class Ui
     private void DrawWarpHold()
     {
         ImGui.Checkbox("Hold timewarp down while rounds fly", ref _config.LimitWarpInFlight);
-        ImGui.TextDisabled($"  Above ~{MaxTrackableWarp:F0}x a round cannot be simulated. Held only");
-        ImGui.TextDisabled("  while something is in the air, and given back after.");
+        Tip($"Above ~{MaxTrackableWarp:F0}x a round cannot be simulated. Held only while something is "
+            + "in the air, and given back after.");
         if (!_config.LimitWarpInFlight)
         {
             ImGui.TextDisabled("  Off: rounds under warp will lag the world and miss.");
         }
+
+        // Beside the warp hold because it is the other session setting that trades away something
+        // a player can see for something the simulation needs -- there, fidelity for speed; here,
+        // the world's own debris for frame time.
+        ImGui.Checkbox("Remove spent stages once they are clear", ref _config.DisposeSpentStages);
+        Tip($"On: a spent stage is destroyed once it is {StageDisposal.ClearOfTheCraftMetres / 1000.0:F0} km "
+            + "clear, so it stops costing frame time while it falls. Off: it falls and is simulated "
+            + "the whole way down.\n\nFrame time is what buys simulation rate -- about 2 ms a vehicle, "
+            + "and a rocket sheds four. The half a MIRV bus drops is never taken.");
+
+        // The third of the same shape: what a warhead does to a craft is one world-level rule, so
+        // two sites could not sensibly disagree about it. It also trades frame time -- one craft
+        // becomes several, and every fragment is simulated.
+        ImGui.Checkbox("Break individual parts, not whole craft", ref _config.DamageIndividualParts);
+        Tip("On: each part is judged on its own distance from the burst and its own strength, so a weak "
+            + "part breaks further out than a dense one, and losing enough of them at once still "
+            + "destroys the craft outright. Off: inside the lethal radius the whole craft is destroyed.");
+
+        ImGui.Checkbox("Weapons on one craft share a target count", ref _config.ShareTargetsAcrossWeapons);
+        Tip("On: two rails on one craft will not each fire a full salvo at the same target. "
+            + "Off: each weapon counts only its own rounds.");
+
+        ImGui.Checkbox("Mushroom clouds", ref _config.NuclearClouds);
+        Tip("On: a nuclear burst leaves a cloud standing, at 6-8 ms a frame. "
+            + "Off: the burst does the same damage and leaves nothing behind.");
+
+        ImGui.Checkbox("Dirty nuclear smoke", ref _config.DirtyNuclearSmoke);
+        Tip("On: a standing cloud is grey-brown, as a real one is for most of its life, and so is any "
+            + "rocket smoke this mod lays while one stands. Off: the cloud is white. KSA's own "
+            + "boosters keep their own colour either way.");
     }
 
     // Slow motion, well below what the game's speed control reaches. An engagement is over in a
@@ -46,29 +76,69 @@ internal sealed partial class Ui
         }
     }
 
-    // Everything that belongs to the session, in one window: what is drawn, what is heard, the
-    // one setting that changes how the weapons behave, and the developer tools.
+    // Everything that belongs to the session and to playing with the mod: what is drawn, what is
+    // heard, the teams, and the settings that change how the weapons behave.
     //
     // A window rather than a tree on the main panel, because the panel is a list of the systems in
-    // the world and that list is the only thing on it that changes as the world does. Debug is a
-    // section in here and not a window of its own: it is the same session, and two windows of
-    // settings is one more than anyone wants open.
+    // the world and that list is the only thing on it that changes as the world does.
     private void DrawSettingsPane()
     {
         if (ImGui.CollapsingHeader("Display", ImGuiTreeNodeFlags.DefaultOpen)) DrawDisplayPane();
         if (ImGui.CollapsingHeader("Sound")) DrawSoundPane();
+        if (ImGui.CollapsingHeader("Teams", ImGuiTreeNodeFlags.DefaultOpen)) DrawTeamsPane();
 
         ImGui.SeparatorText("Weapons");
         DrawWarpHold();
+    }
 
-        // Collapsed, and last: these answer questions about the mod, not about the engagement.
-        if (!ImGui.CollapsingHeader("Debug")) return;
+    // The roster of team names. The session's rather than a craft's, because a name labels a craft
+    // the same way whoever is looking at it; which side each installation takes stays with it.
+    private void DrawTeamsPane()
+    {
+        List<string> teams = _config.TeamNames;
+        string? removed = null;
 
-        // The overlay is diagnostic drawing, so its master switch belongs here rather than only
-        // under Display -- which is where an operator goes to tune it, not to find it.
-        ImGui.Checkbox("Draw debug lines", ref _config.DrawOverlays);
-        ImGui.TextDisabled("  search cone, tracks, round tracers, drive facing");
-        if (_config.DrawOverlays) ImGui.TextDisabled("  Display has the individual switches");
+        if (teams.Count == 0) ImGui.TextDisabled("No teams: every contact classifies as Unknown.");
+
+        for (int i = 0; i < teams.Count; i++)
+        {
+            ImGui.TextColored(TeamColour(i), teams[i]);
+            ImGui.SameLine();
+
+            ImGui.PushID(i);
+            if (ImGui.SmallButton("Remove")) removed = teams[i];
+            Tip("Takes every craft off this team, and out of every craft's allied and neutral lists.");
+            ImGui.PopID();
+        }
+
+        // After the loop, so the list is not shortened under the index walking it.
+        if (removed is not null) ForgetTeam(removed);
+
+        if (TextField("Add team", ref _newTeamEntry) && Teams.Declare(teams, _newTeamEntry) is not null)
+        {
+            _newTeamEntry = string.Empty;
+        }
+
+        ImGui.SameLine();
+        Help("KSA has no team field. A craft joins a team when the team's name appears anywhere in "
+             + "its name, so \"Red\" also matches \"Redstone\". Longest match wins. Name teams "
+             + "distinctly.");
+    }
+
+    // The developer tools, in a window of their own rather than a section of the settings one.
+    //
+    // Most of this answers questions about the mod rather than about the engagement, which is what
+    // separates the two windows -- but slow motion, the target spawner and the log are all reached
+    // during an engagement, and nothing wanted at that moment belongs behind a fold inside another
+    // window.
+    private void DrawDebugPane()
+    {
+        // A report, not a second switch. Config.DrawOverlays has exactly one control, under
+        // Display beside the sub-switches it governs; a second one here would be the same field
+        // under a second name, so toggling either would silently move the other.
+        ImGui.TextDisabled(_config.DrawOverlays
+                               ? "World overlay is on - Settings > Display has its switches"
+                               : "World overlay is off - turn it on under Settings > Display");
 
         ImGui.Separator();
         DrawWorldClock();
@@ -80,6 +150,8 @@ internal sealed partial class Ui
         // window holding that is a window to open, move and close for nothing.
         DrawCraftMover();
         ImGui.Separator();
+        DrawFinTest();
+        ImGui.Separator();
         DrawLogging();
         ImGui.Separator();
 
@@ -90,37 +162,53 @@ internal sealed partial class Ui
     private void DrawDisplayPane()
     {
         ImGui.Checkbox("World overlay", ref _config.DrawOverlays);
-        ImGui.TextDisabled("  everything drawn in the world around a system");
+        Tip("Everything drawn in the world around a system.");
 
         if (_config.DrawOverlays)
         {
             ImGui.Checkbox("Only the system shown in the panel",
                            ref _config.DrawOverlayForFocusedOnly);
-            ImGui.TextDisabled("  off: every crewed system draws its own");
+            Tip("Off: every crewed system draws its own.");
         }
 
         ImGui.SeparatorText("Effects");
         ImGui.Checkbox("Warhead effects", ref _config.DrawExplosions);
-        ImGui.TextDisabled("  the fireball, not a debug line -- kept when those are off");
+        Tip("KSA's own explosion, flash and sound included -- not a debug line, so kept when the "
+            + "world overlay is off.");
 
         ImGui.Checkbox("Rocket motor plume", ref _config.MotorPlume);
-        ImGui.TextDisabled("  flame at the nozzle while the motor burns; needs warhead effects on");
+        Tip("The flame at the nozzle while the motor burns.");
+        if (_config.MotorPlume && !_config.DrawExplosions)
+        {
+            ImGui.TextDisabled("  needs Warhead effects on");
+        }
+
+        ImGui.Checkbox("Rocket smoke trail", ref _config.MotorSmoke);
+        Tip("Hangs for 20 minutes and drifts on the wind -- the engine's own lifetime, shared with "
+            + "mushroom clouds.");
+
+        ImGui.SliderFloat("Smoke width", ref _config.MotorSmokeWidth, 0.1f, 4f);
+        Tip("A multiple of each round's own size. Live: smoke laid from now on uses it.");
 
         ImGui.SeparatorText("Systems");
         ImGui.Checkbox("Weapons-system markers", ref _config.DrawSystemMarkers);
-        ImGui.TextDisabled("  brackets over every system; (+) in the list pins a label");
+        Tip("Brackets over every system. Right-clicking a name in the list pins its label.");
+        ImGui.Checkbox("Lock cue", ref _config.DrawLockCue);
+        Tip("Brackets on what the selected weapon is engaging; they close as it locks.");
         ImGui.Checkbox("Radar volume", ref _config.DrawRadarVolume);
         ImGui.Checkbox("Drive facing line", ref _config.DrawTurretFacing);
-        ImGui.TextDisabled("  where the drives think they point, not where they are told to");
+        Tip("Where the drives think they point, not where they are told to.");
+        ImGui.Checkbox("Bearing reference", ref _config.DrawBearingReference);
+        Tip("White to north, green along each face of the array as the scope reads it.");
         ImGui.SliderFloat("Cone draw length (m)", ref _config.ConeDisplayMetres, 200f, 20000f);
-        ImGui.TextDisabled("  cosmetic only; detection range is set on the sensor");
+        Tip("Cosmetic only; detection range is set on the sensor.");
 
         ImGui.SeparatorText("Contacts");
         ImGui.Checkbox("Tracks", ref _config.DrawTracks);
         ImGui.Checkbox("Track marker spheres", ref _config.DrawTrackMarkers);
-        ImGui.TextDisabled("  large ball on each contact; scales with range");
+        Tip("A large ball on each contact, scaled with range.");
         ImGui.Checkbox("Predicted pass point", ref _config.DrawClosestApproach);
-        ImGui.TextDisabled("  where a threat will pass if it holds course");
+        Tip("Where a threat will pass if it holds course.");
 
         ImGui.SeparatorText("Rounds");
         ImGui.Checkbox("Rounds", ref _config.DrawMissiles);
@@ -144,25 +232,19 @@ internal sealed partial class Ui
     // switch is on -- a slider that does nothing is worse than no slider.
     private void DrawSoundPane()
     {
-        ImGui.Checkbox("Explosion sound", ref _config.BurstSound);
-        if (_config.BurstSound)
-        {
-            ImGui.SliderFloat("Explosion volume", ref _config.BurstVolume, 0f, 1f);
-        }
-
         ImGui.Checkbox("Rocket motor sound", ref _config.MotorSound);
         if (_config.MotorSound)
         {
             ImGui.SliderFloat("Motor volume", ref _config.MotorVolume, 0f, 1f);
-            ImGui.TextDisabled("  before the engine's own distance and pressure falloff, so a");
-            ImGui.TextDisabled("  round in vacuum is silent whatever this says");
+            Tip("Before the engine's own distance and pressure falloff, so a round in vacuum is "
+                + "silent whatever this says.");
         }
 
         ImGui.Checkbox("Cannon sound", ref _config.CannonSound);
         if (_config.CannonSound)
         {
             ImGui.SliderFloat("Cannon volume", ref _config.CannonVolume, 0f, 1f);
-            ImGui.TextDisabled("  pitched from each gun's own rate, so the buzz is its cycle");
+            Tip("Pitched from each gun's own rate, so the buzz is its cycle.");
         }
     }
 }

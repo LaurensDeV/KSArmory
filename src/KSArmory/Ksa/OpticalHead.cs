@@ -17,7 +17,6 @@ namespace KSArmory;
 /// </summary>
 internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalHead
 {
-    private readonly Config _config = config;
     private readonly OpticConfig _policy = policy;
 
     private readonly List<(Part, OpticProfile)> _scratch = [];
@@ -30,7 +29,10 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
 
     public SensorProfile Sensor { get; private set; } = Arsenal.EoSensor;
 
-    /// <summary>The craft it is bolted to. Pinned on creation; a head does not re-home.</summary>
+    /// <summary>
+    /// The craft it is bolted to. It moves for exactly one reason: <see cref="Rehome"/>, when a
+    /// decoupler carries this director onto another craft where it may sit at a different ordinal.
+    /// </summary>
     public Vehicle? Platform { get; private set; }
 
     public double3 PlatformEcl { get; private set; }
@@ -43,6 +45,103 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
 
     /// <summary>The gimballed head. <see cref="IOpticalHead.OpticPart"/> is this.</summary>
     public Part? OpticPart { get; private set; }
+
+    /// <summary>
+    /// The outer roll gimbal, on a head that has one. Null on every mast head, which is not a
+    /// failure: there is no such body to find.
+    /// </summary>
+    public Part? RollPart { get; private set; }
+
+    /// <summary>
+    /// Where the base is, now. <see cref="MountFrame.Fixed"/> for a director bolted to a hull,
+    /// and wherever a traverse or a hinge has carried it for one that rides something.
+    ///
+    /// <para>Read through to the part on every use rather than cached, so there is no stale copy of
+    /// this <em>within</em> a frame. It is still a frame old in two places, and saying otherwise
+    /// was wrong: <c>WeaponSystem.Update</c> writes the mount, but <c>SampleWorld</c> runs earlier
+    /// in the same hook, and the engine's viewport pass — where the camera pose is re-solved —
+    /// runs before the hook entirely. Both see the previous frame's traverse.</para>
+    ///
+    /// <para>What that costs, here, is only the eye's <em>position</em>: the Pantsir traverses
+    /// about the part's +X, which is also <see cref="OpticGeometry.MountNormal"/>, so the mount's
+    /// normal and the head's pivot offset are both invariant under it and the aim, the boresight
+    /// and the roll are untouched. That is luck rather than design — a director on a hinge, an arm,
+    /// or a traverse about any other axis would have all of them a frame stale. Measured at 0.93 m
+    /// off the axis and 70°/s: 19 cm of eye lag at a 165 ms step, which is 3.5 px at 1 km through a
+    /// 3.3° field and 18 px at 200 m. A translation, so it displaces near things and leaves the
+    /// stars alone.</para>
+    /// </summary>
+    public MountFrame Mount
+        => Director is { } director ? OpticParts.MountOf(director, Profile) : MountFrame.Fixed;
+
+    /// <summary>
+    /// Where the head points, for everything that draws it: the ball's transform, the camera's aim
+    /// and the gunner's pipper.
+    ///
+    /// <para><b>Not extrapolated, and that was measured rather than assumed.</b> Everything drawn
+    /// is a step behind the world it is drawn against, and carrying the aim one step forward at the
+    /// drive's own last turn rate does remove that — but the rate is a per-frame report, so the
+    /// lead varies frame to frame and the picture shakes. Measured through the sight at a range of
+    /// speeds: the residual it was meant to remove is 0.007° per unit of simulation speed, steady;
+    /// the lead it introduced was 0.35° at 10× against a target crossing 0.0037°, and noisy. A
+    /// small steady offset reads as a slightly off-centre picture; a large varying one reads as
+    /// jitter, which is worse at every speed above 1×.</para>
+    ///
+    /// <para>A lead taken from the <em>target's</em> angular rate rather than the drive's own turn
+    /// would be the principled version, and is not built.</para>
+    ///
+    /// <para>One accessor because the ball, the camera and the pipper are three views of one
+    /// direction: take two of them from different instants and they separate on screen, which is
+    /// worse than the lag either would have had alone.</para>
+    /// </summary>
+    public double3 AimWhenDrawn => _drive.Direction;
+
+    /// <summary>
+    /// What the operator told this head to watch, or <c>Aimpoint.Nothing</c>.
+    ///
+    /// <para>Beats the set's own pick while it lives, because it is the one input that says the
+    /// operator knows something the threat model does not. An aimpoint rather than a contact so a
+    /// place on the ground can be designated at all — nothing reports a hillside, and that is
+    /// exactly what is wanted when the interesting thing is a structure the engine does not
+    /// model.</para>
+    ///
+    /// <para>Held here rather than on <see cref="Radar"/>: this is the head's own instruction, and
+    /// it outlives the craft being flown. A director keeps watching what it was told to watch when
+    /// the player takes another seat.</para>
+    /// </summary>
+    public Aimpoint Designation { get; private set; } = Aimpoint.Nothing;
+
+    /// <summary>What the designation is, for the panel to name.</summary>
+    public string DesignationName { get; private set; } = "nothing";
+
+    /// <summary>Points the head at something, until told otherwise.</summary>
+    public void Designate(Aimpoint aim, string what)
+    {
+        Designation = aim;
+        DesignationName = what;
+        _whyNotWatching = "";
+
+        // A head has its own cursor and manual modes, separate from the launcher's -- and both sit
+        // above the designation in AimPartFrame, so leaving them on is a designation that never
+        // moves the head. Switched off rather than out-ranked, for the reason the system's are:
+        // "follow this" replaces "follow my cursor", and the tick boxes going out is what says so.
+        bool wasDriven = _policy.MouseAim || _policy.Manual;
+        _policy.MouseAim = false;
+        _policy.Manual = false;
+
+        Log.Info($"director watching {what}"
+                 + (wasDriven ? " (mouse aim and manual off: it now follows this)" : ""));
+    }
+
+    /// <summary>Hands the head back to its own set.</summary>
+    public void ClearDesignation()
+    {
+        if (Designation.Kind == AimpointKind.None) return;
+
+        Log.Info($"director released {DesignationName}");
+        Designation = Aimpoint.Nothing;
+        DesignationName = "nothing";
+    }
 
     /// <summary>Its own set. A director is a sensor in its own right, not a weapon's eye.</summary>
     public Radar Radar { get; } = new(config, policy);
@@ -68,14 +167,32 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
     ///
     /// <para>Rigid with the head is the default because it is what a camera bolted to a craft
     /// does — it rolls with the vehicle and looking sideways stays sideways. It also has no
-    /// singularity worth the name: the head's up is built to stay near the mount's normal and is
-    /// continuous everywhere the travel allows, so there is nothing to carry and nothing to
+    /// singularity worth the name: a mast head's up is built to stay near the mount's normal and
+    /// is continuous everywhere the travel allows, so there is nothing to carry and nothing to
     /// flip.</para>
+    ///
+    /// <para><b>A roll-nod head takes the other end of its own up, and that is derotation.</b> Its
+    /// nose rolls, so the scene turns in the focal plane — half a turn of roll and the picture is
+    /// upside down — and every pod of the class counters it, optically with a prism or, as Litening
+    /// does, in the video processor. Referencing the forward side of the nod plane is that counter:
+    /// what the pod is bolted to stays at the top of the picture however far the nose has rolled.
+    /// Its two singular directions are the keyhole and dead astern, and the travel excludes
+    /// both.</para>
     /// </summary>
-    public double3 RollReferenceEcl { get; private set; } = new(0, 0, 1);
+    /// <para>Resolved on every read rather than sampled once, because it is used <em>beside</em> a
+    /// forward that the engine's own pass re-solves. Sampled in <c>SampleWorld</c> it came from the
+    /// drive as it stood a frame earlier, so the camera's up and its forward were one frame apart —
+    /// and what survives that mismatch is a <b>roll</b>, which turns the whole picture rather than
+    /// nudging it. That grows with how far the head turned in the frame, so it scales with
+    /// simulation speed and reads as the entire sight shaking under warp.</para>
+    public double3 RollReferenceEcl => ResolveRollReference();
 
-    /// <summary>What it is watching.</summary>
-    public Track? LockedTrack => Radar.Locked;
+    /// <summary>
+    /// What it is watching — the best contact on scope, not the best one a weapon may shoot.
+    /// A director is an instrument: a passer-by that will never close is exactly the thing an
+    /// operator wants the picture on, and a gun is right to ignore it.
+    /// </summary>
+    public Track? LockedTrack => Radar.Watched;
 
     /// <summary>True once the head has caught up with what it was told to look at.</summary>
     public bool OpticOnTarget => _drive.OnTarget && _driveWorks;
@@ -90,6 +207,11 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
     // Latched, so a head the engine has stopped accepting writes for cannot go on reporting that
     // it is on target while the picture points somewhere else.
     private bool _driveWorks = true;
+
+    // The shell's own latch. Separate because a refused roll is cosmetic -- the line of sight is
+    // the head's, and it still points where it is told -- and sharing one latch would freeze a
+    // working sight over a body nobody is looking through.
+    private bool _rollWorks = true;
 
     public OpticalHead(Config config, OpticConfig policy, Vehicle platform, int ordinal)
         : this(config, policy)
@@ -114,18 +236,19 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
         {
             Director = found.Part;
             Profile = found.Profile;
-            Sensor = Arsenal.SensorNamed(Profile.Sensor);
+            Sensor = Catalogue.SensorNamed(Profile.Sensor);
             OpticPart = OpticParts.FindHead(found.Part, found.Profile);
+            RollPart = OpticParts.FindRoll(found.Part, found.Profile);
         }
         else
         {
             Director = null;
             OpticPart = null;
+            RollPart = null;
         }
 
         SensorBoresight = ResolveSensorBoresight();
         Boresight = Platform is { } up ? KsaWorld.LocalUp(up) : Boresight;
-        RollReferenceEcl = ResolveRollReference();
     }
 
     /// <summary>Scans, slews and writes the head's transform. One simulated step.</summary>
@@ -145,19 +268,70 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
         // The travel again, on what the drive actually reached. Clamping only the command leaves
         // the head free to take the shortest rotation between two legal directions, and between
         // opposite bearings at low elevation that arc goes straight through the mast.
-        _drive.Hold(OpticGeometry.ClampToTravel(Profile, _drive.Direction));
+        _drive.Hold(OpticGeometry.ClampToTravel(Profile, Mount, _drive.Direction));
+
+        // The shell first, and unconditionally on the head's own latch: a frozen head still has a
+        // roll the window is meant to sit at, and a shell left behind reads as the window hanging
+        // outside its aperture rather than as a drive that stopped.
+        if (RollPart is { } shell && _rollWorks
+            && !OpticParts.TryApplyRoll(shell, Profile, Mount, AimWhenDrawn))
+        {
+            _rollWorks = false;
+            Log.Warn("optic: the engine refused the roll gimbal's transform; the nose is frozen "
+                     + "where it stopped and the head goes on aiming");
+        }
 
         if (OpticPart is not { } head || !_driveWorks) return;
 
-        if (!OpticParts.TryApplyAim(head, Profile, _drive.Direction))
+        if (!OpticParts.TryApplyAim(head, Profile, Mount, AimWhenDrawn))
         {
             _driveWorks = false;
             Log.Warn("optic: the engine refused the head's transform; it is frozen where it stopped");
         }
     }
 
-    /// <summary>Clears the refusal latch, because a new craft deserves a fresh assessment.</summary>
-    public void Reset() => _driveWorks = true;
+    /// <summary>Clears the refusal latches, because a new craft deserves a fresh assessment.</summary>
+    public void Reset() => _driveWorks = _rollWorks = true;
+
+    /// <summary>
+    /// Follow this director onto the craft that now carries it, after a decoupler split it off the
+    /// one it was on.
+    ///
+    /// <para>The operator's settings, its designation and where it is looking come across by being
+    /// this same object — which is why the roster moves the entry rather than crewing a new head.
+    /// A new one would arrive parked, at default zoom, watching nothing.</para>
+    ///
+    /// <para>The drive is deliberately not disturbed: it holds a direction in the <em>director's
+    /// own</em> part frame, and the part is the same part. Resetting it would swing the head to its
+    /// rest position for no reason a player could account for.</para>
+    /// </summary>
+    public void Rehome(Vehicle craft, int ordinal)
+    {
+        if (!KsaWorld.IsAlive(craft)) return;
+
+        double3 toEcl = KsaWorld.PositionEcl(craft);
+        if (!Vec.IsFinite(toEcl)) return;
+
+        double moved = Vec.Len(toEcl - PlatformEcl);
+
+        Platform = craft;
+        Ordinal = ordinal;
+        PlatformEcl = toEcl;
+
+        // These belong to the part tree the director has left, and the one it now lives in is a
+        // different tree. Cleared so they are found again rather than written to parts on a craft
+        // this head no longer rides.
+        Director = null;
+        OpticPart = null;
+        RollPart = null;
+
+        // A latch left set from the stack it came off would leave the head reporting itself frozen
+        // on a craft whose engine has refused nothing.
+        Reset();
+
+        Log.Info($"director decoupled onto {KsaWorld.DisplayName(craft)} as director {ordinal + 1}, "
+                 + $"{moved:F0} m away");
+    }
 
     /// <summary>
     /// Where the head is looking from and along what, both in Ecl. False when the director, its
@@ -180,18 +354,23 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
 
         if (Platform is not { } platform || Director is not { } director) return false;
 
-        if (!OpticParts.TryViewEcl(platform, director, Profile, _drive.Direction, platformEcl,
+        if (!OpticParts.TryViewEcl(platform, director, Profile, Mount, AimWhenDrawn, platformEcl,
                                            out eyeEcl, out forwardEcl))
         {
             return false;
         }
 
-        // While the head is settled it is tracking, so the view is re-solved onto the target's own
-        // position at this instant rather than left along an axis turned to a frame ago. Same rule,
-        // and the same reason, as the launcher's head had.
-        if (!_drive.OnTarget || Radar.Locked is not { } locked) return true;
-        if (!locked.Contact.TryDrawEgo(out double3 ego)) return true;
-        if (!KsaWorld.TryEgoToEcl(ego, out double3 drawnEcl)) return true;
+        // While the head is settled on what it follows, the view is re-solved onto that target's own
+        // position at this instant rather than left along an axis turned to a frame ago. Skipping it
+        // leaves the whole frame-late term in, and that term scales with simulation speed.
+        //
+        // Only onto what AimPartFrame actually aimed at, which _aimed records: a designation, or the
+        // set's pick with tracking on -- Watched, not Locked, because a contact tracked but not a
+        // threat is the very case a director exists to watch. A head held by the mouse or the
+        // sliders is settled on wherever the operator left it, and re-solving that onto the radar's
+        // contact snaps the picture away from a head that has not moved.
+        if (!_drive.OnTarget) return true;
+        if (!TryFollowedDrawnEcl(out double3 drawnEcl)) return true;
 
         double3 toTarget = drawnEcl - eyeEcl;
         if (Vec.Len2(toTarget) > 1.0) forwardEcl = Vec.Unit(toTarget);
@@ -199,13 +378,53 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
         return true;
     }
 
+    // Where the thing the head is aimed at is *drawn*, now -- the designation or the set's own pick,
+    // whichever AimPartFrame took. False under the mouse or the sliders, and when it is following
+    // nothing resolvable.
+    //
+    // The drawn position rather than the simulated one, because this decides where a camera points
+    // and the target is drawn at the former. The two differ by metres on a landed craft.
+    private bool TryFollowedDrawnEcl(out double3 drawnEcl)
+    {
+        drawnEcl = Vec.Zero;
+
+        if (_aimed == Aimed.Designation)
+        {
+            if (Designation.NeedsResampling)
+            {
+                return KsaWorld.TryGroundAnchorEcl(Designation.Handle, Designation.Anchor,
+                                                   out drawnEcl, out _);
+            }
+
+            if (Designation.Handle is Vehicle craft && KsaWorld.IsAlive(craft))
+            {
+                drawnEcl = KsaWorld.PositionEcl(craft);
+                return true;
+            }
+
+            return false;
+        }
+
+        return _aimed == Aimed.Track
+               && Radar.Watched is { } watched
+               && watched.Contact.TryDrawEgo(out double3 ego)
+               && KsaWorld.TryEgoToEcl(ego, out drawnEcl);
+    }
+
+    // Which rung the last AimPartFrame took. The view re-solve reads it rather than choosing again,
+    // because two places deciding what the head follows can disagree -- see TryOpticViewEclAt.
+    private enum Aimed { Rest, Cursor, Hand, Designation, Track }
+
+    private Aimed _aimed;
+
     // Where the head is told to look, in the director's own part frame. Clamped to its travel
     // here rather than at the drive, so the drive's own settling is measured against a command it
     // can actually reach -- otherwise a head told to look through its mount slews to the floor and
     // reports itself forever unsettled.
     private double3 AimPartFrame()
     {
-        double3 rest = OpticGeometry.RestDirection;
+        double3 rest = OpticGeometry.RestAim(Profile, Mount);
+        _aimed = Aimed.Rest;
 
         // Mouse aim owns the head outright rather than being the first of several rungs: with it
         // on the operator is the sensor, so falling through to tracking -- or to the rest
@@ -213,24 +432,44 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
         // anything. Holding is where it already is, which is the drive's own direction.
         if (_policy.MouseAim)
         {
+            _aimed = Aimed.Cursor;
             return TryCursorAimPartFrame(out double3 cursorFrame)
-                ? OpticGeometry.ClampToTravel(Profile, cursorFrame)
+                ? OpticGeometry.ClampToTravel(Profile, Mount, cursorFrame)
                 : _drive.Direction;
         }
 
         if (_policy.Manual)
         {
-            return OpticGeometry.ClampToTravel(Profile, ManualAim());
+            _aimed = Aimed.Hand;
+            return OpticGeometry.ClampToTravel(Profile, Mount, ManualAim());
         }
 
-        if (!_policy.Tracking || Platform is not { } platform || Director is null) return rest;
+        if (Platform is not { } platform || Director is null) return rest;
+
+        // The operator's choice first. Deliberately ahead of the tracking switch: designating
+        // something is itself the instruction to watch it, so needing tracking enabled as well
+        // would be a click that silently does nothing.
+        if (Designation.Kind != AimpointKind.None)
+        {
+            if (TryDesignatedAim(platform, out double3 designated))
+            {
+                _aimed = Aimed.Designation;
+                return designated;
+            }
+
+            // Gone. Dropped here rather than left to point at a hole, which would read as the head
+            // sticking rather than as the target having left.
+            ClearDesignation();
+        }
+
+        if (!_policy.Tracking) return rest;
 
         // From the head's own pivot, not from the part's origin. The two are 0.63 m apart, which
-        // is a tenth of the picture at a few hundred metres -- see WeaponSystem.OpticOriginEcl,
+        // is a tenth of the picture at a few hundred metres -- see WeaponSystem.AimOriginEcl,
         // which is the same correction for the same reason.
-        if (Radar.Locked is not { } locked) return rest;
+        if (Radar.Watched is not { } locked) return rest;
 
-        if (!LauncherPart.TryPartPointEcl(platform, Director, Profile.HeadPivot, PlatformEcl,
+        if (!LauncherPart.TryPartPointEcl(platform, Director, Mount.ToPart(Profile.HeadPivot), PlatformEcl,
                                           out double3 pivotEcl))
         {
             return rest;
@@ -242,10 +481,97 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
             targetEcl = drawn;
         }
 
-        return LauncherPart.TryDirectionToPartFrame(platform, Director, targetEcl - pivotEcl,
-                                                    out double3 partFrame)
-            ? OpticGeometry.ClampToTravel(Profile, partFrame)
-            : rest;
+        if (!LauncherPart.TryDirectionToPartFrame(platform, Director, targetEcl - pivotEcl,
+                                                  out double3 partFrame))
+        {
+            return rest;
+        }
+
+        _aimed = Aimed.Track;
+        return OpticGeometry.ClampToTravel(Profile, Mount, partFrame);
+    }
+
+    // Where the designation is now, in the head's part frame. False once it is gone.
+    //
+    // A place on a body is re-read every frame rather than kept as the coordinate it was: held in
+    // the ecliptic it is left behind at ~29.8 km/s, so a head watching a hillside would slide off
+    // it within a second. The same rule, for the same reason, that a round aimed at the ground
+    // obeys -- see Sim/Aimpoint.NeedsResampling.
+    private bool TryDesignatedAim(Vehicle platform, out double3 partFrame)
+    {
+        partFrame = Vec.Zero;
+
+        if (Designation.Kind == AimpointKind.Vehicle
+            && (Designation.Handle is not Vehicle craft || !KsaWorld.IsAlive(craft)))
+        {
+            return false;
+        }
+
+        double3 targetEcl = Designation.PositionEcl;
+
+        if (Designation.Kind == AimpointKind.Vehicle && Designation.Handle is Vehicle live)
+        {
+            targetEcl = KsaWorld.PositionEcl(live);
+        }
+        else if (Designation.NeedsResampling)
+        {
+            if (!KsaWorld.TryGroundAnchorEcl(Designation.Handle, Designation.Anchor,
+                                             out double3 groundEcl, out double3 groundVel))
+            {
+                return false;
+            }
+
+            Designation = Designation.Resampled(groundEcl, groundVel);
+            targetEcl = groundEcl;
+        }
+
+        // From the head's own pivot, the same correction the tracking branch makes.
+        if (!LauncherPart.TryPartPointEcl(platform, Director!, Mount.ToPart(Profile.HeadPivot),
+                                          PlatformEcl, out double3 pivotEcl))
+        {
+            return false;
+        }
+
+        if (!LauncherPart.TryDirectionToPartFrame(platform, Director!, targetEcl - pivotEcl,
+                                                  out double3 toTarget)
+            || Vec.Len2(toTarget) < 0.5)
+        {
+            WhyNotWatching("the direction would not convert into the head's frame");
+            return false;
+        }
+
+        partFrame = OpticGeometry.ClampToTravel(Profile, Mount, toTarget);
+
+        // Said once, so the log tells "following it" apart from "silently fell through to
+        // something else". An absent warning alone cannot, and that ambiguity is what made the
+        // turret's version of this hard to report.
+        WhyNotWatching("following", $"at {Vec.Len(targetEcl - pivotEcl) / 1000.0:F2} km");
+
+        return true;
+    }
+
+    // Why the designation is or is not driving the head, once per state.
+    //
+    // Keyed on the *state*, never on the message: a key carrying the range changes every frame, so
+    // "say it once" becomes a line per frame -- 24,000 of them in one session, each a synchronous
+    // file write on the frame thread. A diagnostic that costs frame time is measuring itself.
+    private string _whyNotWatching = "";
+
+    private void WhyNotWatching(string state, string detail = "")
+    {
+        if (_whyNotWatching == state) return;
+
+        _whyNotWatching = state;
+
+        string tail = detail.Length > 0 ? $" {detail}" : "";
+
+        if (state == "following")
+        {
+            Log.Info($"director on {DesignationName} -- following{tail}");
+            return;
+        }
+
+        Log.Warn($"director: {DesignationName} is not driving the head -- {state}{tail}");
     }
 
     // How much of the slew rate the cursor is asking for, from the last aim. One, and so no
@@ -292,7 +618,7 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
                                                    Math.Max(1f, halfHeight - _policy.MouseDeadZonePx));
         }
 
-        if (!LauncherPart.TryPartPointEcl(platform, director, Profile.HeadPivot, PlatformEcl,
+        if (!LauncherPart.TryPartPointEcl(platform, director, Mount.ToPart(Profile.HeadPivot), PlatformEcl,
                                           out double3 pivotEcl))
         {
             return false;
@@ -304,25 +630,25 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
 
     // Bearing and elevation about the mount, for driving it by hand.
     private double3 ManualAim()
-    {
-        double bearing = float.DegreesToRadians(_policy.ManualBearingDeg);
-        double elevation = float.DegreesToRadians(_policy.ManualElevationDeg);
-
-        double across = Math.Cos(elevation);
-
-        return new double3(Math.Sin(elevation), across * Math.Cos(bearing), across * Math.Sin(bearing));
-    }
+        => OpticGeometry.ManualAim(Profile, Mount,
+                                   _policy.ManualBearingDeg, _policy.ManualElevationDeg);
 
     // The head's own up, carried into Ecl -- or local vertical when the operator wants the
     // picture levelled. Falls back to local up rather than a zero vector, which the controller
     // reads as "no opinion" and would hand to KSA's rule.
     private double3 ResolveRollReference()
     {
-        if (Platform is not { } platform) return RollReferenceEcl;
+        // Boresight rather than the last answer: this is a property now, so returning it would
+        // recurse. Local up is the right shape for a fallback anyway -- a camera the right way up.
+        if (Platform is not { } platform) return Boresight;
 
         if (_policy.StabiliseHorizon) return Boresight;
 
-        double3 headUp = OpticGeometry.Rotation(_drive.Direction) * OpticGeometry.MountNormal;
+        double3 mesh = Profile.Gimbal == GimbalKind.RollNod
+            ? -OpticGeometry.MountNormal
+            : OpticGeometry.MountNormal;
+
+        double3 headUp = OpticGeometry.Rotation(Profile, Mount, AimWhenDrawn) * mesh;
 
         return Director is { } director
                && LauncherPart.TryLauncherDirectionEcl(platform, director, headUp, out double3 ecl)
@@ -337,7 +663,7 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
         if (Platform is not { } platform) return SensorBoresight;
 
         if (Director is { } director
-            && LauncherPart.TryLauncherDirectionEcl(platform, director, OpticGeometry.MountNormal,
+            && LauncherPart.TryLauncherDirectionEcl(platform, director, Mount.Normal,
                                                     out double3 ecl))
         {
             return ecl;

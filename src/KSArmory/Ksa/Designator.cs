@@ -32,6 +32,10 @@ internal sealed class Designator
 
         // A click on the panel is not a click on the world behind it.
         if (ImGui.GetIO().WantCaptureMouse) return;
+        // Shift is the designate gesture, so a shift-click is not a click on the world.
+        // Without this, locking a target while this tool is on also sends a round at it.
+        if (ImGui.GetIO().KeyShift) return;
+
         if (!ImGui.IsMouseClicked(ImGuiMouseButton.Left, repeat: false)) return;
 
         if (!KsaWorld.TryCursorGroundPoint(out double3 groundEcl, out _, out _, out _))
@@ -61,8 +65,8 @@ internal sealed class Designator
 
         double3 at = Lifted(groundEcl, battery);
 
-        // Coloured by whether the shot would be taken, because armed, loaded, in range and within
-        // the seeker's reach are four separate refusals that all look like a click doing nothing.
+        // Coloured by whether the weapon could take the shot, because loaded and laid, in range and
+        // within the seeker's reach are three refusals that all look like a click doing nothing.
         // The last is the least obvious: a fixed launcher can only shoot where it points.
         //
         // Asked of whichever weapon the launcher carries. Reading the magazine leaves a gun-only

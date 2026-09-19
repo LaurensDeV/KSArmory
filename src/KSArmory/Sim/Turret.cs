@@ -95,10 +95,13 @@ public sealed class Turret
     public double ElevationErrorRad
         => CommandElevationRad is { } command ? command - ElevationRad : 0.0;
 
+    /// <summary>How far either axis may be from its order and still count as on target (rad).</summary>
+    public const double OnTargetToleranceRad = 0.05;
+
     /// <summary>True once *both* axes are within a few degrees of their order.</summary>
     public bool OnTarget => CommandRad is not null
-                            && Math.Abs(ErrorRad) < 0.05
-                            && Math.Abs(ElevationErrorRad) < 0.05;
+                            && Math.Abs(ErrorRad) < OnTargetToleranceRad
+                            && Math.Abs(ElevationErrorRad) < OnTargetToleranceRad;
 
     /// <summary>
     /// Unbroken seconds spent on target. Fire control waits on this rather than on
@@ -152,6 +155,24 @@ public sealed class Turret
 
     /// <summary>Sends the launcher back to rest: facing forward, pods at their modelled pose.</summary>
     public void Stow() => Stow(RestElevationRad);
+
+    /// <summary>
+    /// Puts the elevation at <paramref name="restElevationRad"/> the first time a launcher is
+    /// configured onto this drive, and never after.
+    ///
+    /// <para>The first frame writes wherever the drive thinks it is, so a drive left at
+    /// <see cref="DefaultRestElevation"/> jumps a barrel modelled level up to 55° and slews it home.
+    /// Only once, because a drive that has moved is somewhere real.</para>
+    /// </summary>
+    public void SeatElevation(double restElevationRad)
+    {
+        if (_seated || !double.IsFinite(restElevationRad)) return;
+
+        ElevationRad = restElevationRad;
+        _seated = true;
+    }
+
+    private bool _seated;
 
     /// <summary>Stows to a given elevation rather than this launcher's own rest pose.</summary>
     public void Stow(double restElevationRad)

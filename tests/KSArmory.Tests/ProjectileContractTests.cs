@@ -30,12 +30,36 @@ public class ProjectileContractTests
     private static IProjectile Make(Kind kind, double3 positionEcl, double3 velocityEcl,
                                     double3 platformEcl, double3 frameVelocityEcl) => kind switch
     {
-        Kind.GuidedMissile => new Interceptor(positionEcl, velocityEcl, TargetHandle, 1, platformEcl, frameVelocityEcl),
-        _ => new Slug(positionEcl, velocityEcl, TargetHandle, 1, platformEcl, frameVelocityEcl),
+        Kind.GuidedMissile => new Interceptor(positionEcl, velocityEcl, TargetHandle, 1, platformEcl, frameVelocityEcl) { Munition = BuiltIns.Missile57E6 },
+        _ => new Slug(positionEcl, velocityEcl, TargetHandle, 1, platformEcl, frameVelocityEcl) { Munition = BuiltIns.Cannon30Mm },
     };
 
     private static MunitionProfile Vacuum() =>
         new() { Name = "test", DisplayName = "test", DragK = 0f, BoostSeconds = 0f, BoostAccel = 0f };
+
+    /// <summary>
+    /// The direction a round left along is recorded once and never touched by the simulation.
+    ///
+    /// <para>The body is drawn along it whenever there is no airflow to say otherwise, so if a
+    /// step could rewrite it, a round released in vacuum would swing about as its launcher did.
+    /// Seen in flight: rolling the bus rolled every reentry vehicle already off it.</para>
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(AllKinds))]
+    public void TheReleaseHeadingSurvivesEveryStep(Kind kind)
+    {
+        double3 platform = new(1.496e11, 0, 0);
+        double3 released = Vec.Unit(new double3(0.3, 0.5, -0.81));
+
+        IProjectile round = Make(kind, platform, SolarFrame + new double3(0, 0, 600), platform, SolarFrame);
+        round.ReleaseHeadingEcl = released;
+
+        for (int i = 0; i < 50; i++)
+            round.Update(0.05, null, new double3(0, 0, -9.81), SolarFrame, platform, Vacuum());
+
+        Assert.True(Vec.Len(round.ReleaseHeadingEcl - released) < 1e-12,
+            $"{kind} lost the heading it was released along; the body would follow its launcher");
+    }
 
     // ---- Orientation -----------------------------------------------------
 
@@ -186,7 +210,10 @@ public class ProjectileContractTests
         Assert.Equal(RoundState.Detonated, round.State);
     }
 
-    /// <summary>A safed fuse must not fire, whatever passes it.</summary>
+    /// <summary>
+    /// A safed fuse must not fire, whatever passes it. Passes, not strikes: the body sits off the
+    /// round's path, because a shell still runs into what it touches before it has armed.
+    /// </summary>
     [Theory]
     [MemberData(nameof(AllKinds))]
     public void TheFuseStaysSafeUntilArmed(Kind kind)
@@ -196,7 +223,7 @@ public class ProjectileContractTests
         munition.FuseRadius = 50f;
 
         IProjectile round = Make(kind, Vec.Zero, new double3(100, 0, 0), Vec.Zero, Vec.Zero);
-        var target = new TargetState(new double3(1, 0, 0), Vec.Zero, 1.0);
+        var target = new TargetState(new double3(1, 5, 0), Vec.Zero, 1.0);
 
         round.Update(1.0 / 60.0, target, NoGravity, Vec.Zero, Vec.Zero, munition);
 
@@ -300,8 +327,8 @@ public class ProjectileContractTests
             return (round.State, closest);
         }
 
-        var guided = Fly(new Interceptor(Vec.Zero, new double3(600, 0, 0), TargetHandle, 1, Vec.Zero, Vec.Zero));
-        var slug = Fly(new Slug(Vec.Zero, new double3(600, 0, 0), TargetHandle, 1, Vec.Zero, Vec.Zero));
+        var guided = Fly(new Interceptor(Vec.Zero, new double3(600, 0, 0), TargetHandle, 1, Vec.Zero, Vec.Zero) { Munition = BuiltIns.Missile57E6 });
+        var slug = Fly(new Slug(Vec.Zero, new double3(600, 0, 0), TargetHandle, 1, Vec.Zero, Vec.Zero) { Munition = BuiltIns.Cannon30Mm });
 
         Assert.Equal(RoundState.Detonated, guided.State);
         Assert.NotEqual(RoundState.Detonated, slug.State);
@@ -314,10 +341,76 @@ public class ProjectileContractTests
     [Fact]
     public void ASlugNeverClaimsALock()
     {
-        IProjectile slug = new Slug(Vec.Zero, new double3(600, 0, 0), TargetHandle, 1, Vec.Zero, Vec.Zero);
+        IProjectile slug = new Slug(Vec.Zero, new double3(600, 0, 0), TargetHandle, 1, Vec.Zero, Vec.Zero) { Munition = BuiltIns.Cannon30Mm };
 
         Assert.False(slug.HasLock);
         Assert.True(slug.SeekerInView);
         Assert.Equal(1.0, slug.FinDeployment(Vacuum()));
+    }
+
+    /// <summary>
+    /// Re-anchoring moves every stored offset onto a new reference without moving the round, and
+    /// leaves the travel since launch alone.
+    ///
+    /// <para>The case is a round outliving the craft that fired it: its anchor becomes the body it
+    /// is flying over, which is ~6.4e6 m from where the launcher was. Shifting only
+    /// <c>OffsetFromPlatform</c> looks correct on the next frame — it is recomputed from the new
+    /// anchor anyway — and draws the trail to the centre of the planet until it rolls over.</para>
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(AllKinds))]
+    public void ReanchoringMovesTheOffsetsAndNotTheRound(Kind kind)
+    {
+        double3 platformEcl = new(1.5e11, 6.371e6, 0);
+        IProjectile round = Make(kind, platformEcl + new double3(0, 20, 0), new double3(0, 700, 0),
+                                 platformEcl, Vec.Zero);
+
+        MunitionProfile munition = Vacuum();
+
+        // Fly a little, so there is a trail with more than one point in it.
+        for (int i = 0; i < 20; i++)
+        {
+            round.Update(0.05, null, NoGravity, Vec.Zero, platformEcl, munition);
+        }
+
+        double3 worldBefore = round.PositionEcl;
+        double3 travelBefore = round.TravelSinceLaunch;
+        double3 offsetBefore = round.OffsetFromPlatform;
+        double3[] trailBefore = [.. round.TrailOffsets];
+
+        Assert.True(trailBefore.Length > 1, "the trail needs more than one point to be worth testing");
+
+        // The body's centre as the new anchor: a planet's radius away from the launcher.
+        double3 bodyEcl = platformEcl - new double3(0, 6.371e6, 0);
+        double3 delta = platformEcl - bodyEcl;
+
+        round.Reanchor(delta);
+
+        Assert.Equal(worldBefore, round.PositionEcl);
+        Assert.True(Vec.Len(round.TravelSinceLaunch - travelBefore) < 1e-9,
+                    "travel since launch is a difference against one anchor and must not notice it change");
+
+        Assert.True(Vec.Len(round.OffsetFromPlatform - (offsetBefore + delta)) < 1e-9);
+
+        // Every trail point, not just the newest -- the whole reason this is one call.
+        Assert.Equal(trailBefore.Length, round.TrailOffsets.Count);
+        for (int i = 0; i < trailBefore.Length; i++)
+        {
+            Assert.True(Vec.Len(round.TrailOffsets[i] - (trailBefore[i] + delta)) < 1e-9,
+                        $"trail point {i} was left on the old anchor");
+        }
+    }
+
+    /// <summary>A non-finite delta is refused rather than turning every offset into a NaN.</summary>
+    [Theory]
+    [MemberData(nameof(AllKinds))]
+    public void ReanchoringRefusesANonFiniteDelta(Kind kind)
+    {
+        IProjectile round = Make(kind, new double3(0, 20, 0), new double3(0, 700, 0), Vec.Zero, Vec.Zero);
+        double3 before = round.OffsetFromPlatform;
+
+        round.Reanchor(new double3(double.NaN, 0, 0));
+
+        Assert.Equal(before, round.OffsetFromPlatform);
     }
 }

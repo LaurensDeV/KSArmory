@@ -14,38 +14,60 @@ internal sealed partial class Ui
     private void DrawBurstTool()
     {
         ImGui.Checkbox("Explosions on click", ref _config.BurstTool);
+        Tip("On: clicking the ground sets one off there.");
 
         if (_config.BurstTool)
         {
-            ImGui.TextDisabled("  click the ground to set one off there");
-            ImGui.SliderFloat("Charge (kg)", ref _config.BurstChargeKg, 0.01f, 500f,
-                              "%.2f", ImGuiSliderFlags.Logarithmic);
-            ImGui.TextDisabled($"  lethal {Warhead.LethalRadius(_config.BurstChargeKg):F0} m, "
-                               + $"fireball {Warhead.FireballRadius(_config.BurstChargeKg):F0} m"
-                               + "   (the ring is the lethal radius)");
-            ImGui.Checkbox("Fireball (off: airburst)", ref _config.BurstFireball);
+            ImGui.Checkbox("Nuclear", ref _config.BurstNuclear);
+
+            if (_config.BurstNuclear)
+            {
+                // The B61's own dial. Logarithmic because the interesting end is the bottom of it:
+                // three orders of magnitude, and the cloud changes shape more between 0.3 and 3 kt
+                // than between 100 and 340.
+                ImGui.SliderFloat("Yield (kt)", ref _config.BurstYieldKt, 0.3f, 340f,
+                                  "%.2f kt", ImGuiSliderFlags.Logarithmic);
+
+                double kt = _config.BurstYieldKt;
+
+                ImGui.TextDisabled($"  fireball {MushroomCloud.PeakFireballRadius(kt) * 2.0:F0} m "
+                                   + $"across for {MushroomCloud.FlashSeconds(kt):F1} s");
+                ImGui.TextDisabled($"  cloud to {MushroomCloud.DrawnCloudTop(kt) / 1000.0:F2} km, "
+                                   + $"cap {MushroomCloud.DrawnCapRadius(kt) * 2.0 / 1000.0:F2} km "
+                                   + $"across, over {MushroomCloud.RiseSeconds:F0} s");
+                ImGui.TextDisabled($"  lethal {Warhead.LethalRadius(kt * 1.0e6):F0} m");
+                Tip("The marker under the cursor is drawn at the lethal radius.");
+
+                if (!PlumeSmoke.Available)
+                {
+                    ImGui.TextColored(Red, "the volumetric trail renderer is unreachable");
+                    ImGui.TextDisabled("  the flash will draw and the cloud will not");
+                }
+            }
+            else
+            {
+                ImGui.SliderFloat("Charge (kg)", ref _config.BurstChargeKg, 0.01f, 500f,
+                                  "%.2f", ImGuiSliderFlags.Logarithmic);
+                ImGui.TextDisabled($"  lethal {Warhead.LethalRadius(_config.BurstChargeKg):F0} m, "
+                                   + $"goes off as {WarheadExplosion.PresetFor(_config.BurstChargeKg) ?? "nothing"}");
+                Tip("The marker under the cursor is drawn at the lethal radius.");
+            }
         }
 
         // Straight overhead, for when the pointer is not the question -- it needs no aim and no
         // ground under it, so it still answers "does the effect work at all".
-        if (ImGui.Button("Burst overhead")) FireTestBurst(Detonation.Fireball);
-        ImGui.SameLine();
-        ImGui.TextDisabled("100 m over the system shown");
+        if (ImGui.Button("Burst overhead")) FireTestBurst();
+        Tip("Sets off the tool's charge 100 m over the system shown.");
 
         if (!Detonation.ParticlesEnabled)
         {
             ImGui.TextColored(Red, "KSA's Particles graphics setting is OFF");
-            ImGui.TextDisabled("  nothing will draw until it is turned back on");
-        }
-        else if (!Detonation.SoftParticles)
-        {
-            ImGui.TextDisabled("Smoke is drawn as small spheres. KSA's Screen Space");
-            ImGui.TextDisabled("Particles setting turns on the volumetric version.");
+            ImGui.TextDisabled("  explosions flash and sound, and throw no sparks or debris");
         }
     }
 
     // A burst overhead, where it cannot be missed.
-    private void FireTestBurst(string emitterId)
+    private void FireTestBurst()
     {
         if (!_crewed || _battery.Platform is not { } platform)
         {
@@ -53,20 +75,40 @@ internal sealed partial class Ui
             return;
         }
 
+        double chargeKg = BurstTool.ChargeOf(_config);
         double3 at = KsaWorld.PositionEcl(platform) + KsaWorld.LocalUp(platform) * 100.0;
-        Log.Info($"test burst: {emitterId} 100 m over {KsaWorld.DisplayName(platform)}");
-        Detonation.Show(emitterId, at, platform);
+        Log.Info($"test burst: {chargeKg:G3} kg 100 m over {KsaWorld.DisplayName(platform)}");
+        Detonation.Explode(at, chargeKg, platform);
+    }
+
+    // Inline beside the other test aids rather than on a component row: it is not something a
+    // Mk 82 rack "has", and the answer to "why are the fins moving" must not be behind a fold.
+    private void DrawFinTest()
+    {
+        ImGui.Checkbox("Sweep seated fins (built-in test)", ref _config.FinTestSweep);
+        Tip("Exercises a loaded round's fins without dropping it.");
+
+        if (!_config.FinTestSweep) return;
+
+        int hinged = 0;
+        foreach (WeaponSystems.Entry e in _batteries.All)
+            if (e.Battery.Munition.FinsPerRound > 0) hinged++;
+
+        // Says nothing is happening rather than leaving the tick box looking broken: every
+        // launcher in the world may well have no hinged blades to sweep.
+        if (hinged == 0)
+            ImGui.TextDisabled("  no launcher in this world carries hinged fins");
+        else
+            ImGui.TextDisabled($"  sweeping on {hinged} launcher(s), "
+                               + $"{FinTest.PeriodSeconds:F0} s per cycle, on simulated time");
     }
 
     private void DrawCraftMover()
     {
         ImGui.Checkbox("Move craft with the mouse", ref _config.MoveCraftWithMouse);
+        Tip("On: click a craft to lift it, then click the ground to set it down.");
 
-        if (!_config.MoveCraftWithMouse)
-        {
-            ImGui.TextDisabled("  click a craft to lift it, click the ground to set it down");
-            return;
-        }
+        if (!_config.MoveCraftWithMouse) return;
 
         if (_mover.Held is { } held)
         {
@@ -134,6 +176,7 @@ internal sealed partial class Ui
             TestTarget.Spawn(_battery.Platform, TestTarget.Profile.HeadOn,
                 _spawnSeconds, _spawnSpeed, _spawnMiss, craftName);
         }
+        Tip("Dives steepest and holds its speed best in atmosphere.");
         ImGui.SameLine();
         if (ImGui.Button("Passing by"))
         {
@@ -142,7 +185,6 @@ internal sealed partial class Ui
         }
 
         ImGui.TextDisabled("Arm before they arrive.");
-        ImGui.TextDisabled("Head-on dives steepest and holds its speed best in atmosphere.");
 
     }
 
@@ -155,30 +197,41 @@ internal sealed partial class Ui
             Log.Threshold = _config.VerboseLog ? Log.Level.Debug : Log.Level.Info;
             Log.Info(_config.VerboseLog ? "verbose logging on" : "verbose logging off");
         }
-        ImGui.TextDisabled("  developer detail; off in release builds");
+        Tip("Developer detail. A release build starts with it off; this turns it on without "
+            + "needing a different build.");
 
         // Writes the battery's whole world view to the log, including why each nearby vehicle was
         // or was not tracked. Far more useful than staring at an empty screen.
         ImGui.BeginDisabled(!_crewed);
         if (ImGui.Button("Write diagnostic dump"))
         {
-            Diagnostics.Dump(_battery, _config, _policy);
+            Diagnostics.Dump(_battery, _policy);
         }
         ImGui.EndDisabled();
         ImGui.SameLine();
         ImGui.Checkbox("Freeze chase transition", ref _config.FreezeChaseTransition);
-        if (ImGui.IsItemHovered())
-        {
-            ImGui.SetTooltip("Diagnostic. The chase takes the view and aims, but does not fly onto\n"
-                             + "the round. If the picture still jitters with the camera held still,\n"
-                             + "the camera's travel is not what is causing it.");
-        }
+        Tip("Diagnostic. The chase takes the view and keeps the round in the middle of it, but the "
+            + "camera stays where the transition started instead of flying onto the round. If the "
+            + "picture still jitters with the camera held still, the camera's travel is not what is "
+            + "causing it.");
 
         if (ImGui.Checkbox("Keep dumping", ref _config.DiagnosticDump))
         {
             Diagnostics.ResetTimer();
         }
         ImGui.TextDisabled("  -> Logs/KSArmory.log");
+
+        ImGui.Checkbox("Trace one warhead", ref _config.TraceWarhead);
+        Tip("Measurement. Follows the first warhead of the next shot all the way down, beside the "
+            + "impact prediction re-flown from wherever it has got to. A prediction that walks away "
+            + "smoothly and one that jumps have different causes -- that is what this separates.\n\n"
+            + "Without Verbose log only the release and the impact are written. With it the round is "
+            + "also written every few seconds, and every frame across the release, its flight "
+            + "through the air and the arrival.");
+        if (_config.TraceWarhead && !_config.VerboseLog)
+        {
+            ImGui.TextDisabled("  on -- release and impact only; tick Verbose log for the rest");
+        }
 
         // A diagnostic about the render rate rather than a state of any weapon: it means the
         // frames are outrunning the simulation clock, which is what explains stuttering round
@@ -187,7 +240,7 @@ internal sealed partial class Ui
         {
             ImGui.TextColored(Amber,
                 $"Frames with no sim step: {_battery.FramesWithoutSimStep}");
-            ImGui.TextDisabled("  the render rate is outrunning the simulation clock");
+            Tip("The render rate is outrunning the simulation clock.");
         }
     }
 

@@ -354,8 +354,13 @@ def cross_body_overlaps(gltf, binary, placements):
     because the fight then rotates with the assembly.
 
     Each mesh in the atlas sits in its own pivot-local frame with no node transform, so the
-    caller supplies `placements`: mesh name -> (x, y, z) in part space. That is the asset XML's
-    <SubPart><Position>, which is why this is driven from validate-parts.py.
+    caller supplies `placements`: mesh name -> ((x, y, z), (rx, ry, rz)) in part space, the
+    position and XYZ Euler radians of the asset XML's <SubPart><Transform>. That is why this is
+    driven from validate-parts.py.
+
+    The rotation is not optional detail. A round seated on a rail is placed with a quarter turn
+    carrying its nose onto the tube axis, so ignoring it lays the body across the launcher instead
+    of along it — and then the pairs this exists to find are not even in contact.
 
     Only the rest pose is checked — the pose the model is authored in, and the one the vehicle
     sits at before the drives run.
@@ -363,14 +368,35 @@ def cross_body_overlaps(gltf, binary, placements):
     by_name = {m.get("name", "?"): m for m in gltf.get("meshes", [])}
 
     tagged = []
-    for name, origin in placements.items():
+    for name, (origin, euler) in placements.items():
         if name not in by_name:
             continue
-        trs = (tuple(origin), (0.0, 0.0, 0.0, 1.0), (1.0, 1.0, 1.0))
+        trs = (tuple(origin), euler_quaternion(euler), (1.0, 1.0, 1.0))
         for a, b, c in triangles(gltf, binary, by_name[name]):
             tagged.append((place(a, trs), place(b, trs), place(c, trs), name))
 
     return plane_conflicts(tagged, cross_body=True)
+
+
+def euler_quaternion(euler):
+    """XYZ Euler radians -> (x, y, z, w), matching how KSA reads <Rotation>.
+
+    Transcribed from KSA.QuaternionEx.CreateFromXyzRadians, which TransformReference.RotationValue
+    calls. The composition is **qz * qy * qx** despite the name: X is applied first and Z last, so
+    a <Rotation X=..> on a body whose axis of interest is already +X does nothing at all.
+
+    Getting this backwards is invisible until a part uses two axes whose angles do not commute.
+    Every rotation in this mod was single-axis, or X=pi Z=pi, until the MIRV bus.
+    """
+    import math
+
+    half = [angle / 2.0 for angle in euler]
+    cx, cy, cz = (math.cos(a) for a in half)
+    sx, sy, sz = (math.sin(a) for a in half)
+    return (cy * cz * sx - cx * sy * sz,
+            cx * cz * sy + sx * cy * sz,
+            cx * cy * sz - sx * cz * sy,
+            cx * cy * cz + sx * sy * sz)
 
 
 def analyse(gltf, binary, mesh):
@@ -520,8 +546,20 @@ def node_transforms(ga, gb, path_a, path_b):
 def main():
     global PLANE_QUANT, MIN_AREA, NEAR_MIN, NEAR_MAX
 
-    args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    only = other = None
+    # Options are stripped with their values by position. Matching the value by string instead
+    # leaves anything whose float() round-trips differently -- `--near-max 0` reaching str(0.0)
+    # -- sitting in the positional list, where it is then opened as a path.
+    VALUED = ("--units-per-metre", "--near-max", "--mesh", "--compare")
+    args, options, rest = [], {}, list(sys.argv[1:])
+    while rest:
+        token = rest.pop(0)
+        if token in VALUED:
+            if not rest:
+                print(f"error: {token} needs a value", file=sys.stderr)
+                return 2
+            options[token] = rest.pop(0)
+        elif not token.startswith("--"):
+            args.append(token)
 
     # Every threshold in this file is an absolute distance or area in metres, because a part mesh
     # is authored in metres. A character attachment is authored in the rig's centimetre space, so
@@ -529,9 +567,8 @@ def main():
     # -- it reports separations that are fine as if they were microns, and areas in the tens of
     # thousands of cm2. Scale the thresholds instead of the mesh, so the numbers printed stay in
     # the file's own units.
-    if "--units-per-metre" in sys.argv:
-        upm = float(sys.argv[sys.argv.index("--units-per-metre") + 1])
-        args = [a for a in args if a != str(upm)]
+    if "--units-per-metre" in options:
+        upm = float(options["--units-per-metre"])
         if upm <= 0.0:
             print("error: --units-per-metre must be positive", file=sys.stderr)
             return 2
@@ -539,12 +576,18 @@ def main():
         MIN_AREA *= upm * upm
         NEAR_MIN *= upm
         NEAR_MAX *= upm
-    if "--mesh" in sys.argv:
-        only = sys.argv[sys.argv.index("--mesh") + 1]
-        args = [a for a in args if a != only]
-    if "--compare" in sys.argv:
-        other = sys.argv[sys.argv.index("--compare") + 1]
-        args = [a for a in args if a != other]
+    # The proximity advisory, but not the two hard checks, turned down or off.
+    #
+    # NEAR_MAX's default sits under box()'s 8 mm modelling skin, so on a *generated* mesh anything
+    # inside the band is a primitive somebody forgot to separate. An **authored** mesh has no skin,
+    # so the same band reports every deliberate panel step, decal and shell wall -- hundreds of
+    # them, at every gap, none of them a mistake. `--near-max 0` says "this file was not built with
+    # a skin"; zero-UV-area triangles and exact coplanar overlaps are still checked in full,
+    # because neither of those is ever deliberate.
+    if "--near-max" in options:
+        NEAR_MAX = float(options["--near-max"]) / 1000.0
+    only = options.get("--mesh")
+    other = options.get("--compare")
     if not args:
         print(__doc__.strip().splitlines()[-3].strip(), file=sys.stderr)
         return 2
@@ -552,13 +595,65 @@ def main():
     if other:
         return compare(args[0], other)
 
-    gltf, binary = read_glb(args[0])
     total = 0
+    for path in args:
+        total += check_atlas(path, only, header=len(args) > 1)
+
+    print()
+    if total:
+        print(f"FOUND {total} problem(s) — these are what make the part render wrong in game")
+        return 1
+    print("clean: names pair, every triangle has UV area, and no two faces share a plane")
+    return 0
+
+
+def unpaired_names(gltf):
+    """Nodes whose mesh is not named after them, which KSA renders as nothing.
+
+    Blender will not say when it refuses a name: `ob.data.name = "X"` silently becomes "X.001" if
+    an orphaned mesh already holds "X", and deleting an object leaves exactly such an orphan. The
+    export then writes a node "X" drawing a mesh "X.001", the asset XML's <Mesh Id="X"> resolves
+    to nothing, and the part loads with that body missing and nothing in any log.
+    """
+    meshes = gltf.get("meshes", [])
+    bad = []
+    for node in gltf.get("nodes", []):
+        index = node.get("mesh")
+        if index is None or index >= len(meshes):
+            continue
+        node_name = node.get("name", "?")
+        mesh_name = meshes[index].get("name", "?")
+        if node_name != mesh_name:
+            bad.append((node_name, mesh_name))
+    return bad
+
+
+def check_atlas(path, only, header=False):
+    """Reports one atlas and returns its problem count.
+
+    Taking several paths matters more than it sounds: check-all.sh hands this every authored
+    atlas at once, and a main() that read argv[0] alone would check the first and pass the rest
+    in silence -- which is worse than not checking them, because the run says "clean".
+    """
+    gltf, binary = read_glb(path)
+    total = 0
+    if header:
+        print(f"\n--- {path}")
+
+    for node_name, mesh_name in unpaired_names(gltf):
+        print(f"\nnode {node_name}: draws mesh {mesh_name} — the names must match, or "
+              f"<Mesh Id=\"{node_name}\"> resolves to nothing and the body is invisible")
+        total += 1
 
     for mesh in gltf["meshes"]:
         name = mesh.get("name", "?")
         if name.endswith("_VM"):
             continue                        # same geometry as its parent; nothing new to say
+        if name.startswith("_ColPrim"):
+            # A collider primitive, which Core ships 58 of: a box or cylinder carrying the part's
+            # collision volume as a node transform. It is never rendered, so it has no UVs and
+            # every check here would report it -- starting with "NO TEXCOORD_0".
+            continue
         if only and name != only:
             continue
 
@@ -597,12 +692,7 @@ def main():
         else:
             print("  no coplanar overlaps")
 
-    print()
-    if total:
-        print(f"FOUND {total} problem(s) — these are what make the part sparkle in game")
-        return 1
-    print("clean: every triangle has UV area, and no two faces share a plane")
-    return 0
+    return total
 
 
 if __name__ == "__main__":

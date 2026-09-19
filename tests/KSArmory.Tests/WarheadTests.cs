@@ -29,26 +29,6 @@ public class WarheadTests
 
         Assert.Equal(2.0, big / small, 6);
         Assert.Equal(2.0, Warhead.BlastRadius(8.0) / Warhead.BlastRadius(1.0), 6);
-
-        // Above the floor, the drawn size follows the same law.
-        Assert.Equal(2.0, Warhead.EffectScale(64.0) / Warhead.EffectScale(8.0), 6);
-    }
-
-    /// <summary>
-    /// A cannon shell scales to 0.2 by the cube root, which draws 5 cm particles — proportionate
-    /// and invisible. The floor is on the drawing only; what the shell destroys is untouched.
-    /// </summary>
-    [Fact]
-    public void ASmallWarheadIsStillDrawnLargeEnoughToSee()
-    {
-        double shell = Arsenal.Cannon30Mm.ChargeKg;
-
-        Assert.True(Math.Cbrt(shell / Warhead.ReferenceChargeKg) < Warhead.MinimumEffectScale,
-                    "the shell should be below the floor, or this test proves nothing");
-        Assert.Equal(Warhead.MinimumEffectScale, Warhead.EffectScale(shell), 9);
-
-        // The radii are the physics and keep the law exactly.
-        Assert.Equal(4.0, Warhead.LethalRadius(shell), 1);
     }
 
     /// <summary>
@@ -66,11 +46,6 @@ public class WarheadTests
         Assert.True(Warhead.LethalRadius(kg) < Warhead.BlastRadius(kg));
     }
 
-    /// <summary>The authored effect is drawn at its reference charge, unscaled.</summary>
-    [Fact]
-    public void TheReferenceChargeNeedsNoScaling()
-        => Assert.Equal(1.0, Warhead.EffectScale(Warhead.ReferenceChargeKg), 9);
-
     [Theory]
     [InlineData(0.0)]
     [InlineData(-1.0)]
@@ -79,7 +54,7 @@ public class WarheadTests
     {
         Assert.Equal(0.0, Warhead.LethalRadius(kg));
         Assert.Equal(0.0, Warhead.BlastRadius(kg));
-        Assert.Equal(0.0, Warhead.EffectScale(kg));
+        Assert.Equal(0.0, Warhead.FireballRadius(kg));
     }
 
     /// <summary>
@@ -89,7 +64,7 @@ public class WarheadTests
     [Fact]
     public void TheCannonKeepsItsLethalRadius()
     {
-        Assert.Equal(4.0, Arsenal.Cannon30Mm.LethalRadius, 1);
-        Assert.True(Arsenal.Cannon30Mm.BlastRadius > Arsenal.Cannon30Mm.LethalRadius);
+        Assert.Equal(4.0, BuiltIns.Cannon30Mm.LethalRadius, 1);
+        Assert.True(BuiltIns.Cannon30Mm.BlastRadius > BuiltIns.Cannon30Mm.LethalRadius);
     }
 }

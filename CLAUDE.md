@@ -1,12 +1,19 @@
 # CLAUDE.md
 
-A point-defence mod for **Kitten Space Agency** (KSA, RocketWerkz). Two weapon systems, both
-generated from Blender scripts: a **Pantsir-S1** — search radar, proportional-navigation
-interceptors, a proximity-fused warhead, twelve rounds in two pods of six on an 8×8 chassis — and
-a **LAU-7 rail** carrying one AIM-9J, which surface-attaches to anything and is the shipped
-example of a launcher with nothing that moves, a **Mk 15 Phalanx CIWS** that stacks on a 3 m
-node and is the one with no missiles at all, and a **Mk 82 bomb rack**, which is the one that
-neither aims nor fires: it lets a bomb go and the ground does the rest.
+A point-defence mod for **Kitten Space Agency** (KSA, RocketWerkz). A **Pantsir-S1** — search
+radar, proportional-navigation interceptors, a proximity-fused warhead, twelve rounds in two pods
+of six on an 8×8 chassis — and a **LAU-7 rail** carrying one AIM-9J, which surface-attaches to
+anything and is the shipped example of a launcher with nothing that moves, a **LAU-128 rail**
+carrying one AIM-120C, which is that same launcher with ten times the reach and the first *round*
+whose art was authored rather than generated, a **LAU-118 rail** carrying one AGM-88 HARM, which
+is the one that cannot engage an aircraft at all and whose target has a say in whether it is one, a
+**Mk 15 Phalanx CIWS** that stacks on a 3 m node and is the one with no missiles at all, a
+**5"/54 Mk 42 mount**, which is the other one with none and the opposite weapon — forty rounds a
+minute to the Phalanx's four and a half thousand, and shells that burst on a time fuze rather than
+having to hit — and a **B61 rack**, which is the one that neither aims nor fires: it lets a bomb go
+and the ground does the rest. Two sights come with them, and they are the
+same instrument on different mechanisms: an **EO director** on a mast, and a **Rafael LITENING
+pod**, whose whole nose rolls about the pod's centreline while the sight nods within it.
 
 ## Read this first
 
@@ -133,6 +140,28 @@ one.
 Split unrelated work into separate commits rather than one large one: the changelog is generated
 from these, so a commit that does three things describes none of them well.
 
+**But "unrelated" is about the change, not about the hour it was made in.** A weapon system's
+history runs to hundreds of commits, and measuring what dominates them says where the excess is:
+of the 239 touching the ballistic surface, **89 reach the changelog and 76 are `docs`**. The
+changelog is not the problem — it is about eleven lines a release. The research loop being recorded
+twice is, once in `docs/` and again as a commit per finding.
+
+Two rules follow, and neither touches the `feat`/`fix` split, which is real work a player can
+observe:
+
+**Batch a session's `docs` into one commit.** A night's measurements, the doc they land in, and
+the stale lines they falsify are one unit of work, not five. Nothing is lost: `docs` never reaches
+the changelog, and the file content is identical either way. Write the story in the body — that is
+what makes the archaeology possible later, and it is worth more there than spread across five
+subjects.
+
+**An arm is squashed, or it never lands at all.** `Merge, do not squash` below is about `dev`→
+`main`, where semantic-release reads individual commits to build the changelog; an `arm/*` or
+`agent/*` branch has no such constraint. An arm that **loses** does not merge — it becomes one line
+in the relevant `docs/` file and the branch is deleted, because a losing arm's internal steps are
+noise nobody will read. An arm that **wins** is squashed into one `feat`/`fix` carrying the flown
+numbers, which is what a reader wants anyway.
+
 **Commit to `dev`, not to `main`.** `main` is the release branch and a push to it cuts a release
 and publishes to SpaceDock — see [CI and releases](#ci-and-releases). Everything lands on `dev`
 first and rides to `main` in a merge when a release is wanted.
@@ -159,7 +188,7 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
 ## Environment
 
 - **KSA install**: `/mnt/c/Program Files/Kitten Space Agency` (Windows game, WSL dev)
-- **KSA build these notes were taken against**: `2026.8.19.5261`
+- **KSA build these notes were taken against**: `2026.9.10.5438`
 - The system `dotnet` is 8.0 and **cannot build this** — the mod targets **net10.0**
   (`error NETSDK1045`). A .NET 10 SDK is installed at `~/.dotnet`.
   **Use `tools/build.sh` / `tools/test.sh`**, which source `tools/env.sh` to fix PATH. Bare
@@ -177,8 +206,9 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
   launched from there.
 - **The mod writes its own log** to `<KSA user dir>/Logs/KSArmory.log`, readable from WSL;
   `./tools/ksa-user-dir.sh` prints that directory and `./tools/run.sh --attach` follows the log.
-  `Console.WriteLine` only reaches stdout, and KSA's `KittenSpaceAgency.log` is written by its
-  internal logger which mods cannot reach — so the mod's own file is the debugging channel.
+  `Console.WriteLine` only reaches stdout, and KSA's own log — one per session, the newest
+  `KittenSpaceAgency.<yymmdd-hhmmss>.<pid>.log` in the same folder — is written by its internal
+  logger which mods cannot reach, so the mod's own file is the debugging channel.
   KSA's log is still the place to look for mod discovery and asset/XML errors.
 
 ## Commands
@@ -187,10 +217,12 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
 ./tools/doctor.sh                          # can this machine build, test and run it? -- start here
 ./tools/check-all.sh                       # everything CI runs (~8 s); also the pre-push hook
 ./tools/build.sh                           # build the mod (handles the SDK PATH)
-./tools/test.sh                            # guidance + fuse tests, no game needed
+./tools/test.sh                            # guidance + fuse tests; needs the assemblies, not the game
 ./tools/validate-parts.py                  # part XML, launch geometry, registered PartIds; runs in deploy.sh
-./tools/model/build.sh                     # rebuild every part's mesh and textures (needs Blender)
+./tools/pack-api.py --check                # has the API weapon packs bind to moved?
+./tools/model/build.sh                     # rebuild the generated atlas and its palette (needs Blender)
 ./tools/model/checkswept.py                # does any assembly pass through another in its travel?
+./tools/model/checkring.py --check         # is a thruster ring steering on more than its axial pair?
 ./tools/check-boundary.sh                  # Sim/ must not reference KSA types
 ./tools/check-network.sh                   # the mod only reaches the network when Send is clicked
 ./tools/check-tunables.py                  # every setting has a control that reaches it
@@ -201,6 +233,11 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
 ./tools/run.sh                             # build, deploy, launch, show the mod's output
 ./tools/run.sh --attach                    # follow a game that's already running
 ./tools/scenario.sh head-on                # fly one engagement unattended and report pass/fail
+./tools/scenario.sh mirv                   # ...or the whole ballistic shot, and score the group
+./tools/scenario.sh drop                   # ...or a B61 off a climbing rocket, against the sight
+./tools/scenario.sh gunnery                # ...or a gun against drones crossing past it, every shell scored
+./tools/shot-batch.sh --arms base=dev,x=arm/x --blocks 12   # fly a night of them, interleaved
+./tools/shot-report.py ~/shots/<night>     # ...and say what it settled -- read SHOT-PROTOCOL.md
 ./tools/ksa-user-dir.sh                    # where KSA keeps Logs/, mods/ and saves on this box
 ./tools/setup-starmap.sh                   # one-off: install StarMap and write its config
 ./tools/check-assemblies.sh --game         # has the installed game moved past the lock?
@@ -227,111 +264,224 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | Path | What |
 | --- | --- |
 | **`src/KSArmory/Sim/`** | **no KSA types, linked into the tests wholesale** |
-| `Sim/Arsenal.cs` | **the registry — add a weapon system here** |
+| `Sim/Arsenal.cs` | **the built-ins — add a weapon system here** |
+| `Sim/Catalogue.cs` | **what the mod reads** — the built-ins plus anything else registered; a lookup taken against `Arsenal` sees only what shipped |
+| `Sim/Armoury.cs` | **the whole public surface a weapon pack binds to** — two members, taking text rather than profiles so a pack needs no game assemblies |
+| `Sim/PackReader.cs` | somebody else's weapon definitions, read into profiles — **text in, no file access**, so every refusal is testable headlessly |
+| `Sim/PackScan.cs` | where KSArmory looks for somebody else's weapons — **a convention, not a list** |
+| `Sim/PackAudit.cs` | whether what registered can actually be found — the half of validation that has to wait until the world has loaded |
+| `Sim/IPartCatalogue.cs` | **the seam the audit asks what parts exist through** |
+| `Sim/PackResult.cs` | what one pack got out of registering: how much stuck, and everything that did not |
+| `Sim/PackContents.cs` | what reading one pack produced: what may register, and what may not |
+| `Sim/PackFault.cs` | one definition that was refused, and the reason an author can act on |
 | `Sim/WeaponSurvey.cs` | reads a weapons system off a craft the mod did not design |
 | `Sim/LauncherProfile.cs` | one launch platform: part Id, tube geometry, drives |
-| `Sim/MunitionProfile.cs` | one round: boost, guidance, fuse, warhead |
+| `Sim/MunitionProfile.cs` | one round: boost, guidance, drag, fuse, warhead — **its drag from its mass, calibre and coefficient**, not a constant typed for it |
 | `Sim/Warhead.cs` | explosive charge to lethal, blast and fireball radius |
+| `Sim/WarheadExplosion.cs` | which of KSA's explosions a warhead goes off as — **the preset carries the size**, because KSA's floor swallows every conventional charge |
 | `Sim/SensorProfile.cs` | one sensor: range, cone, threat model |
-| `Sim/OpticProfile.cs` | one optical head — a part in its own right, not launcher gear |
-| `Sim/OpticGeometry.cs` | where a director's head sits, and how far down it can look |
+| `Sim/OpticProfile.cs` | one optical head — its own part, or one a launcher carries |
+| `Sim/OpticGeometry.cs` | where a director's head sits and how far it may look, **measured from the base it rides** |
 | `Sim/OpticConfig.cs` | one director's own settings — where it looks, how far it zooms |
 | `Sim/Config.cs` | session-wide settings — team names, drawing, logging |
 | `Sim/SystemConfig.cs` | one installation's own settings — arm, engage, turret mode, IFF |
 | `Sim/SystemSettings.cs` | those settings flattened, so they can be written down and read back |
 | `Sim/IProjectile.cs` | **what everything in the air must be** — a weapon kind is an implementation, not a profile field |
+| `Sim/RoundDriver.cs` | **the one place a round is advanced by one frame** — the game and the rig both come through it, so neither can differ about which fields a round re-reads within a frame |
 | `Sim/Interceptor.cs` | guided round: proportional navigation, boost, fuse |
 | `Sim/Slug.cs` | unguided kinetic round: ballistics and a contact fuse |
+| `Sim/TailKit.cs` | steering a falling store onto a place on the ground — **the landing it predicts, moved onto the designation**, because a store thrown from a climb flies away from where it lands and a line-of-sight law turns the wrong way |
+| `Sim/BlastSweep.cs` | how near a burst a body was, and what that does to it — shared by the sweep over craft and the one over rounds |
+| `Sim/BlastDamage.cs` | which parts of a craft a burst breaks — **nothing here picks a part**: each is judged on its own distance and the strength the engine derived for it |
+| `Sim/TargetAllocation.cs` | what one craft's weapons have in the air **between them** — the unit that over-commits is the craft, not the weapon |
+| `Sim/RoundReach.cs` | whether a round the ground stops can still get to it — **the reaper for a store that will never arrive**, because a long fall is long rather than stuck |
+| `Sim/Medium.cs` | what the air or water a round flies through does to it — buoyancy and drag, shared by every round, against **one reference air for every body**, so a round is dragged by the air actually there |
 | `Sim/ContactSweep.cs` | the contact rule: whether a round runs into a body over one step |
 | `Sim/IHullTest.cs` | **the seam a kinetic round asks whether it truly touched something** |
 | `Sim/IGroundTest.cs` | where the ground is under a round, for the one round the terrain stops |
+| `Sim/CoarseGroundTest.cs` | the sight's ground test, which skips the lookups a falling round cannot need |
+| `Sim/MushroomCloud.cs` | the shape of a nuclear cloud over time, as offsets from the burst |
 | `Sim/Magazine.cs` | which tubes hold a round, which fires next, what each body does |
+| `Sim/BodyPool.cs` | bodies lent to rounds with no tube to key one to — **a shell borrows one for as long as it flies**, and one arriving when every body is lent draws as a tracer |
+| `Sim/RoundLabel.cs` | what to call a round in a line somebody reads — **the one place the tube field's sentinel is decoded**, because a shell has no tube |
 | `Sim/TubeGeometry.cs` | tube positions and directions, pod and radar pose, body placement |
 | `Sim/Turret.cs` | rate-limited traverse and elevation drives |
 | `Sim/PointingDrive.cs` | a head that points rather than trains — two degrees of freedom, no axes of its own |
 | `Sim/FireGeometry.cs` | launch direction and round-body orientation |
 | `Sim/BodyAttitude.cs` | which way a round points, and how a released store noses over |
 | `Sim/BombSight.cs` | where a store released now would land, flown rather than solved |
+| `Sim/Lambert.cs` | the transfer between two points in a stated time — **the one thing solved rather than flown** |
+| `Sim/BallisticBody.cs` | the planet an arc is flown around, and how it carries a point on its surface |
+| `Sim/AimSite.cs` | a place on a world, as the thing a ballistic missile is aimed at |
+| `Sim/BallisticArc.cs` | what a vehicle must be doing at burnout for the fall afterwards to arrive |
+| `Sim/Kepler.cs` | where a coasting body will be later, in closed form — **so a search can ask thousands of times** |
+| `Sim/AimFrame.cs` | which way is up for a vehicle told to point somewhere — **the roll a pointing command leaves undecided** |
+| `Sim/OrbitPlane.cs` | how far off the plane a target sits, and what that costs — **the explanation for an inexplicable burn** |
+| `Sim/BurnWindow.cs` | **when** to start burning, which is not the same question as how to fly it |
+| `Sim/ArrivalBudget.cs` | the steepest arrival the tanks can pay for — **what bounds the angle control**, so a ceiling is seen rather than discovered when the shot falls short |
+| `Sim/ImpactPredictor.cs` | where it would come down if the engines stopped now — flown, not solved |
+| `Sim/ArrivalFrame.cs` | the axes an arrival is measured in — **a drift up costs `cot γ` times the same drift across**, which is eight at the angle this mod flies |
+| `Sim/GroundSlope.cs` | how steep the ground under a target is, and what a round arriving on it pays — **past a loop gain of one there is no fixed point at all** and re-aiming walks away from the answer, which a quarter of rockets at the flown site are; the **gradient**, never a ring's median, because a ring halves a planar slope |
+| `Sim/AimCorrection.cs` | where to aim so it lands on the target — **the solver arrives at a point, a round stops at the ground** |
+| `Sim/AimAuthority.cs` | how far the aim may be moved for what the trim can pay — **an aim the bus cannot reach is worse than a nearer one it can**, because a correction that finishes lands at 140 m and one that does not at 5–45 km |
+| `Sim/BoosterPerformance.cs` | what the stack can still do, as the four numbers guidance needs |
+| `Sim/BurnoutGuidance.cs` | where to point and when to stop — velocity still to be gained |
+| `Sim/AscentProfile.cs` | the schedule flown while there is air, and the limit that keeps the stack in one piece |
+| `Sim/PostBoostAim.cs` | correcting the aim after the engines stop — **the trim is the actuator**, and holding the warheads to do it has a price. **Nothing is read off a bus whose nose is turning**: the prediction carries the kick along it |
+| `Sim/IcbmProgram.cs` | **the flight** — pad to cutoff to release, as one phase machine |
+| `Sim/HoldingCost.cs` | what a second of holding the warheads costs, measured off the arc rather than typed — **the floor under the miss**, and it runs from 0.82 m/s at 500 km to 21.79 at 12,900, so no constant is right |
+| `Sim/BusTrim.cs` | putting the bus back on its solution after the split — **the only thing that can**, because the burn is over |
+| `Sim/PostCutoffSequence.cs` | what the loop after cutoff does next — **the decision that dominates where the warheads land**, since a correction that finishes lands at 140 m and every other ending at 5–45 km |
+| `Sim/CoastQuiet.cs` | when to stop holding the bus's attitude, so it rides the coast on rails — **bounded at both ends**, because the trim reads the attitude as the release line and the release sequence waits for *steady*, which is not *pointed* |
+| `Sim/ShedStage.cs` | which of the vehicles that just appeared is the half this stack let go of — **bounded and refusable**, because a world of several rockets stages together and adopting a foreign stage makes the clearance read kilometres and pass at once |
+| `Sim/SeparationClearance.cs` | whether what let go has got far enough away to manoeuvre — **the shove is the separation**, so nulling it ends it |
+| `Sim/ProximityWatch.cs` | how near the bus ever came to the stage it dropped — **the minimum over the whole coast**, which no sample at the end recovers and no gate at the start sees |
+| `Sim/ReleasePointing.cs` | which way a launcher must hold for one tube to throw along the line the others did |
+| `Sim/ReleaseSequence.cs` | letting a magazine go one round at a time, each along that same line |
+| `Sim/SalvoProbe.cs` | the release probe a warhead's separation is solved against — **its own, or its salvo's last that landed**, because an unkicked warhead lands metres out and a sibling's probe a frame old solves the same kick to 0.09 mm |
+| `Sim/ReleaseFocus.cs` | the velocity each round leaves its tube with so it lands where the tubes' mean does — **the ring the mouths sit on is the group's spread**, and no single aim can remove it; the spin each is thrown with moves the group's centre, and is given back exactly; and the release probe's own miss can be cancelled with them, along the ground and **under a cap, so a separation cannot become a burn** |
+| `Sim/WarheadFootprint.cs` | where each warhead of one salvo is aimed — **all six on the designation is what ships**, and six 1.8 m vehicles then arrive 9 mm apart and burst as one; a commanded ring is worth more as measurement than as realism, because a kick asked to put every warhead in one place cannot be checked, and it is **bounded by the separation cap, which it shares with the probe's miss kick, at under 3 m**, which is nothing beside a 706 m fireball |
+| `Sim/ShotRequest.cs` | where a scripted shot is aimed and the bar it is judged against — **text in**, so the harness's one line is testable headlessly |
+| `Sim/ShotGroup.cs` | where a salvo landed, and whether that is a pass — **scored on the worst warhead**, and one that never arrived counts |
+| `Sim/ShotArms.cs` | which variant each rocket in a world flies — **the comparison moved inside the run**, because the same baseline read 14.49 km and 5.43 km on identical code three hours apart |
+| `Sim/AimSpread.cs` | where each rocket of a group aims, so the first warhead down does not kill the rest — **a warhead's blast reaches other warheads**, and eight groups on one point measured three of eight |
+| `Sim/PlatformHandover.cs` | which craft a part went to, when a decoupler took it off the one carrying it — **one decision, every roster that follows a part** |
+| `Sim/StageDisposal.cs` | whether a spent stage may be taken out of the world — **frame time is the only thing that buys simulation rate**, and a rocket sheds four vehicles to keep two |
+| `Sim/IcbmConfig.cs` | one installation's ballistic settings — armed, loft, arrival angle, ascent, staging, trim |
+| `Sim/FinMixer.cs` | one steering command resolved into four blade deflections — **drawn only** |
+| `Sim/FinTest.cs` | the built-in-test sweep a tail kit runs on the rack — **drawn only** |
 | `Sim/FireGate.cs` | whether the launcher is pointing where it is about to shoot |
+| `Sim/FireLadder.cs` | **why a system is not shooting** — the gates in order, and the first one that says no |
+| `Sim/OpticHold.cs` | **why a director is not looking at what it has bracketed** — the same question for the sight, in the precedence the head's own aim applies |
 | `Sim/DriveStatus.cs` | which drives the engine is still accepting writes for, latched per channel |
 | `Sim/GunChannel.cs` | the cannon's belt, burst position and next-round timing |
-| `Sim/BallisticLead.cs` | where an unguided round must be aimed to arrive where the target will be |
+| `Sim/GunRecoil.cs` | how far a barrel has run back since the gun fired — **drawn only**, because the round has left before the barrel moves |
+| `Sim/BallisticLead.cs` | where an unguided round must be aimed to arrive where the target will be — **its acceleration included**, because a lead on velocity alone misses anything slowing or falling by ½·a·t² — and **flown through the air and the pull of whichever body it is on**, because distance over muzzle speed times a five-inch fuse 24 s early at 15.7 km, 5.5 km short |
+| `Sim/AccelerationEstimate.cs` | the engine's accelerometer, **checked against how the contact's velocity actually changed** — the reading includes every impulse over one step and misled a lead by 232 m, while the history lags and, used as the reading, put every first shell 16 m behind |
+| `Sim/DragShape.cs` | a craft's drag and mass **as the engine computes them** — a box fixed to the body over its mass, turned with the body's rates, and a mass its engines burn away — so a craft holding its attitude while its path bends changes its drag, one tumbling changes it faster, and one under power still has all of it and pushes harder as it lightens; a lead holding the coefficient put every first shell 25 m behind and above |
+| `Sim/LeadError.cs` | where a shell burst relative to its target, along the target's track, up and right — beside what a steady-target lead would have missed by, which is what tells an unled acceleration from a wrong aim |
 | `Sim/Aimpoint.cs` | what a round is shooting at — craft, component or coordinate |
 | `Sim/ThreatModel.cs` | CPA threat classification, priority, engagement envelope |
 | `Sim/RadarSignature.cs` | how large a contact looks, and how far that lets the set see it |
 | `Sim/TrackState.cs` | one contact, as the threat model sees it |
+| `Sim/Wreckage.cs` | what this mod's warheads broke off a craft — **wreckage, not targets**, recognised by the name the engine gives a piece, because the engine keeps no other record of where it came from |
 | `Sim/Iff.cs` | which side a contact is on, and whether it may be engaged |
+| `Sim/GuardState.cs` | whether a craft's weapons are standing guard — **the switcher's one switch for auto-engage on every weapon aboard** |
 | `Sim/LineOfSight.cs` | whether a body is between the viewer and something |
 | `Sim/ITerrainHeights.cs` | **the seam a sensor looks over the real skyline through** |
 | `Sim/TerrainMask.cs` | whether a ridge hides a contact, and how few samples that can cost |
+| `Sim/TerrainRay.cs` | where the pointer meets the ground — **the first place the ray goes under it**, walked from the eye, because the mean sphere's hit refined by the height there lands behind a hill seen side-on |
+| `Sim/TerrainMap.cs` | a local east/north frame on a body, and the square of ground drawn around it |
 | `Sim/Picking.cs` | what the cursor's ray meets, and what is nearest it on screen |
 | `Sim/Reticle.cs` | the gunner's sight as strokes on a screen — geometry only |
+| `Sim/ScopeGeometry.cs` | the radar scope's face — where a blip belongs on it, in bearing and range |
+| `Sim/LockCue.cs` | how far a lock has matured, as the number a closing bracket is drawn from |
 | `Sim/SightPicture.cs` | where the sight's horizontal lies, and which way a contact off the glass went |
 | `Sim/SightZoom.cs` | the head's magnification, as the field of view it asks a camera for |
 | `Sim/CursorAim.cs` | cursor to viewport coordinates, and the bearing from a mount to what it points at |
 | `Sim/WeaponFit.cs` | **what a weapons system is fitted with** — the panel asks this rather than testing profile fields |
+| `Sim/WeaponSelection.cs` | stepping round a craft's weapons, wrapping — the half of the selector a test can reach |
 | `Sim/StepGate.cs` | hands a simulation step out once and only once |
+| `Sim/FrameLatch.cs` | hands a **frame's** work out once, to whichever hook reaches it first — **the UI pass is skipped while the UI is hidden and the frame postfix is not** |
 | `Sim/SmoothedStep.cs` | the step evened out, for the one consumer that wants a smooth clock |
 | `Sim/SimClock.cs` | classifies a step: usable, paused, or too long to integrate |
 | `Sim/WarpPolicy.cs` | holds timewarp down while rounds fly, and gives it back after |
+| `Sim/WorldSpeed.cs` | what one world clock runs at when several flights each want something — **the slowest wins**, because a speed is a ceiling on what can be simulated faithfully |
+| `Sim/OverrunLog.cs` | how much simulated time the clamp threw away, and whether that cost anything — **an empty sky loses nothing**, and a scene load is always one |
+| `Sim/FrameBudget.cs` | **what this mod costs the frame, split by what costs it** — the other side of `SolverLoad`'s subtraction, because three suspects eliminated one at a time is not the same as measuring the whole |
+| `Sim/SolverLoad.cs` | whether the engine is keeping up, and what more work in the world costs — **the instrument both throughput levers are priced with**, because neither several rockets nor several game instances has ever been measured |
 | `Sim/ChaseView.cs` | where to put a camera riding behind a round |
+| `Sim/ChaseOrbit.cs` | the player looking around a chased round with KSA's own orbit drag and wheel — **eased back behind the round when let go** |
+| `Sim/ChaseInterest.cs` | whether a chased round is still going anywhere — **a round with nothing to arrive at can only run out of flight**, and riding it there is watching a despawn |
 | `Sim/ViewClaim.cs` | who may hold the player's main view, and what that means for the loser |
 | `Sim/OrbitAim.cs` | the orbit-camera angles that would point the view at something |
 | `Sim/ReportDraft.cs` | a bug report or idea being written, and whether it is worth sending |
+| `Sim/Distance.cs` | a distance in the unit that shows it — **a fixed unit goes blind as the shot improves**, and `bias 0.0 km` was the whole of a ten-metre miss printed as nothing |
 | `Sim/Vec.cs`, `Sim/DrawAnchor.cs` | vector helpers, the two-instant draw anchor |
 | **`src/KSArmory/Ksa/`** | **everything that binds to the game** |
 | `Ksa/KSArmoryMod.cs` | StarMap entry point and frame hooks |
 | `Ksa/KsaWorld.cs` | most KSA contact is funnelled here — keep it that way |
-| `Ksa/WeaponSystems.cs` | one system per weapon fitted, crewed and forgotten with the craft |
+| `Ksa/WeaponSystems.cs` | one system per weapon fitted, crewed with the craft and followed across a split |
 | `Ksa/WeaponSystem.cs` | fire control, salvo logic, warhead effects, drives |
 | `Ksa/WeaponSystemRoles.cs` | **the slices consumers take** — effects, sights and cameras get a role, not the whole system |
+| `Ksa/Armaments.cs` | one coordinator per craft — **derived every frame, never pinned**, because it carries nothing a split could lose |
 | `Ksa/Radar.cs` | cone search, CPA threat model, lock |
 | `Ksa/LauncherPart.cs` | finds a registered launcher, resolves tubes and subparts |
+| `Ksa/LauncherSeparation.cs` | the decoupler on the joint holding a launcher on — **a property of the part, not the craft** |
 | `Ksa/OpticParts.cs` | finds a director on a craft, and turns its head |
 | `Ksa/OpticalHead.cs` | **one director** — its own sensor, its own aim, no weapon involved |
-| `Ksa/OpticalHeads.cs` | one head per director fitted, crewed and forgotten with the craft |
+| `Ksa/OpticalHeads.cs` | one head per director fitted, crewed with the craft and followed across a split |
+| `Ksa/InstalledPacks.cs` | reads those folders and registers what is in them — **what lets a pack be assets only** |
+| `Ksa/DeclaredParts.cs` | the part library as that seam — off `PartTemplate`, because the question is what was *declared*, not what is on a craft |
 | `Ksa/HullTest.cs` | whether a round's step meets a craft's actual geometry, per triangle |
 | `Ksa/GroundTest.cs` | the surface under a round, off the engine's own height field |
 | `Ksa/TerrainHeights.cs` | one body's height field, sampled coarsely and many times per scan |
+| `Ksa/TerrainMapScan.cs` | that height field as a cached grid — **the cost lives here**, so it is paid on movement rather than per frame |
 | `Ksa/BombSightOverlay.cs` | the pipper: the impact ring and the arc down to it |
-| `Ksa/Ui/Ui.cs` | the panel's shell: system list, panes, and which system they read |
-| `Ksa/Ui/UiSession.cs` | the world clock, and what the session draws and hears |
+| `Ksa/IcbmComputer.cs` | **one craft's ballistic computer** — reads the world, runs the program, flies the rocket |
+| `Ksa/IcbmComputers.cs` | one per craft carrying a part that provides `Guidance` — **the MIRV bus alone today**, so a Pantsir or a rail gets none — crewed and forgotten with it |
+| `Ksa/AttitudeHook.cs` | **one of the four places this mod patches the game** — the only window in which an attitude command survives |
+| `Ksa/PreRenderHook.cs` | the second — **a step before the render on a frame that draws no UI**, because StarMap has no hook that is both |
+| `Ksa/WorldReloadHook.cs` | the third — **that a save was loaded**, which nothing else can tell: the mod never leaves the flight scene across one |
+| `Ksa/RoundBodyDrawHook.cs` | the fourth — **a launcher's rounds drawn after the engine has culled the launcher**, because a body is one of its parts and KSA draws none of a craft under a pixel across |
+| `Ksa/VehicleCommand.cs` | **the only place this mod flies somebody else's rocket** — attitude, throttle, ignition, staging |
+| `Ksa/IcbmOverlay.cs` | the arc it is on and the ring it is aimed at |
+| `Ksa/WarheadTrace.cs` | **one warhead against the prediction of it**, re-flown from where it has got to — measurement only, off by default, and the discriminator is whether the two part *smoothly* or in a *step* |
+| `Ksa/SiteDesignator.cs` | click the world to name where the warheads go — **a mode, not a button** |
+| `Ksa/Ui/Ui.cs` | the panel's shell: the switcher — one row per craft, grouped by team, a name to fly it and guard, chase and team as drawn icons — the panes, and which system they read |
+| `Ksa/Ui/UiSession.cs` | the world clock, the teams, and what the session draws and hears |
 | `Ksa/Ui/UiSystem.cs` | one row per component: what each part is, sees and is doing |
+| `Ksa/Ui/UiOptic.cs` | one director's rows — what it looks at, looks through, and will watch. **Reads no weapons system**, because a craft with a director and no armament has all of them |
 | `Ksa/Ui/UiTuning.cs` | IFF, and the sensor, guidance and warhead numbers |
 | `Ksa/Ui/UiDebug.cs` | test targets, moving craft, hand-fired bursts, the log |
+| `Ksa/Ui/UiMap.cs` | the ground under a director as shaded relief, with what it can see marked on it |
+| `Ksa/Ui/UiIcbm.cs` | the ballistic computer's pane — what it is aimed at, whether it will get there, and **everything a player need not touch under one closed Engineering fold** |
+| `Ksa/Ui/UiScope.cs` | the radar scope: what the *set* holds, craft-centred and polar, on the Radar tab |
+| `Ksa/Ui/UiWeapons.cs` | the weapon switcher — which of a craft's weapons the trigger is pointed at, with each one's ammo and arm state |
 | `Ksa/Ui/UiReport.cs` | the one window behind **Report bug** and **Feedback** |
 | `Ksa/Ui/ModMenuEntry.cs` | a copied attribute so ModMenu can list this mod — **wanted gone**, see `docs/BLOCKED-ON-KSA.md` |
 | `Ksa/FeedbackClient.cs` | posts a report to the endpoint, off the frame thread |
 | `Ksa/Visuals.cs` | gizmo rendering |
-| `Ksa/Detonation.cs` | the fireball where a warhead goes off, through KSA's particle system |
+| `Ksa/Detonation.cs` | KSA's own explosion where a warhead goes off, anchored to the body rather than the target |
+| `Ksa/Fireball.cs` | the nuclear flash: one emissive sphere that blooms, and the light it casts |
+| `Ksa/PlumeSmoke.cs` | smoke through the renderer KSA draws booster plumes with, one reflected field away |
+| `Ksa/MotorSmoke.cs` | the trail a burning round leaves, through that same renderer — one cursor per round |
+| `Ksa/NuclearClouds.cs` | the mushroom clouds standing in the world, walked with plume cursors |
 | `Ksa/MotorSound.cs` | the rocket motor you can hear, one spatialised channel per burning round |
 | `Ksa/MotorPlume.cs` | the flame at the nozzle, one pooled emitter per burning round |
 | `Ksa/MuzzleFlash.cs` | the flash at the cannon's muzzles, one pooled emitter per firing system |
-| `Ksa/GunSound.cs` | the cannon you can hear, one looping channel pitched by its fire rate |
+| `Ksa/GunSound.cs` | the cannon you can hear: one looping channel per firing system, and a gunshot per round from a gun slow enough to be heard shot by shot |
 | `Ksa/TracerTrail.cs` | tracers, an emitter riding a shell rather than thrown from the muzzle |
 | `Ksa/Sight.cs` | paints the gunner's sight over the camera the optical head drives |
+| `Ksa/SightSurface.cs` | **which window that sight paints on** — and the draw list that reaches it, because a camera window's picture is a window and the main view's is not |
 | `Ksa/SightCamera.cs` | borrows the main view to look through the optical head, and gives it back |
 | `Ksa/Markers.cs` | on-screen brackets over every weapons system, labelled on hover or when pinned |
+| `Ksa/LockCueOverlay.cs` | brackets on **what the selected weapon is engaging**, closing as the lock matures |
 | `Ksa/RoundFollowable.cs` | a round, presented to the engine as something a camera can follow |
 | `Ksa/ChaseHud.cs` | brackets around what a chased round is flying at |
 | `Ksa/ChaseCamera.cs` | rides the main view behind a round, and gives it back |
 | `Ksa/LevelHorizonController.cs` | KSA's fixed camera controller, with an up vector it does not otherwise offer |
 | `Ksa/WatchCamera.cs` | nudges the main view round onto one system, then lets go |
 | `Ksa/Contact.cs` | **what a sensor can hold** — a craft, or anything else that can be seen |
-| `Ksa/RoundContact.cs` | somebody else's round in the air, as a thing a radar can see |
+| `Ksa/RoundContact.cs` | somebody else's round in the air, as a thing a radar can see and a gun can shoot at |
 | `Ksa/Track.cs` | one contact, with the kinematics the threat model reasons about |
 | `Ksa/TestTarget.cs` | spawns drones to shoot at, from the panel |
-| `Ksa/ScenarioRunner.cs` | flies a scripted engagement with nobody watching, and says what happened |
+| `Ksa/ScenarioRunner.cs` | flies a scripted scenario with nobody watching, and says what happened |
+| `Ksa/BallisticScenario.cs` | the ballistic one of those — designate, arm, stage, and report what the warheads did |
+| `Ksa/DropScenario.cs` | the store one — fly a craft up, let a store go, and say where it landed against the sight and against a flight off the state it actually left with |
+| `Ksa/GunneryScenario.cs` | the gun one — drones crossing past a mount one at a time, and **every shell scored where it burst**, because the first detonation says a gun can hit and nothing about how well. `ground` scores shells against a designated place instead, short or long |
 | `Ksa/CraftMover.cs` | picks a craft up and sets it down elsewhere, from the panel |
 | `Ksa/BurstTool.cs` | click the world to set off a warhead there, from the panel |
 | `Ksa/Designator.cs` | click the world to shoot at that spot, with no target and no lock |
+| `Ksa/TargetLock.cs` | shift-click anything to lock an installation onto it |
 | `Ksa/Diagnostics.cs` | the periodic world dump — what the system can see and why |
 | `Ksa/Build.cs` | what build this is, read off the assembly rather than written down |
 | `Ksa/SettingsStore.cs` | per-craft settings across sessions, in JSON beside the log |
 | `Ksa/Log.cs` | the mod's own log file, which is the only debugging channel it has |
-| `src/KSArmory/KSArmory*.xml` | the parts, the warhead effects and one stock character — at the mod root, mirroring Core |
-| `src/KSArmory/Meshes/`, `Textures/` | generated art; rebuild with `tools/model/build.sh` |
-| `src/KSArmory/Sounds/` | the explosions, generated by `tools/sounds.py`; the cannon, cut from a recording by `tools/cut-cannon.py` |
+| `src/KSArmory/KSArmory*.xml` | the parts, the warhead effects, the sounds and one stock character — at the mod root, mirroring Core |
+| `src/KSArmory/KSArmory/Weapons.xml` | **this mod's own weapons, as data** — read by `PackScan`'s convention like any pack's, not by KSA |
+| `src/KSArmory/Meshes/`, `Textures/` | art. `KSArmory_MeshAtlas.glb` is generated — rebuild with `tools/model/build.sh`; every other atlas is **authored**, and its `.blend` is not in this repository |
+| `src/KSArmory/Sounds/` | the cannon, cut from a recording by `tools/cut-cannon.py`; the Mk 42's gunshot, cut from its recording by `tools/mk42-sounds.py`. A warhead's burst is KSA's own explosion, sound and all |
 | `src/KSArmory/mod.toml` | serves as both the content-mod and StarMap manifest |
 | `tests/KSArmory.Tests/` | links the KSA-free sources and flies engagements headlessly |
 | `KSArmory.sln` | both projects, for editors only — every script builds a csproj directly |
@@ -342,34 +492,98 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/apidump/` | reflection dumper for the game assemblies |
 | `tools/apisurface/` | reads the KSA API this mod binds to out of its own metadata |
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 315 members an upgrade has to preserve |
+| `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
+| `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 538 members an upgrade has to preserve |
+| `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
+| `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
 | `docs/BLOCKED-ON-KSA.md` | **what the mod cannot build**, with the engine reason and what would unblock it |
+| `docs/CIWS-REALISM.md` | **a plan, not a record** — what the real Phalanx does that the mod does not: detection only as the search beam passes, and closed-loop spotting of its own rounds, with why each waits and **what would make spotting worth building** |
+| `docs/LAY-COST.md` | **a plan, not a record** — what a gun lay beyond reach costs a frame, and four measured ways to make it cheaper, none merged |
+| `docs/ICBM-GUIDANCE.md` | **the ballistic computer** — the algorithm, the frames, the cutoff, and what has not been flown |
+| `docs/ACCURACY-PLAN.md` | **the ranked plan, and the one to read first** — what four investigations found on 2026-08-30, including the bug that was the long-range bimodality and the sub-frame cutoff the engine has and the mod never reached |
+| `docs/EIGHT-ROCKETS.md` | **the plan for accuracy at eight rockets** — where the instrument stands, what limits it, and what to fly next, ranked |
+| `docs/MIRV-NEXT.md` | **the backlog for the bus**, and item **7g** is the flown account of the aim freeze — and of the crest the night turned out to be measuring |
+| `docs/SHOT-PROTOCOL.md` | **how to spend a night of shots** — how many a difference costs, why the baseline is re-flown all night, and the rule that says when to stop |
+| `docs/ARRIVAL-ANGLE.md` | **what a steeper arrival is worth** — precision, impact speed and propellant against the angle a round comes in at, why seven degrees is the air's answer rather than the guidance's, and the control that asks for another |
+| `docs/KINETIC-FLOOR.md` | **how accurate a round could possibly be** — the terms no amount of guidance work removes, and why the arrival angle is the whole lever |
+| `docs/WHAT-THE-PLAYER-SETS.md` | **a plan, not a record** — the ballistic computer with almost nothing to configure: what it derives, what it shows, and the one trade left for the player |
+| `docs/MIRV-TARGETS.md` | **a plan, not a record** — up to six targets for one bus: the reach drawn on the ground and refused outside it, what spare warheads do, and the release loop that diverts between targets |
+| `docs/METRE-LEVEL.md` | **the route from today's kilometre to a metre**, as a ladder of arrival angles with a gate on each rung — what blocks each one, the orbit and target matrix that tests it, and **why the ladder stops at rung C**: the wall clock cannot be bought with frame rate, because a flight is CPU-bound and the GPU is idle |
+| `docs/GUIDANCE-SECTION.md` | **a plan, half built** — the ballistic computer as a part you bolt on. The `Guidance` role, distinct from `FireControl`, is built and the bus provides it; the 3 m interstage ring that would take it over is not, and its mass is a split of the bus's rather than an addition to it |
+| `docs/NUCLEAR-EFFECT.md` | which of KSA's four volumetric renderers a mod can reach, and what a mushroom cloud actually looks like |
+| `docs/DAMAGE-DECALS.md` | **a plan, not a record** — how a decal is projected onto a hull, a hillside or a rock out of the depth buffer, read off gatOS's implementation and re-verified here, and what a burn mark on a craft would cost |
 | `docs/FROM-KSP-MODDING.md` | the concept map for anyone arriving from KSP part modding |
 | `docs/MODULARITY.md` | how far the profile/registry split actually generalises, and the test gaps to close before widening it |
+| `docs/WEAPON-TAXONOMY.md` | the same question from outside: which real weapon families share this data model, and which need a different one |
 | `docs/BATTERY-SPLIT.md` | what `WeaponSystem` should be split into, what to call it instead, and in what order |
+| `docs/WEAPON-PACKS.md` | **the pack author's reference** — the folder, the ten-line entry point, and every attribute a definition file may carry |
+| `docs/EXTENSIBILITY.md` | **a plan, not a record** — how a weapon pack registers itself without this mod knowing it exists, and what such a pack could never express |
 | `.claude/skills/upgrade-ksa/` | the whole KSA-update procedure, as a skill |
 | `tools/meshinfo.py` | prints mesh bounds from a KSA `.glb` atlas |
 | `tools/validate-parts.py` | checks asset Ids, texture paths, and launch geometry vs the mesh |
+| `tools/pack-api.py` | records the API a weapon pack binds to, and fails when it moves — **the mirror of `api-surface.sh`**, because a pack lives in somebody else's repository and never builds here |
 | `tools/repair-saves.py` | realigns saves written before a part lost a subpart |
-| `tools/model/` | headless Blender scripts that generate the parts |
+| `tools/make-scaling-save.py` | a save carrying N copies of one rocket, for pricing how the vehicle solver scales |
+| `tools/model/` | the headless Blender generators, and the checkers over what they export — which need neither Blender nor the game |
 | `tools/model/pantsir.py` | the Pantsir, and the entry point that builds the whole atlas |
 | `tools/model/sidewinder.py` | the LAU-7 rail and its AIM-9J, into that same atlas |
-| `tools/model/ciws.py` | the Phalanx CIWS: a gun with no missiles, on a 3 m stack node |
-| `tools/model/bombrack.py` | the ejector rack and its Mk 82: a launcher that drops rather than fires |
 | `tools/model/optic.py` | the EO director: the sight, as a part anything can carry |
-| `tools/model/checkmesh.py` | finds zero-UV-area triangles and coplanar faces in a `.glb`; `--compare` diffs two atlases by geometry *and* node transform |
+| `tools/model/import-litening.py` | reframes the hand-modelled pod into what KSA reads |
+| `tools/model/mk42-textures.py` | composes the Mk 42's KSA maps, mount and shell, from the set its author paints — **rerun it on every version he sends**, because the unwraps are his and nothing else has to move |
+| `tools/model/preview-glb.py` | renders any `.glb` from a few angles, so an authored asset can be judged before it is declared |
+| `tools/model/preview.sh` | runs that from WSL, which is the only comfortable way: Blender is a Windows binary and wants Windows paths for the script *and* for everywhere it writes |
+| `tools/model/checkmesh.py` | finds unpaired node/mesh names, zero-UV-area triangles and coplanar faces in a `.glb`; takes several at once, and `--compare` diffs two atlases by geometry *and* node transform |
+| `tools/model/dilate-atlas.py` | fills the empty space around a baked atlas's islands from their nearest neighbour — **what a bake margin cannot do**, because a margin wide enough to survive mipmapping is wide enough to write one body's dilation over another's |
 | `tools/model/checkswept.py` | sweeps the drives and reports any assembly passing through another |
+| `tools/model/checkring.py` | what KSA's flight computer will make of a thruster ring — **which nozzles end up steering**, how coarse that makes the attitude quantum, and `--translation` for which of the six directions the set can actually push |
 | `tools/model/smokepuff.py` | the soft sprite the billboard smoke is drawn with |
 | `tools/screenshot.sh` | captures the Windows screen; readable from here |
-| `tools/scenario.sh` | drives one engagement end to end and exits pass/fail; screenshots on cue |
-| `tools/sounds.py` | synthesises the explosion samples, and the fallback cannon behind `--synth-cannon` |
+| `tools/scenario.sh` | drives one engagement or one ballistic shot end to end and exits pass/fail; screenshots on cue |
+| `tools/shot-batch.sh` | a night of ballistic shots, **arms interleaved and every arm built before the first one flies** — so nothing done to the tree overnight can reach a shot in flight |
+| `tools/shot-report.py` | what that night settled — the rank test, the effect with its interval, the arms to stop flying, and **whether the ground under the target was shaping the misses** |
+| `tools/sounds.py` | the synthesised fallback cannon, behind `--synth-cannon` |
 | `tools/cut-cannon.py` | cuts a gunfire recording into spin-up, loop and tail, on measured envelope boundaries |
-| `tools/audio/` | the CC0 Phalanx recording the cannon is cut from, and its provenance |
+| `tools/mk42-sounds.py` | cuts the Mk 42's recording into its mono gunshot |
+| `tools/audio/` | the recordings the shipped gun sounds are cut from — the CC0 Phalanx and the Mk 42's — and the provenance of each |
 | `tools/logo.py` | the Kessler Systems wordmark and icon, into `branding/` |
 | `branding/` | the generated logo the README and SpaceDock point at |
 
-## 3D model pipeline (Blender, headless)
+## 3D model pipeline
+
+**New art is authored in Blender over MCP, in a live session** — not written as a headless script
+and not driven through the CLI. `.claude/skills/ksa-blender/SKILL.md` is the whole procedure; the
+short version is that the addon drives the *open* document — screenshots of the viewport, scene
+summaries, the bundled Blender docs, and Python execution as the last resort rather than the
+interface — so the loop is build, look, adjust rather than emit and hope. **A human signs off on
+the geometry before anything is unwrapped, baked or exported**, because everything past that point
+is welded to the shape.
+
+**The headless generator below still builds three parts and still has to keep working.** The
+Pantsir, the LAU-7 rail and the EO director come out of `tools/model/pantsir.py` into one atlas
+sharing one palette material. Keep it working; do not extend it. Everything from here to the end of
+this section is about those three.
+
+The CIWS is not among them any more: it is authored, into an atlas of its own. The generator still
+draws its old boxes' jitter, so the director built after them keeps its planes.
+
+The nuclear rack is not among them: all three of its bodies are authored, into one atlas sharing
+one unwrap. It stopped instancing the generated beam when the B61-12 turned out to hang from
+30-inch lugs where that beam's hooks are 14 inches apart — a MAU-12 carries both spacings, so the
+authored rack carries both spacings.
+
+**An authored asset's `.blend` is its source, and it is not in this repository** — what is committed
+is the export. So a committed asset cannot be regenerated from a clean checkout, which is why
+`checkmesh.py` and `validate-parts.py` matter more for authored art than for generated: they are the
+only gate on something nobody can rebuild.
+
+**An authored asset that obeys the contract needs no import step at all.** The suspension rail is
+the demonstration: exported in part space with its origin on the mounting face, node names matching
+mesh names, its own `_VM` twin and a `_ColPrim_` box carrying the collider, it is copied in as
+exported and only declared. The pod needed a tool because its export did none of those things —
+which is the difference the skill file exists to close.
+
 
 Blender **5.2** is installed at
 `/mnt/c/Program Files/Blender Foundation/Blender 5.2/blender.exe` and is driven entirely from
@@ -415,7 +629,10 @@ rather than the bytes, and **revert the atlas** if it says the geometry is uncha
   mesh at a time, so a turntable resting exactly on the cap of its mast z-fights like any other
   coincident pair and reports clean — worse when the pair spins, because the fight then rotates.
   The cross-body pass lives in `validate-parts.py`, because the atlas carries **no node
-  transforms** and only the part XML knows where each body sits.
+  transforms** and only the part XML knows where each body sits. It reads the subpart's
+  `<Rotation>` as well as its `<Position>`, and has to: a round seated on a rail is placed with a
+  quarter turn carrying its nose onto the tube axis, so a pass using position alone lays the body
+  *across* the launcher and finds nothing, because nothing is in contact.
 - **A render only shows the poses it was asked for.** Geometry defects hide at the other ones:
   pods that pass through the gun sponsons at the twelve o'clock positions, tubes through the APU
   box at bearing 50°. `tools/model/checkswept.py` sweeps the drives and reports the metres one
@@ -531,9 +748,14 @@ neither of them is longer than a page.
    **A shipped part's subpart list is append-only.** KSA pairs a saved part with its current
    definition positionally, bounding the loop by the save and indexing the definition, so removing
    a `<SubPart>` throws `IndexOutOfRangeException` from inside `Popup.DrawAll` and **terminates the
-   game** on every save holding that part. Adding and renaming are both free. Leave a stub to hold
+   game** on every save holding that part. Adding is free. Leave a stub to hold
    the count, or repair the saves with `tools/repair-saves.py`;
    `docs/KSA-MODDING-NOTES.md` has the loop.
+
+   **Nor is a shipped `<Part>` Id renameable.** A save names it (`PartRef InstanceOf`), and loading
+   one throws `PartTemplate is null` from `PartInstance.GetTemplate` — also terminating the game.
+   A save names each subpart's template the same way (`SubPartRef InstanceOf`), so treat those as
+   fixed too until a rename of one alone has been loaded.
 3. **Register it — in `Sim/Arsenal.cs`, and in *both* registries.** One `LauncherProfile`, naming
    the munition and sensor it uses, with the geometry `build.sh` prints; add a `MunitionProfile`
    and a `SensorProfile` too if the round or the set differ. Then teach `validate-parts.py` to
@@ -563,12 +785,26 @@ track antenna, which has to stay boresighted with the barrels, so the housing, t
 dome are one rigid body swinging on a trunnion between two cheeks that traverse. Splitting them —
 dome held upright by the traverse, barrels elevating alone — reads as a mount that articulates in
 a way no real one does. The clearance that makes it work is **a gap in Z**: elevation turns about
-+Z, so the dome being narrower than the gap between the cheeks holds at every pose, and nothing
-else does.
++Z, so the dome being narrower than the gap between the cheeks holds at every pose. The FLIR is the
+one thing outside that gap, and it clears by height instead — it rides at least 0.7 m from the
+trunnion, above anywhere the cheeks reach. `checkswept.py` cannot sweep an authored mesh, so that
+was swept in Blender.
 
 **And it stacks rather than surface-attaching.** A `<Connector>` with no `<Flags>` is a node
 connector; `ToSurface` is the opt-in for radial. So the CIWS sits on top of any 3 m tank, decoupler
 or adapter, and has one connector because nothing stacks on a gun.
+
+**And the mod applies that same rule to a craft a breakup produced.** Isolating a failed part
+splits the vehicle at every severable connection, so a targeting pod or a missile rail ends up as a
+vehicle in its own right, lying on the ground, rooted on a part whose connectors say it can only
+ride — the exact craft the editor refuses to let anybody build. `KsaWorld.PartRides` asks the game
+rather than recording the answer here, reading the same `ToSurface`/`FromSurface` flags
+`IsAllowedAsRootPart` rejects, and `WeaponInventory.HasPlatform` is false when *every* part rides.
+Such a craft is not an installation, is not a weapons system, gets no optical head, and is not a
+craft a launcher may be followed onto. **A hull with one director on it is still an observation
+post**, because a hull is not a store — which is why this is a question about what the parts are and
+not a part count. An unreadable or unrecognised part is a platform, because the cost of guessing
+wrong that way is a craft the mod stops recognising.
 
 **A part that surface-attaches cannot start a craft.** `IsAllowedAsRootPart` rejects a part if
 *any* of its connectors is `ToSurface` or `FromSurface`, whatever tags it carries — so the choice
@@ -613,26 +849,94 @@ slider under a named part on a named craft reads as belonging to that craft, and
 tab says so at the top, because it is the most surprising thing about it.
 
 The header strip is above the tab bar rather than inside a row for a reason worth keeping: every
-gate in fire control returns quietly, so an unarmed system, one with no lock, one still settling
+gate in fire control returns quietly, so an empty launcher, one with no lock, one still settling
 and one whose drives the engine refused all look identical from outside. `Holding fire: <why>` is
 the only thing that separates them, and it is no use behind a fold or on a tab nobody is looking
 at.
 
+**And not every gate binds the trigger, so the line has to say which kind it is.** Auto-engage was
+kept out of the ladder so that "clear to fire" means the trigger will work — but the *envelope* and
+the *salvo count* were left in it, and `WeaponSystem.Fire` consults neither. They are automatic
+fire's economy rather than the round's capability: a floor about a round still boosting and a
+ceiling about one expiring short, neither of which stops the shot happening. So closing inside the
+minimum reported `Holding fire: target out of reach` beside a button that then fired, and the round
+flew at the target — the panel describing a refusal that does not exist. `FireHold.BindsTrigger`
+splits them, and the auto-only ones read `Auto-engage held: … -- trigger is clear`.
+
+**And the trigger goes through the station group, from every button.** Two rails carrying the same
+store are drawn as one weapon with two stations, and firing the *selected* one reaches the same rail
+every time — so the second is never fired at all, however often the button is pressed.
+`Ui.FireGroup` steps between them, skipping empty ones, and is the only thing in the panel that
+reaches `WeaponSystem.FireAtLock`. It has to stay that way: the switcher's own trigger stepped
+correctly from the start while the header's — the prominent one, the one an operator actually
+uses — went straight at the selection.
+
+**And the line beside a trigger describes the station that trigger will reach.** Both come from
+`Ui.NextStationIndex`, which is the point: `Hold` read off the *selected* station says
+`out of rounds` about a pair whose first rail has just fired, while the second is loaded and clear
+to go — a launcher reported as empty with half its stores still on it. The fallback when every
+station is dry is the selected one, because then its refusal is exactly what an operator wants to
+read; the fallback when the selection cannot be resolved at all is the system in hand, never null,
+because null paints a green "clear to fire" over a launcher that is holding.
+
+**Auto-engage and FIRE are on that strip too, and belong there by the same test.**
+Whether the installation is shooting is about the whole system and no part of it, so the
+fire-control component row is the wrong home for it however sensible the part sounds — that row is
+for what fire control *decides*: rounds per target, what it will not shoot at, and the mouse
+controls.
+
+**There is no master arm, and FIRE works on a system nobody has touched.** A safety in front of a
+trigger guards an input that can fire by accident, and FIRE is a labelled button pressed on purpose
+— so all one adds there is a step a new player does not know to take, and a weapon that looks
+broken until they find it. BDArmory's arm switch is the same argument from the other side: it
+exists because its fire key is the left mouse button, and its guard mode does not consult it. What
+can surprise a player is a site shooting on its own, so that is the switch: auto-engage, off by
+default. The switcher's shield is auto-engage on every weapon aboard, and a craft carrying only
+stores has no shield. **Fire at the mouse** turns an ordinary click into a shot, and its own opt-in
+tick box is its arming. The ballistic computer keeps its own `Armed`, because a launch cannot be
+taken back.
+
+**Ownership says where a control lives; it does not license how deep.** The two rules are
+independent, and obeying only the first is what buried the fire controls and the sight three folds
+down. So: a component row opens **expanded**, anything reached *during* an engagement — slow
+motion, the target spawner, the log — is at most one window from the panel, and a control that is
+the answer to "why is nothing happening" is never behind a disclosure triangle. A fold is for
+detail nobody needs on the way past, which is what the manual-drive and IFF sub-nodes are.
+
+**One field, one control.** `Config.DrawOverlays` had two, under two names with two explanations,
+so toggling either silently moved the other. `check-tunables.py` cannot catch this — it asks that
+every setting has *a* control, never that it has only one — so it is a review question. Where a
+second surface genuinely helps, it reports the state and names where the switch is rather than
+being a second switch.
+
 **A control that opens a window is a button, never a tick box.** A checkmark reads as "this
 setting is on", so a window arriving instead is unannounced and the tick says nothing about where
-it went. Opening a window is an action; tick boxes are for state — armed, auto-engage, what to
+it went. Opening a window is an action; tick boxes are for state — auto-engage, what to
 draw, a tool being active. Tint the button if open/closed is worth showing.
 
+**An explanation is a tooltip; a line under a control is state the operator has to act on.** What a
+control does and why goes in `Tip()` right after it, and what a whole section is about in a `Help()`
+marker beside its heading — both in `Ksa/Ui/Ui.cs`. What stays inline is what nobody should have to
+hover for: a live readout, a warning about what the current setting costs, and anything answering
+"why is nothing happening", which a tooltip hides as surely as a fold does. A tick box's on/off
+meaning is an explanation, not state — the tick already says which.
+
 **A setting nobody can reach is not a setting, and that is enforced.** The panel enumerates its
-controls by hand, so a field added to `SensorProfile`, `MunitionProfile` or `SystemConfig` is read
-by the code, described in the docs, shipped in the archive, and untouchable. Nothing fails and
-nothing appears in any log. `SensorProfile.HorizonMasking` and `TerrainMarginMetres` shipped that
-way, with a whole section of `CHECKLIST.md` asking for them to be toggled.
+controls by hand, so a field added to `SensorProfile`, `MunitionProfile`, `SystemConfig`,
+`OpticConfig` or `IcbmConfig` is read by the code, described in the docs, shipped in the archive,
+and untouchable. Nothing fails and nothing appears in any log. `SensorProfile.HorizonMasking` and
+`TerrainMarginMetres` shipped that way, with a whole section of `CHECKLIST.md` asking for them to be
+toggled.
+
+**And the list of scanned types has to grow with the mod**, which is the failure one level up:
+`IcbmConfig` went unscanned for its whole first life, so a ballistic setting with no control would
+have passed. Adding a settings type without adding it to `TUNABLE` puts every field on it back
+outside the check, silently.
 
 `tools/check-tunables.py` fails the build on it. Textual, like `check-boundary.sh`, and for the
 same reason: the panel is under `Ksa/` and the test project cannot reference it. It requires a
-**write** rather than a mention — every control is followed by a line reading the value back to
-explain itself, so a check accepting any occurrence passes with the slider deleted and the
+**write** rather than a mention — a control's value is read back beside it, in its tooltip or a
+line of state, so a check accepting any occurrence passes with the slider deleted and the
 explanation left behind. Two escape hatches, both of which name their reason: `EXEMPT` for a
 member no control could sensibly reach — generated geometry, a derived value, an identity string —
 and `VIA` for one the panel drives through a helper, which names the helper so deleting the
@@ -649,7 +953,7 @@ is seen at a third of the range, not a hundredth — so a round is a far smaller
 craft that threw it with nothing having to know a round from a craft.
 
 **A setting belongs to a system or to the session, and which one is the whole distinction.**
-`SystemConfig` holds what can differ between two launchers in the same world — armed,
+`SystemConfig` holds what can differ between two launchers in the same world —
 auto-engage, which weapons are live, turret mode, whether the craft
 being flown is protected, and **the IFF policy**, because two sites on opposite sides is exactly
 the case. `Config` holds what cannot: the
@@ -658,8 +962,8 @@ whether two sites could sensibly disagree — a name labels a craft the same way
 at it, and what that name *means* is each system's own.
 
 Weapon *performance* is neither: range, guidance and fuse live on the profiles, because two
-Pantsirs on opposite sides of the map share a flight model and disagree about whether they are
-armed.
+Pantsirs on opposite sides of the map share a flight model and disagree about whether they
+engage on their own.
 
 **Every weapons system in the world runs its own fire control.** `Ksa/WeaponSystems.cs` crews a craft
 the moment a survey recognises a part on it, pins the system there and forgets it when the craft
@@ -673,10 +977,50 @@ what makes two different systems in one world impossible — every reader outsid
 update gets whichever system resolved last, silently. The profiles are the shared `Arsenal`
 instances, so panel tuning still reaches every system running that loadout, which is the intent.
 
-**What is deliberately *not* general yet:** one system per *craft*.
-`WeaponSystem.LauncherOrdinal` is pinned to the first launcher found and `WeaponSystems` keys on
-the vehicle, so a craft carrying two Sidewinder rails fires one of them. See `docs/MODULARITY.md`
-change 2.
+**The unit that over-commits is the craft, not the weapon.** Each system counts only the rounds it
+fired itself, so two rails on one aircraft each find capacity under the same `RoundsPerTarget` and
+each fire a full salvo at one target: the limit obeyed twice over, and twice the missiles spent.
+`Sim/TargetAllocation.cs` is one tally per craft, keyed on the target *handle* rather than on a
+track — two sensors hold their own track for the same aircraft, so a tally keyed on anything a
+weapon derives has nothing in common with its neighbour's. It is refreshed before the fire loop for
+the same reason the airborne sample is, and a round is counted the moment it leaves rather than on
+the next rebuild, or every system on a craft fires before any of them sees the first round go.
+`Config.ShareTargetsAcrossWeapons` is the way back, because putting four rounds on a target is a
+thing somebody might have fitted two launchers to do.
+
+**`Ksa/Armaments.cs` is derived every frame and never pinned, and that is the whole design.** The
+rosters that follow a *part* have to be pinned: they carry an operator's settings and a magazine
+that must survive a craft splitting in two. A coordinator carrying only a tally rebuilt from the
+rounds actually in the air has nothing a split could lose, so re-deriving it costs what carrying it
+would and cannot be wrong. That answers every split case without any handover logic — the half
+keeping the launcher keeps the coordination, the half keeping only the cockpit gets none, and a
+craft breaking into two armed halves gets one each — and it is *better* than sharing the handover:
+a third roster searching for itself could land the coordinator on one fragment and its weapons on
+the other. **Control has nothing to do with it**, because a Pantsir on a hillside with nobody
+aboard defends itself.
+
+**The world is walked once a frame, not once per system.** `KsaWorld.Vehicles` is a census shared by
+every radar scan, contact sweep and blast sweep; a world with four armed craft used to walk the
+system eight times a frame for an answer that is the same every time. Freshness is a generation
+rather than a frame count: a destroyed vehicle stays in a held list as a disposed reference where a
+fresh walk would omit it, so anything removing a vehicle invalidates it and each hook that can start
+a pass invalidates it on the way in.
+
+**A craft carries one weapon system per launcher part, and the player picks between them.**
+`WeaponSystems` keys on the craft *and* the launcher's ordinal, so two rails on one aircraft are
+two weapons: each with its own magazine, drives, rounds in the air and auto-engage. The selector on
+the header strip chooses which one the panel and the trigger are pointed at, and `For(craft)` is
+what returns it — which is why the sight, the chase camera and the manual trigger all followed the
+selection without changing.
+
+Re-pointing a single system at a different launcher would have been smaller and wrong: the
+magazine is sized and filled per profile, so switching would refill it, and a player could drop,
+switch, drop, switch back and find the bomb had returned. It is also why the settings key carries
+the ordinal past the first — two racks sharing one entry would share one set of switches.
+
+**What is still not general:** the roster is KSA-facing and unreachable from the test project, so
+only `Sim/WeaponSelection.cs` — the stepping arithmetic — is covered. See `docs/MODULARITY.md`
+change 2 for what that leaves unproven.
 
 ## CI and releases
 
@@ -689,7 +1033,7 @@ CI with a **read-only deploy key** held in the `KSA_ASSEMBLIES_KEY` secret. Keep
 licensed copy privately is fine; publishing it is not. `tools/sync-assemblies.sh` refreshes the
 mirror after a KSA update, refusing if a csproj references something it does not know to copy.
 It mirrors the whole SDK by default — see *The mirror is a general KSA SDK* below for why, and
-for the `--subset` flag that restores the nine assemblies this repository alone references.
+for the `--subset` flag that restores the eleven assemblies this repository alone references.
 
 `Directory.Build.props` resolves the folder in tiers, first match wins: `KSA_DLL_DIR` (what CI
 sets), then `Import/`, then a sibling `ksa-game-assemblies` checkout, then the game install — so
@@ -749,18 +1093,20 @@ Do the private repo *before* pushing here, or CI fails on the lock it cannot sat
 **The compiler only finds half of it.** A renamed member is a build error you fix in seconds. A
 member that keeps its name and signature and changes its *meaning* — a different reference
 frame, different units, a reordered enum — compiles clean and is wrong in flight. That is what
-the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from 660,000 lines to the files
-defining the 114 types this mod actually uses.
+the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from 684,000 lines to the files
+defining the 182 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
-first-party assemblies plus the loader and the game-shipped third-party — 44 in total, 12 MB —
+first-party assemblies plus the loader and the game-shipped third-party — 45 in total, 14 MB —
 so any KSA mod can build against it. `sync-assemblies.sh --subset` narrows it to the minimal set.
 Per-mod pinning still comes from that mod's own `ksa-assemblies.lock`, which covers only what it
 references, so the drift check stays exact without the mirror being narrow.
 
-The build number is written down in three places, so update all three: `ksa-assemblies.lock`,
-`current/KSA_BUILD` in the private repo, and the **KSA build** line under Environment above. The
-lock is the one that is actually enforced; the other two are for humans reading.
+The build number is written down in seven places, so update all seven: `ksa-assemblies.lock`,
+`current/KSA_BUILD` in the private repo, and the five prose files — the **KSA build** line under
+Environment above, `README.md`, `docs/KSA-MODDING-NOTES.md`, `docs/KSA-CAMERAS.md` and
+`docs/BLOCKED-ON-KSA.md`. The lock is the source of truth and `check-docs.sh` fails on any prose
+file that disagrees with it; `current/KSA_BUILD` is the one nothing here can check.
 
 CI is split the same way the source is:
 
@@ -778,8 +1124,8 @@ shellcheck runs at `-S warning`. At the default level it flags every `source too
 unfollowable, which it is, and CI would fail on nothing.
 
 **Work happens on `dev`; `main` is the release branch.** Push to `dev` as often as you like — CI
-runs on every branch and every pull request, so the build, the tests and all seventeen checks still
-gate each push, and nothing is released. A release is then a deliberate act: merge `dev` into
+runs on every branch and every pull request, so the build, the tests and the other twenty checks
+still gate each push, and nothing is released. A release is then a deliberate act: merge `dev` into
 `main`, and semantic-release cuts one release covering everything that accumulated.
 
 Releasing on every push cuts a version per push — four in a day, each a patch on the one before.
@@ -858,14 +1204,26 @@ archive leaves the machine.
 
 ## Design decisions worth not re-litigating
 
-**Rounds are simulated by this mod, not by KSA's vehicle physics.** They are drawn with
-`GizmosRenderer` rather than being real part-based vehicles. This was deliberate: spawning real
-vehicles needs a part template (GLB model, XML schema, and registering a module type into
-engine-internal update lists that would require Harmony patching), and steering them means
-writing kinematics from a worker-thread update. Self-simulating gives sub-frame accuracy for
-free and cannot corrupt a save. The cost is that rounds look like tracer spheres with trails.
-Swapping in real part-based missiles later means replacing `Visuals.DrawRounds` and the
-integration in `Interceptor`, nothing else.
+**Rounds are simulated by this mod, not by KSA's vehicle physics — and the reason is the fuse, not
+the flight.** The engine steps a vehicle once a frame. A 20 mm shell leaves at **1100 m/s** with a
+**2.5 m** fuse radius, so one 60 fps frame is 18 m of travel across a 2.5 m trigger — seven times
+past it. A 57E6 closing on a crosser at ~1100 m/s has a 12 m fuse and the same problem.
+`Interceptor` sub-steps at **5 ms**, up to 64 of them, and `Sim/ContactSweep.cs` sweeps the segment
+rather than testing the endpoint, because even 5 ms is 5.5 m against that 2.5 m radius. None of
+that is expressible as a vehicle. Nor is the count: a CIWS burst is 150 shells in the air, and
+`Sim/StageDisposal.cs` exists because frame time is the only thing that buys simulation rate.
+Self-simulation also cannot corrupt a save.
+
+**What it costs is the drawing.** Rounds are real subparts of the launcher, so the engine draws the
+mesh while the mod owns the state, and every drawn quantity has to be paired across that seam by
+hand — the offset's epoch, the body's roll, the camera's anchor. A real vehicle would get its
+attitude, its placement and a followable camera for nothing.
+
+**The case worth revisiting is the unfused store, not the missile.** A B61 and a Mk 21 carry
+`FuseRadius = 0` and stop on terrain, so neither needs a sub-frame anything, and they are the only
+rounds a vehicle could carry without losing something. Against that: `IProjectile` is the contract
+every frame and epoch rule is pinned against, so one weapon outside it is a second set of rules —
+plus a part template, and a save that now contains a bomb.
 
 **Everything is computed in the ecliptic (`Ecl`) frame** and converted to camera-relative `Ego`
 only at draw time. `Ego` is a pure translation of `Ecl`, so this is exact — see the notes.
@@ -885,7 +1243,7 @@ reaches. Test it for *invariance*: add the same velocity to both inputs, assert 
 not move. `docs/FRAMES-AND-EPOCHS.md` has why, and `BallisticLead` is where it bites hardest.
 
 **Weapon performance lives on profiles, not in `Config`.** `Config` is the *player's* settings:
-armed, auto-engage, what to draw. Range, guidance, fuse and launcher geometry belong to a
+auto-engage, what to draw. Range, guidance, fuse and launcher geometry belong to a
 weapon system and vary per system, so they sit on `SensorProfile`, `MunitionProfile` and
 `LauncherProfile`. The panel edits the profiles of whichever system it is showing, so live
 tuning still works — it just tunes that system rather than the whole mod.
@@ -899,6 +1257,389 @@ re-solved a few times a second rather than per frame, and the integration step i
 number from the refresh interval — sharing them puts 55 m of fall between terrain samples, and
 the ring then hops between two places.
 
+**And it is flown against a planet that turns.** The fall is flown in a frame carried with the ground
+under the release, against a planet sampled once, so `BombSight.TryPredict` reads gravity and air where
+the round is against where that ground has carried the frame round the centre, takes the frame's own
+acceleration off the pull, and carries the landing back onto the ground that will be under it. **The
+terrain is the exception**: the frame turns with the ground, so the height under a point in it is the
+height that was there at release, and read at the carried point it comes from 15 km upwind. Over 150 m
+ridges, holding the planet still put the ring 36.5 m from where a 5 km drop at 250 m/s strikes heading
+east and 16.4 m heading north, against the drop scenario's 30 m bar; the upwind height put it 26.7 and
+190.6 m off; and the sight as it is, 0.6 and 0.7 m (`BombSightSpinTests`).
+
+**The gun's lead flies a copy of the engine's drag, and RocketWerkz are working on aerodynamics.**
+`Sim/DragShape.cs` is today's `PhysicsStates.ComputeDrag` — a body-fixed box over the mass, no lift,
+no Mach — and nothing fails when the engine's changes. `docs/BLOCKED-ON-KSA.md` has the flown check
+that confirms the copy, and what to do when it stops matching. The lead also reads what no radar
+could — mass, fuel, body rates — so it is true to the game's physics, not to a real director.
+`docs/CIWS-REALISM.md` has what a real director would do instead, and when that would be worth it.
+
+**The ballistic computer solves where to stop and flies everything else.**
+`docs/ICBM-GUIDANCE.md` is the whole account; four things there are worth not re-deciding.
+
+**Velocity-to-be-gained, re-solved against the vehicle's actual state.** The shot is exact at the
+instant the difference reaches zero, whatever happened on the way — a wrong pitch programme, an
+engine that underperforms, drag nobody modelled. A bad ascent costs propellant, not accuracy, which
+is why there is no stored trajectory and no separate launch solver: the same call answers on the pad
+and one second before cutoff.
+
+**Cutting off is a timing problem, not a threshold one.** An engine stops on a frame boundary, and a
+light upper stage at ten gravities changes its velocity by more in one frame than any sensible
+tolerance — so waiting for the velocity still to gain to fall under a fixed number waits for
+something that cannot happen, and the burn hunts until the stage is dry. The program is therefore
+**stepped every frame and solved a few times a second**: the solve sets a countdown and the frame
+runs it down. Same split as everywhere else in this mod between what is cheap and what is exact.
+
+**Flight time is the parameter, and the arrival gets latched.** Parameterising by time is what
+collapses a rotating target into a single solve. But the *cheapest* arc from the vehicle's current
+state converges on the arc it is already flying, so a loft factor applied to that every cycle walks
+the answer outward and the shot chases a trajectory running away from it — 162 km out at a 1.4 loft.
+The cheapest time is carried out of the solver separately from the one flown, and the arrival time
+is nailed down when closed-loop guidance takes over.
+
+**Arrival angle is asked for with a bound, not with a nudge.** It is the dominant precision lever —
+7.5° to 20° is eight times the velocity sensitivity and sixty-two times the immunity to a
+drag-model error, which is the one term no correction loop can remove — and it used to be an output
+of a delta-v minimisation. `Loft` is not a control for it and from orbit will *invert* it: raising
+loft makes leaving now dearer too, so `BurnWindow` re-optimises the departure and defers to a cheap
+flat window — 33.9° at loft 1.0 becoming **6.2°** at loft 1.8 on a 556 km shot.
+
+So `IcbmConfig.MinArrivalAngleDeg` constrains the search instead: an arc arriving shallower costs
+infinity, and the window search's "earliest affordable departure" becomes "earliest affordable
+*satisfying* departure" with nothing else changed. **A predicate is idempotent where a multiplier is
+not**, which is why the constrained flight time can be seeded straight back in and a lofted one
+cannot — and why the bound is re-checked against a *latched* arrival too, where re-checking a loft
+would unlatch the shot. It has to be: pinning the arrival instant leaves the burn time and the flight
+time trading against each other inside it, the cheaper split is the longer coast, and a longer coast
+onto the same target is shallower — so a 15° floor flew **11.42°** until the held arc was made to
+satisfy it. Where the two disagree the floor wins, nothing satisfying it is `IcbmReach.TooShallow`
+rather than a silent graze, and it is **off at zero**, which is the default.
+`docs/ARRIVAL-ANGLE.md` is the whole account, including what a floored shot's remaining miss actually
+is: the aim correction opening on the trajectory search rather than on a drag shortfall the steep
+arrival has abolished.
+
+**Do not compete with KSA's own warp, and do not ask the world for more than the rounds do.**
+Coming out of a warp-to-a-time is where this bites: KSA is still travelling when it reaches its
+target, so a hold beginning there tries to brake the world from a thousand times in one frame, and
+the first speed the policy computes from a step that size is nearly zero — measured as
+`1213.07x -> 1.00x`, `held at 0.0x`, `(paused)`, then the burn abandoned for the world not running
+slow enough. So the mod asks for nothing while an auto-warp runs and **ends the warp itself** when
+the window is close, which resets the speed to something the hold can work from. And
+`IcbmProgram.MaxFaithfulStep` is a round third of a second, a round's 0.32 to within a rounding:
+the extra accuracy is a few hundred metres and the cost is the whole shot.
+
+**Pointing needs two directions, and the second one has a singularity.** KSA's aiming frame clocks
+the roll to the planet, which has no answer when the nose points at it or away from it — and
+*reverses* there rather than merely failing, because the side the planet is on has changed. A
+vertical rise sits on it for its whole duration, so a roll re-derived each frame spins the vehicle
+on its own axis. `Sim/AimFrame.cs` carries the reference forward instead: continuous by
+construction, because it never asks again. Third time this mod has met this shape, after
+`Vec.PerpendicularTo` and `OpticGeometry`.
+
+**Attitude is driven for every phase that is doing something**, not only while an engine is lit — a
+hold is an hour of being pointed at a burn, and after cutoff the bus keeps the line the warheads
+leave along.
+
+**The burn is exact when it ends, and two things then move the vehicle off it.** The frame the
+cutoff landed on, and the decoupler that drops the spent stack — 7 kN against a six-tonne bus is
+about 1.1 m/s, arriving *after* the last thing that could compensate for it, and measured in flight
+as **3.5 km** between the one warhead that left before the split and the five that left after.
+Nothing in the guidance can answer it, because the guidance is over. `Sim/BusTrim.cs` is the same
+loop against a different actuator — re-solve to the **committed** arrival, thrust along the
+difference on the attitude-control jets, stop when less than one frame of firing is left.
+
+Three things about it are the decisions, and each cost a wrong version first. It resolves onto the
+**vehicle's own control axes** rather than turning to point at the answer, because by the coast the
+attitude *is* the release line and the dominant component is axial anyway — a decoupler pushes along
+the joint. It fires **one direction at a time**, because the stop threshold is half a frame of a
+thrust that is only measurable along the direction being fired, and a bus's lateral authority is
+whatever its nozzle layout happened to give it — **the shipped one has all six**, 4.000 units fore
+and aft and 4.243 in each lateral direction with the roll torques cancelling, which
+`tools/model/checkring.py --translation` reads off the XML. And it is a **precondition
+of being ready to deploy** rather than a step inside the release sequence, which is what stops one
+warhead leaving on the attached stack's solution and the rest on the shoved bus's.
+
+**It joins the flight wherever the vehicle already is, and "when to burn" is its own question.**
+The phase machine is entered by looking at the vehicle rather than by assuming a pad: low and still
+means the launch sequence, dynamic pressure means an ascent already under way, above the air means
+the only question left is *when*. That last one is `Sim/BurnWindow.cs`, which searches **departure
+time** as well as flight time by coasting the state forward through `Sim/Kepler.cs`. Without it a
+target the vehicle has just passed over has no affordable arc — forward the short way means
+reversing the whole orbital velocity, the long way round goes through the planet — so a computer
+that can only leave *now* takes an eleven-kilometre-a-second answer, burns the tank dry and lands on
+the wrong continent. The same shot costs two hundred metres a second most of a revolution later.
+Waiting is a fallback rather than an optimisation: it has to save kilometres a second, because the
+thing being traded away is arriving — and the earliest window within a margin of the best wins,
+because the cheapest departure in a day is not the one to want.
+
+**The horizon is a day, and the planet is why.** A revolution turns the ground twenty-two degrees,
+so within one orbit a target off the track stays off it and the only answer available is a plane
+change costing kilometres a second; sixteen revolutions brings it under the track and the same shot
+costs a deorbit. Searching a day properly would be thousands of solves, so the first revolution is
+costed at every step — **phasing is invisible to geometry**, and a target just passed over is dead
+in the plane and still unreachable — while the rest is scanned on the plane angle alone and only the
+best few moments are solved for real. None of it fixes an inclination: a latitude the orbit never
+reaches is not reached by waiting, which is what `Sim/OrbitPlane.cs` exists to say.
+
+**A solve that can fail on some geometry needs an answer for that geometry, not a `false`.** A
+latched arrival pins the transfer angle, and a pinned angle can land on the one case Lambert cannot
+answer — two points opposite about the centre. Returning failure leaves the caller holding the
+previous cycle's answer, which is **flying the burn open loop** with the velocity still to gain
+frozen where it was. Measured at 9,904 km against 12 km with the fallback in place. The tell is a
+readout that stops moving, which looks like stability.
+
+**A guided burn holds timewarp down, for the same reason a round in the air does.** The engine
+stops on a frame boundary, so the velocity left ungained is `accel x step x throttle` — 1.5 km of
+miss at a one-second step, and *kilometres per second* at the 170-second steps high warp hands out.
+So `IcbmProgram.MaxFaithfulStep` registers a burning computer with `WarpPolicy` alongside the
+rounds, and a burn the world outran is **abandoned and reported** rather than flown into the wrong
+ocean. The coast afterwards is not held, and once the warheads are away they are rounds, which the
+existing machinery already covers. **But a coast here is not un-integrated, and that is this mod's
+own doing:** holding the line the warheads leave along means commanding attitude, and
+`PhysicsBubble` takes a vehicle off rails for as long as an actuator is commanded — so the bus
+leaves exact Kepler propagation and is integrated at whatever step the warp gives it, on 17–20% of
+coast probes. Whether it costs anything is open; `docs/ACCURACY-PLAN.md` 3aq has the measurement,
+and what it does and does not implicate.
+
+**The transfer solver is exact, and exact for the wrong thing.** It puts the arc through a *point*;
+a round stops where the **ground** is. On a shallow arrival the arc covers about twelve
+kilometres of ground per kilometre of height, so a target four kilometres up lands tens of
+kilometres from a solution that is otherwise perfect — 47.9 km, measured, from a near-orbital
+burnout 2,580 km out. The trajectory is not wrong; the asking is. So the aim carries a bias driven
+by the flown prediction, the prediction is flown **against the real height field** rather than the
+mean sphere, and the miss is scored against the **target** rather than the biased aim — scoring a
+correction against itself reports a perfect shot however far the rounds land.
+
+**And the prediction has to fly the warhead, not the bus.** The guidance reasons about a vehicle
+that cuts off above the atmosphere, so a vacuum predictor is right for everything it was built for
+and wrong for the one thing that has to arrive. Path length through air goes as `1/sin(γ)`, which
+makes a **grazing deorbit arrival the worst case for drag rather than the mildest**: at ~5° a Mk 21
+keeps a quarter of its speed and lands **54.6 km** short of the vacuum arc, measured through both
+models from one cutoff state. `ImpactPredictor.Drag` goes through `Medium.Drag` — the same call the
+round makes, because a prediction modelling drag its own way is a second flight model to keep in
+step with the first — and the step comes down only where there is density, so a coast pays nothing.
+**It reads the air alone** (`KsaWorld.AirDensityRatioAt`), as the gun's lay does: the medium is the ocean
+anywhere under the mean sphere, land above it or not, and under 204 m of ground the step crossing it
+reads there and throws the warhead off the planet — the release probe's only flown failure
+(`docs/ACCURACY-PLAN.md` 3ep).
+
+**And the observer has to be reading the same clock as the thing it is scored against.** Mid-burn
+the prediction departs from the *cutoff* state, seconds in the future, so `ImpactPredictor` un-carries
+its impact into the body-fixed frame of that instant — while the target is known in the frame of
+*now*. Comparing them measures the planet's turn over the rest of the burn and calls it miss. It is
+not a bias that can be tuned out: it shrinks to nothing as cutoff arrives, so the correction chases a
+ruler moving at ~400 m/s against ground moving at 465. Headless at 2,000 km it put a shot needing
+**no correction at all** 191.6 km wrong; flown, closing it took the warheads from 11.25 km to
+**5.35 km**. `TerrainRadiusAt` carries the same un-carry for the same reason, and once the engines
+are off there is nothing left for it to correct — the two ways this mod asks where the ground is then
+reduce to one expression and agree exactly.
+
+That is also the shape of how it hid for so long: **a correction loop can only remove what its
+observer can see.** The aim correction reads the prediction, so a drag-free prediction converged,
+reported zero, and the warheads went on falling 59 km short in flight. The loop was right and the
+instrument was blind, which reads from outside exactly like a working feature.
+
+**And the same observer can report something that is not there, which is the other half.** Mid-burn
+the prediction departs from the *projected* cutoff, and before the vehicle has flown, that projection
+is the pad — so the arc is flown with drag from sea level, ploughs through the whole atmosphere, and
+reads **1,522 km** of miss for an aim that is exactly right. The loop took that for an error on its
+first cycle and pinned the bias at `AimCorrection.MaxMetres`; half the flights could never pay the
+trim to walk it back and landed 300 km out. `AimCorrection.DepartureIsWorthObserving` refuses a
+prediction that departs from inside the air, at `Medium.NoticeableDensity` because that is the same
+question asked of the same model. Flown: 8 of 8 within 0.33 km against a worst of 310.42.
+
+**And the miss is not a monotonic function of the aim, so a loop that stops the first time it stops
+improving stops in the wrong place.** Measured at 7,645 km: a best of 3.34 km banked, then a
+**five**-cycle patch out to 5.89 km, and beyond it 1.73 km at a bias 38 km further on — 1.15 km of
+flown miss against 15.74 for a loop that gave up inside the patch. Stopping early is not the
+conservative choice, because stopping is what makes `AimCorrection.IsSteady` true and *that* commits
+the arrival: the aim it kept is then judged against a different trajectory, and the 3.34 km it
+stopped for measures 15.86 km one cycle later. So `WorseBeforeStopping` is patient, bounded above by
+`IcbmProgram.LatchArrivalWithinSeconds`, past which the arrival commits whatever the aim is doing.
+
+**But "the best aim is kept either way" is only true above 250 m, and after cutoff it keeps
+nothing.** `AimCorrection` banks a new best only on beating the old by `ImprovedByMetres`, a flat
+250 m, so once the best is 250 m or less improving on it would take a *negative* miss: **the ratchet
+is arithmetically dead**, and so is the `worse` arm that needs 250 m the other way.
+`AimRatchetTests` pins the arithmetic. The terminal `Freeze()` then reverts the bias by 110 m on a
+median flight — **and the revert moves no warhead.** They leave in that same frame, on the trajectory
+the last trim pass flew, so over 536 flights the revert predicts the release probe at +0.10. What the
+dead band actually does is stop the post-cutoff loop early, on `PassesWithoutImprovement`.
+`IcbmConfig.AimThresholdTracksTheMiss` is the way out of that and is **off**: flown twice, 0.88x
+[0.84, 1.10] on the miss and then **0.78x [0.51, 1.11] on the release probe**, both unresolved, with
+the landing at 0.98x. `docs/ACCURACY-PLAN.md` 3cp and 3cq.
+
+**The miss is one product, and there is no floor under it.** Flown from the same cutoff position
+with the *exact* required velocity, the integrator lands on the target to under a metre — so the
+whole error is `velocity still to gain at cutoff x dMiss/dV`, and each half is worth knowing.
+The sensitivity belongs to the trajectory (274 m per m/s at 1,400 km, 4,700 at 8,500 km) and the
+frame rate is given, so **the only lever is the throttle**: an engine stops on a frame boundary, the
+last frame adds `accel x step x throttle`, and coming back to a few per cent for the last couple of
+seconds divides the miss by the same fraction. It is written against the throttle the vehicle
+*reports having* rather than the one commanded, so a stack that cannot throttle gets the error it
+would have had rather than a wrong cutoff.
+
+**And a residual several times what one frame adds is not a rounding, so the throttle cannot reach
+it.** Freezing the steering leaves whatever is square to the frozen line in the residual for good,
+and `HoldDirectionBelow` is a fixed five metres a second — about ten frames at full thrust, and
+*seconds* of them once the ramp has taken the throttle down. `IcbmProgram.HoldDirectionFrames`
+counts the same limit in frames of the burn actually happening, capped by the old constant so full
+thrust behaves as before. Measured headlessly across 90 shots: mean residual 0.065 → 0.018 m/s, and
+the share square to the thrust line 71% → 6%. **A constant step cannot see it** — the fault is
+driven by the solve moving between frames, so `IcbmFlightRig.StepJitter` is the fourth thing the rig
+had to stop being better than the game at.
+
+**A crossing search that stops on the first sample past the boundary is biased, not merely
+imprecise.** `ImpactPredictor` accepted the first point below the ground, so a tolerance expressed
+as a *time step* left the answer metres deep — which at 7 km/s on a shallow arc is tens of metres
+downrange, **always** downrange, and reads exactly like guidance error. On the Moon, where arcs are
+shallower still, it was kilometres. `CrossingToleranceMetres` bisects on how deep the answer is
+instead: the thing that actually matters, and the same number on every body. **That bounds the bias
+and does not remove it.** The answer is still the first sample below, spread across the tolerance,
+so it sits half of it deep on average — 0.20 m long at 32°, flown, which the aim loop turns into
+rounds landing that much short. `IcbmConfig.PredictionStopsOnTheSurface` places the crossing between
+the two samples that bracket it, for no lookup, and ships on: flown, the landing's step below the late
+re-flies went from −0.212 m to −0.007.
+
+**It is `Cci`, and everything the ascent gates on is dynamic pressure.** A half-hour flight in the
+ecliptic carries 54 million kilometres of the planet's own travel; a body's spin axis is exactly
+`+Z` in its own `Cci`, so there is no obliquity term. And gating the guidance handover and the
+angle-of-attack limiter on pressure rather than density or altitude is what makes a launch from the
+Moon work without anything knowing the Moon has no air — thin air at two kilometres a second is
+still kilopascals.
+
+**Attitude is written from a Harmony prefix, and it is one of four patches.** KSA
+double-buffers a vehicle's flight computer: `ApplyVehicleSolvers` writes the worker's result over
+it, `ExecuteNextVehicleSolvers` snapshots it for the next worker, and *then* the GUI pass runs — so
+a command written from any StarMap hook is not in the snapshot and is overwritten before anything
+reads it. Measured over thousands of frames as `before Manual/None -> after Auto/Custom`, every one,
+with the engine's own error angles at zero. `Vehicle.PrepareWorker` is the only thing inside that
+window a mod can reach, which is why `Ksa/AttitudeHook.cs` prefixes it and why cairn5's
+PoweredGuidance does the same.
+
+**Staging goes through the same window, for a different reason.** The worker that snapshot feeds
+is running during the GUI pass, and for the controlled craft, while the engine-control gauge or the
+staging list is open, it walks the live sequence list that `ActivateNextSequence` rebuilds. Staged
+from a hook the two race, and KSA prints `Update task failed` out of
+`SequencePerformanceList.Recompute`. `AttitudeHook.Stage` queues it for the prefix instead;
+`docs/KSA-FRAME-ORDER.md` §1 has the engine code.
+
+**The rule this bends is about *private* methods, and the target is `public virtual`.**
+`AttitudeHook.PinTheSignature` is never called and exists only to put the patched method in this
+assembly's metadata, so `docs/KSA-API-SURFACE.md` tracks it and a KSA signature change is a build
+error rather than a rocket that quietly stops steering. Harmony ships with StarMap, so this asks a
+player to install nothing. **Nothing in the prefix may throw** — it runs inside the engine's frame
+loop, where an exception is the game rather than a log line.
+
+**The second patch is on a private method, and what makes that acceptable is what losing it
+costs.** `Ksa/PreRenderHook.cs` prefixes `Program.OnFrameCelestials`, because StarMap's three
+per-frame hooks are the whole list and none is both pre-render and outside `if (DrawUI)` — so with
+the UI hidden the mod could step before the render or at all, and `FrameLatch` alone can only pick
+the second. Stepping after the render draws every round a frame late, 4 m at 250 m/s, jittering
+with the display's pacing. **A prefix and not a postfix**: that phase resolves the camera-nearby
+body and updates the planet's shader data, so stepping after it renders the ground as open water.
+There is no signature to pin and no build error to be had, which is exactly why the failure must
+degrade: a rename makes the patch not apply, it is logged once, and `[StarMapAfterOnFrame]` runs
+the step as before. A patch whose absence is the status quo is a different risk from one whose
+absence is a rocket that stops steering.
+
+**The third is how the mod knows a save was loaded, because nothing else can tell it.** StarMap
+has no load hook — `BeforeMain`, `ImmediateLoad`, `AllModsLoaded`, `Unload`, `AfterOnFrame`,
+`BeforeGui`, `AfterGui` is the whole list — and `KsaWorld.InFlightScene` stays **true** right
+across one: `Universe.LoadSystem` runs at startup and a save only replaces what is inside the
+system it built, so the mod never leaves the scene and the out-of-flight path never runs. What
+that costs is rounds outliving their world. `Universe.DeserializeSave` calls `DestroyAllVehicles`,
+so every craft dies on one frame and each system still flying rounds goes **loose** — which is
+right for a launcher shot out from under them and wrong for the world being taken away. The loose
+systems then step the old scene's rounds into the new one until each expires, measured from play
+as a Pantsir burst logging shell expiries for five seconds after a reload.
+
+`Ksa/WorldReloadHook.cs` postfixes `Program.OnGameLoaded`, which is called from exactly one place,
+immediately after `DeserializeSave` has rebuilt the world. It is `public static`, so
+`PinTheSignature` puts it in `docs/KSA-API-SURFACE.md` and a KSA change to it is a build error —
+the property `AttitudeHook` has and `PreRenderHook` does not. It fires for a later save as readily
+as an earlier one, which is what a clock-rewind test would not do. And the failure degrades: a
+patch that does not apply is logged once and costs one reload's worth of stale rounds.
+`WeaponSystems.Discard` is the reset it drives — **not `Clear`**, because `Clear` writes the
+settings down first, and the settings about to be read belong to the save being opened.
+
+**The fourth is what keeps a long shot visible.** `Vehicle.UpdateRenderData` draws none of a craft
+whose bounding sphere is under a pixel across from the camera, and a round's body is a subpart of its
+launcher — so a chase camera 3.7 m behind a 5"/54 shell lost it part-way down a 60 km shot while the
+mod went on placing it. On a 1440p screen at a 50° field a craft is under a pixel 1.65 km out for every
+metre it is across — the Mk 42 mount in `5inch_gun` went under at 20.1 km, flown — and
+`Ksa/RoundBodyDrawHook.cs` logs the number the first time it draws. It
+postfixes that method, asks the engine's own pixel test again and draws the parts exactly when the engine did not,
+and only for a craft with rounds in the air: never twice, and a launcher drawn at under a pixel is
+nothing anyone sees. `public virtual`, so pinned like `AttitudeHook`; a patch that does not apply leaves
+the cull.
+
+**`Ksa/VehicleCommand.cs` is the only place this mod flies somebody else's rocket**, and every write
+in it is one the game already makes for itself: the flight computer's `Custom` attitude target,
+which is how `PhysicsBubble` points a manoeuvring unit, and `Vehicle.ProcessInput`, which is what
+the keyboard calls — ordinary calls, not patches; the prefix above is only the window they run in.
+The aiming rotation is laid out exactly as KSA's own `GetTgt2Cci` lays it out rather than to a
+layout of this mod's own, because guessing which body axis is the nose — and getting that wrong —
+is a vehicle holding a perfectly steady attitude ninety degrees from the one asked for.
+
+**And the throttle and the trim are held controls, which KSA drops on the craft being flown.**
+`Vehicle.PrepareWorker` clears them on `Program.ControlledVehicle`, before reading them, whenever the
+UI holds the keyboard, that vehicle is marked inactive, or the world runs past 30x. So a modal, the
+console or a focused text field freezes the controlled rocket's throttle mid-burn, and KSA opens a modal
+by itself at every launch once a newer build is published — a rocket under it keeps full throttle
+through a staging that needs it lowered, past its airframe's limit. `ScenarioRunner` closes KSA's popups
+while it runs and `IcbmComputer` says when it is happening; a player typing into a panel during a burn
+is not handled. `docs/KSA-MODDING-NOTES.md` has the engine code.
+
+**The pointing deadband is a high-water mark, and it has to be put back each frame.** KSA widens
+`AngleDeadband` to whatever one control period of the minimum thruster impulse can produce — a
+stability guard, because a tracker asked to settle inside its own quantum limit-cycles instead — but
+`RecomputeDynamicData` takes a `max` against the standing value and nothing lowers it. At the frame a
+MIRV bus separates and becomes its own vehicle its mass properties resolve and the rate bit
+momentarily reads **55 deg/s**; `0.2 x 55` is 11.04, and that one frame sets the guard for the whole
+deployment. Measured: an 11.40° deadband held against a live rate bit worth 0.07, and it did not
+move when the impulse driving it was cut 35% — it went slightly *up*. That was 5.7° of a 9.63°
+pointing band, and it is why nothing done to the thrusters ever shifted it.
+
+Assigning the profile in `VehicleCommand.TryAim` puts it back and KSA's own `max` re-establishes the
+real floor on the same frame, so the guard ends up sized for what is actually aboard: **9.63° to
+0.37°**. `Strict` rather than `Balanced` because it is also the fastest of the three — 30 deg/s of
+rate limit against 5 — and the mod has already taken the vehicle by the time this runs.
+
+**A nozzle is enrolled in a rotation axis at 0.1, not at the 0.5 translation uses, and the enrolled
+set is summed.** `MinRotationalImpulse` is therefore a property of the whole ring rather than of one
+thruster, so a nozzle nobody meant to steer with still coarsens the quantum that does — and what
+decides enrolment is the axial gap between the ring and where the part declares its mass, which
+defaults to the mounting face where nothing physically is. `tools/model/checkring.py` gates it;
+nothing else could, because the mesh is clean, the pivots agree and `checkswept.py` finds no
+intersection.
+
+**One computer per craft, not per launcher.** A craft can carry two rails and shoot them at
+different things; it has exactly one trajectory, so a second computer aboard is a second autopilot
+fighting the first for the same engines. That is the one place the ICBM roster and `WeaponSystems`
+disagree about what to key on.
+
+**A shot short of the propellant is flown and reported, not refused.** KSA reports the *running
+stage's* engines, so how much a stack has left is only knowable one stage at a time — a launch gate
+built on that number turns away every multi-stage rocket in the game. It flies, falls short, says by
+how much, and holds its warheads: releasing on a trajectory known to fall short scatters them over
+whatever is under the short fall.
+
+**A boost motor pushes along the round, which is the velocity it has *gained* — never the velocity
+it has.** A rail-launched round inherits the whole of its craft's velocity and adds `LaunchSpeed` of
+its own: 25 m/s against several hundred. So its total velocity points wherever the craft was going,
+whatever the rail was aimed at, and thrusting along it drove an AGM-88 **1,050 m/s in the craft's
+direction of travel** over a five-second boost — away from the target for a launcher that had turned
+round, and into the ground for one that was descending. What it has gained starts as the ejection up
+the tube and accumulates along the thrust, and proportional navigation's lateral term lands in it
+too, so the round still curves onto its target rather than flying the rail's bearing for ever.
+
+**Every launcher this mod had when that was written stood still**, and for a stationary launcher the
+gain *is* the velocity — so "along the flight path" and "along the tube" were the same expression and
+nothing distinguished them. A ground battery's flight is unchanged, which is what makes the
+correction safe. The release log has always printed `<n> deg from the platform's track` for exactly
+this reason; on the shot that found it, that number was near 180.
+
 **A round flies in the ground's frame, not the launcher's.** `KsaWorld.GroundVelocityAt` is the
 parent body's own motion plus its spin at that radius, and it is what a round's airspeed, its drag
 and the direction it points are all measured against. For a launcher standing still on the ground
@@ -906,8 +1647,16 @@ that is the same number as the launching craft's velocity; a store released from
 **moving** is what separates the two. A round still *inherits* the craft's velocity at launch; it
 does not measure its airspeed against it.
 
+**And the spin is taken at the round's own instant.** The radius it acts on is measured to the body's
+end-of-frame sample, so a read from a round part-way through the frame is back-dated by the body's
+travel exactly as the density read beside it is. Undated, a frame of the planet's 29.8 km/s is a
+steady false wind — 0.055 m/s at 25 ms — and it was 30 mm of cross-range on every warhead
+(`docs/ACCURACY-PLAN.md` 3el).
+
 **Rounds are drawn as real subparts, anchored to the tube they left.** Twelve `Missile`
-subparts, scaled to nothing until fired, with their transform written each frame. Two rules:
+subparts, scaled to nothing until fired, with their transform written each frame. A gun's shells
+leave no tube, so each borrows a body from `Sim/BodyPool.cs` and is placed through the same call from
+the muzzle. Three rules:
 
 - **Anchor to the tube, add only the travel *since* launch.** `OffsetFromPlatform` is measured
   from the platform's *analytic* orbit position; a subpart is placed against the vehicle's
@@ -917,15 +1666,39 @@ subparts, scaled to nothing until fired, with their transform written each frame
   frame, so it carries none of that.
 - **Orient off `VelocityLocal`, never `VelocityEcl`.** The latter carries ~29.8 km/s of ecliptic
   motion and points every round the same way.
+- **Build the attitude in the ecliptic, not in the part frame: a direction is not a rotation, and
+  the leftover is the roll.** A shortest arc onto the flight direction leaves that roll to whatever
+  the arc gives — a function of the direction *and* of the launcher's attitude, both of which move.
+  The mesh's nose is square to the plane a fall sweeps through, so the residual tracks the
+  flight-path angle one for one: **51° over a 5 km drop**, at 1–5°/s. Solving in the part frame
+  glues it to the craft besides, a degree per degree the launcher turns on rounds already gone. The
+  fins are not involved — `FinMixer` is drawn only, and no fin model holds a roll the drawing
+  invents. So a body leaves at the launcher's roll and is **turned on from where it was last
+  drawn**, a frame's turn at a time about the axis square to its nose and the airflow, which adds
+  none — at a rate the dynamic pressure sets. Not re-derived from the release each frame: a store
+  thrown upwards comes down facing the other way, there is no one turn between opposite directions,
+  and a derived attitude flipped over the top of the climb and rolled 2.2° a frame about its nose
+  on the way down. It is `AimFrame`'s carry-the-reference-forward answer again.
 
-`RoundBodyAnchorTests` and `FireGeometryTests` hold both.
+`RoundBodyAnchorTests` and `FireGeometryTests` hold the first two, `TubeGeometryTests` and
+`ThrownStoreAttitudeTests` the third.
 
-**A fully self-contained scenario is not possible from a mod.** `LoadVehicleFromLibrary` in a
-system XML resolves through `DefaultVehicleSaves`, whose `SaveFolderPath` is **hardcoded** to
-`Content/Core/defaultvehicles` under the game install — not per-mod, and not writable without
-elevation. So a one-click "everything placed and ready" scenario would mean writing into
-Program Files. Instead: `tools/install-testcraft.sh` writes a craft into the *user's* vehicle
-folder (which is writable), and `TestTarget` spawns drones on demand from the panel.
+**A scenario cannot place a craft through the *system XML*, but the mod can place one itself.**
+`LoadVehicleFromLibrary` in a system XML resolves through `DefaultVehicleSaves`, whose
+`SaveFolderPath` is **hardcoded** to `Content/Core/defaultvehicles` under the game install — not
+per-mod, and not writable without elevation. That door is shut.
+
+`VehicleSaves` is a different registry and is not: its `SaveFolderPath` is the user's own
+`Documents/Vehicles`, which is exactly where `tools/install-testcraft.sh` writes, and
+`Refresh()`/`AsSpan()`, `UncompressedVehicleSave.FromDirectory`, `VehicleSave.Load(Viewport)` and
+`Vehicle.GetInitialKinematicStateForLocation` — the launch menu's own pad-placement maths — are all
+public. `TestTarget` already walks most of that chain to spawn drones.
+
+**Not built, and two things are unknown before it is:** whether
+`InputEvents.CreateVehicleBuffer` wants the frame ordering it gets from `VehicleLaunchMenu`, and
+whether a craft spawned past `CrewAssignmentWindow.FillSeats` is controllable — fine for a drone,
+untested for a vehicle that has to fly. `tools/scenario.sh mirv` therefore automates everything
+after the craft is on the pad, and getting it there is still the operator's.
 
 **A system mounts to the craft carrying the launcher part, and stays there.** It does not
 follow the player's control: a system that re-homed onto whichever craft was being flown would
@@ -989,8 +1762,9 @@ one — read `DrawAnchor.cs` before touching it.
 wall-clock, which is wrong twice over: it keeps running while the game is **paused**, so the
 radar accumulates dwell, matures a firing solution and launches into a frozen world; and it
 ignores **timewarp**, so at 10× the world moves ten times further per frame than the rounds do
-and tracking falls apart. Fire control reads `KsaWorld.SimTimeSeconds` differenced by
-`Sim/SimClock.cs` instead, which is `Universe.GetElapsedTime()` plus `Universe.IsPaused()`.
+and tracking falls apart. Fire control reads `KsaWorld.ConsumeSimStep()` instead — the span between step
+boundaries, classified by `Sim/SimClock.cs`, which is `Universe.GetLastSimStep()` plus
+`Universe.IsPaused()`.
 
 `SimClock` classifies steps it cannot integrate. `Interceptor` subdivides internally but clamps
 at 64 sub-steps, so beyond `Interceptor.MaxFaithfulStep` (0.32 s) a round at 700 m/s starts
@@ -1026,9 +1800,78 @@ The clamp remains and still discards time: the frame that overran cannot be un-r
 policy only takes effect from the next one. What it stops is the next thousand frames doing the
 same thing silently.
 
-**Kills are binary.** KSA exposes no partial-damage model, only
-`Universe.DestroyVehicleFromEvent`. `LethalRadius` destroys; between lethal and `BlastRadius`
-the mod logs a near miss and the target survives.
+**A target's own behaviour decides whether it is a target, and that is what emission is for.**
+`SensorProfile.Emits` says a set transmits, which is what kind of set it is; `SystemConfig.RadarSilent`
+says whether it is transmitting *now*, which is the operator's. `GuidanceMode.AntiRadiation` is the
+only thing that reads either — every other weapon sees `TargetState.Emitting` default to true and
+behaves exactly as it did before the field existed.
+
+Silence is a trade rather than a free defence: a silent set cannot be homed on **and cannot see**,
+so `Radar.Scan` returns early. And it only saves a site that also *moves* — a round already in the
+air carries on to where the emission last came from.
+
+**That memory is a position *and the velocity it was seen with*, replayed on the round's own
+clock.** Never a bare ecliptic coordinate: the velocity carries the planet's ~29.8 km/s, so
+replaying it keeps the remembered spot on the ground it belongs to, where storing the point alone
+is left behind by ~30 km per second of flight. Same rule as the draw anchor and the round bodies.
+`AntiRadiationTests.TheRememberedEmissionCarriesTheFramesEclipticMotion` fails against the bare
+point — and fails by never detonating at all, not by a near miss.
+
+**A blast breaks parts, and nothing picks which.** Every part of a craft is judged on its own
+distance from the burst and its own `CrashTolerancePascals` — a number the engine derives from the
+part's mass and volume — so a warhead against a booster's tail takes the engines and leaves the
+payload, and no profile says anything about damage. `Sim/BlastDamage.cs` is the whole rule.
+
+**Its reach is the mod's own law re-anchored, not a second damage model.** Cube-root scaling says a
+given overpressure is felt at a fixed *scaled* distance and pressure near the burst falls as the
+cube of it, so the radius at which a part's tolerance is reached goes as `(W/P)^(1/3)` — which is
+`Warhead.LethalRadius` with a second cube root on the strength ratio. `BlastDamage.ReferencePascals` is
+KSA's own base strength, so a part of that strength fails at *exactly* the lethal radius and the
+57E6's flown calibration does not move: it says which part it was calibrated on. **It has to move
+when KSA's does**, or every warhead's reach against every part moves by the cube root of the
+change. The engine clamps a tolerance to 0.1–100 MPa, which is 4.48x to 0.45x of that radius, and
+the weak end is capped
+at `BlastRadius` — the radius the panel, the overlay and the near-miss line all describe the weapon
+by, and a damage rule reaching past it would make all three lie.
+
+**Whether losing that many parts kills the craft is KSA's judgement, asked rather than
+reproduced.** `PartFailure.TrippedTheFragmentGuard` is the engine's own rule about what its
+fragment machinery can survive, so a warhead that engulfs a drone is still a kill and only a craft
+big enough to lose a piece loses one. A copy of the threshold here would be a number free to drift
+from the code that has to cope with the answer.
+
+**A verdict already reached elsewhere is never overturned by an empty sweep.** A round that
+*struck* has the fuse's lethal verdict, so the part sweep may only decide what breaks; finding
+nothing near enough falls back to destroying the craft, the same rule the hull test obeys. On the
+splash path there is no prior verdict and the sweep *is* the verdict, so nothing near enough
+genuinely means nothing happened. The difference that matters is between a part tree that could not
+be read — fall back — and one that was read and said no.
+
+**And a part that a warhead destroys is one a decoupler could never have taken away.** A decoupler
+leaves a launcher somewhere, so `PlatformHandover`'s "absence never moves anything" was the whole
+answer; a warhead leaves it nowhere, and an entry then searched the world every frame for ever and
+never fired again. Both rosters bound the fruitless search — 120 consecutive empty ones, far past
+any staging rebuild — and retire the entry, a weapons system going loose so its rounds still fly.
+
+**And a part failure is queued for the engine, never applied by the mod.** Every mod hook runs
+between a worker run being staged and its results being applied, so splitting a vehicle there hands
+results computed against the whole craft to its fragments — measured as an
+`ArgumentOutOfRangeException` out of `FlightComputer.UpdateTvcParams`, once per frame per fragment,
+for ever, with the errors on screen. Destroying is safe from the same place for the reason
+splitting is not: a corpse's staged results have nowhere to land. So
+`KsaWorld.TryQueuePartFailure` writes `VehicleUpdateState.PartFailureEvent`, which is exactly what
+`PartFailure.Detect` does with the engine's own crash damage, and `ApplyRenderEventsToVehicles`
+applies it at the right instant. `docs/KSA-FRAME-ORDER.md` has the ordering and the measurement.
+Reaching that state needs one verified reflection, and losing it turns the feature off rather than
+breaking it.
+
+`Config.DamageIndividualParts` is the way back to binary kills, which is what shipped before KSA
+had a failure model: `LethalRadius` destroys, and between lethal and `BlastRadius` the mod logs a
+near miss and the target survives. It is worth keeping because fragments cost frame time — one
+craft becomes several, and every one of them is simulated.
+
+`docs/BLOCKED-ON-KSA.md` has what is still not expressible: a launcher's sensors are **subparts**,
+and `PartFailureEvent` fails parts, so a Pantsir loses its whole launcher or nothing.
 
 **A shell has to touch what it kills; a warhead does not.** That difference is the weapon's
 implementation, not a profile field — `Slug` asks `Sim/IHullTest.cs` and `Interceptor` never
@@ -1036,7 +1879,7 @@ does, so a proximity-fused missile keeps bursting near an airframe, which is wha
 The hook is deliberately *not* on `IProjectile`, because putting it there is an invitation to
 wire it into the missile.
 
-Three rules hold that together:
+Four rules hold that together:
 
 - **The sphere only rejects; the hull decides.** A craft's `MeanRadius` is the half-diagonal of
   its bounding box — a number built for orbital clearance margins, standing ten metres clear of
@@ -1049,12 +1892,114 @@ Three rules hold that together:
 - **A round names what it struck.** Fire control decides what to shoot at; it does not decide
   what a shell in the air passes through. Scoring a strike on a bystander against the *target's*
   lethal range destroys something the round never reached.
+- **Touching does not wait for the fuze to arm.** Arming delays how far the proximity fuse reaches,
+  never whether a shell runs into something, the way the ground has always stopped one. The 5"/54
+  arms 363 m out, and a tank stack 180 m from the mount was flown straight through while the ground
+  behind it stopped every shell. The mount itself is never a contact candidate.
+
+**A round can be shot down, and that needed a path of its own rather than a wider blast.** A round
+is not a `Vehicle`, so none of the machinery above reaches one: `ContactCandidates` collects craft,
+`SampleTarget` refused anything that was not a craft, and the kill path calls
+`DestroyVehicleFromEvent`. The result was a Pantsir that tracked an incoming missile, laid the
+guns on its ballistic lead, fired the whole way in and could not have hit it at any aim — a
+dead-centre shell tested against nothing and passed through. `IProjectile.ShootDown` is the only
+way one ends, and `RoundState.ShotDown` is deliberately not `Detonated`: an intercepted round's
+warhead never fired, and reading the two as one lets a missile splash the thing it was intercepted
+over.
+
+Three things follow, and the first is the one that bites:
+
+- **The airborne sample is taken once for every system, before any of them steps.** A round is
+  advanced by its own launcher's update, so a live reference is start-of-step or end-of-step
+  depending on roster order — metres of closing motion, across a shell's fuse radius, decided by a
+  dictionary's iteration order. `docs/FRAMES-AND-EPOCHS.md` has the rule.
+- **A shell reaches a round only as its *designated* target, never as a bystander.**
+  `ContactCandidates` is still craft-only on purpose: it is walked per round per sub-step, and a
+  CIWS burst is 150 shells, so adding every round in the air to it multiplies that loop by the size
+  of the salvo. The burst is aimed at the missile, which is the case that matters; the cost of the
+  general one has never been measured, and CLAUDE.md's rule about unmeasured per-frame costs
+  applies.
+- **A missile intercepts by blast, a shell by touching** — the same split as everywhere else, and
+  it falls out for free: the splash sweep now runs over rounds in the air as well as craft.
+
+**A fired round does not belong to its launcher any more, so destroying the launcher does not
+un-fire it.** A seeker head is aboard the round, and an anti-radiation round already carries the
+emission it remembers — both are built to outlive what they were fired at, so outliving the
+*shooter* costs them nothing. `WeaponSystem.GoLoose` hands such a system's rounds to the body they
+are flying over and `WeaponSystems` keeps it, running nothing but `UpdateLoose`, until the last one
+lands. `MunitionProfile.NeedsUplink` is the one thing that decides who survives: a command-link
+round carries no seeker at all, so it is cut loose and coasts, which is what a command-link round
+*is*. The guard for that is `Platform is null → no target`; writing it the other way round —
+`&& Platform is not null` — skips the uplink check on a destroyed launcher and steers the round on
+with nothing behind it.
+
+Three rules hold it together:
+
+- **The anchor becomes the parent body, and every offset moves at once.** `IProjectile.Reanchor`
+  shifts the current offset, the launch offset and every trail point together. Only
+  `OffsetFromPlatform` self-corrects on the next step, so a partial re-anchor looks right and draws
+  the trail to where the launcher used to be — a planet's radius away. `ProjectileContractTests`
+  holds it for every projectile, including that `TravelSinceLaunch` does not notice.
+- **The roster holds a `Celestial` and a captured name, never the dead `Vehicle`.** That is this
+  file's own rule about not keeping a destroyed craft reachable, and it is what bounds the
+  lifetime to one flight rather than the session. The name carries the team as well as the label,
+  so allegiance outlives the craft too.
+- **A loose system runs no fire control.** No scan, no lay, no trigger — and that is a cost
+  decision as much as a correctness one: the filter that stops a system shooting its own salvo
+  walks every round in the world against every round it owns, which for a system whose rounds are
+  *all* it has is the whole airborne list squared.
+
+**A loose round keeps its plume and its tracer, and loses its body.** The body is a subpart of the
+launching craft, so when that craft is destroyed there is nothing left to write a transform to —
+that one is a KSA limit rather than a choice. The effects are not: every emitter this mod starts
+sets `Context.Astronomical` and leaves `Context.Vehicle` null, so a plume has always hung on the
+*body* rather than on the craft, and only the position lookup went through the launcher's part
+tree. `IEffectSource.EffectBody` and `TryRoundEffectEcl` are that split made explicit — the drawn
+body's position while there is one, and the round's own against its anchor once there is not, which
+is exact rather than approximate precisely because there is no part to disagree with it.
+
+So a shell keeps its tracer for its whole flight and a missile keeps its flame while the motor
+burns. **A missile that has finished boosting is invisible**, having neither, and so is a bomb. The chase
+camera still rides such a round to its burst: it keeps the system it is riding rather than asking
+the panel, which has nothing left it can focus that owns the round. The motor sound and
+the diagnostic gizmo overlay are also not carried over, both because they convert through a
+`Vehicle` to get camera-relative. `docs/CODE-HEALTH.md` has what closing those would take.
 
 `Ksa/HullTest.cs` needs no camera: `Vehicle.GetMatrixAsmb2Ego` takes the frame origin as an
 argument, so passing the round-relative separation puts the whole per-triangle cast in a
 metres-scale frame centred on the round. What it is fed is the *analytic* position while the mesh
 is drawn at the *physics* one; the verbose world dump prints that gap per craft, because it is
 noise against a 22 m trigger and the entire error budget against a hull.
+
+**A store that falls is reaped on the fall, not on the flight.** `MaxFlightSeconds` is a
+self-destruct for a round that misses the world, and for anything the ground does not stop that is
+exactly right — a shell has no ending of its own. A round with `HitsTerrain` does: it ends by
+arriving, and a long fall is long rather than stuck. So its clock counts only where arriving
+happens, and what catches the store that can *never* arrive is `Sim/RoundReach.cs` — a conic whose
+lowest point is above the ceiling never reaches it, which is exact out there because there is no
+drag to bend it and because drag only ever lowers a periapsis.
+
+**And a path that can only land runs no clock at all.** Inside the ceiling, a conic whose lowest point is
+under the lowest the ground can be — the mean radius less the highest terrain — ends on the ground for
+the same reason, so `Approach.Landing` holds the clock and the ground is the reaper. A shell lobbed under a
+weak pull stays up for minutes: from Mars a 5"/54 at its longest reach flies past its two-minute clock, and
+reaping it on that clock, with the lay searched only within the same clock, ended the gun's reach at 90 km.
+
+**The clock still has to be able to run.** Holding it for everything that is not failing leaves a round
+nothing reaps at all — a body with no atmosphere never starts an air clock, so a store falling towards the
+Moon has only the ground to end it and nothing whatsoever where the ground cannot be read. So
+`Approach.Arriving` is **geometric rather than atmospheric**: below the ceiling, whatever the ceiling is
+made of, which on an airless body is its highest ground — and it keeps the clock for what the conic cannot
+vouch for, a path skimming above the lowest ground and a round already under it. `Unknown` runs the clock
+too, so a round that can be neither classified nor stopped cannot be immortal — and since it then advances
+every step, it *is* the age limit, which is what every round had before any of this.
+
+The 120 s the B61 shipped with was a coast being counted against a fall. A release at 100 km takes
+**152 s** to arrive and one at 250 km **246 s**, nearly all of it above the air, so the bomb was
+destroyed in flight with the descent still to come — and a bomb released *in orbit* keeps the
+craft's orbital velocity, flies alongside it, and is now reaped at once rather than holding
+`WarpPolicy` down for two minutes first. An unanswerable trajectory — open, or purely radial, which
+want opposite verdicts — is not judged at all and falls back to the clock.
 
 **A warhead is one number: `MunitionProfile.ChargeKg`.** Lethal radius, blast radius and the size
 of the fireball are all read off it in `Sim/Warhead.cs`, as the **cube root** — Hopkinson–Cranz,
@@ -1064,15 +2009,16 @@ free radii could also describe a round whose lethal radius exceeds its blast rad
 `WarheadTests` pins that it cannot. The scaled distances are calibrated to the 57E6's flown
 numbers: 20 kg → 20 m lethal, 60 m blast.
 
-The *drawn* size has a floor and the radii do not. A 0.16 kg cannon shell scales to 0.2 by the
-same law, which draws 5 cm particles — proportionate and invisible at any range anyone watches
-from, which is the same as no effect at all. `Warhead.MinimumEffectScale` applies to decoration
-only.
+The *drawn* size is KSA's, and it has a floor the radii do not. `ExplosionSystem` sizes a burst by
+the cube root of its energy over 5×10¹⁰ J and floors that at 0.05, which every conventional warhead
+in the mod sits under — a 20 mm shell and an AGM-88 would go off the same. So
+`Sim/WarheadExplosion.cs` picks KSA's preset by the charge's own fireball radius, and the energy
+only grows a nuclear one. Whatever the burst kills gets KSA's own destruction explosion on top.
 
 **The launcher ships its own art, and the asset XML lives at the mod root.** Instancing Core's
 meshes by Id and shipping nothing works, and is the right answer for a part that can be assembled
-from Core's kit; a Pantsir cannot be. The mod carries `Meshes/KSArmory_MeshAtlas.glb` and three
-PNGs, declared with `<MeshAtlas>` and `<PbrMaterial>` exactly as Core does.
+from Core's kit; a Pantsir cannot be. The mod carries nine mesh atlases and their textures,
+declared with `<MeshAtlas>` and `<PbrMaterial>` exactly as Core does.
 
 The XML sits at `src/KSArmory/*.xml` rather than in an `Assets/` subfolder **on purpose**.
 `<MeshAtlas Path="Meshes/…">` is relative, and it is not documented whether it resolves against
@@ -1099,9 +2045,9 @@ boundary drifts. Change the pods, rerun `tools/model/build.sh`, paste the block.
 is `LauncherProfile.Tubes.Length`, so it follows the block you paste.
 
 **A system will not fire while its launcher is slewing.** `WeaponSystem.IsLaid` requires
-both axes on target for `TurretSettleSeconds` first. Without that gate it launches the instant it
-has a lock, out of tubes still pointing somewhere else; guidance recovers and the intercepts
-still land, so nothing but watching it shows the difference.
+both axes on target for `LauncherProfile.SettleSeconds` first. Without that gate it launches the
+instant it has a lock, out of tubes still pointing somewhere else; guidance recovers and the
+intercepts still land, so nothing but watching it shows the difference.
 
 **A launcher with nothing to aim and one that cannot aim are different, and `FireGate` keeps them
 apart.** A profile declaring no training gear is always laid, so fire control cannot deadlock on
@@ -1120,11 +2066,103 @@ traverse, so `GunsAreLaid` reads `GunAimingAccepted` and the guns' own subpart w
 reads the pods'. Pointing both at one flag silences a working cannon whenever a pod elevation is
 refused — or whenever the pods marker resolves to nothing, which needs no engine refusal at all.
 
-**Mouse aim points the launcher, it does not fire it.** `Config.MouseAim` sends the turret and
-the optical head at whatever the cursor is over, ahead of the radar *and* ahead of the tracking
+**Mouse aim points the launcher, it does not fire it.** `SystemConfig.MouseAim` sends the turret at
+whatever the cursor is over, and a director's own `OpticConfig.MouseAim` does the same for its head,
+ahead of the radar *and* ahead of the tracking
 switch — with it on the operator is the sensor, so needing to enable radar tracking first would be
 surprising. Auto-engage still decides when to shoot, and `Aiming` counts mouse aim so `IsLaid`
 still makes the drives settle: without that, rounds leave along a tube that is still swinging.
+
+**A gun-only mount over the ground is laid to land there, not along the line to it.** A shell only
+goes where it is thrown, and the cursor cannot be put above a point on flat ground — so the line of
+sight leaves the barrel level and the shell short by its whole drop, and caps the range at wherever
+level fire meets the dirt. `WeaponSystem.TryGunLay` flies the solve a tracked target's lead uses onto
+the ground under the cursor, a designated place, or a designated craft — which keeps the ground's pace
+while it rests on something and carries its own acceleration while it flies. Laid along the line of
+sight instead, a craft designated 9.7 km out drew a shell that came down about halfway. Over sky, or a
+craft under the mouse, the line of sight stands, because there the operator is judging the lead. Beyond
+its reach a gun is thrown as far as it goes along the line to the target instead —
+`BallisticLead.TrySolveFlownOrReach`, within the shell's own lifetime — and the header strip and the
+designation mark say so, because laid along the line of sight a shell sent 24 km lands a kilometre or two
+out and nothing on screen tells the two apart. It is searched **over the ground** when the target is on it,
+each place with its own ground's motion: along the straight line a place far out is under the ground, and
+from Mars the shell came down 3.9 km short of the 90.3 km it was said to reach.
+
+**And the reach is the whole reach.** Near it a lobbed shell comes down steeper than it went up, so
+turning the barrel along the miss moves its path mostly along itself and takes out less every pass: on a
+shell with almost no drag the lay gave up at 55 km of a 64.8 km reach, and read everything past as out of
+it. `TrySolveFlown` learns what a turn does to the miss from the turns it has already flown (Broyden's
+update), still one flight a pass, and lays 97% of the reach inside the lethal radius on the range table's
+drag and on almost none.
+
+**A round's drag is what it is, not a number typed for it.** `MunitionProfile.MassKg`, `CalibreMm` and
+`DragCoefficient` give `k = ½ρ·Cd·A/m` in Earth's sea-level air — the rule BDArmory Continued computes
+every bullet's ballistic coefficient with, at a Cd of 0.295. Constants typed by hand were 45 times too
+light on the 5"/54 and 30–45 times on both cannons, and nothing looked wrong until a lifetime was raised and
+a shell flew 65 km; a shape's coefficient sits near 0.3, so a wrong one shows. The 5"/54's 0.306 gives its
+range table's 23.69 km at 47°, and one constant cannot also give the ceiling — 16.1 km straight up against
+14.8 — because real drag peaks near Mach 1. `DragK` stays for what no constant coefficient describes: a
+bomb's drag rises through the speed of sound, and a missile's changes as it burns and drops its
+booster. **The Mk 21 is no longer one of them in flight**: it is registered with the hand-typed
+`DragK` and the computer swaps in the round's real drag, which is what ships. That constant is
+**known unphysical** — 1.5e-5 is a ballistic coefficient near 8,400 lb/ft² against the 100 to 5,000
+published for reentry vehicles — and it now survives only as the arm a paired night flies against.
+
+**It took three nights, and the first two losses were the kick rather than the round.** A warhead at
+3.6x the drag leaves 8.8 mm of the ring's image in its group where the constant leaves 2.1, so
+`IcbmConfig.WarheadDragFromItsShape` and `IcbmConfig.KickThroughTheAir` are **one change and neither
+ships alone**. Together, over 20 paired blocks against a declared non-inferiority bar: worst warhead
+**0.80x** with a 97.5% upper bound of 0.985, the group's spread lower on 17 of 20 shots, the mechanism
+**+0.151% → −0.017%**. `docs/ACCURACY-PLAN.md` 3eu, and 3dk and 3eo are the losses.
+`ArsenalTests.EveryRoundsDragComesFromWhatItIsUnlessNamedHere` names all six registered profiles, so a
+new round cannot join them by accident.
+
+**And the air is the air that is there.** A density ratio is a multiple of `Medium.ReferenceDensityKgPerM3`,
+1.225 kg/m³, over every body, and `DragShape` reads a craft's drag against the same. Divided by each body's
+own sea level instead, a round over Mars flew through air as thick as Earth's.
+
+**And a gun's shells step second order**, as a released warhead does (`Slug.SecondOrder`). A first-order
+step moves on the velocity a frame ends with, and against that drag it leaves a shell metres off the path
+the lead was flown on: 3.8 m at 15.7 km at 60 fps against 1.3 m, and more as the frame rate falls. **And its
+drag is taken at the sub-step's midpoint speed** (`Slug.DragAtMidpointVelocity`): at the speed a sub-step
+starts with it is always too large, so always short — 2.8 m at 23 km.
+
+**And the ground a shell is flown against turns.** `BallisticLead.TrySolveFlown` takes the ground's
+acceleration beside its velocity and takes it off the round and the target alike. Without it the shell
+falls under a gravity the ground does not feel: a 5"/54 on flat ground at 28.6° N landed 15 m long at
+8 km and 33 m at 15 km, every shell within a metre of the others — where against a drone at the same
+range the same error is under a metre of height and inside the fuse.
+
+**And it turns under the shell, not only with it.** The lay is flown in a frame carried with the mount's
+ground against a planet sampled once, so a pull read at the mount plus the offset treats the centre as
+keeping pace with the gun while the ground carries the gun round it — 465 m/s on the equator. The pull
+turns the wrong way by V·t/R and the shell lands g·V·t³/6R off: nothing over a CIWS's two seconds, a
+metre at twenty, and 79.8 m on a 60 km shot that flew 92 s, flown twice. `TrySolveFlown` takes the body's
+velocity beside the ground's and reads the round's pull and air where it is against the moved centre.
+**Not the target's**: its acceleration was measured against the pull at the start and what holds it up is
+held with it, so turning its pull alone walks a place on the ground away by as much as the round's own
+correction brings it back.
+
+**And the air turns with it, so the lay reads the air where the shell is.** Against the mount the air a
+distance x away moves at the spin times x, 1.7 m/s at 23 km, and the frame the lay is flown in falls toward
+the axis by ½·A·t², 67 m down over a 72 s shot. Held still and read without the fall, a 5"/54 laid 23 km
+onto flat ground landed 7.6–10.3 m off, flown. `TrySolveFlown` takes the ground's velocity as a field and
+samples the frame's fall: **0.2 m**, five shells of five. **It reads the air alone**
+(`KsaWorld.AirDensityRatioAt`): a place designated on the sea sits on the waterline, and a lay reading the
+ocean a hair under it stops its shell dead and cannot reach 23 km at all — which is what reading the round
+where it truly is did, until the ocean came out.
+
+**And a lay that solved last frame is re-solved from nothing before it is called out of reach.** Seeded that
+close, near the longest reach the solve could stall, and the fallback laid the gun short and flashed
+"beyond reach" on a place in reach: a shell fired on one of those frames came down 33 m short. A tracked
+target's lead does the same before falling back to the target.
+
+**And the meeting is found to the instant, not to the step.** The flight is integrated in 50 ms steps and
+the closest approach interpolated between two of them, which at a CIWS's head-on closing speed of 1,300 m/s
+left 0.1 to 0.15 m of miss along the closing line: no turn of the barrel takes that out, and the solve
+stalled against its 0.1 m tolerance. A 20 mm lead failed on most close geometries and, seeded, on the frame
+after every one it solved, so the gun swung between the lead and the target and never settled. One
+straight-line closest-approach step removes it; flown, 4 shells and no hit became 9 hits on two drones.
 
 The conversion is the part worth being careful with, and it is **three** corrections rather than
 one. `Camera.ScreenToEgoRay` divides by *its own* `FramebufferSize` while ImGui reports the cursor
@@ -1150,7 +2188,7 @@ off one camera, because pairing a direction from the viewport under the pointer 
 from `GetMainCamera()` puts the ray a viewport away from the cursor.
 
 The overlay itself — search volume, tracks, tracers, drive facing — is diagnostic and off by
-default (`Config.DrawOverlays`, under **Debug → Draw debug lines**). Round *bodies* are real
+default (`Config.DrawOverlays`, under **Settings → Display → World overlay**). Round *bodies* are real
 subparts and are unaffected.
 
 **The optical head drives the main view, because it is the only one that draws a planet.** A
@@ -1158,6 +2196,50 @@ secondary viewport renders a starfield over a featureless grey ball — the plan
 and atmosphere passes all run only for the frame viewport, which is KSA's and is recorded in
 `docs/BLOCKED-ON-KSA.md`. So `Ksa/SightCamera.cs` borrows the player's view instead, and the
 secondary path stays as the option for watching a site while flying something else.
+
+**A camera window can be dragged onto another monitor, and the sight has to follow it there.**
+KSA turns on ImGui's platform viewports and puts a secondary view in a plain window, so tearing
+one off is the player's to do and costs this mod nothing — `KsaWorld.TryOpenCameraWindow` only
+leases one of the four the game builds at startup, which is what **New window** on the director's
+row does. What did cost something is that a sight is *painted*, and every coordinate it painted
+with named the main view: the draw list, the centre, the field of view and both projections. So
+selecting a camera window drove that window's camera correctly and drew its whole picture — the
+reticule, the bracket, the range, the lead — over the view the player was flying from, computed
+from the wrong camera. `Sim/ViewClaim.SightPaints` had said yes to that since the day it was
+written.
+
+**And `Ego` belongs to the camera that sampled it, which is the trap under all of this.**
+`Camera.GetPositionEgo` returns `-PositionCce` for the object a camera follows, so Ego is that
+camera's own frame — not a shared one. Everything upstream of the sight samples against the *main*
+camera (`KsaWorld.TryVehicleEgo`, `TryEgoToEcl`), so handing a bracket's Ego straight to another
+window's camera displaces it by however far the two cameras are apart: a few degrees at a
+kilometre with the player parked near the craft, and unbounded once they pull back.
+`TryProjectEgoOrClamp` re-bases through Ecl whenever the window is not the main one. A *direction*
+still needs no conversion — Ego is a pure translation of Ecl — which is exactly why the position
+case looks safe and is not.
+
+`Ksa/SightSurface.cs` resolves the window once and everything downstream reads it. Two rules are
+in it rather than in the sight, because they are about windows rather than about sights: the main
+view is painted on the **background** list so the sight stays under the panel, and a camera window
+on the **foreground** list of its own platform viewport, clipped to the picture — its image is an
+opaque `Image` in a window, so the background list is behind it, and naming the platform viewport
+is the whole of what follows the window onto a second monitor. A window whose platform viewport
+cannot be resolved is painted on **nothing**, never on the main view: falling back there is the
+original fault by another route.
+
+**A bracket says a contact is held; it never says anything is being done about it.** A director
+brackets whatever its sensor holds, and only slews onto it if something told it to — so a head at
+rest with a contact tracked paints a bracket well off the boresight and reads, from the picture
+alone, as a camera that has stopped working. `Sim/OpticHold.cs` is the director's half of
+`FireHold`, and its ordering is not a preference: it mirrors `OpticalHead.AimPartFrame`, which
+takes the mouse first, then the sliders, then a designation, then the tracking switch. All of them
+can be true at once, so a reason read in any other order names a rung the head never reached.
+
+**The view's re-solve onto a settled head's target asks the same question, and does not ask it
+again.** `AimPartFrame` records the rung it took and `TryFollowedDrawnEcl` reads that, so the
+camera is only ever re-aimed at what the head was actually aimed at. A head held by the mouse is
+settled on wherever the operator left it; re-solving that onto the radar's contact snaps the
+picture away from a head that has not moved.
 
 **The sight magnifies by rewriting the field of view every frame, and it has to.** The player's own
 zoom keys route through `Camera.ChangeFieldOfView`, which clamps to 15°–120°, so one keypress
@@ -1215,6 +2297,28 @@ shrinking angle: a tenth of the picture at a few hundred metres and nothing at 9
 `WeaponSystem.AimOriginEcl` is the same correction for the tube drives and carries the full
 reasoning.
 
+**Everything the mod draws is a step behind the world it is drawn against, and leading the aim to
+correct it made things worse.** The mod integrates from the GUI hook, a postfix on the engine's UI
+pass; the scene is built in the viewport pass of the *next* frame. So the ball's transform, the
+camera's aim and the pipper are placed against a target that has since moved on by one step —
+**0.007° per unit of simulation speed**, measured through the sight on a 156 m/s crosser at 7.7 km.
+Steady, and invisible below high magnification.
+
+Carrying the aim one step forward at the drive's own last turn rate removes that term and costs far
+more than it saves. That rate is a per-frame report, so the lead varies frame to frame and the
+picture shakes: measured at **0.35° at 10× against a target crossing 0.0037°** — ninety times
+further than the target actually moved, and noisy. A small steady offset reads as a slightly
+off-centre picture; a large varying one reads as jitter, which is worse at every speed above 1×.
+
+So the aim is **not** extrapolated. A lead taken from the *target's* angular rate rather than the
+drive's own turn would be the principled version, and is not built. The probe in
+`Ksa/SightCamera.cs` measured both numbers and stays: the next thing to arrive a frame late will
+look exactly like this, and the fix that looks obvious is the one already tried.
+
+**`OpticalHead.AimWhenDrawn` is the only way to read the aim, and that part stands.** The ball, the
+camera and the pipper are three views of one direction; taking two of them from different instants
+separates them on screen, which is worse than the lag either would have had alone.
+
 **A pointing head needs its roll chosen, not inferred.** `OpticGeometry.Rotation` carries the
 rest direction onto the aim and then rolls about the aim by a *signed* angle, so the ball's own up
 stays as near the mount's normal as the aim allows. A shortest-arc rotation instead has no axis
@@ -1223,13 +2327,93 @@ correct, and the one picked flips as the aim creeps past, snapping the whole pic
 a turn. The roll is built about a *named* axis for the same reason at 180°: a shortest arc there
 picks a perpendicular that tips the aim off target, which is a wrecked bearing rather than a roll.
 
-**The head is its own part, and a launcher carries none.** `Ksa/OpticalHead.cs` is crewed per
-director fitted rather than per weapons system, finds its own targets through its own
+**The head is its own part, and a weapon is not what gives a craft one.** `Ksa/OpticalHead.cs` is
+crewed per director fitted rather than per weapons system, finds its own targets through its own
 `SensorProfile`, and needs no weapon on the craft at all — so a hull with one director on it is an
-observation post, and a Pantsir with none has no sight. That it cost nothing in the sight, the
-chase camera or the claim ladder is `IOpticalHead` earning its place: the interface was written
-when the head *was* launcher gear, and every consumer of it was already reading a role rather than
-a system.
+observation post. That it cost nothing in the sight, the chase camera or the claim ladder is
+`IOpticalHead` earning its place: the interface was written when the head *was* launcher gear, and
+every consumer of it was already reading a role rather than a system.
+
+**A launcher may still carry one, and the Pantsir does.** Its turret roof holds a director that is
+a second `OpticProfile` on the launcher's own part Id, instancing the same two bodies the standalone
+part uses. Nothing downstream can tell the difference: `OpticParts` finds it, `OpticalHead` crews
+it, and the sight neither knows nor asks that this one sits on a weapon. What the *launcher* knows
+is one subpart — `OpticBaseMarker` — which its traverse carries round with everything else that
+rides it.
+
+**A head reads where its base is; it never reconstructs it.** `Sim/OpticGeometry.MountFrame` is the
+base's pose as the engine has it, and every question a head asks — where its pivot is, where the
+eye sits, which way is up, how far down it may look — is asked in those terms. That is the whole
+reason a director can ride a traverse without either side learning about the other, and it is what
+a hinge, an arm or anything else not built yet gets for free. The alternative, handing the head its
+host's angle, works for exactly the one kind of host somebody taught it about.
+
+`MountFrame.Fixed` is a director bolted to a hull, and reduces all of it to the constants — so the
+common case pays nothing and the fallback when a base cannot be resolved is the ordinary answer
+rather than a guess. The ordering that makes it safe: the drive owning a mount writes it in
+`WeaponSystem.Update`, which `KSArmoryMod` runs before any head's `Update` and before anything
+draws.
+
+**A head's *mechanism* is its own field, and there are two.** `OpticProfile.Gimbal` decides three
+things nothing can infer from the geometry: which axis the travel is measured from, which roll the
+mesh is given, and where the head parks. A mast head elevates over its mounting face and keeps its
+own up near that face's normal. A **roll-nod** head — the LITENING pod — turns its whole nose about
+the pod's centreline and nods the sight within that turning frame, which is what every targeting
+pod of the class actually is: the roll axis carries its mass close to the axis of symmetry, so it
+slews and settles far faster than an az-el head of the same mass, and a body of revolution keeps
+one drag profile whichever way it looks.
+
+The two are **one expression apart**, and that is the thing worth not rediscovering.
+`OpticGeometry.Rotation` swings the rest direction onto the aim and then rolls about the aim to
+bring the head's own up onto a reference; make that reference the far side of the mount's
+*centreline* instead of its *normal*, and the result is exactly a roll about the centreline
+followed by a tilt square to it. Two bodies, one rotation, no second solve —
+`RollNodGimbalTests.TheWindowOnlyEverNodsWithinTheShell` is the whole contract, and it fails
+against the mast head's reference.
+
+**Its travel is one number, and the aperture is measured beside it rather than assumed.** 360° of
+roll makes every bearing the same bearing, so what bounds a roll-nod head is the nod alone.
+`MaxOffBoresightDeg` is the *gimbal's* stop; `import-litening.py` casts rays from the ball's pivot
+to find where the shell actually blocks, so the binding one is known. For the LITENING they are
+150° and 158°, so the mechanism stops first with 8° in hand — and the far side of the shroud clears
+only 107°, which never binds because **the nod is never negative** and the roll is what puts the
+open side on the target. That is why the importer clocks the shell: get it half a turn out and the
+sight looks through the closed side.
+
+**And the far end of the travel is a singularity rather than a stop.** Dead along the roll axis
+there is no roll angle at all, and near it a target crossing the nose asks for unbounded roll rate
+— the same singularity an alt-az telescope has at zenith. `KeyholeDeg` holds the command out of
+that cone, which is also why a pod stows looking *out of its mounting face* rather than along the
+host: `OpticGeometry.RestAim`, because the mast head's rest direction is the pod's keyhole.
+
+**A rolling nose turns the scene in the focal plane, and the picture is derotated.** Half a turn of
+roll and the image is upside down; every pod of the class counters it, optically with a K-mirror or
+Pechan prism at half the roll rate, or — as Litening does, being digital end to end — in the video
+processor. `OpticalHead.RollReferenceEcl` takes the *forward* side of the nod plane for a roll-nod
+head instead of the head's own up, which is that counter-rotation: what the pod hangs from stays at
+the top of the picture however far the nose has rolled. Its two singular directions are the keyhole
+and dead astern, and the travel excludes both.
+
+**The map is sampled, not borrowed, and that is what makes it a square of relief.** KSA exposes no
+map view a mod can take, so `Ksa/TerrainMapScan.cs` asks the height field for a grid of its own —
+which is also why there is no ground texture, no coastline and no colour on it:
+`GetTerrainHeightFromDirCce` answers with heights and nothing else.
+
+**Its cost is a grid, and the grid is cached.** One refresh is `Cells²` lookups — 4096 at the
+default — and `SensorProfile.TerrainSamples` defaults to zero precisely because that per-frame cost
+has never been measured. So the scan is paid on *movement*, on a slow frame count, or on the
+Rescan button, and never per frame; the map is a picture of the ground, and the ground does not
+move. `TerrainMapScan.LastScanMs` is logged so the number stops being a guess.
+
+**Its frame is the body's, not the ecliptic's.** North is `Celestial.GetRotationAxisCce`, so a map
+is not wrong by the body's obliquity — 23° on Earth. And every coordinate on it is a *difference*
+against the anchor, which is what cancels the ecliptic motion both terms carry;
+`TerrainMapTests.TheFrameCarriesNoEclipticMotion` is that rule, and it is the same one the draw
+anchor and the round bodies obey. There is no map at the poles, where up and the axis are one line
+and no bearing exists — `MapFrame.TryAt` returns null rather than picking a perpendicular.
+
+**A cell the height field will not answer for is drawn as unknown, never as flat.** Reading zero
+from an unreadable field would put a whole square at the mean sphere with nothing to say it had.
 
 `ISightPicture` is what a weapon beside the head contributes to the picture — the arm state, the
 ammo, the gun's pipper. `Sight.Draw` takes it as **optional**, so an unarmed craft still gets the
@@ -1243,6 +2427,39 @@ they were made in order, so restoring the older one undoes a takeover that happe
 leaves the chase holding a recording of the *sight* to hand back at the end. The player is then
 returned to a borrowed pose that nothing is driving. `ViewClaimTests` fails against that shape.
 
+**A view is taken back in two halves, and watching one of them is how a borrower keeps driving a
+view that is no longer its own.** The camera-mode menu changes the **mode** and leaves the follow;
+`[` and `]` do the opposite — `Universe.SeekNextVehicle` calls `SetFollow` and never touches
+`CameraMode` — and so do clicking a name in the panel's switcher and KSA's `FollowWreckage`. So
+`ViewClaim.StillOurs` asks both, and a borrower that asked only about the mode goes on writing an
+offset measured from *its* craft against whatever craft the player switched to, which places the
+camera wherever the two happen to be apart.
+
+The exception that makes the rest safe is **outranked**: a stronger claim inside the mod sets its
+own mode and follows its own object, so both halves read as taken while the borrower is the mod
+itself. Standing down there clears the recording the chase is holding on the sight's behalf, which
+is the Yield failure above by another route.
+
+**And a hand-back gives up only the half the player did not take.** Whichever of the mode and the
+follow they moved is their decision and stays; the other is the mod's leavings and goes back.
+Restoring both drags them off the vessel they just switched to; restoring neither leaves them in
+Fixed, which is a mode no input can leave. The **field of view** is outside that rule and is always
+handed back — see `docs/KSA-CAMERAS.md`.
+
+**And the simulation itself is gated on the scene, not on the craft.** Gating it on
+`KsaWorld.InFlight` freezes every round in the air the instant a launcher dies: they stop being
+stepped, so they neither land nor expire, and a salvo hangs suspended mid-flight — which reads from
+outside as rounds that despawned. Confirmed in play with six warheads three minutes past their
+impact time. `GoLoose` exists precisely so a fired round outlives its launcher, and it is worth
+nothing if nothing steps it.
+
+**Losing the craft being flown is not leaving flight.** `Universe.DestroyVehicle` clears
+`Program.ControlledVehicle` and the scene carries straight on, so `KsaWorld.InFlight` is the wrong
+question for anything handing the view back — it reads a destroyed craft as a scene change and
+skips the hand-back in the one case that most needs it, stranding the player at the sight's
+magnification with the only recording of their view thrown away. `KsaWorld.InFlightScene` is the
+one to ask.
+
 **The camera's roll is the engine's, and getting it needs the one extension point KSA leaves
 open.** `FixedController` derives up by crossing the view with the camera reference frame's +Z,
 and `GetFrame2Ecl` dispatches on the followed object's *type* — a followable that is not a
@@ -1250,22 +2467,57 @@ and `GetFrame2Ecl` dispatches on the followed object's *type* — a followable t
 never read. `RoundFollowable` is one, so the axis is ecliptic +Z and the horizon arrives rolled by
 the site's angle from that pole, snapping to it the instant the view is taken.
 `Ksa/LevelHorizonController.cs` subclasses the controller and supplies the up vector instead —
-`Viewport.FixedController` is a public writable field and `OnFrame` is virtual, so this is
-subclassing rather than patching. **Following the launching craft instead does not work**: its
+`FixedController` is public and unsealed and `OnFrame` is virtual, so this is subclassing rather
+than patching. **Installing it is the part that is not promised**: `IGameViewport.FixedController`
+is get-only and `GameViewport`'s setter is protected, so `KsaWorld` writes the backing field by
+reflection, the same shape as `PlumeSmoke`'s reflected renderer — it checks the write took, and
+warns and leaves KSA's own controller in place if the field ever moves. **Following the launching craft instead does not work**: its
 frame would give local vertical, but `PrepareFrame` advances vehicle positions before the viewport
 pass while a round's is integrated after it, so the engine would add a frame-newer platform
 position to an offset built against the older one — ~500 m per frame, which is what
 `RoundFollowable` exists to prevent.
 
-**And what `RoundFollowable` reports has to be resolved the way a round *body* is**, not from the
-round's own integrated position. The engine calls `GetPositionEcl` in its own frame pass, before
-the mod has stepped anything, so `round.PositionEcl` belongs to a different instant from every
-celestial and vehicle just placed — and a camera on it sits one simulated step out of register with
-the scene. That is 715 m on a 24 ms frame against 238 m on a 9 ms one, and the display's frame
-pacing alternates between exactly those, so the camera's height over the ground swings **±145 m
-every frame**. Resolving through `platform + OffsetFromPlatform` is the pairing round bodies
-already use — measured at 79.5 km with 0.0 m drift — and it is what holds the reticule steady
-through a transition on the Moon.
+**And what `RoundFollowable` reports has to be carried into the engine's epoch**, because the
+answer it gives is a frame old. The engine advances the world in `PrepareFrame` and calls
+`GetPositionEcl` in the viewport pass, both before the mod has stepped anything, so
+`round.PositionEcl` belongs to a different instant from every celestial and vehicle just placed —
+and a camera on it sits one simulated step out of register with the scene. That is 715 m on a
+24 ms frame against 238 m on a 9 ms one, and the display's frame pacing alternates between exactly
+those, so the camera's height over the ground swings **±145 m every frame**.
+
+**It resolves through `IEffectSource.TryRoundEffectEcl` — the call that places the body — and that
+is the whole rule: the camera is not trying to be right, it is trying to be paired.** Nothing here
+can be right in absolute terms. The mod's reading of a round is a step behind the world the engine
+just advanced, and a craft's analytic orbit position is not where its parts are drawn — a gap that
+opens and closes as the craft goes off rails and back, which is what **lighting an engine does**.
+None of that is visible. The separation between eye and mesh is, and every term cancels out of it
+once both sides come from one expression. **So correcting one side alone is worse than leaving both
+wrong**: a term putting the camera in the engine's epoch takes it away from the mesh, which stayed
+in the mod's. The plume and the tracer hang on this call for the same reason.
+
+It must also be the same answer all frame. `GetPositionEclFromCce` and `GetPositionCceFromEcl` come
+through the same method and the engine converts at phases the mod does not choose, so an answer that
+moves when the mod steps disagrees with itself inside one frame. This one moves by the round's own
+flight, which is metres; `round.PositionEcl` moves by a whole step of the ecliptic's ~29.8 km/s.
+
+**And the anchor under that expression is read live, because the engine clamps the camera to the
+ground before the mod has stepped.** `Camera.OnFrame` runs `ClampCamera` in the viewport pass, where it
+measures the camera through the followed round against a planet `PrepareFrame` has already moved. A
+platform position cached at the mod's last step is a step behind that planet, so the clamp saw a chase
+camera lower than it was by the planet's vertical speed times the step — 9.4 km/s where the gunnery
+scenario flies, 150 m at 1x — and pushed it up on the frames where that reached the ground and not on
+the others. Flown at 1x: 203 frames jumping by up to 60 m, then none with the camera down to 10 m. Once
+the mod has stepped the live read and the cached sample are one number, so nothing the mesh, the plume
+or the tracer is paired with moved.
+
+**A burst is anchored to the body it happened over, and nothing else will do.** The linger holds
+the view on the burst for three seconds, which is long enough for every wrong anchor to show:
+against the launching craft it flies off with it, and as a bare ecliptic point the planet leaves it
+89 km behind. `KsaWorld.TryAnchorToGround` and `TryGroundAnchorEcl` are an exact pair, and the
+craft is kept only as the fallback for a burst no body could be resolved for. And it is anchored
+where the burst is at the end of the frame, never at the round's own position, which is taken at the
+instant inside the step it went off: the ground has moved on since by up to a frame of the planet's
+~30 km/s, 400 m at 60 fps, and a hold aimed at the raw position looks that far wide of the explosion.
 
 It only shows on a small body. The same error exists on Earth and is dwarfed there: what makes it
 visible is that a camera translation displaces an object by roughly `1/range`, and the terrain a
@@ -1283,6 +2535,15 @@ says so beside the control, and **off** is the mod's own route back. `docs/KSA-C
 evidence. This is why the chase camera releasing itself matters: it holds for seconds, where the
 sight holds until told otherwise.
 
+**The chase can still be looked around, and that is the one input a borrowed view takes.**
+`LevelHorizonController` overrides the controller's own input handlers rather than polling ImGui, so
+a drag works with the UI hidden, and while the chase rides a round it takes the right-button drag and
+the wheel as KSA's orbit camera would — `Sim/ChaseOrbit.cs`. The whole rig turns about the round, so
+the round stays where it was in the picture, and letting go eases the view back behind it. Two
+things about it are load-bearing: `IsMouseDrag` is what the engine asks before a right-release opens
+the window of the part under the cursor, and the button is read again each frame because the engine
+drops a release made over a panel.
+
 **A camera move that tracks a round runs on simulated time too.** The rule in *Fire control runs
 on simulated time* is not only about fire control: the chase transition advances on the step, so
 it holds still through a pause and slows with the panel's slow-motion buttons, which is the whole
@@ -1298,13 +2559,43 @@ displacement depending on the craft's attitude. Read the pose you mean to ease a
 the follow swap, and put the camera back afterwards: this frame's view matrix is already built and
 the controller does not pick the offset up until the next one.
 
-**The chase travels onto the round rather than cutting to it, and only its position really moves.**
-The player is looking at the target and the chase looks along a round flying at it, so the two aim
-points are close and the view barely turns — which is the whole reason it reads as calm.
-`ChaseView.TryBlend` takes those aims as two **points**, not two directions: directions turn at a
-wildly uneven rate and collapse to zero length when opposed, which is a round fired back over the
-launcher. Both ends are rebuilt from this frame's samples, held as separations from the craft and
-the round; a point stored in the ecliptic at the take falls half a kilometre behind per frame.
+**The rig stands behind the round on the line to what it is flying at, not on its flight path.**
+For anything steering onto a target the two are a lead angle apart and it barely shows. A bomb's
+target is tens of degrees below the path it falls along — 32° from five kilometres at 250 m/s, and
+it grows with release height — so a rig built on the flight path has it nowhere in frame for the
+whole fall. Three rules go with it: the look-at is taken *along* that axis rather than at the target,
+so the **round** stays centred however far off the target is; the axis is **held within 80°** of the
+flight path, because a round that goes past its target sees that line swing through abeam and
+reverse, and clamping is continuous where refusing is not; and inside the look-ahead the aim hands
+back to the flight path, which costs nothing, because a round arriving is pointing at what it
+arrives at.
+
+What it is flying at is resolved **once** a frame and read four times — by the transition, the
+closing curve, the pose and the brackets — so the camera and the brackets cannot disagree about
+where the same point is. With nothing to fly at, everything falls back to the flight path, which is
+what an undesignated bomb is.
+
+**A launcher's altitude is the ground only while the round is still above it.**
+`FloorBelowLauncher` keeps the eye out of the hillside a Pantsir is parked on, which is a launch
+case; applied for the whole flight it pins the camera at the aircraft's altitude for the whole of a
+bomb's fall, hundreds of metres above the thing it is meant to be riding.
+
+**The chase travels onto the round rather than cutting to it, and the look turns from the round
+onto what it is flying at.** The eye eases from where the player had it to behind the round; the
+look starts **on the round** and is fully on the target when the transition ends, on the same ease
+— a lerp of the two as seen from wherever the eye has got to. So the take's one cut is a turn onto
+the round, which is what the chase is about, and the transition then brings the target in behind
+it until the two are in line, which is the settled pose. Both ends of the turn are taken at the
+**same depth** — the round's direction carried out to the range of what it is flying at — because
+a round a hundred metres off lerped against a target kilometres away is taken over by the far point
+at once, and seven-eighths of the turn is spent in the first fifth of the transition. The far end is
+at the target's range rather than the look-ahead for the same reason from the other side: 120 m out
+it is a point just past the round, and the view turns onto that instead of onto the target.
+`ChaseView.TryBlend` lerps **points** at that depth, which is a lerp of directions that also keeps
+the frame translation below exact; an exactly opposed pair lerps to nothing halfway and is refused,
+which finishes the transition, rather than normalised into NaN. Every point is rebuilt from this
+frame's samples, held as separations from the craft and the round; a point stored in the ecliptic
+at the take falls half a kilometre behind per frame.
 
 **The transition's two ends are offsets from the round, never a pair of ecliptic positions.**
 `PlatformEcl` is sampled in `SampleWorld` before the round is stepped and `round.PositionEcl` read
@@ -1335,11 +2626,42 @@ warped one scales the whole average.
 transition lerps towards whatever it says. Changing the pose to improve the transition changes the
 shot everyone actually watches, and that is a separate decision.
 
+**A chased round with nothing left to arrive at is let go of, two seconds later.** It can only run
+out of flight: a missile whose target a sibling has killed flies on until `MaxFlightSeconds` reaps
+it, and riding it all that way is watching a despawn. `Sim/ChaseInterest.cs` counts how long the
+round has been closing on nothing — its target gone, or gone past — and `GraceSeconds` keeps the
+moment it lost the target, which is usually a burst ahead of it in frame. Then the chase hands the
+view back and passes over everything else in the air, the same stand-down a burst gets, because the
+siblings have usually lost the same target. The grace runs on **simulated** time, because the camera
+is still riding the round: a pause holds it, where wall clock would cut away from a frozen world. A
+store the ground stops is exempt — a bomb dropped on nothing ends by arriving, and the arrival is
+what the chase is for. The same test decides the take, so a round going nowhere is not taken only to
+be handed straight back, and one still turning onto its target is picked up once it closes. An
+**expiry** gets no linger either: nothing went off.
+
+**The chase stops short of the arrival and watches it go in.** Riding the round all the way held the
+burst from the last pose — a few metres behind it, inside the explosion the linger is there to show.
+So once what the round has left, time to go times its speed, is inside `ChaseView.StopShortMetres`,
+the eye is held on the ground where it is and only the look follows the round in, and the linger
+holds on the burst from there. Six fireball radii with a 60 m floor: every conventional round is
+watched from about 60 m, a 300-tonne bomb from a kilometre and a 20-kiloton warhead from four. What it
+has left is the soonest of three countdowns — the closing curve's own, the line of sight to the
+target, and the fall to the ground under a round the ground stops — because a store's own countdown
+is the fall to its aim's height, which a shell fired level at a craft reaches long after it has hit.
+Flown on a 5"/54 shell 8 km out: stopped about 90 ms before it landed and held on the burst from 59 m.
+
+**And it stands off in the round's own lengths.** The stand-off was framed on the 57E6's 3.1 m body,
+so a 0.43 m shell chased from 26 m was a speck. `ChaseView.StandOffScale` multiplies all four
+distances by `BodyLength` against that — 3.6 m behind the shell — bounded to 0.1–2, so the closest
+approach stays clear of the engine's 0.1 m near plane and a pack's long store is not chased from afar.
+
 **Reclaiming it has to switch the setting off, not just release the view once.** The setting is
 what asks for it, so a borrower that stands down and leaves the request standing takes the view
 straight back on the next frame — one frame of the player's camera, then the mod's again, which
-reads as it refusing to let go. `StandDown` therefore restores what the view was *following*,
-because the mod changed that, and leaves the *mode* alone, because the player chose it.
+reads as it refusing to let go. A stand-down gives back whichever half the player did not take —
+the follow after a mode change, the mode after a vessel switch — and the sight and the chase both
+go through `KsaWorld.StandDownMainView` to do it, because a borrower that drops its recording
+instead leaves the view in Fixed, which no input can leave.
 
 The camera follows the launcher's own craft while the sight holds it, whatever the player was
 following. `FixedController` places the camera at `following.GetPositionEcl() + CameraOffset`
@@ -1364,8 +2686,13 @@ if a craft ever carries two.
 
 **Consumers take a role, not the system.** `Ksa/WeaponSystemRoles.cs` names what each one actually
 needs: rounds in flight, an effect source, an optical head, a manual trigger, a read-only view.
-Ten of the thirteen consumers take one. The three that do not are the frame hook, the panel and the
-scenario runner, which command it rather than read it.
+Twelve of the twenty consumers take one and nothing else, and `Visuals` is one method short of a
+thirteenth — `DrawShellStream` takes the class for three members `IRoundsInFlight` already carries.
+
+Of the seven that take the class, five have to: the frame hook, the panel, the two scenario runners
+and `TargetLock` command it rather than read it, and designating is a command, which is why
+`IOpticalHead.Designation` is read-only. The other two only read — `BombSightOverlay` stays within
+`IWeaponSystemView`, and `LockCueOverlay` reaches one member past it for `Hold`.
 
 ## Testing
 
@@ -1392,17 +2719,56 @@ should not be weakened without understanding what they buy:
 
 ## Not done
 
+- **The mod is stepped from two hooks, because KSA guards one of them.** `Program.OnFrame` wraps
+  the whole UI pass — `OnDrawUiViewports` included — in `if (DrawUI)`, and **`DrawUI` is a player
+  keybind**: `InputAction.ToggleUi`, F2 by default. `ScreenshotCapture` clears it too. A postfix on
+  an uncalled method never runs, so the mod's entire simulation used to stop while the world
+  carried on — rounds frozen, fire control halted, and a guided burn handed the whole skipped span
+  in one step when the UI came back, measured as **73 seconds at 1x with no timewarp**, worth
+  12,710 m/s in a single frame and a shot 3.1 km/s past its own cutoff.
+
+  `KSArmoryMod.StepOnce` runs from **whichever hook reaches it first**, latched by
+  `Sim/FrameLatch.cs`. The GUI pass is still the preferred one and that is not arbitrary: stepping
+  there is what makes a round's offset and the anchor it is drawn against share an epoch, where the
+  frame postfix lands *after* the render and would be drawn on the next frame against a platform
+  ~500 m further on. So a frame that drew is stepped exactly where it always was, and a frame that
+  did not is stepped one hook later instead of not at all. **The release must be unconditional** —
+  a latch left set stops the mod for the session rather than for a frame, which is what
+  `FrameLatchTests` pins.
+
+  **Driving a camera is not drawing, so it goes with the step and not with the panel.** F2 is
+  supposed to take the HUD away, and the overlay, the brackets and the sight's painting genuinely
+  cannot happen without a UI pass. A view the mod has *borrowed* is not in that category: left
+  unrestated it freezes at whatever offset it last had — no closing, no transition, no aim — while
+  the world it is pointed at carries on, and the player cannot take it back by hand because
+  `FixedController` reads no input. So `KSArmoryMod.DriveCameras` runs from `StepOnce` rather than
+  from the GUI hook, outside the flight gate so a view is still handed back on the way out, and
+  `ChaseCamera` supplies an `IViewPose` as `SightCamera` already did. The same rule sends
+  `NuclearClouds.Update` there: a thing in the world, not a duration somebody is watching.
+
+- **A frame in which this mod's hook never runs is integrated on the next one.** Still true for any
+  frame the mod genuinely misses, and the mitigation stands underneath the two-hook arrangement
+  above. `Universe.GetLastSimStep` reports only the most recent step, leaving a skipped one
+  unintegrated while the world advanced across it — the whole deficit landing in the drawn offset
+  at 29.8 km/s. Measured in flight as a bomb thrown **656 m sideways in one frame** and lost off
+  screen. `KsaWorld.ConsumeSimStep` hands `StepGate` the span between step boundaries rather than
+  the last step alone, so the gap closes on the next frame. `SkippedFrameTests` fails against the
+  step-only form.
+
 - Round bodies survive at long range: measured in flight to **79.5 km with 0.0 m drift**, never
-  dropping the subpart link and never culled or clamped. The gizmo tracers stay on as a fallback
+  dropping the subpart link or clamped. They are culled with their launcher once it is under a pixel
+  across, which `Ksa/RoundBodyDrawHook.cs` draws past. The gizmo tracers stay on as a fallback
   anyway, and `WeaponSystem.RoundBodiesWork` still turns the whole thing off if a write is
   refused — the engine is under no obligation to keep behaving this way.
-- The guns elevate on the same solution as the pods — one turret, one aim. What they do not have
-  is a firing solution of their own, so the cannon cannot engage a different target from the
-  missiles.
+- The guns elevate on the same solution as the pods — one turret, one aim. The cannon have a
+  firing solution of their own in `AimPointEcl`'s ballistic lead, but no axis of their own to put
+  it on, so they cannot engage a different target from the missiles.
 - The Pantsir's search volume does not follow its turret, because its profile boresights on local
   "up". `BoresightMode.TurretAxis` exists and nothing registered uses it yet.
-- The model has no normal or occlusion detail — flat palette swatches only. Faceted lighting is
-  the whole look, which suits KSA's art style, but it is a floor not a ceiling.
+- The generated atlas has no normal or occlusion detail — flat palette swatches only, behind a
+  normal map of one colour. Faceted lighting is the whole look of the three parts `pantsir.py`
+  builds, which suits KSA's art style, but it is a floor not a ceiling. The authored atlases are
+  baked and carry both.
 - A round that is **not** the one being chased still shows a very slight stutter, millimetres of
   shift, most visible at 0.01x where it recurs about every 500 ms. Not measured to a cause. Ruled
   out: the engine coalescing sim steps at low speed — the dump shows a step arriving every frame,
@@ -1416,9 +2782,17 @@ should not be weakened without understanding what they buy:
   not. Sub-pixel at any range anyone watches from, and nothing the mod can do about it.
 
 - Rounds collide with terrain only when their profile asks. `MunitionProfile.HitsTerrain` is set
-  for the bomb and nothing else, because it costs a terrain sample per round per frame and a CIWS
-  burst is 150 shells in the air — so a shell still passes through a hill and a missile that
-  misses still carries on into space. Structures are not collided with at all: where a launch
+  for the bomb, the reentry vehicle and the 5"/54 shell, and nothing else, because it costs a terrain
+  sample per round per frame and a CIWS burst is 150 shells in the air. The 5"/54 is on the list
+  because both halves of that trade go the other way for it: a few dozen shells in the air at most, each
+  alive long enough that one missing would fall through the planet. Its path can only end on the ground, so
+  no clock runs and the ground ends a long shot, and the flown lead follows it as long as a shell that fast
+  could stay up under the pull at the mount; its two minutes are left for a shell nobody can judge. So a
+  20 mm shell still passes through
+  a hill and a missile that misses still carries on into space. A reentry vehicle also re-reads the
+  ground under every sub-step within 200 m of it, because a frame's first sample is the height of
+  ground it has already left — `IcbmConfig.ResampleGroundAtImpact`, 0.30x on the walk, flown.
+  Structures are not collided with at all: where a launch
   pad's surface is has no answer in this engine, so a bomb dropped on one bursts at ground level
   beside it.
 - The radar can mask against the real skyline, and ships not doing it.
@@ -1432,7 +2806,10 @@ should not be weakened without understanding what they buy:
   survives all three is sampled. `TerrainMask.TryBandBelow` then narrows it again in closed form
   to the part of the line that passes under the body's highest terrain, so a contact well above
   the ground costs nothing whatever the count says. A sphere containing the terrain cannot produce
-  a false negative, which is why the cheap test can stand in front of the exact one.
+  a false negative, which is why the cheap test can stand in front of the exact one — **and
+  `MaxTerrainHeightApprox` is not such a sphere.** It is computed in the `Celestial` constructor,
+  before `Universe.SetupRenderData` populates the modifiers, so it omits erosion, dunes and detail
+  entirely. `docs/ACCURACY-PLAN.md` 3z has the reading and the fix.
 
   An unreadable height field makes **no claim** rather than reading as flat ground: flat would put
   every sensor's horizon back at the mean sphere, planet-wide, with nothing to announce it.

@@ -20,16 +20,30 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
     /// than one battery alive a shared field is whichever system resolved last. Live tuning still
     /// works, because profiles are shared instances.</para>
     /// </summary>
-    public SensorProfile Sensor { get; set; } = Arsenal.SearchRadar1Rs1;
+    /// <remarks>
+    /// Unset until a launcher is adopted, and zero range until then rather than a real set's:
+    /// seeding from whichever profile happens to be registered first gives an unfitted radar
+    /// somebody else's reach.
+    /// </remarks>
+    public SensorProfile Sensor { get; set; } = SensorProfile.None;
 
     private SensorProfile _sensor => Sensor;
-    private readonly List<Vehicle> _scratch = [];
 
     /// <summary>Live tracks, highest priority first. Rebuilt every scan.</summary>
     public List<Track> Tracks { get; } = [];
 
     /// <summary>The track currently designated for engagement, if any.</summary>
     public Track? Locked { get; private set; }
+
+    /// <summary>
+    /// The best contact on scope, whether or not it may be engaged. What an <em>instrument</em>
+    /// follows, as against <see cref="Locked"/>, which is what a weapon may shoot.
+    ///
+    /// <para>The same as <see cref="Locked"/> whenever there is a threat, so a sight and a gun
+    /// agree about the thing that matters. They part company over a contact that will never close:
+    /// the gun is right to ignore it and the sight is right to watch it.</para>
+    /// </summary>
+    public Track? Watched { get; private set; }
 
     /// <summary>
     /// What the operator picked from the track list, as an <see cref="IContact.Handle"/>, cleared
@@ -46,8 +60,35 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
     /// </summary>
     public int MaskedByTerrain { get; private set; }
 
+    /// <summary>
+    /// Pieces of craft this mod's warheads broke up, left out of the picture this scan. Counted for
+    /// the same reason as the masked ones: a burst that leaves a dozen pieces falling and a scope
+    /// showing none reads as the set having missed them. See <see cref="KSArmory.Wreckage"/>.
+    /// </summary>
+    public int IgnoredWreckage { get; private set; }
+
     // Held between scans so a contact's dwell time survives track rebuilds.
     private readonly Dictionary<object, double> _dwell = new();
+
+    // Each contact's velocity history, carried between scans the same way. Two maps swapped each
+    // scan, so what was not seen this scan is dropped and starts again if it comes back.
+    private Dictionary<object, AccelerationEstimate> _acceleration = new(ReferenceEqualityComparer.Instance);
+    private Dictionary<object, AccelerationEstimate> _accelerationNext = new(ReferenceEqualityComparer.Instance);
+    // An index over Tracks, with the same lifetime: cleared and refilled by every scan. Reference
+    // equality because a handle is an identity rather than a value -- everything else that matches
+    // one uses ReferenceEquals, and a contact type that ever overrode Equals would silently fold
+    // two distinct contacts onto one track.
+    private readonly Dictionary<object, Track> _byHandle = new(ReferenceEqualityComparer.Instance);
+
+    /// <summary>
+    /// The live track for a target handle, or null if this set is not holding it.
+    ///
+    /// <para>O(1) because fire control asks once per round in the air: a scan against a salvo is
+    /// thousands of lookups a frame, and a linear search over the track list is that many times
+    /// the track count.</para>
+    /// </summary>
+    public Track? TrackFor(object? handle) =>
+        handle is not null && _byHandle.TryGetValue(handle, out Track? track) ? track : null;
 
     /// <summary>
     /// Rebuilds the track list from the current world state.
@@ -64,7 +105,21 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
                      IReadOnlyList<IContact>? airborne = null)
     {
         Tracks.Clear();
+        _byHandle.Clear();
         MaskedByTerrain = 0;
+        IgnoredWreckage = 0;
+
+        // A set that has been told to stop transmitting sees nothing. That is the whole of the
+        // trade against an anti-radiation round -- going quiet costs the site its own picture, so
+        // it is a decision rather than a free defence. Only a set that transmits can be silenced;
+        // a passive seeker answers false and is unaffected.
+        if (_sensor.Emits && _policy.RadarSilent)
+        {
+            _dwell.Clear();
+            _acceleration.Clear();
+            Locked = null;
+            return;
+        }
 
         double3 originEcl = KsaWorld.PositionEcl(platform);
         double3 originVel = KsaWorld.VelocityEcl(platform);
@@ -74,12 +129,20 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
         // them -- a set does not see a target against a different planet's ground.
         KsaWorld.MeanSphereUnder(originEcl, out double3 groundCentre, out double groundRadius);
 
-        KsaWorld.CollectVehicles(_scratch);
+        IReadOnlyList<Vehicle> world = KsaWorld.Vehicles;
 
-        foreach (Vehicle candidate in _scratch)
+        for (int i = 0; i < world.Count; i++)
         {
+            Vehicle candidate = world[i];
+
             if (ReferenceEquals(candidate, platform)) continue;
             if (_policy.ProtectControlledVehicle && ReferenceEquals(candidate, KsaWorld.ControlledVehicle)) continue;
+
+            if (KsaWorld.Wreckage.IsPiece(KsaWorld.DisplayName(candidate)))
+            {
+                IgnoredWreckage++;
+                continue;
+            }
 
             Consider(new VehicleContact(candidate), originEcl, originVel, boresight, dt,
                      groundCentre, groundRadius);
@@ -89,13 +152,31 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
         {
             for (int i = 0; i < airborne.Count; i++)
             {
+                // A set does not watch its own platform's salvo leave. The mirror of the rule
+                // above for craft, and needed for the same reason: a round clearing the tubes is
+                // metres away and closes nothing, so it takes the top of the priority list and
+                // holds it for the round's whole flight. IFF will not do this — allegiance decides
+                // what may be *engaged*, and a friendly contact is still tracked.
+                //
+                // On a launcher carrying a director this is the difference between a sight that
+                // watches the target and one that follows every round out to 30 km.
+                if (ReferenceEquals(airborne[i].LaunchedFrom, platform)) continue;
+
                 Consider(airborne[i], originEcl, originVel, boresight, dt, groundCentre, groundRadius);
             }
         }
 
-        // Refresh dwell bookkeeping, dropping anything no longer seen.
+        (_acceleration, _accelerationNext) = (_accelerationNext, _acceleration);
+        _accelerationNext.Clear();
+
+        // Refresh dwell bookkeeping, dropping anything no longer seen, and index the tracks by
+        // handle in the same pass.
         _dwell.Clear();
-        foreach (Track t in Tracks) _dwell[t.Contact.Handle] = t.HeldSeconds;
+        foreach (Track t in Tracks)
+        {
+            _dwell[t.Contact.Handle] = t.HeldSeconds;
+            _byHandle[t.Contact.Handle] = t;
+        }
 
         ThreatModel.SortByPriority(Tracks);
 
@@ -110,12 +191,18 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
     {
         if (!contact.IsAlive) return;
 
-        string? team = TeamOf(contact.TeamKey);
+        string? team = Teams.TeamFor(contact.TeamKey, _config.TeamNames);
         Allegiance allegiance = _policy.Iff.Classify(team);
 
         double3 targetPos = contact.PositionEcl;
         double3 targetVel = contact.VelocityEcl;
 
+        // The engine's accelerometer, unless how the velocity has actually changed says it is wrong:
+        // an impulse or a tumbling frame. See AccelerationEstimate.
+        if (!_acceleration.Remove(contact.Handle, out AccelerationEstimate? history)) history = new AccelerationEstimate();
+        history.Add(targetVel, dt);
+        _accelerationNext[contact.Handle] = history;
+        double3 acceleration = history.Believe(contact.AccelerationEcl);
         if (_sensor.HorizonMasking
             && KsaWorld.IsOccluded(originEcl, targetPos, _sensor.TerrainMarginMetres, out _))
         {
@@ -148,35 +235,17 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
             Contact = contact,
             PositionEcl = targetPos,
             VelocityEcl = targetVel,
+            AccelerationEcl = acceleration,
+            DragShape = contact.DragShape,
             Range = a.Range,
             ClosingSpeed = a.ClosingSpeed,
             ClosestApproach = a.ClosestApproach,
             TimeToClosestApproach = a.TimeToClosestApproach,
             HeldSeconds = _dwell.GetValueOrDefault(contact.Handle) + dt,
-            IsThreat = a.IsThreat && _policy.Iff.MayEngage(allegiance),
+            IsThreat = a.IsThreat && !contact.IsDebris && _policy.Iff.MayEngage(allegiance),
             Team = team,
             Allegiance = allegiance,
         });
-    }
-
-    // KSA has no team field, so the craft's name is the only assignment available without extra
-    // UI. Longest match wins, so "Red Team" beats "Red" when both are listed.
-    private string? TeamOf(string name)
-    {
-        if (_config.TeamNames.Count == 0) return null;
-
-        string? best = null;
-
-        foreach (string team in _config.TeamNames)
-        {
-            if (string.IsNullOrWhiteSpace(team)) continue;
-            if (name.Contains(team, StringComparison.OrdinalIgnoreCase)
-                && (best is null || team.Length > best.Length))
-            {
-                best = team;
-            }
-        }
-        return best;
     }
 
     private void UpdateLock()
@@ -195,6 +264,17 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
 
         int first = ThreatModel.IndexOfFirstThreat(Tracks);
         Locked = first >= 0 ? Tracks[first] : null;
+
+        // What an instrument should look at, which is not what a weapon may shoot. Tracks are
+        // already sorted by priority, so the best thing on scope is the head of the list whether
+        // or not it qualifies as a threat.
+        //
+        // A weapon is right to hold fire at something that will never come close; a sight pointed
+        // at it is doing its job. Without this a director watches nothing at all whenever the only
+        // contact is a passer-by, and lags the launcher whenever a threat is still maturing —
+        // fire control reaches its own verdict first and the missiles leave before the picture
+        // has moved.
+        Watched = Locked ?? (Tracks.Count > 0 ? Tracks[0] : null);
     }
 
     /// <summary>True when the locked contact has been held long enough to shoot at.</summary>
@@ -204,8 +284,11 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
     public void Reset()
     {
         Tracks.Clear();
+        _byHandle.Clear();
         _dwell.Clear();
+        _acceleration.Clear();
         Locked = null;
+        Watched = null;
         ManualDesignation = null;
     }
 }

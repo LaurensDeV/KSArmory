@@ -64,7 +64,16 @@ public static class ViewClaim
     /// <param name="resolved">The platform and the optical head were both found this frame.</param>
     /// <param name="outranked">Something with a stronger claim holds it — today, the chase.</param>
     /// <param name="holding">This borrower believes it holds the view.</param>
-    /// <param name="stillOurs">The view is still in the mode it was left in, so nobody took it.</param>
+    /// <param name="stillOurs">
+    /// Nobody outside the mod has moved the view: it is in the mode it was left in <em>and</em> on
+    /// the thing it was pointed at.
+    ///
+    /// <para><b>Both halves, because either can be taken without the other.</b> The camera-mode
+    /// menu changes the mode and leaves the follow; switching vessels changes the follow and leaves
+    /// the mode. A test that watches one of them calls the other a view still under the mod's
+    /// control, and it goes on writing an offset measured from one craft onto another's
+    /// position.</para>
+    /// </param>
     public static ViewAction ForOptic(bool wanted, bool resolved, bool outranked,
                                       bool holding, bool stillOurs)
     {
@@ -76,6 +85,33 @@ public static class ViewClaim
         // gives the view back on its own, and the next frame's Take picks it up.
         return wanted && resolved && !outranked ? ViewAction.Take : ViewAction.Idle;
     }
+
+    /// <summary>
+    /// Whether the view a borrower believes it holds is still the one it took.
+    ///
+    /// <para><b>Two halves, and watching one of them is how a borrower keeps driving a view that
+    /// has been moved out from under it.</b> The camera-mode menu changes the mode and leaves the
+    /// follow. Switching vessels does the opposite — KSA's own vessel-next runs a follow change and
+    /// never touches the mode — and so does any "go to this craft" button. Whichever half is left
+    /// alone reads as consent, and the borrower goes on writing an offset measured from one craft
+    /// onto another craft's position, which places the camera wherever the two happen to be
+    /// apart.</para>
+    /// </summary>
+    /// <param name="inTakenMode">The view is in the camera mode the borrower put it in.</param>
+    /// <param name="followsWhatWePointedAt">
+    /// The view is following the object this borrower pointed it at — not merely something, and not
+    /// what it happens to want now. Identity, so that a borrower re-pointing itself is not mistaken
+    /// for the player moving it.
+    /// </param>
+    /// <param name="outranked">
+    /// A stronger claim inside the mod is driving. Then <em>neither</em> half is evidence: the
+    /// stronger claim sets its own mode and follows its own object, so both read as taken while the
+    /// borrower that took them is the mod itself. Standing down on that clears a recording the
+    /// stronger claim is holding on this borrower's behalf, and hands the player back a pose with
+    /// nothing driving it.
+    /// </param>
+    public static bool StillOurs(bool inTakenMode, bool followsWhatWePointedAt, bool outranked)
+        => inTakenMode && (outranked || followsWhatWePointedAt);
 
     /// <summary>
     /// Whether the sight's overlay belongs on screen this frame.

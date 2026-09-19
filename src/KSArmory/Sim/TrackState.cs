@@ -22,6 +22,18 @@ internal class TrackState
     /// <summary>Target velocity in the ecliptic frame (m/s).</summary>
     public double3 VelocityEcl { get; set; }
 
+    /// <summary>
+    /// What the contact is doing to its velocity, gravity included. Zero where it is not known, which
+    /// is what a lead assumed of every contact before it had this.
+    /// </summary>
+    public double3 AccelerationEcl { get; set; }
+
+    /// <summary>
+    /// Its drag box and attitude, so a lead can fly its drag area as its airflow turns. Null for a
+    /// contact that has none to read, which is then flown on the coefficient it was measured with.
+    /// </summary>
+    public DragShape? DragShape { get; set; }
+
     /// <summary>Slant range from the battery (m).</summary>
     public double Range { get; set; }
 

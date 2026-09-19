@@ -5,17 +5,23 @@ using KSA.Rendering.Particles;
 namespace KSArmory;
 
 /// <summary>
-/// The flash at the cannon's muzzles: one endless emitter per battery, held open while the gun is
-/// firing and handed back the moment it stops.
+/// The flash at the cannon's muzzles: one endless emitter per barrel cluster, held open while the
+/// gun is firing and for a moment after each round, then handed back.
 ///
 /// <para>Per battery rather than per round, which is the whole design. A CIWS cycles at 75 rounds
 /// a second; taking a burst emitter from the pool that often would drain it within a second and
 /// leave nothing anywhere in the world able to spawn particles again. A gun firing is one
 /// continuous event, so it gets one continuous emitter.</para>
 ///
-/// <para>Anchored to the barrel cluster's centre rather than to whichever barrel just fired. The
-/// six muzzles sit within 10 cm of each other, so the difference is invisible, and averaging them
-/// keeps the flash on the cluster axis as the gun elevates instead of hopping between barrels.</para>
+/// <para>The moment after each round is for a gun too slow to hold a burst open. A one-round burst
+/// opens and closes inside a single step, so by the time anything asks whether the gun is firing it
+/// already is not, and a flash gated on that alone never appears.</para>
+///
+/// <para>One per cluster rather than one per mount: a Pantsir's sponsons are 3.9 m apart and their
+/// mean is on the hull between them, where no barrel is. Both flash at the same instant, so they
+/// cannot share a set. Within a cluster it is anchored to the mean of its muzzles rather than to
+/// whichever barrel just fired, which keeps the flash on the cluster axis as the gun elevates
+/// instead of hopping between barrels.</para>
 ///
 /// <para>The tracers are <em>not</em> here, and cannot be. A muzzle-anchored emitter has no way to
 /// throw particles down the bore: the engine assigns <c>EmitterVelocity</c> only for a
@@ -31,10 +37,15 @@ internal sealed class MuzzleFlash
 {
     private const string FlashId = "KSArmoryMuzzleFlash";
 
+    // Simulated time, so a paused world holds the flash rather than letting it expire unseen.
+    private const double ShotFlashSeconds = 0.12;
+
     private sealed class Live
     {
         public required Celestial Body;
-        public required List<ParticleEmitter<ParticleUpdateData, ParticleRenderData>.Handle> Flash;
+        // One set of handles per barrel cluster. A rotary cannon has one; a mount with a
+        // sponson either side has two, and they fire together.
+        public required List<List<ParticleEmitter<ParticleUpdateData, ParticleRenderData>.Handle>> Clusters;
     }
 
     private readonly Dictionary<IEffectSource, Live> _firing = [];
@@ -46,9 +57,9 @@ internal sealed class MuzzleFlash
     public void Update(IEffectSource battery)
     {
         bool wanted = battery.PlumesEnabled
-                      && battery.GunsFiring
+                      && (battery.GunsFiring || battery.GunSecondsSinceShot < ShotFlashSeconds)
                       && battery.Platform is not null
-                      && battery.TryGunFlashEcl(out _, out _);
+                      && battery.HasGunFlash();
 
         if (!wanted)
         {
@@ -69,12 +80,7 @@ internal sealed class MuzzleFlash
     {
         foreach (IEffectSource battery in _firing.Keys)
         {
-            bool present = false;
-            foreach (WeaponSystems.Entry e in roster.All)
-            {
-                if (ReferenceEquals(e.Battery, battery)) { present = true; break; }
-            }
-            if (!present) _stopped.Add(battery);
+            if (!roster.Knows(battery)) _stopped.Add(battery);
         }
 
         foreach (IEffectSource battery in _stopped) Release(battery);
@@ -91,34 +97,44 @@ internal sealed class MuzzleFlash
     private void Follow(IEffectSource battery)
     {
         if (battery.Platform is not { } platform) return;
-        if (!battery.TryGunFlashEcl(out double3 ecl, out _)) return;
+
+        Span<double3> points = stackalloc double3[MaxClusters];
+        int count = battery.GunFlashPointsEcl(points);
+        if (count <= 0) return;
 
         if (!_firing.TryGetValue(battery, out Live? live))
         {
-            if (Acquire(platform) is not { } fresh) return;
+            if (Acquire(platform, count) is not { } fresh) return;
 
             live = fresh;
             _firing[battery] = live;
         }
 
         double3 centre = live.Body.GetPositionEcl();
-        double3 positionCcf = (ecl - centre).Transform(live.Body.GetCce2Ccf());
-        if (!Vec.IsFinite(positionCcf)) return;
+        doubleQuat cce2Ccf = live.Body.GetCce2Ccf();
 
-        var at = new BubbleOrigin
+        for (int i = 0; i < count && i < live.Clusters.Count; i++)
         {
-            Time = Universe.GetElapsedTime(),
-            Parent = live.Body,
-            BubFrame = BubbleFrame.Ccf,
-            PositionBub = positionCcf,
+            double3 positionCcf = (points[i] - centre).Transform(cce2Ccf);
+            if (!Vec.IsFinite(positionCcf)) continue;
 
-            // Zero for the flash, and InheritVelocity is off to match: gas leaves the barrel and
-            // stays where the air is.
-            VelocityBub = double3.Zero,
-        };
+            Point(live.Clusters[i], new BubbleOrigin
+            {
+                Time = Universe.GetElapsedTime(),
+                Parent = live.Body,
+                BubFrame = BubbleFrame.Ccf,
+                PositionBub = positionCcf,
 
-        Point(live.Flash, at);
+                // Zero for the flash, and InheritVelocity is off to match: gas leaves the barrel
+                // and stays where the air is.
+                VelocityBub = double3.Zero,
+            });
+        }
     }
+
+    // More barrel clusters than any mount is going to have. A cap rather than a list so the
+    // per-frame path allocates nothing.
+    private const int MaxClusters = 8;
 
     private static void Point(List<ParticleEmitter<ParticleUpdateData, ParticleRenderData>.Handle> handles,
                               BubbleOrigin origin)
@@ -131,15 +147,30 @@ internal sealed class MuzzleFlash
         }
     }
 
-    private static Live? Acquire(Vehicle platform)
+    private static Live? Acquire(Vehicle platform, int clusters)
     {
         try
         {
             if (platform.Parent is not Celestial body) return null;
 
-            if (Take(FlashId, body) is not { } flash) return null;
+            // One emitter set per cluster, taken up front. A mount with two sponsons flashes at
+            // both at once, so they cannot share a set.
+            var sets = new List<List<ParticleEmitter<ParticleUpdateData, ParticleRenderData>.Handle>>();
+            for (int i = 0; i < clusters; i++)
+            {
+                if (Take(FlashId, body) is not { } set)
+                {
+                    // Give back whatever was taken, or they leak for the session.
+                    foreach (var taken in sets) Give(new Live { Body = body, Clusters = [taken] });
+                    return null;
+                }
 
-            return new Live { Body = body, Flash = flash };
+                sets.Add(set);
+            }
+
+            if (sets.Count == 0) return null;
+
+            return new Live { Body = body, Clusters = sets };
         }
         catch (Exception e)
         {
@@ -194,7 +225,8 @@ internal sealed class MuzzleFlash
         // so it spawns for the rest of the session and is never returned to the pool -- which is
         // seen as particles frozen where the emitter last was, and eventually as nothing in the
         // world being able to spawn any.
-        foreach (var handle in live.Flash)
+        foreach (var set in live.Clusters)
+        foreach (var handle in set)
         {
             try
             {

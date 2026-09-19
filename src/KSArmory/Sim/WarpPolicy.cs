@@ -49,6 +49,12 @@ internal sealed class WarpPolicy
     public const double Margin = 0.6;
 
     /// <summary>
+    /// The slowest this will ever ask the world to run. One, and not by coincidence — below it the
+    /// player is waiting on the mod rather than the other way round.
+    /// </summary>
+    public const double RealTime = 1.0;
+
+    /// <summary>
     /// Steps to let pass after a request lands before judging it.
     ///
     /// <para>The step arriving on the frame a write takes effect still measures the interval
@@ -168,6 +174,13 @@ internal sealed class WarpPolicy
         // target step needs no knowledge of the frame rate. That also makes a slow frame and a
         // high warp the same problem, which to a round they are.
         double target = currentSpeed * (faithfulStep * Margin) / dtSim;
+
+        // Never below real time. A round that would rather the world ran slower than the player's
+        // own clock does not get it: the mod is a guest, and a game that crawls is a worse thing to
+        // hand somebody than a round integrated on a longer step. Where the two conflict, the round
+        // takes the coarser step and the accuracy that comes with it.
+        target = Math.Max(target, RealTime);
+
         if (!double.IsFinite(target) || target <= 0.0 || target >= currentSpeed)
         {
             return WarpDecision.Nothing;
@@ -184,6 +197,31 @@ internal sealed class WarpPolicy
                                 first
                                     ? $"holding {currentSpeed:F0}x down to {target:F1}x while rounds fly"
                                     : $"{currentSpeed:F1}x still overruns; asking for {target:F1}x");
+    }
+
+    /// <summary>
+    /// Tell the policy that <em>this mod</em> just set the world speed, so the next cycle reads it
+    /// as where it is starting from rather than as somebody to fight.
+    ///
+    /// <para><b>The yield is for other writers, and the mod became one.</b> It stands the policy
+    /// down after <see cref="OverridesBeforeYielding"/> raises it did not ask for — written for the
+    /// player's control and KSA's auto-warp, which are not arguments the guest should win. A
+    /// deliberate request from inside the mod looks identical from here and is not the same thing.
+    /// </para>
+    ///
+    /// <para>The cost of confusing them is not one frame. <c>_yielded</c> is cleared only by
+    /// <see cref="Release"/>, which needs an empty sky, and a salvo of eight staggered rockets never
+    /// gives it one — so a single spurious yield stands the policy down for the whole flight.
+    /// Measured over 12 shots: 9 yielded, and in every one of them warheads landed on frames of 117
+    /// to 267 ms against 18 to 33 for the 3 that held.</para>
+    /// </summary>
+    public void NoteOurOwnRequest(double speed)
+    {
+        if (!double.IsFinite(speed) || speed <= 0.0) return;
+
+        _requested = speed;
+        _overrides = 0;
+        _settle = SettleSteps;
     }
 
     // Gives the speed back, if it is still the mod's to give. A player who moved the speed while it

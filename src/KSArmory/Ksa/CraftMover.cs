@@ -75,7 +75,9 @@ internal sealed class CraftMover
         if (!KsaWorld.IsAlive(_hovered)) _hovered = null;
 
         bool wantCapture = ImGui.GetIO().WantCaptureMouse;
-        bool clicked = ImGui.IsMouseClicked(ImGuiMouseButton.Left, repeat: false);
+        // Shift is the designate gesture, so a shift-click is not a click on the world.
+        bool clicked = ImGui.IsMouseClicked(ImGuiMouseButton.Left, repeat: false)
+                       && !ImGui.GetIO().KeyShift;
         bool down = ImGui.IsMouseDown(ImGuiMouseButton.Left);
 
         // Whether a click reaches this hook at all is not obvious -- ImGui, KSA's own input and

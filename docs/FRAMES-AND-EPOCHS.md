@@ -1,6 +1,6 @@
 # Frames, epochs and the ecliptic carrier
 
-**Near Earth, every position and velocity carries ~29.8 km/s of ecliptic motion.** That is ~600 m
+**Near Earth, every position and velocity carries ~29.8 km/s of ecliptic motion.** That is ~500 m
 per frame at 60 fps. Any two quantities differenced across even a fraction of a step leak a piece
 of it, and the result looks like a completely different bug each time — a jitter, a constant
 offset, a guidance error, a drift. One cause, four disguises.
@@ -18,15 +18,48 @@ The arithmetic is always the same:
 something real in the frame.** A magnitude on its own identifies nothing: the division against the
 carrier speed is the diagnosis.
 
+## A carry belongs to a consumer, not to a round
+
+`KSArmoryMod.AddAirborne` carries every round forward by `VelocityEcl * step` before publishing it
+as a contact, because it is about to be compared against vehicle positions the engine writes later
+in the frame. That is correct **for that consumer** and is not a general fact about rounds.
+
+`WeaponSystem.UpdateRounds` samples gravity, air density and the air's own velocity at the round's
+position **as it stands**, with no carry.
+
+Applying `AddAirborne`'s carry here — on the reasoning that a round's position is a frame behind the
+celestials — puts them a step apart instead. **Flown: the rounds diverged from their own prediction
+by 2 km, and the salvo's common miss went from 782 m to 2,667 m.** The prediction did not move at
+all, which is what identified it: only the round's own flight had changed.
+
+The rule: before reusing a carry, ask which two samples the consumer is pairing and at which phase
+each is written. Two consumers of the same round can need opposite answers.
+
+**What that flight does *not* show is that the two are in phase — they are not.** The engine's
+samples belong to the end of the step the mod is about to integrate, so the pre-step round is one
+whole step behind them; `docs/KSA-FRAME-ORDER.md` §5 has the source. `AddAirborne`'s carry is by
+the round's own `VelocityEcl`, which is a different correction from putting the *body* back by
+`bodyVelocityEcl * dt` — the one `WeaponSystem.AirDensityIntoFrame` already applies to the density
+lookup. Gravity and air velocity do not have it, and giving it to them was flown and lost: three
+shots at 2.80-3.74 km against a six-flight baseline of 0.65-2.07 km. `docs/KSA-FRAME-ORDER.md` §5
+has why the phase analysis survives that result.
+
 ## The epoch contract
 
-This is what KSA does, read from the decompiled source rather than inferred:
+This is what KSA does, read from the decompiled source rather than inferred.
+**`docs/KSA-FRAME-ORDER.md` is the long form** — the whole frame in order, what stamps each
+sample, and what a mod can read instead of assuming. The short version:
 
 - `Universe.ApplyVehicleSolvers` sets `_lastSimStep = _nextSimStep` and then calls
-  `CurrentSystem.UpdatePerFrameData()` back to back (`Universe.cs:1699-1701`), which is where every
-  `Vehicle._positionEcl` / `_velocityEcl` is written (`Vehicle.cs:2346-2352`).
-- That runs inside `PrepareFrame` (`Program.cs:1985-1986`), ~80 lines before `OnDrawUiViewports`
-  (`Program.cs:2068`), which is the mod's GUI hook.
+  `CurrentSystem.UpdatePerFrameData()` back to back (`Universe.cs:1681-1683`), which walks the
+  whole system parent-first and is where every `Celestial._positionEcl` (`Celestial.cs:593-608`)
+  and `Vehicle._positionEcl` (`Vehicle.cs:2456-2490`) is written. **Celestials and vehicles share
+  one epoch because they are advanced in one call.**
+- That runs inside `PrepareFrame` (`Program.cs:2012`), 84 lines and six phases before
+  `OnDrawUiViewports` (`Program.cs:2096`), which is the mod's GUI hook.
+- The epoch is `Universe.GetElapsedTime()`, which *is* `_lastSimStep.NextTime`
+  (`Universe.cs:2060-2062`) — so the interval and the instant are two fields of one struct and
+  cannot drift apart.
 
 Three consequences, all load-bearing:
 
@@ -63,6 +96,19 @@ proportional navigation then flies a clean intercept on a ghost 450–680 m away
 onto the wrong point. The detonation instant must move with it, or the blast sweep breaks by `V·dt`
 the other way. They are one change.
 
+**A round used as a target is sampled once, for everyone, before anything steps.** Every other
+target this mod aims at is a KSA object whose position the engine settles before the frame hook
+runs, so every system reads the same instant however they are ordered. A round has no such
+authority behind it: it is advanced by its *own* launcher's update, so a live reference answers
+start-of-step or end-of-step depending on which system asks first — and the roster is a dictionary,
+so that order is not even stable. `KSArmoryMod.CollectAirborne` therefore samples every round in
+the world before the update loop and carries each forward by the step it is about to be integrated
+across, which puts it at the end-of-step phase a `TargetState` is defined at. The carry costs the
+step's gravity and drag, about a millimetre. Not carrying it costs a whole frame of closing motion
+— metres across a shell's fuse radius, deciding hits — and it lands on whichever system happens to
+update last. `RoundInterceptTests.SamplingAnIncomingRoundAtTheWrongEndOfTheStepMovesItMetres`
+measures the gap.
+
 **Consume the step; never peek at it twice.** `GetLastSimStep()` answers "the last step", not "a
 step since you last asked". `KsaWorld.ConsumeSimStep` deduplicates on the step's own `NextTime`.
 
@@ -83,10 +129,11 @@ accepts a difference computed in `Ksa/`.** Every rule above is a subtraction tha
 the right place and the right instant, and a signature taking `relativeVelocity` moves exactly
 that subtraction to a call site no test can reach. A regression test written against such a solver
 asserts that the *solver* is sensitive to the common term — which it always is — and so passes
-unchanged while the caller is the thing that is wrong. `BallisticLead.TrySolve` is the shape to
-avoid.
+unchanged while the caller is the thing that is wrong. A signature with no argument meaning
+"relative" is what closes it: `BallisticLead.TrySolve` takes `(shooterPos, shooterVelocity,
+targetPos, targetVelocity)` and differences them inside.
 
-`Interceptor.Update` is the shape to copy: it takes `platformEcl` and computes the offset itself.
+`Interceptor.Update` is the same shape: it takes `platformEcl` and computes the offset itself.
 Test such a function for **invariance** — add the same arbitrary velocity to both inputs and
 assert the answer does not move — with a sensitivity assertion beside it. One proves the common
 term is removed, the other proves the relative term still matters; neither alone is worth much.

@@ -7,25 +7,13 @@ namespace KSArmory.Tests;
 ///
 /// <para>These read as trivial, and they are — but the split is the whole reason the type exists,
 /// and the failure mode of getting it wrong is silent. A field that drifts back onto
-/// <see cref="Config"/> arms every site on the map at once, or lets one installation's team list
+/// <see cref="Config"/> puts every site on the map on guard at once, or lets one installation's team list
 /// disagree with another's, and neither shows up as an error.</para>
 /// </summary>
 public class SystemConfigTests
 {
     [Fact]
-    public void TwoBatteriesArmIndependently()
-    {
-        var north = new SystemConfig();
-        var south = new SystemConfig();
-
-        north.Armed = true;
-
-        Assert.True(north.Armed);
-        Assert.False(south.Armed);
-    }
-
-    [Fact]
-    public void AndEngageIndependently()
+    public void TwoBatteriesEngageIndependently()
     {
         var north = new SystemConfig { AutoEngage = true, MissilesEnabled = false };
         var south = new SystemConfig();
@@ -54,15 +42,14 @@ public class SystemConfigTests
     }
 
     /// <summary>
-    /// A fresh battery is safe, tracking, and carrying both weapons. Anything else would mean a
-    /// site that starts shooting the moment it is discovered.
+    /// A fresh battery does not engage on its own, tracks, and carries both weapons. Anything else
+    /// would mean a site that starts shooting the moment it is discovered.
     /// </summary>
     [Fact]
-    public void AFreshBatteryIsSafe()
+    public void AFreshBatteryDoesNotEngageOnItsOwn()
     {
         var battery = new SystemConfig();
 
-        Assert.False(battery.Armed);
         Assert.False(battery.AutoEngage);
         Assert.True(battery.MissilesEnabled);
         Assert.True(battery.GunsEnabled);

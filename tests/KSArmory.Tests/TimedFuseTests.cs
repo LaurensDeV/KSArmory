@@ -1,5 +1,4 @@
 using Brutal.Numerics;
-using KSArmory.Sim;
 using Xunit;
 
 namespace KSArmory.Tests;
@@ -24,7 +23,8 @@ public class TimedFuseTests
     };
 
     private static Slug Fired(double3 velocity, double fuseSeconds)
-        => new(Vec.Zero, velocity, null, -1, Vec.Zero, Vec.Zero) { FuseSeconds = fuseSeconds };
+        => new(Vec.Zero, velocity, null, -1, Vec.Zero, Vec.Zero)
+        { Munition = Shell(timed: true), FuseSeconds = fuseSeconds };
 
     [Fact]
     public void ItBurstsAtTheTimeItWasSet()

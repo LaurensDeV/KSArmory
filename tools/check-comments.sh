@@ -7,10 +7,11 @@
 #     ./tools/check-comments.sh --report   # report only, never fail
 #
 # The rules themselves are in CLAUDE.md under "Comments and documentation". Most of them need
-# judgement and cannot be checked. These two can:
+# judgement and cannot be checked. These three can:
 #
 #   * history in a comment - commit hashes, "reported from play", "used to", and friends
 #   * XML doc blocks on private members, which no tooling surfaces
+#   * a doc block with two <summary> tags, which is one left behind by a deleted member
 #
 # The ratio is reported rather than enforced. A hard threshold would be wrong for a file that is
 # mostly interface, and right for one that is mostly arithmetic; what matters is noticing it move.
@@ -26,7 +27,20 @@ FAIL=0
 
 # --- history in comments ----------------------------------------------------
 
-HISTORY='(reported from play|regression, commit|commit [0-9a-f]{7}|used to (be|run|live|sit|fall|advance|assume|report|do)|already happened twice|duly did|for months|first draft|on its first run|was rewritten|the old code|before (it|this|that|the mode) existed|before it, a |before that, )'
+HISTORY='(reported from play|regression, commit|commit [0-9a-f]{7}'
+HISTORY+='|used to (be|run|live|sit|fall|go|advance|assume|report|do)'
+# The past-tense verb is what separates these from present-tense prose: a restore dropped "on the
+# first attempt" and a suite that covers nothing are both about now, and neither is history.
+HISTORY+='|already happened twice|duly did|for months|first draft|on its first run'
+HISTORY+='|first attempt [a-z]+ed|nothing in the suite [a-z]+ed'
+HISTORY+='|was rewritten|the old code|before (it|this|that|the mode) existed|before it, a |before that, '
+# A subject line quoted into a comment is the change's history by another route: the code says
+# what it does, and which commit made it do so is git's.
+HISTORY+='|(feat|fix|perf|refactor|docs|chore)\([a-z]+\):'
+# "It did." opening a sentence is a verdict on the past. "exactly as it did" and "nothing to say
+# it did" are the present tense of a default that changes nothing, so the sentence start is the test.
+HISTORY+='|it began at|and it did|[.>/] *it did\.|shipped once|once claimed|left in because'
+HISTORY+='|(two|three|several|both) earlier versions|no longer suppressed)'
 
 echo "History in comments"
 hits="$(grep -rniE "^\s*(//|///|\*)" src tests --include='*.cs' 2>/dev/null \
@@ -72,6 +86,45 @@ if [[ -n "$private_docs" ]]; then
     echo
     echo "  GenerateDocumentationFile is off and these members are private, so /// reaches"
     echo "  no tooling. Use a plain // comment."
+    FAIL=$((FAIL + 1))
+else
+    echo "  none"
+fi
+
+# --- doc blocks left behind by a deleted member ------------------------------
+
+echo
+echo "Doc blocks documenting two members"
+stray_docs="$(python3 - <<'PY'
+import pathlib
+found = []
+for root in ("src", "tests"):
+    for p in sorted(pathlib.Path(root).rglob("*.cs")):
+        lines = p.read_text().splitlines()
+        i = 0
+        while i < len(lines):
+            if not lines[i].strip().startswith("///"):
+                i += 1
+                continue
+            j = i
+            while j < len(lines) and lines[j].strip().startswith("///"):
+                j += 1
+            block = lines[i:j]
+            n = sum(l.count("<summary>") for l in block)
+            if n > 1:
+                decl = lines[j].strip() if j < len(lines) else "(end of file)"
+                found.append(f"{p}:{i+1}  {n} summaries, landing on {decl[:60]}")
+            i = j
+print("\n".join(found))
+PY
+)"
+
+if [[ -n "$stray_docs" ]]; then
+    echo "$stray_docs" | sed 's/^/  /'
+    echo
+    echo "  One block cannot describe two members. The earlier <summary> belongs to something"
+    echo "  that was moved or deleted, so it now describes the member below it, wrongly."
+    echo "  GenerateDocumentationFile is off, so nothing else will ever say so."
     FAIL=$((FAIL + 1))
 else
     echo "  none"

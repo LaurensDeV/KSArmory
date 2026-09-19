@@ -1,6 +1,6 @@
+using Brutal.GlfwApi;
 using Brutal.Numerics;
 using KSA;
-using KSArmory.Sim;
 
 namespace KSArmory;
 
@@ -23,12 +23,17 @@ namespace KSArmory;
 /// frame. Avoiding exactly that is what <see cref="RoundFollowable"/> is for.</para>
 ///
 /// <para><b>What this depends on, and what happens when it stops being true.</b>
-/// <c>Viewport.FixedController</c> is a public writable field, <c>FixedController</c> is public and
-/// unsealed with a public constructor, and <c>OnFrame</c> is virtual — so this is ordinary
-/// subclassing rather than patching. It is still an extension point nobody promised: it is bound
-/// through <c>docs/KSA-API-SURFACE.md</c>, so a signature change is caught by
-/// <c>tools/ksa-api-diff.sh</c>, and if this class ever cannot be installed the engine's own
-/// controller stays in place and the roll comes back. Nothing else breaks.</para>
+/// <c>FixedController</c> is public and unsealed with a public constructor and a virtual
+/// <c>OnFrame</c>, so the class itself is ordinary subclassing rather than patching. *Installing* it
+/// is not: <c>IGameViewport.FixedController</c> is get-only and <c>GameViewport</c>'s setter is
+/// protected, so <see cref="KsaWorld"/> writes the backing field by reflection — one name rather
+/// than a signature, and the one part of this that <c>docs/KSA-API-SURFACE.md</c> cannot cover. The
+/// property's <em>read</em> is in the surface, so a rename of the property is still caught.</para>
+///
+/// <para>If the install ever fails, KSA's own controller stays and two things go with it: the
+/// levelled horizon, and <see cref="Pose"/> — so the sight's aim falls back to being written a
+/// frame early, which scales with simulation speed. Both are worse pictures rather than
+/// crashes.</para>
 /// </summary>
 internal sealed class LevelHorizonController(Camera camera) : FixedController(camera)
 {
@@ -65,7 +70,51 @@ internal sealed class LevelHorizonController(Camera camera) : FixedController(ca
     // How fast a levelled picture rights itself (rad/s). See the correction in OnFrame.
     private const double LevelRateRad = Math.PI;
 
-    public override void OnFrame(Viewport inViewport, double inDeltaTime)
+    // Asked of the pose source rather than held here, so only a borrower that lets its view be
+    // looked around takes the right button and the wheel from the engine.
+    private ChaseOrbit? Orbit => Pose?.Orbit;
+
+    public override bool OnMouseButton(GlfwWindow window, GlfwMouseButton button, GlfwButtonAction action,
+                                       GlfwModifier mods)
+    {
+        if (Orbit is not { } orbit || button != GlfwMouseButton.Number2)
+        {
+            return base.OnMouseButton(window, button, action, mods);
+        }
+
+        // The modifiers KSA's orbit camera starts a drag on, so a chord it leaves alone stays alone.
+        if (action == GlfwButtonAction.Press && (mods == 0 || (mods & GlfwModifier.Shift) != 0)) orbit.Press();
+        else if (action == GlfwButtonAction.Release) orbit.Release();
+
+        return true;
+    }
+
+    public override bool OnCursorPos(GlfwWindow window, double2 pos)
+    {
+        if (Orbit is not { } orbit) return base.OnCursorPos(window, pos);
+
+        orbit.Move(pos.X, pos.Y);
+        return orbit.Dragging;
+    }
+
+    public override bool OnScroll(GlfwWindow window, double2 offset)
+    {
+        if (Orbit is not { } orbit) return base.OnScroll(window, offset);
+
+        orbit.Scroll(offset.Y);
+        return true;
+    }
+
+    // Load-bearing: the engine asks the active controller this before a right-release opens the
+    // window of whatever part is under the cursor, so a drag ending over a craft opens nothing.
+    public override bool IsMouseDrag() => Orbit?.Dragging == true || base.IsMouseDrag();
+
+    // Hidden and unbounded while dragging, as the orbit camera's is, so a drag does not stop at the
+    // edge of the screen.
+    public override GlfwCursorMode GetCursorMode()
+        => Orbit?.Dragging == true ? GlfwCursorMode.Disabled : base.GetCursorMode();
+
+    public override void OnFrame(IViewport inViewport, double inDeltaTime)
     {
         AskThePoseSource();
 
@@ -233,4 +282,10 @@ internal interface IViewPose
     /// </param>
     bool TryPose(double3 followedEcl, out double3 offsetFromFollowed, out double3 forwardEcl,
                  out double3 upEcl, out double fovDeg);
+
+    /// <summary>
+    /// The player looking around this view, or null for a view that is not looked around. Non-null
+    /// is what hands the right button and the wheel to it rather than to the engine.
+    /// </summary>
+    ChaseOrbit? Orbit { get; }
 }

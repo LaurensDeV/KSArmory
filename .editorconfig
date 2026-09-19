@@ -18,6 +18,12 @@ csharp_style_namespace_declarations = file_scoped:suggestion
 csharp_style_var_for_built_in_types = false:suggestion
 dotnet_sort_system_directives_first = true
 
+# One namespace for the whole mod, so Sim/ and Ksa/ are a folder split rather than a namespace
+# one. That is what keeps the test project free of imports: KSArmory.Tests resolves everything by
+# walking up to KSArmory, and a namespace per folder would put a using in all 56 test files.
+# Without this line every file carries an IDE0130 suggesting the opposite -- 194 of them.
+dotnet_style_namespace_match_folder = false
+
 [*.{sh,py}]
 indent_size = 4
 

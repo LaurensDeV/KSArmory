@@ -13,6 +13,13 @@ public interface ISensorPolicy
     IffPolicy Iff { get; }
 
     bool ProtectControlledVehicle { get; }
+
+    /// <summary>
+    /// The set has been told to stop transmitting, so it sees nothing. A passive sensor — an
+    /// infrared seeker, an optical head — is unaffected and answers false, because it was never
+    /// transmitting to stop.
+    /// </summary>
+    bool RadarSilent => false;
 }
 
 /// <summary>
@@ -60,14 +67,18 @@ public sealed class SystemConfig : ISensorPolicy
     /// Draw the bomb sight: where a store released now would land, and the arc it would take.
     ///
     /// <para>Per system rather than session-wide, because two aircraft in one world can sensibly
-    /// disagree about wanting one — and it costs a few hundred integration steps to solve.</para>
+    /// disagree about wanting one — and it costs BombSight.MaxSteps integration steps, each sub-stepped by the round to solve.</para>
     /// </summary>
     public bool DrawBombSight = true;
 
-    /// <summary>Master arm. Nothing launches while this is false.</summary>
-    public bool Armed;
-
-    /// <summary>Engage without asking.</summary>
+    /// <summary>
+    /// Engage on its own: pick what its sensors and IFF allow and fire at it. Off, the weapon fires
+    /// only when told.
+    ///
+    /// <para>The only switch between a weapon and the world, and off by default. There is no master
+    /// arm in front of the trigger: FIRE is a button pressed on purpose, so a safety there prevents no
+    /// accident and only stops a new player's first shot.</para>
+    /// </summary>
     public bool AutoEngage;
 
     /// <summary>
@@ -81,7 +92,7 @@ public sealed class SystemConfig : ISensorPolicy
     public bool ChaseRounds;
 
     /// <summary>
-    /// Which weapons may engage, independently of the master arm.
+    /// Which weapons may engage, independently of auto-engage.
     ///
     /// <para>Two layers on one mount: without a switch each, whichever reaches further takes
     /// every target and the other can never be seen to work.</para>
@@ -108,8 +119,8 @@ public sealed class SystemConfig : ISensorPolicy
     ///
     /// <para>The operator naming a place rather than the radar naming a target. It is the only way
     /// to engage what the sensor will not hand you — terrain, or anything the threat model rejects
-    /// for being too slow to count. Master arm still applies; a designation is an order to shoot,
-    /// not permission to.</para>
+    /// for being too slow to count. The tick box is the permission: until it is on, a click in the
+    /// world is an ordinary click.</para>
     ///
     /// <para>Deliberately not persisted, unlike <see cref="MouseAim"/>. Restoring a tool that only
     /// <em>points</em> costs nothing; restoring one that fires means the first click after loading
@@ -135,6 +146,39 @@ public sealed class SystemConfig : ISensorPolicy
 
     /// <summary>Stop the search array turning. Only useful for looking at it.</summary>
     public bool SearchRadarStopped;
+
+    /// <summary>
+    /// Stop transmitting. A set that is silent cannot be homed on by an anti-radiation round — and
+    /// cannot see anything either, which is the whole of the trade.
+    ///
+    /// <para>It only helps a site that then <em>moves</em>: a round already in the air carries on
+    /// to where the emission last came from. Going quiet buys the time to leave, not immunity.</para>
+    ///
+    /// <para>Per installation rather than session-wide, because two sites on opposite sides of a
+    /// map disagreeing about this is exactly the case — one shuts down while the other keeps
+    /// painting.</para>
+    /// </summary>
+    public bool RadarSilent;
+
+    /// <summary>
+    /// Whether this installation's scope is also open in a window of its own.
+    ///
+    /// <para>The Radar tab always draws it; this is the pop-out, for watching the picture while the
+    /// panel is showing something else. Per installation for the reason the director's map is per
+    /// head — two sites watching different sectors want two scopes, not one that changes under
+    /// them.</para>
+    /// </summary>
+    public bool ScopeOpen;
+
+    /// <summary>
+    /// How far the scope's rim is (m) — the range setting, not the set's reach.
+    ///
+    /// <para>Deliberately independent of <see cref="SensorProfile.Range"/>: an operator winds a
+    /// scope in to read a crowded sector and back out to see what is coming, and neither says
+    /// anything about how far the set can actually detect. Contacts past the rim are held on it
+    /// rather than dropped.</para>
+    /// </summary>
+    public float ScopeRangeMetres = 20_000f;
 
     // ---- Optical head ---------------------------------------------------
     //

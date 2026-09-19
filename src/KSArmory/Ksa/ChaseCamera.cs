@@ -1,6 +1,6 @@
+using Brutal.ImGuiApi;
 using Brutal.Numerics;
 using KSA;
-using KSArmory.Sim;
 
 namespace KSArmory;
 
@@ -12,7 +12,7 @@ namespace KSArmory;
 /// the frame viewport. See <c>docs/BLOCKED-ON-KSA.md</c>, which also has why the camera keeps
 /// following its craft throughout.</para>
 /// </summary>
-internal sealed class ChaseCamera
+internal sealed class ChaseCamera : IViewPose
 {
     // The stand-off at range and at arrival; the camera closes between them as the round
     // converges.
@@ -24,8 +24,8 @@ internal sealed class ChaseCamera
     private const double AboveAtImpact = 1.6;
 
     // Closing runs on time to impact, normalised against the time left when the chase began, so
-    // it starts easing the moment the view is taken.
-    // Zero, so the camera is still moving when the round goes off.
+    // it starts easing the moment the view is taken. Zero, so the camera is still closing when it
+    // stops short to watch the round go in -- see ChaseView.StopShortMetres.
     private const double CloseUntil = 0.0;
 
     // What the flight had left when the view was taken. The whole curve is measured against it.
@@ -55,12 +55,11 @@ internal sealed class ChaseCamera
     private double3 _probeTravel;
     private bool _probing;
 
-    // The pose being eased out of -- where the view was, and a point on what it was looking at.
-    // Both held as separations from the craft so they keep up with it: the ecliptic is inertial
-    // and the craft crosses it at ~29.8 km/s, so a point stored in it falls half a kilometre
-    // behind every frame and the transition would start from open space.
+    // Where the view was when the transition began, held as a separation from the craft so it
+    // keeps up with it: the ecliptic is inertial and the craft crosses it at ~29.8 km/s, so a point
+    // stored in it falls half a kilometre behind every frame and the transition would start from
+    // open space.
     private double3 _fromOffset;
-    private double3 _fromLookOffset;
 
     // A missile leaves almost vertically, so "behind it" at first is under the vehicle.
     private const double ClearOfLauncher = 80.0;
@@ -75,8 +74,38 @@ internal sealed class ChaseCamera
 
     private readonly RoundFollowable _followed = new();
 
+    // The aim as a separation from the round, sampled in Apply. Null when there is nothing to fly
+    // at, which is what puts the pose back on the flight path.
+    private double3? _aimFromRound;
+
     private KsaWorld.MainView _saved;
     private IProjectile? _round;
+
+    // The system whose round is being ridden. Kept past its craft's destruction, which is when the
+    // panel stops being able to hand it back.
+    private IEffectSource? _source;
+
+    // Consecutive refused hand-backs. Three seconds at 60 fps, the same allowance the sight gets:
+    // long enough to outlast a scene change, short enough that a view the engine will never give
+    // back is not held for the rest of the session.
+    private int _refusedFrames;
+    private const int GiveUpAfterFrames = 180;
+
+    // Settled once a frame in Apply and read again inside the engine's viewport pass, where
+    // there is no route to the world's gravity, the panel's zoom or the debug switch. Local
+    // vertical over one frame of a round's flight moves by about a microradian, so holding it is
+    // exact enough to be uninteresting.
+    private double3 _poseUp = new(0, 0, 1);
+    private double _poseFovDeg;
+    private bool _freezeTransition;
+
+    // The side of the round the eye stands on, carried from frame to frame -- see ChaseView.TryPose.
+    // Advanced once a frame in Apply, like the transition, and read again in the viewport pass.
+    private double3 _poseLift;
+
+    // How fast the carried lift is pulled back towards local up, at most (rad/s). Scaled down by how
+    // little of up lies across the view, so a view straight down at a point below is not pulled.
+    private const double LiftRateRad = Math.PI / 2.0;
 
     // The last pose, which becomes the pose to hold once the round is gone.
     private double3 _holdOffset;
@@ -84,12 +113,39 @@ internal sealed class ChaseCamera
     private double3 _holdUp;
     private double _holding;
 
+    // Stopped short of where the round arrives and watching it go in: the eye is held on the ground
+    // where it stopped and only the look follows the round. Riding it all the way puts the camera
+    // inside the explosion it is there to show.
+    private bool _watching;
+
     // Rounds that have already had their turn. Waiting for the sky to empty instead never fires:
     // a salvo's second missile outlives the target its first one killed.
     private readonly List<IProjectile> _passedOver = [];
 
+    // How long the round being ridden has had nothing to arrive at. See Sim/ChaseInterest.cs.
+    private readonly ChaseInterest _interest = new();
+
+    // The player looking around the round, eased back behind it when let go. See Sim/ChaseOrbit.cs.
+    private readonly ChaseOrbit _orbit = new();
+
+    // How high the round is over the ground it is falling onto, when that is known, so a view turned
+    // underneath it stops short of the ground. NaN with no ground to measure against.
+    private double _heightOverAim = double.NaN;
+
+    private const double EyeClearance = 3.0;
+
     /// <summary>The round being chased, or null.</summary>
     public IProjectile? Round => _round;
+
+    /// <summary>The player's look around the round being ridden; null while nothing is.</summary>
+    public ChaseOrbit? Orbit => _saved.Valid && _round is not null ? _orbit : null;
+
+    /// <summary>
+    /// The system whose round the view is riding or holding on, or null. The frame hook prefers it
+    /// to the panel's focus once that system's craft has been destroyed: the round flies on, and
+    /// the panel has nothing left it can focus that owns it.
+    /// </summary>
+    public IEffectSource? RiddenSystem => _saved.Valid ? _source : null;
 
     /// <summary>
     /// True while this holds the main view, including the hold on a burst after the round is
@@ -106,6 +162,13 @@ internal sealed class ChaseCamera
     /// </summary>
     public double Closing { get; private set; } = double.NaN;
 
+    /// <summary>
+    /// Where what the chased round is flying at is this frame, or null when it is flying at
+    /// nothing. Shared with <see cref="ChaseHud"/> so the brackets are around the point the camera
+    /// was actually aimed at rather than a second reading of it.
+    /// </summary>
+    public TargetState? Aim { get; private set; }
+
     // The field to fly at. The sight's own base while it is holding underneath this, and otherwise
     // whatever the view was showing when this took it -- which is the player's, since nothing else
     // had touched it. Either way the answer is "the field the player chose", never the sight's
@@ -115,31 +178,83 @@ internal sealed class ChaseCamera
          : _saved.Valid ? _saved.FovDeg
          : SightZoom.DefaultFovDeg;
 
+    // What the engine reports about the view, against the round this pointed it at. The rule is in
+    // ViewClaim; only the two readings are here. Never outranked -- the chase is the top of the
+    // ladder, so anything that has moved the view is outside the mod by definition.
+    private bool StillOurs()
+        => ViewClaim.StillOurs(KsaWorld.MainViewIsFixed(),
+                               KsaWorld.MainViewFollows(_followed), outranked: false);
+
     /// <summary>Hands the view back, if it was taken. Safe to call at any time.</summary>
     public void Release()
     {
-        _holding = 0.0;
-        _round = null;
-
-        // All three belong to the engagement that has just ended. The blend left finished would
-        // cut straight to the round next time instead of travelling onto it; the flight time is
-        // what the whole stand-off curve is measured against, so carrying it over calibrates the
-        // next chase against an engagement it has nothing to do with -- the second chase of a
-        // session opens at about 11 m instead of the 26 it is meant to.
-        _blend = 1.0;
-        _flightAtTake = 0.0;
-        _behind = Behind;
-        _above = Above;
+        EndEngagement();
 
         // Keyed on holding the view, not on having a round: the hold after a burst has no round
         // and is exactly when the view still has to be given back.
         if (!_saved.Valid) return;
 
-        _followed.Track(null, null);
-        KsaWorld.BeginRestoreMainView(_saved);
-        KsaWorld.RestoreFollow(_saved);
-        _saved = default;
+        // Reachable without Apply having seen the takeover -- the roster losing the system and
+        // Unload both call straight in here -- so whichever half the player has taken is theirs to
+        // keep, and the hand-back reads that before it writes anything.
+        if (!KsaWorld.TryHandBackMainView(_saved, _followed, out bool mode, out bool follow))
+        {
+            // A refused restore keeps the recording and tries again on the next call, which
+            // arrives every frame the chase is not wanted. Dropping it on the first attempt is
+            // what strands the player: the view stays in Fixed mode at the round's pose and the
+            // only description of what it was doing has been thrown away.
+            _refusedFrames++;
+            if (_refusedFrames == 1 || _refusedFrames == GiveUpAfterFrames)
+            {
+                Log.Warn($"chase: could not hand the main view back (mode={mode} follow={follow}), "
+                         + (_refusedFrames == 1 ? "will keep trying" : "giving up"));
+            }
+
+            if (_refusedFrames < GiveUpAfterFrames) return;
+        }
+
+        LetGo();
         Log.Info("chase: released the main view");
+    }
+
+    // All of these belong to the engagement that has just ended. The blend left finished would cut
+    // straight to the round next time instead of travelling onto it; the flight time is what the
+    // whole stand-off curve is measured against, so carrying it over calibrates the next chase
+    // against an engagement it has nothing to do with -- the second chase of a session opens at
+    // about 11 m instead of the 26 it is meant to.
+    private void EndEngagement()
+    {
+        _holding = 0.0;
+        _round = null;
+        Aim = null;
+        _blend = 1.0;
+        _flightAtTake = 0.0;
+        _behind = Behind;
+        _above = Above;
+        _interest.Reset();
+        _poseLift = Vec.Zero;
+        _lastEyeDirection = Vec.Zero;
+        _orbit.Reset();
+        _heightOverAim = double.NaN;
+        _watching = false;
+    }
+
+    // Only once the view has been handed back: while it is still ours the followable is what the
+    // engine resolves the camera through, and untracking it first leaves that resolving off a round
+    // the chase has already let go of.
+    //
+    // Still on it afterwards means there was nothing to hand the follow back to, because the craft
+    // it was taken from has been destroyed. Held over the ground rather than untracked, or the view
+    // stays at an ecliptic point the planet leaves at ~30 km/s and goes out into space with it.
+    private void LetGo()
+    {
+        if (KsaWorld.MainViewFollows(_followed)) _followed.HoldWhereItIs();
+        else _followed.Track(null, null);
+
+        _aimFromRound = null;
+        _source = null;
+        _saved = default;
+        _refusedFrames = 0;
     }
 
     /// <summary>Follows one round for one frame.</summary>
@@ -159,10 +274,13 @@ internal sealed class ChaseCamera
     /// states its own: the player's zoom keys clamp at 15° and would otherwise wrench it back
     /// mid-flight.
     /// </param>
-    public void Apply(IRoundsInFlight battery, bool enabled, double dtPlayer, double dtSim,
+    public void Apply(IEffectSource battery, bool enabled, double dtPlayer, double dtSim,
                       bool freezeTransition, double unzoomedFovDeg)
     {
-        if (!enabled || battery.Platform is null)
+        // A system with no craft is only ridden on, never taken from: its round is the one already
+        // being watched, and it goes on to its burst after the craft that fired it is destroyed.
+        bool ridingThis = _saved.Valid && ReferenceEquals(battery, _source);
+        if (!enabled || (battery.Platform is null && !ridingThis))
         {
             _passedOver.Clear();
             Release();
@@ -170,13 +288,31 @@ internal sealed class ChaseCamera
         }
 
 
-        // Still watching where the last one went off. Checked before the stand-down, because the
-        // hold is what precedes it.
+        // The player taking the view back is a decision, not a fault.
+        //
+        // Ahead of the hold below, and keyed on holding the view rather than on having a round: the
+        // linger after a burst is LingerSeconds during which the view is still this camera's, and a
+        // vessel switched in that window has to be noticed here -- Release reaching it first puts
+        // the player back on the craft they have just left. The half they did not take still goes
+        // back: a vessel switch leaves the view in Fixed, which no input can leave.
+        if (_saved.Valid && !StillOurs())
+        {
+            bool modeIsOurs = KsaWorld.StandDownMainView(_saved, _followed);
+            PassOverEverythingFlying(battery);
+            EndEngagement();
+            LetGo();
+            Log.Info($"chase: the view was taken over by hand ({(modeIsOurs ? "vessel" : "camera mode")}), "
+                     + "standing down");
+            return;
+        }
+
+        // Still watching where the last one went off.
         if (_holding > 0.0)
         {
             _holding -= Math.Max(0.0, dtPlayer);
 
-            if (!KsaWorld.TryLookFromMainViewport(_holdOffset, _holdForward, _holdUp, Field(unzoomedFovDeg))) Release();
+            if (!KsaWorld.TryLookFromMainViewport(_holdOffset, _holdForward, _holdUp,
+                                                  Field(unzoomedFovDeg), this)) Release();
             else if (_holding <= 0.0) Release();
 
             return;
@@ -186,17 +322,6 @@ internal sealed class ChaseCamera
         // forgotten; the list only has to outlive the rounds it names.
         _passedOver.RemoveAll(r => r.State != RoundState.Flying);
 
-        // The player taking the view back is a decision, not a fault.
-        if (_round is not null && !KsaWorld.MainViewIsFixed())
-        {
-            _round = null;
-            _holding = 0.0;
-            _saved = default;   // dropped, not restored: the view is already theirs
-            PassOverEverythingFlying(battery);
-            Log.Info("chase: the view was taken over by hand, standing down");
-            return;
-        }
-
         IProjectile? round = Current(battery);
         if (round is null)
         {
@@ -205,20 +330,59 @@ internal sealed class ChaseCamera
             // what just happened is the part worth seeing.
             if (_round is { } spent)
             {
-                // Anchored to the platform, so the view stays on the burst rather than being left
-                // behind by the ecliptic.
-                _followed.HoldAgainst(battery.Platform, spent);
-
                 _round = null;
-                _holding = LingerSeconds;
+                Aim = null;
                 PassOverEverythingFlying(battery);
-                Log.Info("chase: holding on the burst");
+
+                // An expiry is not a burst: nothing went off, so there is nothing to hold on.
+                if (spent.State == RoundState.Expired)
+                {
+                    Log.Info("chase: the round expired, nothing to hold on");
+                    Release();
+                    return;
+                }
+
+                // Where it went off, carried to the end of the frame. The round's position is taken at
+                // the instant inside the step it burst, and the ground under it has moved on since by
+                // up to a frame of ~30 km/s -- 400 m at 60 fps.
+                double3 burst = spent.PositionEcl;
+                if (battery.EffectBody is { } burstBody)
+                {
+                    burst -= KsaWorld.GroundVelocityAt(burstBody, burst) * spent.DetonationElapsedInFrame;
+                }
+
+                // Watching, the eye is already held on the ground and only the look turns onto the
+                // burst. Otherwise the pose it rode in on is held against the burst itself.
+                double fromBurst;
+                if (_watching)
+                {
+                    double3 toBurst = burst - _followed.GetPositionEcl();
+                    if (Vec.IsFinite(toBurst) && Vec.Len2(toBurst) > 1.0) _holdForward = Vec.Unit(toBurst);
+                    fromBurst = Vec.Len(toBurst);
+                }
+                else
+                {
+                    _followed.HoldAgainst(battery.Platform, spent, burst);
+                    fromBurst = Vec.Len(_holdOffset);
+                }
+
+                _holding = LingerSeconds;
+                Log.Info($"chase: holding on the burst, {fromBurst:F0} m from it");
                 return;
             }
 
             Release();
             return;
         }
+
+        // Resolved once a frame and read four times: the far end of the transition, the closing
+        // curve, the pose and the brackets are four readings of one point, and sampling it
+        // separately for each would let them disagree about where it is.
+        TargetState? aim = SampleAim(round);
+
+        // Here, where the engine's reading of the target and the mod's of the round belong to one
+        // frame. Everything downstream reads this rather than sampling again.
+        _aimFromRound = aim is { } sampled ? sampled.PositionEcl - round.PositionEcl : null;
 
         if (_round is null)
         {
@@ -241,9 +405,9 @@ internal sealed class ChaseCamera
             // camera is 2.5 m from the missile. Reading afterwards gives that, not the player's
             // pose, and the transition then eases from its own destination: no travel at all,
             // just the aim swinging from a point already at the round.
-            bool hasPose = KsaWorld.TryMainCameraPose(out double3 wasEcl, out double3 wasForward);
+            bool hasPose = KsaWorld.TryMainCameraPose(out double3 wasEcl, out _);
 
-            _followed.Track(round, battery.Platform);
+            _followed.Track(round, battery);
 
             if (!KsaWorld.TryFollowOnMainViewport(_followed))
             {
@@ -260,19 +424,7 @@ internal sealed class ChaseCamera
                 // missile before the transition has begun.
                 KsaWorld.TryPlaceMainCamera(wasEcl);
 
-                // At the target's distance, because that is what the player is looking at and
-                // what the chase ends up looking past the round at. Put at the *round's* distance
-                // instead it sits a hundred metres away in mid-air, while the point the chase
-                // aims for is kilometres off in much the same direction, so the aim swings
-                // through tens of degrees getting from one to the other: 43 degrees of sweep
-                // peaking at 87 deg/s, with the round off screen for half the transition. Two
-                // points at the same depth barely move apart at all.
-                double depth = round.TargetRef is Vehicle craft && KsaWorld.IsAlive(craft)
-                               ? Vec.Len(KsaWorld.PositionEcl(craft) - wasEcl)
-                               : Math.Max(Vec.Len(round.PositionEcl - wasEcl), Ahead);
-
                 _fromOffset = wasEcl - battery.PlatformEcl;
-                _fromLookOffset = (wasEcl + Vec.Unit(wasForward) * depth) - battery.PlatformEcl;
                 _blend = 0.0;
                 _blendStep.Reset();
                 _probing = false;
@@ -282,19 +434,55 @@ internal sealed class ChaseCamera
                 _blend = 1.0;
             }
 
-            Log.Info($"chase: taking the main view for round {round.Tube}");
+            Log.Info($"chase: taking the main view for {RoundLabel.For(round.Tube)}");
         }
 
         _round = round;
-        _followed.Track(round, battery.Platform);
+        _source = battery;
+        Aim = aim;
+
+        // Watching, the followable holds where the eye stopped and is not pointed back at the round.
+        if (!_watching) _followed.Track(round, battery);
+
+        // The transition's far end is measured against the craft the view was taken beside, and a
+        // round whose craft has just been destroyed is re-anchored to the body under it, so that end
+        // would jump. Finished rather than carried across.
+        if (battery.Platform is null) _blend = 1.0;
 
         // Measured from the round, because the round is what the camera follows: the engine adds
         // this to whatever position the round reports during its own frame pass, so nothing here
         // is sampled at one instant and applied at another.
-        double3 up = -Vec.Unit(KsaWorld.GravityAt(battery.Platform, round.PositionEcl));
+        double3 gravity = battery.Platform is { } craft ? KsaWorld.GravityAt(craft, round.PositionEcl)
+                        : battery.EffectBody is { } body ? KsaWorld.GravityAt(body, round.PositionEcl)
+                        : Vec.Zero;
+        if (Vec.Len2(gravity) > 0.0) _poseUp = -Vec.Unit(gravity);
+        _poseFovDeg = Field(unzoomedFovDeg);
+        _freezeTransition = freezeTransition;
 
-        // Closing in as it arrives, which is what conveys the speed.
-        double toGo = TimeToTarget(round);
+        // Player time, because it answers the mouse. The button is read here as well as by the
+        // controller, which never hears a release made over a panel.
+        _orbit.Advance(dtPlayer, ImGui.IsMouseDown(ImGuiMouseButton.Right));
+        _heightOverAim = round.Munition.HitsTerrain && _aimFromRound is { } groundAim
+                             ? -Vec.Dot(groundAim, _poseUp)
+                             : double.NaN;
+
+        // Closing in as it arrives, which is what conveys the speed. A store the ground stops counts
+        // down its fall rather than its line of sight -- see ChaseInterest.TimeToFall.
+        double toGo = round.Munition.HitsTerrain && aim is { } below
+                          ? ChaseInterest.TimeToFall(round.PositionEcl, round.VelocityEcl,
+                                                     below.PositionEcl, below.VelocityEcl, gravity)
+                          : TimeToTarget(round, aim);
+
+        // Nothing left to arrive at, so it can only run out of flight. Everything else in the air
+        // is passed over with it, because its siblings have usually lost the same target.
+        if (_interest.Lost(round.Munition.HitsTerrain, toGo, dtSim))
+        {
+            Log.Info($"chase: {RoundLabel.For(round.Tube)} has nothing left to arrive at, "
+                     + "handing the view back");
+            PassOverEverythingFlying(battery);
+            Release();
+            return;
+        }
 
         if (_flightAtTake <= 0.0 || !double.IsFinite(_flightAtTake)) _flightAtTake = toGo;
 
@@ -312,81 +500,248 @@ internal sealed class ChaseCamera
             _above = ChaseView.StandOff(toGo, _flightAtTake, CloseUntil, Above, AboveAtImpact);
         }
 
-        double behind = _behind;
-        double above = _above;
+        ReportClosing(toGo, _behind * ChaseView.StandOffScale(round.Munition.BodyLength));
 
-        ReportClosing(round, toGo, behind);
-
-        if (!ChaseView.TryPose(Vec.Zero, round.VelocityLocal, up, up, behind, above, Ahead,
-                               out double3 eye, out double3 forward, out double3 upEcl))
+        // Advanced here and nowhere else. TryPoseFor is asked twice a frame -- once here and again
+        // inside the engine's viewport pass -- so a transition stepped inside it would run at
+        // twice the rate on a frame that drew and at half on one that did not.
+        if (_blend < 1.0 && !_freezeTransition)
         {
+            _blend = Math.Min(1.0, _blend + (_blendStep.Next(dtSim) / TransitionSeconds));
+        }
+
+        if (_watching)
+        {
+            Watch(round);
             return;
         }
 
-        // The eye is relative to the round, so its height over the launcher is the two together.
-        // Lifting rather than refusing: a view from slightly the wrong place beats none.
-        double overLauncher = Vec.Dot(round.OffsetFromPlatform + eye, up);
-        if (overLauncher < -FloorBelowLauncher) eye += up * (-FloorBelowLauncher - overLauncher);
+        if (!TryPoseFor(round, out double3 eye, out double3 forward, out double3 up, out double3 lift)) return;
 
-        // Travelling onto that pose rather than cutting to it. Only the position really moves:
-        // the player is looking at the target and the chase looks along a round flying at it, so
-        // the two aim points are close and the view barely turns. Both ends are rebuilt from this
-        // frame's samples, so the pair describes one instant however far along it is.
-        if (_blend < 1.0 && freezeTransition)
+        // Pulled towards local up once a frame, by as much as the view lies across it: not at all
+        // while it looks straight down at a point below, where up says nothing about which side of
+        // the round is above it.
+        if (SightPicture.TryStableUp(forward, _poseUp, lift, LiftRateRad * Math.Clamp(dtPlayer, 0.0, 0.1),
+                                     out double3 pulled))
         {
-            // Held where the transition started, so the only thing moving is the world. See
-            // Config.FreezeChaseTransition for what this is separating.
-            double3 fromRoundHeld = _fromOffset - round.OffsetFromPlatform;
-
-            if (ChaseView.TryBlend(fromRoundHeld, _fromLookOffset - round.OffsetFromPlatform,
-                                   fromRoundHeld, _fromLookOffset - round.OffsetFromPlatform,
-                                   up, 0.0,
-                                   out double3 heldOffset, out double3 heldForward))
-            {
-                eye = heldOffset;
-                forward = heldForward;
-
-                ProbeBlend(round, eye, up, dtSim);
-            }
-        }
-        else if (_blend < 1.0)
-        {
-            _blend = Math.Min(1.0, _blend + (_blendStep.Next(dtSim) / TransitionSeconds));
-
-            // Offsets from the round, never a pair of ecliptic positions. PlatformEcl is sampled
-            // before the round is stepped and round.PositionEcl after it, so differencing the two
-            // ends in the ecliptic carries one whole step of the planet's motion -- 715 m on a
-            // 24 ms frame against 286 m on a 9 ms one. That difference beats against the display's
-            // frame pacing and swings the camera +-270 m vertically every frame.
-            // OffsetFromPlatform is the round measured against the same frame's platform sample,
-            // which is the pairing that cancels it; TryBlend is a lerp of points, so running it in
-            // this translated frame is the same answer.
-            double3 fromRound = _fromOffset - round.OffsetFromPlatform;
-            double3 fromLookRound = _fromLookOffset - round.OffsetFromPlatform;
-
-            if (ChaseView.TryBlend(fromRound, fromLookRound,
-                                   eye, eye + forward * Ahead,
-                                   up, _blend,
-                                   out double3 blendedOffset, out double3 blendedForward))
-            {
-                eye = blendedOffset;
-                forward = blendedForward;
-
-                ProbeBlend(round, eye, up, dtSim);
-            }
-            else
-            {
-                _blend = 1.0;
-            }
+            _poseLift = pulled;
         }
 
-        _holdOffset = eye;
-        _holdForward = forward;
-        _holdUp = up;
+        ReportEyeSwing(eye, forward);
+
+        ProbeBlend(battery, round, eye, up, dtSim);
+
+        // The chase's own pose above, and only now where the player has turned it: the carried lift
+        // and the swing warning belong to that pose, and a drag is neither.
+        LookAround(eye, forward, up, out double3 viewEye, out double3 viewForward, out double3 viewUp);
+
+        // Near enough the arrival to stop riding it and watch it go in, from where the eye is now.
+        if (ChaseView.StopsShort(ArrivalSeconds(battery, round, aim, gravity, toGo), Vec.Len(round.VelocityLocal),
+                                 ChaseView.StopShortMetres(round.Munition.ChargeKg))
+            && battery.TryRoundEffectEcl(round, out double3 drawn))
+        {
+            _followed.HoldAt(battery.Platform, drawn + viewEye);
+            _watching = true;
+            _blend = 1.0;
+            Log.Info($"chase: stopping short of where {RoundLabel.For(round.Tube)} arrives, to watch it go in");
+
+            Watch(round);
+            return;
+        }
+
+        _holdOffset = viewEye;
+        _holdForward = viewForward;
+        _holdUp = viewUp;
 
         // A refused write must not leave the view held: the player would be stranded wherever the
         // last good frame put them.
-        if (!KsaWorld.TryLookFromMainViewport(eye, forward, up, Field(unzoomedFovDeg))) Release();
+        //
+        // Handing `this` over as the pose source is what puts the answer in phase with the frame,
+        // and it is also what carries the chase through a hidden UI: the write below lands in the
+        // engine's own pass either way, where a write made from a hook that was skipped does not.
+        if (!KsaWorld.TryLookFromMainViewport(viewEye, viewForward, viewUp, _poseFovDeg, this)) Release();
+    }
+
+    // Seconds until the round arrives: at what it is flying at, or at the ground under a round the
+    // ground stops, whichever is sooner. The closing curve's countdown alone is not it: a store's is
+    // the fall to its aim's height, which a shell fired level at a craft reaches long after it hits.
+    private static double ArrivalSeconds(IEffectSource battery, IProjectile round, TargetState? aim,
+                                         double3 gravity, double toGo)
+    {
+        double arrival = Sooner(toGo, TimeToTarget(round, aim));
+
+        if (round.Munition.HitsTerrain && battery.EffectBody is { } body
+            && GroundTest.Shared.TryGround(round.PositionEcl, out double3 centre, out double surface))
+        {
+            double3 below = centre + (Vec.Unit(round.PositionEcl - centre) * surface);
+            arrival = Sooner(arrival, ChaseInterest.TimeToFall(round.PositionEcl, round.VelocityEcl, below,
+                                                               KsaWorld.GroundVelocityAt(body, below), gravity));
+        }
+
+        return arrival;
+    }
+
+    private static double Sooner(double a, double b)
+        => !double.IsFinite(a) ? b : !double.IsFinite(b) ? a : Math.Min(a, b);
+
+    // The eye stays where it stopped, fixed to the ground, and only the look follows the round in.
+    private void Watch(IProjectile round)
+    {
+        if (!TryWatchForward(round, out double3 forward)) return;
+
+        _holdOffset = Vec.Zero;
+        _holdForward = forward;
+        _holdUp = _poseUp;
+
+        if (!KsaWorld.TryLookFromMainViewport(Vec.Zero, forward, _poseUp, _poseFovDeg, this)) Release();
+    }
+
+    // From where the eye was left to where the round is drawn. Both are anchored live, so asking from
+    // inside the engine's viewport pass differs only by the round's own flight since the mod stepped.
+    private bool TryWatchForward(IProjectile round, out double3 forward)
+    {
+        forward = Vec.Zero;
+        if (_source is null || !_source.TryRoundEffectEcl(round, out double3 drawn)) return false;
+
+        double3 toRound = drawn - _followed.GetPositionEcl();
+        if (!Vec.IsFinite(toRound) || Vec.Len2(toRound) < 1.0) return false;
+
+        forward = Vec.Unit(toRound);
+        return true;
+    }
+
+    // Where the player has turned the view round the round, from the chase's own pose. Under the
+    // round only as far as the ground it is falling onto allows, and never further under it than
+    // the chase's own pose already put the eye.
+    private void LookAround(double3 eye, double3 forward, double3 up,
+                            out double3 viewEye, out double3 viewForward, out double3 viewUp)
+    {
+        double lowest = double.IsFinite(_heightOverAim) ? -(_heightOverAim - EyeClearance) : 0.0;
+        lowest = Math.Min(lowest, Vec.Dot(eye, _poseUp));
+
+        ChaseView.Orbit(eye, forward, up, _poseUp, _orbit.Yaw, _orbit.Pitch, _orbit.Zoom, lowest, _poseUp,
+                        out viewEye, out viewForward, out viewUp);
+    }
+
+    /// <summary>
+    /// Where the view goes, asked from inside the engine's own frame pass.
+    ///
+    /// <para><paramref name="followedEcl"/> is deliberately unused: the view follows the round
+    /// itself, and every term of this pose is already a separation from it. The sight needs that
+    /// argument because its eye is an absolute position on a craft; nothing here is.</para>
+    /// </summary>
+    public bool TryPose(double3 followedEcl, out double3 offsetFromFollowed, out double3 forwardEcl,
+                        out double3 upEcl, out double fovDeg)
+    {
+        offsetFromFollowed = forwardEcl = upEcl = Vec.Zero;
+        fovDeg = _poseFovDeg;
+
+        if (!_saved.Valid || !(fovDeg > 0.0)) return false;
+
+        // The linger after a burst has no round left to build a pose from, and the followable is
+        // already holding the burst against the craft that fired it.
+        if (_round is not { } round || round.State != RoundState.Flying)
+        {
+            if (_holding <= 0.0) return false;
+
+            offsetFromFollowed = _holdOffset;
+            forwardEcl = _holdForward;
+            upEcl = _holdUp;
+
+            return Vec.Len2(forwardEcl) > 0.5;
+        }
+
+        // Watching, the camera sits on the point it stopped at and turns after the round.
+        if (_watching)
+        {
+            upEcl = _poseUp;
+            if (TryWatchForward(round, out forwardEcl)) return true;
+
+            offsetFromFollowed = _holdOffset;
+            forwardEcl = _holdForward;
+            upEcl = _holdUp;
+            return Vec.Len2(forwardEcl) > 0.5;
+        }
+
+        if (!TryPoseFor(round, out double3 eye, out double3 forward, out double3 up, out _)) return false;
+
+        LookAround(eye, forward, up, out offsetFromFollowed, out forwardEcl, out upEcl);
+        return true;
+    }
+
+    // The pose, from state Apply has already settled. Pure but for finishing an unusable
+    // transition, which is the right answer from either caller.
+    private bool TryPoseFor(IProjectile round, out double3 eye, out double3 forward, out double3 up,
+                            out double3 lift)
+    {
+        up = _poseUp;
+        eye = forward = lift = Vec.Zero;
+
+        // Taken in Apply and not here. A craft's position comes from the engine, which advanced it
+        // in PrepareFrame; round.PositionEcl comes from the mod, which steps later in the frame. So
+        // the two are one set of samples only inside Apply -- and TryPoseFor is asked again from
+        // the viewport pass, where re-reading them leaves one frame of the round's ecliptic travel
+        // in the separation: about 500 m at 60 fps, alternating with the display's 8.33/25.0 ms
+        // pacing, which at a couple of kilometres swings the aim by degrees on every frame.
+        double3? aimFromRound = _aimFromRound;
+
+        // In the round's own lengths, so a shell fills the picture the way a missile does.
+        double scale = ChaseView.StandOffScale(round.Munition.BodyLength);
+
+        if (!ChaseView.TryPose(Vec.Zero, round.VelocityLocal, aimFromRound, up, up,
+                               _behind * scale, _above * scale, Ahead, _poseLift, out eye, out forward, out lift))
+        {
+            return false;
+        }
+
+        // Only while the round is still above the launcher, which is the launch it was written
+        // for. Past that the launcher is not the ground under the round and saying otherwise pins
+        // the camera at the aircraft's altitude for the whole of a bomb's fall.
+        if (Vec.Dot(round.OffsetFromPlatform, up) >= 0.0)
+        {
+            // The eye is relative to the round, so its height over the launcher is the two
+            // together. Lifting rather than refusing: a view from slightly the wrong place beats
+            // none.
+            double overLauncher = Vec.Dot(round.OffsetFromPlatform + eye, up);
+            if (overLauncher < -FloorBelowLauncher) eye += up * (-FloorBelowLauncher - overLauncher);
+        }
+
+        if (_blend >= 1.0) return true;
+
+        // Travelling onto that pose rather than cutting to it: the eye from where the view was, and
+        // the look from the round onto what it is flying at. See ChaseView.TryBlend.
+        //
+        // Offsets from the round, never a pair of ecliptic positions. PlatformEcl is sampled
+        // before the round is stepped and round.PositionEcl after it, so differencing the two ends
+        // in the ecliptic carries one whole step of the planet's motion -- 715 m on a 24 ms frame
+        // against 286 m on a 9 ms one. That difference beats against the display's frame pacing and
+        // swings the camera +-270 m vertically every frame. OffsetFromPlatform is the round
+        // measured against the same frame's platform sample, which is the pairing that cancels it;
+        // TryBlend is a lerp of points, so running it in this translated frame is the same answer.
+        double3 fromRound = _fromOffset - round.OffsetFromPlatform;
+
+        // Out at the range of what the round is flying at. At the look-ahead it is a point just
+        // past the round, and the view turns onto that rather than onto the target.
+        double depth = aimFromRound is { } aimed ? Math.Max(Vec.Len(aimed - eye), Ahead) : Ahead;
+        double3 toLookRound = eye + (forward * depth);
+
+        // Frozen, the eye stays where the transition started and the look stays on the round. See
+        // Config.FreezeChaseTransition for what this is separating.
+        if (ChaseView.TryBlend(fromRound, eye, Vec.Zero, toLookRound, up,
+                               _freezeTransition ? 0.0 : _blend,
+                               out double3 blendedOffset, out double3 blendedForward))
+        {
+            eye = blendedOffset;
+            forward = blendedForward;
+        }
+        else if (!_freezeTransition)
+        {
+            // Nothing usable to travel from, so there is nothing to travel: the settled pose above
+            // stands and the transition is over.
+            _blend = 1.0;
+        }
+
+        return true;
     }
 
     // The round already being ridden, while it still flies. Once it stops, null: the caller holds
@@ -407,7 +762,7 @@ internal sealed class ChaseCamera
     // What the closing curve is being fed: the stand-off is visible, the input is not.
     private int _rangeFrames;
 
-    private void ReportClosing(IProjectile round, double toGo, double behind)
+    private void ReportClosing(double toGo, double behind)
     {
         if (++_rangeFrames < 30) return;
 
@@ -416,25 +771,71 @@ internal sealed class ChaseCamera
                  + $" of {_flightAtTake:F1}, stand-off {behind:F1} m");
     }
 
-    // Against the target where it is NOW, not the aimpoint: an aimpoint holds an absolute
-    // ecliptic position, and the world leaves it behind at ~29.8 km/s, so the range to it grows
-    // while the round closes. NaN when nothing is being chased.
-    private static double TimeToTarget(IProjectile round)
+    // Where what this round is flying at is this frame, and how fast that is moving. Resolved from
+    // the world rather than read off Aimpoint alone, because only a ground designation is
+    // resampled every frame: a craft's stored aimpoint is the coordinate it was locked at, which
+    // the world leaves behind at ~29.8 km/s.
+    //
+    // Null for a round flying at nothing -- a bomb released undesignated, or one whose target has
+    // died. Everything downstream then falls back to the flight path, which is all there is.
+    private static TargetState? SampleAim(IProjectile round)
     {
-        if (round.TargetRef is not Vehicle target || !KsaWorld.IsAlive(target)) return double.NaN;
+        if (round.TargetRef is Vehicle craft && KsaWorld.IsAlive(craft))
+        {
+            return new TargetState(KsaWorld.PositionEcl(craft), KsaWorld.VelocityEcl(craft),
+                                   KsaWorld.MeanRadius(craft), craft);
+        }
 
-        double3 toTarget = KsaWorld.PositionEcl(target) - round.PositionEcl;
-        double range = Vec.Len(toTarget);
-        if (range < 1e-6) return 0.0;
+        // Somebody else's round, which KSA holds no state for and so cannot be asked about: it
+        // reports its own position, stepped this frame like the chased one.
+        if (round.TargetRef is IProjectile hostile && hostile.State == RoundState.Flying)
+        {
+            return new TargetState(hostile.PositionEcl, hostile.VelocityEcl, 0.0, hostile);
+        }
 
-        // Closing speed along the line of sight. Differenced here rather than taken from either
-        // velocity alone: both carry the ecliptic's ~29.8 km/s, and it cancels only in the
-        // subtraction.
-        double closing = Vec.Dot(round.VelocityEcl - KsaWorld.VelocityEcl(target),
-                                 toTarget / range);
+        // A designated place. Ground is put back into the ecliptic every frame by the system that
+        // steps the round, so this is where the ground is now and not where it was named.
+        if (round.Aimpoint.Kind is AimpointKind.Ground or AimpointKind.Point
+            && Vec.IsFinite(round.Aimpoint.PositionEcl))
+        {
+            return round.Aimpoint.ToTargetState();
+        }
 
-        // Opening, or barely closing: nothing to count down to.
-        return closing > 1.0 ? range / closing : double.NaN;
+        return null;
+    }
+
+    // How long the round has left, which is what the whole closing curve is measured against and
+    // what says whether it is going anywhere. NaN when there is nothing to count down to.
+    private static double TimeToTarget(IProjectile round, TargetState? aim)
+        => aim is { } target
+           ? ChaseInterest.TimeToGo(round.PositionEcl, round.VelocityEcl,
+                                    target.PositionEcl, target.VelocityEcl)
+           : double.NaN;
+
+    // Always on, and bounded: the eye swinging round the round in one frame is what a player sees as
+    // the round flipping, and nothing else records it.
+    private double3 _lastEyeDirection;
+    private int _eyeSwingsReported;
+    private const double GrossEyeSwingRad = Math.PI / 3.0;
+
+    private void ReportEyeSwing(double3 eye, double3 forward)
+    {
+        double3 direction = Vec.Unit(eye);
+        if (Vec.Len2(direction) < 0.5) return;
+
+        if (Vec.Len2(_lastEyeDirection) > 0.5 && _eyeSwingsReported < 12)
+        {
+            double swung = Vec.AngleBetween(_lastEyeDirection, direction);
+            if (swung > GrossEyeSwingRad)
+            {
+                _eyeSwingsReported++;
+                Log.Warn($"chase: the eye swung {double.RadiansToDegrees(swung):F0} deg round the round "
+                         + $"in one frame, looking {double.RadiansToDegrees(Vec.AngleBetween(forward, -_poseUp)):F1} "
+                         + "deg off straight down");
+            }
+        }
+
+        _lastEyeDirection = direction;
     }
 
     // Everything in the air right now has had its chance. The next launch has not.
@@ -466,6 +867,11 @@ internal sealed class ChaseCamera
             // is clear, which is a beat later.
             if (Vec.Len(round.TravelSinceLaunch) < ClearOfLauncher) continue;
 
+            // Going nowhere, so the view would only be handed straight back. Not skipped for good
+            // either: a round still turning onto its target is picked up once it closes.
+            if (!ChaseInterest.IsGoingSomewhere(round.Munition.HitsTerrain,
+                                                TimeToTarget(round, SampleAim(round)))) continue;
+
             return round;
         }
 
@@ -473,8 +879,11 @@ internal sealed class ChaseCamera
     }
 
     // What the eye did this frame, split along the local vertical, measured as an offset from the
-    // round so the planet's motion is not in it. Debug-only and only while a transition runs.
-    private void ProbeBlend(IProjectile round, double3 eye, double3 up, double dtSim)
+    // round so the planet's motion is not in it. Debug-only, and for the whole ride rather than
+    // only the transition: a camera that moves unevenly on a steady round is what this separates
+    // from a round that is itself moving unevenly, and neither is confined to the first second.
+    private void ProbeBlend(IEffectSource battery, IProjectile round, double3 eye, double3 up,
+                            double dtSim)
     {
         if (Log.Threshold > Log.Level.Debug) return;
 
@@ -515,9 +924,65 @@ internal sealed class ChaseCamera
                      + $"{overGround}");
         }
 
+        ProbeDrawnBody(battery, round, cameraEcl);
+
         _probeWantEcl = eye;
         _probeHadEcl = had;
         _probeTravel = round.TravelSinceLaunch;
         _probing = true;
+    }
+
+    // Where the round is DRAWN against where the eye actually is -- which is the separation the
+    // player is looking at, and the only one of these numbers that is. Everything else here
+    // measures what the mod meant; this measures the mesh, placed through the launcher's part tree
+    // by machinery the simulation never touches.
+    //
+    // A separation that holds still while the picture does not is the render chain rather than
+    // anything above it. One that moves says by how much, and in millimetres because that is the
+    // size of what is left.
+    private double3 _probeSepEcl;
+    private bool _probedSep;
+
+    // The one term that expression cannot see. A body is written in the launcher's frame against this
+    // frame's attitude and drawn next frame against the next one's, so a craft that turns between
+    // them swings the whole travel off the eye: a microradian is a millimetre a kilometre out.
+    private doubleQuat _probeAttitude;
+    private bool _probedAttitude;
+
+    private void ProbeDrawnBody(IEffectSource battery, IProjectile round, double3 cameraEcl)
+    {
+        if (!battery.TryRoundEffectEcl(round, out double3 bodyEcl)) return;
+
+        double3 sep = bodyEcl - cameraEcl;
+
+        string turned = "n/a";
+        if (battery.Platform is { } platform && KsaWorld.IsAlive(platform))
+        {
+            doubleQuat attitude = platform.Asmb2Ego;
+            if (_probedAttitude)
+            {
+                double3 travel = round.TravelSinceLaunch;
+                double3 carried = (attitude * (doubleQuat.Conjugate(_probeAttitude) * travel)) - travel;
+                turned = $"{Vec.Len(carried) * 1000.0:F2} mm";
+            }
+
+            _probeAttitude = attitude;
+            _probedAttitude = true;
+        }
+
+        if (_probedSep)
+        {
+            double3 moved = sep - _probeSepEcl;
+
+            Log.Debug($"  body {Vec.Len(sep):F3} m from the eye, "
+                      + $"moved {Vec.Len(moved) * 1000.0:F2} mm "
+                      + $"(along {Vec.Dot(moved, Vec.Unit(sep)) * 1000.0:F2}, "
+                      + $"across {Vec.Len(Vec.RejectFrom(moved, sep)) * 1000.0:F2}), "
+                      + $"{Vec.Len(round.TravelSinceLaunch) / 1000.0:F1} km from the launcher, "
+                      + $"platform turn carries it {turned}");
+        }
+
+        _probeSepEcl = sep;
+        _probedSep = true;
     }
 }

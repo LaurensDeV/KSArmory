@@ -54,9 +54,13 @@ SUBSET=0
 referenced="$(grep -ohP '(?<=\$\(KsaDllDir\))[A-Za-z0-9._]+(?=\.dll)' \
     "$REPO_ROOT"/src/KSArmory/*.csproj "$REPO_ROOT"/tests/*/*.csproj | sort -u)"
 
-# Game-shipped third-party. Taken from the install rather than NuGet on purpose: the game is
+# Third-party shipped alongside the game rather than pulled from NuGet, on purpose: the game is
 # pre-release and binds to the exact build it ships, so a NuGet package of the same nominal
 # version is not guaranteed to be the same assembly.
+#
+# Not all of it comes from the game. 0Harmony ships with the StarMap loader, so the search below
+# has to look where the copy step already does -- a name found in neither is caught by the
+# referenced-assemblies guard, and one found only in StarMap used to be dropped silently.
 EXTRAS=(BepuUtilities BepuPhysics MathNet.Numerics MemoryPack.Core
         CommunityToolkit.HighPerformance Tomlet 0Harmony)
 
@@ -72,7 +76,8 @@ else
     done < <(find "$KSA_DIR" -maxdepth 1 -name '*.dll' 2>/dev/null | sort)
 
     for name in "${EXTRAS[@]}"; do
-        [[ -f "$KSA_DIR/$name.dll" ]] && ASSEMBLIES+=("$name")
+        [[ -f "$KSA_DIR/$name.dll" || -f "${STARMAP_DIR:-/nonexistent}/$name.dll" ]] \
+            && ASSEMBLIES+=("$name")
     done
 
     # The loader ships separately from the game.

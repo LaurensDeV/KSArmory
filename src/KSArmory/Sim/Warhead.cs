@@ -34,9 +34,6 @@ public static class Warhead
     /// </summary>
     public const double FireballScaledDistance = 2.6;
 
-    /// <summary>The charge the particle emitters are authored for, in kg.</summary>
-    public const double ReferenceChargeKg = 20.0;
-
     /// <summary>Everything inside this is destroyed.</summary>
     public static double LethalRadius(double chargeKg) => Radius(LethalScaledDistance, chargeKg);
 
@@ -45,28 +42,6 @@ public static class Warhead
 
     /// <summary>Roughly how big the fireball should look.</summary>
     public static double FireballRadius(double chargeKg) => Radius(FireballScaledDistance, chargeKg);
-
-    /// <summary>
-    /// Smallest an effect is drawn at, whatever the charge.
-    ///
-    /// <para>The cube root is right for reach and wrong for visibility: a 0.16 kg cannon shell
-    /// scales to 0.2, which turns the authored burst into 5 cm particles — perfectly proportionate
-    /// and invisible at any range anyone watches from. An effect too small to see is the same as no
-    /// effect, and this is decoration, so it gets a floor. The damage radii do not.</para>
-    /// </summary>
-    public const double MinimumEffectScale = 0.6;
-
-    /// <summary>
-    /// What to multiply the authored effect by so it reads as this charge. Cube root again, so a
-    /// warhead a thousand times bigger looks ten times bigger rather than a thousand — floored,
-    /// so a small one still looks like something.
-    /// </summary>
-    public static double EffectScale(double chargeKg)
-    {
-        if (!double.IsFinite(chargeKg) || chargeKg <= 0.0) return 0.0;
-
-        return Math.Max(Math.Cbrt(chargeKg / ReferenceChargeKg), MinimumEffectScale);
-    }
 
     private static double Radius(double scaledDistance, double chargeKg)
     {

@@ -3,9 +3,8 @@
 The mod is built around three profile types and a registry so that a second weapon system is *data
 plus art*. This is how far that holds, read out of the code rather than out of the design notes.
 
-**Two of the four changes proposed below have landed, 2 is all but one step done, and 4 is still a
-plan.** The test work they depend on is done, and the last section records where the coverage now
-sits.
+**Three of the four changes proposed below have landed, and 4 is still a plan.** The test work
+they depend on is done, and the last section records where the coverage now sits.
 
 **Cite symbols here, never file and line.** A line citation is wrong within a few months, and a
 rename deletes the file it names. A symbol survives edits above it, and `grep` finds it.
@@ -18,17 +17,23 @@ rename deletes the file it names. A symbol survives edits above it, and `grep` f
 
 ### Different rounds — genuinely there
 
-`Interceptor` never names a munition. Every number arrives as a `MunitionProfile` argument per
-`Update`, and there is exactly **one** branch on round type in the whole flight model:
+The flight model names no munition. Every number arrives as a `MunitionProfile` argument per
+`Update`, and `Interceptor.SeekerInView` is the only place round type reaches the maths. Boost,
+drag, nav constant, fuse, blast, body mesh and fin timing are all profile fields; bodies and fins
+resolve by `BodyMarker` / `FinMarker`, so a new round brings its own meshes with no code change.
+Profiles are mutable fields read *by reference* every frame, which is what makes live panel tuning
+work.
 
-```csharp
-SeekerInView = munition.Guidance == GuidanceMode.CommandLink || /* seeker cone check */;
-```
+**A round carries the profile of the launcher that fired it.** `Interceptor.Munition` and
+`Slug.Munition` are `required` with no default, and `WeaponSystem.Commit` — the only construction
+site in production — sets it on both branches. The `required` is what holds it: a branch that
+forgets the field does not compile, where a default made forgetting it silent.
 
-`Interceptor.SeekerInView`. Boost, drag, nav constant, fuse, blast, body mesh and fin timing are all
-profile fields; bodies and fins resolve by `BodyMarker` / `FinMarker`, so a new round brings its own
-meshes with no code change. Profiles are mutable fields read *by reference* every frame, which is
-what makes live panel tuning work.
+**The parameterisation still hides the field from the suite, and that is the standing risk.**
+`Interceptor.Update` takes a `MunitionProfile` argument and every test passes one explicitly, so
+`round.Munition` is read only by `WeaponSystem` — the flight model, the command-link cut, both
+blast radii and the fireball scale all go through it in production and through the parameter in the
+tests. Nothing in `Sim/` can see a wrong value there.
 
 The limit is the *class* of weapon, not the round. `Interceptor` is one concrete type with a
 hardwired integrate → guide → fuse loop, so a second class of weapon is a second implementation of
@@ -42,9 +47,9 @@ flamethrower. See *What the architecture genuinely cannot express* below.
 
 ### Different launchers — modular in count, rigid in articulation
 
-Discovery is `Arsenal.LauncherForPart(part.Id)` (`LauncherPart.Find`); nothing hardcodes an
-Id. Tube count is fully derived — `Magazine`, the `stackalloc` in `WeaponSystem.Fire` and
-the body sync all size off `profile.TubeCount`, and `WeaponSystem.SampleWorld` re-sizes the
+Discovery is `Catalogue.LauncherForPart(part.Id)` (`LauncherPart.Find`); nothing hardcodes an
+Id. Tube count is fully derived — `Magazine` and the `stackalloc` in `WeaponSystem.SyncRoundBodies`
+both size off `profile.TubeCount`, and `WeaponSystem.SampleWorld` re-sizes the
 magazine when a *different* profile is recognised. A non-training launcher (`TurretMarker = null`)
 is a supported shape.
 
@@ -71,14 +76,14 @@ works structurally, since a part on a vehicle is a part on a vehicle. What decid
 behaves is where its sensor looks, and one limit is still pinned:
 
 - **Where the search cone points is the sensor's choice**, not a constant. `SensorProfile.BoresightSource`
-  offers `LocalUp`, `PartForward` and `TurretAxis`, resolved by `TubeGeometry.TryBoresightPartFrame`. The
-  Pantsir keeps `LocalUp`, because its set sweeps a hemisphere regardless of where the tubes are
-  aimed; the LAU-7 rail uses `PartForward`, because a seeker head looks where the rail points, and
-  that is what makes a launcher on something that manoeuvres work.
-- **One weapon system per craft**, not per launcher part. `WeaponSystems` crews every craft
-  carrying a recognised part and each carries its own `SystemConfig`, so a static site and a
-  rocket-mounted launcher both run. What is still pinned is `WeaponSystem.LauncherOrdinal`, so
-  a craft carrying *two* rails fires one of them and the other is scenery.
+  offers `LocalUp`, `PartForward`, `TurretAxis` and `MountNormal`, resolved by
+  `TubeGeometry.TryBoresightPartFrame`. The Pantsir keeps `LocalUp`, because its set sweeps a
+  hemisphere regardless of where the tubes are aimed; the LAU-7 rail uses `PartForward`, because
+  a seeker head looks where the rail points, and that is what makes a launcher on something that
+  manoeuvres work.
+- **One weapon system per launcher part**, keyed on the craft and the launcher's ordinal. A craft
+  carrying two rails is two weapons, each with its own `SystemConfig`, magazine, drives and rounds,
+  and the panel's selector picks which one the trigger drives.
 
 ---
 
@@ -87,45 +92,52 @@ behaves is where its sensor looks, and one limit is still pinned:
 | # | Change | Size | Mostly lands in | Unlocks |
 | --- | --- | --- | --- | --- |
 | 1 | ~~`TubeOffsets` becomes `Tube(position, direction)`~~ | **landed** | `Sim/LauncherProfile.cs` | any launcher whose tubes are not parallel |
-| 2 | `WeaponSystem` becomes a list, one per launcher part found | medium | `Ksa/WeaponSystems.cs` | static site + vehicle + rocket at once |
+| 2 | ~~`WeaponSystem` becomes a list, one per launcher part found~~ | **landed** | `Ksa/WeaponSystems.cs` | static site + vehicle + rocket at once |
 | 3 | ~~`BoresightMode` on `SensorProfile`~~ | **landed** | `Sim/SensorProfile.cs` | a launcher on anything that pitches |
 | 4 | Articulation as a list of drives rather than three named roles | large | `Sim/TubeGeometry.cs`, `Sim/LauncherProfile.cs` | drums, rails, per-tube motion |
 
 **4 is deliberately last and should not be attempted speculatively.** It is the one whose shape is
 least knowable before a second launcher exists that actually needs it.
 
-**1 and 3 are landed**, both cheaply, because the geometry they rewrite had already moved into
-`Sim/` and was covered — see the section below. 4 stays last.
+**1, 2 and 3 are landed**, the first and third cheaply, because the geometry they rewrite had
+already moved into `Sim/` and was covered — see the section below. 4 stays last.
 
-**2 has moved most of the way.** `Config` holds no launcher, round or sensor;
+**The first step of 2:** `Config` holds no launcher, round or sensor;
 `WeaponSystem.Profile`/`.Munition`/`.Sensor` are the system's own, paired by `Arsenal.LoadoutFor`,
 and `WeaponSystems` makes the class plural: every craft carrying a recognised part is crewed and
 pinned there. Two craft can therefore be two *different* weapon systems, which is what the LAU-7
 rail needs and what a shared `Config` makes impossible — with one, every reader outside a system's
 own update gets whichever system resolved last.
 
-What remains of 2 is **several launchers on one craft.** `WeaponSystem.LauncherOrdinal` is a
-`const 0` and `WeaponSystems` keys on `Vehicle`, so a craft with two Sidewinder rails fires one of
-them and the other is scenery. Fire control and the salvo timers are still KSA-facing and still
-unreachable from the test project, so that half remains the riskiest of the four despite being the
-smallest thing left on the row. `docs/BATTERY-SPLIT.md` items 5 and 6 are the route in.
+**2 is landed.** `WeaponSystems` keys on `(Vehicle, ordinal)` and crews one system per launcher
+part, so several launchers on one craft each run independently. What made it cheap was that every
+consumer iterates `All` and does not care how the roster is keyed; only `For(craft)` assumed one
+per craft, and making it answer with the *selected* one left the panel, the sight, the chase camera
+and the manual trigger untouched.
+
+What it does **not** come with is coverage. Fire control and the roster are KSA-facing and
+unreachable from the test project, so only the stepping arithmetic moved into `Sim/` where a test
+can see it — `Sim/WeaponSelection.cs`. The dictionary bookkeeping, the per-launcher settings key
+and the re-focus on selection are all unproven until flown, which is why this stayed the riskiest
+of the four.
 
 Change 1 crosses the `tools/model/pantsir.py` → `muzzles.json` → `Arsenal` boundary that
 `validate-parts.py` guards, so the generator and the validator move with it. Geometry duplicated
 across a boundary drifts, and that validator is the only thing holding these two copies together —
 see CLAUDE.md.
 
-One minor item is still open: `Arsenal.MunitionNamed` falls back to `Munitions[0]` on an unknown
-name with no warning, so a typo'd key silently flies the wrong round — a 30 mm barrel throwing
-45 m/s SAMs. The fallback is pinned by `WeaponSystemSelectionTests` rather than merely noted.
-`Ui.DrawStatus` names no system: it reads the fitted profile's `DisplayName`.
+One minor item is still open: `Catalogue.MunitionNamed` falls back to the first registered entry
+on an unknown name with no warning, so a typo'd key silently flies the wrong round — a 30 mm
+barrel throwing 45 m/s SAMs. The fallback is pinned by `WeaponSystemSelectionTests` rather than
+merely noted.
+`Sight.DrawStatus` names no system: it reads the fitted profile's `DisplayName`.
 
 ---
 
 ## Test coverage
 
 Where coverage exists it is dense: eight offset/phase tests, each verified to fail against its
-predecessor, 22 on the turret drive, 21 on the threat model, plus fuse and
+predecessor, 29 on the turret drive, 24 on the threat model, plus fuse and
 guidance-discrimination suites.
 
 **The coverage boundary is drawn at the file layout, not at the risk.** The test project links
@@ -134,11 +146,12 @@ right design, and its failure mode is a body of *pure* logic sitting on the wron
 disproportionately the logic the changes above rewrite.
 
 That logic is lifted into `Sim/`, the same way `FireGeometry` came out of `LauncherPart`, and the
-`Ksa/` side keeps only the property writes. The extraction is worth **117 → 203 tests**.
+`Ksa/` side keeps only the property writes. The extraction was worth **117 → 203 tests** when it
+landed, and the suite has grown many times over since.
 
 | Was stranded in `Ksa/` | Now | Tested by |
 | --- | --- | --- |
-| tube occupancy, `NextFreeTube`, refill | `Sim/Magazine.cs` | `MagazineTests` |
+| tube occupancy, `TryTakeTube`, refill | `Sim/Magazine.cs` | `MagazineTests` |
 | the seat-then-hide decision | `Sim/Magazine.cs` (`TubeVisual`) | `MagazineTests` |
 | tube muzzle / axis / seated maths | `Sim/TubeGeometry.cs` | `TubeGeometryTests` |
 | `MuzzleEcl` ring fallback | `Sim/TubeGeometry.cs` | `TubeGeometryTests` |
@@ -194,7 +207,7 @@ Extraction has limits, and these remain untestable because they genuinely need a
 - fire-control *sequencing* — salvo spacing and the reload timer. The magazine is out; the timing
   is not. The `IsLaid` *decision* is out too, into `FireGate`: it depends on four booleans and a
   settle time, none of them KSA types. What is still in `Ksa/` is the mode ladder above it —
-  spin, manual, stow, track — and the ordering of the four transform writes.
+  spin, manual, stow, track — and the ordering of the five transform writes.
 - `ResolvePlatform`, and the platform-election order.
 - `LauncherPart.Find` and subpart resolution by marker substring.
 - the centre-of-mass correction in `TryGetTubeMuzzleEcl`, and `ResolveOriginEcl`'s camera round trip.
@@ -250,12 +263,16 @@ The gap is what it shoots *at*: see below.
 
 ### What the architecture genuinely cannot express
 
-**Nothing upstream of a round can name a coordinate.** `Sim/Aimpoint.cs` covers the half of this
-that matters for the *round* — it can be aimed at a craft, a component or a point, and the
-designator proves it. What has not moved is the path that produces one: `Track` is a
-`required Vehicle`, `Radar.Scan` builds only from loaded vehicles, and the fire-control entry
-points refuse without a lock. A howitzer or an MLRS wants a target that was never a craft, and
-that is a retype across `Radar`, `Track`, `WeaponSystem` and `Ui` rather than a profile field.
+**Nothing can be engaged automatically unless it is a craft the set has locked.** The retype this
+entry used to call for has landed: `Track.Contact` is a `required IContact`, `Radar.Scan` takes
+contacts rather than vehicles and `Radar.Consider` knows nothing about the difference, and
+`Sim/Aimpoint.cs` plus `WeaponSystem.FireAt` and `Designator` let a round be aimed at a craft, a
+component, a point or a place on the ground.
+
+What remains is narrower and sits entirely in fire control: `Holding()` answers "no lock" and
+`UpdateFireControl` returns before firing, so a coordinate can only be shot at by hand. A howitzer
+or an MLRS wants to engage one unattended, and that is a change to the auto-engage ladder rather
+than a retype.
 
 **Continuous-effect weapons have no home.** `IProjectile` is a discrete object with a position, a
 flight and a fuse. A laser has no flight time, a flamethrower has no discrete round. Those need a
@@ -280,7 +297,7 @@ across the reap switch, `Detonate`, round-body placement keyed on tube number, `
 | 2 | **Target abstraction** — `Sim/Aimpoint.cs`, vehicle / part / point | **done** |
 | 3 | **Medium generalisation** — density ratio covers vacuum, air and water, plus buoyancy | **done** |
 | 4 | **Magazine decoupled from tubes** — `LauncherProfile.MagazineDepth` | **done** |
-| 5 | **Per-craft weapon manager** — `Ksa/WeaponSystems.cs` | **done, for one launcher per craft** |
+| 5 | **Per-launcher weapon manager** — `Ksa/WeaponSystems.cs` | **done** |
 
 "Done" here means shipped and covered, with every regression check verified against the bug it
 guards. It does not mean flown: `CHECKLIST.md` is where in-game confirmation is recorded, and a
@@ -296,11 +313,10 @@ What each unblocked, concretely:
   The Mk 15 Phalanx is that shape.
 - A weapon system can be told whose side it is on, and refuses friendlies.
 
-**5 reaches as far as the craft and stops there.** `WeaponSystems` crews every craft carrying a
-recognised part; `WeaponSystem.LauncherOrdinal` is still pinned to the first launcher on it. That
-last step is the one piece that restructures `Ksa/` rather than adding to `Sim/`, so it is the one
-with no test coverage to fall back on. It wants doing on its own, with a flight after it, rather
-than at the end of a long change — `docs/BATTERY-SPLIT.md` item 6.
+**5 reaches past the craft to the launcher.** `WeaponSystems` keys on the craft *and* the
+launcher's ordinal, so a craft carrying two rails runs two weapons. That last step restructured
+`Ksa/` rather than adding to `Sim/`, so it is the one with no test coverage to fall back on: only
+the stepping arithmetic is reachable, in `Sim/WeaponSelection.cs`.
 
 A continuous-effect abstraction (beams, flamethrowers) and AI pilots sit after all of that, and
 neither should be attempted speculatively.
@@ -318,19 +334,34 @@ does work still touches eight places across `Sim/`, `Ksa/`, the XML, the Blender
 validator.
 
 The shape that fixes it is one record — marker, pivot-from-parent, axis, reference angle, parent
-index — with a `PoseOf` that walks the chain, collapsing four `Find*`, four `TryApply*Aim`, three
-`*Pose` wrappers and ten profile fields. It also removes a silent failure by construction: a
-profile can currently declare `GunsMarker` and omit `GunReferenceElevationRad`, and the default of
-zero against a mesh modelled at 22° is a 22° error nothing reports.
+index — with a `PoseOf` that walks the chain, collapsing five `Find*`, five `TryApply*`, four
+`*Pose` wrappers and twelve profile fields, the counts having grown by one apiece when
+`OpticBaseMarker` landed. It would also remove a failure by construction that is currently caught
+by a tool instead: a profile declaring `GunsMarker` and omitting `GunReferenceElevationRad` takes
+the default of zero against a mesh modelled at 22°, which is a 22° error in where the rounds go.
+`validate-parts.py` reports it as a missing field, because the mesh knows the angle and the
+profile has to agree with it. That is a check rather than an impossibility, and it only runs
+because the launcher is enumerated from `Arsenal.Launchers` rather than named by hand.
 
 **Not done, deliberately, and the third level should not be built at all yet.** Every mount costed
 so far — naval, howitzer, mortar, remote weapon station — is traverse-then-elevate or does not
 articulate, so the chain-walking record would ship ahead of its first instance, which is the
-pattern `docs/AUDIT-2026-08.md` names. What *is* earned is per-channel
+pattern `docs/AUDIT-2026-08.md` names.
+
+**One passenger already generalises, and it is worth seeing why it did not need any of the above.**
+The Pantsir's director rides the traverse, and neither the launcher nor the head composes the
+other's motion: the traverse writes the base's transform along with everything else riding it, and
+the head *reads* that transform through `Sim/OpticGeometry.MountFrame`. So the coupling is a pose
+in the engine rather than a call between two systems, and it does not care what moved the base or
+how many joints away it was — a hinge, an arm, or a chain nobody has built yet all work unchanged.
+
+That is the cheap half of the chain-walking record, available without it: a passenger reading its
+parent's finished pose needs no model of the chain, where a passenger *driven* from the chain needs
+the whole thing. Reach for the record when something has to be **positioned** through several
+joints; a passenger that can ask where it ended up does not. What *is* earned is per-channel
 elevation (a `TraverseDrive` plus N `ElevationDrive`s, with per-channel `IsLaid`): two real
 trunnions exist and share one angle. It is still a restructuring of the region where a mistake
-shows up only in flight, so it wants a flight after it and should follow `docs/BATTERY-SPLIT.md`
-item 6 rather than precede it.
+shows up only in flight, so it wants a flight after it.
 
 ### Geometry that is known wrong
 

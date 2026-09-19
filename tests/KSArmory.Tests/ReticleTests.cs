@@ -164,4 +164,36 @@ public class ReticleTests
             }
         }
     }
+
+    /// <summary>
+    /// A closing speed that rounds to nothing prints as nothing.
+    ///
+    /// <para>A hair either side of zero formats as "-0" and "0", and a target holding station
+    /// crosses that boundary every frame — so the only thing moving on the glass is a minus sign
+    /// appearing and disappearing.</para>
+    /// </summary>
+    [Theory]
+    [InlineData(-0.4, "0 m/s")]
+    [InlineData(-0.0, "0 m/s")]
+    [InlineData(0.4, "0 m/s")]
+    [InlineData(0.0, "0 m/s")]
+    public void AClosingSpeedThatRoundsToNothingHasNoSign(double closing, string expected)
+    {
+        Assert.EndsWith(expected, Reticle.RangeAndClosing(800.0, closing), StringComparison.Ordinal);
+    }
+
+    /// <summary>A real closing speed keeps its sign, which is what says opening from closing.</summary>
+    [Theory]
+    [InlineData(-140.0, "-140 m/s")]
+    [InlineData(140.0, "140 m/s")]
+    public void ARealClosingSpeedKeepsItsSign(double closing, string expected)
+    {
+        Assert.EndsWith(expected, Reticle.RangeAndClosing(800.0, closing), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RangeIsInKilometresToTwoPlaces()
+    {
+        Assert.StartsWith("0.80 km", Reticle.RangeAndClosing(800.0, 0.0), StringComparison.Ordinal);
+    }
 }

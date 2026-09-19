@@ -1,6 +1,6 @@
 # KSA modding notes
 
-Everything here comes out of the shipped assemblies of **KSA build 2026.8.19.5261**, read with
+Everything here comes out of the shipped assemblies of **KSA build 2026.9.10.5438**, read with
 `tools/apidump`, or out of the StarMap sources. KSA is pre-release and unofficially moddable:
 none of this is documented by RocketWerkz, and **it will drift between game builds**. Re-run
 the dumper rather than trusting this file after an update.
@@ -16,7 +16,7 @@ the dumper rather than trusting this file after an update.
 | UI | Dear ImGui via `Brutal.ImGui.dll`, namespace `Brutal.ImGuiApi` |
 | Maths | `Brutal.Core.Numerics` — `double3`, `float3`, `float4`, `doubleQuat`, System.Numerics-style statics |
 | Code mod loader | **StarMap** (community) — <https://github.com/StarMapLoader/StarMap> |
-| Patching | Harmony (`Lib.Harmony` 2.4.1) |
+| Patching | Harmony (`Lib.Harmony` 2.4.2) |
 
 There is **no official code-modding API**. Part/asset mods are the supported path (XML + GLB +
 DDS); everything else goes through StarMap.
@@ -80,10 +80,10 @@ and distributes the archive; it neither loads code nor changes any of the above.
 All static:
 
 ```csharp
-public static Vehicle ControlledVehicle;                  // field; the vessel the player flies
+public static Vehicle? ControlledVehicle { get; set; }     // the vessel the player flies
 public static ReadOnlySpan<Vehicle> VehiclesInFrame { get; }  // every loaded vehicle
 public static GizmosRenderer GizmosRenderer;              // field; debug line/sphere drawing
-public static Viewport MainViewport { get; }
+public static IGameViewport MainViewport { get; }
 public static Camera GetMainCamera();
 public static Program Instance { get; }
 ```
@@ -96,21 +96,54 @@ double3 GetVelocityCce();  double3 GetVelocityCci();      // other frames
 IParentBody Parent { get; }                               // body it is bound to
 PartTree Parts { get; set; }
 float TotalMass { get; }  double MeanRadius { get; }
-bool IsDisposed { get; set; }                             // check before touching a stored ref
+bool IsDisposed { get; private set; }                     // check before touching a stored ref
 string Id { get; }                                        // via IObjectId
 doubleQuat Body2Cce { get; set; }
 Span<Vehicle> NearbyVehicles { get; }                     // same physics bubble only
 static Vehicle CreateVehicle(CelestialSystem, VehicleTemplate, IParentBody, string id);
-Vehicle Split(Part.Connector, double impulse, ref PoseChange, string id);
+Vehicle? Split(Part.Connector, double impulse, out PoseChange, string? id = null);
 void Teleport(Orbit, doubleQuat?, double3?);
 ```
+
+### Viewports — an interface and a registry, not a list
+
+**`KSA.Viewport` no longer exists.** As of 2026.9.4.5400 it is split three ways, and a mod binds to
+the interfaces rather than to a class:
+
+```csharp
+interface IViewport      // Id, ShaderSlot, Type, State, Visible, Mode, Size, Position, GetCamera()
+interface IGameViewport : IViewport   // BaseCamera, MapCamera, the five controllers,
+                                      //   GetActiveController(), SetCameraMode(), NextCameraMode()
+abstract class ViewportBase : IViewport
+class GameViewport : ViewportBase, IGameViewport
+class PartThumbnailViewport : ViewportBase          // not an IGameViewport
+```
+
+`Program.MainViewport` is an `IGameViewport`. What replaced the rest:
+
+| Was | Now |
+| --- | --- |
+| `Program.Viewports` (a `List<Viewport>`) | `ViewportRegistry.Views` / `.GameViews`, both `ReadOnlySpan` |
+| `Viewport.Index` | `IViewport.Id` (a `ViewportId`), and `ShaderSlot` for the render path |
+| `Viewport.IsOffscreen` | gone — the thumbnail viewport is simply not an `IGameViewport` |
+| `EViewportLightMode` | `ViewportLightMode` |
+| `Viewport.FixedController` (public **field**) | `IGameViewport.FixedController`, **get-only** |
+
+That last one is the one that bites: installing a custom `FixedController` was ordinary field
+assignment and is now impossible through the public surface. `GameViewport.FixedController` is an
+auto-property with a `protected` setter, so the backing field is the only way in — which is what
+`KsaWorld.LevelTheHorizon` does, and why it warns and falls back rather than assuming it worked.
+
+Secondary viewports are also **leased** now rather than simply existing:
+`ViewportRegistry.TryOpenSecondaryViewport` / `TryClaimSecondaryViewport(IViewportOwner)` hand one
+out, `ReleaseSecondaryViewport` gives it back, and `AvailableSecondaryCount` says how many are free.
 
 ### `KSA.Universe` — statics
 
 ```csharp
-static CelestialSystem CurrentSystem { get; set; }
-static void DestroyVehicle(Vehicle);
-static void DestroyVehicleFromEvent(Vehicle, VehicleDestructionEvent);   // how you kill something
+static CelestialSystem? CurrentSystem { get; private set; }
+static void DestroyVehicle(Vehicle, CrewDisposition = EndMission);
+static void DestroyVehicleFromEvent(Vehicle, VehicleDestructionEvent);   // how you kill something; KSA adds its own explosion
 static UniverseTime GetElapsedTime();
 ```
 
@@ -153,8 +186,11 @@ refilled by `RefreshVehiclesInFrame()` at a point in the tick that does not line
 postfix on `OnFrame`. Enumerate `Universe.CurrentSystem.All` and filter to `Vehicle` instead —
 that collection is authoritative and always valid.
 
-Gizmo submission from the same hook *does* work: `ResetInstances()` runs early in `OnFrame` and
-`GizmosRenderer.Render` later in the render pass, so a postfix lands between them.
+Gizmo submission from the same hook does not work either. KSA's whole frame runs inside `OnFrame`:
+`GizmosRenderer.ResetInstances()` near the top, then the UI, then the render. A postfix on
+`OnFrame` therefore lands *after* the render, and what it submits is cleared by the next frame's
+reset before it is ever drawn. `[StarMapAfterGui]` is a postfix on `OnDrawUiViewports`, which sits
+between the reset and the render, and is the hook to submit from.
 
 ### Reference frames
 
@@ -261,19 +297,19 @@ Worth knowing:
   the hardcoded message `ParticleSystem` uses when an emitter in the tree has no renderer, i.e. the
   by-Id child does not resolve back to its definition. Inline `<ParticleEmitters>` blocks are the
   form every emitter Core uses in play, and they work.
-- **`Volumetric` is the screen-space renderer and is OFF by default.**
-  `ParticleSystem.WriteCommandsColorTranslucent` only issues its draw commands when
-  `GameSettings.Graphics.ScreenSpaceParticles` is on, and that setting defaults to `false`. A
-  volumetric emitter otherwise resolves, acquires, registers, spawns, ages and draws **nothing**,
-  with no error anywhere. Ship a fallback variant too and pick at runtime — `Detonation` does.
-- **`Billboard` is the ungated soft renderer.** It is an alpha-blended camera-facing quad
-  (`BillboardParticleFrag`, `BlendColorAlpha`, no cull) sampling a `<MaterialId>`, and nothing in
-  the graphics settings turns it off. With a soft-edged sprite it is what smoke should be on a
-  default install: a sprite with no edge cannot read as a ball, however many overlap. Use
+- **Nothing gates a renderer but `GameSettings.Graphics.Particles`**, and that stops the whole
+  system: an emitter resolves, acquires and registers and still draws nothing while it is off.
+- **`Billboard` is the soft renderer for a sprite.** It is an alpha-blended camera-facing quad
+  (`BillboardParticleFrag`, `BlendColorAlpha`, no cull) sampling a `<MaterialId>`. With a
+  soft-edged sprite a cloud of them cannot read as a ball, however many overlap. Use
   `<Mesh Id="Plane"/>`, and `ParticleColor`'s W is its alpha.
-- **`GravityStrength` defaults to 1**, so anything that does not set it falls at full local
-  gravity — about 20 m in two seconds. Core sets it on every emitter. A **negative** value flips
-  the gravity vector, which is buoyancy for free and is how smoke rises.
+- **`Density` is buoyancy, and a stage without one falls at full local gravity** — about 20 m in
+  two seconds. It is an attribute on the `<ParticleEmitter>` or `<ParticleEmitters>` element, and
+  `ParticleEmitter.ApplyAtmosphereResponse` scales gravity by `1 - airDensity / Density`, clamped
+  to ±1: matching the air floats, lighter rises, and Core's metal debris says 7800. **Below 100 Pa
+  it counts no air**, so in vacuum every stage falls at full gravity whatever it says. `Drag`
+  beside it decays velocity as `exp(-Drag x dt)`, scaled by air density over 1.225
+  (`SimpleMovement.comp`).
 - **The pool is finite and shared.** `EmitterPool.Get` returns false when not enough emitters are
   free, so a salvo can starve it. Handle the false — an effect is decoration.
 
@@ -289,18 +325,18 @@ a position instead puts the craft's *origin* at the point and leaves the rest wh
 Because it is a buffered engine event that rebuilds the vehicle's orbit and velocity, it is a
 once-per-action call. Do not drive it per frame to make a craft follow the cursor.
 
-**It silently adds 8 m within 40 m of a launch-pad landmark** — `GetInitialKinematicStateForLocation`
-calls a private `GetLaunchPadHeightAtDirCcf`, so a craft placed at the pad stands *on* it. Anything
-drawing a preview marker has to add the same, or the marker sits inside the structure the craft
-will end up on. `KsaWorld.LaunchPadHeight` mirrors it, reading `Celestial.BodyTemplate.Locations`
-for a `LandmarkReference { IsLaunchPad: true }` — all public. **Those two numbers are the engine's
-and are copied**, so `ksa-api-diff.sh` will not notice if they move: the method holding them is
-private and is not in the API surface.
+**It silently stands the craft on a pad** — `GetInitialKinematicStateForLocation` calls a private
+`GetLaunchPadHeightAtDirCcf`, which walks `Celestial.BodyTemplate.Locations` for a
+`LandmarkReference { IsLaunchPad: true }` and adds that landmark's static object's
+`GroundOffset + SurfaceHeight` within its `FootprintRadius`. The numbers are declared data rather
+than constants — Core's `CoreLaunchPadA_Prefab_LaunchPadA` is 0.2 m + 1.5537 m over a 108.3 m
+circle — and `LocationReference.GetStaticObject()` is public, so anything drawing a preview marker
+can read the same figures instead of copying them.
 
 ### Aiming the player's camera — `OrbitView`, not `OrbitController`
 
 Writing `Camera.LocalRotation` does nothing lasting: every viewport runs a controller that rebuilds
-its camera each frame. `ViewportBase.SetCameraMode(CameraMode.Fixed)` does hold, and is how a
+its camera each frame. `IGameViewport.SetCameraMode(CameraMode.Fixed)` does hold, and is how a
 *secondary* viewport is driven — but on the main one it takes the view off the player and hides the
 interface, and `FixedController.OnFrame` divides by zero if the camera is following anything, so
 `Unfollow(changeControl: false)` has to come first.
@@ -523,8 +559,10 @@ silent failures.
 - **The node graph is never walked.** The loader takes mesh data and ignores the scene hierarchy,
   so a parent transform, an armature or a nested empty contributes nothing. Geometry has to be
   *baked* into the mesh — that is a requirement, not a style preference.
-- **Meshes whose name starts with `_` are skipped**, which is a free convention for helper
-  geometry you want in the source file but not in the game.
+- **Every mesh in the file is registered**, including helper geometry. The `_` prefix that skips a
+  mesh belongs to `KSA.GlbImport`'s bundlers — the authoring tool that writes asset XML from a
+  `.glb` — and `MeshAtlasFileReference` does not honour it, so a helper mesh in a shipped atlas
+  takes a global Id like any other.
 
 A consequence worth stating separately: because node transforms are not read, **an atlas is a
 library of bodies in their own local frames**, and placement lives entirely in the part XML's
@@ -617,7 +655,8 @@ come for free:
 
 Handy Core subparts: `CoreStructuralA_Subpart_TubeA` (0.854 × 0.101 tube),
 `..._MountingNodeHalfWA` / `_1WA` / `_2WA` (mounting discs), `..._Endcap*`, `..._TrussA`,
-`CoreFairingA_Subpart_FairingNoseCone{Half,1,2}WA` (0.5 / 1 / 2 m nosecones). Materials follow
+`CoreFairingA_Subpart_NoseconeBase{Half,1,2,3}MSkinA` (0.5 / 1 / 2 / 3 m nosecone bases, with
+`Nosecone{Ballistic,Blunt}{1,2}MSkinA` for the cones themselves). Materials follow
 `<Category>_Material`, e.g. `CoreStructuralA_Material`.
 
 **Not solved**: rendering a mesh at an arbitrary runtime position (for mod-simulated objects
@@ -645,8 +684,8 @@ discarded. A generator has to apply the scale to the object and then bake it int
 vertices.
 
 **An attachment's axes are composed in a different order from the body's.** The body gets
-`RotX(-90) * RotZ(-90)` applied *after* the scale (`KittenRenderable:184`); an attachment gets
-`RotZ(-90) * RotX(-90)` applied *before* the bone matrix (`:207`). So a mesh that is the right
+`RotX(-90) * RotZ(-90)` applied *after* the scale (`KittenRenderable:106`); an attachment gets
+`RotZ(-90) * RotX(-90)` applied *before* the bone matrix (`:354`). So a mesh that is the right
 size can still arrive rotated, and the `<Rotation>` in the attachment XML is where that is
 corrected.
 
@@ -686,10 +725,33 @@ mod — so the loader contract is known-good.
 by the part's engine module. A self-simulated round is not a part with an engine, so that path is
 closed and `GameAudio.PlaySound` is the one to use.
 
+## Explosions — KSA's own, from a point with no vehicle
+
+`ExplosionSystem.SpawnPreset(id, in ExplosionContext)` fires a declared `<Explosion>` with its
+flash, sound, volumes and emitters. Core ships `PopSmallExplosion`, `MetalBurst`, `SmallFire` and
+`Explosion_Conflagration` in `Content/Core/ExplosionAssets.xml`; `Ksa/Detonation.cs` is the worked
+example.
+
+- **Leave `Vehicle` null and set `Anchor`**: a `BubbleOrigin` on a `Celestial`, `BubbleFrame.Ccf`,
+  with the body-fixed point as `PositionBub`. With no vehicle the anchor is used as given, and a
+  stage whose anchor's parent is not a `Celestial` is dropped.
+- **Size is `IntensityJ / 5e10`, clamped to 0.05–100, as its cube root.** A 66 kg warhead is 0.0055
+  and goes off at the floor like everything else conventional, so pick the preset for size.
+- **`AmbientPressurePa` gates the stages.** Debris has air and vacuum variants split at 500 Pa, and
+  `PopSmallExplosion`'s smoke needs 5 kPa. Zero is vacuum.
+- **Main thread only**, or the request is dropped with a warning. Above 1200x warp the emitters and
+  volumes are skipped, and the flash and the sound still play.
+- **A volume needs an atmosphere, clouds and upscaling**, or its `FallbackEmitterId` fires instead.
+  The flash takes one of eight point-light slots shared with the engine.
+- **`DestroyVehicleFromEvent` and `PartFailureEvent.Apply` spawn their own**, routed by propellant
+  mass, so a mod's kill gets an explosion whether or not it asks for one.
+- **A missing Id warns in KSA's log, rate-limited, and nowhere else.** Ask
+  `ModLibrary.TryGet<ExplosionReference>` at load.
+
 ## Particle emitters can follow something that moves
 
-`Ksa/Detonation.cs` uses one-shot bursts pinned to a body-fixed point, but the emitter is not
-limited to that. `emitter.Context` has `Astronomical`, `Vehicle` **and** `Part` fields, and
+A one-shot emitter pinned to a body-fixed point is the simple case, but the emitter is not limited
+to that. `emitter.Context` has `Astronomical`, `Vehicle` **and** `Part` fields, and
 `emitter.Origin` is a `BubbleOrigin` carrying `BubFrame`, `PositionBub` **and `VelocityBub`** —
 so a continuously-spawning emitter re-anchored each frame is expressible. `SpawnRate`,
 `MaximumParticleCount` and `ParticleInfo.Lifespan` are all writable.
@@ -711,6 +773,30 @@ gizmo submission and `Universe.DestroyVehicleFromEvent` are safe from there. Veh
 itself runs on worker threads via `VehicleUpdateTask`; do not mutate vehicle state from those.
 
 Never destroy vehicles while iterating `Program.VehiclesInFrame` — copy to a list first.
+
+## Held controls are cleared on the controlled vehicle while the UI has the keyboard
+
+`Vehicle.ProcessInput` sets bits — `EngineFlags.ThrottleUp`/`ThrottleDown`, `ThrusterCommandFlags` —
+that persist until released, and `Vehicle.PrepareWorker` moves them into the vehicle's manual inputs.
+Its first act is:
+
+```csharp
+if (Program.ControlledVehicle == this && (!Program.IsControlledVehicleActive
+    || ImGui.GetIO().WantCaptureKeyboard || Universe.GetSimulationSpeed() > 30.0))
+{
+    ClearHeldPlayerInput();   // thruster flags, sprint, grab, engine flags
+}
+```
+
+So anything written through the keyboard channel is discarded on the craft being flown whenever an
+ImGui window has the keyboard, and every other vehicle keeps it. A Harmony prefix on `PrepareWorker`
+does not escape it: the clear runs inside the body, after the prefix.
+
+`VersionInfo.CheckOnLaunch` runs at every launch whatever `[system] checkForUpdates` says — that setting
+only gates the menu's "Check for Update" — and a newer server version raises `UpdateAvailablePopup`, a
+console modal that stays until a button is clicked. Popups sit on `Popup`'s private static `Popups`
+list, `Popup.AnyOpen` is public, and setting a popup's public `Active` to false is how its own buttons
+close it.
 
 ## Re-running the research
 
@@ -738,6 +824,33 @@ ilspycmd -t KSA.Camera Import/KSA.dll
 - Official wiki, part modding — <https://kittenspaceagency.wiki.gg/wiki/Help:Modding>
 - SpaceDock (KSA mods) — <https://spacedock.info/ksa>
 - Forums — <https://forums.ahwoo.com/>
+
+## A body's primary is `IParentBody`, and testing for `Celestial` compiles and answers nothing
+
+`Celestial.Parent` is declared as **`KSA.IParentBody`**, not as `Celestial`. So this:
+
+```csharp
+if (body.Parent is not Celestial primary) return Vec.Zero;   // wrong, and silent
+```
+
+compiles, reads like a null check, and returns zero for every body in the game. The interface is
+where the useful members are anyway — `Mu`, `Mass`, `SphereOfInfluence`, `BodyTemplate`, and it
+implements `IPosition`, so the position comes off it too:
+
+```csharp
+if (body.Parent is not { } primary) return Vec.Zero;         // IParentBody
+double mu = primary.Mu;
+double3 toPrimary = primary.GetPositionEcl() - body.GetPositionEcl();
+```
+
+**The failure mode is silence, and no gate in this repository can catch it.** The test project
+references no KSA assembly by design, so nothing under `Ksa/` is reachable by a unit test; the build
+is clean, `check-boundary.sh` is happy, and the API surface does not move because `Celestial` is
+already bound. It cost a batch of shots comparing two identical builds, and the only tell was a
+diagnostic log line that did not appear.
+
+The general form is worth carrying: **a KSA property's declared type is usually the interface**, and
+a pattern-match against the concrete class is a runtime `false` wearing a compile-time tick.
 
 ## A BCL property can be missing at runtime, and the assembly is not the reason
 

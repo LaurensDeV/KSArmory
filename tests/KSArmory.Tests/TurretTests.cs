@@ -15,6 +15,38 @@ public class TurretTests
     private static readonly double ElevRate = double.DegreesToRadians(45);
 
     [Fact]
+    public void Configure_StartsAFreshDriveAtItsLaunchersRestPose()
+    {
+        // The Mk 42 is modelled level. A drive left at the default writes 55 degrees on the first
+        // frame, and the barrel jumps up on load and slews back down.
+        LauncherProfile mount = Arsenal.Mk42;
+        Assert.True(Math.Abs(mount.RestElevationRad - Turret.DefaultRestElevation) > 0.1,
+                    "this needs a launcher that does not rest at the default");
+
+        var turret = new Turret();
+        mount.ConfigureTurret(turret);
+
+        Assert.Equal(mount.RestElevationRad, turret.ElevationRad, 9);
+    }
+
+    [Fact]
+    public void Configure_LeavesADriveThatHasMovedWhereItIs()
+    {
+        // Configured every frame the launcher is resolved, so seating it again would snap a laid gun
+        // back to rest.
+        var turret = new Turret();
+        Arsenal.Mk42.ConfigureTurret(turret);
+
+        turret.Stow(0.7);
+        turret.Update(10.0, ElevRate, ElevRate);
+        Assert.Equal(0.7, turret.ElevationRad, 9);
+
+        Arsenal.Mk42.ConfigureTurret(turret);
+
+        Assert.Equal(0.7, turret.ElevationRad, 9);
+    }
+
+    [Fact]
     public void BearingTo_ForwardIsZero()
     {
         // +Y is the turret's rest facing, which must be bearing zero.
@@ -162,6 +194,11 @@ public class TurretTests
     /// <summary>
     /// The two floors are ends of the same easing, so a mount with a genuine cutout still gets one
     /// — the step-free case above must not be bought by flattening the case the floor exists for.
+    ///
+    /// <para>The floor only ever falls as the turret traverses off the bow, and that direction is
+    /// the point: the bodywork it protects does not taper, so a curve that starts dropping at the
+    /// bow has given most of its height away by the time the tubes are abeam the obstruction —
+    /// which is where they reach furthest across it.</para>
     /// </summary>
     [Fact]
     public void DepressionFloor_StillProtectsAMountThatCannotDepressAtAll()
@@ -181,11 +218,6 @@ public class TurretTests
         }
     }
 
-    /// <summary>
-    /// The bodywork the floor protects does not taper, so the floor must not either. A curve that
-    /// starts falling at the bow has given most of its height away by the time the tubes are
-    /// abeam the obstruction, which is where the tubes are longest across it.
-    /// </summary>
     /// <summary>
     /// The radar overlay is clocked off this. Seeded from a fixed ecliptic axis instead, it turns
     /// with the planet under a boresight that is local "up", so the cone's ribs rotate on their

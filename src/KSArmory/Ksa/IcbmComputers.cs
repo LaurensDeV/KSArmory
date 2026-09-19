@@ -1,0 +1,203 @@
+using KSA;
+
+namespace KSArmory;
+
+/// <summary>
+/// One <see cref="IcbmComputer"/> per craft carrying a part that provides
+/// <see cref="WeaponRole.Guidance"/>, crewed and forgotten with the craft.
+///
+/// <para>Per <em>craft</em>, not per launcher, unlike <see cref="WeaponSystems"/> — and that is the
+/// whole difference between the two rosters. A craft can sensibly carry two rails and fire them at
+/// different things, but it has exactly one trajectory, so a second computer aboard would be a
+/// second autopilot fighting the first for the same engines.</para>
+///
+/// <para>A part that provides guidance is what confers it, and today that is the MIRV bus alone.
+/// That is the mod's usual rule — a part gives a craft a capability — and here it also draws the
+/// line the player expects: strap the bus onto a rocket and the rocket knows how to deliver it,
+/// while a Pantsir, a rail or a gun has nothing to fly and gets no computer.</para>
+/// </summary>
+internal sealed class IcbmComputers(Config session)
+{
+    private readonly Config _session = session;
+
+    private readonly Dictionary<Vehicle, IcbmComputer> _computers = [];
+    private readonly List<Vehicle> _stale = [];
+
+    // Who is mid-burn or mid-trim this frame, worked out once and handed to every computer. Reused
+    // rather than rebuilt, because it is walked every frame of every flight.
+    private readonly List<IcbmComputer> _busy = [];
+
+    public int Count => _computers.Count;
+
+    public IEnumerable<IcbmComputer> All => _computers.Values;
+
+    public IcbmComputer? For(Vehicle? craft)
+        => craft is not null && _computers.TryGetValue(craft, out IcbmComputer? c) ? c : null;
+
+    /// <summary>
+    /// The longest step any burning computer can be flown across, and whether one is burning.
+    ///
+    /// <para>The same question <see cref="WeaponSystems.FaithfulStep"/> answers for rounds, and it
+    /// feeds the same policy. A powered guided burn is not something that degrades gracefully under
+    /// timewarp: the cutoff lands on a frame boundary, so a long step is velocity left ungained,
+    /// and at the steps high warp hands out that is thousands of metres a second.</para>
+    /// </summary>
+    public double FaithfulStep(out bool anyBurning)
+    {
+        anyBurning = false;
+
+        foreach (IcbmComputer computer in _computers.Values)
+        {
+            if (!computer.NeedsShortSteps) continue;
+
+            // Not while KSA is running its own warp to a time. That mechanism lands the world where
+            // it was asked to and stops; racing it down is the fight WarpPolicy stands down from
+            // anyway, and from a thousand times speed the first slowdown it computes is nearly
+            // zero — which pauses the game. The computer stops the warp itself when the window is
+            // close, and the hold takes over from a speed it can work with.
+            if (computer.Program.Phase == IcbmPhase.Holding && KsaWorld.IsAutoWarpActive) continue;
+
+            anyBurning = true;
+        }
+
+        // NOT the trim's finer step, however much its precision wants one. Asking WarpPolicy for
+        // 66 ms where the burn asks 300 is a demand the world could not meet: flown, it answered
+        // "the world will not run slow enough to simulate this" and ABANDONED four burns, and an
+        // abandoned burn falls short -- every warhead of that night landed 182 to 316 km short of a
+        // target the same save had been hitting within 5 to 15 km. BusTrim.MaxFaithfulStep records
+        // what the trim would like; nothing may turn it into a demand that can lose a burn.
+        //
+        // The precision is still worth having and the route to it is not this one: it has to come
+        // from a step the world can actually deliver, not from asking harder.
+
+        return anyBurning ? IcbmProgram.MaxFaithfulStep : double.MaxValue;
+    }
+
+    /// <summary>Stand every burning computer down, for a world that outran what it can fly.</summary>
+    public void AbandonBurns(string why)
+    {
+        foreach (IcbmComputer computer in _computers.Values)
+        {
+            if (computer.Program.IsBurning) computer.Abort(why);
+        }
+    }
+
+    public void Sync(IReadOnlyList<(Vehicle Craft, WeaponInventory Inventory)> systems,
+                     IReadOnlyList<(Vehicle From, Vehicle To)> handovers)
+    {
+        Follow(handovers);
+
+        for (int i = 0; i < systems.Count; i++)
+        {
+            Vehicle craft = systems[i].Craft;
+            if (!KsaWorld.IsAlive(craft)) continue;
+            if (!systems[i].Inventory.HasGuidance) continue;
+            if (_computers.ContainsKey(craft)) continue;
+
+            _computers[craft] = new IcbmComputer(craft, new IcbmConfig(), _session);
+            Log.Debug($"ICBM computer crewed on {KsaWorld.DisplayName(craft)}");
+        }
+
+        Retire();
+    }
+
+    // A weapon that a decoupler carried onto another craft takes its computer with it, because the
+    // trajectory belongs to the shot rather than to the hull it was flown from. Before the crewing
+    // loop above, or that would put a second, disarmed, targetless computer on the craft the
+    // warheads are now riding.
+    //
+    // Only when nothing crewed is left behind: one computer per craft is the invariant, and a
+    // stack that keeps another weapon keeps its own trajectory to fly.
+    private void Follow(IReadOnlyList<(Vehicle From, Vehicle To)> handovers)
+    {
+        for (int i = 0; i < handovers.Count; i++)
+        {
+            (Vehicle from, Vehicle to) = handovers[i];
+
+            if (!_computers.TryGetValue(from, out IcbmComputer? computer)) continue;
+            if (_computers.ContainsKey(to)) continue;
+
+            _computers.Remove(from);
+            _computers[to] = computer;
+            computer.Rehome(to);
+        }
+    }
+
+    /// <summary>
+    /// Step every computer, handing each the weapon aboard its own craft.
+    ///
+    /// <para>The weapon arrives as <see cref="IManualFire"/> rather than as a system, because
+    /// letting a warhead go at a place is the whole of what a ballistic computer wants from one.
+    /// It is resolved here rather than held, so a craft that loses its launcher stops being able
+    /// to release without the computer having to notice.</para>
+    /// </summary>
+    public void Update(double simStep, double playerStep, WeaponSystems weapons,
+                       bool traceWarhead = false)
+    {
+        // Before any of them steps. There is one world and one clock, so whether it is safe to hand
+        // that clock to KSA's warp is a question about every flight in it -- the same shape as
+        // Sim/WorldSpeed.cs, and the same reason. Asked here because a computer knows only itself.
+        _busy.Clear();
+
+        foreach (IcbmComputer computer in _computers.Values)
+        {
+            if (computer.NeedsShortSteps) _busy.Add(computer);
+        }
+
+        foreach (IcbmComputer computer in _computers.Values)
+        {
+            computer.Update(simStep, playerStep, weapons.For(computer.Craft)?.Battery, traceWarhead,
+                            _busy);
+        }
+    }
+
+    /// <summary>Stand every computer down and forget them. What a scene change does.</summary>
+    public void Clear()
+    {
+        foreach (IcbmComputer computer in _computers.Values)
+        {
+            if (KsaWorld.IsAlive(computer.Craft)) computer.Abort("scene ended");
+        }
+
+        _computers.Clear();
+    }
+
+    // A destroyed craft's computer goes with it, unless it is still following a warhead down.
+    // Nothing is handed back either way, because there is nothing left to hand it to - the same
+    // rule the rest of the mod follows about not keeping a dead vehicle reachable, and the one
+    // exception to it is bounded by a single round's flight.
+    private void Retire()
+    {
+        _stale.Clear();
+
+        foreach (KeyValuePair<Vehicle, IcbmComputer> kv in _computers)
+        {
+            if (KsaWorld.IsAlive(kv.Key)) continue;
+
+            // Held only while a warhead it let go is still being followed, which is bounded by that
+            // round's own flight rather than by the session. A bus on a steep arrival breaks up
+            // before its warheads arrive, so retiring on the craft alone loses the trace -- and it
+            // loses it silently, because the flight still lands and is still scored.
+            // ACCURACY-PLAN.md 3ch. It flies nothing meanwhile: the attitude hook is released here
+            // and Update takes the dead-craft path, which steps the trace and nothing else.
+            // Held while it is still following a warhead down, or while the salvo it dropped is
+            // still arriving -- the second because a bus breaks up on reentry before its own
+            // warheads land, and the target mark has to outlive it or it goes out with the
+            // warheads still falling toward it. Both are bounded by the flight rather than the
+            // session.
+            if (kv.Value.TraceOutstanding || kv.Value.SalvoStillArriving)
+            {
+                AttitudeHook.Release(kv.Key);
+                continue;
+            }
+
+            _stale.Add(kv.Key);
+        }
+
+        for (int i = 0; i < _stale.Count; i++)
+        {
+            AttitudeHook.Release(_stale[i]);
+            _computers.Remove(_stale[i]);
+        }
+    }
+}

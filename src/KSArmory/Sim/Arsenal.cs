@@ -17,73 +17,6 @@ namespace KSArmory;
 public static class Arsenal
 {
     // ---- Munitions ------------------------------------------------------
-
-    /// <summary>
-    /// The 57E6, as flown by the real Pantsir-S1: a two-stage round that boosts hard and then
-    /// coasts on the sustainer.
-    ///
-    /// <para>The defaults on <see cref="MunitionProfile"/> are this round, so the figures live
-    /// there. What matters here is which of them are real and which are ours: peak speed
-    /// (~1300 m/s), boost duration (~2.4 s), reach (20 km) and the command-link guidance are
-    /// taken from the actual weapon. The fuse and blast radii are gameplay numbers — a 20 kg
-    /// continuous-rod warhead has a much smaller lethal envelope than 20 m, but KSA exposes
-    /// only binary destruction, so a realistic radius would read as the round doing nothing.</para>
-    ///
-    /// <para>The 57E6 carries <b>no seeker</b>. The vehicle tracks and uplinks steering commands,
-    /// which is why a hard-manoeuvring target cannot blind it — the engagement ends when the
-    /// launcher loses the track, not when the round loses sight of anything.</para>
-    /// </summary>
-    public static readonly MunitionProfile Missile57E6 = new()
-    {
-        MinRange = 1200f,
-        MaxRange = 20000f,   // the 57E6's own reach
-
-        Name = "57E6",
-        DisplayName = "57E6 two-stage SAM",
-        BodyMarker = "Missile",
-        FinMarker = "Fins",
-    };
-
-    /// <summary>
-    /// The 2A38M's 30 mm shell: the Pantsir's inner layer, for what the missiles cannot reach.
-    ///
-    /// <para>A <see cref="Slug"/> rather than an <see cref="Interceptor"/> — no seeker, no boost,
-    /// no command link. It leaves at muzzle velocity and is then only ballistics and drag, which
-    /// is why the numbers that matter here are speed and reach rather than guidance.</para>
-    ///
-    /// <para>Muzzle velocity (~960 m/s) and the 4 km effective range are the real weapon's. The
-    /// fuse radii are ours: a 30 mm shell is a contact weapon, but the mod steps in sub-frames
-    /// and cannot resolve a true contact, so the fuse is the smallest radius a round travelling
-    /// 960 m/s can be tested against without stepping past it.</para>
-    /// </summary>
-    public static readonly MunitionProfile Cannon30Mm = new()
-    {
-        MinRange = 200f,
-        MaxRange = 4000f,   // the 2A38M's effective reach
-
-        Name = "30MM",
-        DisplayName = "2A38M 30 mm cannon",
-
-        // No body subpart: twelve missile bodies exist because a salvo is twelve rounds, and a
-        // burst is hundreds. Shells are drawn as tracers only.
-        LaunchSpeed = 960f,
-        BoostSeconds = 0f,
-        BoostAccel = 0f,
-        MaxFlightSeconds = 6f,
-
-        // Heavier per frontal area than a missile, so it holds velocity better through the
-        // thick air where it is used at all.
-        DragK = 1.1e-5f,
-
-        FuseRadius = 3f,
-        FuseArmSeconds = 0.05f,
-        // Chosen to give the cannon a 4 m lethal radius. The same law then puts its blast radius
-        // at about 12 m rather than the 6 m a hand-authored pair would use -- that one only
-        // decides whether a near miss is logged, and one law cannot reproduce a pair authored at
-        // a different ratio.
-        ChargeKg = 0.16f,
-    };
-
     /// <summary>
     /// The AIM-9J: a rail-launched infrared air-to-air missile.
     ///
@@ -146,6 +79,130 @@ public static class Arsenal
     };
 
     /// <summary>
+    /// The AIM-120C-7: a rail-launched active-radar air-to-air missile.
+    ///
+    /// <para>Airframe figures are the real weapon's — 3.65 m, 178 mm, 161.5 kg, a 20 kg
+    /// blast-fragmentation warhead. What separates it from the AIM-9J on the rail beside it is
+    /// not size but reach: a boost-only motor throws it to about Mach 4 and it coasts from there,
+    /// which is why its envelope is measured in tens of kilometres and why a shot taken at the
+    /// edge of it arrives slow and turns badly.</para>
+    ///
+    /// <para>Modelled as <see cref="GuidanceMode.Seeker"/> because that is what it does at the
+    /// end: the real round flies inertially on a mid-course datalink and only lights its own
+    /// radar for the last few kilometres, but this mod has no mid-course phase to model, and a
+    /// command-linked round would break the moment the launcher lost the track — which is the
+    /// one thing an AMRAAM is built not to do. The wide gimbal below is that compromise: it is
+    /// the round holding its own target, not a seeker that can really see 60 degrees off axis.
+    /// </para>
+    /// </summary>
+    public static readonly MunitionProfile Missile120C = new()
+    {
+        MinRange = 900f,      // it has to coast clear and light off before it can steer to a kill
+        MaxRange = 105000f,   // the C-7's, from altitude and speed; a low shot gets nothing like it
+
+        Name = "AIM120C",
+        DisplayName = "AIM-120C-7 AMRAAM",
+        BodyMarker = "Amraam_Round",
+
+        // No fin marker: a rail-launched round carries its fins deployed, so there is nothing to
+        // unfold and no second subpart to scale.
+        BodyLength = 3.645f,
+
+        // Off the rail on its own motor rather than ejected, so the rail imparts nothing.
+        LaunchSpeed = 25f,
+
+        // A C-7 is boost-only — no sustainer — so everything after the burn is a coast. That is
+        // the whole character of the weapon: it is fastest a few seconds after launch and slowest
+        // where it matters, which is what makes a long shot easy to defeat by turning away.
+        BoostSeconds = 5.5f,
+        BoostAccel = 235f,
+        MaxFlightSeconds = 120f,
+
+        // Slimmer and far heavier than the AIM-9J, so it holds speed through the coast much
+        // better — the ratio of the two is what decides which round reaches an escaping target.
+        DragK = 2.6e-5f,
+
+        Guidance = GuidanceMode.Seeker,
+        SeekerFovDeg = 60f,
+        NavConstant = 4f,
+        MaxLateralG = 40f,
+
+        // Long enough to be clear of the rail and the craft before anything turns it.
+        SeparationSeconds = 0.4f,
+
+        FuseRadius = 14f,
+        FuseArmSeconds = 1.2f,
+        ChargeKg = 20f,
+    };
+
+    /// <summary>
+    /// The AGM-88 HARM: a rail-launched anti-radiation missile.
+    ///
+    /// <para>Airframe figures are the real weapon's, from designation-systems.net — 4.17 m,
+    /// 254 mm, 112 cm wingspan, 61 cm finspan, 360 kg, a 66 kg WDU-21/B blast-fragmentation
+    /// warhead behind an FMU-111/B laser proximity fuze.</para>
+    ///
+    /// <para>What separates it from the AMRAAM on the rail beside it is not reach but what it can
+    /// see: <see cref="GuidanceMode.AntiRadiation"/> homes on an emission, so a contact that is
+    /// not transmitting is not a target however large or close. That makes it useless against
+    /// aircraft and decisive against a radar site — which is the entire weapon.</para>
+    ///
+    /// <para>Its motor is a <em>dual-thrust</em> SR113-TC-1: boost and then sustain, where the
+    /// AMRAAM is boost-only and coasts the rest of the way. So it holds speed at the far end of
+    /// its envelope rather than arriving slow and turning badly, and a long shot is not the
+    /// giveaway it is for a coasting round.</para>
+    /// </summary>
+    public static readonly MunitionProfile MissileAgm88 = new()
+    {
+        // It has to clear the rail and settle before its seeker means anything; the far end is
+        // the standoff figure, which the real weapon only reaches from altitude and speed.
+        MinRange = 1200f,
+        MaxRange = 148000f,
+
+        Name = "AGM88",
+        DisplayName = "AGM-88 HARM",
+        BodyMarker = "Harm_Round",
+
+        // No fin marker: a rail-launched round carries its fins deployed, so there is nothing to
+        // unfold and no second subpart to scale.
+        BodyLength = 4.17f,
+
+        // Off the rail on its own motor rather than ejected, so the rail imparts nothing.
+        LaunchSpeed = 25f,
+
+        // Boost, then sustain. The SR113-TC-1 is dual-thrust, and Stages holds what burns *after*
+        // the first -- so the boost is BoostSeconds/BoostAccel and the sustainer is the one entry
+        // below. That second burn is the whole difference from the AMRAAM's single one: it is
+        // still pushing where a coasting round has started to fall back.
+        BoostSeconds = 5.0f,
+        BoostAccel = 210f,
+        Stages = [new(Seconds: 18.0f, Accel: 26f)],
+        MaxFlightSeconds = 180f,
+
+        // Fatter than the AMRAAM at the same order of mass, so it bleeds rather more -- but it is
+        // still burning for most of the flight, which is what the extra reach is bought with.
+        DragK = 3.1e-5f,
+
+        Guidance = GuidanceMode.AntiRadiation,
+
+        // A wide gimbal, because the emitter is found by direction-finding across the whole
+        // forward hemisphere rather than through a dish that has to be pointed.
+        SeekerFovDeg = 70f,
+        NavConstant = 4f,
+
+        // Wing-controlled, and a big airframe: it turns well but nothing like a point-defence
+        // round, and it is not trying to catch anything that manoeuvres.
+        MaxLateralG = 20f,
+
+        // Long enough to be clear of the rail and the craft before anything turns it.
+        SeparationSeconds = 0.4f,
+
+        FuseRadius = 16f,
+        FuseArmSeconds = 1.5f,
+        ChargeKg = 66f,
+    };
+
+    /// <summary>
     /// The M61A2's 20 mm round, as the Phalanx fires it.
     ///
     /// <para>Muzzle velocity (1100 m/s), the 1486 m effective range and the 4500 rpm the gun runs
@@ -169,40 +226,130 @@ public static class Arsenal
         BoostSeconds = 0f,
         BoostAccel = 0f,
 
-        // Just past the gun's own 1486 m reach, not four times it. At 1100 m/s five seconds is
-        // 5.5 km of flight that can hit nothing, and at 75 rounds a second it keeps 375 shells in
-        // the air to do it: every one stepped, drawn and logged.
-        MaxFlightSeconds = 2f,
+        // Just past the gun's own 1486 m reach, which through the air it takes 2.1 s to get to, and not
+        // four times it: at 75 rounds a second every second of life is 75 more shells in the air, each
+        // one stepped, drawn and logged.
+        MaxFlightSeconds = 2.5f,
 
-        DragK = 1.3e-5f,
+        // A full-calibre 20 mm round of 102 g, which is what the fuse and charge model: it arrives at the
+        // edge of reach with under half its muzzle speed.
+        MassKg = 0.102f,
+        CalibreMm = 20f,
+        DragCoefficient = 0.3f,
 
         FuseRadius = 2.5f,
         FuseArmSeconds = 0.03f,
         ChargeKg = 0.05f,
     };
 
-    // ---- Sensors --------------------------------------------------------
-
     /// <summary>
-    /// A 500 lb general-purpose bomb: no seeker, no motor, no fuse but the ground.
+    /// The 5"/54's anti-aircraft shell, on a time fuze.
     ///
-    /// <para>Modelled on the Mk 82 — 227 kg all up, of which 87 kg is filler. The drag constant is
-    /// set from its terminal velocity rather than guessed: a Mk 82 settles around 280 m/s, and
-    /// <c>DragK = g / v²</c> is what makes it do that.</para>
+    /// <para>Muzzle velocity (807.7 m/s) and the 3.3 kg burster are the real round's, and 15.7 km is
+    /// how far out the mount engages. Its drag is its 31.75 kg at 127 mm with a shell's coefficient, which
+    /// is what gives the range table's 23.7 km.</para>
+    ///
+    /// <para><b>The fuze is the weapon.</b> A 20 mm round has to touch what it kills, so a CIWS
+    /// makes up for a small charge with volume; this one bursts in the air at the flight time the
+    /// lead solution asked for, which is what let a gun this slow engage aircraft at all. Through
+    /// <see cref="Warhead"/> the 3.3 kg gives it about 11 m of lethal radius against the 20 mm's
+    /// 2.7 — so it need not be close, which is just as well at forty rounds a minute.</para>
+    ///
+    /// <para>This is the mechanical time fuze rather than the VT: it bursts where the target was
+    /// predicted to be, so a manoeuvring target is missed by however far it manoeuvred. The
+    /// proximity fuse still runs underneath it, hull-gated like any other shell.</para>
     /// </summary>
-    public static readonly MunitionProfile BombMk82 = new()
+    public static readonly MunitionProfile Shell5In54 = new()
     {
-        Name = "MK82",
-        DisplayName = "Mk 82 500 lb bomb",
-        BodyMarker = "Mk82",
-        BodyLength = 2.22f,
+        // The floor is where the fuze has armed, not a limit of the gun.
+        MinRange = 350f,
+        MaxRange = 15_700f,   // what the envelope is built around
 
-        Guidance = GuidanceMode.None,
+        Name = "5IN54",
+        DisplayName = "5\"/54 HEDP",
+        BodyMarker = "Mk42_Shell",
+        BodyLength = 0.42825f,
 
-        // Released, not launched: what it mostly leaves with is the aircraft's velocity. The few
-        // metres a second are the ejector cartridge, which throws a store down hard enough to
-        // clear the airflow under the wing -- and at zero the launcher's EjectAwayFromMount is a
-        // direction multiplied by nothing.
+        LaunchSpeed = 807.7f,
+        BoostSeconds = 0f,
+        BoostAccel = 0f,
+
+        // A fallback, not how long a shell flies: a path that can only end on the ground runs no clock and the
+        // ground ends it (RoundReach), which from Mars is past three minutes. What this still ends is a shell
+        // nobody can judge. A long barrage at 40 rpm is a few dozen in the air.
+        MaxFlightSeconds = 120f,
+
+        // The 70 lb shell at 127 mm, with the coefficient that gives the range table's 23.69 km at 47 degrees
+        // through an 8 km scale height -- a shell's usual 0.3, near enough. One constant cannot also give the
+        // ceiling: straight up it reaches 16.1 km against 14.8, as real drag peaks near Mach 1.
+        MassKg = 31.75f,
+        CalibreMm = 127f,
+        DragCoefficient = 0.306f,
+
+        TimedFuse = true,
+        FuseRadius = 12f,
+        FuseArmSeconds = 0.45f,
+        ChargeKg = 3.3f,
+
+        // The ground stops it. Without that, a shell that misses has two minutes to fall through
+        // the planet and leaves the far side at hundreds of kilometres a second. The terrain sample
+        // this costs is per round, and a gun firing every 1.5 s has a few dozen in the air at most.
+        HitsTerrain = true,
+    };
+
+    // ---- Sensors --------------------------------------------------------
+    /// <summary>
+    /// A B61-pattern tactical nuclear bomb, at its lowest selectable yield.
+    ///
+    /// <para><b>The only thing nuclear about it is one number.</b> <see cref="Warhead"/> derives
+    /// reach from <see cref="MunitionProfile.ChargeKg"/> by the cube root, and nuclear airblast
+    /// genuinely scales that way, so 0.3 kt of TNT equivalent gives about 490 m lethal and 1.5 km
+    /// of blast with no special case anywhere. Everything else here is the Mk 82's, because a bomb
+    /// is a bomb: it is released, it falls, the ground stops it.</para>
+    ///
+    /// <para>The yield is the dial. Real B61 settings run from 0.3 kt to 340 kt, and the top of
+    /// that is a 7.8 km lethal radius, which in this game is most of a launch site's horizon —
+    /// playable is a different question from real, and this ships at the bottom of the range.</para>
+    ///
+    /// <para>It goes off far smaller than it kills, which is unavoidable: KSA's explosion stops
+    /// growing at a hundred times its reference energy. See <see cref="WarheadExplosion"/>.</para>
+    /// </summary>
+    public static readonly MunitionProfile NukeB61 = new()
+    {
+        Name = "B61",
+        DisplayName = "B61 tactical bomb",
+
+        // The marker is this rack's own subpart. It is matched against the subparts of whichever
+        // part the launcher resolved, so naming the other rack's body resolves nowhere and the
+        // bomb is released invisibly.
+        //
+        // Length is the B61-12's published 11 ft 8 in, and the mesh is built to it.
+        BodyMarker = "B61",
+        BodyLength = 3.556f,
+
+        // Four hinged blades rather than one deploying set: they are what steers, so they are
+        // drawn deflecting. The travel is deliberately larger than the real few degrees -- see
+        // FinDeflectionDeg.
+        FinMarker = "Blade",
+        FinsPerRound = 4,
+        FinHingeStation = -1.521f,
+        FinDeflectionDeg = 12f,
+
+        // The guided tail kit. It steers a fall onto a designated point and cannot follow anything
+        // that moves — see GuidanceMode.Inertial. Undesignated it is a dumb bomb, which is also
+        // what the real one is when released ballistically.
+        //
+        // It steers the fall it predicts onto the designation -- see TailKit -- so there is no
+        // gravity compensation to set: gravity is part of the prediction, not an error to cancel.
+        Guidance = GuidanceMode.Inertial,
+        NavConstant = 3f,
+        // 0.4 g, not the 3 g this first carried. A tail kit steers with body lift off a 330 mm
+        // slender body: at 250 m/s and 320 kg, 3 g needs a lift coefficient of 2.9 at sea level
+        // and 6.7 at 8 km, where a finned body of this shape tops out near 1. The kit exists to
+        // correct a release error of a few hundred metres, not to glide -- at 3 g it flew a
+        // kilometre of cross-range per kilometre of drop, which is a winged weapon's footprint.
+        MaxLateralG = 0.4f,
+
         LaunchSpeed = 4f,
         BoostSeconds = 0f,
         BoostAccel = 0f,
@@ -210,37 +357,153 @@ public static class Arsenal
         MinRange = 0f,
         MaxRange = 20000f,
 
-        // Long enough for a release from altitude: a drop from 10 km is about 45 seconds.
-        MaxFlightSeconds = 120f,
+        // Counted only where there is air to arrive through, so this is a budget for the fall
+        // rather than for the flight: a coast above the atmosphere spends none of it, and what
+        // reaps a store that will never arrive at all is RoundReach. Two minutes of *fall* was
+        // already ample - a 5 km drop is 34 s - and this is headroom rather than a fix.
+        MaxFlightSeconds = 300f,
 
+        // By hand rather than from mass and calibre: a bomb's drag rises steeply through the speed of sound,
+        // which no constant coefficient follows -- one fitted to its subsonic shape lets it fall supersonic.
+        // This is a Mk 82's terminal velocity, about 280 m/s.
         DragK = 1.25e-4f,
-
-        // Contact. There is nothing to be near -- what it arrives at is the ground, and the hull
-        // test decides a craft.
         FuseRadius = 0f,
 
-        // Clear of the aircraft that dropped it before it can do anything. A bomb fused at release
-        // is one that goes off under its own wing.
-        FuseArmSeconds = 1.5f,
+        // Longer than the Mk 82's, and for a reason that is not the same: at 490 m lethal the thing
+        // that has to be cleared is not the wing but the blast.
+        FuseArmSeconds = 4f,
 
-        ChargeKg = 87f,
+        ChargeKg = 300_000f,
         HitsTerrain = true,
     };
 
     /// <summary>
-    /// The 1RS1-1E search set, with the engagement envelope of the system it feeds.
+    /// A Mk 21-pattern reentry vehicle, released from a post-boost vehicle.
     ///
-    /// <para>Detection reaches much further than the round flies — 36 km against 20 km — so the
-    /// envelope is a separate limit rather than a consequence of detection range. Without it the
-    /// battery fires at everything it can see and the rounds expire short of a long crossing
-    /// target.</para>
+    /// <para><b>Unguided, and that is the whole weapon.</b> It is let go on a diverging vector and
+    /// the planet does the rest, so this is the Mk 82's flight model with a far better ballistic
+    /// coefficient: <see cref="DragK"/> is an order of magnitude lower because a 0.55 m cone at
+    /// 800 kg is the densest thing this mod throws.</para>
+    ///
+    /// <para><b>The yield is a playability choice, not a figure.</b> A real W87 is 300 kt, which
+    /// through <see cref="Warhead"/>'s cube-root scaling is 4.9 km lethal and 14.8 km of blast —
+    /// six of those is most of a hemisphere's worth of launch site. This ships at 20 kt, which
+    /// lands on exactly 2.0 km lethal and 6.0 km blast, for the same reason the B61 ships at the
+    /// bottom of its range. It is one number if anyone wants the real one.</para>
+    ///
+    /// <para><see cref="MaxFlightSeconds"/> is thirty minutes rather than the bomb's two, because
+    /// that is what a ballistic arc costs. Note that <see cref="WarpPolicy"/> holds timewarp down
+    /// for the whole of it.</para>
     /// </summary>
-    public static readonly SensorProfile SearchRadar1Rs1 = new()
+    public static readonly MunitionProfile ReentryVehicleMk21 = new()
     {
-        Name = "1RS1",
-        DisplayName = "1RS1-1E search radar",
+        Name = "MK21",
+        DisplayName = "Mk 21 reentry vehicle",
+
+        BodyMarker = "Mirv_Rv",
+        BodyLength = 1.80f,
+
+        // Ballistic on purpose, and not an omission. A W87 has no seeker and no control surfaces,
+        // and no deployed strategic MIRV does -- terminal guidance on a reentry vehicle has always
+        // been a single-warhead weapon, Pershing II and the anti-ship MaRVs. Inertial here would
+        // take a 500 m release error to 2.32 m and make the arrival angle stop mattering, which is
+        // exactly why it would be a lie about the part. A steering one is a second profile.
+        // docs/KINETIC-FLOOR.md section 8 has the measurements and the decision.
+        Guidance = GuidanceMode.None,
+
+        // A separation spring, not a motor. It is the bus's own velocity that matters.
+        LaunchSpeed = 0.5f,
+
+        BoostSeconds = 0f,
+        BoostAccel = 0f,
+
+        MinRange = 0f,
+
+        // Half a circumference, because that is the geometric limit rather than a performance one:
+        // past it the short way round is the other way. A reentry vehicle has no motor, so its
+        // reach is entirely the arc the bus put it on - reading this as something the round itself
+        // can manage caps an intercontinental weapon at a few hundred kilometres, and fire control
+        // then refuses to release it over the target it was flown to.
+        MaxRange = 20_000_000f,
+
+        MaxFlightSeconds = 1800f,
+
+        // An order of magnitude below the Mk 82's: a dense cone is what a heatshield is for. Kept by hand
+        // although nothing flies it any more -- IcbmConfig.WarheadDragFromItsShape ships on and swaps in the
+        // round's real drag -- because it is the arm a paired night flies as its comparator. It is not a
+        // physical figure: ~8,400 lb/ft2 against the 100 to 5,000 published (ACCURACY-PLAN 3eu).
+        DragK = 1.5e-5f,
+
+        // A fifth of the default, and the whole of what is left of this weapon's error. Flown at
+        // Mahia the correction converged to 15 m and the warheads landed 756 m out; the round's own
+        // symplectic Euler is 143 m of the 149 m it lands from its own probe on flat ground, and the
+        // slope under a shallow arrival multiplies that by up to four. Measured at 30.6 m per
+        // millisecond -- 145.3 / 68.8 / 22.9 / 7.6 m at 5.00 / 2.50 / 1.00 / 0.50 -- so this is the
+        // step where the integrator stops being the largest term.
+        //
+        // Affordable here and nowhere else: six warheads at a millisecond is about 300 sub-steps a
+        // frame, where a 150-shell burst at the same step would be 7,500. MaxSubSteps scales with
+        // it, so this round's faithful step does not move and WarpPolicy is unaffected.
+        SubStepSeconds = 0.001f,
+
+        FuseRadius = 0f,
+
+        // Long enough to clear the bus and the five RVs alongside it, at a 0.5 m/s separation.
+        FuseArmSeconds = 10f,
+
+        ChargeKg = 20_000_000f,
+
+        // The coast frame this round would rather the world ran at. Its disagreement with its own
+        // predictor is two terms of opposite sign -- one proportional to the frame at about 31 m
+        // per millisecond, one constant near -4.2 km -- so the error crosses zero at a frame of
+        // roughly 138 ms rather than falling to nothing as the frame shrinks. Measured at three
+        // frames: +1,806 m at 194 ms, -1,400 at 96, -3,493 at 24.
+        //
+        // Under the coast's own step, which is what makes it reachable. WarpPolicy acts only once
+        // the step *exceeds* this and then lands the world on Margin * this, so a value above the
+        // ~188 ms an 8x coast runs at holds nothing: at 225 ms the coast stayed at 188 ms on five
+        // of seven frame draws, and the 96 ms below arrived only when a stray frame tripped it.
+        // 188 ms is the configuration the 96 ms was flown against and beat. At 180 ms the 188 ms
+        // branch does not occur anywhere in the 21.0-33.3 ms frame band and the coast runs 76-110,
+        // a mean of 98. docs/MIRV-NEXT.md item 7e priced the lottery across 38 flown shots.
+        //
+        // Why not nearer the crossing below: the margin means the world lands at 0.6 of what is
+        // named, so no reachable value holds the coast at 138 ms -- asking for it is asking for a
+        // step the coast never exceeds, which holds nothing.
+        //
+        // The ~96 ms is flown, five against five interleaved: median 1.66 -> 1.06 km, ratio 0.65
+        // with a 97% interval of 0.55-0.90. What is new here is getting it every shot.
+        PreferredStepSeconds = 0.180f,
+        HitsTerrain = true,
     };
 
+    /// <summary>
+    /// A Mk 21 with its drag from what it is rather than the constant it carries: the 200 to 270 kg it is
+    /// believed to weigh, taken at 270, on its 55 cm base, at a slender cone's hypersonic 0.1. About
+    /// 2,300 lb/ft² of ballistic coefficient, inside the 100 to 5,000 published for ICBM warheads, and 3.6x
+    /// the constant's drag. This is what a released warhead actually flies, since
+    /// <see cref="IcbmConfig.WarheadDragFromItsShape"/> ships on; it is not registered, so nothing else can
+    /// reach it, and the registered profile keeps the constant as the comparator arm.
+    /// </summary>
+    internal static MunitionProfile Mk21WithDragFromShape(MunitionProfile mk21)
+    {
+        MunitionProfile round = mk21.Copy();
+        round.MassKg = 270f;
+        round.CalibreMm = 550f;
+        round.DragCoefficient = 0.1f;
+        return round;
+    }
+
+    /// <summary>
+    /// The same round integrating at a stated sub-step. What <see cref="IcbmConfig.WarheadSubStepMs"/> flies;
+    /// a copy rather than an edit, because the registered profile is shared by every rocket in the world.
+    /// </summary>
+    internal static MunitionProfile RoundAtSubStep(MunitionProfile round, double seconds)
+    {
+        MunitionProfile stepped = round.Copy();
+        stepped.SubStepSeconds = (float)seconds;
+        return stepped;
+    }
     /// <summary>
     /// The rail's own infrared search head: short-ranged, narrow, and pointed where the rail is.
     ///
@@ -270,6 +533,76 @@ public static class Arsenal
     };
 
     /// <summary>
+    /// The AMRAAM's own seeker, standing in for the radar of whatever is carrying the rail.
+    ///
+    /// <para>The same fiction as the AIM-9 rail's, for the same reason: nothing on a LAU-128
+    /// searches for anything, and in the real weapon the launching aircraft finds the target and
+    /// hands it over. With no aircraft radar to model, the round's set is what the mod searches
+    /// with — which is why the range below is the seeker's acquisition range and not the
+    /// weapon's 105 km envelope.</para>
+    ///
+    /// <para>Radar rather than infrared, so unlike <see cref="SeekerHeadAim9"/> it does not need
+    /// the target hot: <see cref="SensorProfile.ReferenceCrossSectionM2"/> is what it needs
+    /// instead, and detection goes as the fourth root of it — a round is a far smaller target
+    /// than the craft that threw it without anything having to know one from the other.</para>
+    /// </summary>
+    public static readonly SensorProfile SeekerHeadAim120 = new()
+    {
+        Name = "AIM120SEEK",
+        DisplayName = "AIM-120 seeker head",
+
+        Range = 40000f,
+        ConeDeg = 60f,
+        BoresightSource = BoresightMode.PartForward,
+
+        ThreatRadius = 30000f,
+        ThreatHorizonSeconds = 60f,
+        LockSeconds = 1.4f,
+
+        // A fighter-sized return. Anything smaller is seen closer in, by the fourth root.
+        ReferenceCrossSectionM2 = 5f,
+
+        // An active seeker lights its own radar, so the round is itself something an
+        // anti-radiation weapon could home on.
+        Emits = true,
+    };
+
+    /// <summary>
+    /// The HARM's own seeker: a wideband receiver that finds a radar by listening for it.
+    ///
+    /// <para><see cref="SensorProfile.Emits"/> is deliberately <em>false</em>, and it is the whole
+    /// character of the weapon: this set is entirely passive, so a craft carrying nothing but this
+    /// rail is invisible to another anti-radiation round. A SEAD aircraft that lit its own radar
+    /// to find a radar would be the first thing shot at.</para>
+    ///
+    /// <para>Long-ranged and wide because that is what direction-finding on a transmitter buys —
+    /// a set radiating megawatts is detectable far beyond where its own return would be seen,
+    /// which is why this reaches further than the AMRAAM's seeker while being a smaller thing.
+    /// <see cref="SensorProfile.ReferenceCrossSectionM2"/> is left at zero for the same reason:
+    /// what it hears does not depend on how large the target is, only on whether it is on.</para>
+    /// </summary>
+    public static readonly SensorProfile SeekerHeadAgm88 = new()
+    {
+        Name = "AGM88SEEK",
+        DisplayName = "AGM-88 seeker head",
+
+        Range = 60000f,
+        ConeDeg = 70f,
+        BoresightSource = BoresightMode.PartForward,
+        Scope = ScopePresentation.Emitters,
+
+        ThreatRadius = 50000f,
+        ThreatHorizonSeconds = 90f,
+        LockSeconds = 1.0f,
+
+        // A radar site sits still, so a minimum speed would reject the only target this weapon
+        // exists to shoot at.
+        MinTargetSpeed = 0f,
+
+        Emits = false,
+    };
+
+    /// <summary>
     /// The Phalanx's own search and track set, in the radome above the gun.
     ///
     /// <para>Short and wide, which is the opposite of the Pantsir's set and the whole point of the
@@ -281,6 +614,7 @@ public static class Arsenal
     {
         Name = "VPS2",
         DisplayName = "VPS-2 search and track",
+        Scope = ScopePresentation.Search,
 
         Range = 6000f,
         ConeDeg = 85f,
@@ -289,79 +623,100 @@ public static class Arsenal
         ThreatHorizonSeconds = 15f,
         LockSeconds = 0.6f,
 
+        Emits = true,
+
+    };
+
+    /// <summary>
+    /// The Mk 68 fire control that lays the mount: the gun's eyes, sitting off the mount rather than
+    /// on it.
+    ///
+    /// <para>Longer-ranged than the CIWS's set and much narrower, which is the same trade read the
+    /// other way: a director is pointed at one aircraft and tracks it, where a CIWS set watches
+    /// everything close. It sees past the gun's own reach, because a shell needs over twenty
+    /// seconds to arrive at it and the track has to be mature before the first one leaves.</para>
+    /// </summary>
+    public static readonly SensorProfile FireControlMk68 = new()
+    {
+        Name = "MK68",
+        DisplayName = "Mk 68 fire control",
+        Scope = ScopePresentation.Search,
+
+        Range = 18_000f,
+        ConeDeg = 80f,
+
+        ThreatRadius = 15_700f,
+        ThreatHorizonSeconds = 30f,
+        LockSeconds = 1.2f,
+
+        Emits = true,
     };
 
     // ---- Launchers ------------------------------------------------------
+    /// <summary>
+    /// The designation set on a post-boost vehicle: where the warheads are being sent.
+    ///
+    /// <para>Ranges are an ICBM's rather than a bomb sight's, because a bus releases from hundreds
+    /// of kilometres out and a 8 km sight would see nothing until long after the last RV had gone.
+    /// <see cref="BoresightMode.MountNormal"/> is up the stack, which is where the tubes point.</para>
+    /// </summary>
+    public static readonly SensorProfile BusDesignation = new()
+    {
+        Name = "MIRVBUS",
+        DisplayName = "PBV designation set",
+        Range = 400_000f,
+        ConeDeg = 100f,
+        BoresightSource = BoresightMode.MountNormal,
+        ThreatRadius = 200_000f,
+        ThreatHorizonSeconds = 600f,
+        LockSeconds = 1.0f,
+    };
 
     /// <summary>
-    /// The optical sight a bomb is released on. Not a radar and not a seeker: it exists so the
-    /// system has something to draw and something to name what is ahead, because a rack that
-    /// engages nothing by itself still has to tell the operator what it is over.
+    /// A heavy ICBM's post-boost vehicle, with six reentry vehicles on it.
+    ///
+    /// <para><b>MIRV deployment is tube release.</b> Six tubes, one RV apiece, all pointing along
+    /// the bus's own axis on an 0.86 m bolt circle. They are deliberately not canted: a cone gives
+    /// every warhead its own vector and a spread the bus's drifting attitude decides, and the
+    /// aiming a real post-boost vehicle does is manoeuvring between releases rather than ejection.
+    /// No new mechanism was needed for any of it; it is the bomb rack with six tubes and a stack
+    /// node instead of a pylon.</para>
+    ///
+    /// <para>Nothing trains: no <see cref="LauncherProfile.TurretMarker"/> and no
+    /// <see cref="LauncherProfile.PodsMarker"/>, so <see cref="LauncherProfile.Trains"/> is false
+    /// and fire control cannot deadlock waiting for a drive that will never move. The bus is aimed
+    /// by flying it, which is what its RCS is for.</para>
+    ///
+    /// <para>Tube geometry generated from the Blender source and verified against the
+    /// repository's own reading of <c>&lt;Rotation&gt;</c>. Keep in step with
+    /// <c>KSArmory_Prefab_MirvBus</c> in the asset XML.</para>
     /// </summary>
-    public static readonly SensorProfile BombSight = new()
+    public static readonly LauncherProfile MirvBus = new()
     {
-        Name = "BOMBSIGHT",
-        DisplayName = "Mk 9 bombsight",
-        Range = 8000f,
-        ConeDeg = 60f,
-        BoresightSource = BoresightMode.PartForward,
-        ThreatRadius = 3000f,
-        ThreatHorizonSeconds = 20f,
-        LockSeconds = 0.8f,
-    };
-
-    public static readonly LauncherProfile PantsirS1 = new()
-    {
-        PartId = "KSArmory_Prefab_Launcher6",
-        DisplayName = "Pantsir-S1",
-        Munition = "57E6",
-        Sensor = "1RS1",
-
-        TurretMarker = "Turret",
-        PodsMarker = "Pods",
-        RadarMarker = "Radar",
-        GunsMarker = "Guns",
-
-        // Generated: muzzle of each tube in the pods' frame, in firing order. The Pantsir's tubes
-        // are a parallel block, so none declares a direction of its own and they all follow the
-        // pods. tools/validate-parts.py checks these against the mesh.
+        PartId = "KSArmory_Prefab_MirvBus",
+        DisplayName = "MIRV bus",
+        Munition = "MK21",
+        Sensor = "MIRVBUS",
+        TubeArmamentLabel = "Warheads",
         Tubes =
         [
-            new( 2.95513,  1.79453,  1.33250),
-            new( 2.95513,  1.79453, -1.33250),
-            new( 2.95513,  1.79453,  1.10750),
-            new( 2.95513,  1.79453, -1.10750),
-            new( 2.82607,  1.97884,  1.33250),
-            new( 2.82607,  1.97884, -1.33250),
-            new( 2.82607,  1.97884,  1.10750),
-            new( 2.82607,  1.97884, -1.10750),
-            new( 2.69702,  2.16315,  1.33250),
-            new( 2.69702,  2.16315, -1.33250),
-            new( 2.69702,  2.16315,  1.10750),
-            new( 2.69702,  2.16315, -1.10750),
+            new(new(2.64010,   0.86000,   0.00000), new(1.00000, 0.00000, 0.00000)),
+            new(new(2.64010,   0.43000,   0.74478), new(1.00000, 0.00000, 0.00000)),
+            new(new(2.64010,  -0.43000,   0.74478), new(1.00000, 0.00000, 0.00000)),
+            new(new(2.64010,  -0.86000,   0.00000), new(1.00000, 0.00000, 0.00000)),
+            new(new(2.64010,  -0.43000,  -0.74478), new(1.00000, 0.00000, 0.00000)),
+            new(new(2.64010,   0.43000,  -0.74478), new(1.00000, 0.00000, 0.00000)),
         ],
+        MuzzleForwardOffset = 0.0,
+        LaunchAlongTube = true,
+        EjectAwayFromMount = 0f,
+        LaunchLoft = 0f,
+        MuzzleOffset = 0f,
 
-        TurretPivot = new(0.00000, -1.42000, 0.00000),
-        PodPivotFromTurret = new(2.62000, -0.63000, 0.00000),
-        RadarPivotFromTurret = new(4.05000, -1.10000, 0.00000),
-        GunPivotFromTurret = new(3.70000, 0.07000, 0.00000),
-        GunReferenceElevationRad = 0.38397,          // 22 degrees
-
-        // The inner layer: what the missiles cannot reach, because they need 1.2 km to arm and
-        // steer. Generated with the tube table by tools/model/pantsir.py.
-        GunMunition = "30MM",
-        GunMuzzles =
-        [
-            new( 1.01144,  2.50340, -1.94000),
-            new( 1.01144,  2.50340, -1.76000),
-            new( 1.01144,  2.50340,  1.76000),
-            new( 1.01144,  2.50340,  1.94000),
-        ],
-        PodReferenceElevationRad = 0.95993,          // 55 degrees
-        MuzzleForwardOffset = 5.446,
-        TubeRingRadius = 1.231,
+        // A bus deploys one warhead at a time, settling between each.
+        ReloadSeconds = 3f,
+        SettleSeconds = 0f,
     };
-
     /// <summary>
     /// A single LAU-7 launch rail carrying one AIM-9J, attached to the side of whatever it is
     /// bolted to.
@@ -372,10 +727,10 @@ public static class Arsenal
     /// for gear that will never turn. Where it can shoot is decided by how the craft is pointed,
     /// which is the trade for it being a rail rather than a vehicle.</para>
     ///
-    /// <para>One tube and no reload, so a craft carrying this has exactly one shot. Fitting a
-    /// second rail does <em>not</em> give it two: a battery runs the launcher at
-    /// <c>LauncherOrdinal</c>, which is pinned to the first, and the roster crews one battery per
-    /// craft. Unpinning that is the next step and is tracked in <c>docs/MODULARITY.md</c>.</para>
+    /// <para>One tube and no reload, so this rail has exactly one shot. Fitting a second gives the
+    /// craft two: the roster keys on the craft <em>and</em> the launcher's ordinal, so each rail is
+    /// its own weapon with its own magazine, rounds in the air and arm switch, and the header
+    /// strip's selector chooses which one the trigger is pointed at.</para>
     ///
     /// <para>Geometry generated by <c>tools/model/sidewinder.py</c> and checked against the
     /// exported mesh by <c>tools/validate-parts.py</c>.</para>
@@ -417,27 +772,101 @@ public static class Arsenal
     };
 
     /// <summary>
-    /// A 14-inch ejector rack carrying one Mk 82. Nothing on it moves and nothing about it aims:
-    /// the aircraft is the launcher, and the operator's judgement is the fire control.
+    /// A LAU-128 rail carrying one AIM-120C-7, radially attached to whatever it is bolted to.
     ///
-    /// <para>Geometry pasted from <c>tools/model/bombrack.py</c>, which prints it. Change the rack
-    /// there, rerun <c>tools/model/build.sh</c>, paste the block — <c>validate-parts.py</c> fails
-    /// if the two ever disagree.</para>
+    /// <para>Mechanically the LAU-7's twin — nothing moves, no turret marker, no pods marker, so
+    /// <see cref="LauncherProfile.Trains"/> is false and it is laid from the moment it exists.
+    /// The difference is entirely the round: a shot that reaches ten times as far, off a launcher
+    /// aimed the same way, by pointing the craft.</para>
+    ///
+    /// <para>Its art is <em>authored</em> rather than generated, which is the other thing new
+    /// here. There is no model script to paste geometry from, so the 0.424 below is not a printed
+    /// number but the seat position in <c>KSArmoryAssets.xml</c>, and 3.645 is the mesh's own
+    /// length — both checked against the committed files by <c>tools/validate-parts.py</c>, since
+    /// the .blend those came from is not in this repository and cannot be consulted by anything.
+    /// </para>
     /// </summary>
-    public static readonly LauncherProfile BombRack = new()
+    public static readonly LauncherProfile AmraamRail = new()
     {
-        PartId = "KSArmory_Prefab_BombRack",
-        DisplayName = "Mk 82 bomb rack",
-        Munition = "MK82",
-        Sensor = "BOMBSIGHT",
-        Tubes = [new(new(0.40650, 1.11000, 0.00000), new(0, 1, 0))],
-        MuzzleForwardOffset = 0.407,
+        PartId = "KSArmory_Prefab_AmraamRail",
+        DisplayName = "LAU-128 AMRAAM rail",
+        Munition = "AIM120C",
+        Sensor = "AIM120SEEK",
+
+        // The nose of the seated round and the direction it leaves along: the seat offset out of
+        // the mounting face, plus half a body length forward.
+        Tubes = [new(new(0.42400, 1.82250, 0.00000), new(0, 1, 0))],
+        MuzzleForwardOffset = 0.424,
+
+        // Off the rail, then a turn — see the LAU-7's note, which this shares whole.
         LaunchAlongTube = true,
+        EjectAwayFromMount = 0.55f,
+        LaunchLoft = 0f,
+        MuzzleOffset = 2f,
 
-        // Enough to clear the rack and the wing before gravity takes it. A real ejector cartridge
-        // throws a store down hard for exactly this reason.
+        // A rail holds what it holds.
+        ReloadSeconds = 0f,
+        SettleSeconds = 0f,
+    };
+
+    /// <summary>
+    /// A LAU-118 rail carrying one AGM-88 HARM, radially attached like the two rails above it.
+    ///
+    /// <para>Mechanically the LAU-128's twin — nothing moves, no turret marker, no pods marker, so
+    /// <see cref="LauncherProfile.Trains"/> is false and it is laid from the moment it exists. The
+    /// difference is entirely what the round can see: this is the first weapon here that cannot
+    /// engage an aircraft at all, and the first whose target has a say in whether it is one.</para>
+    ///
+    /// <para>Its art is authored, so as with the AMRAAM the numbers below are not printed by a
+    /// model script — 0.540 is the seat position in <c>KSArmoryAssets.xml</c> and 4.17 is the
+    /// mesh's own length. <c>tools/validate-parts.py</c> holds all three to each other, since the
+    /// .blend they came from is not in this repository and nothing else can check them.</para>
+    /// </summary>
+    public static readonly LauncherProfile HarmRail = new()
+    {
+        PartId = "KSArmory_Prefab_HarmRail",
+        DisplayName = "LAU-118 HARM rail",
+        Munition = "AGM88",
+        Sensor = "AGM88SEEK",
+
+        // The nose of the seated round and the direction it leaves along: the seat offset out of
+        // the mounting face, plus half a body length forward.
+        Tubes = [new(new(0.54000, 2.08500, 0.00000), new(0, 1, 0))],
+        MuzzleForwardOffset = 0.540,
+
+        // Off the rail, then a turn — see the LAU-7's note, which this shares whole.
+        LaunchAlongTube = true,
+        EjectAwayFromMount = 0.55f,
+        LaunchLoft = 0f,
+        MuzzleOffset = 2f,
+
+        // A rail holds what it holds.
+        ReloadSeconds = 0f,
+        SettleSeconds = 0f,
+    };
+    /// <summary>
+    /// The same ejector rack carrying a B61 instead.
+    ///
+    /// <para><b>A separate part because a launcher names one round.</b>
+    /// <see cref="LauncherProfile.Munition"/> is a single key, so a rack cannot be given a choice
+    /// of store the way a real one has — the loadout is the part. That is the honest cost of the
+    /// magazine being homogeneous, and it is the first weapon here that wanted otherwise.</para>
+    ///
+    /// <para>Its beam is the Mk 82 rack's, but the round is not: a B61-12 is 3.556 m against the
+    /// Mk 82's 2.22 m and a different shape, so it is its own authored asset and its own geometry.
+    /// The seat clears the hooks by the round's own radius, which is why it sits higher.</para>
+    /// </summary>
+    public static readonly LauncherProfile NukeRack = new()
+    {
+        PartId = "KSArmory_Prefab_NukeRack",
+        DisplayName = "B61 bomb rack",
+        Munition = "B61",
+        Sensor = "BOMBSIGHT",
+        TubeArmamentLabel = "Bombs",
+        Tubes = [new(new(0.43510, 1.77800, 0.00000), new(0, 1, 0))],
+        MuzzleForwardOffset = 0.435,
+        LaunchAlongTube = true,
         EjectAwayFromMount = 1.2f,
-
         LaunchLoft = 0f,
         MuzzleOffset = 2f,
         ReloadSeconds = 0f,
@@ -455,8 +884,8 @@ public static class Arsenal
     /// <see cref="LauncherProfile.Trains"/> is true and fire control waits for it to settle. What
     /// it has no pods marker for is a launcher assembly, because there is not one.</para>
     ///
-    /// <para>Traverse and elevation limits are the real mount's. Geometry generated by
-    /// <c>tools/model/ciws.py</c>.</para>
+    /// <para>Traverse and elevation limits are the real mount's. Geometry authored in Blender, so
+    /// the pivots and muzzles below are the ones the export carries.</para>
     /// </summary>
     public static readonly LauncherProfile Ciws = new()
     {
@@ -471,19 +900,19 @@ public static class Arsenal
         // No missiles. The gun is the weapon.
         Tubes = [],
 
-        TurretPivot = new(0.10000, 0.00000, 0.00000),
-        GunPivotFromTurret = new(2.20000, 0.00000, 0.00000),
+        TurretPivot = new(0.80000, 0.00000, 0.00000),
+        GunPivotFromTurret = new(1.45000, 0.00000, 0.00000),
         GunReferenceElevationRad = 0.0,           // level: the pose it fights sea-skimmers in
 
         GunMunition = "20MM",
         GunMuzzles =
         [
-            new(-0.19500, 1.98000,  0.00000),
-            new(-0.24750, 1.98000,  0.09093),
-            new(-0.35250, 1.98000,  0.09093),
-            new(-0.40500, 1.98000,  0.00000),
-            new(-0.35250, 1.98000, -0.09093),
-            new(-0.24750, 1.98000, -0.09093),
+            new( 0.07900, 2.15000,  0.00000),
+            new( 0.04700, 2.15000,  0.05543),
+            new(-0.01700, 2.15000,  0.05543),
+            new(-0.04900, 2.15000,  0.00000),
+            new(-0.01700, 2.15000, -0.05543),
+            new( 0.04700, 2.15000, -0.05543),
         ],
 
         // The real mount: 150 degrees either side of the centreline, and -25 to +85 in elevation.
@@ -493,6 +922,10 @@ public static class Arsenal
         MaxElevationDeg = 85f,
         ForwardMinElevationDeg = -25f,
         SettleSeconds = 0.2f,
+
+        // The search antenna at the top of the radome, which turns with the mount. Nothing on the
+        // model spins, so this is the scope's sweep alone. NavWeaps, 20 mm Phalanx.
+        SearchRadarRpm = 90f,
 
         // 4500 rpm, and 1550 rounds. Long bursts, because that is what a CIWS does.
         GunAmmo = 1550,
@@ -504,6 +937,96 @@ public static class Arsenal
         // No missile magazine to refill. Left at the profile's 12 s default the
         // battery reloads forever, because a magazine with no tubes is always empty.
         ReloadSeconds = 0f,
+    };
+
+    /// <summary>
+    /// 5"/54 Mk 42 single enclosed mount: the second launcher here that carries no missiles, and
+    /// the first that is not point defence.
+    ///
+    /// <para>Same shape as the CIWS — <c>Tubes</c> empty, the gun is the weapon — and the opposite
+    /// weapon. Forty rounds a minute against four and a half thousand, fifteen kilometres against
+    /// one and a half, and a shell that bursts in the air rather than one that has to hit. A CIWS
+    /// is the last layer; this is the first.</para>
+    ///
+    /// <para>Geometry authored in Blender by Mallikas, reframed into part space rather than
+    /// generated — so unlike <c>tools/model/ciws.py</c> there is no script these numbers can be
+    /// checked against, and the pivots below are the ones the export actually carries.</para>
+    /// </summary>
+    public static readonly LauncherProfile Mk42 = new()
+    {
+        PartId = "KSArmory_Prefab_Mk42",
+        DisplayName = "5\"/54 Mk 42",
+        Munition = "5IN54",
+        Sensor = "MK68",
+
+        TurretMarker = "Mk42_Turret",
+        GunsMarker = "Mk42_Cannon",
+        GunBarrelMarker = "Mk42_Barrel",
+
+        // No missiles. The gun is the weapon.
+        Tubes = [],
+
+        // The gun house traverses about the stack centreline. The trunnion sits forward of it, the
+        // way a gun house carries its bustle aft to balance the barrel.
+        TurretPivot = new(0.01664, 0.00000, 0.00000),
+        GunPivotFromTurret = new(1.53777, 0.48097, 0.00000),
+        GunReferenceElevationRad = 0.0,           // modelled level
+
+        GunMunition = "5IN54",
+        GunMuzzles = [new(0.00000, 4.18860, 0.00000)],
+
+        // The real mount: 40 deg/s in train, 25 in elevation, and -15 to +85. Slow, which is why
+        // it is laid by a director rather than by eye.
+        SlewRateDeg = 40f,
+        ElevationRateDeg = 25f,
+        MinElevationDeg = -15f,
+        MaxElevationDeg = 85f,
+        ForwardMinElevationDeg = -15f,
+        SettleSeconds = 0.4f,
+
+        // The Mk 68 is a director that follows one target; the ship's own air-search radar does
+        // the searching, so the scope paints no sweep for it.
+        SearchRadarFaces = 0,
+
+        // The ready-service load the mount's own drums and hoists hold, fired at its automatic rate of
+        // forty a minute. A burst is one round with no gap after it, so a press is one shell and
+        // auto-engage fires at the gun's own rate: a burst is sized for a gun that fires faster than
+        // anybody presses a button.
+        GunAmmo = 599,
+        GunRoundsPerMinute = 40f,
+        GunBurstRounds = 1,
+        GunBurstGapSeconds = 0f,
+        GunReloadSeconds = 0f,
+
+        // Drawn only, and set by eye against this model rather than taken from the real mount.
+        GunRecoilMetres = 0.30f,
+        GunRecoilSeconds = 0.08f,
+        GunReturnSeconds = 0.60f,
+
+        GunshotSoundId = "KSArmoryMk42Gunshot",
+
+        // No missile magazine to refill; see the CIWS for why this cannot be left at the default.
+        ReloadSeconds = 0f,
+    };
+
+    /// <summary>
+    /// The optical sight a bomb is released on. Not a radar and not a seeker: it exists so the
+    /// system has something to draw and something to name what is ahead, because a rack that
+    /// engages nothing by itself still has to tell the operator what it is over.
+    /// </summary>
+    public static readonly SensorProfile BombSight = new()
+    {
+        Name = "BOMBSIGHT",
+        DisplayName = "Mk 9 bombsight",
+        Range = 8000f,
+        ConeDeg = 60f,
+
+        // Out of the pylon, which for a rack under a wing is downward: a bomb sight looks where
+        // the bomb is going to fall, not where the aircraft is going.
+        BoresightSource = BoresightMode.MountNormal,
+        ThreatRadius = 3000f,
+        ThreatHorizonSeconds = 20f,
+        LockSeconds = 0.8f,
     };
 
     /// <summary>
@@ -520,8 +1043,19 @@ public static class Arsenal
         Name = "EO",
         DisplayName = "EO director",
         Range = 12000f,
-        ConeDeg = 75f,
-        BoresightSource = BoresightMode.PartForward,
+
+        // Wide enough to cover the head's own travel, and that is where the number comes from
+        // rather than from taste: the boresight is the mounting face's normal, which is 90 deg
+        // elevation, and the mount reaches 20 deg below horizontal. 110 deg is exactly the two.
+        //
+        // Anything narrower leaves a band the head can point into and is forbidden to look at. At
+        // 75 that band was everything within 15 deg of the horizon, which on an air-defence
+        // vehicle is where the attack comes from: an incoming round sat in it, undetected, while
+        // the mount could have swung onto it in a second.
+        ConeDeg = 110f,
+
+        // A mast head looks out of the face it stands on, which is also where it parks.
+        BoresightSource = BoresightMode.MountNormal,
         ThreatRadius = 4000f,
         ThreatHorizonSeconds = 30f,
         LockSeconds = 0.6f,
@@ -550,17 +1084,122 @@ public static class Arsenal
         MaxElevationDeg = 85f,
     };
 
+    /// <summary>
+    /// The Pantsir's own director, on its turret roof.
+    ///
+    /// <para>The same instrument as <see cref="EoDirector"/> — same bodies, same sensor, same
+    /// travel — differing only in which part carries it and which subparts are its own. A second
+    /// <c>OpticProfile</c> rather than a flag on the launcher, because that is what makes it a
+    /// director at all: <c>OpticParts</c> finds it, <c>OpticalHead</c> crews it, and the sight, the
+    /// chase camera and the claim ladder never learn that this one sits on a weapon.</para>
+    ///
+    /// <para><see cref="OpticProfile.HeadPivot"/> is identical to the standalone's because it is an
+    /// offset from the <em>base</em> rather than a point in the part. Where the base has got to is
+    /// read off the engine each frame — see <see cref="MountFrame"/> — which is why riding a
+    /// traverse needs nothing here at all.</para>
+    /// </summary>
+    public static readonly OpticProfile PantsirDirector = new()
+    {
+        PartId = "KSArmory_Prefab_Launcher6",
+        DisplayName = "1TPP1 director",
+        Sensor = EoSensor.Name,
+
+        BaseMarker = "Launcher_OpticBase",
+        HeadMarker = "Launcher_OpticHead",
+
+        HeadPivot = new(0.63000, 0.00000, 0.00000),
+        EyeForward = 0.300f,
+        MinElevationDeg = -20f,
+        MaxElevationDeg = 85f,
+    };
+
+    /// <summary>
+    /// The set inside a targeting pod. Longer-ranged than a mast director and looking down rather
+    /// than out, which is the difference between watching a perimeter and designating for a strike.
+    ///
+    /// <para><see cref="BoresightMode.PartForward"/>, as the mast director's is, and for a pod that
+    /// resolves to the mounting face's own normal — away from the pylon, so a wing store searches
+    /// the ground below the aircraft. A cone about the pod's <em>centreline</em> would be the
+    /// literal field of regard and would also point straight into the wing, which is the one
+    /// direction the airframe masks and nothing here models.</para>
+    /// </summary>
+    public static readonly SensorProfile PodSensor = new()
+    {
+        Name = "Litening",
+        DisplayName = "LITENING",
+        Range = 20000f,
+        ConeDeg = 100f,
+
+        // Out of the mounting face, matching where the pod stows. Along the pod's own centreline
+        // is its keyhole, which is the one direction it cannot look.
+        BoresightSource = BoresightMode.MountNormal,
+        ThreatRadius = 6000f,
+        ThreatHorizonSeconds = 30f,
+        LockSeconds = 0.6f,
+
+        // An instrument rather than a weapon's eye: something parked is exactly what it is for.
+        MinTargetSpeed = 0f,
+    };
+
+    /// <summary>
+    /// A Rafael LITENING pod. Geometry from <c>tools/model/import-litening.py</c>.
+    ///
+    /// <para>The first <see cref="GimbalKind.RollNod"/> head, and the reason that enum exists. Its
+    /// nose turns continuously about the pod's own centreline and the line of sight tilts within
+    /// that turning frame — so it has no bearing and no elevation, and its travel is one number:
+    /// how far the nod carries the sight off the centreline.</para>
+    ///
+    /// <para><see cref="OpticProfile.MaxOffBoresightDeg"/> is the <em>gimbal's</em> stop, and the
+    /// importer measures the nose's aperture beside it so the binding one is known rather than
+    /// assumed: the shell clears the line of sight to 158° on the side the recession is cut into,
+    /// so the mechanism stops first with 8° in hand. The other side clears only 107°, which never
+    /// binds — the nod is always non-negative and the roll puts the open side on the target.</para>
+    ///
+    /// <para>The 150° is their rig's limit and the AselPOD-class figure it came from. Rafael does
+    /// not publish Litening's, and any specific number attributed to it online is worth
+    /// suspicion.</para>
+    /// </summary>
+    public static readonly OpticProfile Litening = new()
+    {
+        PartId = "KSArmory_Prefab_Litening",
+        DisplayName = "LITENING",
+        Sensor = PodSensor.Name,
+        Gimbal = GimbalKind.RollNod,
+
+        BaseMarker = "Litening_Body",
+        RollMarker = "Litening_Roll",
+        HeadMarker = "Litening_Head",
+
+        HeadPivot = new(0.26669, 0.94282, 0.00000),
+
+        // The ball's own radius, so the eye sits just outside the glass rather than inside it.
+        EyeForward = 0.223f,
+
+        // The roll axis carries its mass close to the axis of symmetry, so a roll-nod head slews
+        // and settles faster than an az-el one of the same mass. That is most of why pods are
+        // built this way, and it is the one performance number that follows from the mechanism.
+        SlewRateDeg = 140f,
+
+        MaxOffBoresightDeg = 150f,
+        KeyholeDeg = 4f,
+    };
+
     // ---- Registry -------------------------------------------------------
 
-    public static readonly IReadOnlyList<LauncherProfile> Launchers = [PantsirS1, SidewinderRail, Ciws, BombRack];
+    public static readonly IReadOnlyList<LauncherProfile> Launchers =
+        [SidewinderRail, AmraamRail, HarmRail, Ciws, NukeRack, MirvBus, Mk42];
     public static readonly IReadOnlyList<MunitionProfile> Munitions =
-        [Missile57E6, Cannon30Mm, Missile9J, Cannon20Mm, BombMk82];
+        [Missile9J, Missile120C, MissileAgm88, Cannon20Mm, NukeB61, ReentryVehicleMk21,
+         Shell5In54];
     public static readonly IReadOnlyList<SensorProfile> Sensors =
-        [SearchRadar1Rs1, SeekerHeadAim9, SearchRadarVps2, BombSight, EoSensor];
+        [SeekerHeadAim9, SeekerHeadAim120, SeekerHeadAgm88, SearchRadarVps2,
+         BombSight, EoSensor, PodSensor, BusDesignation, FireControlMk68];
 
-    /// <summary>Optical heads, which are parts in their own right rather than launcher gear.</summary>
-    ///
-    public static readonly IReadOnlyList<OpticProfile> Optics = [EoDirector];
+    /// <summary>
+    /// Optical heads. Most are parts in their own right; one rides a launcher's turret, and
+    /// nothing downstream can tell which is which — nor which gimbal any of them is hung on.
+    /// </summary>
+    public static readonly IReadOnlyList<OpticProfile> Optics = [EoDirector, PantsirDirector, Litening];
 
     /// <summary>
     /// The parts this mod recognises on a craft it did not design, keyed by part Id.
@@ -579,28 +1218,25 @@ public static class Arsenal
     [
         new ComponentProfile
         {
-            PartId = PantsirS1.PartId,
-            Role = WeaponRole.Launcher,
-            DisplayName = PantsirS1.DisplayName,
-
-            // The Pantsir is one part. Its radar, optical head and cannon are subparts, so they
-            // are declared rather than found -- see ComponentProfile.Provides.
-            Provides =
-            [
-                new(WeaponRole.Sensor, SearchRadar1Rs1.DisplayName),
-                new(WeaponRole.Gun, Cannon30Mm.DisplayName),
-                new(WeaponRole.FireControl, "Pantsir-S1 fire control"),
-            ],
-        },
-        new ComponentProfile
-        {
             PartId = EoDirector.PartId,
             Role = WeaponRole.Camera,
             DisplayName = EoDirector.DisplayName,
 
-            // A part in its own right, so nothing is declared for it: the survey walks parts and
-            // finds this one directly. Provides exists for prefabs whose gear is subparts.
-            Provides = [new(WeaponRole.Sensor, EoSensor.DisplayName)],
+            // Nothing declared, and that is the whole point of the distinction. Provides exists
+            // for a prefab whose gear is subparts the survey cannot see -- the Pantsir's search
+            // radar above. A director's sensor is not gear it carries, it *is* the director, and
+            // the survey walks parts and finds it directly. Declaring one anyway minted a second
+            // row for one object, filed under Sensors, with no control on it and nothing to say
+            // but that there was no weapons system to belong to.
+        },
+        new ComponentProfile
+        {
+            PartId = Litening.PartId,
+            Role = WeaponRole.Camera,
+            DisplayName = Litening.DisplayName,
+
+            // Nothing declared, for the mast director's reason: its sensor is not gear it
+            // carries, it *is* the pod, and the survey walks parts and finds it directly.
         },
         new ComponentProfile
         {
@@ -610,7 +1246,40 @@ public static class Arsenal
 
             // The seeker head is the round's, not the rail's, but the rail is what a survey can
             // see and what the battery searches with -- so this is where it is declared.
-            Provides = [new(WeaponRole.Sensor, SeekerHeadAim9.DisplayName)],
+            Provides =
+            [
+                new(WeaponRole.Sensor, SeekerHeadAim9.DisplayName),
+                new(WeaponRole.FireControl, "LAU-7 fire control"),
+            ],
+        },
+        new ComponentProfile
+        {
+            PartId = AmraamRail.PartId,
+            Role = WeaponRole.Launcher,
+            DisplayName = AmraamRail.DisplayName,
+
+            // Same declaration as the LAU-7's, and for the same reason: what the survey can find
+            // is the rail, and the set it searches with belongs to the round sitting on it.
+            Provides =
+            [
+                new(WeaponRole.Sensor, SeekerHeadAim120.DisplayName),
+                new(WeaponRole.FireControl, "LAU-128 fire control"),
+            ],
+        },
+        new ComponentProfile
+        {
+            PartId = HarmRail.PartId,
+            Role = WeaponRole.Launcher,
+            DisplayName = HarmRail.DisplayName,
+
+            // Same declaration as the other two rails': what the survey can find is the rail, and
+            // the set it searches with belongs to the round sitting on it. That set is passive
+            // here, which is why a craft carrying only this is not itself a target.
+            Provides =
+            [
+                new(WeaponRole.Sensor, SeekerHeadAgm88.DisplayName),
+                new(WeaponRole.FireControl, "LAU-118 fire control"),
+            ],
         },
         new ComponentProfile
         {
@@ -621,35 +1290,47 @@ public static class Arsenal
             [
                 new(WeaponRole.Sensor, SearchRadarVps2.DisplayName),
                 new(WeaponRole.Gun, Cannon20Mm.DisplayName),
+                new(WeaponRole.FireControl, "Mk 15 fire control"),
             ],
         },
         new ComponentProfile
         {
-            PartId = BombRack.PartId,
+            PartId = Mk42.PartId,
             Role = WeaponRole.Launcher,
-            DisplayName = BombRack.DisplayName,
+            DisplayName = Mk42.DisplayName,
+            Provides =
+            [
+                new(WeaponRole.Sensor, FireControlMk68.DisplayName),
+                new(WeaponRole.Gun, Shell5In54.DisplayName),
+                new(WeaponRole.FireControl, "Mk 68 fire control"),
+            ],
+        },
+        new ComponentProfile
+        {
+            PartId = NukeRack.PartId,
+            Role = WeaponRole.Launcher,
+            DisplayName = NukeRack.DisplayName,
+            Provides =
+            [
+                new(WeaponRole.Sensor, BombSight.DisplayName),
+                new(WeaponRole.FireControl, "B61 release"),
+            ],
+        },
+        new ComponentProfile
+        {
+            PartId = MirvBus.PartId,
+            Role = WeaponRole.Launcher,
+            DisplayName = MirvBus.DisplayName,
+            Provides =
+            [
+                new(WeaponRole.Sensor, BusDesignation.DisplayName),
+                new(WeaponRole.FireControl, "Warhead deployment"),
 
-            // The sight is the crew's rather than the rack's, but the rack is what a survey can
-            // see -- the same reasoning as the rail's seeker head above.
-            Provides = [new(WeaponRole.Sensor, BombSight.DisplayName)],
+                // The bus's own, because nothing else can carry it yet: docs/GUIDANCE-SECTION.md.
+                new(WeaponRole.Guidance, "Ballistic computer"),
+            ],
         },
     ];
-
-    /// <summary>The launcher matching a part Id, or null if that part is not one of ours.</summary>
-    public static LauncherProfile? LauncherForPart(string? partId) => LauncherForPart(Launchers, partId);
-
-    /// <summary>The optical head a part Id names, or null if it names none.</summary>
-    public static OpticProfile? OpticForPart(string? partId)
-    {
-        if (string.IsNullOrEmpty(partId)) return null;
-
-        for (int i = 0; i < Optics.Count; i++)
-        {
-            if (Optics[i].PartId == partId) return Optics[i];
-        }
-
-        return null;
-    }
 
     /// <summary>
     /// The same lookup against an explicit registry.
@@ -670,27 +1351,11 @@ public static class Arsenal
     }
 
     /// <summary>
-    /// The named munition. Falls back to the first registered rather than throwing: a launcher
-    /// naming a round that does not exist is a typo in this file, and the game should still be
-    /// playable while it is found.
-    /// </summary>
-    public static MunitionProfile MunitionNamed(string name) => Named(Munitions, name, m => m.Name);
-
-    public static SensorProfile SensorNamed(string name) => Named(Sensors, name, s => s.Name);
-
-    /// <summary>
-    /// The round and sensor a launcher names, resolved together.
+    /// The round and sensor a launcher names, resolved together against explicit registries.
     ///
     /// <para>Together because a launcher left holding another system's round is a wrong-weapon
     /// bug with nothing on screen to show for it. Every caller that adopts a launcher takes all
     /// three, and this is the one place that pairing is made.</para>
-    /// </summary>
-    public static (MunitionProfile Munition, SensorProfile Sensor) LoadoutFor(LauncherProfile launcher)
-        => LoadoutFor(launcher, Munitions, Sensors);
-
-    /// <summary>
-    /// The same pairing against explicit registries, so switching between systems is testable
-    /// with several of each registered.
     /// </summary>
     internal static (MunitionProfile Munition, SensorProfile Sensor) LoadoutFor(
         LauncherProfile launcher,
@@ -703,6 +1368,10 @@ public static class Arsenal
     /// First entry whose key matches, or the first entry as a fallback. Internal rather than
     /// private so the fallback can be tested against a registry with more than one candidate,
     /// where "matched" and "fell back to element zero" are actually distinguishable.
+    ///
+    /// <para>The fallback keeps a typo in a shipped profile playable and cannot report one.
+    /// <see cref="Catalogue.TryMunitionNamed"/> is the form that can, and is what anything
+    /// judging a name rather than flying a round asks.</para>
     /// </summary>
     internal static T Named<T>(IReadOnlyList<T> from, string name, Func<T, string> key)
     {

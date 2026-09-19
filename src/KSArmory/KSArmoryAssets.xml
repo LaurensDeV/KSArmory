@@ -47,6 +47,166 @@
     <AoRoughMetal Path="Textures/KSArmory_PBR.png" Category="Vessel" />
   </PbrMaterial>
 
+  <!--
+    The targeting pod's own atlas and materials.
+
+    Everything else here is generated: one atlas of flat-swatch primitives sharing one palette
+    material, which is right for parametric geometry and wrong for a shape that is *observed*. The
+    pod was modelled by hand and its maps are baked, so it is unwrapped rather than swatched and
+    carries a material per body. Both live in this file because KSA is happy with several of each,
+    and Core does the same.
+
+    tools/model/import-litening.py reframes the authored export into what KSA reads and copies
+    these textures across. Do not hand-edit either: re-export and re-run it.
+  -->
+  <MeshAtlas Path="Meshes/KSArmory_Litening.glb" />
+
+  <PbrMaterial Id="KSArmory_Litening_Body_Material">
+    <Diffuse Path="Textures/KSArmory_Litening_Body_Diffuse.png" Category="Vessel" />
+    <Normal Path="Textures/KSArmory_Litening_Body_Normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Textures/KSArmory_Litening_Body_PBR.png" Category="Vessel" />
+  </PbrMaterial>
+
+  <PbrMaterial Id="KSArmory_Litening_Roll_Material">
+    <Diffuse Path="Textures/KSArmory_Litening_Roll_Diffuse.png" Category="Vessel" />
+    <Normal Path="Textures/KSArmory_Litening_Roll_Normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Textures/KSArmory_Litening_Roll_PBR.png" Category="Vessel" />
+  </PbrMaterial>
+
+  <PbrMaterial Id="KSArmory_Litening_Window_Material">
+    <Diffuse Path="Textures/KSArmory_Litening_Window_Diffuse.png" Category="Vessel" />
+    <Normal Path="Textures/KSArmory_Litening_Window_Normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Textures/KSArmory_Litening_Window_PBR.png" Category="Vessel" />
+  </PbrMaterial>
+
+  <!--
+    The suspension rail's atlas and material. Authored like the pod, and arriving in better shape
+    than it did: already in part space with its origin on the mounting face, node names matching
+    mesh names, its own _VM twin, and a _ColPrim_ box carrying the collider — which is Core's own
+    convention and is where the <Collider> below is taken from.
+
+    So it needs no import step at all. The file is copied in as exported.
+  -->
+  <MeshAtlas Path="Meshes/KSArmory_Rail.glb" />
+
+  <PbrMaterial Id="KSArmory_Rail_Material">
+    <Diffuse Path="Textures/KSArmory_Rail_Diffuse.png" Category="Vessel" />
+    <Normal Path="Textures/KSArmory_Rail_Normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Textures/KSArmory_Rail_PBR.png" Category="Vessel" />
+  </PbrMaterial>
+
+  <!--
+    The AMRAAM's atlas and its one material.
+
+    Authored in Blender over MCP like the pod and the suspension rail, and unwrapped rather than
+    swatched — so the bands, the ceramic radome and the scorched base are painted texels rather
+    than geometry, which is why the round carries no ring where the Sidewinder needed one.
+
+    One material for both bodies, not one each: the rail and the round share a single unwrap and a
+    single set of maps. Three files rather than the six a material apiece would cost, and nothing
+    downstream can tell — KSA takes the material from here, not from the .glb, which carries none.
+  -->
+  <MeshAtlas Path="Meshes/KSArmory_Amraam.glb" />
+
+  <PbrMaterial Id="KSArmory_Amraam_Material">
+    <Diffuse Path="Textures/KSArmory_Amraam_Diffuse.png" Category="Vessel" />
+    <Normal Path="Textures/KSArmory_Amraam_Normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Textures/KSArmory_Amraam_PBR.png" Category="Vessel" />
+  </PbrMaterial>
+
+  <!--
+    The HARM's atlas and its one material.
+
+    Authored in Blender over MCP like the AMRAAM, and unwrapped the same way: the two red bands,
+    the buff radome and the scorched base are painted texels rather than geometry. Its airframe is
+    the real weapon's to the published figures - 4.17 m, 254 mm, 112 cm across the control fins and
+    61 cm across the tail.
+
+    One material for both bodies. The rail and the round share a single unwrap and a single set of
+    maps, which is three files rather than the six a material apiece would cost.
+  -->
+  <MeshAtlas Path="Meshes/KSArmory_Harm.glb" />
+
+  <PbrMaterial Id="KSArmory_Harm_Material">
+    <Diffuse Path="Textures/KSArmory_Harm_Diffuse.png" Category="Vessel" />
+    <Normal Path="Textures/KSArmory_Harm_Normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Textures/KSArmory_Harm_PBR.png" Category="Vessel" />
+  </PbrMaterial>
+
+  <!--
+    The MIRV bus atlas and its one material.
+
+    Three bodies share a single unwrap: the bus, one reentry vehicle and one RCS nozzle. The RV is
+    instanced six times and the nozzle sixteen, so one unwrap covers twenty-three placements — the
+    argument for a material per part rather than per body, at its strongest here.
+
+    Authored in Blender over MCP. The bands, the joint lines and the scorched RV nose are painted
+    texels rather than geometry.
+  -->
+  <MeshAtlas Path="Meshes/KSArmory_MirvBus.glb" />
+
+  <PbrMaterial Id="KSArmory_MirvBus_Material">
+    <Diffuse Path="Textures/KSArmory_MirvBus_Diffuse.png" Category="Vessel" />
+    <Normal Path="Textures/KSArmory_MirvBus_Normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Textures/KSArmory_MirvBus_PBR.png" Category="Vessel" />
+  </PbrMaterial>
+
+  <!--
+    The B61-12 atlas and its one material.
+
+    Authored in Blender over MCP. Its airframe is the real weapon's to the published figures —
+    3.556 m over 330 mm, with the ogive shoulder at 21% and the boat tail from 62% — and the
+    stations between them are measured off the F-35 release photograph, which is a true broadside
+    against sky and so the only reference here with no perspective to misread.
+
+    The livery is painted texels rather than geometry: the maroon nose cap, the orange forward
+    body and tail kit, the bare-metal sections and the joint rings are all one unwrap. That paint
+    is driven from object coordinates rather than UV space, so a repack cannot smear it.
+  -->
+  <MeshAtlas Path="Meshes/KSArmory_B61.glb" />
+
+  <PbrMaterial Id="KSArmory_B61_Material">
+    <Diffuse Path="Textures/KSArmory_B61_Diffuse.png" Category="Vessel" />
+    <Normal Path="Textures/KSArmory_B61_Normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Textures/KSArmory_B61_PBR.png" Category="Vessel" />
+  </PbrMaterial>
+
+  <!--
+    The 5"/54 Mk 42 mount's atlas: the mount, its recoiling barrel and its shell.
+
+    Modelled, unwrapped and painted by Mallikas, and reframed into part space here. He paints the
+    mount as a Blender map set and the shell as a single image; tools/model/mk42-textures.py composes
+    both into what KSA reads. The unwraps are his, so a later version of either drops onto the same
+    UVs and nothing here moves.
+
+    Two materials in one atlas, because the shell has an unwrap and an image of its own.
+  -->
+  <MeshAtlas Path="Meshes/KSArmory_Mk42.glb" />
+
+  <PbrMaterial Id="KSArmory_Mk42_Material">
+    <Diffuse Path="Textures/KSArmory_Mk42_Diffuse.png" Category="Vessel" />
+    <Normal Path="Textures/KSArmory_Mk42_Normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Textures/KSArmory_Mk42_PBR.png" Category="Vessel" />
+  </PbrMaterial>
+
+  <PbrMaterial Id="KSArmory_Mk42Shell_Material">
+    <Diffuse Path="Textures/KSArmory_Mk42Shell_Diffuse.png" Category="Vessel" />
+    <Normal Path="Textures/KSArmory_Mk42Shell_Normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Textures/KSArmory_Mk42Shell_PBR.png" Category="Vessel" />
+  </PbrMaterial>
+
+  <!--
+    The Mk 15 Phalanx's atlas: base, traversing cheeks, and the elevating head. Authored in Blender;
+    the three bodies share one unwrap and one material.
+  -->
+  <MeshAtlas Path="Meshes/KSArmory_Ciws.glb" />
+
+  <PbrMaterial Id="KSArmory_Ciws_Material">
+    <Diffuse Path="Textures/KSArmory_Ciws_Diffuse.png" Category="Vessel" />
+    <Normal Path="Textures/KSArmory_Ciws_Normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Textures/KSArmory_Ciws_PBR.png" Category="Vessel" />
+  </PbrMaterial>
+
   <!-- KAMAZ-6560 8x8 chassis: wheels, hull, deck, cab, stowage. -->
   <SubPart Id="KSArmory_Chassis_SubPart">
     <PartModel Id="KSArmory_Subpart_Chassis_Model">
@@ -103,34 +263,71 @@
       </MeshView>
     </SubPart>
 
+  <!--
+    MIRV bus. Nothing here articulates: the bus is rigid, and the only thing that moves is a
+    reentry vehicle leaving. The RCS nozzles are separate subparts because that is the unit KSA's
+    own thruster declaration attaches to - see KSArmory_MirvRcs_SubPart in the GameData.
+  -->
+  <SubPart Id="KSArmory_MirvBus_SubPart">
+    <PartModel Id="KSArmory_Subpart_MirvBus_Model">
+      <Mesh Id="KSArmory_Subpart_MirvBus" />
+      <Material Id="KSArmory_MirvBus_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_MirvBus_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!-- One reentry vehicle, instanced six times. Its mesh is centred on its own origin. -->
+  <SubPart Id="KSArmory_MirvRv_SubPart">
+    <PartModel Id="KSArmory_Subpart_MirvRv_Model">
+      <Mesh Id="KSArmory_Subpart_Rv" />
+      <Material Id="KSArmory_MirvBus_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_Rv_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!-- One attitude-control nozzle, instanced twenty times. Fires along its own -X. -->
+  <SubPart Id="KSArmory_MirvRcs_SubPart">
+    <PartModel Id="KSArmory_Subpart_MirvRcs_Model">
+      <Mesh Id="KSArmory_Subpart_RcsNozzle" />
+      <Material Id="KSArmory_MirvBus_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_RcsNozzle_VM" />
+    </MeshView>
+  </SubPart>
+
   <!-- Phalanx-pattern CIWS. Base is fixed; the housing traverses and the guns elevate on it. -->
   <SubPart Id="KSArmory_CiwsBase_SubPart">
     <PartModel Id="KSArmory_Subpart_CiwsBase_Model">
-      <Mesh Id="KSArmory_Subpart_CiwsBase" />
-      <Material Id="KSArmory_Material" />
+      <Mesh Id="KSArmory_Subpart_Mk15Base" />
+      <Material Id="KSArmory_Ciws_Material" />
     </PartModel>
     <MeshView>
-      <Mesh Id="KSArmory_Subpart_CiwsBase_VM" />
+      <Mesh Id="KSArmory_Subpart_Mk15Base_VM" />
     </MeshView>
   </SubPart>
 
   <SubPart Id="KSArmory_CiwsTurret_SubPart">
     <PartModel Id="KSArmory_Subpart_CiwsTurret_Model">
-      <Mesh Id="KSArmory_Subpart_CiwsTurret" />
-      <Material Id="KSArmory_Material" />
+      <Mesh Id="KSArmory_Subpart_Mk15Turret" />
+      <Material Id="KSArmory_Ciws_Material" />
     </PartModel>
     <MeshView>
-      <Mesh Id="KSArmory_Subpart_CiwsTurret_VM" />
+      <Mesh Id="KSArmory_Subpart_Mk15Turret_VM" />
     </MeshView>
   </SubPart>
 
   <SubPart Id="KSArmory_CiwsGuns_SubPart">
     <PartModel Id="KSArmory_Subpart_CiwsGuns_Model">
-      <Mesh Id="KSArmory_Subpart_CiwsGuns" />
-      <Material Id="KSArmory_Material" />
+      <Mesh Id="KSArmory_Subpart_Mk15Guns" />
+      <Material Id="KSArmory_Ciws_Material" />
     </PartModel>
     <MeshView>
-      <Mesh Id="KSArmory_Subpart_CiwsGuns_VM" />
+      <Mesh Id="KSArmory_Subpart_Mk15Guns_VM" />
     </MeshView>
   </SubPart>
 
@@ -181,28 +378,149 @@
     </MeshView>
   </SubPart>
 
+  <!-- The suspension rail. Nothing on it moves. -->
+  <SubPart Id="KSArmory_Rail_SubPart">
+    <PartModel Id="KSArmory_Subpart_Rail_Model">
+      <Mesh Id="KSArmory_Rail" />
+      <Material Id="KSArmory_Rail_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Rail_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!-- LAU-128 rail launcher on its pylon. Nothing on it moves. -->
+  <SubPart Id="KSArmory_AmraamRail_SubPart">
+    <PartModel Id="KSArmory_Subpart_AmraamRail_Model">
+      <Mesh Id="KSArmory_Subpart_AmraamRail" />
+      <Material Id="KSArmory_Amraam_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_AmraamRail_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!-- One AIM-120C-7. Seated on the rail while loaded, flown by the mod once it leaves. -->
+  <SubPart Id="KSArmory_Amraam_SubPart">
+    <PartModel Id="KSArmory_Subpart_Amraam_Model">
+      <Mesh Id="KSArmory_Subpart_Amraam" />
+      <Material Id="KSArmory_Amraam_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_Amraam_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!-- LAU-118 rail launcher on its pylon. Nothing on it moves. -->
+  <SubPart Id="KSArmory_HarmRail_SubPart">
+    <PartModel Id="KSArmory_Subpart_HarmRail_Model">
+      <Mesh Id="KSArmory_Subpart_HarmRail" />
+      <Material Id="KSArmory_Harm_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_HarmRail_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!-- One AGM-88 HARM. Seated on the rail while loaded, flown by the mod once it leaves. -->
+  <SubPart Id="KSArmory_Harm_SubPart">
+    <PartModel Id="KSArmory_Subpart_Harm_Model">
+      <Mesh Id="KSArmory_Subpart_Harm" />
+      <Material Id="KSArmory_Harm_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_Harm_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!--
+    MAU-12 ejector rack. Nothing on it moves.
+
+    It carries BOTH shackle sets the real rack has — 14 inches and 30 inches — which is why it
+    replaces the generated beam here rather than being a 30-inch-only part: the B61-12 hangs from
+    the outer pair, and the inner pair is the spacing a Mk 82 uses.
+  -->
+  <SubPart Id="KSArmory_B61Rack_SubPart">
+    <PartModel Id="KSArmory_Subpart_B61Rack_Model">
+      <Mesh Id="KSArmory_Subpart_B61Rack" />
+      <Material Id="KSArmory_B61_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_B61Rack_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!--
+    One blade of the B61-12's tail kit, instanced four times.
+
+    Modelled at roll zero and exported recentred on its hinge, because a subpart turns about its
+    own mesh origin — so the four differ only by the roll the mod composes, and one mesh with one
+    unwrap island serves all of them. Nothing is declared here about where they sit: the mod
+    rewrites every blade's transform each frame.
+  -->
+  <SubPart Id="KSArmory_B61Fin_SubPart">
+    <PartModel Id="KSArmory_Subpart_B61Fin_Model">
+      <Mesh Id="KSArmory_Subpart_B61Fin" />
+      <Material Id="KSArmory_B61_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_B61Fin_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!-- One B61-12. Seated on the rack while loaded, flown by the mod once it is released. -->
+  <SubPart Id="KSArmory_B61_SubPart">
+    <PartModel Id="KSArmory_Subpart_B61_Model">
+      <Mesh Id="KSArmory_Subpart_B61" />
+      <Material Id="KSArmory_B61_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_B61_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!-- The targeting pod's aft body and its lugs. Fixed: everything forward of the joint turns. -->
+  <SubPart Id="KSArmory_LiteningBody_SubPart">
+    <PartModel Id="KSArmory_Subpart_LiteningBody_Model">
+      <Mesh Id="KSArmory_Subpart_LiteningBody" />
+      <Material Id="KSArmory_Litening_Body_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_LiteningBody_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!--
+    The outer roll gimbal: the barrel, the shroud, the bearing cheeks and the recession cut into
+    one side of it. Turns about the pod's own centreline and nothing else, so the mod writes it a
+    roll and no tilt.
+  -->
+  <SubPart Id="KSArmory_LiteningRoll_SubPart">
+    <PartModel Id="KSArmory_Subpart_LiteningRoll_Model">
+      <Mesh Id="KSArmory_Subpart_LiteningRoll" />
+      <Material Id="KSArmory_Litening_Roll_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_LiteningRoll_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!--
+    The nodding ball. Shares the roll gimbal's pivot, which is what lets it sweep its whole travel
+    without fouling the shroud: concentric bodies, so tilting one only changes where it faces.
+  -->
+  <SubPart Id="KSArmory_LiteningWindow_SubPart">
+    <PartModel Id="KSArmory_Subpart_LiteningWindow_Model">
+      <Mesh Id="KSArmory_Subpart_LiteningWindow" />
+      <Material Id="KSArmory_Litening_Window_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_LiteningWindow_VM" />
+    </MeshView>
+  </SubPart>
+
   <!-- 14-inch ejector rack on its pylon. Nothing on it moves. -->
-  <SubPart Id="KSArmory_BombRack_SubPart">
-    <PartModel Id="KSArmory_Subpart_BombRack_Model">
-      <Mesh Id="KSArmory_Subpart_BombRack" />
-      <Material Id="KSArmory_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_BombRack_VM" />
-    </MeshView>
-  </SubPart>
-
   <!-- One Mk 82. Hangs on the rack while loaded, flown by the mod once it is released. -->
-  <SubPart Id="KSArmory_Mk82_SubPart">
-    <PartModel Id="KSArmory_Subpart_Mk82_Model">
-      <Mesh Id="KSArmory_Subpart_Mk82" />
-      <Material Id="KSArmory_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_Mk82_VM" />
-    </MeshView>
-  </SubPart>
-
   <!-- Double-sided hexagonal search array. Turns continuously on its own turntable. -->
 
   <SubPart Id="KSArmory_Radar_SubPart">
@@ -234,6 +552,57 @@
     </PartModel>
     <MeshView>
       <Mesh Id="KSArmory_Subpart_Pods_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!-- 5"/54 Mk 42 mount. Base is fixed; the gun house traverses and the cannon elevates in it. -->
+  <SubPart Id="KSArmory_Mk42Base_SubPart">
+    <PartModel Id="KSArmory_Subpart_Mk42Base_Model">
+      <Mesh Id="KSArmory_Subpart_Mk42Base" />
+      <Material Id="KSArmory_Mk42_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_Mk42Base_VM" />
+    </MeshView>
+  </SubPart>
+
+  <SubPart Id="KSArmory_Mk42Turret_SubPart">
+    <PartModel Id="KSArmory_Subpart_Mk42Turret_Model">
+      <Mesh Id="KSArmory_Subpart_Mk42Turret" />
+      <Material Id="KSArmory_Mk42_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_Mk42Turret_VM" />
+    </MeshView>
+  </SubPart>
+
+  <SubPart Id="KSArmory_Mk42Cannon_SubPart">
+    <PartModel Id="KSArmory_Subpart_Mk42Cannon_Model">
+      <Mesh Id="KSArmory_Subpart_Mk42Cannon" />
+      <Material Id="KSArmory_Mk42_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_Mk42Cannon_VM" />
+    </MeshView>
+  </SubPart>
+
+  <SubPart Id="KSArmory_Mk42Barrel_SubPart">
+    <PartModel Id="KSArmory_Subpart_Mk42Barrel_Model">
+      <Mesh Id="KSArmory_Subpart_Mk42Barrel" />
+      <Material Id="KSArmory_Mk42_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_Mk42Barrel_VM" />
+    </MeshView>
+  </SubPart>
+
+  <SubPart Id="KSArmory_Mk42Shell_SubPart">
+    <PartModel Id="KSArmory_Subpart_Mk42Shell_Model">
+      <Mesh Id="KSArmory_Subpart_Mk42Shell" />
+      <Material Id="KSArmory_Mk42Shell_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_Mk42Shell_VM" />
     </MeshView>
   </SubPart>
 
@@ -450,6 +819,29 @@
       </Transform>
     </SubPart>
 
+    <!--
+      The turret's own electro-optical director, instancing the same two bodies the standalone
+      part uses rather than modelling a second one. Appended last on purpose: KSA pairs a saved
+      part with its definition positionally, so adding to the end is free and removing anything
+      terminates the game on every save holding this part.
+
+      The base rides the traverse - the mod writes its transform each frame, like the pods, the
+      guns and the array - and the head reads wherever that put it. Neither position below is
+      where either body ends up in flight; they are the rest pose, and OPTIC_MOUNT in
+      tools/model/pantsir.py is what validate-parts.py checks them against.
+    -->
+    <SubPart Id="KSArmory_Launcher_OpticBase" InstanceOf="KSArmory_OpticBase_SubPart">
+      <Transform>
+        <Position X="3.46000" Y="-0.60000" Z="0.44000" />
+      </Transform>
+    </SubPart>
+
+    <SubPart Id="KSArmory_Launcher_OpticHead" InstanceOf="KSArmory_OpticHead_SubPart">
+      <Transform>
+        <Position X="4.09000" Y="-0.60000" Z="0.44000" />
+      </Transform>
+    </SubPart>
+
   </Part>
 
   <!--
@@ -492,6 +884,84 @@
   </Part>
 
   <!--
+    LAU-128 rail with one AIM-120C-7. The same shape as the LAU-7 above — a part with nothing that
+    moves, attached to the side of something else, shooting wherever that something is pointed —
+    and the first one whose art was authored rather than generated.
+
+    Geometry from the Blender source. +X is out of the mounting face, +Y the way the missile
+    points, +Z its right.
+  -->
+  <Part Id="KSArmory_Prefab_AmraamRail">
+
+    <SubPart Id="KSArmory_AmraamRail_Beam" InstanceOf="KSArmory_AmraamRail_SubPart" />
+
+    <!-- Attaches by the pylon's base, which is the mesh origin. -->
+    <Connector Id="_amConnectorBase">
+      <Transform>
+        <Position X="0.00000" />
+        <Rotation Z="3.14159" />
+      </Transform>
+    </Connector>
+
+    <!--
+      The round, modelled where the mod will seat it rather than parked and shrunk away like the
+      Pantsir's: an open rail with nothing on it reads as broken, in the editor and on the first
+      frame of a flight, and neither runs a weapons system.
+
+      Position is the seated centre and the rotation is the quarter turn carrying the body mesh's
+      nose from +X onto the tube axis — the same values TrySeatMissile computes, so nothing moves
+      when the mod takes over. The 0.424 is the body's radius plus the height of its hanger lug
+      above the shoes it rides in; keep it in step with the Blender source and Arsenal.cs.
+    -->
+    <SubPart Id="KSArmory_Amraam_Round00" InstanceOf="KSArmory_Amraam_SubPart">
+      <Transform>
+        <Position X="0.42400" Y="0.00000" Z="0.00000" />
+        <Rotation Z="1.57080" />
+      </Transform>
+    </SubPart>
+
+  </Part>
+
+  <!--
+    LAU-118 rail with one AGM-88 HARM. The same shape as the two rails above — a part with nothing
+    that moves, attached to the side of something else, shooting wherever that something is
+    pointed — and the first whose round cannot engage an aircraft at all.
+
+    Geometry from the Blender source. +X is out of the mounting face, +Y the way the missile
+    points, +Z its right.
+  -->
+  <Part Id="KSArmory_Prefab_HarmRail">
+
+    <SubPart Id="KSArmory_HarmRail_Beam" InstanceOf="KSArmory_HarmRail_SubPart" />
+
+    <!-- Attaches by the pylon's base, which is the mesh origin. -->
+    <Connector Id="_hmConnectorBase">
+      <Transform>
+        <Position X="0.00000" />
+        <Rotation Z="3.14159" />
+      </Transform>
+    </Connector>
+
+    <!--
+      The round, modelled where the mod will seat it rather than parked and shrunk away like the
+      Pantsir's: an open rail with nothing on it reads as broken, in the editor and on the first
+      frame of a flight, and neither runs a weapons system.
+
+      Position is the seated centre and the rotation is the quarter turn carrying the body mesh's
+      nose from +X onto the tube axis — the same values TrySeatMissile computes, so nothing moves
+      when the mod takes over. The 0.540 is the round's centreline standing off the rail's
+      underside by its hanger lugs; keep it in step with the Blender source and Arsenal.cs.
+    -->
+    <SubPart Id="KSArmory_Harm_Round00" InstanceOf="KSArmory_Harm_SubPart">
+      <Transform>
+        <Position X="0.54000" Y="0.00000" Z="0.00000" />
+        <Rotation Z="1.57080" />
+      </Transform>
+    </SubPart>
+
+  </Part>
+
+  <!--
     Electro-optical director, radially mounted like the rail.
 
     The sight, as its own part. It finds its own targets, drives the player's view and needs no
@@ -525,17 +995,115 @@
   </Part>
 
   <!--
+    A 14-inch suspension rail: the beam a store hangs from, with a hook at each lug station.
+
+    Structure and nothing else — it has no profile in Sim/Arsenal.cs, because it neither shoots
+    nor sees. It is here so a pod or a rack can be carried on something that looks like what
+    carries one, rather than floating off a wing.
+  -->
+  <Part Id="KSArmory_Prefab_Rail">
+
+    <SubPart Id="KSArmory_Rail_Beam" InstanceOf="KSArmory_Rail_SubPart" />
+
+    <!-- Attaches by the beam's upper face, which the export puts on the mesh origin. -->
+    <Connector Id="_rlConnectorBase">
+      <Transform>
+        <Position X="0.00000" />
+        <Rotation Z="3.14159" />
+      </Transform>
+    </Connector>
+  </Part>
+
+  <!--
+    Rafael LITENING targeting pod, radially mounted like the rail.
+
+    The same instrument as the mast director on a different mechanism: a roll-nod gimbal, where
+    the whole nose turns about the pod's centreline and the line of sight tilts within it. Three
+    bodies rather than two, and the extra one is the outer gimbal.
+
+    Geometry from tools/model/import-litening.py. +X is out of the mounting face, away from the
+    pylon, so "down" under a wing; +Y is the way the nose points, and +Z the host's right.
+  -->
+  <Part Id="KSArmory_Prefab_Litening">
+
+    <!--
+      The rail is part of the pod, not a separate thing to remember. A pod is carried on one, and
+      an editor that lets you hang one off a bare wing offers a state that does not exist — the
+      same reason the Mk 82 rack ships with its bomb rather than as two parts.
+
+      It stays at the part origin, so the assembly still attaches by the rail's own upper face.
+      Shifted aft to put its hooks under the pod's lugs: both pairs are 14-inch, and the pod's
+      suspension group is centred 0.2175 m aft of its body's midpoint.
+    -->
+    <SubPart Id="KSArmory_Litening_Rail" InstanceOf="KSArmory_Rail_SubPart">
+      <Transform>
+        <Position X="0.00000" Y="-0.21750" Z="0.00000" />
+      </Transform>
+    </SubPart>
+
+    <!--
+      The pod hangs below it. 0.1507 m is what seats the pod's skin on the rail's sway-brace tips;
+      its lugs then run 8 mm past the hooks, inside the rail, which is a joint rather than a gap.
+    -->
+    <SubPart Id="KSArmory_Litening_Body" InstanceOf="KSArmory_LiteningBody_SubPart">
+      <Transform>
+        <Position X="0.15070" Y="0.00000" Z="0.00000" />
+      </Transform>
+    </SubPart>
+
+    <!--
+      Both moving bodies sit at the same pivot, because they turn on the same bearing. Their
+      meshes are exported recentred on it so KSA turns them in place, and the offset comes back
+      here.
+
+      These carry the rail's standoff as well, and OpticProfile.HeadPivot does not: it is an offset
+      from the *base*, which MountFrame reads off the engine each frame. So the pod moving down its
+      own rail needed nothing in the C# at all — the same property that lets the Pantsir's director
+      ride a traverse, and why validate-parts.py compares head minus base rather than either alone.
+    -->
+    <SubPart Id="KSArmory_Litening_Roll" InstanceOf="KSArmory_LiteningRoll_SubPart">
+      <Transform>
+        <Position X="0.41739" Y="0.94282" Z="0.00000" />
+      </Transform>
+    </SubPart>
+
+    <SubPart Id="KSArmory_Litening_Head" InstanceOf="KSArmory_LiteningWindow_SubPart">
+      <Transform>
+        <Position X="0.41739" Y="0.94282" Z="0.00000" />
+      </Transform>
+    </SubPart>
+
+    <!-- Attaches by the rail's upper face, which is the mesh origin. -->
+    <Connector Id="_ltConnectorBase">
+      <Transform>
+        <Position X="0.00000" />
+        <Rotation Z="3.14159" />
+      </Transform>
+    </Connector>
+  </Part>
+
+  <!--
     14-inch ejector rack, radially mounted like the rail.
 
     The bomb hangs from it rather than being parked and shrunk away like the Pantsir's rounds: an
     open rack with nothing on it reads as broken, and the editor runs no fire control at all.
   -->
-  <Part Id="KSArmory_Prefab_BombRack">
+  <!--
+    The same ejector rack with a B61-12 on it.
 
-    <SubPart Id="KSArmory_Rack_Beam" InstanceOf="KSArmory_BombRack_SubPart" />
+    Both bodies are authored, and the rack shares none of the Mk 82's: a B61-12 is 3.556 m against
+    the Mk 82's 2.22 m and a wholly different shape, and it hangs from 30-inch lugs where the
+    generated beam's hooks are 14 inches apart. So this part carries a MAU-12 of its own, and the
+    two racks are checked separately — the Mk 82's against muzzles.json, this one against its mesh.
 
-    <!-- Attaches by the pylon's base, which is the mesh origin. -->
-    <Connector Id="_brConnectorBase">
+    The round rides higher than the Mk 82 does, because the seat clears the hooks by the round's
+    own radius and this one is the fatter of the two.
+  -->
+  <Part Id="KSArmory_Prefab_NukeRack">
+
+    <SubPart Id="KSArmory_NukeRack_Beam" InstanceOf="KSArmory_B61Rack_SubPart" />
+
+    <Connector Id="_nrConnectorBase">
       <Transform>
         <Position X="0.00000" />
         <Rotation Z="3.14159" />
@@ -544,29 +1112,58 @@
 
     <!--
       Position is the seated centre and the rotation is the quarter turn carrying the body mesh's
-      nose from +X onto the tube axis - the same values TrySeatMissile computes, so nothing moves
-      when the mod takes over. Keep in step with bombrack.py's AXIS_X and BODY_LEN.
+      nose from +X onto the tube axis — the same values TrySeatMissile computes, so nothing moves
+      when the mod takes over. Keep in step with Arsenal.NukeRack.
     -->
-    <SubPart Id="KSArmory_Rack_Mk8200" InstanceOf="KSArmory_Mk82_SubPart">
+    <SubPart Id="KSArmory_NukeRack_B6100" InstanceOf="KSArmory_B61_SubPart">
       <Transform>
-        <Position X="0.40650" Y="0.00000" Z="0.00000" />
+        <Position X="0.43510" Y="0.00000" Z="0.00000" />
         <Rotation Z="1.57080" />
+      </Transform>
+    </SubPart>
+
+    <!--
+      Its four blades. Placed and rolled by the mod every frame, so these transforms are only what
+      they look like before it takes over — seated with the round, square to the rack.
+    -->
+    <SubPart Id="KSArmory_NukeRack_Blade00" InstanceOf="KSArmory_B61Fin_SubPart">
+      <Transform>
+        <Position X="0.43510" Y="-1.52100" Z="0.00000" />
+        <Rotation X="0.78540" Z="1.57080" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_NukeRack_Blade01" InstanceOf="KSArmory_B61Fin_SubPart">
+      <Transform>
+        <Position X="0.43510" Y="-1.52100" Z="0.00000" />
+        <Rotation X="2.35619" Z="1.57080" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_NukeRack_Blade02" InstanceOf="KSArmory_B61Fin_SubPart">
+      <Transform>
+        <Position X="0.43510" Y="-1.52100" Z="0.00000" />
+        <Rotation X="3.92699" Z="1.57080" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_NukeRack_Blade03" InstanceOf="KSArmory_B61Fin_SubPart">
+      <Transform>
+        <Position X="0.43510" Y="-1.52100" Z="0.00000" />
+        <Rotation X="5.49779" Z="1.57080" />
       </Transform>
     </SubPart>
 
   </Part>
 
   <!--
-    Phalanx-pattern CIWS, 4.7 m on a 3 m stack node.
+    Mk 15 Phalanx, 4.6 m on a 3 m stack node.
 
     The first part here that STACKS rather than surface-attaching. A connector with no <Flags> is
     a node connector; ToSurface is the opt-in for radial. So this one sits on top of a tank, a
-    decoupler or an adapter the way an engine sits under one, and the flange flares from the 3 m
-    node to the mount's own 2.8 m base.
+    decoupler or an adapter the way an engine sits under one, on a 3 m bolted flange.
 
     One connector, at the bottom. Nothing stacks on top of a gun.
 
-    Geometry from tools/model/ciws.py. +X is up the stack, +Y the way the gun faces at rest.
+    Authored in Blender, so the pivots below are the ones the export carries, and validate-parts.py
+    checks them against Arsenal.Ciws. +X is up the stack, +Y the way the gun faces at rest.
   -->
   <Part Id="KSArmory_Prefab_Ciws">
 
@@ -575,11 +1172,10 @@
     <!--
       Traverses about the stack centreline. Its mesh is exported recentred on the pivot, so KSA
       spins it in place; the offset comes back here.
-      Keep in step with TURRET_PIVOT in tools/model/ciws.py.
     -->
     <SubPart Id="KSArmory_Ciws_Turret" InstanceOf="KSArmory_CiwsTurret_SubPart">
       <Transform>
-        <Position X="0.10000" Y="0.00000" Z="0.00000" />
+        <Position X="0.80000" Y="0.00000" Z="0.00000" />
       </Transform>
     </SubPart>
 
@@ -589,11 +1185,10 @@
       and its position every frame. The dome carries the track antenna, which stays boresighted
       with the barrels, so it is one rigid body with them rather than something the traverse
       holds upright while the barrels alone move.
-      Keep in step with GUN_PIVOT in tools/model/ciws.py.
     -->
     <SubPart Id="KSArmory_Ciws_Guns" InstanceOf="KSArmory_CiwsGuns_SubPart">
       <Transform>
-        <Position X="2.30000" Y="0.00000" Z="0.00000" />
+        <Position X="2.25000" Y="0.00000" Z="0.00000" />
       </Transform>
     </SubPart>
 
@@ -607,4 +1202,389 @@
 
   </Part>
 
+  <!--
+    Heavy ICBM MIRV bus: a post-boost vehicle carrying six reentry vehicles, on a 3 m stack node.
+
+    It STACKS rather than surface-attaching, like the CIWS. A connector with no <Flags> is a node
+    connector; ToSurface is the opt-in for radial. One connector, at the bottom - nothing stacks on
+    top of a warhead section, because the shroud that would cover it is not a part.
+
+    Twenty-three bodies from three meshes. The bus is rigid; the six RVs are the rounds, released
+    from their mounting rings, which stay behind; the sixteen nozzles are real KSA thrusters and
+    carry their combustion chemistry in the GameData rather than here.
+
+    Geometry generated and verified against the repository's own Rx*Ry*Rz reading of <Rotation> -
+    the RV cant is not a single-axis turn, so X is the seat azimuth and Z the 6 degrees of cant.
+    Keep in step with Arsenal.MirvBus.Tubes.
+
+    +X is up the stack, +Y the drive direction.
+  -->
+  <Part Id="KSArmory_Prefab_MirvBus">
+
+    <SubPart Id="KSArmory_Mirv_Bus" InstanceOf="KSArmory_MirvBus_SubPart" />
+
+    <!-- Six RVs on an 0.86 bolt circle, parallel: a canted release spreads the group by an
+         amount the bus's own drifting attitude decides, and nothing aboard can correct it. -->
+    <SubPart Id="KSArmory_Mirv_Rv00" InstanceOf="KSArmory_MirvRv_SubPart">
+      <Transform>
+        <Position X="1.74010" Y="0.86000" Z="0.00000" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mirv_Rv01" InstanceOf="KSArmory_MirvRv_SubPart">
+      <Transform>
+        <Position X="1.74010" Y="0.43000" Z="0.74478" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mirv_Rv02" InstanceOf="KSArmory_MirvRv_SubPart">
+      <Transform>
+        <Position X="1.74010" Y="-0.43000" Z="0.74478" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mirv_Rv03" InstanceOf="KSArmory_MirvRv_SubPart">
+      <Transform>
+        <Position X="1.74010" Y="-0.86000" Z="0.00000" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mirv_Rv04" InstanceOf="KSArmory_MirvRv_SubPart">
+      <Transform>
+        <Position X="1.74010" Y="-0.43000" Z="-0.74478" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mirv_Rv05" InstanceOf="KSArmory_MirvRv_SubPart">
+      <Transform>
+        <Position X="1.74010" Y="0.43000" Z="-0.74478" />
+      </Transform>
+    </SubPart>
+
+    <!--
+      Four clusters of five, each a cross of four square to the pad with one standing out of it:
+      axial fore and aft for pitch, yaw and dV, two tangential for roll, one radial for translation.
+
+      The roll pair is exactly tangential rather than canted. A cant costs roll authority as its
+      cosine, and costs translation outright: KSA flags a nozzle for a lateral axis on a thrust
+      component over 0.5, so a tangential bell on a cluster clocked 45 degrees between two axes
+      clears it on both, where a canted one clears only the axis it leans towards.
+    -->
+    <SubPart Id="KSArmory_Mirv_Rcs00" InstanceOf="KSArmory_MirvRcs_SubPart">
+      <Transform>
+        <Position X="0.42000" Y="1.10309" Z="1.10309" />
+        <Rotation Z="-3.14159" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mirv_Rcs01" InstanceOf="KSArmory_MirvRcs_SubPart">
+      <Transform>
+        <Position X="0.18000" Y="1.10309" Z="1.10309" />
+        <!-- no rotation: fires straight aft -->
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mirv_Rcs02" InstanceOf="KSArmory_MirvRcs_SubPart">
+      <Transform>
+        <Position X="0.30000" Y="1.01823" Z="1.18794" />
+        <!-- fires along -Y+Z -->
+        <Rotation Y="0.78540" Z="1.57080" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mirv_Rcs03" InstanceOf="KSArmory_MirvRcs_SubPart">
+      <Transform>
+        <Position X="0.30000" Y="1.18794" Z="1.01823" />
+        <!-- fires along +Y-Z -->
+        <Rotation Y="-0.78540" Z="-1.57080" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mirv_Rcs04" InstanceOf="KSArmory_MirvRcs_SubPart">
+      <Transform>
+        <Position X="0.42000" Y="-1.10309" Z="1.10309" />
+        <Rotation Z="-3.14159" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mirv_Rcs05" InstanceOf="KSArmory_MirvRcs_SubPart">
+      <Transform>
+        <Position X="0.18000" Y="-1.10309" Z="1.10309" />
+        <!-- no rotation: fires straight aft -->
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mirv_Rcs06" InstanceOf="KSArmory_MirvRcs_SubPart">
+      <Transform>
+        <Position X="0.30000" Y="-1.18794" Z="1.01823" />
+        <!-- fires along -Y-Z -->
+        <Rotation Y="-0.78540" Z="1.57080" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mirv_Rcs07" InstanceOf="KSArmory_MirvRcs_SubPart">
+      <Transform>
+        <Position X="0.30000" Y="-1.01823" Z="1.18794" />
+        <!-- fires along +Y+Z -->
+        <Rotation Y="0.78540" Z="-1.57080" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mirv_Rcs08" InstanceOf="KSArmory_MirvRcs_SubPart">
+      <Transform>
+        <Position X="0.42000" Y="-1.10309" Z="-1.10309" />
+        <Rotation Z="-3.14159" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mirv_Rcs09" InstanceOf="KSArmory_MirvRcs_SubPart">
+      <Transform>
+        <Position X="0.18000" Y="-1.10309" Z="-1.10309" />
+        <!-- no rotation: fires straight aft -->
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mirv_Rcs10" InstanceOf="KSArmory_MirvRcs_SubPart">
+      <Transform>
+        <Position X="0.30000" Y="-1.01823" Z="-1.18794" />
+        <!-- fires along +Y-Z -->
+        <Rotation Y="-0.78540" Z="-1.57080" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mirv_Rcs11" InstanceOf="KSArmory_MirvRcs_SubPart">
+      <Transform>
+        <Position X="0.30000" Y="-1.18794" Z="-1.01823" />
+        <!-- fires along -Y+Z -->
+        <Rotation Y="0.78540" Z="1.57080" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mirv_Rcs12" InstanceOf="KSArmory_MirvRcs_SubPart">
+      <Transform>
+        <Position X="0.42000" Y="1.10309" Z="-1.10309" />
+        <Rotation Z="-3.14159" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mirv_Rcs13" InstanceOf="KSArmory_MirvRcs_SubPart">
+      <Transform>
+        <Position X="0.18000" Y="1.10309" Z="-1.10309" />
+        <!-- no rotation: fires straight aft -->
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mirv_Rcs14" InstanceOf="KSArmory_MirvRcs_SubPart">
+      <Transform>
+        <Position X="0.30000" Y="1.18794" Z="-1.01823" />
+        <!-- fires along +Y+Z -->
+        <Rotation Y="0.78540" Z="-1.57080" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mirv_Rcs15" InstanceOf="KSArmory_MirvRcs_SubPart">
+      <Transform>
+        <Position X="0.30000" Y="1.01823" Z="-1.18794" />
+        <!-- fires along -Y-Z -->
+        <Rotation Y="-0.78540" Z="1.57080" />
+      </Transform>
+    </SubPart>
+
+    <!--
+      One radial jet per cluster, firing straight out of the pad. Without it the bus can turn but
+      cannot shove itself sideways, and the correction a steep arrival needs is lateral.
+
+      KSA flags a nozzle for translation on a thrust component over 0.5 of a control-frame axis -
+      a 60 degree half-cone - so one bell sitting 45 degrees between two axes serves both, and a
+      lateral command fires the two clusters facing it.
+
+      It seats on the cluster centre, where the other four bells already converge, so their roots
+      merge. That is the seat rather than a mistake: the centre is the only place a fifth bell is
+      exactly on the bisector, and only an exactly radial thrust carries no roll torque.
+    -->
+    <SubPart Id="KSArmory_Mirv_Rcs16" InstanceOf="KSArmory_MirvRcs_SubPart">
+      <Transform>
+        <Position X="0.30000" Y="1.12430" Z="1.12430" />
+        <!-- fires out along +Y+Z -->
+        <Rotation Y="0.78540" Z="-1.57080" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mirv_Rcs17" InstanceOf="KSArmory_MirvRcs_SubPart">
+      <Transform>
+        <Position X="0.30000" Y="-1.12430" Z="1.12430" />
+        <!-- fires out along -Y+Z -->
+        <Rotation Y="0.78540" Z="1.57080" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mirv_Rcs18" InstanceOf="KSArmory_MirvRcs_SubPart">
+      <Transform>
+        <Position X="0.30000" Y="-1.12430" Z="-1.12430" />
+        <!-- fires out along -Y-Z -->
+        <Rotation Y="-0.78540" Z="1.57080" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mirv_Rcs19" InstanceOf="KSArmory_MirvRcs_SubPart">
+      <Transform>
+        <Position X="0.30000" Y="1.12430" Z="-1.12430" />
+        <!-- fires out along +Y-Z -->
+        <Rotation Y="-0.78540" Z="-1.57080" />
+      </Transform>
+    </SubPart>
+
+    <!-- Node attach at the mounting face. No ToSurface flag: this one stacks. -->
+    <Connector Id="_mirvConnectorBase">
+      <Transform>
+        <Position X="0.00000" />
+        <Rotation X="3.14159" Z="3.14159" />
+      </Transform>
+    </Connector>
+
+  </Part>
+
+
+  <!--
+    5"/54 Mk 42 single enclosed mount, 2.83 m tall on a 3 m stack node.
+
+    Stacks rather than surface-attaching, like the CIWS: a connector with no <Flags> is a node
+    connector, and a deck gun mounts on a deck. One connector, at the bottom, because nothing
+    stacks on top of a gun.
+
+    Geometry authored by Mallikas. +X is up the stack, +Y the way the gun faces at rest.
+  -->
+  <Part Id="KSArmory_Prefab_Mk42">
+
+    <SubPart Id="KSArmory_Mk42_Base" InstanceOf="KSArmory_Mk42Base_SubPart" />
+
+    <!--
+      Traverses about the stack centreline, 17 mm above the mounting face where the mesh origin
+      sits. validate-parts.py reads a marker's placement out of the Transform, so it is written out.
+      Keep in step with Arsenal.Mk42.TurretPivot.
+    -->
+    <SubPart Id="KSArmory_Mk42_Turret" InstanceOf="KSArmory_Mk42Turret_SubPart">
+      <Transform>
+        <Position X="0.01664" Y="0.00000" Z="0.00000" />
+      </Transform>
+    </SubPart>
+
+    <!--
+      Elevates on the trunnion, 1.55 m up the mount and 0.48 m forward of its centreline. The mesh
+      is exported recentred on that trunnion, so KSA swings it in place and the offset comes back
+      here. Keep in step with TurretPivot + GunPivotFromTurret in Arsenal.Mk42.
+    -->
+    <SubPart Id="KSArmory_Mk42_Cannon" InstanceOf="KSArmory_Mk42Cannon_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="0.00000" />
+      </Transform>
+    </SubPart>
+
+    <!--
+      Everything below is appended after the cannon: a saved part is paired with this list by
+      position, so an entry can be added at the end and never removed.
+
+      The barrel, on the cannon's own trunnion. It runs back along the bore when the gun fires and
+      otherwise moves exactly as the cannon do.
+    -->
+    <SubPart Id="KSArmory_Mk42_Barrel" InstanceOf="KSArmory_Mk42Barrel_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="0.00000" />
+      </Transform>
+    </SubPart>
+
+    <!--
+      Shell bodies, lent to shells in flight and hidden otherwise. Twenty: a timed shell flies up to
+      43 s to the edge of its 15.7 km envelope and the gun fires one every 1.5 s, so a long engagement
+      can have more shells up than bodies, and a shell finding none free draws as a tracer. Parked in the breech, where the gun house hides them until the mod first
+      runs, and a centimetre apart, because identical bodies on one point share every plane they have.
+      The second ten were added after the first shipped, so they come after them.
+    -->
+    <SubPart Id="KSArmory_Mk42_Shell00" InstanceOf="KSArmory_Mk42Shell_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="-0.04500" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mk42_Shell01" InstanceOf="KSArmory_Mk42Shell_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="-0.03500" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mk42_Shell02" InstanceOf="KSArmory_Mk42Shell_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="-0.02500" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mk42_Shell03" InstanceOf="KSArmory_Mk42Shell_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="-0.01500" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mk42_Shell04" InstanceOf="KSArmory_Mk42Shell_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="-0.00500" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mk42_Shell05" InstanceOf="KSArmory_Mk42Shell_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="0.00500" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mk42_Shell06" InstanceOf="KSArmory_Mk42Shell_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="0.01500" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mk42_Shell07" InstanceOf="KSArmory_Mk42Shell_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="0.02500" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mk42_Shell08" InstanceOf="KSArmory_Mk42Shell_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="0.03500" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mk42_Shell09" InstanceOf="KSArmory_Mk42Shell_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="0.04500" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mk42_Shell10" InstanceOf="KSArmory_Mk42Shell_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="-0.09500" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mk42_Shell11" InstanceOf="KSArmory_Mk42Shell_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="-0.08500" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mk42_Shell12" InstanceOf="KSArmory_Mk42Shell_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="-0.07500" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mk42_Shell13" InstanceOf="KSArmory_Mk42Shell_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="-0.06500" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mk42_Shell14" InstanceOf="KSArmory_Mk42Shell_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="-0.05500" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mk42_Shell15" InstanceOf="KSArmory_Mk42Shell_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="0.05500" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mk42_Shell16" InstanceOf="KSArmory_Mk42Shell_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="0.06500" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mk42_Shell17" InstanceOf="KSArmory_Mk42Shell_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="0.07500" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mk42_Shell18" InstanceOf="KSArmory_Mk42Shell_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="0.08500" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mk42_Shell19" InstanceOf="KSArmory_Mk42Shell_SubPart">
+      <Transform>
+        <Position X="1.55441" Y="0.48097" Z="0.09500" />
+      </Transform>
+    </SubPart>
+
+    <!-- Node attach at the mounting face. No ToSurface flag: this one stacks. -->
+    <Connector Id="_mk42ConnectorBase">
+      <Transform>
+        <Position X="0.00000" />
+        <Rotation X="3.14159" Z="3.14159" />
+      </Transform>
+    </Connector>
+
+  </Part>
 </Assets>

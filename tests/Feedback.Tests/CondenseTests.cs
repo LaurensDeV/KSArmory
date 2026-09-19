@@ -27,12 +27,12 @@ public class CondenseTests
         // turns thousands of lines into the handful of things a log actually says.
         Guard.Condensed condensed = Guard.Condense(
             """
-            21:28:53.471 INFO  round 1 detonated, miss distance 18 m
-            21:29:01.004 INFO  round 2 detonated, miss distance 7 m
-            21:29:11.882 INFO  round 3 detonated, miss distance 41 m
+            21:28:53.471 INFO  round 1 detonated with the target at 18 m
+            21:29:01.004 INFO  round 2 detonated with the target at 7 m
+            21:29:11.882 INFO  round 3 detonated with the target at 41 m
             """);
 
-        Assert.Equal(["round # detonated, miss distance # m"], condensed.Lines);
+        Assert.Equal(["round # detonated with the target at # m"], condensed.Lines);
     }
 
     [Fact]
@@ -54,7 +54,7 @@ public class CondenseTests
             """
             20:41:19.026 INFO  ready - Pantsir-S1, 12 tubes, safe.
             21:24:44.779 INFO  holding fire: target out of reach (0.1 km, envelope 1.2-20.0 km)
-            21:28:53.471 INFO  round 1 detonated, miss distance 18 m
+            21:28:53.471 INFO  round 1 detonated with the target at 18 m
             21:28:53.473 INFO  destroyed NewRocket_1
             19:07:51.651 INFO  crewed AA Defence Site_1_2
 

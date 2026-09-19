@@ -34,9 +34,10 @@ immediately, so there is no unwrapping step and nothing to get out of sync.
 
 ## Missile geometry is exported, not eyeballed
 
-The tube muzzle positions are computed here and printed as a ready-to-paste C# block. They
-must match the LauncherProfile's `Tubes` in Sim/Arsenal.cs, which is what puts the launch
-markers on the actual tubes. tools/validate-parts.py fails the build if the two disagree.
+The tube muzzle positions are computed here and printed as a ready-to-paste block. They must
+match the launcher's tubes where they are declared -- the Pantsir's in KSArmory/Weapons.xml, a
+launcher still in C# in Sim/Arsenal.cs -- which is what puts the launch markers on the actual
+tubes. tools/validate-parts.py fails the build if the two disagree.
 """
 
 import json
@@ -51,8 +52,6 @@ from mathutils import Euler, Matrix, Vector
 
 # Blender runs this by path, so its directory is not on sys.path.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import ciws
-import bombrack
 import optic
 import sidewinder
 
@@ -145,6 +144,24 @@ RADAR_PIVOT = (4.05, RADAR_MAST_Y, 0.0)  # spin axis, parallel to the part's X
 # Above the tracking array, which reaches X 3.67. Beside it the array cuts the sight line the
 # moment the head looks down and forward - which is exactly where a target on its final approach
 # is.
+
+# Where the Pantsir's own director bolts to the turret roof: the flange's bottom face, in part
+# space. The turret deck's top is X 3.38 and OPTIC_PLINTH raises it the rest of the way.
+#
+# Off the traverse axis on purpose, which costs nothing and is where a real one sits. The axis
+# itself is not free: the search array turns about it with a 0.95 m circumradius, reaching forward
+# to TURRET_Y - 0.15, so a ball on the centreline would grind through a body that never stops.
+#
+# The mod does not reconstruct this from the traverse angle -- it reads the base subpart's
+# transform, which the turret drive has already written. See Sim/OpticGeometry.MountFrame.
+#
+# Y is set by the tracking array's housing, not by taste. That housing leans back 0.16 rad, which
+# swings its rear face to Y = TURRET_Y + 1.22 rather than the TURRET_Y + 1.35 its half-extent
+# suggests, and the flange's 0.30 m radius has to clear it. The blanked-off stub this replaced
+# overlapped it and nothing complained, because the stub was part of the turret's own body and a
+# body cannot intersect itself -- the clash only became visible once the director was a body in
+# its own right. tools/model/checkswept.py measured it at 7.0 cm, exactly FLANGE_TOP.
+OPTIC_MOUNT = (3.46, TURRET_Y + 0.82, 0.44)
 
 # The 57E6 round: a bronze booster with small tail fins, a cluster of four delta fins at the
 # stage joint, and a slim grey sustainer with a blue-grey nose. Modelled nose-along-+X with the
@@ -660,14 +677,21 @@ def build_tracking_radar():
     for z in (-1.0, 1.0):
         box((1.44, 0.16, 0.10), (2.95, face_y - 0.04, z * 0.76), (0.0, 0.0, tilt), "metal")
 
-    # Where the electro-optical tracker used to sit. The pedestal stays as a blanked-off stub:
-    # the head is its own part now (tools/model/optic.py), and a Pantsir wanting a sight carries
-    # one like anything else does.
+    # The pad the electro-optical director bolts to. The director itself is not built here: it is
+    # tools/model/optic.py's two bodies, instanced as subparts by the part XML the way the rounds
+    # are, so the Pantsir carries the same head anything else can and there is only one to model.
+    #
+    # Sized so the flange (radius 0.30) lands inside it rather than proud of it, and topped just
+    # above OPTIC_MOUNT so the flange's base disc sits *within* the pad -- two bodies meeting
+    # exactly on a plane z-fight, and this pair is small enough that it would read as a flicker
+    # rather than as anything diagnosable.
     #
     # The box() call stays rather than going with the head. Jitter runs off one seed, so deleting
     # a box moves every box drawn after it onto different planes -- in the pods, the cannon and
-    # the rail, none of which have anything to do with this.
-    box((0.74, 0.44, 0.50), (3.72, TURRET_Y + 1.05, 0.44), swatch="hull_dark")
+    # the rail, none of which have anything to do with this. Resizing and moving one is free;
+    # only adding, removing or reordering disturbs the sequence.
+    box((0.10, 0.68, 0.68), (OPTIC_MOUNT[0] - 0.03, OPTIC_MOUNT[1], OPTIC_MOUNT[2]),
+        swatch="hull_dark")
 
 
 def build_search_radar_mount():
@@ -832,11 +856,6 @@ def export(path):
     fins = join_group("fins")
     rail = join_group("sidewinder")
     aim9 = join_group("aim9")
-    ciwsbase = join_group("ciwsbase")
-    ciwsturret = join_group("ciwsturret", recentre=ciws.TURRET_PIVOT)
-    ciwsguns = join_group("ciwsguns", recentre=ciws.GUN_PIVOT)
-    rack = join_group("bombrack")
-    mk82 = join_group("mk82")
     opticbase = join_group("opticbase")
     optichead = join_group("optichead", recentre=optic.HEAD_PIVOT)
 
@@ -852,11 +871,6 @@ def export(path):
                       (fins, "KSArmory_Subpart_Fins"),
                       (rail, "KSArmory_Subpart_SidewinderRail"),
                       (aim9, "KSArmory_Subpart_Aim9"),
-                      (ciwsbase, "KSArmory_Subpart_CiwsBase"),
-                      (ciwsturret, "KSArmory_Subpart_CiwsTurret"),
-                      (ciwsguns, "KSArmory_Subpart_CiwsGuns"),
-                      (rack, "KSArmory_Subpart_BombRack"),
-                      (mk82, "KSArmory_Subpart_Mk82"),
                       (opticbase, "KSArmory_Subpart_OpticBase"),
                       (optichead, "KSArmory_Subpart_OpticHead")):
         preview = ob.copy()
@@ -969,8 +983,7 @@ def render_previews(out_dir):
     # between the front wheels. Leave them out of the vehicle shots and give them their own.
     for name, (loc, look) in VIEWS.items():
         show_only()
-        for group in ("missile", "fins", "sidewinder", "aim9", "bombrack", "mk82",
-                      "ciwsbase", "ciwsturret", "ciwsguns", "opticbase", "optichead"):
+        for group in ("missile", "fins", "sidewinder", "aim9", "opticbase", "optichead"):
             for ob in _objects[group]:
                 ob.hide_render = True
         look_at(cam, loc, look)
@@ -995,15 +1008,6 @@ def render_previews(out_dir):
     print("RENDER", scene.render.filepath)
 
     render_sidewinder(out_dir, cam, show_only)
-
-    # The CIWS is 4.7 m and stands on its own origin, so it needs no reassembly - unlike the rail,
-    # whose round is modelled in a different frame.
-    show_only("ciwsbase", "ciwsturret", "ciwsguns")
-    for name, loc in (("ciws", (5.6, 9.8, 5.6)), ("ciws_side", (2.4, 0.0, -13.5))):
-        look_at(cam, loc, (2.4, 0.0, 0.0))
-        scene.render.filepath = os.path.join(out_dir, f"preview_{name}.png")
-        bpy.ops.render.render(write_still=True)
-        print("RENDER", scene.render.filepath)
 
     show_only()
 
@@ -1045,7 +1049,8 @@ def render_sidewinder(out_dir, cam, show_only):
 def report_muzzles(out_dir):
     """Emits the firing tubes as a C# array and as JSON.
 
-    The array goes into the LauncherProfile's `Tubes` in src/KSArmory/Sim/Arsenal.cs by hand;
+    The array goes into the launcher's tubes by hand -- the Pantsir's as <Tube> elements in
+    src/KSArmory/KSArmory/Weapons.xml;
     the JSON is what tools/validate-parts.py compares that file against, so the two cannot
     quietly drift.
 
@@ -1058,7 +1063,7 @@ def report_muzzles(out_dir):
     # follow them through both traverse and elevation, with no extra bookkeeping.
     firing = [tube_muzzle(*t) - pivot for t in firing_order()]
 
-    print("\n=== LauncherProfile.Tubes (paste into src/KSArmory/Sim/Arsenal.cs)")
+    print("\n=== LauncherProfile.Tubes (the Pantsir's go to KSArmory/Weapons.xml as <Tube>)")
     for m in firing:
         print(f"        new({m.x:8.5f}, {m.y:8.5f}, {m.z:8.5f}),")
 
@@ -1101,11 +1106,17 @@ def report_muzzles(out_dir):
     print(f"    RadarPivotFromTurret = ({radar_rel_turret.x:.5f}, {radar_rel_turret.y:.5f}, "
           f"{radar_rel_turret.z:.5f})")
 
+    # The director's base rides the traverse like the array does, so the mod needs where it hangs
+    # off the turret rather than where it sits on the part. Its head needs nothing extra: the
+    # profile's HeadPivot is an offset from the base, identical to the standalone director's,
+    # and MountFrame carries it wherever the traverse has put the base.
+    optic_rel_turret = Vector(OPTIC_MOUNT) - Vector(TURRET_PIVOT)
+    print(f"    OpticBaseFromTurret  = ({optic_rel_turret.x:.5f}, {optic_rel_turret.y:.5f}, "
+          f"{optic_rel_turret.z:.5f})")
+
     emitted = {}
     sidewinder.report(emitted)
-    ciws.report(emitted)
     optic.report(emitted)
-    bombrack.report(emitted)
 
     with open(os.path.join(out_dir, "muzzles.json"), "w") as fh:
         json.dump({
@@ -1122,6 +1133,8 @@ def report_muzzles(out_dir):
             "pod_reference_elevation_deg": round(math.degrees(POD_ELEV), 3),
             "radar_pivot": [round(v, 5) for v in RADAR_PIVOT],
             "radar_pivot_from_turret": [round(v, 5) for v in radar_rel_turret],
+            "optic_mount": [round(v, 5) for v in OPTIC_MOUNT],
+            "optic_base_from_turret": [round(v, 5) for v in optic_rel_turret],
         }, fh, indent=2)
 
 
@@ -1133,8 +1146,10 @@ def main():
     # Last, so the shared box jitter reshuffles nothing above it: the generator runs off one
     # seed, and inserting a box moves every box drawn after it onto different planes.
     sidewinder.build(sys.modules[__name__])
-    ciws.build(sys.modules[__name__])
-    bombrack.build(sys.modules[__name__])
+    # The CIWS was generated here and is authored now. Its four boxes still draw their jitter, so
+    # the director built after them keeps the planes it has always had.
+    for _ in range(4 * 3):
+        _jitter.random()
     optic.build(sys.modules[__name__])
 
     # Render *before* export. Exporting recentres the turret and pod meshes onto their slew

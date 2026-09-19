@@ -1,0 +1,249 @@
+using Brutal.GlfwApi;
+using Brutal.Numerics;
+using KSA;
+
+namespace KSArmory;
+
+/// <summary>
+/// The only place this mod flies somebody else's rocket. Attitude, throttle, ignition and staging,
+/// through KSA's own public interfaces and nothing else.
+///
+/// <para>Every write here is one the game already makes for itself somewhere. The attitude goes
+/// through the flight computer's <c>Custom</c> track target, which is what <c>PhysicsBubble</c>
+/// uses to point a kitten's manoeuvring unit; ignition, throttle and staging go through
+/// <see cref="Vehicle.ProcessInput"/>, which is the same call the keyboard makes. Nothing is
+/// patched and nothing private is reached for, which is what stops a KSA update turning this into
+/// a rocket that flies sideways rather than into a build error.</para>
+///
+/// <para><b>Commands take a frame to arrive.</b> KSA copies a vehicle's control inputs into its
+/// worker state in <c>PrepareWorker</c>, which runs before this mod's hook — so a write made now
+/// is acted on next frame. That is the same latency the player's own keypress has, and it is why
+/// the guidance times its cutoff rather than waiting to observe one.</para>
+/// </summary>
+internal static class VehicleCommand
+{
+    // Far enough that pointing at a place on the line and pointing along the line are the same
+    // thing. KSA's own aiming takes a target position rather than a direction, and at this range
+    // the difference is below the angle any drive can hold.
+    private const double AimPointDistance = 1e12;
+
+    // How far off the wanted throttle is close enough to stop working the control.
+    private const double ThrottleTolerance = 0.02;
+
+    /// <summary>
+    /// Point the vehicle's nose along a direction in the parent body's inertial frame.
+    ///
+    /// <para>The rotation is laid out exactly as <see cref="VehicleReferenceFrameEx.GetTgt2Cci"/>
+    /// lays it out — the engine's own "aim at that" frame, which is what its <c>Toward</c> mode
+    /// uses — because guessing which body axis is the nose gives a vehicle that holds a perfectly
+    /// steady attitude ninety degrees from the one asked for.</para>
+    ///
+    /// <para><b>What it does not borrow is the roll reference.</b> The engine's is the direction of
+    /// the planet, which has no answer when the nose points at it or away from it, and does not
+    /// merely fail there — it <em>reverses</em>. A vertical rise points away from the planet for
+    /// its whole duration, so the commanded roll swings through half a turn and the vehicle spins
+    /// on its own axis. <see cref="AimFrame"/> supplies one that is carried forward instead.</para>
+    ///
+    /// <para>The frame is <c>EclBody</c> rather than the local horizon, because its frame rates are
+    /// zero: a commanded inertial direction wants no feed-forward, and the horizon frame's rates
+    /// would have the flight computer chasing a rotation nobody asked for.</para>
+    /// </summary>
+    public static bool TryAim(Vehicle craft, double3 directionCci, double3 rollReferenceCci)
+    {
+        if (!KsaWorld.IsAlive(craft)) return false;
+        if (KsaWorld.ParentBody(craft) is not { } parent) return false;
+
+        // Resolved here rather than passed in, because this runs inside the engine's own frame pass
+        // where the vehicle's state is fresh and the caller's is a frame old.
+        doubleQuat cce2Cci = parent.GetCce2Cci();
+        double3 positionCci = (craft.GetPositionEcl() - parent.GetPositionEcl()).Transform(cce2Cci);
+
+        double3 forward = Vec.Unit(directionCci);
+        if (forward.Equals(Vec.Zero) || !Vec.IsFinite(positionCci)) return false;
+
+        double3 across = Vec.Unit(Vec.Cross(rollReferenceCci, forward));
+        if (across.Equals(Vec.Zero)) return false;
+
+        double3 third = Vec.Unit(Vec.Cross(forward, across));
+        if (third.Equals(Vec.Zero)) return false;
+
+        doubleQuat target2Cci = doubleQuat.CreateFromRotationMatrix(new double4x4(
+            forward.X, forward.Y, forward.Z, 0.0,
+            across.X, across.Y, across.Z, 0.0,
+            third.X, third.Y, third.Z, 0.0,
+            0.0, 0.0, 0.0, 1.0));
+
+        doubleQuat frame2Cci = VehicleReferenceFrameEx.GetEclBody2Cci(parent.GetCce2Cci());
+        doubleQuat target2Frame = doubleQuat.Concatenate(target2Cci, frame2Cci.Inverse());
+
+        FlightComputer computer = craft.FlightComputer;
+        computer.AttitudeFrame = VehicleReferenceFrame.EclBody;
+        computer.AttitudeTrackTarget = FlightComputerAttitudeTrackTarget.Custom;
+        computer.CustomAttitudeTarget = VehicleReferenceFrame.EclBody.QuaternionToEulerAngles(target2Frame);
+        computer.AttitudeMode = FlightComputerAttitudeMode.Auto;
+
+        // Re-derive the pointing deadband from the thrusters actually aboard. KSA widens it to
+        // whatever one control period of the minimum impulse can produce -- a stability guard, so
+        // the tracker is not asked to settle inside its own quantum -- but it only ever raises it.
+        // A stack that staged carries the guard sized for its boost RCS onto a bus whose thrusters
+        // are two orders finer, and nothing lowers it again: measured at 11.4 degrees of deadband
+        // against a live rate bit worth 0.07. Assigning the profile puts it back, and KSA's own max
+        // re-establishes the real floor on the same frame.
+        computer.SetAttitudeProfile(FlightComputerAttitudeProfile.Strict);
+
+        // An automatic burn would fight this for the attitude and run its own throttle.
+        computer.BurnMode = FlightComputerBurnMode.Manual;
+
+        return true;
+    }
+
+    /// <summary>Give the vehicle back to whoever was flying it.</summary>
+    public static void ReleaseAttitude(Vehicle craft)
+    {
+        if (!KsaWorld.IsAlive(craft)) return;
+
+        FlightComputer computer = craft.FlightComputer;
+        computer.AttitudeMode = FlightComputerAttitudeMode.Manual;
+        computer.AttitudeTrackTarget = FlightComputerAttitudeTrackTarget.None;
+        computer.CustomAttitudeTarget = double3.Zero;
+    }
+
+    /// <summary>
+    /// Assert that this vehicle is coasting on rails, so the engine propagates it as an exact conic
+    /// instead of integrating it.
+    ///
+    /// <para><b>The bubble cannot be escaped, so this makes it irrelevant instead.</b>
+    /// <c>PhysicsStates.TryToPutOnRails</c> returns a coasting vehicle to rails only when the
+    /// bubble's origin frame is <c>Cci</c>; a bubble whose heaviest member sits below the
+    /// near-surface radius is <c>Ccf</c>, and inside one there is no path back. A bus that goes
+    /// quiet in a <c>Ccf</c> bubble therefore stays integrated for the whole coast rather than
+    /// propagated as a conic. <c>docs/ACCURACY-PLAN.md</c> 3bv.</para>
+    ///
+    /// <para>A rails <c>Freefall</c> vehicle takes <c>ApplyFreefallMotion</c> and an exact conic
+    /// whatever the frame, and <c>UpdateFromAnalytic</c> handles a <c>Ccf</c> origin correctly, so
+    /// the assertion is enough on its own. It does not teleport: the conic is re-seeded from the
+    /// integrated state the vehicle actually has.</para>
+    ///
+    /// <para><b>Only ever alongside a released attitude.</b> Any commanded actuator puts the
+    /// vehicle off rails on the same sub-step, so this is a write the engine would undo the moment
+    /// anything points the craft — which is why <see cref="AttitudeHook.QuietOnRails"/> is the only
+    /// caller and why it releases the attitude first.</para>
+    /// </summary>
+    public static void TryAssertRails(Vehicle craft)
+    {
+        if (!KsaWorld.IsAlive(craft)) return;
+
+        try
+        {
+            craft.GetPhysicsStatesMutable().Props.SetOnRails(isOnRails: true);
+        }
+        catch
+        {
+            // Losing this turns the feature off rather than breaking the flight: the coast is then
+            // integrated exactly as it was before any of this existed.
+        }
+    }
+
+    public static void SetEngine(Vehicle craft, bool running)
+    {
+        if (!KsaWorld.IsAlive(craft)) return;
+
+        craft.ProcessInput(running ? InputAction.MainEngineStartup : InputAction.MainEngineShutdown,
+                           GlfwKeyAction.Press, default);
+    }
+
+    /// <summary>
+    /// Work the throttle toward a wanted setting, and report what the vehicle actually has.
+    ///
+    /// <para>KSA exposes no way to set a throttle outright — only the two controls a player holds
+    /// down, which move it at a fixed rate. So this is a servo rather than an assignment, and the
+    /// number it returns is the real one. Guidance is told that number rather than the one it
+    /// asked for, because a stack whose motors cannot be throttled at all would otherwise have its
+    /// cutoff timed against a thrust it never came down to.</para>
+    /// </summary>
+    public static double DriveThrottle(Vehicle craft, double wanted)
+    {
+        if (!KsaWorld.IsAlive(craft)) return 1.0;
+
+        double have = craft.GetManualThrottle();
+        double want = Math.Clamp(wanted, craft.GetMinThrottle(), 1.0);
+
+        bool up = have < want - ThrottleTolerance;
+        bool down = have > want + ThrottleTolerance;
+
+        craft.ProcessInput(InputAction.MainEngineThrottleUp,
+                           up ? GlfwKeyAction.Press : GlfwKeyAction.Release, default);
+        craft.ProcessInput(InputAction.MainEngineThrottleDown,
+                           down ? GlfwKeyAction.Press : GlfwKeyAction.Release, default);
+
+        return have;
+    }
+
+    /// <summary>
+    /// Hold the attitude-control thrusters on in the named directions, and off in the rest.
+    ///
+    /// <para>The same held-key model the throttle uses: <c>ProcessInput</c> sets and clears bits in
+    /// the vehicle's own <c>ThrusterCommandFlags</c>, which persist until released, so every
+    /// direction has to be written every cycle rather than only the ones wanted. This is the
+    /// keyboard's channel and nothing else — the translation flags survive the flight computer's
+    /// automatic attitude hold untouched, because that only ever clears the <em>rotation</em>
+    /// ones.</para>
+    ///
+    /// <para>Whether a direction does anything is the vehicle's business. KSA works out which
+    /// nozzles answer to which flag from where they point, so a bus whose clusters are laid out for
+    /// roll and pitch has no lateral translation at all and the command is simply ignored — which
+    /// is why <see cref="BusTrim"/> measures rather than assumes.</para>
+    /// </summary>
+    public static void DriveTranslation(Vehicle craft, TrimAxes fire)
+    {
+        if (!KsaWorld.IsAlive(craft)) return;
+
+        Hold(InputAction.TranslateForward, TrimAxes.Forward);
+        Hold(InputAction.TranslateBackward, TrimAxes.Backward);
+        Hold(InputAction.TranslateRight, TrimAxes.Right);
+        Hold(InputAction.TranslateLeft, TrimAxes.Left);
+        Hold(InputAction.TranslateDown, TrimAxes.Down);
+        Hold(InputAction.TranslateUp, TrimAxes.Up);
+
+        void Hold(InputAction action, TrimAxes direction)
+            => craft.ProcessInput(action,
+                                  (fire & direction) != TrimAxes.None
+                                      ? GlfwKeyAction.Press
+                                      : GlfwKeyAction.Release,
+                                  default);
+    }
+
+    /// <summary>
+    /// Put the vehicle's manual thrust in pulse mode, or back to direct.
+    ///
+    /// <para>KSA's own: a held translation key in <c>Pulse</c> becomes one pulse of each thruster's
+    /// <c>MinimumPulseTime</c>, at most every 0.15 s, instead of thrust for the whole frame. It is
+    /// the same field the keyboard's <c>ToggleManualThrustMode</c> writes, assigned rather than
+    /// toggled so the mod cannot end up holding the opposite of what it asked for.</para>
+    ///
+    /// <para><b>The attitude hold survives it.</b> The pulse branch builds only the translation
+    /// command; the tracking controller writes the rotation afterwards in either mode.</para>
+    ///
+    /// <para>Written from <see cref="AttitudeHook"/>'s window like the attitude, because applying a
+    /// worker's results copies the whole flight computer over the top of anything written outside
+    /// it.</para>
+    /// </summary>
+    public static void SetPulseMode(Vehicle craft, bool pulsing)
+    {
+        if (!KsaWorld.IsAlive(craft)) return;
+
+        craft.FlightComputer.SetManualThrustMode(pulsing
+                                                     ? FlightComputerManualThrustMode.Pulse
+                                                     : FlightComputerManualThrustMode.Direct);
+    }
+
+    /// <summary>
+    /// Fire the next stage, which is how an engine is lit as well as how one is dropped. Called from
+    /// <see cref="AttitudeHook"/>'s window; anything else asks <see cref="AttitudeHook.Stage"/>.
+    /// </summary>
+    public static void Stage(Vehicle craft)
+    {
+        if (!KsaWorld.IsAlive(craft)) return;
+        craft.Parts.SequenceList.ActivateNextSequence(craft);
+    }
+}

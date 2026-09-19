@@ -31,6 +31,14 @@ done
 
 ATLAS="src/KSArmory/Meshes/KSArmory_MeshAtlas.glb"
 
+# Every other atlas is authored, and authored art is the only art nobody can rebuild from a clean
+# checkout -- so this is its one gate. Globbed rather than named: a hand-listed atlas is how the
+# third one ships unchecked while this script still exits 0.
+AUTHORED_ATLASES=()
+for glb in src/KSArmory/Meshes/*.glb; do
+    [[ -f "$glb" && "$glb" != "$ATLAS" ]] && AUTHORED_ATLASES+=("$glb")
+done
+
 FAILED=()
 SKIPPED=()
 PASSED=0
@@ -87,6 +95,7 @@ run "No unasked-for network"        ./tools/check-network.sh
 run "Part XML is well formed"       ./tools/check-xml.sh
 run "Asset paths resolve"           ./tools/validate-parts.py --offline
 run "Every setting is reachable"    ./tools/check-tunables.py
+run "Pack API surface"              ./tools/pack-api.py --check
 run "Comment rules"                 ./tools/check-comments.sh
 run "Documented facts"              ./tools/check-docs.sh
 run "No artefacts tracked"          ./tools/check-tracked.sh
@@ -97,6 +106,18 @@ else
     skip "Mesh has no z-fighting or degenerate UVs" "no atlas at $ATLAS"
 fi
 
+# The authored atlas, with the proximity advisory off and the two hard checks on. That band is
+# calibrated to box()'s 8 mm modelling skin; a mesh authored in the Blender UI has no skin, so it
+# reports every deliberate panel step rather than a defect. Zero-UV-area triangles and exact
+# coplanar overlaps are never deliberate, so those still run.
+if (( LIST )) || (( ${#AUTHORED_ATLASES[@]} )); then
+    run "Authored meshes have no z-fighting or degenerate UVs" \
+        ./tools/model/checkmesh.py "${AUTHORED_ATLASES[@]}" --near-max 0
+else
+    skip "Authored meshes have no z-fighting or degenerate UVs" \
+         "no authored atlas in src/KSArmory/Meshes/"
+fi
+
 # Textures are regenerated and diffed, so a hand-edited PNG is caught before the next model
 # build silently reverts it.
 if (( LIST )) || python3 -c "import PIL" >/dev/null 2>&1; then
@@ -105,6 +126,8 @@ if (( LIST )) || python3 -c "import PIL" >/dev/null 2>&1; then
 else
     skip "Textures are reproducible" "Pillow not installed (pip install pillow)"
 fi
+
+run "Thruster rings steer on their axial pair" ./tools/model/checkring.py --check
 
 # Slow, and off by default: the defect it finds is only reachable by changing the model or the
 # drive limits, so it does not belong in the loop you run on every push.

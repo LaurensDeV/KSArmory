@@ -23,8 +23,6 @@ internal static class Markers
     // in view.
     private static readonly ImColor8 Hidden = new(150, 200, 255, 70);
     private static readonly ImColor8 HiddenActive = new(90, 255, 120, 90);
-    private static readonly ImColor8 Label = new(235, 240, 245, 255);
-    private static readonly ImColor8 Panel = new(18, 20, 24, 225);
 
     // Half-width of the bracket, in pixels. Constant: this is an icon, not a bounding box, and
     // sizing it to the craft would make a distant site a sub-pixel dot -- which is the one case

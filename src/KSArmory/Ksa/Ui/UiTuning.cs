@@ -12,34 +12,25 @@ namespace KSArmory;
 /// </summary>
 internal sealed partial class Ui
 {
+    // Which side this one system takes against the session's teams, which are declared in the
+    // settings window. Picked off that roster rather than typed, so a typo cannot declare a team.
     private void DrawIff()
     {
-        ImGui.TextDisabled("KSA has no team field. A craft joins a team when the team's name");
-        ImGui.TextDisabled("appears anywhere in its name - so \"Red\" also matches \"Redstone\".");
-        ImGui.TextDisabled("Longest match wins. Name teams distinctly.");
-        ImGui.Separator();
-
-        if (TextField("Own team", ref _ownTeamEntry))
+        ImGui.Text($"Own team: {_policy.Iff.OwnTeam ?? "none"}");
+        Tip("This system's alone. The flag beside the craft in the panel's list sets every weapon "
+            + "and director on it at once.");
+        if (_policy.Iff.OwnTeam is null)
         {
-            _policy.Iff.OwnTeam = string.IsNullOrWhiteSpace(_ownTeamEntry) ? null : _ownTeamEntry.Trim();
-            Remember(_policy.Iff.OwnTeam);
-        }
-
-        ImGui.SameLine();
-        ImGui.TextDisabled(_policy.Iff.OwnTeam is null ? "(none - everything is Unknown)" : "");
-
-        if (TextField("Add team", ref _newTeamEntry) && !string.IsNullOrWhiteSpace(_newTeamEntry))
-        {
-            Remember(_newTeamEntry.Trim());
-            _newTeamEntry = string.Empty;
+            ImGui.SameLine();
+            ImGui.TextDisabled("- everything is Unknown");
         }
 
         if (_config.TeamNames.Count == 0)
         {
-            ImGui.TextDisabled("  no teams declared; every contact classifies as Unknown");
+            ImGui.TextDisabled("  no teams declared; add them under KSArmory settings");
         }
 
-        for (int i = _config.TeamNames.Count - 1; i >= 0; i--)
+        for (int i = 0; i < _config.TeamNames.Count; i++)
         {
             string team = _config.TeamNames[i];
             bool own = string.Equals(team, _policy.Iff.OwnTeam, StringComparison.OrdinalIgnoreCase);
@@ -47,35 +38,31 @@ internal sealed partial class Ui
             bool allied = _policy.Iff.AlliedTeams.Contains(team);
             bool neutral = _policy.Iff.NeutralTeams.Contains(team);
 
-            ImGui.TextColored(AllegianceColour(_policy.Iff.Classify(team)), $"  {team}");
-            ImGui.SameLine();
+            ImGui.PushID(i);
 
-            if (own)
+            ImGui.PushStyleColor(ImGuiCol.Text, AllegianceColour(_policy.Iff.Classify(team)));
+            if (ImGui.RadioButton(team, own)) _policy.Iff.OwnTeam = own ? null : team;
+            ImGui.PopStyleColor();
+            Tip(own ? "This system's own team. Click to take it off." : "Click to make it this system's own team.");
+
+            if (!own)
             {
-                ImGui.TextDisabled("own team");
-            }
-            else
-            {
-                if (ImGui.Checkbox($"allied##a{i}", ref allied))
+                ImGui.SameLine();
+                if (ImGui.Checkbox("allied", ref allied))
                 {
                     Toggle(_policy.Iff.AlliedTeams, team, allied);
                     if (allied) _policy.Iff.NeutralTeams.Remove(team);
                 }
+
                 ImGui.SameLine();
-                if (ImGui.Checkbox($"neutral##n{i}", ref neutral))
+                if (ImGui.Checkbox("neutral", ref neutral))
                 {
                     Toggle(_policy.Iff.NeutralTeams, team, neutral);
                     if (neutral) _policy.Iff.AlliedTeams.Remove(team);
                 }
             }
 
-            ImGui.SameLine();
-            if (ImGui.Button($"remove##t{i}"))
-            {
-                _config.TeamNames.RemoveAt(i);
-                _policy.Iff.AlliedTeams.Remove(team);
-                _policy.Iff.NeutralTeams.Remove(team);
-            }
+            ImGui.PopID();
         }
 
         ImGui.Separator();
@@ -102,15 +89,14 @@ internal sealed partial class Ui
             Armament arm = armaments[i];
             if (arm.Munition == _munition.Name) continue;
 
-            MunitionProfile round = Arsenal.MunitionNamed(arm.Munition);
+            MunitionProfile round = Catalogue.MunitionNamed(arm.Munition);
 
             ImGui.Separator();
             ImGui.TextDisabled($"{arm.Label}: {round.DisplayName}");
 
             ImGui.Checkbox($"Timed airburst (flak)##{arm.Label}", ref round.TimedFuse);
-            ImGui.TextDisabled(round.TimedFuse
-                                   ? "  rounds burst at the lead solution's flight time"
-                                   : "  rounds burst on proximity only");
+            Tip("On: rounds burst at the lead solution's flight time, and the proximity fuse still "
+                + "runs. Off: rounds burst on proximity only.");
         }
     }
 
@@ -138,7 +124,9 @@ internal sealed partial class Ui
             return;
         }
 
-        if (!ImGui.TreeNode("Radar")) return;
+        // Named for the set, because a seeker head or a bomb sight is not a radar. The id stays
+        // fixed so the fold keeps its state when the selected weapon changes.
+        if (!ImGui.TreeNode($"{_sensor.DisplayName}###sensortuning")) return;
 
         ImGui.SliderFloat("Range (m)", ref _sensor.Range, 500f, 40000f);
         ImGui.SliderFloat("Cone half-angle (deg)", ref _sensor.ConeDeg, 5f, 180f);
@@ -159,12 +147,11 @@ internal sealed partial class Ui
     private void DrawDiscriminationControls()
     {
         ImGui.SliderFloat("Reference RCS (m2)", ref _sensor.ReferenceCrossSectionM2, 0f, 2000f);
+        Tip("The cross-section the range is quoted against. Above zero, a contact's own size scales "
+            + "the range by the fourth root of the ratio, so a target a hundredth the size is seen at "
+            + "a third of the range. Zero: the set reaches the same distance whatever it looks at.");
 
-        if (_sensor.ReferenceCrossSectionM2 <= 0f)
-        {
-            ImGui.TextDisabled("  the set reaches the same distance whatever it looks at");
-        }
-        else
+        if (_sensor.ReferenceCrossSectionM2 > 0f)
         {
             // Shown because the fourth-root law is not something anyone should have to take on
             // trust while dragging a slider: it is what makes a small target reachable at all.
@@ -193,57 +180,50 @@ internal sealed partial class Ui
     private void DrawHorizonControls()
     {
         ImGui.Checkbox("Horizon masking", ref _sensor.HorizonMasking);
+        Tip("On: the planet blocks the set. Off: the set sees through the planet.");
 
-        if (!_sensor.HorizonMasking)
-        {
-            ImGui.TextDisabled("  the set sees through the planet");
-            return;
-        }
+        if (!_sensor.HorizonMasking) return;
 
         ImGui.SliderFloat("Limb margin (m)", ref _sensor.TerrainMarginMetres, 0f, 5000f);
         ImGui.SliderInt("Terrain samples", ref _sensor.TerrainSamples, 0, 64);
+        Tip("Up to this many height lookups per contact per scan, deciding whether a ridge hides it. "
+            + "Zero: the mean sphere only, so a contact behind a ridge is still seen.");
 
-        if (_sensor.TerrainSamples <= 0)
-        {
-            ImGui.TextDisabled("  mean sphere only - a contact behind a ridge is still seen");
-        }
-        else
+        if (_sensor.TerrainSamples > 0)
         {
             ImGui.SliderFloat("Terrain clearance (m)", ref _sensor.TerrainClearanceMetres, 0f, 300f);
-            ImGui.TextDisabled($"  up to {_sensor.TerrainSamples} height lookups per contact per scan");
         }
     }
 
     // The drives, each node existing only if the system has that gear. A rate slider for an axis
     // that does not turn is indistinguishable from one the engine is refusing.
+    //
+    // Rates only. Whether *this* mount tracks, spins or is aimed by hand is one installation's own
+    // choice and lives on its launcher's component row: a per-system control here would sit under a
+    // banner promising it reaches every Pantsir in the world, which it would not.
     private void DrawDriveNodes()
     {
         WeaponFit fit = _fit;
 
-        if (fit.Aims && ImGui.TreeNode("Turret"))
+        if (fit.Aims)
         {
-            ImGui.Checkbox("Track with turret", ref _policy.TurretTracking);
-            if (fit.Traverses) ImGui.SliderFloat("Traverse rate (deg/s)", ref _profile.SlewRateDeg, 5f, 180f);
-            if (fit.Elevates) ImGui.SliderFloat("Elevation rate (deg/s)", ref _profile.ElevationRateDeg, 5f, 120f);
-            ImGui.SliderFloat("Settle before firing (s)", ref _profile.SettleSeconds, 0f, 2f);
+            bool turretOpen = ImGui.TreeNode("Turret");
+            ImGui.SameLine();
+            Help("Tracking and manual aim are on the launcher, under Components.");
 
-            ImGui.Separator();
-            ImGui.TextDisabled("Drive it by hand - neither needs a target:");
-            if (fit.Traverses) ImGui.Checkbox("Spin continuously", ref _policy.TurretSpin);
-            ImGui.Checkbox("Manual aim", ref _policy.TurretManual);
-            if (fit.Traverses) ImGui.SliderFloat("Bearing (deg)", ref _policy.TurretManualBearingDeg, -180f, 180f);
-            if (fit.Elevates)
+            if (turretOpen)
             {
-                ImGui.SliderFloat("Elevation (deg)", ref _policy.TurretManualElevationDeg, 0f, 82f);
-                ImGui.TextDisabled("  Elevation applies to spin as well as manual aim.");
+                if (fit.Traverses) ImGui.SliderFloat("Traverse rate (deg/s)", ref _profile.SlewRateDeg, 5f, 180f);
+                if (fit.Elevates) ImGui.SliderFloat("Elevation rate (deg/s)", ref _profile.ElevationRateDeg, 5f, 120f);
+                ImGui.SliderFloat("Settle before firing (s)", ref _profile.SettleSeconds, 0f, 2f);
+                ImGui.TreePop();
             }
-            ImGui.TreePop();
         }
 
         if (fit.SweepsASearchArray && ImGui.TreeNode("Search array"))
         {
             ImGui.SliderFloat("Search array (rpm)", ref _profile.SearchRadarRpm, 0f, 60f);
-            ImGui.Checkbox("Stop the search array", ref _policy.SearchRadarStopped);
+            Tip("Stopping this system's array is on its sensor, under Components.");
             ImGui.TreePop();
         }
     }
@@ -257,18 +237,32 @@ internal sealed partial class Ui
             // worse than no slider: it reads as the setting having no effect.
             if (_fit.Steers)
             {
+                // Every steering round uses these two, a tail kit on a falling store included.
                 ImGui.SliderFloat("Nav constant N", ref _munition.NavConstant, 1f, 8f);
-                ImGui.SliderFloat("Max lateral (g)", ref _munition.MaxLateralG, 5f, 80f);
-                ImGui.SliderFloat("Seeker FOV (deg)", ref _munition.SeekerFovDeg, 10f, 90f);
-                ImGui.SliderFloat("Gravity compensation", ref _munition.GravityCompensation, 0f, 1.5f);
-                ImGui.SliderFloat("Boost accel (m/s2)", ref _munition.BoostAccel, 0f, 800f);
-                ImGui.SliderFloat("Boost time (s)", ref _munition.BoostSeconds, 0f, 10f);
-                ImGui.SliderFloat("Coast before steering (s)", ref _munition.SeparationSeconds, 0f, 3f);
-                ImGui.TextDisabled("  a round leaves along the tube and is clear before it turns");
+                ImGui.SliderFloat("Max lateral (g)", ref _munition.MaxLateralG, 0f, 80f);
+
+                // A tail kit steers the fall it predicts, gravity included, so it has none to cancel.
+                if (_munition.Guidance != GuidanceMode.Inertial)
+                {
+                    ImGui.SliderFloat("Gravity compensation", ref _munition.GravityCompensation, 0f, 1.5f);
+                }
+                ImGui.SliderFloat("Fin deflection (deg)", ref _munition.FinDeflectionDeg, 0f, 30f);
+                Tip("Drawn only; it steers nothing. It is set larger than life, or the blades do not read.");
+
+                // A seeker to point and a motor to burn: neither exists on a store that is
+                // released and then falls, so a bomb rack is not offered them.
+                if (_fit.Powered)
+                {
+                    ImGui.SliderFloat("Seeker FOV (deg)", ref _munition.SeekerFovDeg, 10f, 90f);
+                    ImGui.SliderFloat("Boost accel (m/s2)", ref _munition.BoostAccel, 0f, 800f);
+                    ImGui.SliderFloat("Boost time (s)", ref _munition.BoostSeconds, 0f, 10f);
+                    ImGui.SliderFloat("Coast before steering (s)", ref _munition.SeparationSeconds, 0f, 3f);
+                    Tip("A round leaves along the tube and is clear before it turns.");
+                }
             }
 
             ImGui.SliderFloat("Launch speed (m/s)", ref _munition.LaunchSpeed, 5f, 300f);
-            ImGui.SliderFloat("Max flight time (s)", ref _munition.MaxFlightSeconds, 3f, 90f);
+            ImGui.SliderFloat("Max flight time (s)", ref _munition.MaxFlightSeconds, 3f, 180f);
 
             // The envelope the battery commits inside, which is not how far the round can fly:
             // the set sees 36 km and the round reaches 20, and firing at everything detected
@@ -277,7 +271,8 @@ internal sealed partial class Ui
             ImGui.SliderFloat("Max engagement range (m)", ref _munition.MaxRange, 500f, 40000f);
 
             ImGui.Checkbox("Eject along the tube", ref _profile.LaunchAlongTube);
-            ImGui.TextDisabled("  off: slew to the target on launch, plus loft");
+            Tip("On: a round leaves along the tube, pointing where the launcher points. "
+                + "Off: it slews to the target on launch, plus loft.");
             ImGui.TreePop();
         }
 
@@ -288,13 +283,24 @@ internal sealed partial class Ui
             // One slider, because the radii are read off the charge rather than chosen. Showing
             // what it buys keeps the cube root visible: ten times the explosive is a bit over
             // twice the reach, which is not what a reader expects and is the point.
-            ImGui.SliderFloat("Explosive charge (kg)", ref _munition.ChargeKg, 0.01f, 500f,
+            //
+            // The top of the range is nuclear, and it has to be: a 300 t device is 300,000 kg, so
+            // a slider that stopped at a cannon shell would silently clamp one to a firework the
+            // first time anybody touched it. Logarithmic, or the whole conventional range -- every
+            // round the mod otherwise ships -- lives in the first thousandth of the travel.
+            //
+            // 340 kt is the top of the B61's own dial, so the slider covers the real weapon rather
+            // than stopping partway up it. It is well past playable at a launch site -- the lethal
+            // radius alone is 7.8 km -- which is a reason to ship at the bottom of the range, not a
+            // reason to hide the top of it.
+            ImGui.SliderFloat("Explosive charge (kg)", ref _munition.ChargeKg, 0.01f, 340_000_000f,
                               "%.2f", ImGuiSliderFlags.Logarithmic);
             ImGui.TextDisabled($"  lethal {_munition.LethalRadius:F0} m, "
                                + $"blast {_munition.BlastRadius:F0} m, "
-                               + $"fireball {_munition.FireballRadius:F0} m");
-            ImGui.SliderInt("Rounds per target", ref _policy.RoundsPerTarget,
-                            1, Math.Max(1, _fit.SalvoCapacity));
+                               + $"fireball {_munition.FireballRadius:F0} m"
+                               + (_munition.ChargeKg >= 1000f
+                                      ? $"   ({_munition.ChargeKg / 1e6f:F2} kt)"
+                                      : ""));
             ImGui.SliderFloat("Salvo spacing (s)", ref _profile.SalvoSpacing, 0.05f, 3f);
             ImGui.SliderFloat("Reload time (s)", ref _profile.ReloadSeconds, 0f, 60f);
 

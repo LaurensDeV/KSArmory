@@ -34,6 +34,23 @@ public readonly record struct Tube(double3 Position, double3 Direction)
 /// </summary>
 public sealed class LauncherProfile
 {
+    /// <summary>
+    /// What a weapons system is running before it has found its launcher part.
+    ///
+    /// <para>Deliberately not the first registered launcher: seeding from one makes an unadopted
+    /// system claim that weapon's reach and that weapon's radar, and makes an empty registry a
+    /// type-initialiser crash rather than a quiet nothing. <see cref="PartId"/> is blank, so no
+    /// lookup can return it.</para>
+    /// </summary>
+    public static readonly LauncherProfile Unfitted = new()
+    {
+        PartId = "",
+        DisplayName = "no launcher",
+        Munition = "",
+        Sensor = "",
+        Tubes = [],
+    };
+
     /// <summary>Part Id declared in the mod's GameData XML. Must match exactly.</summary>
     public required string PartId { get; init; }
 
@@ -67,6 +84,24 @@ public sealed class LauncherProfile
     /// <summary>Cannon that elevate on their own trunnion. Null for a launcher with none.</summary>
     public string? GunsMarker { get; init; }
 
+    /// <summary>
+    /// A barrel that runs back along the bore when the cannon fire. It rides the cannon's trunnion
+    /// rather than one of its own. Null for cannon with nothing that recoils.
+    /// </summary>
+    public string? GunBarrelMarker { get; init; }
+
+    /// <summary>
+    /// An optical director's base, riding the traverse. Null for a launcher carrying none, which
+    /// is most of them.
+    ///
+    /// <para>The launcher's only interest in a director is <em>carrying</em> it: this is here so
+    /// the traverse writes the base's transform along with everything else that rides it. What the
+    /// head then does is none of the launcher's business — it reads where its base ended up and
+    /// aims itself, through its own <c>OpticProfile</c>. See <see cref="OpticGeometry.MountFrame"/>
+    /// for why that direction of dependency is the one that generalises.</para>
+    /// </summary>
+    public string? OpticBaseMarker { get; init; }
+
     // ---- Geometry, generated. See the class summary. ----
 
     /// <summary>Rounds carried, and the length of <see cref="Tubes"/>.</summary>
@@ -90,6 +125,9 @@ public sealed class LauncherProfile
 
     /// <summary>Where the search array's turntable sits relative to the turret's axis.</summary>
     public double3 RadarPivotFromTurret { get; init; }
+
+    /// <summary>Where a carried director's base sits relative to the turret's axis.</summary>
+    public double3 OpticBaseFromTurret { get; init; }
 
     /// <summary>Where the cannon trunnion sits relative to the turret's axis.</summary>
     public double3 GunPivotFromTurret { get; init; }
@@ -121,6 +159,18 @@ public sealed class LauncherProfile
     public float ElevationRateDeg = 45f;
     public float SettleSeconds = 0.35f;
     public float SearchRadarRpm = 20f;
+
+    /// <summary>
+    /// How many faces of the search array radiate, and therefore how many sweeps a scope draws.
+    ///
+    /// <para>One for an ordinary single-face set. The Pantsir's array is a double-sided wedge, so
+    /// both of its faces are looking at once and the scope shows two traces half a turn apart —
+    /// which is why its picture refreshes twice per revolution rather than once.</para>
+    ///
+    /// <para>A count rather than a flag, so a three- or four-face set needs no new concept. Zero or
+    /// less means a set with no rotating array at all, and draws no sweep.</para>
+    /// </summary>
+    public int SearchRadarFaces = 1;
 
     /// <summary>Elevation travel, and the higher floor over the vehicle's own bodywork.</summary>
     public float MinElevationDeg;
@@ -208,6 +258,30 @@ public sealed class LauncherProfile
     /// <summary>Seconds to feed a fresh belt. Zero disables cannon resupply.</summary>
     public float GunReloadSeconds = 20f;
 
+    /// <summary>
+    /// How far the barrel runs back (m), how long the run takes, and how long counter-recoil takes to
+    /// bring it back into battery (s). Drawn only: the round has left before the barrel moves.
+    /// </summary>
+    public float GunRecoilMetres;
+    public float GunRecoilSeconds = 0.08f;
+    public float GunReturnSeconds = 0.6f;
+
+    /// <summary>
+    /// The cannon's sound while firing, by <c>ModLibrary</c> Id. Null plays the shared recording,
+    /// retuned toward this gun's rate; a gun naming its own is played as recorded, because a
+    /// recording of the right gun has nothing to be retuned toward.
+    /// </summary>
+    public string? GunSoundId { get; init; }
+
+    /// <summary>
+    /// A one-shot for every round fired, by <c>ModLibrary</c> Id. Null for none.
+    ///
+    /// <para>For a gun slow enough to be heard shot by shot. Past a few hundred rounds a minute the
+    /// gunshots fuse into a pitch, and that is what <see cref="GunSoundId"/> carries instead. A gun
+    /// with a gunshot and no <see cref="GunSoundId"/> has no loop at all, rather than the shared one.</para>
+    /// </summary>
+    public string? GunshotSoundId { get; init; }
+
     /// <summary>Seconds between rounds, derived from the cyclic rate.</summary>
     public double GunRoundInterval => GunRoundsPerMinute > 0f ? 60.0 / GunRoundsPerMinute : 0.0;
 
@@ -227,5 +301,6 @@ public sealed class LauncherProfile
         turret.ForwardArcRad = float.DegreesToRadians(ForwardArcDeg);
         turret.ForwardPlateauRad = float.DegreesToRadians(ForwardPlateauDeg);
         turret.RestElevationRad = RestElevationRad;
+        turret.SeatElevation(RestElevationRad);
     }
 }

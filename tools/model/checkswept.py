@@ -52,17 +52,26 @@ SEATED = 0.06
 # every elevation — a full tube diameter. It is hidden rather than visibly clipping, because the
 # column is narrower than the cheek it is inside, but the allowance is wide enough to mask a real
 # defect between those two bodies. See docs/MODULARITY.md.
-# Optic/Turret is the head seated in its socket: the ball's centre sits at the pedestal top, so
-# its lower hemisphere is inside by construction. A ball perched on a post instead would clear
-# this check and look wrong.
-ALLOWED = {# The trunnion runs into its bearing, which is the whole point of a trunnion. It is
-           # also the *only* contact the CIWS's two moving groups can ever have: everything else
-           # in the elevating head is narrower than the gap between the cheeks, and elevation
-           # turns about +Z, so a gap in Z cannot be closed by any pose.
-           ("KSArmory_Subpart_CiwsGuns", "KSArmory_Subpart_CiwsTurret"): 0.06,
-           ("KSArmory_Subpart_Guns", "KSArmory_Subpart_Turret"): 0.30,
+#
+# Nothing here is for the director, deliberately. Splitting a body out of an assembly is what makes
+# a clash visible at all -- a body cannot intersect itself, so the Pantsir's blanked-off optic stub
+# sat inside the tracking array's housing for as long as it was part of the turret's own mesh and
+# no check could see it. The moment it became a body in its own right the pair was measurable, at
+# 7.0 cm. That was fixed by moving the mount, not by granting it an allowance: an entry here says
+# "this is a joint", and two things that merely overlap are not a joint. Adding a body to an
+# existing assembly is the case to re-run this for.
+ALLOWED = {("KSArmory_Subpart_Guns", "KSArmory_Subpart_Turret"): 0.30,
            ("KSArmory_Subpart_Pods", "KSArmory_Subpart_Turret"): 0.22,
            ("KSArmory_Subpart_Chassis", "KSArmory_Subpart_Turret"): 0.10}
+
+
+# Launchers that train and are not in this atlas. Their art is authored, a whole mesh per body rather
+# than the convex primitives the sweep reasons about, so their travel is checked where they were
+# built. Each names where, so an entry cannot stand in for a sweep nobody did.
+AUTHORED_TRAINERS = {
+    "Ciws": "authored; its head was swept against the cheeks in Blender, -30 to +90",
+    "Mk42": "authored by Mallikas; its travel is his model's, not checked here",
+}
 
 
 def load_bodies(atlas):
@@ -240,6 +249,24 @@ def placement(pivot_from_turret, reference_rad, elevation_rad, bearing_rad, turr
     return fn
 
 
+# Weapons that have moved out of Arsenal.cs and into the shipped definitions file. Both readers
+# below are driven by the registry, so a weapon leaving the C# takes its coverage with it and
+# this tool goes on printing "clear" -- the exact silence the coverage gate exists to prevent.
+WEAPONS_XML = MOD / "KSArmory" / "Weapons.xml"
+
+_SHIPPED_NAME = {"KSArmory_Prefab_Launcher6": "PantsirS1"}
+
+
+def shipped_launchers():
+    """{profile name: its <Launcher> attributes}, for weapons defined as data."""
+    if not WEAPONS_XML.is_file():
+        return {}
+
+    import xml.etree.ElementTree as ET
+    return {_SHIPPED_NAME.get(el.get("PartId", ""), el.get("PartId", "")): el.attrib
+            for el in ET.parse(WEAPONS_XML).getroot().findall("Launcher")}
+
+
 def read_travel(profile="PantsirS1"):
     """Elevation travel and the forward depression floor, from the C# rather than a fourth copy.
 
@@ -251,7 +278,12 @@ def read_travel(profile="PantsirS1"):
     arsenal = (MOD / "Sim" / "Arsenal.cs").read_text()
 
     block = re.search(rf"{profile}\s*=\s*new\(\)\s*\{{(.*?)\n\s*\}};", arsenal, re.S)
-    overrides = block.group(1) if block else ""
+    if block is not None:
+        overrides = block.group(1)
+    else:
+        # Rendered into the same shape, so the field reader below needs no second syntax.
+        attrs = shipped_launchers().get(profile, {})
+        overrides = "\n".join(f"{k} = {v}f," for k, v in attrs.items())
 
     def value(field, fallback):
         match = re.search(rf"{field}\s*=\s*(-?[\d.]+)f\s*[,;]", overrides)
@@ -295,7 +327,10 @@ def main():
     problems = check_no_coaxial_lips(bodies)
     print()
 
-    for v in vehicles(muzzles):
+    swept = vehicles(muzzles)
+    problems += check_every_articulated_launcher_is_swept(swept)
+
+    for v in swept:
         problems += sweep(bodies, v, args)
 
     if problems:
@@ -306,14 +341,55 @@ def main():
     return 0
 
 
+def check_every_articulated_launcher_is_swept(swept):
+    """Fails if a launcher that trains has no entry in vehicles().
+
+    vehicles() is written by hand, because the body names, pivots and parent chain are not
+    derivable from the profile. What *is* derivable is which launchers need an entry: any that
+    declares a TurretMarker moves, and a body set nobody named is silently not swept while this
+    tool still prints "clear". The registry is the authority on which those are.
+    """
+    arsenal = (MOD / "Sim" / "Arsenal.cs").read_text()
+
+    registered = re.search(r"Launchers\s*=\s*\[(.*?)\];", arsenal, re.S)
+    if registered is None:
+        print("  cannot read Arsenal.Launchers -- coverage unchecked")
+        return 1
+
+    covered = {v["profile"] for v in swept}
+    problems = 0
+
+    names = [n.strip() for n in registered.group(1).split(",") if n.strip()]
+    names += sorted(shipped_launchers())
+
+    for profile in names:
+        block = re.search(rf"{profile}\s*=\s*new\(\)\s*\{{(.*?)\n\s*\}};", arsenal, re.S)
+        if block is None or "TurretMarker" not in block.group(1):
+            continue                    # does not train, so it has nothing to sweep
+        if profile in AUTHORED_TRAINERS:
+            print(f"  not swept {profile}: {AUTHORED_TRAINERS[profile]}")
+            continue
+        if profile not in covered:
+            print(f"  UNSWEPT {profile}: it trains and has no entry in vehicles()")
+            problems += 1
+
+    if problems == 0:
+        print(f"every launcher that trains is swept ({len(covered)} vehicle(s)) "
+              f"or named as authored ({len(AUTHORED_TRAINERS)})")
+    print()
+    return problems
+
+
 def vehicles(muzzles):
     """Every articulated vehicle in the atlas, each with its own body set and its own travel.
 
     One entry per launcher that moves. Sweeping only the first is how a whole vehicle goes
     unchecked while the tool still reports clean: the CIWS had a traverse, an elevating head and
     no coverage at all, because this read the Pantsir's body names and stopped.
+
+    Only generated vehicles are here. An authored one is not in this atlas, and its bodies are not
+    the convex primitives this sweep reasons about.
     """
-    ciws = muzzles["ciws"]
     return [
         {
             "name": "Pantsir S1",
@@ -329,26 +405,27 @@ def vehicles(muzzles):
                 # The array's spin is about the traverse axis, so it cannot change any clearance
                 # the bearing does not already cover.
                 "KSArmory_Subpart_Radar": (muzzles["radar_pivot_from_turret"], 0.0),
+                # The director. Its base rides the traverse and nothing else, so it is swept
+                # exactly like the array's turntable.
+                #
+                # Its head is swept at REST only, and that understates it: the ball points freely
+                # rather than on a named axis, so its lens and hood sweep a shell this tool has no
+                # way to describe. The ball itself is the bulk of the volume and is very nearly
+                # spherical about the pivot, so what is checked here is the clearance that
+                # matters -- the pods and cannon coming past it. A lens fouling something at one
+                # aim would not be caught, which is what MIN_ELEVATION_DEG exists to bound.
+                "KSArmory_Subpart_OpticBase": (muzzles["optic_base_from_turret"], 0.0),
+                "KSArmory_Subpart_OpticHead": (
+                    [a + b for a, b in zip(muzzles["optic_base_from_turret"],
+                                           muzzles["optic"]["head_pivot"])], 0.0),
             },
             "elevating": {"KSArmory_Subpart_Pods", "KSArmory_Subpart_Guns"},
             "parents": {"KSArmory_Subpart_Pods": "KSArmory_Subpart_Turret",
                         "KSArmory_Subpart_Guns": "KSArmory_Subpart_Turret",
                         "KSArmory_Subpart_Radar": "KSArmory_Subpart_Turret",
+                        "KSArmory_Subpart_OpticBase": "KSArmory_Subpart_Turret",
+                        "KSArmory_Subpart_OpticHead": "KSArmory_Subpart_OpticBase",
                         "KSArmory_Subpart_Turret": "KSArmory_Subpart_Chassis"},
-        },
-        {
-            "name": "Mk 15 Phalanx",
-            "profile": "Ciws",
-            "chassis": "KSArmory_Subpart_CiwsBase",
-            "turret_pivot": ciws["turret_pivot"],
-            "riding": {
-                "KSArmory_Subpart_CiwsTurret": ((0.0, 0.0, 0.0), 0.0),
-                "KSArmory_Subpart_CiwsGuns": (ciws["gun_pivot_from_turret"],
-                                              math.radians(ciws["gun_reference_elevation_deg"])),
-            },
-            "elevating": {"KSArmory_Subpart_CiwsGuns"},
-            "parents": {"KSArmory_Subpart_CiwsGuns": "KSArmory_Subpart_CiwsTurret",
-                        "KSArmory_Subpart_CiwsTurret": "KSArmory_Subpart_CiwsBase"},
         },
     ]
 

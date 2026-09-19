@@ -104,7 +104,7 @@ public class PointingDriveTests
     public void RotationFromToCarriesTheRestDirectionOntoTheAim()
     {
         double3 aim = Vec.Unit(new double3(1, 2, -3));
-        doubleQuat rotation = TubeGeometry.RotationFromTo(OpticGeometry.RestDirection, aim);
+        doubleQuat rotation = Vec.RotationFromTo(OpticGeometry.RestDirection, aim);
 
         double3 pointed = rotation * OpticGeometry.RestDirection;
 

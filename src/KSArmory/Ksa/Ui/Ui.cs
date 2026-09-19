@@ -4,10 +4,10 @@ using Brutal.Numerics;
 namespace KSArmory;
 
 /// <summary>
-/// The operator's panel: master arm, radar and guidance tuning, the track list with
+/// The operator's panel: auto-engage, radar and guidance tuning, the track list with
 /// manual designation, and a rolling event log.
 /// </summary>
-internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHeads heads, WarpPolicy warp, WatchCamera watch, CraftMover mover, BurstTool bursts)
+internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHeads heads, IcbmComputers icbms, WarpPolicy warp, WatchCamera watch, CraftMover mover, BurstTool bursts)
 {
     private static readonly float4 Green = new(0.4f, 1.0f, 0.45f, 1f);
     private static readonly float4 Red = new(1.0f, 0.35f, 0.3f, 1f);
@@ -41,10 +41,10 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     private readonly List<int> _viewports = [];
     private readonly List<SurveyedPart> _surveyed = [];
     private readonly List<OpticalHeads.Entry> _headScratch = [];
-    private readonly List<KSA.Vehicle> _craftScratch = [];
+    private readonly List<WeaponSystems.Entry> _weaponScratch = [];
     private KSA.Vehicle? _managed;
-    private string _ownTeamEntry = string.Empty;
     private string _newTeamEntry = string.Empty;
+    private string _menuTeamEntry = string.Empty;
 
     public bool Visible = true;
 
@@ -84,6 +84,12 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     private Pane[] Panes => _panes ??=
     [
         new("KSArmory settings", DrawSettingsPane, PaneGroup.Session),
+
+        // Its own button beside settings, rather than a collapsed header inside that window. Sim
+        // speed, the target spawner and the log are all reached *while* an engagement is running,
+        // and a fold two windows deep is not a place to keep those.
+        new("Debug tools", DrawDebugPane, PaneGroup.Session),
+
         new("Test targets", DrawTestTargets, PaneGroup.Debug),
         new("Log", DrawLog, PaneGroup.Debug),
     ];
@@ -155,8 +161,28 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     /// names; a static one it can always call. <see cref="Current"/> is set when the panel is
     /// built, and the null check is what happens if ModMenu scans before that.</para>
     /// </summary>
+    // Said once, not per frame: this is called from inside a menu build, so a failure repeats for
+    // as long as the menu is open.
+    private static bool _warnedModMenu;
+
     [ModMenuEntry("KSArmory")]
-    public static void DrawModMenu() => Current?.DrawMenuContents();
+    public static void DrawModMenu()
+    {
+        // The identical call through this mod's own bar is wrapped; this one was not, so anything
+        // thrown here went into ModMenu's menu build instead of the log -- leaving an entry that
+        // does nothing and no evidence anywhere of why.
+        try
+        {
+            Current?.DrawMenuContents();
+        }
+        catch (Exception e)
+        {
+            if (_warnedModMenu) return;
+            _warnedModMenu = true;
+            Log.Warn($"ModMenu entry failed, so its Panel item will not work: {e.Message}. "
+                     + "Reopen from the floating KSArmory button instead.");
+        }
+    }
 
     /// <summary>The panel ModMenu should drive. There is one.</summary>
     internal static Ui? Current { get; private set; }
@@ -167,9 +193,25 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         // may scan for the attribute before anything has drawn.
         Current = this;
 
+        // This pass walks the world too, and it is a different hook from the simulation step --
+        // one can run without the other, so neither may inherit the other's census.
+        KsaWorld.InvalidateCensus();
+
         RefreshSystems();
         _batteries.Sync(_systems);
+        _icbms.Sync(_systems, _batteries.Handovers);
 
+
+        // Follow a weapon that a decoupler carried onto another craft, before the test below
+        // notices the old one has nothing left and shuts the window - which would happen in the
+        // middle of a deployment, on the frame the operator most wants to be watching.
+        for (int i = 0; i < _batteries.Handovers.Count; i++)
+        {
+            if (ReferenceEquals(_managed, _batteries.Handovers[i].From))
+            {
+                _managed = _batteries.Handovers[i].To;
+            }
+        }
 
         // Dropped when the craft has nothing left to manage -- a battery *or* a director. Testing
         // the battery alone clears the selection on the frame after a camera-only craft is picked,
@@ -189,49 +231,60 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
 
         bool anyCrewed = _crewed || _heads.FirstOn(Focused) is not null;
 
-        if (!Visible)
+        // Filled here rather than by whichever tab happens to be in front: every window below
+        // reads it, and `BeginTabItem` bodies run only for the selected tab, so filling it from
+        // Components leaves the map drawing the heads of whatever craft was shown when that tab
+        // was last open.
+        _heads.On(_managed, _headScratch);
+
+        if (Visible)
         {
-            // Closing the panel must not strand the operator with no way back. Redundant with
-            // Mods -> KSArmory on purpose: appending to KSA's menu bar depends on ImGui
-            // behaviour that is not guaranteed on every machine, and a mod with no way to
-            // reopen its own panel is unusable rather than merely untidy.
-            if (_config.FloatingPanelButton
-                && ImGui.Begin("KSArmory##reopen",
-                               ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar))
+            // ###id so the version can ride in the title without the window losing its place
+            // every time the mod is bumped.
+            if (ImGui.Begin($"KSArmory {Build.Version}###KSArmory", ref Visible))
+            {
+                // Opens on what exists in the world rather than on whatever the camera is pointed
+                // at. Everything below is about the *selected* system, and everything that is not
+                // about one particular system is a pane.
+                DrawSystemList();
+                ImGui.Separator();
+                DrawPaneToggles();
+                DrawReportFooter();
+            }
+
+            ImGui.End();
+        }
+        else if (_config.FloatingPanelButton)
+        {
+            // Closing the panel must not strand the operator with no way back, and the button is
+            // the only route this mod controls. Both others are somebody else's: appending to
+            // KSA's bar is ImGui behaviour rather than a supported hook, and ModMenu's entry is
+            // another mod's menu reached by transpiling a private method.
+            //
+            // Drawn whenever it is wanted rather than being suppressed where ModMenu would
+            // provide a route: the recovery cannot be conditional on a third party working,
+            // because there is no way back from being wrong -- the setting that would switch this
+            // on lives *inside* the panel that is shut.
+            if (ImGui.Begin("KSArmory##reopen",
+                            ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar))
             {
                 if (ImGui.Button("KSArmory")) Visible = true;
             }
-            if (_config.FloatingPanelButton) ImGui.End();
-            if (anyCrewed) DrawManageWindow();
-            DrawPanes();
-            return;
+
+            ImGui.End();
         }
 
-        // ###id so the version can ride in the title without the window losing its place
-        // every time the mod is bumped.
-        if (ImGui.Begin($"KSArmory {Build.Version}###KSArmory", ref Visible))
-        {
-            // Opens on what exists in the world rather than on whatever the camera is pointed
-            // at. Everything below is about the *selected* system, and everything that is not
-            // about one particular system is a pane.
-            DrawSystemList();
-            ImGui.Separator();
-            DrawPaneToggles();
-            DrawReportFooter();
-        }
-
-        ImGui.End();
-
-        // Outside the main window's Begin/End: each of these is its own top-level window, so
-        // they must not be nested inside another one.
+        // Each of these is its own top-level window, so none may be nested inside the panel's
+        // Begin/End -- and none is gated on the panel being open. Every one carries its own open
+        // flag and returns on it, so closing the panel is not a request to shut the map, the
+        // scope, a report half-written, or the switcher the trigger is pointed at. The manage
+        // window is the only one gated at all, on there being something to manage.
         if (anyCrewed) DrawManageWindow();
-
-        // Outside the crewed gate: these are the session's windows, and the settings one has to
-        // open on a world with nothing in it. Each body checks for itself what it needs.
         DrawPanes();
-
-        // Not gated on a crewed system: the thing being reported may be that there isn't one.
         DrawReportWindow();
+        DrawMapWindow();
+        DrawScopeWindow();
+        DrawWeaponsWindow();
     }
 
     // Every craft in the world this mod recognises as a weapons system, refreshed on a timer.
@@ -254,20 +307,21 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         _systemsAge = 0;
 
         _systems.Clear();
-        KsaWorld.CollectVehicles(_craftScratch);
-        for (int i = 0; i < _craftScratch.Count; i++)
+        IReadOnlyList<KSA.Vehicle> world = KsaWorld.Vehicles;
+        for (int i = 0; i < world.Count; i++)
         {
-            KSA.Vehicle craft = _craftScratch[i];
+            KSA.Vehicle craft = world[i];
             KsaWorld.SurveyParts(craft, _surveyed);
-            WeaponInventory inv = WeaponSurvey.Survey(_surveyed, Arsenal.Components);
+            WeaponInventory inv = WeaponSurvey.Survey(_surveyed, Catalogue.Components);
             if (inv.IsInstallation) _systems.Add((craft, inv));
         }
     }
 
     // The list the panel opens on: what exists, not what happens to be under the camera.
     //
-    // A table, one row per system: a heading, a status line and a row of buttons each stops
-    // being readable at two craft.
+    // Grouped by the team each installation fights for, one row each, after the vessel switchers
+    // players already know: the name flies it, and what is wanted mid-fight -- guard, chase, team
+    // -- is one click on the same row. Everything else is behind its "..." window.
     private void DrawSystemList()
     {
         RefreshSystems();
@@ -276,97 +330,331 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         {
             ImGui.TextColored(Grey, "Nothing of this mod's is fitted to anything.");
             ImGui.TextDisabled("Fit a launcher from Weapons, or an EO director from Sensors.");
-            ImGui.TextDisabled("A craft with only a director is listed too - it is not a weapon,");
-            ImGui.TextDisabled("but it has a camera worth pointing.");
+            Tip("A craft with only a director is listed too. It is not a weapon, but it has a "
+                + "camera worth pointing.");
             return;
         }
 
-        ImGui.Text($"Weapons systems ({_systems.Count})");
-
-        if (!ImGui.BeginTable("##systems", 3, ImGuiTableFlags.RowBg | ImGuiTableFlags.SizingStretchProp))
-        {
-            return;
-        }
+        if (!ImGui.BeginTable("##switcher", 5, ImGuiTableFlags.SizingStretchProp)) return;
 
         ImGui.TableSetupColumn("##name", ImGuiTableColumnFlags.WidthStretch);
-        ImGui.TableSetupColumn("##what", ImGuiTableColumnFlags.WidthStretch);
-        ImGui.TableSetupColumn("##act", ImGuiTableColumnFlags.WidthFixed);
+        ImGui.TableSetupColumn("##guard", ImGuiTableColumnFlags.WidthFixed);
+        ImGui.TableSetupColumn("##chase", ImGuiTableColumnFlags.WidthFixed);
+        ImGui.TableSetupColumn("##team", ImGuiTableColumnFlags.WidthFixed);
+        ImGui.TableSetupColumn("##more", ImGuiTableColumnFlags.WidthFixed);
 
-        for (int i = 0; i < _systems.Count; i++)
+        IReadOnlyList<string> teams = _config.TeamNames;
+
+        // Each declared team in its declared order, then the rest: on no team, or on one that is
+        // no longer declared, which would otherwise be listed nowhere.
+        for (int group = 0; group <= teams.Count; group++)
         {
-            (KSA.Vehicle craft, WeaponInventory inv) = _systems[i];
-            bool isFocused = ReferenceEquals(craft, Focused);
-            WeaponSystems.Entry? entry = _batteries.For(craft);
+            bool headed = false;
 
-            ImGui.PushID(i);
-            ImGui.TableNextRow();
-
-            ImGui.TableNextColumn();
-            if (isFocused) ImGui.TextColored(Green, KsaWorld.DisplayName(craft));
-            else ImGui.Text(KsaWorld.DisplayName(craft));
-
-            // Every system runs its own battery, so every row reports its own state rather than
-            // one row's state and a list of names.
-            ImGui.TableNextColumn();
-            if (entry is { } e)
+            for (int i = 0; i < _systems.Count; i++)
             {
-                // That row's own load, never the focused system's. The panes read whichever
-                // system is focused and a row is not it, so borrowing the focused launcher here
-                // reports one installation's magazine against another's name.
-                ImGui.TextColored(e.Policy.Armed ? Red : Grey,
-                                  $"{(e.Policy.Armed ? "ARMED" : "safe")}  {Tally(e.Battery)}");
-            }
-            else
-            {
-                ImGui.TextDisabled(Describe(inv));
-            }
+                (KSA.Vehicle craft, WeaponInventory inv) = _systems[i];
+                if (GroupOf(TeamOf(craft), teams) != group) continue;
 
-            ImGui.TableNextColumn();
-            DrawSystemRowButtons(craft);
+                if (!headed)
+                {
+                    ImGui.TableNextRow();
+                    ImGui.TableNextColumn();
+                    if (group < teams.Count) ImGui.TextColored(TeamColour(group), teams[group]);
+                    else ImGui.TextColored(Grey, "No team");
+                    headed = true;
+                }
 
-            ImGui.PopID();
+                ImGui.PushID(i);
+                ImGui.TableNextRow();
+                DrawSwitcherRow(craft, inv);
+                ImGui.PopID();
+            }
         }
 
         ImGui.EndTable();
     }
 
-    // Inline, and small: three short buttons fit a table row where a full label does not.
-    // Moving the battery is a decision about one system, so it lives in that system's window.
-    private void DrawSystemRowButtons(KSA.Vehicle craft)
+    // One installation's row. Each switch acts on everything of its kind on the craft -- two
+    // rails are one craft to guard -- where its own window acts on one system at a time.
+    private void DrawSwitcherRow(KSA.Vehicle craft, WeaponInventory inv)
     {
-        // Point the camera at it and label it for a few seconds, without moving or commandeering
-        // anything. One shot rather than a toggle: both halves end on their own, so there is
-        // nothing left to switch off and no state for the button to get out of step with.
-        // ASCII on purpose: ImGui's default font carries basic Latin only, so a crosshair glyph
-        // would render as a box.
-        // Nothing to turn towards when the view is already on it. Shown as inert rather than
-        // hidden, so the row keeps its shape and the button does not move under the pointer.
-        if (KsaWorld.MainViewFollows(craft))
+        _rowSystems.Clear();
+        foreach (WeaponSystems.Entry e in _batteries.All)
         {
-            ImGui.TextDisabled("(+)");
-            if (ImGui.IsItemHovered()) ImGui.SetTooltip("Already looking at it.");
+            if (ReferenceEquals(e.Craft, craft)) _rowSystems.Add(e);
         }
-        else
+
+        _heads.On(craft, _rowHeads);
+
+        DrawSwitcherName(craft, inv);
+
+        ImGui.TableNextColumn();
+        if (_rowSystems.Count > 0) DrawGuardButton();
+
+        ImGui.TableNextColumn();
+        if (_rowSystems.Count > 0) DrawChaseButton();
+
+        ImGui.TableNextColumn();
+        DrawTeamButton(craft);
+
+        ImGui.TableNextColumn();
+        if (ImGui.Button("...")) _managed = craft;
+        Tip("Everything else about it, in its own window.");
+    }
+
+    // Clicking a name flies it, as in every switcher of this kind; looking at it without taking
+    // the seat is the right button.
+    private void DrawSwitcherName(KSA.Vehicle craft, WeaponInventory inv)
+    {
+        ImGui.TableNextColumn();
+
+        bool flying = ReferenceEquals(craft, KsaWorld.ControlledVehicle);
+        float width = ImGui.GetContentRegionAvail().X;
+
+        if (flying) ImGui.PushStyleColor(ImGuiCol.Button, FlyingButton);
+        if (ImGui.Button($"{KsaWorld.DisplayName(craft)}##name", new float2?(new float2(width, 0f)))
+            && !flying)
         {
-            if (ImGui.SmallButton("(+)"))
+            KsaWorld.GoTo(craft);
+        }
+        if (flying) ImGui.PopStyleColor();
+
+        if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
+        {
+            Markers.Show(craft);
+            _watch.Watch(craft);
+        }
+
+        string status = _batteries.For(craft) is { } e
+            ? $"{(e.Policy.AutoEngage ? "GUARDING" : "manual")}  {Tally(e.Battery)}{Speed(e.Battery)}"
+            : Describe(inv);
+
+        Tip(status + "\n\n" + (flying ? "You are flying it." : "Click to fly it.")
+            + " Right-click to look at it and label it without taking the seat.");
+    }
+
+    private void DrawGuardButton()
+    {
+        Guard? guard = null;
+        foreach (WeaponSystems.Entry e in _rowSystems)
+        {
+            if (GuardState.Of(e.Policy.AutoEngage, CanAutoEngage(e)) is not { } one) continue;
+            guard = guard is { } soFar ? GuardState.Combine(soFar, one) : one;
+        }
+
+        // Nothing aboard engages on its own -- a craft carrying only stores -- so there is nothing
+        // to switch, and its FIRE needs nothing switched.
+        if (guard is not { } state) return;
+
+        ImColor8 ink = state switch
+        {
+            Guard.Guarding => GuardInk,
+            Guard.Partly => PartlyInk,
+            _ => OffInk,
+        };
+
+        if (IconButton("##guard", Icon.Shield, ink, lit: state != Guard.Off))
+        {
+            bool on = GuardState.TurnsOn(state);
+            foreach (WeaponSystems.Entry e in _rowSystems)
             {
-                Markers.Show(craft);
-                _watch.Watch(craft);
-            }
-            if (ImGui.IsItemHovered())
-            {
-                ImGui.SetTooltip("Turn the view towards it and label it for a few seconds.\n"
-                                 + "Move the camera yourself at any point and it lets go.");
+                if (CanAutoEngage(e)) e.Policy.AutoEngage = on;
             }
         }
 
-        ImGui.SameLine();
-        bool flyingIt = ReferenceEquals(craft, KsaWorld.ControlledVehicle);
-        if (!flyingIt && ImGui.SmallButton("Go to")) KsaWorld.GoTo(craft);
-        if (flyingIt) ImGui.TextDisabled("here");
+        Tip(state switch
+        {
+            Guard.Guarding => "Guarding: engaging whatever its sensors and IFF allow, on its own. "
+                              + "Click to stop. FIRE works either way.",
+            Guard.Partly => "Partly guarding: some of its weapons engage on their own and some fire "
+                            + "only when you press FIRE. Click to guard with all of them.",
+            _ => "Not guarding: it fires only when you press FIRE. Click to let every weapon on it "
+                 + "engage on its own.",
+        });
+    }
 
-        ImGui.SameLine();
-        if (ImGui.SmallButton("Manage")) _managed = craft;
+    private static bool CanAutoEngage(WeaponSystems.Entry e)
+        => WeaponFit.Of(e.Battery.Profile, e.Battery.Sensor).AutoEngages;
+
+    private void DrawChaseButton()
+    {
+        bool chasing = false;
+        foreach (WeaponSystems.Entry e in _rowSystems) chasing |= e.Policy.ChaseRounds;
+
+        if (IconButton("##chase", Icon.Camera, chasing ? ChaseInk : OffInk, lit: chasing))
+        {
+            foreach (WeaponSystems.Entry e in _rowSystems) e.Policy.ChaseRounds = !chasing;
+        }
+
+        Tip((chasing ? "Chasing. " : "Not chasing. ")
+            + "Rides the camera behind a round this craft fires, while it is the craft you are "
+            + "flying or the one whose window is open, and hands the view back on its own: after "
+            + "the burst, or about two seconds after the round has nothing left to arrive at. "
+            + "Right-drag looks around the round and the wheel moves in or out; let go and the view "
+            + "eases back behind it.");
+    }
+
+    // A click opens the menu, because it is the control a new player tries first and creating the
+    // first team is in it. Right-click steps to the next team without opening anything.
+    private void DrawTeamButton(KSA.Vehicle craft)
+    {
+        List<string> teams = _config.TeamNames;
+        string? team = TeamOf(craft);
+        int group = GroupOf(team, teams);
+
+        ImColor8 ink = group < teams.Count ? Ink(TeamColour(group)) : OffInk;
+
+        if (IconButton("##team", Icon.Flag, ink, lit: false)) ImGui.OpenPopup("##teams");
+
+        // Straight after the button, while it is still the last item.
+        if (ImGui.IsItemClicked(ImGuiMouseButton.Right) && teams.Count > 0)
+        {
+            SetTeam(Teams.Next(team, teams));
+        }
+
+        Tip($"On {team ?? "no team"}: the side it fights for, which its IFF sorts every contact "
+            + (teams.Count == 0
+               ? "against. Click to create the first team."
+               : "against. Click to pick a team or create one, or right-click for the next team."));
+
+        if (!ImGui.BeginPopup("##teams")) return;
+
+        DrawTeamMenu(teams, team, group);
+        ImGui.EndPopup();
+    }
+
+    private void DrawTeamMenu(List<string> teams, string? team, int group)
+    {
+        for (int i = 0; i < teams.Count; i++)
+        {
+            ImGui.PushStyleColor(ImGuiCol.Text, TeamColour(i));
+            if (ImGui.MenuItem($"{teams[i]}##{i}", string.Empty, group == i)) SetTeam(teams[i]);
+            ImGui.PopStyleColor();
+        }
+
+        if (teams.Count > 0) ImGui.Separator();
+
+        ImGui.PushStyleColor(ImGuiCol.Text, Grey);
+        if (ImGui.MenuItem("No team", string.Empty, team is null)) SetTeam(null);
+        ImGui.PopStyleColor();
+
+        ImGui.Separator();
+
+        if (ImGui.IsWindowAppearing())
+        {
+            _menuTeamEntry = string.Empty;
+
+            // With nothing to pick, creating a team is the only reason the menu is open.
+            if (teams.Count == 0) ImGui.SetKeyboardFocusHere(0);
+        }
+
+        ImGui.SetNextItemWidth(ImGui.GetFontSize() * 10f);
+        if (TextField("##newteam", ref _menuTeamEntry, "New team")
+            && Teams.Declare(teams, _menuTeamEntry) is { } created)
+        {
+            SetTeam(created);
+            ImGui.CloseCurrentPopup();
+        }
+        Tip("Type a name and press Enter to create the team and put this craft on it.");
+    }
+
+    // Every system and director on the row's craft: a craft fights for one side.
+    private void SetTeam(string? team)
+    {
+        foreach (WeaponSystems.Entry e in _rowSystems) e.Policy.Iff.OwnTeam = team;
+        foreach (OpticalHeads.Entry h in _rowHeads) h.Policy.Iff.OwnTeam = team;
+    }
+
+    // The side an installation fights for: its selected weapon's, or its director's when it
+    // carries no weapon. What the flag shows and what the list groups by.
+    private string? TeamOf(KSA.Vehicle craft)
+    {
+        if (_batteries.For(craft) is { } entry) return entry.Policy.Iff.OwnTeam;
+
+        _heads.On(craft, _teamHeads);
+        return _teamHeads.Count > 0 ? _teamHeads[0].Policy.Iff.OwnTeam : null;
+    }
+
+    private static int GroupOf(string? team, IReadOnlyList<string> teams)
+    {
+        if (team is null) return teams.Count;
+
+        for (int i = 0; i < teams.Count; i++)
+        {
+            if (string.Equals(teams[i], team, StringComparison.OrdinalIgnoreCase)) return i;
+        }
+
+        return teams.Count;
+    }
+
+    private readonly List<WeaponSystems.Entry> _rowSystems = [];
+    private readonly List<OpticalHeads.Entry> _rowHeads = [];
+    private readonly List<OpticalHeads.Entry> _teamHeads = [];
+
+    private static readonly float4[] TeamColours =
+    [
+        new(1.00f, 0.42f, 0.36f, 1f),
+        new(0.42f, 0.62f, 1.00f, 1f),
+        new(0.45f, 0.88f, 0.45f, 1f),
+        new(1.00f, 0.78f, 0.30f, 1f),
+        new(0.76f, 0.52f, 1.00f, 1f),
+        new(0.36f, 0.86f, 0.90f, 1f),
+    ];
+
+    private static float4 TeamColour(int group) => TeamColours[group % TeamColours.Length];
+
+    private static ImColor8 Ink(float4 c)
+        => new((byte)(c.X * 255f), (byte)(c.Y * 255f), (byte)(c.Z * 255f), (byte)(c.W * 255f));
+
+    private static readonly float4 LitButton = new(0.22f, 0.36f, 0.26f, 1f);
+    private static readonly float4 FlyingButton = new(0.20f, 0.32f, 0.48f, 1f);
+    private static readonly ImColor8 GuardInk = new(100, 240, 120, 255);
+    private static readonly ImColor8 PartlyInk = new(255, 200, 70, 255);
+    private static readonly ImColor8 ChaseInk = new(130, 190, 255, 255);
+    private static readonly ImColor8 OffInk = new(140, 140, 150, 255);
+    private static readonly ImColor8 Lens = new(24, 26, 32, 255);
+
+    private enum Icon { Shield, Camera, Flag }
+
+    // A square button the height of a text one, with a symbol drawn on it. Drawn rather than
+    // typed, because KSA's fonts carry basic Latin only and a symbol would render as a box.
+    private static bool IconButton(string id, Icon icon, ImColor8 ink, bool lit)
+    {
+        float side = ImGui.GetFrameHeight();
+
+        if (lit) ImGui.PushStyleColor(ImGuiCol.Button, LitButton);
+        bool clicked = ImGui.Button(id, new float2?(new float2(side, side)));
+        if (lit) ImGui.PopStyleColor();
+
+        DrawIcon(ImGui.GetWindowDrawList(), icon, ImGui.GetItemRectMin(), ImGui.GetItemRectMax(), ink);
+        return clicked;
+    }
+
+    private static void DrawIcon(ImDrawListPtr draw, Icon icon, float2 min, float2 max, ImColor8 ink)
+    {
+        float w = max.X - min.X;
+        float h = max.Y - min.Y;
+        float2 P(float u, float v) => new(min.X + (u * w), min.Y + (v * h));
+
+        switch (icon)
+        {
+            case Icon.Shield:
+                draw.AddRectFilled(P(0.25f, 0.18f), P(0.75f, 0.52f), ink);
+                draw.AddTriangleFilled(P(0.25f, 0.52f), P(0.75f, 0.52f), P(0.5f, 0.86f), ink);
+                break;
+
+            case Icon.Camera:
+                draw.AddRectFilled(P(0.18f, 0.34f), P(0.82f, 0.78f), ink);
+                draw.AddRectFilled(P(0.36f, 0.24f), P(0.56f, 0.34f), ink);
+                draw.AddCircleFilled(P(0.5f, 0.56f), 0.13f * h, Lens);
+                break;
+
+            case Icon.Flag:
+                draw.AddLine(P(0.3f, 0.16f), P(0.3f, 0.86f), ink, 1.5f);
+                draw.AddTriangleFilled(P(0.3f, 0.18f), P(0.78f, 0.34f), P(0.3f, 0.5f), ink);
+                break;
+        }
     }
 
     // One system's own window: everything that belongs to that installation rather than to the
@@ -413,9 +701,32 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
                 // is about a weapons system, which a craft carrying one director does not have.
                 if (ImGui.BeginTabItem("Components")) { DrawComponents(craft); ImGui.EndTabItem(); }
 
+                // Second, and not gated on `armed`: the computer flies the whole vehicle, so it is
+                // there whether or not the weapon it is delivering has a radar to speak of.
+                if (_icbms.For(craft) is { } computer && ImGui.BeginTabItem("Ballistic"))
+                {
+                    DrawIcbm(computer);
+                    ImGui.EndTabItem();
+                }
+
                 if (armed)
                 {
-                    if (ImGui.BeginTabItem("Tracks")) { DrawTrackList(); ImGui.EndTabItem(); }
+                    // "Radar" rather than "Tracks": the tab carries the lock and the scope state
+                    // as well as the list, which is the whole of what the set is doing.
+                    //
+                    // Only for a set that presents a picture. A seeker head cues the shooter with a
+                    // growl and a reticle and a designation set has no array at all, so a scope of
+                    // tracks for either shows a search that never happened. An anti-radiation
+                    // seeker is the exception and gets its own name, because a list of who is
+                    // radiating is not a search picture.
+                    string? scope = ScopeTab(_sensor);
+
+                    if (scope is not null && ImGui.BeginTabItem(scope))
+                    {
+                        DrawScope();
+                        DrawTrackList();
+                        ImGui.EndTabItem();
+                    }
                     if (ImGui.BeginTabItem("Tuning")) { DrawTuning(); ImGui.EndTabItem(); }
                     if (ImGui.BeginTabItem("Teams and IFF")) { DrawIff(); ImGui.EndTabItem(); }
                 }
@@ -428,6 +739,27 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     }
 
     // What one system is holding, in a table cell: every armament it carries, however many that is.
+    // Airspeed against the ground under it, the way a round's is measured -- in the ecliptic every
+    // craft on the planet reads 29.8 km/s and none of them are going anywhere. Blank below walking
+    // pace, because a row for a launcher parked on its pad does not need a zero in it.
+    private static string Speed(IWeaponSystemView battery)
+    {
+        if (battery.Platform is not { } craft || !KsaWorld.IsAlive(craft)) return "";
+
+        try
+        {
+            double3 at = KsaWorld.PositionEcl(craft);
+            double3 through = KsaWorld.VelocityEcl(craft) - KsaWorld.GroundVelocityAt(craft, at);
+            double speed = Vec.Len(through);
+
+            return double.IsFinite(speed) && speed >= 1.0 ? $"   {speed:N0} m/s" : "";
+        }
+        catch
+        {
+            return "";
+        }
+    }
+
     private static string Tally(WeaponSystem battery)
     {
         WeaponFit fit = WeaponFit.Of(battery.Profile, battery.Sensor);
@@ -444,6 +776,15 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         }
         return string.Join(", ", parts);
     }
+
+    // The tab a set's picture is shown on, or null for a set that presents none. Everything that
+    // offers a scope asks this, so a seeker never gets a button for a tab it does not have.
+    private static string? ScopeTab(SensorProfile sensor) => sensor.Scope switch
+    {
+        ScopePresentation.Search => "Radar",
+        ScopePresentation.Emitters => "Emitters",
+        _ => null,
+    };
 
     // Plural, and spaced: the enum names are identifiers and read as such on screen.
     private static string GroupName(WeaponRole role) => role switch
@@ -541,13 +882,14 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         else set.Remove(team);
     }
 
-    private void Remember(string? team)
+    // Out of every policy in the world rather than the one on screen: a policy still holding a
+    // removed team keeps it as its side.
+    private void ForgetTeam(string team)
     {
-        if (string.IsNullOrWhiteSpace(team)) return;
-        if (!_config.TeamNames.Contains(team, StringComparer.OrdinalIgnoreCase))
-        {
-            _config.TeamNames.Add(team);
-        }
+        _config.TeamNames.RemoveAll(t => string.Equals(t, team, StringComparison.OrdinalIgnoreCase));
+
+        foreach (WeaponSystems.Entry e in _batteries.All) e.Policy.Iff.Forget(team);
+        foreach (OpticalHeads.Entry h in _heads.All) h.Policy.Iff.Forget(team);
     }
 
     private static float4 AllegianceColour(Allegiance a) => a switch
@@ -560,20 +902,45 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
 
     // ImGui.InputText wants a fixed byte buffer, so each field owns one and the string is
     // marshalled either side of the call.
-    private static bool TextField(string label, ref string value)
+    private static bool TextField(string label, ref string value, string? hint = null)
     {
         Span<byte> buffer = stackalloc byte[64];
         int written = System.Text.Encoding.UTF8.GetBytes(value.AsSpan(), buffer);
         buffer[Math.Min(written, buffer.Length - 1)] = 0;
 
-        if (!ImGui.InputText(label, buffer, ImGuiInputTextFlags.EnterReturnsTrue, null, default))
-        {
-            return false;
-        }
+        bool entered = hint is null
+            ? ImGui.InputText(label, buffer, ImGuiInputTextFlags.EnterReturnsTrue)
+            : ImGui.InputTextWithHint(label, hint, buffer, ImGuiInputTextFlags.EnterReturnsTrue);
+
+        if (!entered) return false;
 
         int end = buffer.IndexOf((byte)0);
         value = System.Text.Encoding.UTF8.GetString(buffer[..(end < 0 ? buffer.Length : end)]);
         return true;
+    }
+
+    // What the control just drawn does, on hover. Explanations live here and a line under a
+    // control is for state the operator has to act on -- see CLAUDE.md on the panel.
+    //
+    // Wrapped, because a bare tooltip never is and a long one runs off the screen.
+    private static void Tip(string text)
+    {
+        if (!ImGui.BeginItemTooltip()) return;
+
+        ImGui.PushTextWrapPos(ImGui.GetFontSize() * TipWidthEms);
+        ImGui.TextWrapped(text);
+        ImGui.PopTextWrapPos();
+        ImGui.EndTooltip();
+    }
+
+    // The width Dear ImGui's own help markers wrap at.
+    private const float TipWidthEms = 35f;
+
+    // A grey (?) carrying an explanation that belongs to a section rather than to one control.
+    private static void Help(string text)
+    {
+        ImGui.TextDisabled("(?)");
+        Tip(text);
     }
 
 }

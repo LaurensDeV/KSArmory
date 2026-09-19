@@ -8,6 +8,7 @@ public enum DriveChannel
     Guns,
     Radar,
     Optic,
+    Recoil,
 }
 
 /// <summary>

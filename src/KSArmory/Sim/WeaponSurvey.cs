@@ -30,6 +30,15 @@ public enum WeaponRole
 
     /// <summary>Throws unguided rounds on a belt.</summary>
     Gun,
+
+    /// <summary>
+    /// Flies the airframe it is on: what earns a craft a ballistic computer.
+    ///
+    /// <para>Not <see cref="FireControl"/>, which decides what a craft shoots at and which every
+    /// launcher carries. A Pantsir has fire control and nothing to fly; a booster with a guidance
+    /// section and no weapon would have the reverse. docs/GUIDANCE-SECTION.md.</para>
+    /// </summary>
+    Guidance,
 }
 
 /// <summary>
@@ -68,10 +77,19 @@ public readonly record struct BuiltInComponent(WeaponRole Role, string DisplayNa
 /// <c>Arsenal.cs</c> and cross-checked by <c>validate-parts.py</c>, because nothing at run time
 /// connects the model to the code. A part the player placed knows where it is.</para>
 /// </summary>
+/// <param name="Rides">
+/// The part attaches to the side of something rather than stacking on it, so it cannot be a craft
+/// on its own. The game says so: its connectors carry <c>ToSurface</c> or <c>FromSurface</c>, which
+/// is exactly what the editor's own root test rejects. <b>A vehicle roots; a store rides.</b>
+///
+/// <para>Defaults to false, so a part nobody asked about is a platform. A hull, a tank and a
+/// booster are all things a store can ride on, and none of them is this mod's to recognise.</para>
+/// </param>
 public readonly record struct SurveyedPart(
     string PartId,
     double3 PositionVehicleAsmb,
-    doubleQuat Asmb2VehicleAsmb);
+    doubleQuat Asmb2VehicleAsmb,
+    bool Rides = false);
 
 /// <summary>A component found on a craft: what it is, and where.</summary>
 public readonly record struct FoundComponent(
@@ -93,6 +111,21 @@ public sealed class WeaponInventory
 {
     public required IReadOnlyList<FoundComponent> Components { get; init; }
 
+    /// <summary>
+    /// Whether there is anything on this craft for a store to ride on.
+    ///
+    /// <para><b>A breakup can make a craft the editor would never have let anyone build.</b>
+    /// Isolating a failed part splits the vehicle at every severable connection, so a targeting pod
+    /// or a missile rail ends up as a vehicle in its own right, lying on the ground, rooted on a
+    /// part whose connectors say it can only ride. The editor rejects exactly that craft, and this
+    /// is the mod agreeing with it.</para>
+    ///
+    /// <para>False only when <em>every</em> part rides. A hull with one director on it is an
+    /// observation post and keeps working, because the hull is not a store — that case is the
+    /// reason this is not simply a part count.</para>
+    /// </summary>
+    public bool HasPlatform { get; init; }
+
     public int CountOf(WeaponRole role)
     {
         int n = 0;
@@ -109,9 +142,18 @@ public sealed class WeaponInventory
     /// craft's settings an owner, and it stops a piece of debris that happens to carry a launcher
     /// from becoming a battery of its own. No such part exists, so gating on it would find nothing.
     /// </remarks>
-    public bool IsWeaponSystem => CountOf(WeaponRole.Launcher) > 0
-                                  || CountOf(WeaponRole.Gun) > 0
-                                  || CountOf(WeaponRole.FireControl) > 0;
+    public bool IsWeaponSystem => HasPlatform
+                                  && (CountOf(WeaponRole.Launcher) > 0
+                                      || CountOf(WeaponRole.Gun) > 0
+                                      || CountOf(WeaponRole.FireControl) > 0);
+
+    /// <summary>
+    /// Whether something aboard flies the craft, which is what crews a ballistic computer on it.
+    ///
+    /// <para>Its own question rather than <see cref="IsWeaponSystem"/>: every launcher is a weapons
+    /// system, and almost none of them has any business flying the rocket under it.</para>
+    /// </summary>
+    public bool HasGuidance => HasPlatform && CountOf(WeaponRole.Guidance) > 0;
 
     /// <summary>
     /// Whether this mod recognises anything on the craft at all, weapon or not.
@@ -121,9 +163,9 @@ public sealed class WeaponInventory
     /// not a weapons system: crewing one gives it a battery with no launcher, which then reports a
     /// head it cannot find and reloads a magazine it does not have.</para>
     /// </summary>
-    public bool IsInstallation => Components.Count > 0;
+    public bool IsInstallation => Components.Count > 0 && HasPlatform;
 
-    public static readonly WeaponInventory Empty = new() { Components = [] };
+    public static readonly WeaponInventory Empty = new() { Components = [], HasPlatform = false };
 }
 
 /// <summary>
@@ -164,7 +206,16 @@ public static class WeaponSurvey
             }
         }
 
-        return new WeaponInventory { Components = found };
+        bool hasPlatform = false;
+        for (int i = 0; i < parts.Count; i++)
+        {
+            if (parts[i].Rides) continue;
+
+            hasPlatform = true;
+            break;
+        }
+
+        return new WeaponInventory { Components = found, HasPlatform = hasPlatform };
     }
 
     /// <summary>

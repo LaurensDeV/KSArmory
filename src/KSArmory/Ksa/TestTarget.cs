@@ -20,6 +20,16 @@ internal static class TestTarget
     // random so repeated runs are comparable.
     private const double AzimuthRadians = 0.0;
 
+    /// <summary>The level direction from a platform that every drone is spawned along.</summary>
+    public static double3 ApproachBearing(Vehicle platform)
+    {
+        double3 up = KsaWorld.LocalUp(platform);
+        double3 east = Vec.AnyPerpendicular(up);
+        double3 north = Vec.Cross(up, east);
+
+        return (east * Math.Cos(AzimuthRadians)) + (north * Math.Sin(AzimuthRadians));
+    }
+
     /// <summary>How the drone is aimed relative to the battery.</summary>
     public enum Profile
     {
@@ -42,13 +52,15 @@ internal static class TestTarget
     /// <param name="speed">Drone speed relative to the platform (m/s).</param>
     /// <param name="missDistance">How close it passes (m). Ignored for <see cref="Profile.HeadOn"/>.</param>
     /// <param name="craftName">Stock craft to fly, e.g. "Gemini7". Null clones the platform.</param>
+    /// <param name="bodyRates">How fast it leaves turning, in its own axes (rad/s).</param>
     public static Vehicle? Spawn(
         Vehicle platform,
         Profile profile,
         double secondsToClosestApproach,
         double speed,
         double missDistance,
-        string? craftName = null)
+        string? craftName = null,
+        double3 bodyRates = default)
     {
         try
         {
@@ -96,7 +108,7 @@ internal static class TestTarget
             // Direction from the battery to the spawn point: elevation above the horizon,
             // azimuth around it.
             double elev = double.DegreesToRadians(elevationDeg);
-            double3 azimuth = east * Math.Cos(AzimuthRadians) + north * Math.Sin(AzimuthRadians);
+            double3 azimuth = ApproachBearing(platform);
             double3 spawnDir = up * Math.Sin(elev) + azimuth * Math.Cos(elev);
 
             double3 spawnEcl = originEcl + Vec.Unit(spawnDir) * spawnRange;
@@ -149,27 +161,23 @@ internal static class TestTarget
             Log.Debug($"  orbit: pe = {orbit.Periapsis / 1000.0:F1} km, ap = {orbit.Apoapsis / 1000.0:F1} km, " +
                      $"ecc = {orbit.Eccentricity:F4}");
 
+            // Held from the parts until the drone is placed. Building a vehicle mutates the shapes
+            // registry, the vehicle worker holds that for its whole run, and a hook of this mod can
+            // land inside the run. Racing it builds half a vehicle, which the game does not survive;
+            // this waits the run out instead, at the cost of one worker step on a button press.
+            using ShapesUnlock shapes = ConstraintSim.UnlockShapesBlocking();
+
             DroneBlueprint blueprint = BuildDroneParts(platform, craftName);
 
             string id = $"AD Test Drone {++_counter}";
-            Vehicle drone = CreateDroneVehicle(blueprint, system, platform, parent, id, orbit);
+            Vehicle drone = CreateDroneVehicle(blueprint, system, platform, parent, id, orbit, bodyRates);
 
-            // Constructing the Vehicle is not enough to put it in the world. KSA's own runtime
-            // spawn path (Vehicle.Split) attaches it to the parent's orbiter tree and to the
-            // launching craft's physics bubble; without the first,
+            // Constructing the Vehicle is not enough to put it in the world: without this,
             // CelestialSystem.UpdatePerFrameData never walks it, so its cached Ecl position stays
-            // at the frame origin and it neither moves nor can be seen. Without the second it is
-            // never simulated.
+            // at the frame origin and it neither moves nor can be seen. A bubble it does not need
+            // - Universe.PrepareVehicleWorkers collects every vehicle in no bubble and
+            // VehicleUpdateTask.IntakeOrphans gives it one before the step it was found on.
             parent.Children.Add(drone);
-
-            if (platform.PhysicsBubble is { } bubble)
-            {
-                drone.AddToBubble(bubble);
-            }
-            else
-            {
-                Log.Warn("test target: platform has no physics bubble, drone will not be simulated");
-            }
 
             // Work out how big it is.
             //
@@ -281,7 +289,7 @@ internal static class TestTarget
                    + $"zoomPow {v.OrbitView?.DistancePower ?? double.NaN:F2} "
                    + $"parts {v.Parts?.Count ?? -1} "
                    + $"bubbleLeader {(v.BubbleLeader is null ? "none" : "yes")} "
-                   + $"bubble {(v.PhysicsBubble is null ? "none" : "yes")} "
+                   + $"bubble {(v.HasPhysicsBubble ? "yes" : "none")} "
                    + $"controllable {v.IsControllable} "
                    + $"hasControlModule {HasControlModule(v)} controls {ControlCount(v)}";
         }
@@ -322,14 +330,14 @@ internal static class TestTarget
     // the save names a character, see VehicleTemplate, which branches on Character != null.
     private static Vehicle CreateDroneVehicle(
         DroneBlueprint blueprint, CelestialSystem system, Vehicle platform,
-        IParentBody parent, string id, Orbit orbit)
+        IParentBody parent, string id, Orbit orbit, double3 bodyRates)
     {
         if (!string.IsNullOrEmpty(blueprint.Character))
         {
             try
             {
                 return new KittenEva(system, blueprint.Character, platform.Body2Cce,
-                                     bodyRates: new double3(0, 0, 0), parent, id,
+                                     bodyRates: bodyRates, parent, id,
                                      blueprint.Parts.Root, orbit);
             }
             catch (Exception e)
@@ -342,7 +350,7 @@ internal static class TestTarget
             }
         }
 
-        return Vehicle.CreateVehicle(system, platform.Body2Cce, bodyRates: new double3(0, 0, 0),
+        return Vehicle.CreateVehicle(system, platform.Body2Cce, bodyRates: bodyRates,
                                      parent, id, blueprint.Parts.Root, orbit);
     }
 

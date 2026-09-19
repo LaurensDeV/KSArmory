@@ -23,6 +23,9 @@ namespace KSArmory;
 /// in five carries a tracer on a real gun; every round tracing reads as a rod of light rather than
 /// as gunfire. It also bounds the cost: at 75 rounds a second an emitter each would drain the
 /// shared pool in well under a second and leave nothing in the world able to spawn particles.</para>
+///
+/// <para>A shell drawn as a body gets none, and hands back one it already had: the body is the
+/// round, and a glowing trail on top of it marks something already on screen.</para>
 /// </summary>
 internal sealed class TracerTrail
 {
@@ -67,7 +70,7 @@ internal sealed class TracerTrail
     /// <summary>Starts, moves and ends the tracer of every shell this battery has in the air.</summary>
     public void Update(IEffectSource battery)
     {
-        if (!battery.PlumesEnabled || battery.Platform is not { } platform)
+        if (!battery.PlumesEnabled || battery.EffectBody is null)
         {
             ReleaseOwnedBy(battery);
             return;
@@ -77,7 +80,11 @@ internal sealed class TracerTrail
         foreach (IProjectile round in battery.Rounds)
         {
             // Negative tube numbers mark the cannon; the magazine owns zero and up.
-            if (round.Tube < 0 && round.State == RoundState.Flying) _candidates.Add(round);
+            if (RoundLabel.IsGunRound(round.Tube) && round.State == RoundState.Flying
+                && !battery.ShellDrawnAsBody(round))
+            {
+                _candidates.Add(round);
+            }
         }
 
         // Keep the ones already lit before taking on new ones. Swapping which shells are traced
@@ -87,7 +94,7 @@ internal sealed class TracerTrail
         foreach (IProjectile round in _candidates)
         {
             if (!_tracing.ContainsKey(round)) continue;
-            if (Follow(round, battery, platform)) lit++;
+            if (Follow(round, battery)) lit++;
             newest = Math.Min(newest, round.Age);
         }
 
@@ -104,10 +111,14 @@ internal sealed class TracerTrail
 
             // Measured off the youngest shell already traced rather than off a clock: the spacing
             // wanted is between tracers, and their own ages are what that is.
-            double spacing = round.Munition.MaxFlightSeconds * SpacingOfLife / MaxTracers;
+            // Over thirty seconds of life at most: a shell the ground stops is given two minutes so the
+            // clock sweeps up only one that never lands, and it lands long before -- spacing over the whole
+            // of that leaves the emitters idle between tracers.
+            const double SpacedLifeSeconds = 30.0;
+            double spacing = Math.Min(round.Munition.MaxFlightSeconds, SpacedLifeSeconds) * SpacingOfLife / MaxTracers;
             if (newest < spacing) break;
 
-            if (!Follow(round, battery, platform)) continue;
+            if (!Follow(round, battery)) continue;
 
             lit++;
             newest = round.Age;
@@ -118,7 +129,8 @@ internal sealed class TracerTrail
         foreach (KeyValuePair<IProjectile, Live> kv in _tracing)
         {
             if (!ReferenceEquals(kv.Value.Owner, battery)) continue;
-            if (kv.Key.State != RoundState.Flying || !battery.Rounds.Contains(kv.Key))
+            if (kv.Key.State != RoundState.Flying || !battery.Rounds.Contains(kv.Key)
+                || battery.ShellDrawnAsBody(kv.Key))
             {
                 _finished.Add(kv.Key);
             }
@@ -133,12 +145,7 @@ internal sealed class TracerTrail
     {
         foreach (KeyValuePair<IProjectile, Live> kv in _tracing)
         {
-            bool present = false;
-            foreach (WeaponSystems.Entry e in roster.All)
-            {
-                if (ReferenceEquals(e.Battery, kv.Value.Owner)) { present = true; break; }
-            }
-            if (!present) _finished.Add(kv.Key);
+            if (!roster.Knows(kv.Value.Owner)) _finished.Add(kv.Key);
         }
 
         foreach (IProjectile round in _finished) Release(round);
@@ -167,23 +174,17 @@ internal sealed class TracerTrail
         _tracing.Clear();
     }
 
-    private bool Follow(IProjectile round, IEffectSource battery, Vehicle platform)
+    private bool Follow(IProjectile round, IEffectSource battery)
     {
-        if (battery.Launcher is not { } launcher) return false;
-
-        // Built the way the drawn round bodies are, from the launch anchor plus the travel since.
-        // PlatformEcl + OffsetFromPlatform is measured from the platform's ANALYTIC position, which
-        // on a landed craft is metres from where its parts are actually placed.
-        if (!LauncherPart.TryGetBodyEcl(platform, launcher, round.LaunchAnchorPartFrame,
-                                        round.TravelSinceLaunch, battery.PlatformEcl,
-                                        out double3 ecl))
-        {
-            return false;
-        }
+        // Where the drawn round body is while there is one -- PlatformEcl + OffsetFromPlatform is
+        // measured from the platform's ANALYTIC position, which on a landed craft is metres from
+        // where its parts actually sit. A shell whose gun has been destroyed has no body, and the
+        // analytic form is then exact.
+        if (!battery.TryRoundEffectEcl(round, out double3 ecl)) return false;
 
         if (!_tracing.TryGetValue(round, out Live? live))
         {
-            if (Acquire(platform) is not { } fresh) return false;
+            if (Acquire(battery.EffectBody) is not { } fresh) return false;
 
             fresh.Owner = battery;
             live = fresh;
@@ -216,11 +217,11 @@ internal sealed class TracerTrail
         return true;
     }
 
-    private static Live? Acquire(Vehicle platform)
+    private static Live? Acquire(Celestial? body)
     {
         try
         {
-            if (platform.Parent is not Celestial body) return null;
+            if (body is null) return null;
 
             if (!Program.Instance.ParticleSystem.GetAndInitializeEmitters(TracerId, out var handles)
                 || handles is null || handles.Count == 0)

@@ -7,6 +7,12 @@ internal enum RoundState
     Flying,
     Detonated,
     Expired,
+
+    /// <summary>
+    /// Destroyed in the air by somebody else. Distinct from <see cref="Detonated"/>: this round's
+    /// warhead never fired, so nothing is owed a blast at the wreck.
+    /// </summary>
+    ShotDown,
 }
 
 /// <summary>
@@ -14,9 +20,14 @@ internal enum RoundState
 ///
 /// <para><paramref name="Handle"/> is opaque and defaulted: <c>Sim/</c> only ever compares it or
 /// hands it back, and a caller with nothing to identify leaves it out.</para>
+///
+/// <para><paramref name="Emitting"/> is whether the contact is radiating this frame, which only
+/// <see cref="GuidanceMode.AntiRadiation"/> reads. It defaults to <c>true</c> so that every other
+/// weapon behaves exactly as it did before the field existed — a caller that has no notion of
+/// emission is describing a target every other seeker can still see.</para>
 /// </summary>
 internal readonly record struct TargetState(double3 PositionEcl, double3 VelocityEcl, double Radius,
-                                            object? Handle = null);
+                                            object? Handle = null, bool Emitting = true);
 
 /// <summary>
 /// A single anti-air round.
@@ -67,7 +78,33 @@ internal sealed class Interceptor : IProjectile
     /// <inheritdoc cref="IProjectile.Aimpoint"/>
     public Aimpoint Aimpoint { get; set; }
 
+    /// <inheritdoc cref="IProjectile.FaithfulStepSeconds"/>
+    public double FaithfulStepSeconds
+        => _lastDensity > Medium.NoticeableDensity
+               ? Math.Min(Munition.MaxFaithfulStepSeconds, Medium.FaithfulStepInAir)
+               : Munition.MaxFaithfulStepSeconds;
+
+    // What the round last flew through, so it can say what step it needs before the next one.
+    private double _lastDensity;
+
+    /// <summary>
+    /// The air where the round is, asked per sub-step and back-dated as a <see cref="Slug"/> asks
+    /// it. Null holds the frame's single sample.
+    ///
+    /// <para>Not a refinement for a missile, however much its guidance dominates its flight. The body
+    /// its altitude is measured from was sampled at the frame's end, so the frame's sample reads up to
+    /// a frame of the planet's ~30 km/s as altitude — below the waterline for a round leaving a site
+    /// near sea level, where the drag is 840 times the air's and stops it when the motor does.</para>
+    /// </summary>
+    public Func<double3, double, double>? AirDensityAt { get; set; }
+
     public RoundState State { get; private set; } = RoundState.Flying;
+
+    /// <inheritdoc cref="IProjectile.ShootDown"/>
+    public void ShootDown()
+    {
+        if (State == RoundState.Flying) State = RoundState.ShotDown;
+    }
 
     /// <summary>
     /// Always null. This round is proximity-fused, so it kills by being near rather than by
@@ -138,6 +175,18 @@ internal sealed class Interceptor : IProjectile
     /// <summary>Displacement since launch. Frame-independent, so safe to rotate into any frame.</summary>
     public double3 TravelSinceLaunch => OffsetFromPlatform - LaunchOffset;
 
+    /// <inheritdoc cref="IProjectile.Reanchor"/>
+    public void Reanchor(double3 offsetDelta)
+    {
+        if (!Vec.IsFinite(offsetDelta)) return;
+
+        OffsetFromPlatform += offsetDelta;
+        LaunchOffset += offsetDelta;
+
+        for (int i = 0; i < _trail.Count; i++) _trail[i] += offsetDelta;
+    }
+
+
     /// <summary>
     /// Where this round left from, in the launcher part's own frame. Set by the battery at
     /// launch and never read by the simulation — it exists so the round's *body* can be placed
@@ -145,8 +194,24 @@ internal sealed class Interceptor : IProjectile
     /// </summary>
     public double3 LaunchAnchorPartFrame { get; set; }
 
+    /// <inheritdoc />
+    public double3 ReleaseHeadingEcl { get; set; }
+
+    /// <inheritdoc />
+    public doubleQuat LaunchAttitude { get; set; }
+
+    /// <summary>
+    /// The launching craft's velocity in the round's own frame at release, so the motor can push
+    /// along the round rather than along everything it inherited.
+    ///
+    /// <para>Zero for a launcher standing still, which is every launcher this mod had when the
+    /// boost was written — and is why thrusting along the flight path was indistinguishable from
+    /// thrusting along the tube. Set at launch and never updated.</para>
+    /// </summary>
+    public double3 LaunchFrameVelocityLocal { get; set; }
+
     /// <inheritdoc cref="IProjectile.Munition"/>
-    public MunitionProfile Munition { get; init; } = Arsenal.Missile57E6;
+    public required MunitionProfile Munition { get; init; }
 
     // Recent positions for the smoke trail, oldest first, as platform-relative offsets. Stored this
     // way for the same reason: absolute points recorded across 1.6 s of trail would be smeared over
@@ -183,6 +248,22 @@ internal sealed class Interceptor : IProjectile
     public bool HasLock => TargetRef is not null && SeekerInView;
 
     /// <summary>
+    /// Whether an <see cref="GuidanceMode.AntiRadiation"/> round has ever heard its target, and so
+    /// has somewhere to go if the set shuts down. Always false for every other guidance.
+    /// </summary>
+    public bool HasEmission { get; private set; }
+
+    // Where the emission last came from, the velocity it was seen with, and the round's own age at
+    // that moment. Replayed forward rather than stored as a bare coordinate -- see Step.
+    private double3 _emissionPosEcl;
+    private double3 _emissionVelEcl;
+    private double _emissionAge;
+
+    // The aimpoint is a place someone designated rather than something the round has to find, so
+    // there is nothing for a gimbal limit or an emission to lose.
+    private bool OperatorHeld => Aimpoint.Kind == AimpointKind.Ground;
+
+    /// <summary>
     /// Velocity relative to the moving frame — the round's airspeed vector, and the direction it
     /// points. Not <see cref="VelocityEcl"/>, which carries the platform's ~29.8 km/s and would
     /// orient every round the same way.
@@ -199,6 +280,9 @@ internal sealed class Interceptor : IProjectile
     /// Pure presentation: the flight model has no notion of fins, and this changes nothing
     /// about how the round flies.</para>
     /// </summary>
+    /// <inheritdoc cref="IProjectile.SteeringCommandEcl"/>
+    public double3 SteeringCommandEcl { get; private set; }
+
     public double FinDeployment(MunitionProfile munition)
     {
         if (munition.FinDeploySeconds <= 0f) return 1.0;
@@ -246,7 +330,10 @@ internal sealed class Interceptor : IProjectile
 
         for (int i = 0; i < steps && State == RoundState.Flying; i++)
         {
-            Step(h, elapsed, dt, target, gravity, frameVelocityEcl, munition, mediumDensityRatio);
+            double density = AirDensityAt?.Invoke(PositionEcl, elapsed - dt) ?? mediumDensityRatio;
+            if (!double.IsFinite(density) || density < 0.0) density = mediumDensityRatio;
+
+            Step(h, elapsed, dt, target, gravity, frameVelocityEcl, munition, density);
             elapsed += h;
         }
 
@@ -299,27 +386,36 @@ internal sealed class Interceptor : IProjectile
         // the absolute ecliptic velocity it inherited from the planet.
         double3 localVelocity = VelocityEcl - frameVelocityEcl;
 
-        // Buoyancy: a round denser than its medium still sinks, one at its neutral density
-        // neither sinks nor rises. Zero disables it, so nothing that flies only in air changes.
-        double3 accel = munition.NeutralDensityRatio > 0f
-            ? gravity * (1.0 - mediumDensityRatio / munition.NeutralDensityRatio)
-            : gravity;
+        _lastDensity = mediumDensityRatio;
 
-        // Boost motor: axial thrust along the flight path.
+        double3 accel = Medium.Buoyancy(gravity, munition, mediumDensityRatio);
+
+        // Boost motor: axial thrust along the round, which is the velocity it has gained since
+        // release and not the velocity it has. Between the two medium terms because it is the one
+        // force this round has and a shell does not.
+        //
+        // A rail-launched round inherits the whole of its craft's velocity and adds LaunchSpeed of
+        // its own -- 25 m/s against several hundred -- so its *total* velocity points wherever the
+        // craft was going, whatever the rail was pointing at. Thrusting along that drives an AGM-88
+        // 1,050 m/s in the craft's direction of travel over a five-second boost, which for a
+        // launcher that has turned round is away from everything it was aimed at.
+        //
+        // What it has gained starts as the ejection up the tube and accumulates along the thrust,
+        // and proportional navigation's lateral term lands in it too -- so the round still curves
+        // onto its target rather than flying the rail's bearing for ever. For a launcher standing
+        // still the gain *is* the velocity, so nothing about a ground battery's flight changes.
         if (Age <= munition.TotalBoostSeconds)
         {
-            double3 axis = Vec.Unit(localVelocity);
+            double3 axis = Vec.Unit(localVelocity - LaunchFrameVelocityLocal);
+
+            // Nothing gained yet, which is a round its rail imparts no speed to at all. The
+            // heading it left along is the only thing that says which way it is pointing.
+            if (axis.Equals(Vec.Zero)) axis = Vec.Unit(ReleaseHeadingEcl);
+
             if (!axis.Equals(Vec.Zero)) accel += axis * munition.BoostAccelAt(Age);
         }
 
-        // Quadratic drag on airspeed, so a coasting round bleeds speed instead of holding it.
-        // Scaled by the medium's density, so one profile is right on the pad, climbing out, in
-        // orbit and submerged. DragK is the sea-level-air value, so the ratio is 1.0 there.
-        double airspeed = Vec.Len(localVelocity);
-        if (munition.DragK > 0f && airspeed > 1e-6 && mediumDensityRatio > 0.0)
-        {
-            accel -= localVelocity * (munition.DragK * airspeed * mediumDensityRatio);
-        }
+        accel -= Medium.Drag(localVelocity, munition, mediumDensityRatio);
 
         if (target is { } t)
         {
@@ -345,8 +441,37 @@ internal sealed class Interceptor : IProjectile
             // Subtracting frameSeconds puts the target back at the instant the round is actually
             // at, which is what makes the common ecliptic motion cancel.
             double3 targetPos = t.PositionEcl + t.VelocityEcl * (elapsedInFrame - frameSeconds);
+            double3 targetVel = t.VelocityEcl;
+
+            // An anti-radiation round is homing on the emission, so a set that stops transmitting
+            // simply stops being a target. What it does not do is forget: it carries on to where
+            // the emission last came from, which is what makes shutting down a defence only for a
+            // set that also moves.
+            //
+            // The memory is a position AND the velocity it was seen with, replayed forward on the
+            // round's own clock -- never a bare ecliptic coordinate. That velocity carries the
+            // planet's ~29.8 km/s, so replaying it keeps the remembered spot on the ground it
+            // belongs to; storing the point alone leaves it behind at half a kilometre per frame.
+            bool homingOnMemory = false;
+            if (munition.Guidance == GuidanceMode.AntiRadiation && !OperatorHeld)
+            {
+                if (t.Emitting)
+                {
+                    _emissionPosEcl = targetPos;
+                    _emissionVelEcl = targetVel;
+                    _emissionAge = Age;
+                    HasEmission = true;
+                }
+                else if (HasEmission)
+                {
+                    targetPos = _emissionPosEcl + _emissionVelEcl * (Age - _emissionAge);
+                    targetVel = _emissionVelEcl;
+                    homingOnMemory = true;
+                }
+            }
+
             double3 r = targetPos - PositionEcl;
-            double3 v = t.VelocityEcl - VelocityEcl;
+            double3 v = targetVel - VelocityEcl;
 
             ClosestApproach = Math.Min(ClosestApproach, Vec.Len(r));
 
@@ -357,16 +482,25 @@ internal sealed class Interceptor : IProjectile
             // is holding it, so there is nothing for a gimbal limit to lose. Without this a rail
             // can only shoot where it already points, which for a rail bolted to a stack is
             // straight along the stack and nowhere useful.
-            SeekerInView = munition.Guidance == GuidanceMode.CommandLink
-                           || Aimpoint.Kind == AimpointKind.Ground
-                           || Vec.AngleBetween(r, localVelocity) <= munition.SeekerFovRad;
+            //
+            // An anti-radiation round that has never heard its target is blind rather than
+            // off-axis: there is no emission to point a gimbal at, so it coasts.
+            bool blind = munition.Guidance == GuidanceMode.AntiRadiation
+                         && !OperatorHeld && !t.Emitting && !homingOnMemory;
+
+            SeekerInView = !blind
+                           && (munition.Guidance == GuidanceMode.CommandLink
+                               || OperatorHeld
+                               || Vec.AngleBetween(r, localVelocity) <= munition.SeekerFovRad);
 
             // Nothing steers until it is clear of what launched it. A rail-launched round leaves
             // along its rail and turns after separation; guiding from the first sub-step turns it
             // into the craft carrying it.
+            SteeringCommandEcl = Vec.Zero;
             if (SeekerInView && Age >= munition.SeparationSeconds)
             {
-                accel += GuidanceAccel(r, v, localVelocity, gravity, munition);
+                SteeringCommandEcl = GuidanceAccel(r, v, localVelocity, gravity, munition);
+                accel += SteeringCommandEcl;
             }
 
             {

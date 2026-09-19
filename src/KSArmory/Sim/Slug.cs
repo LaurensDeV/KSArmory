@@ -25,7 +25,14 @@ internal sealed class Slug : IProjectile
     // metres of ground track one frame covers.
     private double3 _groundCentre;
     private double _groundRadius;
+    private double3 _groundSampledAtEcl;
+    private double _groundSampledOverSeconds;
     private bool _haveGround;
+
+    // The ground under where the next sub-step begins, and whether it was read there. Only kept
+    // while the round re-reads the ground near impact.
+    private double _radiusBefore;
+    private bool _radiusBeforeFresh;
 
     public Slug(double3 positionEcl, double3 velocityEcl, object? target, int tube,
                 double3 platformEcl, double3 frameVelocityEcl)
@@ -43,23 +50,207 @@ internal sealed class Slug : IProjectile
         _frameVelocityEcl = frameVelocityEcl;
     }
 
+    /// <summary>
+    /// The air where the round is, asked per sub-step rather than once a frame.
+    ///
+    /// <para>Null falls back to the frame's single sample, which is what a round flying through no
+    /// atmosphere worth resolving needs.</para>
+    /// </summary>
+    /// <param name="secondsIntoFrame">
+    /// How far into the frame the sub-step is. The world's own bodies are sampled once a frame and
+    /// stand still through it, while the round moves — carrying the planet's ~30 km/s of ecliptic
+    /// travel with it — so a lookup measured against a frozen body reads an altitude that ramps
+    /// across the frame. This is what lets the far side put that back.
+    /// </param>
+    public Func<double3, double, double>? AirDensityAt { get; set; }
+
+    /// <summary>
+    /// Gravity at a position and a time into the frame, or null to use the vector handed in.
+    ///
+    /// <para>Exactly <see cref="AirDensityAt"/>'s shape and convention, and for the same reason: the
+    /// celestial sample the pull is measured from arrives at the frame's end while the round is
+    /// part-way through it. A delegate lets the caller put the body back <em>per sub-step</em>
+    /// instead of once per frame — and, because the caller composes it, whatever else is folded into
+    /// gravity travels with it rather than being overwritten.</para>
+    /// </summary>
+    public Func<double3, double, double3>? GravityAt { get; set; }
+
+    /// <summary>
+    /// How far along its arrival this round is, asked of the caller because only it knows the body.
+    /// Null answers <see cref="Approach.Unknown"/>, which is the age limit and nothing else.
+    /// </summary>
+    /// <remarks>Position and velocity in the ecliptic; the caller converts.</remarks>
+    public Func<double3, double3, Approach>? ApproachAt { get; set; }
+
+    // Seconds spent where arriving happens. A round the ground stops is reaped on this rather than
+    // on Age: a coast is not the round being stuck, and counting it killed a bomb 100 km up at the
+    // two-minute mark with 30 s of fall still to go. For a round nothing can classify this simply
+    // advances every step, which is Age by another name and the behaviour of every round before it.
+    private double _arrivingSeconds;
+
+    /// <summary>
+    /// The air's motion at a stated position and time into the frame, re-read per sub-step.
+    /// </summary>
+    /// <remarks>
+    /// <para>Absent, the round holds the frame's first sample for every sub-step of it — the one
+    /// field of its kind that was held while gravity, density and the ground are re-read. A
+    /// re-entering round crosses about 150 m of ground in a frame, and the air's motion is the
+    /// ground's, so holding it leaves the drag measured against air ω×150 m out of step. Drag is
+    /// square to that error rather than along it, so it <b>tilts</b> the deceleration rather than
+    /// changing its size — and <see cref="ImpactPredictor"/> recomputes the same term at every RK
+    /// stage, so the difference lands in the round's disagreement with its own prediction.</para>
+    ///
+    /// <para><c>docs/ACCURACY-PLAN.md</c> 3dx Rank 2, which measured it at 2.3–8.3 mm with a sign
+    /// that flips with launch azimuth.</para>
+    /// </remarks>
+    public Func<double3, double, double3>? AirVelocityAt { get; set; }
+
+    /// <summary>
+    /// Whether this round reads <see cref="AirVelocityAt"/> per sub-step rather than holding the
+    /// frame's sample. Off, so a round nobody asks behaves exactly as it did.
+    /// </summary>
+    public bool AirVelocityAtOwnSubStep { get; set; }
+
+    /// <summary>
+    /// Solve the ground crossing against the terrain under it rather than against the chord joining
+    /// the sub-step's two height samples.
+    /// </summary>
+    /// <remarks>
+    /// <para>The endpoint samples are a whole sub-step apart — <b>5.5 m of ground</b> at a 5,500 m/s
+    /// arrival — so interpolating between them stops the round where the <em>chord</em> meets its
+    /// path, and the prediction point-samples the height field. The two therefore stop on different
+    /// surfaces, separated by the ground's curvature over that span, which is why the disagreement
+    /// scales with relief and carries <b>57% of the walk's variance</b>.</para>
+    ///
+    /// <para>One extra height query, on the frame a round lands and only for a round that
+    /// <see cref="ResampleGroundNearImpact"/>. <c>docs/ACCURACY-PLAN.md</c> 3dv.</para>
+    /// </remarks>
+    public bool StopOnTheTerrain { get; set; }
+
+    /// <summary>
+    /// Take the drag at the sub-step's midpoint velocity rather than at the velocity it starts with.
+    /// </summary>
+    /// <remarks>
+    /// <para>The air and the pull are already read half a sub-step on for a
+    /// <see cref="SecondOrder"/> round; the speed the drag is taken at was not. Drag goes as the
+    /// square of it and a re-entering round sheds around 450 m/s², so the start-of-step speed is
+    /// always the larger of the two and the drag always too big — **one-signed, every sub-step, for
+    /// the whole fall**, which puts the round short of its own prediction.</para>
+    ///
+    /// <para>Costs one extra <see cref="Medium.Drag"/> — arithmetic, no lookup — and does nothing
+    /// for a first-order round, which has no midpoint to read. <c>docs/ACCURACY-PLAN.md</c> 3dx.</para>
+    /// </remarks>
+    public bool DragAtMidpointVelocity { get; set; }
+
+    /// <inheritdoc cref="IProjectile.FaithfulStepSeconds"/>
+    public double FaithfulStepSeconds
+        => _lastDensity > Medium.NoticeableDensity
+               ? Math.Min(Munition.PreferredStep, Medium.FaithfulStepInAir)
+               : Munition.PreferredStep;
+
+    // What the round last flew through, so it can say what step it needs before the next one.
+    private double _lastDensity;
+
     public RoundState State { get; private set; } = RoundState.Flying;
+
+    /// <inheritdoc cref="IProjectile.ShootDown"/>
+    public void ShootDown()
+    {
+        if (State == RoundState.Flying) State = RoundState.ShotDown;
+    }
     public int Tube { get; }
     public double Age { get; private set; }
 
     public double3 PositionEcl { get; private set; }
     public double3 VelocityEcl { get; private set; }
+
+    /// <summary>
+    /// What its launcher's rotation gave it at the tube, already inside <see cref="VelocityEcl"/>.
+    ///
+    /// <para>Kept as thrown rather than re-derived: a release prediction leaves spin out, so this is
+    /// the whole of what the round's velocity adds to the one predicted, whatever arm it was measured
+    /// on.</para>
+    /// </summary>
+    /// <remarks>A velocity difference, so it carries no frame's motion.</remarks>
+    public double3 SpinVelocityEcl { get; init; }
+
     public double3 OffsetFromPlatform { get; private set; }
-    private double3 LaunchOffset { get; }
+    private double3 LaunchOffset { get; set; }
     public double3 TravelSinceLaunch => OffsetFromPlatform - LaunchOffset;
+
+    /// <inheritdoc cref="IProjectile.Reanchor"/>
+    public void Reanchor(double3 offsetDelta)
+    {
+        if (!Vec.IsFinite(offsetDelta)) return;
+
+        OffsetFromPlatform += offsetDelta;
+        LaunchOffset += offsetDelta;
+
+        for (int i = 0; i < _trail.Count; i++) _trail[i] += offsetDelta;
+    }
+
+    /// <summary>
+    /// Add a velocity the round leaves its tube with, on top of the one it was released with.
+    ///
+    /// <para>Refused once the round has taken a step. A kick is solved against the state the round
+    /// was released in, so one landing on a round already in flight is a velocity change nobody
+    /// solved for.</para>
+    /// </summary>
+    /// <param name="kickEcl">A velocity difference, so it carries no frame's motion.</param>
+    public bool TryAddSeparationVelocity(double3 kickEcl)
+    {
+        if (Age != 0.0 || State != RoundState.Flying || !Vec.IsFinite(kickEcl)) return false;
+
+        VelocityEcl += kickEcl;
+        return true;
+    }
+
     public double3 VelocityLocal => VelocityEcl - _frameVelocityEcl;
     public double Speed => Vec.Len(VelocityLocal);
     public double DistanceFlown { get; private set; }
     public IReadOnlyList<double3> TrailOffsets => _trail;
     public double3 LaunchAnchorPartFrame { get; set; }
 
+    /// <inheritdoc />
+    public double3 ReleaseHeadingEcl { get; set; }
+
+    /// <inheritdoc />
+    public doubleQuat LaunchAttitude { get; set; }
+
     /// <inheritdoc cref="IProjectile.Munition"/>
-    public MunitionProfile Munition { get; init; } = Arsenal.Cannon30Mm;
+    public required MunitionProfile Munition { get; init; }
+
+    // What ends a round that nothing has stopped.
+    //
+    // For anything the ground does not stop, that is its age, exactly as it always was: a shell
+    // that misses has no ending of its own and something has to sweep it up.
+    //
+    // A round the ground DOES stop is different. It ends by arriving, so the clock is asked only
+    // about the part of the flight where arriving is possible - time spent above the atmosphere is
+    // a coast, not a round going nowhere. What has to be caught instead is the one that can never
+    // arrive at all, which is a question about the trajectory: see RoundReach. A path that can only
+    // end on the ground runs no clock, because the ground ends it.
+    private void Reap(MunitionProfile munition, double dt)
+    {
+        if (State != RoundState.Flying) return;
+
+        Approach approach = munition.HitsTerrain && ApproachAt is { } ask
+                            ? ask(PositionEcl, VelocityEcl)
+                            : Approach.Unknown;
+
+        if (approach == Approach.Impossible)
+        {
+            State = RoundState.Expired;
+            return;
+        }
+
+        // Held for a coast that is going somewhere and for a path that can only land. Everything else runs
+        // the clock, including Unknown -- a round that can be neither judged nor stopped must not be
+        // immortal, and on a body with no atmosphere there is no air to have started it.
+        if (approach is not (Approach.Coasting or Approach.Landing)) _arrivingSeconds += dt;
+
+        if (_arrivingSeconds >= munition.MaxFlightSeconds) State = RoundState.Expired;
+    }
 
     public object? TargetRef { get; private set; }
 
@@ -100,8 +291,127 @@ internal sealed class Slug : IProjectile
     /// </summary>
     public IGroundTest? Ground { get; set; }
 
+    /// <summary>
+    /// How far the sampled ground centre has moved by a stated time into the frame, back-dated the
+    /// same way <see cref="AirDensityAt"/> is. Null holds the sample for the frame, which is what
+    /// every rig that models no body motion wants and what <see cref="RoundFields.Held"/> means.
+    /// </summary>
+    public Func<double, double3>? GroundCentreDriftAt { get; set; }
+
+    private double3 GroundCentre(double secondsIntoFrame)
+        => GroundCentreDriftAt is { } drift
+               ? _groundCentre + drift(secondsIntoFrame)
+               : _groundCentre;
+
+    /// <summary>
+    /// How far the ground <em>under a stated point</em> has moved by a stated time into the frame —
+    /// the body's own travel plus its spin at that radius — in <see cref="AirDensityAt"/>'s shape
+    /// and convention.
+    ///
+    /// <para>A different number from <see cref="GroundCentreDriftAt"/>, and deliberately so. The
+    /// centre sits on the spin axis, where rotation moves nothing; a terrain query is a
+    /// <em>direction</em> resolved in the frame the surface turns in, so the body's spin between the
+    /// sub-step and the frame's end is part of what has to come off.</para>
+    /// </summary>
+    public Func<double3, double, double3>? GroundQueryDriftAt { get; set; }
+
+    /// <summary>
+    /// Back-date a terrain query by the full ground velocity rather than by the body's centre alone.
+    ///
+    /// <para>The query is answered at the frame's end rotation, so a sub-step part-way through the
+    /// frame asks about ground that has since turned under the round — <c>|omega x r|</c> times the
+    /// crossing's distance into the frame, which at this latitude is 416 m/s against a median 11 ms.
+    /// It is per-seat signed rather than global, because what it costs is that displacement's own
+    /// height gradient. <c>docs/ACCURACY-PLAN.md</c> 3cw.</para>
+    ///
+    /// <para>Off on a bare round, and needs <see cref="GroundQueryDriftAt"/> to do anything.
+    /// <see cref="IcbmConfig.GroundQueryAtOwnEpoch"/> sets it at release, and ships on.</para>
+    /// </summary>
+    public bool GroundQueryAtOwnEpoch { get; set; }
+
+    // Where to ask the ground about a point the round is at a stated time into the frame. The query
+    // is a direction against a body sample one applied step newer, so the point is walked FORWARD by
+    // however far that ground has travelled in between -- seconds arrive negative, hence the
+    // subtraction.
+    private double3 GroundQueryAt(double3 positionEcl, double secondsIntoFrame)
+        => GroundQueryAtOwnEpoch && GroundQueryDriftAt is { } query
+               ? positionEcl - query(positionEcl, secondsIntoFrame)
+               : positionEcl - (GroundCentreDriftAt?.Invoke(secondsIntoFrame) ?? Vec.Zero);
+
+    /// <summary>
+    /// Re-read the ground under every sub-step once the round is within
+    /// <see cref="GroundResampleBandMetres"/> of the surface it holds, rather than stopping on the
+    /// frame's first sample.
+    ///
+    /// <para>The held sample is a sphere, and a reentry vehicle covers 40-90 m of ground in the frame
+    /// it is held for — so on a slope it stops on the height of ground it has already left, and that
+    /// error times <c>cot(gamma)</c> is its whole walk from the release probe.
+    /// <c>docs/ACCURACY-PLAN.md</c> 3cr.</para>
+    /// </summary>
+    public bool ResampleGroundNearImpact { get; set; }
+
+    /// <summary>
+    /// Integrate each sub-step to second order: drift half of it, read gravity and the air there,
+    /// kick, and drift the rest — rather than reading them where the step begins and moving on the
+    /// velocity it ends with.
+    ///
+    /// <para><b>The first-order step is leapfrog started with an extra half-kick.</b> Moving on the
+    /// velocity a sub-step ends with adds <c>a·h²/2</c> of position every step, which sums to a
+    /// velocity error of <c>a·h/2</c> held for the whole fall: 3.7 mm/s of gravity at the reentry
+    /// vehicle's 1 ms sub-step, and about 1.8 m short after a 380 s fall at 32°.
+    /// <c>docs/ACCURACY-PLAN.md</c> 3cu.</para>
+    ///
+    /// <para>The same lookups per sub-step either way; only where they are taken moves.</para>
+    /// </summary>
+    public bool SecondOrder { get; set; }
+
+    /// <summary>
+    /// How far above the held surface the re-reading starts. It has to clear what the ground can do
+    /// across one frame — a 30% slope over 90 m of track is 27 m — plus a sub-step's drop; anything
+    /// more only buys lookups.
+    /// </summary>
+    public const double GroundResampleBandMetres = 200.0;
+
     /// <summary>True when it was the ground that stopped this round rather than a body or a fuse.</summary>
     public bool HitGround { get; private set; }
+
+    /// <summary>
+    /// The surface radius the crossing was last tested against, and whether there was one. Sampled
+    /// once per frame at the round's own position, so it is up to a frame of ground stale by the
+    /// time a sub-step crosses it — which is what <c>docs/MIRV-NEXT.md</c> item 8k is measuring.
+    /// A round that <see cref="ResampleGroundNearImpact"/> reports the surface where it crossed.
+    /// </summary>
+    public double GroundRadiusUsed => _haveGround ? _groundRadius : double.NaN;
+
+    /// <summary>
+    /// Where the surface the round stopped against was read — the start of the frame it stopped in,
+    /// or the crossing itself for a round that <see cref="ResampleGroundNearImpact"/>.
+    ///
+    /// <para><b>Measurement only.</b> The radius is held for a whole frame, so the round stops
+    /// against a surface read some distance back along its own track — and the height field's
+    /// difference across that distance is what the round's stopping height is wrong by. Flown at
+    /// 12,902 km the rounds stopped 13 to 174 m off the true surface, and that error times
+    /// <c>cot(gamma)</c> is the whole of their walk from the release probe at r = 0.99.</para>
+    ///
+    /// <para>Two things displace it and the log cannot separate them without this: the round's own
+    /// travel over the ground within the frame, and the frame-newer body sample
+    /// <c>Ksa/GroundTest.cs</c> differences against — see <c>docs/KSA-FRAME-ORDER.md</c> section 5.
+    /// </para>
+    /// </summary>
+    public double3 GroundSampledAtEcl => _groundSampledAtEcl;
+
+    /// <inheritdoc cref="GroundSampledAtEcl"/>
+    public double GroundSampledOverSeconds => _groundSampledOverSeconds;
+
+    /// <summary>
+    /// The round's own view of how high it ended: its final position against the centre AND radius
+    /// it tested the crossing with. Near zero means the crossing landed where it meant to, so any
+    /// disagreement with an altitude measured against a freshly sampled centre is the centre, not
+    /// the round. <c>docs/MIRV-NEXT.md</c> item 8k.
+    /// </summary>
+    public double StopAltitudeAgainstOwnGround =>
+        _haveGround ? Vec.Len(PositionEcl - GroundCentre(DetonationElapsedInFrame)) - _groundRadius
+                    : double.NaN;
 
     /// <inheritdoc cref="IProjectile.Aimpoint"/>
     public Aimpoint Aimpoint { get; set; }
@@ -136,6 +446,9 @@ internal sealed class Slug : IProjectile
     /// <summary>No fins to deploy. Full span from the moment it exists.</summary>
     public double FinDeployment(MunitionProfile munition) => 1.0;
 
+    /// <inheritdoc cref="IProjectile.SteeringCommandEcl"/>
+    public double3 SteeringCommandEcl { get; private set; }
+
     public void Update(double dt, TargetState? target, double3 gravity, double3 frameVelocityEcl,
                        double3 platformEcl, MunitionProfile munition, double mediumDensityRatio = 1.0)
     {
@@ -144,22 +457,82 @@ internal sealed class Slug : IProjectile
 
         _frameVelocityEcl = frameVelocityEcl;
 
-        // Unguided: losing the target leaves it flying with nothing to fuse against.
+        // Losing the target leaves it flying with nothing to fuse against, and — for a tail-kit
+        // round — nothing to steer at either, so it finishes the fall ballistically.
         if (target is null) TargetRef = null;
 
+        // Asked at the round's OWN epoch, not at the frame's end. A ground test differences the
+        // position it is handed against a body sample one applied step newer, so handing it the raw
+        // pre-step position reads the height field bodyVelocity*dt away -- 548 to 8,051 m in flight,
+        // against a within-frame ground track of 6 to 183 m. The round then stops on a radius
+        // belonging to somewhere else, and that height error times cot(gamma) is its whole miss from
+        // its own prediction. Same correction AirDensityAt and GroundCentreDriftAt already make;
+        // the drift seam is reused so Sim/ still names no body.
+        //
+        // Only the position moves. The centre out-param is back-dated separately through
+        // GroundCentre, and shifting both would apply the correction twice.
+        double3 atOwnEpoch = GroundQueryAt(PositionEcl, -dt);
+
+        _groundSampledAtEcl = atOwnEpoch;
+        _groundSampledOverSeconds = dt;
+
         _haveGround = munition.HitsTerrain && Ground is not null
-                      && Ground.TryGround(PositionEcl, out _groundCentre, out _groundRadius)
+                      && Ground.TryGround(atOwnEpoch, out _groundCentre, out _groundRadius)
                       && double.IsFinite(_groundRadius) && _groundRadius > 0.0;
 
-        int steps = Math.Min(Interceptor.MaxSubSteps, Math.Max(1, (int)Math.Ceiling(dt / Interceptor.SubStep)));
+        // The frame's own sample is the ground under where its first sub-step begins.
+        _radiusBefore = _groundRadius;
+        _radiusBeforeFresh = _haveGround;
+
+        int steps = Math.Min(munition.MaxSubSteps, Math.Max(1, (int)Math.Ceiling(dt / munition.SubStep)));
         double h = dt / steps;
         double elapsed = 0.0;
 
         for (int i = 0; i < steps && State == RoundState.Flying; i++)
         {
+            // Re-read inside the loop, because air density is the one thing the round flies
+            // through that changes materially within a frame. It falls off on an 8 km scale
+            // height, and a re-entering round covers a kilometre a frame at ordinary speeds and
+            // more under warp, so holding the frame's first sample for the whole frame flies the
+            // round through the thinner air it had at the top of it. Measured against a 1 ms
+            // reference on a 2,700 km deorbit: a 170 ms frame lands 510 m long sampling once and
+            // 249 m sampling per sub-step, and a 320 ms frame 1,046 m against 550 m.
+            // Back-dated, like every other sample this round is measured against: the body it is
+            // differenced from was sampled at the end of the frame, and the round is part-way
+            // through it. Passing the time *into* the frame instead offsets the lookup by a whole
+            // frame of the planet's ~30 km/s -- 0.9 km at normal speed and 3.9 km at eight times,
+            // read as altitude, on air that falls off over 8 km. That makes the error grow with the
+            // step and jump when the step changes, which is what a warp change does mid-flight.
+            // A second-order round reads both half a sub-step on, where its kick belongs.
+            double half = SecondOrder ? 0.5 * h : 0.0;
+            double3 readAt = PositionEcl + VelocityEcl * half;
+            double readWhen = elapsed + half - dt;
+
+            double density = AirDensityAt?.Invoke(readAt, readWhen) ?? mediumDensityRatio;
+            if (!double.IsFinite(density) || density < 0.0) density = mediumDensityRatio;
+            _lastDensity = density;
+
             // Incremented after the step, so the round's position and the back-dated target share
             // an instant. Splitting them across a sub-step costs ~142 m at 29.8 km/s.
-            Step(h, elapsed, dt, target, gravity, munition, mediumDensityRatio);
+            // Re-read per sub-step when the caller offers it, back-dated exactly as the air is.
+            double3 pull = GravityAt?.Invoke(readAt, readWhen) ?? gravity;
+            if (!Vec.IsFinite(pull)) pull = gravity;
+
+            // The air's own motion, at the same point and instant as its density. Held for the
+            // frame it is the last of the four that moves with the round and does not follow it.
+            //
+            // Gated on the round rather than on the lookup being supplied, so this reaches a warhead
+            // whose computer asks for it and NOT the gun's shells, which share these fields: a
+            // cannon's rounds live for seconds over ground metres away, where the term is
+            // identically nothing, and their lead is solved by a separate model that would then
+            // disagree with them. The same shape as GroundQueryAtOwnEpoch.
+            if (AirVelocityAtOwnSubStep
+                && AirVelocityAt?.Invoke(readAt, readWhen) is { } moving && Vec.IsFinite(moving))
+            {
+                _frameVelocityEcl = moving;
+            }
+
+            Step(h, elapsed, dt, target, pull, munition, density);
             elapsed += h;
         }
 
@@ -175,7 +548,7 @@ internal sealed class Slug : IProjectile
             if (_trail.Count > TrailCapacity) _trail.RemoveAt(0);
         }
 
-        if (State == RoundState.Flying && Age >= munition.MaxFlightSeconds) State = RoundState.Expired;
+        Reap(munition, dt);
     }
 
     private void Step(double h, double elapsedInFrame, double frameSeconds, TargetState? target,
@@ -184,17 +557,48 @@ internal sealed class Slug : IProjectile
         Age += h;
 
         double3 localVelocity = VelocityEcl - _frameVelocityEcl;
-        // Buoyancy: a round denser than its medium still sinks, one at its neutral density
-        // neither sinks nor rises. Zero disables it, so nothing that flies only in air changes.
-        double3 accel = munition.NeutralDensityRatio > 0f
-            ? gravity * (1.0 - mediumDensityRatio / munition.NeutralDensityRatio)
-            : gravity;
 
-        // Drag on airspeed, scaled by density. No thrust term: a slug coasts from the muzzle.
-        double airspeed = Vec.Len(localVelocity);
-        if (munition.DragK > 0f && airspeed > 1e-6 && mediumDensityRatio > 0.0)
+        // No thrust term between them: a slug coasts from the muzzle.
+        double3 accel = Medium.Buoyancy(gravity, munition, mediumDensityRatio);
+
+        // The air and the pull are read half a sub-step on; the SPEED the drag is taken at was not.
+        // Drag goes as the square of it, and a re-entering round is shedding ~450 m/s2, so the
+        // start-of-step speed is always the larger and the drag always too big -- one-signed, every
+        // sub-step, for the whole fall. Taking the half-kick on the velocity too puts all three at
+        // one instant, which is what the comment above the lookups already claims.
+        double3 dragAt = localVelocity;
+        if (DragAtMidpointVelocity && SecondOrder)
         {
-            accel -= localVelocity * (munition.DragK * airspeed * mediumDensityRatio);
+            double3 first = accel - Medium.Drag(localVelocity, munition, mediumDensityRatio);
+            dragAt = localVelocity + first * (0.5 * h);
+        }
+
+        accel -= Medium.Drag(dragAt, munition, mediumDensityRatio);
+
+        // A guided tail kit: fin authority on a fall, not a motor. It steers the fall onto the point
+        // rather than chasing a line of sight -- see TailKit -- because a store released from a
+        // climb flies away from where it will land, and proportional navigation reads that as a
+        // target it is losing: 125 m off a designation a 153 m/s climb was already falling onto.
+        //
+        // Both terms are differenced here rather than upstream: the target is a place on the
+        // ground, so its velocity is the planet's ~29.8 km/s plus its spin, and steering on
+        // VelocityEcl alone would read that whole frame as closing speed and pull full lateral g
+        // across it. SampleTarget resamples it every frame for the same reason.
+        //
+        // And the sample is back-dated to the instant this sub-step is at, exactly as Interceptor
+        // does it. The sample arrives having already moved across the whole frame, so pairing it
+        // with a mid-step position leaks that motion into the range vector -- half a kilometre a
+        // frame, which the steering then reads as the target sliding sideways.
+        SteeringCommandEcl = Vec.Zero;
+        if (munition.Guidance == GuidanceMode.Inertial && target is { } aim)
+        {
+            double3 aimPos = aim.PositionEcl + aim.VelocityEcl * (elapsedInFrame - frameSeconds);
+
+            SteeringCommandEcl = TailKit.Command(aimPos - PositionEcl, aim.VelocityEcl - VelocityEcl,
+                                                 localVelocity, gravity,
+                                                 -Medium.Drag(dragAt, munition, mediumDensityRatio),
+                                                 munition);
+            accel += SteeringCommandEcl;
         }
 
         // Before proximity: a shell fused for a time bursts then, whether or not anything is near,
@@ -238,7 +642,10 @@ internal sealed class Slug : IProjectile
                 Vec.Len(t.PositionEcl + t.VelocityEcl * backdate - PositionEcl));
         }
 
-        if (Age >= munition.FuseArmSeconds)
+        // Touching does not wait for the fuze; only its reach does. A shell runs into anything in its
+        // way before it has armed, as it runs into the ground, and until then its proximity fuse is dead.
+        double trigger = Age >= munition.FuseArmSeconds ? munition.FuseRadius : 0.0;
+
         {
             bool struck = false;
             double soonest = double.MaxValue;
@@ -258,7 +665,7 @@ internal sealed class Slug : IProjectile
                 // the nearest bystander as how close the round came to what it was shooting at.
                 if (target is null) ClosestApproach = Math.Min(ClosestApproach, Vec.Len(r));
 
-                if (ContactSweep.TryStrike(r, v, h, munition.FuseRadius, body.Radius,
+                if (ContactSweep.TryStrike(r, v, h, trigger, body.Radius,
                                            Hull, body.Handle,
                                            out double when, out double miss)
                     && when < soonest)
@@ -288,29 +695,121 @@ internal sealed class Slug : IProjectile
             }
         }
 
+        double3 velocityWas = VelocityEcl;
         VelocityEcl += accel * h;
 
-        double3 stepEcl = VelocityEcl * h;
+        // Second order moves on the mean of the two ends, which is the half-drift either side of the
+        // kick; first order on the velocity the step ends with.
+        double3 stepEcl = (SecondOrder ? (velocityWas + VelocityEcl) * 0.5 : VelocityEcl) * h;
         double3 before = PositionEcl;
         PositionEcl += stepEcl;
 
         if (_haveGround)
         {
-            double was = Vec.Len(before - _groundCentre) - _groundRadius;
-            double now = Vec.Len(PositionEcl - _groundCentre) - _groundRadius;
+            // The radius is a property of the ground and keeps for the frame; the centre is a
+            // POSITION, and the body it names moves at ~30 km/s while the round carries the same.
+            // Sampled once at the frame's end and held, it drifts against the round by
+            // bodyVelocity x (frame - elapsed) -- flown at 248-412 m of stop height, which at a
+            // 13.8 deg arrival is 1.0-1.7 km of ground. Back-dated exactly like the density lookup
+            // above, and by the caller for the same reason: the round is handed a vector and knows
+            // nothing about bodies. docs/MIRV-NEXT.md item 8l.
+            double3 centreWas = GroundCentre(elapsedInFrame - frameSeconds);
+            double3 centreNow = GroundCentre(elapsedInFrame + h - frameSeconds);
+
+            double radiusWas = _groundRadius;
+            double radiusNow = _groundRadius;
+            bool reread = false;
+
+            // Near the surface, the ground under both ends of this step rather than the sphere the
+            // frame began with, which on a slope is the height of ground the round has left.
+            if (ResampleGroundNearImpact
+                && Vec.Len(PositionEcl - centreNow) - _groundRadius < GroundResampleBandMetres
+                && TryRadiusUnder(PositionEcl, elapsedInFrame + h - frameSeconds, out double under))
+            {
+                if (!_radiusBeforeFresh)
+                {
+                    _radiusBeforeFresh = TryRadiusUnder(before, elapsedInFrame - frameSeconds,
+                                                        out _radiusBefore);
+                }
+
+                radiusWas = _radiusBeforeFresh ? _radiusBefore : _groundRadius;
+                radiusNow = under;
+                reread = true;
+
+                _radiusBefore = under;
+                _radiusBeforeFresh = true;
+            }
+            else
+            {
+                _radiusBeforeFresh = false;
+            }
+
+            double was = Vec.Len(before - centreWas) - radiusWas;
+            double now = Vec.Len(PositionEcl - centreNow) - radiusNow;
 
             if (now <= 0.0)
             {
                 // Back to where it crossed, so the burst is on the surface rather than up to a
                 // sub-step underneath it. Linear across the step: the round's own drop over 1.5 m
                 // is not where the curvature lives.
-                double f = was > 0.0 ? was / (was - now) : 0.0;
+                double f = Math.Clamp(was > 0.0 ? was / (was - now) : 0.0, 0.0, 1.0);
 
-                PositionEcl = before + stepEcl * Math.Clamp(f, 0.0, 1.0);
+                // That solves against the CHORD joining two height samples a whole sub-step apart --
+                // 5.5 m of ground at a 5,500 m/s arrival -- so the round stops where the chord meets
+                // its path rather than where the terrain does, and the two differ by the ground's
+                // curvature over that span. It is why the round and its prediction disagree about
+                // the stopping surface by tens of millimetres on rough ground, which is 57% of the
+                // walk's variance. One query at the crossing and one false-position step from the
+                // same bracket; the terrain moves by centimetres over the correction, so a second
+                // iteration would buy nothing. docs/ACCURACY-PLAN.md 3dv.
+                double crossRadius = radiusWas + (radiusNow - radiusWas) * f;
+
+                if (StopOnTheTerrain && reread && was > 0.0)
+                {
+                    double atCross = elapsedInFrame + h * f - frameSeconds;
+                    double3 crossEcl = before + stepEcl * f;
+
+                    if (TryRadiusUnder(crossEcl, atCross, out double there))
+                    {
+                        double alt = Vec.Len(crossEcl - GroundCentre(atCross)) - there;
+
+                        crossRadius = there;
+
+                        if (Math.Abs(was - alt) > 1e-12)
+                        {
+                            f = Math.Clamp(f * was / (was - alt), 0.0, 1.0);
+
+                            // Read again where the refinement actually put it. The step is
+                            // millimetres, so this changes nothing about where the round stops --
+                            // it is what makes GroundRadiusUsed the radius under GroundSampledAtEcl
+                            // rather than the radius under the point that solved for it, which was
+                            // 5.9 mm out on a metre of relief every forty. The pair is what the
+                            // trace's surface line compares, and 46c reads that line.
+                            if (TryRadiusUnder(before + stepEcl * f,
+                                               elapsedInFrame + h * f - frameSeconds,
+                                               out double settled))
+                            {
+                                crossRadius = settled;
+                            }
+                        }
+                    }
+                }
+
+                PositionEcl = before + stepEcl * f;
                 MissDistance = 0.0;
                 HitGround = true;
-                DetonationElapsedInFrame = elapsedInFrame + h * Math.Clamp(f, 0.0, 1.0) - frameSeconds;
+                DetonationElapsedInFrame = elapsedInFrame + h * f - frameSeconds;
                 State = RoundState.Detonated;
+
+                // What it stopped against is the ground where it crossed, so that is what the
+                // measurements report rather than the frame's first sample.
+                if (reread)
+                {
+                    _groundRadius = crossRadius;
+                    _groundSampledAtEcl = GroundQueryAt(PositionEcl, DetonationElapsedInFrame);
+                    _groundSampledOverSeconds = -DetonationElapsedInFrame;
+                }
+
                 return;
             }
         }
@@ -318,5 +817,16 @@ internal sealed class Slug : IProjectile
         // Local, not absolute: absolute displacement reports ~30 km per second of the planet's
         // orbit regardless of what the round did.
         DistanceFlown += Vec.Len(stepEcl - _frameVelocityEcl * h);
+    }
+
+    // The ground under a point the round passed at a stated time into the frame, back-dated exactly
+    // as the frame's first sample is in Update.
+    private bool TryRadiusUnder(double3 positionEcl, double secondsIntoFrame, out double radius)
+    {
+        radius = double.NaN;
+        if (Ground is not { } ground) return false;
+
+        double3 atOwnEpoch = GroundQueryAt(positionEcl, secondsIntoFrame);
+        return ground.TryGround(atOwnEpoch, out _, out radius) && double.IsFinite(radius) && radius > 0.0;
     }
 }

@@ -11,7 +11,7 @@ namespace KSArmory;
 ///
 /// <para><b>Delete this at the first opportunity.</b> It exists only because KSA offers no way to
 /// add to its menu bar: the bar is drawn inline in <c>Program</c> with hardcoded menus, and
-/// ModMenu reaches it by transpiling the IL of a private method. That is a fragile thing for the
+/// ModMenu reaches it by transpiling that method's IL. That is a fragile thing for the
 /// ecosystem to be standing on, and this file is a workaround for a missing engine feature rather
 /// than something worth keeping. <c>docs/BLOCKED-ON-KSA.md</c> carries it on the recheck list, so
 /// it gets looked at every time the game moves.</para>
