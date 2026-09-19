@@ -99,10 +99,9 @@ done
 # The craft to boot into. It must carry a launcher, or the runner waits forever for a battery to
 # crew: the default startVehicle is a plain Rocket and nothing crews on it.
 #
-# settings.toml's startVehicle, not a save. StarMap's GameArguments do carry "-load <name>" through
-# to KSA's terminal commands in principle, but it does not fire: the game boots its default
-# situation with no save-load line in its own log. Install the craft with
-# tools/install-testcraft.sh.
+# settings.toml's startVehicle, not a save. StarMap passes its GameArguments on to KSA only from
+# 0.4.7, so "-load <name>" there is untried; a save comes from the mod's own ScenarioRunner, through
+# scenario.txt below. Install the craft with tools/install-testcraft.sh.
 CRAFT="${KSARMORY_SCENARIO_CRAFT:-}"
 
 # How long to wait for a verdict, and the scenario's own budget. A ballistic shot is seven minutes
