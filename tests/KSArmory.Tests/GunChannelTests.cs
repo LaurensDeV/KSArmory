@@ -49,6 +49,28 @@ public class GunChannelTests
         Assert.False(gun.Firing);
     }
 
+    /// <summary>
+    /// A burst whose target has gone, or whose gun has swung off the lay, stops. Left to run it
+    /// puts the rest of its rounds wherever the barrels are turning to -- the next contact, or
+    /// back to rest.
+    /// </summary>
+    [Fact]
+    public void ABurstWithNothingToPutItOnStopsAndWaitsOutTheGap()
+    {
+        LauncherProfile profile = Profile(burst: 60, rpm: 4500f, gap: 0.35f);
+        var gun = new GunChannel();
+        gun.Fill(1000);
+
+        Assert.True(gun.Step(0.1, wantToFire: true, profile) > 0);
+        Assert.True(gun.Firing);
+
+        Assert.Equal(0, gun.Step(0.02, wantToFire: false, profile, mayContinue: false));
+        Assert.False(gun.Firing);
+
+        // The gap still applies, so a burst cut short cannot be restarted on the next frame.
+        Assert.Equal(0, gun.Step(0.02, wantToFire: true, profile));
+    }
+
     [Fact]
     public void WaitingBanksNoCredit()
     {

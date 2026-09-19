@@ -43,15 +43,24 @@ internal sealed class GunChannel
     /// looks like the cannon being feeble rather than like the bug it is.</para>
     ///
     /// <para><paramref name="wantToFire"/> only starts bursts. A burst already begun runs to its
-    /// end, so the gun does not stutter when a track flickers.</para>
+    /// end, so the gun does not stutter when a track flickers — unless
+    /// <paramref name="mayContinue"/> says there is nothing left to put it on, which ends it and
+    /// starts the gap.</para>
     /// </summary>
-    public int Step(double dt, bool wantToFire, LauncherProfile profile)
+    public int Step(double dt, bool wantToFire, LauncherProfile profile, bool mayContinue = true)
     {
         if (!(dt > 0.0) || !double.IsFinite(dt)) return 0;
 
         // Allowed to go negative: that is the time the gun owes, and it is what lets one step
         // deliver several rounds.
         Cooldown -= dt;
+
+        if (BurstRemaining > 0 && !mayContinue)
+        {
+            BurstRemaining = 0;
+            Cooldown = Math.Max(Cooldown, profile.GunBurstGapSeconds);
+            return 0;
+        }
 
         if (BurstRemaining <= 0)
         {

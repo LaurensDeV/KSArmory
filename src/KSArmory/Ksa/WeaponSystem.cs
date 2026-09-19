@@ -1367,13 +1367,18 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // — so reading Radar.Locked per round hands the tail of every such burst a null.
         if (wantToFire) _burstTrack = Radar.Locked;
 
-        int fired = _guns.Step(dt, wantToFire, Profile);
+        // A burst stops when there is nothing left to put it on: the gun has swung off the lay --
+        // onto the next contact, or back to rest -- or what it was fired at is gone. A lock that
+        // flickers moves neither, so it still does not cut a burst short.
+        bool mayContinue = GunsAreLaid && _burstTrack is not { Contact.IsAlive: false };
+
+        int fired = _guns.Step(dt, wantToFire, Profile, mayContinue);
         _manualTrigger = false;
-        if (fired <= 0) return;
 
         // A flickering track keeps its vehicle; a destroyed one does not, and a shell must not
         // carry a reference to it.
         if (_burstTrack is { } held && !held.Contact.IsAlive) _burstTrack = null;
+        if (fired <= 0) return;
 
         for (int i = 0; i < fired; i++) FireGun(_burstTrack);
         Log.Debug(() => $"cannon: {fired} round(s) away, {_guns.Ammo} left");
