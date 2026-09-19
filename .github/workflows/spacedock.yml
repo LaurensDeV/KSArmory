@@ -103,12 +103,29 @@ jobs:
             exit 1
           fi
 
-          curl -sS --fail-with-body -b ./spacedock-cookies \
+          listed() {
+            curl -fsS "https://spacedock.info/api/mod/${MOD_ID}" |
+              jq -e --arg v "$VERSION" 'any(.versions[]; .friendly_version == $v)' > /dev/null
+          }
+
+          # SpaceDock's gateway can give up on an upload before its backend does -- a 504 arrives
+          # and the version is listed seconds later -- so a failed request is not a failed upload
+          # until the version list says so. Retrying one that landed is refused as a duplicate.
+          if ! curl -sS --fail-with-body -b ./spacedock-cookies \
                     --form-string "version=$VERSION" \
                     -F "changelog=<spacedock-changelog.md" \
                     --form-string "game-version=$version" \
                     --form-string "notify-followers=yes" \
                     -F "zipball=@dist/KSArmory-$VERSION.zip" \
-                    "https://spacedock.info/api/mod/${MOD_ID}/update"
+                    "https://spacedock.info/api/mod/${MOD_ID}/update"; then
+            for _ in 1 2 3 4 5 6; do
+              sleep 20
+              if listed; then
+                echo "::warning::the upload request failed, but SpaceDock lists $VERSION -- it landed"
+                break
+              fi
+            done
+            listed || { echo "::error::SpaceDock does not list $VERSION"; exit 1; }
+          fi
 
           echo "published $VERSION to SpaceDock for KSA $version" >> "$GITHUB_STEP_SUMMARY"

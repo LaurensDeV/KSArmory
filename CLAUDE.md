@@ -1153,7 +1153,9 @@ cannot publish anything.
 That workflow's first job decides the version and creates the release, and the second builds the
 archive and attaches it. `spacedock.yml` then **publishes what is attached to SpaceDock** — called
 from the release, or run by hand with a version for a release whose upload failed, because it
-uploads the release's own archive rather than building again. All hosted. The release commit
+uploads the release's own archive rather than building again. A failed upload request is checked
+against SpaceDock's version list before it fails the run, because SpaceDock's gateway can time out
+on an upload its backend then completes. All hosted. The release commit
 carries `[skip ci]` so it does not retrigger CI.
 
 SpaceDock needs three settings, and the step skips with a notice if any is missing — a fork cannot
