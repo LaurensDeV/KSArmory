@@ -302,6 +302,23 @@ public class ArsenalTests
     }
 
     /// <summary>
+    /// Only the MIRV bus flies the rocket under it. Every other weapon is a weapons system with
+    /// nothing to fly, and a ballistic computer crewed on it is a tab nobody can use.
+    /// </summary>
+    [Fact]
+    public void OnlyTheBusIsGivenABallisticComputer()
+    {
+        foreach (ComponentProfile component in Catalogue.Components)
+        {
+            List<SurveyedPart> parts = [new SurveyedPart(component.PartId, default, doubleQuat.Identity)];
+
+            Assert.True(component.PartId == Arsenal.MirvBus.PartId
+                            == WeaponSurvey.Survey(parts, Catalogue.Components).HasGuidance,
+                        $"{component.DisplayName} gets a ballistic computer only if it is the bus");
+        }
+    }
+
+    /// <summary>
     /// Every launcher is also a component, because they are two registries keyed on the same part
     /// Id and only one of them decides whether a craft is a weapons system at all.
     ///

@@ -418,7 +418,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/TerrainMapScan.cs` | that height field as a cached grid — **the cost lives here**, so it is paid on movement rather than per frame |
 | `Ksa/BombSightOverlay.cs` | the pipper: the impact ring and the arc down to it |
 | `Ksa/IcbmComputer.cs` | **one craft's ballistic computer** — reads the world, runs the program, flies the rocket |
-| `Ksa/IcbmComputers.cs` | one per craft this mod recognises a weapon on, crewed and forgotten with it |
+| `Ksa/IcbmComputers.cs` | one per craft carrying a part that provides `Guidance` — **the MIRV bus alone today**, so a Pantsir or a rail gets none — crewed and forgotten with it |
 | `Ksa/AttitudeHook.cs` | **one of the four places this mod patches the game** — the only window in which an attitude command survives |
 | `Ksa/PreRenderHook.cs` | the second — **a step before the render on a frame that draws no UI**, because StarMap has no hook that is both |
 | `Ksa/WorldReloadHook.cs` | the third — **that a save was loaded**, which nothing else can tell: the mod never leaves the flight scene across one |
@@ -509,7 +509,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/WHAT-THE-PLAYER-SETS.md` | **a plan, not a record** — the ballistic computer with almost nothing to configure: what it derives, what it shows, and the one trade left for the player |
 | `docs/MIRV-TARGETS.md` | **a plan, not a record** — up to six targets for one bus: the reach drawn on the ground and refused outside it, what spare warheads do, and the release loop that diverts between targets |
 | `docs/METRE-LEVEL.md` | **the route from today's kilometre to a metre**, as a ladder of arrival angles with a gate on each rung — what blocks each one, the orbit and target matrix that tests it, and **why the ladder stops at rung C**: the wall clock cannot be bought with frame rate, because a flight is CPU-bound and the GPU is idle |
-| `docs/GUIDANCE-SECTION.md` | **a plan, not a record** — the ballistic computer as a part you bolt on: a 3 m interstage ring under the bus, a `Guidance` role distinct from `FireControl`, and why its mass is a split of the bus's rather than an addition to it |
+| `docs/GUIDANCE-SECTION.md` | **a plan, half built** — the ballistic computer as a part you bolt on. The `Guidance` role, distinct from `FireControl`, is built and the bus provides it; the 3 m interstage ring that would take it over is not, and its mass is a split of the bus's rather than an addition to it |
 | `docs/NUCLEAR-EFFECT.md` | which of KSA's four volumetric renderers a mod can reach, and what a mushroom cloud actually looks like |
 | `docs/DAMAGE-DECALS.md` | **a plan, not a record** — how a decal is projected onto a hull, a hillside or a rock out of the depth buffer, read off gatOS's implementation and re-verified here, and what a burn mark on a craft would cost |
 | `docs/FROM-KSP-MODDING.md` | the concept map for anyone arriving from KSP part modding |

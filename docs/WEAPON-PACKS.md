@@ -237,12 +237,15 @@ are minted from the launcher and must not be written.
 
 | | Default | |
 | --- | --- | --- |
-| `Role` | `Sensor` | `FireControl`, `Launcher`, `Sensor`, `Camera`, `Gun` |
+| `Role` | `Sensor` | `FireControl`, `Launcher`, `Sensor`, `Camera`, `Gun`, `Guidance` |
 | `DisplayName` | **required** | what the panel calls that row |
 
 ```xml
 <Provides Role="Camera" DisplayName="1TPP1 director" />
 ```
+
+`Guidance` is the one that flies the craft rather than anything it shoots: a craft carrying the part
+is given a ballistic computer, and nothing else is. The built-in MIRV bus declares it.
 
 ### `<Optic>` — a sighting head
 

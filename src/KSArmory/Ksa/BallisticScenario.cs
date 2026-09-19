@@ -338,10 +338,8 @@ internal sealed class BallisticScenario
                 continue;
             }
 
-            // A ballistic shot needs a launcher that can make the distance. Every craft the mod
-            // recognises carries a computer, so an air-defence site with a full magazine is a
-            // candidate on the two tests above and will be flown as an ICBM if it happens to
-            // iterate first -- which is a SAM asked for twelve thousand kilometres.
+            // A ballistic shot needs a launcher that can make the distance, and being crewed says
+            // nothing about that: a computer goes wherever a part provides guidance.
             if (KsaWorld.TryCraftSurfacePoint(computer.Craft, out _, out double fromLat,
                                               out double fromLon, out _))
             {
@@ -881,11 +879,11 @@ internal sealed class BallisticScenario
     /// <summary>
     /// Whether this craft's weapon could reach the aim point at all.
     ///
-    /// <para><b>The one test that separates a rocket from an air-defence site</b>, and the mod
-    /// crews a ballistic computer on both — so a harness that flies "every computer" flies the SAM
-    /// site as an ICBM, and a harness that calls every computer's craft one of its own shooters
-    /// leaves the shot with nothing to aim at. Same check <see cref="Find"/> makes, exposed so the
-    /// two cannot answer differently.</para>
+    /// <para><b>The one test that separates a rocket that can fly this shot from one that
+    /// cannot.</b> A computer is crewed wherever a part provides guidance, whatever its weapon can
+    /// reach, so a harness that calls every computer's craft one of its own shooters can leave the
+    /// shot with nothing to aim at. Same check <see cref="Find"/> makes, exposed so the two cannot
+    /// answer differently.</para>
     ///
     /// <para>Unknowable is not viable: a craft whose surface point or parent cannot be read yet is
     /// not yet a rocket, and the caller asks again next frame.</para>

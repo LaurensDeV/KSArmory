@@ -52,7 +52,7 @@ internal sealed partial class Ui
                 // ImGui keys a widget on its label within the current id scope -- so without this
                 // the second director's tick boxes are the first's.
                 ImGui.PushID(i);
-                DrawComponentRow(c, role, nth, n);
+                DrawComponentRow(craft, c, role, nth, n);
                 ImGui.PopID();
 
                 nth++;
@@ -61,7 +61,7 @@ internal sealed partial class Ui
     }
 
     // One component: where it sits, and whatever it is that the panel can drive.
-    private void DrawComponentRow(FoundComponent c, WeaponRole role, int nth, int of)
+    private void DrawComponentRow(KSA.Vehicle craft, FoundComponent c, WeaponRole role, int nth, int of)
     {
         string label = of > 1 ? $"{c.DisplayName}  {nth + 1} of {of}" : c.DisplayName;
 
@@ -81,6 +81,10 @@ internal sealed partial class Ui
         {
             DrawCameraComponent(nth);
         }
+        else if (role == WeaponRole.Guidance)
+        {
+            DrawGuidanceComponent(craft, nth);
+        }
         else if (!_crewed)
         {
             ImGui.TextDisabled("no weapons system on this craft");
@@ -97,6 +101,28 @@ internal sealed partial class Ui
         }
 
         ImGui.TreePop();
+    }
+
+    // Whether the computer is flying, not how: it flies the whole vehicle, so its settings are a tab
+    // of their own rather than this row.
+    private void DrawGuidanceComponent(KSA.Vehicle craft, int nth)
+    {
+        // One trajectory per craft, so one computer however many parts could carry it.
+        if (nth > 0)
+        {
+            ImGui.TextDisabled("redundant - the first one flies this craft");
+            return;
+        }
+
+        if (_icbms.For(craft) is not { } computer)
+        {
+            ImGui.TextDisabled("no computer crewed on this craft");
+            return;
+        }
+
+        IcbmPhase phase = computer.Command.Phase;
+        ImGui.TextColored(PhaseColour(phase), computer.Config.Armed ? $"armed - {phase}" : "not armed");
+        ImGui.TextDisabled("  target, arming and settings on the Ballistic tab");
     }
 
     // Whether a row is the weapon the panel is currently pointed at.

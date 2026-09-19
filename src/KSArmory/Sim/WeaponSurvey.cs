@@ -30,6 +30,15 @@ public enum WeaponRole
 
     /// <summary>Throws unguided rounds on a belt.</summary>
     Gun,
+
+    /// <summary>
+    /// Flies the airframe it is on: what earns a craft a ballistic computer.
+    ///
+    /// <para>Not <see cref="FireControl"/>, which decides what a craft shoots at and which every
+    /// launcher carries. A Pantsir has fire control and nothing to fly; a booster with a guidance
+    /// section and no weapon would have the reverse. docs/GUIDANCE-SECTION.md.</para>
+    /// </summary>
+    Guidance,
 }
 
 /// <summary>
@@ -137,6 +146,14 @@ public sealed class WeaponInventory
                                   && (CountOf(WeaponRole.Launcher) > 0
                                       || CountOf(WeaponRole.Gun) > 0
                                       || CountOf(WeaponRole.FireControl) > 0);
+
+    /// <summary>
+    /// Whether something aboard flies the craft, which is what crews a ballistic computer on it.
+    ///
+    /// <para>Its own question rather than <see cref="IsWeaponSystem"/>: every launcher is a weapons
+    /// system, and almost none of them has any business flying the rocket under it.</para>
+    /// </summary>
+    public bool HasGuidance => HasPlatform && CountOf(WeaponRole.Guidance) > 0;
 
     /// <summary>
     /// Whether this mod recognises anything on the craft at all, weapon or not.

@@ -3,18 +3,18 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// One <see cref="IcbmComputer"/> per craft this mod recognises a weapon on, crewed and forgotten
-/// with the craft.
+/// One <see cref="IcbmComputer"/> per craft carrying a part that provides
+/// <see cref="WeaponRole.Guidance"/>, crewed and forgotten with the craft.
 ///
 /// <para>Per <em>craft</em>, not per launcher, unlike <see cref="WeaponSystems"/> — and that is the
 /// whole difference between the two rosters. A craft can sensibly carry two rails and fire them at
 /// different things, but it has exactly one trajectory, so a second computer aboard would be a
 /// second autopilot fighting the first for the same engines.</para>
 ///
-/// <para>Fitting a KSArmory weapon is what confers it. That is the mod's usual rule — a part gives
-/// a craft a capability — and here it also draws the line the player expects: strap the bus onto a
-/// rocket and the rocket knows how to deliver it, leave it off and the mod does not reach for
-/// somebody's launch vehicle.</para>
+/// <para>A part that provides guidance is what confers it, and today that is the MIRV bus alone.
+/// That is the mod's usual rule — a part gives a craft a capability — and here it also draws the
+/// line the player expects: strap the bus onto a rocket and the rocket knows how to deliver it,
+/// while a Pantsir, a rail or a gun has nothing to fly and gets no computer.</para>
 /// </summary>
 internal sealed class IcbmComputers(Config session)
 {
@@ -91,7 +91,7 @@ internal sealed class IcbmComputers(Config session)
         {
             Vehicle craft = systems[i].Craft;
             if (!KsaWorld.IsAlive(craft)) continue;
-            if (!systems[i].Inventory.IsWeaponSystem) continue;
+            if (!systems[i].Inventory.HasGuidance) continue;
             if (_computers.ContainsKey(craft)) continue;
 
             _computers[craft] = new IcbmComputer(craft, new IcbmConfig(), _session);

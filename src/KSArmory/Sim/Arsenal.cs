@@ -1317,6 +1317,9 @@ public static class Arsenal
             [
                 new(WeaponRole.Sensor, BusDesignation.DisplayName),
                 new(WeaponRole.FireControl, "Warhead deployment"),
+
+                // The bus's own, because nothing else can carry it yet: docs/GUIDANCE-SECTION.md.
+                new(WeaponRole.Guidance, "Ballistic computer"),
             ],
         },
     ];

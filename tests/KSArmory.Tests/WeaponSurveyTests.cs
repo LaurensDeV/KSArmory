@@ -209,6 +209,28 @@ public class WeaponSurveyTests
         }
     }
 
+    /// <summary>
+    /// Guidance is its own question. A weapon with nothing to fly has none, guidance alone is not
+    /// a weapon, and a store on its own is not a craft for anything to fly.
+    /// </summary>
+    [Fact]
+    public void GuidanceIsNotTheSameQuestionAsAWeapon()
+    {
+        ComponentProfile computer = new()
+            { PartId = "KSArmory_Guidance", Role = WeaponRole.Guidance, DisplayName = "Computer" };
+        ComponentProfile[] registry = [Tube, computer];
+
+        WeaponInventory weapon = WeaponSurvey.Survey([At("KSArmory_Tube", 0, 0, 0)], registry);
+        Assert.True(weapon.IsWeaponSystem);
+        Assert.False(weapon.HasGuidance);
+
+        WeaponInventory flown = WeaponSurvey.Survey([At("KSArmory_Guidance", 0, 0, 0)], registry);
+        Assert.False(flown.IsWeaponSystem);
+        Assert.True(flown.HasGuidance);
+
+        Assert.False(WeaponSurvey.Survey([Store("KSArmory_Guidance")], registry).HasGuidance);
+    }
+
     // ---- A store is not a craft ------------------------------------------
 
     /// <summary>

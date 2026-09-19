@@ -1,22 +1,23 @@
 # The guidance section
 
-**A plan, not a record.** Nothing here is built. It is the design for turning the ballistic
-computer from something a craft gets for free into something a craft is *fitted with*, and it is
-written to be handed to `.claude/skills/ksa-blender/` and to `Sim/Arsenal.cs` in that order.
+**A plan, half built.** The design for making the ballistic computer something a craft is
+*fitted with*, written to be handed to `.claude/skills/ksa-blender/` and to `Sim/Arsenal.cs` in
+that order.
 
-One part: a 3 m interstage ring, **AIRS guidance section**, `KSArmory_Prefab_Guidance`. It stacks
-between the last decoupler and the MIRV bus, it is the stack's command authority, and it is the
-only thing that confers an `IcbmComputer`.
+**Built:** the `Guidance` role below, and the crewing rule that reads it. The MIRV bus provides it
+as a built-in, so a craft carrying the bus gets a computer and nothing else does.
+
+**Not built:** the part. One 3 m interstage ring, **AIRS guidance section**,
+`KSArmory_Prefab_Guidance`. It stacks between the last decoupler and the MIRV bus, it is the stack's
+command authority, and when it exists the `Guidance` row moves off the bus's `Provides` onto it,
+making it the only thing that confers an `IcbmComputer`.
 
 ## Why it is a part
 
-`IcbmComputers.Sync` crews a computer on every craft where `WeaponInventory.IsWeaponSystem` is
-true. That is `Launcher || Gun || FireControl`, so a Pantsir standing on a hillside is issued a
-ballistic autopilot it will never use, and a rocket gets one because the *bus bolted to its nose*
-is a launcher. The capability is real and nothing in the world says where it came from.
-
-The rule the mod applies everywhere else is that a part gives a craft a capability. This is the
-one place it is asserted in a doc comment and not enforced by anything.
+The rule the mod applies everywhere else is that a part gives a craft a capability. With the role
+on the bus that rule holds, but the capability rides on the wrong part: the guidance flies the
+*stack*, and a booster carrying a guidance section and no weapon is a perfectly good sounding
+rocket that today has no way to get one.
 
 ## The role is `Guidance`, not `FireControl`
 
@@ -33,16 +34,16 @@ The distinction that has teeth is a different axis:
 | **`Guidance`** | **what flies this airframe** |
 
 They are orthogonal — the Pantsir has the first and wants nothing to do with the second; a booster
-carrying a guidance section and no weapon has the second alone and is a perfectly good sounding
-rocket. So:
+carrying a guidance section and no weapon has the second alone. So, **as built**:
 
-- add `WeaponRole.Guidance`,
-- `IcbmComputers.Sync` crews on `CountOf(WeaponRole.Guidance) > 0` rather than on
-  `IsWeaponSystem`,
+- `WeaponRole.Guidance` exists,
+- `IcbmComputers.Sync` crews on `WeaponInventory.HasGuidance` — a platform with a `Guidance` role
+  aboard — rather than on `IsWeaponSystem`,
 - `IsWeaponSystem` is left as it is, because the launchers are honest about what they carry.
 
-The Pantsir, the rails and the CIWS lose a computer none of them ever asked for, and no other
-roster moves.
+The Pantsir, the rails, the guns and the B61 rack have no computer, and no other roster moved.
+`ArsenalTests.OnlyTheBusIsGivenABallisticComputer` pins which part confers one, and has to change
+when the ring takes the role over.
 
 ## Where it goes in the stack, and why that is not a detail
 
@@ -78,7 +79,8 @@ signposted.
 Two rings on one stack is physically harmless and must not deadlock. The first in part-tree order
 is the master and owns the `IcbmComputer`; the others appear as `redundant` rows under
 **Components** and do nothing but add mass. Tree order is the same stable ordinal
-`WeaponSystems` already keys on.
+`WeaponSystems` already keys on. The rows are built — two buses on one craft already read that
+way — and the computer is per craft, so there is nothing to deadlock.
 
 No failover. A master that is staged away does not re-crew onto a survivor — that would soften the
 staging rule into a suggestion, and the whole point of putting the part in the stack is that where
@@ -183,9 +185,12 @@ nothing on this part moves.
 
 ## The panel
 
-A `Guidance` component row under **Components**, and the ICBM pane hangs off it — loft, arrival
-angle, ascent schedule, staging, trim. Those describe what flies the rocket, and CLAUDE.md's
-ownership rule puts a control that drives one part of one installation on that part's row.
+A `Guidance` component row under **Components** is built: it says whether the computer is armed
+and in what phase, and points at the **Ballistic** tab. What is not built is the pane hanging off
+the row — loft, arrival angle, ascent schedule, staging, trim. Those describe what flies the rocket,
+and CLAUDE.md's ownership rule puts a control that drives one part of one installation on that
+part's row. Until the ring exists the tab is the better home: the row belongs to the bus, and the
+bus is what the settings would then appear to describe.
 
 The **designated site stays with the weapon**, which is where `IcbmConfig`'s own doc comment
 already puts it: the target is a designation, and it belongs to the thing that will act on it.

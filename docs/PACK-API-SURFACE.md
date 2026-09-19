@@ -189,5 +189,5 @@ to build; widening it to take a profile type would put that back.
 
 | Attribute | Reads | Default |
 | --- | --- | --- |
-| `Role` | one of `FireControl`, `Launcher`, `Sensor`, `Camera`, `Gun` | `Sensor` |
+| `Role` | one of `FireControl`, `Launcher`, `Sensor`, `Camera`, `Gun`, `Guidance` | `Sensor` |
 | `DisplayName` | text, required | **required** |

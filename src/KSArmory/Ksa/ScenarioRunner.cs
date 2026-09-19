@@ -158,9 +158,8 @@ internal sealed class ScenarioRunner
         {
             if (!KsaWorld.IsAlive(computer.Craft)) continue;
 
-            // The mod crews a ballistic computer on every craft it recognises, so the air-defence
-            // site that is the *target* has one too. Flying it as an ICBM asks a SAM for twelve
-            // thousand kilometres and holds the run open until the budget; counting it among our
+            // Crewed is not the same as able to fly this shot: a computer goes wherever a part
+            // provides guidance, whatever its weapon can reach. Counting one that cannot among our
             // shooters leaves the real rocket with nothing to aim at, and it falls back to bare
             // ground -- flown, and it moved the shot from 12,902 km to 6,261.
             if (!BallisticScenario.CouldReachTheAim(computer, roster.For(computer.Craft)?.Battery,
