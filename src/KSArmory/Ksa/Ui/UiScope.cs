@@ -46,22 +46,24 @@ internal partial class Ui
     private void DrawScopeWindow()
     {
         WeaponSystems.Entry? scoped = null;
+        string? tab = null;
         foreach (WeaponSystems.Entry entry in _batteries.All)
         {
             // A saved setting can outlive the set it was saved against.
-            if (entry.Policy.ScopeOpen && ScopeTab(entry.Battery.Sensor) is not null)
+            if (entry.Policy.ScopeOpen && ScopeTab(entry.Battery.Sensor) is { } name)
             {
                 scoped = entry;
+                tab = name;
                 break;
             }
         }
 
-        if (scoped is not { } open) return;
+        if (scoped is not { } open || tab is null) return;
 
         bool visible = open.Policy.ScopeOpen;
         ImGui.SetNextWindowSize(new float2(420f, 520f), ImGuiCond.FirstUseEver);
 
-        if (ImGui.Begin($"{ScopeTab(open.Battery.Sensor)} scope — {open.Battery.Profile.DisplayName}###ksarmory_scope",
+        if (ImGui.Begin($"{tab} scope — {open.Battery.Profile.DisplayName}###ksarmory_scope",
                         ref visible))
         {
             // The same drawing the tab gets. A second copy would be a second thing to keep in step.
