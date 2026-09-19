@@ -244,7 +244,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// </summary>
     public Part? OpticBasePart { get; private set; }
 
-    /// <summary>The search array's current angle. Cosmetic - the radar model is a cone search.</summary>
+    /// <summary>
+    /// The search array's current angle, whether or not the launcher has an array to show it.
+    /// Cosmetic - the radar model is a cone search.
+    /// </summary>
     public double RadarSpinRad { get; private set; }
 
     // The array's own clock. Its angle is decoration -- a search set never stops and never aims,
@@ -1638,18 +1641,21 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         }
 
         // The search array turns regardless of what the battery is doing - it is looking, not
-        // aiming - so it is driven off the clock rather than off the track.
-        if (RadarPart is not null && _drives.Works(DriveChannel.Radar))
+        // aiming - so it is driven off the clock rather than off the track. A set with no array
+        // modelled still turns one, because the scope's sweep reads this angle; one the engine
+        // has frozen does not, so the sweep stops with the mesh.
+        bool frozen = RadarPart is not null && !_drives.Works(DriveChannel.Radar);
+
+        if (Profile.SearchRadarFaces > 0 && !frozen && !_policy.SearchRadarStopped)
         {
-            if (!_policy.SearchRadarStopped)
-            {
-                RadarSpinRad = Turret.WrapPi(
-                    RadarSpinRad + Profile.SearchRadarRpm * (Math.Tau / 60.0) * _spinStep.Next(dt));
-            }
-            if (!LauncherPart.TryApplyRadarSpin(RadarPart, Profile, Turret.BearingRad, RadarSpinRad))
-            {
-                Refuse(DriveChannel.Radar, "search array spin");
-            }
+            RadarSpinRad = Turret.WrapPi(
+                RadarSpinRad + Profile.SearchRadarRpm * (Math.Tau / 60.0) * _spinStep.Next(dt));
+        }
+
+        if (RadarPart is not null && !frozen
+            && !LauncherPart.TryApplyRadarSpin(RadarPart, Profile, Turret.BearingRad, RadarSpinRad))
+        {
+            Refuse(DriveChannel.Radar, "search array spin");
         }
     }
 

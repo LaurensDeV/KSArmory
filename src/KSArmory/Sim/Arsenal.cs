@@ -923,6 +923,10 @@ public static class Arsenal
         ForwardMinElevationDeg = -25f,
         SettleSeconds = 0.2f,
 
+        // The search antenna at the top of the radome, which turns with the mount. Nothing on the
+        // model spins, so this is the scope's sweep alone. NavWeaps, 20 mm Phalanx.
+        SearchRadarRpm = 90f,
+
         // 4500 rpm, and 1550 rounds. Long bursts, because that is what a CIWS does.
         GunAmmo = 1550,
         GunRoundsPerMinute = 4500f,
@@ -979,6 +983,10 @@ public static class Arsenal
         MaxElevationDeg = 85f,
         ForwardMinElevationDeg = -15f,
         SettleSeconds = 0.4f,
+
+        // The Mk 68 is a director that follows one target; the ship's own air-search radar does
+        // the searching, so the scope paints no sweep for it.
+        SearchRadarFaces = 0,
 
         // The ready-service load the mount's own drums and hoists hold, fired at its automatic rate of
         // forty a minute. A burst is one round with no gap after it, so a press is one shell and

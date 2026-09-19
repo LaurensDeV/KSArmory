@@ -110,7 +110,8 @@ internal partial class Ui
         ImDrawListPtr draw = ImGui.GetWindowDrawList();
 
         DrawScopeFace(draw, centre, radius, policy.ScopeRangeMetres);
-        DrawScopeSweep(draw, centre, radius, battery, local);
+        // A silent set is not scanning, so it paints no sweep.
+        if (!policy.RadarSilent) DrawScopeSweep(draw, centre, radius, battery, local);
         DrawScopeContacts(draw, centre, radius, battery, policy, local, policy.ScopeRangeMetres);
 
         ImGui.Dummy(new float2(side, side));
@@ -272,8 +273,26 @@ internal partial class Ui
                 draw.AddLine(at, out2, colour, 1.4f);
             }
 
-            if (isLocked) draw.AddCircle(at, 10f, colour, 16, 1.4f);
+            if (isLocked)
+            {
+                draw.AddCircle(at, 10f, colour, 16, 1.4f);
+                DrawTrackBeam(draw, centre, at, colour);
+            }
         }
+    }
+
+    // The track antenna, on the lock. Every set here hands a contact from its search to a tracker
+    // that follows it alone, and this is that handover made visible. Stops at the ring, so the
+    // symbol inside it stays readable.
+    private static void DrawTrackBeam(ImDrawListPtr draw, float2 centre, float2 at, uint colour)
+    {
+        float dx = at.X - centre.X;
+        float dy = at.Y - centre.Y;
+        float length = MathF.Sqrt((dx * dx) + (dy * dy));
+        if (length <= 12f) return;
+
+        float reach = (length - 10f) / length;
+        draw.AddLine(centre, new float2(centre.X + (dx * reach), centre.Y + (dy * reach)), colour, 1.2f);
     }
 
     // Symbols mean nothing without a key, and this one has to be on the same screen as the face --
@@ -285,6 +304,7 @@ internal partial class Ui
         // was avoided for.
         ImGui.TextDisabled("X  known side      triangle  unknown side");
         ImGui.TextDisabled("M  round in the air     R  transmitting");
+        ImGui.TextDisabled("ringed, with a line  the lock, held by the track radar");
     }
 
     // Whose it is, as the scope's own IFF sees it -- so the symbol agrees with what fire control
