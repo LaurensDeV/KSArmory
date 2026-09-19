@@ -95,10 +95,13 @@ public sealed class Turret
     public double ElevationErrorRad
         => CommandElevationRad is { } command ? command - ElevationRad : 0.0;
 
+    /// <summary>How far either axis may be from its order and still count as on target (rad).</summary>
+    public const double OnTargetToleranceRad = 0.05;
+
     /// <summary>True once *both* axes are within a few degrees of their order.</summary>
     public bool OnTarget => CommandRad is not null
-                            && Math.Abs(ErrorRad) < 0.05
-                            && Math.Abs(ElevationErrorRad) < 0.05;
+                            && Math.Abs(ErrorRad) < OnTargetToleranceRad
+                            && Math.Abs(ElevationErrorRad) < OnTargetToleranceRad;
 
     /// <summary>
     /// Unbroken seconds spent on target. Fire control waits on this rather than on

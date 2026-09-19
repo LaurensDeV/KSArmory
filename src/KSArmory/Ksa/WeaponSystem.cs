@@ -1536,6 +1536,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         _ringAimValid = false;
         _gunLayRangeMetres = 0.0;
         _gunLayShortMetres = 0.0;
+        bool watchedLay = false;
 
         if (_policy.TurretSpin)
         {
@@ -1587,18 +1588,22 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         else
         {
             Track? aim = Radar.Locked ?? MostUrgentThreat();
+            double3 aimEcl = aim is null ? Vec.Zero : AimPointEcl(aim) - AimOriginEcl;
 
             if (aim is not null && Platform is not null
-                && LauncherPart.TryDirectionToPartFrame(Platform, Launcher,
-                                                        AimPointEcl(aim) - AimOriginEcl, out double3 partFrame))
+                && LauncherPart.TryDirectionToPartFrame(Platform, Launcher, aimEcl, out double3 partFrame))
             {
                 Turret.Track(partFrame);
+                WatchLay(aim, aimEcl, partFrame);
+                watchedLay = true;
             }
             else
             {
                 Turret.Stow();
             }
         }
+
+        if (!watchedLay) _layHandle = null;
 
         Turret.Update(dt, Profile.SlewRateRad, Profile.ElevationRateRad);
 
@@ -1662,6 +1667,70 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         {
             Refuse(DriveChannel.Radar, "search array spin");
         }
+    }
+
+    // What the tracking lay was last frame, so a jump in it can be explained. The lay moving further
+    // in one frame than the settle tolerance restarts the settle clock, and from outside that is the
+    // mount bobbing while the gun holds fire. One jump as a target comes into the gun's reach is the
+    // lay moving onto the lead, and is expected.
+    private object? _layHandle;
+    private double3 _layAimEcl;
+    private double3 _layAimPart;
+    private bool _layOnLead;
+    private double _layFlightSeconds;
+    private double3 _layAcceleration;
+    private double _layJumpLoggedAt = double.NegativeInfinity;
+    private int _layJumpsUnlogged;
+
+    // Splits a jump into the aim moving in the world and the mount turning under it, and names what
+    // fed the lead either side of it -- so one engagement says whether the lead, the target's
+    // acceleration or the craft itself is jumping. Only on the same contact: a new one is a new lay.
+    private void WatchLay(Track aim, double3 aimEcl, double3 partFrame)
+    {
+        object handle = aim.Contact.Handle;
+
+        if (ReferenceEquals(handle, _layHandle) && Platform is not null)
+        {
+            double bearing = Math.Abs(Turret.WrapPi(Turret.BearingTo(partFrame) - Turret.BearingTo(_layAimPart)));
+            double elevation = Math.Abs(Turret.ElevationTo(partFrame) - Turret.ElevationTo(_layAimPart));
+
+            if (Math.Max(bearing, elevation) > Turret.OnTargetToleranceRad)
+            {
+                double world = Vec.AngleBetween(aimEcl, _layAimEcl);
+                double mount = LauncherPart.TryDirectionToPartFrame(Platform, Launcher, _layAimEcl,
+                                                                    out double3 lastInThisFrame)
+                    ? Vec.AngleBetween(lastInThisFrame, _layAimPart)
+                    : double.NaN;
+
+                if (_clock - _layJumpLoggedAt >= 0.5)
+                {
+                    int unlogged = _layJumpsUnlogged;
+                    string lead = $"lead {(_layOnLead ? "solved" : "none")} -> {(_ringIsOnGunLead ? "solved" : "none")}";
+
+                    Log.Debug($"lay jumped {double.RadiansToDegrees(bearing):F1} deg in bearing and "
+                             + $"{double.RadiansToDegrees(elevation):F1} in elevation on {aim.Contact.DisplayName}: "
+                             + $"the aim moved {double.RadiansToDegrees(world):F2} deg in the world and the mount "
+                             + $"turned {double.RadiansToDegrees(mount):F2} under it; {lead}, flight "
+                             + $"{_layFlightSeconds:F2} -> {_gunFlightTime:F2} s, target acceleration "
+                             + $"{Vec.Len(_layAcceleration):F1} -> {Vec.Len(aim.AccelerationEcl):F1} m/s2"
+                             + (unlogged > 0 ? $" ({unlogged} more since the last line)" : ""));
+
+                    _layJumpLoggedAt = _clock;
+                    _layJumpsUnlogged = 0;
+                }
+                else
+                {
+                    _layJumpsUnlogged++;
+                }
+            }
+        }
+
+        _layHandle = handle;
+        _layAimEcl = aimEcl;
+        _layAimPart = partFrame;
+        _layOnLead = _ringIsOnGunLead;
+        _layFlightSeconds = _gunFlightTime;
+        _layAcceleration = aim.AccelerationEcl;
     }
 
     private void Refuse(DriveChannel channel, string what)
