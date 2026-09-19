@@ -70,4 +70,20 @@ internal static class SimClock
         dt = stepSeconds;
         return State.Run;
     }
+
+    /// <summary>
+    /// Player time while the world runs, and none while it is paused: the clock for how long
+    /// something is <em>watched</em>, and the one place player time is the right answer.
+    ///
+    /// <para>Not the simulated step, because a view eased back or held on a burst answers the person
+    /// looking, and through slow motion it would take ten times as long. Not raw player time either,
+    /// because a pause is for looking: a view swung back behind the round, or handed back, while
+    /// nothing moves takes away what the player stopped the world to see.</para>
+    /// </summary>
+    /// <param name="playerSeconds">The wall-clock frame time.</param>
+    /// <param name="stepSeconds">Simulated seconds the world just advanced by; zero while paused.</param>
+    public static double Viewing(double playerSeconds, double stepSeconds)
+        => double.IsFinite(stepSeconds) && stepSeconds > 0.0 && double.IsFinite(playerSeconds)
+               ? Math.Max(0.0, playerSeconds)
+               : 0.0;
 }

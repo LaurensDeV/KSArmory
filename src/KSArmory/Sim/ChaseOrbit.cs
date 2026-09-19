@@ -9,7 +9,9 @@ namespace KSArmory;
 /// answers the mouse the way the camera the player already knows does.</para>
 ///
 /// <para>Eased on player time, not simulated: it answers a hand on the mouse, and at a tenth of
-/// normal speed a simulated ease would leave the view off the round for ten times as long.</para>
+/// normal speed a simulated ease would leave the view off the round for ten times as long. But not
+/// while the world is paused, which is when a player looks round a round at leisure —
+/// <see cref="SimClock.Viewing"/> is the clock to advance it on.</para>
 /// </summary>
 public sealed class ChaseOrbit
 {

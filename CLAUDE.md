@@ -2588,8 +2588,11 @@ drops a release made over a panel.
 on simulated time* is not only about fire control: the chase transition advances on the step, so
 it holds still through a pause and slows with the panel's slow-motion buttons, which is the whole
 point of having them. On player time it slides the view across a world that is not moving.
-Lingering on a burst is the exception and stays on wall clock — that is a viewing duration, not
-something tracking an object.
+Lingering on a burst, easing a turned view back behind the round and pulling the eye back to local
+up are the exceptions — viewing durations, not things tracking an object — so they run at the
+player's rate through slow motion. **But they stop in a pause**, on `SimClock.Viewing`: a pause is
+for looking, and a view handed back off a burst or swung back behind its round while nothing moves
+takes away what the player stopped the world to see.
 
 **Attaching the view to a round moves the camera before the mod gets a say.** `Camera.SetFollow`
 sets `PositionEcl` to the followed object plus 2.5 mean radii *before* switching what is followed,

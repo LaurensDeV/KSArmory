@@ -106,4 +106,37 @@ public class SimClockTests
         Assert.Equal(SimClock.State.Run, SimClock.Classify(0.016, paused: false, out double dt));
         Assert.Equal(0.016, dt, 9);
     }
+
+    // ---- The viewing clock ------------------------------------------------
+
+    /// <summary>
+    /// What is watched stops with the world. Player time runs on through a pause, which handed the
+    /// view back off a burst and swung a turned chase back behind its round while nothing moved.
+    /// </summary>
+    [Fact]
+    public void AViewIsHeldThroughAPause()
+    {
+        Assert.Equal(0.0, SimClock.Viewing(playerSeconds: 0.016, stepSeconds: 0.0));
+    }
+
+    /// <summary>
+    /// And runs at the player's rate through slow motion, where the simulated step would make a
+    /// three-second hold on a burst last five minutes at a hundredth of normal speed.
+    /// </summary>
+    [Theory]
+    [InlineData(0.016)]
+    [InlineData(0.00016)]
+    [InlineData(0.16)]
+    public void AViewKeepsThePlayersTimeWhileTheWorldRuns(double step)
+    {
+        Assert.Equal(0.016, SimClock.Viewing(playerSeconds: 0.016, stepSeconds: step));
+    }
+
+    [Theory]
+    [InlineData(double.NaN)]
+    [InlineData(-0.016)]
+    public void AStepThatSaysNothingHoldsTheView(double step)
+    {
+        Assert.Equal(0.0, SimClock.Viewing(playerSeconds: 0.016, stepSeconds: step));
+    }
 }
