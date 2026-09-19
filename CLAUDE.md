@@ -523,6 +523,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `.claude/skills/upgrade-ksa/` | the whole KSA-update procedure, as a skill |
 | `tools/meshinfo.py` | prints mesh bounds from a KSA `.glb` atlas |
 | `tools/validate-parts.py` | checks asset Ids, texture paths, and launch geometry vs the mesh |
+| `tools/spacedock-changelog.py` | a release's notes cut to what SpaceDock accepts — **10,000 characters**, which one after a long run on `dev` overruns six times over |
 | `tools/pack-api.py` | records the API a weapon pack binds to, and fails when it moves — **the mirror of `api-surface.sh`**, because a pack lives in somebody else's repository and never builds here |
 | `tools/repair-saves.py` | realigns saves written before a part lost a subpart |
 | `tools/make-scaling-save.py` | a save carrying N copies of one rocket, for pricing how the vehicle solver scales |
@@ -1149,8 +1150,10 @@ version by hand** — it will be overwritten. `feat`/`fix`/`perf`/`build`/`rever
 `refactor` cut no release. A commit that does not parse is treated as no release, so a stray `wip`
 cannot publish anything.
 
-That workflow is in two jobs: the first decides the version and creates the release, the second
-builds the archive, attaches it, and **publishes it to SpaceDock**. Both hosted. The release commit
+That workflow's first job decides the version and creates the release, and the second builds the
+archive and attaches it. `spacedock.yml` then **publishes what is attached to SpaceDock** — called
+from the release, or run by hand with a version for a release whose upload failed, because it
+uploads the release's own archive rather than building again. All hosted. The release commit
 carries `[skip ci]` so it does not retrigger CI.
 
 SpaceDock needs three settings, and the step skips with a notice if any is missing — a fork cannot
@@ -1165,6 +1168,12 @@ have them, and the GitHub release is the real artefact either way:
 The KSA version it claims compatibility with comes from `ksa-assemblies.lock`, so what SpaceDock
 advertises cannot drift from the build CI actually enforced. `SPACEDOCK_GAME_VERSION` overrides it
 for the case where SpaceDock does not list that build yet. It notifies followers on every upload.
+
+**SpaceDock refuses a changelog over 10,000 characters, and the archive with it.** A release's notes
+list every `feat` and `fix` since the last one, so a long run on `dev` overruns that — 0.9.0's were
+60,691. `tools/spacedock-changelog.py` sends a section that fits exactly as written and cuts one
+that does not: the commit links first, then the tail of each section, ending on a link to the full
+notes on GitHub. `check-all.sh` runs every released section through it.
 
 Three things that will bite:
 

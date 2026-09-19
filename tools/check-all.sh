@@ -98,6 +98,7 @@ run "Every setting is reachable"    ./tools/check-tunables.py
 run "Pack API surface"              ./tools/pack-api.py --check
 run "Comment rules"                 ./tools/check-comments.sh
 run "Documented facts"              ./tools/check-docs.sh
+run "Changelogs fit SpaceDock"      ./tools/spacedock-changelog.py --check
 run "No artefacts tracked"          ./tools/check-tracked.sh
 
 if (( LIST )) || [[ -f "$ATLAS" ]]; then
