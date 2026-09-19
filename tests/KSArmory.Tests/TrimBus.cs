@@ -41,6 +41,13 @@ internal sealed class TrimBus
     /// <summary>One pulse, the millisecond the engine floors a thruster's own minimum at.</summary>
     public double PulseSeconds = 0.001;
 
+    /// <summary>
+    /// Directions whose jets are commanded and produce nothing. Not a layout — the shipped ring has
+    /// all six — but the state a flown null has to survive, because <c>BusTrim.Watch</c> is skipped
+    /// while pulsing and a pulse phase therefore has no way to notice one.
+    /// </summary>
+    public TrimAxes Dead = TrimAxes.None;
+
     private double _sincePulse = PulseEverySeconds;
 
     public void Step(BallisticBody body, TrimAxes fire, double seconds, bool pulse = false)
@@ -73,6 +80,8 @@ internal sealed class TrimBus
         PositionCci += VelocityCci * seconds;
     }
 
-    private static double3 Push(TrimAxes fire, TrimAxes direction, double3 along, double magnitude)
-        => (fire & direction) != TrimAxes.None ? Vec.Unit(along) * magnitude : Vec.Zero;
+    private double3 Push(TrimAxes fire, TrimAxes direction, double3 along, double magnitude)
+        => (fire & direction) != TrimAxes.None && (Dead & direction) == TrimAxes.None
+               ? Vec.Unit(along) * magnitude
+               : Vec.Zero;
 }

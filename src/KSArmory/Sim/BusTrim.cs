@@ -100,7 +100,19 @@ internal readonly record struct TrimSituation(
     /// thruster's own <c>MinimumPulseTime</c>, a millisecond on the shipped bus, which is about
     /// sixteen times finer — so the trim fires normally down to its band and pulses from there.</para>
     /// </summary>
-    double PulseSeconds = 0.0);
+    double PulseSeconds = 0.0,
+
+    /// <summary>
+    /// Whether a trim that stopped improving while already inside its own stop band reports finishing
+    /// rather than giving up — <see cref="IcbmConfig.StoppingInsideTheBandIsDone"/>.
+    /// </summary>
+    bool StoppingInsideTheBandIsDone = false,
+
+    /// <summary>
+    /// Whether a pulse phase that stops closing gives way to holding rather than ending the null —
+    /// <see cref="IcbmConfig.StallFallsBackToHolding"/>.
+    /// </summary>
+    bool StallFallsBackToHolding = false);
 
 /// <summary>What to fire and whether the warheads may go.</summary>
 /// <param name="Acceleration">
@@ -349,6 +361,10 @@ internal sealed class BusTrim
     // Whether the last command was a pulse. A pulse is a millisecond of thrust in a frame, so an
     // acceleration measured across one reads a fraction of the truth — and that reading sizes the
     // pulse floor, charges the budget, and decides whether a direction still moves the bus.
+    // Whether the pulse phase has already given way to holding on this null. One-shot: a second stall
+    // is the hold's own and ends the null, so this cannot become a wait that never ends.
+    private bool _gaveWayToHolding;
+
     private bool _pulsedLast;
 
     // The frame before that. A command reaches the engine's worker one frame after it is written, so
@@ -493,6 +509,7 @@ internal sealed class BusTrim
         _since = 0.0;
         _firingFor = 0;
         _fire = TrimAxes.None;
+        _gaveWayToHolding = false;
         _pulsedLast = false;
         _pulsedBefore = false;
         _pulsingFor = 0.0;
@@ -526,6 +543,7 @@ internal sealed class BusTrim
         _havePrev = false;
         _firingFor = 0;
         _fire = TrimAxes.None;
+        _gaveWayToHolding = false;
         _pulsedLast = false;
         _pulsedBefore = false;
         _pulsingFor = 0.0;
@@ -642,6 +660,7 @@ internal sealed class BusTrim
         // than about this frame: nothing inside PulseEntry is out of a pulse's reach, and past the
         // bound the phase is no longer closing.
         bool refine = fine > 0.0
+                      && !_gaveWayToHolding
                       && _toGain <= PulseEntry(band)
                       && _pulsingFor < PulseSecondsPerNull;
 
@@ -678,7 +697,36 @@ internal sealed class BusTrim
         // to be the phase's own scale. Against the standing one it would give up while working.
         if (Stalled(step, pulse ? 0.25 * fine : ProgressMetresPerSecond))
         {
-            return Finish(gaveUp: true, Left("the trim stopped closing" + PulseDelivery()));
+            // A hold has about 150 times a pulse phase's authority, and PulseSecondsPerNull exists to
+            // drop a phase that is chasing a receding reference back to one -- but StallSeconds is half
+            // as long, so that guard has never run. Flown, no null owing under 1.5 m/s at the split has
+            // ever stalled and 31 of 53 above it have, which is the shape of a reference the phase
+            // cannot keep up with. ACCURACY-PLAN 3fd.
+            // The clock is reset with it, because the hold that follows is a different regime being
+            // judged by a threshold 24x coarser and deserves its own run at it.
+            if (now.StallFallsBackToHolding && _pulsingFor > 0.0 && !_gaveWayToHolding)
+            {
+                _gaveWayToHolding = true;
+                Restart();
+
+                return Command(TrimAxes.None,
+                               $"the pulse phase stopped closing at {_toGain:F3} m/s -- holding instead");
+            }
+
+            // Stopping is not failing. A give-up means "there is no actuator left" to `PostBoostAim`,
+            // which then ends with no passes taken and forfeits the whole post-cutoff correction --
+            // so a loop that nulled metres per second into its own stop band and then stopped
+            // improving must not say it. The residual is worth metres of ground; the correction it
+            // would forfeit is worth kilometres.
+            // Against PulseEntry rather than the band itself, because this is a LENGTH and the band
+            // is per axis: Choose will not pick a component already inside it, so the longest vector
+            // a hold can legitimately leave behind is root-three bands. Flown, the residuals that
+            // stalled run to 0.03 and the band is 0.02, so the band alone calls half of them failures.
+            bool inside = now.StoppingInsideTheBandIsDone && _toGain <= PulseEntry(band);
+
+            return Finish(gaveUp: !inside,
+                          Left((inside ? "the trim settled and stopped improving"
+                                       : "the trim stopped closing") + PulseDelivery()));
         }
 
         // Finished when there is no direction left worth firing, which is the honest definition —
@@ -800,6 +848,14 @@ internal sealed class BusTrim
     // Against the lowest ever reached rather than the last cycle's, because the number wanders: a
     // bang-bang loop overshoots by a quantum and comes back, so "worse than last time" is the
     // ordinary state of a loop that is working.
+    // Give the progress watch a fresh run. Only for a change of regime: a loop that restarts its own
+    // clock while nothing else changed cannot stall at all.
+    private void Restart()
+    {
+        _lowest = _toGain;
+        _sinceProgress = 0.0;
+    }
+
     private bool Stalled(double step, double progress)
     {
         if (_toGain <= _lowest - progress)
