@@ -1,3 +1,20 @@
+## [0.9.1](https://github.com/LaurensDeV/KSArmory/compare/v0.9.0...v0.9.1) (2026-09-19)
+
+### Features
+
+* **fire-control:** select the cannon, and fire on a shift-clicked craft ([4aeac40](https://github.com/LaurensDeV/KSArmory/commit/4aeac40d4d25c464557aa0619a262ee611a9c6ba))
+
+### Fixes
+
+* **assets:** ship no character, so a launch through Borea does not crash ([f8b52ab](https://github.com/LaurensDeV/KSArmory/commit/f8b52ab7dae5226940a86d7392d1a7ce56bff26c))
+* **chase:** hold the view still while the game is paused ([e9f7110](https://github.com/LaurensDeV/KSArmory/commit/e9f71105aafaadafa8b7f52c94f57b2228957b2e))
+* **model:** size the Mk 42 and CIWS stack nodes so they sit on a tank ([3203d14](https://github.com/LaurensDeV/KSArmory/commit/3203d14e80cfc34dfa8a04912841b0d02a79c304))
+* **rounds:** burst a loose round without its launcher's velocity ([05eac33](https://github.com/LaurensDeV/KSArmory/commit/05eac336f56947fa69e9e60aa4b4c651989291be))
+
+### Build and packaging
+
+* build against StarMap 0.4.7 ([8d3b8ab](https://github.com/LaurensDeV/KSArmory/commit/8d3b8ab88cc48f413ee1e38647006651322fd712))
+
 ## [0.9.0](https://github.com/LaurensDeV/KSArmory/compare/v0.8.44...v0.9.0) (2026-09-19)
 
 ### Features
