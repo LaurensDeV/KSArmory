@@ -302,6 +302,7 @@ public sealed class KSArmoryMod
         _armaments.Clear();
         _heads?.Clear();
         _icbms?.Clear();
+        KsaWorld.Wreckage.Clear();
 
         // Markers pin the craft they show, and every one of them has just been destroyed.
         Markers.Forget();
@@ -839,6 +840,7 @@ public sealed class KSArmoryMod
         _heads = null;
         _icbms?.Clear();
         _icbms = null;
+        KsaWorld.Wreckage.Clear();
         AttitudeHook.Remove();
         PreRenderHook.Remove();
         WorldReloadHook.Remove();
@@ -1152,6 +1154,7 @@ public sealed class KSArmoryMod
         _heads = null;
         _icbms?.Clear();
         _icbms = null;
+        KsaWorld.Wreckage.Clear();
         AttitudeHook.Remove();
         PreRenderHook.Remove();
         WorldReloadHook.Remove();

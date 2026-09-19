@@ -588,6 +588,11 @@ internal sealed partial class Ui
             ImGui.TextDisabled($"  {_battery.Radar.MaskedByTerrain} behind the horizon");
         }
 
+        if (_battery.Radar.IgnoredWreckage > 0)
+        {
+            ImGui.TextDisabled($"  {_battery.Radar.IgnoredWreckage} piece(s) of wreckage, not engaged");
+        }
+
         for (int i = 0; i < _battery.Radar.Tracks.Count; i++)
         {
             Track t = _battery.Radar.Tracks[i];

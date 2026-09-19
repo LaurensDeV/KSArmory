@@ -596,6 +596,9 @@ internal static class KsaWorld
     /// </summary>
     public static void InvalidateCensus() => _censusFresh = false;
 
+    /// <summary>What this mod's warheads have broken up this session, so no set takes the pieces for targets.</summary>
+    public static Wreckage Wreckage { get; } = new();
+
     private static readonly List<Vehicle> _census = [];
     private static bool _censusFresh;
 
@@ -2085,6 +2088,10 @@ internal static class KsaWorld
                 Log.Debug(() => $"no update state on {DisplayName(v)}; its parts were not broken");
                 return false;
             }
+
+            // Before the engine splits it, so the pieces it names after this craft are known for
+            // wreckage from the first frame they exist.
+            Wreckage.Broke(v.Id);
 
             if (state.PartFailureEvent is { } pending)
             {

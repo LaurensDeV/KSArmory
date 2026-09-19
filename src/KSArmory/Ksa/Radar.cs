@@ -60,6 +60,13 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
     /// </summary>
     public int MaskedByTerrain { get; private set; }
 
+    /// <summary>
+    /// Pieces of craft this mod's warheads broke up, left out of the picture this scan. Counted for
+    /// the same reason as the masked ones: a burst that leaves a dozen pieces falling and a scope
+    /// showing none reads as the set having missed them. See <see cref="KSArmory.Wreckage"/>.
+    /// </summary>
+    public int IgnoredWreckage { get; private set; }
+
     // Held between scans so a contact's dwell time survives track rebuilds.
     private readonly Dictionary<object, double> _dwell = new();
 
@@ -100,6 +107,7 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
         Tracks.Clear();
         _byHandle.Clear();
         MaskedByTerrain = 0;
+        IgnoredWreckage = 0;
 
         // A set that has been told to stop transmitting sees nothing. That is the whole of the
         // trade against an anti-radiation round -- going quiet costs the site its own picture, so
@@ -129,6 +137,12 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
 
             if (ReferenceEquals(candidate, platform)) continue;
             if (_policy.ProtectControlledVehicle && ReferenceEquals(candidate, KsaWorld.ControlledVehicle)) continue;
+
+            if (KsaWorld.Wreckage.IsPiece(KsaWorld.DisplayName(candidate)))
+            {
+                IgnoredWreckage++;
+                continue;
+            }
 
             Consider(new VehicleContact(candidate), originEcl, originVel, boresight, dt,
                      groundCentre, groundRadius);
