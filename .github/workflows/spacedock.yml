@@ -1,0 +1,114 @@
+name: SpaceDock
+
+# Publishes a release that already exists on GitHub to SpaceDock: the archive attached to it, its
+# changelog cut to what SpaceDock accepts, and the KSA build it was checked against. release.yml
+# calls this once the archive is attached; run it by hand, naming the version, for a release whose
+# upload failed. It uploads what the release carries rather than building again, so the file on
+# SpaceDock is byte for byte the one on GitHub. The API calls are adapted from
+# AMPW-german/KSAGEffects, which worked them out first.
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "The release to publish, without the v -- e.g. 0.9.0"
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish to SpaceDock
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ inputs.version }}
+      # All three, or the upload is skipped with a notice rather than failing: a fork cannot have
+      # them, and the GitHub release is the real artefact either way. SPACEDOCK_MOD_ID and
+      # SPACEDOCK_USERNAME are repository *variables*, the password a secret.
+      HAVE_SPACEDOCK: ${{ vars.SPACEDOCK_MOD_ID != '' && vars.SPACEDOCK_USERNAME != '' && secrets.SPACEDOCK_PASSWORD != '' }}
+    steps:
+      - name: SpaceDock not configured
+        if: env.HAVE_SPACEDOCK != 'true'
+        run: |
+          echo "::notice::SpaceDock upload skipped. Set the repository variables"
+          echo "::notice::SPACEDOCK_MOD_ID and SPACEDOCK_USERNAME, and the secret SPACEDOCK_PASSWORD."
+
+      - uses: actions/checkout@v4
+        if: env.HAVE_SPACEDOCK == 'true'
+        with:
+          persist-credentials: false
+
+      # The changelog and the KSA build belong to the release, not to the ref this runs from --
+      # which, run by hand for an older release, is not the one that cut it.
+      - name: Check out the release's changelog and lock
+        if: env.HAVE_SPACEDOCK == 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: v${{ inputs.version }}
+          path: release
+          sparse-checkout: |
+            CHANGELOG.md
+            ksa-assemblies.lock
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - name: Download the archive
+        if: env.HAVE_SPACEDOCK == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "v$VERSION" --repo "$GITHUB_REPOSITORY" \
+             --pattern "KSArmory-$VERSION.zip" --dir dist
+
+      - name: Publish
+        if: env.HAVE_SPACEDOCK == 'true'
+        env:
+          SPACEDOCK_USERNAME: ${{ vars.SPACEDOCK_USERNAME }}
+          SPACEDOCK_PASSWORD: ${{ secrets.SPACEDOCK_PASSWORD }}
+          MOD_ID: ${{ vars.SPACEDOCK_MOD_ID }}
+          # The KSA build SpaceDock lists this against. Taken from the release's own
+          # ksa-assemblies.lock, which is the build the mod was compiled and checked against, so
+          # the compatibility claimed on SpaceDock cannot drift from the one CI enforced. Override
+          # only if SpaceDock does not yet list that build.
+          GAME_VERSION_OVERRIDE: ${{ vars.SPACEDOCK_GAME_VERSION }}
+        run: |
+          set -euo pipefail
+
+          version="${GAME_VERSION_OVERRIDE:-$(awk '/^build /{print $2}' release/ksa-assemblies.lock)}"
+          if [[ -z "$version" ]]; then
+            echo "::error::no KSA version: ksa-assemblies.lock has no build line"
+            exit 1
+          fi
+
+          ./tools/spacedock-changelog.py "$VERSION" \
+              "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/v$VERSION" \
+              release/CHANGELOG.md > spacedock-changelog.md
+          echo "changelog: $(wc -m < spacedock-changelog.md) characters"
+
+          # --fail-with-body, because SpaceDock says why it refused in the body, and -f alone
+          # reduces every refusal to "error: 400".
+          if ! curl -sS --fail-with-body \
+                    --form-string "username=$SPACEDOCK_USERNAME" \
+                    --form-string "password=$SPACEDOCK_PASSWORD" \
+                    -c ./spacedock-cookies -o spacedock-login.json \
+                    https://spacedock.info/api/login; then
+            cat spacedock-login.json
+            exit 1
+          fi
+
+          curl -sS --fail-with-body -b ./spacedock-cookies \
+                    --form-string "version=$VERSION" \
+                    -F "changelog=<spacedock-changelog.md" \
+                    --form-string "game-version=$version" \
+                    --form-string "notify-followers=yes" \
+                    -F "zipball=@dist/KSArmory-$VERSION.zip" \
+                    "https://spacedock.info/api/mod/${MOD_ID}/update"
+
+          echo "published $VERSION to SpaceDock for KSA $version" >> "$GITHUB_STEP_SUMMARY"
