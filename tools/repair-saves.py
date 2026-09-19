@@ -20,20 +20,35 @@ definitions out of the mod's own asset XML, so it needs no table of what changed
 
 Adding a subpart needs no repair: the loop stops at the save's shorter count, and the
 new subpart simply starts unconfigured.
+
+It also re-dresses kittens wearing a KSArmory character the mod no longer declares. A save
+records each roster kitten's character, and `KittenEva.CreateKittenFromSaveData` resolves
+it through `ModLibrary.Get`, which throws on an Id nothing declares -- inside the same
+uncaught load. Every character registered is drawn from when a roster is made, so a mod's
+character ends up on kittens in nearly every save made while it was installed. Each is
+given one of Core's own, chosen by the kitten's name so a rerun picks the same one.
 """
 
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import shutil
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
+import zlib
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 ASSETS = REPO / "src" / "KSArmory" / "KSArmory*.xml"
+KSA_DIR = Path(os.environ.get("KSA_DIR", "/mnt/c/Program Files/Kitten Space Agency"))
+
+# A roster entry is a <Kitten Name=...>, and a kitten out on EVA a <Vehicle Id=...> carrying
+# the same name: both record the character, and both are resolved on load.
+KITTEN = re.compile(r'(<(?:Kitten|Vehicle)\b[^>]*?\bCharacter=")(KSArmory[^"]*)(")')
+KITTEN_NAME = re.compile(r'<(?:Kitten\b[^>]*?\bName|Vehicle\b[^>]*?\bId)="([^"]*)"')
 
 # Every way the same assembly has been spelled across the Id renames. Matching on this
 # rather than on the literal name is what lets a save written before a rename still be
@@ -85,6 +100,24 @@ def declared_subparts() -> dict[str, list[str]]:
     return parts
 
 
+def declared_characters() -> set[str]:
+    """Every character Id the mod's own asset XML still declares."""
+    ids: set[str] = set()
+    for path in sorted((REPO / "src" / "KSArmory").glob("KSArmory*.xml")):
+        for element in ET.parse(path).getroot().iter("Character"):
+            if element.get("Id"):
+                ids.add(element.get("Id"))
+    return ids
+
+
+def stock_characters() -> list[str]:
+    """Core's own characters, read from the install rather than typed here, or [] without one."""
+    path = KSA_DIR / "Content" / "Core" / "CharacterAssets.xml"
+    if not path.is_file():
+        return []
+    return sorted(e.get("Id") for e in ET.parse(path).getroot().iter("Character") if e.get("Id"))
+
+
 def surplus_lines(saved: list[tuple[int, str]], declared: list[str]) -> list[int]:
     """Which saved entries have no counterpart, aligning the two lists in order.
 
@@ -105,8 +138,23 @@ def surplus_lines(saved: list[tuple[int, str]], declared: list[str]) -> list[int
     return surplus
 
 
-def inspect(save: Path, declared: dict[str, list[str]], fix: bool) -> tuple[int, int]:
-    """Returns (parts needing repair, entries dropped)."""
+def redress_kittens(lines: list[str], characters: set[str], stock: list[str]) -> int:
+    """Puts every kitten wearing an undeclared KSArmory character into a stock one, in place."""
+    changed = 0
+    for n, line in enumerate(lines):
+        worn = KITTEN.search(line)
+        if not worn or worn.group(2) in characters:
+            continue
+        name = KITTEN_NAME.search(line)
+        pick = stock[zlib.crc32((name.group(1) if name else str(n)).encode()) % len(stock)]
+        lines[n] = line[:worn.start(2)] + pick + line[worn.end(2):]
+        changed += 1
+    return changed
+
+
+def inspect(save: Path, declared: dict[str, list[str]], characters: set[str],
+            stock: list[str], fix: bool) -> tuple[int, int, int]:
+    """Returns (parts needing repair, entries dropped, kittens re-dressed)."""
     # newline="" throughout: the saves are CRLF, and letting Python translate them would
     # rewrite every line in a file this is meant to change by one.
     with open(save, encoding="utf-8", errors="surrogateescape", newline="") as handle:
@@ -160,16 +208,28 @@ def inspect(save: Path, declared: dict[str, list[str]], fix: bool) -> tuple[int,
 
         index = cursor
 
-    if dropped and fix:
+    wearing = sum(1 for line in lines
+                  if (worn := KITTEN.search(line)) and worn.group(2) not in characters)
+    if wearing:
+        print(f"    {wearing} kitten(s) wearing a character the mod no longer declares")
+
+    redressed = 0
+    if wearing and fix:
+        if not stock:
+            print(f"    ! no Core characters to re-dress them in; set KSA_DIR -- left alone")
+        else:
+            redressed = redress_kittens(lines, characters, stock)
+
+    if (dropped or redressed) and fix:
         backup = save.with_suffix(save.suffix + ".bak")
         if not backup.exists():
             shutil.copy2(save, backup)
         kept = [line for n, line in enumerate(lines) if n not in dropped]
         with open(save, "w", encoding="utf-8", errors="surrogateescape", newline="") as handle:
             handle.write("".join(kept))
-        print(f"    rewritten ({len(dropped)} dropped); original at {backup.name}")
+        print(f"    rewritten ({len(dropped)} dropped, {redressed} re-dressed); original at {backup.name}")
 
-    return needing, len(dropped)
+    return needing, len(dropped), wearing
 
 
 def ksa_user_dir() -> Path:
@@ -191,6 +251,9 @@ def main() -> int:
     if not declared:
         sys.exit("no shipped parts with subparts found; is the asset XML in place?")
 
+    characters = declared_characters()
+    stock = stock_characters()
+
     root = args.saves or (ksa_user_dir() / "saves")
     if not root.is_dir():
         sys.exit(f"no saves folder at {root}")
@@ -201,26 +264,30 @@ def main() -> int:
 
     total_parts = 0
     total_dropped = 0
+    total_kittens = 0
 
     for save in sorted(root.iterdir()):
         universe = save / "universe.xml"
         if not universe.is_file():
             continue
         print(f"  {save.name}")
-        needing, count = inspect(universe, declared, args.fix)
+        needing, count, kittens = inspect(universe, declared, characters, stock, args.fix)
         total_parts += needing
         total_dropped += count
+        total_kittens += kittens
 
     print()
-    if total_parts == 0:
-        print("every save lines up with the parts as they are now")
+    if total_parts == 0 and total_kittens == 0:
+        print("every save lines up with the parts and characters as they are now")
         return 0
 
     if args.fix:
-        print(f"repaired {total_parts} part(s), {total_dropped} entries dropped")
-        return 0
+        print(f"repaired {total_parts} part(s), {total_dropped} entries dropped, "
+              f"{total_kittens} kitten(s) re-dressed")
+        return 0 if stock or total_kittens == 0 else 1
 
-    print(f"{total_parts} part(s) would crash the game on load; rerun with --fix")
+    print(f"{total_parts} part(s) and {total_kittens} kitten(s) would crash the game on load; "
+          f"rerun with --fix")
     return 1
 
 
