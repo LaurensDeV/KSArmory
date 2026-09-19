@@ -238,6 +238,13 @@ The traps, all of which fail quietly:
   returns a fresh Python object each access, so `link.to_node is bsdf` is `False` while the link
   plainly exists. Compare with `==`, or by name. The symptom is an all-zero map, baked without
   complaint.
+- **A baked image lives only in memory until it is written out.** An image made with
+  `bpy.data.images.new` is not saved with the `.blend`, so a crash — or simply reopening the
+  file — loses every bake done so far. `image.save()` each pass the moment it finishes.
+- **Keep each MCP call short.** One call baking every pass for every body outlasts the
+  connection's timeout, and Blender cannot answer while it bakes. The CIWS's bake was lost to a
+  crash inside exactly such a call; a pass per call, with the image written after each, costs
+  nothing.
 - **Check the result, do not assume it.** `min`, `mean` and `max` over the pixels costs one line
   and is the difference between a bad map and a bad map you shipped.
 
@@ -381,8 +388,8 @@ and is what the AMRAAM rail does.
 
 ## 8. The generated parts that already exist
 
-Four parts — the Pantsir, the CIWS, the LAU-7 rail and the EO director — are
-built by `tools/model/pantsir.py` and its modules into one atlas sharing one palette material.
+Three parts — the Pantsir, the LAU-7 rail and the EO director — are built by
+`tools/model/pantsir.py` and its modules into one atlas sharing one palette material.
 **Keep it working; do not extend it.**
 
 The nuclear rack is no longer one of them — all three of its bodies are authored. It stopped
