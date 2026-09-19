@@ -1645,6 +1645,58 @@ def check_registered_part_ids():
     return problems, checked
 
 
+# Stacking parts left unsized, each with why. Anything added here nests into the tank it sits on.
+UNSIZED_STACK_CONNECTORS = {
+    "KSArmory_Prefab_MirvBus": "moving it changes the flown ICBM stack; the owner decides",
+}
+
+
+def check_stacking_connectors_sized():
+    """Verifies every stacking connector declares a Scale equal to its part's diameter.
+
+    Scale is a node's size, and KSA lets a part mate a tank's Internal node -- the nested one just
+    inside each end, there for smaller parts -- only when its own node is no larger
+    (Part.Connector.CanConnectIgnoringAligned). An unsized node is size one, so it passes, and a
+    3 m part sinks onto that nested node: 8 cm into a 2 m tank and 24.5 cm into a 3 m one, with
+    nothing reporting it.
+    """
+    assets = ET.parse(MOD / "KSArmoryAssets.xml").getroot()
+    gamedata = ET.parse(MOD / "KSArmoryGameData.xml").getroot()
+
+    diameters, surface = {}, set()
+    for data in gamedata.iter("PartGameData"):
+        part = data.get("Id")
+        diameter = data.find("Diameter")
+        if diameter is not None:
+            diameters[part] = float(diameter.get("M"))
+        for connector in data.findall("Connector"):
+            flags = connector.findtext("Flags") or ""
+            if any(flag in flags for flag in ("ToSurface", "FromSurface", "Internal")):
+                surface.add((part, connector.get("Id")))
+
+    problems = checked = 0
+    for part in assets.iter("Part"):
+        part_id = part.get("Id")
+        for connector in part.findall("Connector"):
+            if (part_id, connector.get("Id")) in surface:
+                continue
+            checked += 1
+            if part_id in UNSIZED_STACK_CONNECTORS:
+                continue
+
+            scale = connector.find("Transform/Scale")
+            want = diameters.get(part_id)
+            sizes = None if scale is None else {float(scale.get(axis, "1")) for axis in "XYZ"}
+            if want is None or sizes != {want}:
+                print(f"  UNSIZED {part_id} {connector.get('Id')} -- a stacking node needs "
+                      f"<Scale> of its diameter ({want} m) on every axis, or it nests into a "
+                      f"tank's Internal node; found {sorted(sizes) if sizes else 'none'}",
+                      file=sys.stderr)
+                problems += 1
+
+    return problems, checked
+
+
 def main():
     # Without the game installed, everything that depends only on the mod's own files can still
     # be checked -- and on Linux that includes case, which is the difference between a mod that
@@ -1685,6 +1737,11 @@ def main():
 
     print("checking every asset XML is declared in mod.toml")
     p, c = check_assets_declared()
+    problems += p
+    checked += c
+
+    print("checking every stacking connector is sized to its part")
+    p, c = check_stacking_connectors_sized()
     problems += p
     checked += c
 

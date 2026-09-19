@@ -996,6 +996,15 @@ the mesh and the XML, and the suite.
 - [ ] It renders painted rather than white or magenta, and the shell body carries its olive and yellow.
 - [ ] It sits upright on a 3 m node with the barrel forward. The model was rotated into part space by
       a map baked into the vertices, and a frame error there is the mount on its side, not something subtle.
+- [x] On a 2 m or a 3 m tank its base sits on the tank's end, not inside it. **Seen in game**; the
+      CIWS, fixed the same way, not looked at. Both
+      nodes were unsized, so KSA mated them on the tank's nested `Internal` node: saved at 1.92 m on a
+      4 m tank rather than 2.00. Only a mount attached afresh moves; a saved one keeps its position.
+- [ ] Moving a Mk 42 on its tank with the craft mover leaves the tank whole. Reported breaking it, and
+      probably not the overlap: parts of one craft never collide. KSA breaks a part whose contact
+      pressure beats its crash tolerance, and a near-empty tank's is the 0.9 MPa floor, which 61.4 t
+      settling at half a metre a second on 3.1 m² already reaches. If it still breaks, `crash
+      tolerance` in KSA's own log says which part and whether this is it.
 - [ ] The barrel stays in the cannon through a full traverse and from -15 to +85. It rides the
       cannon's trunnion, so it should never part from the breech; if it does, the barrel's `<Position>`
       and the trunnion disagree.

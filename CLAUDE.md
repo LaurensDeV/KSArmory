@@ -757,6 +757,11 @@ neither of them is longer than a page.
    one throws `PartTemplate is null` from `PartInstance.GetTemplate` — also terminating the game.
    A save names each subpart's template the same way (`SubPartRef InstanceOf`), so treat those as
    fixed too until a rename of one alone has been loaded.
+
+   **A stacking connector carries its diameter as `<Scale>`.** A Core tank has a second, `Internal`
+   node just inside each end, and KSA mates a part there whenever the part's own node is no larger
+   than it. An unsized node is size one, so a 3 m part sinks onto it — 8 cm into a 2 m tank, 24.5 cm
+   into a 3 m one — and nothing reports it. `validate-parts.py` fails an unsized one.
 3. **Register it — in `Sim/Arsenal.cs`, and in *both* registries.** One `LauncherProfile`, naming
    the munition and sensor it uses, with the geometry `build.sh` prints; add a `MunitionProfile`
    and a `SensorProfile` too if the round or the set differ. Then teach `validate-parts.py` to
