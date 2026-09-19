@@ -498,6 +498,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
 | `docs/BLOCKED-ON-KSA.md` | **what the mod cannot build**, with the engine reason and what would unblock it |
+| `docs/CIWS-REALISM.md` | **a plan, not a record** — what the real Phalanx does that the mod does not: detection only as the search beam passes, and closed-loop spotting of its own rounds, with why each waits and **what would make spotting worth building** |
 | `docs/LAY-COST.md` | **a plan, not a record** — what a gun lay beyond reach costs a frame, and four measured ways to make it cheaper, none merged |
 | `docs/ICBM-GUIDANCE.md` | **the ballistic computer** — the algorithm, the frames, the cutoff, and what has not been flown |
 | `docs/ACCURACY-PLAN.md` | **the ranked plan, and the one to read first** — what four investigations found on 2026-08-30, including the bug that was the long-range bimodality and the sub-frame cutoff the engine has and the mod never reached |
@@ -1266,6 +1267,7 @@ east and 16.4 m heading north, against the drop scenario's 30 m bar; the upwind 
 no Mach — and nothing fails when the engine's changes. `docs/BLOCKED-ON-KSA.md` has the flown check
 that confirms the copy, and what to do when it stops matching. The lead also reads what no radar
 could — mass, fuel, body rates — so it is true to the game's physics, not to a real director.
+`docs/CIWS-REALISM.md` has what a real director would do instead, and when that would be worth it.
 
 **The ballistic computer solves where to stop and flies everything else.**
 `docs/ICBM-GUIDANCE.md` is the whole account; four things there are worth not re-deciding.

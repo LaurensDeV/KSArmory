@@ -114,6 +114,8 @@ within 0.1 m². If either stops holding after an update, the copy is out of date
 still a function of the body, the airflow and the mass, extend `DragShape` to it; if it gains lift or
 a moment, carry that in the same place, since the body's attitude is already being flown. Holding
 the measured acceleration is the fallback, and it is what a target without a shape still gets.
+Closed-loop spotting would stop the gun depending on the copy at all, and `docs/CIWS-REALISM.md` §2
+says what it would take.
 
 **And it is not a real fire-control system either.** The lead reads the target's mass, fuel, drag box
 and body rates straight out of the engine — nothing a radar could measure. It hits because it knows
