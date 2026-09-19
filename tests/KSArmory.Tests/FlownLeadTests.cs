@@ -479,6 +479,38 @@ public class FlownLeadTests(ITestOutputHelper output)
         Assert.Equal(coldFlight, hintedFlight, 2);
     }
 
+    /// <summary>
+    /// A CIWS against a drone coming at it: the closest approach is found by interpolating across a
+    /// whole integration step, and at a head-on closing speed of 1,300 m/s the timing error left in
+    /// it was 0.1 to 0.15 m of miss that no turn of the barrel takes out. The solve stalled short of
+    /// its tolerance and gave up -- and, seeded from last frame's answer, gave up on the frame after
+    /// every one it solved, so the gun swung between the lead and the target every other frame.
+    /// </summary>
+    [Theory]
+    [InlineData(0.3, 0.8, 250.0, 10.0, 11.0)]
+    [InlineData(0.1, 0.4, 170.0, 40.0, 0.0)]
+    [InlineData(0.9, 1.3, 170.0, 0.0, 1.3)]
+    public void ACannonLeadOnACloseDroneSolvesAndSolvesAgainFromItsOwnAnswer(
+        double altitudeKm, double slantKm, double speed, double diveDeg, double deceleration)
+    {
+        World earth = Worlds["Earth"];
+        MunitionProfile cannon = Catalogue.MunitionNamed("20MM");
+
+        double horizontal = Math.Sqrt((slantKm * slantKm) - (altitudeKm * altitudeKm)) * 1000.0;
+        double3 target = new(horizontal, 0, altitudeKm * 1000.0);
+        double dive = diveDeg * Math.PI / 180.0;
+        double3 velocity = new(-speed * Math.Cos(dive), 0, -speed * Math.Sin(dive));
+        double3 slowing = Vec.Unit(velocity) * -deceleration;
+
+        Assert.True(BallisticLead.TrySolveFlown(Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero, target, velocity, slowing,
+                                                null, cannon, earth.GravityAt, earth.DensityAt, Vec.Zero,
+                                                out double3 aim, out _));
+
+        Assert.True(BallisticLead.TrySolveFlown(Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero, target + (velocity * Frame),
+                                                velocity, slowing, null, cannon, earth.GravityAt, earth.DensityAt, aim,
+                                                out _, out _));
+    }
+
     [Fact]
     public void ATargetBeyondTheShellsReachHasNoSolution()
     {

@@ -1159,6 +1159,19 @@ the mesh and the XML, and the suite.
       on 2026.9.10.5438** with `KSARMORY_SCENARIO_SAVE="CIWS" gunnery:3,passing,15,200,500`: 3 of 3
       crossing drones had a burst inside the 2.7 m lethal radius, 7 bursts at 0.0 m from 1,550 shells, and
       no exception in KSA's log.
+- [x] The Phalanx settles on a head-on drone and fires. It did not: its 20 mm lead stalled 0.1 to 0.15 m
+      short of the solver's tolerance on most close geometries, and seeded from last frame's answer failed
+      on the frame after every one it solved, so the gun swung 7 degrees between the lead and the target
+      and never settled -- 4 shells and no hit against two drones. **Confirmed 2026-09-19** with
+      `KSARMORY_SCENARIO_SAVE="CIWS" gunnery:2,head-on,20,300,1`: 9 bursts at 0.0 m, both drones destroyed,
+      and one lay jump per drone, onto the lead as it came into reach. No exception in KSA's log. The
+      5"/54 on the same solver, `scenario.sh gunnery`: 4 of 4 drones, 5 bursts at 0.0 m beyond 6 km.
+- [x] A burst stops when there is nothing left to put it on -- the target gone, or the gun swung off the
+      lay. **Confirmed** in the same run: no round left the gun after either kill, where a burst used to
+      run on while the mount turned back to rest.
+- [x] The pieces a burst breaks off are not engaged. They were: the CIWS chased the pieces of one drone
+      for 9 s and about 480 shells. **Confirmed** in the same run: `nothing detected` the moment each drone
+      was destroyed, with 7 and 5 pieces still flying.
 - [x] The Pantsir's 30 mm reaches 4 km and still hits: 30 times its old drag, about 8.4 s to get there
       at under 300 m/s, and it lives 9 s rather than 6. **Confirmed on 2026.9.10.5438** with
       `KSARMORY_SCENARIO_SAVE="KABOOM" gunnery:2,passing,12,200,1500`: 2 of 2 crossing drones had a burst

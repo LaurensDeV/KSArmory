@@ -1161,15 +1161,12 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         //
         // Flown through the air the shell will meet, against the same ground frame FireGun launches
         // it into: a fuse timed as if the shell kept its muzzle speed bursts short by what drag took.
-        if (!BallisticLead.TrySolveFlown(MountEcl, KsaWorld.VelocityEcl(Platform!),
-                                         KsaWorld.GroundVelocityAt(Platform!, PlatformEcl),
-                                         KsaWorld.GroundAccelerationAt(Platform!, PlatformEcl),
-                                         KsaWorld.BodyVelocityAt(Platform!),
-                                         aim.PositionEcl, aim.VelocityEcl, aim.AccelerationEcl, aim.DragShape,
-                                         shell, _leadGravityAt ??= LeadGravityAt,
-                                         _leadDensityAt ??= LeadDensityAt,
-                                         _gunLeadDirection, out double3 lead, out double flightTime,
-                                         _leadGroundVelocityAt ??= LeadGroundVelocityAt))
+        // Once more from nothing before giving up, as TrySolveFlownOrReach does: a lead that solved last
+        // frame and not this one lays the gun on the target instead, and a solve that alternates between
+        // the two swings the barrels through the whole lead angle every other frame.
+        if (!SolveGunLead(aim, shell, _gunLeadDirection, out double3 lead, out double flightTime)
+            && (Vec.Len2(_gunLeadDirection) == 0.0
+                || !SolveGunLead(aim, shell, Vec.Zero, out lead, out flightTime)))
         {
             _gunLeadDirection = Vec.Zero;
             return aim.PositionEcl;
@@ -1186,6 +1183,17 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         return lead;
     }
+
+    private bool SolveGunLead(Track aim, MunitionProfile shell, double3 hint, out double3 lead, out double flightTime)
+        => BallisticLead.TrySolveFlown(MountEcl, KsaWorld.VelocityEcl(Platform!),
+                                       KsaWorld.GroundVelocityAt(Platform!, PlatformEcl),
+                                       KsaWorld.GroundAccelerationAt(Platform!, PlatformEcl),
+                                       KsaWorld.BodyVelocityAt(Platform!),
+                                       aim.PositionEcl, aim.VelocityEcl, aim.AccelerationEcl, aim.DragShape,
+                                       shell, _leadGravityAt ??= LeadGravityAt,
+                                       _leadDensityAt ??= LeadDensityAt,
+                                       hint, out lead, out flightTime,
+                                       _leadGroundVelocityAt ??= LeadGroundVelocityAt);
 
     // Where the last lead pointed, so a solve starts next to its answer and a frame costs a pass or
     // two rather than the whole search.

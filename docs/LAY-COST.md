@@ -35,9 +35,13 @@ Every prototype passes the suite on its branch. Times are headless and warm unle
 
 ## Found on the way, and open
 
-- **A 20 mm solve against a fast missile stalls today.** At a 280 m/s missile 1.2 and 2 km out the straight-line
-  closest approach leaves 0.23 and 0.12 m, over the 0.1 m tolerance, so the Phalanx and Pantsir are laid on the missile
-  with no lead. The RK4 branch converges in three passes. A behaviour change, unflown.
+- ~~**A 20 mm solve against a fast missile stalls today.**~~ **Fixed on `dev`, flown.** The closest approach was
+  interpolated across a whole 50 ms step, which at a head-on closing speed of 1,300 m/s leaves 0.1 to 0.15 m of miss
+  along the closing line that no turn of the barrel takes out. `Flight.TryClosestApproach` now takes one straight-line
+  closest-approach step from the interpolated meeting. Headless, 684 of 684 close geometries solve against 237, and
+  none fails seeded from its own answer against 73. Flown on the CIWS save, `gunnery:2,head-on`: 9 hits and both
+  drones destroyed, against 4 shells and no hit, because the unfixed lead alternated between solving and not and the
+  gun never settled. The RK4 branch is no longer needed for this.
 - **Ocean density below the mean radius.** `KsaWorld.MediumDensityRatioAt` reads ocean below sea level, so a place at
   the mean radius samples water in the last steps of a flight. With it modelled, Earth's 35.5 km search stopped at
   0.419 of the way against 0.667. Headless only; places near sea level may be affected in game.

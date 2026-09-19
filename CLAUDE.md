@@ -2150,7 +2150,15 @@ where it truly is did, until the ocean came out.
 
 **And a lay that solved last frame is re-solved from nothing before it is called out of reach.** Seeded that
 close, near the longest reach the solve could stall, and the fallback laid the gun short and flashed
-"beyond reach" on a place in reach: a shell fired on one of those frames came down 33 m short.
+"beyond reach" on a place in reach: a shell fired on one of those frames came down 33 m short. A tracked
+target's lead does the same before falling back to the target.
+
+**And the meeting is found to the instant, not to the step.** The flight is integrated in 50 ms steps and
+the closest approach interpolated between two of them, which at a CIWS's head-on closing speed of 1,300 m/s
+left 0.1 to 0.15 m of miss along the closing line: no turn of the barrel takes that out, and the solve
+stalled against its 0.1 m tolerance. A 20 mm lead failed on most close geometries and, seeded, on the frame
+after every one it solved, so the gun swung between the lead and the target and never settled. One
+straight-line closest-approach step removes it; flown, 4 shells and no hit became 9 hits on two drones.
 
 The conversion is the part worth being careful with, and it is **three** corrections rather than
 one. `Camera.ScreenToEgoRay` divides by *its own* `FramebufferSize` while ImGui reports the cursor

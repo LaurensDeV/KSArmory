@@ -610,9 +610,18 @@ public static class BallisticLead
                     double part = Step * (closing / (closing - nextClosing));
                     State met = Advance(now, part);
 
-                    time = t + part;
-                    round = met.Round;
-                    target = met.Target;
+                    // Interpolated across a whole step, the meeting lands a hair early or late, and at a
+                    // head-on closing speed of 1,300 m/s a tenth of a millisecond is 0.13 m of miss along
+                    // the closing line -- which no turn of the barrel takes out, so the solve stalled
+                    // against it short of its tolerance. One straight-line closest approach removes it.
+                    double3 apart = met.Round - met.Target;
+                    double3 relative = met.RoundVelocity - met.TargetVelocity;
+                    double early = -Vec.Dot(apart, relative) / Vec.Len2(relative);
+                    if (!double.IsFinite(early) || Math.Abs(early) > Step) early = 0.0;
+
+                    time = t + part + early;
+                    round = met.Round + (met.RoundVelocity * early);
+                    target = met.Target + (met.TargetVelocity * early);
                     return Vec.IsFinite(round) && Vec.IsFinite(target);
                 }
 
