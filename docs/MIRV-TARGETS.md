@@ -1,6 +1,12 @@
 # Six warheads, six targets
 
-**A plan, not a record.** Nothing here is built. **Phase 0 has been flown headlessly**
+**Mostly a plan, and no longer entirely.** The `Sim/` half of phase 1 and all of phase 2's maths are
+built and tested on `arm/mirv-targets` — `TargetSet` is the list of up to six targets with their warhead
+counts and the release plan a flight would read, and `DivertFootprint` is the reach on the ground, taken
+off the sensitivity columns `ReleaseFocus.FlownSensitivity` already flies once per salvo, so the display
+costs no flying of its own. **Nothing is reachable in game**: no designator places a second target, no
+panel lists them, nothing is drawn, and the flight still sends all six warheads to one place.
+**Phase 0 has been flown headlessly**
 (`tests/KSArmory.Tests/MirvDivertTests.cs`), so the numbers below are measured rather than estimated —
 and it moved three of the plan's decisions, each marked **priced** where it appears. What it did not
 answer is marked *open*.
@@ -244,11 +250,28 @@ reach, far first — not by which target is "hardest".
 | | What | Flies anything? |
 | --- | --- | --- |
 | ~~0~~ | **Done** — `tests/KSArmory.Tests/MirvDivertTests.cs`. ±100 km is real **only from cutoff**; at today's release gate the footprint is a 34 × 18 km box. See the three findings at the top. | No |
-| 1 | **Targets as data**: a list of up to six `AimSite`s with counts on `IcbmComputer`; panel list with add/remove/counts; the scenario can name several. The flight still sends everything to target 1. | Unchanged |
-| 2 | **Reach display**: the missile region before target 1, the footprint after, cursor refusal outside it, the panel's divert and time readout. | No |
+| 1 | **Targets as data**. `Sim/TargetSet.cs` **done** on `arm/mirv-targets` with `ShotRequest` able to name several; what remains is Ksa-facing — hold the list on `IcbmComputer`, let `SiteDesignator` place more than one, and draw the panel list with add/remove/counts. The flight still sends everything to target 1. | Unchanged |
+| 2 | **Reach display**. `Sim/DivertFootprint.cs` **done** — the ellipse, the cost of a displacement and whether a budget reaches it. What remains is drawing it: the missile region before target 1, the footprint after, cursor refusal outside it, the panel's divert and time readout. | No |
 | 3 | **The release loop**: re-aim per target, per-warhead target bookkeeping in the log, and the per-pass trim ceiling raised deliberately. Shared targets release together. | Yes |
 | 4 | **Instruments and nights**: per-target scoring in `shot-report.py`, the matching check with one target, then 2/4/6. | Yes |
 | 5 | **Later**: area targets (option C), saving the target list with the craft, reordering by hand. | — |
+
+**Two gates sit in front of phase 3, and neither is code.**
+
+**The arrival decision, and it sizes the whole feature.** Priced free-clock, the reach is a long ellipse;
+pinned — which is what the flight actually does — it is small and nearly circular, because the penalty is
+entirely along-track and runs 2.56x at 6,179 km to 11.94x at 12,902. Either the release loop re-commits
+the arrival per destination, which needs a re-latch after cutoff that does not exist today, or the
+feature advertises the smaller reach. **Everything drawn in phase 2 is the wrong size until this is
+settled**, so it is the first thing to decide rather than the last.
+
+**And the trim has to stop failing first.** Phase 3 runs the post-cutoff trim once per target where today
+it runs once. At 12,902 km that trim currently gives up on **24 of 80 flights**, and each give-up
+forfeits the whole aim correction and costs about 2 km — `docs/ACCURACY-PLAN.md` 3fg. Six diverts on a
+loop that fails three times in ten is six chances to lose the shot. `IcbmConfig.StallFallsBackToHolding`
+is the candidate fix, merged off and unflown; `~/shots/scripts-2026-09-18/DECLARE-fallback.md` is the
+night that decides it. **That night is not part of this plan — it is the accuracy thread — but it is
+upstream of phase 3.**
 
 ## Open questions
 
