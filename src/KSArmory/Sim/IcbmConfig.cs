@@ -702,9 +702,18 @@ internal sealed class IcbmConfig
     /// hold and ends the null, so this cannot become the wait that never ends — which is what the
     /// deleted <c>arm/trim-band</c> version was, costing 110 s and a worse residual. 3fb.</para>
     ///
-    /// <para><b>Off, and unflown.</b></para>
+    /// <para><b>On.</b> Flown over 24 paired blocks at 12,902 km against a declared primary endpoint:
+    /// <b>0 of 24 flights lost against 16 of 24</b>, Fisher p = 0.0000, base worse in 6 of 6 accepted
+    /// blocks and 23 of 24 over every shot — and not once worse in any block. Over all 24, no
+    /// <c>hold</c> rocket stalled against 62 of 96, and one landed over a kilometre out against 60.
+    /// It also met the prediction declared before the night that separates a fix from a coincidence:
+    /// the corrections end on <c>payback</c> 19 and <c>trim</c> 0, keeping the fine band and
+    /// continuing to correct, where <c>PulseTrim=false</c> removed the same stall by releasing early
+    /// on <c>floor</c>. The cost is three flights out of clock at a median 0.34 km against sixteen at
+    /// 1.76, and nothing ended on <see cref="BusTrim.MaxSeconds"/>. <c>docs/ACCURACY-PLAN.md</c>
+    /// 3fh.</para>
     /// </summary>
-    public bool StallFallsBackToHolding;
+    public bool StallFallsBackToHolding = true;
 
     /// <summary>
     /// Give each warhead the separation velocity that lands it where the tubes' mean would —
