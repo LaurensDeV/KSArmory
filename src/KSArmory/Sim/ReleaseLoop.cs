@@ -41,6 +41,25 @@ internal enum ReleaseWalkHold
     HopBeyondOnePass,
 }
 
+/// <summary>Whether the bus can fly the next hop, and which limit refuses it.</summary>
+internal enum HopHold
+{
+    /// <summary>One pass will fly it and the budget can pay for it.</summary>
+    WillFly,
+
+    /// <summary>More than one trim pass will spend, which the trim refuses whole.</summary>
+    BeyondOnePass,
+
+    /// <summary>
+    /// The flight's whole trim budget will not cover it.
+    ///
+    /// <para>Distinct from <see cref="BeyondOnePass"/> because nothing downstream refuses it: the
+    /// trim ends, the correction finishes on the same reading, and the release happens with no
+    /// divert flown at all.</para>
+    /// </summary>
+    BeyondTheBudget,
+}
+
 /// <summary>A walk planned, with everything that was refused on the way to it.</summary>
 /// <param name="Dropped">
 /// Stops the budget or the coast would not reach, taken off the plan before it was flown rather
@@ -258,6 +277,38 @@ internal static class ReleaseLoop
                                       double ceilingMetresPerSecond)
         => PassMustFly(hopMetresPerSecond, owedMetresPerSecond)
            <= BusTrim.CeilingFor(ceilingMetresPerSecond);
+
+    /// <summary>
+    /// Whether the bus can fly the next hop at all, and which limit says no.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Two limits, and the second is the one that empties a tank.</b>
+    /// <see cref="BusTrim.MaxMetresPerSecond"/> bounds a single pass;
+    /// <see cref="PostBoostAim.MaxTrimMetresPerSecond"/> bounds the flight. A stop past the budget
+    /// is not refused by <see cref="BusTrim"/> — <see cref="BusTrim.WithinBudget"/> simply ends the
+    /// trim, <see cref="PostBoostAim"/> finishes on the same reading, and the release goes ahead
+    /// <em>undiverted</em>. Flown at four stops: diverts of 11.21, 17.08 and 31.72 m/s reached 60.01
+    /// of a 60 m/s budget, and the fourth stop released at <c>divert 0.00</c>, a kilometre from
+    /// where its warhead was sent.</para>
+    ///
+    /// <para>The whole pass has to be payable, not merely its first metre: a budget that runs out
+    /// part way leaves the warhead between two targets, which is worse than either.</para>
+    /// </remarks>
+    public static HopHold CanFlyTheHop(double hopMetresPerSecond, double owedMetresPerSecond,
+                                       double ceilingMetresPerSecond, double spentMetresPerSecond,
+                                       double budgetMetresPerSecond)
+    {
+        double wants = PassMustFly(hopMetresPerSecond, owedMetresPerSecond);
+
+        if (wants > BusTrim.CeilingFor(ceilingMetresPerSecond)) return HopHold.BeyondOnePass;
+
+        // A nanometre a second of slack, for ReleaseItinerary's own reason: the affordable spacing
+        // is the exact root of this comparison and lands on either side of it by one ulp.
+        return double.IsFinite(budgetMetresPerSecond)
+               && Math.Max(0.0, Finite(spentMetresPerSecond)) + wants > budgetMetresPerSecond + 1e-9
+                   ? HopHold.BeyondTheBudget
+                   : HopHold.WillFly;
+    }
 
     // A reading nobody could take is no demand rather than an infinite one: a trim that is not
     // armed owes nothing that can be measured, and refusing every hop on that ends every walk

@@ -460,9 +460,43 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
         List<int> order = [];
         if (placed[first].Warheads > 0) order.Add(first);
 
+        List<int> rest = [];
         for (int i = 0; i < placed.Count; i++)
         {
-            if (i != first && placed[i].Warheads > 0) order.Add(i);
+            if (i != first && placed[i].Warheads > 0) rest.Add(i);
+        }
+
+        // Nearest first from wherever the walk has got to, never the order the player clicked in.
+        // Four collinear targets clicked near-to-far and led from the far end walk 3 -> 0 -> 1 -> 2
+        // under the chosen order: out to the near end and back, 5 km of travel for a 3 km chain,
+        // which inflates every hop after the first and is what the ordering exists to prevent.
+        //
+        // Greedy rather than the cheapest of the 720 orders, because this is re-derived every frame
+        // for every rocket: it is exact for a chain walked from an end, which is what the lead being
+        // the farthest makes every set. Ties keep the caller's order, which is the only one stated.
+        double walkAlong = Finite(placed[first].AlongMetres);
+        double walkCross = Finite(placed[first].CrossMetres);
+
+        while (rest.Count > 0)
+        {
+            int nearest = 0;
+            double gap = double.PositiveInfinity;
+
+            for (int k = 0; k < rest.Count; k++)
+            {
+                double d = Gap(placed[rest[k]], walkAlong, walkCross);
+                if (d >= gap) continue;
+
+                gap = d;
+                nearest = k;
+            }
+
+            int pick = rest[nearest];
+            rest.RemoveAt(nearest);
+            order.Add(pick);
+
+            walkAlong = Finite(placed[pick].AlongMetres);
+            walkCross = Finite(placed[pick].CrossMetres);
         }
 
         // Where the bus is before any hop is bought. The lead's place even when nothing leaves
@@ -499,4 +533,13 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
     // -- and Array.Sort is entitled to throw on that, inside the frame hook where an exception is
     // the game.
     private static double Finite(double metres) => double.IsFinite(metres) ? metres : 0.0;
+
+    // How far a stop is from where the bus has got to, on the ground.
+    private static double Gap(in Placed to, double fromAlong, double fromCross)
+    {
+        double along = Finite(to.AlongMetres) - fromAlong;
+        double cross = Finite(to.CrossMetres) - fromCross;
+
+        return Math.Sqrt((along * along) + (cross * cross));
+    }
 }

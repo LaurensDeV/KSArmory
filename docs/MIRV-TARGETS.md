@@ -782,3 +782,34 @@ per-hop one, not as the answer.
 **Accuracy, for the record.** Two targets: 0 m on the booster's target, 0–19 m on the diverted one. Four
 targets: sub-40 m on the stops that hopped, ~1 km on the stop that did not. The mechanism is sound; what
 is unfinished is the bookkeeping around it.
+
+### Both of those, diagnosed — and the plan is optimistic by a correction per stop
+
+**(2) was the order the player clicked in.** `ReachDisplay.Order` put the lead first and then everything
+else *in the order it was chosen*, and its own comment claimed that walks inward "because
+`ElectFarthestLead` puts the lead at an end". That only holds if the player clicked in order. Clicked
+near-to-far and led from the far end, `order` is `[3, 0, 1, 2]` — out to the near end and back. It now
+walks **nearest-first from wherever the bus has got to**, which for a chain is the monotone walk: 3 km of
+travel against 5. Greedy rather than the cheapest of the 720 orders, because this is re-derived every
+frame for every rocket and greedy is exact for a chain walked from an end, which is what the lead being
+farthest makes every set. (The earlier prose promising all 720 were tried was aspirational; nothing did.)
+
+**(1) was the trim budget running out, and it is arithmetic rather than a guess.** The four stops' diverts
+were 11.21, 17.08 and 31.72 m/s — **per stop**, not cumulative — which sum to **60.01** against
+`PostBoostAim.MaxTrimMetresPerSecond` = 60. `BusTrim.WithinBudget` then ends the trim, `PostBoostAim`
+finishes on the same reading, `trimming` goes false and the release happens with no hop flown. The
+`<left> m/s left` field on stop 3's line read `0.0`; the instrument said so and nobody was reading it.
+
+**Nothing downstream refuses that**, which is what separates it from the per-pass ceiling: over the
+ceiling `BusTrim` refuses the whole pass, over the budget it simply stops. So the handover now asks both
+— `ReleaseLoop.CanFlyTheHop` returns `BeyondOnePass` or `BeyondTheBudget` — and the whole pass has to be
+payable, because a budget that runs out part way leaves the warhead between two targets.
+
+**And the plan is structurally optimistic by one aim correction per stop.** `ReleaseItinerary` charges
+`SingleTargetMetresPerSecond` = 16.1 **once** — "the separation null and the aim correction" of a
+single-target flight — and then charges each hop its divert alone. But every stop resets `PostBoostAim`
+and runs a full correction, so four stops pay four of them. That is why a plan of 29.6 m/s flew at 60.01
+with hops worth only a few m/s each: the corrections dominate, and the fix for (2) reduces the hops
+without touching them. **Not charged, deliberately** — one flight is not enough to type a constant with,
+and changing the planner's arithmetic changes which sets are accepted, which cannot be checked without
+flying. It is the number to measure next, and it belongs in the re-derived spacing tables.

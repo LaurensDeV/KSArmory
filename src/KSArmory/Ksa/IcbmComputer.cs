@@ -2419,9 +2419,11 @@ internal sealed class IcbmComputer
 
         if (step.Handover)
         {
-            if (!TheTrimWillFlyTheNextHop(step))
+            HopHold hold = TheTrimWillFlyTheNextHop(step);
+
+            if (hold != HopHold.WillFly)
             {
-                CurtailTheWalk(step);
+                CurtailTheWalk(step, hold);
                 return;
             }
 
@@ -2440,20 +2442,22 @@ internal sealed class IcbmComputer
     // Asked before the lead moves, and it is the trim's own question rather than the planner's: a
     // hop is priced as the velocity change between two solutions, and BusTrim is handed the whole
     // difference between the vehicle's velocity and the new solution's -- so the residual the
-    // release just left on the bus is added to it. Over the ceiling the trim refuses the WHOLE pass.
+    // release just left on the bus is added to it. Over the ceiling the trim refuses the WHOLE pass;
+    // over the budget it refuses nothing and the release happens with no divert flown.
     //
     // Zero cycles because HandOverTo resets the correction, so the next pass is the trim's first and
     // PostCutoffSequence hands it the constant.
-    private bool TheTrimWillFlyTheNextHop(in ReleaseStep step)
-        => ReleaseLoop.OnePassWillFly(
+    private HopHold TheTrimWillFlyTheNextHop(in ReleaseStep step)
+        => ReleaseLoop.CanFlyTheHop(
                step.NextHopMetresPerSecond, _trim.ToGainMetresPerSecond,
                PostCutoffSequence.CeilingFor(0, Config.TrimBudgetMetresPerSecond,
                                              _trim.SpentMetresPerSecond,
-                                             Config.TrimCeilingFromBudget));
+                                             Config.TrimCeilingFromBudget),
+               _trim.SpentMetresPerSecond, Config.TrimBudgetMetresPerSecond);
 
     // The stop the bus is on takes the rest: it is already trimmed and corrected onto this target,
     // so the warheads left are delivered rather than assigned to a place nothing flew the bus to.
-    private void CurtailTheWalk(in ReleaseStep step)
+    private void CurtailTheWalk(in ReleaseStep step, HopHold hold)
     {
         double owed = _trim.ToGainMetresPerSecond;
         double wants = ReleaseLoop.PassMustFly(step.NextHopMetresPerSecond, owed);
@@ -2461,11 +2465,16 @@ internal sealed class IcbmComputer
 
         _walker.StopHere();
 
+        string why = hold == HopHold.BeyondTheBudget
+            ? $"the flight has spent {_trim.SpentMetresPerSecond:F2} m/s of its "
+              + $"{Config.TrimBudgetMetresPerSecond:F0} and cannot pay the {wants:F2} m/s more"
+            : $"one pass would have to fly {wants:F2} m/s of "
+              + $"{BusTrim.CeilingFor(double.NaN):F0} and would refuse all of it";
+
         Log.Info($"walk on {KsaWorld.DisplayName(Craft)}: the hop to target {step.NextTarget} is "
-                 + $"{step.NextHopMetresPerSecond:F2} m/s and the bus still owes {owed:F2}, so one "
-                 + $"pass would have to fly {wants:F2} m/s of {BusTrim.CeilingFor(double.NaN):F0} "
-                 + $"and would refuse all of it -- the walk ends here and target {step.Target} "
-                 + $"takes the {left} warhead{(left == 1 ? "" : "s")} left");
+                 + $"{step.NextHopMetresPerSecond:F2} m/s and the bus still owes {owed:F2}, so "
+                 + $"{why} -- the walk ends here and target {step.Target} takes the {left} "
+                 + $"warhead{(left == 1 ? "" : "s")} left");
     }
 
     // What one stop delivered, in the shape a night is scored off. Step.Away rather than the quota:
