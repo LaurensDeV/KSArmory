@@ -749,3 +749,36 @@ the *request's* target count rather than from what the flight reached is what ma
 **Still unflown**: four and six targets, a paired night against a single-target baseline, and every
 in-game surface — the pre-launch reach drawn on the ground, the cursor refusing outside it, and the
 panel's list. Nothing here has been touched by a human hand.
+
+## Flown: four targets, and what the ceiling actually binds — 2026-09-21
+
+**Two targets, 2 km apart, is a clean success** (above). **Four targets, 1 km apart, walks end to end**:
+24 re-aims, 32 releases, no refusals, all 8 rockets PASS with 6 of 6 arriving. So three handovers in one
+coast work, and `BusTrim` converges on a commanded divert as readily as on a separation shove — which
+was the thing most expected to fail.
+
+**But the per-pass ceiling, not the budget, is what bounds a set.** Four targets **2 km** apart refused
+every hop: the walk planned **26.5 m/s of 60** — comfortably inside the budget — and then found single
+hops wanting **10.0, 10.1 and 16.2 m/s** against `BusTrim.MaxMetresPerSecond` = 10. **The per-hop cost
+grows along the walk** as the reach decays, so the last hop is the dearest and the first to be refused.
+
+**The spacing tables earlier in this file are therefore wrong about what fits.** They price a set
+against the 60 m/s budget and conclude six targets fit 4 km apart at 55.1 m/s. A set also has to clear
+the ceiling **hop by hop**, at the reach of the slot each hop is bought in, and that is far tighter.
+They need re-deriving; until then read them as a budget check that a set must pass *in addition to* the
+per-hop one, not as the answer.
+
+**Two faults still open at four stops.**
+
+1. **The last stop released with `divert 0.00 m/s`** — nothing refused, it simply released without
+   hopping — and that stop is the worst group on six of eight rockets, **0.94 to 2.06 km**, which is the
+   spacing. Same shape as the 4 km fault above.
+2. **The flown order is a zigzag rather than a chain**: one rocket walked **3 → 0 → 1 → 2** where
+   farthest-first on four collinear targets wants 3 → 2 → 1 → 0. That is 5 km of travel for a 3 km
+   chain, it inflates every later hop, and it is plausibly the cause of (1). Cumulative divert reached
+   31.72 m/s against a plan of 29.6, which is consistent with the flown walk being dearer than the
+   priced one.
+
+**Accuracy, for the record.** Two targets: 0 m on the booster's target, 0–19 m on the diverted one. Four
+targets: sub-40 m on the stops that hopped, ~1 km on the stop that did not. The mechanism is sound; what
+is unfinished is the bookkeeping around it.
