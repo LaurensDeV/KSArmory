@@ -1537,6 +1537,17 @@ the share square to the thrust line 71% → 6%. **A constant step cannot see it*
 driven by the solve moving between frames, so `IcbmFlightRig.StepJitter` is the fourth thing the rig
 had to stop being better than the game at.
 
+**And a count of frames is a duration that grows with the step, which only shows off the orbit
+plane.** The freeze begins at `Frames x accel x step x throttle` and burns that off at
+`accel x throttle`, so it lasts `Frames x step` *seconds* — 0.167 s at a 17 ms step against 0.400
+at 40. A shot aimed along the track has no out-of-plane work left to freeze, so there it costs
+nothing and the residual grows exactly linearly with the step; aimed **26° off the plane** the
+residual is **59–93% square to the thrust line** and grows **5.9x over a 4x step**. Flown at
+12,902 km the cross-track share is 81% at 23 ms and 94% at 28, which is the off-plane figure — and
+every cutoff fixture flies equator to equator, where it is identically zero.
+`IcbmConfig.HoldDirectionSeconds` says the limit in seconds instead and is **off and unflown**;
+`docs/ACCURACY-PLAN.md` 3fk has what a night would have to settle.
+
 **A crossing search that stops on the first sample past the boundary is biased, not merely
 imprecise.** `ImpactPredictor` accepted the first point below the ground, so a tolerance expressed
 as a *time step* left the answer metres deep — which at 7 km/s on a shallow arc is tens of metres

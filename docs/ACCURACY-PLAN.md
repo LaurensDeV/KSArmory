@@ -11966,3 +11966,70 @@ subagent were competing for the machine throughout. The debt still never crossed
 stalled. So a slow frame raises the debt everywhere, but only at long range does it start from enough
 debt for that to reach the stall. **A player on a slow machine loses nothing at 6,000 km and a third of
 their rockets at 12,900.** The peak of 73.2 also confirms the host recovered from 3fi's degraded state.
+
+## 3fk. The steering freeze is a duration that grows with the frame, and only off the plane — 2026-09-20
+
+3fi leaves the chain from a slower frame to a stalled trim resting on the cutoff residual, and the
+flown residual grew **almost entirely in its cross-track part** — 0.130 → 0.320 against along-track
+0.060 → 0.070 and radial 0.070 → 0.090. Three suspects were read out of the code. Two are not
+leaks, and the third is, in a place no fixture could see.
+
+**`IcbmProgram.HoldDirectionFrames` — REAL, and the mechanism is exact.** The freeze begins at
+`Frames x accel x step x throttle` of velocity still to gain and burns that off at `accel x
+throttle`, so it lasts `Frames x step` **seconds** however long a frame is. Measured through
+`IcbmFlightRig` with its jitter on, on one off-plane shot: **0.167 s at a 17 ms step against
+0.400 s at 40 — 2.40x for a 2.40x step**, and 0.241 against 0.266 at the 21/28 ms pair the two
+nights ran at.
+
+**But in the orbit plane it costs nothing, which is why every fixture said it was fine.** A shot
+aimed along the track has no out-of-plane work left to freeze:
+
+| aimed | share of the residual square to the thrust line | residual against a 4x step |
+| --- | --- | --- |
+| along the track (lat 0) | **0–2%**, worst of four | **4.08x** — exactly linear |
+| **26° off the plane** | **59–93%**, and 100% on the worst shot | **5.9x**, reaching 2.9 frames |
+
+Flown, the cross-track share is **81% at 23 ms and 94% at 28** — the off-plane column, not the
+in-plane one. `CutoffResidualTests` and every other cutoff fixture fly equator to equator, where
+the term is identically zero. The 14° sweep is **bimodal** — 0%, 0%, 0%, 64%, 80%, 98%, 1%, 67%
+across the steps — which is 3ex's bimodal landing from the other end.
+
+**`IcbmConfig.HoldDirectionSeconds` says the same limit in seconds of burning**, floored at one
+frame so the direction being held is never noise. Off, unflown; 0.35 s is 20 frames at the rate
+the plateau was measured on, so nothing moves at 60 fps.
+`CutoffResidualTests.TheSteeringFreezeLastsTheSameTimeAtEitherFrameRate` fails against the old
+code. Headless on one off-plane shot the freeze goes 2.40x → 0.96x and what it leaves at 40 ms
+goes **0.3299 → 0.1468 m/s**; at the 21/28 ms pair a single shot is **adverse** (0.0565/0.0121 →
+0.0657/0.0381) and the residual there is bimodal, so it says nothing. **A night decides it, and
+the endpoint is the flown cutoff residual's cross-track part rather than the landing.**
+
+**`BusTrim.StopBand` — NOT A LEAK at the shipped bus.** It is `max(0.02, 0.5 x accel x step)`, so
+the step only reaches it above `0.02 / (0.5 x accel)`. At the flown 0.56 m/s² that is **71.4 ms,
+14 fps**: the band reads 0.0200 at every step from 10 to 66 ms. The *pulsing* band,
+`3 x accel x pulse`, carries no step at all. The crossover is 13.3 ms on a 3.0 m/s² bus, which is
+`TrimBus`'s default and the vehicle `BusTrim.MaxFaithfulStep`'s "0.118 m/s at 33 ms" was measured
+on — **that line is about a bus five times stronger than the one that flies.**
+
+**`BusTrim.Stalled` — NOT A LEAK, and mildly protective.** Against a reference receding at a
+*stated* rate, so the recession is the same in seconds at every frame rate, over 12 debts × 16
+recessions per step:
+
+| step | stalled | median residual | median seconds |
+| --- | --- | --- | --- |
+| 10 ms | 64% | 0.0300 | 22.3 |
+| 16.7 | 62% | 0.0271 | 22.4 |
+| 21 | 63% | 0.0258 | 21.7 |
+| 28 | 64% | 0.0231 | 21.1 |
+| 40 | 64% | 0.0197 | 19.9 |
+
+**Flat across a 4x step**, and a coarser frame gives up slightly *better off*. With nothing
+receding: **0 of 12 at every step**, worst residual 0.0027 — 3fa's finishers reproduced exactly.
+So 3fi's residue at a matched debt is not the stall clock, and its own guess — that a hold's
+`accel x step` quantum is 22% coarser — is refuted: the quantum is nowhere near the 0.02 band.
+
+**What is left to explain that residue.** The bus coasts **off rails** while its attitude is
+commanded, so KSA integrates it at the frame step while the trim solves against an exact Kepler
+propagation of the cutoff state. That mismatch is a recession the frame rate does move — about
+0.25 mm/s per second at 28 ms against 0.19 at 21 on a 200 km orbit, against a pulse phase's
+3.7 mm/s per second of authority. Unmeasured in flight, and `IcbmConfig.RailsDuringCoast` is the
+switch that would settle it.

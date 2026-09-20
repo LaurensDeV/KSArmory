@@ -726,6 +726,32 @@ internal sealed class IcbmConfig
     public bool StallFallsBackToHolding = true;
 
     /// <summary>
+    /// How long the burn's thrust line may be frozen before cutoff, in seconds of burning. Zero
+    /// counts it in frames instead — <see cref="IcbmProgram.HoldDirectionFrames"/>, which ships.
+    ///
+    /// <para><b>A count of frames is a duration that grows with the step.</b> The freeze begins at
+    /// <c>Frames x accel x step x throttle</c> of velocity still to gain and burns that off at
+    /// <c>accel x throttle</c>, so it lasts <c>Frames x step</c> seconds however long a frame is —
+    /// measured headlessly at <b>0.223 s at a 21 ms step against 0.291 s at 28</b>. Everything the
+    /// required velocity does in that time is left square to a line nothing can still thrust
+    /// along.</para>
+    ///
+    /// <para><b>In the orbit plane it costs nothing, which is why no fixture saw it.</b> A shot
+    /// aimed along the track has no out-of-plane work left to freeze: the residual there is 0-1%
+    /// square to the thrust line and grows exactly linearly with the step, 4.08x over 4x. Aimed
+    /// <b>26 deg off the plane</b> it is <b>59-93% square</b> and grows <b>5.9x over the same 4x</b>,
+    /// reaching 2.9 times one frame's delta-v. Flown at 12,902 km the cross-track share is 81% at a
+    /// 23 ms step and 94% at 28 — the same shape. <c>docs/ACCURACY-PLAN.md</c> 3fi.</para>
+    ///
+    /// <para><b>Never shorter than one frame</b>, which is the least a freeze can usefully be: below
+    /// that the direction is steered to a difference of two nearly equal vectors, which is what
+    /// <see cref="IcbmProgram.HoldDirectionBelow"/> exists to stop.</para>
+    ///
+    /// <para><b>Off, and unflown.</b> 0.35 s is 20 frames at the rate the plateau was measured on.</para>
+    /// </summary>
+    public double HoldDirectionSeconds;
+
+    /// <summary>
     /// Give each warhead the separation velocity that lands it where the tubes' mean would —
     /// <see cref="ReleaseFocus"/>.
     ///

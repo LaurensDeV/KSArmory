@@ -860,6 +860,19 @@ internal sealed partial class Ui
             + "which is what the shipped bus declares; a bus with coarser jets wants its own number, "
             + "and one set too short stalls the phase rather than misfiring it.");
 
+        float freezeMs = (float)(config.HoldDirectionSeconds * 1000.0);
+        if (ImGui.SliderFloat("Hold the thrust line for (ms, 0 = frames)", ref freezeMs, 0.0f, 800.0f))
+        {
+            config.HoldDirectionSeconds = freezeMs < 1.0f ? 0.0 : freezeMs / 1000.0;
+        }
+        Tip(config.HoldDirectionSeconds > 0.0
+                ? $"The last {config.HoldDirectionSeconds * 1000.0:F0} ms of burning are flown on the "
+                  + "direction the guidance last meant, whatever the frame rate is."
+                : $"0: the line is frozen for {IcbmProgram.HoldDirectionFrames:F0} frames instead, which "
+                  + "is 0.22 s at 63 fps and 0.29 s at 47 -- so a slower machine holds it longer and "
+                  + "leaves more square to it. Off the orbit plane that is 59-93% of what the cutoff "
+                  + "leaves, and it grows 5.9x over a 4x step against 4.1x in plane. Unflown.");
+
         bool resample = config.ResampleGroundAtImpact;
         if (ImGui.Checkbox("Warheads re-read the ground as they meet it", ref resample))
         {

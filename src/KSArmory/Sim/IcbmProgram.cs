@@ -838,8 +838,16 @@ internal sealed class IcbmProgram
         double frame = state.Booster.AccelerationNow * _lastStep
                      * Math.Clamp(state.ThrottleAchieved, 0.0, 1.0);
 
-        return frame > 0.0 ? Math.Min(HoldDirectionBelow, HoldDirectionFrames * frame)
-                           : HoldDirectionBelow;
+        if (!(frame > 0.0)) return HoldDirectionBelow;
+
+        // A count of frames is a duration that grows with the step, and off the orbit plane what it
+        // leaves square to the frozen line grows with it -- see IcbmConfig.HoldDirectionSeconds.
+        // One frame is the floor: below that the direction being held is noise.
+        double held = Config.HoldDirectionSeconds > 0.0
+                          ? Math.Max(frame, frame / _lastStep * Config.HoldDirectionSeconds)
+                          : HoldDirectionFrames * frame;
+
+        return Math.Min(HoldDirectionBelow, held);
     }
 
     private void Resolve(in IcbmState state)
