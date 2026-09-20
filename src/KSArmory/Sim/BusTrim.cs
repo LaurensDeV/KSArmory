@@ -237,6 +237,26 @@ internal sealed class BusTrim
     public const double MaxMetresPerSecond = 10.0;
 
     /// <summary>
+    /// The most one pass will fly, given what the loop above it allows.
+    /// </summary>
+    /// <remarks>
+    /// <b>One expression, because two callers judge the same pass.</b> <see cref="Update"/> refuses
+    /// a demand over this outright, and a release walk has to know the same number before it
+    /// commits to a hop — a walk that accepts what the trim then refuses leaves the bus on the old
+    /// solution with the warheads already assigned to somewhere else.
+    ///
+    /// <para>Never less than <see cref="MaxMetresPerSecond"/>: a ceiling below it is the budget
+    /// running out, which <see cref="WithinBudget"/> ends rather than this.</para>
+    /// </remarks>
+    /// <param name="askedMetresPerSecond">
+    /// <see cref="PostCutoffSequence.CeilingFor"/>, or NaN where nothing above has an opinion.
+    /// </param>
+    public static double CeilingFor(double askedMetresPerSecond)
+        => askedMetresPerSecond > 0.0 && double.IsFinite(askedMetresPerSecond)
+               ? Math.Max(askedMetresPerSecond, MaxMetresPerSecond)
+               : MaxMetresPerSecond;
+
+    /// <summary>
     /// What fraction of the bus's own best acceleration a direction must still be producing to count
     /// as connected to something.
     ///
@@ -647,9 +667,7 @@ internal sealed class BusTrim
         double stop = StopBand(_accel, step, now.PulseSeconds);
         double fine = stop < band ? stop : 0.0;
 
-        double ceiling = now.MaxMetresPerSecond > 0.0 && double.IsFinite(now.MaxMetresPerSecond)
-                             ? Math.Max(now.MaxMetresPerSecond, MaxMetresPerSecond)
-                             : MaxMetresPerSecond;
+        double ceiling = CeilingFor(now.MaxMetresPerSecond);
 
         if (_toGain > ceiling)
         {

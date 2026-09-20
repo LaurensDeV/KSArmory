@@ -102,7 +102,8 @@ internal readonly record struct ReleaseWalk(ReleaseItinerary Itinerary, ReleaseW
 /// <param name="Finished">Every stop that fits has had its warheads.</param>
 internal readonly record struct ReleaseStep(int Target, int Warheads, int Away, bool ReleaseHere,
                                             bool Handover, bool Finished, int NextTarget,
-                                            double HopMetresPerSecond, double BeforeArrivalSeconds)
+                                            double HopMetresPerSecond, double BeforeArrivalSeconds,
+                                            double NextHopMetresPerSecond = 0.0)
 {
     /// <summary>The line a night is scored off: which warheads went where, and what it cost.</summary>
     public string Say(int stop, int stops, double spentMetresPerSecond, double leftMetresPerSecond)
@@ -211,7 +212,7 @@ internal static class ReleaseLoop
 
         if (stops == 0 || stop < 0 || stop >= stops)
         {
-            return new ReleaseStep(-1, 0, 0, false, false, true, -1, 0.0, double.NaN);
+            return new ReleaseStep(-1, 0, 0, false, false, true, -1, 0.0, double.NaN, 0.0);
         }
 
         ReleaseItinerary.Stop at = walk.Itinerary.Stops[stop];
@@ -221,8 +222,48 @@ internal static class ReleaseLoop
 
         return new ReleaseStep(at.Target, at.Warheads, away, owes, !owes && more, !owes && !more,
                                more ? walk.Itinerary.Stops[stop + 1].Target : -1,
-                               at.HopMetresPerSecond, at.BeforeArrivalSeconds);
+                               at.HopMetresPerSecond, at.BeforeArrivalSeconds,
+                               more ? walk.Itinerary.Stops[stop + 1].HopMetresPerSecond : 0.0);
     }
+
+    /// <summary>
+    /// What one trim pass has to fly to reach the next stop: the hop, plus whatever the bus still
+    /// owes the solution it is on.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>The planner and the trim judged different quantities, and the difference is a
+    /// kilometres-scale miss that reads as an arrival.</b> A hop is priced as the velocity change
+    /// between two solutions; <see cref="BusTrim"/> is handed the whole difference between the
+    /// vehicle's velocity and the new solution's, so a residual left on the bus by the release it
+    /// has just made is added to it. Flown: a 9.73 m/s hop against a 10 m/s ceiling reached the trim
+    /// as 10.29, which refuses the <em>whole</em> pass — the bus never moved, and three warheads
+    /// already assigned to the next target left on the old solution, 4.00 km away.</para>
+    ///
+    /// <para>A bound rather than the demand itself, by the triangle inequality: it cannot exceed the
+    /// two added, and may be as little as their difference. So it refuses some hops the trim would
+    /// have flown, which is the direction to be wrong in — over-promising is what puts warheads
+    /// somewhere nobody aimed them.</para>
+    /// </remarks>
+    public static double PassMustFly(double hopMetresPerSecond, double owedMetresPerSecond)
+        => Math.Max(0.0, Finite(hopMetresPerSecond)) + Math.Max(0.0, Finite(owedMetresPerSecond));
+
+    /// <summary>
+    /// Whether one pass will fly it — the same comparison <see cref="BusTrim.Update"/> makes, on the
+    /// same ceiling.
+    /// </summary>
+    /// <param name="ceilingMetresPerSecond">
+    /// What the loop above the trim allows, as <see cref="PostCutoffSequence.CeilingFor"/> gives it.
+    /// </param>
+    public static bool OnePassWillFly(double hopMetresPerSecond, double owedMetresPerSecond,
+                                      double ceilingMetresPerSecond)
+        => PassMustFly(hopMetresPerSecond, owedMetresPerSecond)
+           <= BusTrim.CeilingFor(ceilingMetresPerSecond);
+
+    // A reading nobody could take is no demand rather than an infinite one: a trim that is not
+    // armed owes nothing that can be measured, and refusing every hop on that ends every walk
+    // before it starts.
+    private static double Finite(double metresPerSecond)
+        => double.IsFinite(metresPerSecond) ? metresPerSecond : 0.0;
 
     /// <summary>
     /// How many of the magazine a stop may have, for the sequencer that counts down to empty.

@@ -37,7 +37,16 @@ internal sealed class ReleaseWalker
     /// Whether the flight is doing something a single-target one does not. <b>The one gate</b>: no
     /// statement of the loop runs with this false.
     /// </summary>
-    public bool Walking => _walk.Walks && !Finished;
+    public bool Walking => _walk.Walks && !Finished && !Curtailed;
+
+    /// <summary>
+    /// The walk ended at the stop the bus is on, and that stop takes every warhead left.
+    ///
+    /// <para>What a hop the trim will not fly comes to: the bus is already trimmed and corrected on
+    /// this target, so the warheads still aboard are delivered here rather than sent to a place
+    /// nothing flew the bus to. The later targets get nothing, which is what the log says.</para>
+    /// </summary>
+    public bool Curtailed { get; private set; }
 
     /// <summary>A walk that ran to its end, as opposed to one that never existed.</summary>
     public bool Done => _walk.Walks && Finished;
@@ -66,6 +75,7 @@ internal sealed class ReleaseWalker
         Stop = 0;
         AwayThisStop = 0;
         Finished = false;
+        Curtailed = false;
         return true;
     }
 
@@ -88,6 +98,21 @@ internal sealed class ReleaseWalker
     /// <summary>End the walk, so nothing more is released and the trim has nobody left to aim for.</summary>
     public void Finish() => Finished = true;
 
+    /// <summary>
+    /// End the walk here, and let this stop take every warhead that is left.
+    /// </summary>
+    /// <remarks>
+    /// For a hop the trim will refuse. <see cref="Finish"/> is the wrong ending there — it takes
+    /// <see cref="TubesLeft"/> to zero and the rest of the magazine rides the bus down, where the
+    /// stop the bus is <em>on</em> is a solution it has already been trimmed and corrected onto.
+    /// </remarks>
+    public void StopHere()
+    {
+        if (!Walking) return;
+
+        Curtailed = true;
+    }
+
     /// <summary>Back to no plan at all, for a flight being started over.</summary>
     public void Reset()
     {
@@ -96,6 +121,7 @@ internal sealed class ReleaseWalker
         Stop = 0;
         AwayThisStop = 0;
         Finished = false;
+        Curtailed = false;
         _coastSeconds = double.NaN;
     }
 
@@ -154,12 +180,17 @@ internal sealed class ReleaseWalker
     /// after a salvo — cannot send warheads the plan never assigned anywhere.
     /// </remarks>
     public int TubesLeft(int loaded)
-        => !_walk.Walks ? loaded
+        => !_walk.Walks || Curtailed ? loaded
          : Finished ? 0
          : ReleaseLoop.TubesLeftForStop(Step, loaded);
 
     /// <summary>Which target a warhead leaving now is being sent to.</summary>
-    public int TargetIndex(int lead) => Walking ? Step.Target : lead;
+    /// <remarks>
+    /// A curtailed walk still answers with the stop the bus is on, because that is where its
+    /// remaining warheads are going and what a harness has to score them against.
+    /// </remarks>
+    public int TargetIndex(int lead)
+        => _walk.Walks && !Finished ? Step.Target : lead;
 
     /// <summary>
     /// The line a night is scored off, one per stop.
