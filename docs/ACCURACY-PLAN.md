@@ -11911,10 +11911,24 @@ machine's frame rate as much as about the mod.
 the *slow* night, against the 67% base rate, and took its own arm to **0 of 96**. The fallback was
 validated at the frame rate where the failure is worst.
 
-**Still open.** Why the frame rate fell. The installed loader did move between the nights — 0.4.6 to
-0.4.7 — but night 2's own first shot ran at 73 fps under 0.4.7, which weakens it; there is no display or
-GPU telemetry in the log, and night 1's engine sessions have rotated away. **The cheap test needs no
-flying**: launch the same save under each loader for two minutes and read `mod frame`'s frame count. And
-one thing the debt does not explain — at a *matched* debt of 1.5–1.8 m/s, night 2 stalled 9 of 18 against
-night 1's 2 of 30. The plausible mechanism is that a hold's quantum is `accel x step`, so a 22% longer
+**It is not the loader either, and the same evidence rules out both.** StarMap moved 0.4.6 to 0.4.7
+between the nights, which made it a suspect — but the drop happened *inside* night 2, on one binary and
+one loader:
+
+| night 2 shot | median | peak |
+| --- | --- | --- |
+| **001** | **63.3 fps** | **73.3** |
+| 002 | 39.0 | 65.0 |
+| 003–010 | 46.7–48.9 | 63.7–65.9 |
+
+Shot 001 is indistinguishable from night 1; every shot after it is slow and none recovers. Code and
+loader are constant across those shots, so neither is the cause. **What changed is the host**, and the
+*ceiling* moving with the median — 73–75 down to 64–66 — is the signature of a thermal or power state or
+a background process rather than of work the mod asked for. Night 1's one slow shot (002, 43.5 fps) was
+contaminated by compiler builds and recovered; night 2's did not.
+
+**So there is nothing here to fix in the repo, and nothing to test with a loader swap.** What is worth
+having is a frame-rate reading beside every night's numbers, because
+every cross-night rate on this page is partly a statement about it. One thing the debt does not explain —
+at a *matched* debt of 1.5–1.8 m/s, night 2 stalled 9 of 18 against night 1's 2 of 30. The plausible mechanism is that a hold's quantum is `accel x step`, so a 22% longer
 step is a 22% coarser quantum, but that is not demonstrated.
