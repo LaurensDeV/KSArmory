@@ -191,7 +191,10 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
     {
         if (!contact.IsAlive) return;
 
-        string? team = Teams.TeamFor(contact.TeamKey, _config.TeamNames);
+        // What the panel's flag put it on, and only failing that what its name reads as. The flag
+        // is the one somebody set on purpose, and it is also the cheaper of the two: a dictionary
+        // hit against a Contains over every declared team name.
+        string? team = contact.DeclaredTeam ?? Teams.TeamFor(contact.TeamKey, _config.TeamNames);
         Allegiance allegiance = _policy.Iff.Classify(team);
 
         double3 targetPos = contact.PositionEcl;

@@ -372,6 +372,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/TrackState.cs` | one contact, as the threat model sees it |
 | `Sim/Wreckage.cs` | what this mod's warheads broke off a craft — **wreckage, not targets**, recognised by the name the engine gives a piece, because the engine keeps no other record of where it came from |
 | `Sim/Iff.cs` | which side a contact is on, and whether it may be engaged |
+| `Sim/TeamRoster.cs` | which craft the panel's flag put on which side — **the half a display name cannot carry**, because a name is what a craft is called and not whose it is |
 | `Sim/GuardState.cs` | whether a craft's weapons are standing guard — **the switcher's one switch for auto-engage on every weapon aboard** |
 | `Sim/LineOfSight.cs` | whether a body is between the viewer and something |
 | `Sim/ITerrainHeights.cs` | **the seam a sensor looks over the real skyline through** |
@@ -992,6 +993,22 @@ the case. `Config` holds what cannot: the
 roster of team names, what gets drawn, how much is logged. The test to apply is not importance but
 whether two sites could sensibly disagree — a name labels a craft the same way whoever is looking
 at it, and what that name *means* is each system's own.
+
+**And `IffPolicy.OwnTeam` is both halves of an allegiance, not one.** It is the side an
+installation fights *for*, and it is also the side every other sensor reads that craft — and its
+rounds — on, through `Sim/TeamRoster.cs`, which `KSArmoryMod` declares once a frame off those same
+policies. Writing only the first half is what a switcher flag looks like it does and must not:
+two sites whose flags both say Blue then classify each other `Unknown`, which `EngageUnknown`
+engages by default. `Teams.TeamFor`'s substring of the craft name is the **fallback** underneath,
+for everything in the world with no flag to set — a drone, an airliner, anything carrying nothing
+of this mod's.
+
+It only shows on the rounds. Two mounts standing on the same ground are under
+`SensorProfile.MinTargetSpeed` and never enter each other's track lists at all, so the first
+evidence either is hostile to the other is a shell crossing at a kilometre a second. **A
+classification nothing ever exercises is not a classification that works**, and the same
+confusion sat in the scope's own symbol, which classified `Contact.TeamKey` — a craft *name* —
+where `Classify` wants a team.
 
 Weapon *performance* is neither: range, guidance and fuse live on the profiles, because two
 Pantsirs on opposite sides of the map share a flight model and disagree about whether they

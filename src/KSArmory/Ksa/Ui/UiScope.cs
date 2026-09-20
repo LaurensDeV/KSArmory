@@ -311,9 +311,14 @@ internal partial class Ui
 
     // Whose it is, as the scope's own IFF sees it -- so the symbol agrees with what fire control
     // would decide about the same contact rather than being a second opinion.
+    //
+    // Track.Team, never Contact.TeamKey: the latter is a craft *name*, and Classify wants a team.
+    // Handed the name, it answers Unknown for everything but a craft called exactly after its own
+    // side -- a whole scope of unknowns, which is the second opinion this line exists not to be.
+    // The radar has already resolved it.
     private static ScopeGeometry.Blip SymbolOf(Track track, SystemConfig policy)
         => ScopeGeometry.SymbolFor(track.Contact is RoundContact,
-                                   policy.Iff.Classify(track.Contact.TeamKey) != Allegiance.Unknown);
+                                   policy.Iff.Classify(track.Team) != Allegiance.Unknown);
 
     // Read off the same roster the anti-radiation path asks, rather than a second source that
     // could disagree about who is transmitting.

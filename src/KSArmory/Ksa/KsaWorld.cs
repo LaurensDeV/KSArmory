@@ -599,6 +599,19 @@ internal static class KsaWorld
     /// <summary>What this mod's warheads have broken up this session, so no set takes the pieces for targets.</summary>
     public static Wreckage Wreckage { get; } = new();
 
+    /// <summary>
+    /// Which craft the panel's flag has put on which side, rebuilt once a frame by
+    /// <c>KSArmoryMod.CollectTeams</c>. Named for its type rather than <c>Teams</c>,
+    /// which is the helper that resolves a craft <em>name</em> to a side and is the fallback
+    /// underneath this.
+    ///
+    /// <para>Here rather than threaded through <c>Scan</c> for the reason <see cref="Wreckage"/>
+    /// is: every sensor in the world needs the same answer and none of them owns it. A
+    /// <see cref="VehicleContact"/> is built from a bare craft inside the scan, so the alternative
+    /// is a parameter on four update signatures to reach the one line that reads it.</para>
+    /// </summary>
+    public static TeamRoster TeamRoster { get; } = new();
+
     private static readonly List<Vehicle> _census = [];
     private static bool _censusFresh;
 

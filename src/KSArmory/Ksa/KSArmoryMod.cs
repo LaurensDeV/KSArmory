@@ -304,6 +304,12 @@ public sealed class KSArmoryMod
         _icbms?.Clear();
         KsaWorld.Wreckage.Clear();
 
+        // Keyed on live craft, every one of which DeserializeSave has just destroyed. CollectTeams
+        // rebuilds it on the next step that runs, so this only matters for a world that stays
+        // paused -- and a destroyed vehicle reachable from a dictionary is what KsaWorld's own
+        // census note forbids however briefly.
+        KsaWorld.TeamRoster.Clear();
+
         // Markers pin the craft they show, and every one of them has just been destroyed.
         Markers.Forget();
 
@@ -624,6 +630,11 @@ public sealed class KSArmoryMod
                 using (_budget.Measure("faithful")) faithful = FaithfulStepInFlight();
 
                 double step = Math.Min(dtSim, faithful);
+
+                // Which craft is on which side, before anything reads it. Same pass and the same
+                // reason as the airborne census: it is what exists, not something per system --
+                // and the rounds collected below carry their shooter's side out of it.
+                using (_budget.Measure("teams")) CollectTeams();
 
                 // Gathered once, not once per system: every crewed system scans the same sky, and
                 // building this per system would be quadratic in how many are in the world.
@@ -977,11 +988,43 @@ public sealed class KSArmoryMod
              : part;
     }
 
+    // Which side each craft fights for, as the panel's flag set it -- the half of IFF a craft's
+    // display name cannot carry.
+    //
+    // Rebuilt rather than kept, because the entries key on live Vehicles and a roster holding a
+    // destroyed one is what KsaWorld's own census note forbids. The cost is one insert per armed
+    // craft per frame, against the Contains-per-declared-team it saves every sensor on every
+    // contact.
+    //
+    // The rank, not the order, is what settles a craft whose installations were given different
+    // sides under Tuning: both rosters enumerate in a dictionary's order, and an allegiance
+    // decided by that is an unreproducible bug report.
+    private void CollectTeams()
+    {
+        KsaWorld.TeamRoster.Clear();
+
+        if (_roster is not null)
+        {
+            foreach (WeaponSystems.Entry e in _roster.All)
+            {
+                KsaWorld.TeamRoster.Declare(e.Craft, e.Policy.Iff.OwnTeam, e.Ordinal);
+            }
+        }
+
+        if (_heads is null) return;
+
+        foreach (OpticalHeads.Entry h in _heads.All)
+        {
+            KsaWorld.TeamRoster.Declare(h.Head.Platform, h.Policy.Iff.OwnTeam, TeamRoster.DirectorRank);
+        }
+    }
+
     // Every round any crewed system has in the air, wrapped as contacts so a radar can see them.
     //
-    // A round carries its shooter's craft name rather than its own, which is what makes it
-    // inherit that side's allegiance: a launcher's own salvo reads as friendly to everything on
-    // its team without anything having to know a round from a craft.
+    // A round carries its shooter's side and its shooter's craft name rather than its own, which
+    // is what makes it inherit that allegiance: a launcher's own salvo reads as friendly to
+    // everything on its team without anything having to know a round from a craft. The side is
+    // carried rather than looked up because a loose system has no craft left to look one up by.
     //
     // Called once, here, before any system updates -- so every round in the world is still where
     // last frame left it and one instant describes the lot. Each is then carried forward by the
@@ -999,7 +1042,8 @@ public sealed class KSArmoryMod
             WeaponSystem system = e.Battery;
             if (system.Platform is not { } platform) continue;
 
-            AddAirborne(system.Rounds, KsaWorld.DisplayName(platform), platform, KsaWorld.ParentBody(platform), step);
+            AddAirborne(system.Rounds, KsaWorld.DisplayName(platform), system.Team, platform,
+                        KsaWorld.ParentBody(platform), step);
         }
 
         // And the ones whose launcher has been destroyed. They are still in the air, so they are
@@ -1012,11 +1056,11 @@ public sealed class KSArmoryMod
         IReadOnlyList<WeaponSystem> loose = _roster.Loose;
         for (int i = 0; i < loose.Count; i++)
         {
-            AddAirborne(loose[i].Rounds, loose[i].LooseName, null, loose[i].EffectBody, step);
+            AddAirborne(loose[i].Rounds, loose[i].LooseName, loose[i].Team, null, loose[i].EffectBody, step);
         }
     }
 
-    private void AddAirborne(IReadOnlyList<IProjectile> rounds, string firedBy,
+    private void AddAirborne(IReadOnlyList<IProjectile> rounds, string firedBy, string? team,
                              KSA.Vehicle? anchor, Celestial? body, double step)
     {
         for (int i = 0; i < rounds.Count; i++)
@@ -1025,7 +1069,8 @@ public sealed class KSArmoryMod
             if (r.State != RoundState.Flying) continue;
 
             double3 at = r.PositionEcl + r.VelocityEcl * step;
-            _airborne.Add(new RoundContact(r, firedBy, anchor, at, r.VelocityEcl, CoastingAcceleration(r, body, at)));
+            _airborne.Add(new RoundContact(r, firedBy, team, anchor, at, r.VelocityEcl,
+                                           CoastingAcceleration(r, body, at)));
         }
     }
 

@@ -1395,8 +1395,15 @@ Still open below.
       launcher is holding fire; report the line rather than trying to reproduce it.
 - [ ] **Teams and IFF** - declare two teams under **KSArmory settings → Teams**, put the launcher on
       one with its flag, and confirm the track list marks F / N / H / ? correctly and that a
-      friendly is not engaged. Name teams so that no team name is a substring of another craft's
-      name.
+      friendly is not engaged. The flag is what places a craft; only something with nothing of this
+      mod's fitted falls back to its name, so for those name teams such that no team name is a
+      substring of another craft's name.
+- [ ] **Two mounts on one team do not shoot each other's rounds.** A Phalanx and a Pantsir, both
+      flags on the same team, both auto-engaging, one firing. Neither may engage the other's shells,
+      and neither track list may show them as `?`. **This is the case that only the rounds reach**:
+      two craft standing on the same ground are under `MinTargetSpeed` and never enter each other's
+      track lists at all, so nothing before the first shot exercises the classification. Check the
+      Radar tab draws them **X** rather than a triangle.
 - [ ] **Removing a team** under **KSArmory settings → Teams** moves every craft on it to **No team**
       in the switcher, and each one's **Teams and IFF** tab reads `Own team: none`. Declaring the
       team again does not bring back the allied or neutral ticks it had.

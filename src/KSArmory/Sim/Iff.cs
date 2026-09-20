@@ -17,20 +17,24 @@ public enum Allegiance
 }
 
 /// <summary>
-/// Which team a craft's name puts it on, and the half of IFF that runs before
-/// <see cref="IffPolicy.Classify"/> gets a string to compare.
+/// Which team a craft's <em>name</em> puts it on, and the roster of names itself — part of the
+/// half of IFF that runs before <see cref="IffPolicy.Classify"/> gets a string to compare. The
+/// other part, and the one that answers first, is <see cref="TeamRoster"/>.
 /// </summary>
 public static class Teams
 {
     /// <summary>
     /// The team whose name appears in <paramref name="craftName"/>, or null if none does.
     ///
-    /// <para>A <b>substring</b> match, because KSA has no team field and a craft's display name is
-    /// the only assignment available without asking the player to fill in a second one. That is
-    /// also its trap, and it is not fixable from here: a craft called "Redstone" lands on team
-    /// "Red" without anyone having said so. Longest match wins, so listing "Red Team" alongside
-    /// "Red" resolves the pair that is actually ambiguous; nothing resolves the pair that merely
-    /// shares a prefix.</para>
+    /// <para><b>The fallback, not the mechanism.</b> A craft carrying a launcher or a director is
+    /// placed by its flag — see <see cref="TeamRoster"/> — and this answers for everything else in
+    /// the world, which has no flag to set and only a name.</para>
+    ///
+    /// <para>A <b>substring</b> match, because KSA has no team field. That is its trap: a craft
+    /// called "Redstone" lands on team "Red" without anyone having said so. Longest match wins, so
+    /// listing "Red Team" alongside "Red" resolves the pair that is actually ambiguous; nothing
+    /// resolves the pair that merely shares a prefix — which is the other reason the flag comes
+    /// first.</para>
     /// </summary>
     public static string? TeamFor(string? craftName, IReadOnlyList<string> teamNames)
     {

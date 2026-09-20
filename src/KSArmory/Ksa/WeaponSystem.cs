@@ -129,6 +129,12 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// <summary>What to call the craft that fired them, captured before it went.</summary>
     public string LooseName => _looseName;
 
+    /// <summary>
+    /// The side this installation fights for, which is also the side its rounds are on. Survives
+    /// the craft: a loose system's policy is still here when the launcher is not.
+    /// </summary>
+    public string? Team => _policy.Iff.OwnTeam;
+
     /// <summary>True when the operator pinned the platform rather than following control.</summary>
     public bool PlatformPinned { get; private set; }
 

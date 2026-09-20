@@ -30,8 +30,21 @@ internal interface IContact
     /// The name the team roster is matched against, which is not always what the contact is
     /// called. A round's is its <em>shooter's</em> craft name, so it inherits that side's
     /// allegiance without anything having to know a round from a craft.
+    ///
+    /// <para>The <em>fallback</em>, read only when <see cref="DeclaredTeam"/> says nothing.</para>
     /// </summary>
     string TeamKey { get; }
+
+    /// <summary>
+    /// The side this contact was put on by the panel's flag, or null when nothing has said —
+    /// in which case <see cref="TeamKey"/> answers instead.
+    ///
+    /// <para>Two mechanisms because only one of them reaches everything. A craft with a launcher
+    /// or a director on it has a flag; a drone, an airliner or anything else in the world does
+    /// not, and a name is all it has. Declared wins, because it is the one somebody set on
+    /// purpose.</para>
+    /// </summary>
+    string? DeclaredTeam { get; }
 
     /// <summary>Radius, which the blast and the reticle both size from.</summary>
     double MeanRadius { get; }
@@ -87,6 +100,8 @@ internal sealed class VehicleContact(Vehicle vehicle) : IContact
     public string DisplayName => KsaWorld.DisplayName(Vehicle);
 
     public string TeamKey => DisplayName;
+
+    public string? DeclaredTeam => KsaWorld.TeamRoster.For(Vehicle);
 
     /// <summary>Nothing launched a craft. A sensor skips its own platform by reference instead.</summary>
     public Vehicle? LaunchedFrom => null;

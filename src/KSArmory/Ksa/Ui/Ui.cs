@@ -514,9 +514,10 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         }
 
         Tip($"On {team ?? "no team"}: the side it fights for, which its IFF sorts every contact "
+            + "against -- and the side every other craft sees it and its rounds on. "
             + (teams.Count == 0
-               ? "against. Click to create the first team."
-               : "against. Click to pick a team or create one, or right-click for the next team."));
+               ? "Click to create the first team."
+               : "Click to pick a team or create one, or right-click for the next team."));
 
         if (!ImGui.BeginPopup("##teams")) return;
 
@@ -557,9 +558,16 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
             ImGui.CloseCurrentPopup();
         }
         Tip("Type a name and press Enter to create the team and put this craft on it.");
+        Help("A craft with nothing of this mod's fitted has no flag, so it is placed by its name "
+             + "instead: the team's name anywhere in the craft's name puts it on that side.");
     }
 
     // Every system and director on the row's craft: a craft fights for one side.
+    //
+    // This is also what puts the craft on that side in everyone *else's* picture: KSArmoryMod
+    // declares it into KsaWorld.TeamRoster each frame off these same policies. Both halves come
+    // from here, so a flag that wrote only the first would leave two sites on one team reading
+    // each other as Unknown, which is engageable by default.
     private void SetTeam(string? team)
     {
         foreach (WeaponSystems.Entry e in _rowSystems) e.Policy.Iff.OwnTeam = team;

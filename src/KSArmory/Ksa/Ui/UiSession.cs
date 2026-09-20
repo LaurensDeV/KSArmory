@@ -120,9 +120,10 @@ internal sealed partial class Ui
         }
 
         ImGui.SameLine();
-        Help("KSA has no team field. A craft joins a team when the team's name appears anywhere in "
-             + "its name, so \"Red\" also matches \"Redstone\". Longest match wins. Name teams "
-             + "distinctly.");
+        Help("KSA has no team field, so a craft is placed two ways. The flag on its switcher row "
+             + "is the one that counts. Failing that -- a drone, or anything with nothing of this "
+             + "mod's fitted -- the team's name anywhere in the craft's name puts it on that side, "
+             + "so \"Red\" also matches \"Redstone\". Longest match wins. Name teams distinctly.");
     }
 
     // The developer tools, in a window of their own rather than a section of the settings one.

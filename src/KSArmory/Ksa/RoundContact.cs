@@ -28,14 +28,21 @@ namespace KSArmory;
 /// own missiles must read as friendly to everything on its side, or a battery engages its own
 /// salvo the moment it clears the tubes.
 /// </param>
+/// <param name="declaredTeam">
+/// The side the shooter's flag puts it on, or null when nothing has said and the name has to
+/// answer. Carried rather than looked up: a round's handle is the round, so it is in no craft
+/// roster — and a system that has gone loose has no craft left to look up either, while its
+/// policy, and so its side, is still there.
+/// </param>
 /// <param name="anchor">
 /// The craft the round's drawn offset is measured from. A round's <c>OffsetFromPlatform</c> is a
 /// separation from its launcher, so drawing it needs that launcher — see
 /// <c>docs/FRAMES-AND-EPOCHS.md</c>.
 /// </param>
 /// <param name="accelerationEcl">Its pull and its drag at that instant, gravity included.</param>
-internal sealed class RoundContact(IProjectile round, string? firedBy, KSA.Vehicle? anchor,
-                                   double3 positionEcl, double3 velocityEcl, double3 accelerationEcl) : IContact
+internal sealed class RoundContact(IProjectile round, string? firedBy, string? declaredTeam,
+                                   KSA.Vehicle? anchor, double3 positionEcl, double3 velocityEcl,
+                                   double3 accelerationEcl) : IContact
 {
     public IProjectile Round { get; } = round;
 
@@ -48,6 +55,9 @@ internal sealed class RoundContact(IProjectile round, string? firedBy, KSA.Vehic
 
     /// <summary>Its shooter's craft, so a round is on the side that fired it.</summary>
     public string TeamKey => firedBy ?? string.Empty;
+
+    /// <summary>Its shooter's, for the same reason: a round is on the side that fired it.</summary>
+    public string? DeclaredTeam => declaredTeam;
 
     /// <summary>The craft that fired it, so its own sensors can disregard it.</summary>
     public KSA.Vehicle? LaunchedFrom => anchor;
