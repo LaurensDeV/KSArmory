@@ -24,9 +24,20 @@ penalty is 1.94x rather than 2.56x. Read every along-track number below as the f
 
 **Pinned, the footprint is a circle**, radius the cross-track reach, about `0.96 · t_go` metres per m/s
 at every geometry and epoch measured — along and across come out within 3% of each other at the release
-gate. So `DivertFootprint.OrientationRad` is meaningless pinned, and **`DivertFootprint.TryFrom`
-computes only the free-clock ellipse**: drawing it as-is would show a region 2–12x too long. A pinned
-mode is a prerequisite for phase 2, not a refinement of it.
+gate. So `DivertFootprint.OrientationRad` is meaningless pinned.
+
+**Both clocks are built, and `DivertFootprint.TryFrom` has no default between them.** It takes an
+`ArrivalClock` — `Pinned` for what the flight does, `Free` for what a loop re-committing the arrival could
+offer — because drawing the free one where the flight pins the clock shows a region 2–12x too long, and
+that is not a mistake a caller should be able to make by forgetting an argument. Pinning is **one
+projection, not a second solve**: the arrival time responds to release velocity along one direction, so
+the reach is the free-clock map with that direction taken out of each of its two ground rows. What it
+needed was a third row nothing carried — `ReleaseFocus.FlownSensitivity` now flies
+`ArrivalSecondsPerMetrePerSecond` beside the landing columns, which costs no extra flying because the
+seven predictions already report their own arrival time, and the landing columns cannot supply it: they
+are two crossings of one sphere, so the radial part that decides *when* is projected out of them. At the
+flown 6,179 km release it reads **355 / 355 against the free clock's 688 / 355**, 1.94x along and 1.00x
+across (`DivertFootprintTests`).
 
 **The decision this doc framed as "re-commit the arrival or ship a smaller reach" was the wrong one,
 because the epoch dominates the latch.** Derived off the same columns `MirvDivertTests` prices (and
@@ -145,9 +156,9 @@ whatever is left after the ones already chosen, taken along the cheapest order t
 * A **ground outline**, draped on the terrain like the existing aim ring (`IcbmOverlay`), in the designation
   colour: the missile's reach before target 1, the bus footprint after.
 * **Drawn at the ceiling the loop can actually spend**, which is `BusTrim.MaxMetresPerSecond` — 10 m/s, not
-  the 30–45 the budget suggests. At 6,179 km that is about **6.9 x 3.6 km** free-clock, and less pinned.
-  Drawing the larger region first and shrinking it when phase 3 raises the per-pass ceiling is the wrong
-  order.
+  the 30–45 the budget suggests. At 6,179 km that is about **6.9 x 3.6 km** free-clock and **3.5 x 3.5 km**
+  pinned, which is what the flight has. Drawing the larger region first and shrinking it when phase 3 raises
+  the per-pass ceiling is the wrong order.
 * **Before launch, only the missile's reach.** The bus footprint's long axis is `450 · cot γ`, and γ belongs
   to the arc actually flown rather than the cheapest arc from the pad — measured against three flown
   geometries the pad's estimate is out by **1.04x, 0.51x and 0.59x**, while the short axis is exact. So
@@ -285,7 +296,7 @@ reach, far first — not by which target is "hardest".
 | --- | --- | --- |
 | ~~0~~ | **Done** — `tests/KSArmory.Tests/MirvDivertTests.cs`. ±100 km is real **only from cutoff**; at today's release gate the footprint is a 34 × 18 km box. See the three findings at the top. | No |
 | 1 | **Targets as data**. `Sim/TargetSet.cs` **done** on `arm/mirv-targets` with `ShotRequest` able to name several; what remains is Ksa-facing — hold the list on `IcbmComputer`, let `SiteDesignator` place more than one, and draw the panel list with add/remove/counts. The flight still sends everything to target 1. | Unchanged |
-| 2 | **Reach display**. `Sim/DivertFootprint.cs` **done** — the ellipse, the cost of a displacement and whether a budget reaches it. What remains is drawing it: the missile region before target 1, the footprint after, cursor refusal outside it, the panel's divert and time readout. | No |
+| 2 | **Reach display**. `Sim/DivertFootprint.cs` **done** — both clocks, the cost of a displacement and whether a budget reaches it. What remains is drawing it: the missile region before target 1, the footprint after, cursor refusal outside it, the panel's divert and time readout. | No |
 | 3 | **The release loop**: re-aim per target, per-warhead target bookkeeping in the log, and the per-pass trim ceiling raised deliberately. Shared targets release together. | Yes |
 | 4 | **Instruments and nights**: per-target scoring in `shot-report.py`, the matching check with one target, then 2/4/6. | Yes |
 | 5 | **Later**: area targets (option C), saving the target list with the craft, reordering by hand. | — |
@@ -300,8 +311,9 @@ that cap moves or the last warhead gets no divert. The tank is not the binding c
 pinned — which is what the flight actually does — it is small and nearly circular, because the penalty is
 entirely along-track and runs 2.56x at 6,179 km to 11.94x at 12,902. Either the release loop re-commits
 the arrival per destination, which needs a re-latch after cutoff that does not exist today, or the
-feature advertises the smaller reach. **Everything drawn in phase 2 is the wrong size until this is
-settled**, so it is the first thing to decide rather than the last.
+feature advertises the smaller reach. **Phase 2 can now draw either**, so what is left is which one to
+ask it for and how early the gate runs — a config decision rather than missing maths, and still the first
+thing to settle rather than the last.
 
 **And the trim has to stop failing first.** Phase 3 runs the post-cutoff trim once per target where today
 it runs once. At 12,902 km that trim currently gives up on **24 of 80 flights**, and each give-up

@@ -275,9 +275,21 @@ internal static class ReleaseFocus
     /// a second, and the same columns taken as they were cost 2.9 mm of the spread per second between the flight
     /// and the release.</para>
     /// </summary>
+    /// <param name="ArrivalSecondsPerMetre">
+    /// How much later the round arrives per metre of release position, one component per axis.
+    /// </param>
+    /// <param name="ArrivalSecondsPerMetrePerSecond">
+    /// The same per metre a second of release velocity. <b>Not recoverable from the landing columns</b>: those
+    /// are two landings on one sphere, so the radial part that decides <em>when</em> the crossing happens is
+    /// projected out of them. The seven flights carry it for nothing —
+    /// <see cref="ImpactPredictor.Impact.Seconds"/> is already in hand — and it is the third row
+    /// <see cref="DivertFootprint.ArrivalClock.Pinned"/> needs.
+    /// </param>
     internal sealed record FlownSensitivity(double3 ArrivedCci, double3 ArrivalVelocityCci, double FlightSeconds,
                                             double3 PositionX, double3 PositionY, double3 PositionZ,
-                                            double3 VelocityX, double3 VelocityY, double3 VelocityZ)
+                                            double3 VelocityX, double3 VelocityY, double3 VelocityZ,
+                                            double3 ArrivalSecondsPerMetre,
+                                            double3 ArrivalSecondsPerMetrePerSecond)
     {
         // Metres of landing per step: large beside the predictor's micrometres of crossing noise, and small
         // beside the 8 km the air changes over.
@@ -316,7 +328,8 @@ internal static class ReleaseFocus
         /// A change at the later state is the change <c>τ</c> earlier that coasts into it: <c>δr − τ·δv</c> and
         /// <c>δv − τ·G·δr</c>, with <c>G</c> the gravity gradient, so the position columns lose <c>τ·V·G</c> and
         /// the velocity columns <c>τ·P</c>. Left out, the second costs 2.9 mm of the spread a second and the first
-        /// 0.33 mm at half a second.
+        /// 0.33 mm at half a second. The two arrival-clock rows are an output of the same state and carry the same
+        /// way.
         /// </remarks>
         /// <param name="positionCci">The later release's position, where the gradient is taken.</param>
         public FlownSensitivity For(double mu, double3 positionCci, double flightSeconds)
@@ -332,6 +345,9 @@ internal static class ReleaseFocus
             double3 VG(double upJ, double3 velocityJ)
                 => ((VelocityX * up.X + VelocityY * up.Y + VelocityZ * up.Z) * (3.0 * upJ) - velocityJ) * k;
 
+            // The same product for a row rather than a matrix, which is what the arrival clock is.
+            double3 RowG(double3 row) => (up * (3.0 * Vec.Dot(row, up)) - row) * k;
+
             return this with
             {
                 FlightSeconds = flightSeconds,
@@ -341,6 +357,8 @@ internal static class ReleaseFocus
                 VelocityX = VelocityX - PositionX * tau,
                 VelocityY = VelocityY - PositionY * tau,
                 VelocityZ = VelocityZ - PositionZ * tau,
+                ArrivalSecondsPerMetre = ArrivalSecondsPerMetre - RowG(ArrivalSecondsPerMetrePerSecond) * tau,
+                ArrivalSecondsPerMetrePerSecond = ArrivalSecondsPerMetrePerSecond - ArrivalSecondsPerMetre * tau,
             };
         }
 
@@ -360,20 +378,24 @@ internal static class ReleaseFocus
 
             double seconds = nominal.Seconds;
 
-            if (!TryColumn(new double3(PositionStepMetres, 0, 0), Vec.Zero, PositionStepMetres, out double3 px)
-                || !TryColumn(new double3(0, PositionStepMetres, 0), Vec.Zero, PositionStepMetres, out double3 py)
-                || !TryColumn(new double3(0, 0, PositionStepMetres), Vec.Zero, PositionStepMetres, out double3 pz)
+            if (!TryColumn(new double3(PositionStepMetres, 0, 0), Vec.Zero, PositionStepMetres, out double3 px,
+                           out double tpx)
+                || !TryColumn(new double3(0, PositionStepMetres, 0), Vec.Zero, PositionStepMetres, out double3 py,
+                              out double tpy)
+                || !TryColumn(new double3(0, 0, PositionStepMetres), Vec.Zero, PositionStepMetres, out double3 pz,
+                              out double tpz)
                 || !TryColumn(Vec.Zero, new double3(VelocityStepMetresPerSecond, 0, 0), VelocityStepMetresPerSecond,
-                              out double3 vx)
+                              out double3 vx, out double tvx)
                 || !TryColumn(Vec.Zero, new double3(0, VelocityStepMetresPerSecond, 0), VelocityStepMetresPerSecond,
-                              out double3 vy)
+                              out double3 vy, out double tvy)
                 || !TryColumn(Vec.Zero, new double3(0, 0, VelocityStepMetresPerSecond), VelocityStepMetresPerSecond,
-                              out double3 vz))
+                              out double3 vz, out double tvz))
             {
                 return null;
             }
 
-            return new FlownSensitivity(nominal.PointCci, nominal.VelocityCci, seconds, px, py, pz, vx, vy, vz);
+            return new FlownSensitivity(nominal.PointCci, nominal.VelocityCci, seconds, px, py, pz, vx, vy, vz,
+                                        new double3(tpx, tpy, tpz), new double3(tvx, tvy, tvz));
 
             bool TryLand(double3 p, double3 v, out ImpactPredictor.Impact impact)
                 => ImpactPredictor.TryPredict(body, p, v, through.StepSeconds, ImpactPredictor.DefaultMaxSeconds,
@@ -383,13 +405,15 @@ internal static class ReleaseFocus
 
             // Ground-fixed landings differenced, then carried: the two arrive at different instants, and a
             // difference of inertial crossings would carry the ground's turn across that gap.
-            bool TryColumn(double3 dp, double3 dv, double step, out double3 column)
+            bool TryColumn(double3 dp, double3 dv, double step, out double3 column, out double delaySeconds)
             {
                 column = Vec.Zero;
+                delaySeconds = 0.0;
                 if (!TryLand(positionCci + dp, velocityCci + dv, out ImpactPredictor.Impact moved)) return false;
 
                 column = body.CarryCci(moved.GroundFixedPointCci - nominal.GroundFixedPointCci, seconds) / step;
-                return Vec.IsFinite(column);
+                delaySeconds = (moved.Seconds - seconds) / step;
+                return Vec.IsFinite(column) && double.IsFinite(delaySeconds);
             }
         }
     }
