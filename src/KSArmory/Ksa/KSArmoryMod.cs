@@ -453,7 +453,7 @@ public sealed class KSArmoryMod
             // run is at 1x where frame time buys nothing. Somebody watches these.
             if (KsaWorld.InFlight && _icbms is not null)
             {
-                using (_budget.Measure("icbmdraw")) IcbmOverlay.Draw(_icbms, _trajectory);
+                using (_budget.Measure("icbmdraw")) IcbmOverlay.Draw(_icbms, _icbms.For(_ui.Focused), _trajectory);
             }
 
             // Over the world, under the panel: ImGui draws windows in submission order, and the

@@ -165,6 +165,23 @@ internal sealed class IcbmComputer
     private ReleaseFocus.FlownSensitivity? _flownKick;
     private double _flownKickDragK = double.NaN;
 
+    // The reach on the ground, the landing it is centred on and the rotation that held between the
+    // body's frames when it was flown. Body-fixed, because the columns' own axes belong to the
+    // instant they departed from and five seconds of Earth's spin is 2.3 km of ground -- which on a
+    // ring a few kilometres across is the whole shape.
+    private DivertFootprint? _reachFootprint;
+    private double3 _reachLandingCcf;
+    private doubleQuat _reachCci2Ccf = doubleQuat.Identity;
+    private doubleQuat _reachCcf2Cci = doubleQuat.Identity;
+    private double _sinceReachWall = double.PositiveInfinity;
+
+    // How often the reach is re-flown, in REAL seconds, for the reason ReadoutIntervalSeconds is:
+    // it is a display, and paced by simulated time it re-flies every frame on a warped coast.
+    // Seven flights of the predictor a time, against the readout's one -- and the thing it measures
+    // decays over hundreds of seconds (1,076 to 886 m per m/s over a 330 s schedule), so five
+    // seconds is a third of a per cent stale.
+    private const double ReachIntervalSeconds = 5.0;
+
     /// <summary>
     /// A warhead is being followed and has not reported yet. The trace reports from a poll one
     /// frame after the round stops flying, so a harness that ends the run on the last impact ends
@@ -208,6 +225,15 @@ internal sealed class IcbmComputer
 
     /// <summary>Everywhere the warheads are going, in the order they were chosen.</summary>
     public IReadOnlyList<TargetSet.Entry> Targets => _targets.Entries;
+
+    /// <summary>
+    /// The ground this bus can still put a warhead on, as the overlay draws it, the cursor is
+    /// refused against and the panel reads it.
+    ///
+    /// <para>Derived once a frame rather than per reader: three surfaces ask the same question and
+    /// a cursor refused where the ring shows room reads as the tool being broken.</para>
+    /// </summary>
+    public ReachDisplay Reach { get; private set; } = ReachDisplay.None(ReachHold.NotCoasting, 0);
 
     /// <summary>Which of <see cref="Targets"/> the flight is aimed at, which is <see cref="Target"/>'s.</summary>
     public int LeadTarget => _targets.LeadIndex;
@@ -610,6 +636,12 @@ internal sealed class IcbmComputer
             // The countdown keeps running, because the warheads do. Frozen here it never reaches
             // zero, and anything holding on for the salvo to arrive would hold for ever.
             if (double.IsFinite(_arrivalLeft)) _arrivalLeft -= simStep;
+
+            // The reach is not one of the things that outlive the bus: it describes where the bus
+            // could still send a warhead, and there is no bus.
+            _reachFootprint = null;
+            Reach = ReachDisplay.None(ReachHold.SalvoAway, _targets.Count);
+
             StepTraceLoose(simStep);
             return;
         }
@@ -755,6 +787,7 @@ internal sealed class IcbmComputer
         }
 
         Predict(simStep, state);
+        RefreshReach(state);
 
         // Read before anything is written this frame. KSA replaces the whole flight computer from
         // its worker every frame, so this is what survived of last frame's command — and comparing
@@ -2983,10 +3016,13 @@ internal sealed class IcbmComputer
     }
 
     /// <summary>Where the aim point is right now, in the ecliptic. Null when nothing is designated.</summary>
-    public double3? TargetEcl()
+    public double3? TargetEcl() => SiteEcl(Target);
+
+    /// <summary>The same for any other place in the list.</summary>
+    public double3? SiteEcl(AimSite site)
     {
-        if (Parent is null || !Target.IsSet) return null;
-        return SurfacePointEcl(Parent, Target.LatitudeDeg, Target.LongitudeDeg);
+        if (Parent is not { } parent || !site.IsSet) return null;
+        return SurfacePointEcl(parent, site.LatitudeDeg, site.LongitudeDeg);
     }
 
     private IcbmState Sample(double playerStep, out bool usable)
@@ -3460,6 +3496,201 @@ internal sealed class IcbmComputer
         double3 dirCcf = body.GetDirCcfFromLatLon(latitudeDeg, longitudeDeg);
         double height = SurfaceHeight(body, body.GetTerrainHeightFromDirCcf(dirCcf, accurate: true));
         return dirCcf.Transform(body.GetCcf2Cce()) * (body.MeanRadius + height) + body.GetPositionEcl();
+    }
+
+    // The reach the overlay draws, the cursor is refused against and the panel reads -- re-flown
+    // rarely and derived every frame, because the set of targets it is priced against changes on a
+    // click and a readout a frame behind that reads as the click having done nothing.
+    private void RefreshReach(in IcbmState state)
+    {
+        bool wanted = Config.ShowDivertReach
+                      && Program.Phase == IcbmPhase.Coast
+                      && !_salvoAway
+                      && Parent is not null
+                      && _warhead is not null
+                      // The reach exists to place and to check targets, and neither is happening on a
+                      // bus nobody is clicking at with a set of one. Seven predictor flights per
+                      // rocket per interval is not a thing to spend on a rocket nobody is editing.
+                      && (Config.DesignateByClicking || _targets.Count > 1);
+
+        if (!wanted)
+        {
+            _reachFootprint = null;
+            _sinceReachWall = double.PositiveInfinity;
+            Reach = ReachDisplay.None(WhyNotWanted(), _targets.Count);
+            return;
+        }
+
+        _sinceReachWall += state.PlayerStepSeconds;
+
+        if (_sinceReachWall >= ReachIntervalSeconds) FlyTheReach(state);
+
+        Reach = ReachDisplay.For(_reachFootprint, PlacedTargets(),
+                                 new ReleaseItinerary.Bus(Config.ReleaseBeforeArrivalSeconds,
+                                                          SecondsToArrival, WarheadsAboard),
+                                 Program.Phase, _salvoAway, TargetSet.MaxTargets,
+                                 Warhead.LethalRadius(_warhead!.ChargeKg));
+    }
+
+    // In the order a reader wants it: the phase first, because it is the one that changes by itself,
+    // and "nobody asked" last, because it is the one with a way out.
+    private ReachHold WhyNotWanted()
+        => Program.Phase != IcbmPhase.Coast ? ReachHold.NotCoasting
+         : _salvoAway ? ReachHold.SalvoAway
+         : Parent is null || _warhead is null ? ReachHold.Unflown
+         : ReachHold.NotAsked;
+
+    private void FlyTheReach(in IcbmState state)
+    {
+        _sinceReachWall = 0.0;
+
+        if (Parent is not { } parent || _warhead is not { } warhead) return;
+
+        try
+        {
+            double3 positionCci = state.PositionCci + ReleaseOffsetCci();
+            double3 velocityCci = state.VelocityCci + ReleaseImpulseCci();
+
+            // A sphere through the ground under the aim, which is what the columns want: each is two
+            // landings a few metres apart, and the terrain's texture across them is not the arc's
+            // sensitivity. Flown against the height field it would cost a lookup per step per column.
+            double groundRadius = Target.IsSet && Target.BodyName == parent.Id
+                                      ? TerrainRadiusAt(_trueAimCci)
+                                      : Body.SurfaceRadius;
+
+            long started = System.Diagnostics.Stopwatch.GetTimestamp();
+
+            ReleaseFocus.FlownSensitivity? flown = ReleaseFocus.FlownSensitivity.TryFly(
+                Body, positionCci, velocityCci,
+                new ReleaseFocus.Air(new ImpactPredictor.Drag(DensityRatioAt, warhead), PredictStepSeconds,
+                                     groundRadius, Config.PredictionStopsOnTheSurface,
+                                     Config.PredictionStopsOnTheTerrain));
+
+            double ms = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+
+            if (flown is null
+                || !DivertFootprint.TryFrom(Body, flown, DivertFootprint.ArrivalClock.Pinned,
+                                            fromTheRealState: true, out DivertFootprint footprint))
+            {
+                _reachFootprint = null;
+                Log.Debug($"reach on {KsaWorld.DisplayName(Craft)}: not priced -- a column did not come "
+                          + $"down ({ms:F2} ms)");
+                return;
+            }
+
+            _reachFootprint = footprint;
+
+            // Both rotations sampled here and kept, not asked for again: the columns' axes and the
+            // landing belong to this instant, and reading them against a later frame's rotation
+            // turns the whole region by however far the planet has moved since.
+            _reachCci2Ccf = parent.GetCci2Ccf();
+            _reachCcf2Cci = parent.GetCcf2Cci();
+            _reachLandingCcf = Body.CarryCci(flown.ArrivedCci, -flown.FlightSeconds)
+                                   .Transform(_reachCci2Ccf);
+
+            Log.Debug($"reach on {KsaWorld.DisplayName(Craft)}: "
+                      + $"{footprint.SemiMajorMetresPerMetrePerSecond:F0} x "
+                      + $"{footprint.SemiMinorMetresPerMetrePerSecond:F0} m per m/s pinned, "
+                      + $"flown in {ms:F2} ms for a {flown.FlightSeconds:F0} s fall");
+        }
+        catch (Exception e)
+        {
+            // Inside the frame hook, where an exception is the game rather than a log line.
+            _reachFootprint = null;
+            Log.Warn($"reach on {KsaWorld.DisplayName(Craft)}: not priced -- {e.Message}");
+        }
+    }
+
+    // The set as the ground sees it, which is what prices the itinerary. A target the world cannot
+    // resolve is left out rather than placed at the landing, where it would cost no hop at all.
+    private List<ReachDisplay.Placed> PlacedTargets()
+    {
+        _placed.Clear();
+
+        foreach (TargetSet.Entry entry in _targets.Entries)
+        {
+            if (TryReachOffsets(entry.Site, out double along, out double cross))
+            {
+                _placed.Add(new ReachDisplay.Placed(along, cross, entry.Warheads));
+            }
+        }
+
+        return _placed;
+    }
+
+    private readonly List<ReachDisplay.Placed> _placed = [];
+
+    /// <summary>Where a place on this world sits on the reach ellipse, in metres along and across.</summary>
+    /// <remarks>
+    /// On the mean sphere rather than on the terrain, which is what makes it cheap enough to ask of
+    /// every target every frame: the answer is resolved along and across the track and the height
+    /// goes into the third component, which nothing reads. An accurate height lookup here would buy
+    /// a number that is then thrown away.
+    /// </remarks>
+    public bool TryReachOffsets(AimSite site, out double alongMetres, out double crossMetres)
+    {
+        alongMetres = 0.0;
+        crossMetres = 0.0;
+
+        if (Parent is not { } parent || !site.IsSet || site.BodyName != parent.Id) return false;
+
+        double3 pointCcf = parent.GetDirCcfFromLatLon(site.LatitudeDeg, site.LongitudeDeg)
+                           * parent.MeanRadius;
+
+        return TryOffsetsFromCcf(pointCcf, out alongMetres, out crossMetres);
+    }
+
+    /// <summary>The same for a point picked off the ground rather than named by coordinates.</summary>
+    public bool TryReachOffsets(double3 groundEcl, out double alongMetres, out double crossMetres)
+    {
+        alongMetres = 0.0;
+        crossMetres = 0.0;
+
+        if (Parent is not { } parent) return false;
+
+        return TryOffsetsFromCcf((groundEcl - parent.GetPositionEcl()).Transform(parent.GetCce2Ccf()),
+                                 out alongMetres, out crossMetres);
+    }
+
+    // Differenced body-fixed and only then rotated into the frame the columns departed from.
+    // Differenced in the ecliptic instead, the two terms carry the planet's own ~29.8 km/s.
+    private bool TryOffsetsFromCcf(double3 pointCcf, out double alongMetres, out double crossMetres)
+    {
+        alongMetres = 0.0;
+        crossMetres = 0.0;
+
+        if (!Reach.HasRegion) return false;
+
+        return Reach.TryOffsets(Body, (pointCcf - _reachLandingCcf).Transform(_reachCcf2Cci),
+                                out alongMetres, out crossMetres);
+    }
+
+    /// <summary>Where the warheads would land now, which is what the reach is drawn around.</summary>
+    public double3? ReachCentreEcl()
+    {
+        if (Parent is not { } parent || !Reach.HasRegion) return null;
+
+        return _reachLandingCcf.Transform(parent.GetCcf2Cce()) + parent.GetPositionEcl();
+    }
+
+    /// <summary>The reach ellipse's two semi-axes as ecliptic displacements, in metres.</summary>
+    public bool TryReachAxesEcl(out double3 majorEcl, out double3 minorEcl)
+    {
+        majorEcl = Vec.Zero;
+        minorEcl = Vec.Zero;
+
+        if (Parent is not { } parent
+            || !Reach.TryAxes(Body, out double3 majorCci, out double3 minorCci))
+        {
+            return false;
+        }
+
+        doubleQuat ccf2Cce = parent.GetCcf2Cce();
+
+        majorEcl = majorCci.Transform(_reachCci2Ccf).Transform(ccf2Cce);
+        minorEcl = minorCci.Transform(_reachCci2Ccf).Transform(ccf2Cce);
+
+        return Vec.IsFinite(majorEcl) && Vec.IsFinite(minorEcl);
     }
 
     private void Predict(double simStep, in IcbmState state)

@@ -240,6 +240,16 @@ internal sealed class IcbmConfig
     public bool DrawTrajectory = true;
 
     /// <summary>
+    /// Draw the ground the coasting bus can still divert to, and refuse a click outside it.
+    ///
+    /// <para>It costs seven flights of <see cref="ImpactPredictor"/> every
+    /// <c>IcbmComputer.ReachIntervalSeconds</c>, so this is the switch that stops paying for it —
+    /// and the flights only happen at all while the list can still be added to, which is a coast
+    /// with either <see cref="DesignateByClicking"/> on or a second target already placed.</para>
+    /// </summary>
+    public bool ShowDivertReach = true;
+
+    /// <summary>
     /// Altitude above which the post-boost vehicle is willing to let its warheads go. Deployment
     /// itself belongs to fire control; this only says when the trajectory is far enough along for it
     /// to be sensible.

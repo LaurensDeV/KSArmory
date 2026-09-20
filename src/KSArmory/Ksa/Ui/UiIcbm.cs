@@ -85,6 +85,8 @@ internal sealed partial class Ui
             + $"burn is over a click adds another target instead, up to {TargetSet.MaxTargets} -- "
             + "designating there would start the shot over on a bus that is already coasting.");
 
+        DrawIcbmReach(computer);
+
         string resolution = "Typed rather than dragged: a slider spanning half a turn moves about 100 km "
                             + "per pixel.";
 
@@ -121,6 +123,35 @@ internal sealed partial class Ui
                                            string.IsNullOrWhiteSpace(_siteLabel) ? "" : _siteLabel.Trim()));
         }
         Tip("Aims at the latitude and longitude above.");
+    }
+
+    // What the bus can still reach, beside the tool that places targets in it rather than under a
+    // fold: it is the answer to "why did my click do nothing", which is the one kind of line
+    // CLAUDE.md says never to hide.
+    private static void DrawIcbmReach(IcbmComputer computer)
+    {
+        IcbmConfig config = computer.Config;
+
+        bool show = config.ShowDivertReach;
+        if (ImGui.Checkbox("Show what the bus can still divert to", ref show)) config.ShowDivertReach = show;
+        Tip("On: the ground the coasting bus can still put a warhead on is outlined, and a click "
+            + "outside it is refused. It costs seven flights of the impact predictor every few "
+            + "seconds, and only while the list can still be edited -- a coast with this tab's "
+            + "designate mode on, or a second target already placed. Off: nothing is flown and "
+            + "nothing is drawn.");
+
+        if (!show) return;
+
+        ReachDisplay reach = computer.Reach;
+
+        // Silent until the burn is over on a shot that is still going to one place: before then the
+        // line would say "not until the burn is over" on every single-target flight, which is every
+        // flight there is today.
+        if (reach.Hold == ReachHold.NotCoasting && computer.Targets.Count < 2) return;
+
+        ImGui.TextColored(reach.HasRegion ? Good : Working, "  " + reach.Say());
+
+        if (reach.HasRegion) ImGui.TextDisabled("  " + reach.SayBudget());
     }
 
     private static void DrawIcbmTargetList(IcbmComputer computer)

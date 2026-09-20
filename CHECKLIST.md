@@ -2096,6 +2096,32 @@ Measured, same aim point, arms interleaved:
       first flight read 0.00 for all six. That number is the band converted into what it was
       costing.
 
+### 12.7f The bus's divert reach — nothing here has been flown
+
+Headless only. `ReachDisplayTests` pins that the outline and the refusal are the same ellipse and
+that the axes are carried back from the arrival, but no flight has drawn one — and the two things
+only a flight can settle are whether the region lands on the right ground and what it costs the
+frame.
+
+Fly a MIRV shot, and once the burn is over and the bus is coasting:
+
+- [ ] With **Designate by clicking the world** on, an outline appears on the ground around where the
+      warheads are going, a few kilometres across. It sits *around* the aim ring rather than beside
+      it — a region drawn a planet's turn out of date lands hundreds of kilometres downrange.
+- [ ] The cursor ring is the designation colour inside it and grey outside, with **outside reach**
+      beside the cursor. A click outside does nothing at all: no new row on the panel, no line in
+      the log.
+- [ ] A click inside adds a target. Its ring is drawn dimmer than the lead's, numbered to match the
+      panel's list, and it does not move when the planet turns under it.
+- [ ] The panel's `Divert reach:` line agrees with the picture — the metres it quotes are about the
+      radius of the outline, not four times it.
+- [ ] **The frame cost.** `icbmdraw` in the mod-frame line was 11.1 ms of a 15.1 ms frame before
+      this; the worst frame is the number to read, because only one ring is re-draped per frame and
+      a spike would mean that rule is not holding. And `reach on <craft>` in a verbose log carries
+      what one pricing flight took.
+- [ ] Turning **Show what the bus can still divert to** off stops both: no outline, and no
+      `reach on <craft>` lines.
+
 ### 12.6 It gives the vehicle back
 
 - [ ] **Abort** stops the engines and returns attitude control. Flying by hand works immediately

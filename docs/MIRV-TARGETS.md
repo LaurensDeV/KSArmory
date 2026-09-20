@@ -1,14 +1,16 @@
 # Six warheads, six targets
 
-**Mostly a plan, and no longer entirely.** Phase 1 is built: `TargetSet` is the list of up to six targets
-with their warhead counts and the release plan a flight would read, `TargetEdit` is when that list may be
-edited, `IcbmComputer` holds one, a click on the world past cutoff adds to it, and the panel lists it with
-per-target counts and a remove. Phase 2's maths are built and tested on `arm/mirv-targets` —
-`DivertFootprint` is the reach on the ground, taken off the sensitivity columns
-`ReleaseFocus.FlownSensitivity` already flies once per salvo, so the display costs no flying of its own.
-**The flight is unchanged**: nothing is drawn on the ground, and all six warheads still go to target 1,
-which the panel says in so many words. Before cutoff the list cannot hold more than one place at all, so
-a single-target shot cannot reach any of it.
+**Mostly a plan, and no longer entirely.** Phases 1 and 2 are built. `TargetSet` is the list of up to six
+targets with their warhead counts and the release plan a flight would read, `TargetEdit` is when that list
+may be edited, `IcbmComputer` holds one, a click on the world past cutoff adds to it, and the panel lists it
+with per-target counts and a remove. `DivertFootprint` is the reach on the ground, taken off the sensitivity
+columns `ReleaseFocus.FlownSensitivity` already flies once per salvo, and `ReachDisplay` is that reach as one
+answer the outline, the cursor and the panel all read — so the region drawn and the clicks refused cannot
+disagree. **What is not built is the missile's own reach before target 1**: that is `IcbmReach` asked along
+bearings per candidate point, tens of milliseconds a ring, and it is deferred with the rest of phase 2's
+pre-launch half. **The flight is unchanged**: all six warheads still go to the lead, which the panel says in
+so many words. Before cutoff the list cannot hold more than one place at all, so a single-target shot cannot
+reach any of it.
 **Phase 0 has been flown headlessly**
 (`tests/KSArmory.Tests/MirvDivertTests.cs`), so the numbers below are measured rather than estimated —
 and it moved three of the plan's decisions, each marked **priced** where it appears. What it did not
@@ -180,8 +182,29 @@ whatever is left after the ones already chosen, taken along the cheapest order t
   velocity block projected onto the ground frame — phase 2 costs no new flying. Its edge is still worth
   checking with a real solve on a long shallow shot, where first order is 5% out.
 * The **cursor ring** turns `SiteDesignator`'s refused grey outside the region, with **outside reach** beside
-  it; a click is ignored. Inside, it shows what adding this target would leave: "3 targets, 12 m/s left".
-* **Existing targets** are numbered rings. Clicking one selects it in the panel.
+  it; a click is ignored. What adding a target would leave is on the panel's own line rather than beside the
+  cursor — `Divert reach: 3.55 km from where the warheads land -- room for 4 more at 2.00 km apart`, with the
+  budget under it.
+* **Existing targets** are numbered rings, each the lethal radius, so two touching is the spacing floor. The
+  lead keeps the aim ring's colour and the rest are dimmer. Clicking one to select it in the panel is not
+  built.
+
+**Built, and four things about it are the decisions.** The reach and the numbered rings are drawn for the
+craft the panel is showing and no other — the same scoping `SiteDesignator` already had, because only one
+computer is being clicked at. **Only one ring is re-draped a frame**, so a six-target set costs a frame what
+a single-target shot has always cost; seven deadlines a second are met at any frame rate. The flight that
+prices the ellipse — seven of `ImpactPredictor`, 2.6 ms headless, against the readout's one — runs on a
+**five-second wall clock rather than only on a change to the set**, which is what the bullet above assumed:
+the reach decays as the bus descends, 1,076 to 886 m per m/s over a 330 s schedule, so a footprint held from
+the last click is a stale one. And it is flown **only while the list can still be edited**: a coast with
+designate mode on, or a second target already placed. `IcbmConfig.ShowDivertReach` turns the whole thing off,
+flights included.
+
+**And the region is bounded by one hop, not by the whole budget**, which the bullet above already asks for
+and is worth restating because the two numbers differ by four times: `ReleaseItinerary.LeftMetresPerSecond`
+says what the trim has left and `BusTrim.MaxMetresPerSecond` what one solve will fly, and the ring is the
+lower of the two. The panel quotes both, because "what is left in all" is the question a player asks about
+the *set* and "how far from here" the one they ask about the *next click*.
 
 ## What to do with warheads when fewer than six targets are picked
 
@@ -317,7 +340,7 @@ So the shipped answer is **two to six targets on the gate-ending schedule**, 4.5
 | --- | --- | --- |
 | ~~0~~ | **Done** — `tests/KSArmory.Tests/MirvDivertTests.cs`. ±100 km is real **only from cutoff**; at today's release gate the footprint is a 34 × 18 km box. See the three findings at the top. | No |
 | 1 | **Targets as data**. **Done** — `Sim/TargetSet.cs`, `Sim/TargetEdit.cs`, `ShotRequest` naming several, the list on `IcbmComputer` with `Designate` split from `AddTarget`, a coast click that adds, and the panel's rows. Which entry the flight is aimed at is `TargetSet.LeadIndex` — a seam for the release schedule, which flies the farthest reach first — rather than the first place clicked; nothing sets it yet. The flight still sends everything to the lead, and says so. What `BallisticScenario` designates is still the first place alone. | Unchanged |
-| 2 | **Reach display**. `Sim/DivertFootprint.cs` **done** — both clocks, the cost of a displacement and whether a budget reaches it. What remains is drawing it: the missile region before target 1, the footprint after, cursor refusal outside it, the panel's divert and time readout. | No |
+| 2 | **Reach display**. **Done for the coast** — `Sim/DivertFootprint.cs` is both clocks and `Sim/ReachDisplay.cs` is the drawn region, the cursor's verdict and the panel's readout as one answer; `IcbmOverlay` drapes the ellipse and numbers the targets, and `SiteDesignator` greys the ring and says **outside reach**. **The missile's own region before target 1 is not built** and is the only part of this row left: it is a reach solve per candidate point along a bearing sweep, 37–68 ms a ring, so it wants the few-bearings-a-frame build this row's prose describes. | No |
 | 3 | **The release loop**: re-aim per target, per-warhead target bookkeeping in the log, and the per-pass trim ceiling raised deliberately. Shared targets release together. | Yes |
 | 4 | **Instruments and nights**: per-target scoring in `shot-report.py`, the matching check with one target, then 2/4/6. | Yes |
 | 5 | **Later**: area targets (option C), saving the target list with the craft, reordering by hand. | — |

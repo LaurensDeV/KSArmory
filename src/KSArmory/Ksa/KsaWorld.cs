@@ -4271,6 +4271,31 @@ internal static class KsaWorld
         }
     }
 
+    /// <summary>
+    /// The same for a ring whose two semi-axes are given outright rather than derived from a
+    /// normal — a reach footprint, whose axes are the ellipse's and belong to the arrival frame
+    /// rather than to whichever perpendicular a circle happens to pick.
+    /// </summary>
+    public static void CollectDrapedRingEcl(double3 centreEcl, double3 semiMajorEcl,
+                                            double3 semiMinorEcl, List<double3> into,
+                                            int segments = 48, double clearance = 2.0)
+    {
+        into.Clear();
+
+        if (!Vec.IsFinite(centreEcl) || !Vec.IsFinite(semiMajorEcl) || !Vec.IsFinite(semiMinorEcl)) return;
+        if (Vec.Len2(semiMajorEcl) <= 0.0) return;
+
+        int steps = Math.Clamp(segments, 8, 256);
+
+        for (int i = 0; i <= steps; i++)
+        {
+            double t = Math.Tau * i / steps;
+            double3 at = centreEcl + semiMajorEcl * Math.Cos(t) + semiMinorEcl * Math.Sin(t);
+
+            into.Add(OnGround(at, drape: true, clearance) - centreEcl);
+        }
+    }
+
     // Lifted clear of the surface by a little: a line exactly on the terrain z-fights with it and
     // disappears in patches, which looks worse than being slightly above it.
     private static double3 OnGround(double3 atEcl, bool drape, double clearance)

@@ -22,9 +22,15 @@ internal static class IcbmOverlay
     private static readonly float4 Arc = new(0.55f, 0.8f, 1.0f, 0.9f);
     private static readonly float4 Aim = new(1.0f, 0.45f, 0.35f, 1.0f);
 
+    // The same designation colour, thinned: the reach is where a target may go rather than where
+    // one is, and drawn at the aim ring's weight it reads as another aim point.
+    private static readonly float4 ReachEdge = new(1.0f, 0.55f, 0.4f, 0.45f);
+    private static readonly float4 OtherAim = new(1.0f, 0.68f, 0.45f, 0.85f);
+
     private static readonly ImColor8 Mark = new(255, 115, 90, 235);
     private static readonly ImColor8 MarkHeld = new(245, 215, 115, 235);
     private static readonly ImColor8 MarkBad = new(250, 90, 80, 245);
+    private static readonly ImColor8 MarkOther = new(255, 175, 115, 225);
     private static readonly ImColor8 Text = new(238, 240, 245, 245);
 
     // Coarse enough that a half-hour arc is a few dozen lines rather than a few thousand.
@@ -37,13 +43,21 @@ internal static class IcbmOverlay
     private const float Half = 9f;
     private const float Tick = 5f;
 
-    public static void Draw(IcbmComputers computers, List<double3> scratch)
+    /// <param name="focused">
+    /// The computer the panel is showing, which is the only one whose reach and whose further
+    /// targets are drawn. The same scoping <c>SiteDesignator</c> already has and for the same
+    /// reason: a region exists to place a target in, only one computer is being clicked at, and six
+    /// ellipses over six rockets is not six times as useful.
+    /// </param>
+    public static void Draw(IcbmComputers computers, IcbmComputer? focused, List<double3> scratch)
     {
-        DrawInWorld(computers, scratch);
-        DrawMarks(computers);
+        foreach (RingSet set in Rings.Values) set.Redrapes = 0;
+
+        DrawInWorld(computers, focused, scratch);
+        DrawMarks(computers, focused);
     }
 
-    private static void DrawInWorld(IcbmComputers computers, List<double3> scratch)
+    private static void DrawInWorld(IcbmComputers computers, IcbmComputer? focused, List<double3> scratch)
     {
         foreach (IcbmComputer computer in computers.All)
         {
@@ -63,6 +77,14 @@ internal static class IcbmOverlay
                 && computer.TargetEcl() is { } target)
             {
                 DrawAimRing(computer, target);
+
+                // Only the one being clicked at, and only once it holds more than the lead: for a
+                // single-target shot the ring above already is the whole set.
+                if (ReferenceEquals(computer, focused))
+                {
+                    DrawOtherTargets(computer);
+                    DrawReach(computer);
+                }
             }
 
             // The trajectory is the vehicle's own and goes with it.
@@ -86,58 +108,95 @@ internal static class IcbmOverlay
     // matter: anything large enough to see from orbit is large enough to sit over the target and
     // hide it, and a shape with no radius says nothing about how far the warhead reaches - which is
     // the question a mark on a target is being asked. Same shape as the bomb sight's pipper.
-    // One draped ring per computer, kept as OFFSETS from the aim point rather than as ecliptic
-    // positions -- the ecliptic carries the planet's ~29.8 km/s, so cached absolute points are
-    // left behind within a frame. Same rule the round bodies and the draw anchor obey.
+    // Every draped shape is kept as OFFSETS from its own centre rather than as ecliptic positions --
+    // the ecliptic carries the planet's ~29.8 km/s, so cached absolute points are left behind within
+    // a frame. Same rule the round bodies and the draw anchor obey.
     //
-    // Draping is what costs: a point on the ground is a terrain lookup, and the default ring is 65
-    // of them per computer per frame. Measured at sixteen rockets, IcbmOverlay.Draw was 5.45 ms of
-    // a 13.67 ms draw pass. The ground under a fixed lat/lon does not move, so the shape is rebuilt
-    // on a wall clock rather than per frame.
+    // Draping is what costs: a point on the ground is a terrain lookup, and a 64-segment ring is 65
+    // of them. Measured at sixteen rockets, IcbmOverlay.Draw was 5.45 ms of a 13.67 ms draw pass.
+    // The ground under a fixed lat/lon does not move, so the shape is rebuilt on a wall clock rather
+    // than per frame.
     //
     // A circle is rotationally symmetric, so the planet turning under a cached ring changes nothing
     // about how it looks; what ages is which ground each point was draped onto, and a second of
     // Earth's rotation is four thousandths of a degree.
     private const double RingRebuildSeconds = 1.0;
 
+    // How many shapes one computer may re-drape in a frame. A six-target set plus its reach is
+    // seven, and letting them all fall due together is a seven-fold spike on one frame -- which is
+    // the number FrameBudget reports, since it reports the worst frame beside the mean. At one
+    // apiece the per-frame drape cost is what a single-target shot has always paid, and seven
+    // deadlines a second are comfortably met at any frame rate anyone plays at.
+    private const int RedrapesPerFrame = 1;
+
     private sealed class Ring
     {
-        public double3 Target;
-        public double Radius;
+        public double3 Anchor;
+        public double Size;
         public readonly List<double3> Offsets = [];
         public readonly System.Diagnostics.Stopwatch Since = System.Diagnostics.Stopwatch.StartNew();
+
+        /// <param name="anchorFromBody">
+        /// Where the shape is centred, measured <b>from the body's centre</b>. Never the ecliptic
+        /// position: that carries the planet's ~29.8 km/s, so two frames' worth differ by ~500 m and
+        /// the ten-metre test is true on every frame after the first — which re-drapes every ring
+        /// every frame and makes <see cref="RingRebuildSeconds"/> do nothing at all.
+        /// </param>
+        public bool Stale(double3 anchorFromBody, double size)
+            => Offsets.Count == 0 || Since.Elapsed.TotalSeconds >= RingRebuildSeconds
+               || !Size.Equals(size) || Vec.Len(anchorFromBody - Anchor) > 10.0;
     }
 
-    private static readonly Dictionary<IcbmComputer, Ring> Rings = [];
-
-    private static void DrawDrapedRing(IcbmComputer computer, double3 target, double3 up, double radius)
+    // One per computer, holding every shape that computer draws on the ground: the aim ring, the
+    // reach, and one per target past the lead.
+    private sealed class RingSet
     {
-        if (!Rings.TryGetValue(computer, out Ring? ring))
+        public readonly Ring Aim = new();
+        public readonly Ring Reach = new();
+        public readonly List<Ring> Targets = [];
+        public int Redrapes;
+
+        public Ring TargetRing(int index)
         {
-            ring = new Ring();
-            Rings[computer] = ring;
+            while (Targets.Count <= index) Targets.Add(new Ring());
+            return Targets[index];
         }
+    }
 
-        bool stale = ring.Offsets.Count == 0
-                     || ring.Since.Elapsed.TotalSeconds >= RingRebuildSeconds
-                     || !ring.Radius.Equals(radius)
-                     || Vec.Len(target - ring.Target) > 10.0;
+    private static readonly Dictionary<IcbmComputer, RingSet> Rings = [];
 
-        if (stale)
+    private static RingSet SetFor(IcbmComputer computer)
+    {
+        if (!Rings.TryGetValue(computer, out RingSet? set)) Rings[computer] = set = new RingSet();
+        return set;
+    }
+
+    // Rebuilds the ring if it is stale and this computer has a re-drape left this frame, then draws
+    // whatever it holds. A ring whose turn has not come is drawn as it stands, which is a second of
+    // a planet's rotation out of date -- four thousandths of a degree.
+    private static void DrawDrapedCircle(IcbmComputer computer, RingSet set, Ring ring, double3 centre,
+                                         double3 up, double radius, float4 colour, int segments)
+    {
+        if (ring.Stale(centre - BodyEcl(computer), radius) && set.Redrapes < RedrapesPerFrame)
         {
+            set.Redrapes++;
             ring.Since.Restart();
-            ring.Target = target;
-            ring.Radius = radius;
-            ring.Offsets.Clear();
+            ring.Anchor = centre - BodyEcl(computer);
+            ring.Size = radius;
 
-            KsaWorld.CollectDrapedCircleEcl(target, up, radius, ring.Offsets);
+            KsaWorld.CollectDrapedCircleEcl(centre, up, radius, ring.Offsets, segments);
         }
 
         for (int i = 1; i < ring.Offsets.Count; i++)
         {
-            KsaWorld.DrawLineEcl(target + ring.Offsets[i - 1], target + ring.Offsets[i], Aim);
+            KsaWorld.DrawLineEcl(centre + ring.Offsets[i - 1], centre + ring.Offsets[i], colour);
         }
     }
+
+    // What every cached anchor is measured from. Zero without a parent, which reads as stale every
+    // frame -- and nothing gets this far without one, since the aim point is resolved on it.
+    private static double3 BodyEcl(IcbmComputer computer)
+        => computer.Parent is { } parent ? parent.GetPositionEcl() : Vec.Zero;
 
     private static void DrawAimRing(IcbmComputer computer, double3 target)
     {
@@ -145,23 +204,76 @@ internal static class IcbmOverlay
         double3 up = Vec.Unit(KsaWorld.GravityAt(computer.Craft, target) * -1.0);
         if (Vec.Len2(up) < 0.5) return;
 
-        // The warhead's own lethal radius, so what the ring circles is what arriving there does.
-        // A vehicle carrying nothing that lets go still gets a mark, because the aim point is a
-        // designation rather than a property of the payload.
-        double radius = computer.Munition is { } warhead
-                            ? Warhead.LethalRadius(warhead.ChargeKg)
-                            : UnarmedRingMetres;
+        double radius = RingRadius(computer);
+        RingSet set = SetFor(computer);
 
-        DrawDrapedRing(computer, target, up, radius);
+        DrawDrapedCircle(computer, set, set.Aim, target, up, radius, Aim, segments: 64);
         // The inner pip is metres across, so draping it costs 17 accurate terrain samples to move
         // it by less than its own width. The outer ring is what shows the ground.
         KsaWorld.DrawCircleEcl(target, up, radius * 0.15, Aim, segments: 16, drape: false);
     }
 
+    // The warhead's own lethal radius, so what a ring circles is what arriving there does -- and so
+    // two rings touching is the floor on how close two targets may be. A vehicle carrying nothing
+    // that lets go still gets a mark, because the aim point is a designation rather than a property
+    // of the payload.
+    private static double RingRadius(IcbmComputer computer)
+        => computer.Munition is { } warhead ? Warhead.LethalRadius(warhead.ChargeKg) : UnarmedRingMetres;
+
+    // The places past the lead, each in its own ring. Dimmer and coarser than the aim ring: the
+    // flight is aimed at the lead and these are where the bus is meant to go afterwards.
+    private static void DrawOtherTargets(IcbmComputer computer)
+    {
+        if (computer.Targets.Count < 2) return;
+
+        RingSet set = SetFor(computer);
+        double radius = RingRadius(computer);
+
+        for (int i = 0; i < computer.Targets.Count; i++)
+        {
+            if (i == computer.LeadTarget) continue;
+            if (computer.SiteEcl(computer.Targets[i].Site) is not { } at) continue;
+
+            double3 up = Vec.Unit(KsaWorld.GravityAt(computer.Craft, at) * -1.0);
+            if (Vec.Len2(up) < 0.5) continue;
+
+            DrawDrapedCircle(computer, set, set.TargetRing(i), at, up, radius, OtherAim, segments: 24);
+        }
+    }
+
+    // The ground the bus can still divert to, at the trim budget the set has not spent. An ellipse
+    // rather than a circle because the reach is one: pinned the two axes agree to within 3%, and a
+    // shape drawn from the axes cannot go wrong on the geometry where they do not.
+    private static void DrawReach(IcbmComputer computer)
+    {
+        if (!computer.Reach.HasRegion) return;
+        if (computer.ReachCentreEcl() is not { } centre) return;
+        if (!computer.TryReachAxesEcl(out double3 major, out double3 minor)) return;
+
+        RingSet set = SetFor(computer);
+        Ring ring = set.Reach;
+
+        if (ring.Stale(centre - BodyEcl(computer), computer.Reach.SemiMajorMetres)
+            && set.Redrapes < RedrapesPerFrame)
+        {
+            set.Redrapes++;
+            ring.Since.Restart();
+            ring.Anchor = centre - BodyEcl(computer);
+            ring.Size = computer.Reach.SemiMajorMetres;
+
+            KsaWorld.CollectDrapedRingEcl(centre, major, minor, ring.Offsets);
+        }
+
+        for (int i = 1; i < ring.Offsets.Count; i++)
+        {
+            KsaWorld.DrawLineEcl(centre + ring.Offsets[i - 1], centre + ring.Offsets[i], ReachEdge);
+        }
+    }
+
     // The screen-space half: a mark on the aim point wherever it is, with the countdown beside it.
     // Clamped to the edge when it is off screen rather than dropped, because a target behind the
     // camera is exactly when knowing which way it lies is worth something.
-    private static void DrawMarks(IcbmComputers computers)
+    private static void DrawMarks(IcbmComputers computers, IcbmComputer? focused)
     {
         bool anything = false;
         foreach (IcbmComputer computer in computers.All)
@@ -212,11 +324,34 @@ internal static class IcbmOverlay
             };
 
             DrawCross(draw, at, colour, inView);
-            draw.AddText(new float2(at.X + Half + 6f, at.Y - Half), Text, Caption(computer));
+            draw.AddText(new float2(at.X + Half + 6f, at.Y - Half), Text,
+                         Numbered(computer, computer.LeadTarget) + Caption(computer));
+
+            // The rest of the set, on the one computer being clicked at. Numbered because the panel
+            // lists them by number and a ring on the ground with no number is a place nobody can
+            // pair with a row.
+            if (!ReferenceEquals(computer, focused)) continue;
+
+            for (int i = 0; i < computer.Targets.Count; i++)
+            {
+                if (i == computer.LeadTarget) continue;
+                if (computer.SiteEcl(computer.Targets[i].Site) is not { } siteEcl) continue;
+                if (!KsaWorld.TryProjectOrClamp(siteEcl, out float2 where, out bool visible)) continue;
+
+                DrawCross(draw, where, MarkOther, visible);
+                draw.AddText(new float2(where.X + Half + 6f, where.Y - Half), Text,
+                             Numbered(computer, i) + computer.Targets[i].Site.Describe()
+                             + $"  {computer.Targets[i].Warheads} warhead(s)");
+            }
         }
 
         ImGui.End();
     }
+
+    // The number the panel's list uses, and only once there is a list: on a single-target shot a
+    // "1" in front of the aim point is noise about a distinction that does not exist yet.
+    private static string Numbered(IcbmComputer computer, int index)
+        => computer.Targets.Count > 1 ? $"{index + 1}  " : "";
 
     // What the mark says: what it is, and when it lands.
     private static string Caption(IcbmComputer computer)

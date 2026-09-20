@@ -345,6 +345,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/TargetEdit.cs` | when that list may be edited, and what an edit may move — **only the coast adds**, so before cutoff the list can never hold more than one place and the flight is the single-target one that ships; and **the lead is never removable**, the lead rather than the first chosen because the release schedule flies them in its own order, because the arc, the aim correction and the trim are all solved against it |
 | `Sim/DivertFootprint.cs` | how far one bus can move its own landing, as an ellipse on the ground — **read off the columns `ReleaseFocus` already flies for the kicks**, so the display costs no flying, and the long axis is `450 · cot γ` rather than a typed shape. **Which clock the arrival is on has no default**: the flight pins it, which is one projection off the same columns and costs 1.94x along the track at the 6,179 km release gate and nothing across it, leaving a disc rather than an ellipse |
 | `Sim/ReleaseItinerary.cs` | when a bus with several targets lets each one's warheads go — **started early enough that the last release still lands on today's gate**, so a set of one is exactly the shot everything else is measured against, at the price of half the reach: 1,076 m of ground per m/s at cutoff against 688 there. Farthest reach first, and **a hop costs what the landing moves** rather than `BusTrim.MaxMetresPerSecond`, which is a ceiling on one solve — so what bounds a set is its spacing, and the widest six can afford ending on the gate is 4.5 km, inside the 6.0 km one warhead covers |
+| `Sim/ReachDisplay.cs` | that reach as something drawn, refused against and read off the panel — **one answer for all three**, because a cursor refused inside the outline reads as the tool being broken. Drawn at **one hop's** `BusTrim.MaxMetresPerSecond` rather than at the whole budget, which is what the release loop can actually fly; and **the reach bounds an add, never a designation**, because target 1 is the booster's question |
 | `Sim/ShotRequest.cs` | where a scripted shot is aimed and the bar it is judged against — **text in**, so the harness's one line is testable headlessly |
 | `Sim/ShotGroup.cs` | where a salvo landed, and whether that is a pass — **scored on the worst warhead**, and one that never arrived counts |
 | `Sim/ShotArms.cs` | which variant each rocket in a world flies — **the comparison moved inside the run**, because the same baseline read 14.49 km and 5.43 km on identical code three hours apart |
@@ -429,9 +430,9 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/WorldReloadHook.cs` | the third — **that a save was loaded**, which nothing else can tell: the mod never leaves the flight scene across one |
 | `Ksa/RoundBodyDrawHook.cs` | the fourth — **a launcher's rounds drawn after the engine has culled the launcher**, because a body is one of its parts and KSA draws none of a craft under a pixel across |
 | `Ksa/VehicleCommand.cs` | **the only place this mod flies somebody else's rocket** — attitude, throttle, ignition, staging |
-| `Ksa/IcbmOverlay.cs` | the arc it is on and the ring it is aimed at |
+| `Ksa/IcbmOverlay.cs` | the arc it is on, the rings it is aimed at and the ground the bus can still divert to — the reach and the targets past the lead only for the craft the panel is showing, and **one ring is re-draped a frame**, so a six-target set costs a frame what one target does |
 | `Ksa/WarheadTrace.cs` | **one warhead against the prediction of it**, re-flown from where it has got to — measurement only, off by default, and the discriminator is whether the two part *smoothly* or in a *step* |
-| `Ksa/SiteDesignator.cs` | click the world to name where the warheads go — **a mode, not a button**, and past cutoff a click adds another target rather than starting the shot over |
+| `Ksa/SiteDesignator.cs` | click the world to name where the warheads go — **a mode, not a button**, and past cutoff a click adds another target rather than starting the shot over, refused with the cursor greyed where the bus cannot divert that far |
 | `Ksa/Ui/Ui.cs` | the panel's shell: the switcher — one row per craft, grouped by team, a name to fly it and guard, chase and team as drawn icons — the panes, and which system they read |
 | `Ksa/Ui/UiSession.cs` | the world clock, the teams, and what the session draws and hears |
 | `Ksa/Ui/UiSystem.cs` | one row per component: what each part is, sees and is doing |
@@ -498,7 +499,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 538 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 540 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
