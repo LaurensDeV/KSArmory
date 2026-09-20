@@ -11820,3 +11820,53 @@ distinguishes the two: `hold` must end on `payback` like base, not on `floor` li
 **3ey's 36% stands.** Mid-night it looked inflated — base read 15% on the first few accepted blocks — but
 it finished at **30% accepted and 32.6% over everything**, which is ordinary early-sample scatter rather
 than a bias from the frame check. 3ff's reading that the check predicts neither endpoint is unaffected.
+
+## 3fh. Falling back to a hold removes the long-range stall — 2026-09-20
+
+`~/shots/2026-09-19-fallback`, declared in `~/shots/scripts-2026-09-18/DECLARE-fallback.md` before it
+flew, amended before flying with the prediction that distinguishes a fix from a coincidence:
+`base|hold:StallFallsBackToHolding=true`, `--aim none`, 12,902–13,044 km verified. **Stopped by hand at
+24 blocks of 20 accepted**, because the acceptance rate ran at 25% and the remaining blocks were 18
+hours of precision on an effect that is zero against two thirds.
+
+**The primary endpoint.** `shot-report.py --paired`, accepted blocks:
+
+| arm | flights | lost | rate | median of the lost |
+| --- | --- | --- | --- | --- |
+| base | 24 | 16 | **67%** | 1.76 km |
+| hold | 24 | **0** | **0%** | — |
+
+`hold vs base: 0/24 lost against 16/24, Fisher p=0.0000  RESOLVED`. Block-level sign test, which is the
+right unit because rockets share a world: **base worse in 6 of 6 accepted blocks** (p = 0.016) and **23
+of 24 over every shot flown** (p < 0.00001). `hold` is never worse in a single block. Over all 24
+blocks, 62 of 96 base rockets stalled and **0 of 96** `hold` rockets did; 60 of 96 base rockets landed
+over a kilometre out against **1 of 96**.
+
+**The declared prediction, and it is what makes this a fix rather than a coincidence.** `nopulse`
+removed the stall by releasing early — it ended on `floor` 78 of 80 (3fg). `hold` had to end on
+`payback` instead, keeping the fine band and continuing to correct:
+
+| arm | clock | floor | noimprov | payback | trim |
+| --- | --- | --- | --- | --- | --- |
+| base | 1 | 1 | 0 | 6 | **16** |
+| hold | 3 | 1 | 1 | **19** | **0** |
+
+It does. The 16 `trim` endings become none, and they become `payback` rather than `floor`.
+
+**The cost, which the declaration said to read.** Three `hold` flights ended on the clock against one
+for base, at a median 0.34 km — the fallback finishes at the coarser band and takes longer, so a few
+flights run out of time. Against 16 flights at 1.76 km that is the trade working. **No flight ended on
+`MaxSeconds`**, which was the whole failure of the deleted `arm/trim-band` version (3fb).
+
+**Two things about this night that are not the result.**
+
+**Base is not the base of 3fg.** The 0.9.1 release merge landed 39 files between the two nights,
+including `build against StarMap 0.4.7` and `fix(rounds): burst a loose round without its launcher's
+velocity`. Base read 30% on 3fg's night and 67% here. The paired contrast is untouched — one build, one
+world, both arms — but **the cross-night rate is not comparable and the rise is unexplained.** The
+separation debt rose with it, median 1.59 → 1.89 m/s and the share over 3fd's 1.5 m/s threshold 55% →
+69%, which is the established route to more stalls but not obviously enough for a doubling.
+
+**And the sideways-impulse candidate is dead in flight.** The reading shipped in `339fedf` calibrates at
+1.00 on the rig and reads **1.00 median in flight**, so the pulses land squarely on the direction
+commanded. Nothing actuator-side survives; 3fg's release-floor account is the only one left standing.
