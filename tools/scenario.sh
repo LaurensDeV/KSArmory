@@ -20,6 +20,8 @@
 #   ./tools/scenario.sh mirv             # the ballistic shot, end to end
 #   ./tools/scenario.sh mirv:26.485S,68.148W       # ...at somewhere else
 #   ./tools/scenario.sh mirv:26.485S,68.148W,2     # ...and pass only under 2 km
+#   ./tools/scenario.sh 'mirv:24S,62W;24.04S,62W'  # ...or one bus at two places, scored separately
+#     -- QUOTE IT: an unquoted ';' is the shell's own separator, so the second place never arrives
 #   ./tools/scenario.sh head-on --keep   # leave the game running afterwards
 #   ./tools/scenario.sh head-on --shots  # ...and screenshot on CAPTURE (whole screen, opt-in)
 #   ./tools/scenario.sh mirv --no-deploy # fly whatever is already in the mods folder
@@ -153,7 +155,7 @@ case "${SCENARIO%%:*}" in
         SYSTEM="${KSARMORY_SCENARIO_SYSTEM:-SolLite}"
         ;;
     *)
-        echo "usage: $0 {head-on|overhead|passing|drop[:<m>[,<deg>[,guided|dumb[,<s>]]]]|gunnery[:<drones>[,passing|overhead|head-on|ground|craft[,<s>[,<m/s>[,<m>[,<deg/s spin>[,burn]]]]]]]|mirv[:<lat>,<lon>[,<km>]]}" \
+        echo "usage: $0 {head-on|overhead|passing|drop[:<m>[,<deg>[,guided|dumb[,<s>]]]]|gunnery[:<drones>[,passing|overhead|head-on|ground|craft[,<s>[,<m/s>[,<m>[,<deg/s spin>[,burn]]]]]]]|mirv[:<lat>,<lon>[,<km>][;<lat>,<lon>...]]}" \
              "[--keep] [--shots] [--no-deploy]" >&2
         exit 2
         ;;

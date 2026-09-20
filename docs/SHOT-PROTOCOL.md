@@ -566,6 +566,45 @@ distance — the 0.86 m tube ring through 3db's gains (1.85 downrange, 0.93 cros
 inequality breaks on any of the 160 flights. That night reads `dispersion` at 0.98x because the model
 gave both arms one ring: the construction, not a finding.
 
+### A salvo sent to several places
+
+**The FLIGHT line carries no group statistics at all for one, on purpose.** `worst .. best .. mean ..
+spread` is the shape every night here is read off, and a group split deliberately across twenty
+kilometres of ground in that shape is a twenty-kilometre miss to every one of them. So
+`Ksa/BallisticScenario.cs` prints one `TARGET k of n on <craft>: <site> -- <the group's own verdict>`
+line per target and a flight verdict that names the worst target and no more; a landing line carries
+`for target k` beside the craft. A night that flew one target has none of these and reads exactly as
+it always did, which is checked against `2026-09-20-shortfallback` and `2026-09-18-nopulse` rather
+than assumed.
+
+**A warhead's target is the computer's own record of it**, `IcbmComputer.TargetOfRound`, read on both
+the release and the arrival. `== targets` cross-checks that against the release log and prints
+`ATTRIBUTION FAULT` when the two disagree, because every number in the section is on the wrong target
+if they do and nothing else here would say so.
+
+**Nothing about the statistics changes, and that is deliberate.** Every endpoint keeps its meaning:
+
+| | what it becomes |
+| --- | --- |
+| `miss`, `landing` | the **warhead-weighted** mean of the per-target means — still the mean distance of a warhead from where **it** was sent |
+| `worst`, `best` | the extremes anywhere in the salvo |
+| `spread`, `centre`, `dispersion` | measured **within** a target and reduced on the **worst** of them |
+
+The reduction is the worst target because that is what the flight's own verdict uses, so the report
+and the PASS/FAIL cannot disagree about which target decided it. Nothing is pooled across targets: a
+centroid over three aim points sits somewhere nobody shot at, and the rms about it is the separation
+rather than the group.
+
+**What does change is comparability, and the report says so loudly.** Reaching three places costs two
+re-aims at a median 65.1 s and two hops of divert, so a three-target flight and a one-target flight
+are not two draws from one distribution — `== targets` prints the counts flown and warns when a night
+mixed them. Compare arms at the same count. It is the same exposure `--endpoint spread` has to the
+group size, one level up.
+
+**Checked on a synthetic night**, which checks the parse and the arithmetic and measures nothing: 32
+flights at three targets with a 0.6x scale injected on one arm, recovered as 0.53x on `miss` and
+`landing`, 0.59x on `spread` and `centre` and 0.48x on `dispersion`. Nothing has been flown.
+
 ## 2. The baseline
 
 **The baseline is an arm of the same batch, flown on the same schedule as every other arm.** It is

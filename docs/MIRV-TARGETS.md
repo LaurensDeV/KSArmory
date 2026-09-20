@@ -13,6 +13,13 @@ along bearings per candidate point, tens of milliseconds a ring. **Phase 3 is bu
 walks the itinerary, re-aiming and releasing each target's quota, and `Sim/ReleaseWalker.cs` is what makes a
 set of one execute none of it — so that shot, which every accuracy measurement on this mod is taken against,
 is the one it has always been.
+
+**And phase 4's instruments are built beside it, also unflown.** `ShotBoard` scores a salvo one group per
+target, `BallisticScenario` asks for several and prints a `TARGET` line each, and `shot-report.py` reads
+them. A warhead is scored against the target `IcbmComputer.TargetOfRound` recorded for it at the release,
+which is the only reading that survives the walk: the lead moves at the next handover, so asking at impact
+names whichever target the bus finished on.
+
 **Phase 0 has been flown headlessly**
 (`tests/KSArmory.Tests/MirvDivertTests.cs`), so the numbers below are measured rather than estimated —
 and it moved three of the plan's decisions, each marked **priced** where it appears. What it did not
@@ -464,21 +471,36 @@ reach, far first — not by which target is "hardest".
 
 ## What a flight has to show
 
-* **Scenario**: `tools/scenario.sh mirv:<lat>,<lon>;<lat>,<lon>;...` with per-target counts, loading its own
-  save as today (`KSARMORY_SCENARIO_SAVE`).
-* **Scoring**: each warhead against **its own** target, not the group's. The report prints per-target misses,
-  which warheads went where, arrival spacing on shared targets, divert spent against budget, and the time from
-  separation to the last release.
+* **Scenario**: `tools/scenario.sh mirv:<lat>,<lon>;<lat>,<lon>;...`, loading its own save as today
+  (`KSARMORY_SCENARIO_SAVE`). **Built.** `ShotRequest` already parsed the `;`; `BallisticScenario` now
+  designates the first place and `AddTarget`s the rest, balances the warheads over them, and carries the
+  seat's own `AimSpread` displacement onto **every** target of the set rather than spreading each one — a set
+  spread per target fans, and two rockets displaced toward each other is the overlap `AimSpread` exists to
+  open.
+* **Scoring**: each warhead against **its own** target, not the group's. **Built** — `Sim/ShotGroup.cs`'s
+  `ShotBoard`, one `ShotGroup` per target, judged separately and reported together, with the flight's verdict
+  a pass only when every target's is. A warhead is attributed through `IcbmComputer.TargetOfRound`, which is
+  the stop the *computer* recorded at the release — **both the release and the arrival read it, and that is
+  the part worth not re-deciding**. The lead index observed from outside is a warhead out: a handover lands on
+  the same frame the last of a stop's quota leaves, so the release would be counted at the next stop while the
+  arrival scored at this one, and both targets would then read a warhead that never arrived. A tube number
+  cannot do it either, because the magazine reloads inside `QuietAfterReleaseSeconds` and a walk spans
+  minutes.
 
-  **What that needs, priced while designing phase 3 and deliberately not built.** `Sim/ShotGroup.cs` holds one
-  list of misses and `ShotVerdict` one bar, and both are right for what they do: a common offset on a group is
-  what every fault it catches looks like. A walk has no common offset — each stop has its own correction — so
-  the group's `Spread` stops meaning anything and a worst-of-all bar scores the walk on its unluckiest stop.
-  So it wants **one `ShotGroup` per stop**, judged separately and reported together, with the *set's* verdict
-  the worst of the per-target verdicts, and a released warhead attributed to the stop that was current when it
-  left — which `Ksa/BallisticScenario.cs` cannot know today, because it scores against `computer.Target` and
-  that is the lead at the instant the impact is read rather than at the instant of release. **Phase 4**, and it
-  cannot be written before the loop's actuation fixes what "the target of this warhead" means.
+  **The single-target flight is unchanged by construction, not by inspection.** `ShotGroup` is untouched;
+  `ShotBoard.Judge` returns `_groups[0].Judge(bar)` for a set of one, the miss goes through
+  `computer.TargetEcl()` exactly as it always did, and neither the `TARGET` line nor the `for target N` on a
+  landing line is printed at all below two targets.
+  `ShotBoardTests.OneTargetIsWordForWordTheGroupsOwnVerdict` compares the two strings ordinally over four
+  shapes of outcome, and fails on all four against a board that takes the multi-target path.
+
+  **And a split flight's FLIGHT line carries no group statistics on purpose.** `worst .. best .. mean ..
+  spread` is the shape `tools/shot-report.py` reads a single-target group off, and twenty kilometres of
+  intended separation in that shape is a twenty-kilometre miss to every night already flown. The report rebuilds
+  those four from the per-target lines instead: `mean` warhead-weighted (still the mean distance of a warhead
+  from where **it** was sent, which is what `miss` always scored), and every width measured within a target and
+  reduced on the worst of them — the reduction the verdict itself uses, so the two cannot disagree about which
+  target decided the flight.
 * **Fratricide check**: every assigned warhead arrives and detonates; none is recorded as destroyed in the air.
 * **Nights**: the current single-target build against the loop with one target (they must match — the loop
   must cost nothing when it has one target), then 2, 4 and 6 targets.
@@ -508,8 +530,13 @@ So the shipped answer is **two to six targets on the gate-ending schedule**, 4.5
 | ~~0~~ | **Done** — `tests/KSArmory.Tests/MirvDivertTests.cs`. ±100 km is real **only from cutoff**; at today's release gate the footprint is a 34 × 18 km box. See the three findings at the top. | No |
 | 1 | **Targets as data**. **Done** — `Sim/TargetSet.cs`, `Sim/TargetEdit.cs`, `ShotRequest` naming several, the list on `IcbmComputer` with `Designate` split from `AddTarget`, clicks that add **before launch and during the coast**, and the panel's rows. Which entry the flight is aimed at is `TargetSet.LeadIndex`, re-elected to the farthest reach by `ElectFarthestLead` on every add while the aim is still free — so the flown order and the itinerary's agree, which is what unblocked phase 3. Where the warheads go is phase 3's, and what `BallisticScenario` designates is still the first place alone. | Unchanged |
 | 2 | **Reach display**. **Done, both sides of cutoff** — `Sim/DivertFootprint.cs` is both clocks plus `TryAtTheEpoch` for a flight that has not flown, and `Sim/ReachDisplay.cs` is the drawn region, the cursor's verdict and the panel's readout as one answer; `IcbmOverlay` drapes the ellipse and numbers the targets, and `SiteDesignator` greys the ring and says **outside reach**. **The missile's own region before target 1 is not built** and is the only part of this row left: it is a reach solve per candidate point along a bearing sweep, 37–68 ms a ring, so it wants the few-bearings-a-frame build this row's prose describes. | No |
+<<<<<<< HEAD
 | 3 | **The release loop**: re-aim per target, per-warhead target bookkeeping in the log. Shared targets release together. **Built and unflown** — `Sim/ReleaseLoop.cs` plans the walk and `Sim/ReleaseWalker.cs` is the cursor the flight is actuated through: `IcbmComputer` opens the gate early, hands the sequencer a stop's quota, and on each handover re-aims, resets the seven things a stop owns and lets `BusTrim` null onto the new solution. The ceiling turned out not to need raising, six targets 4 km apart pricing at 55.1 m/s against the 60 cap. **Both blockers are gone**: the arrival needs no re-latch (`ResolveCoastArc` already solves pinned) and the booster flies to the farthest. **Nothing in it executes for a set of one** — `ReleaseWalker.Walking` is false, so the gate is NaN and the program reads the setting live. | Yes, and never flown |
 | 4 | **Instruments and nights**: per-target scoring in `shot-report.py`, the matching check with one target, then 2/4/6. | Yes |
+=======
+| 3 | **The release loop**: re-aim per target, per-warhead target bookkeeping in the log. Shared targets release together. **The decision half is done and nothing actuates it** — `Sim/ReleaseLoop.cs` plans the walk, cuts a set to what the budget and the coast reach, counts a stop's quota out and refuses honestly; the ceiling turned out not to need raising, six targets 4 km apart pricing at 55.1 m/s against the 60 cap. **Both blockers are gone**: the arrival needs no re-latch (`ResolveCoastArc` already solves pinned) and the booster now flies to the farthest. What remains is the actuation in `Ksa/IcbmComputer.cs`, and it is the first thing here that changes what flies. | Not yet |
+| 4 | **Instruments and nights**: per-target scoring in `shot-report.py`, the matching check with one target, then 2/4/6. **The instruments are built and nothing has been flown** — `ShotBoard`, the scenario's `TARGET` lines and per-warhead attribution, and the report's `== targets` section with `miss`, `spread`, `landing`, `centre` and `dispersion` all reduced per target. Checked on a synthetic night and against two real single-target nights that still read byte for byte. | Yes |
+>>>>>>> d412631 (test(mirv): score a split salvo one group per target)
 | 5 | **Later**: area targets (option C), saving the target list with the craft, reordering by hand. | — |
 
 **A budget problem, and it is smaller than the worst case said.** Five hops at

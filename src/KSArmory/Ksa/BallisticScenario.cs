@@ -90,12 +90,18 @@ internal sealed class BallisticScenario
     private const double FlightZoomPower = 5.0;
 
     private readonly Action<string> _say;
-    private readonly ShotGroup _group = new();
+    private readonly ShotBoard _board;
 
     // Buffered rather than reported where it happens: the hook fires inside the battery's round
     // loop, which is inside the engine's frame hook, and a scenario's output belongs in its own
     // pass where the ordering is the one the log shows.
     private readonly List<string> _landed = [];
+
+    // Every round this flight has already counted away, so one release is counted once.
+    //
+    // Reference equality, stated rather than inherited: every IProjectile today is a class, and a
+    // record one would give two identical-looking warheads one entry between them.
+    private readonly HashSet<IProjectile> _seen = new(ReferenceEqualityComparer.Instance);
 
     private readonly Action<IProjectile> _onRoundEnded;
 
@@ -185,15 +191,19 @@ internal sealed class BallisticScenario
         _shot = shot;
         _say = say;
         _onRoundEnded = OnRoundEnded;
+
+        // Sized from what was ASKED FOR rather than from what the flight reaches, so a target the
+        // walk could not pay for fails with its number in the line instead of quietly not existing.
+        _board = new ShotBoard(_shot.Targets.Count);
     }
 
     /// <summary>What state a timeout would name, so a run that never got there says where it stuck.</summary>
     public string Where => _computer is null ? "waiting for a craft with a ballistic computer"
                          : !_committed ? "waiting for a launch solution"
-                         : $"{_reported}, {_group.Released} released, {_group.Arrived} down";
+                         : $"{_reported}, {_board.Released} released, {_board.Arrived} down";
 
     /// <summary>Whatever this shot has come to so far, which is what a timeout reports as well.</summary>
-    public ShotVerdict Judge() => _group.Judge(_shot.BarMetres);
+    public ShotVerdict Judge() => _board.Judge(_shot.BarMetres);
 
     /// <summary>Let go of the battery, so a finished scenario is not still being called back.</summary>
     public void Release()
@@ -272,11 +282,13 @@ internal sealed class BallisticScenario
         ReportReleases(battery, simStep);
         ReportImpacts();
 
-        if (_group.Released == 0 || _ended < _group.Released) return null;
+        if (_board.Released == 0 || _ended < _board.Released) return null;
         if (_sinceRelease < SalvoOverSeconds) return null;
 
-        ShotVerdict verdict = _group.Judge(_shot.BarMetres);
-        string held = _loaded > _group.Released ? $", {_loaded - _group.Released} still aboard" : "";
+        ReportTargets();
+
+        ShotVerdict verdict = _board.Judge(_shot.BarMetres);
+        string held = _loaded > _board.Released ? $", {_loaded - _board.Released} still aboard" : "";
 
         return $"{(verdict.Pass ? "PASS" : "FAIL")} {verdict.Said}{held}";
     }
@@ -451,6 +463,8 @@ internal sealed class BallisticScenario
 
             _say($"aimed at {computer.Target.Describe()}{Downrange(computer)}");
 
+            AddTheOtherTargets(computer, parent, aimLat, aimLon);
+
             // Nobody is watching this one, so there is no cost to the detail and no second chance
             // to ask for it: a shot that goes wrong unattended has only what it wrote down.
             if (Log.Threshold > Log.Level.Debug)
@@ -624,12 +638,16 @@ internal sealed class BallisticScenario
         // Off the release count for the same reason the post-release warp is: the magazine refills
         // a few seconds after the salvo, so `ammo < _loaded` stops distinguishing "the warheads have
         // gone" from "they never left".
-        if (_computer is not { } computer || _group.Released > 0) return;
+        if (_computer is not { } computer || _board.Released > 0) return;
         if (computer.Command.Phase != IcbmPhase.Coast) return;
 
         double toArrival = computer.Program.CommittedArrivalFromNow;
-        double releaseAt = computer.Config.ReleaseBeforeArrivalSeconds;
-        if (!double.IsFinite(toArrival)) return;
+
+        // The gate the flight is actually holding to, not the setting. A walk of N stops starts
+        // (N-1) x 65 s earlier, so reading the setting would warp the world straight past the first
+        // release and the scenario would miss it. `ReleaseGate` is the setting when nothing walks.
+        double releaseAt = computer.Program.ReleaseGate;
+        if (!double.IsFinite(toArrival) || !double.IsFinite(releaseAt)) return;
 
         bool roomToWarp = toArrival > releaseAt + IcbmProgram.SteadyBeforeReleaseSeconds;
 
@@ -741,15 +759,27 @@ internal sealed class BallisticScenario
         int ammo = battery.Ammo;
         if (_ammoWas < 0) _ammoWas = ammo;
 
+        // The rounds that appeared this frame, paired with the magazine's own count of what left.
+        // A release and its arrival have to be scored against one target, so both read the same
+        // round through TargetOf; counting the release off the bus's aim instead attributes the
+        // last warhead of a stop to the next one, because the handover lands on the same frame.
+        //
+        // Only on a frame that let something go: a round appears in the same call the magazine is
+        // counted down in, so there is nothing to pair on any other.
+        List<IProjectile> fresh = ammo < _ammoWas ? RoundsNotSeenYet(battery) : [];
+
         for (int i = 0; i < _ammoWas - ammo; i++)
         {
-            _group.Release();
+            int stop = i < fresh.Count ? TargetOf(fresh[i]) : computer.LeadTarget;
+
+            _board.For(stop).Release();
             _sinceRelease = 0.0;
 
             ReleaseCommand deploy = computer.Deployment;
             string shot = $"warhead away from tube {deploy.Tube + 1}, "
                           + $"{deploy.OffLineDegrees:F2} deg off the salvo's line, "
-                          + $"{ammo} left";
+                          + $"{ammo} left"
+                          + (_board.Split ? $", for target {stop + 1}" : "");
 
             _say(_capturedDeployment ? shot : $"CAPTURE deployment: {shot}");
             _capturedDeployment = true;
@@ -796,11 +826,11 @@ internal sealed class BallisticScenario
         // and the branch is never entered again. Measured 2026-08-25 -- `holding fire: reloading
         // (3 s)` lands 34 ms after the sixth warhead leaves, so this never fired at all and the
         // whole 381 s coast ran at 1x. ShotGroup.Released only ever increases.
-        if (_group.Released > 0)
+        if (_board.Released > 0)
         {
-            if (_group.Released != _releasedLastSeen)
+            if (_board.Released != _releasedLastSeen)
             {
-                _releasedLastSeen = _group.Released;
+                _releasedLastSeen = _board.Released;
                 _sinceLastRelease = 0.0;
             }
             else if (_sinceLastRelease >= QuietAfterReleaseSeconds)
@@ -818,6 +848,56 @@ internal sealed class BallisticScenario
     private static double GroundMetresBetween(Celestial body, double aLat, double aLon,
                                               double bLat, double bLon)
         => AimSpread.GroundMetresBetween(aLat, aLon, bLat, bLon, body.MeanRadius);
+
+    // The places after the first, for a shot at several. A request naming one adds nothing at all,
+    // so the flight is left exactly as it was before a set could hold more than one place.
+    private void AddTheOtherTargets(IcbmComputer computer, Celestial parent,
+                                    double leadLat, double leadLon)
+    {
+        IReadOnlyList<ShotRequest.Aim> asked = _shot.Targets;
+        if (asked.Count <= 1) return;
+
+        // Every one of this rocket's targets carries the same seat displacement, along the one
+        // bearing the group shares. Spread per target instead and the sets fan, which walks two
+        // rockets' warheads back inside each other's lethal radius -- what AimSpread exists to open.
+        double bearing = AimSpread.BearingDeg(asked[0].LatitudeDeg, asked[0].LongitudeDeg,
+                                              leadLat, leadLon);
+        double shift = GroundMetresBetween(parent, asked[0].LatitudeDeg, asked[0].LongitudeDeg,
+                                           leadLat, leadLon);
+        bool displaced = shift > 0.0 && double.IsFinite(bearing);
+
+        for (int i = 1; i < asked.Count; i++)
+        {
+            var at = displaced
+                         ? AimSpread.Along(asked[i].LatitudeDeg, asked[i].LongitudeDeg, bearing,
+                                           shift, parent.MeanRadius)
+                         : (LatitudeDeg: asked[i].LatitudeDeg, LongitudeDeg: asked[i].LongitudeDeg);
+
+            if (computer.AddTarget(new AimSite(parent.Id, at.LatitudeDeg, at.LongitudeDeg,
+                                               $"scenario target {i + 1}")))
+            {
+                continue;
+            }
+
+            _say($"target {i + 1} was refused; this flight goes to {computer.Targets.Count} place(s) "
+                 + "and the rest are scored as never released");
+            break;
+        }
+
+        computer.BalanceTargets();
+
+        _say($"{computer.DescribeTargets()}; the booster flies to target {computer.LeadTarget + 1}, "
+             + string.Join(", ", TargetLines(computer)));
+    }
+
+    private static IEnumerable<string> TargetLines(IcbmComputer computer)
+    {
+        for (int i = 0; i < computer.Targets.Count; i++)
+        {
+            TargetSet.Entry entry = computer.Targets[i];
+            yield return $"target {i + 1} {entry.Site.Coordinates} x{entry.Warheads}";
+        }
+    }
 
     // Where this rocket aims, which is the operator's point only for the first of a group.
     //
@@ -968,6 +1048,67 @@ internal sealed class BallisticScenario
              + "which is where they are coming down");
     }
 
+    // The rounds in the air this flight has not counted away yet, in the launcher's own order.
+    //
+    // Object identity, because it is the only thing about a round that survives the coast: the
+    // magazine reloads inside QuietAfterReleaseSeconds, so a tube number comes round again while a
+    // walk is still running.
+    private List<IProjectile> RoundsNotSeenYet(WeaponSystem battery)
+    {
+        List<IProjectile> fresh = [];
+        IReadOnlyList<IProjectile> rounds = battery.Rounds;
+
+        for (int i = 0; i < rounds.Count; i++)
+        {
+            if (_seen.Add(rounds[i])) fresh.Add(rounds[i]);
+        }
+
+        return fresh;
+    }
+
+    // Where this round was sent: the flight's own record of the stop that was current when it left.
+    //
+    // Asked of the computer rather than observed here, and the difference is a warhead: a handover
+    // lands on the same frame the last of a stop's quota leaves, so a lead index read after that
+    // frame attributes that warhead one stop late. The fallback is for a round this computer did
+    // not release -- which for a single-target shot cannot happen, target zero being the only index
+    // there is.
+    private int TargetOf(IProjectile round)
+    {
+        if (_computer?.TargetOfRound(round) is int said and >= 0) return said;
+
+        return _computer?.LeadTarget ?? 0;
+    }
+
+    // One target's place, in the ecliptic.
+    //
+    // A set of one goes through `TargetEcl()` -- the same expression every accuracy number on this
+    // mod was taken through. Past that the entry is named outright rather than through the lead,
+    // which by the arrival is wherever the walk finished.
+    private static double3? AimEclOf(IcbmComputer computer, int target)
+        => computer.Targets.Count > 1 && target >= 0 && target < computer.Targets.Count
+               ? computer.SiteEcl(computer.Targets[target].Site)
+               : computer.TargetEcl();
+
+    // One line per target, so a walk is read as several shots rather than as one scattered group.
+    // Nothing is printed for a set of one: the verdict already carries that group's whole reading.
+    private void ReportTargets()
+    {
+        if (!_board.Split || _computer is not { } computer) return;
+
+        string whose = $" on {KsaWorld.DisplayName(computer.Craft)}";
+
+        for (int i = 0; i < _board.Targets; i++)
+        {
+            string where = i < computer.Targets.Count
+                               ? computer.Targets[i].Site.Coordinates
+                               : "a place the flight never held";
+
+            _say($"TARGET {i + 1} of {_board.Targets}{whose}: {where} -- "
+                 + _board.JudgeTarget(i, _shot.BarMetres).Said);
+        }
+    }
+
     private void ReportImpacts()
     {
         for (int i = 0; i < _landed.Count; i++)
@@ -988,6 +1129,7 @@ internal sealed class BallisticScenario
             _ended++;
 
             string what = RoundLabel.For(round.Tube);
+            int target = TargetOf(round);
 
             if (round.State != RoundState.Detonated)
             {
@@ -995,8 +1137,8 @@ internal sealed class BallisticScenario
                 return;
             }
 
-            double miss = MissFromAim(round, out string resolved);
-            _group.Arrive(miss);
+            double miss = MissFromAim(round, target, out string resolved);
+            _board.For(target).Arrive(miss);
 
             // Named, and in the unit that shows it. This is the only line carrying where each
             // warhead of a group landed, so it is the only reading the spread within one group can
@@ -1004,9 +1146,13 @@ internal sealed class BallisticScenario
             // none of them.
             string whose = _computer is { } owner ? $" on {KsaWorld.DisplayName(owner.Craft)}" : "";
 
+            // Only when there is more than one place to name. A single-target flight's line is what
+            // every landing-line endpoint in tools/shot-report.py was calibrated against.
+            string sent = _board.Split ? $" for target {target + 1}" : "";
+
             _landed.Add(double.IsFinite(miss)
-                ? $"{what}{whose} down {Distance.Measure(miss)} from the aim point after {round.Age:F0} s{resolved}"
-                : $"{what}{whose} down after {round.Age:F0} s, and where could not be measured");
+                ? $"{what}{whose}{sent} down {Distance.Measure(miss)} from the aim point after {round.Age:F0} s{resolved}"
+                : $"{what}{whose}{sent} down after {round.Age:F0} s, and where could not be measured");
         }
         catch
         {
@@ -1023,12 +1169,12 @@ internal sealed class BallisticScenario
     // distances: downrange carries the fall and the timing, cross carries the plane. Only the miss
     // needs its instants paired; the frame's axes are directions, and a frame's travel moves no
     // direction.
-    private double MissFromAim(IProjectile round, out string resolved)
+    private double MissFromAim(IProjectile round, int target, out string resolved)
     {
         resolved = "";
 
         if (_computer is not { } computer || computer.Parent is not { } parent) return double.NaN;
-        if (computer.TargetEcl() is not { } aimEcl) return double.NaN;
+        if (AimEclOf(computer, target) is not { } aimEcl) return double.NaN;
 
         double3 aimAtBurst = aimEcl + KsaWorld.GroundVelocityAt(parent, aimEcl)
                                       * round.DetonationElapsedInFrame;
