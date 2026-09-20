@@ -677,3 +677,43 @@ booster aimed. See *Phase 3 found two things* above.
 * **Release before or after the aim correction for target 1?** Today the correction runs once. With several
   targets it runs once per target; whether the first one's can be shortened is a phase 0 question.
 * **What the player sees in flight**: which target the bus is currently aimed at, and a countdown per target.
+
+## Flown: a bus that went to two places — 2026-09-21
+
+**The first multi-target MIRV flight.** `./tools/scenario.sh 'mirv:24.0S,62.0W;24.018S,62.0W'` against
+`SOLVER SCALE 8`, 2 km apart at 6,135 km: **8 rockets, 8 walks, 16 releases, 0 refusals, PASS**. Three
+warheads on each target, and the bus diverted 2 km between them.
+
+| target | worst miss |
+| --- | --- |
+| the one the booster flew to | **0 m on all eight** |
+| the one the bus diverted to | 0 m on five, **15–19 m** on three |
+
+It took three flights, and the two faults are worth more than the success.
+
+**Fault 1 — the plan was right whenever anyone asked, and wrong when it mattered.** `ReleaseItinerary`
+wants the coast's own *length*; `IcbmComputer` handed it `SecondsToArrival`, which runs down. Since
+`CoastFits = 1 + floor((coast - gate) / hop)`, the set collapsed to one stop the instant the coast fell
+below `gate + hop` = 485.1 s — **exactly `FirstBeforeArrivalSeconds`, the frame the first release became
+due**. The walk planned all through the ascent, printed `2 stops, 20.3 m/s of 60`, and was silently
+replaced by a one-stop plan at the moment of use: every warhead to the lead, no re-aim, no release line.
+Every fixture asked `Plan` at one instant and it was correct at every instant anyone thought to test.
+`ReleaseWalkClockTests` steps it down a coast instead, and `ReleaseWalker.CoastForPlanning` latches the
+length at cutoff.
+
+**Fault 2 — the walker and the trim judge different quantities, and the gap lands as a silent miss.**
+At 4 km spacing the walk ran and the warheads landed **4.00 km out, scored as arrived**. The walker
+prices the *hop* against `BusTrim.MaxMetresPerSecond` and accepts at 9.73 m/s; the trim is then asked
+for the hop **plus the residual already on the bus**, 10.29, trips the same ceiling and refuses the
+whole pass — so the bus never moves and the warheads leave on the old solution. **Open**; tonight it was
+dodged by choosing a spacing the hop could afford. The reach at that epoch is 411 m per m/s, so 4 km is
+9.7 m/s and sits on the ceiling by construction.
+
+**What this vindicates.** Per-target scoring is what made fault 2 visible at all: the old single-aim
+score reads that flight as `6 of 6 arrived, spread 0.000` and **passes** it. `ShotBoard` seeding from
+the *request's* target count rather than from what the flight reached is what made fault 1 legible —
+`TARGET 1 of 2 … nothing was released` rather than a target that quietly did not exist.
+
+**Still unflown**: four and six targets, a paired night against a single-target baseline, and every
+in-game surface — the pre-launch reach drawn on the ground, the cursor refusing outside it, and the
+panel's list. Nothing here has been touched by a human hand.
