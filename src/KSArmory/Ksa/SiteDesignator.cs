@@ -49,7 +49,17 @@ internal sealed class SiteDesignator
             return;
         }
 
-        computer.Designate(new AimSite(body, latitude, longitude, ""));
+        AimSite site = new(body, latitude, longitude, "");
+
+        // Past cutoff the booster has already flown to target 1, so a click is another place for the
+        // bus rather than a new shot -- designating there resets the flight it is half-way through.
+        if (TargetEdit.ClickDoes(computer.Targets.Count, computer.Program.Phase) == TargetClick.Add)
+        {
+            computer.AddTarget(site);
+            return;
+        }
+
+        computer.Designate(site);
     }
 
     /// <summary>Rings where the next click would aim, so the tool can be pointed before it is used.</summary>

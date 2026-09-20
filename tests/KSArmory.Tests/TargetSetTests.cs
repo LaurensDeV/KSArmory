@@ -117,6 +117,80 @@ public class TargetSetTests
         Assert.Equal("1 target, 3 warheads kept aboard", set.Describe(6));
     }
 
+    /// <summary>
+    /// The place the flight is aimed at is a question the set answers, not the order the player
+    /// happened to click in: the release schedule flies the farthest reach first.
+    /// </summary>
+    [Fact]
+    public void TheFlightIsAimedAtTheLeadRatherThanTheFirstChosen()
+    {
+        TargetSet set = new();
+        set.SetOnly(At(-24.0, -62.0), 6);
+        set.TryAdd(At(-25.0, -63.0));
+
+        Assert.Equal(0, set.LeadIndex);
+        Assert.Equal(At(-24.0, -62.0), set.Primary);
+
+        Assert.True(set.SetLead(1));
+        Assert.Equal(At(-25.0, -63.0), set.Primary);
+    }
+
+    [Fact]
+    public void AnEntryThatIsNotThereCannotBeTheLead()
+    {
+        TargetSet set = new();
+        set.TryAdd(At(-24.0, -62.0));
+
+        Assert.False(set.SetLead(1));
+        Assert.False(set.SetLead(-1));
+        Assert.Equal(0, set.LeadIndex);
+    }
+
+    /// <summary>A lead taken away aims the flight at the first place chosen, not at its neighbour.</summary>
+    [Fact]
+    public void RemovingTheLeadFallsBackToTheFirstChosen()
+    {
+        TargetSet set = new();
+        set.TryAdd(At(-24.0, -62.0));
+        set.TryAdd(At(-25.0, -63.0));
+        set.TryAdd(At(-26.0, -64.0));
+        set.SetLead(2);
+
+        Assert.True(set.RemoveAt(2));
+        Assert.Equal(0, set.LeadIndex);
+        Assert.Equal(At(-24.0, -62.0), set.Primary);
+    }
+
+    /// <summary>Removing anything before the lead must not slide the aim onto a different place.</summary>
+    [Fact]
+    public void RemovingBeforeTheLeadKeepsTheFlightAimedWhereItWas()
+    {
+        TargetSet set = new();
+        set.TryAdd(At(-24.0, -62.0));
+        set.TryAdd(At(-25.0, -63.0));
+        set.TryAdd(At(-26.0, -64.0));
+        set.SetLead(2);
+
+        Assert.True(set.RemoveAt(0));
+        Assert.Equal(1, set.LeadIndex);
+        Assert.Equal(At(-26.0, -64.0), set.Primary);
+    }
+
+    /// <summary>A new designation is a new shot, so the lead goes back to the one place it names.</summary>
+    [Fact]
+    public void DesignatingAgainPutsTheLeadBackOnTheOnlyEntry()
+    {
+        TargetSet set = new();
+        set.TryAdd(At(-24.0, -62.0));
+        set.TryAdd(At(-25.0, -63.0));
+        set.SetLead(1);
+
+        set.SetOnly(At(-30.0, -70.0), 6);
+
+        Assert.Equal(0, set.LeadIndex);
+        Assert.Equal(At(-30.0, -70.0), set.Primary);
+    }
+
     /// <summary>The plan is what the flight reads, so it has to survive a bus with fewer rounds left.</summary>
     [Fact]
     public void ThePlanIsBoundedByTheWarheadsActuallyAboard()
