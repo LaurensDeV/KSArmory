@@ -1390,8 +1390,11 @@ difference on the attitude-control jets, stop when less than one frame of firing
 
 Three things about it are the decisions, and each cost a wrong version first. It resolves onto the
 **vehicle's own control axes** rather than turning to point at the answer, because by the coast the
-attitude *is* the release line and the dominant component is axial anyway — a decoupler pushes along
-the joint. It fires **one direction at a time**, because the stop threshold is half a frame of a
+attitude *is* the release line. **The debt is not mostly axial, which this file asserted for a year on
+the reasoning that a decoupler pushes along the joint** — flown and decomposed onto the bus's own axes,
+the radial term is three times the axial one, medians 1.71 m/s down against 0.63 along the nose, and
+only 20% of the total is axial (`docs/ACCURACY-PLAN.md` 3fh). Resolving onto the control axes is right
+regardless, and the lateral jets are doing most of the work. It fires **one direction at a time**, because the stop threshold is half a frame of a
 thrust that is only measurable along the direction being fired, and a bus's lateral authority is
 whatever its nozzle layout happened to give it — **the shipped one has all six**, 4.000 units fore
 and aft and 4.243 in each lateral direction with the roll torques cancelling, which
