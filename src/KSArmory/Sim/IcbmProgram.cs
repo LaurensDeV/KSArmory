@@ -618,7 +618,31 @@ internal sealed class IcbmProgram
         _windowDirection = Vec.Zero;
         _shortfall = 0.0;
         _closestOffPlane = double.NaN;
+        ReleaseGateSeconds = double.NaN;
     }
+
+    /// <summary>
+    /// When the warheads may first go, in seconds before arrival, overriding
+    /// <see cref="IcbmConfig.ReleaseBeforeArrivalSeconds"/>. NaN — the default — is no override.
+    /// </summary>
+    /// <remarks>
+    /// <b>Only a walk of several targets writes it.</b> <see cref="ReleaseItinerary"/> counts its
+    /// releases back from the gate so the <em>last</em> one lands on it, which means the first has
+    /// to happen <c>(N-1) x 65 s</c> earlier — and a walk of one returns the gate itself, so a
+    /// single-target flight leaves this NaN and reads the setting live as it always has.
+    /// </remarks>
+    public double ReleaseGateSeconds { get; set; } = double.NaN;
+
+    /// <summary>
+    /// The gate in force, which is the setting unless a walk has asked for an earlier one.
+    ///
+    /// <para>One expression, because everything that counts down to a release has to reach the same
+    /// answer: the coast's own gate, the readout, and the warp the correction needs held down
+    /// before it.</para>
+    /// </summary>
+    public double ReleaseGate
+        => double.IsFinite(ReleaseGateSeconds) ? ReleaseGateSeconds
+                                               : Config.ReleaseBeforeArrivalSeconds;
 
     public IcbmCommand Update(double stepSeconds, in IcbmState state)
     {
@@ -1165,9 +1189,8 @@ internal sealed class IcbmProgram
         // had the whole coast to converge. The altitude stays as the floor under it: it is what
         // stops a release inside the air, which the time alone would allow on a short shot.
         double toArrival = CommittedArrivalFromNow;
-        bool closeEnough = Config.ReleaseBeforeArrivalSeconds <= 0.0
-                           || !double.IsFinite(toArrival)
-                           || toArrival <= Config.ReleaseBeforeArrivalSeconds;
+        double gate = ReleaseGate;
+        bool closeEnough = gate <= 0.0 || !double.IsFinite(toArrival) || toArrival <= gate;
 
         // The altitude is a floor on the way *up* only. Applied on the descent it shuts the gate
         // exactly when the release is meant to happen -- the vehicle drops back through it on the
@@ -1190,7 +1213,7 @@ internal sealed class IcbmProgram
             // Counted to the release rather than to the arrival. The arrival is already the
             // headline above this line, and it is not the thing being waited for: a coast ends
             // when the warheads go, minutes earlier.
-            : $"holding the warheads, release in {Clock(toArrival - Config.ReleaseBeforeArrivalSeconds)}";
+            : $"holding the warheads, release in {Clock(toArrival - gate)}";
 
         // The line it was cut off on, not the airflow. The warheads leave along it, and a bus that
         // swings to prograde the moment the engines stop throws them off the solution it just spent

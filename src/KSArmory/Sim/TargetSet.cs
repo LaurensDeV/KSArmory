@@ -184,7 +184,7 @@ internal sealed class TargetSet
     /// <remarks>
     /// The earliest rather than the nearest, because the order targets were picked in is the only one
     /// the player stated. The cheapest order to <em>fly</em> them is a different question and belongs to
-    /// the release loop, which does not exist yet.
+    /// the release loop (<see cref="ReleaseItinerary"/>), which flies them farthest reach first.
     /// </remarks>
     public void Balance(int available)
     {

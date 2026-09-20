@@ -197,19 +197,37 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
         Walk walk = Order(placed, lead);
         ReleaseItinerary itinerary = ReleaseItinerary.Plan(walk.Set, bus, atEachSlot);
 
+        // Planned off the same ordered set the ring is drawn from, rather than built again beside
+        // it: a walk flown from a second construction can disagree with the picture about which
+        // hops are being bought, and the picture is the one a player has used.
+        ReleaseWalk flown = ReleaseLoop.Plan(walk.Set, bus, atEachSlot, lead);
+
         double left = itinerary.LeftMetresPerSecond;
         double hop = Math.Min(left, BusTrim.MaxMetresPerSecond);
         int room = Math.Max(0, ReleaseItinerary.TargetsWithin(spacingMetres, atEachSlot, bus) - targets);
 
         ReachDisplay display = new(ReachHold.Drawn, reach, left, hop, itinerary.LeftBuysMetres,
                                    targets, room, spacingMetres,
-                                   walk.AlongMetres, walk.CrossMetres, walk.FromTarget);
+                                   walk.AlongMetres, walk.CrossMetres, walk.FromTarget)
+        {
+            Flown = flown,
+        };
 
         if (targets >= maxTargets) return display with { Hold = ReachHold.Full };
         if (!(hop > 0.0)) return display with { Hold = ReachHold.Spent };
 
         return display;
     }
+
+    /// <summary>
+    /// The walk this set amounts to — what the flight actually flies, planned off the same ordered
+    /// set the ring is drawn from.
+    ///
+    /// <para>Holds no stops where nothing was priced, which is every <see cref="None"/>. A caller
+    /// that is flying one has to latch it rather than re-reading it: once the first warhead is away
+    /// the display stops being drawn, and the plan behind the bus must not change anyway.</para>
+    /// </summary>
+    public ReleaseWalk Flown { get; init; }
 
     /// <summary>Whether there is a region on the ground at all.</summary>
     public bool HasRegion => Hold == ReachHold.Drawn;

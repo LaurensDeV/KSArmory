@@ -161,12 +161,22 @@ internal sealed partial class Ui
 
         ImGui.Text(computer.DescribeTargets());
 
-        // Inline rather than in a tooltip: a player who has just placed a second target and then
-        // watches every warhead land on one of them has no other way of finding out why.
+        // Inline rather than in a tooltip: a player whose warheads all land on one of several
+        // targets has no other way of finding out why, and every refusal here is silent.
         if (computer.Targets.Count > 0)
         {
-            ImGui.TextColored(Working, "  the bus does not fly between targets yet - all of them go "
-                                       + $"to target {lead + 1}");
+            ReleaseWalker walker = computer.Walk;
+
+            ImGui.TextColored(walker.Walk.Walks ? Good : Working, "  " + walker.Walk.Say());
+
+            if (walker.Walking)
+            {
+                ReleaseStep step = walker.Step;
+
+                ImGui.TextColored(Good, $"  on stop {walker.Stop + 1} of {walker.Walk.Stops}: "
+                                        + $"target {step.Target + 1}, {step.Away} of "
+                                        + $"{step.Warheads} warhead(s) away");
+            }
         }
 
         int removed = -1;
@@ -199,7 +209,7 @@ internal sealed partial class Ui
             Tip("How many of the bus's warheads are meant for this place. What no target takes rides "
                 + "the bus down.");
 
-            if (TargetEdit.MayRemove(i, computer.Targets.Count, lead))
+            if (computer.MayRemoveTarget(i))
             {
                 ImGui.SameLine();
                 if (ImGui.SmallButton("Remove")) removed = i;

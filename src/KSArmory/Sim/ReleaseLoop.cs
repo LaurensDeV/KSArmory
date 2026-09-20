@@ -51,7 +51,12 @@ internal readonly record struct ReleaseWalk(ReleaseItinerary Itinerary, ReleaseW
                                             int Dropped, double HopMetresPerSecond)
 {
     /// <summary>Whether the flight does anything it has not always done.</summary>
-    public bool Walks => Hold == ReleaseWalkHold.Walking;
+    /// <remarks>
+    /// The stop count is part of the test because <see cref="ReleaseWalkHold.Walking"/> is the
+    /// enum's zero, so a <c>default</c> walk — what a caller holds before anything has been planned
+    /// — would otherwise claim to be one, with no stops to fly.
+    /// </remarks>
+    public bool Walks => Hold == ReleaseWalkHold.Walking && Stops > 1;
 
     public int Stops => Itinerary.Count;
 
@@ -59,6 +64,8 @@ internal readonly record struct ReleaseWalk(ReleaseItinerary Itinerary, ReleaseW
     public string Say()
         => Hold switch
         {
+            ReleaseWalkHold.Walking when !Walks => "no walk planned",
+
             ReleaseWalkHold.Walking =>
                 $"{Stops} stops, {Itinerary.NeedsMetresPerSecond:F1} m/s of "
                 + $"{Itinerary.Means.BudgetMetresPerSecond:F0}"

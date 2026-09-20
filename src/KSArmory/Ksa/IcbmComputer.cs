@@ -273,8 +273,13 @@ internal sealed class IcbmComputer
     ///
     /// <para>False before the first release, because a salvo that has not started is not one that
     /// has finished.</para>
+    ///
+    /// <para><b>On a walk it means the walk is over, not that a warhead has left.</b> The magazine
+    /// count cannot say: a walk that dropped a stop it could not pay for keeps its warheads aboard,
+    /// so <see cref="WarheadsAway"/> never reaches the salvo's size and the trim would go on solving
+    /// and firing at a bus with nothing left to release.</para>
     /// </summary>
-    public bool SalvoFinished => _salvoSize > 0 && WarheadsAway >= _salvoSize;
+    public bool SalvoFinished => _walker.Done || (_salvoSize > 0 && WarheadsAway >= _salvoSize);
 
     private int _salvoSize;
 
@@ -367,6 +372,31 @@ internal sealed class IcbmComputer
     // real warheads were long down.
     private bool _salvoAway;
     private bool _saidClearOnce;
+
+    /// <summary>
+    /// The walk this bus is on, and where in it. Holds no walk for every set of one — see
+    /// <see cref="ReleaseWalker.Walking"/>.
+    /// </summary>
+    public ReleaseWalker Walk => _walker;
+
+    private readonly ReleaseWalker _walker = new();
+
+    // What the trim had spent when the current stop began, so a stop's own divert is a difference
+    // rather than the flight's running total.
+    private double _spentAtStopStart;
+
+    // Which target each released warhead was sent to, by reference, for a harness scoring a walk.
+    // At most one entry per warhead aboard, cleared with the flight.
+    private readonly List<(IProjectile Round, int Target)> _sentTo = [];
+
+    // What the walk actually delivered, for the line at the end of it.
+    private readonly List<(int Target, string Site, int Warheads)> _wentTo = [];
+
+    // The salvo is over rather than merely begun. Between a walk's stops rounds are in the air and
+    // the bus is still being aimed, corrected and trimmed for the next one, so the latch that ends a
+    // single-target flight is exactly the wrong question -- it would quiet the coast, stop the reach
+    // being re-flown, and leave the operator looking at a bus that has stopped working.
+    private bool SalvoIsOver => _salvoAway && !_walker.Walking;
 
     /// <summary>How far off its solution the bus still is, or NaN while nothing is trimming it.</summary>
     public double TrimToGainMetresPerSecond => _trim.Armed ? _trim.ToGainMetresPerSecond : double.NaN;
@@ -507,6 +537,11 @@ internal sealed class IcbmComputer
         _missKickCount = 0;
         _salvoProbe.Forget();
         _flownKick = null;
+        _walker.Reset();
+        _spentAtStopStart = 0.0;
+        _sentTo.Clear();
+        _wentTo.Clear();
+        _saidWalk = "";
 
         Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)} designated {site.Describe()}");
     }
@@ -530,8 +565,8 @@ internal sealed class IcbmComputer
         string moved = ElectLead();
 
         Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)}: target {_targets.Count} is "
-                 + $"{site.Describe()}{moved}; the bus does not fly between targets yet, so every "
-                 + $"warhead still goes to target {_targets.LeadIndex + 1}");
+                 + $"{site.Describe()}{moved}; it gets no warheads until it is given some, and a "
+                 + "target nothing leaves at is not a stop");
         return true;
     }
 
@@ -569,9 +604,14 @@ internal sealed class IcbmComputer
     }
 
     /// <summary>Drop a place the warheads were going to, which gives its warheads back to the spares.</summary>
+    /// <remarks>
+    /// Never once a walk is under way. Its stops name indexes into this list, so removing an entry
+    /// sends the bus to whichever place slides into the gap — and the walk is committed by the first
+    /// warhead leaving, which is also the point past which the list is a record of where they went.
+    /// </remarks>
     public bool RemoveTarget(int index)
     {
-        if (!TargetEdit.MayRemove(index, _targets.Count, _targets.LeadIndex)) return false;
+        if (!MayRemoveTarget(index)) return false;
 
         string what = _targets.Entries[index].Site.Describe();
         if (!_targets.RemoveAt(index)) return false;
@@ -579,6 +619,11 @@ internal sealed class IcbmComputer
         Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)}: {what} is no longer a target");
         return true;
     }
+
+    /// <summary>Whether that entry may go, which is what the panel draws its button on.</summary>
+    public bool MayRemoveTarget(int index)
+        => !(_walker.Committed && _walker.Walk.Walks)
+           && TargetEdit.MayRemove(index, _targets.Count, _targets.LeadIndex);
 
     /// <summary>Give one target a share of the warheads, bounded by what the others have taken.</summary>
     public void SetTargetWarheads(int index, int warheads)
@@ -764,6 +809,11 @@ internal sealed class IcbmComputer
             Command = Program.Update(simStep, state);
             return;
         }
+
+        // NaN unless a walk is running, and then the gate the itinerary counts its releases back
+        // from -- gate + (N-1) x 65 s, so the LAST release still lands on the setting. A walk of one
+        // is NaN, which leaves the program reading the setting live as it always has.
+        Program.ReleaseGateSeconds = _walker.GateOverrideSeconds(Config.ReleaseBeforeArrivalSeconds);
 
         bool wasBurning = Program.IsBurning;
         Command = Program.Update(simStep, state);
@@ -990,6 +1040,10 @@ internal sealed class IcbmComputer
 
         if (Config.AutoRelease && _deploy.ReleaseNow) Release(release);
 
+        // After the release, so a stop whose last warhead went this frame hands over on this frame
+        // rather than spending one more holding an aim nothing is left for.
+        StepTheWalk(release);
+
         CarryOurWarp();
         CarryTheView();
     }
@@ -1130,7 +1184,7 @@ internal sealed class IcbmComputer
             double toArrival = Program.CommittedArrivalFromNow;
             if (!double.IsFinite(toArrival)) return double.NaN;
 
-            return toArrival - Config.ReleaseBeforeArrivalSeconds;
+            return toArrival - Program.ReleaseGate;
         }
     }
 
@@ -1825,7 +1879,7 @@ internal sealed class IcbmComputer
                                   Coasting: Program.Phase == IcbmPhase.Coast,
                                   Burning: Program.IsBurning,
                                   Trimming: TrimIsFiring,
-                                  SalvoAway: _salvoAway,
+                                  SalvoAway: SalvoIsOver,
                                   CorrectionFinished:
                                       _postBoostSaid || !Config.QuietCoastAfterCorrection,
                                   InReleaseApproach: CoastQuiet.InReleaseApproach(
@@ -2244,11 +2298,35 @@ internal sealed class IcbmComputer
                + $"{_sinceSplit:F0} s of clearing]";
     }
 
+    /// <summary>
+    /// Which of <see cref="Targets"/> a released warhead was sent to, or <c>-1</c> for a round this
+    /// computer did not release.
+    ///
+    /// <para><b>The seam a harness scores a walk through.</b> A warhead's target is the stop that
+    /// was current when it left, which nothing downstream can recover afterwards: the lead moves on
+    /// at the next handover, so reading it at impact reports whichever target the bus finished on.
+    /// Always answered, walk or no walk — a single-target flight records every round against target
+    /// zero.</para>
+    /// </summary>
+    public int TargetOfRound(IProjectile round)
+    {
+        for (int i = 0; i < _sentTo.Count; i++)
+        {
+            if (ReferenceEquals(_sentTo[i].Round, round)) return _sentTo[i].Target;
+        }
+
+        return -1;
+    }
+
     /// <summary>Let one warhead go at the aim point, if there is one to let go and it is ready.</summary>
     public bool Release(IManualFire? weapon)
     {
         if (weapon is null || !weapon.ReadyToFire) return false;
         if (TargetEcl() is not { } targetEcl) return false;
+
+        // Read before the warhead is counted away: the cursor moves at the handover, which is the
+        // same frame the last of a stop's quota leaves.
+        int sentTo = _walker.TargetIndex(_targets.LeadIndex);
 
         bool away = weapon.FireAt(targetEcl);
 
@@ -2269,12 +2347,17 @@ internal sealed class IcbmComputer
             }
 
             WarheadsAway++;
+            _walker.WarheadAway();
 
             // On the round rather than the munition: the profile is one instance shared by every
             // rocket in the world, and a paired night needs each rocket to fly its own setting.
-            Slug? released = weapon is IRoundsInFlight { Rounds: { Count: > 0 } flying }
-                                 ? flying[^1] as Slug
-                                 : null;
+            IProjectile? sent = weapon is IRoundsInFlight { Rounds: { Count: > 0 } flying }
+                                    ? flying[^1]
+                                    : null;
+
+            if (sent is not null) _sentTo.Add((sent, sentTo));
+
+            Slug? released = sent as Slug;
 
             if (released is not null)
             {
@@ -2311,6 +2394,124 @@ internal sealed class IcbmComputer
         }
 
         return away;
+    }
+
+    // One frame of the walk: finish a stop whose warheads have gone, and either re-aim at the next
+    // or end it. Nothing here runs for a set of one -- ReleaseLoop.Plan answers OneStop for every
+    // one-stop set and ReleaseWalker.Walking is then false, which is the whole of what leaves a
+    // single-target flight the shot every accuracy measurement on this mod was taken against.
+    private void StepTheWalk(IManualFire? weapon)
+    {
+        if (!_walker.Walking) return;
+
+        ReleaseStep step = _walker.Step;
+
+        // A stop the rack cannot fill is over rather than still owed: waiting for a warhead that is
+        // not there strands the bus on one target with the rest of the walk unflown. The salvo's own
+        // size is the bound that holds either way -- a launcher REFILLS a few seconds after a salvo,
+        // so what is loaded stops meaning what is left the moment the first warhead goes.
+        bool dry = weapon is not { TubesReadyToFire: > 0 } || _sequence.Emptied
+                   || (_salvoSize > 0 && WarheadsAway >= _salvoSize);
+
+        if (step.ReleaseHere && !dry) return;
+
+        SayTheStop(step);
+
+        if (step.Handover)
+        {
+            _walker.Advance();
+            HandOverTo(step.NextTarget);
+            return;
+        }
+
+        _walker.Finish();
+
+        Log.Info(ReleaseWalker.SayWalk(KsaWorld.DisplayName(Craft), _wentTo,
+                                       _trim.SpentMetresPerSecond, Config.TrimBudgetMetresPerSecond,
+                                       Math.Max(0, _salvoSize - WarheadsAway)));
+    }
+
+    // What one stop delivered, in the shape a night is scored off. Step.Away rather than the quota:
+    // a stop the rack could not fill sent fewer, and the line is the record of what actually left.
+    private void SayTheStop(in ReleaseStep step)
+    {
+        string site = step.Target >= 0 && step.Target < _targets.Count
+                          ? _targets.Entries[step.Target].Site.Describe()
+                          : "an unknown place";
+
+        _wentTo.Add((step.Target, site, step.Away));
+
+        Log.Info(ReleaseWalker.SayRelease(_walker.Stop + 1, _walker.Walk.Stops,
+                                          KsaWorld.DisplayName(Craft), step.Target, site, step.Away,
+                                          _trim.SpentMetresPerSecond - _spentAtStopStart,
+                                          Math.Max(0.0, Config.TrimBudgetMetresPerSecond
+                                                        - _trim.SpentMetresPerSecond)));
+    }
+
+    // Put the bus on the next target. Everything cleared here belongs to the stop just flown, and
+    // every one of them is a fresh start rather than a reset of the flight: the trim keeps what it
+    // has spent and what it has learned about the thrusters, because the budget is the flight's and
+    // the acceleration is the vehicle's.
+    private void HandOverTo(int next)
+    {
+        // The plan and the list have to index the same entries, and a lead that will not take means
+        // they no longer do. Ending the walk holds the rest of the warheads aboard, which is what an
+        // unassigned one already does; carrying on would aim the bus at whatever slid into the gap.
+        if (!_targets.SetLead(next))
+        {
+            _walker.Finish();
+            Log.Warn($"walk on {KsaWorld.DisplayName(Craft)}: target {next} is no longer in the "
+                     + "list, so the walk ends here and the rest of the warheads stay aboard");
+            return;
+        }
+
+        // The bias is the ground under the OLD aim -- how far short that arc was falling on that
+        // terrain -- so carrying it onto a new place applies one target's correction to another.
+        // Retarget rather than Reset, which would re-seed the plant at the pre-burn 1/Gain.
+        _aim.Retarget();
+
+        // Re-solved to the same committed arrival, which is what makes a hop a hop rather than a
+        // new shot: every warhead of the walk arrives at one instant however far apart they land.
+        Program.CorrectCoastArc();
+
+        // Resume, never Reset: Reset zeroes SpentMetresPerSecond and hands the whole budget back,
+        // so a six-stop walk would price every hop as if it were the first.
+        _trim.Resume();
+        _postBoost.Reset();
+
+        // Its tube reference is the attitude the last stop's correction converged at, and the bus
+        // is about to turn off it.
+        _sequence.Reset();
+
+        // A probe of the previous target's trajectory solves the wrong separation kick, and the
+        // miss-kick sums are the shape of that stop's group rather than of this one's.
+        _salvoProbe.Forget();
+        _missKickSum = Vec.Zero;
+        _missKickCount = 0;
+        _flownKick = null;
+
+        _trimAbandoned = false;
+        _postBoostSaid = false;
+        _measureDue = false;
+        _freshMiss = double.NaN;
+        _holdingCost = double.NaN;
+        _holdingCostForPass = -1;
+        _trimFloor = double.NaN;
+        _trimFloorForPass = -1;
+        _demandThisPass = double.NaN;
+        _demandLastPass = double.NaN;
+        _saidRunaway = false;
+        _saidCleared = false;
+        _saidTrim = "";
+        _trimShape = "";
+        _saidLast = "";
+        _spentAtStopStart = _trim.SpentMetresPerSecond;
+
+        Log.Info($"walk on {KsaWorld.DisplayName(Craft)}: re-aiming at target {next} "
+                 + $"{_targets.Entries[next].Site.Describe()}, stop {_walker.Stop + 1} of "
+                 + $"{_walker.Walk.Stops}, {_walker.Step.Warheads} warhead"
+                 + $"{(_walker.Step.Warheads == 1 ? "" : "s")} to go there, "
+                 + $"{_walker.Step.HopMetresPerSecond:F2} m/s of hop priced");
     }
 
     // Everything the correction loop will ever do is over by the first release, and until now none
@@ -3345,7 +3546,12 @@ internal sealed class IcbmComputer
             // The honest count, not a floor of one. The share-of-the-window division guards zero
             // itself, and the sequencer has to see the magazine reach empty -- that is what ends
             // the deployment, and a launcher reloads a few seconds later.
-            ReadyToDeploy: true, NextTube: next, TubesLeft: weapon.TubesReadyToFire,
+            ReadyToDeploy: true, NextTube: next,
+
+            // A stop's quota rather than the magazine, so Emptied latches at the end of each stop
+            // and is the signal that one is done. Hands back the magazine untouched for a flight
+            // with no walk, which is every set of one.
+            TubesLeft: _walker.TubesLeft(weapon.TubesReadyToFire),
             NextTubeAxisCci: nextAxis, NoseAxisCci: noseAxis, SweepMetresPerSecond: _tubeSpinSpeed,
 
             // Off the munition rather than assumed: it is what turns a tube's cant into the lateral
@@ -3546,7 +3752,7 @@ internal sealed class IcbmComputer
         bool coasting = Program.Phase == IcbmPhase.Coast;
 
         bool wanted = Config.ShowDivertReach
-                      && !_salvoAway
+                      && !SalvoIsOver
                       && Program.Phase != IcbmPhase.NoSolution
                       && Parent is not null
                       && _warhead is not null
@@ -3588,15 +3794,38 @@ internal sealed class IcbmComputer
         Reach = ReachDisplay.For(_reachFootprint, PlacedTargets(),
                                  new ReleaseItinerary.Bus(Config.ReleaseBeforeArrivalSeconds,
                                                           coast, WarheadsAboard),
-                                 Program.Phase, _salvoAway, TargetSet.MaxTargets,
+                                 Program.Phase, SalvoIsOver, TargetSet.MaxTargets,
                                  Warhead.LethalRadius(_warhead!.ChargeKg), _targets.LeadIndex,
                                  coasting ? ReachHold.Unflown : ReachHold.EpochUnmeasured);
+
+        // Held rather than re-read, and only replaced by a plan that has stops. A frame whose
+        // footprint did not come down would otherwise take the walk away on the approach to the
+        // release gate and put the gate back to the setting, which shuts ReadyToDeploy mid-walk.
+        // The walker refuses everything once the first warhead has gone, so the plan behind the bus
+        // cannot be re-ordered under it either.
+        if (Reach.Flown.Stops > 0 && _walker.Plan(Reach.Flown) && Reach.Flown.Walks)
+        {
+            SayTheWalkIfItChanged();
+        }
     }
+
+    // One line when the plan a flight would fly changes shape, so a night can see what it committed
+    // to before the first warhead leaves. Not per frame: the plan is re-made every one.
+    private void SayTheWalkIfItChanged()
+    {
+        string now = _walker.Walk.Say();
+        if (now == _saidWalk) return;
+
+        _saidWalk = now;
+        Log.Info($"walk on {KsaWorld.DisplayName(Craft)}: {now}");
+    }
+
+    private string _saidWalk = "";
 
     // In the order a reader wants it: what has ended the shot first, then what cannot be answered,
     // and "nobody asked" last, because it is the one with a way out.
     private ReachHold WhyNotWanted()
-        => _salvoAway ? ReachHold.SalvoAway
+        => SalvoIsOver ? ReachHold.SalvoAway
          : Program.Phase == IcbmPhase.NoSolution ? ReachHold.NoShot
          : Parent is null || _warhead is null || _targets.Count == 0 ? ReachHold.Unflown
          : ReachHold.NotAsked;
@@ -3702,18 +3931,21 @@ internal sealed class IcbmComputer
         }
     }
 
-    // The set as the ground sees it, which is what prices the itinerary. A target the world cannot
-    // resolve is left out rather than placed at the landing, where it would cost no hop at all.
+    // The set as the ground sees it, which is what prices the itinerary.
+    //
+    // ONE ENTRY PER TARGET, always. ReleaseItinerary.Stop.Target indexes back into this list and
+    // TargetSet.LeadIndex indexes the entries, so a list that skipped anything would aim the bus at
+    // somebody else's target with nothing saying so. A place the world cannot resolve is therefore
+    // kept, with no warheads -- which is what stops it becoming a free stop at the landing, since
+    // Plan drops a target nothing leaves at.
     private List<ReachDisplay.Placed> PlacedTargets()
     {
         _placed.Clear();
 
         foreach (TargetSet.Entry entry in _targets.Entries)
         {
-            if (TryReachOffsets(entry.Site, out double along, out double cross))
-            {
-                _placed.Add(new ReachDisplay.Placed(along, cross, entry.Warheads));
-            }
+            bool known = TryReachOffsets(entry.Site, out double along, out double cross);
+            _placed.Add(new ReachDisplay.Placed(along, cross, known ? entry.Warheads : 0));
         }
 
         return _placed;

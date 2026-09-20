@@ -9,9 +9,10 @@ answer the outline, the cursor and the panel all read — so the region drawn an
 disagree. **And the list can now be assembled before launch**, because pinned the reach is the release epoch
 rather than the arc: the booster is then aimed at the farthest target, which is what the release loop needs
 of it. **What is still not built is the missile's own reach before target 1**: that is `IcbmReach` asked
-along bearings per candidate point, tens of milliseconds a ring. **The flight is unchanged**: all six
-warheads still go to the lead, which the panel says in so many words, and a set of one is exactly the shot
-every accuracy measurement on this mod is taken against.
+along bearings per candidate point, tens of milliseconds a ring. **Phase 3 is built and unflown**: the bus
+walks the itinerary, re-aiming and releasing each target's quota, and `Sim/ReleaseWalker.cs` is what makes a
+set of one execute none of it — so that shot, which every accuracy measurement on this mod is taken against,
+is the one it has always been.
 **Phase 0 has been flown headlessly**
 (`tests/KSArmory.Tests/MirvDivertTests.cs`), so the numbers below are measured rather than estimated —
 and it moved three of the plan's decisions, each marked **priced** where it appears. What it did not
@@ -338,7 +339,8 @@ With several targets, the release step becomes a loop:
 What already exists and is reused: the trajectory solve (`BallisticArc`, `Lambert`), the trim (`BusTrim`),
 the correction loop (`PostBoostAim`, `AimCorrection`), the release and kick, the trace. What is new is the loop
 around them and the bookkeeping of which warhead belongs to which target — `Sim/ReleaseLoop.cs`, built and
-tested, and **not wired to anything**: see the two findings below.
+tested, and `Sim/ReleaseWalker.cs`, the cursor `Ksa/IcbmComputer.cs` actuates it through — see *What the
+actuation is* below.
 
 **The per-pass ceiling does not need raising after all.** A hop is flown as a fresh null with the correction's
 pass count back at zero, so `PostCutoffSequence.CeilingFor` hands it `BusTrim.MaxMetresPerSecond` — which is
@@ -376,26 +378,54 @@ opposite edges are twice the ring's radius apart — 20 m/s against a 10 m/s rin
 hop. `ReleaseLoop` refuses that too (`ReleaseWalkHold.HopBeyondOnePass`); closing it properly means the cursor
 measuring from the nearest chosen target rather than from the landing, which is a phase 2 change.
 
-### What the actuation is, for whoever wires it
+### What the actuation is — built 2026-09-20
 
-Written down because it was worked out and is otherwise lost. Every one of these is behind "a walk exists", so
-a set of one executes none of them:
+Every one of these is behind "a walk exists", so a set of one executes none of them.
+`Sim/ReleaseWalker.cs` is where the first three live, so the `Ksa/` side has no branch of its own:
 
-* **The release gate moves earlier**, to `ReleaseLoop.FirstBeforeArrivalSeconds` — `IcbmProgram.Coasting`
-  reads `Config.ReleaseBeforeArrivalSeconds` for both `closeEnough` and its hold line, and a walk of one
-  returns exactly that number, which is what makes the read unconditional.
-* **The sequencer is given the stop's quota**, not the magazine (`ReleaseLoop.TubesLeftForStop`).
-  `ReleaseSequence.Emptied` latches at zero and is then the signal that a stop is done.
+* **The release gate moves earlier**, and it is `IcbmProgram.ReleaseGateSeconds` — NaN unless a walk is
+  running, so `Coasting` computes exactly what it always did and reads the setting *live*, which latching
+  the number would not. `IcbmComputer.SecondsToRelease` reads the same `Program.ReleaseGate`, or the warp
+  the correction needs held down comes off `(N-1) x 65 s` late.
+* **The sequencer is given the stop's quota**, not the magazine (`ReleaseWalker.TubesLeft`).
+  `ReleaseSequence.Emptied` latches at zero and is then the signal that a stop is done — and it is zero
+  again once the walk is over, because **a rack reloads a few seconds after a salvo** and would otherwise
+  send warheads the plan never assigned anywhere.
 * **A handover puts back**: `TargetSet.SetLead`; `AimCorrection.Reset` (the bias is the ground under the *old*
   aim); `IcbmProgram.CorrectCoastArc`; `BusTrim.Resume` — **never `Reset`**, which would zero
   `SpentMetresPerSecond` and hand the budget back; `PostBoostAim.Reset`; `ReleaseSequence.Reset` (its tube
-  reference is the old attitude); `SalvoProbe.Forget` and the miss-kick sums, because a probe of the previous
-  target's trajectory solves the wrong kick.
+  reference is the old attitude); `SalvoProbe.Forget`, the miss-kick sums and the salvo's flown kick columns,
+  because a probe of the previous target's trajectory solves the wrong kick. And `_trimAbandoned`, or a stop
+  that released untrimmed leaves every later one untrimmed too. The aim goes through
+  `AimCorrection.Retarget` rather than `Reset`: the bias belongs to the old aim and has to go, but the
+  plant is the coast's, and `Reset` re-seeds it at the pre-burn `1 / Gain` — quarter steps, which buys a
+  pass, and a coast pass is a median 65 s.
 * **`SalvoFinished` and `_salvoAway` have to mean "the walk is over"**, not "a warhead has left": both gate
-  things that must keep running between stops — `DriveTrim` on the first, `RefreshReach` on the second.
-* **`ReachDisplay.Placed` carries no index back to the entry** and `PlacedTargets()` skips a target the world
-  cannot resolve, so `Stop.Target` indexes a *different* list from `TargetSet.LeadIndex`. Give the loop a list
-  with stable indices, or the bus re-aims at somebody else's target and nothing says so.
+  things that must keep running between stops — `DriveTrim` on the first, `RefreshReach` and `CoastQuiet` on
+  the second. `SalvoFinished` reads `ReleaseWalker.Done` because the magazine count cannot answer it: a walk
+  that dropped a stop keeps those warheads aboard, so `WarheadsAway` never reaches the salvo's size and the
+  trim would solve and fire at a bus with nothing left to release.
+* **`PlacedTargets()` emits one entry per target**, including one the world cannot resolve — with no
+  warheads, so `Plan` drops it as a stop while it keeps its index. `ReleaseItinerary.Stop.Target` and
+  `TargetSet.LeadIndex` index the same list or the bus re-aims at somebody else's target and nothing says so.
+* **The walk comes off `ReachDisplay.Flown`**, planned in `ReachDisplay.For` from the same ordered set the
+  ring is drawn from, and **latched** by the computer: a frame whose footprint did not come down would
+  otherwise take the walk away on the approach to the gate and shut `ReadyToDeploy` mid-walk.
+
+**What scoring reads, and the one thing still on the setting.** `IcbmComputer.TargetOfRound` answers which
+of `Targets` a released warhead was sent to, recorded at the instant it left — nothing downstream can
+recover it, because the lead moves on at the next handover and reading it at impact reports whichever
+target the bus finished on. It answers for a single-target flight too, where every round is target zero.
+`Ksa/BallisticScenario.cs` still reads `Config.ReleaseBeforeArrivalSeconds` for its coast warp, which on a
+walk lets the world run fast past the first release: it wants `computer.Program.ReleaseGate`, which is the
+same number when nothing is walking.
+
+**Two things bit during the wiring, and both are pinned.** `ReleaseWalkHold.Walking` is the enum's *zero*,
+so a `default(ReleaseWalk)` — what a computer holds from designation until the reach is priced — claimed to
+be a walk with no stops: it would hand over at once, finish, and report the salvo over before a warhead
+left. `ReleaseWalk.Walks` now tests the stop count too. And six targets 4 km apart do not fit the 60 m/s cap
+on a flat 410 m per m/s reach (64.9 m/s), so `TrimToWhatFits` cuts the set to five and the gate opens for
+five stops rather than six — the doc's 55.1 m/s figure is against a reach that *decays* over the schedule.
 
 ### Two budgets bound it
 
@@ -476,9 +506,9 @@ So the shipped answer is **two to six targets on the gate-ending schedule**, 4.5
 | | What | Flies anything? |
 | --- | --- | --- |
 | ~~0~~ | **Done** — `tests/KSArmory.Tests/MirvDivertTests.cs`. ±100 km is real **only from cutoff**; at today's release gate the footprint is a 34 × 18 km box. See the three findings at the top. | No |
-| 1 | **Targets as data**. **Done** — `Sim/TargetSet.cs`, `Sim/TargetEdit.cs`, `ShotRequest` naming several, the list on `IcbmComputer` with `Designate` split from `AddTarget`, clicks that add **before launch and during the coast**, and the panel's rows. Which entry the flight is aimed at is `TargetSet.LeadIndex`, re-elected to the farthest reach by `ElectFarthestLead` on every add while the aim is still free — so the flown order and the itinerary's agree, which is what unblocked phase 3. The flight still sends everything to the lead, and says so. What `BallisticScenario` designates is still the first place alone. | Unchanged |
+| 1 | **Targets as data**. **Done** — `Sim/TargetSet.cs`, `Sim/TargetEdit.cs`, `ShotRequest` naming several, the list on `IcbmComputer` with `Designate` split from `AddTarget`, clicks that add **before launch and during the coast**, and the panel's rows. Which entry the flight is aimed at is `TargetSet.LeadIndex`, re-elected to the farthest reach by `ElectFarthestLead` on every add while the aim is still free — so the flown order and the itinerary's agree, which is what unblocked phase 3. Where the warheads go is phase 3's, and what `BallisticScenario` designates is still the first place alone. | Unchanged |
 | 2 | **Reach display**. **Done, both sides of cutoff** — `Sim/DivertFootprint.cs` is both clocks plus `TryAtTheEpoch` for a flight that has not flown, and `Sim/ReachDisplay.cs` is the drawn region, the cursor's verdict and the panel's readout as one answer; `IcbmOverlay` drapes the ellipse and numbers the targets, and `SiteDesignator` greys the ring and says **outside reach**. **The missile's own region before target 1 is not built** and is the only part of this row left: it is a reach solve per candidate point along a bearing sweep, 37–68 ms a ring, so it wants the few-bearings-a-frame build this row's prose describes. | No |
-| 3 | **The release loop**: re-aim per target, per-warhead target bookkeeping in the log. Shared targets release together. **The decision half is done and nothing actuates it** — `Sim/ReleaseLoop.cs` plans the walk, cuts a set to what the budget and the coast reach, counts a stop's quota out and refuses honestly; the ceiling turned out not to need raising, six targets 4 km apart pricing at 55.1 m/s against the 60 cap. **Both blockers are gone**: the arrival needs no re-latch (`ResolveCoastArc` already solves pinned) and the booster now flies to the farthest. What remains is the actuation in `Ksa/IcbmComputer.cs`, and it is the first thing here that changes what flies. | Not yet |
+| 3 | **The release loop**: re-aim per target, per-warhead target bookkeeping in the log. Shared targets release together. **Built and unflown** — `Sim/ReleaseLoop.cs` plans the walk and `Sim/ReleaseWalker.cs` is the cursor the flight is actuated through: `IcbmComputer` opens the gate early, hands the sequencer a stop's quota, and on each handover re-aims, resets the seven things a stop owns and lets `BusTrim` null onto the new solution. The ceiling turned out not to need raising, six targets 4 km apart pricing at 55.1 m/s against the 60 cap. **Both blockers are gone**: the arrival needs no re-latch (`ResolveCoastArc` already solves pinned) and the booster flies to the farthest. **Nothing in it executes for a set of one** — `ReleaseWalker.Walking` is false, so the gate is NaN and the program reads the setting live. | Yes, and never flown |
 | 4 | **Instruments and nights**: per-target scoring in `shot-report.py`, the matching check with one target, then 2/4/6. | Yes |
 | 5 | **Later**: area targets (option C), saving the target list with the craft, reordering by hand. | — |
 
