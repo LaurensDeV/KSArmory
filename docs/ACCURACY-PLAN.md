@@ -12033,3 +12033,51 @@ propagation of the cutoff state. That mismatch is a recession the frame rate doe
 0.25 mm/s per second at 28 ms against 0.19 at 21 on a 200 km orbit, against a pulse phase's
 3.7 mm/s per second of authority. Unmeasured in flight, and `IcbmConfig.RailsDuringCoast` is the
 switch that would settle it.
+
+## Where the ballistic thread stands — 2026-09-20
+
+**Read this before picking anything up.** Four nights and a day of headless work; what shipped, what is
+decided, and what is waiting, in the order worth doing.
+
+**Shipped and flown.** `IcbmConfig.StallFallsBackToHolding`, **on by default**. At 12,902 km it took the
+share of rockets whose trim gives up from 30–67% to **zero** (3fh: 0 of 24 flights lost against 16,
+Fisher p = 0.0000, never worse in any block), and each of those was worth about 2 km. Confirmed inert
+where it cannot fire (3fj) and re-checked after the multi-target merges: 8 of 8 arriving, 0 gave up.
+
+**Decided, needs no more argument.** The long-range defect is the pulse phase's finer band keeping the
+correction loop alive long enough to meet the stall (3fg). The stall is the miss — 31 of 32 rockets
+agreed, and the flights ending on `trim` median 1.99 km against 0.00 for every other ending. The
+separation debt predicts it, with nothing under 1.5 m/s ever stalling (3fd, and 3fj adds 160 rockets
+under the floor with zero stalls). The debt is **mostly radial, not axial** — three times the axial term
+— which contradicted a year-old line in `CLAUDE.md`, now corrected (3fe, 3fh).
+
+**Open, in the order I would take them.**
+
+1. **The off-plane cutoff residual, and it is the biggest thing on this page.** `HoldDirectionFrames`
+   freezes the steering for `20 x step` *seconds*, so a slow machine freezes longer — but the cost
+   depends on the aim's plane: 0–2% of the residual is square to the thrust line along the track and
+   **59–93% at 26° off it**. **Every existing cutoff fixture flies equator to equator**, which is why 90
+   headless shots once declared this fixed. Flown, the cross-track share is 81–94%. `HoldDirectionSeconds`
+   is built and **off**; what settles it is a paired night at 12,902 km, `base|held:HoldDirectionSeconds=0.35`,
+   scored on the **cutoff residual's cross-track part** rather than the landing, which is too noisy
+   downstream. 3fk.
+2. **The off-rails coast.** The bus is integrated at the frame step while `BusTrim` compares against an
+   exact Kepler propagation, which is a recession the frame rate moves — about 7% of a pulse phase's
+   authority and step-proportional. It is the right shape for the one thing the debt does not explain
+   (3fi: 9 of 18 against 2 of 30 at matched debt). `IcbmConfig.RailsDuringCoast` exists and is
+   unassigned; it needs a flown coast, not a rig. 3fk.
+3. **A flight rig that reaches past cutoff.** `IcbmFlightRig.Fly` returns at cutoff, so nothing from the
+   coast onward — trim, correction, release — is provable headlessly. Every question above and the whole
+   of the MIRV release loop is gated on flying rather than testing because of it.
+4. **A rig that leaves the plane.** The blindness in item 1 is one line of fixture geometry, and it hid a
+   real term for months.
+
+**Ruled out, do not re-chase.** `BusTrim.StopBand` (binds only below 14 fps), `BusTrim.Stalled` (flat
+across a 4x step, mildly protective), the frame check (predicts neither stall nor miss, 3ff), the 0.9.1
+build and StarMap 0.4.7 (the same binary ran fast and slow within one night, 3fi), and pulses arriving
+sideways or under-delivering (1.01x delivered, 1.00 along the direction asked — 3ez as corrected, 3fa).
+
+**And a standing caveat.** The long-range stall rate is a function of the frame rate — about a third at
+63 fps and two thirds at 47 — so **every cross-night number on this page is partly a statement about the
+machine**. Read fps off `mod frame: … over N frames` (10 s interval) before comparing two nights, and
+check the peak as well as the median. 3fi, 3fj.
