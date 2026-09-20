@@ -255,6 +255,113 @@ public class ReleaseItineraryTests(ITestOutputHelper Out)
                       + $"{BusTrim.MaxMetresPerSecond:F0} a separation null costs");
     }
 
+    /// <summary>
+    /// What a hop costs is how far the landing has to move over what a metre a second is worth
+    /// there — <b>not</b> <see cref="BusTrim.MaxMetresPerSecond"/>, which is a ceiling on one solve.
+    /// </summary>
+    /// <remarks>
+    /// The reach here is the pinned along-track figure at 6,179 km, 355 m per m/s at cutoff falling
+    /// to 178 at the gate. Six targets 10 km apart then cost a fraction of what charging the ceiling
+    /// per hop reads, which is the difference between a feature and a refusal.
+    /// </remarks>
+    [Fact]
+    public void AHopCostsWhatTheLandingMovesNotWhatOnePassMaySpend()
+    {
+        double[] reach = [688.0, 636.0, 582.0, 526.0, 469.0, 410.0];
+
+        ReleaseItinerary priced = ReleaseItinerary.Chain(6, 4_000.0, reach, SixThousand);
+        ReleaseItinerary ceiling = ReleaseItinerary.AtTheTrimCeiling(6, SixThousand);
+
+        Out.WriteLine($"priced  {priced.Describe()}");
+        Out.WriteLine($"ceiling {ceiling.Describe()}");
+
+        Assert.Equal(6, priced.Fits);
+        Assert.Equal(5, ceiling.BudgetFits);
+        Assert.True(priced.NeedsMetresPerSecond < ceiling.NeedsMetresPerSecond);
+
+        // Every hop is the same 4 km, so its price is only the reach at the slot it is bought in.
+        for (int k = 1; k < priced.Count; k++)
+        {
+            Assert.Equal(4_000.0 / reach[k], priced.Stops[k].HopMetresPerSecond, 9);
+        }
+    }
+
+    /// <summary>The two ways of asking the trade are one sum, so they have to agree at the boundary.</summary>
+    [Fact]
+    public void TheWidestSpacingIsExactlyWhereTheCountDrops()
+    {
+        double[] reach = [688.0, 636.0, 582.0, 526.0, 469.0, 410.0];
+
+        double widest = ReleaseItinerary.SpacingWithin(6, reach, SixThousand);
+
+        Assert.Equal(6, ReleaseItinerary.TargetsWithin(widest, reach, SixThousand));
+        Assert.Equal(5, ReleaseItinerary.TargetsWithin(widest * 1.01, reach, SixThousand));
+
+        // And the chain built at that spacing is the one that just fits.
+        ReleaseItinerary plan = ReleaseItinerary.Chain(6, widest, reach, SixThousand);
+
+        Assert.Equal(6, plan.BudgetFits);
+        Assert.Equal(PostBoostAim.MaxTrimMetresPerSecond, plan.NeedsMetresPerSecond, 6);
+
+        Out.WriteLine($"widest neighbour spacing {widest / 1000.0:F1} km, "
+                      + $"a chain {5.0 * widest / 1000.0:F1} km end to end");
+    }
+
+    /// <summary>A set of one pays no hop, so no spacing can price it out.</summary>
+    [Fact]
+    public void OneTargetHasNoSpacingToAfford()
+    {
+        Assert.True(double.IsPositiveInfinity(ReleaseItinerary.SpacingWithin(1, [688.0], SixThousand)));
+        Assert.Equal(6, ReleaseItinerary.TargetsWithin(0.0, [688.0], SixThousand));
+    }
+
+    /// <summary>
+    /// What the budget still buys, which is the other half of the question a player asks — and it is
+    /// a floor, because adding a target moves every release earlier where the reach is greater.
+    /// </summary>
+    [Fact]
+    public void WhatIsLeftIsReportedAsGroundRatherThanAsVelocity()
+    {
+        double[] reach = [688.0, 636.0, 582.0];
+
+        ReleaseItinerary plan = ReleaseItinerary.Chain(3, 10_000.0, reach, SixThousand);
+
+        double hops = (10_000.0 / reach[1]) + (10_000.0 / reach[2]);
+
+        Assert.Equal(ReleaseItinerary.SingleTargetMetresPerSecond + hops, plan.NeedsMetresPerSecond, 9);
+        Assert.Equal(PostBoostAim.MaxTrimMetresPerSecond - plan.NeedsMetresPerSecond,
+                     plan.LeftMetresPerSecond, 9);
+        Assert.Equal(plan.LeftMetresPerSecond * reach[^1], plan.LeftBuysMetres, 6);
+
+        Out.WriteLine($"{plan.Describe()}; {plan.LeftMetresPerSecond:F1} m/s left, "
+                      + $"which still moves a landing {plan.LeftBuysMetres / 1000.0:F0} km");
+    }
+
+    /// <summary>An unpriced set falls back to the ceiling, which bounds it rather than estimating it.</summary>
+    [Fact]
+    public void AnUnpricedHopIsBoundedByTheCeilingRatherThanFree()
+    {
+        ReleaseItinerary plan = ReleaseItinerary.Chain(3, 10_000.0, null, SixThousand);
+
+        Assert.Equal(BusTrim.MaxMetresPerSecond, plan.Stops[1].HopMetresPerSecond);
+        Assert.Equal(ReleaseItinerary.SingleTargetMetresPerSecond + (2.0 * BusTrim.MaxMetresPerSecond),
+                     plan.NeedsMetresPerSecond, 6);
+    }
+
+    /// <summary>A reach list shorter than the set reuses its last and dearest entry, never its first.</summary>
+    [Fact]
+    public void AShortReachListOverstatesRatherThanFlatters()
+    {
+        double[] two = [688.0, 410.0];
+
+        ReleaseItinerary plan = ReleaseItinerary.Chain(4, 10_000.0, two, SixThousand);
+
+        for (int k = 1; k < plan.Count; k++)
+        {
+            Assert.Equal(10_000.0 / 410.0, plan.Stops[k].HopMetresPerSecond, 9);
+        }
+    }
+
     /// <summary>A target that names its own hop is charged that, and the first stop is charged nothing.</summary>
     [Fact]
     public void OnlyTheStopsAfterTheFirstPayAHop()

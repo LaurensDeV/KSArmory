@@ -7,12 +7,10 @@ namespace KSArmory;
 /// <para><b>Today's release gate is a single-target optimisation.</b>
 /// <see cref="IcbmConfig.ReleaseBeforeArrivalSeconds"/> holds the warheads until 420 s before
 /// arrival, which shrinks what the ejection kick has left to grow into and is why a group lands
-/// millimetres from its aim. For several targets it is ruinous, because the bus's reach collapses as
-/// the arrival approaches: six hops of <see cref="BusTrim.MaxMetresPerSecond"/> spaced
-/// <see cref="MedianHopSeconds"/> apart reach 3.5 km down to <b>0.4 km</b> started from the gate,
-/// against 10.7 down to 8.9 km started from cutoff — and the Mk 21's
-/// <see cref="Warhead.LethalRadius"/> is 2.0 km, so targets four to six would land inside each
-/// other's lethal circles. Six targets that are one pattern.</para>
+/// millimetres from its aim. For several targets it costs reach, and steeply: over a six-stop
+/// schedule at 6,179 km the pinned footprint runs <b>1,076 down to 886 m</b> of ground per m/s
+/// started at cutoff and <b>688 down to 410</b> ending on the gate, so the same chain costs about
+/// twice as much.</para>
 ///
 /// <para><b>So the itinerary is started early and <em>ends</em> at the gate</b> rather than
 /// beginning there: the first release is <c>gate + (N-1) x hop</c> seconds before arrival and each
@@ -20,12 +18,23 @@ namespace KSArmory;
 /// property worth the most here — every accuracy measurement this mod has is taken against the
 /// single-target shot, so a schedule that moved it would move all of them.</para>
 ///
-/// <para><b>The dearest reach goes in the earliest slot.</b> Reach falls steeply as the bus
-/// descends: 50 km of along-track divert at 6,179 km costs 18.2 m/s bought at cutoff, 26.7 at
-/// +400 s, 47.8 at +800 and 72.5 at the gate. Nothing accrues against waiting — the holding cost
-/// itself <em>falls</em>, 1.14 to 1.00 to 0.92 m/s over that same coast — so what a late target
-/// loses is reach and only reach. Farthest first, and since the first stop is the one the bus
-/// already arrives on, <b>the booster's aim is the farthest target</b>.</para>
+/// <para><b>A hop costs what the landing has to move, not what one trim pass may spend.</b>
+/// <see cref="BusTrim.MaxMetresPerSecond"/> is a ceiling on a single solve; the price of a hop is
+/// its ground distance over the reach at the slot it is bought in. Six targets 4 km apart at
+/// 6,179 km cost <b>36.9 m/s</b> from cutoff and 55.1 ending on the gate, where charging the ceiling
+/// per hop reads 66.1 and refuses the set. Charging it is the worst case and not the case —
+/// <see cref="AtTheTrimCeiling"/> says so in its name, and <see cref="Chain"/> is the one to
+/// ask.</para>
+///
+/// <para><b>What bounds a set is its spacing, not its count</b>, and the spacing the budget affords
+/// runs into the warhead from about five targets on: <see cref="Warhead.BlastRadius"/> is 6.0 km for
+/// the Mk 21, and ending on the gate the widest affordable neighbour spacing is 5.4 km at five and
+/// 4.5 at six (6,179 km), so the set stops being targets and becomes one pattern.</para>
+///
+/// <para><b>The dearest reach goes in the earliest slot.</b> Nothing accrues against waiting — the
+/// holding cost itself <em>falls</em>, 1.14 to 1.00 to 0.92 m/s over the 6,179 km coast — so what a
+/// late target loses is reach and only reach. Farthest first, and since the first stop is the one
+/// the bus already arrives on, <b>the booster's aim is the farthest target</b>.</para>
 ///
 /// <para><b>It reports rather than truncates.</b> Dropping a target moves every release later, so a
 /// trimmed set is a different schedule and not a prefix of this one: <see cref="Fits"/> says how
@@ -63,16 +72,20 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
     /// How far its landing sits from the trajectory the booster flew. This <em>orders</em> the set
     /// and does nothing else, which is why it can be read at any one epoch: the decay scales every
     /// target's cost together. It is a proxy rather than an optimum, because the two axes of the
-    /// reach ellipse decay at different rates — 4.0x along the track against 2.7x across it over the
-    /// 6,179 km coast — so a set spread across both axes can rank differently at the two ends.
+    /// reach ellipse decay at different rates free-clock — pinned they agree to within 3%, which is
+    /// the clock the flight is on.
+    /// </param>
+    /// <param name="HopMetres">
+    /// How far the landing moves to get here from the stop before, which with the reach at that slot
+    /// is what the hop <em>costs</em>. NaN leaves the price to <paramref name="HopMetresPerSecond"/>
+    /// or, failing that, to <see cref="Bus.HopMetresPerSecond"/>.
     /// </param>
     /// <param name="HopMetresPerSecond">
-    /// What the hop onto it costs, or NaN for <see cref="Bus.HopMetresPerSecond"/>. Pricing a
-    /// particular displacement belongs to <c>DivertFootprint</c> and depends on the epoch the hop
-    /// lands in — which is what this schedule decides — so the per-pass ceiling is what a plan can be
-    /// built on before one exists.
+    /// The hop's price stated outright, which overrides <paramref name="HopMetres"/>. NaN prices it
+    /// from the distance and the reach.
     /// </param>
     internal readonly record struct Target(int Warheads, double ReachMetres,
+                                           double HopMetres = double.NaN,
                                            double HopMetresPerSecond = double.NaN);
 
     /// <summary>What the bus has to spend, and how long it has to spend it in.</summary>
@@ -82,7 +95,7 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
     /// </param>
     /// <param name="CoastSeconds">
     /// From the earliest release the flight allows — cutoff, above
-    /// <see cref="IcbmConfig.DeployAltitudeMetres"/> — to arrival: 1,315 s at 6,179 km and 351 at
+    /// <see cref="IcbmConfig.DeployAltitudeMetres"/> — to arrival. 1,315 s at 6,179 km and 351 at
     /// 2,000, so the short shot is the one that runs out of clock rather than propellant.
     /// </param>
     /// <param name="Warheads">
@@ -94,9 +107,10 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
     /// </param>
     /// <param name="SpentMetresPerSecond">What a single-target flight costs before any hop.</param>
     /// <param name="HopMetresPerSecond">
-    /// What a hop costs when the target does not say — <see cref="BusTrim.MaxMetresPerSecond"/>, the
-    /// most one trim pass will fly. A bigger one needs that ceiling raised deliberately
-    /// (<see cref="IcbmConfig.TrimCeilingFromBudget"/>) rather than discovered as a refused solve.
+    /// What a hop costs when neither the target nor a reach says — <b>the worst case</b>, being
+    /// <see cref="BusTrim.MaxMetresPerSecond"/>, the most one trim pass will fly. A real hop of a few
+    /// kilometres costs hundredths of that; this is what an unpriced itinerary is bounded by, not
+    /// what one is expected to spend.
     /// </param>
     internal readonly record struct Bus(double GateSeconds, double CoastSeconds, int Warheads,
                                         double HopSeconds = MedianHopSeconds,
@@ -108,6 +122,10 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
     /// <param name="Target">Which of the targets as given, since the order flown is not the order chosen.</param>
     /// <param name="HopMetresPerSecond">What getting here cost, which is nothing for the first stop.</param>
     /// <param name="SpentMetresPerSecond">The running total, starting from the single-target flight's own.</param>
+    /// <param name="ReachMetresPerMetrePerSecond">
+    /// What a metre a second of divert is worth on the ground at this release, or NaN where the
+    /// itinerary was not priced against one.
+    /// </param>
     /// <param name="Affordable">
     /// Whether the budget still covers it. <b>The first stop is affordable whatever the budget
     /// says</b>: the bus arrives on that trajectory, so refusing it would refuse the shot that
@@ -115,7 +133,7 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
     /// </param>
     internal readonly record struct Stop(int Target, int Warheads, double BeforeArrivalSeconds,
                                          double HopMetresPerSecond, double SpentMetresPerSecond,
-                                         bool Affordable);
+                                         double ReachMetresPerMetrePerSecond, bool Affordable);
 
     /// <summary>
     /// When the <paramref name="index"/>'th of <paramref name="targets"/> releases, in seconds
@@ -135,7 +153,14 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
     }
 
     /// <summary>Order a set, time it and cost it.</summary>
-    public static ReleaseItinerary Plan(IReadOnlyList<Target>? targets, in Bus bus)
+    /// <param name="reachMetresPerMetrePerSecond">
+    /// What a metre a second of divert is worth on the ground at each release, in flown order —
+    /// falling as the bus descends. A list shorter than the set reuses its last entry, which is the
+    /// dearest reach it knows and so overstates rather than flatters. Null prices every hop at
+    /// <see cref="Bus.HopMetresPerSecond"/>, which is the worst case rather than the case.
+    /// </param>
+    public static ReleaseItinerary Plan(IReadOnlyList<Target>? targets, in Bus bus,
+                                        IReadOnlyList<double>? reachMetresPerMetrePerSecond = null)
     {
         if (targets is null || targets.Count == 0) return new ReleaseItinerary([], bus, 0);
 
@@ -176,23 +201,47 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
 
         for (int k = 0; k < stops.Length; k++)
         {
-            double hop = k == 0 ? 0.0 : HopOnto(targets[taken[k].Target], bus);
+            double reach = ReachAt(reachMetresPerMetrePerSecond, k);
+            double hop = k == 0 ? 0.0 : HopOnto(targets[taken[k].Target], bus, reach);
             spent += hop;
 
             stops[k] = new Stop(taken[k].Target, taken[k].Warheads,
                                 BeforeArrivalSeconds(k, stops.Length, bus.GateSeconds, bus.HopSeconds),
-                                hop, spent, k == 0 || Within(spent, bus.BudgetMetresPerSecond));
+                                hop, spent, reach, k == 0 || Within(spent, bus.BudgetMetresPerSecond));
         }
 
         return new ReleaseItinerary(stops, bus, without);
     }
 
     /// <summary>
-    /// A set of <paramref name="targets"/> with nothing said about where they are: one warhead each
-    /// and every hop at <see cref="Bus.HopMetresPerSecond"/>.
+    /// A chain of <paramref name="targets"/> places, each <paramref name="spacingMetres"/> from the
+    /// one before, one warhead apiece.
     ///
-    /// <para>What a panel can answer before a footprint exists, and the arithmetic a six-target set
-    /// is refused on.</para>
+    /// <para>The shape the trade is actually priced in: the hops are all the same length, so their
+    /// total is independent of which end the bus starts at, and only the reach at each slot decides
+    /// what the chain costs.</para>
+    /// </summary>
+    public static ReleaseItinerary Chain(int targets, double spacingMetres,
+                                         IReadOnlyList<double>? reachMetresPerMetrePerSecond, in Bus bus)
+    {
+        int n = Math.Max(0, targets);
+        Target[] set = new Target[n];
+
+        // Farthest from the booster's aim first, which is the ordering rule applied to a chain: the
+        // bus is aimed at one end and walks back along it.
+        for (int i = 0; i < n; i++) set[i] = new Target(1, (n - 1 - i) * spacingMetres, spacingMetres);
+
+        return Plan(set, bus, reachMetresPerMetrePerSecond);
+    }
+
+    /// <summary>
+    /// A set of <paramref name="targets"/> with nothing said about where they are, every hop charged
+    /// <see cref="Bus.HopMetresPerSecond"/>.
+    ///
+    /// <para><b>The worst case, not the case.</b> It is what the budget bounds an itinerary by when
+    /// nothing has priced one — six targets then read 66.1 m/s against a 60 m/s cap, where six spaced
+    /// 4 km apart at 6,179 km cost 36.9 from cutoff. Ask <see cref="Chain"/> for anything a player
+    /// would recognise.</para>
     /// </summary>
     public static ReleaseItinerary AtTheTrimCeiling(int targets, in Bus bus)
     {
@@ -200,6 +249,53 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
         for (int i = 0; i < set.Length; i++) set[i] = new Target(1, 0.0);
 
         return Plan(set, bus);
+    }
+
+    /// <summary>
+    /// How many targets a budget reaches at a stated neighbour spacing — the question a player asks
+    /// about a map they are looking at.
+    /// </summary>
+    public static int TargetsWithin(double spacingMetres, IReadOnlyList<double>? reach, in Bus bus)
+    {
+        int most = Math.Max(0, bus.Warheads);
+        if (most <= 1) return most;
+
+        double budget = bus.BudgetMetresPerSecond;
+        if (!double.IsFinite(budget)) return most;
+
+        for (int n = 2; n <= most; n++)
+        {
+            if (!Within(Math.Max(0.0, bus.SpentMetresPerSecond) + HopsCost(n, spacingMetres, reach, bus), budget))
+            {
+                return n - 1;
+            }
+        }
+
+        return most;
+    }
+
+    /// <summary>
+    /// The widest neighbour spacing a budget affords for a chain of <paramref name="targets"/>, in
+    /// metres — the same trade read the other way.
+    ///
+    /// <para>Infinite for a set of one, which pays no hop at all, and zero for a budget the
+    /// single-target flight has already spent.</para>
+    /// </summary>
+    public static double SpacingWithin(int targets, IReadOnlyList<double>? reach, in Bus bus)
+    {
+        if (targets <= 1) return double.PositiveInfinity;
+
+        double budget = bus.BudgetMetresPerSecond;
+        if (!double.IsFinite(budget)) return double.PositiveInfinity;
+
+        double left = budget - Math.Max(0.0, bus.SpentMetresPerSecond);
+        if (!(left > 0.0)) return 0.0;
+
+        // The chain's cost is linear in the spacing, so one metre's worth of hops inverts straight
+        // into how many metres the budget buys.
+        double perMetre = HopsCost(targets, 1.0, reach, bus);
+
+        return perMetre > 0.0 ? left / perMetre : double.PositiveInfinity;
     }
 
     public int Count => Stops?.Count ?? 0;
@@ -255,6 +351,21 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
     /// <summary>What the last target that fits costs, by the time the bus has reached it.</summary>
     public double FitsWithinMetresPerSecond => Fits == 0 ? 0.0 : Stops[Fits - 1].SpentMetresPerSecond;
 
+    /// <summary>What is left of the budget once the whole set is paid for, never negative.</summary>
+    public double LeftMetresPerSecond
+        => double.IsFinite(Means.BudgetMetresPerSecond)
+               ? Math.Max(0.0, Means.BudgetMetresPerSecond - NeedsMetresPerSecond)
+               : double.PositiveInfinity;
+
+    /// <summary>
+    /// How far what is left would still move a landing, in metres — what the budget still buys.
+    ///
+    /// <para>Read at the <em>last</em> stop's reach, which makes it a floor: adding a target moves
+    /// every release earlier, where the reach is greater, so re-planning buys more than this says.</para>
+    /// </summary>
+    public double LeftBuysMetres
+        => Count == 0 ? 0.0 : LeftMetresPerSecond * Stops[^1].ReachMetresPerMetrePerSecond;
+
     public double FirstBeforeArrivalSeconds => Count == 0 ? double.NaN : Stops[0].BeforeArrivalSeconds;
 
     public double LastBeforeArrivalSeconds => Count == 0 ? double.NaN : Stops[^1].BeforeArrivalSeconds;
@@ -288,21 +399,57 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
         return refused.Count == 0 ? line : $"{line} -- {string.Join(", ", refused)}";
     }
 
+    // The hops of a chain of `targets` spaced `spacingMetres` apart, in metres a second. One
+    // expression, so TargetsWithin and SpacingWithin cannot answer different trades.
+    private static double HopsCost(int targets, double spacingMetres, IReadOnlyList<double>? reach,
+                                   in Bus bus)
+    {
+        double total = 0.0;
+
+        for (int k = 1; k < targets; k++)
+        {
+            total += PriceOf(spacingMetres, ReachAt(reach, k), bus);
+        }
+
+        return total;
+    }
+
+    private static double PriceOf(double hopMetres, double reachMetresPerMetrePerSecond, in Bus bus)
+    {
+        if (double.IsFinite(hopMetres) && hopMetres >= 0.0 && reachMetresPerMetrePerSecond > 0.0
+            && double.IsFinite(reachMetresPerMetrePerSecond))
+        {
+            return hopMetres / reachMetresPerMetrePerSecond;
+        }
+
+        // Nothing said how far, or how far a metre a second goes: the ceiling one pass will fly is
+        // the only bound left, and it is a bound rather than an estimate.
+        return double.IsFinite(bus.HopMetresPerSecond) ? Math.Max(0.0, bus.HopMetresPerSecond) : 0.0;
+    }
+
+    private static double ReachAt(IReadOnlyList<double>? reach, int index)
+    {
+        if (reach is null || reach.Count == 0) return double.NaN;
+
+        return reach[Math.Min(index, reach.Count - 1)];
+    }
+
+    private static double HopOnto(in Target target, in Bus bus, double reachMetresPerMetrePerSecond)
+    {
+        if (double.IsFinite(target.HopMetresPerSecond)) return Math.Max(0.0, target.HopMetresPerSecond);
+
+        return PriceOf(target.HopMetres, reachMetresPerMetrePerSecond, bus);
+    }
+
     // NaN compares equal to nothing, so a reach the footprint could not price makes the comparison
     // inconsistent and Array.Sort is entitled to throw on that. An unpriced target ranks first: the
     // last slot is the one no later pass can recover from.
     private static double Ranked(double reachMetres)
         => double.IsFinite(reachMetres) ? reachMetres : double.MaxValue;
 
-    private static double HopOnto(in Target target, in Bus bus)
-    {
-        double asked = double.IsFinite(target.HopMetresPerSecond)
-                           ? target.HopMetresPerSecond
-                           : bus.HopMetresPerSecond;
-
-        return double.IsFinite(asked) ? Math.Max(0.0, asked) : 0.0;
-    }
-
+    // A nanometre a second of slack, because the widest affordable spacing is the exact root of this
+    // comparison and lands on either side of it by one ulp. The trim's own stop band is 0.02 m/s, so
+    // nothing physical lives down here.
     private static bool Within(double spent, double budget)
-        => !double.IsFinite(budget) || spent <= budget;
+        => !double.IsFinite(budget) || spent <= budget + 1e-9;
 }

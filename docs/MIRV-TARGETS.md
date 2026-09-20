@@ -338,8 +338,39 @@ upstream of phase 3.**
   shot every other measurement here is taken against. It settles *Does the first target stay special?* below
   too: farthest reach first puts the dearest hop in the slot with the most leverage, and the first stop is the
   one the bus already arrives on, so **the booster is aimed at the farthest target** rather than at the first
-  one chosen. Six targets then need **66.1 m/s** against the 60 m/s cap and do not fit; five do, at 56.1.
-  Unflown, and it leaves the bullet below untouched: moving the gate *itself* still costs the first target.
+  one chosen. Unflown, and it leaves the bullet below untouched: moving the gate *itself* still costs the
+  first target.
+* **What bounds a set is its spacing, not its count** — priced in `tests/KSArmory.Tests/ReleaseTradeTests.cs`
+  off the pinned footprint at each slot. Charging every hop `BusTrim.MaxMetresPerSecond` reads
+  **66.1 m/s for six against a 60 m/s cap**, and that is the worst case rather than the case: it is a ceiling
+  on one *solve*, where a hop's real price is its ground distance over the reach at the slot it is bought in.
+  Six 4 km apart at 6,179 km cost **36.9 m/s** started from cutoff and 55.1 ending on the gate.
+
+  The whole budget spent on hops, six targets:
+
+  | | reach per m/s, first → last | neighbour spacing | chain end to end |
+  | --- | --- | --- | --- |
+  | 6,179 km, from cutoff | 1,076 → 886 m | **8.5 km** | 42.3 km |
+  | 6,179 km, ending on the gate | 688 → 410 m | **4.5 km** | 22.5 km |
+  | 12,902 km, from cutoff | 1,647 → 1,310 m | **12.6 km** | 63.0 km |
+  | 12,902 km, ending on the gate | 606 → 346 m | **3.8 km** | 19.2 km |
+
+  The same trade read as a count, at a spacing somebody would pick:
+
+  | spacing | 6,179 km cutoff | 6,179 km gate | 12,902 km cutoff | 12,902 km gate |
+  | --- | --- | --- | --- | --- |
+  | 4 km | 6 | 6 | 6 | 5 |
+  | 10 km | 5 | 2 | 6 | 2 |
+  | 25 km | 2 | 1 | 3 | 1 |
+  | 50 km | 1 | 1 | 2 | 1 |
+
+  **And the window the feature lives in closes from about five targets on.** `Warhead.BlastRadius` is 6.0 km
+  for the Mk 21, so anything nearer than that is option A' or option C rather than a second target. Ending on
+  the gate the widest affordable spacing is 6.8 km at four targets, **5.4 at five and 4.5 at six** (6,179 km),
+  and 5.8 / 4.6 / 3.8 at 12,902 — inside the warhead. From cutoff it stays open throughout, 8.5 km at six and
+  12.6 at 12,902. **So two to four targets are a real feature at either schedule, and five or six are only
+  real if the itinerary starts near cutoff** — which is the gate's paired-arm question again, now with a
+  number on what it buys rather than only on what it costs.
 * **When the release loop runs is the design decision, not a tuning.** `ReleaseBeforeArrivalSeconds = 420` is
   a single-target optimisation: it shrinks the ejection kick's leverage, which is why the group lands
   millimetres from the aim. For six targets it costs **4x the reach at 6,179 km and 7x at 12,902**. Moving it
