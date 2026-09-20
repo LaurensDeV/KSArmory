@@ -482,6 +482,38 @@ advancing `TargetIndex` — and it is worth having, because nothing covered any 
 handed a two-stop plan, and the walker was never the fault: against the flown code it **passes**. Only
 the two tests that step the coast fail, which is what makes them the regression guard.
 
+### The walk accepted a hop the trim then refused — flown 2026-09-21
+
+**Three of eight rockets walked, which is the first time this project released at two places.** The
+other five refused honestly on `ReleaseWalkHold.HopBeyondOnePass`. **Where it walked the warheads
+landed 4.00 km out — exactly the target spacing.**
+
+**The planner and the trim were judging different quantities.** `ReleaseItinerary` prices a hop as the
+velocity change between two solutions — 9.73 m/s, under the 10 m/s ceiling, accepted. `BusTrim` is
+handed the whole difference between the vehicle's velocity and the *new* solution's, so the residual
+the release had just left on the bus is added: **10.29 m/s**, over the ceiling, and
+`BusTrim.Update` refuses **the whole pass** rather than spending its 10. The bus never moved, and
+three warheads already recorded against the next target left on the old solution.
+
+**So the acceptance is now the trim's own question, on the trim's own ceiling.**
+`BusTrim.CeilingFor` is one expression both call, and `ReleaseLoop.PassMustFly` is the hop plus what
+the bus owes — a bound by the triangle inequality, so it refuses some hops the trim would have flown.
+That is the direction to be wrong in: over-promising is what puts warheads where nobody aimed them.
+
+**And a refused hop ends the walk at the stop the bus is on rather than handing over.**
+`ReleaseWalker.StopHere` leaves the cursor there and gives that stop every warhead left, because the
+bus is already trimmed and corrected onto it — `Finish` would be the wrong ending, taking `TubesLeft`
+to zero and riding the rest down. The later targets get nothing, and the log and the panel say so.
+
+**The ceiling is `BusTrim.MaxMetresPerSecond` for a hop and that is not incidental**: a hop is flown
+as a fresh null with the correction's pass count back at zero, so `PostCutoffSequence.CeilingFor`
+hands it the constant. At the flown 411 m per m/s reach a **4 km spacing is 9.7 m/s and sits on the
+ceiling by construction** — the geometry was testing the guard rather than the loop.
+
+**What pins it**: `ReleaseHopAffordableTests`, and the mutations were checked. Judging the hop alone —
+what flew — fails three of the five; curtailing to `Finish` instead of `StopHere` fails the one that
+asserts the remaining warheads are delivered.
+
 **Two things bit during the wiring, and both are pinned.** `ReleaseWalkHold.Walking` is the enum's *zero*,
 so a `default(ReleaseWalk)` — what a computer holds from designation until the reach is priced — claimed to
 be a walk with no stops: it would hand over at once, finish, and report the salvo over before a warhead

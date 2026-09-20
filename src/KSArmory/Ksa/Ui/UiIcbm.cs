@@ -177,6 +177,15 @@ internal sealed partial class Ui
                                         + $"target {step.Target + 1}, {step.Away} of "
                                         + $"{step.Warheads} warhead(s) away");
             }
+            else if (walker.Curtailed)
+            {
+                // Inline, because it is the answer to "why did the rest of my warheads land on the
+                // wrong target" and a tooltip hides that as surely as a fold does.
+                ImGui.TextColored(Working, "  the next hop is more than one trim pass will fly once "
+                                           + "the bus's own residual is counted, so the walk ended "
+                                           + $"at target {walker.Step.Target + 1} and the warheads "
+                                           + "left go there");
+            }
         }
 
         int removed = -1;

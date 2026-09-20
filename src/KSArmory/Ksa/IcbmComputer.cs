@@ -2419,6 +2419,12 @@ internal sealed class IcbmComputer
 
         if (step.Handover)
         {
+            if (!TheTrimWillFlyTheNextHop(step))
+            {
+                CurtailTheWalk(step);
+                return;
+            }
+
             _walker.Advance();
             HandOverTo(step.NextTarget);
             return;
@@ -2429,6 +2435,37 @@ internal sealed class IcbmComputer
         Log.Info(ReleaseWalker.SayWalk(KsaWorld.DisplayName(Craft), _wentTo,
                                        _trim.SpentMetresPerSecond, Config.TrimBudgetMetresPerSecond,
                                        Math.Max(0, _salvoSize - WarheadsAway)));
+    }
+
+    // Asked before the lead moves, and it is the trim's own question rather than the planner's: a
+    // hop is priced as the velocity change between two solutions, and BusTrim is handed the whole
+    // difference between the vehicle's velocity and the new solution's -- so the residual the
+    // release just left on the bus is added to it. Over the ceiling the trim refuses the WHOLE pass.
+    //
+    // Zero cycles because HandOverTo resets the correction, so the next pass is the trim's first and
+    // PostCutoffSequence hands it the constant.
+    private bool TheTrimWillFlyTheNextHop(in ReleaseStep step)
+        => ReleaseLoop.OnePassWillFly(
+               step.NextHopMetresPerSecond, _trim.ToGainMetresPerSecond,
+               PostCutoffSequence.CeilingFor(0, Config.TrimBudgetMetresPerSecond,
+                                             _trim.SpentMetresPerSecond,
+                                             Config.TrimCeilingFromBudget));
+
+    // The stop the bus is on takes the rest: it is already trimmed and corrected onto this target,
+    // so the warheads left are delivered rather than assigned to a place nothing flew the bus to.
+    private void CurtailTheWalk(in ReleaseStep step)
+    {
+        double owed = _trim.ToGainMetresPerSecond;
+        double wants = ReleaseLoop.PassMustFly(step.NextHopMetresPerSecond, owed);
+        int left = Math.Max(0, _salvoSize - WarheadsAway);
+
+        _walker.StopHere();
+
+        Log.Info($"walk on {KsaWorld.DisplayName(Craft)}: the hop to target {step.NextTarget} is "
+                 + $"{step.NextHopMetresPerSecond:F2} m/s and the bus still owes {owed:F2}, so one "
+                 + $"pass would have to fly {wants:F2} m/s of {BusTrim.CeilingFor(double.NaN):F0} "
+                 + $"and would refuse all of it -- the walk ends here and target {step.Target} "
+                 + $"takes the {left} warhead{(left == 1 ? "" : "s")} left");
     }
 
     // What one stop delivered, in the shape a night is scored off. Step.Away rather than the quota:
