@@ -59,8 +59,9 @@ internal sealed class SiteDesignator
         // long as it has been over this spot, which beats a line in a log the player is not reading.
         if (!ReachDisplay.Takes(verdict)) return;
 
-        // Past cutoff the booster has already flown to target 1, so a click is another place for the
-        // bus rather than a new shot -- designating there resets the flight it is half-way through.
+        // With a place already named and a reach that can refuse the click, it is another target
+        // rather than a new shot -- and past cutoff designating would reset a flight half-way
+        // through its coast.
         if (verdict == ReachVerdict.Adds)
         {
             computer.AddTarget(site);
@@ -74,7 +75,8 @@ internal sealed class SiteDesignator
     // adds, and only an add is bounded by what the bus can still divert to.
     private static ReachVerdict Verdict(IcbmComputer computer, double3 groundEcl, string body)
     {
-        TargetClick click = TargetEdit.ClickDoes(computer.Targets.Count, computer.Program.Phase);
+        TargetClick click = TargetEdit.ClickDoes(computer.Targets.Count, computer.Program.Phase,
+                                                 computer.Reach.HasRegion);
         bool onTheBody = computer.Parent is { } parent && parent.Id == body;
 
         // Not a number where the world would not resolve the point, which is what the verdict reads

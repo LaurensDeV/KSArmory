@@ -236,6 +236,155 @@ public class DivertFootprintTests(ITestOutputHelper Out)
         }
     }
 
+    // ------------------------------------------------- the reach before the flight has flown
+
+    /// <summary>
+    /// <b>The measurement the pre-launch reach rests on.</b> Pinned, the footprint is the release
+    /// epoch and nothing else: the arc it is flown on cannot move it.
+    /// </summary>
+    /// <remarks>
+    /// <para>The free-clock long axis is <c>450 · cot γ</c>, which belongs to the arc actually flown —
+    /// a pad-drawn estimate of it was out by 1.04x, 0.51x and 0.59x at three flown geometries. Pinning
+    /// the arrival takes that whole axis out, and what is left is <c>0.96 · t_go</c> in <em>both</em>
+    /// directions. So the one quantity the pad cannot know is the one the pinned reach does not use,
+    /// which is what lets a target be placed before launch.</para>
+    ///
+    /// <para>Swept over 2,002–12,787 km of range, 13.3°–52.2° of arrival and two lofts at a 420 s
+    /// release: the free major runs <b>497 to 1,816</b> m per m/s, a 3.66x swing, and the pinned reach
+    /// <b>395 to 407</b>, a 1.03x one — the low end being the 12,787 km shot arriving at 13.3°, which
+    /// is the shallowest geometry in the matrix. If this ever stops holding,
+    /// <c>docs/MIRV-TARGETS.md</c>'s pre-launch half goes with it.</para>
+    /// </remarks>
+    [Fact]
+    public void ThePinnedReachIsTheReleaseEpochAndTheArcCannotMoveIt()
+    {
+        double lo = double.PositiveInfinity, hi = 0.0;
+        double freeLo = double.PositiveInfinity, freeHi = 0.0;
+        int flown = 0;
+
+        foreach ((double reachMetres, double freeMajor, double _) in Sweep(420.0))
+        {
+            lo = Math.Min(lo, reachMetres);
+            hi = Math.Max(hi, reachMetres);
+            freeLo = Math.Min(freeLo, freeMajor);
+            freeHi = Math.Max(freeHi, freeMajor);
+            flown++;
+        }
+
+        Out.WriteLine($"{flown} geometries at a 420 s release: pinned {lo:F0} to {hi:F0} m per m/s, "
+                      + $"free major {freeLo:F0} to {freeHi:F0}");
+
+        Assert.True(flown >= 15, $"only {flown} geometries flew, which settles nothing");
+
+        // The free axis swings by more than three times; the pinned one by a few per cent.
+        Assert.True(freeHi / freeLo > 3.0, $"the free major only moved {freeHi / freeLo:F2}x");
+        Assert.InRange(hi / lo, 1.0, 1.05);
+    }
+
+    /// <summary>
+    /// And <see cref="DivertFootprint.PinnedMetresPerSecondToGo"/> is a floor over the whole band it
+    /// is allowed in, not a fit to the middle of it.
+    /// </summary>
+    /// <remarks>
+    /// It is drawn before the flight can check it, so the one failure that matters is promising ground
+    /// the bus cannot reach. The ratio decays with the epoch — 0.96 at 420 s, 0.89 at 745 — because the
+    /// out-of-plane response is harmonic about the body and saturates over a quarter period, which is
+    /// why the band has a top at all.
+    /// </remarks>
+    [Fact]
+    public void TheEpochEstimateIsAFloorEverywhereItIsAllowed()
+    {
+        foreach (double seconds in new[] { DivertFootprint.EpochLeastSeconds, 240.0, 420.0, 550.0,
+                                           DivertFootprint.EpochMostSeconds })
+        {
+            Assert.True(DivertFootprint.TryAtTheEpoch(Flown(DivertFootprint.ArrivalClock.Pinned).Frame,
+                                                      seconds, out DivertFootprint estimate));
+
+            double worst = double.PositiveInfinity;
+
+            foreach ((double reachMetres, double _, double tGo) in Sweep(seconds))
+            {
+                worst = Math.Min(worst, reachMetres * (seconds / tGo));
+            }
+
+            Out.WriteLine($"{seconds,5:F0} s: estimated {estimate.SemiMinorMetresPerMetrePerSecond,6:F0} "
+                          + $"against a worst flown {worst,6:F0} m per m/s");
+
+            Assert.True(estimate.SemiMinorMetresPerMetrePerSecond <= worst,
+                        $"at {seconds:F0} s the estimate promises {estimate.SemiMinorMetresPerMetrePerSecond:F0} "
+                        + $"where the worst geometry reaches {worst:F0}");
+        }
+    }
+
+    /// <summary>Outside that band it refuses, because the constant stops being a floor there.</summary>
+    [Fact]
+    public void OutsideTheBandThereIsNoEstimateRatherThanAWrongOne()
+    {
+        ArrivalFrame frame = Flown(DivertFootprint.ArrivalClock.Pinned).Frame;
+
+        foreach (double seconds in new[] { double.NaN, 0.0, -1.0, DivertFootprint.EpochLeastSeconds - 1.0,
+                                           DivertFootprint.EpochMostSeconds + 1.0, 3_600.0 })
+        {
+            Assert.False(DivertFootprint.TryAtTheEpoch(frame, seconds, out _), $"{seconds} was estimated");
+        }
+    }
+
+    /// <summary>The estimate is a disc, and says it was not read off a flown state.</summary>
+    [Fact]
+    public void TheEstimateIsADiscAndKnowsItIsAnEstimate()
+    {
+        Assert.True(DivertFootprint.TryAtTheEpoch(Flown(DivertFootprint.ArrivalClock.Pinned).Frame,
+                                                  420.0, out DivertFootprint estimate));
+
+        Assert.Equal(estimate.SemiMajorMetresPerMetrePerSecond,
+                     estimate.SemiMinorMetresPerMetrePerSecond, 9);
+        Assert.Equal(DivertFootprint.ArrivalClock.Pinned, estimate.Clock);
+        Assert.False(estimate.FromTheRealState);
+        Assert.True(Flown(DivertFootprint.ArrivalClock.Pinned).FromTheRealState);
+    }
+
+    // Arcs across the range, the arrival angle and the loft, each coasted to `secondsToGo` before
+    // its own arrival and the columns flown from there: the pinned reach, the free long axis it is
+    // being compared against, and the fall the columns actually took.
+    private static IEnumerable<(double Pinned, double FreeMajor, double FlightSeconds)> Sweep(double secondsToGo)
+    {
+        foreach (double latitudeDeg in new[] { 0.0, 25.0 })
+        foreach (double downrangeDeg in new[] { 18.0, 40.0, 60.0, 90.0, 115.0 })
+        foreach (double loft in new[] { 1.0, 1.35 })
+        {
+            double3 cutoffCci = new(R + 200_000.0, 0.0, 0.0);
+
+            double d = downrangeDeg * Math.PI / 180.0, lat = latitudeDeg * Math.PI / 180.0;
+            double3 aimCci = new double3(Math.Cos(d) * Math.Cos(lat), Math.Sin(d) * Math.Cos(lat),
+                                         Math.Sin(lat)) * R;
+
+            if (!BallisticArc.TryCheapest(Earth, cutoffCci, Vec.Zero, aimCci,
+                                          out BallisticArc.Solution arc, loft)) continue;
+
+            double coast = arc.FlightSeconds - secondsToGo;
+            if (coast <= 10.0) continue;
+
+            if (!Kepler.TryCoast(Mu, cutoffCci, arc.RequiredVelocityCci, coast, out double3 atRelease,
+                                 out double3 velocity)) continue;
+            if (Vec.Len(atRelease) < R + 100_000.0) continue;
+
+            MunitionProfile warhead = Arsenal.ReentryVehicleMk21;
+            ReleaseFocus.Air air = new(new ImpactPredictor.Drag(DensityAt, warhead), 2.0, R, true);
+
+            ReleaseFocus.FlownSensitivity? columns =
+                ReleaseFocus.FlownSensitivity.TryFly(Earth, atRelease, velocity, air);
+            if (columns is null) continue;
+
+            if (!DivertFootprint.TryFrom(Earth, columns, DivertFootprint.ArrivalClock.Pinned, true,
+                                         out DivertFootprint pinned)) continue;
+            if (!DivertFootprint.TryFrom(Earth, columns, DivertFootprint.ArrivalClock.Free, true,
+                                         out DivertFootprint free)) continue;
+
+            yield return (pinned.SemiMinorMetresPerMetrePerSecond,
+                          free.SemiMajorMetresPerMetrePerSecond, columns.FlightSeconds);
+        }
+    }
+
     /// <summary>
     /// The arrival frame is taken against the ground, not the inertial velocity. The axes cannot tell
     /// the difference — both frames span one horizontal plane — but everything angular can.

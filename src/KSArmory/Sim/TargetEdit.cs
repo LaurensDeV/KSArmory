@@ -21,12 +21,40 @@ internal static class TargetEdit
 {
     /// <summary>What clicking the world does, given what the list holds and where the flight is.</summary>
     /// <remarks>
-    /// Only the coast adds, so before cutoff the list can never hold more than one place and the
-    /// flight is a single-target one. An empty list is a designation at any phase, because there is
-    /// no shot to disturb.
+    /// <para>An empty list is a designation at any phase, because there is no shot to disturb.</para>
+    ///
+    /// <para><b>Both sides of cutoff add, and they are not the same add.</b> During the coast the
+    /// reach is the columns the bus has flown and the lead is fixed — the arc is committed, so a
+    /// later target is a divert stop and nothing else. Before cutoff the reach is the release
+    /// epoch's (<see cref="DivertFootprint.TryAtTheEpoch"/>) and the aim is still a free variable,
+    /// so the lead is re-elected as targets are placed and the booster ends up flying to the
+    /// farthest — which is the one thing <c>ReleaseLoop</c> cannot arrange for itself.</para>
+    ///
+    /// <para><b>An add needs a reach that can refuse it.</b> With none, a click designates, which is
+    /// what every click did before the region existed: adding a target nothing can price is how a
+    /// set is assembled that the release loop then refuses whole.</para>
     /// </remarks>
-    public static TargetClick ClickDoes(int targets, IcbmPhase phase)
-        => targets > 0 && phase == IcbmPhase.Coast ? TargetClick.Add : TargetClick.Designate;
+    /// <param name="reachIsKnown">
+    /// Whether there is a region to test the click against — <see cref="ReachDisplay.HasRegion"/>.
+    /// </param>
+    public static TargetClick ClickDoes(int targets, IcbmPhase phase, bool reachIsKnown)
+        => targets > 0 && reachIsKnown && phase != IcbmPhase.NoSolution
+               ? TargetClick.Add
+               : TargetClick.Designate;
+
+    /// <summary>
+    /// Whether the booster's aim may still be moved onto a different entry of the list.
+    /// </summary>
+    /// <remarks>
+    /// <b>Before the arrival is committed, and not one frame after.</b> Until then the aim is a free
+    /// variable: guidance re-solves velocity-to-be-gained against the vehicle's actual state every
+    /// cycle, so moving it costs propellant and not accuracy. Once the arrival is latched the arc is
+    /// pinned to an instant chosen for somewhere else, and after cutoff there is no engine left —
+    /// the bus would have to divert the whole way, which is the 5–45 km ending rather than the 140 m
+    /// one.
+    /// </remarks>
+    public static bool LeadMayMove(IcbmPhase phase, bool arrivalCommitted)
+        => phase != IcbmPhase.Coast && !arrivalCommitted;
 
     /// <summary>Whether an entry may be taken out of the list.</summary>
     /// <remarks>

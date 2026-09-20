@@ -9,35 +9,84 @@ namespace KSArmory.Tests;
 public class TargetEditTests
 {
     /// <summary>
-    /// The safety property the whole feature rests on: nothing adds to the list before cutoff, so a
-    /// shot flown to one place cannot reach any of the new paths.
+    /// The safety property the whole feature rests on: a click with no region to test it against
+    /// designates, at every phase — so a set nothing can price is never assembled.
     /// </summary>
     [Fact]
-    public void ClickingBeforeTheBurnIsOverDesignates()
+    public void ClickingWithNoReachDesignates()
     {
         foreach (IcbmPhase phase in Enum.GetValues<IcbmPhase>())
         {
-            if (phase == IcbmPhase.Coast) continue;
-
-            Assert.Equal(TargetClick.Designate, TargetEdit.ClickDoes(0, phase));
-            Assert.Equal(TargetClick.Designate, TargetEdit.ClickDoes(1, phase));
-            Assert.Equal(TargetClick.Designate, TargetEdit.ClickDoes(TargetSet.MaxTargets, phase));
+            Assert.Equal(TargetClick.Designate, TargetEdit.ClickDoes(0, phase, reachIsKnown: false));
+            Assert.Equal(TargetClick.Designate, TargetEdit.ClickDoes(1, phase, reachIsKnown: false));
+            Assert.Equal(TargetClick.Designate,
+                         TargetEdit.ClickDoes(TargetSet.MaxTargets, phase, reachIsKnown: false));
         }
     }
 
-    /// <summary>Designating in the coast would reset the program, which is the flight it is half-way through.</summary>
+    /// <summary>
+    /// With a place already named and a reach that can refuse the click, both sides of cutoff add.
+    /// </summary>
+    /// <remarks>
+    /// Before the burn that is what puts every target on the list while the booster's aim is still a
+    /// free variable, which is the one thing the release loop cannot arrange for itself — it refuses
+    /// outright a plan whose first stop is not the one the bus is flying to.
+    /// </remarks>
     [Fact]
-    public void ClickingDuringTheCoastAddsToWhatIsAlreadyAimedAt()
+    public void ClickingWithAReachAddsToWhatIsAlreadyAimedAt()
     {
-        Assert.Equal(TargetClick.Add, TargetEdit.ClickDoes(1, IcbmPhase.Coast));
-        Assert.Equal(TargetClick.Add, TargetEdit.ClickDoes(TargetSet.MaxTargets, IcbmPhase.Coast));
+        foreach (IcbmPhase phase in Enum.GetValues<IcbmPhase>())
+        {
+            if (phase == IcbmPhase.NoSolution) continue;
+
+            Assert.Equal(TargetClick.Add, TargetEdit.ClickDoes(1, phase, reachIsKnown: true));
+            Assert.Equal(TargetClick.Add,
+                         TargetEdit.ClickDoes(TargetSet.MaxTargets, phase, reachIsKnown: true));
+        }
+    }
+
+    /// <summary>
+    /// A shot with no trajectory to the place it is aimed at designates, whatever the reach says.
+    /// </summary>
+    /// <remarks>
+    /// Adding to a set the booster cannot deliver builds a list around a landing that is not going to
+    /// happen; re-aiming is the only useful thing a click can do there.
+    /// </remarks>
+    [Fact]
+    public void AShotWithNoTrajectoryDesignates()
+    {
+        Assert.Equal(TargetClick.Designate,
+                     TargetEdit.ClickDoes(1, IcbmPhase.NoSolution, reachIsKnown: true));
     }
 
     /// <summary>Clearing the target is how a coasting bus is aimed somewhere else, and then a click starts over.</summary>
     [Fact]
     public void ACoastWithNothingAimedAtStillDesignates()
     {
-        Assert.Equal(TargetClick.Designate, TargetEdit.ClickDoes(0, IcbmPhase.Coast));
+        Assert.Equal(TargetClick.Designate, TargetEdit.ClickDoes(0, IcbmPhase.Coast, reachIsKnown: true));
+    }
+
+    /// <summary>
+    /// The booster's aim may be moved onto another entry until the arrival is committed, and never
+    /// after.
+    /// </summary>
+    /// <remarks>
+    /// <b>This is the one rule in the file that can lose a shot.</b> Before the commit the guidance
+    /// re-solves velocity-to-be-gained against the vehicle's actual state every cycle, so moving the
+    /// aim costs propellant. After it the arc is pinned to an instant chosen for somewhere else, and
+    /// past cutoff there is no engine left at all — the bus would have to divert the whole way, which
+    /// is the 5–45 km ending rather than the 140 m one.
+    /// </remarks>
+    [Fact]
+    public void TheAimMayMoveUntilTheArrivalIsCommitted()
+    {
+        foreach (IcbmPhase phase in Enum.GetValues<IcbmPhase>())
+        {
+            Assert.False(TargetEdit.LeadMayMove(phase, arrivalCommitted: true));
+
+            Assert.Equal(phase != IcbmPhase.Coast,
+                         TargetEdit.LeadMayMove(phase, arrivalCommitted: false));
+        }
     }
 
     [Fact]

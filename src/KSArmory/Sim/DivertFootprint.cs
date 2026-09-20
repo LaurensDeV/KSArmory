@@ -30,10 +30,11 @@ namespace KSArmory;
 /// it there.
 /// </param>
 /// <param name="FromTheRealState">
-/// Whether the columns came from the bus's own state or from a projected cutoff. A footprint drawn from
-/// the pad is an estimate whose long axis was out by 1.04x, 0.51x and 0.59x at three flown geometries,
-/// because <c>cot γ</c> belongs to the arc actually flown and the pad does not know it yet. The short
-/// axis is exact from anywhere, being <c>0.96 · t_go</c> on a time the player already set.
+/// Whether the columns came from the bus's own state, or the reach is the release epoch's alone. A
+/// footprint drawn from the pad is an estimate whose long axis was out by 1.04x, 0.51x and 0.59x at three
+/// flown geometries, because <c>cot γ</c> belongs to the arc actually flown and the pad does not know it
+/// yet. The short axis is exact from anywhere, being <c>0.96 · t_go</c> on a time the player already set —
+/// <b>and pinned that is the whole footprint</b>, which is what <see cref="TryAtTheEpoch"/> is.
 /// </param>
 internal readonly record struct DivertFootprint(double SemiMajorMetresPerMetrePerSecond,
                                                 double SemiMinorMetresPerMetrePerSecond,
@@ -65,6 +66,69 @@ internal readonly record struct DivertFootprint(double SemiMajorMetresPerMetrePe
         /// never reaches.
         /// </summary>
         Free,
+    }
+
+    /// <summary>
+    /// How far a metre a second of divert moves the landing, per second still to go at the release.
+    ///
+    /// <para><b>The floor of the measured band, not its middle.</b> Swept over 2,002–12,787 km of range,
+    /// 13.3°–52.2° of arrival and loft 1.0 and 1.35, the pinned reach at a 420 s release runs
+    /// <b>0.936 to 0.967 · t_go</b> while the <em>free</em> long axis over the same matrix swings 497 to
+    /// 1,816 m per m/s — so the pinned reach is the epoch and nothing else. Over 60 to 760 s the floor is
+    /// 0.889, at 745 s, which is what this is rounded down from. The Moon reads 0.977–0.980 at the same
+    /// epoch, so Earth is the binding body: the ratio is <c>sinc(sqrt(mu/R³) · t_go)</c> and Earth has about
+    /// the shortest surface-grazing period in the system.</para>
+    ///
+    /// <para>A floor rather than a fit because it is drawn before the flight can check it: promising ground
+    /// the bus cannot reach is the one failure a region display makes silently.</para>
+    /// </summary>
+    public const double PinnedMetresPerSecondToGo = 0.88;
+
+    /// <summary>
+    /// The release epochs <see cref="PinnedMetresPerSecondToGo"/> is a floor over, in seconds before
+    /// arrival.
+    ///
+    /// <para>It decays with the epoch — 0.96 at 420 s, 0.90 at 745, <b>0.76 at 1,200</b> — because the
+    /// out-of-plane response is harmonic about the body and saturates over a quarter period. So a release
+    /// gate outside this is refused rather than estimated: the constant stops being a floor and the disc
+    /// stops being a disc, the two axes parting 16% at 1,200 s.</para>
+    /// </summary>
+    public const double EpochLeastSeconds = 60.0;
+
+    /// <inheritdoc cref="EpochLeastSeconds"/>
+    public const double EpochMostSeconds = 760.0;
+
+    /// <summary>
+    /// The reach a release epoch alone gives, for a flight that has not flown yet.
+    /// </summary>
+    /// <remarks>
+    /// <b>Nothing here reads a state, and that is what makes it honest.</b> The tempting version flies the
+    /// columns from the guidance's projected cutoff — but before the vehicle has flown that projection is
+    /// the pad, so the arc ploughs through the whole atmosphere; the aim loop read <b>1,522 km</b> of
+    /// phantom miss off exactly that and <see cref="AimCorrection.DepartureIsWorthObserving"/> is the guard
+    /// it needed. Pinned, there is nothing in the footprint the arc could tell us: both axes are the epoch.
+    /// </remarks>
+    /// <param name="frame">
+    /// The axes the reach is measured in, at the landing <em>as it will be at arrival</em> — the same epoch
+    /// <see cref="TryFrom"/>'s frame belongs to, so the carries in <c>ReachDisplay</c> mean the same thing
+    /// under both. Pinned the orientation means nothing and only the plane is read.
+    /// </param>
+    /// <param name="secondsToGo">
+    /// How long after the release the warheads arrive, which under <see cref="ReleaseItinerary"/> is
+    /// <see cref="IcbmConfig.ReleaseBeforeArrivalSeconds"/> exactly: every further target is released
+    /// <em>earlier</em> and the last one lands on the gate, so a new target's hop is always bought there.
+    /// </param>
+    public static bool TryAtTheEpoch(ArrivalFrame frame, double secondsToGo, out DivertFootprint footprint)
+    {
+        footprint = default;
+
+        if (!(secondsToGo >= EpochLeastSeconds) || !(secondsToGo <= EpochMostSeconds)) return false;
+
+        double reach = PinnedMetresPerSecondToGo * secondsToGo;
+
+        footprint = new DivertFootprint(reach, reach, 0.0, ArrivalClock.Pinned, frame, secondsToGo,
+                                        FromTheRealState: false);
+        return true;
     }
 
     /// <summary>
