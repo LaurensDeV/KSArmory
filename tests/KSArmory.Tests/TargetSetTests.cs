@@ -203,4 +203,112 @@ public class TargetSetTests
         Assert.Equal(new[] { 0, 0, 0 }, set.ReleasePlan(3));
         Assert.Empty(set.ReleasePlan(0));
     }
+
+    // ------------------------------------------------- the booster flies to the farthest
+
+    /// <summary>
+    /// The booster is aimed at whichever target is farthest downrange, not at the first clicked.
+    /// </summary>
+    /// <remarks>
+    /// The release schedule walks inward from wherever the booster puts the bus, and the first stop
+    /// is the only one that costs no hop. Aimed anywhere but an end of the set the walk goes out and
+    /// back and spends about twice what the itinerary charges, which is exactly what
+    /// <c>ReleaseWalkHold.NotWhereTheBusIsAimed</c> refuses.
+    /// </remarks>
+    [Fact]
+    public void TheLeadIsTheFarthestTargetRatherThanTheFirstChosen()
+    {
+        TargetSet set = new();
+        set.TryAdd(At(-24.0, -62.0));
+        set.TryAdd(At(-25.0, -63.0));
+        set.TryAdd(At(-26.0, -64.0));
+
+        Assert.True(set.ElectFarthestLead([4_000_000.0, 9_000_000.0, 6_000_000.0]));
+        Assert.Equal(1, set.LeadIndex);
+        Assert.Equal(At(-25.0, -63.0), set.Primary);
+    }
+
+    /// <summary>
+    /// <b>A set of one is exactly the shot every accuracy measurement on this mod is taken
+    /// against</b>, and nothing the multi-target work added can move it.
+    /// </summary>
+    /// <remarks>
+    /// The flight reads <see cref="TargetSet.Primary"/> and <see cref="TargetSet.ReleasePlan"/> and
+    /// nothing else about the list, so this is the whole of what has to hold. Stated as an
+    /// invariance rather than as a value: the election is run at every range there is, including the
+    /// ones no world could answer, and neither reading is allowed to move.
+    /// </remarks>
+    [Fact]
+    public void ASetOfOneIsUnmovedByEverythingTheMultiTargetWorkAdded()
+    {
+        TargetSet set = new();
+        set.TryAdd(At(-24.0, -62.0));
+        set.Balance(6);
+
+        AimSite was = set.Primary;
+        int[] plan = set.ReleasePlan(6);
+
+        foreach (double range in new[] { 0.0, 1.0, 9_000_000.0, double.NaN, double.PositiveInfinity,
+                                         double.NegativeInfinity })
+        {
+            Assert.False(set.ElectFarthestLead([range]));
+
+            Assert.Equal(0, set.LeadIndex);
+            Assert.Equal(was, set.Primary);
+            Assert.Equal(plan, set.ReleasePlan(6));
+        }
+
+        Assert.Equal(new[] { 0, 0, 0, 0, 0, 0 }, plan);
+    }
+
+    /// <summary>Ties keep the lead where it is, so an election is not a source of movement.</summary>
+    [Fact]
+    public void ATieLeavesTheLeadAlone()
+    {
+        TargetSet set = new();
+        set.TryAdd(At(-24.0, -62.0));
+        set.TryAdd(At(-25.0, -63.0));
+        set.SetLead(1);
+
+        Assert.False(set.ElectFarthestLead([5_000_000.0, 5_000_000.0]));
+        Assert.Equal(1, set.LeadIndex);
+    }
+
+    /// <summary>
+    /// A range the world could not resolve ranks nearest rather than winning, and never throws.
+    /// </summary>
+    /// <remarks>
+    /// The aim is the one thing in the set that must not move on a reading nobody can make: a NaN
+    /// taken as farthest would fly the booster at a place that could not be located.
+    /// </remarks>
+    [Fact]
+    public void ARangeNobodyCouldReadNeverWinsTheAim()
+    {
+        TargetSet set = new();
+        set.TryAdd(At(-24.0, -62.0));
+        set.TryAdd(At(-25.0, -63.0));
+
+        Assert.False(set.ElectFarthestLead([5_000_000.0, double.NaN]));
+        Assert.Equal(0, set.LeadIndex);
+
+        // And a list that does not describe this set is refused outright rather than half applied.
+        Assert.False(set.ElectFarthestLead([1.0]));
+        Assert.Equal(0, set.LeadIndex);
+    }
+
+    /// <summary>
+    /// Even a set whose ranges are all unreadable keeps a lead that is on the list, because
+    /// everything downstream indexes with it.
+    /// </summary>
+    [Fact]
+    public void TheLeadIsAlwaysAnEntryThatIsThere()
+    {
+        TargetSet set = new();
+        set.TryAdd(At(-24.0, -62.0));
+        set.TryAdd(At(-25.0, -63.0));
+
+        set.ElectFarthestLead([double.NaN, double.NaN]);
+
+        Assert.InRange(set.LeadIndex, 0, set.Count - 1);
+    }
 }

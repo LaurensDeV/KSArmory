@@ -52,9 +52,10 @@ internal sealed class TargetSet
     ///
     /// <para><b>Not necessarily the first chosen.</b> The order places were picked in is the
     /// player's; the order they are flown in belongs to the release schedule, which puts the
-    /// farthest reach first because the kick's leverage decays as the bus descends. This is the seam
-    /// that carries that answer — nothing here decides it, and until something does it is the first
-    /// chosen, which for a set of one is the same entry either way.</para>
+    /// farthest reach first because the kick's leverage decays as the bus descends.
+    /// <see cref="ElectFarthestLead"/> is what moves it, and only while the aim is still free —
+    /// <see cref="TargetEdit.LeadMayMove"/>. For a set of one it is entry zero whatever happens,
+    /// which is what leaves a single-target flight exactly the shot it has always been.</para>
     /// </summary>
     public int LeadIndex { get; private set; }
 
@@ -69,6 +70,51 @@ internal sealed class TargetSet
         LeadIndex = index;
         return true;
     }
+
+    /// <summary>
+    /// Aim the booster at whichever entry is farthest downrange, which is what the release schedule
+    /// needs of it.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Farthest, because the bus walks inward from wherever the booster puts it.</b> The
+    /// reach a hop can buy falls as the bus descends — 1,076 down to 886 m of ground per m/s over a
+    /// six-stop schedule — so the dearest hop belongs in the earliest slot, and the first stop is
+    /// the one the bus arrives on for free. Aimed anywhere but an end of the set, the walk goes out
+    /// and back and costs about twice what the itinerary charges, which is what
+    /// <c>ReleaseWalkHold.NotWhereTheBusIsAimed</c> refuses.</para>
+    ///
+    /// <para><b>Ties keep the lead where it is</b>, and an unresolvable range ranks nearest rather
+    /// than throwing the comparison: the aim is the one thing in the set that cannot be allowed to
+    /// move on a reading nobody can make.</para>
+    /// </remarks>
+    /// <param name="rangeMetres">
+    /// How far each entry is from the launch site, in the order of <see cref="Entries"/>. A list
+    /// that does not match the set is refused rather than partly applied.
+    /// </param>
+    public bool ElectFarthestLead(IReadOnlyList<double> rangeMetres)
+    {
+        if (_entries.Count == 0 || rangeMetres.Count != _entries.Count) return false;
+
+        int best = LeadIndex;
+        double farthest = Ranged(rangeMetres[best]);
+
+        for (int i = 0; i < _entries.Count; i++)
+        {
+            if (Ranged(rangeMetres[i]) > farthest)
+            {
+                farthest = Ranged(rangeMetres[i]);
+                best = i;
+            }
+        }
+
+        if (best == LeadIndex) return false;
+
+        LeadIndex = best;
+        return true;
+    }
+
+    private static double Ranged(double metres)
+        => double.IsFinite(metres) ? metres : double.NegativeInfinity;
 
     /// <summary>
     /// Take a designation as the whole set, which is what clicking the world has always done.

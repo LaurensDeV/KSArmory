@@ -134,20 +134,20 @@ internal sealed partial class Ui
 
         bool show = config.ShowDivertReach;
         if (ImGui.Checkbox("Show what the bus can still divert to", ref show)) config.ShowDivertReach = show;
-        Tip("On: the ground the coasting bus can still put a warhead on is outlined, and a click "
-            + "outside it is refused. It costs seven flights of the impact predictor every few "
-            + "seconds, and only while the list can still be edited -- a coast with this tab's "
-            + "designate mode on, or a second target already placed. Off: nothing is flown and "
-            + "nothing is drawn.");
+        Tip("On: the ground the bus can put a warhead on is outlined, and a click outside it is "
+            + "refused. Before the burn is over that region is the release epoch's alone and costs "
+            + "nothing; once the bus is coasting it is flown, seven flights of the impact predictor "
+            + "every few seconds, and only while the list can still be edited -- designate mode on, "
+            + "or a second target already placed. Off: nothing is flown, nothing is drawn, and a "
+            + "click designates rather than adding.");
 
         if (!show) return;
 
         ReachDisplay reach = computer.Reach;
 
-        // Silent until the burn is over on a shot that is still going to one place: before then the
-        // line would say "not until the burn is over" on every single-target flight, which is every
-        // flight there is today.
-        if (reach.Hold == ReachHold.NotCoasting && computer.Targets.Count < 2) return;
+        // Silent where nothing has been aimed at yet: until a place is named there is no landing for
+        // a reach to be around, and the line would sit on every computer that has never been used.
+        if (!reach.HasRegion && computer.Targets.Count == 0) return;
 
         ImGui.TextColored(reach.HasRegion ? Good : Working, "  " + reach.Say());
 
@@ -162,8 +162,12 @@ internal sealed partial class Ui
         ImGui.Text(computer.DescribeTargets());
 
         // Inline rather than in a tooltip: a player who has just placed a second target and then
-        // watches every warhead land on the first has no other way of finding out why.
-        ImGui.TextColored(Working, "  the bus does not fly between targets yet - all of them go to target 1");
+        // watches every warhead land on one of them has no other way of finding out why.
+        if (computer.Targets.Count > 0)
+        {
+            ImGui.TextColored(Working, "  the bus does not fly between targets yet - all of them go "
+                                       + $"to target {lead + 1}");
+        }
 
         int removed = -1;
 
@@ -179,7 +183,9 @@ internal sealed partial class Ui
             {
                 Tip("The one the whole flight is aimed at: the arc, the correction and the trim are "
                     + "solved against it, so it has no Remove -- Clear target above starts the shot "
-                    + "over, and then a click places a new one.");
+                    + "over, and then a click places a new one. It is whichever target is farthest "
+                    + "downrange, not the first clicked, because the bus walks inward from where the "
+                    + "booster puts it -- and it stops moving once the arrival is committed.");
             }
 
             ImGui.SameLine(ImGui.GetFontSize() * 18f, 0f);

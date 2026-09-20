@@ -6,11 +6,12 @@ may be edited, `IcbmComputer` holds one, a click on the world past cutoff adds t
 with per-target counts and a remove. `DivertFootprint` is the reach on the ground, taken off the sensitivity
 columns `ReleaseFocus.FlownSensitivity` already flies once per salvo, and `ReachDisplay` is that reach as one
 answer the outline, the cursor and the panel all read — so the region drawn and the clicks refused cannot
-disagree. **What is not built is the missile's own reach before target 1**: that is `IcbmReach` asked along
-bearings per candidate point, tens of milliseconds a ring, and it is deferred with the rest of phase 2's
-pre-launch half. **The flight is unchanged**: all six warheads still go to the lead, which the panel says in
-so many words. Before cutoff the list cannot hold more than one place at all, so a single-target shot cannot
-reach any of it.
+disagree. **And the list can now be assembled before launch**, because pinned the reach is the release epoch
+rather than the arc: the booster is then aimed at the farthest target, which is what the release loop needs
+of it. **What is still not built is the missile's own reach before target 1**: that is `IcbmReach` asked
+along bearings per candidate point, tens of milliseconds a ring. **The flight is unchanged**: all six
+warheads still go to the lead, which the panel says in so many words, and a set of one is exactly the shot
+every accuracy measurement on this mod is taken against.
 **Phase 0 has been flown headlessly**
 (`tests/KSArmory.Tests/MirvDivertTests.cs`), so the numbers below are measured rather than estimated —
 and it moved three of the plan's decisions, each marked **priced** where it appears. What it did not
@@ -97,10 +98,10 @@ From the player's side:
 1. Turn on **Designate by clicking the world**, as today.
 2. The ground shows the area this rocket can reach. Hovering outside it greys the cursor ring and says
    **outside reach**; a click there does nothing.
-3. The first click places target 1. **Before launch that is the whole display** — the bus's own reach
-   cannot honestly be drawn from the pad, because its long axis depends on the arc actually flown and the
-   pad does not know it yet. Targets 2–6 are placed **during the coast**, which is when the footprint is
-   real, and it shrinks with each one added.
+3. The first click places target 1. **Targets 2–6 can be placed before launch as well as during the
+   coast**, because pinned the footprint is the release epoch and not the arc — see *The pad can draw
+   the pinned reach* below. The region shrinks with each one added, and the ring sits around the last
+   target placed rather than around the landing, because that is where the next hop starts.
 4. The panel lists the targets, how many warheads each gets, and whether the whole set fits the bus's
    fuel and the time left before reentry. Targets can be removed; removing one gives its reach back.
 5. Launch as today. The rocket flies to target 1's trajectory, and after separation the bus releases,
@@ -164,11 +165,8 @@ whatever is left after the ones already chosen, taken along the cheapest order t
   the 30–45 the budget suggests. At 6,179 km that is about **6.9 x 3.6 km** free-clock and **3.5 x 3.5 km**
   pinned, which is what the flight has. Drawing the larger region first and shrinking it when phase 3 raises
   the per-pass ceiling is the wrong order.
-* **Before launch, only the missile's reach.** The bus footprint's long axis is `450 · cot γ`, and γ belongs
-  to the arc actually flown rather than the cheapest arc from the pad — measured against three flown
-  geometries the pad's estimate is out by **1.04x, 0.51x and 0.59x**, while the short axis is exact. So
-  there is no honest boundary to draw on the ground before the burn is over, and the footprint belongs to
-  the coast, which is also the only time targets 2–6 are being placed.
+* **Before launch, the release epoch's reach — and it is a real boundary.** See the section below; this
+  bullet used to say there was none, on a measurement about the *free* clock's long axis.
 * **In orbit, nothing.** Reach from orbit is a band around the ground track over sixteen revolutions rather
   than a region around a point, the vehicle is not inside it, and an inclination bounds it in a way no
   bearing sweep can find. It is also unaffordable: `BurnWindow.TryFind` is 7.1 ms from a 400 km orbit, so a
@@ -205,6 +203,78 @@ and is worth restating because the two numbers differ by four times: `ReleaseIti
 says what the trim has left and `BusTrim.MaxMetresPerSecond` what one solve will fly, and the ring is the
 lower of the two. The panel quotes both, because "what is left in all" is the question a player asks about
 the *set* and "how far from here" the one they ask about the *next click*.
+
+## The pad can draw the pinned reach — measured 2026-09-20
+
+**The refusal above was about the free clock, and the flight does not fly it.** Free-clock the long axis is
+`450 · cot γ`, γ belongs to the arc actually flown, and the pad's estimate of it was out by 1.04x, 0.51x and
+0.59x. Pinned, that axis is gone: both axes collapse onto the cross-track reach, which is `≈0.96 · t_go` and
+has no γ in it at all. **So the one quantity the pad cannot know is the one the pinned reach does not use.**
+
+Swept headlessly over 2,002–12,787 km of range, 13.3°–52.2° of arrival angle and loft 1.0 and 1.35 — 20
+geometries, each arc coasted to a 420 s release and the columns flown from there
+(`DivertFootprintTests.ThePinnedReachIsTheReleaseEpochAndTheArcCannotMoveIt`):
+
+| | free long axis | pinned reach |
+| --- | --- | --- |
+| across the matrix | **497 → 1,816** m per m/s, 3.66x | **395 → 407**, 1.03x |
+
+The low end is the 12,787 km shot arriving at 13.3°, the shallowest geometry in the matrix. The disc is a
+disc too: major over minor runs 1.000 to 1.022 at that epoch.
+
+**The ratio is the epoch, and it decays with it**, because the out-of-plane response is harmonic about the
+body and saturates over a quarter period — `sinc(sqrt(mu/R³) · t_go)` reproduces it to a few per cent:
+
+| t_go | 120 | 240 | 360 | **420** | 550 | 745 | 900 | 1,200 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| reach / t_go, Earth | .936–.993 | .946–.986 | .940–.975 | **.936–.967** | .924–.949 | .889–.917 | .848–.887 | .756–.823 |
+
+The Moon reads **0.977–0.980** at 420 s against Earth's 0.936–0.967, so Earth is the binding body: it has
+about the shortest surface-grazing period in the system, and everywhere else the estimate is more
+conservative still.
+
+**So `DivertFootprint.PinnedMetresPerSecondToGo` is 0.88 — the floor of the band, not its middle**, and it
+is refused outside 60–760 s where it stops being one. At the shipped 420 s gate it draws 370 m per m/s
+against a true 395–407, about 7% small: **every click the pad accepts is one the coast's own flown reach
+accepts too**, which is the only direction this error may point. `t_go` is the gate exactly, because
+`ReleaseItinerary` counts back from it — a new target is always the *last* stop and always releases there.
+
+**What the pad still does not know is the coast's length**, which is what bounds how many stops fit
+(`ReleaseItinerary.CoastFits`); at 2,000 km the whole coast is 351 s against a 420 s gate and only one fits.
+That is not estimated: the bus is planned with `CoastSeconds` unknown, the panel says the count is settled at
+cutoff, and `ReleaseLoop.TrimToWhatFits` drops what does not fit when it is.
+
+**And nothing is flown before the burn is over.** The tempting implementation flies the columns from the
+guidance's projected cutoff, and before the vehicle has flown *that projection is the pad* — the same
+reading that gave the aim loop 1,522 km of phantom miss and that `AimCorrection.DepartureIsWorthObserving`
+exists to refuse. Pinned there is nothing in the footprint the arc could have told us, so the epoch estimate
+reads no state at all. The flown path now carries that guard too, so a column can never depart from inside
+the air.
+
+## The booster is aimed at the farthest target
+
+**`TargetSet.SetLead` existed and nothing called it; `ElectFarthestLead` is what does.** The lead is
+re-elected as the farthest from the launch site whenever a target is added, and **only while the aim is
+still free** — `TargetEdit.LeadMayMove`, which is before cutoff and before the arrival is committed. Until
+then guidance re-solves velocity-to-be-gained against the vehicle's actual state every cycle, so moving the
+aim costs propellant and not accuracy. After it the arc is pinned to an instant chosen for somewhere else,
+and past cutoff there is no engine left at all — so a coast add is a divert stop and never a new lead.
+
+That is what closes `ReleaseWalkHold.NotWhereTheBusIsAimed`, which was "every real set today": the itinerary
+takes its first stop to be the one the bus already arrives on, and with adds only in the coast the booster
+was always flying to the first chosen.
+
+## The hop is charged where it is measured
+
+**A plain bug, and it was accepting every one of these.** `ReachDisplay` bounded a click to one hop *from
+the landing* while `ReleaseItinerary` charges the hop *between consecutive stops* — so two targets on
+opposite edges of the ring were each accepted at one radius and the pair then cost two, **20 m/s against a
+10 m/s ring**, and `ReleaseLoop` refused the walk it had been told was affordable.
+
+The ring is now centred on the stop the next hop leaves from — the landing while the lead is the last stop,
+which is every set of one — so the region drawn, the click refused and the hop charged are one measurement.
+`ReachDisplayTests.ASecondTargetIsMeasuredFromTheStopTheHopLeavesFrom` asserts the old form would have taken
+the click, so it cannot pass against the code it exists to detect.
 
 ## What to do with warheads when fewer than six targets are picked
 
@@ -340,7 +410,7 @@ So the shipped answer is **two to six targets on the gate-ending schedule**, 4.5
 | --- | --- | --- |
 | ~~0~~ | **Done** — `tests/KSArmory.Tests/MirvDivertTests.cs`. ±100 km is real **only from cutoff**; at today's release gate the footprint is a 34 × 18 km box. See the three findings at the top. | No |
 | 1 | **Targets as data**. **Done** — `Sim/TargetSet.cs`, `Sim/TargetEdit.cs`, `ShotRequest` naming several, the list on `IcbmComputer` with `Designate` split from `AddTarget`, a coast click that adds, and the panel's rows. Which entry the flight is aimed at is `TargetSet.LeadIndex` — a seam for the release schedule, which flies the farthest reach first — rather than the first place clicked; nothing sets it yet. The flight still sends everything to the lead, and says so. What `BallisticScenario` designates is still the first place alone. | Unchanged |
-| 2 | **Reach display**. **Done for the coast** — `Sim/DivertFootprint.cs` is both clocks and `Sim/ReachDisplay.cs` is the drawn region, the cursor's verdict and the panel's readout as one answer; `IcbmOverlay` drapes the ellipse and numbers the targets, and `SiteDesignator` greys the ring and says **outside reach**. **The missile's own region before target 1 is not built** and is the only part of this row left: it is a reach solve per candidate point along a bearing sweep, 37–68 ms a ring, so it wants the few-bearings-a-frame build this row's prose describes. | No |
+| 2 | **Reach display**. **Done, both sides of cutoff** — `Sim/DivertFootprint.cs` is both clocks plus `TryAtTheEpoch` for a flight that has not flown, and `Sim/ReachDisplay.cs` is the drawn region, the cursor's verdict and the panel's readout as one answer; `IcbmOverlay` drapes the ellipse and numbers the targets, and `SiteDesignator` greys the ring and says **outside reach**. **The missile's own region before target 1 is not built** and is the only part of this row left: it is a reach solve per candidate point along a bearing sweep, 37–68 ms a ring, so it wants the few-bearings-a-frame build this row's prose describes. | No |
 | 3 | **The release loop**: re-aim per target, per-warhead target bookkeeping in the log, and the per-pass trim ceiling raised deliberately. Shared targets release together. | Yes |
 | 4 | **Instruments and nights**: per-target scoring in `shot-report.py`, the matching check with one target, then 2/4/6. | Yes |
 | 5 | **Later**: area targets (option C), saving the target list with the craft, reordering by hand. | — |
@@ -379,8 +449,8 @@ upstream of phase 3.**
   shot every other measurement here is taken against. It settles *Does the first target stay special?* below
   too: farthest reach first puts the dearest hop in the slot with the most leverage, and the first stop is the
   one the bus already arrives on, so **the booster is aimed at the farthest target** rather than at the first
-  one chosen. Unflown, and it leaves the bullet below untouched: moving the gate *itself* still costs the
-  first target.
+  one chosen — which is now built, because the set can be assembled before the aim is committed. Unflown, and
+  it leaves the bullet below untouched: moving the gate *itself* still costs the first target.
 * **What bounds a set is its spacing, not its count** — priced in `tests/KSArmory.Tests/ReleaseTradeTests.cs`
   off the pinned footprint at each slot. Charging every hop `BusTrim.MaxMetresPerSecond` reads
   **66.1 m/s for six against a 60 m/s cap**, and that is the worst case rather than the case: it is a ceiling
@@ -418,9 +488,11 @@ upstream of phase 3.**
   multiplies every velocity residual by the same factor — the trim's floor goes 14 m → 55 m — which against a
   2 km lethal radius is nothing and against the batch scoring is everything. **A paired-arm question before
   phase 3, not an assumption.**
-* **Does the first target stay special?** Here the booster flies to target 1 and the bus diverts to the rest.
-  Aiming the booster at the middle of the set instead halves the largest divert, but makes the first release a
-  divert too.
+* ~~**Does the first target stay special?**~~ **Answered, and built: the booster flies to the farthest, not
+  to the first clicked.** `TargetSet.ElectFarthestLead` re-elects the lead on every add while the aim is
+  still free. Aiming at the middle of the set instead halves the largest divert and makes the first release
+  a divert too — untried, and it would need the lead to stop being the stop that costs nothing, which is
+  what `ReleaseLoop` is built around. **Unflown either way.**
 * **Release before or after the aim correction for target 1?** Today the correction runs once. With several
   targets it runs once per target; whether the first one's can be shortened is a phase 0 question.
 * **What the player sees in flight**: which target the bus is currently aimed at, and a countdown per target.

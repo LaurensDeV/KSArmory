@@ -52,11 +52,27 @@ public class ReachDisplayTests(ITestOutputHelper Out)
 
     private static ReachDisplay Display(IReadOnlyList<ReachDisplay.Placed>? placed,
                                         IcbmPhase phase = IcbmPhase.Coast, bool salvoAway = false,
-                                        DivertFootprint? footprint = null, int warheads = 6)
+                                        DivertFootprint? footprint = null, int warheads = 6,
+                                        int lead = 0)
         => ReachDisplay.For(footprint ?? Pinned(), placed, Bus(warheads), phase, salvoAway,
-                            TargetSet.MaxTargets, LethalMetres);
+                            TargetSet.MaxTargets, LethalMetres, lead, ReachHold.Unflown);
 
     private static ReachDisplay.Placed Lead => new(0.0, 0.0, 6);
+
+    // The lead holding half the bus, for the fixtures that need a second target to be a stop at all.
+    // The lead is flown FIRST and takes its warheads first, so a lead holding all six leaves nothing
+    // for anywhere else and the hop is never bought.
+    private static ReachDisplay.Placed HalfTheBus => new(0.0, 0.0, 3);
+
+    // The same reach before the burn is over, which reads nothing off a state at all: the frame is
+    // the flown one's so the two are comparable, and only the axes are the epoch's.
+    private static DivertFootprint Epoch()
+    {
+        Assert.True(DivertFootprint.TryAtTheEpoch(Pinned().Frame,
+                                                  new IcbmConfig().ReleaseBeforeArrivalSeconds,
+                                                  out DivertFootprint footprint));
+        return footprint;
+    }
 
     /// <summary>
     /// The region and the refusal are one answer: a point on the outline is the last one a click is
@@ -103,41 +119,58 @@ public class ReachDisplayTests(ITestOutputHelper Out)
     /// booster's question, and it is not asked here.
     /// </summary>
     /// <remarks>
-    /// Getting this the other way round makes the designator unusable on the pad: with no columns
-    /// flown there is no region, so every first designation would be refused with "reach not known"
+    /// Getting this the other way round makes the designator unusable on the pad: with nothing
+    /// priced there is no region, so every first designation would be refused with "reach not known"
     /// and nothing would ever be aimed at anything.
     /// </remarks>
     [Fact]
     public void ADesignationIsNeverBoundedByTheBusesReach()
     {
-        ReachDisplay onThePad = Display([], IcbmPhase.Rising);
+        ReachDisplay nothingPriced = ReachDisplay.None(ReachHold.EpochUnmeasured, 0);
 
-        Assert.False(onThePad.HasRegion);
-        Assert.Equal(ReachHold.NotCoasting, onThePad.Hold);
+        Assert.False(nothingPriced.HasRegion);
 
         // A thousand kilometres out, which no bus reaches.
         Assert.Equal(ReachVerdict.Designates,
-                     onThePad.Verdict(TargetClick.Designate, true, 1_000_000.0, 0.0));
+                     nothingPriced.Verdict(TargetClick.Designate, true, 1_000_000.0, 0.0));
     }
 
-    /// <summary>And the phase that adds is the one that has a region, which is the coast.</summary>
+    /// <summary>
+    /// Every phase but the one with no trajectory has a region, and <see cref="TargetEdit.ClickDoes"/>
+    /// agrees with it at each.
+    /// </summary>
     /// <remarks>
-    /// <see cref="TargetEdit.ClickDoes"/> and this have to agree, or a click reads as an add in one
-    /// and as a designation in the other.
+    /// The two have to agree, or a click reads as an add in one and as a designation in the other.
+    /// Before cutoff the footprint handed in is the release epoch's rather than the flown columns —
+    /// pinned, both axes are the epoch, so there is nothing in it the arc could have told us.
     /// </remarks>
     [Fact]
-    public void OnlyTheCoastHasARegion()
+    public void BothSidesOfCutoffHaveARegionAndTheClickAgrees()
     {
+        DivertFootprint beforeTheBurn = Epoch();
+
         foreach (IcbmPhase phase in Enum.GetValues<IcbmPhase>())
         {
-            if (phase == IcbmPhase.Coast) continue;
+            bool coasting = phase == IcbmPhase.Coast;
+            ReachDisplay reach = Display([Lead], phase, footprint: coasting ? null : beforeTheBurn);
 
-            Assert.False(Display([Lead], phase).HasRegion);
-            Assert.Equal(TargetClick.Designate, TargetEdit.ClickDoes(1, phase));
+            Assert.Equal(phase != IcbmPhase.NoSolution, reach.HasRegion);
+            Assert.Equal(phase == IcbmPhase.NoSolution ? TargetClick.Designate : TargetClick.Add,
+                         TargetEdit.ClickDoes(1, phase, reach.HasRegion));
         }
+    }
 
-        Assert.True(Display([Lead], IcbmPhase.Coast).HasRegion);
-        Assert.Equal(TargetClick.Add, TargetEdit.ClickDoes(1, IcbmPhase.Coast));
+    /// <summary>
+    /// A shot with no trajectory has no landing to draw a reach around, and the panel says which
+    /// question is the wrong one.
+    /// </summary>
+    [Fact]
+    public void NoTrajectoryIsTheBoostersProblemRatherThanTheBuses()
+    {
+        ReachDisplay reach = Display([Lead], IcbmPhase.NoSolution);
+
+        Assert.Equal(ReachHold.NoShot, reach.Hold);
+        Assert.False(reach.HasRegion);
     }
 
     /// <summary>An offset the world could not resolve is not the middle of the region.</summary>
@@ -194,11 +227,11 @@ public class ReachDisplayTests(ITestOutputHelper Out)
         Assert.Equal(alone.LeftMetresPerSecond, withAnEmptyOne.LeftMetresPerSecond, 9);
         Assert.Equal(alone.SemiMajorMetres, withAnEmptyOne.SemiMajorMetres, 6);
 
-        // And it is not a stop the next hop is measured from either. Flown farthest first, the bus
-        // goes 6 km from the far target back to the lead whether or not an unassigned place sits
-        // half way along -- left in, the hop onto the lead would be charged from it at 3 km.
-        ReachDisplay twoReal = Display([Lead, new ReachDisplay.Placed(6_000.0, 0.0, 3)]);
-        ReachDisplay throughAnEmptyOne = Display([Lead, new ReachDisplay.Placed(6_000.0, 0.0, 3),
+        // And it is not a stop the next hop is measured from either. The bus goes the 6 km from the
+        // lead out to the far target whether or not an unassigned place sits half way along -- left
+        // in, the hop would be charged as two of 3 km.
+        ReachDisplay twoReal = Display([HalfTheBus, new ReachDisplay.Placed(6_000.0, 0.0, 3)]);
+        ReachDisplay throughAnEmptyOne = Display([HalfTheBus, new ReachDisplay.Placed(6_000.0, 0.0, 3),
                                                   new ReachDisplay.Placed(3_000.0, 0.0, 0)]);
 
         Out.WriteLine($"left: {twoReal.LeftMetresPerSecond:F3} with two, "
@@ -211,9 +244,9 @@ public class ReachDisplayTests(ITestOutputHelper Out)
     [Fact]
     public void ASecondTargetCostsWhatItsHopMoves()
     {
-        ReachDisplay alone = Display([Lead]);
-        ReachDisplay near = Display([Lead, new ReachDisplay.Placed(3_000.0, 0.0, 3)]);
-        ReachDisplay far = Display([Lead, new ReachDisplay.Placed(30_000.0, 0.0, 3)]);
+        ReachDisplay alone = Display([HalfTheBus]);
+        ReachDisplay near = Display([HalfTheBus, new ReachDisplay.Placed(3_000.0, 0.0, 3)]);
+        ReachDisplay far = Display([HalfTheBus, new ReachDisplay.Placed(30_000.0, 0.0, 3)]);
 
         Out.WriteLine($"left: {alone.LeftMetresPerSecond:F2} alone, {near.LeftMetresPerSecond:F2} at 3 km, "
                       + $"{far.LeftMetresPerSecond:F2} at 30 km");
@@ -323,12 +356,144 @@ public class ReachDisplayTests(ITestOutputHelper Out)
         Assert.False(reach.HasRegion);
     }
 
+    // ------------------------------------------------- the hop is measured where it is charged
+
+    /// <summary>
+    /// <b>The check and the charge are one question.</b> Two targets on opposite edges of the ring
+    /// are twice its radius apart, and the second is refused.
+    /// </summary>
+    /// <remarks>
+    /// <para>Measured from the <em>landing</em> both clicks are inside the ring and both were taken —
+    /// while <see cref="ReleaseItinerary"/> charges the hop between consecutive stops, so the pair
+    /// costs about 20 m/s against a 10 m/s ring and <c>ReleaseLoop</c> then refuses the whole walk.
+    /// The test states the old measurement beside the new one, so it cannot pass against the form it
+    /// exists to detect.</para>
+    /// </remarks>
+    [Fact]
+    public void ASecondTargetIsMeasuredFromTheStopTheHopLeavesFrom()
+    {
+        ReachDisplay one = Display([HalfTheBus]);
+
+        double edge = one.SemiMinorMetres * 0.99;
+
+        // The first click, out at the edge: taken, and the ring then moves onto it.
+        Assert.Equal(ReachVerdict.Adds, one.Verdict(TargetClick.Add, true, 0.0, edge));
+
+        ReachDisplay two = Display([HalfTheBus, new ReachDisplay.Placed(0.0, edge, 3)]);
+
+        Assert.Equal(edge, two.NextHopCrossMetres, 3);
+        Assert.Equal(2, two.NextHopFromTarget);
+
+        // The opposite edge is one ring radius from the landing and two from the stop the bus is on.
+        Assert.Equal(ReachVerdict.OutsideReach, two.Verdict(TargetClick.Add, true, 0.0, -edge));
+
+        // And that is exactly what the old form got wrong: from the landing it is inside the ring.
+        Assert.True(two.Footprint.Reaches(0.0, -edge, two.HopMetresPerSecond),
+                    "measured from the landing the click is inside the ring, so this test proves nothing");
+
+        // A click the same distance from the stop the bus is on is taken, so the rule is the hop and
+        // not a shrunken region.
+        Assert.Equal(ReachVerdict.Adds, two.Verdict(TargetClick.Add, true, 0.0, edge * 1.99));
+    }
+
+    /// <summary>And the ring is drawn around that same stop, so nothing inside it is refused.</summary>
+    [Fact]
+    public void TheRingIsDrawnAroundTheStopTheClickIsMeasuredFrom()
+    {
+        ReachDisplay two = Display([HalfTheBus, new ReachDisplay.Placed(4_000.0, 1_000.0, 3)]);
+
+        Assert.True(two.TryCentreOffset(Earth, out double3 centreCci));
+        Assert.True(two.TryOffsets(Earth, centreCci, out double along, out double cross));
+
+        Out.WriteLine($"the ring's centre reads back at {along:F1} m along, {cross:F1} across");
+
+        Assert.Equal(two.NextHopAlongMetres, along, 3);
+        Assert.Equal(two.NextHopCrossMetres, cross, 3);
+    }
+
+    /// <summary>
+    /// The walk starts at the lead and names the caller's own indices, which is exactly what
+    /// <c>ReleaseLoop</c> requires of a plan it is asked to fly.
+    /// </summary>
+    /// <remarks>
+    /// <para>It refuses outright a plan whose first stop is not the lead — <b>which was every real
+    /// set</b>, because the ordering was farthest-from-the-landing first and the lead sits <em>at</em>
+    /// the landing, so it sorted last and the bus would have walked out to the far end and back.</para>
+    ///
+    /// <para>And a stop that named a position in some re-ordered array rather than in the list the
+    /// lead indexes would aim the walk at the wrong entry, silently.</para>
+    /// </remarks>
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void TheWalkStartsAtTheLeadAndNamesTheCallersOwnEntries(int lead)
+    {
+        List<ReachDisplay.Placed> placed =
+        [
+            new(0.0, 0.0, 2), new(4_000.0, 0.0, 2), new(0.0, 3_000.0, 2),
+        ];
+
+        ReachDisplay.Walk walk = ReachDisplay.Order(placed, lead);
+        ReleaseItinerary plan = ReleaseItinerary.Plan(walk.Set, Bus(), [355.0]);
+
+        Out.WriteLine($"lead {lead}: stops " + string.Join(" -> ", plan.Stops.Select(s => s.Target)));
+
+        Assert.Equal(placed.Count, walk.Set.Length);
+        Assert.Equal(placed.Count, plan.Count);
+        Assert.Equal(lead, plan.Stops[0].Target);
+        Assert.Equal(0.0, plan.Stops[0].HopMetresPerSecond, 9);
+
+        // Every entry is visited exactly once, so no warhead is planned onto a place twice.
+        Assert.Equal([0, 1, 2], plan.Stops.Select(s => s.Target).Order());
+
+        // And the walk leaves the bus at the last stop it made.
+        Assert.Equal(plan.Stops[^1].Target + 1, walk.FromTarget);
+    }
+
+    // ------------------------------------------------- a set of one is untouched
+
+    /// <summary>
+    /// <b>Nothing R1 added can move a single-target flight.</b> With one place on the list the walk
+    /// is that place, the ring is around the landing, and the itinerary is the one stop it has always
+    /// been — whatever the lead index, the phase or the way the footprint was priced.
+    /// </summary>
+    /// <remarks>
+    /// Structural rather than by inspection: the flight reads <c>TargetSet.Primary</c> and
+    /// <c>ReleasePlan</c> and nothing else about the list, and the reach display reaches neither. What
+    /// is pinned here is the other half — that the display cannot make a set of one look like a walk.
+    /// </remarks>
+    [Fact]
+    public void ASetOfOneIsTheShotItHasAlwaysBeen()
+    {
+        DivertFootprint epoch = Epoch();
+
+        foreach (IcbmPhase phase in Enum.GetValues<IcbmPhase>())
+        foreach (bool flownColumns in new[] { true, false })
+        {
+            ReachDisplay reach = Display([Lead], phase, footprint: flownColumns ? null : epoch);
+
+            if (!reach.HasRegion) continue;
+
+            // The ring is on the landing, because the lead is the only stop the bus makes.
+            Assert.Equal(0.0, reach.NextHopAlongMetres, 9);
+            Assert.Equal(0.0, reach.NextHopCrossMetres, 9);
+            Assert.Equal(1, reach.NextHopFromTarget);
+
+            // And no hop has been charged against the budget: the whole spend is the one a
+            // single-target flight already makes.
+            Assert.Equal(ReleaseItinerary.SingleTargetMetresPerSecond,
+                         PostBoostAim.MaxTrimMetresPerSecond - reach.LeftMetresPerSecond, 9);
+        }
+    }
+
     /// <summary>Columns that never came down leave no region and no false one.</summary>
     [Fact]
     public void NoColumnsMeansNoRegion()
     {
         ReachDisplay reach = ReachDisplay.For(null, [Lead], Bus(), IcbmPhase.Coast, salvoAway: false,
-                                              TargetSet.MaxTargets, LethalMetres);
+                                              TargetSet.MaxTargets, LethalMetres, lead: 0,
+                                              ReachHold.Unflown);
 
         Assert.Equal(ReachHold.Unflown, reach.Hold);
         Assert.Equal(0.0, reach.SemiMajorMetres);

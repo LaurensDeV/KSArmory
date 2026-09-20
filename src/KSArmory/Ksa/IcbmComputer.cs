@@ -233,7 +233,7 @@ internal sealed class IcbmComputer
     /// <para>Derived once a frame rather than per reader: three surfaces ask the same question and
     /// a cursor refused where the ring shows room reads as the tool being broken.</para>
     /// </summary>
-    public ReachDisplay Reach { get; private set; } = ReachDisplay.None(ReachHold.NotCoasting, 0);
+    public ReachDisplay Reach { get; private set; } = ReachDisplay.None(ReachHold.Unflown, 0);
 
     /// <summary>Which of <see cref="Targets"/> the flight is aimed at, which is <see cref="Target"/>'s.</summary>
     public int LeadTarget => _targets.LeadIndex;
@@ -527,10 +527,45 @@ internal sealed class IcbmComputer
             return false;
         }
 
+        string moved = ElectLead();
+
         Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)}: target {_targets.Count} is "
-                 + $"{site.Describe()}; the bus does not fly between targets yet, so every warhead "
-                 + "still goes to target 1");
+                 + $"{site.Describe()}{moved}; the bus does not fly between targets yet, so every "
+                 + $"warhead still goes to target {_targets.LeadIndex + 1}");
         return true;
+    }
+
+    // Aim the booster at whichever target is farthest downrange, while the aim is still free, and
+    // return what to append to a log line.
+    //
+    // The lead is what the release schedule walks from and it has to be an END of the set: aimed
+    // anywhere else the bus goes out and back and spends about twice what the itinerary charges.
+    // Only before the arrival is committed -- after that the arc is pinned to an instant chosen for
+    // somewhere else, and after cutoff there is no engine left to move it with.
+    private string ElectLead()
+    {
+        if (!TargetEdit.LeadMayMove(Program.Phase, double.IsFinite(Program.CommittedArrivalFromNow)))
+        {
+            return "";
+        }
+
+        if (Parent is not { } parent) return "";
+
+        double3 fromEcl = KsaWorld.PositionEcl(Craft);
+        double[] ranges = new double[_targets.Count];
+
+        for (int i = 0; i < _targets.Count; i++)
+        {
+            AimSite site = _targets.Entries[i].Site;
+
+            ranges[i] = site.IsSet && site.BodyName == parent.Id
+                            ? Vec.Len(SurfacePointEcl(parent, site.LatitudeDeg, site.LongitudeDeg) - fromEcl)
+                            : double.NaN;
+        }
+
+        return _targets.ElectFarthestLead(ranges)
+                   ? $" and is the farthest, so the booster flies to it"
+                   : "";
     }
 
     /// <summary>Drop a place the warheads were going to, which gives its warheads back to the spares.</summary>
@@ -709,6 +744,11 @@ internal sealed class IcbmComputer
             IcbmState idle = Sample(playerStep, out _);
             StepTrace(simStep);
             Command = Program.Update(simStep, idle);
+
+            // On the pad too, because that is where the targets are placed: the reach before the
+            // burn is the release epoch's and costs no flying, so an unarmed computer can price it
+            // as readily as a coasting one.
+            RefreshReach(idle);
             return;
         }
 
@@ -3503,11 +3543,14 @@ internal sealed class IcbmComputer
     // click and a readout a frame behind that reads as the click having done nothing.
     private void RefreshReach(in IcbmState state)
     {
+        bool coasting = Program.Phase == IcbmPhase.Coast;
+
         bool wanted = Config.ShowDivertReach
-                      && Program.Phase == IcbmPhase.Coast
                       && !_salvoAway
+                      && Program.Phase != IcbmPhase.NoSolution
                       && Parent is not null
                       && _warhead is not null
+                      && _targets.Count > 0
                       // The reach exists to place and to check targets, and neither is happening on a
                       // bus nobody is clicking at with a set of one. Seven predictor flights per
                       // rocket per interval is not a thing to spend on a rocket nobody is editing.
@@ -3521,24 +3564,73 @@ internal sealed class IcbmComputer
             return;
         }
 
-        _sinceReachWall += state.PlayerStepSeconds;
+        if (coasting)
+        {
+            _sinceReachWall += state.PlayerStepSeconds;
 
-        if (_sinceReachWall >= ReachIntervalSeconds) FlyTheReach(state);
+            if (_sinceReachWall >= ReachIntervalSeconds) FlyTheReach(state);
+        }
+        else
+        {
+            // Nothing is flown before the burn is over, and that is the decision rather than a
+            // saving: the columns would have to depart from the guidance's projected cutoff, which
+            // before the vehicle has flown is the pad. Pinned there is nothing in the footprint the
+            // arc could tell us anyway -- both axes are the release epoch.
+            _sinceReachWall = double.PositiveInfinity;
+            ReachAtTheEpoch(state);
+        }
+
+        // The coast's own length is what bounds how many stops fit, and before cutoff there is no
+        // coast to measure. NaN is no bound rather than a refusal of everything, and the panel says
+        // that the count is settled at cutoff.
+        double coast = coasting ? SecondsToArrival : double.NaN;
 
         Reach = ReachDisplay.For(_reachFootprint, PlacedTargets(),
                                  new ReleaseItinerary.Bus(Config.ReleaseBeforeArrivalSeconds,
-                                                          SecondsToArrival, WarheadsAboard),
+                                                          coast, WarheadsAboard),
                                  Program.Phase, _salvoAway, TargetSet.MaxTargets,
-                                 Warhead.LethalRadius(_warhead!.ChargeKg));
+                                 Warhead.LethalRadius(_warhead!.ChargeKg), _targets.LeadIndex,
+                                 coasting ? ReachHold.Unflown : ReachHold.EpochUnmeasured);
     }
 
-    // In the order a reader wants it: the phase first, because it is the one that changes by itself,
+    // In the order a reader wants it: what has ended the shot first, then what cannot be answered,
     // and "nobody asked" last, because it is the one with a way out.
     private ReachHold WhyNotWanted()
-        => Program.Phase != IcbmPhase.Coast ? ReachHold.NotCoasting
-         : _salvoAway ? ReachHold.SalvoAway
-         : Parent is null || _warhead is null ? ReachHold.Unflown
+        => _salvoAway ? ReachHold.SalvoAway
+         : Program.Phase == IcbmPhase.NoSolution ? ReachHold.NoShot
+         : Parent is null || _warhead is null || _targets.Count == 0 ? ReachHold.Unflown
          : ReachHold.NotAsked;
+
+    // The reach before the burn is over: the release epoch alone, centred on the place the booster
+    // is flying to. The frame is built at the landing carried to arrival, which is the epoch the
+    // flown columns' own frame belongs to -- so the carries in ReachDisplay mean the same thing
+    // under both, and a disc is the same disc either way.
+    private void ReachAtTheEpoch(in IcbmState state)
+    {
+        _reachFootprint = null;
+
+        if (Parent is not { } parent || !Target.IsSet || Target.BodyName != parent.Id) return;
+
+        double3 landingCcf = parent.GetDirCcfFromLatLon(Target.LatitudeDeg, Target.LongitudeDeg)
+                             * parent.MeanRadius;
+
+        double seconds = Config.ReleaseBeforeArrivalSeconds;
+        double3 arrivalCci = Body.CarryCci(landingCcf.Transform(parent.GetCcf2Cci()), seconds);
+
+        // Downrange is the shot's own direction, and pinned it does not matter: the footprint is a
+        // disc and only the plane it lies in is read. Through PerpendicularTo so that a target under
+        // the vehicle or opposite it -- where the chord has no horizontal part at all -- still has a
+        // frame, rather than the reach vanishing at one bearing.
+        double3 alongCci = Vec.PerpendicularTo(Vec.Unit(arrivalCci), arrivalCci - state.PositionCci);
+
+        if (!ArrivalFrame.TryAt(arrivalCci, alongCci, out ArrivalFrame frame)) return;
+        if (!DivertFootprint.TryAtTheEpoch(frame, seconds, out DivertFootprint footprint)) return;
+
+        _reachFootprint = footprint;
+        _reachCci2Ccf = parent.GetCci2Ccf();
+        _reachCcf2Cci = parent.GetCcf2Cci();
+        _reachLandingCcf = landingCcf;
+    }
 
     private void FlyTheReach(in IcbmState state)
     {
@@ -3550,6 +3642,15 @@ internal sealed class IcbmComputer
         {
             double3 positionCci = state.PositionCci + ReleaseOffsetCci();
             double3 velocityCci = state.VelocityCci + ReleaseImpulseCci();
+
+            // Not from inside the air, for the reason the aim correction is not: a column flown from
+            // in there ploughs through the whole atmosphere and prices a divert off a landing nothing
+            // was going to make. The same question of the same model.
+            if (!AimCorrection.DepartureIsWorthObserving(DensityRatioAt(positionCci)))
+            {
+                _reachFootprint = null;
+                return;
+            }
 
             // A sphere through the ground under the aim, which is what the columns want: each is two
             // landings a few metres apart, and the terrain's texture across them is not the arc's
@@ -3665,12 +3766,22 @@ internal sealed class IcbmComputer
                                 out alongMetres, out crossMetres);
     }
 
-    /// <summary>Where the warheads would land now, which is what the reach is drawn around.</summary>
+    /// <summary>
+    /// Where the next hop leaves from, which is what the reach is drawn around — the landing while
+    /// the lead is the last stop, and the last stop itself once there is more than one.
+    /// </summary>
     public double3? ReachCentreEcl()
     {
         if (Parent is not { } parent || !Reach.HasRegion) return null;
 
-        return _reachLandingCcf.Transform(parent.GetCcf2Cce()) + parent.GetPositionEcl();
+        double3 centreCcf = _reachLandingCcf;
+
+        if (Reach.TryCentreOffset(Body, out double3 offsetCci))
+        {
+            centreCcf += offsetCci.Transform(_reachCci2Ccf);
+        }
+
+        return centreCcf.Transform(parent.GetCcf2Cce()) + parent.GetPositionEcl();
     }
 
     /// <summary>The reach ellipse's two semi-axes as ecliptic displacements, in metres.</summary>
