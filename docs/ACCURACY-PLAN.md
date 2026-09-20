@@ -11860,13 +11860,61 @@ flights run out of time. Against 16 flights at 1.76 km that is the trade working
 
 **Two things about this night that are not the result.**
 
-**Base is not the base of 3fg.** The 0.9.1 release merge landed 39 files between the two nights,
-including `build against StarMap 0.4.7` and `fix(rounds): burst a loose round without its launcher's
-velocity`. Base read 30% on 3fg's night and 67% here. The paired contrast is untouched — one build, one
-world, both arms — but **the cross-night rate is not comparable and the rise is unexplained.** The
-separation debt rose with it, median 1.59 → 1.89 m/s and the share over 3fd's 1.5 m/s threshold 55% →
-69%, which is the established route to more stalls but not obviously enough for a doubling.
+**Base is not the base of 3fg, and the reason is the frame rate rather than the build — see 3fi.**
+Base read 30% on 3fg's night and 67% here, which is a real difference rather than scatter (p = 0.0018
+accepted, p = 0.0035 rejected, both strata shifting together). The paired contrast is untouched — one
+build, one world, both arms — but the cross-night rate is not comparable.
 
 **And the sideways-impulse candidate is dead in flight.** The reading shipped in `339fedf` calibrates at
 1.00 on the rig and reads **1.00 median in flight**, so the pulses land squarely on the direction
 commanded. Nothing actuator-side survives; 3fg's release-floor account is the only one left standing.
+
+
+## 3fi. The long-range stall rate is a function of the frame rate — 2026-09-20
+
+The two nights of 3fg and 3fh ran the same geometry and disagreed about `base`: 30% of rockets stalled
+against 67%. The 0.9.1 release landed between them, so the build was the suspect. **It is not the build.**
+
+**The machine was slower.** Night 1 ran at a median ~63 fps and night 2 at ~47, and the step change
+happened *inside* night 2 on one binary: shot 001 peaked at 73 fps like every shot of night 1, and from
+shot 002 onward every shot's ceiling sat at 64–66 for the remaining seven and a half hours. **The mod's
+own frame cost went down over the same span**, 8.49 → 7.86 ms median, so the extra time is outside it.
+
+**And the chain from frame time to a stall is the one this page already documents.** An engine stops on
+a frame boundary, so the velocity left ungained is `accel x step x throttle`. Measured across the two
+nights:
+
+| | night 1 | night 2 |
+| --- | --- | --- |
+| median sim step at cutoff | 23 ms | **28 ms** |
+| cutoff residual | 0.170 m/s | **0.390 m/s** |
+| residual as a share of one frame's Δv | 0.58 | 1.07 |
+| split debt, accepted stratum | 1.62 m/s | **2.28 m/s** |
+| base rockets stalled | 30% | 67% |
+
+Residual to debt correlates +0.80 and +0.75 *within* each night, and night 2's dominant `down` axis
+correlates +0.77 with the residual. Applying night 1's own debt-to-stall curve to night 2's debt
+distribution predicts **62.5% against 66.7% observed** — the debt shift accounts for about 88% of the
+rise, and 3fd's independent buckets get about 70% of it.
+
+**The build adds nothing once frame rate is in.** A logistic fit on base rockets: frame rate alone
+logLik −143.8, night alone −145.7, both together −143.8 with the night term at +0.19. The two shots that
+break the collinearity both follow the frame rate rather than the build — a night-1 build at 43.5 fps
+stalled 3 of 4, and a night-2 build at 63.3 fps stalled 2 of 4, which is night 1's range.
+
+**What this means for players, and it is the important part.** This is not a 0.9.1 regression, but
+*"about a third of long-range rockets stall at 63 fps and two thirds at 47"* is a property of the
+shipped code on both builds. Every cross-night stall rate on this page is a statement about the
+machine's frame rate as much as about the mod.
+
+**And it is the strongest thing that can be said for 3fh's fix.** `StallFallsBackToHolding` was flown on
+the *slow* night, against the 67% base rate, and took its own arm to **0 of 96**. The fallback was
+validated at the frame rate where the failure is worst.
+
+**Still open.** Why the frame rate fell. The installed loader did move between the nights — 0.4.6 to
+0.4.7 — but night 2's own first shot ran at 73 fps under 0.4.7, which weakens it; there is no display or
+GPU telemetry in the log, and night 1's engine sessions have rotated away. **The cheap test needs no
+flying**: launch the same save under each loader for two minutes and read `mod frame`'s frame count. And
+one thing the debt does not explain — at a *matched* debt of 1.5–1.8 m/s, night 2 stalled 9 of 18 against
+night 1's 2 of 30. The plausible mechanism is that a hold's quantum is `accel x step`, so a 22% longer
+step is a 22% coarser quantum, but that is not demonstrated.
