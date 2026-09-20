@@ -96,6 +96,41 @@ internal sealed class ReleaseWalker
         Stop = 0;
         AwayThisStop = 0;
         Finished = false;
+        _coastSeconds = double.NaN;
+    }
+
+    private double _coastSeconds = double.NaN;
+
+    /// <summary>
+    /// The coast a set is planned against: its own length, latched the first time it is known.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Not what is left of it.</b> <see cref="ReleaseItinerary.Bus.CoastSeconds"/> is
+    /// measured "from the earliest release the flight allows", so it belongs to the trajectory
+    /// rather than to the clock — and <see cref="ReleaseItinerary.CoastFits"/> asks whether
+    /// <c>coast - gate</c> holds another hop. Handed the countdown, that stops holding one at
+    /// <c>gate + hop</c>, which is exactly
+    /// <see cref="ReleaseItinerary.FirstBeforeArrivalSeconds"/>: the set is cut to a single stop on
+    /// the frame the first release becomes due, and the walk never starts.</para>
+    ///
+    /// <para>NaN until the vehicle is coasting, which leaves the count unbounded by the coast — the
+    /// pad cannot know it, and the panel says the count is settled at cutoff.</para>
+    /// </remarks>
+    /// <param name="secondsToArrival">
+    /// <see cref="IcbmProgram.CommittedArrivalFromNow"/>. Read once: what makes this a latch is that
+    /// every later call returns the first answer.
+    /// </param>
+    public double CoastForPlanning(double secondsToArrival, bool coasting)
+    {
+        if (!coasting) return double.NaN;
+
+        if (!double.IsFinite(_coastSeconds) && double.IsFinite(secondsToArrival)
+            && secondsToArrival > 0.0)
+        {
+            _coastSeconds = secondsToArrival;
+        }
+
+        return _coastSeconds;
     }
 
     /// <summary>

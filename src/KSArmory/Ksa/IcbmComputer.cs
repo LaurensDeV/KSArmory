@@ -3751,6 +3751,13 @@ internal sealed class IcbmComputer
     {
         bool coasting = Program.Phase == IcbmPhase.Coast;
 
+        // The coast's own LENGTH, latched at cutoff, never what is left of it: CoastFits asks
+        // whether `coast - gate` holds another hop, so the countdown stops holding one at
+        // `gate + hop`, which is the instant the first release is due -- and a two-stop set is cut
+        // to one on that very frame. Taken before the `wanted` gate below, because latching it late
+        // latches a smaller number.
+        double coast = _walker.CoastForPlanning(Program.CommittedArrivalFromNow, coasting);
+
         bool wanted = Config.ShowDivertReach
                       && !SalvoIsOver
                       && Program.Phase != IcbmPhase.NoSolution
@@ -3786,11 +3793,6 @@ internal sealed class IcbmComputer
             ReachAtTheEpoch(state);
         }
 
-        // The coast's own length is what bounds how many stops fit, and before cutoff there is no
-        // coast to measure. NaN is no bound rather than a refusal of everything, and the panel says
-        // that the count is settled at cutoff.
-        double coast = coasting ? SecondsToArrival : double.NaN;
-
         Reach = ReachDisplay.For(_reachFootprint, PlacedTargets(),
                                  new ReleaseItinerary.Bus(Config.ReleaseBeforeArrivalSeconds,
                                                           coast, WarheadsAboard),
@@ -3803,20 +3805,22 @@ internal sealed class IcbmComputer
         // release gate and put the gate back to the setting, which shuts ReadyToDeploy mid-walk.
         // The walker refuses everything once the first warhead has gone, so the plan behind the bus
         // cannot be re-ordered under it either.
-        if (Reach.Flown.Stops > 0 && _walker.Plan(Reach.Flown) && Reach.Flown.Walks)
-        {
-            SayTheWalkIfItChanged();
-        }
+        if (Reach.Flown.Stops > 0 && _walker.Plan(Reach.Flown)) SayTheWalkIfItChanged();
     }
 
-    // One line when the plan a flight would fly changes shape, so a night can see what it committed
-    // to before the first warhead leaves. Not per frame: the plan is re-made every one.
+    // One line whenever the plan changes SHAPE, walking or not. A walk that stops being one is the
+    // line that matters: it leaves the flight releasing everything at the lead, and without this it
+    // does so under a log full of lines announcing the walk it no longer is.
+    //
+    // Compared with its numbers collapsed, like the trim's: the reach is re-flown every few seconds
+    // and the cost moves with it, so comparing whole sentences writes a line a frame.
     private void SayTheWalkIfItChanged()
     {
         string now = _walker.Walk.Say();
-        if (now == _saidWalk) return;
+        string shape = WithoutNumbers(now);
+        if (shape == _saidWalk) return;
 
-        _saidWalk = now;
+        _saidWalk = shape;
         Log.Info($"walk on {KsaWorld.DisplayName(Craft)}: {now}");
     }
 

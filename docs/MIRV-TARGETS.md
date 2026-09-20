@@ -418,6 +418,9 @@ Every one of these is behind "a walk exists", so a set of one executes none of t
 * **The walk comes off `ReachDisplay.Flown`**, planned in `ReachDisplay.For` from the same ordered set the
   ring is drawn from, and **latched** by the computer: a frame whose footprint did not come down would
   otherwise take the walk away on the approach to the gate and shut `ReadyToDeploy` mid-walk.
+* **The coast a set is planned against is its own length, latched at cutoff** —
+  `ReleaseWalker.CoastForPlanning`, off `IcbmProgram.CommittedArrivalFromNow`, taken before anything can
+  decide the reach is not wanted. See *The clock cut the walk* below.
 
 **What scoring reads, and the one thing still on the setting.** `IcbmComputer.TargetOfRound` answers which
 of `Targets` a released warhead was sent to, recorded at the instant it left — nothing downstream can
@@ -426,6 +429,58 @@ target the bus finished on. It answers for a single-target flight too, where eve
 `Ksa/BallisticScenario.cs` still reads `Config.ReleaseBeforeArrivalSeconds` for its coast warp, which on a
 walk lets the world run fast past the first release: it wants `computer.Program.ReleaseGate`, which is the
 same number when nothing is walking.
+
+### The clock cut the walk — flown 2026-09-21
+
+**Rung 0 passed and rung 1 failed, and the fault was one input.** Two targets three warheads each,
+`SOLVER SCALE 8`: every rocket sent all six warheads to the lead and target 1 got nothing, on all eight.
+The plan was *made* — `walk on GeoSat FAT 2: 2 stops, 20.3 m/s of 60`, per frame, per rocket — and then
+**zero** `re-aiming at target`, `released n of m` or `walk complete` lines. `TargetOfRound` reported every
+round `for target 2`, so the seam was sound and the walk simply never ran.
+
+**`ReleaseItinerary.Bus.CoastSeconds` was being handed the countdown.** The field means the coast's own
+length — "from the earliest release the flight allows to arrival" — and `IcbmComputer` fed it
+`SecondsToArrival`, which runs down. `CoastFits` is `1 + floor((coast - gate) / hop)`, so it drops to one
+stop the moment `coast` falls under `gate + hop` — **485.1 s, which is exactly
+`FirstBeforeArrivalSeconds`**. The set was therefore cut to a single stop on the very frame the first
+release became due: `Plan` returned `OneStop`, `Walks` went false, the gate reverted to 420, and the
+flight released as a normal single-stop shot minutes later.
+
+**It said nothing, which is half the fault.** The plan line only printed while the walk *was* one, so the
+downgrade was silent under a log full of lines announcing two stops. It now prints on every change of
+shape — walking or not — and dedupes on the numbers-stripped sentence rather than the whole one, which
+also ends the per-frame spam.
+
+**All three of the walker's outputs took their not-walking branch, and that is one cause rather than
+three.** The gate read 422 s against a setting of 420, six warheads left consecutively, and every
+round was recorded against the lead — three readings of `ReleaseWalker.Walking`.
+
+**The walker was armed, which the log proves.** `SayTheWalkIfItChanged` was reached only when
+`_walker.Plan(...)` returned true and printed the *walker's own* `Walk.Say()`, so
+`walk on …: 2 stops` is direct evidence that the flight's walker held a two-stop plan with `Walks`
+true. It was later **disarmed** by a replacement, which `Plan` accepts freely until the first
+release — and the replacement was `OneStop`.
+
+**What would have caught it: stepping the decision, not sampling it.** Every fixture asked
+`ReleaseLoop.Plan` at one instant, and the plan was correct at every instant anyone thought to test.
+`ReleaseWalkClockTests` steps it down a coast the way a flight does, which is the general shape for
+anything re-derived per frame from a quantity that moves.
+
+**The reach is the same shape and is not fixed.** `ReachDisplay.For` prices every slot at the
+*current* footprint's minor axis, which decays over the coast — about 950 m per m/s at cutoff to 410 at
+the gate — so a set can fit `PostBoostAim.MaxTrimMetresPerSecond` early and not late, and `BudgetFits`
+then cuts it exactly as `CoastFits` did. At two targets the threshold is a neighbour spacing of about
+**18 km**: 4 km costs 25.9 m/s of 60 at the gate and cannot fire it, 18–42 km fits at cutoff and not at
+the gate. Not fixed, because both ways out are worse than the fault — latching the reach at cutoff
+over-promises a walk the bus cannot pay for at the gate, which is what `ReleaseLoop` exists to refuse,
+and pricing each slot at its own reach needs a decay model nothing has measured. What is fixed is that
+it can no longer happen **silently**.
+
+**And the obvious fixture would not have.** `ReleaseWalkerTests.ASetOfTwoDrivesEveryNumberTheFlightReads`
+is the one-target sweep at arity two — a bounded `TubesLeft`, a finite `GateOverrideSeconds`, an
+advancing `TargetIndex` — and it is worth having, because nothing covered any of the three. But it is
+handed a two-stop plan, and the walker was never the fault: against the flown code it **passes**. Only
+the two tests that step the coast fail, which is what makes them the regression guard.
 
 **Two things bit during the wiring, and both are pinned.** `ReleaseWalkHold.Walking` is the enum's *zero*,
 so a `default(ReleaseWalk)` — what a computer holds from designation until the reach is priced — claimed to

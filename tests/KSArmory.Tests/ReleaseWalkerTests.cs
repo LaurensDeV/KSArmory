@@ -87,6 +87,67 @@ public class ReleaseWalkerTests(ITestOutputHelper Out)
         }
     }
 
+    /// <summary>
+    /// <b>The mirror, and the one nothing had.</b> The same three numbers on a set of <em>two</em>:
+    /// the gate opens a hop early, the sequencer is bounded to the stop's quota rather than handed
+    /// the magazine, and the target advances at the handover.
+    /// </summary>
+    /// <remarks>
+    /// All three took their not-walking branch on one flight — the gate read 422 s against a
+    /// setting of 420, six warheads left consecutively, and every round was recorded against the
+    /// lead. One cause, and this is the shape that names it: they are three readings of
+    /// <see cref="ReleaseWalker.Walking"/>.
+    /// </remarks>
+    [Fact]
+    public void ASetOfTwoDrivesEveryNumberTheFlightReads()
+    {
+        // Every coast here is at least `gate + hop`, and every budget covers the single-target
+        // flight's own 16.1 m/s plus a 4 km hop, so each of these is a set that genuinely walks.
+        foreach (int warheads in new[] { 2, 4, 6 })
+        foreach (double coast in new[] { Gate + ReleaseItinerary.MedianHopSeconds, 1315.0, 1772.0 })
+        foreach (double budget in new[] { 60.0, 1000.0, double.PositiveInfinity })
+        {
+            ReleaseItinerary.Bus bus = SixThousand with
+            {
+                CoastSeconds = coast,
+                BudgetMetresPerSecond = budget,
+                Warheads = warheads,
+            };
+
+            int each = warheads / 2;
+
+            ReleaseWalker walker = new();
+            walker.Plan(ReleaseLoop.Plan(Outward(2, 4000.0, each), bus, Reach, lead: 0));
+
+            string what = $"{warheads} warheads, coast {coast:F1}, budget {budget:F0}";
+
+            Assert.True(walker.Walking, what);
+            Assert.Equal(2, walker.Walk.Stops);
+
+            // The gate, and it is finite: NaN is what a flight with no walk reads, and it released
+            // on the setting.
+            double gate = walker.GateOverrideSeconds(Gate);
+            Assert.True(double.IsFinite(gate), what);
+            Assert.Equal(Gate + ReleaseItinerary.MedianHopSeconds, gate, 6);
+
+            // The quota, and it is LESS than the magazine: handed the magazine, one stop empties it.
+            Assert.Equal(each, walker.TubesLeft(warheads));
+            Assert.True(walker.TubesLeft(warheads) < warheads, what);
+
+            // The target, against a lead nothing should fall back to.
+            Assert.Equal(0, walker.TargetIndex(99));
+
+            for (int n = 0; n < each; n++) walker.WarheadAway();
+
+            Assert.True(walker.Step.Handover, what);
+            walker.Advance();
+
+            Assert.Equal(1, walker.TargetIndex(99));
+            Assert.Equal(each, walker.TubesLeft(each));
+            Assert.True(double.IsFinite(walker.GateOverrideSeconds(Gate)), what);
+        }
+    }
+
     /// <summary>A walk of one releases at exactly today's gate, which is what the program reads.</summary>
     [Fact]
     public void AWalkOfSeveralOpensTheGateEarlyAndAWalkOfOneDoesNot()
