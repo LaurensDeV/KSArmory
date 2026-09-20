@@ -1,11 +1,14 @@
 # Six warheads, six targets
 
-**Mostly a plan, and no longer entirely.** The `Sim/` half of phase 1 and all of phase 2's maths are
-built and tested on `arm/mirv-targets` — `TargetSet` is the list of up to six targets with their warhead
-counts and the release plan a flight would read, and `DivertFootprint` is the reach on the ground, taken
-off the sensitivity columns `ReleaseFocus.FlownSensitivity` already flies once per salvo, so the display
-costs no flying of its own. **Nothing is reachable in game**: no designator places a second target, no
-panel lists them, nothing is drawn, and the flight still sends all six warheads to one place.
+**Mostly a plan, and no longer entirely.** Phase 1 is built: `TargetSet` is the list of up to six targets
+with their warhead counts and the release plan a flight would read, `TargetEdit` is when that list may be
+edited, `IcbmComputer` holds one, a click on the world past cutoff adds to it, and the panel lists it with
+per-target counts and a remove. Phase 2's maths are built and tested on `arm/mirv-targets` —
+`DivertFootprint` is the reach on the ground, taken off the sensitivity columns
+`ReleaseFocus.FlownSensitivity` already flies once per salvo, so the display costs no flying of its own.
+**The flight is unchanged**: nothing is drawn on the ground, and all six warheads still go to target 1,
+which the panel says in so many words. Before cutoff the list cannot hold more than one place at all, so
+a single-target shot cannot reach any of it.
 **Phase 0 has been flown headlessly**
 (`tests/KSArmory.Tests/MirvDivertTests.cs`), so the numbers below are measured rather than estimated —
 and it moved three of the plan's decisions, each marked **priced** where it appears. What it did not
@@ -284,7 +287,7 @@ reach, far first — not by which target is "hardest".
 | | What | Flies anything? |
 | --- | --- | --- |
 | ~~0~~ | **Done** — `tests/KSArmory.Tests/MirvDivertTests.cs`. ±100 km is real **only from cutoff**; at today's release gate the footprint is a 34 × 18 km box. See the three findings at the top. | No |
-| 1 | **Targets as data**. `Sim/TargetSet.cs` **done** on `arm/mirv-targets` with `ShotRequest` able to name several; what remains is Ksa-facing — hold the list on `IcbmComputer`, let `SiteDesignator` place more than one, and draw the panel list with add/remove/counts. The flight still sends everything to target 1. | Unchanged |
+| 1 | **Targets as data**. **Done** — `Sim/TargetSet.cs`, `Sim/TargetEdit.cs`, `ShotRequest` naming several, the list on `IcbmComputer` with `Designate` split from `AddTarget`, a coast click that adds, and the panel's rows. Which entry the flight is aimed at is `TargetSet.LeadIndex` — a seam for the release schedule, which flies the farthest reach first — rather than the first place clicked; nothing sets it yet. The flight still sends everything to the lead, and says so. What `BallisticScenario` designates is still the first place alone. | Unchanged |
 | 2 | **Reach display**. `Sim/DivertFootprint.cs` **done** — the ellipse, the cost of a displacement and whether a budget reaches it. What remains is drawing it: the missile region before target 1, the footprint after, cursor refusal outside it, the panel's divert and time readout. | No |
 | 3 | **The release loop**: re-aim per target, per-warhead target bookkeeping in the log, and the per-pass trim ceiling raised deliberately. Shared targets release together. | Yes |
 | 4 | **Instruments and nights**: per-target scoring in `shot-report.py`, the matching check with one target, then 2/4/6. | Yes |

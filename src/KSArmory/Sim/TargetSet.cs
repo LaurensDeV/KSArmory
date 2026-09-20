@@ -47,19 +47,43 @@ internal sealed class TargetSet
         }
     }
 
-    /// <summary>The first target, which is the one the booster flies to and the only one a lone designation has.</summary>
-    public AimSite Primary => _entries.Count > 0 ? _entries[0].Site : AimSite.None;
+    /// <summary>
+    /// Which entry the flight is flown to: the booster's target, and the first warheads away.
+    ///
+    /// <para><b>Not necessarily the first chosen.</b> The order places were picked in is the
+    /// player's; the order they are flown in belongs to the release schedule, which puts the
+    /// farthest reach first because the kick's leverage decays as the bus descends. This is the seam
+    /// that carries that answer — nothing here decides it, and until something does it is the first
+    /// chosen, which for a set of one is the same entry either way.</para>
+    /// </summary>
+    public int LeadIndex { get; private set; }
+
+    /// <summary>The lead's place, which is the one the whole flight is aimed at.</summary>
+    public AimSite Primary => _entries.Count > 0 ? _entries[LeadIndex].Site : AimSite.None;
+
+    /// <summary>Fly to this one first, refusing an entry that is not there.</summary>
+    public bool SetLead(int index)
+    {
+        if (index < 0 || index >= _entries.Count) return false;
+
+        LeadIndex = index;
+        return true;
+    }
 
     /// <summary>
     /// Take a designation as the whole set, which is what clicking the world has always done.
     /// </summary>
     public void SetOnly(AimSite site, int warheads)
     {
-        _entries.Clear();
+        Clear();
         if (site.IsSet) _entries.Add(new Entry(site, Math.Max(0, warheads)));
     }
 
-    public void Clear() => _entries.Clear();
+    public void Clear()
+    {
+        _entries.Clear();
+        LeadIndex = 0;
+    }
 
     /// <summary>
     /// Add a place, refusing one the world could not resolve and one past <see cref="MaxTargets"/>.
@@ -82,6 +106,14 @@ internal sealed class TargetSet
         if (index < 0 || index >= _entries.Count) return false;
 
         _entries.RemoveAt(index);
+
+        // A lead that has just been taken away falls back to the first chosen, never to whatever
+        // slid into its place: that would aim the flight at a place the removal did not name.
+        if (index == LeadIndex) LeadIndex = 0;
+        else if (index < LeadIndex) LeadIndex--;
+
+        if (LeadIndex >= _entries.Count) LeadIndex = 0;
+
         return true;
     }
 

@@ -72,12 +72,18 @@ internal sealed partial class Ui
             ImGui.TextColored(Bad, "this vehicle is flying around. Only ballistic shots are flown.");
         }
 
+        // Only once there is more than one. With a single target the list repeats the line above,
+        // and nothing can add to it before cutoff -- so this appears exactly when it says something.
+        if (computer.Targets.Count > 1) DrawIcbmTargetList(computer);
+
         // A mode, not a button: pressing a button puts the cursor over the panel, so what it reads
         // is whatever lies behind the control rather than the place being pointed at.
         bool picking = config.DesignateByClicking;
         if (ImGui.Checkbox("Designate by clicking the world", ref picking)) config.DesignateByClicking = picking;
         Tip("On: a ring follows the cursor; click the ground to aim there. Shift-click is still the "
-            + "lock gesture, and clicks on a window do nothing. Off: enter coordinates below.");
+            + "lock gesture, and clicks on a window do nothing. Off: enter coordinates below. Once the "
+            + $"burn is over a click adds another target instead, up to {TargetSet.MaxTargets} -- "
+            + "designating there would start the shot over on a bus that is already coasting.");
 
         string resolution = "Typed rather than dragged: a slider spanning half a turn moves about 100 km "
                             + "per pixel.";
@@ -115,6 +121,62 @@ internal sealed partial class Ui
                                            string.IsNullOrWhiteSpace(_siteLabel) ? "" : _siteLabel.Trim()));
         }
         Tip("Aims at the latitude and longitude above.");
+    }
+
+    private static void DrawIcbmTargetList(IcbmComputer computer)
+    {
+        int aboard = computer.WarheadsAboard;
+        int lead = computer.LeadTarget;
+
+        ImGui.Text(computer.DescribeTargets());
+
+        // Inline rather than in a tooltip: a player who has just placed a second target and then
+        // watches every warhead land on the first has no other way of finding out why.
+        ImGui.TextColored(Working, "  the bus does not fly between targets yet - all of them go to target 1");
+
+        int removed = -1;
+
+        for (int i = 0; i < computer.Targets.Count; i++)
+        {
+            TargetSet.Entry entry = computer.Targets[i];
+
+            ImGui.PushID(i);
+
+            ImGui.Text($"  {i + 1}  {entry.Site.Describe()}{(i == lead ? "   <- flown to" : "")}");
+
+            if (i == lead)
+            {
+                Tip("The one the whole flight is aimed at: the arc, the correction and the trim are "
+                    + "solved against it, so it has no Remove -- Clear target above starts the shot "
+                    + "over, and then a click places a new one.");
+            }
+
+            ImGui.SameLine(ImGui.GetFontSize() * 18f, 0f);
+            ImGui.SetNextItemWidth(ImGui.GetFontSize() * 8f);
+
+            int warheads = entry.Warheads;
+            if (ImGui.SliderInt("##warheads", ref warheads, 0, aboard))
+            {
+                computer.SetTargetWarheads(i, warheads);
+            }
+            Tip("How many of the bus's warheads are meant for this place. What no target takes rides "
+                + "the bus down.");
+
+            if (TargetEdit.MayRemove(i, computer.Targets.Count, lead))
+            {
+                ImGui.SameLine();
+                if (ImGui.SmallButton("Remove")) removed = i;
+            }
+
+            ImGui.PopID();
+        }
+
+        if (removed >= 0) computer.RemoveTarget(removed);
+
+        if (ImGui.SmallButton("Split evenly")) computer.BalanceTargets();
+        Tip("Spreads every warhead over the targets chosen, the remainder going to the earliest of "
+            + "them. A target added by clicking the world starts with none, so that nothing is taken "
+            + "off a place already aimed at without being asked.");
     }
 
     private void DrawIcbmStatus(IcbmComputer computer)

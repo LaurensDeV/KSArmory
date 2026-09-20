@@ -196,8 +196,33 @@ internal sealed class IcbmComputer
 
     public IcbmProgram Program { get; }
 
-    /// <summary>Where it has been told to put the warheads. Nothing happens until this is set.</summary>
-    public AimSite Target { get; private set; } = AimSite.None;
+    /// <summary>
+    /// Where it has been told to put the warheads. Nothing happens until this is set.
+    ///
+    /// <para>The lead of <see cref="Targets"/>, which the set decides rather than the order the
+    /// player clicked in. Everything downstream — the aim, the overlay, the trace, the scoring —
+    /// reads this and nothing else about the list, so a list of one target is the whole of a
+    /// single-target shot.</para>
+    /// </summary>
+    public AimSite Target => _targets.Primary;
+
+    /// <summary>Everywhere the warheads are going, in the order they were chosen.</summary>
+    public IReadOnlyList<TargetSet.Entry> Targets => _targets.Entries;
+
+    /// <summary>Which of <see cref="Targets"/> the flight is aimed at, which is <see cref="Target"/>'s.</summary>
+    public int LeadTarget => _targets.LeadIndex;
+
+    private readonly TargetSet _targets = new();
+
+    /// <summary>
+    /// How many warheads the target list is planned against.
+    ///
+    /// <para>The most the magazine has ever reported loaded, until a salvo names its own size.
+    /// Nothing in the flight reads it: it bounds what the panel may assign.</para>
+    /// </summary>
+    public int WarheadsAboard => TargetEdit.WarheadsAboard(_warheadsLoaded, _salvoSize);
+
+    private int _warheadsLoaded;
 
     /// <summary>The last command issued, which is what every readout on the panel is describing.</summary>
     public IcbmCommand Command { get; private set; }
@@ -395,9 +420,16 @@ internal sealed class IcbmComputer
         Program = new IcbmProgram(config);
     }
 
+    /// <summary>
+    /// Aim at one place, and start the shot over.
+    ///
+    /// <para>A new aim point is a new flight, which is why everything below it is reset — and why
+    /// this is the wrong call once a bus is coasting. <see cref="AddTarget"/> is the edit;
+    /// <c>AimSite.None</c> here clears the whole list.</para>
+    /// </summary>
     public void Designate(AimSite site)
     {
-        Target = site;
+        _targets.SetOnly(site, WarheadsAboard);
         Program.Reset();
         _releasedTheArrival = false;
         _reported = IcbmPhase.Idle;
@@ -452,6 +484,50 @@ internal sealed class IcbmComputer
 
         Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)} designated {site.Describe()}");
     }
+
+    /// <summary>
+    /// Add a place for the warheads to go, and touch nothing else.
+    ///
+    /// <para>Everything <see cref="Designate"/> resets belongs to the flight, and a bus half an hour
+    /// into its coast has no way back from that — so an edit to the list is a different call rather
+    /// than a guarded version of the same one.</para>
+    /// </summary>
+    public bool AddTarget(AimSite site)
+    {
+        if (!_targets.TryAdd(site))
+        {
+            Log.Warn($"ICBM computer on {KsaWorld.DisplayName(Craft)}: {site.Describe()} refused - "
+                     + $"a bus goes to at most {TargetSet.MaxTargets} places");
+            return false;
+        }
+
+        Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)}: target {_targets.Count} is "
+                 + $"{site.Describe()}; the bus does not fly between targets yet, so every warhead "
+                 + "still goes to target 1");
+        return true;
+    }
+
+    /// <summary>Drop a place the warheads were going to, which gives its warheads back to the spares.</summary>
+    public bool RemoveTarget(int index)
+    {
+        if (!TargetEdit.MayRemove(index, _targets.Count, _targets.LeadIndex)) return false;
+
+        string what = _targets.Entries[index].Site.Describe();
+        if (!_targets.RemoveAt(index)) return false;
+
+        Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)}: {what} is no longer a target");
+        return true;
+    }
+
+    /// <summary>Give one target a share of the warheads, bounded by what the others have taken.</summary>
+    public void SetTargetWarheads(int index, int warheads)
+        => _targets.SetWarheads(index, warheads, WarheadsAboard);
+
+    /// <summary>Spread every warhead over the targets chosen, evenly.</summary>
+    public void BalanceTargets() => _targets.Balance(WarheadsAboard);
+
+    /// <summary>What the list amounts to, in the one line the panel prints.</summary>
+    public string DescribeTargets() => _targets.Describe(WarheadsAboard);
 
     /// <summary>Forget the target and the flight, and hand the vehicle back.</summary>
     public void Abort(string why)
@@ -581,6 +657,10 @@ internal sealed class IcbmComputer
         // All three readers want the latched meaning: the coast probe stops predicting once the
         // salvo is gone, and CoastQuiet asks whether it has gone rather than what is airborne.
         _salvoAway |= release is IRoundsInFlight flying && flying.Rounds.Count > 0;
+
+        // The largest reading rather than the latest: a frame with no weapon resolved, or one taken
+        // mid-reload, would otherwise tell the panel the bus is empty. Only the target list reads it.
+        if (release is { } rack) _warheadsLoaded = Math.Max(_warheadsLoaded, rack.TubesReadyToFire);
 
         // Run down on the world's own clock. Everything else the readout could be aged by stops
         // when this computer stops predicting; the step does not.
