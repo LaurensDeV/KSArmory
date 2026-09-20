@@ -20,9 +20,37 @@ namespace KSArmory;
 /// a defended site in the scene should shoot at <em>it</em> — that is the engagement worth flying —
 /// but not over the top of somewhere the operator named explicitly.
 /// </param>
+/// <param name="Extra">
+/// The places after the first, for a shot at several. Null and empty mean the same thing — one
+/// target, which is every shot flown to date — and <see cref="Targets"/> is what a caller reads so
+/// that the single-target case needs no special handling anywhere.
+/// </param>
 internal readonly record struct ShotRequest(double LatitudeDeg, double LongitudeDeg, double BarMetres,
-                                            bool AimWasGiven = false)
+                                            bool AimWasGiven = false,
+                                            IReadOnlyList<ShotRequest.Aim>? Extra = null)
 {
+    /// <summary>One named place, as the request carries it.</summary>
+    internal readonly record struct Aim(double LatitudeDeg, double LongitudeDeg);
+
+    /// <summary>
+    /// Every place this shot names, the first one included.
+    ///
+    /// <para>A request that named no aim has none: the scenario shoots at whatever the scene defends,
+    /// and inventing a target here would move the site to a point nobody asked for.</para>
+    /// </summary>
+    public IReadOnlyList<Aim> Targets
+    {
+        get
+        {
+            if (!AimWasGiven) return [];
+            if (Extra is not { Count: > 0 }) return [new Aim(LatitudeDeg, LongitudeDeg)];
+
+            List<Aim> all = [new Aim(LatitudeDeg, LongitudeDeg)];
+            all.AddRange(Extra);
+            return all;
+        }
+    }
+
     /// <summary>
     /// Where a shot goes when nobody says. It is the aim point <c>docs/ICBM-GUIDANCE.md</c>'s flown
     /// numbers were taken against, 2,300–2,700 km downrange of the pad they were flown from, which
@@ -80,7 +108,50 @@ internal readonly record struct ShotRequest(double LatitudeDeg, double Longitude
 
         if (string.IsNullOrWhiteSpace(arguments)) return true;
 
-        string[] fields = arguments.Split(',');
+        // Several places are separated by ';', and everything inside one of them is the form a
+        // single-target request has always had -- so one segment parses down exactly the old path
+        // and cannot behave differently.
+        string[] segments = arguments.Split(';', StringSplitOptions.RemoveEmptyEntries);
+
+        if (segments.Length > 1)
+        {
+            if (segments.Length > TargetSet.MaxTargets)
+            {
+                trouble = $"a bus carries {TargetSet.MaxTargets} warheads, so it can be sent to at most "
+                          + $"{TargetSet.MaxTargets} places; got {segments.Length}";
+                return false;
+            }
+
+            List<Aim> extra = [];
+            ShotRequest first = Default;
+
+            for (int i = 0; i < segments.Length; i++)
+            {
+                if (!TryParse(segments[i], out ShotRequest one, out trouble))
+                {
+                    trouble = $"target {i + 1}: {trouble}";
+                    return false;
+                }
+
+                if (!one.AimWasGiven)
+                {
+                    trouble = $"target {i + 1}: expected <lat>,<lon>";
+                    return false;
+                }
+
+                if (i == 0) first = one;
+                else extra.Add(new Aim(one.LatitudeDeg, one.LongitudeDeg));
+
+                // The bar belongs to the shot rather than to a target, so the last one to name it wins
+                // and naming it twice is not an error worth refusing a night over.
+                if (one.BarMetres != DefaultBarMetres) first = first with { BarMetres = one.BarMetres };
+            }
+
+            shot = first with { Extra = extra };
+            return true;
+        }
+
+        string[] fields = segments[0].Split(',');
 
         if (fields.Length == 1)
         {
