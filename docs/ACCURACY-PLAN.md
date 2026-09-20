@@ -11927,6 +11927,13 @@ loader are constant across those shots, so neither is the cause. **What changed 
 a background process rather than of work the mod asked for. Night 1's one slow shot (002, 43.5 fps) was
 contaminated by compiler builds and recovered; night 2's did not.
 
+**The leading candidate is host uptime**, which had been long at the time. It fits every feature of the
+reading: a step change part-way through a session, a *ceiling* that moves with the median, no recovery
+within the session, and a partial recovery the next day once the batch's processes had churned. One shot
+after a restart settles it — a median back near 63 with a 73–75 peak confirms it and re-baselines the
+machine. Re-measured at 13:0x the next day without a restart: **58.4 median, 65.0 peak** — the median
+part-recovered, the ceiling still down.
+
 **So there is nothing here to fix in the repo, and nothing to test with a loader swap.** What is worth
 having is a frame-rate reading beside every night's numbers, because
 every cross-night rate on this page is partly a statement about it. One thing the debt does not explain —
