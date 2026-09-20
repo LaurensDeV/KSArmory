@@ -329,6 +329,14 @@ upstream of phase 3.**
   does.** What is still unread is the *attitude-hold* propellant across a six-target coast, which is
   uncounted, and whether the 2,906 m/s exhaust velocity — computed through KSA's design chain, not observed —
   holds in flight. Watch tank mass against `SpentMetresPerSecond` on the first flight that burns for real.
+* **Half of *when the release loop runs* is a schedule rather than a setting**, and that half is built:
+  `Sim/ReleaseItinerary.cs` starts the itinerary `420 + (N-1) x 65.1` s before arrival, so the *last* release
+  still lands on today's gate and a set of one is bit for bit unchanged — which is what stops it regressing the
+  shot every other measurement here is taken against. It settles *Does the first target stay special?* below
+  too: farthest reach first puts the dearest hop in the slot with the most leverage, and the first stop is the
+  one the bus already arrives on, so **the booster is aimed at the farthest target** rather than at the first
+  one chosen. Six targets then need **66.1 m/s** against the 60 m/s cap and do not fit; five do, at 56.1.
+  Unflown, and it leaves the bullet below untouched: moving the gate *itself* still costs the first target.
 * **When the release loop runs is the design decision, not a tuning.** `ReleaseBeforeArrivalSeconds = 420` is
   a single-target optimisation: it shrinks the ejection kick's leverage, which is why the group lands
   millimetres from the aim. For six targets it costs **4x the reach at 6,179 km and 7x at 12,902**. Moving it
