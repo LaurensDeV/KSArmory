@@ -293,6 +293,24 @@ reach, far first — not by which target is "hardest".
 * **Nights**: the current single-target build against the loop with one target (they must match — the loop
   must cost nothing when it has one target), then 2, 4 and 6 targets.
 
+## How close two targets may be — decided
+
+**Overlapping blast is the player's business, so the floor is the lethal radius rather than the blast
+radius.** Decided 2026-09-20. It matters because it is what the spacing tables are read against: at a
+6.0 km floor a six-target set only works if the itinerary starts near cutoff, and at 2.0 km it works on
+the schedule that ends on today's gate and therefore leaves the single-target shot untouched.
+
+What the region between the two radii actually does, since it is what the player is accepting: damage is
+**per part and binary** — a part breaks or it does not, and nothing is dented. A part's failure radius is
+`lethal x cbrt(9 MPa / its own strength)`, capped at the blast radius, with the strength KSA's own number
+off the part's mass and volume. So a part of reference strength fails at exactly the lethal radius, a
+dense one at 0.45x of it, and a flimsy one out to the blast radius. **Between the two radii a neighbour
+loses light structure and keeps heavy**; outside the blast radius nothing is touched at all.
+`Sim/BlastDamage.cs`.
+
+So the shipped answer is **two to six targets on the gate-ending schedule**, 4.5 km apart at 6,179 km and
+3.8 at 12,902, and the early start buys spacing rather than count.
+
 ## Phases
 
 | | What | Flies anything? |
