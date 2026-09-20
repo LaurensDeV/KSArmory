@@ -11939,3 +11939,30 @@ having is a frame-rate reading beside every night's numbers, because
 every cross-night rate on this page is partly a statement about it. One thing the debt does not explain —
 at a *matched* debt of 1.5–1.8 m/s, night 2 stalled 9 of 18 against night 1's 2 of 30. The plausible mechanism is that a hold's quantum is `accel x step`, so a 22% longer
 step is a 22% coarser quantum, but that is not demonstrated.
+
+## 3fj. The fallback is inert at 6,135 km, and the frame-rate risk is range-dependent — 2026-09-20
+
+`~/shots/2026-09-20-shortfallback`, declared in `~/shots/scripts-2026-09-18/DECLARE-shortrange-fallback.md`
+before it flew and **relabelled five minutes in, before any result was read**: `--aim 24.0S,62.0W`
+against `SOLVER SCALE 8` flies **6,135–6,141 km**, not the sub-2,000 km shot the declaration was written
+for. 20 blocks, 160 rockets, no re-flies. Arms reversed on purpose: `base` is the shipped build with
+`StallFallsBackToHolding` **on** and `nofallback` is the old behaviour, because the question is whether
+what shipped costs anything.
+
+**The declared second endpoint decides what this night means, and the answer is "never engaged".** The
+fallback fired **0 times** and no trim gave up, so the two arms flew identical code and both landed
+**0.0 m median and 0.0 m worst over 80 rockets each**. That clears the shipped default of costing
+anything away from 12,902 km. **It is not evidence the fallback is harmless when it fires** — it only
+fires above the debt threshold, and nothing here came near it.
+
+**Why it never fired is 3fd, confirmed from the safe side.** The separation debt ran a median 0.76 and a
+maximum 1.38 m/s across 160 rockets, entirely under the 1.5 m/s floor below which no null has ever
+stalled. At 12,902 km the same number runs 1.15–6.35. **160 rockets under the floor and zero stalls** is
+the other half of a threshold that was established looking down from above it.
+
+**And the frame-rate vulnerability of 3fi is range-dependent.** This night ran at a median **40.8 fps** —
+slower than the 47 fps night whose base arm stalled 67% at long range — because compiler builds and a
+subagent were competing for the machine throughout. The debt still never crossed 1.5 and nothing
+stalled. So a slow frame raises the debt everywhere, but only at long range does it start from enough
+debt for that to reach the stall. **A player on a slow machine loses nothing at 6,000 km and a third of
+their rockets at 12,900.** The peak of 73.2 also confirms the host recovered from 3fi's degraded state.
