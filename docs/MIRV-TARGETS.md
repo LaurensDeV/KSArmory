@@ -19,11 +19,45 @@ is an exactly-determined 3x3 rather than a minimum-norm 2x3, and the penalty is 
 moving a target across the track does not change when it is reached. Along-track is what made the footprint
 an ellipse worth drawing, so **pinned, the reach is much smaller and close to circular**.
 
-That leaves a design decision this doc cannot dodge: either the release loop **re-commits the arrival per
-destination** — which needs a re-latch after cutoff that does not exist today, the latch living inside
-`Resolve`, which the coast never reaches — or the feature advertises a far smaller reach than the tables
-below. `MirvDivertTests.ThePinnedArrivalIsWhatADivertActuallyCosts` has the measurement; **read every
-along-track number below as the free-clock best case.**
+**And those two penalties are *cutoff* figures, not universal ones.** At the release gate the 6,179 km
+penalty is 1.94x rather than 2.56x. Read every along-track number below as the free-clock best case.
+
+**Pinned, the footprint is a circle**, radius the cross-track reach, about `0.96 · t_go` metres per m/s
+at every geometry and epoch measured — along and across come out within 3% of each other at the release
+gate. So `DivertFootprint.OrientationRad` is meaningless pinned, and **`DivertFootprint.TryFrom`
+computes only the free-clock ellipse**: drawing it as-is would show a region 2–12x too long. A pinned
+mode is a prerequisite for phase 2, not a refinement of it.
+
+**The decision this doc framed as "re-commit the arrival or ship a smaller reach" was the wrong one,
+because the epoch dominates the latch.** Derived off the same columns `MirvDivertTests` prices (and
+reproducing its flown 6,179 km case exactly), six hops of `BusTrim.MaxMetresPerSecond` 65 s apart:
+
+| | from cutoff | from the 420 s gate |
+| --- | --- | --- |
+| hop 1 | 10.7 x 9.6 km | 3.5 x 3.5 km |
+| hop 3 | 10.1 x 9.3 | 2.3 x 2.3 |
+| hop 6 | 8.9 x 8.5 | **0.4 x 0.4** |
+
+The Mk 21's `Warhead.LethalRadius` is **2.0 km**. **At today's gate, targets 4 to 6 land inside each
+other's lethal circles** — that is option C wearing this feature's name. Started at cutoff it is a real
+feature: 9–11 km hops and a ~58 km chain. **Moving the loop earlier is worth 3.0x where freeing the
+clock is worth 2.56x**, and cutoff-pinned (1,074 m per m/s) beats gate-free (688) — so the cheap config
+change beats the expensive guidance work, and pinning is affordable if the loop starts early.
+
+**So: ship pinned, and make the gate a function of the set** — `ReleaseBeforeArrivalSeconds + (N-1) x 65 s`,
+which leaves the last release where it is today and makes a set of one byte-identical to today's flight.
+How far early is a paired-arm question, not a design one.
+
+**What (a) would take, corrected.** The un-latch **does** exist: `IcbmProgram.ReleaseArrival()` is called
+during coast from `IcbmComputer.ReleaseAnArrivalTheTrimCannotFly`. What is missing is the *commit* —
+`Update` returns `Coasting` before `Resolve`, so the latch block never runs in coast, and the only
+coast-time solve, `ResolveCoastArc`, is pinned by construction. A `RetargetCoast` would have to write
+`_arrivalFromLaunch`, `Arc`, `ReferencePositionCci` and `SecondsSinceReference`, then `BusTrim.Begin()`
+again. Downstream that assumes the arrival never moves: the release gate's `toArrival` test,
+`AimCorrection.IsSteady` (which is what commits it), `IcbmComputer`'s `_releasedTheArrival` once-per-flight
+latch, and `PostBoostAim`'s per-flight `Cycles`/`MaxSeconds`. **The real risk is that pinning during an
+aim loop destabilises it on a shallow arrival** — the reason the latch is where it is — in the phase
+where the trim is the actuator.
 
 The three that moved, in one place:
 
@@ -255,6 +289,10 @@ reach, far first — not by which target is "hardest".
 | 3 | **The release loop**: re-aim per target, per-warhead target bookkeeping in the log, and the per-pass trim ceiling raised deliberately. Shared targets release together. | Yes |
 | 4 | **Instruments and nights**: per-target scoring in `shot-report.py`, the matching check with one target, then 2/4/6. | Yes |
 | 5 | **Later**: area targets (option C), saving the target list with the craft, reordering by hand. | — |
+
+**A budget problem phase 3 has to solve.** Five hops at `BusTrim.MaxMetresPerSecond` plus the 16.1 m/s a
+single-target flight already spends is **66 m/s against `PostBoostAim.MaxTrimMetresPerSecond` = 60**, so
+that cap moves or the last warhead gets no divert. The tank is not the binding constraint (143/101/72 kg).
 
 **Two gates sit in front of phase 3, and neither is code.**
 
