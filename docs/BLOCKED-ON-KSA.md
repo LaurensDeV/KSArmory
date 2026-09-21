@@ -260,39 +260,36 @@ would mean depending on two third-party framework mods, which is a different dec
 missing engine feature — this mod currently requires only StarMap. Recorded here so the trade is a
 deliberate one.
 
-## A mod's shader cannot include Core's shader library
+## KSA's atmosphere LUTs on a mod's own shader — not blocked, just not built
 
-**Wanted.** KSA's own atmosphere on this mod's volumetric cloud — the aerial-perspective and sky
-LUTs the engine lights its weather clouds and its SRB plumes with. It is the whole remaining
-quality gap between `Ksa/CloudPass.cs` and the pen cloud it would replace.
+**This was written as a blocker and it is not one.** The claim was that a mod's shader cannot
+include `Content/Core/Shaders/Atmosphere/AtmosphereLuts.glsl`, because shaderc resolves includes
+relative to the requesting file and Core's shaders sit under the install while a mod's sit under
+Documents. The first half is right and the conclusion was wrong: **an absolute include resolves**.
+Probed in flight — a `#include "C:/Program Files/Kitten Space Agency/Content/Core/Shaders/Atmosphere/AtmosphereLuts.glsl"`
+in this mod's own `.comp` compiled, and the LUT header's own `../Common/Shared.glsl` resolved
+relative to *its* location inside the Core tree.
 
-**Everything but the include is already public.** `Program.PlanetAtmosphereRenderer` is a public
-static; `GetAtmosphereLutsDescriptorSet`, `GetAtmosphereLutsDescriptorSetLayout`,
-`GetAtmosphereDataSet`, `GetAtmosphereDataSetLayout` and `GetAtmosphereDataDynamicOffset` are all
-public on it; and `ComputePipelineWrapper` takes external descriptor set layouts and
-`BindPipeline` takes the sets and their dynamic offsets. The descriptors can be bound.
+So everything needed is reachable. `Program.PlanetAtmosphereRenderer` is a public static and hands
+out `GetAtmosphereLutsDescriptorSet`, its layout, `GetAtmosphereDataSet` and
+`GetAtmosphereDataDynamicOffset`; `ComputePipelineWrapper` takes external descriptor set layouts
+and `BindPipeline` takes the sets and their offsets.
 
-**The engine reason.** Sampling them needs `Content/Core/Shaders/Atmosphere/AtmosphereLuts.glsl`,
-and a mod's shader cannot reach it. `ShaderCompilerResolve` installs shaderc's default include
-resolver, which resolves a path relative to the requesting file — and Core's shaders sit under the
-install (`C:\Program Files\Kitten Space Agency\Content\Core\Shaders`) while a mod's sit under
-the user's Documents. There is no relative path between the two trees, and `ShaderReference`
-exposes no include-path list an asset can populate: `IncludePaths` is a record of what a compile
-*did* include, for dependency tracking.
+**What remains is work rather than permission**, and it is worth knowing before starting:
 
-Core's own shaders reach it with `#include "../../../Atmosphere/AtmosphereLuts.glsl"`, which works
-only because they are in that tree.
+- The path cannot be committed. It is the player's install location, so the mod has to write the
+  include at load time — a generated one-line `.glsl` beside its own shader, pointing at their copy.
+  Nothing of RocketWerkz's is redistributed, the same way the build already reads their assemblies
+  from wherever the game is installed.
+- `AtmosphereLuts.glsl` takes its samplers as **function parameters** rather than binding them, so
+  the caller declares them — which means matching the LUT set's binding layout by hand, and that
+  layout is not documented anywhere a mod can read.
+- `GetAmbient` wants the planet's radii and the direction to the sun, none of which the pass
+  carries today.
 
-**Copying it in is not the workaround.** It is RocketWerkz's shader source, and vendoring it into
-this repository is redistributing their code — the same rule that keeps their assemblies out.
-
-**What would unblock it.** An include path a `<Shader>` asset can declare, or a resolver that also
-searches the game's own shader root. Either makes the LUTs usable by any mod, since the descriptor
-sets are already public.
-
-**Meanwhile** `Ksa/CloudPass.cs` approximates: a sky ambient that brightens toward the sun and the
-horizon, and an aerial-perspective wash with range. It reads well enough at two kilometres and is
-not the engine's answer.
+`Ksa/CloudPass.cs` approximates in the meantime: a sky ambient that brightens toward the sun and the
+horizon, and an aerial-perspective wash with range. It reads well at two kilometres at midday and is
+wrong at sunrise, at altitude and on any body whose air is not Earth's.
 
 ## Secondary viewport: no sky, clouds, atmosphere or terrain
 
