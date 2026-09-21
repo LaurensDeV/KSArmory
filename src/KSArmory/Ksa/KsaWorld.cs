@@ -1192,6 +1192,38 @@ internal static class KsaWorld
     }
 
     /// <summary>
+    /// Where the star is, for anything that has to know which way the light comes from.
+    ///
+    /// <para>The system's <c>StellarBody</c> rather than a name: <c>Celestial.Class</c> already
+    /// separates a planet from a moon by asking whether its parent is one, so the type is the
+    /// system's own answer to "which of these is the sun".</para>
+    /// </summary>
+    public static bool TryStarPositionEcl(out double3 positionEcl)
+    {
+        positionEcl = default;
+
+        try
+        {
+            if (Universe.CurrentSystem is not { } system) return false;
+
+            for (int i = 0; i < system.Count; i++)
+            {
+                if (system.GetIndex(i) is not StellarBody star) continue;
+
+                positionEcl = star.GetPositionEcl();
+
+                return Vec.IsFinite(positionEcl);
+            }
+
+            return false;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
     /// The bodies of the current system, by the Id <see cref="TryPlaceOnSurface"/> matches on.
     ///
     /// <para>For putting a craft somewhere the cursor cannot reach. <c>CraftMover</c> resolves its

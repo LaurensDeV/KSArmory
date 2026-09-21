@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-206 types and 562 members across 9 assemblies.
+207 types and 562 members across 9 assemblies.
 
 ## Brutal.Concurrency
 
@@ -1098,6 +1098,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.StateVectors
 
 - `KSA.UniverseTime StateTime`
+
+### KSA.StellarBody
+
+*referenced as a type only*
 
 ### KSA.StructuralLoad
 

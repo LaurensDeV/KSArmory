@@ -45,8 +45,30 @@ internal static class CloudPass
         public float4x4 InvViewProj;
         public float4 SizeStrength;
         public float4 CentreRadius;
-        public float4 UpAge;
-        public float4 Shape;       // cap centre, cap radius, cap tube, stem radius
+        public float4 UpSun;       // up and sun, each octahedral-packed into two floats
+        public float4 Shape;        // cap centre, cap radius, cap tube, stem radius
+    }
+
+    // A unit vector in two floats. Both directions here are unit, and packing them is what keeps
+    // the whole push constant at 128 bytes -- Vulkan's guaranteed minimum, and KSA's own volumetric
+    // shader takes four, so there is no evidence of headroom to borrow.
+    private static float2 OctahedralPack(double3 unit)
+    {
+        double sum = Math.Abs(unit.X) + Math.Abs(unit.Y) + Math.Abs(unit.Z);
+        if (!(sum > 0.0)) return new float2(0f, 0f);
+
+        double x = unit.X / sum;
+        double y = unit.Y / sum;
+
+        if (unit.Z < 0.0)
+        {
+            double fx = (1.0 - Math.Abs(y)) * (x >= 0.0 ? 1.0 : -1.0);
+            double fy = (1.0 - Math.Abs(x)) * (y >= 0.0 ? 1.0 : -1.0);
+            x = fx;
+            y = fy;
+        }
+
+        return new float2((float)x, (float)y);
     }
 
     /// <summary>Whether the pass built and is dispatching.</summary>
@@ -96,13 +118,24 @@ internal static class CloudPass
             double3 centre = burstEcl - camera.PositionEcl;
             if (!Vec.IsFinite(centre)) return;
 
+            // Which way the light comes from, at the cloud rather than at the camera: over a
+            // kilometre of cloud the difference is nothing, and asking at the burst is what makes it
+            // right when the camera is somewhere else entirely. Straight up if the star cannot be
+            // found, which is noon and is at least a lighting direction rather than a black volume.
+            double3 sun = KsaWorld.TryStarPositionEcl(out double3 starEcl)
+                              ? Vec.Unit(starEcl - burstEcl)
+                              : up;
+
+            float2 upOct = OctahedralPack(Vec.Unit(up));
+            float2 sunOct = OctahedralPack(Vec.IsFinite(sun) ? sun : up);
+
             Push push = new()
             {
                 InvViewProj = camera.VPInv.viewProjection,
-                SizeStrength = new float4(width, height, 0f, tint),
+                SizeStrength = new float4(width, height, (float)age, tint),
                 CentreRadius = new float4((float)centre.X, (float)centre.Y, (float)centre.Z,
                                           (float)radius),
-                UpAge = new float4((float)up.X, (float)up.Y, (float)up.Z, (float)age),
+                UpSun = new float4(upOct.X, upOct.Y, sunOct.X, sunOct.Y),
 
                 // The same shape the pens walk, so the two drawings cannot disagree about where the
                 // cloud is -- and so every dimension stays Glasstone's rather than being invented

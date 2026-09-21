@@ -25,9 +25,18 @@ layout (push_constant) uniform PushConstants
     mat4 InvViewProj;      // clip -> camera-relative world
     vec4 SizeStrength;     // xy target pixels, z unused, w overall strength (0 draws nothing)
     vec4 CentreRadius;     // xyz burst, camera-relative metres; w the sphere that bounds it all
-    vec4 UpAge;            // xyz local vertical; w seconds since the burst
+    vec4 UpSun;            // local vertical and sun direction, each packed into two floats
     vec4 Shape;            // cap centre height, cap radius, cap tube, stem radius
 } pc;
+
+// A unit vector back out of two floats. Both directions arrive this way so the whole block fits
+// 128 bytes, which is all Vulkan guarantees.
+vec3 OctahedralUnpack(vec2 o)
+{
+    vec3 n = vec3(o.x, o.y, 1.0 - abs(o.x) - abs(o.y));
+    if (n.z < 0.0) n.xy = (1.0 - abs(n.yx)) * vec2(n.x >= 0.0 ? 1.0 : -1.0, n.y >= 0.0 ? 1.0 : -1.0);
+    return normalize(n);
+}
 
 // Value noise and an fBm over it. The point of a raymarched cloud rather than a walked one is that
 // the detail is evaluated wherever the ray happens to be, at every scale, instead of being carried
@@ -82,6 +91,42 @@ vec3 WorldAt(vec2 uv, float deviceZ)
     return p.xyz / p.w;
 }
 
+// The cloud's density at a point given relative to the burst. Pulled out of the march because the
+// sun march needs the same answer: a volume that is not asked how thick it is between a sample and
+// the light has no self-shadowing, and self-shadowing is most of what makes a cloud read as one.
+float Density(vec3 world, vec3 up, float radius)
+{
+    float y = dot(world, up);
+    vec3 flat_ = world - up * y;
+    vec3 p = vec3(length(flat_), y, 0.0);
+
+    float capH = pc.Shape.x;
+    float ringR = max(pc.Shape.y - pc.Shape.z, pc.Shape.z);
+    float tubeR = pc.Shape.z;
+    float stemR = pc.Shape.w;
+
+    vec3 capP = vec3(p.x, p.y - capH, 0.0);
+    float cap = Torus(capP, ringR, tubeR);
+    float stem = max(p.x - stemR, p.y - capH);
+    float d = min(cap, stem);
+
+    float around = atan(p.y - capH, p.x - ringR);
+    float n = Fbm(world * (26.0 / max(radius, 1.0)) + vec3(0.0, around, pc.SizeStrength.z * 0.05));
+    d -= (n - 0.35) * tubeR * 2.2;
+
+    float density = clamp(-d / max(tubeR * 1.3, 1.0), 0.0, 1.0);
+    return density * density;
+}
+
+// Henyey-Greenstein. Smoke scatters forward, so a cloud is brightest looking through it toward the
+// sun and darkest with the sun behind you -- which is the cue that says "volume" rather than "fog".
+float Phase(float cosTheta, float g)
+{
+    float gg = g * g;
+    float d = 1.0 + gg - 2.0 * g * cosTheta;
+    return (1.0 - gg) / (12.566371 * max(d * sqrt(max(d, 1e-4)), 1e-4));
+}
+
 void main()
 {
     ivec2 at = ivec2(gl_GlobalInvocationID.xy);
@@ -102,7 +147,9 @@ void main()
     // Bounding sphere. Most pixels leave here, which is the whole of the performance story.
     vec3 toCentre = pc.CentreRadius.xyz;
     float radius = pc.CentreRadius.w;
-    vec3 up = normalize(pc.UpAge.xyz);
+    vec3 up = OctahedralUnpack(pc.UpSun.xy);
+    vec3 sun = OctahedralUnpack(pc.UpSun.zw);
+    float forward = Phase(dot(dir, sun), 0.3);
 
     float along = dot(toCentre, dir);
     float perpSq = dot(toCentre, toCentre) - along * along;
@@ -126,45 +173,27 @@ void main()
     {
         vec3 world = dir * (t0 + (float(i) + 0.5) * dt) - toCentre;   // relative to the burst
 
-        // Into the cloud's own frame, where y is the local vertical and the shape is a surface of
-        // revolution about it. Only the axis is needed: the shape has no preferred bearing, so
-        // there is no second vector to carry and none to get wrong.
-        float y = dot(world, up);
-        vec3 flat_ = world - up * y;
-        vec3 p = vec3(length(flat_), y, 0.0);
-
-        float capH = pc.Shape.x;
-        float ringR = max(pc.Shape.y - pc.Shape.z, pc.Shape.z);
-        float tubeR = pc.Shape.z;
-        float stemR = pc.Shape.w;
-
-        // The cap as its vortex ring, the stem as a column under it, and the two unioned. Written
-        // as signed distances so the noise can erode a surface rather than fade an alpha.
-        vec3 capP = vec3(p.x, p.y - capH, 0.0);
-        float cap = Torus(capP, ringR, tubeR);
-        float stem = max(p.x - stemR, p.y - capH);
-        float d = min(cap, stem);
-
-        // Eroded by fBm in the cloud's own frame, turning about the ring so the cap rolls the way a
-        // vortex does: inside rising, over the top, down the outside.
-        float around = atan(p.y - capH, p.x - ringR);
-
-        // The frequency is the whole difference between smoke and moulded plastic. It is set per
-        // CLOUD rather than per metre, so a 0.3 kt burst and a 340 kt one carry the same number of
-        // billows: about two dozen across the shape, which is where fBm starts reading as turbulence
-        // instead of as a dent. At two across it was a smooth solid.
-        float n = Fbm(world * (26.0 / max(radius, 1.0)) + vec3(0.0, around, pc.UpAge.w * 0.05));
-        d -= (n - 0.35) * tubeR * 2.2;
-
-        // A soft ramp rather than a hard one: a cloud has no surface, and dividing by a fraction of
-        // the tube gave it one. Over a whole tube it fades instead.
-        float density = clamp(-d / max(tubeR * 1.3, 1.0), 0.0, 1.0);
-        density *= density;
+        float density = Density(world, up, radius);
         if (density <= 0.0) continue;
 
-        float extinction = density * 0.016 * dt;
-        vec3 lit = vec3(0.30, 0.26, 0.21) * density;
+        // How much cloud is between this sample and the sun. Four taps, spaced out geometrically so
+        // the near shadow is resolved and the far one is still felt -- the cap shading its own stem
+        // is the single strongest shape cue a mushroom cloud has.
+        float toSun = 0.0;
+        float step_ = radius * 0.06;
+        for (int k = 1; k <= 4; k++)
+        {
+            toSun += Density(world + sun * (step_ * float(k * k)), up, radius) * step_ * float(k);
+        }
 
+        float sunlight = exp(-toSun * 0.02);
+
+        // Sun through the cloud, plus a flat ambient so the shadowed side is not black. The ambient
+        // is what the sky would give it; without one a volume reads as a cut-out.
+        vec3 albedo = vec3(0.30, 0.26, 0.21);
+        vec3 lit = albedo * (sunlight * forward * 12.0 + 0.25);
+
+        float extinction = density * 0.016 * dt;
         scattered += transmittance * lit * extinction;
         transmittance *= exp(-extinction);
 
