@@ -377,6 +377,23 @@ public static class ChaseView
     // from a kilometre and a 20-kiloton warhead from four.
     private const double StopShortFireballs = 6.0;
 
+    /// <summary>
+    /// How far above the burst to look while a cloud stands, in metres.
+    ///
+    /// <para>The burst point is the bottom of what there is to see. Held on it, a cloud that grows
+    /// a kilometre upward leaves the frame through the top — photographed at 0.60 of the rise, the
+    /// cap was cut off and only the stem and skirt were in shot. Aiming at the middle of the column
+    /// instead puts the whole of it across the frame.</para>
+    ///
+    /// <para>Below the middle rather than at it, because the cap is the wide part and wants the
+    /// room: the eye is looking down the axis of something whose top half is nearly all of its
+    /// volume. Zero for a charge that grows nothing, which is every conventional round.</para>
+    /// </summary>
+    public static double CloudAimHeightMetres(double chargeKg)
+        => chargeKg < MushroomCloud.ThresholdKg
+               ? 0.0
+               : 0.45 * MushroomCloud.DrawnCloudTop(MushroomCloud.KilotonsFor(chargeKg));
+
     // How much room to leave around a cloud, in cloud heights. Standing off by exactly the height
     // puts the eye level with the crown and, flown, inside the smoke: the capture at 0.30 of the
     // rise came back a flat wall of brown. A cloud that height fills a 50 degree frame at about

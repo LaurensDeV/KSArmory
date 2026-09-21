@@ -361,16 +361,32 @@ internal sealed class ChaseCamera : IViewPose
 
                 // Watching, the eye is already held on the ground and only the look turns onto the
                 // burst. Otherwise the pose it rode in on is held against the burst itself.
+                // What is watched is the middle of the column, not the crater. A burst that grows
+                // a cloud puts a kilometre of itself above the point it went off at, and held on
+                // that point the cap leaves the frame through the top -- which is what the capture
+                // at 0.60 of the rise came back as. Raising the anchor carries the eye with it, so
+                // the geometry is unchanged and the cloud is simply centred in it.
+                double3 watched = burst;
+                if (ChaseView.CloudAimHeightMetres(spent.Munition.ChargeKg) is > 0.0 and var cloudLift
+                    && battery.EffectBody is { } cloudBody)
+                {
+                    double3 fromCentre = burst - cloudBody.GetPositionEcl();
+                    if (Vec.IsFinite(fromCentre) && Vec.Len2(fromCentre) > 1.0)
+                    {
+                        watched = burst + (Vec.Unit(fromCentre) * cloudLift);
+                    }
+                }
+
                 double fromBurst;
                 if (_watching)
                 {
-                    double3 toBurst = burst - _followed.GetPositionEcl();
+                    double3 toBurst = watched - _followed.GetPositionEcl();
                     if (Vec.IsFinite(toBurst) && Vec.Len2(toBurst) > 1.0) _holdForward = Vec.Unit(toBurst);
                     fromBurst = Vec.Len(toBurst);
                 }
                 else
                 {
-                    _followed.HoldAgainst(battery.Platform, spent, burst);
+                    _followed.HoldAgainst(battery.Platform, spent, watched);
                     fromBurst = Vec.Len(_holdOffset);
                 }
 

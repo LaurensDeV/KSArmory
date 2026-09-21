@@ -242,7 +242,11 @@ internal sealed class DropScenario
     // docs/NUCLEAR-EFFECT.md, so a shot can be held against the measured shape rather than judged
     // on its own -- which is the whole difficulty with a cloud: every version of it looks like a
     // cloud, and only the shape at a stated age says which one is right.
-    private static readonly double[] CloudCaptureFractions = [0.10, 0.30, 0.60, 1.00];
+    //
+    // The last is 0.95 rather than 1.00 because the chase hands the view back at exactly the rise:
+    // a capture on the boundary is a race with the release, and the frame that came back was the
+    // launching craft against a cloud deck with the mushroom nowhere in it.
+    private static readonly double[] CloudCaptureFractions = [0.10, 0.30, 0.60, 0.95];
 
     private int _captured;
 
