@@ -217,7 +217,7 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
             ? Vec.Len(targetPos - groundCentre) - groundRadius
             : double.PositiveInfinity;
 
-        var signature = new ThreatModel.ContactSignature(contact.MeanRadius, height);
+        var signature = new ThreatModel.ContactSignature(contact.MeanRadius, height, contact.IsMunition);
 
         if (!ThreatModel.TryAssess(targetPos - originEcl, targetVel - originVel,
                                    boresight, _sensor, signature, out var a)) return;

@@ -82,6 +82,9 @@ internal sealed class RoundContact(IProjectile round, string? firedBy, string? d
 
     public bool IsDebris => false;
 
+    /// <summary>What makes a sensor hold it to a closing geometry before calling it a threat.</summary>
+    public bool IsMunition => true;
+
     public DragShape? DragShape => null;
 
     /// <summary>

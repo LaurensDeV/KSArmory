@@ -65,6 +65,12 @@ internal interface IContact
     /// </summary>
     bool IsDebris { get; }
 
+    /// <summary>
+    /// A round in flight rather than a craft. Tracked either way; what it changes is that a round
+    /// has to be <em>closing</em> to be a threat, because it cannot turn round and come back.
+    /// </summary>
+    bool IsMunition { get; }
+
     /// <summary>Its drag box and attitude as the engine flies it, or null where there is none to read.</summary>
     DragShape? DragShape { get; }
 
@@ -117,6 +123,9 @@ internal sealed class VehicleContact(Vehicle vehicle) : IContact
     public double3 AccelerationEcl => KsaWorld.AccelerationEcl(Vehicle);
 
     public bool IsDebris => KsaWorld.IsDebris(Vehicle);
+
+    /// <summary>A craft, which may turn round however it is going now.</summary>
+    public bool IsMunition => false;
 
     public DragShape? DragShape => KsaWorld.DragShapeOf(Vehicle);
 
