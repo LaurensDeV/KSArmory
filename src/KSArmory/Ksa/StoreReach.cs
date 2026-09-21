@@ -124,21 +124,28 @@ internal sealed class StoreReach
 
         _sinceSolve.Restart();
 
-        TailKitReach reach = Solve(battery, store, _ground, _path);
-        _stage = (_stage + 1) % 3;
+        // With nothing on screen yet, fly all three at once rather than making the player wait
+        // three ticks for a ring to appear. The staging exists to keep a recurring lump off the
+        // frame, not to withhold the first answer.
+        TailKitReach reach = Solve(battery, store, _ground, _path, Latest.Known ? 1 : 3);
         _unsolvable = reach.Hold == TailKitHold.NoLanding;
 
-        // A failed solve leaves the last good answer standing, exactly as the pipper does. A ring
-        // that blanks for a frame reads as broken, and the answer from half a second ago is still
-        // very nearly right.
+        // Every failure below leaves the last good answer standing, exactly as the pipper does.
+        // None of them clears: a reset costs three ticks to rebuild, so a transient miss would take
+        // the rings away for more than a second rather than for a frame.
         if (!reach.Known) return;
+        if (!KsaWorld.TryAnchorToGround(reach.ImpactEcl, out object? body, out double3 anchor)) return;
+        if (battery.Platform is not { } craft) return;
 
+        double3 up = Vec.Unit(-KsaWorld.GravityAt(craft, reach.ImpactEcl));
+        if (Vec.Len2(up) < 0.5) return;
+
+        // Published together, and it has to be. The anchor is what the rings are drawn around and
+        // the offsets are measured from the landing it came from, so writing one without the other
+        // draws this solve's ring around the last solve's landing.
         Latest = reach;
-
-        if (!KsaWorld.TryAnchorToGround(reach.ImpactEcl, out _body, out _anchor)) { Clear(); return; }
-
-        double3 up = Vec.Unit(-KsaWorld.GravityAt(battery.Platform!, reach.ImpactEcl));
-        if (Vec.Len2(up) < 0.5) { Clear(); return; }
+        _body = body;
+        _anchor = anchor;
 
         KsaWorld.CollectDrapedCircleEcl(reach.ImpactEcl, up, Warhead.LethalRadius(battery.Munition.ChargeKg),
                                         _impactRing, ImpactSegments);
@@ -190,7 +197,7 @@ internal sealed class StoreReach
     }
 
     private TailKitReach Solve(WeaponSystem battery, IProjectile round,
-                               CoarseGroundTest ground, List<double3> path)
+                               CoarseGroundTest ground, List<double3> path, int passes)
     {
         if (battery.Platform is not { } platform) return default;
 
@@ -202,16 +209,21 @@ internal sealed class StoreReach
 
         ground.Reset();
 
-        _building = TailKitReach.FlyStage(_stage, _building, at, overGround,
-                                          KsaWorld.GroundVelocityAt(platform, at),
-                                          KsaWorld.GroundAccelerationAt(platform, at),
-                                          KsaWorld.BodyVelocityAt(platform),
-                                          p => KsaWorld.GroundVelocityAt(platform, p),
-                                          round.Munition,
-                                          p => KsaWorld.GravityAt(platform, p),
-                                          p => KsaWorld.MediumDensityRatioAt(platform, p),
-                                          ground, IntegrationStep, path,
-                                          ref _along, ref _across);
+        for (int i = 0; i < passes; i++)
+        {
+            _building = TailKitReach.FlyStage(_stage, _building, at, overGround,
+                                              KsaWorld.GroundVelocityAt(platform, at),
+                                              KsaWorld.GroundAccelerationAt(platform, at),
+                                              KsaWorld.BodyVelocityAt(platform),
+                                              p => KsaWorld.GroundVelocityAt(platform, p),
+                                              round.Munition,
+                                              p => KsaWorld.GravityAt(platform, p),
+                                              p => KsaWorld.MediumDensityRatioAt(platform, p),
+                                              ground, IntegrationStep, path,
+                                              ref _along, ref _across);
+
+            _stage = (_stage + 1) % 3;
+        }
 
         return _building;
     }
