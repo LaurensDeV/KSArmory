@@ -12081,3 +12081,40 @@ sideways or under-delivering (1.01x delivered, 1.00 along the direction asked �
 63 fps and two thirds at 47 — so **every cross-night number on this page is partly a statement about the
 machine**. Read fps off `mod frame: … over N frames` (10 s interval) before comparing two nights, and
 check the peak as well as the median. 3fi, 3fj.
+
+## 3fl. The steering freeze is already step-independent in flight, because the cap binds — 2026-09-21
+
+3fk ends by asking for a night on `IcbmConfig.HoldDirectionSeconds`, scored on the cutoff residual's
+cross-track part. **That night would not test what 3fk says it tests.** Read off the two 12,902 km
+nights already on disk — 456 rockets, nothing flown for this;
+`~/shots/scripts-2026-09-21/step-vs-residual.py` and the accel/throttle the cutoff line already
+prints.
+
+**`IcbmProgram.HoldDirectionBelow` binds first.** The frames arm's threshold is
+`min(5.0, 20 x accel x step x throttle)`. At the throttle these flights actually cut off on — a
+median **11%** against 113–115 m/s² — one frame is ~0.35 m/s and twenty of them are ~7, so the 5.0
+cap takes it:
+
+| | 2026-09-18-nopulse | 2026-09-19-fallback |
+| --- | --- | --- |
+| median fps / step at cutoff | 64.6 / **23 ms** | 48.5 / **28 ms** |
+| frames arm hits the 5.0 cap | 245 of 264 (**93%**) | 192 of 192 (**100%**) |
+| frames arm freeze duration | **0.399 s** | **0.395 s** |
+| `HoldDirectionSeconds=0.35` would give | 0.350 s | 0.350 s |
+
+**A 22% longer step moved the freeze by 1%.** Capped, the threshold is a velocity rather than a
+count of frames, and a velocity divided by `accel x throttle` is a duration nothing about the frame
+reaches. The fault 3fk measured through `IcbmFlightRig` is real in the rig and **masked in flight by
+the cap**.
+
+So `HoldDirectionSeconds` in flight is **a flat 12% shorter freeze**, identically at both frame
+rates — a constant, not a step-independence fix. A night on it would answer "is 0.350 s better than
+0.397 s", which is worth knowing and is **not** the question 3fk poses. **3fk's closing sentence is
+withdrawn**; the step-dependence stays headless, where `IcbmFlightRig.StepJitter` can command the 4x
+that no session spans and the cap can be held off.
+
+**And it leaves the rise unexplained rather than explaining it.** The residual still goes 0.175 →
+0.335 m/s and its cross-track share 67% → 79% between those two nights, with the freeze duration
+constant across them — so a longer freeze is not what the slower machine is buying. One frame's
+delta-v rises only 22% over the same step, against 91% on the residual. **What else the step reaches
+is open**, and it is the live end of 3fi rather than the freeze.

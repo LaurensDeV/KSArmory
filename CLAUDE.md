@@ -514,6 +514,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/ACCURACY-PLAN.md` | **the ranked plan, and the one to read first** — what four investigations found on 2026-08-30, including the bug that was the long-range bimodality and the sub-frame cutoff the engine has and the mod never reached |
 | `docs/EIGHT-ROCKETS.md` | **the plan for accuracy at eight rockets** — where the instrument stands, what limits it, and what to fly next, ranked |
 | `docs/MIRV-NEXT.md` | **the backlog for the bus**, and item **7g** is the flown account of the aim freeze — and of the crest the night turned out to be measuring |
+| `docs/FRAME-DEPENDENCE-AUDIT.md` | **every guidance constant that carries the frame**, sorted into the policy that must not, the quantity that genuinely is one frame's worth, and the solver count that is neither — with what to fly and the geometry each one hides at |
 | `docs/SHOT-PROTOCOL.md` | **how to spend a night of shots** — how many a difference costs, why the baseline is re-flown all night, and the rule that says when to stop |
 | `docs/ARRIVAL-ANGLE.md` | **what a steeper arrival is worth** — precision, impact speed and propellant against the angle a round comes in at, why seven degrees is the air's answer rather than the guidance's, and the control that asks for another |
 | `docs/KINETIC-FLOOR.md` | **how accurate a round could possibly be** — the terms no amount of guidance work removes, and why the arrival angle is the whole lever |

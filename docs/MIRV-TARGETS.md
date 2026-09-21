@@ -813,3 +813,54 @@ with hops worth only a few m/s each: the corrections dominate, and the fix for (
 without touching them. **Not charged, deliberately** — one flight is not enough to type a constant with,
 and changing the planner's arithmetic changes which sets are accepted, which cannot be checked without
 flying. It is the number to measure next, and it belongs in the re-derived spacing tables.
+
+## Flown: the order and the last stop, fixed — 2026-09-21
+
+`6b83417` — nearest-first walking and a walk that stops when the budget is gone — re-flown against the
+geometry that found the fault: four targets 1 km apart on one meridian, 8 rockets, 2/2/1/1 warheads,
+6,135–6,147 km. `~/shots/2026-09-21-rung2c.console`, declared beforehand in
+`~/shots/scripts-2026-09-21/DECLARE-rung2c.md`.
+
+**The walk order is fixed.** Every rocket released `1→4, 2→3, 3→2, 4→2, 5→1, 6→1` — monotone, walking
+inward from the farthest. Before the fix all 8 flew `1→4, 2→1, 3→1, 4→2, 5→2, 6→3`: out to the near end
+and back, which put the last stop on target 3.
+
+**And the last stop's miss went with it.** Worst warhead per target, the same eight rockets:
+
+| | before (`rung2b`) | after (`rung2c`) |
+| --- | --- | --- |
+| target 3 | **0.94–2.06 km on 6 of 8** | 0.000–0.066 km |
+| worst anywhere | 2.063 km | **0.140 km** |
+| rockets all-targets under 10 m | 0 of 8 | **6 of 8** |
+
+**But the scenario reads FAIL, and the reason is the guard doing its job.** Two rockets — `FAT 2` and
+`FAT 4` — ran the trim budget to 0.07 and 0.27 m/s of 60, so the walk refused its next hop and ended
+where the bus was, leaving 3 of 32 targets with `nothing was released`. That is `ReleaseLoop`'s declared
+refusal rather than a scatter: their warheads all arrived, on the stop they were already trimmed onto,
+at 0.066 and 0.140 km.
+
+**What spent the budget is the correction at a stop, not the hop.** The walk line prices the hop
+itself at **1.93 m/s** — `the hop to target 1 is 1.93 m/s and the bus still owes 0.07, so the flight has
+spent 60.02 m/s of its 60`. The figure on the release line is the whole trim spend at that stop, which
+is dominated by that stop's `PostBoostAim` pass. A healthy rocket pays 13 + 5 + 5 + 5 ≈ 28 m/s of 60
+for four stops; three rockets instead paid **35.01, 43.01 and 46.89 m/s at a single stop**:
+
+| rocket | diverts, in release order | left |
+| --- | --- | --- |
+| `FAT 3`, `6`, `7`, `8`, `FAT` | 13.0, 4.9, 5.2, 5.2 | ~32 |
+| `FAT 5` | 13.27, 4.84, 5.32, **35.01** | 1.6 |
+| `FAT 4` | 12.91, **43.01**, 4.12 | 0.0 — walk ended |
+| `FAT 2` | 13.13, **46.89** | 0.0 — walk ended |
+
+**So the hops are cheap and the corrections are not.** Three hops of 1 km cost about 6 m/s between
+them; the four corrections cost the other 22 on a healthy rocket and the whole 60 on a bad one. That is
+the structural optimism above, met in flight: the planner charges one correction and the flight runs
+one per stop, so a set of four stops is exposed to **four** draws from whatever distribution produces a
+47 m/s correction.
+
+**The open question is what makes a correction cost 47 m/s instead of 5**, and one flight cannot answer
+it. It is not simply the loop reverting its walk — `shipping 0.0 m` after a full revert happens on the
+healthy rockets too, four times on `FAT 6`, `FAT 7`, `FAT 8` and `FAT` between them. **Measure the
+distribution before changing anything**: the per-stop spend is already on the release line, so a
+handful of four-target flights gives it without new instrumentation. Until then the spacing tables
+cannot be re-derived, because what bounds a set is the correction spend rather than the hop.
