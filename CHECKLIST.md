@@ -1323,6 +1323,10 @@ What to record next time, in this order, because each answers a different half:
       Hundreds of metres off is the tail kit; `./tools/scenario.sh drop` flies the same release
       unattended and says which of the sight, the release and the fall the miss belongs to.
 - [ ] The log line for the release, and the whole `KSArmory.log`.
+- [x] The **pipper goes out when the store is released** — the arc from the craft and the ring
+      under it, both. It answers "where would one released now land", and once the rack is empty
+      there is none: `TryNextReleaseEcl` refused to fall back to tube 0, which had left the sight
+      drawn for the rest of the flight. **Confirmed in game on 2026.9.10.5438.**
 
 ### 7.1f2 Designating after the store has gone
 

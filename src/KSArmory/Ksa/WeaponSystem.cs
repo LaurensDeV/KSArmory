@@ -2430,7 +2430,14 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         if (Platform is null || Launcher is null || !TubesResolved) return false;
 
-        Launch launch = LaunchFrom(Math.Max(NextTube, 0), Aimpoint.Nothing);
+        // No tube to release from is no release to predict. Falling back to tube 0 answers about a
+        // store that is not there, which is a pipper still drawn on the ground after the rack's
+        // last one has gone -- and, once a store in the air has a region of its own, two rings
+        // saying different things about the same weapon.
+        int tube = NextTube;
+        if (tube < 0) return false;
+
+        Launch launch = LaunchFrom(tube, Aimpoint.Nothing);
         positionEcl = launch.Position;
         velocityEcl = launch.Velocity;
 

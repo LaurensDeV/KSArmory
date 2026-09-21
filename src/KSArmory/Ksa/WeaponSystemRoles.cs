@@ -362,6 +362,10 @@ internal interface IWeaponSystemView : IRoundsInFlight, IWeaponLoadout
     /// <summary>
     /// Where the next store would leave and the velocity it would leave with, in Ecl — the launch
     /// a release makes, ejector and spin included, so a sight flown from it predicts the release.
+    ///
+    /// <para>False when there is no next release: an empty rack, or one whose every tube is still
+    /// holding the round it fired. There is no answer to give then, and giving one is what left a
+    /// pipper on the ground under a rack that had nothing left to drop.</para>
     /// </summary>
     bool TryNextReleaseEcl(out double3 positionEcl, out double3 velocityEcl);
 
