@@ -306,6 +306,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/IGroundTest.cs` | where the ground is under a round, for the one round the terrain stops |
 | `Sim/CoarseGroundTest.cs` | the sight's ground test, which skips the lookups a falling round cannot need |
 | `Sim/MushroomCloud.cs` | the shape of a nuclear cloud over time, as offsets from the burst |
+| `Sim/AirlessBurst.cs` | what that burst leaves where there is no air — **the ballistics are the engine's**, because KSA counts no atmosphere below 100 Pa and falls every particle at full local gravity there, so thrown ground arcs and lands with nothing here integrating it |
 | `Sim/Magazine.cs` | which tubes hold a round, which fires next, what each body does |
 | `Sim/BodyPool.cs` | bodies lent to rounds with no tube to key one to — **a shell borrows one for as long as it flies**, and one arriving when every body is lent draws as a tracer |
 | `Sim/RoundLabel.cs` | what to call a round in a line somebody reads — **the one place the tube field's sentinel is decoded**, because a shell has no tube |
@@ -462,6 +463,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/PlumeSmoke.cs` | smoke through the renderer KSA draws booster plumes with, one reflected field away |
 | `Ksa/MotorSmoke.cs` | the trail a burning round leaves, through that same renderer — one cursor per round |
 | `Ksa/NuclearClouds.cs` | the mushroom clouds standing in the world, walked with plume cursors |
+| `Ksa/BurstEjecta.cs` | that airless burst drawn, through the particle system — **the renderer that draws on a body with no air**, because the trail volume the smoke uses is raymarched only for an atmospheric one. One-shot emitters, so nothing has to hold or return them |
 | `Ksa/MotorSound.cs` | the rocket motor you can hear, one spatialised channel per burning round |
 | `Ksa/MotorPlume.cs` | the flame at the nozzle, one pooled emitter per burning round |
 | `Ksa/MuzzleFlash.cs` | the flash at the cannon's muzzles, one pooled emitter per firing system |
@@ -509,7 +511,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 540 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 541 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -1153,7 +1155,7 @@ Do the private repo *before* pushing here, or CI fails on the lock it cannot sat
 member that keeps its name and signature and changes its *meaning* — a different reference
 frame, different units, a reordered enum — compiles clean and is wrong in flight. That is what
 the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from 684,000 lines to the files
-defining the 182 types this mod actually uses.
+defining the 184 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 45 in total, 14 MB —

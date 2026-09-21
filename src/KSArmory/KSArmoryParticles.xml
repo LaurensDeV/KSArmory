@@ -217,4 +217,91 @@
         <ParticleExtra X="0.6" Y="0" Z="0" W="0"/>
     </ParticleEmitter>
 
+    <!--
+      The airless nuclear burst, which is two emitters because there is nothing to draw a mushroom
+      cloud with and nothing for one to rise through. Both are Burst rather than Endless: they fire
+      once and hand themselves back when their particles die, so nothing has to hold or release
+      them. An Endless emitter never completes and must be killed by hand - see Ksa/MuzzleFlash.cs.
+
+      Every size, speed and lifespan below is a placeholder. Ksa/BurstEjecta.cs writes them per
+      burst from Sim/AirlessBurst.cs, because all of them scale with the yield and the ejecta's
+      also with the body's gravity. What stays here is the look: the renderer, the colour and the
+      shape of the throw.
+
+      ParticleSpawnLogic is MoveAwayFromCenter, which sends each particle straight out along its own
+      offset from the centre. Fountain would aim them, and cannot be used: a body-fixed effect has
+      its model matrix forced to identity, so its cone would point the same way in the world
+      whatever was hit. The throw is therefore a full sphere and its lower half is under the ground,
+      where the depth test hides it - which is what leaves a dome standing over the crater.
+    -->
+
+    <!--
+      Thrown ground. Density is rock's, so KSA gives it full gravity and the arc comes back down on
+      its own: below 100 Pa the engine counts no air and falls every particle at full local gravity
+      whatever this says, so on the airless bodies this is spawned on the value is belt and braces.
+
+      Billboard over the smoke sprite rather than SimpleColor spheres, for the same reason the
+      muzzle smoke is: a lit sphere reads as a ball, and dust has no edge.
+    -->
+    <ParticleEmitter Id="KSArmoryNuclearEjecta" Density="2500">
+        <MaxParticles Value="256" />
+        <Mesh Id="Plane"/>
+        <Renderer>Billboard</Renderer>
+        <MaterialId Value="KSArmorySmokeMaterial"/>
+        <Updaters>SimpleMovement</Updaters>
+        <Updaters>GrowOverLifetime</Updaters>
+        <!-- W is the grow ratio: without it the curve runs to zero and the dust implodes. -->
+        <EmitterExtra W="3.0"/>
+        <Updaters>ModelMatrix</Updaters>
+        <Updaters>Age</Updaters>
+        <SpawnMode>Burst</SpawnMode>
+        <EmitterSpawnLogic>Sphere</EmitterSpawnLogic>
+        <EmitterSize Value="1"/>
+        <EmitterExtents X="1" Y="0" Z="0"/>
+        <!-- On Burst this is the number of particles, not a rate. -->
+        <SpawnRate Value="256"/>
+        <Force X="0" Y="0" Z="0" />
+        <InheritVelocity Value="false"/>
+        <ParticleColor X="0.44" Y="0.39" Z="0.33" W="0.6"/>
+        <ParticleLifespan X="1" Y="2"/>
+        <ParticleSpawnLogic>MoveAwayFromCenter</ParticleSpawnLogic>
+        <ParticleSize X="1" Y="2"/>
+        <ParticleVelocity X="1" Y="1" Z="1"/>
+        <!-- Wide, so the dome has a ragged edge rather than one clean shell of dust. -->
+        <ParticleVelocityShift Value="0.5"/>
+        <ParticleExtra X="0.8" Y="0" Z="0" W="0"/>
+    </ParticleEmitter>
+
+    <!--
+      The debris shell: the bomb's own vaporised mass, which in vacuum keeps going instead of
+      settling into a fireball. Hot and very brief, and HDR so it blooms rather than reading as
+      paint. Density is air's so it does not fall - it is gas, and it is over before gravity
+      matters either way.
+    -->
+    <ParticleEmitter Id="KSArmoryNuclearShell" Density="1.225">
+        <MaxParticles Value="192" />
+        <Mesh Id="ParticleSphere"/>
+        <Renderer>SimpleColor</Renderer>
+        <Updaters>SimpleMovement</Updaters>
+        <Updaters>ShrinkOverLifetime</Updaters>
+        <Updaters>HueShift</Updaters>
+        <Updaters>ModelMatrix</Updaters>
+        <Updaters>Age</Updaters>
+        <SpawnMode>Burst</SpawnMode>
+        <EmitterSpawnLogic>Sphere</EmitterSpawnLogic>
+        <EmitterSize Value="1"/>
+        <EmitterExtents X="1" Y="0" Z="0"/>
+        <SpawnRate Value="192"/>
+        <Force X="0" Y="0" Z="0" />
+        <InheritVelocity Value="false"/>
+        <ParticleColor X="26" Y="15" Z="6" W="1"/>
+        <ParticleColorShift X="0.3" Y="0.2" Z="0"/>
+        <ParticleLifespan X="1" Y="2"/>
+        <ParticleSpawnLogic>MoveAwayFromCenter</ParticleSpawnLogic>
+        <ParticleSize X="1" Y="2"/>
+        <ParticleVelocity X="1" Y="1" Z="1"/>
+        <ParticleVelocityShift Value="0.35"/>
+        <ParticleExtra X="0.6" Y="0" Z="0" W="0"/>
+    </ParticleEmitter>
+
 </Assets>

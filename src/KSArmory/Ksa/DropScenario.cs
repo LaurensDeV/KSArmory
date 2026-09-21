@@ -126,10 +126,13 @@ internal sealed class DropScenario
 
     // Wall clock after the burst, so the chase's hold and hand-back reach the log before the harness
     // closes the game. Sized off the hold itself rather than fixed: a nuclear burst is watched for
-    // the cloud's whole rise, and a six-second wait closed the game a sixth of the way into it --
-    // which is the hand-back, the part worth checking, never happening in any run.
+    // as long as it leaves something moving, and a six-second wait closed the game a sixth of the
+    // way into it -- which is the hand-back, the part worth checking, never happening in any run.
     private double LingerSeconds
-        => ChaseView.LingerSeconds(_round?.Munition.ChargeKg ?? 0.0) + 4.0;
+        => (_round is { } round
+                ? BurstEjecta.LingerSeconds(round.PositionEcl, null, round.Munition.ChargeKg)
+                : ChaseView.MinLingerSeconds)
+           + 4.0;
 
     private const double BarMetres = 30.0;
     private const double ProgressEverySeconds = 2.0;

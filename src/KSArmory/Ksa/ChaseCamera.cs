@@ -374,7 +374,8 @@ internal sealed class ChaseCamera : IViewPose
                     fromBurst = Vec.Len(_holdOffset);
                 }
 
-                _holding = ChaseView.LingerSeconds(spent.Munition.ChargeKg);
+                _holding = BurstEjecta.LingerSeconds(burst, battery.Platform,
+                                                     spent.Munition.ChargeKg, battery.EffectBody);
                 Log.Info($"chase: holding on the burst for {_holding:F0} s, {fromBurst:F0} m from it");
                 return;
             }

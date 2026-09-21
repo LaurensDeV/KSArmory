@@ -4,8 +4,10 @@ Research for making a nuclear burst look like one. Four questions were asked in 
 draws its SRB plumes, how it draws clouds, what its particle system can express, and what a real
 mushroom cloud actually looks like. This is the result, kept because re-deriving it is a day's work.
 
-Route A is built, and *What was built* at the end records the two engine rules that ended up
-deciding the shape. Everything before that section is the survey, kept as it was written: it is
+Route A is built, and *What was built* records the two engine rules that ended up deciding the
+shape. *The airless burst* after it is the second effect, for the bodies where the trail renderer
+draws nothing at all — a different effect rather than this one degraded, and through the particle
+system instead. Everything before those two sections is the survey, kept as it was written: it is
 still the map for anything else drawn this way.
 
 ---
@@ -564,3 +566,74 @@ rather than a closed form. That would buy the one thing the choreography cannot 
 turbulent detail in the *path*, and it costs a build step plus a data file. The two engine rules
 still apply to whatever comes out of it, so the baked paths would have to be resampled to a spacing
 that closes.
+
+---
+
+## The airless burst, which is a different effect rather than the same one degraded
+
+Everything above needs an atmosphere twice over, and only one of the two reasons is about physics.
+A mushroom is buoyant, so with nothing to rise through there is no column and no cap. And
+`CloudRenderer.RenderVolumetricTrailsWithUpscaling` takes an `AtmosphericBody`, which is the only
+place the trail volume is raymarched — so smoke laid on the Moon draws nowhere at any altitude,
+whatever shape it is laid in.
+
+**`NuclearClouds.Begin` did not test for either.** It gated on the charge, a resolvable body and
+`PlumeSmoke.Available`, all of which pass on an airless body, and then logged `nuclear cloud: 0.30 kt
+at 0 m altitude, rising to 1.31 km` about a cloud the engine would never draw. `ChaseView.LingerSeconds`
+then held the camera for `MushroomCloud.RiseSeconds` on an empty sky.
+
+So the airless case is `Sim/AirlessBurst.cs` and `Ksa/BurstEjecta.cs`, through the **particle
+system** rather than the trail volume: `ParticleSystem.WriteCommandsColorOpaque` and
+`WriteCommandsColorTranslucent` are called from the main render path, outside the atmosphere and
+cloud passes, so particles draw anywhere.
+
+### The engine does the ballistics, which is the whole reason this is cheap
+
+KSA scales a particle's gravity by `1 - airDensity / Density` and **counts no air at all below
+100 Pa**, so on an airless body every particle falls at full local gravity whatever its stage
+declares. Thrown ground therefore arcs and lands with nothing in this mod integrating it. The
+numbers here only say how hard to throw it:
+
+```
+reach      = 4.0 · PeakFireballRadius(W)        the one number chosen for how it reads
+speed      = sqrt(reach · g)                    45°, where an arc goes furthest for its speed
+flight     = speed · sqrt(2) / g
+```
+
+Gravity is in that twice, so the reach is the yield's alone while the *flight* is the body's: the
+same 0.3 kt device throws its dust 218 m in both cases, at 18.8 m/s for 16.4 s on the Moon and at
+46.2 m/s for 6.7 s on Earth. Both ratios are `sqrt(g)` rather than `g`, which is the one piece of
+arithmetic here worth a test — `TheThrowIsBallisticInTheBodysOwnGravity` pins it, and pinned it the
+wrong way round first.
+
+**A surface burst is one whose fireball reaches the ground**, which is the textbook definition and is
+also the only thing that could throw any. So nothing separate decides it, and a burst high enough
+over an airless body gets the shell alone.
+
+### Two engine rules shaped it, and they are not the trail renderer's two
+
+- **The throw is a full sphere, because it cannot be aimed.** `ParticleSpawnLogic` must be radial:
+  `Fountain` builds its cone about the emitter's local +X, and a body-fixed effect has its model
+  matrix forced to identity, so that +X is a fixed direction in the world whatever was hit.
+  `MoveAwayFromCenter` sends each particle out along its own offset instead. The lower half of the
+  sphere is under the ground, where the depth test hides it — which is what leaves a dome standing
+  over the crater, for half the particles.
+- **`Burst` hands itself back; `Endless` does not.** A `Burst` emitter spawns `SpawnRate` particles
+  once, sets `_spawningComplete`, and `TryUnregisterEmitter` returns it to the pool when they die.
+  That is the whole reason `BurstEjecta` holds no state, where `MuzzleFlash` exists largely to kill
+  and return the emitters it took.
+
+### What is not built
+
+The **shell is art rather than physics**. In vacuum the bomb's own vaporised mass expands at
+kilometres a second and is over long before a frame could show it, so what is drawn is that the
+event happened rather than the speed it happened at — a few fireball radii over the flash's own
+duration. Nothing about it is measured against anything.
+
+And `ReachInFireballs` is the one free constant in the file. Everything else follows from
+`MushroomCloud.PeakFireballRadius` and the body's gravity, so the yield dial moves all of it
+together; that one number was chosen for how it reads at 0.3 kt on the Moon and has not been
+checked at the top of the dial in flight.
+
+**None of this has been flown.** The arithmetic has tests; the drawing does not, and the particle
+route has never rendered on an airless body in this mod.

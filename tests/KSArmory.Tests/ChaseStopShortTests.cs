@@ -50,7 +50,7 @@ public class ChaseStopShortTests
     [InlineData(999.0)]           // just under the cloud threshold
     public void AConventionalBurstIsHeldOnlyLongEnoughToSeeIt(double chargeKg)
     {
-        Assert.Equal(ChaseView.MinLingerSeconds, ChaseView.LingerSeconds(chargeKg));
+        Assert.Equal(ChaseView.MinLingerSeconds, InAir(chargeKg));
     }
 
     /// <summary>A burst that grows a cloud is held until the cloud stops changing shape.</summary>
@@ -60,7 +60,7 @@ public class ChaseStopShortTests
     [InlineData(20_000_000.0)]    // a Mk 21 at 20 kt
     public void ANuclearBurstIsHeldForTheCloudsRise(double chargeKg)
     {
-        Assert.Equal(MushroomCloud.RiseSeconds, ChaseView.LingerSeconds(chargeKg));
+        Assert.Equal(MushroomCloud.RiseSeconds, InAir(chargeKg));
     }
 
     /// <summary>
@@ -73,7 +73,15 @@ public class ChaseStopShortTests
     {
         double under = MushroomCloud.ThresholdKg - 1.0;
 
-        Assert.Equal(ChaseView.MinLingerSeconds, ChaseView.LingerSeconds(under));
-        Assert.True(ChaseView.LingerSeconds(MushroomCloud.ThresholdKg) > ChaseView.MinLingerSeconds);
+        Assert.Equal(ChaseView.MinLingerSeconds, InAir(under));
+        Assert.True(InAir(MushroomCloud.ThresholdKg) > ChaseView.MinLingerSeconds);
     }
+
+    /// <summary>
+    /// The case every test above was written against: a burst on the ground of a body with air,
+    /// where the thing being watched is the cloud. The airless ones are in
+    /// <see cref="AirlessBurstTests"/>, which is also where the gravity comes in.
+    /// </summary>
+    private static double InAir(double chargeKg)
+        => ChaseView.LingerSeconds(chargeKg, hasAir: true, 9.81, 0.0);
 }

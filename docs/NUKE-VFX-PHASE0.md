@@ -79,15 +79,17 @@ compile-time binds so a reflected render path is not covered by it.
 
 ## What this leaves
 
-Three things are worth doing and none of them is the plan as written:
+Three things were worth doing and none of them is the plan as written. The first two are built —
+`Sim/AirlessBurst.cs` and `Ksa/BurstEjecta.cs`, recorded at the end of `docs/NUCLEAR-EFFECT.md`:
 
-1. **Say nothing was drawn.** `NuclearClouds.Begin` should refuse on a body whose atmosphere the
-   trail renderer will not draw over, and say so in the log, so the airless case stops claiming a
-   cloud. `ChaseView.LingerSeconds` follows it.
-2. **Draw the airless burst with particles.** The dust hemisphere and the plasma shell, through the
-   system that already works there. This is the plan's Phase 4 at a fraction of its cost.
+1. **Say nothing was drawn.** `NuclearClouds.Begin` now refuses over a body with no atmosphere and
+   hands the burst to the ejecta instead, so the airless case stops claiming a cloud.
+   `ChaseView.LingerSeconds` follows it and takes the body rather than the charge alone.
+2. **Draw the airless burst with particles.** The dust dome and the debris shell, through the system
+   that already draws there. This is the plan's Phase 4 at a fraction of its cost — and the engine
+   does the ballistics for free, because it falls every particle at full gravity below 100 Pa.
 3. **Leave the atmospheric cloud alone.** It is calibrated and it is the part a raymarch would
-   replace.
+   replace. Untouched.
 
 A ported post-processing pass is the right answer to a different question — the gunner's sight
 through real optics, which is what the `BLOCKED-ON-KSA.md` entry was written about. Vendoring rather

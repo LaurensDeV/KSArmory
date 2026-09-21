@@ -106,22 +106,37 @@ internal static class NuclearClouds
     public static int Count => _clouds.Count;
 
     /// <summary>
-    /// Starts a cloud over a burst, if the charge is big enough to have made one.
+    /// Starts whatever a burst leaves standing, if the charge is big enough to have left anything.
     ///
     /// <para>Silent for a conventional warhead: a 500 lb bomb does not grow a mushroom, and
     /// deciding that here rather than at the call site keeps every caller from having to know.</para>
+    ///
+    /// <para><b>A cloud is only one of the two answers.</b> On a body with no air this hands over
+    /// to <see cref="BurstEjecta"/>, which throws dust instead — so a burst still has one entry
+    /// point and no caller has to know which kind of body it happened over.</para>
     /// </summary>
     public static void Begin(double3 burstEcl, Vehicle? near, double chargeKg, Celestial? known = null)
     {
         if (chargeKg < MushroomCloud.ThresholdKg) return;
         if (Detonation.BodyFor(near, known) is not { } body) return;
         if (!Vec.IsFinite(burstEcl)) return;
-        if (!PlumeSmoke.Available) return;
 
         try
         {
             double3 burstCcf = (burstEcl - body.GetPositionEcl()).Transform(body.GetCce2Ccf());
             if (!Vec.IsFinite(burstCcf) || Vec.Len2(burstCcf) < 1.0) return;
+
+            // No air refuses a cloud twice over: a mushroom is buoyant and has nothing to rise
+            // through, and KSA raymarches the trail volume only for an AtmosphericBody, so smoke
+            // laid here would draw nowhere at any altitude. Before this the cloud was built anyway
+            // and its dimensions logged, over a body where nobody could ever see one.
+            if (!KsaWorld.HasAtmosphere(body))
+            {
+                BurstEjecta.Begin(body, burstCcf, chargeKg, Vec.Len(burstCcf) - body.MeanRadius);
+                return;
+            }
+
+            if (!PlumeSmoke.Available) return;
 
             // Local vertical in the body's own frame, which is just the way out from its centre.
             // The other two only have to be perpendicular: the shape has an axis of symmetry, so

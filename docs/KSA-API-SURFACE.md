@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-182 types and 540 members across 7 assemblies.
+184 types and 541 members across 7 assemblies.
 
 ## Brutal.Concurrency
 
@@ -100,6 +100,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### Brutal.Numerics.float4x4
 
 - `Brutal.Numerics.float4x4 Pack(ref Brutal.Numerics.double4x4)`
+- `Brutal.Numerics.float4x4 get_Identity()`
 
 ### Brutal.Numerics.int2
 
@@ -921,7 +922,15 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 *referenced as a type only*
 
+### KSA.Rendering.Particles.ParticleEmitter`2+EmitterShapeInfo
+
+*referenced as a type only*
+
 ### KSA.Rendering.Particles.ParticleEmitter`2+Handle
+
+*referenced as a type only*
+
+### KSA.Rendering.Particles.ParticleEmitter`2+ParticleSpawnInfo
 
 *referenced as a type only*
 

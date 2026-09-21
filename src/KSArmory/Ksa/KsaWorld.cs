@@ -1755,6 +1755,28 @@ internal static class KsaWorld
     public static double AirDensityRatioAt(Celestial body, double3 positionEcl)
         => MediumDensityRatioAt(body, positionEcl, withOcean: false);
 
+    /// <summary>
+    /// Whether a body has an atmosphere at all.
+    ///
+    /// <para>Asked where a density at a point is the wrong question: what is wanted is whether the
+    /// <em>body</em> is one KSA will draw atmospheric effects over. The trail volume this mod lays
+    /// its smoke into is raymarched only for an <c>AtmosphericBody</c>, so on a body this answers
+    /// false for, smoke draws nowhere at any altitude and at any density.</para>
+    /// </summary>
+    public static bool HasAtmosphere(Celestial body)
+    {
+        try
+        {
+            return body.GetAtmosphereReference()?.Physical is { } air && air.Height > 0.0;
+        }
+        catch
+        {
+            // Unreadable reads as having one, so a burst falls back to the cloud rather than to the
+            // airless effect: a cloud that does not draw is what shipped, and dust on Earth is not.
+            return true;
+        }
+    }
+
     private static double MediumDensityRatioAt(Celestial body, double3 positionEcl, bool withOcean)
     {
         try

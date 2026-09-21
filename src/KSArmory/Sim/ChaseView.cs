@@ -311,14 +311,21 @@ public static class ChaseView
     /// fly their own camera back to it. What cannot be recovered is the part they were taken away
     /// from.</para>
     ///
-    /// <para><see cref="MushroomCloud.ThresholdKg"/> is the test, because it is already the one
-    /// <c>NuclearClouds.Begin</c> uses: whether this burst made a cloud at all is not a second
-    /// question with a second answer.</para>
+    /// <para><b>It is not always a cloud, so the body is asked as well as the charge.</b>
+    /// <see cref="AirlessBurst.WatchSeconds"/> decides which of the three is happening and carries
+    /// the charge threshold with it, so whether this burst made anything at all stays one question
+    /// with one answer. Holding for the rise regardless is what left the camera on an empty sky for
+    /// most of a minute over a body that grows no cloud.</para>
+    ///
+    /// <para>The world terms are required rather than defaulted, because the charge alone used to
+    /// be the whole question: a default would let a caller written against the old shape keep
+    /// compiling and quietly hold the view for a cloud that is not there.</para>
     /// </summary>
-    public static double LingerSeconds(double chargeKg)
-        => chargeKg >= MushroomCloud.ThresholdKg
-               ? Math.Max(MinLingerSeconds, MushroomCloud.RiseSeconds)
-               : MinLingerSeconds;
+    public static double LingerSeconds(double chargeKg, bool hasAir,
+                                       double gravityMetresPerSecond2, double burstAltitudeMetres)
+        => Math.Max(MinLingerSeconds,
+                    AirlessBurst.WatchSeconds(chargeKg, hasAir,
+                                              gravityMetresPerSecond2, burstAltitudeMetres));
 
     /// <summary>
     /// Held on any burst, nuclear or not. Long enough to see what happened and short enough that
