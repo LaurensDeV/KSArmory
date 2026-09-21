@@ -18,37 +18,72 @@ internal sealed class DropScenario
 {
     /// <summary>
     /// <c>[metres above ground][,degrees off vertical][,guided|dumb][,seconds until the craft is
-    /// destroyed]</c>, every field optional.
+    /// destroyed][,warp]</c>, every field optional.
+    ///
+    /// <para><c>warp</c> is a factor to set once the store is away, or <c>auto</c> for KSA's own
+    /// warp-to-a-time. They are not the same test: the engine <em>refuses</em> a speed change while
+    /// an auto-warp runs, and that refusal is what <see cref="WarpPolicy"/> used to abandon the
+    /// store over.</para>
+    ///
+    /// <para><c>again</c> is <c>&lt;seconds&gt;@&lt;metres&gt;</c> — send the store somewhere else
+    /// that long after the release, that far north of the ring — or <c>&lt;seconds&gt;@clear</c> to
+    /// drop the designation instead. A store sent somewhere is scored against the new place; one
+    /// whose designation is cleared is still scored against the old, because clearing is not how a
+    /// store is recalled.</para>
     /// </summary>
     public readonly record struct Request(double ReleaseAglMetres, double PitchDeg, bool Guided,
-                                          double KillAfterSeconds)
+                                          double KillAfterSeconds, double WarpFactor, bool AutoWarp,
+                                          double AgainAfterSeconds, double AgainOffsetMetres)
     {
         public static bool TryParse(string text, out Request request, out string trouble)
         {
-            request = new Request(1000.0, 0.0, Guided: true, double.NaN);
+            request = new Request(1000.0, 0.0, Guided: true, double.NaN, double.NaN, AutoWarp: false,
+                                  double.NaN, double.NaN);
             trouble = string.Empty;
 
             string[] fields = text.Split(',', StringSplitOptions.TrimEntries);
             double agl = request.ReleaseAglMetres;
             double pitch = request.PitchDeg;
             double kill = request.KillAfterSeconds;
+            double warp = request.WarpFactor;
+            bool auto = false;
             bool guided = request.Guided;
+            double againAt = double.NaN;
+            double againBy = double.NaN;
 
             if (Given(0) && !TryNumber(fields[0], out agl)) trouble = $"'{fields[0]}' is not a height";
             else if (Given(1) && !TryNumber(fields[1], out pitch)) trouble = $"'{fields[1]}' is not an angle";
             else if (Given(2) && fields[2] is not ("guided" or "dumb")) trouble = $"'{fields[2]}' is neither guided nor dumb";
             else if (Given(3) && !TryNumber(fields[3], out kill)) trouble = $"'{fields[3]}' is not a time";
+            else if (Given(4) && fields[4] != "auto" && !TryNumber(fields[4], out warp)) trouble = $"'{fields[4]}' is neither a warp factor nor 'auto'";
             else if (agl <= 0.0) trouble = "the release height has to be above the ground";
             else if (pitch is < 0.0 or >= 90.0) trouble = "the pitch is degrees off vertical, 0 to 90";
+            else if (Given(4) && fields[4] != "auto" && warp < 1.0) trouble = "the warp factor has to be at least 1";
+            else if (Given(5) && !TryAgain(fields[5], out againAt, out againBy)) trouble = $"'{fields[5]}' is not <seconds>@<metres> or <seconds>@clear";
 
             if (trouble.Length > 0) return false;
 
             if (Given(2)) guided = fields[2] == "guided";
+            if (Given(4) && fields[4] == "auto") auto = true;
 
-            request = new Request(agl, pitch, guided, kill);
+            request = new Request(agl, pitch, guided, kill, warp, auto, againAt, againBy);
             return true;
 
             bool Given(int i) => fields.Length > i && fields[i].Length > 0;
+
+            // NaN metres means clear rather than re-send, which is a different question: whether a
+            // store already steering keeps its aim when the installation stops pointing at anything.
+            static bool TryAgain(string text, out double at, out double by)
+            {
+                at = double.NaN;
+                by = double.NaN;
+
+                string[] halves = text.Split('@');
+                if (halves.Length != 2 || !TryNumber(halves[0], out at) || at < 0.0) return false;
+                if (halves[1] == "clear") return true;
+
+                return TryNumber(halves[1], out by);
+            }
         }
 
         public string Describe()
@@ -56,6 +91,13 @@ internal sealed class DropScenario
                + (Guided ? "guided onto the ring" : "unguided")
                + (double.IsFinite(KillAfterSeconds)
                       ? $", craft destroyed {KillAfterSeconds:F1} s after the release"
+                      : "")
+               + (AutoWarp ? ", then KSA's own warp-to-a-time"
+                           : double.IsFinite(WarpFactor) ? $", then {WarpFactor:F0}x timewarp" : "")
+               + (double.IsFinite(AgainAfterSeconds)
+                      ? double.IsFinite(AgainOffsetMetres)
+                            ? $", sent {AgainOffsetMetres:F0} m north {AgainAfterSeconds:F0} s after the release"
+                            : $", designation cleared {AgainAfterSeconds:F0} s after the release"
                       : "");
 
         private static bool TryNumber(string text, out double value)
@@ -118,6 +160,20 @@ internal sealed class DropScenario
     private bool _haveRing;
     private bool _haveFlown;
     private bool _killed;
+    private bool _againDone;
+    private object? _ringBody;
+    private double3 _againAnchor;
+    private bool _haveAgain;
+
+    // What the ring claimed at the moment of the send, and where the store would have come down
+    // untouched. A send the kit cannot reach is scored against these rather than against the aim:
+    // see WalkedFarEnough.
+    private bool _sentWasInReach;
+    private double _sentReachMetres;
+    private double3 _sentImpactAnchor;
+    private bool _haveSentImpact;
+    private bool _warpSet;
+    private double _warpObserved;
     private string _verdict = string.Empty;
 
     public DropScenario(Request request, Action<string> report,
@@ -272,7 +328,7 @@ internal sealed class DropScenario
         BombSightOverlay sight = _sightFor(battery);
 
         _haveRing = sight.TryPredictNow(battery, out double3 ringEcl)
-                    && KsaWorld.TryAnchorToGround(ringEcl, out _, out _ringAnchor);
+                    && KsaWorld.TryAnchorToGround(ringEcl, out _ringBody, out _ringAnchor);
 
         if (_request.Guided)
         {
@@ -349,16 +405,44 @@ internal sealed class DropScenario
             }
         }
 
+        // A second after the release, so the store is clear of the rack and the sight has settled.
+        if (!_warpSet && since >= 1.0 && (_request.AutoWarp || double.IsFinite(_request.WarpFactor)))
+        {
+            _warpSet = true;
+            ApplyWarp();
+        }
+
+        if (!_againDone && double.IsFinite(_request.AgainAfterSeconds)
+            && since >= _request.AgainAfterSeconds)
+        {
+            _againDone = true;
+            SendItSomewhereElse(since);
+        }
+
         if (round.State == RoundState.Flying)
         {
+            // The store taken out of the world, which is not the same as the store failing to
+            // arrive and must not be reported as one. Its State is never written when this happens:
+            // AbandonFlight simply drops it from the roster and nothing steps it again, so the
+            // budget below would eventually call it "still falling" 180 s later. Asked of the
+            // battery rather than of the round, because only the roster knows.
+            if (_battery is { } owner && !Holds(owner, round))
+            {
+                return $"FAIL the store was taken out of the world {since:F1} s after the release, "
+                       + $"at {KsaWorld.SimulationSpeed:F0}x -- it was still flying";
+            }
+
             if (since > FallBudgetSeconds) return $"FAIL the store was still falling {since:F0} s after the release";
 
             if (_sim - _saidAt >= ProgressEverySeconds && _body is { } under)
             {
                 _saidAt = _sim;
                 double3 overGround = round.VelocityEcl - KsaWorld.GroundVelocityAt(under, round.PositionEcl);
+                _warpObserved = Math.Max(_warpObserved, KsaWorld.SimulationSpeed);
                 _report($"falling: {since:F0} s, {Vec.Len(overGround):F0} m/s over the ground"
-                        + (_battery!.Platform is null ? ", loose" : ""));
+                        + (_battery!.Platform is null ? ", loose" : "")
+                        + $", {KsaWorld.SimulationSpeed:F0}x"
+                        + (KsaWorld.IsAutoWarpActive ? " (auto)" : ""));
             }
 
             return null;
@@ -369,8 +453,109 @@ internal sealed class DropScenario
         return Landed(round, since);
     }
 
+    // Whether the roster still has this round. A landed one leaves on the frame it detonates, so
+    // this is only meaningful while it is flying.
+    private static bool Holds(WeaponSystem battery, IProjectile round)
+    {
+        foreach (IProjectile held in battery.Rounds)
+        {
+            if (ReferenceEquals(held, round)) return true;
+        }
+
+        return false;
+    }
+
+    // The half of post-release aiming a suite cannot reach: a designation arriving while the store
+    // is already falling, and the region it is judged against.
+    private void SendItSomewhereElse(double since)
+    {
+        if (_battery is not { } battery) return;
+
+        if (!double.IsFinite(_request.AgainOffsetMetres))
+        {
+            battery.ClearDesignation();
+            _report($"CAPTURE again -- designation cleared {since:F1} s after the release; "
+                    + "the store should keep the aim it already has");
+            return;
+        }
+
+        if (_body is not { } body || !_haveRing
+            || !KsaWorld.TryGroundAnchorEcl(_ringBody, _ringAnchor, out double3 ringEcl, out _))
+        {
+            _report("again: the ring could not be put back on the ground");
+            return;
+        }
+
+        // North of the ring, in the local frame there. Any fixed direction would do; north is the
+        // one the ascent already uses, so a run reads the same way throughout.
+        double3 up = Vec.Unit(ringEcl - body.GetPositionEcl());
+        double3 axis = Vec.Unit(body.GetBodyFixed2Ecl() * new double3(0, 0, 1));
+        double3 north = Vec.Cross(up, Vec.Unit(Vec.Cross(axis, up)));
+
+        double3 wantedEcl = ringEcl + (north * _request.AgainOffsetMetres);
+
+        if (!KsaWorld.TryAnchorToGround(wantedEcl, out object? handle, out double3 anchor)
+            || handle is null
+            || !KsaWorld.TryGroundAnchorEcl(handle, anchor, out double3 aimEcl, out double3 aimVel))
+        {
+            _report("again: the new place could not be put on the ground");
+            return;
+        }
+
+        _againAnchor = anchor;
+        _haveAgain = true;
+
+        _sentWasInReach = true;
+        _haveSentImpact = false;
+
+        if (StoreReach.FallingStore(battery) is { } measured)
+        {
+            TailKitReach was = StoreReach.SolveNow(battery, measured);
+            _sentWasInReach = !was.Known || was.Covers(aimEcl);
+            _sentReachMetres = was.RadiusMetres;
+            _haveSentImpact = was.Known
+                              && KsaWorld.TryAnchorToGround(was.ImpactEcl, out _, out _sentImpactAnchor);
+        }
+
+        string reach = StoreReach.FallingStore(battery) is { } speaking
+                           ? StoreReach.SolveNow(battery, speaking).Describe(aimEcl)
+                           : "no store in the air";
+
+        battery.Designate(Aimpoint.OnGround(handle, anchor, aimEcl, aimVel), "somewhere else");
+        _report($"CAPTURE again -- sent {_request.AgainOffsetMetres:F0} m north {since:F1} s after "
+                + $"the release: {reach}");
+    }
+
+    private void ApplyWarp()
+    {
+        if (_request.AutoWarp)
+        {
+            // Half the remaining budget, which is long enough that the warp is still running while
+            // the store falls -- the state the engine refuses a speed change in, and the one this
+            // mode exists to sit in. The margin is KSA's own stopping distance.
+            bool started = KsaWorld.TryAutoWarpTo(FallBudgetSeconds * 0.5, marginSeconds: 10.0);
+            _report(started
+                        ? "CAPTURE warp -- started KSA's own warp-to-a-time"
+                        : "warp: KSA refused to start a warp-to-a-time");
+            return;
+        }
+
+        bool set = KsaWorld.SetSimulationSpeed(_request.WarpFactor);
+        _report(set
+                    ? $"CAPTURE warp -- asked for {_request.WarpFactor:F0}x, world reads {KsaWorld.SimulationSpeed:F0}x"
+                    : $"warp: {_request.WarpFactor:F0}x was refused");
+    }
+
     private string? Landed(IProjectile round, double since)
     {
+        // Back to real time before the linger, or the hand-back is watched at warp.
+        if (_warpSet)
+        {
+            KsaWorld.StopAutoWarp();
+            KsaWorld.SetSimulationSpeed(1.0);
+            _report($"warp: peaked at {_warpObserved:F0}x while the store fell");
+        }
+
         if (_body is not { } body) return "FAIL the store landed with no body recorded";
 
         // The burst is placed at an instant inside the frame and the body sample is at its end, so
@@ -390,17 +575,60 @@ internal sealed class DropScenario
                 + (_haveRing ? Offset(_ringAnchor, landed) : "unknown")
                 + $" from the ring{(_request.Guided ? " it was designated onto" : "")}, "
                 + (_haveFlown ? Offset(_flownAnchor, landed) : "unknown")
-                + " from the flight off the release state");
+                + " from the flight off the release state"
+                + (_haveAgain ? $", {Offset(_againAnchor, landed)} from where it was sent" : ""));
 
-        double miss = _haveRing ? Vec.Len(landed - _ringAnchor) : double.PositiveInfinity;
+        // A send the kit could never reach is a different question, and asking the arriving one of
+        // it makes a run that can only ever fail -- which in a checklist is worse than no run at
+        // all, because a red that is supposed to be red teaches everyone to skip the file.
+        if (_haveAgain && !_sentWasInReach)
+        {
+            _verdict = WalkedFarEnough(landed);
+            _phase = Phase.Lingering;
+            return null;
+        }
+
+        // A store sent somewhere else is judged against there. A store whose designation was merely
+        // cleared is still judged against the ring: clearing is not a recall, and the point of that
+        // run is that the aim it already had survives.
+        bool sent = _haveAgain;
+        double miss = sent ? Vec.Len(landed - _againAnchor)
+                           : _haveRing ? Vec.Len(landed - _ringAnchor) : double.PositiveInfinity;
+
+        string what = sent ? "where it was sent" : "the ring";
 
         _verdict = miss <= BarMetres
-                       ? $"PASS {miss:F0} m from the ring, inside {BarMetres:F0} m"
-                       : $"FAIL {(double.IsFinite(miss) ? $"{miss:F0} m" : "no ring")} from the ring, "
+                       ? $"PASS {miss:F0} m from {what}, inside {BarMetres:F0} m"
+                       : $"FAIL {(double.IsFinite(miss) ? $"{miss:F0} m" : "no aim")} from {what}, "
                          + $"past {BarMetres:F0} m";
 
         _phase = Phase.Lingering;
         return null;
+    }
+
+    // Whether a store sent somewhere it cannot reach still walked as far as the ring promised.
+    //
+    // That is the only claim the ring makes out here, and it is the one worth flying:
+    // TailKitReach.SettlingMargin is measured headlessly against a sphere with no terrain, and this
+    // is the single piece of evidence that it stays a floor in the real game. Under-delivering is
+    // the failure -- a ring that promises a walk the kit cannot fly is the one way this instrument
+    // is worse than having none. Over-delivering is the design.
+    private string WalkedFarEnough(double3 landed)
+    {
+        if (!_haveSentImpact) return "FAIL the unsteered landing at the send was not recorded";
+
+        double walked = Vec.Len(landed - _sentImpactAnchor);
+        double claimed = _sentReachMetres;
+
+        if (!(claimed > 0.0)) return "FAIL the ring claimed no reach to be judged against";
+
+        string how = $"walked {walked:F0} m of the {claimed:F0} m the ring claimed "
+                     + $"({walked / claimed:F2}x), {Vec.Len(landed - _againAnchor):F0} m short of "
+                     + "where it was sent";
+
+        return walked >= claimed
+                   ? $"PASS the reach held as a floor: {how}"
+                   : $"FAIL the ring over-promised: {how}";
     }
 
     // Engine lit, full throttle, and the nose held on the pitch programme. Every frame, because an

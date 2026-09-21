@@ -7,6 +7,12 @@
 #   ./tools/scenario.sh passing
 #   ./tools/scenario.sh drop             # a B61 off a climbing rocket, landing against the sight
 #   ./tools/scenario.sh drop:1500,30,dumb,8   # ...at 1500 m, 30 deg over, unguided, craft lost 8 s on
+#   ./tools/scenario.sh drop:6000,30,guided,,800     # ...then 800x timewarp once it is away
+#   ./tools/scenario.sh drop:6000,30,guided,,auto    # ...then KSA's own warp-to-a-time, which it
+#                                                    #    refuses a speed change during
+#   ./tools/scenario.sh drop:6000,30,guided,,,20@800    # ...sent 800 m north 20 s after the release
+#   ./tools/scenario.sh drop:6000,30,guided,,,20@9000   # ...sent somewhere it cannot reach
+#   ./tools/scenario.sh drop:6000,30,guided,,,20@clear  # ...designation dropped; it keeps its aim
 #   ./tools/scenario.sh gunnery          # a gun against drones crossing past it, every shell scored
 #   ./tools/scenario.sh gunnery:6,passing,40,300,4000   # ...6 drones, 12 km out at 300 m/s, 4 km off
 #   ./tools/scenario.sh gunnery:3,overhead,30,300,1500,20,burn   # ...tumbling at 20 deg/s, engine lit
@@ -155,7 +161,7 @@ case "${SCENARIO%%:*}" in
         SYSTEM="${KSARMORY_SCENARIO_SYSTEM:-SolLite}"
         ;;
     *)
-        echo "usage: $0 {head-on|overhead|passing|drop[:<m>[,<deg>[,guided|dumb[,<s>]]]]|gunnery[:<drones>[,passing|overhead|head-on|ground|craft[,<s>[,<m/s>[,<m>[,<deg/s spin>[,burn]]]]]]]|mirv[:<lat>,<lon>[,<km>][;<lat>,<lon>...]]}" \
+        echo "usage: $0 {head-on|overhead|passing|drop[:<m>[,<deg>[,guided|dumb[,<s>[,<warp>|auto[,<s>@<m>|<s>@clear]]]]]]|gunnery[:<drones>[,passing|overhead|head-on|ground|craft[,<s>[,<m/s>[,<m>[,<deg/s spin>[,burn]]]]]]]|mirv[:<lat>,<lon>[,<km>][;<lat>,<lon>...]]}" \
              "[--keep] [--shots] [--no-deploy]" >&2
         exit 2
         ;;
