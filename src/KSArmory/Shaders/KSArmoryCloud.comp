@@ -111,6 +111,13 @@ float Density(vec3 world, vec3 up, float radius)
     float d = min(cap, stem);
 
     float around = atan(p.y - capH, p.x - ringR);
+
+    // The coordinate turns about the ring, which is what rolls the cap the way a vortex does:
+    // inside rising, over the top, down the outside.
+    //
+    // Frequency is per CLOUD rather than per metre, so every yield carries the same number of
+    // billows -- about two dozen, which is where fBm starts reading as turbulence rather than as a
+    // dent. Worley was tried here and is NOT in: docs/NUCLEAR-EFFECT.md has what it did instead.
     float n = Fbm(world * (26.0 / max(radius, 1.0)) + vec3(0.0, around, pc.SizeStrength.z * 0.05));
     d -= (n - 0.35) * tubeR * 2.2;
 

@@ -688,3 +688,51 @@ checked at the top of the dial in flight.
 
 **None of this has been flown.** The arithmetic has tests; the drawing does not, and the particle
 route has never rendered on an airless body in this mod.
+
+
+---
+
+## The raymarched cloud, and what Worley did to it
+
+`Ksa/CloudPass.cs` evaluates the cloud per pixel instead of walking it with capsules:
+a torus SDF for the cap unioned with the stem, eroded by fBm, marched between a bounding sphere and
+the scene depth. It reaches KSA's frame through an ordinary Harmony prefix on
+`SunbloomRenderer.Render` — **no renderer was ported and no IL is rewritten**, which the plan for it
+assumed would be necessary. `docs/KSA-API-SURFACE.md` pins the signature, so a KSA change is a build
+error rather than an effect that stops drawing. It is **off by default** and the pen cloud is still
+what ships.
+
+### Three constants decide whether it is smoke or plastic
+
+Flown and photographed, one at a time:
+
+| | wrong | what it looked like |
+| --- | --- | --- |
+| noise frequency | 2.4 across the cloud | two noise cells over the whole shape: moulded plastic |
+| density ramp | over `0.6 · tube` | saturates at once, giving the cloud a **surface** |
+| erosion amplitude | `2.6 · tube` | deeper than the thing eroded, so cap and stem merge |
+
+The frequency is set **per cloud rather than per metre** so every yield carries the same number of
+billows; at 26 across the shape fBm starts reading as turbulence.
+
+### Worley is what KSA uses and it made this worse
+
+The trail renderer carries a 128³ Worley volume, which is where the pens get their cauliflower — so
+inverted Worley billows over three octaves looked like the obvious way to close the gap. Flown at
+two settings, both worse than the fBm it replaced: at 26 the billows were the size of the cap's own
+tube and cap and stem merged into one blob, and at 38 with the amplitude brought under the tube the
+whole thing went soft and lost what detail it had.
+
+**It is not in.** What that does not mean is that Worley is wrong here — it means a per-sample
+Worley evaluated over 27 cells at three octaves, at these amplitudes, is worse than plain fBm, and
+that closing the gap to the pens wants the *volume* KSA samples rather than a cellular field
+recomputed per march step. The likely shape of the answer is a 3D noise texture bound beside the
+depth sampler, which `ComputePipelineWrapper` takes and nothing here has built.
+
+### What is not built
+
+No atmospheric in-scatter — the pens get KSA's own, which is most of the remaining quality gap. No
+wind advection, where a trail segment drifts through a sheared field for 1200 s. **And no cost
+measurement at all**: a compute dispatch is asynchronous, so CPU timing around it measures nothing,
+and pricing it against the pen cloud's 6-8 ms a frame needs GPU timestamp queries that do not exist
+here yet. Until they do, nothing should be retired in its favour.
