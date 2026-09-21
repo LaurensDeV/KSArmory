@@ -38,6 +38,53 @@ public class ProjectileContractTests
         new() { Name = "test", DisplayName = "test", DragK = 0f, BoostSeconds = 0f, BoostAccel = 0f };
 
     /// <summary>
+    /// Sending a round somewhere else moves the aimpoint and the handle together.
+    ///
+    /// <para>The handle is what <c>WeaponSystem.SampleTarget</c> resolves a craft through, so a
+    /// round given a new aimpoint while its handle still names the old one keeps chasing the old
+    /// one — and a round given one while its handle reads null samples nothing at all, steers on
+    /// nothing, and flies its original path into the ground with no line anywhere saying it
+    /// declined. That silence is the whole reason this is one call rather than a property write,
+    /// and it is the same failure shape <see cref="Reanchor"/> exists to prevent.</para>
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(AllKinds))]
+    public void RetargetingMovesTheAimpointAndTheHandleTogether(Kind kind)
+    {
+        double3 platform = new(1.496e11, 0, 0);
+        IProjectile round = Make(kind, platform, SolarFrame, platform, SolarFrame);
+
+        object elsewhere = new();
+        Aimpoint sent = Aimpoint.OnVehicle(elsewhere, platform + new double3(0, 5000, 0),
+                                           SolarFrame, 3.0);
+
+        round.Retarget(sent);
+
+        Assert.Equal(sent, round.Aimpoint);
+        Assert.Same(elsewhere, round.TargetRef);
+    }
+
+    /// <summary>
+    /// And a round sent at a place on the ground carries no handle to a craft, so nothing later
+    /// resolves one. <see cref="AimpointKind.Ground"/> holds the body it sits on, which is what
+    /// <c>SampleTarget</c> re-reads it through every frame.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(AllKinds))]
+    public void RetargetingOntoGroundCarriesTheBodyRatherThanACraft(Kind kind)
+    {
+        double3 platform = new(1.496e11, 0, 0);
+        IProjectile round = Make(kind, platform, SolarFrame, platform, SolarFrame);
+
+        object body = new();
+        round.Retarget(Aimpoint.OnGround(body, new double3(1, 2, 3), platform, Vec.Zero));
+
+        Assert.Same(body, round.TargetRef);
+        Assert.Equal(AimpointKind.Ground, round.Aimpoint.Kind);
+        Assert.Equal(new double3(1, 2, 3), round.Aimpoint.Anchor);
+    }
+
+    /// <summary>
     /// The direction a round left along is recorded once and never touched by the simulation.
     ///
     /// <para>The body is drawn along it whenever there is no airflow to say otherwise, so if a

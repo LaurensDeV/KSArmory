@@ -39,6 +39,13 @@ internal static class BombSight
     /// <param name="ground">Where the surface is. Without one there is nothing to arrive at.</param>
     /// <param name="pathEcl">Filled with the trajectory in the carried frame, release first, impact last.</param>
     /// <param name="impactEcl">The ground it lands on, where that ground is at release.</param>
+    /// <param name="steerAtEcl">
+    /// A place to steer at, for a store whose kit steers its fall. Null flies the ballistic drop,
+    /// which is what a pipper wants. Given one, the flight is the round under its own guidance law
+    /// — which is what makes <see cref="TailKitReach"/> able to ask how far the kit can move a
+    /// landing by flying it there rather than by reasoning about it. It is a fixed point in the
+    /// carried frame, which is what a place on the ground <em>is</em> in this frame.
+    /// </param>
     public static bool TryPredict(double3 releaseEcl, double3 velocityOverGround, double3 groundVelocityEcl,
                                   double3 groundAccelerationEcl, double3 bodyVelocityEcl,
                                   Func<double3, double3> groundVelocityAt,
@@ -47,7 +54,8 @@ internal static class BombSight
                                   Func<double3, double> densityAt,
                                   IGroundTest? ground,
                                   double stepSeconds,
-                                  List<double3> pathEcl, out double3 impactEcl)
+                                  List<double3> pathEcl, out double3 impactEcl,
+                                  double3? steerAtEcl = null)
     {
         pathEcl.Clear();
         impactEcl = default;
@@ -77,12 +85,16 @@ internal static class BombSight
 
         pathEcl.Add(releaseEcl);
 
+        // Fixed for the whole flight: a place on the ground does not move in a frame carried with
+        // the ground.
+        TargetState? aim = steerAtEcl is { } steer ? new TargetState(steer, Vec.Zero, 0.0) : null;
+
         for (int i = 0; i < MaxSteps && shot.State == RoundState.Flying; i++)
         {
             carried.Seconds += stepSeconds;
 
             double3 at = shot.PositionEcl + frame.Drift(carried.Seconds);
-            shot.Update(stepSeconds, null, gravityAt(at) - groundAccelerationEcl, Vec.Zero,
+            shot.Update(stepSeconds, aim, gravityAt(at) - groundAccelerationEcl, Vec.Zero,
                         releaseEcl, munition, densityAt(at));
 
             pathEcl.Add(shot.PositionEcl);

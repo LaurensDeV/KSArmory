@@ -294,6 +294,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/Interceptor.cs` | guided round: proportional navigation, boost, fuse |
 | `Sim/Slug.cs` | unguided kinetic round: ballistics and a contact fuse |
 | `Sim/TailKit.cs` | steering a falling store onto a place on the ground — **the landing it predicts, moved onto the designation**, because a store thrown from a climb flies away from where it lands and a line-of-sight law turns the wrong way |
+| `Sim/TailKitReach.cs` | how far a store already falling can still walk its landing — **flown, not solved**, because a lateral push settles at the drift where fin authority and lateral drag balance rather than accumulating, so the share of `a·t²` a kit delivers runs 0.46 at a 21 s fall and 0.18 at 95 s and no constant fraction bounds it. **It reports rather than refusing**: a bomb is already falling, so unlike the bus there is no budget left to overspend |
+| `Sim/TailKitReach.cs` | how far a store already falling can still move its landing — **flown, because `½·a·t²` is not a bound**: a lateral push does not accumulate against drag, it settles where fin authority and lateral drag balance, so the share of `a·t²` delivered runs 0.46 at a 21 s fall and 0.18 at 95 s and a constant fitted at two kilometres promises three times the truth from twenty |
 | `Sim/BlastSweep.cs` | how near a burst a body was, and what that does to it — shared by the sweep over craft and the one over rounds |
 | `Sim/BlastDamage.cs` | which parts of a craft a burst breaks — **nothing here picks a part**: each is judged on its own distance and the strength the engine derived for it |
 | `Sim/TargetAllocation.cs` | what one craft's weapons have in the air **between them** — the unit that over-commits is the craft, not the weapon |
@@ -429,6 +431,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/TerrainHeights.cs` | one body's height field, sampled coarsely and many times per scan |
 | `Ksa/TerrainMapScan.cs` | that height field as a cached grid — **the cost lives here**, so it is paid on movement rather than per frame |
 | `Ksa/BombSightOverlay.cs` | the pipper: the impact ring and the arc down to it |
+| `Ksa/StoreReach.cs` | that region drawn, reported and logged — **one answer for all three**, because a ring and a log that disagree cost the player their belief in both; solved only while a store that steers its own fall is in the air, at half the pipper's rate, since it is three `BombSight` flights per solve against the pipper's one |
+| `Ksa/StoreReach.cs` | that region flown, drawn and read off the panel — **one answer for all three**, because a ring that disagrees with the line beside the trigger reads as the tool being broken. Three flights a solve, so only while a store that steers its own fall is actually in the air |
 | `Ksa/IcbmComputer.cs` | **one craft's ballistic computer** — reads the world, runs the program, flies the rocket |
 | `Ksa/IcbmComputers.cs` | one per craft carrying a part that provides `Guidance` — **the MIRV bus alone today**, so a Pantsir or a rail gets none — crewed and forgotten with it |
 | `Ksa/AttitudeHook.cs` | **one of the four places this mod patches the game** — the only window in which an attitude command survives |
@@ -1335,6 +1339,49 @@ height that was there at release, and read at the carried point it comes from 15
 ridges, holding the planet still put the ring 36.5 m from where a 5 km drop at 250 m/s strikes heading
 east and 16.4 m heading north, against the drop scenario's 30 m bar; the upwind height put it 26.7 and
 190.6 m off; and the sight as it is, 0.6 and 0.7 m (`BombSightSpinTests`).
+
+**A designation that arrives after release reaches the store, and it is pushed once rather than
+read live.** The aimpoint used to be bound in `Commit` and never re-read, so naming a place while a
+store was falling did nothing at all — no steering, and no line saying why. `WeaponSystem.Designate`
+now hands it to every round in the air whose munition `SteersItsFall`, through
+`IProjectile.Retarget`, which moves the aimpoint and the handle **together**: writing the aimpoint
+alone leaves `SampleTarget` resolving through a stale or null handle, which samples nothing and
+steers on nothing, silently. Pushed rather than pulled, because the round has to keep carrying its
+own aimpoint — that is what lets it outlive its launcher, where a loose system has no designation at
+all, and what stops `ClearDesignation` turning a store halfway down back into an unguided one.
+
+**It reports rather than refuses**, which is deliberately the opposite of `Fire`'s "refused rather
+than re-targeted". A missile is committed to something somebody chose; a tail kit has no seeker and
+nothing to be loyal to, it has nothing better to do than steer at whatever it is given, and it lands
+nearer for trying — flown, a place 6 km out from a 5 km release closes to 4.1 km. A refusal there is
+indistinguishable from the bug this fixes, so the shortfall is said in the log instead.
+
+**And the region it can still be walked into had to be flown, which is a finding rather than a
+preference.** `½·a·t²` is not a bound at any constant fraction: a lateral push does not accumulate
+against drag, it settles at the drift where fin authority and lateral drag balance, so displacement
+stops growing as the square. The share of `a·t²` the shipped kit delivers is **0.46 at a 21 s fall,
+0.27 at 54 s and 0.18 at 95 s**, so a constant fitted at two kilometres promises three times the
+truth from twenty. `Sim/TailKitReach.cs` flies the same `Slug` through the same `TailKit` law three
+times — once untouched for the landing, then at full authority along the ground track and across it
+— and takes the **narrower**, because the footprint is an ellipse and which axis is the short one
+swaps with release speed. The probe is aimed past what anything can reach only to saturate the law,
+and **not further**: at four times the kinematic ceiling a 20 km release was sent at a point 70 km
+away, which stretched the fall past `BombSight.MaxSteps` so the probe never landed and a store with
+a perfectly good landing reported no region at all.
+
+**A swept extreme is not a settleable one**, and the gap is measured. A kit sent near the edge is
+still pushing when the ground arrives, so it sweeps past the place it could have stopped on: across
+ten geometries the extreme ran up to **1.24x** what the store settled within 25 m of, all of the
+overshoot on the cross-track probe of a moving release. `SettlingMargin` is three quarters, and
+`TailKitReachTests` fails if a geometry ever comes in under it — in both directions, because a ring
+drawn at a fraction of what the kit can do sends an operator away from a shot that would have
+worked, which is the same failure with the sign flipped.
+
+**Its ceiling is the pipper's own horizon.** The probes are flown, so they are bounded by
+`BombSight.MaxSteps`, and a steered flight is longer than the ballistic one it is measured against —
+from 20 km at 300 m/s the fall is 95 s of a 102 s horizon and there is no room for the excursion. The
+region is then reported **unknown rather than absent**: reading a probe that never landed as a region
+of zero told a store with a perfectly good landing that it had nothing to move it with.
 
 **The gun's lead flies a copy of the engine's drag, and RocketWerkz are working on aerodynamics.**
 `Sim/DragShape.cs` is today's `PhysicsStates.ComputeDrag` — a body-fixed box over the mass, no lift,

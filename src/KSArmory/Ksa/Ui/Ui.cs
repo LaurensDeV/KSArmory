@@ -7,8 +7,13 @@ namespace KSArmory;
 /// The operator's panel: auto-engage, radar and guidance tuning, the track list with
 /// manual designation, and a rolling event log.
 /// </summary>
-internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHeads heads, IcbmComputers icbms, WarpPolicy warp, WatchCamera watch, CraftMover mover, BurstTool bursts)
+internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHeads heads, IcbmComputers icbms, WarpPolicy warp, WatchCamera watch, CraftMover mover, BurstTool bursts, Func<WeaponSystem, StoreReach> reachFor)
 {
+    // The overlay's own answer rather than a fresh one: solving here would be three flown
+    // trajectories per frame for a readout the ring is already showing, and a line that
+    // disagreed with the ring would be worse than no line.
+    private readonly Func<WeaponSystem, StoreReach> _reachFor = reachFor;
+
     private static readonly float4 Green = new(0.4f, 1.0f, 0.45f, 1f);
     private static readonly float4 Red = new(1.0f, 0.35f, 0.3f, 1f);
     private static readonly float4 Amber = new(1.0f, 0.78f, 0.25f, 1f);

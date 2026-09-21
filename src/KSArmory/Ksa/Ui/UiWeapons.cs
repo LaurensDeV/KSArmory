@@ -155,6 +155,7 @@ internal partial class Ui
 
         DrawHoldReason(speaking, autoEngage);
         DrawBeyondReach(speaking);
+        DrawStoreReach(speaking);
     }
 
     // Not a hold: the trigger still fires, and the shell is thrown as far as it goes. Said under the
@@ -167,6 +168,24 @@ internal partial class Ui
         double range = speaking.GunLayRangeMetres;
         ImGui.TextColored(Amber, $"Aim point beyond reach: {range / 1000.0:F1} km, the gun reaches "
                                  + $"{(range - shortBy) / 1000.0:F1} km -- shells land {shortBy / 1000.0:F1} km short");
+    }
+
+    // What a store already falling can still be walked onto, while one is in the air. Not a hold
+    // either: it is about a round that has gone, and it is here because the number it reports is
+    // the one that decides whether designating now is worth doing.
+    private void DrawStoreReach(WeaponSystem speaking)
+    {
+        if (StoreReach.FallingStore(speaking) is null) return;
+
+        TailKitReach reach = _reachFor(speaking).Latest;
+        if (!reach.Known) return;
+
+        ImGui.TextColored(Grey, $"Store in the air: {reach.SecondsToGo:F0} s to go, can still be "
+                                + $"walked {Distance.Say(reach.RadiusMetres)}");
+        Tip("How far the tail kit can still move where that store lands. It closes as the square "
+            + "of the time left, so designating early is worth far more than designating well. "
+            + "Shift-click the ground to send it somewhere -- the ring on the ground is the same "
+            + "number.");
     }
 
     private void DrawHoldReason(WeaponSystem speaking, bool autoEngage)

@@ -469,6 +469,16 @@ public sealed class MunitionProfile
     /// </summary>
     public bool Steers => Guidance != GuidanceMode.None;
 
+    /// <summary>
+    /// Whether this round steers the fall it is already on rather than flying a path of its own.
+    ///
+    /// <para>The tail-kit half of <see cref="Steers"/>, and what everything asking "can this store
+    /// still be sent somewhere else" tests — <see cref="Slug"/>, <see cref="TailKitReach"/> and the
+    /// retarget in <c>WeaponSystem.Designate</c>. Asked here rather than by comparing the mode in
+    /// three places, so a fifth mode declares which side it is on once.</para>
+    /// </summary>
+    public bool SteersItsFall => Guidance == GuidanceMode.Inertial;
+
     /// <summary>Blade travel at full demand, in radians.</summary>
     public double FinDeflectionRad => float.DegreesToRadians(FinDeflectionDeg);
 }

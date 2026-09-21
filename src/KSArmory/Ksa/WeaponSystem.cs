@@ -220,6 +220,39 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         Log.Info($"{Profile.DisplayName} tracking {what}"
                  + (wasOnCursor ? " (mouse aim and mouse fire off: it now follows this)" : ""));
+
+        SendStoresInTheAir(what);
+    }
+
+    // Pushed once, never read live: the round carries its own aimpoint, which is what lets it
+    // outlive its launcher and what stops ClearDesignation turning a bomb halfway down back into
+    // a dumb one. An operator looking somewhere else is not an operator recalling a weapon.
+    //
+    // Only a store still steering its own fall. A missile left on a target somebody chose, and
+    // swapping that under it is what Fire(Track) already declines to do; a tail kit has no seeker
+    // and nothing to be loyal to, which is the reason one is fitted.
+    //
+    // It reports rather than refusing. A place beyond what the kit can still walk to is taken
+    // anyway with the shortfall said out loud: landing nearer beats holding an aim the operator
+    // has just replaced, and a refusal here is indistinguishable from a designation doing nothing.
+    private void SendStoresInTheAir(string what)
+    {
+        // Nothing to send them at. Designating nothing is not how a store is recalled -- see
+        // ClearDesignation, which deliberately leaves one already steering alone.
+        if (Designation.Kind == AimpointKind.None) return;
+
+        foreach (IProjectile round in _rounds)
+        {
+            if (round.State != RoundState.Flying || !round.Munition.SteersItsFall) continue;
+
+            // Flown before the write, because the region is measured around where the store comes
+            // down untouched and the aimpoint it is about to carry says nothing about that.
+            TailKitReach reach = StoreReach.SolveNow(this, round);
+
+            round.Retarget(Designation);
+            Announce($"{RoundLabel.For(round.Tube)} now steering at {what} - "
+                     + reach.Describe(Designation.PositionEcl));
+        }
     }
 
     /// <summary>Hands it back to its own set.</summary>

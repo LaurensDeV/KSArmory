@@ -111,6 +111,22 @@ internal interface IProjectile
     /// </summary>
     Aimpoint Aimpoint { get; set; }
 
+    /// <summary>
+    /// Sends the round somewhere else, aimpoint and handle together.
+    ///
+    /// <para>Writing <see cref="Aimpoint"/> alone is not enough, and the gap is silent.
+    /// <c>WeaponSystem.SampleTarget</c> resolves a craft through <see cref="TargetRef"/>, so a
+    /// round given a <see cref="AimpointKind.Vehicle"/> aimpoint while its handle still reads null
+    /// samples nothing, steers on nothing, and flies its old fall into the ground with no line
+    /// anywhere saying it declined. Moved together here for the same reason
+    /// <see cref="Reanchor"/> moves every offset together.</para>
+    ///
+    /// <para>Whether a round <em>may</em> be sent somewhere else is the caller's question, not
+    /// this one's: <c>WeaponSystem.Designate</c> is where a store still steering its own fall is
+    /// told apart from a missile already committed to something.</para>
+    /// </summary>
+    void Retarget(Aimpoint aim);
+
     /// <summary>Whether it is still being steered. Always false for something unguided.</summary>
     bool HasLock { get; }
 

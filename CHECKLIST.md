@@ -1324,6 +1324,33 @@ What to record next time, in this order, because each answers a different half:
       unattended and says which of the sight, the release and the fall the miss belongs to.
 - [ ] The log line for the release, and the whole `KSArmory.log`.
 
+### 7.1f2 Designating after the store has gone
+
+**The main path is confirmed in game on 2026.9.10.5438** — a store retargeted mid-fall changes
+course and arrives, and both rings and the line under the trigger read correctly. What is still
+unflown is everything below the first four boxes: the refusals, the horizon and what it costs.
+
+- [x] With a store falling, shift-click the ground. `KSArmory.log` reads
+      `round 1 now steering at <place> - inside the kit's reach (... m to walk, ... m of authority
+      over ... s of fall)`, and the store visibly changes course.
+- [x] It arrives at the new place rather than the old one, with the
+      `detonated on the ground, N m from the aim point` line to say how far.
+- [ ] Shift-click **again**, somewhere else, while it is still falling. It goes to the second place:
+      nothing latches the first.
+- [x] The two rings are drawn on the ground — the landing, and the blue-white circle around it that
+      is how far it can still be walked. The circle **shrinks** as it falls, fast.
+- [ ] Late in the fall, click well outside the circle. The log says
+      `... beyond the kit's reach - it will steer at it and fall short`, the store steers anyway, and
+      it lands short rather than ignoring the click.
+- [x] The line under the trigger reads `Store in the air: N s to go, can still be walked ...`, and
+      agrees with the ring. The two are one answer, so a disagreement is a bug rather than a rounding.
+- [ ] Clearing the designation does **not** turn the falling store back into an unguided one.
+- [ ] A release above about 15 km draws no circle at all and says nothing false — the probes are
+      bounded by the pipper's own `BombSight.MaxSteps` horizon.
+- [ ] What it costs a frame. Three flown trajectories a solve, against the pipper's one, which was
+      measured at 5.41 ms of a 7.17 ms draw over eight rockets. Read `store reach` in the frame
+      budget while a store is down, and check it is only there while one is.
+
 ### 7.1e Drag, and what a round does once it leaves the air
 
 Never deliberately tested. A flight log reads:

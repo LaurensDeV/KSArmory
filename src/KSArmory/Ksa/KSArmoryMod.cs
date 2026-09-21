@@ -88,6 +88,20 @@ public sealed class KSArmoryMod
         return sight;
     }
 
+    // The other half of the sight: what a store already gone can still be walked onto. Kept and
+    // swept exactly as the pipper is, and under the same switch -- it answers the same operator's
+    // question about the same weapon, a moment later.
+    private readonly Dictionary<WeaponSystem, StoreReach> _storeReach = [];
+
+    private StoreReach ReachFor(WeaponSystem battery)
+    {
+        if (_storeReach.TryGetValue(battery, out StoreReach? reach)) return reach;
+
+        reach = new StoreReach();
+        _storeReach[battery] = reach;
+        return reach;
+    }
+
     // Every round in the world, as things a sensor can hold. Rebuilt each simulated step.
     private readonly List<IContact> _airborne = [];
 
@@ -168,7 +182,7 @@ public sealed class KSArmoryMod
         _gunSound = new GunSound(_config);
         _scenario = new ScenarioRunner(_config, _warp, SightFor);
         _scenario.Begin(ScenarioRunner.Requested());
-        _ui = new Ui(_config, _roster, _heads, _icbms, _warp, _watch, _mover, _bursts);
+        _ui = new Ui(_config, _roster, _heads, _icbms, _warp, _watch, _mover, _bursts, ReachFor);
         Log.Info($"ready - {string.Join(", ", Catalogue.Launchers.Select(l => l.DisplayName))}, safe. "
                  + "Open the 'KSArmory' panel to arm.");
 
@@ -435,6 +449,7 @@ public sealed class KSArmoryMod
                 if (e.Policy.DrawBombSight && !FlyingABallisticShot(e.Battery))
                 {
                     using (_budget.Measure("sight")) SightFor(e.Battery).Draw(e.Battery);
+                    using (_budget.Measure("store reach")) ReachFor(e.Battery).Draw(e.Battery);
                 }
             }
 
@@ -755,10 +770,12 @@ public sealed class KSArmoryMod
             if (e.Policy.DrawBombSight && !FlyingABallisticShot(e.Battery))
             {
                 SightFor(e.Battery).Update(e.Battery, _lastSimStep);
+                ReachFor(e.Battery).Update(e.Battery);
             }
             else
             {
                 SightFor(e.Battery).Clear();
+                ReachFor(e.Battery).Clear();
             }
         }
 
@@ -790,6 +807,12 @@ public sealed class KSArmoryMod
         {
             _sights.Clear();
             foreach (WeaponSystems.Entry e in _roster.All) SightFor(e.Battery);
+        }
+
+        if (_storeReach.Count > _roster.Count)
+        {
+            _storeReach.Clear();
+            foreach (WeaponSystems.Entry e in _roster.All) ReachFor(e.Battery);
         }
 
         // Every effect that holds a pooled emitter or a channel, so a craft destroyed mid-salvo
