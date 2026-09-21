@@ -3639,6 +3639,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // cannot set off a missile's explosion. Whatever the burst killed gets KSA's own on top.
         if (_config.DrawExplosions)
         {
+            ReportBurstPlacement(round, burst);
+
             // EffectBody as well as the nearest craft: a system whose launcher has been destroyed
             // has no platform to ask, and a store aimed at the ground has no target craft either.
             Detonation.Explode(DrawnBurstEcl(round, burst), round.Munition.ChargeKg,
@@ -3651,6 +3653,30 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                                 round.TargetRef as Vehicle ?? Platform,
                                 round.Munition.ChargeKg, EffectBody);
         }
+    }
+
+    // How far the burst is drawn from the place on the ground the round actually reached.
+    //
+    // Measurement only. The effects are anchored to the body, so what matters is the separation in
+    // the body's own frame -- which is what a player compares against the designation mark. Both
+    // terms are the same burst carried to the step's end two different ways: the effects by the
+    // PLATFORM's velocity, which is what puts them where the mesh is, and the reference by the
+    // GROUND's at the burst, which is what the chase camera and the drop scenario's scoring use.
+    // The two differ by the craft's motion over the ground, so the gap is a fraction of a frame of
+    // it: metres at 60 fps and kilometres once a store's own step lets frames grow.
+    private void ReportBurstPlacement(IProjectile round, double3 burst)
+    {
+        if (Log.Threshold > Log.Level.Debug || EffectBody is not { } body) return;
+
+        double3 drawn = DrawnBurstEcl(round, burst);
+        double3 onTheGround = burst - (KsaWorld.GroundVelocityAt(body, burst)
+                                       * round.DetonationElapsedInFrame);
+
+        if (!Vec.IsFinite(drawn) || !Vec.IsFinite(onTheGround)) return;
+
+        double gap = Vec.Len(drawn - onTheGround);
+        Log.Debug(() => $"  burst drawn {gap:F1} m from the ground it reached "
+                        + $"({round.DetonationElapsedInFrame:F3} s into the step)");
     }
 
     // Where the burst has to be put so it appears where the round was *drawn*, at the end of the step the
@@ -3867,12 +3893,19 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// exists, and stepping them by a huge delta would fly them through their targets. Tracking
     /// is cleared too so dwell restarts rather than granting an instant firing solution off
     /// time that was never simulated.</para>
+    ///
+    /// <para><b>Except a round the ground stops, which is kept.</b> "Flown through its target" is
+    /// the whole reason for dropping one, and a store falling at a place on the ground has no
+    /// target to be flown through — the ground is still under it, still reaps it, and a long step
+    /// costs it accuracy rather than correctness. Deleting it is not recoverable and lagging is,
+    /// so the balance goes the other way: a player who raises timewarp over a falling store has
+    /// asked for a coarser fall, not for the store to be taken away.</para>
     /// </summary>
     public void AbandonFlight(string why)
     {
         bool hadRounds = _rounds.Count > 0;
 
-        ClearRounds();
+        int kept = DropRoundsWithATargetToLose();
         _pendingKills.Clear();
         _pendingPartKills.Clear();
         Radar.Reset();
@@ -3880,12 +3913,38 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         _warnedDuplicateTube = false;
 
         // Hide the round bodies that were riding those interceptors, or they freeze mid-air.
-        for (int i = 0; i < _missileBodies.Count; i++) LauncherPart.HideMissile(_missileBodies[i]);
-        for (int i = 0; i < _finBodies.Count; i++) LauncherPart.HideMissile(_finBodies[i]);
-        HideShellBodies();
+        //
+        // Only when nothing was kept. This is every body on the launcher, not the dropped ones, so
+        // over a store that survived it hides the store -- which is the disappearance this was
+        // reported as. The per-frame pass already seats or hides a body whose tube has no round
+        // flying, so the ones just dropped are covered there.
+        if (kept == 0)
+        {
+            for (int i = 0; i < _missileBodies.Count; i++) LauncherPart.HideMissile(_missileBodies[i]);
+            for (int i = 0; i < _finBodies.Count; i++) LauncherPart.HideMissile(_finBodies[i]);
+            HideShellBodies();
+        }
 
-        if (hadRounds) Announce($"rounds abandoned: {why}");
+        if (hadRounds)
+        {
+            Announce(kept > 0
+                         ? $"rounds abandoned: {why} - {kept} still falling, kept and lagging"
+                         : $"rounds abandoned: {why}");
+        }
         else Log.Debug(() => $"tracking reset: {why}");
+    }
+
+    // Everything but the stores the ground will stop. Returns how many were kept, so the line says
+    // which of the two things happened -- "abandoned" over a store still on its way is the report
+    // that sent somebody looking for a despawn.
+    private int DropRoundsWithATargetToLose()
+    {
+        for (int i = _rounds.Count - 1; i >= 0; i--)
+        {
+            if (!_rounds[i].Munition.HitsTerrain) DropRound(i);
+        }
+
+        return _rounds.Count;
     }
 
     public void Reset()

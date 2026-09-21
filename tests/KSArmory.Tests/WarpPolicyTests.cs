@@ -21,6 +21,100 @@ public class WarpPolicyTests
         Assert.False(policy.Holding);
     }
 
+    /// <summary>
+    /// KSA's own warp-to-a-time is not something to be abandoned over.
+    ///
+    /// <para>The engine refuses a speed change outright while one runs, and from inside the policy
+    /// that refusal reads exactly like a write that has not landed yet — which is what
+    /// <see cref="WarpPolicy.FramesAwaitingWrite"/> counts before giving up and deleting everything
+    /// in the air. A warp-to-a-time is what a player uses while a store falls for minutes, so the
+    /// two coincide exactly when there is something to lose.</para>
+    /// </summary>
+    [Fact]
+    public void KsasOwnWarpIsNotAbandonedOver()
+    {
+        var policy = new WarpPolicy();
+
+        // Enough frames to exhaust the guard several times over.
+        for (int i = 0; i < WarpPolicy.FramesAwaitingWrite * 4; i++)
+        {
+            WarpDecision d = policy.Decide(StepAt(1000.0), 1000.0, roundsInFlight: true,
+                                           enabled: true, faithfulStep: Faithful,
+                                           autoWarpRunning: true);
+
+            Assert.False(d.Action == WarpAction.Abandon,
+                         $"frame {i}: abandoned during KSA's own warp -- {d.Why}");
+        }
+    }
+
+    /// <summary>
+    /// And the count does not resume where it left off once the warp ends, which would abandon on
+    /// the first frame afterwards.
+    /// </summary>
+    [Fact]
+    public void TheAbandonCountDoesNotSurviveKsasOwnWarp()
+    {
+        var policy = new WarpPolicy();
+
+        // Start a hold, so the policy is waiting for a write to land.
+        policy.Decide(StepAt(1000.0), 1000.0, roundsInFlight: true, enabled: true);
+
+        // Three frames of a refusal that is not KSA's warp, then the warp takes over.
+        for (int i = 0; i < WarpPolicy.FramesAwaitingWrite - 1; i++)
+        {
+            policy.Decide(StepAt(1000.0), 1000.0, roundsInFlight: true, enabled: true);
+        }
+
+        policy.Decide(StepAt(1000.0), 1000.0, roundsInFlight: true, enabled: true,
+                      faithfulStep: Faithful, autoWarpRunning: true);
+
+        WarpDecision after = policy.Decide(StepAt(1000.0), 1000.0, roundsInFlight: true, enabled: true);
+
+        Assert.NotEqual(WarpAction.Abandon, after.Action);
+    }
+
+    /// <summary>
+    /// The frame a speed change lands on is a hitch, and a frame rate is not inferred from it.
+    ///
+    /// <para>The tell is that the speed cancels out of the formula, so a hitch of a given length
+    /// produces the <em>same</em> answer whatever the warp was — which is what made two very
+    /// different jumps both land on 1.5x. Asserted that way here: two speeds an order of magnitude
+    /// apart must not agree, because agreeing is the signature of having measured the hitch.</para>
+    /// </summary>
+    [Fact]
+    public void AHitchIsNotAFrameRate()
+    {
+        // 3.2 s of wall clock, which is what the engine took to absorb the change.
+        const double Hitch = 3.2;
+
+        var slow = new WarpPolicy();
+        var fast = new WarpPolicy();
+
+        WarpDecision atHundred = slow.Decide(100.0 * Hitch, 100.0, roundsInFlight: true, enabled: true);
+        WarpDecision atEightHundred = fast.Decide(800.0 * Hitch, 800.0, roundsInFlight: true, enabled: true);
+
+        Assert.False(atHundred.Action == WarpAction.Slow && atEightHundred.Action == WarpAction.Slow
+                     && Math.Abs(atHundred.Speed - atEightHundred.Speed) < 0.01,
+                     $"both jumps answered {atHundred.Speed:F2}x, which is the hitch being measured "
+                     + "rather than the frame rate");
+    }
+
+    /// <summary>
+    /// And an ordinary frame at the same speed still gets held, so the guard above is about the
+    /// hitch rather than about high warp.
+    /// </summary>
+    [Fact]
+    public void AnOrdinaryFrameAtHighWarpIsStillHeld()
+    {
+        var policy = new WarpPolicy();
+
+        // 800x at 60 fps is a 13.3 s step, well past what an interceptor can integrate.
+        WarpDecision d = policy.Decide(StepAt(800.0), 800.0, roundsInFlight: true, enabled: true);
+
+        Assert.Equal(WarpAction.Slow, d.Action);
+        Assert.True(d.Speed < 800.0, $"it should ask for less than 800x, asked {d.Speed:F1}x");
+    }
+
     [Fact]
     public void WarpBelowTheLimitIsLeftAlone()
     {

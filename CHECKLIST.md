@@ -1343,17 +1343,58 @@ unflown is everything below the first four boxes: the refusals, the horizon and 
       nothing latches the first.
 - [x] The two rings are drawn on the ground — the landing, and the blue-white circle around it that
       is how far it can still be walked. The circle **shrinks** as it falls, fast.
-- [ ] Late in the fall, click well outside the circle. The log says
-      `... beyond the kit's reach - it will steer at it and fall short`, the store steers anyway, and
-      it lands short rather than ignoring the click.
+- [x] Click well outside the circle: `./tools/scenario.sh drop:6000,30,guided,,,20@9000`. **Flown
+      on 2026.9.10.5438** — warned before anything happened (`7.00 km beyond the kit's reach - it
+      will steer at it and fall short`), steered anyway, and landed short rather than ignoring the
+      click.
+
+      Scored on whether the ring told the truth rather than on arriving, because a target the kit
+      cannot reach can never pass a 30 m bar and a run that can only fail teaches everyone to skip
+      this file. `PASS the reach held as a floor: walked 2684 m of the 1985 m the ring claimed
+      (1.35x)`. **That is the only in-game evidence for `TailKitReach.SettlingMargin`**, which is
+      otherwise measured against a smooth sphere with no terrain — and it is the direction that
+      matters: a ring promising a walk the kit cannot fly is the one way the instrument is worse
+      than none. Reproduces at 2,705 m on earlier code, so the margin is not noise.
 - [x] The line under the trigger reads `Store in the air: N s to go, can still be walked ...`, and
       agrees with the ring. The two are one answer, so a disagreement is a bug rather than a rounding.
 - [ ] Clearing the designation does **not** turn the falling store back into an unguided one.
 - [ ] A release above about 15 km draws no circle at all and says nothing false — the probes are
       bounded by the pipper's own `BombSight.MaxSteps` horizon.
-- [ ] What it costs a frame. Three flown trajectories a solve, against the pipper's one, which was
-      measured at 5.41 ms of a 7.17 ms draw over eight rockets. Read `store reach` in the frame
-      budget while a store is down, and check it is only there while one is.
+- [x] **Warp, flown across the range on 2026.9.10.5438.** Identical releases every time — 6,001 m,
+      275 m/s, 48 deg above the horizon, ejected 4.0 m/s at 50 deg to the rack — so what differs is
+      the warp and nothing else.
+
+      | run | before the fixes | after |
+      | --- | --- | --- |
+      | `,,auto` | taken out of the world 1.9 s after release, at 8x | **0 m from the ring** |
+      | `,,100` | — | **0 m** |
+      | `,,400` | 2,776 m off (8 s allowance) | **0 m** (30 s) |
+      | `,,800` | still falling at the 180 s budget | **0 m** |
+
+      Three separate faults, and the range is what separated them: KSA refusing a speed change
+      during its own warp-to-a-time (deletion), the policy calibrating a frame *rate* off the 3.2 s
+      hitch a speed change costs (world stuck at 1x), and the integration clamp discarding whatever
+      part of a frame the store could not take (the misses). Only the first was the reported bug.
+
+- [x] **What it costs a frame**, read off `FrameBudget` under `KSARMORY_SCENARIO_VERBOSE=1` while a
+      store fell. The rings were **1.96 ms mean** of a 16.7 ms budget — and the flights were not the
+      problem: `store reach` (the draw) was 1.52 of it, re-draping 96 terrain lookups every frame
+      for a ring that does not move, against `reach solve` at 0.28. Draping once per solve and
+      spreading the three flights over three ticks: **0.33 ms mean, worst lump 7.7 → 2-4.5 ms.**
+      About 2% of a frame.
+
+- [ ] **By hand, raising warp through KSA's own control** rather than by a scripted jump. The
+      scenario sets a speed in one call, which is a harsher input than stepping through warp levels,
+      and the hitch it produces is what `MaxPlausibleFrameSeconds` exists for. Stepping up may never
+      produce one — untested either way.
+- [ ] And a store's **body** is still drawn if `AbandonFlight` ever does fire, not just its tracer.
+      That call hides every body on the launcher when nothing survives, which over a survivor would
+      hide the survivor. Unreachable from the scenarios now that nothing abandons.
+- [x] The burst effects sit where the store landed: **1.5 m at 400x, 31.6 m at 800x**, scaling with
+      how far into the frame the burst falls and bounded by the in-air clamp — so tens of metres,
+      inside a 490 m lethal radius. Measured by the `burst drawn ... from the ground it reached`
+      line, added because a cloud kilometres from the mark looked like an effects fault and was the
+      landing being wrong.
 
 ### 7.1e Drag, and what a round does once it leaves the air
 

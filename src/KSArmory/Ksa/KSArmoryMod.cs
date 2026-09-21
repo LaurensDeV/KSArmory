@@ -1168,7 +1168,8 @@ public sealed class KSArmoryMod
 
         WarpDecision d = _warp.Decide(dtSim, KsaWorld.SimulationSpeed,
                                       anyInFlight || anyBurning, _config.LimitWarpInFlight,
-                                      Math.Min(faithful, icbmFaithful));
+                                      Math.Min(faithful, icbmFaithful),
+                                      KsaWorld.IsAutoWarpActive);
 
         switch (d.Action)
         {

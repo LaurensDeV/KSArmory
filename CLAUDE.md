@@ -1356,6 +1356,58 @@ nothing to be loyal to, it has nothing better to do than steer at whatever it is
 nearer for trying — flown, a place 6 km out from a 5 km release closes to 4.1 km. A refusal there is
 indistinguishable from the bug this fixes, so the shortfall is said in the log instead.
 
+**A store with no proximity fuse must not hold the world to a proximity fuse's step.**
+`MaxFaithfulStepSeconds` and `PreferredStepSeconds` both default to `Interceptor.MaxFaithfulStep`,
+0.32 s, which bounds how far a round may move before it steps over its own `FuseRadius`. The B61's
+`FuseRadius` is **zero** — the ground stops it — so that number bounds nothing about it, and a
+release from altitude asked `WarpPolicy` to hold the world at about **19x for a fall lasting
+minutes**. Reported from play as a store released high and then simply gone.
+
+**But the step is what makes the policy engage; what deletes the store is KSA refusing to be
+slowed.** `Decide` returns early while `dtSim <= faithfulStep`, so a store that can take 8 s frames
+is simply left alone up to about 480x and there is nothing to refuse. Past that it asks — and the
+engine **rejects a speed change outright while its own warp-to-a-time runs**, which is exactly what
+a player does while waiting minutes for a store to land. From inside the policy that refusal is
+indistinguishable from a write that has not landed, so `FramesAwaitingWrite` counts to four and
+abandons everything in the air, which at warp is under a second. `Ksa/IcbmComputers.cs` already
+stands down for an auto-warp; the rounds path did not, and `WarpPolicyTests` now fails on frame 5
+without the guard.
+
+**The step it can take is what the fall is worth, not what it can survive.** Flown from 250 km at
+0.32, 1, 5, 8 and 20 s frames the store lands in the **same place to the metre** and arrives at the
+same age to a tenth of a second, because it sub-steps at its own 5 ms whatever the frame is and
+`MunitionProfile.MaxSubSteps` is derived so the two stay consistent. What grows is the sub-step
+count: 0.024 ms a frame at 0.32 s, 0.328 at 5 s and about 1.3 at 30, and only on a frame that long.
+`Slug.FaithfulStepSeconds` still clamps to `Medium.FaithfulStepInAir` the moment there is air, so a
+long coast and a fine entry come out of one weapon with nothing to configure
+(`StoreWarpStepTests`).
+
+**And it is sized to cover the frame rather than to be conservative, because what it bounds is a
+clamp that DISCARDS the rest.** A store given less than the frame flies less than the world does and
+lands wherever that leaves it — flown at 400x with eight seconds: the store's own clock stepping
+exactly 8 s at a time and a landing **2,776 m** from the ring, against **0 m** at thirty. The
+sub-stepping is what makes a long frame safe; this number is only about not throwing the rest of it
+away. Small is not the safe direction here, which is the opposite of nearly every other constant in
+this file.
+
+**And abandoning spares a round the ground stops** — the third guard, and the one that holds if the
+policy ever abandons for a reason nobody has thought of yet. "Stepping them by a huge delta would fly them
+through their targets" is the whole reason for dropping one, and a store falling at a place on the
+ground has no target to be flown through. Deleting it is not recoverable and lagging is, so
+`AbandonFlight` keeps what `HitsTerrain` and drops the rest — **and only hides the round bodies when
+nothing was kept**, because that call hides every body on the launcher rather than the dropped ones,
+which over a survivor hides the survivor and is the disappearance again by another route.
+
+**And the expensive half of a sight was never in the frame budget.** `sight` at 5.41 ms is
+`BombSightOverlay.Draw`; the `BombSight.MaxSteps` flight under it runs in `Update`, which nothing
+measured — so "what does the sight cost a frame" had no readable answer. Both solves are now
+`sight solve` and `reach solve` in `FrameBudget`. What they cost is **terrain lookups rather than
+arithmetic**: a reach solve at the pipper's 0.05 s step is 2,395 of them, and since the round
+sub-steps at 5 ms regardless, the outer step sets only how often the ground is sampled — 0.05 to
+0.40 moves the radius **under a metre** on answers of 634, 1,610 and 2,898 m while the lookups fall
+eightfold. `StoreReach` runs at 0.20 for that reason, and a trivial ground test is what hides the
+whole cost headlessly.
+
 **And the region it can still be walked into had to be flown, which is a finding rather than a
 preference.** `½·a·t²` is not a bound at any constant fraction: a lateral push does not accumulate
 against drag, it settles at the drift where fin authority and lateral drag balance, so displacement
