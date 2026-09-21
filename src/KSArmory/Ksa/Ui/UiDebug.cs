@@ -20,6 +20,10 @@ internal sealed partial class Ui
         {
             ImGui.Checkbox("Nuclear", ref _config.BurstNuclear);
 
+            ImGui.Checkbox("Show the aiming ring", ref _config.BurstMarker);
+            Tip("The orange ring under the cursor, at the lethal radius. It hides itself for the "
+                + "length of the flash after each burst; turn it off to be rid of it entirely.");
+
             if (_config.BurstNuclear)
             {
                 // The B61's own dial. Logarithmic because the interesting end is the bottom of it:

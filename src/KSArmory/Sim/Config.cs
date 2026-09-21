@@ -210,6 +210,17 @@ public sealed class Config
     public bool BurstTool;
 
     /// <summary>
+    /// Draw the ring showing where the next burst would go and how far it would kill.
+    ///
+    /// <para>On by default, because placing a burst blind is worse than the ring being in the way.
+    /// It is drawn at the <em>lethal</em> radius, which at the top of the yield dial is kilometres
+    /// across and sits over the cursor — exactly where the explosion then happens. It is suppressed
+    /// on its own for the length of the flash after each burst, so the thing the tool exists to
+    /// show is not hidden by the tool; this switch is for turning it off for good.</para>
+    /// </summary>
+    public bool BurstMarker = true;
+
+    /// <summary>
     /// Explosive charge for a hand-fired burst (kg). The same figure a round carries, so the tool
     /// shows what a warhead of that size actually looks like rather than an arbitrary size.
     /// </summary>
