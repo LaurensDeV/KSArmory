@@ -60,6 +60,10 @@
     <None Update="Textures\**\*.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <!-- GLSL, compiled by KSA at load from wherever the mod is installed. -->
+    <None Update="Shaders\**\*.comp">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <!-- Synthesised by tools/sounds.py, committed so a plain build needs no numpy. -->
     <None Update="Sounds\**\*.wav">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
