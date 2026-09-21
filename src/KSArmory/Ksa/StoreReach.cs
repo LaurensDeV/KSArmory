@@ -22,9 +22,13 @@ namespace KSArmory;
 /// </summary>
 internal sealed class StoreReach
 {
-    // The integration step, and BombSightOverlay's for the same reason: at terminal velocity a
-    // bomb crosses 55 m in a fifth of a second, so a coarser step quantises the answer to that.
-    private const double IntegrationStep = 0.05;
+    // Coarser than the pipper's 0.05, and it costs nothing measurable. The round sub-steps at 5 ms
+    // whatever this is, so the outer step sets how often the ground is sampled rather than how the
+    // fall is integrated: flown at 0.05, 0.10, 0.20 and 0.40 the radius moves under a metre on
+    // answers of 634, 1610 and 2898 m, while the terrain lookups fall 8x. The lookups are the half
+    // that costs in game -- 2395 of them per solve at 0.05 -- and a trivial ground test is what
+    // hides that headlessly.
+    private const double IntegrationStep = 0.20;
 
     // Half the pipper's rate. This is three flights rather than one, and unlike the pipper it is
     // not tracking a moving release point -- the landing of a store already gone is a place on the
@@ -48,6 +52,14 @@ internal sealed class StoreReach
     private readonly System.Diagnostics.Stopwatch _sinceSolve = System.Diagnostics.Stopwatch.StartNew();
     private bool _unsolvable;
 
+    // Which of the three flights this tick runs, and what the other two last found. Round-robin
+    // rather than all at once: they are independent, so one per tick is a third of the lump on
+    // any one frame and the whole answer is still refreshed every three ticks.
+    private int _stage;
+    private TailKitReach _building;
+    private double _along;
+    private double _across;
+
     // The landing as a place on the ground rather than as an ecliptic point or an offset from the
     // craft, and it has to be: it is a place on the ground. Held absolutely it is left behind by
     // ~29.8 km/s between solves, and held against the platform it is dragged along by an aircraft
@@ -55,6 +67,22 @@ internal sealed class StoreReach
     // shot by. TargetLock anchors a designation the same way.
     private object? _body;
     private double3 _anchor;
+
+    // The two rings as offsets from the landing, draped once per solve rather than per frame.
+    //
+    // Draping asks the terrain where every segment sits, and both rings together are 96 lookups.
+    // Paid every frame that was 1.52 ms of a 16.7 ms budget -- more than the three flown
+    // trajectories behind it, for a shape that does not move: a ring on the ground is a place on
+    // the ground, and the ground is where it was. Offsets rather than positions for the reason
+    // CollectDrapedCircleEcl gives: an absolute point carries the planet's motion and is left
+    // behind within one frame.
+    private readonly List<double3> _impactRing = [];
+    private readonly List<double3> _reachRing = [];
+
+    // Fewer on the inner one: it is the store's own lethal radius, a few hundred metres, and a
+    // circle that small is smooth long before the outer one is.
+    private const int ImpactSegments = 32;
+    private const int ReachSegments = 64;
 
     /// <summary>What the last solve found. <c>Unreadable</c> until one has landed.</summary>
     public TailKitReach Latest { get; private set; }
@@ -64,6 +92,14 @@ internal sealed class StoreReach
     {
         Latest = default;
         _body = null;
+        _impactRing.Clear();
+        _reachRing.Clear();
+
+        // The part-built answer goes with it, or the next store inherits this one's axes.
+        _building = default;
+        _along = 0.0;
+        _across = 0.0;
+        _stage = 0;
     }
 
     /// <summary>
@@ -89,7 +125,8 @@ internal sealed class StoreReach
         _sinceSolve.Restart();
 
         TailKitReach reach = Solve(battery, store, _ground, _path);
-        _unsolvable = !reach.Known;
+        _stage = (_stage + 1) % 3;
+        _unsolvable = reach.Hold == TailKitHold.NoLanding;
 
         // A failed solve leaves the last good answer standing, exactly as the pipper does. A ring
         // that blanks for a frame reads as broken, and the answer from half a second ago is still
@@ -97,7 +134,16 @@ internal sealed class StoreReach
         if (!reach.Known) return;
 
         Latest = reach;
-        if (!KsaWorld.TryAnchorToGround(reach.ImpactEcl, out _body, out _anchor)) Clear();
+
+        if (!KsaWorld.TryAnchorToGround(reach.ImpactEcl, out _body, out _anchor)) { Clear(); return; }
+
+        double3 up = Vec.Unit(-KsaWorld.GravityAt(battery.Platform!, reach.ImpactEcl));
+        if (Vec.Len2(up) < 0.5) { Clear(); return; }
+
+        KsaWorld.CollectDrapedCircleEcl(reach.ImpactEcl, up, Warhead.LethalRadius(battery.Munition.ChargeKg),
+                                        _impactRing, ImpactSegments);
+        KsaWorld.CollectDrapedCircleEcl(reach.ImpactEcl, up, reach.RadiusMetres,
+                                        _reachRing, ReachSegments);
     }
 
     /// <summary>The store this is about, or null.</summary>
@@ -118,14 +164,33 @@ internal sealed class StoreReach
     /// <see cref="SolveIntervalSeconds"/> old.
     ///
     /// <para>What <c>WeaponSystem.Designate</c> asks, because a click deserves an answer about the
-    /// world as it is at the click. Three trajectories on a keypress is nothing; three per frame is
-    /// what <see cref="Update"/> exists to avoid.</para>
+    /// world as it is at the click — and all three flights at once, where <see cref="Update"/>
+    /// spreads them. A 7 ms lump on the frame somebody pressed a button is nothing; the same lump
+    /// arriving unbidden every <see cref="SolveIntervalSeconds"/> is what that split avoids.</para>
     /// </summary>
     public static TailKitReach SolveNow(WeaponSystem battery, IProjectile round)
-        => Solve(battery, round, new CoarseGroundTest(GroundTest.Shared), []);
+    {
+        ArgumentNullException.ThrowIfNull(battery);
+        ArgumentNullException.ThrowIfNull(round);
 
-    private static TailKitReach Solve(WeaponSystem battery, IProjectile round,
-                                      CoarseGroundTest ground, List<double3> path)
+        if (battery.Platform is not { } platform) return default;
+
+        double3 at = round.PositionEcl;
+        double3 overGround = round.VelocityEcl - KsaWorld.GroundVelocityAt(platform, at);
+
+        return TailKitReach.Fly(at, overGround,
+                                KsaWorld.GroundVelocityAt(platform, at),
+                                KsaWorld.GroundAccelerationAt(platform, at),
+                                KsaWorld.BodyVelocityAt(platform),
+                                p => KsaWorld.GroundVelocityAt(platform, p),
+                                round.Munition,
+                                p => KsaWorld.GravityAt(platform, p),
+                                p => KsaWorld.MediumDensityRatioAt(platform, p),
+                                new CoarseGroundTest(GroundTest.Shared), IntegrationStep, []);
+    }
+
+    private TailKitReach Solve(WeaponSystem battery, IProjectile round,
+                               CoarseGroundTest ground, List<double3> path)
     {
         if (battery.Platform is not { } platform) return default;
 
@@ -137,15 +202,18 @@ internal sealed class StoreReach
 
         ground.Reset();
 
-        return TailKitReach.Fly(at, overGround,
-                                KsaWorld.GroundVelocityAt(platform, at),
-                                KsaWorld.GroundAccelerationAt(platform, at),
-                                KsaWorld.BodyVelocityAt(platform),
-                                p => KsaWorld.GroundVelocityAt(platform, p),
-                                round.Munition,
-                                p => KsaWorld.GravityAt(platform, p),
-                                p => KsaWorld.MediumDensityRatioAt(platform, p),
-                                ground, IntegrationStep, path);
+        _building = TailKitReach.FlyStage(_stage, _building, at, overGround,
+                                          KsaWorld.GroundVelocityAt(platform, at),
+                                          KsaWorld.GroundAccelerationAt(platform, at),
+                                          KsaWorld.BodyVelocityAt(platform),
+                                          p => KsaWorld.GroundVelocityAt(platform, p),
+                                          round.Munition,
+                                          p => KsaWorld.GravityAt(platform, p),
+                                          p => KsaWorld.MediumDensityRatioAt(platform, p),
+                                          ground, IntegrationStep, path,
+                                          ref _along, ref _across);
+
+        return _building;
     }
 
     /// <summary>
@@ -164,16 +232,19 @@ internal sealed class StoreReach
         if (!KsaWorld.TryGroundAnchorEcl(_body, _anchor, out double3 impactEcl, out _)) return;
         if (!KsaWorld.BeginDraw(platform, battery.PlatformEcl)) return;
 
-        double3 up = Vec.Unit(-KsaWorld.GravityAt(platform, impactEcl));
-        if (Vec.Len2(up) < 0.5) return;
+        // What the store reaches, so the inner ring means the same thing the pipper's does; and
+        // around it the region it can still be walked into, in its own colour, because one says
+        // where it is going and the other how much choice is left.
+        Ring(_impactRing, impactEcl, ImpactColour);
+        Ring(_reachRing, impactEcl, ReachColour);
+    }
 
-        // What the store reaches, so the inner ring means the same thing the pipper's does.
-        KsaWorld.DrawCircleEcl(impactEcl, up, Warhead.LethalRadius(battery.Munition.ChargeKg),
-                               ImpactColour);
-
-        // And the region it can still be walked into. Its own colour rather than the impact's:
-        // one says where it is going and the other says how much choice is left, and two meanings
-        // on one mark is worse than either.
-        KsaWorld.DrawCircleEcl(impactEcl, up, Latest.RadiusMetres, ReachColour);
+    // Put back against this frame's landing, which is the sample the offsets were measured from.
+    private static void Ring(List<double3> offsets, double3 centreEcl, float4 colour)
+    {
+        for (int i = 1; i < offsets.Count; i++)
+        {
+            KsaWorld.DrawLineEcl(centreEcl + offsets[i - 1], centreEcl + offsets[i], colour);
+        }
     }
 }

@@ -97,6 +97,125 @@ internal readonly record struct TailKitReach(
         => Known ? Math.Max(0.0, MissFrom(aimEcl) - RadiusMetres) : double.NaN;
 
     /// <summary>
+    /// One of the three flights, so a caller can spread them over as many frames.
+    ///
+    /// <para>They are independent — the probes need only the landing and the time to it, which the
+    /// ballistic flight hands over — so doing all three in one frame buys nothing and spends the
+    /// lot at once. Measured in flight, one solve is about 7 ms: amortised that is 0.33 ms a frame
+    /// and invisible, but as a single lump every <c>StoreReach.SolveIntervalSeconds</c> it lands on
+    /// top of whatever the game's own frame costs.</para>
+    /// </summary>
+    /// <param name="stage">0 for the landing, 1 along the ground track, 2 across it.</param>
+    /// <param name="carried">What the previous stages found, which stages 1 and 2 depart from.</param>
+    public static TailKitReach FlyStage(int stage, TailKitReach carried,
+                                        double3 roundPositionEcl, double3 velocityOverGround,
+                                        double3 groundVelocityEcl, double3 groundAccelerationEcl,
+                                        double3 bodyVelocityEcl,
+                                        Func<double3, double3> groundVelocityAt,
+                                        MunitionProfile munition,
+                                        Func<double3, double3> gravityAt,
+                                        Func<double3, double> densityAt,
+                                        IGroundTest? ground,
+                                        double stepSeconds,
+                                        List<double3> scratch,
+                                        ref double alongMetres, ref double acrossMetres)
+    {
+        ArgumentNullException.ThrowIfNull(munition);
+        ArgumentNullException.ThrowIfNull(gravityAt);
+
+        if (!munition.SteersItsFall)
+        {
+            alongMetres = 0.0;
+            acrossMetres = 0.0;
+            return new(TailKitHold.Unguided, 0.0, Vec.Zero, 0.0);
+        }
+
+        double3 impact = carried.ImpactEcl;
+        double seconds = carried.SecondsToGo;
+
+        if (stage == 0)
+        {
+            // The landing, and with it the clock the probes are sized from. A failure here is the
+            // whole answer gone rather than one axis of it.
+            if (!Drop(null, out impact, out seconds))
+            {
+                alongMetres = 0.0;
+                acrossMetres = 0.0;
+                return new(TailKitHold.NoLanding, 0.0, Vec.Zero, 0.0);
+            }
+        }
+        else if (!(seconds > 0.0))
+        {
+            // Nothing to depart from yet: stage 0 has not answered since the last reset.
+            return carried;
+        }
+
+        if (!Axes(impact, velocityOverGround, gravityAt, out double3 up, out double3 track))
+        {
+            return new(TailKitHold.Unreadable, 0.0, Vec.Zero, 0.0);
+        }
+
+        double ceiling = ProbeSaturation * 0.5 * munition.MaxLateralAccel * seconds * seconds;
+
+        if (stage == 1) alongMetres = Probe(track);
+        else if (stage == 2) acrossMetres = Probe(Vec.Unit(Vec.Cross(up, track)));
+
+        double radius = alongMetres > 0.0 && acrossMetres > 0.0
+                            ? SettlingMargin * Math.Min(alongMetres, acrossMetres)
+                            : 0.0;
+
+        // Known only once both axes have been flown at least once. Until then the landing is
+        // already worth having, but a region is not: the narrower axis is the whole point.
+        return radius > 0.0
+                   ? new(TailKitHold.Known, seconds, impact, radius)
+                   : new(TailKitHold.Unreadable, seconds, impact, 0.0);
+
+        double Probe(double3 direction)
+        {
+            if (ground is null
+                || !ground.TryGround(impact, out double3 centre, out double surfaceRadius))
+            {
+                return 0.0;
+            }
+
+            double3 out2 = (impact - centre) + (direction * ceiling);
+            double3 at = centre + (Vec.Unit(out2) * surfaceRadius);
+
+            return Drop(at, out double3 moved, out _) ? Vec.Len(moved - impact) : 0.0;
+        }
+
+        bool Drop(double3? steerAt, out double3 impactEcl, out double fallSeconds)
+        {
+            (ground as CoarseGroundTest)?.Reset();
+
+            bool landed = BombSight.TryPredict(roundPositionEcl, velocityOverGround, groundVelocityEcl,
+                                               groundAccelerationEcl, bodyVelocityEcl, groundVelocityAt,
+                                               munition, gravityAt, densityAt, ground, stepSeconds,
+                                               scratch, out impactEcl, steerAt);
+
+            fallSeconds = Math.Max(0, scratch.Count - 1) * stepSeconds;
+            return landed;
+        }
+    }
+
+    // Up at the landing, and the ground track the probes are measured along and across. A store
+    // released with no horizontal motion has no track, and any horizontal direction is then as good
+    // as any other.
+    private static bool Axes(double3 impact, double3 velocityOverGround,
+                             Func<double3, double3> gravityAt, out double3 up, out double3 track)
+    {
+        up = Vec.Unit(-gravityAt(impact));
+        track = Vec.Zero;
+
+        if (Vec.Len2(up) < 0.5) return false;
+
+        track = Vec.Unit(Vec.RejectFrom(velocityOverGround, up));
+        if (Vec.Len2(track) < 0.5) track = Vec.AnyPerpendicular(up);
+
+        return true;
+    }
+
+    /// <summary>
     /// Flies the store to the ground three times: once untouched, and once at full authority along
     /// each of the ground track and across it.
     ///
@@ -184,6 +303,11 @@ internal readonly record struct TailKitReach(
 
         bool Drop(double3? steerAt, out double3 impactEcl, out double fallSeconds)
         {
+            // Per flight, not per solve. The cache exists to skip lookups down one trajectory, and
+            // these three deliberately end up in different places -- so the second and third would
+            // otherwise start against a surface sampled along the first.
+            (ground as CoarseGroundTest)?.Reset();
+
             bool landed = BombSight.TryPredict(roundPositionEcl, velocityOverGround, groundVelocityEcl,
                                                groundAccelerationEcl, bodyVelocityEcl, groundVelocityAt,
                                                munition, gravityAt, densityAt, ground, stepSeconds,

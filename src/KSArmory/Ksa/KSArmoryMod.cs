@@ -769,8 +769,12 @@ public sealed class KSArmoryMod
             // steps and two aircraft can sensibly disagree about wanting one.
             if (e.Policy.DrawBombSight && !FlyingABallisticShot(e.Battery))
             {
-                SightFor(e.Battery).Update(e.Battery, _lastSimStep);
-                ReachFor(e.Battery).Update(e.Battery);
+                // Measured, and the draw beside it is the other half. What each of these costs is
+                // the trajectory flying rather than the lines: the pipper's 5.41 ms in CLAUDE.md
+                // is its Draw, and the solve under it has never been in the budget at all -- so
+                // "what does the sight cost a frame" had no readable answer before this.
+                using (_budget.Measure("sight solve")) SightFor(e.Battery).Update(e.Battery, _lastSimStep);
+                using (_budget.Measure("reach solve")) ReachFor(e.Battery).Update(e.Battery);
             }
             else
             {
