@@ -91,8 +91,15 @@ internal static class PlumeSmoke
     /// <paramref name="expandedRadius"/> what it swells to, which is how one moving point becomes a
     /// billowing column rather than a wire.</para>
     /// </summary>
+    /// <param name="density">
+    /// How thick this segment is, against <see cref="StockDensity"/>. A booster's plume is 1 and so
+    /// was every segment this mod laid until it was noticed that the renderer takes the number at
+    /// all — <c>docs/NUCLEAR-EFFECT.md</c> said it had no density field. Below 1 a segment
+    /// transmits rather than scattering, which is the only way to make a bundle of overlapping pens
+    /// read as dust instead of as a solid.
+    /// </param>
     public static void Lay(Strand strand, Celestial body, double3 positionCcf,
-                           float initialRadius, float expandedRadius)
+                           float initialRadius, float expandedRadius, float density = StockDensity)
     {
 
         if (Resolve() is not { } renderer) return;
@@ -102,7 +109,7 @@ internal static class PlumeSmoke
         {
             renderer.SubmitEmitter(strand.State, body, positionCcf,
                                    initialRadius, expandedRadius, _colour,
-                                   StockDensity, StockLifetimeSeconds, isActive: true);
+                                   density, StockLifetimeSeconds, isActive: true);
         }
         catch (Exception e)
         {

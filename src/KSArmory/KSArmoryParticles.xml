@@ -345,4 +345,32 @@
         </ColorStops>
     </ParticleEmitter>
 
+    <!--
+      The burst a nuclear charge goes off as. Core's Explosion_Conflagration with its SmokeVolume
+      left out, and nothing else changed.
+
+      That volume is the reason a mushroom cloud stood over a bright pale-blue lump: it is sized for
+      a conventional blast, it is drawn at the burst point, and its own ColorStops end on 0.6/0.6/0.65
+      - so it sits under a 1.3 km column of dirty smoke looking like a different weather system.
+      Tinting and thinning this mod's own pens could never reach it, because it is not this mod's.
+
+      Everything a nuclear burst does want is kept: the flash, the fireball volume, the shockwave and
+      the bang. What replaces the smoke is Sim/MushroomCloud.cs, which is drawing the same air at a
+      thousand times the size.
+
+      The debris emitters go with it. They throw metal, which is right for a vehicle coming apart and
+      wrong for a device going off over ground; Ksa/BurstEjecta.cs throws what a surface burst throws,
+      on the bodies where it can be seen.
+    -->
+    <Explosion Id="KSArmoryNuclearBurst">
+        <Flash PeakIntensity="5000" Range="200" DecaySeconds="0.2" LifeSeconds="0.55" ColorMidAt="0.3">
+            <ColorStart R="1" G="0.97" B="0.9"/>
+            <ColorMid R="1" G="0.72" B="0.28"/>
+            <ColorEnd R="1" G="0.25" B="0.05"/>
+        </Flash>
+        <SoundEvent SoundId="ExplosionBig"/>
+        <VolumeRef Id="FireballVolume" Delay="0" Intensity="1.2" FallbackEmitterId="FireballVolumetric"/>
+        <VolumeRef Id="ShockWaveVolume" Delay="0" Intensity="1.0" FallbackEmitterId="ShockWave"/>
+    </Explosion>
+
 </Assets>

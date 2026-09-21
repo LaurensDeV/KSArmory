@@ -384,9 +384,24 @@ internal static class NuclearClouds
                                    + (cloud.North * (Math.Sin(turn) * lobed)),
                                    shape.CapCentre + shape.CapRadius);
 
-            PlumeSmoke.Lay(cloud.Surge[i], cloud.Body, at, (float)(tube * 0.5), (float)tube);
+            // Thin, because the skirt's pens deliberately overlap and 18 solid capsules in one
+            // collar scatter like thick cumulus: flown, it came back a bright white pancake under a
+            // dirty brown column, which is backwards -- the skirt is the part actually made of
+            // soil. Density is what fixes it; colour was already right and could not.
+            PlumeSmoke.Lay(cloud.Surge[i], cloud.Body, at, (float)(tube * 0.5), (float)tube,
+                           (float)(SkirtDensity * PenVariation(i)));
         }
     }
+
+    // How thick the skirt is against the rest of the cloud. Its pens overlap by design, so at the
+    // stock density the collar is optically several capsules deep where the stem is one.
+    private const double SkirtDensity = 0.45;
+
+    // A little thickness variation between neighbouring pens, so a ring of them is not one even
+    // wall. Off the golden ratio rather than a random: a cloud is re-laid every frame and a pen
+    // that flickered between densities would boil.
+    private static double PenVariation(int index)
+        => 0.82 + (0.36 * ((index * 0.6180339887) % 1.0));
 
     // Every point the cloud is drawn at, sheared downwind by how high it is. Applied here rather
     // than inside the stroke functions so the shape stays a shape and the wind stays a wind: the
@@ -413,7 +428,8 @@ internal static class NuclearClouds
             // only rewrites the one it currently holds open -- so fading this would look like it
             // worked and do nothing. The cloud goes out through the renderer's own segment
             // lifetime.
-            PlumeSmoke.Lay(pens[i], cloud.Body, at, (float)laid, (float)expanded);
+            PlumeSmoke.Lay(pens[i], cloud.Body, at, (float)laid, (float)expanded,
+                           (float)PenVariation(i));
         }
     }
 }
