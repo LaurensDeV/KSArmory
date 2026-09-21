@@ -264,7 +264,13 @@ internal sealed class DropScenario
             if (_lingered < fraction * MushroomCloud.RiseSeconds) return;
 
             _captured++;
-            _report($"CAPTURE cloud at {fraction:F2} of the rise "
+
+            // The game's own framebuffer rather than the desktop: tools/screenshot.sh needs the
+            // window in front and an unattended run on a machine somebody is using never has it.
+            // This also comes back without the panel over the cloud.
+            bool shot = KsaWorld.TryRequestScreenshot();
+
+            _report($"{(shot ? "SHOT" : "CAPTURE")} cloud at {fraction:F2} of the rise "
                     + $"({fraction * MushroomCloud.RiseSeconds:F1} s), "
                     + $"top {MushroomCloud.DrawnCloudTop(MushroomCloud.KilotonsFor(round.Munition.ChargeKg)) / 1000.0:F2} km");
         }

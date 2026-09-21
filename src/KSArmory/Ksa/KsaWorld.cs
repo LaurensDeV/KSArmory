@@ -1103,6 +1103,64 @@ internal static class KsaWorld
         }
     }
 
+    private static ScreenshotCapture? _shots;
+    private static bool _lookedForShots;
+    private static bool _warnedAboutShots;
+
+    /// <summary>
+    /// Asks the game to save a screenshot of its own framebuffer.
+    ///
+    /// <para>The alternative is <c>tools/screenshot.sh</c>, which grabs the whole primary display
+    /// and so refuses unless the game is in front — which it is not, during an unattended run on a
+    /// machine somebody is using. This needs no focus, cannot photograph somebody's desktop, and
+    /// writes a clean frame: <c>ui</c> and <c>hud</c> are opt-in, so the default is the scene with
+    /// no panel over it, which is what anybody judging an effect wants.</para>
+    ///
+    /// <para>Files land in <c>Documents/exports/screenshots/ksa_&lt;stamp&gt;_&lt;w&gt;x&lt;h&gt;.png</c>.</para>
+    ///
+    /// <para><b>One private field is the whole obstacle</b>, the same shape as
+    /// <see cref="PlumeSmoke"/>: <c>ScreenshotCapture.Request</c> is public and
+    /// <c>Program._screenshotCapture</c> is not exposed. The game's own <c>screenshot</c> terminal
+    /// command reaches it the same way. Reflected once, and a KSA rename turns this off rather than
+    /// breaking anything — nothing but a picture is lost.</para>
+    /// </summary>
+    public static bool TryRequestScreenshot(int scale = 1, string flags = "")
+    {
+        try
+        {
+            if (!_lookedForShots)
+            {
+                _lookedForShots = true;
+                _shots = typeof(Program)
+                         .GetField("_screenshotCapture", BindingFlags.NonPublic | BindingFlags.Instance)
+                         ?.GetValue(Program.Instance) as ScreenshotCapture;
+
+                if (_shots is null && !_warnedAboutShots)
+                {
+                    _warnedAboutShots = true;
+                    Log.Warn("screenshots: Program._screenshotCapture did not resolve; "
+                             + "scripted captures will write nothing");
+                }
+            }
+
+            if (_shots is null) return false;
+
+            // A capture already running is dropped by the engine with its own warning, so asking
+            // again while one is in flight costs nothing and loses only that frame.
+            _shots.Request(scale, flags);
+            return true;
+        }
+        catch (Exception e)
+        {
+            if (!_warnedAboutShots)
+            {
+                _warnedAboutShots = true;
+                Log.Warn($"screenshots: could not ask for one: {e.Message}");
+            }
+            return false;
+        }
+    }
+
     /// <summary>
     /// How far a point is above the ground under it, rather than above the mean sphere.
     ///
