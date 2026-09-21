@@ -224,10 +224,47 @@ internal sealed class DropScenario
 
             case Phase.Lingering:
                 _lingered += playerStep;
+                CaptureCloud();
                 return _lingered >= LingerSeconds ? _verdict : null;
         }
 
         return null;
+    }
+
+    // Fractions of the rise to photograph the cloud at. They are the rows of the tracking table in
+    // docs/NUCLEAR-EFFECT.md, so a shot can be held against the measured shape rather than judged
+    // on its own -- which is the whole difficulty with a cloud: every version of it looks like a
+    // cloud, and only the shape at a stated age says which one is right.
+    private static readonly double[] CloudCaptureFractions = [0.10, 0.30, 0.60, 1.00];
+
+    private int _captured;
+
+    /// <summary>
+    /// Cues a screenshot at each of those ages, for a burst that grew a cloud.
+    ///
+    /// <para>The harness can score where a store landed and cannot say whether the cloud over it
+    /// looks like one. Until this, the only cue was at release, so an unattended run photographed
+    /// a bomb leaving a rack and nothing of the thing that takes 38 s to develop.</para>
+    ///
+    /// <para><see cref="_lingered"/> is wall clock and the cloud is on simulated time, which agree
+    /// only at 1x. The linger runs at 1x, so these land where they say; a scenario that warped
+    /// through it would photograph the wrong ages and is not one anybody flies.</para>
+    /// </summary>
+    private void CaptureCloud()
+    {
+        if (_round is not { } round) return;
+        if (round.Munition.ChargeKg < MushroomCloud.ThresholdKg) return;
+
+        while (_captured < CloudCaptureFractions.Length)
+        {
+            double fraction = CloudCaptureFractions[_captured];
+            if (_lingered < fraction * MushroomCloud.RiseSeconds) return;
+
+            _captured++;
+            _report($"CAPTURE cloud at {fraction:F2} of the rise "
+                    + $"({fraction * MushroomCloud.RiseSeconds:F1} s), "
+                    + $"top {MushroomCloud.DrawnCloudTop(MushroomCloud.KilotonsFor(round.Munition.ChargeKg)) / 1000.0:F2} km");
+        }
     }
 
     private string? Wait(WeaponSystems roster)
