@@ -86,6 +86,11 @@
     <Reference Include="$(KsaDllDir)Brutal.ImGui.Abstractions.dll" Private="false" />
     <!-- KeyHash, which keeps the KSA namespace but is defined in this assembly. -->
     <Reference Include="$(KsaDllDir)Planet.Render.Core.dll" Private="false" />
+
+    <!-- The compute pass in Ksa/CloudPass.cs records into KSA's own command buffer. -->
+    <Reference Include="$(KsaDllDir)Brutal.Vulkan.dll" Private="false" />
+    <Reference Include="$(KsaDllDir)Brutal.Vulkan.Abstractions.dll" Private="false" />
+    <Reference Include="$(KsaDllDir)Brutal.ShaderC.dll" Private="false" />
     <!--
       JobScheduler, for KsaWorld.WaitForVehicleSolvers. Destroying a vehicle removes it from the
       list KSA's solver jobs are enumerating on worker threads, and no mod hook lands in the window

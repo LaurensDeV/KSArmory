@@ -1,0 +1,40 @@
+#version 450
+
+// Spike: proves the injection, the depth read and the push constants reach a mod's own compute
+// shader. It tints distant pixels; the raymarch replaces the body and nothing around it.
+//
+// Dispatched from a Harmony prefix on SunbloomRenderer.Render, which is the one point in KSA's
+// frame where the scene colour is already in a STORAGE layout and the depth is already SAMPLED -
+// the engine's own barriers, set up for its volumetric particles - and it is before bloom and
+// before the tonemap, so anything written here blooms and is tonemapped like the rest of the scene.
+//
+// Bindings follow ComputePipelineWrapper's own order: set 1 binding 0 is the first storage target,
+// binding 1 the first depth sampler. Same layout Core's Volumetric.comp uses.
+
+layout (local_size_x = 8, local_size_y = 8) in;
+
+layout (set = 1, binding = 0, Rgba16f) uniform image2D sceneColor;
+layout (set = 1, binding = 1) uniform sampler2D sceneDepth;
+
+layout (push_constant) uniform PushConstants
+{
+    // xy: the target in pixels. z: reversed-Z depth under which a pixel counts as far away.
+    // w: how hard to tint it, and zero is the pass doing nothing.
+    vec4 SizeFarTint;
+} pc;
+
+void main()
+{
+    ivec2 at = ivec2(gl_GlobalInvocationID.xy);
+    if (at.x >= int(pc.SizeFarTint.x) || at.y >= int(pc.SizeFarTint.y)) return;
+
+    vec2 uv = (vec2(at) + 0.5) / pc.SizeFarTint.xy;
+
+    // Reversed Z: 1 is the near plane and 0 is the far one, so FAR is a SMALL number here. Getting
+    // this the wrong way round tints the cockpit instead of the horizon, which is the whole reason
+    // the spike tints on depth rather than on nothing.
+    if (texture(sceneDepth, uv).r > pc.SizeFarTint.z) return;
+
+    vec4 c = imageLoad(sceneColor, at);
+    imageStore(sceneColor, at, vec4(c.r + pc.SizeFarTint.w, c.g, c.b, c.a));
+}

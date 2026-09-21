@@ -60,6 +60,14 @@ internal sealed partial class Ui
 
         // Straight overhead, for when the pointer is not the question -- it needs no aim and no
         // ground under it, so it still answers "does the effect work at all".
+        ImGui.SliderFloat("Shader pass", ref _config.ShaderPass, 0f, 1f, "%.2f");
+        Tip("The mod's own compute pass, dispatched inside KSA's frame before bloom. At zero it "
+            + "does not dispatch. Above it, the spike tints the far field, which is how the route "
+            + "is checked: "
+            + (CloudPassHook.Installed
+                   ? (CloudPass.Available ? "hooked, and the pipeline built." : "hooked; the pipeline has not built yet.")
+                   : "NOT hooked -- KSA moved SunbloomRenderer.Render."));
+
         if (ImGui.Button("Burst overhead")) FireTestBurst();
         Tip("Sets off the tool's charge 100 m over the system shown.");
 

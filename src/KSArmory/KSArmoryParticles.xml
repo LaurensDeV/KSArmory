@@ -373,4 +373,11 @@
         <VolumeRef Id="ShockWaveVolume" Delay="0" Intensity="1.0" FallbackEmitterId="ShockWave"/>
     </Explosion>
 
+    <!--
+      The mod's own compute shader, declared exactly as Core declares its own: KSA compiles a
+      Shader asset from any mod's folder, so nothing has to be ported to get one onto the GPU.
+      Ksa/CloudPass.cs dispatches it.
+    -->
+    <Shader Id="KSArmoryCloudCompute" Path="Shaders/KSArmoryCloud.comp" />
+
 </Assets>

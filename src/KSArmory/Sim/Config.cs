@@ -221,6 +221,15 @@ public sealed class Config
     public bool BurstMarker = true;
 
     /// <summary>
+    /// Run this mod's own shader pass inside KSA's frame, as a fraction of full strength.
+    ///
+    /// <para>Zero is the pass not dispatching at all, which is the default: it is the one thing the
+    /// mod does inside the renderer, and a spike that tints the far field is not something anybody
+    /// wants on while they fly. Turning it up is how the route is checked without a rebuild.</para>
+    /// </summary>
+    public float ShaderPass;
+
+    /// <summary>
     /// Explosive charge for a hand-fired burst (kg). The same figure a round carries, so the tool
     /// shows what a warhead of that size actually looks like rather than an arbitrary size.
     /// </summary>

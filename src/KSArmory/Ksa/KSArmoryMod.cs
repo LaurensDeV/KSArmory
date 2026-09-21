@@ -165,6 +165,7 @@ public sealed class KSArmoryMod
         // hook runs the step; this is what puts a hidden-UI frame's step before the render rather
         // than after it. Degrades to the frame postfix, so a refusal costs a frame and nothing.
         PreRenderHook.Install(StepOnce);
+        CloudPassHook.Install(() => _config.ShaderPass);
 
         // The only way to see a save load: StarMap has no hook for one, and the mod never leaves
         // the flight scene across it. A refusal costs one reload's worth of stale rounds.

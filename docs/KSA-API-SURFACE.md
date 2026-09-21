@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-185 types and 542 members across 7 assemblies.
+205 types and 560 members across 9 assemblies.
 
 ## Brutal.Concurrency
 
@@ -17,6 +17,14 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `void Wait()`
 
 ## Brutal.Core.Common
+
+### Brutal.ByteSize
+
+*referenced as a type only*
+
+### Brutal.ByteSize32
+
+- `Brutal.ByteSize32 op_Explicit(int)`
 
 ### Brutal.Pointers.Ptr
 
@@ -338,6 +346,62 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `void AppendFormatted(string, int, string)`
 - `void AppendFormatted<1>(!!0, int, string)`
 - `void AppendLiteral(System.ReadOnlySpan`1<char>)`
+
+## Brutal.ShaderC
+
+### Brutal.ShaderCApi.CompileOptions
+
+*referenced as a type only*
+
+## Brutal.Vulkan
+
+### Brutal.VulkanApi.CommandBuffer
+
+*referenced as a type only*
+
+### Brutal.VulkanApi.VkBuffer
+
+*referenced as a type only*
+
+### Brutal.VulkanApi.VkDescriptorSet
+
+*referenced as a type only*
+
+### Brutal.VulkanApi.VkDescriptorSetLayout
+
+*referenced as a type only*
+
+### Brutal.VulkanApi.VkDeviceExtensions
+
+- `void Dispatch<1>(!!0, int, int, int)`
+
+### Brutal.VulkanApi.VkExtent2D
+
+- `int Height`
+- `int Width`
+
+### Brutal.VulkanApi.VkImageView
+
+*referenced as a type only*
+
+### Brutal.VulkanApi.VkPushConstantRange
+
+- `Brutal.ByteSize32 Offset`
+- `Brutal.ByteSize32 Size`
+- `Brutal.VulkanApi.VkShaderStageFlags StageFlags`
+- `void .ctor()`
+
+### Brutal.VulkanApi.VkSampler
+
+*referenced as a type only*
+
+### Brutal.VulkanApi.VkShaderStageFlags
+
+*referenced as a type only*
+
+### Brutal.VulkanApi.VkSpecializationInfo
+
+*referenced as a type only*
 
 ## KSA
 
@@ -670,6 +734,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.float2 get_Position()`
 - `KSA.Camera GetCamera()`
 - `KSA.CameraMode get_Mode()`
+- `KSA.Rendering.RenderTarget get_OffscreenTarget()`
 - `KSA.ViewportType get_Type()`
 - `bool get_Visible()`
 - `int get_Height()`
@@ -872,6 +937,9 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.Program
 
+- `Brutal.VulkanApi.VkSampler get_LinearClampedSampler()`
+- `Brutal.VulkanApi.VkSampler get_PointClampedSampler()`
+- `Core.Renderer GetRenderer()`
 - `KSA.Camera GetMainCamera()`
 - `KSA.Camera GetRenderCamera()`
 - `KSA.GizmosRenderer GizmosRenderer`
@@ -896,6 +964,15 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `Brutal.Numerics.double3 Direction`
 - `Brutal.Numerics.double3 Origin`
+
+### KSA.Rendering.ComputePipelineWrapper
+
+- `void .ctor(System.Span`1<KSA.Rendering.IRenderImage>, System.Span`1<KSA.Rendering.IRenderImage>, System.Span`1<KSA.Rendering.IRenderImage>, System.Span`1<KSA.Rendering.IRenderImage>, KSA.ShaderReference, System.Span`1<Brutal.VulkanApi.VkDescriptorSetLayout>, System.Span`1<Brutal.VulkanApi.VkPushConstantRange>, int, Core.Renderer, string, Brutal.VulkanApi.VkSampler, Brutal.VulkanApi.VkSampler, Brutal.VulkanApi.VkShaderStageFlags, System.Span`1<Brutal.VulkanApi.VkImageView>, System.Span`1<Brutal.VulkanApi.VkBuffer>, System.Nullable`1<Brutal.VulkanApi.VkSpecializationInfo>, System.Span`1<KSA.Rendering.IRenderImage>, System.Span`1<KSA.Rendering.IRenderImage>, System.Span`1<Brutal.VulkanApi.VkBuffer>, System.Span`1<KSA.Rendering.IRenderImage>, Brutal.VulkanApi.VkSampler, System.Span`1<Brutal.VulkanApi.VkBuffer>, System.Span`1<Brutal.ByteSize>, System.Nullable`1<Brutal.ShaderCApi.CompileOptions>)`
+- `void BindPipeline<1>(Brutal.VulkanApi.CommandBuffer, int, System.Span`1<Brutal.VulkanApi.VkDescriptorSet>, System.Span`1<Brutal.ByteSize32>, !!0)`
+
+### KSA.Rendering.IRenderImage
+
+*referenced as a type only*
 
 ### KSA.Rendering.Lighting.ELightFlags
 
@@ -946,6 +1023,16 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 *referenced as a type only*
 
+### KSA.Rendering.RenderImage
+
+*referenced as a type only*
+
+### KSA.Rendering.RenderTarget
+
+- `Brutal.VulkanApi.VkExtent2D get_Extent()`
+- `KSA.Rendering.RenderImage get_ColorImage()`
+- `KSA.Rendering.RenderImage get_DepthImage()`
+
 ### KSA.Rendering.Water.Data.OceanReference
 
 - `KSA.DensityReference Density`
@@ -972,6 +1059,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.SerializedId
 
 - `string get_Id()`
+
+### KSA.ShaderReference
+
+*referenced as a type only*
 
 ### KSA.ShapesUnlock
 
@@ -1012,6 +1103,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `double MaxGLoad`
 - `double PeakGLoad`
 - `double get_GLoadFraction()`
+
+### KSA.SunbloomRenderer
+
+- `void Render(Brutal.VulkanApi.CommandBuffer, KSA.IViewport, int)`
 
 ### KSA.TextureReference
 
