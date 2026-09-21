@@ -5,7 +5,7 @@
 # Bypass with `git push --no-verify` -- which is the right move when you are pushing a branch
 # precisely to see what CI says about it.
 #
-# The drive sweep is not included: it is ~43 s against the rest of the set's ~7 s, and the defect
+# The drive sweep is not included: it is ~43 s on top of the set's ~45 s, and the defect
 # it finds is only reachable by changing the model or the drive limits. tools/model/build.sh is
 # where that one belongs.
 set -uo pipefail

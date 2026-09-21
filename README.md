@@ -498,7 +498,7 @@ Both run `tools/check-commit-msg.sh`, so they cannot disagree about what is lega
 ### Before opening a PR
 
 ```bash
-./tools/check-all.sh          # everything CI runs, about 8 seconds
+./tools/check-all.sh          # everything CI runs, about 45 seconds
 ```
 
 One script, and CI calls the same one, so they cannot disagree about what "the checks" are.

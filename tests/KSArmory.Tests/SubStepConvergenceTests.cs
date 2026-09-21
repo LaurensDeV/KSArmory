@@ -19,6 +19,9 @@ namespace KSArmory.Tests;
 /// landing is the part of the walk the sub-step is responsible for, and it is a <em>bias</em>
 /// rather than a scatter — which is what the walk's mean is.</para>
 /// </remarks>
+// A study: it measures a term of the flight model and writes the finding out for a reader.
+// Nothing here asserts a behaviour, so it gates no push -- tools/test.sh --studies, and CI.
+[Trait("kind", "study")]
 public class SubStepConvergenceTests(ITestOutputHelper Out)
 {
     private const double Mu = 3.986004418e14;

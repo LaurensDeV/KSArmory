@@ -215,11 +215,13 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
 
 ```bash
 ./tools/doctor.sh                          # can this machine build, test and run it? -- start here
-./tools/check-all.sh                       # everything CI runs (~8 s); also the pre-push hook
+./tools/check-all.sh                       # everything CI runs (~45 s); also the pre-push hook
 ./tools/build.sh                           # build the mod (handles the SDK PATH)
 ./tools/test.sh                            # guidance + fuse tests; needs the assemblies, not the game
+./tools/test.sh --studies                  # ...the instruments instead -- what a push does not wait for
 ./tools/validate-parts.py                  # part XML, launch geometry, registered PartIds; runs in deploy.sh
 ./tools/pack-api.py --check                # has the API weapon packs bind to moved?
+./tools/check-studies.py --check           # has a test been taken out of the push loop?
 ./tools/model/build.sh                     # rebuild the generated atlas and its palette (needs Blender)
 ./tools/model/checkswept.py                # does any assembly pass through another in its travel?
 ./tools/model/checkring.py --check         # is a thruster ring steering on more than its axial pair?
@@ -535,6 +537,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/validate-parts.py` | checks asset Ids, texture paths, and launch geometry vs the mesh |
 | `tools/spacedock-changelog.py` | a release's notes cut to what SpaceDock accepts — **10,000 characters**, which one after a long run on `dev` overruns six times over |
 | `tools/pack-api.py` | records the API a weapon pack binds to, and fails when it moves — **the mirror of `api-surface.sh`**, because a pack lives in somebody else's repository and never builds here |
+| `tools/check-studies.py` | which tests are tagged out of the push loop, as a committed record — **it cannot tell a mis-tag from a real one**, and does not try: it puts the change in the author's own diff, where a human can still ask |
 | `tools/repair-saves.py` | realigns saves written before a part lost a subpart |
 | `tools/make-scaling-save.py` | a save carrying N copies of one rocket, for pricing how the vehicle solver scales |
 | `tools/model/` | the headless Blender generators, and the checkers over what they export — which need neither Blender nor the game |
@@ -2799,6 +2802,37 @@ should not be weakened without understanding what they buy:
 - `OffsetPhaseTests` varies the step the way a simulation-speed change does. A constant `dt`
   cannot distinguish the right phase from the wrong one, so a suite built on one passes against
   both.
+
+**Ten of them are instruments rather than guards, and `./tools/test.sh` leaves them out.** A study
+measures a term of the flight model — the staircase the engine's float-packed terrain leaves, what
+the sub-step does to the walk's scatter, where the arrival floor sits — and writes the finding out
+for a reader. Its only assertions are that the flight completed, so it catches no regression while
+costing 28 s of a 60 s suite. `[Trait("kind", "study")]` is what marks one, `--studies` runs them,
+`--all` runs both, and CI has a step of its own so nothing goes unrun before a merge. Same trade
+`check-all.sh` makes for the drive sweep.
+
+**Marking one is a claim that nothing in it asserts a behaviour, and the claim is worth checking.**
+`ProbeCrossingFloorTests` reads like a study, sweeping slopes and printing a table, and is not: it
+bounds the scatter quantitatively and guards a shipped flag
+(`IcbmConfig.PredictionStopsOnTheSurface`) at `Mean(on) < Mean(off) * 0.35`. It stays in the push
+loop, and it costs nothing to keep — `DeorbitTests` is the suite's wall-clock floor either way.
+`WalkFloorTests` is split down the middle for the same reason: `TwoSeedsAgree` is what says the
+three studies under it are trustworthy, so the thing that validates the instruments runs on every
+push even though the instruments do not.
+
+**The tag is a label, and nothing can verify it is honest** — which is the one gap in this
+arrangement, so it is worth knowing rather than being surprised by. Tagging a test removes it from
+every local push, silently: the suite goes green with one fewer test in it and no count anywhere
+disagrees. No checker can close it, because a study's `Assert.True(ArrivalFrame.TryAt(...))` and a
+guard's `Assert.True(Mean(on) < Mean(off) * 0.35)` are the same call, and what separates them is
+what the number means.
+
+So `tools/check-studies.py` does not judge the tag — it makes the set **visible**. The record in
+`tests/KSArmory.Tests/STUDIES.md` is committed and checked, so adding a trait puts a line in the
+author's own diff, which is where "is this really a study?" can still be asked cheaply. It catches
+a swap as well as a count, which is the whole reason it pins names rather than a number. The
+failure is bounded at the far end too: `ci.yml` runs the studies in a step of its own, so a
+mis-tagged guard is found before a merge rather than never — what is lost is *when*.
 
 ## Not done
 

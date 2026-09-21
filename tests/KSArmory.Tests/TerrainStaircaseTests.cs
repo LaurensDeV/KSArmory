@@ -25,6 +25,9 @@ namespace KSArmory.Tests;
 /// term of that size, by flying the round and the prediction to one ground with the packing on and
 /// then off.</para>
 /// </remarks>
+// A study: it measures a term of the flight model and writes the finding out for a reader.
+// Nothing here asserts a behaviour, so it gates no push -- tools/test.sh --studies, and CI.
+[Trait("kind", "study")]
 public class TerrainStaircaseTests(ITestOutputHelper Out)
 {
     private const double Mu = 3.986004418e14;
