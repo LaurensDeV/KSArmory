@@ -293,7 +293,18 @@ public static class ChaseView
     /// fireball by a margin that grows with it, and never so close that a small one fills the view.
     /// </summary>
     public static double StopShortMetres(double chargeKg)
-        => Math.Max(MinStopShortMetres, StopShortFireballs * Warhead.FireballRadius(chargeKg));
+    {
+        double shortOf = Math.Max(MinStopShortMetres, StopShortFireballs * Warhead.FireballRadius(chargeKg));
+
+        // A charge that grows a cloud is watched from far enough to SEE the cloud, which is a
+        // different and much larger number than clearing its fireball. Six fireball radii is 328 m
+        // at 0.3 kt, and what stands there is 1.31 km tall -- so the camera ends up under it looking
+        // up, and inside the 497 m this same charge is lethal to. Standing off the cloud's own
+        // height puts it across the frame and outside what made it.
+        return chargeKg >= MushroomCloud.ThresholdKg
+                   ? Math.Max(shortOf, MushroomCloud.DrawnCloudTop(MushroomCloud.KilotonsFor(chargeKg)))
+                   : shortOf;
+    }
 
     /// <summary>
     /// How long the view is held on a burst afterwards: as long as there is something still

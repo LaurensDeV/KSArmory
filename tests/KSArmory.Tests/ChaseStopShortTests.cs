@@ -11,13 +11,18 @@ public class ChaseStopShortTests
         Assert.Equal(60.0, ChaseView.StopShortMetres(0.16), 1e-9);
     }
 
+    /// <summary>
+    /// Clear of its fireball, and for a nuclear charge clear of its cloud as well. The B61 at its
+    /// lowest yield is both: six fireball radii is about 1.05 km and the cloud that stands there is
+    /// 1.31 km tall, so the cloud is what sets the distance and the fireball rule is still met.
+    /// </summary>
     [Fact]
     public void ABigWarheadIsWatchedFromClearOfItsFireball()
     {
         double bomb = ChaseView.StopShortMetres(300_000.0);
 
         Assert.True(bomb >= 6.0 * Warhead.FireballRadius(300_000.0) - 1e-6);
-        Assert.InRange(bomb, 1000.0, 1100.0);
+        Assert.Equal(MushroomCloud.DrawnCloudTop(0.3), bomb, 6);
     }
 
     [Fact]
@@ -75,6 +80,37 @@ public class ChaseStopShortTests
 
         Assert.Equal(ChaseView.MinLingerSeconds, InAir(under));
         Assert.True(InAir(MushroomCloud.ThresholdKg) > ChaseView.MinLingerSeconds);
+    }
+
+    /// <summary>
+    /// A charge that grows a cloud is watched from far enough to see the cloud, which is the thing
+    /// it made. Six fireball radii clears the fireball and leaves the camera under a cloud four
+    /// times taller than its own distance — and inside the radius that same charge is lethal to.
+    /// </summary>
+    [Theory]
+    [InlineData(0.3)]
+    [InlineData(20.0)]
+    [InlineData(340.0)]
+    public void ANuclearBurstIsWatchedFromFarEnoughToSeeItsCloud(double kt)
+    {
+        double chargeKg = kt * 1.0e6;
+        double stand = ChaseView.StopShortMetres(chargeKg);
+
+        // The whole cloud is in front of the camera rather than over it.
+        Assert.True(stand >= MushroomCloud.DrawnCloudTop(kt));
+
+        // And the camera is not standing where the warhead would kill it.
+        Assert.True(stand > Warhead.LethalRadius(chargeKg));
+    }
+
+    /// <summary>A conventional round is unaffected: its stand-off is still the fireball's.</summary>
+    [Fact]
+    public void AConventionalBurstKeepsItsOwnStandOff()
+    {
+        double justUnder = MushroomCloud.ThresholdKg - 1.0;
+
+        Assert.Equal(Math.Max(60.0, 6.0 * Warhead.FireballRadius(justUnder)),
+                     ChaseView.StopShortMetres(justUnder), 6);
     }
 
     /// <summary>

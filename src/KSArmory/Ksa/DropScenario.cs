@@ -191,9 +191,10 @@ internal sealed class DropScenario
         _watchTheCloud = watchTheCloud;
     }
 
-    // Whether this run exists to be looked at rather than scored. It keeps the chase off, because
-    // the chase stops a few metres short of the burst and holds there -- which is the right shot of
-    // an arrival and the wrong one of a cloud a kilometre tall.
+    // Whether this run exists to be looked at rather than scored. It keeps the cloud drawn; the
+    // chase stays ON, because the chase is the only thing that holds the view on the burst. Turned
+    // off, the view follows the LAUNCHING CRAFT, which is climbing away at 300 m/s and is 7 km up
+    // by 0.6 of the rise -- flown, with the cloud out of frame in every capture.
     private readonly bool _watchTheCloud;
 
     /// <summary>Which phase it is in, for a timeout to name.</summary>
@@ -314,7 +315,7 @@ internal sealed class DropScenario
             return $"FAIL a guided drop was asked for, and the {_battery.Munition.DisplayName} does not steer";
         }
 
-        found.Policy.ChaseRounds = !_watchTheCloud;
+        found.Policy.ChaseRounds = true;
         found.Policy.DrawBombSight = true;
 
         _report($"flying {_craftName}"
