@@ -183,12 +183,18 @@ internal sealed class DropScenario
     private string _verdict = string.Empty;
 
     public DropScenario(Request request, Action<string> report,
-                        Func<WeaponSystem, BombSightOverlay> sightFor)
+                        Func<WeaponSystem, BombSightOverlay> sightFor, bool watchTheCloud = false)
     {
         _request = request;
         _report = report;
         _sightFor = sightFor;
+        _watchTheCloud = watchTheCloud;
     }
+
+    // Whether this run exists to be looked at rather than scored. It keeps the chase off, because
+    // the chase stops a few metres short of the burst and holds there -- which is the right shot of
+    // an arrival and the wrong one of a cloud a kilometre tall.
+    private readonly bool _watchTheCloud;
 
     /// <summary>Which phase it is in, for a timeout to name.</summary>
     public string Where => _phase.ToString();
@@ -239,17 +245,13 @@ internal sealed class DropScenario
 
     private int _captured;
 
-    /// <summary>
-    /// Cues a screenshot at each of those ages, for a burst that grew a cloud.
-    ///
-    /// <para>The harness can score where a store landed and cannot say whether the cloud over it
-    /// looks like one. Until this, the only cue was at release, so an unattended run photographed
-    /// a bomb leaving a rack and nothing of the thing that takes 38 s to develop.</para>
-    ///
-    /// <para><see cref="_lingered"/> is wall clock and the cloud is on simulated time, which agree
-    /// only at 1x. The linger runs at 1x, so these land where they say; a scenario that warped
-    /// through it would photograph the wrong ages and is not one anybody flies.</para>
-    /// </summary>
+    // Cues a screenshot at each of those ages, for a burst that grew a cloud. The harness scores
+    // where a store landed and cannot say whether the cloud over it looks like one, which is the
+    // only question left about the cloud.
+    //
+    // _lingered is wall clock and the cloud is on simulated time, which agree only at 1x. The
+    // linger runs at 1x, so these land where they say; a scenario warping through it would
+    // photograph the wrong ages, and is not one anybody flies.
     private void CaptureCloud()
     {
         if (_round is not { } round) return;
@@ -312,7 +314,7 @@ internal sealed class DropScenario
             return $"FAIL a guided drop was asked for, and the {_battery.Munition.DisplayName} does not steer";
         }
 
-        found.Policy.ChaseRounds = true;
+        found.Policy.ChaseRounds = !_watchTheCloud;
         found.Policy.DrawBombSight = true;
 
         _report($"flying {_craftName}"

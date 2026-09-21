@@ -76,6 +76,7 @@ internal sealed class ScenarioRunner
     // A chase ridden through a list of world speeds, one stretch each. For a camera fault that shows
     // at some speeds and not others, which nobody can flip between by hand while a shell is flying.
     private bool _chase;
+    private bool _showClouds;
     private double[] _speeds = [];
 
     // Where a gunnery run sets its mount down first, for shooting somewhere no save is.
@@ -386,6 +387,11 @@ internal sealed class ScenarioRunner
 
         _chase = Array.IndexOf(options, "chase") >= 0;
 
+        // "clouds": this run is being photographed, so the decoration below stays on and the chase
+        // stays off. Both halves are needed together -- a cloud nobody disabled is still invisible
+        // from a camera riding three metres behind the bomb that made it.
+        _showClouds = Array.IndexOf(options, "clouds") >= 0;
+
         // "speeds=0.05,0.1,1": held a stretch each once the first round is up. One that does not read
         // as a positive speed is dropped and said, rather than failing a run that can still fly the rest.
         foreach (string option in options)
@@ -481,7 +487,7 @@ internal sealed class ScenarioRunner
             return;
         }
 
-        _drop = new DropScenario(drop, line => Report($"{_name}: {line}"), _sightFor);
+        _drop = new DropScenario(drop, line => Report($"{_name}: {line}"), _sightFor, _showClouds);
         _budget = DropBudgetSeconds;
         _phase = Phase.LoadingSave;
         Report($"{_name}: START {drop.Describe()} save='{_save}'");
@@ -548,7 +554,10 @@ internal sealed class ScenarioRunner
         // a burst DOES -- the sweep, the damage and the flash are elsewhere -- and like the staging
         // above it is set here rather than anywhere an arm can reach, so it cannot differ between
         // arms.
-        _config.NuclearClouds = false;
+        //
+        // Kept when the run is being photographed: turning the cloud off and then screenshotting it
+        // photographs an empty sky, which is a convincing-looking file that says nothing.
+        _config.NuclearClouds = _showClouds;
 
         // A scripted world lives for eight minutes with nobody looking at it, so a spent stage
         // arcing back down is pure frame time -- and frame time is the only thing that buys
