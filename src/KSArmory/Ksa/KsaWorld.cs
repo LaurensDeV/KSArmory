@@ -1104,6 +1104,36 @@ internal static class KsaWorld
     }
 
     /// <summary>
+    /// How far a point is above the ground under it, rather than above the mean sphere.
+    ///
+    /// <para>The two differ by the terrain, which on the Moon is kilometres — so a burst sitting on
+    /// lunar highland reads as a high airburst against the mean sphere and a surface burst against
+    /// the ground it is actually touching. Anything <em>deciding</em> something from a height has to
+    /// ask this; the mean sphere is only good enough for a line in a log.</para>
+    ///
+    /// <para>Accurate, because it is asked once per burst and wants the surface where it actually
+    /// is. A height field that will not answer falls back to the mean sphere, which is the old
+    /// answer rather than a wrong new one.</para>
+    /// </summary>
+    public static double HeightAboveTerrain(Celestial body, double3 positionEcl)
+    {
+        try
+        {
+            double3 cce = positionEcl - body.GetPositionEcl();
+            double radius = Vec.Len(cce);
+            if (!(radius > 0.0)) return 0.0;
+
+            return new TerrainHeights(body, accurate: true).TryHeight(cce / radius, out double height)
+                       ? radius - (body.MeanRadius + height)
+                       : radius - body.MeanRadius;
+        }
+        catch
+        {
+            return 0.0;
+        }
+    }
+
+    /// <summary>
     /// The bodies of the current system, by the Id <see cref="TryPlaceOnSurface"/> matches on.
     ///
     /// <para>For putting a craft somewhere the cursor cannot reach. <c>CraftMover</c> resolves its

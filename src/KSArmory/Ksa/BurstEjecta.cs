@@ -69,31 +69,48 @@ internal static class BurstEjecta
                 });
             }
 
-            if (!AirlessBurst.ThrowsEjecta(chargeKg, burstAltitudeMetres)) return;
+            // Said whatever happens, including when nothing is thrown. Reporting only the case
+            // that drew something is what made a burst drawing half its effect look like a burst
+            // the mod had never seen: the shell fired, the dust did not, and the log was silent.
+            string ejecta = $"no ejecta: a {fireball:F0} m fireball does not reach the ground";
 
-            double gravity = GravityAt(body, burstCcf);
-            AirlessBurst.Ejecta thrown = AirlessBurst.EjectaAt(chargeKg, gravity);
-            if (thrown.Spent) return;
-
-            Fire(EjectaId, body, origin, e =>
+            if (AirlessBurst.ThrowsEjecta(chargeKg, burstAltitudeMetres))
             {
-                // Started inside the crater rather than across the fireball: the dome is drawn by
-                // where the dust GOES, and spawning it already spread out gives a ring instead.
-                e.EmitterSpawnInfo.Radius = (float)(fireball * 0.40);
-                Speed(ref e.ParticleInfo, thrown.SpeedMetresPerSecond);
+                double gravity = GravityAt(body, burstCcf);
+                AirlessBurst.Ejecta thrown = AirlessBurst.EjectaAt(chargeKg, gravity);
 
-                // Long enough for the arc to land. Cut short, the dust vanishes at the top of its
-                // climb, which reads as it being deleted rather than falling.
-                e.ParticleInfo.Lifespan = new float2((float)(thrown.FlightSeconds * 0.7),
-                                                     (float)thrown.FlightSeconds);
-                e.ParticleInfo.Size = new float2((float)(thrown.ReachMetres * 0.06),
-                                                 (float)(thrown.ReachMetres * 0.12));
-            });
+                if (thrown.Spent)
+                {
+                    ejecta = $"no ejecta: nothing to throw it with (gravity {gravity:F2} m/s2)";
+                }
+                else
+                {
+                    Fire(EjectaId, body, origin, e =>
+                    {
+                        // Started inside the crater rather than across the fireball: the dome is
+                        // drawn by where the dust GOES, and spawning it already spread out gives a
+                        // ring instead.
+                        e.EmitterSpawnInfo.Radius = (float)(fireball * 0.40);
+                        Speed(ref e.ParticleInfo, thrown.SpeedMetresPerSecond);
 
-            Log.Info($"airless burst: {kt:F2} kt at {burstAltitudeMetres:F0} m, "
-                     + $"shell {shellRadius:F0} m in {shellSeconds:F2} s, "
-                     + $"ejecta {thrown.ReachMetres:F0} m at {thrown.SpeedMetresPerSecond:F0} m/s "
-                     + $"for {thrown.FlightSeconds:F1} s (gravity {gravity:F2} m/s2)");
+                        // Long enough for the arc to land. Cut short, the dust vanishes at the top
+                        // of its climb, which reads as it being deleted rather than falling.
+                        e.ParticleInfo.Lifespan = new float2((float)(thrown.FlightSeconds * 0.7),
+                                                             (float)thrown.FlightSeconds);
+
+                        // The envelope swells each puff 3.4x over its flight, so this is where it
+                        // starts rather than how big the dust ends up.
+                        e.ParticleInfo.Size = new float2((float)(thrown.ReachMetres * 0.06),
+                                                         (float)(thrown.ReachMetres * 0.12));
+                    });
+
+                    ejecta = $"ejecta {thrown.ReachMetres:F0} m at {thrown.SpeedMetresPerSecond:F0} m/s "
+                             + $"for {thrown.FlightSeconds:F1} s (gravity {gravity:F2} m/s2)";
+                }
+            }
+
+            Log.Info($"airless burst: {kt:F2} kt at {burstAltitudeMetres:F0} m over the ground, "
+                     + $"shell {shellRadius:F0} m in {shellSeconds:F2} s, " + ejecta);
         }
         catch (Exception e)
         {

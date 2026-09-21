@@ -132,7 +132,11 @@ internal static class NuclearClouds
             // and its dimensions logged, over a body where nobody could ever see one.
             if (!KsaWorld.HasAtmosphere(body))
             {
-                BurstEjecta.Begin(body, burstCcf, chargeKg, Vec.Len(burstCcf) - body.MeanRadius);
+                // Above the GROUND, not above the mean sphere: what decides a surface burst is
+                // whether the fireball touches the terrain that is there, and on the Moon the two
+                // differ by kilometres.
+                BurstEjecta.Begin(body, burstCcf, chargeKg,
+                                  KsaWorld.HeightAboveTerrain(body, burstEcl));
                 return;
             }
 
