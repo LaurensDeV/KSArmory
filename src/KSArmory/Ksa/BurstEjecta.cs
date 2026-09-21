@@ -61,10 +61,11 @@ internal static class BurstEjecta
             {
                 Fire(ShellId, body, origin, e =>
                 {
-                    e.EmitterSpawnInfo.Radius = (float)(fireball * 0.30);
-                    Speed(ref e.ParticleInfo, shellRadius / shellSeconds);
-                    e.ParticleInfo.Lifespan = new float2((float)(shellSeconds * 0.6), (float)shellSeconds);
-                    e.ParticleInfo.Size = new float2((float)(fireball * 0.18), (float)(fireball * 0.36));
+                    // One sphere at a point, grown entirely by its ScaleEnvelope: the size IS the
+                    // shell's radius and nothing here moves it. Giving it a velocity instead reads
+                    // as a blob flying out of the burst rather than as a front leaving it.
+                    e.ParticleInfo.Size = new float2((float)shellRadius, (float)shellRadius);
+                    e.ParticleInfo.Lifespan = new float2((float)shellSeconds, (float)shellSeconds);
                 });
             }
 
@@ -136,7 +137,8 @@ internal static class BurstEjecta
     }
 
     // MoveAwayFromCenter multiplies a unit direction by this componentwise, so the three have to
-    // agree or the throw comes out as an ellipsoid.
+    // agree or the throw comes out as an ellipsoid. The shell has no use for it: that one is a
+    // single sphere expanded by its envelope.
     private static void Speed(ref ParticleEmitter<ParticleUpdateData, ParticleRenderData>.ParticleSpawnInfo info,
                               double metresPerSecond)
     {

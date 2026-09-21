@@ -85,12 +85,22 @@ that decide the design:
 - Spawn volumes are `Point`, `Sphere`, `Box`, `Cone`, `Torus`, `Capsule`, `VehicleSurface`,
   `PrecomputedTransform`. **A torus and a capsule are a cap and a stem.** The axial ones are built
   about local +X and aimed by the *rotation* of `LocalOffset`.
-- There are **no curves, gradients or keyframes**. Over a particle's life you get: grow (quadratic,
-  toward `EmitterExtra.W`), shrink (linear to zero), ease-in on spawn, and one optional hue rotation
-  applied once. Colour and velocity are fixed at spawn. No drag, no turbulence, no vortex field.
+- **There are curves, and this line used to say there were not.** The `LifetimeEnvelope` updater
+  takes `ScaleEnvelope` and `AlphaEnvelope` (start / peak / peak-at / end) and `ColorStops`
+  (start / mid / mid-at / end), and `Drag` and `Opacity` are per-emitter. Core's `ShockWave` and
+  `Smoke` are built almost entirely out of them. Without that updater you get only the simple
+  pair — grow (quadratic, toward `EmitterExtra.W`), shrink (linear to zero) — which is what the
+  mod's own emitters used and is why this was believed. Velocity is still fixed at spawn, and
+  there is still no turbulence and no vortex field.
 - The volumetric path gets a `(1-t)²` density fade and a `1 - r² - t²` shape erosion for free, which
   is a proper break-up-and-dissolve. The Billboard fallback gets none of that, ignores
   `ParticleColor.rgb` entirely, cannot roll, and is unsorted.
+- **Volumetric is not gated on an atmosphere**, which is worth stating because its shader opens with
+  `#include AtmosphereLuts.glsl` and looks as though it must be.
+  `ParticleSystem.WriteCommandsColorTranslucent` dispatches `VolumetricRenderer.WriteCommandsColor`
+  on the line after `BillboardRenderer`'s, behind `GameSettings.Current.Graphics.Particles` and
+  nothing else. So it draws on an airless body, and reaching for Billboard there is choosing the
+  worse renderer for no reason.
 - Every emitter field is public and mutable and is read at each spawn, so **all animation is C#**.
   The XML is a template.
 
@@ -612,6 +622,13 @@ over an airless body gets the shell alone.
 
 ### Two engine rules shaped it, and they are not the trail renderer's two
 
+- **Both emitters are Volumetric.** The first version drew the dust through `Billboard`, on the
+  assumption that the volumetric renderer needed an atmospheric body; it does not, and the check
+  above is one grep. Billboard also ignores `ParticleColor.rgb`, so the dust colour was doing
+  nothing.
+- **A shell is one sphere grown by its envelope, not a spray of them.** Core's `ShockWave` says why
+  in its own comment: any spawn velocity on a single volumetric reads as a flying blob rather than
+  a front. The first version threw 192 of them outward, which is sparks.
 - **The throw is a full sphere, because it cannot be aimed.** `ParticleSpawnLogic` must be radial:
   `Fountain` builds its cone about the emitter's local +X, and a body-fixed effect has its model
   matrix forced to identity, so that +X is a fixed direction in the world whatever was hit.

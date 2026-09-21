@@ -219,89 +219,118 @@
 
     <!--
       The airless nuclear burst, which is two emitters because there is nothing to draw a mushroom
-      cloud with and nothing for one to rise through. Both are Burst rather than Endless: they fire
-      once and hand themselves back when their particles die, so nothing has to hold or release
-      them. An Endless emitter never completes and must be killed by hand - see Ksa/MuzzleFlash.cs.
+      cloud with and nothing for one to rise through. Both are Burst: they fire once and hand
+      themselves back when their particles die, so nothing has to hold or release them. An Endless
+      emitter never completes and must be killed by hand - see Ksa/MuzzleFlash.cs.
 
-      Every size, speed and lifespan below is a placeholder. Ksa/BurstEjecta.cs writes them per
-      burst from Sim/AirlessBurst.cs, because all of them scale with the yield and the ejecta's
-      also with the body's gravity. What stays here is the look: the renderer, the colour and the
-      shape of the throw.
+      Both are Volumetric, which is the renderer worth using and is NOT gated on an atmosphere:
+      ParticleSystem.WriteCommandsColorTranslucent dispatches it beside Billboard behind the
+      particles setting alone. Its shader includes AtmosphereLuts.glsl, which looks like a
+      dependency and is not one.
 
-      ParticleSpawnLogic is MoveAwayFromCenter, which sends each particle straight out along its own
-      offset from the centre. Fountain would aim them, and cannot be used: a body-fixed effect has
-      its model matrix forced to identity, so its cone would point the same way in the world
-      whatever was hit. The throw is therefore a full sphere and its lower half is under the ground,
-      where the depth test hides it - which is what leaves a dome standing over the crater.
+      Sizes, speeds and lifespans are placeholders. Ksa/BurstEjecta.cs writes them per burst from
+      Sim/AirlessBurst.cs, because they scale with the yield and the ejecta's also with the body's
+      gravity. What stays here is the look: the renderer, the envelopes and the colour ramp.
+
+      Drag is ZERO on both. There is no air - that is the whole premise - and KSA's own volumetric
+      smoke carries 1.2, which would bleed the throw off against an atmosphere that is not there.
     -->
 
     <!--
       Thrown ground. Density is rock's, so KSA gives it full gravity and the arc comes back down on
       its own: below 100 Pa the engine counts no air and falls every particle at full local gravity
-      whatever this says, so on the airless bodies this is spawned on the value is belt and braces.
+      whatever this says, so on the bodies this spawns on the value is belt and braces.
 
-      Billboard over the smoke sprite rather than SimpleColor spheres, for the same reason the
-      muzzle smoke is: a lit sphere reads as a ball, and dust has no edge.
+      ParticleSpawnLogic is MoveAwayFromCenter, which sends each particle out along its own offset
+      from the centre. Fountain would aim them and cannot be used: a body-fixed effect has its model
+      matrix forced to identity, so its cone would point one fixed way in the world whatever was hit.
+      The throw is therefore a full sphere whose lower half is under the ground, where the depth test
+      hides it - which is what leaves a dome standing over the crater.
+
+      128 rather than the 256 a billboard version used. Volumetric compositing takes 16 spheres per
+      ray, so past that depth the far side of the dome is simply dropped; fewer and larger particles
+      read as more dust here, not less.
     -->
-    <ParticleEmitter Id="KSArmoryNuclearEjecta" Density="2500">
-        <MaxParticles Value="256" />
-        <Mesh Id="Plane"/>
-        <Renderer>Billboard</Renderer>
-        <MaterialId Value="KSArmorySmokeMaterial"/>
+    <ParticleEmitter Id="KSArmoryNuclearEjecta" Drag="0" Density="2500">
+        <MaxParticles Value="128" />
+        <Mesh Id="ParticleSphere"/>
+        <Renderer>Volumetric</Renderer>
         <Updaters>SimpleMovement</Updaters>
-        <Updaters>GrowOverLifetime</Updaters>
-        <!-- W is the grow ratio: without it the curve runs to zero and the dust implodes. -->
-        <EmitterExtra W="3.0"/>
-        <Updaters>ModelMatrix</Updaters>
         <Updaters>Age</Updaters>
+        <Updaters>LifetimeEnvelope</Updaters>
+        <Updaters>ModelMatrix</Updaters>
         <SpawnMode>Burst</SpawnMode>
         <EmitterSpawnLogic>Sphere</EmitterSpawnLogic>
         <EmitterSize Value="1"/>
-        <EmitterExtents X="1" Y="0" Z="0"/>
         <!-- On Burst this is the number of particles, not a rate. -->
-        <SpawnRate Value="256"/>
+        <SpawnRate Value="128"/>
         <Force X="0" Y="0" Z="0" />
         <InheritVelocity Value="false"/>
-        <ParticleColor X="0.44" Y="0.39" Z="0.33" W="0.6"/>
+        <Opacity Value="0.85"/>
+        <ParticleColor X="0.5" Y="0.45" Z="0.38" W="1"/>
         <ParticleLifespan X="1" Y="2"/>
         <ParticleSpawnLogic>MoveAwayFromCenter</ParticleSpawnLogic>
         <ParticleSize X="1" Y="2"/>
         <ParticleVelocity X="1" Y="1" Z="1"/>
         <!-- Wide, so the dome has a ragged edge rather than one clean shell of dust. -->
         <ParticleVelocityShift Value="0.5"/>
-        <ParticleExtra X="0.8" Y="0" Z="0" W="0"/>
+        <!--
+          Swelling all the way out: a dust parcel entrains as it flies, and a dome of constant-sized
+          balls reads as buckshot. The alpha holds most of the flight and only lets go at the end, so
+          the dust settles out of sight rather than popping.
+        -->
+        <ScaleEnvelope Start="1" Peak="2.4" PeakAt="0.55" End="3.4"/>
+        <AlphaEnvelope Start="0.55" Peak="0.85" PeakAt="0.25" End="0"/>
+        <ColorStops MidAt="0.45">
+            <Start R="0.55" G="0.48" B="0.40"/>
+            <Mid R="0.45" G="0.41" B="0.36"/>
+            <End R="0.34" G="0.32" B="0.30"/>
+        </ColorStops>
     </ParticleEmitter>
 
     <!--
       The debris shell: the bomb's own vaporised mass, which in vacuum keeps going instead of
-      settling into a fireball. Hot and very brief, and HDR so it blooms rather than reading as
-      paint. Density is air's so it does not fall - it is gas, and it is over before gravity
-      matters either way.
+      settling into a fireball.
+
+      ONE particle, spawned at a Point with no velocity, expanded entirely by its ScaleEnvelope.
+      That is Core's ShockWave design and its reasoning holds here: any spawn velocity on a single
+      volumetric reads as a flying blob rather than a front, and a spray of them reads as sparks.
+      EmitterExtra Y is the Volumetric renderer's emissive term, which is what makes it a glowing
+      shell rather than a grey ball.
+
+      Volumetric.comp erodes the boundary by sqrt(1 - t^2), so the visible front peaks near 74% of
+      the authored radius and then contracts - hence the End overshoot, so growth outruns erosion.
     -->
-    <ParticleEmitter Id="KSArmoryNuclearShell" Density="1.225">
-        <MaxParticles Value="192" />
+    <ParticleEmitter Id="KSArmoryNuclearShell" Drag="0" Density="1.225">
+        <MaxParticles Value="1" />
         <Mesh Id="ParticleSphere"/>
-        <Renderer>SimpleColor</Renderer>
+        <Renderer>Volumetric</Renderer>
         <Updaters>SimpleMovement</Updaters>
-        <Updaters>ShrinkOverLifetime</Updaters>
-        <Updaters>HueShift</Updaters>
-        <Updaters>ModelMatrix</Updaters>
         <Updaters>Age</Updaters>
+        <Updaters>LifetimeEnvelope</Updaters>
+        <Updaters>ModelMatrix</Updaters>
         <SpawnMode>Burst</SpawnMode>
-        <EmitterSpawnLogic>Sphere</EmitterSpawnLogic>
+        <EmitterSpawnLogic>Point</EmitterSpawnLogic>
         <EmitterSize Value="1"/>
-        <EmitterExtents X="1" Y="0" Z="0"/>
-        <SpawnRate Value="192"/>
+        <SpawnRate Value="1"/>
         <Force X="0" Y="0" Z="0" />
         <InheritVelocity Value="false"/>
-        <ParticleColor X="26" Y="15" Z="6" W="1"/>
-        <ParticleColorShift X="0.3" Y="0.2" Z="0"/>
+        <!-- Y is emissive brightness: bright, because this one IS the fireball's replacement. -->
+        <EmitterExtra X="0" Y="2.5" Z="0" W="0"/>
+        <Opacity Value="0.6"/>
+        <ParticleColor X="18" Y="11" Z="5" W="1"/>
         <ParticleLifespan X="1" Y="2"/>
-        <ParticleSpawnLogic>MoveAwayFromCenter</ParticleSpawnLogic>
+        <ParticleSpawnLogic>Basic</ParticleSpawnLogic>
         <ParticleSize X="1" Y="2"/>
-        <ParticleVelocity X="1" Y="1" Z="1"/>
-        <ParticleVelocityShift Value="0.35"/>
-        <ParticleExtra X="0.6" Y="0" Z="0" W="0"/>
+        <ParticleVelocity X="0" Y="0" Z="0"/>
+        <ParticleVelocityShift Value="0"/>
+        <ScaleEnvelope Start="0.08" Peak="0.9" PeakAt="0.2" End="1.5"/>
+        <AlphaEnvelope Start="0.95" Peak="0.5" PeakAt="0.3" End="0"/>
+        <ColorStops MidAt="0.3">
+            <Start R="18" G="11" B="5"/>
+            <Mid R="4" G="1.6" B="0.5"/>
+            <End R="0.7" G="0.55" B="0.5"/>
+        </ColorStops>
     </ParticleEmitter>
 
 </Assets>
