@@ -277,10 +277,12 @@ and `BindPipeline` takes the sets and their offsets.
 
 **What remains is work rather than permission**, and it is worth knowing before starting:
 
-- The path cannot be committed. It is the player's install location, so the mod has to write the
-  include at load time — a generated one-line `.glsl` beside its own shader, pointing at their copy.
-  Nothing of RocketWerkz's is redistributed, the same way the build already reads their assemblies
-  from wherever the game is installed.
+- ~~The path cannot be committed.~~ **Built.** `Ksa/CoreShaderInclude.cs` writes a one-line
+  `Shaders/CoreAtmosphere.glsl` at load, resolving `Content/Core/Shaders/...` against the game's own
+  working directory, and the mod's `.comp` includes that by name. Flown: `core shaders: atmosphere
+  available from C:/Program Files/...`, and the pass compiles with Core's header in it. Nothing of
+  RocketWerkz's is redistributed, the same way the build reads their assemblies from wherever the
+  game is installed.
 - `AtmosphereLuts.glsl` takes its samplers as **function parameters** rather than binding them, so
   the caller declares them — which means matching the LUT set's binding layout by hand, and that
   layout is not documented anywhere a mod can read.

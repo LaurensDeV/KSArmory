@@ -468,6 +468,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/CloudPassHook.cs` | the fifth place the mod patches the game, and the first in the renderer — **an ordinary prefix on a public method**, because `SunbloomRenderer.Render` hands over the command buffer at the one instant the scene colour is storage-writable, the depth is sampled, and bloom and the tonemap are both still to come |
 | `Ksa/CloudPassCost.cs` | what that pass costs the GPU, read back out of KSA's own profiler — **the whole frame is sampled beside it**, because 2 ms on a 30 ms frame and 2 ms on an 8 ms one are different answers |
 | `Ksa/CloudWatch.cs` | a camera pinned on a standing cloud — **the measurement needed it**, because what the pass costs is set by how much of the screen it marches and a camera the operator can move makes every number one about where somebody stood. The pose is also the one worth watching from, which is not a coincidence: a mushroom is a side-on silhouette |
+| `Ksa/CoreShaderInclude.cs` | the one line that lets this mod's shader reach KSA's own shader library — **an absolute include resolves where no relative one can**, since Core's shader tree and a mod's do not meet; written at load against the player's install, never committed |
 | `Ksa/MotorSound.cs` | the rocket motor you can hear, one spatialised channel per burning round |
 | `Ksa/MotorPlume.cs` | the flame at the nozzle, one pooled emitter per burning round |
 | `Ksa/MuzzleFlash.cs` | the flash at the cannon's muzzles, one pooled emitter per firing system |

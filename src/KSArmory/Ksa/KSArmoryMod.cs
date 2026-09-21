@@ -129,6 +129,10 @@ public sealed class KSArmoryMod
     [StarMapImmediateLoad]
     public void OnImmediateLoad(Mod mod)
     {
+        // Before anything asks KSA to compile a shader: the generated header names this machine's
+        // own install, and a .comp that includes it will not compile until it is there.
+        CoreShaderInclude.Write(mod.DirectoryPath);
+
         Log.Info($"loading (mod id: {mod.Id})");
 
         // Which KSA this was built for against which it is running, and therefore whether the

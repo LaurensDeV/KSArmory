@@ -1,5 +1,15 @@
 #version 450
 
+// KSA's own atmosphere, through a header this mod writes at load pointing at the player's install:
+// shaderc resolves an include against the requesting file, and Core's shader tree and a mod's do
+// not meet by any relative path. Ksa/CoreShaderInclude.cs writes it; nothing of the game's is
+// copied here.
+//
+// Nothing below is statically used YET -- the LUT functions take their samplers as parameters and
+// those are not bound. Including it now proves the route ships, and a header nothing calls compiles
+// to nothing.
+#include "CoreAtmosphere.glsl"
+
 // This mod's nuclear cloud, evaluated per pixel instead of choreographed as capsules.
 //
 // Dispatched from a Harmony prefix on SunbloomRenderer.Render - the one point in KSA's frame where
