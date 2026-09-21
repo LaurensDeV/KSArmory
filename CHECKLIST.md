@@ -1396,6 +1396,27 @@ unflown is everything below the first four boxes: the refusals, the horizon and 
       line, added because a cloud kilometres from the mark looked like an effects fault and was the
       landing being wrong.
 
+### 7.1f3 How long a nuclear burst is watched
+
+**Flown on 2026.9.10.5438.** The chase held a flat 3 s on every burst, which over a cloud that
+rises for 38 s and stands for 40 showed about a twenty-fifth of it and took the camera away
+mid-event. It is now sized by the charge, the same way `ChaseView.StopShortMetres` already sizes
+the stand-off.
+
+- [x] `./tools/scenario.sh drop:6000,30,guided` logs `holding on the burst for 38 s` and then
+      `released the main view`. The hand-back had never appeared in a run before: the harness waited
+      6 s after the burst and closed the game a sixth of the way into the hold, so the part most
+      worth checking never happened. That wait is sized off the hold now.
+- [x] `./tools/scenario.sh drop:6000,30,guided,20` — the launching craft destroyed 20 s into the
+      fall. The store still landed **0 m from the ring**, the hold ran its full 38 s with no craft in
+      existence, and the view came back. The burst is anchored to the ground rather than to the
+      launcher (`RoundFollowable.HoldAgainst`), which is what makes that work.
+- [ ] **Right-drag and the wheel during the hold.** Wired and unexercised: an unattended run has no
+      mouse, so only a person can say whether looking around a mushroom cloud feels right. Without
+      it a 38 s hold is a frozen stare, which is why the two changes ship together.
+- [ ] A conventional burst still holds 3 s — a cannon putting one round into a drone must not take
+      the view away for the next one.
+
 ### 7.1e Drag, and what a round does once it leaves the air
 
 Never deliberately tested. A flight log reads:

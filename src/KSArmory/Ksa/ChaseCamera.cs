@@ -68,10 +68,6 @@ internal sealed class ChaseCamera : IViewPose
     // more than this, whatever the flight path says.
     private const double FloorBelowLauncher = 2.0;
 
-    // How long to keep looking at a burst. Cutting away the instant it goes off shows the one
-    // moment worth watching for no frames at all.
-    private const double LingerSeconds = 3.0;
-
     private readonly RoundFollowable _followed = new();
 
     // The aim as a separation from the round, sampled in Apply. Null when there is nothing to fly
@@ -138,7 +134,7 @@ internal sealed class ChaseCamera : IViewPose
     public IProjectile? Round => _round;
 
     /// <summary>The player's look around the round being ridden; null while nothing is.</summary>
-    public ChaseOrbit? Orbit => _saved.Valid && _round is not null ? _orbit : null;
+    public ChaseOrbit? Orbit => _saved.Valid && (_round is not null || _holding > 0.0) ? _orbit : null;
 
     /// <summary>
     /// The system whose round the view is riding or holding on, or null. The frame hook prefers it
@@ -294,7 +290,8 @@ internal sealed class ChaseCamera : IViewPose
         // The player taking the view back is a decision, not a fault.
         //
         // Ahead of the hold below, and keyed on holding the view rather than on having a round: the
-        // linger after a burst is LingerSeconds during which the view is still this camera's, and a
+        // linger after a burst is ChaseView.LingerSeconds during which the view is still this
+        // camera's -- and for a nuclear one that is most of a minute rather than three seconds. A
         // vessel switched in that window has to be noticed here -- Release reaching it first puts
         // the player back on the craft they have just left. The half they did not take still goes
         // back: a vessel switch leaves the view in Fixed, which no input can leave.
@@ -316,7 +313,13 @@ internal sealed class ChaseCamera : IViewPose
         {
             _holding -= dtViewing;
 
-            if (!KsaWorld.TryLookFromMainViewport(_holdOffset, _holdForward, _holdUp,
+            // Read here as well as by the controller, which never hears a release made over a panel.
+            _orbit.Advance(dtViewing, ImGui.IsMouseDown(ImGuiMouseButton.Right));
+
+            LookAround(_holdOffset, _holdForward, _holdUp,
+                       out double3 heldEye, out double3 heldForward, out double3 heldUp);
+
+            if (!KsaWorld.TryLookFromMainViewport(heldEye, heldForward, heldUp,
                                                   Field(unzoomedFovDeg), this)) Release();
             else if (_holding <= 0.0) Release();
 
@@ -371,8 +374,8 @@ internal sealed class ChaseCamera : IViewPose
                     fromBurst = Vec.Len(_holdOffset);
                 }
 
-                _holding = LingerSeconds;
-                Log.Info($"chase: holding on the burst, {fromBurst:F0} m from it");
+                _holding = ChaseView.LingerSeconds(spent.Munition.ChargeKg);
+                Log.Info($"chase: holding on the burst for {_holding:F0} s, {fromBurst:F0} m from it");
                 return;
             }
 
@@ -649,9 +652,11 @@ internal sealed class ChaseCamera : IViewPose
         {
             if (_holding <= 0.0) return false;
 
-            offsetFromFollowed = _holdOffset;
-            forwardEcl = _holdForward;
-            upEcl = _holdUp;
+            // Orbited, exactly as the riding pose is. Asked again here rather than reusing what
+            // Apply computed for the same reason every other pose is: this runs inside the
+            // engine's viewport pass, and a held offset written a frame earlier is a frame stale.
+            LookAround(_holdOffset, _holdForward, _holdUp,
+                       out offsetFromFollowed, out forwardEcl, out upEcl);
 
             return Vec.Len2(forwardEcl) > 0.5;
         }

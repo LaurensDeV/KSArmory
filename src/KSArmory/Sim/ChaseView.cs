@@ -296,6 +296,37 @@ public static class ChaseView
         => Math.Max(MinStopShortMetres, StopShortFireballs * Warhead.FireballRadius(chargeKg));
 
     /// <summary>
+    /// How long the view is held on a burst afterwards: as long as there is something still
+    /// happening, which for everything but a nuclear charge is no time at all.
+    ///
+    /// <para><b>Sized by the burst rather than picked, the same way
+    /// <see cref="StopShortMetres"/> is.</b> A conventional round is over when the flash is: three
+    /// seconds is already generous. A nuclear one is not — <see cref="MushroomCloud"/> rises for
+    /// <see cref="MushroomCloud.RiseSeconds"/> and stands for as long again, so a flat three
+    /// seconds showed about a twenty-fifth of the thing the mod goes to the trouble of drawing,
+    /// and took the camera away mid-event.</para>
+    ///
+    /// <para>The rise rather than the whole life. At the ceiling the cloud stops changing shape and
+    /// the rest is it standing there — and it stands in the world, so a player who wants more can
+    /// fly their own camera back to it. What cannot be recovered is the part they were taken away
+    /// from.</para>
+    ///
+    /// <para><see cref="MushroomCloud.ThresholdKg"/> is the test, because it is already the one
+    /// <c>NuclearClouds.Begin</c> uses: whether this burst made a cloud at all is not a second
+    /// question with a second answer.</para>
+    /// </summary>
+    public static double LingerSeconds(double chargeKg)
+        => chargeKg >= MushroomCloud.ThresholdKg
+               ? Math.Max(MinLingerSeconds, MushroomCloud.RiseSeconds)
+               : MinLingerSeconds;
+
+    /// <summary>
+    /// Held on any burst, nuclear or not. Long enough to see what happened and short enough that
+    /// a cannon putting one round into a drone does not take the view away for the next one.
+    /// </summary>
+    public const double MinLingerSeconds = 3.0;
+
+    /// <summary>
     /// Whether a round is near enough its arrival to stop and watch. The distance left is the time to
     /// go times the speed it is covering it at, and with either unknown the chase never stops.
     /// </summary>
