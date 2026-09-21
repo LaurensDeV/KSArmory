@@ -758,7 +758,20 @@ falloff — paying for turbulent surface detail in a term that cannot show any. 
 0.03, took the pass from **36 ms to 4.7 ms**, under the pen cloud's 6-8. Half-resolution was not
 needed and is not built.
 
-**That factor is not clean.** The camera is the operator's in a pad drop and it moved between the
-two runs, so part of the drop is less of the screen marching. The change is certainly most of it —
-it removes four fifths of the work by construction — but the honest number wants a fixed camera,
-and the harness does not pin one.
+**The harness pins the camera now**, because it had to: what the pass costs is set by how much of
+the screen it marches, so a view the operator can move makes every number one about where somebody
+was standing. `Ksa/CloudWatch.cs` stands 1.85 cloud-heights out at 14° and looks 45% up the column —
+2.4 km on a 0.3 kt cloud, which is also the shot worth watching, a mushroom being a side-on
+silhouette.
+
+Measured from there, paired against the same run with the pass off:
+
+| | whole GPU frame | pass |
+| --- | --- | --- |
+| off | 22.94 ms | — |
+| on | 24.69 ms | **1.85 ms**, peak 6.81 |
+
+The frame grows by 1.75 ms against a pass that reports 1.85 — two independent numbers agreeing to a
+tenth, which is what makes this one trustworthy where the unpinned ones were not. Pulled in to 1.85
+heights it is **2.67 ms**. Either way it is well under the 6-8 ms of the pen cloud it would replace,
+and the earlier 36 ms and 4.7 ms readings were both camera artefacts as much as anything else.

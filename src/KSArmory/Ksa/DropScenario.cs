@@ -231,6 +231,12 @@ internal sealed class DropScenario
 
             case Phase.Lingering:
                 _lingered += playerStep;
+
+                // Pinned every frame while the cloud stands: the pose is the same in every run, so
+                // what CloudPassCost reports is a number about the pass rather than about where
+                // somebody left the camera.
+                if (_watchTheCloud && _craft is { } watched) CloudWatch.Update(watched);
+
                 CaptureCloud();
                 return _lingered >= LingerSeconds ? _verdict : null;
         }

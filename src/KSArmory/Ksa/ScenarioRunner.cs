@@ -401,6 +401,7 @@ internal sealed class ScenarioRunner
 
         _config.ShaderPass = shader ? 1f : 0f;
         CloudPassCost.Begin();
+        CloudWatch.Reset();
         Report($"{_name}: GPU timing on, shader pass {(shader ? "ON" : "off -- this run is the baseline")}");
 
         // "speeds=0.05,0.1,1": held a stretch each once the first round is up. One that does not read
