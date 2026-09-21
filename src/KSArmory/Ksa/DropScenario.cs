@@ -325,8 +325,24 @@ internal sealed class DropScenario
             return $"FAIL a guided drop was asked for, and the {_battery.Munition.DisplayName} does not steer";
         }
 
-        found.Policy.ChaseRounds = true;
-        found.Policy.DrawBombSight = true;
+        // Watching the cloud is a different run from scoring a drop, and it wants the opposite of
+        // everything the scoring one does. The craft stays ON THE PAD: a rocket that climbs away is
+        // a rocket the view follows away, and with the chase off the camera is the craft's. It
+        // never takes off, so the burst happens where the camera already is and the cloud grows in
+        // front of it.
+        found.Policy.ChaseRounds = !_watchTheCloud;
+        found.Policy.DrawBombSight = !_watchTheCloud;
+
+        if (_watchTheCloud)
+        {
+            _report($"{_craftName} stays on the pad: {_battery.Ammo} x "
+                    + $"{_battery.Munition.DisplayName}, chase off, watching from where it stands");
+
+            _stagedAt = _sim;
+
+            return Drop(_battery, _craft, KsaWorld.ParentBody(_craft)!, 0.0,
+                        KsaWorld.LocalUp(_craft), double3.Zero, KsaWorld.LocalUp(_craft));
+        }
 
         _report($"flying {_craftName}"
                 + (ReferenceEquals(_craft, KsaWorld.ControlledVehicle)
