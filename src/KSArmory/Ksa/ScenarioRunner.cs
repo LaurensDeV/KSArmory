@@ -392,6 +392,16 @@ internal sealed class ScenarioRunner
         // from a camera riding three metres behind the bomb that made it.
         _showClouds = Array.IndexOf(options, "clouds") >= 0;
 
+        // "shader": run this mod's own compute pass and price it. Separate from "clouds" because
+        // they answer different questions -- one is what the cloud looks like, the other is what
+        // the pass costs -- and pricing it wants it on whether or not the pens are drawing.
+        if (Array.IndexOf(options, "shader") >= 0)
+        {
+            _config.ShaderPass = 1f;
+            CloudPassCost.Begin();
+            Report($"{_name}: shader pass on, pricing it against KSA's own GPU profiler");
+        }
+
         // "speeds=0.05,0.1,1": held a stretch each once the first round is up. One that does not read
         // as a positive speed is dropped and said, rather than failing a run that can still fly the rest.
         foreach (string option in options)

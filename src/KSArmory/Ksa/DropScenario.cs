@@ -274,6 +274,8 @@ internal sealed class DropScenario
             // This also comes back without the panel over the cloud.
             bool shot = KsaWorld.TryRequestScreenshot();
 
+            if (CloudPassCost.Report() is { Length: > 0 } cost) _report(cost);
+
             _report($"{(shot ? "SHOT" : "CAPTURE")} cloud at {fraction:F2} of the rise "
                     + $"({fraction * MushroomCloud.RiseSeconds:F1} s), "
                     + $"top {MushroomCloud.DrawnCloudTop(MushroomCloud.KilotonsFor(round.Munition.ChargeKg)) / 1000.0:F2} km");

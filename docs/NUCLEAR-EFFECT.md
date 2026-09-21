@@ -738,5 +738,19 @@ wind advection, where a trail segment drifts through a sheared field for 1200 s.
 measures the recording rather than the work — but `ProfilerTag`'s constructor is public and
 `CommandBuffer.TagRegion` is a public extension, so the dispatch sits inside KSA's own GPU profiler
 as `KSArmory Cloud`, listed beside the passes it has to be afforded against. No query pool of this
-mod's was needed. **The number has not been read yet**, and nothing should be retired in its favour
-until it has: the pen cloud's 6-8 ms a frame is what it has to beat.
+mod's was needed. **It has been read, and it is far too expensive.** Flown from the pad with the camera near the
+burst, `KSArmory Cloud` measures **41.8 ms a frame** while the cloud is young and fills the view,
+settling to **13.9 ms** as it grows and the camera pulls back, with a **146 ms peak** — between 29%
+and 62% of the whole GPU frame. The pen cloud it would replace costs 6-8 ms.
+
+So it is two to six times dearer than the thing it is meant to beat, and its worst frame is seven
+frames a second. **Nothing about the look is worth tuning until that changes**, because no
+appearance justifies a sixth of a second.
+
+The cost is coverage, not cloud: every pixel the bounding sphere accepts marches 48 steps, each
+taking four more density samples toward the sun, so a cloud that fills the screen costs 192 density
+evaluations per pixel. Standing in it is the worst case and is also exactly where a player stands.
+
+What the plan already named as the answer is a **half-resolution pass with a depth-aware upsample**,
+which is a quarter of the pixels; beyond that, fewer steps with a jittered start, an earlier
+transmittance cut-off, and a cheaper shadow than four taps. None of it is built.

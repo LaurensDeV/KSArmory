@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-207 types and 562 members across 9 assemblies.
+208 types and 563 members across 9 assemblies.
 
 ## Brutal.Concurrency
 
@@ -935,6 +935,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `bool Active`
 - `bool get_AnyOpen()`
+
+### KSA.ProfilerWindowBase
+
+- `double TicksToMs(long)`
 
 ### KSA.Program
 

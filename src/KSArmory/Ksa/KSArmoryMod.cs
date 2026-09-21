@@ -803,6 +803,10 @@ public sealed class KSArmoryMod
         //
         // The scene gates it, not the craft. A mushroom cloud does not stop rising because whoever
         // was flying has just been killed by it.
+        // Read before anything else this frame: it takes the newest COMPLETE profiler frame, which
+        // is the one the GPU has finished with rather than the one being recorded now.
+        if (_config.ShaderPass > 0f) CloudPassCost.Sample();
+
         if (_config.NuclearClouds) NuclearClouds.Update(_lastSimStep, _config.DirtyNuclearSmoke);
         else NuclearClouds.Clear();
 
