@@ -1306,6 +1306,24 @@ only at draw time. `Ego` is a pure translation of `Ecl`, so this is exact — se
 **Threat classification uses closest point of approach, not closing speed.** That is what makes
 targets *passing by* engageable and not just ones flying straight at the launcher.
 
+**A round is the exception and has to be closing.** It cannot turn round, and a seeker steers onto
+its own target rather than back at a bystander, so one that is opening will never be nearer than it
+is now. Without that a round a neighbouring mount fires is *born* inside the threat radius — at
+nine metres apart that is the only geometry there is — and reads as a threat for the whole of its
+flight whichever way it is going: a Phalanx beside a Pantsir spent its entire 1,550-round belt on
+the Pantsir's outgoing rounds and shot down one of its missiles 0.9 s after launch, with two drones
+crossing unengaged. A craft keeps the CPA rule on its own, because a craft can come back.
+`IContact.IsMunition` is the seam, and it changes nothing about what is *tracked*: a friendly round
+is still on the scope, and an incoming one is still engaged on geometry alone with nothing having
+been told whose side it is on.
+
+**That is geometry, and it is not a substitute for a team.** Two mounts far enough apart for one's
+rounds to spend real time closing on the other still read each other's salvoes as threats until
+somebody sets the flag — `IffPolicy.EngageUnknown` is true by default, and with no team declared
+every round is `Unknown`. Flown on a Pantsir and a Phalanx nine metres apart: no teams, one missile
+destroyed and 1,549 shells wasted; both on one team, neither fires at the other and the rounds are
+tracked and left alone.
+
 **`Sim/` must stay free of KSA types**, and this enforces itself — see the Layout note. When
 something KSA-facing turns out to have testable maths inside it, move the maths into `Sim/`
 rather than leaving it unverifiable; `FireGeometry` is `LauncherPart`'s launch geometry moved out

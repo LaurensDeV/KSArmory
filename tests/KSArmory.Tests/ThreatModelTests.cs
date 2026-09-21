@@ -122,6 +122,65 @@ public class ThreatModelTests
         Assert.True(a.ClosingSpeed < 0, "receding contact should report negative closing speed");
     }
 
+    // A round is the one contact that cannot turn round, and the one a neighbouring mount puts
+    // inside the threat radius for free. Both halves are pinned here: the geometry alone reads a
+    // friendly salvo as a threat, and it is the munition flag that separates it from a craft.
+    private static ThreatModel.ContactSignature Round =>
+        new(1.5, double.PositiveInfinity, IsMunition: true);
+
+    [Fact]
+    public void ARoundLeavingANeighbouringMountIsNotAThreat()
+    {
+        // Two installations nine metres apart, one firing at something seven kilometres off. Its
+        // round is born inside the other's threat radius whichever way it is sent, so the CPA
+        // model has no geometry left to reject it with -- only the fact that it is opening.
+        SensorProfile s = Sensor();
+        double3 r = new(5, 9, 0);
+        double3 v = new(200, 1000, 0);
+
+        Assert.True(ThreatModel.TryAssess(r, v, Up, s, Round, out var a));
+        Assert.True(a.ClosingSpeed < 0, "the round should be opening");
+        Assert.False(a.IsThreat);
+
+        // The same geometry flown by a craft still is one: a craft can come back, and shooting at
+        // one overhead is what the range half of the rule is for.
+        Assert.True(ThreatModel.TryAssess(r, v, Up, s, Unseen, out var craft));
+        Assert.True(craft.IsThreat);
+    }
+
+    [Fact]
+    public void ARoundClosingIsStillAThreat()
+    {
+        // The capability the rule above must not cost: an incoming round is engaged on geometry
+        // alone, with nothing having been told whose side it is on.
+        SensorProfile s = Sensor();
+        double3 r = new(3000, 1000, 0);
+        double3 v = new(-600, -200, 0);
+
+        Assert.True(ThreatModel.TryAssess(r, v, Up, s, Round, out var a));
+        Assert.True(a.ClosingSpeed > 0, "the round should be closing");
+        Assert.True(a.IsThreat);
+    }
+
+    [Fact]
+    public void ARoundThatHasGonePastStopsBeingAThreat()
+    {
+        // One round crossing the site, before and after its closest approach: engaged on the way
+        // in, dropped on the way out. Its closest approach is 2 km either side, well inside the
+        // threat radius, so the CPA model on its own holds it for the whole pass.
+        SensorProfile s = Sensor();
+        double3 v = new(0, -600, 0);
+
+        Assert.True(ThreatModel.TryAssess(new double3(2000, 3000, 0), v, Up, s, Round, out var incoming));
+        Assert.True(incoming.IsThreat);
+        Assert.Equal(2000, incoming.ClosestApproach, 1);
+
+        Assert.True(ThreatModel.TryAssess(new double3(2000, -3000, 0), v, Up, s, Round, out var past));
+        Assert.True(past.ClosestApproach <= s.ThreatRadius,
+                    "the CPA model on its own still holds it, which is what the closing term rejects");
+        Assert.False(past.IsThreat);
+    }
+
     [Fact]
     public void ClosestApproachNeverExceedsCurrentRange()
     {

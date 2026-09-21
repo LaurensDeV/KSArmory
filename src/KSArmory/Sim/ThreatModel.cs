@@ -33,7 +33,12 @@ internal static class ThreatModel
     /// </summary>
     /// <param name="MeanRadius">The contact's own size (m), which its cross-section comes from.</param>
     /// <param name="HeightAboveSurface">Above the body's mean sphere (m).</param>
-    internal readonly record struct ContactSignature(double MeanRadius, double HeightAboveSurface)
+    /// <param name="IsMunition">
+    /// A round in flight rather than a craft, which is what lets the rule below hold it to a
+    /// closing geometry. Defaults to false, so a caller that cannot say gets the craft's rule.
+    /// </param>
+    internal readonly record struct ContactSignature(double MeanRadius, double HeightAboveSurface,
+                                                     bool IsMunition = false)
     {
         /// <summary>
         /// A contact nothing extra is known about. Deliberately makes every rule that reads it
@@ -106,7 +111,15 @@ internal static class ThreatModel
             // negative tCa — to model a target that has already passed — is a plausible future
             // change, and it would make this term load-bearing again with nothing to say so.
             // ClosestApproachNeverExceedsCurrentRange pins the invariant meanwhile.
-            IsThreat: cpa <= sensor.ThreatRadius || range <= sensor.ThreatRadius);
+            //
+            // A munition already opening will never be nearer than it is now: it cannot turn
+            // round, and a seeker steers onto its own target rather than back at a bystander. A
+            // craft can, which is why this is the round's rule alone. Without it every round a
+            // neighbouring mount fires is *born* inside the threat radius — two installations
+            // nine metres apart have no other geometry available — and reads as a threat for the
+            // whole of its flight, whichever way it is going.
+            IsThreat: (cpa <= sensor.ThreatRadius || range <= sensor.ThreatRadius)
+                      && (closing > 0.0 || !signature.IsMunition));
 
         return true;
     }
