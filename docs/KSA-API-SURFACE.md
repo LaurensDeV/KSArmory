@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-205 types and 560 members across 9 assemblies.
+206 types and 562 members across 9 assemblies.
 
 ## Brutal.Concurrency
 
@@ -469,6 +469,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.Celestial get_NearbyCelestial()`
 - `KSA.IFollowable get_Following()`
 - `KSA.Ray ScreenToEgoRay(Brutal.Numerics.float2)`
+- `KSA.ViewProjection get_VPInv()`
 - `double CurrentAltitudeKm`
 - `double DistanceToNearbyCelestialKm`
 - `double DistanceToNearbyCelestialSurfaceMeanKm`
@@ -1230,6 +1231,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.FlightComputerOutput FlightComputerOutput`
 - `KSA.PartFailureEvent PartFailureEvent`
 - `bool AnyActuatorActive()`
+
+### KSA.ViewProjection
+
+- `Brutal.Numerics.float4x4 viewProjection`
 
 ### KSA.ViewportRegistry
 

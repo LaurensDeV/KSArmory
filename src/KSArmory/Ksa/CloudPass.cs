@@ -42,7 +42,11 @@ internal static class CloudPass
     [StructLayout(LayoutKind.Sequential, Pack = 4)]
     private struct Push
     {
-        public float4 SizeFarTint;
+        public float4x4 InvViewProj;
+        public float4 SizeStrength;
+        public float4 CentreRadius;
+        public float4 UpAge;
+        public float4 Shape;       // cap centre, cap radius, cap tube, stem radius
     }
 
     /// <summary>Whether the pass built and is dispatching.</summary>
@@ -81,10 +85,30 @@ internal static class CloudPass
                 _height = height;
             }
 
+            if (Program.GetRenderCamera() is not { } camera) return;
+            if (!NuclearClouds.TryNewest(out double3 burstEcl, out double3 up,
+                                         out double radius, out double age,
+                                         out MushroomCloud.Shape shape)) return;
+
+            // Differenced against the camera in DOUBLE and only then narrowed. The world is a solar
+            // system: a float metre cannot hold an ecliptic position, and Ego is a pure translation
+            // of Ecl, so the camera sitting at the origin in the shader is exact rather than close.
+            double3 centre = burstEcl - camera.PositionEcl;
+            if (!Vec.IsFinite(centre)) return;
+
             Push push = new()
             {
-                // Far in reversed Z is the SMALL end, so this is a ceiling rather than a floor.
-                SizeFarTint = new float4(width, height, 0.02f, tint),
+                InvViewProj = camera.VPInv.viewProjection,
+                SizeStrength = new float4(width, height, 0f, tint),
+                CentreRadius = new float4((float)centre.X, (float)centre.Y, (float)centre.Z,
+                                          (float)radius),
+                UpAge = new float4((float)up.X, (float)up.Y, (float)up.Z, (float)age),
+
+                // The same shape the pens walk, so the two drawings cannot disagree about where the
+                // cloud is -- and so every dimension stays Glasstone's rather than being invented
+                // again in GLSL.
+                Shape = new float4((float)shape.CapCentre, (float)shape.CapRadius,
+                                   (float)shape.CapTube, (float)shape.StemRadius),
             };
 
             _pipeline!.BindPipeline(commandBuffer, frameIndex, default, default, push);

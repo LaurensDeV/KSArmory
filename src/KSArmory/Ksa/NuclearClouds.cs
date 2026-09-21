@@ -106,6 +106,49 @@ internal static class NuclearClouds
     public static int Count => _clouds.Count;
 
     /// <summary>
+    /// The newest cloud standing, as the shader pass needs it: where it is in the ecliptic, which
+    /// way is up there, how far it reaches and how old it is.
+    ///
+    /// <para>One, because a push constant holds one and because two mushroom clouds in sight of
+    /// each other is not a case anybody has. The newest rather than the nearest: it is the one
+    /// still changing shape, and a settled cloud is the one that can afford to be drawn by pens.
+    /// </para>
+    /// </summary>
+    public static bool TryNewest(out double3 burstEcl, out double3 up, out double radiusMetres,
+                                 out double ageSeconds, out MushroomCloud.Shape shape)
+    {
+        burstEcl = default;
+        up = default;
+        radiusMetres = 0.0;
+        ageSeconds = 0.0;
+        shape = default;
+
+        if (_clouds.Count == 0) return false;
+
+        Cloud cloud = _clouds[^1];
+
+        try
+        {
+            burstEcl = cloud.Body.GetPositionEcl()
+                       + cloud.BurstCcf.Transform(cloud.Body.GetCce2Ccf().Inverse());
+            up = cloud.Up.Transform(cloud.Body.GetCce2Ccf().Inverse());
+            ageSeconds = cloud.Age;
+            shape = MushroomCloud.At(cloud.ChargeKg, cloud.Age);
+
+            // The whole thing, cap and lean included, so the bounding sphere cannot clip the shape
+            // it is there to reject against.
+            double kt = MushroomCloud.KilotonsFor(cloud.ChargeKg);
+            radiusMetres = MushroomCloud.DrawnCloudTop(kt);
+
+            return Vec.IsFinite(burstEcl) && Vec.IsFinite(up) && radiusMetres > 0.0;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Starts whatever a burst leaves standing, if the charge is big enough to have left anything.
     ///
     /// <para>Silent for a conventional warhead: a 500 lb bomb does not grow a mushroom, and
