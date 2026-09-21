@@ -126,6 +126,49 @@ internal sealed partial class Ui
         }
     }
 
+    // Reused each frame so the list does not allocate per draw.
+    private readonly List<(string Id, bool HasAir)> _bodies = [];
+
+    private void DrawSendToBody()
+    {
+        if (KsaWorld.ControlledVehicle is not { } craft)
+        {
+            ImGui.TextDisabled("Send to another body: nothing is being flown.");
+            return;
+        }
+
+        KsaWorld.SystemBodies(_bodies);
+        if (_bodies.Count == 0)
+        {
+            ImGui.TextDisabled("Send to another body: no system loaded.");
+            return;
+        }
+
+        ImGui.Text("Send the controlled craft to");
+        Tip("Sets it down at 0, 0 on that body. The mouse mover can only reach the body you are "
+            + "already looking at, so this is the only way to test anything on another one.");
+
+        for (int i = 0; i < _bodies.Count; i++)
+        {
+            (string id, bool hasAir) = _bodies[i];
+
+            if (i > 0) ImGui.SameLine();
+
+            if (ImGui.SmallButton(id))
+            {
+                if (KsaWorld.TryPlaceOnSurface(craft, id, 0.0, 0.0))
+                    Log.Info($"placed {KsaWorld.DisplayName(craft)} on {id} at 0, 0");
+                else
+                    Log.Warn($"could not place {KsaWorld.DisplayName(craft)} on {id}");
+            }
+
+            // Which burst a test there will get, since that is the whole reason to go.
+            Tip(hasAir
+                    ? "Has an atmosphere: a nuclear burst grows a mushroom cloud."
+                    : "Airless: a nuclear burst throws a dust dome and a debris shell instead.");
+        }
+    }
+
     private void DrawTestTargets()
     {
         if (!_crewed) { ImGui.TextDisabled("No weapons system selected."); return; }

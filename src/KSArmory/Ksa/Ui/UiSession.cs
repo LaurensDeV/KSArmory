@@ -150,6 +150,7 @@ internal sealed partial class Ui
         // Inline rather than a pane of its own. It is one tick box and a line of state, and a
         // window holding that is a window to open, move and close for nothing.
         DrawCraftMover();
+        DrawSendToBody();
         ImGui.Separator();
         DrawFinTest();
         ImGui.Separator();

@@ -1104,6 +1104,39 @@ internal static class KsaWorld
     }
 
     /// <summary>
+    /// The bodies of the current system, by the Id <see cref="TryPlaceOnSurface"/> matches on.
+    ///
+    /// <para>For putting a craft somewhere the cursor cannot reach. <c>CraftMover</c> resolves its
+    /// target off the pointer, so it can only ever set a craft down on the body already being
+    /// looked at — which leaves anything airless untestable when no save has a craft there, and
+    /// none does.</para>
+    ///
+    /// <para>Whether a body has an atmosphere comes back beside the name, because that is the one
+    /// thing that decides which burst effect a test will get.</para>
+    /// </summary>
+    public static void SystemBodies(List<(string Id, bool HasAir)> into)
+    {
+        into.Clear();
+
+        try
+        {
+            if (Universe.CurrentSystem is not { } system) return;
+
+            for (int i = 0; i < system.Count; i++)
+            {
+                if (system.GetIndex(i) is not Celestial body) continue;
+                if (body.Id is not { Length: > 0 } id) continue;
+
+                into.Add((id, HasAtmosphere(body)));
+            }
+        }
+        catch
+        {
+            into.Clear();
+        }
+    }
+
+    /// <summary>
     /// How large something at <paramref name="atEcl"/> appears on screen, in pixels.
     ///
     /// <para>Measured by projecting a point one radius to the camera's right rather than by
