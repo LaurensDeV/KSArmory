@@ -421,16 +421,17 @@ public class MushroomCloudTests
         Assert.True(MushroomCloud.FlashAt(0.3 * Kt, flash + MushroomCloud.EmberSeconds + 0.01).Spent,
                     "and be gone at the end of it");
 
-        // And it climbs the whole time it is there, on the same curve the pens do, rather than
-        // hanging where it burst while the cloud leaves without it.
-        double first = MushroomCloud.AxisHeight(
-            MushroomCloud.At(0.3 * Kt, flash), MushroomCloud.Progress(flash), 1.0);
-        double last = MushroomCloud.AxisHeight(
-            MushroomCloud.At(0.3 * Kt, flash + MushroomCloud.EmberSeconds),
-            MushroomCloud.Progress(flash + MushroomCloud.EmberSeconds), 1.0);
+        // And it climbs the whole time it is there, rather than hanging where it burst while the
+        // cloud leaves without it. On its own law rather than the pens', because the cloud's climb
+        // carries a lit ball out of its own smoke -- see MushroomCloud.EmberHeight.
+        double first = MushroomCloud.EmberHeight(0.3 * Kt, flash);
+        double last = MushroomCloud.EmberHeight(0.3 * Kt, flash + MushroomCloud.EmberSeconds);
 
-        Assert.True(last > first * 3.0,
-                    $"the ember should ride the cloud up: {first:F0} m to {last:F0} m");
+        Assert.True(last > first * 2.0,
+                    $"the ember should still be lifting: {first:F0} m to {last:F0} m");
+
+        // ...and stop, which is the half that stops it reading as a flare.
+        Assert.Equal(MushroomCloud.EmberLiftRadii * MushroomCloud.PeakFireballRadius(0.3), last, 3);
     }
 
     /// <summary>
@@ -746,8 +747,6 @@ public class MushroomCloudTests
     [InlineData(300.0)]
     public void TheBallGoesDarkBeforeItClimbsOutOfItself(double yieldKt)
     {
-        const double emberShell = 0.55;     // NuclearClouds.EmberShell
-        const double capExpanded = 0.65;    // NuclearClouds.CapExpanded
         double charge = yieldKt * 1.0e6;
 
         double lit = 0.0;
@@ -755,11 +754,7 @@ public class MushroomCloudTests
         {
             if (MushroomCloud.FlashAt(charge, t).Spent) break;
 
-            MushroomCloud.Shape sh = MushroomCloud.At(charge, t);
-            MushroomCloud.Shape cored = sh with
-                { CapRadius = MushroomCloud.PathRadius(sh, sh.CapTube * capExpanded) };
-            lit = Math.Min(MushroomCloud.AxisHeight(cored, MushroomCloud.Progress(t), emberShell),
-                           sh.CapCentre);
+            lit = MushroomCloud.EmberHeight(charge, t);
         }
 
         double peak = MushroomCloud.PeakFireballRadius(yieldKt);
@@ -997,5 +992,54 @@ public class MushroomCloudTests
             Assert.True(Math.Abs(s.Roll) < 0.6,
                         $"at {age:F1} s the roll is {s.Roll:F2} rad, which starts to wind");
         }
+    }
+
+    /// <summary>
+    /// The climb is Teapot Wasp's tracked cloud top, not a curve that merely looks like one. The
+    /// old step response had done a twelfth of its rise where the real cloud had done a third —
+    /// and the start is the part that matters, because the fireball rides it through the handover.
+    /// </summary>
+    [Theory]
+    [InlineData(0.10, 0.308)]
+    [InlineData(0.30, 0.509)]
+    [InlineData(0.50, 0.771)]
+    [InlineData(0.60, 0.840)]
+    [InlineData(0.80, 0.991)]
+    [InlineData(1.00, 1.000)]
+    public void TheClimbFollowsTheTrackedCloud(double fraction, double height)
+        => Assert.Equal(height, MushroomCloud.Rise(fraction * MushroomCloud.RiseSeconds), 3);
+
+    /// <summary>It only ever goes up, and it is never behind where it started.</summary>
+    [Fact]
+    public void TheClimbNeverRunsBackwardsWhileItRises()
+    {
+        double last = 0.0;
+
+        for (double t = 0.0; t <= 1.0; t += 0.01)
+        {
+            double now = MushroomCloud.Rise(t * MushroomCloud.RiseSeconds);
+            Assert.True(now >= last - 1e-9, $"the cloud sank at {t:F2} of its rise");
+            last = now;
+        }
+    }
+
+    /// <summary>
+    /// It overshoots a few per cent and settles, which is what Ruth and Post were tracked doing.
+    /// Joined to the track without a step, so nothing shows at the moment the two halves meet.
+    /// </summary>
+    [Fact]
+    public void TheClimbOvershootsAndComesBack()
+    {
+        double ceiling = MushroomCloud.Rise(MushroomCloud.RiseSeconds);
+        double peak = MushroomCloud.Rise(1.25 * MushroomCloud.RiseSeconds);
+        double later = MushroomCloud.Rise(4.0 * MushroomCloud.RiseSeconds);
+
+        Assert.Equal(1.0, ceiling, 6);
+        Assert.InRange(peak, 1.02, 1.06);
+        Assert.InRange(later, 1.0, 1.01);
+
+        // No step where the track hands over to the overshoot.
+        Assert.Equal(MushroomCloud.Rise(0.999 * MushroomCloud.RiseSeconds),
+                     MushroomCloud.Rise(1.001 * MushroomCloud.RiseSeconds), 2);
     }
 }

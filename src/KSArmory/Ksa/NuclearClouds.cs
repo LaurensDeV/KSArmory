@@ -254,8 +254,7 @@ internal static class NuclearClouds
 
                 // ...and never above the cap's own centre, so that once there is a cap the ball is
                 // inside it rather than perched on top of it.
-                double riseM = Math.Min(MushroomCloud.AxisHeight(cored, progress, EmberShell),
-                                        shape.CapCentre);
+                double riseM = MushroomCloud.EmberHeight(cloud.ChargeKg, cloud.Age);
 
                 double3 riseCcf = cloud.Up * riseM;
 

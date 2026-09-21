@@ -236,6 +236,22 @@ public static class MushroomCloud
     public const double EmberFraction = 0.09;
 
     /// <summary>
+    /// How far the ball may lift while it is still lit, in its own radii.
+    ///
+    /// <para><b>The ball does not ride the cloud's curve, and tying it to one was the mistake.</b>
+    /// A fireball lifts by its own buoyancy and is swallowed within a couple of its own diameters;
+    /// the cloud goes on climbing for another two kilometres. While <see cref="Rise"/> crept off
+    /// the pad the two were indistinguishable, so the ball was left riding it — and the moment that
+    /// curve was corrected to the tracked one the ball went up with it, six of its own radii while
+    /// still glowing, which is a flare ascending rather than a burst dying.</para>
+    ///
+    /// <para>Two radii is what the buoyancy laws and the VFX literature both give, and holding the
+    /// ball there is also what the eye wants: it stops climbing, the cloud rises past it, and the
+    /// glow goes out inside the smoke instead of in front of it.</para>
+    /// </summary>
+    public const double EmberLiftRadii = 2.0;
+
+    /// <summary>
     /// Seconds of that ember, which is the same for every yield because the rise is.
     ///
     /// <para><b>Bounded by how far the ball climbs while it is still lit.</b> The emissive sphere
@@ -369,15 +385,47 @@ public static class MushroomCloud
     {
         if (age <= 0.0) return 0.0;
 
-        const double Damping = 0.60;
+        double t = age / RiseSeconds;
 
-        double peak = Math.PI / (0.85 * RiseSeconds);
-        double natural = peak / Math.Sqrt(1.0 - (Damping * Damping));
-        double decay = Math.Exp(-Damping * natural * age);
+        if (t >= 1.0)
+        {
+            // One overshoot and one settle. A bump that is zero at t = 1 and peaks a quarter of a
+            // rise later, so it joins the track without a step: there is nothing to see at the
+            // handover between the two halves of this function.
+            double past = (t - 1.0) / OvershootAt;
+            return 1.0 + (OvershootBy * past * Math.Exp(1.0 - past));
+        }
 
-        return 1.0 - (decay * (Math.Cos(peak * age)
-                               + (Damping * natural / peak * Math.Sin(peak * age))));
+        for (int i = 1; i < RiseAt.Length; i++)
+        {
+            if (t > RiseAt[i]) continue;
+
+            double span = RiseAt[i] - RiseAt[i - 1];
+            double into = span > 0.0 ? (t - RiseAt[i - 1]) / span : 0.0;
+
+            return RiseTrack[i - 1] + (into * (RiseTrack[i] - RiseTrack[i - 1]));
+        }
+
+        return 1.0;
     }
+
+    // Teapot Wasp's cloud top, tracked by theodolite (WT-1152, Project 9.4), normalised against its
+    // own rise. The measurement rather than a fit, because no closed form matches both ends: every
+    // one that starts like sqrt(t) arrives late, and every one that arrives on time starts too
+    // fast. sqrt(t) itself is within a per cent at a tenth of the rise and 10 per cent low at
+    // eight tenths.
+    //
+    // A step response accelerating from rest is what a buoyant parcel does and is not what was
+    // measured at this scale: it reaches a twelfth of its climb where the real cloud is a third up,
+    // then arrives early and sits at its ceiling from 0.6 onward.
+    private static readonly double[] RiseAt = [0.0, 0.10, 0.30, 0.50, 0.60, 0.80, 1.00];
+    private static readonly double[] RiseTrack = [0.0, 0.308, 0.509, 0.771, 0.840, 0.991, 1.000];
+
+    // Ruth and Post were both tracked peaking and subsiding a few per cent, so the overshoot is
+    // real and small -- not the tenth the old step response gave, which it then never came back
+    // from.
+    private const double OvershootBy = 0.04;
+    private const double OvershootAt = 0.25;
 
     private static double3 Lerp(double3 a, double3 b, double t)
     {
@@ -719,6 +767,30 @@ public static class MushroomCloud
     public static double AxisHeight(in Shape shape, double progress, double shell)
         => (shape.CapCentre + (shape.CapRadius * shell * Oblate))
            * Math.Sqrt(Math.Min(1.0, Math.Clamp(progress, 0.0, 1.0) / ClimbUntil));
+
+    /// <summary>
+    /// How high the glowing ball sits above the burst, which is three limits at once.
+    ///
+    /// <para><b>Its own law, not the cloud's.</b> It lifts evenly to <see cref="EmberLiftRadii"/>
+    /// of its own radii over the whole time it is lit, and stops. A fireball rises by its own
+    /// buoyancy and is swallowed within a couple of diameters, where the column behind it climbs
+    /// two kilometres — so the cloud's stroke carries a glowing ball six of its own radii upward,
+    /// which reads as a flare ascending rather than a burst dying. The two only agree at all while
+    /// <see cref="Rise"/> is slow off the pad, and the tracked cloud is not.</para>
+    ///
+    /// <para><b>Here rather than at the drawing, because the test was reproducing it.</b> The rule
+    /// that keeps the ball from reading as a flare was asserted against a copy of this expression
+    /// written out in the test file, so a limit added at the draw site passed every check and
+    /// changed nothing anybody measured.</para>
+    /// </summary>
+    public static double EmberHeight(double chargeKg, double age)
+    {
+        double kt = KilotonsFor(chargeKg);
+        double lit = DarkAfter(kt) + EmberSeconds;
+        if (!(lit > 0.0) || age <= 0.0) return 0.0;
+
+        return EmberLiftRadii * PeakFireballRadius(kt) * Math.Min(1.0, age / lit);
+    }
 
     /// <summary>
     /// The circle the outer pens walk, which is inside the silhouette by their own tube radius.
