@@ -222,10 +222,24 @@ void main()
 
         float sunlight = exp(-toSun * 0.02);
 
-        // Sun through the cloud, plus a flat ambient so the shadowed side is not black. The ambient
-        // is what the sky would give it; without one a volume reads as a cut-out.
+        // Sun through the cloud, plus a sky ambient. The ambient is not flat: the sky is brighter
+        // toward the sun and toward the horizon, and a single number for it is what makes a volume
+        // read as a cut-out.
+        //
+        // APPROXIMATED, not KSA's. The engine's own aerial-perspective LUT is bound and public --
+        // Program.PlanetAtmosphereRenderer hands out the set and its layout -- but sampling it
+        // needs Core's AtmosphereLuts.glsl, and a mod's shader cannot include it: shaderc resolves
+        // includes relative to the requesting file, the mod lives under Documents and Core under
+        // the install, and copying their shader in would be redistributing it.
+        // docs/BLOCKED-ON-KSA.md has the entry.
+        float up_ = clamp(dot(dir, up) * 0.5 + 0.5, 0.0, 1.0);
+        float toward = clamp(dot(dir, sun) * 0.5 + 0.5, 0.0, 1.0);
+
+        vec3 sky = mix(vec3(0.34, 0.42, 0.56), vec3(0.62, 0.66, 0.72), 1.0 - up_)
+                   * (0.75 + 0.55 * toward);
+
         vec3 albedo = vec3(0.30, 0.26, 0.21);
-        vec3 lit = albedo * (sunlight * forward * 12.0 + 0.25);
+        vec3 lit = albedo * sunlight * forward * 12.0 + sky * albedo * 0.9;
 
         float extinction = density * 0.016 * dt;
         scattered += transmittance * lit * extinction;
@@ -236,7 +250,16 @@ void main()
 
     if (transmittance > 0.999) return;
 
+    // Aerial perspective: what is between the eye and the cloud, washing it toward the sky with
+    // range. Without it a cloud two kilometres off is as crisp as one at arm's length, which is
+    // the single strongest cue that something is pasted onto a scene rather than standing in it.
+    float haze = 1.0 - exp(-length(toCentre) * 4.0e-5);
+    float upAtCloud = clamp(dot(normalize(toCentre), up) * 0.5 + 0.5, 0.0, 1.0);
+    vec3 distant = mix(vec3(0.50, 0.57, 0.68), vec3(0.72, 0.75, 0.80), 1.0 - upAtCloud);
+
+    vec3 body = mix(scattered, distant * (1.0 - transmittance), haze * 0.55);
+
     vec4 c = imageLoad(sceneColor, at);
-    vec3 mixed = c.rgb * transmittance + scattered * pc.SizeStrength.w;
+    vec3 mixed = c.rgb * transmittance + body * pc.SizeStrength.w;
     imageStore(sceneColor, at, vec4(mixed, c.a));
 }

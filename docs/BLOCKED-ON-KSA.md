@@ -260,6 +260,40 @@ would mean depending on two third-party framework mods, which is a different dec
 missing engine feature — this mod currently requires only StarMap. Recorded here so the trade is a
 deliberate one.
 
+## A mod's shader cannot include Core's shader library
+
+**Wanted.** KSA's own atmosphere on this mod's volumetric cloud — the aerial-perspective and sky
+LUTs the engine lights its weather clouds and its SRB plumes with. It is the whole remaining
+quality gap between `Ksa/CloudPass.cs` and the pen cloud it would replace.
+
+**Everything but the include is already public.** `Program.PlanetAtmosphereRenderer` is a public
+static; `GetAtmosphereLutsDescriptorSet`, `GetAtmosphereLutsDescriptorSetLayout`,
+`GetAtmosphereDataSet`, `GetAtmosphereDataSetLayout` and `GetAtmosphereDataDynamicOffset` are all
+public on it; and `ComputePipelineWrapper` takes external descriptor set layouts and
+`BindPipeline` takes the sets and their dynamic offsets. The descriptors can be bound.
+
+**The engine reason.** Sampling them needs `Content/Core/Shaders/Atmosphere/AtmosphereLuts.glsl`,
+and a mod's shader cannot reach it. `ShaderCompilerResolve` installs shaderc's default include
+resolver, which resolves a path relative to the requesting file — and Core's shaders sit under the
+install (`C:\Program Files\Kitten Space Agency\Content\Core\Shaders`) while a mod's sit under
+the user's Documents. There is no relative path between the two trees, and `ShaderReference`
+exposes no include-path list an asset can populate: `IncludePaths` is a record of what a compile
+*did* include, for dependency tracking.
+
+Core's own shaders reach it with `#include "../../../Atmosphere/AtmosphereLuts.glsl"`, which works
+only because they are in that tree.
+
+**Copying it in is not the workaround.** It is RocketWerkz's shader source, and vendoring it into
+this repository is redistributing their code — the same rule that keeps their assemblies out.
+
+**What would unblock it.** An include path a `<Shader>` asset can declare, or a resolver that also
+searches the game's own shader root. Either makes the LUTs usable by any mod, since the descriptor
+sets are already public.
+
+**Meanwhile** `Ksa/CloudPass.cs` approximates: a sky ambient that brightens toward the sun and the
+horizon, and an aerial-perspective wash with range. It reads well enough at two kilometres and is
+not the engine's answer.
+
 ## Secondary viewport: no sky, clouds, atmosphere or terrain
 
 **Wanted.** The launcher's electro-optical head drives a second camera window, so the sight can be
