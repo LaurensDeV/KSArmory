@@ -302,7 +302,7 @@ public static class ChaseView
         // up, and inside the 497 m this same charge is lethal to. Standing off the cloud's own
         // height puts it across the frame and outside what made it.
         return chargeKg >= MushroomCloud.ThresholdKg
-                   ? Math.Max(shortOf, MushroomCloud.DrawnCloudTop(MushroomCloud.KilotonsFor(chargeKg)))
+                   ? Math.Max(shortOf, CloudsInFrame * MushroomCloud.DrawnCloudTop(MushroomCloud.KilotonsFor(chargeKg)))
                    : shortOf;
     }
 
@@ -376,6 +376,12 @@ public static class ChaseView
     // Six radii out, so the whole ball and what it throws are in frame: a 300-tonne bomb is watched
     // from a kilometre and a 20-kiloton warhead from four.
     private const double StopShortFireballs = 6.0;
+
+    // How much room to leave around a cloud, in cloud heights. Standing off by exactly the height
+    // puts the eye level with the crown and, flown, inside the smoke: the capture at 0.30 of the
+    // rise came back a flat wall of brown. A cloud that height fills a 50 degree frame at about
+    // 1.07 of it, so this is that with margin.
+    private const double CloudsInFrame = 1.6;
 
     /// <summary>
     /// Eases a camera from where the player had it onto the chase pose, turning the look from the

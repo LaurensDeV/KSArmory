@@ -22,7 +22,7 @@ public class ChaseStopShortTests
         double bomb = ChaseView.StopShortMetres(300_000.0);
 
         Assert.True(bomb >= 6.0 * Warhead.FireballRadius(300_000.0) - 1e-6);
-        Assert.Equal(MushroomCloud.DrawnCloudTop(0.3), bomb, 6);
+        Assert.Equal(1.6 * MushroomCloud.DrawnCloudTop(0.3), bomb, 6);
     }
 
     [Fact]
@@ -97,7 +97,7 @@ public class ChaseStopShortTests
         double stand = ChaseView.StopShortMetres(chargeKg);
 
         // The whole cloud is in front of the camera rather than over it.
-        Assert.True(stand >= MushroomCloud.DrawnCloudTop(kt));
+        Assert.True(stand > MushroomCloud.DrawnCloudTop(kt));
 
         // And the camera is not standing where the warhead would kill it.
         Assert.True(stand > Warhead.LethalRadius(chargeKg));
