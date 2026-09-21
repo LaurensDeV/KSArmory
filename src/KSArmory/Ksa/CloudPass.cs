@@ -34,6 +34,12 @@ internal static class CloudPass
     // The compute shader's workgroup, which has to match KSArmoryCloud.comp's local_size.
     private const int Group = 8;
 
+    // KSA's own GPU profiler rather than a query pool of this mod's. A compute dispatch is
+    // asynchronous, so timing it from C# measures the recording and not the work; the engine
+    // already writes timestamps around every region tagged this way, and its profiler window then
+    // lists this pass beside the passes it has to be afforded against.
+    private static readonly ProfilerTag GpuTag = new("KSArmory Cloud"u8);
+
     private static ComputePipelineWrapper? _pipeline;
     private static int _width;
     private static int _height;
@@ -144,9 +150,12 @@ internal static class CloudPass
                                    (float)shape.CapTube, (float)shape.StemRadius),
             };
 
-            _pipeline!.BindPipeline(commandBuffer, frameIndex, default, default, push);
-            commandBuffer.Dispatch((width + Group - 1) / Group,
-                                   (height + Group - 1) / Group, 1);
+            using (commandBuffer.TagRegion(GpuTag))
+            {
+                _pipeline!.BindPipeline(commandBuffer, frameIndex, default, default, push);
+                commandBuffer.Dispatch((width + Group - 1) / Group,
+                                       (height + Group - 1) / Group, 1);
+            }
         }
         catch (Exception e)
         {

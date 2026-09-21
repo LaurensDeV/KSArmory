@@ -732,7 +732,11 @@ depth sampler, which `ComputePipelineWrapper` takes and nothing here has built.
 ### What is not built
 
 No atmospheric in-scatter — the pens get KSA's own, which is most of the remaining quality gap. No
-wind advection, where a trail segment drifts through a sheared field for 1200 s. **And no cost
-measurement at all**: a compute dispatch is asynchronous, so CPU timing around it measures nothing,
-and pricing it against the pen cloud's 6-8 ms a frame needs GPU timestamp queries that do not exist
-here yet. Until they do, nothing should be retired in its favour.
+wind advection, where a trail segment drifts through a sheared field for 1200 s.
+
+**Its cost is the engine's own to report.** A compute dispatch is asynchronous, so timing it from C#
+measures the recording rather than the work — but `ProfilerTag`'s constructor is public and
+`CommandBuffer.TagRegion` is a public extension, so the dispatch sits inside KSA's own GPU profiler
+as `KSArmory Cloud`, listed beside the passes it has to be afforded against. No query pool of this
+mod's was needed. **The number has not been read yet**, and nothing should be retired in its favour
+until it has: the pen cloud's 6-8 ms a frame is what it has to beat.
