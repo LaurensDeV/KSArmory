@@ -530,6 +530,19 @@ So the cloud creeps for the first tenth of its rise where the real one has alrea
 it, and then arrives early — it is at its ceiling by 0.6 where the real cloud is at 0.84. The
 overshoot itself is real: Ruth and Post were both tracked peaking and then subsiding a few per cent.
 
+**And `Rise` is not the curve to change, which is the trap in this item.** What is drawn is not
+`Rise(t)`: a pen sits at `AxisHeight`, which is `(CapCentre + …)·√(progress/ClimbUntil)` with
+`Progress(age) = age/RiseSeconds` — linear — while `CapCentre = top·0.75·Rise(age)`. So the
+**drawn** climb is `Rise(t)·√t`, and the `√t` everyone wants is already half present. Writing
+`Rise = √t` therefore produces a drawn climb of `t`, which is linear: the opposite of the intent,
+and slower off the pad rather than faster. The thing to design is the composition, and the free
+choice is which of the two factors carries it.
+
+At the handover instant that compounding is what bites. The flash is over at `t ≈ 0.05` for
+0.3 kt, where `Rise` is 0.088 today and `√t` would be 0.224 — so the ball's drawn lift moves by
+about 3.6x, against the 1.24 → 2.4 radii the paragraph below estimates. Both say the same thing:
+this cannot be changed without re-checking the handover on a screen.
+
 **Not changed, because the one thing it is currently getting right is the handover.** The ball rides
 this curve, so the slow start is what keeps its lift to 1.24 of its own radii while it is still
 glowing — against 1.9 from the buoyancy laws and the "one to two radii, it is not a rocket" the VFX
