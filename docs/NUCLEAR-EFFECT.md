@@ -751,6 +751,14 @@ The cost is coverage, not cloud: every pixel the bounding sphere accepts marches
 taking four more density samples toward the sun, so a cloud that fills the screen costs 192 density
 evaluations per pixel. Standing in it is the worst case and is also exactly where a player stands.
 
-What the plan already named as the answer is a **half-resolution pass with a depth-aware upsample**,
-which is a quarter of the pixels; beyond that, fewer steps with a jittered start, an earlier
-transmittance cut-off, and a cheaper shadow than four taps. None of it is built.
+**The shadow was four fifths of it, and a shadow does not need detail.** Every one of those 192
+taps ran the full four-octave fBm to produce a number that is then exponentiated into a smooth
+falloff — paying for turbulent surface detail in a term that cannot show any. Asking the
+*un-eroded* shape instead, with 32 jittered steps rather than 48 and a transmittance cut-off of
+0.03, took the pass from **36 ms to 4.7 ms**, under the pen cloud's 6-8. Half-resolution was not
+needed and is not built.
+
+**That factor is not clean.** The camera is the operator's in a pad drop and it moved between the
+two runs, so part of the drop is less of the screen marching. The change is certainly most of it —
+it removes four fifths of the work by construction — but the honest number wants a fixed camera,
+and the harness does not pin one.

@@ -22,6 +22,8 @@ internal static class CloudPassCost
     private const string TagName = "KSArmory Cloud";
 
     private static int _frames;
+    private static int _passFrames;
+    private static double _framePeakMs;
     private static double _passTotalMs;
     private static double _passPeakMs;
     private static double _frameTotalMs;
@@ -51,6 +53,8 @@ internal static class CloudPassCost
     public static void Reset()
     {
         _frames = 0;
+        _passFrames = 0;
+        _framePeakMs = 0.0;
         _passTotalMs = 0.0;
         _passPeakMs = 0.0;
         _frameTotalMs = 0.0;
@@ -93,11 +97,18 @@ internal static class CloudPassCost
                 if (sample.Id.ToString() == TagName) pass += ms;
             }
 
+            // The frame is counted whether or not the pass ran. Without that there is no baseline:
+            // a 46 ms GPU frame means nothing until the same scene has been measured with the pass
+            // off, and a number with no control is what made this instrument look decisive when it
+            // had not yet said anything.
+            _frames++;
+            _frameTotalMs += whole;
+            _framePeakMs = Math.Max(_framePeakMs, whole);
+
             if (pass <= 0.0) return;
 
-            _frames++;
+            _passFrames++;
             _passTotalMs += pass;
-            _frameTotalMs += whole;
             _passPeakMs = Math.Max(_passPeakMs, pass);
         }
         catch (Exception e)
@@ -111,12 +122,16 @@ internal static class CloudPassCost
     {
         if (_frames <= 0) return string.Empty;
 
-        double mean = _passTotalMs / _frames;
         double frame = _frameTotalMs / _frames;
-        double share = frame > 0.0 ? mean / frame : 0.0;
 
-        return $"shader pass: {mean:F2} ms a frame, peak {_passPeakMs:F2}, "
-               + $"of a {frame:F2} ms GPU frame ({share:P0}), over {_frames} frames";
+        // Said even when the pass never ran, because that is the baseline the other run is read
+        // against and a run that reports nothing looks like a run that measured nothing.
+        string had = _passFrames > 0
+                         ? $"pass {_passTotalMs / _passFrames:F2} ms a frame over {_passFrames}, "
+                           + $"peak {_passPeakMs:F2}"
+                         : "pass off";
+
+        return $"gpu: {had}; whole frame {frame:F2} ms, peak {_framePeakMs:F2}, over {_frames} frames";
     }
 
     private static void Warn(string what)
