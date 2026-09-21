@@ -98,8 +98,9 @@ internal static class BurstEjecta
                         e.ParticleInfo.Lifespan = new float2((float)(thrown.FlightSeconds * 0.7),
                                                              (float)thrown.FlightSeconds);
 
-                        // The envelope swells each puff 3.4x over its flight, so this is where it
-                        // starts rather than how big the dust ends up.
+                        // Very nearly the size it stays: the envelope is flat, because a grain in
+                        // vacuum has no air to entrain and does not swell. The dome widens because
+                        // the grains leave at a spread of speeds, not because each one grows.
                         e.ParticleInfo.Size = new float2((float)(thrown.ReachMetres * 0.06),
                                                          (float)(thrown.ReachMetres * 0.12));
                     });

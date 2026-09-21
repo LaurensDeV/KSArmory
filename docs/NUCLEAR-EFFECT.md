@@ -640,6 +640,27 @@ over an airless body gets the shell alone.
   That is the whole reason `BurstEjecta` holds no state, where `MuzzleFlash` exists largely to kill
   and return the emitters it took.
 
+### Dust is not smoke, and the envelopes are where that shows
+
+Reported from play as "I see smoke, which I thought doesn't happen on airless bodies" — and that is
+exactly right. Ejecta is real: a surface burst pulverises ground and throws it on ballistic arcs,
+and the engine flies those arcs for free. **Smoke is not**, and the first version drew smoke.
+
+The tell was not the colour or the renderer, it was the envelopes:
+
+| | drew | why it is wrong with no air |
+| --- | --- | --- |
+| `ScaleEnvelope` | each puff swelled **3.4x** in flight | swelling is entrainment, and there is nothing to entrain |
+| `AlphaEnvelope` | faded out in mid-arc | that is dissipation; vacuum ejecta does not thin, it lands |
+| `ColorStops` | paled toward light grey | smoke pales as it dilutes, regolith does not |
+
+All three are now flat or nearly so, and the shell cools to dark rather than to grey for the same
+reason — ending on a grey leaves a puff of smoke hanging where the bomb vapour was.
+
+**What spreads is the dome, not the grain.** The grains leave at a spread of speeds, so the cloud
+opens out while every particle in it stays the size it started. Writing that as per-particle growth
+is the atmospheric habit, and it survives review because it is what every smoke effect does.
+
 ### What is not built
 
 The **shell is art rather than physics**. In vacuum the bomb's own vaporised mass expands at
