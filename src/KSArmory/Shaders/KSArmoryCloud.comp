@@ -108,6 +108,21 @@ const float FalloutDensity = 0.30;
 // finite one keeps the comparisons below free of an isinf.
 const float Nowhere = 1.0e9;
 
+// How far the fallout plume runs downwind and how wide it gets, both as multiples of the burned
+// patch's own radius -- so the footprint grows with the warhead rather than being a typed distance.
+//
+// A DRAWING CHOICE in the same sense as MushroomCloud.DrawnScale. Hazardous deposition from a
+// 20 kt burst runs tens of kilometres, which against a two-kilometre patch is fifteen times this
+// and leaves the scene entirely. Three puts the far end just outside the frame a burst is watched
+// from, which is as much of it as anybody can be shown.
+const float PlumeReach = 3.0;
+const float PlumeMouth = 0.45;
+const float PlumeWidth = 0.75;
+
+// And how dark it goes against the patch, which is less: this is dust that settled, not ground the
+// flash burned.
+const float PlumeDepth = 1.0;
+
 // How much of the ground's own colour the burn takes, at the middle of the mark. Not all of it:
 // a scorched hillside is still a lit hillside, and driving it to flat ash removes the relief the
 // terrain is drawn with.
@@ -436,7 +451,45 @@ void main()
         float above = dot(burned, up);
         float acrossR = length(burned - up * above);
 
-        if (acrossR < scorch)
+        // THE PLUME. What the ground is left with is not a disc: the flash burns a patch, and then
+        // everything the column lifted comes down DOWNWIND of it over the following hours, in a
+        // long narrow footprint that is what actually makes ground uninhabitable. A circle is the
+        // crater and nothing else.
+        //
+        // Same wind vector the column leans and sails along, in the same two floats -- computed
+        // twice the two could disagree, and a plume at right angles to the column it fell out of
+        // is the plainest tell there is.
+        vec3 downwind = OctahedralUnpack(pc.AgeStrengthWind.zw);
+        // Not "flat": that is a GLSL interpolation qualifier, and the file already carries a
+        // flat_ elsewhere for the same reason.
+        vec3 ground = burned - up * above;
+
+        float along = dot(ground, downwind);
+        float across = length(ground - downwind * along);
+
+        // Reach and half-width as fractions of the burned patch, and the walk along it as 0..1.
+        float run = clamp(along / (scorch * PlumeReach), 0.0, 1.0);
+
+        // It LEAVES the crater at something like the crater's own width and widens with the square
+        // root of the distance, which is what a puff spreading by diffusion while it travels does.
+        // Starting from nothing makes it a point that never gets going: four factors each under
+        // one -- a linear fade, a lateral falloff, its own depth and the noise over it -- took the
+        // drawn result to about six per cent of the patch beside it, which is invisible.
+        float halfWidth = scorch * (PlumeMouth + (PlumeWidth * sqrt(run)));
+
+        // A flat core with a soft edge rather than a linear taper, for the same reason: a taper
+        // has one dark line down the middle and nothing either side of it.
+        // Flat cores with soft edges. Ramping from the middle outward puts most of the footprint
+        // on the ramp rather than in the plume -- measured against a same-camera control, the
+        // drawn result was a mean of 12.9 of 255 over the ground it covered, which is real and
+        // under what anybody reads as a mark.
+        float lateral = 1.0 - smoothstep(0.75, 1.0, across / max(halfWidth, 1.0));
+        float fade = 1.0 - smoothstep(0.70, 1.0, run);
+
+        // Nothing upwind of the burst: fallout goes one way.
+        float plume = along > 0.0 ? lateral * fade : 0.0;
+
+        if (acrossR < scorch || plume > 0.0)
         {
             // Broken at the edge rather than drawn as a circle: what burned is what the terrain let
             // the flash reach, so the boundary wanders by a fraction of its own radius.
@@ -445,8 +498,17 @@ void main()
             // Faded with height ABOVE the burst and not with distance from it, so the ground under
             // an airburst still burns while a craft flying through the same radius does not black
             // out. There is no normal here to ask which a surface is.
-            float mark = (1.0 - smoothstep(0.35, 1.0, ragged))
-                         * (1.0 - smoothstep(0.0, scorch * 0.30, max(above, 0.0)));
+            // The patch, and the plume beside it. Taken as a MAXIMUM rather than added: where the
+            // two overlap near the burst the ground is already as burned as it gets, and a sum
+            // there would drive it past ash into a hole.
+            float deposit = max(1.0 - smoothstep(0.35, 1.0, ragged),
+                                plume * PlumeDepth
+                                      * mix(0.55, 1.0, Fbm(burned * (9.0 / scorch))));
+
+            // The height gate is measured against the burned patch and has to tolerate the
+            // ground the PLUME crosses, which runs three times further and over whatever relief is
+            // there. At a third of the patch it was cutting the footprint off on every low hill.
+            float mark = deposit * (1.0 - smoothstep(0.0, scorch * 0.80, max(above, 0.0)));
 
             if (mark > 0.0)
             {

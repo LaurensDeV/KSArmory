@@ -40,6 +40,28 @@ internal static class NuclearClouds
     // Where the wind has carried this one, in the body's own frame. The mark it burned does not
     // move -- it is on the ground -- so this is what separates a standing column from its own
     // crater, which nothing before it could produce.
+    // Which way the wind aloft blows at a place, in the body's own frame. Off where the burst is
+    // rather than off a clock, so the same crater leans the same way every time -- and two bursts
+    // within sight of each other land on nearly the same bearing, which is right: they stand in
+    // one wind.
+    //
+    // ONE RULE for the column and for the ground under it. The cloud leans downwind and sails
+    // downwind, and what falls out of it lands downwind; computed twice they could disagree, and a
+    // plume at right angles to the column it fell from is the plainest possible tell.
+    private static double3 DownwindAt(double3 burstCcf)
+    {
+        // The vertical is the way out from the centre. The other two only have to be perpendicular
+        // to it: the shape has an axis of symmetry, so which way "east" points is not a question
+        // anybody has to answer.
+        double3 up = Vec.Unit(burstCcf);
+        double3 east = Vec.Unit(Vec.AnyPerpendicular(up));
+        double3 north = Vec.Unit(Vec.Cross(up, east));
+
+        double bearing = Math.Tau * ((Math.Abs(burstCcf.X) + Math.Abs(burstCcf.Z)) * 0.001 % 1.0);
+
+        return Vec.Unit((east * Math.Cos(bearing)) + (north * Math.Sin(bearing)));
+    }
+
     private static double3 DriftCcf(Cloud cloud)
         => cloud.Downwind * MushroomCloud.DriftMetres(MushroomCloud.KilotonsFor(cloud.ChargeKg),
                                                       cloud.Age);
@@ -66,6 +88,7 @@ internal static class NuclearClouds
     {
         public required Celestial Body;
         public required double3 BurstCcf;
+        public required double3 Downwind;
         public double ChargeKg;
     }
 
@@ -84,10 +107,12 @@ internal static class NuclearClouds
     /// One of them: where it is now, and how wide. Its radius is the warhead's own lethal radius,
     /// so the stain is the reach the panel, the overlay and the blast sweep already quote.
     /// </summary>
-    public static bool TryScorch(int index, out double3 centreEcl, out double radiusMetres)
+    public static bool TryScorch(int index, out double3 centreEcl, out double radiusMetres,
+                                 out double3 downwindEcl)
     {
         centreEcl = default;
         radiusMetres = 0.0;
+        downwindEcl = default;
 
         if (index < 0 || index >= _scorches.Count) return false;
 
@@ -99,7 +124,11 @@ internal static class NuclearClouds
                         + one.BurstCcf.Transform(one.Body.GetCce2Ccf().Inverse());
             radiusMetres = Warhead.LethalRadius(one.ChargeKg);
 
-            return Vec.IsFinite(centreEcl) && radiusMetres > 0.0;
+            // A DIRECTION, so only the rotation applies -- the body's position would carry the
+            // ecliptic's 29.8 km/s into what is meant to be a unit vector.
+            downwindEcl = Vec.Unit(one.Downwind.Transform(one.Body.GetCce2Ccf().Inverse()));
+
+            return Vec.IsFinite(centreEcl) && radiusMetres > 0.0 && Vec.IsFinite(downwindEcl);
         }
         catch
         {
@@ -127,7 +156,13 @@ internal static class NuclearClouds
 
         if (_scorches.Count >= MaxScorches) _scorches.RemoveAt(0);
 
-        _scorches.Add(new Scorch { Body = body, BurstCcf = burstCcf, ChargeKg = chargeKg });
+        _scorches.Add(new Scorch
+        {
+            Body = body,
+            BurstCcf = burstCcf,
+            Downwind = DownwindAt(burstCcf),
+            ChargeKg = chargeKg,
+        });
     }
 
     /// <summary>How many bursts are still alight, over any kind of body. Bounds <see cref="TryBurning"/>.</summary>
@@ -233,12 +268,14 @@ internal static class NuclearClouds
     /// on height alone stands far too close.</para>
     /// </summary>
     public static bool TryWatch(out double3 burstEcl, out double3 up,
-                                out double radiusMetres, out double topMetres)
+                                out double radiusMetres, out double topMetres,
+                                out double3 downwindEcl)
     {
         burstEcl = default;
         up = default;
         radiusMetres = 0.0;
         topMetres = 0.0;
+        downwindEcl = default;
 
         if (_watch is not { } watch || watch.Drawn.Empty) return false;
 
@@ -250,7 +287,12 @@ internal static class NuclearClouds
             radiusMetres = watch.Drawn.RadiusMetres;
             topMetres = watch.Drawn.TopMetres;
 
-            return Vec.IsFinite(burstEcl) && Vec.IsFinite(up) && radiusMetres > 0.0;
+            // A direction, so only the rotation applies.
+            downwindEcl = Vec.Unit(DownwindAt(watch.BurstCcf)
+                                       .Transform(watch.Body.GetCce2Ccf().Inverse()));
+
+            return Vec.IsFinite(burstEcl) && Vec.IsFinite(up) && radiusMetres > 0.0
+                   && Vec.IsFinite(downwindEcl);
         }
         catch
         {
@@ -321,24 +363,14 @@ internal static class NuclearClouds
                 return;
             }
 
-            // Local vertical in the body's own frame, which is just the way out from its centre.
-            // The other two only have to be perpendicular: the shape has an axis of symmetry, so
-            // which way "east" points is not a question anybody has to answer.
             double3 up = Vec.Unit(burstCcf);
-            double3 east = Vec.Unit(Vec.AnyPerpendicular(up));
-            double3 north = Vec.Unit(Vec.Cross(up, east));
-
-            // A bearing for the wind aloft, taken off where the burst is rather than from a clock,
-            // so the same crater leans the same way every time. Two bursts within sight of each
-            // other land on nearly the same bearing, which is right: they stand in one wind.
-            double bearing = Math.Tau * ((Math.Abs(burstCcf.X) + Math.Abs(burstCcf.Z)) * 0.001 % 1.0);
 
             _clouds.Add(new Cloud
             {
                 Body = body,
                 BurstCcf = burstCcf,
                 Up = up,
-                Downwind = Vec.Unit((east * Math.Cos(bearing)) + (north * Math.Sin(bearing))),
+                Downwind = DownwindAt(burstCcf),
                 ChargeKg = chargeKg,
             });
 

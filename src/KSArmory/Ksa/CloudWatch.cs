@@ -54,14 +54,22 @@ internal static class CloudWatch
         {
             if (!KsaWorld.IsAlive(followed)) return false;
             if (!NuclearClouds.TryWatch(out double3 burstEcl, out double3 up,
-                                        out double radius, out double top)) return false;
+                                        out double radius, out double top,
+                                        out double3 downwind)) return false;
             if (!(radius > 0.0)) return false;
 
             double3 unitUp = Vec.Unit(up);
 
-            // A bearing off the burst rather than off the camera or the clock, so the same burst is
-            // always watched from the same side and two runs are the same picture.
-            double3 east = Vec.Unit(Vec.AnyPerpendicular(unitUp));
+            // ACROSS THE WIND, which is where a photographer would stand and is not what an
+            // arbitrary perpendicular gives. Everything about a burst that is not symmetric about
+            // its own axis lies on the downwind line -- the lean, the veer, the drift after the
+            // rise, and the fallout on the ground -- so a camera at an arbitrary bearing to it
+            // sees some fraction of all four and, on the bearing it happens to pick, none of them.
+            // It is still off the burst rather than off the clock, so two runs are one picture.
+            double3 acrossWind = Vec.Unit(Vec.Cross(unitUp, downwind));
+            double3 east = Vec.Len2(acrossWind) > 0.5
+                               ? acrossWind
+                               : Vec.Unit(Vec.AnyPerpendicular(unitUp));
 
             double distance = Heights * radius;
             double elevation = ElevationDeg * Math.PI / 180.0;

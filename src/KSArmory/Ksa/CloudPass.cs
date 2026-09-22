@@ -149,15 +149,22 @@ internal static class CloudPass
             {
                 for (int i = 0; i < NuclearClouds.ScorchCount; i++)
                 {
-                    if (!NuclearClouds.TryScorch(i, out double3 markEcl, out double markRadius)) continue;
+                    if (!NuclearClouds.TryScorch(i, out double3 markEcl, out double markRadius,
+                                                 out double3 markWind)) continue;
 
                     double3 markCentre = markEcl - camera.PositionEcl;
                     if (!Vec.IsFinite(markCentre)) continue;
 
+                    float2 markOct = OctahedralPack(markWind);
+
                     Push burn = new()
                     {
                         InvViewProj = camera.VPInv.viewProjection,
-                        AgeStrengthWind = float4.Zero,
+                        // The wind in the same two floats the column's lean takes it in, and the
+                        // strength beside it left at zero -- which is what says there is no cloud
+                        // on this dispatch. What fell out of a cloud landed downwind of it, so the
+                        // mark needs the same vector the lean does and takes it the same way.
+                        AgeStrengthWind = new float4(0f, 0f, markOct.X, markOct.Y),
                         // The radius here is the bounding sphere the MARCH uses, and there is no
                         // march: zero is what tells the shader this dispatch is the ground alone.
                         CentreRadius = new float4((float)markCentre.X, (float)markCentre.Y,
@@ -278,6 +285,11 @@ internal static class CloudPass
         {
             Warn($"the pass threw and is standing down: {e.Message}");
             Release();
+
+            // AFTER Release, which clears it. A throw out of the build is a failure to build, and
+            // KSA compiles the shader at load -- so a GLSL fault arrives here and nowhere else,
+            // and reading it as a pass nobody switched on is the same silence by a third route.
+            BuildFailed = true;
         }
     }
 

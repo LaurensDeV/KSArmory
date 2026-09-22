@@ -129,6 +129,15 @@ kilotonne one. Real clouds hit the tropopause and spread **sideways** — Castle
 tropopause with the cap spreading *under* it would make the yield readable from the silhouette
 instead of only from the scale, which is the one thing a player cannot currently judge.
 
+**Demoted, because nothing in the arsenal can reach it.** `CloudTop` passes a mid-latitude
+tropopause at about **49 kt**, and the two nuclear charges that ship are the B61's **0.3 kt** and
+the Mk 21's **20 kt** — 2.0 km and 8.1 km of cloud top against an 11 km ceiling. Even
+`TWOCLOUDS=100` only reaches 30 kt. So this is capability nothing in `Arsenal.cs` or the panel can
+observe, which CLAUDE.md says is a `refactor` rather than a feature, and it would ship untestable
+in the shipped game.
+
+It becomes worth building the moment a larger warhead is registered, and not before.
+
 ### 6. The projected decal
 
 `docs/DAMAGE-DECALS.md` has the whole mechanism, read out of gatOS's working implementation and

@@ -571,7 +571,7 @@ internal sealed class DropScenario
 
             // Off the watch record rather than off the cloud's law, so the size reported is the
             // size of whatever is actually standing there -- a column, or a dust dome.
-            string drawn = NuclearClouds.TryWatch(out _, out _, out double radius, out double top)
+            string drawn = NuclearClouds.TryWatch(out _, out _, out double radius, out double top, out _)
                                ? $"{radius / 1000.0:F2} km across, top {top / 1000.0:F2} km"
                                : "nothing standing";
 
