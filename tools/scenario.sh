@@ -33,6 +33,14 @@
 #   ./tools/scenario.sh mirv --no-deploy # fly whatever is already in the mods folder
 #   KSARMORY_SCENARIO_VERBOSE=1 ./tools/scenario.sh head-on   # ...logging at DEBUG, per-part blast sweep included
 #
+#   KSARMORY_SCENARIO_CLOUDS=1 ./tools/scenario.sh drop:10,0,dumb   # a burst photographed rather
+#                                        # than scored: the craft stays on the pad, the camera is
+#                                        # pinned on the cloud, and every capture reports what the
+#                                        # pass cost and how high the sun was
+#   KSARMORY_SCENARIO_NOSHADER=1 ...     # ...the same run with the pass off, as its control
+#   KSARMORY_SCENARIO_TWOCLOUDS=1 ...    # ...and a second burst 1 km away, which is the only way
+#                                        # to exercise the pass with more than one cloud standing
+#
 # The gap this closes is not headless rendering -- KSA ships Windows-only natives and threads its
 # simulation through a Vulkan renderer, so there is no headless to have. It is that verifying a
 # behaviour change otherwise needs a person to click things. The game still draws to a window;
