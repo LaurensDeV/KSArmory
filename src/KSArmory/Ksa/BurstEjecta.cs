@@ -26,6 +26,7 @@ internal static class BurstEjecta
     private const string EjectaId = "KSArmoryNuclearEjecta";
     private const string ShellId = "KSArmoryNuclearShell";
     private const string SurgeId = "KSArmoryNuclearSurge";
+    private const string WaterSurgeId = "KSArmoryNuclearWaterSurge";
     private const string WilsonId = "KSArmoryNuclearWilson";
 
     private static bool _warned;
@@ -146,7 +147,7 @@ internal static class BurstEjecta
     /// shape floats in a push constant with no room for a fifth pair, and this is ground dust
     /// rather than buoyant cloud, which is the same reason the ejecta above is particles.</para>
     /// </summary>
-    public static void BeginSurge(Celestial body, double3 burstCcf, double chargeKg)
+    public static void BeginSurge(Celestial body, double3 burstCcf, double chargeKg, bool water)
     {
         if (!Detonation.ParticlesEnabled) return;
 
@@ -171,7 +172,7 @@ internal static class BurstEjecta
                 VelocityBub = double3.Zero,
             };
 
-            Fire(SurgeId, body, origin, e =>
+            Fire(water ? WaterSurgeId : SurgeId, body, origin, e =>
             {
                 // Half the skirt at the start and the rest walked out over the time the model takes
                 // to reach its widest, so what is drawn arrives at PeakSurge rather than sailing

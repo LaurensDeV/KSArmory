@@ -32,6 +32,9 @@ internal static class NuclearClouds
         // lean identically.
         public required double3 Downwind;
 
+        // Lifted off the sea rather than the ground, so the column is spray rather than dirt.
+        public bool Water;
+
         public double Age;
     }
 
@@ -90,7 +93,13 @@ internal static class NuclearClouds
         public required double3 BurstCcf;
         public required double3 Downwind;
         public double ChargeKg;
+
+        // How far the burned patch's centre stands above the sea, so the drawing can leave the
+        // water alone. Past anything reachable on a body with no sea.
+        public double OverSea = NoSea;
     }
+
+    private const double NoSea = 1.0e9;
 
     private static readonly List<Scorch> _scorches = [];
 
@@ -109,11 +118,12 @@ internal static class NuclearClouds
     /// so the stain is the reach the panel, the overlay and the blast sweep already quote.
     /// </summary>
     public static bool TryScorch(int index, out double3 centreEcl, out double radiusMetres,
-                                 out double3 downwindEcl)
+                                 out double3 downwindEcl, out double overSeaMetres)
     {
         centreEcl = default;
         radiusMetres = 0.0;
         downwindEcl = default;
+        overSeaMetres = NoSea;
 
         if (index < 0 || index >= _scorches.Count) return false;
 
@@ -128,6 +138,7 @@ internal static class NuclearClouds
             // A DIRECTION, so only the rotation applies -- the body's position would carry the
             // ecliptic's 29.8 km/s into what is meant to be a unit vector.
             downwindEcl = Vec.Unit(one.Downwind.Transform(one.Body.GetCce2Ccf().Inverse()));
+            overSeaMetres = one.OverSea;
 
             return Vec.IsFinite(centreEcl) && radiusMetres > 0.0 && Vec.IsFinite(downwindEcl);
         }
@@ -163,6 +174,9 @@ internal static class NuclearClouds
             BurstCcf = burstCcf,
             Downwind = DownwindAt(burstCcf),
             ChargeKg = chargeKg,
+            OverSea = KsaWorld.TrySeaLevel(body, out double sea)
+                          ? Vec.Len(burstCcf) - body.MeanRadius - sea
+                          : NoSea,
         });
     }
 
@@ -213,9 +227,10 @@ internal static class NuclearClouds
     /// </summary>
     public static bool TryAt(int index, out double3 burstEcl, out double3 up, out double radiusMetres,
                              out double ageSeconds, out MushroomCloud.Shape shape,
-                             out double3 downwind, out MushroomCloud.Flash flash)
+                             out double3 downwind, out MushroomCloud.Flash flash, out bool water)
     {
         flash = default;
+        water = false;
 
         downwind = default;
 
@@ -239,6 +254,7 @@ internal static class NuclearClouds
 
             // The ball, so the pass can light the cloud from inside it while it burns.
             flash = MushroomCloud.FlashAt(cloud.ChargeKg, cloud.Age);
+            water = cloud.Water;
 
             // Chosen at the burst rather than per frame, so the column leans one way for its whole
             // life instead of wandering.
@@ -328,7 +344,14 @@ internal static class NuclearClouds
             // and its dimensions logged, over a body where nobody could ever see one.
             // Registered before the fork, because a fireball happens either way.
             _burning.Add(new Burning { Body = body, BurstCcf = burstCcf, ChargeKg = chargeKg });
-            Burn(body, burstCcf, chargeKg);
+
+            // WHAT IT WENT OFF ON OR IN, which decides what it leaves. Only land is burned: on the
+            // sea there is nothing to stain, and a mark projected off the depth buffer there lies
+            // on the water's surface.
+            BurstSetting setting = KsaWorld.SettingOf(
+                body, burstEcl, MushroomCloud.PeakFireballRadius(MushroomCloud.KilotonsFor(chargeKg)));
+
+            if (setting == BurstSetting.Land) Burn(body, burstCcf, chargeKg);
 
             if (!KsaWorld.HasAtmosphere(body))
             {
@@ -339,6 +362,17 @@ internal static class NuclearClouds
                     body, burstCcf, chargeKg, KsaWorld.HeightAboveTerrain(body, burstEcl));
 
                 _watch = (body, burstCcf, Vec.Unit(burstCcf), thrown);
+                return;
+            }
+
+            // Deep enough under the sea that the fireball never breaks the surface, there is no
+            // mushroom: the column is air rising through air, and there is none down there. Said
+            // once, because an empty sky over a burst is otherwise indistinguishable from a cloud
+            // that failed to draw.
+            if (setting == BurstSetting.Underwater)
+            {
+                Log.Info($"nuclear burst under the sea on {body.Id}: its fireball never reaches the "
+                         + "surface, so it raises no column and burns nothing");
                 return;
             }
 
@@ -373,13 +407,19 @@ internal static class NuclearClouds
                 Up = up,
                 Downwind = DownwindAt(burstCcf),
                 ChargeKg = chargeKg,
+                Water = setting == BurstSetting.WaterSurface,
             });
+
+            Log.Info($"nuclear burst on {body.Id}: "
+                     + (setting == BurstSetting.WaterSurface
+                            ? "on the sea -- a white column of spray, and nothing burned"
+                            : "over land -- a column of lifted ground, and the ground burned"));
 
             double kt = MushroomCloud.KilotonsFor(chargeKg);
 
             // The dust along the ground, which the raymarch does not draw and never could: its
             // push constant carries the column's four numbers and has no room for the skirt's.
-            BurstEjecta.BeginSurge(body, burstCcf, chargeKg);
+            BurstEjecta.BeginSurge(body, burstCcf, chargeKg, setting == BurstSetting.WaterSurface);
 
             // And the condensation shell over the first couple of seconds, which is why a
             // photograph of a burst that early is a white dome rather than a ball of fire.

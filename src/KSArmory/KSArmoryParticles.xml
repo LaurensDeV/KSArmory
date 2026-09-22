@@ -366,6 +366,47 @@
     </ParticleEmitter>
 
     <!--
+      The same collar lifted off the sea instead of the ground: spray rather than dust, and white
+      for it. Same shape and the same law, because what draws it back in is the afterwind feeding
+      the column, and that does not care what the surface is made of. The wide surge racing
+      outward past the cap belongs to a shallow UNDERWATER burst, which a store stopped at the
+      waterline cannot make.
+    -->
+    <ParticleEmitter Id="KSArmoryNuclearWaterSurge" Drag="6" Density="1.4">
+        <MaxParticles Value="160" />
+        <Mesh Id="ParticleSphere"/>
+        <Renderer>Volumetric</Renderer>
+        <Updaters>SimpleMovement</Updaters>
+        <Updaters>Age</Updaters>
+        <Updaters>LifetimeEnvelope</Updaters>
+        <Updaters>ModelMatrix</Updaters>
+        <SpawnMode>Burst</SpawnMode>
+        <EmitterSpawnLogic>Sphere</EmitterSpawnLogic>
+        <EmitterSize Value="1"/>
+        <SpawnRate Value="160"/>
+        <Force X="0" Y="0" Z="0" />
+        <InheritVelocity Value="false"/>
+        <Opacity Value="0.85"/>
+        <ParticleColor X="0.80" Y="0.82" Z="0.84" W="1"/>
+        <ParticleLifespan X="1" Y="2"/>
+        <ParticleSpawnLogic>MoveAwayFromCenter</ParticleSpawnLogic>
+        <ParticleSize X="1" Y="2"/>
+        <ParticleVelocity X="1" Y="1" Z="1"/>
+        <ParticleVelocityShift Value="0.45"/>
+        <!--
+          Swells, unlike the vacuum ejecta. There is air here to entrain, which is the whole
+          difference between dust thrown on the Moon and a base surge.
+        -->
+        <ScaleEnvelope Start="1" Peak="1.9" PeakAt="0.55" End="2.6"/>
+        <AlphaEnvelope Start="0.85" Peak="0.85" PeakAt="0.55" End="0"/>
+        <ColorStops MidAt="0.5">
+            <Start R="0.46" G="0.41" B="0.34"/>
+            <Mid R="0.48" G="0.44" B="0.38"/>
+            <End R="0.52" G="0.49" B="0.45"/>
+        </ColorStops>
+    </ParticleEmitter>
+
+    <!--
       The debris shell: the bomb's own vaporised mass, which in vacuum keeps going instead of
       settling into a fireball.
 

@@ -132,7 +132,7 @@ internal static class CloudPass
             _order.Clear();
             for (int i = 0; i < NuclearClouds.Count && _order.Count < MaxClouds; i++)
             {
-                if (!NuclearClouds.TryAt(i, out double3 at, out _, out _, out _, out _, out _, out _)) continue;
+                if (!NuclearClouds.TryAt(i, out double3 at, out _, out _, out _, out _, out _, out _, out _)) continue;
 
                 _order.Add((i, Vec.Len2(at - camera.PositionEcl)));
             }
@@ -151,7 +151,7 @@ internal static class CloudPass
                 for (int i = 0; i < NuclearClouds.ScorchCount; i++)
                 {
                     if (!NuclearClouds.TryScorch(i, out double3 markEcl, out double markRadius,
-                                                 out double3 markWind)) continue;
+                                                 out double3 markWind, out double markOverSea)) continue;
 
                     double3 markCentre = markEcl - camera.PositionEcl;
                     if (!Vec.IsFinite(markCentre)) continue;
@@ -182,7 +182,10 @@ internal static class CloudPass
                         // The tile's origin rides in the two floats a mark has no use for: it
                         // has no fireball, so the radius and the glow are free.
                         FireSun = new float4(tile.OriginX, tile.OriginY, 0f, (float)markRadius),
-                        Shape = float4.Zero,
+                        // How far the patch's centre stands above the sea, in the one float of the
+                        // cloud's shape a mark does not use. Always set: zero would read as a mark
+                        // standing on the waterline and blank everything below its own centre.
+                        Shape = new float4((float)markOverSea, 0f, 0f, 0f),
                     };
 
                     if (marks > 0) Hazard(commandBuffer);
@@ -231,7 +234,8 @@ internal static class CloudPass
                                              out double radius, out double age,
                                              out MushroomCloud.Shape shape,
                                              out double3 downwind,
-                                             out MushroomCloud.Flash flash)) continue;
+                                             out MushroomCloud.Flash flash,
+                                             out bool water)) continue;
 
                     // Differenced against the camera in DOUBLE and only then narrowed. The world is
                     // a solar system: a float metre cannot hold an ecliptic position, and Ego is a
@@ -266,9 +270,13 @@ internal static class CloudPass
                         // and each would otherwise lay its own white over the last.
                         //
                         // No scorch here: the ground a burst burned outlives the column over it,
-                        // so it is its own dispatch below and a cloud never draws one.
+                        // so it is its own dispatch below and a cloud never draws one. The fourth
+                        // float is therefore free on this dispatch, and carries whether the column
+                        // is spray -- NEGATIVE, because positive is what makes the shader read a
+                        // dispatch as a ground mark.
                         FireSun = new float4((float)flash.Radius, (float)flash.Glow,
-                                             n == 0 ? BurstFlash.Whiteout : 0f, 0f),
+                                             n == 0 ? BurstFlash.Whiteout : 0f,
+                                             water ? -1f : 0f),
 
                         // The same shape MushroomCloud carries, so every dimension stays
                         // Glasstone's rather than being invented again in GLSL.

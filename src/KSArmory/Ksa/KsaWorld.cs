@@ -1218,6 +1218,62 @@ internal static class KsaWorld
     }
 
     /// <summary>
+    /// The sea's level against the mean sphere, on a body that has one.
+    ///
+    /// <para>The same discriminator <see cref="MediumDensityRatioAt"/> uses: a body with no ocean
+    /// hands back null, and one with an ocean has a density. Never its <c>IsValid()</c>, which
+    /// tests a level of 0 m against an astronomical bar and is false wherever there is water.</para>
+    /// </summary>
+    public static bool TrySeaLevel(Celestial body, out double level)
+    {
+        level = 0.0;
+
+        try
+        {
+            if (body.GetOceanReference() is not { } sea || !(sea.Density > 0.0)) return false;
+
+            level = sea.Level;
+            return double.IsFinite(level);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// What a burst at a place went off on or in: land, the sea's surface, or under it.
+    ///
+    /// <para>Terrain and sea both against the mean sphere, and the terrain read accurately,
+    /// because it is asked once per burst and the difference between a beach and the water beside
+    /// it is a few metres. An unreadable height field is land, which is what every burst was
+    /// before the sea was asked about at all.</para>
+    /// </summary>
+    public static BurstSetting SettingOf(Celestial body, double3 positionEcl, double fireballRadius)
+    {
+        try
+        {
+            double3 cce = positionEcl - body.GetPositionEcl();
+            double radius = Vec.Len(cce);
+            if (!(radius > 0.0)) return BurstSetting.Land;
+
+            if (!new TerrainHeights(body, accurate: true).TryHeight(cce / radius, out double ground))
+            {
+                return BurstSetting.Land;
+            }
+
+            bool hasSea = TrySeaLevel(body, out double seaLevel);
+
+            return BurstSettings.Classify(radius - body.MeanRadius, ground, seaLevel, hasSea,
+                                          fireballRadius);
+        }
+        catch
+        {
+            return BurstSetting.Land;
+        }
+    }
+
+    /// <summary>
     /// How high the star stands over the horizon at a place, in degrees. Negative is below it.
     ///
     /// <para>What this answers is why something is dark. Every LUT the atmosphere is sampled

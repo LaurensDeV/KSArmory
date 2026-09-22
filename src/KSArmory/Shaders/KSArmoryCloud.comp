@@ -123,6 +123,9 @@ const float PlumeWidth = 0.75;
 // flash burned.
 const float PlumeDepth = 1.0;
 
+// How far above the waterline a mark comes back to full strength.
+const float SeaMarginMetres = 2.0;
+
 // How much of the ground's own colour the burn takes, at the middle of the mark. Not all of it:
 // a scorched hillside is still a lit hillside, and driving it to flat ash removes the relief the
 // terrain is drawn with.
@@ -522,6 +525,14 @@ void main()
             // there. At a third of the patch it was cutting the footprint off on every low hill.
             float mark = deposit * (1.0 - smoothstep(0.0, scorch * 0.80, max(above, 0.0)));
 
+            // NOT ON THE SEA. What falls on water sinks and spreads rather than staining it, and in
+            // KSA's own model there is no dry ground under sea level -- the ocean is everywhere
+            // below it -- so a pixel at or under the waterline is water. Measured as the patch's
+            // own height over the sea plus this pixel's height over the patch, both small numbers,
+            // rather than off the planet's radius, where a float's step is half a metre. Faded
+            // over two metres rather than cut, because the ocean's surface is drawn with waves.
+            mark *= smoothstep(0.0, SeaMarginMetres, pc.Shape.x + above);
+
             if (mark > 0.0)
             {
                 vec4 was = imageLoad(sceneColor, at);
@@ -624,8 +635,13 @@ void main()
         // its cap is condensation, and photographs read as nuclear clouds largely because of that
         // gradient -- one flat albedo for the whole column is the plainest tell of a generated one.
         float upThrough = clamp(dot(world, up) / max(pc.Shape.x, 1.0), 0.0, 1.0);
-        vec3 albedo = mix(vec3(0.21, 0.16, 0.11), vec3(0.36, 0.35, 0.34),
-                          smoothstep(0.05, 0.75, upThrough));
+        //
+        // Off the sea there is no dirt to lift. The column is spray and condensation from the foot
+        // up, so it starts where the cap already is -- a white column, which is the silhouette
+        // every photograph of a test over water has. Flagged negative in the fourth fireball float,
+        // which a cloud has no other use for.
+        vec3 foot = pc.FireSun.w < 0.0 ? vec3(0.38, 0.38, 0.39) : vec3(0.21, 0.16, 0.11);
+        vec3 albedo = mix(foot, vec3(0.36, 0.35, 0.34), smoothstep(0.05, 0.75, upThrough));
         // The air between the sun and the scene, which is the engine's own answer to both "has the
         // sun set" and "what colour is it now": it goes to nothing on the night side and reddens
         // through a sunset. Core multiplies its sun colour by exactly this in every mesh shader.
