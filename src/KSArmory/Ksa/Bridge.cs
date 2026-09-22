@@ -122,6 +122,7 @@ internal sealed class Bridge
             "burst" => Burst(command),
             "camera" => Camera(command),
             "reload_shaders" => ReloadShaders(),
+            "tune" => Tune(command),
             "step" => BeginStep(command),
             "capture" => BeginCapture(command),
             "load" => BeginLoad(command),
@@ -269,6 +270,22 @@ internal sealed class Bridge
                                     command.Number("distance_m", 0.0), command.Number("aim", 0.45));
 
         return Done(new() { ["held"] = true });
+    }
+
+    // A shader constant set while the game runs: the pipelines rebuild with it on the next frame.
+    // With no name, says what every one is; with reset, puts them all back.
+    private static Reply Tune(BridgeCommand command)
+    {
+        if (command.Flag("reset", false)) ShaderTunables.Reset();
+
+        string name = command.String("name");
+        if (name.Length > 0
+            && !ShaderTunables.TrySet(name, command.Number("value", double.NaN), out string trouble))
+        {
+            return Failed(trouble);
+        }
+
+        return Done(ShaderTunables.All.ToDictionary(t => t.Name, t => (object?)ShaderTunables.Value(t)));
     }
 
     // KSA's own reloader cannot reach a mod's shader: it maps a path by finding "Content" in it.

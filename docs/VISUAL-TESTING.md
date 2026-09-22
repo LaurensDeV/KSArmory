@@ -169,14 +169,14 @@ series becomes:
   standard deviation map. Flicker, crawl and ghosting light up in it; a still cannot show them. The
   night's weather crawl and the reported flicker are both exactly this.
 
-### 6. Debug views in the shader
+### 6. Debug views in the shader — built
 
 One `Config` field chooses what the pass writes instead of the picture: density, the layer's
 transmittance, the cloud's weighted depth, the weather mask and the weather's distance, the history's
 weight and where it was rejected, the burn mask. False colour, same camera. The blocky squares at the
 fireball's edge would have been one picture of the weather mask instead of an elimination flight.
 
-### 7. Live tunables
+### 7. Live tunables — built
 
 The look is set by constants in GLSL — `HaloGain`, `GlareFloorNits`, `FootFlare`, `FalloutReach`,
 dozens more — and every one is a rebuild. A small storage buffer of named values
@@ -230,9 +230,17 @@ one" was answered from memory on the night; this answers it from pictures.
 
 ## Order
 
-Built: 1–5, 9 and 10. `tools/check-shaders.sh` is glslang rather than shaderc — nothing installable
+**Debug views and tunables are one mechanism.** Both are specialization constants
+(`Sim/ShaderTunables.cs`): declared with a `constant_id` and a default in the GLSL, overridden when
+the pipeline is built, so `tune` is a pipeline rebuild — milliseconds, no recompile — and a debug
+view costs the picture nothing. `DebugView` 1–5 draws coverage, depth, the weather mask, sunlight
+and the fireball's share of the light; the other seventeen are the look's constants.
+`ShaderTunablesTests` holds the list and the GLSL to one another. The first use of the sunlight view
+turned up a lead: from under a deck, the stem under a 5 km cap with the sun at 28° reads fully lit,
+where the cap should be shading it — the shadow march's four taps may not reach that far down.
+
+Built: 1–7, 9 and 10. `tools/check-shaders.sh` is glslang rather than shaderc — nothing installable
 here runs KSA's — with the include given as a search path and the directive's extension named, and
 it caught the night's `flat` with its line. Left, in order:
 
-1. **Debug views** (6) and **tunables** (7), which pay now that a shader change is a second.
-2. **Capture for Claude** (8), **fixed scenes** (11) and **the reference library** (12).
+1. **Capture for Claude** (8), **fixed scenes** (11) and **the reference library** (12).

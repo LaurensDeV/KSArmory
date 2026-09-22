@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Runtime.InteropServices;
 using Brutal;
 using Brutal.Numerics;
@@ -202,6 +203,72 @@ internal static class CloudPass
         return view;
     }
 
+    // The tunables' generation the pipelines were built with. A change is a rebuild, which is a few
+    // milliseconds with the modules already compiled.
+    private static int _tunedGeneration;
+
+    // ShaderTunables as Vulkan's specialization info, over unmanaged memory freed once the pipeline
+    // exists -- the wrapper reads it only while building. Written through Marshal rather than
+    // pointers, so the mod needs no unsafe code for it.
+    private sealed class Specialization : IDisposable
+    {
+        private readonly IntPtr _entries;
+        private readonly IntPtr _data;
+
+        public VkSpecializationInfo? Info { get; }
+
+        public Specialization()
+        {
+            (ShaderTunables.Tunable Tunable, double Value)[] set = [.. ShaderTunables.Overridden()];
+            if (set.Length == 0) return;
+
+            int entrySize = Marshal.SizeOf<VkSpecializationMapEntry>();
+            byte[] entries = new byte[entrySize * set.Length];
+            byte[] data = new byte[4 * set.Length];
+
+            for (int k = 0; k < set.Length; k++)
+            {
+                VkSpecializationMapEntry entry = new()
+                {
+                    ConstantID = set[k].Tunable.ConstantId,
+                    Offset = (ByteSize32)(4 * k),
+                    Size = (ByteSize64)4L,
+                };
+                MemoryMarshal.Write(entries.AsSpan(k * entrySize), in entry);
+
+                if (set[k].Tunable.Integer)
+                    BinaryPrimitives.WriteInt32LittleEndian(data.AsSpan(4 * k), (int)set[k].Value);
+                else
+                    BinaryPrimitives.WriteSingleLittleEndian(data.AsSpan(4 * k), (float)set[k].Value);
+            }
+
+            _entries = Marshal.AllocHGlobal(entries.Length);
+            _data = Marshal.AllocHGlobal(data.Length);
+            Marshal.Copy(entries, 0, _entries, entries.Length);
+            Marshal.Copy(data, 0, _data, data.Length);
+
+            byte[] raw = new byte[Marshal.SizeOf<VkSpecializationInfo>()];
+            int count = set.Length;
+            ByteSize64 size = (ByteSize64)(long)data.Length;
+            IntPtr entriesAt = _entries;
+            IntPtr dataAt = _data;
+            MemoryMarshal.Write(raw.AsSpan(Offset(nameof(VkSpecializationInfo.MapEntryCount))), in count);
+            MemoryMarshal.Write(raw.AsSpan(Offset(nameof(VkSpecializationInfo.MapEntries))), in entriesAt);
+            MemoryMarshal.Write(raw.AsSpan(Offset(nameof(VkSpecializationInfo.DataSize))), in size);
+            MemoryMarshal.Write(raw.AsSpan(Offset(nameof(VkSpecializationInfo.Data))), in dataAt);
+
+            Info = MemoryMarshal.Read<VkSpecializationInfo>(raw);
+        }
+
+        private static int Offset(string field) => (int)Marshal.OffsetOf<VkSpecializationInfo>(field);
+
+        public void Dispose()
+        {
+            if (_entries != IntPtr.Zero) Marshal.FreeHGlobal(_entries);
+            if (_data != IntPtr.Zero) Marshal.FreeHGlobal(_data);
+        }
+    }
+
     /// <summary>
     /// Records the pass into the frame KSA is already building.
     ///
@@ -221,6 +288,12 @@ internal static class CloudPass
 
             _recorded++;
             DisposeTheDue();
+
+            if (ShaderTunables.Generation != _tunedGeneration)
+            {
+                Release();
+                _tunedGeneration = ShaderTunables.Generation;
+            }
 
             View view = ViewFor(viewport, colour, width, height);
             view.Frames++;
@@ -714,10 +787,12 @@ internal static class CloudPass
             },
         ];
 
+        using Specialization tuned = new();
         _pipeline = new ComputePipelineWrapper(
             storageTargets, depthTargets, aerial, default, shader,
             default, ranges, renderer.MaxFramesInFlight, renderer,
-            "KSArmory.CloudPass", Program.PointClampedSampler, Program.LinearClampedSampler);
+            "KSArmory.CloudPass", Program.PointClampedSampler, Program.LinearClampedSampler,
+            specializationInfo: tuned.Info);
 
         BuildFailed = false;
         Log.Info($"cloud pass: built against {ShaderId}");
@@ -749,10 +824,12 @@ internal static class CloudPass
             },
         ];
 
+        using Specialization tuned = new();
         view.Resolve[from] = new ComputePipelineWrapper(
             storageTargets, default, sampled, default, shader,
             default, ranges, renderer.MaxFramesInFlight, renderer,
-            "KSArmory.CloudResolve", Program.PointClampedSampler, Program.LinearClampedSampler);
+            "KSArmory.CloudResolve", Program.PointClampedSampler, Program.LinearClampedSampler,
+            specializationInfo: tuned.Info);
 
         return true;
     }

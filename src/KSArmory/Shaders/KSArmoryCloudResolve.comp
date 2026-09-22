@@ -27,7 +27,7 @@ layout (push_constant) uniform PushConstants
 
 // How much of each frame is new. An eighth is about eight frames of samples, which is what turns
 // the dither's grain into a smooth volume; much less and a cloud that is still rising smears.
-const float NewShare = 0.125;
+layout (constant_id = 17) const float NewShare = 0.125;
 
 // Where no cloud is under a pixel, its history is reprojected as if it were this far: far enough
 // that only the camera's turn moves it, which is what a pixel just off a cloud's edge wants.

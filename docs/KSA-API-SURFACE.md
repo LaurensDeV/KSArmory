@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-224 types and 616 members across 9 assemblies.
+226 types and 622 members across 9 assemblies.
 
 ## Brutal.Concurrency
 
@@ -25,6 +25,11 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### Brutal.ByteSize32
 
 - `Brutal.ByteSize32 op_Explicit(int)`
+
+### Brutal.ByteSize64
+
+- `Brutal.ByteSize64 op_Explicit(int)`
+- `Brutal.ByteSize64 op_Explicit(ulong)`
 
 ### Brutal.Pointers.Ptr
 
@@ -459,6 +464,13 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### Brutal.VulkanApi.VkSpecializationInfo
 
 *referenced as a type only*
+
+### Brutal.VulkanApi.VkSpecializationMapEntry
+
+- `Brutal.ByteSize32 Offset`
+- `Brutal.ByteSize64 Size`
+- `int ConstantID`
+- `void .ctor()`
 
 ## KSA
 

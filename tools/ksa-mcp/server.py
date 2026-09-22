@@ -297,6 +297,11 @@ TOOLS = {
     "ksa_reload_shaders": ("Copy src/KSArmory/Shaders into the installed mod and recompile them in the running "
                            "game. A compile error comes back as the error; the old shader stays.", {}, [],
                            lambda a: [_text(reload_shaders())]),
+    "ksa_tune": ("Set a shader look constant while the game runs (a pipeline rebuild, no recompile), or "
+                 "with no name list them; reset=true puts every one back. DebugView 1-5 swaps the picture "
+                 "for one term: 1 coverage, 2 depth, 3 weather mask, 4 sunlight, 5 fireball share.",
+                 {"name": {"type": "string"}, "value": _num("value"), "reset": {"type": "boolean"}}, [],
+                 lambda a: [_text(json.dumps(send("tune", **a), indent=1))]),
     "ksa_log": ("The mod's log, filtered.", {"pattern": {"type": "string"}, "lines": _num("count")}, [],
                 lambda a: [_text(log_tail(a.get("pattern", ""), int(a.get("lines", 40))))]),
 }

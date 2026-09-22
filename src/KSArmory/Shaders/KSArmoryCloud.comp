@@ -116,8 +116,8 @@ float Fbm(vec3 p)
 // How far below the cap the fallout hangs, in the cap's own tube radii, and how thick it is against
 // the cap above it. Faint: it is what the cloud is losing, not the cloud. On the cap's thickness
 // rather than the cloud's size, so an anvil's thin sheet sheds a short fringe, not a wall.
-const float FalloutReach = 2.3;
-const float FalloutDensity = 0.30;
+layout (constant_id = 3) const float FalloutReach = 2.3;
+layout (constant_id = 4) const float FalloutDensity = 0.30;
 
 // Stands in for "no cap over this sample at all". Any number past the erosion's reach does, and a
 // finite one keeps the comparisons below free of an isinf.
@@ -144,7 +144,7 @@ const float SeaMarginMetres = 2.0;
 // How much of the ground's own colour the burn takes, at the middle of the mark. Not all of it:
 // a scorched hillside is still a lit hillside, and driving it to flat ash removes the relief the
 // terrain is drawn with.
-const float ScorchDepth = 0.85;
+layout (constant_id = 15) const float ScorchDepth = 0.85;
 
 // How far the wind turns between the foot of the column and its top.
 const float VeerRadians = 0.55;
@@ -172,8 +172,8 @@ float Torus(vec3 p, float ring, float tube)
 
 // How much wider than the stem its foot spreads at the ground, and over what share of the stem's
 // height that falls away to nothing, as an exponential.
-const float FootFlare = 2.5;
-const float FootFlareReach = 0.07;
+layout (constant_id = 1) const float FootFlare = 2.5;
+layout (constant_id = 2) const float FootFlareReach = 0.07;
 
 // How wide the stem is at a height, as a fraction of its nominal radius. A column of lifted dust
 // is widest where it leaves the ground and necks in as it is drawn up into the cap, and a constant
@@ -200,7 +200,7 @@ float StemWidthAt(float y, float capH)
 // eased over a band that grows with range -- BEHIND that distance only: a band reaching in front of
 // it counts the back of a burst standing before a deck as behind the deck, and the burst goes
 // transparent.
-const float WeatherDepthSpread = 0.15;
+layout (constant_id = 14) const float WeatherDepthSpread = 0.15;
 
 float BehindWeather(float t, float weatherAt)
 {
@@ -209,6 +209,15 @@ float BehindWeather(float t, float weatherAt)
     float band = max(weatherAt * WeatherDepthSpread, 200.0);
     return smoothstep(weatherAt, weatherAt + band, t);
 }
+
+// How much a unit of density dims the light through it, per metre.
+layout (constant_id = 16) const float Extinction = 0.022;
+
+// What the pass writes instead of the picture, to look at one term alone: 0 the picture, 1 coverage,
+// 2 depth in the cloud, 3 the weather mask, 4 sunlight reaching the cloud, 5 the fireball's share of
+// its light. Sim/ShaderTunables.cs names them; a specialization constant, so the picture pays nothing
+// for them.
+layout (constant_id = 0) const int DebugView = 0;
 
 // Camera-relative world position of a pixel at a given device depth.
 vec3 WorldAt(vec2 uv, float deviceZ)
@@ -397,11 +406,11 @@ float Density(vec3 leaned, vec3 up, float radius)
 // through KSA's whole post chain at its default exposure by writing known bands here: 0.25 comes
 // out as a mid grey (130), 1.0 as 240, and everything from 1.25 up clips to white. So the floor
 // sits just under the clip, where the glare's colour still shows, and only the core goes over.
-const float GlareFloorNits = 1.1;
+layout (constant_id = 7) const float GlareFloorNits = 1.1;
 
 // How far past that floor the veil is driven at a full whiteout: 2.6 at the peak, over the clip.
-const float GlareOverexposure = 1.6;
-const float GlareCoreNits = 3.0;
+layout (constant_id = 9) const float GlareOverexposure = 1.6;
+layout (constant_id = 8) const float GlareCoreNits = 3.0;
 
 // The glare's colour away from the burst. Only the core clips to white; where the veil is
 // dimmer it shows the light itself, a fireball of a few thousand kelvin yellowed by kilometres
@@ -412,18 +421,18 @@ const vec3 GlareHot = vec3(1.00, 0.97, 0.92);
 // The angles at which the glare's brightness and its whiteness have fallen by half. Veiling glare
 // in an eye or a lens goes roughly as the inverse square of the angle off the source; the colour
 // turns more slowly, because it is set by where the channels stop clipping.
-const float GlareCoreDeg = 6.0;
-const float GlareWhiteDeg = 20.0;
+layout (constant_id = 10) const float GlareCoreDeg = 6.0;
+layout (constant_id = 11) const float GlareWhiteDeg = 20.0;
 
 // How strongly the ball's steady glare veils round it, per unit of its brightness in the
 // whiteout's units, and the most it may. Only the core: this is a halo, not the view going white.
-const float HaloGain = 0.8;
-const float HaloMost = 0.85;
+layout (constant_id = 12) const float HaloGain = 0.8;
+layout (constant_id = 13) const float HaloMost = 0.85;
 
-const float FireGain = 0.110;
+layout (constant_id = 5) const float FireGain = 0.110;
 
 // And the most it may contribute at any one sample. The sun term beside it tops out near 2.
-const float FireCeiling = 6.0;
+layout (constant_id = 6) const float FireCeiling = 6.0;
 
 // Henyey-Greenstein. Smoke scatters forward, so a cloud is brightest looking through it toward the
 // sun and darkest with the sun behind you -- which is the cue that says "volume" rather than "fog".
@@ -564,6 +573,20 @@ void main()
             weatherAt = cloudKm * 1000.0;
             weatherClear = clamp(clear, 0.0, 1.0);
         }
+    }
+
+    // THE WEATHER MASK, over the whole screen: red where KSA's clouds are opaque, green where the
+    // burst's centre counts as behind them. Written by the first cloud alone, and no cloud marches.
+    if (DebugView == 3 && wantsCloud)
+    {
+        if (firstCloud)
+        {
+            float behind = BehindWeather(length(pc.CentreRadius.xyz), weatherAt);
+            vec3 mask = vec3(1.0 - weatherClear, behind, weatherAt < 1.0e29 ? 0.25 : 0.0);
+            imageStore(layerColor, at, vec4(mask, 0.0));
+        }
+
+        return;
     }
 
     // Bounding sphere. Most pixels leave here, which is the whole of the performance story.
@@ -730,6 +753,11 @@ void main()
     float depthSum = 0.0;
     float depthWeight = 0.0;
 
+    // What the debug views average, weighted the same way. A specialization constant turns them
+    // off, so the picture does not carry them.
+    float sunSum = 0.0;
+    float fireSum = 0.0;
+
     for (int i = 0; i < Steps; i++)
     {
         vec3 world = dir * (t0 + (float(i) + jitter) * dt) - toCentre;   // relative to the burst
@@ -754,6 +782,7 @@ void main()
         // however much light is falling on the cloud, and the widened cap made that the dominant
         // term -- the cap went to a dark slab while the thin stem beside it stayed white.
         float sunlight = exp(-toSun * 0.010) + 0.45 * exp(-toSun * 0.0025);
+        float fireShare = 0.0;
 
         // Sun through the cloud, plus a sky ambient. The ambient is not flat: the sky is brighter
         // toward the sun and toward the horizon, and a single number for it is what makes a volume
@@ -831,12 +860,15 @@ void main()
 
             // Bounded, because the ball's own glow runs to the hundreds and a sample sitting on
             // its surface would otherwise white out the frame the burst is drawn into.
-            lit += hot * albedo * min(ballGlow * fall * FireGain, FireCeiling);
+            vec3 fire = hot * albedo * min(ballGlow * fall * FireGain, FireCeiling);
+            fireShare = dot(fire, vec3(0.2126, 0.7152, 0.0722))
+                        / max(dot(lit + fire, vec3(0.2126, 0.7152, 0.0722)), 1e-4);
+            lit += fire;
         }
 
         // Raised with the falloff above: a core that now genuinely reaches full density is worth
         // more optical depth per metre, and this is what separates a cloud from a stain.
-        float extinction = density * 0.022 * dt;
+        float extinction = density * Extinction * dt;
         float behindWeather = BehindWeather(t0 + (float(i) + jitter) * dt, weatherAt);
 
         scattered += transmittance * lit * extinction * mix(1.0, weatherClear, behindWeather);
@@ -846,6 +878,8 @@ void main()
         float blocked = transmittance * (1.0 - through);
         depthSum += blocked * (t0 + (float(i) + jitter) * dt);
         depthWeight += blocked;
+        sunSum += blocked * sunlight;
+        fireSum += blocked * fireShare;
 
         transmittance *= through;
 
@@ -898,6 +932,24 @@ void main()
     float lets = mix(1.0, sceneShows, strength);
 
     vec4 layer = imageLoad(layerColor, at);
+
+    // A DEBUG VIEW in place of the cloud, opaque where there is any: coverage in grey, depth from
+    // blue (near side) to red (far), sunlight in grey, and the fireball's share of the light in red.
+    if (DebugView != 0)
+    {
+        float held = max(depthWeight, 1.0e-6);
+        float near = length(toCentre) - radius;
+        vec3 view = DebugView == 1 ? vec3(covered)
+                  : DebugView == 2 ? mix(vec3(0.1, 0.4, 1.0), vec3(1.0, 0.25, 0.05),
+                                         clamp((depthSum / held - near) / (2.0 * radius), 0.0, 1.0))
+                  : DebugView == 4 ? vec3(sunSum / held / 1.45)
+                  : vec3(fireSum / held, 0.0, 0.1);
+        float solid = step(0.01, covered);
+
+        imageStore(layerColor, at, vec4(mix(layer.rgb, view, solid), layer.a * (1.0 - solid)));
+        return;
+    }
+
     imageStore(layerColor, at, vec4(layer.rgb * lets + body * strength, layer.a * lets));
 
     if (strength * covered > 0.02 && depthWeight > 0.0)
