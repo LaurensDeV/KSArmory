@@ -345,8 +345,8 @@
         <SpawnRate Value="160"/>
         <Force X="0" Y="0" Z="0" />
         <InheritVelocity Value="false"/>
-        <Opacity Value="0.85"/>
-        <ParticleColor X="0.46" Y="0.41" Z="0.34" W="1"/>
+        <Opacity Value="0.40"/>
+        <ParticleColor X="0.66" Y="0.60" Z="0.52" W="1"/>
         <ParticleLifespan X="1" Y="2"/>
         <ParticleSpawnLogic>MoveAwayFromCenter</ParticleSpawnLogic>
         <ParticleSize X="1" Y="2"/>
@@ -386,7 +386,7 @@
         <SpawnRate Value="160"/>
         <Force X="0" Y="0" Z="0" />
         <InheritVelocity Value="false"/>
-        <Opacity Value="0.85"/>
+        <Opacity Value="0.40"/>
         <ParticleColor X="0.80" Y="0.82" Z="0.84" W="1"/>
         <ParticleLifespan X="1" Y="2"/>
         <ParticleSpawnLogic>MoveAwayFromCenter</ParticleSpawnLogic>
@@ -551,6 +551,26 @@
       And it carries its own ColorStops. Without them the volume came out orange, which on a front
       kilometres from anything hot reads as fire rather than as compressed air.
     -->
+    <!--
+      The ball of fire at the foot of the column for its first seconds. Core's FireballVolume was
+      used here, and it is a ROCKET's: its colour ends at 0.05, which is soot, because burning
+      propellant goes out as black smoke. A nuclear fireball has nothing to make soot of. It cools
+      from incandescent through the reddish brown of the nitrogen dioxide the heat makes out of
+      the air, and what is left is condensation and lifted dust, which is pale. Same size and
+      timing as Core's, so the engine scales it for the energy exactly as it did.
+    -->
+    <ExplosionVolume Id="KSArmoryNuclearFireballVolume" LifeSeconds="2.4" NoiseScale="1.6" EdgeSharpness="0.5" NoiseRiseSpeed="0.18" NoiseDispersalRate="0.1" VelocityDrag="2">
+        <Radius Start="6" Peak="56" PeakAt="0.5" End="72"/>
+        <Fade Start="1" Peak="1" PeakAt="0.7" End="0"/>
+        <Density Start="0.8" Peak="0.4" PeakAt="0.4" End="0.04"/>
+        <Emission Start="45" Peak="12" PeakAt="0.25" End="0"/>
+        <ColorStops MidAt="0.4">
+            <Start R="0.95" G="0.55" B="0.22"/>
+            <Mid R="0.45" G="0.26" B="0.14"/>
+            <End R="0.62" G="0.58" B="0.54"/>
+        </ColorStops>
+    </ExplosionVolume>
+
     <ExplosionVolume Id="KSArmoryNuclearShockWave" LifeSeconds="3.5" LifeIntensityExponent="0.333"
                      NoiseScale="3" EdgeSharpness="0.40" ShellThickness="0.16" VelocityDrag="2">
         <Radius Start="12" Peak="291" PeakAt="0.18" End="505"/>
@@ -577,7 +597,7 @@
           are separated by the whole of the time sound takes to cross the gap. Ksa/BurstSound.cs
           plays it when it arrives.
         -->
-        <VolumeRef Id="FireballVolume" Delay="0" Intensity="1.2" FallbackEmitterId="FireballVolumetric"/>
+        <VolumeRef Id="KSArmoryNuclearFireballVolume" Delay="0" Intensity="1.2" FallbackEmitterId="FireballVolumetric"/>
         <VolumeRef Id="KSArmoryNuclearShockWave" Delay="0" Intensity="1.0" FallbackEmitterId="ShockWave"/>
     </Explosion>
 
