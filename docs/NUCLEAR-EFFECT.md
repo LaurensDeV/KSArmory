@@ -10,7 +10,14 @@ engine's own atmosphere. *What was built* is kept because it is where every dime
 was calibrated and why, and the raymarch reads the same `MushroomCloud.Shape`; only the drawing
 changed. *The raymarched cloud* at the end is the one that ships.
 
-The pen walk records the two engine rules that ended up deciding the shape. *The airless burst* after it is the second effect, for the bodies where the trail renderer
+**Its geometry has been deleted with it** — `CapPoint`, the lobed rings, the stroke pitch, the
+skirt tube, the lean and everything that only ever placed a pen, with the twenty tests that were
+the last thing keeping them alive. What is left of `MushroomCloud` is what the raymarch and the
+fireball read: the size laws, the tracked climb, `Shape`, the flash and the ember. 887 lines to 569.
+
+The sections below are kept as the record of where those dimensions came from and why, because the
+raymarch draws the same `Shape` and the calibration is still the calibration. The pen walk records
+the two engine rules that ended up deciding it. *The airless burst* after it is the second effect, for the bodies where the trail renderer
 draws nothing at all — a different effect rather than this one degraded, and through the particle
 system instead. Everything before those two sections is the survey, kept as it was written: it is
 still the map for anything else drawn this way.
