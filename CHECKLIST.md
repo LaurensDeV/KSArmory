@@ -1162,6 +1162,22 @@ the mesh and the XML, and the suite.
       the gun round it, which headlessly on a world spinning like Earth is g·V·t³/6R: 1 m at 15 km, 7 m at
       30, 25 m at 45 and 79–83 m at 60. With the centre carried, the same 60 km shot lands 3.3 and 5.5 m
       off headlessly (`GroundLayTests`).
+- [x] **On Mars, where the air is 0.0135 of the reference.** The gun's longest reach there is
+      **174.1 km**, and `gunnery:1,ground,,,200000` — the invocation in CLAUDE.md's own usage
+      block — asks for a shot past it: the lay says `driving a gun laid to its longest reach`
+      and throws the shell as far as it goes, landing 25.5 km short of a point it never claimed
+      to cover. That example cannot pass by construction, which is worth knowing before reading
+      its FAIL as a regression.
+- [ ] **Inside that reach the residual grows with flight time, and at 150 km it is outside the
+      bar.** `gunnery:1,ground,,,150000` lands **25.3 m** from the place, 25.0 m long, after
+      **221.3 s** — against an 11 m lethal radius, so it scores FAIL. The longest Earth shot ever
+      flown here is 92 s, and `g·V·t³/6R` on Mars at that flight time is about 459 m, so 25 m is
+      roughly 5% of the term the carried centre removes. Not diagnosed further; what it is not is
+      new — flown paired with the two fixes below reverted, the same shot lands **25.1 m** (24.9 m
+      long, same 221.3 s), so the airless-air and ground-test fixes are no-ops on Mars exactly as
+      their code paths predict: Mars has an atmosphere and no ocean, and a shell is always well
+      inside a mean radius of the surface.
+
 - [ ] Fire the Mk 42 at 47° with nothing to aim at. The shell comes down about 23.7 km out, as the real
       gun's range table has it, rather than 65 km. `DragCoefficient` is fitted to that: headlessly 23.69 km at
       47.25° in 83.6 s, and 16.1 km straight up against the real 14.8, which one constant cannot match.
