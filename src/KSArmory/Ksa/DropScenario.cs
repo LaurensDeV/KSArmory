@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Linq;
 using Brutal.Numerics;
 using KSA;
 
@@ -128,7 +129,14 @@ internal sealed class DropScenario
     // closes the game. Sized off the hold itself rather than fixed: a nuclear burst is watched for
     // as long as it leaves something moving, and a six-second wait closed the game a sixth of the
     // way into it -- which is the hand-back, the part worth checking, never happening in any run.
-    private double LingerSeconds => WatchSeconds + 4.0;
+    private double LingerSeconds => CaptureAges() is { Length: > 0 } ages ? ages[^1] + 4.0
+                                                                        : WatchSeconds + 4.0;
+
+    // Whether a column is standing over this burst, as against thrown ground. Only one of them
+    // has a life past its own rise to photograph.
+    private bool CloudStands
+        => _watchTheCloud && _body is { } b && KsaWorld.HasAtmosphere(b)
+           && _round is { } r && r.Munition.ChargeKg >= MushroomCloud.ThresholdKg;
 
     // How long the burst leaves something moving: a cloud's rise where there is air, the ejecta's
     // flight where there is not. The capture ages are fractions of this rather than of the rise, so
@@ -345,6 +353,23 @@ internal sealed class DropScenario
     // launching craft against a cloud deck with the mushroom nowhere in it.
     private static readonly double[] CaptureFractions = [0.10, 0.30, 0.60, 0.95];
 
+    // Those four as ages, plus the dissolve for a run watching a column.
+    //
+    // The fifth is an ABSOLUTE age rather than a fraction, because it is about the cloud's whole
+    // life and not its rise: MushroomCloud.Fade holds at one until half way through the stand and
+    // then squares away to nothing, and a run ending at the rise stops sixteen seconds before any
+    // of that starts. It was never photographed, which is how the fade reached the shader at all.
+    private double[] CaptureAges()
+    {
+        double watch = WatchSeconds;
+        if (!(watch > 0.0)) return [];
+
+        double[] rise = [.. CaptureFractions.Select(f => f * watch)];
+        if (!CloudStands) return rise;
+
+        return [.. rise, MushroomCloud.RiseSeconds + (MushroomCloud.StandSeconds * 0.85)];
+    }
+
     private int _captured;
 
     // Cues a screenshot at each of those ages, for any burst big enough to leave something. The
@@ -362,10 +387,12 @@ internal sealed class DropScenario
         double watch = WatchSeconds;
         if (!(watch > 0.0)) return;
 
-        while (_captured < CaptureFractions.Length)
+        double[] ages = CaptureAges();
+
+        while (_captured < ages.Length)
         {
-            double fraction = CaptureFractions[_captured];
-            if (_lingered < fraction * watch) return;
+            double age = ages[_captured];
+            if (_lingered < age) return;
 
             _captured++;
 
@@ -396,8 +423,8 @@ internal sealed class DropScenario
                 }
             }
 
-            _report($"{(shot ? "SHOT" : "CAPTURE")} burst at {fraction:F2} of the watch "
-                    + $"({fraction * watch:F1} s of {watch:F1}), {drawn}, {sun}");
+            _report($"{(shot ? "SHOT" : "CAPTURE")} burst at {age:F1} s "
+                    + $"({age / watch:F2} of a {watch:F1} s watch), {drawn}, {sun}");
         }
     }
 

@@ -143,7 +143,13 @@ internal static class CloudPass
                 // The target's own size is not in here: the shader asks imageSize() for it, which
                 // freed the two floats the wind needed. The block is at Vulkan's guaranteed 128
                 // bytes and there was nowhere else to take them from.
-                AgeStrengthWind = new float4((float)age, tint, windOct.X, windOct.Y),
+                // The strength carries the cloud's own fade. It holds at one through the rise and
+                // half the stand and then squares away to nothing, so a cloud dissolves instead of
+                // being switched off when its shape expires -- which is what it did, because Fade
+                // was computed every frame and never reached the shader. It needs no room in the
+                // block: it is a scale on a float already being sent.
+                AgeStrengthWind = new float4((float)age, tint * (float)shape.Fade,
+                                             windOct.X, windOct.Y),
                 CentreRadius = new float4((float)centre.X, (float)centre.Y, (float)centre.Z,
                                           (float)radius),
                 UpSun = new float4(upOct.X, upOct.Y, sunOct.X, sunOct.Y),

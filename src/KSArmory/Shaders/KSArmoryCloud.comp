@@ -408,7 +408,12 @@ void main()
     float covered = 1.0 - transmittance;
     vec3 body = scattered * eyeTransmittance + inscatter * covered;
 
+    // The strength fades what the cloud BLOCKS as well as what it adds. Scaling only the light it
+    // scatters leaves a dissolving cloud dimming toward black while still occluding the sky behind
+    // it at full strength, which is a shadow rather than a cloud going away.
+    float strength = clamp(pc.AgeStrengthWind.y, 0.0, 1.0);
+
     vec4 c = imageLoad(sceneColor, at);
-    vec3 mixed = c.rgb * transmittance + body * pc.AgeStrengthWind.y;
+    vec3 mixed = c.rgb * mix(1.0, transmittance, strength) + body * strength;
     imageStore(sceneColor, at, vec4(mixed, c.a));
 }
