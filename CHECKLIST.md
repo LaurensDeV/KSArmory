@@ -1464,11 +1464,14 @@ Not exercised, and the first two are the ones to believe least:
       the skirt stands at the foot of the column at 11.4 s, and at 72 s the sky shows through a
       dissolving cap rather than a solid silhouette.
 
-- [ ] **`StemTop`, which is the last of the five and the least.** The shader stops the stem at the
-      cap's CENTRE rather than at `StemTop`, which is `min(climb, StemCeiling(...))`. Both grow with
-      the rise so the column is never free-standing, and the difference is a slight lag of the stem
-      behind the cap — inside the cap, where little of it shows. Wants the same uniform buffer as
-      the second cloud, and is worth far less.
+- [x] **`StemTop` — looked at and deliberately not done.** The shader stops the stem at the cap's
+      CENTRE rather than at `StemTop`, which is `min(climb, StemCeiling(capCentre, capRadius))`.
+      Both terms it needs are in the push constant, so it is derivable without the uniform buffer
+      that was supposed to gate it — but `StemCeiling` is `capCentre - capRadius * Oblate * 0.7`
+      with `Oblate` private, so drawing it means copying two geometry constants into GLSL. That is
+      the duplication CLAUDE.md warns drifts, and what it buys is the stem ending at the cap's
+      underside instead of its centre: both inside the cap, and the taper already widens into the
+      underside there. Not worth a constant in two places.
 
 - [x] **More than one cloud, and coincident bursts that are one.** The pass draws every standing
       cloud, one dispatch each, far to near so the nearest composites last, with a compute-write to
@@ -1516,8 +1519,17 @@ Not exercised, and the first two are the ones to believe least:
       global block it returns near zero in broad daylight with the sun 27 degrees up. Flown at both
       ends on 2026.9.10.5438 — daylight unchanged, Mars at 48 deg below the horizon dark.
 
-- [ ] **Warp and pause.** The cloud advances on simulated time like everything else, so it should
-      freeze in a pause and slow with the panel. Unchecked through the shader path.
+- [ ] **Warp and pause.** Reasoned, not flown. `NuclearClouds.Update` is driven from `StepOnce` on
+      the simulated step, so a pause hands it nothing and warp hands it a large one — and the shape
+      and the flash are both pure functions of age, so a cloud that skips its life in one step just
+      expires. Nothing in the pass reads a clock at all.
+
+      **The shipped scenarios cannot exercise it**, which is why it stays open: `speeds=` only runs
+      in the engagement phase, and the drop's own warp argument is given back by `WarpPolicy` when
+      the store lands, before the linger starts — flown at `drop:10,0,dumb,,50` and the captures
+      came back at 1x ages. Driving a speed through the linger would contradict a decision already
+      in `CaptureBurst`: the capture ages are wall clock, so a run warping through them photographs
+      the wrong ones.
 - [ ] **Another GPU.** One machine, one vendor. A compute dispatch into someone else's frame is
       exactly the kind of thing that is driver-specific, and a failed patch or a shader that will
       not compile draws no cloud rather than crashing — which is the intended degradation and has
