@@ -34,21 +34,20 @@ internal static class BurstFlash
     // Never quite opaque: at a full white the scene is gone and so is any sense of where.
     private const float MostOpaque = 0.92f;
 
-    // How fast the white bleeds off, as the time constant of its decay.
-    //
-    // The pulse and the whiteout are not the same duration. A third of a kilotonne is at peak
-    // brightness for about two tenths of a second, and a flash that short reads as one frame gone
-    // wrong rather than as a detonation. What lasts is the recovery: an eye or a camera saturated
-    // by it comes back long after the thing that saturated it has gone.
-    private const double FadeSeconds = 0.45;
+    // How fast the white bleeds off, as the time constant of its recovery. Full white for about a
+    // third of a second and gone inside a second and a half.
+    private const double FadeSeconds = 0.28;
 
-    // The brightness being held, which is the peak seen and not what is burning now.
+    // The whiteout, and the brightness it was last driven by. It is the CHANGE that blinds, not
+    // the level: an eye adapts while the source is still burning.
     private static double _held;
+    private static double _seen;
 
     /// <summary>Forgets it, for a scene that no longer contains the burst.</summary>
     public static void Reset()
     {
         _held = 0.0;
+        _seen = 0.0;
         Whiteout = 0f;
     }
 
@@ -85,8 +84,16 @@ internal static class BurstFlash
                 brightest = Math.Max(brightest, flash.Glow * solid);
             }
 
-            // Held at the peak and bled off, never following the ball down.
-            _held = Math.Max(brightest, dt > 0.0 ? _held * Math.Exp(-dt / FadeSeconds) : _held);
+            // Driven by the RISE and recovering always, rather than held at whatever is burning.
+            // Held at the level, the ball keeps the view at full white for the whole of its 1.9 s
+            // burn and only then begins a two and a half second decay -- flown, and still near
+            // white at 3.8 s, which is a fault rather than a flash. An eye adapts while the source
+            // is still there, so what blinds is the change.
+            double rise = Math.Max(0.0, brightest - _seen);
+            _seen = brightest;
+
+            if (dt > 0.0) _held *= Math.Exp(-dt / FadeSeconds);
+            _held = Math.Max(_held, rise);
 
             Whiteout = (float)Math.Clamp(_held / Saturates, 0.0, MostOpaque);
             if (Whiteout <= 0.004f) Whiteout = 0f;
