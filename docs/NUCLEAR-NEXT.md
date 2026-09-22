@@ -230,12 +230,32 @@ was tried in its place and reverted, because it is built to be resolved by tempo
 and there is none here. Accumulating across frames buys either half the cost or twice the quality,
 and is the only thing that does.
 
-### 10. Water bursts
+### 10. Water bursts — the surface and the deep built; the shallow one is not
 
-CLAUDE.md already records that the wide base surge racing outward belongs to an **underwater**
-burst, and that the land one is deliberately a collar around the stem. The mod has ocean handling
-and knows when a round is in it. A water burst is a completely different and far more dramatic
-shape — column, plume, and a genuine base surge — for one profile flag.
+`Sim/BurstSetting.cs` sorts every burst into land, the sea's surface, or under it. On the sea the
+column is spray from the foot up, the surge collar is white, and nothing is burned; deep enough that
+the fireball never breaks the surface, there is no column at all.
+
+**It was found as a defect rather than built as a feature.** Pointed at the South Atlantic, the drop
+harness set its rocket down on the **seabed** 4,162 m down and the store burst there — and a full
+brown mushroom stood in the dark, because the cloud asked whether the *body* had air rather than
+whether the burst was in it.
+
+**And a land burst beside the sea was staining it.** The mark is depth-projected, so a plume running
+downwind from a beach went straight out across the water. KSA's ocean is everywhere under sea level,
+so there is no dry ground there and a pixel at or under the waterline is water — gated against the
+mark's own height over the sea, in small numbers, never a planet radius. Measured against the same
+run with the gate off: sky and beach 0.4 of 255 apart, the water 14.4 by the shore.
+
+**Not built: the shallow underwater burst** — Baker's white dome, its column and the base surge that
+races out kilometres past the cap. A store stops at the waterline, so nothing in the arsenal can make
+one; it is worth building when something can.
+
+**Finding a coast is a harness problem of its own.** KSA's shoreline sits east of the real one at
+Palm Beach, the pad has to be on land and the sea within the second burst's kilometre, and a rocket
+on the dune at 26.70 N, −80.01 topples more often than it stands. −80.02 holds, and its second burst
+lands on the dune. The drop's wait phase had no budget, so a toppled rocket hung the run for as long
+as anybody let it; it fails in thirty seconds now.
 
 ### 11. Something other than damage follows from it
 
