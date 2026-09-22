@@ -1456,6 +1456,20 @@ there is no column at all, and `Ksa/BurstEjecta.cs` throws ground instead.
 
 Not exercised, and the first two are the ones to believe least:
 
+- [x] **The base surge and the fade, which were modelled and undrawn.** `MushroomCloud` computes
+      `SurgeRadius`, `SurgeHeight` and `Fade` every frame; none of them reached the shader, because
+      the push constant carries four shape floats and is at Vulkan's guaranteed 128 bytes. The
+      surge is particles now — it is ground dust rather than buoyant cloud, the same reason the
+      airless ejecta is — and the fade folds into the strength float already being sent. Flown:
+      the skirt stands at the foot of the column at 11.4 s, and at 72 s the sky shows through a
+      dissolving cap rather than a solid silhouette.
+
+- [ ] **`StemTop`, which is the last of the five and the least.** The shader stops the stem at the
+      cap's CENTRE rather than at `StemTop`, which is `min(climb, StemCeiling(...))`. Both grow with
+      the rise so the column is never free-standing, and the difference is a slight lag of the stem
+      behind the cap — inside the cap, where little of it shows. Wants the same uniform buffer as
+      the second cloud, and is worth far less.
+
 - [ ] **A second cloud.** `NuclearClouds.TryNewest` hands the pass **one**, so two bursts in sight
       of each other draw a fireball each and only the newer column.
 
