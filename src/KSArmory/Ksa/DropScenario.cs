@@ -198,6 +198,10 @@ internal sealed class DropScenario
     private double _saidAt = double.NegativeInfinity;
     private double _lingered;
 
+    // When a craft set down at a site stopped being found, and how long that may last.
+    private double _lostSince = double.NaN;
+    private const double LostAfterSiteSeconds = 30.0;
+
     // How old the burst is on the world's own clock, which is not _lingered. The two agree at 1x
     // and nowhere else: the cloud, the fireball and the mark are all advanced on the simulated
     // step, so a run at any other speed photographed by wall clock photographs different ages than
@@ -631,6 +635,25 @@ internal sealed class DropScenario
         {
             _foundAt = double.NaN;
 
+            // A craft already set down at a site that then disappears from flight is not coming
+            // back: a rocket stood on uneven ground topples, and the wait below would say so every
+            // ten seconds for as long as anybody let it. Everything else in this scenario has a
+            // budget and gives up; this is the one place that had none.
+            if (_siteRequested)
+            {
+                if (double.IsNaN(_lostSince)) _lostSince = _sim;
+
+                if (_sim - _lostSince > LostAfterSiteSeconds)
+                {
+                    return $"FAIL nothing to drop from, {LostAfterSiteSeconds:F0} s after the craft was set "
+                           + "down at the site -- "
+                           + (KsaWorld.InFlight
+                                  ? "no store aboard any craft"
+                                  : "the craft is no longer in flight, which is what one toppled on uneven "
+                                    + "ground looks like");
+                }
+            }
+
             if (_sim - _saidAt >= 10.0)
             {
                 _saidAt = _sim;
@@ -639,6 +662,8 @@ internal sealed class DropScenario
 
             return null;
         }
+
+        _lostSince = double.NaN;
 
         if (double.IsNaN(_foundAt)) _foundAt = _sim;
         if (_sim - _foundAt < SettleSeconds) return null;
