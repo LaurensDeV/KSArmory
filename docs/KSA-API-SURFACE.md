@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-209 types and 568 members across 9 assemblies.
+215 types and 576 members across 9 assemblies.
 
 ## Brutal.Concurrency
 
@@ -359,7 +359,15 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 *referenced as a type only*
 
+### Brutal.VulkanApi.VkAccessFlags2
+
+*referenced as a type only*
+
 ### Brutal.VulkanApi.VkBuffer
+
+*referenced as a type only*
+
+### Brutal.VulkanApi.VkBufferMemoryBarrier2
 
 *referenced as a type only*
 
@@ -380,7 +388,23 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `int Height`
 - `int Width`
 
+### Brutal.VulkanApi.VkImageMemoryBarrier2
+
+*referenced as a type only*
+
 ### Brutal.VulkanApi.VkImageView
+
+*referenced as a type only*
+
+### Brutal.VulkanApi.VkMemoryBarrier2
+
+- `Brutal.VulkanApi.VkAccessFlags2 DstAccessMask`
+- `Brutal.VulkanApi.VkAccessFlags2 SrcAccessMask`
+- `Brutal.VulkanApi.VkPipelineStageFlags2 DstStageMask`
+- `Brutal.VulkanApi.VkPipelineStageFlags2 SrcStageMask`
+- `void .ctor()`
+
+### Brutal.VulkanApi.VkPipelineStageFlags2
 
 *referenced as a type only*
 
@@ -977,6 +1001,12 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `Brutal.Numerics.double3 Direction`
 - `Brutal.Numerics.double3 Origin`
+
+### KSA.Rendering.BarrierBatch
+
+- `void .ctor(System.Span`1<Brutal.VulkanApi.VkMemoryBarrier2>, System.Span`1<Brutal.VulkanApi.VkBufferMemoryBarrier2>, System.Span`1<Brutal.VulkanApi.VkImageMemoryBarrier2>)`
+- `void Add(ref Brutal.VulkanApi.VkMemoryBarrier2)`
+- `void SubmitAndFlush(Brutal.VulkanApi.CommandBuffer)`
 
 ### KSA.Rendering.ComputePipelineWrapper
 

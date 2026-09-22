@@ -114,62 +114,85 @@ internal static class CloudPass
             }
 
             if (Program.GetRenderCamera() is not { } camera) return;
-            if (!NuclearClouds.TryNewest(out double3 burstEcl, out double3 up,
-                                         out double radius, out double age,
-                                         out MushroomCloud.Shape shape,
-                                         out double3 downwind)) return;
-
-            // Differenced against the camera in DOUBLE and only then narrowed. The world is a solar
-            // system: a float metre cannot hold an ecliptic position, and Ego is a pure translation
-            // of Ecl, so the camera sitting at the origin in the shader is exact rather than close.
-            double3 centre = burstEcl - camera.PositionEcl;
-            if (!Vec.IsFinite(centre)) return;
-
-            // Which way the light comes from, at the cloud rather than at the camera: over a
-            // kilometre of cloud the difference is nothing, and asking at the burst is what makes it
-            // right when the camera is somewhere else entirely. Straight up if the star cannot be
-            // found, which is noon and is at least a lighting direction rather than a black volume.
-            double3 sun = KsaWorld.TryStarPositionEcl(out double3 starEcl)
-                              ? Vec.Unit(starEcl - burstEcl)
-                              : up;
-
-            float2 upOct = OctahedralPack(Vec.Unit(up));
-            float2 windOct = OctahedralPack(Vec.Unit(downwind));
-            float2 sunOct = OctahedralPack(Vec.IsFinite(sun) ? sun : up);
-
-            Push push = new()
+            // Far to near. Each dispatch composites its cloud OVER whatever is already in the
+            // image, so the last one drawn ends up in front -- which is only right if the nearest
+            // goes last.
+            _order.Clear();
+            for (int i = 0; i < NuclearClouds.Count && _order.Count < MaxClouds; i++)
             {
-                InvViewProj = camera.VPInv.viewProjection,
-                // The target's own size is not in here: the shader asks imageSize() for it, which
-                // freed the two floats the wind needed. The block is at Vulkan's guaranteed 128
-                // bytes and there was nowhere else to take them from.
-                // The strength carries the cloud's own fade. It holds at one through the rise and
-                // half the stand and then squares away to nothing, so a cloud dissolves instead of
-                // being switched off when its shape expires -- which is what it did, because Fade
-                // was computed every frame and never reached the shader. It needs no room in the
-                // block: it is a scale on a float already being sent.
-                AgeStrengthWind = new float4((float)age, tint * (float)shape.Fade,
-                                             windOct.X, windOct.Y),
-                CentreRadius = new float4((float)centre.X, (float)centre.Y, (float)centre.Z,
-                                          (float)radius),
-                UpSun = new float4(upOct.X, upOct.Y, sunOct.X, sunOct.Y),
+                if (!NuclearClouds.TryAt(i, out double3 at, out _, out _, out _, out _, out _)) continue;
 
-                // The same shape the pens walk, so the two drawings cannot disagree about where the
-                // cloud is -- and so every dimension stays Glasstone's rather than being invented
-                // again in GLSL.
-                Shape = new float4((float)shape.CapCentre, (float)shape.CapRadius,
-                                   (float)shape.CapTube, (float)shape.StemRadius),
-            };
+                _order.Add((i, Vec.Len2(at - camera.PositionEcl)));
+            }
+
+            if (_order.Count == 0) return;
+            _order.Sort(static (a, b) => b.DistanceSq.CompareTo(a.DistanceSq));
 
             using (commandBuffer.TagRegion(GpuTag))
             {
-                // The VIEWPORT's slot, never the frame index. That argument picks the dynamic
-                // offset into the global set, which is where global.lighting lives: a frame index
-                // there reads a different viewport's planet, sun and radii on every frame in
-                // flight, and anything lit from that block flickers at frame rate.
-                _pipeline!.BindPipeline(commandBuffer, viewport.ShaderSlot, default, default, push);
-                commandBuffer.Dispatch((width + Group - 1) / Group,
-                                       (height + Group - 1) / Group, 1);
+                for (int n = 0; n < _order.Count; n++)
+                {
+                    if (!NuclearClouds.TryAt(_order[n].Index, out double3 burstEcl, out double3 up,
+                                             out double radius, out double age,
+                                             out MushroomCloud.Shape shape,
+                                             out double3 downwind)) continue;
+
+                    // Differenced against the camera in DOUBLE and only then narrowed. The world is
+                    // a solar system: a float metre cannot hold an ecliptic position, and Ego is a
+                    // pure translation of Ecl, so the camera sitting at the origin in the shader is
+                    // exact rather than close.
+                    double3 centre = burstEcl - camera.PositionEcl;
+                    if (!Vec.IsFinite(centre)) continue;
+
+                    // Which way the light comes from, at the cloud rather than at the camera: over a
+                    // kilometre of cloud the difference is nothing, and asking at the burst is what
+                    // makes it right when the camera is somewhere else entirely. Straight up if the
+                    // star cannot be found, which is noon and is at least a lighting direction
+                    // rather than a black volume.
+                    double3 sun = KsaWorld.TryStarPositionEcl(out double3 starEcl)
+                                      ? Vec.Unit(starEcl - burstEcl)
+                                      : up;
+
+                    float2 upOct = OctahedralPack(Vec.Unit(up));
+                    float2 windOct = OctahedralPack(Vec.Unit(downwind));
+                    float2 sunOct = OctahedralPack(Vec.IsFinite(sun) ? sun : up);
+
+                    Push push = new()
+                    {
+                        InvViewProj = camera.VPInv.viewProjection,
+                        // The target's own size is not in here: the shader asks imageSize() for it,
+                        // which freed the two floats the wind needed. The block is at Vulkan's
+                        // guaranteed 128 bytes and there was nowhere else to take them from.
+                        //
+                        // The strength carries the cloud's own fade. It holds at one through the
+                        // rise and half the stand and then squares away to nothing, so a cloud
+                        // dissolves instead of being switched off when its shape expires.
+                        AgeStrengthWind = new float4((float)age, tint * (float)shape.Fade,
+                                                     windOct.X, windOct.Y),
+                        CentreRadius = new float4((float)centre.X, (float)centre.Y, (float)centre.Z,
+                                                  (float)radius),
+                        UpSun = new float4(upOct.X, upOct.Y, sunOct.X, sunOct.Y),
+
+                        // The same shape MushroomCloud carries, so every dimension stays
+                        // Glasstone's rather than being invented again in GLSL.
+                        Shape = new float4((float)shape.CapCentre, (float)shape.CapRadius,
+                                           (float)shape.CapTube, (float)shape.StemRadius),
+                    };
+
+                    // Between dispatches, because every one of them reads the scene image and
+                    // writes it back: without this the second cloud races the first wherever the
+                    // two overlap on screen and one of the writes is simply lost. KSA's own
+                    // BarrierBatch, so this stands on public API like the rest of the pass.
+                    if (n > 0) Hazard(commandBuffer);
+
+                    // The VIEWPORT's slot, never the frame index. That argument picks the dynamic
+                    // offset into the global set, which is where global.lighting lives: a frame
+                    // index there reads a different viewport's planet, sun and radii on every frame
+                    // in flight, and anything lit from that block flickers at frame rate.
+                    _pipeline!.BindPipeline(commandBuffer, viewport.ShaderSlot, default, default, push);
+                    commandBuffer.Dispatch((width + Group - 1) / Group,
+                                           (height + Group - 1) / Group, 1);
+                }
             }
         }
         catch (Exception e)
@@ -177,6 +200,31 @@ internal static class CloudPass
             Warn($"the pass threw and is standing down: {e.Message}");
             Release();
         }
+    }
+
+    // The most clouds drawn at once. A bus carries six warheads and each makes one; past that is a
+    // world nobody has, and every extra is a full-screen dispatch however little of it survives the
+    // bounding sphere.
+    private const int MaxClouds = 8;
+
+    private static readonly List<(int Index, double DistanceSq)> _order = [];
+
+    // One compute-write to compute-read barrier, so a dispatch sees what the one before it wrote.
+    private static void Hazard(CommandBuffer commandBuffer)
+    {
+        Span<VkMemoryBarrier2> one = stackalloc VkMemoryBarrier2[1];
+        BarrierBatch batch = new(one, default, default);
+
+        VkMemoryBarrier2 barrier = new()
+        {
+            SrcStageMask = VkPipelineStageFlags2.ComputeShaderBit,
+            SrcAccessMask = VkAccessFlags2.ShaderWriteBit,
+            DstStageMask = VkPipelineStageFlags2.ComputeShaderBit,
+            DstAccessMask = VkAccessFlags2.ShaderReadBit | VkAccessFlags2.ShaderWriteBit,
+        };
+
+        batch.Add(ref barrier);
+        batch.SubmitAndFlush(commandBuffer);
     }
 
     private static bool Build(IRenderImage colour, IRenderImage depth)

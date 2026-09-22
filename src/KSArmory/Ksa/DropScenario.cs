@@ -295,6 +295,48 @@ internal sealed class DropScenario
         return true;
     }
 
+    /// <summary>
+    /// Whether to set off a second burst a few kilometres from the first once the store lands.
+    ///
+    /// <para>Harness only, and opt-in. What it exercises is that <c>CloudPass</c> draws every
+    /// standing cloud rather than the newest, which needs two far enough apart not to merge —
+    /// and nothing else produces that. A bus's six warheads land about 9 mm apart and are one
+    /// cloud by design, and the only shot that spreads them is a multi-target ballistic run whose
+    /// coast is hours long.</para>
+    /// </summary>
+    public bool SecondBurst { get; init; }
+
+    // Far enough apart that neither merges into the other and near enough that one camera holds
+    // both. The merge reaches only as far as the combined fireball -- 55 m at this yield -- and the
+    // pinned watch stands 1.85 cloud radii off with a 50 degree field, which is about 2.2 km of
+    // ground. At 3.5 km the second cloud was drawn and simply outside the frame.
+    private const double SecondBurstMetres = 1000.0;
+
+    private bool _secondBurstDone;
+
+    // Fired once the store is down, so the two clouds are a few frames apart in age rather than
+    // one being born into a world the other has not reached yet.
+    private void FireSecondBurst()
+    {
+        if (!SecondBurst || _secondBurstDone) return;
+        if (_round is not { } round || _body is not { } body || _craft is not { } craft) return;
+        if (!TryLocalFrame(craft, body, out _, out double3 east, out _, out _)) return;
+
+        // Off the CRAFT's live position, never the round's. The round is dead and its PositionEcl
+        // is a frozen ecliptic point: converted to the body's rotating frame a frame later it has
+        // been left behind by the planet's 29.8 km/s, about 477 m at 1x. Asked for a burst 30 m
+        // from the first, that put it hundreds of metres away in the frame the clouds actually
+        // live in. The craft is standing at the drop site and is read this frame, so it carries
+        // none of that.
+        _secondBurstDone = true;
+
+        double3 at = KsaWorld.PositionEcl(craft) + (east * SecondBurstMetres);
+        NuclearClouds.Begin(at, craft, round.Munition.ChargeKg);
+
+        _report($"second burst {SecondBurstMetres / 1000.0:F1} km east of the first, so the pass "
+                + $"has two clouds to draw; {NuclearClouds.Count} standing");
+    }
+
     /// <summary>Which phase it is in, for a timeout to name.</summary>
     public string Where => _phase.ToString();
 
@@ -333,6 +375,8 @@ internal sealed class DropScenario
                 // Pinned every frame while the cloud stands: the pose is the same in every run, so
                 // what CloudPassCost reports is a number about the pass rather than about where
                 // somebody left the camera.
+                FireSecondBurst();
+
                 if (_watchTheCloud && _craft is { } watched) CloudWatch.Update(watched);
 
                 CaptureBurst();

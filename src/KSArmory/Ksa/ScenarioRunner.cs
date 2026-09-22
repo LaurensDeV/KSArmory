@@ -77,6 +77,7 @@ internal sealed class ScenarioRunner
     // at some speeds and not others, which nobody can flip between by hand while a shell is flying.
     private bool _chase;
     private bool _showClouds;
+    private bool _twoClouds;
     private double[] _speeds = [];
 
     // Where a run sets its craft down first, for a body no save is on: the gunnery mount, and the
@@ -407,6 +408,12 @@ internal sealed class ScenarioRunner
         // differently from the run it is meant to be read against.
         bool noShader = Array.IndexOf(options, "noshader") >= 0;
 
+        // "twoclouds": set off a second burst a few kilometres from the first, so the pass is
+        // exercised with more than one cloud standing. Nothing else in the scenarios produces two:
+        // a bus's six warheads land about 9 mm apart and are deliberately one cloud, and the only
+        // shot that spreads them is a multi-target ballistic run whose coast is hours long.
+        _twoClouds = Array.IndexOf(options, "twoclouds") >= 0;
+
         _config.ShaderPass = _showClouds && !noShader ? 1f : 0f;
 
         CloudPassCost.Begin();
@@ -512,6 +519,7 @@ internal sealed class ScenarioRunner
         _drop = new DropScenario(drop, line => Report($"{_name}: {line}"), _sightFor, _showClouds)
         {
             Site = _site,
+            SecondBurst = _twoClouds,
         };
 
         // Same allowance the gunnery run makes: a site is usually another body, the full system

@@ -1470,21 +1470,21 @@ Not exercised, and the first two are the ones to believe least:
       behind the cap — inside the cap, where little of it shows. Wants the same uniform buffer as
       the second cloud, and is worth far less.
 
-- [ ] **A second cloud.** `NuclearClouds.TryNewest` hands the pass **one**, so two bursts in sight
-      of each other draw a fireball each and only the newer column.
+- [x] **More than one cloud, and coincident bursts that are one.** The pass draws every standing
+      cloud, one dispatch each, far to near so the nearest composites last, with a compute-write to
+      compute-read barrier between them — `KSA.Rendering.BarrierBatch`, which is public, so this
+      needs no uniform buffer and no reflection. An earlier reading that no barrier existed came
+      from grepping `CommandBuffer` for one; it lives on its own type.
 
-      **Reachable, and the MIRV is how.** `MushroomCloud.ThresholdKg` is 1000 kg and a Mk 21 carries
-      20,000,000, so a six-warhead bus makes six clouds. Today they land about 9 mm apart and burst
-      as one, so the single column is very nearly the right picture; a multi-target set puts them
-      kilometres apart and it stops being.
+      And a burst landing inside a standing cloud's own fireball is **added to that cloud** rather
+      than starting another. A bus's six warheads land about 9 mm apart: six dispatches would march
+      the same pixels six times for six coincident clouds at six times the density, where six 20 kt
+      bursts at one point is one 120 kt burst.
 
-      **Two routes, and the obvious one is barred.** Dispatching the pass once per cloud is a
-      read-after-write hazard on the scene image and KSA exposes no pipeline barrier to separate
-      them, so the loop has to be INSIDE one dispatch — each pixel written once, compositing
-      far-to-near. The push constant cannot carry it: it is at Vulkan's guaranteed 128 bytes with
-      the inverse view-projection taking 64 of them, and one cloud needs about 48. So it wants a
-      uniform buffer of cloud records, which `ComputePipelineWrapper` does bind — the argument
-      `CloudPass.Build` currently passes `default`.
+      Flown on 2026.9.10.5438 with `KSARMORY_SCENARIO_TWOCLOUDS=1`: two bursts 1 km apart both draw
+      and composite, 5.3 ms for one against 8.6 for two; at 34.4 m the second merges — `inside its
+      72 m fireball, so it is that one -- now 0.60 kt`.
+
 - [x] **An atmosphere that is not Earth's.** Flown on Mars, where the air is 0.011–0.0135 of the
       reference: the column draws with the right shape, and the sky, horizon and terrain around it
       are lit by Mars's own LUTs rather than by Earth's. The thin atmosphere is no longer the

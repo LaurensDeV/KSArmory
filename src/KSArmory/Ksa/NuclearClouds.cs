@@ -25,7 +25,7 @@ internal static class NuclearClouds
         public required Celestial Body;
         public required double3 BurstCcf;
         public required double3 Up;
-        public required double ChargeKg;
+        public double ChargeKg;
 
         // Which way this one leans. Fixed per cloud rather than per frame, or the column would
         // wander; and per cloud rather than global, so two bursts in sight of each other do not
@@ -50,13 +50,25 @@ internal static class NuclearClouds
     /// The newest cloud standing, as the shader pass needs it: where it is in the ecliptic, which
     /// way is up there, how far it reaches and how old it is.
     ///
-    /// <para>One, because a push constant holds one and because two mushroom clouds in sight of
-    /// each other is not a case anybody has. The newest rather than the nearest, so the one being
-    /// watched is the one still changing shape.</para>
+    /// <para>The newest rather than the nearest, so whatever is asked about one cloud is asked
+    /// about the one still changing shape. <see cref="TryAt"/> is how the pass reaches the
+    /// rest.</para>
     /// </summary>
     public static bool TryNewest(out double3 burstEcl, out double3 up, out double radiusMetres,
                                  out double ageSeconds, out MushroomCloud.Shape shape,
                                  out double3 downwind)
+        => TryAt(_clouds.Count - 1, out burstEcl, out up, out radiusMetres, out ageSeconds,
+                 out shape, out downwind);
+
+    /// <summary>
+    /// One standing cloud by index, in the order they were made. <see cref="Count"/> bounds it.
+    ///
+    /// <para>The pass draws them one dispatch each, so it needs them all rather than the newest —
+    /// a six-warhead bus makes six of these.</para>
+    /// </summary>
+    public static bool TryAt(int index, out double3 burstEcl, out double3 up, out double radiusMetres,
+                             out double ageSeconds, out MushroomCloud.Shape shape,
+                             out double3 downwind)
     {
         downwind = default;
 
@@ -66,9 +78,9 @@ internal static class NuclearClouds
         ageSeconds = 0.0;
         shape = default;
 
-        if (_clouds.Count == 0) return false;
+        if (index < 0 || index >= _clouds.Count) return false;
 
-        Cloud cloud = _clouds[^1];
+        Cloud cloud = _clouds[index];
 
         try
         {
@@ -166,6 +178,28 @@ internal static class NuclearClouds
                     body, burstCcf, chargeKg, KsaWorld.HeightAboveTerrain(body, burstEcl));
 
                 _watch = (body, burstCcf, Vec.Unit(burstCcf), thrown);
+                return;
+            }
+
+            // A burst inside a standing cloud's own fireball is the SAME EVENT, and is added to it
+            // rather than starting another. Six warheads of a bus land about 9 mm apart: drawn as
+            // six clouds that is six times the smoke in one place and six full-screen dispatches
+            // marching the same pixels, where the truth is one burst of the combined yield.
+            for (int i = 0; i < _clouds.Count; i++)
+            {
+                Cloud standing = _clouds[i];
+                if (!ReferenceEquals(standing.Body, body)) continue;
+
+                double reach = MushroomCloud.PeakFireballRadius(
+                    MushroomCloud.KilotonsFor(standing.ChargeKg + chargeKg));
+
+                if (Vec.Len2(burstCcf - standing.BurstCcf) > reach * reach) continue;
+
+                standing.ChargeKg += chargeKg;
+
+                Log.Info($"nuclear cloud: burst {Vec.Len(burstCcf - standing.BurstCcf):F1} m from a "
+                         + $"standing one and inside its {reach:F0} m fireball, so it is that one -- "
+                         + $"now {MushroomCloud.KilotonsFor(standing.ChargeKg):F2} kt");
                 return;
             }
 
