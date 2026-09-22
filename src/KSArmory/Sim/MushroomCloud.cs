@@ -141,6 +141,33 @@ public static class MushroomCloud
     }
 
     /// <summary>
+    /// The widest the base surge gets, and how long it takes to get there.
+    ///
+    /// <para><b>Sampled off <see cref="SurgeRadius"/> rather than solved for.</b> That expression is
+    /// a difference of two exponentials whose peak has a closed form nobody would recognise a year
+    /// from now, and writing it down separately is the shape that drifts: change either rate and
+    /// the peak silently stops being the peak. Two hundred samples over the rise, once per burst.
+    /// </para>
+    /// </summary>
+    public static (double Radius, double AtAge) PeakSurge(double yieldKt)
+    {
+        double best = 0.0;
+        double at = 0.0;
+
+        for (int i = 1; i <= 200; i++)
+        {
+            double age = RiseSeconds * i / 200.0;
+            double r = SurgeRadius(yieldKt, age);
+            if (r <= best) continue;
+
+            best = r;
+            at = age;
+        }
+
+        return (best, at);
+    }
+
+    /// <summary>
     /// And how high that collar stands. It keeps climbing while the ring comes back in, because the
     /// inflow drawing the dust inward is the same one lifting it into the stem. But it stays low,
     /// since it has no buoyancy of its own to climb on.

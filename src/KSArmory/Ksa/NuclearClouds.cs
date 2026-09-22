@@ -192,6 +192,10 @@ internal static class NuclearClouds
 
             double kt = MushroomCloud.KilotonsFor(chargeKg);
 
+            // The dust along the ground, which the raymarch does not draw and never could: its
+            // push constant carries the column's four numbers and has no room for the skirt's.
+            BurstEjecta.BeginSurge(body, burstCcf, chargeKg);
+
             // A column is about as tall as it is wide, so one number frames it both ways.
             _watch = (body, burstCcf, up,
                       new AirlessBurst.Extent(MushroomCloud.DrawnCloudTop(kt),
