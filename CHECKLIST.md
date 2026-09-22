@@ -761,9 +761,9 @@ Where latent bugs are most likely.
 - [ ] **6.3b** **Rocket smoke trail** — fire a Sidewinder or a HARM and watch the trail behind it
   while the motor burns, then that it stops laying at burnout and the trail stays put and drifts.
   Nothing on an airless world or above the atmosphere, which is the renderer's own limit. Check a
-  CIWS burst does **not** lay one (`TotalBoostSeconds` is zero), and that a salvo beside a standing
-  mushroom cloud does not visibly eat the bottom of it — both draw from one 16,384-segment budget
-  per body, evicted oldest-first.
+  CIWS burst does **not** lay one (`TotalBoostSeconds` is zero). The mushroom cloud no longer
+  competes for the same budget — it left the trail renderer for its own raymarch — so a salvo
+  beside a standing cloud can only evict other motor trails.
 - [ ] **6.4** **Platform destroyed** with rounds in flight — the rounds **carry on** rather than
   vanishing, and still detonate and kill. No exception spam. Check the log says
   `<craft> destroyed - N round(s) still in the air`, then `last round down, system forgotten`.
@@ -1416,6 +1416,52 @@ the stand-off.
       it a 38 s hold is a frozen stare, which is why the two changes ship together.
 - [ ] A conventional burst still holds 3 s — a cannon putting one round into a drone must not take
       the view away for the next one.
+
+### 7.1f4 The cloud drawn by this mod's own shader, and the burst where there is no air
+
+**Flown on 2026.9.10.5438.** The column is no longer walked with smoke pens: `Ksa/CloudPass.cs`
+dispatches a compute shader inside KSA's own frame, prefixed onto `SunbloomRenderer.Render`. That
+is the fifth place this mod patches the game and the first in the renderer. On a body with no air
+there is no column at all, and `Ksa/BurstEjecta.cs` throws ground instead.
+
+- [x] A B61 burst on Earth grows a raymarched column, lit by KSA's own atmosphere — no uniform
+      buffer and no vendored shader code, because the global descriptor set already carried the
+      LUTs and `global.lighting`.
+- [x] It costs less than the pens it replaced: about **3 ms** against 6–8, read off KSA's own GPU
+      profiler through `Ksa/CloudPassCost.cs`, from the pinned pose `Ksa/CloudWatch.cs` sets.
+      A `noshader` control run is what says the number is the pass and not the scene.
+- [x] **Luna.** `KSARMORY_SCENARIO_SITE=Luna,0,0 KSARMORY_SCENARIO_SYSTEM=Sol` with
+      `KSARMORY_SCENARIO_CLOUDS=1`: the store lands in 5.2 s, the dust dome draws, and four
+      captures land at 0.10/0.30/0.60/0.95 of a **16.4 s** watch that no longer drifts.
+- [x] Three bugs that only an airless body could show, each flown before and after — a body with no
+      atmosphere reading as Earth sea-level air, rounds on the Moon ground-tested against Earth,
+      and the two halves of one burst disagreeing about whether it threw anything. The Earth drop
+      still lands 0 m from the ring, which is what says none of it reached the scored path.
+
+Not exercised, and the first two are the ones to believe least:
+
+- [ ] **A second cloud.** `NuclearClouds.TryNewest` hands the pass **one**, because a push constant
+      holds one — so two bursts in sight of each other draw one column and one fireball each, but
+      only the newer column. Never seen; nobody has set off two.
+- [ ] **An atmosphere that is not Earth's.** The lighting reads KSA's aerial-perspective LUTs for
+      whatever body the viewport is on, so Mars or Titan should work and has never been tried. The
+      airless path and the Earth path are both flown; the thin one in between is not.
+- [ ] **Through a sight or a camera window.** The pass writes the viewport's storage image and binds
+      `viewport.ShaderSlot`, which is what fixed the flicker — but only the main view has ever been
+      looked at. A secondary viewport is the case that would find a second wrong slot.
+- [ ] **Warp and pause.** The cloud advances on simulated time like everything else, so it should
+      freeze in a pause and slow with the panel. Unchecked through the shader path.
+- [ ] **Another GPU.** One machine, one vendor. A compute dispatch into someone else's frame is
+      exactly the kind of thing that is driver-specific, and a failed patch or a shader that will
+      not compile draws no cloud rather than crashing — which is the intended degradation and has
+      never been provoked.
+- [ ] **How strong the aerial perspective should be.** Real now rather than approximated, and the
+      cloud reads thinner and more washed for it at the 2.4 km watching distance. Whether that is
+      right is a judgement nobody has made.
+- [ ] **A craft set down on Luna sinks and its tip explodes**, seen in play. `TryPlaceOnSurface` is a
+      thin wrapper over KSA's own `Vehicle.TeleportToLocation` and the craft reads 7 m **above** the
+      ground when placed, so this is the engine's vehicle-vs-terrain handling or the blast taking a
+      rocket standing 7 m from a nuclear detonation. Not diagnosed; the drop passes either way.
 
 ### 7.1e Drag, and what a round does once it leaves the air
 
