@@ -1221,6 +1221,17 @@ internal static class KsaWorld
     private static object? _transparencies;
     private static bool _warnedAboutWeather;
 
+    // The renderer's accumulated full-resolution result, which it ping-pongs between two images
+    // and a flag. Private, so reflected; missing, and the jittered low-resolution pair stands in.
+    private static FieldInfo?[]? _settled;
+    private static FieldInfo? _writesFlipNext;
+
+    private static readonly string[] SettledNames =
+    [
+        "_upscaledCloudColorFlipTarget", "_upscaledCloudColorFlopTarget",
+        "_upscaledDistanceFlipTarget", "_upscaledDistanceFlopTarget",
+    ];
+
     /// <summary>
     /// KSA's own weather clouds as they were drawn this frame: their light with transmittance in
     /// alpha, and how far each pixel's cloud is from the camera. False when the player has clouds
@@ -1234,10 +1245,12 @@ internal static class KsaWorld
     /// <para>One private field away: <c>Program._planetTransparenciesRenderer</c> is the only owner
     /// of the renderer and <c>GetCloudRenderer()</c> is public on it. Reflected once and verified,
     /// and a KSA rename turns this off rather than breaking anything — the burst is then drawn in
-    /// front of the clouds, which is what it did before.</para>
+    /// front of the clouds, which is what it did before. The accumulated images it prefers are
+    /// four more private fields and a flag, with the public low-resolution pair behind them.</para>
     ///
     /// <para>Asked every frame rather than held: the renderer is rebuilt when the settings change
-    /// and both images when the window is resized.</para>
+    /// and both images when the window is resized, and the accumulated pair it prefers swaps images
+    /// every frame.</para>
     /// </summary>
     public static bool TryWeatherClouds(out KSA.Rendering.RenderImage? colour,
                                         out KSA.Rendering.RenderImage? distance)
@@ -1266,6 +1279,8 @@ internal static class KsaWorld
             if (_transparencies is not PlanetTransparenciesRenderer owner) return false;
             if (owner.GetCloudRenderer() is not { } clouds) return false;
 
+            if (TrySettledWeather(clouds, out colour, out distance)) return true;
+
             colour = clouds.GetLowResolutionCloudColorTarget();
             distance = clouds.GetLowResolutionCloudDistanceTarget();
 
@@ -1281,6 +1296,44 @@ internal static class KsaWorld
 
             return false;
         }
+    }
+
+    // The pair the renderer wrote this frame. Its low-resolution images are sampled at a different
+    // sub-pixel every frame and accumulated into these, so an edge cut from the low-resolution pair
+    // crawls while the world is paused, and one cut from these holds still. PerformUpscaling flips
+    // the flag after writing, so the image just written is the one the flag no longer names.
+    private static bool TrySettledWeather(object clouds, out KSA.Rendering.RenderImage? colour,
+                                          out KSA.Rendering.RenderImage? distance)
+    {
+        colour = null;
+        distance = null;
+
+        if (_settled is null)
+        {
+            Type type = clouds.GetType();
+            const BindingFlags Private = BindingFlags.NonPublic | BindingFlags.Instance;
+
+            _settled = [.. SettledNames.Select(n => type.GetField(n, Private))];
+            _writesFlipNext = type.GetField("writeHistoryToFlip", Private);
+
+            if (_settled.Any(f => f?.FieldType != typeof(KSA.Rendering.RenderImage))
+                || _writesFlipNext?.FieldType != typeof(bool))
+            {
+                Log.Warn("weather clouds: the renderer's accumulated images did not resolve; "
+                         + "reading its jittered low-resolution ones, whose edges crawl");
+                _settled = [];
+            }
+        }
+
+        if (_settled.Length != 4 || _writesFlipNext is null) return false;
+
+        bool flipIsNext = (bool)_writesFlipNext.GetValue(clouds)!;
+        int written = flipIsNext ? 1 : 0;
+
+        colour = _settled[written]!.GetValue(clouds) as KSA.Rendering.RenderImage;
+        distance = _settled[2 + written]!.GetValue(clouds) as KSA.Rendering.RenderImage;
+
+        return colour is not null && distance is not null;
     }
 
     /// <summary>

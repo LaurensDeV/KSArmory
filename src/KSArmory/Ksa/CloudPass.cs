@@ -42,10 +42,13 @@ internal static class CloudPass
 
     private static ComputePipelineWrapper? _pipeline;
 
-    // The weather-cloud images the pipeline's descriptor sets were built against, or null for the
-    // stand-ins bound when there are none. The sets name images, so a new pair is a rebuild.
-    private static RenderImage? _weatherColour;
-    private static RenderImage? _weatherDistance;
+    // One pipeline per weather-cloud pair its descriptor sets were built against, null for the
+    // stand-ins bound when there are none. The sets name images, and the renderer's accumulated
+    // pair alternates between two sets of images frame by frame, so two are held rather than one
+    // rebuilt every frame.
+    private static readonly List<(RenderImage? Colour, RenderImage? Distance, ComputePipelineWrapper Pipeline)>
+        _pipelines = [];
+    private const int MostPipelines = 2;
     private static int _width;
     private static int _height;
     private static bool _warned;
@@ -99,6 +102,7 @@ internal static class CloudPass
     public static void Release()
     {
         _pipeline = null;
+        _pipelines.Clear();
         BuildFailed = false;
         LastMarkTile = 1.0;
         _width = 0;
@@ -126,16 +130,25 @@ internal static class CloudPass
                                                      out RenderImage? weatherDistance);
             if (!weather) weatherColour = weatherDistance = null;
 
-            if (_pipeline is null || width != _width || height != _height
-                || !ReferenceEquals(weatherColour, _weatherColour)
-                || !ReferenceEquals(weatherDistance, _weatherDistance))
+            if (width != _width || height != _height)
+            {
+                _pipelines.Clear();
+                _width = width;
+                _height = height;
+            }
+
+            _pipeline = null;
+            foreach ((RenderImage? c, RenderImage? d, ComputePipelineWrapper p) in _pipelines)
+            {
+                if (ReferenceEquals(c, weatherColour) && ReferenceEquals(d, weatherDistance)) _pipeline = p;
+            }
+
+            if (_pipeline is null)
             {
                 if (!Build(colour, depth, weatherColour, weatherDistance)) return;
 
-                _width = width;
-                _height = height;
-                _weatherColour = weatherColour;
-                _weatherDistance = weatherDistance;
+                if (_pipelines.Count >= MostPipelines) _pipelines.RemoveAt(0);
+                _pipelines.Add((weatherColour, weatherDistance, _pipeline!));
             }
 
             // Into a layout a compute shader may sample, through KSA's own tracked state, so the

@@ -1668,9 +1668,18 @@ Not exercised, and the first two are the ones to believe least:
       itself adds — see the blast-wave note above.
 
       Flown at 300 kt from above a deck: the grey disc gone from the cloud tops, and the stem running
-      down behind the deck while the cap stands above it. **Not yet flown from under a deck looking
-      up**, which is the other half of the same case, nor checked for shimmer at a cloud's edge —
-      the images are the renderer's low-resolution, per-frame ones rather than its upscaled result.
+      down behind the deck while the cap stands above it. **And from under one**, at
+      `KSARMORY_SCENARIO_WATCHELEV=2`: the cap shows only through the deck's holes, and the stem
+      stands below its base.
+
+      **Read off the renderer's accumulated result, not its low-resolution pass.** The low-resolution
+      images are sampled at a different sub-pixel every frame, so an edge cut from them crawls with
+      the world paused: three stills at `KSARMORY_SCENARIO_STILLAT=25` differed along the whole
+      outline of a hole the cap showed through, by up to 122 of 255. The accumulated full-resolution
+      pair — four private fields and a flag, since it ping-pongs — has the same layout and the same
+      distance encoding, and the outline is gone: what differs between stills is scattered specks at
+      the level of KSA's own clouds elsewhere in the sky. One pipeline per image of the pair, so the
+      swap is not a rebuild a frame.
 
 - [ ] **The old note, kept because it is what the shipped scenarios still cannot do.** Reasoned, not flown. `NuclearClouds.Update` is driven from `StepOnce` on
       the simulated step, so a pause hands it nothing and warp hands it a large one — and the shape
