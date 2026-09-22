@@ -49,7 +49,7 @@ layout (push_constant) uniform PushConstants
     mat4 InvViewProj;      // clip -> camera-relative world
     vec4 AgeStrengthWind;  // x seconds since the burst, y strength (0 draws nothing), zw downwind
     vec4 CentreRadius;     // xyz burst, camera-relative metres; w the sphere that bounds it all
-    vec4 FireSun;          // fireball radius and glow, then the sun direction packed into two
+    vec4 FireSun;          // fireball radius, its glow, the whiteout, spare
     vec4 Shape;            // cap centre height, cap radius, cap tube, stem radius
 } pc;
 
@@ -271,6 +271,10 @@ float Density(vec3 leaned, vec3 up, float radius)
 // What a unit of the fireball's own glow is worth as light on the cloud. Its Glow peaks near 400
 // and the sun term beside it tops out around 2, so this is the number that decides whether a burst
 // tints its cloud or blows the frame out.
+// How bright the whiteout writes into the scene. The image is HDR and the tonemap has not run
+// yet, so one is a mid grey by the time a player sees it.
+const float WhiteoutNits = 9.0;
+
 const float FireGain = 0.110;
 
 // And the most it may contribute at any one sample. The sun term beside it tops out near 2.
@@ -314,8 +318,31 @@ void main()
     // it used to cost went to the fireball instead, in a block that is at Vulkan's guaranteed 128
     // bytes with nothing spare.
     vec3 up = normalize(toCentre - global.lighting.planetPosition.xyz);
-    vec3 sun = OctahedralUnpack(pc.FireSun.zw);
+    // The direction to the sun FROM THE CLOUD, derived rather than sent: the star's position is in
+    // the global block and the burst is in the push constant, so this is a subtraction. That freed
+    // the float the whiteout needed in a block with nothing spare.
+    vec3 sun = normalize(global.lighting.sunPosition.xyz - toCentre);
     float forward = Phase(dot(dir, sun), 0.3);
+
+    // THE WHITEOUT, written before anything can turn this pixel away. A burst blinds the whole
+    // view rather than the part of it the cloud happens to cover, so it cannot sit behind the
+    // bounding sphere.
+    //
+    // Here rather than as an ImGui overlay because KSA wraps its entire UI pass in if (DrawUI),
+    // and both F2 and ScreenshotCapture clear that -- painted there it vanished from every
+    // screenshot the harness took, and would have vanished for any player who hid the HUD.
+    //
+    // Carried by ONE dispatch however many clouds are standing: the pass runs once per cloud and
+    // each would otherwise lay its own white over the last.
+    if (pc.FireSun.z > 0.0)
+    {
+        vec4 was = imageLoad(sceneColor, at);
+
+        // Into a scene that is still HDR and pre-tonemap, so the white has to be well over one to
+        // come out white on the other side of it.
+        vec3 blinded = mix(was.rgb, vec3(1.00, 0.97, 0.92) * WhiteoutNits, pc.FireSun.z);
+        imageStore(sceneColor, at, vec4(blinded, was.a));
+    }
 
     float along = dot(toCentre, dir);
     float perpSq = dot(toCentre, toCentre) - along * along;

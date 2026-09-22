@@ -145,17 +145,7 @@ internal static class CloudPass
                     double3 centre = burstEcl - camera.PositionEcl;
                     if (!Vec.IsFinite(centre)) continue;
 
-                    // Which way the light comes from, at the cloud rather than at the camera: over a
-                    // kilometre of cloud the difference is nothing, and asking at the burst is what
-                    // makes it right when the camera is somewhere else entirely. Straight up if the
-                    // star cannot be found, which is noon and is at least a lighting direction
-                    // rather than a black volume.
-                    double3 sun = KsaWorld.TryStarPositionEcl(out double3 starEcl)
-                                      ? Vec.Unit(starEcl - burstEcl)
-                                      : up;
-
                     float2 windOct = OctahedralPack(Vec.Unit(downwind));
-                    float2 sunOct = OctahedralPack(Vec.IsFinite(sun) ? sun : up);
 
                     Push push = new()
                     {
@@ -171,12 +161,16 @@ internal static class CloudPass
                                                      windOct.X, windOct.Y),
                         CentreRadius = new float4((float)centre.X, (float)centre.Y, (float)centre.Z,
                                                   (float)radius),
-                        // The cloud's own up is NOT in here: the shader derives it from the burst
-                        // and the planet, both of which it already has. That freed the two floats
-                        // the fireball needed -- its radius and how hard it is glowing, which is
-                        // what lets a burst light the cloud it is sitting inside.
+                        // Neither the cloud's up nor the direction to the sun is in here: the
+                        // shader derives both from the burst, the planet and the star, all of which
+                        // it already has. That freed four floats in a block with nothing spare --
+                        // the fireball's radius and glow, which let a burst light the cloud it is
+                        // inside, and the whiteout it leaves on the view.
+                        //
+                        // The whiteout goes on ONE dispatch. The pass runs once per standing cloud
+                        // and each would otherwise lay its own white over the last.
                         FireSun = new float4((float)flash.Radius, (float)flash.Glow,
-                                             sunOct.X, sunOct.Y),
+                                             n == 0 ? BurstFlash.Whiteout : 0f, 0f),
 
                         // The same shape MushroomCloud carries, so every dimension stays
                         // Glasstone's rather than being invented again in GLSL.

@@ -306,6 +306,7 @@ internal static class NuclearClouds
     {
         _clouds.Clear();
         _watch = null;
+        BurstFlash.Reset();
         Fireball.Clear();
     }
 }

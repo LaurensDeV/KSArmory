@@ -428,7 +428,10 @@ internal sealed class DropScenario
         // lighting its own cloud happened before any capture had ever been taken.
         double flash = MushroomCloud.FlashSeconds(MushroomCloud.KilotonsFor(round.Munition.ChargeKg));
 
-        return [flash * 0.70, .. rise,
+        // Two during the luminous phase: the whiteout peaks about a tenth of the way through it
+        // and is gone well before the ball is, so one capture at 0.70 photographs the glow in the
+        // cloud and never the flash on the screen.
+        return [flash * 0.15, flash * 0.70, .. rise,
                 MushroomCloud.RiseSeconds + (MushroomCloud.StandSeconds * 0.85)];
     }
 

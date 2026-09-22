@@ -814,6 +814,10 @@ public sealed class KSArmoryMod
         if (_config.NuclearClouds) NuclearClouds.Update(_lastSimStep);
         else NuclearClouds.Clear();
 
+        // The whiteout a burst leaves on the view. Stepped here rather than drawn in the UI pass:
+        // CloudPass writes it into the scene image so it survives the HUD being hidden.
+        BurstFlash.Update(_lastSimStep);
+
         // A sight outlives nothing: without this the dictionary keeps a system for the session
         // after its craft has gone, which is the leak every pooled effect below sweeps for.
         if (_sights.Count > _roster.Count)
