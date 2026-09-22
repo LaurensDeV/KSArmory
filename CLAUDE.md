@@ -542,6 +542,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/GUIDANCE-SECTION.md` | **a plan, half built** — the ballistic computer as a part you bolt on. The `Guidance` role, distinct from `FireControl`, is built and the bus provides it; the 3 m interstage ring that would take it over is not, and its mass is a split of the bus's rather than an addition to it |
 | `docs/NUCLEAR-EFFECT.md` | which of KSA's four volumetric renderers a mod can reach, and what a mushroom cloud actually looks like |
 | `docs/NUCLEAR-NEXT.md` | **a plan, not a record** — the ranked backlog for the burst: the first second, where every signature that reads as *nuclear* lives, and the last minute, where a real cloud drifts and spreads rather than fading where it stood |
+| `docs/VISUAL-TESTING.md` | **a plan, not a record** — how an agent sees what the mod draws from a terminal: what the screenshot loop cost the night the burst was built, and a ranked route to a live session with an MCP bridge, shader hot reload and same-instant controls |
 | `docs/DAMAGE-DECALS.md` | **a plan, not a record** — how a decal is projected onto a hull, a hillside or a rock out of the depth buffer, read off gatOS's implementation and re-verified here, and what a burn mark on a craft would cost |
 | `docs/FROM-KSP-MODDING.md` | the concept map for anyone arriving from KSP part modding |
 | `docs/MODULARITY.md` | how far the profile/registry split actually generalises, and the test gaps to close before widening it |

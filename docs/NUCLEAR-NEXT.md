@@ -22,6 +22,56 @@ fallout runs downwind for tens of kilometres. The mod's cloud leans in a wind th
 
 ---
 
+## Against the real thing
+
+Where the drawn burst still differs from a low-yield surface burst on film — the Nevada tower and
+ground shots — phase by phase, as it stood on 2026-09-22. The dirty first ten seconds is the
+largest gap.
+
+**The first second.**
+
+| Real | Drawn |
+|---|---|
+| The fireball's surface is mottled: bomb debris and instabilities glow unevenly, and a tower shot throws spikes where the guy wires flash off | A smooth, evenly lit sphere |
+| The air round the ball glows violet for an instant, strongest at night | Nothing |
+| Heat and the shock front visibly bend the view round the ball | Nothing refracts |
+| A ring of dust races out along the ground behind the shock | Nothing; the particle one came out as a black collar and was removed |
+| The flash throws hard shadows across everything in sight | The ball carries a light; what it reaches at range has not been checked |
+| Flash blindness lasts seconds, far longer at night | About a second and a half |
+
+**The first ten seconds.**
+
+| Real | Drawn |
+|---|---|
+| The ball swallows the ground under it and rises wrapped in churning black-brown dust and smoke, orange glow showing through gaps as it boils | A glowing sphere inside a clean, pale cloud; the only dark is the stem's foot |
+| Reddish-brown from the nitrogen oxides the heat makes, lasting after the glow | White, orange, gone; the cloud is grey-beige from the start |
+| The ball hollows into a glowing ring as its underside is drawn up, a doughnut of fire turning over | The ball stays a sphere and rides up into the cap |
+| Violent churning at every scale, rising at hundreds of metres a second at first | Gentler: noise rolled slowly round the ring |
+| A crater, and dark jets of thrown dirt | Neither; a crater is blocked on the engine (item 12) |
+| Smoke from what the flash set burning | A static burn mark |
+
+**The first minute.**
+
+| Real | Drawn |
+|---|---|
+| Condensation rings form round the stem at moist layers, and a smooth ice cap can sit over the top | Only the brief condensation dome at the start |
+| White condensation cap, dirty-brown underside, dark brown stem | A gradient from dark foot to pale top, so partly |
+| Often a thin, tall stem, with dust visibly drawn up into the cap's underside | A flared foot, then a column |
+| Past the tropopause the cap spreads into an anvil | Built (item 5) |
+| Fallout curtains take minutes to show | Streamers hang from the cap within about twenty seconds |
+
+**After that.** A real cloud lasts tens of minutes to hours, drifting, shearing and spreading into
+a long plume, with a haze of dust over ground zero. The drawn one fades from 58 s and is gone at
+78 s, where it burst — standing still by decision (item 3).
+
+**By design.** The cloud is drawn at 65% of its law (`MushroomCloud.DrawnScale`); a true 0.3 kt
+ball is 1:7 against its cap and reads as wrong.
+
+**Ranked for what they would change on screen:** the dirty rising fireball, with glow through the
+dust and the brown of the oxides; the ball turning into a ring of fire; the dust ring racing out
+along the ground, in the raymarch this time rather than particles; condensation rings on the stem;
+and a longer life, which runs against the decision to hold the cloud still.
+
 ## Tier 1 — done
 
 All three flown on 2026.9.10.5438. Kept here rather than deleted, because two of them ended
