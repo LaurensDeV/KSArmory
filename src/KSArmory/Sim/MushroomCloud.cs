@@ -47,8 +47,24 @@ public static class MushroomCloud
     /// <summary>Stabilised height of the cloud top as drawn, which is not what the law says.</summary>
     public static double DrawnCloudTop(double yieldKt) => CloudTop(yieldKt) * DrawnScale;
 
+    /// <summary>
+    /// How much wider the cap is drawn than <see cref="CapRadius"/> makes it.
+    ///
+    /// <para><b>The law is narrower than the photographs.</b> <c>600·W^0.37</c> over
+    /// <c>3000·∛W</c> is 0.38 as wide as it is tall at a third of a kilotonne and only 0.52 at a
+    /// megatonne — a column, at every yield. Castle Bravo's cloud was about 100 km across against
+    /// 40 km tall, which is wider than tall, and Ivy Mike's wider still. The fit and the pictures
+    /// disagree, and the silhouette is the whole of what makes a mushroom read as one.</para>
+    ///
+    /// <para>So this is a drawing choice and is named as one, the same way <see cref="DrawnScale"/>
+    /// is. <see cref="CapRadius"/> keeps saying what the law says, so anything measured against the
+    /// law still means something.</para>
+    /// </summary>
+    public const double DrawnCapWidening = 1.9;
+
     /// <summary>And the cap radius as drawn.</summary>
-    public static double DrawnCapRadius(double yieldKt) => CapRadius(yieldKt) * DrawnScale;
+    public static double DrawnCapRadius(double yieldKt)
+        => CapRadius(yieldKt) * DrawnScale * DrawnCapWidening;
 
     /// <summary>And how long it stands there before fading out.</summary>
     public const double StandSeconds = 40.0;
@@ -433,6 +449,15 @@ public static class MushroomCloud
         return a + ((b - a) * f);
     }
 
+    /// <summary>
+    /// The stem's radius, as a fraction of the cap's.
+    ///
+    /// <para>A photographed mushroom's cap is five or six times the width of the column under it;
+    /// at a half the cap is only twice the stem and the silhouette stops reading as a mushroom at
+    /// all, which is the single strongest shape cue the drawing has.</para>
+    /// </summary>
+    public const double StemOfCap = 0.22;
+
     /// <summary>Where the cloud is at <paramref name="age"/> seconds, for a charge in kg.</summary>
     public static Shape At(double chargeKg, double age)
     {
@@ -490,7 +515,7 @@ public static class MushroomCloud
             CapRadius: capRadius,
             CapTube: capR * 0.45,
             StemTop: stemTop,
-            StemRadius: capR * 0.5,
+            StemRadius: capR * StemOfCap,
             SurgeRadius: SurgeRadius(kt, age),
             SurgeHeight: SurgeHeight(kt, age),
             Roll: roll,

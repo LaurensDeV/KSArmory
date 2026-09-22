@@ -61,16 +61,22 @@ public class MushroomCloudTests
     }
 
     /// <summary>
-    /// And it is exactly Glasstone's half, not a fraction of it. A thinner stem is the difference
-    /// between a mushroom and a lollipop: the cap has nothing to sit on and reads as a blob on a
-    /// stick, however right the cap itself is.
+    /// The cap is several times the width of the column under it, which is the strongest shape cue
+    /// the drawing has. A photographed mushroom runs about five or six to one; at the half this
+    /// used to hold it was barely two, and the silhouette stopped reading as a mushroom at all.
+    ///
+    /// <para>That half was a pen-era compromise rather than a measurement: a stem drawn as a bundle
+    /// of capsules needs width to read as anything, and a raymarched one does not. Still bounded at
+    /// the far end, because the concern it was guarding against is real — a stem thin enough to be a
+    /// stick gives a lollipop, a cap with nothing under it.</para>
     /// </summary>
     [Fact]
-    public void TheStemIsHalfTheCapRadius()
+    public void TheCapIsSeveralTimesTheWidthOfItsStem()
     {
         MushroomCloud.Shape s = MushroomCloud.At(0.3 * Kt, MushroomCloud.RiseSeconds);
-        // Against the drawn cap rather than the law's: the ratio is Glasstone's, the size is not.
-        Assert.Equal(MushroomCloud.DrawnCapRadius(0.3) * 0.5, s.StemRadius, 3);
+
+        Assert.True(s.StemRadius > 0.0);
+        Assert.InRange(s.CapRadius / s.StemRadius, 4.0, 6.5);
     }
 
     /// <summary>

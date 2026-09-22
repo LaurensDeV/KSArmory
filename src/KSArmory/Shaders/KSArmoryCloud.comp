@@ -99,6 +99,19 @@ float Fbm(vec3 p)
     return sum;
 }
 
+// The rising thermal, as an ellipsoid of revolution. The torus is the vortex ring around the cap
+// and cannot be the cap itself: a torus has a hole on its axis, and the stem stops at the ring's
+// own height, so the middle of the top is empty. That reads as a flat slab with a dip in it.
+// A mushroom's defining silhouette is a dome that is HIGHEST on the axis with the ring bulging
+// out under it, which is these two unioned rather than either alone.
+float CapDome(vec2 p, float ringR, float tubeR)
+{
+    // Centred a little above the ring so the dome rises out of it rather than sitting level.
+    vec2 r = vec2(ringR * 1.02, tubeR * 1.75);
+    vec2 q = vec2(p.x, p.y - tubeR * 0.35) / r;
+    return (length(q) - 1.0) * min(r.x, r.y);
+}
+
 // Distance to the ring of the cap's torus. The cap is a vortex ring and this is the one shape a
 // stroke of capsules can only approximate: here it is the primitive.
 float Torus(vec3 p, float ring, float tube)
@@ -155,9 +168,15 @@ float Bulk(vec3 leaned, vec3 up)
     float tubeR = pc.Shape.z;
 
     vec3 capP = vec3(p.x, p.y - capH, 0.0);
-    float d = min(Torus(capP, ringR, tubeR), max(p.x - pc.Shape.w, p.y - capH));
+    float stemR = pc.Shape.w;
 
-    return clamp(-d / max(tubeR * 1.3, 1.0), 0.0, 1.0);
+    float cap = min(Torus(capP, ringR, tubeR), CapDome(vec2(p.x, p.y - capH), ringR, tubeR));
+    float stem = max(p.x - stemR, p.y - capH);
+
+    // Per feature, for the same reason Density is: a stem normalised by the cap's tube casts a
+    // third of the shadow it should, so the cap stops shading the column under it.
+    return max(clamp(-cap / max(tubeR * 1.3, 1.0), 0.0, 1.0),
+               clamp(-stem / max(stemR * 1.3, 1.0), 0.0, 1.0));
 }
 
 float Density(vec3 leaned, vec3 up, float radius)
@@ -173,11 +192,18 @@ float Density(vec3 leaned, vec3 up, float radius)
     float stemR = pc.Shape.w;
 
     vec3 capP = vec3(p.x, p.y - capH, 0.0);
-    float cap = Torus(capP, ringR, tubeR);
+    float cap = min(Torus(capP, ringR, tubeR), CapDome(vec2(p.x, p.y - capH), ringR, tubeR));
     float stem = max(p.x - stemR, p.y - capH);
-    float d = min(cap, stem);
 
-    float around = atan(p.y - capH, p.x - ringR);
+    // The vortex turning over. The billows are already organised on the poloidal angle -- the angle
+    // around the ring -- so ADVECTING that angle with time is the circulation itself: up the inside,
+    // over the top, down the outside. It costs one subtraction.
+    //
+    // This is the thing pens could not do. A cursor that keeps everywhere it has been draws a helix
+    // when it is rolled, which is why MushroomCloud.Shape.Roll was computed and then never used by
+    // anything. A volume has no such problem: nothing here remembers where it was.
+    const float RollRadiansPerSecond = 0.22;
+    float around = atan(p.y - capH, p.x - ringR) - pc.AgeStrengthWind.x * RollRadiansPerSecond;
 
     // The coordinate turns about the ring, which is what rolls the cap the way a vortex does:
     // inside rising, over the top, down the outside.
@@ -185,10 +211,31 @@ float Density(vec3 leaned, vec3 up, float radius)
     // Frequency is per CLOUD rather than per metre, so every yield carries the same number of
     // billows -- about two dozen, which is where fBm starts reading as turbulence rather than as a
     // dent. Worley was tried here and is NOT in: docs/NUCLEAR-EFFECT.md has what it did instead.
-    float n = Fbm(world * (26.0 / max(radius, 1.0)) + vec3(0.0, around, pc.AgeStrengthWind.x * 0.05));
-    d -= (n - 0.35) * tubeR * 2.2;
+    //
+    // TWO BANDS, and what matters is the amplitude rather than either frequency. A single band at
+    // 2.2 tube radii moves the surface further than the tube is thick, which erases the torus
+    // outright: the cap stopped reading as a cap and became a blob, and that silhouette is the one
+    // shape this volume exists to draw. The coarse band billows, the fine one is surface texture,
+    // and together they come to about half what the single band moved.
+    float coarse = Fbm(world * (26.0 / max(radius, 1.0)) + vec3(0.0, around, pc.AgeStrengthWind.x * 0.05));
+    // ONE octave, not an fBm. This band is surface texture at a single scale, and a second
+    // four-octave fBm here is the most expensive line in the shader for detail that is then
+    // exponentiated into a soft edge -- it cost 2.6 ms a frame on its own.
+    float fine = Noise(world * (78.0 / max(radius, 1.0)) + vec3(around, 0.0, pc.AgeStrengthWind.x * 0.08));
 
-    float density = clamp(-d / max(tubeR * 1.3, 1.0), 0.0, 1.0);
+    // EACH FEATURE CARRIES ITS OWN SCALE, for both the erosion and the falloff. Driving the whole
+    // cloud off the cap's tube radius works only while everything is about that thick: once the
+    // stem is a fifth of the cap rather than a half, a tube-sized erosion is wider than the column
+    // it is cutting into and a tube-sized falloff caps its density at a third however deep inside
+    // it the sample is. The column came out a wisp with the cap floating over it -- the lollipop,
+    // arrived at through the density rather than through the proportions.
+    float capErode = ((coarse - 0.42) * 1.05 + (fine - 0.50) * 0.30) * tubeR;
+    float stemErode = ((coarse - 0.42) * 1.05 + (fine - 0.50) * 0.30) * stemR;
+
+    float capDensity = clamp(-(cap - capErode) / max(tubeR * 0.85, 1.0), 0.0, 1.0);
+    float stemDensity = clamp(-(stem - stemErode) / max(stemR * 0.85, 1.0), 0.0, 1.0);
+
+    float density = max(capDensity, stemDensity);
     return density * density;
 }
 
@@ -241,7 +288,11 @@ void main()
 
     // Uniform march. The step is the span rather than a fixed metre count, so a cloud fills the
     // same number of samples whether it is two kilometres away or twenty.
-    const int Steps = 32;
+    // Raised from 32 with the budget the raymarch freed. Grain is what a dither trades banding for,
+    // and the only thing that actually removes it is samples: interleaved gradient noise was tried
+    // in its place and is NOT in, because it is built to be resolved by temporal accumulation and
+    // there is none here -- a single frame of it is diagonal hatching across the stem.
+    const int Steps = 48;
     float dt = (t1 - t0) / float(Steps);
 
     // Start each ray a fraction of a step in. Fewer steps band, and a dither turns that banding
@@ -274,7 +325,12 @@ void main()
             toSun += Bulk(Unlean(leaned + sun * (step_ * float(k * k)), up, radius), up) * step_ * float(k);
         }
 
-        float sunlight = exp(-toSun * 0.02);
+        // TWO LOBES. The first is direct light surviving the path to this sample; the second is a
+        // cheap stand-in for multiple scattering, which is the whole reason a real cloud is bright
+        // in its middle rather than black. A single exponential over a path this long is zero
+        // however much light is falling on the cloud, and the widened cap made that the dominant
+        // term -- the cap went to a dark slab while the thin stem beside it stayed white.
+        float sunlight = exp(-toSun * 0.010) + 0.45 * exp(-toSun * 0.0025);
 
         // Sun through the cloud, plus a sky ambient. The ambient is not flat: the sky is brighter
         // toward the sun and toward the horizon, and a single number for it is what makes a volume
@@ -296,7 +352,9 @@ void main()
         vec3 albedo = vec3(0.30, 0.26, 0.21);
         vec3 lit = albedo * sunlight * forward * 12.0 + sky * albedo;
 
-        float extinction = density * 0.016 * dt;
+        // Raised with the falloff above: a core that now genuinely reaches full density is worth
+        // more optical depth per metre, and this is what separates a cloud from a stain.
+        float extinction = density * 0.022 * dt;
         scattered += transmittance * lit * extinction;
         transmittance *= exp(-extinction);
 
