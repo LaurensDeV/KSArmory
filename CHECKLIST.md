@@ -1546,7 +1546,12 @@ Not exercised, and the first two are the ones to believe least:
       levels are measured rather than assumed: bands written through KSA's whole post chain came out
       0.25 → 130, 1.0 → 240 and everything from 1.25 → 255, where the shader had claimed one was a
       mid grey. At that claim's level of 9 the glare was seven times the clip and every corner read
-      255; flown at the measured one, 255 over the burst and (232, 212, 176) in the corners.
+      255; flown at the measured one, 255 over the burst and (232, 212, 176) in the corners. **That
+      read as a weak flash**, reported from play: a see-through gold at the peak rather than a view
+      burned out. So the peak is driven past the clip again, 2.6 at the edge and 97% opaque, and
+      only the recovery drops under it — which is where the colour now shows. Flown through the bridge
+      from a paused burst: burned out white at the instant, a gold veil round a white core at 0.34 s,
+      then the orange ball and its halo.
 
       **And a halo round the ball that lasts as long as it burns.** The whiteout is an eye
       overwhelmed, so it follows the rise and recovers in about a second — while the ball is still

@@ -398,6 +398,9 @@ float Density(vec3 leaned, vec3 up, float radius)
 // out as a mid grey (130), 1.0 as 240, and everything from 1.25 up clips to white. So the floor
 // sits just under the clip, where the glare's colour still shows, and only the core goes over.
 const float GlareFloorNits = 1.1;
+
+// How far past that floor the veil is driven at a full whiteout: 2.6 at the peak, over the clip.
+const float GlareOverexposure = 1.6;
 const float GlareCoreNits = 3.0;
 
 // The glare's colour away from the burst. Only the core clips to white; where the veil is
@@ -414,7 +417,7 @@ const float GlareWhiteDeg = 20.0;
 
 // How strongly the ball's steady glare veils round it, per unit of its brightness in the
 // whiteout's units, and the most it may. Only the core: this is a halo, not the view going white.
-const float HaloGain = 2.5;
+const float HaloGain = 0.8;
 const float HaloMost = 0.85;
 
 const float FireGain = 0.110;
@@ -488,10 +491,14 @@ void main()
         // White near the burst, and less of it as the flash dies: the recovery tail is the ball
         // cooling as well as the eye adapting.
         vec3 hue = mix(GlareWarm, GlareHot, white * (0.35 + 0.65 * whiteout));
-        float nits = GlareFloorNits + GlareCoreNits * core;
+        // Past the clip everywhere at the peak, so the whole view burns out white; as the eye
+        // recovers the edge falls under the clip first, which is where the colour shows. Held
+        // under the clip throughout, the peak was a see-through gold and read as a weak flash.
+        float nits = GlareFloorNits * (1.0 + GlareOverexposure * whiteout * whiteout)
+                   + GlareCoreNits * core;
 
-        // The edge veils less, so the scene shows there first as the flash recovers.
-        float veil = whiteout * (0.80 + 0.20 * core);
+        // The edge veils a little less, so the scene shows there first as the flash recovers.
+        float veil = whiteout * (0.95 + 0.05 * core);
         vec3 blinded = mix(was.rgb, hue * nits, veil);
 
         // AND THE HALO, which outlasts the whiteout: the eye recovers while the ball still burns,
@@ -842,8 +849,8 @@ void main()
 
         transmittance *= through;
 
-        if (behindWeather) clearBehind *= through;
-        else clearInFront *= through;
+        clearBehind *= exp(-extinction * behindWeather);
+        clearInFront *= exp(-extinction * (1.0 - behindWeather));
 
         if (transmittance < 0.03) break;
     }

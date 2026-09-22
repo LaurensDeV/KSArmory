@@ -1,4 +1,5 @@
 using Brutal.Numerics;
+using KSA;
 
 namespace KSArmory;
 
@@ -22,17 +23,8 @@ namespace KSArmory;
 /// </summary>
 internal static class BurstFlash
 {
-    // How much apparent brightness counts as a whiteout. Brightness goes as the glow times the
-    // square of the ball's angular size, so this is one number for every yield and every range
-    // rather than a curve per weapon: a small burst close and a big one far are the same answer.
-    //
-    // It DIVIDES, so larger is dimmer. At the peak of a 0.3 kt ball seen from the 2.4 km the cloud
-    // is watched from the brightness works out near this -- which is also about its blast radius,
-    // and being blinded inside the blast radius is the right shape of answer.
-    private const double Saturates = 0.20;
-
     // Never quite opaque: at a full white the scene is gone and so is any sense of where.
-    private const float MostOpaque = 0.92f;
+    private const float MostOpaque = 0.97f;
 
     // How fast the white bleeds off, as the time constant of its recovery. Full white for about a
     // third of a second and gone inside a second and a half.
@@ -102,16 +94,21 @@ internal static class BurstFlash
             // no atmosphere there to attenuate it.
             for (int i = 0; i < NuclearClouds.BurningCount; i++)
             {
-                if (!NuclearClouds.TryBurning(i, out double3 burstEcl, out MushroomCloud.Flash flash)) continue;
+                if (!NuclearClouds.TryBurning(i, out double3 burstEcl, out MushroomCloud.Flash flash,
+                                              out Celestial? body, out double charge)) continue;
 
                 if (flash.Spent) continue;
 
                 double range = Vec.Len(burstEcl - eyeEcl);
                 if (!(range > 1.0)) continue;
 
-                // The ball's angular size squared, which is what decides how much of the eye it
-                // fills -- so a small burst close and a big one far are the same answer.
-                double solid = (flash.Radius / range) * (flash.Radius / range);
+                // The light it puts in the eye, in suns, against the light the eye is used to --
+                // on the scale an eye answers on, so a burst four times further off is a step
+                // dimmer rather than a sixteenth as bright. Linear in the light, it was a whiteout
+                // at 2.4 km and next to nothing at 10.
+                double suns = FlashGlare.Suns(MushroomCloud.KilotonsFor(charge), range, flash.Glow);
+                double adapted = FlashGlare.AdaptedTo(
+                    body is not null ? KsaWorld.SunElevationDeg(body, eyeEcl) : double.NaN);
 
                 // ...and how much of that reaches somebody facing where they are facing. Without
                 // it a burst directly BEHIND the camera whited the screen out exactly as one dead
@@ -120,7 +117,7 @@ internal static class BurstFlash
                 double offAxisDeg = double.RadiansToDegrees(
                     Vec.AngleBetween(burstEcl - eyeEcl, forwardEcl));
 
-                double seen = flash.Glow * solid * FlashGlare.Reaching(offAxisDeg, halfField);
+                double seen = FlashGlare.Level(suns * FlashGlare.Reaching(offAxisDeg, halfField), adapted);
                 if (seen <= brightest) continue;
 
                 brightest = seen;
@@ -140,13 +137,16 @@ internal static class BurstFlash
             double rise = Math.Max(0.0, brightest - _seen);
             _seen = brightest;
 
+            // ADDED, not the larger of the two: a flash that arrives over a few frames blinds as much
+            // as one that arrives in one. Held at the largest step, a burst reaching full brightness
+            // in two frames stopped at the first one's 0.6.
             if (dt > 0.0) _held *= Math.Exp(-dt / FadeSeconds);
-            _held = Math.Max(_held, rise);
+            _held = Math.Min(_held + rise, 1.0);
 
-            Whiteout = (float)Math.Clamp(_held / Saturates, 0.0, MostOpaque);
+            Whiteout = (float)Math.Clamp(_held, 0.0, MostOpaque);
             if (Whiteout <= 0.004f) Whiteout = 0f;
 
-            Glare = (float)Math.Clamp(brightest / Saturates, 0.0, 1.0);
+            Glare = (float)Math.Clamp(brightest, 0.0, 1.0);
             if (Glare <= 0.004f) Glare = 0f;
             if (source >= 0) GlareColour = new float3((float)colour.X, (float)colour.Y, (float)colour.Z);
         }

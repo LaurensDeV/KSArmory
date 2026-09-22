@@ -443,6 +443,10 @@ public static class MushroomCloud
     // Enough to land the trough within a frame at 60 fps over any drawn pulse.
     private const int TroughSamples = 256;
 
+    /// <summary>When the thermal pulse peaks by Glasstone's law, without the stretch it is drawn at.</summary>
+    public static double ThermalMaximumSeconds(double yieldKt)
+        => yieldKt <= 0.0 ? 0.0 : PulsePeakCoefficient * Math.Pow(yieldKt, PulseExponent);
+
     /// <summary>
     /// When the second maximum falls, as drawn (s). The bigger of the two in everything but peak
     /// power: it lasts an order of magnitude longer and carries about 99% of the thermal energy,

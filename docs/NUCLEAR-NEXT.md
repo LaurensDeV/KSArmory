@@ -141,6 +141,18 @@ else that warms further as the flash dies. It veils the clouds too, being in the
 in the world. The levels come from bands written through KSA's post chain — 1.0 is 240, and 1.25
 and up is white — and `CHECKLIST.md` has the numbers.
 
+**And it is measured the way an eye measures it.** Linear in the light, the whiteout fell as the
+inverse square of the range and was set to saturate at the watch's 2.4 km, so a few kilometres
+further out it was nearly nothing. It is now the flash in suns — the burst's thermal power at the
+pulse's peak spread over a sphere, against sunlight — against what the eye is adapted to, one sun by
+day and a hundredth at night, on a log scale: `FlashGlare.Level`. Measured through the bridge, a
+0.3 kt burst whites the view to 0.97 at 2.4 km by day and to 0.44 at 10; at night it reaches much
+further. Reckoned off the drawn ball's size instead, the same burst was eight suns at 2.4 km and
+0.51, because at the instant of the flash the ball is still small.
+
+**And the rises add up.** The whiteout followed the largest single rise, so a flash arriving over two
+frames stopped at the first one's share; it is their sum now, fading as before.
+
 **And the glare outlasts the whiteout.** The whiteout follows the rise, because an eye adapts; the
 halo round the ball follows its level, in its colour, because scattering lasts as long as the
 source. Without it the view cleared while the ball was still visibly orange.

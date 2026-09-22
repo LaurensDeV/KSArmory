@@ -13,6 +13,71 @@ namespace KSArmory;
 /// </summary>
 public static class FlashGlare
 {
+    /// <summary>What the sun delivers at Earth, in W/m²: one sun of light.</summary>
+    public const double SolarConstant = 1361.0;
+
+    /// <summary>The share of a low burst's energy that leaves as heat and light.</summary>
+    public const double ThermalFraction = 0.35;
+
+    // The thermal pulse is a few of its own peak-times wide, so its peak power is the energy over
+    // about that long.
+    private const double PulseWidthInPeaks = 3.0;
+
+    /// <summary>
+    /// How much light a burst puts in the eye at <paramref name="range"/>, in suns: its thermal
+    /// power at the pulse's peak spread over a sphere, against sunlight, and scaled by how bright
+    /// the ball is drawn now against its peak. A 0.3 kt burst is about 60 suns at 2.4 km. Taken off
+    /// the power rather than off the drawn ball's size, which at the instant of the flash is still
+    /// small and put the same burst at 8.
+    /// </summary>
+    public static double Suns(double yieldKt, double range, double glow)
+    {
+        double peakSeconds = MushroomCloud.ThermalMaximumSeconds(yieldKt);
+        if (!(peakSeconds > 0.0) || !(range > 1.0) || !(glow > 0.0)) return 0.0;
+
+        double watts = ThermalFraction * yieldKt * 4.184e12 / (PulseWidthInPeaks * peakSeconds);
+        double atEye = watts / (4.0 * Math.PI * range * range);
+
+        return atEye / SolarConstant * Math.Clamp(glow / MushroomCloud.PeakGlow, 0.0, 1.0);
+    }
+
+    // The light an eye in full night is adapted to, in suns. Real darkness is far less; this is a
+    // screen, and nobody watching one is fully dark-adapted.
+    private const double NightAdaptation = 0.01;
+
+    /// <summary>
+    /// The light the eye is used to, in suns: one by day, a hundredth at night, and the twilight
+    /// between eased on the sun's height. A flash is judged against this, which is why the same
+    /// burst blinds from much further at night.
+    /// </summary>
+    public static double AdaptedTo(double sunElevationDeg)
+    {
+        if (!double.IsFinite(sunElevationDeg)) return 1.0;
+
+        double t = Math.Clamp((sunElevationDeg + 8.0) / 14.0, 0.0, 1.0);
+        double day = t * t * (3.0 - (2.0 * t));
+
+        return Math.Pow(10.0, (1.0 - day) * Math.Log10(NightAdaptation));
+    }
+
+    /// <summary>
+    /// How many tenfold steps above what the eye is used to a flash has to be to white the view
+    /// out. The eye answers light on a logarithmic scale, so a burst four times further off is
+    /// 0.6 of a step dimmer, not a quarter as bright.
+    /// </summary>
+    public const double DecadesToWhite = 1.5;
+
+    /// <summary>
+    /// What an eye makes of a flash, in [0, 1]: nothing when it adds nothing to the light it is
+    /// used to, and full at <see cref="DecadesToWhite"/> tenfold steps over it.
+    /// </summary>
+    public static double Level(double suns, double adaptedSuns)
+    {
+        if (!(suns > 0.0) || !(adaptedSuns > 0.0)) return 0.0;
+
+        return Math.Clamp(Math.Log10(1.0 + (suns / adaptedSuns)) / DecadesToWhite, 0.0, 1.0);
+    }
+
     /// <summary>What still reaches a viewer with the burst directly behind them.</summary>
     public const double ScatteredFloor = 0.12;
 

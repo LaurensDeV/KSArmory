@@ -72,6 +72,29 @@ internal static class NuclearClouds
         return false;
     }
 
+    /// <summary>The newest burst's age and charge: its cloud if it grew one, else its fireball.</summary>
+    public static bool TryNewest(out double ageSeconds, out double chargeKg)
+    {
+        ageSeconds = 0.0;
+        chargeKg = 0.0;
+
+        if (_clouds.Count > 0)
+        {
+            ageSeconds = _clouds[^1].Age;
+            chargeKg = _clouds[^1].ChargeKg;
+            return true;
+        }
+
+        if (_burning.Count > 0)
+        {
+            ageSeconds = _burning[^1].Age;
+            chargeKg = _burning[^1].ChargeKg;
+            return true;
+        }
+
+        return false;
+    }
+
     /// <summary>The identity of the cloud at <paramref name="index"/>, or zero when there is none.</summary>
     public static int SerialAt(int index) => index >= 0 && index < _clouds.Count ? _clouds[index].Serial : 0;
 
@@ -236,9 +259,19 @@ internal static class NuclearClouds
     /// a burst on an airless body blinds a viewer exactly as one in air does.
     /// </summary>
     public static bool TryBurning(int index, out double3 burstEcl, out MushroomCloud.Flash flash)
+        => TryBurning(index, out burstEcl, out flash, out _, out _);
+
+    /// <summary>
+    /// As above, with the body it burst over, which is where its daylight is read, and its charge,
+    /// which is what its light is reckoned from.
+    /// </summary>
+    public static bool TryBurning(int index, out double3 burstEcl, out MushroomCloud.Flash flash,
+                                  out Celestial? body, out double chargeKg)
     {
         burstEcl = default;
         flash = default;
+        body = index >= 0 && index < _burning.Count ? _burning[index].Body : null;
+        chargeKg = index >= 0 && index < _burning.Count ? _burning[index].ChargeKg : 0.0;
 
         if (index < 0 || index >= _burning.Count) return false;
 
