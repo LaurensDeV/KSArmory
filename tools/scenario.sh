@@ -49,6 +49,9 @@
 #                                        #   under the weather deck the default pose looks down on
 #   KSARMORY_SCENARIO_STILLAT=20 ...     # ...freeze the world when the burst is 20 s old and
 #                                        #   photograph it three times: what differs is render noise
+#   KSARMORY_SCENARIO_BLACKOUT=20 ./tools/scenario.sh head-on   # a 20 kt burst halfway to the
+#                                        #   target once the set holds it, and what it still holds
+#   KSARMORY_SCENARIO_NOBLACKOUT=1 ...   # ...the same burst with the effect off, as its control
 #   KSARMORY_SCENARIO_TWOCLOUDS=100 ...  # ...that second burst at 100x the store's yield, which is
 #                                        # how anything but the B61's 0.3 kt gets looked at
 #
@@ -202,8 +205,8 @@ mkdir -p "$USER_DIR/Logs"
 {
     printf '%s|%s\n' "$SCENARIO" "$SAVE"
     printf '%s\n%s\n' "$ARMS" "$ARM_PHASE"
-    printf '%s %s %s %s %s %s %s %s %s %s %s %s\n' "${KSARMORY_SCENARIO_KEEPSTAGES:+keepstages}" "${KSARMORY_SCENARIO_TRACE:+trace}" \
-        "${KSARMORY_SCENARIO_VERBOSE:+verbose}" "${KSARMORY_SCENARIO_CHASE:+chase}" "${KSARMORY_SCENARIO_CLOUDS:+clouds}" "${KSARMORY_SCENARIO_NOSHADER:+noshader}" "${KSARMORY_SCENARIO_TWOCLOUDS:+twoclouds=$KSARMORY_SCENARIO_TWOCLOUDS}" "${KSARMORY_SCENARIO_CLOUDWARP:+cloudwarp=$KSARMORY_SCENARIO_CLOUDWARP}" "${KSARMORY_SCENARIO_WATCHELEV:+watchelev=$KSARMORY_SCENARIO_WATCHELEV}" "${KSARMORY_SCENARIO_STILLAT:+stillat=$KSARMORY_SCENARIO_STILLAT}" \
+    printf '%s %s %s %s %s %s %s %s %s %s %s %s %s %s\n' "${KSARMORY_SCENARIO_KEEPSTAGES:+keepstages}" "${KSARMORY_SCENARIO_TRACE:+trace}" \
+        "${KSARMORY_SCENARIO_VERBOSE:+verbose}" "${KSARMORY_SCENARIO_CHASE:+chase}" "${KSARMORY_SCENARIO_CLOUDS:+clouds}" "${KSARMORY_SCENARIO_NOSHADER:+noshader}" "${KSARMORY_SCENARIO_TWOCLOUDS:+twoclouds=$KSARMORY_SCENARIO_TWOCLOUDS}" "${KSARMORY_SCENARIO_CLOUDWARP:+cloudwarp=$KSARMORY_SCENARIO_CLOUDWARP}" "${KSARMORY_SCENARIO_WATCHELEV:+watchelev=$KSARMORY_SCENARIO_WATCHELEV}" "${KSARMORY_SCENARIO_STILLAT:+stillat=$KSARMORY_SCENARIO_STILLAT}" "${KSARMORY_SCENARIO_BLACKOUT:+blackout=$KSARMORY_SCENARIO_BLACKOUT}" "${KSARMORY_SCENARIO_NOBLACKOUT:+noblackout}" \
         "${KSARMORY_SCENARIO_SPEEDS:+speeds=$KSARMORY_SCENARIO_SPEEDS}" \
         "${KSARMORY_SCENARIO_SITE:+site=$KSARMORY_SCENARIO_SITE}"
 } > "$USER_DIR/Logs/scenario.txt"

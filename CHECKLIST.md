@@ -1703,6 +1703,18 @@ Not exercised, and the first two are the ones to believe least:
       flipped, and worse: a control is the run that is supposed to report nothing. `BuildFailed` is
       now set only by a build that ran and failed. Flown: the control reads `pass off`.
 
+- [x] **A burst blinds the radar behind it.** A fireball ionises the air round it, and a
+      transmitting set loses whatever its beam crosses that region to reach, or everything if it
+      stands inside it: `Sim/FireballBlackout.cs`, a sphere of 1.5 peak fireball radii riding up
+      with the ball, lasting a minute for a megatonne by the cube root — an order of magnitude from
+      the literature, chosen rather than measured. Passive seekers are untouched. Counted like
+      terrain masking, on the scope and in the world dump; a session switch turns it off.
+      Flown with `KSARMORY_SCENARIO_BLACKOUT=20` on the `CIWS` save, a 20 kt burst halfway to a
+      drone the Phalanx already holds: it loses the drone 3.6 s later as the drone's line crosses
+      the fireball, holds nothing to +15.2 s, and reacquires and locks as the air clears. The
+      control, `NOBLACKOUT=1`, locks at +4.0 s and holds. The LAU-7's passive seeker kept its track
+      through the same burst.
+
 - [x] **The grain is resolved over frames.** The march is 48 steps on a dither, and a dither
       fixed per pixel is a screen door the cloud moves behind. The clouds now go into a layer with
       a dither moved by the golden ratio each frame, and `KSArmoryCloudResolve.comp` blends it with

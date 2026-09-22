@@ -69,6 +69,17 @@ internal sealed class ScenarioRunner
     private double _budget = EngagementBudgetSeconds;
     private double _sinceSpawn;
     private bool _spawned;
+
+    // "blackout=<kt>": a burst of that yield on the ground halfway to the target the moment the set
+    // first holds it, with nothing damaged by it, and what the radar holds reported every half
+    // second after. Before the set holds it the beam has nothing to lose, which proves nothing.
+    // "noblackout" is the control: the same burst with the effect switched off.
+    private double _blackoutKt;
+    private double _blackoutReported;
+    private double _blackoutAt = -1.0;
+    private Vehicle? _blackoutTarget;
+    private const double BlackoutReportSeconds = 0.5;
+    private const double BlackoutWatchSeconds = 20.0;
     private bool _capturedLaunch;
     private double _lastComplaint;
     private string _save = string.Empty;
@@ -425,6 +436,27 @@ internal sealed class ScenarioRunner
         // same question.
         _cloudWarp = 1.0;
         _stillAt = -1.0;
+        _blackoutKt = 0.0;
+        _blackoutReported = 0.0;
+        _blackoutAt = -1.0;
+        _blackoutTarget = null;
+        _config.NuclearBlackout = Array.IndexOf(options, "noblackout") < 0;
+
+        foreach (string option in options)
+        {
+            if (!option.StartsWith("blackout=", StringComparison.Ordinal)) continue;
+
+            if (double.TryParse(option["blackout=".Length..], System.Globalization.NumberStyles.Float,
+                                System.Globalization.CultureInfo.InvariantCulture, out double kt)
+                && kt > 0.0)
+            {
+                _blackoutKt = kt;
+            }
+            else
+            {
+                Log.Warn($"scenario: ignored '{option}' -- a blackout is blackout=<kilotonnes>");
+            }
+        }
 
         // "stillat=<age>": freeze the world at that burst age and photograph it three times, so
         // what changes between them is the renderer's own noise and nothing in the world.
@@ -912,7 +944,7 @@ internal sealed class ScenarioRunner
         {
             // The same numbers the panel's buttons use, so a scenario reproduces what a person
             // would have clicked rather than a case only the harness can produce.
-            if (TestTarget.Spawn(battery.Platform!, _profile, 30.0, 300.0, 1500.0, "Gemini7") is null)
+            if (TestTarget.Spawn(battery.Platform!, _profile, 30.0, 300.0, 1500.0, "Gemini7") is not { } target)
             {
                 Finish("FAIL could not spawn a target");
                 return;
@@ -920,10 +952,29 @@ internal sealed class ScenarioRunner
 
             _spawned = true;
             Report($"{_name}: target away, {_profile}");
+
+            _blackoutTarget = target;
             return;
         }
 
         _sinceSpawn += dt;
+
+        if (_blackoutKt > 0.0 && _blackoutAt < 0.0 && battery.Radar.Tracks.Count > 0
+            && _blackoutTarget is { } held)
+        {
+            _blackoutAt = _sinceSpawn;
+            BurstBetween(battery.Platform!, held);
+        }
+
+        if (_blackoutAt >= 0.0 && _sinceSpawn - _blackoutAt <= BlackoutWatchSeconds
+            && _sinceSpawn - _blackoutReported >= BlackoutReportSeconds)
+        {
+            _blackoutReported = _sinceSpawn;
+            Report($"{_name}: blackout +{_sinceSpawn - _blackoutAt:F1} s -- "
+                   + $"{battery.Radar.Tracks.Count} track(s), "
+                   + $"{battery.Radar.MaskedByBurst} behind the fireball, "
+                   + $"locked {(battery.Radar.Locked is null ? "nothing" : "the target")}");
+        }
 
         // The first round leaving is the moment worth a picture: it shows the launcher, the round
         // on its way and the plume, which is most of what a screenshot can settle.
@@ -950,6 +1001,27 @@ internal sealed class ScenarioRunner
             Finish($"PASS engagement over, {battery.Ammo} rounds left "
                    + "(outcome from the battery, not a round -- see the lines above)");
         }
+    }
+
+    // On the ground under the midpoint, as the burst tool would: the cloud and the ionised air, with
+    // no blast, so the radar's picture is the only thing that changes.
+    private void BurstBetween(Vehicle platform, Vehicle target)
+    {
+        double3 middle = (KsaWorld.PositionEcl(platform) + KsaWorld.PositionEcl(target)) * 0.5;
+
+        if (!KsaWorld.TrySnapToGround(middle, out double3 ground))
+        {
+            Report($"{_name}: blackout -- the ground under the midpoint could not be found");
+            return;
+        }
+
+        double charge = _blackoutKt * 1.0e6;
+        NuclearClouds.Begin(ground, platform, charge);
+
+        Report($"{_name}: blackout -- {(_config.NuclearBlackout ? string.Empty : "CONTROL, effect off, ")}"
+               + $"{_blackoutKt:F1} kt on the ground "
+               + $"{Vec.Len(ground - KsaWorld.PositionEcl(platform)) / 1000.0:F1} km out, ionised to "
+               + $"{FireballBlackout.Radius(charge, 0.0):F0} m for {FireballBlackout.Seconds(charge):F1} s");
     }
 
     // What a timeout was waiting for. The phase names a state and says nothing about which of the
