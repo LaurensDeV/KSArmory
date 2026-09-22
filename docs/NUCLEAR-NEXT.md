@@ -198,10 +198,26 @@ of a frame whose whole left half was in shadow anyway. The honest number is the 
 mean over the ground it covers at the first shape, 19.8 at the shipped one, peaking at 58 which is
 the same darkening the crater itself reaches.
 
-### 8. A rumble, not a bang
+### 8. A rumble, not a bang — built, and not yet heard
 
-`Ksa/BurstSound.cs` is one event arriving at 343 m/s. A real burst is a crack followed by tens of
-seconds of rumble, whose length scales with yield and with what the terrain echoes it off.
+**The rumble was already there.** Core's `ExplosionBig` is a crack, a distance-filtered far report
+and a **10.6–10.8 s** echo layer whose spatial data turns non-directional between one and ten
+kilometres — which is the enveloping part of a real roll. What was missing was that it was the same
+eleven seconds for a rocket, the B61 and the Mk 21.
+
+So it is pitched by yield instead of rebuilt: every time in a blast wave goes as `W^(1/3)`, so
+playback at `W^(-1/3)` lengthens every layer together — `MushroomCloud.BangPitch`, anchored at the
+B61's 0.3 kt and floored at 0.35, where the echo runs about thirty seconds. One multiplier reaches
+all three layers through the engine's multi-channel wrapper, and the bang starts paused so none of it
+is heard at a rocket's pitch first.
+
+**Only half-verified.** Flown, the 0.3 kt and 30 kt bangs played at 1.00 and 0.35 without error.
+Whether 0.35 of Core's sample is a rumble or mud is a question for somebody's ears, and it is the
+one thing on this list that no screenshot, diff or log line can settle.
+
+Two things it does not do: coincident bursts that merge into one cloud do not re-pitch the bang the
+first one queued — moot at the shipped yields, since both already sit on the floor — and nothing
+echoes off the terrain that is actually there.
 
 ---
 
