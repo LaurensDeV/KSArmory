@@ -44,6 +44,11 @@ internal sealed partial class Ui
             + "part breaks further out than a dense one, and losing enough of them at once still "
             + "destroys the craft outright. Off: inside the lethal radius the whole craft is destroyed.");
 
+        ImGui.Checkbox("Nuclear bursts black out radar", ref _config.NuclearBlackout);
+        Tip("On: a nuclear fireball ionises the air round it, and a radar cannot see through that or "
+            + "out of it until it cools -- about a minute for a megatonne, seconds for a fraction of a "
+            + "kilotonne. Only sets that transmit are blinded. Off: radar looks straight through a burst.");
+
         ImGui.Checkbox("Weapons on one craft share a target count", ref _config.ShareTargetsAcrossWeapons);
         Tip("On: two rails on one craft will not each fire a full salvo at the same target. "
             + "Off: each weapon counts only its own rounds.");

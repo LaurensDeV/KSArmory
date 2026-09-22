@@ -43,6 +43,35 @@ internal static class NuclearClouds
 
     private static int _serials;
 
+    /// <summary>
+    /// Whether any burst's ionised air stands between a radar and a contact. The region rides up
+    /// with the fireball into the cap, so it is centred on the cap as the cloud has it now.
+    /// </summary>
+    public static bool BlacksOut(double3 radarEcl, double3 contactEcl)
+    {
+        foreach (Cloud cloud in _clouds)
+        {
+            double radius = FireballBlackout.Radius(cloud.ChargeKg, cloud.Age);
+            if (!(radius > 0.0)) continue;
+
+            try
+            {
+                double3 burst = cloud.Body.GetPositionEcl()
+                                + cloud.BurstCcf.Transform(cloud.Body.GetCce2Ccf().Inverse());
+                double3 up = cloud.Up.Transform(cloud.Body.GetCce2Ccf().Inverse());
+                double3 centre = burst + (Vec.Unit(up) * MushroomCloud.At(cloud.ChargeKg, cloud.Age).CapCentre);
+
+                if (FireballBlackout.Blocks(radarEcl, contactEcl, centre, radius)) return true;
+            }
+            catch
+            {
+                // A body gone from under a cloud blinds nothing.
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>The identity of the cloud at <paramref name="index"/>, or zero when there is none.</summary>
     public static int SerialAt(int index) => index >= 0 && index < _clouds.Count ? _clouds[index].Serial : 0;
 

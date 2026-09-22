@@ -167,6 +167,13 @@ public sealed class Config
     public bool DamageIndividualParts = true;
 
     /// <summary>
+    /// Whether a nuclear fireball blacks out the radar beams that cross it, for as long as the air
+    /// it ionised stays hot — see <see cref="FireballBlackout"/>. Only sets that transmit are
+    /// blinded. Off, a burst is something radar looks straight through.
+    /// </summary>
+    public bool NuclearBlackout = true;
+
+    /// <summary>
     /// Count rounds per <em>craft</em> rather than per weapon when deciding whether a target has
     /// had enough.
     ///

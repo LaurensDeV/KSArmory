@@ -274,6 +274,9 @@ as anybody let it; it fails in thirty seconds now.
 **Built only once the burst itself is finished.** How a burst looks is what every one of these
 would be judged against, so the order is the look first and the consequences after it.
 
+**Radar blackout is built**: the fireball's ionised air hides what is behind it from a set that
+transmits. `CHECKLIST.md` has the flight. The other two below are not.
+
 Today a burst is visuals plus `BlastDamage`. A nuclear one could blind radar for a scaled
 duration, burn at ranges the blast never reaches, and bloom out an `OpticalHead`'s sight — which
 would reuse the claim ladder and the zoom that already exist.

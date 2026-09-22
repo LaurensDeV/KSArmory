@@ -324,6 +324,7 @@ internal static class Diagnostics
     {
         Log.Debug($"radar: {battery.Radar.Tracks.Count} track(s), " +
                  $"maskedByTerrain={battery.Radar.MaskedByTerrain}, " +
+                 $"maskedByBurst={battery.Radar.MaskedByBurst}, " +
                  $"locked={(battery.Radar.Locked is null ? "none" : battery.Radar.Locked.Contact.DisplayName)}, " +
                  $"firingSolution={battery.Radar.HasFiringSolution}, roundsInFlight={battery.Rounds.Count}");
 
