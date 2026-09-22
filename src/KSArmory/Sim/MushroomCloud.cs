@@ -66,11 +66,41 @@ public static class MushroomCloud
     public static double DrawnCapRadius(double yieldKt)
         => CapRadius(yieldKt) * DrawnScale * DrawnCapWidening;
 
+    /// <summary>
+    /// How far downwind the cloud has sailed, as a multiple of its own drawn cap radius by the end
+    /// of its life.
+    ///
+    /// <para><b>A drawing choice, and named as one</b> like <see cref="DrawnScale"/>. Wind aloft is
+    /// twenty to forty metres a second and a real cloud rises for five minutes, so a proportionally
+    /// honest drift is five or six kilometres — four cloud widths, which carries the column out of
+    /// any frame that also holds the ground it burned. One cap radius puts the stem's foot just
+    /// outside its own crater, which is the thing a photograph shows and the thing this exists
+    /// for.</para>
+    /// </summary>
+    public const double DriftInCapRadii = 1.0;
+
     /// <summary>And how long it stands there before fading out.</summary>
     public const double StandSeconds = 40.0;
 
     /// <summary>Total life, after which there is nothing to draw.</summary>
     public const double LifeSeconds = RiseSeconds + StandSeconds;
+
+    /// <summary>
+    /// How far downwind the whole column has been carried (m).
+    ///
+    /// <para><b>Nothing until the rise is over</b>, because until then the stem is rooted: it is
+    /// being fed from the ground, and what the wind does to a rooted column is tilt it, which is
+    /// the lean and the veer the shader already draws. A cloud sails once it stops being fed —
+    /// which is why an old photograph shows a cap far downwind with no stem under it at all.</para>
+    /// </summary>
+    public static double DriftMetres(double yieldKt, double age)
+    {
+        if (yieldKt <= 0.0 || age <= RiseSeconds || StandSeconds <= 0.0) return 0.0;
+
+        double sailing = Math.Min(age, LifeSeconds) - RiseSeconds;
+
+        return DrawnCapRadius(yieldKt) * DriftInCapRadii * (sailing / StandSeconds);
+    }
 
     /// <summary>Kilotons of TNT equivalent for a charge in kg, which is what a profile carries.</summary>
     public static double KilotonsFor(double chargeKg) => chargeKg / 1.0e6;

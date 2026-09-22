@@ -37,6 +37,13 @@ internal static class NuclearClouds
 
     private static readonly List<Cloud> _clouds = [];
 
+    // Where the wind has carried this one, in the body's own frame. The mark it burned does not
+    // move -- it is on the ground -- so this is what separates a standing column from its own
+    // crater, which nothing before it could produce.
+    private static double3 DriftCcf(Cloud cloud)
+        => cloud.Downwind * MushroomCloud.DriftMetres(MushroomCloud.KilotonsFor(cloud.ChargeKg),
+                                                      cloud.Age);
+
     // Every burst still burning, which is NOT the same list as the clouds. A fireball does not
     // need air -- it is incandescent gas, and the vacuum one is if anything brighter for having no
     // atmosphere to attenuate it -- so an airless burst belongs here while it grows no column at
@@ -189,7 +196,7 @@ internal static class NuclearClouds
         try
         {
             burstEcl = cloud.Body.GetPositionEcl()
-                       + cloud.BurstCcf.Transform(cloud.Body.GetCce2Ccf().Inverse());
+                       + (cloud.BurstCcf + DriftCcf(cloud)).Transform(cloud.Body.GetCce2Ccf().Inverse());
             up = cloud.Up.Transform(cloud.Body.GetCce2Ccf().Inverse());
             ageSeconds = cloud.Age;
             shape = MushroomCloud.At(cloud.ChargeKg, cloud.Age);
@@ -420,7 +427,8 @@ internal static class NuclearClouds
             double3 riseCcf = cloud.Up * MushroomCloud.EmberHeight(cloud.ChargeKg, cloud.Age);
 
             Fireball.Draw(cloud.Body.GetPositionEcl()
-                          + (cloud.BurstCcf + riseCcf).Transform(cloud.Body.GetCce2Ccf().Inverse()),
+                          + (cloud.BurstCcf + riseCcf + DriftCcf(cloud))
+                                .Transform(cloud.Body.GetCce2Ccf().Inverse()),
                           flash.Radius,
                           new float3((float)flash.Colour.X, (float)flash.Colour.Y,
                                      (float)flash.Colour.Z),

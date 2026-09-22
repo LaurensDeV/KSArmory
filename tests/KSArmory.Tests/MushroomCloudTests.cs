@@ -493,4 +493,59 @@ public class MushroomCloudTests
         Assert.Equal(MushroomCloud.Rise(0.999 * MushroomCloud.RiseSeconds),
                      MushroomCloud.Rise(1.001 * MushroomCloud.RiseSeconds), 2);
     }
+
+    [Fact]
+    public void ARisingColumnDoesNotSailBecauseItIsStillRooted()
+    {
+        // What the wind does to a column being fed from the ground is tilt it, which is the lean
+        // and the veer. Drifting it as well would take the stem off the crater it is coming out of.
+        for (double age = 0.0; age <= MushroomCloud.RiseSeconds; age += 2.0)
+        {
+            Assert.Equal(0.0, MushroomCloud.DriftMetres(10.0, age));
+        }
+    }
+
+    [Fact]
+    public void ItSailsOneCapRadiusOverTheStand()
+    {
+        const double Kt = 10.0;
+
+        double end = MushroomCloud.DriftMetres(Kt, MushroomCloud.LifeSeconds);
+
+        Assert.Equal(MushroomCloud.DrawnCapRadius(Kt) * MushroomCloud.DriftInCapRadii, end, 6);
+
+        // ...and puts the foot of the stem outside the ground it burned, which is the whole point.
+        Assert.True(end > Warhead.LethalRadius(Kt * 1.0e6),
+                    $"sailed {end:F0} m, inside its own {Warhead.LethalRadius(Kt * 1.0e6):F0} m mark");
+    }
+
+    [Fact]
+    public void ItNeverSailsBackwardsAndStopsWhenTheCloudDoes()
+    {
+        double last = 0.0;
+
+        for (double age = 0.0; age <= MushroomCloud.LifeSeconds * 2.0; age += 1.0)
+        {
+            double now = MushroomCloud.DriftMetres(10.0, age);
+
+            Assert.True(now >= last - 1e-9, $"drift went backwards at {age:F0} s");
+            last = now;
+        }
+
+        Assert.Equal(MushroomCloud.DriftMetres(10.0, MushroomCloud.LifeSeconds),
+                     MushroomCloud.DriftMetres(10.0, MushroomCloud.LifeSeconds * 2.0), 6);
+    }
+
+    [Fact]
+    public void TheDriftScalesWithTheCloudRatherThanBeingAMetreCount()
+    {
+        // A kilotonne cloud and a megatonne one both end one cap radius downwind, so the picture
+        // reads the same at any yield -- which a constant number of metres could not do.
+        double small = MushroomCloud.DriftMetres(1.0, MushroomCloud.LifeSeconds)
+                       / MushroomCloud.DrawnCapRadius(1.0);
+        double large = MushroomCloud.DriftMetres(1000.0, MushroomCloud.LifeSeconds)
+                       / MushroomCloud.DrawnCapRadius(1000.0);
+
+        Assert.Equal(small, large, 6);
+    }
 }
