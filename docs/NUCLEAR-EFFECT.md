@@ -719,3 +719,14 @@ reaches them. The uniform buffer and the extra samplers that looked necessary we
 
 The two set indices the headers want for textures and cloud data are pointed at slots this pass does
 not use, exactly as Core's own `Volumetric.comp` does it: an unused declaration binds nothing.
+
+
+### The speckled patch on the horizon is not this mod's
+
+A small dithered black rectangle sits near the left horizon in every capture from the pinned
+camera. Flown with `KSARMORY_SCENARIO_NOSHADER=1` — the cloud and its camera kept, the compute pass
+alone turned off — and **it is still there**, in a frame this mod draws nothing into. So it is the
+engine's, and chasing it here would have been chasing somebody else's bug through a shader.
+
+That control exists for exactly this. A baseline run without it is framed differently from the run
+it is read against, which makes any difference between them unattributable.

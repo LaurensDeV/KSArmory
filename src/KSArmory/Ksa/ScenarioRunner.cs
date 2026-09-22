@@ -396,7 +396,12 @@ internal sealed class ScenarioRunner
         // Timing runs either way: a run with the cloud off is the baseline the other is read
         // against, and a number with no control is what made this instrument look decisive before
         // it had said anything.
-        _config.ShaderPass = _showClouds ? 1f : 0f;
+        // "noshader" keeps the cloud and its pinned camera and turns only the PASS off, which is
+        // the control: same scene, same view, one variable. Without it a baseline run is framed
+        // differently from the run it is meant to be read against.
+        bool noShader = Array.IndexOf(options, "noshader") >= 0;
+
+        _config.ShaderPass = _showClouds && !noShader ? 1f : 0f;
 
         CloudPassCost.Begin();
         CloudWatch.Reset();
