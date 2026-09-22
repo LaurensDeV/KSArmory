@@ -350,7 +350,7 @@ internal static class CloudPass
     private static void Flash(CommandBuffer commandBuffer, IViewport viewport, Camera camera,
                               int width, int height, bool hazard)
     {
-        if (BurstFlash.Whiteout <= 0f) return;
+        if (BurstFlash.Whiteout <= 0f && BurstFlash.Glare <= 0f) return;
 
         // Zero when the source cannot be resolved, which the shader reads as a glare with no
         // centre: one colour everywhere, the warm one.
@@ -370,8 +370,10 @@ internal static class CloudPass
                 InvViewProj = camera.VPInv.viewProjection,
                 AgeStrengthWind = float4.Zero,
                 CentreRadius = new float4((float)source.X, (float)source.Y, (float)source.Z, 0f),
-                FireSun = new float4(0f, 0f, BurstFlash.Whiteout, 0f),
-                Shape = float4.Zero,
+                // The halo's level and colour ride in floats a flash has no other use for.
+                FireSun = new float4(BurstFlash.Glare, 0f, BurstFlash.Whiteout, 0f),
+                Shape = new float4(BurstFlash.GlareColour.X, BurstFlash.GlareColour.Y,
+                                   BurstFlash.GlareColour.Z, 0f),
             };
 
             _pipeline!.BindPipeline(commandBuffer, viewport.ShaderSlot, default, default, flash);

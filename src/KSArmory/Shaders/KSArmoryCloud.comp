@@ -389,6 +389,11 @@ const vec3 GlareHot = vec3(1.00, 0.97, 0.92);
 const float GlareCoreDeg = 6.0;
 const float GlareWhiteDeg = 20.0;
 
+// How strongly the ball's steady glare veils round it, per unit of its brightness in the
+// whiteout's units, and the most it may. Only the core: this is a halo, not the view going white.
+const float HaloGain = 2.5;
+const float HaloMost = 0.85;
+
 const float FireGain = 0.110;
 
 // And the most it may contribute at any one sample. The sun term beside it tops out near 2.
@@ -437,7 +442,10 @@ void main()
     // ABOVE the guards below, because a fireball needs no cloud. On a body with no air none is
     // grown, so the pass was dispatched for nothing and an airless burst blinded nobody -- which
     // is backwards, there being no atmosphere there to attenuate it.
-    if (pc.FireSun.z > 0.0)
+    // Only on the flash's own dispatch, which carries no cloud and no mark: on theirs these floats
+    // are the fireball and the tile.
+    bool flashDispatch = pc.CentreRadius.w <= 0.0 && pc.FireSun.w <= 0.0;
+    if (flashDispatch && (pc.FireSun.z > 0.0 || pc.FireSun.x > 0.0))
     {
         vec4 was = imageLoad(sceneColor, at);
         float whiteout = pc.FireSun.z;
@@ -462,6 +470,13 @@ void main()
         // The edge veils less, so the scene shows there first as the flash recovers.
         float veil = whiteout * (0.80 + 0.20 * core);
         vec3 blinded = mix(was.rgb, hue * nits, veil);
+
+        // AND THE HALO, which outlasts the whiteout: the eye recovers while the ball still burns,
+        // and what scatters round it lasts as long as it is bright, in its own colour as it cools.
+        vec3 ball = pc.Shape.xyz / max(max(pc.Shape.x, max(pc.Shape.y, pc.Shape.z)), 1e-3);
+        float halo = min(pc.FireSun.x * HaloGain, HaloMost) * core;
+        blinded = mix(blinded, ball * (0.9 + 1.2 * core), halo);
+
         imageStore(sceneColor, at, vec4(blinded, was.a));
     }
 

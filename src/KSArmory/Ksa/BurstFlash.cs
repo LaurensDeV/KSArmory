@@ -49,11 +49,23 @@ internal static class BurstFlash
         _held = 0.0;
         _seen = 0.0;
         Whiteout = 0f;
+        Glare = 0f;
+        GlareColour = default;
         SourceIndex = -1;
     }
 
     /// <summary>How white the view is, in [0, 1]. Read by the pass that writes it.</summary>
     public static float Whiteout { get; private set; }
+
+    /// <summary>
+    /// The halo round the ball, in the whiteout's own units and held at its level rather than its
+    /// rise: the whiteout is an eye overwhelmed and recovers while the ball still burns, but light
+    /// scattering round a bright source lasts exactly as long as the source is bright.
+    /// </summary>
+    public static float Glare { get; private set; }
+
+    /// <summary>The ball's own colour, which the halo takes as it cools to orange.</summary>
+    public static float3 GlareColour { get; private set; }
 
     /// <summary>
     /// Which of <see cref="NuclearClouds.TryBurning"/>'s bursts the glare comes from, or -1. An
@@ -83,6 +95,7 @@ internal static class BurstFlash
 
             double brightest = 0.0;
             int source = -1;
+            double3 colour = default;
 
             // Over the BURSTS, not the clouds. A fireball does not need air, and reading the cloud
             // list meant a burst on an airless body blinded nobody -- which is backwards: there is
@@ -112,6 +125,7 @@ internal static class BurstFlash
 
                 brightest = seen;
                 source = i;
+                colour = flash.Colour;
             }
 
             // The last burst that gave any, so the recovery tail keeps a direction after the ball
@@ -131,10 +145,15 @@ internal static class BurstFlash
 
             Whiteout = (float)Math.Clamp(_held / Saturates, 0.0, MostOpaque);
             if (Whiteout <= 0.004f) Whiteout = 0f;
+
+            Glare = (float)Math.Clamp(brightest / Saturates, 0.0, 1.0);
+            if (Glare <= 0.004f) Glare = 0f;
+            if (source >= 0) GlareColour = new float3((float)colour.X, (float)colour.Y, (float)colour.Z);
         }
         catch
         {
             Whiteout = 0f;
+            Glare = 0f;
         }
     }
 }

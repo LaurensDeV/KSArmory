@@ -1548,6 +1548,13 @@ Not exercised, and the first two are the ones to believe least:
       mid grey. At that claim's level of 9 the glare was seven times the clip and every corner read
       255; flown at the measured one, 255 over the burst and (232, 212, 176) in the corners.
 
+      **And a halo round the ball that lasts as long as it burns.** The whiteout is an eye
+      overwhelmed, so it follows the rise and recovers in about a second — while the ball is still
+      orange in frame. Light scattering round a bright source lasts exactly as long as the source is
+      bright, so `BurstFlash.Glare` is its apparent brightness held at level, in its own colour, and
+      the shader lays it on the core only. Flown at 0.3 kt: a warm glow round the cap at 3.8 s,
+      glow 32, and none at 11.4 s, when the ball has gone out.
+
       **There is no blast wave, and the burst carries no `<ExplosionVolume>` at all.** KSA's trail
       renderer, which draws explosion volumes, raymarches into the same low-resolution images the
       weather clouds do, and those are what this pass reads as weather — so the burst's own fireball

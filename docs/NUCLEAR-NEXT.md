@@ -91,6 +91,10 @@ else that warms further as the flash dies. It veils the clouds too, being in the
 in the world. The levels come from bands written through KSA's post chain — 1.0 is 240, and 1.25
 and up is white — and `CHECKLIST.md` has the numbers.
 
+**And the glare outlasts the whiteout.** The whiteout follows the rise, because an eye adapts; the
+halo round the ball follows its level, in its colour, because scattering lasts as long as the
+source. Without it the view cleared while the ball was still visibly orange.
+
 ### 3. The cloud never drifts — built, then taken out by decision
 
 A drift was built — nothing until the rise ended, then one cap radius downwind over the stand — and
