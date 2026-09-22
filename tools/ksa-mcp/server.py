@@ -284,6 +284,16 @@ def log_tail(pattern: str = "", lines: int = 40) -> str:
 
 # ---- the tools -----------------------------------------------------------------------------
 
+# Named poses round a burst, so a picture next month is the same shot as one today.
+PRESETS = {
+    "side": {"azimuth_deg": 0, "elevation_deg": 14, "distance_m": 0, "aim": 0.45},
+    "under": {"azimuth_deg": 0, "elevation_deg": 2, "distance_m": 0, "aim": 0.45},
+    "overhead": {"azimuth_deg": 0, "elevation_deg": 70, "distance_m": 0, "aim": 0.2},
+    "far": {"azimuth_deg": 0, "elevation_deg": 5, "distance_m": 10000, "aim": 0.45},
+    "downwind": {"azimuth_deg": 90, "elevation_deg": 14, "distance_m": 0, "aim": 0.45},
+}
+
+
 def _num(desc):
     return {"type": "number", "description": desc}
 
@@ -308,11 +318,17 @@ TOOLS = {
                   {"kt": _num("yield"), "east_m": _num("metres east"), "north_m": _num("metres north")},
                   ["kt"], lambda a: [_text(json.dumps(send("burst", **a)))]),
     "ksa_clear": ("Forget every cloud, mark and flash.", {}, [], lambda a: [_text(json.dumps(send("clear")))]),
-    "ksa_camera": ("Hold the view on the newest burst: azimuth from across the wind, elevation, distance "
-                   "(0 = default), aim as a fraction of the cloud's top. release=true hands the view back.",
-                   {"azimuth_deg": _num("deg"), "elevation_deg": _num("deg"), "distance_m": _num("m"),
-                    "aim": _num("0..1"), "release": {"type": "boolean"}}, [],
-                   lambda a: [_text(json.dumps(send("camera", **a)))]),
+    "ksa_camera": ("Hold the view on the newest burst: a preset (side, under, overhead, far, downwind), or "
+                   "azimuth from across the wind, elevation, distance (0 = default), aim as a fraction of "
+                   "the cloud's top. release=true hands the view back.",
+                   {"preset": {"type": "string", "enum": list(PRESETS)}, "azimuth_deg": _num("deg"),
+                    "elevation_deg": _num("deg"), "distance_m": _num("m"), "aim": _num("0..1"),
+                    "release": {"type": "boolean"}}, [],
+                   lambda a: [_text(json.dumps(send("camera", **{**PRESETS.get(a.pop("preset", ""), {}), **a})))]),
+    "ksa_site": ("Set the craft down at a latitude and longitude, on its body or a named one, and clear the "
+                 "clouds. Returns the sun's elevation there: negative is night.",
+                 {"lat": _num("deg"), "lon": _num("deg"), "body": {"type": "string"}}, ["lat", "lon"],
+                 lambda a: [_text(json.dumps(send("site", timeout=60, **a)))]),
     "ksa_capture": ("Screenshot the game. frames>1 takes a series (every_s simulated seconds, or every_frames "
                     "rendered frames when paused) and returns a sheet, an animation path and a temporal-noise "
                     "map. variants=[{setting: value}] photographs each in the same paused instant as the base "

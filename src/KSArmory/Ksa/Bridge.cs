@@ -188,6 +188,7 @@ internal sealed class Bridge
             "reload_shaders" => ReloadShaders(),
             "tune" => Tune(command),
             "player_capture" => PressTheButton(),
+            "site" => Site(command),
             "step" => BeginStep(command),
             "capture" => BeginCapture(command),
             "load" => BeginLoad(command),
@@ -335,6 +336,42 @@ internal sealed class Bridge
                                     command.Number("distance_m", 0.0), command.Number("aim", 0.45));
 
         return Done(new() { ["held"] = true });
+    }
+
+    // The craft set down somewhere else on its body, or another -- which is also how a scene is had
+    // at night, since the time of day is where the sun is from where the craft stands. Says the sun's
+    // height there, so a caller looking for night can tell whether it got one.
+    private Reply? Site(BridgeCommand command)
+    {
+        if (KsaWorld.ControlledVehicle is not { } craft) return Failed("no craft is being flown");
+        if (Detonation.BodyFor(craft) is not { } here) return Failed("no body under the craft");
+
+        string body = command.String("body");
+        if (body.Length == 0) body = here.Id;
+
+        if (!KsaWorld.TryPlaceOnSurface(craft, body, command.Number("lat", 0.0), command.Number("lon", 0.0)))
+        {
+            return Failed($"could not place the craft on {body}");
+        }
+
+        NuclearClouds.Clear();
+
+        // Answered a moment later: the move lands on a later frame, and the sun read on this one is
+        // the sun where the craft was.
+        double waited = 0.0;
+        _running = (dtPlayer, _) =>
+        {
+            waited += dtPlayer;
+            if (waited < 1.0) return null;
+
+            return Detonation.BodyFor(craft) is { } now
+                       ? Done(new() { ["body"] = now.Id,
+                                      ["sun_elevation_deg"] = Math.Round(
+                                          KsaWorld.SunElevationDeg(now, KsaWorld.PositionEcl(craft)), 2) })
+                       : Done();
+        };
+
+        return null;
     }
 
     // What the panel's Capture for Claude button does, for a test that cannot click it.

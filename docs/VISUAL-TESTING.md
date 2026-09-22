@@ -205,7 +205,7 @@ labelled from manifests, crops around the projected burst, same-instant diffs, t
 number quoted on the night — grain 0.648 to 0.231, the corners at (232, 212, 176), the bands through
 the post chain — came out of code like this, rewritten each time.
 
-### 11. Scenes that hold still
+### 11. Scenes that hold still — built, but for the weather switch
 
 A save and a site chosen so the world does not change between runs: weather off for anything that
 is not about weather, a fixed time of day, and named camera presets — side-on at the watch distance,
@@ -245,8 +245,17 @@ last 300 lines, and eight frames with their manifests. `ksa_player_captures` rea
 as the state, a sheet and the temporal map — with the world running, so motion shows in it too, and
 on its first use it picked out a distant piece of scenery flickering on its own.
 
-Built: 1–10. `tools/check-shaders.sh` is glslang rather than shaderc — nothing installable
+**Scenes that hold still** are named camera poses in the server — `side`, `under`, `overhead`,
+`far`, `downwind` — and a `site` command that sets the craft down anywhere and says the sun's
+height there, which is how night is had: the time of day is where the sun is from where the craft
+stands. Flown: a 0.3 kt burst 10 km out burns the view to 0.97 at night against 0.44 by day. **Weather
+cannot be switched off from here**: KSA reads its cloud setting when it builds the renderer, and its
+own settings screen treats the change as one needing a restart. The same-instant captures of 4 are
+what removes the drift a weatherless scene was for.
+
+Built: 1–11. `tools/check-shaders.sh` is glslang rather than shaderc — nothing installable
 here runs KSA's — with the include given as a search path and the directive's extension named, and
 it caught the night's `flat` with its line. Left, in order:
 
-1. **Fixed scenes** (11) and **the reference library** (12).
+1. **The reference library** (12). Not built on purpose: it is a set of photographs committed to the
+   repository, and which ones, and under what licence, is the owner's call rather than a night's.
