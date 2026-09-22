@@ -84,6 +84,15 @@ public static class AirlessBurst
                : MushroomCloud.FlashSeconds(MushroomCloud.KilotonsFor(chargeKg));
 
     /// <summary>
+    /// The spread of speeds the ground leaves at, either side of <see cref="EjectaAt"/>'s nominal.
+    ///
+    /// <para>It has to be the same number the emitter throws with: a grain's whole flight is set by
+    /// the speed it left at, so a spread in the speeds and a different one in the lifespans strands
+    /// the fast grains in mid-air and leaves the slow ones lying under the ground.</para>
+    /// </summary>
+    public const double SpeedSpread = 0.25;
+
+    /// <summary>
     /// A ballistic arc launched at 45° peaks at a quarter of the range it covers, which is what
     /// makes the thrown dust a shallow dome rather than a column.
     /// </summary>

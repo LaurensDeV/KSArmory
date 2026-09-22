@@ -272,23 +272,37 @@
         <ParticleSpawnLogic>MoveAwayFromCenter</ParticleSpawnLogic>
         <ParticleSize X="1" Y="2"/>
         <ParticleVelocity X="1" Y="1" Z="1"/>
-        <!-- Wide, so the dome has a ragged edge rather than one clean shell of dust. -->
-        <ParticleVelocityShift Value="0.5"/>
         <!--
-          FLAT, because this is thrown rock and not smoke. A puff that swells as it flies is
-          entraining the air around it, and there is none - the first version grew each one 3.4x and
-          read, correctly, as smoke on an airless body. What spreads is the DOME, because the grains
-          leave at a spread of speeds; each grain does not.
+          Ragged, but not so wide that the curtain stops being one. At 0.5 the fast quarter left at
+          1.5x the speed, which is 2.25x the reach and 2.25x the apex: the dome came apart into a
+          few clumps, some of them over the horizon from a camera standing at 98 m on a burst whose
+          own apex is 52. AirlessBurst.SpeedSpread carries the same number to the lifespans, which
+          have to match it, because a grain's flight is set by the speed it left at: a spread in one
+          and not the other strands fast grains in mid-air and buries slow ones.
+        -->
+        <ParticleVelocityShift Value="0.25"/>
+        <!--
+          A sprite here is a PACKET of grains, not a grain, and that is what sets the growth. A
+          grain in vacuum does not swell - there is no air to entrain, and growing one 3.4x read
+          correctly as smoke on an airless body. But a packet of grains leaving with a spread of
+          speeds separates LINEARLY with time, and in vacuum nothing ever slows that spread, so the
+          packet's own width grows for the whole flight.
 
-          The alpha holds almost the whole flight and only lets go as the dust lands. Fading it out
-          in mid-air is dissipation, which is the same atmospheric mistake in the other channel:
-          vacuum ejecta does not thin out, it arrives.
+          Flat, it came apart: the dome was one mass at 1.6 s and about thirty countable blobs with
+          clear ground between them by 4.6 s, because the packets flew apart while each stayed the
+          size it left at. Roughly doubling over the flight is what keeps the sheet continuous, and
+          it is the same 'no drag' fact that argues against swelling a single grain.
+
+          The alpha holds until the dust lands. Fading it in mid-air is dissipation, the same
+          atmospheric mistake in the other channel: vacuum ejecta does not thin out, it arrives.
+          At 0.82 a third of the dome had gone before it came down and the last capture of a 16 s
+          flight, taken at 12.7 s, was empty ground.
 
           The colour barely moves for the same reason. Regolith is the same colour at the top of the
           arc as it was leaving the crater, where smoke pales as it dilutes.
         -->
-        <ScaleEnvelope Start="1" Peak="1.05" PeakAt="0.5" End="1.12"/>
-        <AlphaEnvelope Start="0.95" Peak="0.95" PeakAt="0.82" End="0"/>
+        <ScaleEnvelope Start="1" Peak="1.55" PeakAt="0.5" End="1.95"/>
+        <AlphaEnvelope Start="0.95" Peak="0.95" PeakAt="0.94" End="0"/>
         <ColorStops MidAt="0.5">
             <Start R="0.50" G="0.45" B="0.38"/>
             <Mid R="0.48" G="0.43" B="0.37"/>

@@ -98,10 +98,13 @@ internal static class BurstEjecta
                         e.EmitterSpawnInfo.Radius = (float)(fireball * 0.40);
                         Speed(ref e.ParticleInfo, thrown.SpeedMetresPerSecond);
 
-                        // Long enough for the arc to land. Cut short, the dust vanishes at the top
-                        // of its climb, which reads as it being deleted rather than falling.
-                        e.ParticleInfo.Lifespan = new float2((float)(thrown.FlightSeconds * 0.7),
-                                                             (float)thrown.FlightSeconds);
+                        // The same spread the emitter throws with, because the two are one fact:
+                        // a grain that leaves 25% fast flies 25% longer. Ranged independently, the
+                        // fast grains were deleted at the top of their climb and the slow ones went
+                        // on falling after they had arrived.
+                        e.ParticleInfo.Lifespan = new float2(
+                            (float)(thrown.FlightSeconds * (1.0 - AirlessBurst.SpeedSpread)),
+                            (float)(thrown.FlightSeconds * (1.0 + AirlessBurst.SpeedSpread)));
 
                         // Very nearly the size it stays: the envelope is flat, because a grain in
                         // vacuum has no air to entrain and does not swell. The dome widens because
@@ -148,9 +151,13 @@ internal static class BurstEjecta
                 double3 burstCcf = (burstEcl - body.GetPositionEcl()).Transform(body.GetCce2Ccf());
                 if (Vec.IsFinite(burstCcf))
                 {
+                    // Above the GROUND, the same measure Begin decides on. Against the mean sphere
+                    // the two halves of one burst disagreed about whether it threw anything at all:
+                    // a site 1598 m over the mean sphere and 7 m over the rock threw a full dome
+                    // and was then watched for the three seconds a burst that threw nothing gets.
                     return ChaseView.LingerSeconds(chargeKg, KsaWorld.HasAtmosphere(body),
                                                    GravityAt(body, burstCcf),
-                                                   Vec.Len(burstCcf) - body.MeanRadius);
+                                                   KsaWorld.HeightAboveTerrain(body, burstEcl));
                 }
             }
         }
