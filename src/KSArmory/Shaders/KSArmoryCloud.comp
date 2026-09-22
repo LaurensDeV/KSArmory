@@ -49,7 +49,7 @@ layout (push_constant) uniform PushConstants
     mat4 InvViewProj;      // clip -> camera-relative world
     vec4 AgeStrengthWind;  // x seconds since the burst, y strength (0 draws nothing), zw downwind
     vec4 CentreRadius;     // xyz burst, camera-relative metres; w the sphere that bounds it all
-    vec4 UpSun;            // local vertical and sun direction, each packed into two floats
+    vec4 FireSun;          // fireball radius and glow, then the sun direction packed into two
     vec4 Shape;            // cap centre height, cap radius, cap tube, stem radius
 } pc;
 
@@ -255,6 +255,14 @@ float Density(vec3 leaned, vec3 up, float radius)
     return density * density;
 }
 
+// What a unit of the fireball's own glow is worth as light on the cloud. Its Glow peaks near 400
+// and the sun term beside it tops out around 2, so this is the number that decides whether a burst
+// tints its cloud or blows the frame out.
+const float FireGain = 0.110;
+
+// And the most it may contribute at any one sample. The sun term beside it tops out near 2.
+const float FireCeiling = 6.0;
+
 // Henyey-Greenstein. Smoke scatters forward, so a cloud is brightest looking through it toward the
 // sun and darkest with the sun behind you -- which is the cue that says "volume" rather than "fog".
 float Phase(float cosTheta, float g)
@@ -288,8 +296,12 @@ void main()
     // Bounding sphere. Most pixels leave here, which is the whole of the performance story.
     vec3 toCentre = pc.CentreRadius.xyz;
     float radius = pc.CentreRadius.w;
-    vec3 up = OctahedralUnpack(pc.UpSun.xy);
-    vec3 sun = OctahedralUnpack(pc.UpSun.zw);
+    // The cloud's own up, DERIVED rather than sent. A burst's local vertical is the way out from
+    // the planet's centre, and both that centre and the burst are already here -- so the two floats
+    // it used to cost went to the fireball instead, in a block that is at Vulkan's guaranteed 128
+    // bytes with nothing spare.
+    vec3 up = normalize(toCentre - global.lighting.planetPosition.xyz);
+    vec3 sun = OctahedralUnpack(pc.FireSun.zw);
     float forward = Phase(dot(dir, sun), 0.3);
 
     float along = dot(toCentre, dir);
@@ -392,6 +404,41 @@ void main()
         float sunIsUp = smoothstep(-0.10, 0.02, cosSunZenith);
 
         vec3 lit = albedo * sunlight * forward * 12.0 * sunIsUp + sky * albedo;
+
+        // THE BURST LIGHTING THE CLOUD IT IS INSIDE. For the couple of seconds the ball is
+        // incandescent it is by far the brightest thing in the scene, and the young cloud is
+        // wrapped around it -- lit from outside alone it is a grey pillar at the one moment it
+        // should be glowing. Over before the first of the old captures at 3.8 s, which is why this
+        // was never missed.
+        //
+        // Falls off as the inverse square from the ball's SURFACE rather than its centre, so a
+        // sample inside it is bounded instead of dividing by nothing. No shadow march toward it:
+        // the ray's own accumulated transmittance already darkens the far side, and four more taps
+        // a step is the most expensive thing this shader could buy.
+        float ballRadius = pc.FireSun.x;
+        float ballGlow = pc.FireSun.y;
+
+        if (ballGlow > 0.0 && ballRadius > 0.0)
+        {
+            // 1/r, not 1/r-squared. Inside a cloud the ball's light is scattered many times before
+            // it gets anywhere, which spreads it far more slowly than a vacuum point source -- and
+            // the square left the term at a few per cent of the sun's by the time the cloud was
+            // 150 m across against a 53 m ball, which is invisible.
+            float span = max(length(world), ballRadius);
+            float fall = ballRadius / span;
+
+            // Hotter is whiter. The ball cools from white through orange and its glow falls as it
+            // does, so one term drives the colour and the brightness together.
+            // White only at the very top of the dial. Against the glow's own 400 peak the mix sat
+            // at 0.96 for the whole luminous phase, so the ball lit its cloud a flat warm white and
+            // never looked like a burst at all.
+            vec3 hot = mix(vec3(1.00, 0.34, 0.07), vec3(1.00, 0.88, 0.70),
+                           clamp(ballGlow / 1100.0, 0.0, 1.0));
+
+            // Bounded, because the ball's own glow runs to the hundreds and a sample sitting on
+            // its surface would otherwise white out the frame the burst is drawn into.
+            lit += hot * albedo * min(ballGlow * fall * FireGain, FireCeiling);
+        }
 
         // Raised with the falloff above: a core that now genuinely reaches full density is worth
         // more optical depth per metre, and this is what separates a cloud from a stain.

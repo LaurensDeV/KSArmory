@@ -47,20 +47,6 @@ internal static class NuclearClouds
     public static int Count => _clouds.Count;
 
     /// <summary>
-    /// The newest cloud standing, as the shader pass needs it: where it is in the ecliptic, which
-    /// way is up there, how far it reaches and how old it is.
-    ///
-    /// <para>The newest rather than the nearest, so whatever is asked about one cloud is asked
-    /// about the one still changing shape. <see cref="TryAt"/> is how the pass reaches the
-    /// rest.</para>
-    /// </summary>
-    public static bool TryNewest(out double3 burstEcl, out double3 up, out double radiusMetres,
-                                 out double ageSeconds, out MushroomCloud.Shape shape,
-                                 out double3 downwind)
-        => TryAt(_clouds.Count - 1, out burstEcl, out up, out radiusMetres, out ageSeconds,
-                 out shape, out downwind);
-
-    /// <summary>
     /// One standing cloud by index, in the order they were made. <see cref="Count"/> bounds it.
     ///
     /// <para>The pass draws them one dispatch each, so it needs them all rather than the newest —
@@ -68,8 +54,10 @@ internal static class NuclearClouds
     /// </summary>
     public static bool TryAt(int index, out double3 burstEcl, out double3 up, out double radiusMetres,
                              out double ageSeconds, out MushroomCloud.Shape shape,
-                             out double3 downwind)
+                             out double3 downwind, out MushroomCloud.Flash flash)
     {
+        flash = default;
+
         downwind = default;
 
         burstEcl = default;
@@ -89,6 +77,9 @@ internal static class NuclearClouds
             up = cloud.Up.Transform(cloud.Body.GetCce2Ccf().Inverse());
             ageSeconds = cloud.Age;
             shape = MushroomCloud.At(cloud.ChargeKg, cloud.Age);
+
+            // The ball, so the pass can light the cloud from inside it while it burns.
+            flash = MushroomCloud.FlashAt(cloud.ChargeKg, cloud.Age);
 
             // Chosen at the burst rather than per frame, so the column leans one way for its whole
             // life instead of wandering.

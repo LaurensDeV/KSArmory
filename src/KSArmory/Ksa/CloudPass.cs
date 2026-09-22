@@ -51,7 +51,7 @@ internal static class CloudPass
         public float4x4 InvViewProj;
         public float4 AgeStrengthWind;   // age, strength, and the downwind packed into two floats
         public float4 CentreRadius;
-        public float4 UpSun;       // up and sun, each octahedral-packed into two floats
+        public float4 FireSun;       // fireball radius and glow, then the sun octahedral
         public float4 Shape;        // cap centre, cap radius, cap tube, stem radius
     }
 
@@ -120,7 +120,7 @@ internal static class CloudPass
             _order.Clear();
             for (int i = 0; i < NuclearClouds.Count && _order.Count < MaxClouds; i++)
             {
-                if (!NuclearClouds.TryAt(i, out double3 at, out _, out _, out _, out _, out _)) continue;
+                if (!NuclearClouds.TryAt(i, out double3 at, out _, out _, out _, out _, out _, out _)) continue;
 
                 _order.Add((i, Vec.Len2(at - camera.PositionEcl)));
             }
@@ -135,7 +135,8 @@ internal static class CloudPass
                     if (!NuclearClouds.TryAt(_order[n].Index, out double3 burstEcl, out double3 up,
                                              out double radius, out double age,
                                              out MushroomCloud.Shape shape,
-                                             out double3 downwind)) continue;
+                                             out double3 downwind,
+                                             out MushroomCloud.Flash flash)) continue;
 
                     // Differenced against the camera in DOUBLE and only then narrowed. The world is
                     // a solar system: a float metre cannot hold an ecliptic position, and Ego is a
@@ -153,7 +154,6 @@ internal static class CloudPass
                                       ? Vec.Unit(starEcl - burstEcl)
                                       : up;
 
-                    float2 upOct = OctahedralPack(Vec.Unit(up));
                     float2 windOct = OctahedralPack(Vec.Unit(downwind));
                     float2 sunOct = OctahedralPack(Vec.IsFinite(sun) ? sun : up);
 
@@ -171,7 +171,12 @@ internal static class CloudPass
                                                      windOct.X, windOct.Y),
                         CentreRadius = new float4((float)centre.X, (float)centre.Y, (float)centre.Z,
                                                   (float)radius),
-                        UpSun = new float4(upOct.X, upOct.Y, sunOct.X, sunOct.Y),
+                        // The cloud's own up is NOT in here: the shader derives it from the burst
+                        // and the planet, both of which it already has. That freed the two floats
+                        // the fireball needed -- its radius and how hard it is glowing, which is
+                        // what lets a burst light the cloud it is sitting inside.
+                        FireSun = new float4((float)flash.Radius, (float)flash.Glow,
+                                             sunOct.X, sunOct.Y),
 
                         // The same shape MushroomCloud carries, so every dimension stays
                         // Glasstone's rather than being invented again in GLSL.

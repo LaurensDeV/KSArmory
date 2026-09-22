@@ -409,9 +409,15 @@ internal sealed class DropScenario
         if (!(watch > 0.0)) return [];
 
         double[] rise = [.. CaptureFractions.Select(f => f * watch)];
-        if (!CloudStands) return rise;
+        if (!CloudStands || _round is not { } round) return rise;
 
-        return [.. rise, MushroomCloud.RiseSeconds + (MushroomCloud.StandSeconds * 0.85)];
+        // The flash, before the rise fractions. The ball is incandescent for under two seconds at
+        // this yield and the earliest of those fractions is 3.8 s, so the whole of the burst
+        // lighting its own cloud happened before any capture had ever been taken.
+        double flash = MushroomCloud.FlashSeconds(MushroomCloud.KilotonsFor(round.Munition.ChargeKg));
+
+        return [flash * 0.70, .. rise,
+                MushroomCloud.RiseSeconds + (MushroomCloud.StandSeconds * 0.85)];
     }
 
     private int _captured;
