@@ -376,6 +376,18 @@ void main()
     ivec2 size = imageSize(sceneColor);
 
     ivec2 at = ivec2(gl_GlobalInvocationID.xy);
+
+    // A MARK IS DISPATCHED OVER ITS OWN FOOTPRINT, not over the screen, so its workgroups start at
+    // an offset. Marks are permanent, so a full-screen dispatch each is a cost that never goes
+    // away; the offset rides in the two floats a mark has no use for, having no fireball.
+    //
+    // Only for a dispatch that is the ground alone: on a cloud's those two floats are the
+    // fireball's radius and glow, and on a flash-only one there is nothing to offset.
+    if (pc.FireSun.w > 0.0 && !(pc.AgeStrengthWind.y > 0.0 && pc.CentreRadius.w > 0.0))
+    {
+        at += ivec2(pc.FireSun.xy);
+    }
+
     if (at.x >= size.x || at.y >= size.y) return;
     // THE WHITEOUT, written before anything can turn this pixel away. A burst blinds the whole
     // view rather than the part of it the cloud happens to cover, so it cannot sit behind the

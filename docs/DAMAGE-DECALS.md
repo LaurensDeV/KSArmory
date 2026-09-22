@@ -12,9 +12,31 @@ stuck on whatever is under the crosshair — a rocket, a hillside, a rock — an
 rocket flies and the planet turns. Its own design record is `plans/STICKERS_PLAN.md` in that
 repository, which is unusually complete and is the thing to read after this one.
 
-That commit was verified against KSA **2026.8.19.5261**. Everything cited below has been re-checked
-against **2026.8.22.5348**, the build in `ksa-assemblies.lock`, and the line numbers are ours.
-Every seam survived; several moved by a few dozen lines.
+That commit was verified against KSA **2026.8.19.5261**. Everything cited below was re-checked
+against **2026.8.22.5348** and the line numbers are ours.
+
+> **Re-checked again on 2026.9.10.5438, and §1 is now wrong in three ways.** Read this box before
+> building anything from it.
+>
+> 1. **The seam's signature moved.** It is
+>    `ResolveAttachments(CommandBuffer inCmdBuffer, bool inResolveDepth = true)`.
+> 2. **There are four call sites, not three** — `Program.cs:4452`, `:4737`, `:4765`, `:4887`.
+> 3. **`RenderGame` resolves twice**, and the first one does not resolve depth: `:4737` passes
+>    `inResolveDepth: false` and `:4765` is the full resolve that `GridPass` then draws after. A
+>    postfix fires on **both**, so the identity checks in the table below no longer separate the
+>    one that matters — a decal drawn off the first would sample depth that was never resolved.
+>    The argument has to be tested as well.
+>
+> Nothing about §2 or §3 is affected: those are about what a decal *is*, not where it is recorded.
+
+**And the mechanism is no longer the only way to get a projected decal in this repository.**
+`Ksa/CloudPass.cs` reconstructs world position from the resolved depth inside
+`SunbloomRenderer.Render` and marks the ground there, which is a depth-projected decal by another
+route — it conforms to terrain and tessellation, and it reaches anything in the depth buffer.
+What the box rasterisation below still buys over it is **cost and scale**: a cube touches only its
+own screen footprint where a compute dispatch is full-screen, which is the whole reason
+`NuclearClouds.MaxScorches` is four. It also buys image-based decals, which a procedural mark
+does not need and a burn mark on a hull does.
 
 ---
 

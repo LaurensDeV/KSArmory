@@ -141,7 +141,14 @@ internal static class CloudPassCost
                            + $"peak {_passPeakMs:F2}"
                          : CloudPass.BuildFailed ? "pass FAILED TO BUILD" : "pass off";
 
-        return $"gpu: {had}; whole frame {frame:F2} ms, peak {_framePeakMs:F2}, over {_frames} frames";
+        // What a ground mark dispatches over, beside what the pass costs: a mark is permanent, so
+        // the share of the screen it covers is what it costs for the rest of the session.
+        string marks = CloudPass.LastMarkTile < 1.0
+                           ? $", a mark covers {CloudPass.LastMarkTile:P1} of the screen"
+                           : string.Empty;
+
+        return $"gpu: {had}; whole frame {frame:F2} ms, peak {_framePeakMs:F2}, over {_frames} frames"
+               + marks;
     }
 
     private static void Warn(string what)

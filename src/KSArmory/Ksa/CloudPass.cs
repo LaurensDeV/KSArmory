@@ -95,6 +95,7 @@ internal static class CloudPass
     {
         _pipeline = null;
         BuildFailed = false;
+        LastMarkTile = 1.0;
         _width = 0;
         _height = 0;
     }
@@ -157,6 +158,15 @@ internal static class CloudPass
 
                     float2 markOct = OctahedralPack(markWind);
 
+                    // ONLY THE PART OF THE SCREEN THE MARK IS ON. A mark is permanent, so a
+                    // full-screen dispatch each is a cost that never goes away and is the whole
+                    // reason NuclearClouds bounds how many may stand. Its own footprint is a few
+                    // per cent of that.
+                    Tile tile = TileFor(camera, markCentre, markWind, markRadius, width, height);
+                    if (tile.Empty) continue;
+
+                    RecordTile(tile, width, height);
+
                     Push burn = new()
                     {
                         InvViewProj = camera.VPInv.viewProjection,
@@ -169,15 +179,16 @@ internal static class CloudPass
                         // march: zero is what tells the shader this dispatch is the ground alone.
                         CentreRadius = new float4((float)markCentre.X, (float)markCentre.Y,
                                                   (float)markCentre.Z, 0f),
-                        FireSun = new float4(0f, 0f, 0f, (float)markRadius),
+                        // The tile's origin rides in the two floats a mark has no use for: it
+                        // has no fireball, so the radius and the glow are free.
+                        FireSun = new float4(tile.OriginX, tile.OriginY, 0f, (float)markRadius),
                         Shape = float4.Zero,
                     };
 
                     if (marks > 0) Hazard(commandBuffer);
 
                     _pipeline!.BindPipeline(commandBuffer, viewport.ShaderSlot, default, default, burn);
-                    commandBuffer.Dispatch((width + Group - 1) / Group,
-                                           (height + Group - 1) / Group, 1);
+                    commandBuffer.Dispatch(tile.GroupsX, tile.GroupsY, 1);
                     marks++;
                 }
             }
@@ -299,6 +310,97 @@ internal static class CloudPass
     private const int MaxClouds = 8;
 
     private static readonly List<(int Index, double DistanceSq)> _order = [];
+
+    /// <summary>
+    /// What share of the screen the last mark dispatched over, or 1 when none has.
+    ///
+    /// <para>Read out beside the pass's milliseconds rather than logged once, because it is a
+    /// property of where the camera is standing: the first mark of a run is dispatched on the frame
+    /// the bomb bursts, with the camera still down at the impact and inside the mark's own box, so
+    /// a number said once says 100% about a saving that is real everywhere else.</para>
+    /// </summary>
+    public static double LastMarkTile { get; private set; } = 1.0;
+
+    private static void RecordTile(Tile tile, int width, int height)
+    {
+        double whole = (double)((width + Group - 1) / Group) * ((height + Group - 1) / Group);
+
+        LastMarkTile = whole > 0.0
+                           ? Math.Clamp((double)tile.GroupsX * tile.GroupsY / whole, 0.0, 1.0)
+                           : 1.0;
+    }
+
+    // The block of workgroups a mark's own footprint covers, and where it starts.
+    private readonly record struct Tile(int OriginX, int OriginY, int GroupsX, int GroupsY)
+    {
+        public bool Empty => GroupsX <= 0 || GroupsY <= 0;
+    }
+
+    // Where on the screen a mark can possibly reach, as whole workgroups.
+    //
+    // ALONG THE WIND rather than a cube about the centre. The plume runs one way, so a cube sized
+    // to its reach is three times too big in the other five directions -- and the cost of that is
+    // not a few unused workgroups: its corners end up behind a camera watching from two and a half
+    // kilometres, which takes the whole-screen fallback every time. Measured at 100.0% of the
+    // screen before this and 55.1% after.
+    //
+    // Anything behind the camera takes the whole screen. A corner with a clip w at or under zero
+    // has no screen position at all, and projecting it anyway folds the box inside out -- which
+    // crops a mark the viewer is standing in, exactly when it fills the frame.
+    private static Tile TileFor(Camera camera, double3 centreEgo, double3 downwind, double radius,
+                                int width, int height)
+    {
+        Tile whole = new(0, 0, (width + Group - 1) / Group, (height + Group - 1) / Group);
+
+        double reach = radius * ScorchScreenReach;
+        double across = radius * ScorchScreenWidth;
+        if (!(reach > 0.0) || !Vec.IsFinite(downwind)) return whole;
+
+        double3 along = Vec.Unit(downwind);
+        if (Vec.Len2(along) < 0.5) return whole;
+
+        double3 side = Vec.Unit(Vec.AnyPerpendicular(along));
+        double3 other = Vec.Unit(Vec.Cross(along, side));
+
+        double lowX = double.MaxValue, lowY = double.MaxValue;
+        double highX = double.MinValue, highY = double.MinValue;
+
+        for (int corner = 0; corner < 8; corner++)
+        {
+            // Upwind only by the patch's own radius; downwind by the plume's whole run.
+            double3 at = centreEgo
+                         + (along * ((corner & 1) == 0 ? -radius : reach))
+                         + (side * ((corner & 2) == 0 ? -across : across))
+                         + (other * ((corner & 4) == 0 ? -across : across));
+
+            double4 clip = camera.EgoToClipDouble(at);
+            if (!(clip.W > 1.0e-6) || !double.IsFinite(clip.W)) return whole;
+
+            double x = ((clip.X / clip.W * 0.5) + 0.5) * width;
+            double y = ((clip.Y / clip.W * 0.5) + 0.5) * height;
+            if (!double.IsFinite(x) || !double.IsFinite(y)) return whole;
+
+            lowX = Math.Min(lowX, x);
+            highX = Math.Max(highX, x);
+            lowY = Math.Min(lowY, y);
+            highY = Math.Max(highY, y);
+        }
+
+        int x0 = Math.Clamp((int)Math.Floor(lowX) / Group, 0, whole.GroupsX);
+        int y0 = Math.Clamp((int)Math.Floor(lowY) / Group, 0, whole.GroupsY);
+        int x1 = Math.Clamp(((int)Math.Ceiling(highX) + Group - 1) / Group, 0, whole.GroupsX);
+        int y1 = Math.Clamp(((int)Math.Ceiling(highY) + Group - 1) / Group, 0, whole.GroupsY);
+
+        return new Tile(x0 * Group, y0 * Group, x1 - x0, y1 - y0);
+    }
+
+    // How far past the burned patch's own radius a mark reaches, downwind and across, in patch
+    // radii. Both are the SHADER's constants restated -- PlumeReach, and PlumeMouth plus
+    // PlumeWidth -- and if either grows past what is here the mark is cropped at a straight edge
+    // partway along itself, which reads as terrain rather than as a fault. ScorchFootprintTests
+    // is the only thing that compares the two sides of that seam.
+    private const double ScorchScreenReach = 3.0;
+    private const double ScorchScreenWidth = 1.25;
 
     // One compute-write to compute-read barrier, so a dispatch sees what the one before it wrote.
     private static void Hazard(CommandBuffer commandBuffer)

@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-215 types and 577 members across 9 assemblies.
+216 types and 581 members across 9 assemblies.
 
 ## Brutal.Concurrency
 
@@ -61,6 +61,12 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `double Y`
 - `double Z`
 - `void .ctor(double, double, double)`
+
+### Brutal.Numerics.double4
+
+- `double W`
+- `double X`
+- `double Y`
 
 ### Brutal.Numerics.double4x4
 
@@ -493,6 +499,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.double3 GetRightEcl()`
 - `Brutal.Numerics.double3 GetUpEcl()`
 - `Brutal.Numerics.double3 GetVelocityEgo(KSA.IVelocity)`
+- `Brutal.Numerics.double4 EgoToClipDouble(Brutal.Numerics.double3)`
 - `Brutal.Numerics.doubleQuat LookAtRotation(Brutal.Numerics.double3, Brutal.Numerics.double3)`
 - `Brutal.Numerics.float2 EclToScreen(Brutal.Numerics.double3, bool)`
 - `Brutal.Numerics.float2 EgoToScreen(Brutal.Numerics.double3, bool)`

@@ -94,11 +94,12 @@ internal static class NuclearClouds
 
     private static readonly List<Scorch> _scorches = [];
 
-    // How many marks stand at once. Bounded low and for a different reason from MaxClouds: a cloud
-    // expires, so that list drains on its own, where this one never does -- every mark is a
-    // full-screen dispatch for the rest of the session. The oldest is dropped, which is visible
-    // and is the honest price of not keeping a decal.
-    private const int MaxScorches = 4;
+    // How many marks stand at once. Still bounded for a different reason from MaxClouds -- a cloud
+    // expires and that list drains on its own, where this one never does -- but no longer bounded
+    // LOW: a mark is dispatched over its own screen footprint rather than over the whole screen,
+    // so what each one costs for the rest of the session is a few per cent of what it was. The
+    // oldest is still dropped, because permanent and unbounded is a leak.
+    private const int MaxScorches = 12;
 
     /// <summary>How many patches of burned ground stand. Bounds <see cref="TryScorch"/>.</summary>
     public static int ScorchCount => _scorches.Count;
