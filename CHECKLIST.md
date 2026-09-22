@@ -1671,6 +1671,15 @@ Not exercised, and the first two are the ones to believe least:
       thin sheet: what lies behind it is seen through its transmittance, and a mark is dimmed by it.
       With clouds switched off there is no renderer, stand-ins are bound, and a flag says so.
 
+      **Faded in behind the weather's distance, not cut at it.** The renderer gives one averaged
+      distance a pixel and it moves a little every frame, so a hard cut flipped a burst inside a
+      deck's depth between in front and behind — reported from play as weather flickering through
+      the cloud. A band centred on the distance was worse: it counted the back of a burst standing
+      before a deck as behind it, and the burst went see-through. Three versions captured on one
+      frozen instant through the bridge showed the centred band washing out the cap and the band
+      starting at the distance not. **The flicker itself was never reproduced**: paused, all three
+      are equally steady, and it needs the camera or the weather moving.
+
       **The images are not only weather.** Explosion volumes and exhaust trails are raymarched into
       them too, which is right for a trail in front of the cloud and wrong for anything the burst
       itself adds — see the blast-wave note above.

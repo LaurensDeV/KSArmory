@@ -194,6 +194,22 @@ float StemWidthAt(float y, float capH)
     return 0.92 + (FootFlare * exp(-t / FootFlareReach)) + (0.50 * smoothstep(0.76, 1.0, t));
 }
 
+// How far behind KSA's weather a point is, from 0 in front to 1 behind. The renderer gives one
+// averaged distance per pixel and it moves a little every frame; cut hard at it, a burst inside the
+// deck's depth flips between the two every frame and the weather flickers through it. So it is
+// eased over a band that grows with range -- BEHIND that distance only: a band reaching in front of
+// it counts the back of a burst standing before a deck as behind the deck, and the burst goes
+// transparent.
+const float WeatherDepthSpread = 0.15;
+
+float BehindWeather(float t, float weatherAt)
+{
+    if (weatherAt >= 1.0e29) return 0.0;
+
+    float band = max(weatherAt * WeatherDepthSpread, 200.0);
+    return smoothstep(weatherAt, weatherAt + band, t);
+}
+
 // Camera-relative world position of a pixel at a given device depth.
 vec3 WorldAt(vec2 uv, float deviceZ)
 {
@@ -643,7 +659,7 @@ void main()
             // And seen through whatever weather is between it and the eye. The ground is the far
             // side of every cloud over it, so this is only ever a dimming, and an opaque deck hides
             // the mark entirely rather than laying a grey disc across its top.
-            if (weatherAt < sceneT) mark *= weatherClear;
+            mark *= mix(1.0, weatherClear, BehindWeather(sceneT, weatherAt));
 
             if (mark > 0.0)
             {
@@ -814,9 +830,9 @@ void main()
         // Raised with the falloff above: a core that now genuinely reaches full density is worth
         // more optical depth per metre, and this is what separates a cloud from a stain.
         float extinction = density * 0.022 * dt;
-        bool behindWeather = (t0 + (float(i) + jitter) * dt) > weatherAt;
+        float behindWeather = BehindWeather(t0 + (float(i) + jitter) * dt, weatherAt);
 
-        scattered += transmittance * lit * extinction * (behindWeather ? weatherClear : 1.0);
+        scattered += transmittance * lit * extinction * mix(1.0, weatherClear, behindWeather);
 
         float through = exp(-extinction);
 
