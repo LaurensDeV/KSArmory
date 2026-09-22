@@ -1567,12 +1567,20 @@ Not exercised, and the first two are the ones to believe least:
       about 78 s.** A mark that outlives the cloud is a decal on the hillside, which is
       `docs/DAMAGE-DECALS.md` and is not built.
 
-      **And an airless burst gets none at all**, flown on Luna — the ground is unmarked, which is
-      backwards, there being no atmosphere there to absorb the pulse. The flash-only dispatch could
-      carry the burst's position and scorch from it, and deliberately does not: that dispatch runs
-      only while the fireball burns, so the mark would appear for two seconds and vanish. A stain
-      that comes and goes reads as a bug where an absent one reads as unbuilt. It waits for the
-      decal too.
+      **Both closed the same day, and without a decal.** A mark is no longer the cloud's business:
+      `NuclearClouds` keeps a third body-fixed list that outlives both the column and the fireball,
+      and `CloudPass` sends it ahead of the clouds so a column composites over ground already
+      burned. The shader takes either half alone, so an airless burst — which grows no column at
+      all — burns ground for the first time.
+
+      It costs a full-screen dispatch per mark for the rest of the session, which is why the list
+      is bounded at **four** where the clouds are at eight: a cloud expires and that list drains
+      itself, and this one never does. The oldest is dropped. Marks merge on the rule the clouds
+      merge on, so a bus's six warheads make one stain rather than six mixes of the same ash onto
+      the same pixels.
+
+      Flown: the cloud count goes 1 to 0 at 78 s with the mark still at 1, and the capture past the
+      column's whole life shows burned ground under an empty sky.
 
 - [x] **All three re-flown at a yield and on a body neither was written against**, same day.
 
@@ -1588,7 +1596,28 @@ Not exercised, and the first two are the ones to believe least:
       cloud guard before reaching the scorch block, the ejecta still arc and land, and nothing the
       airless path does was disturbed by a block added ahead of it in `main()`.
 
-- [ ] **Warp and pause.** Reasoned, not flown. `NuclearClouds.Update` is driven from `StepOnce` on
+- [x] **Warp and pause.** Flown on 2026.9.10.5438, and what took so long was two instruments
+      rather than any doubt about the behaviour.
+
+      The capture ages were **wall clock** and the burst is on simulated time, so a warped run
+      photographed a different cloud from the one it was being compared with; they are the burst's
+      own age now, which is the same number at 1x and the right one everywhere else. And the linger
+      ended on wall clock, so a warped run sat out eighty seconds after photographing everything.
+      `KSARMORY_SCENARIO_CLOUDWARP=<n>` then holds a speed through the linger, which the drop's own
+      warp argument cannot: that one is handed back the instant the store lands, deliberately,
+      because the hand-back should not be watched at speed.
+
+      **Zero needed a call of its own.** `KsaWorld.SetSimulationSpeed` refuses anything at or below
+      zero and clamps to `SlowestSimSpeed`, so asking for a pause as a speed left the world at 1x
+      while the run reported it had asked for one — flown, and it is why `SetPaused` exists. A
+      caller wanting a slow world and one wanting a stopped world want different things.
+
+      At **20x** the captures land at the same seven cloud ages as the 1x run, sun elevations
+      agreeing to a tenth of a degree, in 4.2 s of wall clock against 84. **Paused**, the burst
+      holds at 0.0 s across 86 s of wall clock with the cloud and the mark both still standing and
+      the pass still drawing.
+
+- [ ] **The old note, kept because it is what the shipped scenarios still cannot do.** Reasoned, not flown. `NuclearClouds.Update` is driven from `StepOnce` on
       the simulated step, so a pause hands it nothing and warp hands it a large one — and the shape
       and the flash are both pure functions of age, so a cloud that skips its life in one step just
       expires. Nothing in the pass reads a clock at all.
@@ -1603,9 +1632,23 @@ Not exercised, and the first two are the ones to believe least:
       exactly the kind of thing that is driver-specific, and a failed patch or a shader that will
       not compile draws no cloud rather than crashing — which is the intended degradation and has
       never been provoked.
-- [ ] **How strong the aerial perspective should be.** Real now rather than approximated, and the
-      cloud reads thinner and more washed for it at the 2.4 km watching distance. Whether that is
-      right is a judgement nobody has made.
+- [x] **How strong the aerial perspective should be — and it is not a judgement after all.**
+      Flown as an A/B at the pinned pose, same age, haze on against haze off: with it on the cloud
+      is cooler and lower in contrast and the stem's foot is visibly bluer than the dirt it is made
+      of. That reads as over-applied, and it is not.
+
+      Settled by reading the engine's own volumetric consumer rather than by eye.
+      `Clouds/RaymarchCloud.comp:525` is
+      `cloudColor.rgb * eyeToCloudTransmittance + inscatter * atmosphereInscatterWeight`, which is
+      this pass's expression term for term — and its weight, `1.0 - cloudColor.a`, is the same
+      quantity as ours despite reading like the opposite. **Core's `a` is transmittance, not
+      opacity**: `:561` composites two layers by *multiplying* alphas and `:438` raymarches only
+      while `a < 1.0`. So `1 - a` is coverage, which is what we weight by.
+
+      The amount is therefore the engine's own answer applied the way the engine applies it, and a
+      scale factor here would be a fudge fitted at the one distance anybody has looked from. What
+      the A/B actually shows is what 2.4 km of the densest air there is does to a near-white
+      object, which is more than it does to the dark terrain beside it.
 - [ ] **A craft set down on Luna sinks and its tip explodes**, seen in play. `TryPlaceOnSurface` is a
       thin wrapper over KSA's own `Vehicle.TeleportToLocation` and the craft reads 7 m **above** the
       ground when placed, so this is the engine's vehicle-vs-terrain handling or the blast taking a
