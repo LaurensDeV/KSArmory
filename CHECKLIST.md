@@ -1459,9 +1459,27 @@ Not exercised, and the first two are the ones to believe least:
 - [ ] **A second cloud.** `NuclearClouds.TryNewest` hands the pass **one**, because a push constant
       holds one — so two bursts in sight of each other draw one column and one fireball each, but
       only the newer column. Never seen; nobody has set off two.
-- [ ] **An atmosphere that is not Earth's.** The lighting reads KSA's aerial-perspective LUTs for
-      whatever body the viewport is on, so Mars or Titan should work and has never been tried. The
-      airless path and the Earth path are both flown; the thin one in between is not.
+- [x] **An atmosphere that is not Earth's.** Flown on Mars, where the air is 0.011–0.0135 of the
+      reference: the column draws with the right shape, and the sky, horizon and terrain around it
+      are lit by Mars's own LUTs rather than by Earth's. The thin atmosphere is no longer the
+      untried case.
+- [ ] **The cloud is lit on the night side, which Mars is what found.** At 15 N, 20 E the terrain
+      is pitch black under a starfield and the mushroom stands over it brightly and *directionally*
+      lit, as though at noon. The sun term in `KSArmoryCloud.comp` is `sunlight * forward * 12.0`,
+      where `sunlight` is the cloud's own optical depth toward the sun — self-shadowing only.
+      Nothing anywhere asks whether the planet is in the way.
+
+      **The term needed is already computed and thrown away.**
+      `GetAerialPerspectiveForObjectInAtmosphere` returns `sunTransmittance` as an out-parameter
+      that nothing reads; it is the air between the cloud and the sun, so it goes to nothing on the
+      night side and reddens through a sunset. Its two inputs are loop-invariant, so the call
+      hoists above the march unchanged and the value is available per sample.
+
+      **Tried, and it is not a one-line fix.** Hoisted and applied, the night cloud correctly
+      disappears — and the Earth cloud goes near-black in daylight, because the `12.0` was
+      calibrated with the term absent and now dims twice. KSA's own clouds in the same frame stay
+      white, so whatever it does for its volumetrics is not this. What it needs is that constant
+      re-derived across sun angles, which is several flights, not a nudge.
 - [ ] **Through a sight or a camera window.** The pass writes the viewport's storage image and binds
       `viewport.ShaderSlot`, which is what fixed the flicker — but only the main view has ever been
       looked at. A secondary viewport is the case that would find a second wrong slot.
