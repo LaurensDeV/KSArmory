@@ -257,7 +257,10 @@ on the dune at 26.70 N, −80.01 topples more often than it stands. −80.02 hol
 lands on the dune. The drop's wait phase had no budget, so a toppled rocket hung the run for as long
 as anybody let it; it fails in thirty seconds now.
 
-### 11. Something other than damage follows from it
+### 11. Something other than damage follows from it — last, by decision
+
+**Built only once the burst itself is finished.** How a burst looks is what every one of these
+would be judged against, so the order is the look first and the consequences after it.
 
 Today a burst is visuals plus `BlastDamage`. A nuclear one could blind radar for a scaled
 duration, burn at ranges the blast never reaches, and bloom out an `OpticalHead`'s sight — which
