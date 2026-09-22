@@ -80,10 +80,21 @@ internal static class CloudPass
     /// <summary>Whether the pass built and is dispatching.</summary>
     public static bool Available => _pipeline is not null;
 
+    /// <summary>
+    /// Whether a build was attempted and did not produce a pipeline.
+    ///
+    /// <para>Not the same question as <see cref="Available"/> being false, and reading it as the
+    /// same is what made a deliberate control run report a shader that would not compile: a pass
+    /// switched off is never asked to build, so it has no pipeline for a reason that is not a
+    /// fault. Only a build that ran and failed sets this.</para>
+    /// </summary>
+    public static bool BuildFailed { get; private set; }
+
     /// <summary>Drops the pipeline, so the next frame builds it again.</summary>
     public static void Release()
     {
         _pipeline = null;
+        BuildFailed = false;
         _width = 0;
         _height = 0;
     }
@@ -300,6 +311,7 @@ internal static class CloudPass
         if (!ModLibrary.TryGet<ShaderReference>(ShaderId, out var shader) || shader is null)
         {
             Warn($"no shader '{ShaderId}'; the pass will not draw");
+            BuildFailed = true;
             return false;
         }
 
@@ -335,6 +347,7 @@ internal static class CloudPass
             default, ranges, renderer.MaxFramesInFlight, renderer,
             "KSArmory.CloudPass", Program.PointClampedSampler, Program.LinearClampedSampler);
 
+        BuildFailed = false;
         Log.Info($"cloud pass: built against {ShaderId}");
         return true;
     }

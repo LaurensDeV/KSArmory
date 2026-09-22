@@ -1579,8 +1579,28 @@ Not exercised, and the first two are the ones to believe least:
       merge on, so a bus's six warheads make one stain rather than six mixes of the same ash onto
       the same pixels.
 
-      Flown: the cloud count goes 1 to 0 at 78 s with the mark still at 1, and the capture past the
-      column's whole life shows burned ground under an empty sky.
+      Flown three ways. On Earth the cloud count goes 1 to 0 at 78 s with the mark still at 1, and
+      the capture past the column's whole life shows burned ground under an empty sky. With
+      `TWOCLOUDS=1` two marks stand a kilometre apart, each with its own edge and neither
+      compounding into the other — `TWOCLOUDS=100` does **not** test that, because a 30 kt burst's
+      lethal radius is 2.3 km and swallows the 0.3 kt one 1 km away, which is the merge working.
+      On **Luna** the pass goes from 0.04 to 0.13 ms and a mark stands on ground no column ever
+      covered.
+
+      Two things about it are **not** settled:
+
+      **The mark's radius comes from a blast law, and there is no blast without air.**
+      `Warhead.LethalRadius` is Hopkinson--Cranz, which is overpressure from a shock wave — the
+      thing `AirlessBurst` exists because a vacuum does not have. Thermal scorch in vacuum is real
+      and if anything reaches further for having nothing to absorb it, but the number it reaches
+      *to* is borrowed from physics that cannot happen there. The visible consequence on Luna is
+      that the drawn burst is 220 m across under a 493 m mark, and `CloudWatch`'s own pose stands
+      the camera inside it — so the airless capture reads as a broad darkening rather than as a
+      patch, and is poor evidence of a feature that is in fact working.
+
+      **The bound has never been reached.** `MaxScorches` is four and the oldest is dropped; the
+      harness produces at most two, and nothing has ever watched a mark vanish. That path is
+      reasoned only.
 
 - [x] **All three re-flown at a yield and on a body neither was written against**, same day.
 
@@ -1628,6 +1648,13 @@ Not exercised, and the first two are the ones to believe least:
       came back at 1x ages. Driving a speed through the linger would contradict a decision already
       in `CaptureBurst`: the capture ages are wall clock, so a run warping through them photographs
       the wrong ones.
+- [x] **An instrument that cried wolf on every control run.** `CloudPassCost` printed
+      `pass FAILED TO BUILD` whenever there was no pipeline — and a pass switched off by `noshader`
+      is never *asked* to build, so the deliberate control reported a shader that would not
+      compile. That is the confusion the line was added to remove, back again with the sign
+      flipped, and worse: a control is the run that is supposed to report nothing. `BuildFailed` is
+      now set only by a build that ran and failed. Flown: the control reads `pass off`.
+
 - [ ] **Another GPU.** One machine, one vendor. A compute dispatch into someone else's frame is
       exactly the kind of thing that is driver-specific, and a failed patch or a shader that will
       not compile draws no cloud rather than crashing — which is the intended degradation and has
