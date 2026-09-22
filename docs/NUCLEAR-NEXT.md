@@ -155,14 +155,29 @@ in the shipped game.
 
 It becomes worth building the moment a larger warhead is registered, and not before.
 
-### 6. The projected decal
+### 6. The projected decal — two of its three reasons are gone
 
-`docs/DAMAGE-DECALS.md` has the whole mechanism, read out of gatOS's working implementation and
-re-verified against this build. It replaces the screen-space mark with something strictly better:
+`docs/DAMAGE-DECALS.md` has the mechanism. It was wanted here for three things, and looking at it
+properly retired two:
 
-- **unbounded**, where `NuclearClouds.MaxScorches` is four and drops the oldest
-- **no full-screen dispatch per mark for the rest of the session**
-- it reaches **hulls and ground clutter**, so the rocket that dropped the bomb is scorched too
+- **unbounded**, where `MaxScorches` was four — **got most of this without it.** The four was a
+  budget on full-screen dispatches; a mark is dispatched over its own projected footprint now,
+  measured at 55.1% of the screen from the watching pose and far less from anywhere else, and the
+  bound is twelve.
+- **no full-screen dispatch per mark** — same change.
+- it reaches **hulls and ground clutter** — **it already does.** The compute mark reconstructs
+  world position from the resolved depth, so it marks whatever is in the depth buffer, clutter
+  included. The height gate is what keeps it off things in the air, not an inability to reach them.
+
+What a box rasterisation still buys is the last of the cost — a cube touches only its own
+footprint where even a tiled dispatch touches a rectangle around it — and **image-based** decals,
+which a procedural stain does not need and a burn mark on a hull does. That is the damage-decal
+feature rather than this one.
+
+**And `DAMAGE-DECALS.md` §1 was wrong in three ways on this build**, which is recorded there: the
+seam's signature has grown an `inResolveDepth`, there are four call sites rather than three, and
+`RenderGame` resolves twice — the first without depth. A postfix fires on both, and the identity
+checks in that table no longer separate them.
 
 ### 7. Fallout is a plume, not a disc — built
 
