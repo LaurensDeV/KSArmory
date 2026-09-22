@@ -1524,6 +1524,50 @@ Not exercised, and the first two are the ones to believe least:
       global block it returns near zero in broad daylight with the sun 27 degrees up. Flown at both
       ends on 2026.9.10.5438 — daylight unchanged, Mars at 48 deg below the horizon dark.
 
+- [x] **What a burst does besides standing there: the flash, the wave, the bang.** All flown on
+      2026.9.10.5438 through `KSARMORY_SCENARIO_CLOUDS=1`.
+
+      The **whiteout** is written by the compute shader, not by an ImGui overlay, and that is the
+      finding rather than a preference: KSA wraps its entire UI pass in `if (DrawUI)`, and both F2
+      and `ScreenshotCapture` clear it — so painted there it vanished from every screenshot the
+      harness took, and would have vanished for any player with the HUD hidden. It is driven by the
+      fireball's **rise** rather than its brightness, with recovery always running: taken off the
+      brightness it held for the ball's whole 1.9 s burn, which is a stuck screen rather than an
+      eye adjusting. `Ksa/BurstFlash.cs` is the model; nothing in it draws.
+
+      The **blast wave** is an `<ExplosionVolume>` in `KSArmoryParticles.xml` whose radius is
+      derived from the warhead rather than typed — a thin bright shell racing out and thinning.
+
+      The **bang arrives late**, at 343 m/s from the burst, anchored to the ground it happened over
+      rather than to the launching craft or to a bare ecliptic point. Silent where there is no air,
+      which is the one case a sound of this kind must get right.
+
+- [x] **Three things that separate a drawn cloud from a photographed one**, flown the same day.
+
+      **Shear.** The wind above the cloud used to be one vector, so the column leaned in a single
+      flat plane the whole way up. Real wind veers as well as strengthens — the Ekman spiral near
+      the ground, the thermal wind above it, twenty to sixty degrees over a column this tall — so
+      the lean turns with height and the cloud corkscrews. Free: the axis is the local vertical and
+      the downwind is already perpendicular to it.
+
+      **Fallout streamers**, hung off the cap's own field rather than off a plane under it. Hung
+      off a plane they *detach*: erosion cuts the cap's real underside well inside the torus's
+      analytic one, so the strands begin in clear air with a visible gap over them, and the parts
+      of the rim the noise has eaten go on shedding from nothing. Reported from looking at it, and
+      fixed by measuring the drop from the cap's own middle so the two overlap. 1.49 to 2.06 ms.
+
+      **The ground burns**, out to `Warhead.LethalRadius` — the radius the panel, the overlay and
+      the blast sweep already describe the weapon by, so the stain is not a fourth number. Screen
+      space off the depth the march already clips against, so it follows the terrain with nothing
+      placed in the world; desaturated before it is darkened, because a multiply leaves grass green
+      and merely dimmer, which reads as shadow. 2.06 to 2.08 ms: almost every pixel leaves on one
+      comparison.
+
+      **It lasts exactly as long as the pass is dispatched, which is as long as the cloud stands —
+      about 78 s.** A mark that outlives the cloud is a decal on the hillside, which is
+      `docs/DAMAGE-DECALS.md` and is not built. An airless burst gets no scorch at all, because
+      there is no cloud to keep the pass alive past the flash.
+
 - [ ] **Warp and pause.** Reasoned, not flown. `NuclearClouds.Update` is driven from `StepOnce` on
       the simulated step, so a pause hands it nothing and warp hands it a large one — and the shape
       and the flash are both pure functions of age, so a cloud that skips its life in one step just
