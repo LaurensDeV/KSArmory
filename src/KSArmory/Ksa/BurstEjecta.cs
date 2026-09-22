@@ -25,8 +25,6 @@ internal static class BurstEjecta
 {
     private const string EjectaId = "KSArmoryNuclearEjecta";
     private const string ShellId = "KSArmoryNuclearShell";
-    private const string SurgeId = "KSArmoryNuclearSurge";
-    private const string WaterSurgeId = "KSArmoryNuclearWaterSurge";
     private const string WilsonId = "KSArmoryNuclearWilson";
 
     private static bool _warned;
@@ -136,69 +134,6 @@ internal static class BurstEjecta
             }
 
             return default;
-        }
-    }
-
-    /// <summary>
-    /// The base surge: the dust a surface burst throws along the ground on a body with air.
-    ///
-    /// <para><see cref="MushroomCloud"/> has modelled this since the pens drew it, and nothing drew
-    /// it between their retirement and this. It is not the raymarch's to draw — that is handed four
-    /// shape floats in a push constant with no room for a fifth pair, and this is ground dust
-    /// rather than buoyant cloud, which is the same reason the ejecta above is particles.</para>
-    /// </summary>
-    public static void BeginSurge(Celestial body, double3 burstCcf, double chargeKg, bool water)
-    {
-        if (!Detonation.ParticlesEnabled) return;
-
-        try
-        {
-            double kt = MushroomCloud.KilotonsFor(chargeKg);
-            (double radius, double atAge) = MushroomCloud.PeakSurge(kt);
-            if (!(radius > 0.0) || !(atAge > 0.0)) return;
-
-            double height = MushroomCloud.SurgeHeight(kt, atAge);
-
-            BubbleOrigin origin = new()
-            {
-                Time = Universe.GetElapsedTime(),
-                Parent = body,
-                BubFrame = BubbleFrame.Ccf,
-                // Lifted clear of the ground. A sphere centred on a surface burst puts most of
-                // its particles under the terrain, where they are hidden and paid for anyway.
-                PositionBub = burstCcf + (Vec.Unit(burstCcf) * (radius * 0.15)),
-
-                // At rest in the body's frame: the surge belongs to the ground it was lifted off.
-                VelocityBub = double3.Zero,
-            };
-
-            Fire(water ? WaterSurgeId : SurgeId, body, origin, e =>
-            {
-                // Half the skirt at the start and the rest walked out over the time the model takes
-                // to reach its widest, so what is drawn arrives at PeakSurge rather than sailing
-                // past it. Thrown from a point instead it would need a direction this emitter
-                // cannot be given; spread too fast it thins to nothing, which is what a first pass
-                // at 15 m/s did -- visible at 4 s and gone by the peak at 11.
-                e.EmitterSpawnInfo.Radius = (float)(radius * 0.50);
-                Speed(ref e.ParticleInfo, radius * 0.50 / atAge);
-
-                // It stands and draws back in rather than dispersing, so it outlives its own
-                // outrush by a good margin.
-                e.ParticleInfo.Lifespan = new float2((float)(atAge * 3.0), (float)(atAge * 5.0));
-
-                e.ParticleInfo.Size = new float2((float)(radius * 0.20), (float)(radius * 0.30));
-            });
-
-            Log.Info($"base surge: {kt:F2} kt, {radius:F0} m across at {atAge:F1} s, "
-                     + $"{height:F0} m high");
-        }
-        catch (Exception e)
-        {
-            if (!_warned)
-            {
-                _warned = true;
-                Log.Warn($"base surge failed to draw: {e.Message}");
-            }
         }
     }
 

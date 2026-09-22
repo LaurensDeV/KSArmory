@@ -411,9 +411,10 @@ internal static class NuclearClouds
 
             double kt = MushroomCloud.KilotonsFor(chargeKg);
 
-            // The dust along the ground, which the raymarch does not draw and never could: its
-            // push constant carries the column's four numbers and has no room for the skirt's.
-            BurstEjecta.BeginSurge(body, burstCcf, chargeKg, setting == BurstSetting.WaterSurface);
+            // No particle collar round the foot. The raymarch flares the stem into the skirt itself,
+            // lit like the column above it and hidden by weather in front of it -- where particles
+            // are drawn after KSA's clouds and never tested against them, so a collar sat on top of
+            // a deck the column had gone behind, and at high yields came out black besides.
 
             // And the condensation shell over the first couple of seconds, which is why a
             // photograph of a burst that early is a white dome rather than a ball of fire.
