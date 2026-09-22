@@ -323,6 +323,10 @@ public sealed class KSArmoryMod
         _icbms?.Clear();
         KsaWorld.Wreckage.Clear();
 
+        // The clouds, the burned ground, the flash and the bang still on its way all belong to the
+        // world that was replaced: anchored to its bodies, they would stand in the new one.
+        NuclearClouds.Clear();
+
         // Keyed on live craft, every one of which DeserializeSave has just destroyed. CollectTeams
         // rebuilds it on the next step that runs, so this only matters for a world that stays
         // paused -- and a destroyed vehicle reachable from a dictionary is what KsaWorld's own

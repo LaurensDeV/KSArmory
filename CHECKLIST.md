@@ -1562,6 +1562,10 @@ Not exercised, and the first two are the ones to believe least:
       edge. The shell's patchy tail was also the white streaks across the sky at 3.8 s. Flown with
       both taken out: the blocks and the streaks gone, at 1.3 s and 3.8 s.
 
+      **A save load clears them.** The clouds, the burned ground, the flash and a bang still on its
+      way belonged to the world replaced, and stood in the new one. Checked through the bridge: one
+      cloud standing, the save loaded, none.
+
       The **bang arrives late**, at 343 m/s from the burst, anchored to the ground it happened over
       rather than to the launching craft or to a bare ecliptic point. Silent where there is no air,
       which is the one case a sound of this kind must get right.
