@@ -135,10 +135,26 @@ internal sealed class DropScenario
     // the same four cues land in the right places on either kind of body -- against the rise, an
     // airless run photographed a sixteen-second dome at ages up to five minutes, every frame of it
     // empty ground.
+    // Latched at the first ask rather than re-read, because it is a property of the burst and the
+    // thing it is read off is a round that has already arrived. Re-read every frame it walked from
+    // 16.0 s to 13.4 -- the round's position is fixed in the ecliptic while the body it landed on
+    // carries on, so the gravity resolved at it creeps. The captures are fractions of this, so a
+    // denominator that shrinks moves the last one past the end of what it was meant to photograph.
+    private double _watch = double.NaN;
+
     private double WatchSeconds
-        => _round is { } round
-               ? BurstEjecta.LingerSeconds(round.PositionEcl, null, round.Munition.ChargeKg)
-               : ChaseView.MinLingerSeconds;
+    {
+        get
+        {
+            if (double.IsFinite(_watch)) return _watch;
+
+            _watch = _round is { } round
+                         ? BurstEjecta.LingerSeconds(round.PositionEcl, null, round.Munition.ChargeKg)
+                         : ChaseView.MinLingerSeconds;
+
+            return _watch;
+        }
+    }
 
     private const double BarMetres = 30.0;
     private const double ProgressEverySeconds = 2.0;
@@ -253,10 +269,21 @@ internal sealed class DropScenario
 
         // Said because it is the whole point of going there: which of the two effects a burst here
         // will draw follows from this one answer.
+        //
+        // The medium beside it, because "has an atmosphere" and "what is this standing in" are
+        // different questions and the store obeys the second. The ocean is anywhere under the mean
+        // sphere whether or not there is any, so a site whose ground is below it drops the store
+        // into water on a body with no air -- which reads from the fall alone as drag that should
+        // not exist.
+        double3 at = KsaWorld.PositionEcl(craft);
         _report($"on {body.Id}: "
                 + (KsaWorld.HasAtmosphere(body)
                        ? "it has air, so a burst grows a column"
-                       : "no air, so a burst throws ground instead of growing a column"));
+                       : "no air, so a burst throws ground instead of growing a column")
+                + $"; standing {KsaWorld.HeightAboveTerrain(body, at):F0} m over the ground and "
+                + $"{Vec.Len(at - body.GetPositionEcl()) - body.MeanRadius:F0} m over the mean sphere, "
+                + $"in {KsaWorld.MediumDensityRatioAt(craft, at):G3} of the reference "
+                + $"({KsaWorld.MediumDiagnosis(body, at)})");
         return true;
     }
 
