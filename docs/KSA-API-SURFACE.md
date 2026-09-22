@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-216 types and 581 members across 9 assemblies.
+216 types and 582 members across 9 assemblies.
 
 ## Brutal.Concurrency
 
@@ -720,6 +720,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `bool IsPlaying()`
 - `void ApplyParameters()`
 - `void SetParameter(KSA.KeyHash, float)`
+- `void SetPaused(bool)`
 - `void SetSpatialAudio(KSA.SpatialAudio)`
 - `void Stop(bool)`
 - `void set_PitchMultiplier(float)`

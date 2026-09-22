@@ -386,7 +386,7 @@ internal static class NuclearClouds
             BurstEjecta.BeginWilson(body, burstCcf, chargeKg);
 
             // And the bang, which is seconds behind the light.
-            BurstSound.Begin(body, burstEcl);
+            BurstSound.Begin(body, burstEcl, chargeKg);
 
             // A column is about as tall as it is wide, so one number frames it both ways.
             _watch = (body, burstCcf, up,

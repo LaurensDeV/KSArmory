@@ -643,4 +643,46 @@ public class MushroomCloudTests
                         $"{kt} kt peaks at {MushroomCloud.PulsePeakSeconds(kt):F3} s, too fast to see");
         }
     }
+
+    [Fact]
+    public void TheBangIsHeardUnalteredAtItsAnchor()
+    {
+        Assert.Equal(1.0, MushroomCloud.BangPitch(MushroomCloud.BangAnchorKt), 9);
+    }
+
+    [Fact]
+    public void EightTimesTheYieldIsTwiceTheRumbleWhileTheLawHolds()
+    {
+        // The cube root: every time in the sound goes as W^(1/3), so eight times the yield plays
+        // back at half the pitch -- twice as long and an octave down -- as long as neither end of
+        // the pair has reached the floor.
+        double low = MushroomCloud.BangAnchorKt;
+        double high = low * 8.0;
+
+        Assert.True(MushroomCloud.BangPitch(high) > MushroomCloud.BangPitchFloor);
+        Assert.Equal(0.5, MushroomCloud.BangPitch(high) / MushroomCloud.BangPitch(low), 9);
+    }
+
+    [Fact]
+    public void TheBangNeverRisesAboveTheSampleAndNeverFallsThroughTheFloor()
+    {
+        double last = double.MaxValue;
+
+        foreach (double kt in new[] { 0.001, 0.01, 0.3, 1.0, 3.0, 20.0, 300.0, 10000.0 })
+        {
+            double pitch = MushroomCloud.BangPitch(kt);
+
+            Assert.InRange(pitch, MushroomCloud.BangPitchFloor, 1.0);
+            Assert.True(pitch <= last, $"a bigger burst was pitched higher at {kt} kt");
+
+            last = pitch;
+        }
+    }
+
+    [Fact]
+    public void TheWarheadSoundsBiggerThanTheBomb()
+    {
+        // The two nuclear charges the arsenal ships, which were the same file before this.
+        Assert.True(MushroomCloud.BangPitch(20.0) < MushroomCloud.BangPitch(0.3) * 0.5);
+    }
 }

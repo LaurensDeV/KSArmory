@@ -22,6 +22,11 @@ internal static class BurstSound
     // longer plays it on contact; this plays it when it arrives instead.
     private const string BangId = "ExplosionBig";
 
+    // How long the echo layer of that bang runs at its own pitch: Core ships four, at 10.6 to
+    // 10.8 s. Said in the log beside the pitch, because the length is the part a reader can check
+    // by ear and the pitch is not.
+    private const double EchoSeconds = 10.7;
+
     // Dry air at about fifteen degrees, which is Earth's. One number rather than one per body:
     // the speed of sound is set by temperature and composition and this mod carries neither. What
     // it does carry is whether there is air at all, which is the difference that matters.
@@ -31,7 +36,7 @@ internal static class BurstSound
     // a noise is indistinguishable from a bug.
     private const double FurthestSeconds = 45.0;
 
-    private static readonly List<(double Due, double3 BurstEcl, object? Body)> _pending = [];
+    private static readonly List<(double Due, double3 BurstEcl, object? Body, double ChargeKg)> _pending = [];
     private static bool _warned;
 
     /// <summary>Forgets every bang still on its way, for a scene that no longer contains them.</summary>
@@ -41,7 +46,7 @@ internal static class BurstSound
     /// Queues one, to be heard once the sound has covered the distance. Silent on a body with no
     /// air, which is the whole of what makes that case different.
     /// </summary>
-    public static void Begin(Celestial body, double3 burstEcl)
+    public static void Begin(Celestial body, double3 burstEcl, double chargeKg)
     {
         try
         {
@@ -58,7 +63,7 @@ internal static class BurstSound
             // point is left behind by the planet's 29.8 km/s long before it arrives.
             if (!KsaWorld.TryAnchorToGround(burstEcl, out object? anchored, out double3 anchor)) return;
 
-            _pending.Add((delay, anchor, anchored));
+            _pending.Add((delay, anchor, anchored, chargeKg));
         }
         catch
         {
@@ -77,17 +82,17 @@ internal static class BurstSound
 
         for (int i = _pending.Count - 1; i >= 0; i--)
         {
-            (double due, double3 anchor, object? body) = _pending[i];
+            (double due, double3 anchor, object? body, double charge) = _pending[i];
 
             due -= dt;
-            if (due > 0.0) { _pending[i] = (due, anchor, body); continue; }
+            if (due > 0.0) { _pending[i] = (due, anchor, body, charge); continue; }
 
             _pending.RemoveAt(i);
-            Play(body, anchor);
+            Play(body, anchor, charge);
         }
     }
 
-    private static void Play(object? body, double3 anchor)
+    private static void Play(object? body, double3 anchor, double chargeKg)
     {
         try
         {
@@ -103,7 +108,22 @@ internal static class BurstSound
             double3 velEgo = velEcl;
             if (!Vec.IsFinite(posEgo) || !Vec.IsFinite(velEgo)) return;
 
-            sound.Play(new SpatialAudio(posEgo, velEgo, 1f), 1f, out IChannel? _);
+            // Started paused and pitched before it is let go, so no part of it is heard at the
+            // pitch of a rocket going off. The multiplier reaches every layer KSA's bang is made
+            // of -- the crack, the far report and the ten-second echo -- through the multi-channel
+            // wrapper, which is what makes one number enough.
+            double kt = MushroomCloud.KilotonsFor(chargeKg);
+            float pitch = (float)MushroomCloud.BangPitch(kt);
+
+            sound.Play(new SpatialAudio(posEgo, velEgo, 1f), 1f, out IChannel? channel,
+                       startPaused: true);
+            if (channel is null) return;
+
+            channel.PitchMultiplier = pitch;
+            channel.SetPaused(false);
+
+            Log.Info($"bang: {kt:F2} kt heard at {pitch:F2} pitch -- KSA's ten-second echo runs "
+                     + $"about {EchoSeconds / pitch:F0} s");
         }
         catch (Exception e)
         {
