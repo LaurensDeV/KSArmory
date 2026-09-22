@@ -26,6 +26,7 @@ internal static class BurstEjecta
     private const string EjectaId = "KSArmoryNuclearEjecta";
     private const string ShellId = "KSArmoryNuclearShell";
     private const string SurgeId = "KSArmoryNuclearSurge";
+    private const string WilsonId = "KSArmoryNuclearWilson";
 
     private static bool _warned;
 
@@ -196,6 +197,49 @@ internal static class BurstEjecta
             {
                 _warned = true;
                 Log.Warn($"base surge failed to draw: {e.Message}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// The condensation cloud, for a burst in humid air.
+    ///
+    /// <para><see cref="MushroomCloud.WilsonRadius"/> is the arithmetic and this is the plumbing.
+    /// It belongs to the atmospheric branch alone: there is nothing to condense without air.</para>
+    /// </summary>
+    public static void BeginWilson(Celestial body, double3 burstCcf, double chargeKg)
+    {
+        if (!Detonation.ParticlesEnabled) return;
+
+        try
+        {
+            double radius = MushroomCloud.WilsonRadius(chargeKg);
+            double seconds = MushroomCloud.WilsonSeconds(chargeKg);
+            if (!(radius > 0.0) || !(seconds > 0.0)) return;
+
+            BubbleOrigin origin = new()
+            {
+                Time = Universe.GetElapsedTime(),
+                Parent = body,
+                BubFrame = BubbleFrame.Ccf,
+                PositionBub = burstCcf,
+                VelocityBub = double3.Zero,
+            };
+
+            Fire(WilsonId, body, origin, e =>
+            {
+                e.ParticleInfo.Size = new float2((float)radius, (float)radius);
+                e.ParticleInfo.Lifespan = new float2((float)seconds, (float)seconds);
+            });
+
+            Log.Info($"condensation cloud: {radius:F0} m for {seconds:F2} s");
+        }
+        catch (Exception e)
+        {
+            if (!_warned)
+            {
+                _warned = true;
+                Log.Warn($"condensation cloud failed to draw: {e.Message}");
             }
         }
     }

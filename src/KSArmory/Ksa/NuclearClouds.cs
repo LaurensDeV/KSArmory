@@ -221,6 +221,10 @@ internal static class NuclearClouds
             // push constant carries the column's four numbers and has no room for the skirt's.
             BurstEjecta.BeginSurge(body, burstCcf, chargeKg);
 
+            // And the condensation shell over the first couple of seconds, which is why a
+            // photograph of a burst that early is a white dome rather than a ball of fire.
+            BurstEjecta.BeginWilson(body, burstCcf, chargeKg);
+
             // A column is about as tall as it is wide, so one number frames it both ways.
             _watch = (body, burstCcf, up,
                       new AirlessBurst.Extent(MushroomCloud.DrawnCloudTop(kt),

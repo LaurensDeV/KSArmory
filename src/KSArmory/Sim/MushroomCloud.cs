@@ -141,6 +141,39 @@ public static class MushroomCloud
     }
 
     /// <summary>
+    /// The condensation cloud — the Wilson cloud — as a radius and how long it lasts.
+    ///
+    /// <para>The shock front leaves a rarefaction behind it, and the air it has just expanded cools
+    /// below its own dew point: a white shell of droplets appears around the burst, engulfs the
+    /// fireball, and then evaporates again as the pressure recovers. It is the reason a photograph
+    /// of the first second looks like a white dome rather than a ball of fire.</para>
+    ///
+    /// <para><b>It needs humid air, so it belongs to the atmospheric branch alone</b> — there is
+    /// nothing to condense on an airless body, which is also where this mod already forks.</para>
+    ///
+    /// <para>Sized in fireball radii and timed against the luminous phase rather than given laws of
+    /// their own. The published scaling for it is thin and strongly dependent on humidity, and two
+    /// more fitted constants here would be inventing precision — what is defensible is that the
+    /// shell is a few fireball radii across and gone about as quickly as the flash.</para>
+    /// </summary>
+    public const double WilsonInFireballs = 3.4;
+
+    /// <summary>How long that shell stands, as a multiple of the luminous phase.</summary>
+    public const double WilsonOfFlash = 1.35;
+
+    /// <summary>The condensation shell's radius, or zero for a charge too small to make one.</summary>
+    public static double WilsonRadius(double chargeKg)
+        => chargeKg < ThresholdKg
+               ? 0.0
+               : WilsonInFireballs * PeakFireballRadius(KilotonsFor(chargeKg));
+
+    /// <summary>And how long it lasts before the pressure recovers and it evaporates.</summary>
+    public static double WilsonSeconds(double chargeKg)
+        => chargeKg < ThresholdKg
+               ? 0.0
+               : WilsonOfFlash * FlashSeconds(KilotonsFor(chargeKg));
+
+    /// <summary>
     /// The widest the base surge gets, and how long it takes to get there.
     ///
     /// <para><b>Sampled off <see cref="SurgeRadius"/> rather than solved for.</b> That expression is
