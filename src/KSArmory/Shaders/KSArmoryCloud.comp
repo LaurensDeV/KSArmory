@@ -5,9 +5,16 @@
 // not meet by any relative path. Ksa/CoreShaderInclude.cs writes it; nothing of the game's is
 // copied here.
 //
-// Nothing below is statically used YET -- the LUT functions take their samplers as parameters and
-// those are not bound. Including it now proves the route ships, and a header nothing calls compiles
-// to nothing.
+// Set 0 is the engine's GLOBAL set and ComputePipelineWrapper already binds it for every compute
+// pass -- so the lighting block and the ambient LUT are in this shader without a descriptor of
+// this mod's own. That is the whole of why the real sky costs no plumbing.
+//
+// The two set indices below are pointed at slots this pass does not use, the way Core's own
+// Volumetric.comp does it: the headers declare them, nothing here calls what they declare, and an
+// unused declaration binds nothing.
+#define SET_TEXTURE 2
+#define SET_CLOUD_DATA 3
+
 #include "CoreAtmosphere.glsl"
 
 // This mod's nuclear cloud, evaluated per pixel instead of choreographed as capsules.
@@ -236,20 +243,21 @@ void main()
         // toward the sun and toward the horizon, and a single number for it is what makes a volume
         // read as a cut-out.
         //
-        // APPROXIMATED, not KSA's. The engine's own aerial-perspective LUT is bound and public --
-        // Program.PlanetAtmosphereRenderer hands out the set and its layout -- but sampling it
-        // needs Core's AtmosphereLuts.glsl, and a mod's shader cannot include it: shaderc resolves
-        // includes relative to the requesting file, the mod lives under Documents and Core under
-        // the install, and copying their shader in would be redistributing it.
-        // docs/BLOCKED-ON-KSA.md has the entry.
-        float up_ = clamp(dot(dir, up) * 0.5 + 0.5, 0.0, 1.0);
-        float toward = clamp(dot(dir, sun) * 0.5 + 0.5, 0.0, 1.0);
+        // KSA's own sky, not an approximation of one: the same call, the same LUT and the same
+        // layer the engine lights its weather clouds and its meshes with, so this cloud is lit by
+        // the atmosphere everything else in frame is lit by -- at sunrise, at altitude, and on a
+        // body whose air is not Earth's, all of which a hand-written tint gets wrong.
+        vec3 camRelative = dir * (t0 + (float(i) + jitter) * dt);
+        float atmosRadius = global.lighting.planetRadius + global.lighting.atmosphereHeight;
 
-        vec3 sky = mix(vec3(0.34, 0.42, 0.56), vec3(0.62, 0.66, 0.72), 1.0 - up_)
-                   * (0.75 + 0.55 * toward);
+        vec3 sky = GetAmbient(camRelative, global.lighting.planetPosition.xyz,
+                              normalize(global.lighting.sunPosition.xyz - camRelative),
+                              global.lighting.planetRadius, atmosRadius, ambientLutGlobal,
+                              float(global.lighting.atmosphereLutLayer))
+                   * global.lighting.sunColor.rgb;
 
         vec3 albedo = vec3(0.30, 0.26, 0.21);
-        vec3 lit = albedo * sunlight * forward * 12.0 + sky * albedo * 0.9;
+        vec3 lit = albedo * sunlight * forward * 12.0 + sky * albedo;
 
         float extinction = density * 0.016 * dt;
         scattered += transmittance * lit * extinction;

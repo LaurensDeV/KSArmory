@@ -676,102 +676,34 @@ is the atmospheric habit, and it survives review because it is what every smoke 
 
 ### What is not built
 
-The **shell is art rather than physics**. In vacuum the bomb's own vaporised mass expands at
-kilometres a second and is over long before a frame could show it, so what is drawn is that the
-event happened rather than the speed it happened at — a few fireball radii over the flash's own
-duration. Nothing about it is measured against anything.
-
-And `ReachInFireballs` is the one free constant in the file. Everything else follows from
-`MushroomCloud.PeakFireballRadius` and the body's gravity, so the yield dial moves all of it
-together; that one number was chosen for how it reads at 0.3 kt on the Moon and has not been
-checked at the top of the dial in flight.
-
-**None of this has been flown.** The arithmetic has tests; the drawing does not, and the particle
-route has never rendered on an airless body in this mod.
-
-
----
-
-## The raymarched cloud, and what Worley did to it
-
-`Ksa/CloudPass.cs` evaluates the cloud per pixel instead of walking it with capsules:
-a torus SDF for the cap unioned with the stem, eroded by fBm, marched between a bounding sphere and
-the scene depth. It reaches KSA's frame through an ordinary Harmony prefix on
-`SunbloomRenderer.Render` — **no renderer was ported and no IL is rewritten**, which the plan for it
-assumed would be necessary. `docs/KSA-API-SURFACE.md` pins the signature, so a KSA change is a build
-error rather than an effect that stops drawing. It is **off by default** and the pen cloud is still
-what ships.
-
-### Three constants decide whether it is smoke or plastic
-
-Flown and photographed, one at a time:
-
-| | wrong | what it looked like |
-| --- | --- | --- |
-| noise frequency | 2.4 across the cloud | two noise cells over the whole shape: moulded plastic |
-| density ramp | over `0.6 · tube` | saturates at once, giving the cloud a **surface** |
-| erosion amplitude | `2.6 · tube` | deeper than the thing eroded, so cap and stem merge |
-
-The frequency is set **per cloud rather than per metre** so every yield carries the same number of
-billows; at 26 across the shape fBm starts reading as turbulence.
-
-### Worley is what KSA uses and it made this worse
-
-The trail renderer carries a 128³ Worley volume, which is where the pens get their cauliflower — so
-inverted Worley billows over three octaves looked like the obvious way to close the gap. Flown at
-two settings, both worse than the fBm it replaced: at 26 the billows were the size of the cap's own
-tube and cap and stem merged into one blob, and at 38 with the amplitude brought under the tube the
-whole thing went soft and lost what detail it had.
-
-**It is not in.** What that does not mean is that Worley is wrong here — it means a per-sample
-Worley evaluated over 27 cells at three octaves, at these amplitudes, is worse than plain fBm, and
-that closing the gap to the pens wants the *volume* KSA samples rather than a cellular field
-recomputed per march step. The likely shape of the answer is a 3D noise texture bound beside the
-depth sampler, which `ComputePipelineWrapper` takes and nothing here has built.
-
-### What is not built
-
-No atmospheric in-scatter — the pens get KSA's own, which is most of the remaining quality gap. No
-wind advection, where a trail segment drifts through a sheared field for 1200 s.
+No wind advection, where a trail segment drifts through a sheared field for 1200 s. The raymarch
+holds its shape and the pens drift.
 
 **Its cost is the engine's own to report.** A compute dispatch is asynchronous, so timing it from C#
 measures the recording rather than the work — but `ProfilerTag`'s constructor is public and
-`CommandBuffer.TagRegion` is a public extension, so the dispatch sits inside KSA's own GPU profiler
-as `KSArmory Cloud`, listed beside the passes it has to be afforded against. No query pool of this
-mod's was needed. **It has been read, and it is far too expensive.** Flown from the pad with the camera near the
-burst, `KSArmory Cloud` measures **41.8 ms a frame** while the cloud is young and fills the view,
-settling to **13.9 ms** as it grows and the camera pulls back, with a **146 ms peak** — between 29%
-and 62% of the whole GPU frame. The pen cloud it would replace costs 6-8 ms.
+`CommandBuffer.TagRegion` is a public extension, so the dispatch sits inside KSA's GPU profiler as
+`KSArmory Cloud` and `Ksa/CloudPassCost.cs` reads it back. The harness pins the camera
+(`Ksa/CloudWatch.cs`), because what the pass costs is what it marches and an unpinned view made the
+same build read 36 ms and 4.7 ms.
 
-So it is two to six times dearer than the thing it is meant to beat, and its worst frame is seven
-frames a second. **Nothing about the look is worth tuning until that changes**, because no
-appearance justifies a sixth of a second.
+Measured from there, paired against the same run with the pass off: the frame grows
+**22.94 → 24.69 ms** while the pass reports **1.85 ms**, two numbers agreeing to a tenth. Pulled in
+to the watching distance with the real atmosphere on it is **2.90 ms**, against the **6-8 ms** of
+the pen cloud it would replace.
 
-The cost is coverage, not cloud: every pixel the bounding sphere accepts marches 48 steps, each
-taking four more density samples toward the sun, so a cloud that fills the screen costs 192 density
-evaluations per pixel. Standing in it is the worst case and is also exactly where a player stands.
+### The sky is KSA's own, and it cost no plumbing
 
-**The shadow was four fifths of it, and a shadow does not need detail.** Every one of those 192
-taps ran the full four-octave fBm to produce a number that is then exponentiated into a smooth
-falloff — paying for turbulent surface detail in a term that cannot show any. Asking the
-*un-eroded* shape instead, with 32 jittered steps rather than 48 and a transmittance cut-off of
-0.03, took the pass from **36 ms to 4.7 ms**, under the pen cloud's 6-8. Half-resolution was not
-needed and is not built.
+`GetAmbient` is called with the engine's own ambient LUT, its planet position, its radii and its
+atmosphere layer — the same call `Common/Lighting.glsl` makes for a mesh and `RaymarchCloud.comp`
+for a weather cloud. So this cloud is lit by the atmosphere everything else in frame is lit by, and
+is right at sunrise, at altitude and on a body whose air is not Earth's, which a hand-written tint
+never is.
 
-**The harness pins the camera now**, because it had to: what the pass costs is set by how much of
-the screen it marches, so a view the operator can move makes every number one about where somebody
-was standing. `Ksa/CloudWatch.cs` stands 1.85 cloud-heights out at 14° and looks 45% up the column —
-2.4 km on a 0.3 kt cloud, which is also the shot worth watching, a mushroom being a side-on
-silhouette.
+**None of it needed a descriptor.** `ComputePipelineWrapper` binds `GlobalShaderBindings` at set 0
+for every compute pass it builds, and that set already carries the lighting block and
+`ambientLutGlobal`. What was missing was only the *declaration* — Core's `Global.glsl` and
+`AtmosphereLuts.glsl` — and `Ksa/CoreShaderInclude.cs` writes the absolute include at load that
+reaches them. The uniform buffer and the extra samplers that looked necessary were not.
 
-Measured from there, paired against the same run with the pass off:
-
-| | whole GPU frame | pass |
-| --- | --- | --- |
-| off | 22.94 ms | — |
-| on | 24.69 ms | **1.85 ms**, peak 6.81 |
-
-The frame grows by 1.75 ms against a pass that reports 1.85 — two independent numbers agreeing to a
-tenth, which is what makes this one trustworthy where the unpinned ones were not. Pulled in to 1.85
-heights it is **2.67 ms**. Either way it is well under the 6-8 ms of the pen cloud it would replace,
-and the earlier 36 ms and 4.7 ms readings were both camera artefacts as much as anything else.
+The two set indices the headers want for textures and cloud data are pointed at slots this pass does
+not use, exactly as Core's own `Volumetric.comp` does it: an unused declaration binds nothing.

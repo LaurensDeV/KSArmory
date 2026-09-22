@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 
 namespace KSArmory;
@@ -26,9 +27,14 @@ internal static class CoreShaderInclude
     private const string Folder = "Shaders";
     private const string Generated = "CoreAtmosphere.glsl";
 
-    // What it points at, under the game's own Content root.
-    private static readonly string[] Wanted =
-        ["Content", "Core", "Shaders", "Atmosphere", "AtmosphereLuts.glsl"];
+    // What it points at, under the game's own Content root. Global.glsl declares the set KSA binds
+    // at 0 for every compute pass -- the lighting block and the ambient LUT among it -- and
+    // AtmosphereLuts.glsl is what reads them.
+    private static readonly string[][] Wanted =
+    [
+        ["Content", "Core", "Shaders", "Common", "Global.glsl"],
+        ["Content", "Core", "Shaders", "Atmosphere", "AtmosphereLuts.glsl"],
+    ];
 
     /// <summary>Whether the header was written and names a file that is there.</summary>
     public static bool Available { get; private set; }
@@ -47,13 +53,20 @@ internal static class CoreShaderInclude
         {
             // The game's own working directory is its install root, which is what makes the Content
             // path resolvable without anybody being asked where the game is.
-            string core = Path.GetFullPath(Path.Combine(Wanted));
+            List<string> found = [];
 
-            if (!File.Exists(core))
+            foreach (string[] parts in Wanted)
             {
-                Log.Warn($"core shaders: '{core}' is not there, so the cloud keeps its approximated "
-                         + "sky; KSA's own atmosphere needs the game's shader tree");
-                return false;
+                string core = Path.GetFullPath(Path.Combine(parts));
+
+                if (!File.Exists(core))
+                {
+                    Log.Warn($"core shaders: '{core}' is not there, so the cloud keeps its "
+                             + "approximated sky; KSA's own atmosphere needs the game's shader tree");
+                    return false;
+                }
+
+                found.Add(core);
             }
 
             string shaders = Path.Combine(modFolder, Folder);
@@ -63,17 +76,17 @@ internal static class CoreShaderInclude
                 return false;
             }
 
-            // Forward slashes whatever the platform: this is a GLSL include, not a path the shell
+            // Forward slashes whatever the platform: these are GLSL includes, not paths the shell
             // will ever see, and a backslash in one is an escape.
-            string include = core.Replace('\\', '/');
+            string body = "// Generated at load. Points at this machine's own KSA install;\n"
+                          + "// nothing of the game's is copied here. See Ksa/CoreShaderInclude.cs.\n";
 
-            File.WriteAllText(Path.Combine(shaders, Generated),
-                              "// Generated at load. Points at this machine's own KSA install;\n"
-                              + "// nothing of the game's is copied here. See Ksa/CoreShaderInclude.cs.\n"
-                              + $"#include \"{include}\"\n");
+            foreach (string core in found) body += $"#include \"{core.Replace('\\', '/')}\"\n";
+
+            File.WriteAllText(Path.Combine(shaders, Generated), body);
 
             Available = true;
-            Log.Info($"core shaders: atmosphere available from {include}");
+            Log.Info($"core shaders: atmosphere available from {Path.GetDirectoryName(found[0])}");
 
             return true;
         }

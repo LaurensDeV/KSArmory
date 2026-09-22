@@ -260,39 +260,6 @@ would mean depending on two third-party framework mods, which is a different dec
 missing engine feature — this mod currently requires only StarMap. Recorded here so the trade is a
 deliberate one.
 
-## KSA's atmosphere LUTs on a mod's own shader — not blocked, just not built
-
-**This was written as a blocker and it is not one.** The claim was that a mod's shader cannot
-include `Content/Core/Shaders/Atmosphere/AtmosphereLuts.glsl`, because shaderc resolves includes
-relative to the requesting file and Core's shaders sit under the install while a mod's sit under
-Documents. The first half is right and the conclusion was wrong: **an absolute include resolves**.
-Probed in flight — a `#include "C:/Program Files/Kitten Space Agency/Content/Core/Shaders/Atmosphere/AtmosphereLuts.glsl"`
-in this mod's own `.comp` compiled, and the LUT header's own `../Common/Shared.glsl` resolved
-relative to *its* location inside the Core tree.
-
-So everything needed is reachable. `Program.PlanetAtmosphereRenderer` is a public static and hands
-out `GetAtmosphereLutsDescriptorSet`, its layout, `GetAtmosphereDataSet` and
-`GetAtmosphereDataDynamicOffset`; `ComputePipelineWrapper` takes external descriptor set layouts
-and `BindPipeline` takes the sets and their offsets.
-
-**What remains is work rather than permission**, and it is worth knowing before starting:
-
-- ~~The path cannot be committed.~~ **Built.** `Ksa/CoreShaderInclude.cs` writes a one-line
-  `Shaders/CoreAtmosphere.glsl` at load, resolving `Content/Core/Shaders/...` against the game's own
-  working directory, and the mod's `.comp` includes that by name. Flown: `core shaders: atmosphere
-  available from C:/Program Files/...`, and the pass compiles with Core's header in it. Nothing of
-  RocketWerkz's is redistributed, the same way the build reads their assemblies from wherever the
-  game is installed.
-- `AtmosphereLuts.glsl` takes its samplers as **function parameters** rather than binding them, so
-  the caller declares them — which means matching the LUT set's binding layout by hand, and that
-  layout is not documented anywhere a mod can read.
-- `GetAmbient` wants the planet's radii and the direction to the sun, none of which the pass
-  carries today.
-
-`Ksa/CloudPass.cs` approximates in the meantime: a sky ambient that brightens toward the sun and the
-horizon, and an aerial-perspective wash with range. It reads well at two kilometres at midday and is
-wrong at sunrise, at altitude and on any body whose air is not Earth's.
-
 ## Secondary viewport: no sky, clouds, atmosphere or terrain
 
 **Wanted.** The launcher's electro-optical head drives a second camera window, so the sight can be
