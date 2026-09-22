@@ -306,6 +306,15 @@ internal sealed class DropScenario
     /// </summary>
     public bool SecondBurst { get; init; }
 
+    /// <summary>
+    /// What to multiply that second burst's yield by, so one run carries two sizes.
+    ///
+    /// <para>It is how anything but the B61's third of a kilotonne gets looked at: the drop's store
+    /// is fixed, and both the cloud's shape and the airless dome's reach are read off the charge.
+    /// </para>
+    /// </summary>
+    public double SecondBurstYield { get; init; } = 1.0;
+
     // Far enough apart that neither merges into the other and near enough that one camera holds
     // both. The merge reaches only as far as the combined fireball -- 55 m at this yield -- and the
     // pinned watch stands 1.85 cloud radii off with a 50 degree field, which is about 2.2 km of
@@ -330,11 +339,14 @@ internal sealed class DropScenario
         // none of that.
         _secondBurstDone = true;
 
-        double3 at = KsaWorld.PositionEcl(craft) + (east * SecondBurstMetres);
-        NuclearClouds.Begin(at, craft, round.Munition.ChargeKg);
+        double charge = round.Munition.ChargeKg * Math.Max(SecondBurstYield, 0.0);
 
-        _report($"second burst {SecondBurstMetres / 1000.0:F1} km east of the first, so the pass "
-                + $"has two clouds to draw; {NuclearClouds.Count} standing");
+        double3 at = KsaWorld.PositionEcl(craft) + (east * SecondBurstMetres);
+        NuclearClouds.Begin(at, craft, charge);
+
+        _report($"second burst {SecondBurstMetres / 1000.0:F1} km east of the first at "
+                + $"{MushroomCloud.KilotonsFor(charge):F2} kt, so the pass has two clouds to draw; "
+                + $"{NuclearClouds.Count} standing");
     }
 
     /// <summary>Which phase it is in, for a timeout to name.</summary>

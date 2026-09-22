@@ -78,6 +78,7 @@ internal sealed class ScenarioRunner
     private bool _chase;
     private bool _showClouds;
     private bool _twoClouds;
+    private double _secondYield = 1.0;
     private double[] _speeds = [];
 
     // Where a run sets its craft down first, for a body no save is on: the gunnery mount, and the
@@ -412,7 +413,32 @@ internal sealed class ScenarioRunner
         // exercised with more than one cloud standing. Nothing else in the scenarios produces two:
         // a bus's six warheads land about 9 mm apart and are deliberately one cloud, and the only
         // shot that spreads them is a multi-target ballistic run whose coast is hours long.
-        _twoClouds = Array.IndexOf(options, "twoclouds") >= 0;
+        // "twoclouds" or "twoclouds=<multiple>". The multiple is on the SECOND burst's yield, so
+        // one run can carry two different sizes -- which is the only way the airless dome has been
+        // looked at anywhere but the B61's third of a kilotonne.
+        _twoClouds = false;
+        _secondYield = 1.0;
+
+        foreach (string option in options)
+        {
+            if (!option.StartsWith("twoclouds", StringComparison.Ordinal)) continue;
+
+            _twoClouds = true;
+
+            int split = option.IndexOf('=');
+            if (split < 0) continue;
+
+            if (double.TryParse(option[(split + 1)..], System.Globalization.NumberStyles.Float,
+                                System.Globalization.CultureInfo.InvariantCulture, out double times)
+                && times > 0.0)
+            {
+                _secondYield = times;
+            }
+            else
+            {
+                Log.Warn($"scenario: ignored '{option}' -- a yield multiple is twoclouds=<number>");
+            }
+        }
 
         _config.ShaderPass = _showClouds && !noShader ? 1f : 0f;
 
@@ -520,6 +546,7 @@ internal sealed class ScenarioRunner
         {
             Site = _site,
             SecondBurst = _twoClouds,
+            SecondBurstYield = _secondYield,
         };
 
         // Same allowance the gunnery run makes: a site is usually another body, the full system

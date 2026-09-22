@@ -1449,6 +1449,11 @@ there is no column at all, and `Ksa/BurstEjecta.cs` throws ground instead.
 - [x] **Luna.** `KSARMORY_SCENARIO_SITE=Luna,0,0 KSARMORY_SCENARIO_SYSTEM=Sol` with
       `KSARMORY_SCENARIO_CLOUDS=1`: the store lands in 5.2 s, the dust dome draws, and four
       captures land at 0.10/0.30/0.60/0.95 of a **16.4 s** watch that no longer drifts.
+- [x] **And at a yield that is not the B61's.** `KSARMORY_SCENARIO_TWOCLOUDS=100` sets the second
+      burst off at a hundred times the store's charge, so one run carries both. Flown on Luna: a
+      0.3 kt dome 218 m across beside a 30 kt one at 1378 m, which is the 6.3x that `W^0.4` asks
+      for over a hundredfold yield. The drawing had only ever been looked at at 0.3 kt; the
+      arithmetic was already tested from 0.3 to 1000.
 - [x] Three bugs that only an airless body could show, each flown before and after — a body with no
       atmosphere reading as Earth sea-level air, rounds on the Moon ground-tested against Earth,
       and the two halves of one burst disagreeing about whether it threw anything. The Earth drop

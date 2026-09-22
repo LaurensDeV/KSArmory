@@ -40,6 +40,8 @@
 #   KSARMORY_SCENARIO_NOSHADER=1 ...     # ...the same run with the pass off, as its control
 #   KSARMORY_SCENARIO_TWOCLOUDS=1 ...    # ...and a second burst 1 km away, which is the only way
 #                                        # to exercise the pass with more than one cloud standing
+#   KSARMORY_SCENARIO_TWOCLOUDS=100 ...  # ...that second burst at 100x the store's yield, which is
+#                                        # how anything but the B61's 0.3 kt gets looked at
 #
 # The gap this closes is not headless rendering -- KSA ships Windows-only natives and threads its
 # simulation through a Vulkan renderer, so there is no headless to have. It is that verifying a
@@ -192,7 +194,7 @@ mkdir -p "$USER_DIR/Logs"
     printf '%s|%s\n' "$SCENARIO" "$SAVE"
     printf '%s\n%s\n' "$ARMS" "$ARM_PHASE"
     printf '%s %s %s %s %s %s %s %s %s\n' "${KSARMORY_SCENARIO_KEEPSTAGES:+keepstages}" "${KSARMORY_SCENARIO_TRACE:+trace}" \
-        "${KSARMORY_SCENARIO_VERBOSE:+verbose}" "${KSARMORY_SCENARIO_CHASE:+chase}" "${KSARMORY_SCENARIO_CLOUDS:+clouds}" "${KSARMORY_SCENARIO_NOSHADER:+noshader}" "${KSARMORY_SCENARIO_TWOCLOUDS:+twoclouds}" \
+        "${KSARMORY_SCENARIO_VERBOSE:+verbose}" "${KSARMORY_SCENARIO_CHASE:+chase}" "${KSARMORY_SCENARIO_CLOUDS:+clouds}" "${KSARMORY_SCENARIO_NOSHADER:+noshader}" "${KSARMORY_SCENARIO_TWOCLOUDS:+twoclouds=$KSARMORY_SCENARIO_TWOCLOUDS}" \
         "${KSARMORY_SCENARIO_SPEEDS:+speeds=$KSARMORY_SCENARIO_SPEEDS}" \
         "${KSARMORY_SCENARIO_SITE:+site=$KSARMORY_SCENARIO_SITE}"
 } > "$USER_DIR/Logs/scenario.txt"
