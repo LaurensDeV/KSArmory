@@ -63,7 +63,16 @@ internal static class BurstFlash
     {
         try
         {
-            if (!KsaWorld.TryMainCameraPose(out double3 eyeEcl, out _)) { Whiteout = 0f; return; }
+            if (!KsaWorld.TryMainCameraPose(out double3 eyeEcl, out double3 forwardEcl))
+            {
+                Whiteout = 0f;
+                return;
+            }
+
+            // Half the field, so a burst in frame blinds and one outside it only glares. The
+            // view's own rather than a constant: at the sight's magnification the frame is three
+            // degrees wide, and a burst twenty degrees off it is genuinely not being looked at.
+            double halfField = KsaWorld.MainViewFovDeg() * 0.5;
 
             double brightest = 0.0;
 
@@ -83,7 +92,15 @@ internal static class BurstFlash
                 // fills -- so a small burst close and a big one far are the same answer.
                 double solid = (flash.Radius / range) * (flash.Radius / range);
 
-                brightest = Math.Max(brightest, flash.Glow * solid);
+                // ...and how much of that reaches somebody facing where they are facing. Without
+                // it a burst directly BEHIND the camera whited the screen out exactly as one dead
+                // ahead did, because the pose was read for its position and its direction thrown
+                // away.
+                double offAxisDeg = double.RadiansToDegrees(
+                    Vec.AngleBetween(burstEcl - eyeEcl, forwardEcl));
+
+                brightest = Math.Max(brightest,
+                                     flash.Glow * solid * FlashGlare.Reaching(offAxisDeg, halfField));
             }
 
             // Driven by the RISE and recovering always, rather than held at whatever is burning.
