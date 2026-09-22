@@ -29,7 +29,10 @@ internal static class CloudWatch
 
     // Above the horizontal. Low, because the silhouette is the point: from overhead a mushroom is a
     // blob, which is what the chase rig sees and why it was never the shot for this.
-    private const double ElevationDeg = 14.0;
+    private const double DefaultElevationDeg = 14.0;
+
+    /// <summary>The pose's elevation, which a scenario may lower to stand under the weather.</summary>
+    public static double ElevationDeg { get; set; } = DefaultElevationDeg;
 
     // Where to look up the thing, as a fraction of its top. Below the middle: the cap is the wide
     // part and wants the room above it. Measured against the TOP rather than the radius, which is
@@ -41,8 +44,12 @@ internal static class CloudWatch
 
     private static bool _said;
 
-    /// <summary>Forgets that it has spoken, so the next run says where it is watching from.</summary>
-    public static void Reset() => _said = false;
+    /// <summary>Forgets that it has spoken and where it stood, so the next run starts fresh.</summary>
+    public static void Reset()
+    {
+        _said = false;
+        ElevationDeg = DefaultElevationDeg;
+    }
 
     /// <summary>
     /// Points the main view at the newest burst. Returns false when there is none, which leaves the

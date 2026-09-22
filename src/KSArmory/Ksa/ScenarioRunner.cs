@@ -79,6 +79,7 @@ internal sealed class ScenarioRunner
     private bool _showClouds;
     private bool _twoClouds;
     private double _cloudWarp = 1.0;
+    private double _stillAt = -1.0;
     private double _secondYield = 1.0;
     private double[] _speeds = [];
 
@@ -423,6 +424,25 @@ internal sealed class ScenarioRunner
         // advanced at anything but 1x. A speed of 0 pauses instead, which is the other half of the
         // same question.
         _cloudWarp = 1.0;
+        _stillAt = -1.0;
+
+        // "stillat=<age>": freeze the world at that burst age and photograph it three times, so
+        // what changes between them is the renderer's own noise and nothing in the world.
+        foreach (string option in options)
+        {
+            if (!option.StartsWith("stillat=", StringComparison.Ordinal)) continue;
+
+            if (double.TryParse(option["stillat=".Length..], System.Globalization.NumberStyles.Float,
+                                System.Globalization.CultureInfo.InvariantCulture, out double age)
+                && age >= 0.0)
+            {
+                _stillAt = age;
+            }
+            else
+            {
+                Log.Warn($"scenario: ignored '{option}' -- a still is stillat=<seconds>");
+            }
+        }
 
         _twoClouds = false;
         _secondYield = 1.0;
@@ -468,6 +488,25 @@ internal sealed class ScenarioRunner
 
         CloudPassCost.Begin();
         CloudWatch.Reset();
+
+        // "watchelev=<deg>": stand the cloud watch that far above the horizontal instead. Low
+        // enough and the camera is under the weather deck the default pose looks down on, which is
+        // the other half of whether a burst goes behind a cloud correctly.
+        foreach (string option in options)
+        {
+            if (!option.StartsWith("watchelev=", StringComparison.Ordinal)) continue;
+
+            if (double.TryParse(option["watchelev=".Length..], System.Globalization.NumberStyles.Float,
+                                System.Globalization.CultureInfo.InvariantCulture, out double deg)
+                && deg > 0.0 && deg < 89.0)
+            {
+                CloudWatch.ElevationDeg = deg;
+            }
+            else
+            {
+                Log.Warn($"scenario: ignored '{option}' -- a watch elevation is watchelev=<degrees>");
+            }
+        }
 
         Report($"{_name}: GPU timing on, cloud {(_showClouds ? "ON" : "off -- this run is the baseline")}");
 
@@ -570,6 +609,7 @@ internal sealed class ScenarioRunner
         {
             Site = _site,
             LingerSpeed = _cloudWarp,
+            StillAt = _stillAt,
             SecondBurst = _twoClouds,
             SecondBurstYield = _secondYield,
         };

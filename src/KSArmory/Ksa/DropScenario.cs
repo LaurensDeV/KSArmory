@@ -139,7 +139,7 @@ internal sealed class DropScenario
     // is every store under the cloud threshold.
     private bool LingerIsDone
         => (double.IsFinite(_allCapturedAt) && _lingered >= _allCapturedAt + 4.0)
-           || _lingered >= LingerSeconds;
+           || _lingered >= LingerSeconds + _stillHeld;
 
     private double _allCapturedAt = double.NaN;
 
@@ -331,6 +331,20 @@ internal sealed class DropScenario
     public double LingerSpeed { get; init; } = 1.0;
 
     /// <summary>
+    /// A burst age to freeze the world at and photograph three times, or negative for none. With
+    /// nothing moving, whatever differs between the three is the renderer's own frame-to-frame
+    /// noise: the weather's jittered sampling, or grain in the march.
+    /// </summary>
+    public double StillAt { get; init; } = -1.0;
+
+    private const int StillShots = 3;
+    private const double StillSpacingSeconds = 0.5;
+
+    private int _stillTaken = -1;
+    private double _stillClock;
+    private double _stillHeld;
+
+    /// <summary>
     /// Whether to set off a second burst a few kilometres from the first once the store lands.
     ///
     /// <para>Harness only, and opt-in. What it exercises is that <c>CloudPass</c> draws every
@@ -428,6 +442,7 @@ internal sealed class DropScenario
                 if (_watchTheCloud && _craft is { } watched) CloudWatch.Update(watched);
 
                 CaptureBurst();
+                HoldStill(playerStep);
                 TraceLinger();
                 if (!LingerIsDone) return null;
 
@@ -609,6 +624,32 @@ internal sealed class DropScenario
                     + $"{KsaWorld.SimulationSpeed:F2}x after {_lingered:F1} s of wall clock"
                     + burning);
         }
+    }
+
+    private void HoldStill(double playerStep)
+    {
+        if (StillAt < 0.0 || _stillTaken >= StillShots || _burstAge < StillAt) return;
+
+        if (_stillTaken < 0)
+        {
+            KsaWorld.SetPaused(true);
+            _stillTaken = 0;
+            _stillClock = 0.0;
+            return;
+        }
+
+        _stillClock += playerStep;
+        _stillHeld += playerStep;
+        if (_stillClock < StillSpacingSeconds) return;
+
+        _stillClock = 0.0;
+        bool shot = KsaWorld.TryRequestScreenshot();
+        _stillTaken++;
+
+        _report($"{(shot ? "SHOT" : "CAPTURE")} still {_stillTaken} of {StillShots} at "
+                + $"{_burstAge:F1} s, world paused");
+
+        if (_stillTaken >= StillShots) KsaWorld.SetPaused(false);
     }
 
     private string? Wait(WeaponSystems roster, double dt)
