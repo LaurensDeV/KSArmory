@@ -38,8 +38,10 @@ The CLI writes what an MCP client would be shown inline to `tools/ksa-mcp/last/`
   transparency reported from play — and the fade starting at the weather's distance not doing so.
 - **What it could not show**: the flicker reported from play. Paused, all three fades are equally
   steady (0.14–0.15 of 255 between frames); the flicker needs the camera or the weather moving,
-  and a paused series is blind to that by construction. A series with the world running and the
-  camera held is the next thing to try on it.
+  and a paused series is blind to that by construction. With the world running and the camera
+  held it was not reproduced either: two rounds of eight frames disagreed about which fade was the
+  noisier, which says the scene's own motion is larger than the effect. The button in 8 is the way
+  to get it: frames from the moment somebody sees it.
 
 **Hot reload is one reflected call and has one trap.** `ShaderReference.DoLoad` is internal, and it
 destroys the old module even when the new compile returns nothing, as it does for a missing file —

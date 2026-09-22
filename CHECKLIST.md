@@ -1683,7 +1683,10 @@ Not exercised, and the first two are the ones to believe least:
       before a deck as behind it, and the burst went see-through. Three versions captured on one
       frozen instant through the bridge showed the centred band washing out the cap and the band
       starting at the distance not. **The flicker itself was never reproduced**: paused, all three
-      are equally steady, and it needs the camera or the weather moving.
+      are equally steady, and with the world running and the camera held, eight consecutive frames
+      of the hard cut against the fade came out at 15,582 pixels over 4 of noise against 4,743 in
+      one round and 5,190 against 5,435 in the next -- the scene's own motion is as large as any
+      difference. A capture from play, with the Capture for Claude button, is what would settle it.
 
       **The images are not only weather.** Explosion volumes and exhaust trails are raymarched into
       them too, which is right for a trail in front of the cloud and wrong for anything the burst
