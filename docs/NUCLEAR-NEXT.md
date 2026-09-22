@@ -82,20 +82,14 @@ so no shipped scenario can face away from one. The curve's invariants are pinned
 monotone, bounded, full in frame, floored behind — and the flight confirms only that the flash
 still fires when you are looking at it.
 
-### 3. The cloud never drifts — built
+### 3. The cloud never drifts — built, then taken out by decision
 
-`Cloud.BurstCcf` is written once and never updated. The column leans downwind — that is
-`Downwind`, and `VeerRadians` turns it with height — and its foot stays nailed to the burst point
-for the whole 78 s.
-
-**Nothing drifts until the rise is over**, which turned out to be the point rather than a
-simplification: what wind does to a column still being fed from the ground is tilt it, and that is
-the lean and the veer already drawn. A cloud sails once it stops being fed.
-
-One cap radius over the stand, named like `DrawnScale`. An honest drift is four cloud widths — wind
-aloft is twenty to forty metres a second over a five-minute rise — and carries the column out of
-any frame that also holds the ground it burned. In cap radii rather than metres, so it reads the
-same at any yield. Flown: at 72 s the residual column stands clear of a centred mark.
+A drift was built — nothing until the rise ended, then one cap radius downwind over the stand — and
+removed the same day on request. The cap grows with the yield, so the same fraction of it is a
+kilometre at 0.3 kt and several at 300 kt: the cloud slid sideways at about a hundred metres a
+second and read as dragged rather than blown. **The cloud stays over the ground it burned.** The lean
+and veer tilt a rooted column and the fallout plume marks the ground downwind, so the wind is still
+visible without the cloud travelling.
 
 ---
 
