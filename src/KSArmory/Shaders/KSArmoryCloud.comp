@@ -591,8 +591,9 @@ void main()
         float lateral = 1.0 - smoothstep(0.75, 1.0, across / max(halfWidth, 1.0));
         float fade = 1.0 - smoothstep(0.70, 1.0, run);
 
-        // Nothing upwind of the burst: fallout goes one way.
-        float plume = along > 0.0 ? lateral * fade : 0.0;
+        // Nothing upwind of the burst: fallout goes one way. And none at all where there was no air:
+        // no column lifted anything, and no wind would carry it.
+        float plume = (along > 0.0 && pc.Shape.z < 0.5) ? lateral * fade : 0.0;
 
         if (acrossR < scorch || plume > 0.0)
         {

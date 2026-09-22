@@ -188,7 +188,8 @@ internal static class CloudPass
                 for (int i = 0; i < NuclearClouds.ScorchCount; i++)
                 {
                     if (!NuclearClouds.TryScorch(i, out double3 markEcl, out double markRadius,
-                                                 out double3 markWind, out double markOverSea)) continue;
+                                                 out double3 markWind, out double markOverSea,
+                                                 out bool markAirless)) continue;
 
                     double3 markCentre = markEcl - camera.PositionEcl;
                     if (!Vec.IsFinite(markCentre)) continue;
@@ -199,7 +200,8 @@ internal static class CloudPass
                     // full-screen dispatch each is a cost that never goes away and is the whole
                     // reason NuclearClouds bounds how many may stand. Its own footprint is a few
                     // per cent of that.
-                    Tile tile = TileFor(camera, markCentre, markWind, markRadius, width, height);
+                    Tile tile = TileFor(camera, markCentre, markWind, markRadius,
+                                        markAirless ? 1.0 : ScorchScreenReach, width, height);
                     if (tile.Empty) continue;
 
                     RecordTile(tile, width, height);
@@ -222,8 +224,10 @@ internal static class CloudPass
                         // How far the patch's centre stands above the sea, in the one float of the
                         // cloud's shape a mark does not use. Always set: zero would read as a mark
                         // standing on the waterline and blank everything below its own centre.
-                        // And whether KSA's weather clouds are bound, in the next float along.
-                        Shape = new float4((float)markOverSea, weather ? 1f : 0f, 0f, 0f),
+                        // And whether KSA's weather clouds are bound, in the next float along, and
+                        // whether there was air to carry a plume downwind, in the one after.
+                        Shape = new float4((float)markOverSea, weather ? 1f : 0f,
+                                           markAirless ? 1f : 0f, 0f),
                     };
 
                     if (marks > 0) Hazard(commandBuffer);
@@ -408,11 +412,11 @@ internal static class CloudPass
     // has no screen position at all, and projecting it anyway folds the box inside out -- which
     // crops a mark the viewer is standing in, exactly when it fills the frame.
     private static Tile TileFor(Camera camera, double3 centreEgo, double3 downwind, double radius,
-                                int width, int height)
+                                double reachInRadii, int width, int height)
     {
         Tile whole = new(0, 0, (width + Group - 1) / Group, (height + Group - 1) / Group);
 
-        double reach = radius * ScorchScreenReach;
+        double reach = radius * reachInRadii;
         double across = radius * ScorchScreenWidth;
         if (!(reach > 0.0) || !Vec.IsFinite(downwind)) return whole;
 

@@ -284,14 +284,10 @@ build. Worth re-checking after a KSA update rather than planning around.
 
 ---
 
-## Two things already shipped that are reasoned rather than flown
+## One thing already shipped that is reasoned rather than flown
 
-**The airless mark's radius comes from a blast law.** `Warhead.LethalRadius` is Hopkinson--Cranz,
-which is overpressure from a shock wave — the thing a vacuum does not have, and the reason
-`Sim/AirlessBurst.cs` exists at all. Thermal scorch in vacuum is real and reaches *further* for
-having nothing to absorb it, but the number it reaches to is borrowed from physics that cannot
-happen there. The visible consequence on Luna is a 220 m burst under a 493 m mark, with
-`CloudWatch`'s own pose standing the camera inside it.
-
-**`MaxScorches` has never been reached.** It is four and the oldest is dropped; the harness
+**`MaxScorches` has never been reached.** It is twelve and the oldest is dropped; the harness
 produces at most two, and nothing has ever watched a mark vanish.
+
+The airless mark's radius used to be the other: it borrowed the blast law. It is how far the
+radiation reaches now, and `CHECKLIST.md` has the flight.

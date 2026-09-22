@@ -218,4 +218,33 @@ public class AirlessBurstTests
         Assert.True(AirlessBurst.EjectaAt(0.3 * Kt, Moon).FlightSeconds
                     > AirlessBurst.EjectaAt(0.3 * Kt, Earth).FlightSeconds);
     }
+
+    /// <summary>
+    /// The mark in vacuum is how far radiation reaches, not a blast: the square root of the yield,
+    /// where the blast law it used to borrow goes as the cube root.
+    /// </summary>
+    [Fact]
+    public void AVacuumMarkScalesAsTheSquareRootOfTheYield()
+    {
+        double small = AirlessBurst.ScorchRadius(0.3 * Kt);
+        double big = AirlessBurst.ScorchRadius(30.0 * Kt);
+
+        Assert.Equal(10.0, big / small, 6);
+        Assert.True(Warhead.LethalRadius(30.0 * Kt) / Warhead.LethalRadius(0.3 * Kt) < 5.0);
+    }
+
+    [Fact]
+    public void AVacuumMarkReachesPastTheGroundItThrows()
+    {
+        double mark = AirlessBurst.ScorchRadius(0.3 * Kt);
+        double thrown = AirlessBurst.EjectaAt(0.3 * Kt, 1.62).ReachMetres;
+
+        Assert.InRange(mark / thrown, 1.0, 1.5);
+    }
+
+    [Fact]
+    public void AConventionalChargeMarksNothing()
+    {
+        Assert.Equal(0.0, AirlessBurst.ScorchRadius(500.0));
+    }
 }

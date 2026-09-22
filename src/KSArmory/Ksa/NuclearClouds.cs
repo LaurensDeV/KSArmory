@@ -88,6 +88,14 @@ internal static class NuclearClouds
         public required double3 Downwind;
         public double ChargeKg;
 
+        // Whether there was air over it, which decides what law says how far it reaches.
+        public bool Airless;
+
+        public double Radius => ReachOf(ChargeKg, Airless);
+
+        public static double ReachOf(double chargeKg, bool airless)
+            => airless ? AirlessBurst.ScorchRadius(chargeKg) : Warhead.LethalRadius(chargeKg);
+
         // How far the burned patch's centre stands above the sea, so the drawing can leave the
         // water alone. Past anything reachable on a body with no sea.
         public double OverSea = NoSea;
@@ -108,12 +116,14 @@ internal static class NuclearClouds
     public static int ScorchCount => _scorches.Count;
 
     /// <summary>
-    /// One of them: where it is now, and how wide. Its radius is the warhead's own lethal radius,
-    /// so the stain is the reach the panel, the overlay and the blast sweep already quote.
+    /// One of them: where it is now, and how wide. Under air its radius is the warhead's own lethal
+    /// radius, so the stain is the reach the panel, the overlay and the blast sweep already quote;
+    /// in vacuum there is no blast, and it is how far the radiation reaches instead.
     /// </summary>
     public static bool TryScorch(int index, out double3 centreEcl, out double radiusMetres,
-                                 out double3 downwindEcl, out double overSeaMetres)
+                                 out double3 downwindEcl, out double overSeaMetres, out bool airless)
     {
+        airless = false;
         centreEcl = default;
         radiusMetres = 0.0;
         downwindEcl = default;
@@ -127,12 +137,13 @@ internal static class NuclearClouds
 
             centreEcl = one.Body.GetPositionEcl()
                         + one.BurstCcf.Transform(one.Body.GetCce2Ccf().Inverse());
-            radiusMetres = Warhead.LethalRadius(one.ChargeKg);
+            radiusMetres = one.Radius;
 
             // A DIRECTION, so only the rotation applies -- the body's position would carry the
             // ecliptic's 29.8 km/s into what is meant to be a unit vector.
             downwindEcl = Vec.Unit(one.Downwind.Transform(one.Body.GetCce2Ccf().Inverse()));
             overSeaMetres = one.OverSea;
+            airless = one.Airless;
 
             return Vec.IsFinite(centreEcl) && radiusMetres > 0.0 && Vec.IsFinite(downwindEcl);
         }
@@ -146,14 +157,16 @@ internal static class NuclearClouds
     // merge: six warheads of a bus land 9 mm apart, and six coincident stains are six dispatches
     // over one patch of ground. Charges add, so the merged mark is the one the combined yield
     // would have made rather than the largest single.
-    private static void Burn(Celestial body, double3 burstCcf, double chargeKg)
+    private static void Burn(Celestial body, double3 burstCcf, double chargeKg, bool airless)
     {
         for (int i = 0; i < _scorches.Count; i++)
         {
             Scorch standing = _scorches[i];
             if (!ReferenceEquals(standing.Body, body)) continue;
 
-            double reach = Warhead.LethalRadius(standing.ChargeKg + chargeKg);
+            if (standing.Airless != airless) continue;
+
+            double reach = Scorch.ReachOf(standing.ChargeKg + chargeKg, airless);
             if (Vec.Len2(burstCcf - standing.BurstCcf) > reach * reach) continue;
 
             standing.ChargeKg += chargeKg;
@@ -162,12 +175,16 @@ internal static class NuclearClouds
 
         if (_scorches.Count >= MaxScorches) _scorches.RemoveAt(0);
 
+        Log.Info($"ground marked to {Scorch.ReachOf(chargeKg, airless):F0} m, "
+                 + (airless ? "as far as its radiation reaches in vacuum" : "its lethal radius"));
+
         _scorches.Add(new Scorch
         {
             Body = body,
             BurstCcf = burstCcf,
             Downwind = DownwindAt(burstCcf),
             ChargeKg = chargeKg,
+            Airless = airless,
             OverSea = KsaWorld.TrySeaLevel(body, out double sea)
                           ? Vec.Len(burstCcf) - body.MeanRadius - sea
                           : NoSea,
@@ -345,7 +362,7 @@ internal static class NuclearClouds
             BurstSetting setting = KsaWorld.SettingOf(
                 body, burstEcl, MushroomCloud.PeakFireballRadius(MushroomCloud.KilotonsFor(chargeKg)));
 
-            if (setting == BurstSetting.Land) Burn(body, burstCcf, chargeKg);
+            if (setting == BurstSetting.Land) Burn(body, burstCcf, chargeKg, !KsaWorld.HasAtmosphere(body));
 
             if (!KsaWorld.HasAtmosphere(body))
             {

@@ -1611,18 +1611,15 @@ Not exercised, and the first two are the ones to believe least:
       On **Luna** the pass goes from 0.04 to 0.13 ms and a mark stands on ground no column ever
       covered.
 
-      Two things about it are **not** settled:
+      **In vacuum the mark is how far the radiation reaches, not a blast law.**
+      `Warhead.LethalRadius` is overpressure from a shock a vacuum does not carry, and borrowed there
+      it drew a 220 m burst under a 493 m mark with `CloudWatch` standing inside it.
+      `AirlessBurst.ScorchRadius` is the inverse square of an unabsorbed pulse instead — the square
+      root of the yield rather than the cube root — at a fluence that is chosen, not measured,
+      because nobody has burned regolith this way. And no plume: nothing lifted anything and no wind
+      would carry it. Flown on Luna: 264 m, a round patch just past the 218 m of thrown ground.
 
-      **The mark's radius comes from a blast law, and there is no blast without air.**
-      `Warhead.LethalRadius` is Hopkinson--Cranz, which is overpressure from a shock wave — the
-      thing `AirlessBurst` exists because a vacuum does not have. Thermal scorch in vacuum is real
-      and if anything reaches further for having nothing to absorb it, but the number it reaches
-      *to* is borrowed from physics that cannot happen there. The visible consequence on Luna is
-      that the drawn burst is 220 m across under a 493 m mark, and `CloudWatch`'s own pose stands
-      the camera inside it — so the airless capture reads as a broad darkening rather than as a
-      patch, and is poor evidence of a feature that is in fact working.
-
-      **The bound has never been reached.** `MaxScorches` is four and the oldest is dropped; the
+      **The bound has never been reached.** `MaxScorches` is twelve and the oldest is dropped; the
       harness produces at most two, and nothing has ever watched a mark vanish. That path is
       reasoned only.
 

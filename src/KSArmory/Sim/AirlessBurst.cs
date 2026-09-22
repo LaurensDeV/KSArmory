@@ -26,6 +26,33 @@ public static class AirlessBurst
     /// </summary>
     public const double ReachInFireballs = 4.0;
 
+    /// <summary>
+    /// How far out a burst in vacuum marks the ground under it.
+    ///
+    /// <para><b>Not a blast law.</b> <see cref="Warhead.LethalRadius"/> is overpressure from a
+    /// shock, which a vacuum does not carry. What reaches the ground is the burst's own radiation,
+    /// unabsorbed, so its fluence falls as the inverse square and the radius goes as the square
+    /// root of the yield rather than the cube root: a hundredfold yield marks ten times as far where
+    /// the blast law gave 4.6.</para>
+    /// </summary>
+    public static double ScorchRadius(double chargeKg)
+    {
+        if (chargeKg < MushroomCloud.ThresholdKg) return 0.0;
+
+        double joules = chargeKg * JoulesPerKgTnt * RadiatedFraction;
+        return Math.Sqrt(joules / (4.0 * Math.PI * ScorchFluence));
+    }
+
+    private const double JoulesPerKgTnt = 4.184e6;
+
+    // Most of a burst's energy leaves as X-rays where nothing absorbs them: Glasstone puts it at
+    // seventy to eighty per cent above the atmosphere.
+    private const double RadiatedFraction = 0.7;
+
+    // The fluence that visibly changes the ground, in J/m². Chosen, not measured: nobody has burned
+    // regolith this way. At a megajoule the mark stands just past the ground a 0.3 kt burst throws.
+    private const double ScorchFluence = 1.0e6;
+
     /// <summary>The debris shell, in fireball radii. Larger than the fireball because it is what
     /// the fireball becomes with nothing to hold it in.</summary>
     public const double ShellInFireballs = 2.6;
