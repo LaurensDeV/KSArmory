@@ -1456,9 +1456,21 @@ there is no column at all, and `Ksa/BurstEjecta.cs` throws ground instead.
 
 Not exercised, and the first two are the ones to believe least:
 
-- [ ] **A second cloud.** `NuclearClouds.TryNewest` hands the pass **one**, because a push constant
-      holds one — so two bursts in sight of each other draw one column and one fireball each, but
-      only the newer column. Never seen; nobody has set off two.
+- [ ] **A second cloud.** `NuclearClouds.TryNewest` hands the pass **one**, so two bursts in sight
+      of each other draw a fireball each and only the newer column.
+
+      **Reachable, and the MIRV is how.** `MushroomCloud.ThresholdKg` is 1000 kg and a Mk 21 carries
+      20,000,000, so a six-warhead bus makes six clouds. Today they land about 9 mm apart and burst
+      as one, so the single column is very nearly the right picture; a multi-target set puts them
+      kilometres apart and it stops being.
+
+      **Two routes, and the obvious one is barred.** Dispatching the pass once per cloud is a
+      read-after-write hazard on the scene image and KSA exposes no pipeline barrier to separate
+      them, so the loop has to be INSIDE one dispatch — each pixel written once, compositing
+      far-to-near. The push constant cannot carry it: it is at Vulkan's guaranteed 128 bytes with
+      the inverse view-projection taking 64 of them, and one cloud needs about 48. So it wants a
+      uniform buffer of cloud records, which `ComputePipelineWrapper` does bind — the argument
+      `CloudPass.Build` currently passes `default`.
 - [x] **An atmosphere that is not Earth's.** Flown on Mars, where the air is 0.011–0.0135 of the
       reference: the column draws with the right shape, and the sky, horizon and terrain around it
       are lit by Mars's own LUTs rather than by Earth's. The thin atmosphere is no longer the
