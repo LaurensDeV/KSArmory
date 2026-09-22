@@ -464,8 +464,9 @@
     <!--
       The mod's own compute shader, declared exactly as Core declares its own: KSA compiles a
       Shader asset from any mod's folder, so nothing has to be ported to get one onto the GPU.
-      Ksa/CloudPass.cs dispatches it.
+      Ksa/CloudPass.cs dispatches it, and the resolve after it.
     -->
     <Shader Id="KSArmoryCloudCompute" Path="Shaders/KSArmoryCloud.comp" />
+    <Shader Id="KSArmoryCloudResolveCompute" Path="Shaders/KSArmoryCloudResolve.comp" />
 
 </Assets>

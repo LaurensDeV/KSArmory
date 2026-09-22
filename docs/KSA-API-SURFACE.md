@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-220 types and 588 members across 9 assemblies.
+222 types and 614 members across 9 assemblies.
 
 ## Brutal.Concurrency
 
@@ -72,8 +72,29 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `Brutal.Numerics.double4x4 CreateScale(double)`
 - `Brutal.Numerics.double4x4 CreateTranslation(Brutal.Numerics.double3)`
+- `Brutal.Numerics.double4x4 Unpack(ref Brutal.Numerics.float4x4)`
 - `Brutal.Numerics.double4x4 op_Multiply(Brutal.Numerics.double4x4, Brutal.Numerics.double4x4)`
+- `double get_M11()`
+- `double get_M12()`
+- `double get_M13()`
+- `double get_M14()`
+- `double get_M21()`
+- `double get_M22()`
+- `double get_M23()`
+- `double get_M24()`
+- `double get_M31()`
+- `double get_M32()`
+- `double get_M33()`
+- `double get_M34()`
+- `double get_M41()`
+- `double get_M42()`
+- `double get_M43()`
+- `double get_M44()`
 - `void .ctor(double, double, double, double, double, double, double, double, double, double, double, double, double, double, double, double)`
+- `void set_M41(double)`
+- `void set_M42(double)`
+- `void set_M43(double)`
+- `void set_M44(double)`
 
 ### Brutal.Numerics.doubleQuat
 
@@ -394,6 +415,11 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `int Height`
 - `int Width`
+- `void .ctor(int, int)`
+
+### Brutal.VulkanApi.VkFormat
+
+*referenced as a type only*
 
 ### Brutal.VulkanApi.VkImageMemoryBarrier2
 
@@ -512,6 +538,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.Celestial get_NearbyCelestial()`
 - `KSA.IFollowable get_Following()`
 - `KSA.Ray ScreenToEgoRay(Brutal.Numerics.float2)`
+- `KSA.ViewProjection get_MVP()`
 - `KSA.ViewProjection get_VPInv()`
 - `double CurrentAltitudeKm`
 - `double DistanceToNearbyCelestialKm`
@@ -1044,6 +1071,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.Rendering.ImageBarrierInfo+Presets
 
 - `KSA.Rendering.ImageBarrierInfo SampledReadC`
+- `KSA.Rendering.ImageBarrierInfo StorageReadWriteC`
 
 ### KSA.Rendering.Lighting.ELightFlags
 
@@ -1095,6 +1123,11 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 *referenced as a type only*
 
 ### KSA.Rendering.RenderImage
+
+- `KSA.Rendering.RenderImage CreateColorStorage(RenderCore.IVulkanContext, string, Brutal.VulkanApi.VkExtent2D, Brutal.VulkanApi.VkFormat, int, int, KSA.Rendering.RenderImageViewMode)`
+- `void Dispose()`
+
+### KSA.Rendering.RenderImageViewMode
 
 *referenced as a type only*
 

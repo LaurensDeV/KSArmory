@@ -25,11 +25,15 @@ namespace KSArmory;
 /// barriers and needs none of its own. It is also before bloom and before the tonemap composite,
 /// which is what lets anything written here bloom and be graded like the rest of the scene.</para>
 ///
-/// <para>Rebuilt when the target changes size, because the descriptor sets name the images.</para>
+/// <para>Held per viewport and rebuilt when its target changes, because the descriptor sets name
+/// the images. The clouds are marched into a layer with a dither that moves every frame, and a
+/// resolve blends that with last frame's result reprojected onto this one: grain is what limits
+/// the march, and last frame's samples are the only ones that cost nothing.</para>
 /// </summary>
 internal static class CloudPass
 {
     private const string ShaderId = "KSArmoryCloudCompute";
+    private const string ResolveShaderId = "KSArmoryCloudResolveCompute";
 
     // The compute shader's workgroup, which has to match KSArmoryCloud.comp's local_size.
     private const int Group = 8;
@@ -42,15 +46,48 @@ internal static class CloudPass
 
     private static ComputePipelineWrapper? _pipeline;
 
-    // One pipeline per weather-cloud pair its descriptor sets were built against, null for the
-    // stand-ins bound when there are none. The sets name images, and the renderer's accumulated
-    // pair alternates between two sets of images frame by frame, so two are held rather than one
-    // rebuilt every frame.
-    private static readonly List<(RenderImage? Colour, RenderImage? Distance, ComputePipelineWrapper Pipeline)>
-        _pipelines = [];
+    // Everything one viewport's clouds are drawn with. The pass is recorded once per viewport a
+    // frame, and a camera window has its own target, its own size and its own history -- sharing
+    // one set drew a window's clouds into the main view's image whenever the two were one size.
+    private sealed class View
+    {
+        public required IRenderImage Target;
+        public required int Width;
+        public required int Height;
+
+        // The clouds this frame, which the resolve blends with the history and composites.
+        public required RenderImage LayerColour;
+        public required RenderImage LayerDistance;
+
+        // Last frame's result and this one's, swapping: the resolve samples one and writes the
+        // other, and a pipeline each way names them.
+        public required RenderImage[] History;
+        public readonly ComputePipelineWrapper?[] Resolve = new ComputePipelineWrapper?[2];
+        public int Parity;
+
+        // One cloud pipeline per weather-cloud pair its descriptor sets were built against, null
+        // for the stand-ins bound when there are none. The renderer's accumulated pair alternates
+        // between two sets of images frame by frame, so two are held rather than one rebuilt.
+        public readonly List<(RenderImage? Colour, RenderImage? Distance, ComputePipelineWrapper Pipeline)>
+            Clouds = [];
+
+        // What reprojects the history: the view it was drawn from and where its reference cloud
+        // stood against the camera then. Only good for the frame straight after.
+        public long Frames;
+        public long ResolvedAt = long.MinValue;
+        public float4x4 LastViewProjection;
+        public int LastSerial;
+        public double3 LastCentre;
+    }
+
+    private static readonly Dictionary<int, View> _views = [];
     private const int MostPipelines = 2;
-    private static int _width;
-    private static int _height;
+
+    // Images dropped while a frame in flight may still read them, disposed once none can.
+    private static readonly List<(RenderImage Image, long DueAt)> _graveyard = [];
+    private static long _recorded;
+    private const long GraveFrames = 16;
+
     private static bool _warned;
 
     [StructLayout(LayoutKind.Sequential, Pack = 4)]
@@ -102,11 +139,67 @@ internal static class CloudPass
     public static void Release()
     {
         _pipeline = null;
-        _pipelines.Clear();
+        foreach (View view in _views.Values) Bury(view);
+        _views.Clear();
         BuildFailed = false;
         LastMarkTile = 1.0;
-        _width = 0;
-        _height = 0;
+    }
+
+    private static void Bury(View view)
+    {
+        _graveyard.Add((view.LayerColour, _recorded + GraveFrames));
+        _graveyard.Add((view.LayerDistance, _recorded + GraveFrames));
+        _graveyard.Add((view.History[0], _recorded + GraveFrames));
+        _graveyard.Add((view.History[1], _recorded + GraveFrames));
+    }
+
+    private static void DisposeTheDue()
+    {
+        for (int i = _graveyard.Count - 1; i >= 0; i--)
+        {
+            if (_graveyard[i].DueAt > _recorded) continue;
+
+            try { _graveyard[i].Image.Dispose(); }
+            catch { /* Already gone with the device. */ }
+
+            _graveyard.RemoveAt(i);
+        }
+    }
+
+    // The viewport's set, made or remade when its target is a different image or size.
+    private static View ViewFor(IViewport viewport, IRenderImage colour, int width, int height)
+    {
+        if (_views.TryGetValue(viewport.ShaderSlot, out View? view)
+            && ReferenceEquals(view.Target, colour) && view.Width == width && view.Height == height)
+        {
+            return view;
+        }
+
+        if (view is not null) Bury(view);
+
+        Renderer renderer = Program.GetRenderer();
+        VkExtent2D extent = new(width, height);
+
+        view = new View
+        {
+            Target = colour,
+            Width = width,
+            Height = height,
+            LayerColour = RenderImage.CreateColorStorage(renderer, "KSArmory Cloud Layer", extent,
+                                                         VkFormat.R16G16B16A16SFloat),
+            LayerDistance = RenderImage.CreateColorStorage(renderer, "KSArmory Cloud Layer Distance",
+                                                           extent, VkFormat.R32SFloat),
+            History =
+            [
+                RenderImage.CreateColorStorage(renderer, "KSArmory Cloud History A", extent,
+                                               VkFormat.R16G16B16A16SFloat),
+                RenderImage.CreateColorStorage(renderer, "KSArmory Cloud History B", extent,
+                                               VkFormat.R16G16B16A16SFloat),
+            ],
+        };
+
+        _views[viewport.ShaderSlot] = view;
+        return view;
     }
 
     /// <summary>
@@ -126,29 +219,32 @@ internal static class CloudPass
             int height = (int)target.Extent.Height;
             if (width <= 0 || height <= 0) return;
 
-            bool weather = KsaWorld.TryWeatherClouds(out RenderImage? weatherColour,
-                                                     out RenderImage? weatherDistance);
+            _recorded++;
+            DisposeTheDue();
+
+            View view = ViewFor(viewport, colour, width, height);
+            view.Frames++;
+
+            // The weather is the main view's: KSA renders its clouds for that one alone, and their
+            // images laid over a camera window would hide its burst behind somebody else's sky.
+            RenderImage? weatherColour = null;
+            RenderImage? weatherDistance = null;
+            bool weather = ReferenceEquals(viewport, Program.MainViewport)
+                           && KsaWorld.TryWeatherClouds(out weatherColour, out weatherDistance);
             if (!weather) weatherColour = weatherDistance = null;
 
-            if (width != _width || height != _height)
-            {
-                _pipelines.Clear();
-                _width = width;
-                _height = height;
-            }
-
             _pipeline = null;
-            foreach ((RenderImage? c, RenderImage? d, ComputePipelineWrapper p) in _pipelines)
+            foreach ((RenderImage? c, RenderImage? d, ComputePipelineWrapper p) in view.Clouds)
             {
                 if (ReferenceEquals(c, weatherColour) && ReferenceEquals(d, weatherDistance)) _pipeline = p;
             }
 
             if (_pipeline is null)
             {
-                if (!Build(colour, depth, weatherColour, weatherDistance)) return;
+                if (!Build(colour, depth, view, weatherColour, weatherDistance)) return;
 
-                if (_pipelines.Count >= MostPipelines) _pipelines.RemoveAt(0);
-                _pipelines.Add((weatherColour, weatherDistance, _pipeline!));
+                if (view.Clouds.Count >= MostPipelines) view.Clouds.RemoveAt(0);
+                view.Clouds.Add((weatherColour, weatherDistance, _pipeline!));
             }
 
             // Into a layout a compute shader may sample, through KSA's own tracked state, so the
@@ -246,6 +342,19 @@ internal static class CloudPass
 
             _order.Sort(static (a, b) => b.DistanceSq.CompareTo(a.DistanceSq));
 
+            // Written into the layer rather than the scene, so the resolve can blend it with last
+            // frame's. The layer's own images go to a storage layout here, every frame, through
+            // KSA's tracked state.
+            Span<VkImageMemoryBarrier2> layerBarriers = stackalloc VkImageMemoryBarrier2[2];
+            BarrierBatch toLayer = new(layerBarriers);
+            toLayer.Add(view.LayerColour, ImageBarrierInfo.Presets.StorageReadWriteC);
+            toLayer.Add(view.LayerDistance, ImageBarrierInfo.Presets.StorageReadWriteC);
+            toLayer.SubmitAndFlush(commandBuffer);
+
+            int drawn = 0;
+            int reference = 0;
+            double3 referenceCentre = default;
+
             using (commandBuffer.TagRegion(GpuTag))
             {
                 for (int n = 0; n < _order.Count; n++)
@@ -292,7 +401,7 @@ internal static class CloudPass
                         // CloudFlags.
                         FireSun = new float4((float)flash.Radius, (float)flash.Glow,
                                              0f,
-                                             CloudFlags(water, weather)),
+                                             CloudFlags(water, weather, first: drawn == 0)),
 
                         // The same shape MushroomCloud carries, so every dimension stays
                         // Glasstone's rather than being invented again in GLSL.
@@ -304,7 +413,7 @@ internal static class CloudPass
                     // writes it back: without this the second cloud races the first wherever the
                     // two overlap on screen and one of the writes is simply lost. KSA's own
                     // BarrierBatch, so this stands on public API like the rest of the pass.
-                    if (n > 0 || marks > 0) Hazard(commandBuffer);
+                    if (drawn > 0 || marks > 0) Hazard(commandBuffer);
 
                     // The VIEWPORT's slot, never the frame index. That argument picks the dynamic
                     // offset into the global set, which is where global.lighting lives: a frame
@@ -313,7 +422,14 @@ internal static class CloudPass
                     _pipeline!.BindPipeline(commandBuffer, viewport.ShaderSlot, default, default, push);
                     commandBuffer.Dispatch((width + Group - 1) / Group,
                                            (height + Group - 1) / Group, 1);
+                    drawn++;
+
+                    // The nearest, drawn last: what the history is reprojected against.
+                    reference = NuclearClouds.SerialAt(_order[n].Index);
+                    referenceCentre = centre;
                 }
+
+                if (drawn > 0) Resolve(commandBuffer, viewport, camera, view, reference, referenceCentre);
             }
 
             Flash(commandBuffer, viewport, camera, width, height, hazard: true);
@@ -346,6 +462,70 @@ internal static class CloudPass
     /// a number said once says 100% about a saving that is real everywhere else.</para>
     /// </summary>
     public static double LastMarkTile { get; private set; } = 1.0;
+
+    [StructLayout(LayoutKind.Sequential, Pack = 4)]
+    private struct ResolvePush
+    {
+        public float4x4 InvViewProj;
+        public float4x4 Reproject;     // zero when there is no history to reproject
+    }
+
+    // The layer blended with last frame's result where that result is now, and composited. The
+    // history is only reprojected from the frame straight before, drawn around the same cloud: a
+    // gap or a different reference leaves it pointing at the wrong place, and the current layer
+    // alone is then the answer, grain and all, for a frame.
+    private static void Resolve(CommandBuffer commandBuffer, IViewport viewport, Camera camera, View view,
+                                int reference, double3 referenceCentre)
+    {
+        int from = view.Parity;
+        int to = 1 - from;
+
+        if (view.Resolve[from] is null && !BuildResolve(view, from)) return;
+
+        bool continues = view.ResolvedAt == view.Frames - 1 && view.LastSerial == reference
+                         && reference != 0;
+
+        Hazard(commandBuffer);
+
+        Span<VkImageMemoryBarrier2> two = stackalloc VkImageMemoryBarrier2[2];
+        BarrierBatch history = new(two);
+        history.Add(view.History[from], ImageBarrierInfo.Presets.SampledReadC);
+        history.Add(view.History[to], ImageBarrierInfo.Presets.StorageReadWriteC);
+        history.SubmitAndFlush(commandBuffer);
+
+        ResolvePush push = new()
+        {
+            InvViewProj = camera.VPInv.viewProjection,
+            Reproject = continues
+                            ? Reprojection(view.LastViewProjection, view.LastCentre - referenceCentre)
+                            : default,
+        };
+
+        view.Resolve[from]!.BindPipeline(commandBuffer, viewport.ShaderSlot, default, default, push);
+        commandBuffer.Dispatch((view.Width + Group - 1) / Group, (view.Height + Group - 1) / Group, 1);
+
+        view.Parity = to;
+        view.ResolvedAt = view.Frames;
+        view.LastViewProjection = camera.MVP.viewProjection;
+        view.LastSerial = reference;
+        view.LastCentre = referenceCentre;
+    }
+
+    // Last frame's view-projection, applied after moving a point by how far the cloud's centre has
+    // shifted against the camera since: a point on the cloud keeps its place against the burst, and
+    // the burst rides the planet at 30 km/s. Row-vector, as the camera's own EgoToClipDouble is:
+    // translating first adds the shift times the first three rows to the fourth.
+    private static float4x4 Reprojection(float4x4 lastViewProjection, double3 shift)
+    {
+        double4x4 m = double4x4.Unpack(in lastViewProjection);
+
+        m.M41 += (shift.X * m.M11) + (shift.Y * m.M21) + (shift.Z * m.M31);
+        m.M42 += (shift.X * m.M12) + (shift.Y * m.M22) + (shift.Z * m.M32);
+        m.M43 += (shift.X * m.M13) + (shift.Y * m.M23) + (shift.Z * m.M33);
+        m.M44 += (shift.X * m.M14) + (shift.Y * m.M24) + (shift.Z * m.M34);
+
+        return float4x4.Pack(in m);
+    }
 
     // THE WHITEOUT, LAST: it is glare in the eye rather than a thing in the world, so it veils
     // the clouds too, and one dispatch carries it however many are standing. It is centred on the
@@ -466,11 +646,12 @@ internal static class CloudPass
     private const double ScorchScreenReach = 3.0;
     private const double ScorchScreenWidth = 1.25;
 
-    // The fourth fireball float on a cloud's dispatch: 1 if the column is spray and 2 if there are
-    // no weather clouds to respect, summed and NEGATED, because a positive value there is what
-    // makes the shader read a dispatch as a ground mark. KSArmoryCloud.comp decodes exactly this.
-    private static float CloudFlags(bool water, bool weather)
-        => -((water ? 1f : 0f) + (weather ? 0f : 2f));
+    // The fourth fireball float on a cloud's dispatch: 1 if the column is spray, 2 if there are no
+    // weather clouds to respect and 4 if it is the frame's first cloud, which clears the layer --
+    // summed and NEGATED, because a positive value there is what makes the shader read a dispatch
+    // as a ground mark. KSArmoryCloud.comp decodes exactly this.
+    private static float CloudFlags(bool water, bool weather, bool first)
+        => -((water ? 1f : 0f) + (weather ? 0f : 2f) + (first ? 4f : 0f));
 
     // One compute-write to compute-read barrier, so a dispatch sees what the one before it wrote.
     private static void Hazard(CommandBuffer commandBuffer)
@@ -490,8 +671,8 @@ internal static class CloudPass
         batch.SubmitAndFlush(commandBuffer);
     }
 
-    private static bool Build(IRenderImage colour, IRenderImage depth, RenderImage? weatherColour,
-                              RenderImage? weatherDistance)
+    private static bool Build(IRenderImage colour, IRenderImage depth, View view,
+                              RenderImage? weatherColour, RenderImage? weatherDistance)
     {
         if (!ModLibrary.TryGet<ShaderReference>(ShaderId, out var shader) || shader is null)
         {
@@ -502,7 +683,7 @@ internal static class CloudPass
 
         Renderer renderer = Program.GetRenderer();
 
-        IRenderImage[] storageTargets = [colour];
+        IRenderImage[] storageTargets = [colour, view.LayerColour, view.LayerDistance];
         IRenderImage[] depthTargets = [depth];
 
         // The engine's aerial-perspective LUTs, as this pass's own samplers -- which is how Core's
@@ -540,6 +721,39 @@ internal static class CloudPass
 
         BuildFailed = false;
         Log.Info($"cloud pass: built against {ShaderId}");
+        return true;
+    }
+
+    // The resolve one way round: sampling History[from], writing History[1 - from].
+    private static bool BuildResolve(View view, int from)
+    {
+        if (!ModLibrary.TryGet<ShaderReference>(ResolveShaderId, out var shader) || shader is null)
+        {
+            Warn($"no shader '{ResolveShaderId}'; the clouds will not draw");
+            BuildFailed = true;
+            return false;
+        }
+
+        Renderer renderer = Program.GetRenderer();
+
+        IRenderImage[] storageTargets =
+            [view.Target, view.LayerColour, view.LayerDistance, view.History[1 - from]];
+        IRenderImage[] sampled = [view.History[from]];
+        VkPushConstantRange[] ranges =
+        [
+            new VkPushConstantRange
+            {
+                Offset = (ByteSize32)0,
+                Size = (ByteSize32)Marshal.SizeOf<ResolvePush>(),
+                StageFlags = VkShaderStageFlags.ComputeBit,
+            },
+        ];
+
+        view.Resolve[from] = new ComputePipelineWrapper(
+            storageTargets, default, sampled, default, shader,
+            default, ranges, renderer.MaxFramesInFlight, renderer,
+            "KSArmory.CloudResolve", Program.PointClampedSampler, Program.LinearClampedSampler);
+
         return true;
     }
 

@@ -1703,6 +1703,16 @@ Not exercised, and the first two are the ones to believe least:
       flipped, and worse: a control is the run that is supposed to report nothing. `BuildFailed` is
       now set only by a build that ran and failed. Flown: the control reads `pass off`.
 
+- [x] **The grain is resolved over frames.** The march is 48 steps on a dither, and a dither
+      fixed per pixel is a screen door the cloud moves behind. The clouds now go into a layer with
+      a dither moved by the golden ratio each frame, and `KSArmoryCloudResolve.comp` blends it with
+      last frame's result reprojected at the cloud's own depth against the burst — which rides the
+      planet — clamped to the current neighbourhood so a cloud that moves on leaves no ghost. Held
+      per viewport, which also stopped a camera window of the main view's size drawing into the
+      main view's image. Flown: grain inside the cap 0.648 → 0.231 by a high-pass measure, the pass
+      unchanged at about 2.2 ms, two clouds under a deck as before. **Not judged with the camera
+      moving fast**: the chase ends inside a 0.3 kt column, so its frames are fog.
+
 - [x] **The anvil.** Past the drawn tropopause — the standard 11 km at `DrawnScale`, reached at
       ~49 kt — the cap is braked to `MushroomCloud.StratospherePenetration` of the rise the law asks
       for, fitted to Castle Bravo, and the height it does not make goes into width at constant

@@ -24,8 +24,8 @@
 // own barriers for its own screen-space volumetric particles, and before bloom and the tonemap. So
 // what is written here blooms and is graded with the scene, and no barrier is this mod's to manage.
 //
-// Bindings follow ComputePipelineWrapper's order: set 1 binding 0 is the first storage target,
-// binding 1 the first depth sampler. The same layout Core's Volumetric.comp uses.
+// Bindings follow ComputePipelineWrapper's order: set 1 takes the storage targets first, then the
+// depth sampler, then the colour samplers. The same layout Core's Volumetric.comp uses.
 //
 // EVERYTHING IS CAMERA-RELATIVE. The world is a solar system in doubles; a float metre is hopeless
 // at that magnitude, so the burst arrives already differenced against the camera on the CPU and the
@@ -35,21 +35,28 @@
 layout (local_size_x = 8, local_size_y = 8) in;
 
 layout (set = 1, binding = 0, Rgba16f) uniform image2D sceneColor;
-layout (set = 1, binding = 1) uniform sampler2D sceneDepth;
+
+// Where the clouds go instead of the scene: rgb the light they add, a how much of what is behind
+// them still shows, and how far each pixel's cloud is. KSArmoryCloudResolve.comp blends this with
+// last frame's and composites it, which is what lets the march dither per frame.
+layout (set = 1, binding = 1, Rgba16f) uniform image2D layerColor;
+layout (set = 1, binding = 2, R32f) uniform image2D layerDistance;
+
+layout (set = 1, binding = 3) uniform sampler2D sceneDepth;
 
 // The engine's aerial-perspective LUTs, in the order ComputePipelineWrapper takes them: storage
-// image first, then every image sampler. The transmittance LUT is not here -- it is already in the
+// images first, then every image sampler. The transmittance LUT is not here -- it is already in the
 // global set at binding 7, which the wrapper binds for every compute pass.
-layout (set = 1, binding = 2) uniform sampler2D aerialRangeLut;
-layout (set = 1, binding = 3) uniform sampler3D aerialColorRgbTransmittanceRLut;
-layout (set = 1, binding = 4) uniform sampler3D aerialTransmittanceGbLut;
+layout (set = 1, binding = 4) uniform sampler2D aerialRangeLut;
+layout (set = 1, binding = 5) uniform sampler3D aerialColorRgbTransmittanceRLut;
+layout (set = 1, binding = 6) uniform sampler3D aerialTransmittanceGbLut;
 
 // KSA's own weather clouds as they were drawn this frame, at the cloud renderer's low resolution:
 // their light with transmittance in alpha, and how far each pixel's cloud is from the camera in
 // kilometres. They write no depth, so without these everything drawn here off the depth buffer is
 // drawn in front of every cloud. Stand-ins when clouds are off -- see weatherBound.
-layout (set = 1, binding = 5) uniform sampler2D weatherColor;
-layout (set = 1, binding = 6) uniform sampler2D weatherDistance;
+layout (set = 1, binding = 7) uniform sampler2D weatherColor;
+layout (set = 1, binding = 8) uniform sampler2D weatherDistance;
 
 layout (push_constant) uniform PushConstants
 {
@@ -488,15 +495,24 @@ void main()
     bool wantsScorch = pc.FireSun.w > 0.0;
     bool wantsCloud = pc.AgeStrengthWind.y > 0.0 && pc.CentreRadius.w > 0.0;
 
-    // Two flags on a cloud's dispatch, in its fourth fireball float, summed and negated because
+    // Three flags on a cloud's dispatch, in its fourth fireball float, summed and negated because
     // positive there means a ground mark: 1 if the column is spray, 2 if there are no weather
-    // clouds bound. A mark's dispatch says the second in its shape's second float instead.
-    // CloudPass.CloudFlags writes exactly this.
+    // clouds bound, 4 if it is the first cloud this frame. A mark's dispatch says the second in its
+    // shape's second float instead. CloudPass.CloudFlags writes exactly this.
     float cloudFlags = wantsCloud ? -pc.FireSun.w : 0.0;
     bool columnIsWater = mod(cloudFlags, 2.0) > 0.5;
-    bool weatherBound = wantsCloud ? (cloudFlags < 1.5) : (pc.Shape.y > 0.5);
+    bool weatherBound = wantsCloud ? (mod(floor(cloudFlags / 2.0), 2.0) < 0.5) : (pc.Shape.y > 0.5);
+    bool firstCloud = cloudFlags > 3.5;
 
     if (!wantsScorch && !wantsCloud) return;
+
+    // The first cloud clears the layer for the frame, everywhere, before anything below can turn
+    // the pixel away: the layer is read whole by the resolve.
+    if (wantsCloud && firstCloud)
+    {
+        imageStore(layerColor, at, vec4(0.0, 0.0, 0.0, 1.0));
+        imageStore(layerDistance, at, vec4(0.0));
+    }
 
     vec2 uv = (vec2(at) + 0.5) / vec2(size);
 
@@ -674,13 +690,9 @@ void main()
     float dt = (t1 - t0) / float(Steps);
 
     // Start each ray a fraction of a step in. Fewer steps band, and a dither turns that banding
-    // into grain, which is what makes 32 steps affordable where 48 were not.
-    //
-    // FIXED PER PIXEL, never per frame. Carrying the age in here re-randomises every pixel every
-    // frame, and with nothing accumulating across frames to resolve it that is not a dither, it is
-    // white noise at frame rate -- reported from play as hard flickering. A stable pattern bands
-    // in the same place every frame, which the eye reads as texture.
-    float jitter = Hash(vec3(vec2(at), 0.0));
+    // into grain. Moved on every frame by the golden ratio, so the resolve's history averages the
+    // grain away; a pattern fixed per pixel is instead a screen door the cloud moves behind.
+    float jitter = fract(Hash(vec3(vec2(at), 0.0)) + float(global.camera.frame % 256) * 0.6180340);
 
     float transmittance = 1.0;
     vec3 scattered = vec3(0.0);
@@ -689,6 +701,11 @@ void main()
     // the cloud. The overall product still drives the early exit and the empty-ray test.
     float clearInFront = 1.0;
     float clearBehind = 1.0;
+
+    // Where along the ray the cloud is, weighted by what each step blocks: what the resolve
+    // reprojects this pixel's history through.
+    float depthSum = 0.0;
+    float depthWeight = 0.0;
 
     for (int i = 0; i < Steps; i++)
     {
@@ -802,6 +819,11 @@ void main()
         scattered += transmittance * lit * extinction * (behindWeather ? weatherClear : 1.0);
 
         float through = exp(-extinction);
+
+        float blocked = transmittance * (1.0 - through);
+        depthSum += blocked * (t0 + (float(i) + jitter) * dt);
+        depthWeight += blocked;
+
         transmittance *= through;
 
         if (behindWeather) clearBehind *= through;
@@ -848,7 +870,15 @@ void main()
     // it at full strength, which is a shadow rather than a cloud going away.
     float strength = clamp(pc.AgeStrengthWind.y, 0.0, 1.0);
 
-    vec4 c = imageLoad(sceneColor, at);
-    vec3 mixed = c.rgb * mix(1.0, sceneShows, strength) + body * strength;
-    imageStore(sceneColor, at, vec4(mixed, c.a));
+    // Into the layer, over whatever further cloud is already in it: the clouds are dispatched far
+    // to near, so this one's light is added in front and what it lets through dims the rest.
+    float lets = mix(1.0, sceneShows, strength);
+
+    vec4 layer = imageLoad(layerColor, at);
+    imageStore(layerColor, at, vec4(layer.rgb * lets + body * strength, layer.a * lets));
+
+    if (strength * covered > 0.02 && depthWeight > 0.0)
+    {
+        imageStore(layerDistance, at, vec4(depthSum / depthWeight));
+    }
 }

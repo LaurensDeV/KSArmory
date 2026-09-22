@@ -233,7 +233,9 @@ echoes off the terrain that is actually there.
 
 ## Tier 3 — bigger, or not yet known to be possible
 
-### 9. Temporal accumulation
+### 9. Temporal accumulation — built
+
+`CHECKLIST.md` has the flight. What is left is watching it with a camera that moves fast.
 
 The march is 48 steps on a per-pixel hash, and grain is what limits it. Interleaved gradient noise
 was tried in its place and reverted, because it is built to be resolved by temporal accumulation

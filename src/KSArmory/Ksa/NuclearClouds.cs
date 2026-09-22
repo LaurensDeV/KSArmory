@@ -36,7 +36,15 @@ internal static class NuclearClouds
         public bool Water;
 
         public double Age;
+
+        // Which cloud this is, across frames: an index moves when an older one expires.
+        public int Serial = ++_serials;
     }
+
+    private static int _serials;
+
+    /// <summary>The identity of the cloud at <paramref name="index"/>, or zero when there is none.</summary>
+    public static int SerialAt(int index) => index >= 0 && index < _clouds.Count ? _clouds[index].Serial : 0;
 
     private static readonly List<Cloud> _clouds = [];
 
