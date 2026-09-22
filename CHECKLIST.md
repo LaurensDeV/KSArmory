@@ -1565,8 +1565,28 @@ Not exercised, and the first two are the ones to believe least:
 
       **It lasts exactly as long as the pass is dispatched, which is as long as the cloud stands —
       about 78 s.** A mark that outlives the cloud is a decal on the hillside, which is
-      `docs/DAMAGE-DECALS.md` and is not built. An airless burst gets no scorch at all, because
-      there is no cloud to keep the pass alive past the flash.
+      `docs/DAMAGE-DECALS.md` and is not built.
+
+      **And an airless burst gets none at all**, flown on Luna — the ground is unmarked, which is
+      backwards, there being no atmosphere there to absorb the pulse. The flash-only dispatch could
+      carry the burst's position and scorch from it, and deliberately does not: that dispatch runs
+      only while the fireball burns, so the mark would appear for two seconds and vanish. A stain
+      that comes and goes reads as a bug where an absent one reads as unbuilt. It waits for the
+      decal too.
+
+- [x] **All three re-flown at a yield and on a body neither was written against**, same day.
+
+      `KSARMORY_SCENARIO_TWOCLOUDS=100` puts a 0.3 kt burst beside a 30 kt one in one frame, which
+      is the check the shear and the streamers most needed: `VeerRadians` is a fixed angle and
+      `FalloutReach` a fraction of the radius, so neither had been seen at a cloud of another size.
+      Both read correctly at both. Two clouds cost **2.50 ms** against 2.08 for one, so the barrier
+      path is sub-linear — and the two scorch marks **merge into one patch of ash rather than
+      compounding toward black**, which the desaturate-then-darken form was reasoned to do and had
+      never been looked at.
+
+      On Luna the pass falls to **0.04 ms** over 296 frames: the flash-only dispatch returns at the
+      cloud guard before reaching the scorch block, the ejecta still arc and land, and nothing the
+      airless path does was disturbed by a block added ahead of it in `main()`.
 
 - [ ] **Warp and pause.** Reasoned, not flown. `NuclearClouds.Update` is driven from `StepOnce` on
       the simulated step, so a pause hands it nothing and warp hands it a large one — and the shape
