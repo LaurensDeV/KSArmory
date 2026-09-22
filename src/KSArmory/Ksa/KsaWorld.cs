@@ -1865,9 +1865,15 @@ internal static class KsaWorld
     /// as through Earth's. One scale covers air and water, so a torpedo simply carries a much smaller
     /// drag.</para>
     ///
-    /// <para>Falls back to 1.0, not 0.0, when the atmosphere cannot be read: a round that keeps
-    /// its tuned drag is a far less confusing failure than one that silently loses all of it and
-    /// flies several times further.</para>
+    /// <para><b>A body with no atmosphere reads 0.0, and that is an answer rather than a
+    /// failure.</b> Every airless body in the game hands back no reference, so reading that as the
+    /// fallback put Earth's sea-level air on the Moon.</para>
+    ///
+    /// <para>The fallback when the atmosphere genuinely <em>cannot be read</em> — a throw, or a
+    /// craft with no body under it — is still 1.0: a round that keeps its tuned drag is a far less
+    /// confusing failure than one that silently loses all of it and flies several times further.
+    /// The two are distinguished because they are different things, and only one of them is a
+    /// fault.</para>
     /// </summary>
     public static double MediumDensityRatioAt(Vehicle platform, double3 positionEcl)
     {
@@ -1940,27 +1946,42 @@ internal static class KsaWorld
             // to the scale height, 8 km on Earth. So air.IsValid() is false for every realistic
             // atmosphere, and trusting it reports vacuum at ground level. Check the terms this
             // actually divides by instead.
-            AtmosphereReference? atmosphere = body.GetAtmosphereReference();
-            if (atmosphere?.Physical is not { } air) return 1.0;
-
-            double seaLevel = air.SeaLevelDensity;
-            double scaleHeight = air.ScaleHeight.InMeters();
-            if (!(seaLevel > 0.0) || !(scaleHeight > 0.0)) return 1.0;
-
-            // Altitude above the mean surface, the same measure KSA's own physics uses.
+            // Altitude above the mean surface, the same measure KSA's own physics uses. Asked
+            // before the air is, because whether a point is under water is its own question: a
+            // body can have an ocean and no atmosphere, and resolving the air first returned
+            // vacuum for a point at the bottom of one.
             double altitude = Vec.Len(positionEcl - body.GetPositionEcl()) - body.MeanRadius;
 
             // Below the waterline the medium is the ocean, which is ~840x sea-level air. The
             // ratio is therefore not bounded above by 1.
-            // Same trap: the ocean's IsValid() tests its level (0 m) and transparency depth
-            // (100 m) against that same 100 km bar, so it is false wherever there is water. A
-            // body with no ocean hands back null, which is the discriminator that means it.
+            // The ocean's IsValid() tests its level (0 m) and transparency depth (100 m) against
+            // an astronomical 100 km bar, so it is false wherever there is water. A body with no
+            // ocean hands back null, which is the discriminator that means it.
             OceanReference? ocean = body.GetOceanReference();
             if (withOcean && ocean is { } sea && sea.Density > 0.0 && altitude < sea.Level)
             {
                 double water = sea.Density / Medium.ReferenceDensityKgPerM3;
                 return double.IsFinite(water) && water > 0.0 ? water : 1.0;
             }
+
+            // Never gate on KSA's own IsValid(). DistanceReference.IsValid requires a distance
+            // over 100 km — an astronomical-scale sanity check — and the atmosphere's applies it
+            // to the scale height, 8 km on Earth. So air.IsValid() is false for every realistic
+            // atmosphere, and trusting it reports vacuum at ground level. Check the terms this
+            // actually divides by instead.
+            //
+            // No reference, or one with nothing physical in it, is the model saying there is no
+            // air — which is KNOWLEDGE, not a failed read, and every airless body in the game
+            // answers this way. Read as the reference density it put Earth's sea-level air on the
+            // Moon: a bomb released 7 m over lunar ground reached a terminal 113 m/s and was still
+            // falling three minutes later, and every gun lay on an airless body was solved through
+            // drag that is not there.
+            AtmosphereReference? atmosphere = body.GetAtmosphereReference();
+            if (atmosphere?.Physical is not { } air) return 0.0;
+
+            double seaLevel = air.SeaLevelDensity;
+            double scaleHeight = air.ScaleHeight.InMeters();
+            if (!(seaLevel > 0.0) || !(scaleHeight > 0.0)) return 0.0;
 
             if (altitude < 0.0) altitude = 0.0;
             if (altitude >= air.Height) return 0.0;
@@ -2006,8 +2027,8 @@ internal static class KsaWorld
         try
         {
             AtmosphereReference? atmosphere = body.GetAtmosphereReference();
-            if (atmosphere is null) return "no atmosphere reference";
-            if (atmosphere.Physical is not { } air) return "no physical atmosphere";
+            if (atmosphere is null) return "no atmosphere reference -- vacuum";
+            if (atmosphere.Physical is not { } air) return "no physical atmosphere -- vacuum";
 
             double seaLevel = air.SeaLevelDensity;
             double top = air.Height;
