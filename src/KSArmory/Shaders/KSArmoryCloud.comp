@@ -386,7 +386,15 @@ void main()
         imageStore(sceneColor, at, vec4(blinded, was.a));
     }
 
-    if (pc.AgeStrengthWind.y <= 0.0 || pc.CentreRadius.w <= 0.0) return;
+    // A mark on the ground OUTLIVES the cloud that made it, so the two are separate dispatches and
+    // either may arrive without the other: a burst on an airless body burns ground and grows no
+    // column at all, and a column is gone in 78 s where a crater is not. Both want the scene point
+    // under this pixel and nothing else here does, so the reconstruction below is shared and a
+    // dispatch wanting neither leaves now.
+    bool wantsScorch = pc.FireSun.w > 0.0;
+    bool wantsCloud = pc.AgeStrengthWind.y > 0.0 && pc.CentreRadius.w > 0.0;
+
+    if (!wantsScorch && !wantsCloud) return;
 
     vec2 uv = (vec2(at) + 0.5) / vec2(size);
 
@@ -401,17 +409,11 @@ void main()
 
     // Bounding sphere. Most pixels leave here, which is the whole of the performance story.
     vec3 toCentre = pc.CentreRadius.xyz;
-    float radius = pc.CentreRadius.w;
     // The cloud's own up, DERIVED rather than sent. A burst's local vertical is the way out from
     // the planet's centre, and both that centre and the burst are already here -- so the two floats
     // it used to cost went to the fireball instead, in a block that is at Vulkan's guaranteed 128
     // bytes with nothing spare.
     vec3 up = normalize(toCentre - global.lighting.planetPosition.xyz);
-    // The direction to the sun FROM THE CLOUD, derived rather than sent: the star's position is in
-    // the global block and the burst is in the push constant, so this is a subtraction. That freed
-    // the float the whiteout needed in a block with nothing spare.
-    vec3 sun = normalize(global.lighting.sunPosition.xyz - toCentre);
-    float forward = Phase(dot(dir, sun), 0.3);
 
     // THE GROUND THE FIREBALL BURNED, out to the warhead's own lethal radius. That is the number
     // the panel, the overlay and the blast sweep already describe this weapon by, so a stain
@@ -422,15 +424,13 @@ void main()
     // pixel's own ray at the range the depth buffer gives, so the mark follows whatever terrain is
     // under it with no projection of this mod's own and nothing to place in the world.
     //
-    // ABOVE the bounding sphere, because the burned ground and the cloud over it are different
-    // shapes and a pixel can be in one without being in the other.
-    //
-    // It lasts exactly as long as this pass is dispatched, which is as long as the cloud stands. A
-    // mark that outlives the cloud is a decal on the hillside, and docs/DAMAGE-DECALS.md is what
-    // that costs.
+    // Drawn from its own dispatch and never from the cloud's, which is what lets one mark be drawn
+    // exactly once however many clouds stand over it -- a bus's six warheads land 9 mm apart, and
+    // six mixes of the same ash onto the same pixels is six times the cost for a darker stain than
+    // any of them asked for.
     float scorch = pc.FireSun.w;
 
-    if (scorch > 0.0 && deviceZ > 0.0)
+    if (wantsScorch && deviceZ > 0.0)
     {
         vec3 burned = (dir * sceneT) - toCentre;
         float above = dot(burned, up);
@@ -462,6 +462,16 @@ void main()
             }
         }
     }
+
+    if (!wantsCloud) return;
+
+    float radius = pc.CentreRadius.w;
+
+    // The direction to the sun FROM THE CLOUD, derived rather than sent: the star's position is in
+    // the global block and the burst is in the push constant, so this is a subtraction. That freed
+    // the float the whiteout needed in a block with nothing spare.
+    vec3 sun = normalize(global.lighting.sunPosition.xyz - toCentre);
+    float forward = Phase(dot(dir, sun), 0.3);
 
     float along = dot(toCentre, dir);
     float perpSq = dot(toCentre, toCentre) - along * along;

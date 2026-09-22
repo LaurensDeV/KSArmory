@@ -51,6 +51,78 @@ internal static class NuclearClouds
 
     private static readonly List<Burning> _burning = [];
 
+    // The ground each burst burned. A third list rather than a field on either of the others,
+    // because it outlives both: a cloud is gone in 78 s and a fireball in two, and a crater is
+    // not. It is also the only one an airless burst reaches, which is the case that most wants it
+    // -- there is no atmosphere out there to absorb the pulse.
+    private sealed class Scorch
+    {
+        public required Celestial Body;
+        public required double3 BurstCcf;
+        public double ChargeKg;
+    }
+
+    private static readonly List<Scorch> _scorches = [];
+
+    // How many marks stand at once. Bounded low and for a different reason from MaxClouds: a cloud
+    // expires, so that list drains on its own, where this one never does -- every mark is a
+    // full-screen dispatch for the rest of the session. The oldest is dropped, which is visible
+    // and is the honest price of not keeping a decal.
+    private const int MaxScorches = 4;
+
+    /// <summary>How many patches of burned ground stand. Bounds <see cref="TryScorch"/>.</summary>
+    public static int ScorchCount => _scorches.Count;
+
+    /// <summary>
+    /// One of them: where it is now, and how wide. Its radius is the warhead's own lethal radius,
+    /// so the stain is the reach the panel, the overlay and the blast sweep already quote.
+    /// </summary>
+    public static bool TryScorch(int index, out double3 centreEcl, out double radiusMetres)
+    {
+        centreEcl = default;
+        radiusMetres = 0.0;
+
+        if (index < 0 || index >= _scorches.Count) return false;
+
+        try
+        {
+            Scorch one = _scorches[index];
+
+            centreEcl = one.Body.GetPositionEcl()
+                        + one.BurstCcf.Transform(one.Body.GetCce2Ccf().Inverse());
+            radiusMetres = Warhead.LethalRadius(one.ChargeKg);
+
+            return Vec.IsFinite(centreEcl) && radiusMetres > 0.0;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    // A burst inside a mark that is already there is the same mark, for the reason the clouds
+    // merge: six warheads of a bus land 9 mm apart, and six coincident stains are six dispatches
+    // over one patch of ground. Charges add, so the merged mark is the one the combined yield
+    // would have made rather than the largest single.
+    private static void Burn(Celestial body, double3 burstCcf, double chargeKg)
+    {
+        for (int i = 0; i < _scorches.Count; i++)
+        {
+            Scorch standing = _scorches[i];
+            if (!ReferenceEquals(standing.Body, body)) continue;
+
+            double reach = Warhead.LethalRadius(standing.ChargeKg + chargeKg);
+            if (Vec.Len2(burstCcf - standing.BurstCcf) > reach * reach) continue;
+
+            standing.ChargeKg += chargeKg;
+            return;
+        }
+
+        if (_scorches.Count >= MaxScorches) _scorches.RemoveAt(0);
+
+        _scorches.Add(new Scorch { Body = body, BurstCcf = burstCcf, ChargeKg = chargeKg });
+    }
+
     /// <summary>How many bursts are still alight, over any kind of body. Bounds <see cref="TryBurning"/>.</summary>
     public static int BurningCount => _burning.Count;
 
@@ -206,6 +278,7 @@ internal static class NuclearClouds
             // and its dimensions logged, over a body where nobody could ever see one.
             // Registered before the fork, because a fireball happens either way.
             _burning.Add(new Burning { Body = body, BurstCcf = burstCcf, ChargeKg = chargeKg });
+            Burn(body, burstCcf, chargeKg);
 
             if (!KsaWorld.HasAtmosphere(body))
             {
@@ -362,6 +435,7 @@ internal static class NuclearClouds
     {
         _clouds.Clear();
         _burning.Clear();
+        _scorches.Clear();
         _watch = null;
         BurstFlash.Reset();
         BurstSound.Clear();

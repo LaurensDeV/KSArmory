@@ -125,6 +125,45 @@ internal static class CloudPass
                 _order.Add((i, Vec.Len2(at - camera.PositionEcl)));
             }
 
+            // THE GROUND FIRST, because the clouds composite over what is already in the image and
+            // a mark is under the column rather than in front of it.
+            //
+            // One dispatch each. They are the cheap kind -- a scorch-only push leaves the shader
+            // before the march, measured at 0.04 ms a frame against the column's 2 -- and they run
+            // for the rest of the session, which is why NuclearClouds bounds the list rather than
+            // this loop.
+            int marks = 0;
+
+            using (commandBuffer.TagRegion(GpuTag))
+            {
+                for (int i = 0; i < NuclearClouds.ScorchCount; i++)
+                {
+                    if (!NuclearClouds.TryScorch(i, out double3 markEcl, out double markRadius)) continue;
+
+                    double3 markCentre = markEcl - camera.PositionEcl;
+                    if (!Vec.IsFinite(markCentre)) continue;
+
+                    Push burn = new()
+                    {
+                        InvViewProj = camera.VPInv.viewProjection,
+                        AgeStrengthWind = float4.Zero,
+                        // The radius here is the bounding sphere the MARCH uses, and there is no
+                        // march: zero is what tells the shader this dispatch is the ground alone.
+                        CentreRadius = new float4((float)markCentre.X, (float)markCentre.Y,
+                                                  (float)markCentre.Z, 0f),
+                        FireSun = new float4(0f, 0f, 0f, (float)markRadius),
+                        Shape = float4.Zero,
+                    };
+
+                    if (marks > 0) Hazard(commandBuffer);
+
+                    _pipeline!.BindPipeline(commandBuffer, viewport.ShaderSlot, default, default, burn);
+                    commandBuffer.Dispatch((width + Group - 1) / Group,
+                                           (height + Group - 1) / Group, 1);
+                    marks++;
+                }
+            }
+
             // A flash with no cloud under it still has to be written, so one dispatch happens for
             // the whiteout alone: a burst on an airless body grows no column and blinds a viewer
             // all the same.
@@ -134,6 +173,8 @@ internal static class CloudPass
 
                 using (commandBuffer.TagRegion(GpuTag))
                 {
+                    if (marks > 0) Hazard(commandBuffer);
+
                     Push flashOnly = new()
                     {
                         InvViewProj = camera.VPInv.viewProjection,
@@ -195,12 +236,10 @@ internal static class CloudPass
                         // The whiteout goes on ONE dispatch. The pass runs once per standing cloud
                         // and each would otherwise lay its own white over the last.
                         //
-                        // The scorch is per-burst rather than per-dispatch, so unlike the whiteout
-                        // every cloud sends its own: two bursts a kilometre apart burn two patches
-                        // of ground.
+                        // No scorch here: the ground a burst burned outlives the column over it,
+                        // so it is its own dispatch below and a cloud never draws one.
                         FireSun = new float4((float)flash.Radius, (float)flash.Glow,
-                                             n == 0 ? BurstFlash.Whiteout : 0f,
-                                             (float)shape.ScorchRadius),
+                                             n == 0 ? BurstFlash.Whiteout : 0f, 0f),
 
                         // The same shape MushroomCloud carries, so every dimension stays
                         // Glasstone's rather than being invented again in GLSL.
@@ -212,7 +251,7 @@ internal static class CloudPass
                     // writes it back: without this the second cloud races the first wherever the
                     // two overlap on screen and one of the writes is simply lost. KSA's own
                     // BarrierBatch, so this stands on public API like the rest of the pass.
-                    if (n > 0) Hazard(commandBuffer);
+                    if (n > 0 || marks > 0) Hazard(commandBuffer);
 
                     // The VIEWPORT's slot, never the frame index. That argument picks the dynamic
                     // offset into the global set, which is where global.lighting lives: a frame
