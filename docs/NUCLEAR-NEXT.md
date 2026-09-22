@@ -136,7 +136,7 @@ from the sun moving, so the raw diff says nothing. Against regions the ball cann
 and far ground 30.0 of 255 — the stem's foot came back at 31.1, its own baseline, and the cap at
 73.2.
 
-### 5. The anvil
+### 5. The anvil — reachable from the Tuning slider, not built
 
 `CloudTop = 3000 * W^(1/3)` carries no tropopause term, so a megatonne cloud is drawn as a taller
 kilotonne one. Real clouds hit the tropopause and spread **sideways** — Castle Bravo's was about
@@ -146,14 +146,14 @@ kilotonne one. Real clouds hit the tropopause and spread **sideways** — Castle
 tropopause with the cap spreading *under* it would make the yield readable from the silhouette
 instead of only from the scale, which is the one thing a player cannot currently judge.
 
-**Demoted, because nothing in the arsenal can reach it.** `CloudTop` passes a mid-latitude
-tropopause at about **49 kt**, and the two nuclear charges that ship are the B61's **0.3 kt** and
-the Mk 21's **20 kt** — 2.0 km and 8.1 km of cloud top against an 11 km ceiling. Even
-`TWOCLOUDS=100` only reaches 30 kt. So this is capability nothing in `Arsenal.cs` or the panel can
-observe, which CLAUDE.md says is a `refactor` rather than a feature, and it would ship untestable
-in the shipped game.
+**Reachable, and it was wrongly demoted.** The shipped *defaults* are the B61's 0.3 kt and the Mk 21's
+20 kt, which is what a first reading took for the arsenal — but the Tuning tab's charge slider runs to
+**340,000,000 kg**, the real B61's top setting of 340 kt. The cloud is drawn at `DrawnScale` 0.65 of
+its law, so a tropopause drawn to the same scale is reached at the law's own **~49 kt**, and at 340 kt
+the drawn top is 13.6 km. That is the whole range where the yield should read from the silhouette.
 
-It becomes worth building the moment a larger warhead is registered, and not before.
+`TWOCLOUDS=1000` puts a 300 kt burst beside the 0.3 kt one, which is the run to look at it with — and
+the first run to look at *anything* in this file above 30 kt.
 
 ### 6. The projected decal — two of its three reasons are gone
 
