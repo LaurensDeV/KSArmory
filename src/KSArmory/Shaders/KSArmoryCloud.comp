@@ -195,6 +195,12 @@ float Bulk(vec3 leaned, vec3 up)
                clamp(-stem / max(stemR * 1.3, 1.0), 0.0, 1.0));
 }
 
+// The furthest the two erosion bands can move a surface inward, in the feature's own radii. The
+// coarse band runs to about 0.55 of its 1.05 and the fine to 0.15 of its 0.30; this is over both
+// with room to spare, because being generous here costs a few samples and being tight drops
+// density that should have been there.
+const float ErodeReach = 0.80;
+
 float Density(vec3 leaned, vec3 up, float radius)
 {
     vec3 world = Unlean(leaned, up, radius);
@@ -219,6 +225,13 @@ float Density(vec3 leaned, vec3 up, float radius)
     // when it is rolled, which is why MushroomCloud.Shape.Roll was computed and then never used by
     // anything. A volume has no such problem: nothing here remembers where it was.
     const float RollRadiansPerSecond = 0.22;
+    // REJECTED BEFORE ANY NOISE. The erosion below can only pull a surface inward by the coarse
+    // band's 1.05 and the fine band's 0.30 of the feature's own radius, so a sample further outside
+    // than that cannot come back with density however the noise falls -- this is exact, not an
+    // approximation. The fBm it skips is the most expensive thing in this shader and most samples
+    // inside the bounding sphere are nowhere near the cloud.
+    if (cap > ErodeReach * tubeR && stem > ErodeReach * stemR) return 0.0;
+
     float around = atan(p.y - capH, p.x - ringR) - pc.AgeStrengthWind.x * RollRadiansPerSecond;
 
     // The coordinate turns about the ring, which is what rolls the cap the way a vortex does:

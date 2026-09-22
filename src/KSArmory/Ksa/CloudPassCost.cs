@@ -126,10 +126,15 @@ internal static class CloudPassCost
 
         // Said even when the pass never ran, because that is the baseline the other run is read
         // against and a run that reports nothing looks like a run that measured nothing.
+        //
+        // And a pass that FAILED to build says so rather than reading as one switched off. The two
+        // were the same line, so a shader that would not compile -- which the C# build cannot
+        // catch, because KSA compiles it at load -- was indistinguishable from the deliberate
+        // noshader control. That cost a debugging cycle on a GLSL declaration order.
         string had = _passFrames > 0
                          ? $"pass {_passTotalMs / _passFrames:F2} ms a frame over {_passFrames}, "
                            + $"peak {_passPeakMs:F2}"
-                         : "pass off";
+                         : CloudPass.Available ? "pass off" : "pass FAILED TO BUILD";
 
         return $"gpu: {had}; whole frame {frame:F2} ms, peak {_framePeakMs:F2}, over {_frames} frames";
     }
