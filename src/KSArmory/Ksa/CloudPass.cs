@@ -157,7 +157,11 @@ internal static class CloudPass
 
             using (commandBuffer.TagRegion(GpuTag))
             {
-                _pipeline!.BindPipeline(commandBuffer, frameIndex, default, default, push);
+                // The VIEWPORT's slot, never the frame index. That argument picks the dynamic
+                // offset into the global set, which is where global.lighting lives: a frame index
+                // there reads a different viewport's planet, sun and radii on every frame in
+                // flight, and anything lit from that block flickers at frame rate.
+                _pipeline!.BindPipeline(commandBuffer, viewport.ShaderSlot, default, default, push);
                 commandBuffer.Dispatch((width + Group - 1) / Group,
                                        (height + Group - 1) / Group, 1);
             }
@@ -181,6 +185,19 @@ internal static class CloudPass
 
         IRenderImage[] storageTargets = [colour];
         IRenderImage[] depthTargets = [depth];
+
+        // The engine's aerial-perspective LUTs, as this pass's own samplers -- which is how Core's
+        // consumers take them too. The transmittance LUT is not among them because it is already in
+        // the global set the wrapper binds at 0, and the scalars the call wants -- planet position,
+        // sun position, radii, the layer -- are in that set's lighting block. So there is no
+        // uniform buffer here and nothing of this mod's to keep in step with the engine.
+        AtmosphereRenderer air = Program.PlanetAtmosphereRenderer;
+        IRenderImage[] aerial =
+        [
+            air.AerialPerspectiveRange,
+            air.AerialPerspectiveColorRgbTransmittanceR,
+            air.AerialPerspectiveTransmittanceGb,
+        ];
         VkPushConstantRange[] ranges =
         [
             new VkPushConstantRange
@@ -192,7 +209,7 @@ internal static class CloudPass
         ];
 
         _pipeline = new ComputePipelineWrapper(
-            storageTargets, depthTargets, default, default, shader,
+            storageTargets, depthTargets, aerial, default, shader,
             default, ranges, renderer.MaxFramesInFlight, renderer,
             "KSArmory.CloudPass", Program.PointClampedSampler, Program.LinearClampedSampler);
 

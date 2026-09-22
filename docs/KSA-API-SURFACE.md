@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-208 types and 563 members across 9 assemblies.
+209 types and 568 members across 9 assemblies.
 
 ## Brutal.Concurrency
 
@@ -428,6 +428,12 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `KSA.PhysicalAtmosphereReference Physical`
 
+### KSA.AtmosphereRenderer
+
+- `KSA.Rendering.RenderImage get_AerialPerspectiveColorRgbTransmittanceR()`
+- `KSA.Rendering.RenderImage get_AerialPerspectiveRange()`
+- `KSA.Rendering.RenderImage get_AerialPerspectiveTransmittanceGb()`
+
 ### KSA.AttitudeControlSystem
 
 *referenced as a type only*
@@ -739,6 +745,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.ViewportType get_Type()`
 - `bool get_Visible()`
 - `int get_Height()`
+- `int get_ShaderSlot()`
 - `int get_Width()`
 - `string get_Name()`
 - `void SetVisible(bool)`
@@ -945,6 +952,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.VulkanApi.VkSampler get_LinearClampedSampler()`
 - `Brutal.VulkanApi.VkSampler get_PointClampedSampler()`
 - `Core.Renderer GetRenderer()`
+- `KSA.AtmosphereRenderer get_PlanetAtmosphereRenderer()`
 - `KSA.Camera GetMainCamera()`
 - `KSA.Camera GetRenderCamera()`
 - `KSA.GizmosRenderer GizmosRenderer`
