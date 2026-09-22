@@ -22,9 +22,12 @@ fallout runs downwind for tens of kilometres. The mod's cloud leans in a wind th
 
 ---
 
-## Tier 1 — cheap, and each one is unmistakably nuclear
+## Tier 1 — done
 
-### 1. The double flash
+All three flown on 2026.9.10.5438. Kept here rather than deleted, because two of them ended
+somewhere other than where the plan expected.
+
+### 1. The double flash — built
 
 `MushroomCloud.FlashAt`'s glow is monotone: the maximum of two decaying exponentials, then an
 ember floor. Real thermal output has **two** maxima — an intensely bright, very short first pulse
@@ -41,31 +44,67 @@ t_min  = 0.0025 * W^0.44 s        10 ms at 20 kt,  53 ms at 1 Mt
 t_max2 = 0.0417 * W^0.44 s       157 ms at 20 kt, 890 ms at 1 Mt
 ```
 
-**The difficulty is that it is over before anyone can see it at the yields this mod fires.** At the
-B61's third of a kilotonne the second maximum is at 25 ms — under two frames. The rise is already
-compressed sevenfold and `DrawnScale` and `DrawnCapWidening` are both named lies for exactly this
-kind of problem, so a `DrawnFlashStretch` would be in keeping. **Measure before naming one**: put
-captures at `t_min` and `t_max2` and see what the real law actually looks like first.
+**It was over before anyone could see it**, as expected: 25 ms at the B61's yield. So the pulse is
+slowed to put the second maximum at `LegibleSecondPeak`, 0.35 s — a **floor rather than a
+multiplier**, which is what makes it self-limiting: it is identically 1.0 at a megatonne, where the
+law puts the second maximum at 0.87 s on its own.
 
-### 2. Blinded only if you are looking at it
+Two things the plan did not anticipate:
+
+**The minimum is not the fireball going out.** The shock front is opaque to what is behind it and
+is itself radiating, just cooler. Drawn without a floor the glow collapsed to about 5 against an
+ember floor of 40 — under the bloom threshold, which reverts the ball to being drawn as geometry
+for a fifth of a second. `ShockFrontShare` is a quarter, which is the shape Glasstone's curves
+have.
+
+**And `PulseMinimumSeconds` is not where the drawn curve is dimmest.** It is the law's shock-front
+time; the composite goes on falling past it while the opening behind it is still small, so the
+trough is where a decaying exponential crosses a smoothstep and has no closed form.
+`PulseTroughSeconds` walks it. The first capture aimed at the minimum landed on the rising edge and
+read 106 instead of 49.
+
+Flown, with the glow reported beside each capture because **no screenshot can settle this** — at
+2.4 km the whiteout saturates over the whole pulse, and an eye is what the whiteout models, so an
+eye does not see the dip either. A fast camera would. The numbers are 276 at the first pulse, 49 at
+the trough, 148 at the second maximum.
+
+### 2. Blinded only if you are looking at it — built
 
 `Ksa/BurstFlash.cs` takes the eye's **position**, for the solid angle, and throws the **direction**
 away — `TryMainCameraPose(out double3 eyeEcl, out _)`. So a burst directly behind the camera whites
 the screen out exactly as one dead ahead does.
 
-One dot product against the view axis, softened across the field of view rather than cut at its
-edge, and with a residual floor: light that bright scatters in the atmosphere and in the optics, so
-facing away should dim it and never abolish it.
+`Sim/FlashGlare.cs`. Full while the burst is in frame, then a smoothstep to a floor, and the field
+is the view's own so the sight's three-degree frame is judged as three degrees.
 
-### 3. The cloud never drifts
+**Unit-tested and not flown.** `CloudWatch` pins the camera on the burst from the frame it happens,
+so no shipped scenario can face away from one. The curve's invariants are pinned instead —
+monotone, bounded, full in frame, floored behind — and the flight confirms only that the flash
+still fires when you are looking at it.
+
+### 3. The cloud never drifts — built
 
 `Cloud.BurstCcf` is written once and never updated. The column leans downwind — that is
 `Downwind`, and `VeerRadians` turns it with height — and its foot stays nailed to the burst point
 for the whole 78 s.
 
-The wind is already there. Advecting the cloud along it is one addition per update, and over a
-cloud's life it is about a kilometre: enough to separate the column from its own scorch, which is
-what every photograph of an hour-old cloud shows and what the mod currently cannot produce.
+**Nothing drifts until the rise is over**, which turned out to be the point rather than a
+simplification: what wind does to a column still being fed from the ground is tilt it, and that is
+the lean and the veer already drawn. A cloud sails once it stops being fed.
+
+One cap radius over the stand, named like `DrawnScale`. An honest drift is four cloud widths — wind
+aloft is twenty to forty metres a second over a five-minute rise — and carries the column out of
+any frame that also holds the ground it burned. In cap radii rather than metres, so it reads the
+same at any yield. Flown: at 72 s the residual column stands clear of a centred mark.
+
+---
+
+## Tier 1a — found while building the above
+
+- **A control run reported a shader that would not compile.** `CloudPassCost` read "no pipeline" as
+  "build failed", and a pass switched off is never asked to build one. Fixed.
+- **`PulseMinimumSeconds` was documented as the dimmest point and is not.** Fixed by naming, and by
+  adding the thing the name promised.
 
 ---
 
