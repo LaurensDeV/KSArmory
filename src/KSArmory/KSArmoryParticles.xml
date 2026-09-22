@@ -301,7 +301,7 @@
           The colour barely moves for the same reason. Regolith is the same colour at the top of the
           arc as it was leaving the crater, where smoke pales as it dilutes.
         -->
-        <ScaleEnvelope Start="1" Peak="1.55" PeakAt="0.5" End="1.95"/>
+        <ScaleEnvelope Start="1" Peak="2.05" PeakAt="0.5" End="2.90"/>
         <AlphaEnvelope Start="0.95" Peak="0.95" PeakAt="0.94" End="0"/>
         <ColorStops MidAt="0.5">
             <Start R="0.50" G="0.45" B="0.38"/>

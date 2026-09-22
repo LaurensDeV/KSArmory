@@ -109,8 +109,8 @@ internal static class BurstEjecta
                         // Very nearly the size it stays: the envelope is flat, because a grain in
                         // vacuum has no air to entrain and does not swell. The dome widens because
                         // the grains leave at a spread of speeds, not because each one grows.
-                        e.ParticleInfo.Size = new float2((float)(thrown.ReachMetres * 0.06),
-                                                         (float)(thrown.ReachMetres * 0.12));
+                        e.ParticleInfo.Size = new float2((float)(thrown.ReachMetres * 0.09),
+                                                         (float)(thrown.ReachMetres * 0.16));
                     });
 
                     ejecta = $"ejecta {thrown.ReachMetres:F0} m at {thrown.SpeedMetresPerSecond:F0} m/s "
