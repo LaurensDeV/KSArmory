@@ -225,6 +225,9 @@ internal static class NuclearClouds
             // photograph of a burst that early is a white dome rather than a ball of fire.
             BurstEjecta.BeginWilson(body, burstCcf, chargeKg);
 
+            // And the bang, which is seconds behind the light.
+            BurstSound.Begin(body, burstEcl);
+
             // A column is about as tall as it is wide, so one number frames it both ways.
             _watch = (body, burstCcf, up,
                       new AirlessBurst.Extent(MushroomCloud.DrawnCloudTop(kt),
@@ -307,6 +310,7 @@ internal static class NuclearClouds
         _clouds.Clear();
         _watch = null;
         BurstFlash.Reset();
+        BurstSound.Clear();
         Fireball.Clear();
     }
 }

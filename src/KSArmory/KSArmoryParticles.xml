@@ -529,7 +529,13 @@
             <ColorMid R="1" G="0.72" B="0.28"/>
             <ColorEnd R="1" G="0.25" B="0.05"/>
         </Flash>
-        <SoundEvent SoundId="ExplosionBig"/>
+        <!--
+          NO SoundEvent. The engine plays one at the instant of the burst, which is right for
+          everything it ships: a conventional explosion is heard from inside its own blast radius
+          or not at all. A nuclear one is watched from kilometres off, where the flash and the bang
+          are separated by the whole of the time sound takes to cross the gap. Ksa/BurstSound.cs
+          plays it when it arrives.
+        -->
         <VolumeRef Id="FireballVolume" Delay="0" Intensity="1.2" FallbackEmitterId="FireballVolumetric"/>
         <VolumeRef Id="KSArmoryNuclearShockWave" Delay="0" Intensity="1.0" FallbackEmitterId="ShockWave"/>
     </Explosion>

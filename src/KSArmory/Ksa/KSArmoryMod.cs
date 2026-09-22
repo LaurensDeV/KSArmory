@@ -818,6 +818,9 @@ public sealed class KSArmoryMod
         // CloudPass writes it into the scene image so it survives the HUD being hidden.
         BurstFlash.Update(_lastSimStep);
 
+        // And the bangs still on their way.
+        BurstSound.Update(_lastSimStep);
+
         // A sight outlives nothing: without this the dictionary keeps a system for the session
         // after its craft has gone, which is the leak every pooled effect below sweeps for.
         if (_sights.Count > _roster.Count)
