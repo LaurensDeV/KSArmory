@@ -184,7 +184,7 @@ dozens more — and every one is a rebuild. A small storage buffer of named valu
 picture be captured at each value, and the chosen number be written back into the source once. That
 is Blender's loop — build, look, adjust — for the shader.
 
-### 8. "Capture for Claude", in play
+### 8. "Capture for Claude", in play — built
 
 A button in the panel, and a key, that writes a bundle the moment the player sees something: eight
 consecutive frames, the manifest, the settings, the last lines of the log. "Clouds flicker through
@@ -239,8 +239,14 @@ and the fireball's share of the light; the other seventeen are the look's consta
 turned up a lead: from under a deck, the stem under a 5 km cap with the sun at 28° reads fully lit,
 where the cap should be shading it — the shadow march's four taps may not reach that far down.
 
-Built: 1–7, 9 and 10. `tools/check-shaders.sh` is glslang rather than shaderc — nothing installable
+**Capture for Claude** is a button in the debug tools window. It writes `out/player-<time>/`: a
+note of the state, every `Config` field and every tunable at the moment it was pressed, the log's
+last 300 lines, and eight frames with their manifests. `ksa_player_captures` reads the newest back
+as the state, a sheet and the temporal map — with the world running, so motion shows in it too, and
+on its first use it picked out a distant piece of scenery flickering on its own.
+
+Built: 1–10. `tools/check-shaders.sh` is glslang rather than shaderc — nothing installable
 here runs KSA's — with the include given as a search path and the directive's extension named, and
 it caught the night's `flat` with its line. Left, in order:
 
-1. **Capture for Claude** (8), **fixed scenes** (11) and **the reference library** (12).
+1. **Fixed scenes** (11) and **the reference library** (12).

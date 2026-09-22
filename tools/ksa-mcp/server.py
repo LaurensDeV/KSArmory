@@ -234,6 +234,37 @@ def _image(img, width: int) -> dict:
     return {"type": "image", "data": vis.jpeg_b64(img, width), "mimeType": "image/jpeg"}
 
 
+def player_captures(name: str | None = None, crop: bool = False, width: int = 960) -> list[dict]:
+    """What the player saved with Capture for Claude: the note, the frames as a sheet, and the
+    temporal map of them, which is where flicker shows."""
+    out = bridge() / "out"
+    folders = sorted((p for p in out.glob("player-*") if p.is_dir()), reverse=True)
+    if not folders:
+        raise Refused("no player captures yet -- the button is in the KSArmory debug tools window")
+
+    folder = next((f for f in folders if f.name == name), None) if name else folders[0]
+    if folder is None:
+        raise Refused(f"no capture '{name}'; there are {[f.name for f in folders[:10]]}")
+
+    frames = sorted(folder.glob("*-player.png"))
+    shots = [vis.manifest_for(f) for f in frames]
+    imgs = [vis.load(f) for f in frames]
+    note = json.loads((folder / "note.json").read_text()) if (folder / "note.json").exists() else {}
+
+    content = [_text(f"{folder.name}: {len(frames)} frames, others {[f.name for f in folders[1:6]]}\n"
+                     f"state {json.dumps(note.get('status', {}))}\n"
+                     f"log tail {folder / 'log-tail.txt'}")]
+    if imgs:
+        show = [vis.crop(i, s) if crop else i for i, s in zip(imgs, shots)]
+        content.append(_image(vis.sheet(show, [f"{s.get('burst_age_s', '?')} s" for s in shots],
+                                        cols=4), 1280))
+        if len(imgs) > 1:
+            t, stats = vis.temporal(imgs)
+            content.append(_text(f"temporal {stats} -- the world was running, so motion shows too"))
+            content.append(_image(t, width))
+    return content
+
+
 def reload_shaders() -> str:
     """Copies the shaders from the tree into the installed mod and recompiles them in the game."""
     src = REPO / "src" / "KSArmory" / "Shaders"
@@ -302,6 +333,12 @@ TOOLS = {
                  "for one term: 1 coverage, 2 depth, 3 weather mask, 4 sunlight, 5 fireball share.",
                  {"name": {"type": "string"}, "value": _num("value"), "reset": {"type": "boolean"}}, [],
                  lambda a: [_text(json.dumps(send("tune", **a), indent=1))]),
+    "ksa_player_capture": ("Press the Capture for Claude button, as the player would.", {}, [],
+                           lambda a: [_text(json.dumps(send("player_capture")))]),
+    "ksa_player_captures": ("What the player saved with the Capture for Claude button: the newest, or one by "
+                            "name. Returns the game's state then, the frames and their temporal map.",
+                            {"name": {"type": "string"}, "crop": {"type": "boolean"}}, [],
+                            lambda a: player_captures(a.get("name"), bool(a.get("crop", False)))),
     "ksa_log": ("The mod's log, filtered.", {"pattern": {"type": "string"}, "lines": _num("count")}, [],
                 lambda a: [_text(log_tail(a.get("pattern", ""), int(a.get("lines", 40))))]),
 }

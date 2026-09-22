@@ -143,6 +143,8 @@ internal sealed partial class Ui
                                : "World overlay is off - turn it on under Settings > Display");
 
         ImGui.Separator();
+        DrawCaptureForClaude();
+        ImGui.Separator();
         DrawWorldClock();
         ImGui.Separator();
         DrawBurstTool();
@@ -159,6 +161,18 @@ internal sealed partial class Ui
         ImGui.Separator();
 
         DrawPaneGroup(null, PaneGroup.Debug);
+    }
+
+    // What the player is looking at, kept for whoever is diagnosing it: frames, the state and the
+    // log at that moment. A report from play in words is a guess at a cause; this is the evidence.
+    private static void DrawCaptureForClaude()
+    {
+        if (ImGui.Button("Capture for Claude")) Bridge.RequestPlayerCapture();
+        Tip("Saves eight frames of what is on screen with a note of the game's state and the end of "
+            + "the log, beside the log in bridge/out. Nothing is sent anywhere. Press it the moment "
+            + "you see something, and say so.");
+
+        if (Bridge.LastPlayerCapture is { } last) ImGui.TextDisabled($"  saved {last}");
     }
 
     // Everything drawn in the world. One screen, so one set of switches.

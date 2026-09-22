@@ -40,6 +40,16 @@ internal sealed class Bridge
 
     public Bridge(Config config) => _config = config;
 
+    // Asked for from the panel, and taken up by the next Update: the panel draws in the UI pass and
+    // the bridge runs in the frame hook, and a capture must not start inside the UI pass.
+    private static bool _playerAsked;
+
+    /// <summary>Asks for a capture of what the player is looking at, with a note of the state.</summary>
+    public static void RequestPlayerCapture() => _playerAsked = true;
+
+    /// <summary>The folder the last one went to, for the panel to say so.</summary>
+    public static string? LastPlayerCapture { get; private set; }
+
     private static string Root => Path.Combine(Log.Folder, "bridge");
     private static string Inbox => Path.Combine(Root, "in");
     private static string Outbox => Path.Combine(Root, "out");
@@ -60,6 +70,13 @@ internal sealed class Bridge
             if (_running is not null && _current is not null)
             {
                 if (_running(dtPlayer, dtSim) is { } reply) Answer(_current, reply);
+                return;
+            }
+
+            if (_playerAsked)
+            {
+                _playerAsked = false;
+                StartPlayerCapture();
                 return;
             }
 
@@ -88,6 +105,53 @@ internal sealed class Bridge
             if (_current is { } command) Answer(command, Failed($"threw: {e.Message}"));
             else Log.Warn($"bridge: {e.Message}");
         }
+    }
+
+    // Eight frames as quickly as KSA will take them, and a note written first, so it is the state at
+    // the moment the player pressed rather than after the frames.
+    private void StartPlayerCapture()
+    {
+        string id = "player-" + DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
+        string folder = Path.Combine(Outbox, id);
+        Directory.CreateDirectory(folder);
+
+        Dictionary<string, object?> note = new()
+        {
+            ["status"] = Status().Data,
+            ["tunables"] = ShaderTunables.All.ToDictionary(t => t.Name, t => (object?)ShaderTunables.Value(t)),
+            ["config"] = typeof(Config).GetFields(BindingFlags.Public | BindingFlags.Instance)
+                                       .ToDictionary(f => f.Name, f => (object?)Convert.ToString(
+                                                         f.GetValue(_config), CultureInfo.InvariantCulture)),
+        };
+        File.WriteAllText(Path.Combine(folder, "note.json"), JsonSerializer.Serialize(note, JsonOptions));
+
+        try
+        {
+            // Shared, because the log is held open for writing the whole session.
+            using FileStream stream = new(Path.Combine(Log.Folder, "KSArmory.log"), FileMode.Open,
+                                          FileAccess.Read, FileShare.ReadWrite);
+            using StreamReader reader = new(stream);
+            string[] log = reader.ReadToEnd().Split('\n');
+            File.WriteAllLines(Path.Combine(folder, "log-tail.txt"), log.Skip(Math.Max(0, log.Length - 300)));
+        }
+        catch (IOException)
+        {
+            // A note without the log's tail still says what the state was.
+        }
+
+        LastPlayerCapture = folder;
+        Log.Info($"capture for Claude: {folder}");
+
+        string request = JsonSerializer.Serialize(new Dictionary<string, object>
+        {
+            ["id"] = id,
+            ["cmd"] = "capture",
+            ["label"] = "player",
+            ["frames"] = 8,
+            ["every_frames"] = 1,
+        });
+
+        if (BridgeCommand.TryParse(request, out BridgeCommand? command, out _)) Start(command!);
     }
 
     /// <summary>Holds the view on the newest burst while a pose is set. From the camera pass.</summary>
@@ -123,6 +187,7 @@ internal sealed class Bridge
             "camera" => Camera(command),
             "reload_shaders" => ReloadShaders(),
             "tune" => Tune(command),
+            "player_capture" => PressTheButton(),
             "step" => BeginStep(command),
             "capture" => BeginCapture(command),
             "load" => BeginLoad(command),
@@ -270,6 +335,13 @@ internal sealed class Bridge
                                     command.Number("distance_m", 0.0), command.Number("aim", 0.45));
 
         return Done(new() { ["held"] = true });
+    }
+
+    // What the panel's Capture for Claude button does, for a test that cannot click it.
+    private static Reply PressTheButton()
+    {
+        RequestPlayerCapture();
+        return Done();
     }
 
     // A shader constant set while the game runs: the pipelines rebuild with it on the next frame.
