@@ -259,7 +259,7 @@ public static class MushroomCloud
     public readonly record struct Shape(
         double CapCentre, double CapRadius, double CapTube,
         double StemTop, double StemRadius, double SurgeRadius, double SurgeHeight,
-        double Roll, double Fade)
+        double Roll, double Fade, double ScorchRadius)
     {
         /// <summary>Nothing left to draw.</summary>
         public bool Spent => Fade <= 0.0;
@@ -579,7 +579,13 @@ public static class MushroomCloud
             SurgeRadius: SurgeRadius(kt, age),
             SurgeHeight: SurgeHeight(kt, age),
             Roll: roll,
-            Fade: Fade(age));
+            Fade: Fade(age),
+
+            // The warhead's own lethal radius, which is the number the panel, the overlay and the
+            // blast sweep already describe this weapon by. A stain wanting a radius of its own
+            // would be a fourth one for a player to reconcile, and this one is already Hopkinson
+            // -- Cranz, so it grows with the cloud around it rather than against it.
+            ScorchRadius: Warhead.LethalRadius(chargeKg));
     }
 
     /// <summary>

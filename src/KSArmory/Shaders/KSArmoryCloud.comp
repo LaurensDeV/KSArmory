@@ -108,6 +108,11 @@ const float FalloutDensity = 0.30;
 // finite one keeps the comparisons below free of an isinf.
 const float Nowhere = 1.0e9;
 
+// How much of the ground's own colour the burn takes, at the middle of the mark. Not all of it:
+// a scorched hillside is still a lit hillside, and driving it to flat ash removes the relief the
+// terrain is drawn with.
+const float ScorchDepth = 0.85;
+
 // How far the wind turns between the foot of the column and its top.
 const float VeerRadians = 0.55;
 
@@ -407,6 +412,56 @@ void main()
     // the float the whiteout needed in a block with nothing spare.
     vec3 sun = normalize(global.lighting.sunPosition.xyz - toCentre);
     float forward = Phase(dot(dir, sun), 0.3);
+
+    // THE GROUND THE FIREBALL BURNED, out to the warhead's own lethal radius. That is the number
+    // the panel, the overlay and the blast sweep already describe this weapon by, so a stain
+    // wanting a radius of its own would be a fourth one for a player to reconcile -- and it is
+    // Hopkinson--Cranz like everything else here, so it grows with the cloud rather than against it.
+    //
+    // Screen space, off the depth the march is about to clip against: the scene point is along this
+    // pixel's own ray at the range the depth buffer gives, so the mark follows whatever terrain is
+    // under it with no projection of this mod's own and nothing to place in the world.
+    //
+    // ABOVE the bounding sphere, because the burned ground and the cloud over it are different
+    // shapes and a pixel can be in one without being in the other.
+    //
+    // It lasts exactly as long as this pass is dispatched, which is as long as the cloud stands. A
+    // mark that outlives the cloud is a decal on the hillside, and docs/DAMAGE-DECALS.md is what
+    // that costs.
+    float scorch = pc.FireSun.w;
+
+    if (scorch > 0.0 && deviceZ > 0.0)
+    {
+        vec3 burned = (dir * sceneT) - toCentre;
+        float above = dot(burned, up);
+        float acrossR = length(burned - up * above);
+
+        if (acrossR < scorch)
+        {
+            // Broken at the edge rather than drawn as a circle: what burned is what the terrain let
+            // the flash reach, so the boundary wanders by a fraction of its own radius.
+            float ragged = (acrossR / scorch) + (Fbm(burned * (6.0 / scorch)) - 0.5) * 0.30;
+
+            // Faded with height ABOVE the burst and not with distance from it, so the ground under
+            // an airburst still burns while a craft flying through the same radius does not black
+            // out. There is no normal here to ask which a surface is.
+            float mark = (1.0 - smoothstep(0.35, 1.0, ragged))
+                         * (1.0 - smoothstep(0.0, scorch * 0.30, max(above, 0.0)));
+
+            if (mark > 0.0)
+            {
+                vec4 was = imageLoad(sceneColor, at);
+
+                // Desaturated and then darkened rather than multiplied. A multiply leaves grass
+                // green and merely dimmer, which reads as shadow; what a flash leaves is ash, and
+                // the colour goes before the light does.
+                float luma = dot(was.rgb, vec3(0.2126, 0.7152, 0.0722));
+                vec3 ash = vec3(luma) * vec3(0.34, 0.30, 0.27);
+
+                imageStore(sceneColor, at, vec4(mix(was.rgb, ash, mark * ScorchDepth), was.a));
+            }
+        }
+    }
 
     float along = dot(toCentre, dir);
     float perpSq = dot(toCentre, toCentre) - along * along;

@@ -51,7 +51,7 @@ internal static class CloudPass
         public float4x4 InvViewProj;
         public float4 AgeStrengthWind;   // age, strength, and the downwind packed into two floats
         public float4 CentreRadius;
-        public float4 FireSun;       // fireball radius and glow, then the sun octahedral
+        public float4 FireSun;       // fireball radius and glow, the whiteout, the scorch
         public float4 Shape;        // cap centre, cap radius, cap tube, stem radius
     }
 
@@ -194,8 +194,13 @@ internal static class CloudPass
                         //
                         // The whiteout goes on ONE dispatch. The pass runs once per standing cloud
                         // and each would otherwise lay its own white over the last.
+                        //
+                        // The scorch is per-burst rather than per-dispatch, so unlike the whiteout
+                        // every cloud sends its own: two bursts a kilometre apart burn two patches
+                        // of ground.
                         FireSun = new float4((float)flash.Radius, (float)flash.Glow,
-                                             n == 0 ? BurstFlash.Whiteout : 0f, 0f),
+                                             n == 0 ? BurstFlash.Whiteout : 0f,
+                                             (float)shape.ScorchRadius),
 
                         // The same shape MushroomCloud carries, so every dimension stays
                         // Glasstone's rather than being invented again in GLSL.
