@@ -472,7 +472,25 @@ internal sealed class DropScenario
         // Two during the luminous phase: the whiteout peaks about a tenth of the way through it
         // and is gone well before the ball is, so one capture at 0.70 photographs the glow in the
         // cloud and never the flash on the screen.
-        double[] withFlash = [flash * 0.15, flash * 0.70, .. rise];
+        //
+        // And three across the THERMAL PULSE itself, which none of those reach: the double flash
+        // is over inside the first half second even after being slowed to be legible, and its
+        // whole signature is the minimum between the two maxima. Photographed at neither the
+        // burst nor the two peaks would say which curve is being drawn -- every version of a
+        // flash looks like a flash, which is the same difficulty the cloud has.
+        double kt = MushroomCloud.KilotonsFor(round.Munition.ChargeKg);
+        double pulseTrough = MushroomCloud.PulseTroughSeconds(round.Munition.ChargeKg);
+        double pulsePeak = MushroomCloud.PulsePeakSeconds(kt);
+
+        double[] withFlash =
+        [
+            MushroomCloud.PulseMinimumSeconds(kt) * 0.35,
+            pulseTrough,
+            pulsePeak,
+            flash * 0.15,
+            flash * 0.70,
+            .. rise,
+        ];
 
         // The dissolve is the column's alone. Thrown ground has no life past its own arc.
         double[] withDissolve =
@@ -573,10 +591,19 @@ internal sealed class DropScenario
 
             // The age is the WORLD's, and the wall clock beside it is how a reader tells a run
             // that held its speed from one the engine refused: at 1x they are the same number.
+            // The ball's own glow at this age, because the thermal pulse is the one thing here a
+            // screenshot cannot settle: at close range the whiteout saturates over the whole of
+            // it, and every version of a flash looks like a flash. The three pulse captures are
+            // only readable beside these numbers.
+            string burning = _round is { } burst
+                                 ? $", glow {MushroomCloud.FlashAt(burst.Munition.ChargeKg, age).Glow:F0}"
+                                 : string.Empty;
+
             _report($"{(shot ? "SHOT" : "CAPTURE")} burst at {age:F1} s "
                     + $"({age / watch:F2} of a {watch:F1} s watch), {drawn}, {sun}, "
                     + $"{NuclearClouds.ScorchCount} mark(s), "
-                    + $"{KsaWorld.SimulationSpeed:F2}x after {_lingered:F1} s of wall clock");
+                    + $"{KsaWorld.SimulationSpeed:F2}x after {_lingered:F1} s of wall clock"
+                    + burning);
         }
     }
 

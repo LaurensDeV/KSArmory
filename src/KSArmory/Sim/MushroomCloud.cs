@@ -279,6 +279,98 @@ public static class MushroomCloud
     public static double FlashSeconds(double yieldKt)
         => Math.Min(DarkAfter(yieldKt), RiseSeconds * ClimbUntil * 0.6);
 
+    private static double Smoothstep(double edge0, double edge1, double x)
+    {
+        if (!(edge1 > edge0)) return x >= edge1 ? 1.0 : 0.0;
+
+        double t = Math.Clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0);
+
+        return t * t * (3.0 - (2.0 * t));
+    }
+
+    /// <summary>
+    /// How long the second maximum of the thermal pulse is held out to, so it can be seen.
+    ///
+    /// <para><b>A drawing choice, and a floor rather than a multiplier.</b> At the B61's third of
+    /// a kilotonne the whole double pulse is over in 25 ms — a frame and a half — so the one
+    /// signature that separates a nuclear burst from a large explosion would be drawn and never
+    /// witnessed. At a megatonne the second maximum falls at 0.87 s on its own and this does
+    /// nothing at all, which is what makes it a floor: the law is left alone wherever the law is
+    /// already legible.</para>
+    /// </summary>
+    public const double LegibleSecondPeak = 0.35;
+
+    // Glasstone and Dolan, as powers of yield in kilotonnes: the minimum of the thermal pulse and
+    // its second maximum. 10 ms and 157 ms at 20 kt; 52 ms and 871 ms at a megatonne.
+    private const double PulseMinimumCoefficient = 0.0025;
+    private const double PulsePeakCoefficient = 0.0417;
+    private const double PulseExponent = 0.44;
+
+    /// <summary>How much the pulse is slowed so it can be seen. One at high yields.</summary>
+    public static double DrawnPulseStretch(double yieldKt)
+    {
+        if (yieldKt <= 0.0) return 1.0;
+
+        double peak = PulsePeakCoefficient * Math.Pow(yieldKt, PulseExponent);
+
+        return peak > 0.0 ? Math.Max(1.0, LegibleSecondPeak / peak) : 1.0;
+    }
+
+    /// <summary>
+    /// When the shock front goes opaque to the radiation behind it, as drawn (s).
+    ///
+    /// <para><b>Not where the drawn curve is dimmest</b>, which is <see cref="PulseTroughSeconds"/>
+    /// and is later: the first pulse is still dying here and the burn behind it has barely begun
+    /// to show, so where the two cross is past both. The fireball is still there and still growing
+    /// throughout — what happens is that for a moment one cannot see it.</para>
+    /// </summary>
+    public static double PulseMinimumSeconds(double yieldKt)
+        => yieldKt <= 0.0
+               ? 0.0
+               : PulseMinimumCoefficient * Math.Pow(yieldKt, PulseExponent) * DrawnPulseStretch(yieldKt);
+
+    /// <summary>
+    /// When the drawn flash is actually at its dimmest (s) — the bottom of the double pulse.
+    ///
+    /// <para>Found by walking the curve rather than solved, because it is where a decaying
+    /// exponential crosses a smoothstep and there is no closed form. Cheap and asked rarely: by
+    /// the harness, to photograph the trough, and by the tests that assert there is one.</para>
+    /// </summary>
+    public static double PulseTroughSeconds(double chargeKg)
+    {
+        double peak = PulsePeakSeconds(KilotonsFor(chargeKg));
+        if (!(peak > 0.0)) return 0.0;
+
+        double dimmest = double.MaxValue;
+        double at = 0.0;
+
+        for (int i = 0; i <= TroughSamples; i++)
+        {
+            double age = peak * i / TroughSamples;
+            double glow = FlashAt(chargeKg, age).Glow;
+
+            if (glow >= dimmest) continue;
+
+            dimmest = glow;
+            at = age;
+        }
+
+        return at;
+    }
+
+    // Enough to land the trough within a frame at 60 fps over any drawn pulse.
+    private const int TroughSamples = 256;
+
+    /// <summary>
+    /// When the second maximum falls, as drawn (s). The bigger of the two in everything but peak
+    /// power: it lasts an order of magnitude longer and carries about 99% of the thermal energy,
+    /// which is what actually burns and blinds at range.
+    /// </summary>
+    public static double PulsePeakSeconds(double yieldKt)
+        => yieldKt <= 0.0
+               ? 0.0
+               : PulsePeakCoefficient * Math.Pow(yieldKt, PulseExponent) * DrawnPulseStretch(yieldKt);
+
     /// <summary>
     /// The cloud at an age, in a frame whose <paramref name="up"/> is the local vertical.
     ///
@@ -316,6 +408,25 @@ public static class MushroomCloud
     /// serves the whole dial.</para>
     /// </summary>
     public const double PeakGlow = 600.0;
+
+    /// <summary>
+    /// How fast the first pulse decays, in multiples of the time to the minimum.
+    ///
+    /// <para>Under one, so the pulse is well down before the minimum it is falling toward — which
+    /// is what leaves a minimum there at all rather than a shoulder.</para>
+    /// </summary>
+    public const double PulseDecayInMinima = 0.45;
+
+    /// <summary>
+    /// What still gets out while the shock front is opaque, as a share of the second maximum.
+    ///
+    /// <para><b>The minimum is not the fireball going out.</b> The front is opaque to the radiation
+    /// behind it and is itself radiating, just cooler — so a floor rather than a gap. Without one
+    /// the drawn glow collapsed to about 5 against an ember floor of 40, which puts the ball under
+    /// the bloom threshold and reverts it to being drawn as geometry for a fifth of a second.
+    /// A fifth to a quarter of the second maximum is the shape Glasstone's curves have.</para>
+    /// </summary>
+    public const double ShockFrontShare = 0.25;
 
     /// <summary>The fireball at its largest, which is what it spends most of the flash at.</summary>
     public static double PeakFireballRadius(double yieldKt)
@@ -472,9 +583,27 @@ public static class MushroomCloud
         // term left in the maximum past the luminous phase holds its final value forever and the
         // ember can never darken under it. They join without a step because the burn is sized to
         // arrive at exactly EmberGlow when t reaches 1.
+        // THE PULSE has a hard deadline of its own rather than a fraction of the luminous phase:
+        // it is shock-front radiation, and it is over long before the ball is.
+        double tMin = PulseMinimumSeconds(kt);
+        double pulse = tMin > 0.0
+                           ? PeakGlow * Math.Exp(-age / (tMin * PulseDecayInMinima))
+                           : 0.0;
+
+        // ...AND THE BURN IS HELD OUT UNTIL THE SHOCK FRONT LETS IT THROUGH, which is the whole of
+        // the double flash. Between the pulse dying and this opening there is a real minimum -- the
+        // front is opaque to the radiation behind it, so the fireball is still there, still
+        // growing, and for a moment cannot be seen. Nothing else in nature does that, and a
+        // bhangmeter identifies a nuclear test from orbit on this curve alone.
+        //
+        // It reaches one at the second maximum and the term under it is unchanged from there on,
+        // so the burn and the ember below it are reached unchanged.
+        double opening = ShockFrontShare
+                         + ((1.0 - ShockFrontShare) * Smoothstep(tMin, PulsePeakSeconds(kt), age));
+
         double glow = age <= dark
-                          ? Math.Max(PeakGlow * Math.Exp(-4.5 * t),
-                                     BurnGlow * Math.Exp(-Math.Log(BurnGlow / EmberGlow) * t))
+                          ? Math.Max(pulse,
+                                     BurnGlow * Math.Exp(-Math.Log(BurnGlow / EmberGlow) * t) * opening)
                           : EmberGlow + ((EmberFloor - EmberGlow) * ember);
 
         return new Flash(radius, colour, glow);

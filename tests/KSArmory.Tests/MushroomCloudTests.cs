@@ -140,6 +140,11 @@ public class MushroomCloudTests
     /// <summary>
     /// The flash is brightest at the instant of the burst and is essentially over long before the
     /// ball stops being visible. A slow fade reads as a lamp being turned down.
+    ///
+    /// <para>It is deliberately <em>not</em> monotone — see the double pulse below — so what is
+    /// guarded here is the collapse rather than the direction: the first pulse is the brightest
+    /// point of the whole flash, and by halfway through the luminous phase there is a fifth of it
+    /// left. A linear fade from the peak sits at half there and fails.</para>
     /// </summary>
     [Fact]
     public void TheFlashIsBrightestAtTheStartAndCollapses()
@@ -147,10 +152,14 @@ public class MushroomCloudTests
         double dark = MushroomCloud.DarkAfter(0.3);
 
         double at0 = MushroomCloud.FlashAt(0.3 * Kt, 0.0).Glow;
-        double atTenth = MushroomCloud.FlashAt(0.3 * Kt, dark * 0.1).Glow;
         double atHalf = MushroomCloud.FlashAt(0.3 * Kt, dark * 0.5).Glow;
 
-        Assert.True(at0 > atTenth && atTenth > atHalf, "it should be falling throughout");
+        for (double age = 0.0; age <= dark; age += dark / 400.0)
+        {
+            Assert.True(MushroomCloud.FlashAt(0.3 * Kt, age).Glow <= at0 + 1e-9,
+                        $"something outshone the first pulse at {age:F4} s");
+        }
+
         Assert.True(atHalf < at0 * 0.2, "and be a fifth of its peak by halfway");
         Assert.True(MushroomCloud.FlashAt(0.3 * Kt, dark + MushroomCloud.EmberSeconds + 0.1).Spent,
                     "and gone once the ember it leaves has gone out");
@@ -547,5 +556,65 @@ public class MushroomCloudTests
                        / MushroomCloud.DrawnCapRadius(1000.0);
 
         Assert.Equal(small, large, 6);
+    }
+
+    [Theory]
+    [InlineData(0.3)]
+    [InlineData(30.0)]
+    [InlineData(1000.0)]
+    public void TheThermalPulseHasTwoMaximaWithARealMinimumBetweenThem(double kt)
+    {
+        // The signature. A bhangmeter identifies a nuclear test from orbit on this curve alone,
+        // and nothing else in nature produces it: an intensely bright, very short first pulse, a
+        // minimum as the shock front goes opaque to the radiation behind it, then a second maximum
+        // that is dimmer and lasts an order of magnitude longer.
+        double charge = kt * 1.0e6;
+
+        double tMin = MushroomCloud.PulseMinimumSeconds(kt);
+        double tPeak = MushroomCloud.PulsePeakSeconds(kt);
+
+        Assert.True(tPeak > tMin, $"the second maximum at {tPeak:F4} s is not after the minimum");
+
+        double first = MushroomCloud.FlashAt(charge, 0.0).Glow;
+        double second = MushroomCloud.FlashAt(charge, tPeak).Glow;
+
+        // The minimum is INTERIOR and has to be found rather than read off tMin: the composite
+        // goes on falling past the shock front's own time while the opening behind it is still
+        // small, so where the two cross is later than either.
+        double dipAt = MushroomCloud.PulseTroughSeconds(charge);
+        double dip = MushroomCloud.FlashAt(charge, dipAt).Glow;
+
+        Assert.True(dipAt > tMin, $"the trough at {dipAt:F4} s is not past the shock front's {tMin:F4} s");
+
+        Assert.True(dipAt > 0.0 && dipAt < tPeak,
+                    $"the minimum landed on an endpoint at {dipAt:F4} s, so there are not two maxima");
+        Assert.True(dip < first * 0.5, $"no dip: {dip:F1} against a first pulse of {first:F1}");
+        Assert.True(second > dip * 1.5, $"no second maximum: {second:F1} against a dip of {dip:F1}");
+    }
+
+    [Fact]
+    public void TheBallNeverGoesDarkInTheMinimum()
+    {
+        // The dip is the shock front hiding a fireball that is still there and still growing, not
+        // the fireball going out. Under the ember floor it would drop below the bloom threshold and
+        // revert to being drawn as geometry.
+        double dip = MushroomCloud.FlashAt(0.3e6, MushroomCloud.PulseTroughSeconds(0.3e6)).Glow;
+
+        Assert.True(dip >= MushroomCloud.EmberGlow, $"the ball went to {dip:F1}");
+    }
+
+    [Fact]
+    public void ThePulseIsSlowedOnlyWhereItCouldNotBeSeen()
+    {
+        // A floor rather than a multiplier: at a megatonne the second maximum falls at 0.87 s on
+        // its own, and a stretch there would put it at fourteen seconds.
+        Assert.Equal(1.0, MushroomCloud.DrawnPulseStretch(1000.0), 6);
+        Assert.True(MushroomCloud.DrawnPulseStretch(0.3) > 5.0);
+
+        foreach (double kt in new[] { 0.3, 3.0, 30.0, 1000.0 })
+        {
+            Assert.True(MushroomCloud.PulsePeakSeconds(kt) >= MushroomCloud.LegibleSecondPeak - 1e-9,
+                        $"{kt} kt peaks at {MushroomCloud.PulsePeakSeconds(kt):F3} s, too fast to see");
+        }
     }
 }

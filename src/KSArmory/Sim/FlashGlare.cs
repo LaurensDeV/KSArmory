@@ -32,9 +32,8 @@ public static class FlashGlare
     /// <param name="halfFieldDeg">Half the viewer's field of view.</param>
     public static double Reaching(double offAxisDeg, double halfFieldDeg)
     {
-        // Anything unreadable gives the whole of it, which is what happened before this existed.
-        // A flash that should not have fired is a surprise; one that did not fire is a feature
-        // silently missing, and of the two the first is the one somebody reports.
+        // Anything unreadable gives the whole of it. A flash that should not have fired is a
+        // surprise somebody reports; one that did not fire is a feature silently missing.
         if (!double.IsFinite(offAxisDeg) || !double.IsFinite(halfFieldDeg)) return 1.0;
 
         double edge = Math.Max(halfFieldDeg, 1.0);

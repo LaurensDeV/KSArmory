@@ -281,6 +281,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/LauncherProfile.cs` | one launch platform: part Id, tube geometry, drives |
 | `Sim/MunitionProfile.cs` | one round: boost, guidance, drag, fuse, warhead — **its drag from its mass, calibre and coefficient**, not a constant typed for it |
 | `Sim/Warhead.cs` | explosive charge to lethal, blast and fireball radius |
+| `Sim/FlashGlare.cs` | how much of a burst's glare reaches somebody facing elsewhere — **never nothing**, because light that bright scatters in the air, veils across the optics and lights the landscape they *are* looking at |
 | `Sim/WarheadExplosion.cs` | which of KSA's explosions a warhead goes off as — **the preset carries the size**, because KSA's floor swallows every conventional charge |
 | `Sim/SensorProfile.cs` | one sensor: range, cone, threat model |
 | `Sim/OpticProfile.cs` | one optical head — its own part, or one a launcher carries |
