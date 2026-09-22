@@ -26,7 +26,9 @@ namespace KSArmory;
 /// </summary>
 internal sealed class GroundTest : IGroundTest
 {
-    /// <summary>Stateless, so every round in the air shares one.</summary>
+    /// <summary>One for every round in the air. What it carries is a cache of which body is
+    /// underfoot, which is shared deliberately: rounds in one world are nearly always over the same
+    /// one.</summary>
     public static readonly GroundTest Shared = new();
 
     // Which body the last lookup landed on, and how far behind the second-best was. Not thread
@@ -53,16 +55,26 @@ internal sealed class GroundTest : IGroundTest
             // several rockets it is the system walked thousands of times a frame to be told the
             // same answer. Anything over Earth is over Earth for the whole flight.
             //
-            // Kept honest by the runner-up: the scan records how far behind the second-best body
-            // was, and the cache is trusted only while the chosen body is still ahead of that. The
-            // margin between a planet underfoot and its moon is hundreds of thousands of
-            // kilometres, so it holds for a whole flight and re-scans by itself when it stops
-            // holding -- which is what a round arriving somewhere else does.
+            // Kept honest by two tests, below. It re-scans by itself when they stop holding, which
+            // is what a round arriving somewhere else does -- and the cache is shared by every
+            // round, so "somewhere else" includes another round entirely, over another body.
             if (_lastBody is { } cached)
             {
                 double depth = Vec.Len(positionEcl - cached.GetPositionEcl()) - cached.MeanRadius;
 
-                if (depth < _lastRunnerUpDepth)
+                // Plainly over that body, as well as ahead of the runner-up. The runner-up alone
+                // is not enough, and fails for the one case it most needs to catch: it was
+                // measured from somewhere else. With Earth cached and the round on the Moon, the
+                // depth to Earth (3.78e8 m) and the Moon's depth from Earth (3.82e8 m) are the
+                // same number to within the two radii -- so the guard passed, every round on the
+                // Moon was tested against Earth's surface, and a bomb released 7 m over lunar
+                // ground fell through it and kept going.
+                //
+                // Being within a mean radius of the surface cannot be true of two bodies at once
+                // at any separation this system has. A round further out than that rescans every
+                // step, which is what the cache was avoiding -- and is the right price, because a
+                // round out there is between bodies rather than about to arrive on one.
+                if (depth < _lastRunnerUpDepth && depth < cached.MeanRadius)
                 {
                     nearest = cached;
                     nearestDepth = depth;
@@ -86,6 +98,15 @@ internal sealed class GroundTest : IGroundTest
                     runnerUp = nearestDepth;
                     nearest = body;
                     nearestDepth = depth;
+                }
+
+                if (!ReferenceEquals(_lastBody, nearest))
+                {
+                    // Said once per change, never per step. Which body a round is being tested
+                    // against is invisible from outside and is the whole answer when one falls
+                    // through the ground.
+                    Log.Debug($"ground test: now against {nearest?.Id ?? "nothing"}"
+                              + $" (runner-up {runnerUp / 1000.0:F0} km deep)");
                 }
 
                 _lastBody = nearest;
