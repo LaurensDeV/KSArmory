@@ -1462,12 +1462,16 @@ there is no column at all, and `Ksa/BurstEjecta.cs` throws ground instead.
 Not exercised, and the first two are the ones to believe least:
 
 - [x] **The base surge and the fade, which were modelled and undrawn.** `MushroomCloud` computes
-      `SurgeRadius`, `SurgeHeight` and `Fade` every frame; none of them reached the shader, because
-      the push constant carries four shape floats and is at Vulkan's guaranteed 128 bytes. The
-      surge is particles now — it is ground dust rather than buoyant cloud, the same reason the
-      airless ejecta is — and the fade folds into the strength float already being sent. Flown:
-      the skirt stands at the foot of the column at 11.4 s, and at 72 s the sky shows through a
-      dissolving cap rather than a solid silhouette.
+      `SurgeRadius`, `SurgeHeight` and `Fade` every frame, and the fade folds into the strength
+      float already being sent: at 72 s the sky shows through a dissolving cap rather than a solid
+      silhouette. **The surge is drawn by the raymarch now**, as the stem's foot flaring to three
+      and a half times its width at the ground. It was a particle collar for a while and that was
+      taken out: KSA draws particles after its weather clouds and never tests them against them,
+      so the collar sat on top of a cloud deck the column had correctly gone behind — and at
+      300 kt its kilometre-wide volumes came out black. `SurgeRadius` and `SurgeHeight` are still
+      computed and tested, and drive nothing drawn; they are the obvious thing to drive the foot
+      with, since the push constant already carries the age and the cap radius they are fractions
+      of.
 
 - [x] **`StemTop` — looked at and deliberately not done.** The shader stops the stem at the cap's
       CENTRE rather than at `StemTop`, which is `min(climb, StemCeiling(capCentre, capRadius))`.
@@ -1636,6 +1640,20 @@ Not exercised, and the first two are the ones to believe least:
       agreeing to a tenth of a degree, in 4.2 s of wall clock against 84. **Paused**, the burst
       holds at 0.0 s across 86 s of wall clock with the cloud and the mark both still standing and
       the pass still drawing.
+
+- [x] **KSA's weather clouds hide the burst behind them.** They write no depth — they are
+      raymarched into images of their own and composited into the scene colour — so the depth under
+      a cloud says "ground", and everything this pass drew off it was drawn in front of every cloud:
+      the column over a deck it was behind, and at 300 kt the ground mark as a flat grey disc across
+      the tops of the clouds. `CloudPass` now binds the cloud renderer's own low-resolution colour
+      and distance, reached through one verified reflected field, and treats each pixel's cloud as a
+      thin sheet: what lies behind it is seen through its transmittance, and a mark is dimmed by it.
+      With clouds switched off there is no renderer, stand-ins are bound, and a flag says so.
+
+      Flown at 300 kt from above a deck: the grey disc gone from the cloud tops, and the stem running
+      down behind the deck while the cap stands above it. **Not yet flown from under a deck looking
+      up**, which is the other half of the same case, nor checked for shimmer at a cloud's edge —
+      the images are the renderer's low-resolution, per-frame ones rather than its upscaled result.
 
 - [ ] **The old note, kept because it is what the shipped scenarios still cannot do.** Reasoned, not flown. `NuclearClouds.Update` is driven from `StepOnce` on
       the simulated step, so a pause hands it nothing and warp hands it a large one — and the shape
