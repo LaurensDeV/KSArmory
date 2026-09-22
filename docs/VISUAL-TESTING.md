@@ -191,7 +191,7 @@ consecutive frames, the manifest, the settings, the last lines of the log. "Clou
 my nuke" then arrives with the frames it is about, and the temporal map of them. Local only — it
 writes a folder and sends nothing, so it is not the report window and is not bound by its rules.
 
-### 9. The shader compiled in `check-all.sh`
+### 9. The shader compiled in `check-all.sh` — built
 
 `glslangValidator` (or shaderc, which is what KSA uses) against both `.comp` files, with
 `CoreAtmosphere.glsl` generated against the install the way `Ksa/CoreShaderInclude.cs` writes it at
@@ -230,8 +230,9 @@ one" was answered from memory on the night; this answers it from pictures.
 
 ## Order
 
-Built: 1–5 and 10. Left, in order:
+Built: 1–5, 9 and 10. `tools/check-shaders.sh` is glslang rather than shaderc — nothing installable
+here runs KSA's — with the include given as a search path and the directive's extension named, and
+it caught the night's `flat` with its line. Left, in order:
 
-1. **The compile check** (9).
-2. **Debug views** (6) and **tunables** (7), which pay now that a shader change is a second.
-3. **Capture for Claude** (8), **fixed scenes** (11) and **the reference library** (12).
+1. **Debug views** (6) and **tunables** (7), which pay now that a shader change is a second.
+2. **Capture for Claude** (8), **fixed scenes** (11) and **the reference library** (12).

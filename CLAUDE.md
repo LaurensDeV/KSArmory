@@ -229,6 +229,7 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
 ./tools/check-network.sh                   # the mod only reaches the network when Send is clicked
 ./tools/check-tunables.py                  # every setting has a control that reaches it
 ./tools/check-comments.sh                  # history in comments, XML docs on privates, ratios
+./tools/check-shaders.sh                   # the compute shaders compile, against the game's library
 ./tools/check-docs.sh                      # layout table, API counts and KSA build vs reality
 ./tools/package.sh                         # release zip into dist/ -- no symbols, no game DLLs
 ./tools/deploy.sh                          # build and install into the KSA mods folder
@@ -576,6 +577,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/model/smokepuff.py` | the soft sprite the billboard smoke is drawn with |
 | `tools/screenshot.sh` | captures the Windows screen; readable from here |
 | `tools/ksa-mcp/server.py` | **an MCP server over the bridge**, registered in `.mcp.json`, returning captures inline; `cli <tool>` runs one from a shell. It launches a game only if none is running and closes only one it launched |
+| `tools/check-shaders.sh` | the mod's compute shaders compiled with Khronos' `glslangValidator` against the install's shader library — **a GLSL error in a second rather than a flight**; skips where there is no install, which is CI |
 | `tools/vis/vis.py` | what the bridge's pictures are judged with: crops from the manifest, same-instant diffs, the temporal-noise map, grain, contact sheets and animations |
 | `tools/scenario.sh` | drives one engagement or one ballistic shot end to end and exits pass/fail; screenshots on cue |
 | `tools/shot-batch.sh` | a night of ballistic shots, **arms interleaved and every arm built before the first one flies** — so nothing done to the tree overnight can reach a shot in flight |
