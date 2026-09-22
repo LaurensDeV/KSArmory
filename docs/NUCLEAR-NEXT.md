@@ -110,14 +110,31 @@ same at any yield. Flown: at 72 s the residual column stands clear of a centred 
 
 ## Tier 2 — real work, and the payoff is large
 
-### 4. The fireball should become the cap
+### 4. The fireball should become the cap — built
 
 `Ksa/Fireball.cs` draws a ball at the burst and `CloudPass` grows a column around it. They are
 separate systems that happen to overlap.
 
 Physically the fireball **is** the cap: it cools, becomes buoyant, rises, and the toroidal
-circulation that the raymarch already draws begins inside it. The handoff between the two has never
-been designed, and it is the reason the first few seconds read as two effects rather than one.
+circulation that the raymarch already draws begins inside it.
+
+**It turned out to be a deleted law rather than a designed handoff.** The ball had a rise of its
+own — two of its own radii and stop — and the cap centre already was the answer, so the whole thing
+went and the draw site reads `shape.CapCentre`. The shader's in-cloud glow moved with it and needed
+no push constant: the cap centre is already `Shape.x`.
+
+**The reason the old law existed had expired.** It was there because the ball is "an emissive sphere
+drawn *over* the smoke rather than inside it", so a lit ball climbing read as a flare ascending —
+written when the cloud was smoke pens. It is a raymarch now, clipping against scene depth and
+multiplying what is behind it by its own transmittance, and the ball is a mesh. The ball is inside
+the smoke, and the height limit was holding the two apart for a reason that had gone. The guard was
+replaced rather than dropped: what has to hold is not a height but that the cloud is around the
+ball by the time it is up there.
+
+**Measuring it needed normalising.** Two runs ten minutes apart differ over 43% of the frame just
+from the sun moving, so the raw diff says nothing. Against regions the ball cannot reach — sky 5.8
+and far ground 30.0 of 255 — the stem's foot came back at 31.1, its own baseline, and the cap at
+73.2.
 
 ### 5. The anvil
 
