@@ -99,6 +99,9 @@ float Fbm(vec3 p)
     return sum;
 }
 
+// How far the wind turns between the foot of the column and its top.
+const float VeerRadians = 0.55;
+
 // The rising thermal, as an ellipsoid of revolution. The torus is the vortex ring around the cap
 // and cannot be the cap itself: a torus has a hole on its axis, and the stem stops at the ring's
 // own height, so the middle of the top is empty. That reads as a flat slab with a dip in it.
@@ -163,14 +166,28 @@ vec3 Unlean(vec3 world, vec3 up, float top)
     if (top <= 0.0 || y <= 0.0) return world;
 
     vec3 wind = OctahedralUnpack(pc.AgeStrengthWind.zw);
+
+    float t = clamp(y / top, 0.0, 1.0);
+
     // Half what MushroomCloud.LeanAt gives the pens. That constant is bounded by the cap having to
     // stay over the column holding it up, and a raymarched stem is thinner than a bundle of nine
     // capsules -- at the full lean the cap rides off the top of it and reads as detached.
-    float lean = 0.095 * top * pow(clamp(y / top, 0.0, 1.0), 1.4);
+    float lean = 0.095 * top * pow(t, 1.4);
+
+    // AND THE WIND TURNS WITH HEIGHT, not only strengthens. Veer is what the Ekman spiral and the
+    // thermal wind do between the ground and the tropopause, twenty to sixty degrees over a column
+    // this tall -- so a cloud shears into a corkscrew rather than leaning in one flat plane, which
+    // is the plainest tell that the wind above a generated one is a single vector.
+    //
+    // Free: the axis is the local vertical, and the downwind is perpendicular to it already, so
+    // the rotation is one sine and cosine against a cross product.
+    float veer = VeerRadians * t;
+    vec3 side = cross(up, wind);
+    vec3 blown = (wind * cos(veer)) + (side * sin(veer));
 
     // Taken OFF the sample: the shape is upright and the world is leaning, so a point out downwind
     // belongs to a part of the column further up rather than to nothing.
-    return world - wind * lean;
+    return world - blown * lean;
 }
 
 float Bulk(vec3 leaned, vec3 up)
