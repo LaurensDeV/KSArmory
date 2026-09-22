@@ -369,9 +369,24 @@ float Density(vec3 leaned, vec3 up, float radius)
 // What a unit of the fireball's own glow is worth as light on the cloud. Its Glow peaks near 400
 // and the sun term beside it tops out around 2, so this is the number that decides whether a burst
 // tints its cloud or blows the frame out.
-// How bright the whiteout writes into the scene. The image is HDR and the tonemap has not run
-// yet, so one is a mid grey by the time a player sees it.
-const float WhiteoutNits = 9.0;
+// How bright the whiteout writes into the scene, which is HDR and not yet tonemapped. Measured
+// through KSA's whole post chain at its default exposure by writing known bands here: 0.25 comes
+// out as a mid grey (130), 1.0 as 240, and everything from 1.25 up clips to white. So the floor
+// sits just under the clip, where the glare's colour still shows, and only the core goes over.
+const float GlareFloorNits = 1.1;
+const float GlareCoreNits = 3.0;
+
+// The glare's colour away from the burst. Only the core clips to white; where the veil is
+// dimmer it shows the light itself, a fireball of a few thousand kelvin yellowed by kilometres
+// of air.
+const vec3 GlareWarm = vec3(1.00, 0.73, 0.38);
+const vec3 GlareHot = vec3(1.00, 0.97, 0.92);
+
+// The angles at which the glare's brightness and its whiteness have fallen by half. Veiling glare
+// in an eye or a lens goes roughly as the inverse square of the angle off the source; the colour
+// turns more slowly, because it is set by where the channels stop clipping.
+const float GlareCoreDeg = 6.0;
+const float GlareWhiteDeg = 20.0;
 
 const float FireGain = 0.110;
 
@@ -424,10 +439,28 @@ void main()
     if (pc.FireSun.z > 0.0)
     {
         vec4 was = imageLoad(sceneColor, at);
+        float whiteout = pc.FireSun.z;
 
-        // Into a scene that is still HDR and pre-tonemap, so the white has to be well over one to
-        // come out white on the other side of it.
-        vec3 blinded = mix(was.rgb, vec3(1.00, 0.97, 0.92) * WhiteoutNits, pc.FireSun.z);
+        // The burst's direction rides in the cloud centre's floats on this dispatch, and zero
+        // means no centre: the glare is then the warm edge everywhere.
+        float core = 0.0;
+        float white = 0.0;
+        if (dot(pc.CentreRadius.xyz, pc.CentreRadius.xyz) > 0.0)
+        {
+            vec3 ray = normalize(WorldAt((vec2(at) + 0.5) / vec2(size), 1.0));
+            float offDeg = degrees(acos(clamp(dot(ray, normalize(pc.CentreRadius.xyz)), -1.0, 1.0)));
+            core = 1.0 / (1.0 + (offDeg / GlareCoreDeg) * (offDeg / GlareCoreDeg));
+            white = 1.0 / (1.0 + (offDeg / GlareWhiteDeg) * (offDeg / GlareWhiteDeg));
+        }
+
+        // White near the burst, and less of it as the flash dies: the recovery tail is the ball
+        // cooling as well as the eye adapting.
+        vec3 hue = mix(GlareWarm, GlareHot, white * (0.35 + 0.65 * whiteout));
+        float nits = GlareFloorNits + GlareCoreNits * core;
+
+        // The edge veils less, so the scene shows there first as the flash recovers.
+        float veil = whiteout * (0.80 + 0.20 * core);
+        vec3 blinded = mix(was.rgb, hue * nits, veil);
         imageStore(sceneColor, at, vec4(blinded, was.a));
     }
 

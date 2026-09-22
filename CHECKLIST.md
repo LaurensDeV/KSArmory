@@ -1539,6 +1539,15 @@ Not exercised, and the first two are the ones to believe least:
       brightness it held for the ball's whole 1.9 s burn, which is a stuck screen rather than an
       eye adjusting. `Ksa/BurstFlash.cs` is the model; nothing in it draws.
 
+      **It is white only where it clips.** A veil of one colour is what every pixel overexposed
+      looks like; a real glare is dimmer off the source, stops clipping there, and shows the light
+      itself — a fireball of a few thousand kelvin yellowed by kilometres of air. So the shader
+      falls it off with the angle from the burst and warms it both there and as the flash dies. The
+      levels are measured rather than assumed: bands written through KSA's whole post chain came out
+      0.25 → 130, 1.0 → 240 and everything from 1.25 → 255, where the shader had claimed one was a
+      mid grey. At that claim's level of 9 the glare was seven times the clip and every corner read
+      255; flown at the measured one, 255 over the burst and (232, 212, 176) in the corners.
+
       **There is no blast wave, and the burst carries no `<ExplosionVolume>` at all.** KSA's trail
       renderer, which draws explosion volumes, raymarches into the same low-resolution images the
       weather clouds do, and those are what this pass reads as weather — so the burst's own fireball

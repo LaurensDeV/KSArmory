@@ -221,34 +221,12 @@ internal static class CloudPass
                 }
             }
 
-            // A flash with no cloud under it still has to be written, so one dispatch happens for
-            // the whiteout alone: a burst on an airless body grows no column and blinds a viewer
-            // all the same.
             if (_order.Count == 0)
             {
-                if (BurstFlash.Whiteout <= 0f) return;
-
-                using (commandBuffer.TagRegion(GpuTag))
-                {
-                    if (marks > 0) Hazard(commandBuffer);
-
-                    Push flashOnly = new()
-                    {
-                        InvViewProj = camera.VPInv.viewProjection,
-                        AgeStrengthWind = float4.Zero,
-                        CentreRadius = float4.Zero,
-                        FireSun = new float4(0f, 0f, BurstFlash.Whiteout, 0f),
-                        Shape = float4.Zero,
-                    };
-
-                    _pipeline!.BindPipeline(commandBuffer, viewport.ShaderSlot, default, default,
-                                            flashOnly);
-                    commandBuffer.Dispatch((width + Group - 1) / Group,
-                                           (height + Group - 1) / Group, 1);
-                }
-
+                Flash(commandBuffer, viewport, camera, width, height, marks > 0);
                 return;
             }
+
             _order.Sort(static (a, b) => b.DistanceSq.CompareTo(a.DistanceSq));
 
             using (commandBuffer.TagRegion(GpuTag))
@@ -287,19 +265,16 @@ internal static class CloudPass
                                                   (float)radius),
                         // Neither the cloud's up nor the direction to the sun is in here: the
                         // shader derives both from the burst, the planet and the star, all of which
-                        // it already has. That freed four floats in a block with nothing spare --
-                        // the fireball's radius and glow, which let a burst light the cloud it is
-                        // inside, and the whiteout it leaves on the view.
-                        //
-                        // The whiteout goes on ONE dispatch. The pass runs once per standing cloud
-                        // and each would otherwise lay its own white over the last.
+                        // it already has. That freed the floats for the fireball's radius and glow,
+                        // which let a burst light the cloud it is inside. The third is left at zero:
+                        // the whiteout is a dispatch of its own, after every cloud.
                         //
                         // No scorch here: the ground a burst burned outlives the column over it,
                         // so it is its own dispatch below and a cloud never draws one. The fourth
                         // float is therefore free on this dispatch, and carries two flags -- see
                         // CloudFlags.
                         FireSun = new float4((float)flash.Radius, (float)flash.Glow,
-                                             n == 0 ? BurstFlash.Whiteout : 0f,
+                                             0f,
                                              CloudFlags(water, weather)),
 
                         // The same shape MushroomCloud carries, so every dimension stays
@@ -323,6 +298,8 @@ internal static class CloudPass
                                            (height + Group - 1) / Group, 1);
                 }
             }
+
+            Flash(commandBuffer, viewport, camera, width, height, hazard: true);
         }
         catch (Exception e)
         {
@@ -352,6 +329,42 @@ internal static class CloudPass
     /// a number said once says 100% about a saving that is real everywhere else.</para>
     /// </summary>
     public static double LastMarkTile { get; private set; } = 1.0;
+
+    // THE WHITEOUT, LAST: it is glare in the eye rather than a thing in the world, so it veils
+    // the clouds too, and one dispatch carries it however many are standing. It is centred on the
+    // burst driving it, which rides in the cloud centre's three floats with the radius left at
+    // zero -- the shader's sign that there is no cloud on this dispatch.
+    private static void Flash(CommandBuffer commandBuffer, IViewport viewport, Camera camera,
+                              int width, int height, bool hazard)
+    {
+        if (BurstFlash.Whiteout <= 0f) return;
+
+        // Zero when the source cannot be resolved, which the shader reads as a glare with no
+        // centre: one colour everywhere, the warm one.
+        double3 source = double3.Zero;
+        if (NuclearClouds.TryBurning(BurstFlash.SourceIndex, out double3 burstEcl, out _))
+        {
+            double3 centre = burstEcl - camera.PositionEcl;
+            if (Vec.IsFinite(centre)) source = centre;
+        }
+
+        using (commandBuffer.TagRegion(GpuTag))
+        {
+            if (hazard) Hazard(commandBuffer);
+
+            Push flash = new()
+            {
+                InvViewProj = camera.VPInv.viewProjection,
+                AgeStrengthWind = float4.Zero,
+                CentreRadius = new float4((float)source.X, (float)source.Y, (float)source.Z, 0f),
+                FireSun = new float4(0f, 0f, BurstFlash.Whiteout, 0f),
+                Shape = float4.Zero,
+            };
+
+            _pipeline!.BindPipeline(commandBuffer, viewport.ShaderSlot, default, default, flash);
+            commandBuffer.Dispatch((width + Group - 1) / Group, (height + Group - 1) / Group, 1);
+        }
+    }
 
     private static void RecordTile(Tile tile, int width, int height)
     {

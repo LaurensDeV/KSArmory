@@ -49,10 +49,17 @@ internal static class BurstFlash
         _held = 0.0;
         _seen = 0.0;
         Whiteout = 0f;
+        SourceIndex = -1;
     }
 
     /// <summary>How white the view is, in [0, 1]. Read by the pass that writes it.</summary>
     public static float Whiteout { get; private set; }
+
+    /// <summary>
+    /// Which of <see cref="NuclearClouds.TryBurning"/>'s bursts the glare comes from, or -1. An
+    /// index rather than a position, so the pass resolves it against the camera it draws with.
+    /// </summary>
+    public static int SourceIndex { get; private set; } = -1;
 
     /// <summary>
     /// Advances it. On the simulated step, like everything else this mod advances: the whiteout
@@ -75,6 +82,7 @@ internal static class BurstFlash
             double halfField = KsaWorld.MainViewFovDeg() * 0.5;
 
             double brightest = 0.0;
+            int source = -1;
 
             // Over the BURSTS, not the clouds. A fireball does not need air, and reading the cloud
             // list meant a burst on an airless body blinded nobody -- which is backwards: there is
@@ -99,9 +107,16 @@ internal static class BurstFlash
                 double offAxisDeg = double.RadiansToDegrees(
                     Vec.AngleBetween(burstEcl - eyeEcl, forwardEcl));
 
-                brightest = Math.Max(brightest,
-                                     flash.Glow * solid * FlashGlare.Reaching(offAxisDeg, halfField));
+                double seen = flash.Glow * solid * FlashGlare.Reaching(offAxisDeg, halfField);
+                if (seen <= brightest) continue;
+
+                brightest = seen;
+                source = i;
             }
+
+            // The last burst that gave any, so the recovery tail keeps a direction after the ball
+            // is spent.
+            if (source >= 0) SourceIndex = source;
 
             // Driven by the RISE and recovering always, rather than held at whatever is burning.
             // Held at the level, the ball keeps the view at full white for the whole of its 1.9 s

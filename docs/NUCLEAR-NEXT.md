@@ -82,6 +82,15 @@ so no shipped scenario can face away from one. The curve's invariants are pinned
 monotone, bounded, full in frame, floored behind — and the flight confirms only that the flash
 still fires when you are looking at it.
 
+**And it is centred on the burst, white only where it clips.** A glare is brightest at its source
+and falls off roughly as the inverse square of the angle off it; where it stops clipping it shows
+the light's own colour, which for a fireball seen through kilometres of air is a warm yellow. So the
+whiteout is its own dispatch, last, carrying the burst's direction: a core within about 6 degrees
+over the clip, which KSA's bloom spreads into the halo, and a pale gold veil under it everywhere
+else that warms further as the flash dies. It veils the clouds too, being in the eye rather than
+in the world. The levels come from bands written through KSA's post chain — 1.0 is 240, and 1.25
+and up is white — and `CHECKLIST.md` has the numbers.
+
 ### 3. The cloud never drifts — built, then taken out by decision
 
 A drift was built — nothing until the rise ended, then one cap radius downwind over the stand — and
