@@ -257,7 +257,7 @@ internal static class NuclearClouds
             // The whole thing, cap and lean included, so the bounding sphere cannot clip the shape
             // it is there to reject against.
             double kt = MushroomCloud.KilotonsFor(cloud.ChargeKg);
-            radiusMetres = MushroomCloud.DrawnCloudTop(kt);
+            radiusMetres = MushroomCloud.DrawnBound(kt);
 
             return Vec.IsFinite(burstEcl) && Vec.IsFinite(up) && Vec.IsFinite(downwind)
                    && radiusMetres > 0.0;
@@ -423,10 +423,12 @@ internal static class NuclearClouds
             // And the bang, which is seconds behind the light.
             BurstSound.Begin(body, burstEcl, chargeKg);
 
-            // A column is about as tall as it is wide, so one number frames it both ways.
+            // Under the tropopause a column is about as tall as it is wide, so one number frames it
+            // both ways; an anvil is wider than it stands.
             _watch = (body, burstCcf, up,
-                      new AirlessBurst.Extent(MushroomCloud.DrawnCloudTop(kt),
-                                              MushroomCloud.DrawnCloudTop(kt)));
+                      new AirlessBurst.Extent(Math.Max(MushroomCloud.DrawnCloudTop(kt),
+                                                       MushroomCloud.DrawnCapAcross(kt) * 0.5),
+                                              MushroomCloud.DrawnStandingTop(kt)));
 
             // At its largest, not at age zero: the ramp is at 60% there, and a diagnostic that
             // reports the smallest the thing ever is sends the next reader looking in the wrong place.
@@ -441,8 +443,8 @@ internal static class NuclearClouds
             double burstAlt = Vec.Len(burstCcf) - body.MeanRadius;
 
             Log.Info($"nuclear cloud: {kt:F2} kt at {burstAlt:F0} m altitude, rising to "
-                     + $"{MushroomCloud.DrawnCloudTop(kt) / 1000.0:F2} km, "
-                     + $"cap {MushroomCloud.DrawnCapRadius(kt) * 2.0 / 1000.0:F2} km across "
+                     + $"{MushroomCloud.DrawnStandingTop(kt) / 1000.0:F2} km, "
+                     + $"cap {MushroomCloud.DrawnCapAcross(kt) / 1000.0:F2} km across "
                      + $"(drawn at {MushroomCloud.DrawnScale:P0} of the law's "
                      + $"{MushroomCloud.CloudTop(kt) / 1000.0:F2} km)");
             Log.Info($"  fireball {peak.Radius:F0} m for {MushroomCloud.FlashSeconds(kt):F1} s, "

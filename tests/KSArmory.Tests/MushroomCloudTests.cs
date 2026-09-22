@@ -630,4 +630,69 @@ public class MushroomCloudTests
         // The two nuclear charges the arsenal ships, which were the same file before this.
         Assert.True(MushroomCloud.BangPitch(20.0) < MushroomCloud.BangPitch(0.3) * 0.5);
     }
+
+    /// <summary>
+    /// The anvil. Under the tropopause the law is untouched; past it the cap spreads rather than
+    /// climbs, so a big burst reads wider than it is tall — the one cue that says its yield.
+    /// </summary>
+    [Theory]
+    [InlineData(0.3)]
+    [InlineData(20.0)]
+    [InlineData(45.0)]
+    public void UnderTheTropopauseTheLawIsUntouched(double yieldKt)
+    {
+        Assert.Equal(1.0, MushroomCloud.CapSquash(MushroomCloud.DrawnCloudTop(yieldKt)));
+    }
+
+    [Fact]
+    public void ABigBurstSpreadsWiderThanItIsTall()
+    {
+        MushroomCloud.Shape shape = MushroomCloud.At(340.0 * Kt, MushroomCloud.RiseSeconds);
+        double crown = shape.CapCentre + (2.1 * shape.CapTube);
+
+        Assert.True(2.0 * shape.CapRadius > crown,
+                    $"340 kt: {2.0 * shape.CapRadius:F0} m across under a {crown:F0} m crown");
+    }
+
+    [Fact]
+    public void TheCapWidensWithYieldPastTheTropopause()
+    {
+        double previous = 0.0;
+        for (double kt = 20.0; kt <= 340.0; kt += 20.0)
+        {
+            MushroomCloud.Shape shape = MushroomCloud.At(kt * Kt, MushroomCloud.RiseSeconds);
+            double aspect = shape.CapRadius / (shape.CapCentre + (2.1 * shape.CapTube));
+
+            Assert.True(aspect >= previous - 1e-9, $"the cap got narrower for its height at {kt} kt");
+            previous = aspect;
+        }
+    }
+
+    [Fact]
+    public void TheBendHasNoKink()
+    {
+        double tropopause = MushroomCloud.TropopauseMetres * MushroomCloud.DrawnScale;
+        double below = MushroomCloud.Stratified(tropopause - 1.0);
+        double above = MushroomCloud.Stratified(tropopause + 1.0);
+
+        Assert.Equal(2.0, above - below, 3);
+    }
+
+    [Theory]
+    [InlineData(0.3)]
+    [InlineData(60.0)]
+    [InlineData(340.0)]
+    public void TheBoundHoldsTheWholeCloud(double yieldKt)
+    {
+        double bound = MushroomCloud.DrawnBound(yieldKt);
+
+        for (double t = 0.5; t < MushroomCloud.LifeSeconds; t += 0.5)
+        {
+            MushroomCloud.Shape shape = MushroomCloud.At(yieldKt * Kt, t);
+            double reach = Math.Sqrt((shape.CapCentre * shape.CapCentre)
+                                     + Math.Pow(shape.CapRadius + shape.CapTube, 2.0));
+
+            Assert.True(reach < bound, $"{yieldKt} kt at {t:F1} s reaches {reach:F0} m of {bound:F0}");
+        }
+    }
 }

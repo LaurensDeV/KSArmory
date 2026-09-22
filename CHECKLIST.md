@@ -1699,6 +1699,13 @@ Not exercised, and the first two are the ones to believe least:
       flipped, and worse: a control is the run that is supposed to report nothing. `BuildFailed` is
       now set only by a build that ran and failed. Flown: the control reads `pass off`.
 
+- [x] **The anvil.** Past the drawn tropopause — the standard 11 km at `DrawnScale`, reached at
+      ~49 kt — the cap is braked to `MushroomCloud.StratospherePenetration` of the rise the law asks
+      for, fitted to Castle Bravo, and the height it does not make goes into width at constant
+      volume. Flown at 300 kt: 16.3 km across under a 10.2 km top, where the law drew a column. The
+      fallout curtain is measured in the cap's own thickness, so the anvil sheds a fringe rather
+      than the wall a curtain sized off the whole cloud hung from its rim.
+
 - [ ] **Another GPU.** One machine, one vendor. A compute dispatch into someone else's frame is
       exactly the kind of thing that is driver-specific, and a failed patch or a shader that will
       not compile draws no cloud rather than crashing — which is the intended degradation and has

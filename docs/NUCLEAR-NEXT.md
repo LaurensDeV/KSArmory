@@ -139,7 +139,10 @@ from the sun moving, so the raw diff says nothing. Against regions the ball cann
 and far ground 30.0 of 255 — the stem's foot came back at 31.1, its own baseline, and the cap at
 73.2.
 
-### 5. The anvil — reachable from the Tuning slider, not built
+### 5. The anvil — built
+
+Past the tropopause the cap is braked and spreads; `CHECKLIST.md` has the law and the flown sizes.
+What follows is the case for it, kept because it is why the constants are what they are.
 
 `CloudTop = 3000 * W^(1/3)` carries no tropopause term, so a megatonne cloud is drawn as a taller
 kilotonne one. Real clouds hit the tropopause and spread **sideways** — Castle Bravo's was about

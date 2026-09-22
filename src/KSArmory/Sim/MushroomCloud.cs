@@ -66,6 +66,80 @@ public static class MushroomCloud
     public static double DrawnCapRadius(double yieldKt)
         => CapRadius(yieldKt) * DrawnScale * DrawnCapWidening;
 
+    /// <summary>
+    /// The tropopause, at the law's scale: the standard atmosphere's 11 km. Earth's, the way the
+    /// bang's speed of sound is, because this mod carries no temperature profile for any body.
+    /// </summary>
+    public const double TropopauseMetres = 11000.0;
+
+    /// <summary>
+    /// How much of the rise the law asks for past the tropopause a cloud actually makes.
+    ///
+    /// <para>The stratosphere is stable, so a cloud reaching it is braked and spreads sideways
+    /// instead: the anvil. Fitted to Castle Bravo, whose cloud topped out near 40 km under a 16.5 km
+    /// tropical tropopause where <see cref="CloudTop"/> asks 74 km. The rest of the cap's volume goes
+    /// into its width, which is what makes a yield readable from the silhouette.</para>
+    /// </summary>
+    public const double StratospherePenetration = 0.41;
+
+    // The width of the bend onto that slope, as a share of the tropopause, so the cap does not
+    // visibly kink as it passes through.
+    private const double TropopauseKnee = 0.15;
+
+    /// <summary>
+    /// A height the laws give, bent to what a stratified atmosphere lets the cloud reach. Unchanged
+    /// under the drawn tropopause, and past it the slope eases from one onto
+    /// <see cref="StratospherePenetration"/>.
+    /// </summary>
+    public static double Stratified(double drawnHeight)
+    {
+        double tropopause = TropopauseMetres * DrawnScale;
+        double over = drawnHeight - tropopause;
+        if (over <= 0.0) return drawnHeight;
+
+        double knee = TropopauseKnee * tropopause;
+        return tropopause + (StratospherePenetration * over)
+               + ((1.0 - StratospherePenetration) * knee * (1.0 - Math.Exp(-over / knee)));
+    }
+
+    /// <summary>
+    /// How much thinner the cap is than the law draws it, for a cloud whose top the law puts at
+    /// <paramref name="drawnTop"/>: one under the tropopause, less past it. The cap's base is at
+    /// half the top and its crown at the top, so this is how much of that span survives the bend.
+    /// </summary>
+    public static double CapSquash(double drawnTop)
+    {
+        if (drawnTop <= 0.0) return 1.0;
+
+        double lawSpan = drawnTop * 0.5;
+        return Math.Clamp((Stratified(drawnTop) - Stratified(lawSpan)) / lawSpan, 0.05, 1.0);
+    }
+
+    /// <summary>How high the drawn cloud stands once it has stopped rising, tropopause and all.</summary>
+    public static double DrawnStandingTop(double yieldKt) => Stratified(DrawnCloudTop(yieldKt));
+
+    /// <summary>And how wide its cap is then, anvil and all.</summary>
+    public static double DrawnCapAcross(double yieldKt)
+        => 2.0 * DrawnCapRadius(yieldKt) / Math.Sqrt(CapSquash(DrawnCloudTop(yieldKt)));
+
+    /// <summary>
+    /// The sphere about the burst that holds the whole drawn cloud, lean and billows included. The
+    /// top alone does under the tropopause; an anvil is wider than it is tall, and reaches further
+    /// sideways than up.
+    /// </summary>
+    public static double DrawnBound(double yieldKt)
+    {
+        double top = DrawnCloudTop(yieldKt);
+        if (top <= 0.0) return 0.0;
+
+        // At the overshoot's peak, which is as big as the shape ever gets.
+        Shape widest = At(yieldKt * 1.0e6, RiseSeconds * (1.0 + OvershootAt));
+        double reach = Math.Sqrt((widest.CapCentre * widest.CapCentre)
+                                 + Math.Pow(widest.CapRadius + widest.CapTube, 2.0));
+
+        return Math.Max(top, reach * 1.15);
+    }
+
     /// <summary>And how long it stands there before fading out.</summary>
     public const double StandSeconds = 40.0;
 
@@ -691,7 +765,11 @@ public static class MushroomCloud
 
         // The cap centre sits at three quarters of the top, because the cap has thickness: its base
         // is at half the cloud top and its crown is the top itself.
-        double capCentre = top * 0.75 * rise;
+        //
+        // Past the tropopause the stratosphere brakes it, and the height it does not make goes into
+        // width: the cap thins by the squash and widens by its square root, which keeps its volume.
+        double capCentre = Stratified(top * 0.75 * rise);
+        double squash = CapSquash(top * rise);
 
         // The cap widens as it rises, and is done widening before a pen reaches the widest point of
         // its own stroke -- which is the whole of it, because a pen crosses the equator once and
@@ -699,7 +777,7 @@ public static class MushroomCloud
         // that is drawn by nothing: it moves the silhouette the pens have already passed. Spread out
         // over the full rise it left the cap 19% narrower than every other number here says it is.
         double spread = 0.55 + (0.57 * Math.Min(1.0, age / (RiseSeconds * SpreadBy)));
-        double capRadius = capR * spread;
+        double capRadius = capR * spread / Math.Sqrt(squash);
 
         // The stem's top is the cap's underside, always, and it is never anywhere else.
         //
@@ -712,8 +790,10 @@ public static class MushroomCloud
         //
         // Drawn on its own clock instead, it is a free-standing column with clear air above it and a
         // tip climbing toward an empty sky, which is the named tell of an amateur mushroom.
-        double underside = StemCeiling(capCentre, capRadius);
-        double climb = (capCentre + (capRadius * Oblate))
+        // Measured on the cap's height rather than its width, which an anvil has far more of.
+        double capHeight = capR * spread * squash;
+        double underside = StemCeiling(capCentre, capHeight);
+        double climb = (capCentre + (capHeight * Oblate))
                        * Math.Sqrt(Math.Min(1.0, Progress(age) / ClimbUntil));
         double stemTop = Math.Max(0.0, Math.Min(climb, underside));
 
@@ -725,7 +805,7 @@ public static class MushroomCloud
         return new Shape(
             CapCentre: capCentre,
             CapRadius: capRadius,
-            CapTube: capR * 0.45,
+            CapTube: capR * 0.45 * squash,
             StemTop: stemTop,
             StemRadius: capR * StemOfCap,
             SurgeRadius: SurgeRadius(kt, age),
@@ -748,8 +828,8 @@ public static class MushroomCloud
     /// </summary>
     public const double SpreadBy = 0.50;
 
-    // The cap is taller than it is wide, which is the opposite of the anvil everyone pictures and
-    // is what Glasstone's own two numbers say at these yields: a base at half the cloud top and a
+    // Under the tropopause the cap is taller than it is wide, which is the opposite of the anvil
+    // everyone pictures and is what Glasstone's own two numbers say at these yields: a base at half the cloud top and a
     // crown at the cloud top is 1004 m of cap over a 769 m width for a 0.3 kt burst. Drawn round
     // instead, it reads as a lampshade -- flat on top, widest along its lower edge.
     private const double Oblate = 1.15;
@@ -763,8 +843,8 @@ public static class MushroomCloud
     /// factor puts the ratio above one on every frame, which pins the stem's flare at its head
     /// value and looks like nothing in particular.</para>
     /// </summary>
-    public static double StemCeiling(double capCentre, double capRadius)
-        => capCentre - (capRadius * Oblate * 0.7);
+    public static double StemCeiling(double capCentre, double capHeight)
+        => capCentre - (capHeight * Oblate * 0.7);
 
     /// <summary>How far along its stroke a pen is at this age, in [0, 1].</summary>
     public static double Progress(double age) => Math.Clamp(age / RiseSeconds, 0.0, 1.0);

@@ -106,9 +106,10 @@ float Fbm(vec3 p)
     return sum;
 }
 
-// How far below the cap the fallout hangs, as a fraction of the cloud's own height, and how thick
-// it is against the cap above it. Faint: it is what the cloud is losing, not the cloud.
-const float FalloutReach = 0.38;
+// How far below the cap the fallout hangs, in the cap's own tube radii, and how thick it is against
+// the cap above it. Faint: it is what the cloud is losing, not the cloud. On the cap's thickness
+// rather than the cloud's size, so an anvil's thin sheet sheds a short fringe, not a wall.
+const float FalloutReach = 2.3;
 const float FalloutDensity = 0.30;
 
 // Stands in for "no cap over this sample at all". Any number past the erosion's reach does, and a
@@ -298,7 +299,7 @@ float Density(vec3 leaned, vec3 up, float radius)
     // is any cap at this radius to fall from. Asked here rather than below because the rejection
     // is exact and has to stay exact -- a curtain the early-out throws away is a curtain that
     // never draws.
-    float drop = (capH - p.y) / max(radius * FalloutReach, 1.0);
+    float drop = (capH - p.y) / max(tubeR * FalloutReach, 1.0);
     float above = (drop > 0.0 && drop < 1.0)
                       ? min(Torus(vec3(p.x, 0.0, 0.0), ringR, tubeR),
                             CapDome(vec2(p.x, 0.0), ringR, tubeR))
