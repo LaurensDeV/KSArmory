@@ -242,6 +242,32 @@ internal static class KsaWorld
         return true;
     }
 
+    /// <summary>
+    /// Stops the world, or starts it again at real time.
+    ///
+    /// <para>Separate from <see cref="SetSimulationSpeed"/>, which refuses anything at or below
+    /// zero and clamps to <see cref="SlowestSimSpeed"/>: a caller asking for a slow world and a
+    /// caller asking for a stopped one want different things, and a speed argument that silently
+    /// becomes a pause is the trap that guard exists to close.</para>
+    ///
+    /// <para><c>Universe.IsPaused()</c> tests the speed against exactly zero, so this is what makes
+    /// that property true — and with it <c>SimClock.Classify</c>'s paused verdict, which is how
+    /// everything in this mod stops.</para>
+    /// </summary>
+    /// <returns>False only if the call threw.</returns>
+    public static bool SetPaused(bool paused)
+    {
+        try
+        {
+            Universe.SetSimulationSpeed(new SimSpeed(paused ? 0.0 : 1.0));
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     /// <summary>True once the vehicle has been destroyed or unloaded.</summary>
     public static bool IsAlive(Vehicle? v) => v is { IsDisposed: false };
 

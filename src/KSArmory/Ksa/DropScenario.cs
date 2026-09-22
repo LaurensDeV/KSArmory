@@ -132,6 +132,17 @@ internal sealed class DropScenario
     private double LingerSeconds => CaptureAges() is { Length: > 0 } ages ? ages[^1] + 4.0
                                                                         : WatchSeconds + 4.0;
 
+    // ...and it ends when the last capture is in, plus a moment for the screenshot to be written.
+    // Ending on wall clock alone makes a warped run sit out eighty seconds after it has already
+    // photographed everything, and ending on the burst's age alone never ends a paused one. The
+    // wall-clock bound stays underneath as the backstop for a drop with no captures at all, which
+    // is every store under the cloud threshold.
+    private bool LingerIsDone
+        => (double.IsFinite(_allCapturedAt) && _lingered >= _allCapturedAt + 4.0)
+           || _lingered >= LingerSeconds;
+
+    private double _allCapturedAt = double.NaN;
+
     // Whether this burst has a fireball at all. Nothing to do with air: a fireball is incandescent
     // gas, and the vacuum one is if anything brighter for having no atmosphere in the way.
     private bool BurstIsNuclear
@@ -186,6 +197,12 @@ internal sealed class DropScenario
     private double _stagedAt;
     private double _saidAt = double.NegativeInfinity;
     private double _lingered;
+
+    // How old the burst is on the world's own clock, which is not _lingered. The two agree at 1x
+    // and nowhere else: the cloud, the fireball and the mark are all advanced on the simulated
+    // step, so a run at any other speed photographed by wall clock photographs different ages than
+    // the one it is being compared with. That is what kept warp and pause untestable.
+    private double _burstAge;
 
     private WeaponSystem? _battery;
     private Vehicle? _craft;
@@ -300,6 +317,16 @@ internal sealed class DropScenario
     }
 
     /// <summary>
+    /// What the world runs at while the burst is watched. One is the ordinary run.
+    ///
+    /// <para>Its own setting rather than the fall's, because the two ask opposite questions: the
+    /// fall's warp exists to sit in the state the engine refuses a speed change in, and is handed
+    /// back the instant the store lands so the hand-back is not watched at speed. This one starts
+    /// where that one stops.</para>
+    /// </summary>
+    public double LingerSpeed { get; init; } = 1.0;
+
+    /// <summary>
     /// Whether to set off a second burst a few kilometres from the first once the store lands.
     ///
     /// <para>Harness only, and opt-in. What it exercises is that <c>CloudPass</c> draws every
@@ -387,6 +414,7 @@ internal sealed class DropScenario
 
             case Phase.Lingering:
                 _lingered += playerStep;
+                _burstAge += dt;
 
                 // Pinned every frame while the cloud stands: the pose is the same in every run, so
                 // what CloudPassCost reports is a number about the pass rather than about where
@@ -396,7 +424,16 @@ internal sealed class DropScenario
                 if (_watchTheCloud && _craft is { } watched) CloudWatch.Update(watched);
 
                 CaptureBurst();
-                return _lingered >= LingerSeconds ? _verdict : null;
+                TraceLinger();
+                if (!LingerIsDone) return null;
+
+                // Handed back here rather than left where it was: this one is the mod's own and a
+                // scenario that walks off leaving the world at 20x has changed the session for
+                // whatever runs next.
+                if (LingerSpeed <= 0.0) KsaWorld.SetPaused(false);
+                else if (LingerSpeed != 1.0) KsaWorld.SetSimulationSpeed(1.0);
+
+                return _verdict;
         }
 
         return null;
@@ -438,20 +475,52 @@ internal sealed class DropScenario
         double[] withFlash = [flash * 0.15, flash * 0.70, .. rise];
 
         // The dissolve is the column's alone. Thrown ground has no life past its own arc.
-        return CloudStands
-                   ? [.. withFlash, MushroomCloud.RiseSeconds + (MushroomCloud.StandSeconds * 0.85)]
-                   : withFlash;
+        double[] withDissolve =
+            CloudStands
+                ? [.. withFlash, MushroomCloud.RiseSeconds + (MushroomCloud.StandSeconds * 0.85)]
+                : withFlash;
+
+        // And one PAST the cloud's whole life, which is the only frame that can show the ground
+        // still burned after the column over it has gone. Every capture before this one has a
+        // cloud in it, so a mark that quietly expired with its cloud would have looked correct in
+        // all of them.
+        return [.. withDissolve, MushroomCloud.LifeSeconds + 6.0];
     }
 
     private int _captured;
+    private double _lingerSpeedSeen;
+    private double _traced;
+
+    // How often a run that is watching at something other than 1x says where the burst has got to.
+    private const double TraceEverySeconds = 2.0;
+
+    // The burst's age against the wall clock, for a run that asked for a speed.
+    //
+    // Only for those runs: at 1x the two numbers are equal by construction and the line says
+    // nothing, and every drop flown for accuracy is a 1x run whose log nobody wants forty extra
+    // lines in. A PAUSED run needs it most and is the reason it exists -- nothing else in the
+    // scenario prints between captures, so a world where the cloud correctly stops aging and one
+    // where the pass has died look identical from outside.
+    private void TraceLinger()
+    {
+        if (LingerSpeed == 1.0) return;
+        if (_lingered - _traced < TraceEverySeconds) return;
+
+        _traced = _lingered;
+
+        _report($"linger: burst {_burstAge:F1} s old after {_lingered:F1} s of wall clock, "
+                + $"world {KsaWorld.SimulationSpeed:F2}x, {NuclearClouds.Count} cloud(s), "
+                + $"{NuclearClouds.ScorchCount} mark(s)");
+    }
 
     // Cues a screenshot at each of those ages, for any burst big enough to leave something. The
     // harness scores where a store landed and cannot say whether what stands over it looks right,
     // which is the only question left about it.
     //
-    // _lingered is wall clock and the burst is on simulated time, which agree only at 1x. The
-    // linger runs at 1x, so these land where they say; a scenario warping through it would
-    // photograph the wrong ages, and is not one anybody flies.
+    // Cued off the burst's SIMULATED age, so a run at any speed photographs the same cloud. Wall
+    // clock was the same number at 1x and a different cloud at every other speed, which is what
+    // made "does warp change what this looks like" a question nothing could ask. The linger is
+    // still ended on wall clock, because how long to hold a camera is a viewing duration.
     private void CaptureBurst()
     {
         if (_round is not { } round) return;
@@ -465,14 +534,20 @@ internal sealed class DropScenario
         while (_captured < ages.Length)
         {
             double age = ages[_captured];
-            if (_lingered < age) return;
+            if (_burstAge < age) return;
 
             _captured++;
+            if (_captured >= ages.Length) _allCapturedAt = _lingered;
 
             // The game's own framebuffer rather than the desktop: tools/screenshot.sh needs the
             // window in front and an unattended run on a machine somebody is using never has it.
             // This also comes back without the panel over the cloud.
             bool shot = KsaWorld.TryRequestScreenshot();
+
+            // The world's own speed beside the age, because the point of a warped run is that the
+            // ages match the 1x one and only the wall clock differs. Without it a reader cannot
+            // tell a run that held its speed from one the engine refused.
+            _lingerSpeedSeen = Math.Max(_lingerSpeedSeen, KsaWorld.SimulationSpeed);
 
             if (CloudPassCost.Report() is { Length: > 0 } cost) _report(cost);
 
@@ -496,8 +571,12 @@ internal sealed class DropScenario
                 }
             }
 
+            // The age is the WORLD's, and the wall clock beside it is how a reader tells a run
+            // that held its speed from one the engine refused: at 1x they are the same number.
             _report($"{(shot ? "SHOT" : "CAPTURE")} burst at {age:F1} s "
-                    + $"({age / watch:F2} of a {watch:F1} s watch), {drawn}, {sun}");
+                    + $"({age / watch:F2} of a {watch:F1} s watch), {drawn}, {sun}, "
+                    + $"{NuclearClouds.ScorchCount} mark(s), "
+                    + $"{KsaWorld.SimulationSpeed:F2}x after {_lingered:F1} s of wall clock");
         }
     }
 
@@ -849,6 +928,24 @@ internal sealed class DropScenario
             KsaWorld.StopAutoWarp();
             KsaWorld.SetSimulationSpeed(1.0);
             _report($"warp: peaked at {_warpObserved:F0}x while the store fell");
+        }
+
+        // ...and then straight back up again if this run is watching the cloud at speed. Ordered
+        // after the hand-back rather than instead of it, because the two are different windows and
+        // the engine refuses a change while its own warp-to-a-time is still stopping.
+        if (LingerSpeed != 1.0)
+        {
+            // Zero is a pause and not a speed, and goes through the call that says so.
+            // SetSimulationSpeed refuses it outright, which is why asking for it as a speed left
+            // the world at 1x while the run reported it had asked for a pause.
+            bool held = LingerSpeed <= 0.0
+                            ? KsaWorld.SetPaused(true)
+                            : KsaWorld.SetSimulationSpeed(LingerSpeed);
+            _report(held
+                        ? $"CAPTURE linger at {LingerSpeed:F2}x -- world reads "
+                          + $"{KsaWorld.SimulationSpeed:F2}x"
+                        : $"linger: {LingerSpeed:F2}x was refused, watching at "
+                          + $"{KsaWorld.SimulationSpeed:F2}x");
         }
 
         if (_body is not { } body) return "FAIL the store landed with no body recorded";

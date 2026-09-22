@@ -78,6 +78,7 @@ internal sealed class ScenarioRunner
     private bool _chase;
     private bool _showClouds;
     private bool _twoClouds;
+    private double _cloudWarp = 1.0;
     private double _secondYield = 1.0;
     private double[] _speeds = [];
 
@@ -416,8 +417,31 @@ internal sealed class ScenarioRunner
         // "twoclouds" or "twoclouds=<multiple>". The multiple is on the SECOND burst's yield, so
         // one run can carry two different sizes -- which is the only way the airless dome has been
         // looked at anywhere but the B61's third of a kilotonne.
+        // "cloudwarp=<n>": run the LINGER at that speed, which nothing else does. The drop's own
+        // warp argument is handed back the instant the store lands, deliberately -- the hand-back
+        // should not be watched at warp -- so the cloud, the mark and the fireball had never been
+        // advanced at anything but 1x. A speed of 0 pauses instead, which is the other half of the
+        // same question.
+        _cloudWarp = 1.0;
+
         _twoClouds = false;
         _secondYield = 1.0;
+
+        foreach (string option in options)
+        {
+            if (!option.StartsWith("cloudwarp=", StringComparison.Ordinal)) continue;
+
+            if (double.TryParse(option["cloudwarp=".Length..], System.Globalization.NumberStyles.Float,
+                                System.Globalization.CultureInfo.InvariantCulture, out double speed)
+                && speed >= 0.0)
+            {
+                _cloudWarp = speed;
+            }
+            else
+            {
+                Log.Warn($"scenario: ignored '{option}' -- a linger speed is cloudwarp=<number>");
+            }
+        }
 
         foreach (string option in options)
         {
@@ -545,6 +569,7 @@ internal sealed class ScenarioRunner
         _drop = new DropScenario(drop, line => Report($"{_name}: {line}"), _sightFor, _showClouds)
         {
             Site = _site,
+            LingerSpeed = _cloudWarp,
             SecondBurst = _twoClouds,
             SecondBurstYield = _secondYield,
         };
