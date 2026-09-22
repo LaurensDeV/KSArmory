@@ -1506,10 +1506,15 @@ Not exercised, and the first two are the ones to believe least:
       radii, no UBO and no LUT, and is identically 1 wherever the sun is up, so it cannot cost the
       daylight case anything.
 
-- [ ] **A sunset reddening**, which is what the LUT would have given and the geometric gate does
-      not. Worth having, and blocked on the same question: bind the atmosphere UBO and find out
-      which radius the LUT is parameterised on. `KsaWorld.SunElevationDeg` is what makes that
-      measurable now — a dark cloud and a broken one are the same picture without it.
+- [x] **The sun's own colour and whether it has set, from the engine.** `global.lighting` carries
+      an `occlusionColor`, documented in Core's `Global.glsl` as "the transmittance of the sun color
+      through the atmosphere", and every one of Core's mesh shaders multiplies its sun by exactly
+      it. So the terminator and the sunset reddening are one term and need no radii, no atmosphere
+      UBO and no LUT call — which is what two earlier attempts went looking for.
+      `GetAerialPerspectiveForObjectInAtmosphere`'s `sunToObjectTransmittance` is the same quantity
+      per-object and better still, and remains unusable here: fed the radii reachable from the
+      global block it returns near zero in broad daylight with the sun 27 degrees up. Flown at both
+      ends on 2026.9.10.5438 — daylight unchanged, Mars at 48 deg below the horizon dark.
 
 - [ ] **Warp and pause.** The cloud advances on simulated time like everything else, so it should
       freeze in a pause and slow with the panel. Unchecked through the shader path.
