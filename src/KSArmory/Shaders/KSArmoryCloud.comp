@@ -350,7 +350,27 @@ void main()
                    * global.lighting.sunColor.rgb;
 
         vec3 albedo = vec3(0.30, 0.26, 0.21);
-        vec3 lit = albedo * sunlight * forward * 12.0 + sky * albedo;
+        // Whether the sun is up at the cloud AT ALL, which nothing else here asks: the sun term is
+        // the cloud's own optical depth toward the sun, which is self-shadowing. A column over
+        // ground in full darkness was lit as though at noon -- flown on Mars, pitch-black terrain
+        // under a brightly sunlit mushroom.
+        //
+        // GEOMETRY, not the transmittance LUT. GetAerialPerspectiveForObjectInAtmosphere hands back
+        // a sunToObjectTransmittance that is exactly this and more, and Core's own cloud shader uses
+        // it -- but fed the radii available here it comes back near zero in broad daylight, with the
+        // sun measured at 27 degrees up. Something in that parameterisation disagrees with the LUT
+        // and it is not worth being wrong about: this needs no radii, no UBO and no LUT, and is
+        // identically 1 wherever the sun is up, so it cannot cost the daylight case anything.
+        //
+        // Softened across the horizon rather than switched: the band is about five degrees below to
+        // one above, which is the penumbra and the refraction together. What it does not give is a
+        // sunset reddening, which the LUT would.
+        float cosSunZenith = dot(normalize(camRelative - global.lighting.planetPosition.xyz),
+                                 normalize(global.lighting.sunPosition.xyz
+                                           - global.lighting.planetPosition.xyz));
+        float sunIsUp = smoothstep(-0.10, 0.02, cosSunZenith);
+
+        vec3 lit = albedo * sunlight * forward * 12.0 * sunIsUp + sky * albedo;
 
         // Raised with the falloff above: a core that now genuinely reaches full density is worth
         // more optical depth per metre, and this is what separates a cloud from a stain.

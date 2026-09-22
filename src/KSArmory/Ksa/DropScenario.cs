@@ -382,8 +382,22 @@ internal sealed class DropScenario
                                ? $"{radius / 1000.0:F2} km across, top {top / 1000.0:F2} km"
                                : "nothing standing";
 
+            // The sun's elevation beside it, because it decides how the burst is lit and nothing
+            // else in a screenshot says what it was. Below the horizon a cloud is lit by the sky
+            // alone and is meant to be dark, which is indistinguishable from a lighting fault
+            // unless this number is written down next to the picture.
+            string sun = "sun unknown";
+            if (_body is { } lit && _round is { } r)
+            {
+                double deg = KsaWorld.SunElevationDeg(lit, r.PositionEcl);
+                if (double.IsFinite(deg))
+                {
+                    sun = deg >= 0.0 ? $"sun {deg:F1} deg up" : $"sun {-deg:F1} deg BELOW the horizon";
+                }
+            }
+
             _report($"{(shot ? "SHOT" : "CAPTURE")} burst at {fraction:F2} of the watch "
-                    + $"({fraction * watch:F1} s of {watch:F1}), {drawn}");
+                    + $"({fraction * watch:F1} s of {watch:F1}), {drawn}, {sun}");
         }
     }
 

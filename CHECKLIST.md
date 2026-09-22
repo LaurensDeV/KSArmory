@@ -1463,34 +1463,27 @@ Not exercised, and the first two are the ones to believe least:
       reference: the column draws with the right shape, and the sky, horizon and terrain around it
       are lit by Mars's own LUTs rather than by Earth's. The thin atmosphere is no longer the
       untried case.
-- [ ] **The cloud is lit on the night side, which Mars is what found.** At 15 N, 20 E the terrain
-      is pitch black under a starfield and the mushroom stands over it brightly and *directionally*
-      lit, as though at noon. The sun term is `sunlight * forward * gain`, where `sunlight` is the
-      cloud's own optical depth toward the sun — self-shadowing only. Nothing asks whether the
-      planet is in the way.
+- [x] **The night side is dark, and the sun's elevation is logged beside every capture.** The sun
+      term is the cloud's own optical depth toward the sun, which is self-shadowing: nothing asked
+      whether the planet was in the way, so a column over pitch-black Martian ground stood there
+      brightly and directionally lit. Flown at both ends on 2026.9.10.5438 — sun 27.4 deg up, the
+      daylight cloud unchanged; sun 48.3 deg below, dark.
 
-      **The term is already computed and thrown away**, and Core does exactly what one would apply
-      it: `Clouds/RaymarchCloud.comp` is KSA's own raymarched cloud and the reference for this
-      problem. It attenuates the sun term by `sunToCloudTransmittance` and then ADDS the skylight
-      un-attenuated, at a flat `skyLightBrightness = 0.6` rather than through the albedo. This
-      shader has the same structure, so applying it is a two-line change.
+      **Done geometrically rather than through the transmittance LUT, and that is the finding.**
+      `GetAerialPerspectiveForObjectInAtmosphere` hands back a `sunToObjectTransmittance` that is
+      this and a sunset reddening too, and Core's own `Clouds/RaymarchCloud.comp` lights its clouds
+      with exactly it. Fed the radii reachable from the global lighting block it comes back near
+      zero **in broad daylight with the sun measured at 27 degrees up**, which took the cloud to a
+      black silhouette at every gain tried. Core passes `topRadius`, `bottomRadius` and
+      `planetRadius` out of its atmosphere UBO, which this shader does not bind; something in that
+      parameterisation disagrees and was not worth being wrong about. The geometric gate needs no
+      radii, no UBO and no LUT, and is identically 1 wherever the sun is up, so it cannot cost the
+      daylight case anything.
 
-      **Tried twice, reverted twice, and the failure is the same both times**: the night cloud
-      correctly disappears and the cloud in the shipped daylight scene goes black while KSA's own
-      clouds in the same frame stay white. Raising the gain from 12 to 48 and taking the skylight
-      off the albedo both failed to recover it.
-
-      **The likely cause is the radii, and it is worth checking before tuning anything else.** Core
-      passes `topRadius`, `bottomRadius` and `planetRadius` as three separate values out of its
-      atmosphere UBO; this shader substitutes `planetRadius + atmosphereHeight`, `planetRadius` and
-      `planetRadius` from the global lighting block, because it does not bind that UBO. If the LUT's
-      parameterisation disagrees with those, the transmittance comes back systematically too small,
-      which is exactly the symptom. **Do not re-tune the gain until that is settled** — both
-      attempts so far have been tuning around it.
-
-      What blocked confirming it: every site reachable today is night or dusk. Earth's default drop
-      site, Chaco, 118 E and Mars at three longitudes were all twilight or dark, so the daylight
-      case that matters has never actually been photographed.
+- [ ] **A sunset reddening**, which is what the LUT would have given and the geometric gate does
+      not. Worth having, and blocked on the same question: bind the atmosphere UBO and find out
+      which radius the LUT is parameterised on. `KsaWorld.SunElevationDeg` is what makes that
+      measurable now — a dark cloud and a broken one are the same picture without it.
 
 - [ ] **Warp and pause.** The cloud advances on simulated time like everything else, so it should
       freeze in a pause and slow with the panel. Unchecked through the shader path.

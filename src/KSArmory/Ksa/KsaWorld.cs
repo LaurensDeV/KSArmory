@@ -1192,6 +1192,33 @@ internal static class KsaWorld
     }
 
     /// <summary>
+    /// How high the star stands over the horizon at a place, in degrees. Negative is below it.
+    ///
+    /// <para>What this answers is why something is dark. Every LUT the atmosphere is sampled
+    /// through is parameterised on the sun's zenith angle, so a cloud at civil twilight is lit by
+    /// the sky and barely by the sun however bright the ground looks — terrain at that hour is lit
+    /// by skylight and reads as daylight in a tonemapped picture, which is exactly how a correct
+    /// dark cloud gets mistaken for a broken one.</para>
+    /// </summary>
+    public static double SunElevationDeg(Celestial body, double3 positionEcl)
+    {
+        try
+        {
+            if (!TryStarPositionEcl(out double3 starEcl)) return double.NaN;
+
+            double3 up = Vec.Unit(positionEcl - body.GetPositionEcl());
+            double3 toSun = Vec.Unit(starEcl - positionEcl);
+            if (!Vec.IsFinite(up) || !Vec.IsFinite(toSun)) return double.NaN;
+
+            return Math.Asin(Math.Clamp(Vec.Dot(up, toSun), -1.0, 1.0)) * 180.0 / Math.PI;
+        }
+        catch
+        {
+            return double.NaN;
+        }
+    }
+
+    /// <summary>
     /// Where the star is, for anything that has to know which way the light comes from.
     ///
     /// <para>The system's <c>StellarBody</c> rather than a name: <c>Celestial.Class</c> already
