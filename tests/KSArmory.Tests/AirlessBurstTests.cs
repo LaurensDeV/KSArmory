@@ -131,4 +131,91 @@ public class AirlessBurstTests
         Assert.Equal(MushroomCloud.FlashSeconds(0.3), AirlessBurst.ShellSeconds(0.3 * Kt), 6);
         Assert.True(AirlessBurst.ShellRadius(0.3 * Kt) > MushroomCloud.PeakFireballRadius(0.3));
     }
+
+    /// <summary>
+    /// The dome is far wider than it is tall — a 45° arc peaks at a quarter of its range — and that
+    /// ratio is what a camera has to frame it on. Reported as one number, a view standing 1.85 of
+    /// the dome's HEIGHT away sits inside the dust it is meant to be looking at.
+    /// </summary>
+    [Fact]
+    public void TheThrownDomeIsFourTimesWiderThanItIsTall()
+    {
+        AirlessBurst.Extent drawn = AirlessBurst.ExtentOf(0.3 * Kt, Moon, burstAltitudeMetres: 0.0);
+
+        Assert.False(drawn.Empty);
+        Assert.Equal(AirlessBurst.EjectaAt(0.3 * Kt, Moon).ReachMetres, drawn.RadiusMetres, 6);
+        Assert.Equal(drawn.RadiusMetres * 0.25, drawn.TopMetres, 6);
+    }
+
+    /// <summary>
+    /// A burst too high to throw any falls back to the shell, which is a sphere — so its two
+    /// numbers are equal. Reporting a dome's aspect for it would aim the camera at the ground while
+    /// the only thing drawn is overhead.
+    /// </summary>
+    [Fact]
+    public void ABurstThatThrowsNothingIsFramedOnItsShell()
+    {
+        AirlessBurst.Extent drawn = AirlessBurst.ExtentOf(0.3 * Kt, Moon, burstAltitudeMetres: 5000.0);
+
+        Assert.False(drawn.Empty);
+        Assert.Equal(AirlessBurst.ShellRadius(0.3 * Kt), drawn.RadiusMetres, 6);
+        Assert.Equal(drawn.RadiusMetres, drawn.TopMetres, 6);
+    }
+
+    /// <summary>
+    /// Every size of device is framed the same way, which is the whole reason the drawing takes its
+    /// scale from the yield rather than from a constant somebody typed at one of them. The dome was
+    /// only ever LOOKED at around a third of a kilotonne, so this is what says a strategic yield
+    /// does not quietly come out shaped differently.
+    /// </summary>
+    [Theory]
+    [InlineData(0.3)]
+    [InlineData(10.0)]
+    [InlineData(340.0)]
+    [InlineData(1000.0)]
+    public void TheDomeKeepsItsShapeAtEveryYield(double kilotonnes)
+    {
+        AirlessBurst.Extent drawn = AirlessBurst.ExtentOf(kilotonnes * Kt, Moon, burstAltitudeMetres: 0.0);
+
+        Assert.False(drawn.Empty);
+        Assert.Equal(drawn.RadiusMetres * AirlessBurst.ApexOfTheReach, drawn.TopMetres, 6);
+
+        // And it is bigger than the flash standing in the middle of it, or the dome would be drawn
+        // inside the fireball and never seen at all.
+        Assert.True(drawn.RadiusMetres > MushroomCloud.PeakFireballRadius(kilotonnes));
+    }
+
+    /// <summary>
+    /// Yield moves the dome, which is what makes it worth deriving. Cube-root scaling means the
+    /// growth is slow — a thousandfold device is a tenfold dome — so the test is that it moves the
+    /// right way rather than that it moves a lot.
+    /// </summary>
+    [Fact]
+    public void ABiggerDeviceThrowsFurther()
+    {
+        double small = AirlessBurst.ExtentOf(0.3 * Kt, Moon, 0.0).RadiusMetres;
+        double large = AirlessBurst.ExtentOf(340.0 * Kt, Moon, 0.0).RadiusMetres;
+
+        Assert.True(large > small * 5.0, $"{large:F0} m against {small:F0} m");
+    }
+
+    /// <summary>A charge under the threshold draws nothing, so there is nothing to frame.</summary>
+    [Fact]
+    public void AConventionalChargeIsNotFramed()
+        => Assert.True(AirlessBurst.ExtentOf(500.0, Moon, 0.0).Empty);
+
+    /// <summary>
+    /// The same device makes the same dome whatever it is standing on: gravity sets how hard the
+    /// dust has to be thrown and how long it hangs, never how far it goes. A reach that moved with
+    /// the body would be a second constant to keep in step with the fireball.
+    /// </summary>
+    [Fact]
+    public void GravityChangesTheFlightAndNotTheReach()
+    {
+        Assert.Equal(AirlessBurst.ExtentOf(0.3 * Kt, Moon, 0.0).RadiusMetres,
+                     AirlessBurst.ExtentOf(0.3 * Kt, Earth, 0.0).RadiusMetres, 6);
+
+        Assert.True(AirlessBurst.EjectaAt(0.3 * Kt, Moon).FlightSeconds
+                    > AirlessBurst.EjectaAt(0.3 * Kt, Earth).FlightSeconds);
+    }
 }

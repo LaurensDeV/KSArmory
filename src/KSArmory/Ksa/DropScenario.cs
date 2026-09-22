@@ -128,11 +128,17 @@ internal sealed class DropScenario
     // closes the game. Sized off the hold itself rather than fixed: a nuclear burst is watched for
     // as long as it leaves something moving, and a six-second wait closed the game a sixth of the
     // way into it -- which is the hand-back, the part worth checking, never happening in any run.
-    private double LingerSeconds
-        => (_round is { } round
-                ? BurstEjecta.LingerSeconds(round.PositionEcl, null, round.Munition.ChargeKg)
-                : ChaseView.MinLingerSeconds)
-           + 4.0;
+    private double LingerSeconds => WatchSeconds + 4.0;
+
+    // How long the burst leaves something moving: a cloud's rise where there is air, the ejecta's
+    // flight where there is not. The capture ages are fractions of this rather than of the rise, so
+    // the same four cues land in the right places on either kind of body -- against the rise, an
+    // airless run photographed a sixteen-second dome at ages up to five minutes, every frame of it
+    // empty ground.
+    private double WatchSeconds
+        => _round is { } round
+               ? BurstEjecta.LingerSeconds(round.PositionEcl, null, round.Munition.ChargeKg)
+               : ChaseView.MinLingerSeconds;
 
     private const double BarMetres = 30.0;
     private const double ProgressEverySeconds = 2.0;
@@ -197,6 +203,63 @@ internal sealed class DropScenario
     // by 0.6 of the rise -- flown, with the cloud out of frame in every capture.
     private readonly bool _watchTheCloud;
 
+    /// <summary>
+    /// Where to set the craft down before anything is dropped: a body, a latitude and a longitude.
+    /// Null drops from wherever the save left it.
+    ///
+    /// <para>What it is for is the burst on a body with no air, which no save is on and which draws
+    /// a different effect entirely — thrown ground instead of a column.</para>
+    /// </summary>
+    public (string Body, double LatitudeDeg, double LongitudeDeg)? Site { get; init; }
+
+    private const double PlaceSettleSeconds = 8.0;
+
+    private bool _siteRequested;
+    private bool _siteSettled;
+    private double _sinceSite;
+
+    // The craft set down somewhere no save puts it, and left to settle as a placed craft is. True
+    // once it has, when the body it ended up on is said once.
+    private bool PlaceCraft(Vehicle craft, double dt, out string? failed)
+    {
+        failed = null;
+        if (Site is not { } site || _siteSettled) return true;
+
+        if (!_siteRequested)
+        {
+            if (!KsaWorld.TryPlaceOnSurface(craft, site.Body, site.LatitudeDeg, site.LongitudeDeg))
+            {
+                failed = $"FAIL could not set the craft down on {site.Body} at "
+                         + $"{site.LatitudeDeg:F2}, {site.LongitudeDeg:F2}";
+                return false;
+            }
+
+            _siteRequested = true;
+            _report($"set {_craftName} down on {site.Body} at "
+                    + $"{site.LatitudeDeg:F2}, {site.LongitudeDeg:F2}");
+            return false;
+        }
+
+        _sinceSite += dt;
+        if (_sinceSite < PlaceSettleSeconds) return false;
+
+        _siteSettled = true;
+
+        if (KsaWorld.ParentBody(craft) is not { } body || body.Id != site.Body)
+        {
+            failed = $"FAIL the craft is not on {site.Body} after being set down there";
+            return false;
+        }
+
+        // Said because it is the whole point of going there: which of the two effects a burst here
+        // will draw follows from this one answer.
+        _report($"on {body.Id}: "
+                + (KsaWorld.HasAtmosphere(body)
+                       ? "it has air, so a burst grows a column"
+                       : "no air, so a burst throws ground instead of growing a column"));
+        return true;
+    }
+
     /// <summary>Which phase it is in, for a timeout to name.</summary>
     public string Where => _phase.ToString();
 
@@ -221,7 +284,7 @@ internal sealed class DropScenario
         switch (_phase)
         {
             case Phase.WaitingForWorld:
-                return Wait(roster);
+                return Wait(roster, dt);
 
             case Phase.Climbing:
                 return Climb(dt);
@@ -237,41 +300,45 @@ internal sealed class DropScenario
                 // somebody left the camera.
                 if (_watchTheCloud && _craft is { } watched) CloudWatch.Update(watched);
 
-                CaptureCloud();
+                CaptureBurst();
                 return _lingered >= LingerSeconds ? _verdict : null;
         }
 
         return null;
     }
 
-    // Fractions of the rise to photograph the cloud at. They are the rows of the tracking table in
-    // docs/NUCLEAR-EFFECT.md, so a shot can be held against the measured shape rather than judged
-    // on its own -- which is the whole difficulty with a cloud: every version of it looks like a
-    // cloud, and only the shape at a stated age says which one is right.
+    // Fractions of the burst's own watch to photograph it at. On a body with air that is the rise,
+    // and these are the rows of the tracking table in docs/NUCLEAR-EFFECT.md -- so a shot can be
+    // held against the measured shape rather than judged on its own, which is the whole difficulty
+    // with a cloud: every version of it looks like a cloud, and only the shape at a stated age says
+    // which one is right.
     //
-    // The last is 0.95 rather than 1.00 because the chase hands the view back at exactly the rise:
+    // The last is 0.95 rather than 1.00 because the chase hands the view back at exactly the watch:
     // a capture on the boundary is a race with the release, and the frame that came back was the
     // launching craft against a cloud deck with the mushroom nowhere in it.
-    private static readonly double[] CloudCaptureFractions = [0.10, 0.30, 0.60, 0.95];
+    private static readonly double[] CaptureFractions = [0.10, 0.30, 0.60, 0.95];
 
     private int _captured;
 
-    // Cues a screenshot at each of those ages, for a burst that grew a cloud. The harness scores
-    // where a store landed and cannot say whether the cloud over it looks like one, which is the
-    // only question left about the cloud.
+    // Cues a screenshot at each of those ages, for any burst big enough to leave something. The
+    // harness scores where a store landed and cannot say whether what stands over it looks right,
+    // which is the only question left about it.
     //
-    // _lingered is wall clock and the cloud is on simulated time, which agree only at 1x. The
+    // _lingered is wall clock and the burst is on simulated time, which agree only at 1x. The
     // linger runs at 1x, so these land where they say; a scenario warping through it would
     // photograph the wrong ages, and is not one anybody flies.
-    private void CaptureCloud()
+    private void CaptureBurst()
     {
         if (_round is not { } round) return;
         if (round.Munition.ChargeKg < MushroomCloud.ThresholdKg) return;
 
-        while (_captured < CloudCaptureFractions.Length)
+        double watch = WatchSeconds;
+        if (!(watch > 0.0)) return;
+
+        while (_captured < CaptureFractions.Length)
         {
-            double fraction = CloudCaptureFractions[_captured];
-            if (_lingered < fraction * MushroomCloud.RiseSeconds) return;
+            double fraction = CaptureFractions[_captured];
+            if (_lingered < fraction * watch) return;
 
             _captured++;
 
@@ -282,13 +349,18 @@ internal sealed class DropScenario
 
             if (CloudPassCost.Report() is { Length: > 0 } cost) _report(cost);
 
-            _report($"{(shot ? "SHOT" : "CAPTURE")} cloud at {fraction:F2} of the rise "
-                    + $"({fraction * MushroomCloud.RiseSeconds:F1} s), "
-                    + $"top {MushroomCloud.DrawnCloudTop(MushroomCloud.KilotonsFor(round.Munition.ChargeKg)) / 1000.0:F2} km");
+            // Off the watch record rather than off the cloud's law, so the size reported is the
+            // size of whatever is actually standing there -- a column, or a dust dome.
+            string drawn = NuclearClouds.TryWatch(out _, out _, out double radius, out double top)
+                               ? $"{radius / 1000.0:F2} km across, top {top / 1000.0:F2} km"
+                               : "nothing standing";
+
+            _report($"{(shot ? "SHOT" : "CAPTURE")} burst at {fraction:F2} of the watch "
+                    + $"({fraction * watch:F1} s of {watch:F1}), {drawn}");
         }
     }
 
-    private string? Wait(WeaponSystems roster)
+    private string? Wait(WeaponSystems roster, double dt)
     {
         WeaponSystems.Entry? found = null;
 
@@ -332,6 +404,8 @@ internal sealed class DropScenario
         {
             return $"FAIL a guided drop was asked for, and the {_battery.Munition.DisplayName} does not steer";
         }
+
+        if (!PlaceCraft(_craft, dt, out string? placing)) return placing;
 
         // Watching the cloud is a different run from scoring a drop, and it wants the opposite of
         // everything the scoring one does. The craft stays ON THE PAD: a rocket that climbs away is

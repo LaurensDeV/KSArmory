@@ -79,8 +79,14 @@ internal sealed class ScenarioRunner
     private bool _showClouds;
     private double[] _speeds = [];
 
-    // Where a gunnery run sets its mount down first, for shooting somewhere no save is.
+    // Where a run sets its craft down first, for a body no save is on: the gunnery mount, and the
+    // drop, which goes there to burst on ground with no air over it.
     private (string Body, double LatitudeDeg, double LongitudeDeg)? _site;
+
+    // A site is usually another body: the full system loads slower, and the craft settles where it
+    // lands. Both the runs that can be given one make the same allowance.
+    private const double SiteBudgetSeconds = 60.0;
+
     private int _speedIndex = -1;
     private double _speedHeldFor;
 
@@ -431,7 +437,7 @@ internal sealed class ScenarioRunner
             _speeds = [.. speeds];
         }
 
-        // "site=Mars,15,-160": a gunnery run sets its mount down there before it shoots, for a body no save is on.
+        // "site=Mars,15,-160": set the craft down there first, for a body no save is on.
         _site = null;
         foreach (string option in options)
         {
@@ -503,10 +509,18 @@ internal sealed class ScenarioRunner
             return;
         }
 
-        _drop = new DropScenario(drop, line => Report($"{_name}: {line}"), _sightFor, _showClouds);
-        _budget = DropBudgetSeconds;
+        _drop = new DropScenario(drop, line => Report($"{_name}: {line}"), _sightFor, _showClouds)
+        {
+            Site = _site,
+        };
+
+        // Same allowance the gunnery run makes: a site is usually another body, the full system
+        // loads slower, and the craft settles where it lands.
+        _budget = DropBudgetSeconds + (_site is null ? 0.0 : SiteBudgetSeconds);
         _phase = Phase.LoadingSave;
-        Report($"{_name}: START {drop.Describe()} save='{_save}'");
+        Report($"{_name}: START {drop.Describe()}"
+               + (_site is { } site ? $", from {site.Body} at {site.LatitudeDeg:F2}, {site.LongitudeDeg:F2}" : string.Empty)
+               + $" save='{_save}'");
     }
 
     private void BeginGunnery(string arguments)
@@ -522,8 +536,6 @@ internal sealed class ScenarioRunner
         // Nobody is watching, and whether a miss was the barrel still laying is only in the debug log.
         Log.Threshold = Log.Level.Debug;
 
-        // A site is usually another body: the full system loads slower, and the mount settles where it lands.
-        const double SiteBudgetSeconds = 60.0;
         _budget = gunnery.BudgetSeconds + (_site is null ? 0.0 : SiteBudgetSeconds);
         _phase = Phase.LoadingSave;
         Report($"{_name}: START {gunnery.Describe()}"

@@ -84,6 +84,44 @@ public static class AirlessBurst
                : MushroomCloud.FlashSeconds(MushroomCloud.KilotonsFor(chargeKg));
 
     /// <summary>
+    /// A ballistic arc launched at 45° peaks at a quarter of the range it covers, which is what
+    /// makes the thrown dust a shallow dome rather than a column.
+    /// </summary>
+    public const double ApexOfTheReach = 0.25;
+
+    /// <summary>How big what a burst draws is, for a camera that has to frame it: half the width
+    /// of the whole thing, and the height of its highest part.</summary>
+    public readonly record struct Extent(double RadiusMetres, double TopMetres)
+    {
+        /// <summary>Nothing drawn, so nothing to look at.</summary>
+        public bool Empty => !(RadiusMetres > 0.0);
+    }
+
+    /// <summary>
+    /// What an airless burst fills, as the two numbers a camera needs.
+    ///
+    /// <para>The dome is far wider than it is tall — a reach across against a quarter of one high —
+    /// so a camera framed on its height alone stands close enough to leave most of it off screen.
+    /// That is the whole reason this reports two numbers where a cloud needs one.</para>
+    /// </summary>
+    public static Extent ExtentOf(double chargeKg, double gravityMetresPerSecond2,
+                                  double burstAltitudeMetres)
+    {
+        if (ThrowsEjecta(chargeKg, burstAltitudeMetres))
+        {
+            Ejecta thrown = EjectaAt(chargeKg, gravityMetresPerSecond2);
+            if (!thrown.Spent)
+            {
+                return new Extent(thrown.ReachMetres, thrown.ReachMetres * ApexOfTheReach);
+            }
+        }
+
+        // Nothing thrown leaves the shell, which is a sphere: as tall as it is wide.
+        double shell = ShellRadius(chargeKg);
+        return new Extent(shell, shell);
+    }
+
+    /// <summary>
     /// How long a burst leaves something worth watching, which is what holds the chase camera.
     ///
     /// <para>Three answers rather than one, because the thing being watched differs: a cloud's rise

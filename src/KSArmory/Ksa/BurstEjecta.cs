@@ -32,16 +32,22 @@ internal static class BurstEjecta
     ///
     /// <para>Called by <see cref="NuclearClouds.Begin"/> rather than from the weapon, so a burst
     /// has one entry point and no call site has to know which kind of body it is over.</para>
+    ///
+    /// <para>Returns how big what it drew is, which is what a camera needs to frame it. Empty when
+    /// nothing was drawn at all.</para>
     /// </summary>
-    public static void Begin(Celestial body, double3 burstCcf, double chargeKg, double burstAltitudeMetres)
+    public static AirlessBurst.Extent Begin(Celestial body, double3 burstCcf, double chargeKg,
+                                            double burstAltitudeMetres)
     {
-        if (!Detonation.ParticlesEnabled) return;
+        if (!Detonation.ParticlesEnabled) return default;
 
         try
         {
             double kt = MushroomCloud.KilotonsFor(chargeKg);
             double fireball = MushroomCloud.PeakFireballRadius(kt);
-            if (!(fireball > 0.0)) return;
+            if (!(fireball > 0.0)) return default;
+
+            double gravity = GravityAt(body, burstCcf);
 
             BubbleOrigin origin = new()
             {
@@ -76,7 +82,6 @@ internal static class BurstEjecta
 
             if (AirlessBurst.ThrowsEjecta(chargeKg, burstAltitudeMetres))
             {
-                double gravity = GravityAt(body, burstCcf);
                 AirlessBurst.Ejecta thrown = AirlessBurst.EjectaAt(chargeKg, gravity);
 
                 if (thrown.Spent)
@@ -112,6 +117,8 @@ internal static class BurstEjecta
 
             Log.Info($"airless burst: {kt:F2} kt at {burstAltitudeMetres:F0} m over the ground, "
                      + $"shell {shellRadius:F0} m in {shellSeconds:F2} s, " + ejecta);
+
+            return AirlessBurst.ExtentOf(chargeKg, gravity, burstAltitudeMetres);
         }
         catch (Exception e)
         {
@@ -120,6 +127,8 @@ internal static class BurstEjecta
                 _warned = true;
                 Log.Warn($"airless burst failed to draw: {e.Message}");
             }
+
+            return default;
         }
     }
 

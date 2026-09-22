@@ -6,10 +6,9 @@ namespace KSArmory;
 /// <summary>
 /// The mushroom clouds standing in the world, and what draws them.
 ///
-/// <para><see cref="MushroomCloud"/> says what shape the cloud is at an age; this walks that shape
-/// with a handful of <see cref="PlumeSmoke.Strand"/> cursors, one climbing for the stem and a ring
-/// of them tracing the cap. Neither of KSA's volumetric renderers has drag or a vortex field, so
-/// the roll-up is drawn rather than simulated.</para>
+/// <para>This holds where each one is and how old it is; <see cref="MushroomCloud"/> says what
+/// shape that age makes, and <see cref="CloudPass"/> raymarches it. Nothing here draws the column
+/// itself — what this class still draws directly is the fireball over it.</para>
 ///
 /// <para><b>Everything is body-fixed.</b> The burst is converted to the body's rotating frame once,
 /// and every position after that is an offset in it — so the cloud stands over the ground it was
@@ -21,49 +20,11 @@ namespace KSArmory;
 /// </summary>
 internal static class NuclearClouds
 {
-    // Pens on the rim, and inside it. One engine rule decides these, and it is arithmetic.
-    //
-    // Coverage: smoke is a capsule whose core reaches 0.55 of its radius, so pens further apart
-    // than 1.1 radii leave clear air between them and the cloud reads as ropes. Three concentric
-    // shells, each one's outer edge reaching the next one's inner, so the cap is filled rather than
-    // a shell with a hollow axis.
-    //
-    // The engine's emitter GROUPING does not apply to any of this, and reasoning as though it did
-    // is what sized the handover tube three times too thin. Mod pens are tracked and then cleared
-    // before the merge runs -- docs/NUCLEAR-EFFECT.md has the frame ordering. What overlapping
-    // capsules do here is the raymarcher's own rule: the deeper of the two, never the sum.
-    private const int MidStrands = 12;
-
-    private const double CoreShell = 0.18;
-
-    // Where the fireball rides, in the same terms. Inside the bundle rather than on the outermost
-    // ring, because it is the cloud's core.
-
-    // The ground skirt has no counterpart here: its pen count and tube are MushroomCloud's, because
-    // the tube is derived from the count and splitting the two across this boundary is what drifts.
-    //
-    // Its ring is small enough that the tube sits at its floor rather than at the pitch, which
-    // inverts the trade above -- a pen there is more smoke rather than a thinner tube -- so the
-    // count is the smallest that still closes at the widest the skirt gets.
-
-    // And a stem that is one column rather than a bundle of poles, which needs the spread to stay
-    // inside the tube: overlapping capsules render as the deeper of the two, so nine parallel pens
-    // closer together than their own radius are one column and no wider than one of them.
-    private const double StemSpread = 0.24;
-
-    // Radii, in metres, as fractions of the cap's own tube. The expansion ratio matters as much as
-    // the size: a booster's plume swells a hundredfold from its nozzle, which is what makes it
-    // billow, and 1.4x reads as a pipe.
-    private const double CapInitial = 0.31;
-    private const double StemInitial = 0.16;
-
     private sealed class Cloud
     {
         public required Celestial Body;
         public required double3 BurstCcf;
         public required double3 Up;
-        public required double3 East;
-        public required double3 North;
         public required double ChargeKg;
 
         // Which way this one leans. Fixed per cloud rather than per frame, or the column would
@@ -72,15 +33,15 @@ internal static class NuclearClouds
         public required double3 Downwind;
 
         public double Age;
-        public double LastReport = -99.0;
-
-        // Where this stem ends up, so a pen can be told how far up its own finished column it is.
-        // Fixed per cloud: the shape is a pure function of charge and age, so this is knowable at
-        // the burst and never changes.
-        public required double FullStem;
     }
 
     private static readonly List<Cloud> _clouds = [];
+
+    // The newest burst worth pointing a camera at, which is NOT the newest cloud: an airless burst
+    // grows no column and is still the thing to watch. Body-fixed like the clouds, and flat rather
+    // than a list because nothing about it advances -- how big a burst draws is settled when it
+    // happens.
+    private static (Celestial Body, double3 BurstCcf, double3 Up, AirlessBurst.Extent Drawn)? _watch;
 
     /// <summary>How many clouds are standing. Diagnostic.</summary>
     public static int Count => _clouds.Count;
@@ -90,9 +51,8 @@ internal static class NuclearClouds
     /// way is up there, how far it reaches and how old it is.
     ///
     /// <para>One, because a push constant holds one and because two mushroom clouds in sight of
-    /// each other is not a case anybody has. The newest rather than the nearest: it is the one
-    /// still changing shape, and a settled cloud is the one that can afford to be drawn by pens.
-    /// </para>
+    /// each other is not a case anybody has. The newest rather than the nearest, so the one being
+    /// watched is the one still changing shape.</para>
     /// </summary>
     public static bool TryNewest(out double3 burstEcl, out double3 up, out double radiusMetres,
                                  out double ageSeconds, out MushroomCloud.Shape shape,
@@ -118,8 +78,8 @@ internal static class NuclearClouds
             ageSeconds = cloud.Age;
             shape = MushroomCloud.At(cloud.ChargeKg, cloud.Age);
 
-            // The same wind the pens lean into, so the two drawings of one burst agree about which
-            // way it is blowing rather than each choosing.
+            // Chosen at the burst rather than per frame, so the column leans one way for its whole
+            // life instead of wandering.
             downwind = cloud.Downwind.Transform(cloud.Body.GetCce2Ccf().Inverse());
 
             // The whole thing, cap and lean included, so the bounding sphere cannot clip the shape
@@ -129,6 +89,42 @@ internal static class NuclearClouds
 
             return Vec.IsFinite(burstEcl) && Vec.IsFinite(up) && Vec.IsFinite(downwind)
                    && radiusMetres > 0.0;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// The newest burst, as a camera has to frame it: where it is, which way is up there, how far
+    /// across the whole thing reaches and how high its top stands.
+    ///
+    /// <para>Separate from <see cref="TryNewest"/> because the two answer different questions. That
+    /// one is the shader's, and there is nothing for it to march on an airless body; this one is
+    /// the camera's, and a dust dome is every bit as much a thing to look at as a column. The two
+    /// numbers are both needed because a dome is four times wider than it is tall, so a view framed
+    /// on height alone stands far too close.</para>
+    /// </summary>
+    public static bool TryWatch(out double3 burstEcl, out double3 up,
+                                out double radiusMetres, out double topMetres)
+    {
+        burstEcl = default;
+        up = default;
+        radiusMetres = 0.0;
+        topMetres = 0.0;
+
+        if (_watch is not { } watch || watch.Drawn.Empty) return false;
+
+        try
+        {
+            burstEcl = watch.Body.GetPositionEcl()
+                       + watch.BurstCcf.Transform(watch.Body.GetCce2Ccf().Inverse());
+            up = watch.Up.Transform(watch.Body.GetCce2Ccf().Inverse());
+            radiusMetres = watch.Drawn.RadiusMetres;
+            topMetres = watch.Drawn.TopMetres;
+
+            return Vec.IsFinite(burstEcl) && Vec.IsFinite(up) && radiusMetres > 0.0;
         }
         catch
         {
@@ -166,8 +162,10 @@ internal static class NuclearClouds
                 // Above the GROUND, not above the mean sphere: what decides a surface burst is
                 // whether the fireball touches the terrain that is there, and on the Moon the two
                 // differ by kilometres.
-                BurstEjecta.Begin(body, burstCcf, chargeKg,
-                                  KsaWorld.HeightAboveTerrain(body, burstEcl));
+                AirlessBurst.Extent thrown = BurstEjecta.Begin(
+                    body, burstCcf, chargeKg, KsaWorld.HeightAboveTerrain(body, burstEcl));
+
+                _watch = (body, burstCcf, Vec.Unit(burstCcf), thrown);
                 return;
             }
 
@@ -188,14 +186,17 @@ internal static class NuclearClouds
                 Body = body,
                 BurstCcf = burstCcf,
                 Up = up,
-                East = east,
-                North = north,
                 Downwind = Vec.Unit((east * Math.Cos(bearing)) + (north * Math.Sin(bearing))),
                 ChargeKg = chargeKg,
-                FullStem = MushroomCloud.At(chargeKg, MushroomCloud.RiseSeconds).StemTop,
             });
 
             double kt = MushroomCloud.KilotonsFor(chargeKg);
+
+            // A column is about as tall as it is wide, so one number frames it both ways.
+            _watch = (body, burstCcf, up,
+                      new AirlessBurst.Extent(MushroomCloud.DrawnCloudTop(kt),
+                                              MushroomCloud.DrawnCloudTop(kt)));
+
             // At its largest, not at age zero: the ramp is at 60% there, and a diagnostic that
             // reports the smallest the thing ever is sends the next reader looking in the wrong place.
             MushroomCloud.Flash peak = MushroomCloud.FlashAt(chargeKg, MushroomCloud.FlashSeconds(kt) * 0.1);
@@ -271,6 +272,7 @@ internal static class NuclearClouds
     public static void Clear()
     {
         _clouds.Clear();
+        _watch = null;
         Fireball.Clear();
     }
 }

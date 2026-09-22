@@ -18,8 +18,8 @@ namespace KSArmory;
 /// </summary>
 internal static class CloudWatch
 {
-    // Distance in cloud heights. The whole column fills a frame at about its own height, so this is
-    // that with a little room around it: 2.4 km on a 1.31 km cloud.
+    // Distance in burst radii -- the half-width of whatever was drawn. The whole thing fills a
+    // frame at about that, so this is it with a little room around: 2.4 km on a 1.31 km cloud.
     //
     // It is the measuring distance as well as the watching one, and deliberately so. What the
     // shader pass costs is set by how much of the screen it marches, so a number is only about the
@@ -31,8 +31,10 @@ internal static class CloudWatch
     // blob, which is what the chase rig sees and why it was never the shot for this.
     private const double ElevationDeg = 14.0;
 
-    // Where to look up the column, as a fraction of its top. Below the middle: the cap is the wide
-    // part and wants the room above it.
+    // Where to look up the thing, as a fraction of its top. Below the middle: the cap is the wide
+    // part and wants the room above it. Measured against the TOP rather than the radius, which is
+    // the same number for a column and a quarter of it for a dust dome -- aiming a dome's own width
+    // up the sky points the camera over it entirely.
     private const double AimAt = 0.45;
 
     private const double FieldOfViewDeg = 50.0;
@@ -43,7 +45,7 @@ internal static class CloudWatch
     public static void Reset() => _said = false;
 
     /// <summary>
-    /// Points the main view at the newest cloud. Returns false when there is none, which leaves the
+    /// Points the main view at the newest burst. Returns false when there is none, which leaves the
     /// camera exactly where it was rather than snapping it anywhere.
     /// </summary>
     public static bool Update(Vehicle followed)
@@ -51,9 +53,9 @@ internal static class CloudWatch
         try
         {
             if (!KsaWorld.IsAlive(followed)) return false;
-            if (!NuclearClouds.TryNewest(out double3 burstEcl, out double3 up,
-                                         out double top, out _, out _, out _)) return false;
-            if (!(top > 0.0)) return false;
+            if (!NuclearClouds.TryWatch(out double3 burstEcl, out double3 up,
+                                        out double radius, out double top)) return false;
+            if (!(radius > 0.0)) return false;
 
             double3 unitUp = Vec.Unit(up);
 
@@ -61,7 +63,7 @@ internal static class CloudWatch
             // always watched from the same side and two runs are the same picture.
             double3 east = Vec.Unit(Vec.AnyPerpendicular(unitUp));
 
-            double distance = Heights * top;
+            double distance = Heights * radius;
             double elevation = ElevationDeg * Math.PI / 180.0;
 
             double3 eye = burstEcl
@@ -85,7 +87,8 @@ internal static class CloudWatch
             {
                 _said = true;
                 Log.Info($"cloud watch: {distance / 1000.0:F2} km out at {ElevationDeg:F0} deg, "
-                         + $"looking {AimAt:P0} up a {top / 1000.0:F2} km column");
+                         + $"looking {AimAt:P0} up a {top / 1000.0:F2} km top "
+                         + $"on a {radius / 1000.0:F2} km burst");
             }
 
             return true;
