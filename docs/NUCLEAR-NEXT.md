@@ -147,11 +147,24 @@ re-verified against this build. It replaces the screen-space mark with something
 - **no full-screen dispatch per mark for the rest of the session**
 - it reaches **hulls and ground clutter**, so the rocket that dropped the bomb is scorched too
 
-### 7. Fallout is a plume, not a disc
+### 7. Fallout is a plume, not a disc — built
 
-The mark is a circle on the lethal radius. Real deposition runs far downwind in a long narrow
-footprint. `Downwind` already exists, and using it here is what ties the mark to the cloud that
-made it rather than to the point the bomb went off at.
+`PlumeReach` is three patch radii and `PlumeWidth` widens as a square root, which is a puff
+spreading by diffusion while it travels.
+
+**The wind is one rule now.** The cloud and the mark were each deriving the bearing for themselves,
+and a plume at right angles to the column it fell out of is the plainest possible tell.
+
+**And the camera was the reason none of this could be judged.** `CloudWatch` stood on an arbitrary
+perpendicular, and everything about a burst that is not symmetric about its own axis lies on the
+downwind line — the lean, the veer, the drift and the ground. It stands across the wind now.
+
+Every shape here was settled against a **same-camera control** — the identical run with
+`PlumeDepth` at zero, differenced pixel by pixel — because at a glancing angle on textured terrain
+a plume and a cloud shadow look alike, and a first attempt measured 28.6% darker on the plume side
+of a frame whose whole left half was in shadow anyway. The honest number is the diff: 12.9 of 255
+mean over the ground it covers at the first shape, 19.8 at the shipped one, peaking at 58 which is
+the same darkening the crater itself reaches.
 
 ### 8. A rumble, not a bang
 
