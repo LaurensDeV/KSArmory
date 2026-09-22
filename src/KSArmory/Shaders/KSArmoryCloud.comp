@@ -120,6 +120,22 @@ float Torus(vec3 p, float ring, float tube)
     return length(q) - tube;
 }
 
+// How wide the stem is at a height, as a fraction of its nominal radius. A column of lifted dust
+// is widest where it leaves the ground and necks in as it is drawn up into the cap, and a constant
+// radius is the single thing that makes it read as a drainpipe rather than as a column of dirt.
+float StemWidthAt(float y, float capH)
+{
+    if (capH <= 0.0) return 1.0;
+
+    float t = clamp(y / capH, 0.0, 1.0);
+
+    // The flare belongs at the FOOT and nowhere else. Spread over the lower two thirds it is a
+    // cone rather than a column, which trades one wrong silhouette for another -- so it opens out
+    // only in the bottom quarter, holds a near-constant column above that, and widens again into
+    // the cap's underside so the two meet instead of the stem ending inside a wall.
+    return mix(1.35, 0.92, smoothstep(0.0, 0.26, t)) + (0.50 * smoothstep(0.76, 1.0, t));
+}
+
 // Camera-relative world position of a pixel at a given device depth.
 vec3 WorldAt(vec2 uv, float deviceZ)
 {
@@ -171,7 +187,7 @@ float Bulk(vec3 leaned, vec3 up)
     float stemR = pc.Shape.w;
 
     float cap = min(Torus(capP, ringR, tubeR), CapDome(vec2(p.x, p.y - capH), ringR, tubeR));
-    float stem = max(p.x - stemR, p.y - capH);
+    float stem = max(p.x - StemWidthAt(p.y, capH) * stemR, p.y - capH);
 
     // Per feature, for the same reason Density is: a stem normalised by the cap's tube casts a
     // third of the shadow it should, so the cap stops shading the column under it.
@@ -193,7 +209,7 @@ float Density(vec3 leaned, vec3 up, float radius)
 
     vec3 capP = vec3(p.x, p.y - capH, 0.0);
     float cap = min(Torus(capP, ringR, tubeR), CapDome(vec2(p.x, p.y - capH), ringR, tubeR));
-    float stem = max(p.x - stemR, p.y - capH);
+    float stem = max(p.x - StemWidthAt(p.y, capH) * stemR, p.y - capH);
 
     // The vortex turning over. The billows are already organised on the poloidal angle -- the angle
     // around the ring -- so ADVECTING that angle with time is the circulation itself: up the inside,
@@ -349,7 +365,12 @@ void main()
                               float(global.lighting.atmosphereLutLayer))
                    * global.lighting.sunColor.rgb;
 
-        vec3 albedo = vec3(0.30, 0.26, 0.21);
+        // Dirty at the bottom and pale at the top. A surface burst's stem is ground it lifted and
+        // its cap is condensation, and photographs read as nuclear clouds largely because of that
+        // gradient -- one flat albedo for the whole column is the plainest tell of a generated one.
+        float upThrough = clamp(dot(world, up) / max(pc.Shape.x, 1.0), 0.0, 1.0);
+        vec3 albedo = mix(vec3(0.21, 0.16, 0.11), vec3(0.36, 0.35, 0.34),
+                          smoothstep(0.05, 0.75, upThrough));
         // Whether the sun is up at the cloud AT ALL, which nothing else here asks: the sun term is
         // the cloud's own optical depth toward the sun, which is self-shadowing. A column over
         // ground in full darkness was lit as though at noon -- flown on Mars, pitch-black terrain
