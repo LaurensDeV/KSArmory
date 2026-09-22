@@ -1465,24 +1465,33 @@ Not exercised, and the first two are the ones to believe least:
       untried case.
 - [ ] **The cloud is lit on the night side, which Mars is what found.** At 15 N, 20 E the terrain
       is pitch black under a starfield and the mushroom stands over it brightly and *directionally*
-      lit, as though at noon. The sun term in `KSArmoryCloud.comp` is `sunlight * forward * 12.0`,
-      where `sunlight` is the cloud's own optical depth toward the sun — self-shadowing only.
-      Nothing anywhere asks whether the planet is in the way.
+      lit, as though at noon. The sun term is `sunlight * forward * gain`, where `sunlight` is the
+      cloud's own optical depth toward the sun — self-shadowing only. Nothing asks whether the
+      planet is in the way.
 
-      **The term needed is already computed and thrown away.**
-      `GetAerialPerspectiveForObjectInAtmosphere` returns `sunTransmittance` as an out-parameter
-      that nothing reads; it is the air between the cloud and the sun, so it goes to nothing on the
-      night side and reddens through a sunset. Its two inputs are loop-invariant, so the call
-      hoists above the march unchanged and the value is available per sample.
+      **The term is already computed and thrown away**, and Core does exactly what one would apply
+      it: `Clouds/RaymarchCloud.comp` is KSA's own raymarched cloud and the reference for this
+      problem. It attenuates the sun term by `sunToCloudTransmittance` and then ADDS the skylight
+      un-attenuated, at a flat `skyLightBrightness = 0.6` rather than through the albedo. This
+      shader has the same structure, so applying it is a two-line change.
 
-      **Tried, and it is not a one-line fix.** Hoisted and applied, the night cloud correctly
-      disappears — and the Earth cloud goes near-black in daylight, because the `12.0` was
-      calibrated with the term absent and now dims twice. KSA's own clouds in the same frame stay
-      white, so whatever it does for its volumetrics is not this. What it needs is that constant
-      re-derived across sun angles, which is several flights, not a nudge.
-- [ ] **Through a sight or a camera window.** The pass writes the viewport's storage image and binds
-      `viewport.ShaderSlot`, which is what fixed the flicker — but only the main view has ever been
-      looked at. A secondary viewport is the case that would find a second wrong slot.
+      **Tried twice, reverted twice, and the failure is the same both times**: the night cloud
+      correctly disappears and the cloud in the shipped daylight scene goes black while KSA's own
+      clouds in the same frame stay white. Raising the gain from 12 to 48 and taking the skylight
+      off the albedo both failed to recover it.
+
+      **The likely cause is the radii, and it is worth checking before tuning anything else.** Core
+      passes `topRadius`, `bottomRadius` and `planetRadius` as three separate values out of its
+      atmosphere UBO; this shader substitutes `planetRadius + atmosphereHeight`, `planetRadius` and
+      `planetRadius` from the global lighting block, because it does not bind that UBO. If the LUT's
+      parameterisation disagrees with those, the transmittance comes back systematically too small,
+      which is exactly the symptom. **Do not re-tune the gain until that is settled** — both
+      attempts so far have been tuning around it.
+
+      What blocked confirming it: every site reachable today is night or dusk. Earth's default drop
+      site, Chaco, 118 E and Mars at three longitudes were all twilight or dark, so the daylight
+      case that matters has never actually been photographed.
+
 - [ ] **Warp and pause.** The cloud advances on simulated time like everything else, so it should
       freeze in a pause and slow with the panel. Unchecked through the shader path.
 - [ ] **Another GPU.** One machine, one vendor. A compute dispatch into someone else's frame is
