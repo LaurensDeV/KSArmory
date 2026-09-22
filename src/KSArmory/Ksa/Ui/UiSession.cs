@@ -52,10 +52,6 @@ internal sealed partial class Ui
         Tip("On: a nuclear burst leaves a cloud standing, at 6-8 ms a frame. "
             + "Off: the burst does the same damage and leaves nothing behind.");
 
-        ImGui.Checkbox("Dirty nuclear smoke", ref _config.DirtyNuclearSmoke);
-        Tip("On: a standing cloud is grey-brown, as a real one is for most of its life, and so is any "
-            + "rocket smoke this mod lays while one stands. Off: the cloud is white. KSA's own "
-            + "boosters keep their own colour either way.");
     }
 
     // Slow motion, well below what the game's speed control reaches. An engagement is over in a

@@ -4,8 +4,13 @@ Research for making a nuclear burst look like one. Four questions were asked in 
 draws its SRB plumes, how it draws clouds, what its particle system can express, and what a real
 mushroom cloud actually looks like. This is the result, kept because re-deriving it is a day's work.
 
-Route A is built, and *What was built* records the two engine rules that ended up deciding the
-shape. *The airless burst* after it is the second effect, for the bodies where the trail renderer
+**Route A shipped and has been retired.** The cloud is raymarched now — `Ksa/CloudPass.cs`, a
+compute pass of this mod's own inside KSA's frame, cheaper than the pens it replaced and lit by the
+engine's own atmosphere. *What was built* is kept because it is where every dimension in the shape
+was calibrated and why, and the raymarch reads the same `MushroomCloud.Shape`; only the drawing
+changed. *The raymarched cloud* at the end is the one that ships.
+
+The pen walk records the two engine rules that ended up deciding the shape. *The airless burst* after it is the second effect, for the bodies where the trail renderer
 draws nothing at all — a different effect rather than this one degraded, and through the particle
 system instead. Everything before those two sections is the survey, kept as it was written: it is
 still the map for anything else drawn this way.

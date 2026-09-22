@@ -49,7 +49,7 @@ internal static class CloudPass
     private struct Push
     {
         public float4x4 InvViewProj;
-        public float4 SizeStrength;
+        public float4 AgeStrengthWind;   // age, strength, and the downwind packed into two floats
         public float4 CentreRadius;
         public float4 UpSun;       // up and sun, each octahedral-packed into two floats
         public float4 Shape;        // cap centre, cap radius, cap tube, stem radius
@@ -116,7 +116,8 @@ internal static class CloudPass
             if (Program.GetRenderCamera() is not { } camera) return;
             if (!NuclearClouds.TryNewest(out double3 burstEcl, out double3 up,
                                          out double radius, out double age,
-                                         out MushroomCloud.Shape shape)) return;
+                                         out MushroomCloud.Shape shape,
+                                         out double3 downwind)) return;
 
             // Differenced against the camera in DOUBLE and only then narrowed. The world is a solar
             // system: a float metre cannot hold an ecliptic position, and Ego is a pure translation
@@ -133,12 +134,16 @@ internal static class CloudPass
                               : up;
 
             float2 upOct = OctahedralPack(Vec.Unit(up));
+            float2 windOct = OctahedralPack(Vec.Unit(downwind));
             float2 sunOct = OctahedralPack(Vec.IsFinite(sun) ? sun : up);
 
             Push push = new()
             {
                 InvViewProj = camera.VPInv.viewProjection,
-                SizeStrength = new float4(width, height, (float)age, tint),
+                // The target's own size is not in here: the shader asks imageSize() for it, which
+                // freed the two floats the wind needed. The block is at Vulkan's guaranteed 128
+                // bytes and there was nowhere else to take them from.
+                AgeStrengthWind = new float4((float)age, tint, windOct.X, windOct.Y),
                 CentreRadius = new float4((float)centre.X, (float)centre.Y, (float)centre.Z,
                                           (float)radius),
                 UpSun = new float4(upOct.X, upOct.Y, sunOct.X, sunOct.Y),

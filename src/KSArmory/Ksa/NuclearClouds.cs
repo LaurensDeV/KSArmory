@@ -32,16 +32,12 @@ internal static class NuclearClouds
     // is what sized the handover tube three times too thin. Mod pens are tracked and then cleared
     // before the merge runs -- docs/NUCLEAR-EFFECT.md has the frame ordering. What overlapping
     // capsules do here is the raymarcher's own rule: the deeper of the two, never the sum.
-    private const int RimStrands = 18;
     private const int MidStrands = 12;
-    private const int CoreStrands = 6;
 
-    private const double MidShell = 0.62;
     private const double CoreShell = 0.18;
 
     // Where the fireball rides, in the same terms. Inside the bundle rather than on the outermost
     // ring, because it is the cloud's core.
-    private const double EmberShell = 0.55;
 
     // The ground skirt has no counterpart here: its pen count and tube are MushroomCloud's, because
     // the tube is derived from the count and splitting the two across this boundary is what drifts.
@@ -53,16 +49,13 @@ internal static class NuclearClouds
     // And a stem that is one column rather than a bundle of poles, which needs the spread to stay
     // inside the tube: overlapping capsules render as the deeper of the two, so nine parallel pens
     // closer together than their own radius are one column and no wider than one of them.
-    private const int StemStrands = 9;
     private const double StemSpread = 0.24;
 
     // Radii, in metres, as fractions of the cap's own tube. The expansion ratio matters as much as
     // the size: a booster's plume swells a hundredfold from its nozzle, which is what makes it
     // billow, and 1.4x reads as a pipe.
     private const double CapInitial = 0.31;
-    private const double CapExpanded = 0.65;
     private const double StemInitial = 0.16;
-    private const double StemExpanded = 0.45;
 
     private sealed class Cloud
     {
@@ -85,22 +78,9 @@ internal static class NuclearClouds
         // Fixed per cloud: the shape is a pure function of charge and age, so this is knowable at
         // the burst and never changes.
         public required double FullStem;
-
-        public readonly PlumeSmoke.Strand[] Stem =
-            Enumerable.Range(0, StemStrands).Select(_ => new PlumeSmoke.Strand()).ToArray();
-        public readonly PlumeSmoke.Strand[] Rim =
-            Enumerable.Range(0, RimStrands).Select(_ => new PlumeSmoke.Strand()).ToArray();
-        public readonly PlumeSmoke.Strand[] Mid =
-            Enumerable.Range(0, MidStrands).Select(_ => new PlumeSmoke.Strand()).ToArray();
-        public readonly PlumeSmoke.Strand[] Core =
-            Enumerable.Range(0, CoreStrands).Select(_ => new PlumeSmoke.Strand()).ToArray();
-        public readonly PlumeSmoke.Strand[] Surge =
-            Enumerable.Range(0, MushroomCloud.SurgeStrands)
-                      .Select(_ => new PlumeSmoke.Strand()).ToArray();
     }
 
     private static readonly List<Cloud> _clouds = [];
-    private static bool _tinted;
 
     /// <summary>How many clouds are standing. Diagnostic.</summary>
     public static int Count => _clouds.Count;
@@ -115,8 +95,11 @@ internal static class NuclearClouds
     /// </para>
     /// </summary>
     public static bool TryNewest(out double3 burstEcl, out double3 up, out double radiusMetres,
-                                 out double ageSeconds, out MushroomCloud.Shape shape)
+                                 out double ageSeconds, out MushroomCloud.Shape shape,
+                                 out double3 downwind)
     {
+        downwind = default;
+
         burstEcl = default;
         up = default;
         radiusMetres = 0.0;
@@ -135,12 +118,17 @@ internal static class NuclearClouds
             ageSeconds = cloud.Age;
             shape = MushroomCloud.At(cloud.ChargeKg, cloud.Age);
 
+            // The same wind the pens lean into, so the two drawings of one burst agree about which
+            // way it is blowing rather than each choosing.
+            downwind = cloud.Downwind.Transform(cloud.Body.GetCce2Ccf().Inverse());
+
             // The whole thing, cap and lean included, so the bounding sphere cannot clip the shape
             // it is there to reject against.
             double kt = MushroomCloud.KilotonsFor(cloud.ChargeKg);
             radiusMetres = MushroomCloud.DrawnCloudTop(kt);
 
-            return Vec.IsFinite(burstEcl) && Vec.IsFinite(up) && radiusMetres > 0.0;
+            return Vec.IsFinite(burstEcl) && Vec.IsFinite(up) && Vec.IsFinite(downwind)
+                   && radiusMetres > 0.0;
         }
         catch
         {
@@ -240,77 +228,42 @@ internal static class NuclearClouds
     }
 
     /// <summary>Advances every cloud and lays this frame's smoke.</summary>
-    public static void Update(double dtSim, bool dirty)
+    public static void Update(double dtSim)
     {
-        // Put the world's smoke back the moment the last cloud goes, so a booster is only tinted
-        // while there is actually something standing to justify it.
         if (_clouds.Count == 0)
         {
-            if (_tinted) { PlumeSmoke.Tint(false); _tinted = false; }
+            Fireball.Clear();
             return;
         }
 
-        if (_tinted != dirty) { PlumeSmoke.Tint(dirty); _tinted = dirty; }
+        if (!double.IsFinite(dtSim)) return;
+
+        double step = Math.Max(0.0, dtSim);
 
         // The light is re-submitted per frame, so a frame with no flash in it has to say so.
         bool lit = false;
-
-        if (!double.IsFinite(dtSim)) return;
-
-        // A paused world still submits, at the age it already had.
-        //
-        // Skipping the frame instead looks harmless and is not: a pen that misses one submission is
-        // deactivated by the renderer, which closes the segment it was holding and breaks the chain
-        // the merge and the level of detail both walk. The cloud comes back from a pause seamed.
-        double step = Math.Max(0.0, dtSim);
 
         for (int i = _clouds.Count - 1; i >= 0; i--)
         {
             Cloud cloud = _clouds[i];
             cloud.Age += step;
 
-            // One clock, from the burst. The smoke is withheld while the fireball is luminous, but
-            // the cloud goes on ageing underneath it, so the pens are already up at the ball when
-            // they start laying rather than back down on the ground.
-            double progress = MushroomCloud.Progress(cloud.Age);
-
             MushroomCloud.Shape shape = MushroomCloud.At(cloud.ChargeKg, cloud.Age);
             if (cloud.Age > 0.0 && shape.Spent) { _clouds.RemoveAt(i); continue; }
 
             MushroomCloud.Flash flash = MushroomCloud.FlashAt(cloud.ChargeKg, cloud.Age);
-            if (!flash.Spent)
-            {
-                lit = true;
+            if (flash.Spent) continue;
 
-                // Riding the same climb the pens do, so the ball lifts off the ground while it is
-                // still burning and the smoke takes over from it in the air.
-                //
-                // The *same* climb means the same circle, and that is the whole of it: the pens walk
-                // the path radius rather than the silhouette, so handing the ball an unwalked shape
-                // puts it half its own radius above the topmost pen -- proud of its own smoke, which
-                // is exactly where a ball reads as a ball. The shell is inside the bundle rather
-                // than at its top for the same reason: the ball is the cloud's core, not its crown.
-                MushroomCloud.Shape cored = shape with
-                {
-                    CapRadius = MushroomCloud.PathRadius(shape, shape.CapTube * CapExpanded),
-                };
+            lit = true;
 
-                // ...and never above the cap's own centre, so that once there is a cap the ball is
-                // inside it rather than perched on top of it.
-                double riseM = MushroomCloud.EmberHeight(cloud.ChargeKg, cloud.Age);
+            double3 riseCcf = cloud.Up * MushroomCloud.EmberHeight(cloud.ChargeKg, cloud.Age);
 
-                double3 riseCcf = cloud.Up * riseM;
-
-                Fireball.Draw(cloud.Body.GetPositionEcl()
-                              + (cloud.BurstCcf + riseCcf).Transform(cloud.Body.GetCce2Ccf().Inverse()),
-                              flash.Radius,
-                              new float3((float)flash.Colour.X, (float)flash.Colour.Y,
-                                         (float)flash.Colour.Z),
-                              (float)flash.Glow);
-            }
-
-            // Nothing while the fireball is still burning: the smoke would be drawn over it.
-            if (MushroomCloud.SmokeStarted(cloud.ChargeKg, cloud.Age)) Draw(cloud, shape, progress);
+            Fireball.Draw(cloud.Body.GetPositionEcl()
+                          + (cloud.BurstCcf + riseCcf).Transform(cloud.Body.GetCce2Ccf().Inverse()),
+                          flash.Radius,
+                          new float3((float)flash.Colour.X, (float)flash.Colour.Y,
+                                     (float)flash.Colour.Z),
+                          (float)flash.Glow);
         }
 
         if (!lit) Fireball.Clear();
@@ -320,158 +273,6 @@ internal static class NuclearClouds
     public static void Clear()
     {
         _clouds.Clear();
-        if (_tinted) { PlumeSmoke.Tint(false); _tinted = false; }
-    }
-
-    private static void Draw(Cloud cloud, in MushroomCloud.Shape shape, double progress)
-    {
-        double capTube = shape.CapTube;
-        double path = MushroomCloud.PathRadius(shape, capTube * CapExpanded);
-
-        // Every pen is laid at the fireball's own width and swells to its full one as the stroke
-        // climbs, which is what hands the burst over to the cloud rather than swapping one for the
-        // other. MushroomCloud.TubeAtHandover has the arithmetic, and what skipping it costs.
-        double handover = MushroomCloud.TubeAtHandover(MushroomCloud.KilotonsFor(cloud.ChargeKg));
-        double growth = MushroomCloud.TubeGrowth(progress);
-
-        // Both ends grown from the handover width, not one end scaled off the other: at the
-        // handover the pen is laid at the fireball's radius AND swells to it, so there is no
-        // expansion lag at the one instant the smoke has to already be the size of the ball it is
-        // taking over from. The usual expansion ratio comes back as the tube reaches full width.
-        double capLaid = Grown(handover, capTube * CapInitial, growth);
-        double capNow = Grown(handover, capTube * CapExpanded, growth);
-        double stemLaid = Grown(handover, capTube * StemInitial, growth);
-        double stemNow = Grown(handover, capTube * StemExpanded, growth);
-
-        // The stem is a bundle rather than a wire: one pen up the axis and three around it, so the
-        // column has width and its edge is not a single tube's silhouette.
-        //
-        // Its spread grows with the tube, and has to: the bundle reads as one column only while the
-        // engine merges it, and the merge radius scales with the tube. Full spread over a
-        // handover-width tube is nine poles.
-        // How far up the column the pens currently are, which is what gives the stem a profile
-        // rather than a constant width: each pen widens and narrows as it climbs, and the trail it
-        // leaves behind is the hourglass.
-        // Against the height the stem will FINISH at, not the height it may reach today. StemTop is
-        // clamped to the cap's underside and the cap grows with it, so dividing by the current one
-        // is a step function -- zero before there is a cap, one ever after, and the flare pinned at
-        // its head value for the whole life. The finished column is the only fixed ruler.
-        double climbed = cloud.FullStem > 0.0
-                             ? Math.Clamp(shape.StemTop / cloud.FullStem, 0.0, 1.0)
-                             : 0.0;
-        double flare = MushroomCloud.StemFlare(climbed);
-        double cloudTop = shape.CapCentre + shape.CapRadius;
-
-        for (int i = 0; i < cloud.Stem.Length; i++)
-        {
-            double3 offset = MushroomCloud.StemPoint(shape, cloud.Up);
-
-            if (i > 0)
-            {
-                double turn = 2.0 * Math.PI * (i - 1) / Math.Max(1, cloud.Stem.Length - 1);
-                double off = shape.StemRadius * StemSpread * growth * flare;
-                offset += (cloud.East * (Math.Cos(turn) * off))
-                          + (cloud.North * (Math.Sin(turn) * off));
-            }
-
-            PlumeSmoke.Lay(cloud.Stem[i], cloud.Body, cloud.BurstCcf + Sheared(cloud, offset, cloudTop),
-                           (float)stemLaid, (float)stemNow);
-        }
-
-        // The heights the mod is actually laying at, which is the only thing that separates "the
-        // cloud floats" from "the cloud is fine and something else is hiding the column".
-        if (Log.Threshold <= Log.Level.Debug && cloud.Age - cloud.LastReport >= 2.0)
-        {
-            cloud.LastReport = cloud.Age;
-            string line = $"cloud t{cloud.Age:F1}s: stem top {shape.StemTop:F0} m, "
-                        + $"skirt {shape.SurgeHeight:F0} m x {shape.SurgeRadius:F0} m, "
-                        + $"cap centre {shape.CapCentre:F0} m r {shape.CapRadius:F0} m, "
-                        + $"stem tube {stemNow:F0} m, lean at cap "
-                        + $"{MushroomCloud.LeanAt(shape.CapCentre, shape.CapCentre + shape.CapRadius):F0} m";
-            Log.Debug(() => line);
-        }
-
-        Surge(cloud, shape, progress, handover);
-
-        Ring(cloud, cloud.Rim, shape, progress, 1.0, path, capLaid, capNow);
-        Ring(cloud, cloud.Mid, shape, progress, MidShell, path, capLaid, capNow);
-        Ring(cloud, cloud.Core, shape, progress, CoreShell, path, capLaid, capNow);
-    }
-
-    // The expansion ratio is carried across the ramp rather than the two ends being ramped apart.
-    // How far a capsule swells from where it was laid is what makes it billow instead of reading as
-    // a pipe, and that is a ratio rather than a width.
-    private static double Grown(double from, double to, double growth) => from + ((to - from) * growth);
-
-    private static void Surge(Cloud cloud, in MushroomCloud.Shape shape, double progress,
-                              double handover)
-    {
-        double radius = shape.SurgeRadius;
-        double height = shape.SurgeHeight;
-        double tube = MushroomCloud.SurgeTube(shape, progress, handover);
-
-        // Out of round in both radius and height, or the skirt is a machined disc with a flat top
-        // sitting under the cloud -- which is a plinth, and reads as one. The two are given
-        // different bearings so the collar does not simply bulge and rise together.
-        for (int i = 0; i < cloud.Surge.Length; i++)
-        {
-            double turn = 2.0 * Math.PI * i / cloud.Surge.Length;
-            double lobed = radius * MushroomCloud.Lobe(turn, MushroomCloud.SkirtLobeDepth);
-            double stood = height * MushroomCloud.Lobe(turn + 2.0, MushroomCloud.SkirtLobeDepth);
-
-            double3 at = cloud.BurstCcf
-                         + Sheared(cloud,
-                                   (cloud.Up * stood)
-                                   + (cloud.East * (Math.Cos(turn) * lobed))
-                                   + (cloud.North * (Math.Sin(turn) * lobed)),
-                                   shape.CapCentre + shape.CapRadius);
-
-            // Thin, because the skirt's pens deliberately overlap and 18 solid capsules in one
-            // collar scatter like thick cumulus: flown, it came back a bright white pancake under a
-            // dirty brown column, which is backwards -- the skirt is the part actually made of
-            // soil. Density is what fixes it; colour was already right and could not.
-            PlumeSmoke.Lay(cloud.Surge[i], cloud.Body, at, (float)(tube * 0.5), (float)tube,
-                           (float)(SkirtDensity * PenVariation(i)));
-        }
-    }
-
-    // How thick the skirt is against the rest of the cloud. Its pens overlap by design, so at the
-    // stock density the collar is optically several capsules deep where the stem is one.
-    private const double SkirtDensity = 0.45;
-
-    // A little thickness variation between neighbouring pens, so a ring of them is not one even
-    // wall. Off the golden ratio rather than a random: a cloud is re-laid every frame and a pen
-    // that flickered between densities would boil.
-    private static double PenVariation(int index)
-        => 0.82 + (0.36 * ((index * 0.6180339887) % 1.0));
-
-    // Every point the cloud is drawn at, sheared downwind by how high it is. Applied here rather
-    // than inside the stroke functions so the shape stays a shape and the wind stays a wind: the
-    // cap leans further than the stem for free, because it is higher.
-    private static double3 Sheared(Cloud cloud, double3 offset, double cloudTop)
-        => offset + (cloud.Downwind * MushroomCloud.LeanAt(Vec.Dot(offset, cloud.Up), cloudTop));
-
-    private static void Ring(Cloud cloud, PlumeSmoke.Strand[] pens, in MushroomCloud.Shape shape,
-                             double progress, double shell, double path, double laid, double expanded)
-    {
-        // The stroke is described against the cap's own radius, so hand it the path circle rather
-        // than the silhouette: a pen walking the rim puts a whole tube of smoke outside it.
-        MushroomCloud.Shape walked = shape with { CapRadius = path };
-
-        for (int i = 0; i < pens.Length; i++)
-        {
-            double3 at = cloud.BurstCcf
-                         + Sheared(cloud,
-                                   MushroomCloud.CapPoint(walked, i, pens.Length, progress, shell,
-                                                          cloud.Up, cloud.East, cloud.North),
-                                   shape.CapCentre + shape.CapRadius);
-
-            // No fade here. A radius written after a segment is laid never reaches it -- the pen
-            // only rewrites the one it currently holds open -- so fading this would look like it
-            // worked and do nothing. The cloud goes out through the renderer's own segment
-            // lifetime.
-            PlumeSmoke.Lay(pens[i], cloud.Body, at, (float)laid, (float)expanded,
-                           (float)PenVariation(i));
-        }
+        Fireball.Clear();
     }
 }

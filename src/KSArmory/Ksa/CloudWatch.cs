@@ -52,7 +52,7 @@ internal static class CloudWatch
         {
             if (!KsaWorld.IsAlive(followed)) return false;
             if (!NuclearClouds.TryNewest(out double3 burstEcl, out double3 up,
-                                         out double top, out _, out _)) return false;
+                                         out double top, out _, out _, out _)) return false;
             if (!(top > 0.0)) return false;
 
             double3 unitUp = Vec.Unit(up);

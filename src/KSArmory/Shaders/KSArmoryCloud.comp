@@ -40,7 +40,7 @@ layout (set = 1, binding = 1) uniform sampler2D sceneDepth;
 layout (push_constant) uniform PushConstants
 {
     mat4 InvViewProj;      // clip -> camera-relative world
-    vec4 SizeStrength;     // xy target pixels, z unused, w overall strength (0 draws nothing)
+    vec4 AgeStrengthWind;  // x seconds since the burst, y strength (0 draws nothing), zw downwind
     vec4 CentreRadius;     // xyz burst, camera-relative metres; w the sphere that bounds it all
     vec4 UpSun;            // local vertical and sun direction, each packed into two floats
     vec4 Shape;            // cap centre height, cap radius, cap tube, stem radius
@@ -118,8 +118,28 @@ vec3 WorldAt(vec2 uv, float deviceZ)
 // fBm for each was paying for turbulent detail in a term that is then exponentiated into a
 // smooth falloff. A shadow wants to know how much cloud is in the way, not what shape its
 // surface is.
-float Bulk(vec3 world, vec3 up)
+// The wind, as the pens lean into it: MushroomCloud.LeanAt, super-linear in height so the foot
+// stays over the crater while the cap rides downwind. A column standing exactly vertical is the
+// plainest tell that a shape was generated.
+vec3 Unlean(vec3 world, vec3 up, float top)
 {
+    float y = dot(world, up);
+    if (top <= 0.0 || y <= 0.0) return world;
+
+    vec3 wind = OctahedralUnpack(pc.AgeStrengthWind.zw);
+    // Half what MushroomCloud.LeanAt gives the pens. That constant is bounded by the cap having to
+    // stay over the column holding it up, and a raymarched stem is thinner than a bundle of nine
+    // capsules -- at the full lean the cap rides off the top of it and reads as detached.
+    float lean = 0.095 * top * pow(clamp(y / top, 0.0, 1.0), 1.4);
+
+    // Taken OFF the sample: the shape is upright and the world is leaning, so a point out downwind
+    // belongs to a part of the column further up rather than to nothing.
+    return world - wind * lean;
+}
+
+float Bulk(vec3 leaned, vec3 up)
+{
+    vec3 world = leaned;
     float y = dot(world, up);
     vec3 p = vec3(length(world - up * y), y, 0.0);
 
@@ -133,8 +153,9 @@ float Bulk(vec3 world, vec3 up)
     return clamp(-d / max(tubeR * 1.3, 1.0), 0.0, 1.0);
 }
 
-float Density(vec3 world, vec3 up, float radius)
+float Density(vec3 leaned, vec3 up, float radius)
 {
+    vec3 world = Unlean(leaned, up, radius);
     float y = dot(world, up);
     vec3 flat_ = world - up * y;
     vec3 p = vec3(length(flat_), y, 0.0);
@@ -157,7 +178,7 @@ float Density(vec3 world, vec3 up, float radius)
     // Frequency is per CLOUD rather than per metre, so every yield carries the same number of
     // billows -- about two dozen, which is where fBm starts reading as turbulence rather than as a
     // dent. Worley was tried here and is NOT in: docs/NUCLEAR-EFFECT.md has what it did instead.
-    float n = Fbm(world * (26.0 / max(radius, 1.0)) + vec3(0.0, around, pc.SizeStrength.z * 0.05));
+    float n = Fbm(world * (26.0 / max(radius, 1.0)) + vec3(0.0, around, pc.AgeStrengthWind.x * 0.05));
     d -= (n - 0.35) * tubeR * 2.2;
 
     float density = clamp(-d / max(tubeR * 1.3, 1.0), 0.0, 1.0);
@@ -175,11 +196,15 @@ float Phase(float cosTheta, float g)
 
 void main()
 {
-    ivec2 at = ivec2(gl_GlobalInvocationID.xy);
-    if (at.x >= int(pc.SizeStrength.x) || at.y >= int(pc.SizeStrength.y)) return;
-    if (pc.SizeStrength.w <= 0.0 || pc.CentreRadius.w <= 0.0) return;
+    // The target's own size, asked of the image rather than sent: it is the two floats the wind
+    // needed, and the block is at Vulkan's guaranteed 128 bytes with nowhere else to take them from.
+    ivec2 size = imageSize(sceneColor);
 
-    vec2 uv = (vec2(at) + 0.5) / pc.SizeStrength.xy;
+    ivec2 at = ivec2(gl_GlobalInvocationID.xy);
+    if (at.x >= size.x || at.y >= size.y) return;
+    if (pc.AgeStrengthWind.y <= 0.0 || pc.CentreRadius.w <= 0.0) return;
+
+    vec2 uv = (vec2(at) + 0.5) / vec2(size);
 
     // The ray, and how far the scene lets it go. Reconstructing the scene point from its own depth
     // and the same matrix is what makes the occlusion exact without needing the near and far planes
@@ -215,7 +240,7 @@ void main()
     // Start each ray a random fraction of a step in. Fewer steps band, and a jitter turns that
     // banding into noise the eye reads as grain rather than as rings -- which is what makes 32
     // steps affordable where 48 were not.
-    float jitter = Hash(vec3(vec2(at), pc.SizeStrength.z));
+    float jitter = Hash(vec3(vec2(at), pc.AgeStrengthWind.x));
 
     float transmittance = 1.0;
     vec3 scattered = vec3(0.0);
@@ -225,6 +250,7 @@ void main()
         vec3 world = dir * (t0 + (float(i) + jitter) * dt) - toCentre;   // relative to the burst
 
         float density = Density(world, up, radius);
+        vec3 leaned = world;
         if (density <= 0.0) continue;
 
         // How much cloud is between this sample and the sun. Four taps, spaced out geometrically so
@@ -234,7 +260,7 @@ void main()
         float step_ = radius * 0.06;
         for (int k = 1; k <= 4; k++)
         {
-            toSun += Bulk(world + sun * (step_ * float(k * k)), up) * step_ * float(k);
+            toSun += Bulk(Unlean(leaned + sun * (step_ * float(k * k)), up, radius), up) * step_ * float(k);
         }
 
         float sunlight = exp(-toSun * 0.02);
@@ -278,6 +304,6 @@ void main()
     vec3 body = mix(scattered, distant * (1.0 - transmittance), haze * 0.55);
 
     vec4 c = imageLoad(sceneColor, at);
-    vec3 mixed = c.rgb * transmittance + body * pc.SizeStrength.w;
+    vec3 mixed = c.rgb * transmittance + body * pc.AgeStrengthWind.y;
     imageStore(sceneColor, at, vec4(mixed, c.a));
 }

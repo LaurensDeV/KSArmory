@@ -460,9 +460,9 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/Visuals.cs` | gizmo rendering |
 | `Ksa/Detonation.cs` | KSA's own explosion where a warhead goes off, anchored to the body rather than the target |
 | `Ksa/Fireball.cs` | the nuclear flash: one emissive sphere that blooms, and the light it casts |
-| `Ksa/PlumeSmoke.cs` | smoke through the renderer KSA draws booster plumes with, one reflected field away |
+| `Ksa/PlumeSmoke.cs` | smoke through the renderer KSA draws booster plumes with, one reflected field away — **the motor trail's now; the nuclear cloud left it for a raymarch** |
 | `Ksa/MotorSmoke.cs` | the trail a burning round leaves, through that same renderer — one cursor per round |
-| `Ksa/NuclearClouds.cs` | the mushroom clouds standing in the world, walked with plume cursors |
+| `Ksa/NuclearClouds.cs` | the mushroom clouds standing in the world — **state and the fireball only**: the shape is drawn by `Ksa/CloudPass.cs`, which reads the newest cloud off this and raymarches it |
 | `Ksa/BurstEjecta.cs` | that airless burst drawn, through the particle system — **the renderer that draws on a body with no air**, because the trail volume the smoke uses is raymarched only for an atmospheric one. One-shot emitters, so nothing has to hold or return them |
 | `Ksa/CloudPass.cs` | this mod's own compute shader, dispatched inside KSA's frame — **no renderer was ported to get there**: KSA compiles a `<Shader>` asset out of any mod's folder and `ComputePipelineWrapper` builds the descriptor sets |
 | `Ksa/CloudPassHook.cs` | the fifth place the mod patches the game, and the first in the renderer — **an ordinary prefix on a public method**, because `SunbloomRenderer.Render` hands over the command buffer at the one instant the scene colour is storage-writable, the depth is sampled, and bloom and the tonemap are both still to come |

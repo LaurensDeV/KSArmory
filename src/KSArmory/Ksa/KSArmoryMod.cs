@@ -811,7 +811,7 @@ public sealed class KSArmoryMod
         // is the one the GPU has finished with rather than the one being recorded now.
         CloudPassCost.Sample();
 
-        if (_config.NuclearClouds) NuclearClouds.Update(_lastSimStep, _config.DirtyNuclearSmoke);
+        if (_config.NuclearClouds) NuclearClouds.Update(_lastSimStep);
         else NuclearClouds.Clear();
 
         // A sight outlives nothing: without this the dictionary keeps a system for the session

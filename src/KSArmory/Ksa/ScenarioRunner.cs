@@ -392,17 +392,16 @@ internal sealed class ScenarioRunner
         // from a camera riding three metres behind the bomb that made it.
         _showClouds = Array.IndexOf(options, "clouds") >= 0;
 
-        // "shader": run this mod's own compute pass and price it. Separate from "clouds" because
-        // they answer different questions -- one is what the cloud looks like, the other is what
-        // the pass costs -- and pricing it wants it on whether or not the pens are drawing.
-        // Measured either way: with the pass on this prices it, and with it off the same run is
-        // the baseline that number has to be read against.
-        bool shader = Array.IndexOf(options, "shader") >= 0;
+        // The pass IS the cloud, so it follows the cloud switch rather than having one of its own.
+        // Timing runs either way: a run with the cloud off is the baseline the other is read
+        // against, and a number with no control is what made this instrument look decisive before
+        // it had said anything.
+        _config.ShaderPass = _showClouds ? 1f : 0f;
 
-        _config.ShaderPass = shader ? 1f : 0f;
         CloudPassCost.Begin();
         CloudWatch.Reset();
-        Report($"{_name}: GPU timing on, shader pass {(shader ? "ON" : "off -- this run is the baseline")}");
+
+        Report($"{_name}: GPU timing on, cloud {(_showClouds ? "ON" : "off -- this run is the baseline")}");
 
         // "speeds=0.05,0.1,1": held a stretch each once the first round is up. One that does not read
         // as a positive speed is dropped and said, rather than failing a run that can still fly the rest.

@@ -108,14 +108,6 @@ public sealed class Config
     /// </summary>
     public bool NuclearClouds = true;
 
-    /// <summary>
-    /// Dirty the smoke of a nuclear cloud rather than leaving it white.
-    ///
-    /// <para>Costs something worth knowing about: the engine carries one trail colour for the whole
-    /// world, so while a cloud stands every solid booster's plume is tinted with it. Held only for
-    /// as long as a cloud is up.</para>
-    /// </summary>
-    public bool DirtyNuclearSmoke = true;
 
     /// <summary>
     /// Which sound to use, by <c>ModLibrary</c> Id. Null takes Core's engine loop, which resolves
@@ -221,13 +213,13 @@ public sealed class Config
     public bool BurstMarker = true;
 
     /// <summary>
-    /// Run this mod's own shader pass inside KSA's frame, as a fraction of full strength.
+    /// How strongly the nuclear cloud draws, as a fraction of full.
     ///
-    /// <para>Zero is the pass not dispatching at all, which is the default: it is the one thing the
-    /// mod does inside the renderer, and a spike that tints the far field is not something anybody
-    /// wants on while they fly. Turning it up is how the route is checked without a rebuild.</para>
+    /// <para>It is a compute pass of this mod's own, run inside KSA's frame before bloom. Zero does
+    /// not dispatch at all, which is the way to turn the cloud off without turning off
+    /// <see cref="NuclearClouds"/> — the fireball and the ember ride that one.</para>
     /// </summary>
-    public float ShaderPass;
+    public float ShaderPass = 1f;
 
     /// <summary>
     /// Explosive charge for a hand-fired burst (kg). The same figure a round carries, so the tool
