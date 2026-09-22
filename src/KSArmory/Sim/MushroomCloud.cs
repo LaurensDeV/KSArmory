@@ -452,21 +452,6 @@ public static class MushroomCloud
     /// </summary>
     public const double EmberFraction = 0.09;
 
-    /// <summary>
-    /// How far the ball may lift while it is still lit, in its own radii.
-    ///
-    /// <para><b>The ball does not ride the cloud's curve, and tying it to one was the mistake.</b>
-    /// A fireball lifts by its own buoyancy and is swallowed within a couple of its own diameters;
-    /// the cloud goes on climbing for another two kilometres. While <see cref="Rise"/> crept off
-    /// the pad the two were indistinguishable, so the ball was left riding it — and the moment that
-    /// curve was corrected to the tracked one the ball went up with it, six of its own radii while
-    /// still glowing, which is a flare ascending rather than a burst dying.</para>
-    ///
-    /// <para>Two radii is what the buoyancy laws and the VFX literature both give, and holding the
-    /// ball there is also what the eye wants: it stops climbing, the cloud rises past it, and the
-    /// glow goes out inside the smoke instead of in front of it.</para>
-    /// </summary>
-    public const double EmberLiftRadii = 2.0;
 
     /// <summary>
     /// Seconds of that ember, which is the same for every yield because the rise is.
@@ -775,30 +760,6 @@ public static class MushroomCloud
 
     /// <summary>How far along its stroke a pen is at this age, in [0, 1].</summary>
     public static double Progress(double age) => Math.Clamp(age / RiseSeconds, 0.0, 1.0);
-
-    /// <summary>
-    /// How high the glowing ball sits above the burst, which is three limits at once.
-    ///
-    /// <para><b>Its own law, not the cloud's.</b> It lifts evenly to <see cref="EmberLiftRadii"/>
-    /// of its own radii over the whole time it is lit, and stops. A fireball rises by its own
-    /// buoyancy and is swallowed within a couple of diameters, where the column behind it climbs
-    /// two kilometres — so the cloud's stroke carries a glowing ball six of its own radii upward,
-    /// which reads as a flare ascending rather than a burst dying. The two only agree at all while
-    /// <see cref="Rise"/> is slow off the pad, and the tracked cloud is not.</para>
-    ///
-    /// <para><b>Here rather than at the drawing, because the test was reproducing it.</b> The rule
-    /// that keeps the ball from reading as a flare was asserted against a copy of this expression
-    /// written out in the test file, so a limit added at the draw site passed every check and
-    /// changed nothing anybody measured.</para>
-    /// </summary>
-    public static double EmberHeight(double chargeKg, double age)
-    {
-        double kt = KilotonsFor(chargeKg);
-        double lit = DarkAfter(kt) + EmberSeconds;
-        if (!(lit > 0.0) || age <= 0.0) return 0.0;
-
-        return EmberLiftRadii * PeakFireballRadius(kt) * Math.Min(1.0, age / lit);
-    }
 
     // Full while it rises and stands, then out. Squared so it thins slowly at first and then goes,
     // which is how a cloud disperses rather than how a light switches off.

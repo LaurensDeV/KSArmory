@@ -646,7 +646,10 @@ void main()
             // it gets anywhere, which spreads it far more slowly than a vacuum point source -- and
             // the square left the term at a few per cent of the sun's by the time the cloud was
             // 150 m across against a 53 m ball, which is invisible.
-            float span = max(length(world), ballRadius);
+            // FROM THE BALL, which sits at the cap's own centre rather than at the burst: the two
+            // are one object. Measured from the burst instead, a cloud whose cap has climbed three
+            // hundred metres is lit from under its own stem.
+            float span = max(length(world - up * pc.Shape.x), ballRadius);
             float fall = ballRadius / span;
 
             // Hotter is whiter. The ball cools from white through orange and its glow falls as it

@@ -332,16 +332,12 @@ public class MushroomCloudTests
                     "and be gone at the end of it");
 
         // And it climbs the whole time it is there, rather than hanging where it burst while the
-        // cloud leaves without it. On its own law rather than the pens', because the cloud's climb
-        // carries a lit ball out of its own smoke -- see MushroomCloud.EmberHeight.
-        double first = MushroomCloud.EmberHeight(0.3 * Kt, flash);
-        double last = MushroomCloud.EmberHeight(0.3 * Kt, flash + MushroomCloud.EmberSeconds);
+        // cloud leaves without it. It climbs ON THE CAP, because it is the cap.
+        double first = MushroomCloud.At(0.3 * Kt, flash).CapCentre;
+        double last = MushroomCloud.At(0.3 * Kt, flash + MushroomCloud.EmberSeconds).CapCentre;
 
         Assert.True(last > first * 2.0,
                     $"the ember should still be lifting: {first:F0} m to {last:F0} m");
-
-        // ...and stop, which is the half that stops it reading as a flare.
-        Assert.Equal(MushroomCloud.EmberLiftRadii * MushroomCloud.PeakFireballRadius(0.3), last, 3);
     }
 
     /// <summary>
@@ -405,37 +401,67 @@ public class MushroomCloudTests
     }
 
     /// <summary>
-    /// The fireball goes dark while it is still near where it burst.
+    /// A lit ball that has climbed is inside the cloud it became, not out in the open.
     ///
-    /// <para>A real one lifts off and is hidden by its own cloud within a couple of diameters. This
-    /// one is an emissive sphere drawn over the smoke rather than inside it, so for as long as it is
-    /// lit it is the brightest thing in the frame — and a lit ball climbing hundreds of metres reads
-    /// as a flare ascending, not as a burst dying.</para>
+    /// <para><b>This replaces a height limit whose premise is gone.</b> The ball used to lift on a
+    /// law of its own and stop, because it was an emissive sphere drawn <em>over</em> the smoke:
+    /// for as long as it was lit it was the brightest thing in frame, and a lit ball climbing
+    /// hundreds of metres read as a flare ascending rather than as a burst dying. It is drawn as a
+    /// mesh now and the cloud is a raymarch that clips itself against the scene depth and
+    /// multiplies what is behind it by its own transmittance — so the ball is <em>inside</em> the
+    /// smoke, and a height limit that held it under its own cloud was keeping the two apart for a
+    /// reason that had expired.</para>
     ///
-    /// <para>Measured in its own radii so it holds at every yield, which is the only way to state it:
-    /// the absolute height varies fifteen-fold across the range, the proportion does not.</para>
+    /// <para>What has to hold instead is that the cloud is actually around it by the time it is up
+    /// there. Stated in the ball's own radii so it holds at every yield: the absolute height varies
+    /// fifteen-fold across the range and the proportion does not.</para>
     /// </summary>
     [Theory]
     [InlineData(0.3)]
     [InlineData(1.0)]
     [InlineData(20.0)]
     [InlineData(300.0)]
-    public void TheBallGoesDarkBeforeItClimbsOutOfItself(double yieldKt)
+    public void ALitBallThatHasClimbedIsInsideTheCloudItBecame(double yieldKt)
+    {
+        double charge = yieldKt * 1.0e6;
+        double peak = MushroomCloud.PeakFireballRadius(yieldKt);
+
+        for (double t = 0.0; t < 60.0; t += 0.05)
+        {
+            MushroomCloud.Flash flash = MushroomCloud.FlashAt(charge, t);
+            if (flash.Spent) break;
+
+            MushroomCloud.Shape shape = MushroomCloud.At(charge, t);
+
+            // Below a couple of its own radii it is a fireball sitting on the ground and there is
+            // no cloud yet, which is right: the cap is made of this.
+            if (shape.CapCentre < peak * 2.0) continue;
+
+            Assert.True(shape.CapRadius > flash.Radius,
+                        $"at {yieldKt:F1} kt the ball is lit {shape.CapCentre:F0} m up "
+                        + $"({shape.CapCentre / peak:F1} of its own radius) and is {flash.Radius:F0} m "
+                        + $"across inside a {shape.CapRadius:F0} m cap -- it is out in the open");
+        }
+    }
+
+    /// <summary>
+    /// The ball and the cap are one object, which is what makes the above the right question.
+    /// </summary>
+    [Theory]
+    [InlineData(0.3)]
+    [InlineData(20.0)]
+    public void TheBallSitsWhereTheCapDoes(double yieldKt)
     {
         double charge = yieldKt * 1.0e6;
 
-        double lit = 0.0;
-        for (double t = 0.0; t < 60.0; t += 0.05)
+        for (double t = 0.1; t < 20.0; t += 0.1)
         {
-            if (MushroomCloud.FlashAt(charge, t).Spent) break;
+            MushroomCloud.Shape shape = MushroomCloud.At(charge, t);
 
-            lit = MushroomCloud.EmberHeight(charge, t);
+            Assert.True(shape.CapCentre >= 0.0);
+            Assert.True(shape.CapCentre <= MushroomCloud.DrawnCloudTop(yieldKt),
+                        $"the cap centre left the cloud at {t:F1} s");
         }
-
-        double peak = MushroomCloud.PeakFireballRadius(yieldKt);
-        Assert.True(lit < peak * 4.5,
-            $"at {yieldKt:F1} kt the ball is still lit {lit:F0} m up, {lit / peak:F1} of its own "
-            + $"{peak:F0} m radius; past 4.5 it reads as a flare going up rather than a burst dying");
     }
 
     /// <summary>

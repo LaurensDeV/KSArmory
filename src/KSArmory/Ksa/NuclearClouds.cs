@@ -456,7 +456,12 @@ internal static class NuclearClouds
 
             lit = true;
 
-            double3 riseCcf = cloud.Up * MushroomCloud.EmberHeight(cloud.ChargeKg, cloud.Age);
+            // THE BALL IS THE CAP. A fireball cools, goes buoyant, rises, and the toroidal
+            // circulation the raymarch draws begins inside it -- there is one object, and the
+            // glowing core and the opaque cloud around it are two ages of it rather than two
+            // things. Drawn on a law of its own the ball stopped a hundred metres up while the cap
+            // it had become climbed away without it, and the ember then sat in the stem.
+            double3 riseCcf = cloud.Up * shape.CapCentre;
 
             Fireball.Draw(cloud.Body.GetPositionEcl()
                           + (cloud.BurstCcf + riseCcf + DriftCcf(cloud))
