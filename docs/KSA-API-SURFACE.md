@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-215 types and 576 members across 9 assemblies.
+215 types and 577 members across 9 assemblies.
 
 ## Brutal.Concurrency
 
@@ -99,6 +99,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### Brutal.Numerics.float4
 
+- `Brutal.Numerics.float4 get_Zero()`
 - `float W`
 - `float X`
 - `float Y`

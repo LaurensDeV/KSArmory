@@ -125,7 +125,32 @@ internal static class CloudPass
                 _order.Add((i, Vec.Len2(at - camera.PositionEcl)));
             }
 
-            if (_order.Count == 0) return;
+            // A flash with no cloud under it still has to be written, so one dispatch happens for
+            // the whiteout alone: a burst on an airless body grows no column and blinds a viewer
+            // all the same.
+            if (_order.Count == 0)
+            {
+                if (BurstFlash.Whiteout <= 0f) return;
+
+                using (commandBuffer.TagRegion(GpuTag))
+                {
+                    Push flashOnly = new()
+                    {
+                        InvViewProj = camera.VPInv.viewProjection,
+                        AgeStrengthWind = float4.Zero,
+                        CentreRadius = float4.Zero,
+                        FireSun = new float4(0f, 0f, BurstFlash.Whiteout, 0f),
+                        Shape = float4.Zero,
+                    };
+
+                    _pipeline!.BindPipeline(commandBuffer, viewport.ShaderSlot, default, default,
+                                            flashOnly);
+                    commandBuffer.Dispatch((width + Group - 1) / Group,
+                                           (height + Group - 1) / Group, 1);
+                }
+
+                return;
+            }
             _order.Sort(static (a, b) => b.DistanceSq.CompareTo(a.DistanceSq));
 
             using (commandBuffer.TagRegion(GpuTag))

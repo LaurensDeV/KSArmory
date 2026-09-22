@@ -132,11 +132,15 @@ internal sealed class DropScenario
     private double LingerSeconds => CaptureAges() is { Length: > 0 } ages ? ages[^1] + 4.0
                                                                         : WatchSeconds + 4.0;
 
-    // Whether a column is standing over this burst, as against thrown ground. Only one of them
-    // has a life past its own rise to photograph.
+    // Whether this burst has a fireball at all. Nothing to do with air: a fireball is incandescent
+    // gas, and the vacuum one is if anything brighter for having no atmosphere in the way.
+    private bool BurstIsNuclear
+        => _watchTheCloud && _round is { } r && r.Munition.ChargeKg >= MushroomCloud.ThresholdKg;
+
+    // Whether a column is standing over it, as against thrown ground. Only one of them has a life
+    // past its own rise to photograph.
     private bool CloudStands
-        => _watchTheCloud && _body is { } b && KsaWorld.HasAtmosphere(b)
-           && _round is { } r && r.Munition.ChargeKg >= MushroomCloud.ThresholdKg;
+        => BurstIsNuclear && _body is { } b && KsaWorld.HasAtmosphere(b);
 
     // How long the burst leaves something moving: a cloud's rise where there is air, the ejecta's
     // flight where there is not. The capture ages are fractions of this rather than of the rise, so
@@ -421,7 +425,7 @@ internal sealed class DropScenario
         if (!(watch > 0.0)) return [];
 
         double[] rise = [.. CaptureFractions.Select(f => f * watch)];
-        if (!CloudStands || _round is not { } round) return rise;
+        if (!BurstIsNuclear || _round is not { } round) return rise;
 
         // The flash, before the rise fractions. The ball is incandescent for under two seconds at
         // this yield and the earliest of those fractions is 3.8 s, so the whole of the burst
@@ -431,8 +435,12 @@ internal sealed class DropScenario
         // Two during the luminous phase: the whiteout peaks about a tenth of the way through it
         // and is gone well before the ball is, so one capture at 0.70 photographs the glow in the
         // cloud and never the flash on the screen.
-        return [flash * 0.15, flash * 0.70, .. rise,
-                MushroomCloud.RiseSeconds + (MushroomCloud.StandSeconds * 0.85)];
+        double[] withFlash = [flash * 0.15, flash * 0.70, .. rise];
+
+        // The dissolve is the column's alone. Thrown ground has no life past its own arc.
+        return CloudStands
+                   ? [.. withFlash, MushroomCloud.RiseSeconds + (MushroomCloud.StandSeconds * 0.85)]
+                   : withFlash;
     }
 
     private int _captured;

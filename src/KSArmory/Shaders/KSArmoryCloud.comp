@@ -297,6 +297,30 @@ void main()
 
     ivec2 at = ivec2(gl_GlobalInvocationID.xy);
     if (at.x >= size.x || at.y >= size.y) return;
+    // THE WHITEOUT, written before anything can turn this pixel away. A burst blinds the whole
+    // view rather than the part of it the cloud happens to cover, so it cannot sit behind the
+    // bounding sphere.
+    //
+    // Here rather than as an ImGui overlay because KSA wraps its entire UI pass in if (DrawUI),
+    // and both F2 and ScreenshotCapture clear that -- painted there it vanished from every
+    // screenshot the harness took, and would have vanished for any player who hid the HUD.
+    //
+    // Carried by ONE dispatch however many clouds are standing: the pass runs once per cloud and
+    // each would otherwise lay its own white over the last.
+    //
+    // ABOVE the guards below, because a fireball needs no cloud. On a body with no air none is
+    // grown, so the pass was dispatched for nothing and an airless burst blinded nobody -- which
+    // is backwards, there being no atmosphere there to attenuate it.
+    if (pc.FireSun.z > 0.0)
+    {
+        vec4 was = imageLoad(sceneColor, at);
+
+        // Into a scene that is still HDR and pre-tonemap, so the white has to be well over one to
+        // come out white on the other side of it.
+        vec3 blinded = mix(was.rgb, vec3(1.00, 0.97, 0.92) * WhiteoutNits, pc.FireSun.z);
+        imageStore(sceneColor, at, vec4(blinded, was.a));
+    }
+
     if (pc.AgeStrengthWind.y <= 0.0 || pc.CentreRadius.w <= 0.0) return;
 
     vec2 uv = (vec2(at) + 0.5) / vec2(size);
@@ -323,26 +347,6 @@ void main()
     // the float the whiteout needed in a block with nothing spare.
     vec3 sun = normalize(global.lighting.sunPosition.xyz - toCentre);
     float forward = Phase(dot(dir, sun), 0.3);
-
-    // THE WHITEOUT, written before anything can turn this pixel away. A burst blinds the whole
-    // view rather than the part of it the cloud happens to cover, so it cannot sit behind the
-    // bounding sphere.
-    //
-    // Here rather than as an ImGui overlay because KSA wraps its entire UI pass in if (DrawUI),
-    // and both F2 and ScreenshotCapture clear that -- painted there it vanished from every
-    // screenshot the harness took, and would have vanished for any player who hid the HUD.
-    //
-    // Carried by ONE dispatch however many clouds are standing: the pass runs once per cloud and
-    // each would otherwise lay its own white over the last.
-    if (pc.FireSun.z > 0.0)
-    {
-        vec4 was = imageLoad(sceneColor, at);
-
-        // Into a scene that is still HDR and pre-tonemap, so the white has to be well over one to
-        // come out white on the other side of it.
-        vec3 blinded = mix(was.rgb, vec3(1.00, 0.97, 0.92) * WhiteoutNits, pc.FireSun.z);
-        imageStore(sceneColor, at, vec4(blinded, was.a));
-    }
 
     float along = dot(toCentre, dir);
     float perpSq = dot(toCentre, toCentre) - along * along;

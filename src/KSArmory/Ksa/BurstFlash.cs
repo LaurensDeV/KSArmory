@@ -16,9 +16,9 @@ namespace KSArmory;
 /// overlay it vanished from every screenshot the harness took and would have vanished for any
 /// player who hid the HUD — which is the wrong answer for something that is not HUD.</para>
 ///
-/// <para>Atmospheric bursts only, because it reads the standing clouds and a body with no air grows
-/// none. What stands in for the fireball there is <see cref="BurstEjecta"/>'s debris shell, which
-/// is its own emissive body.</para>
+/// <para>Any body. It is read off the bursts still burning rather than off the standing clouds,
+/// because a fireball is incandescent gas and needs no air to be one — if anything a vacuum burst
+/// is the brighter, having no atmosphere in the way.</para>
 /// </summary>
 internal static class BurstFlash
 {
@@ -67,10 +67,12 @@ internal static class BurstFlash
 
             double brightest = 0.0;
 
-            for (int i = 0; i < NuclearClouds.Count; i++)
+            // Over the BURSTS, not the clouds. A fireball does not need air, and reading the cloud
+            // list meant a burst on an airless body blinded nobody -- which is backwards: there is
+            // no atmosphere there to attenuate it.
+            for (int i = 0; i < NuclearClouds.BurningCount; i++)
             {
-                if (!NuclearClouds.TryAt(i, out double3 burstEcl, out _, out _, out _, out _, out _,
-                                         out MushroomCloud.Flash flash)) continue;
+                if (!NuclearClouds.TryBurning(i, out double3 burstEcl, out MushroomCloud.Flash flash)) continue;
 
                 if (flash.Spent) continue;
 

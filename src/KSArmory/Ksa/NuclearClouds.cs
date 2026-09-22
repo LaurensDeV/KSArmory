@@ -37,6 +37,50 @@ internal static class NuclearClouds
 
     private static readonly List<Cloud> _clouds = [];
 
+    // Every burst still burning, which is NOT the same list as the clouds. A fireball does not
+    // need air -- it is incandescent gas, and the vacuum one is if anything brighter for having no
+    // atmosphere to attenuate it -- so an airless burst belongs here while it grows no column at
+    // all. Kept separate rather than folded into _clouds, because the pass draws that list.
+    private sealed class Burning
+    {
+        public required Celestial Body;
+        public required double3 BurstCcf;
+        public required double ChargeKg;
+        public double Age;
+    }
+
+    private static readonly List<Burning> _burning = [];
+
+    /// <summary>How many bursts are still alight, over any kind of body. Bounds <see cref="TryBurning"/>.</summary>
+    public static int BurningCount => _burning.Count;
+
+    /// <summary>
+    /// One of them: where it is and what its fireball is doing. What the whiteout is read off, so
+    /// a burst on an airless body blinds a viewer exactly as one in air does.
+    /// </summary>
+    public static bool TryBurning(int index, out double3 burstEcl, out MushroomCloud.Flash flash)
+    {
+        burstEcl = default;
+        flash = default;
+
+        if (index < 0 || index >= _burning.Count) return false;
+
+        try
+        {
+            Burning one = _burning[index];
+
+            burstEcl = one.Body.GetPositionEcl()
+                       + one.BurstCcf.Transform(one.Body.GetCce2Ccf().Inverse());
+            flash = MushroomCloud.FlashAt(one.ChargeKg, one.Age);
+
+            return Vec.IsFinite(burstEcl);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     // The newest burst worth pointing a camera at, which is NOT the newest cloud: an airless burst
     // grows no column and is still the thing to watch. Body-fixed like the clouds, and flat rather
     // than a list because nothing about it advances -- how big a burst draws is settled when it
@@ -160,6 +204,9 @@ internal static class NuclearClouds
             // through, and KSA raymarches the trail volume only for an AtmosphericBody, so smoke
             // laid here would draw nowhere at any altitude. Before this the cloud was built anyway
             // and its dimensions logged, over a body where nobody could ever see one.
+            // Registered before the fork, because a fireball happens either way.
+            _burning.Add(new Burning { Body = body, BurstCcf = burstCcf, ChargeKg = chargeKg });
+
             if (!KsaWorld.HasAtmosphere(body))
             {
                 // Above the GROUND, not above the mean sphere: what decides a surface burst is
@@ -265,15 +312,21 @@ internal static class NuclearClouds
     /// <summary>Advances every cloud and lays this frame's smoke.</summary>
     public static void Update(double dtSim)
     {
-        if (_clouds.Count == 0)
+        if (!double.IsFinite(dtSim)) return;
+
+        if (_clouds.Count == 0 && _burning.Count == 0)
         {
             Fireball.Clear();
             return;
         }
 
-        if (!double.IsFinite(dtSim)) return;
-
         double step = Math.Max(0.0, dtSim);
+
+        for (int i = _burning.Count - 1; i >= 0; i--)
+        {
+            _burning[i].Age += step;
+            if (MushroomCloud.FlashAt(_burning[i].ChargeKg, _burning[i].Age).Spent) _burning.RemoveAt(i);
+        }
 
         // The light is re-submitted per frame, so a frame with no flash in it has to say so.
         bool lit = false;
@@ -308,6 +361,7 @@ internal static class NuclearClouds
     public static void Clear()
     {
         _clouds.Clear();
+        _burning.Clear();
         _watch = null;
         BurstFlash.Reset();
         BurstSound.Clear();
