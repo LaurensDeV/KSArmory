@@ -1217,6 +1217,72 @@ internal static class KsaWorld
         }
     }
 
+    private static bool _lookedForWeather;
+    private static object? _transparencies;
+    private static bool _warnedAboutWeather;
+
+    /// <summary>
+    /// KSA's own weather clouds as they were drawn this frame: their light with transmittance in
+    /// alpha, and how far each pixel's cloud is from the camera. False when the player has clouds
+    /// switched off, which is the one case with no renderer at all.
+    ///
+    /// <para><b>Needed because the clouds write no depth.</b> They are raymarched into images of
+    /// their own and composited into the scene colour, so the depth buffer under a cloud still says
+    /// "ground" — and anything drawn afterwards off that depth is drawn in front of every cloud,
+    /// whatever is actually between it and the camera.</para>
+    ///
+    /// <para>One private field away: <c>Program._planetTransparenciesRenderer</c> is the only owner
+    /// of the renderer and <c>GetCloudRenderer()</c> is public on it. Reflected once and verified,
+    /// and a KSA rename turns this off rather than breaking anything — the burst is then drawn in
+    /// front of the clouds, which is what it did before.</para>
+    ///
+    /// <para>Asked every frame rather than held: the renderer is rebuilt when the settings change
+    /// and both images when the window is resized.</para>
+    /// </summary>
+    public static bool TryWeatherClouds(out KSA.Rendering.RenderImage? colour,
+                                        out KSA.Rendering.RenderImage? distance)
+    {
+        colour = null;
+        distance = null;
+
+        try
+        {
+            if (!_lookedForWeather)
+            {
+                _lookedForWeather = true;
+                _transparencies = typeof(Program)
+                                  .GetField("_planetTransparenciesRenderer",
+                                            BindingFlags.NonPublic | BindingFlags.Instance)
+                                  ?.GetValue(Program.Instance);
+
+                if (_transparencies is not PlanetTransparenciesRenderer && !_warnedAboutWeather)
+                {
+                    _warnedAboutWeather = true;
+                    Log.Warn("weather clouds: Program._planetTransparenciesRenderer did not resolve; "
+                             + "a burst will be drawn in front of them");
+                }
+            }
+
+            if (_transparencies is not PlanetTransparenciesRenderer owner) return false;
+            if (owner.GetCloudRenderer() is not { } clouds) return false;
+
+            colour = clouds.GetLowResolutionCloudColorTarget();
+            distance = clouds.GetLowResolutionCloudDistanceTarget();
+
+            return colour is not null && distance is not null;
+        }
+        catch (Exception e)
+        {
+            if (!_warnedAboutWeather)
+            {
+                _warnedAboutWeather = true;
+                Log.Warn($"weather clouds: could not read them: {e.Message}");
+            }
+
+            return false;
+        }
+    }
+
     /// <summary>
     /// The sea's level against the mean sphere, on a body that has one.
     ///

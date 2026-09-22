@@ -41,6 +41,11 @@ internal static class CloudPass
     private static readonly ProfilerTag GpuTag = new("KSArmory Cloud"u8);
 
     private static ComputePipelineWrapper? _pipeline;
+
+    // The weather-cloud images the pipeline's descriptor sets were built against, or null for the
+    // stand-ins bound when there are none. The sets name images, so a new pair is a rebuild.
+    private static RenderImage? _weatherColour;
+    private static RenderImage? _weatherDistance;
     private static int _width;
     private static int _height;
     private static bool _warned;
@@ -117,12 +122,31 @@ internal static class CloudPass
             int height = (int)target.Extent.Height;
             if (width <= 0 || height <= 0) return;
 
-            if (_pipeline is null || width != _width || height != _height)
+            bool weather = KsaWorld.TryWeatherClouds(out RenderImage? weatherColour,
+                                                     out RenderImage? weatherDistance);
+            if (!weather) weatherColour = weatherDistance = null;
+
+            if (_pipeline is null || width != _width || height != _height
+                || !ReferenceEquals(weatherColour, _weatherColour)
+                || !ReferenceEquals(weatherDistance, _weatherDistance))
             {
-                if (!Build(colour, depth)) return;
+                if (!Build(colour, depth, weatherColour, weatherDistance)) return;
 
                 _width = width;
                 _height = height;
+                _weatherColour = weatherColour;
+                _weatherDistance = weatherDistance;
+            }
+
+            // Into a layout a compute shader may sample, through KSA's own tracked state, so the
+            // engine barriers them back out next frame from wherever this left them.
+            if (weatherColour is not null && weatherDistance is not null)
+            {
+                Span<VkImageMemoryBarrier2> two = stackalloc VkImageMemoryBarrier2[2];
+                BarrierBatch toSample = new(two);
+                toSample.Add(weatherColour, ImageBarrierInfo.Presets.SampledReadC);
+                toSample.Add(weatherDistance, ImageBarrierInfo.Presets.SampledReadC);
+                toSample.SubmitAndFlush(commandBuffer);
             }
 
             if (Program.GetRenderCamera() is not { } camera) return;
@@ -185,7 +209,8 @@ internal static class CloudPass
                         // How far the patch's centre stands above the sea, in the one float of the
                         // cloud's shape a mark does not use. Always set: zero would read as a mark
                         // standing on the waterline and blank everything below its own centre.
-                        Shape = new float4((float)markOverSea, 0f, 0f, 0f),
+                        // And whether KSA's weather clouds are bound, in the next float along.
+                        Shape = new float4((float)markOverSea, weather ? 1f : 0f, 0f, 0f),
                     };
 
                     if (marks > 0) Hazard(commandBuffer);
@@ -271,12 +296,11 @@ internal static class CloudPass
                         //
                         // No scorch here: the ground a burst burned outlives the column over it,
                         // so it is its own dispatch below and a cloud never draws one. The fourth
-                        // float is therefore free on this dispatch, and carries whether the column
-                        // is spray -- NEGATIVE, because positive is what makes the shader read a
-                        // dispatch as a ground mark.
+                        // float is therefore free on this dispatch, and carries two flags -- see
+                        // CloudFlags.
                         FireSun = new float4((float)flash.Radius, (float)flash.Glow,
                                              n == 0 ? BurstFlash.Whiteout : 0f,
-                                             water ? -1f : 0f),
+                                             CloudFlags(water, weather)),
 
                         // The same shape MushroomCloud carries, so every dimension stays
                         // Glasstone's rather than being invented again in GLSL.
@@ -410,6 +434,12 @@ internal static class CloudPass
     private const double ScorchScreenReach = 3.0;
     private const double ScorchScreenWidth = 1.25;
 
+    // The fourth fireball float on a cloud's dispatch: 1 if the column is spray and 2 if there are
+    // no weather clouds to respect, summed and NEGATED, because a positive value there is what
+    // makes the shader read a dispatch as a ground mark. KSArmoryCloud.comp decodes exactly this.
+    private static float CloudFlags(bool water, bool weather)
+        => -((water ? 1f : 0f) + (weather ? 0f : 2f));
+
     // One compute-write to compute-read barrier, so a dispatch sees what the one before it wrote.
     private static void Hazard(CommandBuffer commandBuffer)
     {
@@ -428,7 +458,8 @@ internal static class CloudPass
         batch.SubmitAndFlush(commandBuffer);
     }
 
-    private static bool Build(IRenderImage colour, IRenderImage depth)
+    private static bool Build(IRenderImage colour, IRenderImage depth, RenderImage? weatherColour,
+                              RenderImage? weatherDistance)
     {
         if (!ModLibrary.TryGet<ShaderReference>(ShaderId, out var shader) || shader is null)
         {
@@ -453,6 +484,12 @@ internal static class CloudPass
             air.AerialPerspectiveRange,
             air.AerialPerspectiveColorRgbTransmittanceR,
             air.AerialPerspectiveTransmittanceGb,
+
+            // KSA's weather clouds, so the burst is drawn behind the ones in front of it. With
+            // clouds switched off there is nothing to bind and a descriptor cannot be left empty,
+            // so the range LUT stands in and CloudFlags tells the shader not to read it.
+            (IRenderImage?)weatherColour ?? air.AerialPerspectiveRange,
+            (IRenderImage?)weatherDistance ?? air.AerialPerspectiveRange,
         ];
         VkPushConstantRange[] ranges =
         [

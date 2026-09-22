@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-216 types and 582 members across 9 assemblies.
+220 types and 588 members across 9 assemblies.
 
 ## Brutal.Concurrency
 
@@ -454,6 +454,11 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `double get_MeanRadius()`
 - `string get_Id()`
 - `void UpdatePerFrameData()`
+
+### KSA.Atmosphere.Rendering.CloudRenderer
+
+- `KSA.Rendering.RenderImage GetLowResolutionCloudColorTarget()`
+- `KSA.Rendering.RenderImage GetLowResolutionCloudDistanceTarget()`
 
 ### KSA.AtmosphereReference
 
@@ -967,6 +972,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `ref KSA.VehicleProperties Props`
 
+### KSA.PlanetTransparenciesRenderer
+
+- `KSA.Atmosphere.Rendering.CloudRenderer GetCloudRenderer()`
+
 ### KSA.PlumeTrailEmitterState
 
 - `void .ctor()`
@@ -1013,6 +1022,8 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.Rendering.BarrierBatch
 
+- `bool Add(KSA.Rendering.RenderImage, KSA.Rendering.ImageBarrierInfo, int, bool, bool)`
+- `void .ctor(System.Span`1<Brutal.VulkanApi.VkImageMemoryBarrier2>)`
 - `void .ctor(System.Span`1<Brutal.VulkanApi.VkMemoryBarrier2>, System.Span`1<Brutal.VulkanApi.VkBufferMemoryBarrier2>, System.Span`1<Brutal.VulkanApi.VkImageMemoryBarrier2>)`
 - `void Add(ref Brutal.VulkanApi.VkMemoryBarrier2)`
 - `void SubmitAndFlush(Brutal.VulkanApi.CommandBuffer)`
@@ -1025,6 +1036,14 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.Rendering.IRenderImage
 
 *referenced as a type only*
+
+### KSA.Rendering.ImageBarrierInfo
+
+*referenced as a type only*
+
+### KSA.Rendering.ImageBarrierInfo+Presets
+
+- `KSA.Rendering.ImageBarrierInfo SampledReadC`
 
 ### KSA.Rendering.Lighting.ELightFlags
 
