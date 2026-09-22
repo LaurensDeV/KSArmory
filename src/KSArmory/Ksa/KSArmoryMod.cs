@@ -125,6 +125,7 @@ public sealed class KSArmoryMod
     private readonly TracerTrail _tracers = new();
     private GunSound _gunSound = null!;
     private ScenarioRunner _scenario = null!;
+    private Bridge? _bridge;
 
     [StarMapImmediateLoad]
     public void OnImmediateLoad(Mod mod)
@@ -187,6 +188,7 @@ public sealed class KSArmoryMod
         _gunSound = new GunSound(_config);
         _scenario = new ScenarioRunner(_config, _warp, SightFor);
         _scenario.Begin(ScenarioRunner.Requested());
+        _bridge = new Bridge(_config);
         _ui = new Ui(_config, _roster, _heads, _icbms, _warp, _watch, _mover, _bursts, ReachFor);
         Log.Info($"ready - {string.Join(", ", Catalogue.Launchers.Select(l => l.DisplayName))}, safe. "
                  + "Open the 'KSArmory' panel to arm.");
@@ -247,6 +249,9 @@ public sealed class KSArmoryMod
 
             // The fallback, and a no-op on every frame the GUI pass ran. See StepOnce.
             StepOnce(dtPlayer);
+
+            // After the step, so a command sees this frame's world and its simulated step.
+            _bridge?.Update(dtPlayer, KsaWorld.InFlightScene && !KsaWorld.IsPaused ? _lastSimStep : 0.0);
         }
         catch (Exception e)
         {
@@ -357,6 +362,7 @@ public sealed class KSArmoryMod
         if (_roster is null || _ui is null) return;
 
         _watch.Apply(dt);
+        _bridge?.DriveCamera();
 
         // After the watch camera: both write the view, and the chase takes it outright, so
         // letting the watch nudge afterwards would fight it every frame.

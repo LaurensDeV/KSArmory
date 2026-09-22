@@ -52,10 +52,17 @@ internal static class CloudWatch
     }
 
     /// <summary>
+    /// Where to stand instead of the default: degrees round from across the wind, degrees up,
+    /// metres out (zero for the default distance), and how far up the top to look.
+    /// </summary>
+    public readonly record struct Pose(double AzimuthDeg, double ElevationDeg, double DistanceMetres,
+                                       double AimAt);
+
+    /// <summary>
     /// Points the main view at the newest burst. Returns false when there is none, which leaves the
     /// camera exactly where it was rather than snapping it anywhere.
     /// </summary>
-    public static bool Update(Vehicle followed)
+    public static bool Update(Vehicle followed, Pose? pose = null)
     {
         try
         {
@@ -78,14 +85,20 @@ internal static class CloudWatch
                                ? acrossWind
                                : Vec.Unit(Vec.AnyPerpendicular(unitUp));
 
-            double distance = Heights * radius;
-            double elevation = ElevationDeg * Math.PI / 180.0;
+            double distance = pose is { DistanceMetres: > 0.0 } p ? p.DistanceMetres : Heights * radius;
+            double elevation = (pose?.ElevationDeg ?? ElevationDeg) * Math.PI / 180.0;
+
+            // Turned round the vertical from across the wind, so a pose names the same side of any
+            // burst.
+            double azimuth = (pose?.AzimuthDeg ?? 0.0) * Math.PI / 180.0;
+            double3 downwindFlat = Vec.Unit(Vec.Cross(east, unitUp));
+            double3 facing = (east * Math.Cos(azimuth)) + (downwindFlat * Math.Sin(azimuth));
 
             double3 eye = burstEcl
-                          + (east * (distance * Math.Cos(elevation)))
+                          + (facing * (distance * Math.Cos(elevation)))
                           + (unitUp * (distance * Math.Sin(elevation)));
 
-            double3 at = burstEcl + (unitUp * (AimAt * top));
+            double3 at = burstEcl + (unitUp * ((pose?.AimAt ?? AimAt) * top));
             double3 forward = at - eye;
             if (!Vec.IsFinite(forward) || Vec.Len2(forward) < 1.0) return false;
 

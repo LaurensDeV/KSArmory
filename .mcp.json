@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "ksa": {
+      "command": "python3",
+      "args": ["tools/ksa-mcp/server.py"]
+    }
+  }
+}

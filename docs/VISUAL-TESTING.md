@@ -1,10 +1,50 @@
 # Seeing the game from a terminal
 
-**A plan, not a record.** How an agent working from WSL checks what this mod draws, what that
-loop cost on the night the nuclear burst was built (2026-09-22), and what would make it fast. Blender
-has an MCP connector that lets an agent look at the open document, move a camera and render; KSA
-has nothing of the kind, and every item here is a piece of one built out of what the engine and
-the mod already allow.
+**Half built.** How an agent working from WSL checks what this mod draws, what that loop cost on
+the night the nuclear burst was built (2026-09-22), and what would make it fast. Blender has an MCP
+connector that lets an agent look at the open document, move a camera and render; KSA has nothing
+of the kind, and every item here is a piece of one built out of what the engine and the mod
+already allow.
+
+## What is built
+
+**The bridge** (`Ksa/Bridge.cs`, `Sim/BridgeCommand.cs`) and **the MCP server over it**
+(`tools/ksa-mcp/server.py`, registered in `.mcp.json`), with **shader hot reload**, **capture
+bundles**, **same-instant variants**, **frame series** and **the toolkit** (`tools/vis/vis.py`) —
+items 1 to 5 and 10 below. From a shell, before a session has the MCP tools:
+
+```bash
+python3 tools/ksa-mcp/server.py cli launch '{"save":"B61-13"}'
+python3 tools/ksa-mcp/server.py cli pause
+python3 tools/ksa-mcp/server.py cli burst '{"kt":0.3,"east_m":2400}'
+python3 tools/ksa-mcp/server.py cli camera '{"distance_m":2400,"elevation_deg":8}'
+python3 tools/ksa-mcp/server.py cli capture '{"label":"flash","frames":6,"every_s":0.25}'
+python3 tools/ksa-mcp/server.py cli capture '{"label":"ab","variants":[{"ShaderPass":0}]}'
+python3 tools/ksa-mcp/server.py cli reload_shaders
+```
+
+The CLI writes what an MCP client would be shown inline to `tools/ksa-mcp/last/`.
+
+**What it found on its first night**, each in minutes where a flight cost three:
+
+- **The whiteout reached 0.51, not full, at 2.4 km.** Captured at exact ages from a paused burst,
+  the manifest's numbers showed the flash reckoned off the drawn ball's size — still small at the
+  instant of the flash — and then a real bug under it: the whiteout kept the largest single rise
+  rather than their sum, so a flash arriving over two frames stopped at the first one's 0.6. Fixed
+  and re-measured the same way: 0.97 at 2.4 km, 0.44 at 10.
+- **A save load really does clear the clouds**: one standing, the save loaded, none.
+- **Three versions of the weather fade on one frozen instant**, swapped by hot reload between
+  captures, showed the centred band washing out the cap wherever a deck sat behind it — the
+  transparency reported from play — and the fade starting at the weather's distance not doing so.
+- **What it could not show**: the flicker reported from play. Paused, all three fades are equally
+  steady (0.14–0.15 of 255 between frames); the flicker needs the camera or the weather moving,
+  and a paused series is blind to that by construction. A series with the world running and the
+  camera held is the next thing to try on it.
+
+**Hot reload is one reflected call and has one trap.** `ShaderReference.DoLoad` is internal, and it
+destroys the old module even when the new compile returns nothing, as it does for a missing file —
+so the bridge checks the file first. A compile error throws before anything is destroyed, comes back
+as the error with its line, and leaves the old shader drawing.
 
 ## The loop as it stands
 
@@ -52,17 +92,18 @@ Each of these happened, and each cost at least one flight:
 
 ## What would make it smooth, ranked
 
-### 1. A live session with a command channel, and an MCP server over it
+### 1. A live session with a command channel, and an MCP server over it — built
 
 The biggest change: **stop relaunching**. The mod already reads a request from a file beside its
 log (`scenario.txt`); a command channel is the same idea kept open for the whole session.
 
-- **The mod** polls `<user dir>/KSArmory/bridge/in/` a few times a second, runs each command file
-  it finds, and writes a result beside it — JSON, plus any pictures. Commands: *status*, *pause*,
-  *resume*, *speed*, *step* (run so many simulated seconds, then pause), *camera* (a preset or a pose
-  relative to the burst), *burst* (a yield at a place, as the panel's burst tool does), *capture*
-  (see 3–5), *set* (a `Config` or profile field), *view* (see 6), *tune* (see 7), *reload shaders*
-  (see 2), *clear* (forget the clouds), *load* (a save), *log* (lines since a mark, filtered).
+- **The mod** polls `<user dir>/Logs/bridge/in/` ten times a second, runs each command file it
+  finds, oldest first, and answers in `.../out/` — JSON, plus any pictures. Commands: *status*,
+  *pause*, *resume*, *speed*, *step* (run so many simulated seconds, then pause), *camera* (a pose
+  relative to the newest burst, or *release*), *burst* (a yield east and north of the craft, as the
+  panel's burst tool does, with no damage), *capture* (3–5), *set* and *get* (a `Config` field),
+  *reload_shaders* (2), *clear* (forget the clouds) and *load* (a save). The log is read by the
+  server directly. *view* (6) and *tune* (7) are not built.
 - **An MCP server** in `tools/ksa-mcp/`, registered in `.mcp.json`, turns those into tools an agent
   calls the way it calls Blender's. It writes the command, waits for the result, and hands back
   pictures **inline, downscaled**, so a capture arrives in the conversation without a separate read.
@@ -77,7 +118,7 @@ What it costs: the poll is a directory listing a few times a second; commands ru
 step, so nothing new happens inside the engine's render loop. What it buys: the three-minute flight
 becomes a command that answers in the time the thing takes — a paused capture in a second.
 
-### 2. Shader hot reload, from the mod
+### 2. Shader hot reload, from the mod — built
 
 KSA has a shader hot-reloader (`KSA.AssetReloader.ShaderReloader`) and it cannot serve a mod: it maps
 a path by searching for `Content`, which a mod's path does not contain — that is the
@@ -93,12 +134,13 @@ one second**, which is most of what the burst's look took.
 C# still needs a relaunch: an assembly cannot be unloaded. That is why 7 matters — it moves tuning
 out of code.
 
-### 3. Capture bundles: labelled pictures with a manifest
+### 3. Capture bundles: labelled pictures with a manifest — built
 
-Every capture becomes a bundle: `<run>/<seq>-<label>.png` and a JSON sidecar with the burst's age,
-the camera's position and orientation and field of view, **where the burst and the cap centre fall
-on screen**, the sun's elevation, the flash's level and glare, the pass's GPU milliseconds, which
-weather images were bound, and every setting that shapes the picture.
+Every capture becomes a bundle: `out/<command id>/<seq>-<label>.png` and a JSON sidecar with the
+burst's age and yield, the camera's range, elevation and field of view, **where the burst, the cap
+centre, the top and the cloud as it stands now fall on screen**, the sun's elevation, the flash's
+whiteout and glare, the world's speed and pause, and the settings that shape the picture. The
+pass's GPU time and which weather images were bound are not in it yet.
 
 - Names that cannot collide: the mod renames KSA's file the moment it appears, and does not ask for
   the next capture until it has.
@@ -106,7 +148,7 @@ weather images were bound, and every setting that shapes the picture.
   same camera that took the picture.
 - **Age is in the file**, so a pairing error cannot happen.
 
-### 4. Controls taken in the same instant
+### 4. Controls taken in the same instant — built
 
 Pause, capture, change one thing, capture again, resume. With the world stopped, the weather, the
 sun and the camera are identical, so **the diff is the change and nothing else**. *capture* takes a
@@ -114,7 +156,7 @@ list of variants — pass on and off, weather mask on and off, the history on an
 values — and returns the pictures and their diffs together. This is what `stillat` and the
 elimination edits did by hand, reduced to one command.
 
-### 5. Frame series: a video in simulated time
+### 5. Frame series: a video in simulated time — built
 
 No video recorder is installed, and a screen recorder would need the window in front anyway. But
 captures are cued on the burst's simulated age, so **slowing the world makes any capture rate free**:
@@ -155,7 +197,7 @@ writes a folder and sends nothing, so it is not the report window and is not bou
 `CoreAtmosphere.glsl` generated against the install the way `Ksa/CoreShaderInclude.cs` writes it at
 load. Seconds, and it catches the whole class of error the night found in flight.
 
-### 10. A toolkit for the pictures
+### 10. A toolkit for the pictures — built
 
 `tools/vis/`, so what was typed as throwaway Pillow on the night is written once: contact sheets
 labelled from manifests, crops around the projected burst, same-instant diffs, the grain measure
@@ -188,10 +230,8 @@ one" was answered from memory on the night; this answers it from pictures.
 
 ## Order
 
-1. **Bundles, series and the toolkit** (3, 5, 10) and **the compile check** (9) — all inside the
-   loop as it is, and each removes a failure the night actually had.
-2. **The command channel and the MCP server** (1), with **same-instant controls** (4) as its first
-   command.
-3. **Shader hot reload** (2), then **debug views** (6) and **tunables** (7), which only pay once a
-   change no longer costs a relaunch.
-4. **Capture for Claude** (8), **fixed scenes** (11) and **the reference library** (12).
+Built: 1–5 and 10. Left, in order:
+
+1. **The compile check** (9).
+2. **Debug views** (6) and **tunables** (7), which pay now that a shader change is a second.
+3. **Capture for Claude** (8), **fixed scenes** (11) and **the reference library** (12).

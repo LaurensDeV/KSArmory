@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-222 types and 614 members across 9 assemblies.
+224 types and 616 members across 9 assemblies.
 
 ## Brutal.Concurrency
 
@@ -588,6 +588,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.LookupCollection`1<KSA.Astronomical> get_All()`
 - `int get_Count()`
 
+### KSA.Constants
+
+- `string get_DocumentsFolderPath()`
+
 ### KSA.ConstraintSim
 
 - `KSA.ShapesUnlock UnlockShapesBlocking()`
@@ -646,6 +650,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.ExplosionSystem
 
 - `void SpawnPreset(string, ref KSA.ExplosionContext)`
+
+### KSA.FileReference
+
+- `string get_ModPath()`
 
 ### KSA.FixedController
 

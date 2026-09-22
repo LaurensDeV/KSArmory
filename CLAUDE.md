@@ -239,6 +239,7 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
 ./tools/scenario.sh 'mirv:24S,62W;24.1S,62W'  # ...or one bus at several places, each scored on its own
 ./tools/scenario.sh drop                   # ...or a B61 off a climbing rocket, against the sight
 ./tools/scenario.sh gunnery                # ...or a gun against drones crossing past it, every shell scored
+python3 tools/ksa-mcp/server.py cli status # drive a running game through the bridge -- docs/VISUAL-TESTING.md
 ./tools/shot-batch.sh --arms base=dev,x=arm/x --blocks 12   # fly a night of them, interleaved
 ./tools/shot-report.py ~/shots/<night>     # ...and say what it settled -- read SHOT-PROTOCOL.md
 ./tools/ksa-user-dir.sh                    # where KSA keeps Logs/, mods/ and saves on this box
@@ -357,6 +358,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/ReachDisplay.cs` | that reach as something drawn, refused against and read off the panel — **one answer for all three**, because a cursor refused inside the outline reads as the tool being broken. The walk is ordered **nearest-first from wherever the bus has got to**, never the order the player clicked in: four collinear targets clicked near-to-far and led from the far end walked 3 → 0 → 1 → 2, out to the near end and back, 5 km of travel for a 3 km chain. Drawn at **one hop's** `BusTrim.MaxMetresPerSecond` rather than at the whole budget, which is what the release loop can actually fly; **around the stop the hop leaves from, not the landing**, because the itinerary charges between consecutive stops and a ring on the landing takes two clicks on opposite edges at 20 m/s of a 10 m/s ring; and **the reach bounds an add, never a designation**, because target 1 is the booster's question |
 | `Sim/ReleaseLoop.cs` | which stop a bus is on and when it hops to the next — **the decision half**: a set of one never produces a walk at all, which is what leaves the single-target flight the shot everything is measured against. It refuses rather than over-promises, and its two refusals were the findings that shaped the rest: a walk whose first stop is not where the booster aimed costs about twice what it is priced at, and a hop between two targets the ring both accepted can be twice the ring's radius. **Both are now unreachable from a click** — `TargetSet.ElectFarthestLead` aims the booster at the farthest and the ring sits on the stop its hop leaves from — and both guards stay, because nothing but those two fixes stands between the loop and flying a walk at half its price |
 | `Sim/ReleaseWalker.cs` | the cursor that walk is flown through, and the four numbers the flight reads off it — **the gate, the stop's quota, which target a warhead is going to, and the coast the set is planned against**. Each of the first three hands back what a flight with no walk reads while `Walking` is false, which it is for every set of one; the plan is **committed by the first warhead leaving**, because re-ordering stops behind a bus aims it at a place it has been; a hop is accepted on **the trim's own question rather than the planner's** — the hop plus what the bus still owes, against `BusTrim.CeilingFor`, because the trim refuses a whole pass over its ceiling and a 9.73 m/s hop reached it as 10.29 and left three warheads 4 km out — **and against the flight's whole budget too**, which nothing downstream refuses at all: four stops spending 11.21, 17.08 and 31.72 m/s reach 60.01 of 60, and the fourth then releases at `divert 0.00` a kilometre from where its warhead was sent. A refused hop **ends the walk where the bus is** rather than handing over, since that stop is already trimmed and corrected onto; and the coast is the trajectory's **own length, latched at cutoff** — handed the countdown instead, `CoastFits` cuts the set to one stop at exactly `gate + hop`, the instant the first release is due, and the walk never starts |
+| `Sim/BridgeCommand.cs` | one command dropped into the bridge's folder, read — **text in**, so every refusal is testable here, and a `Config` field set by name as the panel would |
 | `Sim/ShotRequest.cs` | where a scripted shot is aimed and the bar it is judged against — **text in**, so the harness's one line is testable headlessly |
 | `Sim/ShotGroup.cs` | where a salvo landed, and whether that is a pass — **scored on the worst warhead**, and one that never arrived counts. And `ShotBoard` beside it, **one group per target** once a salvo is split, because a group deliberately spread over twenty kilometres of ground has no spread worth the name; a set of one returns the group's own verdict through the group's own call, which is what leaves the shot every accuracy number here is measured on byte for byte unchanged |
 | `Sim/ShotArms.cs` | which variant each rocket in a world flies — **the comparison moved inside the run**, because the same baseline read 14.49 km and 5.43 km on identical code three hours apart |
@@ -493,6 +495,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/RoundContact.cs` | somebody else's round in the air, as a thing a radar can see and a gun can shoot at |
 | `Ksa/Track.cs` | one contact, with the kinematics the threat model reasons about |
 | `Ksa/TestTarget.cs` | spawns drones to shoot at, from the panel |
+| `Ksa/Bridge.cs` | **commands from outside the game**, read from a folder beside the log and answered in another — pause, step, burst, camera, capture with a manifest, reload the shaders — so an agent can drive a game that stays running. **Files, not a socket**, because the mod reaches the network only when a player clicks Send |
 | `Ksa/ScenarioRunner.cs` | flies a scripted scenario with nobody watching, and says what happened |
 | `Ksa/BallisticScenario.cs` | the ballistic one of those — designate, arm, stage, and report what the warheads did |
 | `Ksa/DropScenario.cs` | the store one — fly a craft up, let a store go, and say where it landed against the sight and against a flight off the state it actually left with |
@@ -521,7 +524,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 614 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 616 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -572,6 +575,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/model/checkring.py` | what KSA's flight computer will make of a thruster ring — **which nozzles end up steering**, how coarse that makes the attitude quantum, and `--translation` for which of the six directions the set can actually push |
 | `tools/model/smokepuff.py` | the soft sprite the billboard smoke is drawn with |
 | `tools/screenshot.sh` | captures the Windows screen; readable from here |
+| `tools/ksa-mcp/server.py` | **an MCP server over the bridge**, registered in `.mcp.json`, returning captures inline; `cli <tool>` runs one from a shell. It launches a game only if none is running and closes only one it launched |
+| `tools/vis/vis.py` | what the bridge's pictures are judged with: crops from the manifest, same-instant diffs, the temporal-noise map, grain, contact sheets and animations |
 | `tools/scenario.sh` | drives one engagement or one ballistic shot end to end and exits pass/fail; screenshots on cue |
 | `tools/shot-batch.sh` | a night of ballistic shots, **arms interleaved and every arm built before the first one flies** — so nothing done to the tree overnight can reach a shot in flight |
 | `tools/shot-report.py` | what that night settled — the rank test, the effect with its interval, the arms to stop flying, and **whether the ground under the target was shaping the misses** |
@@ -1167,7 +1172,7 @@ Do the private repo *before* pushing here, or CI fails on the lock it cannot sat
 member that keeps its name and signature and changes its *meaning* — a different reference
 frame, different units, a reordered enum — compiles clean and is wrong in flight. That is what
 the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from 684,000 lines to the files
-defining the 222 types this mod actually uses.
+defining the 224 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 45 in total, 14 MB —
