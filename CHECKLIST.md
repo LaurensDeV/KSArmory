@@ -1539,8 +1539,12 @@ Not exercised, and the first two are the ones to believe least:
       brightness it held for the ball's whole 1.9 s burn, which is a stuck screen rather than an
       eye adjusting. `Ksa/BurstFlash.cs` is the model; nothing in it draws.
 
-      The **blast wave** is an `<ExplosionVolume>` in `KSArmoryParticles.xml` whose radius is
-      derived from the warhead rather than typed — a thin bright shell racing out and thinning.
+      **There is no blast wave, and the burst carries no `<ExplosionVolume>` at all.** KSA's trail
+      renderer, which draws explosion volumes, raymarches into the same low-resolution images the
+      weather clouds do, and those are what this pass reads as weather — so the burst's own fireball
+      and shock volumes occluded the cloud they sat in, in low-resolution blocks at the fireball's
+      edge. The shell's patchy tail was also the white streaks across the sky at 3.8 s. Flown with
+      both taken out: the blocks and the streaks gone, at 1.3 s and 3.8 s.
 
       The **bang arrives late**, at 343 m/s from the burst, anchored to the ground it happened over
       rather than to the launching craft or to a bare ecliptic point. Silent where there is no air,
@@ -1649,6 +1653,10 @@ Not exercised, and the first two are the ones to believe least:
       and distance, reached through one verified reflected field, and treats each pixel's cloud as a
       thin sheet: what lies behind it is seen through its transmittance, and a mark is dimmed by it.
       With clouds switched off there is no renderer, stand-ins are bound, and a flag says so.
+
+      **The images are not only weather.** Explosion volumes and exhaust trails are raymarched into
+      them too, which is right for a trail in front of the cloud and wrong for anything the burst
+      itself adds — see the blast-wave note above.
 
       Flown at 300 kt from above a deck: the grey disc gone from the cloud tops, and the stem running
       down behind the deck while the cap stands above it. **Not yet flown from under a deck looking
