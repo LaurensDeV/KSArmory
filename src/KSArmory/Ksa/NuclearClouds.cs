@@ -171,8 +171,6 @@ internal static class NuclearClouds
                 return;
             }
 
-            if (!PlumeSmoke.Available) return;
-
             // Local vertical in the body's own frame, which is just the way out from its centre.
             // The other two only have to be perpendicular: the shape has an axis of symmetry, so
             // which way "east" points is not a question anybody has to answer.
