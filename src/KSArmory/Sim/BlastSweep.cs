@@ -44,6 +44,16 @@ internal static class BlastSweep
         => Vec.Len(sampledPositionEcl + (velocityEcl * sinceSample) - burstEcl) - meanRadius;
 
     /// <summary>
+    /// Where the ground a burst went off on is at the world sample: the burst carried by that
+    /// ground's velocity over the rest of the step. <paramref name="sinceSample"/> is the burst's
+    /// time against the sample, negative because samples arrive at the step's end. Anything anchored
+    /// to the body at the sample has to start from here: the burst itself is up to a step of the
+    /// planet's ~30 km/s behind it.
+    /// </summary>
+    public static double3 GroundAtSample(double3 burstEcl, double3 groundVelocityEcl, double sinceSample)
+        => burstEcl - (groundVelocityEcl * sinceSample);
+
+    /// <summary>
     /// What a gap that size means for this warhead.
     ///
     /// <para>Both radii come off the one charge, so they cannot be set into a state where the

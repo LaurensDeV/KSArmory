@@ -3772,12 +3772,17 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         bool air = airRatio > Medium.NoticeableDensity;
         double kt = MushroomCloud.KilotonsFor(munition.ChargeKg);
 
+        // The fronts are followed against the body as it is at the sample, which the burst is up to a
+        // step of the planet's motion behind: anchored as it stands it sits hundreds of metres off
+        // the ground it went off on, and every push points along that error.
+        double3 groundAtSample = BlastSweep.GroundAtSample(burst, KsaWorld.GroundVelocityAt(v, burst), elapsed);
+
         double first = double.MaxValue;
         double last = 0.0;
         foreach ((int index, double ratio, double gap) in _dentLoads)
         {
             double due = air ? MushroomCloud.ShockArrivalSeconds(kt, gap) - elapsed : 0.0;
-            BlastArrivals.Queue(v, _partHandles[index], burst, elapsed, air ? airRatio : 0.0,
+            BlastArrivals.Queue(v, _partHandles[index], groundAtSample, -elapsed, air ? airRatio : 0.0,
                                 munition.ChargeKg, _partScratch[index].CrashTolerancePascals, mayBreak);
 
             first = Math.Min(first, due);

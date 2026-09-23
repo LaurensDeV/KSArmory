@@ -2108,7 +2108,10 @@ at about a fifth of what tears it, which the real fall-off puts 2.6–3.4x out �
 reference strength dents all the way to the blast radius. **It lands when the front
 does, not at the flash**: `Ksa/BlastArrivals.cs` follows each front on the simulated clock against where
 the part is that step — never an arrival time and a direction fixed at the flash, which a craft in
-flight turns and flies away from — so 0.3 kt at 800 m dents 2.06 s after the burst, and in air the struck face
+flight turns and flies away from — and from the burst **carried to the sample with the ground it went
+off on** (`BlastSweep.GroundAtSample`): a round bursts part-way through a step, and anchored where it
+stood it sits up to a step of the planet's 30 km/s off, which put a burst 100 m under a rocket level
+with it and threw the rocket sideways into the ground — so 0.3 kt at 800 m dents 2.06 s after the burst, and in air the struck face
 throws a puff of dust along the blast (`Ksa/BlastPuff.cs`) and the wind behind the front pushes the
 craft (`Sim/BlastShove.cs`), written from `AttitudeHook`'s window the way `Vehicle.Split` pushes two
 halves apart: into the physics state, off rails, orbit rebuilt. **Never faster than the wind**: the

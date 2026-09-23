@@ -416,4 +416,22 @@ public class BlastDamageTests
         Assert.True(BlastDamage.Combine(both).Share >= 1.0);
         Assert.True(BlastDamage.Combine([both[0]]).Share < 1.0);
     }
+
+    /// <summary>
+    /// A burst part-way through a step is carried to the sample by the ground's own motion: 16 ms
+    /// before a sample at 29.8 km/s, the ground is 477 m on, and anchoring the burst where it stood
+    /// leaves it that far off the place it went off.
+    /// </summary>
+    [Fact]
+    public void ABurstIsCarriedToTheSampleWithTheGroundItWentOffOn()
+    {
+        double3 burst = new(1000.0, 2000.0, 0.0);
+        double3 ground = new(29_800.0, 0.0, 0.0);
+
+        double3 atSample = BlastSweep.GroundAtSample(burst, ground, -0.016);
+
+        Assert.Equal(1000.0 + 476.8, atSample.X, 6);
+        Assert.Equal(2000.0, atSample.Y, 9);
+        Assert.Equal(burst, BlastSweep.GroundAtSample(burst, ground, 0.0));
+    }
 }
