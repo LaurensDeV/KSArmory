@@ -3733,14 +3733,16 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// as a warhead going off there judges it, and what breaks is applied. For the bridge, so a
     /// burst that damages can be flown without flying a drop. <paramref name="spareOwn"/> false
     /// judges this system's own craft and the one being flown like any other, so what breaks a
-    /// craft can be watched on the craft in front of the camera.
+    /// craft can be watched on the craft in front of the camera. <paramref name="inFrame"/> is when
+    /// in the step it went off, against the sample, as a round's <c>DetonationElapsedInFrame</c> is:
+    /// between minus one step and zero, with <paramref name="burstEcl"/> where it was then.
     /// </summary>
-    public void SplashAt(double3 burstEcl, MunitionProfile munition, bool spareOwn = true)
+    public void SplashAt(double3 burstEcl, MunitionProfile munition, bool spareOwn = true, double inFrame = 0.0)
     {
         ArgumentNullException.ThrowIfNull(munition);
 
         _burstDamaged.Clear();
-        Splash(burstEcl, 0.0, munition, spareOwn);
+        Splash(burstEcl, Math.Min(inFrame, 0.0), munition, spareOwn);
         ApplyPendingKills();
     }
 

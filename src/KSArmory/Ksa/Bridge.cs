@@ -345,7 +345,12 @@ internal sealed class Bridge
 
             MunitionProfile warhead = Arsenal.NukeB61.Copy();
             warhead.ChargeKg = (float)charge;
-            system.SplashAt(ground, warhead, command.Flag("spare_own", true));
+            // in_frame_s sets it off that long before the end of the step, from where the ground was
+            // then, as a round that detonates part-way through a step reports it: the case a burst on
+            // the step boundary never exercises.
+            double inFrame = Math.Min(command.Number("in_frame_s", 0.0), 0.0);
+            double3 atBurst = ground + (KsaWorld.GroundVelocityAt(craft, ground) * inFrame);
+            system.SplashAt(atBurst, warhead, command.Flag("spare_own", true), inFrame);
             _lastDamage = (craft, KsaWorld.EclToVehicleAsmb(craft, ground));
         }
 

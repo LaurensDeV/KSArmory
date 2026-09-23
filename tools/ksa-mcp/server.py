@@ -337,10 +337,12 @@ TOOLS = {
     "ksa_burst": ("Set off a nuclear burst on the ground east/north of the craft being flown. No damage unless "
                   "damage=true, which judges every craft as that warhead would -- the flown craft as its "
                   "platform, dented and never broken, unless spare_own=false. up_m sets it off that far "
-                  "above the ground. explode=false leaves out KSA's own explosion.",
+                  "above the ground, in_frame_s that long before the step's end as a round reports "
+                  "it. explode=false leaves out KSA's own explosion.",
                   {"kt": _num("yield"), "east_m": _num("metres east"), "north_m": _num("metres north"),
                    "explode": {"type": "boolean"}, "damage": {"type": "boolean"},
-                   "spare_own": {"type": "boolean"}, "up_m": _num("metres above the ground")},
+                   "spare_own": {"type": "boolean"}, "up_m": _num("metres above the ground"),
+                   "in_frame_s": _num("seconds before the step's end it went off, negative")},
                   ["kt"], lambda a: [_text(json.dumps(send("burst", **a)))]),
     "ksa_dents": ("The dents the engine holds on the flown craft, each with the angle between its push and the "
                   "line from the last damaging burst to it. clear=true takes them all off.",
