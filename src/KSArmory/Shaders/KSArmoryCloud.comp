@@ -724,7 +724,7 @@ void main()
 
     // A mark on the ground OUTLIVES the cloud that made it, so the two are separate dispatches and
     // either may arrive without the other: a burst on an airless body burns ground and grows no
-    // column at all, and a column is gone in 78 s where a crater is not. Both want the scene point
+    // column at all, and a column is gone in minutes where a crater is not. Both want the scene point
     // under this pixel and nothing else here does, so the reconstruction below is shared and a
     // dispatch wanting neither leaves now.
     bool wantsScorch = pc.FireSun.w > 0.0;

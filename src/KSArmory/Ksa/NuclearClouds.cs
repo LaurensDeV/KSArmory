@@ -138,7 +138,7 @@ internal static class NuclearClouds
     private static readonly List<Burning> _burning = [];
 
     // The ground each burst burned. A third list rather than a field on either of the others,
-    // because it outlives both: a cloud is gone in 78 s and a fireball in two, and a crater is
+    // because it outlives both: a cloud is gone in under five minutes and a fireball in two, and a crater is
     // not. It is also the only one an airless burst reaches, which is the case that most wants it
     // -- there is no atmosphere out there to absorb the pulse.
     private sealed class Scorch
@@ -347,7 +347,7 @@ internal static class NuclearClouds
             // The whole thing, cap and lean included, so the bounding sphere cannot clip the shape
             // it is there to reject against.
             double kt = MushroomCloud.KilotonsFor(cloud.ChargeKg);
-            radiusMetres = MushroomCloud.DrawnBound(kt);
+            radiusMetres = MushroomCloud.DrawnBound(kt, cloud.Age);
 
             return Vec.IsFinite(burstEcl) && Vec.IsFinite(up) && Vec.IsFinite(downwind)
                    && radiusMetres > 0.0;

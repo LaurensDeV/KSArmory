@@ -123,25 +123,54 @@ public static class MushroomCloud
         => 2.0 * DrawnCapRadius(yieldKt) / Math.Sqrt(CapSquash(DrawnCloudTop(yieldKt)));
 
     /// <summary>
-    /// The sphere about the burst that holds the whole drawn cloud, lean and billows included. The
-    /// top alone does under the tropopause; an anvil is wider than it is tall, and reaches further
-    /// sideways than up.
+    /// The sphere about the burst that holds the whole drawn cloud at an age, lean and billows
+    /// included. The top alone does under the tropopause; an anvil is wider than it is tall, and
+    /// reaches further sideways than up.
+    ///
+    /// <para>Per age rather than once for the life, because the cap goes on spreading through the
+    /// stand: a sphere big enough for the end of it spreads the march's 48 steps over half as much
+    /// again while the cloud is still rising, which is grain for nothing.</para>
     /// </summary>
-    public static double DrawnBound(double yieldKt)
+    public static double DrawnBound(double yieldKt, double age)
     {
         double top = DrawnCloudTop(yieldKt);
         if (top <= 0.0) return 0.0;
 
-        // At the overshoot's peak, which is as big as the shape ever gets.
-        Shape widest = At(yieldKt * 1.0e6, RiseSeconds * (1.0 + OvershootAt));
-        double reach = Math.Sqrt((widest.CapCentre * widest.CapCentre)
-                                 + Math.Pow(widest.CapRadius + widest.CapTube, 2.0));
+        // At the overshoot's peak, which is as big as the RISING shape ever gets, and now.
+        double reach = ReachOf(At(yieldKt * 1.0e6, RiseSeconds * (1.0 + OvershootAt)));
+        if (age > RiseSeconds) reach = Math.Max(reach, ReachOf(At(yieldKt * 1.0e6, age)));
 
         return Math.Max(top, reach * 1.15);
     }
 
-    /// <summary>And how long it stands there before fading out.</summary>
-    public const double StandSeconds = 40.0;
+    private static double ReachOf(Shape shape)
+        => Math.Sqrt((shape.CapCentre * shape.CapCentre) + Math.Pow(shape.CapRadius + shape.CapTube, 2.0));
+
+    /// <summary>
+    /// And how long it stands once it has risen, fading out over the last of it.
+    ///
+    /// <para>A real cloud lasts tens of minutes, spreading and shearing into a long plume; drawn
+    /// for forty seconds it was gone before anybody had finished looking at it. Four minutes, on
+    /// the same compressed clock as the rise, is most of a real one's recognisable life. Over it
+    /// the cap spreads and thins and the stem narrows away first, which is the order a real cloud
+    /// comes apart in -- rooted where it burst, by decision (docs/NUCLEAR-NEXT.md item 3).</para>
+    ///
+    /// <para><b>It costs the pass for as long as it is on screen</b>, about three and a half
+    /// milliseconds at the watching pose.</para>
+    /// </summary>
+    public const double StandSeconds = 240.0;
+
+    /// <summary>How far the cap spreads over the stand, as a share of its width when it stops rising.</summary>
+    public const double AgedSpread = 0.6;
+
+    /// <summary>How much of the stem's width is gone by the end of the stand.</summary>
+    public const double AgedStemLoss = 0.65;
+
+    /// <summary>How much thinner the whole cloud is by the time it starts to fade out.</summary>
+    public const double AgedThinning = 0.35;
+
+    /// <summary>The last of the stand, over which it fades out entirely.</summary>
+    public const double FadeOutSeconds = 60.0;
 
     /// <summary>Total life, after which there is nothing to draw.</summary>
     public const double LifeSeconds = RiseSeconds + StandSeconds;
@@ -858,7 +887,8 @@ public static class MushroomCloud
         // that is drawn by nothing: it moves the silhouette the pens have already passed. Spread out
         // over the full rise it left the cap 19% narrower than every other number here says it is.
         double spread = 0.55 + (0.57 * Math.Min(1.0, age / (RiseSeconds * SpreadBy)));
-        double capRadius = capR * spread / Math.Sqrt(squash);
+        double aged = Aged(age);
+        double capRadius = capR * spread / Math.Sqrt(squash) * (1.0 + (AgedSpread * aged));
 
         // The stem's top is the cap's underside, always, and it is never anywhere else.
         //
@@ -886,9 +916,9 @@ public static class MushroomCloud
         return new Shape(
             CapCentre: capCentre,
             CapRadius: capRadius,
-            CapTube: capR * 0.45 * squash,
+            CapTube: capR * 0.45 * squash / Math.Sqrt(1.0 + (AgedSpread * aged)),
             StemTop: stemTop,
-            StemRadius: capR * StemOfCap,
+            StemRadius: capR * StemOfCap * (1.0 - (AgedStemLoss * aged)),
             SurgeRadius: SurgeRadius(kt, age),
             SurgeHeight: SurgeHeight(kt, age),
             Roll: roll,
@@ -931,14 +961,23 @@ public static class MushroomCloud
     /// <summary>How far along its stroke a pen is at this age, in [0, 1].</summary>
     public static double Progress(double age) => Math.Clamp(age / RiseSeconds, 0.0, 1.0);
 
-    // Full while it rises and stands, then out. Squared so it thins slowly at first and then goes,
-    // which is how a cloud disperses rather than how a light switches off.
+    /// <summary>How far through its stand the cloud is, eased, in [0, 1]: zero while it rises.</summary>
+    public static double Aged(double age)
+    {
+        double t = Math.Clamp((age - RiseSeconds) / StandSeconds, 0.0, 1.0);
+        return t * (2.0 - t);
+    }
+
+    // Thinning slowly through the stand, and then out over its last minute. Squared at the end so it
+    // thins slowly at first and then goes, which is how a cloud disperses rather than how a light
+    // switches off.
     private static double Fade(double age)
     {
-        if (age <= RiseSeconds + (StandSeconds * 0.5)) return 1.0;
+        double thinned = 1.0 - (AgedThinning * Aged(age));
+        double outAt = LifeSeconds - FadeOutSeconds;
+        if (age <= outAt) return thinned;
 
-        double t = (age - RiseSeconds - (StandSeconds * 0.5)) / (StandSeconds * 0.5);
-        double left = 1.0 - Math.Clamp(t, 0.0, 1.0);
-        return left * left;
+        double left = 1.0 - Math.Clamp((age - outAt) / FadeOutSeconds, 0.0, 1.0);
+        return thinned * left * left;
     }
 }

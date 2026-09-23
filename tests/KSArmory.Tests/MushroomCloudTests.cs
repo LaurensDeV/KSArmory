@@ -684,10 +684,9 @@ public class MushroomCloudTests
     [InlineData(340.0)]
     public void TheBoundHoldsTheWholeCloud(double yieldKt)
     {
-        double bound = MushroomCloud.DrawnBound(yieldKt);
-
         for (double t = 0.5; t < MushroomCloud.LifeSeconds; t += 0.5)
         {
+            double bound = MushroomCloud.DrawnBound(yieldKt, t);
             MushroomCloud.Shape shape = MushroomCloud.At(yieldKt * Kt, t);
             double reach = Math.Sqrt((shape.CapCentre * shape.CapCentre)
                                      + Math.Pow(shape.CapRadius + shape.CapTube, 2.0));
@@ -761,5 +760,22 @@ public class MushroomCloudTests
         MushroomCloud.Shape at2 = MushroomCloud.At(0.3 * Kt, 2.0);
         Assert.True(at2.Shock > 1.5 * (at2.CapRadius + at2.CapTube), $"front {at2.Shock:F0} m, cap {at2.CapRadius:F0} m");
         Assert.Equal(0.0, MushroomCloud.ShockRadius(0.3, 0.0));
+    }
+
+    /// <summary>
+    /// The cloud ages the way a real one comes apart: the cap spreads, the stem narrows away first,
+    /// and the whole thins before it fades out -- standing where it burst.
+    /// </summary>
+    [Fact]
+    public void TheStandingCloudSpreadsAndItsStemGoesFirst()
+    {
+        MushroomCloud.Shape risen = MushroomCloud.At(0.3 * Kt, MushroomCloud.RiseSeconds + 1.0);
+        MushroomCloud.Shape old = MushroomCloud.At(0.3 * Kt, MushroomCloud.LifeSeconds - MushroomCloud.FadeOutSeconds);
+
+        Assert.True(old.CapRadius > 1.4 * risen.CapRadius, $"cap {risen.CapRadius:F0} -> {old.CapRadius:F0} m");
+        Assert.True(old.StemRadius < 0.5 * risen.StemRadius, $"stem {risen.StemRadius:F0} -> {old.StemRadius:F0} m");
+        Assert.True(old.Fade < risen.Fade && old.Fade > 0.5, $"fade {risen.Fade:F2} -> {old.Fade:F2}");
+        Assert.True(MushroomCloud.At(0.3 * Kt, MushroomCloud.LifeSeconds - 1.0).Fade < 0.01);
+        Assert.True(MushroomCloud.LifeSeconds >= 240.0, "a cloud that is gone in a minute and a half");
     }
 }

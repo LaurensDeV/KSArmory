@@ -61,16 +61,19 @@ largest gap.
 | Fallout curtains take minutes to show | **Built**: nothing until 18 s on the rise's clock, full by 32 |
 
 **After that.** A real cloud lasts tens of minutes to hours, drifting, shearing and spreading into
-a long plume, with a haze of dust over ground zero. The drawn one fades from 58 s and is gone at
-78 s, where it burst — standing still by decision (item 3).
+a long plume, with a haze of dust over ground zero. **The drawn one stands four minutes now**, where
+it burst — still by decision (item 3), and asked for longer on 2026-09-23: over the stand the cap
+spreads by 60% and thins, the stem narrows away first, and the whole fades out over the last minute,
+gone at 278 s. Flown at 10x: a full mushroom at 49 s, a wider cap on a thinner stem at 109, a broad
+flat cap on a thread at 189. It is not a plume: it does not shear downwind. **It costs the pass the
+whole time it is on screen**, and a six-warhead bus stands six of them.
 
 **By design.** The cloud is drawn at 65% of its law (`MushroomCloud.DrawnScale`); a true 0.3 kt
 ball is 1:7 against its cap and reads as wrong.
 
 **Ranked for what they would change on screen:** ~~the dirty rising fireball, with glow through the
 dust and the brown of the oxides; the ball turning into a ring of fire; the dust ring racing out
-along the ground; condensation rings on the stem~~ (built on 2026-09-23); and a longer life, which
-runs against the decision to hold the cloud still.
+along the ground; condensation rings on the stem; a longer life~~ (built on 2026-09-23).
 
 **The collars, flown.** The first layer heights, 5.5 and 8.5 stem radii, put both at or inside the
 cap's underside at 0.3 and 20 kt: one never formed and the other showed only as white scraps where
