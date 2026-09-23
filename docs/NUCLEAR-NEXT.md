@@ -37,7 +37,7 @@ largest gap.
 | The air round the ball glows violet for an instant, strongest at night | **Built**, and mostly in the whiteout: from far off the whole blinded view is lavender, lilac round the burst and deeper toward the edges (a film of a Nevada shot, sent on 2026-09-23). The veil keeps the violet of the light that drove it through its recovery, so a night burst clears through lavender to purple over three seconds; the halo round the ball warms with the ball. A faint violet aura round the young cloud besides, summed analytically along each ray |
 | Heat and the shock front visibly bend the view round the ball | Nothing refracts |
 | A ring of dust races out along the ground behind the shock | **Built**, in the raymarch: a low wall lifted behind `MushroomCloud.ShockRadius`, thinning and climbing behind the front, out to about where it falls to a pound per square inch |
-| The flash throws hard shadows across everything in sight | **The light is built; the shadows are not, by what the engine allows.** The ball and its light were not drawn at all unless one of the mod's overlays happened to be on screen: `Fireball.Draw` converted through the overlay's draw anchor, which is cleared every frame. Fixed on 2026-09-23, it is placed against the render camera as the cloud is, and reaches 60 ball radii. Flown at night with the camera turned away: a forest 350–700 m out lit green by the flash at 0.8 s, orange as the ball cools, dark by 5 s, and faintly lit from 1.5 km. **No shadows**: the terrain takes this light through KSA's forward list, which has none, so a shadow map would render the landscape into a cube every frame for nothing on the ground |
+| The flash throws hard shadows across everything in sight | **The light is built; the shadows are not, by what the engine allows.** The ball and its light were not drawn at all unless one of the mod's overlays happened to be on screen: `Fireball.Draw` converted through the overlay's draw anchor, which is cleared every frame. Fixed on 2026-09-23, it is placed against the render camera as the cloud is, and reaches 60 ball radii. Flown at night with the camera turned away: a forest 350–700 m out lit green by the flash at 0.8 s, orange as the ball cools, dark by 5 s, and faintly lit from 1.5 km. Since the ball glows as long as its law, the light lasts with it: a 340 kt burst at night from 30 km lights the ground 227 of 255 at 1 s, 92 at 5 s, 41 at 10 s and 21 at 15 s, orange as it cools, and nothing once the ember is out. That is not over-lit: a 1.8 km ball at 7,700 K is about 130 suns at 30 km, and dull red at 14 s it still puts out the visible light of an overcast day **No shadows**: the terrain takes this light through KSA's forward list, which has none, so a shadow map would render the landscape into a cube every frame for nothing on the ground |
 | Flash blindness lasts seconds, far longer at night | **Built**: recovers on 0.28 s by day and 2.2 s in full night (`FlashGlare.RecoverySeconds`); flown at night, 0.57 at 1.2 s and 0.14 at 4.3 s |
 
 **The first ten seconds.**
@@ -55,7 +55,7 @@ largest gap.
 
 | Real | Drawn |
 |---|---|
-| Condensation rings form round the stem at moist layers, and a smooth ice cap can sit over the top | **Rings built**: two ragged white collars low on the stem, formed as the cap climbs past and gone by 40 s. **The cap veil is built and not seen**: at 0.3 kt it lies inside the eroded crown |
+| Condensation rings form round the stem at moist layers, and a smooth ice cap can sit over the top | **Rings built**: two ragged white collars low on the stem, formed as the cap climbs past and gone by 40 s. **The cap veil is built, and seen only at high yield**: at 0.3 and 20 kt it lies inside the eroded crown and changes nothing on screen; at 340 kt it is a smooth dome over the churning crown at 12 s, lit peach by the ball still glowing under it — the ice cap of the large-yield photographs |
 | White condensation cap, dirty-brown underside, dark brown stem | **Built**: the crown whitens from 6 s as the soot clears, over the brown underside. Hard to see under an overcast, which lights the whole cloud flat |
 | Often a thin, tall stem, with dust visibly drawn up into the cap's underside | **Built**: the stem is 0.19 of the cap's radius, and its top flares into a trumpet of streaked dust drawn up into the underside (`InflowDensity`), plain by 25 s |
 | Past the tropopause the cap spreads into an anvil | Built (item 5) |
@@ -84,10 +84,12 @@ whole time it is on screen**, and a six-warhead bus stands six of them.
   standing up through the 11 km cirrus read as behind the whole deck wherever there was cirrus, and
   dropped out in patches and small boxes that crawled as the cirrus drifted. Each layer is now its own
   sheet at its own crossing, with KSA's opacity split between them; flown at 58 km and 15° round a
-  340 kt cap from four sides, the holes and boxes are gone. **Its cost and the view from under the
-  deck were not compared**: the "old" arm of both was copied into the mods folder and the reload tool
-  put the tree's shader back over it, so both arms ran the new one (`docs/VISUAL-TESTING.md` item 2).
-  `docs/KSA-MODDING-NOTES.md` has what the distance actually holds.
+  340 kt cap from four sides, the holes and boxes are gone. Measured against the same shader with the
+  layers switched off, interleaved new-old-new at one paused instant: from under the deck the single
+  sheet hid the whole lower stem and its collars, which stand in front of the deck, and the layered one
+  shows them; and it costs 1.30 and 1.31 ms against 1.11 at the cirrus view, 4.69 and 4.65 against
+  4.21 from under the deck. (A first comparison ran the new shader in both arms — `docs/VISUAL-TESTING.md`
+  item 2.) `docs/KSA-MODDING-NOTES.md` has what the distance actually holds.
 - **Heat shimmer** needs the scene read at an offset while it is being written, which is a copy of the
   scene image this pass does not have.
 - **Guy-wire spikes** are a tower shot's, and nothing in the arsenal is on a tower.
@@ -247,7 +249,9 @@ and the test-film record before anything changed. What held, and what was built:
 What did not hold: a five-second swelling ball is high-speed film played slowed (test cameras ran at
 about 2,400 fps), and a ground burst is a dome, not a sphere. Flown at 340 kt from 30 km and 20 kt
 from 14 km, both with the sun behind the camera: white dome, orange from about 5 s and 2.7 s, a
-mushroom glowing from inside to 14 s and 10 s.
+mushroom glowing from inside to 14 s and 10 s. The B61's own 0.3 kt from 2.4 km: whiteout to 0.4 s,
+a white ball at 0.56 s, fire boiling out of it to 2 s, an orange cloud to 5 s and a sooty mushroom
+from 6 s — its white-hot pulse is 0.42 s, so mostly inside the whiteout, as a small burst's is.
 
 ## Tier 1a — found while building the above
 
