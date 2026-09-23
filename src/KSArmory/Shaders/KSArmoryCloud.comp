@@ -616,17 +616,20 @@ const vec3 DustColour = vec3(0.46, 0.36, 0.25);
 // patch, the blast blows much of it out, and what survives smoulders into thin dark plumes rising all
 // over the ground round the burst for minutes afterwards. A handful of them, scattered on a hash so a
 // burst always lights the same ones, kindling a few seconds after the front has passed, bending
-// downwind as they rise.
+// downwind as they rise. Where they are scales with the burst; how big each is does not, because a
+// burning bush makes the same plume whatever lit it -- scaled with the yield, a 20 kt burst stood
+// in a ring of kilometre-tall pillars.
 const int SmokeSources = 9;
 const float SmokeNearInStems = 1.8;
 const float SmokeFarInStems = 6.0;
-const float SmokeTopInStems = 2.6;
+const float SmokeTopMetres = 280.0;
+const float SmokeFootMetres = 10.0;
 const vec3 SmokeColour = vec3(0.10, 0.095, 0.09);
 layout (constant_id = 28) const float SmokeDensity = 1.5;
 
 float SmokeAt(vec3 p, float y, float stemR, float age, vec3 up, vec3 wind)
 {
-    float topH = SmokeTopInStems * stemR;
+    float topH = SmokeTopMetres;
     if (y > topH || y < -0.3 * topH) return 0.0;
 
     vec3 side = cross(up, wind);
@@ -635,7 +638,7 @@ float SmokeAt(vec3 p, float y, float stemR, float age, vec3 up, vec3 wind)
 
     // A plume leans harder the higher it gets: the wind moves it while it climbs.
     vec3 bent = wind * (0.45 * rise);
-    float width = stemR * 0.10 + rise * 0.16;
+    float width = SmokeFootMetres + rise * 0.16;
 
     float smoke = 0.0;
     for (int i = 0; i < SmokeSources; i++)
@@ -659,7 +662,7 @@ float SmokeAt(vec3 p, float y, float stemR, float age, vec3 up, vec3 wind)
     if (smoke <= 0.0) return 0.0;
 
     // Boiling up the plume rather than standing: the noise climbs with the smoke.
-    float n = Noise(p * (4.0 / stemR) - up * (age * 0.6));
+    float n = Noise(p * (1.0 / 25.0) - up * (age * 0.6));
     return SmokeDensity * smoke * smoothstep(0.25, 0.60, n);
 }
 
@@ -1209,9 +1212,9 @@ void main()
         vec3 wind = OctahedralUnpack(pc.AgeStrengthWind.zw);
 
         // The dust's swept cylinder while it hangs, and the fires' own after it has settled.
-        float smokeOuter = (SmokeFarInStems + 1.6 * SmokeTopInStems) * stemR;
+        float smokeOuter = SmokeFarInStems * stemR + 0.7 * SmokeTopMetres;
         float outer = dusty ? max(min(shockRadius, reach), smokeOuter) : smokeOuter;
-        float top = dusty ? DustTopInStems * stemR : SmokeTopInStems * stemR;
+        float top = dusty ? max(DustTopInStems * stemR, SmokeTopMetres) : SmokeTopMetres;
         float floor_ = -0.5 * top;
 
         vec3 eye = -toCentre;
