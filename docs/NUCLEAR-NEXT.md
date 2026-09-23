@@ -71,8 +71,8 @@ whole time it is on screen**, and a six-warhead bus stands six of them.
 
 **Still not built, and why.**
 
-- ~~**KSA's weather does not shade the cloud.**~~ **Built on 2026-09-23.** The burst, its dust and
-  its smoke are shaded by the weather's own shadow data now, read the way KSA's ground reads it, and
+- ~~**KSA's weather does not shade the cloud.**~~ **Built on 2026-09-23.** The burst and
+  its dust ring are shaded by the weather's own shadow data now, read the way KSA's ground reads it, and
   what the deck takes from the sun comes back as its grey glow (`DeckGlow`). Under a heavy overcast
   the column went from the brightest thing in a grey scene to a soft grey-beige cloud, and a partly
   cloudy scene only greys the cap where the weather covers it; no measurable cost. **Getting there**:
