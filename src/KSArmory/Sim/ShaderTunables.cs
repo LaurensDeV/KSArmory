@@ -45,6 +45,12 @@ public static class ShaderTunables
         new("ScorchDepth", 15, 0.85),
         new("Extinction", 16, 0.022),
         new("NewShare", 17, 0.125),
+        new("ChurnBoost", 18, 5.0),
+        new("FireGlowNits", 19, 3.0),
+        new("SootDepth", 20, 0.95),
+        new("SootSeconds", 21, 10.0),
+        new("NoxStrength", 22, 0.70),
+        new("NoxSeconds", 23, 22.0),
     ];
 
     private static readonly Dictionary<string, double> Overrides = new(StringComparer.OrdinalIgnoreCase);

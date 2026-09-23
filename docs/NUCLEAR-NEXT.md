@@ -43,10 +43,10 @@ largest gap.
 
 | Real | Drawn |
 |---|---|
-| The ball swallows the ground under it and rises wrapped in churning black-brown dust and smoke, orange glow showing through gaps as it boils | A glowing sphere inside a clean, pale cloud; the only dark is the stem's foot |
-| Reddish-brown from the nitrogen oxides the heat makes, lasting after the glow | White, orange, gone; the cloud is grey-beige from the start |
-| The ball hollows into a glowing ring as its underside is drawn up, a doughnut of fire turning over | The ball stays a sphere and rides up into the cap |
-| Violent churning at every scale, rising at hundreds of metres a second at first | Gentler: noise rolled slowly round the ring |
+| The ball swallows the ground under it and rises wrapped in churning black-brown dust and smoke, orange glow showing through gaps as it boils | **Built.** The young cloud is soot that clears over about ten seconds, and the heat left in its core (`MushroomCloud.Incandescence`) glows through where the noise thins the shell |
+| Reddish-brown from the nitrogen oxides the heat makes, lasting after the glow | **Built.** The cap is tinted brown from the second second, fading over about twenty |
+| The ball hollows into a glowing ring as its underside is drawn up, a doughnut of fire turning over | **Built, not yet judged from below.** The glow moves from the core onto the ring over four seconds and rolls with it; from the side it reads as pockets rather than a ring |
+| Violent churning at every scale, rising at hundreds of metres a second at first | **Built.** The roll and the boil start six times the steady rate and settle over about six seconds |
 | A crater, and dark jets of thrown dirt | Neither; a crater is blocked on the engine (item 12) |
 | Smoke from what the flash set burning | A static burn mark |
 
@@ -67,10 +67,16 @@ a long plume, with a haze of dust over ground zero. The drawn one fades from 58 
 **By design.** The cloud is drawn at 65% of its law (`MushroomCloud.DrawnScale`); a true 0.3 kt
 ball is 1:7 against its cap and reads as wrong.
 
-**Ranked for what they would change on screen:** the dirty rising fireball, with glow through the
-dust and the brown of the oxides; the ball turning into a ring of fire; the dust ring racing out
-along the ground, in the raymarch this time rather than particles; condensation rings on the stem;
-and a longer life, which runs against the decision to hold the cloud still.
+**Ranked for what they would change on screen:** ~~the dirty rising fireball, with glow through the
+dust and the brown of the oxides; the ball turning into a ring of fire~~ (built on 2026-09-23); the
+dust ring racing out along the ground, in the raymarch this time rather than particles; condensation
+rings on the stem; and a longer life, which runs against the decision to hold the cloud still.
+
+**The dirty fireball, flown** on a 0.3 kt burst from the side view: at 2 s black smoke with
+fire in its pockets, at 4 s the pockets dimming inside a brown-red shell, and by 8 s a brown cap
+over a dark stem. It is also more opaque: soot absorbs, so extinction is three times higher at the
+burst and back to normal as it clears. The tuning constants are `ChurnBoost`, `FireGlowNits`,
+`SootDepth`, `SootSeconds`, `NoxStrength` and `NoxSeconds`.
 
 ## Tier 1 — done
 

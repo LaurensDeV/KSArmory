@@ -681,6 +681,45 @@ public static class MushroomCloud
     }
 
     /// <summary>
+    /// The e-folding time of the heat left inside the young cloud once the ball has gone dark.
+    ///
+    /// <para>Rise-compressed like <see cref="EmberSeconds"/>, and for the same reason: the real glow
+    /// through a tower shot's dust lasts a few seconds of a climb that takes minutes, and on the
+    /// drawn clock that would be over before the cloud has formed round it. Three seconds leaves a
+    /// glow about a sixth as hot six seconds after the ball is dark and gone by ten, which is the
+    /// "first ten seconds" every film of one shows.</para>
+    /// </summary>
+    public const double CoolingSeconds = 3.0;
+
+    /// <summary>
+    /// How hot the inside of the young cloud still is, in [0, 1]: what glows orange through the
+    /// gaps in its own smoke, and what turns over as a ring of fire when the ball hollows.
+    ///
+    /// <para><b>It outlasts the ball, and that is the point.</b> The ball is the incandescent
+    /// region, which shrinks inward as its skin cools (<see cref="LuminousShrink"/>); the hot gas
+    /// under the skin is the cloud's own core, and it is still glowing when the dust has closed
+    /// over the surface. Drawn as the ball alone, the glow ends when the ball does and the cloud
+    /// round it is clean smoke from then on.</para>
+    ///
+    /// <para>Rises with the ball rather than jumping: the volume holding it is still forming for
+    /// the first third of the luminous phase, and full heat at the instant of the burst would put
+    /// the glow inside a cloud that is not there yet.</para>
+    /// </summary>
+    public static double Incandescence(double chargeKg, double age)
+    {
+        double kt = KilotonsFor(chargeKg);
+        if (kt <= 0.0 || age <= 0.0) return 0.0;
+
+        double dark = FlashSeconds(kt);
+        double warming = Smoothstep(0.0, dark * 0.3, age);
+        double cooling = Math.Exp(-Math.Max(age - dark, 0.0) / CoolingSeconds);
+        double heat = warming * cooling;
+
+        // Cut rather than left as a tail nobody can see, so the shader's term is exactly zero.
+        return heat < 0.02 ? 0.0 : heat;
+    }
+
+    /// <summary>
     /// How far up the cloud is, as a fraction of its ceiling, at an age.
     ///
     /// <para>Overshoots by about a tenth and settles back, the way a thermal does in a stratified

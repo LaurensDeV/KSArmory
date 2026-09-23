@@ -695,4 +695,39 @@ public class MushroomCloudTests
             Assert.True(reach < bound, $"{yieldKt} kt at {t:F1} s reaches {reach:F0} m of {bound:F0}");
         }
     }
+
+    /// <summary>
+    /// The heat inside the young cloud has to outlast the ball, or the cloud round it is clean smoke
+    /// the moment the ball is dark -- and has to be gone well inside the rise, or the cap glows while
+    /// it stands.
+    /// </summary>
+    [Theory]
+    [InlineData(0.3)]
+    [InlineData(20.0)]
+    [InlineData(340.0)]
+    public void TheCloudStaysHotPastTheBallAndIsColdByTheStand(double kt)
+    {
+        double dark = MushroomCloud.FlashSeconds(kt);
+        double ballOut = dark + MushroomCloud.EmberSeconds;
+
+        Assert.Equal(0.0, MushroomCloud.Incandescence(kt * Kt, 0.0));
+        Assert.True(MushroomCloud.Incandescence(kt * Kt, dark) > 0.9, "full heat as the ball goes dark");
+        Assert.True(MushroomCloud.Incandescence(kt * Kt, ballOut + 0.5) > 0.1,
+                    $"{kt} kt: cold at {ballOut + 0.5:F1} s, while the ball has only just gone");
+        Assert.Equal(0.0, MushroomCloud.Incandescence(kt * Kt, MushroomCloud.RiseSeconds * 0.5));
+    }
+
+    [Fact]
+    public void TheCloudCoolsWithoutRekindling()
+    {
+        double dark = MushroomCloud.FlashSeconds(0.3);
+        double last = double.PositiveInfinity;
+
+        for (double age = dark; age < MushroomCloud.RiseSeconds; age += 0.05)
+        {
+            double heat = MushroomCloud.Incandescence(0.3 * Kt, age);
+            Assert.True(heat <= last + 1e-12, $"heat rose at {age:F2} s");
+            last = heat;
+        }
+    }
 }

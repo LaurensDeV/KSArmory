@@ -63,7 +63,8 @@ layout (push_constant) uniform PushConstants
     mat4 InvViewProj;      // clip -> camera-relative world
     vec4 AgeStrengthWind;  // x seconds since the burst, y strength (0 draws nothing), zw downwind
     vec4 CentreRadius;     // xyz burst, camera-relative metres; w the sphere that bounds it all
-    vec4 FireSun;          // fireball radius, its glow, the whiteout, spare
+    vec4 FireSun;          // fireball radius, its glow, the heat left in the cloud (the whiteout
+                           // on the flash's own dispatch), flags
     vec4 Shape;            // cap centre height, cap radius, cap tube, stem radius
 } pc;
 
@@ -298,8 +299,29 @@ float Bulk(vec3 leaned, vec3 up)
 // density that should have been there.
 const float ErodeReach = 0.80;
 
-float Density(vec3 leaned, vec3 up, float radius)
+// How fast the young cloud churns, as a multiple of the steady roll at the instant of the burst,
+// and how quickly that dies away. A fireball rises at hundreds of metres a second at first and slows
+// as it entrains air; a roll at the steady rate throughout is a cloud that was born calm.
+layout (constant_id = 18) const float ChurnBoost = 5.0;
+const float ChurnSeconds = 6.0;
+
+// How far the vortex has turned by an age: the steady rate, plus a fast early one decaying to it.
+// The integral rather than rate times age, so the coordinate never runs backwards as it slows.
+float RollAngle(float age)
 {
+    const float RollRadiansPerSecond = 0.22;
+    return RollRadiansPerSecond * (age + ChurnBoost * ChurnSeconds * (1.0 - exp(-age / ChurnSeconds)));
+}
+
+// How long the fire takes to hollow out of the ball's middle into the ring. The underside is drawn
+// up through the centre as the ball starts to rise, so what glowed as a sphere turns into a doughnut
+// of fire rolling over on itself.
+const float HollowSeconds = 4.0;
+
+float Density(vec3 leaned, vec3 up, float radius, out float fireMask)
+{
+    fireMask = 0.0;
+
     vec3 world = Unlean(leaned, up, radius);
     float y = dot(world, up);
     vec3 flat_ = world - up * y;
@@ -321,7 +343,6 @@ float Density(vec3 leaned, vec3 up, float radius)
     // This is the thing pens could not do. A cursor that keeps everywhere it has been draws a helix
     // when it is rolled, which is why MushroomCloud.Shape.Roll was computed and then never used by
     // anything. A volume has no such problem: nothing here remembers where it was.
-    const float RollRadiansPerSecond = 0.22;
     // REJECTED BEFORE ANY NOISE. The erosion below can only pull a surface inward by the coarse
     // band's 1.05 and the fine band's 0.30 of the feature's own radius, so a sample further outside
     // than that cannot come back with density however the noise falls -- this is exact, not an
@@ -340,7 +361,8 @@ float Density(vec3 leaned, vec3 up, float radius)
     if (cap > ErodeReach * tubeR && stem > ErodeReach * stemR && above > ErodeReach * tubeR)
         return 0.0;
 
-    float around = atan(p.y - capH, p.x - ringR) - pc.AgeStrengthWind.x * RollRadiansPerSecond;
+    float age = pc.AgeStrengthWind.x;
+    float around = atan(p.y - capH, p.x - ringR) - RollAngle(age);
 
     // The coordinate turns about the ring, which is what rolls the cap the way a vortex does:
     // inside rising, over the top, down the outside.
@@ -354,11 +376,13 @@ float Density(vec3 leaned, vec3 up, float radius)
     // outright: the cap stopped reading as a cap and became a blob, and that silhouette is the one
     // shape this volume exists to draw. The coarse band billows, the fine one is surface texture,
     // and together they come to about half what the single band moved.
-    float coarse = Fbm(world * (26.0 / max(radius, 1.0)) + vec3(0.0, around, pc.AgeStrengthWind.x * 0.05));
+    // The drift through the noise speeds up with the churn, so the early cloud boils as well as rolls.
+    float boil = age * 0.05 + ChurnBoost * 0.05 * ChurnSeconds * (1.0 - exp(-age / ChurnSeconds));
+    float coarse = Fbm(world * (26.0 / max(radius, 1.0)) + vec3(0.0, around, boil));
     // ONE octave, not an fBm. This band is surface texture at a single scale, and a second
     // four-octave fBm here is the most expensive line in the shader for detail that is then
     // exponentiated into a soft edge -- it cost 2.6 ms a frame on its own.
-    float fine = Noise(world * (78.0 / max(radius, 1.0)) + vec3(around, 0.0, pc.AgeStrengthWind.x * 0.08));
+    float fine = Noise(world * (78.0 / max(radius, 1.0)) + vec3(around, 0.0, boil * 1.6));
 
     // EACH FEATURE CARRIES ITS OWN SCALE, for both the erosion and the falloff. Driving the whole
     // cloud off the cap's tube radius works only while everything is about that thick: once the
@@ -374,6 +398,22 @@ float Density(vec3 leaned, vec3 up, float radius)
 
     float density = max(capDensity, stemDensity);
     density = density * density;
+
+    // WHERE THE CLOUD IS STILL ON FIRE: deep in the cap, in the pockets the noise makes hottest, and
+    // hollowing from the whole ball into the ring as it rises. Only a mask here; the heat and the
+    // colour are the march's. Deep rather than anywhere, so the shell of smoke over it is what hides
+    // it, and the glow comes through only where the erosion has thinned that shell -- which is the
+    // orange-through-black-dust every film of a surface burst shows.
+    if (pc.FireSun.z > 0.0)
+    {
+        float deep = smoothstep(0.45, 0.90, capDensity);
+        float fromRing = length(vec2(p.x - ringR, p.y - capH)) / max(tubeR, 1.0);
+        float ring = 1.0 - smoothstep(0.35, 0.80, fromRing);
+        float hollow = smoothstep(0.0, HollowSeconds, age);
+        float pockets = smoothstep(0.50, 0.66, coarse);
+
+        fireMask = deep * mix(1.0, ring, hollow) * pockets;
+    }
 
     // FALLOUT: what the cap is shedding, in strands rather than a sheet. A streamer is long and
     // thin for the reason a rain shaft is -- it is falling, and what carves it is drawn out along
@@ -430,6 +470,22 @@ layout (constant_id = 12) const float HaloGain = 0.8;
 layout (constant_id = 13) const float HaloMost = 0.85;
 
 layout (constant_id = 5) const float FireGain = 0.110;
+
+// How bright the fire in the young cloud's core glows at full heat, in the scene's units: 1.0 comes
+// out of KSA's post chain as 240, so this is an orange just over the clip that blooms, and falls
+// under it within a couple of seconds as the core cools.
+layout (constant_id = 19) const float FireGlowNits = 3.0;
+
+// How black the young cloud starts, as a share of the soot colour, and the e-folding time of its
+// clearing. On the rise's clock, which is eightfold compressed: ten seconds here is the minute and
+// more a real one stays dirty.
+layout (constant_id = 20) const float SootDepth = 0.95;
+layout (constant_id = 21) const float SootSeconds = 10.0;
+const float SootOpacity = 2.0;
+
+// How strongly the nitrogen oxides tint the cap, and how long they last.
+layout (constant_id = 22) const float NoxStrength = 0.70;
+layout (constant_id = 23) const float NoxSeconds = 22.0;
 
 // And the most it may contribute at any one sample. The sun term beside it tops out near 2.
 layout (constant_id = 6) const float FireCeiling = 6.0;
@@ -762,7 +818,8 @@ void main()
     {
         vec3 world = dir * (t0 + (float(i) + jitter) * dt) - toCentre;   // relative to the burst
 
-        float density = Density(world, up, radius);
+        float fireMask;
+        float density = Density(world, up, radius, fireMask);
         vec3 leaned = world;
         if (density <= 0.0) continue;
 
@@ -812,6 +869,21 @@ void main()
         // which a cloud has no other use for.
         vec3 foot = columnIsWater ? vec3(0.38, 0.38, 0.39) : vec3(0.21, 0.16, 0.11);
         vec3 albedo = mix(foot, vec3(0.36, 0.35, 0.34), smoothstep(0.05, 0.75, upThrough));
+
+        // SOOT, and then the oxides. The young cloud is the ground the ball swallowed, burning:
+        // black-brown dust and smoke wrapped round the fire, which a clean pale cloud from the first
+        // frame is the plainest tell against. It clears as the cap condenses and the dust settles into
+        // the stem. Under it, the reddish brown of the nitrogen oxides the heat made, which outlasts
+        // the glow by tens of seconds and is strongest in the cap, where the hottest air went.
+        //
+        // Off the sea there is no ground to burn, so no soot; the oxides are the air's, and stay.
+        float age = pc.AgeStrengthWind.x;
+        float soot = columnIsWater ? 0.0 : SootDepth * exp(-age / SootSeconds);
+        albedo = mix(albedo, vec3(0.045, 0.036, 0.030), soot);
+
+        float oxides = NoxStrength * smoothstep(0.5, 3.0, age) * exp(-age / NoxSeconds)
+                       * smoothstep(0.35, 0.85, upThrough);
+        albedo *= mix(vec3(1.0), vec3(1.30, 0.82, 0.55), oxides);
         // The air between the sun and the scene, which is the engine's own answer to both "has the
         // sun set" and "what colour is it now": it goes to nothing on the night side and reddens
         // through a sunset. Core multiplies its sun colour by exactly this in every mesh shader.
@@ -866,9 +938,24 @@ void main()
             lit += fire;
         }
 
+        // THE FIRE ITSELF, glowing rather than lit: the heat left in the core, where the mask says it
+        // is. Emission, so it does not go through the albedo -- a sooty cloud reflects the ball's
+        // light poorly and still glows where it is burning. Deep red when nearly cold, orange hot.
+        float heat = pc.FireSun.z;
+        if (heat > 0.0 && fireMask > 0.0)
+        {
+            vec3 glowing = mix(vec3(0.85, 0.16, 0.03), vec3(1.00, 0.52, 0.16), heat);
+            vec3 emitted = glowing * (FireGlowNits * heat * heat * fireMask);
+            fireShare = max(fireShare, dot(emitted, vec3(0.2126, 0.7152, 0.0722))
+                                       / max(dot(lit + emitted, vec3(0.2126, 0.7152, 0.0722)), 1e-4));
+            lit += emitted;
+        }
+
         // Raised with the falloff above: a core that now genuinely reaches full density is worth
         // more optical depth per metre, and this is what separates a cloud from a stain.
-        float extinction = density * Extinction * dt;
+        // Soot is black because it absorbs, so the dirty young cloud is also the thicker one: what
+        // hides the fire everywhere but the gaps. A pale cloud at the same density lets it through.
+        float extinction = density * Extinction * dt * (1.0 + SootOpacity * soot);
         float behindWeather = BehindWeather(t0 + (float(i) + jitter) * dt, weatherAt);
 
         scattered += transmittance * lit * extinction * mix(1.0, weatherClear, behindWeather);

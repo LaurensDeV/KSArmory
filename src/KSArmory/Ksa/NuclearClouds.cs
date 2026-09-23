@@ -308,9 +308,11 @@ internal static class NuclearClouds
     /// </summary>
     public static bool TryAt(int index, out double3 burstEcl, out double3 up, out double radiusMetres,
                              out double ageSeconds, out MushroomCloud.Shape shape,
-                             out double3 downwind, out MushroomCloud.Flash flash, out bool water)
+                             out double3 downwind, out MushroomCloud.Flash flash, out double heat,
+                             out bool water)
     {
         flash = default;
+        heat = 0.0;
         water = false;
 
         downwind = default;
@@ -335,6 +337,7 @@ internal static class NuclearClouds
 
             // The ball, so the pass can light the cloud from inside it while it burns.
             flash = MushroomCloud.FlashAt(cloud.ChargeKg, cloud.Age);
+            heat = MushroomCloud.Incandescence(cloud.ChargeKg, cloud.Age);
             water = cloud.Water;
 
             // Chosen at the burst rather than per frame, so the column leans one way for its whole

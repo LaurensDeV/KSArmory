@@ -338,7 +338,7 @@ internal static class CloudPass
             _order.Clear();
             for (int i = 0; i < NuclearClouds.Count && _order.Count < MaxClouds; i++)
             {
-                if (!NuclearClouds.TryAt(i, out double3 at, out _, out _, out _, out _, out _, out _, out _)) continue;
+                if (!NuclearClouds.TryAt(i, out double3 at, out _, out _, out _, out _, out _, out _, out _, out _)) continue;
 
                 _order.Add((i, Vec.Len2(at - camera.PositionEcl)));
             }
@@ -437,6 +437,7 @@ internal static class CloudPass
                                              out MushroomCloud.Shape shape,
                                              out double3 downwind,
                                              out MushroomCloud.Flash flash,
+                                             out double heat,
                                              out bool water)) continue;
 
                     // Differenced against the camera in DOUBLE and only then narrowed. The world is
@@ -465,15 +466,16 @@ internal static class CloudPass
                         // Neither the cloud's up nor the direction to the sun is in here: the
                         // shader derives both from the burst, the planet and the star, all of which
                         // it already has. That freed the floats for the fireball's radius and glow,
-                        // which let a burst light the cloud it is inside. The third is left at zero:
-                        // the whiteout is a dispatch of its own, after every cloud.
+                        // which let a burst light the cloud it is inside. The third is the heat left
+                        // in the cloud's core, which outlasts the ball: the whiteout is a dispatch
+                        // of its own, after every cloud, so the float is free here.
                         //
                         // No scorch here: the ground a burst burned outlives the column over it,
                         // so it is its own dispatch below and a cloud never draws one. The fourth
                         // float is therefore free on this dispatch, and carries two flags -- see
                         // CloudFlags.
                         FireSun = new float4((float)flash.Radius, (float)flash.Glow,
-                                             0f,
+                                             (float)heat,
                                              CloudFlags(water, weather, first: drawn == 0)),
 
                         // The same shape MushroomCloud carries, so every dimension stays
