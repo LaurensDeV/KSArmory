@@ -67,7 +67,6 @@ public static class ShaderTunables
         new("InflowDensity", 32, 0.45),
         new("BallRadiance", 33, 0.45),
         new("DustSteps", 34, 32.0, Integer: true),
-        new("CloseSteps", 35, 48.0, Integer: true),
         new(MarchScale, 36, 1.0, Integer: true),
     ];
 

@@ -956,11 +956,11 @@ layout (constant_id = 25) const float DustSeconds = 14.0;
 const float DustLifeSeconds = 60.0;
 layout (constant_id = 34) const int DustSteps = 32;
 
-// What the march spends once a cloud fills the view: its step count, reached by the time the cloud's
-// radius is 0.6 of its distance, from the full count at 0.25; and how coarse the grid it marches is,
-// one pixel of every square that many across, the resolve's history filling in the rest. Both are
-// the full picture by default.
-layout (constant_id = 35) const int CloseSteps = 48;
+// How coarse a grid the cloud is marched on: one pixel of every square this many across, the
+// resolve's history filling in the rest. Two is a third of the cost and flickers: the block's value
+// changes every frame as the marched pixel turns, and the resolve's history does not hide it --
+// eight times the pixels moving by more than 4 of 255 between frames, at 0.02x. A paused frame
+// cannot show it, because the turn follows the frame counter and that stops with the world.
 layout (constant_id = 36) const int MarchScale = 1;
 
 // The pixels this invocation writes the cloud layer for: itself, or its square of the coarse grid.
@@ -1364,13 +1364,7 @@ void main()
     // in its place and is NOT in, because it is built to be resolved by temporal accumulation and
     // there is none here -- a single frame of it is diagonal hatching across the stem.
     const int Steps = 48;
-    int steps = Steps;
-    if (CloseSteps < Steps)
-    {
-        float across = radius / max(length(toCentre), 1.0);
-        steps = int(round(mix(float(Steps), float(CloseSteps), smoothstep(0.25, 0.6, across))));
-    }
-    float dt = (t1 - t0) / float(steps);
+    float dt = (t1 - t0) / float(Steps);
 
     // Start each ray a fraction of a step in. Fewer steps band, and a dither turns that banding
     // into grain. Moved on every frame by the golden ratio, so the resolve's history averages the
@@ -1398,7 +1392,7 @@ void main()
     // Not over a ball still white-hot: the dust it swallowed has not yet closed over it.
     float ballHot = pc.FireSun.x > 0.0 ? smoothstep(0.5 * BallBurnGlow, BallBurnGlow, pc.FireSun.y) : 0.0;
 
-    for (int i = 0; i < (throughCloud ? steps : 0); i++)
+    for (int i = 0; i < (throughCloud ? Steps : 0); i++)
     {
         vec3 world = dir * (t0 + (float(i) + jitter) * dt) - toCentre;   // relative to the burst
 
