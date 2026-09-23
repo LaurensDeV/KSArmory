@@ -334,10 +334,11 @@ TOOLS = {
     "ksa_step": ("Run the world for so many simulated seconds, then pause.", {"seconds": _num("sim seconds")},
                  ["seconds"], lambda a: [_text(json.dumps(send("step", timeout=a["seconds"] * 20 + 40,
                                                                seconds=a["seconds"])))]),
-    "ksa_burst": ("Set off a nuclear burst on the ground east/north of the craft being flown. No damage. "
-                  "explode=false leaves out KSA's own explosion, to tell its drawing from this mod's.",
+    "ksa_burst": ("Set off a nuclear burst on the ground east/north of the craft being flown. No damage unless "
+                  "damage=true, which judges every craft as that warhead would -- the flown craft as its "
+                  "platform, dented and never broken. explode=false leaves out KSA's own explosion.",
                   {"kt": _num("yield"), "east_m": _num("metres east"), "north_m": _num("metres north"),
-                   "explode": {"type": "boolean"}},
+                   "explode": {"type": "boolean"}, "damage": {"type": "boolean"}},
                   ["kt"], lambda a: [_text(json.dumps(send("burst", **a)))]),
     "ksa_clear": ("Forget every cloud, mark and flash.", {}, [], lambda a: [_text(json.dumps(send("clear")))]),
     "ksa_camera": ("Hold the view on the newest burst: a preset (side, under, overhead, far, downwind), or "

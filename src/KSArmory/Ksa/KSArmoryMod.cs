@@ -188,7 +188,7 @@ public sealed class KSArmoryMod
         _gunSound = new GunSound(_config);
         _scenario = new ScenarioRunner(_config, _warp, SightFor);
         _scenario.Begin(ScenarioRunner.Requested());
-        _bridge = new Bridge(_config);
+        _bridge = new Bridge(_config, craft => _roster?.For(craft)?.Battery);
         _ui = new Ui(_config, _roster, _heads, _icbms, _warp, _watch, _mover, _bursts, ReachFor);
         Log.Info($"ready - {string.Join(", ", Catalogue.Launchers.Select(l => l.DisplayName))}, safe. "
                  + "Open the 'KSArmory' panel to arm.");

@@ -43,7 +43,15 @@ internal sealed class Bridge
 
     private static readonly string[] ShaderIds = ["KSArmoryCloudCompute", "KSArmoryCloudResolveCompute"];
 
-    public Bridge(Config config) => _config = config;
+    public Bridge(Config config, Func<Vehicle?, WeaponSystem?> systemFor)
+    {
+        _config = config;
+        _systemFor = systemFor;
+    }
+
+    // The weapons system a burst that damages is judged by: the flown craft's own, so the burst is
+    // its warhead going off there, and the craft itself is its platform -- dented, never broken.
+    private readonly Func<Vehicle?, WeaponSystem?> _systemFor;
 
     // Asked for from the panel, and taken up by the next Update: the panel draws in the UI pass and
     // the bridge runs in the frame hook, and a capture must not start inside the UI pass.
@@ -291,7 +299,7 @@ internal sealed class Bridge
     // A burst where the panel's burst tool would put one, but placed by numbers: metres east and
     // north of the craft being flown, on the ground there. The explosion and the cloud, and no
     // damage -- that is fire control's, and a test shot should not break the scene it is testing.
-    private static Reply Burst(BridgeCommand command)
+    private Reply Burst(BridgeCommand command)
     {
         if (KsaWorld.ControlledVehicle is not { } craft) return Failed("no craft is being flown");
         if (Detonation.BodyFor(craft) is not { } body) return Failed("no body under the craft");
@@ -317,6 +325,16 @@ internal sealed class Bridge
         // the burst is this mod's drawing alone, which is what separates the two when one misdraws.
         if (command.Flag("explode", true)) Detonation.Explode(lifted, charge, craft);
         NuclearClouds.Begin(ground, craft, charge);
+
+        // And, asked for, what a warhead of that yield does to every craft it reaches.
+        if (command.Flag("damage", false))
+        {
+            if (_systemFor(craft) is not { } system) return Failed("the craft carries no weapons system to judge the burst by");
+
+            MunitionProfile warhead = Arsenal.NukeB61.Copy();
+            warhead.ChargeKg = (float)charge;
+            system.SplashAt(ground, warhead);
+        }
 
         return Done(new()
         {
