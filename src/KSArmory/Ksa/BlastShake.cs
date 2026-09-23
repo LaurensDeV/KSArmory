@@ -10,7 +10,8 @@ namespace KSArmory;
 ///
 /// <para>On the simulated step, like the bang and the front itself: it waits through a pause and
 /// slows with the world. Read against the live front rather than timed from the flash, so a camera
-/// that moves while the front is on its way is struck where it has got to.</para>
+/// that moves while the front is on its way is struck where it has got to. Every front that passes
+/// is felt, and fronts passing close together add, held to the most one front can throw.</para>
 /// </summary>
 internal static class BlastShake
 {
@@ -18,10 +19,8 @@ internal static class BlastShake
     private static readonly Dictionary<int, double> _fronts = [];
     private static readonly HashSet<int> _seen = [];
 
-    private static double _strength;
-    private static double _since;
-    private static double _seconds;
-    private static int _seed;
+    // The rattles still running: how hard, how long since the front passed, how long each lasts.
+    private static readonly List<(double Strength, double Since, double Seconds, int Seed)> _shakes = [];
 
     /// <summary>
     /// The picture's offset now: across and up in shares of the screen's height, and a roll in
@@ -35,7 +34,7 @@ internal static class BlastShake
     public static void Clear()
     {
         _fronts.Clear();
-        _strength = 0.0;
+        _shakes.Clear();
         Offset = (0.0, 0.0, 0.0);
     }
 
@@ -52,9 +51,26 @@ internal static class BlastShake
             // A front that cannot be read does not shake anything.
         }
 
-        _since += dt;
-        Offset = _strength > 0.0 ? ViewShake.At(_strength, _since, _seconds, _seed) : (0.0, 0.0, 0.0);
-        if (_since > _seconds) _strength = 0.0;
+        double x = 0.0, y = 0.0, roll = 0.0;
+        for (int i = _shakes.Count - 1; i >= 0; i--)
+        {
+            (double strength, double since, double seconds, int seed) = _shakes[i];
+            since += dt;
+            if (since > seconds)
+            {
+                _shakes.RemoveAt(i);
+                continue;
+            }
+
+            _shakes[i] = (strength, since, seconds, seed);
+            (double sx, double sy, double sr) = ViewShake.At(strength, since, seconds, seed);
+            x += sx;
+            y += sy;
+            roll += sr;
+        }
+
+        double most = ViewShake.MostShare;
+        Offset = (Math.Clamp(x, -most, most), Math.Clamp(y, -most, most), Math.Clamp(roll, -most, most));
     }
 
     private static void Watch()
@@ -87,16 +103,14 @@ internal static class BlastShake
 
             double ambient = BlastWave.SeaLevelPascals * air;
             double strength = ViewShake.Strength(BlastWave.PeakOverpressurePascals(chargeKg, range, ambient));
-            if (strength <= _strength && _since <= _seconds) continue;
+            if (!(strength > 0.0)) continue;
 
-            _strength = strength;
-            _since = 0.0;
-            _seconds = ViewShake.Seconds(BlastWave.PositivePhaseSeconds(chargeKg, range));
-            _seed = serial;
+            double seconds = ViewShake.Seconds(BlastWave.PositivePhaseSeconds(chargeKg, range));
+            _shakes.Add((strength, 0.0, seconds, serial));
 
             Log.Info($"blast front passed the camera {Distance.Say(range)} from the burst at "
                      + $"{BlastWave.PeakOverpressurePascals(chargeKg, range, ambient) / 1000.0:F1} kPa; "
-                     + $"shaking at {strength:F2} for {_seconds:F1} s");
+                     + $"shaking at {strength:F2} for {seconds:F1} s");
         }
 
         if (_fronts.Count > _seen.Count)

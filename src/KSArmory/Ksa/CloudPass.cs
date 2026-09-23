@@ -646,27 +646,26 @@ internal static class CloudPass
     private const double ShockShellShare = 0.03;
     private const double ShockShellFloorMetres = 3.0;
 
-    // THE BLAST FRONT, as a bend in the light behind it: the scene copied, then written back from the
-    // copy where a ray grazes the front's shell. Only the strongest front on screen, and only while it
-    // is strong enough to see, so the two full-screen dispatches cost nothing once it has gone. The
-    // same copy moves the whole picture while BlastShake says a front has just passed the eye.
+    // THE BLAST FRONTS, as a bend in the light behind each: the scene copied, then written back from
+    // the copy where a ray grazes a front's shell. One copy and one bend per front strong enough to
+    // see, each bending what the one before left, so where two cross their bends add; nothing once
+    // they have gone. The first pass also moves the whole picture while BlastShake says a front has
+    // just passed the eye.
     private static void Shock(CommandBuffer commandBuffer, IViewport viewport, Camera camera, View view,
                               IRenderImage depth)
     {
-        double best = ShockFaintest;
-        ShockPush push = default;
-        bool found = false;
+        _fronts.Clear();
 
         float4x4 viewProjection = camera.MVP.viewProjection;
         double4x4 vp = double4x4.Unpack(in viewProjection);
 
-        for (int i = 0; i < NuclearClouds.Count; i++)
+        for (int i = 0; i < NuclearClouds.Count && _fronts.Count < MaxClouds; i++)
         {
             if (!NuclearClouds.TryFront(i, out double3 burstEcl, out double3 up, out double front,
                                         out double chargeKg)) continue;
 
             double strength = Math.Clamp(Warhead.LethalRadius(chargeKg) / front, 0.0, 1.0);
-            if (strength <= best) continue;
+            if (strength <= ShockFaintest) continue;
 
             double3 c = burstEcl - camera.PositionEcl;
             double w = (c.X * vp.M14) + (c.Y * vp.M24) + (c.Z * vp.M34) + vp.M44;
@@ -675,10 +674,9 @@ internal static class CloudPass
             // Row-vector, as the camera's own projection is.
             double x = ((c.X * vp.M11) + (c.Y * vp.M21) + (c.Z * vp.M31) + vp.M41) / w;
             double y = ((c.X * vp.M12) + (c.Y * vp.M22) + (c.Z * vp.M32) + vp.M42) / w;
+            if (!double.IsFinite(x) || !double.IsFinite(y)) continue;
 
-            best = strength;
-            found = true;
-            push = new ShockPush
+            _fronts.Add(new ShockPush
             {
                 InvViewProj = camera.VPInv.viewProjection,
                 CentreRadius = new float4((float)c.X, (float)c.Y, (float)c.Z, (float)front),
@@ -686,41 +684,45 @@ internal static class CloudPass
                                               ShockBend * (float)strength,
                                               (float)Math.Max(front * ShockShellShare, ShockShellFloorMetres)),
                 UpMode = new float4((float)up.X, (float)up.Y, (float)up.Z, 0f),
-            };
+            });
         }
 
         (double shakeX, double shakeY, double shakeRoll) = BlastShake.Offset;
         bool shaking = BlastShake.Shaking;
-        if (!found && !shaking) return;
+        if (_fronts.Count == 0 && !shaking) return;
 
-        if (!found)
-        {
-            push.InvViewProj = camera.VPInv.viewProjection;
-        }
-
-        push.Shake = shaking ? new float4((float)shakeX, (float)shakeY, (float)shakeRoll, 1f) : default;
+        // Shaking with no front to draw is one pass that only moves the picture.
+        if (_fronts.Count == 0) _fronts.Add(new ShockPush { InvViewProj = camera.VPInv.viewProjection });
 
         if (view.Shock is null && !BuildShock(view, depth)) return;
 
         using (commandBuffer.TagRegion(GpuTag))
         {
-            Hazard(commandBuffer);
+            for (int n = 0; n < _fronts.Count; n++)
+            {
+                ShockPush push = _fronts[n];
+                push.Shake = shaking && n == 0 ? new float4((float)shakeX, (float)shakeY, (float)shakeRoll, 1f) : default;
 
-            Span<VkImageMemoryBarrier2> one = stackalloc VkImageMemoryBarrier2[1];
-            BarrierBatch copy = new(one);
-            copy.Add(view.SceneCopy, ImageBarrierInfo.Presets.StorageReadWriteC);
-            copy.SubmitAndFlush(commandBuffer);
+                Hazard(commandBuffer);
 
-            view.Shock!.BindPipeline(commandBuffer, viewport.ShaderSlot, default, default, push);
-            commandBuffer.Dispatch((view.Width + Group - 1) / Group, (view.Height + Group - 1) / Group, 1);
+                Span<VkImageMemoryBarrier2> one = stackalloc VkImageMemoryBarrier2[1];
+                BarrierBatch copy = new(one);
+                copy.Add(view.SceneCopy, ImageBarrierInfo.Presets.StorageReadWriteC);
+                copy.SubmitAndFlush(commandBuffer);
 
-            Hazard(commandBuffer);
+                view.Shock!.BindPipeline(commandBuffer, viewport.ShaderSlot, default, default, push);
+                commandBuffer.Dispatch((view.Width + Group - 1) / Group, (view.Height + Group - 1) / Group, 1);
 
-            push.UpMode.W = 1f;
-            view.Shock.BindPipeline(commandBuffer, viewport.ShaderSlot, default, default, push);
-            commandBuffer.Dispatch((view.Width + Group - 1) / Group, (view.Height + Group - 1) / Group, 1);
+                Hazard(commandBuffer);
+
+                push.UpMode.W = 1f;
+                view.Shock.BindPipeline(commandBuffer, viewport.ShaderSlot, default, default, push);
+                commandBuffer.Dispatch((view.Width + Group - 1) / Group, (view.Height + Group - 1) / Group, 1);
+            }
         }
     }
+
+    private static readonly List<ShockPush> _fronts = [];
 
     private static bool BuildShock(View view, IRenderImage depth)
     {
