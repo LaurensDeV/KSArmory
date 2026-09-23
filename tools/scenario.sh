@@ -37,6 +37,9 @@
 #                                        # than scored: the craft stays on the pad, the camera is
 #                                        # pinned on the cloud, and every capture reports what the
 #                                        # pass cost and how high the sun was
+#   KSARMORY_SCENARIO_CLOUDS=1 KSARMORY_SCENARIO_CHASE=1 ./tools/scenario.sh drop:200,0,guided
+#                                        # ...the scoring drop instead, chased, with its cloud drawn
+#                                        # and photographed: what a player sees of the burst
 #   KSARMORY_SCENARIO_NOSHADER=1 ...     # ...the same run with the pass off, as its control
 #   KSARMORY_SCENARIO_TWOCLOUDS=1 ...    # ...and a second burst 1 km away, which is the only way
 #                                        # to exercise the pass with more than one cloud standing

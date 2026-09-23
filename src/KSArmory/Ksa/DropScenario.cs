@@ -146,7 +146,7 @@ internal sealed class DropScenario
     // Whether this burst has a fireball at all. Nothing to do with air: a fireball is incandescent
     // gas, and the vacuum one is if anything brighter for having no atmosphere in the way.
     private bool BurstIsNuclear
-        => _watchTheCloud && _round is { } r && r.Munition.ChargeKg >= MushroomCloud.ThresholdKg;
+        => (_watchTheCloud || ChaseTheCloud) && _round is { } r && r.Munition.ChargeKg >= MushroomCloud.ThresholdKg;
 
     // Whether a column is standing over it, as against thrown ground. Only one of them has a life
     // past its own rise to photograph.
@@ -356,6 +356,12 @@ internal sealed class DropScenario
     public bool SecondBurst { get; init; }
 
     /// <summary>
+    /// The scoring drop, chased, with its cloud drawn and photographed: what a player sees of a
+    /// burst, where the pinned watch is what the pass is measured from.
+    /// </summary>
+    public bool ChaseTheCloud { get; init; }
+
+    /// <summary>
     /// What to multiply that second burst's yield by, so one run carries two sizes.
     ///
     /// <para>It is how anything but the B61's third of a kilotonne gets looked at: the drop's store
@@ -510,6 +516,9 @@ internal sealed class DropScenario
             flash * 0.70,
             .. rise,
         ];
+
+        // A chased run is photographed only while the chase holds the view, which is the rise.
+        if (ChaseTheCloud) return withFlash;
 
         // The dissolve is the column's alone. Thrown ground has no life past its own arc.
         double[] withDissolve =

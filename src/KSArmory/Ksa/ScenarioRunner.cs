@@ -637,8 +637,9 @@ internal sealed class ScenarioRunner
             return;
         }
 
-        _drop = new DropScenario(drop, line => Report($"{_name}: {line}"), _sightFor, _showClouds)
+        _drop = new DropScenario(drop, line => Report($"{_name}: {line}"), _sightFor, _showClouds && !_chase)
         {
+            ChaseTheCloud = _showClouds && _chase,
             Site = _site,
             LingerSpeed = _cloudWarp,
             StillAt = _stillAt,
