@@ -240,6 +240,24 @@ public static class MushroomCloud
     /// <summary>Kilotons of TNT equivalent for a charge in kg, which is what a profile carries.</summary>
     public static double KilotonsFor(double chargeKg) => chargeKg / 1.0e6;
 
+    // Bursts closer together in time than this are one event, as bangs are: a bus's warheads are
+    // released together and land within a frame or two of each other.
+    public const double SameBurstSeconds = 0.5;
+
+    /// <summary>
+    /// Whether a burst <paramref name="gapMetres"/> from a standing cloud is that cloud's own event
+    /// rather than a burst of its own: inside the fireball the two make together, and while the
+    /// standing one is still going off. A bomb dropped on a cloud already standing is a second
+    /// explosion, with its own flash and its own front.
+    /// </summary>
+    public static bool IsTheSameBurst(double gapMetres, double standingAgeSeconds, double combinedChargeKg)
+    {
+        if (!(standingAgeSeconds <= SameBurstSeconds)) return false;
+
+        double reach = PeakFireballRadius(KilotonsFor(combinedChargeKg));
+        return gapMetres <= reach;
+    }
+
     /// <summary>
     /// Fireball radius (m) at its largest. Nuclear, so the 0.4 power rather than the cube root a
     /// chemical charge obeys — which is why this does not agree with

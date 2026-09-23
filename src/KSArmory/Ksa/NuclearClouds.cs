@@ -534,24 +534,23 @@ internal static class NuclearClouds
             // still goes off. Coincident bursts are made one bang by the sound itself.
             BurstSound.Begin(body, burstEcl, chargeKg);
 
-            // A burst inside a standing cloud's own fireball is the SAME EVENT, and is added to it
-            // rather than starting another. Six warheads of a bus land about 9 mm apart: drawn as
-            // six clouds that is six times the smoke in one place and six full-screen dispatches
-            // marching the same pixels, where the truth is one burst of the combined yield.
+            // A burst inside a standing cloud's own fireball while that one is still going off is the
+            // SAME EVENT, and is added to it rather than starting another. Six warheads of a bus land
+            // about 9 mm apart in the same frame: drawn as six clouds that is six times the smoke in
+            // one place and six full-screen dispatches marching the same pixels, where the truth is
+            // one burst of the combined yield. A later bomb on the same spot is its own burst.
             for (int i = 0; i < _clouds.Count; i++)
             {
                 Cloud standing = _clouds[i];
                 if (!ReferenceEquals(standing.Body, body)) continue;
 
-                double reach = MushroomCloud.PeakFireballRadius(
-                    MushroomCloud.KilotonsFor(standing.ChargeKg + chargeKg));
-
-                if (Vec.Len2(burstCcf - standing.BurstCcf) > reach * reach) continue;
+                double gap = Vec.Len(burstCcf - standing.BurstCcf);
+                if (!MushroomCloud.IsTheSameBurst(gap, standing.Age, standing.ChargeKg + chargeKg)) continue;
 
                 standing.ChargeKg += chargeKg;
 
-                Log.Info($"nuclear cloud: burst {Vec.Len(burstCcf - standing.BurstCcf):F1} m from a "
-                         + $"standing one and inside its {reach:F0} m fireball, so it is that one -- "
+                Log.Info($"nuclear cloud: burst {gap:F1} m from one {standing.Age:F2} s old and inside its "
+                         + "fireball, so it is that one -- "
                          + $"now {MushroomCloud.KilotonsFor(standing.ChargeKg):F2} kt");
                 return;
             }

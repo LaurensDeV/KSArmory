@@ -814,4 +814,20 @@ public class MushroomCloudTests
         Assert.Equal(distance, MushroomCloud.ShockRadius(kt, arrives), 3);
         Assert.True(MushroomCloud.ShockRadius(kt, arrives * 0.99) < distance);
     }
+
+    /// <summary>
+    /// Warheads landing together are one burst; a bomb dropped on the same spot twenty seconds
+    /// later is a second one, with its own flash and front.
+    /// </summary>
+    [Fact]
+    public void ABombOnAStandingCloudIsASecondBurst()
+    {
+        const double charge = 3.0e5;
+
+        Assert.True(MushroomCloud.IsTheSameBurst(0.0, 0.0, charge * 2.0));
+        Assert.True(MushroomCloud.IsTheSameBurst(0.009, 0.02, charge * 6.0));
+        Assert.False(MushroomCloud.IsTheSameBurst(0.0, 16.0, charge * 2.0));
+        Assert.False(MushroomCloud.IsTheSameBurst(
+            MushroomCloud.PeakFireballRadius(MushroomCloud.KilotonsFor(charge * 2.0)) * 1.1, 0.0, charge * 2.0));
+    }
 }
