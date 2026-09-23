@@ -835,7 +835,6 @@ public sealed class KSArmoryMod
         BurstSound.Update(_lastSimStep);
         using (_budget.Measure("fronts")) BlastArrivals.Update(_lastSimStep);
         BlastShake.Update(_lastSimStep);
-        using (_budget.Measure("crash guard")) CrashGuard.Update(_lastSimStep);
         AttitudeHook.CheckShoves(_lastSimStep);
 
         // A sight outlives nothing: without this the dictionary keeps a system for the session

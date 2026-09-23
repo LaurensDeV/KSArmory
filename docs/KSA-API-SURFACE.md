@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-238 types and 664 members across 11 assemblies.
+238 types and 663 members across 11 assemblies.
 
 ## BepuUtilities
 
@@ -1441,7 +1441,6 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `KSA.FlightComputerOutput FlightComputerOutput`
 - `KSA.PartFailureEvent PartFailureEvent`
-- `KSA.VehicleDestructionEvent DestructionEvent`
 - `bool AnyActuatorActive()`
 
 ### KSA.ViewProjection

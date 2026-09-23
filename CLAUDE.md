@@ -474,7 +474,6 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/PlumeSmoke.cs` | smoke through the renderer KSA draws booster plumes with, one reflected field away — **the motor trail's now; the nuclear cloud left it for a raymarch** |
 | `Ksa/MotorSmoke.cs` | the trail a burning round leaves, through that same renderer — one cursor per round |
 | `Ksa/BlastArrivals.cs` | what a burst loads, **held until the front gets there** — the dent, the dust and the push land as the shock passes the part, on the simulated clock like the bang — **followed live**, the burst anchored to the ground and each part struck when `ShockRadius` reaches where it is now, so a craft in flight is hit where and when it actually meets the front, and one climbing faster than it is never caught. **Fronts reaching one part inside each other's positive phase load it once, together** — what is left of each, the most head-on pair meeting as at a wall (`BlastDamage.Combine`) — and past what breaks it the part breaks |
-| `Ksa/CrashGuard.cs` | the engine's own crash damage held off a craft a burst may only dent, **while it settles from the shove** — the crash is found on the worker and applied next frame, so the workers are joined and it is taken back in between |
 | `Ksa/BlastShake.cs` | the front passing the **camera**, watched against the live front rather than timed from the flash — the model; `CloudPass` moves the picture |
 | `Ksa/BlastPuff.cs` | the dust a front throws off the face it strikes — **a sprite the colour of dirt**, because KSA's billboard is unlit and ignores the particle colour |
 | `Ksa/NuclearClouds.cs` | the mushroom clouds standing in the world — **state and the fireball only**: the shape is drawn by `Ksa/CloudPass.cs`, which reads the newest cloud off this and raymarches it |
@@ -534,7 +533,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 664 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 663 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -2132,10 +2131,10 @@ failure queue behind one worker join as the kill path does. The dust and the pus
 front by front, because those add anyway. Where there is no air the front is the
 debris itself and there is no delay to model, so it lands at once. **The craft that fired and
 the one being flown are dented and never broken**: the skip that protects them is about breaking,
-and a dent breaks nothing. **Nor by the ground a blast throws them onto**: a shove can tip a rocket
-off its pad, and `Ksa/CrashGuard.cs` takes back the crash damage the engine's worker finds on such a
-craft until it is back on rails or 30 s have passed, joining the workers on those steps only. Flown with a damaging bridge burst against the rocket on the pad:
-0.3 kt at 1400 m loaded five parts and dented none, at 1100 and 900 m two, at 700 m three. Read back
+and a dent breaks nothing. **The ground a blast throws them onto is another matter**: the
+protection is from the burst, so a craft the shove tips over or flings is crash-damaged by the engine
+like any other. Flown with a damaging bridge burst against the rocket on the pad: 0.3 kt dented four
+of its five parts at 1300 m and at 1450 m, and a fifth only with a second burst beside it. Read back
 from where the engine stores them, every dent pushes along the line from its burst to within 0.1°,
 east, north and on both diagonals.
 

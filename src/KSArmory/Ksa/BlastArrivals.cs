@@ -340,8 +340,5 @@ internal static class BlastArrivals
 
         _pushed.TryGetValue(load.Craft, out (double3 Linear, double3 Angular, double Wind, double3 AwayEcl) so);
         _pushed[load.Craft] = (so.Linear + linear, so.Angular + angular, Math.Max(so.Wind, speed), away);
-
-        // A craft the burst may not break may not be broken by the ground it is knocked onto either.
-        if (!load.MayBreak) CrashGuard.Hold(load.Craft);
     }
 }

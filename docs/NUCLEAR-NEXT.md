@@ -462,8 +462,8 @@ written the way a decoupler writes it (`Vehicle.Split`) from the prefix window a
 **the view shakes** as the front passes the camera. Both are sized by Kinney–Graham in real pascals
 (`Sim/BlastWave.cs`), not by the damage law. Fronts reaching a part together load it together,
 the earlier ones for what is left of them and head-on pairs as at a wall, and can break what none
-breaks alone; a protected craft knocked over by the shove is kept from the engine's crash damage
-while it settles. The other two below are not built.
+breaks alone. A craft the shove knocks over is crash-damaged by the engine as it lands, protected
+from the burst or not. The other two below are not built.
 
 Today a burst is visuals plus `BlastDamage`. A nuclear one could blind radar for a scaled
 duration, burn at ranges the blast never reaches, and bloom out an `OpticalHead`'s sight — which

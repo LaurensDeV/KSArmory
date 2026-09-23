@@ -2704,10 +2704,6 @@ internal static class KsaWorld
         }
     }
 
-    // Craft this mod has handed a part failure to since CrashGuard last looked, so a failure the
-    // mod meant is never taken for the engine's own crash damage.
-    private static readonly HashSet<Vehicle> _queuedFailures = new(ReferenceEqualityComparer.Instance);
-
     /// <summary>How many parts a craft has, or zero for one that cannot be read.</summary>
     public static int PartCount(Vehicle v)
     {
@@ -2720,62 +2716,6 @@ internal static class KsaWorld
         catch
         {
             return 0;
-        }
-    }
-
-    /// <summary>
-    /// Takes back the crash damage the engine's worker has just found on a craft, before the next
-    /// frame applies it: the parts <c>PartFailure.Detect</c> failed on contact, and a destruction.
-    /// Only after <see cref="WaitForVehicleSolvers"/>, which is when the worker has written them and
-    /// nothing has applied them yet. A failure this mod queued itself is left alone.
-    /// </summary>
-    public static bool TryHoldOffCrash(Vehicle v, ISet<Part> parts, out bool whole)
-    {
-        whole = false;
-        if (!IsAlive(v) || !CanQueuePartFailures || _queuedFailures.Contains(v)) return false;
-
-        try
-        {
-            if (_updateStateField!.GetValue(v) is not VehicleUpdateState state) return false;
-
-            bool any = false;
-            if (state.PartFailureEvent is { } failure)
-            {
-                foreach (Part part in failure.FailedParts) parts.Add(part);
-                state.PartFailureEvent = null;
-                any = true;
-            }
-
-            if (state.DestructionEvent is not null)
-            {
-                whole = true;
-                state.DestructionEvent = null;
-                any = true;
-            }
-
-            return any;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    /// <summary>Forgets which craft the mod queued failures on; CrashGuard asks once a step.</summary>
-    public static void ForgetQueuedFailures() => _queuedFailures.Clear();
-
-    /// <summary>Whether a craft is riding its conic rather than being integrated.</summary>
-    public static bool IsOnRails(Vehicle v)
-    {
-        if (!IsAlive(v)) return false;
-
-        try
-        {
-            return v.Situation.IsOnRails();
-        }
-        catch
-        {
-            return false;
         }
     }
 
@@ -2859,8 +2799,6 @@ internal static class KsaWorld
         ArgumentNullException.ThrowIfNull(parts);
 
         if (!IsAlive(v) || parts.Count == 0 || !CanQueuePartFailures) return false;
-
-        _queuedFailures.Add(v);
 
         try
         {
