@@ -28,13 +28,26 @@ public class MushroomCloudShaderTests
         Assert.Equal(MushroomCloud.RiseSeconds, Constant("StandBeginsSeconds"), 9);
         Assert.Equal(MushroomCloud.StandSeconds, Constant("StandLastsSeconds"), 9);
         Assert.Equal(MushroomCloud.AgedShear, Constant("AgedShear"), 9);
+        Assert.Equal(MushroomCloud.BoundMargin, Constant("BoundMargin"), 9);
     }
 
-    /// <summary>The shader reads the end of the heat pulse off the glow, at the model's own value.</summary>
-    [Fact]
-    public void TheShaderKnowsWhereTheHeatPulseEnds()
+    /// <summary>
+    /// The shader is pushed the risen bound and grows its march's from it, so the risen one grown
+    /// has to be the bound, at every age and at any yield merging bursts can reach.
+    /// </summary>
+    [Theory]
+    [InlineData(0.3)]
+    [InlineData(340.0)]
+    [InlineData(10000.0)]
+    public void TheRisenBoundGrownIsTheBound(double yieldKt)
     {
-        Assert.Equal(MushroomCloud.BurnGlow, Constant("BallBurnGlow"), 9);
+        double risen = MushroomCloud.RisenBound(yieldKt);
+
+        for (double age = 1.0; age < MushroomCloud.LifeSeconds; age += 1.0)
+        {
+            double grown = MushroomCloud.GrownBound(risen, MushroomCloud.At(yieldKt * 1.0e6, age), age);
+            Assert.Equal(MushroomCloud.DrawnBound(yieldKt, age), grown, 6);
+        }
     }
 
     [Fact]

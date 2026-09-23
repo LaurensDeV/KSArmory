@@ -132,19 +132,32 @@ public static class MushroomCloud
     /// again while the cloud is still rising, which is grain for nothing.</para>
     /// </summary>
     public static double DrawnBound(double yieldKt, double age)
+        => GrownBound(RisenBound(yieldKt), At(yieldKt * 1.0e6, age), age);
+
+    /// <summary>
+    /// That sphere as the risen cloud has it: at the overshoot's peak, which is as big as the RISING
+    /// shape ever gets. Fixed from then on, which is what the lean is measured against -- reckoned
+    /// against the grown bound, the same height reads as lower down the column and the lean weakens
+    /// by a quarter over the stand.
+    /// </summary>
+    public static double RisenBound(double yieldKt)
     {
         double top = DrawnCloudTop(yieldKt);
         if (top <= 0.0) return 0.0;
 
-        // At the overshoot's peak, which is as big as the RISING shape ever gets, and now.
-        double reach = ReachOf(At(yieldKt * 1.0e6, RiseSeconds * (1.0 + OvershootAt)));
-        if (age > RiseSeconds)
-        {
-            reach = Math.Max(reach, ReachOf(At(yieldKt * 1.0e6, age)) * (1.0 + (AgedShear * Aged(age))));
-        }
-
-        return Math.Max(top, reach * 1.15);
+        return Math.Max(top, ReachOf(At(yieldKt * 1.0e6, RiseSeconds * (1.0 + OvershootAt))) * BoundMargin);
     }
+
+    /// <summary>
+    /// The risen bound grown to hold the stand's spreading, sheared cap. Only the shape at the age
+    /// and the age itself, so the shader, which is pushed the risen bound and the shape, reckons the
+    /// same sphere for its march.
+    /// </summary>
+    public static double GrownBound(double risen, Shape shape, double age)
+        => Math.Max(risen, ReachOf(shape) * (1.0 + (AgedShear * Aged(age))) * BoundMargin);
+
+    /// <summary>What the bound carries over the cloud's own reach, for the billows past it.</summary>
+    public const double BoundMargin = 1.15;
 
     private static double ReachOf(Shape shape)
         => Math.Sqrt((shape.CapCentre * shape.CapCentre) + Math.Pow(shape.CapRadius + shape.CapTube, 2.0));

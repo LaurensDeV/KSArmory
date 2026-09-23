@@ -375,10 +375,10 @@ internal static class NuclearClouds
             // life instead of wandering.
             downwind = cloud.Downwind.Transform(cloud.Body.GetCce2Ccf().Inverse());
 
-            // The whole thing, cap and lean included, so the bounding sphere cannot clip the shape
-            // it is there to reject against.
+            // The bound as the risen cloud has it, which is also what the lean is measured against;
+            // the shader grows it for its march, as MushroomCloud.GrownBound does.
             double kt = MushroomCloud.KilotonsFor(cloud.ChargeKg);
-            radiusMetres = MushroomCloud.DrawnBound(kt, cloud.Age);
+            radiusMetres = MushroomCloud.RisenBound(kt);
 
             return Vec.IsFinite(burstEcl) && Vec.IsFinite(up) && Vec.IsFinite(downwind)
                    && radiusMetres > 0.0;

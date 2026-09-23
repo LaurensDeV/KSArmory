@@ -484,6 +484,18 @@ float Aged(float age)
     return t * (2.0 - t);
 }
 
+// The bound pushed is the risen cloud's, which the lean is measured against; the march's is grown
+// from it to hold the stand's spreading, sheared cap, exactly as MushroomCloud.GrownBound grows it.
+const float BoundMargin = 1.15;
+
+float GrownBound(float risen, float age)
+{
+    float reach = length(vec2(pc.Shape.x, pc.Shape.y + pc.Shape.z));
+    return max(risen, reach * (1.0 + AgedShear * Aged(age)) * BoundMargin);
+}
+
+float leanTop = 0.0;
+
 vec3 Unlean(vec3 world, vec3 up, float top)
 {
     float y = dot(world, up);
@@ -491,6 +503,7 @@ vec3 Unlean(vec3 world, vec3 up, float top)
 
     vec3 wind = OctahedralUnpack(pc.AgeStrengthWind.zw);
 
+    top = leanTop > 0.0 ? leanTop : top;
     float t = clamp(y / top, 0.0, 1.0);
 
     // Half what MushroomCloud.LeanAt gives the pens. That constant is bounded by the cap having to
@@ -1280,7 +1293,8 @@ void main()
 
     if (!wantsCloud) return;
 
-    float radius = pc.CentreRadius.w;
+    leanTop = pc.CentreRadius.w;
+    float radius = GrownBound(leanTop, pc.AgeStrengthWind.x);
 
     // The direction to the sun FROM THE CLOUD, derived rather than sent: the star's position is in
     // the global block and the burst is in the push constant, so this is a subtraction. That freed
