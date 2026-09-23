@@ -230,7 +230,9 @@ visible without the cloud travelling.
 ### 4. The fireball should become the cap — built
 
 `Ksa/Fireball.cs` draws a ball at the burst and `CloudPass` grows a column around it. They are
-separate systems that happen to overlap.
+separate systems that happen to overlap. **Since 2026-09-23 it draws no ball at all, only its
+light**: a mesh sphere inside the raymarched cloud read as a dark ball that drifted off centre when
+the camera panned, and the cloud's fire and the glare round it, centred on the risen ball, carry it.
 
 Physically the fireball **is** the cap: it cools, becomes buoyant, rises, and the toroidal
 circulation that the raymarch already draws begins inside it.

@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-230 types and 632 members across 10 assemblies.
+224 types and 621 members across 10 assemblies.
 
 ## Brutal.Concurrency
 
@@ -76,10 +76,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### Brutal.Numerics.double4x4
 
-- `Brutal.Numerics.double4x4 CreateScale(double)`
-- `Brutal.Numerics.double4x4 CreateTranslation(Brutal.Numerics.double3)`
 - `Brutal.Numerics.double4x4 Unpack(ref Brutal.Numerics.float4x4)`
-- `Brutal.Numerics.double4x4 op_Multiply(Brutal.Numerics.double4x4, Brutal.Numerics.double4x4)`
 - `double get_M11()`
 - `double get_M12()`
 - `double get_M13()`
@@ -655,10 +652,6 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `double op_Implicit(KSA.DensityReference)`
 
-### KSA.DeviceMeshInterleaved
-
-*referenced as a type only*
-
 ### KSA.DistanceReference
 
 - `double InMeters()`
@@ -764,21 +757,6 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `bool Particles`
 
-### KSA.GenericMeshRenderer
-
-- `void AddInstance(KSA.MeshReference, ref InstanceData, ref PerDrawData, KSA.IViewport, int)`
-
-### KSA.GenericMeshRenderer+InstanceData
-
-- `Brutal.Numerics.float4 Color`
-- `Brutal.Numerics.float4x4 ModelMatrix`
-
-### KSA.GenericMeshRenderer+PerDrawData
-
-- `int AlbedoTextureIndex`
-- `int NormalTextureIndex`
-- `int PbrTextureIndex`
-
 ### KSA.GizmosRenderer
 
 - `void DrawLine(Brutal.Numerics.double3, Brutal.Numerics.double3, Brutal.Numerics.float4)`
@@ -872,10 +850,6 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.LookupCollection`1
 
 *referenced as a type only*
-
-### KSA.MeshReference
-
-- `KSA.DeviceMeshInterleaved[] DeviceMeshesInterleaved`
 
 ### KSA.MeshViewModule
 
@@ -1259,10 +1233,6 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.SunbloomRenderer
 
 - `void Render(Brutal.VulkanApi.CommandBuffer, KSA.IViewport, int)`
-
-### KSA.TextureReference
-
-- `int get_BindlessHandle()`
 
 ### KSA.Transform3D
 

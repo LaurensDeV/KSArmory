@@ -624,7 +624,7 @@ internal static class CloudPass
         // Zero when the source cannot be resolved, which the shader reads as a glare with no
         // centre: one colour everywhere, the warm one.
         double3 source = double3.Zero;
-        if (NuclearClouds.TryBurning(BurstFlash.SourceIndex, out double3 burstEcl, out _))
+        if (NuclearClouds.TryBall(BurstFlash.SourceIndex, out double3 burstEcl))
         {
             double3 centre = burstEcl - camera.PositionEcl;
             if (Vec.IsFinite(centre)) source = centre;

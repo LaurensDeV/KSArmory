@@ -132,6 +132,7 @@ internal static class NuclearClouds
         public required Celestial Body;
         public required double3 BurstCcf;
         public required double ChargeKg;
+        public required bool Rises;
         public double Age;
     }
 
@@ -291,6 +292,32 @@ internal static class NuclearClouds
         }
     }
 
+    /// <summary>
+    /// Where one of <see cref="TryBurning"/>'s fireballs is now: at the cap's centre, where the
+    /// cloud pass draws its fire, for a burst that grows a cap; at the burst for one that does not.
+    /// What the glare round the ball is centred on -- centred on the burst instead, it hung on the
+    /// ground under a cloud that had risen away from it.
+    /// </summary>
+    public static bool TryBall(int index, out double3 ballEcl)
+    {
+        ballEcl = default;
+        if (index < 0 || index >= _burning.Count) return false;
+
+        try
+        {
+            Burning one = _burning[index];
+            double rise = one.Rises ? MushroomCloud.At(one.ChargeKg, one.Age).CapCentre : 0.0;
+            double3 ballCcf = one.BurstCcf + (Vec.Unit(one.BurstCcf) * rise);
+
+            ballEcl = one.Body.GetPositionEcl() + ballCcf.Transform(one.Body.GetCce2Ccf().Inverse());
+            return Vec.IsFinite(ballEcl);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     /// <summary>How old one of <see cref="TryBurning"/>'s bursts is, or NaN.</summary>
     public static double BurningAge(int index)
         => index >= 0 && index < _burning.Count ? _burning[index].Age : double.NaN;
@@ -430,14 +457,21 @@ internal static class NuclearClouds
             // through, and KSA raymarches the trail volume only for an AtmosphericBody, so smoke
             // laid here would draw nowhere at any altitude. Before this the cloud was built anyway
             // and its dimensions logged, over a body where nobody could ever see one.
-            // Registered before the fork, because a fireball happens either way.
-            _burning.Add(new Burning { Body = body, BurstCcf = burstCcf, ChargeKg = chargeKg });
-
             // WHAT IT WENT OFF ON OR IN, which decides what it leaves. Only land is burned: on the
             // sea there is nothing to stain, and a mark projected off the depth buffer there lies
             // on the water's surface.
             BurstSetting setting = KsaWorld.SettingOf(
                 body, burstEcl, MushroomCloud.PeakFireballRadius(MushroomCloud.KilotonsFor(chargeKg)));
+
+            // Registered before the fork, because a fireball happens either way -- and rises with
+            // the cap wherever a cap is grown, which is in air and not deep under the sea.
+            _burning.Add(new Burning
+            {
+                Body = body,
+                BurstCcf = burstCcf,
+                ChargeKg = chargeKg,
+                Rises = KsaWorld.HasAtmosphere(body) && setting != BurstSetting.Underwater,
+            });
 
             if (setting == BurstSetting.Land) Burn(body, burstCcf, chargeKg, !KsaWorld.HasAtmosphere(body));
 
@@ -542,9 +576,7 @@ internal static class NuclearClouds
                      + $"(drawn at {MushroomCloud.DrawnScale:P0} of the law's "
                      + $"{MushroomCloud.CloudTop(kt) / 1000.0:F2} km)");
             Log.Info($"  fireball {peak.Radius:F0} m for {MushroomCloud.FlashSeconds(kt):F1} s, "
-                     + $"glow {peak.Glow:F0} ({Fireball.BloomingEmissive(new float3(
-                           (float)peak.Colour.X, (float)peak.Colour.Y, (float)peak.Colour.Z)):F1} "
-                     + $"blooms), light {(Fireball.LightAccepted ? "on" : "STOOD DOWN")}, "
+                     + $"glow {peak.Glow:F0}, light {(Fireball.LightAccepted ? "on" : "STOOD DOWN")}, "
                      + $"smoke waits {MushroomCloud.FlashSeconds(kt):F1} s");
         }
         catch (Exception e)
