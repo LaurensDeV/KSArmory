@@ -57,6 +57,8 @@ internal sealed class StoreReach
     // any one frame and the whole answer is still refreshed every three ticks.
     private int _stage;
     private TailKitReach _building;
+    private object? _landingBody;
+    private double3 _landingAnchor;
     private double _along;
     private double _across;
 
@@ -97,6 +99,7 @@ internal sealed class StoreReach
 
         // The part-built answer goes with it, or the next store inherits this one's axes.
         _building = default;
+        _landingBody = null;
         _along = 0.0;
         _across = 0.0;
         _stage = 0;
@@ -143,6 +146,15 @@ internal sealed class StoreReach
         // Published together, and it has to be. The anchor is what the rings are drawn around and
         // the offsets are measured from the landing it came from, so writing one without the other
         // draws this solve's ring around the last solve's landing.
+        // How far the landing moved since the last solve, which is the whole of what a ring hopping
+        // about is made of.
+        if (Latest.Known && KsaWorld.TryGroundAnchorEcl(_body, _anchor, out double3 was, out _))
+        {
+            double moved = Vec.Len(reach.ImpactEcl - was);
+            Log.Debug(() => $"store reach: landing moved {moved:F1} m since the last solve, "
+                            + $"{Distance.Say(reach.RadiusMetres)} of reach, {reach.SecondsToGo:F0} s to go");
+        }
+
         Latest = reach;
         _body = body;
         _anchor = anchor;
@@ -211,6 +223,22 @@ internal sealed class StoreReach
 
         for (int i = 0; i < passes; i++)
         {
+            // The probes depart from the landing a tick or two old, and as an ecliptic point that is
+            // 12 km of the planet's travel per tick: the probes then measure that travel as reach and
+            // the rings are anchored where the ground was. Put back on this instant's ground first.
+            if (_stage != 0 && _building.SecondsToGo > 0.0)
+            {
+                if (!KsaWorld.TryGroundAnchorEcl(_landingBody, _landingAnchor, out double3 landing, out _))
+                {
+                    _building = default;
+                    _stage = 0;
+                }
+                else
+                {
+                    _building = _building with { ImpactEcl = landing };
+                }
+            }
+
             _building = TailKitReach.FlyStage(_stage, _building, at, overGround,
                                               KsaWorld.GroundVelocityAt(platform, at),
                                               KsaWorld.GroundAccelerationAt(platform, at),
@@ -221,6 +249,15 @@ internal sealed class StoreReach
                                               p => KsaWorld.MediumDensityRatioAt(platform, p),
                                               ground, IntegrationStep, path,
                                               ref _along, ref _across);
+
+            if (_stage == 0)
+            {
+                _landingBody = _building.SecondsToGo > 0.0
+                               && KsaWorld.TryAnchorToGround(_building.ImpactEcl, out object? body,
+                                                             out _landingAnchor)
+                                   ? body
+                                   : null;
+            }
 
             _stage = (_stage + 1) % 3;
         }

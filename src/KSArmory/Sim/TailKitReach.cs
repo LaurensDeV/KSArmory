@@ -106,7 +106,10 @@ internal readonly record struct TailKitReach(
     /// top of whatever the game's own frame costs.</para>
     /// </summary>
     /// <param name="stage">0 for the landing, 1 along the ground track, 2 across it.</param>
-    /// <param name="carried">What the previous stages found, which stages 1 and 2 depart from.</param>
+    /// <param name="carried">
+    /// What the previous stages found, which stages 1 and 2 depart from — its landing put back on
+    /// this instant's ground, since as an ecliptic point it is left behind by the planet's motion.
+    /// </param>
     public static TailKitReach FlyStage(int stage, TailKitReach carried,
                                         double3 roundPositionEcl, double3 velocityOverGround,
                                         double3 groundVelocityEcl, double3 groundAccelerationEcl,
