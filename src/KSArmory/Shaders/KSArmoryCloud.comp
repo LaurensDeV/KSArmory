@@ -659,7 +659,9 @@ float Density(vec3 leaned, vec3 up, float radius, out float fireMask, out float 
         float fromRing = length(vec2(p.x - ringR, p.y - capH)) / max(tubeR, 1.0);
         float ring = 1.0 - smoothstep(0.35, 0.80, fromRing);
         float hollow = smoothstep(0.0, HollowSeconds, age);
-        float pockets = smoothstep(0.50, 0.66, coarse);
+        // Sparse pockets while it is a ball, running together along the ring once it has hollowed:
+        // a doughnut of fire reads as a ring only if it is mostly lit round its circumference.
+        float pockets = smoothstep(mix(0.50, 0.40, hollow), mix(0.66, 0.56, hollow), coarse);
 
         fireMask = deep * mix(1.0, ring, hollow) * pockets;
     }
