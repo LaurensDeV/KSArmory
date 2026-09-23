@@ -303,7 +303,9 @@ internal sealed class Bridge
 
         // Lifted by the fireball, as the burst tool lifts it, so the ball is not drawn half-buried.
         double3 lifted = ground + (frame.Up * Math.Max(MushroomCloud.PeakFireballRadius(kt), 2.0));
-        Detonation.Explode(lifted, charge, craft);
+        // KSA's own explosion as well unless told not to, which is how a warhead goes off; without it
+        // the burst is this mod's drawing alone, which is what separates the two when one misdraws.
+        if (command.Flag("explode", true)) Detonation.Explode(lifted, charge, craft);
         NuclearClouds.Begin(ground, craft, charge);
 
         return Done(new()
@@ -539,6 +541,7 @@ internal sealed class Bridge
         double sinceSim = 0.0;
         int sinceFrames = 0;
         double waited = 0.0;
+        int warming = 0;
 
         // Paused with a spacing asked for, the world is run that far and stopped again before each
         // picture, so the ages are exactly the ones asked for however long a command takes to arrive.
@@ -574,14 +577,26 @@ internal sealed class Bridge
                            || (everySim > 0.0 ? sinceSim >= everySim : sinceFrames >= everyFrames);
                 if (!due) return null;
 
-                manifest = Manifest(label, index);
                 askedAt = DateTime.UtcNow.AddSeconds(-0.5);
-                if (!KsaWorld.TryRequestScreenshot()) return Failed("KSA would not take a screenshot");
 
+                // WITH THE UI HIDDEN FOR A MOMENT FIRST. The cloud's history is blended over frames,
+                // and under the game's windows it holds no cloud -- so a screenshot, which hides the
+                // UI for the one frame it takes, showed each window as a dark grainy rectangle on the
+                // cloud. KSA's own warm-up hides it for these frames first; the manifest is written on
+                // the frame the picture is actually taken, so it still describes that instant.
+                if (!KsaWorld.TryRequestScreenshot(flags: $"warm={WarmFrames}"))
+                {
+                    return Failed("KSA would not take a screenshot");
+                }
+
+                manifest = null;
+                warming = WarmFrames;
                 waiting = true;
                 waited = 0.0;
                 return null;
             }
+
+            if (manifest is null && --warming <= 0) manifest = Manifest(label, index);
 
             waited += dtPlayer;
             if (waited > 10.0) return Failed($"screenshot {index} never arrived");
@@ -607,7 +622,8 @@ internal sealed class Bridge
                 return null;
             }
 
-            manifest!["file"] = target;
+            manifest ??= Manifest(label, index);
+            manifest["file"] = target;
             File.WriteAllText(Path.Combine(folder, name + ".json"), JsonSerializer.Serialize(manifest, JsonOptions));
             taken.Add(manifest);
 
@@ -622,7 +638,11 @@ internal sealed class Bridge
         return null;
     }
 
-    // What a picture was of, recorded when it was asked for.
+    // How many frames the UI is hidden for before a capture: the history keeps about an eighth of
+    // each frame, so after these under a twentieth of what the windows left is still in it.
+    private const int WarmFrames = 24;
+
+    // What a picture was of, recorded on the frame it was taken.
     private Dictionary<string, object?> Manifest(string label, int index)
     {
         Dictionary<string, object?> m = new()
