@@ -55,7 +55,6 @@ public static class ShaderTunables
         new("DustSeconds", 25, 14.0),
         new("CondensationDensity", 26, 0.35),
         new("CapWhiteness", 27, 0.55),
-        new("SmokeDensity", 28, 1.5),
         new("CapShadowDensity", 29, 0.5),
         new("VioletNits", 30, 4.0),
         new("DeckGlow", 31, 0.35),

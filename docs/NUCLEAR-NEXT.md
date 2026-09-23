@@ -49,7 +49,7 @@ largest gap.
 | The ball hollows into a glowing ring as its underside is drawn up, a doughnut of fire turning over | **Built.** The glow moves from the core onto the ring over four seconds, running together round it as it does, and rolls with it; seen from low and close it reads as a torus edge-on by 4.4 s, bright at both limbs with a darker middle. From underneath is not judged: the bridge's camera cannot get under the cap without being inside the dust |
 | Violent churning at every scale, rising at hundreds of metres a second at first | **Built.** The roll and the boil start six times the steady rate and settle over about six seconds |
 | A crater, and dark jets of thrown dirt | Neither; a crater is blocked on the engine (item 12) |
-| Smoke from what the flash set burning | **Built**: nine thin dark plumes scattered on a hash between 1.8 and 6 stem radii, kindling from 4 to 20 s, bending downwind as they climb and standing as long as the cloud. 280 m tall whatever the yield, since a burning bush makes the same plume whatever lit it; scaled with the burst, 20 kt stood in a ring of kilometre-tall pillars. They read up close and are faint from the watching pose |
+| Smoke from what the flash set burning | **Built and taken out on 2026-09-23, on request.** Nine plumes scattered round the burst read from the ground as a ring of evenly spaced smokestacks with nothing burning at their feet, and not as part of the burst. The burn mark stays |
 
 **The first minute.**
 
