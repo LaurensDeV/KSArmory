@@ -16,6 +16,21 @@ internal static class BlastShove
     // A cylinder side-on in cross-flow, which is what most of a craft is to a wind along the ground.
     public const double DragCoefficient = 1.2;
 
+    /// <summary>
+    /// What a push computed as though the body stayed put comes to once the body moves with the wind:
+    /// under a drag that falls as the square of the speed still between them, a body of naive speed
+    /// change <c>x·limit</c> reaches <c>limit·x/(1+x)</c>, so a small push is unchanged and none
+    /// ever passes <paramref name="limit"/>, the wind's own speed.
+    /// </summary>
+    public static double Saturate(double naive, double limit)
+    {
+        if (!(naive > 0.0)) return 0.0;
+        if (!(limit > 0.0)) return naive;
+
+        double x = naive / limit;
+        return limit * x / (1.0 + x);
+    }
+
     /// <summary>The face a box presents along <paramref name="direction"/>, in square metres.</summary>
     public static double ProjectedArea(double3 halfExtents, double3 direction)
     {

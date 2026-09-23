@@ -13,11 +13,14 @@ namespace KSArmory;
 /// as a blast. On the simulated step, like the bang, so it waits through a pause and hurries under
 /// timewarp.</para>
 ///
-/// <para>The burst is held in the craft's own assembly frame, which is where the engine keeps its
-/// dents and where a craft standing still stays still; a bare ecliptic point is left behind by the
-/// planet long before a front arrives.</para>
+/// <para><b>The front is followed, not timed.</b> The burst is anchored to the ground it went off
+/// on, and each step every part still waiting is measured against the front as it is now: struck
+/// when <see cref="MushroomCloud.ShockRadius"/> reaches it, and pushed along the line from the burst
+/// to where it is then. A craft in flight moves and turns between the flash and the hit, and one
+/// climbing faster than the front is never caught; an arrival time and a direction fixed at the
+/// flash get both wrong.</para>
 ///
-/// <para><b>Fronts reaching one part together dent it together.</b> Each throws its own dust and
+/// <para><b>Fronts reaching one part together load it together.</b> Each throws its own dust and
 /// pushes on its own as it arrives, because both of those simply add. A dent does not: two loads
 /// each short of the engine's threshold leave nothing asked about one at a time. So a front that
 /// arrives while another is still due at the same part inside this one's positive phase hands its
@@ -31,23 +34,32 @@ internal static class BlastArrivals
     {
         public required Vehicle Craft;
         public required Part Part;
-        public required double3 BurstAsmb;
-        public required double PressureRatio;
+        public required object? Body;
+        public required double3 Anchor;
         public required double AirRatio;
         public required double ChargeKg;
-        public required double RealPascals;
-        public required double BreakingPascals;
-        public required double PhaseSeconds;
-        public required double3 PushAsmb;
+        public required double TolerancePascals;
         public required bool MayBreak;
+
+        // Seconds since the burst, and the front's arrival at this part as things stand now.
+        public double Age;
         public double Due;
 
-        // Its load has gone on to another front at the same part, which dents for both.
+        // Its load has gone on to another front at the same part, which loads it for both.
         public bool DentHandedOn;
 
         // What earlier fronts at this part handed on, each with when it arrived on _clock.
         public List<(FrontLoad Front, double ArrivedAt)>? Carried;
+
+        // Where the burst is in the craft's frame, and how far the front has to go to the part's
+        // skin, as measured this step.
+        public double3 BurstAsmb;
+        public double Gap;
     }
+
+    // The least distance a front is taken to have left to go, so a part at the burst is still one
+    // the front reaches rather than one it is already past.
+    private const double LeastGapMetres = 0.5;
 
     private static readonly List<Load> _pending = [];
     private static readonly List<Load> _due = [];
@@ -64,8 +76,8 @@ internal static class BlastArrivals
         new(ReferenceEqualityComparer.Instance);
 
     // The wind's push on each craft this step, summed over the parts the front reached, about the
-    // craft's centre of mass and in its assembly frame.
-    private static readonly Dictionary<Vehicle, (double3 Linear, double3 Angular)> _pushed =
+    // craft's centre of mass and in its assembly frame, with the fastest wind that did it.
+    private static readonly Dictionary<Vehicle, (double3 Linear, double3 Angular, double Wind, double3 AwayEcl)> _pushed =
         new(ReferenceEqualityComparer.Instance);
 
     /// <summary>Forgets every front still on its way, for a scene that no longer contains them.</summary>
@@ -75,37 +87,32 @@ internal static class BlastArrivals
     public static int Pending => _pending.Count;
 
     /// <summary>
-    /// Holds one part's load until the front arrives, <paramref name="dueSeconds"/> of simulated
-    /// time from now, <paramref name="gapMetres"/> from the burst. <paramref name="airRatio"/> is the
-    /// air at the burst against sea level, zero where there is none to throw dust into or to blow.
+    /// Waits for the front of a burst at <paramref name="burstEcl"/>, <paramref name="sinceBurst"/>
+    /// seconds ago, to reach one part. <paramref name="airRatio"/> is the air at the burst against
+    /// sea level, zero where there is none, which strikes at once: with no air there is no front.
     /// <paramref name="mayBreak"/> is false for a craft the burst only dents, which fronts together
     /// cannot break either.
     /// </summary>
-    public static void Queue(Vehicle craft, Part part, double3 burstAsmb, double pressureRatio,
-                             double dueSeconds, double airRatio, double chargeKg, double gapMetres,
-                             double crashTolerancePascals, bool mayBreak)
+    public static void Queue(Vehicle craft, Part part, double3 burstEcl, double sinceBurst, double airRatio,
+                             double chargeKg, double crashTolerancePascals, bool mayBreak)
     {
-        (double real, double breaking) = BlastDamage.RealLoad(chargeKg, crashTolerancePascals, gapMetres);
-        if (!KsaWorld.TryBlastFace(part, burstAsmb, out _, out double3 push, out _, out _, out _)) return;
+        if (!KsaWorld.TryAnchorToGround(burstEcl, out object? body, out double3 anchor)) return;
 
         _pending.Add(new Load
         {
             Craft = craft,
             Part = part,
-            BurstAsmb = burstAsmb,
-            PressureRatio = pressureRatio,
+            Body = body,
+            Anchor = anchor,
             AirRatio = airRatio,
             ChargeKg = chargeKg,
-            RealPascals = real,
-            BreakingPascals = breaking,
-            PhaseSeconds = BlastWave.PositivePhaseSeconds(chargeKg, gapMetres),
-            PushAsmb = push,
+            TolerancePascals = crashTolerancePascals,
             MayBreak = mayBreak,
-            Due = Math.Max(dueSeconds, 0.0),
+            Age = Math.Max(sinceBurst, 0.0),
         });
     }
 
-    /// <summary>Counts the fronts down and strikes what they have reached.</summary>
+    /// <summary>Follows the fronts and strikes what they have reached.</summary>
     public static void Update(double dt)
     {
         if (!double.IsFinite(dt) || dt < 0.0) return;
@@ -121,14 +128,21 @@ internal static class BlastArrivals
         for (int i = _pending.Count - 1; i >= 0; i--)
         {
             Load load = _pending[i];
-            load.Due -= dt;
+            load.Age += dt;
+
+            if (!Measure(load))
+            {
+                _pending.RemoveAt(i);
+                continue;
+            }
+
             if (load.Due > 0.0) continue;
 
             _pending.RemoveAt(i);
             _due.Add(load);
         }
 
-        // Several fronts at one part in the same step dent it once, through whichever is strongest.
+        // Several fronts at one part in the same step load it once, through whichever is hardest.
         for (int i = 0; i < _due.Count; i++)
         {
             Load load = _due[i];
@@ -139,7 +153,7 @@ internal static class BlastArrivals
                 Load other = _due[j];
                 if (other.DentHandedOn || !ReferenceEquals(other.Part, load.Part)) continue;
 
-                Load keep = other.PressureRatio > load.PressureRatio ? other : load;
+                Load keep = RealPascals(other) > RealPascals(load) ? other : load;
                 Load give = ReferenceEquals(keep, other) ? load : other;
                 HandOn(give, keep);
                 if (ReferenceEquals(give, load)) break;
@@ -158,10 +172,55 @@ internal static class BlastArrivals
                      + $"the engine took {dented} as dents{with}{broke}");
         }
 
-        foreach ((Vehicle craft, (double3 linear, double3 angular)) in _pushed)
+        foreach ((Vehicle craft, (double3 linear, double3 angular, double wind, double3 away)) in _pushed)
         {
-            AttitudeHook.Shove(craft, linear, angular);
+            AttitudeHook.Shove(craft, linear, angular, wind, away);
         }
+    }
+
+    // Where the burst and the part are now, how far the front has to go, and so when it arrives.
+    // False drops the load: the craft, the part or the ground it was anchored to is gone.
+    private static bool Measure(Load load)
+    {
+        if (!KsaWorld.IsAlive(load.Craft)) return false;
+
+        // A part the burst broke off, or a decoupler took away, is on another craft by now.
+        if (!ReferenceEquals(load.Part.Tree, load.Craft.Parts)) return false;
+
+        if (!KsaWorld.TryGroundAnchorEcl(load.Body, load.Anchor, out double3 burstEcl, out _)) return false;
+        if (!KsaWorld.TryPartBox(load.Part, out double3 centreAsmb, out double3 half)) return false;
+
+        double3 centreEcl = KsaWorld.VehicleAsmbToEcl(load.Craft, centreAsmb);
+        load.Gap = Math.Max(Vec.Len(centreEcl - burstEcl) - Vec.Len(half), LeastGapMetres);
+        load.BurstAsmb = KsaWorld.EclToVehicleAsmb(load.Craft, burstEcl);
+
+        if (!(load.AirRatio > 0.0))
+        {
+            load.Due = 0.0;
+            return true;
+        }
+
+        double kt = MushroomCloud.KilotonsFor(load.ChargeKg);
+        load.Due = MushroomCloud.ShockRadius(kt, load.Age) >= load.Gap
+            ? 0.0
+            : Math.Max(MushroomCloud.ShockArrivalSeconds(kt, load.Gap) - load.Age, 1.0e-6);
+
+        return true;
+    }
+
+    private static double RealPascals(Load load) => BlastWave.PeakOverpressurePascals(load.ChargeKg, load.Gap);
+
+    private static FrontLoad Front(Load load, double sinceArrival)
+    {
+        double ratio = BlastDamage.DentRatio(load.ChargeKg, load.TolerancePascals, load.Gap);
+        (double real, double breaking) = BlastDamage.RealLoad(load.ChargeKg, load.TolerancePascals, load.Gap);
+
+        double3 push = KsaWorld.TryPartBox(load.Part, out double3 centre, out _)
+            ? Vec.Unit(centre - load.BurstAsmb)
+            : Vec.Unit(Vec.Zero - load.BurstAsmb);
+
+        return new FrontLoad(ratio, real, breaking, push, sinceArrival,
+                             BlastWave.PositivePhaseSeconds(load.ChargeKg, load.Gap));
     }
 
     // Moves a load, arriving now, and everything it was already carrying, onto another front's.
@@ -173,10 +232,19 @@ internal static class BlastArrivals
         if (from.Carried is not null) to.Carried.AddRange(from.Carried);
     }
 
-    private static FrontLoad Front(Load load, double sinceArrival)
+    // The next front still due at this part inside this one's positive phase, if there is one.
+    private static Load? StillToCome(Load load)
     {
-        return new FrontLoad(load.PressureRatio, load.RealPascals, load.BreakingPascals, load.PushAsmb,
-                             sinceArrival, load.PhaseSeconds);
+        double phase = BlastWave.PositivePhaseSeconds(load.ChargeKg, load.Gap);
+
+        Load? next = null;
+        foreach (Load other in _pending)
+        {
+            if (!ReferenceEquals(other.Part, load.Part) || other.Due > phase) continue;
+            if (next is null || other.Due < next.Due) next = other;
+        }
+
+        return next;
     }
 
     // Everything fronts broke between them this step: one join of the engine's workers for the lot,
@@ -200,35 +268,19 @@ internal static class BlastArrivals
         }
     }
 
-    // The next front still due at this part inside this one's positive phase, if there is one.
-    private static Load? StillToCome(Load load)
-    {
-        Load? next = null;
-        foreach (Load other in _pending)
-        {
-            if (!ReferenceEquals(other.Part, load.Part) || other.Due > load.PhaseSeconds) continue;
-            if (next is null || other.Due < next.Due) next = other;
-        }
-
-        return next;
-    }
-
     private static void Strike(Load load)
     {
         try
         {
-            if (!KsaWorld.IsAlive(load.Craft)) return;
-
-            // A part the burst broke off, or a decoupler took away, is on another craft by now.
-            if (!ReferenceEquals(load.Part.Tree, load.Craft.Parts)) return;
-
             if (!KsaWorld.TryBlastFace(load.Part, load.BurstAsmb, out double3 face, out double3 push,
                                        out double across, out double3 centre, out double facing)) return;
 
+            FrontLoad own = Front(load, 0.0);
+
             if (load.AirRatio > 0.0)
             {
-                BlastPuff.Throw(load.Craft, face, push, across, load.PressureRatio);
-                Push(load, face, push, centre, facing);
+                BlastPuff.Throw(load.Craft, face, push, across, own.Ratio);
+                Push(load, push, centre, facing);
             }
 
             _told.TryGetValue(load.Craft, out (int Struck, int Dented, int Together, int Broken) so);
@@ -244,7 +296,7 @@ internal static class BlastArrivals
             }
 
             _together.Clear();
-            _together.Add(Front(load, 0.0));
+            _together.Add(own);
             if (load.Carried is not null)
             {
                 foreach ((FrontLoad front, double arrivedAt) in load.Carried)
@@ -265,7 +317,7 @@ internal static class BlastArrivals
                 return;
             }
 
-            bool dented = KsaWorld.ReportBlastDent(load.Part, face, push, across, ratio);
+            bool dented = ratio > 0.0 && KsaWorld.ReportBlastDent(load.Part, face, push, across, ratio);
 
             _told[load.Craft] = (so.Struck + 1, so.Dented + (dented ? 1 : 0), so.Together + together, so.Broken);
         }
@@ -275,16 +327,19 @@ internal static class BlastArrivals
         }
     }
 
-    private static void Push(Load load, double3 faceAsmb, double3 pushAsmb, double3 centreAsmb, double facingM2)
+    private static void Push(Load load, double3 pushAsmb, double3 centreAsmb, double facingM2)
     {
         if (!KsaWorld.TryCentreOfMassAsmb(load.Craft, out double3 com)) return;
 
-        double wind = BlastWave.WindImpulse(load.ChargeKg, Vec.Len(faceAsmb - load.BurstAsmb),
-                                            BlastWave.SeaLevelPascals * load.AirRatio);
+        double ambient = BlastWave.SeaLevelPascals * load.AirRatio;
+        double wind = BlastWave.WindImpulse(load.ChargeKg, load.Gap, ambient);
+        double speed = BlastWave.WindSpeed(BlastWave.PeakOverpressurePascals(load.ChargeKg, load.Gap, ambient), ambient);
         (double3 linear, double3 angular) = BlastShove.OnPart(centreAsmb, pushAsmb, facingM2, wind, com);
 
-        _pushed.TryGetValue(load.Craft, out (double3 Linear, double3 Angular) so);
-        _pushed[load.Craft] = (so.Linear + linear, so.Angular + angular);
+        double3 away = KsaWorld.VehicleAsmbDirectionToEcl(load.Craft, com - load.BurstAsmb);
+
+        _pushed.TryGetValue(load.Craft, out (double3 Linear, double3 Angular, double Wind, double3 AwayEcl) so);
+        _pushed[load.Craft] = (so.Linear + linear, so.Angular + angular, Math.Max(so.Wind, speed), away);
 
         // A craft the burst may not break may not be broken by the ground it is knocked onto either.
         if (!load.MayBreak) CrashGuard.Hold(load.Craft);

@@ -75,7 +75,12 @@ internal static class AttitudeHook
     // Craft owed a blast's push, as an impulse and an angular impulse about the centre of mass in
     // the craft's assembly frame. Written here for the reason attitude is: a velocity written from
     // any other hook is overwritten by the worker's results before anything reads it.
-    private static readonly Dictionary<Vehicle, (double3 Linear, double3 Angular)> Shoves = [];
+    private static readonly Dictionary<Vehicle, (double3 Linear, double3 Angular, double Wind, double3 AwayEcl)> Shoves = [];
+
+    // Shoves written, read back two steps later, once the worker that integrated them has had its
+    // results applied: what the craft's velocity did against what was written, because a frame
+    // wrong in the conversion shows as a craft thrown the wrong way.
+    private static readonly List<(Vehicle Craft, double3 Before, double3 WrittenEcl, double3 AwayEcl, int Steps)> Probes = [];
 
     private static Harmony? _harmony;
     private static bool _complained;
@@ -223,16 +228,48 @@ internal static class AttitudeHook
     /// <summary>
     /// Push this craft when its worker is next prepared: <paramref name="impulseAsmb"/> in newton
     /// seconds and <paramref name="angularImpulseAsmb"/> about its centre of mass, both in its own
-    /// assembly frame. Dropped when the hook is not installed, because written anywhere else it is
-    /// overwritten before the physics reads it.
+    /// assembly frame, by a wind of <paramref name="windSpeed"/> it cannot be thrown faster than.
+    /// Dropped when the hook is not installed, because written anywhere else it is overwritten before
+    /// the physics reads it.
     /// </summary>
-    public static void Shove(Vehicle craft, double3 impulseAsmb, double3 angularImpulseAsmb)
+    public static void Shove(Vehicle craft, double3 impulseAsmb, double3 angularImpulseAsmb, double windSpeed,
+                             double3 awayFromBurstEcl)
     {
         if (!Installed || !KsaWorld.IsAlive(craft)) return;
         if (!Vec.IsFinite(impulseAsmb) || !Vec.IsFinite(angularImpulseAsmb)) return;
 
-        Shoves.TryGetValue(craft, out (double3 Linear, double3 Angular) owed);
-        Shoves[craft] = (owed.Linear + impulseAsmb, owed.Angular + angularImpulseAsmb);
+        Shoves.TryGetValue(craft, out (double3 Linear, double3 Angular, double Wind, double3 AwayEcl) owed);
+        Shoves[craft] = (owed.Linear + impulseAsmb, owed.Angular + angularImpulseAsmb, Math.Max(owed.Wind, windSpeed),
+                         awayFromBurstEcl);
+    }
+
+    /// <summary>
+    /// Reads back the shoves written two steps ago: how the craft's velocity changed against what
+    /// was written. Gravity over those steps is in the change too, a fraction of a metre a second.
+    /// </summary>
+    public static void CheckShoves()
+    {
+        for (int i = Probes.Count - 1; i >= 0; i--)
+        {
+            (Vehicle craft, double3 before, double3 written, double3 away, int steps) = Probes[i];
+            if (steps < 2)
+            {
+                Probes[i] = (craft, before, written, away, steps + 1);
+                continue;
+            }
+
+            Probes.RemoveAt(i);
+            if (!KsaWorld.IsAlive(craft)) continue;
+
+            double3 change = KsaWorld.VelocityEcl(craft) - before;
+            double3 up = KsaWorld.LocalUp(craft);
+            const double deg = 180.0 / Math.PI;
+            Log.Info($"shove read back on {KsaWorld.DisplayName(craft)}: velocity changed by {Vec.Len(change):F2} m/s, "
+                     + $"{Vec.AngleBetween(change, written) * deg:F1} deg from the {Vec.Len(written):F2} m/s written, "
+                     + $"{Vec.AngleBetween(change, away) * deg:F1} deg from straight away from the burst, "
+                     + $"{90.0 - (Vec.AngleBetween(change, up) * deg):F1} deg above the horizon "
+                     + $"(the burst's line {90.0 - (Vec.AngleBetween(away, up) * deg):F1})");
+        }
     }
 
     /// <summary>Stop pointing it, and stop quieting it. The vehicle is the player's again.</summary>
@@ -257,13 +294,16 @@ internal static class AttitudeHook
         {
             if (Staging.Count > 0 && Staging.Remove(__instance)) VehicleCommand.Stage(__instance);
 
-            if (Shoves.Count > 0 && Shoves.Remove(__instance, out (double3 Linear, double3 Angular) shove))
+            if (Shoves.Count > 0 && Shoves.Remove(__instance, out (double3 Linear, double3 Angular, double Wind, double3 AwayEcl) shove))
             {
-                if (VehicleCommand.TryShove(__instance, shove.Linear, shove.Angular,
+                double3 before = KsaWorld.VelocityEcl(__instance);
+                if (VehicleCommand.TryShove(__instance, shove.Linear, shove.Angular, shove.Wind,
                                             out double3 dv, out double3 dw))
                 {
+                    Probes.Add((__instance, before, KsaWorld.VehicleAsmbDirectionToEcl(__instance, dv), shove.AwayEcl, 0));
                     Log.Info($"the blast wind pushed {KsaWorld.DisplayName(__instance)} by "
-                             + $"{Vec.Len(dv):F2} m/s and set it turning at {Vec.Len(dw) * 180.0 / Math.PI:F2} deg/s");
+                             + $"{Vec.Len(dv):F2} m/s and set it turning at {Vec.Len(dw) * 180.0 / Math.PI:F2} deg/s, "
+                             + $"in a {shove.Wind:F0} m/s wind");
                 }
             }
 

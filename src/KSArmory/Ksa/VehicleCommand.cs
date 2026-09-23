@@ -151,9 +151,12 @@ internal static class VehicleCommand
     /// it keeps, off rails so the change is integrated rather than overwritten by the conic, with
     /// the orbit rebuilt from the new state. A craft on rails is brought up to date from its conic
     /// first, as Split does, and one with no physics bubble is too far off to be integrated at all.
-    /// Only from <see cref="AttitudeHook"/>'s window.
+    /// Neither the speed nor the spin at the craft's rim passes <paramref name="windSpeed"/>
+    /// (<see cref="BlastShove.Saturate"/>), and the spin is cut by the share the push is, because
+    /// both are the same wind falling off as the craft is carried with it. Only from
+    /// <see cref="AttitudeHook"/>'s window.
     /// </summary>
-    public static bool TryShove(Vehicle craft, double3 impulseAsmb, double3 angularImpulseAsmb,
+    public static bool TryShove(Vehicle craft, double3 impulseAsmb, double3 angularImpulseAsmb, double windSpeed,
                                 out double3 velocityChangeAsmb, out double3 spinChangeAsmb)
     {
         velocityChangeAsmb = default;
@@ -171,6 +174,19 @@ internal static class VehicleCommand
                          (inverse.ZX * l.X) + (inverse.ZY * l.Y) + (inverse.ZZ * l.Z));
         double3 dv = impulseAsmb / mass;
         if (!Vec.IsFinite(dv)) return false;
+        if (!Vec.IsFinite(dw)) dw = Vec.Zero;
+
+        // The wind a craft feels falls as it is carried along, for the turn as much as for the push,
+        // so both are cut by the same share; and no rim outruns the wind.
+        double naive = Vec.Len(dv);
+        double carried = BlastShove.Saturate(naive, windSpeed);
+        double share = naive > 0.0 ? carried / naive : 1.0;
+        dv *= share;
+        dw *= share;
+
+        double rim = KsaWorld.MeanRadius(craft);
+        if (rim > 0.0) dw = Vec.Unit(dw) * BlastShove.Saturate(Vec.Len(dw), windSpeed / rim);
+        if (!Vec.IsFinite(dv)) dv = Vec.Zero;
         if (!Vec.IsFinite(dw)) dw = Vec.Zero;
 
         PhysicsStates states = craft.GetPhysicsStatesMutable();

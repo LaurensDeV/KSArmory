@@ -18,6 +18,9 @@ internal static class BlastWave
 {
     public const double SeaLevelPascals = 101_325.0;
 
+    // Sound in sea-level air, which the speed of the air behind a front is a multiple of.
+    public const double SoundMetresPerSecond = 340.0;
+
     private const double SurfaceReflection = 2.0;
 
     // The wind behind a front decays as (1 - t/T)² e^(-t/T) over the positive phase, whose integral
@@ -66,6 +69,19 @@ internal static class BlastWave
         if (!(overpressurePascals > 0.0) || !(ambientPascals > 0.0)) return 0.0;
 
         return 2.5 * overpressurePascals * overpressurePascals / ((7.0 * ambientPascals) + overpressurePascals);
+    }
+
+    /// <summary>
+    /// How fast the air behind a front of <paramref name="overpressurePascals"/> is moving
+    /// (Rankine–Hugoniot for air): the fastest the wind can carry anything, since a body it has
+    /// brought up to its own speed feels no more of it.
+    /// </summary>
+    public static double WindSpeed(double overpressurePascals, double ambientPascals = SeaLevelPascals)
+    {
+        if (!(overpressurePascals > 0.0) || !(ambientPascals > 0.0)) return 0.0;
+
+        double ratio = overpressurePascals / ambientPascals;
+        return SoundMetresPerSecond * (5.0 / 7.0) * ratio / Math.Sqrt(1.0 + (6.0 / 7.0 * ratio));
     }
 
     /// <summary>

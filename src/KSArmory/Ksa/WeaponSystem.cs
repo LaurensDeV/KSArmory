@@ -3771,22 +3771,21 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         double airRatio = KsaWorld.AirDensityRatioAt(v, burst);
         bool air = airRatio > Medium.NoticeableDensity;
         double kt = MushroomCloud.KilotonsFor(munition.ChargeKg);
-        double3 burstAsmb = KsaWorld.EclToVehicleAsmb(v, burst);
 
         double first = double.MaxValue;
         double last = 0.0;
         foreach ((int index, double ratio, double gap) in _dentLoads)
         {
             double due = air ? MushroomCloud.ShockArrivalSeconds(kt, gap) - elapsed : 0.0;
-            BlastArrivals.Queue(v, _partHandles[index], burstAsmb, ratio, due, air ? airRatio : 0.0,
-                                munition.ChargeKg, gap, _partScratch[index].CrashTolerancePascals, mayBreak);
+            BlastArrivals.Queue(v, _partHandles[index], burst, elapsed, air ? airRatio : 0.0,
+                                munition.ChargeKg, _partScratch[index].CrashTolerancePascals, mayBreak);
 
             first = Math.Min(first, due);
             last = Math.Max(last, due);
         }
 
         Log.Info($"blast loads {_dentLoads.Count} part(s) of {KsaWorld.DisplayName(v)} short of breaking; "
-                 + $"the front arrives in {Math.Max(first, 0.0):F2}-{Math.Max(last, 0.0):F2} s");
+                 + $"the front would arrive in {Math.Max(first, 0.0):F2}-{Math.Max(last, 0.0):F2} s were it to stay put");
     }
 
     // Applies one burst to one craft: breaks the parts near enough to break, or destroys the

@@ -131,4 +131,26 @@ public class BlastWaveTests
         Assert.Equal(0.0, BlastWave.Remaining(0.3, 0.3));
         Assert.Equal(0.0, BlastWave.Remaining(2.0, 0.3));
     }
+
+    /// <summary>
+    /// The air behind a front moves slowly behind a weak one and faster than sound behind a strong
+    /// one: about 70 m/s behind 5 psi, and 640 m/s behind the 700 kPa a 340 kt burst puts 1 km out.
+    /// </summary>
+    [Fact]
+    public void TheWindBehindAFrontHasGlasstonesSpeeds()
+    {
+        Assert.InRange(BlastWave.WindSpeed(34_474.0), 65.0, 80.0);
+        Assert.InRange(BlastWave.WindSpeed(706_000.0), 600.0, 680.0);
+        Assert.Equal(0.0, BlastWave.WindSpeed(0.0));
+    }
+
+    /// <summary>A small push is what it was; a huge one approaches the wind's speed and never passes it.</summary>
+    [Fact]
+    public void APushNeverOutrunsTheWind()
+    {
+        Assert.Equal(0.1, BlastShove.Saturate(0.1, 640.0), 3);
+        Assert.InRange(BlastShove.Saturate(5517.0, 2570.0), 1500.0, 2570.0);
+        Assert.True(BlastShove.Saturate(1.0e9, 640.0) < 640.0);
+        Assert.Equal(0.5 * 640.0, BlastShove.Saturate(640.0, 640.0), 9);
+    }
 }

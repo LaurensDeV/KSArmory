@@ -472,7 +472,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/Fireball.cs` | the light a nuclear fireball casts -- **the light alone**, because the ball is the cloud pass's fire, and a mesh sphere in the raymarched cloud read as a dark ball that drifted off centre when the camera panned |
 | `Ksa/PlumeSmoke.cs` | smoke through the renderer KSA draws booster plumes with, one reflected field away — **the motor trail's now; the nuclear cloud left it for a raymarch** |
 | `Ksa/MotorSmoke.cs` | the trail a burning round leaves, through that same renderer — one cursor per round |
-| `Ksa/BlastArrivals.cs` | what a burst loads, **held until the front gets there** — the dent and the dust land as the shock passes the part, on the simulated clock like the bang, and in the craft's own assembly frame so the planet cannot leave the burst behind. **Fronts reaching one part inside each other's positive phase load it once, together** — what is left of each, the most head-on pair meeting as at a wall (`BlastDamage.Combine`) — and past what breaks it the part breaks |
+| `Ksa/BlastArrivals.cs` | what a burst loads, **held until the front gets there** — the dent, the dust and the push land as the shock passes the part, on the simulated clock like the bang — **followed live**, the burst anchored to the ground and each part struck when `ShockRadius` reaches where it is now, so a craft in flight is hit where and when it actually meets the front, and one climbing faster than it is never caught. **Fronts reaching one part inside each other's positive phase load it once, together** — what is left of each, the most head-on pair meeting as at a wall (`BlastDamage.Combine`) — and past what breaks it the part breaks |
 | `Ksa/CrashGuard.cs` | the engine's own crash damage held off a craft a burst may only dent, **while it settles from the shove** — the crash is found on the worker and applied next frame, so the workers are joined and it is taken back in between |
 | `Ksa/BlastShake.cs` | the front passing the **camera**, watched against the live front rather than timed from the flash — the model; `CloudPass` moves the picture |
 | `Ksa/BlastPuff.cs` | the dust a front throws off the face it strikes — **a sprite the colour of dirt**, because KSA's billboard is unlit and ignores the particle colour |
@@ -2105,11 +2105,17 @@ the load follows the real blast wave rather than the cube law** (`BlastDamage.De
 from half a part's tolerance, the cube law reaches that 1.26x the failure radius out, and skin yields
 at about a fifth of what tears it, which the real fall-off puts 2.6–3.4x out — so a part of the
 reference strength dents all the way to the blast radius. **It lands when the front
-does, not at the flash**: `Ksa/BlastArrivals.cs` holds each load for `MushroomCloud.ShockArrivalSeconds`
-on the simulated clock, so 0.3 kt at 800 m dents 2.06 s after the burst, and in air the struck face
+does, not at the flash**: `Ksa/BlastArrivals.cs` follows each front on the simulated clock against where
+the part is that step — never an arrival time and a direction fixed at the flash, which a craft in
+flight turns and flies away from — so 0.3 kt at 800 m dents 2.06 s after the burst, and in air the struck face
 throws a puff of dust along the blast (`Ksa/BlastPuff.cs`) and the wind behind the front pushes the
 craft (`Sim/BlastShove.cs`), written from `AttitudeHook`'s window the way `Vehicle.Split` pushes two
-halves apart: into the physics state, off rails, orbit rebuilt. **Several fronts at one part load it
+halves apart: into the physics state, off rails, orbit rebuilt. **Never faster than the wind**: the
+push is worked out as though the craft stood still, which from inside a 340 kt fireball is 5.5 km/s,
+so it is brought under the speed of the air behind the front (`BlastWave.WindSpeed`,
+`BlastShove.Saturate`) and the spin cut by the same share, because the same falling relative wind
+drives both. `AttitudeHook` reads every shove back two steps later: 0.0–0.3° from straight away from
+the burst, beside the craft and below it. **Several fronts at one part load it
 together**: a front another will follow inside its positive phase hands its load on, and the part is
 loaded at the last with what is left of each (Friedlander's decay) and the most head-on pair meeting
 as at a wall rather than adding — a reflection counted once, off the weaker of the pair, because

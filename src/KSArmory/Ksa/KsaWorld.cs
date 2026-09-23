@@ -2471,6 +2471,28 @@ internal static class KsaWorld
 
     // ---- Part damage ----------------------------------------------------
 
+    /// <summary>A part's box in its craft's assembly frame: the centre, and half its size along each axis.</summary>
+    public static bool TryPartBox(Part part, out double3 centreAsmb, out double3 halfExtents)
+    {
+        centreAsmb = default;
+        halfExtents = default;
+
+        try
+        {
+            (double3 min, double3 max) = part.BoundingBoxVehicleAsmb;
+            centreAsmb = (min + max) * 0.5;
+            halfExtents = (max - min) * 0.5;
+            return Vec.IsFinite(centreAsmb) && Vec.IsFinite(halfExtents);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>A direction in a craft's assembly frame, turned into the ecliptic.</summary>
+    public static double3 VehicleAsmbDirectionToEcl(Vehicle v, double3 directionAsmb) => v.Asmb2Ego * directionAsmb;
+
     /// <summary>Where a craft's mass is centred, in its own assembly frame.</summary>
     public static bool TryCentreOfMassAsmb(Vehicle v, out double3 centreAsmb)
     {
