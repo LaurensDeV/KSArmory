@@ -685,7 +685,12 @@ float Density(vec3 leaned, vec3 up, float radius, out float fireMask, out float 
     {
         float deep = smoothstep(0.45, 0.90, capDensity);
         float fromRing = length(vec2(p.x - ringR, p.y - capH)) / max(tubeR, 1.0);
-        float ring = 1.0 - smoothstep(0.35, 0.80, fromRing);
+        // A band round the ring's core, and none on the axis: the underside is drawn up through the
+        // middle as cooler air, which is what opens the dark centre of the doughnut. Early the cap's
+        // ring is no wider than its own tube, so a band as wide as the tube covered the middle too
+        // and from below the fire read as a disc.
+        float ring = (1.0 - smoothstep(0.25, 0.60, fromRing))
+                     * smoothstep(0.35, 0.75, p.x / max(ringR, 1.0));
         float hollow = smoothstep(0.0, HollowSeconds, age);
         // Sparse pockets while it is a ball, running together along the ring once it has hollowed:
         // a doughnut of fire reads as a ring only if it is mostly lit round its circumference.
