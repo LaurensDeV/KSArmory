@@ -328,6 +328,34 @@ public static class MushroomCloud
     /// </summary>
     public static double ShockRadius(double yieldKt, double age)
     {
+        return ShockRadiusAt(yieldKt, age);
+    }
+
+    /// <summary>
+    /// When the blast front reaches <paramref name="distanceMetres"/> from the burst: the inverse of
+    /// <see cref="ShockRadius"/>, which only ever grows. Bisected rather than solved, because the
+    /// law is Sedov and then an eased sonic run with no closed inverse across the join.
+    /// </summary>
+    public static double ShockArrivalSeconds(double yieldKt, double distanceMetres)
+    {
+        if (yieldKt <= 0.0 || !(distanceMetres > 0.0)) return 0.0;
+
+        double late = 1.0;
+        while (ShockRadiusAt(yieldKt, late) < distanceMetres && late < 3600.0) late *= 2.0;
+
+        double early = 0.0;
+        for (int i = 0; i < 60; i++)
+        {
+            double mid = 0.5 * (early + late);
+            if (ShockRadiusAt(yieldKt, mid) < distanceMetres) early = mid;
+            else late = mid;
+        }
+
+        return late;
+    }
+
+    private static double ShockRadiusAt(double yieldKt, double age)
+    {
         if (yieldKt <= 0.0 || age <= 0.0) return 0.0;
 
         double k = 1.03 * Math.Pow(2.0 * yieldKt * JoulesPerKiloton / AirKgPerM3, 0.2);

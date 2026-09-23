@@ -69,7 +69,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     private readonly List<DamageablePart> _partScratch = [];
     private readonly List<Part> _partHandles = [];
     private readonly List<int> _failedParts = [];
-    private readonly List<(int Index, double PressureRatio)> _dentLoads = [];
+    private readonly List<(int Index, double PressureRatio, double GapMetres)> _dentLoads = [];
 
     // Craft one burst has already damaged. See where it is cleared for why this is not _pendingKills.
     private readonly List<Vehicle> _burstDamaged = [];
@@ -3756,20 +3756,33 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         Dent(v, burst, elapsed, munition, failed: null);
     }
 
-    // Hands the engine every load this burst puts on the craft's parts short of breaking them.
+    // Every load this burst puts on the craft's parts short of breaking them, held until the front
+    // reaches each part. With no air there is no front, and nothing to wait for.
     private void Dent(Vehicle v, double3 burst, double elapsed, MunitionProfile munition,
                       IReadOnlyCollection<int>? failed)
     {
         _dentLoads.Clear();
         BlastDamage.Loads(burst, elapsed, KsaWorld.VelocityEcl(v), CollectionsMarshal.AsSpan(_partScratch),
                           munition, failed, _dentLoads);
+        if (_dentLoads.Count == 0) return;
 
-        int reported = KsaWorld.ReportBlastDents(v, burst, _partHandles, _dentLoads, out int taken);
-        if (reported > 0)
+        bool air = KsaWorld.AirDensityRatioAt(v, burst) > Medium.NoticeableDensity;
+        double kt = MushroomCloud.KilotonsFor(munition.ChargeKg);
+        double3 burstAsmb = KsaWorld.EclToVehicleAsmb(v, burst);
+
+        double first = double.MaxValue;
+        double last = 0.0;
+        foreach ((int index, double ratio, double gap) in _dentLoads)
         {
-            Log.Info($"blast loaded {reported} part(s) of {KsaWorld.DisplayName(v)} short of breaking; "
-                     + $"the engine took {taken} as dents");
+            double due = air ? MushroomCloud.ShockArrivalSeconds(kt, gap) - elapsed : 0.0;
+            BlastArrivals.Queue(v, _partHandles[index], burstAsmb, ratio, due, air);
+
+            first = Math.Min(first, due);
+            last = Math.Max(last, due);
         }
+
+        Log.Info($"blast loads {_dentLoads.Count} part(s) of {KsaWorld.DisplayName(v)} short of breaking; "
+                 + $"the front arrives in {Math.Max(first, 0.0):F2}-{Math.Max(last, 0.0):F2} s");
     }
 
     // Applies one burst to one craft: breaks the parts near enough to break, or destroys the

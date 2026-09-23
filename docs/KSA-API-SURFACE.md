@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-235 types and 642 members across 10 assemblies.
+235 types and 645 members across 10 assemblies.
 
 ## Brutal.Concurrency
 
@@ -133,6 +133,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### Brutal.Numerics.float2
 
 - `Brutal.Numerics.float2 op_Addition(Brutal.Numerics.float2, Brutal.Numerics.float2)`
+- `Brutal.Numerics.float2 op_Multiply(Brutal.Numerics.float2, float)`
 - `float X`
 - `float Y`
 - `void .ctor(float, float)`
@@ -141,6 +142,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `Brutal.Numerics.float3 Pack(ref Brutal.Numerics.double3, Float)`
 - `Brutal.Numerics.float3 get_Zero()`
+- `Brutal.Numerics.float3 op_Multiply(Brutal.Numerics.float3, float)`
 - `float X`
 - `float Y`
 - `float Z`
@@ -984,6 +986,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.Part TreeParent`
 - `KSA.Part get_FullPart()`
 - `KSA.PartTemplate Template`
+- `KSA.PartTree Tree`
 - `System.ReadOnlySpan`1<KSA.Part> get_SubParts()`
 - `System.ValueTuple`2<Brutal.Numerics.double3, Brutal.Numerics.double3> get_BoundingBoxVehicleAsmb()`
 - `bool RayCastEgo(ref Brutal.Numerics.double4x4, KSA.Ray, ref double, ref double, ref Brutal.Numerics.double3, ref Brutal.Numerics.double3, ref Brutal.Numerics.double3, ref Brutal.Numerics.double3, ref KSA.Part, ref KSA.Part)`

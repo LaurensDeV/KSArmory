@@ -273,12 +273,13 @@ public class BlastDamageTests
         List<int> failed = [];
         BlastDamage.Sweep(burst, 0.0, Carrier, parts, warhead, failed);
 
-        List<(int Index, double PressureRatio)> loads = [];
+        List<(int Index, double PressureRatio, double GapMetres)> loads = [];
         BlastDamage.Loads(burst, 0.0, Carrier, parts, warhead, failed, loads);
 
         Assert.Equal([0], failed);
-        (int index, double ratio) = Assert.Single(loads);
+        (int index, double ratio, double gap) = Assert.Single(loads);
         Assert.Equal(1, index);
         Assert.InRange(ratio, 0.5, 1.0);
+        Assert.Equal(fails * 1.1, gap, 6);
     }
 }

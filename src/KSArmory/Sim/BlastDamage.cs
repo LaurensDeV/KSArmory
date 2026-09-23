@@ -103,8 +103,9 @@ internal static class BlastDamage
     }
 
     /// <summary>
-    /// Every part of one craft this burst loads without breaking, with how hard — what it would
-    /// dent. A part in <paramref name="failed"/> is breaking off, and is left out.
+    /// Every part of one craft this burst loads without breaking, with how hard and how far from
+    /// the burst its skin is — what it would dent, and when the front gets there. A part in
+    /// <paramref name="failed"/> is breaking off, and is left out.
     ///
     /// <para><b>Whether a load dents is the engine's to say</b>, as it is for a collision: this
     /// hands over every load inside the blast radius, and the engine's own threshold and depth
@@ -112,7 +113,8 @@ internal static class BlastDamage
     /// </summary>
     public static void Loads(double3 burstEcl, double sinceSample, double3 velocityEcl,
                              ReadOnlySpan<DamageablePart> parts, MunitionProfile munition,
-                             IReadOnlyCollection<int>? failed, List<(int Index, double PressureRatio)> into)
+                             IReadOnlyCollection<int>? failed,
+                             List<(int Index, double PressureRatio, double GapMetres)> into)
     {
         ArgumentNullException.ThrowIfNull(munition);
         ArgumentNullException.ThrowIfNull(into);
@@ -126,7 +128,7 @@ internal static class BlastDamage
                                                burstEcl, part.RadiusMetres);
             double ratio = PressureRatio(munition.ChargeKg, part.CrashTolerancePascals, gap);
 
-            if (ratio > 0.0) into.Add((part.Index, ratio));
+            if (ratio > 0.0) into.Add((part.Index, ratio, gap));
         }
     }
 

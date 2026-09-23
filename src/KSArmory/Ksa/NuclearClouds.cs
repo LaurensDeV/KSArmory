@@ -650,6 +650,7 @@ internal static class NuclearClouds
         _watch = null;
         BurstFlash.Reset();
         BurstSound.Clear();
+        BlastArrivals.Clear();
         Fireball.Clear();
     }
 }

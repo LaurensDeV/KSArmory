@@ -797,4 +797,21 @@ public class MushroomCloudTests
         Assert.True(MushroomCloud.At(0.3 * Kt, MushroomCloud.LifeSeconds - 1.0).Fade < 0.01);
         Assert.True(MushroomCloud.LifeSeconds >= 240.0, "a cloud that is gone in a minute and a half");
     }
+
+    /// <summary>
+    /// The front arrives where its own law puts it: a dent or a puff timed off this lands as the
+    /// front passes the part, not at the flash -- 2.1 s late at 800 m from 0.3 kt.
+    /// </summary>
+    [Theory]
+    [InlineData(0.3, 800.0)]
+    [InlineData(20.0, 3000.0)]
+    [InlineData(340.0, 10000.0)]
+    [InlineData(2.0e-5, 25.0)]
+    public void TheFrontArrivesWhereItsLawPutsIt(double kt, double distance)
+    {
+        double arrives = MushroomCloud.ShockArrivalSeconds(kt, distance);
+
+        Assert.Equal(distance, MushroomCloud.ShockRadius(kt, arrives), 3);
+        Assert.True(MushroomCloud.ShockRadius(kt, arrives * 0.99) < distance);
+    }
 }

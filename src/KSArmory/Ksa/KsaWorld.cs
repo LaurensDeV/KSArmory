@@ -2472,75 +2472,71 @@ internal static class KsaWorld
     // ---- Part damage ----------------------------------------------------
 
     /// <summary>
-    /// Dents what a burst loaded, through the engine's own impact path, as a collision would: each
-    /// part pushed in on the side facing the burst, along the blast. Answers how many were handed
-    /// over, and how many the engine took: whether each leaves a dent, and how deep, is its own
-    /// threshold and law, and nothing is taken while the player's Impact Dents setting is off.
-    ///
-    /// <para>The point is where the ray from the part's box centre toward the burst leaves the box,
-    /// as the engine's own test dent places one, and the footprint is the part's whole cross-section,
-    /// which the engine clamps to its largest: a shock loads a whole face, where a collision loads a
-    /// patch. <paramref name="handles"/> and <paramref name="loads"/> are the lists
-    /// <see cref="TryCollectDamageableParts"/> and <c>BlastDamage.Loads</c> filled.</para>
+    /// Where a burst strikes a part, and which way it pushes, in the craft's assembly frame: the
+    /// point where the ray from the part's box centre toward the burst leaves the box, as the
+    /// engine's own test dent places one, and the push along the blast.
     /// </summary>
-    public static int ReportBlastDents(Vehicle v, double3 burstEcl, List<Part> handles,
-                                       List<(int Index, double PressureRatio)> loads, out int taken)
+    public static bool TryBlastFace(Part part, double3 burstAsmb, out double3 faceAsmb, out double3 pushAsmb,
+                                    out double acrossMetres)
     {
-        int reported = 0;
-        int before = FxDeformation.Shared.TotalReported;
-        taken = 0;
+        faceAsmb = default;
+        pushAsmb = default;
+        acrossMetres = 0.0;
 
+        (double3 min, double3 max) = part.BoundingBoxVehicleAsmb;
+        double3 centre = (min + max) * 0.5;
+        double3 half = (max - min) * 0.5;
+
+        double3 toward = burstAsmb - centre;
+        double length = Vec.Len(toward);
+        if (!(length > 1.0e-6)) return false;
+        toward /= length;
+
+        double exit = double.MaxValue;
+        if (Math.Abs(toward.X) > 1.0e-9) exit = Math.Min(exit, half.X / Math.Abs(toward.X));
+        if (Math.Abs(toward.Y) > 1.0e-9) exit = Math.Min(exit, half.Y / Math.Abs(toward.Y));
+        if (Math.Abs(toward.Z) > 1.0e-9) exit = Math.Min(exit, half.Z / Math.Abs(toward.Z));
+        if (!double.IsFinite(exit)) return false;
+
+        faceAsmb = centre + (toward * exit);
+        pushAsmb = -toward;
+        acrossMetres = Vec.Len(half);
+        return Vec.IsFinite(faceAsmb);
+    }
+
+    /// <summary>
+    /// Dents one part through the engine's own impact path, as a collision would, and answers
+    /// whether the engine took it: its threshold, its depth law and the player's Impact Dents
+    /// setting decide, not this. The footprint is the part's whole cross-section, which the engine
+    /// clamps to its largest, because a shock loads a whole face where a collision loads a patch.
+    /// </summary>
+    public static bool ReportBlastDent(Part part, double3 faceAsmb, double3 pushAsmb, double acrossMetres,
+                                       double pressureRatio)
+    {
         try
         {
-            if (v.IsDisposed || loads.Count == 0) return 0;
+            double tolerance = part.FullPart.CrashTolerancePascals;
+            if (!(tolerance > 0.0) || !(pressureRatio > 0.0)) return false;
 
-            double3 burstAsmb = EclToVehicleAsmb(v, burstEcl);
+            int before = FxDeformation.Shared.TotalReported;
 
-            foreach ((int index, double ratio) in loads)
-            {
-                if (index < 0 || index >= handles.Count) continue;
+            // The engine reads an impulse per area and divides by its contact step, 0.01, to get the
+            // pressure it compares with the part's tolerance.
+            FxDeformation.ReportContact(part, float3.Zero, float3.Pack(in faceAsmb), float3.Pack(in pushAsmb),
+                                        pressureRatio * tolerance * 0.01, Math.PI * acrossMetres * acrossMetres);
 
-                Part part = handles[index];
-                double tolerance = part.FullPart.CrashTolerancePascals;
-                if (!(tolerance > 0.0) || !(ratio > 0.0)) continue;
-
-                (double3 min, double3 max) = part.BoundingBoxVehicleAsmb;
-                double3 centre = (min + max) * 0.5;
-                double3 half = (max - min) * 0.5;
-
-                double3 toward = burstAsmb - centre;
-                double length = Vec.Len(toward);
-                if (!(length > 1.0e-6)) continue;
-                toward /= length;
-
-                double exit = double.MaxValue;
-                if (Math.Abs(toward.X) > 1.0e-9) exit = Math.Min(exit, half.X / Math.Abs(toward.X));
-                if (Math.Abs(toward.Y) > 1.0e-9) exit = Math.Min(exit, half.Y / Math.Abs(toward.Y));
-                if (Math.Abs(toward.Z) > 1.0e-9) exit = Math.Min(exit, half.Z / Math.Abs(toward.Z));
-                if (!double.IsFinite(exit)) continue;
-
-                double3 face = centre + (toward * exit);
-                double across = Vec.Len(half);
-
-                // The engine reads an impulse per area and divides by its contact step, 0.01, to
-                // get the pressure it compares with the part's tolerance.
-                FxDeformation.ReportContact(part, float3.Zero, float3.Pack(in face), float3.Pack(-toward),
-                                            ratio * tolerance * 0.01, Math.PI * across * across);
-                reported++;
-            }
-
-            taken = FxDeformation.Shared.TotalReported - before;
+            return FxDeformation.Shared.TotalReported > before;
         }
         catch (Exception e)
         {
             if (!_warnedAboutDents)
             {
                 _warnedAboutDents = true;
-                Log.Warn($"blast dents could not be reported: {e.Message}");
+                Log.Warn($"a blast dent could not be reported: {e.Message}");
             }
-        }
 
-        return reported;
+            return false;
+        }
     }
 
     private static bool _warnedAboutDents;
@@ -2551,6 +2547,10 @@ internal static class KsaWorld
     /// </summary>
     public static double3 EclToVehicleAsmb(Vehicle v, double3 pointEcl)
         => v.CenterOfMassAsmb + (v.Asmb2Ego.Inverse() * (pointEcl - PositionEcl(v)));
+
+    /// <summary>And back: a point in the craft's assembly frame, in the ecliptic.</summary>
+    public static double3 VehicleAsmbToEcl(Vehicle v, double3 pointAsmb)
+        => PositionEcl(v) + (v.Asmb2Ego * (pointAsmb - v.CenterOfMassAsmb));
 
     /// <summary>
     /// The dents the engine holds on a craft, in its assembly frame: where each sits, which way it

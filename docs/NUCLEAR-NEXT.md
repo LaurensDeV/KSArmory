@@ -454,7 +454,12 @@ would be judged against, so the order is the look first and the consequences aft
 
 **Radar blackout is built**: the fireball's ionised air hides what is behind it from a set that
 transmits. `CHECKLIST.md` has the flight. **So are dents**: what the blast loads short of breaking,
-KSA's own impact path dents (`CLAUDE.md`, the blast-damage rules). The other two below are not.
+KSA's own impact path dents (`CLAUDE.md`, the blast-damage rules) — as the front reaches each part
+rather than at the flash, with a puff of dust off the struck face. Flown at 0.3 kt and 800 m from the
+rocket on the pad: five parts loaded, the front there at 2.06 s, three dented and dust thrown at
+2.25 s. **Shoving the craft is not built**, and the engine allows it: a decoupler writes
+`GetPhysicsStatesMutable().Kinematic.VelocityPhys` and takes the craft off rails from the same
+prefix window attitude uses (`Vehicle.Split`). The other two below are not built.
 
 Today a burst is visuals plus `BlastDamage`. A nuclear one could blind radar for a scaled
 duration, burn at ranges the blast never reaches, and bloom out an `OpticalHead`'s sight — which
