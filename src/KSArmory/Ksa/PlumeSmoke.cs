@@ -59,10 +59,15 @@ internal static class PlumeSmoke
     // Warm grey, and darker than white on every channel: the colour multiplies the sunlight and the
     // sky ambient together, so pulling it down is what takes the glare off as well as the hue.
     //
+    // It has to go a long way down to read as dirt. At 0.55 the cloud came back pale blue-white in
+    // flight -- the multiply survives a bright sun, and the atmosphere's in-scatter then adds its
+    // own blue on top, so a mid grey lands somewhere near cumulus. Test photographs put the cloud
+    // well under half the albedo of the weather cloud beside it, which is what this is.
+    //
     // Properties rather than static fields, because _colour above is initialised from Clean and
     // static initialisers run in textual order: a field declared here still reads (0, 0, 0) there,
     // and every trail is laid black.
-    private static float3 Dirty => new(0.55f, 0.50f, 0.44f);
+    private static float3 Dirty => new(0.30f, 0.26f, 0.21f);
     private static float3 Clean => new(1f, 1f, 1f);
 
     /// <summary>
@@ -86,8 +91,15 @@ internal static class PlumeSmoke
     /// <paramref name="expandedRadius"/> what it swells to, which is how one moving point becomes a
     /// billowing column rather than a wire.</para>
     /// </summary>
+    /// <param name="density">
+    /// How thick this segment is, against <see cref="StockDensity"/>. A booster's plume is 1 and so
+    /// was every segment this mod laid until it was noticed that the renderer takes the number at
+    /// all — <c>docs/NUCLEAR-EFFECT.md</c> said it had no density field. Below 1 a segment
+    /// transmits rather than scattering, which is the only way to make a bundle of overlapping pens
+    /// read as dust instead of as a solid.
+    /// </param>
     public static void Lay(Strand strand, Celestial body, double3 positionCcf,
-                           float initialRadius, float expandedRadius)
+                           float initialRadius, float expandedRadius, float density = StockDensity)
     {
 
         if (Resolve() is not { } renderer) return;
@@ -97,7 +109,7 @@ internal static class PlumeSmoke
         {
             renderer.SubmitEmitter(strand.State, body, positionCcf,
                                    initialRadius, expandedRadius, _colour,
-                                   StockDensity, StockLifetimeSeconds, isActive: true);
+                                   density, StockLifetimeSeconds, isActive: true);
         }
         catch (Exception e)
         {

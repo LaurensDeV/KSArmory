@@ -273,4 +273,40 @@ public class AimCorrectionTests
         Assert.True(Vec.Len(correction.BiasCci) <= AimCorrection.MaxMetres + 1.0,
                     $"the bias ran to {Vec.Len(correction.BiasCci) / 1000.0:F0} km");
     }
+
+    /// <summary>
+    /// A release walk's handover drops the bias and keeps the coast's plant, which is what separates
+    /// <see cref="AimCorrection.Retarget"/> from <see cref="AimCorrection.Reset"/>.
+    /// </summary>
+    /// <remarks>
+    /// <c>Reset</c> seeds the response at <c>1 / Gain</c>, which is four, so a first step takes a
+    /// quarter of the error. On a coast the plant is one — the arc is re-solved to the aim at a
+    /// committed arrival — and a pass there is a median 65 s, so a hop would pay one for the seeding
+    /// alone.
+    /// </remarks>
+    [Fact]
+    public void RetargetingDropsTheBiasAndKeepsTheCoastsPlant()
+    {
+        double3 target = new(R, 0, 0);
+        double3 landedShort = new(R * Math.Cos(0.001), R * Math.Sin(0.001), 0);
+
+        AimCorrection correction = new();
+        correction.Observe(landedShort, target);
+
+        Assert.True(Vec.Len(correction.BiasCci) > 0.0, "an error has to move the aim first");
+
+        correction.Freeze();
+        Assert.True(correction.Settled);
+
+        correction.Retarget();
+
+        Assert.Equal(Vec.Zero, correction.BiasCci);
+        Assert.False(correction.Settled);
+        Assert.Equal(1.0, correction.Response, 9);
+
+        // Which is the distinction: Reset would have the loop stepping a quarter of the error.
+        AimCorrection afterReset = new();
+        afterReset.Reset();
+        Assert.Equal(1.0 / AimCorrection.Gain, afterReset.Response, 9);
+    }
 }

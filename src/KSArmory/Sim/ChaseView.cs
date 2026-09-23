@@ -293,15 +293,91 @@ public static class ChaseView
     /// fireball by a margin that grows with it, and never so close that a small one fills the view.
     /// </summary>
     public static double StopShortMetres(double chargeKg)
-        => Math.Max(MinStopShortMetres, StopShortFireballs * Warhead.FireballRadius(chargeKg));
+    {
+        double shortOf = Math.Max(MinStopShortMetres, StopShortFireballs * Warhead.FireballRadius(chargeKg));
+
+        // A charge that grows a cloud is watched from far enough to SEE the cloud, which is a
+        // different and much larger number than clearing its fireball. Six fireball radii is 328 m
+        // at 0.3 kt, and what stands there is 1.31 km tall -- so the camera ends up under it looking
+        // up, and inside the 497 m this same charge is lethal to. Standing off the cloud's own
+        // height puts it across the frame and outside what made it.
+        return chargeKg >= MushroomCloud.ThresholdKg
+                   ? Math.Max(shortOf, CloudsInFrame * MushroomCloud.DrawnCloudTop(MushroomCloud.KilotonsFor(chargeKg)))
+                   : shortOf;
+    }
 
     /// <summary>
-    /// Whether a round is near enough its arrival to stop and watch. The distance left is the time to
-    /// go times the speed it is covering it at, and with either unknown the chase never stops.
+    /// How long the view is held on a burst afterwards: as long as there is something still
+    /// happening, which for everything but a nuclear charge is no time at all.
+    ///
+    /// <para><b>Sized by the burst rather than picked, the same way
+    /// <see cref="StopShortMetres"/> is.</b> A conventional round is over when the flash is: three
+    /// seconds is already generous. A nuclear one is not — <see cref="MushroomCloud"/> rises for
+    /// <see cref="MushroomCloud.RiseSeconds"/> and stands for as long again, so a flat three
+    /// seconds showed about a twenty-fifth of the thing the mod goes to the trouble of drawing,
+    /// and took the camera away mid-event.</para>
+    ///
+    /// <para>The rise rather than the whole life. At the ceiling the cloud stops changing shape and
+    /// the rest is it standing there — and it stands in the world, so a player who wants more can
+    /// fly their own camera back to it. What cannot be recovered is the part they were taken away
+    /// from.</para>
+    ///
+    /// <para><b>It is not always a cloud, so the body is asked as well as the charge.</b>
+    /// <see cref="AirlessBurst.WatchSeconds"/> decides which of the three is happening and carries
+    /// the charge threshold with it, so whether this burst made anything at all stays one question
+    /// with one answer. Holding for the rise regardless is what left the camera on an empty sky for
+    /// most of a minute over a body that grows no cloud.</para>
+    ///
+    /// <para>The world terms are required rather than defaulted, because the charge alone used to
+    /// be the whole question: a default would let a caller written against the old shape keep
+    /// compiling and quietly hold the view for a cloud that is not there.</para>
     /// </summary>
-    public static bool StopsShort(double timeToGo, double speed, double stopShortMetres)
-        => double.IsFinite(timeToGo) && double.IsFinite(speed) && timeToGo >= 0.0
-           && timeToGo * speed <= stopShortMetres;
+    public static double LingerSeconds(double chargeKg, bool hasAir,
+                                       double gravityMetresPerSecond2, double burstAltitudeMetres)
+        => Math.Max(MinLingerSeconds,
+                    AirlessBurst.WatchSeconds(chargeKg, hasAir,
+                                              gravityMetresPerSecond2, burstAltitudeMetres));
+
+    /// <summary>
+    /// Held on any burst, nuclear or not. Long enough to see what happened and short enough that
+    /// a cannon putting one round into a drone does not take the view away for the next one.
+    /// </summary>
+    public const double MinLingerSeconds = 3.0;
+
+    /// <summary>
+    /// Whether a round is near enough its arrival to stop and watch: within
+    /// <see cref="StopShortMetres"/> of where it arrives, and within <see cref="WatchSeconds"/> of
+    /// getting there. With the time unknown the chase never stops.
+    ///
+    /// <para>The distance left is the straight line to where the fall ends, gravity included —
+    /// never the time to go times the speed now, which a store thrown upwards reads as nothing at the
+    /// top of its climb. And a round whose whole flight is inside the distance is ridden until its
+    /// last few seconds rather than let go at release.</para>
+    /// </summary>
+    public static bool StopsShort(double timeToGo, double3 velocity, double3 gravity, double chargeKg)
+        => double.IsFinite(timeToGo) && timeToGo >= 0.0 && timeToGo <= WatchSeconds(chargeKg)
+           && Vec.Len(ArrivalFromRound(timeToGo, velocity, gravity)) <= StopShortMetres(chargeKg);
+
+    /// <summary>
+    /// How long before its arrival a chase may stop riding a round: the time its stop-short distance
+    /// takes at <c>WatchMetresPerSecond</c>, so a bigger warhead is let go of earlier and further
+    /// out — 4 s at the B61's 0.3 kt, 13 s at 10 kt and 44 s at 340 kt — and never under
+    /// <see cref="MinWatchSeconds"/>, which leaves every conventional round to the distance alone.
+    /// </summary>
+    public static double WatchSeconds(double chargeKg)
+        => Math.Max(MinWatchSeconds, StopShortMetres(chargeKg) / WatchMetresPerSecond);
+
+    public const double MinWatchSeconds = 4.0;
+
+    // Faster than a falling bomb arrives, so the time is the binding bound only for one thrown up or
+    // released low, whose whole flight is inside the distance.
+    private const double WatchMetresPerSecond = 500.0;
+
+    /// <summary>Where a round arrives from where it is now, flown under gravity alone.</summary>
+    public static double3 ArrivalFromRound(double timeToGo, double3 velocity, double3 gravity)
+        => (velocity * timeToGo) + (gravity * (0.5 * timeToGo * timeToGo));
+
+
 
     /// <summary>
     /// How much of the chase's stand-off a round of this length gets, measured against the missile
@@ -327,6 +403,162 @@ public static class ChaseView
     // Six radii out, so the whole ball and what it throws are in frame: a 300-tonne bomb is watched
     // from a kilometre and a 20-kiloton warhead from four.
     private const double StopShortFireballs = 6.0;
+
+    /// <summary>
+    /// Whether a chase hands a round's arrival to an observer rather than holding where it stopped:
+    /// a charge that grows a cloud, over a body with air to grow it in. What is worth watching is
+    /// then the cloud, and where to watch it from is a choice rather than wherever the chase was.
+    /// </summary>
+    public static bool HandsToAnObserver(double chargeKg, bool hasAir)
+        => hasAir && chargeKg >= MushroomCloud.ThresholdKg;
+
+    /// <summary>
+    /// How far out the observer stands: <see cref="ObserverRadii"/> of the cloud's extent, its height
+    /// or half its cap's width, whichever is more — where a whole risen cloud fills a 50 degree frame
+    /// with room round it. 2.4 km for the B61 at 0.3 kt.
+    /// </summary>
+    public static double ObserverDistanceMetres(double chargeKg)
+    {
+        double kt = MushroomCloud.KilotonsFor(chargeKg);
+        return ObserverRadii * Math.Max(MushroomCloud.DrawnCloudTop(kt), 0.5 * MushroomCloud.DrawnCapAcross(kt));
+    }
+
+    /// <summary>The distance a watching camera stands off a cloud, in cloud extents.</summary>
+    public const double ObserverRadii = 1.85;
+
+    /// <summary>
+    /// How far above the horizontal a watching camera stands. Low, because a mushroom is a
+    /// silhouette: from overhead it is a blob.
+    /// </summary>
+    public const double ObserverElevationDeg = 14.0;
+
+    /// <summary>
+    /// Where the observer stands, from the landing: back along the bearing the chase was looking,
+    /// so the cut is the same view from further off rather than a different one, and
+    /// <paramref name="elevationDeg"/> up. A chase looking straight down has no bearing, and is
+    /// watched from the side it was on.
+    /// </summary>
+    public static double3 ObserverOffset(double3 up, double3 chaseLooking, double3 towardChase,
+                                         double distanceMetres, double elevationDeg)
+    {
+        double3 u = Vec.Unit(up);
+        double3 back = Vec.Unit(-Vec.RejectFrom(chaseLooking, u));
+        double3 side = Vec.Unit(Vec.RejectFrom(towardChase, u));
+
+        // A look within about 8 degrees of straight down says little about its bearing.
+        bool bearing = Vec.Len2(back) > 0.5
+                       && Vec.Len(Vec.RejectFrom(chaseLooking, u)) > 0.15 * Vec.Len(chaseLooking);
+
+        double3 facing = bearing ? back
+                         : Vec.Len2(side) > 0.5 ? side
+                         : Vec.AnyPerpendicular(u);
+
+        double elevation = double.DegreesToRadians(elevationDeg);
+        return ((facing * Math.Cos(elevation)) + (u * Math.Sin(elevation))) * distanceMetres;
+    }
+
+    /// <summary>
+    /// How high above the burst the drawn cloud reaches at <paramref name="age"/>, and never under
+    /// the fireball's width, which is what there is to see before anything has risen.
+    /// </summary>
+    public static double CloudHeightNow(double chargeKg, double age)
+    {
+        MushroomCloud.Shape shape = MushroomCloud.At(chargeKg, Math.Max(age, 0.0));
+        double fireball = 2.0 * Warhead.FireballRadius(chargeKg);
+        return Math.Max(fireball, shape.CapCentre + shape.CapRadius + shape.CapTube);
+    }
+
+    /// <summary>
+    /// A look and a field of view that keep <paramref name="keep"/> in the frame and fit
+    /// <paramref name="fit"/> in with it when <paramref name="maxFovDeg"/> allows, the pair across
+    /// <see cref="FrameShare"/> of it; otherwise at the widest, looking from the kept one towards the
+    /// other. Never narrower than <paramref name="minFovDeg"/>. Both are directions from the eye.
+    /// </summary>
+    public static (double3 Forward, double FovDeg) Frame(double3 keep, double3 fit,
+                                                         double minFovDeg, double maxFovDeg)
+    {
+        double3 k = Vec.Unit(keep);
+        double3 f = Vec.Unit(fit);
+        double floor = Math.Clamp(minFovDeg, MinFramedFovDeg, maxFovDeg);
+        if (Vec.Len2(k) < 0.5) return (f, maxFovDeg);
+        if (Vec.Len2(f) < 0.5) return (k, floor);
+
+        double span = double.RadiansToDegrees(Vec.AngleBetween(k, f));
+        double wanted = span / FrameShare;
+
+        if (wanted <= maxFovDeg)
+        {
+            double3 middle = Vec.Unit(k + f);
+            return (Vec.Len2(middle) > 0.5 ? middle : k, Math.Max(floor, wanted));
+        }
+
+        double3 toward = Vec.Unit(f - (k * Vec.Dot(k, f)));
+        if (Vec.Len2(toward) < 0.5) return (k, maxFovDeg);
+
+        double turn = double.DegreesToRadians(0.5 * FrameShare * maxFovDeg);
+        return ((k * Math.Cos(turn)) + (toward * Math.Sin(turn)), maxFovDeg);
+    }
+
+    /// <summary>The field of view that holds something <paramref name="sizeMetres"/> across at a distance, with the same margin.</summary>
+    public static double FovToFit(double sizeMetres, double distanceMetres)
+        => distanceMetres > 0.0 && sizeMetres > 0.0
+               ? 2.0 * double.RadiansToDegrees(Math.Atan(0.5 * sizeMetres / distanceMetres)) / FrameShare
+               : MinFramedFovDeg;
+
+    // How much of the frame a framed pair spans, so neither sits on the edge.
+    private const double FrameShare = 0.7;
+
+    // Well clear of SightZoom's crash guard, and still a lens a real long camera would carry.
+    private const double MinFramedFovDeg = 3.0;
+
+    /// <summary>
+    /// Which way a held eye looks at a burst with a cloud to stand over it: at the middle of the
+    /// column, but never so far above the burst that the burst leaves the frame. From the kilometres
+    /// the column height was chosen at that tilt is gentle; from a few hundred metres the middle of
+    /// the column is nearly straight up, and the view ends up on whatever is flying overhead.
+    /// </summary>
+    /// <param name="fovDeg">The vertical field of view, which is what KSA's projection takes.</param>
+    public static double3 WatchBurstForward(double3 eyeToBurst, double3 eyeToColumn, double fovDeg)
+    {
+        double3 atBurst = Vec.Unit(eyeToBurst);
+        double3 atColumn = Vec.Unit(eyeToColumn);
+        if (Vec.Len2(atBurst) < 0.5) return atColumn;
+        if (Vec.Len2(atColumn) < 0.5) return atBurst;
+
+        double most = double.DegreesToRadians(BurstInFrameShare * 0.5 * fovDeg);
+        if (!(most > 0.0) || Vec.AngleBetween(atBurst, atColumn) <= most) return atColumn;
+
+        double3 toward = atColumn - (atBurst * Vec.Dot(atBurst, atColumn));
+        if (Vec.Len2(toward) < 1e-12) return atBurst;
+
+        return (atBurst * Math.Cos(most)) + (Vec.Unit(toward) * Math.Sin(most));
+    }
+
+    // How far from the centre towards the bottom edge the burst may sit.
+    private const double BurstInFrameShare = 0.6;
+
+    /// <summary>
+    /// How far above the burst to look while a cloud stands, in metres.
+    ///
+    /// <para>The burst point is the bottom of what there is to see. Held on it, a cloud that grows
+    /// a kilometre upward leaves the frame through the top — photographed at 0.60 of the rise, the
+    /// cap was cut off and only the stem and skirt were in shot. Aiming at the middle of the column
+    /// instead puts the whole of it across the frame.</para>
+    ///
+    /// <para>Below the middle rather than at it, because the cap is the wide part and wants the
+    /// room: the eye is looking down the axis of something whose top half is nearly all of its
+    /// volume. Zero for a charge that grows nothing, which is every conventional round.</para>
+    /// </summary>
+    public static double CloudAimHeightMetres(double chargeKg)
+        => chargeKg < MushroomCloud.ThresholdKg
+               ? 0.0
+               : 0.45 * MushroomCloud.DrawnCloudTop(MushroomCloud.KilotonsFor(chargeKg));
+
+    // How much room to leave around a cloud, in cloud heights. Standing off by exactly the height
+    // puts the eye level with the crown and, flown, inside the smoke: the capture at 0.30 of the
+    // rise came back a flat wall of brown. A cloud that height fills a 50 degree frame at about
+    // 1.07 of it, so this is that with margin.
+    private const double CloudsInFrame = 1.6;
 
     /// <summary>
     /// Eases a camera from where the player had it onto the chase pose, turning the look from the

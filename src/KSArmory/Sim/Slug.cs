@@ -416,6 +416,13 @@ internal sealed class Slug : IProjectile
     /// <inheritdoc cref="IProjectile.Aimpoint"/>
     public Aimpoint Aimpoint { get; set; }
 
+    /// <inheritdoc cref="IProjectile.Retarget"/>
+    public void Retarget(Aimpoint aim)
+    {
+        Aimpoint = aim;
+        TargetRef = aim.Handle;
+    }
+
     /// <summary>Always false. A slug is not steered, so it has nothing to lose lock on.</summary>
     public bool HasLock => false;
 
@@ -590,7 +597,7 @@ internal sealed class Slug : IProjectile
         // with a mid-step position leaks that motion into the range vector -- half a kilometre a
         // frame, which the steering then reads as the target sliding sideways.
         SteeringCommandEcl = Vec.Zero;
-        if (munition.Guidance == GuidanceMode.Inertial && target is { } aim)
+        if (munition.SteersItsFall && target is { } aim)
         {
             double3 aimPos = aim.PositionEcl + aim.VelocityEcl * (elapsedInFrame - frameSeconds);
 

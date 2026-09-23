@@ -1,3 +1,4 @@
+using BepuUtilities;
 using Brutal.GlfwApi;
 using Brutal.Numerics;
 using KSA;
@@ -142,6 +143,67 @@ internal static class VehicleCommand
             // Losing this turns the feature off rather than breaking the flight: the coast is then
             // integrated exactly as it was before any of this existed.
         }
+    }
+
+    /// <summary>
+    /// Adds an impulse and an angular impulse about the centre of mass, both in the craft's own
+    /// assembly frame, the way <c>Vehicle.Split</c> pushes two halves apart: into the physics state
+    /// it keeps, off rails so the change is integrated rather than overwritten by the conic, with
+    /// the orbit rebuilt from the new state. A craft on rails is brought up to date from its conic
+    /// first, as Split does, and one with no physics bubble is too far off to be integrated at all.
+    /// Neither the speed nor the spin at the craft's rim passes <paramref name="windSpeed"/>
+    /// (<see cref="BlastShove.Saturate"/>), and the spin is cut by the share the push is, because
+    /// both are the same wind falling off as the craft is carried with it. Only from
+    /// <see cref="AttitudeHook"/>'s window.
+    /// </summary>
+    public static bool TryShove(Vehicle craft, double3 impulseAsmb, double3 angularImpulseAsmb, double windSpeed,
+                                out double3 velocityChangeAsmb, out double3 spinChangeAsmb)
+    {
+        velocityChangeAsmb = default;
+        spinChangeAsmb = default;
+
+        if (!KsaWorld.IsAlive(craft) || !craft.HasPhysicsBubble) return false;
+
+        double mass = craft.TotalMass;
+        if (!(mass > 0.0)) return false;
+
+        Symmetric3x3 inverse = Symmetric3x3.Invert(craft.TotalMassPropsBody.Inertia);
+        double3 l = angularImpulseAsmb;
+        double3 dw = new((inverse.XX * l.X) + (inverse.YX * l.Y) + (inverse.ZX * l.Z),
+                         (inverse.YX * l.X) + (inverse.YY * l.Y) + (inverse.ZY * l.Z),
+                         (inverse.ZX * l.X) + (inverse.ZY * l.Y) + (inverse.ZZ * l.Z));
+        double3 dv = impulseAsmb / mass;
+        if (!Vec.IsFinite(dv)) return false;
+        if (!Vec.IsFinite(dw)) dw = Vec.Zero;
+
+        // The wind a craft feels falls as it is carried along, for the turn as much as for the push,
+        // so both are cut by the same share; and no rim outruns the wind.
+        double naive = Vec.Len(dv);
+        double carried = BlastShove.Saturate(naive, windSpeed);
+        double share = naive > 0.0 ? carried / naive : 1.0;
+        dv *= share;
+        dw *= share;
+
+        double rim = KsaWorld.MeanRadius(craft);
+        if (rim > 0.0) dw = Vec.Unit(dw) * BlastShove.Saturate(Vec.Len(dw), windSpeed / rim);
+        if (!Vec.IsFinite(dv)) dv = Vec.Zero;
+        if (!Vec.IsFinite(dw)) dw = Vec.Zero;
+
+        PhysicsStates states = craft.GetPhysicsStatesMutable();
+        if (craft.Situation.IsOnRails())
+        {
+            states.UpdateFromAnalytic(craft.Orbit, in craft.Orbit.StateVectors, craft.Body2Cce, craft.BodyRates,
+                                      Situation.Maneuvering);
+        }
+
+        states.Kinematic.VelocityPhys += dv.Transform(states.Kinematic.Body2Phys);
+        states.Kinematic.AngularVelocityPhys += dw.Transform(states.Kinematic.Body2Phys);
+        states.Props.SetOnRails(isOnRails: false);
+        craft.SetFlightPlan(new FlightPlan(states.ComputeOrbit(craft.OrbitColor), craft.Hash));
+
+        velocityChangeAsmb = dv;
+        spinChangeAsmb = dw;
+        return true;
     }
 
     public static void SetEngine(Vehicle craft, bool running)

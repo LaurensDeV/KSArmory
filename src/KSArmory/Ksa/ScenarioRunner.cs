@@ -69,6 +69,17 @@ internal sealed class ScenarioRunner
     private double _budget = EngagementBudgetSeconds;
     private double _sinceSpawn;
     private bool _spawned;
+
+    // "blackout=<kt>": a burst of that yield on the ground halfway to the target the moment the set
+    // first holds it, with nothing damaged by it, and what the radar holds reported every half
+    // second after. Before the set holds it the beam has nothing to lose, which proves nothing.
+    // "noblackout" is the control: the same burst with the effect switched off.
+    private double _blackoutKt;
+    private double _blackoutReported;
+    private double _blackoutAt = -1.0;
+    private Vehicle? _blackoutTarget;
+    private const double BlackoutReportSeconds = 0.5;
+    private const double BlackoutWatchSeconds = 20.0;
     private bool _capturedLaunch;
     private double _lastComplaint;
     private string _save = string.Empty;
@@ -76,10 +87,21 @@ internal sealed class ScenarioRunner
     // A chase ridden through a list of world speeds, one stretch each. For a camera fault that shows
     // at some speeds and not others, which nobody can flip between by hand while a shell is flying.
     private bool _chase;
+    private bool _showClouds;
+    private bool _twoClouds;
+    private double _cloudWarp = 1.0;
+    private double _stillAt = -1.0;
+    private double _secondYield = 1.0;
     private double[] _speeds = [];
 
-    // Where a gunnery run sets its mount down first, for shooting somewhere no save is.
+    // Where a run sets its craft down first, for a body no save is on: the gunnery mount, and the
+    // drop, which goes there to burst on ground with no air over it.
     private (string Body, double LatitudeDeg, double LongitudeDeg)? _site;
+
+    // A site is usually another body: the full system loads slower, and the craft settles where it
+    // lands. Both the runs that can be given one make the same allowance.
+    private const double SiteBudgetSeconds = 60.0;
+
     private int _speedIndex = -1;
     private double _speedHeldFor;
 
@@ -386,6 +408,140 @@ internal sealed class ScenarioRunner
 
         _chase = Array.IndexOf(options, "chase") >= 0;
 
+        // "clouds": this run is being photographed, so the decoration below stays on and the chase
+        // stays off. Both halves are needed together -- a cloud nobody disabled is still invisible
+        // from a camera riding three metres behind the bomb that made it.
+        _showClouds = Array.IndexOf(options, "clouds") >= 0;
+
+        // The pass IS the cloud, so it follows the cloud switch rather than having one of its own.
+        // Timing runs either way: a run with the cloud off is the baseline the other is read
+        // against, and a number with no control is what made this instrument look decisive before
+        // it had said anything.
+        // "noshader" keeps the cloud and its pinned camera and turns only the PASS off, which is
+        // the control: same scene, same view, one variable. Without it a baseline run is framed
+        // differently from the run it is meant to be read against.
+        bool noShader = Array.IndexOf(options, "noshader") >= 0;
+
+        // "twoclouds": set off a second burst a few kilometres from the first, so the pass is
+        // exercised with more than one cloud standing. Nothing else in the scenarios produces two:
+        // a bus's six warheads land about 9 mm apart and are deliberately one cloud, and the only
+        // shot that spreads them is a multi-target ballistic run whose coast is hours long.
+        // "twoclouds" or "twoclouds=<multiple>". The multiple is on the SECOND burst's yield, so
+        // one run can carry two different sizes -- which is the only way the airless dome has been
+        // looked at anywhere but the B61's third of a kilotonne.
+        // "cloudwarp=<n>": run the LINGER at that speed, which nothing else does. The drop's own
+        // warp argument is handed back the instant the store lands, deliberately -- the hand-back
+        // should not be watched at warp -- so the cloud, the mark and the fireball had never been
+        // advanced at anything but 1x. A speed of 0 pauses instead, which is the other half of the
+        // same question.
+        _cloudWarp = 1.0;
+        _stillAt = -1.0;
+        _blackoutKt = 0.0;
+        _blackoutReported = 0.0;
+        _blackoutAt = -1.0;
+        _blackoutTarget = null;
+        _config.NuclearBlackout = Array.IndexOf(options, "noblackout") < 0;
+
+        foreach (string option in options)
+        {
+            if (!option.StartsWith("blackout=", StringComparison.Ordinal)) continue;
+
+            if (double.TryParse(option["blackout=".Length..], System.Globalization.NumberStyles.Float,
+                                System.Globalization.CultureInfo.InvariantCulture, out double kt)
+                && kt > 0.0)
+            {
+                _blackoutKt = kt;
+            }
+            else
+            {
+                Log.Warn($"scenario: ignored '{option}' -- a blackout is blackout=<kilotonnes>");
+            }
+        }
+
+        // "stillat=<age>": freeze the world at that burst age and photograph it three times, so
+        // what changes between them is the renderer's own noise and nothing in the world.
+        foreach (string option in options)
+        {
+            if (!option.StartsWith("stillat=", StringComparison.Ordinal)) continue;
+
+            if (double.TryParse(option["stillat=".Length..], System.Globalization.NumberStyles.Float,
+                                System.Globalization.CultureInfo.InvariantCulture, out double age)
+                && age >= 0.0)
+            {
+                _stillAt = age;
+            }
+            else
+            {
+                Log.Warn($"scenario: ignored '{option}' -- a still is stillat=<seconds>");
+            }
+        }
+
+        _twoClouds = false;
+        _secondYield = 1.0;
+
+        foreach (string option in options)
+        {
+            if (!option.StartsWith("cloudwarp=", StringComparison.Ordinal)) continue;
+
+            if (double.TryParse(option["cloudwarp=".Length..], System.Globalization.NumberStyles.Float,
+                                System.Globalization.CultureInfo.InvariantCulture, out double speed)
+                && speed >= 0.0)
+            {
+                _cloudWarp = speed;
+            }
+            else
+            {
+                Log.Warn($"scenario: ignored '{option}' -- a linger speed is cloudwarp=<number>");
+            }
+        }
+
+        foreach (string option in options)
+        {
+            if (!option.StartsWith("twoclouds", StringComparison.Ordinal)) continue;
+
+            _twoClouds = true;
+
+            int split = option.IndexOf('=');
+            if (split < 0) continue;
+
+            if (double.TryParse(option[(split + 1)..], System.Globalization.NumberStyles.Float,
+                                System.Globalization.CultureInfo.InvariantCulture, out double times)
+                && times > 0.0)
+            {
+                _secondYield = times;
+            }
+            else
+            {
+                Log.Warn($"scenario: ignored '{option}' -- a yield multiple is twoclouds=<number>");
+            }
+        }
+
+        _config.ShaderPass = _showClouds && !noShader ? 1f : 0f;
+
+        CloudPassCost.Begin();
+        CloudWatch.Reset();
+
+        // "watchelev=<deg>": stand the cloud watch that far above the horizontal instead. Low
+        // enough and the camera is under the weather deck the default pose looks down on, which is
+        // the other half of whether a burst goes behind a cloud correctly.
+        foreach (string option in options)
+        {
+            if (!option.StartsWith("watchelev=", StringComparison.Ordinal)) continue;
+
+            if (double.TryParse(option["watchelev=".Length..], System.Globalization.NumberStyles.Float,
+                                System.Globalization.CultureInfo.InvariantCulture, out double deg)
+                && deg > 0.0 && deg < 89.0)
+            {
+                CloudWatch.ElevationDeg = deg;
+            }
+            else
+            {
+                Log.Warn($"scenario: ignored '{option}' -- a watch elevation is watchelev=<degrees>");
+            }
+        }
+
+        Report($"{_name}: GPU timing on, cloud {(_showClouds ? "ON" : "off -- this run is the baseline")}");
+
         // "speeds=0.05,0.1,1": held a stretch each once the first round is up. One that does not read
         // as a positive speed is dropped and said, rather than failing a run that can still fly the rest.
         foreach (string option in options)
@@ -409,7 +565,7 @@ internal sealed class ScenarioRunner
             _speeds = [.. speeds];
         }
 
-        // "site=Mars,15,-160": a gunnery run sets its mount down there before it shoots, for a body no save is on.
+        // "site=Mars,15,-160": set the craft down there first, for a body no save is on.
         _site = null;
         foreach (string option in options)
         {
@@ -481,10 +637,23 @@ internal sealed class ScenarioRunner
             return;
         }
 
-        _drop = new DropScenario(drop, line => Report($"{_name}: {line}"), _sightFor);
-        _budget = DropBudgetSeconds;
+        _drop = new DropScenario(drop, line => Report($"{_name}: {line}"), _sightFor, _showClouds && !_chase)
+        {
+            ChaseTheCloud = _showClouds && _chase,
+            Site = _site,
+            LingerSpeed = _cloudWarp,
+            StillAt = _stillAt,
+            SecondBurst = _twoClouds,
+            SecondBurstYield = _secondYield,
+        };
+
+        // Same allowance the gunnery run makes: a site is usually another body, the full system
+        // loads slower, and the craft settles where it lands.
+        _budget = DropBudgetSeconds + (_site is null ? 0.0 : SiteBudgetSeconds);
         _phase = Phase.LoadingSave;
-        Report($"{_name}: START {drop.Describe()} save='{_save}'");
+        Report($"{_name}: START {drop.Describe()}"
+               + (_site is { } site ? $", from {site.Body} at {site.LatitudeDeg:F2}, {site.LongitudeDeg:F2}" : string.Empty)
+               + $" save='{_save}'");
     }
 
     private void BeginGunnery(string arguments)
@@ -500,8 +669,6 @@ internal sealed class ScenarioRunner
         // Nobody is watching, and whether a miss was the barrel still laying is only in the debug log.
         Log.Threshold = Log.Level.Debug;
 
-        // A site is usually another body: the full system loads slower, and the mount settles where it lands.
-        const double SiteBudgetSeconds = 60.0;
         _budget = gunnery.BudgetSeconds + (_site is null ? 0.0 : SiteBudgetSeconds);
         _phase = Phase.LoadingSave;
         Report($"{_name}: START {gunnery.Describe()}"
@@ -548,7 +715,10 @@ internal sealed class ScenarioRunner
         // a burst DOES -- the sweep, the damage and the flash are elsewhere -- and like the staging
         // above it is set here rather than anywhere an arm can reach, so it cannot differ between
         // arms.
-        _config.NuclearClouds = false;
+        //
+        // Kept when the run is being photographed: turning the cloud off and then screenshotting it
+        // photographs an empty sky, which is a convincing-looking file that says nothing.
+        _config.NuclearClouds = _showClouds;
 
         // A scripted world lives for eight minutes with nobody looking at it, so a spent stage
         // arcing back down is pure frame time -- and frame time is the only thing that buys
@@ -775,7 +945,7 @@ internal sealed class ScenarioRunner
         {
             // The same numbers the panel's buttons use, so a scenario reproduces what a person
             // would have clicked rather than a case only the harness can produce.
-            if (TestTarget.Spawn(battery.Platform!, _profile, 30.0, 300.0, 1500.0, "Gemini7") is null)
+            if (TestTarget.Spawn(battery.Platform!, _profile, 30.0, 300.0, 1500.0, "Gemini7") is not { } target)
             {
                 Finish("FAIL could not spawn a target");
                 return;
@@ -783,10 +953,29 @@ internal sealed class ScenarioRunner
 
             _spawned = true;
             Report($"{_name}: target away, {_profile}");
+
+            _blackoutTarget = target;
             return;
         }
 
         _sinceSpawn += dt;
+
+        if (_blackoutKt > 0.0 && _blackoutAt < 0.0 && battery.Radar.Tracks.Count > 0
+            && _blackoutTarget is { } held)
+        {
+            _blackoutAt = _sinceSpawn;
+            BurstBetween(battery.Platform!, held);
+        }
+
+        if (_blackoutAt >= 0.0 && _sinceSpawn - _blackoutAt <= BlackoutWatchSeconds
+            && _sinceSpawn - _blackoutReported >= BlackoutReportSeconds)
+        {
+            _blackoutReported = _sinceSpawn;
+            Report($"{_name}: blackout +{_sinceSpawn - _blackoutAt:F1} s -- "
+                   + $"{battery.Radar.Tracks.Count} track(s), "
+                   + $"{battery.Radar.MaskedByBurst} behind the fireball, "
+                   + $"locked {(battery.Radar.Locked is null ? "nothing" : "the target")}");
+        }
 
         // The first round leaving is the moment worth a picture: it shows the launcher, the round
         // on its way and the plume, which is most of what a screenshot can settle.
@@ -813,6 +1002,27 @@ internal sealed class ScenarioRunner
             Finish($"PASS engagement over, {battery.Ammo} rounds left "
                    + "(outcome from the battery, not a round -- see the lines above)");
         }
+    }
+
+    // On the ground under the midpoint, as the burst tool would: the cloud and the ionised air, with
+    // no blast, so the radar's picture is the only thing that changes.
+    private void BurstBetween(Vehicle platform, Vehicle target)
+    {
+        double3 middle = (KsaWorld.PositionEcl(platform) + KsaWorld.PositionEcl(target)) * 0.5;
+
+        if (!KsaWorld.TrySnapToGround(middle, out double3 ground))
+        {
+            Report($"{_name}: blackout -- the ground under the midpoint could not be found");
+            return;
+        }
+
+        double charge = _blackoutKt * 1.0e6;
+        NuclearClouds.Begin(ground, platform, charge);
+
+        Report($"{_name}: blackout -- {(_config.NuclearBlackout ? string.Empty : "CONTROL, effect off, ")}"
+               + $"{_blackoutKt:F1} kt on the ground "
+               + $"{Vec.Len(ground - KsaWorld.PositionEcl(platform)) / 1000.0:F1} km out, ionised to "
+               + $"{FireballBlackout.Radius(charge, 0.0):F0} m for {FireballBlackout.Seconds(charge):F1} s");
     }
 
     // What a timeout was waiting for. The phase names a state and says nothing about which of the

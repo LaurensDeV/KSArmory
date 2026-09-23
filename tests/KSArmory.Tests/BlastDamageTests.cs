@@ -226,4 +226,212 @@ public class BlastDamageTests
 
         Assert.Equal([7, 3], failed);
     }
+
+    /// <summary>
+    /// The pressure a part feels, over what it takes, comes off the same law its failure radius
+    /// does: exactly one where it fails, and half at the cube root of two further out -- which is
+    /// where the engine's own collisions start denting.
+    /// </summary>
+    [Fact]
+    public void ThePressureRatioIsOneWhereThePartFailsAndHalvesAtTheCubeRootOfTwo()
+    {
+        double tolerance = BlastDamage.ReferencePascals;
+        double fails = BlastDamage.FailureRadius(20.0, tolerance);
+
+        Assert.Equal(1.0, BlastDamage.PressureRatio(20.0, tolerance, fails), 9);
+        Assert.Equal(0.5, BlastDamage.PressureRatio(20.0, tolerance, fails * Math.Cbrt(2.0)), 9);
+    }
+
+    /// <summary>Nothing past the radius the weapon is described by, however weak the part.</summary>
+    [Fact]
+    public void NoPressureReachesPastTheBlastRadius()
+    {
+        double outside = Warhead.BlastRadius(20.0) * 1.01;
+
+        Assert.Equal(0.0, BlastDamage.PressureRatio(20.0, 1.0e5, outside));
+        Assert.True(BlastDamage.PressureRatio(20.0, 1.0e5, Warhead.BlastRadius(20.0) * 0.99) > 0.0);
+    }
+
+    /// <summary>
+    /// What a burst loads is what it does not break: a part breaking off is not also dented, and
+    /// nothing outside the blast radius is loaded at all.
+    /// </summary>
+    [Fact]
+    public void TheLoadsAreThePartsThatDoNotBreak()
+    {
+        MunitionProfile warhead = Warhead20Kg();
+        double fails = BlastDamage.FailureRadius(20.0, BlastDamage.ReferencePascals);
+        double3 burst = Carrier * 100.0;
+
+        DamageablePart[] parts =
+        [
+            new(0, burst + new double3(fails * 0.5, 0, 0), 0.0, BlastDamage.ReferencePascals),
+            new(1, burst + new double3(fails * 1.1, 0, 0), 0.0, BlastDamage.ReferencePascals),
+            new(2, burst + new double3(Warhead.BlastRadius(20.0) * 1.5, 0, 0), 0.0, BlastDamage.ReferencePascals),
+        ];
+
+        List<int> failed = [];
+        BlastDamage.Sweep(burst, 0.0, Carrier, parts, warhead, failed);
+
+        List<(int Index, double PressureRatio, double GapMetres)> loads = [];
+        BlastDamage.Loads(burst, 0.0, Carrier, parts, warhead, failed, loads);
+
+        Assert.Equal([0], failed);
+        (int index, double ratio, double gap) = Assert.Single(loads);
+        Assert.Equal(1, index);
+        Assert.InRange(ratio, 0.5, 1.0);
+        Assert.Equal(fails * 1.1, gap, 6);
+    }
+
+    /// <summary>
+    /// A dent reaches well past where the part breaks: the engine's threshold, half the part's
+    /// tolerance, lands where the real overpressure is a fifth of what broke it -- 2.6x out for a part
+    /// four times the reference strength, which fails near enough for that to fall inside the blast
+    /// radius, where the cube law alone would stop at 1.26x.
+    /// </summary>
+    [Theory]
+    [InlineData(20.0)]
+    [InlineData(3.0e5)]
+    [InlineData(2.0e7)]
+    public void ADentReachesWhereTheRealBlastIsAFifthOfWhatBreaksThePart(double chargeKg)
+    {
+        double tolerance = BlastDamage.ReferencePascals * 4.0;
+        double fails = BlastDamage.FailureRadius(chargeKg, tolerance);
+        double atFailure = BlastWave.PeakOverpressurePascals(chargeKg, fails);
+
+        Assert.Equal(1.0, BlastDamage.DentRatio(chargeKg, tolerance, fails), 9);
+
+        double lo = fails, hi = Warhead.BlastRadius(chargeKg);
+        for (int i = 0; i < 80; i++)
+        {
+            double mid = 0.5 * (lo + hi);
+            if (BlastWave.PeakOverpressurePascals(chargeKg, mid) > BlastDamage.YieldShare * atFailure) lo = mid;
+            else hi = mid;
+        }
+
+        Assert.InRange(lo / fails, 2.4, 2.8);
+        Assert.Equal(0.5, BlastDamage.DentRatio(chargeKg, tolerance, lo), 6);
+    }
+
+    /// <summary>A reference part dents all the way out to the blast radius, where the cube law stopped at 1.26x.</summary>
+    [Theory]
+    [InlineData(20.0)]
+    [InlineData(3.0e5)]
+    public void AReferencePartDentsOutToTheBlastRadius(double chargeKg)
+    {
+        double tolerance = BlastDamage.ReferencePascals;
+        double edge = Warhead.BlastRadius(chargeKg) * 0.999;
+
+        Assert.True(BlastDamage.DentRatio(chargeKg, tolerance, edge) >= 0.5);
+        Assert.True(BlastDamage.PressureRatio(chargeKg, tolerance, edge) < 0.5);
+    }
+
+    /// <summary>Inside the failure radius the dent is the damage law's, so a protected craft still reads over one.</summary>
+    [Fact]
+    public void InsideTheFailureRadiusADentIsTheDamageLaw()
+    {
+        double fails = BlastDamage.FailureRadius(3.0e5, BlastDamage.ReferencePascals);
+
+        Assert.Equal(BlastDamage.PressureRatio(3.0e5, BlastDamage.ReferencePascals, fails * 0.8),
+                     BlastDamage.DentRatio(3.0e5, BlastDamage.ReferencePascals, fails * 0.8), 9);
+        Assert.Equal(0.0, BlastDamage.DentRatio(3.0e5, BlastDamage.ReferencePascals, Warhead.BlastRadius(3.0e5) * 1.01));
+    }
+
+    private static readonly double3 East = new(1, 0, 0);
+    private static readonly double3 North = new(0, 1, 0);
+
+    /// <summary>
+    /// Two fronts reaching a part together, each too weak to dent it, dent it between them: their
+    /// real pressures add, where the engine asked about each alone says no to both.
+    /// </summary>
+    [Fact]
+    public void TwoFrontsTooWeakToDentAloneDentTogether()
+    {
+        const double charge = 3.0e5;
+        double tolerance = BlastDamage.ReferencePascals * 4.0;
+        double gap = BlastDamage.FailureRadius(charge, tolerance);
+        while (BlastDamage.DentRatio(charge, tolerance, gap) >= 0.4) gap *= 1.01;
+
+        double alone = BlastDamage.DentRatio(charge, tolerance, gap);
+        (double real, double breaking) = BlastDamage.RealLoad(charge, tolerance, gap);
+        FrontLoad[] both = [new(alone, real, breaking, East, 0.0, 0.3), new(alone, real, breaking, North, 0.0, 0.3)];
+
+        Assert.True(alone < 0.5);
+        Assert.True(BlastDamage.Combine(both).Ratio >= 0.5);
+    }
+
+    [Fact]
+    public void OneFrontIsItsOwnLoadAndTogetherIsNeverLessThanTheStrongest()
+    {
+        FrontLoad[] one = [new(0.7, 1000.0, 5000.0, East, 0.0, 0.3)];
+        Assert.Equal((0.7, 0.2), BlastDamage.Combine(one));
+
+        FrontLoad[] two = [new(3.0, 1000.0, 5000.0, East, 0.0, 0.3), new(0.1, 10.0, 5000.0, North, 0.0, 0.3)];
+        Assert.Equal(3.0, BlastDamage.Combine(two).Ratio, 12);
+    }
+
+    /// <summary>
+    /// Two equal fronts meeting head-on meet as at a wall: the reflected pressure of one, more than
+    /// the two added. Travelling the same way they only add, and across each other the reflection
+    /// is gone.
+    /// </summary>
+    [Fact]
+    public void FrontsMeetingHeadOnMeetAsAtAWall()
+    {
+        const double p = 50_000.0, breaking = 1.0e6;
+
+        FrontLoad[] headOn = [new(0.1, p, breaking, East, 0.0, 0.3), new(0.1, p, breaking, -East, 0.0, 0.3)];
+        FrontLoad[] sameWay = [new(0.1, p, breaking, East, 0.0, 0.3), new(0.1, p, breaking, East, 0.0, 0.3)];
+        FrontLoad[] across = [new(0.1, p, breaking, East, 0.0, 0.3), new(0.1, p, breaking, North, 0.0, 0.3)];
+
+        Assert.Equal(BlastWave.ReflectedPascals(p) / breaking, BlastDamage.Combine(headOn).Share, 9);
+        Assert.Equal(2.0 * p / breaking, BlastDamage.Combine(sameWay).Share, 9);
+        Assert.Equal(2.0 * p / breaking, BlastDamage.Combine(across).Share, 9);
+        Assert.True(BlastWave.ReflectedPascals(p) > 2.0 * p);
+    }
+
+    /// <summary>
+    /// A front that passed earlier counts for what is left of it: half way through its push it is
+    /// (1/2)e^(-1/2) of its peak, and once the push is over it adds nothing.
+    /// </summary>
+    [Fact]
+    public void AnEarlierFrontCountsForWhatIsLeftOfIt()
+    {
+        const double p = 10_000.0, breaking = 1.0e6;
+
+        FrontLoad[] halfWay = [new(0.1, p, breaking, East, 0.15, 0.3), new(0.1, p, breaking, North, 0.0, 0.3)];
+        FrontLoad[] over = [new(0.1, p, breaking, East, 0.4, 0.3), new(0.1, p, breaking, North, 0.0, 0.3)];
+
+        Assert.Equal((1.0 + (0.5 * Math.Exp(-0.5))) * p / breaking, BlastDamage.Combine(halfWay).Share, 9);
+        Assert.Equal(p / breaking, BlastDamage.Combine(over).Share, 9);
+    }
+
+    /// <summary>Two fronts arriving together at six tenths of what breaks a part break it between them.</summary>
+    [Fact]
+    public void FrontsTogetherCanBreakWhatNeitherBreaksAlone()
+    {
+        const double breaking = 50_000.0;
+        FrontLoad[] both = [new(0.9, 0.6 * breaking, breaking, East, 0.0, 0.3), new(0.9, 0.6 * breaking, breaking, North, 0.0, 0.3)];
+
+        Assert.True(BlastDamage.Combine(both).Share >= 1.0);
+        Assert.True(BlastDamage.Combine([both[0]]).Share < 1.0);
+    }
+
+    /// <summary>
+    /// A burst part-way through a step is carried to the sample by the ground's own motion: 16 ms
+    /// before a sample at 29.8 km/s, the ground is 477 m on, and anchoring the burst where it stood
+    /// leaves it that far off the place it went off.
+    /// </summary>
+    [Fact]
+    public void ABurstIsCarriedToTheSampleWithTheGroundItWentOffOn()
+    {
+        double3 burst = new(1000.0, 2000.0, 0.0);
+        double3 ground = new(29_800.0, 0.0, 0.0);
+
+        double3 atSample = BlastSweep.GroundAtSample(burst, ground, -0.016);
+
+        Assert.Equal(1000.0 + 476.8, atSample.X, 6);
+        Assert.Equal(2000.0, atSample.Y, 9);
+        Assert.Equal(burst, BlastSweep.GroundAtSample(burst, ground, 0.0));
+    }
 }

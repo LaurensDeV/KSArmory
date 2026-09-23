@@ -122,7 +122,7 @@ a release is wanted. CI runs on every branch and every pull request either way, 
 gated for being on `dev`.
 
 ```bash
-./tools/check-all.sh          # everything CI runs, about 8 seconds
+./tools/check-all.sh          # everything CI runs, about 45 seconds
 ```
 
 That is the whole list, and it is the same script CI calls, so the two cannot drift.

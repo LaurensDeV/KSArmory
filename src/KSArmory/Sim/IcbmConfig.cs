@@ -240,6 +240,16 @@ internal sealed class IcbmConfig
     public bool DrawTrajectory = true;
 
     /// <summary>
+    /// Draw the ground the coasting bus can still divert to, and refuse a click outside it.
+    ///
+    /// <para>It costs seven flights of <see cref="ImpactPredictor"/> every
+    /// <c>IcbmComputer.ReachIntervalSeconds</c>, so this is the switch that stops paying for it —
+    /// and the flights only happen at all while the list can still be added to, which is a coast
+    /// with either <see cref="DesignateByClicking"/> on or a second target already placed.</para>
+    /// </summary>
+    public bool ShowDivertReach = true;
+
+    /// <summary>
     /// Altitude above which the post-boost vehicle is willing to let its warheads go. Deployment
     /// itself belongs to fire control; this only says when the trajectory is far enough along for it
     /// to be sensible.
@@ -702,9 +712,44 @@ internal sealed class IcbmConfig
     /// hold and ends the null, so this cannot become the wait that never ends — which is what the
     /// deleted <c>arm/trim-band</c> version was, costing 110 s and a worse residual. 3fb.</para>
     ///
-    /// <para><b>Off, and unflown.</b></para>
+    /// <para><b>On.</b> Flown over 24 paired blocks at 12,902 km against a declared primary endpoint:
+    /// <b>0 of 24 flights lost against 16 of 24</b>, Fisher p = 0.0000, base worse in 6 of 6 accepted
+    /// blocks and 23 of 24 over every shot — and not once worse in any block. Over all 24, no
+    /// <c>hold</c> rocket stalled against 62 of 96, and one landed over a kilometre out against 60.
+    /// It also met the prediction declared before the night that separates a fix from a coincidence:
+    /// the corrections end on <c>payback</c> 19 and <c>trim</c> 0, keeping the fine band and
+    /// continuing to correct, where <c>PulseTrim=false</c> removed the same stall by releasing early
+    /// on <c>floor</c>. The cost is three flights out of clock at a median 0.34 km against sixteen at
+    /// 1.76, and nothing ended on <see cref="BusTrim.MaxSeconds"/>. <c>docs/ACCURACY-PLAN.md</c>
+    /// 3fh.</para>
     /// </summary>
-    public bool StallFallsBackToHolding;
+    public bool StallFallsBackToHolding = true;
+
+    /// <summary>
+    /// How long the burn's thrust line may be frozen before cutoff, in seconds of burning. Zero
+    /// counts it in frames instead — <see cref="IcbmProgram.HoldDirectionFrames"/>, which ships.
+    ///
+    /// <para><b>A count of frames is a duration that grows with the step.</b> The freeze begins at
+    /// <c>Frames x accel x step x throttle</c> of velocity still to gain and burns that off at
+    /// <c>accel x throttle</c>, so it lasts <c>Frames x step</c> seconds however long a frame is —
+    /// measured headlessly at <b>0.223 s at a 21 ms step against 0.291 s at 28</b>. Everything the
+    /// required velocity does in that time is left square to a line nothing can still thrust
+    /// along.</para>
+    ///
+    /// <para><b>In the orbit plane it costs nothing, which is why no fixture saw it.</b> A shot
+    /// aimed along the track has no out-of-plane work left to freeze: the residual there is 0-1%
+    /// square to the thrust line and grows exactly linearly with the step, 4.08x over 4x. Aimed
+    /// <b>26 deg off the plane</b> it is <b>59-93% square</b> and grows <b>5.9x over the same 4x</b>,
+    /// reaching 2.9 times one frame's delta-v. Flown at 12,902 km the cross-track share is 81% at a
+    /// 23 ms step and 94% at 28 — the same shape. <c>docs/ACCURACY-PLAN.md</c> 3fi.</para>
+    ///
+    /// <para><b>Never shorter than one frame</b>, which is the least a freeze can usefully be: below
+    /// that the direction is steered to a difference of two nearly equal vectors, which is what
+    /// <see cref="IcbmProgram.HoldDirectionBelow"/> exists to stop.</para>
+    ///
+    /// <para><b>Off, and unflown.</b> 0.35 s is 20 frames at the rate the plateau was measured on.</para>
+    /// </summary>
+    public double HoldDirectionSeconds;
 
     /// <summary>
     /// Give each warhead the separation velocity that lands it where the tubes' mean would —

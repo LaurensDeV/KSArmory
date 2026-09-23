@@ -44,6 +44,11 @@ internal sealed partial class Ui
             + "part breaks further out than a dense one, and losing enough of them at once still "
             + "destroys the craft outright. Off: inside the lethal radius the whole craft is destroyed.");
 
+        ImGui.Checkbox("Nuclear bursts black out radar", ref _config.NuclearBlackout);
+        Tip("On: a nuclear fireball ionises the air round it, and a radar cannot see through that or "
+            + "out of it until it cools -- about a minute for a megatonne, seconds for a fraction of a "
+            + "kilotonne. Only sets that transmit are blinded. Off: radar looks straight through a burst.");
+
         ImGui.Checkbox("Weapons on one craft share a target count", ref _config.ShareTargetsAcrossWeapons);
         Tip("On: two rails on one craft will not each fire a full salvo at the same target. "
             + "Off: each weapon counts only its own rounds.");
@@ -52,10 +57,6 @@ internal sealed partial class Ui
         Tip("On: a nuclear burst leaves a cloud standing, at 6-8 ms a frame. "
             + "Off: the burst does the same damage and leaves nothing behind.");
 
-        ImGui.Checkbox("Dirty nuclear smoke", ref _config.DirtyNuclearSmoke);
-        Tip("On: a standing cloud is grey-brown, as a real one is for most of its life, and so is any "
-            + "rocket smoke this mod lays while one stands. Off: the cloud is white. KSA's own "
-            + "boosters keep their own colour either way.");
     }
 
     // Slow motion, well below what the game's speed control reaches. An engagement is over in a
@@ -120,9 +121,10 @@ internal sealed partial class Ui
         }
 
         ImGui.SameLine();
-        Help("KSA has no team field. A craft joins a team when the team's name appears anywhere in "
-             + "its name, so \"Red\" also matches \"Redstone\". Longest match wins. Name teams "
-             + "distinctly.");
+        Help("KSA has no team field, so a craft is placed two ways. The flag on its switcher row "
+             + "is the one that counts. Failing that -- a drone, or anything with nothing of this "
+             + "mod's fitted -- the team's name anywhere in the craft's name puts it on that side, "
+             + "so \"Red\" also matches \"Redstone\". Longest match wins. Name teams distinctly.");
     }
 
     // The developer tools, in a window of their own rather than a section of the settings one.
@@ -141,6 +143,12 @@ internal sealed partial class Ui
                                : "World overlay is off - turn it on under Settings > Display");
 
         ImGui.Separator();
+        if (Build.Developer)
+        {
+            DrawCaptureForClaude();
+            ImGui.Separator();
+        }
+
         DrawWorldClock();
         ImGui.Separator();
         DrawBurstTool();
@@ -149,13 +157,30 @@ internal sealed partial class Ui
         // Inline rather than a pane of its own. It is one tick box and a line of state, and a
         // window holding that is a window to open, move and close for nothing.
         DrawCraftMover();
+        DrawSendToBody();
         ImGui.Separator();
-        DrawFinTest();
-        ImGui.Separator();
+        if (Build.Developer)
+        {
+            DrawFinTest();
+            ImGui.Separator();
+        }
+
         DrawLogging();
         ImGui.Separator();
 
         DrawPaneGroup(null, PaneGroup.Debug);
+    }
+
+    // What the player is looking at, kept for whoever is diagnosing it: frames, the state and the
+    // log at that moment. A report from play in words is a guess at a cause; this is the evidence.
+    private static void DrawCaptureForClaude()
+    {
+        if (ImGui.Button("Capture for Claude")) Bridge.RequestPlayerCapture();
+        Tip("Saves eight frames of what is on screen with a note of the game's state and the end of "
+            + "the log, beside the log in bridge/out. Nothing is sent anywhere. Press it the moment "
+            + "you see something, and say so.");
+
+        if (Bridge.LastPlayerCapture is { } last) ImGui.TextDisabled($"  saved {last}");
     }
 
     // Everything drawn in the world. One screen, so one set of switches.
@@ -217,7 +242,7 @@ internal sealed partial class Ui
         // Bodies and tracers are placed by entirely separate paths, so toggling this while
         // watching a round in flight says which of the two is misbehaving.
         ImGui.Checkbox("Round bodies (off = tracers only)", ref _config.UseRoundBodies);
-        ImGui.Checkbox("Tube markers (debug)", ref _config.DrawTubeMarkers);
+        if (Build.Developer) ImGui.Checkbox("Tube markers (debug)", ref _config.DrawTubeMarkers);
 
         // Reads a system, so it only appears when there is one. The switch above is the session's
         // and stands whatever is selected; this line is a report about the selected system.

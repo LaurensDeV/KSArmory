@@ -54,9 +54,14 @@ internal sealed class RoundFollowable : IFollowable
         LastPositionEcl = burstEcl;
 
         // Body-fixed, because a burst happens over ground and ground turns. Against the launching
-        // craft instead it flies away with it, which for a rocket still under thrust is hundreds
-        // of metres across a three-second linger; as a bare ecliptic point the planet leaves it
-        // behind at ~29.8 km/s, which is 89 km over the same three seconds.
+        // craft instead it flies away with it, which for a rocket still under thrust is kilometres
+        // across the hold a nuclear burst gets; as a bare ecliptic point the planet leaves it
+        // behind at ~29.8 km/s, which over the same hold is a thousand kilometres.
+        //
+        // It is also what makes the hold survive the launching craft dying, which a nuclear one has
+        // every chance of: the ground the burst happened over is still there, and nothing below
+        // reads the craft unless no body could be resolved at all. See ChaseView.LingerSeconds for
+        // how long that is now.
         _burstBody = KsaWorld.TryAnchorToGround(burstEcl, out object? body, out double3 anchor)
                      ? body
                      : null;

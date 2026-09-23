@@ -375,6 +375,35 @@ public static class Arsenal
 
         ChargeKg = 300_000f,
         HitsTerrain = true,
+
+        // A store with no proximity fuse must not hold the world to a proximity fuse's step.
+        //
+        // Both of these default to Interceptor.MaxFaithfulStep, 0.32 s, which is the distance a
+        // round may move before it steps over its own FuseRadius. This one's FuseRadius is zero --
+        // the ground stops it -- so that number bounds nothing here, and a release from altitude
+        // then asks WarpPolicy to hold the world at about 19x for a fall lasting minutes. Past the
+        // step it can take, the policy asks the engine to slow down -- and an engine that refuses,
+        // which it does outright while its own warp-to-a-time runs, is counted as a write that has
+        // not landed and abandons everything in the air.
+        //
+        // Thirty seconds is what the fall is worth rather than what it can survive, and the two are
+        // very far apart: flown from 250 km at 0.32, 1, 5, 8 and 20 s frames the store lands in the
+        // same place to the metre and arrives at the same age to a tenth of a second, because it
+        // sub-steps at 5 ms whatever the frame is. What grows with it is the sub-step count,
+        // MaxSubSteps being derived so the two stay consistent: 0.33 ms a frame at 5 s and about
+        // 1.3 ms at 30, and only on a frame that long.
+        //
+        // Sized to cover the frame rather than to be conservative, because what this number bounds
+        // is an integration clamp that DISCARDS the rest of the frame -- the store then flies less
+        // than the world does and lands wherever that leaves it. Flown at 400x with eight: frames
+        // beyond the allowance, the store's own clock stepping exactly 8 s at a time, and a landing
+        // 2,776 m from the ring. The sub-stepping is what makes a long frame safe; the allowance is
+        // only about not throwing the rest of it away.
+        //
+        // Slug.FaithfulStepSeconds still clamps the world to Medium.FaithfulStepInAir the moment
+        // there is air, so entry and the tail kit are unaffected by any of this.
+        MaxFaithfulStepSeconds = 30f,
+        PreferredStepSeconds = 30f,
     };
 
     /// <summary>

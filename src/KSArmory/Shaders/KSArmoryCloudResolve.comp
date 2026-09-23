@@ -1,0 +1,118 @@
+#version 450
+
+// The nuclear clouds' temporal resolve. KSArmoryCloud.comp marches every cloud into a layer this
+// frame, jittered by the frame number, and this blends that layer with where last frame's result
+// is now on screen and composites it into the scene. The march is 48 steps on a dither, and grain
+// is what limits it; the only thing that removes grain is more samples, and these are last frame's.
+//
+// Bindings follow ComputePipelineWrapper's order: storage images, all of them here. Last frame's
+// history is one of them and is filtered by hand: the images are storage-only, and a sampler on an
+// image made without the sampled usage reads garbage.
+
+layout (local_size_x = 8, local_size_y = 8) in;
+
+layout (set = 1, binding = 0, Rgba16f) uniform image2D sceneColor;
+
+// The clouds this frame: rgb the light they add, a how much of the scene still shows through; and
+// how far away each pixel's cloud is, zero where there is none.
+layout (set = 1, binding = 1, Rgba16f) uniform image2D layerColor;
+layout (set = 1, binding = 2, R32f) uniform image2D layerDistance;
+
+layout (set = 1, binding = 3, Rgba16f) uniform image2D historyOut;
+layout (set = 1, binding = 4, Rgba16f) uniform readonly image2D historyIn;
+
+// Last frame's history at a point on the screen, bilinear between the four texels round it, clamped
+// to the image.
+vec4 HistoryAt(vec2 uv, ivec2 size)
+{
+    vec2 texel = uv * vec2(size) - 0.5;
+    ivec2 base = ivec2(floor(texel));
+    vec2 f = texel - vec2(base);
+    ivec2 top = size - 1;
+
+    vec4 a = imageLoad(historyIn, clamp(base, ivec2(0), top));
+    vec4 b = imageLoad(historyIn, clamp(base + ivec2(1, 0), ivec2(0), top));
+    vec4 c = imageLoad(historyIn, clamp(base + ivec2(0, 1), ivec2(0), top));
+    vec4 d = imageLoad(historyIn, clamp(base + ivec2(1, 1), ivec2(0), top));
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
+layout (push_constant) uniform PushConstants
+{
+    mat4 InvViewProj;   // clip -> camera-relative world, this frame
+    mat4 Reproject;     // camera-relative world this frame -> last frame's clip; zero for no history
+} pc;
+
+// How much of each frame is new. An eighth is about eight frames of samples, which is what turns
+// the dither's grain into a smooth volume; much less and a cloud that is still rising smears.
+layout (constant_id = 17) const float NewShare = 0.125;
+
+// Where no cloud is under a pixel, its history is reprojected as if it were this far: far enough
+// that only the camera's turn moves it, which is what a pixel just off a cloud's edge wants.
+const float NoCloudMetres = 1.0e6;
+
+vec3 WorldAt(vec2 uv, float deviceZ)
+{
+    vec4 clip = vec4(uv * 2.0 - 1.0, deviceZ, 1.0);
+    vec4 p = pc.InvViewProj * clip;
+    return p.xyz / p.w;
+}
+
+void main()
+{
+    ivec2 size = imageSize(sceneColor);
+    ivec2 at = ivec2(gl_GlobalInvocationID.xy);
+    if (at.x >= size.x || at.y >= size.y) return;
+
+    vec4 current = imageLoad(layerColor, at);
+
+    // The neighbourhood's range, which is all the history may be. A cloud that has moved on leaves
+    // history behind it; clamped to what is here now, that history cannot outlive it by more than a
+    // few frames, where unclamped it trails a ghost.
+    vec4 lo = current;
+    vec4 hi = current;
+    float nearest = 0.0;
+
+    for (int y = -1; y <= 1; y++)
+    {
+        for (int x = -1; x <= 1; x++)
+        {
+            ivec2 p = clamp(at + ivec2(x, y), ivec2(0), size - 1);
+            vec4 n = imageLoad(layerColor, p);
+            lo = min(lo, n);
+            hi = max(hi, n);
+
+            float d = imageLoad(layerDistance, p).r;
+            if (d > 0.0 && (nearest <= 0.0 || d < nearest)) nearest = d;
+        }
+    }
+
+    float own = imageLoad(layerDistance, at).r;
+    float distance = own > 0.0 ? own : (nearest > 0.0 ? nearest : NoCloudMetres);
+
+    vec2 uv = (vec2(at) + 0.5) / vec2(size);
+    vec4 resolved = current;
+
+    // A perspective matrix has zeros in places, but never a whole zero column.
+    if (pc.Reproject[0] != vec4(0.0) || pc.Reproject[1] != vec4(0.0))
+    {
+        vec3 world = normalize(WorldAt(uv, 1.0)) * distance;
+        vec4 before = pc.Reproject * vec4(world, 1.0);
+
+        if (before.w > 1.0e-6)
+        {
+            vec2 then = (before.xy / before.w) * 0.5 + 0.5;
+
+            if (all(greaterThanEqual(then, vec2(0.0))) && all(lessThanEqual(then, vec2(1.0))))
+            {
+                vec4 history = clamp(HistoryAt(then, size), lo, hi);
+                resolved = mix(history, current, NewShare);
+            }
+        }
+    }
+
+    imageStore(historyOut, at, resolved);
+
+    vec4 scene = imageLoad(sceneColor, at);
+    imageStore(sceneColor, at, vec4(scene.rgb * resolved.a + resolved.rgb, scene.a));
+}

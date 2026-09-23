@@ -88,6 +88,20 @@ public sealed class KSArmoryMod
         return sight;
     }
 
+    // The other half of the sight: what a store already gone can still be walked onto. Kept and
+    // swept exactly as the pipper is, and under the same switch -- it answers the same operator's
+    // question about the same weapon, a moment later.
+    private readonly Dictionary<WeaponSystem, StoreReach> _storeReach = [];
+
+    private StoreReach ReachFor(WeaponSystem battery)
+    {
+        if (_storeReach.TryGetValue(battery, out StoreReach? reach)) return reach;
+
+        reach = new StoreReach();
+        _storeReach[battery] = reach;
+        return reach;
+    }
+
     // Every round in the world, as things a sensor can hold. Rebuilt each simulated step.
     private readonly List<IContact> _airborne = [];
 
@@ -111,10 +125,15 @@ public sealed class KSArmoryMod
     private readonly TracerTrail _tracers = new();
     private GunSound _gunSound = null!;
     private ScenarioRunner _scenario = null!;
+    private Bridge? _bridge;
 
     [StarMapImmediateLoad]
     public void OnImmediateLoad(Mod mod)
     {
+        // Before anything asks KSA to compile a shader: the generated header names this machine's
+        // own install, and a .comp that includes it will not compile until it is there.
+        CoreShaderInclude.Write(mod.DirectoryPath);
+
         Log.Info($"loading (mod id: {mod.Id})");
 
         // Which KSA this was built for against which it is running, and therefore whether the
@@ -151,6 +170,7 @@ public sealed class KSArmoryMod
         // hook runs the step; this is what puts a hidden-UI frame's step before the render rather
         // than after it. Degrades to the frame postfix, so a refusal costs a frame and nothing.
         PreRenderHook.Install(StepOnce);
+        CloudPassHook.Install(() => _config.ShaderPass);
 
         // The only way to see a save load: StarMap has no hook for one, and the mod never leaves
         // the flight scene across it. A refusal costs one reload's worth of stale rounds.
@@ -167,8 +187,16 @@ public sealed class KSArmoryMod
         _smoke = new MotorSmoke(_config);
         _gunSound = new GunSound(_config);
         _scenario = new ScenarioRunner(_config, _warp, SightFor);
-        _scenario.Begin(ScenarioRunner.Requested());
-        _ui = new Ui(_config, _roster, _heads, _icbms, _warp, _watch, _mover, _bursts);
+        if (Build.Developer)
+        {
+            _scenario.Begin(ScenarioRunner.Requested());
+            _bridge = new Bridge(_config, craft => _roster?.For(craft)?.Battery);
+        }
+
+        Log.Info(Build.Developer
+                     ? "developer install: the bridge, the scenario runner and the developer controls are on"
+                     : "player install: developer tools are off");
+        _ui = new Ui(_config, _roster, _heads, _icbms, _warp, _watch, _mover, _bursts, ReachFor);
         Log.Info($"ready - {string.Join(", ", Catalogue.Launchers.Select(l => l.DisplayName))}, safe. "
                  + "Open the 'KSArmory' panel to arm.");
 
@@ -228,6 +256,9 @@ public sealed class KSArmoryMod
 
             // The fallback, and a no-op on every frame the GUI pass ran. See StepOnce.
             StepOnce(dtPlayer);
+
+            // After the step, so a command sees this frame's world and its simulated step.
+            _bridge?.Update(dtPlayer, KsaWorld.InFlightScene && !KsaWorld.IsPaused ? _lastSimStep : 0.0);
         }
         catch (Exception e)
         {
@@ -304,6 +335,16 @@ public sealed class KSArmoryMod
         _icbms?.Clear();
         KsaWorld.Wreckage.Clear();
 
+        // The clouds, the burned ground, the flash and the bang still on its way all belong to the
+        // world that was replaced: anchored to its bodies, they would stand in the new one.
+        NuclearClouds.Clear();
+
+        // Keyed on live craft, every one of which DeserializeSave has just destroyed. CollectTeams
+        // rebuilds it on the next step that runs, so this only matters for a world that stays
+        // paused -- and a destroyed vehicle reachable from a dictionary is what KsaWorld's own
+        // census note forbids however briefly.
+        KsaWorld.TeamRoster.Clear();
+
         // Markers pin the craft they show, and every one of them has just been destroyed.
         Markers.Forget();
 
@@ -328,6 +369,7 @@ public sealed class KSArmoryMod
         if (_roster is null || _ui is null) return;
 
         _watch.Apply(dt);
+        _bridge?.DriveCamera();
 
         // After the watch camera: both write the view, and the chase takes it outright, so
         // letting the watch nudge afterwards would fight it every frame.
@@ -429,6 +471,7 @@ public sealed class KSArmoryMod
                 if (e.Policy.DrawBombSight && !FlyingABallisticShot(e.Battery))
                 {
                     using (_budget.Measure("sight")) SightFor(e.Battery).Draw(e.Battery);
+                    using (_budget.Measure("store reach")) ReachFor(e.Battery).Draw(e.Battery);
                 }
             }
 
@@ -453,7 +496,7 @@ public sealed class KSArmoryMod
             // run is at 1x where frame time buys nothing. Somebody watches these.
             if (KsaWorld.InFlight && _icbms is not null)
             {
-                using (_budget.Measure("icbmdraw")) IcbmOverlay.Draw(_icbms, _trajectory);
+                using (_budget.Measure("icbmdraw")) IcbmOverlay.Draw(_icbms, _icbms.For(_ui.Focused), _trajectory);
             }
 
             // Over the world, under the panel: ImGui draws windows in submission order, and the
@@ -625,6 +668,11 @@ public sealed class KSArmoryMod
 
                 double step = Math.Min(dtSim, faithful);
 
+                // Which craft is on which side, before anything reads it. Same pass and the same
+                // reason as the airborne census: it is what exists, not something per system --
+                // and the rounds collected below carry their shooter's side out of it.
+                using (_budget.Measure("teams")) CollectTeams();
+
                 // Gathered once, not once per system: every crewed system scans the same sky, and
                 // building this per system would be quadratic in how many are in the world.
                 using (_budget.Measure("airborne")) CollectAirborne(step);
@@ -743,11 +791,17 @@ public sealed class KSArmoryMod
             // steps and two aircraft can sensibly disagree about wanting one.
             if (e.Policy.DrawBombSight && !FlyingABallisticShot(e.Battery))
             {
-                SightFor(e.Battery).Update(e.Battery, _lastSimStep);
+                // Measured, and the draw beside it is the other half. What each of these costs is
+                // the trajectory flying rather than the lines: the pipper's 5.41 ms in CLAUDE.md
+                // is its Draw, and the solve under it has never been in the budget at all -- so
+                // "what does the sight cost a frame" had no readable answer before this.
+                using (_budget.Measure("sight solve")) SightFor(e.Battery).Update(e.Battery, _lastSimStep);
+                using (_budget.Measure("reach solve")) ReachFor(e.Battery).Update(e.Battery);
             }
             else
             {
                 SightFor(e.Battery).Clear();
+                ReachFor(e.Battery).Clear();
             }
         }
 
@@ -770,8 +824,25 @@ public sealed class KSArmoryMod
         //
         // The scene gates it, not the craft. A mushroom cloud does not stop rising because whoever
         // was flying has just been killed by it.
-        if (_config.NuclearClouds) NuclearClouds.Update(_lastSimStep, _config.DirtyNuclearSmoke);
-        else NuclearClouds.Clear();
+        // Read before anything else this frame: it takes the newest COMPLETE profiler frame, which
+        // is the one the GPU has finished with rather than the one being recorded now.
+        CloudPassCost.Sample();
+
+        using (_budget.Measure("clouds"))
+        {
+            if (_config.NuclearClouds) NuclearClouds.Update(_lastSimStep);
+            else NuclearClouds.Clear();
+        }
+
+        // The whiteout a burst leaves on the view. Stepped here rather than drawn in the UI pass:
+        // CloudPass writes it into the scene image so it survives the HUD being hidden.
+        BurstFlash.Update(_lastSimStep);
+
+        // And the bangs and fronts still on their way.
+        BurstSound.Update(_lastSimStep);
+        using (_budget.Measure("fronts")) BlastArrivals.Update(_lastSimStep);
+        BlastShake.Update(_lastSimStep);
+        AttitudeHook.CheckShoves(_lastSimStep);
 
         // A sight outlives nothing: without this the dictionary keeps a system for the session
         // after its craft has gone, which is the leak every pooled effect below sweeps for.
@@ -779,6 +850,12 @@ public sealed class KSArmoryMod
         {
             _sights.Clear();
             foreach (WeaponSystems.Entry e in _roster.All) SightFor(e.Battery);
+        }
+
+        if (_storeReach.Count > _roster.Count)
+        {
+            _storeReach.Clear();
+            foreach (WeaponSystems.Entry e in _roster.All) ReachFor(e.Battery);
         }
 
         // Every effect that holds a pooled emitter or a channel, so a craft destroyed mid-salvo
@@ -977,11 +1054,43 @@ public sealed class KSArmoryMod
              : part;
     }
 
+    // Which side each craft fights for, as the panel's flag set it -- the half of IFF a craft's
+    // display name cannot carry.
+    //
+    // Rebuilt rather than kept, because the entries key on live Vehicles and a roster holding a
+    // destroyed one is what KsaWorld's own census note forbids. The cost is one insert per armed
+    // craft per frame, against the Contains-per-declared-team it saves every sensor on every
+    // contact.
+    //
+    // The rank, not the order, is what settles a craft whose installations were given different
+    // sides under Tuning: both rosters enumerate in a dictionary's order, and an allegiance
+    // decided by that is an unreproducible bug report.
+    private void CollectTeams()
+    {
+        KsaWorld.TeamRoster.Clear();
+
+        if (_roster is not null)
+        {
+            foreach (WeaponSystems.Entry e in _roster.All)
+            {
+                KsaWorld.TeamRoster.Declare(e.Craft, e.Policy.Iff.OwnTeam, e.Ordinal);
+            }
+        }
+
+        if (_heads is null) return;
+
+        foreach (OpticalHeads.Entry h in _heads.All)
+        {
+            KsaWorld.TeamRoster.Declare(h.Head.Platform, h.Policy.Iff.OwnTeam, TeamRoster.DirectorRank);
+        }
+    }
+
     // Every round any crewed system has in the air, wrapped as contacts so a radar can see them.
     //
-    // A round carries its shooter's craft name rather than its own, which is what makes it
-    // inherit that side's allegiance: a launcher's own salvo reads as friendly to everything on
-    // its team without anything having to know a round from a craft.
+    // A round carries its shooter's side and its shooter's craft name rather than its own, which
+    // is what makes it inherit that allegiance: a launcher's own salvo reads as friendly to
+    // everything on its team without anything having to know a round from a craft. The side is
+    // carried rather than looked up because a loose system has no craft left to look one up by.
     //
     // Called once, here, before any system updates -- so every round in the world is still where
     // last frame left it and one instant describes the lot. Each is then carried forward by the
@@ -999,7 +1108,8 @@ public sealed class KSArmoryMod
             WeaponSystem system = e.Battery;
             if (system.Platform is not { } platform) continue;
 
-            AddAirborne(system.Rounds, KsaWorld.DisplayName(platform), platform, KsaWorld.ParentBody(platform), step);
+            AddAirborne(system.Rounds, KsaWorld.DisplayName(platform), system.Team, platform,
+                        KsaWorld.ParentBody(platform), step);
         }
 
         // And the ones whose launcher has been destroyed. They are still in the air, so they are
@@ -1012,11 +1122,11 @@ public sealed class KSArmoryMod
         IReadOnlyList<WeaponSystem> loose = _roster.Loose;
         for (int i = 0; i < loose.Count; i++)
         {
-            AddAirborne(loose[i].Rounds, loose[i].LooseName, null, loose[i].EffectBody, step);
+            AddAirborne(loose[i].Rounds, loose[i].LooseName, loose[i].Team, null, loose[i].EffectBody, step);
         }
     }
 
-    private void AddAirborne(IReadOnlyList<IProjectile> rounds, string firedBy,
+    private void AddAirborne(IReadOnlyList<IProjectile> rounds, string firedBy, string? team,
                              KSA.Vehicle? anchor, Celestial? body, double step)
     {
         for (int i = 0; i < rounds.Count; i++)
@@ -1025,7 +1135,8 @@ public sealed class KSArmoryMod
             if (r.State != RoundState.Flying) continue;
 
             double3 at = r.PositionEcl + r.VelocityEcl * step;
-            _airborne.Add(new RoundContact(r, firedBy, anchor, at, r.VelocityEcl, CoastingAcceleration(r, body, at)));
+            _airborne.Add(new RoundContact(r, firedBy, team, anchor, at, r.VelocityEcl,
+                                           CoastingAcceleration(r, body, at)));
         }
     }
 
@@ -1100,7 +1211,8 @@ public sealed class KSArmoryMod
 
         WarpDecision d = _warp.Decide(dtSim, KsaWorld.SimulationSpeed,
                                       anyInFlight || anyBurning, _config.LimitWarpInFlight,
-                                      Math.Min(faithful, icbmFaithful));
+                                      Math.Min(faithful, icbmFaithful),
+                                      KsaWorld.IsAutoWarpActive);
 
         switch (d.Action)
         {

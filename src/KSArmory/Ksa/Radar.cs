@@ -61,6 +61,12 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
     public int MaskedByTerrain { get; private set; }
 
     /// <summary>
+    /// Craft the last scan lost to a nuclear fireball's ionised air, counted for the same reason:
+    /// a set that has gone blind reads as a broken one unless it says why.
+    /// </summary>
+    public int MaskedByBurst { get; private set; }
+
+    /// <summary>
     /// Pieces of craft this mod's warheads broke up, left out of the picture this scan. Counted for
     /// the same reason as the masked ones: a burst that leaves a dozen pieces falling and a scope
     /// showing none reads as the set having missed them. See <see cref="KSArmory.Wreckage"/>.
@@ -107,6 +113,7 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
         Tracks.Clear();
         _byHandle.Clear();
         MaskedByTerrain = 0;
+        MaskedByBurst = 0;
         IgnoredWreckage = 0;
 
         // A set that has been told to stop transmitting sees nothing. That is the whole of the
@@ -191,7 +198,10 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
     {
         if (!contact.IsAlive) return;
 
-        string? team = Teams.TeamFor(contact.TeamKey, _config.TeamNames);
+        // What the panel's flag put it on, and only failing that what its name reads as. The flag
+        // is the one somebody set on purpose, and it is also the cheaper of the two: a dictionary
+        // hit against a Contains over every declared team name.
+        string? team = contact.DeclaredTeam ?? Teams.TeamFor(contact.TeamKey, _config.TeamNames);
         Allegiance allegiance = _policy.Iff.Classify(team);
 
         double3 targetPos = contact.PositionEcl;
@@ -214,10 +224,18 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
             ? Vec.Len(targetPos - groundCentre) - groundRadius
             : double.PositiveInfinity;
 
-        var signature = new ThreatModel.ContactSignature(contact.MeanRadius, height);
+        var signature = new ThreatModel.ContactSignature(contact.MeanRadius, height, contact.IsMunition);
 
         if (!ThreatModel.TryAssess(targetPos - originEcl, targetVel - originVel,
                                    boresight, _sensor, signature, out var a)) return;
+
+        // A fireball's ionised air, which absorbs a beam that crosses it. A handful of spheres, so
+        // cheap, but asked only of what the cone let through and only of a set that transmits.
+        if (_sensor.Emits && _config.NuclearBlackout && NuclearClouds.BlacksOut(originEcl, targetPos))
+        {
+            MaskedByBurst++;
+            return;
+        }
 
         // The skyline, and last of all the rejects. Every sample is a height-map fetch, so it is
         // only worth spending on a contact that range, cone and the planet's own bulk have all

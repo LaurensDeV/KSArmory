@@ -29,8 +29,15 @@ public static class WarheadExplosion
     /// <summary>The large fireball, debris, standing smoke and the big sound.</summary>
     public const string Conflagration = "Explosion_Conflagration";
 
+    /// <summary>
+    /// This mod's own, for a charge that grows a mushroom cloud: Core's conflagration without its
+    /// smoke volume, because <see cref="MushroomCloud"/> is already drawing that air at a thousand
+    /// times the size and Core's is a pale blue lump under it.
+    /// </summary>
+    public const string NuclearBurst = "KSArmoryNuclearBurst";
+
     /// <summary>Every preset a warhead can go off as, smallest first.</summary>
-    public static readonly string[] Presets = [Pop, SmallFire, Conflagration];
+    public static readonly string[] Presets = [Pop, SmallFire, Conflagration, NuclearBurst];
 
     // The fireball volume's peak radius in Core's ExplosionAssets.xml, at the reference energy, and
     // the conflagration stage's own intensity multiplier. PopSmallExplosion has no fireball.
@@ -56,7 +63,10 @@ public static class WarheadExplosion
 
         if (fireball < smallFire * 0.5) return Pop;
         if (fireball < Math.Sqrt(smallFire * conflagration)) return SmallFire;
-        return Conflagration;
+
+        // Above the threshold this mod draws the smoke itself, so the preset that carries Core's is
+        // the wrong one however well it fits the fireball.
+        return chargeKg >= MushroomCloud.ThresholdKg ? NuclearBurst : Conflagration;
     }
 
     /// <summary>The energy KSA is handed for a charge, in joules.</summary>

@@ -80,7 +80,121 @@ public class CutoffResidualTests(ITestOutputHelper Out)
     /// </summary>
     private const double ShallowArrival = 0.0;
 
-    private static IcbmProgram Armed() => new(new IcbmConfig { Armed = true, ArrivalPreference = FixtureGeometry.ArrivalPreference, MinArrivalAngleDeg = ShallowArrival });
+    private static IcbmProgram Armed(double holdSeconds = 0.0) => new(new IcbmConfig { Armed = true, ArrivalPreference = FixtureGeometry.ArrivalPreference, MinArrivalAngleDeg = ShallowArrival, HoldDirectionSeconds = holdSeconds });
+
+    /// <summary>
+    /// Every fixture above aims along the orbit track, where the burn has no out-of-plane work to
+    /// leave behind — so the residual is all along the thrust line and all of it one frame's worth.
+    /// <b>That is the geometry, not the guidance</b>, and the long shot is not flown at it.
+    /// </summary>
+    [Fact]
+    public void HowMuchTheCutoffLeavesSquareToTheThrustLineIsSetByTheAimsPlane()
+    {
+        double alongTrack = WorstSquareShare(0.0);
+        double offPlane = WorstSquareShare(0.45);
+
+        Out.WriteLine($"worst of four: {alongTrack:P0} square aimed along the track, "
+                      + $"{offPlane:P0} aimed 26 deg off the plane");
+
+        Assert.True(alongTrack < 0.10,
+                    $"an along-track shot left {alongTrack:P0} square to the thrust line, so this "
+                    + "fixture is no longer the blind geometry it exists to name");
+
+        Assert.True(offPlane > 0.55,
+                    $"an off-plane shot left only {offPlane:P0} square to the thrust line, so the "
+                    + "freeze no longer leaves the out-of-plane work the flown residual is made of");
+    }
+
+    private double WorstSquareShare(double lat)
+    {
+        double worst = 0.0;
+
+        foreach (double lon in (double[])[0.7, 1.0, 1.3, 1.6])
+        {
+            IcbmFlightRig rig = LikeTheGame();
+            IcbmProgram program = Armed();
+            IcbmFlightRig.Flight flight = rig.Fly(program, At(lat, lon), 0.0233, 6_000.0);
+
+            Assert.True(flight.Reached, $"the burn never reached coast: {flight.Hold}");
+
+            (double along, double perp) = SplitAboutTheThrustLine(program, flight);
+            Out.WriteLine($"  lat {lat:F2} lon {lon:F1}: {program.ResidualAtCutoff:F4} m/s = "
+                          + $"{along:F4} along, {perp:F4} square, {perp / program.ResidualAtCutoff:P0}");
+
+            worst = Math.Max(worst, perp / program.ResidualAtCutoff);
+        }
+
+        return worst;
+    }
+
+    /// <summary>
+    /// And the freeze that leaves it lasts <c>HoldDirectionFrames x step</c> seconds, so a slower
+    /// machine holds the line longer — <see cref="IcbmConfig.HoldDirectionSeconds"/> is the duration
+    /// said in seconds instead.
+    /// </summary>
+    [Theory]
+    [InlineData(0.0167, 0.0400, 0.0, 2.60)]
+    [InlineData(0.0167, 0.0400, 0.35, 1.15)]
+    [InlineData(0.0210, 0.0280, 0.0, 1.45)]
+    [InlineData(0.0210, 0.0280, 0.35, 1.05)]
+    public void TheSteeringFreezeLastsTheSameTimeAtEitherFrameRate(
+        double fastStep, double slowStep, double holdSeconds, double mostStretch)
+    {
+        (double slow, double slowLeft) = Freezing(slowStep, holdSeconds);
+        (double fast, double fastLeft) = Freezing(fastStep, holdSeconds);
+
+        Out.WriteLine($"holding for {(holdSeconds > 0.0 ? $"{holdSeconds * 1000:F0} ms" : "20 frames")}: "
+                      + $"{fast:F3} s at a {fastStep * 1000:F0} ms step and {slow:F3} s at "
+                      + $"{slowStep * 1000:F0}, {slow / fast:F2}x, "
+                      + $"leaving {fastLeft:F4} m/s and {slowLeft:F4}");
+
+        Assert.True(slow / fast <= mostStretch,
+                    $"a {slowStep / fastStep:F1}x longer frame held the thrust line {slow / fast:F2}x "
+                    + "longer, and what the required velocity does in that time is square to a line "
+                    + "nothing can thrust along");
+    }
+
+    // The freeze seen from outside: the last stretch over which the commanded direction never moves.
+    private static (double Seconds, double Residual) Freezing(double step, double holdSeconds)
+    {
+        IcbmFlightRig rig = LikeTheGame();
+        Freeze watch = new();
+        rig.AimLoop = watch;
+
+        IcbmProgram program = Armed(holdSeconds);
+        IcbmFlightRig.Flight flight = rig.Fly(program, At(0.45, 1.3), step, 6_000.0);
+        Assert.True(flight.Reached, $"the burn never reached coast: {flight.Hold}");
+
+        return (watch.Seconds, program.ResidualAtCutoff);
+    }
+
+    private sealed class Freeze : IcbmFlightRig.IAimLoop
+    {
+        private readonly List<(double At, double3 Dir)> _frames = [];
+        private double _elapsed;
+
+        public double3 Apply(double3 aimNowCci) => aimNowCci;
+        public bool IsSteady => true;
+
+        public void AfterUpdate(IcbmProgram program, in IcbmCommand command, double3 aimNowCci, double step)
+        {
+            _elapsed += step;
+            if (command.EngineOn) _frames.Add((_elapsed, command.ThrustDirectionCci));
+        }
+
+        public double Seconds
+        {
+            get
+            {
+                if (_frames.Count < 2) return 0.0;
+
+                int i = _frames.Count - 1;
+                while (i > 0 && Vec.AngleBetween(_frames[i].Dir, _frames[i - 1].Dir) < 1e-9) i--;
+
+                return _frames[^1].At - _frames[i].At;
+            }
+        }
+    }
 
     [Fact]
     public void TheBurnStopsWithLittleLeftToGain()

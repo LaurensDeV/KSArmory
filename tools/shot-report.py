@@ -37,6 +37,15 @@ metre, which cannot see a metre. `centre` and `dispersion` split that miss into 
 and how wide it is, off the downrange and cross the line carries. Read a width on `dispersion`, not
 `spread`: moving only the centre read 1.00x on the first and 0.85x on the second on 2026-09-13-spin,
 because a range of distances from the aim narrows as the group comes in.
+
+A salvo sent to SEVERAL places is read off the scenario's per-target lines, because its FLIGHT line
+deliberately carries no group statistics -- twenty kilometres of intended separation in the
+`worst .. best .. mean .. spread` shape is a twenty-kilometre miss to every night already flown.
+Nothing about the statistics changes: `miss` becomes the warhead-weighted mean of the per-target
+means, which is still the mean distance of a warhead from where IT was sent, and every width is
+measured within a target and reduced on the worst of them -- the reduction the flight's own verdict
+already uses. What DOES change is comparability, so `== targets` says loudly when a night mixed
+one-target and several-target flights: those are not draws from one distribution.
 """
 
 import argparse
@@ -221,13 +230,33 @@ GROUND_SAMPLE = re.compile(
 # group that scatters past a kilometre prints km and is converted; the 0.1 m form is what makes the
 # quantity readable at all, the VERDICT line's own `spread` being 10 m-quantised on a 2 m number.
 GROUPIMPACT = re.compile(
-    r"round \d+(?: on (?P<craft>.+?))? down\s+(?P<miss>[\d.]+)\s*(?P<unit>km|m)"
+    r"round \d+(?: on (?P<craft>.+?))?(?: for target (?P<target>\d+))? down"
+    r"\s+(?P<miss>[\d.]+)\s*(?P<unit>km|m)"
     r"\s*from the aim point after"
     # Where that warhead landed in the arrival frame, signed and in the same unit rule. Optional, so
     # a line written before the components were printed matches exactly as it did; a component the
     # game could not resolve prints `unknown` and leaves the pair absent rather than half-read.
     r"(?:\s*\d+\s*s\s*\((?P<down>[-+]?[\d.]+)\s*(?P<down_unit>km|m)\s+downrange,"
     r"\s*(?P<cross>[-+]?[\d.]+)\s*(?P<cross_unit>km|m)\s+cross\))?")
+
+# One target's own group, for a salvo that went to several places. The scenario prints one of these
+# per target and the FLIGHT line then carries no group statistics at all -- deliberately, because a
+# group split across twenty kilometres of ground in the `worst .. best .. mean .. spread` shape is a
+# twenty-kilometre miss to every night already flown. So this is where a split night's numbers come
+# from, and a night that flew one target has none of these and reads exactly as it always did.
+#
+# The craft is optional on the same rule every other line here follows, and the verdict after the
+# `--` is `ShotGroup.Judge`'s own words, so VERDICT and ARRIVED read it unchanged.
+TARGETLINE = re.compile(
+    r"TARGET (?P<k>\d+) of (?P<n>\d+)(?: on (?P<craft>.+?))?: (?P<site>.+?) -- (?P<said>.*)$", re.M)
+
+# The walk the bus actually flew, one line a stop, with the target ZERO-BASED as
+# `TargetSet.Entries` indexes it. Nothing is scored off it: it is what `--shots` prints so a
+# target's miss sits beside what reaching it cost, and the cross-check `say_targets` runs against
+# the scoring. `warheads?` because the line pluralises, so a one-warhead stop says `1 warhead`.
+RELEASEWALK = re.compile(
+    r"released \d+ of \d+ on (?P<craft>.+?): target (?P<k>\d+) (?P<site>.+?), "
+    r"(?P<warheads>\d+) warheads?, divert (?P<divert>[-\d.]+) m/s, (?P<left>[-\d.]+) m/s left")
 
 # What ended the post-boost correction, which is the one thing that decides whether the aim loop
 # was allowed to finish. Every Finish() in Sim/PostBoostAim.cs, in the order it is tested, plus the
@@ -398,6 +427,76 @@ def _release_probes(log, craft):
     return mine, seen_named
 
 
+def read_targets(text, craft=None):
+    """One flight's per-target groups, newest parse wins, or [] for a night that flew one target.
+
+    A salvo sent to several places has no single group, so the four numbers every night before this
+    was read off do not exist on the FLIGHT line. They are rebuilt here from the per-target lines,
+    which carry `ShotGroup.Judge`'s own words: `mean` warhead-weighted over the targets, `worst` and
+    `best` the extremes anywhere, `spread` the WORST TARGET's own within-group spread. Each of those
+    is the quantity it always was, reduced on the worst target -- the same reduction the verdict
+    itself uses, so the report and the PASS/FAIL cannot disagree about which target decided it.
+    """
+    rows = []
+
+    named = [m for m in TARGETLINE.finditer(text) if m.group("craft")]
+    want = _craft(craft) if craft else None
+
+    if named and want:
+        found = [m for m in named if _craft(m.group("craft")) == want]
+    elif named and craft is None:
+        found = named
+    else:
+        found = list(TARGETLINE.finditer(text))
+
+    for m in found:
+        said = m.group("said")
+        row = {"k": int(m.group("k")), "of": int(m.group("n")), "site": m.group("site").strip(),
+               "worst": None, "best": None, "mean": None, "spread": None,
+               "arrived": None, "released": None}
+
+        v = VERDICT.search(said)
+        if v:
+            row["worst"], row["best"], row["mean"], row["spread"] = (float(g) for g in v.groups())
+        a = ARRIVED.search(said)
+        if a:
+            row["arrived"], row["released"] = int(a.group(1)), int(a.group(2))
+
+        rows.append(row)
+
+    # The scenario prints the block once, at the verdict; a file that somehow carries two keeps the
+    # last, which is the one the FLIGHT line beside it was written from.
+    latest = {}
+    for row in rows:
+        latest[row["k"]] = row
+    return [latest[k] for k in sorted(latest)]
+
+
+def _fold_targets(shot):
+    """Put a split flight's per-target groups back into the four columns everything else reads."""
+    rows = shot["targets"]
+    if len(rows) < 2:
+        return
+
+    shot["split"] = True
+    shot["released"] = sum(r["released"] or 0 for r in rows)
+    shot["arrived"] = sum(r["arrived"] or 0 for r in rows)
+
+    scored = [r for r in rows if r["mean"] is not None and r["arrived"]]
+    if not scored:
+        shot["mean"] = shot["worst"] = shot["best"] = shot["spread"] = None
+        return
+
+    # Warhead-weighted, so it is the mean distance of a warhead from where IT was sent -- the same
+    # quantity `miss` has always scored, and the one a target with two warheads must not weigh as
+    # heavily as one with four.
+    flown = sum(r["arrived"] for r in scored)
+    shot["mean"] = sum(r["mean"] * r["arrived"] for r in scored) / flown
+    shot["worst"] = max(r["worst"] for r in scored)
+    shot["best"] = min(r["best"] for r in scored)
+    shot["spread"] = max(r["spread"] for r in scored)
+
+
 def split_flights(out_path, log_path):
     """One record per rocket that flew, or one for the whole run when only one did.
 
@@ -443,6 +542,12 @@ def split_flights(out_path, log_path):
         if a:
             rec["arrived"], rec["released"] = int(a.group(1)), int(a.group(2))
 
+        # A split flight's FLIGHT line carries no group statistics, so ARRIVED above has just put
+        # the flight's totals over the per-target fold -- which agrees with it. The fold is re-run
+        # so `spread` and the rest are this flight's per-target reduction rather than a VERDICT
+        # match that cannot happen.
+        _fold_targets(rec)
+
         # Where this rocket sat in the roster. 8y measured a 175x gradient down it -- first rocket
         # 0.09 km, eighth 15.81 km, monotone across every arm -- and every arm comparison since has
         # had to be laid out so both variants sit on both ends of it. Kept so a run can say whether
@@ -460,6 +565,7 @@ def split_flights(out_path, log_path):
 def read_shot(out_path, log_path, craft=None):
     """Everything one shot is worth attributing, from its stdout and its copied-out log."""
     shot = {"mean": None, "spread": None, "worst": None, "best": None,
+            "targets": [], "split": False, "walk_stops": [],
             "arrived": None, "released": None, "pickup_km": None, "pickup_ms": None,
             "residual": None, "own_km": None, "trim_split": None, "trim_release": None,
             "arc_deg": [], "release_owed": [], "response": [], "raw_response": [],
@@ -487,6 +593,15 @@ def read_shot(out_path, log_path, craft=None):
     m = ARRIVED.search(both)
     if m:
         shot["arrived"], shot["released"] = int(m.group(1)), int(m.group(2))
+
+    # After both, because a split flight's per-target lines are the only place those four numbers
+    # exist and a whole-file VERDICT search would otherwise take the first target's as the shot's.
+    shot["targets"] = read_targets(both, craft)
+    _fold_targets(shot)
+
+    shot["walk_stops"] = [m.groupdict() for m in RELEASEWALK.finditer(both)
+                          if craft is None or _craft(m.group("craft")) == _craft(craft)]
+
     m = PICKUP.search(both)
     if m:
         shot["pickup_km"], shot["pickup_ms"] = float(m.group(1)), float(m.group(2))
@@ -557,6 +672,10 @@ def read_shot(out_path, log_path, craft=None):
     # past a kilometre are left out: a group that far out never floors, and their 10 m step would.
     shot["group_quantum"] = max((_print_quantum(m.group("miss")) for m in group if m.group("unit") == "m"),
                                 default=PARTS_FLOOR_M)
+
+    # Aligned with group_m: which target that warhead was sent to, or None on a line that names
+    # none -- which is every line of every single-target night.
+    shot["group_target"] = [int(m.group("target")) if m.group("target") else None for m in group]
 
     # Aligned with group_m, None where a line carries no components, so a flight missing one
     # warhead's pair is visibly short rather than scored on five as though they were six.
@@ -2064,6 +2183,69 @@ def _say_terminators(shots, order):
     print()
 
 
+def say_targets(shots, arms):
+    """What each target of a split salvo came to, per arm, and nothing at all for a night that flew
+    one.
+
+    **A night that mixes target counts measures the mix.** Reaching three places costs two re-aims
+    at a median 65.1 s each and two hops of divert, so a three-target flight and a one-target flight
+    are not two draws from one distribution -- pooled, `miss` reads the proportions rather than the
+    arm. Same exposure `--endpoint spread` has to the group size, and it is said here rather than
+    refused, because a night flown at 1 and then 2/4/6 targets is exactly the check that the walk
+    costs nothing when it has one stop.
+    """
+    split = [s for s in shots if s.get("split")]
+    if not split:
+        return
+
+    counts = sorted({max(1, len(s["targets"])) for s in shots})
+    print(f"\n== targets: {len(split)} of {len(shots)} flights went to several places")
+    if len(counts) > 1:
+        print(f"   ** THIS NIGHT MIXES {counts} TARGETS A FLIGHT -- pooled, `miss` reads the mix **")
+        print("      Compare arms flown at the SAME count, or read the per-target rows below.")
+
+    print(f"\n   {'arm':<14}{'target':>7}{'n':>5}{'site':>22}{'median km':>11}"
+          f"{'worst km':>10}{'spread m':>10}")
+
+    for arm in arms:
+        mine = [s for s in shots if s["arm"] == arm and s.get("split") and usable(s)]
+        if not mine:
+            continue
+
+        rows = defaultdict(list)
+        for s in mine:
+            for r in s["targets"]:
+                if r["mean"] is not None and r["arrived"]:
+                    rows[r["k"]].append(r)
+
+        for k in sorted(rows):
+            got = rows[k]
+            print(f"   {arm:<14}{k:>7}{len(got):>5}{got[0]['site']:>22}"
+                  f"{statistics.median(r['mean'] for r in got):>11.3f}"
+                  f"{max(r['worst'] for r in got):>10.3f}"
+                  f"{statistics.median(r['spread'] for r in got) * 1000.0:>10.1f}")
+
+        # A target with no row got no warheads, and that is the loud failure this section exists
+        # for: a build whose release loop is not wired sends every warhead to the lead, which still
+        # lands six on one place and scores an ordinary `miss` while two targets got nothing.
+        asked = max(r["of"] for s in mine for r in s["targets"])
+        missing = [k for k in range(1, asked + 1) if k not in rows]
+        if missing:
+            print(f"   {arm:<14} ** {len(missing)} of {asked} targets got NO warheads "
+                  f"({', '.join(str(k) for k in missing)}) -- every flight of this arm FAILED **")
+
+        # The scenario attributes a warhead by watching the bus's own lead index; the release line
+        # is what the flight SAID it was doing. Two readings of one fact, so a disagreement is an
+        # attribution fault -- every number above it is then on the wrong target, and nothing else
+        # in this report would say so.
+        for s in mine:
+            said = {int(w["k"]) + 1: int(w["warheads"]) for w in s["walk_stops"]}
+            scored = {r["k"]: (r["released"] or 0) for r in s["targets"]}
+            if said and said != {k: v for k, v in scored.items() if k in said}:
+                print(f"   {arm:<14} ** {s['n']}: the release log says {said} warheads a target "
+                      f"and the score says {scored} -- ATTRIBUTION FAULT **")
+
+
 def summarise(values):
     if not values:
         return {"n": 0}
@@ -2194,7 +2376,33 @@ def _spread_score(shot):
         return None
     if shot.get("seat") is not None and not shot.get("group_named"):
         return None
-    return max(max(shot["group_m"]) - min(shot["group_m"]), _group_floor(shot, SPREAD_FLOOR_M))
+
+    widest = None
+    for got in _by_target(shot, shot["group_m"]):
+        if len(got) < 2:
+            continue
+        width = max(got) - min(got)
+        widest = width if widest is None else max(widest, width)
+
+    return None if widest is None else max(widest, _group_floor(shot, SPREAD_FLOOR_M))
+
+
+def _by_target(shot, values):
+    """`values`, aligned with the landing lines, split into one list per target.
+
+    A salvo split across several places has no group width -- the ground between two targets is the
+    plan rather than the error -- so every width here is measured WITHIN a target and reduced on the
+    worst of them, which is the reduction the flight's own verdict uses. A single-target flight has
+    one bucket and reads exactly as it always did.
+    """
+    whose = shot.get("group_target") or []
+    if not shot.get("split") or len(whose) != len(values):
+        return [list(values)]
+
+    buckets = defaultdict(list)
+    for target, value in zip(whose, values):
+        buckets[target].append(value)
+    return [buckets[k] for k in sorted(buckets, key=lambda k: (k is None, k))]
 
 
 # The components print in the same step as the distance, so a group centre or width under it is
@@ -2290,12 +2498,25 @@ def _centre_and_dispersion(shot):
     """
     if _group_refusal(shot, need_parts=True):
         return None
-    parts = shot["group_parts"]
-    down = statistics.fmean(d for d, _ in parts)
-    cross = statistics.fmean(c for _, c in parts)
-    centre = math.hypot(down, cross)
-    dispersion = math.sqrt(statistics.fmean((d - down) ** 2 + (c - cross) ** 2 for d, c in parts))
-    return centre, dispersion
+
+    # One target at a time, reduced on the worst of them -- see `_by_target`. Pooled across targets
+    # the centroid sits between two places nobody aimed at, and the rms about it is the separation
+    # rather than the group.
+    worst = None
+
+    for parts in _by_target(shot, shot["group_parts"]):
+        if not parts:
+            continue
+        down = statistics.fmean(d for d, _ in parts)
+        cross = statistics.fmean(c for _, c in parts)
+        centre = math.hypot(down, cross)
+        dispersion = math.sqrt(
+            statistics.fmean((d - down) ** 2 + (c - cross) ** 2 for d, c in parts))
+
+        if worst is None or centre > worst[0]:
+            worst = (centre, dispersion)
+
+    return worst
 
 
 def _centre_score(shot):
@@ -3005,6 +3226,8 @@ def main():
     terrain_report(shots, verbose=False)
     say_ground_per_seat(root)
 
+    say_targets(shots, arms)
+
     print("\n== per arm")
     for endpoint in ("mean", "spread", "worst"):
         print(f"\n   {endpoint}")
@@ -3065,6 +3288,25 @@ def main():
                   f"lag {statistics.median(s['lag_m']) if s['lag_m'] else float('nan'):.0f} m  "
                   f"{s['why'] or '-':<9} {s['passes'] if s['passes'] is not None else '-':>2}p "
                   f"owed {owed:>5} m/s")
+
+            # The stops beside the misses, so what a target cost to reach sits next to what it was
+            # worth. A walk of one prints nothing, which is every flight of every night so far.
+            cost = {int(w["k"]): w for w in s["walk_stops"]}
+            for r in s["targets"] if s["split"] else []:
+                w = cost.get(r["k"] - 1)
+                spent = (f"divert {float(w['divert']):.2f} m/s, {float(w['left']):.1f} left"
+                         if w else "no release line")
+
+                # A stop that got nothing has no group to print, and is exactly the outcome worth
+                # seeing: `-` rather than a row of zeros that reads like six warheads on the aim.
+                got = (f"mean {r['mean']:.3f}  worst {r['worst']:.3f}  "
+                       f"spread {r['spread'] * 1000.0:.1f} m"
+                       if r["mean"] is not None else "nothing scored")
+
+                print(f"      target {r['k']} {r['site']:<20} "
+                      f"{r['arrived'] if r['arrived'] is not None else '-'}/"
+                      f"{r['released'] if r['released'] is not None else '-'} arrived  "
+                      f"{got}  {spent}")
 
     print("\n== what the correction loop left (medians over usable shots)")
     print("   the arc it actually flew, what the trim still owed when the warheads left, and how")

@@ -129,7 +129,10 @@ public class WalkFloorTests(ITestOutputHelper Out)
         return (m, Math.Sqrt(walk.Sum(x => (x - m) * (x - m)) / walk.Count), gamma);
     }
 
-    /// <summary>The instrument check: two seeds, same answer, or nothing below is worth reading.</summary>
+    /// <summary>
+    /// The instrument check: two seeds, same answer, or nothing below is worth reading. Untagged,
+    /// so the thing that says the studies are trustworthy runs on every push even though they do not.
+    /// </summary>
     [Fact]
     public void TwoSeedsAgree()
     {
@@ -152,6 +155,7 @@ public class WalkFloorTests(ITestOutputHelper Out)
     /// distribution, measured off the night's kick lines, is median 0.149, 75th 0.345, 90th 0.823.
     /// </summary>
     [Fact]
+    [Trait("kind", "study")]
     public void TheFloorAgainstTheGroundsSlope()
     {
         double[] slopes = [0.05, 0.15, 0.35, 0.80];
@@ -172,6 +176,7 @@ public class WalkFloorTests(ITestOutputHelper Out)
 
     /// <summary>The floor against the sub-step, re-asked on the instrument that does not alias.</summary>
     [Fact]
+    [Trait("kind", "study")]
     public void TheFloorDoesNotMoveWithTheSubStep()
     {
         double[] steps = [4.0, 1.0, 0.25];
@@ -189,6 +194,7 @@ public class WalkFloorTests(ITestOutputHelper Out)
 
     /// <summary>And against the arrival angle, which is the lever the floor should obey.</summary>
     [Fact]
+    [Trait("kind", "study")]
     public void TheFloorAgainstTheArrivalAngle()
     {
         double[] ranges = [2_600_000.0, 1_900_000.0, 1_500_000.0, 1_100_000.0, 800_000.0];

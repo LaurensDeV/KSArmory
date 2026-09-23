@@ -122,7 +122,7 @@ same rig `docs/SHOT-PROTOCOL.md` already describes. Until a cell is flown, that 
 5. **Retire the settings** from the panel, keeping them settable from a shot spec. **Partly done:**
    the Ballistic tab shows the §3 controls and the arrival floor — which `NO ARC ARRIVES` names, so
    it cannot be folded away — and everything else sits under one **Engineering** fold that opens
-   closed. They are still on the panel, because `check-tunables.py` requires a write for every
+   closed and appears only on a developer's install. They are still on the panel there, because `check-tunables.py` requires a write for every
    `IcbmConfig` field; retiring one outright means an `EXEMPT` entry naming why.
 
 Steps 1 and 2 are also the two biggest remaining accuracy items, so this is not a detour from

@@ -820,6 +820,77 @@ console modal that stays until a button is clicked. Popups sit on `Popup`'s priv
 list, `Popup.AnyOpen` is public, and setting a popup's public `Active` to false is how its own buttons
 close it.
 
+## Dents are the engine's, and a mod can make one
+
+KSA deforms part meshes itself (`FxDeformation`, `KSA.Deformation.DentField`): up to ten dents a
+part, set by the Impact Dent Quality graphics setting, merged when they land on one another, and
+saved with the craft. Its collision code reports them through **`FxDeformation.ReportContact(part,
+centreOfMassAsmb, pointBody, normalBody, impulsePerArea, area)`**, which is public and static:
+
+- The point is `pointBody + centreOfMassAsmb`, so passing a zero centre of mass takes the point in
+  the vehicle's assembly frame. The normal is the push, into the part, in that same frame.
+- `impulsePerArea / 0.01` is the pressure (`PartStructuralLimits.AccumulatedPressure`), compared with
+  the full part's `CrashTolerancePascals`: nothing under half of it, and a depth of 0.099 of the
+  part's scale radius per unit of the ratio, capped at 0.15.
+- The footprint's radius is `2.29 · sqrt(area / π)`, clamped to 0.314–0.709 of that scale radius.
+- It returns silently if the Impact Dents setting or `FxDeformation.Shared.Enabled` is off. It
+  enqueues under a lock and the vehicle's own module update drains the queue, so it can be called
+  from a mod hook; `FxDeformation.Shared.TotalReported` counts what it accepted.
+
+`KsaWorld.ReportBlastDents` is the worked example. The mesh editor's **Add test dent** is the other
+way in, `FxDeformation.DebugImpact`, and places one at random.
+
+## A compute pass can read KSA's weather shadows, but not through KSA's set
+
+`Program.GetCloudShadowsRenderer().GetDescriptorSet(body)` is the set the terrain, the ocean and static
+objects shade by the weather through (`Clouds/CloudShadows.glsl`), and binding it to a compute pass
+compiles, validates nowhere visible and reads **garbage**: its three bindings are declared with
+`StageFlags = FragmentBit` alone, so from a compute shader every float came back NaN and the layer
+count as a random integer. A set cannot be bound to a pipeline whose layout differs from it in stage
+flags, so there is no widening it from outside.
+
+What works is taking its two buffers, not its set — `CloudShadowRenderData._staticShadowDataBuffer`
+and `_dynamicShadowDataBuffer`, private, off the renderer's private `PlanetToCloudShadowData` keyed by
+`Celestial.Hash`, or `_noShadowData` for a body with none — and handing them to
+`ComputePipelineWrapper` as `uniformBuffers` and `uniformDynamicBuffers`, which it declares for
+compute in its own set 1, after the images. The dynamic one takes
+`ResourceFrameIndex * CloudShadowRenderData.DynamicUboStride`, passed as the first external dynamic
+offset because offsets are consumed in set order. The coverage textures are in KSA's bindless set,
+`Program.Instance.TextureSystem`, which **is** declared for compute and binds as an external set.
+`KsaWorld.TryWeatherShadowBuffers` and `CloudPass.Build` are the worked example; `CloudShadows.glsl`
+itself uses derivatives, so the lookup is rewritten at a fixed mip.
+
+## KSA's weather distance is one number for every layer, and the nearest of its neighbours
+
+`CloudRenderer`'s distance image (`GetLowResolutionCloudDistanceTarget`, and the upscaled pair it is
+accumulated into) holds **one** distance per pixel, in kilometres, for all the layers together:
+`RaymarchCloud.comp` marches them front to back and blends each into the last with
+`cloudDistance = mix(previous, current, currentOpacity / (previousOpacity + currentOpacity))`. The
+colour's alpha is likewise the layers' transmittances multiplied. So over Earth, where cumulus from
+2 km and cirrus from 11.0 to 12.2 km both lie along a downward ray, the distance lands **between**
+them, by how opaque each is. Anything standing between the two layers cannot be placed against it:
+treated as one sheet at that distance, a mushroom cap poking through the cirrus read as behind the
+whole opaque deck wherever there was cirrus, and dropped out in holes.
+
+Then the upscaler (`Upscaling/UpscalingFunctions.glsl`) writes each full-resolution pixel the
+**minimum** distance over the 3x3 low-resolution texels round it, and a texel is up to four pixels
+(`SetUpscalingMultipliers`, 2x1 to 4x4). A wisp of the near layer therefore pulls a square round
+itself forward, which draws as boxes.
+
+What recovers it: the layers' own radii are in the weather-shadow buffers above (`bottomRadius`,
+`middleRadius`, the top being symmetric), so each stretch of the ray **inside** a layer's slab can be
+placed exactly -- between its bottom and top spheres, not at its middle's crossing, which a ray
+skimming the top half never makes. The blended distance then says only how the opacity **divides**
+between the two stretches it falls between, measured between their facing edges (a deck seen from
+above averages at its tops). Read as the farthest within five pixels, it undoes the minimum.
+
+**And a deck the eye is inside is thickest at the eye.** The stretch then starts at the camera and
+near the horizon runs hundreds of kilometres, so its opacity spread evenly along it put most of a fog
+bank behind a burst 95 km off, which showed through fog that had hidden the ground. For fog thinning
+exponentially the opacity-weighted mean distance is its scale, so that stretch builds up as
+`exp(-t / averaged distance)` instead. `PlaceWeather` in `Shaders/KSArmoryCloud.comp` is the worked
+example.
+
 ## Re-running the research
 
 ```bash

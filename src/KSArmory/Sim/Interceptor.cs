@@ -78,6 +78,13 @@ internal sealed class Interceptor : IProjectile
     /// <inheritdoc cref="IProjectile.Aimpoint"/>
     public Aimpoint Aimpoint { get; set; }
 
+    /// <inheritdoc cref="IProjectile.Retarget"/>
+    public void Retarget(Aimpoint aim)
+    {
+        Aimpoint = aim;
+        TargetRef = aim.Handle;
+    }
+
     /// <inheritdoc cref="IProjectile.FaithfulStepSeconds"/>
     public double FaithfulStepSeconds
         => _lastDensity > Medium.NoticeableDensity

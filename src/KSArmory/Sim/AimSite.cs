@@ -21,13 +21,26 @@ internal readonly record struct AimSite(string BodyName, double LatitudeDeg, dou
                       && double.IsFinite(LatitudeDeg) && double.IsFinite(LongitudeDeg);
 
     /// <summary>What to call it when nobody has named it.</summary>
-    public string Describe()
-    {
-        if (!IsSet) return "no target";
-        if (!string.IsNullOrEmpty(Label)) return Label;
+    public string Describe() => !IsSet ? "no target"
+                              : !string.IsNullOrEmpty(Label) ? Label
+                              : Coordinates;
 
-        char ns = LatitudeDeg >= 0.0 ? 'N' : 'S';
-        char ew = LongitudeDeg >= 0.0 ? 'E' : 'W';
-        return $"{Math.Abs(LatitudeDeg):F3}{ns} {Math.Abs(LongitudeDeg):F3}{ew}";
+    /// <summary>
+    /// The place itself, whatever it has been called.
+    ///
+    /// <para>Separate from <see cref="Describe"/> because a label hides the one thing a reader
+    /// scoring a shot needs: two targets both labelled by the scenario that named them read as the
+    /// same place, and the log then cannot say which target a warhead was sent to.</para>
+    /// </summary>
+    public string Coordinates
+    {
+        get
+        {
+            if (!IsSet) return "nowhere";
+
+            char ns = LatitudeDeg >= 0.0 ? 'N' : 'S';
+            char ew = LongitudeDeg >= 0.0 ? 'E' : 'W';
+            return $"{Math.Abs(LatitudeDeg):F3}{ns} {Math.Abs(LongitudeDeg):F3}{ew}";
+        }
     }
 }

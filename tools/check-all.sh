@@ -2,7 +2,7 @@
 #
 # Runs every check CI runs, in the same order, so a push is not the first time you find out.
 #
-#     ./tools/check-all.sh              # everything quick -- about 8 s
+#     ./tools/check-all.sh              # everything quick -- about 45 s, nearly all of it the suite
 #     ./tools/check-all.sh --with-sweep # ...plus the drive sweep, which is ~43 s on its own
 #     ./tools/check-all.sh --list       # name the checks and exit
 #
@@ -96,6 +96,8 @@ run "Part XML is well formed"       ./tools/check-xml.sh
 run "Asset paths resolve"           ./tools/validate-parts.py --offline
 run "Every setting is reachable"    ./tools/check-tunables.py
 run "Pack API surface"              ./tools/pack-api.py --check
+run "The study set is as recorded"  ./tools/check-studies.py --check
+run "Shaders compile"               ./tools/check-shaders.sh
 run "Comment rules"                 ./tools/check-comments.sh
 run "Documented facts"              ./tools/check-docs.sh
 run "Changelogs fit SpaceDock"      ./tools/spacedock-changelog.py --check
@@ -138,6 +140,8 @@ fi
 
 if (( LIST )) || have_assemblies; then
     run "Build"                 ./tools/build.sh
+    # The guards. The ten flight-model studies are left out for the reason the drive sweep above
+    # is: they assert no behaviour, and CI runs them in a step of its own.
     run "Test"                  ./tools/test.sh
     run "KSA API surface"       ./tools/api-surface.sh --check
     run "Assemblies match lock" ./tools/check-assemblies.sh

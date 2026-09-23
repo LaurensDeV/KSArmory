@@ -5,6 +5,9 @@
 #     ./tools/shot-batch.sh --aim 26.5S,64.0W --arms base=HEAD,grav=arm/gravity --blocks 6
 #     ./tools/shot-batch.sh --paired 'base|trim:TrimCeilingFromBudget=true' --blocks 6
 #     ./tools/shot-batch.sh --aim none --arms base=HEAD --blocks 6   # shoot whatever the save defends
+#     ./tools/shot-batch.sh --aim '24S,62W;24.04S,62W' ...          # one bus at two places
+#       -- QUOTE it: an unquoted ';' is the shell's own separator. The bar, if any, lands on
+#       the last place named, which is where ShotRequest.TryParse takes it from.
 #     ./tools/shot-batch.sh --resume ~/shots/2026-08-22          # carry on after an interruption
 #     ./tools/shot-batch.sh --plan-only --arms ... --blocks 6    # print the run order and stop
 #
@@ -42,7 +45,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 usage() {
-    sed -n '2,29p' "${BASH_SOURCE[0]}" | sed 's/^# \?//'
+    sed -n '2,32p' "${BASH_SOURCE[0]}" | sed 's/^# \?//'
     exit "${1:-0}"
 }
 
@@ -394,6 +397,7 @@ while (( at < ${#PLAN_ROWS[@]} )); do
     printf '\n=== shot %s  block %s  arm %s  (%s)\n' "$n" "$block" "$arm" "$(date +%H:%M:%S)"
 
     cp -a "$OUT/arms/$arm/." "$MODS/"
+    : > "$MODS/developer"   # the scenario runner starts only on a developer's install
     got="$(sha256sum "$MODS/KSArmory.dll" | cut -d' ' -f1)"
     if [[ "$got" != "$want" ]]; then
         echo "error: the deployed DLL is not arm '$arm' ($got, wanted $want)." >&2

@@ -72,12 +72,20 @@ internal sealed partial class Ui
             ImGui.TextColored(Bad, "this vehicle is flying around. Only ballistic shots are flown.");
         }
 
+        // Only once there is more than one. With a single target the list repeats the line above,
+        // and nothing can add to it before cutoff -- so this appears exactly when it says something.
+        if (computer.Targets.Count > 1) DrawIcbmTargetList(computer);
+
         // A mode, not a button: pressing a button puts the cursor over the panel, so what it reads
         // is whatever lies behind the control rather than the place being pointed at.
         bool picking = config.DesignateByClicking;
         if (ImGui.Checkbox("Designate by clicking the world", ref picking)) config.DesignateByClicking = picking;
         Tip("On: a ring follows the cursor; click the ground to aim there. Shift-click is still the "
-            + "lock gesture, and clicks on a window do nothing. Off: enter coordinates below.");
+            + "lock gesture, and clicks on a window do nothing. Off: enter coordinates below. Once the "
+            + $"burn is over a click adds another target instead, up to {TargetSet.MaxTargets} -- "
+            + "designating there would start the shot over on a bus that is already coasting.");
+
+        DrawIcbmReach(computer);
 
         string resolution = "Typed rather than dragged: a slider spanning half a turn moves about 100 km "
                             + "per pixel.";
@@ -115,6 +123,116 @@ internal sealed partial class Ui
                                            string.IsNullOrWhiteSpace(_siteLabel) ? "" : _siteLabel.Trim()));
         }
         Tip("Aims at the latitude and longitude above.");
+    }
+
+    // What the bus can still reach, beside the tool that places targets in it rather than under a
+    // fold: it is the answer to "why did my click do nothing", which is the one kind of line
+    // CLAUDE.md says never to hide.
+    private static void DrawIcbmReach(IcbmComputer computer)
+    {
+        IcbmConfig config = computer.Config;
+
+        bool show = config.ShowDivertReach;
+        if (ImGui.Checkbox("Show what the bus can still divert to", ref show)) config.ShowDivertReach = show;
+        Tip("On: the ground the bus can put a warhead on is outlined, and a click outside it is "
+            + "refused. Before the burn is over that region is the release epoch's alone and costs "
+            + "nothing; once the bus is coasting it is flown, seven flights of the impact predictor "
+            + "every few seconds, and only while the list can still be edited -- designate mode on, "
+            + "or a second target already placed. Off: nothing is flown, nothing is drawn, and a "
+            + "click designates rather than adding.");
+
+        if (!show) return;
+
+        ReachDisplay reach = computer.Reach;
+
+        // Silent where nothing has been aimed at yet: until a place is named there is no landing for
+        // a reach to be around, and the line would sit on every computer that has never been used.
+        if (!reach.HasRegion && computer.Targets.Count == 0) return;
+
+        ImGui.TextColored(reach.HasRegion ? Good : Working, "  " + reach.Say());
+
+        if (reach.HasRegion) ImGui.TextDisabled("  " + reach.SayBudget());
+    }
+
+    private static void DrawIcbmTargetList(IcbmComputer computer)
+    {
+        int aboard = computer.WarheadsAboard;
+        int lead = computer.LeadTarget;
+
+        ImGui.Text(computer.DescribeTargets());
+
+        // Inline rather than in a tooltip: a player whose warheads all land on one of several
+        // targets has no other way of finding out why, and every refusal here is silent.
+        if (computer.Targets.Count > 0)
+        {
+            ReleaseWalker walker = computer.Walk;
+
+            ImGui.TextColored(walker.Walk.Walks ? Good : Working, "  " + walker.Walk.Say());
+
+            if (walker.Walking)
+            {
+                ReleaseStep step = walker.Step;
+
+                ImGui.TextColored(Good, $"  on stop {walker.Stop + 1} of {walker.Walk.Stops}: "
+                                        + $"target {step.Target + 1}, {step.Away} of "
+                                        + $"{step.Warheads} warhead(s) away");
+            }
+            else if (walker.Curtailed)
+            {
+                // Inline, because it is the answer to "why did the rest of my warheads land on the
+                // wrong target" and a tooltip hides that as surely as a fold does.
+                ImGui.TextColored(Working, "  the next hop is more than one trim pass will fly once "
+                                           + "the bus's own residual is counted, so the walk ended "
+                                           + $"at target {walker.Step.Target + 1} and the warheads "
+                                           + "left go there");
+            }
+        }
+
+        int removed = -1;
+
+        for (int i = 0; i < computer.Targets.Count; i++)
+        {
+            TargetSet.Entry entry = computer.Targets[i];
+
+            ImGui.PushID(i);
+
+            ImGui.Text($"  {i + 1}  {entry.Site.Describe()}{(i == lead ? "   <- flown to" : "")}");
+
+            if (i == lead)
+            {
+                Tip("The one the whole flight is aimed at: the arc, the correction and the trim are "
+                    + "solved against it, so it has no Remove -- Clear target above starts the shot "
+                    + "over, and then a click places a new one. It is whichever target is farthest "
+                    + "downrange, not the first clicked, because the bus walks inward from where the "
+                    + "booster puts it -- and it stops moving once the arrival is committed.");
+            }
+
+            ImGui.SameLine(ImGui.GetFontSize() * 18f, 0f);
+            ImGui.SetNextItemWidth(ImGui.GetFontSize() * 8f);
+
+            int warheads = entry.Warheads;
+            if (ImGui.SliderInt("##warheads", ref warheads, 0, aboard))
+            {
+                computer.SetTargetWarheads(i, warheads);
+            }
+            Tip("How many of the bus's warheads are meant for this place. What no target takes rides "
+                + "the bus down.");
+
+            if (computer.MayRemoveTarget(i))
+            {
+                ImGui.SameLine();
+                if (ImGui.SmallButton("Remove")) removed = i;
+            }
+
+            ImGui.PopID();
+        }
+
+        if (removed >= 0) computer.RemoveTarget(removed);
+
+        if (ImGui.SmallButton("Split evenly")) computer.BalanceTargets();
+        Tip("Spreads every warhead over the targets chosen, the remainder going to the earliest of "
+            + "them. A target added by clicking the world starts with none, so that nothing is taken "
+            + "off a place already aimed at without being asked.");
     }
 
     private void DrawIcbmStatus(IcbmComputer computer)
@@ -491,9 +609,11 @@ internal sealed partial class Ui
             + "the Steepest arrival minimum. Latched once, the first time any arc is affordable. At 0 "
             + "it is off: the arrival is whatever the cheapest arc gives, or the minimum above.");
 
-        // Closed, and the only fold on the tab. What is above it is what a player decides; what is
-        // under it has a right answer the shipped defaults already hold, and stays reachable so a
-        // shot night can still fly it as an arm.
+        // Closed, the only fold on the tab, and a developer's alone. What is above it is what a
+        // player decides; what is under it has a right answer the shipped defaults already hold, and
+        // stays reachable so a shot night can still fly it as an arm.
+        if (!Build.Developer) return;
+
         bool engineering = ImGui.CollapsingHeader("Engineering");
         Tip("Sequencing, the ascent, and the switches paired shot nights fly as arms. The defaults are "
             + "what ships; changing one here changes the shot, and nothing else on this tab will say so.");
@@ -766,6 +886,19 @@ internal sealed partial class Ui
         Tip("How long one tap lasts. The engine floors a thruster's own minimum at a millisecond, "
             + "which is what the shipped bus declares; a bus with coarser jets wants its own number, "
             + "and one set too short stalls the phase rather than misfiring it.");
+
+        float freezeMs = (float)(config.HoldDirectionSeconds * 1000.0);
+        if (ImGui.SliderFloat("Hold the thrust line for (ms, 0 = frames)", ref freezeMs, 0.0f, 800.0f))
+        {
+            config.HoldDirectionSeconds = freezeMs < 1.0f ? 0.0 : freezeMs / 1000.0;
+        }
+        Tip(config.HoldDirectionSeconds > 0.0
+                ? $"The last {config.HoldDirectionSeconds * 1000.0:F0} ms of burning are flown on the "
+                  + "direction the guidance last meant, whatever the frame rate is."
+                : $"0: the line is frozen for {IcbmProgram.HoldDirectionFrames:F0} frames instead, which "
+                  + "is 0.22 s at 63 fps and 0.29 s at 47 -- so a slower machine holds it longer and "
+                  + "leaves more square to it. Off the orbit plane that is 59-93% of what the cutoff "
+                  + "leaves, and it grows 5.9x over a 4x step against 4.1x in plane. Unflown.");
 
         bool resample = config.ResampleGroundAtImpact;
         if (ImGui.Checkbox("Warheads re-read the ground as they meet it", ref resample))

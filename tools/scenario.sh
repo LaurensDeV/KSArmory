@@ -7,6 +7,12 @@
 #   ./tools/scenario.sh passing
 #   ./tools/scenario.sh drop             # a B61 off a climbing rocket, landing against the sight
 #   ./tools/scenario.sh drop:1500,30,dumb,8   # ...at 1500 m, 30 deg over, unguided, craft lost 8 s on
+#   ./tools/scenario.sh drop:6000,30,guided,,800     # ...then 800x timewarp once it is away
+#   ./tools/scenario.sh drop:6000,30,guided,,auto    # ...then KSA's own warp-to-a-time, which it
+#                                                    #    refuses a speed change during
+#   ./tools/scenario.sh drop:6000,30,guided,,,20@800    # ...sent 800 m north 20 s after the release
+#   ./tools/scenario.sh drop:6000,30,guided,,,20@9000   # ...sent somewhere it cannot reach
+#   ./tools/scenario.sh drop:6000,30,guided,,,20@clear  # ...designation dropped; it keeps its aim
 #   ./tools/scenario.sh gunnery          # a gun against drones crossing past it, every shell scored
 #   ./tools/scenario.sh gunnery:6,passing,40,300,4000   # ...6 drones, 12 km out at 300 m/s, 4 km off
 #   ./tools/scenario.sh gunnery:3,overhead,30,300,1500,20,burn   # ...tumbling at 20 deg/s, engine lit
@@ -20,10 +26,37 @@
 #   ./tools/scenario.sh mirv             # the ballistic shot, end to end
 #   ./tools/scenario.sh mirv:26.485S,68.148W       # ...at somewhere else
 #   ./tools/scenario.sh mirv:26.485S,68.148W,2     # ...and pass only under 2 km
+#   ./tools/scenario.sh 'mirv:24S,62W;24.04S,62W'  # ...or one bus at two places, scored separately
+#     -- QUOTE IT: an unquoted ';' is the shell's own separator, so the second place never arrives
 #   ./tools/scenario.sh head-on --keep   # leave the game running afterwards
 #   ./tools/scenario.sh head-on --shots  # ...and screenshot on CAPTURE (whole screen, opt-in)
 #   ./tools/scenario.sh mirv --no-deploy # fly whatever is already in the mods folder
 #   KSARMORY_SCENARIO_VERBOSE=1 ./tools/scenario.sh head-on   # ...logging at DEBUG, per-part blast sweep included
+#
+#   KSARMORY_SCENARIO_CLOUDS=1 ./tools/scenario.sh drop:10,0,dumb   # a burst photographed rather
+#                                        # than scored: the craft stays on the pad, the camera is
+#                                        # pinned on the cloud, and every capture reports what the
+#                                        # pass cost and how high the sun was
+#   KSARMORY_SCENARIO_CLOUDS=1 KSARMORY_SCENARIO_CHASE=1 ./tools/scenario.sh drop:200,0,guided
+#                                        # ...the scoring drop instead, chased, with its cloud drawn
+#                                        # and photographed: what a player sees of the burst
+#   KSARMORY_SCENARIO_NOSHADER=1 ...     # ...the same run with the pass off, as its control
+#   KSARMORY_SCENARIO_TWOCLOUDS=1 ...    # ...and a second burst 1 km away, which is the only way
+#                                        # to exercise the pass with more than one cloud standing
+#   KSARMORY_SCENARIO_CLOUDWARP=20 ...   # ...watch the burst at 20x, or 0 to pause on it. The
+#                                        #   fall's own warp is given back when the store lands, so
+#                                        #   this is the only way the cloud is advanced at anything
+#                                        #   but 1x. The capture ages are the world's, so a warped
+#                                        #   run photographs the same cloud as a 1x one.
+#   KSARMORY_SCENARIO_WATCHELEV=2 ...    # ...stand the watch 2 deg up instead of 14, which puts it
+#                                        #   under the weather deck the default pose looks down on
+#   KSARMORY_SCENARIO_STILLAT=20 ...     # ...freeze the world when the burst is 20 s old and
+#                                        #   photograph it three times: what differs is render noise
+#   KSARMORY_SCENARIO_BLACKOUT=20 ./tools/scenario.sh head-on   # a 20 kt burst halfway to the
+#                                        #   target once the set holds it, and what it still holds
+#   KSARMORY_SCENARIO_NOBLACKOUT=1 ...   # ...the same burst with the effect off, as its control
+#   KSARMORY_SCENARIO_TWOCLOUDS=100 ...  # ...that second burst at 100x the store's yield, which is
+#                                        # how anything but the B61's 0.3 kt gets looked at
 #
 # The gap this closes is not headless rendering -- KSA ships Windows-only natives and threads its
 # simulation through a Vulkan renderer, so there is no headless to have. It is that verifying a
@@ -153,7 +186,7 @@ case "${SCENARIO%%:*}" in
         SYSTEM="${KSARMORY_SCENARIO_SYSTEM:-SolLite}"
         ;;
     *)
-        echo "usage: $0 {head-on|overhead|passing|drop[:<m>[,<deg>[,guided|dumb[,<s>]]]]|gunnery[:<drones>[,passing|overhead|head-on|ground|craft[,<s>[,<m/s>[,<m>[,<deg/s spin>[,burn]]]]]]]|mirv[:<lat>,<lon>[,<km>]]}" \
+        echo "usage: $0 {head-on|overhead|passing|drop[:<m>[,<deg>[,guided|dumb[,<s>[,<warp>|auto[,<s>@<m>|<s>@clear]]]]]]|gunnery[:<drones>[,passing|overhead|head-on|ground|craft[,<s>[,<m/s>[,<m>[,<deg/s spin>[,burn]]]]]]]|mirv[:<lat>,<lon>[,<km>][;<lat>,<lon>...]]}" \
              "[--keep] [--shots] [--no-deploy]" >&2
         exit 2
         ;;
@@ -175,8 +208,8 @@ mkdir -p "$USER_DIR/Logs"
 {
     printf '%s|%s\n' "$SCENARIO" "$SAVE"
     printf '%s\n%s\n' "$ARMS" "$ARM_PHASE"
-    printf '%s %s %s %s %s %s\n' "${KSARMORY_SCENARIO_KEEPSTAGES:+keepstages}" "${KSARMORY_SCENARIO_TRACE:+trace}" \
-        "${KSARMORY_SCENARIO_VERBOSE:+verbose}" "${KSARMORY_SCENARIO_CHASE:+chase}" \
+    printf '%s %s %s %s %s %s %s %s %s %s %s %s %s %s\n' "${KSARMORY_SCENARIO_KEEPSTAGES:+keepstages}" "${KSARMORY_SCENARIO_TRACE:+trace}" \
+        "${KSARMORY_SCENARIO_VERBOSE:+verbose}" "${KSARMORY_SCENARIO_CHASE:+chase}" "${KSARMORY_SCENARIO_CLOUDS:+clouds}" "${KSARMORY_SCENARIO_NOSHADER:+noshader}" "${KSARMORY_SCENARIO_TWOCLOUDS:+twoclouds=$KSARMORY_SCENARIO_TWOCLOUDS}" "${KSARMORY_SCENARIO_CLOUDWARP:+cloudwarp=$KSARMORY_SCENARIO_CLOUDWARP}" "${KSARMORY_SCENARIO_WATCHELEV:+watchelev=$KSARMORY_SCENARIO_WATCHELEV}" "${KSARMORY_SCENARIO_STILLAT:+stillat=$KSARMORY_SCENARIO_STILLAT}" "${KSARMORY_SCENARIO_BLACKOUT:+blackout=$KSARMORY_SCENARIO_BLACKOUT}" "${KSARMORY_SCENARIO_NOBLACKOUT:+noblackout}" \
         "${KSARMORY_SCENARIO_SPEEDS:+speeds=$KSARMORY_SCENARIO_SPEEDS}" \
         "${KSARMORY_SCENARIO_SITE:+site=$KSARMORY_SCENARIO_SITE}"
 } > "$USER_DIR/Logs/scenario.txt"
@@ -242,6 +275,11 @@ if (( DEPLOY )); then
     done
 else
     echo "== flying what is already installed"
+
+    # The runner only starts on a developer's install (Build.Developer), and an install copied in by
+    # hand -- shot-batch.sh's arms -- need not be marked as one.
+    INSTALLED="${KSA_MODS_DIR:-$USER_DIR/mods}/KSArmory"
+    [[ -d "$INSTALLED" ]] && : > "$INSTALLED/developer"
 fi
 
 echo "== launching, scenario '$SCENARIO', save '$SAVE'${CRAFT:+, craft '$CRAFT'}"

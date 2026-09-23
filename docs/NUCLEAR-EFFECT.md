@@ -4,8 +4,22 @@ Research for making a nuclear burst look like one. Four questions were asked in 
 draws its SRB plumes, how it draws clouds, what its particle system can express, and what a real
 mushroom cloud actually looks like. This is the result, kept because re-deriving it is a day's work.
 
-Route A is built, and *What was built* at the end records the two engine rules that ended up
-deciding the shape. Everything before that section is the survey, kept as it was written: it is
+**Route A shipped and has been retired.** The cloud is raymarched now — `Ksa/CloudPass.cs`, a
+compute pass of this mod's own inside KSA's frame, cheaper than the pens it replaced and lit by the
+engine's own atmosphere. *What was built* is kept because it is where every dimension in the shape
+was calibrated and why, and the raymarch reads the same `MushroomCloud.Shape`; only the drawing
+changed. *The raymarched cloud* at the end is the one that ships.
+
+**Its geometry has been deleted with it** — `CapPoint`, the lobed rings, the stroke pitch, the
+skirt tube, the lean and everything that only ever placed a pen, with the twenty tests that were
+the last thing keeping them alive. What is left of `MushroomCloud` is what the raymarch and the
+fireball read: the size laws, the tracked climb, `Shape`, the flash and the ember. 887 lines to 569.
+
+The sections below are kept as the record of where those dimensions came from and why, because the
+raymarch draws the same `Shape` and the calibration is still the calibration. The pen walk records
+the two engine rules that ended up deciding it. *The airless burst* after it is the second effect, for the bodies where the trail renderer
+draws nothing at all — a different effect rather than this one degraded, and through the particle
+system instead. Everything before those two sections is the survey, kept as it was written: it is
 still the map for anything else drawn this way.
 
 ---
@@ -83,12 +97,22 @@ that decide the design:
 - Spawn volumes are `Point`, `Sphere`, `Box`, `Cone`, `Torus`, `Capsule`, `VehicleSurface`,
   `PrecomputedTransform`. **A torus and a capsule are a cap and a stem.** The axial ones are built
   about local +X and aimed by the *rotation* of `LocalOffset`.
-- There are **no curves, gradients or keyframes**. Over a particle's life you get: grow (quadratic,
-  toward `EmitterExtra.W`), shrink (linear to zero), ease-in on spawn, and one optional hue rotation
-  applied once. Colour and velocity are fixed at spawn. No drag, no turbulence, no vortex field.
+- **There are curves, and this line used to say there were not.** The `LifetimeEnvelope` updater
+  takes `ScaleEnvelope` and `AlphaEnvelope` (start / peak / peak-at / end) and `ColorStops`
+  (start / mid / mid-at / end), and `Drag` and `Opacity` are per-emitter. Core's `ShockWave` and
+  `Smoke` are built almost entirely out of them. Without that updater you get only the simple
+  pair — grow (quadratic, toward `EmitterExtra.W`), shrink (linear to zero) — which is what the
+  mod's own emitters used and is why this was believed. Velocity is still fixed at spawn, and
+  there is still no turbulence and no vortex field.
 - The volumetric path gets a `(1-t)²` density fade and a `1 - r² - t²` shape erosion for free, which
   is a proper break-up-and-dissolve. The Billboard fallback gets none of that, ignores
   `ParticleColor.rgb` entirely, cannot roll, and is unsorted.
+- **Volumetric is not gated on an atmosphere**, which is worth stating because its shader opens with
+  `#include AtmosphereLuts.glsl` and looks as though it must be.
+  `ParticleSystem.WriteCommandsColorTranslucent` dispatches `VolumetricRenderer.WriteCommandsColor`
+  on the line after `BillboardRenderer`'s, behind `GameSettings.Current.Graphics.Particles` and
+  nothing else. So it draws on an airless body, and reaching for Billboard there is choosing the
+  worse renderer for no reason.
 - Every emitter field is public and mutable and is read at each spawn, so **all animation is C#**.
   The XML is a template.
 
@@ -124,20 +148,24 @@ For the yields this mod can dial — the slider spans the B61's own range, 0.3 k
 | ...on the ground (×1.32) | 55 m | 104 m | 222 m | 423 m | 690 m | 910 m |
 | Flash over | 0.25 s | 0.50 s | 1.15 s | 2.33 s | 4.00 s | 5.42 s |
 | Goes dark | 1.9 s | 3.5 s | 7.5 s | 14.3 s | 23.4 s | 30.9 s |
-| **...as drawn** | **1.9 s** | **3.4 s** | **3.4 s** | **3.4 s** | **3.4 s** | **3.4 s** |
+| **...as drawn** | **1.9 s** | **3.5 s** | **7.5 s** | **14.0 s** | **14.0 s** | **14.0 s** |
 | **Cloud top** | **2.0 km** | **3.4 km** | **6.5 km** | **11.1 km** | **16.6 km** | **20.9 km** |
 | **Cap radius** | **0.38 km** | **0.70 km** | **1.41 km** | **2.55 km** | **4.01 km** | **5.19 km** |
 | Stem radius | 0.19 km | 0.35 km | 0.70 km | 1.28 km | 2.01 km | 2.59 km |
 | **Ground skirt, widest** (drawn) | **0.13 km** | **0.23 km** | **0.47 km** | **0.86 km** | **1.35 km** | **1.75 km** |
 | ...settled, after the draw-in | 0.09 km | 0.16 km | 0.32 km | 0.58 km | 0.91 km | 1.18 km |
 
-The drawn flash parts company with the law above about 1.4 kt, and has to: the cloud's clock is
+The drawn flash parts company with the law above about 50 kt, and has to: the cloud's clock is
 compressed and the flash's is not, so 340 kt would glow for 30.9 s against a 38 s rise — still
-flaring after its own mushroom had finished forming. Compressing it by the same factor is not the
-alternative, since that works out at a blink nobody sees. The ceiling it is held at is `ClimbUntil`
-rather than a number of its own: no smoke is laid while the ball is luminous, so a flash outlasting
-the climb up the axis leaves the pens already out on the cap when they lay their first segment, and
-the column from the ground up is never drawn at all.
+burning after its own mushroom had formed. Compressing it by the same factor is not the alternative,
+since that works out at a blink nobody sees. So it runs real to `LongestGlowSeconds`, 14 s, and
+20 kt keeps its law. `3.0 · W^0.4` is not stated by Glasstone; it fits his anchors, 10 s at 20 kt
+and 37 to 60 s at a megatonne.
+
+Inside that, the ball is **white-hot for its heat pulse** — ten times the second maximum, when 80%
+of the thermal energy is out (Glasstone §7.85): 1.6 s at 20 kt, 5.4 s at 340 kt — and **grows as
+`t^0.4`** to 90% of its largest by about three second maxima, 1.6 s at 340 kt. Both are
+`MushroomCloud.WhiteHotSeconds` and `GrowthSeconds`.
 
 **Two of the numbers everybody quotes do not survive checking, and one of them was in this list.**
 
@@ -518,6 +546,19 @@ So the cloud creeps for the first tenth of its rise where the real one has alrea
 it, and then arrives early — it is at its ceiling by 0.6 where the real cloud is at 0.84. The
 overshoot itself is real: Ruth and Post were both tracked peaking and then subsiding a few per cent.
 
+**And `Rise` is not the curve to change, which is the trap in this item.** What is drawn is not
+`Rise(t)`: a pen sits at `AxisHeight`, which is `(CapCentre + …)·√(progress/ClimbUntil)` with
+`Progress(age) = age/RiseSeconds` — linear — while `CapCentre = top·0.75·Rise(age)`. So the
+**drawn** climb is `Rise(t)·√t`, and the `√t` everyone wants is already half present. Writing
+`Rise = √t` therefore produces a drawn climb of `t`, which is linear: the opposite of the intent,
+and slower off the pad rather than faster. The thing to design is the composition, and the free
+choice is which of the two factors carries it.
+
+At the handover instant that compounding is what bites. The flash is over at `t ≈ 0.05` for
+0.3 kt, where `Rise` is 0.088 today and `√t` would be 0.224 — so the ball's drawn lift moves by
+about 3.6x, against the 1.24 → 2.4 radii the paragraph below estimates. Both say the same thing:
+this cannot be changed without re-checking the handover on a screen.
+
 **Not changed, because the one thing it is currently getting right is the handover.** The ball rides
 this curve, so the slow start is what keeps its lift to 1.24 of its own radii while it is still
 glowing — against 1.9 from the buoyancy laws and the "one to two radii, it is not a rocket" the VFX
@@ -564,3 +605,132 @@ rather than a closed form. That would buy the one thing the choreography cannot 
 turbulent detail in the *path*, and it costs a build step plus a data file. The two engine rules
 still apply to whatever comes out of it, so the baked paths would have to be resampled to a spacing
 that closes.
+
+---
+
+## The airless burst, which is a different effect rather than the same one degraded
+
+Everything above needs an atmosphere twice over, and only one of the two reasons is about physics.
+A mushroom is buoyant, so with nothing to rise through there is no column and no cap. And
+`CloudRenderer.RenderVolumetricTrailsWithUpscaling` takes an `AtmosphericBody`, which is the only
+place the trail volume is raymarched — so smoke laid on the Moon draws nowhere at any altitude,
+whatever shape it is laid in.
+
+**`NuclearClouds.Begin` did not test for either.** It gated on the charge, a resolvable body and
+`PlumeSmoke.Available`, all of which pass on an airless body, and then logged `nuclear cloud: 0.30 kt
+at 0 m altitude, rising to 1.31 km` about a cloud the engine would never draw. `ChaseView.LingerSeconds`
+then held the camera for `MushroomCloud.RiseSeconds` on an empty sky.
+
+So the airless case is `Sim/AirlessBurst.cs` and `Ksa/BurstEjecta.cs`, through the **particle
+system** rather than the trail volume: `ParticleSystem.WriteCommandsColorOpaque` and
+`WriteCommandsColorTranslucent` are called from the main render path, outside the atmosphere and
+cloud passes, so particles draw anywhere.
+
+### The engine does the ballistics, which is the whole reason this is cheap
+
+KSA scales a particle's gravity by `1 - airDensity / Density` and **counts no air at all below
+100 Pa**, so on an airless body every particle falls at full local gravity whatever its stage
+declares. Thrown ground therefore arcs and lands with nothing in this mod integrating it. The
+numbers here only say how hard to throw it:
+
+```
+reach      = 4.0 · PeakFireballRadius(W)        the one number chosen for how it reads
+speed      = sqrt(reach · g)                    45°, where an arc goes furthest for its speed
+flight     = speed · sqrt(2) / g
+```
+
+Gravity is in that twice, so the reach is the yield's alone while the *flight* is the body's: the
+same 0.3 kt device throws its dust 218 m in both cases, at 18.8 m/s for 16.4 s on the Moon and at
+46.2 m/s for 6.7 s on Earth. Both ratios are `sqrt(g)` rather than `g`, which is the one piece of
+arithmetic here worth a test — `TheThrowIsBallisticInTheBodysOwnGravity` pins it, and pinned it the
+wrong way round first.
+
+**A surface burst is one whose fireball reaches the ground**, which is the textbook definition and is
+also the only thing that could throw any. So nothing separate decides it, and a burst high enough
+over an airless body gets the shell alone.
+
+### Two engine rules shaped it, and they are not the trail renderer's two
+
+- **Both emitters are Volumetric.** The first version drew the dust through `Billboard`, on the
+  assumption that the volumetric renderer needed an atmospheric body; it does not, and the check
+  above is one grep. Billboard also ignores `ParticleColor.rgb`, so the dust colour was doing
+  nothing.
+- **A shell is one sphere grown by its envelope, not a spray of them.** Core's `ShockWave` says why
+  in its own comment: any spawn velocity on a single volumetric reads as a flying blob rather than
+  a front. The first version threw 192 of them outward, which is sparks.
+- **The throw is a full sphere, because it cannot be aimed.** `ParticleSpawnLogic` must be radial:
+  `Fountain` builds its cone about the emitter's local +X, and a body-fixed effect has its model
+  matrix forced to identity, so that +X is a fixed direction in the world whatever was hit.
+  `MoveAwayFromCenter` sends each particle out along its own offset instead. The lower half of the
+  sphere is under the ground, where the depth test hides it — which is what leaves a dome standing
+  over the crater, for half the particles.
+- **`Burst` hands itself back; `Endless` does not.** A `Burst` emitter spawns `SpawnRate` particles
+  once, sets `_spawningComplete`, and `TryUnregisterEmitter` returns it to the pool when they die.
+  That is the whole reason `BurstEjecta` holds no state, where `MuzzleFlash` exists largely to kill
+  and return the emitters it took.
+
+### Dust is not smoke, and the envelopes are where that shows
+
+Reported from play as "I see smoke, which I thought doesn't happen on airless bodies" — and that is
+exactly right. Ejecta is real: a surface burst pulverises ground and throws it on ballistic arcs,
+and the engine flies those arcs for free. **Smoke is not**, and the first version drew smoke.
+
+The tell was not the colour or the renderer, it was the envelopes:
+
+| | drew | why it is wrong with no air |
+| --- | --- | --- |
+| `ScaleEnvelope` | each puff swelled **3.4x** in flight | swelling is entrainment, and there is nothing to entrain |
+| `AlphaEnvelope` | faded out in mid-arc | that is dissipation; vacuum ejecta does not thin, it lands |
+| `ColorStops` | paled toward light grey | smoke pales as it dilutes, regolith does not |
+
+All three are now flat or nearly so, and the shell cools to dark rather than to grey for the same
+reason — ending on a grey leaves a puff of smoke hanging where the bomb vapour was.
+
+**What spreads is the dome, not the grain.** The grains leave at a spread of speeds, so the cloud
+opens out while every particle in it stays the size it started. Writing that as per-particle growth
+is the atmospheric habit, and it survives review because it is what every smoke effect does.
+
+### What is not built
+
+No wind advection, where a trail segment drifts through a sheared field for 1200 s. The raymarch
+holds its shape and the pens drift.
+
+**Its cost is the engine's own to report.** A compute dispatch is asynchronous, so timing it from C#
+measures the recording rather than the work — but `ProfilerTag`'s constructor is public and
+`CommandBuffer.TagRegion` is a public extension, so the dispatch sits inside KSA's GPU profiler as
+`KSArmory Cloud` and `Ksa/CloudPassCost.cs` reads it back. The harness pins the camera
+(`Ksa/CloudWatch.cs`), because what the pass costs is what it marches and an unpinned view made the
+same build read 36 ms and 4.7 ms.
+
+Measured from there, paired against the same run with the pass off: the frame grows
+**22.94 → 24.69 ms** while the pass reports **1.85 ms**, two numbers agreeing to a tenth. Pulled in
+to the watching distance with the real atmosphere on it is **2.90 ms**, against the **6-8 ms** of
+the pen cloud it would replace.
+
+### The sky is KSA's own, and it cost no plumbing
+
+`GetAmbient` is called with the engine's own ambient LUT, its planet position, its radii and its
+atmosphere layer — the same call `Common/Lighting.glsl` makes for a mesh and `RaymarchCloud.comp`
+for a weather cloud. So this cloud is lit by the atmosphere everything else in frame is lit by, and
+is right at sunrise, at altitude and on a body whose air is not Earth's, which a hand-written tint
+never is.
+
+**None of it needed a descriptor.** `ComputePipelineWrapper` binds `GlobalShaderBindings` at set 0
+for every compute pass it builds, and that set already carries the lighting block and
+`ambientLutGlobal`. What was missing was only the *declaration* — Core's `Global.glsl` and
+`AtmosphereLuts.glsl` — and `Ksa/CoreShaderInclude.cs` writes the absolute include at load that
+reaches them. The uniform buffer and the extra samplers that looked necessary were not.
+
+The two set indices the headers want for textures and cloud data are pointed at slots this pass does
+not use, exactly as Core's own `Volumetric.comp` does it: an unused declaration binds nothing.
+
+
+### The speckled patch on the horizon is not this mod's
+
+A small dithered black rectangle sits near the left horizon in every capture from the pinned
+camera. Flown with `KSARMORY_SCENARIO_NOSHADER=1` — the cloud and its camera kept, the compute pass
+alone turned off — and **it is still there**, in a frame this mod draws nothing into. So it is the
+engine's, and chasing it here would have been chasing somebody else's bug through a shader.
+
+That control exists for exactly this. A baseline run without it is framed differently from the run
+it is read against, which makes any difference between them unattributable.

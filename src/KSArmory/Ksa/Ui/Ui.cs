@@ -7,8 +7,13 @@ namespace KSArmory;
 /// The operator's panel: auto-engage, radar and guidance tuning, the track list with
 /// manual designation, and a rolling event log.
 /// </summary>
-internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHeads heads, IcbmComputers icbms, WarpPolicy warp, WatchCamera watch, CraftMover mover, BurstTool bursts)
+internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHeads heads, IcbmComputers icbms, WarpPolicy warp, WatchCamera watch, CraftMover mover, BurstTool bursts, Func<WeaponSystem, StoreReach> reachFor)
 {
+    // The overlay's own answer rather than a fresh one: solving here would be three flown
+    // trajectories per frame for a readout the ring is already showing, and a line that
+    // disagreed with the ring would be worse than no line.
+    private readonly Func<WeaponSystem, StoreReach> _reachFor = reachFor;
+
     private static readonly float4 Green = new(0.4f, 1.0f, 0.45f, 1f);
     private static readonly float4 Red = new(1.0f, 0.35f, 0.3f, 1f);
     private static readonly float4 Amber = new(1.0f, 0.78f, 0.25f, 1f);
@@ -514,9 +519,10 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         }
 
         Tip($"On {team ?? "no team"}: the side it fights for, which its IFF sorts every contact "
+            + "against -- and the side every other craft sees it and its rounds on. "
             + (teams.Count == 0
-               ? "against. Click to create the first team."
-               : "against. Click to pick a team or create one, or right-click for the next team."));
+               ? "Click to create the first team."
+               : "Click to pick a team or create one, or right-click for the next team."));
 
         if (!ImGui.BeginPopup("##teams")) return;
 
@@ -557,9 +563,16 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
             ImGui.CloseCurrentPopup();
         }
         Tip("Type a name and press Enter to create the team and put this craft on it.");
+        Help("A craft with nothing of this mod's fitted has no flag, so it is placed by its name "
+             + "instead: the team's name anywhere in the craft's name puts it on that side.");
     }
 
     // Every system and director on the row's craft: a craft fights for one side.
+    //
+    // This is also what puts the craft on that side in everyone *else's* picture: KSArmoryMod
+    // declares it into KsaWorld.TeamRoster each frame off these same policies. Both halves come
+    // from here, so a flag that wrote only the first would leave two sites on one team reading
+    // each other as Unknown, which is engageable by default.
     private void SetTeam(string? team)
     {
         foreach (WeaponSystems.Entry e in _rowSystems) e.Policy.Iff.OwnTeam = team;

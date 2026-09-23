@@ -11820,3 +11820,301 @@ distinguishes the two: `hold` must end on `payback` like base, not on `floor` li
 **3ey's 36% stands.** Mid-night it looked inflated — base read 15% on the first few accepted blocks — but
 it finished at **30% accepted and 32.6% over everything**, which is ordinary early-sample scatter rather
 than a bias from the frame check. 3ff's reading that the check predicts neither endpoint is unaffected.
+
+## 3fh. Falling back to a hold removes the long-range stall — 2026-09-20
+
+`~/shots/2026-09-19-fallback`, declared in `~/shots/scripts-2026-09-18/DECLARE-fallback.md` before it
+flew, amended before flying with the prediction that distinguishes a fix from a coincidence:
+`base|hold:StallFallsBackToHolding=true`, `--aim none`, 12,902–13,044 km verified. **Stopped by hand at
+24 blocks of 20 accepted**, because the acceptance rate ran at 25% and the remaining blocks were 18
+hours of precision on an effect that is zero against two thirds.
+
+**The primary endpoint.** `shot-report.py --paired`, accepted blocks:
+
+| arm | flights | lost | rate | median of the lost |
+| --- | --- | --- | --- | --- |
+| base | 24 | 16 | **67%** | 1.76 km |
+| hold | 24 | **0** | **0%** | — |
+
+`hold vs base: 0/24 lost against 16/24, Fisher p=0.0000  RESOLVED`. Block-level sign test, which is the
+right unit because rockets share a world: **base worse in 6 of 6 accepted blocks** (p = 0.016) and **23
+of 24 over every shot flown** (p < 0.00001). `hold` is never worse in a single block. Over all 24
+blocks, 62 of 96 base rockets stalled and **0 of 96** `hold` rockets did; 60 of 96 base rockets landed
+over a kilometre out against **1 of 96**.
+
+**The declared prediction, and it is what makes this a fix rather than a coincidence.** `nopulse`
+removed the stall by releasing early — it ended on `floor` 78 of 80 (3fg). `hold` had to end on
+`payback` instead, keeping the fine band and continuing to correct:
+
+| arm | clock | floor | noimprov | payback | trim |
+| --- | --- | --- | --- | --- | --- |
+| base | 1 | 1 | 0 | 6 | **16** |
+| hold | 3 | 1 | 1 | **19** | **0** |
+
+It does. The 16 `trim` endings become none, and they become `payback` rather than `floor`.
+
+**The cost, which the declaration said to read.** Three `hold` flights ended on the clock against one
+for base, at a median 0.34 km — the fallback finishes at the coarser band and takes longer, so a few
+flights run out of time. Against 16 flights at 1.76 km that is the trade working. **No flight ended on
+`MaxSeconds`**, which was the whole failure of the deleted `arm/trim-band` version (3fb).
+
+**Two things about this night that are not the result.**
+
+**Base is not the base of 3fg, and the reason is the frame rate rather than the build — see 3fi.**
+Base read 30% on 3fg's night and 67% here, which is a real difference rather than scatter (p = 0.0018
+accepted, p = 0.0035 rejected, both strata shifting together). The paired contrast is untouched — one
+build, one world, both arms — but the cross-night rate is not comparable.
+
+**And the sideways-impulse candidate is dead in flight.** The reading shipped in `339fedf` calibrates at
+1.00 on the rig and reads **1.00 median in flight**, so the pulses land squarely on the direction
+commanded. Nothing actuator-side survives; 3fg's release-floor account is the only one left standing.
+
+
+## 3fi. The long-range stall rate is a function of the frame rate — 2026-09-20
+
+The two nights of 3fg and 3fh ran the same geometry and disagreed about `base`: 30% of rockets stalled
+against 67%. The 0.9.1 release landed between them, so the build was the suspect. **It is not the build.**
+
+**The machine was slower.** Night 1 ran at a median ~63 fps and night 2 at ~47, and the step change
+happened *inside* night 2 on one binary: shot 001 peaked at 73 fps like every shot of night 1, and from
+shot 002 onward every shot's ceiling sat at 64–66 for the remaining seven and a half hours. **The mod's
+own frame cost went down over the same span**, 8.49 → 7.86 ms median, so the extra time is outside it.
+
+**And the chain from frame time to a stall is the one this page already documents.** An engine stops on
+a frame boundary, so the velocity left ungained is `accel x step x throttle`. Measured across the two
+nights:
+
+| | night 1 | night 2 |
+| --- | --- | --- |
+| median sim step at cutoff | 23 ms | **28 ms** |
+| cutoff residual | 0.170 m/s | **0.390 m/s** |
+| residual as a share of one frame's Δv | 0.58 | 1.07 |
+| split debt, accepted stratum | 1.62 m/s | **2.28 m/s** |
+| base rockets stalled | 30% | 67% |
+
+Residual to debt correlates +0.80 and +0.75 *within* each night, and night 2's dominant `down` axis
+correlates +0.77 with the residual. Applying night 1's own debt-to-stall curve to night 2's debt
+distribution predicts **62.5% against 66.7% observed** — the debt shift accounts for about 88% of the
+rise, and 3fd's independent buckets get about 70% of it.
+
+**The build adds nothing once frame rate is in.** A logistic fit on base rockets: frame rate alone
+logLik −143.8, night alone −145.7, both together −143.8 with the night term at +0.19. The two shots that
+break the collinearity both follow the frame rate rather than the build — a night-1 build at 43.5 fps
+stalled 3 of 4, and a night-2 build at 63.3 fps stalled 2 of 4, which is night 1's range.
+
+**What this means for players, and it is the important part.** This is not a 0.9.1 regression, but
+*"about a third of long-range rockets stall at 63 fps and two thirds at 47"* is a property of the
+shipped code on both builds. Every cross-night stall rate on this page is a statement about the
+machine's frame rate as much as about the mod.
+
+**And it is the strongest thing that can be said for 3fh's fix.** `StallFallsBackToHolding` was flown on
+the *slow* night, against the 67% base rate, and took its own arm to **0 of 96**. The fallback was
+validated at the frame rate where the failure is worst.
+
+**It is not the loader either, and the same evidence rules out both.** StarMap moved 0.4.6 to 0.4.7
+between the nights, which made it a suspect — but the drop happened *inside* night 2, on one binary and
+one loader:
+
+| night 2 shot | median | peak |
+| --- | --- | --- |
+| **001** | **63.3 fps** | **73.3** |
+| 002 | 39.0 | 65.0 |
+| 003–010 | 46.7–48.9 | 63.7–65.9 |
+
+Shot 001 is indistinguishable from night 1; every shot after it is slow and none recovers. Code and
+loader are constant across those shots, so neither is the cause. **What changed is the host**, and the
+*ceiling* moving with the median — 73–75 down to 64–66 — is the signature of a thermal or power state or
+a background process rather than of work the mod asked for. Night 1's one slow shot (002, 43.5 fps) was
+contaminated by compiler builds and recovered; night 2's did not.
+
+**The leading candidate is host uptime**, which had been long at the time. It fits every feature of the
+reading: a step change part-way through a session, a *ceiling* that moves with the median, no recovery
+within the session, and a partial recovery the next day once the batch's processes had churned. One shot
+after a restart settles it — a median back near 63 with a 73–75 peak confirms it and re-baselines the
+machine. Re-measured at 13:0x the next day without a restart: **58.4 median, 65.0 peak** — the median
+part-recovered, the ceiling still down.
+
+**So there is nothing here to fix in the repo, and nothing to test with a loader swap.** What is worth
+having is a frame-rate reading beside every night's numbers, because
+every cross-night rate on this page is partly a statement about it. One thing the debt does not explain —
+at a *matched* debt of 1.5–1.8 m/s, night 2 stalled 9 of 18 against night 1's 2 of 30. The plausible mechanism is that a hold's quantum is `accel x step`, so a 22% longer
+step is a 22% coarser quantum, but that is not demonstrated.
+
+## 3fj. The fallback is inert at 6,135 km, and the frame-rate risk is range-dependent — 2026-09-20
+
+`~/shots/2026-09-20-shortfallback`, declared in `~/shots/scripts-2026-09-18/DECLARE-shortrange-fallback.md`
+before it flew and **relabelled five minutes in, before any result was read**: `--aim 24.0S,62.0W`
+against `SOLVER SCALE 8` flies **6,135–6,141 km**, not the sub-2,000 km shot the declaration was written
+for. 20 blocks, 160 rockets, no re-flies. Arms reversed on purpose: `base` is the shipped build with
+`StallFallsBackToHolding` **on** and `nofallback` is the old behaviour, because the question is whether
+what shipped costs anything.
+
+**The declared second endpoint decides what this night means, and the answer is "never engaged".** The
+fallback fired **0 times** and no trim gave up, so the two arms flew identical code and both landed
+**0.0 m median and 0.0 m worst over 80 rockets each**. That clears the shipped default of costing
+anything away from 12,902 km. **It is not evidence the fallback is harmless when it fires** — it only
+fires above the debt threshold, and nothing here came near it.
+
+**Why it never fired is 3fd, confirmed from the safe side.** The separation debt ran a median 0.76 and a
+maximum 1.38 m/s across 160 rockets, entirely under the 1.5 m/s floor below which no null has ever
+stalled. At 12,902 km the same number runs 1.15–6.35. **160 rockets under the floor and zero stalls** is
+the other half of a threshold that was established looking down from above it.
+
+**And the frame-rate vulnerability of 3fi is range-dependent.** This night ran at a median **40.8 fps** —
+slower than the 47 fps night whose base arm stalled 67% at long range — because compiler builds and a
+subagent were competing for the machine throughout. The debt still never crossed 1.5 and nothing
+stalled. So a slow frame raises the debt everywhere, but only at long range does it start from enough
+debt for that to reach the stall. **A player on a slow machine loses nothing at 6,000 km and a third of
+their rockets at 12,900.** The peak of 73.2 also confirms the host recovered from 3fi's degraded state.
+
+## 3fk. The steering freeze is a duration that grows with the frame, and only off the plane — 2026-09-20
+
+3fi leaves the chain from a slower frame to a stalled trim resting on the cutoff residual, and the
+flown residual grew **almost entirely in its cross-track part** — 0.130 → 0.320 against along-track
+0.060 → 0.070 and radial 0.070 → 0.090. Three suspects were read out of the code. Two are not
+leaks, and the third is, in a place no fixture could see.
+
+**`IcbmProgram.HoldDirectionFrames` — REAL, and the mechanism is exact.** The freeze begins at
+`Frames x accel x step x throttle` of velocity still to gain and burns that off at `accel x
+throttle`, so it lasts `Frames x step` **seconds** however long a frame is. Measured through
+`IcbmFlightRig` with its jitter on, on one off-plane shot: **0.167 s at a 17 ms step against
+0.400 s at 40 — 2.40x for a 2.40x step**, and 0.241 against 0.266 at the 21/28 ms pair the two
+nights ran at.
+
+**But in the orbit plane it costs nothing, which is why every fixture said it was fine.** A shot
+aimed along the track has no out-of-plane work left to freeze:
+
+| aimed | share of the residual square to the thrust line | residual against a 4x step |
+| --- | --- | --- |
+| along the track (lat 0) | **0–2%**, worst of four | **4.08x** — exactly linear |
+| **26° off the plane** | **59–93%**, and 100% on the worst shot | **5.9x**, reaching 2.9 frames |
+
+Flown, the cross-track share is **81% at 23 ms and 94% at 28** — the off-plane column, not the
+in-plane one. `CutoffResidualTests` and every other cutoff fixture fly equator to equator, where
+the term is identically zero. The 14° sweep is **bimodal** — 0%, 0%, 0%, 64%, 80%, 98%, 1%, 67%
+across the steps — which is 3ex's bimodal landing from the other end.
+
+**`IcbmConfig.HoldDirectionSeconds` says the same limit in seconds of burning**, floored at one
+frame so the direction being held is never noise. Off, unflown; 0.35 s is 20 frames at the rate
+the plateau was measured on, so nothing moves at 60 fps.
+`CutoffResidualTests.TheSteeringFreezeLastsTheSameTimeAtEitherFrameRate` fails against the old
+code. Headless on one off-plane shot the freeze goes 2.40x → 0.96x and what it leaves at 40 ms
+goes **0.3299 → 0.1468 m/s**; at the 21/28 ms pair a single shot is **adverse** (0.0565/0.0121 →
+0.0657/0.0381) and the residual there is bimodal, so it says nothing. **A night decides it, and
+the endpoint is the flown cutoff residual's cross-track part rather than the landing.**
+
+**`BusTrim.StopBand` — NOT A LEAK at the shipped bus.** It is `max(0.02, 0.5 x accel x step)`, so
+the step only reaches it above `0.02 / (0.5 x accel)`. At the flown 0.56 m/s² that is **71.4 ms,
+14 fps**: the band reads 0.0200 at every step from 10 to 66 ms. The *pulsing* band,
+`3 x accel x pulse`, carries no step at all. The crossover is 13.3 ms on a 3.0 m/s² bus, which is
+`TrimBus`'s default and the vehicle `BusTrim.MaxFaithfulStep`'s "0.118 m/s at 33 ms" was measured
+on — **that line is about a bus five times stronger than the one that flies.**
+
+**`BusTrim.Stalled` — NOT A LEAK, and mildly protective.** Against a reference receding at a
+*stated* rate, so the recession is the same in seconds at every frame rate, over 12 debts × 16
+recessions per step:
+
+| step | stalled | median residual | median seconds |
+| --- | --- | --- | --- |
+| 10 ms | 64% | 0.0300 | 22.3 |
+| 16.7 | 62% | 0.0271 | 22.4 |
+| 21 | 63% | 0.0258 | 21.7 |
+| 28 | 64% | 0.0231 | 21.1 |
+| 40 | 64% | 0.0197 | 19.9 |
+
+**Flat across a 4x step**, and a coarser frame gives up slightly *better off*. With nothing
+receding: **0 of 12 at every step**, worst residual 0.0027 — 3fa's finishers reproduced exactly.
+So 3fi's residue at a matched debt is not the stall clock, and its own guess — that a hold's
+`accel x step` quantum is 22% coarser — is refuted: the quantum is nowhere near the 0.02 band.
+
+**What is left to explain that residue.** The bus coasts **off rails** while its attitude is
+commanded, so KSA integrates it at the frame step while the trim solves against an exact Kepler
+propagation of the cutoff state. That mismatch is a recession the frame rate does move — about
+0.25 mm/s per second at 28 ms against 0.19 at 21 on a 200 km orbit, against a pulse phase's
+3.7 mm/s per second of authority. Unmeasured in flight, and `IcbmConfig.RailsDuringCoast` is the
+switch that would settle it.
+
+## Where the ballistic thread stands — 2026-09-20
+
+**Read this before picking anything up.** Four nights and a day of headless work; what shipped, what is
+decided, and what is waiting, in the order worth doing.
+
+**Shipped and flown.** `IcbmConfig.StallFallsBackToHolding`, **on by default**. At 12,902 km it took the
+share of rockets whose trim gives up from 30–67% to **zero** (3fh: 0 of 24 flights lost against 16,
+Fisher p = 0.0000, never worse in any block), and each of those was worth about 2 km. Confirmed inert
+where it cannot fire (3fj) and re-checked after the multi-target merges: 8 of 8 arriving, 0 gave up.
+
+**Decided, needs no more argument.** The long-range defect is the pulse phase's finer band keeping the
+correction loop alive long enough to meet the stall (3fg). The stall is the miss — 31 of 32 rockets
+agreed, and the flights ending on `trim` median 1.99 km against 0.00 for every other ending. The
+separation debt predicts it, with nothing under 1.5 m/s ever stalling (3fd, and 3fj adds 160 rockets
+under the floor with zero stalls). The debt is **mostly radial, not axial** — three times the axial term
+— which contradicted a year-old line in `CLAUDE.md`, now corrected (3fe, 3fh).
+
+**Open, in the order I would take them.**
+
+1. **The off-plane cutoff residual, and it is the biggest thing on this page.** `HoldDirectionFrames`
+   freezes the steering for `20 x step` *seconds*, so a slow machine freezes longer — but the cost
+   depends on the aim's plane: 0–2% of the residual is square to the thrust line along the track and
+   **59–93% at 26° off it**. **Every existing cutoff fixture flies equator to equator**, which is why 90
+   headless shots once declared this fixed. Flown, the cross-track share is 81–94%. `HoldDirectionSeconds`
+   is built and **off**; what settles it is a paired night at 12,902 km, `base|held:HoldDirectionSeconds=0.35`,
+   scored on the **cutoff residual's cross-track part** rather than the landing, which is too noisy
+   downstream. 3fk.
+2. **The off-rails coast.** The bus is integrated at the frame step while `BusTrim` compares against an
+   exact Kepler propagation, which is a recession the frame rate moves — about 7% of a pulse phase's
+   authority and step-proportional. It is the right shape for the one thing the debt does not explain
+   (3fi: 9 of 18 against 2 of 30 at matched debt). `IcbmConfig.RailsDuringCoast` exists and is
+   unassigned; it needs a flown coast, not a rig. 3fk.
+3. **A flight rig that reaches past cutoff.** `IcbmFlightRig.Fly` returns at cutoff, so nothing from the
+   coast onward — trim, correction, release — is provable headlessly. Every question above and the whole
+   of the MIRV release loop is gated on flying rather than testing because of it.
+4. **A rig that leaves the plane.** The blindness in item 1 is one line of fixture geometry, and it hid a
+   real term for months.
+
+**Ruled out, do not re-chase.** `BusTrim.StopBand` (binds only below 14 fps), `BusTrim.Stalled` (flat
+across a 4x step, mildly protective), the frame check (predicts neither stall nor miss, 3ff), the 0.9.1
+build and StarMap 0.4.7 (the same binary ran fast and slow within one night, 3fi), and pulses arriving
+sideways or under-delivering (1.01x delivered, 1.00 along the direction asked — 3ez as corrected, 3fa).
+
+**And a standing caveat.** The long-range stall rate is a function of the frame rate — about a third at
+63 fps and two thirds at 47 — so **every cross-night number on this page is partly a statement about the
+machine**. Read fps off `mod frame: … over N frames` (10 s interval) before comparing two nights, and
+check the peak as well as the median. 3fi, 3fj.
+
+## 3fl. The steering freeze is already step-independent in flight, because the cap binds — 2026-09-21
+
+3fk ends by asking for a night on `IcbmConfig.HoldDirectionSeconds`, scored on the cutoff residual's
+cross-track part. **That night would not test what 3fk says it tests.** Read off the two 12,902 km
+nights already on disk — 456 rockets, nothing flown for this;
+`~/shots/scripts-2026-09-21/step-vs-residual.py` and the accel/throttle the cutoff line already
+prints.
+
+**`IcbmProgram.HoldDirectionBelow` binds first.** The frames arm's threshold is
+`min(5.0, 20 x accel x step x throttle)`. At the throttle these flights actually cut off on — a
+median **11%** against 113–115 m/s² — one frame is ~0.35 m/s and twenty of them are ~7, so the 5.0
+cap takes it:
+
+| | 2026-09-18-nopulse | 2026-09-19-fallback |
+| --- | --- | --- |
+| median fps / step at cutoff | 64.6 / **23 ms** | 48.5 / **28 ms** |
+| frames arm hits the 5.0 cap | 245 of 264 (**93%**) | 192 of 192 (**100%**) |
+| frames arm freeze duration | **0.399 s** | **0.395 s** |
+| `HoldDirectionSeconds=0.35` would give | 0.350 s | 0.350 s |
+
+**A 22% longer step moved the freeze by 1%.** Capped, the threshold is a velocity rather than a
+count of frames, and a velocity divided by `accel x throttle` is a duration nothing about the frame
+reaches. The fault 3fk measured through `IcbmFlightRig` is real in the rig and **masked in flight by
+the cap**.
+
+So `HoldDirectionSeconds` in flight is **a flat 12% shorter freeze**, identically at both frame
+rates — a constant, not a step-independence fix. A night on it would answer "is 0.350 s better than
+0.397 s", which is worth knowing and is **not** the question 3fk poses. **3fk's closing sentence is
+withdrawn**; the step-dependence stays headless, where `IcbmFlightRig.StepJitter` can command the 4x
+that no session spans and the cap can be held off.
+
+**And it leaves the rise unexplained rather than explaining it.** The residual still goes 0.175 →
+0.335 m/s and its cross-track share 67% → 79% between those two nights, with the freeze duration
+constant across them — so a longer freeze is not what the slower machine is buying. One frame's
+delta-v rises only 22% over the same step, against 91% on the residual. **What else the step reaches
+is open**, and it is the live end of 3fi rather than the freeze.

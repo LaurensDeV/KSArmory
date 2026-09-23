@@ -1,5 +1,6 @@
 using Brutal.ImGuiApi;
 using Brutal.Numerics;
+using KSA;
 
 namespace KSArmory;
 
@@ -14,6 +15,10 @@ namespace KSArmory;
 internal sealed class BurstTool
 {
     private static readonly float4 MarkerColour = new(1.0f, 0.6f, 0.2f, 0.9f);
+
+    // Simulated, because what it is waiting out is the flash, which is on that clock too. Wall
+    // clock would uncover the marker mid-explosion under slow motion and never under warp.
+    private double _markerHiddenUntil = double.NegativeInfinity;
 
     public void Update(Config config)
     {
@@ -60,6 +65,12 @@ internal sealed class BurstTool
         // made a cloud, so the tool does not need to know and cannot disagree with the real path.
         NuclearClouds.Begin(groundEcl, KsaWorld.ControlledVehicle, chargeKg);
 
+        // The marker is drawn at the cursor and the burst happens at the cursor, so the one hides
+        // the other. Sized off the flash rather than fixed: that is how long there is something to
+        // look at, and it keeps a conventional charge's marker back for almost no time at all.
+        _markerHiddenUntil = Universe.GetElapsedTime().Seconds()
+                             + MushroomCloud.FlashSeconds(MushroomCloud.KilotonsFor(chargeKg));
+
         Log.Info($"burst tool: {WarheadExplosion.PresetFor(chargeKg) ?? "no explosion"}, "
                  + (config.BurstNuclear
                         ? $"{config.BurstYieldKt:F2} kt"
@@ -71,6 +82,8 @@ internal sealed class BurstTool
     public void Draw(Config config)
     {
         if (!config.BurstTool) return;
+        if (!config.BurstMarker) return;
+        if (Universe.GetElapsedTime().Seconds() < _markerHiddenUntil) return;
         if (KsaWorld.ControlledVehicle is not { } anchor) return;
         if (!KsaWorld.TryCursorGroundPoint(out double3 groundEcl, out _, out _, out _)) return;
         if (!KsaWorld.BeginDraw(anchor, KsaWorld.PositionEcl(anchor))) return;

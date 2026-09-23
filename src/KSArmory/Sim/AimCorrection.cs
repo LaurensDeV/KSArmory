@@ -456,6 +456,30 @@ internal sealed class AimCorrection
         _haveLast = false;
     }
 
+    /// <summary>
+    /// Start again on a different place, on the same coast.
+    ///
+    /// <para><b>The bias goes and the plant stays.</b> The bias is how far short the arc was falling
+    /// on the ground under the <em>old</em> aim, so carrying it onto another place applies one
+    /// target's correction to another. The response is the coast's, exactly as
+    /// <see cref="Resume"/> seeds it — a hop re-solves the arc to the new aim at the same committed
+    /// arrival, which is the same plant. <see cref="Reset"/>'s <c>1 / Gain</c> is the pre-burn
+    /// seeding and takes quarter steps, which on a walk costs a pass, and a coast pass is a median
+    /// 65 s.</para>
+    /// </summary>
+    public void Retarget()
+    {
+        BiasCci = Vec.Zero;
+        Settled = false;
+        _bestMiss = double.PositiveInfinity;
+        _bestBias = Vec.Zero;
+        _worseFor = 0;
+        _response = 1.0;
+        _lastBias = Vec.Zero;
+        _lastError = Vec.Zero;
+        _haveLast = false;
+    }
+
     public void Reset()
     {
         BiasCci = Vec.Zero;

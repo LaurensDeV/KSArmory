@@ -149,4 +149,71 @@ public class ShotRequestTests
         Assert.False(ShotRequest.TryParse(arguments, out _, out string trouble));
         Assert.Contains("km", trouble);
     }
+
+    /// <summary>
+    /// Several places, separated by ';'. One segment must still take the old path exactly, which is
+    /// what lets every scenario line ever written keep working.
+    /// </summary>
+    [Fact]
+    public void SeveralPlacesAreSeparatedBySemicolons()
+    {
+        Assert.True(ShotRequest.TryParse("24.0S,62.0W;25.0S,63.0W;26.0S,64.0W", out ShotRequest shot, out string why));
+        Assert.Equal("", why);
+
+        Assert.Equal(-24.0, shot.LatitudeDeg, 6);
+        Assert.Equal(-62.0, shot.LongitudeDeg, 6);
+        Assert.Equal(3, shot.Targets.Count);
+        Assert.Equal(-26.0, shot.Targets[2].LatitudeDeg, 6);
+        Assert.Equal(-64.0, shot.Targets[2].LongitudeDeg, 6);
+    }
+
+    [Fact]
+    public void OneTargetIsOneTargetAndNothingElseChanges()
+    {
+        Assert.True(ShotRequest.TryParse("24.0S,62.0W", out ShotRequest shot, out _));
+
+        Assert.Single(shot.Targets);
+        Assert.Equal(-24.0, shot.Targets[0].LatitudeDeg, 6);
+        Assert.True(shot.AimWasGiven);
+    }
+
+    /// <summary>A shot at whatever the scene defends names no place, so it has none to list.</summary>
+    [Fact]
+    public void ARequestWithNoAimListsNoTargets()
+    {
+        Assert.True(ShotRequest.TryParse("", out ShotRequest bare, out _));
+        Assert.Empty(bare.Targets);
+
+        Assert.True(ShotRequest.TryParse("0.5", out ShotRequest barOnly, out _));
+        Assert.Empty(barOnly.Targets);
+        Assert.False(barOnly.AimWasGiven);
+    }
+
+    /// <summary>The bar belongs to the shot, not to a target, wherever it is written.</summary>
+    [Fact]
+    public void TheBarIsTheShotsWhicheverTargetCarriesIt()
+    {
+        Assert.True(ShotRequest.TryParse("24.0S,62.0W;25.0S,63.0W,0.25", out ShotRequest shot, out _));
+
+        Assert.Equal(2, shot.Targets.Count);
+        Assert.Equal(250.0, shot.BarMetres, 6);
+    }
+
+    [Fact]
+    public void ABusCannotBeSentToMorePlacesThanItHasWarheads()
+    {
+        string many = string.Join(";", Enumerable.Range(0, TargetSet.MaxTargets + 1)
+                                                 .Select(i => $"{20 + i}.0S,62.0W"));
+
+        Assert.False(ShotRequest.TryParse(many, out _, out string why));
+        Assert.Contains("at most", why);
+    }
+
+    /// <summary>A refusal names which target was wrong, or the next attempt is a guess.</summary>
+    [Fact]
+    public void ARefusalNamesTheTargetThatWasWrong()
+    {
+        Assert.False(ShotRequest.TryParse("24.0S,62.0W;95.0S,63.0W", out _, out string why));
+        Assert.Contains("target 2", why);
+    }
 }

@@ -29,7 +29,13 @@ public class WarheadExplosionTests
         Assert.Equal(WarheadExplosion.SmallFire, WarheadExplosion.PresetFor(Arsenal.Missile9J.ChargeKg));
         Assert.Equal(WarheadExplosion.SmallFire, WarheadExplosion.PresetFor(BuiltIns.Missile57E6.ChargeKg));
         Assert.Equal(WarheadExplosion.Conflagration, WarheadExplosion.PresetFor(Arsenal.MissileAgm88.ChargeKg));
-        Assert.Equal(WarheadExplosion.Conflagration, WarheadExplosion.PresetFor(Arsenal.NukeB61.ChargeKg));
+
+        // And a charge that grows a cloud takes this mod's own, which is that same preset without
+        // Core's smoke volume -- the mod is drawing the smoke itself, a thousand times the size.
+        Assert.Equal(WarheadExplosion.NuclearBurst, WarheadExplosion.PresetFor(Arsenal.NukeB61.ChargeKg));
+        Assert.Equal(WarheadExplosion.NuclearBurst, WarheadExplosion.PresetFor(MushroomCloud.ThresholdKg));
+        Assert.Equal(WarheadExplosion.Conflagration,
+                     WarheadExplosion.PresetFor(MushroomCloud.ThresholdKg - 1.0));
     }
 
     [Theory]

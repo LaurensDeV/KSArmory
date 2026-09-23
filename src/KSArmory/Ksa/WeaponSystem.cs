@@ -69,6 +69,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     private readonly List<DamageablePart> _partScratch = [];
     private readonly List<Part> _partHandles = [];
     private readonly List<int> _failedParts = [];
+    private readonly List<(int Index, double PressureRatio, double GapMetres)> _dentLoads = [];
 
     // Craft one burst has already damaged. See where it is cleared for why this is not _pendingKills.
     private readonly List<Vehicle> _burstDamaged = [];
@@ -128,6 +129,12 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
     /// <summary>What to call the craft that fired them, captured before it went.</summary>
     public string LooseName => _looseName;
+
+    /// <summary>
+    /// The side this installation fights for, which is also the side its rounds are on. Survives
+    /// the craft: a loose system's policy is still here when the launcher is not.
+    /// </summary>
+    public string? Team => _policy.Iff.OwnTeam;
 
     /// <summary>True when the operator pinned the platform rather than following control.</summary>
     public bool PlatformPinned { get; private set; }
@@ -214,6 +221,39 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         Log.Info($"{Profile.DisplayName} tracking {what}"
                  + (wasOnCursor ? " (mouse aim and mouse fire off: it now follows this)" : ""));
+
+        SendStoresInTheAir(what);
+    }
+
+    // Pushed once, never read live: the round carries its own aimpoint, which is what lets it
+    // outlive its launcher and what stops ClearDesignation turning a bomb halfway down back into
+    // a dumb one. An operator looking somewhere else is not an operator recalling a weapon.
+    //
+    // Only a store still steering its own fall. A missile left on a target somebody chose, and
+    // swapping that under it is what Fire(Track) already declines to do; a tail kit has no seeker
+    // and nothing to be loyal to, which is the reason one is fitted.
+    //
+    // It reports rather than refusing. A place beyond what the kit can still walk to is taken
+    // anyway with the shortfall said out loud: landing nearer beats holding an aim the operator
+    // has just replaced, and a refusal here is indistinguishable from a designation doing nothing.
+    private void SendStoresInTheAir(string what)
+    {
+        // Nothing to send them at. Designating nothing is not how a store is recalled -- see
+        // ClearDesignation, which deliberately leaves one already steering alone.
+        if (Designation.Kind == AimpointKind.None) return;
+
+        foreach (IProjectile round in _rounds)
+        {
+            if (round.State != RoundState.Flying || !round.Munition.SteersItsFall) continue;
+
+            // Flown before the write, because the region is measured around where the store comes
+            // down untouched and the aimpoint it is about to carry says nothing about that.
+            TailKitReach reach = StoreReach.SolveNow(this, round);
+
+            round.Retarget(Designation);
+            Announce($"{RoundLabel.For(round.Tube)} now steering at {what} - "
+                     + reach.Describe(Designation.PositionEcl));
+        }
     }
 
     /// <summary>Hands it back to its own set.</summary>
@@ -2391,7 +2431,14 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         if (Platform is null || Launcher is null || !TubesResolved) return false;
 
-        Launch launch = LaunchFrom(Math.Max(NextTube, 0), Aimpoint.Nothing);
+        // No tube to release from is no release to predict. Falling back to tube 0 answers about a
+        // store that is not there, which is a pipper still drawn on the ground after the rack's
+        // last one has gone -- and, once a store in the air has a region of its own, two rings
+        // saying different things about the same weapon.
+        int tube = NextTube;
+        if (tube < 0) return false;
+
+        Launch launch = LaunchFrom(tube, Aimpoint.Nothing);
         positionEcl = launch.Position;
         velocityEcl = launch.Velocity;
 
@@ -3552,47 +3599,14 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             Announce($"intercepted {contact.DisplayName} at {gap:F0} m");
         }
 
-        IReadOnlyList<Vehicle> caught = KsaWorld.Vehicles;
-
-        for (int i = 0; i < caught.Count; i++)
-        {
-            Vehicle v = caught[i];
-
-            if (ReferenceEquals(v, Platform)) continue;
-            if (_policy.ProtectControlledVehicle && ReferenceEquals(v, KsaWorld.ControlledVehicle)) continue;
-            if (_pendingKills.Contains(v)) continue;
-            if (_burstDamaged.Contains(v)) continue;
-
-            double gap = BlastSweep.SurfaceGap(KsaWorld.PositionEcl(v), KsaWorld.VelocityEcl(v),
-                                               elapsed, burst, KsaWorld.MeanRadius(v));
-
-            switch (BlastSweep.Effect(gap, round.Munition))
-            {
-                case BlastEffect.Lethal:
-                    Damage(v, burst, elapsed, round.Munition, confirmed: false);
-                    break;
-
-                case BlastEffect.NearMiss:
-                    // Outside the lethal radius of the craft's own bounding sphere, and still
-                    // possibly against the skin of something on it: the sphere is a half-diagonal,
-                    // so a burst beside a long booster reads as a hundred metres from a craft it
-                    // is touching. The part sweep is the exact test and it runs here too.
-                    if (!Damage(v, burst, elapsed, round.Munition, confirmed: false))
-                    {
-                        Announce($"near miss on {KsaWorld.DisplayName(v)} at {gap:F0} m");
-                    }
-
-                    break;
-
-                default:
-                    break;
-            }
-        }
+        Splash(burst, elapsed, round.Munition);
 
         // Sized off the charge, which is also what the damage radii come from, so a 30 mm shell
         // cannot set off a missile's explosion. Whatever the burst killed gets KSA's own on top.
         if (_config.DrawExplosions)
         {
+            ReportBurstPlacement(round, burst);
+
             // EffectBody as well as the nearest craft: a system whose launcher has been destroyed
             // has no platform to ask, and a store aimed at the ground has no target craft either.
             Detonation.Explode(DrawnBurstEcl(round, burst), round.Munition.ChargeKg,
@@ -3605,6 +3619,30 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                                 round.TargetRef as Vehicle ?? Platform,
                                 round.Munition.ChargeKg, EffectBody);
         }
+    }
+
+    // How far the burst is drawn from the place on the ground the round actually reached.
+    //
+    // Measurement only. The effects are anchored to the body, so what matters is the separation in
+    // the body's own frame -- which is what a player compares against the designation mark. Both
+    // terms are the same burst carried to the step's end two different ways: the effects by the
+    // PLATFORM's velocity, which is what puts them where the mesh is, and the reference by the
+    // GROUND's at the burst, which is what the chase camera and the drop scenario's scoring use.
+    // The two differ by the craft's motion over the ground, so the gap is a fraction of a frame of
+    // it: metres at 60 fps and kilometres once a store's own step lets frames grow.
+    private void ReportBurstPlacement(IProjectile round, double3 burst)
+    {
+        if (Log.Threshold > Log.Level.Debug || EffectBody is not { } body) return;
+
+        double3 drawn = DrawnBurstEcl(round, burst);
+        double3 onTheGround = burst - (KsaWorld.GroundVelocityAt(body, burst)
+                                       * round.DetonationElapsedInFrame);
+
+        if (!Vec.IsFinite(drawn) || !Vec.IsFinite(onTheGround)) return;
+
+        double gap = Vec.Len(drawn - onTheGround);
+        Log.Debug(() => $"  burst drawn {gap:F1} m from the ground it reached "
+                        + $"({round.DetonationElapsedInFrame:F3} s into the step)");
     }
 
     // Where the burst has to be put so it appears where the round was *drawn*, at the end of the step the
@@ -3637,6 +3675,124 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         }
 
         return drawn;
+    }
+
+    // The burst against every craft in the world: what it breaks, what it destroys, and what it only
+    // dents. Shared by a round's detonation and SplashAt, so a burst from the bridge is judged by the
+    // same code a warhead is.
+    private void Splash(double3 burst, double elapsed, MunitionProfile munition, bool spareOwn = true)
+    {
+        IReadOnlyList<Vehicle> caught = KsaWorld.Vehicles;
+
+        for (int i = 0; i < caught.Count; i++)
+        {
+            Vehicle v = caught[i];
+
+            // The craft that fired and the one being flown, while it is protected, are never
+            // broken -- but a dent breaks nothing, and a bomb dropped near its own carrier leaves
+            // its mark on it as on anything else.
+            if (spareOwn && (ReferenceEquals(v, Platform)
+                             || (_policy.ProtectControlledVehicle && ReferenceEquals(v, KsaWorld.ControlledVehicle))))
+            {
+                DentOnly(v, burst, elapsed, munition);
+                continue;
+            }
+
+            if (_pendingKills.Contains(v)) continue;
+            if (_burstDamaged.Contains(v)) continue;
+
+            double gap = BlastSweep.SurfaceGap(KsaWorld.PositionEcl(v), KsaWorld.VelocityEcl(v),
+                                               elapsed, burst, KsaWorld.MeanRadius(v));
+
+            switch (BlastSweep.Effect(gap, munition))
+            {
+                case BlastEffect.Lethal:
+                    Damage(v, burst, elapsed, munition, confirmed: false);
+                    break;
+
+                case BlastEffect.NearMiss:
+                    // Outside the lethal radius of the craft's own bounding sphere, and still
+                    // possibly against the skin of something on it: the sphere is a half-diagonal,
+                    // so a burst beside a long booster reads as a hundred metres from a craft it
+                    // is touching. The part sweep is the exact test and it runs here too.
+                    if (!Damage(v, burst, elapsed, munition, confirmed: false))
+                    {
+                        Announce($"near miss on {KsaWorld.DisplayName(v)} at {gap:F0} m");
+                    }
+
+                    break;
+
+                default:
+                    break;
+            }
+        }
+    }
+
+    /// <summary>
+    /// A burst of <paramref name="munition"/> where there is no round: every craft judged exactly
+    /// as a warhead going off there judges it, and what breaks is applied. For the bridge, so a
+    /// burst that damages can be flown without flying a drop. <paramref name="spareOwn"/> false
+    /// judges this system's own craft and the one being flown like any other, so what breaks a
+    /// craft can be watched on the craft in front of the camera. <paramref name="inFrame"/> is when
+    /// in the step it went off, against the sample, as a round's <c>DetonationElapsedInFrame</c> is:
+    /// between minus one step and zero, with <paramref name="burstEcl"/> where it was then.
+    /// </summary>
+    public void SplashAt(double3 burstEcl, MunitionProfile munition, bool spareOwn = true, double inFrame = 0.0)
+    {
+        ArgumentNullException.ThrowIfNull(munition);
+
+        _burstDamaged.Clear();
+        Splash(burstEcl, Math.Min(inFrame, 0.0), munition, spareOwn);
+        ApplyPendingKills();
+    }
+
+    // Dents a craft the burst reaches and nothing else, for one that must not be broken.
+    private void DentOnly(Vehicle v, double3 burst, double elapsed, MunitionProfile munition)
+    {
+        if (!KsaWorld.IsAlive(v)) return;
+
+        double gap = BlastSweep.SurfaceGap(KsaWorld.PositionEcl(v), KsaWorld.VelocityEcl(v),
+                                           elapsed, burst, KsaWorld.MeanRadius(v));
+        if (BlastSweep.Effect(gap, munition) == BlastEffect.Untouched) return;
+
+        if (!KsaWorld.TryCollectDamageableParts(v, KsaWorld.PositionEcl(v), _partScratch, _partHandles)) return;
+
+        Dent(v, burst, elapsed, munition, failed: null, mayBreak: false);
+    }
+
+    // Every load this burst puts on the craft's parts short of breaking them, held until the front
+    // reaches each part. With no air there is no front, and nothing to wait for.
+    private void Dent(Vehicle v, double3 burst, double elapsed, MunitionProfile munition,
+                      IReadOnlyCollection<int>? failed, bool mayBreak)
+    {
+        _dentLoads.Clear();
+        BlastDamage.Loads(burst, elapsed, KsaWorld.VelocityEcl(v), CollectionsMarshal.AsSpan(_partScratch),
+                          munition, failed, _dentLoads);
+        if (_dentLoads.Count == 0) return;
+
+        double airRatio = KsaWorld.AirDensityRatioAt(v, burst);
+        bool air = airRatio > Medium.NoticeableDensity;
+        double kt = MushroomCloud.KilotonsFor(munition.ChargeKg);
+
+        // The fronts are followed against the body as it is at the sample, which the burst is up to a
+        // step of the planet's motion behind: anchored as it stands it sits hundreds of metres off
+        // the ground it went off on, and every push points along that error.
+        double3 groundAtSample = BlastSweep.GroundAtSample(burst, KsaWorld.GroundVelocityAt(v, burst), elapsed);
+
+        double first = double.MaxValue;
+        double last = 0.0;
+        foreach ((int index, double ratio, double gap) in _dentLoads)
+        {
+            double due = air ? MushroomCloud.ShockArrivalSeconds(kt, gap) - elapsed : 0.0;
+            BlastArrivals.Queue(v, _partHandles[index], groundAtSample, -elapsed, air ? airRatio : 0.0,
+                                munition.ChargeKg, _partScratch[index].CrashTolerancePascals, mayBreak);
+
+            first = Math.Min(first, due);
+            last = Math.Max(last, due);
+        }
+
+        Log.Info($"blast loads {_dentLoads.Count} part(s) of {KsaWorld.DisplayName(v)} short of breaking; "
+                 + $"the front would arrive in {Math.Max(first, 0.0):F2}-{Math.Max(last, 0.0):F2} s were it to stay put");
     }
 
     // Applies one burst to one craft: breaks the parts near enough to break, or destroys the
@@ -3690,6 +3846,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         _failedParts.Clear();
         BlastDamage.Sweep(burst, elapsed, KsaWorld.VelocityEcl(v),
                           CollectionsMarshal.AsSpan(_partScratch), munition, _failedParts);
+
+        // And what it loads short of breaking, dented, before anything decides the craft's fate:
+        // a craft that survives is the one the dents are for.
+        Dent(v, burst, elapsed, munition, _failedParts, mayBreak: true);
 
         // KSA logs no part's crash tolerance, and it is what sets a warhead's reach against that part.
         if (Log.Threshold <= Log.Level.Debug)
@@ -3821,12 +3981,19 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// exists, and stepping them by a huge delta would fly them through their targets. Tracking
     /// is cleared too so dwell restarts rather than granting an instant firing solution off
     /// time that was never simulated.</para>
+    ///
+    /// <para><b>Except a round the ground stops, which is kept.</b> "Flown through its target" is
+    /// the whole reason for dropping one, and a store falling at a place on the ground has no
+    /// target to be flown through — the ground is still under it, still reaps it, and a long step
+    /// costs it accuracy rather than correctness. Deleting it is not recoverable and lagging is,
+    /// so the balance goes the other way: a player who raises timewarp over a falling store has
+    /// asked for a coarser fall, not for the store to be taken away.</para>
     /// </summary>
     public void AbandonFlight(string why)
     {
         bool hadRounds = _rounds.Count > 0;
 
-        ClearRounds();
+        int kept = DropRoundsWithATargetToLose();
         _pendingKills.Clear();
         _pendingPartKills.Clear();
         Radar.Reset();
@@ -3834,12 +4001,38 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         _warnedDuplicateTube = false;
 
         // Hide the round bodies that were riding those interceptors, or they freeze mid-air.
-        for (int i = 0; i < _missileBodies.Count; i++) LauncherPart.HideMissile(_missileBodies[i]);
-        for (int i = 0; i < _finBodies.Count; i++) LauncherPart.HideMissile(_finBodies[i]);
-        HideShellBodies();
+        //
+        // Only when nothing was kept. This is every body on the launcher, not the dropped ones, so
+        // over a store that survived it hides the store -- which is the disappearance this was
+        // reported as. The per-frame pass already seats or hides a body whose tube has no round
+        // flying, so the ones just dropped are covered there.
+        if (kept == 0)
+        {
+            for (int i = 0; i < _missileBodies.Count; i++) LauncherPart.HideMissile(_missileBodies[i]);
+            for (int i = 0; i < _finBodies.Count; i++) LauncherPart.HideMissile(_finBodies[i]);
+            HideShellBodies();
+        }
 
-        if (hadRounds) Announce($"rounds abandoned: {why}");
+        if (hadRounds)
+        {
+            Announce(kept > 0
+                         ? $"rounds abandoned: {why} - {kept} still falling, kept and lagging"
+                         : $"rounds abandoned: {why}");
+        }
         else Log.Debug(() => $"tracking reset: {why}");
+    }
+
+    // Everything but the stores the ground will stop. Returns how many were kept, so the line says
+    // which of the two things happened -- "abandoned" over a store still on its way is the report
+    // that sent somebody looking for a despawn.
+    private int DropRoundsWithATargetToLose()
+    {
+        for (int i = _rounds.Count - 1; i >= 0; i--)
+        {
+            if (!_rounds[i].Munition.HitsTerrain) DropRound(i);
+        }
+
+        return _rounds.Count;
     }
 
     public void Reset()

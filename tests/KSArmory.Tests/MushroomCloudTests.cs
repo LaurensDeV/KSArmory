@@ -61,46 +61,22 @@ public class MushroomCloudTests
     }
 
     /// <summary>
-    /// And it is exactly Glasstone's half, not a fraction of it. A thinner stem is the difference
-    /// between a mushroom and a lollipop: the cap has nothing to sit on and reads as a blob on a
-    /// stick, however right the cap itself is.
+    /// The cap is several times the width of the column under it, which is the strongest shape cue
+    /// the drawing has. A photographed mushroom runs about five or six to one; at the half this
+    /// used to hold it was barely two, and the silhouette stopped reading as a mushroom at all.
+    ///
+    /// <para>That half was a pen-era compromise rather than a measurement: a stem drawn as a bundle
+    /// of capsules needs width to read as anything, and a raymarched one does not. Still bounded at
+    /// the far end, because the concern it was guarding against is real — a stem thin enough to be a
+    /// stick gives a lollipop, a cap with nothing under it.</para>
     /// </summary>
     [Fact]
-    public void TheStemIsHalfTheCapRadius()
+    public void TheCapIsSeveralTimesTheWidthOfItsStem()
     {
         MushroomCloud.Shape s = MushroomCloud.At(0.3 * Kt, MushroomCloud.RiseSeconds);
-        // Against the drawn cap rather than the law's: the ratio is Glasstone's, the size is not.
-        Assert.Equal(MushroomCloud.DrawnCapRadius(0.3) * 0.5, s.StemRadius, 3);
-    }
 
-    /// <summary>
-    /// No smoke exists while the fireball is still burning, and that is not a detail of timing.
-    ///
-    /// <para>Every pen starts at the burst point, so laying them from t=0 groups them into one ball
-    /// several hundred metres across on the first frame — and the volumetric pass runs *after* the
-    /// bloom pass, so that ball is drawn in front of the brightest thing the mod can produce. The
-    /// flash is buried inside its own smoke and the burst reads as nothing happening.</para>
-    /// </summary>
-    [Fact]
-    public void TheSmokeWaitsForTheFireballToGoDark()
-    {
-        double charge = 0.3 * Kt;
-        double flash = MushroomCloud.FlashSeconds(0.3);
-
-        for (double age = 0.0; age < flash; age += flash / 20.0)
-        {
-            Assert.False(MushroomCloud.FlashAt(charge, age).Spent, $"the flash is out at {age:F2} s");
-            Assert.False(MushroomCloud.SmokeStarted(charge, age),
-                         $"smoke is being laid at {age:F2} s, over a fireball that is still burning");
-        }
-
-        Assert.True(MushroomCloud.SmokeStarted(charge, flash + 0.01),
-                    "and starts the moment the luminous phase is over");
-
-        // The ember that follows deliberately overlaps it, which is not the case above: what has to
-        // stay out from under the smoke is the flash, and by here the ball is orders of magnitude
-        // under the bloom threshold and the same width as the smoke taking over from it.
-        Assert.False(MushroomCloud.FlashAt(charge, flash + 0.01).Spent);
+        Assert.True(s.StemRadius > 0.0);
+        Assert.InRange(s.CapRadius / s.StemRadius, 4.0, 6.5);
     }
 
     /// <summary>
@@ -164,6 +140,11 @@ public class MushroomCloudTests
     /// <summary>
     /// The flash is brightest at the instant of the burst and is essentially over long before the
     /// ball stops being visible. A slow fade reads as a lamp being turned down.
+    ///
+    /// <para>It is deliberately <em>not</em> monotone — see the double pulse below — so what is
+    /// guarded here is the collapse rather than the direction: the first pulse is the brightest
+    /// point of the whole flash, and by halfway through the luminous phase there is a fifth of it
+    /// left. A linear fade from the peak sits at half there and fails.</para>
     /// </summary>
     [Fact]
     public void TheFlashIsBrightestAtTheStartAndCollapses()
@@ -171,10 +152,14 @@ public class MushroomCloudTests
         double dark = MushroomCloud.DarkAfter(0.3);
 
         double at0 = MushroomCloud.FlashAt(0.3 * Kt, 0.0).Glow;
-        double atTenth = MushroomCloud.FlashAt(0.3 * Kt, dark * 0.1).Glow;
         double atHalf = MushroomCloud.FlashAt(0.3 * Kt, dark * 0.5).Glow;
 
-        Assert.True(at0 > atTenth && atTenth > atHalf, "it should be falling throughout");
+        for (double age = 0.0; age <= dark; age += dark / 400.0)
+        {
+            Assert.True(MushroomCloud.FlashAt(0.3 * Kt, age).Glow <= at0 + 1e-9,
+                        $"something outshone the first pulse at {age:F4} s");
+        }
+
         Assert.True(atHalf < at0 * 0.2, "and be a fifth of its peak by halfway");
         Assert.True(MushroomCloud.FlashAt(0.3 * Kt, dark + MushroomCloud.EmberSeconds + 0.1).Spent,
                     "and gone once the ember it leaves has gone out");
@@ -203,21 +188,21 @@ public class MushroomCloudTests
     }
 
     /// <summary>
-    /// It is at full size almost immediately. The growth is real but it is over in under a fifth of
-    /// a second, so a ramp stretched across a quarter of the luminous phase means most of what
-    /// anyone actually sees is an undersized ball.
+    /// It grows as t^0.4 over about a second and a half at 340 kt, reaching 90% of its largest by
+    /// about three times its second maximum (Glasstone 1962, Fig 2.51) -- not in a tenth of a
+    /// second, which read as a ball popping in rather than a burst expanding.
     /// </summary>
     [Fact]
-    public void TheFireballIsAtFullSizeAlmostImmediately()
+    public void TheFireballGrowsOverItsOwnPulseRatherThanAppearing()
     {
-        double flash = MushroomCloud.FlashSeconds(0.3);
-        double peak = MushroomCloud.PeakFireballRadius(0.3);
+        double peak = MushroomCloud.PeakFireballRadius(340.0);
+        double tMax = MushroomCloud.ThermalMaximumSeconds(340.0);
 
-        // Within the contraction it has already begun by then, and no less.
-        Assert.True(MushroomCloud.FlashAt(0.3 * Kt, flash * 0.15).Radius > peak * 0.95,
-                    "it should be at full size a sixth of the way through the flash");
-        Assert.True(MushroomCloud.FlashAt(0.3 * Kt, 0.0).Radius > peak * 0.5,
-                    "and it does not start from nothing");
+        Assert.True(MushroomCloud.FlashAt(340.0 * Kt, 0.1).Radius < peak * 0.6,
+                    "a tenth of a second in it is still well short of its largest");
+        Assert.True(MushroomCloud.FlashAt(340.0 * Kt, 3.0 * tMax).Radius > peak * 0.85,
+                    "and near it by three times the second maximum");
+        Assert.True(MushroomCloud.FlashAt(0.3 * Kt, 0.0).Radius > 0.0, "and the first frame has a ball");
     }
 
     /// <summary>
@@ -309,81 +294,6 @@ public class MushroomCloudTests
     }
 
     /// <summary>
-    /// The skirt starts as one ball of dust on the burst, blooms outward into a ring, and then stays
-    /// a ring for the rest of its life.
-    ///
-    /// <para>The engine merges pens sitting within 0.4 of an expanded radius of their centroid and
-    /// draws one ball of <c>cbrt(count)</c> radii instead, so a ring survives only while its radius
-    /// exceeds <c>0.5 · cbrt(count) · tube</c>. Being under that on the way out is wanted; crossing
-    /// back over it later is not, because each break discards the trail the merged chain was
-    /// holding.</para>
-    /// </summary>
-    [Fact]
-    public void TheGroundSkirtBloomsFromOneBallAndStaysARing()
-    {
-        double handover = MushroomCloud.TubeAtHandover(0.3);
-
-        double Threshold(in MushroomCloud.Shape s, double age)
-            => 0.5 * Math.Cbrt(MushroomCloud.SurgeStrands)
-                   * MushroomCloud.SurgeTube(s, MushroomCloud.Progress(age), handover);
-
-        // Its tube starts at the handover width like everything else, so the skirt is part of the
-        // one ball the burst hands over as rather than a ring of its own arriving beside it. That is
-        // TubeAtHandover's property to hold, not this one's.
-        Assert.Equal(handover, MushroomCloud.SurgeTube(MushroomCloud.At(0.3 * Kt, 0.0), 0.0, handover), 6);
-
-        for (double age = 3.0; age < MushroomCloud.LifeSeconds; age += 0.5)
-        {
-            MushroomCloud.Shape s = MushroomCloud.At(0.3 * Kt, age);
-            Assert.True(s.SurgeRadius > Threshold(s, age),
-                        $"at {age:F1} s the skirt is back inside the merge radius and will flicker");
-        }
-    }
-
-    /// <summary>
-    /// The smoke takes over at the fireball's own width, whatever the yield and however many pens
-    /// are bunched on the burst point.
-    ///
-    /// <para>This is the whole of the handover. The pens all start at the burst, where the engine
-    /// merges them into one ball of <c>cbrt(count)</c> radii; laid at the cap's full tube that ball
-    /// is eight times the fireball and it arrives in a single frame, so the burst does not become
-    /// the cloud, it is replaced by one that is then judged far too big for the flash that preceded
-    /// it.</para>
-    /// </summary>
-    [Theory]
-    [InlineData(0.3)]
-    [InlineData(50.0)]
-    [InlineData(340.0)]
-    public void TheSmokeTakesOverAtTheFireballsWidth(double kt)
-    {
-        // One radius, not one divided by the pen count. The pens are coincident on the axis while
-        // they climb and the raymarcher takes the deeper of two overlapping capsules rather than
-        // summing them, so any number of them at radius r render as one tube of radius r.
-        Assert.Equal(MushroomCloud.PeakFireballRadius(kt), MushroomCloud.TubeAtHandover(kt), 6);
-    }
-
-    /// <summary>
-    /// And swells to full before the pens begin to spread, because the coverage rule keeping the rim
-    /// closed is written against the full tube. A thin pen out on the rim is a rope.
-    /// </summary>
-    [Fact]
-    public void ThePensReachFullWidthBeforeTheySpread()
-    {
-        Assert.Equal(0.0, MushroomCloud.TubeGrowth(0.0), 6);
-
-        // 0.45 is where CapPoint starts moving a pen off the axis.
-        Assert.Equal(1.0, MushroomCloud.TubeGrowth(0.45), 6);
-
-        double last = -1.0;
-        for (double p = 0.0; p <= 1.0; p += 0.01)
-        {
-            double now = MushroomCloud.TubeGrowth(p);
-            Assert.True(now >= last, $"the tube should only ever grow, and shrank at {p:F2}");
-            last = now;
-        }
-    }
-
-    /// <summary>
     /// The ball goes out rather than being deleted. It is removed on the one frame the smoke is
     /// taking over from it, which is the single instant the eye is watching for continuity, so a cut
     /// there is worth more than the ember costs.
@@ -421,16 +331,13 @@ public class MushroomCloudTests
         Assert.True(MushroomCloud.FlashAt(0.3 * Kt, flash + MushroomCloud.EmberSeconds + 0.01).Spent,
                     "and be gone at the end of it");
 
-        // And it climbs the whole time it is there, on the same curve the pens do, rather than
-        // hanging where it burst while the cloud leaves without it.
-        double first = MushroomCloud.AxisHeight(
-            MushroomCloud.At(0.3 * Kt, flash), MushroomCloud.Progress(flash), 1.0);
-        double last = MushroomCloud.AxisHeight(
-            MushroomCloud.At(0.3 * Kt, flash + MushroomCloud.EmberSeconds),
-            MushroomCloud.Progress(flash + MushroomCloud.EmberSeconds), 1.0);
+        // And it climbs the whole time it is there, rather than hanging where it burst while the
+        // cloud leaves without it. It climbs ON THE CAP, because it is the cap.
+        double first = MushroomCloud.At(0.3 * Kt, flash).CapCentre;
+        double last = MushroomCloud.At(0.3 * Kt, flash + MushroomCloud.EmberSeconds).CapCentre;
 
-        Assert.True(last > first * 3.0,
-                    $"the ember should ride the cloud up: {first:F0} m to {last:F0} m");
+        Assert.True(last > first * 2.0,
+                    $"the ember should still be lifting: {first:F0} m to {last:F0} m");
     }
 
     /// <summary>
@@ -454,56 +361,46 @@ public class MushroomCloudTests
     }
 
     /// <summary>
-    /// The flash always ends while the pens are still climbing the axis, at every yield on the dial.
-    ///
-    /// <para><b>This is the rule that keeps the cloud in one piece.</b> No smoke is laid while the
-    /// ball is luminous, so a flash outlasting the climb means the pens are already out on the cap
-    /// when they lay their first segment — and the column from the ground up is never drawn at all.
-    /// The cap then arrives disconnected from its own stem and base, which is invisible at the
-    /// bottom of the dial where the flash is short anyway, and unmissable at the top.</para>
+    /// The ball glows as long as the law says up to 20 kt, and longer still past it: a 340 kt ball
+    /// that went dark at 3.4 s, as a leftover ceiling had it, is the burst reading as weak.
     /// </summary>
-    [Theory]
-    [InlineData(0.3)]
-    [InlineData(1.5)]
-    [InlineData(10.0)]
-    [InlineData(50.0)]
-    [InlineData(340.0)]
-    public void TheFlashEndsWhileThePensAreStillClimbing(double kt)
+    [Fact]
+    public void TheGlowRunsItsRealLengthAndLengthensWithYield()
     {
-        double climbEnds = MushroomCloud.RiseSeconds * MushroomCloud.ClimbUntil;
-
-        Assert.True(MushroomCloud.FlashSeconds(kt) < climbEnds,
-                    $"{kt} kt flashes for {MushroomCloud.FlashSeconds(kt):F1} s against a climb that "
-                    + $"is over at {climbEnds:F1} s, so the cloud's lower body is never drawn");
+        Assert.Equal(MushroomCloud.DarkAfter(20.0), MushroomCloud.FlashSeconds(20.0), 6);
+        Assert.True(MushroomCloud.FlashSeconds(20.0) > 9.0, "about ten seconds at 20 kt, as Glasstone has it");
+        Assert.True(MushroomCloud.FlashSeconds(340.0) > MushroomCloud.FlashSeconds(20.0));
+        Assert.True(MushroomCloud.FlashSeconds(340.0) <= MushroomCloud.LongestGlowSeconds);
     }
 
     /// <summary>
-    /// The cap reaches its full width, walked against a shape that grows the way the real one does.
-    ///
-    /// <para>A pen crosses the equator — the widest point of its own stroke — once, at about 0.63,
-    /// and then tucks under. So the width it finds *there* is the width the cap keeps, and any
-    /// widening the shape does afterwards is drawn by nothing. Every other test here walks a frozen
-    /// shape and cannot see that: this one steps the age.</para>
+    /// White-yellow for the heat pulse, which has given out 80% of its energy by ten times its
+    /// second maximum -- 5.4 s at 340 kt -- and orange only after that. At 20 kt the same pulse is
+    /// over by 1.6 s, so it is orange by three.
     /// </summary>
     [Fact]
-    public void TheCapReachesItsFullWidthWhileThePensCanStillFindIt()
+    public void TheBallStaysWhiteHotForItsHeatPulse()
     {
-        double3 up = new(0, 0, 1), east = new(1, 0, 0), north = new(0, 1, 0);
-        double Radial(double3 v) => Math.Sqrt((v.X * v.X) + (v.Y * v.Y));
+        double3 big = MushroomCloud.FlashAt(340.0 * Kt, 3.0).Colour;
+        double3 small = MushroomCloud.FlashAt(20.0 * Kt, 3.0).Colour;
 
-        double widest = 0.0;
-        for (double age = 0.0; age <= MushroomCloud.RiseSeconds; age += 0.05)
-        {
-            MushroomCloud.Shape s = MushroomCloud.At(0.3 * Kt, age);
-            widest = Math.Max(widest, Radial(MushroomCloud.CapPoint(
-                s, 0, 18, MushroomCloud.Progress(age), 1.0, up, east, north)));
-        }
+        Assert.True(big.Z > 0.5 && big.Y > 0.8, $"340 kt at 3 s should be white-yellow, not {big}");
+        Assert.True(small.Z < big.Z, "and a smaller ball cools sooner");
+        Assert.True(MushroomCloud.FlashAt(340.0 * Kt, 3.0).Glow > MushroomCloud.BurnGlow,
+                    "still burning at full heat, not dimming from its peak");
+    }
 
-        double full = MushroomCloud.At(0.3 * Kt, MushroomCloud.RiseSeconds).CapRadius;
-
-        Assert.True(widest > full * 0.95,
-                    $"the cap only ever reaches {widest:F0} m against the {full:F0} m it is sized "
-                    + "for, because the pens pass its widest point before it has finished growing");
+    /// <summary>
+    /// The condensation shell is a blast-clock thing: 1 to 2 s after a 20 kt burst and gone about a
+    /// second later (Glasstone §2.49), and longer for a bigger blast by the cube root -- not tied
+    /// to how long the ball glows, which would stand it up for tens of seconds.
+    /// </summary>
+    [Fact]
+    public void TheCondensationShellKeepsTheBlastsClock()
+    {
+        Assert.Equal(MushroomCloud.WilsonAt20KtSeconds, MushroomCloud.WilsonSeconds(20.0 * Kt), 6);
+        Assert.Equal(Math.Cbrt(17.0), MushroomCloud.WilsonSeconds(340.0 * Kt) / MushroomCloud.WilsonSeconds(20.0 * Kt), 6);
+        Assert.True(MushroomCloud.WilsonSeconds(20.0 * Kt) < MushroomCloud.FlashSeconds(20.0));
     }
 
     /// <summary>Small yields are untouched by that ceiling — they are watchable as they are.</summary>
@@ -523,464 +420,67 @@ public class MushroomCloudTests
     }
 
     /// <summary>
-    /// The pens ring the axis, evenly spread, and the stroke reaches the cap's full radius on the
-    /// way round rather than ending there: the last stretch is the lip coming back in underneath.
-    /// </summary>
-    [Fact]
-    public void TheCapPointsRingTheAxis()
-    {
-        MushroomCloud.Shape s = MushroomCloud.At(0.3 * Kt, MushroomCloud.RiseSeconds);
-        double3 up = new(0, 0, 1), east = new(1, 0, 0), north = new(0, 1, 0);
-        double Radial(double3 v) => Math.Sqrt((v.X * v.X) + (v.Y * v.Y));
-
-        const int Count = 8;
-        var seen = new List<double3>();
-
-        // The cap radius is a bound rather than an average: the lobe only ever pulls a pen in, so
-        // the widest bearing reaches it and no bearing passes it.
-        double widest = 0.0;
-        for (int i = 0; i < Count; i++)
-        {
-            for (double p = 0.0; p <= 1.0; p += 0.005)
-            {
-                widest = Math.Max(widest,
-                                  Radial(MushroomCloud.CapPoint(s, i, Count, p, 1.0, up, east, north)));
-            }
-        }
-
-        Assert.True(widest <= s.CapRadius * 1.0001,
-                    $"the stroke reaches {widest:F1} m outside a {s.CapRadius:F1} m cap");
-        Assert.True(widest > s.CapRadius * (1.0 - MushroomCloud.CapLobeDepth),
-                    $"and only {widest:F1} m of it, so the cap never reaches its own radius");
-
-        for (int i = 0; i < Count; i++)
-        {
-            double3 at = MushroomCloud.CapPoint(s, i, Count, 1.0, 1.0, up, east, north);
-
-            foreach (double3 other in seen)
-            {
-                Assert.True(Vec.Len(at - other) > s.CapRadius * 0.2, "cap emitters should not bunch");
-            }
-
-            seen.Add(at);
-        }
-    }
-
-    /// <summary>
-    /// The cap is at least as tall as it is wide, and that is Glasstone rather than taste: a base at
-    /// half the cloud top under a crown at the cloud top is 1004 m of cap over a 769 m width at
-    /// 0.3 kt. Drawn flatter it is a lampshade, and it was: a plate at one height with a lip hanging
-    /// off its edge and a small ball perched on the axis above it, which is a shade and a finial.
-    /// </summary>
-    [Fact]
-    public void TheCapIsTallerThanItIsWide()
-    {
-        MushroomCloud.Shape s = MushroomCloud.At(0.3 * Kt, MushroomCloud.RiseSeconds);
-        double3 up = new(0, 0, 1), east = new(1, 0, 0), north = new(0, 1, 0);
-        double Radial(double3 v) => Math.Sqrt((v.X * v.X) + (v.Y * v.Y));
-
-        double low = double.MaxValue, high = double.MinValue, wide = 0.0;
-
-        // Every ring, since the silhouette is the outermost of all of them.
-        foreach (double shell in new[] { 1.0, 0.62, 0.18 })
-        {
-            for (double p = MushroomCloud.ClimbUntil; p <= 1.0; p += 0.005)
-            {
-                double3 at = MushroomCloud.CapPoint(s, 0, 8, p, shell, up, east, north);
-                low = Math.Min(low, at.Z);
-                high = Math.Max(high, at.Z);
-                wide = Math.Max(wide, Radial(at));
-            }
-        }
-
-        Assert.True(high - low >= 2.0 * wide,
-                    $"the cap is {high - low:F0} m tall against {2.0 * wide:F0} m wide, which is a lid");
-    }
-
-    /// <summary>
-    /// A pen climbs before it spreads, but only briefly, and the difference is the whole read.
+    /// A lit ball that has climbed is inside the cloud it became, not out in the open.
     ///
-    /// <para>Flaring from the ground draws a cone. Climbing for half the stroke and flaring after
-    /// draws something worse: a pillar that extends, and then a mushroom that appears on the end of
-    /// it, because the pens keep every position they have held and the climb <em>is</em> a column.
-    /// The cap has to be opening while the thing is still rising, which means the climb is a short
-    /// opening move and the stroke is mostly cap.</para>
-    /// </summary>
-    [Fact]
-    public void APenClimbsBeforeItFlares()
-    {
-        MushroomCloud.Shape s = MushroomCloud.At(0.3 * Kt, MushroomCloud.RiseSeconds);
-        double3 up = new(0, 0, 1), east = new(1, 0, 0), north = new(0, 1, 0);
-        double Radial(double3 v) => Math.Sqrt((v.X * v.X) + (v.Y * v.Y));
-
-        double3 early = MushroomCloud.CapPoint(s, 0, 8, MushroomCloud.ClimbUntil * 0.6, 1.0,
-                                               up, east, north);
-
-        Assert.True(early.Z > s.CapCentre * 0.35, "it should be well up the axis while it climbs");
-        Assert.True(Radial(early) < s.CapRadius * 0.05, "and barely off it");
-
-        // And the climb is a small part of the stroke, not most of it.
-        Assert.True(MushroomCloud.ClimbUntil < 0.25,
-                    $"the pens climb for {MushroomCloud.ClimbUntil:P0} of the stroke, which draws a "
-                    + "pillar that a mushroom then appears on top of");
-
-        // Which means the cap is already opening while the cloud is still well short of its ceiling.
-        double opening = Radial(MushroomCloud.CapPoint(s, 0, 8, 0.35, 1.0, up, east, north));
-        Assert.True(opening > s.CapRadius * 0.1,
-                    $"a third of the way through the rise the cap has only opened to {opening:F0} m");
-    }
-
-    /// <summary>
-    /// The lip curls back down. That overhang is the mushroom's silhouette, and without it the
-    /// shape is a tree.
-    /// </summary>
-    [Fact]
-    public void TheCapLipCurlsUnder()
-    {
-        MushroomCloud.Shape s = MushroomCloud.At(0.3 * Kt, MushroomCloud.RiseSeconds);
-        double3 up = new(0, 0, 1), east = new(1, 0, 0), north = new(0, 1, 0);
-
-        double highest = MushroomCloud.CapPoint(s, 0, 8, 0.78, 1.0, up, east, north).Z;
-        double lip = MushroomCloud.CapPoint(s, 0, 8, 1.0, 1.0, up, east, north).Z;
-
-        Assert.True(lip < highest, $"the lip at {lip:F0} m should hang below the crown at {highest:F0} m");
-    }
-
-    /// <summary>
-    /// A ring of pens has to close into a surface, and that is arithmetic rather than taste: a
-    /// capsule of radius R is solid only within 0.55 R, so pens spaced further apart than 1.1 R
-    /// leave clear air between them and the cloud reads as ropes.
+    /// <para><b>This replaces a height limit whose premise is gone.</b> The ball used to lift on a
+    /// law of its own and stop, because it was an emissive sphere drawn <em>over</em> the smoke:
+    /// for as long as it was lit it was the brightest thing in frame, and a lit ball climbing
+    /// hundreds of metres read as a flare ascending rather than as a burst dying. It is drawn as a
+    /// mesh now and the cloud is a raymarch that clips itself against the scene depth and
+    /// multiplies what is behind it by its own transmittance — so the ball is <em>inside</em> the
+    /// smoke, and a height limit that held it under its own cloud was keeping the two apart for a
+    /// reason that had expired.</para>
     ///
-    /// <para>This is the rule the first two attempts broke — eight cap pens 300 m apart with 80 m
-    /// tubes, then four stem pens at 144 m with 94 m tubes, which is where the pillars came
-    /// from.</para>
-    /// </summary>
-    [Theory]
-    [InlineData(18, 0.65)]      // the rim, at CapExpanded
-    public void ARingOfPensCloses(int count, double tubeFraction)
-    {
-        MushroomCloud.Shape s = MushroomCloud.At(0.3 * Kt, MushroomCloud.RiseSeconds);
-
-        double tube = s.CapTube * tubeFraction;
-
-        // Against the circle the pens actually walk, which is what NuclearClouds.Ring hands them:
-        // they stay inside the silhouette by their own radius, so measuring at the cap's full width
-        // overstates the pitch by a third.
-        double pitch = MushroomCloud.RingPitch(s with { CapRadius = MushroomCloud.PathRadius(s, tube) },
-                                               count);
-
-        Assert.True(pitch <= 1.1 * tube,
-                    $"{count} pens give a {pitch:F0} m pitch against a {tube:F0} m tube; "
-                    + $"needs {1.1 * tube:F0} m or less, or it reads as strands");
-    }
-
-    /// <summary>
-    /// The cap is drawn several times the width of the stem under it, which is the proportion a
-    /// real one has and the thing that separates a mushroom from a lamp.
-    ///
-    /// <para>Not by moving <see cref="MushroomCloud.Shape.StemRadius"/>, which is Glasstone's half
-    /// of the cap and is a measurement rather than a knob — <c>TheStemIsHalfTheCapRadius</c> holds
-    /// that. What is narrowed is only what gets <em>drawn</em>: the spread the pens are laid over,
-    /// and the smoke tube around them. Same distinction <c>DrawnScale</c> already makes.</para>
-    /// </summary>
-    [Fact]
-    public void TheDrawnCapIsSeveralTimesTheDrawnStem()
-    {
-        MushroomCloud.Shape s = MushroomCloud.At(0.3 * Kt, MushroomCloud.RiseSeconds);
-
-        const double spread = 0.24;         // NuclearClouds.StemSpread
-        const double tubeFraction = 0.45;   // NuclearClouds.StemExpanded
-
-        // The widest the column gets: the pen ring at its foot flare, plus a tube either side.
-        double ring = s.StemRadius * spread * MushroomCloud.StemFlare(0.0);
-        double drawnStem = ring + (s.CapTube * tubeFraction);
-
-        Assert.True(s.CapRadius > drawnStem * 2.2,
-            $"the cap is only {s.CapRadius / drawnStem:F1}x the drawn stem "
-            + $"({s.CapRadius:F0} m against {drawnStem:F0} m), which reads as a lamp");
-    }
-
-    /// <summary>
-    /// However far the cloud leans, the cap has to stay over the column holding it up.
-    ///
-    /// <para>The lean displaces the cap and leaves the stem's foot where the crater is, so it is a
-    /// shear rather than a translation. Past the cap's own radius the column comes out from under
-    /// its edge, and what that draws is a detached mass floating beside a thin stem — a cloud that
-    /// does not touch the ground.</para>
-    ///
-    /// <para>Worst at small yields, where the cap is narrowest against its own height. Checked
-    /// across the whole range the mod can produce rather than at one.</para>
+    /// <para>What has to hold instead is that the cloud is actually around it by the time it is up
+    /// there. Stated in the ball's own radii so it holds at every yield: the absolute height varies
+    /// fifteen-fold across the range and the proportion does not.</para>
     /// </summary>
     [Theory]
     [InlineData(0.3)]
     [InlineData(1.0)]
     [InlineData(20.0)]
     [InlineData(300.0)]
-    public void TheCapStaysOverTheColumn(double yieldKt)
+    public void ALitBallThatHasClimbedIsInsideTheCloudItBecame(double yieldKt)
     {
-        MushroomCloud.Shape s = MushroomCloud.At(yieldKt * 1.0e6, MushroomCloud.RiseSeconds);
-
-        double top = s.CapCentre + s.CapRadius;
-        double lean = MushroomCloud.LeanAt(s.CapCentre, top);
-
-        Assert.True(lean < s.CapRadius * 0.7,
-            $"at {yieldKt:F1} kt the cap leans {lean:F0} m against a {s.CapRadius:F0} m radius "
-            + $"({lean / s.CapRadius:F2} of it); past 0.7 the column slides out from under it");
-    }
-
-    /// <summary>
-    /// The fireball goes dark while it is still near where it burst.
-    ///
-    /// <para>A real one lifts off and is hidden by its own cloud within a couple of diameters. This
-    /// one is an emissive sphere drawn over the smoke rather than inside it, so for as long as it is
-    /// lit it is the brightest thing in the frame — and a lit ball climbing hundreds of metres reads
-    /// as a flare ascending, not as a burst dying.</para>
-    ///
-    /// <para>Measured in its own radii so it holds at every yield, which is the only way to state it:
-    /// the absolute height varies fifteen-fold across the range, the proportion does not.</para>
-    /// </summary>
-    [Theory]
-    [InlineData(0.3)]
-    [InlineData(1.0)]
-    [InlineData(20.0)]
-    [InlineData(300.0)]
-    public void TheBallGoesDarkBeforeItClimbsOutOfItself(double yieldKt)
-    {
-        const double emberShell = 0.55;     // NuclearClouds.EmberShell
-        const double capExpanded = 0.65;    // NuclearClouds.CapExpanded
         double charge = yieldKt * 1.0e6;
+        double peak = MushroomCloud.PeakFireballRadius(yieldKt);
 
-        double lit = 0.0;
         for (double t = 0.0; t < 60.0; t += 0.05)
         {
-            if (MushroomCloud.FlashAt(charge, t).Spent) break;
+            MushroomCloud.Flash flash = MushroomCloud.FlashAt(charge, t);
+            if (flash.Spent) break;
 
-            MushroomCloud.Shape sh = MushroomCloud.At(charge, t);
-            MushroomCloud.Shape cored = sh with
-                { CapRadius = MushroomCloud.PathRadius(sh, sh.CapTube * capExpanded) };
-            lit = Math.Min(MushroomCloud.AxisHeight(cored, MushroomCloud.Progress(t), emberShell),
-                           sh.CapCentre);
+            MushroomCloud.Shape shape = MushroomCloud.At(charge, t);
+
+            // Below a couple of its own radii it is a fireball sitting on the ground and there is
+            // no cloud yet, which is right: the cap is made of this.
+            if (shape.CapCentre < peak * 2.0) continue;
+
+            Assert.True(shape.CapRadius > flash.Radius,
+                        $"at {yieldKt:F1} kt the ball is lit {shape.CapCentre:F0} m up "
+                        + $"({shape.CapCentre / peak:F1} of its own radius) and is {flash.Radius:F0} m "
+                        + $"across inside a {shape.CapRadius:F0} m cap -- it is out in the open");
         }
-
-        double peak = MushroomCloud.PeakFireballRadius(yieldKt);
-        Assert.True(lit < peak * 4.5,
-            $"at {yieldKt:F1} kt the ball is still lit {lit:F0} m up, {lit / peak:F1} of its own "
-            + $"{peak:F0} m radius; past 4.5 it reads as a flare going up rather than a burst dying");
     }
 
     /// <summary>
-    /// The stem's flare has to actually vary over a cloud's life, or the hourglass is a constant.
-    ///
-    /// <para>Measured against the height the column FINISHES at. <see cref="MushroomCloud.Shape.StemTop"/>
-    /// is clamped to the cap's underside and the cap grows with it, so a fraction taken against the
-    /// <em>current</em> ceiling is a step function — zero before there is a cap and one ever after,
-    /// which pins the flare at its head value and draws the constant-width tube the flare exists to
-    /// replace.</para>
+    /// The ball and the cap are one object, which is what makes the above the right question.
     /// </summary>
-    [Fact]
-    public void TheStemsFlareActuallyVariesOverTheRise()
+    [Theory]
+    [InlineData(0.3)]
+    [InlineData(20.0)]
+    public void TheBallSitsWhereTheCapDoes(double yieldKt)
     {
-        double charge = 0.3 * Kt;
-        double full = MushroomCloud.At(charge, MushroomCloud.RiseSeconds).StemTop;
-        Assert.True(full > 0.0, "the stem must finish somewhere");
+        double charge = yieldKt * 1.0e6;
 
-        double widest = 0.0, narrowest = double.MaxValue;
-        for (double t = 0.0; t <= MushroomCloud.RiseSeconds; t += 0.5)
+        for (double t = 0.1; t < 20.0; t += 0.1)
         {
-            double climbed = Math.Clamp(MushroomCloud.At(charge, t).StemTop / full, 0.0, 1.0);
-            double flare = MushroomCloud.StemFlare(climbed);
-            widest = Math.Max(widest, flare);
-            narrowest = Math.Min(narrowest, flare);
+            MushroomCloud.Shape shape = MushroomCloud.At(charge, t);
+
+            Assert.True(shape.CapCentre >= 0.0);
+            Assert.True(shape.CapCentre <= MushroomCloud.DrawnCloudTop(yieldKt),
+                        $"the cap centre left the cloud at {t:F1} s");
         }
-
-        Assert.True(widest - narrowest > 0.5,
-            $"the flare only ever ran {narrowest:F2}..{widest:F2} across the whole rise, which is a "
-            + "tube with a constant width, not an hourglass");
-    }
-
-    /// <summary>
-    /// The stem is an hourglass, and the widest it flares must still merge into one column.
-    ///
-    /// <para>Eight pens ring the axis at a radius the flare multiplies, so the foot — the widest
-    /// point — is where the pitch is worst. Past 1.1 tube they stop merging and the column reads as
-    /// a ring of poles, which is the same failure the cap ring has and the reason that rule exists.
-    /// The stem's own tube is <c>CapTube * 0.54</c>, from NuclearClouds.StemExpanded.</para>
-    /// </summary>
-    [Fact]
-    public void AFlaredStemStillCloses()
-    {
-        MushroomCloud.Shape s = MushroomCloud.At(0.3 * Kt, MushroomCloud.RiseSeconds);
-
-        const double spread = 0.24;         // NuclearClouds.StemSpread
-        const double tubeFraction = 0.45;   // NuclearClouds.StemExpanded
-        const int ringPens = 8;             // nine strands, one of them up the axis
-
-        double tube = s.CapTube * tubeFraction;
-        double worst = 0.0;
-        double worstAt = 0.0;
-
-        for (int i = 0; i <= 100; i++)
-        {
-            double t = i / 100.0;
-            double radius = s.StemRadius * spread * MushroomCloud.StemFlare(t);
-            double pitch = 2.0 * radius * Math.Sin(Math.PI / ringPens);
-            if (pitch > worst) { worst = pitch; worstAt = t; }
-        }
-
-        Assert.True(worst <= 1.1 * tube,
-            $"the stem's widest pitch is {worst:F0} m at {worstAt:P0} up, against a {tube:F0} m "
-            + $"tube; needs {1.1 * tube:F0} m or less, or the column reads as poles");
-    }
-
-    /// <summary>The flare is a waist, not a taper: narrower in the middle than at either end.</summary>
-    [Fact]
-    public void TheStemIsNarrowestAtItsWaist()
-    {
-        double foot = MushroomCloud.StemFlare(0.0);
-        double waist = MushroomCloud.StemFlare(MushroomCloud.StemWaist);
-        double head = MushroomCloud.StemFlare(1.0);
-
-        Assert.True(waist < foot, $"waist {waist:F2} should be narrower than the foot {foot:F2}");
-        Assert.True(waist < head, $"waist {waist:F2} should be narrower than the head {head:F2}");
-        Assert.True(foot > head, $"the foot {foot:F2} flares wider than the head {head:F2}");
-    }
-
-    /// <summary>
-    /// The cloud leans, and the cap leans further than the foot.
-    ///
-    /// <para>A column that stands exactly vertical is what separates a generated shape from a
-    /// photographed one. Super-linear in height, so the skirt stays over the crater it came from
-    /// rather than sliding off downwind with the cap.</para>
-    /// </summary>
-    [Fact]
-    public void TheCloudLeansAndTheCapLeansFurthestOfAll()
-    {
-        const double top = 3000.0;
-
-        double foot = MushroomCloud.LeanAt(0.0, top);
-        double half = MushroomCloud.LeanAt(top / 2.0, top);
-        double crown = MushroomCloud.LeanAt(top, top);
-
-        Assert.Equal(0.0, foot);
-        Assert.True(crown > half * 2.0,
-            $"the lean must be super-linear: {half:F0} m at half height against {crown:F0} m at the top");
-        Assert.Equal(MushroomCloud.LeanFraction * top, crown, 6);
-
-        Assert.Equal(0.0, MushroomCloud.LeanAt(500.0, 0.0));        // no cloud, no lean
-        Assert.Equal(0.0, MushroomCloud.LeanAt(double.NaN, top));
-    }
-
-    /// <summary>
-    /// The fireball has lifted off the ground before the smoke takes over, and the smoke takes over
-    /// where the fireball <em>is</em> rather than where the burst was.
-    ///
-    /// <para>This is the difference between a burst that turns into a cloud and one that is followed
-    /// by a separate cloud. Restarting the cloud's clock at the handover puts every pen back on the
-    /// ground at the instant the flash dies, and what that draws is a flash, and then, seconds
-    /// later, columns of smoke climbing out of the ground underneath where the ball had got to. One
-    /// clock from the burst is what keeps them the same object.</para>
-    /// </summary>
-    [Fact]
-    public void TheFireballLiftsOffAndTheSmokeTakesOverWhereItIs()
-    {
-        double charge = 0.3 * Kt;
-        double flash = MushroomCloud.FlashSeconds(0.3);
-
-        MushroomCloud.Shape at = MushroomCloud.At(charge, flash);
-        double lift = MushroomCloud.AxisHeight(at, MushroomCloud.Progress(flash), 1.0);
-
-        // Off the ground by more than its own radius, or it has not visibly left at all.
-        Assert.True(lift > MushroomCloud.PeakFireballRadius(0.3),
-                    $"the ball is still only {lift:F0} m up when the smoke takes over, against a "
-                    + $"{MushroomCloud.PeakFireballRadius(0.3):F0} m radius");
-
-        // And the first thing the pens lay is up there with it, not back down at the burst.
-        double3 up = new(0, 0, 1), east = new(1, 0, 0), north = new(0, 1, 0);
-        double first = MushroomCloud.CapPoint(at, 0, 18, MushroomCloud.Progress(flash), 1.0,
-                                              up, east, north).Z;
-
-        Assert.True(Math.Abs(first - lift) < MushroomCloud.PeakFireballRadius(0.3),
-                    $"the smoke starts at {first:F0} m against a ball at {lift:F0} m, so the cloud "
-                    + "is a separate object growing out of the ground");
-
-        // The stem is what reaches back down to the ground, and it lags on purpose.
-        Assert.True(at.StemTop < lift, "the stem should be dragged up behind the ball, not lead it");
-    }
-
-    /// <summary>
-    /// A lobed ring still closes, which is the whole limit on how far out of round anything may go.
-    ///
-    /// <para>Pulling one pen in and leaving its neighbour out separates the two <em>radially</em>, on
-    /// top of the pitch already between them. Coverage is written against the straight-line gap, so
-    /// the depth that reads as pleasantly lumpy and the depth at which the cap comes apart into
-    /// ropes are only a little way apart, and the difference is not visible in any preview.</para>
-    /// </summary>
-    [Fact]
-    public void ALobedRingStillCloses()
-    {
-        MushroomCloud.Shape s = MushroomCloud.At(0.3 * Kt, MushroomCloud.RiseSeconds);
-        double3 up = new(0, 0, 1), east = new(1, 0, 0), north = new(0, 1, 0);
-
-        const int Count = 18;
-        double tube = s.CapTube * 0.65;
-        MushroomCloud.Shape walked = s with { CapRadius = MushroomCloud.PathRadius(s, tube) };
-
-        // Along the whole stroke, not only at the equator: the pens are furthest apart where the
-        // ring is widest, but the lobe moves that point around.
-        for (double p = MushroomCloud.ClimbUntil; p <= 1.0; p += 0.01)
-        {
-            for (int i = 0; i < Count; i++)
-            {
-                double3 a = MushroomCloud.CapPoint(walked, i, Count, p, 1.0, up, east, north);
-                double3 b = MushroomCloud.CapPoint(walked, (i + 1) % Count, Count, p, 1.0,
-                                                   up, east, north);
-
-                Assert.True(Vec.Len(a - b) <= 1.1 * tube,
-                            $"pens {i} and {i + 1} are {Vec.Len(a - b):F0} m apart at p={p:F2}, "
-                            + $"against a {tube:F0} m tube; needs {1.1 * tube:F0} m or the cap "
-                            + "comes apart into ropes");
-            }
-        }
-    }
-
-    /// <summary>
-    /// A cap is a dome about as tall as it is wide at these yields, not a plate. The flat anvil
-    /// everyone pictures is megaton-scale and mostly later-time spreading.
-    /// </summary>
-    [Fact]
-    public void TheCapIsADomeRatherThanALid()
-    {
-        MushroomCloud.Shape s = MushroomCloud.At(0.3 * Kt, MushroomCloud.RiseSeconds);
-        double3 up = new(0, 0, 1), east = new(1, 0, 0), north = new(0, 1, 0);
-
-        double crown = MushroomCloud.CapPoint(s, 0, 8, 1.0, 0.55, up, east, north).Z;
-        double rim = MushroomCloud.CapPoint(s, 0, 8, 1.0, 1.0, up, east, north).Z;
-
-        Assert.True(crown > rim, $"the crown at {crown:F0} m should stand above the rim at {rim:F0} m");
-    }
-
-    /// <summary>
-    /// The cap is flatter than a hemisphere. A dome of radius R over a rim of radius R puts its
-    /// apex exactly R above that rim, and a real cap is oblate, so the crown standing off by more
-    /// than the cap's own radius is a spire rather than a dome.
-    ///
-    /// <para>This is the arrowhead: a 382 m rim at 1332 m with the inner shell 400 m above it.
-    /// Every stroke inside the rim is narrower, so a gap leaves a narrow shape standing over a wide
-    /// one with clear air in its neck, and the whole cloud reads as an arrow rather than as a
-    /// mushroom.</para>
-    /// </summary>
-    [Fact]
-    public void TheCapIsFlatterThanAHemisphere()
-    {
-        MushroomCloud.Shape s = MushroomCloud.At(0.3 * Kt, MushroomCloud.RiseSeconds);
-        double3 up = new(0, 0, 1), east = new(1, 0, 0), north = new(0, 1, 0);
-
-        double crown = MushroomCloud.CapPoint(s, 0, 8, 1.0, 0.18, up, east, north).Z;
-        double rim = MushroomCloud.CapPoint(s, 0, 8, 1.0, 1.0, up, east, north).Z;
-
-        Assert.True(crown - rim < s.CapRadius,
-                    $"the crown stands {crown - rim:F0} m over a {s.CapRadius:F0} m rim, which is "
-                    + "steeper than a hemisphere and reads as an arrowhead");
     }
 
     /// <summary>
@@ -997,5 +497,337 @@ public class MushroomCloudTests
             Assert.True(Math.Abs(s.Roll) < 0.6,
                         $"at {age:F1} s the roll is {s.Roll:F2} rad, which starts to wind");
         }
+    }
+
+    /// <summary>
+    /// The climb is Teapot Wasp's tracked cloud top, not a curve that merely looks like one. The
+    /// old step response had done a twelfth of its rise where the real cloud had done a third —
+    /// and the start is the part that matters, because the fireball rides it through the handover.
+    /// </summary>
+    [Theory]
+    [InlineData(0.10, 0.308)]
+    [InlineData(0.30, 0.509)]
+    [InlineData(0.50, 0.771)]
+    [InlineData(0.60, 0.840)]
+    [InlineData(0.80, 0.991)]
+    [InlineData(1.00, 1.000)]
+    public void TheClimbFollowsTheTrackedCloud(double fraction, double height)
+        => Assert.Equal(height, MushroomCloud.Rise(fraction * MushroomCloud.RiseSeconds), 3);
+
+    /// <summary>It only ever goes up, and it is never behind where it started.</summary>
+    [Fact]
+    public void TheClimbNeverRunsBackwardsWhileItRises()
+    {
+        double last = 0.0;
+
+        for (double t = 0.0; t <= 1.0; t += 0.01)
+        {
+            double now = MushroomCloud.Rise(t * MushroomCloud.RiseSeconds);
+            Assert.True(now >= last - 1e-9, $"the cloud sank at {t:F2} of its rise");
+            last = now;
+        }
+    }
+
+    /// <summary>
+    /// It overshoots a few per cent and settles, which is what Ruth and Post were tracked doing.
+    /// Joined to the track without a step, so nothing shows at the moment the two halves meet.
+    /// </summary>
+    [Fact]
+    public void TheClimbOvershootsAndComesBack()
+    {
+        double ceiling = MushroomCloud.Rise(MushroomCloud.RiseSeconds);
+        double peak = MushroomCloud.Rise(1.25 * MushroomCloud.RiseSeconds);
+        double later = MushroomCloud.Rise(4.0 * MushroomCloud.RiseSeconds);
+
+        Assert.Equal(1.0, ceiling, 6);
+        Assert.InRange(peak, 1.02, 1.06);
+        Assert.InRange(later, 1.0, 1.01);
+
+        // No step where the track hands over to the overshoot.
+        Assert.Equal(MushroomCloud.Rise(0.999 * MushroomCloud.RiseSeconds),
+                     MushroomCloud.Rise(1.001 * MushroomCloud.RiseSeconds), 2);
+    }
+
+    [Theory]
+    [InlineData(0.3)]
+    [InlineData(30.0)]
+    [InlineData(1000.0)]
+    public void TheThermalPulseHasTwoMaximaWithARealMinimumBetweenThem(double kt)
+    {
+        // The signature. A bhangmeter identifies a nuclear test from orbit on this curve alone,
+        // and nothing else in nature produces it: an intensely bright, very short first pulse, a
+        // minimum as the shock front goes opaque to the radiation behind it, then a second maximum
+        // that is dimmer and lasts an order of magnitude longer.
+        double charge = kt * 1.0e6;
+
+        double tMin = MushroomCloud.PulseMinimumSeconds(kt);
+        double tPeak = MushroomCloud.PulsePeakSeconds(kt);
+
+        Assert.True(tPeak > tMin, $"the second maximum at {tPeak:F4} s is not after the minimum");
+
+        double first = MushroomCloud.FlashAt(charge, 0.0).Glow;
+        double second = MushroomCloud.FlashAt(charge, tPeak).Glow;
+
+        // The minimum is INTERIOR and has to be found rather than read off tMin: the composite
+        // goes on falling past the shock front's own time while the opening behind it is still
+        // small, so where the two cross is later than either.
+        double dipAt = MushroomCloud.PulseTroughSeconds(charge);
+        double dip = MushroomCloud.FlashAt(charge, dipAt).Glow;
+
+        Assert.True(dipAt > tMin, $"the trough at {dipAt:F4} s is not past the shock front's {tMin:F4} s");
+
+        Assert.True(dipAt > 0.0 && dipAt < tPeak,
+                    $"the minimum landed on an endpoint at {dipAt:F4} s, so there are not two maxima");
+        Assert.True(dip < first * 0.5, $"no dip: {dip:F1} against a first pulse of {first:F1}");
+        Assert.True(second > dip * 1.5, $"no second maximum: {second:F1} against a dip of {dip:F1}");
+    }
+
+    [Fact]
+    public void TheBallNeverGoesDarkInTheMinimum()
+    {
+        // The dip is the shock front hiding a fireball that is still there and still growing, not
+        // the fireball going out. Under the ember floor it would drop below the bloom threshold and
+        // revert to being drawn as geometry.
+        double dip = MushroomCloud.FlashAt(0.3e6, MushroomCloud.PulseTroughSeconds(0.3e6)).Glow;
+
+        Assert.True(dip >= MushroomCloud.EmberGlow, $"the ball went to {dip:F1}");
+    }
+
+    [Fact]
+    public void ThePulseIsSlowedOnlyWhereItCouldNotBeSeen()
+    {
+        // A floor rather than a multiplier: at a megatonne the second maximum falls at 0.87 s on
+        // its own, and a stretch there would put it at fourteen seconds.
+        Assert.Equal(1.0, MushroomCloud.DrawnPulseStretch(1000.0), 6);
+        Assert.True(MushroomCloud.DrawnPulseStretch(0.3) > 5.0);
+
+        foreach (double kt in new[] { 0.3, 3.0, 30.0, 1000.0 })
+        {
+            Assert.True(MushroomCloud.PulsePeakSeconds(kt) >= MushroomCloud.LegibleSecondPeak - 1e-9,
+                        $"{kt} kt peaks at {MushroomCloud.PulsePeakSeconds(kt):F3} s, too fast to see");
+        }
+    }
+
+    [Fact]
+    public void TheBangIsHeardUnalteredAtItsAnchor()
+    {
+        Assert.Equal(1.0, MushroomCloud.BangPitch(MushroomCloud.BangAnchorKt), 9);
+    }
+
+    [Fact]
+    public void EightTimesTheYieldIsTwiceTheRumbleWhileTheLawHolds()
+    {
+        // The cube root: every time in the sound goes as W^(1/3), so eight times the yield plays
+        // back at half the pitch -- twice as long and an octave down -- as long as neither end of
+        // the pair has reached the floor.
+        double low = MushroomCloud.BangAnchorKt;
+        double high = low * 8.0;
+
+        Assert.True(MushroomCloud.BangPitch(high) > MushroomCloud.BangPitchFloor);
+        Assert.Equal(0.5, MushroomCloud.BangPitch(high) / MushroomCloud.BangPitch(low), 9);
+    }
+
+    [Fact]
+    public void TheBangNeverRisesAboveTheSampleAndNeverFallsThroughTheFloor()
+    {
+        double last = double.MaxValue;
+
+        foreach (double kt in new[] { 0.001, 0.01, 0.3, 1.0, 3.0, 20.0, 300.0, 10000.0 })
+        {
+            double pitch = MushroomCloud.BangPitch(kt);
+
+            Assert.InRange(pitch, MushroomCloud.BangPitchFloor, 1.0);
+            Assert.True(pitch <= last, $"a bigger burst was pitched higher at {kt} kt");
+
+            last = pitch;
+        }
+    }
+
+    [Fact]
+    public void TheWarheadSoundsBiggerThanTheBomb()
+    {
+        // The two nuclear charges the arsenal ships, which were the same file before this.
+        Assert.True(MushroomCloud.BangPitch(20.0) < MushroomCloud.BangPitch(0.3) * 0.5);
+    }
+
+    /// <summary>
+    /// The anvil. Under the tropopause the law is untouched; past it the cap spreads rather than
+    /// climbs, so a big burst reads wider than it is tall — the one cue that says its yield.
+    /// </summary>
+    [Theory]
+    [InlineData(0.3)]
+    [InlineData(20.0)]
+    [InlineData(45.0)]
+    public void UnderTheTropopauseTheLawIsUntouched(double yieldKt)
+    {
+        Assert.Equal(1.0, MushroomCloud.CapSquash(MushroomCloud.DrawnCloudTop(yieldKt)));
+    }
+
+    [Fact]
+    public void ABigBurstSpreadsWiderThanItIsTall()
+    {
+        MushroomCloud.Shape shape = MushroomCloud.At(340.0 * Kt, MushroomCloud.RiseSeconds);
+        double crown = shape.CapCentre + (2.1 * shape.CapTube);
+
+        Assert.True(2.0 * shape.CapRadius > crown,
+                    $"340 kt: {2.0 * shape.CapRadius:F0} m across under a {crown:F0} m crown");
+    }
+
+    [Fact]
+    public void TheCapWidensWithYieldPastTheTropopause()
+    {
+        double previous = 0.0;
+        for (double kt = 20.0; kt <= 340.0; kt += 20.0)
+        {
+            MushroomCloud.Shape shape = MushroomCloud.At(kt * Kt, MushroomCloud.RiseSeconds);
+            double aspect = shape.CapRadius / (shape.CapCentre + (2.1 * shape.CapTube));
+
+            Assert.True(aspect >= previous - 1e-9, $"the cap got narrower for its height at {kt} kt");
+            previous = aspect;
+        }
+    }
+
+    [Fact]
+    public void TheBendHasNoKink()
+    {
+        double tropopause = MushroomCloud.TropopauseMetres * MushroomCloud.DrawnScale;
+        double below = MushroomCloud.Stratified(tropopause - 1.0);
+        double above = MushroomCloud.Stratified(tropopause + 1.0);
+
+        Assert.Equal(2.0, above - below, 3);
+    }
+
+    [Theory]
+    [InlineData(0.3)]
+    [InlineData(60.0)]
+    [InlineData(340.0)]
+    public void TheBoundHoldsTheWholeCloud(double yieldKt)
+    {
+        for (double t = 0.5; t < MushroomCloud.LifeSeconds; t += 0.5)
+        {
+            double bound = MushroomCloud.DrawnBound(yieldKt, t);
+            MushroomCloud.Shape shape = MushroomCloud.At(yieldKt * Kt, t);
+            double reach = Math.Sqrt((shape.CapCentre * shape.CapCentre)
+                                     + Math.Pow(shape.CapRadius + shape.CapTube, 2.0));
+
+            Assert.True(reach < bound, $"{yieldKt} kt at {t:F1} s reaches {reach:F0} m of {bound:F0}");
+        }
+    }
+
+    /// <summary>
+    /// The heat inside the young cloud has to outlast the ball, or the cloud round it is clean smoke
+    /// the moment the ball is dark -- and has to be gone by the end of the rise, or the cap glows while
+    /// it stands.
+    /// </summary>
+    [Theory]
+    [InlineData(0.3)]
+    [InlineData(20.0)]
+    [InlineData(340.0)]
+    public void TheCloudStaysHotPastTheBallAndIsColdByTheStand(double kt)
+    {
+        double dark = MushroomCloud.FlashSeconds(kt);
+        double ballOut = dark + MushroomCloud.EmberSeconds;
+
+        Assert.Equal(0.0, MushroomCloud.Incandescence(kt * Kt, 0.0));
+        Assert.True(MushroomCloud.Incandescence(kt * Kt, dark) > 0.9, "full heat as the ball goes dark");
+        Assert.True(MushroomCloud.Incandescence(kt * Kt, ballOut + 0.5) > 0.1,
+                    $"{kt} kt: cold at {ballOut + 0.5:F1} s, while the ball has only just gone");
+        Assert.Equal(0.0, MushroomCloud.Incandescence(kt * Kt, MushroomCloud.RiseSeconds));
+    }
+
+    [Fact]
+    public void TheCloudCoolsWithoutRekindling()
+    {
+        double dark = MushroomCloud.FlashSeconds(0.3);
+        double last = double.PositiveInfinity;
+
+        for (double age = dark; age < MushroomCloud.RiseSeconds; age += 0.05)
+        {
+            double heat = MushroomCloud.Incandescence(0.3 * Kt, age);
+            Assert.True(heat <= last + 1e-12, $"heat rose at {age:F2} s");
+            last = heat;
+        }
+    }
+
+    /// <summary>
+    /// The blast front is strong and then sonic, and its speed has no step where the one law hands
+    /// over to the other: a jump there is the ring lurching outward on screen.
+    /// </summary>
+    [Theory]
+    [InlineData(0.3)]
+    [InlineData(20.0)]
+    [InlineData(340.0)]
+    public void TheBlastFrontSlowsToSoundWithoutAJerk(double kt)
+    {
+        const double dt = 0.001;
+        double lastSpeed = double.PositiveInfinity;
+
+        for (double age = 0.02; age < 20.0; age += 0.01)
+        {
+            double speed = (MushroomCloud.ShockRadius(kt, age + dt) - MushroomCloud.ShockRadius(kt, age)) / dt;
+            Assert.True(speed > 330.0, $"{kt} kt: {speed:F0} m/s at {age:F2} s, under sound");
+            Assert.True(speed <= lastSpeed * 1.001, $"{kt} kt: sped up at {age:F2} s");
+            lastSpeed = speed;
+        }
+    }
+
+    [Fact]
+    public void TheBlastFrontOutrunsTheCloud()
+    {
+        // Two seconds in, the front is far past the cap: the ring is what is fast in the first
+        // seconds, and a front on the rise's clock would still be under it.
+        MushroomCloud.Shape at2 = MushroomCloud.At(0.3 * Kt, 2.0);
+        Assert.True(at2.Shock > 1.5 * (at2.CapRadius + at2.CapTube), $"front {at2.Shock:F0} m, cap {at2.CapRadius:F0} m");
+        Assert.Equal(0.0, MushroomCloud.ShockRadius(0.3, 0.0));
+    }
+
+    /// <summary>
+    /// The cloud ages the way a real one comes apart: the cap spreads, the stem narrows away first,
+    /// and the whole thins before it fades out -- standing where it burst.
+    /// </summary>
+    [Fact]
+    public void TheStandingCloudSpreadsAndItsStemGoesFirst()
+    {
+        MushroomCloud.Shape risen = MushroomCloud.At(0.3 * Kt, MushroomCloud.RiseSeconds + 1.0);
+        MushroomCloud.Shape old = MushroomCloud.At(0.3 * Kt, MushroomCloud.LifeSeconds - MushroomCloud.FadeOutSeconds);
+
+        Assert.True(old.CapRadius > 1.4 * risen.CapRadius, $"cap {risen.CapRadius:F0} -> {old.CapRadius:F0} m");
+        Assert.True(old.StemRadius < 0.5 * risen.StemRadius, $"stem {risen.StemRadius:F0} -> {old.StemRadius:F0} m");
+        Assert.True(old.Fade < risen.Fade && old.Fade > 0.5, $"fade {risen.Fade:F2} -> {old.Fade:F2}");
+        Assert.True(MushroomCloud.At(0.3 * Kt, MushroomCloud.LifeSeconds - 1.0).Fade < 0.01);
+        Assert.True(MushroomCloud.LifeSeconds >= 240.0, "a cloud that is gone in a minute and a half");
+    }
+
+    /// <summary>
+    /// The front arrives where its own law puts it: a dent or a puff timed off this lands as the
+    /// front passes the part, not at the flash -- 2.1 s late at 800 m from 0.3 kt.
+    /// </summary>
+    [Theory]
+    [InlineData(0.3, 800.0)]
+    [InlineData(20.0, 3000.0)]
+    [InlineData(340.0, 10000.0)]
+    [InlineData(2.0e-5, 25.0)]
+    public void TheFrontArrivesWhereItsLawPutsIt(double kt, double distance)
+    {
+        double arrives = MushroomCloud.ShockArrivalSeconds(kt, distance);
+
+        Assert.Equal(distance, MushroomCloud.ShockRadius(kt, arrives), 3);
+        Assert.True(MushroomCloud.ShockRadius(kt, arrives * 0.99) < distance);
+    }
+
+    /// <summary>
+    /// Warheads landing together are one burst; a bomb dropped on the same spot twenty seconds
+    /// later is a second one, with its own flash and front.
+    /// </summary>
+    [Fact]
+    public void ABombOnAStandingCloudIsASecondBurst()
+    {
+        const double charge = 3.0e5;
+
+        Assert.True(MushroomCloud.IsTheSameBurst(0.0, 0.0, charge * 2.0));
+        Assert.True(MushroomCloud.IsTheSameBurst(0.009, 0.02, charge * 6.0));
+        Assert.False(MushroomCloud.IsTheSameBurst(0.0, 16.0, charge * 2.0));
+        Assert.False(MushroomCloud.IsTheSameBurst(
+            MushroomCloud.PeakFireballRadius(MushroomCloud.KilotonsFor(charge * 2.0)) * 1.1, 0.0, charge * 2.0));
     }
 }

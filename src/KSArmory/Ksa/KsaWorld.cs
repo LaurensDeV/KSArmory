@@ -242,6 +242,32 @@ internal static class KsaWorld
         return true;
     }
 
+    /// <summary>
+    /// Stops the world, or starts it again at real time.
+    ///
+    /// <para>Separate from <see cref="SetSimulationSpeed"/>, which refuses anything at or below
+    /// zero and clamps to <see cref="SlowestSimSpeed"/>: a caller asking for a slow world and a
+    /// caller asking for a stopped one want different things, and a speed argument that silently
+    /// becomes a pause is the trap that guard exists to close.</para>
+    ///
+    /// <para><c>Universe.IsPaused()</c> tests the speed against exactly zero, so this is what makes
+    /// that property true — and with it <c>SimClock.Classify</c>'s paused verdict, which is how
+    /// everything in this mod stops.</para>
+    /// </summary>
+    /// <returns>False only if the call threw.</returns>
+    public static bool SetPaused(bool paused)
+    {
+        try
+        {
+            Universe.SetSimulationSpeed(new SimSpeed(paused ? 0.0 : 1.0));
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     /// <summary>True once the vehicle has been destroyed or unloaded.</summary>
     public static bool IsAlive(Vehicle? v) => v is { IsDisposed: false };
 
@@ -598,6 +624,19 @@ internal static class KsaWorld
 
     /// <summary>What this mod's warheads have broken up this session, so no set takes the pieces for targets.</summary>
     public static Wreckage Wreckage { get; } = new();
+
+    /// <summary>
+    /// Which craft the panel's flag has put on which side, rebuilt once a frame by
+    /// <c>KSArmoryMod.CollectTeams</c>. Named for its type rather than <c>Teams</c>,
+    /// which is the helper that resolves a craft <em>name</em> to a side and is the fallback
+    /// underneath this.
+    ///
+    /// <para>Here rather than threaded through <c>Scan</c> for the reason <see cref="Wreckage"/>
+    /// is: every sensor in the world needs the same answer and none of them owns it. A
+    /// <see cref="VehicleContact"/> is built from a bare craft inside the scan, so the alternative
+    /// is a parameter on four update signatures to reach the one line that reads it.</para>
+    /// </summary>
+    public static TeamRoster TeamRoster { get; } = new();
 
     private static readonly List<Vehicle> _census = [];
     private static bool _censusFresh;
@@ -1090,6 +1129,436 @@ internal static class KsaWorld
         }
     }
 
+    private static ScreenshotCapture? _shots;
+    private static bool _lookedForShots;
+    private static bool _warnedAboutShots;
+
+    /// <summary>
+    /// Asks the game to save a screenshot of its own framebuffer.
+    ///
+    /// <para>The alternative is <c>tools/screenshot.sh</c>, which grabs the whole primary display
+    /// and so refuses unless the game is in front — which it is not, during an unattended run on a
+    /// machine somebody is using. This needs no focus, cannot photograph somebody's desktop, and
+    /// writes a clean frame: <c>ui</c> and <c>hud</c> are opt-in, so the default is the scene with
+    /// no panel over it, which is what anybody judging an effect wants.</para>
+    ///
+    /// <para>Files land in <c>Documents/exports/screenshots/ksa_&lt;stamp&gt;_&lt;w&gt;x&lt;h&gt;.png</c>.</para>
+    ///
+    /// <para><b>One private field is the whole obstacle</b>, the same shape as
+    /// <see cref="PlumeSmoke"/>: <c>ScreenshotCapture.Request</c> is public and
+    /// <c>Program._screenshotCapture</c> is not exposed. The game's own <c>screenshot</c> terminal
+    /// command reaches it the same way. Reflected once, and a KSA rename turns this off rather than
+    /// breaking anything — nothing but a picture is lost.</para>
+    /// </summary>
+    public static bool TryRequestScreenshot(int scale = 1, string flags = "")
+    {
+        try
+        {
+            if (!_lookedForShots)
+            {
+                _lookedForShots = true;
+                _shots = typeof(Program)
+                         .GetField("_screenshotCapture", BindingFlags.NonPublic | BindingFlags.Instance)
+                         ?.GetValue(Program.Instance) as ScreenshotCapture;
+
+                if (_shots is null && !_warnedAboutShots)
+                {
+                    _warnedAboutShots = true;
+                    Log.Warn("screenshots: Program._screenshotCapture did not resolve; "
+                             + "scripted captures will write nothing");
+                }
+            }
+
+            if (_shots is null) return false;
+
+            // A capture already running is dropped by the engine with its own warning, so asking
+            // again while one is in flight costs nothing and loses only that frame.
+            _shots.Request(scale, flags);
+            return true;
+        }
+        catch (Exception e)
+        {
+            if (!_warnedAboutShots)
+            {
+                _warnedAboutShots = true;
+                Log.Warn($"screenshots: could not ask for one: {e.Message}");
+            }
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// How far a point is above the ground under it, rather than above the mean sphere.
+    ///
+    /// <para>The two differ by the terrain, which on the Moon is kilometres — so a burst sitting on
+    /// lunar highland reads as a high airburst against the mean sphere and a surface burst against
+    /// the ground it is actually touching. Anything <em>deciding</em> something from a height has to
+    /// ask this; the mean sphere is only good enough for a line in a log.</para>
+    ///
+    /// <para>Accurate, because it is asked once per burst and wants the surface where it actually
+    /// is. A height field that will not answer falls back to the mean sphere, which is the old
+    /// answer rather than a wrong new one.</para>
+    /// </summary>
+    public static double HeightAboveTerrain(Celestial body, double3 positionEcl)
+    {
+        try
+        {
+            double3 cce = positionEcl - body.GetPositionEcl();
+            double radius = Vec.Len(cce);
+            if (!(radius > 0.0)) return 0.0;
+
+            return new TerrainHeights(body, accurate: true).TryHeight(cce / radius, out double height)
+                       ? radius - (body.MeanRadius + height)
+                       : radius - body.MeanRadius;
+        }
+        catch
+        {
+            return 0.0;
+        }
+    }
+
+    private static bool _lookedForWeather;
+    private static object? _transparencies;
+    private static bool _warnedAboutWeather;
+
+    // The renderer's accumulated full-resolution result, which it ping-pongs between two images
+    // and a flag. Private, so reflected; missing, and the jittered low-resolution pair stands in.
+    private static FieldInfo?[]? _settled;
+    private static FieldInfo? _writesFlipNext;
+
+    private static readonly string[] SettledNames =
+    [
+        "_upscaledCloudColorFlipTarget", "_upscaledCloudColorFlopTarget",
+        "_upscaledDistanceFlipTarget", "_upscaledDistanceFlopTarget",
+    ];
+
+    /// <summary>
+    /// KSA's own weather clouds as they were drawn this frame: their light with transmittance in
+    /// alpha, and how far each pixel's cloud is from the camera. False when the player has clouds
+    /// switched off, which is the one case with no renderer at all.
+    ///
+    /// <para><b>Needed because the clouds write no depth.</b> They are raymarched into images of
+    /// their own and composited into the scene colour, so the depth buffer under a cloud still says
+    /// "ground" — and anything drawn afterwards off that depth is drawn in front of every cloud,
+    /// whatever is actually between it and the camera.</para>
+    ///
+    /// <para>One private field away: <c>Program._planetTransparenciesRenderer</c> is the only owner
+    /// of the renderer and <c>GetCloudRenderer()</c> is public on it. Reflected once and verified,
+    /// and a KSA rename turns this off rather than breaking anything — the burst is then drawn in
+    /// front of the clouds, which is what it did before. The accumulated images it prefers are
+    /// four more private fields and a flag, with the public low-resolution pair behind them.</para>
+    ///
+    /// <para>Asked every frame rather than held: the renderer is rebuilt when the settings change
+    /// and both images when the window is resized, and the accumulated pair it prefers swaps images
+    /// every frame.</para>
+    /// </summary>
+    public static bool TryWeatherClouds(out KSA.Rendering.RenderImage? colour,
+                                        out KSA.Rendering.RenderImage? distance)
+    {
+        colour = null;
+        distance = null;
+
+        try
+        {
+            if (!_lookedForWeather)
+            {
+                _lookedForWeather = true;
+                _transparencies = typeof(Program)
+                                  .GetField("_planetTransparenciesRenderer",
+                                            BindingFlags.NonPublic | BindingFlags.Instance)
+                                  ?.GetValue(Program.Instance);
+
+                if (_transparencies is not PlanetTransparenciesRenderer && !_warnedAboutWeather)
+                {
+                    _warnedAboutWeather = true;
+                    Log.Warn("weather clouds: Program._planetTransparenciesRenderer did not resolve; "
+                             + "a burst will be drawn in front of them");
+                }
+            }
+
+            if (_transparencies is not PlanetTransparenciesRenderer owner) return false;
+            if (owner.GetCloudRenderer() is not { } clouds) return false;
+
+            if (TrySettledWeather(clouds, out colour, out distance)) return true;
+
+            colour = clouds.GetLowResolutionCloudColorTarget();
+            distance = clouds.GetLowResolutionCloudDistanceTarget();
+
+            return colour is not null && distance is not null;
+        }
+        catch (Exception e)
+        {
+            if (!_warnedAboutWeather)
+            {
+                _warnedAboutWeather = true;
+                Log.Warn($"weather clouds: could not read them: {e.Message}");
+            }
+
+            return false;
+        }
+    }
+
+    // The pair the renderer wrote this frame. Its low-resolution images are sampled at a different
+    // sub-pixel every frame and accumulated into these, so an edge cut from the low-resolution pair
+    // crawls while the world is paused, and one cut from these holds still. PerformUpscaling flips
+    // the flag after writing, so the image just written is the one the flag no longer names.
+    private static bool TrySettledWeather(object clouds, out KSA.Rendering.RenderImage? colour,
+                                          out KSA.Rendering.RenderImage? distance)
+    {
+        colour = null;
+        distance = null;
+
+        if (_settled is null)
+        {
+            Type type = clouds.GetType();
+            const BindingFlags Private = BindingFlags.NonPublic | BindingFlags.Instance;
+
+            _settled = [.. SettledNames.Select(n => type.GetField(n, Private))];
+            _writesFlipNext = type.GetField("writeHistoryToFlip", Private);
+
+            if (_settled.Any(f => f?.FieldType != typeof(KSA.Rendering.RenderImage))
+                || _writesFlipNext?.FieldType != typeof(bool))
+            {
+                Log.Warn("weather clouds: the renderer's accumulated images did not resolve; "
+                         + "reading its jittered low-resolution ones, whose edges crawl");
+                _settled = [];
+            }
+        }
+
+        if (_settled.Length != 4 || _writesFlipNext is null) return false;
+
+        bool flipIsNext = (bool)_writesFlipNext.GetValue(clouds)!;
+        int written = flipIsNext ? 1 : 0;
+
+        colour = _settled[written]!.GetValue(clouds) as KSA.Rendering.RenderImage;
+        distance = _settled[2 + written]!.GetValue(clouds) as KSA.Rendering.RenderImage;
+
+        return colour is not null && distance is not null;
+    }
+
+    /// <summary>
+    /// The buffers KSA shades its ground by its weather from, for one body: the layers' fixed data and
+    /// their per-frame placement, and the object holding them, which changes only when the renderer
+    /// rebuilds its planets.
+    ///
+    /// <para><b>The buffers, not KSA's descriptor set.</b> That set's layout is declared for fragment
+    /// shaders alone, and bound to a compute pass it reads garbage -- every float a NaN, flown. So the
+    /// cloud pass takes the two buffers into its own set, which the pipeline builder declares for
+    /// compute. Both are private, hence the reflection; the stand-in KSA uses for a body with no
+    /// weather, or with clouds off, stands in here too, and carries no layers.</para>
+    /// </summary>
+    public static bool TryWeatherShadowBuffers(Celestial body, out Brutal.VulkanApi.VkBuffer staticBuffer,
+                                               out Brutal.VulkanApi.VkBuffer frameBuffer, out object? source)
+    {
+        staticBuffer = default;
+        frameBuffer = default;
+        source = null;
+
+        try
+        {
+            var renderer = Program.GetCloudShadowsRenderer();
+            const BindingFlags Private = BindingFlags.NonPublic | BindingFlags.Instance;
+
+            _shadowPlanets ??= renderer.GetType().GetField("PlanetToCloudShadowData", Private);
+            _shadowNone ??= renderer.GetType().GetField("_noShadowData", Private);
+
+            object? data = null;
+            if (GameSettings.ShowClouds()
+                && _shadowPlanets?.GetValue(renderer) is System.Collections.IDictionary planets
+                && planets.Contains(body.Hash))
+            {
+                data = planets[body.Hash];
+            }
+
+            data ??= _shadowNone?.GetValue(renderer);
+            if (data is null) return Unshadowed("the renderer's shadow data did not resolve");
+
+            Type type = data.GetType();
+            _shadowStatic ??= type.GetField("_staticShadowDataBuffer", Private);
+            _shadowFrame ??= type.GetField("_dynamicShadowDataBuffer", Private);
+
+            if (_shadowStatic?.GetValue(data) is not Brutal.VulkanApi.Abstractions.BufferEx fixedPart
+                || _shadowFrame?.GetValue(data) is not Brutal.VulkanApi.Abstractions.BufferEx movingPart)
+            {
+                return Unshadowed("its buffers did not resolve");
+            }
+
+            staticBuffer = fixedPart.VkBuffer;
+            frameBuffer = movingPart.VkBuffer;
+            source = data;
+            return true;
+        }
+        catch (Exception e)
+        {
+            return Unshadowed(e.Message);
+        }
+    }
+
+    private static FieldInfo? _shadowPlanets;
+    private static FieldInfo? _shadowNone;
+    private static FieldInfo? _shadowStatic;
+    private static FieldInfo? _shadowFrame;
+    private static bool _warnedAboutShadows;
+
+    private static bool Unshadowed(string why)
+    {
+        if (!_warnedAboutShadows)
+        {
+            _warnedAboutShadows = true;
+            Log.Warn($"weather shadows: {why}; the burst is lit as though under a clear sky");
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// The sea's level against the mean sphere, on a body that has one.
+    ///
+    /// <para>The same discriminator <see cref="MediumDensityRatioAt"/> uses: a body with no ocean
+    /// hands back null, and one with an ocean has a density. Never its <c>IsValid()</c>, which
+    /// tests a level of 0 m against an astronomical bar and is false wherever there is water.</para>
+    /// </summary>
+    public static bool TrySeaLevel(Celestial body, out double level)
+    {
+        level = 0.0;
+
+        try
+        {
+            if (body.GetOceanReference() is not { } sea || !(sea.Density > 0.0)) return false;
+
+            level = sea.Level;
+            return double.IsFinite(level);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// What a burst at a place went off on or in: land, the sea's surface, or under it.
+    ///
+    /// <para>Terrain and sea both against the mean sphere, and the terrain read accurately,
+    /// because it is asked once per burst and the difference between a beach and the water beside
+    /// it is a few metres. An unreadable height field is land, which is what every burst was
+    /// before the sea was asked about at all.</para>
+    /// </summary>
+    public static BurstSetting SettingOf(Celestial body, double3 positionEcl, double fireballRadius)
+    {
+        try
+        {
+            double3 cce = positionEcl - body.GetPositionEcl();
+            double radius = Vec.Len(cce);
+            if (!(radius > 0.0)) return BurstSetting.Land;
+
+            if (!new TerrainHeights(body, accurate: true).TryHeight(cce / radius, out double ground))
+            {
+                return BurstSetting.Land;
+            }
+
+            bool hasSea = TrySeaLevel(body, out double seaLevel);
+
+            return BurstSettings.Classify(radius - body.MeanRadius, ground, seaLevel, hasSea,
+                                          fireballRadius);
+        }
+        catch
+        {
+            return BurstSetting.Land;
+        }
+    }
+
+    /// <summary>
+    /// How high the star stands over the horizon at a place, in degrees. Negative is below it.
+    ///
+    /// <para>What this answers is why something is dark. Every LUT the atmosphere is sampled
+    /// through is parameterised on the sun's zenith angle, so a cloud at civil twilight is lit by
+    /// the sky and barely by the sun however bright the ground looks — terrain at that hour is lit
+    /// by skylight and reads as daylight in a tonemapped picture, which is exactly how a correct
+    /// dark cloud gets mistaken for a broken one.</para>
+    /// </summary>
+    public static double SunElevationDeg(Celestial body, double3 positionEcl)
+    {
+        try
+        {
+            if (!TryStarPositionEcl(out double3 starEcl)) return double.NaN;
+
+            double3 up = Vec.Unit(positionEcl - body.GetPositionEcl());
+            double3 toSun = Vec.Unit(starEcl - positionEcl);
+            if (!Vec.IsFinite(up) || !Vec.IsFinite(toSun)) return double.NaN;
+
+            return Math.Asin(Math.Clamp(Vec.Dot(up, toSun), -1.0, 1.0)) * 180.0 / Math.PI;
+        }
+        catch
+        {
+            return double.NaN;
+        }
+    }
+
+    /// <summary>
+    /// Where the star is, for anything that has to know which way the light comes from.
+    ///
+    /// <para>The system's <c>StellarBody</c> rather than a name: <c>Celestial.Class</c> already
+    /// separates a planet from a moon by asking whether its parent is one, so the type is the
+    /// system's own answer to "which of these is the sun".</para>
+    /// </summary>
+    public static bool TryStarPositionEcl(out double3 positionEcl)
+    {
+        positionEcl = default;
+
+        try
+        {
+            if (Universe.CurrentSystem is not { } system) return false;
+
+            for (int i = 0; i < system.Count; i++)
+            {
+                if (system.GetIndex(i) is not StellarBody star) continue;
+
+                positionEcl = star.GetPositionEcl();
+
+                return Vec.IsFinite(positionEcl);
+            }
+
+            return false;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// The bodies of the current system, by the Id <see cref="TryPlaceOnSurface"/> matches on.
+    ///
+    /// <para>For putting a craft somewhere the cursor cannot reach. <c>CraftMover</c> resolves its
+    /// target off the pointer, so it can only ever set a craft down on the body already being
+    /// looked at — which leaves anything airless untestable when no save has a craft there, and
+    /// none does.</para>
+    ///
+    /// <para>Whether a body has an atmosphere comes back beside the name, because that is the one
+    /// thing that decides which burst effect a test will get.</para>
+    /// </summary>
+    public static void SystemBodies(List<(string Id, bool HasAir)> into)
+    {
+        into.Clear();
+
+        try
+        {
+            if (Universe.CurrentSystem is not { } system) return;
+
+            for (int i = 0; i < system.Count; i++)
+            {
+                if (system.GetIndex(i) is not Celestial body) continue;
+                if (body.Id is not { Length: > 0 } id) continue;
+
+                into.Add((id, HasAtmosphere(body)));
+            }
+        }
+        catch
+        {
+            into.Clear();
+        }
+    }
+
     /// <summary>
     /// How large something at <paramref name="atEcl"/> appears on screen, in pixels.
     ///
@@ -1204,6 +1673,31 @@ internal static class KsaWorld
         catch
         {
             return 0;
+        }
+    }
+
+    /// <summary>
+    /// A point in the world as the render camera sees it, differenced in double -- what the cloud
+    /// pass places the burst with, so anything drawn in the cloud lands where the cloud is.
+    ///
+    /// <para><b>Not <see cref="TryEclToEgo"/></b>, which converts through the overlay's draw anchor:
+    /// that is set only on a frame some overlay draws and cleared at the start of every frame, so a
+    /// caller with no overlay of its own gets nothing on most frames -- which is how the fireball
+    /// went undrawn, and unlit, whenever no weapon overlay happened to be on screen.</para>
+    /// </summary>
+    public static bool TryEclToCameraEgo(double3 ecl, out double3 ego)
+    {
+        ego = default;
+        try
+        {
+            if ((Program.GetRenderCamera() ?? Program.GetMainCamera()) is not { } camera) return false;
+
+            ego = ecl - camera.PositionEcl;
+            return Vec.IsFinite(ego);
+        }
+        catch
+        {
+            return false;
         }
     }
 
@@ -1699,9 +2193,15 @@ internal static class KsaWorld
     /// as through Earth's. One scale covers air and water, so a torpedo simply carries a much smaller
     /// drag.</para>
     ///
-    /// <para>Falls back to 1.0, not 0.0, when the atmosphere cannot be read: a round that keeps
-    /// its tuned drag is a far less confusing failure than one that silently loses all of it and
-    /// flies several times further.</para>
+    /// <para><b>A body with no atmosphere reads 0.0, and that is an answer rather than a
+    /// failure.</b> Every airless body in the game hands back no reference, so reading that as the
+    /// fallback put Earth's sea-level air on the Moon.</para>
+    ///
+    /// <para>The fallback when the atmosphere genuinely <em>cannot be read</em> — a throw, or a
+    /// craft with no body under it — is still 1.0: a round that keeps its tuned drag is a far less
+    /// confusing failure than one that silently loses all of it and flies several times further.
+    /// The two are distinguished because they are different things, and only one of them is a
+    /// fault.</para>
     /// </summary>
     public static double MediumDensityRatioAt(Vehicle platform, double3 positionEcl)
     {
@@ -1742,6 +2242,28 @@ internal static class KsaWorld
     public static double AirDensityRatioAt(Celestial body, double3 positionEcl)
         => MediumDensityRatioAt(body, positionEcl, withOcean: false);
 
+    /// <summary>
+    /// Whether a body has an atmosphere at all.
+    ///
+    /// <para>Asked where a density at a point is the wrong question: what is wanted is whether the
+    /// <em>body</em> is one KSA will draw atmospheric effects over. The trail volume this mod lays
+    /// its smoke into is raymarched only for an <c>AtmosphericBody</c>, so on a body this answers
+    /// false for, smoke draws nowhere at any altitude and at any density.</para>
+    /// </summary>
+    public static bool HasAtmosphere(Celestial body)
+    {
+        try
+        {
+            return body.GetAtmosphereReference()?.Physical is { } air && air.Height > 0.0;
+        }
+        catch
+        {
+            // Unreadable reads as having one, so a burst falls back to the cloud rather than to the
+            // airless effect: a cloud that does not draw is what shipped, and dust on Earth is not.
+            return true;
+        }
+    }
+
     private static double MediumDensityRatioAt(Celestial body, double3 positionEcl, bool withOcean)
     {
         try
@@ -1752,27 +2274,42 @@ internal static class KsaWorld
             // to the scale height, 8 km on Earth. So air.IsValid() is false for every realistic
             // atmosphere, and trusting it reports vacuum at ground level. Check the terms this
             // actually divides by instead.
-            AtmosphereReference? atmosphere = body.GetAtmosphereReference();
-            if (atmosphere?.Physical is not { } air) return 1.0;
-
-            double seaLevel = air.SeaLevelDensity;
-            double scaleHeight = air.ScaleHeight.InMeters();
-            if (!(seaLevel > 0.0) || !(scaleHeight > 0.0)) return 1.0;
-
-            // Altitude above the mean surface, the same measure KSA's own physics uses.
+            // Altitude above the mean surface, the same measure KSA's own physics uses. Asked
+            // before the air is, because whether a point is under water is its own question: a
+            // body can have an ocean and no atmosphere, and resolving the air first returned
+            // vacuum for a point at the bottom of one.
             double altitude = Vec.Len(positionEcl - body.GetPositionEcl()) - body.MeanRadius;
 
             // Below the waterline the medium is the ocean, which is ~840x sea-level air. The
             // ratio is therefore not bounded above by 1.
-            // Same trap: the ocean's IsValid() tests its level (0 m) and transparency depth
-            // (100 m) against that same 100 km bar, so it is false wherever there is water. A
-            // body with no ocean hands back null, which is the discriminator that means it.
+            // The ocean's IsValid() tests its level (0 m) and transparency depth (100 m) against
+            // an astronomical 100 km bar, so it is false wherever there is water. A body with no
+            // ocean hands back null, which is the discriminator that means it.
             OceanReference? ocean = body.GetOceanReference();
             if (withOcean && ocean is { } sea && sea.Density > 0.0 && altitude < sea.Level)
             {
                 double water = sea.Density / Medium.ReferenceDensityKgPerM3;
                 return double.IsFinite(water) && water > 0.0 ? water : 1.0;
             }
+
+            // Never gate on KSA's own IsValid(). DistanceReference.IsValid requires a distance
+            // over 100 km — an astronomical-scale sanity check — and the atmosphere's applies it
+            // to the scale height, 8 km on Earth. So air.IsValid() is false for every realistic
+            // atmosphere, and trusting it reports vacuum at ground level. Check the terms this
+            // actually divides by instead.
+            //
+            // No reference, or one with nothing physical in it, is the model saying there is no
+            // air — which is KNOWLEDGE, not a failed read, and every airless body in the game
+            // answers this way. Read as the reference density it put Earth's sea-level air on the
+            // Moon: a bomb released 7 m over lunar ground reached a terminal 113 m/s and was still
+            // falling three minutes later, and every gun lay on an airless body was solved through
+            // drag that is not there.
+            AtmosphereReference? atmosphere = body.GetAtmosphereReference();
+            if (atmosphere?.Physical is not { } air) return 0.0;
+
+            double seaLevel = air.SeaLevelDensity;
+            double scaleHeight = air.ScaleHeight.InMeters();
+            if (!(seaLevel > 0.0) || !(scaleHeight > 0.0)) return 0.0;
 
             if (altitude < 0.0) altitude = 0.0;
             if (altitude >= air.Height) return 0.0;
@@ -1818,8 +2355,8 @@ internal static class KsaWorld
         try
         {
             AtmosphereReference? atmosphere = body.GetAtmosphereReference();
-            if (atmosphere is null) return "no atmosphere reference";
-            if (atmosphere.Physical is not { } air) return "no physical atmosphere";
+            if (atmosphere is null) return "no atmosphere reference -- vacuum";
+            if (atmosphere.Physical is not { } air) return "no physical atmosphere -- vacuum";
 
             double seaLevel = air.SeaLevelDensity;
             double top = air.Height;
@@ -1934,6 +2471,174 @@ internal static class KsaWorld
 
     // ---- Part damage ----------------------------------------------------
 
+    /// <summary>A part's box in its craft's assembly frame: the centre, and half its size along each axis.</summary>
+    public static bool TryPartBox(Part part, out double3 centreAsmb, out double3 halfExtents)
+    {
+        centreAsmb = default;
+        halfExtents = default;
+
+        try
+        {
+            (double3 min, double3 max) = part.BoundingBoxVehicleAsmb;
+            centreAsmb = (min + max) * 0.5;
+            halfExtents = (max - min) * 0.5;
+            return Vec.IsFinite(centreAsmb) && Vec.IsFinite(halfExtents);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>A direction in a craft's assembly frame, turned into the ecliptic.</summary>
+    public static double3 VehicleAsmbDirectionToEcl(Vehicle v, double3 directionAsmb) => v.Asmb2Ego * directionAsmb;
+
+    /// <summary>Where a craft's mass is centred, in its own assembly frame.</summary>
+    public static bool TryCentreOfMassAsmb(Vehicle v, out double3 centreAsmb)
+    {
+        centreAsmb = default;
+        if (!IsAlive(v)) return false;
+
+        try
+        {
+            centreAsmb = v.CenterOfMassAsmb;
+            return Vec.IsFinite(centreAsmb);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Where a burst strikes a part, and which way it pushes, in the craft's assembly frame: the
+    /// point where the ray from the part's box centre toward the burst leaves the box, as the
+    /// engine's own test dent places one, and the push along the blast. The box's centre and the
+    /// face it shows the blast are what the wind behind the front pushes on.
+    /// </summary>
+    public static bool TryBlastFace(Part part, double3 burstAsmb, out double3 faceAsmb, out double3 pushAsmb,
+                                    out double acrossMetres, out double3 centreAsmb, out double facingM2)
+    {
+        faceAsmb = default;
+        pushAsmb = default;
+        acrossMetres = 0.0;
+        centreAsmb = default;
+        facingM2 = 0.0;
+
+        (double3 min, double3 max) = part.BoundingBoxVehicleAsmb;
+        double3 centre = (min + max) * 0.5;
+        double3 half = (max - min) * 0.5;
+
+        double3 toward = burstAsmb - centre;
+        double length = Vec.Len(toward);
+        if (!(length > 1.0e-6)) return false;
+        toward /= length;
+
+        double exit = double.MaxValue;
+        if (Math.Abs(toward.X) > 1.0e-9) exit = Math.Min(exit, half.X / Math.Abs(toward.X));
+        if (Math.Abs(toward.Y) > 1.0e-9) exit = Math.Min(exit, half.Y / Math.Abs(toward.Y));
+        if (Math.Abs(toward.Z) > 1.0e-9) exit = Math.Min(exit, half.Z / Math.Abs(toward.Z));
+        if (!double.IsFinite(exit)) return false;
+
+        faceAsmb = centre + (toward * exit);
+        pushAsmb = -toward;
+        acrossMetres = Vec.Len(half);
+        centreAsmb = centre;
+        facingM2 = BlastShove.ProjectedArea(half, toward);
+        return Vec.IsFinite(faceAsmb);
+    }
+
+    /// <summary>
+    /// Dents one part through the engine's own impact path, as a collision would, and answers
+    /// whether the engine took it: its threshold, its depth law and the player's Impact Dents
+    /// setting decide, not this. The footprint is the part's whole cross-section, which the engine
+    /// clamps to its largest, because a shock loads a whole face where a collision loads a patch.
+    /// </summary>
+    public static bool ReportBlastDent(Part part, double3 faceAsmb, double3 pushAsmb, double acrossMetres,
+                                       double pressureRatio)
+    {
+        try
+        {
+            double tolerance = part.FullPart.CrashTolerancePascals;
+            if (!(tolerance > 0.0) || !(pressureRatio > 0.0)) return false;
+
+            int before = FxDeformation.Shared.TotalReported;
+
+            // The engine reads an impulse per area and divides by its contact step, 0.01, to get the
+            // pressure it compares with the part's tolerance.
+            FxDeformation.ReportContact(part, float3.Zero, float3.Pack(in faceAsmb), float3.Pack(in pushAsmb),
+                                        pressureRatio * tolerance * 0.01, Math.PI * acrossMetres * acrossMetres);
+
+            return FxDeformation.Shared.TotalReported > before;
+        }
+        catch (Exception e)
+        {
+            if (!_warnedAboutDents)
+            {
+                _warnedAboutDents = true;
+                Log.Warn($"a blast dent could not be reported: {e.Message}");
+            }
+
+            return false;
+        }
+    }
+
+    private static bool _warnedAboutDents;
+
+    /// <summary>
+    /// A point in the craft's assembly frame, by the pairing <see cref="TryCollectDamageableParts"/>
+    /// places the parts with, inverted -- the frame the engine keeps its dents in.
+    /// </summary>
+    public static double3 EclToVehicleAsmb(Vehicle v, double3 pointEcl)
+        => v.CenterOfMassAsmb + (v.Asmb2Ego.Inverse() * (pointEcl - PositionEcl(v)));
+
+    /// <summary>And back: a point in the craft's assembly frame, in the ecliptic.</summary>
+    public static double3 VehicleAsmbToEcl(Vehicle v, double3 pointAsmb)
+        => PositionEcl(v) + (v.Asmb2Ego * (pointAsmb - v.CenterOfMassAsmb));
+
+    /// <summary>
+    /// The dents the engine holds on a craft, in its assembly frame: where each sits, which way it
+    /// pushes, and how deep and wide it is.
+    /// </summary>
+    public static List<(double3 Centre, double3 Push, double Radius, double Depth)> DentsOn(Vehicle v)
+    {
+        List<(double3, double3, double, double)> dents = [];
+
+        try
+        {
+            KSA.PartTree tree = v.Parts;
+            tree.Dents.EnsureBuilt(tree, Program.GetRenderer().FrameCount);
+
+            foreach (KSA.Deformation.Dent d in tree.Dents.Dents)
+            {
+                dents.Add((double3.Unpack(in d.Center), double3.Unpack(in d.Direction), d.Radius, d.Depth));
+            }
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"could not read the dents on {DisplayName(v)}: {e.Message}");
+        }
+
+        return dents;
+    }
+
+    /// <summary>Takes every dent off a craft, through the engine's own clear.</summary>
+    public static int ClearDents(Vehicle v)
+    {
+        int cleared = 0;
+
+        foreach (Part part in v.Parts.Parts)
+        {
+            foreach (FxDeformation module in part.Modules.Get<FxDeformation>())
+            {
+                module.ClearDents();
+                cleared++;
+            }
+        }
+
+        return cleared;
+    }
+
     /// <summary>
     /// Every part of a craft a blast could break, with the three things
     /// <see cref="BlastDamage"/> needs about each.
@@ -1996,6 +2701,21 @@ internal static class KsaWorld
             into.Clear();
             handles.Clear();
             return false;
+        }
+    }
+
+    /// <summary>How many parts a craft has, or zero for one that cannot be read.</summary>
+    public static int PartCount(Vehicle v)
+    {
+        if (!IsAlive(v)) return 0;
+
+        try
+        {
+            return v.Parts.Count;
+        }
+        catch
+        {
+            return 0;
         }
     }
 
@@ -4227,14 +4947,132 @@ internal static class KsaWorld
         double3 b = Vec.Unit(Vec.Cross(up, a)) * radius;
 
         int steps = Math.Clamp(segments, 8, 256);
-        double3 previous = OnGround(centreEcl + a, drape, clearance);
+        Celestial? body = drape ? NearestCelestial(centreEcl) : null;
+
+        if (body is not null && DrapedRingFor(body, centreEcl, up, a, radius, steps, clearance) is { } ring)
+        {
+            DrawDrapedRing(body, ring, colour);
+            return;
+        }
+
+        double3 previous = OnGround(body, centreEcl + a, clearance);
 
         for (int i = 1; i <= steps; i++)
         {
             double angle = Math.Tau * i / steps;
-            double3 next = OnGround(centreEcl + (a * Math.Cos(angle)) + (b * Math.Sin(angle)),
-                                    drape, clearance);
+            double3 next = OnGround(body, centreEcl + (a * Math.Cos(angle)) + (b * Math.Sin(angle)),
+                                    clearance);
 
+            DrawLineEcl(previous, next, colour);
+            previous = next;
+        }
+    }
+
+    // A draped ring, in the frame of the body it lies on: the ground under it does not move in that
+    // frame, so a ring drawn again where it was is the same ring. Draping is a terrain lookup a point,
+    // which is most of what this mod costs a frame with a sight up; a ring standing still re-draped
+    // every frame paid it for an answer that never changed.
+    private sealed class DrapedRing
+    {
+        public required Celestial Body;
+        public required double3 CentreFixed;
+        public required double3 NormalFixed;
+        public required double3 AxisFixed;
+        public required double Radius;
+        public required int Steps;
+        public required double Clearance;
+        public required double3[] PointsFixed;
+        public long LastUsed;
+    }
+
+    // How far a ring's centre may be from where it was draped and still be that ring: a centimetre,
+    // over which no ground a craft can stand on rises by a millimetre. And how far its first axis may
+    // have turned -- it is laid off a direction fixed in space, which the ground turns under.
+    private const double DrapeReuseMetres = 0.01;
+    private const double DrapeReuseRadians = 1.0e-4;
+    private const int DrapedRingsKept = 8;
+
+    private static readonly List<DrapedRing> _drapedRings = [];
+    private static long _drapeUses;
+
+    // The ring draped here before, or this one draped now and kept. Null when the body's frame
+    // cannot be read, which drapes the old way.
+    private static DrapedRing? DrapedRingFor(Celestial body, double3 centreEcl, double3 up, double3 a, double radius,
+                                             int steps, double clearance)
+    {
+        try
+        {
+            doubleQuat toFixed = doubleQuat.Conjugate(body.GetBodyFixed2Ecl());
+            double3 bodyEcl = body.GetPositionEcl();
+            double3 centreFixed = toFixed * (centreEcl - bodyEcl);
+            double3 normalFixed = toFixed * up;
+            double3 axisFixed = toFixed * Vec.Unit(a);
+            if (!Vec.IsFinite(centreFixed)) return null;
+
+            _drapeUses++;
+            foreach (DrapedRing kept in _drapedRings)
+            {
+                if (!ReferenceEquals(kept.Body, body) || kept.Steps != steps || kept.Clearance != clearance) continue;
+                if (Math.Abs(kept.Radius - radius) > radius * 1.0e-9) continue;
+                if (Vec.Len(kept.CentreFixed - centreFixed) > DrapeReuseMetres) continue;
+                if (Vec.Len(kept.NormalFixed - normalFixed) > DrapeReuseRadians) continue;
+                if (Vec.Len(kept.AxisFixed - axisFixed) > DrapeReuseRadians) continue;
+
+                kept.LastUsed = _drapeUses;
+                return kept;
+            }
+
+            double3 b = Vec.Unit(Vec.Cross(up, a)) * radius;
+            double3[] points = new double3[steps + 1];
+            for (int i = 0; i <= steps; i++)
+            {
+                double angle = Math.Tau * i / steps;
+                double3 at = OnGround(body, centreEcl + (a * Math.Cos(angle)) + (b * Math.Sin(angle)), clearance);
+                points[i] = toFixed * (at - bodyEcl);
+            }
+
+            DrapedRing ring = new()
+            {
+                Body = body,
+                CentreFixed = centreFixed,
+                NormalFixed = normalFixed,
+                AxisFixed = axisFixed,
+                Radius = radius,
+                Steps = steps,
+                Clearance = clearance,
+                PointsFixed = points,
+                LastUsed = _drapeUses,
+            };
+
+            if (_drapedRings.Count >= DrapedRingsKept)
+            {
+                int oldest = 0;
+                for (int i = 1; i < _drapedRings.Count; i++)
+                {
+                    if (_drapedRings[i].LastUsed < _drapedRings[oldest].LastUsed) oldest = i;
+                }
+
+                _drapedRings.RemoveAt(oldest);
+            }
+
+            _drapedRings.Add(ring);
+            return ring;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static void DrawDrapedRing(Celestial body, DrapedRing ring, float4 colour)
+    {
+        doubleQuat toEcl = body.GetBodyFixed2Ecl();
+        double3 bodyEcl = body.GetPositionEcl();
+
+        double3 previous = bodyEcl + (toEcl * ring.PointsFixed[0]);
+        for (int i = 1; i < ring.PointsFixed.Length; i++)
+        {
+            double3 next = bodyEcl + (toEcl * ring.PointsFixed[i]);
             DrawLineEcl(previous, next, colour);
             previous = next;
         }
@@ -4261,25 +5099,50 @@ internal static class KsaWorld
         double3 b = Vec.Unit(Vec.Cross(n, a)) * radius;
 
         int steps = Math.Clamp(segments, 8, 256);
+        Celestial? body = NearestCelestial(centreEcl);
 
         for (int i = 0; i <= steps; i++)
         {
             double t = 2.0 * Math.PI * i / steps;
             double3 at = centreEcl + a * Math.Cos(t) + b * Math.Sin(t);
 
-            into.Add(OnGround(at, drape: true, clearance) - centreEcl);
+            into.Add(OnGround(body, at, clearance) - centreEcl);
+        }
+    }
+
+    /// <summary>
+    /// The same for a ring whose two semi-axes are given outright rather than derived from a
+    /// normal — a reach footprint, whose axes are the ellipse's and belong to the arrival frame
+    /// rather than to whichever perpendicular a circle happens to pick.
+    /// </summary>
+    public static void CollectDrapedRingEcl(double3 centreEcl, double3 semiMajorEcl,
+                                            double3 semiMinorEcl, List<double3> into,
+                                            int segments = 48, double clearance = 2.0)
+    {
+        into.Clear();
+
+        if (!Vec.IsFinite(centreEcl) || !Vec.IsFinite(semiMajorEcl) || !Vec.IsFinite(semiMinorEcl)) return;
+        if (Vec.Len2(semiMajorEcl) <= 0.0) return;
+
+        int steps = Math.Clamp(segments, 8, 256);
+        Celestial? body = NearestCelestial(centreEcl);
+
+        for (int i = 0; i <= steps; i++)
+        {
+            double t = Math.Tau * i / steps;
+            double3 at = centreEcl + semiMajorEcl * Math.Cos(t) + semiMinorEcl * Math.Sin(t);
+
+            into.Add(OnGround(body, at, clearance) - centreEcl);
         }
     }
 
     // Lifted clear of the surface by a little: a line exactly on the terrain z-fights with it and
     // disappears in patches, which looks worse than being slightly above it.
-    private static double3 OnGround(double3 atEcl, bool drape, double clearance)
+    // Onto a body already found, or left where it is with none: finding the body is a walk of every
+    // celestial in the system, and a draped ring is 82 points per overlay per frame all over one.
+    private static double3 OnGround(Celestial? body, double3 atEcl, double clearance)
     {
-        // The centre comes back from the snap rather than being looked up again. Finding it is a
-        // walk of every celestial in the system, and the snap has just done exactly that walk to
-        // pick the body it draped onto -- so asking a second time doubles the cost of every draped
-        // point, and a draped ring is 82 of them per overlay per frame.
-        if (!drape || !TrySnapToGround(atEcl, out double3 ground, out double3 centre)) return atEcl;
+        if (body is null || !TrySnapToGround(body, atEcl, out double3 ground, out double3 centre)) return atEcl;
 
         return ground + Vec.Unit(ground - centre) * clearance;
     }
@@ -4333,9 +5196,17 @@ internal static class KsaWorld
         centreEcl = Vec.Zero;
         onGroundEcl = nearEcl;
 
+        return NearestCelestial(nearEcl) is { } nearest
+               && TrySnapToGround(nearest, nearEcl, out onGroundEcl, out centreEcl);
+    }
+
+    // The body whose centre is nearest a point, by a walk of the whole system. Found once for a
+    // whole draped ring rather than once a point: every point of a ring is over the same body.
+    private static Celestial? NearestCelestial(double3 nearEcl)
+    {
         try
         {
-            if (Universe.CurrentSystem is not { } system) return false;
+            if (Universe.CurrentSystem is not { } system) return null;
 
             Celestial? nearest = null;
             double best = double.MaxValue;
@@ -4351,8 +5222,23 @@ internal static class KsaWorld
                 nearest = body;
             }
 
-            if (nearest is null) return false;
+            return nearest;
+        }
+        catch
+        {
+            return null;
+        }
+    }
 
+    // The snap onto a body already found.
+    private static bool TrySnapToGround(Celestial nearest, double3 nearEcl, out double3 onGroundEcl,
+                                        out double3 centreEcl)
+    {
+        centreEcl = Vec.Zero;
+        onGroundEcl = nearEcl;
+
+        try
+        {
             double3 centre = nearest.GetPositionEcl();
             centreEcl = centre;
             double3 dirCce = Vec.Unit(nearEcl - centre);
@@ -4395,6 +5281,7 @@ internal static class KsaWorld
         // Spaced closer together than they are wide, or it beads. Bounded so a large ring cannot
         // ask for thousands of spheres.
         int steps = (int)Math.Clamp(Math.Ceiling(Math.Tau * ringRadius / tubeRadius), 16, 160);
+        Celestial? body = drape ? NearestCelestial(centreEcl) : null;
 
         for (int i = 0; i < steps; i++)
         {
@@ -4403,7 +5290,7 @@ internal static class KsaWorld
 
             // Each bead sits on the ground under it, so the ring follows a slope instead of
             // burying one side and floating the other.
-            if (drape && TrySnapToGround(at, out double3 ground)) at = ground;
+            if (body is not null && TrySnapToGround(body, at, out double3 ground, out _)) at = ground;
 
             if (TryEclToEgo(at, out double3 ego))
             {

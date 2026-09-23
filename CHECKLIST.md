@@ -761,9 +761,9 @@ Where latent bugs are most likely.
 - [ ] **6.3b** **Rocket smoke trail** — fire a Sidewinder or a HARM and watch the trail behind it
   while the motor burns, then that it stops laying at burnout and the trail stays put and drifts.
   Nothing on an airless world or above the atmosphere, which is the renderer's own limit. Check a
-  CIWS burst does **not** lay one (`TotalBoostSeconds` is zero), and that a salvo beside a standing
-  mushroom cloud does not visibly eat the bottom of it — both draw from one 16,384-segment budget
-  per body, evicted oldest-first.
+  CIWS burst does **not** lay one (`TotalBoostSeconds` is zero). The mushroom cloud no longer
+  competes for the same budget — it left the trail renderer for its own raymarch — so a salvo
+  beside a standing cloud can only evict other motor trails.
 - [ ] **6.4** **Platform destroyed** with rounds in flight — the rounds **carry on** rather than
   vanishing, and still detonate and kill. No exception spam. Check the log says
   `<craft> destroyed - N round(s) still in the air`, then `last round down, system forgotten`.
@@ -1162,6 +1162,22 @@ the mesh and the XML, and the suite.
       the gun round it, which headlessly on a world spinning like Earth is g·V·t³/6R: 1 m at 15 km, 7 m at
       30, 25 m at 45 and 79–83 m at 60. With the centre carried, the same 60 km shot lands 3.3 and 5.5 m
       off headlessly (`GroundLayTests`).
+- [x] **On Mars, where the air is 0.0135 of the reference.** The gun's longest reach there is
+      **174.1 km**, and `gunnery:1,ground,,,200000` — the invocation in CLAUDE.md's own usage
+      block — asks for a shot past it: the lay says `driving a gun laid to its longest reach`
+      and throws the shell as far as it goes, landing 25.5 km short of a point it never claimed
+      to cover. That example cannot pass by construction, which is worth knowing before reading
+      its FAIL as a regression.
+- [ ] **Inside that reach the residual grows with flight time, and at 150 km it is outside the
+      bar.** `gunnery:1,ground,,,150000` lands **25.3 m** from the place, 25.0 m long, after
+      **221.3 s** — against an 11 m lethal radius, so it scores FAIL. The longest Earth shot ever
+      flown here is 92 s, and `g·V·t³/6R` on Mars at that flight time is about 459 m, so 25 m is
+      roughly 5% of the term the carried centre removes. Not diagnosed further; what it is not is
+      new — flown paired with the two fixes below reverted, the same shot lands **25.1 m** (24.9 m
+      long, same 221.3 s), so the airless-air and ground-test fixes are no-ops on Mars exactly as
+      their code paths predict: Mars has an atmosphere and no ocean, and a shell is always well
+      inside a mean radius of the surface.
+
 - [ ] Fire the Mk 42 at 47° with nothing to aim at. The shell comes down about 23.7 km out, as the real
       gun's range table has it, rather than 65 km. `DragCoefficient` is fitted to that: headlessly 23.69 km at
       47.25° in 83.6 s, and 16.1 km straight up against the real 14.8, which one constant cannot match.
@@ -1323,6 +1339,445 @@ What to record next time, in this order, because each answers a different half:
       Hundreds of metres off is the tail kit; `./tools/scenario.sh drop` flies the same release
       unattended and says which of the sight, the release and the fall the miss belongs to.
 - [ ] The log line for the release, and the whole `KSArmory.log`.
+- [x] The **pipper goes out when the store is released** — the arc from the craft and the ring
+      under it, both. It answers "where would one released now land", and once the rack is empty
+      there is none: `TryNextReleaseEcl` refused to fall back to tube 0, which had left the sight
+      drawn for the rest of the flight. **Confirmed in game on 2026.9.10.5438.**
+
+### 7.1f2 Designating after the store has gone
+
+**The main path is confirmed in game on 2026.9.10.5438** — a store retargeted mid-fall changes
+course and arrives, and both rings and the line under the trigger read correctly. What is still
+unflown is everything below the first four boxes: the refusals, the horizon and what it costs.
+
+- [x] With a store falling, shift-click the ground. `KSArmory.log` reads
+      `round 1 now steering at <place> - inside the kit's reach (... m to walk, ... m of authority
+      over ... s of fall)`, and the store visibly changes course.
+- [x] It arrives at the new place rather than the old one, with the
+      `detonated on the ground, N m from the aim point` line to say how far.
+- [ ] Shift-click **again**, somewhere else, while it is still falling. It goes to the second place:
+      nothing latches the first.
+- [x] The two rings are drawn on the ground — the landing, and the blue-white circle around it that
+      is how far it can still be walked. The circle **shrinks** as it falls, fast.
+- [x] Click well outside the circle: `./tools/scenario.sh drop:6000,30,guided,,,20@9000`. **Flown
+      on 2026.9.10.5438** — warned before anything happened (`7.00 km beyond the kit's reach - it
+      will steer at it and fall short`), steered anyway, and landed short rather than ignoring the
+      click.
+
+      Scored on whether the ring told the truth rather than on arriving, because a target the kit
+      cannot reach can never pass a 30 m bar and a run that can only fail teaches everyone to skip
+      this file. `PASS the reach held as a floor: walked 2684 m of the 1985 m the ring claimed
+      (1.35x)`. **That is the only in-game evidence for `TailKitReach.SettlingMargin`**, which is
+      otherwise measured against a smooth sphere with no terrain — and it is the direction that
+      matters: a ring promising a walk the kit cannot fly is the one way the instrument is worse
+      than none. Reproduces at 2,705 m on earlier code, so the margin is not noise.
+- [x] The line under the trigger reads `Store in the air: N s to go, can still be walked ...`, and
+      agrees with the ring. The two are one answer, so a disagreement is a bug rather than a rounding.
+- [ ] Clearing the designation does **not** turn the falling store back into an unguided one.
+- [ ] A release above about 15 km draws no circle at all and says nothing false — the probes are
+      bounded by the pipper's own `BombSight.MaxSteps` horizon.
+- [x] **Warp, flown across the range on 2026.9.10.5438.** Identical releases every time — 6,001 m,
+      275 m/s, 48 deg above the horizon, ejected 4.0 m/s at 50 deg to the rack — so what differs is
+      the warp and nothing else.
+
+      | run | before the fixes | after |
+      | --- | --- | --- |
+      | `,,auto` | taken out of the world 1.9 s after release, at 8x | **0 m from the ring** |
+      | `,,100` | — | **0 m** |
+      | `,,400` | 2,776 m off (8 s allowance) | **0 m** (30 s) |
+      | `,,800` | still falling at the 180 s budget | **0 m** |
+
+      Three separate faults, and the range is what separated them: KSA refusing a speed change
+      during its own warp-to-a-time (deletion), the policy calibrating a frame *rate* off the 3.2 s
+      hitch a speed change costs (world stuck at 1x), and the integration clamp discarding whatever
+      part of a frame the store could not take (the misses). Only the first was the reported bug.
+
+- [x] **What it costs a frame**, read off `FrameBudget` under `KSARMORY_SCENARIO_VERBOSE=1` while a
+      store fell. The rings were **1.96 ms mean** of a 16.7 ms budget — and the flights were not the
+      problem: `store reach` (the draw) was 1.52 of it, re-draping 96 terrain lookups every frame
+      for a ring that does not move, against `reach solve` at 0.28. Draping once per solve and
+      spreading the three flights over three ticks: **0.33 ms mean, worst lump 7.7 → 2-4.5 ms.**
+      About 2% of a frame.
+
+- [ ] **By hand, raising warp through KSA's own control** rather than by a scripted jump. The
+      scenario sets a speed in one call, which is a harsher input than stepping through warp levels,
+      and the hitch it produces is what `MaxPlausibleFrameSeconds` exists for. Stepping up may never
+      produce one — untested either way.
+- [ ] And a store's **body** is still drawn if `AbandonFlight` ever does fire, not just its tracer.
+      That call hides every body on the launcher when nothing survives, which over a survivor would
+      hide the survivor. Unreachable from the scenarios now that nothing abandons.
+- [x] The burst effects sit where the store landed: **1.5 m at 400x, 31.6 m at 800x**, scaling with
+      how far into the frame the burst falls and bounded by the in-air clamp — so tens of metres,
+      inside a 490 m lethal radius. Measured by the `burst drawn ... from the ground it reached`
+      line, added because a cloud kilometres from the mark looked like an effects fault and was the
+      landing being wrong.
+
+### 7.1f3 How long a nuclear burst is watched
+
+**Flown on 2026.9.10.5438.** The chase held a flat 3 s on every burst, which over a cloud that
+rises for 38 s and stands for 40 showed about a twenty-fifth of it and took the camera away
+mid-event. It is now sized by the charge, the same way `ChaseView.StopShortMetres` already sizes
+the stand-off.
+
+- [x] `./tools/scenario.sh drop:6000,30,guided` logs `holding on the burst for 38 s` and then
+      `released the main view`. The hand-back had never appeared in a run before: the harness waited
+      6 s after the burst and closed the game a sixth of the way into the hold, so the part most
+      worth checking never happened. That wait is sized off the hold now.
+- [x] `./tools/scenario.sh drop:6000,30,guided,20` — the launching craft destroyed 20 s into the
+      fall. The store still landed **0 m from the ring**, the hold ran its full 38 s with no craft in
+      existence, and the view came back. The burst is anchored to the ground rather than to the
+      launcher (`RoundFollowable.HoldAgainst`), which is what makes that work.
+- [ ] **Right-drag and the wheel during the hold.** Wired and unexercised: an unattended run has no
+      mouse, so only a person can say whether looking around a mushroom cloud feels right. Without
+      it a 38 s hold is a frozen stare, which is why the two changes ship together.
+- [ ] A conventional burst still holds 3 s — a cannon putting one round into a drone must not take
+      the view away for the next one.
+
+### 7.1f4 The cloud drawn by this mod's own shader, and the burst where there is no air
+
+**Flown on 2026.9.10.5438.** The column is no longer walked with smoke pens: `Ksa/CloudPass.cs`
+dispatches a compute shader inside KSA's own frame, prefixed onto `SunbloomRenderer.Render`. That
+is the fifth place this mod patches the game and the first in the renderer. On a body with no air
+there is no column at all, and `Ksa/BurstEjecta.cs` throws ground instead.
+
+- [x] A B61 burst on Earth grows a raymarched column, lit by KSA's own atmosphere — no uniform
+      buffer and no vendored shader code, because the global descriptor set already carried the
+      LUTs and `global.lighting`.
+- [x] It costs less than the pens it replaced: about **3 ms** against 6–8, read off KSA's own GPU
+      profiler through `Ksa/CloudPassCost.cs`, from the pinned pose `Ksa/CloudWatch.cs` sets.
+      A `noshader` control run is what says the number is the pass and not the scene.
+- [x] **Luna.** `KSARMORY_SCENARIO_SITE=Luna,0,0 KSARMORY_SCENARIO_SYSTEM=Sol` with
+      `KSARMORY_SCENARIO_CLOUDS=1`: the store lands in 5.2 s, the dust dome draws, and four
+      captures land at 0.10/0.30/0.60/0.95 of a **16.4 s** watch that no longer drifts.
+- [x] **And at a yield that is not the B61's.** `KSARMORY_SCENARIO_TWOCLOUDS=100` sets the second
+      burst off at a hundred times the store's charge, so one run carries both. Flown on Luna: a
+      0.3 kt dome 218 m across beside a 30 kt one at 1378 m, which is the 6.3x that `W^0.4` asks
+      for over a hundredfold yield. The drawing had only ever been looked at at 0.3 kt; the
+      arithmetic was already tested from 0.3 to 1000.
+- [x] Three bugs that only an airless body could show, each flown before and after — a body with no
+      atmosphere reading as Earth sea-level air, rounds on the Moon ground-tested against Earth,
+      and the two halves of one burst disagreeing about whether it threw anything. The Earth drop
+      still lands 0 m from the ring, which is what says none of it reached the scored path.
+
+Not exercised, and the first two are the ones to believe least:
+
+- [x] **The base surge and the fade, which were modelled and undrawn.** `MushroomCloud` computes
+      `SurgeRadius`, `SurgeHeight` and `Fade` every frame, and the fade folds into the strength
+      float already being sent: at 72 s the sky shows through a dissolving cap rather than a solid
+      silhouette. **The surge is drawn by the raymarch now**, as the stem's foot flaring to three
+      and a half times its width at the ground. It was a particle collar for a while and that was
+      taken out: KSA draws particles after its weather clouds and never tests them against them,
+      so the collar sat on top of a cloud deck the column had correctly gone behind — and at
+      300 kt its kilometre-wide volumes came out black. `SurgeRadius` and `SurgeHeight` are still
+      computed and tested, and drive nothing drawn; they are the obvious thing to drive the foot
+      with, since the push constant already carries the age and the cap radius they are fractions
+      of.
+
+- [x] **`StemTop` — looked at and deliberately not done.** The shader stops the stem at the cap's
+      CENTRE rather than at `StemTop`, which is `min(climb, StemCeiling(capCentre, capRadius))`.
+      Both terms it needs are in the push constant, so it is derivable without the uniform buffer
+      that was supposed to gate it — but `StemCeiling` is `capCentre - capRadius * Oblate * 0.7`
+      with `Oblate` private, so drawing it means copying two geometry constants into GLSL. That is
+      the duplication CLAUDE.md warns drifts, and what it buys is the stem ending at the cap's
+      underside instead of its centre: both inside the cap, and the taper already widens into the
+      underside there. Not worth a constant in two places.
+
+- [x] **More than one cloud, and coincident bursts that are one.** The pass draws every standing
+      cloud, one dispatch each, far to near so the nearest composites last, with a compute-write to
+      compute-read barrier between them — `KSA.Rendering.BarrierBatch`, which is public, so this
+      needs no uniform buffer and no reflection. An earlier reading that no barrier existed came
+      from grepping `CommandBuffer` for one; it lives on its own type.
+
+      And a burst landing inside a standing cloud's own fireball is **added to that cloud** rather
+      than starting another. A bus's six warheads land about 9 mm apart: six dispatches would march
+      the same pixels six times for six coincident clouds at six times the density, where six 20 kt
+      bursts at one point is one 120 kt burst.
+
+      Flown on 2026.9.10.5438 with `KSARMORY_SCENARIO_TWOCLOUDS=1`: two bursts 1 km apart both draw
+      and composite, 5.3 ms for one against 8.6 for two; at 34.4 m the second merges — `inside its
+      72 m fireball, so it is that one -- now 0.60 kt`.
+
+- [x] **An atmosphere that is not Earth's.** Flown on Mars, where the air is 0.011–0.0135 of the
+      reference: the column draws with the right shape, and the sky, horizon and terrain around it
+      are lit by Mars's own LUTs rather than by Earth's. The thin atmosphere is no longer the
+      untried case.
+- [x] **The night side is dark, and the sun's elevation is logged beside every capture.** The sun
+      term is the cloud's own optical depth toward the sun, which is self-shadowing: nothing asked
+      whether the planet was in the way, so a column over pitch-black Martian ground stood there
+      brightly and directionally lit. Flown at both ends on 2026.9.10.5438 — sun 27.4 deg up, the
+      daylight cloud unchanged; sun 48.3 deg below, dark.
+
+      **Done geometrically rather than through the transmittance LUT, and that is the finding.**
+      `GetAerialPerspectiveForObjectInAtmosphere` hands back a `sunToObjectTransmittance` that is
+      this and a sunset reddening too, and Core's own `Clouds/RaymarchCloud.comp` lights its clouds
+      with exactly it. Fed the radii reachable from the global lighting block it comes back near
+      zero **in broad daylight with the sun measured at 27 degrees up**, which took the cloud to a
+      black silhouette at every gain tried. Core passes `topRadius`, `bottomRadius` and
+      `planetRadius` out of its atmosphere UBO, which this shader does not bind; something in that
+      parameterisation disagrees and was not worth being wrong about. The geometric gate needs no
+      radii, no UBO and no LUT, and is identically 1 wherever the sun is up, so it cannot cost the
+      daylight case anything.
+
+- [x] **The sun's own colour and whether it has set, from the engine.** `global.lighting` carries
+      an `occlusionColor`, documented in Core's `Global.glsl` as "the transmittance of the sun color
+      through the atmosphere", and every one of Core's mesh shaders multiplies its sun by exactly
+      it. So the terminator and the sunset reddening are one term and need no radii, no atmosphere
+      UBO and no LUT call — which is what two earlier attempts went looking for.
+      `GetAerialPerspectiveForObjectInAtmosphere`'s `sunToObjectTransmittance` is the same quantity
+      per-object and better still, and remains unusable here: fed the radii reachable from the
+      global block it returns near zero in broad daylight with the sun 27 degrees up. Flown at both
+      ends on 2026.9.10.5438 — daylight unchanged, Mars at 48 deg below the horizon dark.
+
+- [x] **What a burst does besides standing there: the flash, the wave, the bang.** All flown on
+      2026.9.10.5438 through `KSARMORY_SCENARIO_CLOUDS=1`.
+
+      The **whiteout** is written by the compute shader, not by an ImGui overlay, and that is the
+      finding rather than a preference: KSA wraps its entire UI pass in `if (DrawUI)`, and both F2
+      and `ScreenshotCapture` clear it — so painted there it vanished from every screenshot the
+      harness took, and would have vanished for any player with the HUD hidden. It is driven by the
+      fireball's **rise** rather than its brightness, with recovery always running: taken off the
+      brightness it held for the ball's whole 1.9 s burn, which is a stuck screen rather than an
+      eye adjusting. `Ksa/BurstFlash.cs` is the model; nothing in it draws.
+
+      **It is white only where it clips.** A veil of one colour is what every pixel overexposed
+      looks like; a real glare is dimmer off the source, stops clipping there, and shows the light
+      itself — a fireball of a few thousand kelvin yellowed by kilometres of air. So the shader
+      falls it off with the angle from the burst and warms it both there and as the flash dies. The
+      levels are measured rather than assumed: bands written through KSA's whole post chain came out
+      0.25 → 130, 1.0 → 240 and everything from 1.25 → 255, where the shader had claimed one was a
+      mid grey. At that claim's level of 9 the glare was seven times the clip and every corner read
+      255; flown at the measured one, 255 over the burst and (232, 212, 176) in the corners. **That
+      read as a weak flash**, reported from play: a see-through gold at the peak rather than a view
+      burned out. So the peak is driven past the clip again, 2.6 at the edge and 97% opaque, and
+      only the recovery drops under it — which is where the colour now shows. Flown through the bridge
+      from a paused burst: burned out white at the instant, a gold veil round a white core at 0.34 s,
+      then the orange ball and its halo.
+
+      **And a halo round the ball that lasts as long as it burns.** The whiteout is an eye
+      overwhelmed, so it follows the rise and recovers in about a second — while the ball is still
+      orange in frame. Light scattering round a bright source lasts exactly as long as the source is
+      bright, so `BurstFlash.Glare` is its apparent brightness held at level, in its own colour, and
+      the shader lays it on the core only. Flown at 0.3 kt: a warm glow round the cap at 3.8 s,
+      glow 32, and none at 11.4 s, when the ball has gone out.
+
+      **There is no blast wave, and the burst carries no `<ExplosionVolume>` at all.** KSA's trail
+      renderer, which draws explosion volumes, raymarches into the same low-resolution images the
+      weather clouds do, and those are what this pass reads as weather — so the burst's own fireball
+      and shock volumes occluded the cloud they sat in, in low-resolution blocks at the fireball's
+      edge. The shell's patchy tail was also the white streaks across the sky at 3.8 s. Flown with
+      both taken out: the blocks and the streaks gone, at 1.3 s and 3.8 s.
+
+      **A save load clears them.** The clouds, the burned ground, the flash and a bang still on its
+      way belonged to the world replaced, and stood in the new one. Checked through the bridge: one
+      cloud standing, the save loaded, none.
+
+      The **bang arrives late**, at 343 m/s from the burst, anchored to the ground it happened over
+      rather than to the launching craft or to a bare ecliptic point. Silent where there is no air,
+      which is the one case a sound of this kind must get right.
+
+- [x] **Three things that separate a drawn cloud from a photographed one**, flown the same day.
+
+      **Shear.** The wind above the cloud used to be one vector, so the column leaned in a single
+      flat plane the whole way up. Real wind veers as well as strengthens — the Ekman spiral near
+      the ground, the thermal wind above it, twenty to sixty degrees over a column this tall — so
+      the lean turns with height and the cloud corkscrews. Free: the axis is the local vertical and
+      the downwind is already perpendicular to it.
+
+      **Fallout streamers**, hung off the cap's own field rather than off a plane under it. Hung
+      off a plane they *detach*: erosion cuts the cap's real underside well inside the torus's
+      analytic one, so the strands begin in clear air with a visible gap over them, and the parts
+      of the rim the noise has eaten go on shedding from nothing. Reported from looking at it, and
+      fixed by measuring the drop from the cap's own middle so the two overlap. 1.49 to 2.06 ms.
+
+      **The ground burns**, out to `Warhead.LethalRadius` — the radius the panel, the overlay and
+      the blast sweep already describe the weapon by, so the stain is not a fourth number. Screen
+      space off the depth the march already clips against, so it follows the terrain with nothing
+      placed in the world; desaturated before it is darkened, because a multiply leaves grass green
+      and merely dimmer, which reads as shadow. 2.06 to 2.08 ms: almost every pixel leaves on one
+      comparison.
+
+      **It lasts exactly as long as the pass is dispatched, which is as long as the cloud stands —
+      about 78 s.** A mark that outlives the cloud is a decal on the hillside, which is
+      `docs/DAMAGE-DECALS.md` and is not built.
+
+      **Both closed the same day, and without a decal.** A mark is no longer the cloud's business:
+      `NuclearClouds` keeps a third body-fixed list that outlives both the column and the fireball,
+      and `CloudPass` sends it ahead of the clouds so a column composites over ground already
+      burned. The shader takes either half alone, so an airless burst — which grows no column at
+      all — burns ground for the first time.
+
+      It costs a full-screen dispatch per mark for the rest of the session, which is why the list
+      is bounded at **four** where the clouds are at eight: a cloud expires and that list drains
+      itself, and this one never does. The oldest is dropped. Marks merge on the rule the clouds
+      merge on, so a bus's six warheads make one stain rather than six mixes of the same ash onto
+      the same pixels.
+
+      Flown three ways. On Earth the cloud count goes 1 to 0 at 78 s with the mark still at 1, and
+      the capture past the column's whole life shows burned ground under an empty sky. With
+      `TWOCLOUDS=1` two marks stand a kilometre apart, each with its own edge and neither
+      compounding into the other — `TWOCLOUDS=100` does **not** test that, because a 30 kt burst's
+      lethal radius is 2.3 km and swallows the 0.3 kt one 1 km away, which is the merge working.
+      On **Luna** the pass goes from 0.04 to 0.13 ms and a mark stands on ground no column ever
+      covered.
+
+      **In vacuum the mark is how far the radiation reaches, not a blast law.**
+      `Warhead.LethalRadius` is overpressure from a shock a vacuum does not carry, and borrowed there
+      it drew a 220 m burst under a 493 m mark with `CloudWatch` standing inside it.
+      `AirlessBurst.ScorchRadius` is the inverse square of an unabsorbed pulse instead — the square
+      root of the yield rather than the cube root — at a fluence that is chosen, not measured,
+      because nobody has burned regolith this way. And no plume: nothing lifted anything and no wind
+      would carry it. Flown on Luna: 264 m, a round patch just past the 218 m of thrown ground.
+
+      **The bound has never been reached.** `MaxScorches` is twelve and the oldest is dropped; the
+      harness produces at most two, and nothing has ever watched a mark vanish. That path is
+      reasoned only.
+
+- [x] **All three re-flown at a yield and on a body neither was written against**, same day.
+
+      `KSARMORY_SCENARIO_TWOCLOUDS=100` puts a 0.3 kt burst beside a 30 kt one in one frame, which
+      is the check the shear and the streamers most needed: `VeerRadians` is a fixed angle and
+      `FalloutReach` a fraction of the radius, so neither had been seen at a cloud of another size.
+      Both read correctly at both. Two clouds cost **2.50 ms** against 2.08 for one, so the barrier
+      path is sub-linear — and the two scorch marks **merge into one patch of ash rather than
+      compounding toward black**, which the desaturate-then-darken form was reasoned to do and had
+      never been looked at.
+
+      On Luna the pass falls to **0.04 ms** over 296 frames: the flash-only dispatch returns at the
+      cloud guard before reaching the scorch block, the ejecta still arc and land, and nothing the
+      airless path does was disturbed by a block added ahead of it in `main()`.
+
+- [x] **Warp and pause.** Flown on 2026.9.10.5438, and what took so long was two instruments
+      rather than any doubt about the behaviour.
+
+      The capture ages were **wall clock** and the burst is on simulated time, so a warped run
+      photographed a different cloud from the one it was being compared with; they are the burst's
+      own age now, which is the same number at 1x and the right one everywhere else. And the linger
+      ended on wall clock, so a warped run sat out eighty seconds after photographing everything.
+      `KSARMORY_SCENARIO_CLOUDWARP=<n>` then holds a speed through the linger, which the drop's own
+      warp argument cannot: that one is handed back the instant the store lands, deliberately,
+      because the hand-back should not be watched at speed.
+
+      **Zero needed a call of its own.** `KsaWorld.SetSimulationSpeed` refuses anything at or below
+      zero and clamps to `SlowestSimSpeed`, so asking for a pause as a speed left the world at 1x
+      while the run reported it had asked for one — flown, and it is why `SetPaused` exists. A
+      caller wanting a slow world and one wanting a stopped world want different things.
+
+      At **20x** the captures land at the same seven cloud ages as the 1x run, sun elevations
+      agreeing to a tenth of a degree, in 4.2 s of wall clock against 84. **Paused**, the burst
+      holds at 0.0 s across 86 s of wall clock with the cloud and the mark both still standing and
+      the pass still drawing.
+
+- [x] **KSA's weather clouds hide the burst behind them.** They write no depth — they are
+      raymarched into images of their own and composited into the scene colour — so the depth under
+      a cloud says "ground", and everything this pass drew off it was drawn in front of every cloud:
+      the column over a deck it was behind, and at 300 kt the ground mark as a flat grey disc across
+      the tops of the clouds. `CloudPass` now binds the cloud renderer's own low-resolution colour
+      and distance, reached through one verified reflected field, and treats each pixel's cloud as a
+      thin sheet: what lies behind it is seen through its transmittance, and a mark is dimmed by it.
+      With clouds switched off there is no renderer, stand-ins are bound, and a flag says so.
+
+      **Faded in behind the weather's distance, not cut at it.** The renderer gives one averaged
+      distance a pixel and it moves a little every frame, so a hard cut flipped a burst inside a
+      deck's depth between in front and behind — reported from play as weather flickering through
+      the cloud. A band centred on the distance was worse: it counted the back of a burst standing
+      before a deck as behind it, and the burst went see-through. Three versions captured on one
+      frozen instant through the bridge showed the centred band washing out the cap and the band
+      starting at the distance not. **The flicker itself was never reproduced**: paused, all three
+      are equally steady, and with the world running and the camera held, eight consecutive frames
+      of the hard cut against the fade came out at 15,582 pixels over 4 of noise against 4,743 in
+      one round and 5,190 against 5,435 in the next -- the scene's own motion is as large as any
+      difference. A capture from play, with the Capture for Claude button, is what would settle it.
+
+      **The images are not only weather.** Explosion volumes and exhaust trails are raymarched into
+      them too, which is right for a trail in front of the cloud and wrong for anything the burst
+      itself adds — see the blast-wave note above.
+
+      Flown at 300 kt from above a deck: the grey disc gone from the cloud tops, and the stem running
+      down behind the deck while the cap stands above it. **And from under one**, at
+      `KSARMORY_SCENARIO_WATCHELEV=2`: the cap shows only through the deck's holes, and the stem
+      stands below its base.
+
+      **Read off the renderer's accumulated result, not its low-resolution pass.** The low-resolution
+      images are sampled at a different sub-pixel every frame, so an edge cut from them crawls with
+      the world paused: three stills at `KSARMORY_SCENARIO_STILLAT=25` differed along the whole
+      outline of a hole the cap showed through, by up to 122 of 255. The accumulated full-resolution
+      pair — four private fields and a flag, since it ping-pongs — has the same layout and the same
+      distance encoding, and the outline is gone: what differs between stills is scattered specks at
+      the level of KSA's own clouds elsewhere in the sky. One pipeline per image of the pair, so the
+      swap is not a rebuild a frame.
+
+- [ ] **The old note, kept because it is what the shipped scenarios still cannot do.** Reasoned, not flown. `NuclearClouds.Update` is driven from `StepOnce` on
+      the simulated step, so a pause hands it nothing and warp hands it a large one — and the shape
+      and the flash are both pure functions of age, so a cloud that skips its life in one step just
+      expires. Nothing in the pass reads a clock at all.
+
+      **The shipped scenarios cannot exercise it**, which is why it stays open: `speeds=` only runs
+      in the engagement phase, and the drop's own warp argument is given back by `WarpPolicy` when
+      the store lands, before the linger starts — flown at `drop:10,0,dumb,,50` and the captures
+      came back at 1x ages. Driving a speed through the linger would contradict a decision already
+      in `CaptureBurst`: the capture ages are wall clock, so a run warping through them photographs
+      the wrong ones.
+- [x] **An instrument that cried wolf on every control run.** `CloudPassCost` printed
+      `pass FAILED TO BUILD` whenever there was no pipeline — and a pass switched off by `noshader`
+      is never *asked* to build, so the deliberate control reported a shader that would not
+      compile. That is the confusion the line was added to remove, back again with the sign
+      flipped, and worse: a control is the run that is supposed to report nothing. `BuildFailed` is
+      now set only by a build that ran and failed. Flown: the control reads `pass off`.
+
+- [x] **A burst blinds the radar behind it.** A fireball ionises the air round it, and a
+      transmitting set loses whatever its beam crosses that region to reach, or everything if it
+      stands inside it: `Sim/FireballBlackout.cs`, a sphere of 1.5 peak fireball radii riding up
+      with the ball, lasting a minute for a megatonne by the cube root — an order of magnitude from
+      the literature, chosen rather than measured. Passive seekers are untouched. Counted like
+      terrain masking, on the scope and in the world dump; a session switch turns it off.
+      Flown with `KSARMORY_SCENARIO_BLACKOUT=20` on the `CIWS` save, a 20 kt burst halfway to a
+      drone the Phalanx already holds: it loses the drone 3.6 s later as the drone's line crosses
+      the fireball, holds nothing to +15.2 s, and reacquires and locks as the air clears. The
+      control, `NOBLACKOUT=1`, locks at +4.0 s and holds. The LAU-7's passive seeker kept its track
+      through the same burst.
+
+- [x] **The grain is resolved over frames.** The march is 48 steps on a dither, and a dither
+      fixed per pixel is a screen door the cloud moves behind. The clouds now go into a layer with
+      a dither moved by the golden ratio each frame, and `KSArmoryCloudResolve.comp` blends it with
+      last frame's result reprojected at the cloud's own depth against the burst — which rides the
+      planet — clamped to the current neighbourhood so a cloud that moves on leaves no ghost. Held
+      per viewport, which also stopped a camera window of the main view's size drawing into the
+      main view's image. Flown: grain inside the cap 0.648 → 0.231 by a high-pass measure, the pass
+      unchanged at about 2.2 ms, two clouds under a deck as before. **Not judged with the camera
+      moving fast**: the chase ends inside a 0.3 kt column, so its frames are fog.
+
+- [x] **The anvil.** Past the drawn tropopause — the standard 11 km at `DrawnScale`, reached at
+      ~49 kt — the cap is braked to `MushroomCloud.StratospherePenetration` of the rise the law asks
+      for, fitted to Castle Bravo, and the height it does not make goes into width at constant
+      volume. Flown at 300 kt: 16.3 km across under a 10.2 km top, where the law drew a column. The
+      fallout curtain is measured in the cap's own thickness, so the anvil sheds a fringe rather
+      than the wall a curtain sized off the whole cloud hung from its rim.
+
+- [ ] **Another GPU.** One machine, one vendor. A compute dispatch into someone else's frame is
+      exactly the kind of thing that is driver-specific, and a failed patch or a shader that will
+      not compile draws no cloud rather than crashing — which is the intended degradation and has
+      never been provoked.
+- [x] **How strong the aerial perspective should be — and it is not a judgement after all.**
+      Flown as an A/B at the pinned pose, same age, haze on against haze off: with it on the cloud
+      is cooler and lower in contrast and the stem's foot is visibly bluer than the dirt it is made
+      of. That reads as over-applied, and it is not.
+
+      Settled by reading the engine's own volumetric consumer rather than by eye.
+      `Clouds/RaymarchCloud.comp:525` is
+      `cloudColor.rgb * eyeToCloudTransmittance + inscatter * atmosphereInscatterWeight`, which is
+      this pass's expression term for term — and its weight, `1.0 - cloudColor.a`, is the same
+      quantity as ours despite reading like the opposite. **Core's `a` is transmittance, not
+      opacity**: `:561` composites two layers by *multiplying* alphas and `:438` raymarches only
+      while `a < 1.0`. So `1 - a` is coverage, which is what we weight by.
+
+      The amount is therefore the engine's own answer applied the way the engine applies it, and a
+      scale factor here would be a fudge fitted at the one distance anybody has looked from. What
+      the A/B actually shows is what 2.4 km of the densest air there is does to a near-white
+      object, which is more than it does to the dark terrain beside it.
+- [ ] **A craft set down on Luna sinks and its tip explodes**, seen in play. `TryPlaceOnSurface` is a
+      thin wrapper over KSA's own `Vehicle.TeleportToLocation` and the craft reads 7 m **above** the
+      ground when placed, so this is the engine's vehicle-vs-terrain handling or the blast taking a
+      rocket standing 7 m from a nuclear detonation. Not diagnosed; the drop passes either way.
 
 ### 7.1e Drag, and what a round does once it leaves the air
 
@@ -1395,8 +1850,15 @@ Still open below.
       launcher is holding fire; report the line rather than trying to reproduce it.
 - [ ] **Teams and IFF** - declare two teams under **KSArmory settings → Teams**, put the launcher on
       one with its flag, and confirm the track list marks F / N / H / ? correctly and that a
-      friendly is not engaged. Name teams so that no team name is a substring of another craft's
-      name.
+      friendly is not engaged. The flag is what places a craft; only something with nothing of this
+      mod's fitted falls back to its name, so for those name teams such that no team name is a
+      substring of another craft's name.
+- [ ] **Two mounts on one team do not shoot each other's rounds.** A Phalanx and a Pantsir, both
+      flags on the same team, both auto-engaging, one firing. Neither may engage the other's shells,
+      and neither track list may show them as `?`. **This is the case that only the rounds reach**:
+      two craft standing on the same ground are under `MinTargetSpeed` and never enter each other's
+      track lists at all, so nothing before the first shot exercises the classification. Check the
+      Radar tab draws them **X** rather than a triangle.
 - [ ] **Removing a team** under **KSArmory settings → Teams** moves every craft on it to **No team**
       in the switcher, and each one's **Teams and IFF** tab reads `Own team: none`. Declaring the
       team again does not bring back the allied or neutral ticks it had.
@@ -2095,6 +2557,32 @@ Measured, same aim point, arms interleaved:
 - [ ] **Warheads leave on the line.** `warhead away from tube N, X deg off the salvo's line` — the
       first flight read 0.00 for all six. That number is the band converted into what it was
       costing.
+
+### 12.7f The bus's divert reach — nothing here has been flown
+
+Headless only. `ReachDisplayTests` pins that the outline and the refusal are the same ellipse and
+that the axes are carried back from the arrival, but no flight has drawn one — and the two things
+only a flight can settle are whether the region lands on the right ground and what it costs the
+frame.
+
+Fly a MIRV shot, and once the burn is over and the bus is coasting:
+
+- [ ] With **Designate by clicking the world** on, an outline appears on the ground around where the
+      warheads are going, a few kilometres across. It sits *around* the aim ring rather than beside
+      it — a region drawn a planet's turn out of date lands hundreds of kilometres downrange.
+- [ ] The cursor ring is the designation colour inside it and grey outside, with **outside reach**
+      beside the cursor. A click outside does nothing at all: no new row on the panel, no line in
+      the log.
+- [ ] A click inside adds a target. Its ring is drawn dimmer than the lead's, numbered to match the
+      panel's list, and it does not move when the planet turns under it.
+- [ ] The panel's `Divert reach:` line agrees with the picture — the metres it quotes are about the
+      radius of the outline, not four times it.
+- [ ] **The frame cost.** `icbmdraw` in the mod-frame line was 11.1 ms of a 15.1 ms frame before
+      this; the worst frame is the number to read, because only one ring is re-draped per frame and
+      a spike would mean that rule is not holding. And `reach on <craft>` in a verbose log carries
+      what one pricing flight took.
+- [ ] Turning **Show what the bus can still divert to** off stops both: no outline, and no
+      `reach on <craft>` lines.
 
 ### 12.6 It gives the vehicle back
 

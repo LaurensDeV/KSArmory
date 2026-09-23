@@ -55,6 +55,24 @@ internal sealed class WarpPolicy
     public const double RealTime = 1.0;
 
     /// <summary>
+    /// Longest wall-clock frame a frame <em>rate</em> may be inferred from.
+    ///
+    /// <para><see cref="Margin"/>'s formula divides by the step to learn the frame time, which is
+    /// right for an ordinary frame and wrong for the one a speed change lands on: the engine has a
+    /// large change to absorb there and that frame is enormously long. Flown, a jump to 100x and a
+    /// jump to 800x both produced the same <b>1.5x</b> answer — only possible because the speed
+    /// cancels out, leaving <c>Margin x faithfulStep / frameTime</c>, and both had measured the
+    /// same <b>3.2 s</b> hitch. The world then sat at real time for the whole flight, because the
+    /// steps afterwards are far inside the limit and nothing looks again.</para>
+    ///
+    /// <para>A second of wall clock is not a frame rate on any machine that can run this, so a step
+    /// implying one is a hitch and is not decided on. Nothing is lost by waiting: the frame after it
+    /// is ordinary, and the answer from that one is the machine's.</para>
+    /// </summary>
+    public const double MaxPlausibleFrameSeconds = 1.0;
+
+
+    /// <summary>
     /// Steps to let pass after a request lands before judging it.
     ///
     /// <para>The step arriving on the frame a write takes effect still measures the interval
@@ -113,14 +131,33 @@ internal sealed class WarpPolicy
     /// round needs; a ballistic weapon can take far longer ones and holding the world down to
     /// this for a flight lasting minutes is what trips the abandon guard below.
     /// </param>
+    /// <param name="autoWarpRunning">
+    /// Whether KSA is running its own warp-to-a-time. It refuses a speed change outright while one
+    /// is, and from here that refusal is indistinguishable from a slow write — which is what the
+    /// abandon guard below counts. So nothing is asked for and nothing is counted: the rounds take
+    /// whatever step the warp hands out, which is the same trade
+    /// <c>Ksa/IcbmComputers.cs</c> already makes for a holding burn.
+    /// </param>
     public WarpDecision Decide(double dtSim, double currentSpeed, bool roundsInFlight, bool enabled,
-                               double faithfulStep = Interceptor.MaxFaithfulStep)
+                               double faithfulStep = Interceptor.MaxFaithfulStep,
+                               bool autoWarpRunning = false)
     {
         if (!enabled) return Release(currentSpeed, "warp limiting turned off");
         if (!roundsInFlight) return Release(currentSpeed, "nothing in the air");
 
         if (!double.IsFinite(dtSim) || !double.IsFinite(currentSpeed) || currentSpeed <= 0.0)
         {
+            return WarpDecision.Nothing;
+        }
+
+        // Asking is refused and the refusal cannot be told from a slow write, so the guard would
+        // count to FramesAwaitingWrite and abandon everything in the air — which is what deleted a
+        // store released high and then warped to. Whatever was already asked for is dropped rather
+        // than left pending, or the count resumes where it left off when the warp ends.
+        if (autoWarpRunning)
+        {
+            _awaitingWrite = false;
+            _framesAwaiting = 0;
             return WarpDecision.Nothing;
         }
 
@@ -170,6 +207,10 @@ internal sealed class WarpPolicy
         // threshold. The budget is per salvo and only Release clears it.
         if (dtSim <= faithfulStep) return WarpDecision.Nothing;
 
+        // Not on a hitch. The frame a speed change lands on is worth seconds of wall clock, and the
+        // rate inferred from it is the hitch rather than the machine -- see MaxPlausibleFrameSeconds.
+        if (dtSim / currentSpeed > MaxPlausibleFrameSeconds) return WarpDecision.Nothing;
+
         // Self-calibrating: the frame time is dtSim/currentSpeed, so the speed that lands on the
         // target step needs no knowledge of the frame rate. That also makes a slow frame and a
         // high warp the same problem, which to a round they are.
@@ -179,6 +220,12 @@ internal sealed class WarpPolicy
         // own clock does not get it: the mod is a guest, and a game that crawls is a worse thing to
         // hand somebody than a round integrated on a longer step. Where the two conflict, the round
         // takes the coarser step and the accuracy that comes with it.
+        //
+        // Deliberately NOT rate-limited on top of this. Capping how much one decision may take
+        // costs the contract the tests below pin -- that the speed asked for lands inside the limit
+        // -- and an interceptor converging over several decisions spends every one of them stepping
+        // past its own fuse. The hitch guard above is the targeted fix; a cap would be a second,
+        // blunter one that weakens a guarantee to cover the same case.
         target = Math.Max(target, RealTime);
 
         if (!double.IsFinite(target) || target <= 0.0 || target >= currentSpeed)

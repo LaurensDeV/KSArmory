@@ -211,7 +211,11 @@ internal static class Log
                 if (!Directory.Exists(candidate)) continue;
 
                 string path = Path.Combine(candidate, "KSArmory.log");
-                // Truncate per session so the file reflects this run, not every run ever.
+
+                // Truncated per session so the file reflects this run, not every run ever -- and the
+                // last run kept beside it, because a game relaunched to look into a report is exactly
+                // the moment the report's own log would otherwise be lost.
+                if (File.Exists(path)) File.Copy(path, Path.Combine(candidate, "KSArmory.prev.log"), overwrite: true);
                 File.WriteAllText(path, $"=== KSArmory session {DateTime.Now:yyyy-MM-dd HH:mm:ss} ==={Environment.NewLine}");
                 _path = path;
                 Console.WriteLine($"{Prefix} logging to {path}");

@@ -108,14 +108,6 @@ public sealed class Config
     /// </summary>
     public bool NuclearClouds = true;
 
-    /// <summary>
-    /// Dirty the smoke of a nuclear cloud rather than leaving it white.
-    ///
-    /// <para>Costs something worth knowing about: the engine carries one trail colour for the whole
-    /// world, so while a cloud stands every solid booster's plume is tinted with it. Held only for
-    /// as long as a cloud is up.</para>
-    /// </summary>
-    public bool DirtyNuclearSmoke = true;
 
     /// <summary>
     /// Which sound to use, by <c>ModLibrary</c> Id. Null takes Core's engine loop, which resolves
@@ -175,6 +167,13 @@ public sealed class Config
     public bool DamageIndividualParts = true;
 
     /// <summary>
+    /// Whether a nuclear fireball blacks out the radar beams that cross it, for as long as the air
+    /// it ionised stays hot — see <see cref="FireballBlackout"/>. Only sets that transmit are
+    /// blinded. Off, a burst is something radar looks straight through.
+    /// </summary>
+    public bool NuclearBlackout = true;
+
+    /// <summary>
     /// Count rounds per <em>craft</em> rather than per weapon when deciding whether a target has
     /// had enough.
     ///
@@ -208,6 +207,26 @@ public sealed class Config
     /// Off by default: while it is on, a click on the world is an explosion.</para>
     /// </summary>
     public bool BurstTool;
+
+    /// <summary>
+    /// Draw the ring showing where the next burst would go and how far it would kill.
+    ///
+    /// <para>On by default, because placing a burst blind is worse than the ring being in the way.
+    /// It is drawn at the <em>lethal</em> radius, which at the top of the yield dial is kilometres
+    /// across and sits over the cursor — exactly where the explosion then happens. It is suppressed
+    /// on its own for the length of the flash after each burst, so the thing the tool exists to
+    /// show is not hidden by the tool; this switch is for turning it off for good.</para>
+    /// </summary>
+    public bool BurstMarker = true;
+
+    /// <summary>
+    /// How strongly the nuclear cloud draws, as a fraction of full.
+    ///
+    /// <para>It is a compute pass of this mod's own, run inside KSA's frame before bloom. Zero does
+    /// not dispatch at all, which is the way to turn the cloud off without turning off
+    /// <see cref="NuclearClouds"/> — the fireball and the ember ride that one.</para>
+    /// </summary>
+    public float ShaderPass = 1f;
 
     /// <summary>
     /// Explosive charge for a hand-fired burst (kg). The same figure a round carries, so the tool

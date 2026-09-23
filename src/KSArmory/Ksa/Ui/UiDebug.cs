@@ -20,11 +20,14 @@ internal sealed partial class Ui
         {
             ImGui.Checkbox("Nuclear", ref _config.BurstNuclear);
 
+            ImGui.Checkbox("Show the aiming ring", ref _config.BurstMarker);
+            Tip("The orange ring under the cursor, at the lethal radius. It hides itself for the "
+                + "length of the flash after each burst; turn it off to be rid of it entirely.");
+
             if (_config.BurstNuclear)
             {
-                // The B61's own dial. Logarithmic because the interesting end is the bottom of it:
-                // three orders of magnitude, and the cloud changes shape more between 0.3 and 3 kt
-                // than between 100 and 340.
+                // The B61's own dial. Logarithmic because it spans three orders of magnitude and
+                // the cloud grows as the cube root; past about 49 kt it spreads into an anvil.
                 ImGui.SliderFloat("Yield (kt)", ref _config.BurstYieldKt, 0.3f, 340f,
                                   "%.2f kt", ImGuiSliderFlags.Logarithmic);
 
@@ -32,8 +35,8 @@ internal sealed partial class Ui
 
                 ImGui.TextDisabled($"  fireball {MushroomCloud.PeakFireballRadius(kt) * 2.0:F0} m "
                                    + $"across for {MushroomCloud.FlashSeconds(kt):F1} s");
-                ImGui.TextDisabled($"  cloud to {MushroomCloud.DrawnCloudTop(kt) / 1000.0:F2} km, "
-                                   + $"cap {MushroomCloud.DrawnCapRadius(kt) * 2.0 / 1000.0:F2} km "
+                ImGui.TextDisabled($"  cloud to {MushroomCloud.DrawnStandingTop(kt) / 1000.0:F2} km, "
+                                   + $"cap {MushroomCloud.DrawnCapAcross(kt) / 1000.0:F2} km "
                                    + $"across, over {MushroomCloud.RiseSeconds:F0} s");
                 ImGui.TextDisabled($"  lethal {Warhead.LethalRadius(kt * 1.0e6):F0} m");
                 Tip("The marker under the cursor is drawn at the lethal radius.");
@@ -56,6 +59,17 @@ internal sealed partial class Ui
 
         // Straight overhead, for when the pointer is not the question -- it needs no aim and no
         // ground under it, so it still answers "does the effect work at all".
+        if (Build.Developer)
+        {
+            ImGui.SliderFloat("Shader pass", ref _config.ShaderPass, 0f, 1f, "%.2f");
+            Tip("The mod's own compute pass, dispatched inside KSA's frame before bloom. At zero it "
+                + "does not dispatch. Above it, the spike tints the far field, which is how the route "
+                + "is checked: "
+                + (CloudPassHook.Installed
+                       ? (CloudPass.Available ? "hooked, and the pipeline built." : "hooked; the pipeline has not built yet.")
+                       : "NOT hooked -- KSA moved SunbloomRenderer.Render."));
+        }
+
         if (ImGui.Button("Burst overhead")) FireTestBurst();
         Tip("Sets off the tool's charge 100 m over the system shown.");
 
@@ -123,6 +137,49 @@ internal sealed partial class Ui
         else
         {
             ImGui.TextDisabled("  point at a craft; it rings when the click would take it");
+        }
+    }
+
+    // Reused each frame so the list does not allocate per draw.
+    private readonly List<(string Id, bool HasAir)> _bodies = [];
+
+    private void DrawSendToBody()
+    {
+        if (KsaWorld.ControlledVehicle is not { } craft)
+        {
+            ImGui.TextDisabled("Send to another body: nothing is being flown.");
+            return;
+        }
+
+        KsaWorld.SystemBodies(_bodies);
+        if (_bodies.Count == 0)
+        {
+            ImGui.TextDisabled("Send to another body: no system loaded.");
+            return;
+        }
+
+        ImGui.Text("Send the controlled craft to");
+        Tip("Sets it down at 0, 0 on that body. The mouse mover can only reach the body you are "
+            + "already looking at, so this is the only way to test anything on another one.");
+
+        for (int i = 0; i < _bodies.Count; i++)
+        {
+            (string id, bool hasAir) = _bodies[i];
+
+            if (i > 0) ImGui.SameLine();
+
+            if (ImGui.SmallButton(id))
+            {
+                if (KsaWorld.TryPlaceOnSurface(craft, id, 0.0, 0.0))
+                    Log.Info($"placed {KsaWorld.DisplayName(craft)} on {id} at 0, 0");
+                else
+                    Log.Warn($"could not place {KsaWorld.DisplayName(craft)} on {id}");
+            }
+
+            // Which burst a test there will get, since that is the whole reason to go.
+            Tip(hasAir
+                    ? "Has an atmosphere: a nuclear burst grows a mushroom cloud."
+                    : "Airless: a nuclear burst throws a dust dome and a debris shell instead.");
         }
     }
 
@@ -197,8 +254,14 @@ internal sealed partial class Ui
             Log.Threshold = _config.VerboseLog ? Log.Level.Debug : Log.Level.Info;
             Log.Info(_config.VerboseLog ? "verbose logging on" : "verbose logging off");
         }
-        Tip("Developer detail. A release build starts with it off; this turns it on without "
-            + "needing a different build.");
+        Tip("More detail in the log, which is what a bug report wants. It starts off; this turns "
+            + "it on without needing a different build.");
+
+        if (Build.Developer) DrawDiagnostics();
+    }
+
+    private void DrawDiagnostics()
+    {
 
         // Writes the battery's whole world view to the log, including why each nearby vehicle was
         // or was not tracked. Far more useful than staring at an empty screen.

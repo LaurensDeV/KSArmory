@@ -60,6 +60,10 @@
     <None Update="Textures\**\*.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <!-- GLSL, compiled by KSA at load from wherever the mod is installed. -->
+    <None Update="Shaders\**\*.comp">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <!-- Synthesised by tools/sounds.py, committed so a plain build needs no numpy. -->
     <None Update="Sounds\**\*.wav">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
@@ -86,6 +90,11 @@
     <Reference Include="$(KsaDllDir)Brutal.ImGui.Abstractions.dll" Private="false" />
     <!-- KeyHash, which keeps the KSA namespace but is defined in this assembly. -->
     <Reference Include="$(KsaDllDir)Planet.Render.Core.dll" Private="false" />
+
+    <!-- The compute pass in Ksa/CloudPass.cs records into KSA's own command buffer. -->
+    <Reference Include="$(KsaDllDir)Brutal.Vulkan.dll" Private="false" />
+    <Reference Include="$(KsaDllDir)Brutal.Vulkan.Abstractions.dll" Private="false" />
+    <Reference Include="$(KsaDllDir)Brutal.ShaderC.dll" Private="false" />
     <!--
       JobScheduler, for KsaWorld.WaitForVehicleSolvers. Destroying a vehicle removes it from the
       list KSA's solver jobs are enumerating on worker threads, and no mod hook lands in the window
