@@ -45,7 +45,7 @@ largest gap.
 |---|---|
 | The ball swallows the ground under it and rises wrapped in churning black-brown dust and smoke, orange glow showing through gaps as it boils | **Built.** The young cloud is soot that clears over about ten seconds, and the heat left in its core (`MushroomCloud.Incandescence`) glows through where the noise thins the shell |
 | Reddish-brown from the nitrogen oxides the heat makes, lasting after the glow | **Built.** The cap is tinted brown from the second second, fading over about twenty |
-| The ball hollows into a glowing ring as its underside is drawn up, a doughnut of fire turning over | **Built, not yet judged from below.** The glow moves from the core onto the ring over four seconds and rolls with it; from the side it reads as pockets rather than a ring |
+| The ball hollows into a glowing ring as its underside is drawn up, a doughnut of fire turning over | **Built.** The glow moves from the core onto the ring over four seconds, running together round it as it does, and rolls with it; seen from low and close it reads as a torus edge-on by 4.4 s, bright at both limbs with a darker middle. From underneath is not judged: the bridge's camera cannot get under the cap without being inside the dust |
 | Violent churning at every scale, rising at hundreds of metres a second at first | **Built.** The roll and the boil start six times the steady rate and settle over about six seconds |
 | A crater, and dark jets of thrown dirt | Neither; a crater is blocked on the engine (item 12) |
 | Smoke from what the flash set burning | **Built**: nine thin dark plumes scattered on a hash between 1.8 and 6 stem radii, kindling from 4 to 20 s, bending downwind as they climb and standing as long as the cloud. 280 m tall whatever the yield, since a burning bush makes the same plume whatever lit it; scaled with the burst, 20 kt stood in a ring of kilometre-tall pillars. They read up close and are faint from the watching pose |
@@ -56,7 +56,7 @@ largest gap.
 |---|---|
 | Condensation rings form round the stem at moist layers, and a smooth ice cap can sit over the top | **Rings built**: two ragged white collars low on the stem, formed as the cap climbs past and gone by 40 s. **The cap veil is built and not seen**: at 0.3 kt it lies inside the eroded crown |
 | White condensation cap, dirty-brown underside, dark brown stem | **Built**: the crown whitens from 6 s as the soot clears, over the brown underside. Hard to see under an overcast, which lights the whole cloud flat |
-| Often a thin, tall stem, with dust visibly drawn up into the cap's underside | A flared foot, then a column |
+| Often a thin, tall stem, with dust visibly drawn up into the cap's underside | **Built**: the stem is 0.19 of the cap's radius, and its top flares into a trumpet of streaked dust drawn up into the underside (`InflowDensity`), plain by 25 s |
 | Past the tropopause the cap spreads into an anvil | Built (item 5) |
 | Fallout curtains take minutes to show | **Built**: nothing until 18 s on the rise's clock, full by 32 |
 

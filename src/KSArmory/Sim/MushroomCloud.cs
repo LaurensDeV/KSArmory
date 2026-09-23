@@ -852,7 +852,7 @@ public static class MushroomCloud
     /// at a half the cap is only twice the stem and the silhouette stops reading as a mushroom at
     /// all, which is the single strongest shape cue the drawing has.</para>
     /// </summary>
-    public const double StemOfCap = 0.22;
+    public const double StemOfCap = 0.19;
 
     /// <summary>Where the cloud is at <paramref name="age"/> seconds, for a charge in kg.</summary>
     public static Shape At(double chargeKg, double age)

@@ -59,6 +59,7 @@ public static class ShaderTunables
         new("CapShadowDensity", 29, 0.5),
         new("VioletNits", 30, 4.0),
         new("DeckGlow", 31, 0.35),
+        new("InflowDensity", 32, 0.45),
     ];
 
     private static readonly Dictionary<string, double> Overrides = new(StringComparer.OrdinalIgnoreCase);

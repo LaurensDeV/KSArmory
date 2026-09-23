@@ -521,6 +521,31 @@ float Veil(vec2 q, float capH, float ringR, float tubeR, float age)
     return when * shell * middle * crown * 0.5;
 }
 
+// THE DUST DRAWN UP INTO THE CAP. The afterwind lifts the ground up the stem and the cap's own
+// circulation pulls it into its underside, so the top of the column flares into a trumpet of
+// streaked dust rather than ending in a wall. Streaks run along the inflow -- up the stem and out
+// under the cap -- so the noise is fine round the axis and coarse along the flow.
+layout (constant_id = 32) const float InflowDensity = 0.45;
+
+float Inflow(vec3 flat_, vec2 q, float capH, float ringR, float tubeR, float stemR, float age)
+{
+    float under = capH - 0.6 * tubeR;
+    float low = max(under - 3.0 * stemR, 0.35 * capH);
+    if (q.y < low || q.y > under || under <= low) return 0.0;
+
+    float t = (q.y - low) / (under - low);
+    float inner = StemWidthAt(q.y, capH) * stemR;
+    float outer = inner + (ringR + 0.2 * tubeR - inner) * t * t;
+    if (q.x > outer) return 0.0;
+
+    float s = clamp((q.x - inner) / max(outer - inner, 1.0), 0.0, 1.0);
+    vec3 round_ = flat_ / max(q.x, 1.0);
+    float streak = Noise(round_ * 9.0 + vec3(0.0, (t - s) * 1.5 - age * 0.04, 0.0));
+
+    return InflowDensity * smoothstep(0.0, 0.25, t) * (1.0 - smoothstep(0.55, 1.0, s))
+           * smoothstep(0.42, 0.68, streak);
+}
+
 float Density(vec3 leaned, vec3 up, float radius, out float fireMask, out float wet)
 {
     fireMask = 0.0;
@@ -577,10 +602,13 @@ float Density(vec3 leaned, vec3 up, float radius, out float fireMask, out float 
                     * CondensationDensity;
     }
 
+    // Also asked before the rejection: the trumpet reaches out under the cap, past the stem's own.
+    float drawnUp = Inflow(flat_, p.xy, capH, ringR, tubeR, stemR, age);
+
     if (cap > ErodeReach * tubeR && stem > ErodeReach * stemR && above > ErodeReach * tubeR)
     {
         wet = condensed > 0.0 ? 1.0 : 0.0;
-        return condensed;
+        return max(condensed, drawnUp);
     }
 
     float around = atan(p.y - capH, p.x - ringR) - RollAngle(age);
@@ -665,6 +693,7 @@ float Density(vec3 leaned, vec3 up, float radius, out float fireMask, out float 
 
     // Condensation is white whatever it condenses round, so the march is told how much of this
     // sample it is.
+    density = max(density, drawnUp);
     wet = condensed > 0.0 ? clamp(condensed / max(density, condensed), 0.0, 1.0) : 0.0;
     return max(density, condensed);
 }
