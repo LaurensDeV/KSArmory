@@ -453,7 +453,8 @@ as anybody let it; it fails in thirty seconds now.
 would be judged against, so the order is the look first and the consequences after it.
 
 **Radar blackout is built**: the fireball's ionised air hides what is behind it from a set that
-transmits. `CHECKLIST.md` has the flight. The other two below are not.
+transmits. `CHECKLIST.md` has the flight. **So are dents**: what the blast loads short of breaking,
+KSA's own impact path dents (`CLAUDE.md`, the blast-damage rules). The other two below are not.
 
 Today a burst is visuals plus `BlastDamage`. A nuclear one could blind radar for a scaled
 duration, burn at ranges the blast never reaches, and bloom out an `OpticalHead`'s sight — which

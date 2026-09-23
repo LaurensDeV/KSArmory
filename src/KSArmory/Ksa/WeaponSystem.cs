@@ -69,6 +69,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     private readonly List<DamageablePart> _partScratch = [];
     private readonly List<Part> _partHandles = [];
     private readonly List<int> _failedParts = [];
+    private readonly List<(int Index, double PressureRatio)> _dentLoads = [];
 
     // Craft one burst has already damaged. See where it is cleared for why this is not _pendingKills.
     private readonly List<Vehicle> _burstDamaged = [];
@@ -3598,42 +3599,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             Announce($"intercepted {contact.DisplayName} at {gap:F0} m");
         }
 
-        IReadOnlyList<Vehicle> caught = KsaWorld.Vehicles;
-
-        for (int i = 0; i < caught.Count; i++)
-        {
-            Vehicle v = caught[i];
-
-            if (ReferenceEquals(v, Platform)) continue;
-            if (_policy.ProtectControlledVehicle && ReferenceEquals(v, KsaWorld.ControlledVehicle)) continue;
-            if (_pendingKills.Contains(v)) continue;
-            if (_burstDamaged.Contains(v)) continue;
-
-            double gap = BlastSweep.SurfaceGap(KsaWorld.PositionEcl(v), KsaWorld.VelocityEcl(v),
-                                               elapsed, burst, KsaWorld.MeanRadius(v));
-
-            switch (BlastSweep.Effect(gap, round.Munition))
-            {
-                case BlastEffect.Lethal:
-                    Damage(v, burst, elapsed, round.Munition, confirmed: false);
-                    break;
-
-                case BlastEffect.NearMiss:
-                    // Outside the lethal radius of the craft's own bounding sphere, and still
-                    // possibly against the skin of something on it: the sphere is a half-diagonal,
-                    // so a burst beside a long booster reads as a hundred metres from a craft it
-                    // is touching. The part sweep is the exact test and it runs here too.
-                    if (!Damage(v, burst, elapsed, round.Munition, confirmed: false))
-                    {
-                        Announce($"near miss on {KsaWorld.DisplayName(v)} at {gap:F0} m");
-                    }
-
-                    break;
-
-                default:
-                    break;
-            }
-        }
+        Splash(burst, elapsed, round.Munition);
 
         // Sized off the charge, which is also what the damage radii come from, so a 30 mm shell
         // cannot set off a missile's explosion. Whatever the burst killed gets KSA's own on top.
@@ -3711,6 +3677,101 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         return drawn;
     }
 
+    // The burst against every craft in the world: what it breaks, what it destroys, and what it only
+    // dents. Shared by a round's detonation and SplashAt, so a burst from the bridge is judged by the
+    // same code a warhead is.
+    private void Splash(double3 burst, double elapsed, MunitionProfile munition)
+    {
+        IReadOnlyList<Vehicle> caught = KsaWorld.Vehicles;
+
+        for (int i = 0; i < caught.Count; i++)
+        {
+            Vehicle v = caught[i];
+
+            // The craft that fired and the one being flown, while it is protected, are never
+            // broken -- but a dent breaks nothing, and a bomb dropped near its own carrier leaves
+            // its mark on it as on anything else.
+            if (ReferenceEquals(v, Platform)
+                || (_policy.ProtectControlledVehicle && ReferenceEquals(v, KsaWorld.ControlledVehicle)))
+            {
+                DentOnly(v, burst, elapsed, munition);
+                continue;
+            }
+
+            if (_pendingKills.Contains(v)) continue;
+            if (_burstDamaged.Contains(v)) continue;
+
+            double gap = BlastSweep.SurfaceGap(KsaWorld.PositionEcl(v), KsaWorld.VelocityEcl(v),
+                                               elapsed, burst, KsaWorld.MeanRadius(v));
+
+            switch (BlastSweep.Effect(gap, munition))
+            {
+                case BlastEffect.Lethal:
+                    Damage(v, burst, elapsed, munition, confirmed: false);
+                    break;
+
+                case BlastEffect.NearMiss:
+                    // Outside the lethal radius of the craft's own bounding sphere, and still
+                    // possibly against the skin of something on it: the sphere is a half-diagonal,
+                    // so a burst beside a long booster reads as a hundred metres from a craft it
+                    // is touching. The part sweep is the exact test and it runs here too.
+                    if (!Damage(v, burst, elapsed, munition, confirmed: false))
+                    {
+                        Announce($"near miss on {KsaWorld.DisplayName(v)} at {gap:F0} m");
+                    }
+
+                    break;
+
+                default:
+                    break;
+            }
+        }
+    }
+
+    /// <summary>
+    /// A burst of <paramref name="munition"/> where there is no round: every craft judged exactly
+    /// as a warhead going off there judges it, and what breaks is applied. For the bridge, so a
+    /// burst that damages can be flown without flying a drop.
+    /// </summary>
+    public void SplashAt(double3 burstEcl, MunitionProfile munition)
+    {
+        ArgumentNullException.ThrowIfNull(munition);
+
+        _burstDamaged.Clear();
+        Splash(burstEcl, 0.0, munition);
+        ApplyPendingKills();
+    }
+
+    // Dents a craft the burst reaches and nothing else, for one that must not be broken.
+    private void DentOnly(Vehicle v, double3 burst, double elapsed, MunitionProfile munition)
+    {
+        if (!KsaWorld.IsAlive(v)) return;
+
+        double gap = BlastSweep.SurfaceGap(KsaWorld.PositionEcl(v), KsaWorld.VelocityEcl(v),
+                                           elapsed, burst, KsaWorld.MeanRadius(v));
+        if (BlastSweep.Effect(gap, munition) == BlastEffect.Untouched) return;
+
+        if (!KsaWorld.TryCollectDamageableParts(v, KsaWorld.PositionEcl(v), _partScratch, _partHandles)) return;
+
+        Dent(v, burst, elapsed, munition, failed: null);
+    }
+
+    // Hands the engine every load this burst puts on the craft's parts short of breaking them.
+    private void Dent(Vehicle v, double3 burst, double elapsed, MunitionProfile munition,
+                      IReadOnlyCollection<int>? failed)
+    {
+        _dentLoads.Clear();
+        BlastDamage.Loads(burst, elapsed, KsaWorld.VelocityEcl(v), CollectionsMarshal.AsSpan(_partScratch),
+                          munition, failed, _dentLoads);
+
+        int reported = KsaWorld.ReportBlastDents(v, burst, _partHandles, _dentLoads, out int taken);
+        if (reported > 0)
+        {
+            Log.Info($"blast loaded {reported} part(s) of {KsaWorld.DisplayName(v)} short of breaking; "
+                     + $"the engine took {taken} as dents");
+        }
+    }
+
     // Applies one burst to one craft: breaks the parts near enough to break, or destroys the
     // whole craft where that is what the burst amounts to.
     //
@@ -3762,6 +3823,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         _failedParts.Clear();
         BlastDamage.Sweep(burst, elapsed, KsaWorld.VelocityEcl(v),
                           CollectionsMarshal.AsSpan(_partScratch), munition, _failedParts);
+
+        // And what it loads short of breaking, dented, before anything decides the craft's fate:
+        // a craft that survives is the one the dents are for.
+        Dent(v, burst, elapsed, munition, _failedParts);
 
         // KSA logs no part's crash tolerance, and it is what sets a warhead's reach against that part.
         if (Log.Threshold <= Log.Level.Debug)

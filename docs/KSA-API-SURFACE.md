@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-227 types and 629 members across 10 assemblies.
+231 types and 633 members across 10 assemblies.
 
 ## Brutal.Concurrency
 
@@ -37,6 +37,14 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 *referenced as a type only*
 
 ## Brutal.Core.Numerics
+
+### Brutal.Numerics.Pack
+
+*referenced as a type only*
+
+### Brutal.Numerics.Pack+Float
+
+*referenced as a type only*
 
 ### Brutal.Numerics.byte4
 
@@ -122,6 +130,8 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### Brutal.Numerics.float3
 
+- `Brutal.Numerics.float3 Pack(ref Brutal.Numerics.double3, Float)`
+- `Brutal.Numerics.float3 get_Zero()`
 - `float X`
 - `float Y`
 - `float Z`
@@ -740,6 +750,14 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.FlightPlan
 
 - `KSA.UniverseTime get_ExpiryGameTime()`
+
+### KSA.FxDeformation
+
+- `void ReportContact(KSA.Part, Brutal.Numerics.float3, Brutal.Numerics.float3, Brutal.Numerics.float3, double, double)`
+
+### KSA.FxDeformation+Shared
+
+- `int TotalReported`
 
 ### KSA.GameAudio
 

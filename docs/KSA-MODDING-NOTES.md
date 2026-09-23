@@ -820,6 +820,26 @@ console modal that stays until a button is clicked. Popups sit on `Popup`'s priv
 list, `Popup.AnyOpen` is public, and setting a popup's public `Active` to false is how its own buttons
 close it.
 
+## Dents are the engine's, and a mod can make one
+
+KSA deforms part meshes itself (`FxDeformation`, `KSA.Deformation.DentField`): up to ten dents a
+part, set by the Impact Dent Quality graphics setting, merged when they land on one another, and
+saved with the craft. Its collision code reports them through **`FxDeformation.ReportContact(part,
+centreOfMassAsmb, pointBody, normalBody, impulsePerArea, area)`**, which is public and static:
+
+- The point is `pointBody + centreOfMassAsmb`, so passing a zero centre of mass takes the point in
+  the vehicle's assembly frame. The normal is the push, into the part, in that same frame.
+- `impulsePerArea / 0.01` is the pressure (`PartStructuralLimits.AccumulatedPressure`), compared with
+  the full part's `CrashTolerancePascals`: nothing under half of it, and a depth of 0.099 of the
+  part's scale radius per unit of the ratio, capped at 0.15.
+- The footprint's radius is `2.29 · sqrt(area / π)`, clamped to 0.314–0.709 of that scale radius.
+- It returns silently if the Impact Dents setting or `FxDeformation.Shared.Enabled` is off. It
+  enqueues under a lock and the vehicle's own module update drains the queue, so it can be called
+  from a mod hook; `FxDeformation.Shared.TotalReported` counts what it accepted.
+
+`KsaWorld.ReportBlastDents` is the worked example. The mesh editor's **Add test dent** is the other
+way in, `FxDeformation.DebugImpact`, and places one at random.
+
 ## A compute pass can read KSA's weather shadows, but not through KSA's set
 
 `Program.GetCloudShadowsRenderer().GetDescriptorSet(body)` is the set the terrain, the ocean and static

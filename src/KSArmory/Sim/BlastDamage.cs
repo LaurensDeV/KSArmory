@@ -85,6 +85,52 @@ internal static class BlastDamage
     }
 
     /// <summary>
+    /// The overpressure at a part over what it can take, from the law <see cref="FailureRadius"/>
+    /// is: exactly one where the part fails, falling as the cube of the distance past it. Nothing
+    /// past <see cref="Warhead.BlastRadius"/>, which is where the weapon is described as reaching.
+    /// </summary>
+    public static double PressureRatio(double chargeKg, double crashTolerancePascals, double gap)
+    {
+        double lethal = Warhead.LethalRadius(chargeKg);
+        if (lethal <= 0.0 || !(gap < Warhead.BlastRadius(chargeKg))) return 0.0;
+
+        double tolerance = double.IsFinite(crashTolerancePascals) && crashTolerancePascals > 0.0
+            ? crashTolerancePascals
+            : ReferencePascals;
+
+        double scaled = lethal / Math.Max(gap, 1.0e-3);
+        return ReferencePascals / tolerance * scaled * scaled * scaled;
+    }
+
+    /// <summary>
+    /// Every part of one craft this burst loads without breaking, with how hard — what it would
+    /// dent. A part in <paramref name="failed"/> is breaking off, and is left out.
+    ///
+    /// <para><b>Whether a load dents is the engine's to say</b>, as it is for a collision: this
+    /// hands over every load inside the blast radius, and the engine's own threshold and depth
+    /// law decide what, if anything, it leaves.</para>
+    /// </summary>
+    public static void Loads(double3 burstEcl, double sinceSample, double3 velocityEcl,
+                             ReadOnlySpan<DamageablePart> parts, MunitionProfile munition,
+                             IReadOnlyCollection<int>? failed, List<(int Index, double PressureRatio)> into)
+    {
+        ArgumentNullException.ThrowIfNull(munition);
+        ArgumentNullException.ThrowIfNull(into);
+
+        for (int i = 0; i < parts.Length; i++)
+        {
+            DamageablePart part = parts[i];
+            if (failed is not null && failed.Contains(part.Index)) continue;
+
+            double gap = BlastSweep.SurfaceGap(part.PositionEcl, velocityEcl, sinceSample,
+                                               burstEcl, part.RadiusMetres);
+            double ratio = PressureRatio(munition.ChargeKg, part.CrashTolerancePascals, gap);
+
+            if (ratio > 0.0) into.Add((part.Index, ratio));
+        }
+    }
+
+    /// <summary>
     /// Every part of one craft this burst breaks, appended to <paramref name="failed"/> as the
     /// indices they were handed over with.
     ///

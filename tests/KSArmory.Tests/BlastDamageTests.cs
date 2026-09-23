@@ -226,4 +226,59 @@ public class BlastDamageTests
 
         Assert.Equal([7, 3], failed);
     }
+
+    /// <summary>
+    /// The pressure a part feels, over what it takes, comes off the same law its failure radius
+    /// does: exactly one where it fails, and half at the cube root of two further out -- which is
+    /// where the engine's own collisions start denting.
+    /// </summary>
+    [Fact]
+    public void ThePressureRatioIsOneWhereThePartFailsAndHalvesAtTheCubeRootOfTwo()
+    {
+        double tolerance = BlastDamage.ReferencePascals;
+        double fails = BlastDamage.FailureRadius(20.0, tolerance);
+
+        Assert.Equal(1.0, BlastDamage.PressureRatio(20.0, tolerance, fails), 9);
+        Assert.Equal(0.5, BlastDamage.PressureRatio(20.0, tolerance, fails * Math.Cbrt(2.0)), 9);
+    }
+
+    /// <summary>Nothing past the radius the weapon is described by, however weak the part.</summary>
+    [Fact]
+    public void NoPressureReachesPastTheBlastRadius()
+    {
+        double outside = Warhead.BlastRadius(20.0) * 1.01;
+
+        Assert.Equal(0.0, BlastDamage.PressureRatio(20.0, 1.0e5, outside));
+        Assert.True(BlastDamage.PressureRatio(20.0, 1.0e5, Warhead.BlastRadius(20.0) * 0.99) > 0.0);
+    }
+
+    /// <summary>
+    /// What a burst loads is what it does not break: a part breaking off is not also dented, and
+    /// nothing outside the blast radius is loaded at all.
+    /// </summary>
+    [Fact]
+    public void TheLoadsAreThePartsThatDoNotBreak()
+    {
+        MunitionProfile warhead = Warhead20Kg();
+        double fails = BlastDamage.FailureRadius(20.0, BlastDamage.ReferencePascals);
+        double3 burst = Carrier * 100.0;
+
+        DamageablePart[] parts =
+        [
+            new(0, burst + new double3(fails * 0.5, 0, 0), 0.0, BlastDamage.ReferencePascals),
+            new(1, burst + new double3(fails * 1.1, 0, 0), 0.0, BlastDamage.ReferencePascals),
+            new(2, burst + new double3(Warhead.BlastRadius(20.0) * 1.5, 0, 0), 0.0, BlastDamage.ReferencePascals),
+        ];
+
+        List<int> failed = [];
+        BlastDamage.Sweep(burst, 0.0, Carrier, parts, warhead, failed);
+
+        List<(int Index, double PressureRatio)> loads = [];
+        BlastDamage.Loads(burst, 0.0, Carrier, parts, warhead, failed, loads);
+
+        Assert.Equal([0], failed);
+        (int index, double ratio) = Assert.Single(loads);
+        Assert.Equal(1, index);
+        Assert.InRange(ratio, 0.5, 1.0);
+    }
 }
