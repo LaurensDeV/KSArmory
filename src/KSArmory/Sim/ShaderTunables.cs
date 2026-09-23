@@ -57,6 +57,7 @@ public static class ShaderTunables
         new("CapWhiteness", 27, 0.55),
         new("SmokeDensity", 28, 1.5),
         new("CapShadowDensity", 29, 0.5),
+        new("VioletNits", 30, 4.0),
     ];
 
     private static readonly Dictionary<string, double> Overrides = new(StringComparer.OrdinalIgnoreCase);

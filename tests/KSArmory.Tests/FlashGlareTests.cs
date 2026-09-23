@@ -112,4 +112,18 @@ public class FlashGlareTests
         Assert.True(day < dusk && dusk < night, $"{day} {dusk} {night}");
         Assert.True(night > 5.0 * day, $"night {night:F2} s against day {day:F2} s");
     }
+
+    [Fact]
+    public void TheFlashStartsVioletAndWarmsAsItCools()
+    {
+        Assert.Equal(1.0, FlashGlare.VioletShare(0.0), 9);
+        Assert.True(FlashGlare.VioletShare(0.3) > 0.6, "violet still while the whiteout clears");
+        Assert.True(FlashGlare.VioletShare(3.0) < 0.05, "warm by the time the ball is an ember");
+        Assert.Equal(0.0, FlashGlare.VioletShare(double.NaN));
+
+        for (double t = 0.0; t < 5.0; t += 0.1)
+        {
+            Assert.True(FlashGlare.VioletShare(t + 0.1) < FlashGlare.VioletShare(t));
+        }
+    }
 }

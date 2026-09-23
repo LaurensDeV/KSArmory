@@ -629,10 +629,11 @@ internal static class CloudPass
                 InvViewProj = camera.VPInv.viewProjection,
                 AgeStrengthWind = float4.Zero,
                 CentreRadius = new float4((float)source.X, (float)source.Y, (float)source.Z, 0f),
-                // The halo's level and colour ride in floats a flash has no other use for.
-                FireSun = new float4(BurstFlash.Glare, 0f, BurstFlash.Whiteout, 0f),
+                // The halo's level, how violet the flash still is, and the halo's colour ride in
+                // floats a flash has no other use for.
+                FireSun = new float4(BurstFlash.Glare, BurstFlash.Violet, BurstFlash.Whiteout, 0f),
                 Shape = new float4(BurstFlash.GlareColour.X, BurstFlash.GlareColour.Y,
-                                   BurstFlash.GlareColour.Z, 0f),
+                                   BurstFlash.GlareColour.Z, BurstFlash.HaloViolet),
             };
 
             _pipeline!.BindPipeline(commandBuffer, viewport.ShaderSlot, default, default, flash);

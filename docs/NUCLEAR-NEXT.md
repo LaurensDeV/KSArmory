@@ -33,7 +33,7 @@ largest gap.
 | Real | Drawn |
 |---|---|
 | The fireball's surface is mottled: bomb debris and instabilities glow unevenly, and a tower shot throws spikes where the guy wires flash off | **Mottled by the fire pockets**, which wrap the ball from the first second; a debris shell on the ball's own skin was built and taken out, because the same frame with it and without it could not be told apart. No guy-wire spikes |
-| The air round the ball glows violet for an instant, strongest at night | Nothing |
+| The air round the ball glows violet for an instant, strongest at night | **Built**, and mostly in the whiteout: from far off the whole blinded view is lavender, lilac round the burst and deeper toward the edges (a film of a Nevada shot, sent on 2026-09-23). The veil keeps the violet of the light that drove it through its recovery, so a night burst clears through lavender to purple over three seconds; the halo round the ball warms with the ball. A faint violet aura round the young cloud besides, summed analytically along each ray |
 | Heat and the shock front visibly bend the view round the ball | Nothing refracts |
 | A ring of dust races out along the ground behind the shock | **Built**, in the raymarch: a low wall lifted behind `MushroomCloud.ShockRadius`, thinning and climbing behind the front, out to about where it falls to a pound per square inch |
 | The flash throws hard shadows across everything in sight | The ball carries a light; what it reaches at range has not been checked |
@@ -77,8 +77,6 @@ whole time it is on screen**, and a six-warhead bus stands six of them.
   on the terrain. The terrain's shadows come from `Clouds/CloudShadows.glsl` on descriptor set 4,
   per-layer coverage maps with their own uniform blocks, which this pass does not bind. That set is
   the lead.
-- **The violet glow** round the ball lasts the first fraction of a second, which is exactly when the
-  whiteout covers the view; drawn, it would be seen by nobody.
 - **Heat shimmer** needs the scene read at an offset while it is being written, which is a copy of the
   scene image this pass does not have.
 - **Guy-wire spikes** are a tower shot's, and nothing in the arsenal is on a tower.

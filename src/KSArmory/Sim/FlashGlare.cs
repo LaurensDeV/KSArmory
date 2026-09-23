@@ -78,6 +78,24 @@ public static class FlashGlare
         return Math.Clamp(Math.Log10(1.0 + (suns / adaptedSuns)) / DecadesToWhite, 0.0, 1.0);
     }
 
+    /// <summary>
+    /// The e-folding time of the flash's violet, on the drawn clock -- stretched like the double
+    /// flash, so it is still there as the whiteout clears.
+    /// </summary>
+    public const double VioletSeconds = 0.8;
+
+    /// <summary>
+    /// How violet the flash is at an age, in [0, 1]: all of it at the burst, warming to the ball's
+    /// own yellow as it cools.
+    ///
+    /// <para><b>Seen from a distance the whole blinded view is lavender</b>, whitest round the burst
+    /// and deeper toward the edges: the burst's gamma rays set the air round it fluorescing in
+    /// nitrogen's blue-violet lines, and the fireball is hottest, bluest, then. A warm veil from the
+    /// first frame is the tell against every film of a test shot from far off.</para>
+    /// </summary>
+    public static double VioletShare(double ageSeconds)
+        => !(ageSeconds >= 0.0) ? 0.0 : Math.Exp(-ageSeconds / VioletSeconds);
+
     // How fast a whiteout clears, as the time constant of its recovery: by day and in full night.
     private const double DayRecoverySeconds = 0.28;
     private const double NightRecoverySeconds = 2.2;

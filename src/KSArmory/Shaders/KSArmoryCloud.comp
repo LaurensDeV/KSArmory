@@ -586,6 +586,10 @@ layout (constant_id = 8) const float GlareCoreNits = 3.0;
 const vec3 GlareWarm = vec3(1.00, 0.73, 0.38);
 const vec3 GlareHot = vec3(1.00, 0.97, 0.92);
 
+// And the young flash's: lilac near the burst, a deeper violet toward the edges of the view.
+const vec3 VeilLilac = vec3(0.92, 0.84, 1.00);
+const vec3 VeilViolet = vec3(0.66, 0.50, 0.92);
+
 // The angles at which the glare's brightness and its whiteness have fallen by half. Veiling glare
 // in an eye or a lens goes roughly as the inverse square of the angle off the source; the colour
 // turns more slowly, because it is set by where the channels stop clipping.
@@ -653,6 +657,24 @@ layout (constant_id = 24) const float DustDensity = 2.0;
 layout (constant_id = 25) const float DustSeconds = 14.0;
 const float DustLifeSeconds = 60.0;
 const int DustSteps = 32;
+
+// THE VIOLET GLOW round the young fireball: its colour, how bright a ray through the middle of it
+// reads, how long it lasts on the drawn clock -- stretched like the double flash, so it outlives the
+// whiteout -- and how far out it reaches, in fireball radii.
+const vec3 VioletColour = vec3(0.42, 0.18, 1.00);
+layout (constant_id = 30) const float VioletNits = 4.0;
+const float VioletSeconds = 0.7;
+const float VioletReachInBalls = 6.0;
+
+// The error function, to a few parts in ten thousand (Abramowitz and Stegun 7.1.26): what a
+// Gaussian integrates to along a ray.
+float Erf(float x)
+{
+    float t = 1.0 / (1.0 + 0.3275911 * abs(x));
+    float y = 1.0 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t
+                     + 0.254829592) * t * exp(-x * x);
+    return x < 0.0 ? -y : y;
+}
 
 // Dry dust: paler than the stem's foot, which is ground the fireball burned.
 const vec3 DustColour = vec3(0.46, 0.36, 0.25);
@@ -802,6 +824,13 @@ void main()
         // White near the burst, and less of it as the flash dies: the recovery tail is the ball
         // cooling as well as the eye adapting.
         vec3 hue = mix(GlareWarm, GlareHot, white * (0.35 + 0.65 * whiteout));
+
+        // VIOLET FIRST. From far off the whole blinded view is lavender while the burst is young --
+        // lilac round it and deeper violet toward the edges. BurstFlash.Violet, the colour of the
+        // light that did the blinding, in a float the flash has no other use for; the halo's own,
+        // which warms with the ball, is in the shape's fourth.
+        float violetShare = clamp(pc.FireSun.y, 0.0, 1.0);
+        hue = mix(hue, mix(VeilViolet, VeilLilac, white), violetShare);
         // Past the clip everywhere at the peak, so the whole view burns out white; as the eye
         // recovers the edge falls under the clip first, which is where the colour shows. Held
         // under the clip throughout, the peak was a see-through gold and read as a weak flash.
@@ -815,6 +844,7 @@ void main()
         // AND THE HALO, which outlasts the whiteout: the eye recovers while the ball still burns,
         // and what scatters round it lasts as long as it is bright, in its own colour as it cools.
         vec3 ball = pc.Shape.xyz / max(max(pc.Shape.x, max(pc.Shape.y, pc.Shape.z)), 1e-3);
+        ball = mix(ball, VeilLilac, 0.7 * clamp(pc.Shape.w, 0.0, 1.0));
         float halo = min(pc.FireSun.x * HaloGain, HaloMost) * core;
         blinded = mix(blinded, ball * (0.9 + 1.2 * core), halo);
 
@@ -1373,7 +1403,27 @@ void main()
     }
 
     float ringShows = ringClearInFront * (1.0 - (weatherClear * (1.0 - ringClearBehind)));
-    if (transmittance > 0.999 && ringShows > 0.999) return;
+
+    // THE VIOLET GLOW. The burst's gamma rays ionise the air for some way round the fireball, and
+    // the nitrogen fluoresces blue-violet -- the purple aura round the ball in the first moments,
+    // strongest at night. A glow rather than a thing, so it is summed analytically along the ray:
+    // a Gaussian of emission about the ball, which integrates to an error function, cut where the
+    // ray meets the ground or the ball. No samples, so no grain.
+    vec3 violet = vec3(0.0);
+    float violetNow = VioletNits * smoothstep(0.0, 0.04, age) * exp(-age / VioletSeconds);
+    if (violetNow > 0.001 && pc.FireSun.x > 0.0 && !columnIsWater)
+    {
+        vec3 ball = toCentre + up * pc.Shape.x;
+        float spread = VioletReachInBalls * pc.FireSun.x;
+        float nearest = dot(ball, dir);
+        float missSq = max(dot(ball, ball) - nearest * nearest, 0.0);
+
+        // Normalised so a ray through the middle of the whole glow reads VioletNits.
+        float through = 0.5 * (Erf((sceneT - nearest) / spread) - Erf(-nearest / spread));
+        violet = VioletColour * violetNow * exp(-missSq / (spread * spread)) * through;
+    }
+
+    if (transmittance > 0.999 && ringShows > 0.999 && dot(violet, violet) < 1.0e-8) return;
 
     // Aerial perspective: what is between the eye and the cloud, washing it toward the sky with
     // range. Without it a cloud two kilometres off is as crisp as one at arm's length, which is the
@@ -1454,7 +1504,11 @@ void main()
         under = vec4(under.rgb * lets + body * strength, under.a * lets);
     }
 
-    imageStore(layerColor, at, under);
+    // The glowing air is round and behind the young cloud as much as in front of it, so it shows
+    // where the cloud lets the background through: an aura round the fire rather than a wash over
+    // it. Added over the fire, violet on orange came out pink.
+    float aura = mix(1.0, sceneShows, 0.85);
+    imageStore(layerColor, at, vec4(under.rgb + violet * aura * strength, under.a));
 
     float anyWeight = depthWeight + ringDepthWeight;
     if (strength * (1.0 - sceneShows * ringShows) > 0.02 && anyWeight > 0.0)

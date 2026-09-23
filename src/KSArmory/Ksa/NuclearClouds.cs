@@ -291,6 +291,10 @@ internal static class NuclearClouds
         }
     }
 
+    /// <summary>How old one of <see cref="TryBurning"/>'s bursts is, or NaN.</summary>
+    public static double BurningAge(int index)
+        => index >= 0 && index < _burning.Count ? _burning[index].Age : double.NaN;
+
     // The newest burst worth pointing a camera at, which is NOT the newest cloud: an airless burst
     // grows no column and is still the thing to watch. Body-fixed like the clouds, and flat rather
     // than a list because nothing about it advances -- how big a burst draws is settled when it

@@ -34,15 +34,19 @@ internal static class BurstFlash
     // the level: an eye adapts while the source is still burning.
     private static double _held;
     private static double _seen;
+    private static double _veilViolet;
 
     /// <summary>Forgets it, for a scene that no longer contains the burst.</summary>
     public static void Reset()
     {
         _held = 0.0;
         _seen = 0.0;
+        _veilViolet = 0.0;
         _fadeSeconds = FlashGlare.RecoverySeconds(1.0);
         Whiteout = 0f;
         Glare = 0f;
+        Violet = 0f;
+        HaloViolet = 0f;
         GlareColour = default;
         SourceIndex = -1;
     }
@@ -56,6 +60,15 @@ internal static class BurstFlash
     /// scattering round a bright source lasts exactly as long as the source is bright.
     /// </summary>
     public static float Glare { get; private set; }
+
+    /// <summary>
+    /// How violet the whiteout is, in [0, 1]: the <see cref="FlashGlare.VioletShare"/> of the light
+    /// that drove it, held through its recovery.
+    /// </summary>
+    public static float Violet { get; private set; }
+
+    /// <summary>How violet the ball's light is now, which the halo round it takes as it warms.</summary>
+    public static float HaloViolet { get; private set; }
 
     /// <summary>The ball's own colour, which the halo takes as it cools to orange.</summary>
     public static float3 GlareColour { get; private set; }
@@ -136,6 +149,12 @@ internal static class BurstFlash
                 _fadeSeconds = FlashGlare.RecoverySeconds(brightestAdapted);
             }
 
+            // How violet the ball's light is now, which the halo round it takes.
+            double violetNow = SourceIndex >= 0
+                                   ? FlashGlare.VioletShare(NuclearClouds.BurningAge(SourceIndex))
+                                   : 0.0;
+            HaloViolet = (float)violetNow;
+
             // Driven by the RISE and recovering always, rather than held at whatever is burning.
             // Held at the level, the ball keeps the view at full white for the whole of its 1.9 s
             // burn and only then begins a two and a half second decay -- flown, and still near
@@ -148,7 +167,19 @@ internal static class BurstFlash
             // as one that arrives in one. Held at the largest step, a burst reaching full brightness
             // in two frames stopped at the first one's 0.6.
             if (dt > 0.0) _held *= Math.Exp(-dt / _fadeSeconds);
-            _held = Math.Min(_held + rise, 1.0);
+            double added = Math.Min(_held + rise, 1.0) - _held;
+
+            // THE VEIL KEEPS THE COLOUR OF WHAT BLINDED IT. It is the eye's afterimage, so it is
+            // violet if the violet flash drove it, however far the ball has warmed since -- read
+            // off the ball's age instead, a night whiteout stayed clipped white while the violet
+            // passed and cleared peach. Mixed by how much of the whiteout each rise put there.
+            if (added > 0.0)
+            {
+                _veilViolet = ((_held * _veilViolet) + (added * violetNow)) / (_held + added);
+            }
+
+            _held += added;
+            Violet = (float)_veilViolet;
 
             Whiteout = (float)Math.Clamp(_held, 0.0, MostOpaque);
             if (Whiteout <= 0.004f) Whiteout = 0f;
