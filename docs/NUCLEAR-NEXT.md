@@ -167,10 +167,18 @@ the screen out exactly as one dead ahead does.
 `Sim/FlashGlare.cs`. Full while the burst is in frame, then a smoothstep to a floor, and the field
 is the view's own so the sight's three-degree frame is judged as three degrees.
 
-**Unit-tested and not flown.** `CloudWatch` pins the camera on the burst from the frame it happens,
-so no shipped scenario can face away from one. The curve's invariants are pinned instead —
-monotone, bounded, full in frame, floored behind — and the flight confirms only that the flash
-still fires when you are looking at it.
+**Flown on 2026-09-23**, with the bridge camera turned from the burst (`turn_deg`) before it went
+off — turned after, the first frame's rise is taken facing it and the side-on reading comes out as
+high as facing. A 0.3 kt burst at 2.4 km by day, 0.15 s in:
+
+| Turned from it | 0° | 30° | 60° | 90° | 180° |
+|---|---|---|---|---|---|
+| whiteout | 0.67 | 0.67 | 0.67 | 0.43 | 0.40 |
+| glare | 0.72 | 0.72 | 0.56 | 0.25 | 0.24 |
+
+The whiteout saturates out to 60°, because even a reduced share of a flash that many suns bright is
+decades over daylight on the eye's log scale; past the fall-off it settles at the floor and never
+reaches nothing. The curve's invariants are still pinned by the unit tests.
 
 **And it is centred on the burst, white only where it clips.** A glare is brightest at its source
 and falls off roughly as the inverse square of the angle off it; where it stops clipping it shows
