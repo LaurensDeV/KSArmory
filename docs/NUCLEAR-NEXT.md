@@ -48,7 +48,7 @@ largest gap.
 | The ball hollows into a glowing ring as its underside is drawn up, a doughnut of fire turning over | **Built, not yet judged from below.** The glow moves from the core onto the ring over four seconds and rolls with it; from the side it reads as pockets rather than a ring |
 | Violent churning at every scale, rising at hundreds of metres a second at first | **Built.** The roll and the boil start six times the steady rate and settle over about six seconds |
 | A crater, and dark jets of thrown dirt | Neither; a crater is blocked on the engine (item 12) |
-| Smoke from what the flash set burning | A static burn mark |
+| Smoke from what the flash set burning | **Built**: nine thin dark plumes scattered on a hash between 1.8 and 6 stem radii, kindling from 4 to 20 s, bending downwind as they climb and standing as long as the cloud. They read up close and are faint from the watching pose |
 
 **The first minute.**
 
