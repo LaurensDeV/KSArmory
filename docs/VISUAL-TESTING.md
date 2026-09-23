@@ -103,7 +103,7 @@ log (`scenario.txt`); a command channel is the same idea kept open for the whole
 - **The mod** polls `<user dir>/Logs/bridge/in/` ten times a second, runs each command file it
   finds, oldest first, and answers in `.../out/` — JSON, plus any pictures. Commands: *status*,
   *pause*, *resume*, *speed*, *step* (run so many simulated seconds, then pause), *camera* (a pose
-  relative to the newest burst, or *release*), *burst* (a yield east and north of the craft, as the
+  relative to the newest burst, circling it at `orbit_deg_s` if asked, or *release*), *burst* (a yield east and north of the craft, as the
   panel's burst tool does, with no damage), *capture* (3–5), *set* and *get* (a `Config` field),
   *reload_shaders* (2), *tune* (6, 7), *cost* (the pass's GPU time against the frame's, since a
   reset), *site*, *player_capture*, *clear* (forget the clouds) and *load* (a save). The log is

@@ -34,6 +34,10 @@ internal sealed class Bridge
 
     // The pose the bridge holds the view in, and the view it took, to hand back.
     private CloudWatch.Pose? _pose;
+
+    // Degrees a second the held camera circles the burst, on the player's clock so it turns with the
+    // world paused: a camera moving between frames is what the cloud's accumulation has to survive.
+    private double _orbitDegPerSecond;
     private KsaWorld.MainView _saved;
     private Vehicle? _posedFrom;
 
@@ -68,6 +72,11 @@ internal sealed class Bridge
     {
         try
         {
+            if (_pose is { } held && _orbitDegPerSecond != 0.0 && double.IsFinite(dtPlayer))
+            {
+                _pose = held with { AzimuthDeg = held.AzimuthDeg + (_orbitDegPerSecond * dtPlayer) };
+            }
+
             if (_running is not null && _current is not null)
             {
                 if (_running(dtPlayer, dtSim) is { } reply) Answer(_current, reply);
@@ -339,6 +348,7 @@ internal sealed class Bridge
         _pose = new CloudWatch.Pose(command.Number("azimuth_deg", 0.0), command.Number("elevation_deg", 14.0),
                                     command.Number("distance_m", 0.0), command.Number("aim", 0.45),
                                     command.Number("turn_deg", 0.0));
+        _orbitDegPerSecond = command.Number("orbit_deg_s", 0.0);
 
         return Done(new() { ["held"] = true });
     }
