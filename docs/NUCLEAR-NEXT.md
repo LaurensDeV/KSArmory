@@ -1,8 +1,9 @@
 # What the nuclear effect still needs
 
-**A plan, not a record.** Nothing here is built. `docs/NUCLEAR-EFFECT.md` is the research —
-which of KSA's renderers a mod can reach, and what a mushroom cloud actually looks like — and
-`CHECKLIST.md` §7.1f4 is what has been flown. This is the ranked backlog between them.
+**The backlog, and what came of it.** Most of it is built now, each item marked where it stands
+with what was flown; what is not built says why. `docs/NUCLEAR-EFFECT.md` is the research — which of
+KSA's renderers a mod can reach, and what a mushroom cloud actually looks like — and `CHECKLIST.md`
+§7.1f4 is what has been flown.
 
 ## The shape of the gap
 
