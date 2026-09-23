@@ -204,7 +204,8 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
   `StarMap.exe` directly. `run.sh` finds it under the Windows user profile — override with
   `STARMAP_DIR`. It reads `./StarMapConfig.json` **relative to its own directory**, so it must be
   launched from there.
-- **The mod writes its own log** to `<KSA user dir>/Logs/KSArmory.log`, readable from WSL;
+- **The mod writes its own log** to `<KSA user dir>/Logs/KSArmory.log`, readable from WSL, with the
+  session before kept as `KSArmory.prev.log` so relaunching to investigate does not erase the evidence;
   `./tools/ksa-user-dir.sh` prints that directory and `./tools/run.sh --attach` follows the log.
   `Console.WriteLine` only reaches stdout, and KSA's own log — one per session, the newest
   `KittenSpaceAgency.<yymmdd-hhmmss>.<pid>.log` in the same folder — is written by its internal
