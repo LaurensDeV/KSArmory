@@ -91,7 +91,14 @@ whole time it is on screen**, and a six-warhead bus stands six of them.
   4.21 from under the deck. (A first comparison ran the new shader in both arms — `docs/VISUAL-TESTING.md`
   item 2.) `docs/KSA-MODDING-NOTES.md` has what the distance actually holds.
 - **Heat shimmer** needs the scene read at an offset while it is being written, which is a copy of the
-  scene image this pass does not have.
+  scene image this pass does not have, and KSA keeps none (its one copy is of depth). **Priced, not
+  built**: a copy of the region round the ball into a scratch image, then the scene written back from
+  it at noisy offsets — two memory-bound passes. The pass's own full-screen resolve is that kind of
+  work and heavier per pixel, and it costs 0.58 ms at 1440×900 against a 18–24 ms frame (a cloud
+  standing, the camera turned away, against 0.00 with none). So full-screen shimmer is at most about
+  half a millisecond there, a tile round the ball a fraction of that, and nothing once the ball is
+  out. The same copy would also draw the shock front as a refraction ring, which the removed blast
+  wave volume used to stand in for.
 - **Guy-wire spikes** are a tower shot's, and nothing in the arsenal is on a tower.
 
 **By design.** The cloud is drawn at 65% of its law (`MushroomCloud.DrawnScale`); a true 0.3 kt
@@ -244,7 +251,12 @@ and the test-film record before anything changed. What held, and what was built:
 - **It reached full size in 0.34 s** at every yield. It now grows as `t^0.4`, over 2.2 s at 340 kt.
 - **The condensation shell timed off the glow**, so lengthening one would have stretched the other.
   It is on the blast's clock now: 3 s at 20 kt (Glasstone §2.49), by the cube root elsewhere, and it
-  condenses a third of its life in rather than at the burst.
+  condenses a third of its life in rather than at the burst. **But it has never drawn as a shell.**
+  Flown with the cloud pass off: KSA's screen-space volumetric particle renders it as a blocky
+  low-resolution puff about 250 m across, white and then dark grey, at the right times — against the
+  1 km (20 kt) and 3 km (340 kt) white dome it is sized as. With the pass on it sits inside the cloud
+  and nobody sees it. Not fixed: redrawing it as a shell in the raymarch, like the collars, is the
+  likely answer, and it has not been built.
 
 What did not hold: a five-second swelling ball is high-speed film played slowed (test cameras ran at
 about 2,400 fps), and a ground burst is a dome, not a sphere. Flown at 340 kt from 30 km and 20 kt
@@ -397,7 +409,11 @@ Nothing echoes off the terrain that is actually there.
 
 ### 9. Temporal accumulation — built
 
-`CHECKLIST.md` has the flight. What is left is watching it with a camera that moves fast.
+`CHECKLIST.md` has the flight. **Watched moving on 2026-09-23**, the world paused and the camera
+circling a 20 kt cloud 12 km out (`orbit_deg_s`): at 30 and 90 deg/s the billows are as crisp as
+standing still, no smear and no doubled edge; at 360 deg/s — a whip-pan — the history is thrown
+away rather than dragged, and what shows is a single frame's grain, speckled at the edges. It never
+ghosts.
 
 The march is 48 steps on a per-pixel hash, and grain is what limits it. Interleaved gradient noise
 was tried in its place and reverted, because it is built to be resolved by temporal accumulation
