@@ -380,9 +380,14 @@ internal sealed class ChaseCamera : IViewPose
                 double fromBurst;
                 if (_watching)
                 {
-                    double3 toBurst = watched - _followed.GetPositionEcl();
-                    if (Vec.IsFinite(toBurst) && Vec.Len2(toBurst) > 1.0) _holdForward = Vec.Unit(toBurst);
+                    double3 heldEye = _followed.GetPositionEcl();
+                    double3 toBurst = burst - heldEye;
+                    double3 look = ChaseView.WatchBurstForward(toBurst, watched - heldEye, _poseFovDeg);
+                    if (Vec.IsFinite(look) && Vec.Len2(look) > 0.5) _holdForward = look;
                     fromBurst = Vec.Len(toBurst);
+                    Log.Info($"chase: looking {double.RadiansToDegrees(Vec.AngleBetween(_holdForward, Vec.Unit(toBurst))):F1} deg "
+                             + $"above the burst, whose column's middle is "
+                             + $"{double.RadiansToDegrees(Vec.AngleBetween(Vec.Unit(watched - heldEye), Vec.Unit(toBurst))):F1} deg above it");
                 }
                 else
                 {
@@ -562,8 +567,7 @@ internal sealed class ChaseCamera : IViewPose
 
         // Near enough the arrival to stop riding it and watch it go in, from where the eye is now.
         double arrival = ArrivalSeconds(battery, round, aim, gravity, toGo);
-        double stopShort = ChaseView.StopShortMetres(round.Munition.ChargeKg);
-        if (ChaseView.StopsShort(arrival, round.VelocityLocal, gravity, stopShort)
+        if (ChaseView.StopsShort(arrival, round.VelocityLocal, gravity, round.Munition.ChargeKg)
             && battery.TryRoundEffectEcl(round, out double3 drawn))
         {
             _followed.HoldAt(battery.Platform, drawn + viewEye);

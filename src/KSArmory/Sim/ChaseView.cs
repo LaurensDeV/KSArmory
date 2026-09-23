@@ -346,24 +346,37 @@ public static class ChaseView
 
     /// <summary>
     /// Whether a round is near enough its arrival to stop and watch: within
-    /// <paramref name="stopShortMetres"/> of where it arrives, and within <see cref="WatchSeconds"/>
-    /// of getting there. With the time unknown the chase never stops.
+    /// <see cref="StopShortMetres"/> of where it arrives, and within <see cref="WatchSeconds"/> of
+    /// getting there. With the time unknown the chase never stops.
     ///
     /// <para>The distance left is the straight line to where the fall ends, gravity included —
     /// never the time to go times the speed now, which a store thrown upwards reads as nothing at the
-    /// top of its climb. And a round whose whole flight is inside the distance is ridden until the
+    /// top of its climb. And a round whose whole flight is inside the distance is ridden until its
     /// last few seconds rather than let go at release.</para>
     /// </summary>
-    public static bool StopsShort(double timeToGo, double3 velocity, double3 gravity, double stopShortMetres)
-        => double.IsFinite(timeToGo) && timeToGo >= 0.0 && timeToGo <= WatchSeconds
-           && Vec.Len(ArrivalFromRound(timeToGo, velocity, gravity)) <= stopShortMetres;
+    public static bool StopsShort(double timeToGo, double3 velocity, double3 gravity, double chargeKg)
+        => double.IsFinite(timeToGo) && timeToGo >= 0.0 && timeToGo <= WatchSeconds(chargeKg)
+           && Vec.Len(ArrivalFromRound(timeToGo, velocity, gravity)) <= StopShortMetres(chargeKg);
+
+    /// <summary>
+    /// How long before its arrival a chase may stop riding a round: the time its stop-short distance
+    /// takes at <c>WatchMetresPerSecond</c>, so a bigger warhead is let go of earlier and further
+    /// out — 4 s at the B61's 0.3 kt, 13 s at 10 kt and 44 s at 340 kt — and never under
+    /// <see cref="MinWatchSeconds"/>, which leaves every conventional round to the distance alone.
+    /// </summary>
+    public static double WatchSeconds(double chargeKg)
+        => Math.Max(MinWatchSeconds, StopShortMetres(chargeKg) / WatchMetresPerSecond);
+
+    public const double MinWatchSeconds = 4.0;
+
+    // Faster than a falling bomb arrives, so the time is the binding bound only for one thrown up or
+    // released low, whose whole flight is inside the distance.
+    private const double WatchMetresPerSecond = 500.0;
 
     /// <summary>Where a round arrives from where it is now, flown under gravity alone.</summary>
     public static double3 ArrivalFromRound(double timeToGo, double3 velocity, double3 gravity)
         => (velocity * timeToGo) + (gravity * (0.5 * timeToGo * timeToGo));
 
-    /// <summary>How long before its arrival a chase stops riding a round, at the most.</summary>
-    public const double WatchSeconds = 4.0;
 
 
     /// <summary>
@@ -390,6 +403,32 @@ public static class ChaseView
     // Six radii out, so the whole ball and what it throws are in frame: a 300-tonne bomb is watched
     // from a kilometre and a 20-kiloton warhead from four.
     private const double StopShortFireballs = 6.0;
+
+    /// <summary>
+    /// Which way a held eye looks at a burst with a cloud to stand over it: at the middle of the
+    /// column, but never so far above the burst that the burst leaves the frame. From the kilometres
+    /// the column height was chosen at that tilt is gentle; from a few hundred metres the middle of
+    /// the column is nearly straight up, and the view ends up on whatever is flying overhead.
+    /// </summary>
+    /// <param name="fovDeg">The vertical field of view, which is what KSA's projection takes.</param>
+    public static double3 WatchBurstForward(double3 eyeToBurst, double3 eyeToColumn, double fovDeg)
+    {
+        double3 atBurst = Vec.Unit(eyeToBurst);
+        double3 atColumn = Vec.Unit(eyeToColumn);
+        if (Vec.Len2(atBurst) < 0.5) return atColumn;
+        if (Vec.Len2(atColumn) < 0.5) return atBurst;
+
+        double most = double.DegreesToRadians(BurstInFrameShare * 0.5 * fovDeg);
+        if (!(most > 0.0) || Vec.AngleBetween(atBurst, atColumn) <= most) return atColumn;
+
+        double3 toward = atColumn - (atBurst * Vec.Dot(atBurst, atColumn));
+        if (Vec.Len2(toward) < 1e-12) return atBurst;
+
+        return (atBurst * Math.Cos(most)) + (Vec.Unit(toward) * Math.Sin(most));
+    }
+
+    // How far from the centre towards the bottom edge the burst may sit.
+    private const double BurstInFrameShare = 0.6;
 
     /// <summary>
     /// How far above the burst to look while a cloud stands, in metres.

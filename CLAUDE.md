@@ -2918,7 +2918,8 @@ be handed straight back, and one still turning onto its target is picked up once
 **The chase stops short of the arrival and watches it go in.** Riding the round all the way held the
 burst from the last pose — a few metres behind it, inside the explosion the linger is there to show.
 So once the round is inside `ChaseView.StopShortMetres` of where it lands and within
-`ChaseView.WatchSeconds` of getting there, the eye is held on the ground where it is and only the look
+`ChaseView.WatchSeconds` of getting there — that distance at 500 m/s, so 4 s at 0.3 kt and 44 s at
+340 kt — the eye is held on the ground where it is and only the look
 follows the round in, and the linger holds on the burst from there. **What is left is the straight line
 to the landing, gravity included** — never time to go times the speed now, which a bomb thrown upwards
 reads as nothing at the top of its climb, letting go of it there for the whole fall. And the time bound

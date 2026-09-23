@@ -33,15 +33,15 @@ public class ChaseStopShortTests
     public void TheChaseStopsOnlyOnceWhatIsLeftIsInsideTheDistance()
     {
         // A 5-inch shell at 800 m/s: 160 m to go rides on, 56 m to go stops.
-        Assert.False(ChaseView.StopsShort(timeToGo: 0.2, Level800, Down, stopShortMetres: 60.0));
-        Assert.True(ChaseView.StopsShort(timeToGo: 0.07, Level800, Down, stopShortMetres: 60.0));
+        Assert.False(ChaseView.StopsShort(timeToGo: 0.2, Level800, Down, chargeKg: 3.3));
+        Assert.True(ChaseView.StopsShort(timeToGo: 0.07, Level800, Down, chargeKg: 3.3));
     }
 
     [Fact]
     public void NothingToCountDownToNeverStopsIt()
     {
-        Assert.False(ChaseView.StopsShort(double.NaN, Level800, Down, 60.0));
-        Assert.False(ChaseView.StopsShort(-1.0, Level800, Down, 60.0));
+        Assert.False(ChaseView.StopsShort(double.NaN, Level800, Down, 3.3));
+        Assert.False(ChaseView.StopsShort(-1.0, Level800, Down, 3.3));
     }
 
     /// <summary>
@@ -52,27 +52,65 @@ public class ChaseStopShortTests
     [Fact]
     public void AStoreAtTheTopOfItsClimbIsNotAlmostThere()
     {
-        double3 atTheTop = new(5.0, 0.0, 0.0);
+        double3 atTheTop = new(4.0, 0.0, 0.0);
         double fall = Math.Sqrt(2.0 * 710.0 / 9.81);
 
-        Assert.True(fall * 5.0 < 100.0);
-        Assert.False(ChaseView.StopsShort(fall, atTheTop, Down, stopShortMetres: 100.0));
+        Assert.True(fall * 4.0 < ChaseView.StopShortMetres(3.3));
+        Assert.False(ChaseView.StopsShort(fall, atTheTop, Down, chargeKg: 3.3));
         Assert.InRange(Vec.Len(ChaseView.ArrivalFromRound(fall, atTheTop, Down)), 700.0, 730.0);
     }
 
     /// <summary>
     /// A bomb whose whole flight is inside the distance it is watched from is ridden down to its last
-    /// few seconds rather than let go of at release, which left the view kilometres from it for the
-    /// whole of a thrown-up drop.
+    /// seconds rather than let go of at release, which left the view kilometres from it for the whole
+    /// of a thrown-up drop.
     /// </summary>
     [Fact]
     public void AFlightInsideTheDistanceIsRiddenToItsLastSeconds()
     {
-        double stand = ChaseView.StopShortMetres(300_000.0);
+        const double b61 = 300_000.0;
         double3 falling = new(0.0, 0.0, -60.0);
 
-        Assert.False(ChaseView.StopsShort(ChaseView.WatchSeconds + 6.0, falling, Down, stand));
-        Assert.True(ChaseView.StopsShort(ChaseView.WatchSeconds - 0.5, falling, Down, stand));
+        Assert.False(ChaseView.StopsShort(ChaseView.WatchSeconds(b61) + 6.0, falling, Down, b61));
+        Assert.True(ChaseView.StopsShort(ChaseView.WatchSeconds(b61) - 0.5, falling, Down, b61));
+    }
+
+    /// <summary>A bigger warhead is let go of earlier, and a conventional round is left to the distance.</summary>
+    [Fact]
+    public void TheWatchGrowsWithTheYield()
+    {
+        Assert.Equal(ChaseView.MinWatchSeconds, ChaseView.WatchSeconds(3.3));
+        Assert.Equal(ChaseView.MinWatchSeconds, ChaseView.WatchSeconds(MushroomCloud.ThresholdKg - 1.0));
+        Assert.InRange(ChaseView.WatchSeconds(0.3e6), 4.0, 4.5);
+        Assert.InRange(ChaseView.WatchSeconds(10.0e6), 13.0, 14.0);
+        Assert.InRange(ChaseView.WatchSeconds(340.0e6), 43.0, 44.0);
+
+        // A 340 kt bomb falling at 250 m/s 30 s out is inside its watch; a 0.3 kt one is not.
+        double3 falling = new(0.0, 0.0, -250.0);
+        Assert.True(ChaseView.StopsShort(30.0, falling, Vec.Zero, 340.0e6));
+        Assert.False(ChaseView.StopsShort(30.0, falling, Vec.Zero, 0.3e6));
+    }
+
+    /// <summary>
+    /// Held a few hundred metres off, the middle of a 0.3 kt column is nearly straight up and the
+    /// view ends on whatever is flying overhead. The burst is kept in the frame instead.
+    /// </summary>
+    [Fact]
+    public void AHeldEyeKeepsTheBurstInFrame()
+    {
+        double lift = ChaseView.CloudAimHeightMetres(0.3e6);
+        double3 toBurst = new(300.0, 0.0, -150.0);
+        double3 toColumn = toBurst + new double3(0.0, 0.0, lift);
+
+        double3 near = ChaseView.WatchBurstForward(toBurst, toColumn, 60.0);
+        Assert.True(Vec.AngleBetween(Vec.Unit(toColumn), Vec.Unit(toBurst)) > double.DegreesToRadians(40.0));
+        Assert.Equal(18.0, double.RadiansToDegrees(Vec.AngleBetween(near, Vec.Unit(toBurst))), 6);
+        Assert.True(near.Z > Vec.Unit(toBurst).Z);
+
+        // From as far as the column height was chosen at, it is looked at as it always was.
+        double3 farBurst = new(2000.0, 0.0, -150.0);
+        double3 farColumn = farBurst + new double3(0.0, 0.0, lift);
+        Assert.Equal(Vec.Unit(farColumn), ChaseView.WatchBurstForward(farBurst, farColumn, 60.0));
     }
 
     /// <summary>
