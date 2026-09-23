@@ -138,7 +138,10 @@ public static class MushroomCloud
 
         // At the overshoot's peak, which is as big as the RISING shape ever gets, and now.
         double reach = ReachOf(At(yieldKt * 1.0e6, RiseSeconds * (1.0 + OvershootAt)));
-        if (age > RiseSeconds) reach = Math.Max(reach, ReachOf(At(yieldKt * 1.0e6, age)));
+        if (age > RiseSeconds)
+        {
+            reach = Math.Max(reach, ReachOf(At(yieldKt * 1.0e6, age)) * (1.0 + (AgedShear * Aged(age))));
+        }
 
         return Math.Max(top, reach * 1.15);
     }
@@ -165,6 +168,14 @@ public static class MushroomCloud
 
     /// <summary>How much of the stem's width is gone by the end of the stand.</summary>
     public const double AgedStemLoss = 0.65;
+
+    /// <summary>
+    /// How much longer downwind the cloud's upper part is drawn by the end of its stand: a share of
+    /// its own reach on that side. A real cloud drifts off as a plume; this one stands over the
+    /// ground it burned by decision, so it shears instead -- the upwind edge and the foot unmoved.
+    /// The shader stretches the shape by this (<c>AgedShear</c> there), and the bound grows with it.
+    /// </summary>
+    public const double AgedShear = 1.2;
 
     /// <summary>How much thinner the whole cloud is by the time it starts to fade out.</summary>
     public const double AgedThinning = 0.35;

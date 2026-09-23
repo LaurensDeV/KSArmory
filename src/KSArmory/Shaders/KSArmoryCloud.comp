@@ -357,6 +357,21 @@ vec3 WorldAt(vec2 uv, float deviceZ)
 // The wind, as the pens lean into it: MushroomCloud.LeanAt, super-linear in height so the foot
 // stays over the crater while the cap rides downwind. A column standing exactly vertical is the
 // plainest tell that a shape was generated.
+// How far through its stand the cloud is, eased, in [0, 1]: MushroomCloud.Aged, with its two
+// times. MushroomCloudShaderTests holds these to the C#.
+const float StandBeginsSeconds = 38.0;
+const float StandLastsSeconds = 240.0;
+
+// How much longer downwind the aged cloud's top is drawn, by the end of its stand:
+// MushroomCloud.AgedShear.
+const float AgedShear = 1.2;
+
+float Aged(float age)
+{
+    float t = clamp((age - StandBeginsSeconds) / StandLastsSeconds, 0.0, 1.0);
+    return t * (2.0 - t);
+}
+
 vec3 Unlean(vec3 world, vec3 up, float top)
 {
     float y = dot(world, up);
@@ -384,7 +399,20 @@ vec3 Unlean(vec3 world, vec3 up, float top)
 
     // Taken OFF the sample: the shape is upright and the world is leaning, so a point out downwind
     // belongs to a part of the column further up rather than to nothing.
-    return world - blown * lean;
+    vec3 upright = world - blown * lean;
+
+    // AND AS IT AGES, SHEARED DOWNWIND. A real cloud drifts off as a long plume; this one stays
+    // over the ground it burned, by decision, so its upper part is stretched out downwind instead --
+    // the upwind edge where it was, the foot unmoved -- rather than slid. The downwind half of the
+    // shape is read from nearer the axis, which is what drawing it longer means.
+    // By height against the CAP, not the bound: the bound grows with this very stretch, and
+    // measured against it the cap sat too low to be sheared at all.
+    float stretch = AgedShear * Aged(pc.AgeStrengthWind.x)
+                    * smoothstep(0.30, 0.90, y / max(pc.Shape.x, 1.0));
+    float along = dot(upright - up * y, wind);
+    if (stretch > 0.0 && along > 0.0) upright -= wind * (along * (1.0 - 1.0 / (1.0 + stretch)));
+
+    return upright;
 }
 
 // How far a ray toward the sun travels through the cap's dome, in metres: a ray-ellipsoid chord, in
