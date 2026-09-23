@@ -131,6 +131,46 @@ internal static class BlastDamage
     }
 
     /// <summary>
+    /// A load in real pascals beside the real overpressure that breaks the same part, both at sea
+    /// level: what <see cref="CombinedDentRatio"/> adds up. The failure radius scales with the cube
+    /// root of the charge, so the breaking overpressure is the part's, whatever the burst.
+    /// </summary>
+    public static (double RealPascals, double BreakingPascals) RealLoad(double chargeKg, double crashTolerancePascals,
+                                                                        double gap)
+    {
+        return (BlastWave.PeakOverpressurePascals(chargeKg, gap),
+                BlastWave.PeakOverpressurePascals(chargeKg, FailureRadius(chargeKg, crashTolerancePascals)));
+    }
+
+    /// <summary>
+    /// The dent several fronts reaching one part together amount to: their real overpressures added
+    /// against what breaks the part, bent as <see cref="DentRatio"/> bends one, and never less than
+    /// the strongest alone. A single load is its own ratio, unchanged.
+    ///
+    /// <para>Where two fronts meet head-on the pressure is a wall reflection rather than a sum, which
+    /// is more again; for fronts weak enough to dent rather than break that is a few per cent, and it
+    /// is left out.</para>
+    /// </summary>
+    public static double CombinedDentRatio(ReadOnlySpan<(double Ratio, double RealPascals, double BreakingPascals)> loads)
+    {
+        if (loads.Length == 0) return 0.0;
+        if (loads.Length == 1) return loads[0].Ratio;
+
+        double sum = 0.0, breaking = 0.0, strongest = 0.0;
+        foreach ((double ratio, double real, double breaks) in loads)
+        {
+            sum += Math.Max(real, 0.0);
+            breaking = Math.Max(breaking, breaks);
+            strongest = Math.Max(strongest, ratio);
+        }
+
+        if (!(breaking > 0.0)) return strongest;
+
+        double combined = Math.Pow(sum / breaking, Math.Log(EngineDentShare) / Math.Log(YieldShare));
+        return Math.Max(combined, strongest);
+    }
+
+    /// <summary>
     /// Every part of one craft this burst loads without breaking, with how hard and how far from
     /// the burst its skin is — what it would dent, and when the front gets there. A part in
     /// <paramref name="failed"/> is breaking off, and is left out.

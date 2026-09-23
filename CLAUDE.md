@@ -472,7 +472,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/Fireball.cs` | the light a nuclear fireball casts -- **the light alone**, because the ball is the cloud pass's fire, and a mesh sphere in the raymarched cloud read as a dark ball that drifted off centre when the camera panned |
 | `Ksa/PlumeSmoke.cs` | smoke through the renderer KSA draws booster plumes with, one reflected field away — **the motor trail's now; the nuclear cloud left it for a raymarch** |
 | `Ksa/MotorSmoke.cs` | the trail a burning round leaves, through that same renderer — one cursor per round |
-| `Ksa/BlastArrivals.cs` | what a burst loads, **held until the front gets there** — the dent and the dust land as the shock passes the part, on the simulated clock like the bang, and in the craft's own assembly frame so the planet cannot leave the burst behind |
+| `Ksa/BlastArrivals.cs` | what a burst loads, **held until the front gets there** — the dent and the dust land as the shock passes the part, on the simulated clock like the bang, and in the craft's own assembly frame so the planet cannot leave the burst behind. **Fronts reaching one part inside each other's positive phase dent it once, together**, their real pressures added (`BlastDamage.CombinedDentRatio`) |
 | `Ksa/BlastShake.cs` | the front passing the **camera**, watched against the live front rather than timed from the flash — the model; `CloudPass` moves the picture |
 | `Ksa/BlastPuff.cs` | the dust a front throws off the face it strikes — **a sprite the colour of dirt**, because KSA's billboard is unlit and ignores the particle colour |
 | `Ksa/NuclearClouds.cs` | the mushroom clouds standing in the world — **state and the fireball only**: the shape is drawn by `Ksa/CloudPass.cs`, which reads the newest cloud off this and raymarches it |
@@ -2108,7 +2108,10 @@ does, not at the flash**: `Ksa/BlastArrivals.cs` holds each load for `MushroomCl
 on the simulated clock, so 0.3 kt at 800 m dents 2.06 s after the burst, and in air the struck face
 throws a puff of dust along the blast (`Ksa/BlastPuff.cs`) and the wind behind the front pushes the
 craft (`Sim/BlastShove.cs`), written from `AttitudeHook`'s window the way `Vehicle.Split` pushes two
-halves apart: into the physics state, off rails, orbit rebuilt. Where there is no air the front is the
+halves apart: into the physics state, off rails, orbit rebuilt. **Several fronts at one part dent it
+together**: a front another will follow inside its positive phase hands its load on, and the part is
+dented at the last with the real pressures added, so two bursts either side of a craft dent what
+neither dents alone. The dust and the push go on arriving front by front, because those add anyway. Where there is no air the front is the
 debris itself and there is no delay to model, so it lands at once. **The craft that fired and
 the one being flown are dented and never broken**: the skip that protects them is about breaking,
 and a dent breaks nothing. Flown with a damaging bridge burst against the rocket on the pad:

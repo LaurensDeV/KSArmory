@@ -336,4 +336,36 @@ public class BlastDamageTests
                      BlastDamage.DentRatio(3.0e5, BlastDamage.ReferencePascals, fails * 0.8), 9);
         Assert.Equal(0.0, BlastDamage.DentRatio(3.0e5, BlastDamage.ReferencePascals, Warhead.BlastRadius(3.0e5) * 1.01));
     }
+
+    /// <summary>
+    /// Two fronts reaching a part together, each too weak to dent it, dent it between them: their
+    /// real pressures add, where the engine asked about each alone says no to both.
+    /// </summary>
+    [Fact]
+    public void TwoFrontsTooWeakToDentAloneDentTogether()
+    {
+        const double charge = 3.0e5;
+        double tolerance = BlastDamage.ReferencePascals * 4.0;
+        double fails = BlastDamage.FailureRadius(charge, tolerance);
+
+        double gap = fails;
+        while (BlastDamage.DentRatio(charge, tolerance, gap) >= 0.4) gap *= 1.01;
+
+        double alone = BlastDamage.DentRatio(charge, tolerance, gap);
+        (double real, double breaking) = BlastDamage.RealLoad(charge, tolerance, gap);
+        (double, double, double)[] both = [(alone, real, breaking), (alone, real, breaking)];
+
+        Assert.True(alone < 0.5);
+        Assert.True(BlastDamage.CombinedDentRatio(both) >= 0.5);
+    }
+
+    [Fact]
+    public void OneFrontIsItsOwnDentAndTogetherIsNeverLessThanTheStrongest()
+    {
+        (double, double, double)[] one = [(0.7, 1000.0, 5000.0)];
+        Assert.Equal(0.7, BlastDamage.CombinedDentRatio(one), 12);
+
+        (double, double, double)[] two = [(3.0, 1000.0, 5000.0), (0.1, 10.0, 5000.0)];
+        Assert.Equal(3.0, BlastDamage.CombinedDentRatio(two), 12);
+    }
 }

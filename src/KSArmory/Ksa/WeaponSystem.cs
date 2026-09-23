@@ -3777,7 +3777,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         {
             double due = air ? MushroomCloud.ShockArrivalSeconds(kt, gap) - elapsed : 0.0;
             BlastArrivals.Queue(v, _partHandles[index], burstAsmb, ratio, due, air ? airRatio : 0.0,
-                                munition.ChargeKg);
+                                munition.ChargeKg, gap, _partScratch[index].CrashTolerancePascals);
 
             first = Math.Min(first, due);
             last = Math.Max(last, due);
