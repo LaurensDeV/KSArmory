@@ -132,7 +132,11 @@ internal, so it is one verified reflection away, like the handful the mod alread
 then drops its pipelines (`CloudPass.Release`) and they rebuild next frame against the new module.
 
 Triggered by *reload shaders* on the channel, or by the file's timestamp changing. A compile error is
-caught and logged, and the old pipeline stays. **Shader iteration goes from three minutes to about
+caught and logged, and the old pipeline stays. **The MCP tool copies the tree's shaders over the
+installed ones first**, keeping their timestamps, so a variant has to be edited in the tree: one copied
+into the mods folder by hand is overwritten before the game reads it, and the pass draws the tree's
+version with nothing to say so. The reply names the file compiled, its size and write time, and the
+module before and after, which is how to tell. **Shader iteration goes from three minutes to about
 one second**, which is most of what the burst's look took.
 
 C# still needs a relaunch: an assembly cannot be unloaded. That is why 7 matters — it moves tuning

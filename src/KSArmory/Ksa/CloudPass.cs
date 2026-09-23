@@ -830,7 +830,7 @@ internal static class CloudPass
             uniformDynamicBufferRanges: shadowSlice);
 
         BuildFailed = false;
-        Log.Info($"cloud pass: built against {ShaderId}");
+        Log.Info($"cloud pass: built against {ShaderId}, module {shader.Shader?.VkHandle ?? 0:X}");
         return true;
     }
 

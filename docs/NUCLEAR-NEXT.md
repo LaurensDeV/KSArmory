@@ -84,8 +84,10 @@ whole time it is on screen**, and a six-warhead bus stands six of them.
   standing up through the 11 km cirrus read as behind the whole deck wherever there was cirrus, and
   dropped out in patches and small boxes that crawled as the cirrus drifted. Each layer is now its own
   sheet at its own crossing, with KSA's opacity split between them; flown at 58 km and 15° round a
-  340 kt cap from four sides, the holes and boxes are gone, the view from under the deck is unchanged,
-  and the pass costs the same. `docs/KSA-MODDING-NOTES.md` has what the distance actually holds.
+  340 kt cap from four sides, the holes and boxes are gone. **Its cost and the view from under the
+  deck were not compared**: the "old" arm of both was copied into the mods folder and the reload tool
+  put the tree's shader back over it, so both arms ran the new one (`docs/VISUAL-TESTING.md` item 2).
+  `docs/KSA-MODDING-NOTES.md` has what the distance actually holds.
 - **Heat shimmer** needs the scene read at an offset while it is being written, which is a copy of the
   scene image this pass does not have.
 - **Guy-wire spikes** are a tower shot's, and nothing in the arsenal is on a tower.

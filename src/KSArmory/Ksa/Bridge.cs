@@ -427,6 +427,7 @@ internal sealed class Bridge
         if (doLoad is null) return Failed("FileReference.DoLoad did not resolve");
 
         List<string> reloaded = [];
+        List<string> seen = [];
         foreach (string id in ShaderIds)
         {
             if (!ModLibrary.TryGet<ShaderReference>(id, out ShaderReference? shader) || shader is null)
@@ -435,6 +436,12 @@ internal sealed class Bridge
             }
 
             if (!File.Exists(shader.ModPath)) return Failed($"'{shader.ModPath}' is not there");
+
+            // What was compiled and whether the module actually changed, because a reload that
+            // answers "reloaded" and draws the old shader is otherwise indistinguishable from one
+            // that worked.
+            FileInfo file = new(shader.ModPath);
+            nint before = shader.Shader?.VkHandle ?? 0;
 
             try
             {
@@ -445,11 +452,17 @@ internal sealed class Bridge
                 return Failed($"{id} did not compile: {e.InnerException?.Message ?? e.Message}");
             }
 
+            nint after = shader.Shader?.VkHandle ?? 0;
+            string line = $"{id}: {shader.ModPath}, {file.Length} bytes written {file.LastWriteTime:HH:mm:ss}, "
+                          + $"module {before:X} -> {after:X}";
+            seen.Add(line);
+            Log.Info($"bridge: reloaded {line}");
+
             reloaded.Add(id);
         }
 
         CloudPass.Release();
-        return Done(new() { ["reloaded"] = reloaded });
+        return Done(new() { ["reloaded"] = reloaded, ["modules"] = seen });
     }
 
     // ---- commands that take frames ----------------------------------------------------------
