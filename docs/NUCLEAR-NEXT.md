@@ -33,7 +33,7 @@ largest gap.
 
 | Real | Drawn |
 |---|---|
-| The fireball's surface is mottled: bomb debris and instabilities glow unevenly, and a tower shot throws spikes where the guy wires flash off | **Mottled by the fire pockets**, which wrap the ball from the first second; a debris shell on the ball's own skin was built and taken out, because the same frame with it and without it could not be told apart. No guy-wire spikes |
+| The fireball's surface is mottled, but only in sub-millisecond rapatronic frames; to a real-time eye it is a smooth, blinding ball, and a tower shot throws spikes where the guy wires flash off | **A smooth, opaque ball of its own light while white-hot** (item 1b), with the fire pockets and the soot arriving as it cools; a debris shell on the ball's own skin was built and taken out, because the same frame with it and without it could not be told apart. No guy-wire spikes |
 | The air round the ball glows violet for an instant, strongest at night | **Built**, and mostly in the whiteout: from far off the whole blinded view is lavender, lilac round the burst and deeper toward the edges (a film of a Nevada shot, sent on 2026-09-23). The veil keeps the violet of the light that drove it through its recovery, so a night burst clears through lavender to purple over three seconds; the halo round the ball warms with the ball. A faint violet aura round the young cloud besides, summed analytically along each ray |
 | Heat and the shock front visibly bend the view round the ball | Nothing refracts |
 | A ring of dust races out along the ground behind the shock | **Built**, in the raymarch: a low wall lifted behind `MushroomCloud.ShockRadius`, thinning and climbing behind the front, out to about where it falls to a pound per square inch |
@@ -44,7 +44,7 @@ largest gap.
 
 | Real | Drawn |
 |---|---|
-| The ball swallows the ground under it and rises wrapped in churning black-brown dust and smoke, orange glow showing through gaps as it boils | **Built.** The young cloud is soot that clears over about ten seconds, and the heat left in its core (`MushroomCloud.Incandescence`) glows through where the noise thins the shell |
+| The ball swallows the ground under it and rises wrapped in churning black-brown dust and smoke, orange glow showing through gaps as it boils | **Built.** Once the ball has left its white-hot pulse, the young cloud is soot that clears over about ten seconds, and the heat left in its core (`MushroomCloud.Incandescence`) glows through where the noise thins the shell |
 | Reddish-brown from the nitrogen oxides the heat makes, lasting after the glow | **Built.** The cap is tinted brown from the second second, fading over about twenty |
 | The ball hollows into a glowing ring as its underside is drawn up, a doughnut of fire turning over | **Built.** The glow moves from the core onto the ring over four seconds, running together round it as it does, and rolls with it; seen from low and close it reads as a torus edge-on by 4.4 s, bright at both limbs with a darker middle. From underneath, judged on 2026-09-23 from just outside the stem's flared foot, looking up: the fire first covered the whole underside, because early the cap's ring is no wider than its own tube; it is a narrower band round the ring's core now, kept off the axis where cooler air is drawn up the middle, and reads as brighter sides round a dimmer centre. Not a crisp doughnut: by then the core is faint and the soot shell hides most of it |
 | Violent churning at every scale, rising at hundreds of metres a second at first | **Built.** The roll and the boil start six times the steady rate and settle over about six seconds |
@@ -110,8 +110,7 @@ reads is the layer it leaves: a dust collar at 1.6 s and a grey-brown layer roun
 20 kt it visibly races out between 4 and 11 s. It takes the ground's hue and not its brightness;
 borrowing both drew it as a dark stripe across dark grass. Measured through the bridge's `cost` at
 a close 20 kt pose where it covers a wide band of the screen: 3.55 ms for the pass against 3.08 with
-the dust at zero. **What it still lacks:** the column and the ring are not shaded by KSA's weather,
-so under an overcast both are lit brighter than the ground round them.
+the dust at zero. Both it and the column are shaded by KSA's weather (above).
 
 **The dirty fireball, flown** on a 0.3 kt burst from the side view: at 2 s black smoke with
 fire in its pockets, at 4 s the pockets dimming inside a brown-red shell, and by 8 s a brown cap
