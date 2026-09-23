@@ -561,14 +561,18 @@ internal sealed class ChaseCamera : IViewPose
         LookAround(eye, forward, up, out double3 viewEye, out double3 viewForward, out double3 viewUp);
 
         // Near enough the arrival to stop riding it and watch it go in, from where the eye is now.
-        if (ChaseView.StopsShort(ArrivalSeconds(battery, round, aim, gravity, toGo), Vec.Len(round.VelocityLocal),
-                                 ChaseView.StopShortMetres(round.Munition.ChargeKg))
+        double arrival = ArrivalSeconds(battery, round, aim, gravity, toGo);
+        double stopShort = ChaseView.StopShortMetres(round.Munition.ChargeKg);
+        if (ChaseView.StopsShort(arrival, round.VelocityLocal, gravity, stopShort)
             && battery.TryRoundEffectEcl(round, out double3 drawn))
         {
             _followed.HoldAt(battery.Platform, drawn + viewEye);
             _watching = true;
             _blend = 1.0;
-            Log.Info($"chase: stopping short of where {RoundLabel.For(round.Tube)} arrives, to watch it go in");
+
+            double3 eyeToArrival = ChaseView.ArrivalFromRound(arrival, round.VelocityLocal, gravity) - viewEye;
+            Log.Info($"chase: stopping short of where {RoundLabel.For(round.Tube)} arrives, "
+                     + $"{arrival:F1} s out and {Vec.Len(eyeToArrival):F0} m from it, to watch it go in");
 
             Watch(round);
             return;

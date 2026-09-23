@@ -1,3 +1,4 @@
+using Brutal.Numerics;
 using Xunit;
 
 namespace KSArmory.Tests;
@@ -25,20 +26,53 @@ public class ChaseStopShortTests
         Assert.Equal(1.6 * MushroomCloud.DrawnCloudTop(0.3), bomb, 6);
     }
 
+    private static readonly double3 Level800 = new(800.0, 0.0, 0.0);
+    private static readonly double3 Down = new(0.0, 0.0, -9.81);
+
     [Fact]
     public void TheChaseStopsOnlyOnceWhatIsLeftIsInsideTheDistance()
     {
         // A 5-inch shell at 800 m/s: 160 m to go rides on, 56 m to go stops.
-        Assert.False(ChaseView.StopsShort(timeToGo: 0.2, speed: 800.0, stopShortMetres: 60.0));
-        Assert.True(ChaseView.StopsShort(timeToGo: 0.07, speed: 800.0, stopShortMetres: 60.0));
+        Assert.False(ChaseView.StopsShort(timeToGo: 0.2, Level800, Down, stopShortMetres: 60.0));
+        Assert.True(ChaseView.StopsShort(timeToGo: 0.07, Level800, Down, stopShortMetres: 60.0));
     }
 
     [Fact]
     public void NothingToCountDownToNeverStopsIt()
     {
-        Assert.False(ChaseView.StopsShort(double.NaN, 800.0, 60.0));
-        Assert.False(ChaseView.StopsShort(0.05, double.NaN, 60.0));
-        Assert.False(ChaseView.StopsShort(-1.0, 800.0, 60.0));
+        Assert.False(ChaseView.StopsShort(double.NaN, Level800, Down, 60.0));
+        Assert.False(ChaseView.StopsShort(-1.0, Level800, Down, 60.0));
+    }
+
+    /// <summary>
+    /// A store thrown upwards is barely moving at the top of its climb, so the time to go times the
+    /// speed there reads as nothing left. It has its whole fall to go: 710 m and 12 s, from a B61
+    /// thrown 510 m up from a craft climbing at 100 m/s at 200 m.
+    /// </summary>
+    [Fact]
+    public void AStoreAtTheTopOfItsClimbIsNotAlmostThere()
+    {
+        double3 atTheTop = new(5.0, 0.0, 0.0);
+        double fall = Math.Sqrt(2.0 * 710.0 / 9.81);
+
+        Assert.True(fall * 5.0 < 100.0);
+        Assert.False(ChaseView.StopsShort(fall, atTheTop, Down, stopShortMetres: 100.0));
+        Assert.InRange(Vec.Len(ChaseView.ArrivalFromRound(fall, atTheTop, Down)), 700.0, 730.0);
+    }
+
+    /// <summary>
+    /// A bomb whose whole flight is inside the distance it is watched from is ridden down to its last
+    /// few seconds rather than let go of at release, which left the view kilometres from it for the
+    /// whole of a thrown-up drop.
+    /// </summary>
+    [Fact]
+    public void AFlightInsideTheDistanceIsRiddenToItsLastSeconds()
+    {
+        double stand = ChaseView.StopShortMetres(300_000.0);
+        double3 falling = new(0.0, 0.0, -60.0);
+
+        Assert.False(ChaseView.StopsShort(ChaseView.WatchSeconds + 6.0, falling, Down, stand));
+        Assert.True(ChaseView.StopsShort(ChaseView.WatchSeconds - 0.5, falling, Down, stand));
     }
 
     /// <summary>

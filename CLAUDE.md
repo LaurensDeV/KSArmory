@@ -2917,9 +2917,13 @@ be handed straight back, and one still turning onto its target is picked up once
 
 **The chase stops short of the arrival and watches it go in.** Riding the round all the way held the
 burst from the last pose — a few metres behind it, inside the explosion the linger is there to show.
-So once what the round has left, time to go times its speed, is inside `ChaseView.StopShortMetres`,
-the eye is held on the ground where it is and only the look follows the round in, and the linger
-holds on the burst from there. Six fireball radii with a 60 m floor: every conventional round is
+So once the round is inside `ChaseView.StopShortMetres` of where it lands and within
+`ChaseView.WatchSeconds` of getting there, the eye is held on the ground where it is and only the look
+follows the round in, and the linger holds on the burst from there. **What is left is the straight line
+to the landing, gravity included** — never time to go times the speed now, which a bomb thrown upwards
+reads as nothing at the top of its climb, letting go of it there for the whole fall. And the time bound
+is what rides a bomb whose whole flight is inside the distance, as a low release of a large yield is,
+down to its last seconds rather than letting go at release. Six fireball radii with a 60 m floor: every conventional round is
 watched from about 60 m, a 300-tonne bomb from a kilometre and a 20-kiloton warhead from four. What it
 has left is the soonest of three countdowns — the closing curve's own, the line of sight to the
 target, and the fall to the ground under a round the ground stops — because a store's own countdown

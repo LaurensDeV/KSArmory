@@ -345,12 +345,26 @@ public static class ChaseView
     public const double MinLingerSeconds = 3.0;
 
     /// <summary>
-    /// Whether a round is near enough its arrival to stop and watch. The distance left is the time to
-    /// go times the speed it is covering it at, and with either unknown the chase never stops.
+    /// Whether a round is near enough its arrival to stop and watch: within
+    /// <paramref name="stopShortMetres"/> of where it arrives, and within <see cref="WatchSeconds"/>
+    /// of getting there. With the time unknown the chase never stops.
+    ///
+    /// <para>The distance left is the straight line to where the fall ends, gravity included —
+    /// never the time to go times the speed now, which a store thrown upwards reads as nothing at the
+    /// top of its climb. And a round whose whole flight is inside the distance is ridden until the
+    /// last few seconds rather than let go at release.</para>
     /// </summary>
-    public static bool StopsShort(double timeToGo, double speed, double stopShortMetres)
-        => double.IsFinite(timeToGo) && double.IsFinite(speed) && timeToGo >= 0.0
-           && timeToGo * speed <= stopShortMetres;
+    public static bool StopsShort(double timeToGo, double3 velocity, double3 gravity, double stopShortMetres)
+        => double.IsFinite(timeToGo) && timeToGo >= 0.0 && timeToGo <= WatchSeconds
+           && Vec.Len(ArrivalFromRound(timeToGo, velocity, gravity)) <= stopShortMetres;
+
+    /// <summary>Where a round arrives from where it is now, flown under gravity alone.</summary>
+    public static double3 ArrivalFromRound(double timeToGo, double3 velocity, double3 gravity)
+        => (velocity * timeToGo) + (gravity * (0.5 * timeToGo * timeToGo));
+
+    /// <summary>How long before its arrival a chase stops riding a round, at the most.</summary>
+    public const double WatchSeconds = 4.0;
+
 
     /// <summary>
     /// How much of the chase's stand-off a round of this length gets, measured against the missile
