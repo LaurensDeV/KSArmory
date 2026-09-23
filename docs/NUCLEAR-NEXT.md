@@ -406,8 +406,11 @@ build. Worth re-checking after a KSA update rather than planning around.
 
 ## One thing already shipped that is reasoned rather than flown
 
-**`MaxScorches` has never been reached.** It is twelve and the oldest is dropped; the harness
-produces at most two, and nothing has ever watched a mark vanish.
+**`MaxScorches` was reached on 2026-09-23.** Sixteen 0.3 kt bursts through the bridge on a 1.5 km
+grid, four rows of four, far enough apart not to merge: the count ran 1 to 12 and held at 12 through
+the last four, and the difference between the view with the marks and without them showed twelve
+marks in three rows, the first row gone. Twelve cost the pass 0.23 ms a frame from a pose where they
+cover 8.8% of the screen.
 
 The airless mark's radius used to be the other: it borrowed the blast law. It is how far the
 radiation reaches now, and `CHECKLIST.md` has the flight.
