@@ -54,8 +54,8 @@ largest gap.
 
 | Real | Drawn |
 |---|---|
-| Condensation rings form round the stem at moist layers, and a smooth ice cap can sit over the top | Only the brief condensation dome at the start |
-| White condensation cap, dirty-brown underside, dark brown stem | A gradient from dark foot to pale top, so partly |
+| Condensation rings form round the stem at moist layers, and a smooth ice cap can sit over the top | **Rings built**: two ragged white collars low on the stem, formed as the cap climbs past and gone by 40 s. **The cap veil is built and not seen**: at 0.3 kt it lies inside the eroded crown |
+| White condensation cap, dirty-brown underside, dark brown stem | **Built**: the crown whitens from 6 s as the soot clears, over the brown underside. Hard to see under an overcast, which lights the whole cloud flat |
 | Often a thin, tall stem, with dust visibly drawn up into the cap's underside | A flared foot, then a column |
 | Past the tropopause the cap spreads into an anvil | Built (item 5) |
 | Fallout curtains take minutes to show | Streamers hang from the cap within about twenty seconds |
@@ -69,8 +69,15 @@ ball is 1:7 against its cap and reads as wrong.
 
 **Ranked for what they would change on screen:** ~~the dirty rising fireball, with glow through the
 dust and the brown of the oxides; the ball turning into a ring of fire; the dust ring racing out
-along the ground~~ (built on 2026-09-23); condensation rings on the stem; and a longer life, which
+along the ground; condensation rings on the stem~~ (built on 2026-09-23); and a longer life, which
 runs against the decision to hold the cloud still.
+
+**The collars, flown.** The first layer heights, 5.5 and 8.5 stem radii, put both at or inside the
+cap's underside at 0.3 and 20 kt: one never formed and the other showed only as white scraps where
+the erosion opened the cap, which under an overcast read as wisps floating in the sky. At 2.2 and
+3.3 they stack on the stem, and they read as saucers until the rim was ragged and the edge soft.
+The veil over the crown drew first as a glass bubble, round the analytic dome, which stands clear
+of the eroded cloud. Cost: 3.74 ms for the pass against 3.73 with them at zero.
 
 **The dust ring, flown.** The front is Sedov–Taylor and then sonic, in real time rather than on the
 rise's clock, so at 0.3 kt it has left its reach two seconds in, mostly under the flash, and what
