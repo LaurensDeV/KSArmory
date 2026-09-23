@@ -36,6 +36,7 @@ internal static class CloudPass
 {
     private const string ShaderId = "KSArmoryCloudCompute";
     private const string ResolveShaderId = "KSArmoryCloudResolveCompute";
+    private const string ShockShaderId = "KSArmoryShockCompute";
 
     // The compute shader's workgroup, which has to match KSArmoryCloud.comp's local_size.
     private const int Group = 8;
@@ -64,6 +65,11 @@ internal static class CloudPass
         // Last frame's result and this one's, swapping: the resolve samples one and writes the
         // other, and a pipeline each way names them.
         public required RenderImage[] History;
+
+        // The scene as it was before the blast front bends it: a pass may not read a neighbour of
+        // the pixel it writes, and the bend reads nothing else.
+        public required RenderImage SceneCopy;
+        public ComputePipelineWrapper? Shock;
         public readonly ComputePipelineWrapper?[] Resolve = new ComputePipelineWrapper?[2];
         public int Parity;
 
@@ -153,6 +159,7 @@ internal static class CloudPass
         _graveyard.Add((view.LayerDistance, _recorded + GraveFrames));
         _graveyard.Add((view.History[0], _recorded + GraveFrames));
         _graveyard.Add((view.History[1], _recorded + GraveFrames));
+        _graveyard.Add((view.SceneCopy, _recorded + GraveFrames));
     }
 
     private static void DisposeTheDue()
@@ -198,6 +205,8 @@ internal static class CloudPass
                 RenderImage.CreateColorStorage(renderer, "KSArmory Cloud History B", extent,
                                                VkFormat.R16G16B16A16SFloat),
             ],
+            SceneCopy = RenderImage.CreateColorStorage(renderer, "KSArmory Scene Copy", extent,
+                                                       VkFormat.R16G16B16A16SFloat),
         };
 
         _views[viewport.ShaderSlot] = view;
@@ -515,6 +524,8 @@ internal static class CloudPass
                 }
 
                 if (drawn > 0) Resolve(commandBuffer, viewport, camera, view, reference, referenceCentre);
+
+                Shock(commandBuffer, viewport, camera, view, depth);
             }
 
             Flash(commandBuffer, viewport, camera, width, height, hazard: true);
@@ -610,6 +621,123 @@ internal static class CloudPass
         m.M44 += (shift.X * m.M14) + (shift.Y * m.M24) + (shift.Z * m.M34);
 
         return float4x4.Pack(in m);
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 4)]
+    private struct ShockPush
+    {
+        public float4x4 InvViewProj;
+        public float4 CentreRadius;        // the burst, camera-relative, and how far the front has got
+        public float4 CentreUvStrength;    // the burst on screen, how hard it bends, its thickness
+        public float4 UpMode;              // the vertical at the burst, and 0 to copy or 1 to bend
+    }
+
+    // How hard a front bends the light, in screen widths per unit of the shell's angular thickness,
+    // at full strength. Its strength is its reach against the warhead's lethal radius, so it fades
+    // as the overpressure does and is gone by about thirty lethal radii.
+    //
+    // Fifteen times what air does. A 20 kt front 3 km out deflects light by about 0.03 degrees, a
+    // pixel, which is why the real one is only seen on high-speed film.
+    private const float ShockBend = 4.5f;
+    private const double ShockFaintest = 0.03;
+
+    // How thick the front looks, as a share of how far it has got, and never less than this.
+    private const double ShockShellShare = 0.03;
+    private const double ShockShellFloorMetres = 3.0;
+
+    // THE BLAST FRONT, as a bend in the light behind it: the scene copied, then written back from the
+    // copy where a ray grazes the front's shell. Only the strongest front on screen, and only while it
+    // is strong enough to see, so the two full-screen dispatches cost nothing once it has gone.
+    private static void Shock(CommandBuffer commandBuffer, IViewport viewport, Camera camera, View view,
+                              IRenderImage depth)
+    {
+        double best = ShockFaintest;
+        ShockPush push = default;
+        bool found = false;
+
+        float4x4 viewProjection = camera.MVP.viewProjection;
+        double4x4 vp = double4x4.Unpack(in viewProjection);
+
+        for (int i = 0; i < NuclearClouds.Count; i++)
+        {
+            if (!NuclearClouds.TryFront(i, out double3 burstEcl, out double3 up, out double front,
+                                        out double chargeKg)) continue;
+
+            double strength = Math.Clamp(Warhead.LethalRadius(chargeKg) / front, 0.0, 1.0);
+            if (strength <= best) continue;
+
+            double3 c = burstEcl - camera.PositionEcl;
+            double w = (c.X * vp.M14) + (c.Y * vp.M24) + (c.Z * vp.M34) + vp.M44;
+            if (!(w > 0.0)) continue;
+
+            // Row-vector, as the camera's own projection is.
+            double x = ((c.X * vp.M11) + (c.Y * vp.M21) + (c.Z * vp.M31) + vp.M41) / w;
+            double y = ((c.X * vp.M12) + (c.Y * vp.M22) + (c.Z * vp.M32) + vp.M42) / w;
+
+            best = strength;
+            found = true;
+            push = new ShockPush
+            {
+                InvViewProj = camera.VPInv.viewProjection,
+                CentreRadius = new float4((float)c.X, (float)c.Y, (float)c.Z, (float)front),
+                CentreUvStrength = new float4((float)((x * 0.5) + 0.5), (float)((y * 0.5) + 0.5),
+                                              ShockBend * (float)strength,
+                                              (float)Math.Max(front * ShockShellShare, ShockShellFloorMetres)),
+                UpMode = new float4((float)up.X, (float)up.Y, (float)up.Z, 0f),
+            };
+        }
+
+        if (!found) return;
+        if (view.Shock is null && !BuildShock(view, depth)) return;
+
+        using (commandBuffer.TagRegion(GpuTag))
+        {
+            Hazard(commandBuffer);
+
+            Span<VkImageMemoryBarrier2> one = stackalloc VkImageMemoryBarrier2[1];
+            BarrierBatch copy = new(one);
+            copy.Add(view.SceneCopy, ImageBarrierInfo.Presets.StorageReadWriteC);
+            copy.SubmitAndFlush(commandBuffer);
+
+            view.Shock!.BindPipeline(commandBuffer, viewport.ShaderSlot, default, default, push);
+            commandBuffer.Dispatch((view.Width + Group - 1) / Group, (view.Height + Group - 1) / Group, 1);
+
+            Hazard(commandBuffer);
+
+            push.UpMode.W = 1f;
+            view.Shock.BindPipeline(commandBuffer, viewport.ShaderSlot, default, default, push);
+            commandBuffer.Dispatch((view.Width + Group - 1) / Group, (view.Height + Group - 1) / Group, 1);
+        }
+    }
+
+    private static bool BuildShock(View view, IRenderImage depth)
+    {
+        if (!ModLibrary.TryGet<ShaderReference>(ShockShaderId, out var shader) || shader is null)
+        {
+            Warn($"no shader '{ShockShaderId}'; the blast front will not bend the light");
+            return false;
+        }
+
+        Renderer renderer = Program.GetRenderer();
+
+        IRenderImage[] storageTargets = [view.Target, view.SceneCopy];
+        IRenderImage[] depthTargets = [depth];
+        VkPushConstantRange[] ranges =
+        [
+            new VkPushConstantRange
+            {
+                Offset = (ByteSize32)0,
+                Size = (ByteSize32)Marshal.SizeOf<ShockPush>(),
+                StageFlags = VkShaderStageFlags.ComputeBit,
+            },
+        ];
+
+        view.Shock = new ComputePipelineWrapper(
+            storageTargets, depthTargets, default, default, shader,
+            default, ranges, renderer.MaxFramesInFlight, renderer,
+            "KSArmory.Shock", Program.PointClampedSampler, Program.LinearClampedSampler);
+
+        return true;
     }
 
     // THE WHITEOUT, LAST: it is glare in the eye rather than a thing in the world, so it veils

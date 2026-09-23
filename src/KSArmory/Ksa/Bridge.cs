@@ -41,7 +41,8 @@ internal sealed class Bridge
     private KsaWorld.MainView _saved;
     private Vehicle? _posedFrom;
 
-    private static readonly string[] ShaderIds = ["KSArmoryCloudCompute", "KSArmoryCloudResolveCompute"];
+    private static readonly string[] ShaderIds =
+        ["KSArmoryCloudCompute", "KSArmoryCloudResolveCompute", "KSArmoryShockCompute"];
 
     public Bridge(Config config, Func<Vehicle?, WeaponSystem?> systemFor)
     {

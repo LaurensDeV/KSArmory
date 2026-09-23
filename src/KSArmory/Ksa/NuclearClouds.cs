@@ -332,6 +332,38 @@ internal static class NuclearClouds
     public static int Count => _clouds.Count;
 
     /// <summary>
+    /// How far one cloud's blast front has got, and where it started: what the pass bends the light
+    /// at. The charge rides out with it, because how hard the front still is depends on it.
+    /// </summary>
+    public static bool TryFront(int index, out double3 burstEcl, out double3 up, out double frontMetres,
+                                out double chargeKg)
+    {
+        burstEcl = default;
+        up = default;
+        frontMetres = 0.0;
+        chargeKg = 0.0;
+
+        if (index < 0 || index >= _clouds.Count) return false;
+
+        Cloud cloud = _clouds[index];
+
+        try
+        {
+            burstEcl = cloud.Body.GetPositionEcl()
+                       + cloud.BurstCcf.Transform(cloud.Body.GetCce2Ccf().Inverse());
+            up = cloud.Up.Transform(cloud.Body.GetCce2Ccf().Inverse());
+            chargeKg = cloud.ChargeKg;
+            frontMetres = MushroomCloud.ShockRadius(MushroomCloud.KilotonsFor(cloud.ChargeKg), cloud.Age);
+
+            return Vec.IsFinite(burstEcl) && Vec.IsFinite(up) && frontMetres > 0.0;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
     /// One standing cloud by index, in the order they were made. <see cref="Count"/> bounds it.
     ///
     /// <para>The pass draws them one dispatch each, so it needs them all rather than the newest —
