@@ -79,8 +79,23 @@ internal static class AttitudeHook
 
     // Shoves written, read back two steps later, once the worker that integrated them has had its
     // results applied: what the craft's velocity did against what was written, because a frame
-    // wrong in the conversion shows as a craft thrown the wrong way.
-    private static readonly List<(Vehicle Craft, double3 Before, double3 WrittenEcl, double3 AwayEcl, int Steps)> Probes = [];
+    // wrong in the conversion shows as a craft thrown the wrong way. Then followed for a few seconds,
+    // because where a thrown craft ends up is the engine's physics as much as the push.
+    private sealed class Probe
+    {
+        public required Vehicle Craft;
+        public required double3 Before;
+        public required double3 WrittenEcl;
+        public required double3 AwayEcl;
+        public int Steps;
+        public double Seconds;
+        public double NextTrace;
+    }
+
+    private static readonly List<Probe> Probes = [];
+
+    private const double TraceSeconds = 5.0;
+    private const double TraceEverySeconds = 0.25;
 
     private static Harmony? _harmony;
     private static bool _complained;
@@ -244,31 +259,53 @@ internal static class AttitudeHook
     }
 
     /// <summary>
-    /// Reads back the shoves written two steps ago: how the craft's velocity changed against what
-    /// was written. Gravity over those steps is in the change too, a fraction of a metre a second.
+    /// Reads back the shoves written two steps ago -- how the craft's velocity changed against what
+    /// was written, gravity over those steps included -- and then traces the craft for a few seconds:
+    /// its speed over the ground, how steeply it is climbing, its height and how fast it is turning.
     /// </summary>
-    public static void CheckShoves()
+    public static void CheckShoves(double dt)
     {
+        const double deg = 180.0 / Math.PI;
+
         for (int i = Probes.Count - 1; i >= 0; i--)
         {
-            (Vehicle craft, double3 before, double3 written, double3 away, int steps) = Probes[i];
-            if (steps < 2)
+            Probe probe = Probes[i];
+            Vehicle craft = probe.Craft;
+            if (!KsaWorld.IsAlive(craft))
             {
-                Probes[i] = (craft, before, written, away, steps + 1);
+                Probes.RemoveAt(i);
                 continue;
             }
 
-            Probes.RemoveAt(i);
-            if (!KsaWorld.IsAlive(craft)) continue;
+            probe.Steps++;
+            if (probe.Steps < 2) continue;
 
-            double3 change = KsaWorld.VelocityEcl(craft) - before;
             double3 up = KsaWorld.LocalUp(craft);
-            const double deg = 180.0 / Math.PI;
-            Log.Info($"shove read back on {KsaWorld.DisplayName(craft)}: velocity changed by {Vec.Len(change):F2} m/s, "
-                     + $"{Vec.AngleBetween(change, written) * deg:F1} deg from the {Vec.Len(written):F2} m/s written, "
-                     + $"{Vec.AngleBetween(change, away) * deg:F1} deg from straight away from the burst, "
-                     + $"{90.0 - (Vec.AngleBetween(change, up) * deg):F1} deg above the horizon "
-                     + $"(the burst's line {90.0 - (Vec.AngleBetween(away, up) * deg):F1})");
+            if (probe.Steps == 2)
+            {
+                double3 change = KsaWorld.VelocityEcl(craft) - probe.Before;
+                Log.Info($"shove read back on {KsaWorld.DisplayName(craft)}: velocity changed by {Vec.Len(change):F2} m/s, "
+                         + $"{Vec.AngleBetween(change, probe.WrittenEcl) * deg:F1} deg from the {Vec.Len(probe.WrittenEcl):F2} m/s written, "
+                         + $"{Vec.AngleBetween(change, probe.AwayEcl) * deg:F1} deg from straight away from the burst, "
+                         + $"{90.0 - (Vec.AngleBetween(change, up) * deg):F1} deg above the horizon "
+                         + $"(the burst's line {90.0 - (Vec.AngleBetween(probe.AwayEcl, up) * deg):F1})");
+            }
+
+            probe.Seconds += Math.Max(dt, 0.0);
+            if (probe.Seconds < probe.NextTrace) continue;
+            probe.NextTrace += TraceEverySeconds;
+
+            double3 positionEcl = KsaWorld.PositionEcl(craft);
+            double3 overGround = KsaWorld.VelocityEcl(craft) - KsaWorld.GroundVelocityAt(craft, positionEcl);
+            double height = Detonation.BodyFor(craft) is { } body ? KsaWorld.HeightAboveTerrain(body, positionEcl) : double.NaN;
+            double turning = 0.0;
+            try { turning = Vec.Len(craft.BodyRates) * deg; } catch { /* Reported as none. */ }
+
+            Log.Info($"  shove trace {probe.Seconds:F2} s: {Vec.Len(overGround):F1} m/s over the ground, "
+                     + $"climbing at {90.0 - (Vec.AngleBetween(overGround, up) * deg):F1} deg, "
+                     + $"{height:F0} m up, turning at {turning:F0} deg/s");
+
+            if (probe.Seconds >= TraceSeconds) Probes.RemoveAt(i);
         }
     }
 
@@ -300,7 +337,13 @@ internal static class AttitudeHook
                 if (VehicleCommand.TryShove(__instance, shove.Linear, shove.Angular, shove.Wind,
                                             out double3 dv, out double3 dw))
                 {
-                    Probes.Add((__instance, before, KsaWorld.VehicleAsmbDirectionToEcl(__instance, dv), shove.AwayEcl, 0));
+                    Probes.Add(new Probe
+                    {
+                        Craft = __instance,
+                        Before = before,
+                        WrittenEcl = KsaWorld.VehicleAsmbDirectionToEcl(__instance, dv),
+                        AwayEcl = shove.AwayEcl,
+                    });
                     Log.Info($"the blast wind pushed {KsaWorld.DisplayName(__instance)} by "
                              + $"{Vec.Len(dv):F2} m/s and set it turning at {Vec.Len(dw) * 180.0 / Math.PI:F2} deg/s, "
                              + $"in a {shove.Wind:F0} m/s wind");

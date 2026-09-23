@@ -833,7 +833,7 @@ public sealed class KSArmoryMod
         BlastArrivals.Update(_lastSimStep);
         BlastShake.Update(_lastSimStep);
         CrashGuard.Update(_lastSimStep);
-        AttitudeHook.CheckShoves();
+        AttitudeHook.CheckShoves(_lastSimStep);
 
         // A sight outlives nothing: without this the dictionary keeps a system for the session
         // after its craft has gone, which is the leak every pooled effect below sweeps for.
