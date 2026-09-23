@@ -349,6 +349,10 @@ TOOLS = {
                  "for one term: 1 coverage, 2 depth, 3 weather mask, 4 sunlight, 5 fireball share.",
                  {"name": {"type": "string"}, "value": _num("value"), "reset": {"type": "boolean"}}, [],
                  lambda a: [_text(json.dumps(send("tune", **a), indent=1))]),
+    "ksa_cost": ("What the cloud pass costs the GPU against the whole frame: reset=true starts measuring, "
+                 "and a call without it a few seconds later reads what was measured.",
+                 {"reset": {"type": "boolean"}}, [],
+                 lambda a: [_text(json.dumps(send("cost", **a)))]),
     "ksa_player_capture": ("Press the Capture for Claude button, as the player would.", {}, [],
                            lambda a: [_text(json.dumps(send("player_capture")))]),
     "ksa_player_captures": ("What the player saved with the Capture for Claude button: the newest, or one by "

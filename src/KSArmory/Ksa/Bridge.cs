@@ -187,6 +187,7 @@ internal sealed class Bridge
             "camera" => Camera(command),
             "reload_shaders" => ReloadShaders(),
             "tune" => Tune(command),
+            "cost" => Cost(command),
             "player_capture" => PressTheButton(),
             "site" => Site(command),
             "step" => BeginStep(command),
@@ -395,6 +396,22 @@ internal sealed class Bridge
         }
 
         return Done(ShaderTunables.All.ToDictionary(t => t.Name, t => (object?)ShaderTunables.Value(t)));
+    }
+
+    // What the pass costs the GPU since the last reset, against the whole frame beside it. A reset
+    // turns KSA's profiler on, which it is not by default; paused, the frames still render, so a
+    // reset and a read a few seconds later measure one frozen instant.
+    private static Reply Cost(BridgeCommand command)
+    {
+        if (command.Flag("reset", false))
+        {
+            CloudPassCost.Begin();
+            return Done();
+        }
+
+        return CloudPassCost.HasSamples
+                   ? Done(new Dictionary<string, object?> { ["cost"] = CloudPassCost.Report() })
+                   : Failed("nothing measured -- send cost with reset first");
     }
 
     // KSA's own reloader cannot reach a mod's shader: it maps a path by finding "Content" in it.

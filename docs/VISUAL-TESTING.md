@@ -23,7 +23,8 @@ python3 tools/ksa-mcp/server.py cli capture '{"label":"ab","variants":[{"ShaderP
 python3 tools/ksa-mcp/server.py cli reload_shaders
 ```
 
-The CLI writes what an MCP client would be shown inline to `tools/ksa-mcp/last/`.
+The CLI writes what an MCP client would be shown inline to `tools/ksa-mcp/last/`, and every call
+empties it first -- copy a capture out before the next call.
 
 **What it found on its first night**, each in minutes where a flight cost three:
 
@@ -104,8 +105,9 @@ log (`scenario.txt`); a command channel is the same idea kept open for the whole
   *pause*, *resume*, *speed*, *step* (run so many simulated seconds, then pause), *camera* (a pose
   relative to the newest burst, or *release*), *burst* (a yield east and north of the craft, as the
   panel's burst tool does, with no damage), *capture* (3–5), *set* and *get* (a `Config` field),
-  *reload_shaders* (2), *clear* (forget the clouds) and *load* (a save). The log is read by the
-  server directly. *view* (6) and *tune* (7) are not built.
+  *reload_shaders* (2), *tune* (6, 7), *cost* (the pass's GPU time against the frame's, since a
+  reset), *site*, *player_capture*, *clear* (forget the clouds) and *load* (a save). The log is
+  read by the server directly.
 - **An MCP server** in `tools/ksa-mcp/`, registered in `.mcp.json`, turns those into tools an agent
   calls the way it calls Blender's. It writes the command, waits for the result, and hands back
   pictures **inline, downscaled**, so a capture arrives in the conversation without a separate read.
