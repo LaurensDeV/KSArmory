@@ -498,6 +498,10 @@ internal static class NuclearClouds
                 return;
             }
 
+            // Heard whether or not it joins a cloud already standing: a bomb dropped on the one before
+            // still goes off. Coincident bursts are made one bang by the sound itself.
+            BurstSound.Begin(body, burstEcl, chargeKg);
+
             // A burst inside a standing cloud's own fireball is the SAME EVENT, and is added to it
             // rather than starting another. Six warheads of a bus land about 9 mm apart: drawn as
             // six clouds that is six times the smoke in one place and six full-screen dispatches
@@ -547,9 +551,6 @@ internal static class NuclearClouds
             // And the condensation shell over the first couple of seconds, which is why a
             // photograph of a burst that early is a white dome rather than a ball of fire.
             BurstEjecta.BeginWilson(body, burstCcf, chargeKg);
-
-            // And the bang, which is seconds behind the light.
-            BurstSound.Begin(body, burstEcl, chargeKg);
 
             // Under the tropopause a column is about as tall as it is wide, so one number frames it
             // both ways; an anvil is wider than it stands.

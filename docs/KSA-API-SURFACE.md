@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-224 types and 621 members across 10 assemblies.
+227 types and 629 members across 10 assemblies.
 
 ## Brutal.Concurrency
 
@@ -455,6 +455,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 *referenced as a type only*
 
+### Brutal.VulkanApi.VkShaderModule
+
+- `nint get_VkHandle()`
+
 ### Brutal.VulkanApi.VkShaderStageFlags
 
 *referenced as a type only*
@@ -613,6 +617,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.LookupCollection`1<KSA.Astronomical> get_All()`
 - `int get_Count()`
 
+### KSA.ClusterChannelWrapper
+
+*referenced as a type only*
+
 ### KSA.Constants
 
 - `string get_DocumentsFolderPath()`
@@ -736,6 +744,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.GameAudio
 
 - `KSA.Camera GetAudioCamera()`
+- `bool IsStillActive(KSA.IChannel)`
 
 ### KSA.GameSave
 
@@ -769,6 +778,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.IChannel
 
+- `KSA.ClusterChannelWrapper get_SubscribedClusterSound()`
 - `bool IsPlaying()`
 - `void ApplyParameters()`
 - `void SetParameter(KSA.KeyHash, float)`
@@ -893,6 +903,11 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.Module`1+List
 
 *referenced as a type only*
+
+### KSA.MultiChannelWrapper
+
+- `bool IsPaused()`
+- `void SetPaused(bool)`
 
 ### KSA.Orbit
 
@@ -1184,7 +1199,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.ShaderReference
 
-*referenced as a type only*
+- `System.Nullable`1<Brutal.VulkanApi.VkShaderModule> get_Shader()`
 
 ### KSA.ShapesUnlock
 
@@ -1214,6 +1229,8 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.SpatialAudio
 
+- `double Distance()`
+- `double get_AtmosphericPressure()`
 - `void .ctor(Brutal.Numerics.double3, Brutal.Numerics.double3, double)`
 
 ### KSA.StateVectors

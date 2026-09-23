@@ -371,13 +371,21 @@ B61's 0.3 kt and floored at 0.35, where the echo runs about thirty seconds. One 
 all three layers through the engine's multi-channel wrapper, and the bang starts paused so none of it
 is heard at a rocket's pitch first.
 
-**Only half-verified.** Flown, the 0.3 kt and 30 kt bangs played at 1.00 and 0.35 without error.
-Whether 0.35 of Core's sample is a rumble or mud is a question for somebody's ears, and it is the
-one thing on this list that no screenshot, diff or log line can settle.
+**And the rumble was never mixed in, which is why nobody heard one.** Core's layers fade on a
+`Distance` parameter the engine sets when it plays an explosion itself (`ExplosionSoundSystem`), and
+played by hand it was never set: read as zero, the far report sat at volume nothing at every range,
+the close crack at full at every range, and the echo at its floor. The bang now sets `Distance`,
+`Pressure` and `Intensity` as the engine does, off its audio camera, and re-places itself every frame
+while it plays. **And a burst that joined a standing cloud queued no bang at all** — a bomb dropped
+on the last one's fireball went off in silence; every detonation queues one now, and two due within
+half a second of each other from within a kilometre are one bang.
 
-Two things it does not do: coincident bursts that merge into one cloud do not re-pitch the bang the
-first one queued — moot at the shipped yields, since both already sit on the floor — and nothing
-echoes off the terrain that is actually there.
+**Still half-verified.** Flown, bursts 2.0 and 2.1 km out were heard 5.8 and 6.0 s after they went
+off, merged into a standing cloud, with nothing thrown. Whether it sounds right — and whether 0.35
+of Core's sample is a rumble or mud — is a question for somebody's ears, and it is the one thing on
+this list that no screenshot, diff or log line can settle.
+
+Nothing echoes off the terrain that is actually there.
 
 ---
 

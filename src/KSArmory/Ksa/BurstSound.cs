@@ -36,11 +36,40 @@ internal static class BurstSound
     // a noise is indistinguishable from a bug.
     private const double FurthestSeconds = 45.0;
 
+    // Bangs due within this long of each other from within this far of each other are one bang:
+    // six warheads of a bus land 9 mm apart in the same frame, and six copies of one sound played
+    // on top of each other is a louder bang, not six.
+    private const double SameBangSeconds = 0.5;
+    private const double SameBangMetres = 1000.0;
+
+    // The parameters Core's explosion sounds are mixed on, set exactly as ExplosionSoundSystem sets
+    // them. Left unset they read zero: the far report -- the rumble -- is silent at every range, the
+    // close crack is at full at every range, and the echo sits at its floor.
+    private static readonly KeyHash DistanceHash = KeyHash.Make("Distance".AsSpan());
+    private static readonly KeyHash PressureHash = KeyHash.Make("Pressure".AsSpan());
+    private static readonly KeyHash IntensityHash = KeyHash.Make("Intensity".AsSpan());
+
     private static readonly List<(double Due, double3 BurstEcl, object? Body, double ChargeKg)> _pending = [];
+
+    // Bangs playing, re-placed every frame as ExplosionSoundSystem does, because a sound lasting
+    // thirty seconds is heard from wherever the camera has got to since.
+    private static readonly List<(IChannel Channel, double3 Anchor, object? Body)> _playing = [];
+
     private static bool _warned;
 
     /// <summary>Forgets every bang still on its way, for a scene that no longer contains them.</summary>
-    public static void Clear() => _pending.Clear();
+    public static void Clear()
+    {
+        _pending.Clear();
+
+        foreach ((IChannel channel, _, _) in _playing)
+        {
+            try { channel.Stop(stopImmediate: true); }
+            catch { /* Gone with the scene. */ }
+        }
+
+        _playing.Clear();
+    }
 
     /// <summary>
     /// Queues one, to be heard once the sound has covered the distance. Silent on a body with no
@@ -51,9 +80,9 @@ internal static class BurstSound
         try
         {
             if (!KsaWorld.HasAtmosphere(body)) return;
-            if (!KsaWorld.TryMainCameraPose(out double3 eyeEcl, out _)) return;
+            if (GameAudio.GetAudioCamera() is not { } camera) return;
 
-            double range = Vec.Len(burstEcl - eyeEcl);
+            double range = Vec.Len(burstEcl - camera.PositionEcl);
             if (!double.IsFinite(range)) return;
 
             double delay = range / MetresPerSecond;
@@ -62,6 +91,16 @@ internal static class BurstSound
             // Anchored to the body, because the bang is still seconds away and a bare ecliptic
             // point is left behind by the planet's 29.8 km/s long before it arrives.
             if (!KsaWorld.TryAnchorToGround(burstEcl, out object? anchored, out double3 anchor)) return;
+
+            for (int i = 0; i < _pending.Count; i++)
+            {
+                (double due, double3 at, object? onBody, double charge) = _pending[i];
+                if (!ReferenceEquals(onBody, anchored) || Math.Abs(due - delay) > SameBangSeconds) continue;
+                if (Vec.Len(at - anchor) > SameBangMetres) continue;
+
+                _pending[i] = (due, at, onBody, charge + chargeKg);
+                return;
+            }
 
             _pending.Add((delay, anchor, anchored, chargeKg));
         }
@@ -72,58 +111,100 @@ internal static class BurstSound
     }
 
     /// <summary>
-    /// Counts them down and plays the ones that have arrived. On the simulated step, like
-    /// everything else: the wait freezes with a pause and stretches under slow motion, which is
-    /// what somebody watching a burst in slow motion is asking for.
+    /// Counts the queue down and plays what has arrived, on the simulated step: a bang is a thing
+    /// in the world, so it waits through a pause and hurries under timewarp like everything else.
+    /// Then re-places what is playing against the camera.
     /// </summary>
     public static void Update(double dt)
     {
-        if (_pending.Count == 0 || !double.IsFinite(dt) || dt < 0.0) return;
-
-        for (int i = _pending.Count - 1; i >= 0; i--)
+        if (double.IsFinite(dt) && dt >= 0.0)
         {
-            (double due, double3 anchor, object? body, double charge) = _pending[i];
+            for (int i = _pending.Count - 1; i >= 0; i--)
+            {
+                (double due, double3 anchor, object? body, double charge) = _pending[i];
 
-            due -= dt;
-            if (due > 0.0) { _pending[i] = (due, anchor, body, charge); continue; }
+                due -= dt;
+                if (due > 0.0) { _pending[i] = (due, anchor, body, charge); continue; }
 
-            _pending.RemoveAt(i);
-            Play(body, anchor, charge);
+                _pending.RemoveAt(i);
+                Play(body, anchor, charge);
+            }
         }
+
+        for (int i = _playing.Count - 1; i >= 0; i--)
+        {
+            (IChannel channel, double3 anchor, object? body) = _playing[i];
+
+            try
+            {
+                if (!GameAudio.IsStillActive(channel) || !TrySpatial(body, anchor, out SpatialAudio spatial))
+                {
+                    _playing.RemoveAt(i);
+                    continue;
+                }
+
+                Apply(channel, spatial);
+            }
+            catch
+            {
+                _playing.RemoveAt(i);
+            }
+        }
+    }
+
+    private static bool TrySpatial(object? body, double3 anchor, out SpatialAudio spatial)
+    {
+        spatial = default;
+
+        if (!KsaWorld.TryGroundAnchorEcl(body, anchor, out double3 atEcl, out double3 velEcl)) return false;
+        if (GameAudio.GetAudioCamera() is not { } camera) return false;
+
+        // Ego is a pure translation of Ecl, so a separation is the same vector in both. The ground's
+        // own motion is the source velocity: a Doppler shift on a bang that has already travelled
+        // for seconds is far below what anyone could place.
+        double3 posEgo = atEcl - camera.PositionEcl;
+        if (!Vec.IsFinite(posEgo) || !Vec.IsFinite(velEcl)) return false;
+
+        // The pressure at the listener, in atmospheres, which is what the channel's low-pass reads.
+        spatial = new SpatialAudio(posEgo, velEcl, PhysicalAtmosphereReference.GetAtmosphericPressure(camera));
+        return true;
+    }
+
+    private static void Apply(IChannel channel, SpatialAudio spatial)
+    {
+        channel.SetSpatialAudio(spatial);
+        channel.SetParameter(DistanceHash, (float)spatial.Distance());
+        channel.SetParameter(PressureHash, (float)spatial.AtmosphericPressure);
+        channel.SetParameter(IntensityHash, 1f);
     }
 
     private static void Play(object? body, double3 anchor, double chargeKg)
     {
         try
         {
-            if (!KsaWorld.TryGroundAnchorEcl(body, anchor, out double3 atEcl, out double3 velEcl)) return;
-            if (Program.GetMainCamera() is not { } camera) return;
+            if (!TrySpatial(body, anchor, out SpatialAudio spatial)) return;
             if (ModLibrary.Get<SoundBehavior>(BangId) is not { } sound) return;
 
-            // Ego is a pure translation of Ecl, so a separation is the same vector in both.
-            double3 posEgo = atEcl - camera.PositionEcl;
-            // The ground's own motion, taken as the source velocity. The camera's is not
-            // subtracted: Camera exposes no ecliptic velocity, and a Doppler shift on a bang that
-            // has already travelled for seconds is far below what anyone could place.
-            double3 velEgo = velEcl;
-            if (!Vec.IsFinite(posEgo) || !Vec.IsFinite(velEgo)) return;
-
-            // Started paused and pitched before it is let go, so no part of it is heard at the
-            // pitch of a rocket going off. The multiplier reaches every layer KSA's bang is made
-            // of -- the crack, the far report and the ten-second echo -- through the multi-channel
-            // wrapper, which is what makes one number enough.
+            // Started paused, pitched and placed before it is let go, so no part of it is heard at
+            // the pitch of a rocket going off or mixed as though it were at the listener. The
+            // multiplier reaches every layer KSA's bang is made of -- the crack, the far report and
+            // the ten-second echo -- through the multi-channel wrapper.
             double kt = MushroomCloud.KilotonsFor(chargeKg);
             float pitch = (float)MushroomCloud.BangPitch(kt);
 
-            sound.Play(new SpatialAudio(posEgo, velEgo, 1f), 1f, out IChannel? channel,
-                       startPaused: true);
+            sound.Play(spatial, 1f, out IChannel? channel, startPaused: true);
             if (channel is null) return;
 
             channel.PitchMultiplier = pitch;
+            Apply(channel, spatial);
             channel.SetPaused(false);
 
-            Log.Info($"bang: {kt:F2} kt heard at {pitch:F2} pitch -- KSA's ten-second echo runs "
-                     + $"about {EchoSeconds / pitch:F0} s");
+            if (channel.SubscribedClusterSound is { } cluster && cluster.IsPaused()) cluster.SetPaused(false);
+
+            _playing.Add((channel, anchor, body));
+
+            Log.Info($"bang: {kt:F2} kt heard {spatial.Distance() / 1000.0:F1} km away at {pitch:F2} pitch "
+                     + $"-- KSA's ten-second echo runs about {EchoSeconds / pitch:F0} s");
         }
         catch (Exception e)
         {
