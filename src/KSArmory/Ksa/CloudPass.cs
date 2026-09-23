@@ -523,11 +523,16 @@ internal static class CloudPass
                     // offset into the global set, which is where global.lighting lives: a frame
                     // index there reads a different viewport's planet, sun and radii on every frame
                     // in flight, and anything lit from that block flickers at frame rate.
+                    // On the coarse grid one invocation stands for a square of pixels, so the dispatch
+                    // covers the screen at that grid's size.
                     using (commandBuffer.TagRegion(MarchTag))
                     {
+                        int scale = Math.Max((int)ShaderTunables.ValueOf(ShaderTunables.MarchScale, 1.0), 1);
+                        int across = (width + scale - 1) / scale;
+                        int down = (height + scale - 1) / scale;
+
                         BindCloud(commandBuffer, viewport, camera, push);
-                        commandBuffer.Dispatch((width + Group - 1) / Group,
-                                               (height + Group - 1) / Group, 1);
+                        commandBuffer.Dispatch((across + Group - 1) / Group, (down + Group - 1) / Group, 1);
                     }
 
                     drawn++;

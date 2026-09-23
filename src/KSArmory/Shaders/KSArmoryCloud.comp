@@ -954,7 +954,39 @@ const float DustFrontSpeed = 340.0;
 layout (constant_id = 24) const float DustDensity = 2.0;
 layout (constant_id = 25) const float DustSeconds = 14.0;
 const float DustLifeSeconds = 60.0;
-const int DustSteps = 32;
+layout (constant_id = 34) const int DustSteps = 32;
+
+// What the march spends once a cloud fills the view: its step count, reached by the time the cloud's
+// radius is 0.6 of its distance, from the full count at 0.25; and how coarse the grid it marches is,
+// one pixel of every square that many across, the resolve's history filling in the rest. Both are
+// the full picture by default.
+layout (constant_id = 35) const int CloseSteps = 48;
+layout (constant_id = 36) const int MarchScale = 1;
+
+// The pixels this invocation writes the cloud layer for: itself, or its square of the coarse grid.
+ivec2 blockOrigin = ivec2(0);
+int blockSize = 1;
+ivec2 layerSize = ivec2(0);
+
+void StoreLayerColor(vec4 value)
+{
+    for (int y = 0; y < blockSize; y++)
+        for (int x = 0; x < blockSize; x++)
+        {
+            ivec2 p = blockOrigin + ivec2(x, y);
+            if (p.x < layerSize.x && p.y < layerSize.y) imageStore(layerColor, p, value);
+        }
+}
+
+void StoreLayerDistance(vec4 value)
+{
+    for (int y = 0; y < blockSize; y++)
+        for (int x = 0; x < blockSize; x++)
+        {
+            ivec2 p = blockOrigin + ivec2(x, y);
+            if (p.x < layerSize.x && p.y < layerSize.y) imageStore(layerDistance, p, value);
+        }
+}
 
 // THE VIOLET GLOW round the young fireball: its colour, how bright a ray through the middle of it
 // reads, how long it lasts on the drawn clock -- stretched like the double flash, so it outlives the
@@ -1028,6 +1060,19 @@ void main()
     if (pc.FireSun.w > 0.0 && !(pc.AgeStrengthWind.y > 0.0 && pc.CentreRadius.w > 0.0))
     {
         at += ivec2(pc.FireSun.xy);
+    }
+
+    // A cloud marched on the coarse grid marches one pixel of its square and writes the square; which
+    // pixel turns every frame, so the resolve's history sees each of them in turn.
+    layerSize = size;
+    blockOrigin = at;
+    if (MarchScale > 1 && pc.AgeStrengthWind.y > 0.0 && pc.CentreRadius.w > 0.0)
+    {
+        int turn = int(global.camera.frame % 4);
+        blockOrigin = at * MarchScale;
+        blockSize = MarchScale;
+        at = min(blockOrigin + ivec2(turn == 1 || turn == 2 ? 1 : 0, turn == 1 || turn == 3 ? 1 : 0),
+                 size - 1);
     }
 
     if (at.x >= size.x || at.y >= size.y) return;
@@ -1122,8 +1167,8 @@ void main()
     // the pixel away: the layer is read whole by the resolve.
     if (wantsCloud && firstCloud)
     {
-        imageStore(layerColor, at, vec4(0.0, 0.0, 0.0, 1.0));
-        imageStore(layerDistance, at, vec4(0.0));
+        StoreLayerColor(vec4(0.0, 0.0, 0.0, 1.0));
+        StoreLayerDistance(vec4(0.0));
     }
 
     vec2 uv = (vec2(at) + 0.5) / vec2(size);
@@ -1162,7 +1207,7 @@ void main()
         {
             float behind = 1.0 - WeatherInFront(length(pc.CentreRadius.xyz));
             vec3 mask = vec3(1.0 - weatherClear, behind, float(sheetCount) / float(MaxSheets));
-            imageStore(layerColor, at, vec4(mask, 0.0));
+            StoreLayerColor(vec4(mask, 0.0));
         }
 
         return;
@@ -1319,7 +1364,13 @@ void main()
     // in its place and is NOT in, because it is built to be resolved by temporal accumulation and
     // there is none here -- a single frame of it is diagonal hatching across the stem.
     const int Steps = 48;
-    float dt = (t1 - t0) / float(Steps);
+    int steps = Steps;
+    if (CloseSteps < Steps)
+    {
+        float across = radius / max(length(toCentre), 1.0);
+        steps = int(round(mix(float(Steps), float(CloseSteps), smoothstep(0.25, 0.6, across))));
+    }
+    float dt = (t1 - t0) / float(steps);
 
     // Start each ray a fraction of a step in. Fewer steps band, and a dither turns that banding
     // into grain. Moved on every frame by the golden ratio, so the resolve's history averages the
@@ -1347,7 +1398,7 @@ void main()
     // Not over a ball still white-hot: the dust it swallowed has not yet closed over it.
     float ballHot = pc.FireSun.x > 0.0 ? smoothstep(0.5 * BallBurnGlow, BallBurnGlow, pc.FireSun.y) : 0.0;
 
-    for (int i = 0; i < (throughCloud ? Steps : 0); i++)
+    for (int i = 0; i < (throughCloud ? steps : 0); i++)
     {
         vec3 world = dir * (t0 + (float(i) + jitter) * dt) - toCentre;   // relative to the burst
 
@@ -1743,7 +1794,7 @@ void main()
                   : vec3(fireSum / held, 0.0, 0.1);
         float solid = step(0.01, covered);
 
-        imageStore(layerColor, at, vec4(mix(layer.rgb, view, solid), layer.a * (1.0 - solid)));
+        StoreLayerColor(vec4(mix(layer.rgb, view, solid), layer.a * (1.0 - solid)));
         return;
     }
 
@@ -1769,11 +1820,11 @@ void main()
     // where the cloud lets the background through: an aura round the fire rather than a wash over
     // it. Added over the fire, violet on orange came out pink.
     float aura = mix(1.0, sceneShows, 0.85);
-    imageStore(layerColor, at, vec4(under.rgb + violet * aura * strength, under.a));
+    StoreLayerColor(vec4(under.rgb + violet * aura * strength, under.a));
 
     float anyWeight = depthWeight + ringDepthWeight;
     if (strength * (1.0 - sceneShows * ringShows) > 0.02 && anyWeight > 0.0)
     {
-        imageStore(layerDistance, at, vec4((depthSum + ringDepthSum) / anyWeight));
+        StoreLayerDistance(vec4((depthSum + ringDepthSum) / anyWeight));
     }
 }

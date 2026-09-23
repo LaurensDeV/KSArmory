@@ -24,6 +24,12 @@ public static class ShaderTunables
     /// </summary>
     public const string DebugView = "DebugView";
 
+    /// <summary>
+    /// How coarse a grid the cloud is marched on: 1 every pixel, 2 one of every square two across,
+    /// the rest filled in by the resolve's history. The pass sizes its dispatch by it.
+    /// </summary>
+    public const string MarchScale = "MarchScale";
+
     /// <summary>Every tunable, in constant-id order.</summary>
     public static readonly Tunable[] All =
     [
@@ -60,6 +66,9 @@ public static class ShaderTunables
         new("DeckGlow", 31, 0.35),
         new("InflowDensity", 32, 0.45),
         new("BallRadiance", 33, 0.45),
+        new("DustSteps", 34, 32.0, Integer: true),
+        new("CloseSteps", 35, 48.0, Integer: true),
+        new(MarchScale, 36, 1.0, Integer: true),
     ];
 
     private static readonly Dictionary<string, double> Overrides = new(StringComparer.OrdinalIgnoreCase);
@@ -97,6 +106,10 @@ public static class ShaderTunables
         Overrides.Clear();
         Generation++;
     }
+
+    /// <summary>What the named tunable is now, or <paramref name="fallback"/> for a name there is none of.</summary>
+    public static double ValueOf(string name, double fallback)
+        => Find(name) is { } tunable ? Value(tunable) : fallback;
 
     /// <summary>What a tunable is now: the override if there is one, else the shader's default.</summary>
     public static double Value(Tunable tunable)
