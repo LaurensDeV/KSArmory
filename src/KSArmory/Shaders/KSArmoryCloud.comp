@@ -304,20 +304,132 @@ float WeatherShadow(vec3 worldPos, vec3 sunDir)
     return mix(result, 1.0, fadeOut);
 }
 
-// How far behind KSA's weather a point is, from 0 in front to 1 behind. The renderer gives one
-// averaged distance per pixel and it moves a little every frame; cut hard at it, a burst inside the
-// deck's depth flips between the two every frame and the weather flickers through it. So it is
-// eased over a band that grows with range -- BEHIND that distance only: a band reaching in front of
-// it counts the back of a burst standing before a deck as behind the deck, and the burst goes
-// transparent.
+// KSA'S WEATHER ALONG THIS PIXEL, as one sheet per crossing of a layer: where along the ray it is,
+// how deep the slab is there, and how much it lets through. The renderer hands over one distance and
+// one transmittance per pixel for ALL its layers together, the distance an opacity-weighted average
+// of theirs -- so with the cirrus over Earth's cumulus deck it lands between the two, and a cap
+// standing up through the cirrus read as behind the whole opaque deck wherever there was cirrus.
+// The layers' own radii put each sheet where it actually is; the averaged distance still says how
+// the opacity divides between the two sheets it falls between, which is all it can say.
+const int MaxSheets = 8;
+float sheetAt[MaxSheets];
+float sheetBand[MaxSheets];
+float sheetClear[MaxSheets];
+int sheetCount = 0;
+
+// The fallback, for weather with no layer data to place it by: one sheet at the averaged distance,
+// eased over a band behind it that grows with range, because that distance moves a little every
+// frame and a hard cut flickers. Behind only: a band reaching in front counts the back of a burst
+// standing before a deck as behind it, and the burst goes transparent.
 layout (constant_id = 14) const float WeatherDepthSpread = 0.15;
 
-float BehindWeather(float t, float weatherAt)
+void AddSheet(float at, float band, float clear)
 {
-    if (weatherAt >= 1.0e29) return 0.0;
+    if (sheetCount >= MaxSheets) return;
 
-    float band = max(weatherAt * WeatherDepthSpread, 200.0);
-    return smoothstep(weatherAt, weatherAt + band, t);
+    int i = sheetCount++;
+    while (i > 0 && sheetAt[i - 1] > at)
+    {
+        sheetAt[i] = sheetAt[i - 1];
+        sheetBand[i] = sheetBand[i - 1];
+        sheetClear[i] = sheetClear[i - 1];
+        i--;
+    }
+
+    sheetAt[i] = at;
+    sheetBand[i] = band;
+    sheetClear[i] = clear;
+}
+
+void PlaceWeather(vec2 uv, vec3 dir, float sceneT, float averagedAt, float clear)
+{
+    sheetCount = 0;
+    if (clear >= 0.999) return;
+
+    vec3 planet = global.lighting.planetPosition.xyz;
+    float eyeR = length(planet);
+    float b = dot(dir, planet);
+
+    for (int i = 0; i < min(weatherShadowStatic.layerCount, 4); i++)
+    {
+        WeatherShadowLayer layer = weatherShadowStatic.layers[i];
+        float middle = layer.middleRadius;
+        float halfDepth = max(middle - layer.bottomRadius, 1.0);
+
+        // Both roots of |t.dir - planet| = middle, in the form that keeps the near one when the
+        // eye is kilometres from a sphere millions of metres across.
+        float c = (eyeR - middle) * (eyeR + middle);
+        float disc = b * b - c;
+        if (disc <= 0.0) continue;
+
+        float q = b + (b >= 0.0 ? sqrt(disc) : -sqrt(disc));
+        float roots[2] = float[2](q, abs(q) > 1.0e-3 ? c / q : -1.0);
+
+        for (int k = 0; k < 2; k++)
+        {
+            float t = roots[k];
+            if (t <= 0.0 || t >= sceneT) continue;
+
+            // Half the slab's path along the ray: its depth over the cosine to the vertical there,
+            // held finite for a ray grazing along the layer.
+            float mu = abs(dot(dir, dir * t - planet)) / middle;
+            AddSheet(t, min(halfDepth / max(mu, 0.05), 20.0 * halfDepth), 1.0);
+        }
+    }
+
+    if (sheetCount == 0)
+    {
+        AddSheet(averagedAt, max(averagedAt * WeatherDepthSpread, 200.0), clear);
+        sheetAt[0] += 0.5 * sheetBand[0];
+        sheetBand[0] *= 0.5;
+        return;
+    }
+
+    // What the averaged distance says: the opacity sits between the two sheets it falls between,
+    // nearer the one that carries more of it. Measured between the slabs' facing edges, not their
+    // middles: a deck seen from above averages at its tops, well in front of its middle, and read
+    // against the middle that leaked a quarter of the deck onto clear air in front of it.
+    //
+    // And the farthest within five pixels: the upscaler hands each pixel the NEAREST distance of
+    // the three low-resolution texels round it, up to four pixels apiece, so a wisp of the near
+    // layer pulls a square round itself forward -- and the burst behind dropped out in boxes.
+    vec2 pixel = 5.0 / vec2(textureSize(weatherDistance, 0));
+    for (int y = -1; y <= 1; y++)
+    {
+        for (int x = -1; x <= 1; x++)
+        {
+            averagedAt = max(averagedAt, textureLod(weatherDistance, uv + vec2(x, y) * pixel, 0.0).r * 1000.0);
+        }
+    }
+
+    int near = 0;
+    while (near + 1 < sheetCount && sheetAt[near + 1] <= averagedAt) near++;
+
+    if (near + 1 >= sheetCount || averagedAt <= sheetAt[0])
+    {
+        sheetClear[averagedAt <= sheetAt[0] ? 0 : near] = clear;
+        return;
+    }
+
+    float nearEdge = sheetAt[near] + sheetBand[near];
+    float farEdge = max(sheetAt[near + 1] - sheetBand[near + 1], nearEdge + 1.0);
+    float share = clamp((averagedAt - nearEdge) / (farEdge - nearEdge), 0.0, 1.0);
+    float nearClear = 1.0 - ((1.0 - share) * (1.0 - clear));
+    sheetClear[near] = nearClear;
+    sheetClear[near + 1] = clamp(clear / max(nearClear, 1.0e-4), 0.0, 1.0);
+}
+
+// How much of the light from a point t along the ray gets through the weather in front of it.
+float WeatherInFront(float t)
+{
+    float through = 1.0;
+    for (int i = 0; i < sheetCount; i++)
+    {
+        through *= mix(1.0, sheetClear[i],
+                       smoothstep(sheetAt[i] - sheetBand[i], sheetAt[i] + sheetBand[i], t));
+    }
+
+    return through;
 }
 
 // How dense the cap is on average along a ray through it, for its shadow on what stands under it.
@@ -1005,11 +1117,10 @@ void main()
     float deviceZ = texture(sceneDepth, uv).r;
     float sceneT = deviceZ > 0.0 ? length(WorldAt(uv, deviceZ)) : 1.0e30;
 
-    // The weather cloud along this pixel, as a thin sheet: how far away it is, and how much of
-    // what lies behind it gets through. No cloud is infinitely far and entirely clear, which is
-    // the whole of what every burst was drawn against before.
-    float weatherAt = 1.0e30;
+    // The weather along this pixel. No cloud is infinitely far and entirely clear, which is the
+    // whole of what every burst was drawn against before.
     float weatherClear = 1.0;
+    sheetCount = 0;
 
     if (weatherBound)
     {
@@ -1018,19 +1129,19 @@ void main()
 
         if (cloudKm > 0.0 && clear < 0.999)
         {
-            weatherAt = cloudKm * 1000.0;
             weatherClear = clamp(clear, 0.0, 1.0);
+            PlaceWeather(uv, dir, sceneT, cloudKm * 1000.0, weatherClear);
         }
     }
 
     // THE WEATHER MASK, over the whole screen: red where KSA's clouds are opaque, green where the
-    // burst's centre counts as behind them. Written by the first cloud alone, and no cloud marches.
+    // burst's centre counts as behind them, blue by how many sheets the pixel crosses. Written by the first cloud alone, and no cloud marches.
     if (DebugView == 3 && wantsCloud)
     {
         if (firstCloud)
         {
-            float behind = BehindWeather(length(pc.CentreRadius.xyz), weatherAt);
-            vec3 mask = vec3(1.0 - weatherClear, behind, weatherAt < 1.0e29 ? 0.25 : 0.0);
+            float behind = 1.0 - WeatherInFront(length(pc.CentreRadius.xyz));
+            vec3 mask = vec3(1.0 - weatherClear, behind, float(sheetCount) / float(MaxSheets));
             imageStore(layerColor, at, vec4(mask, 0.0));
         }
 
@@ -1143,7 +1254,7 @@ void main()
             // And seen through whatever weather is between it and the eye. The ground is the far
             // side of every cloud over it, so this is only ever a dimming, and an opaque deck hides
             // the mark entirely rather than laying a grey disc across its top.
-            mark *= mix(1.0, weatherClear, BehindWeather(sceneT, weatherAt));
+            mark *= WeatherInFront(sceneT);
 
             if (mark > 0.0)
             {
@@ -1197,10 +1308,10 @@ void main()
     float transmittance = 1.0;
     vec3 scattered = vec3(0.0);
 
-    // Split at the weather sheet: in front of it the burst is seen as it is; behind it, through
-    // the cloud. The overall product still drives the early exit and the empty-ray test.
-    float clearInFront = 1.0;
-    float clearBehind = 1.0;
+    // How much of the scene the burst hides. Each step hides only what lies behind it, and in the
+    // scene the weather in front of a step is in front of it: so a step behind a sheet hides the
+    // share of the scene the sheet lets through, and nothing of the sheet's own light.
+    float hidden = 0.0;
 
     // Where along the ray the cloud is, weighted by what each step blocks: what the resolve
     // reprojects this pixel's history through.
@@ -1380,9 +1491,9 @@ void main()
         // Soot is black because it absorbs, so the dirty young cloud is also the thicker one: what
         // hides the fire everywhere but the gaps. A pale cloud at the same density lets it through.
         float extinction = density * Extinction * dt * (1.0 + SootOpacity * soot);
-        float behindWeather = BehindWeather(t0 + (float(i) + jitter) * dt, weatherAt);
+        float seenThrough = WeatherInFront(t0 + (float(i) + jitter) * dt);
 
-        scattered += transmittance * lit * extinction * mix(1.0, weatherClear, behindWeather);
+        scattered += transmittance * lit * extinction * seenThrough;
 
         float through = exp(-extinction);
 
@@ -1393,9 +1504,7 @@ void main()
         fireSum += blocked * fireShare;
 
         transmittance *= through;
-
-        clearBehind *= exp(-extinction * behindWeather);
-        clearInFront *= exp(-extinction * (1.0 - behindWeather));
+        hidden += blocked * seenThrough;
 
         if (transmittance < 0.03) break;
     }
@@ -1403,8 +1512,7 @@ void main()
     // THE RING OF DUST the blast front lifts, racing out along the ground far ahead of a cloud that
     // has barely begun to climb. Its own march, bounded by the cylinder the front has swept and the
     // slab the dust can climb to, because it runs out several cap radii past the sphere above.
-    float ringClearInFront = 1.0;
-    float ringClearBehind = 1.0;
+    float ringHidden = 0.0;
     vec3 ringScattered = vec3(0.0);
     float ringDepthSum = 0.0;
     float ringDepthWeight = 0.0;
@@ -1500,18 +1608,15 @@ void main()
                                                * global.lighting.occlusionColor.rgb);
 
                     float extinction = dust * Extinction * ringDt;
-                    float behindWeather = BehindWeather(t, weatherAt);
-                    ringScattered += ringTransmittance * lit * extinction
-                                     * mix(1.0, weatherClear, behindWeather);
+                    float seenThrough = WeatherInFront(t);
+                    ringScattered += ringTransmittance * lit * extinction * seenThrough;
 
                     float through = exp(-extinction);
                     float blocked = ringTransmittance * (1.0 - through);
                     ringDepthSum += blocked * t;
                     ringDepthWeight += blocked;
                     ringTransmittance *= through;
-
-                    ringClearBehind *= exp(-extinction * behindWeather);
-                    ringClearInFront *= exp(-extinction * (1.0 - behindWeather));
+                    ringHidden += blocked * seenThrough;
 
                     if (ringTransmittance < 0.03) break;
                 }
@@ -1519,7 +1624,7 @@ void main()
         }
     }
 
-    float ringShows = ringClearInFront * (1.0 - (weatherClear * (1.0 - ringClearBehind)));
+    float ringShows = 1.0 - ringHidden;
 
     // THE VIOLET GLOW. The burst's gamma rays ionise the air for some way round the fireball, and
     // the nitrogen fluoresces blue-violet -- the purple aura round the ball in the first moments,
@@ -1564,11 +1669,7 @@ void main()
 
     // The cloud dimmed by the air in front of it, plus what that air scatters in. Weighted by how
     // much cloud is actually there, so the haze is not laid over pixels the cloud barely covers.
-    // How much of the scene still shows. The part of the burst in front of the weather hides the
-    // weather and everything behind it; the part behind hides only what the weather lets through,
-    // since the cloud's own light is in front of it. Identical to the plain product when there is
-    // no cloud, and the whole scene when an opaque one stands in front of all of it.
-    float sceneShows = clearInFront * (1.0 - (weatherClear * (1.0 - clearBehind)));
+    float sceneShows = 1.0 - hidden;
 
     float covered = 1.0 - sceneShows;
     vec3 body = scattered * eyeTransmittance + inscatter * covered;

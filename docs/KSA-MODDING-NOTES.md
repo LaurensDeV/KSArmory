@@ -840,6 +840,30 @@ offset because offsets are consumed in set order. The coverage textures are in K
 `KsaWorld.TryWeatherShadowBuffers` and `CloudPass.Build` are the worked example; `CloudShadows.glsl`
 itself uses derivatives, so the lookup is rewritten at a fixed mip.
 
+## KSA's weather distance is one number for every layer, and the nearest of its neighbours
+
+`CloudRenderer`'s distance image (`GetLowResolutionCloudDistanceTarget`, and the upscaled pair it is
+accumulated into) holds **one** distance per pixel, in kilometres, for all the layers together:
+`RaymarchCloud.comp` marches them front to back and blends each into the last with
+`cloudDistance = mix(previous, current, currentOpacity / (previousOpacity + currentOpacity))`. The
+colour's alpha is likewise the layers' transmittances multiplied. So over Earth, where cumulus from
+2 km and cirrus from 11.0 to 12.2 km both lie along a downward ray, the distance lands **between**
+them, by how opaque each is. Anything standing between the two layers cannot be placed against it:
+treated as one sheet at that distance, a mushroom cap poking through the cirrus read as behind the
+whole opaque deck wherever there was cirrus, and dropped out in holes.
+
+Then the upscaler (`Upscaling/UpscalingFunctions.glsl`) writes each full-resolution pixel the
+**minimum** distance over the 3x3 low-resolution texels round it, and a texel is up to four pixels
+(`SetUpscalingMultipliers`, 2x1 to 4x4). A wisp of the near layer therefore pulls a square round
+itself forward, which draws as boxes.
+
+What recovers it: the layers' own radii are in the weather-shadow buffers above (`bottomRadius`,
+`middleRadius`, the top being symmetric), so each crossing of a layer along the ray can be placed
+exactly. The blended distance then says only how the opacity **divides** between the two crossings it
+falls between, measured between their slabs' facing edges (a deck seen from above averages at its
+tops). Read as the farthest within five pixels, it undoes the minimum. `PlaceWeather` in
+`Shaders/KSArmoryCloud.comp` is the worked example.
+
 ## Re-running the research
 
 ```bash

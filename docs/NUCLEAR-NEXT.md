@@ -79,6 +79,13 @@ whole time it is on screen**, and a six-warhead bus stands six of them.
   the global set's shadow volume reads 1 everywhere, and KSA's own shadow set is declared for
   fragment shaders alone and reads garbage from compute — `docs/KSA-MODDING-NOTES.md` has the route
   that works.
+- ~~**KSA's cirrus punched holes in the cap.**~~ **Fixed on 2026-09-23.** The weather was one sheet
+  at KSA's one distance per pixel, which is an average over all its layers, so from above a cap
+  standing up through the 11 km cirrus read as behind the whole deck wherever there was cirrus, and
+  dropped out in patches and small boxes that crawled as the cirrus drifted. Each layer is now its own
+  sheet at its own crossing, with KSA's opacity split between them; flown at 58 km and 15° round a
+  340 kt cap from four sides, the holes and boxes are gone, the view from under the deck is unchanged,
+  and the pass costs the same. `docs/KSA-MODDING-NOTES.md` has what the distance actually holds.
 - **Heat shimmer** needs the scene read at an offset while it is being written, which is a copy of the
   scene image this pass does not have.
 - **Guy-wire spikes** are a tower shot's, and nothing in the arsenal is on a tower.
