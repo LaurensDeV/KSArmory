@@ -3766,7 +3766,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                           munition, failed, _dentLoads);
         if (_dentLoads.Count == 0) return;
 
-        bool air = KsaWorld.AirDensityRatioAt(v, burst) > Medium.NoticeableDensity;
+        double airRatio = KsaWorld.AirDensityRatioAt(v, burst);
+        bool air = airRatio > Medium.NoticeableDensity;
         double kt = MushroomCloud.KilotonsFor(munition.ChargeKg);
         double3 burstAsmb = KsaWorld.EclToVehicleAsmb(v, burst);
 
@@ -3775,7 +3776,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         foreach ((int index, double ratio, double gap) in _dentLoads)
         {
             double due = air ? MushroomCloud.ShockArrivalSeconds(kt, gap) - elapsed : 0.0;
-            BlastArrivals.Queue(v, _partHandles[index], burstAsmb, ratio, due, air);
+            BlastArrivals.Queue(v, _partHandles[index], burstAsmb, ratio, due, air ? airRatio : 0.0,
+                                munition.ChargeKg);
 
             first = Math.Min(first, due);
             last = Math.Max(last, due);

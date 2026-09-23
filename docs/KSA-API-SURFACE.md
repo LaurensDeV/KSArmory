@@ -7,7 +7,19 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-235 types and 645 members across 10 assemblies.
+238 types and 663 members across 11 assemblies.
+
+## BepuUtilities
+
+### BepuUtilities.Symmetric3x3
+
+- `BepuUtilities.Symmetric3x3 Invert(BepuUtilities.Symmetric3x3)`
+- `float XX`
+- `float YX`
+- `float YY`
+- `float ZX`
+- `float ZY`
+- `float ZZ`
 
 ## Brutal.Concurrency
 
@@ -768,6 +780,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.FlightPlan
 
 - `KSA.UniverseTime get_ExpiryGameTime()`
+- `void .ctor(KSA.Orbit, KSA.KeyHash)`
 
 ### KSA.FxDeformation
 
@@ -895,6 +908,12 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `Brutal.Concurrency.Jobs.JobScheduler VehicleSolver`
 
+### KSA.KinematicStates
+
+- `Brutal.Numerics.double3 AngularVelocityPhys`
+- `Brutal.Numerics.double3 VelocityPhys`
+- `Brutal.Numerics.doubleQuat Body2Phys`
+
 ### KSA.KittenEva
 
 - `void .ctor(KSA.CelestialSystem, string, Brutal.Numerics.doubleQuat, Brutal.Numerics.double3, KSA.IParentBody, string, KSA.Part, KSA.Orbit)`
@@ -902,6 +921,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.LookupCollection`1
 
 *referenced as a type only*
+
+### KSA.MassProperties
+
+- `BepuUtilities.Symmetric3x3 Inertia`
 
 ### KSA.MeshViewModule
 
@@ -1072,7 +1095,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.PhysicsStates
 
+- `KSA.Orbit ComputeOrbit(Brutal.Numerics.byte4)`
+- `ref KSA.KinematicStates Kinematic`
 - `ref KSA.VehicleProperties Props`
+- `void UpdateFromAnalytic(KSA.Orbit, ref KSA.StateVectors, Brutal.Numerics.doubleQuat, Brutal.Numerics.double3, KSA.Situation)`
 
 ### KSA.PlanetTransparenciesRenderer
 
@@ -1326,6 +1352,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.Vehicle
 
+- `Brutal.Numerics.byte4 get_OrbitColor()`
 - `Brutal.Numerics.double3 get_AccelerationBody()`
 - `Brutal.Numerics.double3 get_AngularAccelerationBody()`
 - `Brutal.Numerics.double3 get_BodyRates()`
@@ -1358,11 +1385,13 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `float get_TotalMass()`
 - `int get_BubbleVehicleCount()`
 - `ref KSA.BubbleOrigin get_BubbleOrigin()`
+- `ref KSA.MassProperties get_TotalMassPropsBody()`
 - `ref KSA.StructuralLoad get_StructuralLoad()`
 - `ref KSA.VehicleProperties get_Props()`
 - `void PrepareWorker(KSA.SimStep)`
 - `void ProcessInput(KSA.InputAction, Brutal.GlfwApi.GlfwKeyAction, Brutal.GlfwApi.GlfwModifier)`
 - `void SetControlPart(KSA.Part, Connector)`
+- `void SetFlightPlan(KSA.FlightPlan)`
 - `void TeleportToLocation(KSA.Celestial, double, double)`
 - `void UpdateAfterPartTreeModification()`
 - `void UpdateRenderData(KSA.IViewport, int)`

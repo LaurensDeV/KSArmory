@@ -282,4 +282,58 @@ public class BlastDamageTests
         Assert.InRange(ratio, 0.5, 1.0);
         Assert.Equal(fails * 1.1, gap, 6);
     }
+
+    /// <summary>
+    /// A dent reaches well past where the part breaks: the engine's threshold, half the part's
+    /// tolerance, lands where the real overpressure is a fifth of what broke it -- 2.6x out for a part
+    /// four times the reference strength, which fails near enough for that to fall inside the blast
+    /// radius, where the cube law alone would stop at 1.26x.
+    /// </summary>
+    [Theory]
+    [InlineData(20.0)]
+    [InlineData(3.0e5)]
+    [InlineData(2.0e7)]
+    public void ADentReachesWhereTheRealBlastIsAFifthOfWhatBreaksThePart(double chargeKg)
+    {
+        double tolerance = BlastDamage.ReferencePascals * 4.0;
+        double fails = BlastDamage.FailureRadius(chargeKg, tolerance);
+        double atFailure = BlastWave.PeakOverpressurePascals(chargeKg, fails);
+
+        Assert.Equal(1.0, BlastDamage.DentRatio(chargeKg, tolerance, fails), 9);
+
+        double lo = fails, hi = Warhead.BlastRadius(chargeKg);
+        for (int i = 0; i < 80; i++)
+        {
+            double mid = 0.5 * (lo + hi);
+            if (BlastWave.PeakOverpressurePascals(chargeKg, mid) > BlastDamage.YieldShare * atFailure) lo = mid;
+            else hi = mid;
+        }
+
+        Assert.InRange(lo / fails, 2.4, 2.8);
+        Assert.Equal(0.5, BlastDamage.DentRatio(chargeKg, tolerance, lo), 6);
+    }
+
+    /// <summary>A reference part dents all the way out to the blast radius, where the cube law stopped at 1.26x.</summary>
+    [Theory]
+    [InlineData(20.0)]
+    [InlineData(3.0e5)]
+    public void AReferencePartDentsOutToTheBlastRadius(double chargeKg)
+    {
+        double tolerance = BlastDamage.ReferencePascals;
+        double edge = Warhead.BlastRadius(chargeKg) * 0.999;
+
+        Assert.True(BlastDamage.DentRatio(chargeKg, tolerance, edge) >= 0.5);
+        Assert.True(BlastDamage.PressureRatio(chargeKg, tolerance, edge) < 0.5);
+    }
+
+    /// <summary>Inside the failure radius the dent is the damage law's, so a protected craft still reads over one.</summary>
+    [Fact]
+    public void InsideTheFailureRadiusADentIsTheDamageLaw()
+    {
+        double fails = BlastDamage.FailureRadius(3.0e5, BlastDamage.ReferencePascals);
+
+        Assert.Equal(BlastDamage.PressureRatio(3.0e5, BlastDamage.ReferencePascals, fails * 0.8),
+                     BlastDamage.DentRatio(3.0e5, BlastDamage.ReferencePascals, fails * 0.8), 9);
+        Assert.Equal(0.0, BlastDamage.DentRatio(3.0e5, BlastDamage.ReferencePascals, Warhead.BlastRadius(3.0e5) * 1.01));
+    }
 }

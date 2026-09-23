@@ -102,6 +102,34 @@ internal static class BlastDamage
         return ReferencePascals / tolerance * scaled * scaled * scaled;
     }
 
+    // Skin yields at about a fifth of the overpressure that tears it: a parked aircraft is lightly
+    // damaged by about one psi and destroyed by about five (Glasstone, ch. 5).
+    public const double YieldShare = 0.2;
+
+    // The engine dents a part from half its tolerance, so half is where the load reaches YieldShare.
+    private const double EngineDentShare = 0.5;
+
+    /// <summary>
+    /// The load to hand the engine as a dent: <see cref="PressureRatio"/> inside the radius where
+    /// the part fails, and outside it the real blast wave's fall-off, bent so the engine's
+    /// threshold lands where the real overpressure is <see cref="YieldShare"/> of what broke the
+    /// part: 2.6x the failure radius for a strong part and 3.4x for one of the reference strength,
+    /// which takes it out to the blast radius, where the cube law alone reached that threshold 1.26x
+    /// out.
+    /// </summary>
+    public static double DentRatio(double chargeKg, double crashTolerancePascals, double gap)
+    {
+        double failure = FailureRadius(chargeKg, crashTolerancePascals);
+        if (!(failure > 0.0) || !(gap < Warhead.BlastRadius(chargeKg))) return 0.0;
+        if (gap <= failure) return PressureRatio(chargeKg, crashTolerancePascals, gap);
+
+        double atFailure = BlastWave.PeakOverpressurePascals(chargeKg, failure);
+        if (!(atFailure > 0.0)) return 0.0;
+
+        double share = BlastWave.PeakOverpressurePascals(chargeKg, gap) / atFailure;
+        return Math.Pow(share, Math.Log(EngineDentShare) / Math.Log(YieldShare));
+    }
+
     /// <summary>
     /// Every part of one craft this burst loads without breaking, with how hard and how far from
     /// the burst its skin is — what it would dent, and when the front gets there. A part in
@@ -126,7 +154,7 @@ internal static class BlastDamage
 
             double gap = BlastSweep.SurfaceGap(part.PositionEcl, velocityEcl, sinceSample,
                                                burstEcl, part.RadiusMetres);
-            double ratio = PressureRatio(munition.ChargeKg, part.CrashTolerancePascals, gap);
+            double ratio = DentRatio(munition.ChargeKg, part.CrashTolerancePascals, gap);
 
             if (ratio > 0.0) into.Add((part.Index, ratio, gap));
         }

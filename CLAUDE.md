@@ -300,6 +300,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/TailKitReach.cs` | how far a store already falling can still walk its landing — **flown, not solved**, because a lateral push settles at the drift where fin authority and lateral drag balance rather than accumulating, so the share of `a·t²` a kit delivers runs 0.46 at a 21 s fall and 0.18 at 95 s and no constant fraction bounds it. **It reports rather than refusing**: a bomb is already falling, so unlike the bus there is no budget left to overspend |
 | `Sim/TailKitReach.cs` | how far a store already falling can still move its landing — **flown, because `½·a·t²` is not a bound**: a lateral push does not accumulate against drag, it settles where fin authority and lateral drag balance, so the share of `a·t²` delivered runs 0.46 at a 21 s fall and 0.18 at 95 s and a constant fitted at two kilometres promises three times the truth from twenty |
 | `Sim/BlastSweep.cs` | how near a burst a body was, and what that does to it — shared by the sweep over craft and the one over rounds |
+| `Sim/BlastWave.cs` | the blast wave in real pascals — **Kinney–Graham**, the overpressure, how long it pushes and the wind behind it — because `BlastDamage`'s law is calibrated to KSA's part strengths and says nothing about what the air is doing |
+| `Sim/BlastShove.cs` | what that wind does to a craft, **part by part**, summed into a kick and a turn about the centre of mass — a tall rocket hit side-on tips because it is pushed hardest above its middle |
 | `Sim/BlastDamage.cs` | which parts of a craft a burst breaks — **nothing here picks a part**: each is judged on its own distance and the strength the engine derived for it |
 | `Sim/TargetAllocation.cs` | what one craft's weapons have in the air **between them** — the unit that over-commits is the craft, not the weapon |
 | `Sim/RoundReach.cs` | whether a round the ground stops can still get to it — **the reaper for a store that will never arrive**, because a long fall is long rather than stuck |
@@ -528,7 +530,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 645 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 663 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -1177,7 +1179,7 @@ Do the private repo *before* pushing here, or CI fails on the lock it cannot sat
 member that keeps its name and signature and changes its *meaning* — a different reference
 frame, different units, a reordered enum — compiles clean and is wrong in flight. That is what
 the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from 684,000 lines to the files
-defining the 235 types this mod actually uses.
+defining the 238 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 45 in total, 14 MB —
@@ -2095,10 +2097,16 @@ KSA dents a part when a collision presses it past half its crash tolerance, and
 setting. `BlastDamage.PressureRatio` is the same law the failure radius comes from — one where a
 part fails, half at the cube root of two further out — and `KsaWorld.ReportBlastDent` hands each
 surviving part's load to the engine on the face toward the burst, pushed along the blast, so the
-threshold, the depth and the merging are KSA's and not a second rule. **It lands when the front
+threshold, the depth and the merging are KSA's and not a second rule. **Past the failure radius
+the load follows the real blast wave rather than the cube law** (`BlastDamage.DentRatio`): KSA dents
+from half a part's tolerance, the cube law reaches that 1.26x the failure radius out, and skin yields
+at about a fifth of what tears it, which the real fall-off puts 2.6–3.4x out — so a part of the
+reference strength dents all the way to the blast radius. **It lands when the front
 does, not at the flash**: `Ksa/BlastArrivals.cs` holds each load for `MushroomCloud.ShockArrivalSeconds`
 on the simulated clock, so 0.3 kt at 800 m dents 2.06 s after the burst, and in air the struck face
-throws a puff of dust along the blast (`Ksa/BlastPuff.cs`). Where there is no air the front is the
+throws a puff of dust along the blast (`Ksa/BlastPuff.cs`) and the wind behind the front pushes the
+craft (`Sim/BlastShove.cs`), written from `AttitudeHook`'s window the way `Vehicle.Split` pushes two
+halves apart: into the physics state, off rails, orbit rebuilt. Where there is no air the front is the
 debris itself and there is no delay to model, so it lands at once. **The craft that fired and
 the one being flown are dented and never broken**: the skip that protects them is about breaking,
 and a dent breaks nothing. Flown with a damaging bridge burst against the rocket on the pad:

@@ -2471,17 +2471,37 @@ internal static class KsaWorld
 
     // ---- Part damage ----------------------------------------------------
 
+    /// <summary>Where a craft's mass is centred, in its own assembly frame.</summary>
+    public static bool TryCentreOfMassAsmb(Vehicle v, out double3 centreAsmb)
+    {
+        centreAsmb = default;
+        if (!IsAlive(v)) return false;
+
+        try
+        {
+            centreAsmb = v.CenterOfMassAsmb;
+            return Vec.IsFinite(centreAsmb);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     /// <summary>
     /// Where a burst strikes a part, and which way it pushes, in the craft's assembly frame: the
     /// point where the ray from the part's box centre toward the burst leaves the box, as the
-    /// engine's own test dent places one, and the push along the blast.
+    /// engine's own test dent places one, and the push along the blast. The box's centre and the
+    /// face it shows the blast are what the wind behind the front pushes on.
     /// </summary>
     public static bool TryBlastFace(Part part, double3 burstAsmb, out double3 faceAsmb, out double3 pushAsmb,
-                                    out double acrossMetres)
+                                    out double acrossMetres, out double3 centreAsmb, out double facingM2)
     {
         faceAsmb = default;
         pushAsmb = default;
         acrossMetres = 0.0;
+        centreAsmb = default;
+        facingM2 = 0.0;
 
         (double3 min, double3 max) = part.BoundingBoxVehicleAsmb;
         double3 centre = (min + max) * 0.5;
@@ -2501,6 +2521,8 @@ internal static class KsaWorld
         faceAsmb = centre + (toward * exit);
         pushAsmb = -toward;
         acrossMetres = Vec.Len(half);
+        centreAsmb = centre;
+        facingM2 = BlastShove.ProjectedArea(half, toward);
         return Vec.IsFinite(faceAsmb);
     }
 

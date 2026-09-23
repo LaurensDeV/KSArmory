@@ -72,6 +72,11 @@ internal static class AttitudeHook
     // under it throws "Update task failed" out of SequencePerformanceList.Recompute.
     private static readonly HashSet<Vehicle> Staging = [];
 
+    // Craft owed a blast's push, as an impulse and an angular impulse about the centre of mass in
+    // the craft's assembly frame. Written here for the reason attitude is: a velocity written from
+    // any other hook is overwritten by the worker's results before anything reads it.
+    private static readonly Dictionary<Vehicle, (double3 Linear, double3 Angular)> Shoves = [];
+
     private static Harmony? _harmony;
     private static bool _complained;
 
@@ -118,6 +123,7 @@ internal static class AttitudeHook
     {
         Wanted.Clear();
         Staging.Clear();
+        Shoves.Clear();
 
         try
         {
@@ -214,6 +220,21 @@ internal static class AttitudeHook
         Staging.Add(craft);
     }
 
+    /// <summary>
+    /// Push this craft when its worker is next prepared: <paramref name="impulseAsmb"/> in newton
+    /// seconds and <paramref name="angularImpulseAsmb"/> about its centre of mass, both in its own
+    /// assembly frame. Dropped when the hook is not installed, because written anywhere else it is
+    /// overwritten before the physics reads it.
+    /// </summary>
+    public static void Shove(Vehicle craft, double3 impulseAsmb, double3 angularImpulseAsmb)
+    {
+        if (!Installed || !KsaWorld.IsAlive(craft)) return;
+        if (!Vec.IsFinite(impulseAsmb) || !Vec.IsFinite(angularImpulseAsmb)) return;
+
+        Shoves.TryGetValue(craft, out (double3 Linear, double3 Angular) owed);
+        Shoves[craft] = (owed.Linear + impulseAsmb, owed.Angular + angularImpulseAsmb);
+    }
+
     /// <summary>Stop pointing it, and stop quieting it. The vehicle is the player's again.</summary>
     public static void Release(Vehicle craft)
     {
@@ -235,6 +256,16 @@ internal static class AttitudeHook
         try
         {
             if (Staging.Count > 0 && Staging.Remove(__instance)) VehicleCommand.Stage(__instance);
+
+            if (Shoves.Count > 0 && Shoves.Remove(__instance, out (double3 Linear, double3 Angular) shove))
+            {
+                if (VehicleCommand.TryShove(__instance, shove.Linear, shove.Angular,
+                                            out double3 dv, out double3 dw))
+                {
+                    Log.Info($"the blast wind pushed {KsaWorld.DisplayName(__instance)} by "
+                             + $"{Vec.Len(dv):F2} m/s and set it turning at {Vec.Len(dw) * 180.0 / Math.PI:F2} deg/s");
+                }
+            }
 
             // Before everything else, and whatever else this craft is doing: the mode decides how a
             // translation command already standing is spent, and it is restated every frame.
@@ -280,6 +311,7 @@ internal static class AttitudeHook
             Pulsed.Remove(__instance);
             Restore.Remove(__instance);
             Staging.Remove(__instance);
+            Shoves.Remove(__instance);
 
             if (_complained) return;
             _complained = true;
