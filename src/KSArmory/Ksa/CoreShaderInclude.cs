@@ -24,7 +24,12 @@ internal static class CoreShaderInclude
 {
     // Where this mod's shaders live, relative to the mod folder, and what the generated header is
     // called. KSArmoryCloud.comp includes it by this name and never knows the path inside it.
+    //
+    // IN A FOLDER CALLED Content. KSA's shader hot reload keys every include on the text after the
+    // first "Content" in its full path, and one with none throws inside that bookkeeping and is
+    // logged as an error on every compile -- the shader still builds, but a player sees the error.
     private const string Folder = "Shaders";
+    private const string Subfolder = "Content";
     private const string Generated = "CoreAtmosphere.glsl";
 
     // What it points at, under the game's own Content root. Global.glsl declares the set KSA binds
@@ -83,7 +88,8 @@ internal static class CoreShaderInclude
 
             foreach (string core in found) body += $"#include \"{core.Replace('\\', '/')}\"\n";
 
-            File.WriteAllText(Path.Combine(shaders, Generated), body);
+            string into = Directory.CreateDirectory(Path.Combine(shaders, Subfolder)).FullName;
+            File.WriteAllText(Path.Combine(into, Generated), body);
 
             Available = true;
             Log.Info($"core shaders: atmosphere available from {Path.GetDirectoryName(found[0])}");

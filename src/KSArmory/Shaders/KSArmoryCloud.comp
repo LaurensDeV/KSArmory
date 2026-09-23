@@ -15,7 +15,7 @@
 #define SET_TEXTURE 2
 #define SET_CLOUD_DATA 3
 
-#include "CoreAtmosphere.glsl"
+#include "Content/CoreAtmosphere.glsl"
 
 // This mod's nuclear cloud, evaluated per pixel instead of choreographed as capsules.
 //
