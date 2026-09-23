@@ -27,6 +27,9 @@ internal static class Fireball
     // multiply, so every authored colour arrives dimmed by this.
     private const float AlbedoLinear = 0.4535f;
 
+    // How far the burst's light reaches, in its own radii: 3.2 km at 0.3 kt.
+    private const double RangeInRadii = 60.0;
+
     // Below this Rec.709 luminance a tap is discarded by the threshold bloom and nothing glows.
     private const float BloomLuminance = 3f;
 
@@ -57,7 +60,7 @@ internal static class Fireball
         if (!Resolve()) return;
         if (!double.IsFinite(radiusMetres) || radiusMetres <= 0.0) return;
         if (!float.IsFinite(emissive) || emissive <= 0.0f) return;
-        if (!KsaWorld.TryEclToEgo(centreEcl, out double3 centreEgo)) return;
+        if (!KsaWorld.TryEclToCameraEgo(centreEcl, out double3 centreEgo)) return;
 
         // Ego rather than ecliptic, and not by preference: the matrix is packed to float32, where
         // an ecliptic position has a 16 km quantum. Ego is camera-relative and stays small.
@@ -133,8 +136,12 @@ internal static class Fireball
         float radiance = AlbedoLinear * emissive;
         float intensity = radiance * 4f * MathF.PI * (float)(radiusMetres * radiusMetres);
 
+        // Out to where a burst is watched from, so the land round the watcher is lit by it; the
+        // falloff has made it faint by then. No shadows: the terrain takes this light through KSA's
+        // forward list, which has none, so a shadow map would cost a cube of the whole landscape a
+        // frame for nothing on the ground.
         LightDebug.Lights.Add(Light.CreatePointLight(
-            centreEgo, (float)(radiusMetres * 30.0), colour, intensity, ELightFlags.None));
+            centreEgo, (float)(radiusMetres * RangeInRadii), colour, intensity, ELightFlags.None));
 
         _lights = 1;
     }

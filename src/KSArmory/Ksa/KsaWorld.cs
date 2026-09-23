@@ -1677,6 +1677,31 @@ internal static class KsaWorld
     }
 
     /// <summary>
+    /// A point in the world as the render camera sees it, differenced in double -- what the cloud
+    /// pass places the burst with, so anything drawn in the cloud lands where the cloud is.
+    ///
+    /// <para><b>Not <see cref="TryEclToEgo"/></b>, which converts through the overlay's draw anchor:
+    /// that is set only on a frame some overlay draws and cleared at the start of every frame, so a
+    /// caller with no overlay of its own gets nothing on most frames -- which is how the fireball
+    /// went undrawn, and unlit, whenever no weapon overlay happened to be on screen.</para>
+    /// </summary>
+    public static bool TryEclToCameraEgo(double3 ecl, out double3 ego)
+    {
+        ego = default;
+        try
+        {
+            if ((Program.GetRenderCamera() ?? Program.GetMainCamera()) is not { } camera) return false;
+
+            ego = ecl - camera.PositionEcl;
+            return Vec.IsFinite(ego);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
     /// The Ecl position that renders at a given Ego position.
     ///
     /// <para>The inverse of the conversion everything else does, and it exists for one case:
