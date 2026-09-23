@@ -878,11 +878,18 @@ Then the upscaler (`Upscaling/UpscalingFunctions.glsl`) writes each full-resolut
 itself forward, which draws as boxes.
 
 What recovers it: the layers' own radii are in the weather-shadow buffers above (`bottomRadius`,
-`middleRadius`, the top being symmetric), so each crossing of a layer along the ray can be placed
-exactly. The blended distance then says only how the opacity **divides** between the two crossings it
-falls between, measured between their slabs' facing edges (a deck seen from above averages at its
-tops). Read as the farthest within five pixels, it undoes the minimum. `PlaceWeather` in
-`Shaders/KSArmoryCloud.comp` is the worked example.
+`middleRadius`, the top being symmetric), so each stretch of the ray **inside** a layer's slab can be
+placed exactly -- between its bottom and top spheres, not at its middle's crossing, which a ray
+skimming the top half never makes. The blended distance then says only how the opacity **divides**
+between the two stretches it falls between, measured between their facing edges (a deck seen from
+above averages at its tops). Read as the farthest within five pixels, it undoes the minimum.
+
+**And a deck the eye is inside is thickest at the eye.** The stretch then starts at the camera and
+near the horizon runs hundreds of kilometres, so its opacity spread evenly along it put most of a fog
+bank behind a burst 95 km off, which showed through fog that had hidden the ground. For fog thinning
+exponentially the opacity-weighted mean distance is its scale, so that stretch builds up as
+`exp(-t / averaged distance)` instead. `PlaceWeather` in `Shaders/KSArmoryCloud.comp` is the worked
+example.
 
 ## Re-running the research
 

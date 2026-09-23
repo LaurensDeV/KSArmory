@@ -315,6 +315,12 @@ const int MaxSheets = 8;
 float sheetAt[MaxSheets];
 float sheetBand[MaxSheets];
 float sheetClear[MaxSheets];
+
+// For a sheet the eye is inside, the distance its opacity builds up over, from KSA's own averaged
+// distance; zero for a sheet seen from outside. A deck the eye is in is thickest round the eye, and
+// spread evenly along the stretch the ray spends in it -- hundreds of kilometres near the horizon --
+// it put most of the fog behind a burst the fog should have hidden.
+float sheetFog[MaxSheets];
 int sheetCount = 0;
 
 // The fallback, for weather with no layer data to place it by: one sheet at the averaged distance,
@@ -323,7 +329,7 @@ int sheetCount = 0;
 // standing before a deck as behind it, and the burst goes transparent.
 layout (constant_id = 14) const float WeatherDepthSpread = 0.15;
 
-void AddSheet(float at, float band, float clear)
+void AddSheet(float at, float band, float clear, float fog)
 {
     if (sheetCount >= MaxSheets) return;
 
@@ -333,12 +339,30 @@ void AddSheet(float at, float band, float clear)
         sheetAt[i] = sheetAt[i - 1];
         sheetBand[i] = sheetBand[i - 1];
         sheetClear[i] = sheetClear[i - 1];
+        sheetFog[i] = sheetFog[i - 1];
         i--;
     }
 
     sheetAt[i] = at;
     sheetBand[i] = band;
     sheetClear[i] = clear;
+    sheetFog[i] = fog;
+}
+
+// Where along the ray |t.dir - planet| = radius, nearer first, in the form that keeps the near root
+// when the eye is kilometres from a sphere millions of metres across. False if the ray misses it.
+bool ShellRoots(float eyeR, float b, float radius, out vec2 roots)
+{
+    roots = vec2(0.0);
+    float c = (eyeR - radius) * (eyeR + radius);
+    float disc = b * b - c;
+    if (disc <= 0.0) return false;
+
+    float q = b + (b >= 0.0 ? sqrt(disc) : -sqrt(disc));
+    float one = q;
+    float other = abs(q) > 1.0e-3 ? c / q : -1.0e30;
+    roots = vec2(min(one, other), max(one, other));
+    return true;
 }
 
 void PlaceWeather(vec2 uv, vec3 dir, float sceneT, float averagedAt, float clear)
@@ -350,36 +374,47 @@ void PlaceWeather(vec2 uv, vec3 dir, float sceneT, float averagedAt, float clear
     float eyeR = length(planet);
     float b = dot(dir, planet);
 
+    // Each stretch of the ray inside a layer's slab, between its bottom and its top, is one sheet
+    // spread along that stretch. Where it crosses the whole slab that is the slab's path round its
+    // middle; where the eye is inside the slab the stretch starts at the eye, and where the ray only
+    // skims the top it is the stretch it skims -- both of which a sheet at the middle's crossing
+    // missed, putting a deck the eye is looking through behind whatever stands in it.
     for (int i = 0; i < min(weatherShadowStatic.layerCount, 4); i++)
     {
         WeatherShadowLayer layer = weatherShadowStatic.layers[i];
-        float middle = layer.middleRadius;
-        float halfDepth = max(middle - layer.bottomRadius, 1.0);
+        float bottom = layer.bottomRadius;
+        float top = 2.0 * layer.middleRadius - bottom;
 
-        // Both roots of |t.dir - planet| = middle, in the form that keeps the near one when the
-        // eye is kilometres from a sphere millions of metres across.
-        float c = (eyeR - middle) * (eyeR + middle);
-        float disc = b * b - c;
-        if (disc <= 0.0) continue;
+        vec2 underTop;
+        if (!ShellRoots(eyeR, b, top, underTop)) continue;
 
-        float q = b + (b >= 0.0 ? sqrt(disc) : -sqrt(disc));
-        float roots[2] = float[2](q, abs(q) > 1.0e-3 ? c / q : -1.0);
+        vec2 underBottom;
+        bool crossesBottom = ShellRoots(eyeR, b, bottom, underBottom);
 
-        for (int k = 0; k < 2; k++)
+        vec2 stretches[2] = vec2[2](underTop, vec2(0.0));
+        int count = 1;
+        if (crossesBottom)
         {
-            float t = roots[k];
-            if (t <= 0.0 || t >= sceneT) continue;
+            stretches[0] = vec2(underTop.x, underBottom.x);
+            stretches[1] = vec2(underBottom.y, underTop.y);
+            count = 2;
+        }
 
-            // Half the slab's path along the ray: its depth over the cosine to the vertical there,
-            // held finite for a ray grazing along the layer.
-            float mu = abs(dot(dir, dir * t - planet)) / middle;
-            AddSheet(t, min(halfDepth / max(mu, 0.05), 20.0 * halfDepth), 1.0);
+        for (int k = 0; k < count; k++)
+        {
+            float from = max(stretches[k].x, 0.0);
+            float to = min(stretches[k].y, sceneT);
+            if (to <= from) continue;
+
+            // Marked if it starts at the eye; how far its fog reaches is settled below, once the
+            // averaged distance has said which sheet the opacity is in.
+            AddSheet(0.5 * (from + to), 0.5 * (to - from), 1.0, from <= 0.0 ? 1.0 : 0.0);
         }
     }
 
     if (sheetCount == 0)
     {
-        AddSheet(averagedAt, max(averagedAt * WeatherDepthSpread, 200.0), clear);
+        AddSheet(averagedAt, max(averagedAt * WeatherDepthSpread, 200.0), clear, 0.0);
         sheetAt[0] += 0.5 * sheetBand[0];
         sheetBand[0] *= 0.5;
         return;
@@ -408,15 +443,26 @@ void PlaceWeather(vec2 uv, vec3 dir, float sceneT, float averagedAt, float clear
     if (near + 1 >= sheetCount || averagedAt <= sheetAt[0])
     {
         sheetClear[averagedAt <= sheetAt[0] ? 0 : near] = clear;
-        return;
+    }
+    else
+    {
+        float nearEdge = sheetAt[near] + sheetBand[near];
+        float farEdge = max(sheetAt[near + 1] - sheetBand[near + 1], nearEdge + 1.0);
+        float share = clamp((averagedAt - nearEdge) / (farEdge - nearEdge), 0.0, 1.0);
+        float nearClear = 1.0 - ((1.0 - share) * (1.0 - clear));
+        sheetClear[near] = nearClear;
+        sheetClear[near + 1] = clamp(clear / max(nearClear, 1.0e-4), 0.0, 1.0);
     }
 
-    float nearEdge = sheetAt[near] + sheetBand[near];
-    float farEdge = max(sheetAt[near + 1] - sheetBand[near + 1], nearEdge + 1.0);
-    float share = clamp((averagedAt - nearEdge) / (farEdge - nearEdge), 0.0, 1.0);
-    float nearClear = 1.0 - ((1.0 - share) * (1.0 - clear));
-    sheetClear[near] = nearClear;
-    sheetClear[near + 1] = clamp(clear / max(nearClear, 1.0e-4), 0.0, 1.0);
+    // The sheet the eye is inside builds its opacity up from the eye, over the averaged distance:
+    // for fog that thins exponentially, the opacity-weighted mean distance is exactly its scale.
+    for (int i = 0; i < sheetCount; i++)
+    {
+        if (sheetFog[i] <= 0.0) continue;
+        sheetFog[i] = sheetClear[i] < 0.999
+                          ? clamp(averagedAt, 100.0, max(sheetAt[i] + sheetBand[i], 100.0))
+                          : 0.0;
+    }
 }
 
 // How much of the light from a point t along the ray gets through the weather in front of it.
@@ -425,8 +471,10 @@ float WeatherInFront(float t)
     float through = 1.0;
     for (int i = 0; i < sheetCount; i++)
     {
-        through *= mix(1.0, sheetClear[i],
-                       smoothstep(sheetAt[i] - sheetBand[i], sheetAt[i] + sheetBand[i], t));
+        through *= sheetFog[i] > 0.0
+                       ? mix(sheetClear[i], 1.0, exp(-t / sheetFog[i]))
+                       : mix(1.0, sheetClear[i],
+                             smoothstep(sheetAt[i] - sheetBand[i], sheetAt[i] + sheetBand[i], t));
     }
 
     return through;
