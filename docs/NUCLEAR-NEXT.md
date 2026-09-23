@@ -32,12 +32,12 @@ largest gap.
 
 | Real | Drawn |
 |---|---|
-| The fireball's surface is mottled: bomb debris and instabilities glow unevenly, and a tower shot throws spikes where the guy wires flash off | A smooth, evenly lit sphere |
+| The fireball's surface is mottled: bomb debris and instabilities glow unevenly, and a tower shot throws spikes where the guy wires flash off | **Mottled by the fire pockets**, which wrap the ball from the first second; a debris shell on the ball's own skin was built and taken out, because the same frame with it and without it could not be told apart. No guy-wire spikes |
 | The air round the ball glows violet for an instant, strongest at night | Nothing |
 | Heat and the shock front visibly bend the view round the ball | Nothing refracts |
 | A ring of dust races out along the ground behind the shock | **Built**, in the raymarch: a low wall lifted behind `MushroomCloud.ShockRadius`, thinning and climbing behind the front, out to about where it falls to a pound per square inch |
 | The flash throws hard shadows across everything in sight | The ball carries a light; what it reaches at range has not been checked |
-| Flash blindness lasts seconds, far longer at night | About a second and a half |
+| Flash blindness lasts seconds, far longer at night | **Built**: recovers on 0.28 s by day and 2.2 s in full night (`FlashGlare.RecoverySeconds`); flown at night, 0.57 at 1.2 s and 0.14 at 4.3 s |
 
 **The first ten seconds.**
 
@@ -58,7 +58,7 @@ largest gap.
 | White condensation cap, dirty-brown underside, dark brown stem | **Built**: the crown whitens from 6 s as the soot clears, over the brown underside. Hard to see under an overcast, which lights the whole cloud flat |
 | Often a thin, tall stem, with dust visibly drawn up into the cap's underside | A flared foot, then a column |
 | Past the tropopause the cap spreads into an anvil | Built (item 5) |
-| Fallout curtains take minutes to show | Streamers hang from the cap within about twenty seconds |
+| Fallout curtains take minutes to show | **Built**: nothing until 18 s on the rise's clock, full by 32 |
 
 **After that.** A real cloud lasts tens of minutes to hours, drifting, shearing and spreading into
 a long plume, with a haze of dust over ground zero. The drawn one fades from 58 s and is gone at

@@ -120,6 +120,9 @@ float Fbm(vec3 p)
 layout (constant_id = 3) const float FalloutReach = 2.3;
 layout (constant_id = 4) const float FalloutDensity = 0.30;
 
+// When the fallout starts to show, in seconds on the rise's clock.
+const float FalloutStartSeconds = 18.0;
+
 // Stands in for "no cap over this sample at all". Any number past the erosion's reach does, and a
 // finite one keeps the comparisons below free of an isinf.
 const float Nowhere = 1.0e9;
@@ -496,9 +499,15 @@ float Density(vec3 leaned, vec3 up, float radius, out float fireMask, out float 
     // gap above them, and the parts of the rim the noise has eaten away go on shedding from
     // nothing. Starting at the cap's own middle instead makes the two overlap, so the seam is a
     // max between a dense cap and a faint fall rather than a boundary between them.
-    if (above < Nowhere)
+    //
+    // AND ONLY ONCE THERE HAS BEEN TIME TO FALL. The heavy fraction takes minutes to come out of a
+    // real cap, which on the rise's clock is the back half of the climb; strands hanging from a cap
+    // ten seconds old read as rain from a cloud that has only just formed.
+    float falling = smoothstep(FalloutStartSeconds, FalloutStartSeconds + 14.0, age);
+
+    if (above < Nowhere && falling > 0.0)
     {
-        float hang = clamp(-(above - capErode) / max(tubeR * 0.85, 1.0), 0.0, 1.0);
+        float hang = clamp(-(above - capErode) / max(tubeR * 0.85, 1.0), 0.0, 1.0) * falling;
 
         vec3 drawn = world - (up * (dot(world, up) * 0.90));
         float streak = Noise(drawn * (46.0 / max(radius, 1.0)));
