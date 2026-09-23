@@ -340,6 +340,9 @@ TOOLS = {
                   {"kt": _num("yield"), "east_m": _num("metres east"), "north_m": _num("metres north"),
                    "explode": {"type": "boolean"}, "damage": {"type": "boolean"}},
                   ["kt"], lambda a: [_text(json.dumps(send("burst", **a)))]),
+    "ksa_dents": ("The dents the engine holds on the flown craft, each with the angle between its push and the "
+                  "line from the last damaging burst to it. clear=true takes them all off.",
+                  {"clear": {"type": "boolean"}}, [], lambda a: [_text(json.dumps(send("dents", **a), indent=1))]),
     "ksa_clear": ("Forget every cloud, mark and flash.", {}, [], lambda a: [_text(json.dumps(send("clear")))]),
     "ksa_camera": ("Hold the view on the newest burst: a preset (side, under, overhead, far, downwind), or "
                    "azimuth from across the wind, elevation, distance (0 = default), aim as a fraction of "

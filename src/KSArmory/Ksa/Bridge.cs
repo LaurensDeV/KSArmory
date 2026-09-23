@@ -53,6 +53,10 @@ internal sealed class Bridge
     // its warhead going off there, and the craft itself is its platform -- dented, never broken.
     private readonly Func<Vehicle?, WeaponSystem?> _systemFor;
 
+    // The last burst that damaged, in the frame of the craft it was set off beside: a dent's push
+    // is measured against it, and a bare ecliptic point is left behind by the planet.
+    private (Vehicle Craft, double3 BurstAsmb)? _lastDamage;
+
     // Asked for from the panel, and taken up by the next Update: the panel draws in the UI pass and
     // the bridge runs in the frame hook, and a capture must not start inside the UI pass.
     private static bool _playerAsked;
@@ -202,6 +206,7 @@ internal sealed class Bridge
             "get" => Get(command),
             "clear" => Clear(),
             "burst" => Burst(command),
+            "dents" => Dents(command),
             "camera" => Camera(command),
             "reload_shaders" => ReloadShaders(),
             "tune" => Tune(command),
@@ -334,6 +339,7 @@ internal sealed class Bridge
             MunitionProfile warhead = Arsenal.NukeB61.Copy();
             warhead.ChargeKg = (float)charge;
             system.SplashAt(ground, warhead);
+            _lastDamage = (craft, KsaWorld.EclToVehicleAsmb(craft, ground));
         }
 
         return Done(new()
@@ -341,6 +347,36 @@ internal sealed class Bridge
             ["kt"] = kt,
             ["range_m"] = Math.Round(Vec.Len(ground - craftEcl)),
         });
+    }
+
+    // The dents the engine holds on the flown craft, each with the angle between its push and the
+    // line from the last damaging burst to it: zero is pushed straight along the blast. clear takes
+    // them all off, so a test starts from none.
+    private Reply Dents(BridgeCommand command)
+    {
+        if (KsaWorld.ControlledVehicle is not { } craft) return Failed("no craft is being flown");
+
+        if (command.Flag("clear", false)) return Done(new() { ["cleared_parts"] = KsaWorld.ClearDents(craft) });
+
+        List<Dictionary<string, object?>> listed = [];
+        foreach ((double3 centre, double3 push, double radius, double depth) in KsaWorld.DentsOn(craft))
+        {
+            double? offBlast = null;
+            if (_lastDamage is { } last && ReferenceEquals(last.Craft, craft))
+            {
+                double3 along = Vec.Unit(centre - last.BurstAsmb);
+                offBlast = Math.Round(double.RadiansToDegrees(Math.Acos(Math.Clamp(Vec.Dot(along, Vec.Unit(push)), -1.0, 1.0))), 1);
+            }
+
+            listed.Add(new()
+            {
+                ["depth_m"] = Math.Round(depth, 3),
+                ["radius_m"] = Math.Round(radius, 2),
+                ["deg_off_blast"] = offBlast,
+            });
+        }
+
+        return Done(new() { ["count"] = listed.Count, ["dents"] = listed });
     }
 
     private Reply Camera(BridgeCommand command)

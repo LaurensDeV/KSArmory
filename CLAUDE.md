@@ -526,7 +526,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 633 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 642 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -1175,7 +1175,7 @@ Do the private repo *before* pushing here, or CI fails on the lock it cannot sat
 member that keeps its name and signature and changes its *meaning* — a different reference
 frame, different units, a reordered enum — compiles clean and is wrong in flight. That is what
 the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from 684,000 lines to the files
-defining the 231 types this mod actually uses.
+defining the 235 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 45 in total, 14 MB —
@@ -2096,7 +2096,9 @@ surviving part's load to the engine on the face toward the burst, pushed along t
 threshold, the depth and the merging are KSA's and not a second rule. **The craft that fired and
 the one being flown are dented and never broken**: the skip that protects them is about breaking,
 and a dent breaks nothing. Flown with a damaging bridge burst against the rocket on the pad:
-0.3 kt at 1400 m loaded five parts and dented none, at 1100 and 900 m two, at 700 m three.
+0.3 kt at 1400 m loaded five parts and dented none, at 1100 and 900 m two, at 700 m three. Read back
+from where the engine stores them, every dent pushes along the line from its burst to within 0.1°,
+east, north and on both diagonals.
 
 `Config.DamageIndividualParts` is the way back to binary kills, which is what shipped before KSA
 had a failure model: `LethalRadius` destroys, and between lethal and `BlastRadius` the mod logs a

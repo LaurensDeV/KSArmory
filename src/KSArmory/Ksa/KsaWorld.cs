@@ -2494,9 +2494,7 @@ internal static class KsaWorld
         {
             if (v.IsDisposed || loads.Count == 0) return 0;
 
-            // The burst in the craft's assembly frame, by the pairing TryCollectDamageableParts
-            // places the parts with, inverted.
-            double3 burstAsmb = v.CenterOfMassAsmb + (v.Asmb2Ego.Inverse() * (burstEcl - PositionEcl(v)));
+            double3 burstAsmb = EclToVehicleAsmb(v, burstEcl);
 
             foreach ((int index, double ratio) in loads)
             {
@@ -2546,6 +2544,56 @@ internal static class KsaWorld
     }
 
     private static bool _warnedAboutDents;
+
+    /// <summary>
+    /// A point in the craft's assembly frame, by the pairing <see cref="TryCollectDamageableParts"/>
+    /// places the parts with, inverted -- the frame the engine keeps its dents in.
+    /// </summary>
+    public static double3 EclToVehicleAsmb(Vehicle v, double3 pointEcl)
+        => v.CenterOfMassAsmb + (v.Asmb2Ego.Inverse() * (pointEcl - PositionEcl(v)));
+
+    /// <summary>
+    /// The dents the engine holds on a craft, in its assembly frame: where each sits, which way it
+    /// pushes, and how deep and wide it is.
+    /// </summary>
+    public static List<(double3 Centre, double3 Push, double Radius, double Depth)> DentsOn(Vehicle v)
+    {
+        List<(double3, double3, double, double)> dents = [];
+
+        try
+        {
+            KSA.PartTree tree = v.Parts;
+            tree.Dents.EnsureBuilt(tree, Program.GetRenderer().FrameCount);
+
+            foreach (KSA.Deformation.Dent d in tree.Dents.Dents)
+            {
+                dents.Add((double3.Unpack(in d.Center), double3.Unpack(in d.Direction), d.Radius, d.Depth));
+            }
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"could not read the dents on {DisplayName(v)}: {e.Message}");
+        }
+
+        return dents;
+    }
+
+    /// <summary>Takes every dent off a craft, through the engine's own clear.</summary>
+    public static int ClearDents(Vehicle v)
+    {
+        int cleared = 0;
+
+        foreach (Part part in v.Parts.Parts)
+        {
+            foreach (FxDeformation module in part.Modules.Get<FxDeformation>())
+            {
+                module.ClearDents();
+                cleared++;
+            }
+        }
+
+        return cleared;
+    }
 
     /// <summary>
     /// Every part of a craft a blast could break, with the three things

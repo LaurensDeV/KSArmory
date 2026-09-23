@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-231 types and 633 members across 10 assemblies.
+235 types and 642 members across 10 assemblies.
 
 ## Brutal.Concurrency
 
@@ -46,6 +46,14 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 *referenced as a type only*
 
+### Brutal.Numerics.Unpack
+
+*referenced as a type only*
+
+### Brutal.Numerics.Unpack+Float
+
+*referenced as a type only*
+
 ### Brutal.Numerics.byte4
 
 - `void .ctor(byte, byte, byte, byte)`
@@ -58,6 +66,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### Brutal.Numerics.double3
 
 - `Brutal.Numerics.double3 Cross(Brutal.Numerics.double3, Brutal.Numerics.double3)`
+- `Brutal.Numerics.double3 Unpack(ref Brutal.Numerics.float3, Float)`
 - `Brutal.Numerics.double3 get_UnitX()`
 - `Brutal.Numerics.double3 get_UnitY()`
 - `Brutal.Numerics.double3 get_UnitZ()`
@@ -666,6 +675,13 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `KSA.VehicleSave FindSave(string)`
 
+### KSA.Deformation.Dent
+
+- `Brutal.Numerics.float3 Center`
+- `Brutal.Numerics.float3 Direction`
+- `float Depth`
+- `float Radius`
+
 ### KSA.DensityReference
 
 - `double op_Implicit(KSA.DensityReference)`
@@ -753,11 +769,17 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.FxDeformation
 
+- `void ClearDents()`
 - `void ReportContact(KSA.Part, Brutal.Numerics.float3, Brutal.Numerics.float3, Brutal.Numerics.float3, double, double)`
 
 ### KSA.FxDeformation+Shared
 
 - `int TotalReported`
+
+### KSA.FxDeformation+VehicleDents
+
+- `System.ReadOnlySpan`1<KSA.Deformation.Dent> get_Dents()`
+- `void EnsureBuilt(KSA.PartTree, ulong)`
 
 ### KSA.GameAudio
 
@@ -1020,6 +1042,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.SequencePerformanceList PerformanceSequences`
 - `List<KSA.Control> Controls`
 - `System.ReadOnlySpan`1<KSA.Part> get_Parts()`
+- `VehicleDents Dents`
 - `int get_Count()`
 - `void RecomputeAllDerivedData()`
 - `void UpdateRenderData(ref Brutal.Numerics.double4x4, bool, KSA.IViewport, int)`
