@@ -238,10 +238,11 @@ one" was answered from memory on the night; this answers it from pictures.
 (`Sim/ShaderTunables.cs`): declared with a `constant_id` and a default in the GLSL, overridden when
 the pipeline is built, so `tune` is a pipeline rebuild — milliseconds, no recompile — and a debug
 view costs the picture nothing. `DebugView` 1–5 draws coverage, depth, the weather mask, sunlight
-and the fireball's share of the light; the other seventeen are the look's constants.
+and the fireball's share of the light; the rest are the look's constants.
 `ShaderTunablesTests` holds the list and the GLSL to one another. The first use of the sunlight view
-turned up a lead: from under a deck, the stem under a 5 km cap with the sun at 28° reads fully lit,
-where the cap should be shading it — the shadow march's four taps may not reach that far down.
+turned up a defect: the stem under the cap read fully lit, because the shadow march's four taps step
+over a cap a few hundred metres thick a kilometre up the ray. A point under the cap now adds the
+ray's closed-form chord through the dome (`CapChord`), for 0.17 ms.
 
 **Capture for Claude** is a button in the debug tools window. It writes `out/player-<time>/`: a
 note of the state, every `Config` field and every tunable at the moment it was pressed, the log's

@@ -214,6 +214,10 @@ float BehindWeather(float t, float weatherAt)
     return smoothstep(weatherAt, weatherAt + band, t);
 }
 
+// How dense the cap is on average along a ray through it, for its shadow on what stands under it.
+// Under one: the erosion eats into the dome, and a ray through the whole of it crosses gaps.
+layout (constant_id = 29) const float CapShadowDensity = 0.5;
+
 // How much a unit of density dims the light through it, per metre.
 layout (constant_id = 16) const float Extinction = 0.022;
 
@@ -272,6 +276,40 @@ vec3 Unlean(vec3 world, vec3 up, float top)
     // Taken OFF the sample: the shape is upright and the world is leaning, so a point out downwind
     // belongs to a part of the column further up rather than to nothing.
     return world - blown * lean;
+}
+
+// How far a ray toward the sun travels through the cap's dome, in metres: a ray-ellipsoid chord, in
+// closed form. For a point UNDER the cap, where the shadow march's four taps are too far apart to
+// find it -- the cap is a few hundred metres thick and a kilometre up the ray, and the taps stepped
+// over it, so the stem under it was lit as though it stood in the open.
+float CapChord(vec3 leaned, vec3 sun, vec3 up, float radius)
+{
+    float capH = pc.Shape.x;
+    float ringR = max(pc.Shape.y - pc.Shape.z, pc.Shape.z);
+    float tubeR = pc.Shape.z;
+
+    // The dome's centre where the lean has carried it, and its two semi-axes.
+    vec3 upright = up * (capH + 0.35 * tubeR);
+    vec3 centre = 2.0 * upright - Unlean(upright, up, radius);
+    float across = ringR * 1.02 + tubeR;
+    float tall = tubeR * 1.75;
+
+    // Squashed along the vertical into a sphere of radius `across`, which scales the ray with it.
+    float squash = across / max(tall, 1.0);
+    vec3 o = leaned - centre;
+    o += up * (dot(o, up) * (squash - 1.0));
+    vec3 d = sun + up * (dot(sun, up) * (squash - 1.0));
+
+    float a = dot(d, d);
+    float b = dot(o, d);
+    float c = dot(o, o) - across * across;
+    float disc = b * b - a * c;
+    if (disc <= 0.0) return 0.0;
+
+    float root = sqrt(disc);
+    float t0 = max((-b - root) / a, 0.0);
+    float t1 = (-b + root) / a;
+    return max(t1 - t0, 0.0);
 }
 
 float Bulk(vec3 leaned, vec3 up)
@@ -1037,6 +1075,13 @@ void main()
         for (int k = 1; k <= 4; k++)
         {
             toSun += Bulk(Unlean(leaned + sun * (step_ * float(k * k)), up, radius), up) * step_ * float(k);
+        }
+
+        // And under the cap, the cap itself, which the taps miss. Only there: inside the cap the
+        // taps are what shade it, and adding the chord as well would count it twice.
+        if (dot(Unlean(leaned, up, radius), up) < pc.Shape.x - pc.Shape.z)
+        {
+            toSun += CapChord(leaned, sun, up, radius) * CapShadowDensity;
         }
 
         // TWO LOBES. The first is direct light surviving the path to this sample; the second is a
