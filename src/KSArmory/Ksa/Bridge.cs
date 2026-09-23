@@ -325,8 +325,14 @@ internal sealed class Bridge
 
         double charge = kt * 1.0e6;
 
+        // up_m sets it off that far above the ground: an air burst, and the one way to put a burst
+        // over a craft that is sitting on it. Below zero it is under the ground, which is no burst
+        // anybody sets off and the only way to put one under a craft resting on it.
+        double up = command.Number("up_m", 0.0);
+        ground += frame.Up * up;
+
         // Lifted by the fireball, as the burst tool lifts it, so the ball is not drawn half-buried.
-        double3 lifted = ground + (frame.Up * Math.Max(MushroomCloud.PeakFireballRadius(kt), 2.0));
+        double3 lifted = ground + (frame.Up * (up != 0.0 ? 0.0 : Math.Max(MushroomCloud.PeakFireballRadius(kt), 2.0)));
         // KSA's own explosion as well unless told not to, which is how a warhead goes off; without it
         // the burst is this mod's drawing alone, which is what separates the two when one misdraws.
         if (command.Flag("explode", true)) Detonation.Explode(lifted, charge, craft);
