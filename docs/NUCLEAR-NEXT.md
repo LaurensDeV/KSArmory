@@ -35,7 +35,7 @@ largest gap.
 | The fireball's surface is mottled: bomb debris and instabilities glow unevenly, and a tower shot throws spikes where the guy wires flash off | A smooth, evenly lit sphere |
 | The air round the ball glows violet for an instant, strongest at night | Nothing |
 | Heat and the shock front visibly bend the view round the ball | Nothing refracts |
-| A ring of dust races out along the ground behind the shock | Nothing; the particle one came out as a black collar and was removed |
+| A ring of dust races out along the ground behind the shock | **Built**, in the raymarch: a low wall lifted behind `MushroomCloud.ShockRadius`, thinning and climbing behind the front, out to about where it falls to a pound per square inch |
 | The flash throws hard shadows across everything in sight | The ball carries a light; what it reaches at range has not been checked |
 | Flash blindness lasts seconds, far longer at night | About a second and a half |
 
@@ -68,9 +68,18 @@ a long plume, with a haze of dust over ground zero. The drawn one fades from 58 
 ball is 1:7 against its cap and reads as wrong.
 
 **Ranked for what they would change on screen:** ~~the dirty rising fireball, with glow through the
-dust and the brown of the oxides; the ball turning into a ring of fire~~ (built on 2026-09-23); the
-dust ring racing out along the ground, in the raymarch this time rather than particles; condensation
-rings on the stem; and a longer life, which runs against the decision to hold the cloud still.
+dust and the brown of the oxides; the ball turning into a ring of fire; the dust ring racing out
+along the ground~~ (built on 2026-09-23); condensation rings on the stem; and a longer life, which
+runs against the decision to hold the cloud still.
+
+**The dust ring, flown.** The front is Sedov–Taylor and then sonic, in real time rather than on the
+rise's clock, so at 0.3 kt it has left its reach two seconds in, mostly under the flash, and what
+reads is the layer it leaves: a dust collar at 1.6 s and a grey-brown layer round the base by 6. At
+20 kt it visibly races out between 4 and 11 s. It takes the ground's hue and not its brightness;
+borrowing both drew it as a dark stripe across dark grass. Measured through the bridge's `cost` at
+a close 20 kt pose where it covers a wide band of the screen: 3.55 ms for the pass against 3.08 with
+the dust at zero. **What it still lacks:** the column and the ring are not shaded by KSA's weather,
+so under an overcast both are lit brighter than the ground round them.
 
 **The dirty fireball, flown** on a 0.3 kt burst from the side view: at 2 s black smoke with
 fire in its pockets, at 4 s the pockets dimming inside a brown-red shell, and by 8 s a brown cap

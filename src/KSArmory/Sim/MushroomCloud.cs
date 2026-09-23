@@ -237,7 +237,8 @@ public static class MushroomCloud
     /// the spray rolls out over the surface. Nothing on land does that: a surface burst's afterwinds
     /// blow <em>inward</em> along the ground to feed the stem, so dust thrown out by the blast is
     /// pulled back to the axis and lifted. The skirt is a collar round the base of the column, not a
-    /// ring beyond the cap.</para>
+    /// ring beyond the cap. What a land burst does have out there is thinner and faster: the dust the
+    /// blast front itself lifts as it passes, which is <see cref="ShockRadius"/>'s.</para>
     ///
     /// <para>Fast out and slow back, because the blast drives the one and nothing sustains it, while
     /// the inflow lasts as long as the column is rising.</para>
@@ -250,6 +251,43 @@ public static class MushroomCloud
         double drawIn = 1.0 - Math.Exp(-age / (RiseSeconds * 0.55));
 
         return DrawnCapRadius(yieldKt) * ((SurgeReach * outrush) - (SurgeDrawback * drawIn));
+    }
+
+    // Sea-level air and its sound speed, for the blast wave. Earth's, because the ring is drawn only
+    // where there is air and dust, and the difference between two thick atmospheres is not visible
+    // in a front that leaves the frame in seconds.
+    private const double AirKgPerM3 = 1.225;
+    private const double SoundMetresPerSecond = 340.0;
+    private const double JoulesPerKiloton = 4.184e12;
+
+    // The Sedov front is let go at this Mach number, and relaxes to sound speed after it.
+    private const double StrongShockMach = 1.2;
+
+    /// <summary>
+    /// How far the blast wave has run along the ground (m): the front that lifts the ring of dust.
+    ///
+    /// <para><b>Real time, not the rise's clock.</b> The ring is the one thing in the first seconds
+    /// that is plainly <em>fast</em>, racing out past a cloud that has barely started to climb, and
+    /// compressed eightfold like the rise it would crawl. It is Sedov–Taylor while the shock is
+    /// strong — the energy doubled, because the ground reflects the half going down — and then runs
+    /// on at sound speed, eased from the Mach number it was let go at so the speed has no step. A
+    /// real front stays slightly supersonic further out than this, so it arrives a little late.</para>
+    /// </summary>
+    public static double ShockRadius(double yieldKt, double age)
+    {
+        if (yieldKt <= 0.0 || age <= 0.0) return 0.0;
+
+        double k = 1.03 * Math.Pow(2.0 * yieldKt * JoulesPerKiloton / AirKgPerM3, 0.2);
+
+        // Where the Sedov speed, 0.4 R/t, falls to the release Mach number.
+        double released = Math.Pow(0.4 * k / (StrongShockMach * SoundMetresPerSecond), 1.0 / 0.6);
+        if (age <= released) return k * Math.Pow(age, 0.4);
+
+        double since = age - released;
+        double excess = (StrongShockMach - 1.0) * SoundMetresPerSecond;
+
+        return (k * Math.Pow(released, 0.4)) + (SoundMetresPerSecond * since)
+               + (excess * released * (1.0 - Math.Exp(-since / released)));
     }
 
     /// <summary>
@@ -467,7 +505,7 @@ public static class MushroomCloud
     public readonly record struct Shape(
         double CapCentre, double CapRadius, double CapTube,
         double StemTop, double StemRadius, double SurgeRadius, double SurgeHeight,
-        double Roll, double Fade)
+        double Roll, double Fade, double Shock = 0.0)
     {
         /// <summary>Nothing left to draw.</summary>
         public bool Spent => Fade <= 0.0;
@@ -854,6 +892,7 @@ public static class MushroomCloud
             SurgeRadius: SurgeRadius(kt, age),
             SurgeHeight: SurgeHeight(kt, age),
             Roll: roll,
+            Shock: ShockRadius(kt, age),
             Fade: Fade(age));
     }
 

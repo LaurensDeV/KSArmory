@@ -730,4 +730,36 @@ public class MushroomCloudTests
             last = heat;
         }
     }
+
+    /// <summary>
+    /// The blast front is strong and then sonic, and its speed has no step where the one law hands
+    /// over to the other: a jump there is the ring lurching outward on screen.
+    /// </summary>
+    [Theory]
+    [InlineData(0.3)]
+    [InlineData(20.0)]
+    [InlineData(340.0)]
+    public void TheBlastFrontSlowsToSoundWithoutAJerk(double kt)
+    {
+        const double dt = 0.001;
+        double lastSpeed = double.PositiveInfinity;
+
+        for (double age = 0.02; age < 20.0; age += 0.01)
+        {
+            double speed = (MushroomCloud.ShockRadius(kt, age + dt) - MushroomCloud.ShockRadius(kt, age)) / dt;
+            Assert.True(speed > 330.0, $"{kt} kt: {speed:F0} m/s at {age:F2} s, under sound");
+            Assert.True(speed <= lastSpeed * 1.001, $"{kt} kt: sped up at {age:F2} s");
+            lastSpeed = speed;
+        }
+    }
+
+    [Fact]
+    public void TheBlastFrontOutrunsTheCloud()
+    {
+        // Two seconds in, the front is far past the cap: the ring is what is fast in the first
+        // seconds, and a front on the rise's clock would still be under it.
+        MushroomCloud.Shape at2 = MushroomCloud.At(0.3 * Kt, 2.0);
+        Assert.True(at2.Shock > 1.5 * (at2.CapRadius + at2.CapTube), $"front {at2.Shock:F0} m, cap {at2.CapRadius:F0} m");
+        Assert.Equal(0.0, MushroomCloud.ShockRadius(0.3, 0.0));
+    }
 }

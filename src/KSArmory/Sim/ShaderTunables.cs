@@ -51,6 +51,8 @@ public static class ShaderTunables
         new("SootSeconds", 21, 10.0),
         new("NoxStrength", 22, 0.70),
         new("NoxSeconds", 23, 22.0),
+        new("DustDensity", 24, 2.0),
+        new("DustSeconds", 25, 14.0),
     ];
 
     private static readonly Dictionary<string, double> Overrides = new(StringComparer.OrdinalIgnoreCase);

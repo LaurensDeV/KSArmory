@@ -499,6 +499,65 @@ float Phase(float cosTheta, float g)
     return (1.0 - gg) / (12.566371 * max(d * sqrt(max(d, 1e-4)), 1e-4));
 }
 
+// THE RING OF DUST. The blast front drives a wind along the ground behind it that lifts the surface
+// into a low wall, densest at the front and climbing and thinning behind it -- the dust that races
+// out across the desert in every film of a tower shot. It lifts dust only as far as the front is
+// strong enough to, about where it has fallen to a pound per square inch; drawn in stem radii so it
+// keeps its size against the drawn cloud, which is itself drawn at 65% of the law.
+const float DustReachInStems = 8.0;
+
+// How high the wall is at the front, how fast it climbs behind it, and the most it may.
+const float DustWallInStems = 0.45;
+const float DustClimbPerSecond = 0.30;
+const float DustTopInStems = 3.0;
+
+// The front's speed once it is sonic, which is what turns a distance behind it into a time since it
+// passed. MushroomCloud.ShockRadius's sound speed.
+const float DustFrontSpeed = 340.0;
+
+// How dense the lifted dust is, and how long it hangs before it settles.
+layout (constant_id = 24) const float DustDensity = 2.0;
+layout (constant_id = 25) const float DustSeconds = 14.0;
+const float DustLifeSeconds = 60.0;
+const int DustSteps = 32;
+
+// Dry dust: paler than the stem's foot, which is ground the fireball burned.
+const vec3 DustColour = vec3(0.46, 0.36, 0.25);
+
+float DustAt(vec3 p, float y, float r, float front, float reach, float stemR, float age)
+{
+    if (r > front) return 0.0;
+
+    // Seconds since the front passed this radius, and how hard it hit here.
+    float since = (front - r) / DustFrontSpeed;
+    float strong = 1.0 - smoothstep(0.35 * reach, reach, r);
+
+    // Inside the fireball's own footprint the column's flared foot is the dust.
+    float clear = smoothstep(0.8 * stemR, 2.0 * stemR, r);
+
+    // Low at the very front, where the wind has only just begun to lift it, piling up in the first
+    // second behind it and then climbing. A wall as tall at its leading edge as behind it is a
+    // cushion with a cut rim.
+    float piling = 0.25 + 0.75 * (1.0 - exp(-since / 0.8));
+    float h = min(DustWallInStems * stemR * piling * (1.0 + since * DustClimbPerSecond),
+                  0.35 * DustTopInStems * stemR);
+    // A wall at the front, and a thinner layer behind it: the ground there has already given up
+    // what the wind could lift, and what it lifted is climbing and spreading.
+    float wall = 0.30 + 0.70 * exp(-since / 1.2);
+    float edge = smoothstep(0.0, 1.5 * DustWallInStems * stemR, front - r);
+    float settle = exp(-since / DustSeconds);
+
+    float dust = strong * clear * wall * edge * settle;
+    if (dust * DustDensity < 0.002 || y > 2.0 * h) return 0.0;
+
+    // Billowed, rolling outward as it goes, and with a lumpy top rather than a lid: the noise
+    // decides how high the dust reaches here, so the wall's crest is a row of boils.
+    float n = Fbm(p * (2.2 / stemR) + vec3(age * 0.15));
+    float crest = h * (0.25 + 3.0 * max(n - 0.30, 0.0));
+    return DustDensity * dust * smoothstep(0.25, 0.55, n)
+           * (1.0 - smoothstep(0.55 * crest, crest, max(y, 0.0)));
+}
+
 void main()
 {
     // The target's own size, asked of the image rather than sent: it is the two floats the wind
@@ -585,12 +644,16 @@ void main()
 
     // Three flags on a cloud's dispatch, in its fourth fireball float, summed and negated because
     // positive there means a ground mark: 1 if the column is spray, 2 if there are no weather
-    // clouds bound, 4 if it is the first cloud this frame. A mark's dispatch says the second in its
-    // shape's second float instead. CloudPass.CloudFlags writes exactly this.
+    // clouds bound, 4 if it is the first cloud this frame; and eight times the blast front's radius
+    // in whole metres. A mark's dispatch says the second in its shape's second float instead.
+    // CloudPass.CloudFlags writes exactly this, and every term is an integer, so the arithmetic is
+    // exact.
     float cloudFlags = wantsCloud ? -pc.FireSun.w : 0.0;
-    bool columnIsWater = mod(cloudFlags, 2.0) > 0.5;
-    bool weatherBound = wantsCloud ? (mod(floor(cloudFlags / 2.0), 2.0) < 0.5) : (pc.Shape.y > 0.5);
-    bool firstCloud = cloudFlags > 3.5;
+    float flagBits = mod(cloudFlags, 8.0);
+    float shockRadius = floor((cloudFlags + 0.5) / 8.0);
+    bool columnIsWater = mod(flagBits, 2.0) > 0.5;
+    bool weatherBound = wantsCloud ? (mod(floor(flagBits / 2.0), 2.0) < 0.5) : (pc.Shape.y > 0.5);
+    bool firstCloud = flagBits > 3.5;
 
     if (!wantsScorch && !wantsCloud) return;
 
@@ -775,12 +838,12 @@ void main()
     float along = dot(toCentre, dir);
     float perpSq = dot(toCentre, toCentre) - along * along;
     float rSq = radius * radius;
-    if (perpSq > rSq) return;
 
-    float half_ = sqrt(rSq - perpSq);
+    // Not a return: the ring of dust below runs far outside this sphere.
+    float half_ = sqrt(max(rSq - perpSq, 0.0));
     float t0 = max(along - half_, 0.0);
     float t1 = min(along + half_, sceneT);
-    if (t1 <= t0) return;
+    bool throughCloud = perpSq <= rSq && t1 > t0;
 
     // Uniform march. The step is the span rather than a fixed metre count, so a cloud fills the
     // same number of samples whether it is two kilometres away or twenty.
@@ -814,7 +877,7 @@ void main()
     float sunSum = 0.0;
     float fireSum = 0.0;
 
-    for (int i = 0; i < Steps; i++)
+    for (int i = 0; i < (throughCloud ? Steps : 0); i++)
     {
         vec3 world = dir * (t0 + (float(i) + jitter) * dt) - toCentre;   // relative to the burst
 
@@ -976,7 +1039,121 @@ void main()
         if (transmittance < 0.03) break;
     }
 
-    if (transmittance > 0.999) return;
+    // THE RING OF DUST the blast front lifts, racing out along the ground far ahead of a cloud that
+    // has barely begun to climb. Its own march, bounded by the cylinder the front has swept and the
+    // slab the dust can climb to, because it runs out several cap radii past the sphere above.
+    float ringClearInFront = 1.0;
+    float ringClearBehind = 1.0;
+    vec3 ringScattered = vec3(0.0);
+    float ringDepthSum = 0.0;
+    float ringDepthWeight = 0.0;
+
+    float stemR = pc.Shape.w;
+    float age = pc.AgeStrengthWind.x;
+
+    if (!columnIsWater && shockRadius > 0.0 && stemR > 0.0 && age < DustLifeSeconds)
+    {
+        float reach = DustReachInStems * stemR;
+        float outer = min(shockRadius, reach);
+        float top = DustTopInStems * stemR;
+        float floor_ = -0.5 * top;
+
+        vec3 eye = -toCentre;
+        float eyeUp = dot(eye, up);
+        float dirUp = dot(dir, up);
+        vec3 eyeAcross = eye - up * eyeUp;
+        vec3 dirAcross = dir - up * dirUp;
+
+        float s0 = -1.0e30;
+        float s1 = 1.0e30;
+        if (abs(dirUp) > 1.0e-6)
+        {
+            float a = (floor_ - eyeUp) / dirUp;
+            float b = (top - eyeUp) / dirUp;
+            s0 = min(a, b);
+            s1 = max(a, b);
+        }
+        else if (eyeUp < floor_ || eyeUp > top)
+        {
+            s1 = -1.0e30;
+        }
+
+        float qa = dot(dirAcross, dirAcross);
+        float qb = dot(eyeAcross, dirAcross);
+        float qc = dot(eyeAcross, eyeAcross) - outer * outer;
+        float disc = qb * qb - qa * qc;
+
+        if (disc > 0.0 && qa > 1.0e-12)
+        {
+            float root = sqrt(disc);
+            float r0 = max(max(s0, (-qb - root) / qa), 0.0);
+            float r1 = min(min(s1, (-qb + root) / qa), sceneT);
+
+            if (r1 > r0)
+            {
+                // Lit once for the whole ring rather than per step: it is low and thin, so the sky
+                // over it barely changes along the ray, and the call is the dearest thing here.
+                vec3 mid = dir * (0.5 * (r0 + r1));
+                vec3 ringSky = GetAmbient(mid, global.lighting.planetPosition.xyz,
+                                          normalize(global.lighting.sunPosition.xyz - mid),
+                                          global.lighting.planetRadius,
+                                          global.lighting.planetRadius + global.lighting.atmosphereHeight,
+                                          ambientLutGlobal, float(global.lighting.atmosphereLutLayer))
+                               * global.lighting.sunColor.rgb;
+
+                // The dust IS the ground, lifted, so it takes the ground's HUE where there is ground
+                // behind it to read -- but not its brightness: powder is paler than the soil it
+                // came off, and dust as dark as the grass behind it drew as a dark stripe.
+                vec3 dustAlbedo = DustColour;
+                if (deviceZ > 0.0)
+                {
+                    vec3 ground = max(imageLoad(sceneColor, at).rgb, vec3(1.0e-4));
+                    vec3 hue = ground / max(dot(ground, vec3(0.2126, 0.7152, 0.0722)), 1.0e-4);
+                    dustAlbedo = mix(DustColour,
+                                     clamp(hue, 0.0, 2.0) * dot(DustColour, vec3(0.2126, 0.7152, 0.0722)),
+                                     0.20);
+                }
+
+                float ringDt = (r1 - r0) / float(DustSteps);
+                float ringTransmittance = 1.0;
+
+                for (int i = 0; i < DustSteps; i++)
+                {
+                    float t = r0 + (float(i) + jitter) * ringDt;
+                    vec3 p = dir * t - toCentre;
+                    float y = dot(p, up);
+                    float r = length(p - up * y);
+
+                    float dust = DustAt(p, y, r, shockRadius, reach, stemR, age);
+                    if (dust <= 0.0) continue;
+
+                    // Higher dust sees more of the sun; the wall's foot is in its own shade.
+                    float h = clamp(y / max(DustWallInStems * stemR * 3.0, 1.0), 0.0, 1.0);
+                    vec3 lit = dustAlbedo * (mix(0.35, 1.0, h) * forward * 12.0
+                                                 * global.lighting.occlusionColor.rgb + ringSky);
+
+                    float extinction = dust * Extinction * ringDt;
+                    float behindWeather = BehindWeather(t, weatherAt);
+                    ringScattered += ringTransmittance * lit * extinction
+                                     * mix(1.0, weatherClear, behindWeather);
+
+                    float through = exp(-extinction);
+                    float blocked = ringTransmittance * (1.0 - through);
+                    ringDepthSum += blocked * t;
+                    ringDepthWeight += blocked;
+                    ringTransmittance *= through;
+
+                    ringClearBehind *= exp(-extinction * behindWeather);
+                    ringClearInFront *= exp(-extinction * (1.0 - behindWeather));
+
+                    if (ringTransmittance < 0.03) break;
+                }
+            }
+        }
+    }
+
+    float ringShows = ringClearInFront * (1.0 - (weatherClear * (1.0 - ringClearBehind)));
+    if (transmittance > 0.999 && ringShows > 0.999) return;
 
     // Aerial perspective: what is between the eye and the cloud, washing it toward the sky with
     // range. Without it a cloud two kilometres off is as crisp as one at arm's length, which is the
@@ -1008,6 +1185,7 @@ void main()
 
     float covered = 1.0 - sceneShows;
     vec3 body = scattered * eyeTransmittance + inscatter * covered;
+    vec3 ringBody = ringScattered * eyeTransmittance + inscatter * (1.0 - ringShows);
 
     // The strength fades what the cloud BLOCKS as well as what it adds. Scaling only the light it
     // scatters leaves a dissolving cloud dimming toward black while still occluding the sky behind
@@ -1017,6 +1195,7 @@ void main()
     // Into the layer, over whatever further cloud is already in it: the clouds are dispatched far
     // to near, so this one's light is added in front and what it lets through dims the rest.
     float lets = mix(1.0, sceneShows, strength);
+    float ringLets = mix(1.0, ringShows, strength);
 
     vec4 layer = imageLoad(layerColor, at);
 
@@ -1037,10 +1216,29 @@ void main()
         return;
     }
 
-    imageStore(layerColor, at, vec4(layer.rgb * lets + body * strength, layer.a * lets));
+    // The ring and the column as two layers, the further first. Only where both are on one pixel
+    // does the order matter -- the stem's foot standing in the dust -- and there the one whose
+    // weighted depth is nearer is the one in front.
+    float cloudAt = depthWeight > 0.0 ? depthSum / depthWeight : 1.0e30;
+    float ringAt = ringDepthWeight > 0.0 ? ringDepthSum / ringDepthWeight : 1.0e30;
 
-    if (strength * covered > 0.02 && depthWeight > 0.0)
+    vec4 under = layer;
+    if (ringAt < cloudAt)
     {
-        imageStore(layerDistance, at, vec4(depthSum / depthWeight));
+        under = vec4(under.rgb * lets + body * strength, under.a * lets);
+        under = vec4(under.rgb * ringLets + ringBody * strength, under.a * ringLets);
+    }
+    else
+    {
+        under = vec4(under.rgb * ringLets + ringBody * strength, under.a * ringLets);
+        under = vec4(under.rgb * lets + body * strength, under.a * lets);
+    }
+
+    imageStore(layerColor, at, under);
+
+    float anyWeight = depthWeight + ringDepthWeight;
+    if (strength * (1.0 - sceneShows * ringShows) > 0.02 && anyWeight > 0.0)
+    {
+        imageStore(layerDistance, at, vec4((depthSum + ringDepthSum) / anyWeight));
     }
 }
