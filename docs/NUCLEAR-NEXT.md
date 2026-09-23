@@ -70,13 +70,14 @@ whole time it is on screen**, and a six-warhead bus stands six of them.
 
 **Still not built, and why.**
 
-- **KSA's weather does not shade the cloud.** Under an overcast the column, the dust and the smoke are
-  lit as though in full sun beside ground the weather has darkened. The global set this pass already
-  binds carries a cloud-shadow volume, and `Common/Lighting.glsl`'s `GetCloudShadow` reads it — tried
-  on 2026-09-23 and taken out: it read 1 on every ground point of a frame with visible cloud shadows
-  on the terrain. The terrain's shadows come from `Clouds/CloudShadows.glsl` on descriptor set 4,
-  per-layer coverage maps with their own uniform blocks, which this pass does not bind. That set is
-  the lead.
+- ~~**KSA's weather does not shade the cloud.**~~ **Built on 2026-09-23.** The burst, its dust and
+  its smoke are shaded by the weather's own shadow data now, read the way KSA's ground reads it, and
+  what the deck takes from the sun comes back as its grey glow (`DeckGlow`). Under a heavy overcast
+  the column went from the brightest thing in a grey scene to a soft grey-beige cloud, and a partly
+  cloudy scene only greys the cap where the weather covers it; no measurable cost. **Getting there**:
+  the global set's shadow volume reads 1 everywhere, and KSA's own shadow set is declared for
+  fragment shaders alone and reads garbage from compute — `docs/KSA-MODDING-NOTES.md` has the route
+  that works.
 - **Heat shimmer** needs the scene read at an offset while it is being written, which is a copy of the
   scene image this pass does not have.
 - **Guy-wire spikes** are a tower shot's, and nothing in the arsenal is on a tower.

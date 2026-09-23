@@ -34,11 +34,13 @@ internal static class CoreShaderInclude
 
     // What it points at, under the game's own Content root. Global.glsl declares the set KSA binds
     // at 0 for every compute pass -- the lighting block and the ambient LUT among it -- and
-    // AtmosphereLuts.glsl is what reads them.
+    // AtmosphereLuts.glsl is what reads them. TextureSet.glsl is KSA's bindless textures, which the
+    // weather's coverage maps are read out of.
     private static readonly string[][] Wanted =
     [
         ["Content", "Core", "Shaders", "Common", "Global.glsl"],
         ["Content", "Core", "Shaders", "Atmosphere", "AtmosphereLuts.glsl"],
+        ["Content", "Core", "Shaders", "Common", "TextureSet.glsl"],
     ];
 
     /// <summary>Whether the header was written and names a file that is there.</summary>

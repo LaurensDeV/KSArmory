@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-226 types and 622 members across 9 assemblies.
+230 types and 632 members across 10 assemblies.
 
 ## Brutal.Concurrency
 
@@ -20,11 +20,12 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### Brutal.ByteSize
 
-*referenced as a type only*
+- `Brutal.ByteSize op_Multiply(int, Brutal.ByteSize)`
 
 ### Brutal.ByteSize32
 
 - `Brutal.ByteSize32 op_Explicit(int)`
+- `Brutal.ByteSize32 op_Implicit(Brutal.ByteSize)`
 
 ### Brutal.ByteSize64
 
@@ -472,6 +473,12 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `int ConstantID`
 - `void .ctor()`
 
+## Brutal.Vulkan.Abstractions
+
+### Brutal.VulkanApi.Abstractions.BufferEx
+
+- `Brutal.VulkanApi.VkBuffer get_VkBuffer()`
+
 ## KSA
 
 ### KSA.ActiveEnginePerformance
@@ -486,6 +493,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.double3 GetVelocityEcl()`
 - `Brutal.Numerics.doubleQuat GetBodyFixed2Ecl()`
 - `KSA.AtmosphereReference GetAtmosphereReference()`
+- `KSA.KeyHash get_Hash()`
 - `KSA.OrbitView OrbitView`
 - `KSA.Rendering.Water.Data.OceanReference GetOceanReference()`
 - `double get_MaxTerrainRadius()`
@@ -497,6 +505,14 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `KSA.Rendering.RenderImage GetLowResolutionCloudColorTarget()`
 - `KSA.Rendering.RenderImage GetLowResolutionCloudDistanceTarget()`
+
+### KSA.Atmosphere.Rendering.CloudShadowRenderData
+
+- `Brutal.ByteSize DynamicUboStride`
+
+### KSA.Atmosphere.Rendering.CloudShadowsRenderer
+
+*referenced as a type only*
 
 ### KSA.AtmosphereReference
 
@@ -742,6 +758,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `GraphicsSettings Graphics`
 - `KSA.GameSettings get_Current()`
+- `bool ShowClouds()`
 
 ### KSA.GameSettings+GraphicsSettings
 
@@ -766,6 +783,11 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `void DrawLine(Brutal.Numerics.double3, Brutal.Numerics.double3, Brutal.Numerics.float4)`
 - `void DrawSphere(Brutal.Numerics.double3, float, Brutal.Numerics.float4)`
+
+### KSA.GpuTextureSystem
+
+- `Brutal.VulkanApi.VkDescriptorSet get_DescriptorSet()`
+- `Brutal.VulkanApi.VkDescriptorSetLayout get_Layout()`
 
 ### KSA.IChannel
 
@@ -1041,10 +1063,12 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.VulkanApi.VkSampler get_LinearClampedSampler()`
 - `Brutal.VulkanApi.VkSampler get_PointClampedSampler()`
 - `Core.Renderer GetRenderer()`
+- `KSA.Atmosphere.Rendering.CloudShadowsRenderer GetCloudShadowsRenderer()`
 - `KSA.AtmosphereRenderer get_PlanetAtmosphereRenderer()`
 - `KSA.Camera GetMainCamera()`
 - `KSA.Camera GetRenderCamera()`
 - `KSA.GizmosRenderer GizmosRenderer`
+- `KSA.GpuTextureSystem TextureSystem`
 - `KSA.IGameViewport get_MainViewport()`
 - `KSA.Program get_Instance()`
 - `KSA.Rendering.Particles.ParticleSystem`2<KSA.Rendering.Particles.ParticleUpdateData, KSA.Rendering.Particles.ParticleRenderData> ParticleSystem`

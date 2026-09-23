@@ -1337,6 +1337,81 @@ internal static class KsaWorld
     }
 
     /// <summary>
+    /// The buffers KSA shades its ground by its weather from, for one body: the layers' fixed data and
+    /// their per-frame placement, and the object holding them, which changes only when the renderer
+    /// rebuilds its planets.
+    ///
+    /// <para><b>The buffers, not KSA's descriptor set.</b> That set's layout is declared for fragment
+    /// shaders alone, and bound to a compute pass it reads garbage -- every float a NaN, flown. So the
+    /// cloud pass takes the two buffers into its own set, which the pipeline builder declares for
+    /// compute. Both are private, hence the reflection; the stand-in KSA uses for a body with no
+    /// weather, or with clouds off, stands in here too, and carries no layers.</para>
+    /// </summary>
+    public static bool TryWeatherShadowBuffers(Celestial body, out Brutal.VulkanApi.VkBuffer staticBuffer,
+                                               out Brutal.VulkanApi.VkBuffer frameBuffer, out object? source)
+    {
+        staticBuffer = default;
+        frameBuffer = default;
+        source = null;
+
+        try
+        {
+            var renderer = Program.GetCloudShadowsRenderer();
+            const BindingFlags Private = BindingFlags.NonPublic | BindingFlags.Instance;
+
+            _shadowPlanets ??= renderer.GetType().GetField("PlanetToCloudShadowData", Private);
+            _shadowNone ??= renderer.GetType().GetField("_noShadowData", Private);
+
+            object? data = null;
+            if (GameSettings.ShowClouds()
+                && _shadowPlanets?.GetValue(renderer) is System.Collections.IDictionary planets
+                && planets.Contains(body.Hash))
+            {
+                data = planets[body.Hash];
+            }
+
+            data ??= _shadowNone?.GetValue(renderer);
+            if (data is null) return Unshadowed("the renderer's shadow data did not resolve");
+
+            Type type = data.GetType();
+            _shadowStatic ??= type.GetField("_staticShadowDataBuffer", Private);
+            _shadowFrame ??= type.GetField("_dynamicShadowDataBuffer", Private);
+
+            if (_shadowStatic?.GetValue(data) is not Brutal.VulkanApi.Abstractions.BufferEx fixedPart
+                || _shadowFrame?.GetValue(data) is not Brutal.VulkanApi.Abstractions.BufferEx movingPart)
+            {
+                return Unshadowed("its buffers did not resolve");
+            }
+
+            staticBuffer = fixedPart.VkBuffer;
+            frameBuffer = movingPart.VkBuffer;
+            source = data;
+            return true;
+        }
+        catch (Exception e)
+        {
+            return Unshadowed(e.Message);
+        }
+    }
+
+    private static FieldInfo? _shadowPlanets;
+    private static FieldInfo? _shadowNone;
+    private static FieldInfo? _shadowStatic;
+    private static FieldInfo? _shadowFrame;
+    private static bool _warnedAboutShadows;
+
+    private static bool Unshadowed(string why)
+    {
+        if (!_warnedAboutShadows)
+        {
+            _warnedAboutShadows = true;
+            Log.Warn($"weather shadows: {why}; the burst is lit as though under a clear sky");
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// The sea's level against the mean sphere, on a body that has one.
     ///
     /// <para>The same discriminator <see cref="MediumDensityRatioAt"/> uses: a body with no ocean

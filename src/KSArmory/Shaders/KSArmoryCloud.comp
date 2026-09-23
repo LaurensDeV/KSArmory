@@ -9,11 +9,12 @@
 // pass -- so the lighting block and the ambient LUT are in this shader without a descriptor of
 // this mod's own. That is the whole of why the real sky costs no plumbing.
 //
-// The two set indices below are pointed at slots this pass does not use, the way Core's own
-// Volumetric.comp does it: the headers declare them, nothing here calls what they declare, and an
-// unused declaration binds nothing.
+// SET_TEXTURE is KSA's bindless textures, bound at 2 by CloudPass, which the weather's coverage
+// maps are read out of; the weather's shadow data is in this pass's own set, below. SET_CLOUD_DATA is pointed at a
+// slot this pass does not use, the way Core's own Volumetric.comp does it: the headers declare it,
+// nothing here calls what they declare, and an unused declaration binds nothing.
 #define SET_TEXTURE 2
-#define SET_CLOUD_DATA 3
+#define SET_CLOUD_DATA 5
 
 #include "Content/CoreAtmosphere.glsl"
 
@@ -205,6 +206,104 @@ float StemWidthAt(float y, float capH)
     return 0.92 + (FootFlare * exp(-t / FootFlareReach)) + (0.50 * smoothstep(0.76, 1.0, t));
 }
 
+// KSA's WEATHER SHADOWS, as its own planet and ocean passes read them: the buffers behind
+// CloudShadowsRenderer's set for the body the camera is near, field for field its StaticCloudShadowData
+// and DynamicCloudShadowData, which is why the padding is here. In this pass's own set at 9 and 10,
+// after its images, because KSA's set is declared for fragment shaders alone and reads as garbage
+// here -- see KsaWorld.TryWeatherShadowBuffers.
+struct WeatherShadowLayer
+{
+    float bottomRadius;
+    float middleRadius;
+    float transitionStartAltitude;
+    float transitionEndAltitude;
+    float invDetailTextureScale;
+    float invAverageNoiseScale;
+    int volumetricTextureSingleChannel;
+    int volumetricTextureCubeMap;
+    int detailSelectorTextureCubeMap;
+    int detailTextureCubeMap;
+    int cloudColorTextureId;
+    int detailSelectorTextureId;
+    int detailMapTextureId;
+    int shadowDensityLutTextureId;
+    int linearRepeatSamplerId;
+    int linearClampSamplerId;
+    vec4 padding;
+};
+
+layout (set = 1, binding = 9) uniform WeatherShadowStatic
+{
+    WeatherShadowLayer layers[4];
+    int layerCount;
+    int qualityLevel;
+    float maxAltitude;
+    float padding;
+} weatherShadowStatic;
+
+struct WeatherShadowFrame
+{
+    vec4 normal;
+    vec4 tangent;
+    vec4 bitangent;
+    vec4 origin;
+    vec4 uvOffset;
+};
+
+struct WeatherShadowMoving
+{
+    mat4 worldToCloud;
+    WeatherShadowFrame frame;
+    vec4 averageNoiseOffset;
+};
+
+layout (set = 1, binding = 10) uniform WeatherShadowDynamic
+{
+    WeatherShadowMoving layers[4];
+} weatherShadowDynamic;
+
+// How much sunlight KSA's weather lets through to a point, from 1 in the open to 0 under a solid
+// deck. KSA's own lowest-quality path: where the ray to the sun crosses each layer's middle, one read
+// of that layer's coverage. Its better paths sharpen the edges with derivatives a compute shader
+// does not have; the burst is kilometres across, and the coverage alone is the shadow's shape.
+float WeatherShadow(vec3 worldPos, vec3 sunDir)
+{
+    if (weatherShadowStatic.qualityLevel <= 0) return 1.0;
+
+    vec3 planet = global.lighting.planetPosition.xyz;
+    float cameraAltitude = length(planet) - global.lighting.planetRadius;
+    if (cameraAltitude > weatherShadowStatic.maxAltitude) return 1.0;
+
+    float result = 1.0;
+    for (int i = 0; i < min(weatherShadowStatic.layerCount, 4); i++)
+    {
+        WeatherShadowLayer layer = weatherShadowStatic.layers[i];
+        float toCloud = RaySphereIntersection(planet, layer.middleRadius, worldPos, sunDir).y;
+        if (toCloud <= 0.0) continue;
+
+        vec3 cloudSpace = (weatherShadowDynamic.layers[i].worldToCloud
+                           * vec4(worldPos + sunDir * toCloud, 1.0)).xyz;
+        vec3 direction = normalize(cloudSpace);
+
+        vec4 coverageMap = layer.volumetricTextureCubeMap > 0
+            ? textureLod(samplerCube(globalTextureCubes[layer.cloudColorTextureId],
+                                     samplers[layer.linearRepeatSamplerId]), direction, 1.0)
+            : textureLod(sampler2D(globalTextures[layer.cloudColorTextureId],
+                                   samplers[layer.linearRepeatSamplerId]),
+                         calculateSphericalUV(direction), 1.0);
+
+        float coverage = layer.volumetricTextureSingleChannel > 0 ? coverageMap.r : coverageMap.a;
+
+        // Under the layer's own base only: a point up inside the deck is not shaded by all of it.
+        float below = clamp((layer.middleRadius - length(worldPos - planet))
+                            / max(layer.middleRadius - layer.bottomRadius, 1.0), 0.0, 1.0);
+        result *= 1.0 - (clamp(coverage, 0.0, 1.0) * below);
+    }
+
+    float fadeOut = clamp(cameraAltitude / max(weatherShadowStatic.maxAltitude, 1.0) * 2.0 - 1.0, 0.0, 1.0);
+    return mix(result, 1.0, fadeOut);
+}
+
 // How far behind KSA's weather a point is, from 0 in front to 1 behind. The renderer gives one
 // averaged distance per pixel and it moves a little every frame; cut hard at it, a burst inside the
 // deck's depth flips between the two every frame and the weather flickers through it. So it is
@@ -224,6 +323,9 @@ float BehindWeather(float t, float weatherAt)
 // How dense the cap is on average along a ray through it, for its shadow on what stands under it.
 // Under one: the erosion eats into the dome, and a ray through the whole of it crosses gaps.
 layout (constant_id = 29) const float CapShadowDensity = 0.5;
+
+// How much of the sunlight KSA's weather stops it scatters back down as diffuse light.
+layout (constant_id = 31) const float DeckGlow = 0.35;
 
 // How much a unit of density dims the light through it, per metre.
 layout (constant_id = 16) const float Extinction = 0.022;
@@ -1200,7 +1302,14 @@ void main()
         // something in that parameterisation disagrees. This needs no radii at all.
         vec3 sunReaching = global.lighting.occlusionColor.rgb;
 
-        vec3 lit = albedo * sunlight * forward * 12.0 * sunReaching + sky * albedo;
+        // UNDER KSA'S WEATHER, which the ground beside it is already shaded by: lit as though in full
+        // sun, a cloud under an overcast was the brightest thing in a grey scene.
+        float weatherLets = WeatherShadow(camRelative, normalize(global.lighting.sunPosition.xyz - camRelative));
+        vec3 lit = albedo * sunlight * weatherLets * forward * 12.0 * sunReaching + sky * albedo;
+
+        // And what the deck takes from the sun it gives back as its own grey glow, from all over:
+        // an overcast is a bright ceiling, not a lid. Without it a cloud under one went near black.
+        lit += albedo * (1.0 - weatherLets) * DeckGlow * sunReaching;
 
         // THE BURST LIGHTING THE CLOUD IT IS INSIDE. For the couple of seconds the ball is
         // incandescent it is by far the brightest thing in the scene, and the young cloud is
@@ -1361,6 +1470,10 @@ void main()
                                      0.20);
                 }
 
+                // The weather's shadow on the ring, read once at its middle like the sky: it is low
+                // and the deck's shadow is kilometres across.
+                float ringWeather = WeatherShadow(mid, normalize(global.lighting.sunPosition.xyz - mid));
+
                 float ringDt = (r1 - r0) / float(DustSteps);
                 float ringTransmittance = 1.0;
 
@@ -1379,8 +1492,10 @@ void main()
                     // Higher dust sees more of the sun; the wall's foot is in its own shade.
                     float h = clamp(y / max(DustWallInStems * stemR * 3.0, 1.0), 0.0, 1.0);
                     vec3 albedoHere = mix(dustAlbedo, SmokeColour, smoke / both);
-                    vec3 lit = albedoHere * (mix(0.35, 1.0, h) * forward * 12.0
-                                                 * global.lighting.occlusionColor.rgb + ringSky);
+                    vec3 lit = albedoHere * (mix(0.35, 1.0, h) * ringWeather * forward * 12.0
+                                                 * global.lighting.occlusionColor.rgb + ringSky
+                                             + (1.0 - ringWeather) * DeckGlow
+                                               * global.lighting.occlusionColor.rgb);
 
                     float extinction = both * Extinction * ringDt;
                     float behindWeather = BehindWeather(t, weatherAt);

@@ -6,6 +6,7 @@ using Brutal.VulkanApi;
 using Brutal.VulkanApi.Abstractions;
 using Core;
 using KSA;
+using KSA.Atmosphere.Rendering;
 using KSA.Rendering;
 using RenderCore;
 
@@ -69,7 +70,7 @@ internal static class CloudPass
         // One cloud pipeline per weather-cloud pair its descriptor sets were built against, null
         // for the stand-ins bound when there are none. The renderer's accumulated pair alternates
         // between two sets of images frame by frame, so two are held rather than one rebuilt.
-        public readonly List<(RenderImage? Colour, RenderImage? Distance, ComputePipelineWrapper Pipeline)>
+        public readonly List<(RenderImage? Colour, RenderImage? Distance, object? Shadows, ComputePipelineWrapper Pipeline)>
             Clouds = [];
 
         // What reprojects the history: the view it was drawn from and where its reference cloud
@@ -306,18 +307,26 @@ internal static class CloudPass
                            && KsaWorld.TryWeatherClouds(out weatherColour, out weatherDistance);
             if (!weather) weatherColour = weatherDistance = null;
 
+            // The weather's shadow data for the body the camera is near. A pipeline's set names the
+            // buffers, so one built against another body's -- or against a planet list the renderer
+            // has since rebuilt -- is not reused.
+            if (Program.GetRenderCamera() is not { NearbyCelestial: { } near }) return;
+            if (!KsaWorld.TryWeatherShadowBuffers(near, out VkBuffer shadowFixed, out VkBuffer shadowFrame,
+                                                  out object? shadows)) return;
+
             _pipeline = null;
-            foreach ((RenderImage? c, RenderImage? d, ComputePipelineWrapper p) in view.Clouds)
+            foreach ((RenderImage? c, RenderImage? d, object? s, ComputePipelineWrapper p) in view.Clouds)
             {
-                if (ReferenceEquals(c, weatherColour) && ReferenceEquals(d, weatherDistance)) _pipeline = p;
+                if (ReferenceEquals(c, weatherColour) && ReferenceEquals(d, weatherDistance)
+                    && ReferenceEquals(s, shadows)) _pipeline = p;
             }
 
             if (_pipeline is null)
             {
-                if (!Build(colour, depth, view, weatherColour, weatherDistance)) return;
+                if (!Build(colour, depth, view, weatherColour, weatherDistance, shadowFixed, shadowFrame)) return;
 
                 if (view.Clouds.Count >= MostPipelines) view.Clouds.RemoveAt(0);
-                view.Clouds.Add((weatherColour, weatherDistance, _pipeline!));
+                view.Clouds.Add((weatherColour, weatherDistance, shadows, _pipeline!));
             }
 
             // Into a layout a compute shader may sample, through KSA's own tracked state, so the
@@ -331,7 +340,8 @@ internal static class CloudPass
                 toSample.SubmitAndFlush(commandBuffer);
             }
 
-            if (Program.GetRenderCamera() is not { } camera) return;
+            // With no body near there is no weather to shade by and nothing on the ground to mark.
+            if (Program.GetRenderCamera() is not { NearbyCelestial: not null } camera) return;
             // Far to near. Each dispatch composites its cloud OVER whatever is already in the
             // image, so the last one drawn ends up in front -- which is only right if the nearest
             // goes last.
@@ -401,7 +411,7 @@ internal static class CloudPass
 
                     if (marks > 0) Hazard(commandBuffer);
 
-                    _pipeline!.BindPipeline(commandBuffer, viewport.ShaderSlot, default, default, burn);
+                    BindCloud(commandBuffer, viewport, camera, burn);
                     commandBuffer.Dispatch(tile.GroupsX, tile.GroupsY, 1);
                     marks++;
                 }
@@ -494,7 +504,7 @@ internal static class CloudPass
                     // offset into the global set, which is where global.lighting lives: a frame
                     // index there reads a different viewport's planet, sun and radii on every frame
                     // in flight, and anything lit from that block flickers at frame rate.
-                    _pipeline!.BindPipeline(commandBuffer, viewport.ShaderSlot, default, default, push);
+                    BindCloud(commandBuffer, viewport, camera, push);
                     commandBuffer.Dispatch((width + Group - 1) / Group,
                                            (height + Group - 1) / Group, 1);
                     drawn++;
@@ -636,7 +646,7 @@ internal static class CloudPass
                                    BurstFlash.GlareColour.Z, BurstFlash.HaloViolet),
             };
 
-            _pipeline!.BindPipeline(commandBuffer, viewport.ShaderSlot, default, default, flash);
+            BindCloud(commandBuffer, viewport, camera, flash);
             commandBuffer.Dispatch((width + Group - 1) / Group, (height + Group - 1) / Group, 1);
         }
     }
@@ -756,7 +766,8 @@ internal static class CloudPass
     }
 
     private static bool Build(IRenderImage colour, IRenderImage depth, View view,
-                              RenderImage? weatherColour, RenderImage? weatherDistance)
+                              RenderImage? weatherColour, RenderImage? weatherDistance,
+                              VkBuffer shadowFixed, VkBuffer shadowFrame)
     {
         if (!ModLibrary.TryGet<ShaderReference>(ShaderId, out var shader) || shader is null)
         {
@@ -798,16 +809,43 @@ internal static class CloudPass
             },
         ];
 
+        // KSA's bindless textures at set 2, which the weather's coverage maps are read out of; the
+        // builder numbers external sets from 2, and KSA declares this one for compute as well.
+        VkDescriptorSetLayout[] external = [Program.Instance.TextureSystem.Layout];
+
+        // And the weather's shadow data in this pass's own set, after everything above: bindings 9
+        // and 10 in the builder's order, the second advanced a slice per frame in flight.
+        VkBuffer[] shadowData = [shadowFixed];
+        VkBuffer[] shadowPerFrame = [shadowFrame];
+        ByteSize[] shadowSlice = [CloudShadowRenderData.DynamicUboStride];
+
         using Specialization tuned = new();
         _pipeline = new ComputePipelineWrapper(
             storageTargets, depthTargets, aerial, default, shader,
-            default, ranges, renderer.MaxFramesInFlight, renderer,
+            external, ranges, renderer.MaxFramesInFlight, renderer,
             "KSArmory.CloudPass", Program.PointClampedSampler, Program.LinearClampedSampler,
-            specializationInfo: tuned.Info);
+            specializationInfo: tuned.Info,
+            uniformBuffers: shadowData,
+            uniformDynamicBuffers: shadowPerFrame,
+            uniformDynamicBufferRanges: shadowSlice);
 
         BuildFailed = false;
         Log.Info($"cloud pass: built against {ShaderId}");
         return true;
+    }
+
+    // Binds the cloud pipeline with the bindless textures, and its own set at this frame's slice of
+    // the weather's per-frame shadow buffer -- the first dynamic offset after the global set's, since
+    // offsets are taken in set order -- which is how KSA's own passes read it.
+    private static void BindCloud(CommandBuffer commandBuffer, IViewport viewport, Camera camera, Push push)
+    {
+        Span<VkDescriptorSet> sets = stackalloc VkDescriptorSet[1];
+        sets[0] = Program.Instance.TextureSystem.DescriptorSet;
+
+        Span<ByteSize32> offsets = stackalloc ByteSize32[1];
+        offsets[0] = Program.Instance.ResourceFrameIndex * CloudShadowRenderData.DynamicUboStride;
+
+        _pipeline!.BindPipeline(commandBuffer, viewport.ShaderSlot, sets, offsets, push);
     }
 
     // The resolve one way round: sampling History[from], writing History[1 - from].

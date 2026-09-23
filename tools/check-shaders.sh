@@ -44,7 +44,8 @@ WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
 mkdir -p "$WORK/Content"
-printf '#include "Common/Global.glsl"\n#include "Atmosphere/AtmosphereLuts.glsl"\n' > "$WORK/Content/CoreAtmosphere.glsl"
+printf '#include "Common/Global.glsl"\n#include "Atmosphere/AtmosphereLuts.glsl"\n#include "Common/TextureSet.glsl"\n' \
+    > "$WORK/Content/CoreAtmosphere.glsl"
 
 failed=0
 for shader in "$REPO_ROOT"/src/KSArmory/Shaders/*.comp; do

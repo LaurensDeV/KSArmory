@@ -820,6 +820,26 @@ console modal that stays until a button is clicked. Popups sit on `Popup`'s priv
 list, `Popup.AnyOpen` is public, and setting a popup's public `Active` to false is how its own buttons
 close it.
 
+## A compute pass can read KSA's weather shadows, but not through KSA's set
+
+`Program.GetCloudShadowsRenderer().GetDescriptorSet(body)` is the set the terrain, the ocean and static
+objects shade by the weather through (`Clouds/CloudShadows.glsl`), and binding it to a compute pass
+compiles, validates nowhere visible and reads **garbage**: its three bindings are declared with
+`StageFlags = FragmentBit` alone, so from a compute shader every float came back NaN and the layer
+count as a random integer. A set cannot be bound to a pipeline whose layout differs from it in stage
+flags, so there is no widening it from outside.
+
+What works is taking its two buffers, not its set — `CloudShadowRenderData._staticShadowDataBuffer`
+and `_dynamicShadowDataBuffer`, private, off the renderer's private `PlanetToCloudShadowData` keyed by
+`Celestial.Hash`, or `_noShadowData` for a body with none — and handing them to
+`ComputePipelineWrapper` as `uniformBuffers` and `uniformDynamicBuffers`, which it declares for
+compute in its own set 1, after the images. The dynamic one takes
+`ResourceFrameIndex * CloudShadowRenderData.DynamicUboStride`, passed as the first external dynamic
+offset because offsets are consumed in set order. The coverage textures are in KSA's bindless set,
+`Program.Instance.TextureSystem`, which **is** declared for compute and binds as an external set.
+`KsaWorld.TryWeatherShadowBuffers` and `CloudPass.Build` are the worked example; `CloudShadows.glsl`
+itself uses derivatives, so the lookup is rewritten at a fixed mip.
+
 ## Re-running the research
 
 ```bash
