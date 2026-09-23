@@ -405,6 +405,113 @@ public static class ChaseView
     private const double StopShortFireballs = 6.0;
 
     /// <summary>
+    /// Whether a chase hands a round's arrival to an observer rather than holding where it stopped:
+    /// a charge that grows a cloud, over a body with air to grow it in. What is worth watching is
+    /// then the cloud, and where to watch it from is a choice rather than wherever the chase was.
+    /// </summary>
+    public static bool HandsToAnObserver(double chargeKg, bool hasAir)
+        => hasAir && chargeKg >= MushroomCloud.ThresholdKg;
+
+    /// <summary>
+    /// How far out the observer stands: <see cref="ObserverRadii"/> of the cloud's extent, its height
+    /// or half its cap's width, whichever is more — where a whole risen cloud fills a 50 degree frame
+    /// with room round it. 2.4 km for the B61 at 0.3 kt.
+    /// </summary>
+    public static double ObserverDistanceMetres(double chargeKg)
+    {
+        double kt = MushroomCloud.KilotonsFor(chargeKg);
+        return ObserverRadii * Math.Max(MushroomCloud.DrawnCloudTop(kt), 0.5 * MushroomCloud.DrawnCapAcross(kt));
+    }
+
+    /// <summary>The distance a watching camera stands off a cloud, in cloud extents.</summary>
+    public const double ObserverRadii = 1.85;
+
+    /// <summary>
+    /// How far above the horizontal a watching camera stands. Low, because a mushroom is a
+    /// silhouette: from overhead it is a blob.
+    /// </summary>
+    public const double ObserverElevationDeg = 14.0;
+
+    /// <summary>
+    /// Where the observer stands, from the landing: back along the bearing the chase was looking,
+    /// so the cut is the same view from further off rather than a different one, and
+    /// <paramref name="elevationDeg"/> up. A chase looking straight down has no bearing, and is
+    /// watched from the side it was on.
+    /// </summary>
+    public static double3 ObserverOffset(double3 up, double3 chaseLooking, double3 towardChase,
+                                         double distanceMetres, double elevationDeg)
+    {
+        double3 u = Vec.Unit(up);
+        double3 back = Vec.Unit(-Vec.RejectFrom(chaseLooking, u));
+        double3 side = Vec.Unit(Vec.RejectFrom(towardChase, u));
+
+        // A look within about 8 degrees of straight down says little about its bearing.
+        bool bearing = Vec.Len2(back) > 0.5
+                       && Vec.Len(Vec.RejectFrom(chaseLooking, u)) > 0.15 * Vec.Len(chaseLooking);
+
+        double3 facing = bearing ? back
+                         : Vec.Len2(side) > 0.5 ? side
+                         : Vec.AnyPerpendicular(u);
+
+        double elevation = double.DegreesToRadians(elevationDeg);
+        return ((facing * Math.Cos(elevation)) + (u * Math.Sin(elevation))) * distanceMetres;
+    }
+
+    /// <summary>
+    /// How high above the burst the drawn cloud reaches at <paramref name="age"/>, and never under
+    /// the fireball's width, which is what there is to see before anything has risen.
+    /// </summary>
+    public static double CloudHeightNow(double chargeKg, double age)
+    {
+        MushroomCloud.Shape shape = MushroomCloud.At(chargeKg, Math.Max(age, 0.0));
+        double fireball = 2.0 * Warhead.FireballRadius(chargeKg);
+        return Math.Max(fireball, shape.CapCentre + shape.CapRadius + shape.CapTube);
+    }
+
+    /// <summary>
+    /// A look and a field of view that keep <paramref name="keep"/> in the frame and fit
+    /// <paramref name="fit"/> in with it when <paramref name="maxFovDeg"/> allows, the pair across
+    /// <see cref="FrameShare"/> of it; otherwise at the widest, looking from the kept one towards the
+    /// other. Never narrower than <paramref name="minFovDeg"/>. Both are directions from the eye.
+    /// </summary>
+    public static (double3 Forward, double FovDeg) Frame(double3 keep, double3 fit,
+                                                         double minFovDeg, double maxFovDeg)
+    {
+        double3 k = Vec.Unit(keep);
+        double3 f = Vec.Unit(fit);
+        double floor = Math.Clamp(minFovDeg, MinFramedFovDeg, maxFovDeg);
+        if (Vec.Len2(k) < 0.5) return (f, maxFovDeg);
+        if (Vec.Len2(f) < 0.5) return (k, floor);
+
+        double span = double.RadiansToDegrees(Vec.AngleBetween(k, f));
+        double wanted = span / FrameShare;
+
+        if (wanted <= maxFovDeg)
+        {
+            double3 middle = Vec.Unit(k + f);
+            return (Vec.Len2(middle) > 0.5 ? middle : k, Math.Max(floor, wanted));
+        }
+
+        double3 toward = Vec.Unit(f - (k * Vec.Dot(k, f)));
+        if (Vec.Len2(toward) < 0.5) return (k, maxFovDeg);
+
+        double turn = double.DegreesToRadians(0.5 * FrameShare * maxFovDeg);
+        return ((k * Math.Cos(turn)) + (toward * Math.Sin(turn)), maxFovDeg);
+    }
+
+    /// <summary>The field of view that holds something <paramref name="sizeMetres"/> across at a distance, with the same margin.</summary>
+    public static double FovToFit(double sizeMetres, double distanceMetres)
+        => distanceMetres > 0.0 && sizeMetres > 0.0
+               ? 2.0 * double.RadiansToDegrees(Math.Atan(0.5 * sizeMetres / distanceMetres)) / FrameShare
+               : MinFramedFovDeg;
+
+    // How much of the frame a framed pair spans, so neither sits on the edge.
+    private const double FrameShare = 0.7;
+
+    // Well clear of SightZoom's crash guard, and still a lens a real long camera would carry.
+    private const double MinFramedFovDeg = 3.0;
+
+    /// <summary>
     /// Which way a held eye looks at a burst with a cloud to stand over it: at the middle of the
     /// column, but never so far above the burst that the burst leaves the frame. From the kilometres
     /// the column height was chosen at that tilt is gentle; from a few hundred metres the middle of

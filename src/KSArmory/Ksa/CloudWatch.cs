@@ -18,18 +18,12 @@ namespace KSArmory;
 /// </summary>
 internal static class CloudWatch
 {
-    // Distance in burst radii -- the half-width of whatever was drawn. The whole thing fills a
-    // frame at about that, so this is it with a little room around: 2.4 km on a 1.31 km cloud.
-    //
-    // It is the measuring distance as well as the watching one, and deliberately so. What the
-    // shader pass costs is set by how much of the screen it marches, so a number is only about the
-    // pass if it is read from the view it is quoted for -- and the view worth quoting is the one
-    // somebody would actually watch from.
-    private const double Heights = 1.85;
+    // The measuring distance is the watching one, and deliberately so: what the shader pass costs is
+    // set by how much of the screen it marches, so a number is only about the pass if it is read
+    // from the view somebody would actually watch from.
+    private const double Heights = ChaseView.ObserverRadii;
 
-    // Above the horizontal. Low, because the silhouette is the point: from overhead a mushroom is a
-    // blob, which is what the chase rig sees and why it was never the shot for this.
-    private const double DefaultElevationDeg = 14.0;
+    private const double DefaultElevationDeg = ChaseView.ObserverElevationDeg;
 
     /// <summary>The pose's elevation, which a scenario may lower to stand under the weather.</summary>
     public static double ElevationDeg { get; set; } = DefaultElevationDeg;

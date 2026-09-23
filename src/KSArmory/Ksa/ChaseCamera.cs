@@ -114,6 +114,27 @@ internal sealed class ChaseCamera : IViewPose
     // inside the explosion it is there to show.
     private bool _watching;
 
+    // Watching from an observer rather than from where the chase stopped -- ChaseView.HandsToAnObserver.
+    // The landing and the burst are fixed to the ground they happen on; the lens eases rather than
+    // jumping, and the burst's age runs on the simulated clock the cloud grows on.
+    private bool _observing;
+    private object? _observedGround;
+    private double3 _landingAnchor;
+    private double3 _burstAnchor;
+    private bool _burstSeen;
+    private double _burstAge;
+    private double _observedCharge;
+    private double _observerDistance;
+    private double _observerFov;
+    private double _observerMaxFov;
+
+    // Its time constant, in viewing seconds.
+    private const double LensEaseSeconds = 0.5;
+
+    // The observer climbs in these steps until it can see the burst over the ground, and no higher.
+    private const double ObserverClimbStepDeg = 6.0;
+    private const double MaxObserverElevationDeg = 44.0;
+
     // Rounds that have already had their turn. Waiting for the sky to empty instead never fires:
     // a salvo's second missile outlives the target its first one killed.
     private readonly List<IProjectile> _passedOver = [];
@@ -233,6 +254,8 @@ internal sealed class ChaseCamera : IViewPose
         _orbit.Reset();
         _heightOverAim = double.NaN;
         _watching = false;
+        _observing = false;
+        _burstSeen = false;
     }
 
     // Only once the view has been handed back: while it is still ours the followable is what the
@@ -316,11 +339,18 @@ internal sealed class ChaseCamera : IViewPose
             // Read here as well as by the controller, which never hears a release made over a panel.
             _orbit.Advance(dtViewing, ImGui.IsMouseDown(ImGuiMouseButton.Right));
 
+            if (_observing)
+            {
+                _burstAge += Math.Max(dtSim, 0.0);
+                _observerMaxFov = Field(unzoomedFovDeg);
+                FrameObserved(null, dtViewing);
+            }
+
             LookAround(_holdOffset, _holdForward, _holdUp,
                        out double3 heldEye, out double3 heldForward, out double3 heldUp);
 
             if (!KsaWorld.TryLookFromMainViewport(heldEye, heldForward, heldUp,
-                                                  Field(unzoomedFovDeg), this)) Release();
+                                                  _observing ? _observerFov : Field(unzoomedFovDeg), this)) Release();
             else if (_holding <= 0.0) Release();
 
             return;
@@ -378,7 +408,15 @@ internal sealed class ChaseCamera : IViewPose
                 }
 
                 double fromBurst;
-                if (_watching)
+                if (_observing)
+                {
+                    _burstSeen = KsaWorld.TryAnchorToGround(burst, out object? burstGround, out _burstAnchor);
+                    if (_burstSeen) _observedGround = burstGround;
+                    _burstAge = 0.0;
+                    FrameObserved(null, 0.0);
+                    fromBurst = Vec.Len(burst - _followed.GetPositionEcl());
+                }
+                else if (_watching)
                 {
                     double3 heldEye = _followed.GetPositionEcl();
                     double3 toBurst = burst - heldEye;
@@ -542,7 +580,16 @@ internal sealed class ChaseCamera : IViewPose
 
         if (_watching)
         {
-            Watch(round);
+            if (_observing)
+            {
+                _observerMaxFov = _poseFovDeg;
+                Observe(round, dtViewing);
+            }
+            else
+            {
+                Watch(round);
+            }
+
             return;
         }
 
@@ -570,9 +617,27 @@ internal sealed class ChaseCamera : IViewPose
         if (ChaseView.StopsShort(arrival, round.VelocityLocal, gravity, round.Munition.ChargeKg)
             && battery.TryRoundEffectEcl(round, out double3 drawn))
         {
-            _followed.HoldAt(battery.Platform, drawn + viewEye);
             _watching = true;
             _blend = 1.0;
+
+            if (TryHandToObserver(battery, round, aim, gravity, arrival, drawn + viewEye, viewForward,
+                                  out double3 observer, out double elevationDeg))
+            {
+                _followed.HoldAt(battery.Platform, observer);
+                _observing = true;
+                _observerFov = 0.0;
+                _observerMaxFov = _poseFovDeg;
+                double3 lookingFlat = Vec.RejectFrom(viewForward, _poseUp);
+                double3 fromLanding = Vec.RejectFrom(observer - drawn - viewEye, _poseUp);
+                Log.Info($"chase: cutting to an observer {Distance.Say(_observerDistance)} out at {elevationDeg:F0} deg, "
+                         + $"{arrival:F1} s before {RoundLabel.For(round.Tube)} lands, "
+                         + $"{double.RadiansToDegrees(Vec.AngleBetween(lookingFlat, -fromLanding)):F0} deg off the chase's bearing");
+
+                Observe(round, 0.0);
+                return;
+            }
+
+            _followed.HoldAt(battery.Platform, drawn + viewEye);
 
             double3 eyeToArrival = ChaseView.ArrivalFromRound(arrival, round.VelocityLocal, gravity) - viewEye;
             Log.Info($"chase: stopping short of where {RoundLabel.For(round.Tube)} arrives, "
@@ -627,6 +692,127 @@ internal sealed class ChaseCamera : IViewPose
         _holdUp = _poseUp;
 
         if (!KsaWorld.TryLookFromMainViewport(Vec.Zero, forward, _poseUp, _poseFovDeg, this)) Release();
+    }
+
+    // Where the round will come down, and where to stand to watch it: back along the chase's own line
+    // of sight, climbing until the ground no longer hides the burst or the column over it.
+    private bool TryHandToObserver(IEffectSource battery, IProjectile round, TargetState? aim, double3 gravity,
+                                   double arrival, double3 chaseEyeEcl, double3 chaseLooking,
+                                   out double3 observerEcl, out double elevationDeg)
+    {
+        observerEcl = Vec.Zero;
+        elevationDeg = ChaseView.ObserverElevationDeg;
+
+        double charge = round.Munition.ChargeKg;
+        if (battery.EffectBody is not { } body
+            || !ChaseView.HandsToAnObserver(charge, KsaWorld.HasAtmosphere(body))) return false;
+
+        double3 falls = round.Munition.HitsTerrain && aim is { } steered
+                            ? steered.PositionEcl
+                            : round.PositionEcl + ChaseView.ArrivalFromRound(arrival, round.VelocityLocal, gravity);
+        if (!TryOnTheGround(falls, out double3 landing)
+            || !KsaWorld.TryAnchorToGround(landing, out object? ground, out double3 anchor)) return false;
+
+        double distance = ChaseView.ObserverDistanceMetres(charge);
+        double3 column = landing + (_poseUp * ChaseView.CloudAimHeightMetres(charge));
+        double3 justAbove = landing + (_poseUp * 20.0);
+
+        for (double elevation = ChaseView.ObserverElevationDeg;
+             elevation <= MaxObserverElevationDeg + 1e-9;
+             elevation += ObserverClimbStepDeg)
+        {
+            elevationDeg = elevation;
+            observerEcl = landing + ChaseView.ObserverOffset(_poseUp, chaseLooking,
+                                                             chaseEyeEcl - landing, distance, elevation);
+            if (SeesOverTheGround(observerEcl, justAbove) && SeesOverTheGround(observerEcl, column)) break;
+        }
+
+        if (!Vec.IsFinite(observerEcl)) return false;
+
+        _observedGround = ground;
+        _landingAnchor = anchor;
+        _burstSeen = false;
+        _burstAge = 0.0;
+        _observedCharge = charge;
+        _observerDistance = distance;
+        return true;
+    }
+
+    private static bool TryOnTheGround(double3 pointEcl, out double3 groundEcl)
+    {
+        groundEcl = pointEcl;
+        if (!GroundTest.Shared.TryGround(pointEcl, out double3 centre, out double surface)) return false;
+
+        groundEcl = centre + (Vec.Unit(pointEcl - centre) * surface);
+        return Vec.IsFinite(groundEcl);
+    }
+
+    // Sixteen samples along the line: a ridge narrower than a sixteenth of 2.4 km is let through,
+    // which costs a moment of its shoulder in shot rather than a view of nothing.
+    private static bool SeesOverTheGround(double3 fromEcl, double3 toEcl)
+    {
+        for (int i = 0; i <= 15; i++)
+        {
+            double3 at = fromEcl + ((toEcl - fromEcl) * (i / 16.0));
+            if (!GroundTest.Shared.TryGround(at, out double3 centre, out double surface)) continue;
+            if (Vec.Len(at - centre) < surface + (i == 0 ? 20.0 : 0.0)) return false;
+        }
+
+        return true;
+    }
+
+    // The observer's look this frame, from where it stands.
+    private void Observe(IProjectile round, double dtViewing)
+    {
+        FrameObserved(round, dtViewing);
+        if (!KsaWorld.TryLookFromMainViewport(Vec.Zero, _holdForward, _poseUp, _observerFov, this)) Release();
+    }
+
+    // The lens eased towards what frames the pair, then the look taken against the lens actually on,
+    // so what has to stay in shot does even while the lens is still catching up.
+    private void FrameObserved(IProjectile? round, double dtViewing)
+    {
+        if (!TryObserverLook(round, _observerMaxFov, out _, out double wanted)) return;
+
+        _observerFov = _observerFov > 0.0
+                           ? _observerFov + ((wanted - _observerFov) * (1.0 - Math.Exp(-Math.Max(dtViewing, 0.0) / LensEaseSeconds)))
+                           : wanted;
+
+        if (!TryObserverLook(round, _observerFov, out double3 forward, out _)) return;
+
+        _holdOffset = Vec.Zero;
+        _holdForward = forward;
+        _holdUp = _poseUp;
+        _poseFovDeg = _observerFov;
+    }
+
+    // Before the burst: the round, and where it lands. After: the burst, and the column over it.
+    private bool TryObserverLook(IProjectile? round, double maxFovDeg, out double3 forward, out double fovDeg)
+    {
+        forward = Vec.Zero;
+        fovDeg = maxFovDeg;
+
+        double3 eye = _followed.GetPositionEcl();
+        double floor = ChaseView.FovToFit(2.0 * Warhead.FireballRadius(_observedCharge), _observerDistance);
+
+        if (_burstSeen)
+        {
+            if (!KsaWorld.TryGroundAnchorEcl(_observedGround, _burstAnchor, out double3 burst, out _)) return false;
+
+            double3 top = burst + (_poseUp * ChaseView.CloudHeightNow(_observedCharge, _burstAge));
+            (forward, fovDeg) = ChaseView.Frame(burst - eye, top - eye, floor, maxFovDeg);
+        }
+        else
+        {
+            if (!KsaWorld.TryGroundAnchorEcl(_observedGround, _landingAnchor, out double3 landing, out _)) return false;
+
+            double3 keep = round is not null && _source is not null && _source.TryRoundEffectEcl(round, out double3 drawn)
+                               ? drawn
+                               : landing;
+            (forward, fovDeg) = ChaseView.Frame(keep - eye, landing - eye, floor, maxFovDeg);
+        }
+
+        return Vec.IsFinite(forward) && Vec.Len2(forward) > 0.5;
     }
 
     // From where the eye was left to where the round is drawn. Both are anchored live, so asking from
@@ -690,7 +876,8 @@ internal sealed class ChaseCamera : IViewPose
         if (_watching)
         {
             upEcl = _poseUp;
-            if (TryWatchForward(round, out forwardEcl)) return true;
+            if (_observing && TryObserverLook(round, _observerFov, out forwardEcl, out _)) return true;
+            if (!_observing && TryWatchForward(round, out forwardEcl)) return true;
 
             offsetFromFollowed = _holdOffset;
             forwardEcl = _holdForward;

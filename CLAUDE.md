@@ -2931,6 +2931,18 @@ target, and the fall to the ground under a round the ground stops — because a 
 is the fall to its aim's height, which a shell fired level at a craft reaches long after it has hit.
 Flown on a 5"/54 shell 8 km out: stopped about 90 ms before it landed and held on the burst from 59 m.
 
+**A burst that grows a cloud is handed to an observer instead, by a cut.** What is worth watching
+is then the cloud, and a hold wherever the chase happened to be put the eye 336 m straight over a
+0.3 kt burst with the column about to rise through it. So at the same moment the view cuts to
+`ChaseView.ObserverDistanceMetres` out — `CloudWatch`'s distance, 2.4 km at 0.3 kt — 14° up and
+**back along the bearing the chase was looking**, so the cut is the same view from further off
+rather than a different one; it climbs until the ground no longer hides the burst or the column.
+It never moves after that: the lens frames the bomb and where it lands, tightest on the fireball at
+impact, then widens as the column rises (`ChaseView.Frame`), which is how the test films were shot
+— fixed cameras kilometres out on long lenses. Moving the eye back to that distance instead reads as a sudden zoom
+out. `KSARMORY_SCENARIO_CLOUDS=1 KSARMORY_SCENARIO_CHASE=1` flies a drop this
+way and photographs it.
+
 **And it stands off in the round's own lengths.** The stand-off was framed on the 57E6's 3.1 m body,
 so a 0.43 m shell chased from 26 m was a speck. `ChaseView.StandOffScale` multiplies all four
 distances by `BodyLength` against that — 3.6 m behind the shell — bounded to 0.1–2, so the closest
