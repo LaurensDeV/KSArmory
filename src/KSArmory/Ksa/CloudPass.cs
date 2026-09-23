@@ -666,6 +666,9 @@ internal static class CloudPass
     private const double ShockShellShare = 0.03;
     private const double ShockShellFloorMetres = 3.0;
 
+    // How many shell widths either side of the front the shader bends: KSArmoryShock.comp's cutoff.
+    private const double ShockBandWidths = 3.0;
+
     // THE BLAST FRONTS, as a bend in the light behind each: the scene copied, then written back from
     // the copy where a ray grazes a front's shell. One copy and one bend per front strong enough to
     // see, each bending what the one before left, so where two cross their bends add; nothing once
@@ -688,6 +691,12 @@ internal static class CloudPass
             if (strength <= ShockFaintest) continue;
 
             double3 c = burstEcl - camera.PositionEcl;
+            double width = Math.Max(front * ShockShellShare, ShockShellFloorMetres);
+
+            // A front that has swept past the camera bends nothing: from inside the sphere every ray
+            // passes the burst nearer than the camera is, so none grazes the shell -- which is the
+            // only place the shader bends, three widths either side of it.
+            if (Vec.Len(c) < front - (ShockBandWidths * width)) continue;
 
             double w = (c.X * vp.M14) + (c.Y * vp.M24) + (c.Z * vp.M34) + vp.M44;
             if (!(w > 0.0)) continue;
@@ -703,7 +712,7 @@ internal static class CloudPass
                 CentreRadius = new float4((float)c.X, (float)c.Y, (float)c.Z, (float)front),
                 CentreUvStrength = new float4((float)((x * 0.5) + 0.5), (float)((y * 0.5) + 0.5),
                                               ShockBend * (float)strength,
-                                              (float)Math.Max(front * ShockShellShare, ShockShellFloorMetres)),
+                                              (float)width),
                 UpMode = new float4((float)up.X, (float)up.Y, (float)up.Z, 0f),
             });
         }

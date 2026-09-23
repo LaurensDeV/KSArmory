@@ -65,6 +65,7 @@ vec2 RingBend(vec2 uv)
 
     vec3 nearest = dir * along;
     float x = (length(centre - nearest) - radius) / max(width, 1.0);
+    // Three widths is CloudPass.ShockBandWidths, which skips a front the camera is that far inside.
     if (abs(x) > 3.0) return vec2(0.0);
 
     // Only the half above the ground; the other half is underground.
