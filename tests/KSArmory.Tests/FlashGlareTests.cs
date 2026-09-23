@@ -100,4 +100,16 @@ public class FlashGlareTests
         Assert.Equal(0.0, FlashGlare.Level(0.0, 1.0));
         Assert.Equal(0.0, FlashGlare.Suns(0.3, 2_400.0, 0.0));
     }
+
+    [Fact]
+    public void ANightEyeRecoversMoreSlowlyThanADayEye()
+    {
+        double day = FlashGlare.RecoverySeconds(FlashGlare.AdaptedTo(40.0));
+        double dusk = FlashGlare.RecoverySeconds(FlashGlare.AdaptedTo(0.0));
+        double night = FlashGlare.RecoverySeconds(FlashGlare.AdaptedTo(-30.0));
+
+        Assert.Equal(0.28, day, 6);
+        Assert.True(day < dusk && dusk < night, $"{day} {dusk} {night}");
+        Assert.True(night > 5.0 * day, $"night {night:F2} s against day {day:F2} s");
+    }
 }

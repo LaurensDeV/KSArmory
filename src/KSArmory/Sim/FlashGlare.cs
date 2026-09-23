@@ -78,6 +78,27 @@ public static class FlashGlare
         return Math.Clamp(Math.Log10(1.0 + (suns / adaptedSuns)) / DecadesToWhite, 0.0, 1.0);
     }
 
+    // How fast a whiteout clears, as the time constant of its recovery: by day and in full night.
+    private const double DayRecoverySeconds = 0.28;
+    private const double NightRecoverySeconds = 2.2;
+
+    /// <summary>
+    /// The time constant the whiteout clears on, for an eye adapted to <paramref name="adaptedSuns"/>.
+    ///
+    /// <para><b>A dark-adapted eye recovers far more slowly</b>, which is why flash blindness from a
+    /// night burst lasts seconds to minutes where a daylight one is gone in a second: the pigment the
+    /// flash bleached is what the eye had been saving up to see in the dark. Eased on the log of the
+    /// adaptation, as <see cref="AdaptedTo"/> is built. Seconds rather than minutes at night: it is a
+    /// game, and a view that stays white for a minute is a player who cannot see what hit them.</para>
+    /// </summary>
+    public static double RecoverySeconds(double adaptedSuns)
+    {
+        if (!(adaptedSuns > 0.0)) return DayRecoverySeconds;
+
+        double night = Math.Clamp(Math.Log10(adaptedSuns) / Math.Log10(NightAdaptation), 0.0, 1.0);
+        return DayRecoverySeconds * Math.Pow(NightRecoverySeconds / DayRecoverySeconds, night);
+    }
+
     /// <summary>What still reaches a viewer with the burst directly behind them.</summary>
     public const double ScatteredFloor = 0.12;
 

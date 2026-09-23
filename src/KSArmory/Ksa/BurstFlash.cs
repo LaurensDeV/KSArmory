@@ -26,9 +26,9 @@ internal static class BurstFlash
     // Never quite opaque: at a full white the scene is gone and so is any sense of where.
     private const float MostOpaque = 0.97f;
 
-    // How fast the white bleeds off, as the time constant of its recovery. Full white for about a
-    // third of a second and gone inside a second and a half.
-    private const double FadeSeconds = 0.28;
+    // How fast the white bleeds off, as the time constant of its recovery: FlashGlare.RecoverySeconds
+    // for the eye of the burst doing the blinding, held so the tail keeps it after the ball is spent.
+    private static double _fadeSeconds = 0.28;
 
     // The whiteout, and the brightness it was last driven by. It is the CHANGE that blinds, not
     // the level: an eye adapts while the source is still burning.
@@ -40,6 +40,7 @@ internal static class BurstFlash
     {
         _held = 0.0;
         _seen = 0.0;
+        _fadeSeconds = FlashGlare.RecoverySeconds(1.0);
         Whiteout = 0f;
         Glare = 0f;
         GlareColour = default;
@@ -86,6 +87,7 @@ internal static class BurstFlash
             double halfField = KsaWorld.MainViewFovDeg() * 0.5;
 
             double brightest = 0.0;
+            double brightestAdapted = 1.0;
             int source = -1;
             double3 colour = default;
 
@@ -121,13 +123,18 @@ internal static class BurstFlash
                 if (seen <= brightest) continue;
 
                 brightest = seen;
+                brightestAdapted = adapted;
                 source = i;
                 colour = flash.Colour;
             }
 
             // The last burst that gave any, so the recovery tail keeps a direction after the ball
             // is spent.
-            if (source >= 0) SourceIndex = source;
+            if (source >= 0)
+            {
+                SourceIndex = source;
+                _fadeSeconds = FlashGlare.RecoverySeconds(brightestAdapted);
+            }
 
             // Driven by the RISE and recovering always, rather than held at whatever is burning.
             // Held at the level, the ball keeps the view at full white for the whole of its 1.9 s
@@ -140,7 +147,7 @@ internal static class BurstFlash
             // ADDED, not the larger of the two: a flash that arrives over a few frames blinds as much
             // as one that arrives in one. Held at the largest step, a burst reaching full brightness
             // in two frames stopped at the first one's 0.6.
-            if (dt > 0.0) _held *= Math.Exp(-dt / FadeSeconds);
+            if (dt > 0.0) _held *= Math.Exp(-dt / _fadeSeconds);
             _held = Math.Min(_held + rise, 1.0);
 
             Whiteout = (float)Math.Clamp(_held, 0.0, MostOpaque);
