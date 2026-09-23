@@ -821,18 +821,21 @@ public sealed class KSArmoryMod
         // is the one the GPU has finished with rather than the one being recorded now.
         CloudPassCost.Sample();
 
-        if (_config.NuclearClouds) NuclearClouds.Update(_lastSimStep);
-        else NuclearClouds.Clear();
+        using (_budget.Measure("clouds"))
+        {
+            if (_config.NuclearClouds) NuclearClouds.Update(_lastSimStep);
+            else NuclearClouds.Clear();
+        }
 
         // The whiteout a burst leaves on the view. Stepped here rather than drawn in the UI pass:
         // CloudPass writes it into the scene image so it survives the HUD being hidden.
         BurstFlash.Update(_lastSimStep);
 
-        // And the bangs still on their way.
+        // And the bangs and fronts still on their way.
         BurstSound.Update(_lastSimStep);
-        BlastArrivals.Update(_lastSimStep);
+        using (_budget.Measure("fronts")) BlastArrivals.Update(_lastSimStep);
         BlastShake.Update(_lastSimStep);
-        CrashGuard.Update(_lastSimStep);
+        using (_budget.Measure("crash guard")) CrashGuard.Update(_lastSimStep);
         AttitudeHook.CheckShoves(_lastSimStep);
 
         // A sight outlives nothing: without this the dictionary keeps a system for the session

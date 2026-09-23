@@ -21,6 +21,13 @@ internal static class CloudPassCost
     // stores; a tag object of this mod's own is not what the engine hands back.
     private const string TagName = "KSArmory Cloud";
 
+    // The stages CloudPass tags inside that region, which share its name as a prefix.
+    private const string StagePrefix = "KSArmory Cloud: ";
+
+    // Each stage's total and the frames it ran in, so a stage is reported against its own frames.
+    private static readonly Dictionary<string, (double TotalMs, int Frames)> _stages = [];
+    private static readonly Dictionary<string, double> _frameStages = [];
+
     private static int _frames;
     private static int _passFrames;
     private static double _framePeakMs;
@@ -59,6 +66,7 @@ internal static class CloudPassCost
         _passPeakMs = 0.0;
         _frameTotalMs = 0.0;
         _lastFrameIndex = -1;
+        _stages.Clear();
     }
 
     /// <summary>
@@ -85,6 +93,7 @@ internal static class CloudPassCost
 
             double pass = 0.0;
             double whole = 0.0;
+            _frameStages.Clear();
 
             foreach (Sample sample in frame.AsSpan())
             {
@@ -94,7 +103,18 @@ internal static class CloudPassCost
                 // its parent, so summing everything counts the same microsecond several times.
                 if (sample.ParentIndex == ushort.MaxValue) whole += ms;
 
-                if (sample.Id.ToString() == TagName) pass += ms;
+                string name = sample.Id.ToString();
+                if (name == TagName) pass += ms;
+                else if (name.StartsWith(StagePrefix, StringComparison.Ordinal))
+                {
+                    _frameStages[name] = _frameStages.GetValueOrDefault(name) + ms;
+                }
+            }
+
+            foreach ((string name, double ms) in _frameStages)
+            {
+                (double total, int count) = _stages.GetValueOrDefault(name);
+                _stages[name] = (total + ms, count + 1);
             }
 
             // The frame is counted whether or not the pass ran. Without that there is no baseline:
@@ -147,8 +167,14 @@ internal static class CloudPassCost
                            ? $", a mark covers {CloudPass.LastMarkTile:P1} of the screen"
                            : string.Empty;
 
+        // Each stage for the frames it ran in: the flash runs only while a glare lingers, and its mean
+        // over frames it never ran in would hide what it costs when it does.
+        string stages = string.Join(", ", _stages.Select(
+            s => $"{s.Key[StagePrefix.Length..]} {s.Value.TotalMs / s.Value.Frames:F2}"
+                 + (s.Value.Frames < _passFrames ? $" over {s.Value.Frames}" : "")));
+
         return $"gpu: {had}; whole frame {frame:F2} ms, peak {_framePeakMs:F2}, over {_frames} frames"
-               + marks;
+               + marks + (stages.Length > 0 ? $"; stages {stages}" : "");
     }
 
     private static void Warn(string what)

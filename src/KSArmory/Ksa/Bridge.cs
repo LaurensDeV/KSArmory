@@ -283,9 +283,12 @@ internal sealed class Bridge
         string field = command.String("name");
         if (!command.TryRaw("value", out JsonElement value)) return Failed("set needs a name and a value");
 
-        return BridgeCommand.TrySetField(_config, field, value, out string trouble)
-                   ? Done(new() { [field] = BridgeCommand.FieldText(_config, field) })
-                   : Failed(trouble);
+        if (!BridgeCommand.TrySetField(_config, field, value, out string trouble)) return Failed(trouble);
+
+        // The panel's tick box does this beside the write; the field alone changes nothing.
+        if (field == nameof(Config.VerboseLog)) Log.Threshold = _config.VerboseLog ? Log.Level.Debug : Log.Level.Info;
+
+        return Done(new() { [field] = BridgeCommand.FieldText(_config, field) });
     }
 
     private Reply Get(BridgeCommand command)

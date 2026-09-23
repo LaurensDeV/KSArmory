@@ -47,6 +47,15 @@ internal static class CloudPass
     // lists this pass beside the passes it has to be afforded against.
     private static readonly ProfilerTag GpuTag = new("KSArmory Cloud"u8);
 
+    // Each stage inside that region, so what the pass costs can be split by what costs it. Nested
+    // rather than beside it: the pass's own total is the outer regions, and a stage tagged with the
+    // outer tag is counted twice.
+    private static readonly ProfilerTag MarksTag = new("KSArmory Cloud: marks"u8);
+    private static readonly ProfilerTag MarchTag = new("KSArmory Cloud: march"u8);
+    private static readonly ProfilerTag ResolveTag = new("KSArmory Cloud: resolve"u8);
+    private static readonly ProfilerTag FrontsTag = new("KSArmory Cloud: fronts"u8);
+    private static readonly ProfilerTag FlashTag = new("KSArmory Cloud: flash"u8);
+
     private static ComputePipelineWrapper? _pipeline;
 
     // Everything one viewport's clouds are drawn with. The pass is recorded once per viewport a
@@ -372,6 +381,7 @@ internal static class CloudPass
             int marks = 0;
 
             using (commandBuffer.TagRegion(GpuTag))
+            using (commandBuffer.TagRegion(MarksTag))
             {
                 for (int i = 0; i < NuclearClouds.ScorchCount; i++)
                 {
@@ -513,9 +523,13 @@ internal static class CloudPass
                     // offset into the global set, which is where global.lighting lives: a frame
                     // index there reads a different viewport's planet, sun and radii on every frame
                     // in flight, and anything lit from that block flickers at frame rate.
-                    BindCloud(commandBuffer, viewport, camera, push);
-                    commandBuffer.Dispatch((width + Group - 1) / Group,
-                                           (height + Group - 1) / Group, 1);
+                    using (commandBuffer.TagRegion(MarchTag))
+                    {
+                        BindCloud(commandBuffer, viewport, camera, push);
+                        commandBuffer.Dispatch((width + Group - 1) / Group,
+                                               (height + Group - 1) / Group, 1);
+                    }
+
                     drawn++;
 
                     // The nearest, drawn last: what the history is reprojected against.
@@ -523,7 +537,13 @@ internal static class CloudPass
                     referenceCentre = centre;
                 }
 
-                if (drawn > 0) Resolve(commandBuffer, viewport, camera, view, reference, referenceCentre);
+                if (drawn > 0)
+                {
+                    using (commandBuffer.TagRegion(ResolveTag))
+                    {
+                        Resolve(commandBuffer, viewport, camera, view, reference, referenceCentre);
+                    }
+                }
 
                 Shock(commandBuffer, viewport, camera, view, depth);
             }
@@ -668,6 +688,7 @@ internal static class CloudPass
             if (strength <= ShockFaintest) continue;
 
             double3 c = burstEcl - camera.PositionEcl;
+
             double w = (c.X * vp.M14) + (c.Y * vp.M24) + (c.Z * vp.M34) + vp.M44;
             if (!(w > 0.0)) continue;
 
@@ -696,7 +717,7 @@ internal static class CloudPass
 
         if (view.Shock is null && !BuildShock(view, depth)) return;
 
-        using (commandBuffer.TagRegion(GpuTag))
+        using (commandBuffer.TagRegion(FrontsTag))
         {
             for (int n = 0; n < _fronts.Count; n++)
             {
@@ -773,6 +794,7 @@ internal static class CloudPass
         }
 
         using (commandBuffer.TagRegion(GpuTag))
+        using (commandBuffer.TagRegion(FlashTag))
         {
             if (hazard) Hazard(commandBuffer);
 
