@@ -138,6 +138,13 @@ const float PlumeReach = 3.0;
 const float PlumeMouth = 0.45;
 const float PlumeWidth = 0.75;
 
+// How far the tip wanders along the wind, in plume lengths, and the edges across it, in its own
+// half-widths; and how many half-widths out the soft edge is cut to nothing. CloudPass sizes the
+// dispatch to all three, and ScorchFootprintTests holds the two sides of that seam together.
+const float PlumeTipWander = 0.08;
+const float PlumeEdgeWander = 0.25;
+const float LateralCut = 1.2;
+
 // And how dark it goes against the patch, which is less: this is dust that settled, not ground the
 // flash burned.
 const float PlumeDepth = 1.0;
@@ -933,28 +940,34 @@ void main()
         float along = dot(ground, downwind);
         float across = length(ground - downwind * along);
 
-        // Reach and half-width as fractions of the burned patch, and the walk along it as 0..1.
-        float run = clamp(along / (scorch * PlumeReach), 0.0, 1.0);
+        // THE EDGES WANDER. Fallout lands where gusts and eddies put it, so its contours are
+        // ragged over the whole footprint, not only at the rim: drawn with ruled sides, a square
+        // end and a hard start across the burst, it read as a dark box laid on the ground. A
+        // low-frequency field, in [-1, 1], pushes both the edges and the tip.
+        float wander = clamp((Fbm(ground * (1.6 / scorch)) - 0.47) * 4.0, -1.0, 1.0);
 
-        // It LEAVES the crater at something like the crater's own width and widens with the square
-        // root of the distance, which is what a puff spreading by diffusion while it travels does.
-        // Starting from nothing makes it a point that never gets going: four factors each under
-        // one -- a linear fade, a lateral falloff, its own depth and the noise over it -- took the
-        // drawn result to about six per cent of the patch beside it, which is invisible.
-        float halfWidth = scorch * (PlumeMouth + (PlumeWidth * sqrt(run)));
+        // Reach as a fraction of the burned patch, and the walk along it, with the tip wandering.
+        float run = along / (scorch * PlumeReach) + wander * PlumeTipWander;
+        float runIn = clamp(run, 0.0, 1.0);
 
-        // A flat core with a soft edge rather than a linear taper, for the same reason: a taper
-        // has one dark line down the middle and nothing either side of it.
-        // Flat cores with soft edges. Ramping from the middle outward puts most of the footprint
-        // on the ramp rather than in the plume -- measured against a same-camera control, the
-        // drawn result was a mean of 12.9 of 255 over the ground it covered, which is real and
-        // under what anybody reads as a mark.
-        float lateral = 1.0 - smoothstep(0.75, 1.0, across / max(halfWidth, 1.0));
-        float fade = 1.0 - smoothstep(0.70, 1.0, run);
+        // A CIGAR, which is the shape every published fallout contour has: leaving the crater at
+        // something like its own width, widest about halfway, and closing to a rounded tip.
+        // sqrt(r) * (1 - r^3) peaks at 0.62 near r = 0.5, so the width never passes the mouth
+        // plus the widening -- which is what the dispatch's footprint is sized to.
+        float widening = sqrt(runIn) * (1.0 - runIn * runIn * runIn) / 0.62;
+        float halfWidth = scorch * (PlumeMouth + (PlumeWidth * widening));
+
+        // Soft across, cut to nothing past LateralCut half-widths so the footprint can bound it.
+        float x = across / max(halfWidth, 1.0) + wander * PlumeEdgeWander;
+        float lateral = exp(-1.8 * x * x) * (1.0 - smoothstep(0.75 * LateralCut, LateralCut, x));
+
+        // Rising out of the patch rather than starting on a line through the burst, and thinning
+        // over the back half toward the tip.
+        float fade = smoothstep(-0.12, 0.10, run) * (1.0 - smoothstep(0.55, 1.0, run));
 
         // Nothing upwind of the burst: fallout goes one way. And none at all where there was no air:
         // no column lifted anything, and no wind would carry it.
-        float plume = (along > 0.0 && pc.Shape.z < 0.5) ? lateral * fade : 0.0;
+        float plume = pc.Shape.z < 0.5 ? lateral * fade : 0.0;
 
         if (acrossR < scorch || plume > 0.0)
         {

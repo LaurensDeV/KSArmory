@@ -47,17 +47,26 @@ public class ScorchFootprintTests
         double reach = ConstantNamed(source, "PlumeReach");
         double mouth = ConstantNamed(source, "PlumeMouth");
         double width = ConstantNamed(source, "PlumeWidth");
+        double tip = ConstantNamed(source, "PlumeTipWander");
+        double edge = ConstantNamed(source, "PlumeEdgeWander");
+        double cut = ConstantNamed(source, "LateralCut");
 
-        // CloudPass.ScorchScreenReach and ScorchScreenWidth, in patch radii. The box is oriented
-        // along the wind, so the two are separate: downwind it has to cover the plume's run, and
-        // across it the plume's widest half-width -- and both have to cover the burned patch.
-        const double Reach = 3.0;
-        const double Across = 1.25;
+        // CloudPass.ScorchScreenReach, ScorchScreenWidth and ScorchScreenBehind, in patch radii.
+        // The box is oriented along the wind, so they are separate: downwind it has to cover the
+        // plume's run and its wandering tip, across it the widest the soft edge reaches when the
+        // wander pushes it out, and upwind the burned patch's ragged rim.
+        const double Reach = 3.3;
+        const double Across = 1.8;
+        const double Behind = 1.2;
 
-        Assert.True(Reach >= reach,
-                    $"the plume runs {reach} radii downwind and the box covers {Reach}");
-        Assert.True(Across >= mouth + width,
-                    $"the plume reaches {mouth + width} radii across and the box covers {Across}");
+        double runs = reach * (1.0 + tip);
+        double spreads = (mouth + width) * (cut + edge);
+
+        Assert.True(Reach >= runs, $"the plume runs {runs:F2} radii downwind and the box covers {Reach}");
+        Assert.True(Across >= spreads, $"the plume reaches {spreads:F2} radii across and the box covers {Across}");
+
+        // The patch's ragged rim wanders up to 0.15 of a radius past the radius itself.
+        Assert.True(Behind >= 1.0 + 0.15, "the box must cover the patch's ragged rim upwind");
         Assert.True(Reach >= 1.0 && Across >= 1.0, "the box must cover the burned patch");
     }
 }

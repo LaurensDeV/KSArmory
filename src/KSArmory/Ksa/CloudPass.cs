@@ -686,9 +686,9 @@ internal static class CloudPass
 
         for (int corner = 0; corner < 8; corner++)
         {
-            // Upwind only by the patch's own radius; downwind by the plume's whole run.
+            // Upwind only by the patch's ragged rim; downwind by the plume's whole run.
             double3 at = centreEgo
-                         + (along * ((corner & 1) == 0 ? -radius : reach))
+                         + (along * ((corner & 1) == 0 ? -radius * ScorchScreenBehind : reach))
                          + (side * ((corner & 2) == 0 ? -across : across))
                          + (other * ((corner & 4) == 0 ? -across : across));
 
@@ -713,13 +713,14 @@ internal static class CloudPass
         return new Tile(x0 * Group, y0 * Group, x1 - x0, y1 - y0);
     }
 
-    // How far past the burned patch's own radius a mark reaches, downwind and across, in patch
-    // radii. Both are the SHADER's constants restated -- PlumeReach, and PlumeMouth plus
-    // PlumeWidth -- and if either grows past what is here the mark is cropped at a straight edge
-    // partway along itself, which reads as terrain rather than as a fault. ScorchFootprintTests
-    // is the only thing that compares the two sides of that seam.
-    private const double ScorchScreenReach = 3.0;
-    private const double ScorchScreenWidth = 1.25;
+    // How far a mark reaches downwind, across and upwind, in patch radii. All three are the
+    // SHADER's constants restated -- the plume's run with its wandering tip, its widest half-width
+    // with its wandering edge and soft cut, and the patch's ragged rim -- and if any grows past what
+    // is here the mark is cropped at a straight edge partway along itself, which reads as terrain
+    // rather than as a fault. ScorchFootprintTests is the only thing that compares the two sides.
+    private const double ScorchScreenReach = 3.3;
+    private const double ScorchScreenWidth = 1.8;
+    private const double ScorchScreenBehind = 1.2;
 
     // The fourth fireball float on a cloud's dispatch: 1 if the column is spray, 2 if there are no
     // weather clouds to respect and 4 if it is the frame's first cloud, which clears the layer; and

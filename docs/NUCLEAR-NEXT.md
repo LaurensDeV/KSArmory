@@ -293,8 +293,13 @@ checks in that table no longer separate them.
 
 ### 7. Fallout is a plume, not a disc — built
 
-`PlumeReach` is three patch radii and `PlumeWidth` widens as a square root, which is a puff
-spreading by diffusion while it travels.
+`PlumeReach` is three patch radii, and the plume is a cigar: leaving the patch at about its own
+width, widest halfway and closing to a rounded tip, soft across and with a low-frequency field
+wandering its edges and its tip. **It was a ruled strip until 2026-09-23** — a square-root widening
+with a hard start across the burst, a flat core with a sharp edge and a square end — and seen from
+above it read as a dark box laid on the ground, which is how it was reported. The dispatch's
+footprint grew with it (`ScorchFootprintTests`), including upwind, where the patch's ragged rim ran
+past the box by 0.15 of a radius.
 
 **The wind is one rule now.** The cloud and the mark were each deriving the bearing for themselves,
 and a plume at right angles to the column it fell out of is the plainest possible tell.
