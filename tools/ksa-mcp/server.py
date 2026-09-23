@@ -18,6 +18,7 @@ docs/VISUAL-TESTING.md is why, and what each tool is for.
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import os
 import shutil
@@ -266,13 +267,32 @@ def player_captures(name: str | None = None, crop: bool = False, width: int = 96
 
 
 def reload_shaders() -> str:
-    """Copies the shaders from the tree into the installed mod and recompiles them in the game."""
+    """Copies the shaders from the tree into the installed mod and recompiles them in the game.
+
+    A write from WSL reaches the game late: flushed or not, the game has been seen compiling the file
+    as it was before the copy, and reporting "reloaded". So the reply's size for each file is checked
+    against the tree's, and the reload is repeated until the game compiled what the tree holds."""
     src = REPO / "src" / "KSArmory" / "Shaders"
     dst = user_dir() / "mods" / "KSArmory" / "Shaders"
+    want = {}
     for f in src.glob("*.comp"):
         shutil.copy2(f, dst / f.name)
-    data = send("reload_shaders", timeout=60)
-    return f"reloaded {data.get('reloaded')}"
+        with open(dst / f.name, "rb+") as out:
+            os.fsync(out.fileno())
+        want[f.name] = (f.stat().st_size, hashlib.sha1(f.read_bytes()).hexdigest()[:12])
+
+    for attempt in range(8):
+        data = send("reload_shaders", timeout=60)
+        seen = " ".join(data.get("modules") or [])
+        # By content where the game reports it, and by size where it does not.
+        stale = [name for name, (size, sha1) in want.items()
+                 if name in seen and f"{name}, {size} bytes" not in seen
+                 or (name in seen and "sha1 " in seen and sha1 not in seen)]
+        if not stale:
+            return f"reloaded {data.get('reloaded')} as the tree has them" + (f" (attempt {attempt + 1})" if attempt else "")
+        time.sleep(0.5)
+
+    raise Refused(f"the game kept compiling an older {', '.join(stale)} than the tree's")
 
 
 def log_tail(pattern: str = "", lines: int = 40) -> str:

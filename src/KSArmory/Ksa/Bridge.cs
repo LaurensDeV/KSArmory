@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.IO;
 using System.Reflection;
+using System.Security.Cryptography;
 using System.Text.Json;
 using Brutal.Numerics;
 using KSA;
@@ -453,8 +454,9 @@ internal sealed class Bridge
             }
 
             nint after = shader.Shader?.VkHandle ?? 0;
+            string sha1 = Convert.ToHexString(SHA1.HashData(File.ReadAllBytes(shader.ModPath))).ToLowerInvariant();
             string line = $"{id}: {shader.ModPath}, {file.Length} bytes written {file.LastWriteTime:HH:mm:ss}, "
-                          + $"module {before:X} -> {after:X}";
+                          + $"sha1 {sha1[..12]}, module {before:X} -> {after:X}";
             seen.Add(line);
             Log.Info($"bridge: reloaded {line}");
 
