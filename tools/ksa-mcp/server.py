@@ -325,6 +325,7 @@ TOOLS = {
                    "the cloud's top. release=true hands the view back.",
                    {"preset": {"type": "string", "enum": list(PRESETS)}, "azimuth_deg": _num("deg"),
                     "elevation_deg": _num("deg"), "distance_m": _num("m"), "aim": _num("0..1"),
+                    "turn_deg": _num("deg to turn the view from the burst; 180 looks away"),
                     "release": {"type": "boolean"}}, [],
                    lambda a: [_text(json.dumps(send("camera", **{**PRESETS.get(a.pop("preset", ""), {}), **a})))]),
     "ksa_site": ("Set the craft down at a latitude and longitude, on its body or a named one, and clear the "

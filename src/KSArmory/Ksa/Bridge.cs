@@ -336,7 +336,8 @@ internal sealed class Bridge
         }
 
         _pose = new CloudWatch.Pose(command.Number("azimuth_deg", 0.0), command.Number("elevation_deg", 14.0),
-                                    command.Number("distance_m", 0.0), command.Number("aim", 0.45));
+                                    command.Number("distance_m", 0.0), command.Number("aim", 0.45),
+                                    command.Number("turn_deg", 0.0));
 
         return Done(new() { ["held"] = true });
     }

@@ -53,10 +53,12 @@ internal static class CloudWatch
 
     /// <summary>
     /// Where to stand instead of the default: degrees round from across the wind, degrees up,
-    /// metres out (zero for the default distance), and how far up the top to look.
+    /// metres out (zero for the default distance), and how far up the top to look -- and how far to
+    /// turn the view from the burst about the vertical, which at 180 looks at the land the flash is
+    /// lighting rather than at the flash.
     /// </summary>
     public readonly record struct Pose(double AzimuthDeg, double ElevationDeg, double DistanceMetres,
-                                       double AimAt);
+                                       double AimAt, double TurnDeg = 0.0);
 
     /// <summary>
     /// Points the main view at the newest burst. Returns false when there is none, which leaves the
@@ -101,6 +103,15 @@ internal static class CloudWatch
             double3 at = burstEcl + (unitUp * ((pose?.AimAt ?? AimAt) * top));
             double3 forward = at - eye;
             if (!Vec.IsFinite(forward) || Vec.Len2(forward) < 1.0) return false;
+
+            if (pose is { TurnDeg: not 0.0 } turned)
+            {
+                // Rodrigues about the vertical: the height of the gaze is kept, its bearing turned.
+                double turn = turned.TurnDeg * Math.PI / 180.0;
+                double3 k = unitUp;
+                forward = (forward * Math.Cos(turn)) + (Vec.Cross(k, forward) * Math.Sin(turn))
+                          + (k * (Vec.Dot(k, forward) * (1.0 - Math.Cos(turn))));
+            }
 
             // Against where the engine has the followed craft NOW, which is what the offset has to
             // be measured from: a separation taken from this mod's own sample of it carries a frame
