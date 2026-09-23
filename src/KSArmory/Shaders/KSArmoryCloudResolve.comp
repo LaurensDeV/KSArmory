@@ -5,7 +5,9 @@
 // is now on screen and composites it into the scene. The march is 48 steps on a dither, and grain
 // is what limits it; the only thing that removes grain is more samples, and these are last frame's.
 //
-// Bindings follow ComputePipelineWrapper's order: the storage images first, then the samplers.
+// Bindings follow ComputePipelineWrapper's order: storage images, all of them here. Last frame's
+// history is one of them and is filtered by hand: the images are storage-only, and a sampler on an
+// image made without the sampled usage reads garbage.
 
 layout (local_size_x = 8, local_size_y = 8) in;
 
@@ -17,7 +19,23 @@ layout (set = 1, binding = 1, Rgba16f) uniform image2D layerColor;
 layout (set = 1, binding = 2, R32f) uniform image2D layerDistance;
 
 layout (set = 1, binding = 3, Rgba16f) uniform image2D historyOut;
-layout (set = 1, binding = 4) uniform sampler2D historyIn;
+layout (set = 1, binding = 4, Rgba16f) uniform readonly image2D historyIn;
+
+// Last frame's history at a point on the screen, bilinear between the four texels round it, clamped
+// to the image.
+vec4 HistoryAt(vec2 uv, ivec2 size)
+{
+    vec2 texel = uv * vec2(size) - 0.5;
+    ivec2 base = ivec2(floor(texel));
+    vec2 f = texel - vec2(base);
+    ivec2 top = size - 1;
+
+    vec4 a = imageLoad(historyIn, clamp(base, ivec2(0), top));
+    vec4 b = imageLoad(historyIn, clamp(base + ivec2(1, 0), ivec2(0), top));
+    vec4 c = imageLoad(historyIn, clamp(base + ivec2(0, 1), ivec2(0), top));
+    vec4 d = imageLoad(historyIn, clamp(base + ivec2(1, 1), ivec2(0), top));
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
 
 layout (push_constant) uniform PushConstants
 {
@@ -87,7 +105,7 @@ void main()
 
             if (all(greaterThanEqual(then, vec2(0.0))) && all(lessThanEqual(then, vec2(1.0))))
             {
-                vec4 history = clamp(textureLod(historyIn, then, 0.0), lo, hi);
+                vec4 history = clamp(HistoryAt(then, size), lo, hi);
                 resolved = mix(history, current, NewShare);
             }
         }

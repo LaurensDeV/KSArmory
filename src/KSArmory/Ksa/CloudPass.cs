@@ -574,7 +574,7 @@ internal static class CloudPass
 
         Span<VkImageMemoryBarrier2> two = stackalloc VkImageMemoryBarrier2[2];
         BarrierBatch history = new(two);
-        history.Add(view.History[from], ImageBarrierInfo.Presets.SampledReadC);
+        history.Add(view.History[from], ImageBarrierInfo.Presets.StorageReadWriteC);
         history.Add(view.History[to], ImageBarrierInfo.Presets.StorageReadWriteC);
         history.SubmitAndFlush(commandBuffer);
 
@@ -848,7 +848,7 @@ internal static class CloudPass
         _pipeline!.BindPipeline(commandBuffer, viewport.ShaderSlot, sets, offsets, push);
     }
 
-    // The resolve one way round: sampling History[from], writing History[1 - from].
+    // The resolve one way round: reading History[from], writing History[1 - from].
     private static bool BuildResolve(View view, int from)
     {
         if (!ModLibrary.TryGet<ShaderReference>(ResolveShaderId, out var shader) || shader is null)
@@ -860,9 +860,12 @@ internal static class CloudPass
 
         Renderer renderer = Program.GetRenderer();
 
+        // Last frame's history is read as STORAGE and filtered by hand, not sampled: the images are
+        // made with CreateColorStorage, which asks for storage usage alone, and sampling an image
+        // without the sampled usage is undefined -- flown, the history came back as garbage over a
+        // hard-edged block of the screen, a dark grainy rectangle on the young cloud.
         IRenderImage[] storageTargets =
-            [view.Target, view.LayerColour, view.LayerDistance, view.History[1 - from]];
-        IRenderImage[] sampled = [view.History[from]];
+            [view.Target, view.LayerColour, view.LayerDistance, view.History[1 - from], view.History[from]];
         VkPushConstantRange[] ranges =
         [
             new VkPushConstantRange
@@ -875,7 +878,7 @@ internal static class CloudPass
 
         using Specialization tuned = new();
         view.Resolve[from] = new ComputePipelineWrapper(
-            storageTargets, default, sampled, default, shader,
+            storageTargets, default, default, default, shader,
             default, ranges, renderer.MaxFramesInFlight, renderer,
             "KSArmory.CloudResolve", Program.PointClampedSampler, Program.LinearClampedSampler,
             specializationInfo: tuned.Info);
