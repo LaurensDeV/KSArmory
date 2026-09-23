@@ -630,6 +630,7 @@ internal static class CloudPass
         public float4 CentreRadius;        // the burst, camera-relative, and how far the front has got
         public float4 CentreUvStrength;    // the burst on screen, how hard it bends, its thickness
         public float4 UpMode;              // the vertical at the burst, and 0 to copy or 1 to bend
+        public float4 Shake;               // the picture thrown across and up, its roll, and 1 while shaking
     }
 
     // How hard a front bends the light, in screen widths per unit of the shell's angular thickness,
@@ -647,7 +648,8 @@ internal static class CloudPass
 
     // THE BLAST FRONT, as a bend in the light behind it: the scene copied, then written back from the
     // copy where a ray grazes the front's shell. Only the strongest front on screen, and only while it
-    // is strong enough to see, so the two full-screen dispatches cost nothing once it has gone.
+    // is strong enough to see, so the two full-screen dispatches cost nothing once it has gone. The
+    // same copy moves the whole picture while BlastShake says a front has just passed the eye.
     private static void Shock(CommandBuffer commandBuffer, IViewport viewport, Camera camera, View view,
                               IRenderImage depth)
     {
@@ -687,7 +689,17 @@ internal static class CloudPass
             };
         }
 
-        if (!found) return;
+        (double shakeX, double shakeY, double shakeRoll) = BlastShake.Offset;
+        bool shaking = BlastShake.Shaking;
+        if (!found && !shaking) return;
+
+        if (!found)
+        {
+            push.InvViewProj = camera.VPInv.viewProjection;
+        }
+
+        push.Shake = shaking ? new float4((float)shakeX, (float)shakeY, (float)shakeRoll, 1f) : default;
+
         if (view.Shock is null && !BuildShock(view, depth)) return;
 
         using (commandBuffer.TagRegion(GpuTag))

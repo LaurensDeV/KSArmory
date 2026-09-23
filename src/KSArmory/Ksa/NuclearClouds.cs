@@ -363,6 +363,21 @@ internal static class NuclearClouds
         }
     }
 
+    /// <summary>The air at a point over the body one cloud stands on, against sea level.</summary>
+    public static double AirRatioAt(int index, double3 positionEcl)
+    {
+        if (index < 0 || index >= _clouds.Count) return 0.0;
+
+        try
+        {
+            return KsaWorld.AirDensityRatioAt(_clouds[index].Body, positionEcl);
+        }
+        catch
+        {
+            return 0.0;
+        }
+    }
+
     /// <summary>
     /// One standing cloud by index, in the order they were made. <see cref="Count"/> bounds it.
     ///
@@ -682,6 +697,7 @@ internal static class NuclearClouds
         BurstFlash.Reset();
         BurstSound.Clear();
         BlastArrivals.Clear();
+        BlastShake.Clear();
         Fireball.Clear();
     }
 }

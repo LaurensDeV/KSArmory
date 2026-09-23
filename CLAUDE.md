@@ -302,6 +302,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/BlastSweep.cs` | how near a burst a body was, and what that does to it — shared by the sweep over craft and the one over rounds |
 | `Sim/BlastWave.cs` | the blast wave in real pascals — **Kinney–Graham**, the overpressure, how long it pushes and the wind behind it — because `BlastDamage`'s law is calibrated to KSA's part strengths and says nothing about what the air is doing |
 | `Sim/BlastShove.cs` | what that wind does to a craft, **part by part**, summed into a kick and a turn about the centre of mass — a tall rocket hit side-on tips because it is pushed hardest above its middle |
+| `Sim/ViewShake.cs` | the view thrown about as a front passes the eye — a jolt then a rattle, as hard as the real overpressure there |
 | `Sim/BlastDamage.cs` | which parts of a craft a burst breaks — **nothing here picks a part**: each is judged on its own distance and the strength the engine derived for it |
 | `Sim/TargetAllocation.cs` | what one craft's weapons have in the air **between them** — the unit that over-commits is the craft, not the weapon |
 | `Sim/RoundReach.cs` | whether a round the ground stops can still get to it — **the reaper for a store that will never arrive**, because a long fall is long rather than stuck |
@@ -472,6 +473,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/PlumeSmoke.cs` | smoke through the renderer KSA draws booster plumes with, one reflected field away — **the motor trail's now; the nuclear cloud left it for a raymarch** |
 | `Ksa/MotorSmoke.cs` | the trail a burning round leaves, through that same renderer — one cursor per round |
 | `Ksa/BlastArrivals.cs` | what a burst loads, **held until the front gets there** — the dent and the dust land as the shock passes the part, on the simulated clock like the bang, and in the craft's own assembly frame so the planet cannot leave the burst behind |
+| `Ksa/BlastShake.cs` | the front passing the **camera**, watched against the live front rather than timed from the flash — the model; `CloudPass` moves the picture |
 | `Ksa/BlastPuff.cs` | the dust a front throws off the face it strikes — **a sprite the colour of dirt**, because KSA's billboard is unlit and ignores the particle colour |
 | `Ksa/NuclearClouds.cs` | the mushroom clouds standing in the world — **state and the fireball only**: the shape is drawn by `Ksa/CloudPass.cs`, which reads the newest cloud off this and raymarches it |
 | `Ksa/BurstEjecta.cs` | that airless burst drawn, through the particle system — **the renderer that draws on a body with no air**, because the trail volume the smoke uses is raymarched only for an atmospheric one. One-shot emitters, so nothing has to hold or return them |

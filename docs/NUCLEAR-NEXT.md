@@ -457,9 +457,10 @@ transmits. `CHECKLIST.md` has the flight. **So are dents**: what the blast loads
 KSA's own impact path dents (`CLAUDE.md`, the blast-damage rules) — as the front reaches each part
 rather than at the flash, with a puff of dust off the struck face. Flown at 0.3 kt and 800 m from the
 rocket on the pad: five parts loaded, the front there at 2.06 s, three dented and dust thrown at
-2.25 s. **Shoving the craft is not built**, and the engine allows it: a decoupler writes
-`GetPhysicsStatesMutable().Kinematic.VelocityPhys` and takes the craft off rails from the same
-prefix window attitude uses (`Vehicle.Split`). The other two below are not built.
+2.25 s. **The wind behind the front shoves the craft** and turns it about its centre of mass,
+written the way a decoupler writes it (`Vehicle.Split`) from the prefix window attitude uses, and
+**the view shakes** as the front passes the camera. Both are sized by Kinney–Graham in real pascals
+(`Sim/BlastWave.cs`), not by the damage law. The other two below are not built.
 
 Today a burst is visuals plus `BlastDamage`. A nuclear one could blind radar for a scaled
 duration, burn at ranges the blast never reaches, and bloom out an `OpticalHead`'s sight — which

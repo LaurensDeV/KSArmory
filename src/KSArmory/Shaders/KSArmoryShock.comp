@@ -3,7 +3,8 @@
 // The blast front as it is seen on film: not a thing but a bend in the light behind it, a ring
 // racing out from the burst. Two dispatches from CloudPass: the first copies the scene, because a
 // pass may not read a neighbour of the pixel it is writing, and the second writes each pixel back
-// from the copy at an offset where the ray grazes the front's shell.
+// from the copy at an offset where the ray grazes the front's shell -- and, while a front has just
+// passed the eye, from wherever the shaken picture puts it.
 //
 // Bindings follow ComputePipelineWrapper's order: storage images, then the depth it samples.
 
@@ -19,6 +20,7 @@ layout (push_constant) uniform PushConstants
     vec4 CentreRadius;      // the burst, camera-relative, and how far the front has got
     vec4 CentreUvStrength;  // the burst on screen, how hard the front bends light, its thickness
     vec4 UpMode;            // the local vertical at the burst, and 0 to copy or 1 to bend
+    vec4 Shake;             // across and up in shares of the height, a roll in radians, 1 while shaking
 } pc;
 
 vec3 WorldAt(vec2 uv, float deviceZ)
@@ -44,6 +46,46 @@ vec4 CopyAt(vec2 uv, ivec2 size)
     return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
 }
 
+// Where the front's shell bends the ray through uv, as an offset on the screen: nothing away from
+// the shell, under the ground, behind the scene, or when no front is strong enough to draw.
+vec2 RingBend(vec2 uv)
+{
+    if (pc.CentreUvStrength.z <= 0.0) return vec2(0.0);
+
+    vec3 dir = normalize(WorldAt(uv, 1.0));
+
+    vec3 centre = pc.CentreRadius.xyz;
+    float radius = pc.CentreRadius.w;
+    float width = pc.CentreUvStrength.w;
+
+    // Where this ray passes nearest the burst, and how near. A ray grazing the shell crosses the
+    // most of it, which is where a front bends the light: the rim of the ring, not its face.
+    float along = dot(centre, dir);
+    if (along <= 0.0) return vec2(0.0);
+
+    vec3 nearest = dir * along;
+    float x = (length(centre - nearest) - radius) / max(width, 1.0);
+    if (abs(x) > 3.0) return vec2(0.0);
+
+    // Only the half above the ground; the other half is underground.
+    if (dot(nearest - centre, pc.UpMode.xyz) < -width) return vec2(0.0);
+
+    // And only where nothing in the scene stands in front of it.
+    float deviceZ = texture(sceneDepth, uv).r;
+    float sceneT = deviceZ > 0.0 ? length(WorldAt(uv, deviceZ)) : 1.0e30;
+    if (along > sceneT) return vec2(0.0);
+
+    // A lens across the shell: outward on one side of it, inward on the other, nothing at its middle
+    // -- the derivative of the shell's density, which is what refraction follows. Scaled by how wide
+    // the shell looks from here, so a front far off is a fine line and one close by a heavy one.
+    float lens = -2.0 * x * exp(-x * x);
+    vec2 outward = uv - pc.CentreUvStrength.xy;
+    float spread = length(outward);
+    if (spread < 1.0e-5) return vec2(0.0);
+
+    return (outward / spread) * (lens * pc.CentreUvStrength.z * width / along);
+}
+
 void main()
 {
     ivec2 size = imageSize(sceneColor);
@@ -57,39 +99,24 @@ void main()
     }
 
     vec2 uv = (vec2(at) + 0.5) / vec2(size);
-    vec3 dir = normalize(WorldAt(uv, 1.0));
+    vec2 from = uv;
+    bool shaking = pc.Shake.w > 0.5;
 
-    vec3 centre = pc.CentreRadius.xyz;
-    float radius = pc.CentreRadius.w;
-    float width = pc.CentreUvStrength.w;
+    // The picture thrown and turned about its centre, and pushed in by as much as it moved so the
+    // edge it leaves behind stays off the screen.
+    if (shaking)
+    {
+        float aspect = float(size.x) / float(size.y);
+        vec2 c = (uv - 0.5) * vec2(aspect, 1.0);
+        float s = sin(pc.Shake.z), k = cos(pc.Shake.z);
+        c = vec2(k * c.x - s * c.y, s * c.x + k * c.y);
+        c /= 1.0 + 2.0 * (abs(pc.Shake.x) + abs(pc.Shake.y) + abs(pc.Shake.z));
+        from = (c + pc.Shake.xy) / vec2(aspect, 1.0) + 0.5;
+    }
 
-    // Where this ray passes nearest the burst, and how near. A ray grazing the shell crosses the
-    // most of it, which is where a front bends the light: the rim of the ring, not its face.
-    float along = dot(centre, dir);
-    if (along <= 0.0) return;
-
-    vec3 nearest = dir * along;
-    float x = (length(centre - nearest) - radius) / max(width, 1.0);
-    if (abs(x) > 3.0) return;
-
-    // Only the half above the ground; the other half is underground.
-    if (dot(nearest - centre, pc.UpMode.xyz) < -width) return;
-
-    // And only where nothing in the scene stands in front of it.
-    float deviceZ = texture(sceneDepth, uv).r;
-    float sceneT = deviceZ > 0.0 ? length(WorldAt(uv, deviceZ)) : 1.0e30;
-    if (along > sceneT) return;
-
-    // A lens across the shell: outward on one side of it, inward on the other, nothing at its middle
-    // -- the derivative of the shell's density, which is what refraction follows. Scaled by how wide
-    // the shell looks from here, so a front far off is a fine line and one close by a heavy one.
-    float lens = -2.0 * x * exp(-x * x);
-    vec2 outward = uv - pc.CentreUvStrength.xy;
-    float spread = length(outward);
-    if (spread < 1.0e-5) return;
-
-    vec2 offset = (outward / spread) * (lens * pc.CentreUvStrength.z * width / along);
+    vec2 bend = RingBend(uv);
+    if (!shaking && bend == vec2(0.0)) return;
 
     vec4 was = imageLoad(sceneColor, at);
-    imageStore(sceneColor, at, vec4(CopyAt(uv + offset, size).rgb, was.a));
+    imageStore(sceneColor, at, vec4(CopyAt(from + bend, size).rgb, was.a));
 }
