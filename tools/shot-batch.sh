@@ -397,6 +397,7 @@ while (( at < ${#PLAN_ROWS[@]} )); do
     printf '\n=== shot %s  block %s  arm %s  (%s)\n' "$n" "$block" "$arm" "$(date +%H:%M:%S)"
 
     cp -a "$OUT/arms/$arm/." "$MODS/"
+    : > "$MODS/developer"   # the scenario runner starts only on a developer's install
     got="$(sha256sum "$MODS/KSArmory.dll" | cut -d' ' -f1)"
     if [[ "$got" != "$want" ]]; then
         echo "error: the deployed DLL is not arm '$arm' ($got, wanted $want)." >&2

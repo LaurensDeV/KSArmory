@@ -61,6 +61,11 @@ if ! cp "$OUT/KSArmory.dll" "$TARGET/" 2>/dev/null; then
     exit 1
 fi
 cp "$OUT/mod.toml" "$TARGET/"
+
+# Marks this as a developer's install, which shows the bridge, the scenario runner and the panel's
+# developer controls (Build.Developer). package.sh stages from the build output, never from here, so
+# the release archive cannot carry it.
+: > "$TARGET/developer"
 [[ -f "$OUT/KSArmory.pdb" ]] && cp "$OUT/KSArmory.pdb" "$TARGET/"
 
 # Part definitions and every asset folder they reference. Paths here must match the assets array

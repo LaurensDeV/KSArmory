@@ -252,7 +252,7 @@ turned up a defect: the stem under the cap read fully lit, because the shadow ma
 over a cap a few hundred metres thick a kilometre up the ray. A point under the cap now adds the
 ray's closed-form chord through the dome (`CapChord`), for 0.17 ms.
 
-**Capture for Claude** is a button in the debug tools window. It writes `out/player-<time>/`: a
+**Capture for Claude** is a button in the debug tools window, on a developer's install only — see `Build.Developer`, as for the bridge itself. It writes `out/player-<time>/`: a
 note of the state, every `Config` field and every tunable at the moment it was pressed, the log's
 last 300 lines, and eight frames with their manifests. `ksa_player_captures` reads the newest back
 as the state, a sheet and the temporal map — with the world running, so motion shows in it too, and

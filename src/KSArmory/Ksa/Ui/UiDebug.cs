@@ -59,13 +59,16 @@ internal sealed partial class Ui
 
         // Straight overhead, for when the pointer is not the question -- it needs no aim and no
         // ground under it, so it still answers "does the effect work at all".
-        ImGui.SliderFloat("Shader pass", ref _config.ShaderPass, 0f, 1f, "%.2f");
-        Tip("The mod's own compute pass, dispatched inside KSA's frame before bloom. At zero it "
-            + "does not dispatch. Above it, the spike tints the far field, which is how the route "
-            + "is checked: "
-            + (CloudPassHook.Installed
-                   ? (CloudPass.Available ? "hooked, and the pipeline built." : "hooked; the pipeline has not built yet.")
-                   : "NOT hooked -- KSA moved SunbloomRenderer.Render."));
+        if (Build.Developer)
+        {
+            ImGui.SliderFloat("Shader pass", ref _config.ShaderPass, 0f, 1f, "%.2f");
+            Tip("The mod's own compute pass, dispatched inside KSA's frame before bloom. At zero it "
+                + "does not dispatch. Above it, the spike tints the far field, which is how the route "
+                + "is checked: "
+                + (CloudPassHook.Installed
+                       ? (CloudPass.Available ? "hooked, and the pipeline built." : "hooked; the pipeline has not built yet.")
+                       : "NOT hooked -- KSA moved SunbloomRenderer.Render."));
+        }
 
         if (ImGui.Button("Burst overhead")) FireTestBurst();
         Tip("Sets off the tool's charge 100 m over the system shown.");
@@ -251,8 +254,14 @@ internal sealed partial class Ui
             Log.Threshold = _config.VerboseLog ? Log.Level.Debug : Log.Level.Info;
             Log.Info(_config.VerboseLog ? "verbose logging on" : "verbose logging off");
         }
-        Tip("Developer detail. A release build starts with it off; this turns it on without "
-            + "needing a different build.");
+        Tip("More detail in the log, which is what a bug report wants. It starts off; this turns "
+            + "it on without needing a different build.");
+
+        if (Build.Developer) DrawDiagnostics();
+    }
+
+    private void DrawDiagnostics()
+    {
 
         // Writes the battery's whole world view to the log, including why each nearby vehicle was
         // or was not tracked. Far more useful than staring at an empty screen.

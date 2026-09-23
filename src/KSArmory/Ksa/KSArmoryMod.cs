@@ -187,8 +187,15 @@ public sealed class KSArmoryMod
         _smoke = new MotorSmoke(_config);
         _gunSound = new GunSound(_config);
         _scenario = new ScenarioRunner(_config, _warp, SightFor);
-        _scenario.Begin(ScenarioRunner.Requested());
-        _bridge = new Bridge(_config, craft => _roster?.For(craft)?.Battery);
+        if (Build.Developer)
+        {
+            _scenario.Begin(ScenarioRunner.Requested());
+            _bridge = new Bridge(_config, craft => _roster?.For(craft)?.Battery);
+        }
+
+        Log.Info(Build.Developer
+                     ? "developer install: the bridge, the scenario runner and the developer controls are on"
+                     : "player install: developer tools are off");
         _ui = new Ui(_config, _roster, _heads, _icbms, _warp, _watch, _mover, _bursts, ReachFor);
         Log.Info($"ready - {string.Join(", ", Catalogue.Launchers.Select(l => l.DisplayName))}, safe. "
                  + "Open the 'KSArmory' panel to arm.");

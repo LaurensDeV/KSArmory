@@ -275,6 +275,11 @@ if (( DEPLOY )); then
     done
 else
     echo "== flying what is already installed"
+
+    # The runner only starts on a developer's install (Build.Developer), and an install copied in by
+    # hand -- shot-batch.sh's arms -- need not be marked as one.
+    INSTALLED="${KSA_MODS_DIR:-$USER_DIR/mods}/KSArmory"
+    [[ -d "$INSTALLED" ]] && : > "$INSTALLED/developer"
 fi
 
 echo "== launching, scenario '$SCENARIO', save '$SAVE'${CRAFT:+, craft '$CRAFT'}"

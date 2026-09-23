@@ -609,9 +609,11 @@ internal sealed partial class Ui
             + "the Steepest arrival minimum. Latched once, the first time any arc is affordable. At 0 "
             + "it is off: the arrival is whatever the cheapest arc gives, or the minimum above.");
 
-        // Closed, and the only fold on the tab. What is above it is what a player decides; what is
-        // under it has a right answer the shipped defaults already hold, and stays reachable so a
-        // shot night can still fly it as an arm.
+        // Closed, the only fold on the tab, and a developer's alone. What is above it is what a
+        // player decides; what is under it has a right answer the shipped defaults already hold, and
+        // stays reachable so a shot night can still fly it as an arm.
+        if (!Build.Developer) return;
+
         bool engineering = ImGui.CollapsingHeader("Engineering");
         Tip("Sequencing, the ascent, and the switches paired shot nights fly as arms. The defaults are "
             + "what ships; changing one here changes the shot, and nothing else on this tab will say so.");

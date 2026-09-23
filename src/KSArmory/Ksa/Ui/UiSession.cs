@@ -143,8 +143,12 @@ internal sealed partial class Ui
                                : "World overlay is off - turn it on under Settings > Display");
 
         ImGui.Separator();
-        DrawCaptureForClaude();
-        ImGui.Separator();
+        if (Build.Developer)
+        {
+            DrawCaptureForClaude();
+            ImGui.Separator();
+        }
+
         DrawWorldClock();
         ImGui.Separator();
         DrawBurstTool();
@@ -155,8 +159,12 @@ internal sealed partial class Ui
         DrawCraftMover();
         DrawSendToBody();
         ImGui.Separator();
-        DrawFinTest();
-        ImGui.Separator();
+        if (Build.Developer)
+        {
+            DrawFinTest();
+            ImGui.Separator();
+        }
+
         DrawLogging();
         ImGui.Separator();
 
@@ -234,7 +242,7 @@ internal sealed partial class Ui
         // Bodies and tracers are placed by entirely separate paths, so toggling this while
         // watching a round in flight says which of the two is misbehaving.
         ImGui.Checkbox("Round bodies (off = tracers only)", ref _config.UseRoundBodies);
-        ImGui.Checkbox("Tube markers (debug)", ref _config.DrawTubeMarkers);
+        if (Build.Developer) ImGui.Checkbox("Tube markers (debug)", ref _config.DrawTubeMarkers);
 
         // Reads a system, so it only appears when there is one. The switch above is the session's
         // and stands whatever is selected; this line is a report about the selected system.

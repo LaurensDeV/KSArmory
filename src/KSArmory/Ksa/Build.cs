@@ -11,6 +11,27 @@ namespace KSArmory;
 /// </summary>
 internal static class Build
 {
+    /// <summary>
+    /// Whether this is a developer's install: a <c>developer</c> file beside the assembly, which
+    /// <c>tools/deploy.sh</c> writes and the release archive never carries. It shows the tools
+    /// that exist for working on the mod -- the bridge, the scenario runner, the research
+    /// switches -- which a player has no use for.
+    /// </summary>
+    public static bool Developer { get; } = ResolveDeveloper();
+
+    private static bool ResolveDeveloper()
+    {
+        try
+        {
+            string? dir = Path.GetDirectoryName(typeof(Build).Assembly.Location);
+            return dir is not null && File.Exists(Path.Combine(dir, "developer"));
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     /// <summary>Version string for the panel, e.g. <c>0.8.1</c> or <c>0.8.1+dev</c>.</summary>
     public static string Version { get; } = Resolve();
 

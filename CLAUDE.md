@@ -204,6 +204,14 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
   `StarMap.exe` directly. `run.sh` finds it under the Windows user profile — override with
   `STARMAP_DIR`. It reads `./StarMapConfig.json` **relative to its own directory**, so it must be
   launched from there.
+- **A developer's install is marked by a `developer` file beside the DLL**, which `tools/deploy.sh`
+  writes and `tools/package.sh` never carries, since it stages from the build output. `Build.Developer`
+  reads it at load, and only then do the bridge and the scenario runner start, and the panel show
+  what exists for working on the mod: Capture for Claude, the shader-pass slider, the fin sweep, the
+  diagnostic dump and warhead trace, tube markers and the Ballistic tab's Engineering fold. A player
+  keeps the sandbox tools — slow motion, test targets, explosions on click, moving craft, the log and
+  Verbose log, which is what a bug report wants. **A new developer-only control goes behind it**,
+  and the startup line in the log says which kind of install is running.
 - **The mod writes its own log** to `<KSA user dir>/Logs/KSArmory.log`, readable from WSL, with the
   session before kept as `KSArmory.prev.log` so relaunching to investigate does not erase the evidence;
   `./tools/ksa-user-dir.sh` prints that directory and `./tools/run.sh --attach` follows the log.
@@ -456,13 +464,13 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/WarheadTrace.cs` | **one warhead against the prediction of it**, re-flown from where it has got to — measurement only, off by default, and the discriminator is whether the two part *smoothly* or in a *step* |
 | `Ksa/SiteDesignator.cs` | click the world to name where the warheads go — **a mode, not a button**, and with a place already named a click adds another target rather than starting the shot over, refused with the cursor greyed where the bus cannot divert that far |
 | `Ksa/Ui/Ui.cs` | the panel's shell: the switcher — one row per craft, grouped by team, a name to fly it and guard, chase and team as drawn icons — the panes, and which system they read |
-| `Ksa/Ui/UiSession.cs` | the world clock, the teams, and what the session draws and hears — and **Capture for Claude**, which saves what the player is looking at with the state and the log for whoever is diagnosing it |
+| `Ksa/Ui/UiSession.cs` | the world clock, the teams, and what the session draws and hears — and, on a developer's install, **Capture for Claude**, which saves what the player is looking at with the state and the log for whoever is diagnosing it |
 | `Ksa/Ui/UiSystem.cs` | one row per component: what each part is, sees and is doing |
 | `Ksa/Ui/UiOptic.cs` | one director's rows — what it looks at, looks through, and will watch. **Reads no weapons system**, because a craft with a director and no armament has all of them |
 | `Ksa/Ui/UiTuning.cs` | IFF, and the sensor, guidance and warhead numbers |
 | `Ksa/Ui/UiDebug.cs` | test targets, moving craft, hand-fired bursts, the log |
 | `Ksa/Ui/UiMap.cs` | the ground under a director as shaded relief, with what it can see marked on it |
-| `Ksa/Ui/UiIcbm.cs` | the ballistic computer's pane — what it is aimed at, whether it will get there, and **everything a player need not touch under one closed Engineering fold** |
+| `Ksa/Ui/UiIcbm.cs` | the ballistic computer's pane — what it is aimed at, whether it will get there, and **everything a player need not touch under one closed Engineering fold**, shown only on a developer's install |
 | `Ksa/Ui/UiScope.cs` | the radar scope: what the *set* holds, craft-centred and polar, on the Radar tab |
 | `Ksa/Ui/UiWeapons.cs` | the weapon switcher — which of a craft's weapons the trigger is pointed at, with each one's ammo and arm state |
 | `Ksa/Ui/UiReport.cs` | the one window behind **Report bug** and **Feedback** |
@@ -514,7 +522,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/Designator.cs` | click the world to shoot at that spot, with no target and no lock |
 | `Ksa/TargetLock.cs` | shift-click anything to lock an installation onto it |
 | `Ksa/Diagnostics.cs` | the periodic world dump — what the system can see and why |
-| `Ksa/Build.cs` | what build this is, read off the assembly rather than written down |
+| `Ksa/Build.cs` | what build this is, read off the assembly rather than written down — and **whether it is a developer's install**, which is what shows the developer tools |
 | `Ksa/SettingsStore.cs` | per-craft settings across sessions, in JSON beside the log |
 | `Ksa/Log.cs` | the mod's own log file, which is the only debugging channel it has |
 | `src/KSArmory/KSArmory*.xml` | the parts, the warhead effects and the sounds — at the mod root, mirroring Core. **No character**: a mod's character ends up on kittens in nearly every save, which then cannot load without it — `tools/repair-saves.py` re-dresses them |
