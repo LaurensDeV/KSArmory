@@ -1446,7 +1446,7 @@ ground has no target to be flown through. Deleting it is not recoverable and lag
 nothing was kept**, because that call hides every body on the launcher rather than the dropped ones,
 which over a survivor hides the survivor and is the disappearance again by another route.
 
-**And the expensive half of a sight was never in the frame budget.** `sight` at 5.41 ms is
+**And the expensive half of a sight was never in the frame budget.** `sight` is
 `BombSightOverlay.Draw`; the `BombSight.MaxSteps` flight under it runs in `Update`, which nothing
 measured — so "what does the sight cost a frame" had no readable answer. Both solves are now
 `sight solve` and `reach solve` in `FrameBudget`. What they cost is **terrain lookups rather than
@@ -1454,7 +1454,10 @@ arithmetic**: a reach solve at the pipper's 0.05 s step is 2,395 of them, and si
 sub-steps at 5 ms regardless, the outer step sets only how often the ground is sampled — 0.05 to
 0.40 moves the radius **under a metre** on answers of 634, 1,610 and 2,898 m while the lookups fall
 eightfold. `StoreReach` runs at 0.20 for that reason, and a trivial ground test is what hides the
-whole cost headlessly.
+whole cost headlessly. **The draw's cost was lookups too**: its two rings are draped, 80 terrain
+lookups a frame, which was 0.98 of the mod's 1.16 ms on the pad. `KsaWorld.DrawCircleEcl` keeps a
+draped ring in the frame of the body under it and draws it again while it has moved less than a
+centimetre there -- within 7 mm of a fresh drape, measured -- and the sight is 0.03 ms.
 
 **And the region it can still be walked into had to be flown, which is a finding rather than a
 preference.** `½·a·t²` is not a bound at any constant fraction: a lateral push does not accumulate

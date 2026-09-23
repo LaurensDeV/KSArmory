@@ -5009,14 +5009,132 @@ internal static class KsaWorld
         double3 b = Vec.Unit(Vec.Cross(up, a)) * radius;
 
         int steps = Math.Clamp(segments, 8, 256);
-        double3 previous = OnGround(centreEcl + a, drape, clearance);
+        Celestial? body = drape ? NearestCelestial(centreEcl) : null;
+
+        if (body is not null && DrapedRingFor(body, centreEcl, up, a, radius, steps, clearance) is { } ring)
+        {
+            DrawDrapedRing(body, ring, colour);
+            return;
+        }
+
+        double3 previous = OnGround(body, centreEcl + a, clearance);
 
         for (int i = 1; i <= steps; i++)
         {
             double angle = Math.Tau * i / steps;
-            double3 next = OnGround(centreEcl + (a * Math.Cos(angle)) + (b * Math.Sin(angle)),
-                                    drape, clearance);
+            double3 next = OnGround(body, centreEcl + (a * Math.Cos(angle)) + (b * Math.Sin(angle)),
+                                    clearance);
 
+            DrawLineEcl(previous, next, colour);
+            previous = next;
+        }
+    }
+
+    // A draped ring, in the frame of the body it lies on: the ground under it does not move in that
+    // frame, so a ring drawn again where it was is the same ring. Draping is a terrain lookup a point,
+    // which is most of what this mod costs a frame with a sight up; a ring standing still re-draped
+    // every frame paid it for an answer that never changed.
+    private sealed class DrapedRing
+    {
+        public required Celestial Body;
+        public required double3 CentreFixed;
+        public required double3 NormalFixed;
+        public required double3 AxisFixed;
+        public required double Radius;
+        public required int Steps;
+        public required double Clearance;
+        public required double3[] PointsFixed;
+        public long LastUsed;
+    }
+
+    // How far a ring's centre may be from where it was draped and still be that ring: a centimetre,
+    // over which no ground a craft can stand on rises by a millimetre. And how far its first axis may
+    // have turned -- it is laid off a direction fixed in space, which the ground turns under.
+    private const double DrapeReuseMetres = 0.01;
+    private const double DrapeReuseRadians = 1.0e-4;
+    private const int DrapedRingsKept = 8;
+
+    private static readonly List<DrapedRing> _drapedRings = [];
+    private static long _drapeUses;
+
+    // The ring draped here before, or this one draped now and kept. Null when the body's frame
+    // cannot be read, which drapes the old way.
+    private static DrapedRing? DrapedRingFor(Celestial body, double3 centreEcl, double3 up, double3 a, double radius,
+                                             int steps, double clearance)
+    {
+        try
+        {
+            doubleQuat toFixed = doubleQuat.Conjugate(body.GetBodyFixed2Ecl());
+            double3 bodyEcl = body.GetPositionEcl();
+            double3 centreFixed = toFixed * (centreEcl - bodyEcl);
+            double3 normalFixed = toFixed * up;
+            double3 axisFixed = toFixed * Vec.Unit(a);
+            if (!Vec.IsFinite(centreFixed)) return null;
+
+            _drapeUses++;
+            foreach (DrapedRing kept in _drapedRings)
+            {
+                if (!ReferenceEquals(kept.Body, body) || kept.Steps != steps || kept.Clearance != clearance) continue;
+                if (Math.Abs(kept.Radius - radius) > radius * 1.0e-9) continue;
+                if (Vec.Len(kept.CentreFixed - centreFixed) > DrapeReuseMetres) continue;
+                if (Vec.Len(kept.NormalFixed - normalFixed) > DrapeReuseRadians) continue;
+                if (Vec.Len(kept.AxisFixed - axisFixed) > DrapeReuseRadians) continue;
+
+                kept.LastUsed = _drapeUses;
+                return kept;
+            }
+
+            double3 b = Vec.Unit(Vec.Cross(up, a)) * radius;
+            double3[] points = new double3[steps + 1];
+            for (int i = 0; i <= steps; i++)
+            {
+                double angle = Math.Tau * i / steps;
+                double3 at = OnGround(body, centreEcl + (a * Math.Cos(angle)) + (b * Math.Sin(angle)), clearance);
+                points[i] = toFixed * (at - bodyEcl);
+            }
+
+            DrapedRing ring = new()
+            {
+                Body = body,
+                CentreFixed = centreFixed,
+                NormalFixed = normalFixed,
+                AxisFixed = axisFixed,
+                Radius = radius,
+                Steps = steps,
+                Clearance = clearance,
+                PointsFixed = points,
+                LastUsed = _drapeUses,
+            };
+
+            if (_drapedRings.Count >= DrapedRingsKept)
+            {
+                int oldest = 0;
+                for (int i = 1; i < _drapedRings.Count; i++)
+                {
+                    if (_drapedRings[i].LastUsed < _drapedRings[oldest].LastUsed) oldest = i;
+                }
+
+                _drapedRings.RemoveAt(oldest);
+            }
+
+            _drapedRings.Add(ring);
+            return ring;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static void DrawDrapedRing(Celestial body, DrapedRing ring, float4 colour)
+    {
+        doubleQuat toEcl = body.GetBodyFixed2Ecl();
+        double3 bodyEcl = body.GetPositionEcl();
+
+        double3 previous = bodyEcl + (toEcl * ring.PointsFixed[0]);
+        for (int i = 1; i < ring.PointsFixed.Length; i++)
+        {
+            double3 next = bodyEcl + (toEcl * ring.PointsFixed[i]);
             DrawLineEcl(previous, next, colour);
             previous = next;
         }
@@ -5043,13 +5161,14 @@ internal static class KsaWorld
         double3 b = Vec.Unit(Vec.Cross(n, a)) * radius;
 
         int steps = Math.Clamp(segments, 8, 256);
+        Celestial? body = NearestCelestial(centreEcl);
 
         for (int i = 0; i <= steps; i++)
         {
             double t = 2.0 * Math.PI * i / steps;
             double3 at = centreEcl + a * Math.Cos(t) + b * Math.Sin(t);
 
-            into.Add(OnGround(at, drape: true, clearance) - centreEcl);
+            into.Add(OnGround(body, at, clearance) - centreEcl);
         }
     }
 
@@ -5068,25 +5187,24 @@ internal static class KsaWorld
         if (Vec.Len2(semiMajorEcl) <= 0.0) return;
 
         int steps = Math.Clamp(segments, 8, 256);
+        Celestial? body = NearestCelestial(centreEcl);
 
         for (int i = 0; i <= steps; i++)
         {
             double t = Math.Tau * i / steps;
             double3 at = centreEcl + semiMajorEcl * Math.Cos(t) + semiMinorEcl * Math.Sin(t);
 
-            into.Add(OnGround(at, drape: true, clearance) - centreEcl);
+            into.Add(OnGround(body, at, clearance) - centreEcl);
         }
     }
 
     // Lifted clear of the surface by a little: a line exactly on the terrain z-fights with it and
     // disappears in patches, which looks worse than being slightly above it.
-    private static double3 OnGround(double3 atEcl, bool drape, double clearance)
+    // Onto a body already found, or left where it is with none: finding the body is a walk of every
+    // celestial in the system, and a draped ring is 82 points per overlay per frame all over one.
+    private static double3 OnGround(Celestial? body, double3 atEcl, double clearance)
     {
-        // The centre comes back from the snap rather than being looked up again. Finding it is a
-        // walk of every celestial in the system, and the snap has just done exactly that walk to
-        // pick the body it draped onto -- so asking a second time doubles the cost of every draped
-        // point, and a draped ring is 82 of them per overlay per frame.
-        if (!drape || !TrySnapToGround(atEcl, out double3 ground, out double3 centre)) return atEcl;
+        if (body is null || !TrySnapToGround(body, atEcl, out double3 ground, out double3 centre)) return atEcl;
 
         return ground + Vec.Unit(ground - centre) * clearance;
     }
@@ -5140,9 +5258,17 @@ internal static class KsaWorld
         centreEcl = Vec.Zero;
         onGroundEcl = nearEcl;
 
+        return NearestCelestial(nearEcl) is { } nearest
+               && TrySnapToGround(nearest, nearEcl, out onGroundEcl, out centreEcl);
+    }
+
+    // The body whose centre is nearest a point, by a walk of the whole system. Found once for a
+    // whole draped ring rather than once a point: every point of a ring is over the same body.
+    private static Celestial? NearestCelestial(double3 nearEcl)
+    {
         try
         {
-            if (Universe.CurrentSystem is not { } system) return false;
+            if (Universe.CurrentSystem is not { } system) return null;
 
             Celestial? nearest = null;
             double best = double.MaxValue;
@@ -5158,8 +5284,23 @@ internal static class KsaWorld
                 nearest = body;
             }
 
-            if (nearest is null) return false;
+            return nearest;
+        }
+        catch
+        {
+            return null;
+        }
+    }
 
+    // The snap onto a body already found.
+    private static bool TrySnapToGround(Celestial nearest, double3 nearEcl, out double3 onGroundEcl,
+                                        out double3 centreEcl)
+    {
+        centreEcl = Vec.Zero;
+        onGroundEcl = nearEcl;
+
+        try
+        {
             double3 centre = nearest.GetPositionEcl();
             centreEcl = centre;
             double3 dirCce = Vec.Unit(nearEcl - centre);
@@ -5202,6 +5343,7 @@ internal static class KsaWorld
         // Spaced closer together than they are wide, or it beads. Bounded so a large ring cannot
         // ask for thousands of spheres.
         int steps = (int)Math.Clamp(Math.Ceiling(Math.Tau * ringRadius / tubeRadius), 16, 160);
+        Celestial? body = drape ? NearestCelestial(centreEcl) : null;
 
         for (int i = 0; i < steps; i++)
         {
@@ -5210,7 +5352,7 @@ internal static class KsaWorld
 
             // Each bead sits on the ground under it, so the ring follows a slope instead of
             // burying one side and floating the other.
-            if (drape && TrySnapToGround(at, out double3 ground)) at = ground;
+            if (body is not null && TrySnapToGround(body, at, out double3 ground, out _)) at = ground;
 
             if (TryEclToEgo(at, out double3 ego))
             {
