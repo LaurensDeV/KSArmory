@@ -377,11 +377,12 @@
         <ParticleVelocity X="0" Y="0" Z="0"/>
         <ParticleVelocityShift Value="0"/>
         <!--
-          Out fast and then gone. The front runs ahead of the fireball almost at once, which is the
-          whole look, and it thins from the inside as the pressure comes back rather than shrinking.
+          Behind the front rather than with it: the shell condenses in the rarefaction that follows
+          the shock, a third of its life after the burst, and thins from the inside as the pressure
+          comes back rather than shrinking.
         -->
-        <ScaleEnvelope Start="0.10" Peak="0.85" PeakAt="0.22" End="1.15"/>
-        <AlphaEnvelope Start="0.10" Peak="0.80" PeakAt="0.18" End="0"/>
+        <ScaleEnvelope Start="0.30" Peak="0.85" PeakAt="0.45" End="1.10"/>
+        <AlphaEnvelope Start="0" Peak="0.80" PeakAt="0.45" End="0"/>
         <ColorStops MidAt="0.4">
             <Start R="0.92" G="0.94" B="0.97"/>
             <Mid R="0.90" G="0.92" B="0.95"/>

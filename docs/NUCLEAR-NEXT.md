@@ -223,6 +223,31 @@ visible without the cloud travelling.
 
 ---
 
+### 1b. The first fifteen seconds, against the physics — built
+
+Community comments on the burst ("more spherical and white-yellow for 3 s", "the fireball should last
+longer before the smoke", "the cloud should glow at first") were checked against Glasstone & Dolan
+and the test-film record before anything changed. What held, and what was built:
+
+- **The ball glowed 3.4 s at every yield over about 1 kt**, where the law is 9.9 s at 20 kt and
+  30.9 s at 340 kt. The ceiling was the smoke pens' — no smoke laid while the ball glowed — and
+  outlived them: the cloud is a raymarch and nothing read the check. It now runs to the law, up to
+  14 s.
+- **It went orange by 2 s.** It now stays white-yellow for its heat pulse (5.4 s at 340 kt, 1.6 s at
+  20 kt) at a glow held near its peak, then cools through orange to deep red.
+- **It was lumpy from the first frame**: fire pockets under a soot shell. While white-hot it is now a
+  smooth, opaque sphere of its own light (`BallRadiance`), with the soot and the pockets arriving as
+  it cools — which is the order a real one goes in.
+- **It reached full size in 0.34 s** at every yield. It now grows as `t^0.4`, over 2.2 s at 340 kt.
+- **The condensation shell timed off the glow**, so lengthening one would have stretched the other.
+  It is on the blast's clock now: 3 s at 20 kt (Glasstone §2.49), by the cube root elsewhere, and it
+  condenses a third of its life in rather than at the burst.
+
+What did not hold: a five-second swelling ball is high-speed film played slowed (test cameras ran at
+about 2,400 fps), and a ground burst is a dome, not a sphere. Flown at 340 kt from 30 km and 20 kt
+from 14 km, both with the sun behind the camera: white dome, orange from about 5 s and 2.7 s, a
+mushroom glowing from inside to 14 s and 10 s.
+
 ## Tier 1a — found while building the above
 
 - **A control run reported a shader that would not compile.** `CloudPassCost` read "no pipeline" as

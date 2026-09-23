@@ -341,15 +341,16 @@ public static class MushroomCloud
     /// <para><b>It needs humid air, so it belongs to the atmospheric branch alone</b> — there is
     /// nothing to condense on an airless body, which is also where this mod already forks.</para>
     ///
-    /// <para>Sized in fireball radii and timed against the luminous phase rather than given laws of
-    /// their own. The published scaling for it is thin and strongly dependent on humidity, and two
-    /// more fitted constants here would be inventing precision — what is defensible is that the
-    /// shell is a few fireball radii across and gone about as quickly as the flash.</para>
+    /// <para>Sized in fireball radii, because the published scaling for its size is thin and
+    /// strongly dependent on humidity. Timed on the blast's clock, which is the rarefaction's.</para>
     /// </summary>
     public const double WilsonInFireballs = 3.4;
 
-    /// <summary>How long that shell stands, as a multiple of the luminous phase.</summary>
-    public const double WilsonOfFlash = 1.35;
+    /// <summary>
+    /// How long that shell lasts at 20 kt: it formed 1 to 2 s after the burst and was gone "within
+    /// another second or so" (Glasstone §2.49). Blast times scale as the cube root of the yield.
+    /// </summary>
+    public const double WilsonAt20KtSeconds = 3.0;
 
     /// <summary>The condensation shell's radius, or zero for a charge too small to make one.</summary>
     public static double WilsonRadius(double chargeKg)
@@ -361,7 +362,7 @@ public static class MushroomCloud
     public static double WilsonSeconds(double chargeKg)
         => chargeKg < ThresholdKg
                ? 0.0
-               : WilsonOfFlash * FlashSeconds(KilotonsFor(chargeKg));
+               : WilsonAt20KtSeconds * Math.Cbrt(KilotonsFor(chargeKg) / 20.0);
 
     /// <summary>
     /// The widest the base surge gets, and how long it takes to get there.
@@ -401,22 +402,9 @@ public static class MushroomCloud
                : DrawnCloudTop(yieldKt) * 0.10 * (1.0 - Math.Exp(-age / (RiseSeconds * 0.45)));
 
     /// <summary>
-    /// Whether the pens are laying yet. They are not while the fireball is luminous, because the
-    /// volumetric pass draws <em>after</em> the bloom pass and therefore in front of it: smoke laid
-    /// over a burning fireball buries the brightest thing the mod can draw inside its own exhaust.
-    ///
-    /// <para><b>The cloud's clock still starts at the burst, not here.</b> That is the whole
-    /// difference between a fireball that rises and turns into a cloud and one that is followed by
-    /// a separate cloud. Restarting the clock at the handover puts every pen back on the ground at
-    /// the instant the flash dies, so what is drawn is a flash, and then — seconds later — columns
-    /// of smoke climbing out of the ground several hundred metres away from where the burst was by
-    /// then. Running one clock throughout means the pens are already up at the ball when they start
-    /// laying, and the first smoke anybody sees is the ball's own.</para>
+    /// Seconds the fireball stays incandescent, after which it is lit smoke. Not a formula
+    /// Glasstone states: it fits his anchors, 10 s at 20 kt and 37 to 60 s at a megatonne.
     /// </summary>
-    public static bool SmokeStarted(double chargeKg, double age)
-        => age > FlashSeconds(KilotonsFor(chargeKg));
-
-    /// <summary>Seconds the fireball stays incandescent, after which it is lit smoke.</summary>
     public static double DarkAfter(double yieldKt)
         => yieldKt <= 0.0 ? 0.0 : 3.0 * Math.Pow(yieldKt, 0.4);
 
@@ -425,19 +413,41 @@ public static class MushroomCloud
     /// dial.
     ///
     /// <para>The cloud's clock is compressed and the flash's is not, so they diverge as the yield
-    /// climbs: 340 kt glows for 30.9 s against a 38 s rise, which is a burst still flaring while its
-    /// own mushroom forms. Compressing the flash by the same factor is not the alternative — it
-    /// works out at a blink nobody sees — so it runs real until it hits the ceiling below.</para>
-    ///
-    /// <para><b>And that ceiling is <see cref="ClimbUntil"/>, not a number of its own.</b> No smoke
-    /// is laid while the ball is luminous, so a flash lasting longer than the pens take to climb
-    /// means they are already out on the cap when they lay their first segment, and the column from
-    /// the ground up is <em>never drawn at all</em> — the cap arrives disconnected from its own
-    /// stem and base. At 0.30 of the rise that happened for everything above about 10 kt, and it is
-    /// invisible at the bottom of the dial where the flash is short anyway.</para>
+    /// climbs: 340 kt glows for 30.9 s against a 38 s rise, which is a ball still burning after its
+    /// own mushroom has formed. Compressing the flash by the same factor is not the alternative — it
+    /// works out at a blink — so it runs real until <see cref="LongestGlowSeconds"/>.</para>
     /// </summary>
     public static double FlashSeconds(double yieldKt)
-        => Math.Min(DarkAfter(yieldKt), RiseSeconds * ClimbUntil * 0.6);
+        => Math.Min(DarkAfter(yieldKt), LongestGlowSeconds);
+
+    /// <summary>
+    /// The longest a ball is drawn glowing. 20 kt keeps its real 9.9 s; above that the glow still
+    /// lengthens with yield where the law has it past a third of the rise, which is when the cap has
+    /// formed round the ball on the compressed clock.
+    /// </summary>
+    public const double LongestGlowSeconds = 14.0;
+
+    /// <summary>
+    /// How long the ball stays white-hot: the heat pulse, which has given out 80% of its energy by
+    /// ten times its second maximum (Glasstone §7.85) -- 1.6 s at 20 kt, 5.4 s at 340 kt. Never
+    /// before the drawn second maximum, which is slowed where it would be too quick to see, and
+    /// never past half the glow, so the cooling has room.
+    /// </summary>
+    public static double WhiteHotSeconds(double yieldKt)
+    {
+        if (yieldKt <= 0.0) return 0.0;
+
+        double pulse = Math.Max(10.0 * ThermalMaximumSeconds(yieldKt), 1.2 * PulsePeakSeconds(yieldKt));
+        return Math.Min(pulse, 0.5 * FlashSeconds(yieldKt));
+    }
+
+    /// <summary>
+    /// How long the ball takes to grow, as R ~ t^0.4 (Taylor): 90% of its largest by about three
+    /// times its second maximum, 1.6 s at 340 kt. Floored so the smallest ball does not arrive at
+    /// full size within a frame.
+    /// </summary>
+    public static double GrowthSeconds(double yieldKt)
+        => yieldKt <= 0.0 ? 0.0 : Math.Max(4.0 * ThermalMaximumSeconds(yieldKt), 0.2);
 
     private static double Smoothstep(double edge0, double edge1, double x)
     {
@@ -648,11 +658,17 @@ public static class MushroomCloud
     public const double EmberFloor = 26.0;
 
     /// <summary>
-    /// Glow the ball settles to once the thermal pulse is over, and burns at until it is an ember.
-    /// Chosen to meet <see cref="EmberGlow"/> exactly at the end of the luminous phase, so the three
-    /// stages join without a step.
+    /// Glow the ball settles to once the heat pulse is over, and cools from until it is an ember.
+    /// It meets <see cref="EmberGlow"/> exactly at the end of the luminous phase, so the stages join
+    /// without a step.
     /// </summary>
     public const double BurnGlow = 200.0;
+
+    /// <summary>
+    /// Glow through the heat pulse, falling to <see cref="BurnGlow"/> as it ends: a ball near
+    /// 7,700 degrees for seconds (Glasstone §2.125) rather than one that dims as soon as it peaks.
+    /// </summary>
+    public const double WhiteHotGlow = 320.0;
 
     /// <summary>
     /// How far the ball contracts across the luminous phase, before the ember shrink takes over.
@@ -692,10 +708,10 @@ public static class MushroomCloud
 
         double t = Math.Min(1.0, age / dark);
         double ember = age <= dark ? 0.0 : (age - dark) / EmberSeconds;
+        double whiteHot = WhiteHotSeconds(kt);
 
-        // Full size in a tenth of the luminous phase, then contracting: gently while it burns, hard
-        // once it is an ember. The ramp on the way up is only so the ball does not appear at full
-        // size in one frame -- the real expansion is over before anyone can resolve it.
+        // Growing as t^0.4 to its largest, then contracting: gently while it burns, hard once it is
+        // an ember. From a tenth of its size, so the first frame has a ball in it.
         //
         // <b>What contracts is the incandescent region, not the fireball.</b> The hot air mass keeps
         // growing the whole time; its outer skin cools below visible emission first, so the part of
@@ -703,15 +719,18 @@ public static class MushroomCloud
         // ball can shrink without contradicting a law that says a fireball only ever grows, and it
         // is what lets it recede into its own smoke instead of being switched off inside it.
         double radius = FireballRadius(kt) * SurfaceBurstGain
-                        * Math.Min(1.0, 0.60 + (0.40 * Math.Sqrt(t / 0.10)))
+                        * Math.Clamp(Math.Pow(age / GrowthSeconds(kt), 0.4), 0.10, 1.0)
                         * (1.0 - (LuminousShrink * t))
                         * (1.0 - (EmberShrink * ember));
 
-        // Blue-white, then yellow, then orange, then deep red.
-        double3 colour = t < 0.35
-                             ? Lerp(new double3(1.0, 0.97, 0.92), new double3(1.0, 0.78, 0.35), t / 0.35)
-                             : Lerp(new double3(1.0, 0.78, 0.35), new double3(0.75, 0.16, 0.05),
-                                    (t - 0.35) / 0.65);
+        // Blue-white to white-yellow through the heat pulse, then orange, then deep red.
+        double cooling = age <= whiteHot ? 0.0 : Math.Min(1.0, (age - whiteHot) / (dark - whiteHot));
+        double3 colour = age <= whiteHot
+                             ? Lerp(new double3(1.0, 0.97, 0.92), new double3(1.0, 0.88, 0.60), age / whiteHot)
+                             : cooling < 0.4
+                                 ? Lerp(new double3(1.0, 0.88, 0.60), new double3(1.0, 0.62, 0.25), cooling / 0.4)
+                                 : Lerp(new double3(1.0, 0.62, 0.25), new double3(0.75, 0.16, 0.05),
+                                        (cooling - 0.4) / 0.6);
 
         // Three stages, each taking over from the one before by being the brightest of them.
         //
@@ -750,9 +769,12 @@ public static class MushroomCloud
         double opening = ShockFrontShare
                          + ((1.0 - ShockFrontShare) * Smoothstep(tMin, PulsePeakSeconds(kt), age));
 
+        double burn = age <= whiteHot
+                          ? WhiteHotGlow * Math.Pow(BurnGlow / WhiteHotGlow, age / whiteHot)
+                          : BurnGlow * Math.Pow(EmberGlow / BurnGlow, cooling);
+
         double glow = age <= dark
-                          ? Math.Max(pulse,
-                                     BurnGlow * Math.Exp(-Math.Log(BurnGlow / EmberGlow) * t) * opening)
+                          ? Math.Max(pulse, burn * opening)
                           : EmberGlow + ((EmberFloor - EmberGlow) * ember);
 
         return new Flash(radius, colour, glow);
@@ -779,9 +801,9 @@ public static class MushroomCloud
     /// over the surface. Drawn as the ball alone, the glow ends when the ball does and the cloud
     /// round it is clean smoke from then on.</para>
     ///
-    /// <para>Rises with the ball rather than jumping: the volume holding it is still forming for
-    /// the first third of the luminous phase, and full heat at the instant of the burst would put
-    /// the glow inside a cloud that is not there yet.</para>
+    /// <para>Rises as the white-hot pulse ends rather than jumping: before that the ball itself is
+    /// the fire, and pockets showing through it would break up the one clean shape the first
+    /// seconds have.</para>
     /// </summary>
     public static double Incandescence(double chargeKg, double age)
     {
@@ -789,7 +811,8 @@ public static class MushroomCloud
         if (kt <= 0.0 || age <= 0.0) return 0.0;
 
         double dark = FlashSeconds(kt);
-        double warming = Smoothstep(0.0, dark * 0.3, age);
+        double whiteHot = WhiteHotSeconds(kt);
+        double warming = Smoothstep(whiteHot * 0.3, whiteHot, age);
         double cooling = Math.Exp(-Math.Max(age - dark, 0.0) / CoolingSeconds);
         double heat = warming * cooling;
 
@@ -939,8 +962,7 @@ public static class MushroomCloud
 
     /// <summary>
     /// How far up its stroke a pen is still climbing the axis. Past this it is walking the cap, so
-    /// it is also where the cap's own shape starts being measurable — and the deadline the flash has
-    /// to end by, see <see cref="FlashSeconds"/>.
+    /// it is also where the cap's own shape starts being measurable.
     /// </summary>
     public const double ClimbUntil = 0.15;
 

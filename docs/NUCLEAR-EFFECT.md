@@ -148,20 +148,24 @@ For the yields this mod can dial — the slider spans the B61's own range, 0.3 k
 | ...on the ground (×1.32) | 55 m | 104 m | 222 m | 423 m | 690 m | 910 m |
 | Flash over | 0.25 s | 0.50 s | 1.15 s | 2.33 s | 4.00 s | 5.42 s |
 | Goes dark | 1.9 s | 3.5 s | 7.5 s | 14.3 s | 23.4 s | 30.9 s |
-| **...as drawn** | **1.9 s** | **3.4 s** | **3.4 s** | **3.4 s** | **3.4 s** | **3.4 s** |
+| **...as drawn** | **1.9 s** | **3.5 s** | **7.5 s** | **14.0 s** | **14.0 s** | **14.0 s** |
 | **Cloud top** | **2.0 km** | **3.4 km** | **6.5 km** | **11.1 km** | **16.6 km** | **20.9 km** |
 | **Cap radius** | **0.38 km** | **0.70 km** | **1.41 km** | **2.55 km** | **4.01 km** | **5.19 km** |
 | Stem radius | 0.19 km | 0.35 km | 0.70 km | 1.28 km | 2.01 km | 2.59 km |
 | **Ground skirt, widest** (drawn) | **0.13 km** | **0.23 km** | **0.47 km** | **0.86 km** | **1.35 km** | **1.75 km** |
 | ...settled, after the draw-in | 0.09 km | 0.16 km | 0.32 km | 0.58 km | 0.91 km | 1.18 km |
 
-The drawn flash parts company with the law above about 1.4 kt, and has to: the cloud's clock is
+The drawn flash parts company with the law above about 50 kt, and has to: the cloud's clock is
 compressed and the flash's is not, so 340 kt would glow for 30.9 s against a 38 s rise — still
-flaring after its own mushroom had finished forming. Compressing it by the same factor is not the
-alternative, since that works out at a blink nobody sees. The ceiling it is held at is `ClimbUntil`
-rather than a number of its own: no smoke is laid while the ball is luminous, so a flash outlasting
-the climb up the axis leaves the pens already out on the cap when they lay their first segment, and
-the column from the ground up is never drawn at all.
+burning after its own mushroom had formed. Compressing it by the same factor is not the alternative,
+since that works out at a blink nobody sees. So it runs real to `LongestGlowSeconds`, 14 s, and
+20 kt keeps its law. `3.0 · W^0.4` is not stated by Glasstone; it fits his anchors, 10 s at 20 kt
+and 37 to 60 s at a megatonne.
+
+Inside that, the ball is **white-hot for its heat pulse** — ten times the second maximum, when 80%
+of the thermal energy is out (Glasstone §7.85): 1.6 s at 20 kt, 5.4 s at 340 kt — and **grows as
+`t^0.4`** to 90% of its largest by about three second maxima, 1.6 s at 340 kt. Both are
+`MushroomCloud.WhiteHotSeconds` and `GrowthSeconds`.
 
 **Two of the numbers everybody quotes do not survive checking, and one of them was in this list.**
 

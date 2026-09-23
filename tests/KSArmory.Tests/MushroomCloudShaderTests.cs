@@ -30,6 +30,13 @@ public class MushroomCloudShaderTests
         Assert.Equal(MushroomCloud.AgedShear, Constant("AgedShear"), 9);
     }
 
+    /// <summary>The shader reads the end of the heat pulse off the glow, at the model's own value.</summary>
+    [Fact]
+    public void TheShaderKnowsWhereTheHeatPulseEnds()
+    {
+        Assert.Equal(MushroomCloud.BurnGlow, Constant("BallBurnGlow"), 9);
+    }
+
     [Fact]
     public void TheBoundHoldsTheShearedCloud()
     {

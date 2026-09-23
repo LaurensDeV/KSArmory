@@ -188,21 +188,21 @@ public class MushroomCloudTests
     }
 
     /// <summary>
-    /// It is at full size almost immediately. The growth is real but it is over in under a fifth of
-    /// a second, so a ramp stretched across a quarter of the luminous phase means most of what
-    /// anyone actually sees is an undersized ball.
+    /// It grows as t^0.4 over about a second and a half at 340 kt, reaching 90% of its largest by
+    /// about three times its second maximum (Glasstone 1962, Fig 2.51) -- not in a tenth of a
+    /// second, which read as a ball popping in rather than a burst expanding.
     /// </summary>
     [Fact]
-    public void TheFireballIsAtFullSizeAlmostImmediately()
+    public void TheFireballGrowsOverItsOwnPulseRatherThanAppearing()
     {
-        double flash = MushroomCloud.FlashSeconds(0.3);
-        double peak = MushroomCloud.PeakFireballRadius(0.3);
+        double peak = MushroomCloud.PeakFireballRadius(340.0);
+        double tMax = MushroomCloud.ThermalMaximumSeconds(340.0);
 
-        // Within the contraction it has already begun by then, and no less.
-        Assert.True(MushroomCloud.FlashAt(0.3 * Kt, flash * 0.15).Radius > peak * 0.95,
-                    "it should be at full size a sixth of the way through the flash");
-        Assert.True(MushroomCloud.FlashAt(0.3 * Kt, 0.0).Radius > peak * 0.5,
-                    "and it does not start from nothing");
+        Assert.True(MushroomCloud.FlashAt(340.0 * Kt, 0.1).Radius < peak * 0.6,
+                    "a tenth of a second in it is still well short of its largest");
+        Assert.True(MushroomCloud.FlashAt(340.0 * Kt, 3.0 * tMax).Radius > peak * 0.85,
+                    "and near it by three times the second maximum");
+        Assert.True(MushroomCloud.FlashAt(0.3 * Kt, 0.0).Radius > 0.0, "and the first frame has a ball");
     }
 
     /// <summary>
@@ -361,27 +361,46 @@ public class MushroomCloudTests
     }
 
     /// <summary>
-    /// The flash always ends while the pens are still climbing the axis, at every yield on the dial.
-    ///
-    /// <para><b>This is the rule that keeps the cloud in one piece.</b> No smoke is laid while the
-    /// ball is luminous, so a flash outlasting the climb means the pens are already out on the cap
-    /// when they lay their first segment — and the column from the ground up is never drawn at all.
-    /// The cap then arrives disconnected from its own stem and base, which is invisible at the
-    /// bottom of the dial where the flash is short anyway, and unmissable at the top.</para>
+    /// The ball glows as long as the law says up to 20 kt, and longer still past it: a 340 kt ball
+    /// that went dark at 3.4 s, as a leftover ceiling had it, is the burst reading as weak.
     /// </summary>
-    [Theory]
-    [InlineData(0.3)]
-    [InlineData(1.5)]
-    [InlineData(10.0)]
-    [InlineData(50.0)]
-    [InlineData(340.0)]
-    public void TheFlashEndsWhileThePensAreStillClimbing(double kt)
+    [Fact]
+    public void TheGlowRunsItsRealLengthAndLengthensWithYield()
     {
-        double climbEnds = MushroomCloud.RiseSeconds * MushroomCloud.ClimbUntil;
+        Assert.Equal(MushroomCloud.DarkAfter(20.0), MushroomCloud.FlashSeconds(20.0), 6);
+        Assert.True(MushroomCloud.FlashSeconds(20.0) > 9.0, "about ten seconds at 20 kt, as Glasstone has it");
+        Assert.True(MushroomCloud.FlashSeconds(340.0) > MushroomCloud.FlashSeconds(20.0));
+        Assert.True(MushroomCloud.FlashSeconds(340.0) <= MushroomCloud.LongestGlowSeconds);
+    }
 
-        Assert.True(MushroomCloud.FlashSeconds(kt) < climbEnds,
-                    $"{kt} kt flashes for {MushroomCloud.FlashSeconds(kt):F1} s against a climb that "
-                    + $"is over at {climbEnds:F1} s, so the cloud's lower body is never drawn");
+    /// <summary>
+    /// White-yellow for the heat pulse, which has given out 80% of its energy by ten times its
+    /// second maximum -- 5.4 s at 340 kt -- and orange only after that. At 20 kt the same pulse is
+    /// over by 1.6 s, so it is orange by three.
+    /// </summary>
+    [Fact]
+    public void TheBallStaysWhiteHotForItsHeatPulse()
+    {
+        double3 big = MushroomCloud.FlashAt(340.0 * Kt, 3.0).Colour;
+        double3 small = MushroomCloud.FlashAt(20.0 * Kt, 3.0).Colour;
+
+        Assert.True(big.Z > 0.5 && big.Y > 0.8, $"340 kt at 3 s should be white-yellow, not {big}");
+        Assert.True(small.Z < big.Z, "and a smaller ball cools sooner");
+        Assert.True(MushroomCloud.FlashAt(340.0 * Kt, 3.0).Glow > MushroomCloud.BurnGlow,
+                    "still burning at full heat, not dimming from its peak");
+    }
+
+    /// <summary>
+    /// The condensation shell is a blast-clock thing: 1 to 2 s after a 20 kt burst and gone about a
+    /// second later (Glasstone §2.49), and longer for a bigger blast by the cube root -- not tied
+    /// to how long the ball glows, which would stand it up for tens of seconds.
+    /// </summary>
+    [Fact]
+    public void TheCondensationShellKeepsTheBlastsClock()
+    {
+        Assert.Equal(MushroomCloud.WilsonAt20KtSeconds, MushroomCloud.WilsonSeconds(20.0 * Kt), 6);
+        Assert.Equal(Math.Cbrt(17.0), MushroomCloud.WilsonSeconds(340.0 * Kt) / MushroomCloud.WilsonSeconds(20.0 * Kt), 6);
+        Assert.True(MushroomCloud.WilsonSeconds(20.0 * Kt) < MushroomCloud.FlashSeconds(20.0));
     }
 
     /// <summary>Small yields are untouched by that ceiling — they are watchable as they are.</summary>
@@ -697,7 +716,7 @@ public class MushroomCloudTests
 
     /// <summary>
     /// The heat inside the young cloud has to outlast the ball, or the cloud round it is clean smoke
-    /// the moment the ball is dark -- and has to be gone well inside the rise, or the cap glows while
+    /// the moment the ball is dark -- and has to be gone by the end of the rise, or the cap glows while
     /// it stands.
     /// </summary>
     [Theory]
@@ -713,7 +732,7 @@ public class MushroomCloudTests
         Assert.True(MushroomCloud.Incandescence(kt * Kt, dark) > 0.9, "full heat as the ball goes dark");
         Assert.True(MushroomCloud.Incandescence(kt * Kt, ballOut + 0.5) > 0.1,
                     $"{kt} kt: cold at {ballOut + 0.5:F1} s, while the ball has only just gone");
-        Assert.Equal(0.0, MushroomCloud.Incandescence(kt * Kt, MushroomCloud.RiseSeconds * 0.5));
+        Assert.Equal(0.0, MushroomCloud.Incandescence(kt * Kt, MushroomCloud.RiseSeconds));
     }
 
     [Fact]

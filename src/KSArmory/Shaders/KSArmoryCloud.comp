@@ -891,6 +891,13 @@ layout (constant_id = 19) const float FireGlowNits = 3.0;
 // more a real one stays dirty.
 layout (constant_id = 20) const float SootDepth = 0.95;
 layout (constant_id = 21) const float SootSeconds = 10.0;
+
+// THE BALL WHILE IT IS WHITE-HOT: a smooth, opaque sphere of its own light, at the brightness a
+// surface of its glow would have -- the shape a real-time eye sees for the first seconds, before the
+// dust closes over it. Read off the glow, which is the only thing the push says about the ball:
+// MushroomCloud.BurnGlow is where the heat pulse ends and the cooling begins.
+layout (constant_id = 33) const float BallRadiance = 0.45;
+const float BallBurnGlow = 200.0;
 const float SootOpacity = 2.0;
 
 // How strongly the nitrogen oxides tint the cap, and how long they last.
@@ -1323,6 +1330,9 @@ void main()
     float sunSum = 0.0;
     float fireSum = 0.0;
 
+    // Not over a ball still white-hot: the dust it swallowed has not yet closed over it.
+    float ballHot = pc.FireSun.x > 0.0 ? smoothstep(0.5 * BallBurnGlow, BallBurnGlow, pc.FireSun.y) : 0.0;
+
     for (int i = 0; i < (throughCloud ? Steps : 0); i++)
     {
         vec3 world = dir * (t0 + (float(i) + jitter) * dt) - toCentre;   // relative to the burst
@@ -1331,6 +1341,13 @@ void main()
         float wet;
         float density = Density(world, up, radius, fireMask, wet);
         vec3 leaned = world;
+
+        // The white-hot ball where it is, smooth-edged and opaque, whatever the cloud round it is.
+        float inBall = ballHot > 0.0
+                           ? (1.0 - smoothstep(0.85, 1.0, length(world - up * pc.Shape.x) / pc.FireSun.x))
+                             * ballHot
+                           : 0.0;
+        density = max(density, inBall);
         if (density <= 0.0) continue;
 
         // How much cloud is between this sample and the sun. Four taps, spaced out geometrically so
@@ -1395,7 +1412,7 @@ void main()
         //
         // Off the sea there is no ground to burn, so no soot; the oxides are the air's, and stay.
         float age = pc.AgeStrengthWind.x;
-        float soot = columnIsWater ? 0.0 : SootDepth * exp(-age / SootSeconds);
+        float soot = columnIsWater ? 0.0 : SootDepth * exp(-age / SootSeconds) * (1.0 - ballHot);
         albedo = mix(albedo, vec3(0.045, 0.036, 0.030), soot);
 
         float oxides = NoxStrength * smoothstep(0.5, 3.0, age) * exp(-age / NoxSeconds)
@@ -1484,6 +1501,18 @@ void main()
             fireShare = max(fireShare, dot(emitted, vec3(0.2126, 0.7152, 0.0722))
                                        / max(dot(lit + emitted, vec3(0.2126, 0.7152, 0.0722)), 1e-4));
             lit += emitted;
+        }
+
+        // And over all of that, the white-hot ball's own light.
+        if (inBall > 0.0)
+        {
+            float glow = pc.FireSun.y;
+            vec3 colour = mix(vec3(1.00, 0.62, 0.25), vec3(1.00, 0.88, 0.60),
+                              smoothstep(0.75 * BallBurnGlow, 1.6 * BallBurnGlow, glow));
+            colour = mix(colour, vec3(1.00, 0.97, 0.92), smoothstep(1.6 * BallBurnGlow, 3.0 * BallBurnGlow, glow));
+
+            lit = mix(lit, colour * (BallRadiance * glow), inBall);
+            fireShare = max(fireShare, inBall);
         }
 
         // Raised with the falloff above: a core that now genuinely reaches full density is worth

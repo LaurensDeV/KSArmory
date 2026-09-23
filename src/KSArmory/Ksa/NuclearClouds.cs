@@ -560,7 +560,7 @@ internal static class NuclearClouds
 
             // At its largest, not at age zero: the ramp is at 60% there, and a diagnostic that
             // reports the smallest the thing ever is sends the next reader looking in the wrong place.
-            MushroomCloud.Flash peak = MushroomCloud.FlashAt(chargeKg, MushroomCloud.FlashSeconds(kt) * 0.1);
+            MushroomCloud.Flash peak = MushroomCloud.FlashAt(chargeKg, MushroomCloud.GrowthSeconds(kt));
 
             // What is drawn, with the law beside it: they differ by MushroomCloud.DrawnScale on
             // purpose, and a diagnostic reporting only the law sends the next reader to the wrong
@@ -577,7 +577,8 @@ internal static class NuclearClouds
                      + $"{MushroomCloud.CloudTop(kt) / 1000.0:F2} km)");
             Log.Info($"  fireball {peak.Radius:F0} m for {MushroomCloud.FlashSeconds(kt):F1} s, "
                      + $"glow {peak.Glow:F0}, light {(Fireball.LightAccepted ? "on" : "STOOD DOWN")}, "
-                     + $"smoke waits {MushroomCloud.FlashSeconds(kt):F1} s");
+                     + $"white-hot {MushroomCloud.WhiteHotSeconds(kt):F1} s, "
+                     + $"grown by {MushroomCloud.GrowthSeconds(kt):F2} s");
         }
         catch (Exception e)
         {
