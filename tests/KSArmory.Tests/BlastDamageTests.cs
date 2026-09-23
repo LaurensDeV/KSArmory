@@ -337,6 +337,9 @@ public class BlastDamageTests
         Assert.Equal(0.0, BlastDamage.DentRatio(3.0e5, BlastDamage.ReferencePascals, Warhead.BlastRadius(3.0e5) * 1.01));
     }
 
+    private static readonly double3 East = new(1, 0, 0);
+    private static readonly double3 North = new(0, 1, 0);
+
     /// <summary>
     /// Two fronts reaching a part together, each too weak to dent it, dent it between them: their
     /// real pressures add, where the engine asked about each alone says no to both.
@@ -346,26 +349,71 @@ public class BlastDamageTests
     {
         const double charge = 3.0e5;
         double tolerance = BlastDamage.ReferencePascals * 4.0;
-        double fails = BlastDamage.FailureRadius(charge, tolerance);
-
-        double gap = fails;
+        double gap = BlastDamage.FailureRadius(charge, tolerance);
         while (BlastDamage.DentRatio(charge, tolerance, gap) >= 0.4) gap *= 1.01;
 
         double alone = BlastDamage.DentRatio(charge, tolerance, gap);
         (double real, double breaking) = BlastDamage.RealLoad(charge, tolerance, gap);
-        (double, double, double)[] both = [(alone, real, breaking), (alone, real, breaking)];
+        FrontLoad[] both = [new(alone, real, breaking, East, 0.0, 0.3), new(alone, real, breaking, North, 0.0, 0.3)];
 
         Assert.True(alone < 0.5);
-        Assert.True(BlastDamage.CombinedDentRatio(both) >= 0.5);
+        Assert.True(BlastDamage.Combine(both).Ratio >= 0.5);
     }
 
     [Fact]
-    public void OneFrontIsItsOwnDentAndTogetherIsNeverLessThanTheStrongest()
+    public void OneFrontIsItsOwnLoadAndTogetherIsNeverLessThanTheStrongest()
     {
-        (double, double, double)[] one = [(0.7, 1000.0, 5000.0)];
-        Assert.Equal(0.7, BlastDamage.CombinedDentRatio(one), 12);
+        FrontLoad[] one = [new(0.7, 1000.0, 5000.0, East, 0.0, 0.3)];
+        Assert.Equal((0.7, 0.2), BlastDamage.Combine(one));
 
-        (double, double, double)[] two = [(3.0, 1000.0, 5000.0), (0.1, 10.0, 5000.0)];
-        Assert.Equal(3.0, BlastDamage.CombinedDentRatio(two), 12);
+        FrontLoad[] two = [new(3.0, 1000.0, 5000.0, East, 0.0, 0.3), new(0.1, 10.0, 5000.0, North, 0.0, 0.3)];
+        Assert.Equal(3.0, BlastDamage.Combine(two).Ratio, 12);
+    }
+
+    /// <summary>
+    /// Two equal fronts meeting head-on meet as at a wall: the reflected pressure of one, more than
+    /// the two added. Travelling the same way they only add, and across each other the reflection
+    /// is gone.
+    /// </summary>
+    [Fact]
+    public void FrontsMeetingHeadOnMeetAsAtAWall()
+    {
+        const double p = 50_000.0, breaking = 1.0e6;
+
+        FrontLoad[] headOn = [new(0.1, p, breaking, East, 0.0, 0.3), new(0.1, p, breaking, -East, 0.0, 0.3)];
+        FrontLoad[] sameWay = [new(0.1, p, breaking, East, 0.0, 0.3), new(0.1, p, breaking, East, 0.0, 0.3)];
+        FrontLoad[] across = [new(0.1, p, breaking, East, 0.0, 0.3), new(0.1, p, breaking, North, 0.0, 0.3)];
+
+        Assert.Equal(BlastWave.ReflectedPascals(p) / breaking, BlastDamage.Combine(headOn).Share, 9);
+        Assert.Equal(2.0 * p / breaking, BlastDamage.Combine(sameWay).Share, 9);
+        Assert.Equal(2.0 * p / breaking, BlastDamage.Combine(across).Share, 9);
+        Assert.True(BlastWave.ReflectedPascals(p) > 2.0 * p);
+    }
+
+    /// <summary>
+    /// A front that passed earlier counts for what is left of it: half way through its push it is
+    /// (1/2)e^(-1/2) of its peak, and once the push is over it adds nothing.
+    /// </summary>
+    [Fact]
+    public void AnEarlierFrontCountsForWhatIsLeftOfIt()
+    {
+        const double p = 10_000.0, breaking = 1.0e6;
+
+        FrontLoad[] halfWay = [new(0.1, p, breaking, East, 0.15, 0.3), new(0.1, p, breaking, North, 0.0, 0.3)];
+        FrontLoad[] over = [new(0.1, p, breaking, East, 0.4, 0.3), new(0.1, p, breaking, North, 0.0, 0.3)];
+
+        Assert.Equal((1.0 + (0.5 * Math.Exp(-0.5))) * p / breaking, BlastDamage.Combine(halfWay).Share, 9);
+        Assert.Equal(p / breaking, BlastDamage.Combine(over).Share, 9);
+    }
+
+    /// <summary>Two fronts arriving together at six tenths of what breaks a part break it between them.</summary>
+    [Fact]
+    public void FrontsTogetherCanBreakWhatNeitherBreaksAlone()
+    {
+        const double breaking = 50_000.0;
+        FrontLoad[] both = [new(0.9, 0.6 * breaking, breaking, East, 0.0, 0.3), new(0.9, 0.6 * breaking, breaking, North, 0.0, 0.3)];
+
+        Assert.True(BlastDamage.Combine(both).Share >= 1.0);
+        Assert.True(BlastDamage.Combine([both[0]]).Share < 1.0);
     }
 }

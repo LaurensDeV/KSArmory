@@ -80,5 +80,33 @@ internal static class BlastWave
         return peak * PositivePhaseSeconds(chargeKg, distanceMetres) * WindImpulseShare;
     }
 
+    /// <summary>
+    /// The overpressure behind a front of <paramref name="incidentPascals"/> meeting a rigid wall
+    /// head-on (Rankine–Hugoniot for air): twice the incident for a weak front, rising toward eight
+    /// times for a strong one. Two equal fronts meeting head-on meet as though at a wall, because
+    /// the plane between them is one.
+    /// </summary>
+    public static double ReflectedPascals(double incidentPascals, double ambientPascals = SeaLevelPascals)
+    {
+        if (!(incidentPascals > 0.0) || !(ambientPascals > 0.0)) return 0.0;
+
+        return 2.0 * incidentPascals * ((7.0 * ambientPascals) + (4.0 * incidentPascals))
+               / ((7.0 * ambientPascals) + incidentPascals);
+    }
+
+    /// <summary>
+    /// What is left of a front's overpressure <paramref name="sinceArrival"/> seconds after it
+    /// passed, as a share of its peak: Friedlander's (1 - t/T) e^(-t/T) over the positive phase, and
+    /// nothing after it.
+    /// </summary>
+    public static double Remaining(double sinceArrival, double positivePhaseSeconds)
+    {
+        if (!(sinceArrival > 0.0)) return 1.0;
+        if (!(positivePhaseSeconds > 0.0) || sinceArrival >= positivePhaseSeconds) return 0.0;
+
+        double tau = sinceArrival / positivePhaseSeconds;
+        return (1.0 - tau) * Math.Exp(-tau);
+    }
+
     private static double Sq(double x) => x * x;
 }

@@ -3753,13 +3753,13 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         if (!KsaWorld.TryCollectDamageableParts(v, KsaWorld.PositionEcl(v), _partScratch, _partHandles)) return;
 
-        Dent(v, burst, elapsed, munition, failed: null);
+        Dent(v, burst, elapsed, munition, failed: null, mayBreak: false);
     }
 
     // Every load this burst puts on the craft's parts short of breaking them, held until the front
     // reaches each part. With no air there is no front, and nothing to wait for.
     private void Dent(Vehicle v, double3 burst, double elapsed, MunitionProfile munition,
-                      IReadOnlyCollection<int>? failed)
+                      IReadOnlyCollection<int>? failed, bool mayBreak)
     {
         _dentLoads.Clear();
         BlastDamage.Loads(burst, elapsed, KsaWorld.VelocityEcl(v), CollectionsMarshal.AsSpan(_partScratch),
@@ -3777,7 +3777,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         {
             double due = air ? MushroomCloud.ShockArrivalSeconds(kt, gap) - elapsed : 0.0;
             BlastArrivals.Queue(v, _partHandles[index], burstAsmb, ratio, due, air ? airRatio : 0.0,
-                                munition.ChargeKg, gap, _partScratch[index].CrashTolerancePascals);
+                                munition.ChargeKg, gap, _partScratch[index].CrashTolerancePascals, mayBreak);
 
             first = Math.Min(first, due);
             last = Math.Max(last, due);
@@ -3841,7 +3841,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         // And what it loads short of breaking, dented, before anything decides the craft's fate:
         // a craft that survives is the one the dents are for.
-        Dent(v, burst, elapsed, munition, _failedParts);
+        Dent(v, burst, elapsed, munition, _failedParts, mayBreak: true);
 
         // KSA logs no part's crash tolerance, and it is what sets a warhead's reach against that part.
         if (Log.Threshold <= Log.Level.Debug)

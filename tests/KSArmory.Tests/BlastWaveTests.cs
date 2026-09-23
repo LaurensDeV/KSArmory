@@ -114,4 +114,21 @@ public class BlastWaveTests
         Assert.True(turn.Y > 0.0);
         Assert.Equal(4.0 * BlastShove.DragCoefficient * 1000.0, turn.Y, 9);
     }
+
+    /// <summary>A weak front reflects at twice itself, a strong one toward eight times.</summary>
+    [Fact]
+    public void AWallDoublesAWeakFrontAndOctuplesAStrongOne()
+    {
+        Assert.Equal(2.0, BlastWave.ReflectedPascals(10.0) / 10.0, 3);
+        Assert.InRange(BlastWave.ReflectedPascals(1.0e9) / 1.0e9, 7.9, 8.0);
+    }
+
+    [Fact]
+    public void AFrontDecaysOverItsPushAndIsGoneAfter()
+    {
+        Assert.Equal(1.0, BlastWave.Remaining(0.0, 0.3));
+        Assert.Equal(0.5 * Math.Exp(-0.5), BlastWave.Remaining(0.15, 0.3), 12);
+        Assert.Equal(0.0, BlastWave.Remaining(0.3, 0.3));
+        Assert.Equal(0.0, BlastWave.Remaining(2.0, 0.3));
+    }
 }

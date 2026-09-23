@@ -472,7 +472,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/Fireball.cs` | the light a nuclear fireball casts -- **the light alone**, because the ball is the cloud pass's fire, and a mesh sphere in the raymarched cloud read as a dark ball that drifted off centre when the camera panned |
 | `Ksa/PlumeSmoke.cs` | smoke through the renderer KSA draws booster plumes with, one reflected field away — **the motor trail's now; the nuclear cloud left it for a raymarch** |
 | `Ksa/MotorSmoke.cs` | the trail a burning round leaves, through that same renderer — one cursor per round |
-| `Ksa/BlastArrivals.cs` | what a burst loads, **held until the front gets there** — the dent and the dust land as the shock passes the part, on the simulated clock like the bang, and in the craft's own assembly frame so the planet cannot leave the burst behind. **Fronts reaching one part inside each other's positive phase dent it once, together**, their real pressures added (`BlastDamage.CombinedDentRatio`) |
+| `Ksa/BlastArrivals.cs` | what a burst loads, **held until the front gets there** — the dent and the dust land as the shock passes the part, on the simulated clock like the bang, and in the craft's own assembly frame so the planet cannot leave the burst behind. **Fronts reaching one part inside each other's positive phase load it once, together** — what is left of each, the most head-on pair meeting as at a wall (`BlastDamage.Combine`) — and past what breaks it the part breaks |
+| `Ksa/CrashGuard.cs` | the engine's own crash damage held off a craft a burst may only dent, **while it settles from the shove** — the crash is found on the worker and applied next frame, so the workers are joined and it is taken back in between |
 | `Ksa/BlastShake.cs` | the front passing the **camera**, watched against the live front rather than timed from the flash — the model; `CloudPass` moves the picture |
 | `Ksa/BlastPuff.cs` | the dust a front throws off the face it strikes — **a sprite the colour of dirt**, because KSA's billboard is unlit and ignores the particle colour |
 | `Ksa/NuclearClouds.cs` | the mushroom clouds standing in the world — **state and the fireball only**: the shape is drawn by `Ksa/CloudPass.cs`, which reads the newest cloud off this and raymarches it |
@@ -532,7 +533,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 663 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 664 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -2108,13 +2109,19 @@ does, not at the flash**: `Ksa/BlastArrivals.cs` holds each load for `MushroomCl
 on the simulated clock, so 0.3 kt at 800 m dents 2.06 s after the burst, and in air the struck face
 throws a puff of dust along the blast (`Ksa/BlastPuff.cs`) and the wind behind the front pushes the
 craft (`Sim/BlastShove.cs`), written from `AttitudeHook`'s window the way `Vehicle.Split` pushes two
-halves apart: into the physics state, off rails, orbit rebuilt. **Several fronts at one part dent it
+halves apart: into the physics state, off rails, orbit rebuilt. **Several fronts at one part load it
 together**: a front another will follow inside its positive phase hands its load on, and the part is
-dented at the last with the real pressures added, so two bursts either side of a craft dent what
-neither dents alone. The dust and the push go on arriving front by front, because those add anyway. Where there is no air the front is the
+loaded at the last with what is left of each (Friedlander's decay) and the most head-on pair meeting
+as at a wall rather than adding — a reflection counted once, off the weaker of the pair, because
+fronts from several sides do not each meet every other at a wall. So two bursts either side of a
+craft dent what neither dents alone, and **break** what neither breaks alone, through the engine's
+failure queue behind one worker join as the kill path does. The dust and the push go on arriving
+front by front, because those add anyway. Where there is no air the front is the
 debris itself and there is no delay to model, so it lands at once. **The craft that fired and
 the one being flown are dented and never broken**: the skip that protects them is about breaking,
-and a dent breaks nothing. Flown with a damaging bridge burst against the rocket on the pad:
+and a dent breaks nothing. **Nor by the ground a blast throws them onto**: a shove can tip a rocket
+off its pad, and `Ksa/CrashGuard.cs` takes back the crash damage the engine's worker finds on such a
+craft until it is back on rails or 30 s have passed, joining the workers on those steps only. Flown with a damaging bridge burst against the rocket on the pad:
 0.3 kt at 1400 m loaded five parts and dented none, at 1100 and 900 m two, at 700 m three. Read back
 from where the engine stores them, every dent pushes along the line from its burst to within 0.1°,
 east, north and on both diagonals.

@@ -460,7 +460,10 @@ rocket on the pad: five parts loaded, the front there at 2.06 s, three dented an
 2.25 s. **The wind behind the front shoves the craft** and turns it about its centre of mass,
 written the way a decoupler writes it (`Vehicle.Split`) from the prefix window attitude uses, and
 **the view shakes** as the front passes the camera. Both are sized by Kinney–Graham in real pascals
-(`Sim/BlastWave.cs`), not by the damage law. The other two below are not built.
+(`Sim/BlastWave.cs`), not by the damage law. Fronts reaching a part together load it together,
+the earlier ones for what is left of them and head-on pairs as at a wall, and can break what none
+breaks alone; a protected craft knocked over by the shove is kept from the engine's crash damage
+while it settles. The other two below are not built.
 
 Today a burst is visuals plus `BlastDamage`. A nuclear one could blind radar for a scaled
 duration, burn at ranges the blast never reaches, and bloom out an `OpticalHead`'s sight — which

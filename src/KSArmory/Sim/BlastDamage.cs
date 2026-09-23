@@ -25,6 +25,14 @@ internal readonly record struct DamageablePart(
     int Index, double3 PositionEcl, double RadiusMetres, double CrashTolerancePascals);
 
 /// <summary>
+/// One front's load on one part, as <see cref="BlastDamage.Combine"/> adds it to the others reaching
+/// the same part: the dent it alone would be, its real overpressure and the real overpressure that
+/// breaks the part, the way it pushes, how long ago it arrived and how long it pushes for.
+/// </summary>
+internal readonly record struct FrontLoad(double Ratio, double RealPascals, double BreakingPascals,
+                                          double3 Direction, double SinceArrival, double PhaseSeconds);
+
+/// <summary>
 /// Which parts of a craft a burst breaks.
 ///
 /// <para><b>Nothing here picks a part.</b> Every part is judged on its own distance and its own
@@ -143,31 +151,51 @@ internal static class BlastDamage
     }
 
     /// <summary>
-    /// The dent several fronts reaching one part together amount to: their real overpressures added
-    /// against what breaks the part, bent as <see cref="DentRatio"/> bends one, and never less than
-    /// the strongest alone. A single load is its own ratio, unchanged.
+    /// What several fronts reaching one part come to, at the instant the last of them arrives: each
+    /// earlier one for what is left of it by then (<see cref="BlastWave.Remaining"/>), and the most
+    /// head-on pair meeting as at a wall (<see cref="BlastWave.ReflectedPascals"/>) rather than
+    /// simply adding. <c>Share</c> is the total against what breaks the part, so one or more breaks
+    /// it; <c>Ratio</c> is the dent to hand the engine, bent as <see cref="DentRatio"/> bends one,
+    /// and never less than any front's own at its arrival. A single front is its own load.
     ///
-    /// <para>Where two fronts meet head-on the pressure is a wall reflection rather than a sum, which
-    /// is more again; for fronts weak enough to dent rather than break that is a few per cent, and it
-    /// is left out.</para>
+    /// <para>The reflection is counted once, for the pair it is largest for, and off the weaker of
+    /// the two: fronts converging from several sides do not each meet every other at a wall.</para>
     /// </summary>
-    public static double CombinedDentRatio(ReadOnlySpan<(double Ratio, double RealPascals, double BreakingPascals)> loads)
+    public static (double Ratio, double Share) Combine(ReadOnlySpan<FrontLoad> loads)
     {
-        if (loads.Length == 0) return 0.0;
-        if (loads.Length == 1) return loads[0].Ratio;
+        if (loads.Length == 0) return (0.0, 0.0);
 
-        double sum = 0.0, breaking = 0.0, strongest = 0.0;
-        foreach ((double ratio, double real, double breaks) in loads)
+        double breaking = 0.0, strongest = 0.0, sum = 0.0;
+        foreach (FrontLoad load in loads)
         {
-            sum += Math.Max(real, 0.0);
-            breaking = Math.Max(breaking, breaks);
-            strongest = Math.Max(strongest, ratio);
+            breaking = Math.Max(breaking, load.BreakingPascals);
+            strongest = Math.Max(strongest, load.Ratio);
+            sum += Math.Max(load.RealPascals, 0.0) * BlastWave.Remaining(load.SinceArrival, load.PhaseSeconds);
         }
 
-        if (!(breaking > 0.0)) return strongest;
+        if (!(breaking > 0.0)) return (strongest, 0.0);
+        if (loads.Length == 1) return (loads[0].Ratio, sum / breaking);
 
-        double combined = Math.Pow(sum / breaking, Math.Log(EngineDentShare) / Math.Log(YieldShare));
-        return Math.Max(combined, strongest);
+        double extra = 0.0;
+        for (int i = 0; i < loads.Length; i++)
+        {
+            for (int j = i + 1; j < loads.Length; j++)
+            {
+                double headOn = -Vec.Dot(Vec.Unit(loads[i].Direction), Vec.Unit(loads[j].Direction));
+                if (!(headOn > 0.0)) continue;
+
+                double weaker = Math.Min(
+                    loads[i].RealPascals * BlastWave.Remaining(loads[i].SinceArrival, loads[i].PhaseSeconds),
+                    loads[j].RealPascals * BlastWave.Remaining(loads[j].SinceArrival, loads[j].PhaseSeconds));
+                if (!(weaker > 0.0)) continue;
+
+                extra = Math.Max(extra, headOn * (BlastWave.ReflectedPascals(weaker) - (2.0 * weaker)));
+            }
+        }
+
+        double share = (sum + extra) / breaking;
+        double ratio = Math.Pow(share, Math.Log(EngineDentShare) / Math.Log(YieldShare));
+        return (Math.Max(ratio, strongest), share);
     }
 
     /// <summary>
