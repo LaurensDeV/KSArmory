@@ -339,7 +339,7 @@ internal sealed class Bridge
 
             MunitionProfile warhead = Arsenal.NukeB61.Copy();
             warhead.ChargeKg = (float)charge;
-            system.SplashAt(ground, warhead);
+            system.SplashAt(ground, warhead, command.Flag("spare_own", true));
             _lastDamage = (craft, KsaWorld.EclToVehicleAsmb(craft, ground));
         }
 

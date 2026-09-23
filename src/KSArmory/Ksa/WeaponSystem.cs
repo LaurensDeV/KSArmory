@@ -3680,7 +3680,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     // The burst against every craft in the world: what it breaks, what it destroys, and what it only
     // dents. Shared by a round's detonation and SplashAt, so a burst from the bridge is judged by the
     // same code a warhead is.
-    private void Splash(double3 burst, double elapsed, MunitionProfile munition)
+    private void Splash(double3 burst, double elapsed, MunitionProfile munition, bool spareOwn = true)
     {
         IReadOnlyList<Vehicle> caught = KsaWorld.Vehicles;
 
@@ -3691,8 +3691,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             // The craft that fired and the one being flown, while it is protected, are never
             // broken -- but a dent breaks nothing, and a bomb dropped near its own carrier leaves
             // its mark on it as on anything else.
-            if (ReferenceEquals(v, Platform)
-                || (_policy.ProtectControlledVehicle && ReferenceEquals(v, KsaWorld.ControlledVehicle)))
+            if (spareOwn && (ReferenceEquals(v, Platform)
+                             || (_policy.ProtectControlledVehicle && ReferenceEquals(v, KsaWorld.ControlledVehicle))))
             {
                 DentOnly(v, burst, elapsed, munition);
                 continue;
@@ -3731,14 +3731,16 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// <summary>
     /// A burst of <paramref name="munition"/> where there is no round: every craft judged exactly
     /// as a warhead going off there judges it, and what breaks is applied. For the bridge, so a
-    /// burst that damages can be flown without flying a drop.
+    /// burst that damages can be flown without flying a drop. <paramref name="spareOwn"/> false
+    /// judges this system's own craft and the one being flown like any other, so what breaks a
+    /// craft can be watched on the craft in front of the camera.
     /// </summary>
-    public void SplashAt(double3 burstEcl, MunitionProfile munition)
+    public void SplashAt(double3 burstEcl, MunitionProfile munition, bool spareOwn = true)
     {
         ArgumentNullException.ThrowIfNull(munition);
 
         _burstDamaged.Clear();
-        Splash(burstEcl, 0.0, munition);
+        Splash(burstEcl, 0.0, munition, spareOwn);
         ApplyPendingKills();
     }
 
