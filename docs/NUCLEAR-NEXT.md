@@ -68,6 +68,21 @@ gone at 278 s. Flown at 10x: a full mushroom at 49 s, a wider cap on a thinner s
 flat cap on a thread at 189. It is not a plume: it does not shear downwind. **It costs the pass the
 whole time it is on screen**, and a six-warhead bus stands six of them.
 
+**Still not built, and why.**
+
+- **KSA's weather does not shade the cloud.** Under an overcast the column, the dust and the smoke are
+  lit as though in full sun beside ground the weather has darkened. The global set this pass already
+  binds carries a cloud-shadow volume, and `Common/Lighting.glsl`'s `GetCloudShadow` reads it — tried
+  on 2026-09-23 and taken out: it read 1 on every ground point of a frame with visible cloud shadows
+  on the terrain. The terrain's shadows come from `Clouds/CloudShadows.glsl` on descriptor set 4,
+  per-layer coverage maps with their own uniform blocks, which this pass does not bind. That set is
+  the lead.
+- **The violet glow** round the ball lasts the first fraction of a second, which is exactly when the
+  whiteout covers the view; drawn, it would be seen by nobody.
+- **Heat shimmer** needs the scene read at an offset while it is being written, which is a copy of the
+  scene image this pass does not have.
+- **Guy-wire spikes** are a tower shot's, and nothing in the arsenal is on a tower.
+
 **By design.** The cloud is drawn at 65% of its law (`MushroomCloud.DrawnScale`); a true 0.3 kt
 ball is 1:7 against its cap and reads as wrong.
 
