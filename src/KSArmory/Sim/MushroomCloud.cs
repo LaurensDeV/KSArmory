@@ -166,15 +166,15 @@ public static class MushroomCloud
     /// And how long it stands once it has risen, fading out over the last of it.
     ///
     /// <para>A real cloud lasts tens of minutes, spreading and shearing into a long plume; drawn
-    /// for forty seconds it was gone before anybody had finished looking at it. Four minutes, on
-    /// the same compressed clock as the rise, is most of a real one's recognisable life. Over it
-    /// the cap spreads and thins and the stem narrows away first, which is the order a real cloud
+    /// shorter it is gone before anybody has finished looking at it. Eight minutes, on the same
+    /// compressed clock as the rise, is most of a real one's recognisable life. Over it the cap
+    /// spreads and thins and the stem narrows away first, which is the order a real cloud
     /// comes apart in -- rooted where it burst, by decision (docs/NUCLEAR-NEXT.md item 3).</para>
     ///
     /// <para><b>It costs the pass for as long as it is on screen</b>, about three and a half
     /// milliseconds at the watching pose.</para>
     /// </summary>
-    public const double StandSeconds = 240.0;
+    public const double StandSeconds = 480.0;
 
     /// <summary>How far the cap spreads over the stand, as a share of its width when it stops rising.</summary>
     public const double AgedSpread = 0.6;
@@ -194,7 +194,7 @@ public static class MushroomCloud
     public const double AgedThinning = 0.35;
 
     /// <summary>The last of the stand, over which it fades out entirely.</summary>
-    public const double FadeOutSeconds = 60.0;
+    public const double FadeOutSeconds = 90.0;
 
     /// <summary>Total life, after which there is nothing to draw.</summary>
     public const double LifeSeconds = RiseSeconds + StandSeconds;

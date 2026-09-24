@@ -559,7 +559,7 @@ float BallVisibleShare(vec3 centre, float radius, ivec2 size)
 // How far through its stand the cloud is, eased, in [0, 1]: MushroomCloud.Aged, with its two
 // times. MushroomCloudShaderTests holds these to the C#.
 const float StandBeginsSeconds = 57.0;
-const float StandLastsSeconds = 240.0;
+const float StandLastsSeconds = 480.0;
 
 // How much longer downwind the aged cloud's top is drawn, by the end of its stand:
 // MushroomCloud.AgedShear.
