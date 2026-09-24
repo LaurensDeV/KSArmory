@@ -54,7 +54,8 @@ internal sealed class StoreReach
 
     // Which of the three flights this tick runs, and what the other two last found. Round-robin
     // rather than all at once: they are independent, so one per tick is a third of the lump on
-    // any one frame and the whole answer is still refreshed every three ticks.
+    // any one frame and the whole answer is still refreshed every three ticks. Only a whole cycle
+    // is published: see Update.
     private int _stage;
     private TailKitReach _building;
     private object? _landingBody;
@@ -132,6 +133,12 @@ internal sealed class StoreReach
         // frame, not to withhold the first answer.
         TailKitReach reach = Solve(battery, store, _ground, _path, Latest.Known ? 1 : 3);
         _unsolvable = reach.Hold == TailKitHold.NoLanding;
+
+        // Nothing mid-cycle. The landing is flown on one tick and the probes on the next two, so a
+        // partial answer is a new centre with the last cycle's larger radius, then the new radius
+        // arriving in two steps: the ring shrinks and then jumps, and a designation near its edge
+        // pops in and out of reach. Published whole, it moves as one piece.
+        if (_stage != 0) return;
 
         // Every failure below leaves the last good answer standing, exactly as the pipper does.
         // None of them clears: a reset costs three ticks to rebuild, so a transient miss would take
