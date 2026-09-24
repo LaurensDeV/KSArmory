@@ -158,7 +158,15 @@ solvers and a tree split after that holds the old list until the next frame.
 installed (`PrepareWorker`, `OnFrameCelestials`, `OnGameLoaded`, `UpdateRenderData`,
 `SunbloomRenderer.Render`), the trail renderer bound, the stamp read `built for KSA 2026.9.22.5482,
 running 2026.9.22.5482 - reporting on`, and KSA's own log has no error. Only the rail flew; nothing
-above was looked at.
+above was looked at, and neither was any of this:
+
+- [ ] **The turret traverses and the pods elevate.** Part matrices are now cached per tree and
+      rewritten only when `ResetCachedPosMatrixValues` marks them dirty, so a subpart write is either
+      drawn or never drawn. Fly a Pantsir engagement and watch the turret, the pods and the round
+      bodies leave the tubes.
+- [ ] **The optical head centres its target at 16x.** The frame order held on reading; look through
+      the sight at a crosser to confirm it.
+- [ ] **The parts still appear under Weapons in the editor.**
 
 **Retargeted to KSA `2026.9.10.5438` — the managed surface moved, and most of what matters does not
 show in a build.** Three things were compile errors: `GameSettings.Graphics.ScreenSpaceParticles`
