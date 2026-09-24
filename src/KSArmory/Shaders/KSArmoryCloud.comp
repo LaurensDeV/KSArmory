@@ -504,6 +504,45 @@ vec3 WorldAt(vec2 uv, float deviceZ)
     return p.xyz / p.w;
 }
 
+// How much of the fireball the eye can see, read off the depth buffer at points across its disc.
+// Glare in the eye needs the ball's own light to reach it, so a head in front takes the core and the
+// halo away and leaves only the whiteout, which is the lit air. One where it cannot be told.
+float BallVisibleShare(vec3 centre, float radius, ivec2 size)
+{
+    float range = length(centre);
+    if (radius <= 0.0 || range <= radius) return 1.0;
+
+    mat4 viewProj = inverse(pc.InvViewProj);
+    vec4 c = viewProj * vec4(centre, 1.0);
+    if (c.w <= 0.0) return 1.0;
+    vec2 uvC = (c.xy / c.w) * 0.5 + 0.5;
+
+    vec3 side = cross(centre, vec3(0.0, 0.0, 1.0));
+    if (dot(side, side) < 1.0e-6 * range * range) side = cross(centre, vec3(0.0, 1.0, 0.0));
+    vec4 e = viewProj * vec4(centre + normalize(side) * radius, 1.0);
+    if (e.w <= 0.0) return 1.0;
+
+    // In pixels, so the taps sit on a circle whatever the aspect.
+    float pixels = length(((e.xy / e.w) * 0.5 + 0.5 - uvC) * vec2(size));
+
+    float seen = 0.0;
+    float taps = 0.0;
+    for (int i = 0; i < 9; i++)
+    {
+        float a = float(i) * (6.2831853 / 8.0);
+        vec2 offset = i == 0 ? vec2(0.0) : 0.7 * pixels * vec2(cos(a), sin(a));
+        vec2 uv = uvC + offset / vec2(size);
+        if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0)))) continue;
+
+        float z = texture(sceneDepth, uv).r;
+        float t = z > 0.0 ? length(WorldAt(uv, z)) : 1.0e30;
+        taps += 1.0;
+        if (t > range - radius) seen += 1.0;
+    }
+
+    return taps > 0.0 ? seen / taps : 1.0;
+}
+
 // The cloud's density at a point given relative to the burst. Pulled out of the march because the
 // sun march needs the same answer: a volume that is not asked how thick it is between a sample and
 // the light has no self-shadowing, and self-shadowing is most of what makes a cloud read as one.
@@ -1154,8 +1193,9 @@ void main()
         {
             vec3 ray = normalize(WorldAt((vec2(at) + 0.5) / vec2(size), 1.0));
             float offDeg = degrees(acos(clamp(dot(ray, normalize(pc.CentreRadius.xyz)), -1.0, 1.0)));
-            core = 1.0 / (1.0 + (offDeg / GlareCoreDeg) * (offDeg / GlareCoreDeg));
-            white = 1.0 / (1.0 + (offDeg / GlareWhiteDeg) * (offDeg / GlareWhiteDeg));
+            float seen = BallVisibleShare(pc.CentreRadius.xyz, pc.AgeStrengthWind.x, size);
+            core = seen / (1.0 + (offDeg / GlareCoreDeg) * (offDeg / GlareCoreDeg));
+            white = seen / (1.0 + (offDeg / GlareWhiteDeg) * (offDeg / GlareWhiteDeg));
         }
 
         // White near the burst, and less of it as the flash dies: the recovery tail is the ball

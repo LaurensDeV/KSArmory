@@ -801,10 +801,15 @@ internal static class CloudPass
         // Zero when the source cannot be resolved, which the shader reads as a glare with no
         // centre: one colour everywhere, the warm one.
         double3 source = double3.Zero;
-        if (NuclearClouds.TryBall(BurstFlash.SourceIndex, out double3 burstEcl))
+        double ballRadius = 0.0;
+        if (NuclearClouds.TryBall(BurstFlash.SourceIndex, out double3 burstEcl, out double radius))
         {
             double3 centre = burstEcl - camera.PositionEcl;
-            if (Vec.IsFinite(centre)) source = centre;
+            if (Vec.IsFinite(centre))
+            {
+                source = centre;
+                ballRadius = radius;
+            }
         }
 
         using (commandBuffer.TagRegion(GpuTag))
@@ -815,7 +820,8 @@ internal static class CloudPass
             Push flash = new()
             {
                 InvViewProj = camera.VPInv.viewProjection,
-                AgeStrengthWind = float4.Zero,
+                // The ball's radius, so the shader can ask how much of it the eye can see.
+                AgeStrengthWind = new float4((float)ballRadius, 0f, 0f, 0f),
                 CentreRadius = new float4((float)source.X, (float)source.Y, (float)source.Z, 0f),
                 // The halo's level, how violet the flash still is, and the halo's colour ride in
                 // floats a flash has no other use for.

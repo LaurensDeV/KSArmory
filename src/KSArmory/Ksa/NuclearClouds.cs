@@ -296,16 +296,19 @@ internal static class NuclearClouds
     /// Where one of <see cref="TryBurning"/>'s fireballs is now: at the cap's centre, where the
     /// cloud pass draws its fire, for a burst that grows a cap; at the burst for one that does not.
     /// What the glare round the ball is centred on -- centred on the burst instead, it hung on the
-    /// ground under a cloud that had risen away from it.
+    /// ground under a cloud that had risen away from it. With its radius, so the glare can ask how
+    /// much of the ball is hidden.
     /// </summary>
-    public static bool TryBall(int index, out double3 ballEcl)
+    public static bool TryBall(int index, out double3 ballEcl, out double radiusMetres)
     {
         ballEcl = default;
+        radiusMetres = 0.0;
         if (index < 0 || index >= _burning.Count) return false;
 
         try
         {
             Burning one = _burning[index];
+            radiusMetres = MushroomCloud.FlashAt(one.ChargeKg, one.Age).Radius;
             double rise = one.Rises ? MushroomCloud.At(one.ChargeKg, one.Age).CapCentre : 0.0;
             double3 ballCcf = one.BurstCcf + (Vec.Unit(one.BurstCcf) * rise);
 
