@@ -655,9 +655,9 @@ public static class MushroomCloud
     ///
     /// <para><b>The minimum is not the fireball going out.</b> The front is opaque to the radiation
     /// behind it and is itself radiating, just cooler — so a floor rather than a gap. Without one
-    /// the drawn glow collapsed to about 5 against an ember floor of 40, which puts the ball under
-    /// the bloom threshold and reverts it to being drawn as geometry for a fifth of a second.
-    /// A fifth to a quarter of the second maximum is the shape Glasstone's curves have.</para>
+    /// the drawn glow collapses to about 5 for a fifth of a second, a flicker at the brightest
+    /// moment of the burst. A fifth to a quarter of the second maximum is the shape Glasstone's
+    /// curves have.</para>
     /// </summary>
     public const double ShockFrontShare = 0.25;
 
@@ -698,23 +698,11 @@ public static class MushroomCloud
     public static double EmberSeconds => RiseSeconds * EmberFraction;
 
     /// <summary>
-    /// Glow the ember holds, and the value it is cut at.
-    ///
-    /// <para><b>Both sit above the bloom threshold, and that is the whole point.</b> An emissive
-    /// sphere clears that threshold and the bloom pass spreads it into glare, so what anybody sees
-    /// is light with no discernible edge; under it the pass discards the pixel and the same sphere
-    /// is drawn as ordinary shaded geometry — which is to say, as a ball. That is why the flash has
-    /// never looked like one and a dim ember immediately did. Brightness here is not a preference,
-    /// it is the difference between drawing light and drawing a mesh.</para>
-    ///
-    /// <para>The threshold is about 24 for the deep red the ember cools to, so these are 1.7 and 1.1
-    /// times it: bright enough to stop being geometry, twenty-five times under the flash itself, and
-    /// nowhere near a second flash.</para>
+    /// Glow the ember starts from, at the end of the luminous phase. It cools from here to nothing
+    /// over <see cref="EmberSeconds"/>, easing out, so the ball goes out rather than being removed
+    /// while still glowing.
     /// </summary>
     public const double EmberGlow = 40.0;
-
-    /// <inheritdoc cref="EmberGlow"/>
-    public const double EmberFloor = 26.0;
 
     /// <summary>
     /// Glow the ball settles to once the heat pulse is over, and cools from until it is an ember.
@@ -804,8 +792,7 @@ public static class MushroomCloud
         // rising and contracting, and it is the stage that makes the burst read as burning rather
         // than as having gone off.
         //
-        // The EMBER is the floor under both, and stays over the bloom threshold so the ball never
-        // reverts to being drawn as geometry. See EmberGlow.
+        // The EMBER is the last of the heat, cooling to nothing as the cloud swallows it.
         // Each stage runs in its own phase rather than all three competing: t clamps at 1, so a burn
         // term left in the maximum past the luminous phase holds its final value forever and the
         // ember can never darken under it. They join without a step because the burn is sized to
@@ -834,7 +821,7 @@ public static class MushroomCloud
 
         double glow = age <= dark
                           ? Math.Max(pulse, burn * opening)
-                          : EmberGlow + ((EmberFloor - EmberGlow) * ember);
+                          : EmberGlow * (1.0 - Smoothstep(0.0, 1.0, ember));
 
         return new Flash(radius, colour, glow);
     }

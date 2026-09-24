@@ -294,9 +294,8 @@ public class MushroomCloudTests
     }
 
     /// <summary>
-    /// The ball goes out rather than being deleted. It is removed on the one frame the smoke is
-    /// taking over from it, which is the single instant the eye is watching for continuity, so a cut
-    /// there is worth more than the ember costs.
+    /// The ball goes out rather than being deleted. It ends while the smoke is taking over from it,
+    /// which is the single instant the eye is watching for continuity, so it has to be dark by then.
     /// </summary>
     [Fact]
     public void TheFireballDimsOutRatherThanVanishing()
@@ -311,18 +310,22 @@ public class MushroomCloudTests
         Assert.True(dark.Radius < end.Radius,
                     "and shrink into the cloud rather than hang in it at full size");
 
-        // Above the bloom threshold for the whole ember, and that is not a preference. Over it the
-        // pass spreads the sphere into glare and what is drawn is light; under it the pixel is
-        // discarded and the same sphere is drawn as ordinary shaded geometry, which reads as a ball.
-        for (double age = flash; age < flash + MushroomCloud.EmberSeconds; age += 0.1)
+        // And then goes out: only ever dimmer through the ember, and as good as dark on the last
+        // frame it is drawn, so its removal is not a cut. BurstContinuityTests holds every frame.
+        double previous = double.MaxValue;
+        double lastGlow = 0.0;
+        for (double age = flash; age < flash + MushroomCloud.EmberSeconds; age += 1.0 / 60.0)
         {
             MushroomCloud.Flash f = MushroomCloud.FlashAt(0.3 * Kt, age);
-            double lum = (0.2126 * f.Colour.X) + (0.7152 * f.Colour.Y) + (0.0722 * f.Colour.Z);
+            if (f.Spent) break;
 
-            Assert.True(0.4535 * lum * f.Glow > 3.0,
-                        $"at {age:F1} s the ember is at {0.4535 * lum * f.Glow:F1} against a bloom "
-                        + "threshold of 3, so it stops being light and becomes a shaded ball");
+            Assert.True(f.Glow <= previous, $"at {age:F2} s the ember brightens, {previous:F2} -> {f.Glow:F2}");
+            previous = f.Glow;
+            lastGlow = f.Glow;
         }
+
+        Assert.True(lastGlow < 0.01 * MushroomCloud.EmberGlow,
+                    $"the ember is removed still glowing at {lastGlow:F2}");
 
         // And nowhere near a second flash.
         Assert.True(MushroomCloud.FlashAt(0.3 * Kt, flash * 1.05).Glow
