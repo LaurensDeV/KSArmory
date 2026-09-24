@@ -830,4 +830,29 @@ public class MushroomCloudTests
         Assert.False(MushroomCloud.IsTheSameBurst(
             MushroomCloud.PeakFireballRadius(MushroomCloud.KilotonsFor(charge * 2.0)) * 1.1, 0.0, charge * 2.0));
     }
+
+    /// <summary>
+    /// The cloud is what the burst threw, so no part of it can be outside the blast front -- across or
+    /// up. Unscaled, a 340 kt cap is 2 km of lit cloud round a front 400 m out, and its top is 3 km
+    /// above the front at 20 s, because the rise is drawn eightfold fast.
+    /// </summary>
+    [Theory]
+    [InlineData(0.3)]
+    [InlineData(20.0)]
+    [InlineData(340.0)]
+    public void NoPartOfTheCloudOutrunsTheBlastFront(double kt)
+    {
+        foreach (double age in new[] { 0.01, 0.08, 0.3, 1.0, 3.0, 10.0, 20.0, 30.0, 60.0 })
+        {
+            MushroomCloud.Shape shape = MushroomCloud.At(kt * 1.0e6, age);
+
+            double across = shape.CapRadius + shape.CapTube;
+            double up = shape.CapCentre + (MushroomCloud.CrownInTubes * shape.CapTube);
+            double farthest = Math.Sqrt((across * across) + (up * up));
+
+            Assert.True(farthest <= shape.Shock * 1.000001,
+                        $"{kt} kt at {age} s: cloud reaches {farthest:F0} m, front {shape.Shock:F0} m");
+            Assert.True(shape.SurgeRadius <= shape.Shock * 1.000001);
+        }
+    }
 }
