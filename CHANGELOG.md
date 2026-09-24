@@ -1,3 +1,11 @@
+## [0.9.4](https://github.com/LaurensDeV/KSArmory/compare/v0.9.3...v0.9.4) (2026-09-24)
+
+### Fixes
+
+* **clouds:** keep the cloud inside its own blast front ([c85e8c7](https://github.com/LaurensDeV/KSArmory/commit/c85e8c7506a7ac57ea02197dc2255c38149dc8e2))
+* **fire:** hold fire on a lock past the seeker's gimbal limit ([54c1c42](https://github.com/LaurensDeV/KSArmory/commit/54c1c42d3bf3d064f4263206f44514150702f9cb))
+* **icbm:** label the mid-burn prediction as the burn as planned ([ee0fc3e](https://github.com/LaurensDeV/KSArmory/commit/ee0fc3ebcda4d6d1b6bf0a76eaaf84194425081f))
+
 ## [0.9.3](https://github.com/LaurensDeV/KSArmory/compare/v0.9.2...v0.9.3) (2026-09-24)
 
 ### Build and packaging
