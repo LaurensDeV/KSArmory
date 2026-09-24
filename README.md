@@ -100,17 +100,29 @@ used to ship here — and `docs/WEAPON-PACKS.md` is the reference.
 
 ## Install
 
-### What you need first
+### With Borea (recommended)
 
-- **Kitten Space Agency.** Built against build `2026.9.22.5482`; a different build may need a
-  rebuild of the mod. **Windows and Linux both work** — the mod is a portable .NET assembly with
-  no native code, so the single release archive is the same on either.
-- **[StarMap](https://github.com/StarMapLoader/StarMap/releases)**, the community mod loader.
-  KSA has no official code-modding API, so nothing here runs without it. Edit its
-  `StarMapConfig.json` to point at your KSA install — StarMap reads that file **relative to its
-  own directory**, so it has to be launched from where it lives.
+[Borea](https://github.com/KSAModding/Borea/releases/latest) is the community mod manager for KSA,
+on Windows, Linux and macOS. It installs the StarMap loader for you, registers the mod and
+launches the game through the loader, so none of the manual steps below apply.
 
-### Steps
+1. Install Borea from its [releases page](https://github.com/KSAModding/Borea/releases/latest).
+2. Open **[KSArmory on Borea](https://ksamodding.github.io/Borea/mod/KSArmory/)** and click
+   **Install with Borea**, or search for KSArmory on Borea's Discover page.
+3. Start the game **from Borea**. Starting KSA directly bypasses the loader: the parts still
+   appear in the editor, but none of the behaviour runs.
+
+Borea also installs updates when a new release appears.
+
+### By hand
+
+You need **Kitten Space Agency**, built against build `2026.9.22.5482`. A different build may
+need a rebuild of the mod. **Windows and Linux both work**: the mod is a portable .NET assembly
+with no native code, so one release archive covers both. You also need
+**[StarMap](https://github.com/StarMapLoader/StarMap/releases)**, the community mod loader. KSA has
+no official code-modding API, so nothing here runs without it. Edit its `StarMapConfig.json` to
+point at your KSA install. StarMap reads that file **relative to its own directory**, so launch it
+from where it lives.
 
 1. **Get the mod.** Download `KSArmory-<version>.zip` from
    [Releases](../../releases), or build it yourself with `./tools/package.sh`.
@@ -120,7 +132,7 @@ used to ship here — and `docs/WEAPON-PACKS.md` is the reference.
    | Platform | KSA user directory |
    | --- | --- |
    | Windows | `Documents\My Games\Kitten Space Agency\` |
-   | Linux | wherever KSA keeps its user data — commonly `~/.local/share/Kitten Space Agency/`; the folder containing `manifest.toml` and `Logs/` is the one you want |
+   | Linux | wherever KSA keeps its user data, commonly `~/.local/share/Kitten Space Agency/`; the folder containing `manifest.toml` and `Logs/` is the one you want |
    | Proton / Wine | inside the prefix, at `.../drive_c/users/steamuser/Documents/My Games/Kitten Space Agency/` |
 
    You should end up with:
@@ -137,10 +149,10 @@ used to ship here — and `docs/WEAPON-PACKS.md` is the reference.
    ```
 
    The folder layout matters, and on Linux so does the **case**. `KSArmoryAssets.xml` refers
-   to `Meshes/` and `Textures/` by relative path; a case mismatch is silently tolerated on
-   Windows and fails on Linux. Unzip rather than retyping the names.
+   to `Meshes/` and `Textures/` by relative path. A case mismatch is silently tolerated on
+   Windows and fails on Linux, so unzip rather than retyping the names.
 
-3. **Register it in `manifest.toml`.** This step is required — *dropping the folder in is not
+3. **Register it in `manifest.toml`.** This step is required: *dropping the folder in is not
    enough*. Open `manifest.toml` in the same user directory and add:
 
    ```toml
@@ -152,18 +164,15 @@ used to ship here — and `docs/WEAPON-PACKS.md` is the reference.
    KSA discovers mods through that list, and StarMap walks the same list to find code mods.
    Without an entry, nothing loads and nothing tells you why.
 
-4. **Launch through StarMap, not the game directly.** Starting KSA directly bypasses the loader
-   entirely: the part will still appear in the editor, but none of the behaviour will run.
-
-   On Windows that is `StarMap.exe`. StarMap also ships `StarMap.dll` — a portable .NET
-   assembly — so on Linux `dotnet StarMap.dll` from the same folder is the equivalent. Either
-   way it must run from its own directory, because it reads `StarMapConfig.json` relative to
-   itself.
+4. **Launch through StarMap, not the game directly.** On Windows that is `StarMap.exe`. StarMap
+   also ships `StarMap.dll`, a portable .NET assembly, so on Linux `dotnet StarMap.dll` from the
+   same folder is the equivalent.
 
 ### Check it worked
 
 The mod writes its own log to `Logs/KSArmory.log` under the KSA user directory, and prints
-the path it chose to stdout on startup — handy if it ended up somewhere unexpected. The file is
+the path it chose to stdout on startup — handy if it ended up somewhere unexpected. **Under Borea
+it is currently written to the shared profile in `Documents`, not to the instance's own folder.** The file is
 truncated each session. You should see:
 
 ```
@@ -181,7 +190,7 @@ and the **KSArmory** panel appears once you are in flight.
 
 | Symptom | Cause |
 | --- | --- |
-| No `KSArmory.log` at all | StarMap never ran the mod. Check the `manifest.toml` entry, and that you launched `StarMap.exe`. |
+| No `KSArmory.log` at all | StarMap never ran the mod. Under Borea, check the game was started from Borea. By hand, check the `manifest.toml` entry, and that you launched `StarMap.exe`. |
 | Part missing from the editor | The asset XML did not load. KSA's own log, the newest `KittenSpaceAgency.*.log` in the same folder, is where XML and asset errors appear. |
 | Part is there but nothing happens in flight | The DLL did not load, but the XML did — check `mod.toml`'s `EntryAssembly = "KSArmory"` matches the DLL name. |
 | Part renders untextured or invisible | `Meshes/` or `Textures/` did not come across, or the folder layout was flattened. |
