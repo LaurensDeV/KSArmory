@@ -122,7 +122,7 @@ layout (constant_id = 3) const float FalloutReach = 2.3;
 layout (constant_id = 4) const float FalloutDensity = 0.30;
 
 // When the fallout starts to show, in seconds on the rise's clock.
-const float FalloutStartSeconds = 18.0;
+const float FalloutStartSeconds = 27.0;
 
 // Stands in for "no cap over this sample at all". Any number past the erosion's reach does, and a
 // finite one keeps the comparisons below free of an isinf.
@@ -558,7 +558,7 @@ float BallVisibleShare(vec3 centre, float radius, ivec2 size)
 // plainest tell that a shape was generated.
 // How far through its stand the cloud is, eased, in [0, 1]: MushroomCloud.Aged, with its two
 // times. MushroomCloudShaderTests holds these to the C#.
-const float StandBeginsSeconds = 38.0;
+const float StandBeginsSeconds = 57.0;
 const float StandLastsSeconds = 240.0;
 
 // How much longer downwind the aged cloud's top is drawn, by the end of its stand:
@@ -925,7 +925,7 @@ float Density(vec3 leaned, vec3 up, float radius, out float fireMask, out float 
     // AND ONLY ONCE THERE HAS BEEN TIME TO FALL. The heavy fraction takes minutes to come out of a
     // real cap, which on the rise's clock is the back half of the climb; strands hanging from a cap
     // ten seconds old read as rain from a cloud that has only just formed.
-    float falling = smoothstep(FalloutStartSeconds, FalloutStartSeconds + 14.0, age);
+    float falling = smoothstep(FalloutStartSeconds, FalloutStartSeconds + 21.0, age);
 
     if (above < Nowhere && falling > 0.0)
     {
@@ -987,10 +987,10 @@ layout (constant_id = 5) const float FireGain = 0.110;
 layout (constant_id = 19) const float FireGlowNits = 3.0;
 
 // How black the young cloud starts, as a share of the soot colour, and the e-folding time of its
-// clearing. On the rise's clock, which is eightfold compressed: ten seconds here is the minute and
+// clearing. On the rise's clock, which is fivefold compressed: fifteen seconds here is the minute and
 // more a real one stays dirty.
 layout (constant_id = 20) const float SootDepth = 0.95;
-layout (constant_id = 21) const float SootSeconds = 10.0;
+layout (constant_id = 21) const float SootSeconds = 15.0;
 
 // THE BALL WHILE IT IS WHITE-HOT: a smooth, opaque sphere of its own light, at the brightness a
 // surface of its glow would have -- the shape a real-time eye sees for the first seconds, before the

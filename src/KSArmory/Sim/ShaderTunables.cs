@@ -54,7 +54,7 @@ public static class ShaderTunables
         new("ChurnBoost", 18, 5.0),
         new("FireGlowNits", 19, 3.0),
         new("SootDepth", 20, 0.95),
-        new("SootSeconds", 21, 10.0),
+        new("SootSeconds", 21, 15.0),
         new("NoxStrength", 22, 0.70),
         new("NoxSeconds", 23, 22.0),
         new("DustDensity", 24, 2.0),

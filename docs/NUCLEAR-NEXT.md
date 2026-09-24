@@ -59,13 +59,13 @@ largest gap.
 | White condensation cap, dirty-brown underside, dark brown stem | **Built**: the crown whitens from 6 s as the soot clears, over the brown underside. Hard to see under an overcast, which lights the whole cloud flat |
 | Often a thin, tall stem, with dust visibly drawn up into the cap's underside | **Built**: the stem is 0.19 of the cap's radius, and its top flares into a trumpet of streaked dust drawn up into the underside (`InflowDensity`), plain by 25 s |
 | Past the tropopause the cap spreads into an anvil | Built (item 5) |
-| Fallout curtains take minutes to show | **Built**: nothing until 18 s on the rise's clock, full by 32 |
+| Fallout curtains take minutes to show | **Built**: nothing until 27 s on the rise's clock, full by 48 |
 
 **After that.** A real cloud lasts tens of minutes to hours, drifting, shearing and spreading into
 a long plume, with a haze of dust over ground zero. **The drawn one stands four minutes now**, where
 it burst — still by decision (item 3), and asked for longer on 2026-09-23: over the stand the cap
 spreads by 60% and thins, the stem narrows away first, and the whole fades out over the last minute,
-gone at 278 s. Flown at 10x: a full mushroom at 49 s, a wider cap on a thinner stem at 109, a broad
+gone at 297 s. Flown at a 38 s rise, 10x: a full mushroom at 49 s, a wider cap on a thinner stem at 109, a broad
 flat cap on a thread at 189. It does not drift, but it **shears**: over the stand its upper part is drawn out downwind to 2.2 times its reach on that side (`AgedShear`), the upwind edge and the foot unmoved — at 200 s the cap is half as long again downwind, the same paused frame with the shear at zero as the control. The march's bound grows with it, and the lean is measured against the bound the risen cloud had rather than that one: reckoned against the growing bound it was a quarter weaker by the end of the stand (`MushroomCloud.RisenBound`, `GrownBound`). **It costs the pass the
 whole time it is on screen**, and a six-warhead bus stands six of them.
 

@@ -22,10 +22,10 @@ public static class MushroomCloud
 
     /// <summary>
     /// Seconds the cloud takes to reach its ceiling. The real thing takes minutes: a 0.3 kt cloud
-    /// stabilises in about five, so this is a compression of roughly seven times. Twice that much
-    /// compression reads as the cloud shooting upward rather than rising.
+    /// stabilises in about five, so this is a compression of about five times. Players read
+    /// anything much faster as the cloud shooting upward rather than rising.
     /// </summary>
-    public const double RiseSeconds = 38.0;
+    public const double RiseSeconds = 57.0;
 
     /// <summary>
     /// How large the cloud is <em>drawn</em>, against the size the laws give it.
@@ -339,7 +339,7 @@ public static class MushroomCloud
     ///
     /// <para><b>Real time, not the rise's clock.</b> The ring is the one thing in the first seconds
     /// that is plainly <em>fast</em>, racing out past a cloud that has barely started to climb, and
-    /// compressed eightfold like the rise it would crawl. It is Sedov–Taylor while the shock is
+    /// compressed fivefold like the rise it would crawl. It is Sedov–Taylor while the shock is
     /// strong — the energy doubled, because the ground reflects the half going down — and then runs
     /// on at sound speed, eased from the Mach number it was let go at so the speed has no step. A
     /// real front stays slightly supersonic further out than this, so it arrives a little late.</para>
@@ -472,7 +472,7 @@ public static class MushroomCloud
     /// dial.
     ///
     /// <para>The cloud's clock is compressed and the flash's is not, so they diverge as the yield
-    /// climbs: 340 kt glows for 30.9 s against a 38 s rise, which is a ball still burning after its
+    /// climbs: 340 kt glows for 30.9 s against a 57 s rise, which is a ball still burning after its
     /// own mushroom has formed. Compressing the flash by the same factor is not the alternative — it
     /// works out at a blink — so it runs real until <see cref="LongestGlowSeconds"/>.</para>
     /// </summary>
@@ -671,7 +671,7 @@ public static class MushroomCloud
     ///
     /// <para>Measured against the rise on purpose, and it is the same departure
     /// <see cref="DrawnScale"/> is. The luminous phase is real time and the rise is compressed
-    /// eightfold, so a fireball that goes dark on its own clock is out before the cloud has done one
+    /// fivefold, so a fireball that goes dark on its own clock is out before the cloud has done one
     /// part in four hundred of its climb, and what anybody sees is a flash that ends and then a
     /// cloud. Held against the rise instead, the ball is still there — dull, dimming, and
     /// <b>climbing on the same curve the pens do</b> — while the cloud forms around and over it,
@@ -968,7 +968,8 @@ public static class MushroomCloud
         // over the full rise it left the cap 19% narrower than every other number here says it is.
         double spread = 0.55 + (0.57 * Math.Min(1.0, age / (RiseSeconds * SpreadBy)));
         double aged = Aged(age);
-        double capRadius = capR * spread / Math.Sqrt(squash) * (1.0 + (AgedSpread * aged));
+        double widen = Widening(age);
+        double capRadius = capR * spread * widen / Math.Sqrt(squash) * (1.0 + (AgedSpread * aged));
 
         // The stem's top is the cap's underside, always, and it is never anywhere else.
         //
@@ -993,13 +994,12 @@ public static class MushroomCloud
         // being a spiral staircase. The rollover has to come from the *path* shape below.
         double roll = 0.30 * (1.0 - Math.Exp(-2.0 * age / RiseSeconds));
 
-        double capTube = capR * 0.45 * squash / Math.Sqrt(1.0 + (AgedSpread * aged));
+        double capTube = capR * 0.45 * widen * squash / Math.Sqrt(1.0 + (AgedSpread * aged));
 
         // Nothing the burst throws can be outside its own blast front, and the cloud is drawn ahead
-        // of it twice over: the cap starts at over half its final width, and the rise runs eightfold
+        // of it twice over: the cloud is born a third of its final width, and the rise runs fivefold
         // fast while the front runs at the speed of sound. So while the front is inside the cloud's
-        // farthest point, the whole cloud is scaled about the burst to fit it -- until about 40 s
-        // at 340 kt.
+        // farthest point, the whole cloud is scaled about the burst to fit it.
         double shock = ShockRadius(kt, age);
         double farthest = Math.Sqrt(((capRadius + capTube) * (capRadius + capTube))
                                     + Math.Pow(capCentre + (CrownInTubes * capTube), 2.0));
@@ -1010,7 +1010,7 @@ public static class MushroomCloud
             CapRadius: capRadius * inside,
             CapTube: capTube * inside,
             StemTop: stemTop * inside,
-            StemRadius: capR * StemOfCap * (1.0 - (AgedStemLoss * aged)) * inside,
+            StemRadius: capR * StemOfCap * widen * (1.0 - (AgedStemLoss * aged)) * inside,
             SurgeRadius: SurgeRadius(kt, age) * inside,
             SurgeHeight: SurgeHeight(kt, age) * inside,
             Roll: roll,
@@ -1036,6 +1036,27 @@ public static class MushroomCloud
     /// decided.
     /// </summary>
     public const double SpreadBy = 0.50;
+
+    /// <summary>
+    /// The share of its width the whole cloud -- cap, roll and stem -- is born with, before it widens
+    /// on the rise's clock. Born at full width, the only thing holding the cloud in is the blast
+    /// front, and a 0.3 kt cloud is two thirds of its final width two seconds in: an expansion far
+    /// faster than the climb. With this it is 29%.
+    /// </summary>
+    public const double BornWidth = 0.35;
+
+    /// <summary>How much of the rise the cloud takes to finish widening from <see cref="BornWidth"/>.</summary>
+    public const double WidenBy = 0.50;
+
+    /// <summary>
+    /// The factor on the cloud's width at an age: <see cref="BornWidth"/> easing out to one, fast
+    /// at first and slowing, as the climb does.
+    /// </summary>
+    public static double Widening(double age)
+    {
+        double x = Math.Clamp(age / (RiseSeconds * WidenBy), 0.0, 1.0);
+        return BornWidth + ((1.0 - BornWidth) * (1.0 - ((1.0 - x) * (1.0 - x))));
+    }
 
     // Under the tropopause the cap is taller than it is wide, which is the opposite of the anvil
     // everyone pictures and is what Glasstone's own two numbers say at these yields: a base at half the cloud top and a

@@ -156,7 +156,7 @@ For the yields this mod can dial — the slider spans the B61's own range, 0.3 k
 | ...settled, after the draw-in | 0.09 km | 0.16 km | 0.32 km | 0.58 km | 0.91 km | 1.18 km |
 
 The drawn flash parts company with the law above about 50 kt, and has to: the cloud's clock is
-compressed and the flash's is not, so 340 kt would glow for 30.9 s against a 38 s rise — still
+compressed and the flash's is not, so 340 kt would glow for 30.9 s against a 57 s rise — still
 burning after its own mushroom had formed. Compressing it by the same factor is not the alternative,
 since that works out at a blink nobody sees. So it runs real to `LongestGlowSeconds`, 14 s, and
 20 kt keeps its law. `3.0 · W^0.4` is not stated by Glasstone; it fits his anchors, 10 s at 20 kt
@@ -519,7 +519,14 @@ against a photograph, and it has already been taken to the top of its own ±25% 
 
 **And the rise was too fast, which is a separate complaint with a separate cause.** `RiseSeconds`
 went 22 → 38, so the compression against a real five-minute stabilisation is about eight times
-rather than fourteen, and the mean drawn climb rate falls from 69 m/s to 26 m/s.
+rather than fourteen, and the mean drawn climb rate falls from 69 m/s to 26 m/s. Players still read 38 s as too fast, so it is now 57 s: about five times.
+
+**But the rise clock was not what they were seeing.** The cap was born at 55% of its width and its
+roll at full size, so the only thing holding the young cloud in was the blast front, which runs in
+real time: a 0.3 kt cloud was 66% of its final width two seconds in, and slowing the rise moved only
+the last third of that. `MushroomCloud.Widening` now starts the whole cloud -- cap, roll and stem --
+at 35% of its width and eases it out over the first half of the rise: 29% at 2 s, 62% at 12 s, full
+at 30 s. The height keeps its measured track. Not yet flown.
 
 That change alone would have broken the handover, and the way it does is worth keeping: the flash
 runs on **real** time while the cloud's clock is compressed, so stretching the cloud's clock leaves
