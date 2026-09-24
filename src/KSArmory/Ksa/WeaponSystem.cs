@@ -3283,9 +3283,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         string where = WhereOnTheGround(burst, aimAtBurst);
 
-        return miss < 1000.0
-            ? $", {miss:F0} m from the aim point{where}"
-            : $", {miss / 1000.0:F1} km from the aim point{where}";
+        return $", {Distance.Say(miss)} from the aim point{where}";
     }
 
     // A timed shell's burst against the craft it was fired at, split along that craft's track, up and
