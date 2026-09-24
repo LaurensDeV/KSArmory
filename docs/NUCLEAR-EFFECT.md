@@ -495,27 +495,28 @@ smaller spheroid inside a larger one is already lower; and the arrowhead cannot 
 shell is concentric rather than stacked. `TheCapIsTallerThanItIsWide` is the guard, and it fails
 against the lamp.
 
-### The cloud is drawn smaller than the laws say, on purpose
+### The cloud is drawn at the size the laws say
 
-`MushroomCloud.DrawnScale` is 0.65, and it is the only deliberate lie in that file. Every dimension
-in it is Glasstone's and checks out against the one measured low-yield surface burst to within three
-per cent, and the cloud still read as far too large for the burst that made it — twice, from two
-different people, across four rounds of fixing everything *else* that was wrong.
+`MushroomCloud.DrawnScale` is 1. Every dimension in the file is Glasstone's and checks out against
+the one measured low-yield surface burst to within three per cent: a 0.3 kt fireball is 110 m
+across under a 770 m cap, 1:7, which the test photographs agree with.
 
-At these yields it genuinely is that large: a 0.3 kt fireball is 110 m across under a 770 m cap, a
-ratio of 1:7 that the test photographs agree with and that nobody watching a game believes. The
-alternative was enlarging the fireball, which is worse — it is the one number a player can check
-against a photograph, and it has already been taken to the top of its own ±25% provenance spread.
+It was 0.65 from 2026-08-14 to 2026-09-24, because the cloud read as far too large for its burst.
+That was judged on the first drawing, KSA's booster-plume renderer, which is not what draws the
+cloud now; against the raymarched volume the law's size was put back. The factor stays as the one
+place the drawing may depart from the laws, and `CloudTop` and `CapRadius` say what the laws say
+either way.
 
-`CloudTop` and `CapRadius` still say what the laws say, so the reference tests still mean something;
-`DrawnCloudTop` and `DrawnCapRadius` are what the drawing uses.
-
-| 0.3 kt | law | drawn |
+| 0.3 kt | law, and drawn | at 0.65 |
 | --- | --- | --- |
-| cloud top | 2.01 km | **1.31 km** |
-| cap across | 0.77 km | **0.56 km** |
-| fireball across | 0.11 km | 0.11 km, unscaled |
-| fireball : cap | 1:7.0 | **1:5.1** |
+| cloud top | **2.01 km** | 1.31 km |
+| cap across | **0.77 km** | 0.56 km |
+| fireball across | 0.11 km | 0.11 km |
+| fireball : cap | **1:7.0** | 1:5.1 |
+
+The camera follows it: the observer a burst is handed to stands 3.7 km off a 0.3 kt cloud rather
+than 2.4, and the dust ring's reach went from 8 drawn stem radii to 5.2, the same distance on the
+ground.
 
 **And the rise was too fast, which is a separate complaint with a separate cause.** `RiseSeconds`
 went 22 → 38, so the compression against a real five-minute stabilisation is about eight times

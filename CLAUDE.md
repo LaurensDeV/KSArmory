@@ -2926,7 +2926,7 @@ be handed straight back, and one still turning onto its target is picked up once
 **The chase stops short of the arrival and watches it go in.** Riding the round all the way held the
 burst from the last pose — a few metres behind it, inside the explosion the linger is there to show.
 So once the round is inside `ChaseView.StopShortMetres` of where it lands and within
-`ChaseView.WatchSeconds` of getting there — that distance at 500 m/s, so 4 s at 0.3 kt and 44 s at
+`ChaseView.WatchSeconds` of getting there — that distance at 500 m/s, so 6.4 s at 0.3 kt and 67 s at
 340 kt — the eye is held on the ground where it is and only the look
 follows the round in, and the linger holds on the burst from there. **What is left is the straight line
 to the landing, gravity included** — never time to go times the speed now, which a bomb thrown upwards
@@ -2942,7 +2942,7 @@ Flown on a 5"/54 shell 8 km out: stopped about 90 ms before it landed and held o
 **A burst that grows a cloud is handed to an observer instead, by a cut.** What is worth watching
 is then the cloud, and a hold wherever the chase happened to be put the eye 336 m straight over a
 0.3 kt burst with the column about to rise through it. So at the same moment the view cuts to
-`ChaseView.ObserverDistanceMetres` out — `CloudWatch`'s distance, 2.4 km at 0.3 kt — 14° up and
+`ChaseView.ObserverDistanceMetres` out — `CloudWatch`'s distance, 3.7 km at 0.3 kt — 14° up and
 **back along the bearing the chase was looking**, so the cut is the same view from further off
 rather than a different one; it climbs until the ground no longer hides the burst or the column.
 It never moves after that: the lens frames the bomb and where it lands, tightest on the fireball at

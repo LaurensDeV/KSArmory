@@ -1025,8 +1025,8 @@ float Phase(float cosTheta, float g)
 // into a low wall, densest at the front and climbing and thinning behind it -- the dust that races
 // out across the desert in every film of a tower shot. It lifts dust only as far as the front is
 // strong enough to, about where it has fallen to a pound per square inch; drawn in stem radii so it
-// keeps its size against the drawn cloud, which is itself drawn at 65% of the law.
-const float DustReachInStems = 8.0;
+// keeps its size against the drawn cloud.
+const float DustReachInStems = 5.2;
 
 // How high the wall is at the front, how fast it climbs behind it, and the most it may.
 const float DustWallInStems = 0.45;

@@ -298,7 +298,7 @@ public static class ChaseView
 
         // A charge that grows a cloud is watched from far enough to SEE the cloud, which is a
         // different and much larger number than clearing its fireball. Six fireball radii is 328 m
-        // at 0.3 kt, and what stands there is 1.31 km tall -- so the camera ends up under it looking
+        // at 0.3 kt, and what stands there is 2.0 km tall -- so the camera ends up under it looking
         // up, and inside the 497 m this same charge is lethal to. Standing off the cloud's own
         // height puts it across the frame and outside what made it.
         return chargeKg >= MushroomCloud.ThresholdKg
@@ -361,7 +361,7 @@ public static class ChaseView
     /// <summary>
     /// How long before its arrival a chase may stop riding a round: the time its stop-short distance
     /// takes at <c>WatchMetresPerSecond</c>, so a bigger warhead is let go of earlier and further
-    /// out — 4 s at the B61's 0.3 kt, 13 s at 10 kt and 44 s at 340 kt — and never under
+    /// out — 6.4 s at the B61's 0.3 kt, 21 s at 10 kt and 67 s at 340 kt — and never under
     /// <see cref="MinWatchSeconds"/>, which leaves every conventional round to the distance alone.
     /// </summary>
     public static double WatchSeconds(double chargeKg)
@@ -415,7 +415,7 @@ public static class ChaseView
     /// <summary>
     /// How far out the observer stands: <see cref="ObserverRadii"/> of the cloud's extent, its height
     /// or half its cap's width, whichever is more — where a whole risen cloud fills a 50 degree frame
-    /// with room round it. 2.4 km for the B61 at 0.3 kt.
+    /// with room round it. 3.7 km for the B61 at 0.3 kt.
     /// </summary>
     public static double ObserverDistanceMetres(double chargeKg)
     {

@@ -102,8 +102,8 @@ whole time it is on screen**, and a six-warhead bus stands six of them.
   shimmer would add only its own bend pass, and only while the ball is hot.
 - **Guy-wire spikes** are a tower shot's, and nothing in the arsenal is on a tower.
 
-**By design.** The cloud is drawn at 65% of its law (`MushroomCloud.DrawnScale`); a true 0.3 kt
-ball is 1:7 against its cap and reads as wrong.
+**By design.** The cloud is drawn at its law (`MushroomCloud.DrawnScale` is 1), so a 0.3 kt ball
+is 1:7 against its cap, as the test photographs have it.
 
 **Ranked for what they would change on screen:** ~~the dirty rising fireball, with glow through the
 dust and the brown of the oxides; the ball turning into a ring of fire; the dust ring racing out
@@ -320,9 +320,8 @@ instead of only from the scale, which is the one thing a player cannot currently
 
 **Reachable, and it was wrongly demoted.** The shipped *defaults* are the B61's 0.3 kt and the Mk 21's
 20 kt, which is what a first reading took for the arsenal — but the Tuning tab's charge slider runs to
-**340,000,000 kg**, the real B61's top setting of 340 kt. The cloud is drawn at `DrawnScale` 0.65 of
-its law, so a tropopause drawn to the same scale is reached at the law's own **~49 kt**, and at 340 kt
-the drawn top is 13.6 km. That is the whole range where the yield should read from the silhouette.
+**340,000,000 kg**, the real B61's top setting of 340 kt. The cloud is drawn at its law, so the
+tropopause is reached at **~49 kt**, and at 340 kt the drawn top is 16.0 km. That is the whole range where the yield should read from the silhouette.
 
 `TWOCLOUDS=1000` puts a 300 kt burst beside the 0.3 kt one, which is the run to look at it with — and
 the first run to look at *anything* in this file above 30 kt.

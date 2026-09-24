@@ -264,7 +264,7 @@ public class MushroomCloudTests
     [Fact]
     public void TheGroundSkirtStaysInsideTheCapAndIsDrawnBackIn()
     {
-        double capR = MushroomCloud.CapRadius(0.3);
+        double capR = MushroomCloud.DrawnCapRadius(0.3);
 
         double peak = 0.0;
         double peakAt = 0.0;

@@ -28,21 +28,16 @@ public static class MushroomCloud
     public const double RiseSeconds = 57.0;
 
     /// <summary>
-    /// How large the cloud is <em>drawn</em>, against the size the laws give it.
+    /// How large the cloud is <em>drawn</em>, against the size the laws give it: at one, the laws as
+    /// they are.
     ///
-    /// <para><b>This is a deliberate lie and the only one in this file.</b> Every dimension here is
-    /// Glasstone's and checks out against the one measured low-yield surface burst to within three
-    /// per cent, and it still reads as far too large for the burst that made it — because at these
-    /// yields it genuinely is. A 0.3 kt fireball is 110 m across under a cap 770 m wide, a ratio of
-    /// 1:7 that the test photographs agree with and that nobody watching a game believes.</para>
-    ///
-    /// <para>The alternative was enlarging the fireball, which is worse: the fireball is the one
-    /// number a player can check against a photograph, and it has already been taken to the top of
-    /// its own ±25% provenance spread. So the cloud is scaled instead, here, once, with a name — and
-    /// <see cref="CloudTop"/> and <see cref="CapRadius"/> keep saying what the laws say, so the
-    /// reference tests still mean something.</para>
+    /// <para>Every dimension here is Glasstone's and checks out against the one measured low-yield
+    /// surface burst to within three per cent. A 0.3 kt fireball is 110 m across under a cap 770 m
+    /// wide, 1:7, which the test photographs agree with. A named factor rather than none so the
+    /// drawing can depart from the laws in one place, while <see cref="CloudTop"/> and
+    /// <see cref="CapRadius"/> keep saying what the laws say.</para>
     /// </summary>
-    public const double DrawnScale = 0.65;
+    public const double DrawnScale = 1.0;
 
     /// <summary>Stabilised height of the cloud top as drawn, which is not what the law says.</summary>
     public static double DrawnCloudTop(double yieldKt) => CloudTop(yieldKt) * DrawnScale;
