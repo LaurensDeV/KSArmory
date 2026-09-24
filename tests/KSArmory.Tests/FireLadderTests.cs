@@ -33,6 +33,8 @@ public class FireLadderTests
         LaunchAlongTube = true,
         Locked = locked ?? Engageable(),
         LockedIsEmitting = true,
+        LockedWithinSeeker = true,
+        LockedOffTubeDeg = 0.0,
         LockedName = "target",
         DesignatedName = null,
     };
@@ -431,5 +433,57 @@ public class FireLadderTests
     public void ClearToFireBindsNothing()
     {
         Assert.Null(FireLadder.Holding(Ready(), Policy(), Round()));
+    }
+
+    // ---- A lock past the seeker's gimbal -----------------------------------
+
+    /// <summary>
+    /// A fixed rail with a crosser 46 degrees off its 40-degree seeker. The shot refuses to launch,
+    /// so a ladder that stops above this rung reports clear to fire while every attempt is refused.
+    /// </summary>
+    [Fact]
+    public void ALockPastTheSeekerHoldsFireAndSaysWhy()
+    {
+        FireConditions now = Ready() with { LockedWithinSeeker = false, LockedOffTubeDeg = 46.2 };
+        MunitionProfile round = Round();
+        round.SeekerFovDeg = 40f;
+
+        string? hold = Hold(now, munition: round);
+
+        Assert.NotNull(hold);
+        Assert.Contains("46 deg off the tube", hold);
+        Assert.Contains("past the seeker's 40 deg", hold);
+    }
+
+    /// <summary>The trigger fires at the lock through the same refusal, so this rung stops the operator too.</summary>
+    [Fact]
+    public void ALockPastTheSeekerBindsTheTrigger()
+    {
+        FireConditions now = Ready() with { LockedWithinSeeker = false, LockedOffTubeDeg = 46.0 };
+
+        FireHold? hold = FireLadder.Holding(now, Policy(), Round());
+
+        Assert.NotNull(hold);
+        Assert.True(hold.Value.BindsTrigger);
+    }
+
+    /// <summary>A contact that may not be engaged at all is the more useful answer than where it is.</summary>
+    [Fact]
+    public void IffOutranksTheSeekerLimit()
+    {
+        TrackState friendly = Engageable();
+        friendly.Allegiance = Allegiance.Friendly;
+        FireConditions now = Ready(friendly) with { LockedWithinSeeker = false, LockedOffTubeDeg = 60.0 };
+
+        Assert.Equal("target is not engageable (IFF)", Hold(now));
+    }
+
+    /// <summary>A burst goes where the guns are laid; a gun has no seeker for this rung to ask about.</summary>
+    [Fact]
+    public void AGunIgnoresTheSeekerLimit()
+    {
+        FireConditions now = Ready() with { HasTubes = false, LockedWithinSeeker = false, LockedOffTubeDeg = 90.0 };
+
+        Assert.Null(Hold(now));
     }
 }

@@ -830,6 +830,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     // answered from a later instant than the one above it.
     private FireHold? Holding(bool tubes, MunitionProfile munition, Track? locked, string? designated)
     {
+        double offTubeDeg = double.NaN;
+        bool withinSeeker = !tubes || locked is null
+                            || SeekerCanTake(munition, locked.PositionEcl, operatorHeld: false, out offTubeDeg);
+
         return FireLadder.Holding(
             new FireConditions
             {
@@ -855,6 +859,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
                 Locked = locked,
                 LockedIsEmitting = locked is not null && TargetIsEmitting(locked),
+                LockedWithinSeeker = withinSeeker,
+                LockedOffTubeDeg = offTubeDeg,
                 LockedName = locked?.Contact.DisplayName ?? "",
                 DesignatedName = designated,
             },
@@ -2533,17 +2539,27 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     {
         // A shell is not guided at all, and the trigger on the cannon never asks.
         if (TriggerArmament == ArmamentKind.Belt) return true;
+
+        // Held true regardless it would read green however far off the tube the click is, which is
+        // the one thing this preview exists to say.
+        return SeekerCanTake(Munition, pointEcl, operatorHeld: !Profile.Trains, out _);
+    }
+
+    // The rule the shot itself is held to, measured from tube zero and the mount, so the ring, the
+    // fire ladder and the trigger all answer the same question. True when there is nothing to
+    // measure against, with the angle left NaN.
+    private bool SeekerCanTake(MunitionProfile munition, double3 pointEcl, bool operatorHeld, out double offTubeDeg)
+    {
+        offTubeDeg = double.NaN;
         if (Platform is null || Launcher is null) return true;
         if (!LauncherPart.TryGetTubeAxisEcl(Platform, Launcher, PodsPart, Profile, 0, out double3 axis))
         {
             return true;
         }
 
-        // Same rule the shot itself is held to, so the ring answers the question the trigger will.
-        // Held true regardless it would read green however far off the tube the click is, which is
-        // the one thing this preview exists to say.
-        return FireGate.CanGuideOntoAimpoint(Munition.Guidance, operatorHeld: !Profile.Trains,
-                                             Munition.SeekerFovRad, axis, pointEcl - MountEcl);
+        double3 toPoint = pointEcl - MountEcl;
+        offTubeDeg = double.RadiansToDegrees(Vec.AngleBetween(toPoint, axis));
+        return FireGate.CanGuideOntoAimpoint(munition.Guidance, operatorHeld, munition.SeekerFovRad, axis, toPoint);
     }
 
     /// <summary>

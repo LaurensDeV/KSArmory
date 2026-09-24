@@ -57,6 +57,15 @@ internal readonly record struct FireConditions
     /// </summary>
     public required bool LockedIsEmitting { get; init; }
 
+    /// <summary>
+    /// A round leaving the tube now could steer onto the locked contact — false only for a seeker
+    /// round with the contact past its gimbal limit, which the shot itself refuses.
+    /// </summary>
+    public required bool LockedWithinSeeker { get; init; }
+
+    /// <summary>How far the locked contact is off the tube, in degrees, for the reason that says so.</summary>
+    public required double LockedOffTubeDeg { get; init; }
+
     /// <summary>What to call it, for the one reason that names its target.</summary>
     public required string LockedName { get; init; }
 
@@ -178,6 +187,14 @@ internal static class FireLadder
         }
 
         if (!ThreatModel.MayEngage(locked, policy.Iff)) return Targeting(tubes, "target is not engageable (IFF)");
+
+        // Binding: the trigger fires at the lock, and the shot refuses a seeker released off-axis
+        // because it would never steer. Only a launcher that cannot train stays here for long.
+        if (tubes && !now.LockedWithinSeeker)
+        {
+            return Binding($"{now.LockedName} is {now.LockedOffTubeDeg:F0} deg off the tube, past the "
+                           + $"seeker's {munition.SeekerFovDeg:F0} deg - point the launcher at it");
+        }
 
         // A contact that is not closing, or not yet held for the lock time. The trigger fires at
         // whatever is locked, which is what locking a passer-by with a shift-click is for.
