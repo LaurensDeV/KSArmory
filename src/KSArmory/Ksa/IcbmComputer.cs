@@ -253,8 +253,17 @@ internal sealed class IcbmComputer
     /// <summary>The last command issued, which is what every readout on the panel is describing.</summary>
     public IcbmCommand Command { get; private set; }
 
-    /// <summary>Where the vehicle would land if everything stopped now. Null when it would not.</summary>
+    /// <summary>
+    /// Where the vehicle would land, flown from <see cref="PredictsFromCutoff"/>'s departure. Null
+    /// when it would not.
+    /// </summary>
     public ImpactPredictor.Impact? PredictedImpact { get; private set; }
+
+    /// <summary>
+    /// The prediction departs from the burn's planned cutoff rather than from the vehicle as it is,
+    /// so it says where the burn as planned lands, not where the rocket would fall if cut off now.
+    /// </summary>
+    public bool PredictsFromCutoff { get; private set; }
 
     /// <summary>How far the predicted impact is from the aim point, along the ground.</summary>
     public double PredictedMissMetres { get; private set; } = double.NaN;
@@ -4167,6 +4176,7 @@ internal sealed class IcbmComputer
             };
 
             PredictedImpact = hit;
+            PredictsFromCutoff = fromCutoff;
 
             // Restarted, not aged. Ageing it by the interval since the last prediction freezes the
             // readout the moment predicting stops, which is what left a timer holding at twenty or

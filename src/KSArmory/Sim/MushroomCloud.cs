@@ -1006,16 +1006,28 @@ public static class MushroomCloud
         // being a spiral staircase. The rollover has to come from the *path* shape below.
         double roll = 0.30 * (1.0 - Math.Exp(-2.0 * age / RiseSeconds));
 
+        double capTube = capR * 0.45 * squash / Math.Sqrt(1.0 + (AgedSpread * aged));
+
+        // Nothing the burst throws can be outside its own blast front, and the cloud is drawn ahead
+        // of it twice over: the cap starts at over half its final width, and the rise runs eightfold
+        // fast while the front runs at the speed of sound. So while the front is inside the cloud's
+        // farthest point, the whole cloud is scaled about the burst to fit it -- until about 40 s
+        // at 340 kt.
+        double shock = ShockRadius(kt, age);
+        double farthest = Math.Sqrt(((capRadius + capTube) * (capRadius + capTube))
+                                    + Math.Pow(capCentre + (CrownInTubes * capTube), 2.0));
+        double inside = farthest > shock ? shock / farthest : 1.0;
+
         return new Shape(
-            CapCentre: capCentre,
-            CapRadius: capRadius,
-            CapTube: capR * 0.45 * squash / Math.Sqrt(1.0 + (AgedSpread * aged)),
-            StemTop: stemTop,
-            StemRadius: capR * StemOfCap * (1.0 - (AgedStemLoss * aged)),
-            SurgeRadius: SurgeRadius(kt, age),
-            SurgeHeight: SurgeHeight(kt, age),
+            CapCentre: capCentre * inside,
+            CapRadius: capRadius * inside,
+            CapTube: capTube * inside,
+            StemTop: stemTop * inside,
+            StemRadius: capR * StemOfCap * (1.0 - (AgedStemLoss * aged)) * inside,
+            SurgeRadius: SurgeRadius(kt, age) * inside,
+            SurgeHeight: SurgeHeight(kt, age) * inside,
             Roll: roll,
-            Shock: ShockRadius(kt, age),
+            Shock: shock,
             Fade: Fade(age));
     }
 
@@ -1024,6 +1036,12 @@ public static class MushroomCloud
     /// it is also where the cap's own shape starts being measurable.
     /// </summary>
     public const double ClimbUntil = 0.15;
+
+    /// <summary>
+    /// How far above the cap's centre the drawn cloud reaches, in cap-tube radii: the shader's
+    /// veil over the crown ends there.
+    /// </summary>
+    public const double CrownInTubes = 1.5;
 
     /// <summary>
     /// How much of the rise the cap takes to reach its full width, as a fraction. Short of the
