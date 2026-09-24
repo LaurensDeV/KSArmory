@@ -191,7 +191,7 @@ public static class MushroomCloud
     public const double AgedShear = 1.2;
 
     /// <summary>How much thinner the whole cloud is by the time it starts to fade out.</summary>
-    public const double AgedThinning = 0.35;
+    public const double AgedThinning = 0.15;
 
     /// <summary>The last of the stand, over which it fades out entirely.</summary>
     public const double FadeOutSeconds = 90.0;

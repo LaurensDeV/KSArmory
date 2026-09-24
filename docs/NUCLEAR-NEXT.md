@@ -64,7 +64,8 @@ largest gap.
 **After that.** A real cloud lasts tens of minutes to hours, drifting, shearing and spreading into
 a long plume, with a haze of dust over ground zero. **The drawn one stands eight minutes now**, where
 it burst — still by decision (item 3), and asked for longer on 2026-09-23: over the stand the cap
-spreads by 60% and thins, the stem narrows away first, and the whole fades out over the last 90 s,
+spreads by 60% and thins by 15% (`AgedThinning`, 35% until 2026-09-24, which read as see-through
+across the whole cloud), the stem narrows away first, and the whole fades out over the last 90 s,
 gone at 537 s. Not yet flown at these times; at the old ones, 10x: a full mushroom at 49 s, a wider cap on a thinner stem at 109, a broad
 flat cap on a thread at 189. It does not drift, but it **shears**: over the stand its upper part is drawn out downwind to 2.2 times its reach on that side (`AgedShear`), the upwind edge and the foot unmoved — at 200 s the cap is half as long again downwind, the same paused frame with the shear at zero as the control. The march's bound grows with it, and the lean is measured against the bound the risen cloud had rather than that one: reckoned against the growing bound it was a quarter weaker by the end of the stand (`MushroomCloud.RisenBound`, `GrownBound`). **It costs the pass the
 whole time it is on screen**, and a six-warhead bus stands six of them.
