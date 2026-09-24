@@ -1,3 +1,9 @@
+## [0.9.3](https://github.com/LaurensDeV/KSArmory/compare/v0.9.2...v0.9.3) (2026-09-24)
+
+### Build and packaging
+
+* **ksa:** retarget 2026.9.22.5482 ([3a2f79c](https://github.com/LaurensDeV/KSArmory/commit/3a2f79c05ff12c48f3a5afb7cc51f84e6858c18c))
+
 ## [0.9.2](https://github.com/LaurensDeV/KSArmory/compare/v0.9.1...v0.9.2) (2026-09-23)
 
 ### Features
