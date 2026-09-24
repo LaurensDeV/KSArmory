@@ -3,7 +3,7 @@
 Phase 0 of a plan to draw the nuclear burst as a full-screen raymarch, with the volume injected
 into KSA's frame through a ported copy of ShaderExtensions' Vulkan plumbing.
 
-Findings are against KSA **2026.9.10.5438**, the build in `ksa-assemblies.lock`. Paths are relative
+Findings are against KSA **2026.9.10.5438**; 2026.9.22.5482 raymarches the trail volume over an airless body as well, so the atmospheric-body limit below no longer holds. Paths are relative
 to `../ksa-game-assemblies/current/src`.
 
 **The conclusion is that the plan's four phases are aimed at something already built, and that the

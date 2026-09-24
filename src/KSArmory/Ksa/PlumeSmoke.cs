@@ -24,8 +24,7 @@ namespace KSArmory;
 ///
 /// <para><b>Colour, density and lifetime are per-emitter</b>, passed at submit time — so tinting
 /// this mod's smoke no longer reaches KSA's own boosters, which read their own plume template. The
-/// one thing it still cannot do is draw anywhere but the camera's nearby atmospheric body, with
-/// clouds and atmosphere both enabled.</para>
+/// one thing it still cannot do is draw anywhere but the camera's nearby body, air or not.</para>
 /// </summary>
 internal static class PlumeSmoke
 {

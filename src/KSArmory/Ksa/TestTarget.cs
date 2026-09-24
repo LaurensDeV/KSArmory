@@ -176,7 +176,7 @@ internal static class TestTarget
             // CelestialSystem.UpdatePerFrameData never walks it, so its cached Ecl position stays
             // at the frame origin and it neither moves nor can be seen. A bubble it does not need
             // - Universe.PrepareVehicleWorkers collects every vehicle in no bubble and
-            // VehicleUpdateTask.IntakeOrphans gives it one before the step it was found on.
+            // VehicleUpdateTask.AssignOrphanVehicles gives it one before the step it was found on.
             parent.Children.Add(drone);
 
             // Work out how big it is.

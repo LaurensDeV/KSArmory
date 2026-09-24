@@ -35,6 +35,9 @@ internal static class LauncherSeparation
 
         try
         {
+            // Derived data is rebuilt once a frame, before the solvers run, so a tree split after
+            // that holds the old list until the next frame unless asked for it.
+            craft.Parts.EnsureDerived(DerivedData.Sequences);
             ReadOnlySpan<Sequence> sequences = craft.Parts.SequenceList.Sequences;
 
             for (int i = 0; i < sequences.Length; i++)

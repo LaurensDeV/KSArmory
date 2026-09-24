@@ -123,6 +123,51 @@ Four things changed shape and need watching, worst first:
 
 Also unflown on this build: everything the previous retarget listed as unwatched, and the turret.
 
+**Retargeted to KSA `2026.9.22.5482` — nothing the mod binds to moved, and five things compile
+clean and still have to be watched.** No member of the surface is missing, no XML element or
+attribute the mod writes was renamed, and every contract in the `upgrade-ksa` table reads the same:
+the frame order, the `PrepareWorker` window, the render cull (now `Vehicle.IsLargeEnoughToRender`,
+same formula), `ReportContact`, `ComputeDrag`, the explosion sizing, `SunbloomRenderer.Render`'s
+barriers and the reflected trail renderer. One code change: `LauncherSeparation` now asks for the
+sequence list with `EnsureDerived`, because derived part data is rebuilt once a frame before the
+solvers and a tree split after that holds the old list until the next frame.
+
+- [ ] **Smoke and explosion volumes now draw over an airless body.** The trail volume is raymarched
+      for the camera's nearby body with or without air, and KSA's explosion volumes are gated on a
+      new `Graphics.Explosions` setting instead of on clouds. `MotorSmoke` has no air gate of its
+      own, so a motor burning above the atmosphere or over the Moon now lays a visible trail, and a
+      `Detonation` preset on the Moon now draws its volumes beside `BurstEjecta`. Fly a missile out
+      of the air and a burst on Luna, and decide whether either wants a gate.
+- [ ] **A chased round's body may shiver on a long shot.** Part matrices are now packed to `float`
+      per term — part to vehicle, then vehicle to Ego — and multiplied there, so a round 80 km from
+      its launcher is placed by two 80 km translations cancelling in float, however close the camera
+      is. Expect about a centimetre; chase a long 5"/54 shot and look.
+- [ ] **Frame pacing may have moved.** A new `FrameQueueLimit`, default one frame, makes the frame
+      wait on the previous present. `SmoothedStep` exists for the 8.33/25 ms beat measured on a
+      120 Hz screen; read the step off a chase transition's probe before assuming it is the same.
+- [ ] **A bound mouse button is taken before the camera sees it.** Any button but the left can now
+      be bound to an input action, and `Program.OnMouseButton` dispatches that before the
+      controller — so a player who binds the right button loses the chase's orbit drag.
+- [ ] **Bubbles leave and go on rails differently.** A vehicle leaves a bubble only on a parent
+      change, a lone craft is no longer forced off rails for analytic precision, and
+      `TryToPutOnRails` works from any bubble frame — which closes the rails half of the rotating-
+      frame entry in `docs/BLOCKED-ON-KSA.md`. No shot compares across this build either.
+
+**Flown on 2026.9.22.5482:** `head-on` **PASS**, the AIM-9J bursting 15 m from the drone and breaking
+5 parts off it, and the shove read back 8.7° from straight away from the burst. All five patches
+installed (`PrepareWorker`, `OnFrameCelestials`, `OnGameLoaded`, `UpdateRenderData`,
+`SunbloomRenderer.Render`), the trail renderer bound, the stamp read `built for KSA 2026.9.22.5482,
+running 2026.9.22.5482 - reporting on`, and KSA's own log has no error. Only the rail flew; nothing
+above was looked at, and neither was any of this:
+
+- [ ] **The turret traverses and the pods elevate.** Part matrices are now cached per tree and
+      rewritten only when `ResetCachedPosMatrixValues` marks them dirty, so a subpart write is either
+      drawn or never drawn. Fly a Pantsir engagement and watch the turret, the pods and the round
+      bodies leave the tubes.
+- [ ] **The optical head centres its target at 16x.** The frame order held on reading; look through
+      the sight at a crosser to confirm it.
+- [ ] **The parts still appear under Weapons in the editor.**
+
 **Retargeted to KSA `2026.9.10.5438` — the managed surface moved, and most of what matters does not
 show in a build.** Three things were compile errors: `GameSettings.Graphics.ScreenSpaceParticles`
 is gone, `KeyHash` now lives in `Planet.Render.Core.dll` under the same namespace, and the ImGui

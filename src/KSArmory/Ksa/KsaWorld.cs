@@ -2246,9 +2246,8 @@ internal static class KsaWorld
     /// Whether a body has an atmosphere at all.
     ///
     /// <para>Asked where a density at a point is the wrong question: what is wanted is whether the
-    /// <em>body</em> is one KSA will draw atmospheric effects over. The trail volume this mod lays
-    /// its smoke into is raymarched only for an <c>AtmosphericBody</c>, so on a body this answers
-    /// false for, smoke draws nowhere at any altitude and at any density.</para>
+    /// <em>body</em> has air for a buoyant cloud to rise through, which no altitude over one this
+    /// answers false for can supply.</para>
     /// </summary>
     public static bool HasAtmosphere(Celestial body)
     {

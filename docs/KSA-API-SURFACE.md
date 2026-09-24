@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-238 types and 663 members across 11 assemblies.
+239 types and 664 members across 11 assemblies.
 
 ## BepuUtilities
 
@@ -700,6 +700,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `double op_Implicit(KSA.DensityReference)`
 
+### KSA.DerivedData
+
+*referenced as a type only*
+
 ### KSA.DistanceReference
 
 - `double InMeters()`
@@ -1070,6 +1074,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `System.ReadOnlySpan`1<KSA.Part> get_Parts()`
 - `VehicleDents Dents`
 - `int get_Count()`
+- `void EnsureDerived(KSA.DerivedData)`
 - `void RecomputeAllDerivedData()`
 - `void UpdateRenderData(ref Brutal.Numerics.double4x4, bool, KSA.IViewport, int)`
 
@@ -1431,7 +1436,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.VehicleSave
 
 - `KSA.PartTree Load(KSA.IViewport)`
-- `KSA.VehicleSaveData VehicleSaveData`
+- `KSA.VehicleSaveData get_VehicleSaveData()`
 
 ### KSA.VehicleSaveData
 

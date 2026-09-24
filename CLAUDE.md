@@ -188,7 +188,7 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
 ## Environment
 
 - **KSA install**: `/mnt/c/Program Files/Kitten Space Agency` (Windows game, WSL dev)
-- **KSA build these notes were taken against**: `2026.9.10.5438`
+- **KSA build these notes were taken against**: `2026.9.22.5482`
 - The system `dotnet` is 8.0 and **cannot build this** — the mod targets **net10.0**
   (`error NETSDK1045`). A .NET 10 SDK is installed at `~/.dotnet`.
   **Use `tools/build.sh` / `tools/test.sh`**, which source `tools/env.sh` to fix PATH. Bare
@@ -485,7 +485,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/BlastShake.cs` | the front passing the **camera**, watched against the live front rather than timed from the flash — the model; `CloudPass` moves the picture |
 | `Ksa/BlastPuff.cs` | the dust a front throws off the face it strikes — **a sprite the colour of dirt**, because KSA's billboard is unlit and ignores the particle colour |
 | `Ksa/NuclearClouds.cs` | the mushroom clouds standing in the world — **state and the fireball only**: the shape is drawn by `Ksa/CloudPass.cs`, which reads the newest cloud off this and raymarches it |
-| `Ksa/BurstEjecta.cs` | that airless burst drawn, through the particle system — **the renderer that draws on a body with no air**, because the trail volume the smoke uses is raymarched only for an atmospheric one. One-shot emitters, so nothing has to hold or return them |
+| `Ksa/BurstEjecta.cs` | that airless burst drawn, through the particle system — **the renderer that draws on a body with no air**, because a mushroom is buoyant and there is no cloud to draw there. One-shot emitters, so nothing has to hold or return them |
 | `Ksa/CloudPass.cs` | this mod's own compute shader, dispatched inside KSA's frame — **no renderer was ported to get there**: KSA compiles a `<Shader>` asset out of any mod's folder and `ComputePipelineWrapper` builds the descriptor sets. It also bends the view round **every blast front** strong enough to see (`Shaders/KSArmoryShock.comp`): the scene copied, then written back at an offset where a ray grazes the shock's shell, fifteen times what air does because the real one is a pixel — one copy and bend per front, so where fronts cross their bends add, for about 0.06 ms a front and nothing once the camera is inside it, where no ray can graze the shell. The pass is **the march, and the march is the cost**: 2.9 ms of a 3.3 ms pass for one 20 kt cloud from 12 km, 16 ms with the camera 500 m off and the cloud filling the screen, of which the dust ring is about 2.5, the sun taps 0.9 and the weather 0.4 -- the density's noise is the rest, and already rejected exactly before it runs. A **half-resolution grid** (`MarchScale` 2) is a third of the cost -- 16.6 ms to 4.8 up close, 3.0 to 1.1 from 12 km -- and is **off**: the marched pixel turns every frame and the history does not hide it, eight times the flickering pixels at 0.02x. A paused capture cannot show that, since the turn stops with the frame counter; measure flicker at a crawl, never paused. Fewer steps close up was tried and is not in -- the cap came out lighter and streaked. `cost` splits it by stage |
 | `Ksa/CloudPassHook.cs` | the fifth place the mod patches the game, and the first in the renderer — **an ordinary prefix on a public method**, because `SunbloomRenderer.Render` hands over the command buffer at the one instant the scene colour is storage-writable, the depth is sampled, and bloom and the tonemap are both still to come |
 | `Ksa/CloudPassCost.cs` | what that pass costs the GPU, read back out of KSA's own profiler — **the whole frame is sampled beside it**, because 2 ms on a 30 ms frame and 2 ms on an 8 ms one are different answers |
@@ -541,7 +541,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 663 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 664 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -1190,7 +1190,7 @@ Do the private repo *before* pushing here, or CI fails on the lock it cannot sat
 member that keeps its name and signature and changes its *meaning* — a different reference
 frame, different units, a reordered enum — compiles clean and is wrong in flight. That is what
 the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from 684,000 lines to the files
-defining the 238 types this mod actually uses.
+defining the 239 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 45 in total, 14 MB —
@@ -3108,10 +3108,11 @@ mis-tagged guard is found before a merge rather than never — what is lost is *
   and are handled. The chased round cannot show it, because the camera moves with it.
 
 - A round body's drawn position has a floor of a few millimetres at range, and it is the engine's.
-  Part transforms are packed to `float` at the part's own **Ego** magnitude — its distance from the
-  camera — so the quantum is ~3 µm at a 26 m chase stand-off, 0.6 mm at 10 km and 9.5 mm at 80 km.
-  A chased round is immune because the camera is metres from it; another round in the same salvo is
-  not. Sub-pixel at any range anyone watches from, and nothing the mod can do about it.
+  A part's matrix to its vehicle's frame and that frame's to **Ego** are each packed to `float` and
+  multiplied there (`PartTreeRenderData.ToPerInstanceData`), so the quantum follows the larger of the
+  body's distance from its launcher and the launcher's from the camera — 0.6 mm at 10 km and 9.5 mm
+  at 80 km. **A chased round is not immune**: the camera is metres from it, but both terms are the
+  shot's length, and they cancel in float. What that costs on a long chase has not been flown.
 
 - Rounds collide with terrain only when their profile asks. `MunitionProfile.HitsTerrain` is set
   for the bomb, the reentry vehicle and the 5"/54 shell, and nothing else, because it costs a terrain
