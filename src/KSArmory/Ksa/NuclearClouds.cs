@@ -500,10 +500,7 @@ internal static class NuclearClouds
             double3 burstCcf = (burstEcl - body.GetPositionEcl()).Transform(body.GetCce2Ccf());
             if (!Vec.IsFinite(burstCcf) || Vec.Len2(burstCcf) < 1.0) return;
 
-            // No air refuses a cloud twice over: a mushroom is buoyant and has nothing to rise
-            // through, and KSA raymarches the trail volume only for an AtmosphericBody, so smoke
-            // laid here would draw nowhere at any altitude. Before this the cloud was built anyway
-            // and its dimensions logged, over a body where nobody could ever see one.
+            // No air refuses a cloud: a mushroom is buoyant and has nothing to rise through.
             // WHAT IT WENT OFF ON OR IN, which decides what it leaves. Only land is burned: on the
             // sea there is nothing to stain, and a mark projected off the depth buffer there lies
             // on the water's surface.

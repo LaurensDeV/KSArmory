@@ -21,9 +21,9 @@ namespace KSArmory;
 /// <para>Three limits, all the engine's and all read out of it rather than guessed:
 /// a segment lives <b>1200 s</b> and expands over <b>5 s</b>, both global settings shared with
 /// every booster in the world; segments are capped at <b>16,384 per celestial body</b> and evicted
-/// oldest-first, which is a budget shared with <see cref="NuclearClouds"/>; and nothing is drawn on
-/// an airless world or above the atmosphere, because the renderer only runs for the camera's nearby
-/// atmospheric body.</para>
+/// oldest-first, which is a budget shared with <see cref="NuclearClouds"/>; and only the camera's
+/// nearby body is drawn, with or without air, so a motor burning above the atmosphere lays a trail
+/// there too.</para>
 /// </summary>
 internal sealed class MotorSmoke
 {

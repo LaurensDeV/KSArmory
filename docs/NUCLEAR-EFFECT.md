@@ -610,11 +610,12 @@ that closes.
 
 ## The airless burst, which is a different effect rather than the same one degraded
 
-Everything above needs an atmosphere twice over, and only one of the two reasons is about physics.
-A mushroom is buoyant, so with nothing to rise through there is no column and no cap. And
-`CloudRenderer.RenderVolumetricTrailsWithUpscaling` takes an `AtmosphericBody`, which is the only
-place the trail volume is raymarched — so smoke laid on the Moon draws nowhere at any altitude,
-whatever shape it is laid in.
+Everything above needs an atmosphere, because a mushroom is buoyant: with nothing to rise through
+there is no column and no cap. Up to 2026.9.10.5438 there was a second reason, which was the
+engine's rather than physics' — the trail volume was raymarched only for an `AtmosphericBody`, so
+smoke laid on the Moon drew nowhere. From 2026.9.22.5482 it is also raymarched over an airless body
+(`PlanetTransparenciesRenderer.RenderVolumetricTrails`), which removes the second reason and not the
+first.
 
 **`NuclearClouds.Begin` did not test for either.** It gated on the charge, a resolvable body and
 `PlumeSmoke.Available`, all of which pass on an airless body, and then logged `nuclear cloud: 0.30 kt

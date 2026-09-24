@@ -8,10 +8,9 @@ namespace KSArmory;
 /// What a nuclear burst throws along the ground — the base surge where there is air, and the
 /// thrown ground and debris shell where there is not.
 ///
-/// <para>What <see cref="NuclearClouds"/> draws needs an atmosphere twice over — a mushroom is
-/// buoyant, and KSA raymarches the trail volume only for an <c>AtmosphericBody</c>. So on the Moon
-/// the cloud was laid and never drawn. This is what stands in for it, through the particle system,
-/// which writes its commands in the main render path and so draws anywhere.</para>
+/// <para>What <see cref="NuclearClouds"/> draws needs an atmosphere — a mushroom is buoyant — so on
+/// the Moon there is no cloud. This is what stands in for it, through the particle system, which
+/// writes its commands in the main render path and so draws anywhere.</para>
 ///
 /// <para><b>Both emitters are one-shot.</b> Their XML declares <c>Burst</c>, so each spawns its
 /// particles once and hands itself back to the pool when they die. That is the whole reason this

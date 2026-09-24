@@ -1,7 +1,8 @@
 # KSA modding notes
 
 Everything here comes out of the shipped assemblies of **KSA build 2026.9.10.5438**, read with
-`tools/apidump`, or out of the StarMap sources. KSA is pre-release and unofficially moddable:
+`tools/apidump`, or out of the StarMap sources, and was rechecked against **2026.9.22.5482**
+wherever that build changed a type this mod uses. KSA is pre-release and unofficially moddable:
 none of this is documented by RocketWerkz, and **it will drift between game builds**. Re-run
 the dumper rather than trusting this file after an update.
 

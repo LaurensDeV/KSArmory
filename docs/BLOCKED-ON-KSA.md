@@ -8,7 +8,7 @@ Each entry cites what the decompiled corpus says, so a claim can be rechecked af
 rather than taken on trust. **Recheck this file when the game moves** — the whole point of it is
 that some of these will quietly become possible.
 
-Findings are against KSA **2026.9.10.5438**. Paths are relative to
+Findings are against KSA **2026.9.22.5482**. Paths are relative to
 `../ksa-game-assemblies/current/src`.
 
 ## Recheck after a KSA update
@@ -43,23 +43,31 @@ happen rather than a member that moved.
   Mach term and no aerodynamic torque** — RocketWerkz are working on aerodynamics. The day this
   changes, the gun's lead is leading on yesterday's physics; see the entry below
 
-**Rechecked against 2026.9.10.5438: all twelve open items still blocked, the fictitious forces
-arrived, and partial damage moved again.** A part's crash tolerance is now derived from its collider volume against a
+**Rechecked against 2026.9.22.5482: all twelve open items still blocked, and the explosion volumes
+below now draw over an airless body.** `TryToPutOnRails` also returns a vehicle to rails from any
+bubble frame now, which closes the rails half of the fictitious-forces entry. `ComputeDrag` is
+unchanged. There is no new StarMap hook.
+
+**Against 2026.9.10.5438: the fictitious forces arrived, and partial damage moved again.** A part's crash tolerance is now derived from its collider volume against a
 9 MPa base at 330 kg/m³ and clamped to 0.1–100 MPa (`PartStructuralLimits.cs:8-39`,
-`Part.cs:839-854`), and every queued failure and every `DestroyVehicleFromEvent` now spawns an
-engine explosion (`PartFailureEvent.cs:38-67`, `Universe.cs:1908-1916`).
+`Part.cs:843-858`), and every queued failure and every `DestroyVehicleFromEvent` now spawns an
+engine explosion (`PartFailureEvent.cs:38-67`, `Universe.cs:1909-1917`).
 
 **The explosion system that came with it is public, and nothing below was written knowing it.**
 `ExplosionFlashSystem.Spawn` places a point light that every viewport draws
 (`ExplosionFlashSystem.cs:26`, `:73-91`; eight slots shared with the engine), and
 `ExplosionSystem.SpawnPreset` fires a declared `<Explosion>` — emitters, volumes, a flash and a
 sound — from an anchor with no vehicle (`ExplosionSystem.cs:217`, `:471-476`). Its volumes draw
-through the volumetric trail renderer, only over a body with an atmosphere and with clouds on, and
+through the volumetric trail renderer, over the camera's nearby body with or without air, behind
+their own `Graphics.Explosions` setting (`ExplosionVolumeSystem.cs:47-50`,
+`VolumetricTrailRenderer.cs:246`, `PlanetTransparenciesRenderer.cs:316-326`), and
 its intensity clamps at 100x of 5e10 J, so a nuclear cloud would still be authored rather than
 scaled.
 
-**The secondary-viewport entry's line numbers are against 2026.9.7.5402**; its list of what such a
-window does and does not render was rechecked against 2026.9.10.5438 and holds.
+**Re-derived against 2026.9.22.5482:** the citations into `Program.cs` in the secondary-viewport
+and attitude-command entries, the plume gate in `Vehicle.cs` and `RocketNozzle.cs`, the raycast in
+`Part.cs`, and those in this header. The secondary-viewport entry's list of what such a window does
+and does not render was rechecked against it and holds.
 
 The other line numbers below are against **2026.8.22.5348** and have not been re-derived: 2026.9.4.5400
 replaced the `Viewport` class with `IViewport` / `ViewportBase` / `GameViewport` and moved the list
@@ -130,9 +138,9 @@ it from the track and miss more, especially against a target that manoeuvres.
 applied to a vehicle above the physics radius but in a CCF-based bubble led by another vehicle
 inside the radius."* That is the first of the three fixes proposed below: `ComputeDerivatives` now
 applies the centrifugal term to every member of a `Ccf` bubble, and Coriolis to every member not in
-contact, keyed on the bubble's frame rather than on `InPhysicsRadius` (`PhysicsStates.cs:853-867`).
-The rails half is not fixed: `TryToPutOnRails` still returns a vehicle to rails only from a `Cci`
-bubble (`:803-825`), so such a vehicle is integrated rather than propagated — correctly, now. The
+contact, keyed on the bubble's frame rather than on `InPhysicsRadius` (`PhysicsStates.cs:869-882`).
+The rails half followed in 2026.9.22.5482: `TryToPutOnRails` returns a vehicle to rails from any
+bubble frame, not only `Cci` (`:818-839`), so such a vehicle is propagated again. The
 merge and split gates were rewritten per cluster in the same build (`PhysicsBubble.cs:340-358`), so
 how a bubble that size forms may have moved too. Everything below describes 2026.9.7.5402.
 
@@ -269,24 +277,24 @@ work; the *picture* is wrong.
 **What happens.** A secondary viewport shows a raw starfield above a hard horizon and a
 featureless grey ball, where the main view at the same position shows sky, clouds and terrain.
 
-**Why.** Secondary viewports go through `Program.RenderViewport` (`KSA/KSA/Program.cs:4313-4449`),
-a much shorter path than the main one. The loop that calls it ends at `Program.cs:4504`, and the
-next statement is `_renderedViewport = MainViewport` (`:4508`) — so every pass after it is pinned
+**Why.** Secondary viewports go through `Program.RenderViewport` (`KSA/KSA/Program.cs:4415-4551`),
+a much shorter path than the main one. The loop that calls it ends at `Program.cs:4607`, and the
+next statement is `_renderedViewport = MainViewport` (`:4609`) — so every pass after it is pinned
 to the main view whatever else is open: the planet renderer, the light and shadow passes, the
-ocean (`:4683`), and `_planetTransparenciesRenderer.Render` (`:4691`), the sole call site of the
+ocean (`:4783`), and `_planetTransparenciesRenderer.Render` (`:4792`), the sole call site of the
 atmosphere and cloud compute passes anywhere in the game.
 
 **`ViewportOptionFlags.RenderAtmosphere` is set on all four secondary viewports and does not mean
-this** (`Program.cs:952`). Inside `RenderViewport` it gates one call, `_sunbloomRenderer.Render`
-(`:4408`), and nothing else. The flag is the first thing that looks like the fix and is not.
+this** (`Program.cs:949`). Inside `RenderViewport` it gates one call, `_sunbloomRenderer.Render`
+(`:4499-4509`), and nothing else. The flag is the first thing that looks like the fix and is not.
 
 Two details explain the exact image:
 
-- The starfield is drawn because stars *are* in the reduced path (`Program.cs:4211-4220`).
+- The starfield is drawn because stars *are* in the reduced path (`Program.cs:4458-4469`).
 - The grey ball is not terrain. It is `StaticCelestial.RenderSphere` → `DistantSphereRenderer`, a
   sphere scaled to `MeanRadius` with no heightfield. It appears because
   `Camera.NearbyCelestial` is only ever assigned inside `OnFrameCelestials`
-  (`Program.cs:2480-2510`), which runs for the frame viewport — always the main one. The check
+  (`Program.cs:2696-2721`), which runs for the frame viewport — always the main one. The check
   that suppresses the planet you are standing on
   compares `camera.NearbyCelestial == orbiter` (`StaticCelestialDistanceRendering.cs:416`), and a
   secondary camera's is permanently `null`, so it never matches. The same `null` zeroes that
@@ -294,8 +302,8 @@ Two details explain the exact image:
 
 **Why a mod cannot fix it.** `PlanetTransparenciesRenderer`, `OceanRenderer` and
 `OverallBloomRenderer` are constructed holding `Program._offscreenTarget`
-(`Program.cs:1162, 1168, 1183, 1192`), which *is* `MainViewport.OffscreenTarget` — attached as a
-shared target at `Program.cs:1526`. The `IViewport` they accept per call only selects a shader
+(`Program.cs:1161, 1180, 1189`), which *is* `MainViewport.OffscreenTarget` — attached as a
+shared target at `Program.cs:1523`. The `IViewport` they accept per call only selects a shader
 dynamic offset; the image they write into was baked into their descriptor sets at construction.
 
 **Redirecting them is not the blocker, though, and an earlier version of this entry said it was.**
@@ -443,14 +451,14 @@ everything the ballistic computer does with it.
 offers lands on the wrong side of it. In `Program.OnFrame`:
 
 ```
-2012   Universe.ApplyVehicleSolvers()          // vehicle.FlightComputer.CopyFrom(worker result)
-2047   Universe.ExecuteNextVehicleSolvers()    // PrepareWorker snapshots vehicle.FlightComputer
-2096   OnDrawUiViewports()                     // [StarMapBeforeGui] / [StarMapAfterGui]
+2165   Universe.ApplyVehicleSolvers()          // vehicle.FlightComputer.CopyFrom(worker result)
+2211   Universe.ExecuteNextVehicleSolvers()    // PrepareWorker snapshots vehicle.FlightComputer
+2259   OnDrawUiViewports()                     // [StarMapBeforeGui] / [StarMapAfterGui]
 ```
 
-A write made at 2096 is not in the snapshot taken at 2047, so the result applied at 2012 of the
-*next* frame — computed from that snapshot — overwrites it. Then 2047 snapshots the overwritten
-value. `[StarMapAfterOnFrame]` is later still. There is no hook between 2012 and 2047, which is the
+A write made at 2259 is not in the snapshot taken at 2211, so the result applied at 2165 of the
+*next* frame — computed from that snapshot — overwrites it. Then 2211 snapshots the overwritten
+value. `[StarMapAfterOnFrame]` is later still. There is no hook between 2165 and 2211, which is the
 only window where a write survives.
 
 Confirmed in flight rather than inferred. A probe reading the flight computer either side of the
@@ -506,7 +514,7 @@ rather than the mod's gizmo tracers.
 
 **The declarative route is closed.** The XML tag is real — `<PlumeTrail Id="DefaultPlumeTrail"/>`
 inside a `<ReactionPlume>` — but the emitter only produces anything when
-`current.State.DutyCycle > 0f && flag` (`KSA/KSA/Vehicle.cs:5298`), where `DutyCycle` is
+`current.State.DutyCycle > 0f && flag` (`KSA/KSA/Vehicle.cs:5678`), where `DutyCycle` is
 accumulated by a **burning rocket core**. The mod's rounds have no motor, no propellant and no
 staging, and a real motor would apply real thrust to the launcher, since the round bodies are its
 subparts.
@@ -520,7 +528,7 @@ reflected and everything after it is an ordinary call inside `docs/KSA-API-SURFA
 
 The emitter follows a moved subpart correctly either way: its position comes from
 `state.FxExhaustLocationVehicleAsmb = FxLocationAsmb.Transform(matrix)` where `matrix` is
-`Parent.MatrixAsmb2VehicleAsmb` (`KSA/KSA/RocketNozzle.cs:209`) — exactly the matrix this mod
+`Parent.MatrixAsmb2VehicleAsmb` (`KSA/KSA/RocketNozzle.cs:280`) — exactly the matrix this mod
 already writes each frame.
 
 **What would unblock it properly**, and let the reflection go. A public accessor for the trail
@@ -598,7 +606,7 @@ carries, how many, what the fuse does.
   same closed shape as `UniverseData`, so per-part mod state cannot ride the vehicle file.
 
 **What is not blocked, and why it is still not built.** The editor itself is readable:
-`Program.Editor` is a public static (`KSA/KSA/Program.cs:207`) and `VehicleEditor.Selected`,
+`Program.Editor` is a public static (`KSA/KSA/Program.cs:227`) and `VehicleEditor.Selected`,
 `Highlighted` and `EditingPart` are public `Part?` (`VehicleEditor.cs:549-555`). So the mod could
 detect the editor, see the selected part and draw its own window beside KSA's.
 
@@ -675,7 +683,7 @@ through 168° between two adjacent pixels at the pad's edge.
 **What would unblock the rest.** A raycast against static geometry. The pieces exist —
 `StaticObject.CollisionShape` is a public `TypedIndex` and `ConstraintSim.UnlockShapes()` hands out
 the Bepu `Shapes` registry — but nothing here has tried it, and the engine's own per-triangle path
-is `Part.RayCastEgo` against `Ray.RaycastWatertight` (`KSA/KSA/Part.cs:2306`, `:2363`), which takes
+is `Part.RayCastEgo` against `Ray.RaycastWatertight` (`KSA/KSA/Part.cs:2534`, `:2597`), which takes
 a `Part` and not a landmark.
 
 ## Drawing a shape the gizmo renderer does not have
