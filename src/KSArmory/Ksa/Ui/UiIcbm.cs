@@ -450,11 +450,11 @@ internal sealed partial class Ui
             ImGui.PopStyleColor();
         }
 
-        // Named for what it actually is, and that changes twice during a flight. It is a free-fall
-        // prediction of the craft this computer is flying: a what-if while the engines are running,
-        // the actual answer once they have stopped, and about a vehicle nobody is aiming any more
-        // the moment a warhead leaves. Only the first of those is a question about the engines.
+        // Named for what it actually is. While guidance holds an arc the prediction departs from the
+        // planned cutoff, so mid-ascent it is where the burn lands if it finishes as planned; cut off
+        // now, the rocket would come down near the pad.
         string what = computer.WarheadsAway > 0 ? "The bus alone would land"
+                    : computer.Program.IsBurning && computer.PredictsFromCutoff ? "When the burn ends as planned"
                     : computer.Program.IsBurning ? "If the engines stopped now"
                     : "Predicted impact";
 
