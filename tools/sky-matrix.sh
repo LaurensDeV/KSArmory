@@ -54,9 +54,12 @@ for cell in "${CELLS[@]}"; do
     cli burst "{\"kt\":$kt,\"up_m\":$(python3 -c "print(int($km*1000))"),\"explode\":false}" > "$dir/burst.json"
     [[ "$POSE" == player ]] || cli camera "{\"preset\":\"$POSE\"}" >/dev/null
     cli cost '{"reset":true}' >/dev/null
+    started=$(date +%s)
 
     for age in $AGES; do
-        while python3 -c "import sys; sys.exit(0 if $(age_now) < $age else 1)"; do sleep 1; done
+        # The newest burst's age while its cloud or ball stands; past that -- a thin burst's cloud ends at
+        # three minutes and its red wave runs ten -- the wall clock since the burst, since this flies at 1x.
+        while python3 -c "import sys; a=$(age_now); a=a if a >= 0 else $(date +%s) - $started; sys.exit(0 if a < $age else 1)"; do sleep 1; done
         cost=$(cli cost '{}' | tr -d '\n')
         status=$(cli status | tr -d '\n ')
         cli cost '{"reset":true}' >/dev/null
