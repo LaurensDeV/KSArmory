@@ -50,3 +50,29 @@ public class XRayGlowTests
         Assert.True(XRayGlow.Strength(1.0e6, 10_000.0, 1.0) <= XRayGlow.MostNits);
     }
 }
+
+/// <summary>Where the X-ray-heated layer sits, by the air above it rather than by a height.</summary>
+public class XRayLayerTests
+{
+    private static readonly BodyAir Earth = new(101_325, 1.225, 8_000, 167_000, 9.81, 6.371e6, BodyTraits.Default);
+
+    [Fact]
+    public void InEarthsAirItIsGlasstonesEightyTwoKilometresAndTwentyThick()
+    {
+        Assert.Equal(82_000.0, XRayGlow.LayerAltitude(Earth), 3);
+        Assert.Equal(20_000.0, XRayGlow.LayerThickness(Earth), 9);
+    }
+
+    /// <summary>
+    /// Hydrogen stops X-rays far less per kilogram, so they run deeper before they are stopped -- and
+    /// the aurora's border, keyed on the air's mass alone, does not follow them down.
+    /// </summary>
+    [Fact]
+    public void AnAirThatStopsXRaysLessPutsTheLayerDeeperAndApartFromTheAurora()
+    {
+        BodyAir hydrogen = Earth with { Traits = new BodyTraits(XRayOpacity: 0.01) };
+
+        Assert.True(XRayGlow.LayerAltitude(hydrogen) < XRayGlow.LayerAltitude(Earth) - 30_000.0);
+        Assert.True(Aurora.BottomAltitude(Earth) > XRayGlow.LayerAltitude(Earth) + 15_000.0);
+    }
+}

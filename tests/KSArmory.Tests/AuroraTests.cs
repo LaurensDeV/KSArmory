@@ -13,6 +13,20 @@ public class AuroraTests(ITestOutputHelper output)
     private const double Radius = 6_371_000.0;
     private static readonly double3 Axis = new(0, 0, 1);
 
+    // KSA's Earth air, which puts the curtains' border at 100 km.
+    private static readonly BodyAir Earth = new(101_325, 1.225, 8_000, 167_000, 9.81, Radius, BodyTraits.Default);
+    private static readonly double Foot = Aurora.BottomAltitude(Earth);
+
+    [Fact]
+    public void TheBorderSitsAtAHundredKilometresInEarthsAirAndHigherInADeeperOne()
+    {
+        Assert.Equal(100_000.0, Foot, 3);
+        Assert.Equal(400_000.0, Aurora.TopAltitude(Earth), 3);
+
+        BodyAir deeper = Earth with { ScaleHeightMetres = 18_000, SeaLevelDensity = 65.0, SeaLevelPascals = 92 * 101_325, BoundaryMetres = 500_000 };
+        Assert.True(Aurora.BottomAltitude(deeper) > 250_000.0);
+    }
+
     private static double3 At(double latitudeDeg, double altitude)
     {
         double lat = double.DegreesToRadians(latitudeDeg);
@@ -29,7 +43,7 @@ public class AuroraTests(ITestOutputHelper output)
     public void TeakLitTheSkyOverSamoa()
     {
         Span<double3> feet = stackalloc double3[2];
-        int count = Aurora.Footpoints(At(16.7, 77_000.0), Axis, Radius, feet);
+        int count = Aurora.Footpoints(At(16.7, 77_000.0), Axis, Radius, Foot, feet);
         Assert.Equal(2, count);
 
         double near = LatitudeDeg(feet[0]);
@@ -47,7 +61,7 @@ public class AuroraTests(ITestOutputHelper output)
     {
         Span<double3> feet = stackalloc double3[2];
         double3 burst = new double3(0.6, 0.5, 0.3) * (Radius + 400_000.0);
-        Assert.Equal(2, Aurora.Footpoints(burst, Axis, Radius, feet));
+        Assert.Equal(2, Aurora.Footpoints(burst, Axis, Radius, Foot, feet));
 
         Assert.Equal(feet[0].Z, -feet[1].Z, 9);
         Assert.Equal(Math.Atan2(burst.Y, burst.X), Math.Atan2(feet[0].Y, feet[0].X), 9);
@@ -59,10 +73,10 @@ public class AuroraTests(ITestOutputHelper output)
     public void ABurstOnTheEquatorUnderTheAuroraReachesNoAirWithIt()
     {
         Span<double3> feet = stackalloc double3[2];
-        Assert.Equal(0, Aurora.Footpoints(At(0.0, 90_000.0), Axis, Radius, feet));
+        Assert.Equal(0, Aurora.Footpoints(At(0.0, 90_000.0), Axis, Radius, Foot, feet));
 
         // And from 400 km its line comes down about twelve degrees either side.
-        Assert.Equal(2, Aurora.Footpoints(At(0.0, 400_000.0), Axis, Radius, feet));
+        Assert.Equal(2, Aurora.Footpoints(At(0.0, 400_000.0), Axis, Radius, Foot, feet));
         Assert.InRange(LatitudeDeg(feet[0]), 11.0, 13.5);
     }
 

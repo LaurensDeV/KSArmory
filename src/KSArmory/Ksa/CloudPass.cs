@@ -531,12 +531,15 @@ internal static class CloudPass
                 double3 lit = glowEcl - camera.PositionEcl;
                 if (!Vec.IsFinite(lit)) continue;
 
-                // Its size is the layer's, in the fireball's first two floats, and its brightness the bound's.
+                // Its size is the layer's, in the fireball's first two floats, and its brightness the bound's:
+                // the layer where this body's air stops the X-rays, not a height.
+                BodyAir glowAir = KsaWorld.BodyAirOf(camera.NearbyCelestial);
                 _sky.Add((SkyDispatch.Glow, nits, new Push
                 {
                     InvViewProj = camera.VPInv.viewProjection,
                     CentreRadius = new float4((float)lit.X, (float)lit.Y, (float)lit.Z, -(float)nits),
-                    FireSun = new float4((float)XRayGlow.LayerAltitude, (float)XRayGlow.LayerThickness, SkyDispatch.Glow, 0f),
+                    FireSun = new float4((float)XRayGlow.LayerAltitude(glowAir), (float)XRayGlow.LayerThickness(glowAir),
+                                         SkyDispatch.Glow, 0f),
                     Shape = new float4((float)green, 0f, 0f, 0f),
                 }));
             }
@@ -554,7 +557,9 @@ internal static class CloudPass
                 {
                     InvViewProj = camera.VPInv.viewProjection,
                     CentreRadius = new float4((float)foot.X, (float)foot.Y, (float)foot.Z, -(float)nits),
-                    FireSun = new float4((float)Aurora.BottomAltitude, (float)Aurora.TopAltitude, SkyDispatch.Aurora,
+                    FireSun = new float4((float)Aurora.BottomAltitude(KsaWorld.BodyAirOf(camera.NearbyCelestial)),
+                                         (float)Aurora.TopAltitude(KsaWorld.BodyAirOf(camera.NearbyCelestial)),
+                                         SkyDispatch.Aurora,
                                          (float)sinLatitude),
                     Shape = new float4((float)eastEcl.X, (float)eastEcl.Y, (float)eastEcl.Z, (float)age),
                 }));

@@ -18,11 +18,25 @@ internal static class XRayGlow
     /// <summary>The air, against sea level, above which a burst lights the layer rather than growing a fireball of its own.</summary>
     public const double AirRatio = 1.0e-5;
 
-    /// <summary>Where the layer is, over the mean sphere (m), and how thick.</summary>
-    public const double LayerAltitude = 80_000.0;
+    /// <summary>
+    /// The mass of air above the layer (kg/m²): where a burst's X-rays have gone deep enough to be
+    /// stopped. Calibrated on KSA's Earth to put the layer at 82 km (Glasstone and Dolan §7.91's
+    /// 270,000 ft), and a column rather than a height so the layer sits where each body's air puts it.
+    /// </summary>
+    public static readonly double LayerColumnKgPerM2 = 1.225 * 8_000.0 * Math.Exp(-82.0 / 8.0);
 
-    /// <inheritdoc cref="LayerAltitude"/>
-    public const double LayerThickness = 20_000.0;
+    /// <summary>How thick the layer is, in the body's scale heights: 20 km in Earth's air.</summary>
+    public const double LayerScaleHeights = 2.5;
+
+    /// <summary>
+    /// Where the layer is over a body's mean sphere (m): under the calibrated column, deeper in an air
+    /// that stops X-rays less per kilogram (<see cref="BodyTraits.XRayOpacity"/>).
+    /// </summary>
+    public static double LayerAltitude(BodyAir air)
+        => air.AltitudeOfColumn(LayerColumnKgPerM2 / Math.Max(air.Traits.XRayOpacity, 1.0e-6));
+
+    /// <summary>How thick the layer is over a body (m).</summary>
+    public static double LayerThickness(BodyAir air) => LayerScaleHeights * air.ScaleHeightMetres;
 
     /// <summary>How long the layer glows at all (s); it fades on <see cref="RedSeconds"/> long before.</summary>
     public const double LifeSeconds = 600.0;

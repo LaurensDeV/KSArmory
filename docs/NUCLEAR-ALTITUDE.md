@@ -210,7 +210,7 @@ into one changelog line.
 | 7 ✓ | `refactor`: `BodyAir`, `KsaWorld.AirAt` (read at the carried burst; P = 0 guarded; boundary respected), `Bodies.xml` and its reader, audit and tests |
 | 8 ✓ | `fix`: one glow, curtain and fireball light per bus; the thin cloud ends with its shell (**done**: six coincident bursts at 100 km make one 1,800 kt cloud, one glow, one curtain pair). Airless-as-air-0 moved to step 15: today's flash law would draw a vacuum ball 10× the size |
 | 9 ✓ | `fix`: one sound speed, `√(γP/ρ)`, everywhere including the shader; shake by `GainAt`; guard rows re-recorded with the reason in the message |
-| 10 | `fix`: the X-ray layer and the aurora foot from the column (calibrated on the game's Earth: the layer at Σ ≈ 0.35 kg/m², the foot at ≈ 0.037), so they sit apart on every body |
+| 10 ✓ | `fix`: the X-ray layer and the aurora foot from the column (calibrated on the game's Earth: the layer at Σ ≈ 0.35 kg/m², the foot at ≈ 0.037), so they sit apart on every body |
 | 11 | `refactor`: `BurstRegime`, `BlastAltitude`, `BurstHearing` -- nothing calls them yet |
 | 12 | `fix(blast)`: damage by `W·η` through all four verdict paths |
 | 13 | `fix(blast)`: the front, arrivals, the drawn front and the ring on the burst's air; every `ShockRadius` consumer listed and moved together, including `WeaponSystem.cs:3838`'s log |

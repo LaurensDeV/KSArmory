@@ -1329,6 +1329,10 @@ void DrawAurora(ivec2 at, ivec2 size)
     float dt = (t1 - t0) / float(Steps);
     float bottomKm = pc.FireSun.x / 1000.0;
     float topKm = pc.FireSun.y / 1000.0;
+
+    // Every height in the curtain is Earth's measured from its border and scaled by how tall this body's
+    // curtain is (Aurora.ReachScaleHeights), so a deeper air stretches it and Earth's is 1.
+    float km = (topKm - bottomKm) / 300.0;
     vec3 light = vec3(0.0);
 
     // Each arc's own offset, length, centre and brightness, which nothing along the ray changes.
@@ -1363,8 +1367,9 @@ void DrawAurora(ivec2 at, ivec2 size)
         }
 
         // The red haze, a volume: gone below 140 km, broad about 230, fading out through the top.
-        float redAt = smoothstep(140.0, 210.0, heightKm) * exp(-max(heightKm - 230.0, 0.0) / 60.0)
-                      * (1.0 - smoothstep(topKm - 60.0, topKm, heightKm));
+        float redAt = smoothstep(bottomKm + 40.0 * km, bottomKm + 110.0 * km, heightKm)
+                      * exp(-max(heightKm - (bottomKm + 130.0 * km), 0.0) / (60.0 * km))
+                      * (1.0 - smoothstep(topKm - 60.0 * km, topKm, heightKm));
         float haze = exp(-(across * across) / (RedHazeWidth * RedHazeWidth));
         if (i > 0) light += OxygenRed * (redAt * haze * RedHazePerMetre * dt);
 
@@ -1395,14 +1400,15 @@ void DrawAurora(ivec2 at, ivec2 size)
                 // kilometre a second; each its own height, so the tops are ragged.
                 float rayN = Noise(vec3(a / 2500.0 + age * 0.4, kf * 11.0, age * 0.5));
                 float rays = 0.25 + 0.75 * smoothstep(0.35, 0.85, rayN);
-                float reach = 15.0 + 35.0 * Noise(vec3(a / 2500.0 + age * 0.4, kf * 11.0 + 5.0, 3.0));
+                float reach = (15.0 + 35.0 * Noise(vec3(a / 2500.0 + age * 0.4, kf * 11.0 + 5.0, 3.0))) * km;
 
-                float border = smoothstep(bottomKm - 1.0, bottomKm + 3.0, hKm);
-                float green = border * exp(-max(hKm - (bottomKm + 10.0), 0.0) / reach);
-                float pink = smoothstep(bottomKm - 6.0, bottomKm - 1.0, hKm)
-                             * (1.0 - smoothstep(bottomKm + 1.0, bottomKm + 6.0, hKm));
-                float red = 0.45 * smoothstep(140.0, 210.0, hKm) * exp(-max(hKm - 230.0, 0.0) / 60.0)
-                            * (1.0 - smoothstep(topKm - 60.0, topKm, hKm));
+                float border = smoothstep(bottomKm - 1.0 * km, bottomKm + 3.0 * km, hKm);
+                float green = border * exp(-max(hKm - (bottomKm + 10.0 * km), 0.0) / reach);
+                float pink = smoothstep(bottomKm - 6.0 * km, bottomKm - 1.0 * km, hKm)
+                             * (1.0 - smoothstep(bottomKm + 1.0 * km, bottomKm + 6.0 * km, hKm));
+                float red = 0.45 * smoothstep(bottomKm + 40.0 * km, bottomKm + 110.0 * km, hKm)
+                            * exp(-max(hKm - (bottomKm + 130.0 * km), 0.0) / (60.0 * km))
+                            * (1.0 - smoothstep(topKm - 60.0 * km, topKm, hKm));
 
                 // The red line lives too long to keep the rays' edges.
                 vec3 sheet = OxygenGreen * green * rays + NitrogenPink * (0.35 * pink * rays)

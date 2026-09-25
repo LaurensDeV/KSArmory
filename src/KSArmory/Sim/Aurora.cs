@@ -31,15 +31,21 @@ internal static class Aurora
     public static bool Lights(double airRatio) => double.IsFinite(airRatio) && airRatio < AirRatio;
 
     /// <summary>
-    /// The curtain's sharp lower border over the mean sphere (m). The green of oxygen peaks a little above
-    /// it, at 110-115 km, and in a bright display nitrogen fringes it pink just below.
+    /// The mass of air above the curtain's sharp lower border (kg/m²), where the debris's electrons are
+    /// stopped. Calibrated on KSA's Earth to put the border at 100 km, and a column rather than a height
+    /// so it sits where each body's air puts it. The green of oxygen peaks a little above it, and in a
+    /// bright display nitrogen fringes it pink just below.
     /// </summary>
-    public const double BottomAltitude = 100_000.0;
+    public static readonly double FootColumnKgPerM2 = 1.225 * 8_000.0 * Math.Exp(-100.0 / 8.0);
 
-    /// <summary>
-    /// Where it is gone above (m): the red of oxygen peaks at 200-250 km and fades out through this.
-    /// </summary>
-    public const double TopAltitude = 400_000.0;
+    /// <summary>How far the curtain reaches over its border, in the body's scale heights: 300 km in Earth's air.</summary>
+    public const double ReachScaleHeights = 37.5;
+
+    /// <summary>The curtain's lower border over a body's mean sphere (m).</summary>
+    public static double BottomAltitude(BodyAir air) => air.AltitudeOfColumn(FootColumnKgPerM2);
+
+    /// <summary>Where the curtain is gone above (m): the red of oxygen peaks well above the border and fades through this.</summary>
+    public static double TopAltitude(BodyAir air) => BottomAltitude(air) + (ReachScaleHeights * air.ScaleHeightMetres);
 
     /// <summary>How long it glows at all (s), and the e-folding time it fades on.</summary>
     public const double LifeSeconds = 900.0;
@@ -61,7 +67,7 @@ internal static class Aurora
     /// </summary>
     /// <param name="burstFromCentre">The burst, from the planet's centre, in any frame the axis is in.</param>
     /// <param name="axis">The dipole's axis, the spin axis.</param>
-    public static int Footpoints(double3 burstFromCentre, double3 axis, double planetRadius,
+    public static int Footpoints(double3 burstFromCentre, double3 axis, double planetRadius, double footAltitude,
                                  Span<double3> into)
     {
         double r = Vec.Len(burstFromCentre);
@@ -74,7 +80,7 @@ internal static class Aurora
         if (!(cos2 > 1.0e-9)) return 0;
 
         double shell = r / (planetRadius * cos2);
-        double foot = (planetRadius + BottomAltitude) / planetRadius;
+        double foot = (planetRadius + footAltitude) / planetRadius;
         double cos2Foot = foot / shell;
         if (cos2Foot > 1.0) return 0;
 

@@ -259,7 +259,7 @@ internal static class NuclearClouds
     {
         double3 axis = body.GetRotationAxisCce().Transform(body.GetCce2Ccf());
         Span<double3> feet = stackalloc double3[2];
-        int count = Aurora.Footpoints(burstCcf, axis, body.MeanRadius, feet);
+        int count = Aurora.Footpoints(burstCcf, axis, body.MeanRadius, Aurora.BottomAltitude(KsaWorld.BodyAirOf(body)), feet);
 
         for (int i = 0; i < count; i++)
         {
@@ -309,7 +309,7 @@ internal static class NuclearClouds
             body = glow.Body;
             burstEcl = glow.Body.GetPositionEcl() + glow.BurstCcf.Transform(glow.Body.GetCce2Ccf().Inverse());
 
-            double over = Vec.Len(glow.BurstCcf) - glow.Body.MeanRadius - XRayGlow.LayerAltitude;
+            double over = Vec.Len(glow.BurstCcf) - glow.Body.MeanRadius - XRayGlow.LayerAltitude(KsaWorld.BodyAirOf(glow.Body));
             nits = XRayGlow.Strength(MushroomCloud.KilotonsFor(glow.ChargeKg), over, glow.Age);
             green = XRayGlow.GreenShare(glow.Age);
 
@@ -840,7 +840,8 @@ internal static class NuclearClouds
             // the cap wherever a cap is grown, which is in air and not deep under the sea.
             // High enough that its X-rays run down to the air before they stop, it lights a layer of it --
             // unless so far out that the layer would not show, which would still cost a full screen.
-            double overLayer = Vec.Len(burstCcf) - body.MeanRadius - XRayGlow.LayerAltitude;
+            double layer = XRayGlow.LayerAltitude(KsaWorld.BodyAirOf(body));
+            double overLayer = Vec.Len(burstCcf) - body.MeanRadius - layer;
             if (hasAir && Aurora.Lights(airRatio)) Light(body, burstCcf, chargeKg);
 
             if (hasAir && XRayGlow.Lights(airRatio)
@@ -848,8 +849,8 @@ internal static class NuclearClouds
             {
                 if (_glows.Count >= MaxGlows) _glows.RemoveAt(0);
                 _glows.Add(new Glow { Body = body, BurstCcf = burstCcf, ChargeKg = chargeKg });
-                Log.Info($"nuclear burst over the air: its X-rays light the layer {XRayGlow.LayerAltitude / 1000.0:F0} km "
-                         + $"up, {XRayGlow.Strength(kt, Vec.Len(burstCcf) - body.MeanRadius - XRayGlow.LayerAltitude, 2.0):F2} "
+                Log.Info($"nuclear burst over the air: its X-rays light the layer {layer / 1000.0:F0} km "
+                         + $"up, {XRayGlow.Strength(kt, overLayer, 2.0):F2} "
                          + "nits under it at first, red for minutes");
             }
 
