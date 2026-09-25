@@ -2699,6 +2699,8 @@ air burst, and Tsar Bomba*, has the numbers.
 - [ ] **A 50 Mt burst on the frame rate** from where a player would watch it.
 - [x] 50 Mt 70 km over the 5"/54 mount loads none of its parts, where it loaded two before the blast
       went by the air at the burst; at 33 km it still breaks one.
+- [x] 50 Mt at 37 km over the camera is heard and shakes the view 59 s later at 11 kPa, where it was
+      silent; 3.8 Mt at 77 km is faint at 150 Pa. **By ear**: [ ] the delay and the loudness sound right.
 
 ---
 

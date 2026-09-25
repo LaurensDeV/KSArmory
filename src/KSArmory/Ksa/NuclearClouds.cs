@@ -852,7 +852,7 @@ internal static class NuclearClouds
             if (JoinTheSameBurst(body, burstCcf, chargeKg))
             {
                 if (setting == BurstSetting.Land && coupling > 0.01) Burn(body, groundCcf, chargeKg, !hasAir, coupling);
-                if (hasAir && setting != BurstSetting.Underwater && !thin) BurstSound.Begin(body, burstEcl, chargeKg, height);
+                if (hasAir && setting != BurstSetting.Underwater) BurstSound.Begin(body, burstEcl, chargeKg, height);
                 return;
             }
 
@@ -913,9 +913,9 @@ internal static class NuclearClouds
             }
 
             // Heard whether or not it joins a cloud already standing: a bomb dropped on the one before
-            // still goes off. Coincident bursts are made one bang by the sound itself.
-            // In air too thin for a column the report barely carries, and nobody on the ground hears it.
-            if (!(hasAir && MushroomCloud.IsThin(airRatio))) BurstSound.Begin(body, burstEcl, chargeKg, height);
+            // still goes off. Coincident bursts are made one bang by the sound itself, and whether a
+            // high one is heard at all is the pressure its front brings to the camera.
+            BurstSound.Begin(body, burstEcl, chargeKg, height);
 
             _clouds.Add(new Cloud
             {
