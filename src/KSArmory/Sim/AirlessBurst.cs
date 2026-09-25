@@ -104,11 +104,11 @@ public static class AirlessBurst
                ? 0.0
                : ShellInFireballs * MushroomCloud.PeakFireballRadius(MushroomCloud.KilotonsFor(chargeKg));
 
-    /// <summary>How long the shell takes to get there, which is the flash's own duration.</summary>
+    /// <summary>How long the shell takes to get there, which is the vacuum flash's own duration.</summary>
     public static double ShellSeconds(double chargeKg)
         => chargeKg < MushroomCloud.ThresholdKg
                ? 0.0
-               : MushroomCloud.FlashSeconds(MushroomCloud.KilotonsFor(chargeKg));
+               : MushroomCloud.VacuumFlashSeconds(MushroomCloud.KilotonsFor(chargeKg));
 
     /// <summary>
     /// The spread of speeds the ground leaves at, either side of <see cref="EjectaAt"/>'s nominal.

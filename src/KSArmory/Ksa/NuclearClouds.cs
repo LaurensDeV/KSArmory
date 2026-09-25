@@ -155,10 +155,10 @@ internal static class NuclearClouds
     }
 
 
-    // Every burst still burning, which is NOT the same list as the clouds. A fireball does not
-    // need air -- it is incandescent gas, and the vacuum one is if anything brighter for having no
-    // atmosphere to attenuate it -- so an airless burst belongs here while it grows no column at
-    // all. Kept separate rather than folded into _clouds, because the pass draws that list.
+    // Every burst still burning, which is NOT the same list as the clouds. A burst with no air still
+    // flashes -- the device's own vapour, for half a second (MushroomCloud.VacuumFlashSeconds) -- so an
+    // airless burst belongs here while it grows no column at all. Kept separate rather than folded
+    // into _clouds, because the pass draws that list.
     private sealed class Burning
     {
         public required Celestial Body;
@@ -473,9 +473,13 @@ internal static class NuclearClouds
     public static bool TryBurning(int index, out double3 burstEcl, out MushroomCloud.Flash flash)
         => TryBurning(index, out burstEcl, out flash, out _, out _);
 
+    /// <summary>The air one burning ball went off in, against the reference; zero with none.</summary>
+    public static double BurningAir(int index)
+        => index >= 0 && index < _burning.Count ? _burning[index].AirRatio : 1.0;
+
     /// <summary>
-    /// As above, with the body it burst over, which is where its daylight is read, and its charge,
-    /// which is what its light is reckoned from.
+    /// The burning ball as the shorter overload gives it, with the body it burst over, which is where
+    /// its daylight is read, and its charge, which is what its light is reckoned from.
     /// </summary>
     public static bool TryBurning(int index, out double3 burstEcl, out MushroomCloud.Flash flash,
                                   out Celestial? body, out double chargeKg)
@@ -881,7 +885,7 @@ internal static class NuclearClouds
                 ChargeKg = chargeKg,
                 Rises = hasAir && setting != BurstSetting.Underwater,
                 Height = height,
-                AirRatio = hasAir ? airRatio : 1.0,
+                AirRatio = hasAir ? airRatio : 0.0,
                 BurstAir = hasAir ? burstAir : AmbientAir.SeaLevel,
                 SoundMetresPerSecond = hasAir ? sound : BlastWave.SoundMetresPerSecond,
             });
@@ -962,7 +966,7 @@ internal static class NuclearClouds
 
             // At its largest, not at age zero: the ramp is at 60% there, and a diagnostic that
             // reports the smallest the thing ever is sends the next reader looking in the wrong place.
-            MushroomCloud.Flash peak = MushroomCloud.FlashAt(chargeKg, MushroomCloud.GrowthSeconds(kt), height, airRatio);
+            MushroomCloud.Flash peak = MushroomCloud.FlashAt(chargeKg, MushroomCloud.GrowthSeconds(kt, airRatio), height, airRatio);
 
             // What is drawn, with the law beside it: they differ by MushroomCloud.DrawnScale, and a
             // diagnostic reporting only the law sends the next reader to the wrong place when the
@@ -976,10 +980,10 @@ internal static class NuclearClouds
                             : $"cap {MushroomCloud.DrawnCapAcross(kt) / 1000.0:F2} km across ")
                      + $"(drawn at {MushroomCloud.DrawnScale:P0} of the law's "
                      + $"{MushroomCloud.CloudTop(kt) / 1000.0:F2} km)");
-            Log.Info($"  fireball {peak.Radius:F0} m for {MushroomCloud.FlashSeconds(kt):F1} s, "
+            Log.Info($"  fireball {peak.Radius:F0} m for {MushroomCloud.FlashSeconds(kt, hasAir ? airRatio : 0.0):F1} s, "
                      + $"glow {peak.Glow:F0}, light {(Fireball.LightAccepted ? "on" : "STOOD DOWN")}, "
-                     + $"white-hot {MushroomCloud.WhiteHotSeconds(kt):F1} s, "
-                     + $"grown by {MushroomCloud.GrowthSeconds(kt):F2} s");
+                     + $"white-hot {MushroomCloud.WhiteHotSeconds(kt, airRatio):F1} s, "
+                     + $"grown by {MushroomCloud.GrowthSeconds(kt, airRatio):F2} s");
         }
         catch (Exception e)
         {

@@ -2701,6 +2701,8 @@ air burst, and Tsar Bomba*, has the numbers.
       went by the air at the burst; at 33 km it still breaks one.
 - [x] 50 Mt at 37 km over the camera is heard and shakes the view 59 s later at 11 kPa, where it was
       silent; 3.8 Mt at 77 km is faint at 150 Pa. **By ear**: [ ] the delay and the loudness sound right.
+- [x] A burst on the Moon is a half-second flash inside its thrown dust, not a fireball glowing for
+      seconds; Teak's ball is 27 km across and gone in under 4 s.
 
 ---
 

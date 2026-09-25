@@ -192,7 +192,7 @@ public class SeaLevelPinTests(ITestOutputHelper output)
     [Fact]
     public void TheRegimesArePinned()
     {
-        Assert.Equal(0x270E67CA0C445DC2UL, Pin("regimes", f =>
+        Assert.Equal(0x7504242357459262UL, Pin("regimes", f =>
         {
             foreach (double air in new[] { 1.0, 0.13, 0.015, 0.0098, 1e-3, 2.5e-4, 1e-4, 1e-5, 2e-7, 0.0 })
             {

@@ -143,8 +143,8 @@ internal sealed class DropScenario
 
     private double _allCapturedAt = double.NaN;
 
-    // Whether this burst has a fireball at all. Nothing to do with air: a fireball is incandescent
-    // gas, and the vacuum one is if anything brighter for having no atmosphere in the way.
+    // Whether this burst has a fireball at all. Nothing to do with air: with none it still flashes,
+    // briefly, as the device's own vapour.
     private bool BurstIsNuclear
         => (_watchTheCloud || ChaseTheCloud) && _round is { } r && r.Munition.ChargeKg >= MushroomCloud.ThresholdKg;
 

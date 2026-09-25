@@ -80,7 +80,7 @@ internal static class DebrisShell
         double hotShare = hot / (hot + after);
         double3 colour = hot > 0.0 ? Lerp(AfterglowColour, flash.Colour, hotShare) : AfterglowColour;
 
-        double fill = 1.0 - Smooth(age / Math.Max(MushroomCloud.FlashSeconds(kt), 1e-6));
+        double fill = 1.0 - Smooth(age / Math.Max(MushroomCloud.FlashSeconds(kt, airRatio), 1e-6));
         double held = FieldHold(airRatio);
         double elongation = 1.0 + ((MostElongation - 1.0) * held * Smooth(age / StretchSeconds));
 

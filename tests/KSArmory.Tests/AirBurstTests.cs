@@ -288,9 +288,11 @@ public class AirBurstTests(ITestOutputHelper output)
         Assert.True(old.CapCentre > young.CapCentre, "it climbs");
         Assert.True(old.CapTube > young.CapTube, "and swells");
 
+        // Grown by the cube root of the thinning air, and sooner, since the pulse is quicker there.
         double dense = MushroomCloud.FlashAt(1000.0 * Kt, 1.0, height).Radius;
         double inThin = MushroomCloud.FlashAt(1000.0 * Kt, 1.0, height, thin).Radius;
-        Assert.Equal(Math.Cbrt(1.0 / thin), inThin / dense, 6);
+        Assert.Equal(Math.Cbrt(1.0 / thin), MushroomCloud.ThinAirGrowth(thin), 12);
+        Assert.True(inThin / dense >= Math.Cbrt(1.0 / thin), $"{inThin / dense:F2}");
 
         // The bound holds the whole ball through its life.
         double bound = MushroomCloud.RisenBound(1000.0, height, thin);

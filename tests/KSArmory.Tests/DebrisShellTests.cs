@@ -17,7 +17,8 @@ public class DebrisShellTests(ITestOutputHelper output)
     [Fact]
     public void ItStartsWhiteHotAndFillingTheBall()
     {
-        DebrisShell.Look early = DebrisShell.At(Charge, 1.0, Height, AirAt100Km);
+        // Teak's was measured at 0.3 s: its white-hot phase is seconds at this height, not tens of them.
+        DebrisShell.Look early = DebrisShell.At(Charge, 0.3, Height, AirAt100Km);
 
         Assert.False(early.Spent);
         Assert.True(early.Fill > 0.9, $"fill {early.Fill:F2}");

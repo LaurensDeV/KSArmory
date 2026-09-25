@@ -351,15 +351,15 @@ public static class MushroomCloud
     /// <summary>
     /// How much bigger a fireball grows in thinner air: as the inverse cube root of the density
     /// (Glasstone and Dolan, 2.130), since it swells until it has swept up a given mass of air.
-    /// Bounded, because far above the air the ball is X-ray heated air spread over tens of kilometres,
-    /// which this does not try to draw.
+    /// Bounded where Teak's stopped: 3.8 Mt at 77 km was 29 km across at 3.5 s, eight times its size in
+    /// dense air, in air a cube root would have grown it 35 times.
     /// </summary>
     public static double ThinAirGrowth(double airRatio)
         => double.IsFinite(airRatio) && airRatio > 0.0 ? Math.Clamp(Math.Cbrt(1.0 / airRatio), 1.0, MostThinAirGrowth)
                                                        : MostThinAirGrowth;
 
     /// <summary>The most thin air grows a fireball by.</summary>
-    public const double MostThinAirGrowth = 10.0;
+    public const double MostThinAirGrowth = 8.0;
 
     /// <summary>
     /// How many of its own radii a thin-air fireball's debris climbs over the rise, and how many times
@@ -757,6 +757,32 @@ public static class MushroomCloud
         => Math.Min(DarkAfter(yieldKt), LongestGlowSeconds);
 
     /// <summary>
+    /// <see cref="FlashSeconds(double)"/> in the air the burst went off in (<see cref="ThermalAltitude.GlowScale"/>):
+    /// Orange's ball glowed about 18 s and Teak's 2.5. Uncapped where the air is too thin for a column,
+    /// since the cap only keeps a ball from outliving its own mushroom; and no air at all is the vacuum's
+    /// flash, <see cref="VacuumFlashSeconds"/>.
+    /// </summary>
+    public static double FlashSeconds(double yieldKt, double airRatio)
+    {
+        if (double.IsFinite(airRatio) && airRatio == 0.0) return VacuumFlashSeconds(yieldKt);
+
+        double scale = ThermalAltitude.GlowScale(airRatio);
+        double real = scale == 1.0 ? DarkAfter(yieldKt) : DarkAfter(yieldKt) * scale;
+        return IsThin(airRatio) ? real : Math.Min(real, LongestGlowSeconds);
+    }
+
+    /// <summary>
+    /// How long a burst with no air round it is seen: the device's own vapour, flashing and gone, since
+    /// there is nothing for its X-rays to heat into a fireball. The pulse's own fall, held to half a
+    /// second so it is seen at all.
+    /// </summary>
+    public static double VacuumFlashSeconds(double yieldKt)
+        => yieldKt <= 0.0 ? 0.0 : Math.Max(6.0 * PulseDecayInMinima * PulseMinimumSeconds(yieldKt), LeastVacuumFlashSeconds);
+
+    /// <summary>The shortest a vacuum flash is drawn (s).</summary>
+    public const double LeastVacuumFlashSeconds = 0.5;
+
+    /// <summary>
     /// The longest a ball is drawn glowing. 20 kt keeps its real 9.9 s; above that the glow still
     /// lengthens with yield where the law has it past a third of the rise, which is when the cap has
     /// formed round the ball on the compressed clock.
@@ -784,6 +810,29 @@ public static class MushroomCloud
     /// </summary>
     public static double GrowthSeconds(double yieldKt)
         => yieldKt <= 0.0 ? 0.0 : Math.Max(4.0 * ThermalMaximumSeconds(yieldKt), 0.2);
+
+    /// <summary><see cref="GrowthSeconds(double)"/> on the pulse of the air the burst went off in.</summary>
+    public static double GrowthSeconds(double yieldKt, double airRatio)
+    {
+        double scale = ThermalAltitude.PulseScale(airRatio);
+        return scale == 1.0 ? GrowthSeconds(yieldKt) : GrowthSeconds(yieldKt) * scale;
+    }
+
+    /// <summary>
+    /// <see cref="WhiteHotSeconds(double)"/> in the air the burst went off in: the heat pulse on its own
+    /// clock there, and still never past half the glow.
+    /// </summary>
+    public static double WhiteHotSeconds(double yieldKt, double airRatio)
+    {
+        if (yieldKt <= 0.0) return 0.0;
+
+        double scale = ThermalAltitude.PulseScale(airRatio);
+        double dark = FlashSeconds(yieldKt, airRatio);
+        if (scale == 1.0 && dark == FlashSeconds(yieldKt)) return WhiteHotSeconds(yieldKt);
+
+        double pulse = Math.Max(10.0 * ThermalMaximumSeconds(yieldKt), 1.2 * PulsePeakSeconds(yieldKt)) * scale;
+        return Math.Min(pulse, 0.5 * dark);
+    }
 
     private static double Smoothstep(double edge0, double edge1, double x)
     {
@@ -1035,13 +1084,16 @@ public static class MushroomCloud
     {
         double kt = KilotonsFor(chargeKg);
         if (kt <= 0.0 || age < 0.0) return default;
+        if (double.IsFinite(airRatio) && airRatio == 0.0) return VacuumFlashAt(kt, age);
 
-        double dark = FlashSeconds(kt);
+        // The heat pulse and the glow by the air (ThermalAltitude); each exactly one at sea level.
+        double pulseScale = ThermalAltitude.PulseScale(airRatio);
+        double dark = FlashSeconds(kt, airRatio);
         if (age >= dark + EmberSeconds) return default;
 
         double t = Math.Min(1.0, age / dark);
         double ember = age <= dark ? 0.0 : (age - dark) / EmberSeconds;
-        double whiteHot = WhiteHotSeconds(kt);
+        double whiteHot = WhiteHotSeconds(kt, airRatio);
 
         // Growing as t^0.4 to its largest, then contracting: gently while it burns, hard once it is
         // an ember. From a tenth of its size, so the first frame has a ball in it.
@@ -1052,7 +1104,7 @@ public static class MushroomCloud
         // ball can shrink without contradicting a law that says a fireball only ever grows, and it
         // is what lets it recede into its own smoke instead of being switched off inside it.
         double radius = FireballRadius(kt) * GroundGain(kt, burstHeight) * ThinAirGrowth(airRatio)
-                        * Math.Clamp(Math.Pow(age / GrowthSeconds(kt), 0.4), 0.10, 1.0)
+                        * Math.Clamp(Math.Pow(age / GrowthSeconds(kt, airRatio), 0.4), 0.10, 1.0)
                         * (1.0 - (LuminousShrink * t))
                         * (1.0 - (EmberShrink * ember));
 
@@ -1085,7 +1137,7 @@ public static class MushroomCloud
         // arrive at exactly EmberGlow when t reaches 1.
         // THE PULSE has a hard deadline of its own rather than a fraction of the luminous phase:
         // it is shock-front radiation, and it is over long before the ball is.
-        double tMin = PulseMinimumSeconds(kt);
+        double tMin = PulseMinimumSeconds(kt) * pulseScale;
         double pulse = tMin > 0.0
                            ? PeakGlow * Math.Exp(-age / (tMin * PulseDecayInMinima))
                            : 0.0;
@@ -1099,7 +1151,11 @@ public static class MushroomCloud
         // It reaches one at the second maximum and the term under it is unchanged from there on,
         // so the burn and the ember below it are reached unchanged.
         double opening = ShockFrontShare
-                         + ((1.0 - ShockFrontShare) * Smoothstep(tMin, PulsePeakSeconds(kt), age));
+                         + ((1.0 - ShockFrontShare) * Smoothstep(tMin, PulsePeakSeconds(kt) * pulseScale, age));
+
+        // In thin air there is no front to hide the ball, and the two maxima merge into one.
+        double single = ThermalAltitude.SinglePulse(airRatio);
+        if (single > 0.0) opening += (1.0 - opening) * single;
 
         double burn = age <= whiteHot
                           ? WhiteHotGlow * Math.Pow(BurnGlow / WhiteHotGlow, age / whiteHot)
@@ -1110,6 +1166,18 @@ public static class MushroomCloud
                           : EmberGlow * (1.0 - Smoothstep(0.0, 1.0, ember));
 
         return new Flash(radius, colour, glow);
+    }
+
+    // The vacuum's flash: the device's vapour, white-blue and at the pulse's peak brightness, growing to a
+    // dense-air ball's size and gone within the flash, with no burn and no ember to follow.
+    private static Flash VacuumFlashAt(double kt, double age)
+    {
+        double seconds = VacuumFlashSeconds(kt);
+        if (age >= seconds) return default;
+
+        double radius = FireballRadius(kt) * Math.Clamp(Math.Pow(age / GrowthSeconds(kt), 0.4), 0.10, 1.0);
+        double glow = PeakGlow * Math.Exp(-6.0 * age / seconds) * (1.0 - Smoothstep(0.8 * seconds, seconds, age));
+        return new Flash(radius, new double3(0.85, 0.9, 1.0), glow);
     }
 
     /// <summary>

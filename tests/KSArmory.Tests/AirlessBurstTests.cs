@@ -128,7 +128,7 @@ public class AirlessBurstTests
     [Fact]
     public void TheShellLastsAsLongAsTheFlash()
     {
-        Assert.Equal(MushroomCloud.FlashSeconds(0.3), AirlessBurst.ShellSeconds(0.3 * Kt), 6);
+        Assert.Equal(MushroomCloud.VacuumFlashSeconds(0.3), AirlessBurst.ShellSeconds(0.3 * Kt), 6);
         Assert.True(AirlessBurst.ShellRadius(0.3 * Kt) > MushroomCloud.PeakFireballRadius(0.3));
     }
 

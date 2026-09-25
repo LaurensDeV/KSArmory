@@ -121,7 +121,8 @@ internal static class BurstFlash
                 // on the scale an eye answers on, so a burst four times further off is a step
                 // dimmer rather than a sixteenth as bright. Linear in the light, it was a whiteout
                 // at 2.4 km and next to nothing at 10.
-                double suns = FlashGlare.Suns(MushroomCloud.KilotonsFor(charge), range, flash.Glow);
+                double suns = FlashGlare.Suns(MushroomCloud.KilotonsFor(charge), range, flash.Glow,
+                                              NuclearClouds.BurningAir(i));
                 double adapted = FlashGlare.AdaptedTo(
                     body is not null ? KsaWorld.SunElevationDeg(body, eyeEcl) : double.NaN);
 
