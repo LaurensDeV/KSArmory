@@ -1692,15 +1692,17 @@ void main()
     bool wantsScorch = pc.FireSun.w > 0.0;
     bool wantsCloud = pc.AgeStrengthWind.y > 0.0 && pc.CentreRadius.w > 0.0;
 
-    // Three flags on a cloud's dispatch, in its fourth fireball float, summed and negated because
+    // The flags on a cloud's dispatch, in its fourth fireball float, summed and negated because
     // positive there means a ground mark: 1 if the column is spray, 2 if there are no weather
-    // clouds bound, 4 if it is the first cloud this frame; and eight times the blast front's radius
-    // in whole metres. A mark's dispatch says the second in its shape's second float instead.
-    // CloudPass.CloudFlags writes exactly this, and every term is an integer, so the arithmetic is
-    // exact.
+    // clouds bound, 4 if it is the first cloud this frame, eight times the dryness in sevenths; and
+    // sixty-four times the blast front's radius in whole metres. A mark's dispatch says the second in
+    // its shape's second float instead. Sim/CloudFlags.cs writes exactly this, and every term is an
+    // integer below 2^24, so the arithmetic is exact.
     float cloudFlags = wantsCloud ? -pc.FireSun.w : 0.0;
-    float flagBits = mod(cloudFlags, 8.0);
-    float shockRadius = floor((cloudFlags + 0.5) / 8.0);
+    float flagBits = mod(cloudFlags, 64.0);
+    float shockRadius = floor(cloudFlags / 64.0);
+    float dryness = floor(flagBits / 8.0) / 7.0;
+    flagBits = mod(flagBits, 8.0);
     bool columnIsWater = mod(flagBits, 2.0) > 0.5;
     bool weatherBound = wantsCloud ? (mod(floor(flagBits / 2.0), 2.0) < 0.5) : (pc.Shape.y > 0.5);
     bool firstCloud = flagBits > 3.5;

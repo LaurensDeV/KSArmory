@@ -666,7 +666,7 @@ internal static class CloudPass
                         // how much of a stem it raised: MushroomCloud.PackHeat.
                         FireSun = new float4((float)flash.Radius, (float)flash.Glow,
                                              MushroomCloud.PackHeat(heat, shape.Coupling, shape.StemShare),
-                                             CloudFlags(water, weather, first: drawn == 0, shape.Shock)),
+                                             KSArmory.CloudFlags.Pack(water, weather, first: drawn == 0, shape.Shock)),
 
                         // The same shape MushroomCloud carries, so every dimension stays
                         // Glasstone's rather than being invented again in GLSL.
@@ -1290,20 +1290,6 @@ internal static class CloudPass
     private const double ScorchScreenReach = 3.3;
     private const double ScorchScreenWidth = 1.8;
     private const double ScorchScreenBehind = 1.2;
-
-    // The fourth fireball float on a cloud's dispatch: 1 if the column is spray, 2 if there are no
-    // weather clouds to respect and 4 if it is the frame's first cloud, which clears the layer; and
-    // eight times the blast front's radius in whole metres, which the ring of dust it lifts is drawn
-    // from -- summed and NEGATED, because a positive value there is what makes the shader read a
-    // dispatch as a ground mark. Exact as a float to 2,000 km, which the front never reaches while
-    // the cloud stands. KSArmoryCloud.comp decodes exactly this.
-    private static float CloudFlags(bool water, bool weather, bool first, double shockMetres)
-    {
-        double shock = Math.Clamp(Math.Round(shockMetres), 0.0, MostShockMetres);
-        return -(float)((water ? 1.0 : 0.0) + (weather ? 0.0 : 2.0) + (first ? 4.0 : 0.0) + (8.0 * shock));
-    }
-
-    private const double MostShockMetres = 2.0e6;
 
     // One compute-write to compute-read barrier, so a dispatch sees what the one before it wrote.
     private static void Hazard(CommandBuffer commandBuffer)
