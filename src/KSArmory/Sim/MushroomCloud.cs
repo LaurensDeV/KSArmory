@@ -616,37 +616,54 @@ public static class MushroomCloud
     /// </summary>
     public static double ShockArrivalSeconds(double yieldKt, double distanceMetres)
     {
+        return ShockArrivalIn(yieldKt, distanceMetres, AirKgPerM3, SoundMetresPerSecond, BlastWave.SurfaceReflection);
+    }
+
+    private static double ShockRadiusAt(double yieldKt, double age)
+        => ShockRadiusIn(yieldKt, age, AirKgPerM3, SoundMetresPerSecond, BlastWave.SurfaceReflection);
+
+    /// <summary>
+    /// <see cref="ShockRadius"/> in any air: its density (kg/m³), its speed of sound (m/s), and the
+    /// energy's multiple for the ground, two for a burst on it and one in free air.
+    /// </summary>
+    internal static double ShockRadiusIn(double yieldKt, double age, double densityKgPerM3,
+                                         double soundMetresPerSecond, double reflection)
+    {
+        if (yieldKt <= 0.0 || age <= 0.0 || !(densityKgPerM3 > 0.0) || !(soundMetresPerSecond > 0.0)) return 0.0;
+
+        double k = 1.03 * Math.Pow(reflection * yieldKt * JoulesPerKiloton / densityKgPerM3, 0.2);
+
+        // Where the Sedov speed, 0.4 R/t, falls to the release Mach number.
+        double released = Math.Pow(0.4 * k / (StrongShockMach * soundMetresPerSecond), 1.0 / 0.6);
+        if (age <= released) return k * Math.Pow(age, 0.4);
+
+        double since = age - released;
+        double excess = (StrongShockMach - 1.0) * soundMetresPerSecond;
+
+        return (k * Math.Pow(released, 0.4)) + (soundMetresPerSecond * since)
+               + (excess * released * (1.0 - Math.Exp(-since / released)));
+    }
+
+    /// <summary>The inverse of <see cref="ShockRadiusIn"/>, bisected as <see cref="ShockArrivalSeconds"/> is.</summary>
+    internal static double ShockArrivalIn(double yieldKt, double distanceMetres, double densityKgPerM3,
+                                          double soundMetresPerSecond, double reflection)
+    {
         if (yieldKt <= 0.0 || !(distanceMetres > 0.0)) return 0.0;
+        if (!(densityKgPerM3 > 0.0) || !(soundMetresPerSecond > 0.0)) return double.PositiveInfinity;
 
         double late = 1.0;
-        while (ShockRadiusAt(yieldKt, late) < distanceMetres && late < 3600.0) late *= 2.0;
+        while (ShockRadiusIn(yieldKt, late, densityKgPerM3, soundMetresPerSecond, reflection) < distanceMetres
+               && late < 3600.0) late *= 2.0;
 
         double early = 0.0;
         for (int i = 0; i < 60; i++)
         {
             double mid = 0.5 * (early + late);
-            if (ShockRadiusAt(yieldKt, mid) < distanceMetres) early = mid;
+            if (ShockRadiusIn(yieldKt, mid, densityKgPerM3, soundMetresPerSecond, reflection) < distanceMetres) early = mid;
             else late = mid;
         }
 
         return late;
-    }
-
-    private static double ShockRadiusAt(double yieldKt, double age)
-    {
-        if (yieldKt <= 0.0 || age <= 0.0) return 0.0;
-
-        double k = 1.03 * Math.Pow(2.0 * yieldKt * JoulesPerKiloton / AirKgPerM3, 0.2);
-
-        // Where the Sedov speed, 0.4 R/t, falls to the release Mach number.
-        double released = Math.Pow(0.4 * k / (StrongShockMach * SoundMetresPerSecond), 1.0 / 0.6);
-        if (age <= released) return k * Math.Pow(age, 0.4);
-
-        double since = age - released;
-        double excess = (StrongShockMach - 1.0) * SoundMetresPerSecond;
-
-        return (k * Math.Pow(released, 0.4)) + (SoundMetresPerSecond * since)
-               + (excess * released * (1.0 - Math.Exp(-since / released)));
     }
 
     /// <summary>
