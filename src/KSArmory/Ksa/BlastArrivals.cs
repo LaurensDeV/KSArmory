@@ -15,7 +15,7 @@ namespace KSArmory;
 ///
 /// <para><b>The front is followed, not timed.</b> The burst is anchored to the ground it went off
 /// on, and each step every part still waiting is measured against the front as it is now: struck
-/// when <see cref="MushroomCloud.ShockRadius"/> reaches it, and pushed along the line from the burst
+/// when the burst's own <see cref="BlastFront"/> reaches it, and pushed along the line from the burst
 /// to where it is then. A craft in flight moves and turns between the flash and the hit, and one
 /// climbing faster than the front is never caught; an arrival time and a direction fixed at the
 /// flash get both wrong.</para>
@@ -45,6 +45,9 @@ internal static class BlastArrivals
 
         // The ground under the burst, for a front that stands on it as a Mach stem.
         public required GroundReflection Ground;
+
+        // The burst's own front, in the air it went off in.
+        public required BlastFront Front;
         public required bool MayBreak;
 
         // Seconds since the burst, and the front's arrival at this part as things stand now.
@@ -106,7 +109,8 @@ internal static class BlastArrivals
     /// </summary>
     public static void Queue(Vehicle craft, Part part, double3 burstEcl, double sinceBurst, double airRatio,
                              double chargeKg, double crashTolerancePascals, bool mayBreak,
-                             double reflection = BlastWave.SurfaceReflection, GroundReflection? ground = null)
+                             double reflection = BlastWave.SurfaceReflection, GroundReflection? ground = null,
+                             BlastFront? front = null)
     {
         if (!KsaWorld.TryAnchorToGround(burstEcl, out object? body, out double3 anchor)) return;
 
@@ -121,6 +125,7 @@ internal static class BlastArrivals
             TolerancePascals = crashTolerancePascals,
             Reflection = reflection,
             Ground = ground ?? GroundReflection.FreeAir,
+            Front = front ?? BlastFront.SeaLevel(chargeKg),
             MayBreak = mayBreak,
             Age = Math.Max(sinceBurst, 0.0),
         });
@@ -215,10 +220,11 @@ internal static class BlastArrivals
             return true;
         }
 
-        double kt = MushroomCloud.KilotonsFor(load.ChargeKg);
-        load.Due = MushroomCloud.ShockRadius(kt, load.Age) >= load.Gap
+        // Where the burst's own air carries no front, the load lands at once, as it does with no air here.
+        double arrives = load.Front.ArrivalSeconds(load.Gap);
+        load.Due = !double.IsFinite(arrives) || load.Front.Radius(load.Age) >= load.Gap
             ? 0.0
-            : Math.Max(MushroomCloud.ShockArrivalSeconds(kt, load.Gap) - load.Age, 1.0e-6);
+            : Math.Max(arrives - load.Age, 1.0e-6);
 
         return true;
     }

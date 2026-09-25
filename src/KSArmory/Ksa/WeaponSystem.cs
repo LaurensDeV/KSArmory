@@ -70,6 +70,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
     // What the ground under the burst being applied adds to its blast, measured once per burst.
     private GroundReflection _ground = GroundReflection.FreeAir;
+
+    // And its front, in the air it went off in, built beside it.
+    private BlastFront _front = BlastFront.SeaLevel(0.0);
     private readonly List<Part> _partHandles = [];
     private readonly List<int> _failedParts = [];
     private readonly List<(int Index, double PressureRatio, double GapMetres)> _dentLoads = [];
@@ -3470,6 +3473,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         double3 burst = round.PositionEcl;
         _ground = GroundFor(burst, round.DetonationElapsedInFrame, round.Munition.ChargeKg);
+        _front = FrontFor(burst, round.DetonationElapsedInFrame, round.Munition.ChargeKg);
         MunitionProfile judged = JudgedAs(round.Munition, burst, round.DetonationElapsedInFrame);
 
         // Which fuse fired, because a burst looks the same either way and the flak setting is
@@ -3767,6 +3771,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         _burstDamaged.Clear();
         _ground = GroundFor(burstEcl, Math.Min(inFrame, 0.0), munition.ChargeKg);
+        _front = FrontFor(burstEcl, Math.Min(inFrame, 0.0), munition.ChargeKg);
         Splash(burstEcl, Math.Min(inFrame, 0.0), JudgedAs(munition, burstEcl, Math.Min(inFrame, 0.0)), spareOwn);
         ApplyPendingKills();
     }
@@ -3781,6 +3786,19 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         double3 atSample = BlastSweep.GroundAtSample(burst, KsaWorld.GroundVelocityAt(body, burst), elapsed);
         return KsaWorld.GroundReflectionAt(body, atSample, chargeKg);
+    }
+
+    // The burst's own front: its whole charge, in the air at it carried to the sample, at its body's speed
+    // of sound, doubled as far as the ground under it is there to reflect it.
+    private BlastFront FrontFor(double3 burst, double elapsed, double chargeKg)
+    {
+        if ((EffectBody ?? Detonation.BodyFor(Platform)) is not { } body) return BlastFront.SeaLevel(chargeKg);
+
+        double3 atSample = BlastSweep.GroundAtSample(burst, KsaWorld.GroundVelocityAt(body, burst), elapsed);
+        // Free air has no ground near enough to reflect anything.
+        double height = double.IsFinite(_ground.Height) ? Math.Max(_ground.Height, 0.0) : double.PositiveInfinity;
+        return BlastFront.For(chargeKg, KsaWorld.AirAt(body, atSample), KsaWorld.BodyAirOf(body).SoundMetresPerSecond,
+                              height);
     }
 
     // The profile a burst's damage is judged on: its charge as the air it went off in leaves it
@@ -3849,8 +3867,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         double airRatio = KsaWorld.AirDensityRatioAt(v, burst);
         bool air = airRatio > Medium.NoticeableDensity;
-        double kt = MushroomCloud.KilotonsFor(munition.ChargeKg);
-
         // The fronts are followed against the body as it is at the sample, which the burst is up to a
         // step of the planet's motion behind: anchored as it stands it sits hundreds of metres off
         // the ground it went off on, and every push points along that error.
@@ -3860,10 +3876,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         double last = 0.0;
         foreach ((int index, double ratio, double gap) in _dentLoads)
         {
-            double due = air ? MushroomCloud.ShockArrivalSeconds(kt, gap) - elapsed : 0.0;
+            double due = air ? _front.ArrivalSeconds(gap) - elapsed : 0.0;
             BlastArrivals.Queue(v, _partHandles[index], groundAtSample, -elapsed, air ? airRatio : 0.0,
                                 munition.ChargeKg, _partScratch[index].CrashTolerancePascals, mayBreak,
-                                _partScratch[index].Reflection, _ground);
+                                _partScratch[index].Reflection, _ground, _front);
 
             first = Math.Min(first, due);
             last = Math.Max(last, due);

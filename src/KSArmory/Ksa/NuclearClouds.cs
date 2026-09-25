@@ -36,6 +36,12 @@ internal static class NuclearClouds
         // MushroomCloud.ThinAirRatio, and a bigger fireball the thinner it is.
         public double AirRatio = 1.0;
 
+        // The air at the burst and its body's speed of sound, which its blast front runs in.
+        public AmbientAir BurstAir = AmbientAir.SeaLevel;
+        public double SoundMetresPerSecond = BlastWave.SoundMetresPerSecond;
+        public BlastFront Front => BlastFront.For(ChargeKg, BurstAir, SoundMetresPerSecond, Height);
+        public MushroomCloud.Shape Shape => MushroomCloud.At(ChargeKg, Age, Height, AirRatio, Front);
+
         // Which way this one leans. Fixed per cloud rather than per frame, or the column would
         // wander; and per cloud rather than global, so two bursts in sight of each other do not
         // lean identically.
@@ -69,8 +75,7 @@ internal static class NuclearClouds
                                  + cloud.GroundCcf.Transform(cloud.Body.GetCce2Ccf().Inverse());
                 double3 up = cloud.Up.Transform(cloud.Body.GetCce2Ccf().Inverse());
                 double3 centre = ground
-                                 + (Vec.Unit(up) * MushroomCloud.At(cloud.ChargeKg, cloud.Age, cloud.Height,
-                                                                     cloud.AirRatio).CapCentre);
+                                 + (Vec.Unit(up) * cloud.Shape.CapCentre);
 
                 if (FireballBlackout.Blocks(radarEcl, contactEcl, centre, radius)) return true;
             }
@@ -86,6 +91,15 @@ internal static class NuclearClouds
     /// <summary>The newest burst's age and charge: its cloud if it grew one, else its fireball.</summary>
     public static bool TryNewest(out double ageSeconds, out double chargeKg)
         => TryNewest(out ageSeconds, out chargeKg, out _);
+
+    /// <summary>The newest burst's shape as it is drawn, against its own front.</summary>
+    public static bool TryNewestShape(out MushroomCloud.Shape shape)
+    {
+        shape = default;
+        if (_clouds.Count > 0) { shape = _clouds[^1].Shape; return true; }
+        if (_burning.Count > 0) { shape = _burning[^1].Shape; return true; }
+        return false;
+    }
 
     /// <summary>As above, with how far over the ground it went off.</summary>
     public static bool TryNewest(out double ageSeconds, out double chargeKg, out double heightMetres)
@@ -153,7 +167,12 @@ internal static class NuclearClouds
         public required bool Rises;
         public double Height;
         public double AirRatio = 1.0;
+        public AmbientAir BurstAir = AmbientAir.SeaLevel;
+        public double SoundMetresPerSecond = BlastWave.SoundMetresPerSecond;
         public double Age;
+        public MushroomCloud.Shape Shape
+            => MushroomCloud.At(ChargeKg, Age, Height, AirRatio,
+                                BlastFront.For(ChargeKg, BurstAir, SoundMetresPerSecond, Height));
     }
 
     private static readonly List<Burning> _burning = [];
@@ -512,8 +531,7 @@ internal static class NuclearClouds
             // Measured from the ground under it, where the cap's heights are.
             double3 up = Vec.Unit(one.BurstCcf);
             double3 ballCcf = one.Rises
-                                  ? one.BurstCcf + (up * (MushroomCloud.At(one.ChargeKg, one.Age, one.Height,
-                                                                           one.AirRatio).CapCentre
+                                  ? one.BurstCcf + (up * (one.Shape.CapCentre
                                                           - one.Height))
                                   : one.BurstCcf;
 
@@ -582,7 +600,7 @@ internal static class NuclearClouds
                        + cloud.BurstCcf.Transform(cloud.Body.GetCce2Ccf().Inverse());
             up = cloud.Up.Transform(cloud.Body.GetCce2Ccf().Inverse());
             chargeKg = cloud.ChargeKg;
-            frontMetres = MushroomCloud.ShockRadius(MushroomCloud.KilotonsFor(cloud.ChargeKg), cloud.Age);
+            frontMetres = cloud.Front.Radius(cloud.Age);
 
             return Vec.IsFinite(burstEcl) && Vec.IsFinite(up) && frontMetres > 0.0;
         }
@@ -654,7 +672,7 @@ internal static class NuclearClouds
             look = DebrisShell.At(cloud.ChargeKg, cloud.Age, cloud.Height, cloud.AirRatio);
             if (look.Spent) return false;
 
-            MushroomCloud.Shape shape = MushroomCloud.At(cloud.ChargeKg, cloud.Age, cloud.Height, cloud.AirRatio);
+            MushroomCloud.Shape shape = cloud.Shape;
             body = cloud.Body;
             radius = shape.CapRadius;
 
@@ -709,7 +727,7 @@ internal static class NuclearClouds
                        + cloud.GroundCcf.Transform(cloud.Body.GetCce2Ccf().Inverse());
             up = cloud.Up.Transform(cloud.Body.GetCce2Ccf().Inverse());
             ageSeconds = cloud.Age;
-            shape = MushroomCloud.At(cloud.ChargeKg, cloud.Age, cloud.Height, cloud.AirRatio);
+            shape = cloud.Shape;
 
             // The ball, so the pass can light the cloud from inside it while it burns.
             flash = MushroomCloud.FlashAt(cloud.ChargeKg, cloud.Age, cloud.Height, cloud.AirRatio);
@@ -818,6 +836,8 @@ internal static class NuclearClouds
                                                  ? Math.Max(given, 0.0)
                                                  : KsaWorld.BurstHeightOf(body, burstEcl);
             double airRatio = hasAir ? KsaWorld.AirDensityRatioAt(body, burstEcl) : 0.0;
+            AmbientAir burstAir = hasAir ? KsaWorld.AirAt(body, burstEcl) : AmbientAir.None;
+            double sound = KsaWorld.BodyAirOf(body).SoundMetresPerSecond;
             bool thin = hasAir && MushroomCloud.IsThin(airRatio);
             double3 up = Vec.Unit(burstCcf);
             double3 groundCcf = burstCcf - (up * height);
@@ -862,6 +882,8 @@ internal static class NuclearClouds
                 Rises = hasAir && setting != BurstSetting.Underwater,
                 Height = height,
                 AirRatio = hasAir ? airRatio : 1.0,
+                BurstAir = hasAir ? burstAir : AmbientAir.SeaLevel,
+                SoundMetresPerSecond = hasAir ? sound : BlastWave.SoundMetresPerSecond,
             });
 
             // As far as the fireball reached the ground: an air burst's leaves no crater or fallout.
@@ -902,6 +924,8 @@ internal static class NuclearClouds
                 Up = up,
                 Height = height,
                 AirRatio = airRatio,
+                BurstAir = burstAir,
+                SoundMetresPerSecond = sound,
                 Downwind = DownwindAt(groundCcf),
                 ChargeKg = chargeKg,
                 Water = setting == BurstSetting.WaterSurface && !thin,
@@ -1006,7 +1030,7 @@ internal static class NuclearClouds
             Cloud cloud = _clouds[i];
             cloud.Age += step;
 
-            MushroomCloud.Shape shape = MushroomCloud.At(cloud.ChargeKg, cloud.Age, cloud.Height, cloud.AirRatio);
+            MushroomCloud.Shape shape = cloud.Shape;
             if (cloud.Age > 0.0 && shape.Spent) { _clouds.RemoveAt(i); continue; }
 
             // A thin-air burst is drawn as its debris shell alone, so it ends when the shell does.

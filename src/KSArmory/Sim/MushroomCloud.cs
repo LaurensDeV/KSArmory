@@ -217,24 +217,24 @@ public static class MushroomCloud
 
     // When the front reaches the ground under an air burst: a bisection, and the same answer for every
     // shape of one cloud, so the last is kept. Per thread, since tests draw shapes in parallel.
-    private static double GroundArrival(double yieldKt, double burstHeight)
+    private static double GroundArrival(double yieldKt, double burstHeight, BlastFront? front)
     {
-        if (_arrival.Kt == yieldKt && _arrival.Height == burstHeight) return _arrival.Seconds;
+        if (_arrival.Kt == yieldKt && _arrival.Height == burstHeight && _arrival.Front == front) return _arrival.Seconds;
 
-        double seconds = ShockArrivalSeconds(yieldKt, burstHeight);
-        _arrival = (yieldKt, burstHeight, seconds);
+        double seconds = front is { } f ? f.ArrivalSeconds(burstHeight) : ShockArrivalSeconds(yieldKt, burstHeight);
+        _arrival = (yieldKt, burstHeight, front, seconds);
         return seconds;
     }
 
     [ThreadStatic]
-    private static (double Kt, double Height, double Seconds) _arrival;
+    private static (double Kt, double Height, BlastFront? Front, double Seconds) _arrival;
 
     // How far an air burst's column has formed: none until the front comes down to the ground.
-    private static double ColumnFormed(double yieldKt, double burstHeight, double age)
+    private static double ColumnFormed(double yieldKt, double burstHeight, double age, BlastFront? front)
     {
         if (!(burstHeight > 0.0)) return 1.0;
 
-        double reaches = GroundArrival(yieldKt, burstHeight);
+        double reaches = GroundArrival(yieldKt, burstHeight, front);
         return Smoothstep(reaches, reaches + ColumnFormsSeconds, age);
     }
 
@@ -1305,6 +1305,14 @@ public static class MushroomCloud
     }
 
     public static Shape At(double chargeKg, double age, double burstHeight = 0.0, double airRatio = 1.0)
+        => At(chargeKg, age, burstHeight, airRatio, null);
+
+    /// <summary>
+    /// <see cref="At(double, double, double, double)"/> against a burst's own <paramref name="front"/>, which
+    /// sets where the ring of dust is, how far the cloud is held inside it, and when an air burst's
+    /// column starts; null is a surface burst's in sea-level air.
+    /// </summary>
+    internal static Shape At(double chargeKg, double age, double burstHeight, double airRatio, BlastFront? front)
     {
         double kt = KilotonsFor(chargeKg);
         if (kt <= 0.0 || age < 0.0 || age >= LifeFor(kt)) return default;
@@ -1353,7 +1361,7 @@ public static class MushroomCloud
         // as the shader draws it rather than the upright shape: sheared downwind over the stand,
         // leaned, and with billows standing proud of the tube. A megatonne-class cloud is still
         // inside its front minutes in, and measured upright its downwind edge ran out ahead of it.
-        double shock = ShockRadius(kt, age);
+        double shock = front is { } f ? f.Radius(age) : ShockRadius(kt, age);
         double inside = InsideFront(cap, shock);
 
         // The front along the ground, which is what lifts the ring of dust: nothing until it has
@@ -1372,8 +1380,8 @@ public static class MushroomCloud
             Shock: onGround,
             Fade: Fade(age, kt),
             Coupling: GroundCoupling(kt, hob),
-            StemShare: StemShare(kt, hob) * AsFarAsAirborne(GroundCoupling(kt, hob), ColumnFormed(kt, hob, age)),
-            ColumnTop: AsFarAsAirborne(GroundCoupling(kt, hob), ColumnTopAt(kt, hob, age, underside, capCentre)));
+            StemShare: StemShare(kt, hob) * AsFarAsAirborne(GroundCoupling(kt, hob), ColumnFormed(kt, hob, age, front)),
+            ColumnTop: AsFarAsAirborne(GroundCoupling(kt, hob), ColumnTopAt(kt, hob, age, underside, capCentre, front)));
     }
 
     // What only an air burst does -- a column that waits for the front and climbs -- as far as this one
@@ -1385,11 +1393,11 @@ public static class MushroomCloud
     // An air burst's column as a share of the cap's height: nothing until the front is at the ground,
     // then climbing to its reach of the cap's underside. A surface burst's always joins.
     private static double ColumnTopAt(double yieldKt, double burstHeight, double age, double underside,
-                                      double capCentre)
+                                      double capCentre, BlastFront? front)
     {
         if (!(burstHeight > 0.0) || !(capCentre > 0.0)) return 1.0;
 
-        double reaches = GroundArrival(yieldKt, burstHeight);
+        double reaches = GroundArrival(yieldKt, burstHeight, front);
         double climbed = Smoothstep(reaches, reaches + ColumnClimbSeconds, age);
         double reach = ColumnReach(yieldKt, burstHeight);
         if (reach >= 1.0 && climbed >= 1.0) return 1.0;

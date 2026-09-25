@@ -779,7 +779,7 @@ internal sealed class Bridge
         if (NuclearClouds.TryNewest(out double age, out double charge, out double height))
         {
             double kt = MushroomCloud.KilotonsFor(charge);
-            MushroomCloud.Shape shape = MushroomCloud.At(charge, age, height);
+            NuclearClouds.TryNewestShape(out MushroomCloud.Shape shape);
 
             m["burst_age_s"] = Math.Round(age, 3);
             m["kt"] = kt;
@@ -791,14 +791,14 @@ internal sealed class Bridge
         if (NuclearClouds.TryWatch(out double3 burstEcl, out double3 up, out _, out double top, out _))
         {
             m["burst_screen"] = Screen(burstEcl);
-            m["cap_screen"] = NuclearClouds.TryNewest(out double a, out double c, out double h)
-                                  ? Screen(burstEcl + (Vec.Unit(up) * MushroomCloud.At(c, a, h).CapCentre))
+            m["cap_screen"] = NuclearClouds.TryNewestShape(out MushroomCloud.Shape capShape)
+                                  ? Screen(burstEcl + (Vec.Unit(up) * capShape.CapCentre))
                                   : null;
             m["top_screen"] = Screen(burstEcl + (Vec.Unit(up) * top));
 
-            if (NuclearClouds.TryNewest(out double nowAge, out double nowCharge, out double nowHeight))
+            if (NuclearClouds.TryNewestShape(out MushroomCloud.Shape boxShape))
             {
-                m["cloud_box"] = CloudBox(burstEcl, Vec.Unit(up), MushroomCloud.At(nowCharge, nowAge, nowHeight));
+                m["cloud_box"] = CloudBox(burstEcl, Vec.Unit(up), boxShape);
             }
 
             if (KsaWorld.TryMainCameraPose(out double3 eye, out _))
