@@ -174,6 +174,12 @@ public sealed class Config
     public bool NuclearBlackout = true;
 
     /// <summary>
+    /// Whether a burst high in the air sends out its red wave (<see cref="RedWave"/>) -- a faint red
+    /// sphere through the thermosphere for minutes. One full-screen dispatch while it lasts.
+    /// </summary>
+    public bool RedWave = true;
+
+    /// <summary>
     /// Count rounds per <em>craft</em> rather than per weapon when deciding whether a target has
     /// had enough.
     ///

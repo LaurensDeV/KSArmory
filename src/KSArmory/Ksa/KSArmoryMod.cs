@@ -831,6 +831,7 @@ public sealed class KSArmoryMod
 
         using (_budget.Measure("clouds"))
         {
+            NuclearClouds.RedWaves = _config.RedWave;
             if (_config.NuclearClouds) NuclearClouds.Update(_lastSimStep);
             else NuclearClouds.Clear();
         }

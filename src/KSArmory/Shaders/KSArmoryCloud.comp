@@ -1554,6 +1554,70 @@ void DrawDebris(ivec2 at, ivec2 size)
 }
 
 
+// Teak's red wave (Sim/RedWave.cs): a shell from FireSun.x - FireSun.y to FireSun.x round the burst at
+// CentreRadius, glowing only above FireSun.w, where the red is not quenched. Its path through the shell
+// is found in closed form -- the chords through the two spheres -- and each piece is weighed by how much
+// of it is above that height at a few points along it. No noise: the wave is smooth, and the eye has
+// nothing to catch.
+const vec3 RedWaveColour = vec3(0.90, 0.12, 0.08);
+const float RedWaveEase = 20000.0;   // how far over the red's floor it eases in (m)
+
+vec2 Chord(vec3 centre, vec3 dir, float radius)
+{
+    float b = dot(dir, -centre);
+    float c = dot(centre, centre) - radius * radius;
+    float disc = b * b - c;
+    if (disc <= 0.0) return vec2(1.0, 0.0);
+    float root = sqrt(disc);
+    return vec2(-b - root, -b + root);
+}
+
+float RedPiece(vec3 dir, float t0, float t1, float sceneT, vec3 planet, float floorRadius)
+{
+    t0 = max(t0, 0.0);
+    t1 = min(t1, sceneT);
+    if (t1 <= t0) return 0.0;
+
+    float lit = 0.0;
+    for (int k = 0; k < 4; k++)
+    {
+        float t = mix(t0, t1, (float(k) + 0.5) / 4.0);
+        lit += smoothstep(floorRadius, floorRadius + RedWaveEase, length(dir * t - planet));
+    }
+    return (t1 - t0) * lit / 4.0;
+}
+
+void DrawRedWave(ivec2 at, ivec2 size)
+{
+    vec2 uv = (vec2(at) + 0.5) / vec2(size);
+    vec3 dir = normalize(WorldAt(uv, 1.0));
+    float deviceZ = texture(sceneDepth, uv).r;
+    float sceneT = deviceZ > 0.0 ? length(WorldAt(uv, deviceZ)) : 1.0e30;
+
+    vec3 centre = pc.CentreRadius.xyz;
+    float nits = -pc.CentreRadius.w;
+    float outer = pc.FireSun.x;
+    float trail = max(pc.FireSun.y, 1.0);
+    float inner = max(outer - trail, 0.0);
+
+    vec2 o = Chord(centre, dir, outer);
+    if (o.y <= o.x) return;
+
+    vec3 planet = global.lighting.planetPosition.xyz;
+    float floorRadius = global.lighting.planetRadius + pc.FireSun.w;
+
+    vec2 i = inner > 0.0 ? Chord(centre, dir, inner) : vec2(1.0, 0.0);
+    float path = i.y > i.x
+                     ? RedPiece(dir, o.x, i.x, sceneT, planet, floorRadius) + RedPiece(dir, i.y, o.y, sceneT, planet, floorRadius)
+                     : RedPiece(dir, o.x, o.y, sceneT, planet, floorRadius);
+
+    float level = min(path / trail, LimbGain);
+    if (level <= 0.0) return;
+
+    vec4 was = imageLoad(sceneColor, at);
+    imageStore(sceneColor, at, vec4(was.rgb + RedWaveColour * (nits * level), was.a));
+}
+
 void DrawXRayGlow(ivec2 at, ivec2 size)
 {
     vec2 uv = (vec2(at) + 0.5) / vec2(size);
@@ -1659,7 +1723,8 @@ void main()
     // A LAYER A HIGH BURST LIT, on a dispatch of its own that the negative bound marks.
     if (pc.CentreRadius.w < 0.0)
     {
-        if (pc.FireSun.z > 1.5) DrawDebris(at, size);
+        if (pc.FireSun.z > 2.5) DrawRedWave(at, size);
+        else if (pc.FireSun.z > 1.5) DrawDebris(at, size);
         else if (pc.FireSun.z > 0.5) DrawAurora(at, size);
         else DrawXRayGlow(at, size);
         return;

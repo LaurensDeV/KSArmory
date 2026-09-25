@@ -22,6 +22,7 @@ public class SkyDispatchShaderTests
         ["DrawXRayGlow"] = SkyDispatch.Glow,
         ["DrawAurora"] = SkyDispatch.Aurora,
         ["DrawDebris"] = SkyDispatch.Debris,
+        ["DrawRedWave"] = SkyDispatch.RedWave,
     };
 
     [Fact]

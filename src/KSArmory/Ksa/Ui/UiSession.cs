@@ -53,6 +53,10 @@ internal sealed partial class Ui
         Tip("On: two rails on one craft will not each fire a full salvo at the same target. "
             + "Off: each weapon counts only its own rounds.");
 
+        ImGui.Checkbox("High bursts send a red wave", ref _config.RedWave);
+        Tip("On: a burst 60 km up or higher sends a faint red sphere out through the upper air for "
+            + "minutes, as Teak did -- a night sight. Off: it is not drawn.");
+
         ImGui.Checkbox("Mushroom clouds", ref _config.NuclearClouds);
         Tip("On: a nuclear burst leaves a cloud standing, at 6-8 ms a frame. "
             + "Off: the burst does the same damage and leaves nothing behind.");

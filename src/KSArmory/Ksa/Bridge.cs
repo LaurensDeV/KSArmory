@@ -266,6 +266,7 @@ internal sealed class Bridge
             ["marks"] = NuclearClouds.ScorchCount,
             ["glows"] = NuclearClouds.GlowCount,
             ["curtains"] = NuclearClouds.AuroraCount,
+            ["waves"] = NuclearClouds.WaveCount,
             ["thin"] = Enumerable.Range(0, NuclearClouds.Count).Count(NuclearClouds.IsThin),
             ["sky_wanted"] = CloudPass.SkyWanted,
             ["sky_drawn"] = CloudPass.SkyDrawn,

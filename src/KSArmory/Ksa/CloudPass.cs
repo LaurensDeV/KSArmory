@@ -69,6 +69,7 @@ internal static class CloudPass
     private static readonly ProfilerTag GlowTag = new("KSArmory Cloud: glow"u8);
     private static readonly ProfilerTag AuroraTag = new("KSArmory Cloud: aurora"u8);
     private static readonly ProfilerTag DebrisTag = new("KSArmory Cloud: debris"u8);
+    private static readonly ProfilerTag RedWaveTag = new("KSArmory Cloud: red wave"u8);
 
     // The most full-screen sky dispatches drawn in a frame, across every kind, brightest first.
     private const int MaxSky = 4;
@@ -588,6 +589,24 @@ internal static class CloudPass
                 }));
             }
 
+            for (int i = 0; i < NuclearClouds.WaveCount; i++)
+            {
+                if (!NuclearClouds.TryWave(i, out double3 waveEcl, out double waveRadius, out double nits,
+                                           out object? over)) continue;
+                if (!ReferenceEquals(over, camera.NearbyCelestial)) continue;
+
+                double3 from = waveEcl - camera.PositionEcl;
+                if (!Vec.IsFinite(from)) continue;
+
+                _sky.Add((SkyDispatch.RedWave, nits, new Push
+                {
+                    InvViewProj = camera.VPInv.viewProjection,
+                    CentreRadius = new float4((float)from.X, (float)from.Y, (float)from.Z, -(float)nits),
+                    FireSun = new float4((float)waveRadius, (float)RedWave.TrailMetres, SkyDispatch.RedWave,
+                                         (float)RedWave.RedAltitude(KsaWorld.BodyAirOf(camera.NearbyCelestial))),
+                }));
+            }
+
             SkyWanted = _sky.Count;
             if (_sky.Count > MaxSky) KeepTheBrightestOfEachKind();
 
@@ -595,6 +614,7 @@ internal static class CloudPass
             DrawSky(commandBuffer, viewport, camera, width, height, SkyDispatch.Glow, GlowTag, ref marks);
             DrawSky(commandBuffer, viewport, camera, width, height, SkyDispatch.Aurora, AuroraTag, ref marks);
             DrawSky(commandBuffer, viewport, camera, width, height, SkyDispatch.Debris, DebrisTag, ref marks);
+            DrawSky(commandBuffer, viewport, camera, width, height, SkyDispatch.RedWave, RedWaveTag, ref marks);
 
             if (_order.Count == 0)
             {

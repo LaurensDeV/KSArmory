@@ -23,7 +23,13 @@ internal static class SkyDispatch
     /// <summary>A thin-air burst's debris shell (<see cref="DebrisShell"/>). <c>FireSun.w</c> is 0.</summary>
     public const float Debris = 2f;
 
-    private static readonly float[] Kinds = [Glow, Aurora, Debris];
+    /// <summary>
+    /// The red wave a burst high in the air sends out (<see cref="RedWave"/>). <c>FireSun.w</c> is the
+    /// altitude the red survives above.
+    /// </summary>
+    public const float RedWave = 3f;
+
+    private static readonly float[] Kinds = [Glow, Aurora, Debris, RedWave];
 
     /// <summary>
     /// Which of the sky dispatches asked for are drawn, at most <paramref name="most"/>: each kind's

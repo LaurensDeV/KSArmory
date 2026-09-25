@@ -2707,6 +2707,8 @@ air burst, and Tsar Bomba*, has the numbers.
       same at 5 km condenses white. **By eye**: [ ] the purple's strength at dusk.
 - [x] Starfish, 1.4 Mt at 400 km, fills the night sky at 1 s and stands on the limb as a bubble stretched
       along the field, gone by 16 s. **By eye**: [ ] from the ground under it.
+- [x] Teak, 3.8 Mt at 77 km, sends a faint red sphere out over the limb, a hollow ring by six minutes.
+      **By eye**: [ ] from the ground a thousand kilometres off, and the Display switch.
 
 ---
 

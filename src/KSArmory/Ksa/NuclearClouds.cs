@@ -197,6 +197,40 @@ internal static class NuclearClouds
 
     private static readonly List<Glow> _glows = [];
 
+    // The red wave a burst high in the air sends out: Sim/RedWave.cs. Its own list, since it lasts ten
+    // minutes against the thin cloud's three.
+    private static readonly List<Glow> _waves = [];
+
+    /// <summary>Whether red waves are drawn at all: <c>Config.RedWave</c>.</summary>
+    public static bool RedWaves { get; set; } = true;
+
+    /// <summary>How many red waves are running. Bounds <see cref="TryWave"/>.</summary>
+    public static int WaveCount => _waves.Count;
+
+    /// <summary>One red wave: where its burst was, how far it has run and how bright it is.</summary>
+    public static bool TryWave(int index, out double3 burstEcl, out double radius, out double nits, out object? body)
+    {
+        burstEcl = default;
+        radius = 0.0;
+        nits = 0.0;
+        body = null;
+        if (!RedWaves || index < 0 || index >= _waves.Count) return false;
+
+        try
+        {
+            Glow wave = _waves[index];
+            body = wave.Body;
+            burstEcl = wave.Body.GetPositionEcl() + wave.BurstCcf.Transform(wave.Body.GetCce2Ccf().Inverse());
+            radius = RedWave.Radius(wave.Age);
+            nits = RedWave.Nits(MushroomCloud.KilotonsFor(wave.ChargeKg), wave.Age);
+            return Vec.IsFinite(burstEcl) && nits > 0.0 && radius > 0.0;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     // The aurora a burst above the atmosphere lights at each end of its field line: Sim/Aurora.cs.
     private sealed class Curtain
     {
@@ -272,6 +306,7 @@ internal static class NuclearClouds
 
         same.ChargeKg += chargeKg;
         foreach (Glow glow in _glows) if (Near(glow.Body, glow.BurstCcf)) glow.ChargeKg += chargeKg;
+        foreach (Glow wave in _waves) if (Near(wave.Body, wave.BurstCcf)) wave.ChargeKg += chargeKg;
         foreach (Curtain curtain in _curtains) if (Near(curtain.Body, curtain.BurstCcf)) curtain.ChargeKg += chargeKg;
         foreach (Cloud cloud in _clouds) if (Near(cloud.Body, cloud.BurstCcf)) cloud.ChargeKg += chargeKg;
 
@@ -901,6 +936,12 @@ internal static class NuclearClouds
             double overLayer = Vec.Len(burstCcf) - body.MeanRadius - layer;
             if (hasAir && Aurora.Lights(airRatio)) Light(body, burstCcf, chargeKg);
 
+            if (hasAir && RedWave.Lights(airRatio))
+            {
+                if (_waves.Count >= MaxGlows) _waves.RemoveAt(0);
+                _waves.Add(new Glow { Body = body, BurstCcf = burstCcf, ChargeKg = chargeKg });
+            }
+
             if (hasAir && XRayGlow.Lights(airRatio)
                 && XRayGlow.Strength(kt, overLayer, XRayGlow.RiseSeconds) > XRayGlow.FaintestNits)
             {
@@ -1036,6 +1077,12 @@ internal static class NuclearClouds
             if (_curtains[i].Age >= Aurora.LifeSeconds) _curtains.RemoveAt(i);
         }
 
+        for (int i = _waves.Count - 1; i >= 0; i--)
+        {
+            _waves[i].Age += Math.Max(dtSim, 0.0);
+            if (_waves[i].Age >= RedWave.LifeSeconds) _waves.RemoveAt(i);
+        }
+
         for (int i = _glows.Count - 1; i >= 0; i--)
         {
             _glows[i].Age += Math.Max(dtSim, 0.0);
@@ -1105,6 +1152,7 @@ internal static class NuclearClouds
         _burning.Clear();
         _scorches.Clear();
         _glows.Clear();
+        _waves.Clear();
         _curtains.Clear();
         _watch = null;
         BurstFlash.Reset();
