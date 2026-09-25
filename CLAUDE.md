@@ -2091,6 +2091,14 @@ the weak end is capped
 at `BlastRadius` — the radius the panel, the overlay and the near-miss line all describe the weapon
 by, and a damage rule reaching past it would make all three lie.
 
+**And a burst high in the air is judged on less than its charge.** A burst loses blast to radiation
+where the air is thin, so every verdict path -- the fuse's confirmed hit, the round intercept, the splash
+over rounds and the part sweep -- judges a copy of the profile carrying `BlastAltitude.EquivalentChargeKg`,
+read at the burst carried to the sample. It is the whole charge up to about 13 km on KSA's Earth, so a
+low burst is the same profile object and judged exactly as before; and it comes back to the whole charge
+above the air, where X-rays reach past the lethal radius. Flown with 50 Mt over the 5"/54 mount: at 70 km,
+2.2% of the blast, nothing loaded where two parts had been; at 33 km, 73%, and the part still breaks.
+
 **Whether losing that many parts kills the craft is KSA's judgement, asked rather than
 reproduced.** `PartFailure.TrippedTheFragmentGuard` is the engine's own rule about what its
 fragment machinery can survive, so a warhead that engulfs a drone is still a kill and only a craft

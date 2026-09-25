@@ -3470,6 +3470,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         double3 burst = round.PositionEcl;
         _ground = GroundFor(burst, round.DetonationElapsedInFrame, round.Munition.ChargeKg);
+        MunitionProfile judged = JudgedAs(round.Munition, burst, round.DetonationElapsedInFrame);
 
         // Which fuse fired, because a burst looks the same either way and the flak setting is
         // otherwise unanswerable from a log or a bug report.
@@ -3561,7 +3562,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // Trust that number rather than re-deriving it.
         if ((round.StruckBody ?? round.TargetRef) is Vehicle intended && KsaWorld.IsAlive(intended))
         {
-            double lethalRange = round.Munition.LethalRadius + KsaWorld.MeanRadius(intended);
+            double lethalRange = judged.LethalRadius + KsaWorld.MeanRadius(intended);
             if (round.MissDistance <= lethalRange)
             {
                 // Say why a lethal hit did not kill. Taking control of the target makes it
@@ -3580,7 +3581,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                     // decide *what* breaks -- never whether anything does. An empty sweep here
                     // falls back to destroying the craft, the same rule the hull test obeys: a
                     // test that cannot answer never answers "no hit".
-                    Damage(intended, burst, elapsed, round.Munition, confirmed: true);
+                    Damage(intended, burst, elapsed, judged, confirmed: true);
                 }
             }
         }
@@ -3595,7 +3596,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             && hit.State == RoundState.Flying
             && _incomingByHandle.TryGetValue(hit, out IContact? hitContact))
         {
-            if (round.MissDistance <= round.Munition.LethalRadius + hitContact.MeanRadius)
+            if (round.MissDistance <= judged.LethalRadius + hitContact.MeanRadius)
             {
                 hit.ShootDown();
                 Announce($"intercepted {hitContact.DisplayName} at {round.MissDistance:F1} m");
@@ -3613,13 +3614,13 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             double gap = BlastSweep.SurfaceGap(contact.PositionEcl, contact.VelocityEcl, elapsed,
                                                burst, contact.MeanRadius);
 
-            if (BlastSweep.Effect(gap, round.Munition) != BlastEffect.Lethal) continue;
+            if (BlastSweep.Effect(gap, judged) != BlastEffect.Lethal) continue;
 
             other.ShootDown();
             Announce($"intercepted {contact.DisplayName} at {gap:F0} m");
         }
 
-        Splash(burst, elapsed, round.Munition);
+        Splash(burst, elapsed, judged);
 
         // Sized off the charge, which is also what the damage radii come from, so a 30 mm shell
         // cannot set off a missile's explosion. Whatever the burst killed gets KSA's own on top.
@@ -3766,7 +3767,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         _burstDamaged.Clear();
         _ground = GroundFor(burstEcl, Math.Min(inFrame, 0.0), munition.ChargeKg);
-        Splash(burstEcl, Math.Min(inFrame, 0.0), munition, spareOwn);
+        Splash(burstEcl, Math.Min(inFrame, 0.0), JudgedAs(munition, burstEcl, Math.Min(inFrame, 0.0)), spareOwn);
         ApplyPendingKills();
     }
 
@@ -3780,6 +3781,30 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         double3 atSample = BlastSweep.GroundAtSample(burst, KsaWorld.GroundVelocityAt(body, burst), elapsed);
         return KsaWorld.GroundReflectionAt(body, atSample, chargeKg);
+    }
+
+    // The profile a burst's damage is judged on: its charge as the air it went off in leaves it
+    // (BlastAltitude.EquivalentChargeKg), read at the burst carried to the sample. The same profile
+    // wherever that is the whole charge, so a burst low in the air is judged exactly as it was.
+    private MunitionProfile JudgedAs(MunitionProfile munition, double3 burst, double elapsed)
+    {
+        if (munition.ChargeKg < MushroomCloud.ThresholdKg) return munition;
+        if ((EffectBody ?? Detonation.BodyFor(Platform)) is not { } body) return munition;
+
+        double3 atSample = BlastSweep.GroundAtSample(burst, KsaWorld.GroundVelocityAt(body, burst), elapsed);
+        AmbientAir air = KsaWorld.AirAt(body, atSample);
+        double charge = BlastAltitude.EquivalentChargeKg(munition.ChargeKg, air,
+                                                         KsaWorld.BodyAirOf(body).Traits.XRayOpacity);
+        if ((float)charge == munition.ChargeKg) return munition;
+
+        MunitionProfile judged = munition.Copy();
+        judged.ChargeKg = (float)charge;
+
+        Log.Info($"burst in air at {air.PressureRatio:E2} of sea level's pressure: its blast is "
+                 + $"{BlastAltitude.Efficiency(munition.ChargeKg, air):P1} of a low burst's, so it breaks what "
+                 + $"{MushroomCloud.KilotonsFor(charge):G3} kt would ({judged.LethalRadius / 1000.0:F2} km lethal, "
+                 + $"{judged.BlastRadius / 1000.0:F2} km blast)");
+        return judged;
     }
 
     // A craft's gap as the free-air law sees it: the ground's reflection there is a multiple of the

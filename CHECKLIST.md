@@ -2697,6 +2697,8 @@ air burst, and Tsar Bomba*, has the numbers.
 - [ ] **A low air burst over land from the ground**, looking up: no burned patch or fallout, a thin
       column, the collars round it rather than floating.
 - [ ] **A 50 Mt burst on the frame rate** from where a player would watch it.
+- [x] 50 Mt 70 km over the 5"/54 mount loads none of its parts, where it loaded two before the blast
+      went by the air at the burst; at 33 km it still breaks one.
 
 ---
 
