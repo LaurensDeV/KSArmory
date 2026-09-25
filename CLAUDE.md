@@ -582,7 +582,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/METRE-LEVEL.md` | **the route from today's kilometre to a metre**, as a ladder of arrival angles with a gate on each rung — what blocks each one, the orbit and target matrix that tests it, and **why the ladder stops at rung C**: the wall clock cannot be bought with frame rate, because a flight is CPU-bound and the GPU is idle |
 | `docs/GUIDANCE-SECTION.md` | **a plan, half built** — the ballistic computer as a part you bolt on. The `Guidance` role, distinct from `FireControl`, is built and the bus provides it; the 3 m interstage ring that would take it over is not, and its mass is a split of the bus's rather than an addition to it |
 | `docs/NUCLEAR-EFFECT.md` | which of KSA's four volumetric renderers a mod can reach, and what a mushroom cloud actually looks like |
-| `docs/NUCLEAR-ALTITUDE.md` | **a plan, not a record** — what a burst does at every height from the surface to space, sourced, against what the mod does, and the ranked changes that close the gap: blast by altitude first, because every blast law is sea level's |
+| `docs/NUCLEAR-ALTITUDE.md` | **a record** — what a burst does at every height from the surface to space, sourced, against what the mod did, and the twenty steps that closed the gap, each with what flying it showed; what is still open is at the end of its build order |
 | `docs/NUCLEAR-NEXT.md` | **a plan, not a record** — the ranked backlog for the burst: the first second, where every signature that reads as *nuclear* lives, and the last minute, where a real cloud drifts and spreads rather than fading where it stood |
 | `docs/VISUAL-TESTING.md` | **a plan, not a record** — how an agent sees what the mod draws from a terminal: what the screenshot loop cost the night the burst was built, and a ranked route to a live session with an MCP bridge, shader hot reload and same-instant controls |
 | `docs/DAMAGE-DECALS.md` | **a plan, not a record** — how a decal is projected onto a hull, a hillside or a rock out of the depth buffer, read off gatOS's implementation and re-verified here, and what a burn mark on a craft would cost |
@@ -617,6 +617,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/ksa-mcp/server.py` | **an MCP server over the bridge**, registered in `.mcp.json`, returning captures inline; `cli <tool>` runs one from a shell. It launches a game only if none is running and closes only one it launched |
 | `tools/check-shaders.sh` | the mod's compute shaders compiled with Khronos' `glslangValidator` against the install's shader library — **a GLSL error in a second rather than a flight**; skips where there is no install, which is CI |
 | `tools/vis/vis.py` | what the bridge's pictures are judged with: crops from the manifest, same-instant diffs, the temporal-noise map, grain, contact sheets and animations |
+| `tools/check-bodies.sh` | the burst code names no planet in a string, and every Earth-valued constant is on its list with the reason — **a custom solar system is a line in `Bodies.xml`, never code** |
 | `tools/sky-matrix.sh` | flies a list of nuclear bursts (`KT@KM`) at night through the bridge and keeps a capture and the GPU split per age -- **every call under a timeout** and each capture copied out before the next call wipes it; `orbit` and `limb` are its camera presets |
 | `tools/scenario.sh` | drives one engagement or one ballistic shot end to end and exits pass/fail; screenshots on cue |
 | `tools/shot-batch.sh` | a night of ballistic shots, **arms interleaved and every arm built before the first one flies** — so nothing done to the tree overnight can reach a shot in flight |
@@ -2175,7 +2176,8 @@ protection is from the burst, so a craft the shove tips over or flings is crash-
 like any other. Flown with a damaging bridge burst against the rocket on the pad: 0.3 kt dented four
 of its five parts at 1300 m and at 1450 m, and a fifth only with a second burst beside it -- before the
 ground's reflection was in the law (`Sim/GroundReflection.cs`); with it, the same surface burst dents all
-five at 1300 m, and the same yield 300, 1000 and 3000 m up dents four, three and none. Read back
+five at 1300 m, and the same yield 300, 1000 and 3000 m up dents four, three and none. Re-flown once the blast went by the air at the burst: the same four counts, since the pad's air leaves
+the whole charge. Read back
 from where the engine stores them, every dent pushes along the line from its burst to within 0.1°,
 east, north and on both diagonals.
 

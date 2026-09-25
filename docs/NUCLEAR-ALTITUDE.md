@@ -1,8 +1,9 @@
-# A burst at every height -- the plan
+# A burst at every height
 
-**A plan, not a record.** What a nuclear burst does as it goes higher, from the sources, against what
-the mod does today, and the changes that close the gap, ranked by what a player sees for what the
-frame pays. Written 2026-09-25 from three research passes: altitude phenomenology (Glasstone and
+**A record, built from a plan.** What a nuclear burst does as it goes higher, from the sources, against
+what the mod did before, and the changes that closed the gap, ranked by what a player sees for what the
+frame pays. Steps 0-19 of the build order below are done and flown; each row says what flying it showed.
+What was not built is under *Still open* at the end of the build order. Written 2026-09-25 from three research passes: altitude phenomenology (Glasstone and
 Dolan 1977 ch. 2, 3, 7, 10; Gombosi et al. 2017, arXiv 1611.03390; the Hardtack and Fishbowl test
 records), yield and density scaling (G&D, Sublette's FAQ, NUKEMAP's fits), and an audit of the code.
 Numbers marked *fit* or *derived* are someone's reading, not a measurement.
@@ -219,13 +220,18 @@ into one changelog line.
 | 16 ✓ | `refactor` then `feat(clouds)`: `CloudFlags`, then the dry ball. **`CloudFlags` ✓**: packed in Sim, three bits of dryness, the front held at 262,143 m; the decode's `+ 0.5` is gone, since at the top of the range it rounded 2^24 - 1 up a metre. **The hold binds on the largest yields**: a 50 Mt cloud is drawn 837 s and its front passes 262 km at 755 s, so its ring stands at 262 km for the last 82 s (the commit said no drawn cloud's front gets that far; 20 kt and 1 Mt do not) **The dry ball ✓**: `BurstRegime.Dryness`, from 11 to 16 km on Earth and one on a body that raises no condensation, takes the collars, the veil, the white crown and the Wilson cloud away and leaves the dust; a dry cap keeps a faint purple glow for minutes (90 s e-folding). Flown at 20 kt: white at 5 km, grey-beige with no crown at 21 km by day, dim purple by night; at 0.02x the glow adds no flicker: 2,394 pixels moving over 4 levels on against 2,372 off, mean 0.034 both (the commit's 222k to 263k counted a file that was not a frame) |
 | 17 ✓ | `feat(clouds)`: the bubble above the air. `DebrisBubble`: the equal-volume radius from the field's pressure, `f_KE` 0.025 fitted on Starfish, which it then reproduces at 1,833 by 679 km against 1,840 by 680; grown in 1.2 s, collapsed by 16; taking over from the shell as the field's pressure outgrows the air's, about 150 km on KSA's Earth; ballistic and fading on a body with no field. Drawn on the debris dispatch as an analytic rim, two noise lookups a pixel, eased in over 30 km above the X-ray layer. Flown: Starfish fills the sky at 1 s and stands on the limb stretched along the field, 0.13-0.15 ms, and at 0.02x mean 0.15 with no pixel over 4 |
 | 18 ✓ | `feat(clouds)`: Teak's red wave. `RedWave`: 1.35 km/s, 965 km across at six minutes, oxygen's red trailing 150 km, glowing only above where the air thins to 5e-9 of sea level's (153 km on KSA's Earth), fading over minutes; sky kind 3, under the cap, drawn in closed form with no noise; a Display switch. Flown as Teak at night: a faint red dome over the limb at 180 s, a wide hollow ring by 360; 0.04 ms, and at 0.02x 8 pixels over 4 in the burst's box, the aurora's. `sky-matrix.sh` falls back to the wall clock once a thin burst's cloud has gone, where it used to wait for ever |
-| 19 | `docs`: record the flights; this file from plan to record; the re-flown CLAUDE.md numbers |
+| 19 ✓ | `docs`: record the flights; this file from plan to record; the re-flown CLAUDE.md numbers. The pad's dents re-flown on the NUKE save, 0.3 kt 1,300 m out: all five parts on the surface, four, three and none at 300, 1,000 and 3,000 m up -- unchanged, since the pad's air leaves the whole charge. `tools/check-bodies.sh` built and in `check-all.sh` |
 
-**Between steps, players:** steps 12-14 change damage before the sound and front catch up. They ride
-behind an off-by-default flag, as `IcbmConfig`'s do, or `dev` is not merged to `main` until 14 is flown.
-Every new sky effect gets a toggle under **Settings -- Display** (checked by `check-tunables`), and the
-pass may shed sky dispatches when `CloudPassCost` reads over budget, so a weak GPU loses an effect
-rather than frames.
+**Between steps, players:** steps 12-14 changed damage before the sound and front caught up, so `dev` was
+not to be merged to `main` until 14 was flown; it has been.
+
+**Still open.** The pass does not yet shed sky dispatches when `CloudPassCost` reads over budget -- the
+four-dispatch cap is the only bound, and a weak GPU loses frames rather than an effect. Only the red
+wave, the one new sky kind, has a Display switch; the glow and the aurora ride on the clouds' own. The
+dust ring times itself at sea level's sound on every body (`tools/check-bodies.sh` names it), because a
+cloud dispatch has no float free to carry the body's. The column under an air burst at five fallout-safe
+heights stops short of the cap by design (the Tumbler-Snapper drops); whether that reads well in game is
+open. And the 50 Mt cloud's ring stands at 262 km for its last 82 s (step 16).
 
 ### How each step is shown to work
 - **Early seconds at a crawl**: every cell before ~20 s is flown at `speed 0.02` with `every_s` spacing
