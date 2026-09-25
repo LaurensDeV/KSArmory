@@ -1215,6 +1215,8 @@ const float CurtainHalfLength = 450000.0;
 const float CurtainFold = 25000.0;
 const float CurtainCurl = 1200.0;
 const float CurtainSpacing = 50000.0;
+// The longest step the aurora's march takes, which has to resolve a fold's drift across the arcs.
+const float AuroraStepMetres = 20000.0;
 // The red line lives two minutes, so it smears into a haze round the arcs rather than keeping to them.
 const float RedHazeWidth = 80000.0;
 const float RedHazePerMetre = 2.5e-6;
@@ -1225,7 +1227,7 @@ const vec3 NitrogenPink = vec3(1.00, 0.35, 0.70);
 
 // Where a field line through the point comes down to the lower border: across the arcs (m, toward the
 // magnetic north) and along them (m), both measured there. False where the line never gets that low.
-bool AuroraFoot(vec3 q, vec3 axis, vec3 east, float lowerR, float sinFoot, float cosFoot,
+bool AuroraFoot(vec3 q, vec3 axis, vec3 east, float lowerR, float sinFoot, float cosFoot, float footLatitude,
                 out float across, out float along)
 {
     float r = length(q);
@@ -1237,28 +1239,20 @@ bool AuroraFoot(vec3 q, vec3 axis, vec3 east, float lowerR, float sinFoot, float
     if (c2Foot > 1.0 || s * sinFoot < 0.0) return false;
 
     float latitude = sign(s) * acos(sqrt(c2Foot));
-    across = (latitude - asin(sinFoot)) * lowerR;
+    across = (latitude - footLatitude) * lowerR;
     along = clamp(dot(q, east) / (r * sqrt(c2)), -1.0, 1.0) * lowerR * cosFoot;
     return true;
 }
 
-// Where arc k stands across the arcs at a point along them, and how bright it is there: its own offset,
-// the folds drifting along it at a kilometre or two a second and the small curls running faster, each
-// arc its own length, and patches pulsing over seconds.
-float AuroraArc(int k, float along, float age, out float bright)
+// Where arc k stands across the arcs at a point along them: its own offset, and the folds drifting
+// along it at a kilometre or two a second with the small curls running faster. What does not change
+// along the ray -- each arc's offset, length and brightness -- is worked out once a pixel in
+// DrawAurora, since here it would be four noise lookups a step an arc.
+float AuroraArc(int k, float along, float age, float offset)
 {
     float kf = float(k);
-    float offset = (kf - 0.5 * float(CurtainArcs - 1)) * CurtainSpacing
-                   + (Noise(vec3(kf * 7.1, age * 0.004, 0.5)) - 0.5) * 0.6 * CurtainSpacing;
-    float halfLength = CurtainHalfLength * (0.45 + 0.55 * Noise(vec3(kf * 5.7, 0.2, 9.1)));
-    float centre = (Noise(vec3(kf * 2.3, 0.7, 4.4)) - 0.5) * 0.8 * CurtainHalfLength;
-
     float fold = (Noise(vec3(along / 150000.0 + age * 0.01, kf * 3.3, 1.3)) - 0.5) * 2.0 * CurtainFold;
     float curl = (Noise(vec3(along / 8000.0 - age * 0.6, kf * 5.9, age * 0.3)) - 0.5) * 2.0 * CurtainCurl;
-    float ends = 1.0 - smoothstep(0.55 * halfLength, halfLength, abs(along - centre));
-    float pulse = 0.7 + 0.3 * Noise(vec3(along / 60000.0, kf * 4.1, age * 0.15));
-
-    bright = (1.0 - 0.18 * kf) * ends * pulse;
     return offset + fold + curl;
 }
 
@@ -1282,13 +1276,20 @@ void DrawAurora(ivec2 at, ivec2 size)
     float sinFoot = clamp(pc.FireSun.w, -0.999, 0.999);
     float cosFoot = sqrt(1.0 - sinFoot * sinFoot);
     vec3 axis = normalize(north * cosFoot + up * sinFoot);
+    float footLatitude = asin(sinFoot);
 
-    // The sheets lean equatorward as they climb, by the height over the tangent of the field's dip.
-    float tanDip = 2.0 * abs(sinFoot) / cosFoot;
-    float lean = (pc.FireSun.y - pc.FireSun.x) / max(tanDip, 0.25);
-    float band = 1.2 * (0.5 * float(CurtainArcs) * CurtainSpacing + CurtainFold + RedHazeWidth + lean);
-    float acrossRate = dot(dir, north);
-    float acrossAt0 = dot(-foot, north);
+    // The sheets stand on the field lines, so they lean with the field: the slab the ray is cut to is
+    // the plane through the foot holding the arcs' run and the field's direction, widened by how far a
+    // field line bends away from its tangent over the curtains' height. Cut to an upright slab wide
+    // enough for the lean instead, most of the screen from orbit marched for nothing.
+    vec3 fieldAtFoot = normalize(3.0 * dot(axis, up) * up - axis);
+    vec3 slab = normalize(cross(east, fieldAtFoot));
+    float sinDip = abs(dot(fieldAtFoot, up));
+    float climb = (pc.FireSun.y - pc.FireSun.x) / max(sinDip, 0.25);
+    float bend = climb * climb / (0.6 * radius);
+    float band = 1.2 * (0.5 * float(CurtainArcs) * CurtainSpacing + CurtainFold + RedHazeWidth) + bend;
+    float acrossRate = dot(dir, slab);
+    float acrossAt0 = dot(-foot, slab);
     float alongRate = dot(dir, east);
     float alongAt0 = dot(-foot, east);
     float alongBand = 1.3 * CurtainHalfLength;
@@ -1321,11 +1322,27 @@ void DrawAurora(ivec2 at, ivec2 size)
     t1 = min(t1, alongPlanet + outerHalf);
     if (t1 <= t0) return;
 
-    const int Steps = 48;
+    // As many steps as the chord needs to resolve a fold, not a fixed count: a ray clipping the
+    // region's edge takes a handful.
+    const int MostSteps = 48;
+    int Steps = clamp(int((t1 - t0) / AuroraStepMetres), 6, MostSteps);
     float dt = (t1 - t0) / float(Steps);
     float bottomKm = pc.FireSun.x / 1000.0;
     float topKm = pc.FireSun.y / 1000.0;
     vec3 light = vec3(0.0);
+
+    // Each arc's own offset, length, centre and brightness, which nothing along the ray changes.
+    float arcOffset[CurtainArcs];
+    float arcHalf[CurtainArcs];
+    float arcCentre[CurtainArcs];
+    for (int k = 0; k < CurtainArcs; k++)
+    {
+        float kf = float(k);
+        arcOffset[k] = (kf - 0.5 * float(CurtainArcs - 1)) * CurtainSpacing
+                       + (Noise(vec3(kf * 7.1, age * 0.004, 0.5)) - 0.5) * 0.6 * CurtainSpacing;
+        arcHalf[k] = CurtainHalfLength * (0.45 + 0.55 * Noise(vec3(kf * 5.7, 0.2, 9.1)));
+        arcCentre[k] = (Noise(vec3(kf * 2.3, 0.7, 4.4)) - 0.5) * 0.8 * CurtainHalfLength;
+    }
 
     float was[CurtainArcs];
     float wasAlong = 0.0;
@@ -1339,7 +1356,7 @@ void DrawAurora(ivec2 at, ivec2 size)
         float heightKm = (length(q) - radius) / 1000.0;
 
         float across, along;
-        if (!AuroraFoot(q, axis, east, lowerR, sinFoot, cosFoot, across, along))
+        if (!AuroraFoot(q, axis, east, lowerR, sinFoot, cosFoot, footLatitude, across, along))
         {
             had = false;
             continue;
@@ -1353,8 +1370,11 @@ void DrawAurora(ivec2 at, ivec2 size)
 
         for (int k = 0; k < CurtainArcs; k++)
         {
-            float bright;
-            float g = across - AuroraArc(k, along, age, bright);
+            // Beyond the fold and the curl the sheet cannot be crossed, and which side of it this is
+            // needs no noise.
+            float fromArc = across - arcOffset[k];
+            float g = abs(fromArc) > CurtainFold + CurtainCurl ? fromArc
+                                                                : across - AuroraArc(k, along, age, arcOffset[k]);
 
             if (had && (g > 0.0) != (was[k] > 0.0))
             {
@@ -1365,9 +1385,14 @@ void DrawAurora(ivec2 at, ivec2 size)
                 // Square on the sheet is one; along it no more than LimbGain.
                 float path = min(dt / max(abs(g - was[k]), 1.0e-3), LimbGain);
 
+                // Each arc its own length, fading at its ends, and patches pulsing over seconds.
+                float kf = float(k);
+                float ends = 1.0 - smoothstep(0.55 * arcHalf[k], arcHalf[k], abs(a - arcCentre[k]));
+                float pulse = 0.7 + 0.3 * Noise(vec3(a / 60000.0, kf * 4.1, age * 0.15));
+                float bright = (1.0 - 0.18 * kf) * ends * pulse;
+
                 // Rays: field-aligned, so a function of where along the arc alone, drifting at about a
                 // kilometre a second; each its own height, so the tops are ragged.
-                float kf = float(k);
                 float rayN = Noise(vec3(a / 2500.0 + age * 0.4, kf * 11.0, age * 0.5));
                 float rays = 0.25 + 0.75 * smoothstep(0.35, 0.85, rayN);
                 float reach = 15.0 + 35.0 * Noise(vec3(a / 2500.0 + age * 0.4, kf * 11.0 + 5.0, 3.0));
