@@ -481,7 +481,7 @@ internal static class CloudPass
                     {
                         InvViewProj = camera.VPInv.viewProjection,
                         CentreRadius = new float4((float)lit.X, (float)lit.Y, (float)lit.Z, -(float)nits),
-                        FireSun = new float4((float)XRayGlow.LayerAltitude, (float)XRayGlow.LayerThickness, 0f, 0f),
+                        FireSun = new float4((float)XRayGlow.LayerAltitude, (float)XRayGlow.LayerThickness, SkyDispatch.Glow, 0f),
                         Shape = new float4((float)green, 0f, 0f, 0f),
                     };
 
@@ -508,7 +508,7 @@ internal static class CloudPass
                     {
                         InvViewProj = camera.VPInv.viewProjection,
                         CentreRadius = new float4((float)foot.X, (float)foot.Y, (float)foot.Z, -(float)nits),
-                        FireSun = new float4((float)Aurora.BottomAltitude, (float)Aurora.TopAltitude, 1f,
+                        FireSun = new float4((float)Aurora.BottomAltitude, (float)Aurora.TopAltitude, SkyDispatch.Aurora,
                                              (float)sinLatitude),
                         Shape = new float4((float)eastEcl.X, (float)eastEcl.Y, (float)eastEcl.Z, (float)age),
                     };
@@ -539,7 +539,7 @@ internal static class CloudPass
                         CentreRadius = new float4((float)shell.X, (float)shell.Y, (float)shell.Z, -(float)look.Radiance),
                         // The fourth float stays zero: a positive one says a mark, and shifts every
                         // pixel of the dispatch by the first two -- here the shell's radius.
-                        FireSun = new float4((float)shellRadius, (float)look.Elongation, 2f, 0f),
+                        FireSun = new float4((float)shellRadius, (float)look.Elongation, SkyDispatch.Debris, 0f),
                         Shape = new float4((float)fieldEcl.X, (float)fieldEcl.Y, (float)fieldEcl.Z,
                                            (float)NuclearClouds.AgeOf(i)),
                     };
