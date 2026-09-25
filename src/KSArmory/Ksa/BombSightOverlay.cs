@@ -210,7 +210,8 @@ internal sealed class BombSightOverlay
                                 battery.Munition,
                                 at => KsaWorld.GravityAt(platform, at),
                                 at => KsaWorld.MediumDensityRatioAt(platform, at),
-                                Ground(), IntegrationStep, path, out impactEcl);
+                                Ground(), BombSight.StepFor(battery.Munition, IntegrationStep), path,
+                                out impactEcl);
 
     // Reset per solve: the cache exists to skip lookups down one trajectory, not to remember the
     // last one, and a sample kept from the previous frame's fall would be trusted from the wrong

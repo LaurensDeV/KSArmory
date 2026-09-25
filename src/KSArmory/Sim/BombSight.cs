@@ -28,6 +28,18 @@ internal static class BombSight
     /// <summary>Long enough for a drop from any altitude a store is released at.</summary>
     public const int MaxSteps = 2048;
 
+    /// <summary>
+    /// The step a store under a parachute is flown at, whatever the sight would otherwise use. A
+    /// canopy stretches the fall to minutes -- Tsar Bomba's took 188 s from 10.5 km -- past what
+    /// <see cref="MaxSteps"/> reaches at a twentieth of a second, and at the 20-30 m/s it falls there
+    /// this is under ten metres of it.
+    /// </summary>
+    public const double ChuteStepSeconds = 0.30;
+
+    /// <summary>The step to fly <paramref name="munition"/> at, given the one the sight would like.</summary>
+    public static double StepFor(MunitionProfile munition, double stepSeconds)
+        => munition.HasChute ? Math.Max(stepSeconds, ChuteStepSeconds) : stepSeconds;
+
     /// <param name="releaseEcl">Where the store would leave, i.e. the tube.</param>
     /// <param name="velocityOverGround">What it would leave with, against the ground under the release.</param>
     /// <param name="groundVelocityEcl">That ground's velocity, which the store's is measured against.</param>
@@ -55,7 +67,7 @@ internal static class BombSight
                                   IGroundTest? ground,
                                   double stepSeconds,
                                   List<double3> pathEcl, out double3 impactEcl,
-                                  double3? steerAtEcl = null)
+                                  double3? steerAtEcl = null, double startAge = 0.0)
     {
         pathEcl.Clear();
         impactEcl = default;
@@ -75,8 +87,11 @@ internal static class BombSight
         // A throwaway round, flown exactly as the real one will be. The tube number is arbitrary:
         // nothing here reaches a magazine. Its own lookups are back-dated into the step, so they are
         // carried to the instant they belong to rather than to the step's end.
+        // At the age of the store it stands in for: a canopy already open and a fuse already armed
+        // stay so, where a probe starting at zero would fly the first seconds of a fresh release.
         Slug shot = new(releaseEcl, velocityOverGround, null, 0, releaseEcl, Vec.Zero)
         {
+            Age = Math.Max(startAge, 0.0),
             Munition = munition,
             Ground = carried,
             GravityAt = (p, intoStep) => gravityAt(p + frame.Drift(carried.Seconds + intoStep)) - groundAccelerationEcl,
@@ -103,13 +118,23 @@ internal static class BombSight
         // Only a round the ground stopped has an impact point. One that ran out of life was still
         // falling, and drawing a pipper where it happened to be would be an answer to a question
         // nobody asked.
-        if (!shot.HitGround) return false;
+        //
+        // One that burst at its fuse height counts, and marks the ground under the burst: that is
+        // where it is aimed, and what the ring has to sit on.
+        if (!shot.HitGround && !shot.BurstAtHeight) return false;
+
+        double3 arrived = shot.PositionEcl;
+        if (shot.BurstAtHeight)
+        {
+            if (!carried.TryGround(arrived, out double3 centre, out double radius)) return false;
+            arrived = centre + (Vec.Unit(arrived - centre) * radius);
+        }
 
         // Where it lands is a place in the carried frame at the moment it lands. The ground there moves
         // against the release's ground by the spin across the distance between them, and a ring drawn now
         // marks that ground where it is now.
         double seconds = carried.Seconds + shot.DetonationElapsedInFrame;
-        impactEcl = shot.PositionEcl - ((groundVelocityAt(shot.PositionEcl) - groundVelocityEcl) * seconds);
+        impactEcl = arrived - ((groundVelocityAt(arrived) - groundVelocityEcl) * seconds);
         return Vec.IsFinite(impactEcl);
     }
 

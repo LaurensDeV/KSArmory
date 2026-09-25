@@ -39,6 +39,12 @@ internal static class BlastArrivals
         public required double AirRatio;
         public required double ChargeKg;
         public required double TolerancePascals;
+
+        // What the ground adds to the front at this part, over free air: GroundReflection.GainAt.
+        public required double Reflection;
+
+        // The ground under the burst, for a front that stands on it as a Mach stem.
+        public required GroundReflection Ground;
         public required bool MayBreak;
 
         // Seconds since the burst, and the front's arrival at this part as things stand now.
@@ -55,6 +61,11 @@ internal static class BlastArrivals
         // skin, as measured this step.
         public double3 BurstAsmb;
         public double Gap;
+
+        // Where the front pushes from, in the same frame: the burst, or for a part in an air burst's
+        // Mach stem the point over ground zero level with it, since the stem is a wall standing on the
+        // ground and pushes along it.
+        public double3 PushFromAsmb;
     }
 
     // The least distance a front is taken to have left to go, so a part at the burst is still one
@@ -94,7 +105,8 @@ internal static class BlastArrivals
     /// cannot break either.
     /// </summary>
     public static void Queue(Vehicle craft, Part part, double3 burstEcl, double sinceBurst, double airRatio,
-                             double chargeKg, double crashTolerancePascals, bool mayBreak)
+                             double chargeKg, double crashTolerancePascals, bool mayBreak,
+                             double reflection = BlastWave.SurfaceReflection, GroundReflection? ground = null)
     {
         if (!KsaWorld.TryAnchorToGround(burstEcl, out object? body, out double3 anchor)) return;
 
@@ -107,6 +119,8 @@ internal static class BlastArrivals
             AirRatio = airRatio,
             ChargeKg = chargeKg,
             TolerancePascals = crashTolerancePascals,
+            Reflection = reflection,
+            Ground = ground ?? GroundReflection.FreeAir,
             MayBreak = mayBreak,
             Age = Math.Max(sinceBurst, 0.0),
         });
@@ -193,6 +207,7 @@ internal static class BlastArrivals
         double3 centreEcl = KsaWorld.VehicleAsmbToEcl(load.Craft, centreAsmb);
         load.Gap = Math.Max(Vec.Len(centreEcl - burstEcl) - Vec.Len(half), LeastGapMetres);
         load.BurstAsmb = KsaWorld.EclToVehicleAsmb(load.Craft, burstEcl);
+        load.PushFromAsmb = KsaWorld.EclToVehicleAsmb(load.Craft, load.Ground.PushFrom(burstEcl, centreEcl));
 
         if (!(load.AirRatio > 0.0))
         {
@@ -208,19 +223,23 @@ internal static class BlastArrivals
         return true;
     }
 
-    private static double RealPascals(Load load) => BlastWave.PeakOverpressurePascals(load.ChargeKg, load.Gap);
+    private static double RealPascals(Load load)
+        => BlastWave.PeakOverpressurePascals(load.ChargeKg, load.Gap, reflection: load.Reflection);
+
+    // The charge the damage law, calibrated in free air, sees at this part.
+    private static double LoadingCharge(Load load) => load.ChargeKg * load.Reflection;
 
     private static FrontLoad Front(Load load, double sinceArrival)
     {
-        double ratio = BlastDamage.DentRatio(load.ChargeKg, load.TolerancePascals, load.Gap);
-        (double real, double breaking) = BlastDamage.RealLoad(load.ChargeKg, load.TolerancePascals, load.Gap);
+        double ratio = BlastDamage.DentRatio(LoadingCharge(load), load.TolerancePascals, load.Gap);
+        (double real, double breaking) = BlastDamage.RealLoad(LoadingCharge(load), load.TolerancePascals, load.Gap);
 
         double3 push = KsaWorld.TryPartBox(load.Part, out double3 centre, out _)
-            ? Vec.Unit(centre - load.BurstAsmb)
-            : Vec.Unit(Vec.Zero - load.BurstAsmb);
+            ? Vec.Unit(centre - load.PushFromAsmb)
+            : Vec.Unit(Vec.Zero - load.PushFromAsmb);
 
         return new FrontLoad(ratio, real, breaking, push, sinceArrival,
-                             BlastWave.PositivePhaseSeconds(load.ChargeKg, load.Gap));
+                             BlastWave.PositivePhaseSeconds(load.ChargeKg, load.Gap, load.Reflection));
     }
 
     // Moves a load, arriving now, and everything it was already carrying, onto another front's.
@@ -235,7 +254,7 @@ internal static class BlastArrivals
     // The next front still due at this part inside this one's positive phase, if there is one.
     private static Load? StillToCome(Load load)
     {
-        double phase = BlastWave.PositivePhaseSeconds(load.ChargeKg, load.Gap);
+        double phase = BlastWave.PositivePhaseSeconds(load.ChargeKg, load.Gap, load.Reflection);
 
         Load? next = null;
         foreach (Load other in _pending)
@@ -272,7 +291,7 @@ internal static class BlastArrivals
     {
         try
         {
-            if (!KsaWorld.TryBlastFace(load.Part, load.BurstAsmb, out double3 face, out double3 push,
+            if (!KsaWorld.TryBlastFace(load.Part, load.PushFromAsmb, out double3 face, out double3 push,
                                        out double across, out double3 centre, out double facing)) return;
 
             FrontLoad own = Front(load, 0.0);
@@ -332,11 +351,12 @@ internal static class BlastArrivals
         if (!KsaWorld.TryCentreOfMassAsmb(load.Craft, out double3 com)) return;
 
         double ambient = BlastWave.SeaLevelPascals * load.AirRatio;
-        double wind = BlastWave.WindImpulse(load.ChargeKg, load.Gap, ambient);
-        double speed = BlastWave.WindSpeed(BlastWave.PeakOverpressurePascals(load.ChargeKg, load.Gap, ambient), ambient);
+        double wind = BlastWave.WindImpulse(load.ChargeKg, load.Gap, ambient, load.Reflection);
+        double speed = BlastWave.WindSpeed(BlastWave.PeakOverpressurePascals(load.ChargeKg, load.Gap, ambient,
+                                                                             load.Reflection), ambient);
         (double3 linear, double3 angular) = BlastShove.OnPart(centreAsmb, pushAsmb, facingM2, wind, com);
 
-        double3 away = KsaWorld.VehicleAsmbDirectionToEcl(load.Craft, com - load.BurstAsmb);
+        double3 away = KsaWorld.VehicleAsmbDirectionToEcl(load.Craft, com - load.PushFromAsmb);
 
         _pushed.TryGetValue(load.Craft, out (double3 Linear, double3 Angular, double Wind, double3 AwayEcl) so);
         _pushed[load.Craft] = (so.Linear + linear, so.Angular + angular, Math.Max(so.Wind, speed), away);

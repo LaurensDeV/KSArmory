@@ -124,6 +124,9 @@ internal sealed class ChaseCamera : IViewPose
     private bool _burstSeen;
     private double _burstAge;
     private double _observedCharge;
+
+    // How far over the ground the watched burst went off, which the cloud's heights are measured from.
+    private double _observedHeight;
     private double _observerDistance;
     private double _observerFov;
     private double _observerMaxFov;
@@ -413,6 +416,7 @@ internal sealed class ChaseCamera : IViewPose
                     _burstSeen = KsaWorld.TryAnchorToGround(burst, out object? burstGround, out _burstAnchor);
                     if (_burstSeen) _observedGround = burstGround;
                     _burstAge = 0.0;
+                    _observedHeight = spent is Slug { BurstAtHeight: true } ? spent.Munition.BurstHeightMetres : 0.0;
                     FrameObserved(null, 0.0);
                     fromBurst = Vec.Len(burst - _followed.GetPositionEcl());
                 }
@@ -799,7 +803,8 @@ internal sealed class ChaseCamera : IViewPose
         {
             if (!KsaWorld.TryGroundAnchorEcl(_observedGround, _burstAnchor, out double3 burst, out _)) return false;
 
-            double3 top = burst + (_poseUp * ChaseView.CloudHeightNow(_observedCharge, _burstAge));
+            double3 top = burst + (_poseUp * (ChaseView.CloudHeightNow(_observedCharge, _burstAge, _observedHeight)
+                                              - _observedHeight));
             (forward, fovDeg) = ChaseView.Frame(burst - eye, top - eye, floor, maxFovDeg);
         }
         else

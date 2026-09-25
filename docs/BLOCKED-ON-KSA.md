@@ -686,6 +686,44 @@ the Bepu `Shapes` registry — but nothing here has tried it, and the engine's o
 is `Part.RayCastEgo` against `Ray.RaycastWatertight` (`KSA/KSA/Part.cs:2534`, `:2597`), which takes
 a `Part` and not a landmark.
 
+## A bright light far away, on craft and structures
+
+**Wanted.** A fireball's point light on every surface it reaches, as the terrain has it.
+
+**What stops it.** Every light goes to two places (`ClusteredLightSystem.CreateLightInstance`,
+`KSA/KSA.Rendering.Lighting/ClusteredLightSystem.cs:899`). Terrain takes it through the forward
+loop (`Lighting/PunctualLighting.glsl` `SampleForwardLights`), which has no cut. Craft parts, static
+objects such as the launch pad, and every other pre-pass mesh take it only through
+`Lighting/LightPrePass.comp`, whose first test is
+
+```glsl
+if (subgroupAll(dotNL * rangeAtt < ATT_EPSILON))   // 1e-7, rangeAtt = falloff / d^2
+    continue;
+```
+
+before the light's intensity is multiplied in. So a light is dropped from those surfaces beyond
+3.16 km times the square root of `dotNL`, however bright it is. That is right for a lamp and wrong
+for a 50 kt fireball, which lit the ground round the pad at night and left the pad and the rocket
+on it black -- and, at 2.1 km, lit the pad in a pattern of rectangles, one per subgroup that voted
+it out. No light flag keeps a light out of either path.
+
+**What the mod does instead.** `Shaders/KSArmoryFireLight.comp` reads what the pre-pass wrote
+(`ClusteredLightSystem._diffuseIrradianceImage`, private) and, on each pre-pass pixel the eye sees
+whose irradiance holds less than half the fireball's, adds the forward loop's diffuse term. The
+pre-pass keeps a surface's normal and not its colour, so the albedo is recovered from the pixel: in
+sunlight it shows `albedo / pi x sunColor x occlusionColor x N.L`, `StaticObject.frag`'s direct term,
+and the albedo divides out. Where the sun does not reach the pixel is black and says nothing: a surface
+lying on the ground, the pad and its apron, takes the planet's colour map there, which is what a
+terrain-sampled apron is textured from, and anything else the planet's `meanDiffuseLuminosity`. The
+ground showing beside it on screen was tried and copied the trees there across the apron. A fixed 0.28 made the pad glow many times
+brighter than the grass under a 50 Mt ball at 100 km; recovered, the apron's grass matches the
+terrain's and only the concrete, which is brighter, reads brighter. The rectangles at 2.1 km fade
+rather than vanish. 0.04 ms a
+frame while a fireball glows. Without the field the fill is off and the pad is dark again.
+
+**What would unblock it.** `intensity` in that early-out, which is one float load the loop makes three
+lines later anyway.
+
 ## Drawing a shape the gizmo renderer does not have
 
 **Wanted.** A solid torus on the ground under a craft being placed, and in general any shape worth

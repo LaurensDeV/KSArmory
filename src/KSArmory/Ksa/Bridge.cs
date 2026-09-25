@@ -42,7 +42,8 @@ internal sealed class Bridge
     private Vehicle? _posedFrom;
 
     private static readonly string[] ShaderIds =
-        ["KSArmoryCloudCompute", "KSArmoryCloudResolveCompute", "KSArmoryShockCompute"];
+        ["KSArmoryCloudCompute", "KSArmoryCloudResolveCompute", "KSArmoryShockCompute",
+         "KSArmoryFireLightCompute"];
 
     public Bridge(Config config, Func<Vehicle?, WeaponSystem?> systemFor)
     {
@@ -325,6 +326,14 @@ internal sealed class Bridge
         double3 above = craftEcl + (frame.East * command.Number("east_m", 2000.0))
                         + (frame.North * command.Number("north_m", 0.0));
         if (!KsaWorld.TrySnapToGround(above, out double3 ground)) return Failed("no ground under that point");
+
+        // Over the sea the surface is the water, not the seabed under it: up_m is measured from there.
+        if (KsaWorld.TrySeaLevel(body, out double sea))
+        {
+            double3 fromCentre = ground - body.GetPositionEcl();
+            double seaRadius = body.MeanRadius + sea;
+            if (Vec.Len(fromCentre) < seaRadius) ground = body.GetPositionEcl() + (Vec.Unit(fromCentre) * seaRadius);
+        }
 
         double charge = kt * 1.0e6;
 
@@ -754,13 +763,14 @@ internal sealed class Bridge
             ["nuclear_blackout"] = _config.NuclearBlackout,
         };
 
-        if (NuclearClouds.TryNewest(out double age, out double charge))
+        if (NuclearClouds.TryNewest(out double age, out double charge, out double height))
         {
             double kt = MushroomCloud.KilotonsFor(charge);
-            MushroomCloud.Shape shape = MushroomCloud.At(charge, age);
+            MushroomCloud.Shape shape = MushroomCloud.At(charge, age, height);
 
             m["burst_age_s"] = Math.Round(age, 3);
             m["kt"] = kt;
+            m["burst_height_m"] = Math.Round(height);
             m["cap_centre_m"] = Math.Round(shape.CapCentre);
             m["cap_radius_m"] = Math.Round(shape.CapRadius);
         }
@@ -768,14 +778,14 @@ internal sealed class Bridge
         if (NuclearClouds.TryWatch(out double3 burstEcl, out double3 up, out _, out double top, out _))
         {
             m["burst_screen"] = Screen(burstEcl);
-            m["cap_screen"] = NuclearClouds.TryNewest(out double a, out double c)
-                                  ? Screen(burstEcl + (Vec.Unit(up) * MushroomCloud.At(c, a).CapCentre))
+            m["cap_screen"] = NuclearClouds.TryNewest(out double a, out double c, out double h)
+                                  ? Screen(burstEcl + (Vec.Unit(up) * MushroomCloud.At(c, a, h).CapCentre))
                                   : null;
             m["top_screen"] = Screen(burstEcl + (Vec.Unit(up) * top));
 
-            if (NuclearClouds.TryNewest(out double nowAge, out double nowCharge))
+            if (NuclearClouds.TryNewest(out double nowAge, out double nowCharge, out double nowHeight))
             {
-                m["cloud_box"] = CloudBox(burstEcl, Vec.Unit(up), MushroomCloud.At(nowCharge, nowAge));
+                m["cloud_box"] = CloudBox(burstEcl, Vec.Unit(up), MushroomCloud.At(nowCharge, nowAge, nowHeight));
             }
 
             if (KsaWorld.TryMainCameraPose(out double3 eye, out _))

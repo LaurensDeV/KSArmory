@@ -175,6 +175,9 @@ public static class PackReader
             FuseArmSeconds = r.Number("FuseArmSeconds", 0.6f),
             ChargeKg = r.Number("ChargeKg", 20f),
             HitsTerrain = r.Flag("HitsTerrain", false),
+            BurstHeightMetres = r.Number("BurstHeightMetres", 0f),
+            ChuteSinkMetresPerSecond = r.Number("ChuteSinkMetresPerSecond", 0f),
+            ChuteOpensSeconds = r.Number("ChuteOpensSeconds", 1.5f),
 
             Stages = r.Stages(),
         };
@@ -182,6 +185,12 @@ public static class PackReader
         // A round given part of what its drag is computed from would fly on DragK without a word.
         int shape = (round.MassKg > 0f ? 1 : 0) + (round.CalibreMm > 0f ? 1 : 0) + (round.DragCoefficient > 0f ? 1 : 0);
         if (shape is 1 or 2) r.Fault("MassKg, CalibreMm and DragCoefficient go together: give all three, or none and DragK");
+
+        // Both are measured against the ground under the round, which only a round the ground stops has.
+        if ((round.BurstHeightMetres > 0f || round.HasChute) && !round.HitsTerrain)
+        {
+            r.Fault("BurstHeightMetres and ChuteSinkMetresPerSecond need HitsTerrain=\"true\"");
+        }
 
         if (!r.Sound()) return;
         if (Duplicate(round.Name, into, m => m.Name, r)) return;

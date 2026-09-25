@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using Brutal;
 using Brutal.Numerics;
@@ -8,6 +9,7 @@ using Core;
 using KSA;
 using KSA.Atmosphere.Rendering;
 using KSA.Rendering;
+using KSA.Rendering.Lighting;
 using RenderCore;
 
 namespace KSArmory;
@@ -37,6 +39,14 @@ internal static class CloudPass
     private const string ShaderId = "KSArmoryCloudCompute";
     private const string ResolveShaderId = "KSArmoryCloudResolveCompute";
     private const string ShockShaderId = "KSArmoryShockCompute";
+    private const string FireLightShaderId = "KSArmoryFireLightCompute";
+
+    // KSArmoryFireLight.comp's workgroup.
+    private const int FireLightGroupX = 16;
+    private const int FireLightGroupY = 8;
+
+    // The albedo the fill assumes where the planet's cannot be read: KSA's own default, 0.5 to the 2.2.
+    private const double FireLightAlbedo = 0.218;
 
     // The compute shader's workgroup, which has to match KSArmoryCloud.comp's local_size.
     private const int Group = 8;
@@ -54,7 +64,9 @@ internal static class CloudPass
     private static readonly ProfilerTag MarchTag = new("KSArmory Cloud: march"u8);
     private static readonly ProfilerTag ResolveTag = new("KSArmory Cloud: resolve"u8);
     private static readonly ProfilerTag FrontsTag = new("KSArmory Cloud: fronts"u8);
+    private static readonly ProfilerTag FireLightTag = new("KSArmory Cloud: fire light"u8);
     private static readonly ProfilerTag FlashTag = new("KSArmory Cloud: flash"u8);
+    private static readonly ProfilerTag GlowTag = new("KSArmory Cloud: glow"u8);
 
     private static ComputePipelineWrapper? _pipeline;
 
@@ -79,6 +91,10 @@ internal static class CloudPass
         // the pixel it writes, and the bend reads nothing else.
         public required RenderImage SceneCopy;
         public ComputePipelineWrapper? Shock;
+        public ComputePipelineWrapper? FireLight;
+        public VkImageView FireLightDepth;
+        public VkImageView FireLightNormal;
+        public VkImageView FireLightIrradiance;
         public readonly ComputePipelineWrapper?[] Resolve = new ComputePipelineWrapper?[2];
         public int Parity;
 
@@ -366,10 +382,16 @@ internal static class CloudPass
             _order.Clear();
             for (int i = 0; i < NuclearClouds.Count && _order.Count < MaxClouds; i++)
             {
+                // Air too thin for a mushroom leaves a shell of glowing debris, drawn below as light.
+                if (NuclearClouds.IsThin(i)) continue;
                 if (!NuclearClouds.TryAt(i, out double3 at, out _, out _, out _, out _, out _, out _, out _, out _)) continue;
 
                 _order.Add((i, Vec.Len2(at - camera.PositionEcl)));
             }
+
+            // THE FIREBALL'S LIGHT on what KSA's pre-pass dropped it from, before anything is drawn
+            // over those surfaces.
+            FireLight(commandBuffer, viewport, camera, view, depth);
 
             // THE GROUND FIRST, because the clouds composite over what is already in the image and
             // a mark is under the column rather than in front of it.
@@ -387,7 +409,7 @@ internal static class CloudPass
                 {
                     if (!NuclearClouds.TryScorch(i, out double3 markEcl, out double markRadius,
                                                  out double3 markWind, out double markOverSea,
-                                                 out bool markAirless)) continue;
+                                                 out bool markAirless, out double markCoupling)) continue;
 
                     double3 markCentre = markEcl - camera.PositionEcl;
                     if (!Vec.IsFinite(markCentre)) continue;
@@ -422,16 +444,110 @@ internal static class CloudPass
                         // How far the patch's centre stands above the sea, in the one float of the
                         // cloud's shape a mark does not use. Always set: zero would read as a mark
                         // standing on the waterline and blank everything below its own centre.
-                        // And whether KSA's weather clouds are bound, in the next float along, and
-                        // whether there was air to carry a plume downwind, in the one after.
+                        // And whether KSA's weather clouds are bound, in the next float along,
+                        // whether there was air to carry a plume downwind, in the one after, and how
+                        // much of a surface burst it was, which is how much fallout it dropped.
                         Shape = new float4((float)markOverSea, weather ? 1f : 0f,
-                                           markAirless ? 1f : 0f, 0f),
+                                           markAirless ? 1f : 0f, (float)markCoupling),
                     };
 
                     if (marks > 0) Hazard(commandBuffer);
 
                     BindCloud(commandBuffer, viewport, camera, burn);
                     commandBuffer.Dispatch(tile.GroupsX, tile.GroupsY, 1);
+                    marks++;
+                }
+            }
+
+            // THE LAYER A HIGH BURST LIT, behind everything the clouds put over it: it is 80 km up and
+            // hundreds across. Full-screen, since it can fill the sky, and only while one glows.
+            using (commandBuffer.TagRegion(GpuTag))
+            using (commandBuffer.TagRegion(GlowTag))
+            {
+                for (int i = 0; i < NuclearClouds.GlowCount; i++)
+                {
+                    // Drawn against the planet the camera is near, which is the only one the shader has:
+                    // a glow over another body would be drawn as a shell round this one.
+                    if (!NuclearClouds.TryGlow(i, out double3 glowEcl, out double nits, out double green,
+                                               out object? over)) continue;
+                    if (!ReferenceEquals(over, camera.NearbyCelestial)) continue;
+
+                    double3 lit = glowEcl - camera.PositionEcl;
+                    if (!Vec.IsFinite(lit)) continue;
+
+                    // A negative bound is what says this dispatch is a glowing layer: its size is the
+                    // layer's, in the fireball's first two floats, and its brightness the bound's.
+                    Push glow = new()
+                    {
+                        InvViewProj = camera.VPInv.viewProjection,
+                        CentreRadius = new float4((float)lit.X, (float)lit.Y, (float)lit.Z, -(float)nits),
+                        FireSun = new float4((float)XRayGlow.LayerAltitude, (float)XRayGlow.LayerThickness, 0f, 0f),
+                        Shape = new float4((float)green, 0f, 0f, 0f),
+                    };
+
+                    if (marks > 0) Hazard(commandBuffer);
+
+                    BindCloud(commandBuffer, viewport, camera, glow);
+                    commandBuffer.Dispatch((width + Group - 1) / Group, (height + Group - 1) / Group, 1);
+                    marks++;
+                }
+
+                // THE AURORA at each end of a high burst's field line, on the same negative-bound
+                // dispatch with the third fireball float saying it is a curtain rather than a layer.
+                for (int i = 0; i < NuclearClouds.AuroraCount; i++)
+                {
+                    if (!NuclearClouds.TryAurora(i, out double3 footEcl, out double3 eastEcl, out double sinLatitude,
+                                                 out double nits,
+                                                 out double age, out object? over)) continue;
+                    if (!ReferenceEquals(over, camera.NearbyCelestial)) continue;
+
+                    double3 foot = footEcl - camera.PositionEcl;
+                    if (!Vec.IsFinite(foot)) continue;
+
+                    Push curtain = new()
+                    {
+                        InvViewProj = camera.VPInv.viewProjection,
+                        CentreRadius = new float4((float)foot.X, (float)foot.Y, (float)foot.Z, -(float)nits),
+                        FireSun = new float4((float)Aurora.BottomAltitude, (float)Aurora.TopAltitude, 1f,
+                                             (float)sinLatitude),
+                        Shape = new float4((float)eastEcl.X, (float)eastEcl.Y, (float)eastEcl.Z, (float)age),
+                    };
+
+                    if (marks > 0) Hazard(commandBuffer);
+
+                    BindCloud(commandBuffer, viewport, camera, curtain);
+                    commandBuffer.Dispatch((width + Group - 1) / Group, (height + Group - 1) / Group, 1);
+                    marks++;
+                }
+
+                // THE DEBRIS of a burst in air too thin for a mushroom: a glowing, transparent shell,
+                // on the same negative-bound dispatch with the third fireball float at two.
+                for (int i = 0; i < NuclearClouds.Count; i++)
+                {
+                    if (!NuclearClouds.TryDebris(i, out double3 shellEcl, out double3 fieldEcl, out double shellRadius,
+                                                 out DebrisShell.Look look, out object? over)) continue;
+                    if (!ReferenceEquals(over, camera.NearbyCelestial)) continue;
+
+                    double3 shell = shellEcl - camera.PositionEcl;
+                    if (!Vec.IsFinite(shell)) continue;
+
+                    Push debris = new()
+                    {
+                        InvViewProj = camera.VPInv.viewProjection,
+                        AgeStrengthWind = new float4((float)look.Colour.X, (float)look.Colour.Y, (float)look.Colour.Z,
+                                                     (float)look.Fill),
+                        CentreRadius = new float4((float)shell.X, (float)shell.Y, (float)shell.Z, -(float)look.Radiance),
+                        // The fourth float stays zero: a positive one says a mark, and shifts every
+                        // pixel of the dispatch by the first two -- here the shell's radius.
+                        FireSun = new float4((float)shellRadius, (float)look.Elongation, 2f, 0f),
+                        Shape = new float4((float)fieldEcl.X, (float)fieldEcl.Y, (float)fieldEcl.Z,
+                                           (float)NuclearClouds.AgeOf(i)),
+                    };
+
+                    if (marks > 0) Hazard(commandBuffer);
+
+                    BindCloud(commandBuffer, viewport, camera, debris);
+                    commandBuffer.Dispatch((width + Group - 1) / Group, (height + Group - 1) / Group, 1);
                     marks++;
                 }
             }
@@ -503,14 +619,20 @@ internal static class CloudPass
                         // so it is its own dispatch below and a cloud never draws one. The fourth
                         // float is therefore free on this dispatch, and carries two flags -- see
                         // CloudFlags.
+                        //
+                        // The heat shares its float with how much of a surface burst this was and
+                        // how much of a stem it raised: MushroomCloud.PackHeat.
                         FireSun = new float4((float)flash.Radius, (float)flash.Glow,
-                                             (float)heat,
+                                             MushroomCloud.PackHeat(heat, shape.Coupling, shape.StemShare),
                                              CloudFlags(water, weather, first: drawn == 0, shape.Shock)),
 
                         // The same shape MushroomCloud carries, so every dimension stays
                         // Glasstone's rather than being invented again in GLSL.
+                        // The stem's radius carries how far up the column reaches in its fraction:
+                        // MushroomCloud.PackStem.
                         Shape = new float4((float)shape.CapCentre, (float)shape.CapRadius,
-                                           (float)shape.CapTube, (float)shape.StemRadius),
+                                           (float)shape.CapTube,
+                                           MushroomCloud.PackStem(shape.StemRadius, shape.ColumnTop)),
                     };
 
                     // Between dispatches, because every one of them reads the scene image and
@@ -654,7 +776,7 @@ internal static class CloudPass
         public float4x4 InvViewProj;
         public float4 CentreRadius;        // the burst, camera-relative, and how far the front has got
         public float4 CentreUvStrength;    // the burst on screen, how hard it bends, its thickness
-        public float4 UpMode;              // the vertical at the burst, and 0 to copy or 1 to bend
+        public float4 UpMode;              // the vertical at the burst, one plus its height long, and 0 to copy or 1 to bend
         public float4 Shake;               // the picture thrown across and up, its roll, and 1 while shaking
     }
 
@@ -690,7 +812,7 @@ internal static class CloudPass
         for (int i = 0; i < NuclearClouds.Count && _fronts.Count < MaxClouds; i++)
         {
             if (!NuclearClouds.TryFront(i, out double3 burstEcl, out double3 up, out double front,
-                                        out double chargeKg)) continue;
+                                        out double chargeKg, out double overGround)) continue;
 
             double strength = Math.Clamp(Warhead.LethalRadius(chargeKg) / front, 0.0, 1.0);
             if (strength <= ShockFaintest) continue;
@@ -718,7 +840,9 @@ internal static class CloudPass
                 CentreUvStrength = new float4((float)((x * 0.5) + 0.5), (float)((y * 0.5) + 0.5),
                                               ShockBend * (float)strength,
                                               (float)width),
-                UpMode = new float4((float)up.X, (float)up.Y, (float)up.Z, 0f),
+                // Unit up, lengthened by the burst's height over the ground: KSArmoryShock.comp.
+                UpMode = new float4((float)(up.X * (1.0 + overGround)), (float)(up.Y * (1.0 + overGround)),
+                                    (float)(up.Z * (1.0 + overGround)), 0f),
             });
         }
 
@@ -758,6 +882,212 @@ internal static class CloudPass
     }
 
     private static readonly List<ShockPush> _fronts = [];
+
+    [StructLayout(LayoutKind.Sequential, Pack = 4)]
+    private struct FireLightPush
+    {
+        public float4x4 InvViewProj;
+        public float4 LightRange;          // the light as KSA was handed it, camera-relative, and its range
+        public float4 Radiant;             // its colour times its intensity, and the planet's mean albedo
+        public float4 Cce2Ccf;             // the planet's rotation, world to its own frame, as a quaternion
+        public float4 GroundMap;           // its colour map and a sampler, bindless; negative for none
+    }
+
+    // THE FIREBALL'S LIGHT where KSA's light pre-pass dropped it: KSArmoryFireLight.comp. The main
+    // view alone, because that is the one view the pre-pass runs for; nothing when its images cannot
+    // be reached, which leaves the craft as dark as KSA left them.
+    private static void FireLight(CommandBuffer commandBuffer, IViewport viewport, Camera camera, View view,
+                                  IRenderImage depth)
+    {
+        if (!Fireball.TryPushed(out double3 lightEgo, out float range, out float3 radiant)) return;
+        if (!ReferenceEquals(viewport, Program.MainViewport)) return;
+        if (Program.Instance?.PrePassRenderer is not { OpaqueHasValidDepth: true } prePass) return;
+        if (prePass.OpaquePrePassData.Target is not { } target) return;
+        if (target.ColorImage is not { } normal || target.DepthImage is not { } prePassDepth) return;
+        if (target.Extent.Width != view.Width || target.Extent.Height != view.Height) return;
+        if (!TryPrePassIrradiance(out RenderImage? irradiance)) return;
+
+        if (view.FireLight is null
+            || !view.FireLightDepth.Equals(prePassDepth.ImageView)
+            || !view.FireLightNormal.Equals(normal.ImageView)
+            || !view.FireLightIrradiance.Equals(irradiance!.ImageView))
+        {
+            if (!BuildFireLight(view, depth, prePassDepth, normal, irradiance!)) return;
+        }
+
+        FireLightPush push = new()
+        {
+            InvViewProj = camera.VPInv.viewProjection,
+            LightRange = new float4((float)lightEgo.X, (float)lightEgo.Y, (float)lightEgo.Z, range),
+            Radiant = new float4(radiant.X, radiant.Y, radiant.Z, (float)MeanAlbedo(camera.NearbyCelestial)),
+            Cce2Ccf = Cce2CcfQuaternion(camera.NearbyCelestial),
+            GroundMap = GroundMapFor(camera.NearbyCelestial),
+        };
+
+        using (commandBuffer.TagRegion(GpuTag))
+        using (commandBuffer.TagRegion(FireLightTag))
+        {
+            // From the fragment read KSA left it in to a compute read, through KSA's own tracked
+            // state, so the engine barriers it back next frame from wherever this left it.
+            Span<VkImageMemoryBarrier2> one = stackalloc VkImageMemoryBarrier2[1];
+            BarrierBatch toSample = new(one);
+            toSample.Add(irradiance!, ImageBarrierInfo.Presets.SampledReadC);
+            toSample.SubmitAndFlush(commandBuffer);
+
+            Span<VkDescriptorSet> sets = stackalloc VkDescriptorSet[1];
+            sets[0] = Program.Instance.TextureSystem.DescriptorSet;
+            view.FireLight!.BindPipeline(commandBuffer, viewport.ShaderSlot, sets, default, push);
+            commandBuffer.Dispatch((view.Width + FireLightGroupX - 1) / FireLightGroupX,
+                                   (view.Height + FireLightGroupY - 1) / FireLightGroupY, 1);
+            Hazard(commandBuffer);
+        }
+    }
+
+    // The pre-pass keeps a surface's normal and not its colour, so the fill takes the albedo the
+    // terrain round it averages -- KSA's own meanDiffuseLuminosity, which is what Planet.frag scales the
+    // ground's colour to -- and the pixel's own hue. A fixed number instead was the terrain's several
+    // times over, and the pad glowed beside the grass.
+    private static double MeanAlbedo(Celestial? body)
+    {
+        try
+        {
+            float? mean = body?.BodyTemplate.ScatteringReference?.MeanDiffuseLuminosity is { } reference
+                              ? (float)reference
+                              : null;
+            return mean is { } m && float.IsFinite(m) && m > 0f ? Math.Pow(m, 2.2) : FireLightAlbedo;
+        }
+        catch
+        {
+            return FireLightAlbedo;
+        }
+    }
+
+    // The planet's rotation as the shader applies it, built from what Transform does to each axis
+    // rather than from the type's own layout, so a convention nobody has checked cannot turn it inside
+    // out. Identity where there is no body.
+    private static float4 Cce2CcfQuaternion(Celestial? body)
+    {
+        if (body is null) return new float4(0f, 0f, 0f, 1f);
+
+        double3 x = new double3(1, 0, 0).Transform(body.GetCce2Ccf());
+        double3 y = new double3(0, 1, 0).Transform(body.GetCce2Ccf());
+        double3 z = new double3(0, 0, 1).Transform(body.GetCce2Ccf());
+        double m00 = x.X, m10 = x.Y, m20 = x.Z, m01 = y.X, m11 = y.Y, m21 = y.Z, m02 = z.X, m12 = z.Y, m22 = z.Z;
+
+        double trace = m00 + m11 + m22;
+        double qw, qx, qy, qz;
+        if (trace > 0.0)
+        {
+            double s = Math.Sqrt(trace + 1.0) * 2.0;
+            (qw, qx, qy, qz) = (0.25 * s, (m21 - m12) / s, (m02 - m20) / s, (m10 - m01) / s);
+        }
+        else if (m00 > m11 && m00 > m22)
+        {
+            double s = Math.Sqrt(1.0 + m00 - m11 - m22) * 2.0;
+            (qw, qx, qy, qz) = ((m21 - m12) / s, 0.25 * s, (m01 + m10) / s, (m02 + m20) / s);
+        }
+        else if (m11 > m22)
+        {
+            double s = Math.Sqrt(1.0 + m11 - m00 - m22) * 2.0;
+            (qw, qx, qy, qz) = ((m02 - m20) / s, (m01 + m10) / s, 0.25 * s, (m12 + m21) / s);
+        }
+        else
+        {
+            double s = Math.Sqrt(1.0 + m22 - m00 - m11) * 2.0;
+            (qw, qx, qy, qz) = ((m10 - m01) / s, (m02 + m20) / s, (m12 + m21) / s, 0.25 * s);
+        }
+
+        return new float4((float)qx, (float)qy, (float)qz, (float)qw);
+    }
+
+    // The planet's colour cube map and a sampler, as the bindless handles the shader indexes; negative
+    // where the body has none, which leaves ground at the planet's mean albedo.
+    private static float4 GroundMapFor(Celestial? body)
+    {
+        try
+        {
+            if (body?.BodyTemplate.DiffuseReference?.Get() is { } map)
+            {
+                return new float4(map.BindlessHandle, Program.Instance.TextureSystem.SamplerClampHandle, 0f, 0f);
+            }
+        }
+        catch
+        {
+            // No map to read; the mean stands in.
+        }
+
+        return new float4(-1f, -1f, 0f, 0f);
+    }
+
+    private static FieldInfo? _irradianceField;
+    private static bool _irradianceMissing;
+
+    // What KSA's light pre-pass wrote, which is the only way to know which pixels it dropped the light
+    // from: its vote runs per subgroup among whichever lanes reach that light in their own lists, so it
+    // cannot be repeated. A private field, and without it the fill is off rather than guessed.
+    private static bool TryPrePassIrradiance(out RenderImage? image)
+    {
+        image = null;
+        if (_irradianceMissing) return false;
+
+        try
+        {
+            if (Program.LightSystem is not ClusteredLightSystem lights) return false;
+            _irradianceField ??= typeof(ClusteredLightSystem).GetField(
+                "_diffuseIrradianceImage", BindingFlags.NonPublic | BindingFlags.Instance);
+            image = _irradianceField?.GetValue(lights) as RenderImage;
+        }
+        catch
+        {
+            image = null;
+        }
+
+        if (image is null)
+        {
+            _irradianceMissing = true;
+            Warn("KSA's light pre-pass result could not be read; a fireball will not light craft beyond 3 km");
+        }
+
+        return image is not null;
+    }
+
+    private static bool BuildFireLight(View view, IRenderImage depth, RenderImage prePassDepth, RenderImage normal,
+                                       RenderImage irradiance)
+    {
+        view.FireLight = null;
+        if (!ModLibrary.TryGet<ShaderReference>(FireLightShaderId, out var shader) || shader is null)
+        {
+            Warn($"no shader '{FireLightShaderId}'; a fireball will not light craft beyond 3 km");
+            return false;
+        }
+
+        Renderer renderer = Program.GetRenderer();
+
+        IRenderImage[] storageTargets = [view.Target];
+        IRenderImage[] depthTargets = [depth, prePassDepth];
+        VkImageView[] readOnly = [normal.ImageView, irradiance.ImageView];
+        VkPushConstantRange[] ranges =
+        [
+            new VkPushConstantRange
+            {
+                Offset = (ByteSize32)0,
+                Size = (ByteSize32)Marshal.SizeOf<FireLightPush>(),
+                StageFlags = VkShaderStageFlags.ComputeBit,
+            },
+        ];
+
+        VkDescriptorSetLayout[] external = [Program.Instance.TextureSystem.Layout];
+        view.FireLight = new ComputePipelineWrapper(
+            storageTargets, depthTargets, default, default, shader,
+            external, ranges, renderer.MaxFramesInFlight, renderer,
+            "KSArmory.FireLight", Program.PointClampedSampler, Program.LinearClampedSampler,
+            colorSamplerLinearViewsReadOnlyLayout: readOnly);
+        view.FireLightDepth = prePassDepth.ImageView;
+        view.FireLightNormal = normal.ImageView;
+        view.FireLightIrradiance = irradiance.ImageView;
+
+        return true;
+    }
 
     private static bool BuildShock(View view, IRenderImage depth)
     {
@@ -820,8 +1150,10 @@ internal static class CloudPass
             Push flash = new()
             {
                 InvViewProj = camera.VPInv.viewProjection,
-                // The ball's radius, so the shader can ask how much of it the eye can see.
-                AgeStrengthWind = new float4((float)ballRadius, 0f, 0f, 0f),
+                // The ball's radius, so the shader can ask how much of it the eye can see, and
+                // whether it is a thin-air burst's debris shell, which the halo must not paint over.
+                AgeStrengthWind = new float4((float)ballRadius,
+                                             NuclearClouds.BallIsThin(BurstFlash.SourceIndex) ? 1f : 0f, 0f, 0f),
                 CentreRadius = new float4((float)source.X, (float)source.Y, (float)source.Z, 0f),
                 // The halo's level, how violet the flash still is, and the halo's colour ride in
                 // floats a flash has no other use for.

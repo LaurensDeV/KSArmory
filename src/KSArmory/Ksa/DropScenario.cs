@@ -661,6 +661,27 @@ internal sealed class DropScenario
         if (_stillTaken >= StillShots) KsaWorld.SetPaused(false);
     }
 
+    /// <summary>A height fuse for the store, in metres over the ground: zero leaves it to burst on contact.</summary>
+    public double FuseMetres { get; init; }
+
+    /// <summary>A parachute for the store, as the rate it sinks at: zero leaves it without one.</summary>
+    public double ChuteSink { get; init; }
+
+    private bool _storeFitted;
+
+    // Fits what was asked of the store to the profile it flies, once, before it is released.
+    private void FitStore(MunitionProfile munition)
+    {
+        if (_storeFitted) return;
+        _storeFitted = true;
+        if (!(FuseMetres > 0.0) && !(ChuteSink > 0.0)) return;
+
+        munition.BurstHeightMetres = (float)FuseMetres;
+        munition.ChuteSinkMetresPerSecond = (float)ChuteSink;
+        _report($"store fitted with a {(FuseMetres > 0.0 ? $"{FuseMetres:F0} m height fuse" : "contact fuse")}"
+                + (ChuteSink > 0.0 ? $" and a {ChuteSink:F0} m/s chute" : string.Empty));
+    }
+
     private string? Wait(WeaponSystems roster, double dt)
     {
         WeaponSystems.Entry? found = null;
@@ -675,6 +696,7 @@ internal sealed class DropScenario
                 if (e.Battery.Ammo <= 0) continue;
 
                 found = e;
+                FitStore(e.Battery.Munition);
 
                 // The chase rides whatever the panel is focused on, which is the controlled craft.
                 if (ReferenceEquals(craft, KsaWorld.ControlledVehicle)) break;
@@ -1058,7 +1080,16 @@ internal sealed class DropScenario
         double3 burst = round.PositionEcl;
         double3 carried = KsaWorld.GroundVelocityAt(body, burst) * round.DetonationElapsedInFrame;
 
-        if (!KsaWorld.TryAnchorToGround(burst - carried, out _, out double3 landed))
+        // An air burst is scored from the ground under it, which is where the ring is drawn.
+        double3 scored = burst - carried;
+        if (round is Slug { BurstAtHeight: true })
+        {
+            if (!KsaWorld.TrySnapToGround(scored, out double3 under)) return "FAIL the air burst had no ground under it";
+            _report($"burst {Vec.Len(scored - under):F0} m over the ground");
+            scored = under;
+        }
+
+        if (!KsaWorld.TryAnchorToGround(scored, out _, out double3 landed))
         {
             return "FAIL the burst could not be put on the ground";
         }

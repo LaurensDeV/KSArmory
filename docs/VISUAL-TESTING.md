@@ -245,8 +245,11 @@ one" was answered from memory on the night; this answers it from pictures.
 **Debug views and tunables are one mechanism.** Both are specialization constants
 (`Sim/ShaderTunables.cs`): declared with a `constant_id` and a default in the GLSL, overridden when
 the pipeline is built, so `tune` is a pipeline rebuild — milliseconds, no recompile — and a debug
-view costs the picture nothing. `DebugView` 1–5 draws coverage, depth, the weather mask, sunlight
-and the fireball's share of the light; the rest are the look's constants.
+view costs the picture nothing. `DebugView` 1–8 draws coverage, depth, the weather mask, sunlight,
+the fireball's share of the light, the sky's ambient, the air's own light in front, and the light per
+unit of cover at a quarter; the rest are the look's constants. The last three found the megatonne
+cloud's white-out: every term was sane and the light per unit of cover was four times any of them,
+which is the march counting a step's extinction as the light it scattered.
 `ShaderTunablesTests` holds the list and the GLSL to one another. The first use of the sunlight view
 turned up a defect: the stem under the cap read fully lit, because the shadow march's four taps step
 over a cap a few hundred metres thick a kilometre up the ray. A point under the cap now adds the

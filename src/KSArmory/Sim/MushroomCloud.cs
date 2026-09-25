@@ -57,9 +57,23 @@ public static class MushroomCloud
     /// </summary>
     public const double DrawnCapWidening = 1.9;
 
+    /// <summary>
+    /// And at Tsar Bomba's 50 Mt: narrower than Bravo's widening makes it, because a cloud that
+    /// punches further into the stratosphere spreads less. See <see cref="TsarPenetration"/>.
+    /// </summary>
+    public const double TsarCapWidening = 0.6;
+
+    /// <summary>The widening for a yield, between the two shots as <see cref="PenetrationFor"/> is.</summary>
+    public static double CapWideningFor(double yieldKt)
+        => DrawnCapWidening + ((TsarCapWidening - DrawnCapWidening) * PastBravo(yieldKt));
+
+    // How far from Bravo's 15 Mt to Tsar's 50 a yield is, log-linear and clamped at both ends.
+    private static double PastBravo(double yieldKt)
+        => Math.Clamp(Math.Log(Math.Max(yieldKt, 1e-9) / 15_000.0) / Math.Log(50_000.0 / 15_000.0), 0.0, 1.0);
+
     /// <summary>And the cap radius as drawn.</summary>
     public static double DrawnCapRadius(double yieldKt)
-        => CapRadius(yieldKt) * DrawnScale * DrawnCapWidening;
+        => CapRadius(yieldKt) * DrawnScale * CapWideningFor(yieldKt);
 
     /// <summary>
     /// The tropopause, at the law's scale: the standard atmosphere's 11 km. Earth's, the way the
@@ -77,6 +91,21 @@ public static class MushroomCloud
     /// </summary>
     public const double StratospherePenetration = 0.41;
 
+    /// <summary>
+    /// And at the top of the dial: ten minutes after Tsar Bomba its cloud stood 64 to 67 km high and
+    /// about 95 km across, which Bravo's share alone draws at 52 km. The largest clouds punch further
+    /// into the stratosphere than one share describes. Chosen, with <see cref="TsarCapWidening"/>, so
+    /// the cloud as drawn is that tall and that wide at that age.
+    /// </summary>
+    public const double TsarPenetration = 0.65;
+
+    /// <summary>
+    /// The share for a yield: Bravo's up to its 15 Mt, Tsar's from its 50, and log-linear between.
+    /// Two measured clouds and nothing else, so nothing past either end is extrapolated.
+    /// </summary>
+    public static double PenetrationFor(double yieldKt)
+        => StratospherePenetration + ((TsarPenetration - StratospherePenetration) * PastBravo(yieldKt));
+
     // The width of the bend onto that slope, as a share of the tropopause, so the cap does not
     // visibly kink as it passes through.
     private const double TropopauseKnee = 0.15;
@@ -84,17 +113,18 @@ public static class MushroomCloud
     /// <summary>
     /// A height the laws give, bent to what a stratified atmosphere lets the cloud reach. Unchanged
     /// under the drawn tropopause, and past it the slope eases from one onto
-    /// <see cref="StratospherePenetration"/>.
+    /// <see cref="PenetrationFor"/> the yield.
     /// </summary>
-    public static double Stratified(double drawnHeight)
+    public static double Stratified(double drawnHeight, double yieldKt = 0.0)
     {
         double tropopause = TropopauseMetres * DrawnScale;
         double over = drawnHeight - tropopause;
         if (over <= 0.0) return drawnHeight;
 
         double knee = TropopauseKnee * tropopause;
-        return tropopause + (StratospherePenetration * over)
-               + ((1.0 - StratospherePenetration) * knee * (1.0 - Math.Exp(-over / knee)));
+        double share = PenetrationFor(yieldKt);
+        return tropopause + (share * over)
+               + ((1.0 - share) * knee * (1.0 - Math.Exp(-over / knee)));
     }
 
     /// <summary>
@@ -102,20 +132,178 @@ public static class MushroomCloud
     /// <paramref name="drawnTop"/>: one under the tropopause, less past it. The cap's base is at
     /// half the top and its crown at the top, so this is how much of that span survives the bend.
     /// </summary>
-    public static double CapSquash(double drawnTop)
+    public static double CapSquash(double drawnTop, double yieldKt = 0.0)
     {
         if (drawnTop <= 0.0) return 1.0;
 
         double lawSpan = drawnTop * 0.5;
-        return Math.Clamp((Stratified(drawnTop) - Stratified(lawSpan)) / lawSpan, 0.05, 1.0);
+        return Math.Clamp((Stratified(drawnTop, yieldKt) - Stratified(lawSpan, yieldKt)) / lawSpan, 0.05, 1.0);
     }
 
     /// <summary>How high the drawn cloud stands once it has stopped rising, tropopause and all.</summary>
-    public static double DrawnStandingTop(double yieldKt) => Stratified(DrawnCloudTop(yieldKt));
+    public static double DrawnStandingTop(double yieldKt) => Stratified(DrawnCloudTop(yieldKt), yieldKt);
+
+    /// <summary>
+    /// The highest the drawn crown gets over the cloud's life (m), from the ground under the burst:
+    /// what a player sees, where <see cref="DrawnStandingTop"/> is the law it is built from. The two
+    /// part by a few kilometres in the stratosphere, where the cap is a thin anvil round its centre.
+    /// </summary>
+    public static double TallestDrawn(double yieldKt, double burstHeight = 0.0, double airRatio = 1.0)
+    {
+        if (_tallest.Kt == yieldKt && _tallest.Height == burstHeight && _tallest.Air == airRatio) return _tallest.Metres;
+
+        double life = LifeFor(yieldKt);
+        double tallest = 0.0;
+
+        for (int i = 1; i <= 24; i++)
+        {
+            Shape shape = At(yieldKt * 1.0e6, life * i / 25.0, burstHeight, airRatio);
+            tallest = Math.Max(tallest, shape.CapCentre + (CrownInTubes * shape.CapTube));
+        }
+
+        _tallest = (yieldKt, burstHeight, airRatio, tallest);
+        return tallest;
+    }
+
+    // The panel asks every frame for the dial it has not moved.
+    [ThreadStatic]
+    private static (double Kt, double Height, double Air, double Metres) _tallest;
 
     /// <summary>And how wide its cap is then, anvil and all.</summary>
     public static double DrawnCapAcross(double yieldKt)
-        => 2.0 * DrawnCapRadius(yieldKt) / Math.Sqrt(CapSquash(DrawnCloudTop(yieldKt)));
+        => 2.0 * DrawnCapRadius(yieldKt) / Math.Sqrt(CapSquash(DrawnCloudTop(yieldKt), yieldKt));
+
+    /// <summary>
+    /// The height of burst above which a burst leaves no significant local fallout (m): 180·W^0.4
+    /// feet (Glasstone and Dolan). Below it the fireball reaches the ground and draws it up into the
+    /// cloud; above it the cloud is the bomb's own debris and air. It sits at 0.82 of
+    /// <see cref="FireballRadius"/>, so it is also where the ball stops touching the ground.
+    /// </summary>
+    public static double FalloutSafeHeight(double yieldKt)
+        => yieldKt <= 0.0 ? 0.0 : 54.9 * Math.Pow(yieldKt, 0.4);
+
+    /// <summary>
+    /// How much of a surface burst this is, in [0, 1], from its height above the ground: one on the
+    /// ground and up to half <see cref="FalloutSafeHeight"/>, none from all of it. What decides
+    /// the dirt in the cloud, the fallout under it, and how much the ground adds to the fireball.
+    /// </summary>
+    public static double GroundCoupling(double yieldKt, double burstHeight)
+    {
+        double safe = FalloutSafeHeight(yieldKt);
+        if (!(safe > 0.0) || !(burstHeight > 0.0)) return 1.0;
+
+        return 1.0 - Smoothstep(0.5 * safe, safe, burstHeight);
+    }
+
+    /// <summary>
+    /// How wide the column of dust under an air burst is drawn, as a share of a surface burst's stem.
+    ///
+    /// <para>An air burst still raises one: the afterwinds lift the ground under it into a column
+    /// that climbs to the cloud. It is thinner than the dirt a surface burst throws up, and above a
+    /// few fallout-safe heights the winds at the ground are too weak to raise one at all. Nagasaki
+    /// at 2.7 of those heights has a column, and the Tumbler-Snapper air drops at about 5 still
+    /// raised one that never reached the cloud; the fade to nothing between 3 and 7 is drawn, not
+    /// measured.</para>
+    /// </summary>
+    public static double StemShare(double yieldKt, double burstHeight)
+    {
+        double safe = FalloutSafeHeight(yieldKt);
+        if (!(safe > 0.0) || !(burstHeight > 0.0)) return 1.0;
+
+        double airborne = Smoothstep(0.5 * safe, safe, burstHeight);
+        double fading = Smoothstep(3.0 * safe, 7.0 * safe, burstHeight);
+        return (1.0 - ((1.0 - AirStemShare) * airborne)) * (1.0 - fading);
+    }
+
+    // When the front reaches the ground under an air burst: a bisection, and the same answer for every
+    // shape of one cloud, so the last is kept. Per thread, since tests draw shapes in parallel.
+    private static double GroundArrival(double yieldKt, double burstHeight)
+    {
+        if (_arrival.Kt == yieldKt && _arrival.Height == burstHeight) return _arrival.Seconds;
+
+        double seconds = ShockArrivalSeconds(yieldKt, burstHeight);
+        _arrival = (yieldKt, burstHeight, seconds);
+        return seconds;
+    }
+
+    [ThreadStatic]
+    private static (double Kt, double Height, double Seconds) _arrival;
+
+    // How far an air burst's column has formed: none until the front comes down to the ground.
+    private static double ColumnFormed(double yieldKt, double burstHeight, double age)
+    {
+        if (!(burstHeight > 0.0)) return 1.0;
+
+        double reaches = GroundArrival(yieldKt, burstHeight);
+        return Smoothstep(reaches, reaches + ColumnFormsSeconds, age);
+    }
+
+    /// <summary>
+    /// How far up to the cap's underside an air burst's column of dust climbs, as a share: all the
+    /// way from a burst low enough to be drawing the ground up into its fireball, and half from four
+    /// fallout-safe heights, where the photographs of the higher air drops show a column rising under
+    /// a cloud it never reaches. The share is drawn, not measured.
+    /// </summary>
+    public static double ColumnReach(double yieldKt, double burstHeight)
+    {
+        double safe = FalloutSafeHeight(yieldKt);
+        if (!(safe > 0.0) || !(burstHeight > 0.0)) return 1.0;
+
+        return 1.0 - (0.5 * Smoothstep(1.5 * safe, 4.0 * safe, burstHeight));
+    }
+
+    /// <summary>How long an air burst's column takes to climb to its height, once the front is at the ground.</summary>
+    public static double ColumnClimbSeconds => RiseSeconds * 0.5;
+
+    /// <summary>
+    /// The stem's radius and how far up the cap the column reaches in one float: whole metres, and
+    /// the share in the fraction. The shader decodes it as <see cref="UnpackStem"/> does.
+    /// </summary>
+    public static float PackStem(double stemRadius, double columnTop)
+    {
+        double metres = Math.Floor(Math.Clamp(double.IsFinite(stemRadius) ? stemRadius : 0.0, 0.0, 1.0e6));
+        double share = Math.Clamp(double.IsFinite(columnTop) ? columnTop : 1.0, 0.0, 0.99);
+        return (float)(metres + share);
+    }
+
+    /// <summary>What <see cref="PackStem"/> packed; a share at its top is the whole way.</summary>
+    public static (double StemRadius, double ColumnTop) UnpackStem(float packed)
+    {
+        double metres = Math.Floor(packed);
+        double share = packed - metres;
+        return (metres, share >= ColumnJoins ? 1.0 : share);
+    }
+
+    /// <summary>A column share at or over this joins the cap.</summary>
+    public const double ColumnJoins = 0.985;
+
+    /// <summary>An air burst's dust column against a surface burst's stem, where it is fully formed.</summary>
+    public const double AirStemShare = 0.45;
+
+    /// <summary>
+    /// The heat, the ground coupling and the stem share in one float, for a push constant with no
+    /// room for three: six bits each above a fraction. Six and not eight, because a float's
+    /// resolution falls as its size grows -- at two bytes the heat was left to a sixty-fourth, at
+    /// twelve bits it keeps a thousandth. The shader decodes it exactly as <see cref="UnpackHeat"/>.
+    /// </summary>
+    public static float PackHeat(double heat, double coupling, double stemShare)
+    {
+        double h = Math.Clamp(double.IsFinite(heat) ? heat : 0.0, 0.0, 0.99);
+        double c = Math.Round(Math.Clamp(double.IsFinite(coupling) ? coupling : 1.0, 0.0, 1.0) * PackLevels);
+        double s = Math.Round(Math.Clamp(double.IsFinite(stemShare) ? stemShare : 1.0, 0.0, 1.0) * PackLevels);
+        return (float)((2.0 * (c + ((PackLevels + 1.0) * s))) + h);
+    }
+
+    /// <summary>What <see cref="PackHeat"/> packed.</summary>
+    public static (double Heat, double Coupling, double StemShare) UnpackHeat(float packed)
+    {
+        double q = Math.Floor(packed / 2.0);
+        return (packed - (2.0 * q), (q % (PackLevels + 1.0)) / PackLevels,
+                Math.Floor(q / (PackLevels + 1.0)) / PackLevels);
+    }
+
+    // The steps the coupling and the stem share are packed in.
+    private const double PackLevels = 63.0;
 
     /// <summary>
     /// The sphere about the burst that holds the whole drawn cloud at an age, lean and billows
@@ -126,8 +314,8 @@ public static class MushroomCloud
     /// stand: a sphere big enough for the end of it spreads the march's 48 steps over half as much
     /// again while the cloud is still rising, which is grain for nothing.</para>
     /// </summary>
-    public static double DrawnBound(double yieldKt, double age)
-        => GrownBound(RisenBound(yieldKt), At(yieldKt * 1.0e6, age), age);
+    public static double DrawnBound(double yieldKt, double age, double burstHeight = 0.0)
+        => GrownBound(RisenBound(yieldKt, burstHeight), At(yieldKt * 1.0e6, age, burstHeight), age);
 
     /// <summary>
     /// That sphere as the risen cloud has it: at the overshoot's peak, which is as big as the RISING
@@ -135,13 +323,53 @@ public static class MushroomCloud
     /// against the grown bound, the same height reads as lower down the column and the lean weakens
     /// by a quarter over the stand.
     /// </summary>
-    public static double RisenBound(double yieldKt)
+    public static double RisenBound(double yieldKt, double burstHeight = 0.0, double airRatio = 1.0)
     {
         double top = DrawnCloudTop(yieldKt);
         if (top <= 0.0) return 0.0;
 
-        return Math.Max(top, ReachOf(At(yieldKt * 1.0e6, RiseSeconds * (1.0 + OvershootAt))) * BoundMargin);
+        if (IsThin(airRatio))
+        {
+            Shape ball = At(yieldKt * 1.0e6, LifeFor(yieldKt) * 0.99, burstHeight, airRatio);
+            return (ball.CapCentre + (3.0 * ball.CapTube)) * BoundMargin;
+        }
+
+        return Math.Max(top, ReachOf(At(yieldKt * 1.0e6, RiseSeconds * (1.0 + OvershootAt), burstHeight))
+                             * BoundMargin);
     }
+
+    /// <summary>
+    /// The air, against sea level, under which a burst grows no mushroom: about 30 km on Earth. There
+    /// is too little air for a buoyant column, and the fireball's debris climbs and spreads as one
+    /// glowing ball (Glasstone and Dolan, 2.130-2.143).
+    /// </summary>
+    public const double ThinAirRatio = 0.01;
+
+    /// <summary>Whether air this thin grows a ball of debris rather than a mushroom.</summary>
+    public static bool IsThin(double airRatio) => double.IsFinite(airRatio) && airRatio < ThinAirRatio;
+
+    /// <summary>
+    /// How much bigger a fireball grows in thinner air: as the inverse cube root of the density
+    /// (Glasstone and Dolan, 2.130), since it swells until it has swept up a given mass of air.
+    /// Bounded, because far above the air the ball is X-ray heated air spread over tens of kilometres,
+    /// which this does not try to draw.
+    /// </summary>
+    public static double ThinAirGrowth(double airRatio)
+        => double.IsFinite(airRatio) && airRatio > 0.0 ? Math.Clamp(Math.Cbrt(1.0 / airRatio), 1.0, MostThinAirGrowth)
+                                                       : MostThinAirGrowth;
+
+    /// <summary>The most thin air grows a fireball by.</summary>
+    public const double MostThinAirGrowth = 10.0;
+
+    /// <summary>
+    /// How many of its own radii a thin-air fireball's debris climbs over the rise, and how many times
+    /// its size it swells to over its life: it rises ballistically and spreads with nothing to hold it.
+    /// Drawn, not measured.
+    /// </summary>
+    public const double ThinBallClimb = 4.0;
+
+    /// <summary><inheritdoc cref="ThinBallClimb"/></summary>
+    public const double ThinBallSwell = 3.0;
 
     /// <summary>
     /// The risen bound grown to hold the stand's spreading, sheared cap. Only the shape at the age
@@ -193,6 +421,42 @@ public static class MushroomCloud
 
     /// <summary>Total life, after which there is nothing to draw.</summary>
     public const double LifeSeconds = RiseSeconds + StandSeconds;
+
+    /// <summary>
+    /// A yield's life, which is <see cref="LifeSeconds"/> and longer only for a cloud its own blast
+    /// front holds in past the rise. The front runs at the speed of sound in real time and the rise
+    /// is compressed, so at 50 Mt the cloud is still growing into the front minutes after the rise
+    /// is over -- and a fixed life faded it out the moment it reached its full height.
+    /// </summary>
+    public static double LifeFor(double yieldKt) => LifeSeconds + HeldByFront(yieldKt);
+
+    /// <summary>
+    /// How long past the rise the front takes to reach the settled cloud's farthest point. Nothing up
+    /// to about a megatonne, where the cloud is inside the front by the end of the rise.
+    /// </summary>
+    public static double HeldByFront(double yieldKt)
+    {
+        if (yieldKt <= 0.0) return 0.0;
+        if (_held.TryGetValue(yieldKt, out double known)) return known;
+
+        // The last moment the drawn cloud is still outside the front, scanned over the stand: the cap
+        // spreads and shears as the front runs on, so neither end alone says when it stops binding.
+        double last = RiseSeconds;
+        for (double age = RiseSeconds; age <= RiseSeconds + StandSeconds; age += HeldScanSeconds)
+        {
+            if (DrawnReach(CapAt(yieldKt, age, 0.0)) > ShockRadius(yieldKt, age)) last = age;
+        }
+
+        double held = last - RiseSeconds;
+        if (_held.Count > 64) _held.Clear();
+        _held[yieldKt] = held;
+        return held;
+    }
+
+    private const double HeldScanSeconds = 5.0;
+
+    // Per yield, since every shape asks for its life: a hundred cap shapes a solve.
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<double, double> _held = new();
 
     /// <summary>
     /// The yield KSA's own big bang is heard unaltered at.
@@ -282,8 +546,9 @@ public static class MushroomCloud
     ///
     /// <para>The ground reflects the energy that would have gone downward straight back into the
     /// fireball, so the hemisphere above it grows as though the device were twice the size — and
-    /// <see cref="FireballRadius"/> goes as the 0.4 power, hence this. Every burst this mod draws
-    /// is at or near a surface, so it applies to all of them.</para>
+    /// <see cref="FireballRadius"/> goes as the 0.4 power, hence this. It applies as far as the
+    /// burst is coupled to the ground (<see cref="GroundCoupling"/>): wholly on it, not at all in
+    /// free air.</para>
     /// </summary>
     public static readonly double SurfaceBurstGain = Math.Pow(2.0, 0.4);
 
@@ -606,10 +871,15 @@ public static class MushroomCloud
     /// up and to each other; which way they actually point does not matter to a shape with an axis
     /// of symmetry, and the caller is spared having to find true north.</para>
     /// </summary>
+    /// <para><see cref="Shock"/> is the blast front along the ground. <see cref="StemRadius"/> is a
+    /// surface burst's stem, which the dust ring is sized by; the column actually drawn is
+    /// <see cref="StemShare"/> of it, and <see cref="Coupling"/> is <see cref="GroundCoupling"/>.
+    /// <see cref="ColumnTop"/> is how far up to the cap's centre the column reaches: one joins it.</para>
     public readonly record struct Shape(
         double CapCentre, double CapRadius, double CapTube,
         double StemTop, double StemRadius, double SurgeRadius, double SurgeHeight,
-        double Roll, double Fade, double Shock = 0.0)
+        double Roll, double Fade, double Shock = 0.0, double Coupling = 1.0, double StemShare = 1.0,
+        double ColumnTop = 1.0)
     {
         /// <summary>Nothing left to draw.</summary>
         public bool Spent => Fade <= 0.0;
@@ -657,8 +927,12 @@ public static class MushroomCloud
     public const double ShockFrontShare = 0.25;
 
     /// <summary>The fireball at its largest, which is what it spends most of the flash at.</summary>
-    public static double PeakFireballRadius(double yieldKt)
-        => FireballRadius(yieldKt) * SurfaceBurstGain;
+    public static double PeakFireballRadius(double yieldKt, double burstHeight = 0.0)
+        => FireballRadius(yieldKt) * GroundGain(yieldKt, burstHeight);
+
+    // The surface gain as far as the ground is under the ball.
+    private static double GroundGain(double yieldKt, double burstHeight)
+        => 1.0 + ((SurfaceBurstGain - 1.0) * GroundCoupling(yieldKt, burstHeight));
 
     /// <summary>
     /// How long the ball goes on glowing after the luminous phase, as a fraction of the <em>rise</em>
@@ -740,7 +1014,7 @@ public static class MushroomCloud
     /// blue-white at six or seven thousand kelvin, through yellow and orange into deep red as it
     /// cools, which is the handover to a cloud that is lit rather than glowing.</para>
     /// </summary>
-    public static Flash FlashAt(double chargeKg, double age)
+    public static Flash FlashAt(double chargeKg, double age, double burstHeight = 0.0, double airRatio = 1.0)
     {
         double kt = KilotonsFor(chargeKg);
         if (kt <= 0.0 || age < 0.0) return default;
@@ -760,7 +1034,7 @@ public static class MushroomCloud
         // it that glows shrinks inward while the part of it that exists does not. That is why the
         // ball can shrink without contradicting a law that says a fireball only ever grows, and it
         // is what lets it recede into its own smoke instead of being switched off inside it.
-        double radius = FireballRadius(kt) * SurfaceBurstGain
+        double radius = FireballRadius(kt) * GroundGain(kt, burstHeight) * ThinAirGrowth(airRatio)
                         * Math.Clamp(Math.Pow(age / GrowthSeconds(kt), 0.4), 0.10, 1.0)
                         * (1.0 - (LuminousShrink * t))
                         * (1.0 - (EmberShrink * ember));
@@ -930,11 +1204,17 @@ public static class MushroomCloud
     public const double StemOfCap = 0.19;
 
     /// <summary>Where the cloud is at <paramref name="age"/> seconds, for a charge in kg.</summary>
-    public static Shape At(double chargeKg, double age)
-    {
-        double kt = KilotonsFor(chargeKg);
-        if (kt <= 0.0 || age < 0.0 || age >= LifeSeconds) return default;
+    /// <param name="burstHeight">
+    /// How far above the ground it went off (m). Every height in the shape is from the ground under
+    /// the burst, so the stem, the skirt and the dust ring stay on the ground and only the cap starts
+    /// up at the burst.
+    /// </param>
+    // The cap before anything holds it inside its blast front, with what the stem is measured from.
+    private readonly record struct Upright(double Top, double CapR, double Hob, double CapCentre, double CapRadius,
+                                           double CapTube, double Spread, double Squash, double Widen, double Aged);
 
+    private static Upright CapAt(double kt, double age, double burstHeight)
+    {
         double top = DrawnCloudTop(kt);
         double capR = DrawnCapRadius(kt);
 
@@ -953,8 +1233,15 @@ public static class MushroomCloud
         //
         // Past the tropopause the stratosphere brakes it, and the height it does not make goes into
         // width: the cap thins by the squash and widens by its square root, which keeps its volume.
-        double capCentre = Stratified(top * 0.75 * rise);
-        double squash = CapSquash(top * rise);
+        //
+        // An air burst starts its climb at the height it went off rather than at the ground, and has
+        // that much less of it to make: the cap still settles where the laws put it, measured from
+        // the ground. A burst at or above that height still climbs a little on its own buoyancy.
+        double hob = Math.Max(double.IsFinite(burstHeight) ? burstHeight : 0.0, 0.0);
+        double settles = Stratified(top * 0.75, kt);
+        double climbShare = settles > 0.0 ? Math.Max(1.0 - (hob / settles), MinClimbShare) : 1.0;
+        double capCentre = hob + (Stratified(top * 0.75 * rise, kt) * climbShare);
+        double squash = CapSquash(top * rise, kt);
 
         // The cap widens as it rises, and is done widening before a pen reaches the widest point of
         // its own stroke -- which is the whole of it, because a pen crosses the equator once and
@@ -965,6 +1252,57 @@ public static class MushroomCloud
         double aged = Aged(age);
         double widen = Widening(age);
         double capRadius = capR * spread * widen / Math.Sqrt(squash) * (1.0 + (AgedSpread * aged));
+
+        double capTube = capR * 0.45 * widen * squash / Math.Sqrt(1.0 + (AgedSpread * aged));
+
+        return new Upright(top, capR, hob, capCentre, capRadius, capTube, spread, squash, widen, aged);
+    }
+
+    // How far the cloud as the shader draws it reaches from the burst: sheared downwind over the stand,
+    // leaned, and with billows standing proud of the tube.
+    private static double DrawnReach(Upright cap, double scale = 1.0)
+    {
+        double rise = (cap.CapCentre - cap.Hob) * scale;
+        double height = rise + ((CrownInTubes + BillowReach) * cap.CapTube * scale);
+        double across = ((cap.CapRadius + ((1.0 + BillowReach) * cap.CapTube)) * scale * (1.0 + (AgedShear * cap.Aged)))
+                        + (MostLean * (cap.Hob + rise));
+        return Math.Sqrt((across * across) + (height * height));
+    }
+
+    // The scale about the burst that brings the drawn cloud inside the front. Not one ratio: the lean
+    // is measured from the ground, so an air burst's part of it does not shrink with the rest.
+    private static double InsideFront(Upright cap, double front)
+    {
+        if (DrawnReach(cap) <= front) return 1.0;
+
+        double low = 0.0;
+        double high = 1.0;
+        for (int i = 0; i < 30; i++)
+        {
+            double mid = 0.5 * (low + high);
+            if (DrawnReach(cap, mid) <= front) low = mid;
+            else high = mid;
+        }
+
+        return low;
+    }
+
+    public static Shape At(double chargeKg, double age, double burstHeight = 0.0, double airRatio = 1.0)
+    {
+        double kt = KilotonsFor(chargeKg);
+        if (kt <= 0.0 || age < 0.0 || age >= LifeFor(kt)) return default;
+        if (IsThin(airRatio)) return ThinBall(kt, age, burstHeight, airRatio);
+
+        Upright cap = CapAt(kt, age, burstHeight);
+        double capR = cap.CapR;
+        double hob = cap.Hob;
+        double capCentre = cap.CapCentre;
+        double capRadius = cap.CapRadius;
+        double capTube = cap.CapTube;
+        double spread = cap.Spread;
+        double squash = cap.Squash;
+        double widen = cap.Widen;
+        double aged = cap.Aged;
 
         // The stem's top is the cap's underside, always, and it is never anywhere else.
         //
@@ -989,29 +1327,105 @@ public static class MushroomCloud
         // being a spiral staircase. The rollover has to come from the *path* shape below.
         double roll = 0.30 * (1.0 - Math.Exp(-2.0 * age / RiseSeconds));
 
-        double capTube = capR * 0.45 * widen * squash / Math.Sqrt(1.0 + (AgedSpread * aged));
-
         // Nothing the burst throws can be outside its own blast front, and the cloud is drawn ahead
         // of it twice over: the cloud is born a third of its final width, and the rise runs fivefold
         // fast while the front runs at the speed of sound. So while the front is inside the cloud's
         // farthest point, the whole cloud is scaled about the burst to fit it.
+        //
+        // About the burst, which for an air burst is up where the cap starts. And against the cloud
+        // as the shader draws it rather than the upright shape: sheared downwind over the stand,
+        // leaned, and with billows standing proud of the tube. A megatonne-class cloud is still
+        // inside its front minutes in, and measured upright its downwind edge ran out ahead of it.
         double shock = ShockRadius(kt, age);
-        double farthest = Math.Sqrt(((capRadius + capTube) * (capRadius + capTube))
-                                    + Math.Pow(capCentre + (CrownInTubes * capTube), 2.0));
-        double inside = farthest > shock ? shock / farthest : 1.0;
+        double inside = InsideFront(cap, shock);
+
+        // The front along the ground, which is what lifts the ring of dust: nothing until it has
+        // come down the burst height, and then the circle where the sphere meets the ground.
+        double onGround = shock > hob ? Math.Sqrt((shock * shock) - (hob * hob)) : 0.0;
 
         return new Shape(
-            CapCentre: capCentre * inside,
+            CapCentre: hob + ((capCentre - hob) * inside),
             CapRadius: capRadius * inside,
             CapTube: capTube * inside,
-            StemTop: stemTop * inside,
+            StemTop: stemTop <= hob ? stemTop * inside : hob + ((stemTop - hob) * inside),
             StemRadius: capR * StemOfCap * widen * (1.0 - (AgedStemLoss * aged)) * inside,
             SurgeRadius: SurgeRadius(kt, age) * inside,
             SurgeHeight: SurgeHeight(kt, age) * inside,
             Roll: roll,
-            Shock: shock,
-            Fade: Fade(age));
+            Shock: onGround,
+            Fade: Fade(age, kt),
+            Coupling: GroundCoupling(kt, hob),
+            StemShare: StemShare(kt, hob) * AsFarAsAirborne(GroundCoupling(kt, hob), ColumnFormed(kt, hob, age)),
+            ColumnTop: AsFarAsAirborne(GroundCoupling(kt, hob), ColumnTopAt(kt, hob, age, underside, capCentre)));
     }
+
+    // What only an air burst does -- a column that waits for the front and climbs -- as far as this one
+    // is not on the ground: a store stops a metre over the terrain, and a burst drawing the ground into
+    // its fireball is a surface burst whose column is there from the first instant.
+    private static double AsFarAsAirborne(double coupling, double airborne)
+        => airborne + ((1.0 - airborne) * Math.Clamp(coupling, 0.0, 1.0));
+
+    // An air burst's column as a share of the cap's height: nothing until the front is at the ground,
+    // then climbing to its reach of the cap's underside. A surface burst's always joins.
+    private static double ColumnTopAt(double yieldKt, double burstHeight, double age, double underside,
+                                      double capCentre)
+    {
+        if (!(burstHeight > 0.0) || !(capCentre > 0.0)) return 1.0;
+
+        double reaches = GroundArrival(yieldKt, burstHeight);
+        double climbed = Smoothstep(reaches, reaches + ColumnClimbSeconds, age);
+        double reach = ColumnReach(yieldKt, burstHeight);
+        if (reach >= 1.0 && climbed >= 1.0) return 1.0;
+
+        return Math.Clamp(underside * reach * climbed / capCentre, 0.0, 1.0);
+    }
+
+    // A burst in air too thin for a column: its debris as one ball, climbing and swelling from the
+    // fireball's own size, clean -- nothing on the ground is touched -- and fading as it spreads.
+    private static Shape ThinBall(double kt, double age, double burstHeight, double airRatio)
+    {
+        double hob = Math.Max(double.IsFinite(burstHeight) ? burstHeight : 0.0, 0.0);
+        double ball = FireballRadius(kt) * ThinAirGrowth(airRatio);
+        double t = Math.Clamp(age / LifeFor(kt), 0.0, 1.0);
+
+        double climb = ThinBallClimb * ball * Math.Sqrt(Progress(age));
+        double tube = ball * (1.0 + ((ThinBallSwell - 1.0) * Math.Sqrt(t))) * Widening(age);
+
+        return new Shape(
+            CapCentre: hob + climb,
+            CapRadius: tube,
+            CapTube: tube,
+            StemTop: 0.0,
+            StemRadius: 0.0,
+            SurgeRadius: 0.0,
+            SurgeHeight: 0.0,
+            Roll: 0.30 * (1.0 - Math.Exp(-2.0 * age / RiseSeconds)),
+            Fade: Fade(age, kt),
+            Shock: 0.0,
+            Coupling: 0.0,
+            StemShare: 0.0,
+            ColumnTop: 1.0);
+    }
+
+    /// <summary>
+    /// The least of its settled height a cloud still climbs, as a share, however high it went off.
+    /// </summary>
+    public const double MinClimbShare = 0.1;
+
+    /// <summary>
+    /// How far the shader's lean can carry a point, as a share of its height: 0.095 of the bound times
+    /// the height's share of it to the 1.4, which never passes 0.095 of the height itself.
+    /// </summary>
+    public const double MostLean = 0.095;
+
+    /// <summary>How far the shader's billows can stand proud of the cap's tube, in tube radii.</summary>
+    public const double BillowReach = 0.75;
+
+    /// <summary>
+    /// How long an air burst's column of dust takes to rise once the front has reached the ground and
+    /// the afterwinds begin: nothing before it, since there is no wind at the ground to lift anything.
+    /// </summary>
+    public static double ColumnFormsSeconds => RiseSeconds * 0.1;
 
     /// <summary>
     /// How far up its stroke a pen is still climbing the axis. Past this it is walking the cap, so
@@ -1084,10 +1498,10 @@ public static class MushroomCloud
     // Thinning slowly through the stand, and then out over its last minute. Squared at the end so it
     // thins slowly at first and then goes, which is how a cloud disperses rather than how a light
     // switches off.
-    private static double Fade(double age)
+    private static double Fade(double age, double yieldKt)
     {
         double thinned = 1.0 - (AgedThinning * Aged(age));
-        double outAt = LifeSeconds - FadeOutSeconds;
+        double outAt = LifeFor(yieldKt) - FadeOutSeconds;
         if (age <= outAt) return thinned;
 
         double left = 1.0 - Math.Clamp((age - outAt) / FadeOutSeconds, 0.0, 1.0);

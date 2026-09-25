@@ -437,6 +437,30 @@ public sealed class MunitionProfile
     /// </summary>
     public bool HitsTerrain;
 
+    /// <summary>
+    /// Height above the ground at which the fuse fires on the way down (m): a radar or barometric
+    /// fuse, which is what makes an air burst. Zero bursts on contact. Needs <see cref="HitsTerrain"/>,
+    /// since the ground under the round is what it is measured against, and waits for
+    /// <see cref="FuseArmSeconds"/>; a store released below it bursts on the ground instead.
+    /// </summary>
+    public float BurstHeightMetres;
+
+    /// <summary>
+    /// How fast the store falls under its parachute at sea level once open (m/s), which is the
+    /// drag the canopy adds: <c>g / v²</c> per metre. Zero is no chute. A chute is what lets the
+    /// aircraft get clear of a large yield -- Tsar Bomba came down on 1,600 m² at about 18 m/s.
+    /// </summary>
+    public float ChuteSinkMetresPerSecond;
+
+    /// <summary>Seconds after release the parachute opens. It takes <see cref="ChuteInflationSeconds"/> to fill.</summary>
+    public float ChuteOpensSeconds = 1.5f;
+
+    /// <summary>How long a canopy takes to fill once it opens, over which its drag comes on.</summary>
+    public const double ChuteInflationSeconds = 1.0;
+
+    /// <summary>Whether this store carries a parachute.</summary>
+    public bool HasChute => ChuteSinkMetresPerSecond > 0f;
+
     /// <summary>Radius inside which a detonation is unconditionally lethal (m).</summary>
     public float LethalRadius => (float)Warhead.LethalRadius(ChargeKg);
 

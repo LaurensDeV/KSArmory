@@ -18,6 +18,21 @@ public enum BurstSetting
 public static class BurstSettings
 {
     /// <summary>
+    /// How high a burst stood over whatever it was over, the ground or the sea on top of it (m),
+    /// from heights against the mean sphere. Never below zero: a burst in the ground or the water is
+    /// on it. An unreadable height field reads as the mean sphere.
+    /// </summary>
+    public static double HeightOver(double burstHeight, double terrainHeight, double seaLevel, bool hasSea)
+    {
+        if (!double.IsFinite(burstHeight)) return 0.0;
+
+        double surface = double.IsFinite(terrainHeight) ? terrainHeight : 0.0;
+        if (hasSea && double.IsFinite(seaLevel)) surface = Math.Max(surface, seaLevel);
+
+        return Math.Max(burstHeight - surface, 0.0);
+    }
+
+    /// <summary>
     /// Which of the three, from heights against the mean sphere.
     ///
     /// <para><b>Anything unreadable is land</b>, which is what every burst was before this: a

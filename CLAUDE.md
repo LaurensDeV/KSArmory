@@ -310,6 +310,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/TailKitReach.cs` | how far a store already falling can still move its landing — **flown, because `½·a·t²` is not a bound**: a lateral push does not accumulate against drag, it settles where fin authority and lateral drag balance, so the share of `a·t²` delivered runs 0.46 at a 21 s fall and 0.18 at 95 s and a constant fitted at two kilometres promises three times the truth from twenty |
 | `Sim/BlastSweep.cs` | how near a burst a body was, and what that does to it — shared by the sweep over craft and the one over rounds |
 | `Sim/BlastWave.cs` | the blast wave in real pascals — **Kinney–Graham**, the overpressure, how long it pushes and the wind behind it — because `BlastDamage`'s law is calibrated to KSA's part strengths and says nothing about what the air is doing |
+| `Sim/GroundReflection.cs` | what the ground under a burst adds to its blast at a point — **the hemisphere's doubling on the ground, and an air burst's reflected front where it stands on the ground as the Mach stem**, 2x a weak front to 8x a strong one, so at the right height an air burst loads the ground harder than a surface burst; nothing above the stem. A multiple of the free-air pressure, so of the charge the damage law sees |
 | `Sim/BlastShove.cs` | what that wind does to a craft, **part by part**, summed into a kick and a turn about the centre of mass — a tall rocket hit side-on tips because it is pushed hardest above its middle |
 | `Sim/ViewShake.cs` | the view thrown about as a front passes the eye — a jolt then a rattle, as hard as the real overpressure there |
 | `Sim/BlastDamage.cs` | which parts of a craft a burst breaks — **nothing here picks a part**: each is judged on its own distance and the strength the engine derived for it |
@@ -320,8 +321,11 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/IHullTest.cs` | **the seam a kinetic round asks whether it truly touched something** |
 | `Sim/IGroundTest.cs` | where the ground is under a round, for the one round the terrain stops |
 | `Sim/CoarseGroundTest.cs` | the sight's ground test, which skips the lookups a falling round cannot need |
-| `Sim/MushroomCloud.cs` | the shape of a nuclear cloud over time, as offsets from the burst |
-| `Sim/BurstSetting.cs` | what a burst went off on or in — **land, the sea's surface, or under it** — which decides whether it lifts dirt or spray, burns the ground, or raises no column at all; anything unreadable is land, which is what every burst was before |
+| `Sim/MushroomCloud.cs` | the shape of a nuclear cloud over time, as offsets from **the ground under the burst** — an air burst's cap starts up at its height and everything else stays on the ground; Bravo and Tsar Bomba are the two shots its top end is calibrated on |
+| `Sim/XRayGlow.cs` | the layer of air 70–90 km up a burst over the atmosphere lights with its X-rays — **a night sky's red for minutes**, green for the first seconds, and a faint pink by day, because an aurora is thousands of times fainter than the day sky |
+| `Sim/DebrisShell.cs` | what a burst in air too thin for a mushroom leaves -- **its debris as light, not as a cloud**: white-hot and filling the ball, cooling into a red, rim-bright shell gone in three minutes, stretched along the field line where the air is thin enough for the field to hold it |
+| `Sim/Aurora.cs` | the aurora a burst above the atmosphere lights **at both ends of its own field line** — near the burst and at the magnetic conjugate point in the other hemisphere, on a dipole along the spin axis because KSA has no field; Teak's comes down over Samoa |
+| `Sim/BurstSetting.cs` | what a burst went off on or in — **land, the sea's surface, or under it** — which decides whether it lifts dirt or spray, burns the ground, or raises no column at all; anything unreadable is land, which is what every burst was before. And how high over it the burst stood, over the sea where there is sea |
 | `Sim/FireballBlackout.cs` | the air a nuclear fireball ionised, which a **transmitting** radar cannot see through or out of until it cools — a sphere riding up with the ball, about a minute for a megatonne |
 | `Sim/AirlessBurst.cs` | what that burst leaves where there is no air — **the ballistics are the engine's**, because KSA counts no atmosphere below 100 Pa and falls every particle at full local gravity there, so thrown ground arcs and lands with nothing here integrating it |
 | `Sim/Magazine.cs` | which tubes hold a round, which fires next, what each body does |
@@ -487,6 +491,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/NuclearClouds.cs` | the mushroom clouds standing in the world — **state and the fireball only**: the shape is drawn by `Ksa/CloudPass.cs`, which reads the newest cloud off this and raymarches it |
 | `Ksa/BurstEjecta.cs` | that airless burst drawn, through the particle system — **the renderer that draws on a body with no air**, because a mushroom is buoyant and there is no cloud to draw there. One-shot emitters, so nothing has to hold or return them |
 | `Ksa/CloudPass.cs` | this mod's own compute shader, dispatched inside KSA's frame — **no renderer was ported to get there**: KSA compiles a `<Shader>` asset out of any mod's folder and `ComputePipelineWrapper` builds the descriptor sets. It also bends the view round **every blast front** strong enough to see (`Shaders/KSArmoryShock.comp`): the scene copied, then written back at an offset where a ray grazes the shock's shell, fifteen times what air does because the real one is a pixel — one copy and bend per front, so where fronts cross their bends add, for about 0.06 ms a front and nothing once the camera is inside it, where no ray can graze the shell. The pass is **the march, and the march is the cost**: 2.9 ms of a 3.3 ms pass for one 20 kt cloud from 12 km, 16 ms with the camera 500 m off and the cloud filling the screen, of which the dust ring is about 2.5, the sun taps 0.9 and the weather 0.4 -- the density's noise is the rest, and already rejected exactly before it runs. A **half-resolution grid** (`MarchScale` 2) is a third of the cost -- 16.6 ms to 4.8 up close, 3.0 to 1.1 from 12 km -- and is **off**: the marched pixel turns every frame and the history does not hide it, eight times the flickering pixels at 0.02x. A paused capture cannot show that, since the turn stops with the frame counter; measure flicker at a crawl, never paused. Fewer steps close up was tried and is not in -- the cap came out lighter and streaked. `cost` splits it by stage |
+| `Shaders/KSArmoryFireLight.comp` | a fireball's light on the craft and structures **KSA's light pre-pass dropped it from** -- that pass cuts a light beyond about 3 km before its intensity is counted, so a burst lit the ground round the pad and left the pad black. Read off what the pre-pass wrote, never re-voted; `docs/BLOCKED-ON-KSA.md` |
 | `Ksa/CloudPassHook.cs` | the fifth place the mod patches the game, and the first in the renderer — **an ordinary prefix on a public method**, because `SunbloomRenderer.Render` hands over the command buffer at the one instant the scene colour is storage-writable, the depth is sampled, and bloom and the tonemap are both still to come |
 | `Ksa/CloudPassCost.cs` | what that pass costs the GPU, read back out of KSA's own profiler — **the whole frame is sampled beside it**, because 2 ms on a 30 ms frame and 2 ms on an 8 ms one are different answers |
 | `Ksa/BurstSound.cs` | the bang, arriving when it actually would — **seven seconds behind the flash** at the distance a cloud is watched from, **not at all** where there is no air to carry it, and **slower and deeper by the cube root of the yield**, so a warhead is not the same file as a rocket going off |
@@ -541,7 +546,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 663 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 681 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -561,6 +566,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/METRE-LEVEL.md` | **the route from today's kilometre to a metre**, as a ladder of arrival angles with a gate on each rung — what blocks each one, the orbit and target matrix that tests it, and **why the ladder stops at rung C**: the wall clock cannot be bought with frame rate, because a flight is CPU-bound and the GPU is idle |
 | `docs/GUIDANCE-SECTION.md` | **a plan, half built** — the ballistic computer as a part you bolt on. The `Guidance` role, distinct from `FireControl`, is built and the bus provides it; the 3 m interstage ring that would take it over is not, and its mass is a split of the bus's rather than an addition to it |
 | `docs/NUCLEAR-EFFECT.md` | which of KSA's four volumetric renderers a mod can reach, and what a mushroom cloud actually looks like |
+| `docs/NUCLEAR-ALTITUDE.md` | **a plan, not a record** — what a burst does at every height from the surface to space, sourced, against what the mod does, and the ranked changes that close the gap: blast by altitude first, because every blast law is sea level's |
 | `docs/NUCLEAR-NEXT.md` | **a plan, not a record** — the ranked backlog for the burst: the first second, where every signature that reads as *nuclear* lives, and the last minute, where a real cloud drifts and spreads rather than fading where it stood |
 | `docs/VISUAL-TESTING.md` | **a plan, not a record** — how an agent sees what the mod draws from a terminal: what the screenshot loop cost the night the burst was built, and a ranked route to a live session with an MCP bridge, shader hot reload and same-instant controls |
 | `docs/DAMAGE-DECALS.md` | **a plan, not a record** — how a decal is projected onto a hull, a hillside or a rock out of the depth buffer, read off gatOS's implementation and re-verified here, and what a burn mark on a craft would cost |
@@ -1190,7 +1196,7 @@ Do the private repo *before* pushing here, or CI fails on the lock it cannot sat
 member that keeps its name and signature and changes its *meaning* — a different reference
 frame, different units, a reordered enum — compiles clean and is wrong in flight. That is what
 the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from 684,000 lines to the files
-defining the 239 types this mod actually uses.
+defining the 248 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 45 in total, 14 MB —
@@ -2142,7 +2148,9 @@ the one being flown are dented and never broken**: the skip that protects them i
 and a dent breaks nothing. **The ground a blast throws them onto is another matter**: the
 protection is from the burst, so a craft the shove tips over or flings is crash-damaged by the engine
 like any other. Flown with a damaging bridge burst against the rocket on the pad: 0.3 kt dented four
-of its five parts at 1300 m and at 1450 m, and a fifth only with a second burst beside it. Read back
+of its five parts at 1300 m and at 1450 m, and a fifth only with a second burst beside it -- before the
+ground's reflection was in the law (`Sim/GroundReflection.cs`); with it, the same surface burst dents all
+five at 1300 m, and the same yield 300, 1000 and 3000 m up dents four, three and none. Read back
 from where the engine stores them, every dent pushes along the line from its burst to within 0.1°,
 east, north and on both diagonals.
 

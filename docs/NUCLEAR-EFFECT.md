@@ -140,7 +140,7 @@ fireball goes dark          = 3.0    · W^0.4  s
 initial rise rate           = 42     · W^(1/6) m/s   (see below -- NOT 25 · W^0.2)
 ```
 
-For the yields this mod can dial — the slider spans the B61's own range, 0.3 kt to 340 kt:
+For the B61's own range, 0.3 kt to 340 kt (the sliders run on to Tsar Bomba's 50 Mt — see *The air burst* below):
 
 | | 0.3 kt | 1.5 kt | 10 kt | 50 kt | 170 kt | 340 kt |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -615,6 +615,150 @@ still apply to whatever comes out of it, so the baked paths would have to be res
 that closes.
 
 ---
+
+## The air burst, and Tsar Bomba
+
+**The cloud stands on the ground under the burst, not at the burst.** Every height in
+`MushroomCloud.Shape` is measured from ground zero; an air burst's cap starts its climb at the height
+it went off, and settles where a surface burst's does. That is what keeps the stem, the skirt, the
+dust ring and the burned patch on the ground while only the fireball and the cap start up in the air.
+`NuclearClouds` measures the height once per burst (`KsaWorld.BurstHeightOf`, over the sea where there
+is sea), and every consumer asks the shape with it.
+
+**How much of a surface burst it is, is one number.** `MushroomCloud.GroundCoupling` is one on the
+ground and nothing from the fallout-safe height up — `180·W^0.4` ft, `54.9·W^0.4` m, which is 0.82 of
+the fireball radius, so it is also where the ball stops touching the ground. It decides the surface
+gain on the fireball, the fallout curtains, the fallout plume on the ground and how sooty the young
+cloud is. A second, `StemShare`, says how much of a column the afterwinds still raise: 45% of a
+surface burst's stem once it is an air burst, fading to none between three and seven fallout-safe
+heights. Nagasaki, at 2.7 of them, stood on a column; the fade itself is drawn, not measured.
+
+**The column is the ground's, and it waits for the ground to be hit.** Nothing rises until the front
+has come down the burst height, and then it climbs over half the rise (`ColumnClimbSeconds`) to
+`ColumnReach` of the cap's underside: all the way for a burst low enough to be drawing the ground into
+its fireball, half from four fallout-safe heights. The gap between a high air burst's column and
+its cloud is the one the photographs of the higher air drops show. It rides to the shader in the
+fraction of the stem radius's float (`PackStem`), and a surface burst's always joins.
+
+What the ground gives an air burst is scaled by the coupling too: a quarter of the stem's flared
+foot, 30% of the dust ring, no burned patch at all, and the condensation collars ring the column
+actually drawn rather than a surface burst's, and go with it. The blast front's light-bend is a full
+sphere until it reaches the ground; it used to be cut at a plane through the burst, which for an air
+burst is a hemisphere hanging in the sky.
+
+**And the ground adds to the blast, which is why weapons are air-burst.** `GroundReflection` is
+the multiple of the free-air overpressure a point feels: the hemisphere's doubling for a surface
+burst, everywhere; for an air burst, the reflected front where it stands on the ground -- a thin
+layer near ground zero and, past an incidence of about 40°, the Mach stem, whose top climbs a tenth
+of a metre per metre of range (drawn: it is only known to reach hundreds of metres at kiloton scale)
+-- carrying `BlastWave.ReflectedPascals` of the incident: twice a weak front, up to eight a strong
+one. Nothing above the stem, and inside it the front pushes level, along the ground
+(`GroundReflection.PushFrom`), where near ground zero it still comes down from above. Flown at 0.3 kt
+300 m up and 1300 m out, against the rocket on the NUKE pad: every dent 11.8-12.2° off the line from
+the burst, which is level.
+
+**And it is heard twice from above the stem.** The ground-reflected front has the further to come, so
+an ear outside the stem hears a second, softer report after the first (`BurstSound`); inside the stem
+the two are one front and one bang. Flown at 20 kt and 900 m: one bang from the ground 6 km out, two
+3.5 s apart from 7.7 km up. A burst in air too thin for a column is not heard at all. The damage law goes as the cube of the
+distance, so the multiple is a multiple of the charge each part is judged by, and the pressure the
+shove and the view shake read is the same number. At 300 m on the ground a 20 kt burst 200 m up loads
+1.32x what the same bomb does on the ground there.
+
+Two things moved with it and are worth knowing. The damage law had no ground in it at all, so a
+**surface burst now reaches 1.26x as far** against anything on or near the ground. And the pressure
+fit doubled every burst's charge, so **an air burst now pushes a craft high in free air half as
+hard** -- which is what free air does. A burst further over the highest ground than twice its blast
+radius asks no terrain at all, so a gun's shells against aircraft cost nothing.
+
+**The front bounds the cloud as drawn, not as it stands upright.** The clamp that keeps a young cloud
+inside its blast front measured the upright shape, and the shader then leans it, shears it downwind
+over the stand and pushes billows proud of the tube -- harmless where the front is long gone by the
+stand, and a 50 Mt cloud's downwind edge running ahead of it where it is not. `DrawnReach` bounds all
+three and the fit is solved by bisection, since an air burst's lean is measured from the ground and
+does not shrink with the rest. `HeldByFront` is read off the same bound, scanned over the stand.
+
+The shader gets both through the push constant's one spare fraction: they ride six bits each in
+the float that carries the core's heat (`MushroomCloud.PackHeat`), because the block is at Vulkan's
+128 bytes. Eight bits each left the heat resolved to a sixty-fourth.
+
+**The ring of dust starts when the front reaches the ground**, at the circle where the sphere meets
+it: `Shape.Shock` is the front along the ground, nothing until the front has come down the burst
+height.
+
+**Tsar Bomba is two calibrated numbers, like Bravo.** Ten minutes after the burst its cloud stood 64
+to 67 km high and about 95 km across. Bravo's share of the climb past the tropopause and its 1.9
+widening draw it 52 km high and three times too wide, so both run log-linearly from Bravo's 15 Mt to
+values chosen at 50 Mt — `TsarPenetration` 0.65 and `TsarCapWidening` 0.6 — which draw it 65 km high
+and 97 km across at ten minutes. A cloud that punches further into the stratosphere spreads less,
+which is the direction both move. Nothing is extrapolated past either shot.
+
+**And a cloud that big is held in by its own blast front for minutes.** The front runs at the speed
+of sound in real time and the rise is compressed, so at 50 Mt the cloud grows into the front until
+about eight minutes in -- close to the real one's ten. `MushroomCloud.LifeFor` adds that time to the
+cloud's life, so it stands at its full height before it fades rather than fading as it arrives.
+Nothing changes up to about a megatonne.
+
+**The fuse and the chute are the delivery.** `MunitionProfile.BurstHeightMetres` is a radar or
+barometric fuse, crossed on the way down once armed; a store released under it bursts on the ground.
+`ChuteSinkMetresPerSecond` is a parachute described by how fast it brings the store down at sea level,
+which is the drag `g/v²` — Tsar's 1,600 m² canopy brought 27 t down at about 18 m/s. The bomb sight
+flies both, marks the ground under an air burst, and steps a chute descent at 0.3 s so a fall of
+minutes is inside its horizon. The Tuning tab's **Tsar Bomba** button sets all of it on the B61, and
+the burst tool's sets 50 Mt at 4,000 m. Flown through the drop scenario (`KSARMORY_SCENARIO_FUSE=1000
+KSARMORY_SCENARIO_CHUTE=25 ./tools/scenario.sh drop:3000,0,dumb`): released at 3,004 m, 99.4 s under the
+chute, burst 1,000 m over the ground and 4 m from the sight's ring, with no burned patch under it.
+
+**The first flight of it found a lighting fault every cloud had.** The march added `lit × extinction`
+per step, and a step can only scatter `lit × (1 − e^−extinction)` of what reaches it: the two agree
+while a step is optically thin, and the march spans the bound in a fixed 48 steps, so the overcount
+grew with the cloud -- several times in a 20 kt cloud's dense billows, where the look had been tuned
+on top of it, and tens of times over Tsar's 100 km anvil, which bloomed white from any distance. The
+march now scatters what it blocks, with the sun gain doubled to 24 to keep a 20 kt cloud about as
+bright as it was; its billows lost some of the hard light-and-dark contrast the overcount gave them.
+And a cap high enough that KSA's sky above it is black had no light on its underside at all, which
+drew as a lit rim round a hole: `GroundAlbedo` lights it with the sun off the ground and the deck
+below, a third of it coming back up.
+
+**Above about 30 km there is no mushroom.** Under `ThinAirRatio`, a hundredth of sea level's air,
+there is too little for a buoyant column (Glasstone and Dolan 2.130-2.143): the fireball swells as
+the inverse cube root of the density, capped at ten times, and its debris climbs about four of its
+own radii and swells threefold as one ball. Nothing reaches the ground but the light. **And the debris
+is drawn as light, not as a cloud** (`DebrisShell`, `DrawDebris` in the cloud shader): nothing
+condenses up there, so it is a transparent glow -- white-hot and filling the ball, then cooling through
+orange to red into a shell brightest at its rim, and gone in three minutes. Marched as a cloud it stood
+opaque and sunlit for nine and a half, which is what a player saw over a 50 Mt burst at 100 km. Where
+the air is under about 1e-4 of sea level's the field holds it: the shell stretches two and a half times
+along the field line through it. A jet running out along the line was tried and taken out: drawn
+straight and evenly bright, it read from orbit as a laser; a real one is faint, diffuse and curves with
+the field over thousands of kilometres. Flown at 50 Mt and 100 km, from 400 km off: white at 3 s, an
+orange rim-bright ellipsoid at 20 s, a red fading shell at a minute, all but gone at two. **Above about 80 km its X-rays light the air instead** (`XRayGlow`): they run down to where the air is
+thick enough to stop them and heat a layer at 70-90 km, which glows. The pass draws it analytically on a
+full-screen dispatch of its own -- the ray's path through the shell, brightest under the burst and
+falling as the inverse square of the distance from it, and none where the planet stands between them
+-- green-white for the first seconds, oxygen's 630 nm red for minutes. Flown as Starfish Prime, 1.4 Mt at
+400 km, from the ground under it: a faint lavender cast by day, and by night a deep red sky with the
+trees in silhouette a minute on. **And its charged debris lights an aurora at both ends of its field line** (`Aurora`). A burst above
+about 70 km throws out ionised debris and electrons that cannot cross the magnetic field and spiral
+along it; where the line comes back down to 100 km they light the air. KSA has no field, so it is a
+dipole on the spin axis: the burst sets its line's `L`, and the line comes down on the burst's own
+meridian at the latitude that solves `r = L R cos²λ` -- once near the burst, once at the conjugate
+point in the other hemisphere. Teak, 77 km over Johnston Island at 17° N, comes down at 16.4° N and
+16.4° S, 3,637 km apart, which is where Samoa saw it in 1958. Each end is four arcs 50 km apart,
+running magnetic east-west, and each arc is a sheet standing on the field lines through it -- so it
+leans as the field does, about 60° off vertical at Samoa's latitude where the dip is 30°, and its rays
+are field-aligned without being told to be. A real arc is a few hundred metres thick (median 230 m), so
+a sheet is drawn where the ray crosses it, found between two steps, adding the path through it capped
+at four times square-on; sampling a slab that thin would need thousands of taps a pixel. The colours
+sit where the atmosphere puts them: a sharp lower border at 100 km with a pink nitrogen fringe under it,
+the green of 557.7 nm brightest just above it and reaching up a ray-by-ray height, so the tops are
+ragged, and the red of 630 nm about 230 km. The red's upper state lives two minutes, so it keeps only
+a trace of the rays and smears into a haze round the arcs, which is also what makes a display seen from
+far off read red -- Teak's and Starfish's conjugate aurorae were both reported deep red. It moves on
+the measured scales: folds drifting a kilometre or two a second, rays about a kilometre a second, curls
+under 10 km running faster, and patches pulsing over seconds; the tens-of-hertz flicker is left out,
+since at a game's frame rate it would strobe.
+What it still lacks is the radiation belts -- see `docs/NUCLEAR-NEXT.md`.
 
 ## The airless burst, which is a different effect rather than the same one degraded
 

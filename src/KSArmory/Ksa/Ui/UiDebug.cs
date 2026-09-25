@@ -26,16 +26,64 @@ internal sealed partial class Ui
 
             if (_config.BurstNuclear)
             {
-                // The B61's own dial. Logarithmic because it spans three orders of magnitude and
-                // the cloud grows as the cube root; past about 49 kt it spreads into an anvil.
-                ImGui.SliderFloat("Yield (kt)", ref _config.BurstYieldKt, 0.3f, 340f,
+                // The B61's own dial, on up to Tsar Bomba. Logarithmic because it spans five orders
+                // of magnitude and the cloud grows as the cube root; past about 49 kt it spreads
+                // into an anvil.
+                ImGui.SliderFloat("Yield (kt)", ref _config.BurstYieldKt, 0.3f, 50000f,
                                   "%.2f kt", ImGuiSliderFlags.Logarithmic);
 
                 double kt = _config.BurstYieldKt;
 
-                ImGui.TextDisabled($"  fireball {MushroomCloud.PeakFireballRadius(kt) * 2.0:F0} m "
+                ImGui.SliderFloat("Height of burst (m)", ref _config.BurstHeightMetres, 0f, 100000f,
+                                  "%.0f m", ImGuiSliderFlags.Logarithmic);
+                Tip("Zero sets it off on the ground. Above the fallout-safe height the fireball "
+                    + "does not reach the ground: no fallout, a browner cloud, and a thinner column "
+                    + "of dust under it -- none at all from high enough. Tsar Bomba was 50 Mt at "
+                    + "about 4,000 m. Above about 30 km the air is too thin for a column at all: the "
+                    + "debris climbs as one glowing ball.");
+
+                if (ImGui.Button("Tsar Bomba"))
+                {
+                    _config.BurstYieldKt = 50000f;
+                    _config.BurstHeightMetres = 4000f;
+                }
+
+                Tip("50 Mt, 4,000 m up.");
+
+                double height = _config.BurstHeightMetres;
+                double coupling = MushroomCloud.GroundCoupling(kt, height);
+
+                // The air that high over the craft being flown, which is what decides whether there is a
+                // mushroom at all -- said in so many words, because from the ground a burst over the air
+                // looks like nothing happened.
+                double air = KsaWorld.ControlledVehicle is { } flying
+                                 ? KsaWorld.AirDensityRatioAt(flying, KsaWorld.PositionEcl(flying)
+                                                                     + (KsaWorld.LocalUp(flying) * height))
+                                 : 1.0;
+
+                if (XRayGlow.Lights(air))
+                {
+                    ImGui.TextColored(Amber, $"  {height / 1000.0:F0} km up is over the air: no cloud from the ground");
+                    ImGui.TextDisabled("  a small ball of debris, the sky glowing red, and auroras where its field line comes down");
+                    ImGui.TextDisabled("  -- near it and in the other hemisphere -- all best seen at night");
+                }
+                else if (MushroomCloud.IsThin(air))
+                {
+                    ImGui.TextColored(Amber, $"  {height / 1000.0:F0} km up is too thin for a mushroom");
+                    ImGui.TextDisabled("  its debris climbs as one glowing ball, with nothing under it");
+                }
+                else
+                {
+                    ImGui.TextDisabled(coupling > 0.99
+                                           ? "  a surface burst"
+                                           : coupling < 0.01
+                                               ? $"  an air burst: no fallout, {MushroomCloud.StemShare(kt, height):P0} of a stem"
+                                               : $"  {coupling:P0} a surface burst");
+                }
+
+                ImGui.TextDisabled($"  fireball {MushroomCloud.PeakFireballRadius(kt, height) * 2.0 * MushroomCloud.ThinAirGrowth(air):F0} m "
                                    + $"across for {MushroomCloud.FlashSeconds(kt):F1} s");
-                ImGui.TextDisabled($"  cloud to {MushroomCloud.DrawnStandingTop(kt) / 1000.0:F2} km, "
+                ImGui.TextDisabled($"  cloud to {MushroomCloud.TallestDrawn(kt, height, air) / 1000.0:F2} km, "
                                    + $"cap {MushroomCloud.DrawnCapAcross(kt) / 1000.0:F2} km "
                                    + $"across, over {MushroomCloud.RiseSeconds:F0} s");
                 ImGui.TextDisabled($"  lethal {Warhead.LethalRadius(kt * 1.0e6):F0} m");

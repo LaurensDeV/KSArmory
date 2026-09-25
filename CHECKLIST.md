@@ -2669,6 +2669,35 @@ same three subparts; the pivots, muzzles and colliders moved with the geometry.
 - [ ] No speckle or flicker on the truss plates at range — they are the thinnest geometry in the
       atlas and the likeliest place for a mip to find the background.
 
+## 14. Air bursts, Tsar Bomba and bursts over the atmosphere
+
+Flown through the bridge and the drop scenario on 2026.9.22.5482; `docs/NUCLEAR-EFFECT.md`, *The
+air burst, and Tsar Bomba*, has the numbers.
+
+- [x] A 20 kt burst 900 m up stands its cap clear of the ground over a short column that stops well
+      under it, and the blast front bends the view as a dome reaching down to the ground.
+- [x] Tsar Bomba, 50 Mt at 3-4 km, is a flat anvil about 65 km high and 97 km across ten minutes in,
+      and neither blooms white nor reads as a hollow ring.
+- [x] 1 Mt at 40 km grows no mushroom: a fireball five times its dense-air size and a ball of debris
+      climbing away with nothing under it.
+- [x] 50 Mt at 100 km leaves no cloud: a white-hot glow, then an orange shell stretched along the field,
+      red and fading within two minutes.
+- [ ] **The debris shell from the ground, by eye**, day and night -- only flown from 400-900 km off.
+- [x] 1.4 Mt at 400 km turns a night sky red for minutes, and leaves only a lavender cast by day.
+- [x] An air burst's report is heard twice from well above its Mach stem, once from the ground in it.
+- [x] Against the rocket on the NUKE pad a surface burst dents more than it did, and the same yield
+      higher up dents less; an air burst's stem pushes level, 12° off the line from the burst.
+- [x] A B61 with a 1,000 m fuse and a 25 m/s chute, dropped from 3 km, bursts 1,000 m up 4 m from the
+      sight's ring.
+- [ ] **The cloud lighting, by eye.** A cloud now scatters only the light each step blocks, with the sun
+      gain doubled: a 20 kt cloud is about as bright as before and softer in its billows. Is it a look
+      to keep?
+- [ ] **The burst tool's height slider and Tsar Bomba button**, and the B61's Tuning rows -- burst
+      height, parachute, Tsar Bomba -- used by hand.
+- [ ] **A low air burst over land from the ground**, looking up: no burned patch or fallout, a thin
+      column, the collars round it rather than floating.
+- [ ] **A 50 Mt burst on the frame rate** from where a player would watch it.
+
 ---
 
 ## Reporting back

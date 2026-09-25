@@ -1436,6 +1436,66 @@ internal static class KsaWorld
     }
 
     /// <summary>
+    /// What the ground under a burst adds to its blast. Free air for one on a body with no air, and
+    /// for one further over the highest ground than its reflection could matter -- which is every
+    /// shell a gun bursts against an aircraft, so they pay no terrain lookup for it.
+    /// </summary>
+    public static GroundReflection GroundReflectionAt(Celestial? body, double3 burstEcl, double chargeKg)
+    {
+        if (body is null || !(chargeKg > 0.0) || !Vec.IsFinite(burstEcl)) return GroundReflection.FreeAir;
+
+        try
+        {
+            if (!HasAtmosphere(body)) return GroundReflection.FreeAir;
+
+            double3 fromCentre = burstEcl - body.GetPositionEcl();
+            double altitude = Vec.Len(fromCentre) - body.MeanRadius;
+            if (altitude - MaxTerrainHeightMetres(body) > ReflectionReachInBlastRadii * Warhead.BlastRadius(chargeKg))
+            {
+                return GroundReflection.FreeAir;
+            }
+
+            double height = BurstHeightOf(body, burstEcl);
+            double kt = MushroomCloud.KilotonsFor(chargeKg);
+            return new GroundReflection(burstEcl, Vec.Unit(fromCentre), height,
+                                        MushroomCloud.GroundCoupling(kt, height));
+        }
+        catch
+        {
+            return GroundReflection.FreeAir;
+        }
+    }
+
+    // How far over the ground, in the charge's own blast radius, a burst's reflection is still worth
+    // asking about. A stem loads the ground to eight times the incident front, which reaches twice
+    // as far, so the blast radius alone would miss the edge of it.
+    private const double ReflectionReachInBlastRadii = 2.0;
+
+    /// <summary>
+    /// How high a burst stood over the ground under it, or over the sea where there is sea there.
+    /// </summary>
+    public static double BurstHeightOf(Celestial body, double3 positionEcl)
+    {
+        try
+        {
+            double3 cce = positionEcl - body.GetPositionEcl();
+            double radius = Vec.Len(cce);
+            if (!(radius > 0.0)) return 0.0;
+
+            double ground = new TerrainHeights(body, accurate: true).TryHeight(cce / radius, out double h)
+                                ? h
+                                : double.NaN;
+            bool hasSea = TrySeaLevel(body, out double seaLevel);
+
+            return BurstSettings.HeightOver(radius - body.MeanRadius, ground, seaLevel, hasSea);
+        }
+        catch
+        {
+            return 0.0;
+        }
+    }
+
+    /// <summary>
     /// What a burst at a place went off on or in: land, the sea's surface, or under it.
     ///
     /// <para>Terrain and sea both against the mean sphere, and the terrain read accurately,

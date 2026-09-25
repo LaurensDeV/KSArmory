@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-239 types and 663 members across 11 assemblies.
+248 types and 681 members across 11 assemblies.
 
 ## BepuUtilities
 
@@ -534,6 +534,11 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `string get_Id()`
 - `void UpdatePerFrameData()`
 
+### KSA.AstronomicalTemplate
+
+- `KSA.HapkeScatteringReference ScatteringReference`
+- `KSA.TextureReference DiffuseReference`
+
 ### KSA.Atmosphere.Rendering.CloudRenderer
 
 - `KSA.Rendering.RenderImage GetLowResolutionCloudColorTarget()`
@@ -632,6 +637,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.doubleQuat GetCcf2Cci()`
 - `Brutal.Numerics.doubleQuat GetCci2Cce()`
 - `Brutal.Numerics.doubleQuat GetCci2Ccf()`
+- `KSA.CelestialTemplate get_BodyTemplate()`
 - `KSA.IParentBody get_Parent()`
 - `double GetAngularVelocity()`
 - `double GetLatitudeFromCce(Brutal.Numerics.double3)`
@@ -648,6 +654,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.Astronomical GetIndex(int)`
 - `KSA.LookupCollection`1<KSA.Astronomical> get_All()`
 - `int get_Count()`
+
+### KSA.CelestialTemplate
+
+*referenced as a type only*
 
 ### KSA.ClusterChannelWrapper
 
@@ -785,6 +795,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.UniverseTime get_ExpiryGameTime()`
 - `void .ctor(KSA.Orbit, KSA.KeyHash)`
 
+### KSA.FloatReference
+
+- `float op_Implicit(KSA.FloatReference)`
+
 ### KSA.FxDeformation
 
 - `void ClearDents()`
@@ -833,6 +847,11 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `Brutal.VulkanApi.VkDescriptorSet get_DescriptorSet()`
 - `Brutal.VulkanApi.VkDescriptorSetLayout get_Layout()`
+- `int SamplerClampHandle`
+
+### KSA.HapkeScatteringReference
+
+- `KSA.FloatReference MeanDiffuseLuminosity`
 
 ### KSA.IChannel
 
@@ -1117,6 +1136,15 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `bool Active`
 - `bool get_AnyOpen()`
 
+### KSA.PrePassData
+
+- `KSA.Rendering.RenderTarget Target`
+
+### KSA.PrePassRenderer
+
+- `KSA.PrePassData OpaquePrePassData`
+- `bool get_OpaqueHasValidDepth()`
+
 ### KSA.ProfilerWindowBase
 
 - `double TicksToMs(long)`
@@ -1133,7 +1161,9 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.GizmosRenderer GizmosRenderer`
 - `KSA.GpuTextureSystem TextureSystem`
 - `KSA.IGameViewport get_MainViewport()`
+- `KSA.PrePassRenderer PrePassRenderer`
 - `KSA.Program get_Instance()`
+- `KSA.Rendering.Lighting.ILightSystem LightSystem`
 - `KSA.Rendering.Particles.ParticleSystem`2<KSA.Rendering.Particles.ParticleUpdateData, KSA.Rendering.Particles.ParticleRenderData> ParticleSystem`
 - `KSA.Vehicle get_ControlledVehicle()`
 - `KSA.VehicleEditor Editor`
@@ -1180,13 +1210,25 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.Rendering.ImageBarrierInfo SampledReadC`
 - `KSA.Rendering.ImageBarrierInfo StorageReadWriteC`
 
+### KSA.Rendering.Lighting.ClusteredLightSystem
+
+*referenced as a type only*
+
 ### KSA.Rendering.Lighting.ELightFlags
+
+*referenced as a type only*
+
+### KSA.Rendering.Lighting.ILightSystem
 
 *referenced as a type only*
 
 ### KSA.Rendering.Lighting.Light
 
+- `Brutal.Numerics.double3 Position`
+- `Brutal.Numerics.float3 Color`
 - `KSA.Rendering.Lighting.Light CreatePointLight(Brutal.Numerics.double3, float, Brutal.Numerics.float3, float, KSA.Rendering.Lighting.ELightFlags)`
+- `float Intensity`
+- `float Range`
 
 ### KSA.Rendering.Lighting.LightDebug
 
@@ -1231,6 +1273,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.Rendering.RenderImage
 
+- `Brutal.VulkanApi.VkImageView get_ImageView()`
 - `KSA.Rendering.RenderImage CreateColorStorage(RenderCore.IVulkanContext, string, Brutal.VulkanApi.VkExtent2D, Brutal.VulkanApi.VkFormat, int, int, KSA.Rendering.RenderImageViewMode)`
 - `void Dispose()`
 
@@ -1324,6 +1367,11 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.SunbloomRenderer
 
 - `void Render(Brutal.VulkanApi.CommandBuffer, KSA.IViewport, int)`
+
+### KSA.TextureReference
+
+- `KSA.TextureReference Get()`
+- `int get_BindlessHandle()`
 
 ### KSA.Transform3D
 

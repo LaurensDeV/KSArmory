@@ -76,6 +76,29 @@ internal static class Medium
         => Buoyancy(pull, munition, densityRatio) - Drag(airVelocity, munition, densityRatio);
 
     /// <summary>
+    /// What a store's parachute adds to its drag at an age since release: nothing before it opens,
+    /// all of it once filled, and in between as the canopy fills. Sized off the sink rate it is
+    /// given, so a canopy is described by what it does rather than by an area and a mass.
+    /// </summary>
+    public static double3 ChuteDrag(double3 localVelocity, MunitionProfile munition, double densityRatio,
+                                    double age)
+    {
+        ArgumentNullException.ThrowIfNull(munition);
+        if (!munition.HasChute || densityRatio <= 0.0) return Vec.Zero;
+
+        double open = Math.Clamp((age - munition.ChuteOpensSeconds) / MunitionProfile.ChuteInflationSeconds,
+                                 0.0, 1.0);
+        if (open <= 0.0) return Vec.Zero;
+
+        double sink = munition.ChuteSinkMetresPerSecond;
+        double k = StandardGravity / (sink * sink);
+        return localVelocity * (k * open * Vec.Len(localVelocity) * densityRatio);
+    }
+
+    /// <summary>The gravity a sink rate is quoted against.</summary>
+    public const double StandardGravity = 9.80665;
+
+    /// <summary>
     /// The drag deceleration, as a vector to <b>subtract</b> from a round's acceleration.
     ///
     /// <para>Quadratic in airspeed, so a coasting round bleeds speed instead of holding it, and

@@ -479,6 +479,11 @@ internal sealed class ScenarioRunner
         _twoClouds = false;
         _secondYield = 1.0;
 
+        // "fuse=<m>" and "chute=<m/s>": the store bursts that far over the ground, under a chute that
+        // brings it down that fast -- an air burst dropped for real rather than set off by the bridge.
+        _fuse = OptionNumber(options, "fuse=");
+        _chute = OptionNumber(options, "chute=");
+
         foreach (string option in options)
         {
             if (!option.StartsWith("cloudwarp=", StringComparison.Ordinal)) continue;
@@ -629,6 +634,29 @@ internal sealed class ScenarioRunner
         Report($"{_name}: START profile={_profile} save='{_save}'");
     }
 
+    private double _fuse;
+    private double _chute;
+
+    // A non-negative number after a prefix in the option list, or zero where there is none.
+    private static double OptionNumber(IEnumerable<string> options, string prefix)
+    {
+        foreach (string option in options)
+        {
+            if (!option.StartsWith(prefix, StringComparison.Ordinal)) continue;
+
+            if (double.TryParse(option[prefix.Length..], System.Globalization.NumberStyles.Float,
+                                System.Globalization.CultureInfo.InvariantCulture, out double value)
+                && value >= 0.0)
+            {
+                return value;
+            }
+
+            Log.Warn($"scenario: ignored '{option}' -- it is {prefix}<number>");
+        }
+
+        return 0.0;
+    }
+
     private void BeginDrop(string arguments)
     {
         if (!DropScenario.Request.TryParse(arguments, out DropScenario.Request drop, out string trouble))
@@ -645,6 +673,8 @@ internal sealed class ScenarioRunner
             StillAt = _stillAt,
             SecondBurst = _twoClouds,
             SecondBurstYield = _secondYield,
+            FuseMetres = _fuse,
+            ChuteSink = _chute,
         };
 
         // Same allowance the gunnery run makes: a site is usually another body, the full system

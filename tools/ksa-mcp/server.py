@@ -377,8 +377,9 @@ TOOLS = {
                            "game. A compile error comes back as the error; the old shader stays.", {}, [],
                            lambda a: [_text(reload_shaders())]),
     "ksa_tune": ("Set a shader look constant while the game runs (a pipeline rebuild, no recompile), or "
-                 "with no name list them; reset=true puts every one back. DebugView 1-5 swaps the picture "
-                 "for one term: 1 coverage, 2 depth, 3 weather mask, 4 sunlight, 5 fireball share.",
+                 "with no name list them; reset=true puts every one back. DebugView 1-8 swaps the picture "
+                 "for one term: 1 coverage, 2 depth, 3 weather mask, 4 sunlight, 5 fireball share, 6 sky "
+                 "ambient, 7 aerial inscatter, 8 light per unit of cover at a quarter.",
                  {"name": {"type": "string"}, "value": _num("value"), "reset": {"type": "boolean"}}, [],
                  lambda a: [_text(json.dumps(send("tune", **a), indent=1))]),
     "ksa_cost": ("What the cloud pass costs the GPU against the whole frame: reset=true starts measuring, "

@@ -512,5 +512,6 @@
     <Shader Id="KSArmoryCloudCompute" Path="Shaders/KSArmoryCloud.comp" />
     <Shader Id="KSArmoryCloudResolveCompute" Path="Shaders/KSArmoryCloudResolve.comp" />
     <Shader Id="KSArmoryShockCompute" Path="Shaders/KSArmoryShock.comp" />
+    <Shader Id="KSArmoryFireLightCompute" Path="Shaders/KSArmoryFireLight.comp" />
 
 </Assets>

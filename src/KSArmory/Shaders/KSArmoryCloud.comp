@@ -187,6 +187,34 @@ float Torus(vec3 p, float ring, float tube)
 layout (constant_id = 1) const float FootFlare = 2.5;
 layout (constant_id = 2) const float FootFlareReach = 0.07;
 
+// A cloud dispatch's third fireball float is three numbers: the heat left in the core, how much of
+// a surface burst this was, and how much of a stem it raised -- MushroomCloud.PackHeat, decoded
+// exactly as UnpackHeat does it. Set once in main, before anything asks.
+float cloudHeat = 0.0;
+float groundCoupling = 1.0;
+float stemShare = 1.0;
+
+// And its fourth shape float is two: the stem's radius in whole metres, and in the fraction how far
+// up the cap's height the column reaches -- MushroomCloud.PackStem. At the top of the fraction it
+// joins the cap.
+float stemRadius = 0.0;
+float columnTop = 1.0;
+
+void UnpackStem(float packed)
+{
+    stemRadius = floor(packed);
+    float share = packed - stemRadius;
+    columnTop = share >= 0.985 ? 1.0 : share;
+}
+
+void UnpackHeat(float packed)
+{
+    float q = floor(packed / 2.0);
+    cloudHeat = packed - 2.0 * q;
+    groundCoupling = mod(q, 64.0) / 63.0;
+    stemShare = floor(q / 64.0) / 63.0;
+}
+
 // How wide the stem is at a height, as a fraction of its nominal radius. A column of lifted dust
 // is widest where it leaves the ground and necks in as it is drawn up into the cap, and a constant
 // radius is the single thing that makes it read as a drainpipe rather than as a column of dirt.
@@ -203,7 +231,15 @@ float StemWidthAt(float y, float capH)
     // dust spreads into where the afterwind feeds it along the ground, and the raymarch draws it
     // lit like the rest of the column where particles came out black. It widens again into the
     // cap's underside so the two meet instead of the stem ending inside a wall.
-    return 0.92 + (FootFlare * exp(-t / FootFlareReach)) + (0.50 * smoothstep(0.76, 1.0, t));
+    // An air burst's column has much less of a skirt: there was no fireball on the ground to feed it.
+    float flare = FootFlare * mix(0.25, 1.0, groundCoupling);
+    return 0.92 + (flare * exp(-t / FootFlareReach)) + (0.50 * smoothstep(0.76, 1.0, t));
+}
+
+// Where the column stops: the cap for any that joins it, and short of it for a high air burst's.
+float ColumnStem(vec2 p, float capH, float columnR)
+{
+    return max(p.x - StemWidthAt(p.y, capH) * columnR, p.y - capH * columnTop);
 }
 
 // KSA's WEATHER SHADOWS, as its own planet and ocean passes read them: the buffers behind
@@ -581,7 +617,14 @@ float GrownBound(float risen, float age)
     return max(risen, reach * (1.0 + AgedShear * Aged(age)) * BoundMargin);
 }
 
+// How much sunlight a cloud scatters toward the eye, on the phase function.
+const float SunGain = 24.0;
+
+// How much of the sunlight falling on the ground and the weather under a cloud comes back up.
+const float GroundAlbedo = 0.3;
+
 float leanTop = 0.0;
+
 
 vec3 Unlean(vec3 world, vec3 up, float top)
 {
@@ -658,7 +701,11 @@ float CapChord(vec3 leaned, vec3 sun, vec3 up, float radius)
     float root = sqrt(disc);
     float t0 = max((-b - root) / a, 0.0);
     float t1 = (-b + root) / a;
-    return max(t1 - t0, 0.0);
+
+    // Eased in over its first fifth of the dome's width: a chord grows as a square root off a ray that
+    // grazes the dome, which drew where the cap's shadow ends as a hard curve under it.
+    float chord = max(t1 - t0, 0.0);
+    return chord * smoothstep(0.0, 0.2 * across, chord);
 }
 
 float Bulk(vec3 leaned, vec3 up)
@@ -672,10 +719,10 @@ float Bulk(vec3 leaned, vec3 up)
     float tubeR = pc.Shape.z;
 
     vec3 capP = vec3(p.x, p.y - capH, 0.0);
-    float stemR = pc.Shape.w;
+    float stemR = stemRadius * stemShare;
 
     float cap = min(Torus(capP, ringR, tubeR), CapDome(vec2(p.x, p.y - capH), ringR, tubeR));
-    float stem = max(p.x - StemWidthAt(p.y, capH) * stemR, p.y - capH);
+    float stem = ColumnStem(p.xy, capH, stemR);
 
     // Per feature, for the same reason Density is: a stem normalised by the cap's tube casts a
     // third of the shadow it should, so the cap stops shading the column under it.
@@ -720,7 +767,9 @@ const float MoistLayerHigh = 3.3;
 const float CollarThickInStems = 0.20;
 layout (constant_id = 26) const float CondensationDensity = 0.35;
 
-float Collar(vec2 q, vec3 world, float layer, float capH, float tubeR, float stemR)
+// The layers are at heights in a surface burst's stem radii, which the air rises past whatever it
+// lifted; the disc rings the column actually drawn, which an air burst's is a share of.
+float Collar(vec2 q, vec3 world, float layer, float capH, float tubeR, float stemR, float columnR)
 {
     float h = layer * stemR;
     float thick = CollarThickInStems * stemR;
@@ -733,8 +782,8 @@ float Collar(vec2 q, vec3 world, float layer, float capH, float tubeR, float ste
 
     // Ragged: a disc with a clean rim is a saucer. One octave, only inside the slab.
     float n = Noise(world * (2.5 / stemR));
-    float inner = StemWidthAt(h, capH) * stemR * 0.85;
-    float outer = inner + stemR * (0.25 + 0.75 * formed) * (0.55 + 0.9 * n);
+    float inner = StemWidthAt(h, capH) * columnR * 0.85;
+    float outer = inner + columnR * (0.25 + 0.75 * formed) * (0.55 + 0.9 * n);
     if (q.x > outer) return 0.0;
 
     // A lens: thickest against the stem, thinning to nothing at its rim, and puffed unevenly.
@@ -799,11 +848,14 @@ float Density(vec3 leaned, vec3 up, float radius, out float fireMask, out float 
     float capH = pc.Shape.x;
     float ringR = max(pc.Shape.y - pc.Shape.z, pc.Shape.z);
     float tubeR = pc.Shape.z;
-    float stemR = pc.Shape.w;
+    // The collars are sized by a surface burst's stem, which the air rises round whatever it
+    // lifted; the column of dust is the share of it the burst raised.
+    float stemR = stemRadius;
+    float columnR = stemR * stemShare;
 
     vec3 capP = vec3(p.x, p.y - capH, 0.0);
     float cap = min(Torus(capP, ringR, tubeR), CapDome(vec2(p.x, p.y - capH), ringR, tubeR));
-    float stem = max(p.x - StemWidthAt(p.y, capH) * stemR, p.y - capH);
+    float stem = ColumnStem(p.xy, capH, columnR);
 
     // The vortex turning over. The billows are already organised on the poloidal angle -- the angle
     // around the ring -- so ADVECTING that angle with time is the circulation itself: up the inside,
@@ -836,16 +888,18 @@ float Density(vec3 leaned, vec3 up, float radius, out float fireMask, out float 
     {
         vec2 q = p.xy;
         float evaporating = 1.0 - smoothstep(26.0, 40.0, age);
-        condensed = max(max(Collar(q, world, MoistLayerLow, capH, tubeR, stemR),
-                            Collar(q, world, MoistLayerHigh, capH, tubeR, stemR)) * evaporating,
+        // Round the column, so none where no column rose.
+        condensed = max(max(Collar(q, world, MoistLayerLow, capH, tubeR, stemR, columnR),
+                            Collar(q, world, MoistLayerHigh, capH, tubeR, stemR, columnR))
+                            * evaporating * stemShare,
                         Veil(q, capH, ringR, tubeR, age))
                     * CondensationDensity;
     }
 
     // Also asked before the rejection: the trumpet reaches out under the cap, past the stem's own.
-    float drawnUp = Inflow(flat_, p.xy, capH, ringR, tubeR, stemR, age);
+    float drawnUp = Inflow(flat_, p.xy, capH, ringR, tubeR, stemR, age) * stemShare;
 
-    if (cap > ErodeReach * tubeR && stem > ErodeReach * stemR && above > ErodeReach * tubeR)
+    if (cap > ErodeReach * tubeR && stem > ErodeReach * columnR && above > ErodeReach * tubeR)
     {
         wet = condensed > 0.0 ? 1.0 : 0.0;
         return max(condensed, drawnUp);
@@ -880,10 +934,10 @@ float Density(vec3 leaned, vec3 up, float radius, out float fireMask, out float 
     // it the sample is. The column came out a wisp with the cap floating over it -- the lollipop,
     // arrived at through the density rather than through the proportions.
     float capErode = ((coarse - 0.42) * 1.05 + (fine - 0.50) * 0.30) * tubeR;
-    float stemErode = ((coarse - 0.42) * 1.05 + (fine - 0.50) * 0.30) * stemR;
+    float stemErode = ((coarse - 0.42) * 1.05 + (fine - 0.50) * 0.30) * columnR;
 
     float capDensity = clamp(-(cap - capErode) / max(tubeR * 0.85, 1.0), 0.0, 1.0);
-    float stemDensity = clamp(-(stem - stemErode) / max(stemR * 0.85, 1.0), 0.0, 1.0);
+    float stemDensity = clamp(-(stem - stemErode) / max(columnR * 0.85, 1.0), 0.0, 1.0);
 
     float density = max(capDensity, stemDensity);
     density = density * density;
@@ -893,7 +947,7 @@ float Density(vec3 leaned, vec3 up, float radius, out float fireMask, out float 
     // colour are the march's. Deep rather than anywhere, so the shell of smoke over it is what hides
     // it, and the glow comes through only where the erosion has thinned that shell -- which is the
     // orange-through-black-dust every film of a surface burst shows.
-    if (pc.FireSun.z > 0.0)
+    if (cloudHeat > 0.0)
     {
         float deep = smoothstep(0.45, 0.90, capDensity);
         float fromRing = length(vec2(p.x - ringR, p.y - capH)) / max(tubeR, 1.0);
@@ -925,17 +979,26 @@ float Density(vec3 leaned, vec3 up, float radius, out float fireMask, out float 
     // AND ONLY ONCE THERE HAS BEEN TIME TO FALL. The heavy fraction takes minutes to come out of a
     // real cap, which on the rise's clock is the back half of the climb; strands hanging from a cap
     // ten seconds old read as rain from a cloud that has only just formed.
-    float falling = smoothstep(FalloutStartSeconds, FalloutStartSeconds + 21.0, age);
+    //
+    // And only from what the ground went into: an air burst's cap is its own debris and air.
+    float falling = smoothstep(FalloutStartSeconds, FalloutStartSeconds + 21.0, age) * groundCoupling;
 
     if (above < Nowhere && falling > 0.0)
     {
         float hang = clamp(-(above - capErode) / max(tubeR * 0.85, 1.0), 0.0, 1.0) * falling;
 
+        // Warped by a lower noise before the cut, and cut on a ramp: one octave of value noise cut
+        // hard has the lattice's straight edges, and a 50 Mt cap's curtains are kilometres across --
+        // they hung under it as rows of rectangles.
         vec3 drawn = world - (up * (dot(world, up) * 0.90));
-        float streak = Noise(drawn * (46.0 / max(radius, 1.0)));
+        vec3 at = drawn * (46.0 / max(radius, 1.0));
+        vec3 warp = vec3(Noise(at * 0.37 + vec3(5.1, 0.0, 0.0)), Noise(at * 0.37 + vec3(0.0, 13.7, 0.0)), 0.0);
+        float streak = Noise(at + (warp - 0.5) * 2.4);
 
-        density = max(density, hang * (1.0 - drop)
-                                   * clamp((streak - 0.52) * 3.0, 0.0, 1.0) * FalloutDensity);
+        // And eased in under the cap's middle, where it starts: at full strength there it drew the
+        // plane it starts on as a line across the cloud.
+        density = max(density, hang * (1.0 - drop) * smoothstep(0.0, 0.2, drop)
+                                   * smoothstep(0.52, 0.80, streak) * FalloutDensity);
     }
 
     // Condensation is white whatever it condenses round, so the march is told how much of this
@@ -1105,7 +1168,8 @@ float DustAt(vec3 p, float y, float r, float front, float reach, float stemR, fl
     float strong = 1.0 - smoothstep(0.35 * reach, reach, r);
 
     // Inside the fireball's own footprint the column's flared foot is the dust.
-    float clear = smoothstep(0.8 * stemR, 2.0 * stemR, r);
+    float column = max(stemR * stemShare, 1.0);
+    float clear = smoothstep(0.8 * column, 2.0 * column, r);
 
     // Low at the very front, where the wind has only just begun to lift it, piling up in the first
     // second behind it and then climbing. A wall as tall at its leading edge as behind it is a
@@ -1126,8 +1190,353 @@ float DustAt(vec3 p, float y, float r, float front, float reach, float stemR, fl
     // decides how high the dust reaches here, so the wall's crest is a row of boils.
     float n = Fbm(p * (2.2 / stemR) + vec3(age * 0.15));
     float crest = h * (0.25 + 3.0 * max(n - 0.30, 0.0));
-    return DustDensity * dust * smoothstep(0.25, 0.55, n)
+    // Less off the ground under an air burst, whose front reaches it spread and weakened.
+    return DustDensity * mix(0.3, 1.0, groundCoupling) * dust * smoothstep(0.25, 0.55, n)
            * (1.0 - smoothstep(0.55 * crest, crest, max(y, 0.0)));
+}
+
+// THE X-RAY GLOW: the layer of air, XRayGlow.LayerAltitude up and LayerThickness deep, that a burst
+// high over the atmosphere heats with its X-rays. Emission along the ray's path through the shell,
+// brightest under the burst and falling as the inverse square of the distance from it, and none where
+// the planet stands between the burst and the air. Added to the scene: it is light, and hides nothing.
+// The most the layer is brightened by being seen edge-on, over looking straight through it.
+const float LimbGain = 4.0;
+
+// THE AURORA at one end of a high burst's field line: Aurora.cs. Several arcs side by side, each a sheet
+// running magnetic east-west that stands on the field lines through it, so it leans as the field does --
+// sixty degrees off vertical at Samoa's latitude -- and its rays are field-aligned with nothing to say
+// so. A real arc is a few hundred metres thick, so each is drawn where the ray crosses it rather than
+// sampled: the crossing is found between two steps, and what it adds is the path through the sheet,
+// capped at LimbGain. The foot is on the ground at CentreRadius, the arcs run along Shape.xyz, Shape.w
+// is its age on the simulated clock, FireSun.w the sine of the foot's magnetic latitude on a dipole
+// along the spin axis, and FireSun.x and .y the lower border and the top over the mean sphere.
+const int CurtainArcs = 4;
+const float CurtainHalfLength = 450000.0;
+const float CurtainFold = 25000.0;
+const float CurtainCurl = 1200.0;
+const float CurtainSpacing = 50000.0;
+// The red line lives two minutes, so it smears into a haze round the arcs rather than keeping to them.
+const float RedHazeWidth = 80000.0;
+const float RedHazePerMetre = 2.5e-6;
+// 557.7 nm, 630.0 nm, and nitrogen's first positive band under a bright arc, in linear sRGB.
+const vec3 OxygenGreen = vec3(0.35, 1.00, 0.25);
+const vec3 OxygenRed = vec3(1.00, 0.08, 0.06);
+const vec3 NitrogenPink = vec3(1.00, 0.35, 0.70);
+
+// Where a field line through the point comes down to the lower border: across the arcs (m, toward the
+// magnetic north) and along them (m), both measured there. False where the line never gets that low.
+bool AuroraFoot(vec3 q, vec3 axis, vec3 east, float lowerR, float sinFoot, float cosFoot,
+                out float across, out float along)
+{
+    float r = length(q);
+    float s = dot(q, axis) / r;
+    float c2 = max(1.0 - s * s, 1.0e-6);
+    float c2Foot = lowerR * c2 / r;
+    across = 0.0;
+    along = 0.0;
+    if (c2Foot > 1.0 || s * sinFoot < 0.0) return false;
+
+    float latitude = sign(s) * acos(sqrt(c2Foot));
+    across = (latitude - asin(sinFoot)) * lowerR;
+    along = clamp(dot(q, east) / (r * sqrt(c2)), -1.0, 1.0) * lowerR * cosFoot;
+    return true;
+}
+
+// Where arc k stands across the arcs at a point along them, and how bright it is there: its own offset,
+// the folds drifting along it at a kilometre or two a second and the small curls running faster, each
+// arc its own length, and patches pulsing over seconds.
+float AuroraArc(int k, float along, float age, out float bright)
+{
+    float kf = float(k);
+    float offset = (kf - 0.5 * float(CurtainArcs - 1)) * CurtainSpacing
+                   + (Noise(vec3(kf * 7.1, age * 0.004, 0.5)) - 0.5) * 0.6 * CurtainSpacing;
+    float halfLength = CurtainHalfLength * (0.45 + 0.55 * Noise(vec3(kf * 5.7, 0.2, 9.1)));
+    float centre = (Noise(vec3(kf * 2.3, 0.7, 4.4)) - 0.5) * 0.8 * CurtainHalfLength;
+
+    float fold = (Noise(vec3(along / 150000.0 + age * 0.01, kf * 3.3, 1.3)) - 0.5) * 2.0 * CurtainFold;
+    float curl = (Noise(vec3(along / 8000.0 - age * 0.6, kf * 5.9, age * 0.3)) - 0.5) * 2.0 * CurtainCurl;
+    float ends = 1.0 - smoothstep(0.55 * halfLength, halfLength, abs(along - centre));
+    float pulse = 0.7 + 0.3 * Noise(vec3(along / 60000.0, kf * 4.1, age * 0.15));
+
+    bright = (1.0 - 0.18 * kf) * ends * pulse;
+    return offset + fold + curl;
+}
+
+void DrawAurora(ivec2 at, ivec2 size)
+{
+    vec2 uv = (vec2(at) + 0.5) / vec2(size);
+    vec3 dir = normalize(WorldAt(uv, 1.0));
+    float deviceZ = texture(sceneDepth, uv).r;
+    float sceneT = deviceZ > 0.0 ? length(WorldAt(uv, deviceZ)) : 1.0e30;
+
+    vec3 planet = global.lighting.planetPosition.xyz;
+    float radius = global.lighting.planetRadius;
+    vec3 foot = pc.CentreRadius.xyz;
+    vec3 up = normalize(foot - planet);
+    vec3 east = normalize(pc.Shape.xyz);
+    vec3 north = cross(up, east);
+    float nits = -pc.CentreRadius.w;
+    float age = pc.Shape.w;
+    float lowerR = radius + pc.FireSun.x;
+    float upperR = radius + pc.FireSun.y;
+    float sinFoot = clamp(pc.FireSun.w, -0.999, 0.999);
+    float cosFoot = sqrt(1.0 - sinFoot * sinFoot);
+    vec3 axis = normalize(north * cosFoot + up * sinFoot);
+
+    // The sheets lean equatorward as they climb, by the height over the tangent of the field's dip.
+    float tanDip = 2.0 * abs(sinFoot) / cosFoot;
+    float lean = (pc.FireSun.y - pc.FireSun.x) / max(tanDip, 0.25);
+    float band = 1.2 * (0.5 * float(CurtainArcs) * CurtainSpacing + CurtainFold + RedHazeWidth + lean);
+    float acrossRate = dot(dir, north);
+    float acrossAt0 = dot(-foot, north);
+    float alongRate = dot(dir, east);
+    float alongAt0 = dot(-foot, east);
+    float alongBand = 1.3 * CurtainHalfLength;
+
+    float t0 = 0.0;
+    float t1 = sceneT;
+    if (abs(acrossRate) > 1.0e-6)
+    {
+        float a = (-band - acrossAt0) / acrossRate;
+        float b = (band - acrossAt0) / acrossRate;
+        t0 = max(t0, min(a, b));
+        t1 = min(t1, max(a, b));
+    }
+    else if (abs(acrossAt0) > band) return;
+
+    if (abs(alongRate) > 1.0e-6)
+    {
+        float a = (-alongBand - alongAt0) / alongRate;
+        float b = (alongBand - alongAt0) / alongRate;
+        t0 = max(t0, min(a, b));
+        t1 = min(t1, max(a, b));
+    }
+    else if (abs(alongAt0) > alongBand) return;
+
+    float alongPlanet = dot(planet, dir);
+    float near2 = dot(planet, planet) - alongPlanet * alongPlanet;
+    if (near2 > upperR * upperR) return;
+    float outerHalf = sqrt(upperR * upperR - near2);
+    t0 = max(t0, alongPlanet - outerHalf);
+    t1 = min(t1, alongPlanet + outerHalf);
+    if (t1 <= t0) return;
+
+    const int Steps = 48;
+    float dt = (t1 - t0) / float(Steps);
+    float bottomKm = pc.FireSun.x / 1000.0;
+    float topKm = pc.FireSun.y / 1000.0;
+    vec3 light = vec3(0.0);
+
+    float was[CurtainArcs];
+    float wasAlong = 0.0;
+    float wasHeight = 0.0;
+    bool had = false;
+
+    for (int i = 0; i <= Steps; i++)
+    {
+        float t = t0 + float(i) * dt;
+        vec3 q = dir * t - planet;
+        float heightKm = (length(q) - radius) / 1000.0;
+
+        float across, along;
+        if (!AuroraFoot(q, axis, east, lowerR, sinFoot, cosFoot, across, along))
+        {
+            had = false;
+            continue;
+        }
+
+        // The red haze, a volume: gone below 140 km, broad about 230, fading out through the top.
+        float redAt = smoothstep(140.0, 210.0, heightKm) * exp(-max(heightKm - 230.0, 0.0) / 60.0)
+                      * (1.0 - smoothstep(topKm - 60.0, topKm, heightKm));
+        float haze = exp(-(across * across) / (RedHazeWidth * RedHazeWidth));
+        if (i > 0) light += OxygenRed * (redAt * haze * RedHazePerMetre * dt);
+
+        for (int k = 0; k < CurtainArcs; k++)
+        {
+            float bright;
+            float g = across - AuroraArc(k, along, age, bright);
+
+            if (had && (g > 0.0) != (was[k] > 0.0))
+            {
+                float f = was[k] / (was[k] - g);
+                float a = mix(wasAlong, along, f);
+                float hKm = mix(wasHeight, heightKm, f);
+
+                // Square on the sheet is one; along it no more than LimbGain.
+                float path = min(dt / max(abs(g - was[k]), 1.0e-3), LimbGain);
+
+                // Rays: field-aligned, so a function of where along the arc alone, drifting at about a
+                // kilometre a second; each its own height, so the tops are ragged.
+                float kf = float(k);
+                float rayN = Noise(vec3(a / 2500.0 + age * 0.4, kf * 11.0, age * 0.5));
+                float rays = 0.25 + 0.75 * smoothstep(0.35, 0.85, rayN);
+                float reach = 15.0 + 35.0 * Noise(vec3(a / 2500.0 + age * 0.4, kf * 11.0 + 5.0, 3.0));
+
+                float border = smoothstep(bottomKm - 1.0, bottomKm + 3.0, hKm);
+                float green = border * exp(-max(hKm - (bottomKm + 10.0), 0.0) / reach);
+                float pink = smoothstep(bottomKm - 6.0, bottomKm - 1.0, hKm)
+                             * (1.0 - smoothstep(bottomKm + 1.0, bottomKm + 6.0, hKm));
+                float red = 0.45 * smoothstep(140.0, 210.0, hKm) * exp(-max(hKm - 230.0, 0.0) / 60.0)
+                            * (1.0 - smoothstep(topKm - 60.0, topKm, hKm));
+
+                // The red line lives too long to keep the rays' edges.
+                vec3 sheet = OxygenGreen * green * rays + NitrogenPink * (0.35 * pink * rays)
+                             + OxygenRed * red * (0.7 + 0.3 * rays);
+                light += sheet * (bright * path);
+            }
+            was[k] = g;
+        }
+
+        wasAlong = along;
+        wasHeight = heightKm;
+        had = true;
+    }
+
+    float level = dot(light, vec3(0.2126, 0.7152, 0.0722));
+    if (level <= 0.0) return;
+    light *= min(level, LimbGain) / level;
+
+    vec4 before = imageLoad(sceneColor, at);
+    imageStore(sceneColor, at, vec4(before.rgb + light * nits, before.a));
+}
+
+
+// THE DEBRIS of a burst in air too thin for a mushroom: DebrisShell.cs. Light, not a cloud: a
+// transparent glow that fills the ball while it is white-hot and becomes a shell brightest at its rim
+// as it cools, lumpy, stretched along the field line through it by FireSun.y. Its centre is at
+// CentreRadius and its radiance the bound's; FireSun.x is its radius; Shape.xyz is the field's
+// direction and Shape.w its age; AgeStrengthWind carries its colour and how much of the ball it still
+// fills.
+const float DebrisReach = 1.3;      // where the rim's soft edge has gone, in shell radii
+const float DebrisRim = 0.9;        // where the rim is brightest
+const float DebrisRimWidth = 0.16;
+
+// A vector into the shell's own space, where the stretched shell is a sphere of radius one.
+vec3 IntoShell(vec3 v, vec3 axis, float stretch, float radius)
+{
+    return (v - axis * (dot(axis, v) * (1.0 - 1.0 / stretch))) / radius;
+}
+
+void DrawDebris(ivec2 at, ivec2 size)
+{
+    vec2 uv = (vec2(at) + 0.5) / vec2(size);
+    vec3 dir = normalize(WorldAt(uv, 1.0));
+    float deviceZ = texture(sceneDepth, uv).r;
+    float sceneT = deviceZ > 0.0 ? length(WorldAt(uv, deviceZ)) : 1.0e30;
+
+    vec3 centre = pc.CentreRadius.xyz;
+    float radiance = -pc.CentreRadius.w;
+    float radius = max(pc.FireSun.x, 1.0);
+    float stretch = max(pc.FireSun.y, 1.0);
+    float fill = clamp(pc.AgeStrengthWind.w, 0.0, 1.0);
+    vec3 axis = normalize(pc.Shape.xyz);
+    float age = pc.Shape.w;
+    vec3 colour = pc.AgeStrengthWind.rgb;
+
+    // Sampled along the ray where it is inside the stretched reach: in the shell's own space the ray is
+    // still a straight line, so the reach is a sphere there.
+    float shell = 0.0;
+    vec3 u0 = IntoShell(-centre, axis, stretch, radius);
+    vec3 du = IntoShell(dir, axis, stretch, radius);
+    float a = dot(du, du);
+    float b = dot(u0, du);
+    float c = dot(u0, u0) - DebrisReach * DebrisReach;
+    float disc = b * b - a * c;
+    if (disc > 0.0 && a > 0.0)
+    {
+        float root = sqrt(disc);
+        float t0 = max((-b - root) / a, 0.0);
+        float t1 = min((-b + root) / a, sceneT);
+        if (t1 > t0)
+        {
+            const int Taps = 32;
+            float dt = (t1 - t0) / float(Taps);
+            for (int i = 0; i < Taps; i++)
+            {
+                vec3 u = u0 + du * (t0 + (float(i) + 0.5) * dt);
+                float r = length(u);
+                float core = 1.0 - smoothstep(0.75, 1.15, r);
+                float offRim = (r - DebrisRim) / DebrisRimWidth;
+                float rim = exp(-offRim * offRim);
+                float lumpy = 0.5 + Noise(u * 2.5 + vec3(age * 0.03, 0.0, 0.0));
+                shell += mix(rim, core, fill) * lumpy * dt;
+            }
+            // Straight through the middle of a filled ball is one.
+            shell /= 2.0 * radius;
+        }
+    }
+
+    float level = min(shell, LimbGain);
+    if (level <= 0.0) return;
+
+    vec4 was = imageLoad(sceneColor, at);
+    imageStore(sceneColor, at, vec4(was.rgb + colour * (radiance * level), was.a));
+}
+
+
+void DrawXRayGlow(ivec2 at, ivec2 size)
+{
+    vec2 uv = (vec2(at) + 0.5) / vec2(size);
+    vec3 dir = normalize(WorldAt(uv, 1.0));
+    float deviceZ = texture(sceneDepth, uv).r;
+    float sceneT = deviceZ > 0.0 ? length(WorldAt(uv, deviceZ)) : 1.0e30;
+
+    vec3 planet = global.lighting.planetPosition.xyz;
+    float radius = global.lighting.planetRadius;
+    float nits = -pc.CentreRadius.w;
+    vec3 burst = pc.CentreRadius.xyz;
+    float lower = radius + pc.FireSun.x - 0.5 * pc.FireSun.y;
+    float upper = radius + pc.FireSun.x + 0.5 * pc.FireSun.y;
+    float over = max(length(burst - planet) - (radius + pc.FireSun.x), 10000.0);
+
+    // Where the ray is between the two spheres: in and out of the upper, less what the lower holds.
+    float along = dot(planet, dir);
+    float near2 = dot(planet, planet) - along * along;
+    if (near2 > upper * upper) return;
+
+    float outerHalf = sqrt(upper * upper - near2);
+    vec2 spans[2];
+    int count = 1;
+    spans[0] = vec2(along - outerHalf, along + outerHalf);
+    if (near2 < lower * lower)
+    {
+        float innerHalf = sqrt(lower * lower - near2);
+        spans[1] = vec2(along + innerHalf, along + outerHalf);
+        spans[0].y = along - innerHalf;
+        count = 2;
+    }
+
+    float glow = 0.0;
+    for (int k = 0; k < count; k++)
+    {
+        float t0 = max(spans[k].x, 0.0);
+        float t1 = min(spans[k].y, sceneT);
+        if (t1 <= t0) continue;
+
+        const int Taps = 8;
+        float dt = (t1 - t0) / float(Taps);
+        for (int i = 0; i < Taps; i++)
+        {
+            vec3 p = dir * (t0 + (float(i) + 0.5) * dt);
+            vec3 toP = p - burst;
+
+            // Shadowed by the planet from the burst: the nearest the line from it comes to the centre.
+            float s = clamp(dot(planet - burst, toP) / max(dot(toP, toP), 1.0), 0.0, 1.0);
+            if (length(burst + toP * s - planet) < lower) continue;
+
+            glow += over * over / max(dot(toP, toP), 1.0) * dt;
+        }
+    }
+
+    if (glow <= 0.0) return;
+
+    // Straight through the layer under the burst is one; red, with the green that is there first. Seen
+    // edge-on along the limb a ray runs through fifty times the layer, which read as a solid band of
+    // saturated red round the whole planet: the brightening is real, the fifty is not worth drawing.
+    vec3 colour = mix(vec3(1.00, 0.10, 0.06), vec3(0.45, 1.00, 0.55), clamp(pc.Shape.x, 0.0, 1.0));
+    float through = min(glow / max(pc.FireSun.y, 1.0), LimbGain);
+    vec4 was = imageLoad(sceneColor, at);
+    imageStore(sceneColor, at, vec4(was.rgb + colour * (nits * through), was.a));
 }
 
 void main()
@@ -1143,8 +1552,11 @@ void main()
     // away; the offset rides in the two floats a mark has no use for, having no fireball.
     //
     // Only for a dispatch that is the ground alone: on a cloud's those two floats are the
-    // fireball's radius and glow, and on a flash-only one there is nothing to offset.
-    if (pc.FireSun.w > 0.0 && !(pc.AgeStrengthWind.y > 0.0 && pc.CentreRadius.w > 0.0))
+    // fireball's radius and glow, on a flash-only one there is nothing to offset, and on a sky
+    // dispatch (a negative bound) FireSun.w is the dispatch's own -- an aurora's positive for a
+    // northern foot, which offset here drew every northern curtain off the screen.
+    if (pc.FireSun.w > 0.0 && pc.CentreRadius.w >= 0.0
+        && !(pc.AgeStrengthWind.y > 0.0 && pc.CentreRadius.w > 0.0))
     {
         at += ivec2(pc.FireSun.xy);
     }
@@ -1163,6 +1575,15 @@ void main()
     }
 
     if (at.x >= size.x || at.y >= size.y) return;
+
+    // A LAYER A HIGH BURST LIT, on a dispatch of its own that the negative bound marks.
+    if (pc.CentreRadius.w < 0.0)
+    {
+        if (pc.FireSun.z > 1.5) DrawDebris(at, size);
+        else if (pc.FireSun.z > 0.5) DrawAurora(at, size);
+        else DrawXRayGlow(at, size);
+        return;
+    }
     // THE WHITEOUT, written before anything can turn this pixel away. A burst blinds the whole
     // view rather than the part of it the cloud happens to cover, so it cannot sit behind the
     // bounding sphere.
@@ -1223,7 +1644,11 @@ void main()
         vec3 ball = pc.Shape.xyz / max(max(pc.Shape.x, max(pc.Shape.y, pc.Shape.z)), 1e-3);
         ball = mix(ball, VeilLilac, 0.7 * clamp(pc.Shape.w, 0.0, 1.0));
         float halo = min(pc.FireSun.x * HaloGain, HaloMost) * core;
-        blinded = mix(blinded, ball * (0.9 + 1.2 * core), halo);
+        vec3 haloed = mix(blinded, ball * (0.9 + 1.2 * core), halo);
+
+        // A thin-air burst's ball is the debris shell drawn before this, far brighter than the halo's
+        // colour: mixed over it, the halo dimmed it to a smudge until the glare ended and it popped.
+        blinded = pc.AgeStrengthWind.y > 0.5 ? max(blinded, haloed) : haloed;
 
         imageStore(sceneColor, at, vec4(blinded, was.a));
     }
@@ -1248,6 +1673,12 @@ void main()
     bool columnIsWater = mod(flagBits, 2.0) > 0.5;
     bool weatherBound = wantsCloud ? (mod(floor(flagBits / 2.0), 2.0) < 0.5) : (pc.Shape.y > 0.5);
     bool firstCloud = flagBits > 3.5;
+
+    if (wantsCloud)
+    {
+        UnpackHeat(pc.FireSun.z);
+        UnpackStem(pc.Shape.w);
+    }
 
     if (!wantsScorch && !wantsCloud) return;
 
@@ -1373,7 +1804,8 @@ void main()
 
         // Nothing upwind of the burst: fallout goes one way. And none at all where there was no air:
         // no column lifted anything, and no wind would carry it.
-        float plume = pc.Shape.z < 0.5 ? lateral * fade : 0.0;
+        // And only as much as the burst was on the ground: an air burst drops no local fallout.
+        float plume = pc.Shape.z < 0.5 ? lateral * fade * clamp(pc.Shape.w, 0.0, 1.0) : 0.0;
 
         if (acrossR < scorch || plume > 0.0)
         {
@@ -1387,9 +1819,11 @@ void main()
             // The patch, and the plume beside it. Taken as a MAXIMUM rather than added: where the
             // two overlap near the burst the ground is already as burned as it gets, and a sum
             // there would drive it past ash into a hole.
+            // Both as far as the fireball reached the ground: an air burst's leaves it unmarked.
             float deposit = max(1.0 - smoothstep(0.35, 1.0, ragged),
                                 plume * PlumeDepth
-                                      * mix(0.55, 1.0, Fbm(burned * (9.0 / scorch))));
+                                      * mix(0.55, 1.0, Fbm(burned * (9.0 / scorch))))
+                            * clamp(pc.Shape.w, 0.0, 1.0);
 
             // The height gate is measured against the burned patch and has to tolerate the
             // ground the PLUME crosses, which runs three times further and over whatever relief is
@@ -1435,6 +1869,12 @@ void main()
     vec3 sun = normalize(global.lighting.sunPosition.xyz - toCentre);
     float forward = Phase(dot(dir, sun), 0.3);
 
+    // THE GROUND'S OWN LIGHT, up onto the cloud: sunlight off the terrain and the deck under it,
+    // scattered evenly. It is what lights the underside of a cap in its own shadow, and the only
+    // light there is for one high enough that KSA's sky above it is black -- a megatonne-class
+    // anvil drew as a lit rim round a hole without it.
+    float earthshine = GroundAlbedo * max(dot(up, sun), 0.0) * SunGain / 12.566371;
+
     float along = dot(toCentre, dir);
     float perpSq = dot(toCentre, toCentre) - along * along;
     float rSq = radius * radius;
@@ -1475,6 +1915,7 @@ void main()
     // What the debug views average, weighted the same way. A specialization constant turns them
     // off, so the picture does not carry them.
     float sunSum = 0.0;
+    float skySum = 0.0;
     float fireSum = 0.0;
 
     // Not over a ball still white-hot: the dust it swallowed has not yet closed over it.
@@ -1509,9 +1950,13 @@ void main()
 
         // And under the cap, the cap itself, which the taps miss. Only there: inside the cap the
         // taps are what shade it, and adding the chord as well would count it twice.
-        if (dot(Unlean(leaned, up, radius), up) < pc.Shape.x - pc.Shape.z)
+        // Eased in across a band rather than switched on at a plane, which drew the plane as a line
+        // across the cloud wherever the cap is thick enough to shade much.
+        float underCap = 1.0 - smoothstep(pc.Shape.x - 1.6 * pc.Shape.z, pc.Shape.x - 0.6 * pc.Shape.z,
+                                          dot(Unlean(leaned, up, radius), up));
+        if (underCap > 0.0)
         {
-            toSun += CapChord(leaned, sun, up, radius) * CapShadowDensity;
+            toSun += CapChord(leaned, sun, up, radius) * CapShadowDensity * underCap;
         }
 
         // TWO LOBES. The first is direct light surviving the path to this sample; the second is a
@@ -1558,8 +2003,10 @@ void main()
         // the glow by tens of seconds and is strongest in the cap, where the hottest air went.
         //
         // Off the sea there is no ground to burn, so no soot; the oxides are the air's, and stay.
+        // An air burst burned less of it, so its cloud starts browner than black.
         float age = pc.AgeStrengthWind.x;
-        float soot = columnIsWater ? 0.0 : SootDepth * exp(-age / SootSeconds) * (1.0 - ballHot);
+        float soot = columnIsWater ? 0.0 : SootDepth * exp(-age / SootSeconds) * (1.0 - ballHot)
+                                           * mix(0.35, 1.0, groundCoupling);
         albedo = mix(albedo, vec3(0.045, 0.036, 0.030), soot);
 
         float oxides = NoxStrength * smoothstep(0.5, 3.0, age) * exp(-age / NoxSeconds)
@@ -1590,11 +2037,12 @@ void main()
         // UNDER KSA'S WEATHER, which the ground beside it is already shaded by: lit as though in full
         // sun, a cloud under an overcast was the brightest thing in a grey scene.
         float weatherLets = WeatherShadow(camRelative, normalize(global.lighting.sunPosition.xyz - camRelative));
-        vec3 lit = albedo * sunlight * weatherLets * forward * 12.0 * sunReaching + sky * albedo;
+        vec3 lit = albedo * sunlight * weatherLets * forward * SunGain * sunReaching + sky * albedo;
 
         // And what the deck takes from the sun it gives back as its own grey glow, from all over:
         // an overcast is a bright ceiling, not a lid. Without it a cloud under one went near black.
         lit += albedo * (1.0 - weatherLets) * DeckGlow * sunReaching;
+        lit += albedo * earthshine * sunReaching;
 
         // THE BURST LIGHTING THE CLOUD IT IS INSIDE. For the couple of seconds the ball is
         // incandescent it is by far the brightest thing in the scene, and the young cloud is
@@ -1640,7 +2088,7 @@ void main()
         // THE FIRE ITSELF, glowing rather than lit: the heat left in the core, where the mask says it
         // is. Emission, so it does not go through the albedo -- a sooty cloud reflects the ball's
         // light poorly and still glows where it is burning. Deep red when nearly cold, orange hot.
-        float heat = pc.FireSun.z;
+        float heat = cloudHeat;
         if (heat > 0.0 && fireMask > 0.0)
         {
             vec3 glowing = mix(vec3(0.85, 0.16, 0.03), vec3(1.00, 0.52, 0.16), heat);
@@ -1669,14 +2117,18 @@ void main()
         float extinction = density * Extinction * dt * (1.0 + SootOpacity * soot);
         float seenThrough = WeatherInFront(t0 + (float(i) + jitter) * dt);
 
-        scattered += transmittance * lit * extinction * seenThrough;
-
+        // What the step blocks, not its extinction: the two agree only while a step is optically
+        // thin, and the march spans the bound in a fixed 48 steps -- kilometres each over a
+        // megatonne-class cloud, where extinction times light counted it tens of times over.
         float through = exp(-extinction);
+
+        scattered += transmittance * lit * (1.0 - through) * seenThrough;
 
         float blocked = transmittance * (1.0 - through);
         depthSum += blocked * (t0 + (float(i) + jitter) * dt);
         depthWeight += blocked;
         sunSum += blocked * sunlight;
+        skySum += blocked * dot(sky, vec3(0.2126, 0.7152, 0.0722));
         fireSum += blocked * fireShare;
 
         transmittance *= through;
@@ -1693,7 +2145,7 @@ void main()
     float ringDepthSum = 0.0;
     float ringDepthWeight = 0.0;
 
-    float stemR = pc.Shape.w;
+    float stemR = stemRadius;
     float age = pc.AgeStrengthWind.x;
 
     if (!columnIsWater && shockRadius > 0.0 && stemR > 0.0 && age < DustLifeSeconds)
@@ -1785,9 +2237,9 @@ void main()
 
                     float extinction = dust * Extinction * ringDt;
                     float seenThrough = WeatherInFront(t);
-                    ringScattered += ringTransmittance * lit * extinction * seenThrough;
-
                     float through = exp(-extinction);
+                    ringScattered += ringTransmittance * lit * (1.0 - through) * seenThrough;
+
                     float blocked = ringTransmittance * (1.0 - through);
                     ringDepthSum += blocked * t;
                     ringDepthWeight += blocked;
@@ -1834,14 +2286,41 @@ void main()
     vec3 eyeTransmittance = vec3(1.0);
     vec3 sunTransmittance = vec3(1.0);
 
-    GetAerialPerspectiveForObjectInAtmosphere(
-        toCentre, dir, global.lighting.planetPosition.xyz, global.lighting.sunPosition.xyz,
-        global.lighting.planetRadius + global.lighting.atmosphereHeight,
-        global.lighting.planetRadius, global.lighting.planetRadius,
-        global.lighting.sunColor.rgb, aerialRangeLut,
-        aerialColorRgbTransmittanceRLut, aerialTransmittanceGbLut, transmittanceLutGlobal,
-        float(global.lighting.atmosphereLutLayer),
-        inscatter, eyeTransmittance, sunTransmittance);
+    // THE AIR BETWEEN THE EYE AND WHERE THIS RAY MET THE CLOUD, not the cloud's anchor, which is the
+    // ground under it: for a cloud standing tall, and for a debris ball 100 km over its ground, that is
+    // a point the ray does not go through, and the lookup handed a position and a direction that
+    // disagree answered with light the red channel had none of -- a glowing cyan ball. And only as far
+    // as the air goes: the tables cover the atmosphere, so a cloud past its top is measured to where
+    // the ray leaves it, and one the ray reaches before entering it has no air in front at all.
+    float atmosphereTop = global.lighting.planetRadius + global.lighting.atmosphereHeight;
+    vec3 seenAt = depthWeight > 1.0e-4 ? dir * (depthSum / depthWeight) : toCentre;
+    float seenRange = length(seenAt);
+    float alongPlanet = dot(global.lighting.planetPosition.xyz, dir);
+    float nearest2 = dot(global.lighting.planetPosition.xyz, global.lighting.planetPosition.xyz)
+                     - alongPlanet * alongPlanet;
+
+    if (nearest2 < atmosphereTop * atmosphereTop)
+    {
+        float halfChord = sqrt(atmosphereTop * atmosphereTop - nearest2);
+        float enters = max(alongPlanet - halfChord, 0.0);
+        float leaves = alongPlanet + halfChord;
+
+        if (seenRange > enters && leaves > 0.0)
+        {
+            vec3 target = seenRange > leaves ? dir * (leaves * 0.999) : seenAt;
+
+            GetAerialPerspectiveForObjectInAtmosphere(
+                target, dir, global.lighting.planetPosition.xyz, global.lighting.sunPosition.xyz,
+                atmosphereTop, global.lighting.planetRadius, global.lighting.planetRadius,
+                global.lighting.sunColor.rgb, aerialRangeLut,
+                aerialColorRgbTransmittanceRLut, aerialTransmittanceGbLut, transmittanceLutGlobal,
+                float(global.lighting.atmosphereLutLayer),
+                inscatter, eyeTransmittance, sunTransmittance);
+        }
+    }
+
+    eyeTransmittance = clamp(eyeTransmittance, vec3(0.0), vec3(1.0));
+    inscatter = max(inscatter, vec3(0.0));
 
     // The cloud dimmed by the air in front of it, plus what that air scatters in. Weighted by how
     // much cloud is actually there, so the haze is not laid over pixels the cloud barely covers.
@@ -1864,7 +2343,8 @@ void main()
     vec4 layer = imageLoad(layerColor, at);
 
     // A DEBUG VIEW in place of the cloud, opaque where there is any: coverage in grey, depth from
-    // blue (near side) to red (far), sunlight in grey, and the fireball's share of the light in red.
+    // blue (near side) to red (far), sunlight in grey, the fireball's share of the light in red, the
+    // sky's ambient, the air's own light in front of it, and the light per unit of cover at a quarter.
     if (DebugView != 0)
     {
         float held = max(depthWeight, 1.0e-6);
@@ -1873,6 +2353,9 @@ void main()
                   : DebugView == 2 ? mix(vec3(0.1, 0.4, 1.0), vec3(1.0, 0.25, 0.05),
                                          clamp((depthSum / held - near) / (2.0 * radius), 0.0, 1.0))
                   : DebugView == 4 ? vec3(sunSum / held / 1.45)
+                  : DebugView == 6 ? vec3(skySum / held)
+                  : DebugView == 7 ? inscatter
+                  : DebugView == 8 ? scattered / max(1.0 - transmittance, 1.0e-3) * 0.25
                   : vec3(fireSum / held, 0.0, 0.1);
         float solid = step(0.01, covered);
 

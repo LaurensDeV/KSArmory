@@ -21,8 +21,13 @@ namespace KSArmory;
 /// What the engine says it takes to break this part. Derived from its mass and volume unless the
 /// part template overrides it, so a profile never has to say anything about damage.
 /// </param>
+/// <param name="Reflection">
+/// What the ground under the burst adds to the blast at the part, as a multiple of the free-air
+/// overpressure (<see cref="GroundReflection.GainAt"/>): one in free air, which is what the damage law
+/// is calibrated in. The law goes as the cube of the distance, so it scales the charge.
+/// </param>
 internal readonly record struct DamageablePart(
-    int Index, double3 PositionEcl, double RadiusMetres, double CrashTolerancePascals);
+    int Index, double3 PositionEcl, double RadiusMetres, double CrashTolerancePascals, double Reflection = 1.0);
 
 /// <summary>
 /// One front's load on one part, as <see cref="BlastDamage.Combine"/> adds it to the others reaching
@@ -222,7 +227,7 @@ internal static class BlastDamage
 
             double gap = BlastSweep.SurfaceGap(part.PositionEcl, velocityEcl, sinceSample,
                                                burstEcl, part.RadiusMetres);
-            double ratio = DentRatio(munition.ChargeKg, part.CrashTolerancePascals, gap);
+            double ratio = DentRatio(munition.ChargeKg * part.Reflection, part.CrashTolerancePascals, gap);
 
             if (ratio > 0.0) into.Add((part.Index, ratio, gap));
         }
@@ -252,7 +257,7 @@ internal static class BlastDamage
             double gap = BlastSweep.SurfaceGap(part.PositionEcl, velocityEcl, sinceSample,
                                                burstEcl, part.RadiusMetres);
 
-            if (gap <= FailureRadius(munition.ChargeKg, part.CrashTolerancePascals))
+            if (gap <= FailureRadius(munition.ChargeKg * part.Reflection, part.CrashTolerancePascals))
             {
                 failed.Add(part.Index);
             }

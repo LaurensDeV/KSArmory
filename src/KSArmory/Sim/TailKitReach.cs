@@ -121,7 +121,8 @@ internal readonly record struct TailKitReach(
                                         IGroundTest? ground,
                                         double stepSeconds,
                                         List<double3> scratch,
-                                        ref double alongMetres, ref double acrossMetres)
+                                        ref double alongMetres, ref double acrossMetres,
+                                        double startAge = 0.0)
     {
         ArgumentNullException.ThrowIfNull(munition);
         ArgumentNullException.ThrowIfNull(gravityAt);
@@ -194,7 +195,7 @@ internal readonly record struct TailKitReach(
             bool landed = BombSight.TryPredict(roundPositionEcl, velocityOverGround, groundVelocityEcl,
                                                groundAccelerationEcl, bodyVelocityEcl, groundVelocityAt,
                                                munition, gravityAt, densityAt, ground, stepSeconds,
-                                               scratch, out impactEcl, steerAt);
+                                               scratch, out impactEcl, steerAt, startAge);
 
             fallSeconds = Math.Max(0, scratch.Count - 1) * stepSeconds;
             return landed;
@@ -245,7 +246,8 @@ internal readonly record struct TailKitReach(
                                    Func<double3, double> densityAt,
                                    IGroundTest? ground,
                                    double stepSeconds,
-                                   List<double3> scratch)
+                                   List<double3> scratch,
+                                   double startAge = 0.0)
     {
         ArgumentNullException.ThrowIfNull(munition);
         ArgumentNullException.ThrowIfNull(scratch);
@@ -314,7 +316,7 @@ internal readonly record struct TailKitReach(
             bool landed = BombSight.TryPredict(roundPositionEcl, velocityOverGround, groundVelocityEcl,
                                                groundAccelerationEcl, bodyVelocityEcl, groundVelocityAt,
                                                munition, gravityAt, densityAt, ground, stepSeconds,
-                                               scratch, out impactEcl, steerAt);
+                                               scratch, out impactEcl, steerAt, startAge);
 
             fallSeconds = Math.Max(0, scratch.Count - 1) * stepSeconds;
             return landed;

@@ -159,7 +159,7 @@ internal sealed class Slug : IProjectile
         if (State == RoundState.Flying) State = RoundState.ShotDown;
     }
     public int Tube { get; }
-    public double Age { get; private set; }
+    public double Age { get; internal set; }
 
     public double3 PositionEcl { get; private set; }
     public double3 VelocityEcl { get; private set; }
@@ -375,6 +375,9 @@ internal sealed class Slug : IProjectile
     /// <summary>True when it was the ground that stopped this round rather than a body or a fuse.</summary>
     public bool HitGround { get; private set; }
 
+    /// <summary>True when its fuse fired at <see cref="MunitionProfile.BurstHeightMetres"/> over the ground.</summary>
+    public bool BurstAtHeight { get; private set; }
+
     /// <summary>
     /// The surface radius the crossing was last tested against, and whether there was one. Sampled
     /// once per frame at the round's own position, so it is up to a frame of ground stale by the
@@ -576,11 +579,14 @@ internal sealed class Slug : IProjectile
         double3 dragAt = localVelocity;
         if (DragAtMidpointVelocity && SecondOrder)
         {
-            double3 first = accel - Medium.Drag(localVelocity, munition, mediumDensityRatio);
+            double3 first = accel - Medium.Drag(localVelocity, munition, mediumDensityRatio)
+                            - Medium.ChuteDrag(localVelocity, munition, mediumDensityRatio, Age);
             dragAt = localVelocity + first * (0.5 * h);
         }
 
-        accel -= Medium.Drag(dragAt, munition, mediumDensityRatio);
+        double3 drag = Medium.Drag(dragAt, munition, mediumDensityRatio)
+                       + Medium.ChuteDrag(dragAt, munition, mediumDensityRatio, Age);
+        accel -= drag;
 
         // A guided tail kit: fin authority on a fall, not a motor. It steers the fall onto the point
         // rather than chasing a line of sight -- see TailKit -- because a store released from a
@@ -602,9 +608,7 @@ internal sealed class Slug : IProjectile
             double3 aimPos = aim.PositionEcl + aim.VelocityEcl * (elapsedInFrame - frameSeconds);
 
             SteeringCommandEcl = TailKit.Command(aimPos - PositionEcl, aim.VelocityEcl - VelocityEcl,
-                                                 localVelocity, gravity,
-                                                 -Medium.Drag(dragAt, munition, mediumDensityRatio),
-                                                 munition);
+                                                 localVelocity, gravity, -drag, munition);
             accel += SteeringCommandEcl;
         }
 
@@ -753,6 +757,21 @@ internal sealed class Slug : IProjectile
 
             double was = Vec.Len(before - centreWas) - radiusWas;
             double now = Vec.Len(PositionEcl - centreNow) - radiusNow;
+
+            // The height fuse, crossed on the way down. Linear across the step like the ground
+            // crossing below; a store already under the height when it arms bursts on the ground.
+            double fuseAt = munition.BurstHeightMetres;
+            if (fuseAt > 0.0 && Age >= munition.FuseArmSeconds && was > fuseAt && now <= fuseAt)
+            {
+                double g = Math.Clamp((was - fuseAt) / (was - now), 0.0, 1.0);
+
+                PositionEcl = before + stepEcl * g;
+                MissDistance = double.PositiveInfinity;
+                BurstAtHeight = true;
+                DetonationElapsedInFrame = elapsedInFrame + h * g - frameSeconds;
+                State = RoundState.Detonated;
+                return;
+            }
 
             if (now <= 0.0)
             {

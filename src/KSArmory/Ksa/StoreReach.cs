@@ -212,7 +212,8 @@ internal sealed class StoreReach
                                 round.Munition,
                                 p => KsaWorld.GravityAt(platform, p),
                                 p => KsaWorld.MediumDensityRatioAt(platform, p),
-                                new CoarseGroundTest(GroundTest.Shared), IntegrationStep, []);
+                                new CoarseGroundTest(GroundTest.Shared),
+                                BombSight.StepFor(round.Munition, IntegrationStep), [], round.Age);
     }
 
     private TailKitReach Solve(WeaponSystem battery, IProjectile round,
@@ -254,8 +255,8 @@ internal sealed class StoreReach
                                               round.Munition,
                                               p => KsaWorld.GravityAt(platform, p),
                                               p => KsaWorld.MediumDensityRatioAt(platform, p),
-                                              ground, IntegrationStep, path,
-                                              ref _along, ref _across);
+                                              ground, BombSight.StepFor(round.Munition, IntegrationStep), path,
+                                              ref _along, ref _across, round.Age);
 
             if (_stage == 0)
             {

@@ -320,7 +320,7 @@ instead of only from the scale, which is the one thing a player cannot currently
 
 **Reachable, and it was wrongly demoted.** The shipped *defaults* are the B61's 0.3 kt and the Mk 21's
 20 kt, which is what a first reading took for the arsenal — but the Tuning tab's charge slider runs to
-**340,000,000 kg**, the real B61's top setting of 340 kt. The cloud is drawn at its law, so the
+**50,000,000,000 kg**, past the real B61's top setting of 340 kt to Tsar Bomba's 50 Mt. The cloud is drawn at its law, so the
 tropopause is reached at **~49 kt**, and at 340 kt the drawn top is 16.0 km. That is the whole range where the yield should read from the silhouette.
 
 `TWOCLOUDS=1000` puts a 300 kt burst beside the 0.3 kt one, which is the run to look at it with — and
@@ -474,6 +474,50 @@ would reuse the claim ladder and the zoom that already exist.
 Probably blocked. The height field is GPU-side; `docs/DAMAGE-DECALS.md` records that ground clutter
 placement is entirely on the GPU and that the readback path is never constructed in a shipping
 build. Worth re-checking after a KSA update rather than planning around.
+
+---
+
+## Air bursts and high altitude — what is built, and what is not
+
+Built on 2026-09-24/25 (`docs/NUCLEAR-EFFECT.md`, *The air burst, and Tsar Bomba*): a burst's
+height over the ground or sea, the cloud standing on the ground under it, ground coupling and a
+column that forms late and stops short of a high burst's cap, Tsar Bomba calibrated on its reported
+cloud, the ground's reflection in the damage law (the hemisphere, the Mach stem, its level push), the
+double bang from above the stem, no mushroom in thin air, and the X-ray glow over the atmosphere. Then
+a research pass asked what else separates air, surface and high-altitude bursts. Its sources were
+Glasstone and Dolan from memory, not fetched, so the section numbers want checking before a comment
+quotes them. What it found, most noticeable first, and not built:
+
+- **The dust wall grows with the triple point.** The ring of dust is the same low wall whatever the
+  burst height; under an air burst it should rise as the Mach stem's top climbs. Needs the burst
+  height in the shader, where the push constant has no room left; the column top already shares one.
+- **The negative phase.** After the positive phase the air pulls back toward the burst -- a suction
+  of at most about 4 psi -- and the afterwinds draw air in and up the stem, so loose craft and dust
+  drift back toward ground zero. Cheap: `BlastWave`/`BlastShove` past Friedlander's zero crossing.
+  G&D 3.04-3.07.
+- **What kills in vacuum is radiation, not blast.** Above the air, X-rays travel line of sight with an
+  inverse-square fall-off, and the kill radius against a spacecraft runs to kilometres or tens at a
+  megatonne. The mod's blast damage applies there unchanged. A fluence threshold per part, line of
+  sight only. G&D ch. II and VIII.
+- ~~**The aurora**~~ **built on 2026-09-25**, on a dipole along the spin axis (`Sim/Aurora.cs`).
+  **The radiation belts** are not: trapped electrons that degraded about a third of low-orbit
+  satellites after Starfish, as a dose per orbit through the shell the burst's field line fills.
+- **High-altitude EMP**: an E1 pulse to about 50 kV/m over everything in line of sight, `sqrt(2Rh)`
+  -- 2,200 km of ground from 400 km. As gameplay, avionics or radar off for seconds inside the disc.
+  G&D ch. XI.
+- **Radar and radio blackout that scales with altitude**: hours of absorption over thousands of
+  kilometres from a high burst, where `FireballBlackout` is local and short. G&D ch. X.
+- **The precursor** over heated ground (desert, asphalt): a dusty wave running ahead of the front's
+  foot, with dynamic pressure several times the ideal. A lobe on the dust ring, gated on the surface.
+  G&D 3.79-3.83.
+- **The reflected shock through the fireball** of a low air burst, flattening its underside, and a
+  low dust skirt rising before the stem forms.
+- **The thermal footprint and fires.** Ignition at 5-10 cal/cm², beyond the 5 psi radius at a
+  megatonne; an air burst's reaches further than a surface burst's, which loses about half its thermal
+  yield to the ground. Clouds under a burst reflect it back up. Fires are expensive, and the plumes
+  that were built read as smokestacks. G&D ch. VII.
+- **Neutron-induced activity** under a low air burst -- the only residual hazard a true air burst
+  leaves, within about a kilometre, for hours. Invisible, so only worth it if dose is a mechanic.
 
 ---
 

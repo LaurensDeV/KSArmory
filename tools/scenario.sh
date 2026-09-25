@@ -43,6 +43,8 @@
 #   KSARMORY_SCENARIO_NOSHADER=1 ...     # ...the same run with the pass off, as its control
 #   KSARMORY_SCENARIO_TWOCLOUDS=1 ...    # ...and a second burst 1 km away, which is the only way
 #                                        # to exercise the pass with more than one cloud standing
+#   KSARMORY_SCENARIO_FUSE=1500 KSARMORY_SCENARIO_CHUTE=18 ./tools/scenario.sh drop:6000,0,dumb
+#                                        # ...the store air-burst 1500 m up, under an 18 m/s chute
 #   KSARMORY_SCENARIO_CLOUDWARP=20 ...   # ...watch the burst at 20x, or 0 to pause on it. The
 #                                        #   fall's own warp is given back when the store lands, so
 #                                        #   this is the only way the cloud is advanced at anything
@@ -208,10 +210,11 @@ mkdir -p "$USER_DIR/Logs"
 {
     printf '%s|%s\n' "$SCENARIO" "$SAVE"
     printf '%s\n%s\n' "$ARMS" "$ARM_PHASE"
-    printf '%s %s %s %s %s %s %s %s %s %s %s %s %s %s\n' "${KSARMORY_SCENARIO_KEEPSTAGES:+keepstages}" "${KSARMORY_SCENARIO_TRACE:+trace}" \
+    printf '%s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s\n' "${KSARMORY_SCENARIO_KEEPSTAGES:+keepstages}" "${KSARMORY_SCENARIO_TRACE:+trace}" \
         "${KSARMORY_SCENARIO_VERBOSE:+verbose}" "${KSARMORY_SCENARIO_CHASE:+chase}" "${KSARMORY_SCENARIO_CLOUDS:+clouds}" "${KSARMORY_SCENARIO_NOSHADER:+noshader}" "${KSARMORY_SCENARIO_TWOCLOUDS:+twoclouds=$KSARMORY_SCENARIO_TWOCLOUDS}" "${KSARMORY_SCENARIO_CLOUDWARP:+cloudwarp=$KSARMORY_SCENARIO_CLOUDWARP}" "${KSARMORY_SCENARIO_WATCHELEV:+watchelev=$KSARMORY_SCENARIO_WATCHELEV}" "${KSARMORY_SCENARIO_STILLAT:+stillat=$KSARMORY_SCENARIO_STILLAT}" "${KSARMORY_SCENARIO_BLACKOUT:+blackout=$KSARMORY_SCENARIO_BLACKOUT}" "${KSARMORY_SCENARIO_NOBLACKOUT:+noblackout}" \
         "${KSARMORY_SCENARIO_SPEEDS:+speeds=$KSARMORY_SCENARIO_SPEEDS}" \
-        "${KSARMORY_SCENARIO_SITE:+site=$KSARMORY_SCENARIO_SITE}"
+        "${KSARMORY_SCENARIO_SITE:+site=$KSARMORY_SCENARIO_SITE}" \
+        "${KSARMORY_SCENARIO_FUSE:+fuse=$KSARMORY_SCENARIO_FUSE}" "${KSARMORY_SCENARIO_CHUTE:+chute=$KSARMORY_SCENARIO_CHUTE}"
 } > "$USER_DIR/Logs/scenario.txt"
 
 # KSA shows a configuration dialog at startup and waits for START KSA to be clicked, which is

@@ -74,8 +74,12 @@ internal static class BurstSound
     /// <summary>
     /// Queues one, to be heard once the sound has covered the distance. Silent on a body with no
     /// air, which is the whole of what makes that case different.
+    ///
+    /// <para>An air burst is heard twice from outside its Mach stem: the front straight from the
+    /// burst, and the one the ground reflected, which has the further to come. Inside the stem the
+    /// two are one front, and one bang.</para>
     /// </summary>
-    public static void Begin(Celestial body, double3 burstEcl, double chargeKg)
+    public static void Begin(Celestial body, double3 burstEcl, double chargeKg, double burstHeight = 0.0)
     {
         try
         {
@@ -85,8 +89,39 @@ internal static class BurstSound
             double range = Vec.Len(burstEcl - camera.PositionEcl);
             if (!double.IsFinite(range)) return;
 
-            double delay = range / MetresPerSecond;
-            if (delay > FurthestSeconds) return;
+            Queue(burstEcl, chargeKg, range / MetresPerSecond);
+
+            if (!(burstHeight > 0.0)) return;
+
+            double3 up = Vec.Unit(burstEcl - body.GetPositionEcl());
+            double3 toEar = camera.PositionEcl - burstEcl;
+            double over = Vec.Dot(toEar, up) + burstHeight;
+            double across = Vec.Len(toEar - (up * Vec.Dot(toEar, up)));
+            if (over <= 0.0 || GroundReflection.InReflection(burstHeight, across, over) > 0.5) return;
+
+            double reflected = Vec.Len(camera.PositionEcl - (burstEcl - (up * (2.0 * burstHeight))));
+            if ((reflected - range) / MetresPerSecond < SecondBangSeconds) return;
+
+            Queue(burstEcl, chargeKg * ReflectedShare, reflected / MetresPerSecond);
+        }
+        catch
+        {
+            // A bang nobody hears is not worth a fault.
+        }
+    }
+
+    // Under this the two reports of an air burst are heard as one.
+    private const double SecondBangSeconds = 0.15;
+
+    // The reflected report, as a share of the charge that sets how it sounds: the ground gives back
+    // most of what reaches it, and it has come further.
+    private const double ReflectedShare = 0.6;
+
+    private static void Queue(double3 burstEcl, double chargeKg, double delay)
+    {
+        try
+        {
+            if (!double.IsFinite(delay) || delay > FurthestSeconds) return;
 
             // Anchored to the body, because the bang is still seconds away and a bare ecliptic
             // point is left behind by the planet's 29.8 km/s long before it arrives.

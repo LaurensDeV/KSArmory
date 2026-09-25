@@ -67,6 +67,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
     // Scratch for one craft's part sweep, reused across every craft and every burst in a frame.
     private readonly List<DamageablePart> _partScratch = [];
+
+    // What the ground under the burst being applied adds to its blast, measured once per burst.
+    private GroundReflection _ground = GroundReflection.FreeAir;
     private readonly List<Part> _partHandles = [];
     private readonly List<int> _failedParts = [];
     private readonly List<(int Index, double PressureRatio, double GapMetres)> _dentLoads = [];
@@ -3466,6 +3469,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         }
 
         double3 burst = round.PositionEcl;
+        _ground = GroundFor(burst, round.DetonationElapsedInFrame, round.Munition.ChargeKg);
+
         // Which fuse fired, because a burst looks the same either way and the flak setting is
         // otherwise unanswerable from a log or a bug report.
         string fuse = round is Slug { BurstOnTime: true } timed
@@ -3480,6 +3485,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         string how = round switch
         {
             Slug { HitGround: true } => "on the ground",
+            Slug { BurstAtHeight: true } => $"at its fuse height, {round.Munition.BurstHeightMetres:F0} m over the ground",
             _ when round.StruckBody is not null => "on contact",
             _ when double.IsFinite(round.MissDistance) => $"with the target at {round.MissDistance:F0} m",
             _ => "with nothing in range",
@@ -3629,9 +3635,12 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             // And a cloud, for a charge large enough to have made one. It outlives this system --
             // NuclearClouds keeps it, because a mushroom stands there long after the launcher has
             // moved on or been destroyed.
+            // With its height over the ground as fire control measured it, off the burst carried to
+            // the sample: the drawn point is carried with the platform, which a loose round has none of.
             NuclearClouds.Begin(DrawnBurstEcl(round, burst),
                                 round.TargetRef as Vehicle ?? Platform,
-                                round.Munition.ChargeKg, EffectBody);
+                                round.Munition.ChargeKg, EffectBody,
+                                double.IsFinite(_ground.Height) ? _ground.Height : null);
         }
     }
 
@@ -3715,8 +3724,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             if (_pendingKills.Contains(v)) continue;
             if (_burstDamaged.Contains(v)) continue;
 
-            double gap = BlastSweep.SurfaceGap(KsaWorld.PositionEcl(v), KsaWorld.VelocityEcl(v),
-                                               elapsed, burst, KsaWorld.MeanRadius(v));
+            double gap = ReflectedGap(v, BlastSweep.SurfaceGap(KsaWorld.PositionEcl(v), KsaWorld.VelocityEcl(v),
+                                                               elapsed, burst, KsaWorld.MeanRadius(v)), munition);
 
             switch (BlastSweep.Effect(gap, munition))
             {
@@ -3756,8 +3765,36 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         ArgumentNullException.ThrowIfNull(munition);
 
         _burstDamaged.Clear();
+        _ground = GroundFor(burstEcl, Math.Min(inFrame, 0.0), munition.ChargeKg);
         Splash(burstEcl, Math.Min(inFrame, 0.0), munition, spareOwn);
         ApplyPendingKills();
+    }
+
+    // What the ground under a burst adds, measured with the burst carried to the sample instant: the
+    // round burst part-way through the step and the body and the parts are at its end, so uncarried the
+    // height reads up to a step of the planet's 30 km/s wrong -- hundreds of metres, which turns a
+    // contact burst into an air burst on some frames and not others.
+    private GroundReflection GroundFor(double3 burst, double elapsed, double chargeKg)
+    {
+        if ((EffectBody ?? Detonation.BodyFor(Platform)) is not { } body) return GroundReflection.FreeAir;
+
+        double3 atSample = BlastSweep.GroundAtSample(burst, KsaWorld.GroundVelocityAt(body, burst), elapsed);
+        return KsaWorld.GroundReflectionAt(body, atSample, chargeKg);
+    }
+
+    // A craft's gap as the free-air law sees it: the ground's reflection there is a multiple of the
+    // charge, so of the distance by its cube root.
+    private double ReflectedGap(Vehicle v, double gap, MunitionProfile munition)
+        => gap / Math.Cbrt(_ground.GainAt(KsaWorld.PositionEcl(v), munition.ChargeKg));
+
+    // Each collected part's own share of the ground's reflection.
+    private void Reflect(MunitionProfile munition)
+    {
+        for (int i = 0; i < _partScratch.Count; i++)
+        {
+            DamageablePart p = _partScratch[i];
+            _partScratch[i] = p with { Reflection = _ground.GainAt(p.PositionEcl, munition.ChargeKg) };
+        }
     }
 
     // Dents a craft the burst reaches and nothing else, for one that must not be broken.
@@ -3765,11 +3802,12 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     {
         if (!KsaWorld.IsAlive(v)) return;
 
-        double gap = BlastSweep.SurfaceGap(KsaWorld.PositionEcl(v), KsaWorld.VelocityEcl(v),
-                                           elapsed, burst, KsaWorld.MeanRadius(v));
+        double gap = ReflectedGap(v, BlastSweep.SurfaceGap(KsaWorld.PositionEcl(v), KsaWorld.VelocityEcl(v),
+                                                           elapsed, burst, KsaWorld.MeanRadius(v)), munition);
         if (BlastSweep.Effect(gap, munition) == BlastEffect.Untouched) return;
 
         if (!KsaWorld.TryCollectDamageableParts(v, KsaWorld.PositionEcl(v), _partScratch, _partHandles)) return;
+        Reflect(munition);
 
         Dent(v, burst, elapsed, munition, failed: null, mayBreak: false);
     }
@@ -3799,7 +3837,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         {
             double due = air ? MushroomCloud.ShockArrivalSeconds(kt, gap) - elapsed : 0.0;
             BlastArrivals.Queue(v, _partHandles[index], groundAtSample, -elapsed, air ? airRatio : 0.0,
-                                munition.ChargeKg, _partScratch[index].CrashTolerancePascals, mayBreak);
+                                munition.ChargeKg, _partScratch[index].CrashTolerancePascals, mayBreak,
+                                _partScratch[index].Reflection, _ground);
 
             first = Math.Min(first, due);
             last = Math.Max(last, due);
@@ -3837,8 +3876,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         if (!_config.DamageIndividualParts || !KsaWorld.CanQueuePartFailures)
         {
             if (!confirmed && BlastSweep.Effect(
-                    BlastSweep.SurfaceGap(KsaWorld.PositionEcl(v), KsaWorld.VelocityEcl(v),
-                                          elapsed, burst, KsaWorld.MeanRadius(v)),
+                    ReflectedGap(v, BlastSweep.SurfaceGap(KsaWorld.PositionEcl(v), KsaWorld.VelocityEcl(v),
+                                                          elapsed, burst, KsaWorld.MeanRadius(v)), munition),
                     munition) != BlastEffect.Lethal)
             {
                 return false;
@@ -3857,6 +3896,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                 : QueueWholeCraftIfLethal(v, burst, elapsed, munition);
         }
 
+        Reflect(munition);
+
         _failedParts.Clear();
         BlastDamage.Sweep(burst, elapsed, KsaWorld.VelocityEcl(v),
                           CollectionsMarshal.AsSpan(_partScratch), munition, _failedParts);
@@ -3873,7 +3914,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             foreach (DamageablePart p in _partScratch)
             {
                 double gap = BlastSweep.SurfaceGap(p.PositionEcl, velocity, elapsed, burst, p.RadiusMetres);
-                double reach = BlastDamage.FailureRadius(munition.ChargeKg, p.CrashTolerancePascals);
+                double reach = BlastDamage.FailureRadius(munition.ChargeKg * p.Reflection, p.CrashTolerancePascals);
                 Log.Debug($"blast on {craft}: {_partHandles[p.Index].Id} gap {gap:F1} m, reach {reach:F1} m "
                           + $"at {p.CrashTolerancePascals / 1e6:F2} MPa{(gap <= reach ? ", breaks" : string.Empty)}");
             }
@@ -3931,8 +3972,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     private bool QueueWholeCraftIfLethal(Vehicle v, double3 burst, double elapsed,
                                          MunitionProfile munition)
     {
-        double gap = BlastSweep.SurfaceGap(KsaWorld.PositionEcl(v), KsaWorld.VelocityEcl(v),
-                                           elapsed, burst, KsaWorld.MeanRadius(v));
+        double gap = ReflectedGap(v, BlastSweep.SurfaceGap(KsaWorld.PositionEcl(v), KsaWorld.VelocityEcl(v),
+                                                           elapsed, burst, KsaWorld.MeanRadius(v)), munition);
 
         return BlastSweep.Effect(gap, munition) == BlastEffect.Lethal && QueueWholeCraft(v);
     }

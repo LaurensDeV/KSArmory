@@ -245,12 +245,18 @@ public sealed class Config
     public bool BurstNuclear;
 
     /// <summary>
-    /// Yield for that (kt), spanning the B61's own dial.
+    /// Yield for that (kt), from the B61's lowest setting to Tsar Bomba's 50 Mt.
     ///
     /// <para>Kilotons rather than kilograms because that is the unit the thing is specified in, and
     /// the conversion is exact: a kilotonne of TNT equivalent is a million kilograms of it.</para>
     /// </summary>
     public float BurstYieldKt = 0.3f;
+
+    /// <summary>
+    /// How far above the clicked ground that burst goes off (m). Zero is a surface burst; Tsar
+    /// Bomba went off about 4,000 m up.
+    /// </summary>
+    public float BurstHeightMetres;
 
     /// <summary>
     /// Pick a craft up with one click and set it down with the next.

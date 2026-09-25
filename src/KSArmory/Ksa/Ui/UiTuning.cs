@@ -289,11 +289,10 @@ internal sealed partial class Ui
             // first time anybody touched it. Logarithmic, or the whole conventional range -- every
             // round the mod otherwise ships -- lives in the first thousandth of the travel.
             //
-            // 340 kt is the top of the B61's own dial, so the slider covers the real weapon rather
-            // than stopping partway up it. It is well past playable at a launch site -- the lethal
-            // radius alone is 7.8 km -- which is a reason to ship at the bottom of the range, not a
-            // reason to hide the top of it.
-            ImGui.SliderFloat("Explosive charge (kg)", ref _munition.ChargeKg, 0.01f, 340_000_000f,
+            // It runs on past the B61's own 340 kt to Tsar Bomba's 50 Mt, the largest ever set off.
+            // Well past playable at a launch site -- 340 kt is already 7.8 km lethal -- which is a
+            // reason to ship at the bottom of the range, not a reason to hide the top of it.
+            ImGui.SliderFloat("Explosive charge (kg)", ref _munition.ChargeKg, 0.01f, 50_000_000_000f,
                               "%.2f", ImGuiSliderFlags.Logarithmic);
             ImGui.TextDisabled($"  lethal {_munition.LethalRadius:F0} m, "
                                + $"blast {_munition.BlastRadius:F0} m, "
@@ -301,6 +300,37 @@ internal sealed partial class Ui
                                + (_munition.ChargeKg >= 1000f
                                       ? $"   ({_munition.ChargeKg / 1e6f:F2} kt)"
                                       : ""));
+            // What the ground under a store decides: whether it bursts in the air, and whether a
+            // chute slows it enough for whoever dropped it to get away.
+            if (_munition.HitsTerrain)
+            {
+                ImGui.SliderFloat("Burst height (m)", ref _munition.BurstHeightMetres, 0f, 10000f,
+                                  "%.0f m", ImGuiSliderFlags.Logarithmic);
+                Tip("A radar or barometric fuse: it fires this far over the ground on the way down. "
+                    + "Zero bursts on contact. Released lower than this, it bursts on the ground.");
+
+                ImGui.SliderFloat("Parachute sink (m/s)", ref _munition.ChuteSinkMetresPerSecond, 0f, 100f,
+                                  _munition.HasChute ? "%.0f m/s" : "no chute");
+                Tip("How fast it falls under the canopy at sea level. Zero is no parachute.");
+
+                if (_munition.HasChute)
+                {
+                    ImGui.SliderFloat("Parachute opens after (s)", ref _munition.ChuteOpensSeconds, 0f, 10f);
+                }
+
+                if (ImGui.Button("Tsar Bomba"))
+                {
+                    _munition.ChargeKg = 50_000_000_000f;
+                    _munition.BurstHeightMetres = 4000f;
+                    _munition.ChuteSinkMetresPerSecond = 18f;
+                    _munition.ChuteOpensSeconds = 1.5f;
+                }
+
+                Tip("50 Mt, bursting 4,000 m up, on a 1,600 m² chute that brought 27 t down at "
+                    + "about 18 m/s. Dropped from 10.5 km it took 188 s to fall, which is what let "
+                    + "the Tu-95 get 45 km away. Edits every store of this kind in the world.");
+            }
+
             ImGui.SliderFloat("Salvo spacing (s)", ref _profile.SalvoSpacing, 0.05f, 3f);
             ImGui.SliderFloat("Reload time (s)", ref _profile.ReloadSeconds, 0f, 60f);
 

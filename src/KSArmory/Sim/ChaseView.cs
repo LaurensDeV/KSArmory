@@ -461,11 +461,11 @@ public static class ChaseView
     /// How high above the burst the drawn cloud reaches at <paramref name="age"/>, and never under
     /// the fireball's width, which is what there is to see before anything has risen.
     /// </summary>
-    public static double CloudHeightNow(double chargeKg, double age)
+    public static double CloudHeightNow(double chargeKg, double age, double burstHeight = 0.0)
     {
-        MushroomCloud.Shape shape = MushroomCloud.At(chargeKg, Math.Max(age, 0.0));
+        MushroomCloud.Shape shape = MushroomCloud.At(chargeKg, Math.Max(age, 0.0), burstHeight);
         double fireball = 2.0 * Warhead.FireballRadius(chargeKg);
-        return Math.Max(fireball, shape.CapCentre + shape.CapRadius + shape.CapTube);
+        return Math.Max(Math.Max(burstHeight, 0.0) + fireball, shape.CapCentre + shape.CapRadius + shape.CapTube);
     }
 
     /// <summary>
