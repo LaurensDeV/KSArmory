@@ -669,30 +669,55 @@ internal static class NuclearClouds
     /// </summary>
     public static bool TryDebris(int index, out double3 centreEcl, out double3 fieldEcl, out double radius,
                                  out DebrisShell.Look look, out object? body)
+        => TryDebris(index, out centreEcl, out fieldEcl, out radius, out look, out body, out _);
+
+    /// <summary>
+    /// As above, and where the field rather than the air holds the debris (<see cref="DebrisBubble"/>),
+    /// the bubble instead of the shell: centred on the burst, and <paramref name="clipAltitude"/> the
+    /// X-ray layer it is cut off at where it runs into air. Zero for the shell.
+    /// </summary>
+    public static bool TryDebris(int index, out double3 centreEcl, out double3 fieldEcl, out double radius,
+                                 out DebrisShell.Look look, out object? body, out double clipAltitude)
     {
         centreEcl = default;
         fieldEcl = default;
         radius = 0.0;
         look = default;
         body = null;
+        clipAltitude = 0.0;
         if (!IsThin(index)) return false;
 
         Cloud cloud = _clouds[index];
         try
         {
+            body = cloud.Body;
+            double3 axis = cloud.Body.GetRotationAxisCce().Transform(cloud.Body.GetCce2Ccf());
+            double3 fieldCcf = DebrisShell.FieldDirection(cloud.Up, axis);
+            fieldEcl = Vec.Unit(fieldCcf.Transform(cloud.Body.GetCce2Ccf().Inverse()));
+
+            BodyAir air = KsaWorld.BodyAirOf(cloud.Body);
+            double tesla = DebrisBubble.FieldTesla(air.Traits.FieldTesla, cloud.Body.MeanRadius, cloud.BurstCcf, axis);
+            if (DebrisBubble.FieldShare(tesla, cloud.BurstAir.Pascals) >= 0.5)
+            {
+                DebrisBubble.Look bubble = DebrisBubble.At(cloud.ChargeKg, cloud.Age, tesla);
+                if (bubble.Spent) return false;
+
+                look = new DebrisShell.Look(bubble.Radiance, bubble.Colour, 0.0,
+                                            bubble.Held ? DebrisBubble.Stretch : 1.0);
+                radius = bubble.Across;
+                clipAltitude = Math.Max(XRayGlow.LayerAltitude(air), 1.0);
+                centreEcl = cloud.Body.GetPositionEcl() + cloud.BurstCcf.Transform(cloud.Body.GetCce2Ccf().Inverse());
+                return Vec.IsFinite(centreEcl) && Vec.IsFinite(fieldEcl) && radius > 0.0;
+            }
+
             look = DebrisShell.At(cloud.ChargeKg, cloud.Age, cloud.Height, cloud.AirRatio);
             if (look.Spent) return false;
 
             MushroomCloud.Shape shape = cloud.Shape;
-            body = cloud.Body;
             radius = shape.CapRadius;
-
-            double3 axis = cloud.Body.GetRotationAxisCce().Transform(cloud.Body.GetCce2Ccf());
-            double3 fieldCcf = DebrisShell.FieldDirection(cloud.Up, axis);
 
             centreEcl = cloud.Body.GetPositionEcl()
                         + (cloud.GroundCcf + (cloud.Up * shape.CapCentre)).Transform(cloud.Body.GetCce2Ccf().Inverse());
-            fieldEcl = Vec.Unit(fieldCcf.Transform(cloud.Body.GetCce2Ccf().Inverse()));
 
             return Vec.IsFinite(centreEcl) && Vec.IsFinite(fieldEcl) && radius > 0.0;
         }

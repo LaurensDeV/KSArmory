@@ -732,7 +732,7 @@ the air is under about 1e-4 of sea level's the field holds it: the shell stretch
 along the field line through it. A jet running out along the line was tried and taken out: drawn
 straight and evenly bright, it read from orbit as a laser; a real one is faint, diffuse and curves with
 the field over thousands of kilometres. Flown at 50 Mt and 100 km, from 400 km off: white at 3 s, an
-orange rim-bright ellipsoid at 20 s, a red fading shell at a minute, all but gone at two. **Above about 80 km its X-rays light the air instead** (`XRayGlow`): they run down to where the air is
+orange rim-bright ellipsoid at 20 s, a red fading shell at a minute, all but gone at two. Higher still, where the field's pressure outgrows the air's -- about 150 km on KSA's Earth -- the debris is `DebrisBubble` instead: the field holds it hundreds of kilometres across for sixteen seconds, Starfish's 1,840 by 680 km. **Above about 80 km its X-rays light the air instead** (`XRayGlow`): they run down to where the air is
 thick enough to stop them and heat a layer at 70-90 km, which glows. The pass draws it analytically on a
 full-screen dispatch of its own -- the ray's path through the shell, brightest under the burst and
 falling as the inverse square of the distance from it, and none where the planet stands between them

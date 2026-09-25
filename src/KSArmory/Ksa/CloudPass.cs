@@ -568,7 +568,8 @@ internal static class CloudPass
             for (int i = 0; i < NuclearClouds.Count; i++)
             {
                 if (!NuclearClouds.TryDebris(i, out double3 shellEcl, out double3 fieldEcl, out double shellRadius,
-                                             out DebrisShell.Look look, out object? over)) continue;
+                                             out DebrisShell.Look look, out object? over,
+                                             out double clipAltitude)) continue;
                 if (!ReferenceEquals(over, camera.NearbyCelestial)) continue;
 
                 double3 shell = shellEcl - camera.PositionEcl;
@@ -580,7 +581,8 @@ internal static class CloudPass
                     AgeStrengthWind = new float4((float)look.Colour.X, (float)look.Colour.Y, (float)look.Colour.Z,
                                                  (float)look.Fill),
                     CentreRadius = new float4((float)shell.X, (float)shell.Y, (float)shell.Z, -(float)look.Radiance),
-                    FireSun = new float4((float)shellRadius, (float)look.Elongation, SkyDispatch.Debris, 0f),
+                    FireSun = new float4((float)shellRadius, (float)look.Elongation, SkyDispatch.Debris,
+                                         (float)clipAltitude),
                     Shape = new float4((float)fieldEcl.X, (float)fieldEcl.Y, (float)fieldEcl.Z,
                                        (float)NuclearClouds.AgeOf(i)),
                 }));

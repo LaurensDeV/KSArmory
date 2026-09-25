@@ -1447,6 +1447,7 @@ void DrawAurora(ivec2 at, ivec2 size)
 // CentreRadius and its radiance the bound's; FireSun.x is its radius; Shape.xyz is the field's
 // direction and Shape.w its age; AgeStrengthWind carries its colour and how much of the ball it still
 // fills.
+const float DebrisClipSoftness = 30000.0; // how far over the X-ray layer a bubble's rim eases in (m)
 const float DebrisReach = 1.3;      // where the rim's soft edge has gone, in shell radii
 const float DebrisRim = 0.9;        // where the rim is brightest
 const float DebrisRimWidth = 0.16;
@@ -1480,6 +1481,44 @@ void DrawDebris(ivec2 at, ivec2 size)
     vec3 du = IntoShell(dir, axis, stretch, radius);
     float a = dot(du, du);
     float b = dot(u0, du);
+
+    // A FIELD-HELD BUBBLE (DebrisBubble), hundreds of kilometres across: its rim only, found in closed form
+    // where the ray crosses it rather than tapped along a chord a thousand kilometres long, with one noise
+    // lookup at each crossing. A Gaussian shell's path length at a crossing is its width times the root of
+    // pi over how steeply the ray cuts it, held to the grazing value at the limb. Cut off below the X-ray
+    // layer, where it runs into air.
+    float clip = pc.FireSun.w;
+    if (clip > 0.0)
+    {
+        if (a <= 0.0) return;
+
+        float tMid = -b / a;
+        vec3 closest = u0 + du * tMid;
+        float p2 = dot(closest, closest);
+        float r2 = DebrisRim * DebrisRim;
+        float w = DebrisRimWidth;
+        float along = sqrt(max(r2 - p2, 0.0));
+        float steep = min(DebrisRim / max(along, 1.0e-4), sqrt(DebrisRim / w));
+        float perCrossing = w * 1.7725 * steep / sqrt(a);
+        float edge = exp(-max(p2 - r2, 0.0) / (2.0 * DebrisRim * w));
+
+        vec3 planet = global.lighting.planetPosition.xyz;
+        float floorRadius = global.lighting.planetRadius + clip;
+        float half_ = along / sqrt(a);
+        for (int k = 0; k < 2; k++)
+        {
+            float t = tMid + (k == 0 ? -half_ : half_);
+            if (t <= 0.0 || t >= sceneT) continue;
+            // Eased in over the layer's own thickness rather than cut: a hard floor draws as a lid.
+            float above = smoothstep(floorRadius, floorRadius + DebrisClipSoftness, length(dir * t - planet));
+            if (above <= 0.0) continue;
+            vec3 u = u0 + du * t;
+            shell += perCrossing * edge * above * (0.5 + Noise(u * 2.5 + vec3(age * 0.03, 0.0, 0.0)));
+        }
+        shell /= 2.0 * radius;
+    }
+    else
+    {
     float c = dot(u0, u0) - DebrisReach * DebrisReach;
     float disc = b * b - a * c;
     if (disc > 0.0 && a > 0.0)
@@ -1504,6 +1543,7 @@ void DrawDebris(ivec2 at, ivec2 size)
             // Straight through the middle of a filled ball is one.
             shell /= 2.0 * radius;
         }
+    }
     }
 
     float level = min(shell, LimbGain);
