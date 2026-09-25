@@ -860,6 +860,23 @@ Measured from there, paired against the same run with the pass off: the frame gr
 to the watching distance with the real atmosphere on it is **2.90 ms**, against the **6-8 ms** of
 the pen cloud it would replace.
 
+**The sky's own dispatches, priced 2026-09-25** (`tools/sky-matrix.sh`, 1440×900, night, the bridge's
+`cost` split by stage, median over a few seconds):
+
+| Burst | Pose | Glow | Aurora | Debris | Whole frame |
+|---|---|---|---|---|---|
+| 50 kt on the ground (control) | orbit | -- | -- | -- | 16.8 ms |
+| 1.4 Mt at 400 km (Starfish) | orbit, 900 km | 0.13 | **27.9** before, **2.5** after | 0.06 | 44 → 21 ms |
+| 50 Mt at 100 km | orbit | 0.13 | 29.2 before | 0.09 | 46 ms before |
+| six 300 kt at 100 km, spread 200 km | orbit | 0.26 | 2.13 | 0.07 | 17.9 ms |
+| the same | limb, 1,500 km | 0.21 | 0.91 | 0.07 | 12.8 ms |
+
+The aurora was the whole cost, and it was never in the frame budget: every step of every arc looked up
+four noises that do not change along the ray, and the ray was cut to an upright slab wide enough for the
+curtains' lean, so from orbit most of the screen marched. Hoisted, cut to a slab tilted with the field,
+with the noise skipped where a sheet cannot be crossed and the steps following the chord, it is a tenth.
+A bus asks for a dozen or more sky dispatches; at most four are drawn, each kind's brightest in turn.
+
 ### The sky is KSA's own, and it cost no plumbing
 
 `GetAmbient` is called with the engine's own ambient LUT, its planet position, its radii and its

@@ -57,7 +57,8 @@ diameter. Visible and IR size need fitting against both shots (item 3).
    pressure taken from the density ratio (`BlastArrivals.cs:353`, `BlastShake.cs:104`); the thin cloud
    outliving its shell; stale doc lines.
 
-**Unmeasured:** the GPU cost of the glow, aurora and debris dispatches.
+**Measured** (item 1, landed): the aurora was the whole cost, 28 ms a frame from orbit; now 2.5. The glow is
+0.13-0.26 ms and the debris 0.06-0.09. The table is in `docs/NUCLEAR-EFFECT.md`.
 
 ## Rules the plan keeps
 
@@ -105,10 +106,11 @@ Separate profiler regions for glow, aurora and debris (`CloudPassCost` already r
 `"KSArmory Cloud: <x>"` region as a stage). Record per stage the **median and the peak**, per phase
 (0-2 s, 2-20 s, minutes), with the resolution and GPU, at four poses: the ground looking at zenith, orbit
 at 1,000 km on the limb (the aurora's worst), `CloudWatch`, and the player's own. **The budget, which
-fails a step:** all sky stages together ≤ 1 ms median and ≤ 2 ms peak at 1440p for six bursts at 100 km;
-any new effect ≤ one X-ray glow at the same pose. **A sky cap:** at most four full-screen sky objects
-across every kind, brightest first -- or better, one dispatch looping over a small array of them, which
-pays one barrier instead of eighteen.
+fails a step**, set from what was flown: the whole sky ≤ 2.5 ms median from orbit and ≤ 1.2 ms on the limb
+for six bursts at 100 km, at 1440×900; any new sky effect ≤ one X-ray glow (~0.2 ms) at the same pose.
+The first draft's 1 ms for the whole sky is not met from orbit -- the aurora alone is 2.1 ms there -- and a
+tighter one would need a half-resolution aurora, which is not planned. **The sky cap** (landed): at most
+four full-screen sky dispatches, each kind's brightest in turn.
 
 ### 2. Blast by altitude
 Efficiency by burst air, Sachs by target air, damage by `W·η` through every verdict path, the front in
