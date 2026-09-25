@@ -268,6 +268,35 @@ observation post. `PartId`, `DisplayName`, `Sensor`, `BaseMarker`, `HeadMarker` 
 
 ---
 
+## Bodies.xml -- describing a planet
+
+A solar-system mod, or any mod, can say what a nuclear burst needs to know about a body that KSA does
+not declare. Put a file with a `<Bodies>` root in the same `KSArmory/` folder; it is told from a weapon
+pack by its root element, and read in every enabled mod.
+
+```xml
+<Bodies>
+  <Body Id="MyMoon" FieldTesla="5e-6" FieldTiltDeg="10" Airglow="CarbonDioxide" Gamma="1.3"
+        Condensation="false" Surface="true" XRayOpacity="1" />
+</Bodies>
+```
+
+| Attribute | Meaning | When left out |
+|---|---|---|
+| `Id` | the body's Id, as KSA's system declares it | required |
+| `FieldTesla` | dipole strength at the surface equator (T) | no field: no aurora, no debris held along it |
+| `FieldTiltDeg`, `FieldAzimuthDeg` | the dipole's tilt from the spin axis, and which way | 0 |
+| `Airglow` | `OxygenNitrogen`, `CarbonDioxide`, `Hydrogen` or `Neutral` | `Neutral`: a dim, uncoloured glow |
+| `Condensation` | whether a burst raises white condensation | follows whether the body has an ocean |
+| `Gamma` | the air's ratio of specific heats, for the speed of sound | 1.4 |
+| `Surface` | whether there is ground at all | true |
+| `XRayOpacity` | X-ray stopping per kilogram, against nitrogen and oxygen's | 1 |
+
+Everything about the air itself -- pressure, density, scale height, where it ends -- comes from the
+body's own atmosphere in KSA and is never restated here. A later mod's entry for a body replaces an
+earlier one's, with a line in the log saying so; once the world has loaded, one line lists every entry
+the solar system has no body for, which is where a misspelt or renamed Id shows up.
+
 ## Names, and using somebody else's round
 
 Every name your pack declares is filed under your pack. `Name="AIM-9X"` in `MyWeaponPack`

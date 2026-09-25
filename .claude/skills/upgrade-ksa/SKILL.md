@@ -60,7 +60,7 @@ Do not push yet if you want to inspect the diff first — it is local either way
 ./tools/ksa-api-diff.sh ../ksa-game-assemblies
 ```
 
-This reads `docs/KSA-API-SURFACE.md` — the 681 members this mod genuinely binds to, extracted
+This reads `docs/KSA-API-SURFACE.md` — the 682 members this mod genuinely binds to, extracted
 from the compiled assembly's metadata — against the new corpus, and answers two questions:
 
 **Missing members.** Mechanical and precise. Each one is a break you must fix. `MOVED` means it
@@ -146,6 +146,13 @@ What to look for, in order of how quietly it fails:
 - **A renamed Core Id** the mod references — a mesh, a material, an editor tag.
   `./tools/validate-parts.py` catches this class, but **only run against the install**; with
   `--offline` it cannot see Core at all and passes regardless.
+- **A renamed or new body in `Astronomicals.xml`.** `src/KSArmory/KSArmory/Bodies.xml` is keyed by body
+  Id; a renamed body silently loses its field and airglow. The game logs "names no body in this solar
+  system" once the world loads -- read for it, and give any new body an entry.
+- **A different atmosphere model.** Every altitude law in the nuclear effects assumes KSA's air is
+  isothermal, `SeaLevel·exp(-h/H)` for pressure and density alike (`PhysicalAtmosphereReference`), cut
+  off at its boundary height. If `GetAtmosphericPressureAtAltitude` or `...DensityAtAltitude` stop
+  sharing that form, `Sim/BodyAir.cs` no longer mirrors the game and `BodyAirTests` will not notice.
 
 ## 5. Build, fix, test
 

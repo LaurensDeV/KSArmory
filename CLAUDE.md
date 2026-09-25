@@ -326,6 +326,11 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/DebrisShell.cs` | what a burst in air too thin for a mushroom leaves -- **its debris as light, not as a cloud**: white-hot and filling the ball, cooling into a red, rim-bright shell gone in three minutes, stretched along the field line where the air is thin enough for the field to hold it |
 | `Sim/Aurora.cs` | the aurora a burst above the atmosphere lights **at both ends of its own field line** — near the burst and at the magnetic conjugate point in the other hemisphere, on a dipole along the spin axis because KSA has no field; Teak's comes down over Samoa |
 | `Sim/SkyDispatch.cs` | the kinds of full-screen dispatch a burst's sky is drawn with -- **and what each puts in `FireSun.w`**, which the scorch-mark branch would otherwise read as its own and offset off the screen, as it did every northern aurora |
+| `Sim/AmbientAir.cs` | the air at a point as density and pressure **against fixed physical references**, not a body's own sea level -- so a threshold calibrated in Earth's air holds on any body -- with a flag for air that could not be read, never a silent sea level |
+| `Sim/BodyAir.cs` | a body's air as numbers, **mirroring KSA's isothermal model exactly** -- `ρ(h)·H` with the declared scale height for the column, one sound speed per body -- so nothing downstream knows which planet it is on |
+| `Sim/BodyTraits.cs` | what a burst needs about a body that KSA does not declare -- field, airglow, condensation, γ, surface, X-ray opacity -- **the neutral answer by default**, never Earth's |
+| `Sim/BodyReader.cs` | a mod's `KSArmory/Bodies.xml` read -- text in, and **told from a weapon pack by its root**, since the pack reader would refuse it on every load |
+| `Sim/BodyCatalogue.cs` | every mod's body entries, a later mod restating a body, and the audit that finds an entry naming no body in the system |
 | `Sim/BurstSetting.cs` | what a burst went off on or in — **land, the sea's surface, or under it** — which decides whether it lifts dirt or spray, burns the ground, or raises no column at all; anything unreadable is land, which is what every burst was before. And how high over it the burst stood, over the sea where there is sea |
 | `Sim/FireballBlackout.cs` | the air a nuclear fireball ionised, which a **transmitting** radar cannot see through or out of until it cools — a sphere riding up with the ball, about a minute for a megatonne |
 | `Sim/AirlessBurst.cs` | what that burst leaves where there is no air — **the ballistics are the engine's**, because KSA counts no atmosphere below 100 Pa and falls every particle at full local gravity there, so thrown ground arcs and lands with nothing here integrating it |
@@ -532,6 +537,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/SettingsStore.cs` | per-craft settings across sessions, in JSON beside the log |
 | `Ksa/Log.cs` | the mod's own log file, which is the only debugging channel it has |
 | `src/KSArmory/KSArmory*.xml` | the parts, the warhead effects and the sounds — at the mod root, mirroring Core. **No character**: a mod's character ends up on kittens in nearly every save, which then cannot load without it — `tools/repair-saves.py` re-dresses them |
+| `src/KSArmory/KSArmory/Bodies.xml` | **what KSA's current bodies are, as data** -- fields, airglow, condensation -- so a custom solar system gains them by adding lines, not code |
 | `src/KSArmory/KSArmory/Weapons.xml` | **this mod's own weapons, as data** — read by `PackScan`'s convention like any pack's, not by KSA |
 | `src/KSArmory/Meshes/`, `Textures/` | art. `KSArmory_MeshAtlas.glb` is generated — rebuild with `tools/model/build.sh`; every other atlas is **authored**, and its `.blend` is not in this repository |
 | `src/KSArmory/Sounds/` | the cannon, cut from a recording by `tools/cut-cannon.py`; the Mk 42's gunshot, cut from its recording by `tools/mk42-sounds.py`. A warhead's burst is KSA's own explosion, sound and all |
@@ -547,7 +553,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 681 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 682 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |

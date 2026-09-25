@@ -295,6 +295,7 @@ public sealed class KSArmoryMod
         if (!_frame.Claim()) return;
 
         KsaWorld.BeginFrame();
+        KsaWorld.AuditBodiesOnce();
 
         // Before anything integrates: the roster still holds the previous world's systems, and one
         // more step of them is one more step of rounds that no longer have a world to fly in.

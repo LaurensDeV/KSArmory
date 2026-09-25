@@ -724,6 +724,23 @@ frame while a fireball glows. Without the field the fill is off and the pad is d
 **What would unblock it.** `intensity` in that early-out, which is one float load the loop makes three
 lines later anyway.
 
+## A body's magnetic field and what its air is made of
+
+**Wanted.** Every body's magnetic field, and its air's composition, for the aurora and the debris a
+high burst leaves (the field holds it) and for the colour its excited air glows.
+
+**What stops it.** KSA declares neither. An atmosphere is a sea-level pressure, a density, a scale height
+and a boundary, isothermal, and nothing else.
+
+**What the mod does instead.** `KSArmory/Bodies.xml` in any mod, keyed by body Id (`Sim/BodyReader.cs`),
+carries the field, the airglow, whether water condenses, γ and whether there is a surface; KSA's own
+bodies ship with entries, and a body with none gets no field and a neutral glow. The atmosphere's
+isothermal model is mirrored exactly in `Sim/BodyAir.cs`, so if KSA ever gives air a temperature profile
+every altitude law has to follow it.
+
+**What would unblock it.** A field and a composition on the body template. Then its values win and the
+file becomes the fallback.
+
 ## Drawing a shape the gizmo renderer does not have
 
 **Wanted.** A solid torus on the ground under a craft being placed, and in general any shape worth

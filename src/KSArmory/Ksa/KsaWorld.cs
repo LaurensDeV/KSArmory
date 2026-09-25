@@ -2323,16 +2323,88 @@ internal static class KsaWorld
         }
     }
 
+    /// <summary>
+    /// A body's air as numbers, for the Sim side: what KSA declares, and what its <c>Bodies.xml</c>
+    /// entry says about the rest. Airless where the body declares no air, which is knowledge rather than
+    /// a failed read.
+    /// </summary>
+    public static BodyAir BodyAirOf(Celestial body)
+    {
+        AuditBodiesOnce();
+
+        BodyTraits traits = BodyCatalogue.For(SafeId(body));
+        double radius = body.MeanRadius;
+        double gravity = radius > 0.0 ? body.Mass * KSA.Constants.GRAVITATIONAL_CONSTANT / (radius * radius) : 0.0;
+
+        try
+        {
+            // KSA's own IsValid() is an astronomical-scale check on the scale height and is false for
+            // every real atmosphere (MediumDensityRatioAt), so the terms are checked instead.
+            if (body.GetAtmosphereReference()?.Physical is not { } air) return BodyAir.Airless(gravity, radius, traits);
+
+            return new BodyAir(air.GetAtmosphericPressureAtAltitude(0.0), air.GetAtmosphericDensityAtAltitude(0.0),
+                               air.ScaleHeight.InMeters(), air.Height, gravity, radius, traits,
+                               Wet: body.GetOceanReference() is { } ocean && ocean.Density > 0.0);
+        }
+        catch
+        {
+            return BodyAir.Airless(gravity, radius, traits);
+        }
+    }
+
+    /// <summary>
+    /// The air at a point over a body, against the fixed references; <see cref="AmbientAir.Unknown"/>
+    /// where it cannot be read, never a silent sea level.
+    /// </summary>
+    public static AmbientAir AirAt(Celestial body, double3 positionEcl)
+    {
+        try
+        {
+            BodyAir air = BodyAirOf(body);
+            return air.AirAt(Vec.Len(positionEcl - body.GetPositionEcl()) - body.MeanRadius);
+        }
+        catch
+        {
+            return AmbientAir.Unknown;
+        }
+    }
+
+    private static string? SafeId(Celestial body)
+    {
+        try
+        {
+            return body.Id;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static bool _bodiesAudited;
+
+    /// <summary>
+    /// Once the world has loaded, the Bodies.xml entries this solar system has no body for, in one line.
+    /// Not a fault -- a system of three bodies leaves the rest unused -- but a body a KSA update renamed
+    /// shows up here while the real one silently goes without its field and airglow.
+    /// </summary>
+    public static void AuditBodiesOnce()
+    {
+        if (_bodiesAudited || Universe.CurrentSystem is not { } system) return;
+        _bodiesAudited = true;
+
+        List<PackFault> unused = BodyCatalogue.Audit(id => system.Get(id) is not null);
+        if (unused.Count > 0)
+        {
+            Log.Info($"bodies described but not in this solar system, so unused here: "
+                     + string.Join(", ", unused.Select(f => f.Name)));
+        }
+    }
+
     private static double MediumDensityRatioAt(Celestial body, double3 positionEcl, bool withOcean)
     {
         try
         {
-
-            // Never gate on KSA's own IsValid(). DistanceReference.IsValid requires a distance
-            // over 100 km — an astronomical-scale sanity check — and the atmosphere's applies it
-            // to the scale height, 8 km on Earth. So air.IsValid() is false for every realistic
-            // atmosphere, and trusting it reports vacuum at ground level. Check the terms this
-            // actually divides by instead.
             // Altitude above the mean surface, the same measure KSA's own physics uses. Asked
             // before the air is, because whether a point is under water is its own question: a
             // body can have an ocean and no atmosphere, and resolving the air first returned

@@ -52,6 +52,10 @@
     <None Update="KSArmory\Weapons.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <!-- What a burst needs to know about each body that KSA does not declare; read the same way. -->
+    <None Update="KSArmory\Bodies.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <!-- The launcher's art. Regenerate with tools/model/build.sh; both are committed so a
          plain build does not need Blender. -->
     <None Update="Meshes\**\*.glb">

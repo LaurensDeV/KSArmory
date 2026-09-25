@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-248 types and 681 members across 11 assemblies.
+248 types and 682 members across 11 assemblies.
 
 ## BepuUtilities
 
@@ -651,6 +651,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.CelestialSystem
 
+- `KSA.Astronomical Get(string)`
 - `KSA.Astronomical GetIndex(int)`
 - `KSA.LookupCollection`1<KSA.Astronomical> get_All()`
 - `int get_Count()`
