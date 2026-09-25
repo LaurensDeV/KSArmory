@@ -602,6 +602,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/ksa-mcp/server.py` | **an MCP server over the bridge**, registered in `.mcp.json`, returning captures inline; `cli <tool>` runs one from a shell. It launches a game only if none is running and closes only one it launched |
 | `tools/check-shaders.sh` | the mod's compute shaders compiled with Khronos' `glslangValidator` against the install's shader library — **a GLSL error in a second rather than a flight**; skips where there is no install, which is CI |
 | `tools/vis/vis.py` | what the bridge's pictures are judged with: crops from the manifest, same-instant diffs, the temporal-noise map, grain, contact sheets and animations |
+| `tools/sky-matrix.sh` | flies a list of nuclear bursts (`KT@KM`) at night through the bridge and keeps a capture and the GPU split per age -- **every call under a timeout** and each capture copied out before the next call wipes it; `orbit` and `limb` are its camera presets |
 | `tools/scenario.sh` | drives one engagement or one ballistic shot end to end and exits pass/fail; screenshots on cue |
 | `tools/shot-batch.sh` | a night of ballistic shots, **arms interleaved and every arm built before the first one flies** — so nothing done to the tree overnight can reach a shot in flight |
 | `tools/shot-report.py` | what that night settled — the rank test, the effect with its interval, the arms to stop flying, and **whether the ground under the target was shaping the misses** |

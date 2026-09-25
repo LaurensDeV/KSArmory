@@ -311,6 +311,10 @@ PRESETS = {
     "overhead": {"azimuth_deg": 0, "elevation_deg": 70, "distance_m": 0, "aim": 0.2},
     "far": {"azimuth_deg": 0, "elevation_deg": 5, "distance_m": 10000, "aim": 0.45},
     "downwind": {"azimuth_deg": 90, "elevation_deg": 14, "distance_m": 0, "aim": 0.45},
+    # The high-altitude sky from above: a burst's shell, glow and aurora from 900 km, and on the limb
+    # from 1,500 km, where the aurora's march is at its dearest.
+    "orbit": {"azimuth_deg": 0, "elevation_deg": 35, "distance_m": 900000, "aim": 0.0},
+    "limb": {"azimuth_deg": 0, "elevation_deg": 10, "distance_m": 1500000, "aim": 0.0},
 }
 
 
