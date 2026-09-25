@@ -46,4 +46,17 @@ public class BurstRegimeTests
         Assert.True(BurstRegime.Blasts(1e9, Earth.AirAt(90_000)));
         Assert.False(BurstRegime.Blasts(1e9, Earth.AirAt(200_000)));
     }
+
+    [Fact]
+    public void TheStratosphereIsTooDryToCondense()
+    {
+        BodyAir wet = Earth with { Wet = true };
+        Assert.Equal(0.0, BurstRegime.Dryness(wet, 0.0));
+        Assert.Equal(0.0, BurstRegime.Dryness(wet, 10_000.0));
+        Assert.Equal(1.0, BurstRegime.Dryness(wet, 21_000.0));
+        Assert.InRange(BurstRegime.Dryness(wet, 13_500.0), 0.1, 0.9);
+
+        // A body that raises no condensation is dry at its surface too; its dust is another matter.
+        Assert.Equal(1.0, BurstRegime.Dryness(Earth with { Wet = false }, 0.0));
+    }
 }

@@ -32,6 +32,29 @@ internal static class BurstRegime
         return !(burstAir.DensityRatio < threshold);
     }
 
+    // Condensation needs the moist air under the tropopause, which on Earth is about 11 km, 0.25 of sea
+    // level's density; by 16 km, 0.13, the air is dry. Keyed on density so a wet body's tropopause lands
+    // where its air thins to the same.
+    private const double WetAbove = 0.25;
+    private const double DryBelow = 0.13;
+
+    /// <summary>
+    /// How dry the air at the burst is for condensation, from none to one: one on a body that raises
+    /// none at all, and from 11 to 16 km on Earth, above which Tightrope's ball raised no white cap and
+    /// no Wilson cloud. It removes condensation and never the ground's own dust.
+    /// </summary>
+    public static double Dryness(BodyAir body, double burstAltitude)
+    {
+        if (!body.Condenses) return 1.0;
+
+        double air = body.AirAt(burstAltitude).DensityRatio;
+        if (!(air < WetAbove)) return 0.0;
+        if (!(air > DryBelow)) return 1.0;
+
+        double x = Math.Log(WetAbove / air) / Math.Log(WetAbove / DryBelow);
+        return x * x * (3.0 - (2.0 * x));
+    }
+
     /// <summary>
     /// Whether the burst is above enough air for its X-rays to escape to the layer rather than being
     /// stopped round the ball: the column above it lighter than the one <see cref="XRayGlow.AirRatio"/>

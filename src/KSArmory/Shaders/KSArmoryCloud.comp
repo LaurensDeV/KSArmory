@@ -191,6 +191,15 @@ layout (constant_id = 2) const float FootFlareReach = 0.07;
 // a surface burst this was, and how much of a stem it raised -- MushroomCloud.PackHeat, decoded
 // exactly as UnpackHeat does it. Set once in main, before anything asks.
 float cloudHeat = 0.0;
+
+// How dry the air the burst went off in was for condensation, from the flags (Sim/CloudFlags.cs).
+float cloudDryness = 0.0;
+
+// The purple glow a dry burst's cap keeps for minutes, its brightness in the scene's units and the time
+// it fades on.
+const vec3 DryGlowColour = vec3(0.55, 0.22, 0.95);
+const float DryGlowNits = 0.04;
+const float DryGlowSeconds = 90.0;
 float groundCoupling = 1.0;
 float stemShare = 1.0;
 
@@ -893,7 +902,7 @@ float Density(vec3 leaned, vec3 up, float radius, out float fireMask, out float 
                             Collar(q, world, MoistLayerHigh, capH, tubeR, stemR, columnR))
                             * evaporating * stemShare,
                         Veil(q, capH, ringR, tubeR, age))
-                    * CondensationDensity;
+                    * CondensationDensity * (1.0 - cloudDryness);
     }
 
     // Also asked before the rejection: the trumpet reaches out under the cap, past the stem's own.
@@ -1701,7 +1710,7 @@ void main()
     float cloudFlags = wantsCloud ? -pc.FireSun.w : 0.0;
     float flagBits = mod(cloudFlags, 64.0);
     float shockRadius = floor(cloudFlags / 64.0);
-    float dryness = floor(flagBits / 8.0) / 7.0;
+    cloudDryness = floor(flagBits / 8.0) / 7.0;
     flagBits = mod(flagBits, 8.0);
     bool columnIsWater = mod(flagBits, 2.0) > 0.5;
     bool weatherBound = wantsCloud ? (mod(floor(flagBits / 2.0), 2.0) < 0.5) : (pc.Shape.y > 0.5);
@@ -2052,7 +2061,7 @@ void main()
         // the soot clears.
         float crown = smoothstep(-0.2 * pc.Shape.z, 0.9 * pc.Shape.z, dot(world, up) - pc.Shape.x)
                       * smoothstep(6.0, 16.0, age);
-        albedo = mix(albedo, CondensationWhite, CapWhiteness * crown);
+        albedo = mix(albedo, CondensationWhite, CapWhiteness * crown * (1.0 - cloudDryness));
 
         // And the collars and the veil are condensation outright.
         albedo = mix(albedo, CondensationWhite, wet);
@@ -2128,6 +2137,18 @@ void main()
             vec3 emitted = glowing * (FireGlowNits * heat * heat * fireMask);
             fireShare = max(fireShare, dot(emitted, vec3(0.2126, 0.7152, 0.0722))
                                        / max(dot(lit + emitted, vec3(0.2126, 0.7152, 0.0722)), 1e-4));
+            lit += emitted;
+        }
+
+        // IN DRY AIR, A PURPLE GLOW: the nitrogen oxides and the ionised air the ball leaves in the cap
+        // glowing for minutes after the fire, which is how Tightrope's ball at 21 km was seen to end.
+        // Faint, so plain at dusk and lost in daylight. Only where the air was too dry for the cap to
+        // condense white over it.
+        if (cloudDryness > 0.0)
+        {
+            float lingering = smoothstep(4.0, 14.0, age) * exp(-age / DryGlowSeconds)
+                              * smoothstep(0.35, 0.85, upThrough);
+            vec3 emitted = DryGlowColour * (DryGlowNits * cloudDryness * lingering);
             lit += emitted;
         }
 

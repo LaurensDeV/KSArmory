@@ -666,7 +666,8 @@ internal static class CloudPass
                         // how much of a stem it raised: MushroomCloud.PackHeat.
                         FireSun = new float4((float)flash.Radius, (float)flash.Glow,
                                              MushroomCloud.PackHeat(heat, shape.Coupling, shape.StemShare),
-                                             KSArmory.CloudFlags.Pack(water, weather, first: drawn == 0, shape.Shock)),
+                                             KSArmory.CloudFlags.Pack(water, weather, first: drawn == 0, shape.Shock,
+                                                                      NuclearClouds.DrynessAt(_order[n].Index))),
 
                         // The same shape MushroomCloud carries, so every dimension stays
                         // Glasstone's rather than being invented again in GLSL.

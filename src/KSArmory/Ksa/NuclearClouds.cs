@@ -40,6 +40,9 @@ internal static class NuclearClouds
         public AmbientAir BurstAir = AmbientAir.SeaLevel;
         public double SoundMetresPerSecond = BlastWave.SoundMetresPerSecond;
         public BlastFront Front => BlastFront.For(ChargeKg, BurstAir, SoundMetresPerSecond, Height);
+
+        // How dry the air it went off in is for condensation (BurstRegime.Dryness).
+        public double Dryness;
         public MushroomCloud.Shape Shape => MushroomCloud.At(ChargeKg, Age, Height, AirRatio, Front);
 
         // Which way this one leans. Fixed per cloud rather than per frame, or the column would
@@ -91,6 +94,10 @@ internal static class NuclearClouds
     /// <summary>The newest burst's age and charge: its cloud if it grew one, else its fireball.</summary>
     public static bool TryNewest(out double ageSeconds, out double chargeKg)
         => TryNewest(out ageSeconds, out chargeKg, out _);
+
+    /// <summary>How dry one standing cloud's air was for condensation, in [0, 1].</summary>
+    public static double DrynessAt(int index)
+        => index >= 0 && index < _clouds.Count ? _clouds[index].Dryness : 0.0;
 
     /// <summary>The newest burst's shape as it is drawn, against its own front.</summary>
     public static bool TryNewestShape(out MushroomCloud.Shape shape)
@@ -842,6 +849,7 @@ internal static class NuclearClouds
             double airRatio = hasAir ? KsaWorld.AirDensityRatioAt(body, burstEcl) : 0.0;
             AmbientAir burstAir = hasAir ? KsaWorld.AirAt(body, burstEcl) : AmbientAir.None;
             double sound = KsaWorld.BodyAirOf(body).SoundMetresPerSecond;
+            double dryness = hasAir ? BurstRegime.Dryness(KsaWorld.BodyAirOf(body), Vec.Len(burstCcf) - body.MeanRadius) : 1.0;
             bool thin = hasAir && MushroomCloud.IsThin(airRatio);
             double3 up = Vec.Unit(burstCcf);
             double3 groundCcf = burstCcf - (up * height);
@@ -930,6 +938,7 @@ internal static class NuclearClouds
                 AirRatio = airRatio,
                 BurstAir = burstAir,
                 SoundMetresPerSecond = sound,
+                Dryness = dryness,
                 Downwind = DownwindAt(groundCcf),
                 ChargeKg = chargeKg,
                 Water = setting == BurstSetting.WaterSurface && !thin,
@@ -955,7 +964,7 @@ internal static class NuclearClouds
 
             // And the condensation shell over the first couple of seconds, which is why a
             // photograph of a burst that early is a white dome rather than a ball of fire.
-            if (!thin) BurstEjecta.BeginWilson(body, burstCcf, chargeKg);
+            if (!thin && dryness < 0.5) BurstEjecta.BeginWilson(body, burstCcf, chargeKg);
 
             // Under the tropopause a column is about as tall as it is wide, so one number frames it
             // both ways; an anvil is wider than it stands.

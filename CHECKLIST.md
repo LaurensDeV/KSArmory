@@ -2703,6 +2703,8 @@ air burst, and Tsar Bomba*, has the numbers.
       silent; 3.8 Mt at 77 km is faint at 150 Pa. **By ear**: [ ] the delay and the loudness sound right.
 - [x] A burst on the Moon is a half-second flash inside its thrown dust, not a fireball glowing for
       seconds; Teak's ball is 27 km across and gone in under 4 s.
+- [x] 20 kt at 21 km raises no white cap and no Wilson cloud, and glows faintly purple at night; the
+      same at 5 km condenses white. **By eye**: [ ] the purple's strength at dusk.
 
 ---
 
