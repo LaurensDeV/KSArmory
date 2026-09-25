@@ -92,6 +92,7 @@ fi
 
 run "Sim/ is free of KSA types"     ./tools/check-boundary.sh
 run "No unasked-for network"        ./tools/check-network.sh
+run "No planet named in code"       ./tools/check-bodies.sh
 run "Part XML is well formed"       ./tools/check-xml.sh
 run "Asset paths resolve"           ./tools/validate-parts.py --offline
 run "Every setting is reachable"    ./tools/check-tunables.py

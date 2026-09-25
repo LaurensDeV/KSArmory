@@ -236,6 +236,7 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
 ./tools/model/checkring.py --check         # is a thruster ring steering on more than its axial pair?
 ./tools/check-boundary.sh                  # Sim/ must not reference KSA types
 ./tools/check-network.sh                   # the mod only reaches the network when Send is clicked
+./tools/check-bodies.sh                    # the burst code names no planet, and every Earth constant is a stated reference
 ./tools/check-tunables.py                  # every setting has a control that reaches it
 ./tools/check-comments.sh                  # history in comments, XML docs on privates, ratios
 ./tools/check-shaders.sh                   # the compute shaders compile, against the game's library
