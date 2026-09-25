@@ -67,6 +67,60 @@ internal static class CloudPass
     private static readonly ProfilerTag FireLightTag = new("KSArmory Cloud: fire light"u8);
     private static readonly ProfilerTag FlashTag = new("KSArmory Cloud: flash"u8);
     private static readonly ProfilerTag GlowTag = new("KSArmory Cloud: glow"u8);
+    private static readonly ProfilerTag AuroraTag = new("KSArmory Cloud: aurora"u8);
+    private static readonly ProfilerTag DebrisTag = new("KSArmory Cloud: debris"u8);
+
+    // The most full-screen sky dispatches drawn in a frame, across every kind, brightest first.
+    private const int MaxSky = 4;
+
+    private static readonly List<(float Kind, double Brightness, Push Push)> _sky = [];
+
+    /// <summary>How many sky dispatches the last frame asked for, and how many it drew.</summary>
+    public static int SkyWanted { get; private set; }
+
+    /// <inheritdoc cref="SkyWanted"/>
+    public static int SkyDrawn { get; private set; }
+
+    private static void KeepTheBrightestOfEachKind()
+    {
+        _skyBrightness.Clear();
+        foreach ((float kind, double brightness, _) in _sky) _skyBrightness.Add((kind, brightness));
+
+        SkyDispatch.Choose(_skyBrightness, MaxSky, _keep);
+
+        _kept.Clear();
+        foreach (int i in _keep) _kept.Add(_sky[i]);
+        _sky.Clear();
+        _sky.AddRange(_kept);
+    }
+
+    private static readonly List<(float Kind, double Brightness)> _skyBrightness = [];
+    private static readonly List<int> _keep = [];
+    private static readonly List<(float Kind, double Brightness, Push Push)> _kept = [];
+
+    // One kind's share of the frame's sky, in its own profiler region so `cost` splits the three.
+    private static void DrawSky(CommandBuffer commandBuffer, IViewport viewport, Camera camera, int width, int height,
+                                float kind, ProfilerTag tag, ref int marks)
+    {
+        bool any = false;
+        foreach ((float k, _, _) in _sky) any |= k == kind;
+        if (!any) return;
+
+        using (commandBuffer.TagRegion(GpuTag))
+        using (commandBuffer.TagRegion(tag))
+        {
+            foreach ((float k, _, Push push) in _sky)
+            {
+                if (k != kind) continue;
+
+                if (marks > 0) Hazard(commandBuffer);
+
+                BindCloud(commandBuffer, viewport, camera, push);
+                commandBuffer.Dispatch((width + Group - 1) / Group, (height + Group - 1) / Group, 1);
+                marks++;
+            }
+        }
+    }
 
     private static ComputePipelineWrapper? _pipeline;
 
@@ -459,98 +513,81 @@ internal static class CloudPass
                 }
             }
 
-            // THE LAYER A HIGH BURST LIT, behind everything the clouds put over it: it is 80 km up and
-            // hundreds across. Full-screen, since it can fill the sky, and only while one glows.
-            using (commandBuffer.TagRegion(GpuTag))
-            using (commandBuffer.TagRegion(GlowTag))
+            // THE SKY a high burst lights: the X-ray-heated layer, the aurora at each end of the field line
+            // and a thin-air burst's debris shell, each a full-screen dispatch with a negative bound. Every
+            // one is gathered first and only the brightest MaxSky drawn, since a bus bursting over several
+            // targets asks for a dozen or more and each is a pass over the whole screen. They add light, so
+            // the order they are drawn in is nobody's business.
+            _sky.Clear();
+
+            for (int i = 0; i < NuclearClouds.GlowCount; i++)
             {
-                for (int i = 0; i < NuclearClouds.GlowCount; i++)
+                // Drawn against the planet the camera is near, which is the only one the shader has:
+                // a glow over another body would be drawn as a shell round this one.
+                if (!NuclearClouds.TryGlow(i, out double3 glowEcl, out double nits, out double green,
+                                           out object? over)) continue;
+                if (!ReferenceEquals(over, camera.NearbyCelestial)) continue;
+
+                double3 lit = glowEcl - camera.PositionEcl;
+                if (!Vec.IsFinite(lit)) continue;
+
+                // Its size is the layer's, in the fireball's first two floats, and its brightness the bound's.
+                _sky.Add((SkyDispatch.Glow, nits, new Push
                 {
-                    // Drawn against the planet the camera is near, which is the only one the shader has:
-                    // a glow over another body would be drawn as a shell round this one.
-                    if (!NuclearClouds.TryGlow(i, out double3 glowEcl, out double nits, out double green,
-                                               out object? over)) continue;
-                    if (!ReferenceEquals(over, camera.NearbyCelestial)) continue;
-
-                    double3 lit = glowEcl - camera.PositionEcl;
-                    if (!Vec.IsFinite(lit)) continue;
-
-                    // A negative bound is what says this dispatch is a glowing layer: its size is the
-                    // layer's, in the fireball's first two floats, and its brightness the bound's.
-                    Push glow = new()
-                    {
-                        InvViewProj = camera.VPInv.viewProjection,
-                        CentreRadius = new float4((float)lit.X, (float)lit.Y, (float)lit.Z, -(float)nits),
-                        FireSun = new float4((float)XRayGlow.LayerAltitude, (float)XRayGlow.LayerThickness, SkyDispatch.Glow, 0f),
-                        Shape = new float4((float)green, 0f, 0f, 0f),
-                    };
-
-                    if (marks > 0) Hazard(commandBuffer);
-
-                    BindCloud(commandBuffer, viewport, camera, glow);
-                    commandBuffer.Dispatch((width + Group - 1) / Group, (height + Group - 1) / Group, 1);
-                    marks++;
-                }
-
-                // THE AURORA at each end of a high burst's field line, on the same negative-bound
-                // dispatch with the third fireball float saying it is a curtain rather than a layer.
-                for (int i = 0; i < NuclearClouds.AuroraCount; i++)
-                {
-                    if (!NuclearClouds.TryAurora(i, out double3 footEcl, out double3 eastEcl, out double sinLatitude,
-                                                 out double nits,
-                                                 out double age, out object? over)) continue;
-                    if (!ReferenceEquals(over, camera.NearbyCelestial)) continue;
-
-                    double3 foot = footEcl - camera.PositionEcl;
-                    if (!Vec.IsFinite(foot)) continue;
-
-                    Push curtain = new()
-                    {
-                        InvViewProj = camera.VPInv.viewProjection,
-                        CentreRadius = new float4((float)foot.X, (float)foot.Y, (float)foot.Z, -(float)nits),
-                        FireSun = new float4((float)Aurora.BottomAltitude, (float)Aurora.TopAltitude, SkyDispatch.Aurora,
-                                             (float)sinLatitude),
-                        Shape = new float4((float)eastEcl.X, (float)eastEcl.Y, (float)eastEcl.Z, (float)age),
-                    };
-
-                    if (marks > 0) Hazard(commandBuffer);
-
-                    BindCloud(commandBuffer, viewport, camera, curtain);
-                    commandBuffer.Dispatch((width + Group - 1) / Group, (height + Group - 1) / Group, 1);
-                    marks++;
-                }
-
-                // THE DEBRIS of a burst in air too thin for a mushroom: a glowing, transparent shell,
-                // on the same negative-bound dispatch with the third fireball float at two.
-                for (int i = 0; i < NuclearClouds.Count; i++)
-                {
-                    if (!NuclearClouds.TryDebris(i, out double3 shellEcl, out double3 fieldEcl, out double shellRadius,
-                                                 out DebrisShell.Look look, out object? over)) continue;
-                    if (!ReferenceEquals(over, camera.NearbyCelestial)) continue;
-
-                    double3 shell = shellEcl - camera.PositionEcl;
-                    if (!Vec.IsFinite(shell)) continue;
-
-                    Push debris = new()
-                    {
-                        InvViewProj = camera.VPInv.viewProjection,
-                        AgeStrengthWind = new float4((float)look.Colour.X, (float)look.Colour.Y, (float)look.Colour.Z,
-                                                     (float)look.Fill),
-                        CentreRadius = new float4((float)shell.X, (float)shell.Y, (float)shell.Z, -(float)look.Radiance),
-                        // The fourth float stays zero: a positive one says a mark, and shifts every
-                        // pixel of the dispatch by the first two -- here the shell's radius.
-                        FireSun = new float4((float)shellRadius, (float)look.Elongation, SkyDispatch.Debris, 0f),
-                        Shape = new float4((float)fieldEcl.X, (float)fieldEcl.Y, (float)fieldEcl.Z,
-                                           (float)NuclearClouds.AgeOf(i)),
-                    };
-
-                    if (marks > 0) Hazard(commandBuffer);
-
-                    BindCloud(commandBuffer, viewport, camera, debris);
-                    commandBuffer.Dispatch((width + Group - 1) / Group, (height + Group - 1) / Group, 1);
-                    marks++;
-                }
+                    InvViewProj = camera.VPInv.viewProjection,
+                    CentreRadius = new float4((float)lit.X, (float)lit.Y, (float)lit.Z, -(float)nits),
+                    FireSun = new float4((float)XRayGlow.LayerAltitude, (float)XRayGlow.LayerThickness, SkyDispatch.Glow, 0f),
+                    Shape = new float4((float)green, 0f, 0f, 0f),
+                }));
             }
+
+            for (int i = 0; i < NuclearClouds.AuroraCount; i++)
+            {
+                if (!NuclearClouds.TryAurora(i, out double3 footEcl, out double3 eastEcl, out double sinLatitude,
+                                             out double nits, out double age, out object? over)) continue;
+                if (!ReferenceEquals(over, camera.NearbyCelestial)) continue;
+
+                double3 foot = footEcl - camera.PositionEcl;
+                if (!Vec.IsFinite(foot)) continue;
+
+                _sky.Add((SkyDispatch.Aurora, nits, new Push
+                {
+                    InvViewProj = camera.VPInv.viewProjection,
+                    CentreRadius = new float4((float)foot.X, (float)foot.Y, (float)foot.Z, -(float)nits),
+                    FireSun = new float4((float)Aurora.BottomAltitude, (float)Aurora.TopAltitude, SkyDispatch.Aurora,
+                                         (float)sinLatitude),
+                    Shape = new float4((float)eastEcl.X, (float)eastEcl.Y, (float)eastEcl.Z, (float)age),
+                }));
+            }
+
+            for (int i = 0; i < NuclearClouds.Count; i++)
+            {
+                if (!NuclearClouds.TryDebris(i, out double3 shellEcl, out double3 fieldEcl, out double shellRadius,
+                                             out DebrisShell.Look look, out object? over)) continue;
+                if (!ReferenceEquals(over, camera.NearbyCelestial)) continue;
+
+                double3 shell = shellEcl - camera.PositionEcl;
+                if (!Vec.IsFinite(shell)) continue;
+
+                _sky.Add((SkyDispatch.Debris, look.Radiance, new Push
+                {
+                    InvViewProj = camera.VPInv.viewProjection,
+                    AgeStrengthWind = new float4((float)look.Colour.X, (float)look.Colour.Y, (float)look.Colour.Z,
+                                                 (float)look.Fill),
+                    CentreRadius = new float4((float)shell.X, (float)shell.Y, (float)shell.Z, -(float)look.Radiance),
+                    FireSun = new float4((float)shellRadius, (float)look.Elongation, SkyDispatch.Debris, 0f),
+                    Shape = new float4((float)fieldEcl.X, (float)fieldEcl.Y, (float)fieldEcl.Z,
+                                       (float)NuclearClouds.AgeOf(i)),
+                }));
+            }
+
+            SkyWanted = _sky.Count;
+            if (_sky.Count > MaxSky) KeepTheBrightestOfEachKind();
+
+            SkyDrawn = _sky.Count;
+            DrawSky(commandBuffer, viewport, camera, width, height, SkyDispatch.Glow, GlowTag, ref marks);
+            DrawSky(commandBuffer, viewport, camera, width, height, SkyDispatch.Aurora, AuroraTag, ref marks);
+            DrawSky(commandBuffer, viewport, camera, width, height, SkyDispatch.Debris, DebrisTag, ref marks);
 
             if (_order.Count == 0)
             {

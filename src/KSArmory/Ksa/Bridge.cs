@@ -264,6 +264,11 @@ internal sealed class Bridge
             ["speed"] = KsaWorld.SimulationSpeed,
             ["clouds"] = NuclearClouds.Count,
             ["marks"] = NuclearClouds.ScorchCount,
+            ["glows"] = NuclearClouds.GlowCount,
+            ["curtains"] = NuclearClouds.AuroraCount,
+            ["thin"] = Enumerable.Range(0, NuclearClouds.Count).Count(NuclearClouds.IsThin),
+            ["sky_wanted"] = CloudPass.SkyWanted,
+            ["sky_drawn"] = CloudPass.SkyDrawn,
             ["camera_held"] = _pose is not null,
         };
 

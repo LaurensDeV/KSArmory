@@ -22,4 +22,44 @@ internal static class SkyDispatch
 
     /// <summary>A thin-air burst's debris shell (<see cref="DebrisShell"/>). <c>FireSun.w</c> is 0.</summary>
     public const float Debris = 2f;
+
+    private static readonly float[] Kinds = [Glow, Aurora, Debris];
+
+    /// <summary>
+    /// Which of the sky dispatches asked for are drawn, at most <paramref name="most"/>: each kind's
+    /// brightest in turn, then each kind's next. Brightness is in each kind's own units, so a plain
+    /// sort kept four debris shells and dropped every glow and aurora a bus had lit. Fills
+    /// <paramref name="keep"/> with indices into <paramref name="wanted"/>.
+    /// </summary>
+    public static void Choose(IReadOnlyList<(float Kind, double Brightness)> wanted, int most, List<int> keep)
+    {
+        keep.Clear();
+        if (wanted.Count <= most)
+        {
+            for (int i = 0; i < wanted.Count; i++) keep.Add(i);
+            return;
+        }
+
+        List<int> order = [.. Enumerable.Range(0, wanted.Count)
+                              .OrderByDescending(i => wanted[i].Brightness)];
+
+        for (int rank = 0; keep.Count < most; rank++)
+        {
+            bool any = false;
+            foreach (float kind in Kinds)
+            {
+                int seen = 0;
+                foreach (int i in order)
+                {
+                    if (wanted[i].Kind != kind || seen++ != rank) continue;
+
+                    any = true;
+                    if (keep.Count < most) keep.Add(i);
+                    break;
+                }
+            }
+
+            if (!any) break;
+        }
+    }
 }
