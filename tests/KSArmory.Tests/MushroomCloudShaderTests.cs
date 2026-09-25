@@ -31,6 +31,13 @@ public class MushroomCloudShaderTests
         Assert.Equal(MushroomCloud.BoundMargin, Constant("BoundMargin"), 9);
     }
 
+    /// <summary>The dust ring runs out at the blast front's speed of sound, not one of its own.</summary>
+    [Fact]
+    public void TheDustRingRunsAtTheFrontsSpeedOfSound()
+    {
+        Assert.Equal(BlastWave.SoundMetresPerSecond, Constant("DustFrontSpeed"), 9);
+    }
+
     /// <summary>
     /// The shader is pushed the risen bound and grows its march's from it, so the risen one grown
     /// has to be the bound, at every age and at any yield merging bursts can reach.

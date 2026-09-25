@@ -592,6 +592,26 @@ internal static class NuclearClouds
         }
     }
 
+    /// <summary>
+    /// What the ground under one standing cloud's burst adds to its blast (<see cref="GroundReflection"/>),
+    /// at the yield it now carries.
+    /// </summary>
+    public static GroundReflection ReflectionAt(int index)
+    {
+        if (index < 0 || index >= _clouds.Count) return GroundReflection.FreeAir;
+
+        try
+        {
+            Cloud cloud = _clouds[index];
+            double3 burstEcl = cloud.Body.GetPositionEcl() + cloud.BurstCcf.Transform(cloud.Body.GetCce2Ccf().Inverse());
+            return KsaWorld.GroundReflectionAt(cloud.Body, burstEcl, cloud.ChargeKg);
+        }
+        catch
+        {
+            return GroundReflection.FreeAir;
+        }
+    }
+
     /// <summary>The air at a point over the body one cloud stands on, against sea level.</summary>
     public static double AirRatioAt(int index, double3 positionEcl)
     {

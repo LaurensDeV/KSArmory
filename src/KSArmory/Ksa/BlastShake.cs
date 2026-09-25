@@ -101,15 +101,19 @@ internal static class BlastShake
             double air = NuclearClouds.AirRatioAt(i, eyeEcl);
             if (!(air > Medium.NoticeableDensity)) continue;
 
+            // The ground's own gain where the eye is, as the parts' damage takes it: a surface burst's
+            // hemisphere doubles it everywhere, an air burst's stem only near the ground.
+            double gain = NuclearClouds.ReflectionAt(i).GainAt(eyeEcl, chargeKg);
             double ambient = BlastWave.SeaLevelPascals * air;
-            double strength = ViewShake.Strength(BlastWave.PeakOverpressurePascals(chargeKg, range, ambient));
+            double pascals = BlastWave.PeakOverpressurePascals(chargeKg, range, ambient, gain);
+            double strength = ViewShake.Strength(pascals);
             if (!(strength > 0.0)) continue;
 
-            double seconds = ViewShake.Seconds(BlastWave.PositivePhaseSeconds(chargeKg, range));
+            double seconds = ViewShake.Seconds(BlastWave.PositivePhaseSeconds(chargeKg, range, gain));
             _shakes.Add((strength, 0.0, seconds, serial));
 
             Log.Info($"blast front passed the camera {Distance.Say(range)} from the burst at "
-                     + $"{BlastWave.PeakOverpressurePascals(chargeKg, range, ambient) / 1000.0:F1} kPa; "
+                     + $"{pascals / 1000.0:F1} kPa (ground gain {gain:F2}); "
                      + $"shaking at {strength:F2} for {seconds:F1} s");
         }
 

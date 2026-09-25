@@ -27,11 +27,6 @@ internal static class BurstSound
     // by ear and the pitch is not.
     private const double EchoSeconds = 10.7;
 
-    // Dry air at about fifteen degrees, which is Earth's. One number rather than one per body:
-    // the speed of sound is set by temperature and composition and this mod carries neither. What
-    // it does carry is whether there is air at all, which is the difference that matters.
-    private const double MetresPerSecond = 343.0;
-
     // Anything further than this and the bang is not worth queueing: a minute of silence and then
     // a noise is indistinguishable from a bug.
     private const double FurthestSeconds = 45.0;
@@ -89,7 +84,13 @@ internal static class BurstSound
             double range = Vec.Len(burstEcl - camera.PositionEcl);
             if (!double.IsFinite(range)) return;
 
-            Queue(burstEcl, chargeKg, range / MetresPerSecond);
+            // The body's own speed of sound, which its air sets -- the same one the blast front and the
+            // dust ring run at on its ground (BodyAir): 340 m/s in Earth's air, about 206 in a cold thin
+            // one. KSA's air is isothermal, so it is one number over the whole path.
+            double speed = KsaWorld.BodyAirOf(body).SoundMetresPerSecond;
+            if (!(speed > 0.0)) return;
+
+            Queue(burstEcl, chargeKg, range / speed);
 
             if (!(burstHeight > 0.0)) return;
 
@@ -100,9 +101,9 @@ internal static class BurstSound
             if (over <= 0.0 || GroundReflection.InReflection(burstHeight, across, over) > 0.5) return;
 
             double reflected = Vec.Len(camera.PositionEcl - (burstEcl - (up * (2.0 * burstHeight))));
-            if ((reflected - range) / MetresPerSecond < SecondBangSeconds) return;
+            if ((reflected - range) / speed < SecondBangSeconds) return;
 
-            Queue(burstEcl, chargeKg * ReflectedShare, reflected / MetresPerSecond);
+            Queue(burstEcl, chargeKg * ReflectedShare, reflected / speed);
         }
         catch
         {

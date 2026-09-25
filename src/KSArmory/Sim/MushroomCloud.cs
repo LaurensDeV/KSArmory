@@ -588,7 +588,7 @@ public static class MushroomCloud
     // where there is air and dust, and the difference between two thick atmospheres is not visible
     // in a front that leaves the frame in seconds.
     private const double AirKgPerM3 = 1.225;
-    private const double SoundMetresPerSecond = 340.0;
+    private const double SoundMetresPerSecond = BlastWave.SoundMetresPerSecond;
     private const double JoulesPerKiloton = 4.184e12;
 
     // The Sedov front is let go at this Mach number, and relaxes to sound speed after it.
