@@ -175,6 +175,7 @@ internal static class NuclearClouds
     private sealed class Curtain
     {
         public required Celestial Body;
+        public required double3 BurstCcf;
         public required double3 FootCcf;
         public required double3 EastCcf;
         public double SinLatitude;
@@ -223,6 +224,36 @@ internal static class NuclearClouds
         }
     }
 
+    // Adds a burst to the one still going off that it is part of, if any: its fireball, glow, curtains and
+    // cloud, each found by the same test against where its own burst was.
+    private static bool JoinTheSameBurst(Celestial body, double3 burstCcf, double chargeKg)
+    {
+        Burning? same = null;
+        foreach (Burning one in _burning)
+        {
+            if (ReferenceEquals(one.Body, body)
+                && MushroomCloud.IsTheSameBurst(Vec.Len(burstCcf - one.BurstCcf), one.Age, one.ChargeKg + chargeKg))
+            {
+                same = one;
+                break;
+            }
+        }
+
+        if (same is null) return false;
+
+        bool Near(Celestial other, double3 otherCcf) => ReferenceEquals(other, body)
+                                                        && Vec.Len2(otherCcf - same.BurstCcf) < 1.0;
+
+        same.ChargeKg += chargeKg;
+        foreach (Glow glow in _glows) if (Near(glow.Body, glow.BurstCcf)) glow.ChargeKg += chargeKg;
+        foreach (Curtain curtain in _curtains) if (Near(curtain.Body, curtain.BurstCcf)) curtain.ChargeKg += chargeKg;
+        foreach (Cloud cloud in _clouds) if (Near(cloud.Body, cloud.BurstCcf)) cloud.ChargeKg += chargeKg;
+
+        Log.Info($"nuclear burst {Vec.Len(burstCcf - same.BurstCcf):F1} m from one {same.Age:F2} s old and inside "
+                 + $"its fireball, so it is that one -- now {MushroomCloud.KilotonsFor(same.ChargeKg):F2} kt");
+        return true;
+    }
+
     // Both ends of a burst's field line, as curtains to draw.
     private static void Light(Celestial body, double3 burstCcf, double chargeKg)
     {
@@ -236,6 +267,7 @@ internal static class NuclearClouds
             _curtains.Add(new Curtain
             {
                 Body = body,
+                BurstCcf = burstCcf,
                 FootCcf = feet[i],
                 EastCcf = Aurora.EastAt(feet[i], axis),
                 SinLatitude = Vec.Dot(feet[i], Vec.Unit(axis)),
@@ -290,7 +322,7 @@ internal static class NuclearClouds
     }
 
     // The ground each burst burned. A third list rather than a field on either of the others,
-    // because it outlives both: a cloud is gone in under five minutes and a fireball in two, and a crater is
+    // because it outlives both: a cloud is gone in under ten minutes and a fireball in two, and a crater is
     // not. It is also the only one an airless burst reaches, which is the case that most wants it
     // -- there is no atmosphere out there to absorb the pulse.
     private sealed class Scorch
@@ -771,6 +803,19 @@ internal static class NuclearClouds
             double3 groundCcf = burstCcf - (up * height);
             double coupling = MushroomCloud.GroundCoupling(kt, height);
 
+            // A burst inside one still going off is the SAME EVENT (MushroomCloud.IsTheSameBurst): six
+            // warheads of a bus land metres apart in one frame, and the truth is one burst of the combined
+            // yield. Its yield is added to everything that burst started -- the fireball's light, the glow,
+            // the aurora and the cloud -- rather than each being started again: six of each drew six glows,
+            // six curtain pairs and six lights over one spot. Only a burst still going off merges; a later
+            // bomb on the same spot is its own burst.
+            if (JoinTheSameBurst(body, burstCcf, chargeKg))
+            {
+                if (setting == BurstSetting.Land && coupling > 0.01) Burn(body, groundCcf, chargeKg, !hasAir, coupling);
+                if (hasAir && setting != BurstSetting.Underwater && !thin) BurstSound.Begin(body, burstEcl, chargeKg, height);
+                return;
+            }
+
             // Registered before the fork, because a fireball happens either way -- and rises with
             // the cap wherever a cap is grown, which is in air and not deep under the sea.
             // High enough that its X-rays run down to the air before they stop, it lights a layer of it --
@@ -828,27 +873,6 @@ internal static class NuclearClouds
             // still goes off. Coincident bursts are made one bang by the sound itself.
             // In air too thin for a column the report barely carries, and nobody on the ground hears it.
             if (!(hasAir && MushroomCloud.IsThin(airRatio))) BurstSound.Begin(body, burstEcl, chargeKg, height);
-
-            // A burst inside a standing cloud's own fireball while that one is still going off is the
-            // SAME EVENT, and is added to it rather than starting another. Six warheads of a bus land
-            // about 9 mm apart in the same frame: drawn as six clouds that is six times the smoke in
-            // one place and six full-screen dispatches marching the same pixels, where the truth is
-            // one burst of the combined yield. A later bomb on the same spot is its own burst.
-            for (int i = 0; i < _clouds.Count; i++)
-            {
-                Cloud standing = _clouds[i];
-                if (!ReferenceEquals(standing.Body, body)) continue;
-
-                double gap = Vec.Len(burstCcf - standing.BurstCcf);
-                if (!MushroomCloud.IsTheSameBurst(gap, standing.Age, standing.ChargeKg + chargeKg)) continue;
-
-                standing.ChargeKg += chargeKg;
-
-                Log.Info($"nuclear cloud: burst {gap:F1} m from one {standing.Age:F2} s old and inside its "
-                         + "fireball, so it is that one -- "
-                         + $"now {MushroomCloud.KilotonsFor(standing.ChargeKg):F2} kt");
-                return;
-            }
 
             _clouds.Add(new Cloud
             {
@@ -963,6 +987,9 @@ internal static class NuclearClouds
 
             MushroomCloud.Shape shape = MushroomCloud.At(cloud.ChargeKg, cloud.Age, cloud.Height, cloud.AirRatio);
             if (cloud.Age > 0.0 && shape.Spent) { _clouds.RemoveAt(i); continue; }
+
+            // A thin-air burst is drawn as its debris shell alone, so it ends when the shell does.
+            if (MushroomCloud.IsThin(cloud.AirRatio) && cloud.Age >= DebrisShell.LifeSeconds) { _clouds.RemoveAt(i); continue; }
 
             MushroomCloud.Flash flash = MushroomCloud.FlashAt(cloud.ChargeKg, cloud.Age, cloud.Height, cloud.AirRatio);
             if (flash.Spent) continue;

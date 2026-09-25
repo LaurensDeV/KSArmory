@@ -201,21 +201,21 @@ into one changelog line.
 | # | Step |
 |---|---|
 | 0 | **Ask how `agent/airburst` lands** (24 commits off `dev`, and the uncommitted work), then land the northern-aurora fix, the night fill and `BallIsThin` after a night flight, and this plan |
-| 1 | `test`: pin the **Sim** sea-level laws bit for bit at air exactly 1 -- shock radius and arrival, Kinney–Graham, reflection, `At`, `FlashAt`, glare -- and a regime table |
-| 2 | `refactor`: `SkyDispatch`, its `FireSun.w` contract and the shader-text test |
-| 3 | `chore`: time the sky stages apart; `status` counts the lists |
-| 4 | `perf`: the sky cap -- at most four sky objects, brightest first |
-| 5 | `chore(tools)`: `sky-matrix.sh` (every call under `timeout`, captures copied out of `last/` before the next call, the newest KSA log grepped for exceptions after each flight), `sky`/`orbit` presets, night by the antisolar longitude with `sun_elevation_deg` < -18 checked |
-| 6 | `docs`: price the sky against the budget in item 1 |
-| 7 | `refactor`: `BodyAir`, `KsaWorld.AirAt` (read at the carried burst; P = 0 guarded; boundary respected), `Bodies.xml` and its reader, audit and tests |
-| 8 | `fix`: one glow, curtain and fireball light per bus; airless is air 0; the thin cloud ends with its shell |
+| 1 ✓ | `test`: pin the **Sim** sea-level laws bit for bit at air exactly 1 -- shock radius and arrival, Kinney–Graham, reflection, `At`, `FlashAt`, glare -- and a regime table |
+| 2 ✓ | `refactor`: `SkyDispatch`, its `FireSun.w` contract and the shader-text test |
+| 3 ✓ | `chore`: time the sky stages apart; `status` counts the lists |
+| 4 ✓ | `perf`: the sky cap -- at most four sky objects, brightest first |
+| 5 ✓ | `chore(tools)`: `sky-matrix.sh` (every call under `timeout`, captures copied out of `last/` before the next call, the newest KSA log grepped for exceptions after each flight), `sky`/`orbit` presets, night by the antisolar longitude with `sun_elevation_deg` < -18 checked |
+| 6 ✓ | `docs`: price the sky against the budget in item 1 |
+| 7 ✓ | `refactor`: `BodyAir`, `KsaWorld.AirAt` (read at the carried burst; P = 0 guarded; boundary respected), `Bodies.xml` and its reader, audit and tests |
+| 8 ✓ | `fix`: one glow, curtain and fireball light per bus; the thin cloud ends with its shell (**done**: six coincident bursts at 100 km make one 1,800 kt cloud, one glow, one curtain pair). Airless-as-air-0 moved to step 15: today's flash law would draw a vacuum ball 10× the size |
 | 9 | `fix`: one sound speed, `√(γP/ρ)`, everywhere including the shader; shake by `GainAt`; guard rows re-recorded with the reason in the message |
 | 10 | `fix`: the X-ray layer and the aurora foot from the column (calibrated on the game's Earth: the layer at Σ ≈ 0.35 kg/m², the foot at ≈ 0.037), so they sit apart on every body |
 | 11 | `refactor`: `BurstRegime`, `BlastAltitude`, `BurstHearing` -- nothing calls them yet |
 | 12 | `fix(blast)`: damage by `W·η` through all four verdict paths |
 | 13 | `fix(blast)`: the front, arrivals, the drawn front and the ring on the burst's air; every `ShockRadius` consumer listed and moved together, including `WeaponSystem.cs:3838`'s log |
 | 14 | `fix(sound)`: hear and feel a high burst -- the `IsThin` split and the live-front bang |
-| 15 | `feat(flash)`: pulse, fraction, glow and fireball size by air |
+| 15 | `feat(flash)`: pulse, fraction, glow and fireball size by air; an airless burst's flash keyed on air 0, which only then has a size of its own |
 | 16 | `refactor` then `feat(clouds)`: `CloudFlags`, then the dry ball |
 | 17 | `feat(clouds)`: the bubble above the air |
 | 18 | `feat(clouds)`: Teak's red wave |

@@ -352,8 +352,16 @@ internal sealed class Bridge
         double3 lifted = ground + (frame.Up * (up != 0.0 ? 0.0 : Math.Max(MushroomCloud.PeakFireballRadius(kt), 2.0)));
         // KSA's own explosion as well unless told not to, which is how a warhead goes off; without it
         // the burst is this mod's drawing alone, which is what separates the two when one misdraws.
-        if (command.Flag("explode", true)) Detonation.Explode(lifted, charge, craft);
-        NuclearClouds.Begin(ground, craft, charge);
+        // count sets off that many in the same frame, spacing_m apart eastward: a bus's salvo, which a
+        // burst a call can never be, since calls are further apart than one burst stays one event.
+        int count = Math.Clamp((int)command.Number("count", 1.0), 1, 12);
+        double spacing = command.Number("spacing_m", 0.0);
+        for (int i = 0; i < count; i++)
+        {
+            double3 offset = frame.East * (spacing * i);
+            if (command.Flag("explode", true)) Detonation.Explode(lifted + offset, charge, craft);
+            NuclearClouds.Begin(ground + offset, craft, charge);
+        }
 
         // And, asked for, what a warhead of that yield does to every craft it reaches.
         if (command.Flag("damage", false))
