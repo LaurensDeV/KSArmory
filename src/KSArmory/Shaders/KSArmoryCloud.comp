@@ -2038,7 +2038,13 @@ void main()
     // and the only thing that actually removes it is samples: interleaved gradient noise was tried
     // in its place and is NOT in, because it is built to be resolved by temporal accumulation and
     // there is none here -- a single frame of it is diagonal hatching across the stem.
-    const int Steps = 48;
+    //
+    // The count follows the chord rather than being fixed, so the SPACING is the same everywhere: a ray
+    // grazing the bound, or stopped by the ground inside it, took all 48 steps over a sliver of it. The
+    // spacing is what the picture is made of, so it looks the same for about two thirds of the samples.
+    const int MostSteps = 48;
+    const int LeastSteps = 6;
+    int Steps = clamp(int(ceil(float(MostSteps) * (t1 - t0) / (2.0 * radius))), LeastSteps, MostSteps);
     float dt = (t1 - t0) / float(Steps);
 
     // Start each ray a fraction of a step in. Fewer steps band, and a dither turns that banding
