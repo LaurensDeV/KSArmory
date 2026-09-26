@@ -29,43 +29,28 @@ internal static class SkyDispatch
     /// </summary>
     public const float RedWave = 3f;
 
-    private static readonly float[] Kinds = [Glow, Aurora, Debris, RedWave];
+    /// <summary>
+    /// How many of one kind a frame draws: as many as it pays for. A glow, a shell and a wave cost
+    /// 0.04-0.15 ms from orbit. Curtains are the dear kind, and four -- both ends of two bursts' field
+    /// lines -- cost 2.2 ms from orbit, what two did, since one off the screen costs next to nothing.
+    /// </summary>
+    public static int MostOf(float kind) => kind == Aurora ? 4 : kind == RedWave ? 2 : 3;
 
     /// <summary>
-    /// Which of the sky dispatches asked for are drawn, at most <paramref name="most"/>: each kind's
-    /// brightest in turn, then each kind's next. Brightness is in each kind's own units, so a plain
-    /// sort kept four debris shells and dropped every glow and aurora a bus had lit. Fills
-    /// <paramref name="keep"/> with indices into <paramref name="wanted"/>.
+    /// Which of the sky dispatches asked for are drawn: of each kind, up to <see cref="MostOf"/>, the
+    /// NEWEST first -- the order they were asked for in, which is the order the bursts went off in.
+    /// Newest rather than brightest, because brightness moves: two bursts' curtains cross as one fades
+    /// and the other arrives, and ranked by it the one drawn jumped between them from frame to frame.
+    /// Fills <paramref name="keep"/> with indices into <paramref name="kinds"/>, in order.
     /// </summary>
-    public static void Choose(IReadOnlyList<(float Kind, double Brightness)> wanted, int most, List<int> keep)
+    public static void Choose(IReadOnlyList<float> kinds, List<int> keep)
     {
         keep.Clear();
-        if (wanted.Count <= most)
+        for (int i = 0; i < kinds.Count; i++)
         {
-            for (int i = 0; i < wanted.Count; i++) keep.Add(i);
-            return;
-        }
-
-        List<int> order = [.. Enumerable.Range(0, wanted.Count)
-                              .OrderByDescending(i => wanted[i].Brightness)];
-
-        for (int rank = 0; keep.Count < most; rank++)
-        {
-            bool any = false;
-            foreach (float kind in Kinds)
-            {
-                int seen = 0;
-                foreach (int i in order)
-                {
-                    if (wanted[i].Kind != kind || seen++ != rank) continue;
-
-                    any = true;
-                    if (keep.Count < most) keep.Add(i);
-                    break;
-                }
-            }
-
-            if (!any) break;
+            int newer = 0;
+            for (int j = i + 1; j < kinds.Count; j++) if (kinds[j] == kinds[i]) newer++;
+            if (newer < MostOf(kinds[i])) keep.Add(i);
         }
     }
 }

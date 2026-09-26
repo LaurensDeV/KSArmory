@@ -2711,6 +2711,8 @@ air burst, and Tsar Bomba*, has the numbers.
       **By eye**: [ ] from the ground a thousand kilometres off, and the Display switch.
 - [x] 50 Mt 4.8 km up leaves no black blobs round its stem: the Wilson shell's density is set against its
       radius, where it had drawn as dark smoke at every size. **By eye**: [ ] how strong the shell should read.
+- [x] Three bursts at 400 km each show their glow and shell, and the two newest their aurora, where one of
+      each kind was drawn and the aurora jumped between bursts.
 
 ---
 

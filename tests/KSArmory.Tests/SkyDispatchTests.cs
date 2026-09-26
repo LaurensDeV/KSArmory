@@ -5,49 +5,52 @@ namespace KSArmory.Tests;
 /// <summary>Which sky dispatches a frame draws when more are asked for than it will pay for.</summary>
 public class SkyDispatchTests
 {
-    private static List<int> Choose(params (float, double)[] wanted)
+    private static List<int> Choose(params float[] kinds)
     {
         List<int> keep = [];
-        SkyDispatch.Choose(wanted, 4, keep);
+        SkyDispatch.Choose(kinds, keep);
         return keep;
     }
 
     /// <summary>
-    /// Six bursts at 100 km: four glows, four curtains and six shells asked for. The shells are brightest
-    /// in their own units; kept by brightness alone, nothing else would be drawn.
+    /// Three bursts at 400 km: three glows, six curtains and three shells. Every glow and shell is drawn,
+    /// and the two newest bursts' curtains -- where the brightest alone drew one of each kind and left
+    /// the other bursts with nothing.
     /// </summary>
     [Fact]
-    public void ABusStillShowsItsGlowAndAurora()
+    public void SeveralBurstsEachShowTheirSky()
     {
-        List<(float, double)> wanted = [];
-        for (int i = 0; i < 4; i++) wanted.Add((SkyDispatch.Glow, 0.4 + (0.01 * i)));
-        for (int i = 0; i < 4; i++) wanted.Add((SkyDispatch.Aurora, 0.2 + (0.01 * i)));
-        for (int i = 0; i < 6; i++) wanted.Add((SkyDispatch.Debris, 50.0 + i));
+        List<float> kinds = [];
+        for (int burst = 0; burst < 3; burst++)
+        {
+            kinds.Add(SkyDispatch.Glow);
+            kinds.Add(SkyDispatch.Aurora);
+            kinds.Add(SkyDispatch.Aurora);
+            kinds.Add(SkyDispatch.Debris);
+        }
 
-        List<int> keep = [];
-        SkyDispatch.Choose(wanted, 4, keep);
+        List<int> keep = Choose([.. kinds]);
 
-        Assert.Equal(4, keep.Count);
-        Assert.Contains(keep, i => wanted[i].Item1 == SkyDispatch.Glow);
-        Assert.Contains(keep, i => wanted[i].Item1 == SkyDispatch.Aurora);
-        Assert.Contains(keep, i => wanted[i].Item1 == SkyDispatch.Debris);
+        Assert.Equal(3, keep.Count(i => kinds[i] == SkyDispatch.Glow));
+        Assert.Equal(3, keep.Count(i => kinds[i] == SkyDispatch.Debris));
+        Assert.Equal([5, 6, 9, 10], keep.Where(i => kinds[i] == SkyDispatch.Aurora));
+    }
 
-        // Each kind's brightest is the one kept.
-        Assert.Contains(3, keep);
-        Assert.Contains(7, keep);
-        Assert.Contains(13, keep);
+    /// <summary>
+    /// The newest are kept whatever their brightness, so the choice does not move between frames as two
+    /// bursts' curtains cross -- ranked by brightness, the one drawn jumped between them.
+    /// </summary>
+    [Fact]
+    public void TheNewestAreKeptSoTheChoiceHoldsStill()
+    {
+        Assert.Equal([2, 3, 4, 5], Choose(SkyDispatch.Aurora, SkyDispatch.Aurora, SkyDispatch.Aurora, SkyDispatch.Aurora,
+                                          SkyDispatch.Aurora, SkyDispatch.Aurora));
+        Assert.Equal([1, 2, 3], Choose(SkyDispatch.Debris, SkyDispatch.Debris, SkyDispatch.Debris, SkyDispatch.Debris));
     }
 
     [Fact]
     public void WithinTheBudgetEverythingIsDrawn()
     {
-        Assert.Equal([0, 1, 2], Choose((SkyDispatch.Glow, 1), (SkyDispatch.Debris, 9), (SkyDispatch.Aurora, 0.1)));
-    }
-
-    [Fact]
-    public void OneKindAloneFillsTheBudgetBrightestFirst()
-    {
-        Assert.Equal([4, 3, 2, 1], Choose((SkyDispatch.Debris, 1), (SkyDispatch.Debris, 2), (SkyDispatch.Debris, 3),
-                                          (SkyDispatch.Debris, 4), (SkyDispatch.Debris, 5)));
+        Assert.Equal([0, 1, 2, 3], Choose(SkyDispatch.Glow, SkyDispatch.Debris, SkyDispatch.Aurora, SkyDispatch.RedWave));
     }
 }

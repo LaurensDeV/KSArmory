@@ -36,8 +36,8 @@ public class RedWaveTests
     public void ItIsDrawnWithTheOtherSkyKindsUnderTheCap()
     {
         List<int> keep = [];
-        SkyDispatch.Choose([(SkyDispatch.Debris, 9.0), (SkyDispatch.Debris, 8.0), (SkyDispatch.Glow, 1.0),
-                            (SkyDispatch.Aurora, 1.0), (SkyDispatch.RedWave, 0.01)], 4, keep);
+        SkyDispatch.Choose([SkyDispatch.Debris, SkyDispatch.Debris, SkyDispatch.Glow, SkyDispatch.Aurora,
+                            SkyDispatch.RedWave], keep);
         Assert.Contains(4, keep);
     }
 }

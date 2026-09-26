@@ -110,8 +110,11 @@ at 1,000 km on the limb (the aurora's worst), `CloudWatch`, and the player's own
 fails a step**, set from what was flown: the whole sky ≤ 2.5 ms median from orbit and ≤ 1.2 ms on the limb
 for six bursts at 100 km, at 1440×900; any new sky effect ≤ one X-ray glow (~0.2 ms) at the same pose.
 The first draft's 1 ms for the whole sky is not met from orbit -- the aurora alone is 2.1 ms there -- and a
-tighter one would need a half-resolution aurora, which is not planned. **The sky cap** (landed): at most
-four full-screen sky dispatches, each kind's brightest in turn.
+tighter one would need a half-resolution aurora, which is not planned. **The sky cap** (landed, and changed
+since): at most four full-screen sky dispatches, each kind's brightest in turn, drew one of each kind for
+several bursts and let the one aurora drawn jump between them as their brightnesses crossed. It is now a
+limit per kind, the newest first (`SkyDispatch.MostOf`): three glows, three shells, two red waves and four
+curtains. Three bursts at 400 km then draw 9 of their 10 for 2.9 ms from orbit and 2.0 on the limb.
 
 ### 2. Blast by altitude
 Efficiency by burst air, Sachs by target air, damage by `W·η` through every verdict path, the front in

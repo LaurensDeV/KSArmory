@@ -71,9 +71,6 @@ internal static class CloudPass
     private static readonly ProfilerTag DebrisTag = new("KSArmory Cloud: debris"u8);
     private static readonly ProfilerTag RedWaveTag = new("KSArmory Cloud: red wave"u8);
 
-    // The most full-screen sky dispatches drawn in a frame, across every kind, brightest first.
-    private const int MaxSky = 4;
-
     private static readonly List<(float Kind, double Brightness, Push Push)> _sky = [];
 
     /// <summary>How many sky dispatches the last frame asked for, and how many it drew.</summary>
@@ -82,12 +79,12 @@ internal static class CloudPass
     /// <inheritdoc cref="SkyWanted"/>
     public static int SkyDrawn { get; private set; }
 
-    private static void KeepTheBrightestOfEachKind()
+    private static void KeepTheNewestOfEachKind()
     {
-        _skyBrightness.Clear();
-        foreach ((float kind, double brightness, _) in _sky) _skyBrightness.Add((kind, brightness));
+        _skyKinds.Clear();
+        foreach ((float kind, _, _) in _sky) _skyKinds.Add(kind);
 
-        SkyDispatch.Choose(_skyBrightness, MaxSky, _keep);
+        SkyDispatch.Choose(_skyKinds, _keep);
 
         _kept.Clear();
         foreach (int i in _keep) _kept.Add(_sky[i]);
@@ -95,7 +92,7 @@ internal static class CloudPass
         _sky.AddRange(_kept);
     }
 
-    private static readonly List<(float Kind, double Brightness)> _skyBrightness = [];
+    private static readonly List<float> _skyKinds = [];
     private static readonly List<int> _keep = [];
     private static readonly List<(float Kind, double Brightness, Push Push)> _kept = [];
 
@@ -516,7 +513,7 @@ internal static class CloudPass
 
             // THE SKY a high burst lights: the X-ray-heated layer, the aurora at each end of the field line
             // and a thin-air burst's debris shell, each a full-screen dispatch with a negative bound. Every
-            // one is gathered first and only the brightest MaxSky drawn, since a bus bursting over several
+            // one is gathered first and up to SkyDispatch.MostOf of each kind drawn, newest first, since a bus bursting over several
             // targets asks for a dozen or more and each is a pass over the whole screen. They add light, so
             // the order they are drawn in is nobody's business.
             _sky.Clear();
@@ -608,7 +605,7 @@ internal static class CloudPass
             }
 
             SkyWanted = _sky.Count;
-            if (_sky.Count > MaxSky) KeepTheBrightestOfEachKind();
+            KeepTheNewestOfEachKind();
 
             SkyDrawn = _sky.Count;
             DrawSky(commandBuffer, viewport, camera, width, height, SkyDispatch.Glow, GlowTag, ref marks);
