@@ -2709,6 +2709,8 @@ air burst, and Tsar Bomba*, has the numbers.
       along the field, gone by 16 s. **By eye**: [ ] from the ground under it.
 - [x] Teak, 3.8 Mt at 77 km, sends a faint red sphere out over the limb, a hollow ring by six minutes.
       **By eye**: [ ] from the ground a thousand kilometres off, and the Display switch.
+- [x] 50 Mt 4.8 km up leaves no black blobs round its stem at 20 s -- the Wilson sphere KSA's particle
+      renderer drew as dark smoke is no longer drawn.
 
 ---
 
