@@ -287,11 +287,11 @@ column rather than a ring beyond the cap. Shipping the outward version drew thre
 looks like it happened at sea" reports inside a day.
 
 A fifth, cheap and very recognisable: the **Wilson cloud**, an expanding translucent shell *ahead
-of* the fireball at 1–2 s, dome first then ring, gone by 3 s. Needs humid air to be honest. **Not drawn:**
-it was a sphere through KSA's volumetric particle renderer, which lit it as dark smoke at every size flown
--- grey at 100 kt (1.9 km), black at 1 Mt and over, and at 50 Mt a 23 km sphere of black blobs round the
-stem for 40 s. `MushroomCloud.WilsonRadius` and `WilsonSeconds` keep the arithmetic for a shell drawn in
-the cloud pass instead.
+of* the fireball at 1–2 s, dome first then ring, gone by 3 s. Needs humid air to be honest. Drawn as one
+sphere through KSA's volumetric particle renderer, whose density is per metre: the depth to the sun through
+it is about 0.31 x radius x density (Core's `Shared.glsl`), so at the emitter's own opacity every size drew
+as dark smoke -- at 50 Mt a 23 km sphere of black blobs round the stem. `BurstEjecta` sets the opacity
+against the radius instead, for an optical depth of 4 through the middle at any size.
 
 **Surface versus air burst is one comparison:** the burst is a surface burst when its altitude is
 below `55 · W^0.4` m, which is the same number as the maximum fireball radius, because that is the

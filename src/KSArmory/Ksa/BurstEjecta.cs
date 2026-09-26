@@ -24,6 +24,10 @@ internal static class BurstEjecta
 {
     private const string EjectaId = "KSArmoryNuclearEjecta";
     private const string ShellId = "KSArmoryNuclearShell";
+    private const string WilsonId = "KSArmoryNuclearWilson";
+
+    // The condensation shell's optical depth through its middle: translucent, as the films show it.
+    private const double WilsonDepth = 4.0;
 
     private static bool _warned;
 
@@ -132,6 +136,54 @@ internal static class BurstEjecta
             }
 
             return default;
+        }
+    }
+
+    /// <summary>
+    /// The condensation cloud, for a burst in humid air.
+    ///
+    /// <para><see cref="MushroomCloud.WilsonRadius"/> is the arithmetic and this is the plumbing.
+    /// It belongs to the atmospheric branch alone: there is nothing to condense without air.</para>
+    /// </summary>
+    public static void BeginWilson(Celestial body, double3 burstCcf, double chargeKg)
+    {
+        if (!Detonation.ParticlesEnabled) return;
+
+        try
+        {
+            double radius = MushroomCloud.WilsonRadius(chargeKg);
+            double seconds = MushroomCloud.WilsonSeconds(chargeKg);
+            if (!(radius > 0.0) || !(seconds > 0.0)) return;
+
+            BubbleOrigin origin = new()
+            {
+                Time = Universe.GetElapsedTime(),
+                Parent = body,
+                BubFrame = BubbleFrame.Ccf,
+                PositionBub = burstCcf,
+                VelocityBub = double3.Zero,
+            };
+
+            // KSA's volumetric particle takes its density per METRE: the depth to the sun through it is
+            // about 0.31 x radius x density, and along the view 1.12 x (Shared.glsl, Volumetric.comp).
+            // At the emitter's own opacity a sphere a kilometre across is hundreds deep and draws as black
+            // smoke, so the density is set against the radius to keep the shell translucent at any size.
+            Fire(WilsonId, body, origin, e =>
+            {
+                e.ParticleInfo.Size = new float2((float)radius, (float)radius);
+                e.ParticleInfo.Lifespan = new float2((float)seconds, (float)seconds);
+                e.Opacity = (float)(WilsonDepth / (1.12 * radius));
+            });
+
+            Log.Info($"condensation cloud: {radius:F0} m for {seconds:F2} s");
+        }
+        catch (Exception e)
+        {
+            if (!_warned)
+            {
+                _warned = true;
+                Log.Warn($"condensation cloud failed to draw: {e.Message}");
+            }
         }
     }
 

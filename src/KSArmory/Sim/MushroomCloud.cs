@@ -679,9 +679,6 @@ public static class MushroomCloud
     ///
     /// <para>Sized in fireball radii, because the published scaling for its size is thin and
     /// strongly dependent on humidity. Timed on the blast's clock, which is the rarefaction's.</para>
-    ///
-    /// <para><b>Nothing draws it</b>: KSA's volumetric particle lit it as dark smoke at every size, so
-    /// this is the arithmetic for a shell the cloud pass would draw -- docs/NUCLEAR-EFFECT.md.</para>
     /// </summary>
     public const double WilsonInFireballs = 3.4;
 

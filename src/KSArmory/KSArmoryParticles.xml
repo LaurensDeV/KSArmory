@@ -396,6 +396,42 @@
       this is water, lit by the sun and by the ball inside it, and an emissive term here would make
       it a second fireball sitting in front of the first.
     -->
+    <ParticleEmitter Id="KSArmoryNuclearWilson" Drag="0" Density="1.225">
+        <MaxParticles Value="1" />
+        <Mesh Id="ParticleSphere"/>
+        <Renderer>Volumetric</Renderer>
+        <Updaters>SimpleMovement</Updaters>
+        <Updaters>Age</Updaters>
+        <Updaters>LifetimeEnvelope</Updaters>
+        <Updaters>ModelMatrix</Updaters>
+        <SpawnMode>Burst</SpawnMode>
+        <EmitterSpawnLogic>Point</EmitterSpawnLogic>
+        <EmitterSize Value="1"/>
+        <SpawnRate Value="1"/>
+        <Force X="0" Y="0" Z="0" />
+        <InheritVelocity Value="false"/>
+        <EmitterExtra X="0" Y="0" Z="0" W="0"/>
+        <Opacity Value="0.75"/>
+        <ParticleColor X="0.92" Y="0.94" Z="0.97" W="1"/>
+        <ParticleLifespan X="1" Y="2"/>
+        <ParticleSpawnLogic>Basic</ParticleSpawnLogic>
+        <ParticleSize X="1" Y="2"/>
+        <ParticleVelocity X="0" Y="0" Z="0"/>
+        <ParticleVelocityShift Value="0"/>
+        <!--
+          Behind the front rather than with it: the shell condenses in the rarefaction that follows
+          the shock, a third of its life after the burst, and thins from the inside as the pressure
+          comes back rather than shrinking.
+        -->
+        <ScaleEnvelope Start="0.30" Peak="0.85" PeakAt="0.45" End="1.10"/>
+        <AlphaEnvelope Start="0" Peak="0.80" PeakAt="0.45" End="0"/>
+        <ColorStops MidAt="0.4">
+            <Start R="0.92" G="0.94" B="0.97"/>
+            <Mid R="0.90" G="0.92" B="0.95"/>
+            <End R="0.86" G="0.88" B="0.92"/>
+        </ColorStops>
+    </ParticleEmitter>
+
     <ParticleEmitter Id="KSArmoryNuclearShell" Drag="0" Density="1.225">
         <MaxParticles Value="1" />
         <Mesh Id="ParticleSphere"/>
