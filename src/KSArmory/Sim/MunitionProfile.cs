@@ -60,6 +60,19 @@ public enum GuidanceMode
 }
 
 /// <summary>
+/// What a <see cref="GuidanceMode.Seeker"/> round sees its target with, which is what decides the
+/// decoy that can take it away: a flare only fools a heat seeker, chaff only a radar.
+/// </summary>
+public enum SeekerBand
+{
+    Radar,
+    Infrared,
+
+    /// <summary>A seeker no decoy fools — an imaging head, or one steering on a coordinate.</summary>
+    None,
+}
+
+/// <summary>
 /// Everything that makes one round behave differently from another: how it burns, how it
 /// steers, how far it can see, and what it does when it gets there.
 ///
@@ -327,6 +340,35 @@ public sealed class MunitionProfile
 
     /// <summary>Seeker gimbal limit, half-angle off the round's velocity vector (degrees).</summary>
     public float SeekerFovDeg = 55f;
+
+    /// <summary>
+    /// What the seeker sees with. Read only for <see cref="GuidanceMode.Seeker"/>: a command-link
+    /// round has no seeker to fool and an anti-radiation one homes on an emission, which neither
+    /// decoy makes.
+    /// </summary>
+    public SeekerBand Band = SeekerBand.Radar;
+
+    /// <summary>
+    /// How much of a decoy's chance of taking the seeker this round refuses, 0 to 1. Zero is a seeker
+    /// that follows whatever is brightest; one is a seeker no decoy takes.
+    /// </summary>
+    public float CountermeasureResistance;
+
+    /// <summary>Whether a seeker a decoy took goes back to the target once the decoy is spent, or flies on blind.</summary>
+    public bool ReacquiresAfterDecoy = true;
+
+    /// <summary>
+    /// How far a return's closing speed may sit from the target's and still be seen, in m/s; zero is no gate.
+    ///
+    /// <para>A Doppler seeker tracks a closing speed, and chaff stops dead in the air, so chaff only
+    /// falls inside the gate when the target is beaming — flying square to the line of sight, where
+    /// its own closing speed is the air's too. That is the whole of why chaff against a pulse-Doppler
+    /// missile is a manoeuvre and not a button.</para>
+    /// </summary>
+    public float DopplerGateMps;
+
+    /// <summary>Whether a decoy can take this round's seeker at all.</summary>
+    public bool Seducible => Guidance == GuidanceMode.Seeker && Band != SeekerBand.None;
 
     /// <summary>
     /// Seconds after launch during which the round does not steer at all.

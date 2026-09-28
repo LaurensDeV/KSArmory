@@ -120,6 +120,10 @@ Four rules that between them explain most refusals:
 | `NavConstant` | `4` | proportional-navigation gain; `0` flies straight |
 | `MaxLateralG` | `35` | how hard it may turn |
 | `SeekerFovDeg` | `55` | how far off its nose a seeker still sees the target |
+| `SeekerBand` | `Radar` | `Radar`, `Infrared` or `None`: which decoy can take a `Seeker` round. Chaff fools radar, flares fool infrared, nothing fools `None` |
+| `CountermeasureResistance` | `0` | 0 to 1: how much of a decoy's chance of taking the seeker it refuses |
+| `ReacquiresAfterDecoy` | `true` | whether a seeker a decoy took looks for its target again once the decoy is spent |
+| `DopplerGateMps` | `0` | m/s; a radar seeker only sees chaff within this of the target's closing speed, which is only while the target beams. Zero is no gate |
 | `LaunchSpeed` | `45` | m/s imparted at release. A rail imparts almost nothing |
 | `BoostSeconds` | `2.4` | motor burn |
 | `BoostAccel` | `520` | m/s² while burning |
@@ -173,6 +177,9 @@ each `<Stage>` follows it in order:
 | `Scope` | `None` | what picture it puts in front of the operator: `None`, `Search`, or `Emitters`. `None` shows no scope tab at all, which is right for a seeker head or a designation set; `Emitters` is an anti-radiation seeker's list of who is radiating |
 | `ReferenceCrossSectionM2` | `0` (off) | contact size scaling. Range goes as the **fourth** root, so a target a hundredth the size is seen at a third the range |
 | `NotchSpeed` | `0` (off) | Doppler notch. Rejects clutter **and** loses a target crossing exactly abeam |
+| `ChaffNotchMps` | `0` (off) | a target closing slower than this, with a bigger chaff return in its resolution cell, breaks the track |
+| `ChaffReacquireSeconds` | `3` | how long a track chaff broke takes to be found again |
+| `OpticalBackup` | `false` | once found again, an optical channel holds the target while it stays in the notch, so chaff breaks it once per pass |
 | `ClutterFloorMetres` | `0` (off) | height below which contacts are lost in ground return |
 | `HorizonMasking` | `true` | whether the planet's bulk blocks line of sight |
 | `TerrainMarginMetres` | `0` | inflates the masking sphere |

@@ -761,6 +761,23 @@ destroys it. Untick it to get the old binary kill back and compare.
 - [ ] Lock switches to it and stays there.
 - [ ] **Clear designation** returns to automatic priority.
 
+### 4.7 Countermeasures
+
+- [ ] Both ALE-47 parts appear in the editor, surface-attach, and throw out of their face.
+- [ ] Under **Countermeasures** the flare part reads 15/15 and the chaff part 30/30; **Flares** throws two, a quarter-second apart, and only from a flare part.
+- [ ] With a symmetric pair of flare parts, each press throws from both sides at once, and each part runs down by its own salvo.
+- [ ] A flare is a white-hot point with a white smoke trail, and burns out in about four and a half seconds.
+- [ ] Chaff is a faint grey puff that stops where it was thrown.
+- [ ] An AIM-9J at a craft dropping flares is usually taken: the log reads `was taken by MJU-7 flare`, and it bursts away from the craft.
+- [ ] The same AIM-9J at a craft dropping chaff is not.
+- [ ] An AIM-120C ignores chaff from a craft flying away from it, and is sometimes taken when the craft beams.
+- [ ] A seduced missile's burst does not register as a hit on the craft unless it was close enough to be.
+- [ ] Beaming the Pantsir and dropping chaff logs `lost <craft> to chaff in the notch`; a 57E6 in flight then logs `lost its uplink` and misses.
+- [ ] Three seconds later the Pantsir has you again, and more chaff while still beaming does not break it a second time.
+- [ ] The same chaff while flying straight at or away from the Pantsir breaks nothing.
+- [ ] **Auto-dispense** answers an AIM-9J with flares and an AIM-120C with chaff, at most once a second.
+- [ ] Thirty decoys in the air cost under a millisecond: `decoys` and `decoy fx` in the frame budget.
+
 ---
 
 ## 5. Safety

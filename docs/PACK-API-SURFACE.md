@@ -11,7 +11,7 @@ ignored.
 
 `docs/WEAPON-PACKS.md` is the same surface written for the author, with the reasons attached.
 
-**Definition schema 1.** 8 elements, 119 attributes, 15 entry-point lines.
+**Definition schema 1.** 8 elements, 126 attributes, 15 entry-point lines.
 
 ## Entry point
 
@@ -61,6 +61,10 @@ to build; widening it to take a profile type would put that back.
 | `MaxLateralG` | number | `35` |
 | `Guidance` | one of `Seeker`, `AntiRadiation`, `CommandLink`, `Inertial`, `None` | `CommandLink` |
 | `SeekerFovDeg` | number | `55` |
+| `SeekerBand` | one of `Radar`, `Infrared`, `None` | `Radar` |
+| `CountermeasureResistance` | number | `0` |
+| `ReacquiresAfterDecoy` | true or false | `true` |
+| `DopplerGateMps` | number | `0` |
 | `SeparationSeconds` | number | `0` |
 | `GravityCompensation` | number | `1` |
 | `NeutralDensityRatio` | number | `0` |
@@ -94,6 +98,9 @@ to build; widening it to take a profile type would put that back.
 | `Emits` | true or false | `false` |
 | `ReferenceCrossSectionM2` | number | `0` |
 | `NotchSpeed` | number | `0` |
+| `ChaffNotchMps` | number | `0` |
+| `ChaffReacquireSeconds` | number | `3` |
+| `OpticalBackup` | true or false | `false` |
 | `ClutterFloorMetres` | number | `0` |
 | `HorizonMasking` | true or false | `true` |
 | `TerrainMarginMetres` | number | `0` |
@@ -192,5 +199,5 @@ to build; widening it to take a profile type would put that back.
 
 | Attribute | Reads | Default |
 | --- | --- | --- |
-| `Role` | one of `FireControl`, `Launcher`, `Sensor`, `Camera`, `Gun`, `Guidance` | `Sensor` |
+| `Role` | one of `FireControl`, `Launcher`, `Sensor`, `Camera`, `Gun`, `Guidance`, `Countermeasures` | `Sensor` |
 | `DisplayName` | text, required | **required** |

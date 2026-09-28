@@ -38,6 +38,7 @@ public sealed class KSArmoryMod
     // One head per optical director fitted. Crewed independently of the weapons: a craft with a
     // director and no armament gets one, and a craft with a launcher and no director gets none.
     private OpticalHeads? _heads;
+    private Countermeasures? _countermeasures;
 
     private IcbmComputers? _icbms;
 
@@ -127,6 +128,7 @@ public sealed class KSArmoryMod
     private MotorSmoke _smoke = null!;
     private readonly MuzzleFlash _flashes = new();
     private readonly TracerTrail _tracers = new();
+    private DecoyEffects _decoyEffects = null!;
     private GunSound _gunSound = null!;
     private ScenarioRunner _scenario = null!;
     private Bridge? _bridge;
@@ -186,9 +188,11 @@ public sealed class KSArmoryMod
 
         _roster = new WeaponSystems(_config);
         _heads = new OpticalHeads(_config);
+        _countermeasures = new Countermeasures();
         _icbms = new IcbmComputers(_config);
         _motors = new MotorSound(_config);
         _smoke = new MotorSmoke(_config);
+        _decoyEffects = new DecoyEffects(_config);
         _gunSound = new GunSound(_config);
         _scenario = new ScenarioRunner(_config, _warp, SightFor);
         if (Build.Developer)
@@ -200,7 +204,7 @@ public sealed class KSArmoryMod
         Log.Info(Build.Developer
                      ? "developer install: the bridge, the scenario runner and the developer controls are on"
                      : "player install: developer tools are off");
-        _ui = new Ui(_config, _roster, _heads, _icbms, _warp, _watch, _mover, _bursts, ReachFor);
+        _ui = new Ui(_config, _roster, _heads, _countermeasures, _icbms, _warp, _watch, _mover, _bursts, ReachFor);
         Log.Info($"ready - {string.Join(", ", Catalogue.Launchers.Select(l => l.DisplayName))}, safe. "
                  + "Open the 'KSArmory' panel to arm.");
 
@@ -337,6 +341,7 @@ public sealed class KSArmoryMod
         _roster?.Discard();
         _armaments.Clear();
         _heads?.Clear();
+        _countermeasures?.Discard();
         _icbms?.Clear();
         KsaWorld.Wreckage.Clear();
 
@@ -497,6 +502,8 @@ public sealed class KSArmoryMod
                 {
                     foreach (WeaponSystems.Entry e in _roster.All) Visuals.Draw(e.Battery, _config);
                 }
+
+                Visuals.DrawDecoys(Countermeasures.Live);
             }
 
             // Not behind the world-overlay switch. That switch is for diagnostics — search cones
@@ -626,6 +633,8 @@ public sealed class KSArmoryMod
             }
         }
 
+        using (_budget.Measure("dispsync")) _countermeasures?.Sync(KsaWorld.Vehicles);
+
         _roster.ShareStationSettings();
         _roster.ReconcileSteerables();
 
@@ -693,6 +702,11 @@ public sealed class KSArmoryMod
                 // Gathered once, not once per system: every crewed system scans the same sky, and
                 // building this per system would be quadratic in how many are in the world.
                 using (_budget.Measure("airborne")) CollectAirborne(step);
+
+                // After the airborne sample, which the warning receivers read, and before any round
+                // is flown, so a seeker reads each decoy at the end of the step it integrates across.
+                // On the clamped step for the same reason: a decoy and the round judging it share one.
+                using (_budget.Measure("decoys")) _countermeasures?.Update(step, _airborne);
 
                 // What each craft's weapons have in the air between them. Before the fire loop for
                 // the same reason the airborne sample is: a tally built while systems are being
@@ -885,6 +899,9 @@ public sealed class KSArmoryMod
             foreach (WeaponSystems.Entry e in _roster.All) ReachFor(e.Battery);
         }
 
+        // Nobody's, so no sweep: a decoy is released the frame it is spent.
+        using (_budget.Measure("decoy fx")) _decoyEffects.Update(Countermeasures.Live);
+
         // Every effect that holds a pooled emitter or a channel, so a craft destroyed mid-salvo
         // does not keep one for the session.
         _motors.Sweep(_roster);
@@ -932,6 +949,7 @@ public sealed class KSArmoryMod
         _motors?.StopAll();
         _gunSound?.StopAll();
         _plumes?.ReleaseAll();
+        _decoyEffects?.ReleaseAll();
         _tracers?.ReleaseAll();
         _flashes?.ReleaseAll();
 
@@ -942,6 +960,8 @@ public sealed class KSArmoryMod
         _armaments.Clear();
         _heads?.Clear();
         _heads = null;
+        _countermeasures?.Discard();
+        _countermeasures = null;
         _icbms?.Clear();
         _icbms = null;
         KsaWorld.Wreckage.Clear();
@@ -1291,6 +1311,8 @@ public sealed class KSArmoryMod
         _armaments.Clear();
         _heads?.Clear();
         _heads = null;
+        _countermeasures?.Discard();
+        _countermeasures = null;
         _icbms?.Clear();
         _icbms = null;
         KsaWorld.Wreckage.Clear();

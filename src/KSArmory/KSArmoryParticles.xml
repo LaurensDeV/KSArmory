@@ -101,6 +101,71 @@
     </ParticleEmitter>
 
     <!--
+      A burning flare: magnesium-Teflon-Viton at around 2,000 K, white-hot with a thin orange fringe.
+      Endless while it burns and handed back when it is spent, like the motor plume. HDR well above
+      the plume's so it blooms: a flare is the brightest thing in the sky for its first seconds.
+
+      Nothing inherited and no spawn velocity to speak of: the flare is re-anchored every frame, and
+      its trail is the smoke, not the particles. Size is rewritten per frame as the flare burns down.
+    -->
+    <ParticleEmitter Id="KSArmoryFlare" Density="1.225">
+        <MaxParticles Value="48" />
+        <Mesh Id="ParticleSphere"/>
+        <Renderer>SimpleColor</Renderer>
+        <Updaters>SimpleMovement</Updaters>
+        <Updaters>ShrinkOverLifetime</Updaters>
+        <Updaters>HueShift</Updaters>
+        <Updaters>ModelMatrix</Updaters>
+        <Updaters>Age</Updaters>
+        <SpawnMode>Endless</SpawnMode>
+        <EmitterSpawnLogic>Sphere</EmitterSpawnLogic>
+        <EmitterSize Value="0.15"/>
+        <EmitterExtents X="0.1" Y="0" Z="0"/>
+        <SpawnRate Value="120"/>
+        <Force X="0" Y="0" Z="0" />
+        <InheritVelocity Value="false"/>
+        <ParticleColor X="40" Y="36" Z="28" W="1"/>
+        <ParticleColorShift X="0.1" Y="0.35" Z="0.6"/>
+        <ParticleLifespan X="0.04" Y="0.12"/>
+        <ParticleSpawnLogic>ScatterFromCenter</ParticleSpawnLogic>
+        <ParticleSize X="0.4" Y="0.8"/>
+        <ParticleVelocity X="1" Y="1" Z="1"/>
+        <ParticleVelocityShift Value="0.7"/>
+        <ParticleExtra X="0.5" Y="0" Z="0" W="0"/>
+    </ParticleEmitter>
+
+    <!--
+      A chaff cartridge blooming: a faint grey-silver cloud tens of metres across within a second,
+      which is nearly invisible in life. One burst where the dipoles stopped in the air; the sprite is
+      the gun's smoke, kept thin. Density a hair over air's, so it settles as slowly as chaff does.
+    -->
+    <ParticleEmitter Id="KSArmoryChaffPuff" Drag="4" Density="1.24">
+        <MaxParticles Value="24" />
+        <Mesh Id="Plane"/>
+        <Renderer>Billboard</Renderer>
+        <MaterialId Value="KSArmorySmokeMaterial"/>
+        <Updaters>SimpleMovement</Updaters>
+        <Updaters>GrowOverLifetime</Updaters>
+        <!-- W is the grow ratio: without it the curve runs to zero and the cloud implodes. -->
+        <EmitterExtra W="4"/>
+        <Updaters>ModelMatrix</Updaters>
+        <Updaters>Age</Updaters>
+        <SpawnMode>Burst</SpawnMode>
+        <EmitterSpawnLogic>Sphere</EmitterSpawnLogic>
+        <EmitterSize Value="2"/>
+        <SpawnRate Value="24"/>
+        <Force X="0" Y="0" Z="0" />
+        <InheritVelocity Value="false"/>
+        <ParticleColor X="1" Y="1" Z="1" W="0.25"/>
+        <ParticleLifespan X="3" Y="6"/>
+        <ParticleSpawnLogic>ScatterFromCenter</ParticleSpawnLogic>
+        <ParticleSize X="2" Y="5"/>
+        <ParticleVelocity X="8" Y="8" Z="8"/>
+        <ParticleVelocityShift Value="0.8"/>
+        <ParticleExtra X="0.8" Y="0" Z="0" W="0"/>
+    </ParticleEmitter>
+
+    <!--
       Muzzle flash. Held open while the gun is firing rather than burst per round: a CIWS cycles
       at 75 rounds a second, and taking an emitter from the pool that often would drain it in a
       second and leave nothing in the world able to spawn particles at all.

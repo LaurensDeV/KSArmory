@@ -7,7 +7,7 @@ namespace KSArmory;
 /// The operator's panel: auto-engage, radar and guidance tuning, the track list with
 /// manual designation, and a rolling event log.
 /// </summary>
-internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHeads heads, IcbmComputers icbms, WarpPolicy warp, WatchCamera watch, CraftMover mover, BurstTool bursts, Func<WeaponSystem, StoreReach> reachFor)
+internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHeads heads, Countermeasures countermeasures, IcbmComputers icbms, WarpPolicy warp, WatchCamera watch, CraftMover mover, BurstTool bursts, Func<WeaponSystem, StoreReach> reachFor)
 {
     // The overlay's own answer rather than a fresh one: solving here would be three flown
     // trajectories per frame for a readout the ring is already showing, and a line that
@@ -27,6 +27,8 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     private readonly Config _config = config;
     private readonly WeaponSystems _batteries = roster;
     private readonly OpticalHeads _heads = heads;
+    private readonly Countermeasures _countermeasures = countermeasures;
+    private readonly List<Countermeasures.Entry> _dispenserScratch = [];
     private readonly WarpPolicy _warp = warp;
 
     // The system the panes read. Not fixed, and not set here: Focus points them at whichever

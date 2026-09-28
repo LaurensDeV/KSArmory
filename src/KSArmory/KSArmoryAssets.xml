@@ -96,6 +96,20 @@
   </PbrMaterial>
 
   <!--
+    The AN/ALE-47 dispensers' atlas: two bodies, one per load, sharing one unwrap and one material.
+    Authored to the export contract: node names match mesh names, each has its _VM twin and a
+    _ColPrim_ box, so it is copied in as exported. +X is out of the mounting face, which is the
+    face the cartridges leave from.
+  -->
+  <MeshAtlas Path="Meshes/KSArmory_Ale47.glb" />
+
+  <PbrMaterial Id="KSArmory_Ale47_Material">
+    <Diffuse Path="Textures/KSArmory_Ale47_Diffuse.png" Category="Vessel" />
+    <Normal Path="Textures/KSArmory_Ale47_Normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Textures/KSArmory_Ale47_PBR.png" Category="Vessel" />
+  </PbrMaterial>
+
+  <!--
     The AMRAAM's atlas and its one material.
 
     Authored in Blender over MCP like the pod and the suspension rail, and unwrapped rather than
@@ -375,6 +389,27 @@
     </PartModel>
     <MeshView>
       <Mesh Id="KSArmory_Subpart_OpticHead_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!-- AN/ALE-47 dispenser, flare and chaff loads. Nothing on either moves. -->
+  <SubPart Id="KSArmory_Ale47Flare_SubPart">
+    <PartModel Id="KSArmory_Subpart_Ale47Flare_Model">
+      <Mesh Id="KSArmory_Ale47Flare" />
+      <Material Id="KSArmory_Ale47_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Ale47Flare_VM" />
+    </MeshView>
+  </SubPart>
+
+  <SubPart Id="KSArmory_Ale47Chaff_SubPart">
+    <PartModel Id="KSArmory_Subpart_Ale47Chaff_Model">
+      <Mesh Id="KSArmory_Ale47Chaff" />
+      <Material Id="KSArmory_Ale47_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Ale47Chaff_VM" />
     </MeshView>
   </SubPart>
 
@@ -1597,4 +1632,31 @@
     </Connector>
 
   </Part>
+  <!--
+    AN/ALE-47 countermeasures dispensers, radially mounted. One kind per part, as a real magazine
+    section is loaded: the flare module's fifteen 1x2-inch cells, the chaff module's thirty 1x1.
+  -->
+  <Part Id="KSArmory_Prefab_Ale47Flare">
+    <SubPart Id="KSArmory_Ale47Flare_Body" InstanceOf="KSArmory_Ale47Flare_SubPart" />
+
+    <!-- Attaches by the flange, which the export puts on the mesh origin. -->
+    <Connector Id="_cmConnectorBase">
+      <Transform>
+        <Position X="0.00000" />
+        <Rotation Z="3.14159" />
+      </Transform>
+    </Connector>
+  </Part>
+
+  <Part Id="KSArmory_Prefab_Ale47Chaff">
+    <SubPart Id="KSArmory_Ale47Chaff_Body" InstanceOf="KSArmory_Ale47Chaff_SubPart" />
+
+    <Connector Id="_cmConnectorBase">
+      <Transform>
+        <Position X="0.00000" />
+        <Rotation Z="3.14159" />
+      </Transform>
+    </Connector>
+  </Part>
+
 </Assets>

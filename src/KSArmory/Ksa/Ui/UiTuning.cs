@@ -189,6 +189,17 @@ internal sealed partial class Ui
             ImGui.TextDisabled("  rejects clutter, and loses a target crossing exactly abeam");
         }
 
+        ImGui.SliderFloat("Chaff notch (m/s)", ref _sensor.ChaffNotchMps, 0f, 100f);
+        Tip("A target closing slower than this, with chaff in its resolution cell outshining it, is lost. "
+            + "Zero: chaff never breaks this set's track.");
+        if (_sensor.ChaffNotchMps > 0f)
+        {
+            ImGui.SliderFloat("Reacquire after chaff (s)", ref _sensor.ChaffReacquireSeconds, 0f, 15f);
+            ImGui.Checkbox("Optical channel holds the track", ref _sensor.OpticalBackup);
+            Tip("On: once found again, the target is held on the camera for as long as it stays in the notch, "
+                + "so the same manoeuvre does not break the track twice.");
+        }
+
         ImGui.SliderFloat("Clutter floor (m)", ref _sensor.ClutterFloorMetres, 0f, 2000f);
         if (_sensor.ClutterFloorMetres > 0f)
         {
@@ -250,6 +261,33 @@ internal sealed partial class Ui
         }
     }
 
+    private void DrawSeekerBand()
+    {
+        ImGui.Text("Seeker");
+        ImGui.SameLine();
+        if (ImGui.RadioButton("radar##band", _munition.Band == SeekerBand.Radar)) _munition.Band = SeekerBand.Radar;
+        ImGui.SameLine();
+        if (ImGui.RadioButton("infrared##band", _munition.Band == SeekerBand.Infrared)) _munition.Band = SeekerBand.Infrared;
+        ImGui.SameLine();
+        if (ImGui.RadioButton("unfoolable##band", _munition.Band == SeekerBand.None)) _munition.Band = SeekerBand.None;
+        Tip("What decoy can take it: flares fool an infrared seeker, chaff a radar one, nothing the third.");
+
+        if (_munition.Band == SeekerBand.None) return;
+
+        ImGui.SliderFloat("Countermeasure resistance", ref _munition.CountermeasureResistance, 0f, 1f);
+        Tip($"How much of a decoy's {SeekerLock.SeductionChance:P0} chance of taking the seeker it refuses. "
+            + "Each decoy is judged once, the first moment it outshines the target.");
+        ImGui.Checkbox("Looks again after a decoy", ref _munition.ReacquiresAfterDecoy);
+        Tip("On: once the decoy is spent the seeker goes back to the target if it can still see it. Off: it flies on blind.");
+
+        if (_munition.Band == SeekerBand.Radar)
+        {
+            ImGui.SliderFloat("Doppler gate (m/s)", ref _munition.DopplerGateMps, 0f, 200f);
+            Tip("Zero is no gate. Otherwise chaff is only seen while its closing speed is within this of the "
+                + "target's, which for chaff that has stopped in the air means only while the target beams.");
+        }
+    }
+
     private void DrawGuidanceNode()
     {
         if (ImGui.TreeNode("Guidance"))
@@ -280,6 +318,10 @@ internal sealed partial class Ui
                     ImGui.SliderFloat("Boost time (s)", ref _munition.BoostSeconds, 0f, 10f);
                     ImGui.SliderFloat("Coast before steering (s)", ref _munition.SeparationSeconds, 0f, 3f);
                     Tip("A round leaves along the tube and is clear before it turns.");
+
+                    // Only a seeker the round carries can be fooled; a command link and an
+                    // anti-radiation head see nothing a flare or chaff makes.
+                    if (_munition.Guidance == GuidanceMode.Seeker) DrawSeekerBand();
                 }
             }
 

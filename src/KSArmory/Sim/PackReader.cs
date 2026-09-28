@@ -162,6 +162,10 @@ public static class PackReader
             MaxLateralG = r.Number("MaxLateralG", 35f),
             Guidance = r.Choice("Guidance", GuidanceMode.CommandLink),
             SeekerFovDeg = r.Number("SeekerFovDeg", 55f),
+            Band = r.Choice("SeekerBand", SeekerBand.Radar),
+            CountermeasureResistance = r.Number("CountermeasureResistance", 0f),
+            ReacquiresAfterDecoy = r.Flag("ReacquiresAfterDecoy", true),
+            DopplerGateMps = r.Number("DopplerGateMps", 0f),
             SeparationSeconds = r.Number("SeparationSeconds", 0f),
             GravityCompensation = r.Number("GravityCompensation", 1f),
             NeutralDensityRatio = r.Number("NeutralDensityRatio", 0f),
@@ -185,6 +189,8 @@ public static class PackReader
         // A round given part of what its drag is computed from would fly on DragK without a word.
         int shape = (round.MassKg > 0f ? 1 : 0) + (round.CalibreMm > 0f ? 1 : 0) + (round.DragCoefficient > 0f ? 1 : 0);
         if (shape is 1 or 2) r.Fault("MassKg, CalibreMm and DragCoefficient go together: give all three, or none and DragK");
+
+        if (round.CountermeasureResistance is < 0f or > 1f) r.Fault("CountermeasureResistance runs from 0 to 1");
 
         // Both are measured against the ground under the round, which only a round the ground stops has.
         if ((round.BurstHeightMetres > 0f || round.HasChute) && !round.HitsTerrain)
@@ -222,6 +228,9 @@ public static class PackReader
 
             ReferenceCrossSectionM2 = r.Number("ReferenceCrossSectionM2", 0f),
             NotchSpeed = r.Number("NotchSpeed", 0f),
+            ChaffNotchMps = r.Number("ChaffNotchMps", 0f),
+            ChaffReacquireSeconds = r.Number("ChaffReacquireSeconds", 3f),
+            OpticalBackup = r.Flag("OpticalBackup", false),
             ClutterFloorMetres = r.Number("ClutterFloorMetres", 0f),
             HorizonMasking = r.Flag("HorizonMasking", true),
             TerrainMarginMetres = r.Number("TerrainMarginMetres", 0f),

@@ -2843,6 +2843,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     {
         _roundSet.Remove(_rounds[index]);
         _drawnAttitudes.Remove(_rounds[index]);
+        _seekers.Remove(_rounds[index]);
         _rounds.RemoveAt(index);
     }
 
@@ -2851,6 +2852,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         _rounds.Clear();
         _roundSet.Clear();
         _drawnAttitudes.Clear();
+        _seekers.Clear();
     }
 
     /// <summary>
@@ -3260,7 +3262,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             // hold different opinions about which fields a round re-reads within a frame. The
             // lookups are cached rather than fresh method groups per round per frame: a cannon
             // burst is 150 shells and these are assigned to every one of them.
-            RoundDriver.Fly(round, dt, SampleTarget(round), gravity, airVelocity, PlatformEcl,
+            RoundDriver.Fly(round, dt, Seek(round, SampleTarget(round), dt), gravity, airVelocity, PlatformEcl,
                             round.Munition, mediumDensity,
                             new RoundFields(_gravityAt ??= GravityIntoFrame,
                                             _airDensityAt ??= AirDensityIntoFrame,
@@ -3465,10 +3467,68 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             var signature = new ThreatModel.ContactSignature(radius, double.PositiveInfinity);
 
             if (!ThreatModel.InSensorVolume(toTarget, Boresight, Sensor, signature)) return null;
+
+            // Nor while chaff has the set's track: the set is steering on the cloud, not the target.
+            if (Radar.ChaffBroke(handle))
+            {
+                Announce($"{RoundLabel.For(round.Tube)} lost its uplink: the set's track went to chaff");
+                return null;
+            }
         }
 
         return new TargetState(positionEcl, velocityEcl, radius, handle, emitting);
     }
+
+    // Each seeker's choice between its target and the decoys around it, held for its whole flight.
+    private readonly Dictionary<IProjectile, SeekerLock> _seekers = [];
+    private static readonly Random _seduction = new();
+
+    // What a seeker actually steers on: its target, a decoy that has taken it, or nothing once a spent
+    // decoy has left it blind. Only here, on the round's own step, and never where SampleTarget is
+    // asked for a measurement -- a choice made there would roll a decoy's chance a second time.
+    private TargetState? Seek(IProjectile round, TargetState? target, double dt)
+    {
+        if (target is not { } t || !round.Munition.Seducible) return target;
+        if (t.Handle is not (Vehicle or IProjectile)) return target;
+
+        if (!_seekers.TryGetValue(round, out SeekerLock? seeker))
+        {
+            if (Countermeasures.Live.Count == 0) return target;
+            _seekers[round] = seeker = new SeekerLock(_seduction);
+        }
+
+        Decoy? before = seeker.OnDecoy;
+        double signature = SignatureOf(round.Munition.Band, t);
+        SeekerPick pick = seeker.Choose(round.Munition, round.PositionEcl, round.VelocityEcl, round.VelocityLocal,
+                                        t, signature, Countermeasures.Live, dt);
+
+        if (seeker.OnDecoy is { } taken && !ReferenceEquals(taken, before))
+        {
+            string unit = round.Munition.Band == SeekerBand.Infrared ? "kW/sr" : "m²";
+            Announce($"{RoundLabel.For(round.Tube)} was taken by {taken.Profile.DisplayName} "
+                     + $"{Vec.Len(taken.PositionEcl - t.PositionEcl):F0} m from its target "
+                     + $"({taken.Signature:F1} {unit} against the target's {signature:F1})");
+        }
+        else if (before is not null && seeker.OnDecoy is null)
+        {
+            Announce(pick == SeekerPick.Lost
+                         ? $"{RoundLabel.For(round.Tube)} lost its decoy and flies on blind"
+                         : $"{RoundLabel.For(round.Tube)} lost its decoy and looks for its target again");
+        }
+
+        return seeker.Steer(pick, t);
+    }
+
+    private static double SignatureOf(SeekerBand band, TargetState target) => band switch
+    {
+        SeekerBand.Infrared => target.Handle switch
+        {
+            Vehicle v => KsaWorld.HeatOf(v),
+            IProjectile p => Signature.HeatOfRound(p.Age <= p.Munition.TotalBoostSeconds),
+            _ => Signature.AirframeKwPerSr,
+        },
+        _ => RadarSignature.CrossSectionFor(target.Radius),
+    };
 
     // Every craft a round could run into this frame, the platform excepted: a mount does not
     // shoot the craft it is bolted to.
@@ -3513,6 +3573,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             return;
         }
 
+        // A round a decoy took fused on the decoy, so everything measured against its target is not.
+        bool seduced = _seekers.TryGetValue(round, out SeekerLock? seeker) && seeker.OnDecoy is not null;
+
         double3 burst = round.PositionEcl;
         _ground = GroundFor(burst, round.DetonationElapsedInFrame, round.Munition.ChargeKg);
         _front = FrontFor(burst, round.DetonationElapsedInFrame, round.Munition.ChargeKg);
@@ -3534,6 +3597,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             Slug { HitGround: true } => "on the ground",
             Slug { BurstAtHeight: true } => $"at its fuse height, {round.Munition.BurstHeightMetres:F0} m over the ground",
             _ when round.StruckBody is not null => "on contact",
+            _ when seduced => $"on {seeker!.OnDecoy!.Profile.DisplayName}",
             _ when double.IsFinite(round.MissDistance) => $"with the target at {round.MissDistance:F0} m",
             _ => "with nothing in range",
         };
@@ -3606,7 +3670,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         //
         // The separation itself is settled by the fuse, which did the extrapolation properly.
         // Trust that number rather than re-deriving it.
-        if ((round.StruckBody ?? round.TargetRef) is Vehicle intended && KsaWorld.IsAlive(intended))
+        // Not for a round a decoy took: its miss distance is to the decoy. The splash below still
+        // judges what it actually burst beside.
+        if (!seduced && (round.StruckBody ?? round.TargetRef) is Vehicle intended && KsaWorld.IsAlive(intended))
         {
             double lethalRange = judged.LethalRadius + KsaWorld.MeanRadius(intended);
             if (round.MissDistance <= lethalRange)
@@ -3638,7 +3704,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         //
         // No ProtectControlledVehicle case and no platform case: nobody flies a round, and this
         // system's own salvo was filtered out of the list before the radar ever saw it.
-        if ((round.StruckBody ?? round.TargetRef) is IProjectile hit
+        if (!seduced
+            && (round.StruckBody ?? round.TargetRef) is IProjectile hit
             && hit.State == RoundState.Flying
             && _incomingByHandle.TryGetValue(hit, out IContact? hitContact))
         {

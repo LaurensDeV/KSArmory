@@ -2621,6 +2621,26 @@ internal static class KsaWorld
         }
     }
 
+    /// <summary>
+    /// How hot a craft looks to a heat seeker, in kW/sr: its engines' thrust at the throttle it is
+    /// set to, while there is propellant to burn. The throttle is the manual control's, which is every
+    /// craft's in this build; an engine shut down at full throttle still reads hot.
+    /// </summary>
+    public static double HeatOf(Vehicle v)
+    {
+        try
+        {
+            double thrust = v.IsAnyEnginePropellantAvailable()
+                                ? v.FlightComputer.ActiveEnginePerformanceMax.Thrust
+                                : 0.0;
+            return Signature.HeatOfCraft(thrust, v.GetManualThrottle());
+        }
+        catch
+        {
+            return Signature.AirframeKwPerSr;
+        }
+    }
+
     /// <summary>A direction in a craft's assembly frame, turned into the ecliptic.</summary>
     public static double3 VehicleAsmbDirectionToEcl(Vehicle v, double3 directionAsmb) => v.Asmb2Ego * directionAsmb;
 

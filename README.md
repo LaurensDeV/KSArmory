@@ -85,6 +85,17 @@ observation post. A launcher may carry one as well, and the Pantsir's turret roo
 pod's centreline while the ball nods within it, and the picture is counter-rotated so what the pod
 hangs from stays at the top of it.
 
+And one piece of kit that shoots nothing:
+
+**AN/ALE-47 flare and chaff dispensers** — two parts on one 30-cell body, one loaded with fifteen
+MJU-7 flares and the other with thirty RR-170 chaff cartridges, as a real magazine section takes one
+kind. Each surface-attaches to anything and throws out of its face, so the loadout is chosen by what
+is fitted. A flare takes a heat seeker looking at it; chaff takes a radar one, but a Doppler seeker
+only while the target flies square to the missile, because chaff stops dead in the air. Fired by
+hand from the craft's countermeasures row, or left to answer on its own when a missile comes for it.
+See
+[Countermeasures](#countermeasures).
+
 A further weapon is an entry in the registry plus its art: see
 [Adding a weapon system](#adding-a-weapon-system).
 
@@ -236,6 +247,49 @@ launcher commits **Rounds per target** rounds before re-evaluating.
 | **Fuse radius** | Trigger distance. Larger is more forgiving; it does not increase lethality. |
 | **Explosive charge** | What actually kills. Lethal and blast radius are both read off it by the cube root, so doubling it multiplies the reach by 1.26. Between the two the target survives. |
 | **Gravity compensation** | 1.0 makes guidance ignore the fall. Drop it for lobbed, ballistic-looking shots. |
+
+### Countermeasures
+
+A guided round's seeker is one of three kinds, and that is what decides which decoy can take it:
+
+| Round | Seeker | Flares | Chaff |
+| --- | --- | --- | --- |
+| AIM-9J | infrared, no counter-countermeasures | usually decoyed | ignored |
+| AIM-120C | radar, pulse-Doppler | ignored | only while the target beams |
+| AGM-88 | homes on emission | ignored | ignored |
+| 57E6 | command link from the launcher | ignored | breaks the Pantsir's track while you beam it — see below |
+
+A decoy is in the running once it outshines the target in the seeker's field: heat falls with the
+square of range and a radar return with the fourth power. A radar seeker holds its target in a range
+gate, so only chaff within 150 m of the target counts; a heat seeker sees every flare in its field. Each decoy is judged **once**, the first
+moment it does, and takes the seeker with an 80% chance less the round's resistance. A seeker that
+is taken follows the decoy until it is spent, and its fuse fires on it, so a missile seduced close
+to the craft can still hurt it. Then it looks for its target again, or flies on blind.
+
+**Notching the Pantsir.** A 57E6 has nothing aboard to fool, but the set steering it can lose its
+track. Turn square to the Pantsir so you are closing on it at under 30 m/s, and drop chaff: a bigger
+return beside you with the same Doppler takes the set's gate, the track breaks, and any 57E6 already
+in the air loses its uplink and flies on unguided. The set takes three seconds to find you again,
+then holds you on its optical channel for as long as you stay in the notch — so it works once per
+pass, and turning back towards it ends it. Flares do nothing to it. A sensor's `ChaffNotchMps`,
+`ChaffReacquireSeconds` and `OpticalBackup` set this, on the Tuning tab under the sensor.
+
+Every seeker setting is on the **Tuning** tab under Guidance, and a weapon pack sets them as
+attributes on its `<Munition>`:
+
+| Setting | Attribute | Default | |
+| --- | --- | --- | --- |
+| **Seeker** | `SeekerBand` | `Radar` | `Radar`, `Infrared`, or `None` for a seeker no decoy fools. Read only for `Guidance="Seeker"` |
+| **Countermeasure resistance** | `CountermeasureResistance` | `0` | 0 to 1: how much of a decoy's chance the seeker refuses |
+| **Looks again after a decoy** | `ReacquiresAfterDecoy` | `true` | whether a seeker goes back to its target once the decoy is spent |
+| **Doppler gate** | `DopplerGateMps` | `0` | m/s; chaff is only seen within this of the target's closing speed. Zero is no gate |
+
+Each dispenser's component row shows what it has left, and the first carries the craft's controls:
+**Flares**, **Chaff** or **Both** throw a salvo of two cartridges a quarter of a second apart from
+every dispenser holding that load, together, so a symmetric pair throws either side of the craft and
+each dispenser fitted makes a press heavier. **Auto-dispense** throws on its own when a
+missile whose seeker is on the craft closes inside 6 km: flares for a heat seeker, chaff for a radar
+one, both for anything it cannot place, at most once a second. A dispenser is never reloaded.
 
 ## Testing
 

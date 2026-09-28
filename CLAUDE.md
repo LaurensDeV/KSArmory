@@ -11,7 +11,8 @@ is the one that cannot engage an aircraft at all and whose target has a say in w
 **5"/54 Mk 42 mount**, which is the other one with none and the opposite weapon — forty rounds a
 minute to the Phalanx's four and a half thousand, and shells that burst on a time fuze rather than
 having to hit — and a **B61 rack**, which is the one that neither aims nor fires: it lets a bomb go
-and the ground does the rest. Two sights come with them, and they are the
+and the ground does the rest. The **ALE-47 dispensers**, one of flares and one of chaff, shoot nothing:
+they throw decoys that take a missile's seeker away from the craft carrying them. Two sights come with them, and they are the
 same instrument on different mechanisms: an **EO director** on a mast, and a **Rafael LITENING
 pod**, whose whole nose rolls about the pod's centreline while the sight nods within it.
 
@@ -415,6 +416,11 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/Aimpoint.cs` | what a round is shooting at — craft, component or coordinate |
 | `Sim/ThreatModel.cs` | CPA threat classification, priority, engagement envelope |
 | `Sim/RadarSignature.cs` | how large a contact looks, and how far that lets the set see it |
+| `Sim/Signature.cs` | how bright a thing looks to a seeker — heat in kW/sr off the thrust being made, and the lock strength a seeker would take on it, **over range squared for heat and to the fourth for radar** |
+| `Sim/Decoy.cs` | a flare or a chaff cloud in the air — **not a round**: nothing aims it, fuses on it or tracks it, so it is a point with a signature falling through the air, its stiff drag stepped semi-implicitly |
+| `Sim/SeekerLock.cs` | one seeker's choice between its target and the decoys around it — **each decoy judged once**, the first frame it outshines the target, so how often a flare works does not follow the frame rate; a radar seeker sees only chaff in its target's resolution cell, and a Doppler gate keeps even that out unless the target beams |
+| `Sim/ChaffNotch.cs` | a tracking set losing a beaming target to chaff beside it — **notching**: both in the Doppler notch and a bigger return in the target's cell, decided by geometry rather than rolled; the track takes seconds to find again, and an optical channel then holds it until the target leaves the notch |
+| `Sim/Dispenser.cs` | a dispenser's magazine and the salvo it is working through, on simulated time — **one kind per part**, so the loadout is chosen by what is fitted; every dispenser of a load throws on each press, so a symmetric pair throws either side of the craft, and **auto-dispense** throws flares for a heat seeker coming for the craft, chaff for a radar one, both for anything else |
 | `Sim/TrackState.cs` | one contact, as the threat model sees it |
 | `Sim/Wreckage.cs` | what this mod's warheads broke off a craft — **wreckage, not targets**, recognised by the name the engine gives a piece, because the engine keeps no other record of where it came from |
 | `Sim/Iff.cs` | which side a contact is on, and whether it may be engaged |
@@ -465,6 +471,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/OpticParts.cs` | finds a director on a craft, and turns its head |
 | `Ksa/OpticalHead.cs` | **one director** — its own sensor, its own aim, no weapon involved |
 | `Ksa/OpticalHeads.cs` | one head per director fitted, crewed with the craft and followed across a split |
+| `Ksa/Countermeasures.cs` | every dispenser fitted and every decoy in the air — **stepped after the airborne sample and before any round**, so a seeker reads a decoy as it reads a craft, at the end of the step it integrates |
 | `Ksa/InstalledPacks.cs` | reads those folders and registers what is in them — **what lets a pack be assets only** |
 | `Ksa/DeclaredParts.cs` | the part library as that seam — off `PartTemplate`, because the question is what was *declared*, not what is on a craft |
 | `Ksa/HullTest.cs` | whether a round's step meets a craft's actual geometry, per triangle |
@@ -519,6 +526,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/CoreShaderInclude.cs` | the one line that lets this mod's shader reach KSA's own shader library — **an absolute include resolves where no relative one can**, since Core's shader tree and a mod's do not meet; written at load against the player's install, never committed |
 | `Ksa/MotorSound.cs` | the rocket motor you can hear, one spatialised channel per burning round |
 | `Ksa/MotorPlume.cs` | the flame at the nozzle, one pooled emitter per burning round |
+| `Ksa/DecoyEffects.cs` | a flare's white-hot core and smoke trail, and chaff's faint grey puff — **at most twelve flare cores lit at once**, because each holds a pooled emitter |
 | `Ksa/MuzzleFlash.cs` | the flash at the cannon's muzzles, one pooled emitter per firing system |
 | `Ksa/GunSound.cs` | the cannon you can hear: one looping channel per firing system, and a gunshot per round from a gun slow enough to be heard shot by shot |
 | `Ksa/TracerTrail.cs` | tracers, an emitter riding a shell rather than thrown from the muzzle |

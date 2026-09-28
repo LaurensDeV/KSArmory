@@ -66,6 +66,14 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
     /// </summary>
     public int MaskedByBurst { get; private set; }
 
+    /// <summary>Contacts the last scan lost to chaff beside them in the notch. See <see cref="ChaffNotch"/>.</summary>
+    public int LostToChaff { get; private set; }
+
+    private readonly ChaffNotch _notch = new();
+
+    /// <summary>Whether chaff has taken this contact's track and the set is still hunting for it.</summary>
+    public bool ChaffBroke(object? handle) => _notch.IsBroken(handle);
+
     /// <summary>
     /// Pieces of craft this mod's warheads broke up, left out of the picture this scan. Counted for
     /// the same reason as the masked ones: a burst that leaves a dozen pieces falling and a scope
@@ -114,7 +122,9 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
         _byHandle.Clear();
         MaskedByTerrain = 0;
         MaskedByBurst = 0;
+        LostToChaff = 0;
         IgnoredWreckage = 0;
+        _notch.BeginScan(dt);
 
         // A set that has been told to stop transmitting sees nothing. That is the whole of the
         // trade against an anti-radiation round -- going quiet costs the site its own picture, so
@@ -173,6 +183,8 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
             }
         }
 
+        _notch.EndScan();
+
         (_acceleration, _accelerationNext) = (_accelerationNext, _acceleration);
         _accelerationNext.Clear();
 
@@ -227,6 +239,17 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
 
         if (!ThreatModel.TryAssess(targetPos - originEcl, targetVel - originVel,
                                    boresight, _sensor, signature, out var a)) return;
+
+        // Chaff in the notch, which takes the track rather than hiding the contact: dropping it here is
+        // what resets its dwell, so the lock has to mature again once it is found.
+        bool wasBroken = _notch.IsBroken(contact.Handle);
+        if (_notch.Hides(_sensor, contact.Handle, originEcl, originVel, targetPos, targetVel,
+                         RadarSignature.CrossSectionFor(contact.MeanRadius), Countermeasures.Live))
+        {
+            LostToChaff++;
+            if (!wasBroken) Log.Info($"{_sensor.DisplayName} lost {contact.DisplayName} to chaff in the notch");
+            return;
+        }
 
         // A fireball's ionised air, which absorbs a beam that crosses it. A handful of spheres, so
         // cheap, but asked only of what the cone let through and only of a set that transmits.

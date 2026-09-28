@@ -174,6 +174,22 @@ public static class Catalogue
         return null;
     }
 
+    /// <summary>The dispenser a part Id names, or null if it names none.</summary>
+    public static DispenserProfile? DispenserForPart(string? partId)
+    {
+        if (string.IsNullOrEmpty(partId)) return null;
+
+        foreach (DispenserProfile d in Arsenal.Dispensers)
+        {
+            if (d.PartId == partId) return d;
+        }
+
+        return null;
+    }
+
+    /// <summary>The named expendable, falling back to the first as <see cref="Arsenal.Named{T}"/> does.</summary>
+    public static DecoyProfile DecoyNamed(string name) => Arsenal.Named(Arsenal.Decoys, name, d => d.Name);
+
     /// <summary>
     /// The named round, falling back to the first registered rather than throwing — see
     /// <see cref="Arsenal.Named{T}"/> for why, and for what that costs.

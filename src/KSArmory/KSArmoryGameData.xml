@@ -688,4 +688,62 @@
       </Box>
     </Collider>
   </PartGameData>
+  <PartGameData Id="KSArmory_Prefab_Ale47Flare" DisplayName="AN/ALE-47 Flare Dispenser">
+    <EditorTag Value="Weapons" />
+    <EditorTag Value="Radial" />
+    <EditorTag Value="NoFaceSnapping" />
+    <Diameter M="0.3" />
+
+    <!-- Attaches by the flange to the side of a stack; the cartridges leave from the far face. -->
+    <Connector Id="_cmConnectorBase">
+      <Flags>ToSurface</Flags>
+    </Connector>
+
+    <!-- About 3 kg of module and fifteen MJU-7s at 0.37 kg. -->
+    <SolidSphereMass>
+      <Mass Kg="8.6" />
+      <Radius M="0.15" />
+    </SolidSphereMass>
+
+    <!-- Off _ColPrim_KSArmory_Ale47Flare: the flange and housing, standing off the face at X = 0. -->
+    <Collider Id="KSArmory_Ale47FlareCollider">
+      <Box Id="KSArmory_Ale47FlareBodyCollider">
+        <LocationAsmb X="0.07" Y="0" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.14" />
+        <LengthY M="0.28" />
+        <LengthZ M="0.216" />
+      </Box>
+    </Collider>
+  </PartGameData>
+
+  <PartGameData Id="KSArmory_Prefab_Ale47Chaff" DisplayName="AN/ALE-47 Chaff Dispenser">
+    <EditorTag Value="Weapons" />
+    <EditorTag Value="Radial" />
+    <EditorTag Value="NoFaceSnapping" />
+    <Diameter M="0.3" />
+
+    <!-- Attaches by the flange to the side of a stack; the cartridges leave from the far face. -->
+    <Connector Id="_cmConnectorBase">
+      <Flags>ToSurface</Flags>
+    </Connector>
+
+    <!-- About 3 kg of module and thirty RR-170s at 0.095 kg. -->
+    <SolidSphereMass>
+      <Mass Kg="5.9" />
+      <Radius M="0.15" />
+    </SolidSphereMass>
+
+    <!-- Off _ColPrim_KSArmory_Ale47Chaff: the flange and housing, standing off the face at X = 0. -->
+    <Collider Id="KSArmory_Ale47ChaffCollider">
+      <Box Id="KSArmory_Ale47ChaffBodyCollider">
+        <LocationAsmb X="0.07" Y="0" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.14" />
+        <LengthY M="0.28" />
+        <LengthZ M="0.216" />
+      </Box>
+    </Collider>
+  </PartGameData>
+
 </Assets>

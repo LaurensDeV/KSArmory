@@ -95,7 +95,7 @@ internal sealed partial class Ui
     // A director has its own controls per head and one computer flies the craft, so neither is a
     // station of anything.
     private static bool StacksStations(WeaponRole role)
-        => role is not (WeaponRole.Camera or WeaponRole.Guidance);
+        => role is not (WeaponRole.Camera or WeaponRole.Guidance or WeaponRole.Countermeasures);
 
     // One role of one kind of part -- once for all its stations, or once per head for a director --
     // and whatever it is that the panel can drive.
@@ -123,6 +123,10 @@ internal sealed partial class Ui
         {
             DrawGuidanceComponent(craft, nth);
         }
+        else if (role == WeaponRole.Countermeasures)
+        {
+            DrawDispenserComponent(craft, nth);
+        }
         else if (!_crewed)
         {
             ImGui.TextDisabled("no weapons system on this craft");
@@ -139,6 +143,68 @@ internal sealed partial class Ui
         }
 
         ImGui.TreePop();
+    }
+
+    // A dispenser needs no weapons system either: a transport with nothing but flares aboard has every
+    // control here. The nth dispenser component is the nth dispenser, by the same part-order pairing
+    // the cameras rely on. The controls are the craft's and drawn once, under the first: a press is
+    // answered by every dispenser holding that load.
+    private void DrawDispenserComponent(KSA.Vehicle craft, int nth)
+    {
+        _countermeasures.On(craft, _dispenserScratch);
+        if (nth >= _dispenserScratch.Count)
+        {
+            ImGui.TextColored(Amber, "not fitted - no dispenser resolved for this part");
+            return;
+        }
+
+        Dispenser d = _dispenserScratch[nth].Dispenser;
+        string what = d.Kind == DecoyKind.Flare ? "flares" : "chaff";
+        ImGui.TextColored(d.Remaining > 0 ? Green : Grey, $"{d.Remaining}/{d.Profile.Count} {what}");
+
+        if (nth == 0) DrawCountermeasureControls(craft);
+    }
+
+    private void DrawCountermeasureControls(KSA.Vehicle craft)
+    {
+        (int flares, int flareCap) = _countermeasures.Load(craft, DecoyKind.Flare);
+        (int chaff, int chaffCap) = _countermeasures.Load(craft, DecoyKind.Chaff);
+
+        ImGui.Separator();
+        ImGui.Text($"Aboard: {flares}/{flareCap} flares, {chaff}/{chaffCap} chaff");
+
+        ImGui.BeginDisabled(flares == 0);
+        if (ImGui.Button("Flares")) _countermeasures.Dispense(craft, DecoyKind.Flare);
+        ImGui.EndDisabled();
+        Tip("A salvo of two flares, a quarter-second apart, from every flare dispenser aboard at once, so a "
+            + "symmetric pair throws either side of the craft. A flare takes a heat seeker looking at it, and "
+            + "does nothing to a radar one.");
+        ImGui.SameLine();
+
+        ImGui.BeginDisabled(chaff == 0);
+        if (ImGui.Button("Chaff")) _countermeasures.Dispense(craft, DecoyKind.Chaff);
+        ImGui.EndDisabled();
+        Tip("A salvo of two chaff cartridges from every chaff dispenser aboard. Chaff stops dead in the air, so a Doppler seeker only sees it "
+            + "while you fly square to the missile.");
+        ImGui.SameLine();
+
+        ImGui.BeginDisabled(flares == 0 && chaff == 0);
+        if (ImGui.Button("Both"))
+        {
+            _countermeasures.Dispense(craft, DecoyKind.Flare);
+            _countermeasures.Dispense(craft, DecoyKind.Chaff);
+        }
+        ImGui.EndDisabled();
+        Tip("A salvo of each, for a missile whose seeker you cannot place.");
+
+        bool auto = _countermeasures.AutoOn(craft);
+        if (ImGui.Checkbox("Auto-dispense", ref auto)) _countermeasures.SetAuto(craft, auto);
+        Tip($"Throws on its own when a missile aimed at this craft closes inside {AutoDispense.WarningRangeMetres / 1000.0:F0} km: "
+            + "flares for a heat seeker, chaff for a radar one, both for anything else, at most every "
+            + $"{AutoDispense.RetriggerSeconds:F0} s.");
+
+        if (_countermeasures.Busy(craft)) ImGui.TextDisabled("dispensing");
+        else if (flares == 0 && chaff == 0) ImGui.TextColored(Amber, "empty");
     }
 
     // Whether the computer is flying, not how: it flies the whole vehicle, so its settings are a tab
@@ -650,6 +716,11 @@ internal sealed partial class Ui
         if (_battery.Radar.MaskedByBurst > 0)
         {
             ImGui.TextDisabled($"  {_battery.Radar.MaskedByBurst} behind a fireball's ionised air");
+        }
+
+        if (_battery.Radar.LostToChaff > 0)
+        {
+            ImGui.TextDisabled($"  {_battery.Radar.LostToChaff} lost to chaff in the notch, reacquiring");
         }
 
         if (_battery.Radar.IgnoredWreckage > 0)

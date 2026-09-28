@@ -42,6 +42,29 @@ internal static class Visuals
     private static readonly float4 NorthColour = new(1.0f, 1.0f, 1.0f, 0.9f);
     private static readonly float4 ArrayColour = new(0.5f, 1.0f, 0.6f, 0.9f);
 
+    private static readonly float4 FlareColour = new(1.0f, 0.95f, 0.8f, 1.0f);
+    private static readonly float4 ChaffColour = new(0.7f, 0.75f, 0.85f, 0.8f);
+
+    /// <summary>
+    /// Every decoy in the air as a sphere sized by its signature. Placed off the craft that threw it,
+    /// because both are end-of-step samples and so their difference carries none of the frame's motion.
+    /// </summary>
+    public static void DrawDecoys(IReadOnlyList<Decoy> decoys)
+    {
+        for (int i = 0; i < decoys.Count; i++)
+        {
+            Decoy d = decoys[i];
+            if (d.DroppedBy is not KSA.Vehicle craft || !KsaWorld.IsAlive(craft)) continue;
+            if (!KsaWorld.TryVehicleEgo(craft, out double3 craftEgo)) continue;
+
+            double share = d.Profile.PeakSignature > 0f ? d.Signature / d.Profile.PeakSignature : 0.0;
+            float radius = (float)(1.0 + (4.0 * share));
+
+            KsaWorld.DrawSphereEgo(craftEgo + (d.PositionEcl - KsaWorld.PositionEcl(craft)), radius,
+                                   d.Profile.Kind == DecoyKind.Flare ? FlareColour : ChaffColour);
+        }
+    }
+
     public static void Draw(IWeaponSystemView battery, Config config)
     {
         if (battery.Platform is null) return;

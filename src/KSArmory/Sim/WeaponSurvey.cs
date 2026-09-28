@@ -39,6 +39,12 @@ public enum WeaponRole
     /// section and no weapon would have the reverse. docs/GUIDANCE-SECTION.md.</para>
     /// </summary>
     Guidance,
+
+    /// <summary>
+    /// Throws flares and chaff. Its own role rather than a <see cref="Launcher"/>: nothing it throws is
+    /// aimed, tracked or fused, and a craft carrying only a dispenser is not a weapons system.
+    /// </summary>
+    Countermeasures,
 }
 
 /// <summary>
