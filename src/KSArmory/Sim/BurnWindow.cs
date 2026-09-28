@@ -108,12 +108,8 @@ internal static class BurnWindow
     }
 
     /// <summary>
-    /// The cheapest moment to leave, searched across one revolution.
-    ///
-    /// <para>One revolution is the natural horizon: past it the geometry repeats, so a longer
-    /// search re-examines answers it already has. What that does <em>not</em> cover is waiting
-    /// several revolutions for the planet to turn a target under the ground track, which is a
-    /// real thing to want and is not built.</para>
+    /// The cheapest moment to leave, searched across <see cref="Revolutions"/> revolutions: the
+    /// first costed at every step, the rest scanned on the plane angle and only the best few solved.
     /// </summary>
     /// <param name="minArrivalDeg">
     /// The shallowest arrival any window may have. Zero is off.

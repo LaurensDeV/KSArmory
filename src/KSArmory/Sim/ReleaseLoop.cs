@@ -7,8 +7,7 @@ internal enum ReleaseWalkHold
     Walking,
 
     /// <summary>
-    /// One stop, which is every flight this mod has measured. The loop does not run and nothing
-    /// about it is reachable — see <see cref="ReleaseLoop.Plan"/>.
+    /// One stop. The loop does not run and nothing about it is reachable — see <see cref="ReleaseLoop.Plan"/>.
     /// </summary>
     OneStop,
 
@@ -18,25 +17,22 @@ internal enum ReleaseWalkHold
     /// <summary>
     /// The first stop is not the place the bus is flying to.
     ///
-    /// <para><b>Which is every real set today, and it is the one thing phase 3 cannot decide for
-    /// itself.</b> <see cref="ReleaseItinerary"/> orders farthest-reach-first and takes the first
-    /// stop to be the one "the bus already arrives on", which needs the booster aimed at the
-    /// farthest target; <see cref="TargetEdit.ClickDoes"/> only adds a target during the coast, so
-    /// the booster is always aimed at the first chosen and the farthest does not exist when it
-    /// flies. Flown as ordered from there the bus walks out to the far end and back — twice the
-    /// ground the itinerary charges — so the walk is refused rather than over-promised.
-    /// <c>docs/MIRV-TARGETS.md</c> has both ways out.</para>
+    /// <para><b>Unreachable from a click, and kept as a guard.</b> <see cref="ReleaseItinerary"/>
+    /// orders farthest-reach-first and takes the first stop to be the one "the bus already arrives
+    /// on", which <see cref="TargetSet.ElectFarthestLead"/> makes true by aiming the booster at the
+    /// farthest target. Flown as ordered from anywhere else the bus walks out to the far end and
+    /// back — twice the ground the itinerary charges — so the walk is refused rather than
+    /// over-promised. <c>docs/MIRV-TARGETS.md</c>.</para>
     /// </summary>
     NotWhereTheBusIsAimed,
 
     /// <summary>
     /// Some hop costs more than one trim pass will fly.
     ///
-    /// <para>A gap between what phase 2 refuses and what phase 3 pays: <see cref="ReachDisplay"/>
-    /// bounds each <em>click</em> to one hop from where the warheads land <em>now</em>, and the
-    /// itinerary charges the hop between <em>consecutive stops</em> — so two targets on opposite
-    /// edges of the ring are twice its radius apart, 20 m/s for a 10 m/s ring, and every click was
-    /// accepted.</para>
+    /// <para><b>Unreachable from a click, and kept as a guard.</b> <see cref="ReachDisplay"/> draws
+    /// its ring around the stop the next hop leaves from, which is what the itinerary charges. A ring
+    /// around the landing instead accepts two targets on opposite edges of it, twice its radius
+    /// apart — 20 m/s for a 10 m/s ring.</para>
     /// </summary>
     HopBeyondOnePass,
 }
@@ -139,8 +135,8 @@ internal readonly record struct ReleaseStep(int Target, int Warheads, int Away, 
 /// <para><b>The decision half only.</b> Nothing here aims a vehicle, solves an arc or fires a
 /// thruster — the pieces that do all exist (<see cref="IcbmProgram.CorrectCoastArc"/> re-solves the
 /// arc to wherever the aim now is, <see cref="BusTrim"/> nulls onto it, <see cref="PostBoostAim"/>
-/// corrects it and <see cref="ReleaseSequence"/> lets the magazine go). What did not exist is the
-/// cursor round them, and this is it.</para>
+/// corrects it and <see cref="ReleaseSequence"/> lets the magazine go). This is the cursor round
+/// them.</para>
 ///
 /// <para><b>A set of one never produces a walk.</b> <see cref="Plan"/> answers
 /// <see cref="ReleaseWalkHold.OneStop"/> for it, which is the whole of what makes a single-target
@@ -250,7 +246,7 @@ internal static class ReleaseLoop
     /// owes the solution it is on.
     /// </summary>
     /// <remarks>
-    /// <para><b>The planner and the trim judged different quantities, and the difference is a
+    /// <para><b>The planner and the trim judge different quantities, and the difference is a
     /// kilometres-scale miss that reads as an arrival.</b> A hop is priced as the velocity change
     /// between two solutions; <see cref="BusTrim"/> is handed the whole difference between the
     /// vehicle's velocity and the new solution's, so a residual left on the bus by the release it

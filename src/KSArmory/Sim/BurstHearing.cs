@@ -5,8 +5,8 @@ namespace KSArmory;
 /// the shake, because they are one pressure wave and arrive together.
 ///
 /// <para>Keyed on the pressure at the ear, from <see cref="BlastAltitude.PeakPascals"/>, not on the air
-/// at the burst: 50 Mt at 37 km puts several kilopascals on the ground and is a bang, where the same
-/// air ratio gate made it silent.</para>
+/// at the burst: 50 Mt at 37 km puts several kilopascals on the ground and is a bang, where a gate on the
+/// air at the burst would make it silent.</para>
 /// </summary>
 internal static class BurstHearing
 {

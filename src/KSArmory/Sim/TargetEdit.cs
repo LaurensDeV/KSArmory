@@ -30,9 +30,9 @@ internal static class TargetEdit
     /// so the lead is re-elected as targets are placed and the booster ends up flying to the
     /// farthest — which is the one thing <c>ReleaseLoop</c> cannot arrange for itself.</para>
     ///
-    /// <para><b>An add needs a reach that can refuse it.</b> With none, a click designates, which is
-    /// what every click did before the region existed: adding a target nothing can price is how a
-    /// set is assembled that the release loop then refuses whole.</para>
+    /// <para><b>An add needs a reach that can refuse it.</b> With none, a click designates: adding a
+    /// target nothing can price is how a set is assembled that the release loop then refuses
+    /// whole.</para>
     /// </remarks>
     /// <param name="reachIsKnown">
     /// Whether there is a region to test the click against — <see cref="ReachDisplay.HasRegion"/>.

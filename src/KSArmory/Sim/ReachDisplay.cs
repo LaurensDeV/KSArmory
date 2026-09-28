@@ -428,8 +428,8 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
                                          double CrossMetres, int FromTarget);
 
     /// <summary>
-    /// The set as the itinerary wants it: the lead first, then the rest in the order they were
-    /// chosen, each hop the ground between it and the stop before.
+    /// The set as the itinerary wants it: the lead first, then each remaining target nearest to the
+    /// stop before it, each hop the ground between the two.
     /// </summary>
     /// <remarks>
     /// <para><b>The lead first, not the farthest from the landing.</b> The bus arrives on the lead's
@@ -437,8 +437,8 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
     /// <c>ReleaseLoop</c> refuses outright a plan whose first stop is not the lead, because flown as
     /// ordered from anywhere else the bus walks out to the far end and back, twice the ground the
     /// itinerary charges. Farthest first is still the rule the <em>set</em> obeys:
-    /// <see cref="TargetSet.ElectFarthestLead"/> puts the lead at an end of it, so walking it in the
-    /// chosen order walks inward.</para>
+    /// <see cref="TargetSet.ElectFarthestLead"/> puts the lead at an end of it, so walking nearest-first
+    /// from there walks inward.</para>
     ///
     /// <para><b>The order the panel, the cursor and the flight all read.</b> Phase 3 plans its walk
     /// from this rather than from a second construction, or the ring drawn and the walk flown

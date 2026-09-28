@@ -22,7 +22,7 @@ namespace KSArmory;
 /// </param>
 /// <param name="Extra">
 /// The places after the first, for a shot at several. Null and empty mean the same thing — one
-/// target, which is every shot flown to date — and <see cref="Targets"/> is what a caller reads so
+/// target — and <see cref="Targets"/> is what a caller reads so
 /// that the single-target case needs no special handling anywhere.
 /// </param>
 internal readonly record struct ShotRequest(double LatitudeDeg, double LongitudeDeg, double BarMetres,
@@ -108,9 +108,9 @@ internal readonly record struct ShotRequest(double LatitudeDeg, double Longitude
 
         if (string.IsNullOrWhiteSpace(arguments)) return true;
 
-        // Several places are separated by ';', and everything inside one of them is the form a
-        // single-target request has always had -- so one segment parses down exactly the old path
-        // and cannot behave differently.
+        // Several places are separated by ';', and everything inside one of them is a single-target
+        // request's form -- so one segment parses down the single-target path and cannot behave
+        // differently.
         string[] segments = arguments.Split(';', StringSplitOptions.RemoveEmptyEntries);
 
         if (segments.Length > 1)

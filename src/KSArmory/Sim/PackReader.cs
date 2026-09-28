@@ -564,7 +564,7 @@ public static class PackReader
             return fallback;
         }
 
-        /// <summary>An angle written in degrees and held in radians, as every profile holds it.</summary>
+        /// <summary>An angle written in degrees, for a profile field held in radians.</summary>
         public double Angle(string attribute, double fallbackRad)
         {
             if (Text(attribute) is not { } raw) return fallbackRad;

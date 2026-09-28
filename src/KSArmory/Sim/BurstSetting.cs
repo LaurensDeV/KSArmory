@@ -35,7 +35,7 @@ public static class BurstSettings
     /// <summary>
     /// Which of the three, from heights against the mean sphere.
     ///
-    /// <para><b>Anything unreadable is land</b>, which is what every burst was before this: a
+    /// <para><b>Anything unreadable is land</b>: a
     /// height field that will not answer should not be what turns a column white or makes it
     /// vanish.</para>
     ///

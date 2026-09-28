@@ -3,7 +3,7 @@ using Brutal.Numerics;
 namespace KSArmory;
 
 /// <summary>
-/// The shape of a nuclear cloud over time, as offsets from the burst.
+/// The shape of a nuclear cloud over time, as offsets from the ground under the burst.
 ///
 /// <para>Pure geometry: it says where the stem and the cap are at an age, and something else draws
 /// them. Neither reachable renderer in KSA has drag, turbulence or a vortex field, so the toroidal
@@ -426,7 +426,7 @@ public static class MushroomCloud
     /// A yield's life, which is <see cref="LifeSeconds"/> and longer only for a cloud its own blast
     /// front holds in past the rise. The front runs at the speed of sound in real time and the rise
     /// is compressed, so at 50 Mt the cloud is still growing into the front minutes after the rise
-    /// is over -- and a fixed life faded it out the moment it reached its full height.
+    /// is over -- and a fixed life would fade it out the moment it reached its full height.
     /// </summary>
     public static double LifeFor(double yieldKt) => LifeSeconds + HeldByFront(yieldKt);
 
@@ -485,8 +485,7 @@ public static class MushroomCloud
     /// scales with the linear size of the source, which is Hopkinson–Cranz again, so every time in
     /// the sound goes as <c>W^(1/3)</c> and playing it back at <c>W^(-1/3)</c> lengthens the crack,
     /// the report and the echo together. Eight times the yield is twice the rumble and an octave
-    /// down — which is what makes a twenty-kilotonne warhead sound unlike a rocket going off, where
-    /// before the two were the same file.</para>
+    /// down — which is what makes a twenty-kilotonne warhead sound unlike a rocket going off.</para>
     ///
     /// <para>Never above one: the sample is already a big explosion, and a smaller burst than the
     /// anchor played faster is a firework rather than a smaller bang.</para>
@@ -982,7 +981,7 @@ public static class MushroomCloud
     /// fivefold, so a fireball that goes dark on its own clock is out before the cloud has done one
     /// part in four hundred of its climb, and what anybody sees is a flash that ends and then a
     /// cloud. Held against the rise instead, the ball is still there — dull, dimming, and
-    /// <b>climbing on the same curve the pens do</b> — while the cloud forms around and over it,
+    /// <b>climbing on the cap</b> — while the cloud forms around and over it,
     /// which is the fireball becoming the cloud rather than being replaced by one.</para>
     ///
     /// <para>It is an ember, not a second flash. The glow at the end of the luminous phase is
@@ -997,11 +996,9 @@ public static class MushroomCloud
     /// <summary>
     /// Seconds of that ember, which is the same for every yield because the rise is.
     ///
-    /// <para><b>Bounded by how far the ball climbs while it is still lit.</b> The emissive sphere
-    /// draws over the smoke rather than through it, so an ember that outlasts the lift-off is not a
-    /// hot core glimpsed inside a cloud — it is a bright ball climbing in front of one, which reads
-    /// as a flare going up rather than a fireball dying. At 0.22 it stayed lit through eight of its
-    /// own radii of climb. <c>TheBallGoesDarkBeforeItClimbsOutOfItself</c> holds the limit.</para>
+    /// <para>The ball climbs on the cap, because it is the cap, so what bounds this is that the cloud
+    /// is round the ball by the time it is up there.
+    /// <c>ALitBallThatHasClimbedIsInsideTheCloudItBecame</c> holds that.</para>
     /// </summary>
     public static double EmberSeconds => RiseSeconds * EmberFraction;
 
@@ -1196,7 +1193,7 @@ public static class MushroomCloud
     /// <summary>
     /// How far up the cloud is, as a fraction of its ceiling, at an age.
     ///
-    /// <para>Overshoots by about a tenth and settles back, the way a thermal does in a stratified
+    /// <para>Overshoots by a few per cent and settles back, the way a thermal does in a stratified
     /// atmosphere. The real cloud completes roughly a third of one buoyancy oscillation before it
     /// stabilises, so one overshoot and one settle is the whole of it -- more would ring.</para>
     /// </summary>
@@ -1241,8 +1238,7 @@ public static class MushroomCloud
     private static readonly double[] RiseTrack = [0.0, 0.308, 0.509, 0.771, 0.840, 0.991, 1.000];
 
     // Ruth and Post were both tracked peaking and subsiding a few per cent, so the overshoot is
-    // real and small -- not the tenth the old step response gave, which it then never came back
-    // from.
+    // real and small.
     private const double OvershootBy = 0.04;
     private const double OvershootAt = 0.25;
 
@@ -1276,14 +1272,8 @@ public static class MushroomCloud
         double top = DrawnCloudTop(kt);
         double capR = DrawnCapRadius(kt);
 
-        // Underdamped, not a lag. A buoyant parcel accelerates while the density difference drives
-        // it, decelerates as entrainment kills that difference, overshoots its neutral level and
-        // settles back -- a second-order step response, not a first-order one. The difference is
-        // visible: a lag leaves at maximum speed and never overshoots, which reads as a lift on a
-        // rope rather than as something thrown up by a detonation.
-        //
-        // It also keeps the cloud moving well past the rise, which is most of the answer to
-        // everything stopping at once.
+        // The measured climb, then one overshoot and settle, which keeps the cloud moving well past
+        // the rise rather than everything stopping at once.
         double rise = Rise(age);
 
         // The cap centre sits at three quarters of the top, because the cap has thickness: its base
@@ -1301,11 +1291,6 @@ public static class MushroomCloud
         double capCentre = hob + (Stratified(top * 0.75 * rise, kt) * climbShare);
         double squash = CapSquash(top * rise, kt);
 
-        // The cap widens as it rises, and is done widening before a pen reaches the widest point of
-        // its own stroke -- which is the whole of it, because a pen crosses the equator once and
-        // then tucks under, so the width it finds there is the width the cap keeps. Widening after
-        // that is drawn by nothing: it moves the silhouette the pens have already passed. Spread out
-        // over the full rise it left the cap 19% narrower than every other number here says it is.
         double spread = 0.55 + (0.57 * Math.Min(1.0, age / (RiseSeconds * SpreadBy)));
         double aged = Aged(age);
         double widen = Widening(age);
@@ -1388,9 +1373,8 @@ public static class MushroomCloud
                        * Math.Sqrt(Math.Min(1.0, Progress(age) / ClimbUntil));
         double stemTop = Math.Max(0.0, Math.Min(climb, underside));
 
-        // A slight twist and no more. The emitters drawing this are pens that keep everywhere they
-        // have been, so a roll of any size draws a helix rather than a rolling cap -- eight of them
-        // being a spiral staircase. The rollover has to come from the *path* shape below.
+        // A slight twist and no more. The shader does not read it: it turns the cloud on its own
+        // clock (RollAngle in KSArmoryCloud.comp).
         double roll = 0.30 * (1.0 - Math.Exp(-2.0 * age / RiseSeconds));
 
         // Nothing the burst throws can be outside its own blast front, and the cloud is drawn ahead
@@ -1494,8 +1478,7 @@ public static class MushroomCloud
     public static double ColumnFormsSeconds => RiseSeconds * 0.1;
 
     /// <summary>
-    /// How far up its stroke a pen is still climbing the axis. Past this it is walking the cap, so
-    /// it is also where the cap's own shape starts being measurable.
+    /// How much of the rise the stem's head takes to climb to the cap, as a fraction.
     /// </summary>
     public const double ClimbUntil = 0.15;
 
@@ -1506,9 +1489,7 @@ public static class MushroomCloud
     public const double CrownInTubes = 1.5;
 
     /// <summary>
-    /// How much of the rise the cap takes to reach its full width, as a fraction. Short of the
-    /// 0.63 at which a pen crosses the equator, because that is the one instant the cap's width is
-    /// decided.
+    /// How much of the rise the cap takes to reach its full width, as a fraction.
     /// </summary>
     public const double SpreadBy = 0.50;
 
@@ -1543,15 +1524,11 @@ public static class MushroomCloud
     /// How high the stem's head may reach: the cap's underside, so the column ends inside the cap
     /// rather than poking out of the top of it.
     ///
-    /// <para>Exposed because the renderer needs the same number to know how far up its own column a
-    /// pen has got, and a second copy drifts silently: one that omits the <see cref="Oblate"/>
-    /// factor puts the ratio above one on every frame, which pins the stem's flare at its head
-    /// value and looks like nothing in particular.</para>
     /// </summary>
     public static double StemCeiling(double capCentre, double capHeight)
         => capCentre - (capHeight * Oblate * 0.7);
 
-    /// <summary>How far along its stroke a pen is at this age, in [0, 1].</summary>
+    /// <summary>How far through the rise the cloud is at this age, in [0, 1].</summary>
     public static double Progress(double age) => Math.Clamp(age / RiseSeconds, 0.0, 1.0);
 
     /// <summary>How far through its stand the cloud is, eased, in [0, 1]: zero while it rises.</summary>

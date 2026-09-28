@@ -18,8 +18,8 @@ namespace KSArmory;
 /// a speed the policy is holding is a loop neither side wins, which is why the number asked for
 /// sits under what the policy would allow a burn to run at anyway.</para>
 ///
-/// <para>What it cannot do is put a rocket on the pad — see <c>CLAUDE.md</c>, "A fully
-/// self-contained scenario is not possible from a mod". It waits for a craft that already has one
+/// <para>What it cannot do is put a rocket on the pad — see <c>CLAUDE.md</c>, "A scenario
+/// cannot place a craft through the system XML". It waits for a craft that already has one
 /// aboard.</para>
 /// </summary>
 internal sealed class BallisticScenario
@@ -165,7 +165,7 @@ internal sealed class BallisticScenario
 
     // Whose turn it is to point the player's camera. There is one view and every flight wants to
     // send it to the target when its salvo is away, so without a claim eight rockets move it eight
-    // times -- the same shared-resource mistake the world clock had before Sim/WorldSpeed.cs.
+    // times -- the same shared-resource problem Sim/WorldSpeed.cs settles for the world clock.
     //
     // One-element array rather than a bool because it is shared by reference across the flights.
     private readonly bool[] _viewTaken;
@@ -536,8 +536,7 @@ internal sealed class BallisticScenario
 
         // The harness does not light the rocket. Ignition is the program's own first stage request
         // and firing a second sequence here would spend one of the player's on top of it -- and a
-        // harness that staged by hand is a harness that passes whether or not the computer can
-        // launch at all, which is how a computer with no ignition flew every shot in the suite.
+        // harness that staged by hand would pass whether or not the computer can launch at all.
         if (_onThePad)
         {
             if (computer.Program.Phase != IcbmPhase.Rising) return;
@@ -560,7 +559,7 @@ internal sealed class BallisticScenario
         // only part anyone looks at.
         //
         // One flight does this, not eight: the view is shared, and eight rockets each parking it
-        // is the same shared-resource mistake the world clock had.
+        // is the same shared-resource problem Sim/WorldSpeed.cs settles for the world clock.
         if (!_viewTaken[0] && _computer?.Parent is { } parent
             && KsaWorld.WatchFrom(parent, FlightZoomPower))
         {
@@ -623,8 +622,8 @@ internal sealed class BallisticScenario
     // has gone.
     // FORTY-FIVE KEEPS THE GATE SHUT ON THIS SHOT, AND THAT IS WORTH 470 m. The warheads are held
     // until the arrival is inside ReleaseBeforeArrivalSeconds, 420 s, and the coast is entered with
-    // about 464 s to run -- so the margin asks for 465 and the coast is flown at 1x throughout. That
-    // was discovered by accident and then measured on purpose; IcbmProgram.SteadyBeforeReleaseSeconds
+    // about 464 s to run -- so the margin asks for 465 and the coast is flown at 1x throughout.
+    // IcbmProgram.SteadyBeforeReleaseSeconds
     // carries the number and the measurement, because the panel's own coast warp stops at the same
     // place and two copies of it would drift.
     //
@@ -810,22 +809,20 @@ internal sealed class BallisticScenario
         // released after the change grouped at 3.67-3.75 km.
         //
         // Keyed on the releases going quiet rather than on the magazine emptying, so a shot that
-        // holds warheads back still warps -- which is what tying it to a full salvo got wrong, and
-        // what tying it to the first release was trying to avoid.
+        // holds warheads back still warps.
         _sinceLastRelease += simStep;
 
         // The long wait before the release point, which is most of the flight now the warheads are
         // held until the arrival is close. Warped through, and given back well before the first one
-        // leaves: every warhead has to see the same frame in its opening seconds, which is what
-        // warping between releases got wrong.
+        // leaves: every warhead has to see the same frame in its opening seconds, which warping
+        // between releases would break.
         CoastToTheReleasePoint();
 
         // Counted off the releases rather than off the magazine, because the magazine refills.
         // `ammo < _loaded` reads as "the salvo has gone" for about three seconds and then stops:
         // the launcher reloads inside QuietAfterReleaseSeconds, ammo returns to its loaded count,
-        // and the branch is never entered again. Measured 2026-08-25 -- `holding fire: reloading
-        // (3 s)` lands 34 ms after the sixth warhead leaves, so this never fired at all and the
-        // whole 381 s coast ran at 1x. ShotGroup.Released only ever increases.
+        // and the branch is never entered again: `holding fire: reloading (3 s)` lands 34 ms after
+        // the sixth warhead leaves. ShotGroup.Released only ever increases.
         if (_board.Released > 0)
         {
             if (_board.Released != _releasedLastSeen)
@@ -850,7 +847,7 @@ internal sealed class BallisticScenario
         => AimSpread.GroundMetresBetween(aLat, aLon, bLat, bLon, body.MeanRadius);
 
     // The places after the first, for a shot at several. A request naming one adds nothing at all,
-    // so the flight is left exactly as it was before a set could hold more than one place.
+    // so a single-target flight is unchanged by it.
     private void AddTheOtherTargets(IcbmComputer computer, Celestial parent,
                                     double leadLat, double leadLon)
     {

@@ -6,7 +6,7 @@ namespace KSArmory;
 /// <para>A missile's body is its tube's, because a tube holds one round. A gun has no tube to key a
 /// body to and fires more rounds in a session than a part can carry subparts for, so a body is lent
 /// when a round is first drawn and returned when that round is gone. A round arriving while every
-/// body is lent draws as a tracer, which is how every gun round drew before bodies existed.</para>
+/// body is lent draws as a tracer.</para>
 /// </summary>
 internal sealed class BodyPool<T>(int capacity) where T : class
 {

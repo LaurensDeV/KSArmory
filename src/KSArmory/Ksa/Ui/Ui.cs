@@ -178,9 +178,9 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     [ModMenuEntry("KSArmory")]
     public static void DrawModMenu()
     {
-        // The identical call through this mod's own bar is wrapped; this one was not, so anything
-        // thrown here went into ModMenu's menu build instead of the log -- leaving an entry that
-        // does nothing and no evidence anywhere of why.
+        // Wrapped as the identical call through this mod's own bar is: unwrapped, anything thrown
+        // here goes into ModMenu's menu build instead of the log -- leaving an entry that does
+        // nothing and no evidence anywhere of why.
         try
         {
             Current?.DrawMenuContents();
@@ -409,7 +409,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         DrawTeamButton(craft);
 
         // Tinted while this craft's window is open, which is often not the craft being flown and
-        // was otherwise said nowhere in the list.
+        // is otherwise said nowhere in the list.
         ImGui.TableNextColumn();
         bool open = ReferenceEquals(_managed, craft);
         if (open) ImGui.PushStyleColor(ImGuiCol.Button, LitButton);
@@ -715,8 +715,6 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
             return;
         }
 
-        // ###id keeps one window across a change of craft, so it holds its size and place
-        // instead of opening afresh every time a different system is managed.
         // Point the panes at *this* window's craft. Focus was worked out at the top of the frame
         // from last frame's selection, so the window that opens on the click that selected it
         // would otherwise show -- and edit -- the previously focused battery for one frame.

@@ -24,8 +24,8 @@ namespace KSArmory;
 /// resolves the camera-nearby body and updates the planet's shader data for the frame, so a step
 /// taken <em>after</em> it prepares the planet against a camera the mod is about to move — which
 /// renders the surface as open water. With the UI shown the mod steps at <c>OnDrawUiViewports</c>,
-/// which is ahead of it; a prefix is what puts a hidden-UI frame on the same side. Making the two
-/// paths identical was the whole point, and a postfix quietly was not.</para>
+/// which is ahead of it; a prefix is what puts a hidden-UI frame on the same side. The two paths
+/// have to be identical, and a postfix would quietly not be.</para>
 ///
 /// <para>It is the private half of the frame loop rather than declared API,
 /// which is a rule <see cref="AttitudeHook"/> takes some care not to bend — but the two are not

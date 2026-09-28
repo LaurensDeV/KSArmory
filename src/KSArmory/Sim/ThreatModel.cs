@@ -42,8 +42,8 @@ internal static class ThreatModel
     {
         /// <summary>
         /// A contact nothing extra is known about. Deliberately makes every rule that reads it
-        /// inert, so a call site that cannot supply the data gets the behaviour that shipped
-        /// before the data existed rather than a silently different one.
+        /// inert, so a call site that cannot supply the data gets none of those rules rather than
+        /// a silently different one.
         /// </summary>
         public static ContactSignature Unknown => new(0.0, double.PositiveInfinity);
     }
@@ -128,8 +128,8 @@ internal static class ThreatModel
     /// How far this set reaches against a contact of this size.
     ///
     /// <para>Its own <see cref="SensorProfile.Range"/> unless the set has been given a reference
-    /// cross-section, so a profile that says nothing about size behaves exactly as it did before
-    /// there was anything to say.</para>
+    /// cross-section, so a profile that says nothing about size reaches the same distance whatever
+    /// it is looking at.</para>
     /// </summary>
     public static double DetectionRange(SensorProfile sensor, ContactSignature signature)
         => RadarSignature.DetectionRange(sensor.Range,

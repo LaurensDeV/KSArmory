@@ -3,8 +3,8 @@ namespace KSArmory;
 /// <summary>
 /// One director's own settings — what <em>this</em> head is doing.
 ///
-/// <para>Separate from <see cref="SystemConfig"/> rather than folded into it, because a head is no
-/// longer part of a weapons system. A craft can carry a director and no armament at all, and a
+/// <para>Separate from <see cref="SystemConfig"/> rather than folded into it, because a head is not
+/// part of a weapons system. A craft can carry a director and no armament at all, and a
 /// craft can carry two launchers and one director; neither shape works if the head's settings are
 /// a weapon's.</para>
 ///

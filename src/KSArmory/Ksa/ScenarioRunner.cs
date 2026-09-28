@@ -249,10 +249,9 @@ internal sealed class ScenarioRunner
         if (!allDone) return;
 
         // Not FinishAll yet. WarheadTrace reports from a poll on the frame AFTER the round stops
-        // flying, and the last impact and END landed in the same millisecond -- so the arm that
-        // lands last never reported at all. On a paired night that is one whole arm: the walk night
-        // of 2026-09-08 traced 8 away and 4 landed in every one of its fourteen shots, all four
-        // baseline. Invisible on a single-arm night, where the roster lands in one window.
+        // flying, and the last impact and END can land in the same millisecond -- so the arm that
+        // lands last would never report at all. On a paired night that is one whole arm; on a
+        // single-arm night the roster lands in one window and it cannot show.
         _phase = Phase.Settling;
         _settleFrom = _elapsed;
     }
@@ -312,8 +311,8 @@ internal sealed class ScenarioRunner
 
     // One world, one clock, and every flight in it has an opinion -- so the requests are collected
     // and the slowest wins rather than each flight writing the speed and the last one winning.
-    // Sim/WorldSpeed.cs holds the rule. With one rocket this is exactly what the scenario used to
-    // do to itself; with several it is the difference between a shot flown at the speed it chose
+    // Sim/WorldSpeed.cs holds the rule. With one rocket this is the rocket's own request; with
+    // several it is the difference between a shot flown at the speed it chose
     // and one flown at whichever speed another rocket happened to want.
     private readonly List<double> _wantedSpeeds = [];
 
@@ -393,8 +392,8 @@ internal sealed class ScenarioRunner
         // because the game is a Windows process launched from WSL and the environment does not
         // survive that -- the same reason the request itself travels this way.
         //
-        // A set rather than one token, because the second option was wanted the moment there was
-        // one: an equality test against the whole line silently ignores every flag but the first.
+        // A set rather than one token: an equality test against the whole line silently ignores
+        // every flag but the first.
         string[] options = lines.Length > 3
             ? lines[3].Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             : [];
@@ -415,8 +414,7 @@ internal sealed class ScenarioRunner
 
         // The pass IS the cloud, so it follows the cloud switch rather than having one of its own.
         // Timing runs either way: a run with the cloud off is the baseline the other is read
-        // against, and a number with no control is what made this instrument look decisive before
-        // it had said anything.
+        // against, and a number with no control looks decisive before it has said anything.
         // "noshader" keeps the cloud and its pinned camera and turns only the PASS off, which is
         // the control: same scene, same view, one variable. Without it a baseline run is framed
         // differently from the run it is meant to be read against.
@@ -427,12 +425,12 @@ internal sealed class ScenarioRunner
         // a bus's six warheads land about 9 mm apart and are deliberately one cloud, and the only
         // shot that spreads them is a multi-target ballistic run whose coast is hours long.
         // "twoclouds" or "twoclouds=<multiple>". The multiple is on the SECOND burst's yield, so
-        // one run can carry two different sizes -- which is the only way the airless dome has been
-        // looked at anywhere but the B61's third of a kilotonne.
+        // one run can carry two different sizes -- which is the only way to look at the airless dome
+        // at anything but the B61's third of a kilotonne.
         // "cloudwarp=<n>": run the LINGER at that speed, which nothing else does. The drop's own
         // warp argument is handed back the instant the store lands, deliberately -- the hand-back
-        // should not be watched at warp -- so the cloud, the mark and the fireball had never been
-        // advanced at anything but 1x. A speed of 0 pauses instead, which is the other half of the
+        // should not be watched at warp -- so without this the cloud, the mark and the fireball are
+        // never advanced at anything but 1x. A speed of 0 pauses instead, which is the other half of the
         // same question.
         _cloudWarp = 1.0;
         _stillAt = -1.0;

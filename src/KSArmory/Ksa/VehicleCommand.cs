@@ -141,7 +141,7 @@ internal static class VehicleCommand
         catch
         {
             // Losing this turns the feature off rather than breaking the flight: the coast is then
-            // integrated exactly as it was before any of this existed.
+            // integrated exactly as it is without it.
         }
     }
 

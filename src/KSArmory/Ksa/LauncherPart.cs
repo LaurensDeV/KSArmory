@@ -262,7 +262,7 @@ internal static class LauncherPart
 
             // Stowed: flat against the casing, so the round clears the bore. A hinged set has no
             // stowed state and four blades rather than one, so the caller places those itself —
-            // scaling blade zero to nothing here is how they went missing on the rack.
+            // scaling blade zero to nothing here would leave one missing on the rack.
             if (fins is not null && munition.FinsPerRound == 0)
                 TryPlaceFins(fins, seated, rotation, 0.0, munition);
             return true;
@@ -582,9 +582,9 @@ internal static class LauncherPart
             doubleQuat ecl2Asmb = doubleQuat.Conjugate(platform.Asmb2Ego);
             doubleQuat asmb2Part = doubleQuat.Conjugate(launcher.Asmb2VehicleAsmb);
 
-            // asmb2Part is currently identity - the launcher is mounted unrotated relative to the
-            // vehicle assembly - but PositionParentAsmb is the assembly frame, so the conversion
-            // is kept explicit rather than relying on that holding.
+            // asmb2Part is the launcher's own mounting -- nothing on a surface mount and a half turn
+            // on a stack one -- and PositionParentAsmb is measured in the parent part's frame.
+            //
             // How far the craft has turned since this round left. The anchor is a world point
             // written in the part's frame, so it has to be carried back through that.
             doubleQuat sinceLaunch = doubleQuat.Concatenate(launchAttitude, ecl2Asmb);

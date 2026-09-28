@@ -413,11 +413,11 @@ internal static class NuclearClouds
 
     private static readonly List<Scorch> _scorches = [];
 
-    // How many marks stand at once. Still bounded for a different reason from MaxClouds -- a cloud
-    // expires and that list drains on its own, where this one never does -- but no longer bounded
-    // LOW: a mark is dispatched over its own screen footprint rather than over the whole screen,
-    // so what each one costs for the rest of the session is a few per cent of what it was. The
-    // oldest is still dropped, because permanent and unbounded is a leak.
+    // How many marks stand at once. Bounded for a different reason from MaxClouds -- a cloud
+    // expires and that list drains on its own, where this one never does -- but not bounded LOW:
+    // a mark is dispatched over its own screen footprint rather than over the whole screen, so
+    // what each one costs for the rest of the session is a few per cent of a full-screen pass. The
+    // oldest is dropped, because permanent and unbounded is a leak.
     private const int MaxScorches = 12;
 
     /// <summary>How many patches of burned ground stand. Bounds <see cref="TryScorch"/>.</summary>
@@ -990,8 +990,8 @@ internal static class NuclearClouds
 
             // No particle collar round the foot. The raymarch flares the stem into the skirt itself,
             // lit like the column above it and hidden by weather in front of it -- where particles
-            // are drawn after KSA's clouds and never tested against them, so a collar sat on top of
-            // a deck the column had gone behind, and at high yields came out black besides.
+            // are drawn after KSA's clouds and never tested against them, so a collar would sit on
+            // top of a deck the column had gone behind, and at high yields come out black besides.
 
             // And the condensation shell over the first couple of seconds, which is why a
             // photograph of a burst that early is a white dome rather than a ball of fire.
@@ -1094,8 +1094,8 @@ internal static class NuclearClouds
             // THE BALL IS THE CAP. A fireball cools, goes buoyant, rises, and the toroidal
             // circulation the raymarch draws begins inside it -- there is one object, and the
             // glowing core and the opaque cloud around it are two ages of it rather than two
-            // things. Drawn on a law of its own the ball stopped a hundred metres up while the cap
-            // it had become climbed away without it, and the ember then sat in the stem.
+            // things. Drawn on a law of its own the ball stops a hundred metres up while the cap
+            // it has become climbs away without it, and the ember then sits in the stem.
             double3 riseCcf = cloud.Up * shape.CapCentre;
 
             Fireball.Draw(cloud.Body.GetPositionEcl()

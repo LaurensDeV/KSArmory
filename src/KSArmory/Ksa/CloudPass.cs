@@ -20,8 +20,8 @@ namespace KSArmory;
 /// <para><b>No renderer was ported to get here and nothing is patched but one prefix.</b> KSA
 /// compiles a <c>&lt;Shader&gt;</c> asset out of any mod's folder, <c>ComputePipelineWrapper</c>
 /// builds the descriptor sets, and <c>Program.GetRenderer</c> and the clamp samplers are public
-/// statics. What was missing was somewhere to dispatch from, and
-/// <see cref="CloudPassHook"/> found it.</para>
+/// statics. The one thing it adds is somewhere to dispatch from, which is
+/// <see cref="CloudPassHook"/>.</para>
 ///
 /// <para><b>Where it runs is the whole design.</b> Just before <c>SunbloomRenderer.Render</c> the
 /// engine has already put the scene colour into a storage layout and the depth into a sampled one,
@@ -126,7 +126,7 @@ internal static class CloudPass
 
     // Everything one viewport's clouds are drawn with. The pass is recorded once per viewport a
     // frame, and a camera window has its own target, its own size and its own history -- sharing
-    // one set drew a window's clouds into the main view's image whenever the two were one size.
+    // one set draws a window's clouds into the main view's image whenever the two are one size.
     private sealed class View
     {
         public required IRenderImage Target;
@@ -217,7 +217,7 @@ internal static class CloudPass
     /// Whether a build was attempted and did not produce a pipeline.
     ///
     /// <para>Not the same question as <see cref="Available"/> being false, and reading it as the
-    /// same is what made a deliberate control run report a shader that would not compile: a pass
+    /// same reports a shader that would not compile for a pass nobody switched on: a pass
     /// switched off is never asked to build, so it has no pipeline for a reason that is not a
     /// fault. Only a build that ran and failed sets this.</para>
     /// </summary>
@@ -666,8 +666,8 @@ internal static class CloudPass
                     {
                         InvViewProj = camera.VPInv.viewProjection,
                         // The target's own size is not in here: the shader asks imageSize() for it,
-                        // which freed the two floats the wind needed. The block is at Vulkan's
-                        // guaranteed 128 bytes and there was nowhere else to take them from.
+                        // which leaves the two floats the wind needs. The block is at Vulkan's
+                        // guaranteed 128 bytes with nothing spare.
                         //
                         // The strength carries the cloud's own fade. It holds at one through the
                         // rise and half the stand and then squares away to nothing, so a cloud
@@ -678,14 +678,14 @@ internal static class CloudPass
                                                   (float)radius),
                         // Neither the cloud's up nor the direction to the sun is in here: the
                         // shader derives both from the burst, the planet and the star, all of which
-                        // it already has. That freed the floats for the fireball's radius and glow,
+                        // it already has. That leaves the floats for the fireball's radius and glow,
                         // which let a burst light the cloud it is inside. The third is the heat left
                         // in the cloud's core, which outlasts the ball: the whiteout is a dispatch
                         // of its own, after every cloud, so the float is free here.
                         //
                         // No scorch here: the ground a burst burned outlives the column over it,
                         // so it is its own dispatch below and a cloud never draws one. The fourth
-                        // float is therefore free on this dispatch, and carries two flags -- see
+                        // float is therefore free on this dispatch, and carries the flags packed by
                         // CloudFlags.
                         //
                         // The heat shares its float with how much of a surface burst this was and
@@ -1347,8 +1347,8 @@ internal static class CloudPass
     // ALONG THE WIND rather than a cube about the centre. The plume runs one way, so a cube sized
     // to its reach is three times too big in the other five directions -- and the cost of that is
     // not a few unused workgroups: its corners end up behind a camera watching from two and a half
-    // kilometres, which takes the whole-screen fallback every time. Measured at 100.0% of the
-    // screen before this and 55.1% after.
+    // kilometres, which takes the whole-screen fallback every time. Measured at 55.1% of the
+    // screen against 100.0% for the cube.
     //
     // Anything behind the camera takes the whole screen. A corner with a clip w at or under zero
     // has no screen position at all, and projecting it anyway folds the box inside out -- which

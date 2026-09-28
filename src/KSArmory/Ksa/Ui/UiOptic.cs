@@ -107,7 +107,7 @@ internal sealed partial class Ui
         // setting is on" while the window arrives somewhere else unannounced. Tinted while open,
         // which is what a tick box was being asked to say.
         // The local matters: TakeMap flips MapOpen, so reading it again after the button pops a
-        // style that was never pushed. Same defect as the Weapons button above.
+        // style that was never pushed.
         bool mapTinted = policy.MapOpen;
         if (mapTinted) ImGui.PushStyleColor(ImGuiCol.Button, new float4(0.20f, 0.42f, 0.30f, 1f));
         if (ImGui.Button("Map")) TakeMap(policy);
@@ -285,9 +285,8 @@ internal sealed partial class Ui
         ImGui.Checkbox("Never look at the vehicle I'm flying",
                        ref policy.ProtectControlledVehicle);
 
-        // Only when there is something to pick. With no teams the whole node held two lines of
-        // prose and no control, which is a fold that opens onto nothing -- and one of those lines
-        // explained an implementation decision to somebody who never asked.
+        // Only when there is something to pick. With no teams the node would hold prose and no
+        // control, which is a fold that opens onto nothing.
         if (_config.TeamNames.Count == 0)
         {
             ImGui.TextDisabled("no teams declared; add them under KSArmory settings to sort contacts");

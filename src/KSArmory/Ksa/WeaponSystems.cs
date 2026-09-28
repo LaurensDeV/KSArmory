@@ -223,9 +223,9 @@ internal sealed class WeaponSystems(Config config)
     /// <summary>
     /// The <em>selected</em> weapon on a craft, or null if it carries no weapons system.
     ///
-    /// <para>Every consumer that used to mean "the system on this craft" still gets one, which is
-    /// what let a craft grow several launchers without any of them changing: the panel, the sight,
-    /// the chase camera and the manual trigger all ask this and all follow the selection.</para>
+    /// <para>Every consumer that means "the system on this craft" asks this, which is what lets a
+    /// craft carry several launchers without any of them knowing: the panel, the sight, the chase
+    /// camera and the manual trigger all follow the selection.</para>
     /// </summary>
     public Entry? For(Vehicle? craft)
     {
@@ -502,22 +502,6 @@ internal sealed class WeaponSystems(Config config)
         }
     }
 
-    // What a weapon's settings are filed under.
-    //
-    // The first launcher keeps the bare craft name, so a save written before a craft could carry
-    // several still restores. Anything beyond it is suffixed, because two racks on one craft
-    // sharing one entry would share an arm switch -- and arming one to drop a bomb would arm the
-    // other.
-
-    // Takes one system off the roster, flying whatever it has in the air first.
-    //
-    // A fired round does not belong to the launcher any more, so losing the launcher is not a
-    // reason to un-fire it: a seeker homes on its own and an anti-radiation round already
-    // carries the emission it remembers. The system stays alive to fly them, with the body they
-    // are over as their anchor, and is dropped when the last one lands.
-    //
-    // The name is read before detaching — it is the only thing that still knows what fired
-    // them, and it is the team identity as well as the label.
     /// <summary>
     /// Retires every system whose craft has been destroyed, handing its rounds to the body. Run from
     /// the step as well as from the sync, because the sync is in the UI pass: a system whose craft died
@@ -537,6 +521,15 @@ internal sealed class WeaponSystems(Config config)
         }
     }
 
+    // Takes one system off the roster, flying whatever it has in the air first.
+    //
+    // A fired round does not belong to the launcher any more, so losing the launcher is not a
+    // reason to un-fire it: a seeker homes on its own and an anti-radiation round already
+    // carries the emission it remembers. The system stays alive to fly them, with the body they
+    // are over as their anchor, and is dropped when the last one lands.
+    //
+    // The name is read before detaching — it is the only thing that still knows what fired
+    // them, and it is the team identity as well as the label.
     private void Retire((Vehicle Craft, int Ordinal) key, string why)
     {
         if (!_entries.TryGetValue(key, out Entry? entry)) return;
@@ -575,9 +568,8 @@ internal sealed class WeaponSystems(Config config)
     // count simply stops advancing, which is the honest behaviour when nobody is looking.
     //
     // Without the bound a launcher part destroyed outright leaves its entry searching every
-    // frame for ever, paying a whole-world scan each time and never firing again. That state
-    // was unreachable while only a decoupler could take a launcher away, because a decoupler
-    // leaves it somewhere; a warhead does not.
+    // frame for ever, paying a whole-world scan each time and never firing again. A decoupler
+    // leaves a launcher somewhere; a warhead does not.
     private const int FruitlessSearchesBeforeRetiring = 120;
 
     // Consecutive searches that found no craft carrying a system's launcher. Keyed on the system
@@ -713,6 +705,12 @@ internal sealed class WeaponSystems(Config config)
         return true;
     }
 
+    // What a weapon's settings are filed under.
+    //
+    // The first launcher keeps the bare craft name, so a save written before a craft could carry
+    // several still restores. Anything beyond it is suffixed, because two racks on one craft
+    // sharing one entry would share an arm switch -- and arming one to drop a bomb would arm the
+    // other.
     private static string SettingsKey(Vehicle craft, int ordinal)
         => ordinal == 0 ? KsaWorld.DisplayName(craft) : $"{KsaWorld.DisplayName(craft)}#{ordinal + 1}";
 

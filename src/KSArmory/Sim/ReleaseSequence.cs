@@ -56,8 +56,8 @@ internal readonly record struct ReleaseCommand(
 /// <summary>
 /// Letting a magazine go along one line.
 ///
-/// <para>The bus holds one attitude through its coast and the tubes are canted off it, so warheads
-/// released from that attitude leave on six different vectors and scatter. Once <see cref="Begin"/>
+/// <para>The bus holds one attitude through its coast, and where a launcher's tubes are canted off
+/// it, warheads released from that attitude leave on different vectors and scatter. Once <see cref="Begin"/>
 /// has latched the axes this turns the bus by one cant before each release so the tube about to fire
 /// lies on the mean — see <see cref="ReleasePointing"/> — waits for it to settle, releases, and moves
 /// on. One at a time, because each tube wants a different attitude.</para>
@@ -140,8 +140,8 @@ internal sealed class ReleaseSequence
     /// flown at 0.438 m/s, which is about ten degrees a second — not the residual jitter a light
     /// bus can never null.</para>
     ///
-    /// <para>Gating this on the release budget instead is why re-pointing could be switched on and
-    /// never start: a vehicle whose sweep floors above the budget never latches, so the cant it
+    /// <para>Gating this on the release budget instead lets re-pointing be switched on and never
+    /// start: a vehicle whose sweep floors above the budget never latches, so the cant it
     /// exists to remove stays in and nothing says why.</para>
     /// </summary>
     public const double SteadyToLatchMetresPerSecond = 0.5;

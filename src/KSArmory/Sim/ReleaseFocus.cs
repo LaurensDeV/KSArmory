@@ -455,7 +455,7 @@ internal static class ReleaseFocus
     /// </param>
     /// <param name="shrinkToward">
     /// The mean of the miss kicks already applied in this release, and how much of a warhead's own
-    /// departure from it to keep. Null keeps all of it, which is what every flight before this did.
+    /// departure from it to keep. Null keeps all of it.
     ///
     /// <para>The kick cancels what the probe says <em>this</em> warhead will miss by, and flown that
     /// differential behaves as noise injected one for one — the landing regresses on it at -1.090,
@@ -464,8 +464,8 @@ internal static class ReleaseFocus
     /// discards the part that is not shared.</para>
     /// </param>
     /// <param name="throughTheAir">
-    /// The ring's image and both solves flown through the air, or null to coast them in vacuum as every flight
-    /// before this did. Carried to this release along the coast; the spin is given back exactly either way.
+    /// The ring's image and both solves flown through the air, or null to coast them in vacuum.
+    /// Carried to this release along the coast; the spin is given back exactly either way.
     /// </param>
     public static Separation Kick(BallisticBody body, double3 positionCci, double3 velocityCci,
                                   double flightSeconds, double3 offsetCci, double3 spinCci,

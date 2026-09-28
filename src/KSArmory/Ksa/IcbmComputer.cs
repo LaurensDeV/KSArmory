@@ -46,10 +46,10 @@ internal sealed class IcbmComputer
     // How often it is re-flown when nothing but the readout wants it, in REAL seconds. Paced by
     // simulated time it runs every frame at warp, and each pass re-flies a whole trajectory at
     // PredictStepSeconds with a terrain lookup per step -- so on a warped coast, which is most of a
-    // flight, this was a full re-flight per rocket per frame for a line on an overlay.
+    // flight, that is a full re-flight per rocket per frame for a line on an overlay.
     //
     // The same trap IcbmState.PlayerStepSeconds exists for and describes in as many words: a
-    // computation budget is paced by the wall clock. The planner was given that; this was not.
+    // computation budget is paced by the wall clock.
     private const double ReadoutIntervalSeconds = 0.5;
 
     // Coarse enough to be cheap over half an hour, fine enough to land in the right place.
@@ -468,11 +468,9 @@ internal sealed class IcbmComputer
     // The span the aim correction has to sit out, which is only while thrusters are actually
     // moving the vehicle its observer reads.
     //
-    // It used to have to cover the clearance wait as well, because the trim solved a fresh transfer
-    // to the corrected aim and the two loops drove each other. The trim reads no aim at all now, so
-    // that coupling is gone at the source - and a correction frozen across a long wait is its own
-    // fault, since what it absorbs is what the fall loses to drag and terrain and that changes as
-    // the release point descends.
+    // Not the clearance wait: the trim reads no aim, so the two loops cannot drive each other
+    // there - and a correction frozen across a long wait is its own fault, since what it absorbs
+    // is what the fall loses to drag and terrain and that changes as the release point descends.
     public bool TrimIsFiring => _trim.Armed && !_trim.Done && _mayTrim;
 
     public Celestial? Parent { get; private set; }
@@ -770,10 +768,9 @@ internal sealed class IcbmComputer
         // TubesReadyToFire does, because a warhead goes through the deployment path rather than the
         // magazine's fire path and both still read six with the salvo long gone -- but "rounds are
         // in the air" and "the salvo has gone" are only the same thing while the warheads are
-        // flying. Recomputed each frame it went false again the moment the last one landed, which
-        // let Predict resume writing the arrival and brought the readout back counting down to the
-        // BUS's own impact, about half a minute later. That is the bug this line's own comment was
-        // written to fix, reintroduced by the way it was fixed.
+        // flying. Recomputed each frame it would go false again the moment the last one landed,
+        // letting Predict resume writing the arrival and bringing the readout back counting down to
+        // the BUS's own impact, about half a minute later.
         //
         // All three readers want the latched meaning: the coast probe stops predicting once the
         // salvo is gone, and CoastQuiet asks whether it has gone rather than what is airborne.
@@ -911,7 +908,7 @@ internal sealed class IcbmComputer
         // Attitude is driven for every phase that is doing something, not only while an engine is
         // lit. A hold can be an hour long and the vehicle is pointed at the burn for all of it; and
         // after cutoff the bus has to keep the line it was cut off on for the warheads to leave
-        // along. Both were left free before, which is a vehicle drifting when it should be settled.
+        // along. Left free, the vehicle drifts when it should be settled.
         bool aimed = false;
 
         if (Command.Phase is not (IcbmPhase.Idle or IcbmPhase.NoSolution))
@@ -1291,11 +1288,9 @@ internal sealed class IcbmComputer
         // And take the player with it, but only if they were watching the thing that just split.
         // Somebody flying an aircraft on the other side of the planet did not ask to be moved.
         //
-        // Staged rather than done here, and no longer because the engine refuses it - GoTo stopped
-        // rebuilding derived data, which was the thing it refused. What is left is ordering: a
-        // handover is decided during the panel's own pass, and taking the player's camera in the
-        // middle of it moves the craft out from under a panel that has already read which one it
-        // is showing.
+        // Staged rather than done here, for ordering: a handover is decided during the panel's own
+        // pass, and taking the player's camera in the middle of it moves the craft out from under a
+        // panel that has already read which one it is showing.
         if (KsaWorld.IsWatching(left)) _viewWanted = craft;
 
         // Held for the whole coast, to measure a distance from. The stack is alive rather than
@@ -1304,8 +1299,8 @@ internal sealed class IcbmComputer
         _separatedFrom = left;
 
         // Said again on the other side of the handover. The clearance state is reported once, and
-        // before this it was always reported from the half the computer is about to leave -- so the
-        // reading the trim actually runs on has never appeared in a log.
+        // that first report comes from the half the computer is about to leave -- so without this
+        // the reading the trim actually runs on never appears in a log.
         _saidClearOnce = false;
     }
 
@@ -1323,10 +1318,6 @@ internal sealed class IcbmComputer
         }
     }
 
-    // Whether the next sequence would fire the joint the launcher hangs on -- that one, not any
-    // later. A launcher that can separate at all is not a reason to refuse every stage: a
-    // multi-stage stack carrying a bus has a decoupler under it from the moment it is built, and
-    // treating that as "the next stage drops my rounds" strands it with a dead first stage.
     // A guided burn cannot resolve its cutoff finer than one frame, so a long step is not a slow
     // frame -- it is accel x step of velocity nobody asked for, and the shot is decided by it. The
     // rounds' own overrun report drops to Debug when nothing is in the air, and a boost always is,
@@ -1346,6 +1337,10 @@ internal sealed class IcbmComputer
     // How near the airframe's limit is worth a line in the log.
     private const double OverLimitWarnFraction = 0.85;
 
+    // Whether the next sequence would fire the joint the launcher hangs on -- that one, not any
+    // later. A launcher that can separate at all is not a reason to refuse every stage: a
+    // multi-stage stack carrying a bus has a decoupler under it from the moment it is built, and
+    // treating that as "the next stage drops my rounds" strands it with a dead first stage.
     private static bool StagingWouldDropTheLauncher(IManualFire? weapon)
         => weapon is { NextStageSeparatesIt: true };
 
@@ -1698,9 +1693,9 @@ internal sealed class IcbmComputer
 
         // Said here rather than left to the trim's own line, which is the only other thing that
         // reads this sentence and drops it: Say prints `trim.Said` alone once _mayTrim is true, so
-        // the success branch's text is produced on exactly the frame it can no longer be logged on.
-        // Its absence from 94 flights was read as the gate never opening -- `docs/MIRV-NEXT.md`
-        // item 8w. A gate whose only observable is its failures is not an instrument.
+        // the success branch's text is produced on exactly the frame it can no longer be logged on,
+        // and its absence reads as the gate never opening -- `docs/MIRV-NEXT.md` item 8w. A gate
+        // whose only observable is its failures is not an instrument.
         if (!_saidCleared && clearance.IsClear && _didSplit && clearance.Said.Length > 0)
         {
             _saidCleared = true;
@@ -1809,7 +1804,7 @@ internal sealed class IcbmComputer
         // The reason it stopped, which Say above cannot report: that fires on a cycle being taken,
         // and finishing is precisely the decision that takes none. It is the line that says how
         // much of the miss was still on the table and why it was left there -- the largest term in
-        // where the warheads land, and until now the only one never written down.
+        // where the warheads land, and written down nowhere else.
         if (pass.MayRelease && !_postBoostSaid)
         {
             _postBoostSaid = true;
@@ -1850,9 +1845,8 @@ internal sealed class IcbmComputer
         // Deliberately NOT dropped when the trim reports done. A post-boost pass calls
         // _trim.Resume(), so passes keep arriving afterwards -- and those are the large ones. With
         // the reference gone they read "waiting to clear the spent stack, which cannot be read" and
-        // fall through to SeparationClearance's 20 s clock, so the dangerous passes were exactly
-        // the ones flying blind. This is not the reverted clearance latch: that cached a stale
-        // ANSWER, and this keeps the QUESTION askable.
+        // fall through to SeparationClearance's 20 s clock, so the dangerous passes would be exactly
+        // the ones flying blind. This caches no ANSWER; it keeps the QUESTION askable.
 
         // Said once per change. A trim that stalls looks exactly like one that has finished, and
         // the difference between them is kilometres on the ground.
@@ -2271,11 +2265,9 @@ internal sealed class IcbmComputer
     // BusTrim.MaxMetresPerSecond is crossed at 4.3 s of disagreement, and a trim asking for tens is
     // a handful of seconds long before it is anything wrong with the vehicle.
     //
-    // Printed unconditionally, and that is the point. It used to fire only once the demand was
-    // already over the ceiling, so it could report the disagreement's tail and never its
-    // distribution -- a 96-flight night read as 1 s on eleven shots and 26 s on one, which was the
-    // logger describing its own trigger rather than the fault. Anything under the ceiling was
-    // invisible.
+    // Printed unconditionally, and that is the point. Printed only once the demand is over the
+    // ceiling, it reports the disagreement's tail and never its distribution -- the logger
+    // describing its own trigger rather than the fault.
     //
     // The two are not the same quantity and need not match: the arrival is when a vacuum transfer
     // reaches the aim point, the prediction is when a warhead with drag reaches the ground. Their
@@ -2342,8 +2334,8 @@ internal sealed class IcbmComputer
         if (away)
         {
             // Captured on the first one away, because it is the only instant the magazine's loaded
-            // count is still readable: it reloads a few seconds after the salvo, which is exactly
-            // what left the coast warp dead for weeks. WarheadsAway only ever increases, so the two
+            // count is still readable: it reloads a few seconds after the salvo, and read then it
+            // says the salvo never finished. WarheadsAway only ever increases, so the two
             // together are a monotonic "the salvo is finished".
             if (WarheadsAway == 0)
             {
@@ -2377,8 +2369,7 @@ internal sealed class IcbmComputer
                 released.AirVelocityAtOwnSubStep = Config.WarheadAirVelocityPerSubStep;
 
                 // Said, because an arm that cannot be seen in the log is an arm nobody can verify
-                // engaged -- the smoke had to infer it from the walks. The sub-step swap says so a
-                // few lines above; this is the other half of the same night.
+                // engaged. The sub-step swap says so a few lines above.
                 if (Config.DragAtMidpointVelocity)
                 {
                     Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)}: warheads take their "
@@ -2569,11 +2560,11 @@ internal sealed class IcbmComputer
                  + $"{_walker.Step.HopMetresPerSecond:F2} m/s of hop priced");
     }
 
-    // Everything the correction loop will ever do is over by the first release, and until now none
-    // of it survived the flight at INFO: the response and the plant readings were DEBUG lines
-    // buried in hundreds of per-cycle ones, the release residual only appeared when the trim
-    // changed what it was doing, and the arrival angle was printed only when a floor was asked for
-    // and could not be met -- so a baseline shot never recorded the one number cot(gamma) says
+    // Everything the correction loop will ever do is over by the first release, and otherwise none
+    // of it survives the flight at INFO: the response and the plant readings are DEBUG lines
+    // buried in hundreds of per-cycle ones, the release residual appears only when the trim
+    // changes what it is doing, and the arrival angle is printed only when a floor is asked for
+    // and cannot be met -- so a baseline shot would not record the one number cot(gamma) says
     // dominates its precision.
     private void SayWhatTheLoopLeft()
     {
@@ -2780,8 +2771,8 @@ internal sealed class IcbmComputer
         if (TraceSetup() is not { } setup)
         {
             // Said once rather than returning quietly. A stranded trace is indistinguishable in the
-            // log from a flight that was never traced, which is what made half a night's readings
-            // look like a sampling choice rather than a fault.
+            // log from a flight that was never traced, and reads as a sampling choice rather than
+            // a fault.
             if (!_saidTraceStranded)
             {
                 _saidTraceStranded = true;
@@ -2968,8 +2959,8 @@ internal sealed class IcbmComputer
                 }
             }
 
-            // Each warhead to its own point on a ring, or all six to the designation, which is
-            // what every flight before this did. The spin axis is exactly +Z in a body's own Cci.
+            // Each warhead to its own point on a ring, or all six to the designation at a footprint
+            // of zero. The spin axis is exactly +Z in a body's own Cci.
             double3 aimedAt = WarheadFootprint.AimFor(from.TargetCci, new double3(0, 0, 1),
                                                       Config.WarheadFootprintMetres,
                                                       released.Tube - 1, weapon.TubeCount);
@@ -3181,16 +3172,16 @@ internal sealed class IcbmComputer
             // The warheads' own ETA, latched here and never rewritten. This probe is flown from the
             // state a warhead actually left in, so it is the one honest arrival time there is --
             // and after this instant Predict is flying the *bus*, which coasts on to its own impact
-            // about half a minute later. Letting that overwrite the readout is what made a correct
-            // countdown reach zero as the warheads landed and then jump back to twenty seconds.
+            // about half a minute later. Letting that overwrite the readout makes a correct
+            // countdown reach zero as the warheads land and then jump back to twenty seconds.
             _arrivalLeft = hit.Seconds;
             _salvoAway = true;
 
             // Resolved, not just measured. A magnitude cannot say whether the residual is one-signed,
             // and the whole question about the pre-release term is its SIGN: 301 of 375 flights at a
             // 32 deg arrival land short, which is a bias and removable, where scatter is neither.
-            // That had to be reconstructed by fitting each seat's aim point from its own landings,
-            // and this makes it a direct read. ACCURACY-PLAN.md 3co.
+            // Without this it has to be reconstructed by fitting each seat's aim point from its own
+            // landings; this makes it a direct read. ACCURACY-PLAN.md 3co.
             // Carried like ProbeMissSaid's, and for the reason its comment gives: a ground-fixed
             // separation resolved against axes taken at the arrival is turned by the planet's spin
             // over the flight. ACCURACY-PLAN.md 3dw.
@@ -3421,7 +3412,7 @@ internal sealed class IcbmComputer
     // What the engine says the whole stack has left, across the stages it has not yet flown.
     //
     // The only figure that accounts for staging: it is what KSA's own staging display reads, and it
-    // is why a multi-stage rocket no longer reports itself unreachable while sitting on the pad
+    // is what keeps a multi-stage rocket from reporting itself unreachable while sitting on the pad
     // with the range to spare. NaN when it cannot be read, which puts the single-stage estimate
     // back rather than claiming a stack has nothing.
     private double StackDeltaV()
@@ -3541,9 +3532,9 @@ internal sealed class IcbmComputer
 
         // One line per flight, whether or not anything went wrong, said the frame the magazine
         // empties -- which is the last moment the bus manoeuvres near what it dropped, and so the
-        // moment the minimum is final. It is a measurement rather than a gate: the 2026-08-25
-        // collision was inferred from a thrashing trim rather than observed, and a shot that grazes
-        // the stack and survives leaves no other trace.
+        // moment the minimum is final. It is a measurement rather than a gate: without it a
+        // collision can only be inferred from a thrashing trim, and a shot that grazes the stack
+        // and survives leaves no other trace.
         if (!_saidProximity && _didSplit && next < 0 && weapon.TubesReadyToFire == 0)
         {
             _saidProximity = true;
@@ -4142,8 +4133,8 @@ internal sealed class IcbmComputer
         // What the predictor is actually a function of. On a coast it is an exact function of this
         // pair, so any wander in its answer is a wander in here -- 0.4 to 2.9 km per m/s along track
         // on this arc, and far more across it. Differencing positions cannot see that: on a coast
-        // they move by v*dt whatever is wrong, which is why the earlier probe could only ever report
-        // the bus's speed. docs/ACCURACY-PLAN.md 3as.
+        // they move by v*dt whatever is wrong, so a position probe can only ever report the bus's
+        // speed. docs/ACCURACY-PLAN.md 3as.
         _lastPredictedFromVelCci = alongCci;
 
         // Predicted with the warhead's drag rather than in vacuum. On a shallow deorbit arrival a
@@ -4179,8 +4170,8 @@ internal sealed class IcbmComputer
             PredictsFromCutoff = fromCutoff;
 
             // Restarted, not aged. Ageing it by the interval since the last prediction freezes the
-            // readout the moment predicting stops, which is what left a timer holding at twenty or
-            // thirty seconds while the warheads landed. This is run down by the simulated step in
+            // readout the moment predicting stops, leaving a timer holding at twenty or thirty
+            // seconds while the warheads land. This is run down by the simulated step in
             // Update instead, so it keeps counting for as long as the world does.
             if (!_salvoAway) _arrivalLeft = hit.Seconds;
 
@@ -4231,9 +4222,8 @@ internal sealed class IcbmComputer
             // flights whose response exceeded 2.55, and exactly the six that released 263-481 m off
             // against a 2-24 m norm -- perfect separation, both ways. ACCURACY-PLAN.md 3cl.
             //
-            // PostBoostAim was already handed `TrimSettled: _trim.Done` and refuses to judge a pass
-            // on an unflown correction. This is the same question asked one call earlier, and it was
-            // asking a different one.
+            // PostBoostAim is handed `TrimSettled: _trim.Done` and refuses to judge a pass on an
+            // unflown correction. This is the same question asked one call earlier.
             if (Config.CorrectAim && state.HasAim && !TrimIsFiring
                 && AimCorrection.DepartureIsWorthObserving(DensityRatioAt(fromCci))
                 && (Program.IsBurning || (_measureDue && _trim.Done)))
@@ -4333,8 +4323,7 @@ internal sealed class IcbmComputer
 
         // Said once, and only when it BINDS. A bound wider than AimCorrection.MaxMetres changes
         // nothing, and a setting that cannot be seen to have done anything is one whose flown
-        // result means nothing either way -- which is the trap this file's own history keeps
-        // falling into. The number is what the budget buys at this trajectory's exchange rate.
+        // result means nothing either way. The number is what the budget buys at this trajectory's exchange rate.
         if (!_saidAimReach && reach < AimCorrection.MaxMetres)
         {
             _saidAimReach = true;

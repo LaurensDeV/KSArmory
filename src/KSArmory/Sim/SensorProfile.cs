@@ -149,10 +149,9 @@ public sealed class SensorProfile
 
     // ---- What the set can tell targets apart by ------------------------------
     //
-    // Each of the three is off at zero, and zero is the default: with all three at zero the set
-    // behaves exactly as it did before any of them existed. They are the substrate for chaff and
-    // decoys, which need detection to depend on what a target *is* before either can mean
-    // anything -- see docs/AUDIT-2026-08.md.
+    // Each is off at its default, so a set that says nothing about them does not tell targets apart
+    // at all. They are the substrate for chaff and decoys, which need detection to depend on what a
+    // target *is* before either can mean anything -- see docs/AUDIT-2026-08.md.
 
     /// <summary>
     /// The cross-section <see cref="Range"/> is quoted against (m²). Zero means the set reaches

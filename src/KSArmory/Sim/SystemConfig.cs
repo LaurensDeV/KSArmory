@@ -35,7 +35,7 @@ public interface ISensorPolicy
 /// belong to <see cref="SensorProfile"/>, <see cref="MunitionProfile"/> and
 /// <see cref="LauncherProfile"/>, which vary per weapon system rather than per installation —
 /// two Pantsirs on opposite sides of the map share a flight model and disagree about whether
-/// they are armed.</para>
+/// they engage on their own.</para>
 /// </summary>
 public sealed class SystemConfig : ISensorPolicy
 {
@@ -67,7 +67,8 @@ public sealed class SystemConfig : ISensorPolicy
     /// Draw the bomb sight: where a store released now would land, and the arc it would take.
     ///
     /// <para>Per system rather than session-wide, because two aircraft in one world can sensibly
-    /// disagree about wanting one — and it costs BombSight.MaxSteps integration steps, each sub-stepped by the round to solve.</para>
+    /// disagree about wanting one — and it costs BombSight.MaxSteps integration steps, each
+    /// sub-stepped by the round to solve.</para>
     /// </summary>
     public bool DrawBombSight = true;
 
@@ -178,8 +179,8 @@ public sealed class SystemConfig : ISensorPolicy
 
     // ---- Optical head ---------------------------------------------------
     //
-    // Nothing. A head is a part in its own right now, with its own OpticConfig: it is crewed per
+    // Nothing. A head is a part in its own right, with its own OpticConfig: it is crewed per
     // director rather than per weapons system, it finds its own targets, and a craft can carry one
-    // with no armament at all. Keeping a launcher's copy of these would be a second place to set
-    // the same thing, and the one that did nothing.
+    // with no armament at all. A launcher's copy of these would be a second place to set the same
+    // thing, and the one that would do nothing.
 }

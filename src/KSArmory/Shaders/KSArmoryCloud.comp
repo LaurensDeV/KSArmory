@@ -598,9 +598,9 @@ float BallVisibleShare(vec3 centre, float radius, ivec2 size)
 // fBm for each was paying for turbulent detail in a term that is then exponentiated into a
 // smooth falloff. A shadow wants to know how much cloud is in the way, not what shape its
 // surface is.
-// The wind, as the pens lean into it: MushroomCloud.LeanAt, super-linear in height so the foot
-// stays over the crater while the cap rides downwind. A column standing exactly vertical is the
-// plainest tell that a shape was generated.
+// The wind leans the cloud super-linearly in height (Unlean), so the foot stays over the crater
+// while the cap rides downwind. A column standing exactly vertical is the plainest tell that a
+// shape was generated.
 // How far through its stand the cloud is, eased, in [0, 1]: MushroomCloud.Aged, with its two
 // times. MushroomCloudShaderTests holds these to the C#.
 const float StandBeginsSeconds = 57.0;
@@ -645,9 +645,9 @@ vec3 Unlean(vec3 world, vec3 up, float top)
     top = leanTop > 0.0 ? leanTop : top;
     float t = clamp(y / top, 0.0, 1.0);
 
-    // Half what MushroomCloud.LeanAt gives the pens. That constant is bounded by the cap having to
-    // stay over the column holding it up, and a raymarched stem is thinner than a bundle of nine
-    // capsules -- at the full lean the cap rides off the top of it and reads as detached.
+    // MushroomCloud.MostLean, which the C# bound is grown by. It is bounded by the cap having to
+    // stay over the column holding it up: lean further and the cap rides off the top of the stem
+    // and reads as detached.
     float lean = 0.095 * top * pow(t, 1.4);
 
     // AND THE WIND TURNS WITH HEIGHT, not only strengthens. Veer is what the Ekman spiral and the
@@ -868,11 +868,8 @@ float Density(vec3 leaned, vec3 up, float radius, out float fireMask, out float 
 
     // The vortex turning over. The billows are already organised on the poloidal angle -- the angle
     // around the ring -- so ADVECTING that angle with time is the circulation itself: up the inside,
-    // over the top, down the outside. It costs one subtraction.
-    //
-    // This is the thing pens could not do. A cursor that keeps everywhere it has been draws a helix
-    // when it is rolled, which is why MushroomCloud.Shape.Roll was computed and then never used by
-    // anything. A volume has no such problem: nothing here remembers where it was.
+    // over the top, down the outside. It costs one subtraction, and nothing here remembers where
+    // it was, so rolling it draws no helix.
     // REJECTED BEFORE ANY NOISE. The erosion below can only pull a surface inward by the coarse
     // band's 1.05 and the fine band's 0.30 of the feature's own radius, so a sample further outside
     // than that cannot come back with density however the noise falls -- this is exact, not an
@@ -1741,8 +1738,8 @@ void main()
     // each would otherwise lay its own white over the last.
     //
     // ABOVE the guards below, because a fireball needs no cloud. On a body with no air none is
-    // grown, so the pass was dispatched for nothing and an airless burst blinded nobody -- which
-    // is backwards, there being no atmosphere there to attenuate it.
+    // grown, so below them the pass would be dispatched for nothing and an airless burst blind
+    // nobody -- which is backwards, there being no atmosphere there to attenuate it.
     // Only on the flash's own dispatch, which carries no cloud and no mark: on theirs these floats
     // are the fireball and the tile.
     bool flashDispatch = pc.CentreRadius.w <= 0.0 && pc.FireSun.w <= 0.0;
@@ -1848,8 +1845,7 @@ void main()
     float deviceZ = texture(sceneDepth, uv).r;
     float sceneT = deviceZ > 0.0 ? length(WorldAt(uv, deviceZ)) : 1.0e30;
 
-    // The weather along this pixel. No cloud is infinitely far and entirely clear, which is the
-    // whole of what every burst was drawn against before.
+    // The weather along this pixel. No cloud is infinitely far and entirely clear.
     float weatherClear = 1.0;
     sheetCount = 0;
 
@@ -1882,9 +1878,8 @@ void main()
     // Bounding sphere. Most pixels leave here, which is the whole of the performance story.
     vec3 toCentre = pc.CentreRadius.xyz;
     // The cloud's own up, DERIVED rather than sent. A burst's local vertical is the way out from
-    // the planet's centre, and both that centre and the burst are already here -- so the two floats
-    // it used to cost went to the fireball instead, in a block that is at Vulkan's guaranteed 128
-    // bytes with nothing spare.
+    // the planet's centre, and both that centre and the burst are already here -- so it costs no
+    // floats in a push-constant block that is at Vulkan's guaranteed 128 bytes with nothing spare.
     vec3 up = normalize(toCentre - global.lighting.planetPosition.xyz);
 
     // THE GROUND THE FIREBALL BURNED, out to the warhead's own lethal radius. That is the number
@@ -2200,8 +2195,7 @@ void main()
         // THE BURST LIGHTING THE CLOUD IT IS INSIDE. For the couple of seconds the ball is
         // incandescent it is by far the brightest thing in the scene, and the young cloud is
         // wrapped around it -- lit from outside alone it is a grey pillar at the one moment it
-        // should be glowing. Over before the first of the old captures at 3.8 s, which is why this
-        // was never missed.
+        // should be glowing. It is over by 3.8 s, so a capture any later cannot show it.
         //
         // Falls off as the inverse square from the ball's SURFACE rather than its centre, so a
         // sample inside it is bounded instead of dividing by nothing. No shadow march toward it:

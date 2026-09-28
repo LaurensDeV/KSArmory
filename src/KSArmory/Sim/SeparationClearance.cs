@@ -21,7 +21,7 @@ internal readonly record struct Clearance(bool IsClear, bool OnTheClock, string 
 /// cannot close" is false, and circularly so: it holds only while the gate is <em>shut</em>. Once
 /// this answers clear the trim runs, and the trim's whole job is to null the velocity difference —
 /// which is the separation. So the pair can and do come back together, and every pass has to ask
-/// again. Flown 2026-08-25: a latch drove a bus into its own spent stack.</para>
+/// again: a latch drives a bus into its own spent stack.</para>
 /// </summary>
 internal static class SeparationClearance
 {
@@ -91,10 +91,9 @@ internal static class SeparationClearance
         // being absent still goes ahead below.
         if (late && known && metresApart < wanted)
         {
-            // One decimal, because the interesting failures are the near ones and F0 turned them
-            // into "still 15 m ... inside the 15 m it needs" -- which reads as a contradiction and
-            // hides that the shot missed the gate by centimetres. Nine of the recorded timeouts
-            // are that case.
+            // One decimal, because the interesting failures are the near ones, and at F0 they read
+            // "still 15 m ... inside the 15 m it needs" -- a contradiction that hides a miss of the
+            // gate by centimetres.
             return new Clearance(false, OnTheClock: true,
                                  $"still {metresApart:F1} m from the spent stack after "
                                  + $"{secondsSinceSplit:F0} s, which is inside the {wanted:F1} m it "

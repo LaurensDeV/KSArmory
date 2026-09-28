@@ -35,8 +35,8 @@ internal enum TailKitHold
 ///
 /// <para><b>This exists to be shown.</b> A kit's authority collapses as the ground comes up, so
 /// designating after release works, works partly, or does nothing — with nothing on screen to say
-/// which. A player who cannot see the region reads all three as the weapon being broken, which is
-/// what sent them clicking at the ground over and over. Same argument <see cref="ReachDisplay"/>
+/// which. A player who cannot see the region reads all three as the weapon being broken, and clicks
+/// at the ground over and over. Same argument <see cref="ReachDisplay"/>
 /// makes for the bus, and the same answer: one region, drawn, reported and read off the panel, so
 /// the three cannot disagree.</para>
 ///
@@ -68,9 +68,9 @@ internal readonly record struct TailKitReach(
     // reach pushes at full lateral authority all the way down, and where that puts it is the edge
     // of the region. The law saturates above a·t²/N, so two is three times what it takes.
     //
-    // And not more, because the aim is flown to: at four, a store released from 20 km was sent at
-    // a point 70 km away, which stretched the fall past BombSight.MaxSteps — the probe never
-    // landed and a store with a perfectly good landing reported no region at all.
+    // And not more, because the aim is flown to: at four, a store released from 20 km is sent at
+    // a point 70 km away, which stretches the fall past BombSight.MaxSteps — the probe never lands
+    // and a store with a perfectly good landing reports no region at all.
     private const double ProbeSaturation = 2.0;
 
     // The share of the swept extreme a designation can be settled on. The probe measures where a

@@ -23,8 +23,8 @@ internal sealed class DropScenario
     ///
     /// <para><c>warp</c> is a factor to set once the store is away, or <c>auto</c> for KSA's own
     /// warp-to-a-time. They are not the same test: the engine <em>refuses</em> a speed change while
-    /// an auto-warp runs, and that refusal is what <see cref="WarpPolicy"/> used to abandon the
-    /// store over.</para>
+    /// an auto-warp runs, and <see cref="WarpPolicy"/> has to stand down for that refusal rather than
+    /// abandon the store over it.</para>
     ///
     /// <para><c>again</c> is <c>&lt;seconds&gt;@&lt;metres&gt;</c> — send the store somewhere else
     /// that long after the release, that far north of the ring — or <c>&lt;seconds&gt;@clear</c> to
@@ -480,7 +480,7 @@ internal sealed class DropScenario
     // The fifth is an ABSOLUTE age rather than a fraction, because it is about the cloud's whole
     // life and not its rise: MushroomCloud.Fade holds at one until half way through the stand and
     // then squares away to nothing, and a run ending at the rise stops sixteen seconds before any
-    // of that starts. It was never photographed, which is how the fade reached the shader at all.
+    // of that starts, so without this the fade is never photographed.
     private double[] CaptureAges()
     {
         double watch = WatchSeconds;
@@ -490,8 +490,8 @@ internal sealed class DropScenario
         if (!BurstIsNuclear || _round is not { } round) return rise;
 
         // The flash, before the rise fractions. The ball is incandescent for under two seconds at
-        // this yield and the earliest of those fractions is 3.8 s, so the whole of the burst
-        // lighting its own cloud happened before any capture had ever been taken.
+        // this yield and the earliest of those fractions is 3.8 s, so without this none of the
+        // burst lighting its own cloud is ever photographed.
         double flash = MushroomCloud.FlashSeconds(MushroomCloud.KilotonsFor(round.Munition.ChargeKg));
 
         // Two during the luminous phase: the whiteout peaks about a tenth of the way through it
@@ -564,8 +564,8 @@ internal sealed class DropScenario
     // which is the only question left about it.
     //
     // Cued off the burst's SIMULATED age, so a run at any speed photographs the same cloud. Wall
-    // clock was the same number at 1x and a different cloud at every other speed, which is what
-    // made "does warp change what this looks like" a question nothing could ask. The linger is
+    // clock is the same number at 1x and a different cloud at every other speed, which would make
+    // "does warp change what this looks like" a question nothing could ask. The linger is
     // still ended on wall clock, because how long to hold a camera is a viewing duration.
     private void CaptureBurst()
     {
@@ -710,7 +710,7 @@ internal sealed class DropScenario
             // A craft already set down at a site that then disappears from flight is not coming
             // back: a rocket stood on uneven ground topples, and the wait below would say so every
             // ten seconds for as long as anybody let it. Everything else in this scenario has a
-            // budget and gives up; this is the one place that had none.
+            // budget and gives up, and so does this.
             if (_siteRequested)
             {
                 if (double.IsNaN(_lostSince)) _lostSince = _sim;
@@ -1064,8 +1064,8 @@ internal sealed class DropScenario
         if (LingerSpeed != 1.0)
         {
             // Zero is a pause and not a speed, and goes through the call that says so.
-            // SetSimulationSpeed refuses it outright, which is why asking for it as a speed left
-            // the world at 1x while the run reported it had asked for a pause.
+            // SetSimulationSpeed refuses it outright, so asking for it as a speed leaves the world
+            // at 1x while the run reports it asked for a pause.
             bool held = LingerSpeed <= 0.0
                             ? KsaWorld.SetPaused(true)
                             : KsaWorld.SetSimulationSpeed(LingerSpeed);

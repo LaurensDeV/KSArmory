@@ -326,12 +326,6 @@ internal sealed class AimCorrection
         if (Settled) return;
 
         // It is a feedback loop and the plant is not always the one the gain was chosen for.
-        // Moving the aim moves the impact by about as much again while the solver may pick its own
-        // flight time; once the arrival is latched, the same aim change forces a different
-        // trajectory to arrive at the same instant, and on a shallow near-orbital shot that
-        // amplifies the response past where a gain of a half is stable. The loop then walks away
-        // from its own best while the miss it is removing grows.
-        //
         // Flown at 3,459 km from a near-orbital pickup: 55.1 km of miss down to 43.7 at 77 km of
         // bias, then 44.7, 47.9, 65.2, 126.1, and pinned at the 300 km limit with 209 km of miss.
         // The same loop converges in eight cycles when the flight time is free, which is why this
@@ -344,10 +338,10 @@ internal sealed class AimCorrection
         //
         // A fixed fraction is only right for a fixed plant, and this one changes underneath the
         // loop: while the solver may pick its own flight time, moving the aim moves the impact by
-        // about as much again, and a half converges. Once the guidance latches the arrival the same
-        // aim change forces a different trajectory to arrive at the same instant, and on a shallow
-        // near-orbital arrival the impact moves several times further — at which point a half is
-        // above the stability limit and the loop walks away from its own best.
+        // about as much again. Once the guidance latches the arrival the same aim change forces a
+        // different trajectory to arrive at the same instant, and on a shallow near-orbital arrival
+        // the impact moves several times further — at which point a fixed fraction can be above the
+        // stability limit and the loop walks away from its own best.
         //
         // Measuring it needs no probe: every cycle already moves the aim and sees what the impact
         // did, which is the same secant a Newton step is built from.
@@ -406,10 +400,9 @@ internal sealed class AimCorrection
         else
         {
             // A pass level with the best ends the excursion. WorseBeforeStopping is a run - the
-            // patch the loop is meant to sit through - and without this the count accumulated over
-            // a whole flight, so twelve scattered excursions stopped it as readily as one patch of
-            // twelve. Unreachable while the band was a flat 250 m, because nothing at this shot's
-            // scale is 250 m worse than the best.
+            // patch the loop is meant to sit through - so twelve scattered excursions must not stop
+            // it as readily as one patch of twelve. It matters only when the band tracks the miss:
+            // at a flat 250 m nothing at this shot's scale is 250 m worse than the best.
             _worseFor = 0;
         }
 

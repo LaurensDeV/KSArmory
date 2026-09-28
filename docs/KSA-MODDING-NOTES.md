@@ -878,7 +878,7 @@ centreOfMassAsmb, pointBody, normalBody, impulsePerArea, area)`**, which is publ
   enqueues under a lock and the vehicle's own module update drains the queue, so it can be called
   from a mod hook; `FxDeformation.Shared.TotalReported` counts what it accepted.
 
-`KsaWorld.ReportBlastDents` is the worked example. The mesh editor's **Add test dent** is the other
+`KsaWorld.ReportBlastDent` is the worked example. The mesh editor's **Add test dent** is the other
 way in, `FxDeformation.DebugImpact`, and places one at random.
 
 ## A compute pass can read KSA's weather shadows, but not through KSA's set

@@ -41,7 +41,7 @@ public sealed class Config
     public float CannonVolume = 0.8f;
 
     /// <summary>
-    /// The rate the cannon loop was synthesised at, in rounds per minute.
+    /// The rate of the gun the shared cannon loop was recorded from, in rounds per minute.
     ///
     /// <para>Playback pitch is the gun's own rate over this, clamped. The CIWS is at this rate, so
     /// it plays the recording untouched; anything else is retuned toward its own cycle without
@@ -90,8 +90,8 @@ public sealed class Config
     /// ever stops working, a mod with no way to reopen its panel is unusable.</para>
     ///
     /// <para>Drawn whenever it is on, including with <b>ModMenu</b> installed. Suppressing it there
-    /// traded the one route this mod controls for another mod's menu, and left no recovery when
-    /// that did not work: the control that would switch it back on is inside the shut panel.</para>
+    /// would trade the one route this mod controls for another mod's menu, with no recovery if that
+    /// failed: the control that would switch it back on is inside the shut panel.</para>
     /// </summary>
     public bool FloatingPanelButton = true;
 
@@ -160,8 +160,7 @@ public sealed class Config
     /// that engulfs a drone still kills it outright.</para>
     ///
     /// <para>Off returns the mod to binary kills: inside the lethal radius the craft is destroyed,
-    /// outside it nothing happens. That is what shipped before KSA had a part-failure model, and
-    /// it is the way back if fragments turn out to cost more frame time than they are worth — one
+    /// outside it nothing happens. It is the way back if fragments turn out to cost more frame time than they are worth — one
     /// craft can become several, and every one of them is simulated.</para>
     /// </summary>
     public bool DamageIndividualParts = true;
@@ -188,18 +187,17 @@ public sealed class Config
     /// obeyed twice over and twice the missiles are spent. <see cref="TargetAllocation"/> is the
     /// shared tally.</para>
     ///
-    /// <para>Off restores the per-weapon count, which is what shipped before. Worth keeping,
+    /// <para>Off counts per weapon. Worth keeping,
     /// because it is a real choice rather than a bug: a player who fitted two launchers to put
     /// four rounds on a target is asking for exactly the behaviour this stops.</para>
     /// </summary>
     public bool ShareTargetsAcrossWeapons = true;
 
     /// <summary>
-    /// Substring that marks a craft as belonging to a team, matched against its name.
+    /// The teams declared this session, in the order a switcher row's flag steps through them.
     ///
-    /// <para>KSA has no team field, so a name convention is the only assignment that needs no
-    /// extra UI: a craft called "Red Hunter" is on team "Red" if that is listed here. Empty means
-    /// no craft is ever classified and everything stays Unknown.</para>
+    /// <para>KSA has no team field. Which team a craft is on is <see cref="TeamRoster"/>'s, set by
+    /// the flag; this is only the list of names there are to pick from.</para>
     ///
     /// <para>Session-wide, unlike <see cref="SystemConfig.Iff"/>: a team name labels a craft the
     /// same way whoever is looking at it, and it is which side each battery takes that differs.</para>

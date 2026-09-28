@@ -1692,9 +1692,9 @@ Not exercised, and the first two are the ones to believe least:
       because nobody has burned regolith this way. And no plume: nothing lifted anything and no wind
       would carry it. Flown on Luna: 264 m, a round patch just past the 218 m of thrown ground.
 
-      **The bound has never been reached.** `MaxScorches` is twelve and the oldest is dropped; the
-      harness produces at most two, and nothing has ever watched a mark vanish. That path is
-      reasoned only.
+      **The bound has been reached.** `MaxScorches` is twelve and the oldest is dropped; sixteen
+      0.3 kt bursts through the bridge on 2026-09-23 held the count at twelve with the first row of
+      marks gone. `docs/NUCLEAR-NEXT.md` has the flight.
 
 - [x] **All three re-flown at a yield and on a body neither was written against**, same day.
 

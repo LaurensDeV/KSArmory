@@ -375,13 +375,14 @@ public static class TubeGeometry
     ///
     /// <para><b>The anchor is a point in the world, written down in the part's frame.</b> The
     /// travel term is converted through the craft's <em>current</em> attitude every frame and so
-    /// stays put; the anchor was not, so it rode the craft. Rolling the launcher then swung every
-    /// round already in flight about the craft's own centre — on a stack that lever arm is the
-    /// whole distance from the tube to the centre of mass, which is metres, not millimetres.</para>
+    /// stays put; an anchor left in the part frame rides the craft, and rolling the launcher then
+    /// swings every round already in flight about the craft's own centre — on a stack that lever arm
+    /// is the whole distance from the tube to the centre of mass, which is metres, not
+    /// millimetres.</para>
     ///
     /// <para><paramref name="sinceLaunchAsmb"/> is <c>Conjugate(attitude now) * attitude at
     /// launch</c>: identity while the craft holds still, so a launcher that never turns is
-    /// untouched by this and every round fired before it behaves exactly as it did.</para>
+    /// untouched by this.</para>
     /// </summary>
     public static double3 CarryAnchor(double3 anchorPartFrame, doubleQuat sinceLaunchAsmb,
                                       doubleQuat asmb2Part)
@@ -392,9 +393,8 @@ public static class TubeGeometry
         return Vec.IsFinite(carried) ? carried : anchorPartFrame;
     }
 
-    // A quaternion that is not unit length has never been set -- a round from before the field
-    // existed -- so whatever it was going to carry stands as it is rather than being multiplied by
-    // nonsense.
+    // A quaternion that is not unit length has never been set, so whatever it was going to carry
+    // stands as it is rather than being multiplied by nonsense.
     private static bool IsRotation(doubleQuat q)
     {
         double norm = (q.X * q.X) + (q.Y * q.Y) + (q.Z * q.Z) + (q.W * q.W);

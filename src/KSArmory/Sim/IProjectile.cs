@@ -7,8 +7,8 @@ namespace KSArmory;
 ///
 /// <para>A <see cref="MunitionProfile"/> varies one round within a single flight model — burn
 /// harder, steer harder, fuse wider. It cannot express a different <em>kind</em> of weapon:
-/// <see cref="Interceptor"/>'s loop is integrate → guide → fuse, and a slug has no guidance stage
-/// while a beam has no flight. Those are separate implementations of this.</para>
+/// <see cref="Interceptor"/>'s loop is integrate → guide → fuse, a slug's is a fall that ends on
+/// contact, and a beam has no flight. Those are separate implementations of this.</para>
 ///
 /// <para>Every member here has a caller on the KSA side. Must stay free of KSA types.</para>
 /// </summary>
@@ -17,7 +17,10 @@ internal interface IProjectile
     /// <summary>Flying, detonated or expired. The battery reaps on anything but flying.</summary>
     RoundState State { get; }
 
-    /// <summary>Which tube it left, numbered from one. Selects its body subpart.</summary>
+    /// <summary>
+    /// Which tube it left, numbered from one, which selects its body subpart. A gun round carries
+    /// the negative of its barrel instead (<see cref="RoundLabel"/>).
+    /// </summary>
     int Tube { get; }
 
     /// <summary>Seconds since launch.</summary>

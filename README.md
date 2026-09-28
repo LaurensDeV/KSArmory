@@ -99,9 +99,9 @@ See
 A further weapon is an entry in the registry plus its art: see
 [Adding a weapon system](#adding-a-weapon-system).
 
-**Or it need not be in this mod at all.** A *weapon pack* is an ordinary KSA mod that declares a
-dependency on KSArmory and hands it a file of definitions; KSArmory never looks for one and holds
-no list of them. `KSArmory-example-mod` is a complete worked example — a Mk 82 bomb rack, which
+**Or it need not be in this mod at all.** A *weapon pack* is an ordinary KSA mod with a `KSArmory/`
+folder of definitions in it and no code; KSArmory reads that folder inside every installed mod and
+holds no list of packs. `KSArmory-example-mod` is a complete worked example — a Mk 82 bomb rack, which
 used to ship here — and `docs/WEAPON-PACKS.md` is the reference.
 
 > Built against KSA build `2026.9.22.5482`. KSA is pre-release and has no official code-modding
@@ -422,14 +422,14 @@ and checks every asset Id and texture path, because all of those fail silently i
 
 Everything since is **authored** in Blender and its `.blend` is not in this repository, so a
 committed asset cannot be rebuilt from a clean checkout — which is why `checkmesh.py` and
-`validate-parts.py` matter more for those than for the generated four.
+`validate-parts.py` matter more for those than for the generated three.
 
 The part itself is inert — KSA sees structure with mass and a collider. The C# mod finds it on
 the vehicle and mounts the battery there. That split avoids registering a custom module type
 into the engine's internal update lists, which is not reachable without patching.
 
-**Adding a weapon system is data, not code.** `src/KSArmory/Sim/Arsenal.cs` registers each
-launcher, round and sensor as a profile; discovery is by part Id, so nothing in the simulation
+**Adding a weapon system is data, not code.** `src/KSArmory/Sim/Arsenal.cs` and
+`src/KSArmory/KSArmory/Weapons.xml` register each launcher, round and sensor as a profile; discovery is by part Id, so nothing in the simulation
 or the game binding names a particular vehicle. A new system is an entry there plus its art.
 
 The source is split by whether it can see KSA at all: `Sim/` cannot, `Ksa/` does. The test
@@ -590,7 +590,7 @@ because they live there rather than inside `LauncherPart`.
 
 ### Adding a weapon system
 
-It is data, not code. Nothing in `Sim/` or `Ksa/` names the Pantsir.
+It is data, not code. Nothing in `Sim/` or `Ksa/` names the Pantsir outside the registry.
 
 1. Model it — authored in Blender, following `.claude/skills/ksa-blender/SKILL.md`. The headless
    generator builds the three parts that predate that and is not extended.

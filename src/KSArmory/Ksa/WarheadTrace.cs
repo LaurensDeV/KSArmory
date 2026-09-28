@@ -607,7 +607,7 @@ internal sealed class WarheadTrace
         // its own flight time -- while _probeAlong and _probeCross were taken from the arrival, so
         // resolving the raw separation turns it by the planet's spin over the fall: 1.4 deg at
         // 340 s, a couple of centimetres across for every metre downrange. IcbmComputer.ProbeMissSaid
-        // has carried it since it was written; this did not. ACCURACY-PLAN.md 3dw.
+        // carries it the same way. ACCURACY-PLAN.md 3dw.
         //
         // The two points are un-carried by slightly DIFFERENT times, and that residue stays: a round
         // that stops higher arrives earlier and genuinely lands on ground the planet has turned less
@@ -615,8 +615,7 @@ internal sealed class WarheadTrace
         double3 separation = setup.Body.CarryCci(atReleaseEpochCci - _probeGroundCci, _probeSeconds);
 
         // Four decimals, because the print is the endpoint's resolution and the endpoint has moved
-        // by two orders of magnitude. Whole metres was wrong when the walk was metres (3ci); two
-        // decimals is wrong now it is 21 mm, and it is wrong in a way that hides the question being
+        // by two orders of magnitude. Two decimals is too coarse for a 21 mm walk, and wrong in a way that hides the question being
         // asked of it -- the increments BETWEEN re-flies are tenths of a millimetre, so at 10 mm
         // they are almost all zero and a rate read off them is quantisation. Measured: whether the
         // walk grows per frame or per simulated second reads r = -0.185 against +0.083 on 399

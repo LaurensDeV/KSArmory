@@ -3,7 +3,7 @@ using Brutal.Numerics;
 namespace KSArmory;
 
 /// <summary>
-/// The turret's azimuth drive: where it is pointing, where it has been told to point, and how
+/// The turret's traverse and elevation drives: where it is pointing, where it has been told to point, and how
 /// fast it is allowed to get there.
 ///
 /// <para>Deliberately free of KSA types, like <see cref="Interceptor"/> and <see cref="Vec"/> —
@@ -37,9 +37,9 @@ public sealed class Turret
     public const double DefaultRestElevation = 0.9599; // 55 degrees
 
     /// <summary>
-    /// Travel limits on the elevation drive. The floor is level, not slightly below it: a real
-    /// launcher does not depress past horizontal, and there is nothing worth shooting at down
-    /// there anyway — the battery defends the sky above itself.
+    /// Travel limits on the elevation drive, set from the profile. The default floor is level: a
+    /// launcher that defends the sky above itself does not depress past horizontal, and a mount
+    /// that does says so in its profile.
     /// </summary>
     public double MinElevationRad { get; set; }
     public double MaxElevationRad { get; set; } = double.DegreesToRadians(82);
@@ -118,8 +118,8 @@ public sealed class Turret
     ///
     /// Rotating by <c>a</c> about +X carries +Y to <c>(0, cos a, sin a)</c>, so the bearing of a
     /// direction is just the angle of its (Y, Z) components. The X component — how far above or
-    /// below the horizon the target sits — is deliberately dropped: this is an azimuth drive,
-    /// and the missile pods are at a fixed elevation.
+    /// below the horizon the target sits — is deliberately dropped: that is
+    /// <see cref="ElevationTo"/>'s.
     /// </summary>
     public static double BearingTo(double3 directionPartFrame)
         => Math.Atan2(directionPartFrame.Z, directionPartFrame.Y);

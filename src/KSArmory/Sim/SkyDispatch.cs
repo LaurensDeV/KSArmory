@@ -9,8 +9,8 @@ namespace KSArmory;
 ///
 /// <para><b>What each puts in <c>FireSun.w</c></b> is its own, and the scorch-mark branch, which
 /// offsets every pixel of a dispatch whose <c>FireSun.w</c> is positive, skips any dispatch with a
-/// negative bound: an aurora's is the sine of its foot's latitude, positive in the north, and before that
-/// guard every northern curtain was drawn off the screen.</para>
+/// negative bound: an aurora's is the sine of its foot's latitude, positive in the north, and without that
+/// guard every northern curtain is drawn off the screen.</para>
 /// </summary>
 internal static class SkyDispatch
 {
@@ -40,7 +40,7 @@ internal static class SkyDispatch
     /// Which of the sky dispatches asked for are drawn: of each kind, up to <see cref="MostOf"/>, the
     /// NEWEST first -- the order they were asked for in, which is the order the bursts went off in.
     /// Newest rather than brightest, because brightness moves: two bursts' curtains cross as one fades
-    /// and the other arrives, and ranked by it the one drawn jumped between them from frame to frame.
+    /// and the other arrives, and ranked by it the one drawn jumps between them from frame to frame.
     /// Fills <paramref name="keep"/> with indices into <paramref name="kinds"/>, in order.
     /// </summary>
     public static void Choose(IReadOnlyList<float> kinds, List<int> keep)

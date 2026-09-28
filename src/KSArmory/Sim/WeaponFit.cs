@@ -152,8 +152,8 @@ public sealed class WeaponFit
     ///
     /// <para>The same split <see cref="FireLadder"/> makes: a belt engages on its own, and tubes
     /// do only if their round leaves under its own power. A rack of stores is only ever released
-    /// with the trigger, so everything auto-engagement implies — a salvo size, what it may not shoot at, sending
-    /// the drives after the cursor — describes nothing it does.</para>
+    /// with the trigger, so everything auto-engagement implies — a salvo size, what it may not
+    /// shoot at, sending the drives after the cursor — describes nothing it does.</para>
     /// </summary>
     public bool AutoEngages
     {
@@ -179,9 +179,9 @@ public sealed class WeaponFit
     /// kind — which is how a panel tells a crewed part's row from a second part's.
     ///
     /// <para>Here rather than in the panel because it is the only part of that question that can be
-    /// tested, and it is the part that was wrong: a provided row is declared as a
-    /// <em>munition's</em> DisplayName, so it has to be matched against the munition, resolved from
-    /// the registry. Matching <see cref="Armament.Label"/> compares it to the belt's heading —
+    /// tested: a provided row is declared as a <em>munition's</em> DisplayName, so it has to be
+    /// matched against the munition, resolved from the registry. Matching
+    /// <see cref="Armament.Label"/> instead compares it to the belt's heading —
     /// "Cannon" against "2A38M 30 mm cannon" — which never agrees, and reports a working gun as
     /// not run.</para>
     /// </summary>

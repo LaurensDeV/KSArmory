@@ -340,11 +340,9 @@ internal static class KsaWorld
     /// Which of the engine's actuator tests is holding this vehicle off rails, as a short label —
     /// or null when neither is, which narrows the cause to the four this cannot see.
     ///
-    /// <para><b>Built because eliminating one term cost three nights.</b> Item 20 read the
-    /// off-rails coast as this mod's own attitude hold commanding a thruster, and flying a bus that
-    /// verifiably stopped commanding changed nothing: 88% of the coast quiet, 72% of it still off
-    /// rails, against a control at 72%. `docs/ACCURACY-PLAN.md` 3bf. Naming the term is a great
-    /// deal cheaper than eliminating them one arm at a time.</para>
+    /// <para><b>Naming the term is far cheaper than eliminating the terms one arm at a time.</b>
+    /// A bus that verifiably stopped commanding its attitude hold still coasted 72% off rails with
+    /// 88% of the coast quiet, against a control at 72% — `docs/ACCURACY-PLAN.md` 3bf.</para>
     ///
     /// <para><c>PhysicsBubble</c> takes a vehicle off rails on
     /// <c>anyActuatorCommanded || AnyActuatorActive() || ocean || animating || KittenWantsWake</c>,
@@ -463,9 +461,8 @@ internal static class KsaWorld
     /// <summary>
     /// What the bubble's heaviest member is called, which is what chooses the frame above.
     ///
-    /// <para>The altitude alone said a bubble had taken the rotating frame from something on the
-    /// ground and could not say from <em>what</em>. That left the merge seed of 3cn bracketed to a
-    /// ten-second window and unattributable — the one line that would have closed it.</para>
+    /// <para>The altitude alone says a bubble has taken the rotating frame from something on the
+    /// ground and cannot say from <em>what</em>, which leaves a merge like 3cn's unattributable.</para>
     /// </summary>
     public static string BubbleLeaderName(Vehicle? v)
     {
@@ -594,9 +591,9 @@ internal static class KsaWorld
     /// walks it.
     ///
     /// <para><b>This is the mod's most repeated piece of work.</b> Each weapons system's radar
-    /// scan walked the whole system, and so did its contact candidates, so a world with four
-    /// armed craft walked it eight times a frame to reach the same answer. Nothing about that
-    /// answer is per system: it is what exists.</para>
+    /// scan walks the whole system, and so do its contact candidates, so walked per system a world
+    /// with four armed craft walks it eight times a frame to reach the same answer. Nothing about
+    /// that answer is per system: it is what exists.</para>
     ///
     /// <para><b>Freshness is a generation, not a frame count.</b> The list may not outlive a
     /// change to the world, because a destroyed vehicle stays in it as a disposed reference where
@@ -812,12 +809,12 @@ internal static class KsaWorld
     // How high the terrain can possibly reach, as a bound the cheap reject may stand in front of
     // the exact test with.
     //
-    // Celestial.MaxTerrainHeightApprox is NOT such a bound, and using it was a false negative. It
+    // Celestial.MaxTerrainHeightApprox is NOT such a bound, and using it gives false negatives. It
     // is computed in the Celestial constructor, before Universe.SetupRenderData populates the
     // modifiers, so erosion, dunes and detail contribute nothing -- and it samples a 16,384-point
     // Fibonacci spiral, about 176 km apart on Earth. Measured against the shipped height texture it
     // returns ~5,692 m where the base field alone reaches 8,011. A sightline six kilometres over the
-    // Himalayas was declared unmasked without a single sample, which is the false negative
+    // Himalayas is then declared unmasked without a single sample, which is the false negative
     // CLAUDE.md's "a sphere containing the terrain cannot produce a false negative" forbids.
     //
     // Astronomical.MaxTerrainRadius is exact for the base field, straight off the template. Over-
@@ -1196,8 +1193,7 @@ internal static class KsaWorld
     /// ask this; the mean sphere is only good enough for a line in a log.</para>
     ///
     /// <para>Accurate, because it is asked once per burst and wants the surface where it actually
-    /// is. A height field that will not answer falls back to the mean sphere, which is the old
-    /// answer rather than a wrong new one.</para>
+    /// is. A height field that will not answer falls back to the mean sphere.</para>
     /// </summary>
     public static double HeightAboveTerrain(Celestial body, double3 positionEcl)
     {
@@ -1245,7 +1241,7 @@ internal static class KsaWorld
     /// <para>One private field away: <c>Program._planetTransparenciesRenderer</c> is the only owner
     /// of the renderer and <c>GetCloudRenderer()</c> is public on it. Reflected once and verified,
     /// and a KSA rename turns this off rather than breaking anything — the burst is then drawn in
-    /// front of the clouds, which is what it did before. The accumulated images it prefers are
+    /// front of the clouds. The accumulated images it prefers are
     /// four more private fields and a flag, with the public low-resolution pair behind them.</para>
     ///
     /// <para>Asked every frame rather than held: the renderer is rebuilt when the settings change
@@ -1500,8 +1496,7 @@ internal static class KsaWorld
     ///
     /// <para>Terrain and sea both against the mean sphere, and the terrain read accurately,
     /// because it is asked once per burst and the difference between a beach and the water beside
-    /// it is a few metres. An unreadable height field is land, which is what every burst was
-    /// before the sea was asked about at all.</para>
+    /// it is a few metres. An unreadable height field is land.</para>
     /// </summary>
     public static BurstSetting SettingOf(Celestial body, double3 positionEcl, double fireballRadius)
     {
@@ -1742,8 +1737,8 @@ internal static class KsaWorld
     ///
     /// <para><b>Not <see cref="TryEclToEgo"/></b>, which converts through the overlay's draw anchor:
     /// that is set only on a frame some overlay draws and cleared at the start of every frame, so a
-    /// caller with no overlay of its own gets nothing on most frames -- which is how the fireball
-    /// went undrawn, and unlit, whenever no weapon overlay happened to be on screen.</para>
+    /// caller with no overlay of its own gets nothing on most frames -- and the fireball would go
+    /// undrawn, and unlit, whenever no weapon overlay happened to be on screen.</para>
     /// </summary>
     public static bool TryEclToCameraEgo(double3 ecl, out double3 ego)
     {
@@ -2255,7 +2250,7 @@ internal static class KsaWorld
     ///
     /// <para><b>A body with no atmosphere reads 0.0, and that is an answer rather than a
     /// failure.</b> Every airless body in the game hands back no reference, so reading that as the
-    /// fallback put Earth's sea-level air on the Moon.</para>
+    /// fallback would put Earth's sea-level air on the Moon.</para>
     ///
     /// <para>The fallback when the atmosphere genuinely <em>cannot be read</em> — a throw, or a
     /// craft with no body under it — is still 1.0: a round that keeps its tuned drag is a far less
@@ -2318,7 +2313,7 @@ internal static class KsaWorld
         catch
         {
             // Unreadable reads as having one, so a burst falls back to the cloud rather than to the
-            // airless effect: a cloud that does not draw is what shipped, and dust on Earth is not.
+            // airless effect: a cloud that does not draw is a smaller fault than dust on Earth.
             return true;
         }
     }
@@ -2431,10 +2426,9 @@ internal static class KsaWorld
             //
             // No reference, or one with nothing physical in it, is the model saying there is no
             // air — which is KNOWLEDGE, not a failed read, and every airless body in the game
-            // answers this way. Read as the reference density it put Earth's sea-level air on the
-            // Moon: a bomb released 7 m over lunar ground reached a terminal 113 m/s and was still
-            // falling three minutes later, and every gun lay on an airless body was solved through
-            // drag that is not there.
+            // answers this way. Read as the reference density it puts Earth's sea-level air on the
+            // Moon: a bomb released 7 m over lunar ground reaches a terminal 113 m/s, and every gun
+            // lay on an airless body is solved through drag that is not there.
             AtmosphereReference? atmosphere = body.GetAtmosphereReference();
             if (atmosphere?.Physical is not { } air) return 0.0;
 
@@ -2542,7 +2536,7 @@ internal static class KsaWorld
     /// Takes a vehicle out of the world without breaking it up. Same threading rule as
     /// <see cref="Destroy"/>, and it takes that barrier itself: removing a vehicle also mutates the
     /// shapes registry, which the vehicle worker holds for its whole run, and a removal refused
-    /// half-way left the physics bubble indexing a vehicle list one shorter than it thought.
+    /// half-way leaves the physics bubble indexing a vehicle list one shorter than it thinks.
     ///
     /// <para><c>DestroyVehicleFromEvent</c> runs the engine's failure machinery, which ends in
     /// <c>PartFailure.ShedDebris(vehicle, 12)</c> — so destroying one spent stage can leave up to
@@ -2895,8 +2889,7 @@ internal static class KsaWorld
     /// Whether part failures can be handed to the engine at all.
     ///
     /// <para>Probed once. If the field ever moves the mod falls back to destroying whole craft,
-    /// which is what shipped before KSA had a failure model — a worse weapon, not a broken
-    /// one.</para>
+    /// as <c>Config.DamageIndividualParts</c> off does — a worse weapon, not a broken one.</para>
     /// </summary>
     public static bool CanQueuePartFailures
     {
@@ -3349,8 +3342,7 @@ internal static class KsaWorld
                 if (i == main) continue;
 
                 // Secondary is the only kind that is somewhere to put a sight. The registry also
-                // lists the crew portraits, which are visible windows and not views of the world,
-                // and the old IsOffscreen test could not tell them apart.
+                // lists the crew portraits, which are visible windows and not views of the world.
                 if (viewports[i] is { Visible: true, Type: ViewportType.Secondary }) into.Add(i);
             }
         }
@@ -4182,8 +4174,8 @@ internal static class KsaWorld
     /// modifies a part tree, and the engine does not do it either when it switches which vehicle is
     /// followed and controlled — <c>Camera.SetFollow</c> sets <c>ControlledVehicle</c> and stops.
     /// The rebuild reaches the shapes registry, which the vehicle worker holds for its whole run, and
-    /// this mod's hooks land inside that run whenever the worker has not finished; it threw from here
-    /// on handovers after a decoupler split. There does not need to be a way round it here.
+    /// this mod's hooks land inside that run whenever the worker has not finished, so rebuilding here
+    /// throws on a handover after a decoupler split.
     /// <c>TestTarget</c>, which has to build a vehicle, waits the run out instead.</para>
     /// </summary>
     /// <returns>False if the craft is gone, or the engine refused any part of it.</returns>
@@ -4467,7 +4459,7 @@ internal static class KsaWorld
         {
             try
             {
-                // A viewport carries a ViewportId now rather than its position in a list, and the
+                // A viewport carries a ViewportId rather than its position in a list, and the
                 // registry's order is not promised to put the main one first. Asked by identity.
                 ReadOnlySpan<IGameViewport> viewports = GameViewports;
                 IGameViewport? main = Program.MainViewport;
@@ -5128,7 +5120,7 @@ internal static class KsaWorld
     // A draped ring, in the frame of the body it lies on: the ground under it does not move in that
     // frame, so a ring drawn again where it was is the same ring. Draping is a terrain lookup a point,
     // which is most of what this mod costs a frame with a sight up; a ring standing still re-draped
-    // every frame paid it for an answer that never changed.
+    // every frame would pay it for an answer that never changes.
     private sealed class DrapedRing
     {
         public required Celestial Body;
@@ -5153,7 +5145,7 @@ internal static class KsaWorld
     private static long _drapeUses;
 
     // The ring draped here before, or this one draped now and kept. Null when the body's frame
-    // cannot be read, which drapes the old way.
+    // cannot be read, and the caller then drapes every point afresh.
     private static DrapedRing? DrapedRingFor(Celestial body, double3 centreEcl, double3 up, double3 a, double radius,
                                              int steps, double clearance)
     {

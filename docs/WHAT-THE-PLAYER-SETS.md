@@ -2,7 +2,7 @@
 
 **A plan, not a record.** §6 marks what of it has been built.
 
-The ballistic computer has **24 settings on `IcbmConfig`** and about eighteen of them are research
+The ballistic computer had **24 settings on `IcbmConfig`** when this was written (58 now) and about eighteen of them were research
 instruments that reached the panel because that is where a setting has to go to be reachable — see
 CLAUDE.md's rule that a setting nobody can reach is not a setting. That rule is right and it has had
 an unintended result: the panel now offers a player a page of numbers whose correct values are
@@ -38,7 +38,7 @@ somebody typed.
 | today | becomes |
 | --- | --- |
 | `HoldingCostMetresPerSecond` | **measured**, from two `ImpactPredictor` calls — a release now against one a second later. It spans 0.82 m/s at 500 km to 21.79 at 12,900, so no constant is right; the derived value won 12 of 12 in flight |
-| `MinArrivalAngleDeg` | **built, off by default.** `IcbmConfig.ArrivalPreference` is the share of the steepest affordable arrival to ask for, latched once per flight. `ArrivalBudget` already worked that bound out every cycle and nothing used it. There is no interior optimum to search for — `ACCURACY-PLAN` 3t showed the flown miss tracks `cot γ`, so steeper is simply better and the propellant is the only bound |
+| `MinArrivalAngleDeg` | **built**, and off by default; `IcbmConfig.ArrivalPreference`, shipped at 0.5, is the share of the steepest affordable arrival to ask for, latched once per flight. `ArrivalBudget` already worked that bound out every cycle and nothing used it. There is no interior optimum to search for — `ACCURACY-PLAN` 3t showed the flown miss tracks `cot γ`, so steeper is simply better and the propellant is the only bound |
 | `Loft` | **retired from the aim of it.** `docs/ARRIVAL-ANGLE.md` already shows it inverts the arrival from orbit; with the angle searched it has no remaining job |
 | `MaxAccelerationGee` | **already nearly derived** — the mod reads the airframe's own limit and takes the smaller. Drop the asking half |
 | `TurnStartMetres`, `TurnEndMetres`, `MaxAngleOfAttackDeg`, `HandoverPressurePa` | **internal.** The ascent profile is engineering; a player has no view on the dynamic pressure at which guidance takes over |
@@ -114,7 +114,7 @@ same rig `docs/SHOT-PROTOCOL.md` already describes. Until a cell is flown, that 
 ## 6. Order
 
 1. ~~**Derive the holding cost.**~~ Done and shipping on — `ACCURACY-PLAN` 3w, 110 m to 30 m.
-2. **Fly `ArrivalPreference`.** Built and off. What is unflown is what fraction is safe: near one
+2. **Fly `ArrivalPreference`.** Built, and ships at 0.5. What is unflown is what fraction is safe: near one
    leaves the shot no propellant margin, and 3h's B1 notes a steep floor asks 7-11 m/s of post-boost
    correction against a baseline's 2.45.
 3. **One delta-v line**, need against have, in one place. The reach cases are already shown — see §4.

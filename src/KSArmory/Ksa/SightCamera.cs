@@ -103,9 +103,9 @@ internal sealed class SightCamera : IViewPose
         if (Log.Threshold > Log.Level.Debug) return;
 
         // Whatever the head is actually following, which is the designation when there is one and
-        // the set's own pick otherwise. Asking only for a track measured nothing at all while a
-        // designation was driving -- and a designated patch of ground is never a track, so the
-        // probe was silent in exactly the case it was wanted for.
+        // the set's own pick otherwise. Asking only for a track measures nothing at all while a
+        // designation is driving -- and a designated patch of ground is never a track, so the
+        // probe would be silent in exactly the case it is wanted for.
         double3 targetEcl;
         double3 targetVel;
 

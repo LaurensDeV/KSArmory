@@ -73,10 +73,9 @@ public sealed class KSArmoryMod
     // computer is flying already has that answer drawn for it by IcbmOverlay -- against the whole
     // trajectory rather than the next hundred seconds of fall.
     //
-    // It is not only redundant, it is the most expensive thing this mod draws. Measured over eight
-    // rockets under ascent: `sight` 5.41 ms of a 7.17 ms `draw`, which is three quarters of the
-    // mod's whole drawing cost and about a fifth of the frame. A rocket climbing away from its pad
-    // solves a perfectly good 8-to-80-second bomb sight the entire way up, and nothing looks at it.
+    // It is not only redundant: each solve is a flown trajectory, so a rocket climbing away from its
+    // pad would solve a perfectly good 8-to-80-second bomb sight the entire way up, and nothing
+    // looks at it.
     // With no panel -- a headless run -- every craft keeps its sight.
     private bool ShowsSight(WeaponSystems.Entry e)
         => _ui is null || ReferenceEquals(e.Craft, _ui.Focused);
@@ -112,9 +111,6 @@ public sealed class KSArmoryMod
 
     // What each craft's weapons are doing between them, as against what each is doing alone.
     private readonly Armaments _armaments = new();
-
-    // Every craft, for crewing directors. Separate from the weapons survey because a director is
-    // a part rather than a system: there is nothing to recognise beyond the part itself.
 
     // Development tool: pick a craft up and set it down somewhere else.
     private readonly CraftMover _mover = new();
@@ -298,10 +294,11 @@ public sealed class KSArmoryMod
     //
     // Two hooks because hiding the UI stops one of them. KSA's ToggleUi action -- F2 -- flips
     // Program.DrawUI, and Program.OnFrame wraps the whole UI pass in it, including
-    // OnDrawUiViewports, which is what OnAfterGui postfixes. So the simulation used to stop dead
-    // while the world carried on: rounds frozen, fire control halted, and a guided burn handed the
-    // entire skipped span in one step when the UI came back -- 73 seconds at 1x with no timewarp
-    // anywhere, worth 12,710 m/s in a single frame and a shot 3.1 km/s past its own cutoff.
+    // OnDrawUiViewports, which is what OnAfterGui postfixes. On that hook alone the simulation stops
+    // dead while the world carries on: rounds frozen, fire control halted, and a guided burn handed
+    // the entire skipped span in one step when the UI comes back -- measured as 73 seconds at 1x with
+    // no timewarp anywhere, worth 12,710 m/s in a single frame and a shot 3.1 km/s past its own
+    // cutoff.
     //
     // The GUI pass still runs it whenever it is called, and that ordering is not arbitrary:
     // stepping there is what makes the round's offset and the anchor it is drawn against share an
@@ -576,8 +573,7 @@ public sealed class KSArmoryMod
 
                 // Shift-click locks the installation the panel is showing onto whatever is under
                 // the cursor -- its turret, and its director if it has one. Here rather than in
-                // the sight block above so it works on a craft with no camera, which is where it
-                // was first missed, and scoped to the shown system for the same reason the
+                // the sight block above so it works on a craft with no camera, and scoped to the shown system for the same reason the
                 // designator is: every crewed battery reading one cursor would lock all of them.
                 WeaponSystems.Entry? weapon = _roster.For(_ui.Focused);
                 TargetLock.Update(weapon?.Battery, _heads?.Driving(_ui.Focused)?.Head,
@@ -654,10 +650,6 @@ public sealed class KSArmoryMod
 
         using (_budget.Measure("sample")) foreach (WeaponSystems.Entry e in _roster.All) e.Battery.SampleWorld();
         using (_budget.Measure("headsample")) _heads?.SampleWorld();
-
-        // Reported off the *controlled* vehicle, not the battery's platform: whether a gun
-        // renders has nothing to do with whether the battery mounted, so gating it on that
-        // would hide the answer behind an unrelated condition.
 
         // Gate on the step the engine applied, not on the pause flag. Universe.IsPaused() is
         // `simulationSpeed == 0.0`, a statement about the setting rather than about whether the
@@ -739,9 +731,9 @@ public sealed class KSArmoryMod
                 // stop a *round* stepping over its own fuse radius, and a director has no fuse --
                 // it is a rate-limited drive, for which a long step simply means turning further.
                 //
-                // Applying it here injected the one thing this component must not have: the clamp
-                // bites only on long frames, so at 16x a 25 ms frame (0.40 s) was truncated to
-                // 0.32 s while an 8.33 ms frame (0.13 s) was not. The head then under-advanced on
+                // Applied here it would inject the one thing this component must not have: the
+                // clamp bites only on long frames, so at 16x a 25 ms frame (0.40 s) is truncated to
+                // 0.32 s while an 8.33 ms frame (0.13 s) is not. The head then under-advances on
                 // alternate frames, in step with the display's pacing -- which is a shake in the
                 // picture that appears above about 13x and nowhere below it.
                 using (_budget.Measure("heads")) _heads?.Update(dtSim, _airborne);
@@ -815,9 +807,8 @@ public sealed class KSArmoryMod
         }
 
         // Everything from here to the end of the method: sounds, plumes, tracers, the bomb sight,
-        // the sweeps and the save-stamp check. One span, because it is the tail nothing else
-        // covered -- and it sits after _budget.EndFrame, so it was outside the frame it belongs to
-        // as well as outside every child span.
+        // the sweeps and the save-stamp check. One span, because it sits after _budget.EndFrame and
+        // would otherwise be outside the frame it belongs to as well as outside every child span.
         using (_budget.Measure("tail"))
         {
 
@@ -839,10 +830,8 @@ public sealed class KSArmoryMod
             // nobody, and each solve is a flown trajectory.
             if (e.Policy.DrawBombSight && !FlyingABallisticShot(e.Battery) && ShowsSight(e))
             {
-                // Measured, and the draw beside it is the other half. What each of these costs is
-                // the trajectory flying rather than the lines: the pipper's 5.41 ms in CLAUDE.md
-                // is its Draw, and the solve under it has never been in the budget at all -- so
-                // "what does the sight cost a frame" had no readable answer before this.
+                // Measured apart from the draw, because what a sight costs is the trajectory
+                // flying rather than the lines.
                 if (_ui?.AimsTheSight(e) ?? true)
                 {
                     using (_budget.Measure("sight solve")) SightFor(e.Battery).Update(e.Battery, _lastSimStep);
@@ -871,17 +860,17 @@ public sealed class KSArmoryMod
             _tracers.Update(loose[i]);
         }
 
-        // A cloud belongs to the world rather than to any weapon, and it is here rather than with
-        // the drawing for the reason its own comment always gave: it is a thing in the world, not
-        // a duration somebody is watching. Left in the UI pass it stopped growing whenever the UI
-        // was hidden, which is the one time a player is watching it and nothing else.
-        //
-        // The scene gates it, not the craft. A mushroom cloud does not stop rising because whoever
-        // was flying has just been killed by it.
         // Read before anything else this frame: it takes the newest COMPLETE profiler frame, which
         // is the one the GPU has finished with rather than the one being recorded now.
         CloudPassCost.Sample();
 
+        // A cloud belongs to the world rather than to any weapon, and it is here rather than with
+        // the drawing because it is a thing in the world, not a duration somebody is watching. In
+        // the UI pass it would stop growing whenever the UI is hidden, which is the one time a
+        // player is watching it and nothing else.
+        //
+        // The scene gates it, not the craft. A mushroom cloud does not stop rising because whoever
+        // was flying has just been killed by it.
         using (_budget.Measure("clouds"))
         {
             NuclearClouds.RedWaves = _config.RedWave;

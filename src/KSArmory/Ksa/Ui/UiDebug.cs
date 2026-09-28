@@ -6,8 +6,8 @@ namespace KSArmory;
 /// <summary>
 /// Development tools: spawning targets, moving craft, setting off warheads by hand, and the log.
 ///
-/// <para>Nothing here is part of playing with the mod, which is why it all sits behind the
-/// collapsed Debug group rather than alongside the system panes.</para>
+/// <para>Nothing here is part of playing with the mod, which is why it all sits in the debug windows
+/// rather than alongside the system panes.</para>
 /// </summary>
 internal sealed partial class Ui
 {

@@ -38,7 +38,7 @@ public enum GimbalKind
 /// One optical head: where it sits, how fast it turns, and what it sees with.
 ///
 /// <para>Its own profile type rather than fields on <see cref="LauncherProfile"/>, because a head
-/// is no longer part of a launcher. It bolts to anything, finds its own targets and drives the
+/// need not be part of a launcher. It bolts to anything, finds its own targets and drives the
 /// player's view, so a craft carrying nothing else is an observation post.</para>
 ///
 /// <para>Two bodies and no named axes. A head is aimed by the shortest rotation onto the

@@ -80,8 +80,8 @@ internal static class BurstEjecta
             }
 
             // Said whatever happens, including when nothing is thrown. Reporting only the case
-            // that drew something is what made a burst drawing half its effect look like a burst
-            // the mod had never seen: the shell fired, the dust did not, and the log was silent.
+            // that drew something makes a burst drawing half its effect look like a burst the mod
+            // never saw: the shell fires, the dust does not, and the log is silent.
             string ejecta = $"no ejecta: a {fireball:F0} m fireball does not reach the ground";
 
             if (AirlessBurst.ThrowsEjecta(chargeKg, burstAltitudeMetres))
@@ -104,8 +104,8 @@ internal static class BurstEjecta
 
                         // The same spread the emitter throws with, because the two are one fact:
                         // a grain that leaves 25% fast flies 25% longer. Ranged independently, the
-                        // fast grains were deleted at the top of their climb and the slow ones went
-                        // on falling after they had arrived.
+                        // fast grains would be deleted at the top of their climb and the slow ones
+                        // go on falling after they had arrived.
                         e.ParticleInfo.Lifespan = new float2(
                             (float)(thrown.FlightSeconds * (1.0 - AirlessBurst.SpeedSpread)),
                             (float)(thrown.FlightSeconds * (1.0 + AirlessBurst.SpeedSpread)));

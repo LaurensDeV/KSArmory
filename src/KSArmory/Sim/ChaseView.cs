@@ -70,10 +70,10 @@ public static class ChaseView
             // Held to the target all the way in. A round arriving is only pointing at what it
             // arrives at when the target is not moving: proportional navigation flies a collision
             // course, which holds a lead angle to impact by design, so handing back to the flight
-            // path over the last stretch swings the view off the target by that whole angle at the
-            // one moment anybody is watching. What that handback was guarding — the line reversing
-            // as the round goes past — is HeldNearFlightPath's job, and it bounds the swing to 80°
-            // whether the round is arriving or long past.
+            // path over the last stretch would swing the view off the target by that whole angle at
+            // the one moment anybody is watching. The line reversing as the round goes past is
+            // HeldNearFlightPath's job, and it bounds the swing to 80° whether the round is
+            // arriving or long past.
             //
             // The look-at stays at least a look-ahead out so the framing does not pitch up as the
             // range collapses, and MinAimRange is a divide-by-zero guard rather than a distance.
@@ -314,8 +314,8 @@ public static class ChaseView
     /// <see cref="StopShortMetres"/> is.</b> A conventional round is over when the flash is: three
     /// seconds is already generous. A nuclear one is not — <see cref="MushroomCloud"/> rises for
     /// <see cref="MushroomCloud.RiseSeconds"/> and stands for as long again, so a flat three
-    /// seconds showed about a twenty-fifth of the thing the mod goes to the trouble of drawing,
-    /// and took the camera away mid-event.</para>
+    /// seconds would show about a twenty-fifth of the thing the mod goes to the trouble of drawing,
+    /// and take the camera away mid-event.</para>
     ///
     /// <para>The rise rather than the whole life. At the ceiling the cloud stops changing shape and
     /// the rest is it standing there — and it stands in the world, so a player who wants more can
@@ -325,12 +325,11 @@ public static class ChaseView
     /// <para><b>It is not always a cloud, so the body is asked as well as the charge.</b>
     /// <see cref="AirlessBurst.WatchSeconds"/> decides which of the three is happening and carries
     /// the charge threshold with it, so whether this burst made anything at all stays one question
-    /// with one answer. Holding for the rise regardless is what left the camera on an empty sky for
+    /// with one answer. Holding for the rise regardless would leave the camera on an empty sky for
     /// most of a minute over a body that grows no cloud.</para>
     ///
-    /// <para>The world terms are required rather than defaulted, because the charge alone used to
-    /// be the whole question: a default would let a caller written against the old shape keep
-    /// compiling and quietly hold the view for a cloud that is not there.</para>
+    /// <para>The world terms are required rather than defaulted: a default would let a caller that
+    /// passes the charge alone compile and quietly hold the view for a cloud that is not there.</para>
     /// </summary>
     public static double LingerSeconds(double chargeKg, bool hasAir,
                                        double gravityMetresPerSecond2, double burstAltitudeMetres)

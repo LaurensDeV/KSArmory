@@ -282,7 +282,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | **`src/KSArmory/Sim/`** | **no KSA types, linked into the tests wholesale** |
 | `Sim/Arsenal.cs` | **the built-ins — add a weapon system here** |
 | `Sim/Catalogue.cs` | **what the mod reads** — the built-ins plus anything else registered; a lookup taken against `Arsenal` sees only what shipped |
-| `Sim/Armoury.cs` | **the whole public surface a weapon pack binds to** — two members, taking text rather than profiles so a pack needs no game assemblies |
+| `Sim/Armoury.cs` | **the code surface a weapon pack may bind to**, for the pack that ships an assembly — three members, taking text rather than profiles so a pack needs no game assemblies. A pack with no code never calls it: `InstalledPacks` reads its folder and registers through the same `Register` |
 | `Sim/PackReader.cs` | somebody else's weapon definitions, read into profiles — **text in, no file access**, so every refusal is testable headlessly |
 | `Sim/PackScan.cs` | where KSArmory looks for somebody else's weapons — **a convention, not a list** |
 | `Sim/PackAudit.cs` | whether what registered can actually be found — the half of validation that has to wait until the world has loaded |
@@ -308,8 +308,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/Interceptor.cs` | guided round: proportional navigation, boost, fuse |
 | `Sim/Slug.cs` | unguided kinetic round: ballistics and a contact fuse |
 | `Sim/TailKit.cs` | steering a falling store onto a place on the ground — **the landing it predicts, moved onto the designation**, because a store thrown from a climb flies away from where it lands and a line-of-sight law turns the wrong way |
-| `Sim/TailKitReach.cs` | how far a store already falling can still walk its landing — **flown, not solved**, because a lateral push settles at the drift where fin authority and lateral drag balance rather than accumulating, so the share of `a·t²` a kit delivers runs 0.46 at a 21 s fall and 0.18 at 95 s and no constant fraction bounds it. **It decides what a falling store may be sent to**, so it has to stay a floor |
-| `Sim/TailKitReach.cs` | how far a store already falling can still move its landing — **flown, because `½·a·t²` is not a bound**: a lateral push does not accumulate against drag, it settles where fin authority and lateral drag balance, so the share of `a·t²` delivered runs 0.46 at a 21 s fall and 0.18 at 95 s and a constant fitted at two kilometres promises three times the truth from twenty |
+| `Sim/TailKitReach.cs` | how far a store already falling can still move its landing — **flown, because `½·a·t²` is not a bound**: a lateral push does not accumulate against drag, it settles where fin authority and lateral drag balance, so the share of `a·t²` delivered runs 0.46 at a 21 s fall and 0.18 at 95 s and a constant fitted at two kilometres promises three times the truth from twenty. **It decides what a falling store may be sent to**, so it has to stay a floor |
 | `Sim/BlastSweep.cs` | how near a burst a body was, and what that does to it — shared by the sweep over craft and the one over rounds |
 | `Sim/BlastWave.cs` | the blast wave in real pascals — **Kinney–Graham**, the overpressure, how long it pushes and the wind behind it — because `BlastDamage`'s law is calibrated to KSA's part strengths and says nothing about what the air is doing |
 | `Sim/BlastAltitude.cs` | a burst's blast in the air it went off in, by **G&D's rule**: efficiency by the air at the burst, Sachs by the air at the target — and a damage charge whose floor comes back to the whole charge where X-rays outrun the lethal radius, **because what breaks a craft beside a burst above the air is its X-rays**. Sea level to the bit |
@@ -335,8 +334,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/RedWave.cs` | the red sphere a burst 60 km up or higher sends through the thermosphere — **Teak's, 965 km across at six minutes** — at 1.35 km/s with oxygen's red trailing 150 km behind the front, glowing only where the air is thin enough that the red is not quenched: a density, about 150 km on Earth. Its own sky dispatch, drawn in closed form, and a Display switch |
 | `Sim/Aurora.cs` | the aurora a burst above the atmosphere lights **at both ends of its own field line** — near the burst and at the magnetic conjugate point in the other hemisphere, on a dipole along the spin axis because KSA has no field; Teak's comes down over Samoa |
 | `Sim/SkyDispatch.cs` | the kinds of full-screen dispatch a burst's sky is drawn with -- **and what each puts in `FireSun.w`**, which the scorch-mark branch would otherwise read as its own and offset off the screen, as it did every northern aurora |
-| `Sim/ScorchFootprint.cs` | how far a scorch mark reaches downwind, across and upwind, in patch radii — **the shader's own constants restated**, so the box the cloud pass dispatches a mark over never crops it; `ScorchFootprintTests` compares the two |
 | `Sim/CloudFlags.cs` | the cloud dispatch's packed flag float — spray, weather, first, **dryness in sevenths** and the front's radius — **exact to 262,143 m**, because every term is an integer under 2^24 and the shader divides by powers of two with nothing added |
+| `Sim/ScorchFootprint.cs` | how far a scorch mark reaches downwind, across and upwind, in patch radii — **the shader's own constants restated**, so the box the cloud pass dispatches a mark over never crops it; `ScorchFootprintTests` compares the two |
 | `Sim/AmbientAir.cs` | the air at a point as density and pressure **against fixed physical references**, not a body's own sea level -- so a threshold calibrated in Earth's air holds on any body -- with a flag for air that could not be read, never a silent sea level |
 | `Sim/BodyAir.cs` | a body's air as numbers, **mirroring KSA's isothermal model exactly** -- `ρ(h)·H` with the declared scale height for the column, one sound speed per body -- so nothing downstream knows which planet it is on |
 | `Sim/BodyTraits.cs` | what a burst needs about a body that KSA does not declare -- field, airglow, condensation, γ, surface, X-ray opacity -- **the neutral answer by default**, never Earth's |
@@ -436,8 +435,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/Reticle.cs` | the gunner's sight as strokes on a screen — geometry only |
 | `Sim/ScopeGeometry.cs` | the radar scope's face — where a blip belongs on it, in bearing and range |
 | `Sim/LockCue.cs` | how far a lock has matured, as the number a closing bracket is drawn from |
-| `Sim/EdgeCue.cs` | where an indicator for something off the screen sits on its edge — **from the bearing against the camera's right and up, not a projection**, because a projection throws a point behind the camera to the opposite side |
 | `Sim/SightPicture.cs` | where the sight's horizontal lies, and which way a contact off the glass went |
+| `Sim/EdgeCue.cs` | where an indicator for something off the screen sits on its edge — **from the bearing against the camera's right and up, not a projection**, because a projection throws a point behind the camera to the opposite side |
 | `Sim/SightZoom.cs` | the head's magnification, as the field of view it asks a camera for |
 | `Sim/CursorAim.cs` | cursor to viewport coordinates, and the bearing from a mount to what it points at |
 | `Sim/WeaponFit.cs` | **what a weapons system is fitted with** — the panel asks this rather than testing profile fields |
@@ -481,11 +480,10 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/TerrainHeights.cs` | one body's height field, sampled coarsely and many times per scan |
 | `Ksa/TerrainMapScan.cs` | that height field as a cached grid — **the cost lives here**, so it is paid on movement rather than per frame |
 | `Ksa/BombSightOverlay.cs` | the pipper: the impact ring and the arc down to it |
-| `Ksa/StoreReach.cs` | that region drawn, reported and logged — **one answer for all three**, because a ring and a log that disagree cost the player their belief in both; solved only while a store that steers its own fall is in the air, at half the pipper's rate, since it is three `BombSight` flights per solve against the pipper's one |
-| `Ksa/StoreReach.cs` | that region flown, drawn and read off the panel — **one answer for all three**, because a ring that disagrees with the line beside the trigger reads as the tool being broken. Three flights a solve, so only while a store that steers its own fall is actually in the air |
+| `Ksa/StoreReach.cs` | that region flown, drawn, logged and read off the panel — **one answer for all of them**, because a ring that disagrees with the line beside the trigger or the log reads as the tool being broken. Three `BombSight` flights a solve, so solved only while a store that steers its own fall is actually in the air, at half the pipper's rate |
 | `Ksa/IcbmComputer.cs` | **one craft's ballistic computer** — reads the world, runs the program, flies the rocket |
 | `Ksa/IcbmComputers.cs` | one per craft carrying a part that provides `Guidance` — **the MIRV bus alone today**, so a Pantsir or a rail gets none — crewed and forgotten with it |
-| `Ksa/AttitudeHook.cs` | **one of the four places this mod patches the game** — the only window in which an attitude command survives |
+| `Ksa/AttitudeHook.cs` | **one of the six places this mod patches the game** — the only window in which an attitude command survives |
 | `Ksa/PreRenderHook.cs` | the second — **a step before the render on a frame that draws no UI**, because StarMap has no hook that is both |
 | `Ksa/WorldReloadHook.cs` | the third — **that a save was loaded**, which nothing else can tell: the mod never leaves the flight scene across one |
 | `Ksa/RoundBodyDrawHook.cs` | the fourth — **a launcher's rounds drawn after the engine has culled the launcher**, because a body is one of its parts and KSA draws none of a craft under a pixel across |
@@ -521,7 +519,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Shaders/KSArmoryFireLight.comp` | a fireball's light on the craft and structures **KSA's light pre-pass dropped it from** -- that pass cuts a light beyond about 3 km before its intensity is counted, so a burst lit the ground round the pad and left the pad black. Read off what the pre-pass wrote, never re-voted; `docs/BLOCKED-ON-KSA.md` |
 | `Ksa/GroundRings.cs` | the targeting rings to paint on the ground this frame, **anchored to the body they lie on** and put back into the ecliptic only when the pass records, as the scorch marks are |
 | `Shaders/KSArmoryRing.comp` | one targeting ring painted on whatever the depth buffer holds — **an exact circle at any size, lying on the terrain under it**, with a line a fixed number of pixels wide; one dispatch per ring over its own patch of screen |
-| `Ksa/CloudPassHook.cs` | the fifth place the mod patches the game, and the first in the renderer — **an ordinary prefix on a public method**, because `SunbloomRenderer.Render` hands over the command buffer at the one instant the scene colour is storage-writable, the depth is sampled, and bloom and the tonemap are both still to come |
+| `Ksa/CloudPassHook.cs` | a place the mod patches the game, and the first in the renderer — **an ordinary prefix on a public method**, because `SunbloomRenderer.Render` hands over the command buffer at the one instant the scene colour is storage-writable, the depth is sampled, and bloom and the tonemap are both still to come |
 | `Ksa/CloudPassCost.cs` | what that pass costs the GPU, read back out of KSA's own profiler — **the whole frame is sampled beside it**, because 2 ms on a 30 ms frame and 2 ms on an 8 ms one are different answers |
 | `Ksa/BurstSound.cs` | the bang, arriving when it actually would — **each burst's front followed live to the camera**, so seven seconds behind the flash where a cloud is watched from and a minute for 50 Mt 37 km overhead, **as loud as the pressure there** and not at all under 50 Pa or where there is no air, and **slower and deeper by the cube root of the yield**, so a warhead is not the same file as a rocket going off |
 | `Ksa/BurstFlash.cs` | the view going white for a moment when a burst goes off in front of you, and the glare round the ball for **as long as it burns** — **the model, not the drawing**: `CloudPass` writes it into the scene image, because KSA wraps its whole UI pass in `if (DrawUI)` and both F2 and a screenshot clear that |
@@ -593,21 +591,21 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/SHOT-PROTOCOL.md` | **how to spend a night of shots** — how many a difference costs, why the baseline is re-flown all night, and the rule that says when to stop |
 | `docs/ARRIVAL-ANGLE.md` | **what a steeper arrival is worth** — precision, impact speed and propellant against the angle a round comes in at, why seven degrees is the air's answer rather than the guidance's, and the control that asks for another |
 | `docs/KINETIC-FLOOR.md` | **how accurate a round could possibly be** — the terms no amount of guidance work removes, and why the arrival angle is the whole lever |
-| `docs/WHAT-THE-PLAYER-SETS.md` | **a plan, not a record** — the ballistic computer with almost nothing to configure: what it derives, what it shows, and the one trade left for the player |
-| `docs/MIRV-TARGETS.md` | **a plan, not a record** — up to six targets for one bus: the reach drawn on the ground and refused outside it, what spare warheads do, and the release loop that diverts between targets |
+| `docs/WHAT-THE-PLAYER-SETS.md` | **a plan, partly built** — the ballistic computer with almost nothing to configure: what it derives, what it shows, and the one trade left for the player |
+| `docs/MIRV-TARGETS.md` | **mostly built** — up to six targets for one bus: the reach drawn on the ground and refused outside it, what spare warheads do, and the release loop that diverts between targets |
 | `docs/METRE-LEVEL.md` | **the route from today's kilometre to a metre**, as a ladder of arrival angles with a gate on each rung — what blocks each one, the orbit and target matrix that tests it, and **why the ladder stops at rung C**: the wall clock cannot be bought with frame rate, because a flight is CPU-bound and the GPU is idle |
 | `docs/GUIDANCE-SECTION.md` | **a plan, half built** — the ballistic computer as a part you bolt on. The `Guidance` role, distinct from `FireControl`, is built and the bus provides it; the 3 m interstage ring that would take it over is not, and its mass is a split of the bus's rather than an addition to it |
 | `docs/NUCLEAR-EFFECT.md` | which of KSA's four volumetric renderers a mod can reach, and what a mushroom cloud actually looks like |
 | `docs/NUCLEAR-ALTITUDE.md` | **a record** — what a burst does at every height from the surface to space, sourced, against what the mod did, and the twenty steps that closed the gap, each with what flying it showed; what is still open is at the end of its build order |
-| `docs/NUCLEAR-NEXT.md` | **a plan, not a record** — the ranked backlog for the burst: the first second, where every signature that reads as *nuclear* lives, and the last minute, where a real cloud drifts and spreads rather than fading where it stood |
-| `docs/VISUAL-TESTING.md` | **a plan, not a record** — how an agent sees what the mod draws from a terminal: what the screenshot loop cost the night the burst was built, and a ranked route to a live session with an MCP bridge, shader hot reload and same-instant controls |
+| `docs/NUCLEAR-NEXT.md` | **a backlog, mostly built** — what the burst still needed, ranked: the first second, where every signature that reads as *nuclear* lives, and the last minute, where a real cloud drifts and spreads rather than fading where it stood |
+| `docs/VISUAL-TESTING.md` | **half built** — how an agent sees what the mod draws from a terminal: what the screenshot loop cost the night the burst was built, and a ranked route to a live session with an MCP bridge, shader hot reload and same-instant controls |
 | `docs/DAMAGE-DECALS.md` | **a plan, not a record** — how a decal is projected onto a hull, a hillside or a rock out of the depth buffer, read off gatOS's implementation and re-verified here, and what a burn mark on a craft would cost |
 | `docs/FROM-KSP-MODDING.md` | the concept map for anyone arriving from KSP part modding |
 | `docs/MODULARITY.md` | how far the profile/registry split actually generalises, and the test gaps to close before widening it |
 | `docs/WEAPON-TAXONOMY.md` | the same question from outside: which real weapon families share this data model, and which need a different one |
 | `docs/BATTERY-SPLIT.md` | what `WeaponSystem` should be split into, what to call it instead, and in what order |
-| `docs/WEAPON-PACKS.md` | **the pack author's reference** — the folder, the ten-line entry point, and every attribute a definition file may carry |
-| `docs/EXTENSIBILITY.md` | **a plan, not a record** — how a weapon pack registers itself without this mod knowing it exists, and what such a pack could never express |
+| `docs/WEAPON-PACKS.md` | **the pack author's reference** — the folder, the optional code entry point, and every attribute a definition file may carry |
+| `docs/EXTENSIBILITY.md` | **mostly built** — how a weapon pack registers itself without this mod knowing it exists, and what such a pack could never express |
 | `.claude/skills/upgrade-ksa/` | the whole KSA-update procedure, as a skill |
 | `tools/meshinfo.py` | prints mesh bounds from a KSA `.glb` atlas |
 | `tools/validate-parts.py` | checks asset Ids, texture paths, and launch geometry vs the mesh |
@@ -829,16 +827,17 @@ head looks where the rail points, and `TurretAxis`, which follows the traverse.
 
 The mod is built around three profile types and a registry, so a new launcher, round or sensor
 is **data plus art**, not new logic. No fire-control, guidance or drive code names the Pantsir —
-it is named in `Sim/Arsenal.cs`, which is the registry and is meant to. Anything else naming it is
+it is defined in `KSArmory/Weapons.xml`, read like any pack's, with its director in `Sim/Arsenal.cs`,
+which is the registry and is meant to. Anything else naming it is
 a doc comment citing what it was modelled on. **`tools/model/sidewinder.py` plus the
 `SidewinderRail` entry in `Sim/Arsenal.cs` is the worked example** — a whole second system, and
 neither of them is longer than a page.
 
-1. **Model it.** A module beside `tools/model/sidewinder.py` exporting into the same atlas,
-   called from `pantsir.py`'s `main()` — **after** everything already there, because the box
-   jitter runs off one seed and inserting a primitive reshuffles every one drawn after it. Run
-   `tools/model/checkmesh.py` and `tools/model/checkswept.py`; between them they catch the
-   defects that are invisible in a preview render and obvious in game.
+1. **Model it** — authored in Blender over MCP, per `.claude/skills/ksa-blender/SKILL.md` and
+   [3D model pipeline](#3d-model-pipeline); the headless generator is not extended. Run
+   `tools/model/checkmesh.py` on the export; `tools/model/checkswept.py` covers only the generated
+   atlas, so an authored mount's travel is swept in Blender. Between them they catch the defects
+   that are invisible in a preview render and obvious in game.
 2. **Declare the part.** A `<SubPart>` per moving assembly plus a `<Part>` in
    `KSArmoryAssets.xml`, and a `<PartGameData>` with its colliders and mass.
 
@@ -1815,7 +1814,7 @@ angle-of-attack limiter on pressure rather than density or altitude is what make
 Moon work without anything knowing the Moon has no air — thin air at two kilometres a second is
 still kilopascals.
 
-**Attitude is written from a Harmony prefix, and it is one of four patches.** KSA
+**Attitude is written from a Harmony prefix, and it is one of six patches.** KSA
 double-buffers a vehicle's flight computer: `ApplyVehicleSolvers` writes the worker's result over
 it, `ExecuteNextVehicleSolvers` snapshots it for the next worker, and *then* the GUI pass runs — so
 a command written from any StarMap hook is not in the snapshot and is overwritten before anything
@@ -2391,7 +2390,7 @@ only grows a nuclear one. Whatever the burst kills gets KSA's own destruction ex
 
 **The launcher ships its own art, and the asset XML lives at the mod root.** Instancing Core's
 meshes by Id and shipping nothing works, and is the right answer for a part that can be assembled
-from Core's kit; a Pantsir cannot be. The mod carries nine mesh atlases and their textures,
+from Core's kit; a Pantsir cannot be. The mod carries ten mesh atlases and their textures,
 declared with `<MeshAtlas>` and `<PbrMaterial>` exactly as Core does.
 
 The XML sits at `src/KSArmory/*.xml` rather than in an `Assets/` subfolder **on purpose**.
@@ -2413,7 +2412,7 @@ reachable without patching.
 
 **Launch and slew geometry live in the Blender script, not in the C#.**
 `tools/model/pantsir.py` places the containers and writes `muzzles.json`;
-the `LauncherProfile` in `Sim/Arsenal.cs` is pasted from what it prints.
+the Pantsir's definition in `KSArmory/Weapons.xml` (a launcher still in C#: its `LauncherProfile` in `Sim/Arsenal.cs`) is pasted from what it prints.
 `validate-parts.py` **fails if any of them disagree**, because geometry duplicated across a
 boundary drifts. Change the pods, rerun `tools/model/build.sh`, paste the block. The tube count
 is `LauncherProfile.Tubes.Length`, so it follows the block you paste.
@@ -2487,7 +2486,7 @@ published for reentry vehicles — and it now survives only as the arm a paired 
 ships alone**. Together, over 20 paired blocks against a declared non-inferiority bar: worst warhead
 **0.80x** with a 97.5% upper bound of 0.985, the group's spread lower on 17 of 20 shots, the mechanism
 **+0.151% → −0.017%**. `docs/ACCURACY-PLAN.md` 3eu, and 3dk and 3eo are the losses.
-`ArsenalTests.EveryRoundsDragComesFromWhatItIsUnlessNamedHere` names all six registered profiles, so a
+`ArsenalTests.EveryRoundsDragComesFromWhatItIsUnlessNamedHere` names the six whose drag is still typed by hand, so a
 new round cannot join them by accident.
 
 **And the air is the air that is there.** A density ratio is a multiple of `Medium.ReferenceDensityKgPerM3`,

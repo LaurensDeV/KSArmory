@@ -23,8 +23,7 @@ internal class TrackState
     public double3 VelocityEcl { get; set; }
 
     /// <summary>
-    /// What the contact is doing to its velocity, gravity included. Zero where it is not known, which
-    /// is what a lead assumed of every contact before it had this.
+    /// What the contact is doing to its velocity, gravity included. Zero where it is not known.
     /// </summary>
     public double3 AccelerationEcl { get; set; }
 

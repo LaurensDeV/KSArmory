@@ -22,9 +22,8 @@ internal enum RoundState
 /// hands it back, and a caller with nothing to identify leaves it out.</para>
 ///
 /// <para><paramref name="Emitting"/> is whether the contact is radiating this frame, which only
-/// <see cref="GuidanceMode.AntiRadiation"/> reads. It defaults to <c>true</c> so that every other
-/// weapon behaves exactly as it did before the field existed — a caller that has no notion of
-/// emission is describing a target every other seeker can still see.</para>
+/// <see cref="GuidanceMode.AntiRadiation"/> reads. It defaults to <c>true</c> because a caller that
+/// has no notion of emission is describing a target every other seeker can still see.</para>
 /// </summary>
 internal readonly record struct TargetState(double3 PositionEcl, double3 VelocityEcl, double Radius,
                                             object? Handle = null, bool Emitting = true);
@@ -49,15 +48,17 @@ internal sealed class Interceptor : IProjectile
     /// Fixed integration step. Frames are subdivided to this, which keeps the guidance stable and
     /// stops fast targets tunnelling through the fuse radius.
     ///
-    /// <para>Shared with every other <see cref="IProjectile"/>: <see cref="SimClock"/> refuses
-    /// steps beyond what these allow, and that guard is only correct if everything integrates to
-    /// the same resolution.</para>
+    /// <para>Also the default for <see cref="MunitionProfile.SubStep"/>, which is what a
+    /// <see cref="Slug"/> sub-steps at.</para>
     /// </summary>
     internal const double SubStep = 0.005;
 
     internal const int MaxSubSteps = 64;
 
-    /// <summary>Longest step integrable without coarsening; SimClock refuses beyond it.</summary>
+    /// <summary>
+    /// Longest step integrable without coarsening, and the default <see cref="SimClock.MaxStep"/> and
+    /// <see cref="MunitionProfile.MaxFaithfulStepSeconds"/> hold a round with no opinion to.
+    /// </summary>
     public const double MaxFaithfulStep = SubStep * MaxSubSteps;
 
     /// <inheritdoc cref="IProjectile.PositionEcl"/>
@@ -211,9 +212,8 @@ internal sealed class Interceptor : IProjectile
     /// The launching craft's velocity in the round's own frame at release, so the motor can push
     /// along the round rather than along everything it inherited.
     ///
-    /// <para>Zero for a launcher standing still, which is every launcher this mod had when the
-    /// boost was written — and is why thrusting along the flight path was indistinguishable from
-    /// thrusting along the tube. Set at launch and never updated.</para>
+    /// <para>Zero for a launcher standing still, for which thrusting along the flight path and
+    /// along the tube are the same thing. Set at launch and never updated.</para>
     /// </summary>
     public double3 LaunchFrameVelocityLocal { get; set; }
 
@@ -279,6 +279,9 @@ internal sealed class Interceptor : IProjectile
 
     public double Speed => Vec.Len(VelocityLocal);
 
+    /// <inheritdoc cref="IProjectile.SteeringCommandEcl"/>
+    public double3 SteeringCommandEcl { get; private set; }
+
     /// <summary>
     /// How far the fins have deployed, 0 stowed to 1 at full span.
     ///
@@ -287,9 +290,6 @@ internal sealed class Interceptor : IProjectile
     /// Pure presentation: the flight model has no notion of fins, and this changes nothing
     /// about how the round flies.</para>
     /// </summary>
-    /// <inheritdoc cref="IProjectile.SteeringCommandEcl"/>
-    public double3 SteeringCommandEcl { get; private set; }
-
     public double FinDeployment(MunitionProfile munition)
     {
         if (munition.FinDeploySeconds <= 0f) return 1.0;
@@ -300,8 +300,8 @@ internal sealed class Interceptor : IProjectile
     /// Advances the round by <paramref name="dt"/> seconds, subdividing internally.
     /// </summary>
     /// <param name="target">
-    /// Target state sampled at the start of this frame, or null if the target is gone.
-    /// Extrapolated linearly across sub-steps.
+    /// Target state sampled at the end of this step, or null if the target is gone. Back-dated
+    /// to the round's epoch and extrapolated linearly across sub-steps.
     /// </param>
     /// <param name="gravity">Gravitational acceleration at the round, in Ecl (m/s^2).</param>
     /// <param name="frameVelocityEcl">

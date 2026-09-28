@@ -582,7 +582,7 @@ internal sealed partial class Ui
         }
 
         // Asked beside achieved, because those two differing is the whole reason this control
-        // exists: before it, the arrival was whatever the cheapest arc happened to give.
+        // exists: without it, the arrival is whatever the cheapest arc happens to give.
         double planned = computer.Program.Arc?.ArrivalAngleDeg ?? double.NaN;
         string arriving = double.IsFinite(planned) ? $"; the arc it has arrives at {planned:F0} deg"
                                                    : "; no arc solved yet";

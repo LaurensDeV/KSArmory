@@ -46,11 +46,8 @@ internal readonly record struct ClosestApproach(double MetresApart, double AtSec
 ///
 /// <para><b>Measurement, not protection.</b> Nothing reads this to decide anything — that is
 /// <see cref="SeparationClearance"/>'s job, and the interlock inside <see cref="BusTrim"/>'s. This
-/// exists because a collision has happened once and was <em>inferred</em> from a thrashing trim
-/// rather than observed: on 2026-08-25 a clearance latch let the trim run on a stale reading and
-/// the bus hit its own spent stack, and the only trace was 28 s of direction changes ending in
-/// <c>nothing left aboard moves the bus</c>. A shot that grazes the stack and survives leaves no
-/// trace at all.</para>
+/// exists because without it a collision can only be <em>inferred</em> from a thrashing trim, and
+/// a shot that grazes the stack and survives leaves no trace at all.</para>
 ///
 /// <para>So it runs on every flight whether or not anything is wrong, and reports one line. What
 /// makes it worth the frame is that the interesting number is a <em>minimum after they have
@@ -59,8 +56,8 @@ internal readonly record struct ClosestApproach(double MetresApart, double AtSec
 ///
 /// <para><b>It arms on the gap first opening past the keep-out, and that is the whole of it being
 /// an instrument.</b> Taking the minimum from the first frame measures the split — the two halves
-/// are adjacent by construction — so it read <c>2.0 m at +0.0 s -- INSIDE THE KEEP-OUT</c> on all
-/// 94 flights recorded, identically, and could not have said anything else. The collision it was
+/// are adjacent by construction — so it would read the same few metres at +0.0 s on every flight
+/// and could not say anything else. The collision it is
 /// built to catch is a <em>re</em>-approach, and there is nothing to re-approach from until the
 /// pair have got apart.</para>
 /// </summary>

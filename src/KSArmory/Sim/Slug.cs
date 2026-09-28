@@ -83,9 +83,9 @@ internal sealed class Slug : IProjectile
     public Func<double3, double3, Approach>? ApproachAt { get; set; }
 
     // Seconds spent where arriving happens. A round the ground stops is reaped on this rather than
-    // on Age: a coast is not the round being stuck, and counting it killed a bomb 100 km up at the
-    // two-minute mark with 30 s of fall still to go. For a round nothing can classify this simply
-    // advances every step, which is Age by another name and the behaviour of every round before it.
+    // on Age: a coast is not the round being stuck, and counting it kills a bomb released 100 km up
+    // at the two-minute mark with 30 s of fall still to go. For a round nothing can classify this
+    // simply advances every step, which is Age by another name.
     private double _arrivingSeconds;
 
     /// <summary>
@@ -107,7 +107,7 @@ internal sealed class Slug : IProjectile
 
     /// <summary>
     /// Whether this round reads <see cref="AirVelocityAt"/> per sub-step rather than holding the
-    /// frame's sample. Off, so a round nobody asks behaves exactly as it did.
+    /// frame's sample. Off, so a round nobody asks holds it.
     /// </summary>
     public bool AirVelocityAtOwnSubStep { get; set; }
 
@@ -132,8 +132,8 @@ internal sealed class Slug : IProjectile
     /// </summary>
     /// <remarks>
     /// <para>The air and the pull are already read half a sub-step on for a
-    /// <see cref="SecondOrder"/> round; the speed the drag is taken at was not. Drag goes as the
-    /// square of it and a re-entering round sheds around 450 m/s², so the start-of-step speed is
+    /// <see cref="SecondOrder"/> round; without this the speed the drag is taken at is not. Drag goes
+    /// as the square of it and a re-entering round sheds around 450 m/s², so the start-of-step speed is
     /// always the larger of the two and the drag always too big — **one-signed, every sub-step, for
     /// the whole fall**, which puts the round short of its own prediction.</para>
     ///
@@ -222,8 +222,7 @@ internal sealed class Slug : IProjectile
 
     // What ends a round that nothing has stopped.
     //
-    // For anything the ground does not stop, that is its age, exactly as it always was: a shell
-    // that misses has no ending of its own and something has to sweep it up.
+    // For anything the ground does not stop, that is its age: a shell that misses has no ending of its own and something has to sweep it up.
     //
     // A round the ground DOES stop is different. It ends by arriving, so the clock is asked only
     // about the part of the flight where arriving is possible - time spent above the atmosphere is
@@ -285,9 +284,9 @@ internal sealed class Slug : IProjectile
     /// <summary>
     /// Where the ground is, supplied by the caller for a round the terrain stops.
     ///
-    /// <para>Null for everything aimed upwards, which is every other round in the arsenal: a shell
-    /// passes through a hill because nothing has ever asked where the hill was, and paying for that
-    /// answer across a 150-shell burst buys nothing. A bomb has no other way to arrive.</para>
+    /// <para>Null for a round aimed upwards: a shell passes through a hill because nothing has ever
+    /// asked where the hill was, and paying for that answer across a 150-shell burst buys nothing. A
+    /// falling store has no other way to arrive.</para>
     /// </summary>
     public IGroundTest? Ground { get; set; }
 
@@ -500,8 +499,8 @@ internal sealed class Slug : IProjectile
 
         for (int i = 0; i < steps && State == RoundState.Flying; i++)
         {
-            // Re-read inside the loop, because air density is the one thing the round flies
-            // through that changes materially within a frame. It falls off on an 8 km scale
+            // Re-read inside the loop, because air density changes materially within a frame. It
+            // falls off on an 8 km scale
             // height, and a re-entering round covers a kilometre a frame at ordinary speeds and
             // more under warp, so holding the frame's first sample for the whole frame flies the
             // round through the thinner air it had at the top of it. Measured against a 1 ms
@@ -522,8 +521,6 @@ internal sealed class Slug : IProjectile
             if (!double.IsFinite(density) || density < 0.0) density = mediumDensityRatio;
             _lastDensity = density;
 
-            // Incremented after the step, so the round's position and the back-dated target share
-            // an instant. Splitting them across a sub-step costs ~142 m at 29.8 km/s.
             // Re-read per sub-step when the caller offers it, back-dated exactly as the air is.
             double3 pull = GravityAt?.Invoke(readAt, readWhen) ?? gravity;
             if (!Vec.IsFinite(pull)) pull = gravity;
@@ -543,6 +540,9 @@ internal sealed class Slug : IProjectile
             }
 
             Step(h, elapsed, dt, target, pull, munition, density);
+
+            // Incremented after the step, so the round's position and the back-dated target share
+            // an instant. Splitting them across a sub-step costs ~142 m at 29.8 km/s.
             elapsed += h;
         }
 
@@ -571,11 +571,10 @@ internal sealed class Slug : IProjectile
         // No thrust term between them: a slug coasts from the muzzle.
         double3 accel = Medium.Buoyancy(gravity, munition, mediumDensityRatio);
 
-        // The air and the pull are read half a sub-step on; the SPEED the drag is taken at was not.
-        // Drag goes as the square of it, and a re-entering round is shedding ~450 m/s2, so the
-        // start-of-step speed is always the larger and the drag always too big -- one-signed, every
-        // sub-step, for the whole fall. Taking the half-kick on the velocity too puts all three at
-        // one instant, which is what the comment above the lookups already claims.
+        // The air and the pull are read half a sub-step on, and so, with this, is the SPEED the drag
+        // is taken at. Drag goes as the square of it, and a re-entering round is shedding ~450 m/s2,
+        // so the start-of-step speed is always the larger and the drag always too big -- one-signed,
+        // every sub-step, for the whole fall.
         double3 dragAt = localVelocity;
         if (DragAtMidpointVelocity && SecondOrder)
         {

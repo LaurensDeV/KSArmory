@@ -68,7 +68,7 @@ internal static class BlastAltitude
     ///
     /// <para>That floor stands in for X-ray fluence, which is what breaks a craft near a burst above the
     /// air, over a wider reach than blast ever had: letting damage go with the blast would make a
-    /// burst beside a satellite harmless. So a burst in vacuum is judged exactly as before.</para>
+    /// burst beside a satellite harmless. So a burst in vacuum is judged on its whole charge.</para>
     /// </summary>
     /// <param name="chargeKg">The burst's charge (kg).</param>
     /// <param name="burstAir">The air at the burst.</param>

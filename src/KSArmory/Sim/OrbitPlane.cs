@@ -11,9 +11,10 @@ namespace KSArmory;
 /// says which of those is happening or that the fix is a different orbit rather than a bigger
 /// tank.</para>
 ///
-/// <para>Waiting does not help either, which is why this is worth saying rather than solving. The
-/// burn window search looks across one revolution, and a plane is not something a revolution
-/// changes — only the planet turning underneath does, over many of them.</para>
+/// <para>Waiting helps only slowly, which is why this is worth saying rather than solving. A plane
+/// is not something a revolution changes — only the planet turning underneath does, over many of
+/// them, which is why the burn window search looks across a day — and a latitude the orbit never
+/// reaches is not reached by waiting at all.</para>
 /// </summary>
 internal static class OrbitPlane
 {

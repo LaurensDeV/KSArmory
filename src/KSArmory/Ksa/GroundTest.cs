@@ -63,12 +63,12 @@ internal sealed class GroundTest : IGroundTest
                 double depth = Vec.Len(positionEcl - cached.GetPositionEcl()) - cached.MeanRadius;
 
                 // Plainly over that body, as well as ahead of the runner-up. The runner-up alone
-                // is not enough, and fails for the one case it most needs to catch: it was
+                // is not enough, and fails for the one case it most needs to catch: it is
                 // measured from somewhere else. With Earth cached and the round on the Moon, the
                 // depth to Earth (3.78e8 m) and the Moon's depth from Earth (3.82e8 m) are the
-                // same number to within the two radii -- so the guard passed, every round on the
-                // Moon was tested against Earth's surface, and a bomb released 7 m over lunar
-                // ground fell through it and kept going.
+                // same number to within the two radii -- so that guard alone passes, every round
+                // on the Moon is tested against Earth's surface, and a bomb released 7 m over lunar
+                // ground falls through it and keeps going.
                 //
                 // Being within a mean radius of the surface cannot be true of two bodies at once
                 // at any separation this system has. A round further out than that rescans every

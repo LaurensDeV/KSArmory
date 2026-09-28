@@ -63,7 +63,7 @@ internal partial class Ui
     // The trigger, wherever it is pressed. Both buttons reach the same stations in the same order,
     // which is the whole of what makes a symmetric pair fire as a pair -- and FireGroup below is
     // the only thing in the panel that reaches FireAtLock, so a third button cannot quietly go
-    // straight at one station the way the header's did.
+    // straight at one station.
     private void FireSelectedGroup()
     {
         if (_batteries.For(Focused) is { } selected) FireGroup(selected);
@@ -371,8 +371,7 @@ internal partial class Ui
         if (ImGui.Button("FIRE")) FireGroup(selected);
 
         // This window is the trigger, so its line has to be about the trigger. Auto-engage off
-        // blocks nothing FIRE does, and reporting it here is what made a working button look
-        // broken.
+        // blocks nothing FIRE does, and reporting it here makes a working button look broken.
         ImGui.SameLine();
         DrawHoldLine(selected.Battery, selected.Policy.AutoEngage);
     }

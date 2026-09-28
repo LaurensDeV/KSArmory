@@ -8,7 +8,7 @@ public enum WeaponRole
     /// <summary>Decides what the craft shoots at. One per craft.</summary>
     FireControl,
 
-    /// <summary>Throws guided rounds. Carries its own tubes.</summary>
+    /// <summary>Throws rounds. Every registered launcher part carries it, tubes or not.</summary>
     Launcher,
 
     /// <summary>Finds targets. Feeds the threat model.</summary>

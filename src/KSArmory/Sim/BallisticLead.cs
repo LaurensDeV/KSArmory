@@ -340,7 +340,7 @@ public static class BallisticLead
     /// each moving as its own ground does; without it they are on the straight line and move with the
     /// target.</para>
     ///
-    /// <para>Found by halving along the way, up to <see cref="ReachHalvings"/> solves. A target that has
+    /// <para>Found by halving along the way, up to <see cref="MostReachHalvings"/> solves. A target that has
     /// not moved far is settled by confirming the last answer instead — that place still solves and a
     /// little further does not — which is three.</para>
     /// </summary>
@@ -370,8 +370,8 @@ public static class BallisticLead
 
         // Once more from nothing before calling it out of reach. Seeded from last frame's answer the first miss is
         // already small, and near the longest reach the turns that take a small miss out are learnt too slowly to
-        // beat the stall rule -- so a lay that solved last frame failed this one and was thrown to the longest
-        // reach instead, on 47 frames in 300 at 23 km. A search from nothing takes big turns and learns them.
+        // beat the stall rule -- so without this a lay that solved last frame fails this one and is thrown to the
+        // longest reach instead, on 47 frames in 300 at 23 km. A search from nothing takes big turns and learns them.
         if (Vec.Len2(directionHint) > 0.0
             && TrySolveFlown(shooterPos, shooterVelocity, groundVelocity, groundAcceleration, bodyVelocity, targetPos,
                              targetVelocity, targetAccelerationEcl, targetDragShape, munition, gravityAt, densityAt,

@@ -11,7 +11,7 @@ not will be found again by the next reader.
 
 ---
 
-## `check-tunables.py` does not scan `Config`, and six settings are unreachable
+## `check-tunables.py` does not scan `Config`, and one setting is unreachable
 
 `TUNABLE` lists `SensorProfile`, `MunitionProfile`, `SystemConfig`, `OpticConfig` and `IcbmConfig`
 — **not `Config`**, which is the session's own settings and the most player-facing of them. That is
@@ -19,20 +19,20 @@ the failure the tool's own docstring warns about ("the list has to grow with the
 up: every field on `Config` has been outside the check for its whole life.
 
 Adding it needs a `RECEIVERS` entry — the panel is split across files and holds the config as
-`_config`, `config` and `_cfg` — and then reports six. Triaged 2026-08-27:
+`_config` and the constructor's `config` — and then reports what is below. Triaged 2026-08-27, rechecked 2026-09-28:
 
 | setting | verdict |
 | --- | --- |
 | `CannonReferenceRpm` | `EXEMPT` — a sound calibration constant |
-| `BurstSoundId`, `MotorSoundId` | `EXEMPT` — asset identity strings |
+| `MotorSoundId` | `EXEMPT` — an asset identity string |
 | `DiagnosticIntervalSeconds` | `EXEMPT`, or a control on the Debug pane |
-| **`FloatingPanelButton`** | **real** — read at `Ui.cs:254`, written by nothing |
-| **`TeamNames`** | **real** — the roster is listed in `UiOptic` and there is no way to add to one |
+| **`FloatingPanelButton`** | **real** — read in `Ui.cs`, written by nothing |
+| `TeamNames` | done — the settings window's Teams pane adds through `Teams.Declare` and removes through `ForgetTeam` |
 
-`TeamNames` also shows a limit of the check: it is a `List<string>`, and a control would `Add`
-rather than assign, so the write test cannot see one even if it existed.
+`TeamNames` also shows a limit of the check: it is a `List<string>`, and its control adds through a
+helper rather than assigning, so the write test cannot see it — it would need a `VIA` entry.
 
-Not done here because it is six separate judgements and the change that found it was about
+Not done here because each is a separate judgement and the change that found it was about
 something else. The tool change is two lines.
 
 ## Modularity
@@ -49,7 +49,7 @@ something else. The tool change is two lines.
   lines or copies them. Worth doing behind a flight, not alongside a comment sweep.
 
 - [ ] **Emitter pooling is byte-identical across three files** — `MotorPlume`, `TracerTrail`,
-  `MuzzleFlash` — including the Kill-before-`RemoveEmitter` safety comment, whose failure mode is
+  `MuzzleFlash`, with `DecoyEffects` a fourth copy of the release — including the Kill-before-`RemoveEmitter` safety comment, whose failure mode is
   that nothing in the world can spawn particles again. `MotorSound` and `GunSound` likewise, and
   five files share an identical roster scan. Leaf functions, not a base class: the keys, cardinality
   and lifetimes genuinely differ.
@@ -71,8 +71,8 @@ The ratios are fine — `Sim/` is a data-and-contracts layer and its comments ca
 and flown numbers. What is left is prose duplicated between a file and the doc it cites, which goes
 stale in two places at once.
 
-- [ ] **`Sim/MushroomCloud.cs` duplicates `docs/NUCLEAR-EFFECT.md`** — 498 comment lines to 217 of
-  code, with three sentences near-verbatim from the doc it cites twice.
+- [ ] **`Sim/MushroomCloud.cs` duplicates `docs/NUCLEAR-EFFECT.md`** — 740 comment lines to 613 of
+  code as of 2026-09-28, with sentences near-verbatim from the doc it cites.
 
   Lowest value on this list and the easiest to do damage with: the ratio is high because the file
   encodes Glasstone's numbers and why each was departed from, which is the kind of comment CLAUDE.md
@@ -90,20 +90,20 @@ stale in two places at once.
   corpus line count and the check count all stale. The fix is not a bigger `check-docs.sh` for
   every number: it is preferring a figure a tool prints on demand over one written into a sentence.
 
-- **A coasting round that outlives its launcher cannot be seen.** It keeps its tracer (a shell,
-  for its whole flight) and its plume (a missile, while the motor burns), because both hang on the
-  celestial body rather than on the craft. What it loses:
+- **A coasting round that outlives its launcher is not fully carried over.** It keeps its tracer
+  (a shell, for its whole flight) and its plume (a missile, while the motor burns), because both
+  hang on the celestial body rather than on the craft, and its body mesh, which
+  `Ksa/LooseBodyDrawHook.cs` draws as an instance of the part model taken off the subpart at
+  `GoLoose` (a shell's is not carried). What it loses:
 
-  - **Its body mesh — permanently, and this one is KSA's.** The body is a subpart of the launching
-    craft. There is nothing to write a transform to.
   - **Its motor sound.** `MotorSound` needs a camera-relative position and gets it from
     `camera.GetPositionEgo(vehicle)`. Whether that call has a celestial overload, and what it means
     for a body 6,000 km across, is unverified — worth an hour with the game rather than a guess.
   - **The diagnostic gizmo overlay.** `KsaWorld.BeginDraw` takes a `Vehicle`, and its own comment
     explains why `EclToEgo` is not a substitution: `GetPositionEgo(vehicle)` is the engine
     answering per case, and `EclToEgo` only agrees with the rendered scene while the followed
-    craft's analytic and physics positions coincide. Off by default, so lowest priority of the
-    three.
+    craft's analytic and physics positions coincide. Off by default, so the lower priority of the
+    two.
 
 
 ## Did not survive

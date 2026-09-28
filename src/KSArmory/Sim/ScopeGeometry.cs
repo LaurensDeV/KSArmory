@@ -72,8 +72,8 @@ public static class ScopeGeometry
     /// The range settings a set's scope steps between: all of its reach, half and a quarter.
     ///
     /// <para>Off the set's own range rather than a fixed table, so the widest setting's rim is where
-    /// the set stops seeing. A fixed table left a 6 km Phalanx on a 20 km face with its whole picture
-    /// in the middle ring, and offered 200 km to sets that see 36.</para>
+    /// the set stops seeing. A fixed table would leave a 6 km Phalanx on a 20 km face with its whole
+    /// picture in the middle ring, and offer 200 km to sets that see 36.</para>
     ///
     /// <para>The full reach is rounded up — to 100 m under 2 km, to a whole kilometre above — so a
     /// ring is a readable number. Ordered nearest first.</para>

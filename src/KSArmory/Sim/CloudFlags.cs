@@ -7,7 +7,7 @@ namespace KSArmory;
 ///
 /// <para>Every term is an integer below 2^24, so the float carries it exactly and a division by 64 is
 /// exact too, with no half added to round it: six low bits of flags --
-/// 1 spray, 2 no weather, 4 first, and eight times the dryness in eighths up to seven -- and sixty-four
+/// 1 spray, 2 no weather, 4 first, and eight times the dryness in sevenths up to seven -- and sixty-four
 /// times the front's radius in whole metres above them, to <see cref="MostShockMetres"/>. Negated,
 /// because a positive value in that float is what makes the shader read a dispatch as a ground mark.</para>
 /// </summary>

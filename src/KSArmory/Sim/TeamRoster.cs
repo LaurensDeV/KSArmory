@@ -31,7 +31,7 @@ public sealed class TeamRoster
 
     /// <summary>
     /// Records that <paramref name="craft"/> fights for <paramref name="team"/>. A null or blank
-    /// team declares nothing, which leaves the craft's name to answer for it.
+    /// team declares nothing, which leaves the craft on no team.
     ///
     /// <para><paramref name="rank"/> settles a craft whose installations disagree — the panel's
     /// flag sets every one of them together, so that is the operator having edited a single

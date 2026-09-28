@@ -3,15 +3,10 @@ namespace KSArmory;
 /// <summary>
 /// A distance as a reader wants it, which is not one unit across the range this shot has run.
 ///
-/// <para><b>Every aim readout printed kilometres to one decimal</b>, chosen when a miss was
-/// kilometres. The shot now lands at ten metres, where that has no resolution at all — anything
-/// under 50 m prints as <c>0.0 km</c>. On 2026-09-07-1824 the log read <c>bias 0.0 km</c> on every
-/// flight while the correction was closing 4 km down to 20 m, so the one number needed to say what
-/// the correction converges to was the one number the instrument could not express.</para>
-///
-/// <para>The lesson is the same one the 250 m improvement band taught an hour earlier
-/// (<c>docs/ACCURACY-PLAN.md</c> 3bx): <b>a constant sized for the shot as it was becomes blind as
-/// the shot improves</b>, and a fixed unit is that in the readout rather than in the logic.</para>
+/// <para>Kilometres to one decimal print anything under 50 m as <c>0.0 km</c>, so a correction
+/// closing from 4 km to 20 m reads <c>bias 0.0 km</c> throughout. <b>A constant sized for the shot
+/// as it was becomes blind as the shot improves</b> (<c>docs/ACCURACY-PLAN.md</c> 3bx), and a fixed
+/// unit is that in the readout rather than in the logic.</para>
 /// </summary>
 internal static class Distance
 {
@@ -37,10 +32,9 @@ internal static class Distance
     /// and <see cref="Say"/>'s form above it, so a parser taking either unit reads both.
     ///
     /// <para>An endpoint resolves nothing finer than the line it is parsed from, so the harness's own
-    /// lines carry more than a person's readout. <b>The millimetre this printed was sized when a group
-    /// landed inside tens of them</b>, and the shot has since passed it: a worst warhead of 5 mm is
-    /// five print steps and a 2–3 mm dispersion is two, which puts the quantum at a few per cent of
-    /// the variance a night is trying to resolve. That is this file's own lesson arriving on it.</para>
+    /// lines carry more than a person's readout. A tenth of a millimetre, because at a millimetre a
+    /// worst warhead of 5 mm is five print steps and a 2–3 mm dispersion is two, which puts the quantum
+    /// at a few per cent of the variance a night is trying to resolve.</para>
     /// </summary>
     public static string Measure(double metres)
         => double.IsFinite(metres) && Math.Abs(metres) < KilometreFrom ? $"{metres:F4} m" : Say(metres);

@@ -6,14 +6,13 @@ namespace KSArmory;
 /// <summary>
 /// One optical director, crewed on the craft carrying it.
 ///
-/// <para>It finds its own targets and drives the player's view, with no weapon involved. That is
-/// the whole difference from the head this replaces: a launcher's optic could only ever watch what
-/// its own fire control was tracking, so a craft with no launcher had no sight and a craft with a
-/// launcher had exactly one.</para>
+/// <para>It finds its own targets and drives the player's view, with no weapon involved, so a
+/// craft with no launcher still has a sight and one head is not limited to what a fire control is
+/// tracking.</para>
 ///
 /// <para>Implements <see cref="IOpticalHead"/>, which is the seam the sight, the chase camera and
-/// the claim ladder already read. None of them needed changing when the head moved out from under
-/// the launcher, which is the whole reason that interface exists.</para>
+/// the claim ladder read. None of them knows whether a head rides a launcher or a hull, which is
+/// the whole reason that interface exists.</para>
 /// </summary>
 internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalHead
 {
@@ -57,8 +56,8 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
     /// and wherever a traverse or a hinge has carried it for one that rides something.
     ///
     /// <para>Read through to the part on every use rather than cached, so there is no stale copy of
-    /// this <em>within</em> a frame. It is still a frame old in two places, and saying otherwise
-    /// was wrong: <c>WeaponSystem.Update</c> writes the mount, but <c>SampleWorld</c> runs earlier
+    /// this <em>within</em> a frame. It is still a frame old in two places:
+    /// <c>WeaponSystem.Update</c> writes the mount, but <c>SampleWorld</c> runs earlier
     /// in the same hook, and the engine's viewport pass — where the camera pose is re-solved —
     /// runs before the hook entirely. Both see the previous frame's traverse.</para>
     ///
@@ -178,13 +177,14 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
     /// what the pod is bolted to stays at the top of the picture however far the nose has rolled.
     /// Its two singular directions are the keyhole and dead astern, and the travel excludes
     /// both.</para>
-    /// </summary>
+    ///
     /// <para>Resolved on every read rather than sampled once, because it is used <em>beside</em> a
-    /// forward that the engine's own pass re-solves. Sampled in <c>SampleWorld</c> it came from the
-    /// drive as it stood a frame earlier, so the camera's up and its forward were one frame apart —
+    /// forward that the engine's own pass re-solves. Sampled in <c>SampleWorld</c> it would come from
+    /// the drive as it stood a frame earlier, so the camera's up and its forward would be one frame apart —
     /// and what survives that mismatch is a <b>roll</b>, which turns the whole picture rather than
     /// nudging it. That grows with how far the head turned in the frame, so it scales with
     /// simulation speed and reads as the entire sight shaking under warp.</para>
+    /// </summary>
     public double3 RollReferenceEcl => ResolveRollReference();
 
     /// <summary>

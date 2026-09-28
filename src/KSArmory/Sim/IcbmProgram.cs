@@ -958,10 +958,10 @@ internal sealed class IcbmProgram
                                                    state.Body.GroundVelocityCci(state.PositionCci));
         }
 
-        // The moment closed-loop guidance takes the vehicle, the arrival is nailed down. Before
-        // that the cheapest shot is the right thing to follow, because the state is changing far too
-        // much for any arrival time chosen on the pad to still be the cheapest one.
-        // Committed once the aim has stopped moving, or once the window runs out.
+        // Once closed-loop guidance has the vehicle, the arrival is nailed down: when the aim has
+        // stopped moving, or once the window runs out. Before that the cheapest shot is the right
+        // thing to follow, because the state is changing far too much for any arrival time chosen
+        // on the pad to still be the cheapest one.
         //
         // Both loops are solving the same shot. Latching the arrival first makes the aim correction
         // solve against a pinned parameter: moving the aim then forces a different trajectory to

@@ -9,8 +9,8 @@ namespace KSArmory;
 /// The caller's own handle on the part. Opaque here, so the sweep never holds an engine object.
 /// </param>
 /// <param name="PositionEcl">
-/// Where the part is, sampled at the frame start like every other body in the sweep — carried
-/// forward to the burst's instant by the craft's own velocity, which is what
+/// Where the part is, sampled at the step's end like every other body in the sweep — carried
+/// back to the burst's instant by the craft's own velocity, which is what
 /// <see cref="BlastSweep.SurfaceGap"/> exists to do.
 /// </param>
 /// <param name="RadiusMetres">
@@ -145,7 +145,7 @@ internal static class BlastDamage
 
     /// <summary>
     /// A load in real pascals beside the real overpressure that breaks the same part, both at sea
-    /// level: what <see cref="CombinedDentRatio"/> adds up. The failure radius scales with the cube
+    /// level: what <see cref="Combine"/> adds up. The failure radius scales with the cube
     /// root of the charge, so the breaking overpressure is the part's, whatever the burst.
     /// </summary>
     public static (double RealPascals, double BreakingPascals) RealLoad(double chargeKg, double crashTolerancePascals,
@@ -238,8 +238,8 @@ internal static class BlastDamage
     /// indices they were handed over with.
     ///
     /// <para><paramref name="sinceSample"/> and <paramref name="velocityEcl"/> pair the parts with
-    /// the burst the same way the craft sweep pairs a whole vehicle: the positions were taken
-    /// before the round finished its step. Per part rather than per craft would be more exact by
+    /// the burst the same way the craft sweep pairs a whole vehicle: the positions belong to the
+    /// step's end, and the round burst part-way through it. Per part rather than per craft would be more exact by
     /// the craft's rotation over one step, which is centimetres, and there is no per-part velocity
     /// to read anyway.</para>
     /// </summary>

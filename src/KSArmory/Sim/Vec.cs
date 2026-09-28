@@ -49,7 +49,7 @@ internal static class Vec
     /// separation the dot product cannot resolve below one epsilon of 1.0 reads as exactly nothing.
     /// That floor is <c>sqrt(2*eps)</c> = 2.1e-8 rad, which taken across a planet's radius is
     /// <b>0.134 m</b> — larger than a ballistic group's whole miss, so every distance measured this
-    /// way printed 0.000. The sine is steep at both endpoints and the cross product is a
+    /// way prints 0.000. The sine is steep at both endpoints and the cross product is a
     /// subtraction, so this form carries no such floor.
     /// </remarks>
     public static double AngleBetween(double3 a, double3 b)

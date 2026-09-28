@@ -8,7 +8,7 @@ namespace KSArmory;
 /// frame's first sample.
 ///
 /// <para>Each is a lookup rather than a value because the round moves within the frame and these
-/// three change materially over that distance: air density falls off on an 8 km scale height,
+/// change materially over that distance: air density falls off on an 8 km scale height,
 /// gravity is a field about a centre the round is closing on, and the ground is whatever is
 /// underneath at the time. A round handed values instead of lookups flies the whole frame through
 /// the conditions it had at the top of it.</para>
@@ -22,8 +22,7 @@ namespace KSArmory;
 /// </param>
 /// <param name="AirDensityAt">The density at a stated position, back-dated the same way.</param>
 /// <param name="AirVelocityAt">
-/// The motion of the air at a stated position, back-dated the same way — the fourth field of this
-/// kind and the one that was missing. It is the ground's velocity, so it carries the body's spin as
+/// The motion of the air at a stated position, back-dated the same way. It is the ground's velocity, so it carries the body's spin as
 /// a cross product with the radius and therefore belongs to the <em>place</em> rather than to the
 /// body: over one frame a re-entering round crosses ~150 m of it. Absent, the round holds the
 /// frame's first sample, which is what <see cref="RoundFields.Held"/> means for this term too.

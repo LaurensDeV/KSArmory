@@ -78,8 +78,7 @@ internal static class PlumeSmoke
         internal readonly PlumeTrailEmitterState State = new();
     }
 
-    // Core's DefaultPlumeTrail, which is what a booster lays and what this smoke was getting when
-    // the renderer carried these globally. Twenty minutes is the whole reason a cloud can stand.
+    // Core's DefaultPlumeTrail, which is what a booster lays. Twenty minutes is the whole reason a cloud can stand.
     private const float StockDensity = 1f;
     private const float StockLifetimeSeconds = 1200f;
 
@@ -91,11 +90,9 @@ internal static class PlumeSmoke
     /// billowing column rather than a wire.</para>
     /// </summary>
     /// <param name="density">
-    /// How thick this segment is, against <see cref="StockDensity"/>. A booster's plume is 1 and so
-    /// was every segment this mod laid until it was noticed that the renderer takes the number at
-    /// all — <c>docs/NUCLEAR-EFFECT.md</c> said it had no density field. Below 1 a segment
-    /// transmits rather than scattering, which is the only way to make a bundle of overlapping pens
-    /// read as dust instead of as a solid.
+    /// How thick this segment is, against <see cref="StockDensity"/>. A booster's plume is 1. Below
+    /// 1 a segment transmits rather than scattering, which is the only way to make a bundle of
+    /// overlapping segments read as dust instead of as a solid.
     /// </param>
     public static void Lay(Strand strand, Celestial body, double3 positionCcf,
                            float initialRadius, float expandedRadius, float density = StockDensity)

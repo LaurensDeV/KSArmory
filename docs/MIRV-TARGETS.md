@@ -422,13 +422,13 @@ Every one of these is behind "a walk exists", so a set of one executes none of t
   `ReleaseWalker.CoastForPlanning`, off `IcbmProgram.CommittedArrivalFromNow`, taken before anything can
   decide the reach is not wanted. See *The clock cut the walk* below.
 
-**What scoring reads, and the one thing still on the setting.** `IcbmComputer.TargetOfRound` answers which
+**What scoring reads.** `IcbmComputer.TargetOfRound` answers which
 of `Targets` a released warhead was sent to, recorded at the instant it left — nothing downstream can
 recover it, because the lead moves on at the next handover and reading it at impact reports whichever
 target the bus finished on. It answers for a single-target flight too, where every round is target zero.
-`Ksa/BallisticScenario.cs` still reads `Config.ReleaseBeforeArrivalSeconds` for its coast warp, which on a
-walk lets the world run fast past the first release: it wants `computer.Program.ReleaseGate`, which is the
-same number when nothing is walking.
+`Ksa/BallisticScenario.cs` holds its coast warp to `computer.Program.ReleaseGate` rather than the setting,
+so on a walk the world does not run fast past the first release; it is the same number when nothing is
+walking.
 
 ### The clock cut the walk — flown 2026-09-21
 

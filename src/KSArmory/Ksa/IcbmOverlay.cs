@@ -63,16 +63,14 @@ internal static class IcbmOverlay
         {
             // The ring marks where the WARHEADS are going, so it outlives the craft that sent them:
             // a bus has no heat shield and they do, and it breaks up on reentry five to twenty
-            // seconds before they arrive. Gated on the craft alone, the mark went out with the
-            // warheads still falling toward it. The aim point needs nothing from the vehicle --
+            // seconds before they arrive. Gated on the craft alone, the mark would go out with
+            // the warheads still falling toward it. The aim point needs nothing from the vehicle --
             // Target and Parent are both latched -- so this costs only the check.
             bool alive = KsaWorld.IsAlive(computer.Craft);
             if (!alive && !computer.SalvoStillArriving) continue;
 
             // Marked while the shot is still going to happen, and while it is on its way -- but not
-            // once it has landed, when the ring has nothing left to mark. That last condition was
-            // missing from the start and only became visible when the ring stopped disappearing
-            // early for the unrelated reason above.
+            // once it has landed, when the ring has nothing left to mark.
             if (computer.Config.MarkTarget && !computer.SalvoHasLanded
                 && computer.TargetEcl() is { } target)
             {

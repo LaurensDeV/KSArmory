@@ -9,7 +9,7 @@ namespace KSArmory;
 /// temperature does, and the speed of sound is <c>√(γP/ρ)</c>.</para>
 ///
 /// <para><see cref="Known"/> is false where the air could not be read. It is then treated as sea level,
-/// which is what every read defaulted to before, but a caller that must not guess can tell.</para>
+/// but a caller that must not guess can tell.</para>
 /// </summary>
 internal readonly record struct AmbientAir(double DensityRatio, double PressureRatio, bool Known = true)
 {

@@ -154,12 +154,12 @@ internal sealed class IcbmConfig
     /// <summary>
     /// Warp the ballistic coast without being asked each time, up to the release point.
     ///
-    /// <para><b>On.</b> It was off on the principle that taking the world's clock away because a
-    /// target happened to be designated is not a weapon's decision — and that principle survives in
-    /// where it stops, not in the default. Nothing about this config is persisted, so "off" was not
-    /// a setting an operator could make once: it was a tick box to find again on every launch, and
-    /// forgetting it costs a ballistic coast in real time. Measured on two shots the same evening:
-    /// 3.5 minutes of wall clock with it, seventeen without.</para>
+    /// <para><b>On.</b> Taking the world's clock away because a target happened to be designated is
+    /// not a weapon's decision, and that principle lives in where it stops rather than in the
+    /// default. Nothing about this config is persisted, so "off" would not be a setting an operator
+    /// could make once: it would be a tick box to find again on every launch, and forgetting it costs
+    /// a ballistic coast in real time. Measured on two shots the same evening: 3.5 minutes of wall
+    /// clock with it, seventeen without.</para>
     ///
     /// <para>The button beside it remains the way to take the action deliberately, and this still
     /// hands the world back a settling margin short of the release rather than running to it.</para>
@@ -184,11 +184,12 @@ internal sealed class IcbmConfig
     /// <summary>
     /// Turn the vehicle between releases so each tube in turn throws along the same line.
     ///
-    /// <para>Tubes are canted — a MIRV bus's six sit six degrees off its own axis — so rounds
-    /// released from one attitude leave on different vectors and scatter, and there is one aim for
-    /// all of them. Measured in flight at about 1,200 m across six warheads.</para>
+    /// <para>Where tubes are canted, rounds released from one attitude leave on different vectors and
+    /// scatter, and there is one aim for all of them: measured in flight at about 1,200 m across six
+    /// warheads six degrees off the bus's axis. The shipped bus's tubes are parallel to it
+    /// (<see cref="Arsenal.MirvBus"/>).</para>
     ///
-    /// <para><b>Off, and now for a flown reason rather than a suspected one.</b> Flown once it
+    /// <para><b>Off, for a flown reason.</b> Flown once it
     /// could actually latch its axes, a separated bus released its six tubes at 5.2, 2.1, 8.2,
     /// 12.8, 14.1 and 11.7 degrees off the line — against the six degrees of cant the turning
     /// exists to remove. It is not that the turn fails to help; it is that this vehicle cannot hold
@@ -290,11 +291,10 @@ internal sealed class IcbmConfig
     /// <para><b>Defaulted to the reserve above it rather than to a number of its own.</b> There are
     /// two budgets and only one of them is derived: <see cref="PostBoostAim.MaxTrimMetresPerSecond"/>
     /// is sized against what a bus actually carries — 60 leaves one separation null on the smallest
-    /// in the 70–90 range — while this one had a literal 25 and no account of where it came from. The undocumented
-    /// one won, silently: flown at Mahia the trim spent all 25 and stopped <b>0.45 m/s</b> short of
-    /// finishing a pass it had already committed to, on a bus with tens to spare. Tying the two
-    /// together means the operator's lever moves the budget <em>down</em> from the real reserve, which
-    /// is the only direction it was ever useful in.</para>
+    /// in the 70–90 range. A separate literal binds first and silently: at 25, flown at Mahia, the trim
+    /// spent all of it and stopped <b>0.45 m/s</b> short of finishing a pass it had already committed
+    /// to, on a bus with tens to spare. Tying the two together means the operator's lever moves the
+    /// budget <em>down</em> from the real reserve, which is the only direction it is useful in.</para>
     /// </summary>
     public double TrimBudgetMetresPerSecond = PostBoostAim.MaxTrimMetresPerSecond;
 
@@ -329,7 +329,7 @@ internal sealed class IcbmConfig
     /// <para><see cref="AimCorrection.MaxMetres"/> is 300 km flat, and what the budget buys is
     /// 24 km on a 3,459 km shot and 113 km on a 12,902 km one — so the loop is licensed to walk
     /// somewhere the actuator can never follow. The flown symptom is a demand that exceeds whatever
-    /// is left of the ceiling on every pass until the budget is gone, read until now as the solve
+    /// is left of the ceiling on every pass until the budget is gone, which reads as the solve
     /// diverging: it is not, it is an aim move being priced honestly.
     /// <see cref="AimAuthority"/> has the exchange rate.</para>
     ///
@@ -709,8 +709,8 @@ internal sealed class IcbmConfig
     /// and deliver 1.01x of what they ask. <c>docs/ACCURACY-PLAN.md</c> 3fd.</para>
     ///
     /// <para><b>One-shot, and the progress clock restarts with it.</b> A second stall belongs to the
-    /// hold and ends the null, so this cannot become the wait that never ends — which is what the
-    /// deleted <c>arm/trim-band</c> version was, costing 110 s and a worse residual. 3fb.</para>
+    /// hold and ends the null, so this cannot become the wait that never ends, which costs 110 s and
+    /// a worse residual. 3fb.</para>
     ///
     /// <para><b>On.</b> Flown over 24 paired blocks at 12,902 km against a declared primary endpoint:
     /// <b>0 of 24 flights lost against 16 of 24</b>, Fisher p = 0.0000, base worse in 6 of 6 accepted
@@ -1064,7 +1064,7 @@ internal sealed class IcbmConfig
     /// every direction withheld the trim waits, which is what the timeout wanted, and
     /// <see cref="BusTrim.MaxSeconds"/> and the budget bound the wait.</para>
     ///
-    /// <para><b>On, and the only setting in this file resolved by flight.</b> Thirteen paired shots
+    /// <para><b>On, and resolved by flight.</b> Thirteen paired shots
     /// at 2,000 km, arms alternating within each world: <b>11 wins, median 0.49x, sign p=0.022 and
     /// signed-rank p=0.017</b>, with every one of 21 abandonments removed. The two runs were flown
     /// separately and pooled, and the interim look could not have stopped early — at five shots the

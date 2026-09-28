@@ -590,8 +590,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// The same question for the cannon, which share only the traverse with the pods.
     ///
     /// <para>Asking <see cref="IsLaid"/> instead reads the missiles' drive latch and the missiles'
-    /// subpart, so a refused pod elevation — or a pods marker that resolved to nothing — silenced
-    /// a cannon that was working perfectly.</para>
+    /// subpart, so a refused pod elevation — or a pods marker that resolved to nothing — would
+    /// silence a cannon that was working perfectly.</para>
     /// </summary>
     public bool GunsAreLaid => FireGate.IsLaid(
         aiming: Aiming,
@@ -676,8 +676,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         if (LauncherPart.FindNth(Platform, LauncherOrdinal, _launcherScratch) is var (part, profile))
         {
             // One-shot, not "the launcher was missing last frame". A part tree is rebuilt during
-            // staging and docking, so a read can fail for a frame and come back - and on the
-            // Launcher-is-null test that silently refilled the magazine behind the operator. A
+            // staging and docking, so a read can fail for a frame and come back - and a
+            // Launcher-is-null test would silently refill the magazine behind the operator. A
             // launcher that leaves its craft entirely and is followed onto another does the same
             // thing, which would hand a half-empty bus six warheads back.
             bool changed = !ReferenceEquals(profile, Profile) || !_loadoutSized;
@@ -829,8 +829,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     ///
     /// <para><em>Auto-engage is deliberately not one of these gates.</em> It decides whether fire
     /// control shoots on its own, not whether a round can leave the rail, and no manual fire path
-    /// consults it. Reporting it here stopped the ladder at the one switch that blocks nothing the
-    /// operator asked for, hiding every gate below it from the panel beside the trigger.</para>
+    /// consults it. Reporting it here would stop the ladder at the one switch that blocks nothing
+    /// the operator asked for, hiding every gate below it from the panel beside the trigger.</para>
     /// </summary>
     public string? Hold { get; private set; } = "not started";
 
@@ -906,8 +906,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     // controlled vehicle only when the part requirement is switched off.
     //
     // A pinned battery stays on its craft after the craft dies. The roster retires it and hands its
-    // rounds to the body; adopting any other craft with a launcher in the meantime took that
-    // craft's launcher over with a freshly filled magazine, and finding none cleared the rounds
+    // rounds to the body; adopting any other craft with a launcher in the meantime would take that
+    // craft's launcher over with a freshly filled magazine, and finding none would clear the rounds
     // before they could be handed on.
     private void ResolvePlatform()
     {
@@ -1584,15 +1584,14 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         }
 
         // Said once, so the log distinguishes "driving" from "silently fell through" -- an absent
-        // warning alone cannot, and that ambiguity is what made this hard to report.
+        // warning alone cannot.
         WhyNotDesignated("driving", $"at {Vec.Len(Designation.PositionEcl - origin) / 1000.0:F1} km");
 
         return true;
     }
 
     // Says why a designation is or is not driving the turret, once per state. A drive that
-    // silently falls through to the radar is indistinguishable from a click that never landed --
-    // which is exactly how this was first reported.
+    // silently falls through to the radar is indistinguishable from a click that never landed.
     //
     // Keyed on the *state*, never on the message: a key carrying the range changes every frame, so
     // "say it once" becomes a line per frame, each a synchronous file write on the frame thread.
@@ -2358,8 +2357,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         // A gun shoots where it is pointing, so a designation aims it rather than naming a place a
         // round is flown to. The reach gate below is about the latter, and running it here refuses
-        // the shot outright rather than letting it fall short -- which left the cannon silent on
-        // ground past the shell's reach while the sky fired, because only the sky path reaches the
+        // the shot outright rather than letting it fall short -- which leaves the cannon silent on
+        // ground past the shell's reach while the sky fires, because only the sky path reaches the
         // trigger. Say the range, because the belt does not come back.
         if (TriggerArmament == ArmamentKind.Belt)
         {
@@ -2572,8 +2571,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // the round leaving at 50 degrees to the rack still holding it.
         //
         // A store points along its rack until the airflow says otherwise. In air that is invisible,
-        // because it weathervanes within a second; released in vacuum it is permanent, which is how
-        // this was found.
+        // because it weathervanes within a second; released in vacuum it is permanent.
         double3 releaseHeading = alongTube && !Vec.Unit(tubeAxis).Equals(Vec.Zero)
                                      ? Vec.Unit(tubeAxis)
                                      : launchDir;
@@ -2772,8 +2770,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // what is being hand-aimed here is the aircraft.
         //
         // Asks Powered rather than "is it unguided". A guided tail kit steers after release and is
-        // still released, so keying this on guidance left the B61's trigger refusing "no lock" on
-        // a rack that has no radar at all.
+        // still released, so keying this on guidance would leave the B61's trigger refusing "no
+        // lock" on a rack that has no radar at all.
         if (!Munition.Powered) return Release();
 
         if (TriggerTarget is { } target) return Fire(target);
@@ -3221,7 +3219,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     // differencing a moving round against a frozen body reads an altitude that ramps by kilometres
     // across a long frame - and density falls off on an 8 km scale height, so that is most of the
     // drag. Putting the body's own travel back is what makes a per-sub-step lookup an improvement
-    // rather than a much larger error than the once-a-frame one it replaced.
+    // rather than a much larger error than a once-a-frame lookup.
     private double AirDensityIntoFrame(double3 positionEcl, double secondsIntoFrame)
         => MediumAtRound(positionEcl - (_bodyVelocityEcl * secondsIntoFrame));
 
@@ -3375,8 +3373,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                 // the flown shot is 0.73 of it. docs/MIRV-NEXT.md item 2.
                 //
                 // Both, or neither: correcting where the round falls toward without correcting
-                // where it measures its height from pins the two to different instants, which is
-                // what the three earlier attempts at this each did.
+                // where it measures its height from pins the two to different instants.
 
             }
 
@@ -3445,8 +3442,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // world sample is at its edge. The gap is nothing but the target's ecliptic velocity times
         // that offset - up to 507 m at 60 fps near Earth, and in a fixed inertial direction, so it
         // reads as a common bias on every round of a salvo rather than as scatter. The blast sweep
-        // and the diagnostic below already do this; scoring the shot was the one place that did
-        // not, which made it the only number of the three that was wrong.
+        // and the diagnostic below do the same, so the three numbers agree.
         double3 aimAtBurst = target.PositionEcl + (target.VelocityEcl * round.DetonationElapsedInFrame);
         if (!Vec.IsFinite(aimAtBurst)) aimAtBurst = target.PositionEcl;
 
@@ -3574,8 +3570,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // seeker being blinded. The fuse still works; see Interceptor.Step.
         //
         // Sight, not the track list. The track list has the operator's policy applied to it -
-        // notably ProtectControlledVehicle - so testing against it meant that taking the
-        // target's seat cut the uplink to every round already flying at it, turning a
+        // notably ProtectControlledVehicle - so testing against it would mean that taking the
+        // target's seat cuts the uplink to every round already flying at it, turning a
         // deliberate safety rule into a guaranteed miss. The policy belongs at the kill, where
         // Detonate already declines and says why.
         if (round.Munition.NeedsUplink)
@@ -3677,9 +3673,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         return _contactScratch;
     }
 
-    // Applies a warhead burst. KSA has no partial-damage model exposed, so the effect is binary:
-    // anything inside the lethal radius is destroyed, anything between lethal and blast radius is
-    // reported as a near miss and survives.
+    // Applies a warhead burst: the fuse's verdict on what the round struck, then the splash over
+    // every craft and round in the air. What breaks is decided part by part in Damage.
     private void Detonate(IProjectile round)
     {
         // KSA exposes no component damage, so a round aimed at a *part* arrives, reports and
@@ -4330,8 +4325,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // Hide the round bodies that were riding those interceptors, or they freeze mid-air.
         //
         // Only when nothing was kept. This is every body on the launcher, not the dropped ones, so
-        // over a store that survived it hides the store -- which is the disappearance this was
-        // reported as. The per-frame pass already seats or hides a body whose tube has no round
+        // over a store that survived it hides the store, which then looks despawned. The per-frame pass already seats or hides a body whose tube has no round
         // flying, so the ones just dropped are covered there.
         if (kept == 0)
         {
@@ -4350,8 +4344,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     }
 
     // Everything but the stores the ground will stop. Returns how many were kept, so the line says
-    // which of the two things happened -- "abandoned" over a store still on its way is the report
-    // that sent somebody looking for a despawn.
+    // which of the two things happened -- "abandoned" over a store still on its way reads as a
+    // despawn.
     private int DropRoundsWithATargetToLose()
     {
         for (int i = _rounds.Count - 1; i >= 0; i--)

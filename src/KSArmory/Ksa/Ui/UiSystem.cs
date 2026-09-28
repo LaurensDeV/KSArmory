@@ -362,7 +362,7 @@ internal sealed partial class Ui
 
         // A button rather than a tick box: it opens a window, and a checkmark reads as "this
         // setting is on" while the window arrives somewhere else unannounced. Tinted while open.
-        // The local matters -- TakeScope flips the flag the pop reads. Same defect as Map above.
+        // The local matters -- TakeScope flips the flag the pop reads.
         bool scopeTinted = _policy.ScopeOpen;
         if (scopeTinted) ImGui.PushStyleColor(ImGuiCol.Button, new float4(0.20f, 0.42f, 0.30f, 1f));
         if (ImGui.Button("Scope")) TakeScope(_policy);
