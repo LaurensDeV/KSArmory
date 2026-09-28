@@ -231,4 +231,47 @@ public class ScopeGeometryTests
         Assert.Equal(5000.0, ScopeGeometry.RingRange(10_000.0, 1), 6);
         Assert.Equal(0.0, ScopeGeometry.RingRange(10_000.0, 99), 6);
     }
+
+    /// <summary>A hostile gets its own symbol; a friendly or neutral one stays an X.</summary>
+    [Theory]
+    [InlineData(false, Allegiance.Hostile, ScopeGeometry.Blip.Hostile)]
+    [InlineData(false, Allegiance.Unknown, ScopeGeometry.Blip.Unknown)]
+    [InlineData(false, Allegiance.Friendly, ScopeGeometry.Blip.Known)]
+    [InlineData(false, Allegiance.Neutral, ScopeGeometry.Blip.Known)]
+    [InlineData(true, Allegiance.Hostile, ScopeGeometry.Blip.Missile)]
+    public void EachSideGetsItsSymbol(bool isRound, Allegiance side, ScopeGeometry.Blip expected)
+        => Assert.Equal(expected, ScopeGeometry.SymbolFor(isRound, side));
+
+    /// <summary>The widest setting's rim is the set's reach, rounded up to a readable number.</summary>
+    [Theory]
+    [InlineData(6_000.0, 1_500f, 3_000f, 6_000f)]       // Phalanx
+    [InlineData(36_000.0, 9_000f, 18_000f, 36_000f)]    // Pantsir
+    [InlineData(17_400.0, 4_500f, 9_000f, 18_000f)]     // rounded up, never in: the rim is past the reach
+    [InlineData(1_486.0, 375f, 750f, 1_500f)]           // under 2 km, to the 100 m
+    public void TheStepsFollowTheSetsReach(double reach, float quarter, float half, float full)
+    {
+        Span<float> steps = stackalloc float[ScopeGeometry.RangeStepCount];
+        Assert.Equal(3, ScopeGeometry.RangeSteps(reach, steps));
+
+        Assert.Equal(quarter, steps[0]);
+        Assert.Equal(half, steps[1]);
+        Assert.Equal(full, steps[2]);
+    }
+
+    /// <summary>
+    /// Zero opens at the whole reach, and a setting saved against the old fixed table lands on the
+    /// nearest step rather than drawing a face that matches no button.
+    /// </summary>
+    [Theory]
+    [InlineData(0f, 36_000f)]
+    [InlineData(20_000f, 18_000f)]
+    [InlineData(50_000f, 36_000f)]
+    [InlineData(200_000f, 36_000f)]
+    [InlineData(5_000f, 9_000f)]
+    [InlineData(float.NaN, 36_000f)]
+    public void AStoredSettingSnapsToAStep(float stored, float expected)
+    {
+        ReadOnlySpan<float> steps = [9_000f, 18_000f, 36_000f];
+        Assert.Equal(expected, ScopeGeometry.SnapRange(stored, steps));
+    }
 }

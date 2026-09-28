@@ -33,7 +33,7 @@ public sealed class SystemSettings
     public bool RadarSilent { get; set; }
     public bool DrawBombSight { get; set; } = true;
     public bool ScopeOpen { get; set; }
-    public float ScopeRangeMetres { get; set; } = 20_000f;
+    public float ScopeRangeMetres { get; set; }
 
     public string? OwnTeam { get; set; }
     public bool EngageUnknown { get; set; } = true;

@@ -55,7 +55,7 @@ VIA = {
     "SystemConfig.ScopeOpen": "TakeScope",
 
     # The range detents are drawn from a table rather than as one named write, so the control is a
-    # loop over ScopeRanges. Deleting it deletes the only caller.
+    # loop over ScopeGeometry.RangeSteps. Deleting it deletes the only caller.
     "SystemConfig.ScopeRangeMetres": "DrawScopeControls",
 }
 

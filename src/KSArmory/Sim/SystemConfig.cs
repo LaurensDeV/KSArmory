@@ -171,14 +171,10 @@ public sealed class SystemConfig : ISensorPolicy
     public bool ScopeOpen;
 
     /// <summary>
-    /// How far the scope's rim is (m) — the range setting, not the set's reach.
-    ///
-    /// <para>Deliberately independent of <see cref="SensorProfile.Range"/>: an operator winds a
-    /// scope in to read a crowded sector and back out to see what is coming, and neither says
-    /// anything about how far the set can actually detect. Contacts past the rim are held on it
-    /// rather than dropped.</para>
+    /// How far the scope's rim is (m) — one of <see cref="ScopeGeometry.RangeSteps"/> off the set's
+    /// reach, and zero for the whole of it. A value off the steps is read as the nearest.
     /// </summary>
-    public float ScopeRangeMetres = 20_000f;
+    public float ScopeRangeMetres;
 
     // ---- Optical head ---------------------------------------------------
     //
