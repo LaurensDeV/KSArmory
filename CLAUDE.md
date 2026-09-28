@@ -1019,8 +1019,7 @@ controls.
 **There is no master arm, and FIRE works on a system nobody has touched.** A safety in front of a
 trigger guards an input that can fire by accident, and FIRE is a labelled button pressed on purpose
 — so all one adds there is a step a new player does not know to take, and a weapon that looks
-broken until they find it. BDArmory's arm switch is the same argument from the other side: it
-exists because its fire key is the left mouse button, and its guard mode does not consult it. What
+broken until they find it. What
 can surprise a player is a site shooting on its own, so that is the switch: auto-engage, off by
 default. The switcher's shield is auto-engage on every weapon aboard, and a craft carrying only
 stores has no shield. **Fire at the mouse** turns an ordinary click into a shot, and its own opt-in
@@ -2467,8 +2466,7 @@ update), still one flight a pass, and lays 97% of the reach inside the lethal ra
 drag and on almost none.
 
 **A round's drag is what it is, not a number typed for it.** `MunitionProfile.MassKg`, `CalibreMm` and
-`DragCoefficient` give `k = ½ρ·Cd·A/m` in Earth's sea-level air — the rule BDArmory Continued computes
-every bullet's ballistic coefficient with, at a Cd of 0.295. Constants typed by hand were 45 times too
+`DragCoefficient` give `k = ½ρ·Cd·A/m` in Earth's sea-level air. Constants typed by hand were 45 times too
 light on the 5"/54 and 30–45 times on both cannons, and nothing looked wrong until a lifetime was raised and
 a shell flew 65 km; a shape's coefficient sits near 0.3, so a wrong one shows. The 5"/54's 0.306 gives its
 range table's 23.69 km at 47°, and one constant cannot also give the ceiling — 16.1 km straight up against
