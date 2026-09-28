@@ -617,10 +617,14 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     private bool Aiming => (_policy.TurretTracking || _policy.MouseAim || _policy.MouseFire)
                            && !_policy.TurretManual && !_policy.TurretSpin;
 
+    // Whether the lost pinned platform has been said, so it is said once rather than every frame.
+    private bool _announcedLoss;
+
     public void PinPlatform(Vehicle? v)
     {
         Platform = v;
         PlatformPinned = v is not null;
+        _announcedLoss = false;
         Announce(v is null ? "platform released, following control" : $"platform pinned to {KsaWorld.DisplayName(v)}");
     }
 
@@ -646,6 +650,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             return;
         }
 
+        // Its craft is gone and the roster has not retired it yet: the last sample stands, which is
+        // what its rounds' offsets are measured from when they are handed to the body.
+        if (!KsaWorld.IsAlive(Platform)) return;
+
         // Rounds store position relative to the platform, so a change of platform has to be
         // announced: their offsets are now measured from somewhere else.
         if (!ReferenceEquals(Platform, _lastPlatform))
@@ -664,6 +672,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         PlatformStepEcl = _hasPlatformSample ? sampled - PlatformEcl : Vec.Zero;
         _hasPlatformSample = true;
         PlatformEcl = sampled;
+
+        _sampledBody = KsaWorld.ParentBody(Platform);
+        _bodyAtSampleEcl = _sampledBody is { } under ? KsaWorld.PositionEcl(under) : Vec.Zero;
 
         // Whichever registered weapon system is fitted, if any. Adopting it points this battery's
         // profiles at that system, so everything downstream - drives, guidance, the panel -
@@ -782,7 +793,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// </param>
     public void Update(double dt, IReadOnlyList<IContact>? airborne = null)
     {
-        if (Platform is null) return;
+        if (Platform is null || !KsaWorld.IsAlive(Platform)) return;
 
         if (double.IsFinite(dt) && dt > 0.0) _finTestSeconds += dt;
 
@@ -899,13 +910,22 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     // Preference order: an explicit pin, then the controlled craft if it has a launcher, then
     // whatever the battery is already on, then any loaded craft with one. Falls back to the
     // controlled vehicle only when the part requirement is switched off.
+    //
+    // A pinned battery stays on its craft after the craft dies. The roster retires it and hands its
+    // rounds to the body; adopting any other craft with a launcher in the meantime took that
+    // craft's launcher over with a freshly filled magazine, and finding none cleared the rounds
+    // before they could be handed on.
     private void ResolvePlatform()
     {
         if (PlatformPinned)
         {
-            if (KsaWorld.IsAlive(Platform)) return;
-            Announce("pinned platform lost");
-            PlatformPinned = false;
+            if (!KsaWorld.IsAlive(Platform) && !_announcedLoss)
+            {
+                Announce("pinned platform lost, holding its rounds for the roster");
+                _announcedLoss = true;
+            }
+
+            return;
         }
 
         // A controlled craft that carries a launcher is the one meant.
@@ -1843,7 +1863,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// reads state and changes none, so running it more often than the simulation is free.</para>
     public void SyncRoundBodies()
     {
-        if (Platform is not { } platform || Launcher is not { } launcher) return;
+        if (Platform is not { } platform || Launcher is not { } launcher || !KsaWorld.IsAlive(platform)) return;
         if ((_missileBodies.Count == 0 && _shellBodies.Count == 0) || !RoundBodiesWork) return;
 
         // Switched off by the operator: hide every body so the tracers are what is seen, rather
@@ -2922,12 +2942,21 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                  + $"{moved:F0} m away - {aboard} round(s) aboard, {flying} in flight");
     }
 
+    // The body under the platform, sampled at the same instant as the platform itself.
+    private Celestial? _sampledBody;
+    private double3 _bodyAtSampleEcl;
+
     /// <returns>False if there was nothing in the air, in which case there is nothing to keep.</returns>
     public bool GoLoose(Celestial? body, string firedBy)
     {
         if (_rounds.Count == 0 || body is null) return false;
 
-        double3 bodyEcl = KsaWorld.PositionEcl(body);
+        // At the instant the platform was last sampled, which is the instant the rounds' offsets are
+        // measured at. A craft that died in the engine's own step was last sampled a frame ago, and
+        // the body's position now would put a frame of its ~30 km/s into every offset.
+        double3 bodyEcl = ReferenceEquals(body, _sampledBody) && Vec.IsFinite(_bodyAtSampleEcl)
+                              ? _bodyAtSampleEcl
+                              : KsaWorld.PositionEcl(body);
         if (!Vec.IsFinite(bodyEcl)) return false;
 
         ReanchorRounds(bodyEcl);

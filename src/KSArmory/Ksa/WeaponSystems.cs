@@ -473,16 +473,7 @@ internal sealed class WeaponSystems(Config config)
             }
         }
 
-        _gone.Clear();
-        foreach (KeyValuePair<(Vehicle Craft, int Ordinal), Entry> kv in _entries)
-        {
-            if (!KsaWorld.IsAlive(kv.Key.Craft)) _gone.Add(kv.Key);
-        }
-
-        foreach ((Vehicle Craft, int Ordinal) key in _gone)
-        {
-            Retire(key, "a crewed system was destroyed");
-        }
+        RetireDestroyed();
 
         ReapLoose();
     }
@@ -527,6 +518,25 @@ internal sealed class WeaponSystems(Config config)
     //
     // The name is read before detaching — it is the only thing that still knows what fired
     // them, and it is the team identity as well as the label.
+    /// <summary>
+    /// Retires every system whose craft has been destroyed, handing its rounds to the body. Run from
+    /// the step as well as from the sync, because the sync is in the UI pass: a system whose craft died
+    /// must not be stepped, sampled or drawn as though it still had one.
+    /// </summary>
+    public void RetireDestroyed()
+    {
+        _gone.Clear();
+        foreach (KeyValuePair<(Vehicle Craft, int Ordinal), Entry> kv in _entries)
+        {
+            if (!KsaWorld.IsAlive(kv.Key.Craft)) _gone.Add(kv.Key);
+        }
+
+        foreach ((Vehicle Craft, int Ordinal) key in _gone)
+        {
+            Retire(key, "a crewed system was destroyed");
+        }
+    }
+
     private void Retire((Vehicle Craft, int Ordinal) key, string why)
     {
         if (!_entries.TryGetValue(key, out Entry? entry)) return;

@@ -2011,6 +2011,15 @@ at, because the kill path refuses to destroy its own platform — 22 m hits regi
 `ResolvePlatform` returns early for a pinned platform, so without that every system would elect
 the craft being flown and they would all pile onto it.
 
+**And it stays there after the craft dies.** A pinned system whose craft is destroyed is neither
+sampled nor stepped until the roster retires it and hands its rounds to the body, and the roster does
+that at the start of the step as well as in the UI pass. Un-pinning instead elected any craft carrying
+a launcher: the dead rocket's HARM system took over the Pantsir's with twelve fresh rounds, a
+Pantsir's shells were re-based onto the rocket that killed it, and in a world with no other launcher
+its rounds were cleared before they could go loose. The hand-over is anchored at the body's position
+**when the platform was last sampled**, the instant the rounds' offsets are measured at, because a
+craft that died in the engine's own step was sampled a frame ago.
+
 **A round's drawn offset is `PositionEcl − platformEcl`, measured *after* the step against the
 platform sample from the *same* frame, with no extrapolation.** Write the update index as `k`,
 the platform sample as `Q(k)` and the round's position after its step as `P(k)`. Measured by a

@@ -635,6 +635,7 @@ public sealed class KSArmoryMod
 
         using (_budget.Measure("dispsync")) _countermeasures?.Sync(KsaWorld.Vehicles);
 
+        _roster.RetireDestroyed();
         _roster.ShareStationSettings();
         _roster.ReconcileSteerables();
 
