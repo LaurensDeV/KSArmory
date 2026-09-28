@@ -487,6 +487,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/PreRenderHook.cs` | the second — **a step before the render on a frame that draws no UI**, because StarMap has no hook that is both |
 | `Ksa/WorldReloadHook.cs` | the third — **that a save was loaded**, which nothing else can tell: the mod never leaves the flight scene across one |
 | `Ksa/RoundBodyDrawHook.cs` | the fourth — **a launcher's rounds drawn after the engine has culled the launcher**, because a body is one of its parts and KSA draws none of a craft under a pixel across |
+| `Ksa/LooseBodyDrawHook.cs` | **a destroyed launcher's rounds drawn anyway** — each round's mesh, taken off its subpart at `GoLoose`, added as an instance of the engine's own part model every viewport, because a model outlives the craft its parts were on |
 | `Ksa/VehicleCommand.cs` | **the only place this mod flies somebody else's rocket** — attitude, throttle, ignition, staging |
 | `Ksa/IcbmOverlay.cs` | the arc it is on, the rings it is aimed at and the ground the bus can still divert to — the reach and the targets past the lead only for the craft the panel is showing, and **one ring is re-draped a frame**, so a six-target set costs a frame what one target does |
 | `Ksa/WarheadTrace.cs` | **one warhead against the prediction of it**, re-flown from where it has got to — measurement only, off by default, and the discriminator is whether the two part *smoothly* or in a *step* |
@@ -574,7 +575,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 694 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 704 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -1242,7 +1243,7 @@ Do the private repo *before* pushing here, or CI fails on the lock it cannot sat
 member that keeps its name and signature and changes its *meaning* — a different reference
 frame, different units, a reordered enum — compiles clean and is wrong in flight. That is what
 the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from 684,000 lines to the files
-defining the 251 types this mod actually uses.
+defining the 257 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 45 in total, 14 MB —
@@ -2313,21 +2314,27 @@ Three rules hold it together:
   walks every round in the world against every round it owns, which for a system whose rounds are
   *all* it has is the whole airborne list squared.
 
-**A loose round keeps its plume and its tracer, and loses its body.** The body is a subpart of the
-launching craft, so when that craft is destroyed there is nothing left to write a transform to —
-that one is a KSA limit rather than a choice. The effects are not: every emitter this mod starts
-sets `Context.Astronomical` and leaves `Context.Vehicle` null, so a plume has always hung on the
-*body* rather than on the craft, and only the position lookup went through the launcher's part
-tree. `IEffectSource.EffectBody` and `TryRoundEffectEcl` are that split made explicit — the drawn
-body's position while there is one, and the round's own against its anchor once there is not, which
-is exact rather than approximate precisely because there is no part to disagree with it.
+**A loose round keeps its plume, its tracer and its body.** The body is a subpart of the launching
+craft, and a destroyed craft's parts are released with it — but the *mesh* a part is drawn with is
+not. `PartModel` is shared by every part of its template and outlives any craft, and
+`PartModel.AddInstance` draws it at any matrix with the part shader, lighting and shadows, which is
+how the editor draws its part thumbnails with no craft at all. So `GoLoose` takes each round's models
+off its subparts while they still exist, and `Ksa/LooseBodyDrawHook.cs` — a prefix on
+`PartModelRenderer.UpdateRenderData`, once per visible viewport, pinned like `AttitudeHook` — adds
+them as instances each frame. Placed at the camera's view of the body plus the round's offset from
+it, the pairing the plume hangs on, and turned on by `BodyAttitude.Turn` from where the launcher last
+drew it. A shell is not carried: it is a tracer at that speed anyway, and a burst is 150 of them.
 
-So a shell keeps its tracer for its whole flight and a missile keeps its flame while the motor
-burns. **A missile that has finished boosting is invisible**, having neither, and so is a bomb. The chase
-camera still rides such a round to its burst: it keeps the system it is riding rather than asking
-the panel, which has nothing left it can focus that owns the round. The motor sound and
-the diagnostic gizmo overlay are also not carried over, both because they convert through a
-`Vehicle` to get camera-relative. `docs/CODE-HEALTH.md` has what closing those would take.
+The effects were never the launcher's: every emitter this mod starts sets `Context.Astronomical` and
+leaves `Context.Vehicle` null, so a plume has always hung on the *body* rather than on the craft, and
+only the position lookup went through the launcher's part tree. `IEffectSource.EffectBody` and
+`TryRoundEffectEcl` are that split made explicit — the drawn body's position while there is one, and
+the round's own against its anchor once there is not, which is exact rather than approximate
+precisely because there is no part to disagree with it. The chase camera still rides such a round to
+its burst: it keeps the system it is riding rather than asking the panel, which has nothing left it
+can focus that owns the round. The motor sound and the diagnostic gizmo overlay are not carried
+over, both because they convert through a `Vehicle` to get camera-relative. `docs/CODE-HEALTH.md`
+has what closing those would take.
 
 `Ksa/HullTest.cs` needs no camera: `Vehicle.GetMatrixAsmb2Ego` takes the frame origin as an
 argument, so passing the round-relative separation puts the whole per-triangle cast in a

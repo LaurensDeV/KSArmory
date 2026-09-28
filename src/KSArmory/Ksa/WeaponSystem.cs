@@ -42,6 +42,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     // and there is no one turn between opposite directions.
     private readonly Dictionary<IProjectile, DrawnAttitude> _drawnAttitudes = new(ReferenceEqualityComparer.Instance);
 
+    // The meshes a loose round is drawn with, taken off its subparts while the launcher was alive.
+    private sealed record LooseBody(PartModel? Body, PartModel?[] Blades, PartModel? FinSet);
+    private readonly Dictionary<IProjectile, LooseBody> _looseBodies = new(ReferenceEqualityComparer.Instance);
+
     private readonly record struct DrawnAttitude(doubleQuat Ecl, double Age);
 
     // Craft an unguided round could run into, rebuilt at most once a frame.
@@ -2864,6 +2868,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         _roundSet.Remove(_rounds[index]);
         _drawnAttitudes.Remove(_rounds[index]);
         _seekers.Remove(_rounds[index]);
+        _looseBodies.Remove(_rounds[index]);
         _rounds.RemoveAt(index);
     }
 
@@ -2873,6 +2878,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         _roundSet.Clear();
         _drawnAttitudes.Clear();
         _seekers.Clear();
+        _looseBodies.Clear();
     }
 
     /// <summary>
@@ -2960,6 +2966,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         if (!Vec.IsFinite(bodyEcl)) return false;
 
         ReanchorRounds(bodyEcl);
+        CaptureLooseBodies();
 
         _looseBody = body;
         _looseName = firedBy;
@@ -3007,6 +3014,102 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         FillIncoming(airborne);
         UpdateRounds(dt);
+        TurnLooseBodies(body);
+    }
+
+    // Before the launcher's parts are released: a model is the template's, and the subpart is the only
+    // thing that says which template a round's body is.
+    private void CaptureLooseBodies()
+    {
+        if (!RoundBodiesWork || !_config.UseRoundBodies) return;
+
+        foreach (IProjectile round in _rounds)
+        {
+            int index = round.Tube - 1;
+            if (index < 0 || index >= _missileBodies.Count || !_drawnAttitudes.ContainsKey(round)) continue;
+
+            MunitionProfile munition = round.Munition;
+            var blades = new PartModel?[Math.Max(0, munition.FinsPerRound)];
+            for (int b = 0; b < blades.Length; b++) blades[b] = LauncherPart.ModelOf(FinsFor(index * blades.Length + b));
+
+            _looseBodies[round] = new LooseBody(LauncherPart.ModelOf(_missileBodies[index]), blades,
+                                                blades.Length == 0 ? LauncherPart.ModelOf(FinsFor(index)) : null);
+        }
+
+        // The engine sheds part of a destroyed craft as debris, and a launcher shed that way carries
+        // its round bodies at their last placement -- a second copy of every round now drawn loose.
+        for (int i = 0; i < _missileBodies.Count; i++) LauncherPart.HideMissile(_missileBodies[i]);
+        for (int i = 0; i < _finBodies.Count; i++) LauncherPart.HideMissile(_finBodies[i]);
+    }
+
+    // On from where each was last drawn, as SyncRoundBodies turns a body that still has its launcher.
+    private void TurnLooseBodies(Celestial body)
+    {
+        foreach (IProjectile round in _rounds)
+        {
+            if (!_looseBodies.ContainsKey(round) || !_drawnAttitudes.TryGetValue(round, out DrawnAttitude was)) continue;
+
+            double density = KsaWorld.MediumDensityRatioAt(body, round.PositionEcl);
+            _drawnAttitudes[round] = new DrawnAttitude(
+                BodyAttitude.Turn(was.Ecl, round.VelocityLocal, density, round.Age - was.Age), round.Age);
+        }
+    }
+
+    /// <summary>
+    /// Queues the bodies of this loose system's rounds for one viewport, as instances of the meshes their
+    /// subparts were drawn with. Placed off the camera's view of the body plus the round's offset from it,
+    /// which is the pairing the plume and the tracer hang on, so the planet's motion cancels in it.
+    /// </summary>
+    public void DrawLooseBodies(IViewport viewport, int frameIndex)
+    {
+        if (_looseBody is not { } body || _looseBodies.Count == 0 || viewport.GetCamera() is not { } camera) return;
+
+        double3 bodyEgo = camera.GetPositionEgo(body);
+        int drawnCount = 0;
+        double nearest = double.PositiveInfinity;
+
+        foreach (IProjectile round in _rounds)
+        {
+            if (round.State != RoundState.Flying
+                || !_looseBodies.TryGetValue(round, out LooseBody? looks)
+                || !_drawnAttitudes.TryGetValue(round, out DrawnAttitude drawn)) continue;
+
+            double3 ego = bodyEgo + round.OffsetFromPlatform;
+            if (!Vec.IsFinite(ego)) continue;
+
+            MunitionProfile munition = round.Munition;
+            AddInstance(looks.Body, double3.One, drawn.Ecl, ego, viewport, frameIndex);
+            drawnCount += looks.Body is null ? 0 : 1;
+            nearest = Math.Min(nearest, Vec.Len(ego));
+
+            for (int b = 0; b < looks.Blades.Length; b++)
+            {
+                double roll = FinMixer.FinRollRad(b, looks.Blades.Length, Math.PI / 4.0);
+                doubleQuat rotation = drawn.Ecl * doubleQuat.CreateFromAxisAngle(new double3(1, 0, 0), roll);
+                AddInstance(looks.Blades[b], double3.One, rotation,
+                            ego + (drawn.Ecl * new double3(munition.FinHingeStation, 0, 0)), viewport, frameIndex);
+            }
+
+            AddInstance(looks.FinSet, TubeGeometry.FinScale(munition, round.FinDeployment(munition)),
+                        drawn.Ecl, ego, viewport, frameIndex);
+        }
+
+        if (_looseBodiesReported || drawnCount == 0) return;
+        _looseBodiesReported = true;
+        Log.Info($"{_looseName}: drawing {drawnCount} round bodies with no launcher, nearest {nearest:F0} m from the camera");
+    }
+
+    private bool _looseBodiesReported;
+
+    private static void AddInstance(PartModel? model, double3 scale, doubleQuat rotation, double3 ego,
+                                    IViewport viewport, int frameIndex)
+    {
+        if (model is null) return;
+
+        double4x4 matrix = double4x4.CreateScale(scale) * double4x4.CreateFromQuaternion(rotation)
+                           * double4x4.CreateTranslation(ego);
+        model.AddInstance(new PartModel.PerInstanceData { ModelMatrix = float4x4.Pack(in matrix) },
+                          viewport, frameIndex);
     }
 
     // Every round in the world except this system's own. Shared with Update so a loose system

@@ -186,6 +186,17 @@ public sealed class KSArmoryMod
         // A refusal leaves that cull, so a long shot's body vanishes where it always did.
         RoundBodyDrawHook.Install(craft => _roster?.HasRoundsInFlight(craft) == true);
 
+        LooseBodyDrawHook.Install((viewport, frameIndex) =>
+        {
+            if (_roster is not { } roster || roster.Loose.Count == 0) return;
+
+            using (_budget.Measure("loose bodies"))
+            {
+                IReadOnlyList<WeaponSystem> loose = roster.Loose;
+                for (int i = 0; i < loose.Count; i++) loose[i].DrawLooseBodies(viewport, frameIndex);
+            }
+        });
+
         _roster = new WeaponSystems(_config);
         _heads = new OpticalHeads(_config);
         _countermeasures = new Countermeasures();
@@ -970,6 +981,7 @@ public sealed class KSArmoryMod
         PreRenderHook.Remove();
         WorldReloadHook.Remove();
         RoundBodyDrawHook.Remove();
+        LooseBodyDrawHook.Remove();
         KsaWorld.ResetSimStepTracking();
         _roster = null;
         _ui = null;
@@ -1321,6 +1333,7 @@ public sealed class KSArmoryMod
         PreRenderHook.Remove();
         WorldReloadHook.Remove();
         RoundBodyDrawHook.Remove();
+        LooseBodyDrawHook.Remove();
         Log.Error("too many faults - air defence disabled for this session");
     }
 }

@@ -611,6 +611,29 @@ internal static class LauncherPart
     }
 
 
+    /// <summary>
+    /// The mesh a part is drawn with. Shared by every part of its template and kept by the engine for
+    /// the session, so it outlives the craft the part was on.
+    /// </summary>
+    public static PartModel? ModelOf(Part? part)
+    {
+        try
+        {
+            if (part?.Template?.Components is not { } components) return null;
+
+            foreach (ModuleBase.TemplateDataBase component in components)
+            {
+                if (component is PartModelModule.Template template) return PartModel.Get(template);
+            }
+        }
+        catch
+        {
+            // A part mid-teardown has nothing to lend.
+        }
+
+        return null;
+    }
+
     /// <summary>The attitude a round leaves this launcher at. See <see cref="TubeGeometry.ReleaseAttitudeEcl"/>.</summary>
     public static doubleQuat ReleaseAttitudeEcl(Part launcher, double3 releaseHeadingEcl, doubleQuat launchAttitude)
     {

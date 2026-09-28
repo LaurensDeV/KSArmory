@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-251 types and 694 members across 11 assemblies.
+257 types and 704 members across 11 assemblies.
 
 ## BepuUtilities
 
@@ -79,6 +79,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `Brutal.Numerics.double3 Cross(Brutal.Numerics.double3, Brutal.Numerics.double3)`
 - `Brutal.Numerics.double3 Unpack(ref Brutal.Numerics.float3, Float)`
+- `Brutal.Numerics.double3 get_One()`
 - `Brutal.Numerics.double3 get_UnitX()`
 - `Brutal.Numerics.double3 get_UnitY()`
 - `Brutal.Numerics.double3 get_UnitZ()`
@@ -105,7 +106,11 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### Brutal.Numerics.double4x4
 
+- `Brutal.Numerics.double4x4 CreateFromQuaternion(Brutal.Numerics.doubleQuat)`
+- `Brutal.Numerics.double4x4 CreateScale(Brutal.Numerics.double3)`
+- `Brutal.Numerics.double4x4 CreateTranslation(Brutal.Numerics.double3)`
 - `Brutal.Numerics.double4x4 Unpack(ref Brutal.Numerics.float4x4)`
+- `Brutal.Numerics.double4x4 op_Multiply(Brutal.Numerics.double4x4, Brutal.Numerics.double4x4)`
 - `double get_M11()`
 - `double get_M12()`
 - `double get_M13()`
@@ -1002,6 +1007,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `KSA.Part get_Parent()`
 
+### KSA.ModuleBase+TemplateDataBase
+
+*referenced as a type only*
+
 ### KSA.ModuleList
 
 - `System.Span`1<!!0> Get<1>()`
@@ -1100,10 +1109,32 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 *referenced as a type only*
 
+### KSA.PartModel
+
+- `KSA.PartModel Get(Template)`
+- `void AddInstance(PerInstanceData, KSA.IViewport, int)`
+
+### KSA.PartModel+PerInstanceData
+
+- `Brutal.Numerics.float4x4 ModelMatrix`
+
+### KSA.PartModelModule
+
+*referenced as a type only*
+
+### KSA.PartModelModule+Template
+
+*referenced as a type only*
+
+### KSA.PartModelRenderer
+
+- `void UpdateRenderData(KSA.IViewport, int)`
+
 ### KSA.PartTemplate
 
 - `System.Collections.Generic.List`1<KSA.PartInstance> SubPartInstances`
 - `System.Collections.Generic.List`1<TemplateBase> Connectors`
+- `System.Collections.Generic.List`1<TemplateDataBase> Components`
 
 ### KSA.PartTree
 

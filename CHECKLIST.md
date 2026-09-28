@@ -832,8 +832,10 @@ Where latent bugs are most likely.
   A command-link round (the Pantsir's 57E6) should coast and expire; a Sidewinder or HARM should
   still hit. **Watch a CIWS burst for this one** — a shell keeps its tracer the whole way, so the
   stream should carry on across the frame its gun is destroyed rather than stopping dead. A missile
-  keeps its flame only while boosting and has no body once loose, so past burnout there is nothing
-  to see and the log is the only witness. See `docs/CODE-HEALTH.md`.
+  keeps its body once loose, drawn from the engine's own part model, so it stays visible past
+  burnout. Seen through the bridge's `watch` on a 57E6, a B61 with its tail blades and an AIM-9J
+  still guiding after burnout: the same pose either side of the launcher dying, no jump, and one
+  body rather than a second left on the launcher's debris. See `Ksa/LooseBodyDrawHook.cs`.
 - [ ] **6.5** **Switching control away** — a system is pinned to the craft carrying its launcher
       when it is crewed and nothing moves it after, so taking control of something else leaves it
       defending itself. There is no button: pinning is not the operator's.
