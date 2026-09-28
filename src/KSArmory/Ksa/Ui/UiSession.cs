@@ -125,10 +125,9 @@ internal sealed partial class Ui
         }
 
         ImGui.SameLine();
-        Help("KSA has no team field, so a craft is placed two ways. The flag on its switcher row "
-             + "is the one that counts. Failing that -- a drone, or anything with nothing of this "
-             + "mod's fitted -- the team's name anywhere in the craft's name puts it on that side, "
-             + "so \"Red\" also matches \"Redstone\". Longest match wins. Name teams distinctly.");
+        Help("KSA has no team field, so a craft's team is the flag on its switcher row. A craft "
+             + "with no flag to set -- a drone, or anything with nothing of this mod's fitted -- is "
+             + "on no team, whatever it is called.");
     }
 
     // The developer tools, in a window of their own rather than a section of the settings one.
