@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-248 types and 683 members across 11 assemblies.
+251 types and 694 members across 11 assemblies.
 
 ## BepuUtilities
 
@@ -240,6 +240,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.ImGuiApi.ImDrawListPtr GetForegroundDrawList(Brutal.ImGuiApi.ImGuiViewportPtr)`
 - `Brutal.ImGuiApi.ImDrawListPtr GetWindowDrawList()`
 - `Brutal.ImGuiApi.ImGuiIOPtr GetIO()`
+- `Brutal.ImGuiApi.ImGuiStylePtr GetStyle()`
 - `Brutal.ImGuiApi.ImGuiViewportPtr FindViewportByID(Brutal.ImGuiApi.ImGuiID)`
 - `Brutal.ImGuiApi.ImGuiViewportPtr GetMainViewport()`
 - `Brutal.Numerics.float2 CalcTextSize(Brutal.ImGuiApi.ImString, bool, float)`
@@ -250,6 +251,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.float2 GetMousePos()`
 - `bool Begin(Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiWindowFlags)`
 - `bool Begin(Brutal.ImGuiApi.ImString, ref bool, Brutal.ImGuiApi.ImGuiWindowFlags)`
+- `bool BeginCombo(Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiComboFlags)`
 - `bool BeginItemTooltip()`
 - `bool BeginMainMenuBar()`
 - `bool BeginMenu(Brutal.ImGuiApi.ImString, bool)`
@@ -280,6 +282,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `bool TableNextColumn()`
 - `bool TreeNode(Brutal.ImGuiApi.ImString)`
 - `bool TreeNodeEx(Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiTreeNodeFlags)`
+- `float GetCursorPosX()`
 - `float GetFontSize()`
 - `float GetFrameHeight()`
 - `float GetTextLineHeight()`
@@ -288,6 +291,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `void CloseCurrentPopup()`
 - `void Dummy(ref Brutal.Numerics.float2)`
 - `void End()`
+- `void EndCombo()`
 - `void EndDisabled()`
 - `void EndMainMenuBar()`
 - `void EndMenu()`
@@ -300,14 +304,19 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `void OpenPopup(Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiPopupFlags)`
 - `void PopID()`
 - `void PopStyleColor(int)`
+- `void PopStyleVar(int)`
 - `void PopTextWrapPos()`
 - `void ProgressBar(float, ref System.Nullable`1<Brutal.Numerics.float2>, Brutal.ImGuiApi.ImString)`
+- `void PushID(Brutal.ImGuiApi.ImString)`
 - `void PushID(int)`
 - `void PushStyleColor(Brutal.ImGuiApi.ImGuiCol, ref Brutal.Numerics.float4)`
+- `void PushStyleVar(Brutal.ImGuiApi.ImGuiStyleVar, ref Brutal.Numerics.float2)`
 - `void PushTextWrapPos(float)`
 - `void SameLine(float, float)`
 - `void Separator()`
 - `void SeparatorText(Brutal.ImGuiApi.ImString)`
+- `void SetCursorPosX(float)`
+- `void SetItemDefaultFocus()`
 - `void SetKeyboardFocusHere(int)`
 - `void SetNextItemWidth(float)`
 - `void SetNextWindowBgAlpha(float)`
@@ -323,6 +332,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `void TreePop()`
 
 ### Brutal.ImGuiApi.ImGuiCol
+
+*referenced as a type only*
+
+### Brutal.ImGuiApi.ImGuiComboFlags
 
 *referenced as a type only*
 
@@ -366,6 +379,15 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 *referenced as a type only*
 
 ### Brutal.ImGuiApi.ImGuiSliderFlags
+
+*referenced as a type only*
+
+### Brutal.ImGuiApi.ImGuiStylePtr
+
+- `ref Brutal.Numerics.float2 get_FramePadding()`
+- `ref Brutal.Numerics.float2 get_ItemSpacing()`
+
+### Brutal.ImGuiApi.ImGuiStyleVar
 
 *referenced as a type only*
 

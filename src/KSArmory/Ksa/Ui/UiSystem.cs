@@ -21,8 +21,6 @@ internal sealed partial class Ui
         KsaWorld.SurveyParts(craft, _surveyed);
         WeaponInventory inv = WeaponSurvey.Survey(_surveyed, Catalogue.Components);
 
-        ImGui.TextDisabled($"{_surveyed.Count} part(s) on the craft");
-
         // IsInstallation, not IsWeaponSystem: a craft carrying one director and no armament is
         // something this mod recognises, and it is the case this pane most needs to describe.
         if (!inv.IsInstallation)
@@ -33,79 +31,85 @@ internal sealed partial class Ui
             return;
         }
 
-        // One group per role, read off the enum rather than listed here. A hand-written list
-        // silently omits a role added later, which reads as the survey not finding one.
-        foreach (WeaponRole role in Enum.GetValues<WeaponRole>())
+        // One section per kind of part, holding every role it plays: a rack is a launcher, a
+        // release and a sight, and listing it under three headings shows one weapon three times.
+        // Several of one kind are the stations of one weapon, so they share a section too.
+        _kinds.Clear();
+        foreach (FoundComponent c in inv.Components)
         {
-            int n = inv.CountOf(role);
-            if (n == 0) continue;
+            if (!_kinds.Contains(c.Profile)) _kinds.Add(c.Profile);
+        }
 
-            ImGui.SeparatorText(GroupName(role));
-
-            _roleScratch.Clear();
-            for (int i = 0; i < inv.Components.Count; i++)
+        foreach (ComponentProfile kind in _kinds)
+        {
+            int stations = 0;
+            foreach (FoundComponent c in inv.Components)
             {
-                if (inv.Components[i].Role == role) _roleScratch.Add(i);
+                if (ReferenceEquals(c.Profile, kind) && c.Role == kind.Role) stations++;
             }
 
-            for (int nth = 0; nth < _roleScratch.Count;)
-            {
-                FoundComponent c = inv.Components[_roleScratch[nth]];
+            ImGui.SeparatorText(stations > 1 ? $"{kind.DisplayName}  x{stations}" : kind.DisplayName);
+            ImGui.PushID(kind.PartId);
 
-                // Identical stations of one weapon are one row: the switcher and the trigger
-                // already treat them as one weapon, and their settings are shared.
-                int run = 1;
-                if (StacksStations(role))
+            // Every row of a weapon prints the selected one's numbers and edits its settings, so a
+            // weapon that is not selected says so once and draws none of them. A director it
+            // carries is its own instrument and still gets its row.
+            bool otherWeapon = _crewed && kind.Role == WeaponRole.Launcher && !IsSelectedWeapon(kind);
+            if (otherWeapon) NotSelected();
+
+            // Role order read off the enum rather than listed here: a hand-written list silently
+            // omits a role added later, which reads as the survey not finding one.
+            foreach (WeaponRole role in Enum.GetValues<WeaponRole>())
+            {
+                int of = inv.CountOf(role);
+                int nth = 0;
+                bool drawn = false;
+
+                for (int i = 0; i < inv.Components.Count; i++)
                 {
-                    while (nth + run < _roleScratch.Count
-                           && inv.Components[_roleScratch[nth + run]].DisplayName == c.DisplayName)
+                    FoundComponent c = inv.Components[i];
+                    if (c.Role != role) continue;
+
+                    if (ReferenceEquals(c.Profile, kind) && !(drawn && StacksStations(role))
+                        && !(otherWeapon && StacksStations(role)))
                     {
-                        run++;
+                        // Per component, not per label. ImGui keys a widget on its label within
+                        // the current id scope, so without this the second director's tick boxes
+                        // are the first's.
+                        ImGui.PushID(i);
+                        DrawComponentRow(craft, c, kind, role, nth, stations, of);
+                        ImGui.PopID();
+                        drawn = true;
                     }
+
+                    nth++;
                 }
-
-                // Per component, not per label. Several of one kind draw identical controls, and
-                // ImGui keys a widget on its label within the current id scope -- so without this
-                // the second director's tick boxes are the first's.
-                ImGui.PushID(_roleScratch[nth]);
-                DrawComponentRow(craft, inv, c, role, nth, run, n);
-                ImGui.PopID();
-
-                nth += run;
             }
+
+            ImGui.PopID();
         }
     }
 
-    private readonly List<int> _roleScratch = [];
+    private readonly List<ComponentProfile> _kinds = [];
 
     // A director has its own controls per head and one computer flies the craft, so neither is a
     // station of anything.
     private static bool StacksStations(WeaponRole role)
         => role is not (WeaponRole.Camera or WeaponRole.Guidance);
 
-    // One component, or `run` identical stations of one weapon from `nth` on: where they sit, and
-    // whatever it is that the panel can drive.
-    private void DrawComponentRow(KSA.Vehicle craft, WeaponInventory inv, FoundComponent c, WeaponRole role,
-                                  int nth, int run, int of)
+    // One role of one kind of part -- once for all its stations, or once per head for a director --
+    // and whatever it is that the panel can drive.
+    private void DrawComponentRow(KSA.Vehicle craft, FoundComponent c, ComponentProfile kind, WeaponRole role,
+                                  int nth, int stations, int of)
     {
-        string label = run > 1 ? $"{c.DisplayName}  x{run}"
-                     : of > 1 ? $"{c.DisplayName}  {nth + 1} of {of}"
-                     : c.DisplayName;
+        string label = !StacksStations(role) && of > 1 ? $"{c.DisplayName}  {nth + 1} of {of}" : c.DisplayName;
 
         // Open unless folded away. A craft carries a handful of components and their controls are
         // the reason to be on this tab at all, so a closed fold costs a click on every visit and
         // buys back one line of screen.
         if (!ImGui.TreeNodeEx(label, ImGuiTreeNodeFlags.DefaultOpen)) return;
 
-        if (run == 1)
-        {
-            double3 at = c.PositionVehicleAsmb;
-            ImGui.TextDisabled($"at ({at.X:F2}, {at.Y:F2}, {at.Z:F2}) m");
-        }
-        else
-        {
-            DrawStations(craft, inv, role, nth, run);
-        }
+        if (stations > 1 && role == WeaponRole.Launcher) DrawStationsLoaded(craft, kind);
 
         // A director is its own instrument and needs no weapons system. Everything else here
         // describes one, and reads `_battery` -- which Focus leaves unassigned on a craft that
@@ -128,9 +132,9 @@ internal sealed partial class Ui
             switch (role)
             {
                 case WeaponRole.FireControl: DrawFireControlComponent(); break;
-                case WeaponRole.Launcher: DrawLauncherComponent(nth, run); break;
-                case WeaponRole.Gun: DrawGunComponent(nth, run); break;
-                case WeaponRole.Sensor: DrawSensorComponent(nth, run); break;
+                case WeaponRole.Launcher: DrawLauncherComponent(kind); break;
+                case WeaponRole.Gun: DrawGunComponent(kind); break;
+                case WeaponRole.Sensor: DrawSensorComponent(kind); break;
             }
         }
 
@@ -159,44 +163,27 @@ internal sealed partial class Ui
         ImGui.TextDisabled("  target, arming and settings on the Ballistic tab");
     }
 
-    // Whether a row is the weapon the panel is currently pointed at.
-    //
-    // Every launcher is crewed now, so the question is no longer "is this one running" but "is this
-    // the selected one" -- and the rows below print the *selected* system's numbers. Without this
-    // a craft with two identical racks shows the same ammo under both, which reads as one magazine
-    // shared between them.
-    //
-    // Matched on the launcher's ordinal against the row's position among launcher components. Both
-    // are part order, which is what makes them the same sequence.
-    private bool IsSelectedWeapon(int nth, int run)
-        => _battery.LauncherOrdinal >= nth && _battery.LauncherOrdinal < nth + run;
+    // Whether a row belongs to the weapon the panel is pointed at. The rows print the *selected*
+    // system's numbers, so a row of another kind of launcher has to say it is not that one rather
+    // than show numbers belonging to a different weapon. Every station of a kind is one weapon.
+    private bool IsSelectedWeapon(ComponentProfile kind) => _battery.Profile.PartId == kind.PartId;
 
-    // A row standing for several stations: how many are loaded, and where each one is, folded
-    // away because it is reference rather than something anyone acts on.
-    private void DrawStations(KSA.Vehicle craft, WeaponInventory inv, WeaponRole role, int nth, int run)
+    // A row standing for several stations, and how many of them still hold a round.
+    private void DrawStationsLoaded(KSA.Vehicle craft, ComponentProfile kind)
     {
         _batteries.AllOn(craft, _stationRows);
 
-        if (role == WeaponRole.Launcher)
+        int stations = 0;
+        int loaded = 0;
+        foreach (WeaponSystems.Entry e in _stationRows)
         {
-            int loaded = 0;
-            foreach (WeaponSystems.Entry e in _stationRows)
-            {
-                if (e.Ordinal >= nth && e.Ordinal < nth + run && e.Battery.Ammo > 0) loaded++;
-            }
+            if (e.Battery.Profile.PartId != kind.PartId) continue;
 
-            ImGui.Text($"{run} stations, {loaded} loaded");
+            stations++;
+            if (e.Battery.Ammo > 0) loaded++;
         }
 
-        if (!ImGui.TreeNode("Stations")) return;
-
-        for (int k = 0; k < run; k++)
-        {
-            double3 at = inv.Components[_roleScratch[nth + k]].PositionVehicleAsmb;
-            ImGui.TextDisabled($"{k + 1}  at ({at.X:F2}, {at.Y:F2}, {at.Z:F2}) m");
-        }
-
-        ImGui.TreePop();
+        ImGui.Text($"{stations} stations, {loaded} loaded");
     }
 
     private readonly List<WeaponSystems.Entry> _stationRows = [];
@@ -218,9 +205,9 @@ internal sealed partial class Ui
     }
 
     // The launcher: what it holds, how it is laid, and the switches that belong to it.
-    private void DrawLauncherComponent(int nth, int run)
+    private void DrawLauncherComponent(ComponentProfile kind)
     {
-        if (!IsSelectedWeapon(nth, run)) { NotSelected(); return; }
+        if (!IsSelectedWeapon(kind)) return;
 
         if (_battery.Launcher is null)
         {
@@ -263,9 +250,9 @@ internal sealed partial class Ui
     }
 
     // The cannon: its belt, and whether it is live.
-    private void DrawGunComponent(int nth, int run)
+    private void DrawGunComponent(ComponentProfile kind)
     {
-        if (!IsSelectedWeapon(nth, run)) { NotSelected(); return; }
+        if (!IsSelectedWeapon(kind)) return;
 
         DrawArmamentTally(ArmamentKind.Belt);
         ImGui.TextDisabled(_battery.GunsAreLaid ? "  laid" : "  not laid");
@@ -275,9 +262,9 @@ internal sealed partial class Ui
     // than to every set of its type. Its numbers are on the Tuning tab, because they belong to the
     // profile and every system running that loadout shares them; the full scope is its own tab,
     // where it has one, because a track list is a list and a component row is not the place for one.
-    private void DrawSensorComponent(int nth, int run)
+    private void DrawSensorComponent(ComponentProfile kind)
     {
-        if (!IsSelectedWeapon(nth, run))
+        if (!IsSelectedWeapon(kind))
         {
             ImGui.TextDisabled("its own set; not the one fire control reads");
             return;
@@ -420,59 +407,15 @@ internal sealed partial class Ui
             return;
         }
 
-        // Which weapon everything below applies to. A button rather than the switcher itself: it
-        // is a window, and switching weapons is done while flying rather than with the manage
-        // window open. A craft with one launcher carrying one armament has nothing to choose and
-        // says nothing; a Pantsir alone has its missiles and its cannon.
-        _batteries.AllOn(Focused, _weaponScratch);
+        // The weapon and its trigger on one line, so what FIRE releases is never in doubt: several
+        // kinds of weapon on one craft share one trigger, and a picker somewhere else leaves the
+        // operator guessing which of them it reaches.
         WeaponFit fit = _fit;
-        if (_weaponScratch.Count > 1 || fit.Armaments.Count > 1)
-        {
-            // Held in a local because the button toggles the very flag that guards the pop.
-            // Read twice, a click pops a style it never pushed -- or pushes one it never pops and
-            // leaks the tint into everything drawn after it.
-            bool weaponsTinted = _weaponsOpen;
-            if (weaponsTinted) ImGui.PushStyleColor(ImGuiCol.Button, new float4(0.20f, 0.42f, 0.30f, 1f));
-            if (ImGui.Button("Weapons")) _weaponsOpen = !_weaponsOpen;
-            if (weaponsTinted) ImGui.PopStyleColor();
-
-            string showing = $"{_battery.Profile.DisplayName} ({_battery.LauncherOrdinal + 1})";
-            if (fit.Armaments.Count > 1 && fit.FirstOf(_battery.TriggerArmament) is { } arm)
-            {
-                showing += $": {arm.Label}";
-            }
-
-            ImGui.SameLine();
-            ImGui.TextDisabled(_weaponScratch.Count > 1
-                                   ? $"{_weaponScratch.Count} on this craft — showing {showing}"
-                                   : $"showing {showing}");
-        }
-
-        // The two that decide whether anything leaves the rails, immediately above the line that
-        // says why it has not. Here rather than on the fire-control component row because they are
-        // about the whole system and no part of it -- which is what this strip is for. Anything
-        // folded inside a tab is somewhere nobody looks when the question is why the launcher is
-        // silent.
-        //
-        // Auto-engage is absent on a rack of stores rather than disabled: nothing it carries engages
-        // on its own, so FireLadder answers "released by hand" however this is set. A tick box that
-        // cannot change the answer is worse than no tick box, because it looks like the reason.
-        if (fit.AutoEngages)
-        {
-            ImGui.Checkbox("Auto engage", ref _policy.AutoEngage);
-            Tip("On: it picks whatever its sensors and IFF allow and fires at it by itself. "
-                + "Off: it fires only when you press FIRE.");
-
-            // Spaced off the tick box: FIRE does something the moment it is clicked rather than
-            // setting a state.
-            ImGui.SameLine(0f, ImGui.GetFrameHeight());
-        }
+        if (DrawWeaponPicker(Focused)) ImGui.SameLine();
 
         // Through the group, not straight at the selected station. Two rails carrying the same
         // store are one weapon with two stations, and firing the selected one reaches the same
         // rail every time -- so the second is never fired at all, however often this is pressed.
-        // The switcher's own trigger has always stepped between them; this is the prominent
-        // button and did not, which is the one an operator actually uses.
         if (ImGui.Button("FIRE")) FireSelectedGroup();
         // The same three cases WeaponSystem.FireAtLock branches on, in its order.
         Tip(_battery.TriggerArmament == ArmamentKind.Belt
@@ -480,14 +423,14 @@ internal sealed partial class Ui
             : !_battery.Munition.Powered
                 ? "Release one store now. A guided store steers onto whatever is designated; an "
                   + "unguided one, or a guided one with nothing designated, simply falls."
-                : "Fire one round now, at the craft you shift-clicked or else at the radar's lock. "
-                  + "To fire a launcher's cannon instead, pick it in the Weapons window.");
+                : "Fire one round now, at the craft you shift-clicked or else at the radar's lock.");
 
         // Auto-engage off is a mode, not a hold: FIRE still works, so saying "holding fire" about
         // it sends the operator looking for a fault that is not there.
         //
         // Read off the station the trigger would reach rather than the one selected. Both FIRE
         // buttons go through the group, so both lines beside them have to as well.
+        ImGui.SameLine();
         DrawHoldLine(_battery, _policy.AutoEngage);
 
         if (_battery.Rounds.Count > 0)
@@ -496,21 +439,46 @@ internal sealed partial class Ui
             ImGui.Text($"   In flight: {_battery.Rounds.Count}");
         }
 
+        // Whether it shoots on its own, about the whole system and no part of it -- which is what
+        // this strip is for. Absent on a rack of stores rather than disabled: nothing it carries
+        // engages on its own, and a tick box that cannot change anything looks like the reason.
+        bool anotherLine = false;
+        if (fit.AutoEngages)
+        {
+            ImGui.Checkbox("Auto engage", ref _policy.AutoEngage);
+            Tip("On: it picks whatever its sensors and IFF allow and fires at it by itself. "
+                + "Off: it fires only when you press FIRE.");
+            anotherLine = true;
+        }
+
+        // The window with every weapon's arm and guard state and a trigger of its own: a pop-out
+        // of the panel's trigger for one weapon as much as a switcher for several.
+        _batteries.AllOn(Focused, _weaponScratch);
+        if (_weaponScratch.Count > 0)
+        {
+            if (anotherLine) ImGui.SameLine(0f, ImGui.GetFrameHeight());
+
+            // Held in a local because the button toggles the very flag that guards the pop.
+            // Read twice, a click pops a style it never pushed -- or pushes one it never pops and
+            // leaks the tint into everything drawn after it.
+            bool weaponsTinted = _weaponsOpen;
+            if (weaponsTinted) ImGui.PushStyleColor(ImGuiCol.Button, new float4(0.20f, 0.42f, 0.30f, 1f));
+            if (ImGui.Button("Weapons")) _weaponsOpen = !_weaponsOpen;
+            if (weaponsTinted) ImGui.PopStyleColor();
+        }
+
         DrawClockWarning();
         ImGui.Separator();
     }
 
-    // Only when the clock is a problem. Fire control runs on simulated time, so a paused or
-    // heavily warped world explains a silent system -- and unsaid, that is indistinguishable from
+    // Only when the clock is a problem. Fire control runs on simulated time, so a heavily warped
+    // world explains a silent system -- and unsaid, that is indistinguishable from
     // tracking being broken. The ordinary cases say nothing: the game has its own speed readout,
     // and repeating it here is a line that is always present and never news.
     private void DrawClockWarning()
     {
-        if (KsaWorld.IsPaused)
-        {
-            ImGui.TextDisabled("Paused - stopped with the world");
-            return;
-        }
+        // The game already shows that it is paused.
+        if (KsaWorld.IsPaused) return;
 
         if (_warp.Yielded)
         {
@@ -539,6 +507,19 @@ internal sealed partial class Ui
     // engageability, so it earns its own line and nothing else does.
     private void DrawRadarState()
     {
+        // A designation is not a lock, deliberately: auto-engage fires at the lock, and a craft
+        // shift-clicked only to be watched must not be shot at. So the two are reported apart.
+        bool designated = _battery.Designation.Kind != AimpointKind.None;
+        if (designated) ImGui.Text($"designated: {_battery.DesignationName}");
+
+        // A store is released onto a designation and never onto a lock, so for one the lock is
+        // not worth a line.
+        if (_fit.Drops)
+        {
+            if (!designated) ImGui.TextColored(Grey, "nothing designated - shift-click the ground");
+            return;
+        }
+
         if (_battery.Radar.Locked is not { } locked)
         {
             ImGui.TextColored(Grey, "nothing locked");
@@ -592,13 +573,9 @@ internal sealed partial class Ui
     {
         if (_battery.Launcher is null) return;
 
-        // A launcher with nothing to lay is not a launcher whose drives are missing, and saying
-        // "subpart not found" at one of them reads as a fault on a system that is working.
-        if (!_fit.Aims)
-        {
-            ImGui.TextDisabled("Mount: fixed - it shoots where the craft points");
-            return;
-        }
+        // Nothing to lay, so nothing to say: and not "subpart not found", which reads as a fault on
+        // a system that is working.
+        if (!_fit.Aims) return;
 
         if (_fit.Traverses && _battery.TurretPart is null)
         {

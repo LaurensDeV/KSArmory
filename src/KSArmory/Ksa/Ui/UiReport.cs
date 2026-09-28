@@ -37,6 +37,8 @@ internal partial class Ui
         // Both or neither. Leaving feedback open on an unsupported build would just make it the
         // way to file a bug report. Nothing takes their place: the reason is in the log, which is
         // where an explanation belongs rather than in a panel the player reads every session.
+        // One row: the session's windows on the left, the two report buttons against the right edge.
+        DrawPaneToggles();
         if (ReportDraft.GameIsSupported(Build.KsaBuild, Build.KsaRunning)) DrawReportButtons();
     }
 
@@ -47,6 +49,15 @@ internal partial class Ui
     // The two buttons that open it, kind already chosen.
     private void DrawReportButtons()
     {
+        float padding = ImGui.GetStyle().FramePadding.X * 2f;
+        float spacing = ImGui.GetStyle().ItemSpacing.X;
+        float width = ImGui.CalcTextSize("Report bug").X + ImGui.CalcTextSize("Feedback").X
+                      + (2f * padding) + spacing;
+
+        ImGui.SameLine();
+        float slack = ImGui.GetContentRegionAvail().X - width;
+        if (slack > 0f) ImGui.SetCursorPosX(ImGui.GetCursorPosX() + slack);
+
         if (ImGui.Button("Report bug")) OpenReport(ReportKind.Bug);
 
         ImGui.SameLine();

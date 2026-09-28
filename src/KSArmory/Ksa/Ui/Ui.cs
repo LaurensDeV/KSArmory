@@ -253,7 +253,6 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
                 // about one particular system is a pane.
                 DrawSystemList();
                 ImGui.Separator();
-                DrawPaneToggles();
                 DrawReportFooter();
             }
 
@@ -333,15 +332,16 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
 
         if (_systems.Count == 0)
         {
-            ImGui.TextColored(Grey, "Nothing of this mod's is fitted to anything.");
-            ImGui.TextDisabled("Fit a launcher from Weapons, or an EO director from Sensors.");
-            Tip("A craft with only a director is listed too. It is not a weapon, but it has a "
-                + "camera worth pointing.");
+            ImGui.TextColored(Grey, "No weapons or sensors on any craft.");
             return;
         }
 
         if (!ImGui.BeginTable("##switcher", 5, ImGuiTableFlags.SizingStretchProp)) return;
 
+        // What only some rows have beside the name, and what every row has after it: a missing icon
+        // then leaves blank space beside a name drawn as plain text, which reads as the name's own
+        // rather than as a hole, and each icon keeps its column. Guard is only on a craft that
+        // engages on its own and chase on any with a weapon, so a row loses icons from the name out.
         ImGui.TableSetupColumn("##name", ImGuiTableColumnFlags.WidthStretch);
         ImGui.TableSetupColumn("##guard", ImGuiTableColumnFlags.WidthFixed);
         ImGui.TableSetupColumn("##chase", ImGuiTableColumnFlags.WidthFixed);
@@ -403,9 +403,14 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         ImGui.TableNextColumn();
         DrawTeamButton(craft);
 
+        // Tinted while this craft's window is open, which is often not the craft being flown and
+        // was otherwise said nowhere in the list.
         ImGui.TableNextColumn();
+        bool open = ReferenceEquals(_managed, craft);
+        if (open) ImGui.PushStyleColor(ImGuiCol.Button, LitButton);
         if (ImGui.Button("...")) _managed = craft;
-        Tip("Everything else about it, in its own window.");
+        if (open) ImGui.PopStyleColor();
+        Tip(open ? "Its window is the one open." : "Everything else about it, in its own window.");
     }
 
     // Clicking a name flies it, as in every switcher of this kind; looking at it without taking
@@ -417,13 +422,25 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         bool flying = ReferenceEquals(craft, KsaWorld.ControlledVehicle);
         float width = ImGui.GetContentRegionAvail().X;
 
-        if (flying) ImGui.PushStyleColor(ImGuiCol.Button, FlyingButton);
-        if (ImGui.Button($"{KsaWorld.DisplayName(craft)}##name", new float2?(new float2(width, 0f)))
+        // The flown craft is the only filled row, and marked as well as coloured so the colour is
+        // not the only thing saying it. Every other name is text until hovered, so the list reads
+        // as a list rather than as a wall of identical buttons.
+        ImGui.PushStyleColor(ImGuiCol.Button, flying ? FlyingButton : new float4(0f, 0f, 0f, 0f));
+        if (flying) ImGui.PushStyleColor(ImGuiCol.ButtonHovered, FlyingButtonHovered);
+        float2 leftAligned = new(0f, 0.5f);
+        ImGui.PushStyleVar(ImGuiStyleVar.ButtonTextAlign, in leftAligned);
+
+        // Indented by a marker's width on every row, so the names line up whether marked or not.
+        if (ImGui.Button($"     {KsaWorld.DisplayName(craft)}##name", new float2?(new float2(width, 0f)))
             && !flying)
         {
             KsaWorld.GoTo(craft);
         }
-        if (flying) ImGui.PopStyleColor();
+
+        ImGui.PopStyleVar(1);
+        ImGui.PopStyleColor(flying ? 2 : 1);
+
+        if (flying) DrawFlyingMarker(ImGui.GetItemRectMin(), ImGui.GetItemRectMax());
 
         if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
         {
@@ -563,8 +580,6 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
             ImGui.CloseCurrentPopup();
         }
         Tip("Type a name and press Enter to create the team and put this craft on it.");
-        Help("A craft with nothing of this mod's fitted has no flag, so it is placed by its name "
-             + "instead: the team's name anywhere in the craft's name puts it on that side.");
     }
 
     // Every system and director on the row's craft: a craft fights for one side.
@@ -621,7 +636,22 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         => new((byte)(c.X * 255f), (byte)(c.Y * 255f), (byte)(c.Z * 255f), (byte)(c.W * 255f));
 
     private static readonly float4 LitButton = new(0.22f, 0.36f, 0.26f, 1f);
-    private static readonly float4 FlyingButton = new(0.20f, 0.32f, 0.48f, 1f);
+    private static readonly float4 FlyingButton = new(0.16f, 0.42f, 0.24f, 1f);
+    private static readonly float4 FlyingButtonHovered = new(0.20f, 0.52f, 0.30f, 1f);
+    private static readonly ImColor8 FlyingMarker = new(235, 255, 235, 255);
+
+    // A small triangle at the left of the flown craft's name. Drawn rather than typed, as the icons
+    // are, because the font carries basic Latin only.
+    private static void DrawFlyingMarker(float2 min, float2 max)
+    {
+        float h = max.Y - min.Y;
+        float x = min.X + (h * 0.3f);
+
+        ImGui.GetWindowDrawList().AddTriangleFilled(new float2(x, min.Y + (h * 0.25f)),
+                                                    new float2(x, min.Y + (h * 0.75f)),
+                                                    new float2(x + (h * 0.4f), min.Y + (h * 0.5f)),
+                                                    FlyingMarker);
+    }
     private static readonly ImColor8 GuardInk = new(100, 240, 120, 255);
     private static readonly ImColor8 PartlyInk = new(255, 200, 70, 255);
     private static readonly ImColor8 ChaseInk = new(130, 190, 255, 255);
@@ -799,17 +829,6 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         _ => null,
     };
 
-    // Plural, and spaced: the enum names are identifiers and read as such on screen.
-    private static string GroupName(WeaponRole role) => role switch
-    {
-        WeaponRole.FireControl => "Fire control",
-        WeaponRole.Launcher => "Launchers",
-        WeaponRole.Sensor => "Sensors",
-        WeaponRole.Camera => "Cameras",
-        WeaponRole.Gun => "Guns",
-        _ => role.ToString(),
-    };
-
     private void DrawPaneToggles()
     {
         // One button. Everything session-wide lives in the window behind it, so the main panel is
@@ -828,7 +847,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
             Pane pane = Panes[i];
             if (pane.Group != group) continue;
 
-            if (shown++ % 2 == 1) ImGui.SameLine();
+            if (shown++ > 0) ImGui.SameLine();
 
             // A button, never a tick box. A checkmark reads as "this setting is on", so a window
             // arriving instead is unannounced and the tick says nothing about where it went.

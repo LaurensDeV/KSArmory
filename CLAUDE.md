@@ -566,7 +566,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 683 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 694 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -939,7 +939,7 @@ tab says so at the top, because it is the most surprising thing about it.
 
 The header strip is above the tab bar rather than inside a row for a reason worth keeping: every
 gate in fire control returns quietly, so an empty launcher, one with no lock, one still settling
-and one whose drives the engine refused all look identical from outside. `Holding fire: <why>` is
+and one whose drives the engine refused all look identical from outside. `Holding: <why>` is
 the only thing that separates them, and it is no use behind a fold or on a tab nobody is looking
 at.
 
@@ -950,7 +950,8 @@ fire's economy rather than the round's capability: a floor about a round still b
 ceiling about one expiring short, neither of which stops the shot happening. So closing inside the
 minimum reported `Holding fire: target out of reach` beside a button that then fired, and the round
 flew at the target — the panel describing a refusal that does not exist. `FireHold.BindsTrigger`
-splits them, and the auto-only ones read `Auto-engage held: … -- trigger is clear`.
+splits them: a binding one reads `Holding: …`, and an auto-only one reads `Ready` with `auto: …`
+after it in grey, shown only while auto-engage is on.
 
 **Which gates bind depends on what the trigger fires.** A missile needs something locked to leave
 the rail; a burst goes where the guns are laid, so for a gun everything about a target — nothing
@@ -971,9 +972,14 @@ uses — went straight at the selection.
 **And everything else about a weapon goes through the group too.** A shift-click designates every
 station (`WeaponSystems.DesignateWeapon`), because a mark held by the selected rack alone released
 the next rack's bomb unguided. Every station runs on the selected one's settings
-(`ShareStationSettings`), the component rows draw one row per weapon, and the pipper and reach ring
-are drawn once: the pipper for the station the trigger reaches next, the ring for the one that
-released last. Eight racks otherwise drew eight sights and flew eight copies of one fall.
+(`ShareStationSettings`), and the pipper is drawn once, for the station the trigger reaches next.
+Eight racks otherwise drew eight sights and flew eight copies of one fall. Every store still
+falling gets a **dashed white** lethal ring where it will land, so it cannot be mistaken for the
+pipper's solid orange one, and the store released last gets its blue reach ring too.
+
+**The Components tab is sectioned by kind of part, not by role.** A rack is a launcher, a release
+and a sight, so sectioning by role listed it under three headings; one section per kind holds all
+of a part's rows once, however many stations of it are fitted.
 
 **And a launcher carrying tubes and a belt is two weapons.** The switcher lists the Pantsir's
 missiles and its cannon as two rows, and `WeaponSystem.TriggerArmament` is which one the trigger
@@ -1140,8 +1146,10 @@ a pass invalidates it on the way in.
 
 **A craft carries one weapon system per launcher part, and the player picks between them.**
 `WeaponSystems` keys on the craft *and* the launcher's ordinal, so two rails on one aircraft are
-two weapons: each with its own magazine, drives, rounds in the air and auto-engage. The selector on
-the header strip chooses which one the panel and the trigger are pointed at, and `For(craft)` is
+two systems: each with its own magazine, drives and rounds in the air, shown to the player as one
+weapon with two stations. The picker beside FIRE on the header strip chooses which weapon the panel
+and the trigger are pointed at, because several kinds of weapon share that one trigger and a
+selector anywhere else leaves it unclear what FIRE releases. `For(craft)` is
 what returns it — which is why the sight, the chase camera and the manual trigger all followed the
 selection without changing.
 
@@ -1226,7 +1234,7 @@ Do the private repo *before* pushing here, or CI fails on the lock it cannot sat
 member that keeps its name and signature and changes its *meaning* — a different reference
 frame, different units, a reordered enum — compiles clean and is wrong in flight. That is what
 the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from 684,000 lines to the files
-defining the 248 types this mod actually uses.
+defining the 251 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 45 in total, 14 MB —
