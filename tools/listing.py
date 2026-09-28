@@ -171,8 +171,9 @@ def editor(sha: str) -> str:
     rule = "-" * 72
     out = ["ABSTRACT", rule, (LISTING / "abstract.txt").read_text().strip(), "",
            "DESCRIPTION", rule, body.rstrip(), "",
-           "IMAGES", rule, f"icon  {url(sha, 'icon.png')}"]
-    width = max((len(Path(t).stem) for t in targets), default=0)
+           "IMAGES", rule]
+    width = max([len("icon"), *(len(Path(t).stem) for t in targets)])
+    out.append(f"{'icon':<{width}}  {url(sha, 'icon.png')}")
     out += [f"{Path(t).stem:<{width}}  {url(sha, t)}" for t in targets]
     return "\n".join(out) + "\n"
 
