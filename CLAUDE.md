@@ -335,6 +335,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/RedWave.cs` | the red sphere a burst 60 km up or higher sends through the thermosphere — **Teak's, 965 km across at six minutes** — at 1.35 km/s with oxygen's red trailing 150 km behind the front, glowing only where the air is thin enough that the red is not quenched: a density, about 150 km on Earth. Its own sky dispatch, drawn in closed form, and a Display switch |
 | `Sim/Aurora.cs` | the aurora a burst above the atmosphere lights **at both ends of its own field line** — near the burst and at the magnetic conjugate point in the other hemisphere, on a dipole along the spin axis because KSA has no field; Teak's comes down over Samoa |
 | `Sim/SkyDispatch.cs` | the kinds of full-screen dispatch a burst's sky is drawn with -- **and what each puts in `FireSun.w`**, which the scorch-mark branch would otherwise read as its own and offset off the screen, as it did every northern aurora |
+| `Sim/ScorchFootprint.cs` | how far a scorch mark reaches downwind, across and upwind, in patch radii — **the shader's own constants restated**, so the box the cloud pass dispatches a mark over never crops it; `ScorchFootprintTests` compares the two |
 | `Sim/CloudFlags.cs` | the cloud dispatch's packed flag float — spray, weather, first, **dryness in sevenths** and the front's radius — **exact to 262,143 m**, because every term is an integer under 2^24 and the shader divides by powers of two with nothing added |
 | `Sim/AmbientAir.cs` | the air at a point as density and pressure **against fixed physical references**, not a body's own sea level -- so a threshold calibrated in Earth's air holds on any body -- with a flag for air that could not be read, never a silent sea level |
 | `Sim/BodyAir.cs` | a body's air as numbers, **mirroring KSA's isothermal model exactly** -- `ρ(h)·H` with the declared scale height for the column, one sound speed per body -- so nothing downstream knows which planet it is on |
@@ -435,6 +436,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/Reticle.cs` | the gunner's sight as strokes on a screen — geometry only |
 | `Sim/ScopeGeometry.cs` | the radar scope's face — where a blip belongs on it, in bearing and range |
 | `Sim/LockCue.cs` | how far a lock has matured, as the number a closing bracket is drawn from |
+| `Sim/EdgeCue.cs` | where an indicator for something off the screen sits on its edge — **from the bearing against the camera's right and up, not a projection**, because a projection throws a point behind the camera to the opposite side |
 | `Sim/SightPicture.cs` | where the sight's horizontal lies, and which way a contact off the glass went |
 | `Sim/SightZoom.cs` | the head's magnification, as the field of view it asks a camera for |
 | `Sim/CursorAim.cs` | cursor to viewport coordinates, and the bearing from a mount to what it points at |

@@ -476,7 +476,7 @@ internal static class CloudPass
                     // reason NuclearClouds bounds how many may stand. Its own footprint is a few
                     // per cent of that.
                     Tile tile = TileFor(camera, markCentre, markWind, markRadius,
-                                        markAirless ? 1.0 : ScorchScreenReach, width, height);
+                                        markAirless ? 1.0 : ScorchFootprint.Reach, width, height);
                     if (tile.Empty) continue;
 
                     RecordTile(tile, width, height);
@@ -1359,7 +1359,7 @@ internal static class CloudPass
         Tile whole = new(0, 0, (width + Group - 1) / Group, (height + Group - 1) / Group);
 
         double reach = radius * reachInRadii;
-        double across = radius * ScorchScreenWidth;
+        double across = radius * ScorchFootprint.Across;
         if (!(reach > 0.0) || !Vec.IsFinite(downwind)) return whole;
 
         double3 along = Vec.Unit(downwind);
@@ -1375,7 +1375,7 @@ internal static class CloudPass
         {
             // Upwind only by the patch's ragged rim; downwind by the plume's whole run.
             double3 at = centreEgo
-                         + (along * ((corner & 1) == 0 ? -radius * ScorchScreenBehind : reach))
+                         + (along * ((corner & 1) == 0 ? -radius * ScorchFootprint.Behind : reach))
                          + (side * ((corner & 2) == 0 ? -across : across))
                          + (other * ((corner & 4) == 0 ? -across : across));
 
@@ -1399,15 +1399,6 @@ internal static class CloudPass
 
         return new Tile(x0 * Group, y0 * Group, x1 - x0, y1 - y0);
     }
-
-    // How far a mark reaches downwind, across and upwind, in patch radii. All three are the
-    // SHADER's constants restated -- the plume's run with its wandering tip, its widest half-width
-    // with its wandering edge and soft cut, and the patch's ragged rim -- and if any grows past what
-    // is here the mark is cropped at a straight edge partway along itself, which reads as terrain
-    // rather than as a fault. ScorchFootprintTests is the only thing that compares the two sides.
-    private const double ScorchScreenReach = 3.3;
-    private const double ScorchScreenWidth = 1.8;
-    private const double ScorchScreenBehind = 1.2;
 
     // One compute-write to compute-read barrier, so a dispatch sees what the one before it wrote.
     private static void Hazard(CommandBuffer commandBuffer)

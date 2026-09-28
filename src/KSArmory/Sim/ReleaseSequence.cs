@@ -108,16 +108,6 @@ internal sealed class ReleaseSequence
     public const double LateralBudgetMetresPerSecond = 0.05;
 
     /// <summary>
-    /// The same budget, asked of the sweep alone.
-    ///
-    /// <para>What a caller deciding when the tube axes may be latched has to ask: the reference is
-    /// the attitude the aim correction converged against, so it can only be measured on a vehicle
-    /// that has stopped turning. The cant is not part of that question — at the nominal attitude
-    /// every tube is canted, which is the whole reason the sequence exists.</para>
-    /// </summary>
-    public const double SteadyMetresPerSecond = LateralBudgetMetresPerSecond;
-
-    /// <summary>
     /// How long a term has to go without getting better before it is read as this vehicle's floor
     /// rather than as a transient.
     ///

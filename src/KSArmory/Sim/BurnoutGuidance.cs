@@ -208,14 +208,4 @@ internal static class BurnoutGuidance
         command = new Command(thrustDir, toGain, toGainOut, wanted, cutoffPosition, arc, heldTheArrival);
         return true;
     }
-
-    /// <summary>
-    /// Whether the propellant left can finish the shot, with a stated margin.
-    ///
-    /// <para>Asked continuously rather than once at launch. A stack that could reach the target
-    /// from the pad and cannot reach it from where a bad ascent has put it is the ordinary failure,
-    /// and it is worth saying so while there is still a burn left to redirect.</para>
-    /// </summary>
-    public static bool CanReach(in Command command, BoosterPerformance booster, double marginFraction = 0.05)
-        => booster.DeltaVRemaining >= command.VelocityToGain * (1.0 + marginFraction);
 }

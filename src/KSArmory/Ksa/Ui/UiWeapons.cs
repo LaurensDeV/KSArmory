@@ -20,9 +20,6 @@ internal partial class Ui
 {
     private bool _weaponsOpen;
 
-    /// <summary>Opens the switcher, for anything that decides the operator wants it.</summary>
-    public void OpenWeapons() => _weaponsOpen = true;
-
     private void DrawWeaponsWindow()
     {
         if (!_weaponsOpen) return;

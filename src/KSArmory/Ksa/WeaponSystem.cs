@@ -100,16 +100,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// <summary>The vehicle the launcher is mounted on.</summary>
     public Vehicle? Platform { get; private set; }
 
-    /// <summary>
-    /// Its launcher is gone and it is only seeing its rounds down.
-    ///
-    /// <para>A fired round is autonomous — a seeker head homes on its own and an anti-radiation
-    /// round already carries the emission it remembers — so losing the shooter is not a reason for
-    /// one to stop existing. What it does lose is the uplink: a command-link round is cut loose
-    /// here and coasts, which is what a command-link round <em>is</em>.</para>
-    /// </summary>
-    public bool IsLoose => _looseBody is not null;
-
     /// <inheritdoc cref="IEffectSource.EffectBody"/>
     public Celestial? EffectBody => _looseBody ?? Platform?.Parent as Celestial;
 

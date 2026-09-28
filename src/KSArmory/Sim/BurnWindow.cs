@@ -103,9 +103,6 @@ internal static class BurnWindow
         /// </summary>
         double SteepestArrivalDeg)
     {
-        /// <summary>Nothing is gained by waiting, so the burn may as well start.</summary>
-        public bool IsNow => WaitSeconds <= 0.0;
-
         /// <summary>How much of the shot waiting saves. Infinite when leaving now is impossible.</summary>
         public double Saving => CostIfLeavingNow - Cost;
     }

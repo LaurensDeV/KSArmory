@@ -3936,19 +3936,10 @@ internal static class KsaWorld
             // Off-screen or behind: bearing from the camera basis, then out to the edge.
             double right = Vec.Dot(toTarget, camera.GetRightEcl());
             double up = Vec.Dot(toTarget, camera.GetUpEcl());
-            if (!double.IsFinite(right) || !double.IsFinite(up)) return false;
-            if (Math.Abs(right) < 1e-9 && Math.Abs(up) < 1e-9) return false;
+            if (!EdgeCue.TryOffset(right, up, w, h, EdgeMargin, out double dx, out double dy)) return false;
 
-            // Screen Y grows downward, so the camera's up is negated.
-            double len = Math.Sqrt(right * right + up * up);
-            double dx = right / len, dy = -up / len;
-
-            double halfW = w * 0.5 - EdgeMargin, halfH = h * 0.5 - EdgeMargin;
-            double scale = Math.Min(Math.Abs(dx) > 1e-9 ? halfW / Math.Abs(dx) : double.MaxValue,
-                                    Math.Abs(dy) > 1e-9 ? halfH / Math.Abs(dy) : double.MaxValue);
-
-            screen = new float2((float)(viewport.Position.X + w * 0.5 + dx * scale),
-                                (float)(viewport.Position.Y + h * 0.5 + dy * scale));
+            screen = new float2((float)(viewport.Position.X + w * 0.5 + dx),
+                                (float)(viewport.Position.Y + h * 0.5 + dy));
             return true;
         }
         catch
@@ -4052,19 +4043,10 @@ internal static class KsaWorld
 
             double right = Vec.Dot(posEgo, camera.GetRightEcl());
             double up = Vec.Dot(posEgo, camera.GetUpEcl());
-            if (!double.IsFinite(right) || !double.IsFinite(up)) return false;
-            if (Math.Abs(right) < 1e-9 && Math.Abs(up) < 1e-9) return false;
+            if (!EdgeCue.TryOffset(right, up, w, h, EdgeMargin, out double dx, out double dy)) return false;
 
-            // Screen Y grows downward, so the camera's up is negated.
-            double len = Math.Sqrt(right * right + up * up);
-            double dx = right / len, dy = -up / len;
-
-            double halfW = w * 0.5 - EdgeMargin, halfH = h * 0.5 - EdgeMargin;
-            double scale = Math.Min(Math.Abs(dx) > 1e-9 ? halfW / Math.Abs(dx) : double.MaxValue,
-                                    Math.Abs(dy) > 1e-9 ? halfH / Math.Abs(dy) : double.MaxValue);
-
-            screen = new float2((float)(viewport.Position.X + w * 0.5 + dx * scale),
-                                (float)(viewport.Position.Y + h * 0.5 + dy * scale));
+            screen = new float2((float)(viewport.Position.X + w * 0.5 + dx),
+                                (float)(viewport.Position.Y + h * 0.5 + dy));
             return true;
         }
         catch
@@ -4512,22 +4494,6 @@ internal static class KsaWorld
     /// </param>
     public readonly record struct MainView(IFollowable? Following, CameraMode Mode, double FovDeg,
                                            bool Valid);
-
-    /// <summary>Where the object the main view follows is now, which is what a Fixed-mode offset is added to.</summary>
-    public static bool TryMainViewFollowedEcl(out double3 ecl)
-    {
-        ecl = Vec.Zero;
-        try
-        {
-            if (Program.MainViewport?.GetCamera()?.Following is not { } followed) return false;
-            ecl = followed.GetPositionEcl();
-            return Vec.IsFinite(ecl);
-        }
-        catch
-        {
-            return false;
-        }
-    }
 
     /// <summary>
     /// Records the main view so it can be handed back.

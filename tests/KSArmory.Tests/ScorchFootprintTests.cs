@@ -7,7 +7,7 @@ namespace KSArmory.Tests;
 /// The mark's drawn reach and the footprint its dispatch is bounded to have to agree.
 ///
 /// <para>They live on opposite sides of the CPU/GPU seam — one is a GLSL constant in
-/// <c>KSArmoryCloud.comp</c> and the other a C# one in <c>CloudPass</c> — so nothing but this
+/// <c>KSArmoryCloud.comp</c> and the other a C# one in <c>ScorchFootprint</c> — so nothing but this
 /// compares them. If the plume ever runs further than the footprint, the mark is silently cropped
 /// at a straight edge partway along itself, which reads as terrain rather than as a fault.</para>
 /// </summary>
@@ -51,13 +51,12 @@ public class ScorchFootprintTests
         double edge = ConstantNamed(source, "PlumeEdgeWander");
         double cut = ConstantNamed(source, "LateralCut");
 
-        // CloudPass.ScorchScreenReach, ScorchScreenWidth and ScorchScreenBehind, in patch radii.
         // The box is oriented along the wind, so they are separate: downwind it has to cover the
         // plume's run and its wandering tip, across it the widest the soft edge reaches when the
         // wander pushes it out, and upwind the burned patch's ragged rim.
-        const double Reach = 3.3;
-        const double Across = 1.8;
-        const double Behind = 1.2;
+        const double Reach = ScorchFootprint.Reach;
+        const double Across = ScorchFootprint.Across;
+        const double Behind = ScorchFootprint.Behind;
 
         double runs = reach * (1.0 + tip);
         double spreads = (mouth + width) * (cut + edge);
