@@ -330,7 +330,7 @@ public static class PackReader
 
             MagazineDepth = r.Count("MagazineDepth", 0),
             SalvoSpacing = r.Number("SalvoSpacing", 0.45f),
-            ReloadSeconds = r.Number("ReloadSeconds", 12f),
+            ReloadSeconds = r.Number("ReloadSeconds", 0f),
             LaunchAlongTube = r.Flag("LaunchAlongTube", true),
             LaunchLoft = r.Number("LaunchLoft", 0.35f),
             EjectAwayFromMount = r.Number("EjectAwayFromMount", 0f),
@@ -340,7 +340,7 @@ public static class PackReader
             GunRoundsPerMinute = r.Number("GunRoundsPerMinute", 2500f),
             GunBurstRounds = r.Count("GunBurstRounds", 12),
             GunBurstGapSeconds = r.Number("GunBurstGapSeconds", 0.55f),
-            GunReloadSeconds = r.Number("GunReloadSeconds", 20f),
+            GunReloadSeconds = r.Number("GunReloadSeconds", 0f),
         };
 
         List<BuiltInComponent> declared = r.Provides();

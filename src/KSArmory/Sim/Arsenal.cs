@@ -743,8 +743,6 @@ public static class Arsenal
         LaunchLoft = 0f,
         MuzzleOffset = 0f,
 
-        // A bus deploys one warhead at a time, settling between each.
-        ReloadSeconds = 3f,
         SettleSeconds = 0f,
     };
     /// <summary>

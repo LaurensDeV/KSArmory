@@ -138,7 +138,7 @@ to build; widening it to take a profile type would put that back.
 | `RestElevationDeg` | number | *the modelled pose* |
 | `MagazineDepth` | whole number | `0` |
 | `SalvoSpacing` | number | `0.45` |
-| `ReloadSeconds` | number | `12` |
+| `ReloadSeconds` | number | `0` |
 | `LaunchAlongTube` | true or false | `true` |
 | `LaunchLoft` | number | `0.35` |
 | `EjectAwayFromMount` | number | `0` |
@@ -147,7 +147,7 @@ to build; widening it to take a profile type would put that back.
 | `GunRoundsPerMinute` | number | `2500` |
 | `GunBurstRounds` | whole number | `12` |
 | `GunBurstGapSeconds` | number | `0.55` |
-| `GunReloadSeconds` | number | `20` |
+| `GunReloadSeconds` | number | `0` |
 
 ### `<Optic>` - a sighting head, needing no weapon on the craft
 

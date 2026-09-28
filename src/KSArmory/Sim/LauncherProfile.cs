@@ -206,8 +206,11 @@ public sealed class LauncherProfile
     /// <summary>Seconds between consecutive rounds of a salvo.</summary>
     public float SalvoSpacing = 0.45f;
 
-    /// <summary>Seconds to reload an empty launcher. Zero disables auto-reload.</summary>
-    public float ReloadSeconds = 12f;
+    /// <summary>
+    /// Seconds after it empties before a launcher refills itself. Zero is never, which is the
+    /// default: a launcher is refilled only when somebody presses Reload.
+    /// </summary>
+    public float ReloadSeconds;
 
     /// <summary>
     /// Eject along the tube rather than slewing onto the target at launch. Only sensible for a
@@ -255,8 +258,11 @@ public sealed class LauncherProfile
     public int GunBurstRounds = 12;
     public float GunBurstGapSeconds = 0.55f;
 
-    /// <summary>Seconds to feed a fresh belt. Zero disables cannon resupply.</summary>
-    public float GunReloadSeconds = 20f;
+    /// <summary>
+    /// Seconds after it runs dry before the belt replaces itself. Zero is never, which is the
+    /// default, as <see cref="ReloadSeconds"/>.
+    /// </summary>
+    public float GunReloadSeconds;
 
     /// <summary>
     /// How far the barrel runs back (m), how long the run takes, and how long counter-recoil takes to

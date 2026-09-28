@@ -663,4 +663,21 @@ public class ArsenalTests
                     + $"{fine.SubStep * fine.MaxSubSteps:F3} s of frame against a faithful step of "
                     + $"{shipped.MaxFaithfulStepSeconds:F3} s");
     }
+
+    /// <summary>
+    /// Only the Pantsir refills itself. Everything else stays empty until somebody presses Reload.
+    /// </summary>
+    [Fact]
+    public void NothingButThePantsirReloadsByItself()
+    {
+        Assert.Contains(Catalogue.Launchers, l => l.PartId == "KSArmory_Prefab_Launcher6");
+
+        foreach (LauncherProfile launcher in Catalogue.Launchers)
+        {
+            bool pantsir = launcher.PartId == "KSArmory_Prefab_Launcher6";
+
+            Assert.True(pantsir == (launcher.ReloadSeconds > 0f), $"{launcher.DisplayName} tubes");
+            Assert.True(pantsir == (launcher.GunReloadSeconds > 0f), $"{launcher.DisplayName} belt");
+        }
+    }
 }

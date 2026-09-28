@@ -193,7 +193,7 @@ holds fire on for ever, with no gate reporting why.
 | `<Tube Position="x, y, z" Direction="x, y, z" />` | — | one per tube. `Direction` is optional; without it the tube points along the pod axis. Splayed tubes, a VLS and an MLRS are all just tube lists |
 | `MagazineDepth` | `0` (= tube count) | rounds carried |
 | `SalvoSpacing` | `0.45` | s between launches |
-| `ReloadSeconds` | `12` | `0` means no reload — a rail is spent |
+| `ReloadSeconds` | `0` | seconds after emptying before the launcher refills itself; `0` is never, and Reload in the panel is the only refill |
 | `LaunchAlongTube` | `true` | false throws the round off-axis toward a high off-boresight target |
 | `LaunchLoft` | `0.35` | bias toward the launcher's boresight, and read only when `LaunchAlongTube` is false |
 | `EjectAwayFromMount` | `0` | m/s pushing the round clear. What a rail and a rack use |
@@ -230,7 +230,7 @@ tubes, a cannon, or both; the Phalanx has no tubes at all.
 | `GunAmmo` | `480` | belt |
 | `GunRoundsPerMinute` | `2500` | |
 | `GunBurstRounds`, `GunBurstGapSeconds` | `12`, `0.55` | |
-| `GunReloadSeconds` | `20` | |
+| `GunReloadSeconds` | `0` | the same for the belt |
 | `GunArmamentLabel` | `Cannon` | |
 
 **A launcher declares gear it carries inside itself**, with a `<Provides>` row per assembly that is

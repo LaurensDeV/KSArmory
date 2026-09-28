@@ -25,7 +25,7 @@ public class PerTubeTrimTests(ITestOutputHelper Out)
     private const double R = 6_371_000.0;
     private const double ScaleHeight = 8_000.0;
 
-    /// <summary>What the magazine already paces a salvo at — <c>Arsenal.MirvBus.ReloadSeconds</c>.</summary>
+    /// <summary>The spacing between warheads this study flies.</summary>
     private const double ReloadSeconds = 3.0;
 
     private static BallisticBody Earth => new(Mu, R, new double3(0, 0, 1), 7.2921159e-5);
