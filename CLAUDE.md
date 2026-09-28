@@ -609,6 +609,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `.claude/skills/upgrade-ksa/` | the whole KSA-update procedure, as a skill |
 | `tools/meshinfo.py` | prints mesh bounds from a KSA `.glb` atlas |
 | `tools/validate-parts.py` | checks asset Ids, texture paths, and launch geometry vs the mesh |
+| `tools/listing.py` | `listing/` as Borea's TOML and SpaceDock's markdown — printed to paste; it publishes nothing |
 | `tools/spacedock-changelog.py` | a release's notes cut to what SpaceDock accepts — **10,000 characters**, which one after a long run on `dev` overruns six times over |
 | `tools/pack-api.py` | records the API a weapon pack binds to, and fails when it moves — **the mirror of `api-surface.sh`**, because a pack lives in somebody else's repository and never builds here |
 | `tools/check-studies.py` | which tests are tagged out of the push loop, as a committed record — **it cannot tell a mis-tag from a real one**, and does not try: it puts the change in the author's own diff, where a human can still ask |
@@ -641,7 +642,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/mk42-sounds.py` | cuts the Mk 42's recording into its mono gunshot |
 | `tools/audio/` | the recordings the shipped gun sounds are cut from — the CC0 Phalanx and the Mk 42's — and the provenance of each |
 | `tools/logo.py` | the Kessler Systems wordmark and icon, into `branding/` |
-| `branding/` | the generated logo the README and SpaceDock point at, and `listing-icon.png`, the in-game screenshot the content index shows — **not generated**, and its listing record pins its hash, so replacing it means a new record |
+| `branding/` | the generated logo the README and SpaceDock point at |
+| `listing/` | **the store page**, Borea's and SpaceDock's, apart from the developers' `README.md` — abstract, description, icon and screenshots, rendered for each site by `tools/listing.py`. Every image URL is pinned to a commit and Borea's record pins its hash, so replacing one means sending new records |
 
 ## 3D model pipeline
 

@@ -102,6 +102,7 @@ run "Shaders compile"               ./tools/check-shaders.sh
 run "Comment rules"                 ./tools/check-comments.sh
 run "Documented facts"              ./tools/check-docs.sh
 run "Changelogs fit SpaceDock"      ./tools/spacedock-changelog.py --check
+run "Store listing is publishable"  ./tools/listing.py --check
 run "No artefacts tracked"          ./tools/check-tracked.sh
 
 if (( LIST )) || [[ -f "$ATLAS" ]]; then
