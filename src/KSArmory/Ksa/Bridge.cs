@@ -524,7 +524,7 @@ internal sealed class Bridge : IViewPose
                 ["name"] = KsaWorld.DisplayName(v),
                 ["range_m"] = Math.Round(range),
                 ["bearing_deg"] = Math.Round((bearing + 360.0) % 360.0, 1),
-                ["elevation_deg"] = Math.Round(double.RadiansToDegrees(Math.Asin(Vec.Dot(to, up) / range)), 1),
+                ["elevation_deg"] = Math.Round(double.RadiansToDegrees(Math.Asin(Math.Clamp(Vec.Dot(to, up) / range, -1.0, 1.0))), 1),
                 ["radar_m2"] = Math.Round(RadarSignature.CrossSectionFor(KsaWorld.MeanRadius(v))),
             });
         }
