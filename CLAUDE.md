@@ -3119,8 +3119,10 @@ mis-tagged guard is found before a merge rather than never — what is lost is *
   `FrameLatchTests` pins.
 
   **Driving a camera is not drawing, so it goes with the step and not with the panel.** F2 is
-  supposed to take the HUD away, and the overlay, the brackets and the sight's painting genuinely
-  cannot happen without a UI pass. A view the mod has *borrowed* is not in that category: left
+  supposed to take the HUD away, and the overlay, the brackets and the sight's painting run from the
+  UI pass, so they go with it. (They need not: KSA calls `Program.DrawFps` outside the `DrawUI` gate
+  and inside the ImGui frame, so a postfix there could keep the sight up with the UI hidden. Not
+  built; `docs/KSA-MODDING-NOTES.md` has it.) A view the mod has *borrowed* is not in that category: left
   unrestated it freezes at whatever offset it last had — no closing, no transition, no aim — while
   the world it is pointed at carries on, and the player cannot take it back by hand because
   `FixedController` reads no input. So `KSArmoryMod.DriveCameras` runs from `StepOnce` rather than

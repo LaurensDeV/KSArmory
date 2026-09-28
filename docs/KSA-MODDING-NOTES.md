@@ -385,6 +385,46 @@ void ProgressBar(float fraction, in float2? size = null, ImString overlay = defa
 void Separator();  void SameLine(float offsetFromStartX = 0, float spacing = -1);  void End();
 ```
 
+### Your own UI: overlays, fonts, windows and the HUD
+
+Read from the source of the Webcast Telemetry Overlay mod (`elevatorctln/KSA-Public-Telemetry`,
+commit `fb4c595`) and checked against the decompiled `Program.cs`. **None of it is built here.**
+
+**Something can still be drawn with the UI hidden.** `Program.OnFrame` runs `OnDrawUiFrame`,
+`OnDrawUiViewports` and `OnDrawUiThreadSafe` inside `if (DrawUI)`, then calls `DrawFps()` outside
+it, still inside the ImGui frame and before `ImGui.Render()` (Program.cs ~2255–2276). A Harmony
+postfix on the private static `Program.DrawFps` therefore runs every frame with F2 on or off, and
+can draw on the foreground list. That mod checks `Program.DrawUI` inside the postfix and draws
+only when it is false, so nothing is drawn twice. Two catches: `ScreenshotCapture` clears
+`DrawUI` too, so whatever is drawn there lands in screenshots; and the method is private, so there
+is no signature to pin — if it moves, the patch fails to apply and the feature has to switch off
+rather than break.
+
+**Screen overlays** go on `ImGui.GetForegroundDrawList()`, laid out against
+`ImGui.GetMainViewport().WorkPos/WorkSize`. To stay clear of KSA's menu bar, look the bar up with
+`ImGui.Internal.FindWindowByName("Menu Bar"u8)` and read its `Pos`, `Size` and `WasActive`.
+
+**Custom fonts load at runtime.** KSA's own fonts carry basic Latin only, but a mod can ship a
+`.ttf` and add it: `ImGui.GetIO().Fonts.AddFontFromFileTTF(path, sizePixels, &config, default)`,
+then `ImGui.PushFont(font, sizePixels)` / `PopFont()`. That mod loads its fonts lazily from its
+first draw call, and falls back to the game font if loading fails. An icon font would replace
+hand-drawn symbols.
+
+**A window can be one of KSA's own.** Subclass `KSA.ImGuiWindow` and implement `IStaticWindow`.
+The `ImGuiWindow` constructor adds any `IStaticWindow` to a static list, and KSA's
+`ImGuiWindow.DrawAllStaticWindows` draws every shown one (`OnDrawUi`) with KSA's window chrome.
+Override `DrawContent(IViewport)`, and use `SetShown` and `SetWindowTitle`.
+
+**KSA's flight HUD can be hidden and put back.** Call `SetEnabled(false)` on each entry of
+`GaugeCanvas.AllCanvases` that is `Enabled` and not `AlwaysEnabled`, keeping the list of what was
+switched off so that exactly those can be restored. Re-scan when the count changes, because
+canvases are created lazily.
+
+**Vertex colours are editable after a primitive is added.** Record `drawList.VtxBuffer.Count`
+before and after `AddConvexPolyFilled`, then rewrite `vertex.col` over that range in
+`drawList.VtxBuffer.Span`. That is a gradient across any convex shape, which `AddRectFilledMultiColor`
+only gives for rectangles.
+
 ## Parts and the module system
 
 Parts are declared in XML under `<install>/Content/Core/*.xml`, paired as
