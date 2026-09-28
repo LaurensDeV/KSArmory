@@ -42,36 +42,70 @@ internal sealed partial class Ui
 
             ImGui.SeparatorText(GroupName(role));
 
-            int nth = 0;
+            _roleScratch.Clear();
             for (int i = 0; i < inv.Components.Count; i++)
             {
-                FoundComponent c = inv.Components[i];
-                if (c.Role != role) continue;
+                if (inv.Components[i].Role == role) _roleScratch.Add(i);
+            }
+
+            for (int nth = 0; nth < _roleScratch.Count;)
+            {
+                FoundComponent c = inv.Components[_roleScratch[nth]];
+
+                // Identical stations of one weapon are one row: the switcher and the trigger
+                // already treat them as one weapon, and their settings are shared.
+                int run = 1;
+                if (StacksStations(role))
+                {
+                    while (nth + run < _roleScratch.Count
+                           && inv.Components[_roleScratch[nth + run]].DisplayName == c.DisplayName)
+                    {
+                        run++;
+                    }
+                }
 
                 // Per component, not per label. Several of one kind draw identical controls, and
                 // ImGui keys a widget on its label within the current id scope -- so without this
                 // the second director's tick boxes are the first's.
-                ImGui.PushID(i);
-                DrawComponentRow(craft, c, role, nth, n);
+                ImGui.PushID(_roleScratch[nth]);
+                DrawComponentRow(craft, inv, c, role, nth, run, n);
                 ImGui.PopID();
 
-                nth++;
+                nth += run;
             }
         }
     }
 
-    // One component: where it sits, and whatever it is that the panel can drive.
-    private void DrawComponentRow(KSA.Vehicle craft, FoundComponent c, WeaponRole role, int nth, int of)
+    private readonly List<int> _roleScratch = [];
+
+    // A director has its own controls per head and one computer flies the craft, so neither is a
+    // station of anything.
+    private static bool StacksStations(WeaponRole role)
+        => role is not (WeaponRole.Camera or WeaponRole.Guidance);
+
+    // One component, or `run` identical stations of one weapon from `nth` on: where they sit, and
+    // whatever it is that the panel can drive.
+    private void DrawComponentRow(KSA.Vehicle craft, WeaponInventory inv, FoundComponent c, WeaponRole role,
+                                  int nth, int run, int of)
     {
-        string label = of > 1 ? $"{c.DisplayName}  {nth + 1} of {of}" : c.DisplayName;
+        string label = run > 1 ? $"{c.DisplayName}  x{run}"
+                     : of > 1 ? $"{c.DisplayName}  {nth + 1} of {of}"
+                     : c.DisplayName;
 
         // Open unless folded away. A craft carries a handful of components and their controls are
         // the reason to be on this tab at all, so a closed fold costs a click on every visit and
         // buys back one line of screen.
         if (!ImGui.TreeNodeEx(label, ImGuiTreeNodeFlags.DefaultOpen)) return;
 
-        double3 at = c.PositionVehicleAsmb;
-        ImGui.TextDisabled($"at ({at.X:F2}, {at.Y:F2}, {at.Z:F2}) m");
+        if (run == 1)
+        {
+            double3 at = c.PositionVehicleAsmb;
+            ImGui.TextDisabled($"at ({at.X:F2}, {at.Y:F2}, {at.Z:F2}) m");
+        }
+        else
+        {
+            DrawStations(craft, inv, role, nth, run);
+        }
 
         // A director is its own instrument and needs no weapons system. Everything else here
         // describes one, and reads `_battery` -- which Focus leaves unassigned on a craft that
@@ -94,9 +128,9 @@ internal sealed partial class Ui
             switch (role)
             {
                 case WeaponRole.FireControl: DrawFireControlComponent(); break;
-                case WeaponRole.Launcher: DrawLauncherComponent(c, nth); break;
-                case WeaponRole.Gun: DrawGunComponent(c, nth); break;
-                case WeaponRole.Sensor: DrawSensorComponent(c, nth); break;
+                case WeaponRole.Launcher: DrawLauncherComponent(nth, run); break;
+                case WeaponRole.Gun: DrawGunComponent(nth, run); break;
+                case WeaponRole.Sensor: DrawSensorComponent(nth, run); break;
             }
         }
 
@@ -134,7 +168,46 @@ internal sealed partial class Ui
     //
     // Matched on the launcher's ordinal against the row's position among launcher components. Both
     // are part order, which is what makes them the same sequence.
-    private bool IsSelectedWeapon(int nth) => nth == _battery.LauncherOrdinal;
+    private bool IsSelectedWeapon(int nth, int run)
+        => _battery.LauncherOrdinal >= nth && _battery.LauncherOrdinal < nth + run;
+
+    // A row standing for several stations: how many are loaded, and where each one is, folded
+    // away because it is reference rather than something anyone acts on.
+    private void DrawStations(KSA.Vehicle craft, WeaponInventory inv, WeaponRole role, int nth, int run)
+    {
+        _batteries.AllOn(craft, _stationRows);
+
+        if (role == WeaponRole.Launcher)
+        {
+            int loaded = 0;
+            foreach (WeaponSystems.Entry e in _stationRows)
+            {
+                if (e.Ordinal >= nth && e.Ordinal < nth + run && e.Battery.Ammo > 0) loaded++;
+            }
+
+            ImGui.Text($"{run} stations, {loaded} loaded");
+        }
+
+        if (!ImGui.TreeNode("Stations")) return;
+
+        for (int k = 0; k < run; k++)
+        {
+            double3 at = inv.Components[_roleScratch[nth + k]].PositionVehicleAsmb;
+            ImGui.TextDisabled($"{k + 1}  at ({at.X:F2}, {at.Y:F2}, {at.Z:F2}) m");
+        }
+
+        ImGui.TreePop();
+    }
+
+    private readonly List<WeaponSystems.Entry> _stationRows = [];
+
+    private void ForEachStation(Action<WeaponSystem> act)
+    {
+        if (_batteries.For(Focused) is not { } selected) { act(_battery); return; }
+
+        _batteries.StationsOf(selected, _stationRows);
+        foreach (WeaponSystems.Entry e in _stationRows) act(e.Battery);
+    }
 
     // Said on a row that is a real weapon but not the one being shown, rather than leaving it to
     // be inferred from numbers belonging to a different rack.
@@ -145,10 +218,9 @@ internal sealed partial class Ui
     }
 
     // The launcher: what it holds, how it is laid, and the switches that belong to it.
-    private void DrawLauncherComponent(FoundComponent c, int nth)
+    private void DrawLauncherComponent(int nth, int run)
     {
-        _ = c;
-        if (!IsSelectedWeapon(nth)) { NotSelected(); return; }
+        if (!IsSelectedWeapon(nth, run)) { NotSelected(); return; }
 
         if (_battery.Launcher is null)
         {
@@ -169,9 +241,10 @@ internal sealed partial class Ui
         DrawTurretLine();
         DrawTurretControls();
 
-        if (ImGui.Button("Reload")) _battery.Reload();
+        // Every station of the weapon, since the row stands for all of them.
+        if (ImGui.Button("Reload")) ForEachStation(b => b.Reload());
         ImGui.SameLine();
-        if (ImGui.Button("Safe all")) _battery.SafeAll();
+        if (ImGui.Button("Safe all")) ForEachStation(b => b.SafeAll());
 
         // A view control, so it sits with the weapon whose rounds it would ride.
         ImGui.Checkbox("Chase this launcher's rounds", ref _policy.ChaseRounds);
@@ -190,10 +263,9 @@ internal sealed partial class Ui
     }
 
     // The cannon: its belt, and whether it is live.
-    private void DrawGunComponent(FoundComponent c, int nth)
+    private void DrawGunComponent(int nth, int run)
     {
-        _ = c;
-        if (!IsSelectedWeapon(nth)) { NotSelected(); return; }
+        if (!IsSelectedWeapon(nth, run)) { NotSelected(); return; }
 
         DrawArmamentTally(ArmamentKind.Belt);
         ImGui.TextDisabled(_battery.GunsAreLaid ? "  laid" : "  not laid");
@@ -203,9 +275,9 @@ internal sealed partial class Ui
     // than to every set of its type. Its numbers are on the Tuning tab, because they belong to the
     // profile and every system running that loadout shares them; the full scope is its own tab,
     // where it has one, because a track list is a list and a component row is not the place for one.
-    private void DrawSensorComponent(FoundComponent c, int nth)
+    private void DrawSensorComponent(int nth, int run)
     {
-        if (!IsSelectedWeapon(nth))
+        if (!IsSelectedWeapon(nth, run))
         {
             ImGui.TextDisabled("its own set; not the one fire control reads");
             return;

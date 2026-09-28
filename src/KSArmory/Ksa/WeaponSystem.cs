@@ -155,6 +155,14 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
     public IReadOnlyList<IProjectile> Rounds => _rounds;
 
+    /// <summary>The round this launcher let go of most recently, flying or not.</summary>
+    public IProjectile? LastReleased { get; private set; }
+
+    /// <summary>When <see cref="LastReleased"/> left, as a count of releases across every launcher.</summary>
+    public long LastReleasedAt { get; private set; }
+
+    private static long _releases;
+
     /// <summary>
     /// Told about every round the instant it stops flying, before it is reaped.
     ///
@@ -213,6 +221,16 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// <summary>Points the installation at something, until told otherwise.</summary>
     public void Designate(Aimpoint aim, string what)
     {
+        Point(aim, what, log: true);
+        SendStoresInTheAir(what, LastReleased, chased: null);
+    }
+
+    /// <summary>
+    /// Takes a designation without sending anything already in the air at it. A weapon with
+    /// several stations points each, then sends its falling stores once for the whole group.
+    /// </summary>
+    public void Point(Aimpoint aim, string what, bool log)
+    {
         Designation = aim;
         DesignationName = what;
         _whyNotDesignated = "";
@@ -225,10 +243,11 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         _policy.MouseAim = false;
         _policy.MouseFire = false;
 
-        Log.Info($"{Profile.DisplayName} tracking {what}"
-                 + (wasOnCursor ? " (mouse aim and mouse fire off: it now follows this)" : ""));
-
-        SendStoresInTheAir(what);
+        if (log)
+        {
+            Log.Info($"{Profile.DisplayName} tracking {what}"
+                     + (wasOnCursor ? " (mouse aim and mouse fire off: it now follows this)" : ""));
+        }
     }
 
     // Pushed once, never read live: the round carries its own aimpoint, which is what lets it
@@ -242,7 +261,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     // It reports rather than refusing. A place beyond what the kit can still walk to is taken
     // anyway with the shortfall said out loud: landing nearer beats holding an aim the operator
     // has just replaced, and a refusal here is indistinguishable from a designation doing nothing.
-    private void SendStoresInTheAir(string what)
+    public void SendStoresInTheAir(string what, IProjectile? latest, IProjectile? chased)
     {
         // Nothing to send them at. Designating nothing is not how a store is recalled -- see
         // ClearDesignation, which deliberately leaves one already steering alone.
@@ -251,6 +270,11 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         foreach (IProjectile round in _rounds)
         {
             if (round.State != RoundState.Flying || !round.Munition.SteersItsFall) continue;
+            if (!StoreRetarget.Takes(round.Aimpoint.Kind, ReferenceEquals(round, latest),
+                                     ReferenceEquals(round, chased)))
+            {
+                continue;
+            }
 
             // Flown before the write, because the region is measured around where the store comes
             // down untouched and the aimpoint it is about to carry says nothing about that.
@@ -2793,6 +2817,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     // system refusing to see a live round, or seeing one that has landed -- both silent.
     private void AddRound(IProjectile round)
     {
+        LastReleased = round;
+        LastReleasedAt = ++_releases;
         _rounds.Add(round);
         _roundSet.Add(round);
     }
@@ -4134,6 +4160,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     public void Reset()
     {
         ClearRounds();
+        LastReleased = null;
         _pendingKills.Clear();
         _pendingPartKills.Clear();
         _events.Clear();

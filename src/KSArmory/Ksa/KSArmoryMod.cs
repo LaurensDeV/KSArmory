@@ -471,8 +471,17 @@ public sealed class KSArmoryMod
             {
                 if (e.Policy.DrawBombSight && !FlyingABallisticShot(e.Battery))
                 {
-                    using (_budget.Measure("sight")) SightFor(e.Battery).Draw(e.Battery);
-                    using (_budget.Measure("store reach")) ReachFor(e.Battery).Draw(e.Battery);
+                    // One of each per weapon, not per station: the pipper where the next release
+                    // lands, and the reach of the store a new mark would move.
+                    if (_ui.AimsTheSight(e))
+                    {
+                        using (_budget.Measure("sight")) SightFor(e.Battery).Draw(e.Battery);
+                    }
+
+                    if (ReferenceEquals(_roster.LatestStation(e), e))
+                    {
+                        using (_budget.Measure("store reach")) ReachFor(e.Battery).Draw(e.Battery);
+                    }
                 }
             }
 
@@ -548,7 +557,9 @@ public sealed class KSArmoryMod
                 // the sight block above so it works on a craft with no camera, which is where it
                 // was first missed, and scoped to the shown system for the same reason the
                 // designator is: every crewed battery reading one cursor would lock all of them.
-                TargetLock.Update(_roster.For(_ui.Focused)?.Battery, _heads?.Driving(_ui.Focused)?.Head);
+                WeaponSystems.Entry? weapon = _roster.For(_ui.Focused);
+                TargetLock.Update(weapon?.Battery, _heads?.Driving(_ui.Focused)?.Head,
+                                  weapon is null ? null : (at, what) => _roster.DesignateWeapon(weapon, at, what, _chase.Round));
                 TargetLock.Draw(_roster.For(_ui.Focused)?.Battery, _heads?.Driving(_ui.Focused)?.Head);
             }
             // The sight's own painting. Taking the view is in DriveCameras; this is what is
@@ -612,6 +623,8 @@ public sealed class KSArmoryMod
                 _heads.Sync(KsaWorld.Vehicles);
             }
         }
+
+        _roster.ShareStationSettings();
 
         using (_budget.Measure("sample")) foreach (WeaponSystems.Entry e in _roster.All) e.Battery.SampleWorld();
         using (_budget.Measure("headsample")) _heads?.SampleWorld();
@@ -788,16 +801,24 @@ public sealed class KSArmoryMod
             _tracers.Update(e.Battery);
             _gunSound.Update(e.Battery);
 
-            // Its own switch and its own solve, per system: it costs BombSight.MaxSteps integration
-            // steps and two aircraft can sensibly disagree about wanting one.
+            // Its own switch and its own solve, per weapon rather than per station: it costs
+            // BombSight.MaxSteps integration steps, and eight racks a metre apart would fly eight
+            // copies of one fall.
             if (e.Policy.DrawBombSight && !FlyingABallisticShot(e.Battery))
             {
                 // Measured, and the draw beside it is the other half. What each of these costs is
                 // the trajectory flying rather than the lines: the pipper's 5.41 ms in CLAUDE.md
                 // is its Draw, and the solve under it has never been in the budget at all -- so
                 // "what does the sight cost a frame" had no readable answer before this.
-                using (_budget.Measure("sight solve")) SightFor(e.Battery).Update(e.Battery, _lastSimStep);
-                using (_budget.Measure("reach solve")) ReachFor(e.Battery).Update(e.Battery);
+                if (_ui?.AimsTheSight(e) ?? true)
+                {
+                    using (_budget.Measure("sight solve")) SightFor(e.Battery).Update(e.Battery, _lastSimStep);
+                }
+
+                if (ReferenceEquals(_roster.LatestStation(e), e))
+                {
+                    using (_budget.Measure("reach solve")) ReachFor(e.Battery).Update(e.Battery);
+                }
             }
             else
             {

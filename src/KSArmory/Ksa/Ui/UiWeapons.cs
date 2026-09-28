@@ -147,6 +147,18 @@ internal partial class Ui
         return TriggerStation(selected).Battery;
     }
 
+    /// <summary>
+    /// Whether this station draws its weapon's pipper: the one the trigger reaches next, so a
+    /// weapon of eight racks draws one sight and it is the one the next bomb will follow.
+    /// </summary>
+    public bool AimsTheSight(WeaponSystems.Entry station)
+    {
+        _batteries.AllOn(station.Craft, _weaponScratch);
+        int at = NextStationIndex(station);
+
+        return ReferenceEquals(at < 0 ? _stations[0] : _stations[at], station);
+    }
+
     // One line for both triggers, so the two cannot drift: the reason, and whether it binds, come
     // from the same station either button would fire.
     private void DrawHoldLine(WeaponSystem inHand, bool autoEngage)
@@ -155,7 +167,9 @@ internal partial class Ui
 
         DrawHoldReason(speaking, autoEngage);
         DrawBeyondReach(speaking);
-        DrawStoreReach(speaking);
+        DrawStoreReach(_batteries.For(Focused) is { } selected
+                           ? _batteries.LatestStation(selected).Battery
+                           : speaking);
     }
 
     // Not a hold: the trigger still fires, and the shell is thrown as far as it goes. Said under the

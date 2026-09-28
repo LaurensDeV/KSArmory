@@ -401,6 +401,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/IcbmConfig.cs` | one installation's ballistic settings — armed, loft, arrival angle, ascent, staging, trim |
 | `Sim/FinMixer.cs` | one steering command resolved into four blade deflections — **drawn only** |
 | `Sim/FinTest.cs` | the built-in-test sweep a tail kit runs on the rack — **drawn only** |
+| `Sim/StoreRetarget.cs` | which falling stores a new designation reaches — **one dropped with nothing marked, the last released, or the one being chased**, so marking a second target never swings a stick onto it |
 | `Sim/FireGate.cs` | whether the launcher is pointing where it is about to shoot |
 | `Sim/FireLadder.cs` | **why a system is not shooting** — the gates in order, and the first one that says no |
 | `Sim/OpticHold.cs` | **why a director is not looking at what it has bracketed** — the same question for the sight, in the precedence the head's own aim applies |
@@ -965,6 +966,13 @@ reaches `WeaponSystem.FireAtLock`. It has to stay that way: the switcher's own t
 correctly from the start while the header's — the prominent one, the one an operator actually
 uses — went straight at the selection.
 
+**And everything else about a weapon goes through the group too.** A shift-click designates every
+station (`WeaponSystems.DesignateWeapon`), because a mark held by the selected rack alone released
+the next rack's bomb unguided. Every station runs on the selected one's settings
+(`ShareStationSettings`), the component rows draw one row per weapon, and the pipper and reach ring
+are drawn once: the pipper for the station the trigger reaches next, the ring for the one that
+released last. Eight racks otherwise drew eight sights and flew eight copies of one fall.
+
 **And a launcher carrying tubes and a belt is two weapons.** The switcher lists the Pantsir's
 missiles and its cannon as two rows, and `WeaponSystem.TriggerArmament` is which one the trigger
 fires — set on every station of the group, because the trigger steps between them. A trigger that
@@ -1424,12 +1432,17 @@ east and 16.4 m heading north, against the drop scenario's 30 m bar; the upwind 
 **A designation that arrives after release reaches the store, and it is pushed once rather than
 read live.** The aimpoint used to be bound in `Commit` and never re-read, so naming a place while a
 store was falling did nothing at all — no steering, and no line saying why. `WeaponSystem.Designate`
-now hands it to every round in the air whose munition `SteersItsFall`, through
+now hands it to the rounds in the air whose munition `SteersItsFall` and that `Sim/StoreRetarget.cs`
+lets take it, through
 `IProjectile.Retarget`, which moves the aimpoint and the handle **together**: writing the aimpoint
 alone leaves `SampleTarget` resolving through a stale or null handle, which samples nothing and
 steers on nothing, silently. Pushed rather than pulled, because the round has to keep carrying its
 own aimpoint — that is what lets it outlive its launcher, where a loose system has no designation at
 all, and what stops `ClearDesignation` turning a store halfway down back into an unguided one.
+
+**But a store already sent somewhere keeps going there.** A new mark reaches a store dropped with
+nothing marked, the one the weapon released last, and the one the chase camera is riding, and no
+other: re-aiming every falling store swung a whole stick onto the second target anyone marked.
 
 **It reports rather than refuses**, which is deliberately the opposite of `Fire`'s "refused rather
 than re-targeted". A missile is committed to something somebody chose; a tail kit has no seeker and

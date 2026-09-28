@@ -262,6 +262,110 @@ internal sealed class WeaponSystems(Config config)
         into.Sort((a, b) => a.Ordinal.CompareTo(b.Ordinal));
     }
 
+    /// <summary>
+    /// The stations of one weapon: every launcher on the craft carrying the same part, in part
+    /// order. The switcher shows them as one weapon and the trigger steps between them. Cleared
+    /// and refilled.
+    /// </summary>
+    public void StationsOf(Entry entry, List<Entry> into)
+    {
+        AllOn(entry.Craft, into);
+
+        string partId = entry.Battery.Profile.PartId;
+        for (int i = into.Count - 1; i >= 0; i--)
+        {
+            if (into[i].Battery.Profile.PartId != partId) into.RemoveAt(i);
+        }
+    }
+
+    /// <summary>The round the weapon let go of most recently, across all its stations.</summary>
+    public static IProjectile? LatestReleased(List<Entry> stations)
+    {
+        IProjectile? latest = null;
+        long at = long.MinValue;
+
+        foreach (Entry s in stations)
+        {
+            if (s.Battery.LastReleased is { } round && s.Battery.LastReleasedAt > at)
+            {
+                latest = round;
+                at = s.Battery.LastReleasedAt;
+            }
+        }
+
+        return latest;
+    }
+
+    /// <summary>
+    /// The station that released the weapon's latest round, which is the one whose falling store a
+    /// new mark can still move -- or the entry itself when nothing has been released.
+    /// </summary>
+    public Entry LatestStation(Entry entry)
+    {
+        StationsOf(entry, _stationScratch);
+
+        Entry found = entry;
+        long at = long.MinValue;
+        foreach (Entry s in _stationScratch)
+        {
+            if (s.Battery.LastReleased is not null && s.Battery.LastReleasedAt > at)
+            {
+                found = s;
+                at = s.Battery.LastReleasedAt;
+            }
+        }
+
+        return found;
+    }
+
+    /// <summary>
+    /// Designates for a whole weapon: every station takes the mark, so whichever the trigger reaches
+    /// next releases onto it, and the falling stores that <see cref="StoreRetarget"/> allows are
+    /// sent there once.
+    /// </summary>
+    public void DesignateWeapon(Entry entry, Aimpoint aim, string what, IProjectile? chased)
+    {
+        StationsOf(entry, _stationScratch);
+        IProjectile? latest = LatestReleased(_stationScratch);
+
+        for (int i = 0; i < _stationScratch.Count; i++)
+        {
+            _stationScratch[i].Battery.Point(aim, what, log: i == 0);
+        }
+
+        foreach (Entry station in _stationScratch)
+        {
+            station.Battery.SendStoresInTheAir(what, latest, chased);
+        }
+    }
+
+    /// <summary>
+    /// Keeps every station of a weapon on one set of settings, copied from the station the panel is
+    /// showing, or the first if it shows another weapon. The panel edits only that one, and the
+    /// trigger steps to the others, so a setting held by one station is a setting that stops
+    /// working after its first shot.
+    /// </summary>
+    public void ShareStationSettings()
+    {
+        foreach (Entry entry in _entries.Values)
+        {
+            StationsOf(entry, _stationScratch);
+            if (_stationScratch.Count < 2) continue;
+
+            Entry lead = For(entry.Craft) is { } shown && _stationScratch.Contains(shown)
+                ? shown
+                : _stationScratch[0];
+            if (ReferenceEquals(lead, entry)) continue;
+
+            SystemSettings wanted = SystemSettings.From(lead.Policy);
+            if (wanted.Differs(SystemSettings.From(entry.Policy))) wanted.ApplyTo(entry.Policy);
+
+            entry.Policy.MouseFire = lead.Policy.MouseFire;
+        }
+    }
+
+    private readonly List<Entry> _stationScratch = [];
+
     /// <summary>Selects a weapon on a craft by its launcher ordinal.</summary>
     public void Select(Vehicle? craft, int ordinal)
     {
