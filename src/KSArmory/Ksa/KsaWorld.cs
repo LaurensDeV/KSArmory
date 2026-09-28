@@ -3849,6 +3849,30 @@ internal static class KsaWorld
     }
 
     /// <summary>
+    /// An Ego point on the main viewport, off screen or not; false only behind the camera. For a
+    /// line drawn through the world, which ImGui clips to the screen itself.
+    /// </summary>
+    public static bool TryProjectEgo(double3 posEgo, out float2 screen)
+    {
+        screen = default;
+        try
+        {
+            if (Program.MainViewport is not { } viewport) return false;
+            if (viewport.GetCamera() is not { } camera) return false;
+
+            float2 local = camera.EgoToScreen(posEgo, ignoreBehind: true);
+            if (!float.IsFinite(local.X) || !float.IsFinite(local.Y)) return false;
+
+            screen = new float2(viewport.Position.X + local.X, viewport.Position.Y + local.Y);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Where a world point sits on screen, and whether it is actually in view.
     ///
     /// <para>For a point that is off-screen or behind, <paramref name="screen"/> comes back

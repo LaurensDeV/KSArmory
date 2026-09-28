@@ -27,10 +27,9 @@ internal partial class Ui
     {
         if (!_weaponsOpen) return;
 
-        // The craft being flown, not the one the panel happens to be showing. A switcher is for
-        // the aircraft under your hands; pointing it at a site across the map would be a trigger
-        // aimed somewhere the operator is not looking.
-        KSA.Vehicle? craft = KsaWorld.ControlledVehicle ?? Focused;
+        // The craft the panel is showing, whose button opened it: every craft with a weapon has one,
+        // and the panel's own trigger already fires that craft's.
+        KSA.Vehicle? craft = Focused ?? KsaWorld.ControlledVehicle;
 
         _batteries.AllOn(craft, _weaponScratch);
 
@@ -167,9 +166,7 @@ internal partial class Ui
 
         DrawHoldReason(speaking, autoEngage);
         DrawBeyondReach(speaking);
-        DrawStoreReach(_batteries.For(Focused) is { } selected
-                           ? _batteries.LatestStation(selected).Battery
-                           : speaking);
+        DrawStoreReach(StationSteering() ?? speaking);
     }
 
     // Not a hold: the trigger still fires, and the shell is thrown as far as it goes. Said under the
@@ -184,46 +181,54 @@ internal partial class Ui
                                  + $"{(range - shortBy) / 1000.0:F1} km -- shells land {shortBy / 1000.0:F1} km short");
     }
 
-    // What a store already falling can still be walked onto, while one is in the air. Not a hold
-    // either: it is about a round that has gone, and it is here because the number it reports is
-    // the one that decides whether designating now is worth doing.
+    // The falling bomb the marks still steer, and how far it can still move: the number that says
+    // whether marking now is worth doing. Not a hold, since it is about a round already gone.
+    private WeaponSystem? StationSteering()
+    {
+        if (_batteries.For(Focused) is not { } selected) return null;
+
+        _batteries.StationsOf(selected, _stations);
+        foreach (WeaponSystems.Entry s in _stations)
+        {
+            if (s.Battery.Steerable is not null) return s.Battery;
+        }
+
+        return null;
+    }
+
     private void DrawStoreReach(WeaponSystem speaking)
     {
-        if (StoreReach.FallingStore(speaking) is null) return;
+        if (speaking.Steerable is null) return;
 
         TailKitReach reach = _reachFor(speaking).Latest;
         if (!reach.Known) return;
 
-        ImGui.TextColored(Grey, $"Store in the air: {reach.SecondsToGo:F0} s to go, can still be "
-                                + $"walked {Distance.Say(reach.RadiusMetres)}");
-        Tip("How far the tail kit can still move where that store lands. It closes as the square "
-            + "of the time left, so designating early is worth far more than designating well. "
-            + "Shift-click the ground to send it somewhere -- the ring on the ground is the same "
-            + "number.");
+        ImGui.TextColored(Grey, $"Bomb falling: {reach.SecondsToGo:F0} s left, can still move "
+                                + Distance.Say(reach.RadiusMetres));
+        Tip("Shift-click inside the blue ring to steer it there. Releasing the next bomb locks it.");
     }
 
+    // What the trigger will do, in a word: Ready, or Holding and the reason. A reason that only
+    // holds automatic fire does not stop the trigger, so it is Ready with the reason after it in
+    // grey, and only while auto-engage is on, since otherwise nothing is waiting on it.
     private void DrawHoldReason(WeaponSystem speaking, bool autoEngage)
     {
-        if (speaking.TriggerHold is not { } held)
+        if (speaking.TriggerHold is { BindsTrigger: true } held)
         {
-            ImGui.TextColored(Green, autoEngage ? "Clear to fire" : "Clear to fire -- on the trigger");
+            ImGui.TextColored(Amber, $"Holding: {held.Reason}");
+            Tip("FIRE will not work until this clears.");
             return;
         }
 
-        string why = held.Reason;
+        ImGui.TextColored(Green, "Ready");
+        Tip(autoEngage ? "FIRE works now." : "FIRE works now. Auto-engage is off, so it only fires when you press it.");
 
-        if (held.BindsTrigger)
+        if (autoEngage && speaking.TriggerHold is { } waiting)
         {
-            ImGui.TextColored(Amber, $"Holding fire: {why}");
-            return;
+            ImGui.SameLine();
+            ImGui.TextColored(Grey, $"auto: {waiting.Reason}");
+            Tip("Why auto-engage is not firing on its own. FIRE still works.");
         }
-
-        // Auto-engage's own gate, said as one. The old wording described a refusal that does not
-        // happen: the operator presses FIRE at a target inside the minimum, the round leaves, and
-        // the panel had called that holding fire.
-        ImGui.TextColored(Amber, $"Auto-engage held: {why}");
-        ImGui.SameLine();
-        ImGui.TextColored(Green, "-- trigger is clear");
     }
 
     // Every station carrying the same store, in ordinal order.
@@ -236,46 +241,127 @@ internal partial class Ui
         }
     }
 
-    private void DrawWeaponList(KSA.Vehicle? craft)
-    {
-        WeaponSystems.Entry? selected = _batteries.For(craft);
+    // One weapon as the operator picks it: a store type with however many stations carry it, and
+    // one armament of it where a launcher carries two.
+    private readonly record struct WeaponChoice(WeaponSystems.Entry First, Armament Arm, int Stations,
+                                                int Left, bool Guarding, bool Named);
 
-        // One row per store carried, not per station. Two LAU-118s under one aircraft are one
-        // weapon to whoever is flying it: real aircraft select a store type and let the stations
-        // take turns, and a list naming each rail separately makes the operator do the bookkeeping.
-        // The systems stay separate underneath -- see WeaponSelection.NextStation for why pooling
-        // the magazines instead would let a store come back.
-        //
-        // And one per armament: a launcher with tubes and a belt is two weapons, and the trigger
-        // fires one of them.
-        int row = 0;
-        string? drawn = null;
+    private readonly List<WeaponChoice> _choices = [];
+
+    // Every weapon on a craft, in part order: one per store carried rather than per station, and
+    // one per armament. Two LAU-118s under one aircraft are one weapon to whoever is flying it --
+    // the stations take turns -- and a launcher with tubes and a belt is two, because the trigger
+    // fires one of them. The systems stay separate underneath; see WeaponSelection.NextStation for
+    // why pooling the magazines instead would let a store come back.
+    private void CollectWeapons(KSA.Vehicle? craft, List<WeaponChoice> into)
+    {
+        into.Clear();
+        _batteries.AllOn(craft, _weaponScratch);
 
         for (int i = 0; i < _weaponScratch.Count; i++)
         {
             string partId = _weaponScratch[i].Battery.Profile.PartId;
 
-            // Ordinal order, so the first station of a group is where its row is drawn and every
-            // later one folds into it.
-            if (partId == drawn) continue;
-            bool alreadyDrawn = false;
+            // Ordinal order, so the first station of a group stands for it and every later one
+            // folds into it.
+            bool seen = false;
             for (int j = 0; j < i; j++)
             {
-                if (_weaponScratch[j].Battery.Profile.PartId == partId) { alreadyDrawn = true; break; }
+                if (_weaponScratch[j].Battery.Profile.PartId == partId) { seen = true; break; }
             }
-            if (alreadyDrawn) continue;
-            drawn = partId;
+            if (seen) continue;
 
             GatherGroup(partId, _stations);
 
-            WeaponSystems.Entry e = _stations[0];
-            IReadOnlyList<Armament> armaments = WeaponFit.Of(e.Battery.Profile, e.Battery.Sensor).Armaments;
+            WeaponSystems.Entry first = _stations[0];
+            IReadOnlyList<Armament> armaments = WeaponFit.Of(first.Battery.Profile, first.Battery.Sensor).Armaments;
 
-            for (int a = 0; a < armaments.Count; a++)
+            foreach (Armament arm in armaments)
             {
-                DrawWeaponRow(craft, selected, e, armaments[a], named: armaments.Count > 1, row++);
+                int left = 0;
+                bool guarding = false;
+                foreach (WeaponSystems.Entry s in _stations)
+                {
+                    left += arm.Kind == ArmamentKind.Tubes ? s.Battery.Ammo : s.Battery.GunAmmo;
+                    guarding |= s.Policy.AutoEngage;
+                }
+
+                into.Add(new WeaponChoice(first, arm, _stations.Count, left, guarding, armaments.Count > 1));
             }
         }
+    }
+
+    private static string ChoiceName(WeaponChoice c)
+    {
+        string name = c.Named ? $"{c.First.DisplayName}: {c.Arm.Label}" : c.First.DisplayName;
+        return c.Stations > 1 ? $"{name}  x{c.Stations}" : name;
+    }
+
+    private static string ChoiceLeft(WeaponChoice c)
+        => c.Arm.Kind == ArmamentKind.Tubes ? $"{c.Left} round(s)" : $"{c.Left} belt";
+
+    private static bool IsChosen(WeaponSystems.Entry? selected, WeaponChoice c)
+        => selected is not null
+           && selected.Battery.Profile.PartId == c.First.Battery.Profile.PartId
+           && selected.Battery.TriggerArmament == c.Arm.Kind;
+
+    private void Choose(KSA.Vehicle? craft, WeaponChoice c)
+    {
+        _batteries.Select(craft, c.First.Ordinal);
+
+        // Every station, because the trigger steps between them and each fires its own.
+        _batteries.StationsOf(c.First, _stations);
+        foreach (WeaponSystems.Entry s in _stations) s.Battery.TriggerArmament = c.Arm.Kind;
+        Focus(Focused);
+    }
+
+    // The weapon the trigger beside it fires, picked where it is fired. Nothing is drawn for a craft
+    // with one weapon: there is nothing to choose, and FIRE says what it does on its own.
+    private bool DrawWeaponPicker(KSA.Vehicle? craft)
+    {
+        CollectWeapons(craft, _choices);
+        if (_choices.Count < 2) return false;
+
+        WeaponSystems.Entry? selected = _batteries.For(craft);
+
+        string preview = "";
+        foreach (WeaponChoice c in _choices)
+        {
+            if (IsChosen(selected, c)) preview = $"{ChoiceName(c)} - {ChoiceLeft(c)}";
+        }
+
+        ImGui.SetNextItemWidth(ImGui.GetFontSize() * 18f);
+        if (ImGui.BeginCombo("##weapon", preview, ImGuiComboFlags.None))
+        {
+            for (int i = 0; i < _choices.Count; i++)
+            {
+                WeaponChoice c = _choices[i];
+                bool chosen = IsChosen(selected, c);
+
+                ImGui.PushID(i);
+                if (ImGui.Selectable($"{ChoiceName(c)} - {ChoiceLeft(c)}", chosen, ImGuiSelectableFlags.None,
+                                     new float2(0f, 0f)))
+                {
+                    Choose(craft, c);
+                }
+                if (chosen) ImGui.SetItemDefaultFocus();
+                ImGui.PopID();
+            }
+
+            ImGui.EndCombo();
+        }
+
+        Tip("Which weapon FIRE releases. Several racks carrying the same store are one weapon, and "
+            + "FIRE steps between them.");
+        return true;
+    }
+
+    private void DrawWeaponList(KSA.Vehicle? craft)
+    {
+        WeaponSystems.Entry? selected = _batteries.For(craft);
+
+        CollectWeapons(craft, _choices);
+        for (int row = 0; row < _choices.Count; row++) DrawWeaponRow(craft, selected, _choices[row], row);
 
         ImGui.Separator();
 
@@ -290,24 +376,13 @@ internal partial class Ui
         // This window is the trigger, so its line has to be about the trigger. Auto-engage off
         // blocks nothing FIRE does, and reporting it here is what made a working button look
         // broken.
+        ImGui.SameLine();
         DrawHoldLine(selected.Battery, selected.Policy.AutoEngage);
     }
 
-    // One armament of the group in _stations.
-    private void DrawWeaponRow(KSA.Vehicle? craft, WeaponSystems.Entry? selected, WeaponSystems.Entry e,
-                               Armament arm, bool named, int row)
+    private void DrawWeaponRow(KSA.Vehicle? craft, WeaponSystems.Entry? selected, WeaponChoice c, int row)
     {
-        bool isSelected = selected is not null
-                          && selected.Battery.Profile.PartId == e.Battery.Profile.PartId
-                          && selected.Battery.TriggerArmament == arm.Kind;
-
-        int left = 0;
-        bool anyGuarding = false;
-        foreach (WeaponSystems.Entry s in _stations)
-        {
-            left += arm.Kind == ArmamentKind.Tubes ? s.Battery.Ammo : s.Battery.GunAmmo;
-            anyGuarding |= s.Policy.AutoEngage;
-        }
+        bool isSelected = IsChosen(selected, c);
 
         ImGui.PushID(row);
 
@@ -316,11 +391,7 @@ internal partial class Ui
         if (ImGui.Selectable($"##row{row}", isSelected, ImGuiSelectableFlags.None,
                              new float2(0f, ImGui.GetTextLineHeight() * 1.4f)))
         {
-            _batteries.Select(craft, e.Ordinal);
-
-            // Every station, because the trigger steps between them and each fires its own.
-            foreach (WeaponSystems.Entry s in _stations) s.Battery.TriggerArmament = arm.Kind;
-            Focus(Focused);
+            Choose(craft, c);
         }
 
         ImGui.SameLine(0f, 0f);
@@ -328,22 +399,15 @@ internal partial class Ui
         // Empty is the state worth colouring, because it is the one that makes FIRE do
         // nothing -- and it is what "the second bomb did not detach" turns out to mean when
         // the operator is still on the weapon that just fired.
-        float4 tint = left <= 0 ? Grey : isSelected ? Green : Amber;
+        float4 tint = c.Left <= 0 ? Grey : isSelected ? Green : Amber;
 
-        // The station count, because two rails and one rail are different amounts of weapon
-        // and the summed ammo alone does not say which it is.
-        string name = named ? $"{e.DisplayName}: {arm.Label}" : e.DisplayName;
-        string label = _stations.Count > 1
-                           ? $"{row + 1}. {name}  x{_stations.Count}"
-                           : $"{row + 1}. {name}";
-
-        ImGui.TextColored(tint, label);
+        ImGui.TextColored(tint, $"{row + 1}. {ChoiceName(c)}");
 
         ImGui.SameLine();
-        ImGui.TextDisabled(arm.Kind == ArmamentKind.Tubes ? $"  {left} round(s)" : $"  {left} belt");
+        ImGui.TextDisabled($"  {ChoiceLeft(c)}");
 
         ImGui.SameLine();
-        if (anyGuarding) ImGui.TextColored(Red, "GUARDING");
+        if (c.Guarding) ImGui.TextColored(Red, "GUARDING");
         else ImGui.TextDisabled("manual");
 
         ImGui.PopID();

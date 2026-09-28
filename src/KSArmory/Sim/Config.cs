@@ -235,6 +235,14 @@ public sealed class Config
     public float ShaderPass = 1f;
 
     /// <summary>
+    /// Whether the bomb sight's rings are painted on the ground by the shader pass rather than
+    /// drawn as lines. Painted, a ring is an exact circle lying on whatever is under it; the lines
+    /// are a polygon draped on sampled heights, which cuts into hills between its corners. Falls
+    /// back to the lines when the pass is not running.
+    /// </summary>
+    public bool PaintGroundRings = true;
+
+    /// <summary>
     /// Explosive charge for a hand-fired burst (kg). The same figure a round carries, so the tool
     /// shows what a warhead of that size actually looks like rather than an arbitrary size.
     /// </summary>

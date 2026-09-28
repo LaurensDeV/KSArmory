@@ -44,6 +44,12 @@ internal sealed class StoreReach
     private static readonly float4 ImpactColour = new(1.0f, 0.45f, 0.10f, 1f);
     private static readonly float4 ReachColour = new(0.45f, 0.85f, 1.0f, 0.75f);
 
+    // The same two painted on the ground, their alpha the brightness each keeps over dark ground.
+    // White and dashed rather than the pipper's solid orange: the pipper is where the next store
+    // lands, and this is one already falling.
+    private static readonly float4 PaintedImpact = new(1.0f, 1.0f, 1.0f, 0.05f);
+    private static readonly float4 PaintedReach = new(0.45f, 0.85f, 1.0f, 0.05f);
+
     // Its own, because it caches down one trajectory and the three flights here must not be shown
     // one another's last sample -- they deliberately end up in different places.
     private readonly CoarseGroundTest _ground = new(GroundTest.Shared);
@@ -107,18 +113,15 @@ internal sealed class StoreReach
     }
 
     /// <summary>
-    /// Re-solves for the first store in the air that steers its own fall, at most every
-    /// <see cref="SolveIntervalSeconds"/>.
-    ///
-    /// <para>The first rather than all of them. The shipped rack holds one bomb, so this is the
-    /// whole answer today; a rack that held several would want a region each, and the thing to fix
-    /// then is this loop rather than anything below it.</para>
+    /// Re-solves for the store the marks still steer (<see cref="WeaponSystem.Steerable"/>), at most
+    /// every <see cref="SolveIntervalSeconds"/>. Any other store keeps its aim, so its reach is
+    /// nothing anyone can act on.
     /// </summary>
     public void Update(WeaponSystem battery)
     {
         ArgumentNullException.ThrowIfNull(battery);
 
-        if (FallingStore(battery) is not { } store) { Clear(); return; }
+        if (battery.Steerable is not { } store) { Clear(); return; }
 
         if (_sinceSolve.Elapsed.TotalSeconds < (_unsolvable ? UnsolvableIntervalSeconds
                                                             : SolveIntervalSeconds))
@@ -166,13 +169,16 @@ internal sealed class StoreReach
         _body = body;
         _anchor = anchor;
 
+        // Painted rings need no draping, which is the terrain lookups this would cost.
+        if (GroundRings.Painting) return;
+
         KsaWorld.CollectDrapedCircleEcl(reach.ImpactEcl, up, Warhead.LethalRadius(battery.Munition.ChargeKg),
                                         _impactRing, ImpactSegments);
         KsaWorld.CollectDrapedCircleEcl(reach.ImpactEcl, up, reach.RadiusMetres,
                                         _reachRing, ReachSegments);
     }
 
-    /// <summary>The store this is about, or null.</summary>
+    /// <summary>The first store in the air that steers its own fall, whatever it is aimed at.</summary>
     public static IProjectile? FallingStore(WeaponSystem battery)
     {
         ArgumentNullException.ThrowIfNull(battery);
@@ -285,8 +291,19 @@ internal sealed class StoreReach
     {
         ArgumentNullException.ThrowIfNull(battery);
 
-        if (!Latest.Known || battery.Platform is not { } platform) return;
-        if (!KsaWorld.TryGroundAnchorEcl(_body, _anchor, out double3 impactEcl, out _)) return;
+        if (battery.Platform is not { } platform) return;
+
+        double3 impactEcl = default;
+        bool landing = Latest.Known && KsaWorld.TryGroundAnchorEcl(_body, _anchor, out impactEcl, out _);
+
+        if (GroundRings.Painting)
+        {
+            PaintFalling(battery, landing ? impactEcl : null);
+            return;
+        }
+
+        if (!landing) return;
+
         if (!KsaWorld.BeginDraw(platform, battery.PlatformEcl)) return;
 
         // What the store reaches, so the inner ring means the same thing the pipper's does; and
@@ -294,6 +311,50 @@ internal sealed class StoreReach
         // where it is going and the other how much choice is left.
         Ring(_impactRing, impactEcl, ImpactColour);
         Ring(_reachRing, impactEcl, ReachColour);
+    }
+
+    // Every store of this launcher still falling, where it will land: onto its mark where it has
+    // one, and where it comes down untouched where it has none, which only the steerable store's
+    // solve knows. Round the steerable one, the reach its fins have left.
+    private void PaintFalling(WeaponSystem battery, double3? untouched)
+    {
+        double lethal = Warhead.LethalRadius(battery.Munition.ChargeKg);
+        IProjectile? steerable = battery.Steerable;
+
+        foreach (IProjectile round in battery.Rounds)
+        {
+            if (round.State != RoundState.Flying || !round.Munition.SteersItsFall) continue;
+
+            double3? at = TryAimEcl(round.Aimpoint, out double3 aim) ? aim
+                        : ReferenceEquals(round, steerable) ? untouched
+                        : null;
+
+            if (at is { } landsAt) GroundRings.Add(landsAt, lethal, 0.0, PaintedImpact, GroundRings.Dashed);
+        }
+
+        if (steerable is not null && untouched is { } centre)
+        {
+            GroundRings.Add(centre, Latest.RadiusMetres, 0.0, PaintedReach);
+        }
+    }
+
+    private static bool TryAimEcl(Aimpoint aim, out double3 positionEcl)
+    {
+        positionEcl = default;
+
+        switch (aim.Kind)
+        {
+            case AimpointKind.Ground:
+                return KsaWorld.TryGroundAnchorEcl(aim.Handle, aim.Anchor, out positionEcl, out _);
+            case AimpointKind.Vehicle or AimpointKind.Part when aim.Handle is KSA.Vehicle craft && KsaWorld.IsAlive(craft):
+                positionEcl = KsaWorld.PositionEcl(craft);
+                return true;
+            case AimpointKind.Point:
+                positionEcl = aim.PositionEcl;
+                return true;
+            default:
+                return false;
+        }
     }
 
     // Put back against this frame's landing, which is the sample the offsets were measured from.

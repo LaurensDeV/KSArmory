@@ -50,12 +50,11 @@ internal enum TailKitHold
 /// <see cref="Slug"/> through the same <see cref="TailKit"/> law the store is obeying, which is
 /// what <see cref="BombSight"/> does for the pipper and for the same reason.</para>
 ///
-/// <para><b>It reports; it does not refuse.</b> A designation outside the region is still taken —
-/// see <c>WeaponSystem.Designate</c>. The store has nothing better to do than steer at it, landing
-/// nearer is strictly better than holding an aim the operator has just replaced, and a refusal here
-/// is indistinguishable from the bug this exists to fix. That is the opposite of the bus, where a
-/// hop the trim cannot pay for strands warheads; the difference is that a bomb is already falling,
-/// so there is no budget left to overspend.</para>
+/// <para><b>It decides as well as reports.</b> A store already falling is sent only somewhere inside
+/// the region (<see cref="StoreRetarget.Reaches"/>): steered at a place it cannot reach it lands in
+/// between and hits nothing, where it would have hit what it was already sent at. So the region has
+/// to be a floor -- one that over-promises sends a store where it cannot arrive, and one that
+/// under-promises refuses a place it could have reached.</para>
 /// </summary>
 /// <param name="Hold">Whether there is a region, and why there is not.</param>
 /// <param name="SecondsToGo">The fall still to come, flown.</param>
@@ -331,9 +330,8 @@ internal readonly record struct TailKitReach(
                 => $"inside the kit's reach ({Distance.Say(MissFrom(aimEcl))} to walk, "
                    + $"{Distance.Say(RadiusMetres)} of authority over {SecondsToGo:F0} s of fall)",
             TailKitHold.Known
-                => $"{Distance.Say(ShortfallFrom(aimEcl))} beyond the kit's reach - it will steer "
-                   + $"at it and fall short ({Distance.Say(RadiusMetres)} of authority over "
-                   + $"{SecondsToGo:F0} s of fall)",
+                => $"{Distance.Say(ShortfallFrom(aimEcl))} beyond the kit's reach "
+                   + $"({Distance.Say(RadiusMetres)} of authority over {SecondsToGo:F0} s of fall)",
             TailKitHold.Unguided => "unguided - it lands where it was thrown",
             TailKitHold.NoLanding => "no landing to move yet - the kit takes hold once it is coming down",
             _ => "nothing readable where the store is",

@@ -40,6 +40,7 @@ internal static class CloudPass
     private const string ResolveShaderId = "KSArmoryCloudResolveCompute";
     private const string ShockShaderId = "KSArmoryShockCompute";
     private const string FireLightShaderId = "KSArmoryFireLightCompute";
+    private const string RingShaderId = "KSArmoryRingCompute";
 
     // KSArmoryFireLight.comp's workgroup.
     private const int FireLightGroupX = 16;
@@ -70,6 +71,7 @@ internal static class CloudPass
     private static readonly ProfilerTag AuroraTag = new("KSArmory Cloud: aurora"u8);
     private static readonly ProfilerTag DebrisTag = new("KSArmory Cloud: debris"u8);
     private static readonly ProfilerTag RedWaveTag = new("KSArmory Cloud: red wave"u8);
+    private static readonly ProfilerTag RingsTag = new("KSArmory Cloud: rings"u8);
 
     private static readonly List<(float Kind, double Brightness, Push Push)> _sky = [];
 
@@ -143,6 +145,7 @@ internal static class CloudPass
         // the pixel it writes, and the bend reads nothing else.
         public required RenderImage SceneCopy;
         public ComputePipelineWrapper? Shock;
+        public ComputePipelineWrapper? Rings;
         public ComputePipelineWrapper? FireLight;
         public VkImageView FireLightDepth;
         public VkImageView FireLightNormal;
@@ -510,6 +513,10 @@ internal static class CloudPass
                     marks++;
                 }
             }
+
+            // The targeting rings, on the ground with the marks and under any cloud standing over
+            // them.
+            Rings(commandBuffer, viewport, camera, view, depth, width, height, ref marks);
 
             // THE SKY a high burst lights: the X-ray-heated layer, the aurora at each end of the field line
             // and a thin-air burst's debris shell, each a full-screen dispatch with a negative bound. Every
@@ -944,6 +951,96 @@ internal static class CloudPass
     }
 
     private static readonly List<ShockPush> _fronts = [];
+
+    [StructLayout(LayoutKind.Sequential, Pack = 4)]
+    private struct RingPush
+    {
+        public float4x4 InvViewProj;
+        public float4 CentreRadius;    // the centre, camera-relative, and the radius
+        public float4 UpInner;         // the local vertical, and a second ring's radius or zero
+        public float4 Colour;          // the ink, and the brightness it keeps over dark ground
+        public float4 TileWidth;       // the tile's first pixel, the line's half-width in pixels, dashes or zero
+    }
+
+    // The line's half-width in pixels, which the shader holds however far off or oblique the ring is.
+    private const float RingHalfWidthPixels = 1.75f;
+
+    // How far past the radius the tile reaches, in radii: the line's own width and its border at a
+    // grazing angle, where a pixel covers a long stretch of ground.
+    private const double RingTileReach = 1.15;
+
+    // THE TARGETING RINGS, painted on the ground: KSArmoryRing.comp. One dispatch per ring, over its
+    // own patch of screen, so a ring costs what it covers. None once the UI pass has stopped handing
+    // them over, which is what hiding the UI does.
+    private static void Rings(CommandBuffer commandBuffer, IViewport viewport, Camera camera, View view,
+                              IRenderImage depth, int width, int height, ref int marks)
+    {
+        if (GroundRings.Count == 0 || !GroundRings.Fresh) return;
+        if (view.Rings is null && !BuildRings(view, depth)) return;
+
+        using (commandBuffer.TagRegion(GpuTag))
+        using (commandBuffer.TagRegion(RingsTag))
+        {
+            for (int i = 0; i < GroundRings.Count; i++)
+            {
+                if (!GroundRings.TryAt(i, out double3 centreEcl, out double3 up, out double radius,
+                                       out double inner, out float4 colour, out int dashes)) continue;
+
+                double3 centre = centreEcl - camera.PositionEcl;
+                if (!Vec.IsFinite(centre)) continue;
+
+                Tile tile = TileFor(camera, centre, Vec.AnyPerpendicular(up), radius, RingTileReach,
+                                    width, height);
+                if (tile.Empty) continue;
+
+                if (marks > 0) Hazard(commandBuffer);
+
+                RingPush push = new()
+                {
+                    InvViewProj = camera.VPInv.viewProjection,
+                    CentreRadius = new float4((float)centre.X, (float)centre.Y, (float)centre.Z, (float)radius),
+                    UpInner = new float4((float)up.X, (float)up.Y, (float)up.Z, (float)inner),
+                    Colour = colour,
+                    TileWidth = new float4(tile.OriginX, tile.OriginY, RingHalfWidthPixels, dashes),
+                };
+
+                view.Rings!.BindPipeline(commandBuffer, viewport.ShaderSlot, default, default, push);
+                commandBuffer.Dispatch(tile.GroupsX, tile.GroupsY, 1);
+                marks++;
+            }
+        }
+    }
+
+    private static bool BuildRings(View view, IRenderImage depth)
+    {
+        if (!ModLibrary.TryGet<ShaderReference>(RingShaderId, out var shader) || shader is null)
+        {
+            Warn($"no shader '{RingShaderId}'; targeting rings are drawn as lines");
+            GroundRings.Enabled = false;
+            return false;
+        }
+
+        Renderer renderer = Program.GetRenderer();
+
+        IRenderImage[] storageTargets = [view.Target];
+        IRenderImage[] depthTargets = [depth];
+        VkPushConstantRange[] ranges =
+        [
+            new VkPushConstantRange
+            {
+                Offset = (ByteSize32)0,
+                Size = (ByteSize32)Marshal.SizeOf<RingPush>(),
+                StageFlags = VkShaderStageFlags.ComputeBit,
+            },
+        ];
+
+        view.Rings = new ComputePipelineWrapper(
+            storageTargets, depthTargets, default, default, shader,
+            default, ranges, renderer.MaxFramesInFlight, renderer,
+            "KSArmory.Rings", Program.PointClampedSampler, Program.LinearClampedSampler);
+
+        return true;
+    }
 
     [StructLayout(LayoutKind.Sequential, Pack = 4)]
     private struct FireLightPush

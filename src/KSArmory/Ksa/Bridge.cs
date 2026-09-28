@@ -43,7 +43,7 @@ internal sealed class Bridge
 
     private static readonly string[] ShaderIds =
         ["KSArmoryCloudCompute", "KSArmoryCloudResolveCompute", "KSArmoryShockCompute",
-         "KSArmoryFireLightCompute"];
+         "KSArmoryFireLightCompute", "KSArmoryRingCompute"];
 
     public Bridge(Config config, Func<Vehicle?, WeaponSystem?> systemFor)
     {

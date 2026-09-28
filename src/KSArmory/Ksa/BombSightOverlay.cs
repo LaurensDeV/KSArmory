@@ -1,3 +1,4 @@
+using Brutal.ImGuiApi;
 using Brutal.Numerics;
 using KSA;
 
@@ -26,6 +27,9 @@ internal sealed class BombSightOverlay
 
     private static readonly float4 ArcColour = new(1.0f, 0.75f, 0.15f, 1f);
     private static readonly float4 RingColour = new(1.0f, 0.45f, 0.10f, 1f);
+
+    // The same orange painted on the ground, its alpha the brightness it keeps over dark ground.
+    private static readonly float4 PaintedRing = new(1.0f, 0.45f, 0.10f, 0.05f);
 
     // The arc, as offsets from the platform sample it was solved against -- never as ecliptic
     // positions.
@@ -213,6 +217,41 @@ internal sealed class BombSightOverlay
                                 Ground(), BombSight.StepFor(battery.Munition, IntegrationStep), path,
                                 out impactEcl);
 
+    // The arc as an anti-aliased line two pixels wide with a dark edge, to match the rings painted
+    // under it: the same points the gizmo line takes, through the anchor BeginDraw set, projected
+    // and drawn on the list under the panel. Not hidden by terrain or the craft, which the gizmo
+    // line was; the arc is in the air above the ground it lands on, so that rarely shows.
+    private void DrawArcOnScreen(double3 here, int stride)
+    {
+        _screen.Clear();
+
+        for (int i = 0; i < _path.Count; i += stride) AddScreenPoint(here + _path[i]);
+        AddScreenPoint(here + _path[^1]);
+
+        ImDrawListPtr draw = ImGui.GetBackgroundDrawList();
+        for (int pass = 0; pass < 2; pass++)
+        {
+            uint colour = pass == 0 ? ArcEdge : ArcInk;
+            float width = pass == 0 ? 4f : 2f;
+
+            for (int i = 1; i < _screen.Count; i++)
+            {
+                if (_screen[i - 1] is { } a && _screen[i] is { } b) draw.AddLine(a, b, colour, width);
+            }
+        }
+    }
+
+    // A point behind the camera breaks the line there rather than folding it across the screen.
+    private void AddScreenPoint(double3 pointEcl)
+        => _screen.Add(KsaWorld.TryEclToEgo(pointEcl, out double3 ego) && KsaWorld.TryProjectEgo(ego, out float2 at)
+                           ? at
+                           : null);
+
+    private readonly List<float2?> _screen = [];
+
+    private static readonly uint ArcInk = ImGui.ColorConvertFloat4ToU32(new float4(1.0f, 0.75f, 0.15f, 1f));
+    private static readonly uint ArcEdge = ImGui.ColorConvertFloat4ToU32(new float4(0f, 0f, 0f, 0.55f));
+
     // Reset per solve: the cache exists to skip lookups down one trajectory, not to remember the
     // last one, and a sample kept from the previous frame's fall would be trusted from the wrong
     // place.
@@ -237,13 +276,20 @@ internal sealed class BombSightOverlay
 
         int stride = Math.Max(1, _path.Count / ArcRibs);
 
-        for (int i = stride; i < _path.Count; i += stride)
+        if (GroundRings.Painting)
         {
-            KsaWorld.DrawLineEcl(here + _path[i - stride], here + _path[i], ArcColour);
+            DrawArcOnScreen(here, stride);
         }
+        else
+        {
+            for (int i = stride; i < _path.Count; i += stride)
+            {
+                KsaWorld.DrawLineEcl(here + _path[i - stride], here + _path[i], ArcColour);
+            }
 
-        KsaWorld.DrawLineEcl(here + _path[^Math.Min(_path.Count, stride + 1)],
-                             here + _path[^1], ArcColour);
+            KsaWorld.DrawLineEcl(here + _path[^Math.Min(_path.Count, stride + 1)],
+                                 here + _path[^1], ArcColour);
+        }
 
         // Draped on the terrain, so the ring reads as a place on the ground rather than a disc
         // floating over it.
@@ -256,6 +302,8 @@ internal sealed class BombSightOverlay
 
         // The store's own lethal radius, so what the ring circles is what the bomb reaches.
         double radius = Warhead.LethalRadius(battery.Munition.ChargeKg);
+
+        if (GroundRings.Painting && GroundRings.Add(impactEcl, radius, radius * 0.15, PaintedRing)) return;
 
         KsaWorld.DrawCircleEcl(impactEcl, up, radius, RingColour);
         KsaWorld.DrawCircleEcl(impactEcl, up, radius * 0.15, RingColour, segments: 16);

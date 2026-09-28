@@ -1,0 +1,114 @@
+#version 450
+
+// A targeting ring painted on whatever the depth buffer says is under each pixel: terrain, a pad, a
+// rock. One dispatch per ring from CloudPass, over the ring's own patch of screen. The circle is
+// exact at any size because it is measured from the scene point, not drawn as a polygon draped on
+// sampled heights, and its line is a fixed number of pixels wide however far off or oblique.
+//
+// Bindings follow ComputePipelineWrapper's order: the storage image, then the depth it samples.
+
+layout (local_size_x = 8, local_size_y = 8) in;
+
+layout (set = 1, binding = 0, Rgba16f) uniform image2D sceneColor;
+layout (set = 1, binding = 1) uniform sampler2D sceneDepth;
+
+layout (push_constant) uniform PushConstants
+{
+    mat4 InvViewProj;   // clip -> camera-relative world
+    vec4 CentreRadius;  // the ring's centre, camera-relative, and its radius
+    vec4 UpInner;       // the local vertical there, and a second ring's radius, zero for none
+    vec4 Colour;        // the ink, and the brightness it keeps over the darkest ground
+    vec4 TileWidth;     // the tile's first pixel, the line's half-width in pixels, and dashes or zero
+} pc;
+
+vec3 WorldAt(vec2 uv, float deviceZ)
+{
+    vec4 clip = vec4(uv * 2.0 - 1.0, deviceZ, 1.0);
+    vec4 p = pc.InvViewProj * clip;
+    return p.xyz / p.w;
+}
+
+// How far along the ring's radius the ground moves for one pixel's step, off the tangent plane at
+// the ring: the step across the view at this depth, slid along the ray back onto the plane. Exact
+// for flat ground, and what keeps the line one width from the rim to the far side of the circle.
+float RadialStep(vec3 p, vec3 dir, vec3 step, vec3 up, vec3 radial)
+{
+    float facing = dot(dir, up);
+    facing = sign(facing) * max(abs(facing), 0.05);
+    vec3 onGround = step - dir * (dot(step, up) / facing);
+    return abs(dot(onGround, radial));
+}
+
+// Coverage of a line of the given half-width at radius R, and of the dark border round it.
+float Line(float r, float R, float footprint, float halfWidth, out float border)
+{
+    float px = abs(r - R) / footprint;
+    border = 1.0 - smoothstep(halfWidth + 0.5, halfWidth + 1.5, px);
+    return 1.0 - smoothstep(halfWidth - 0.5, halfWidth + 0.5, px);
+}
+
+void main()
+{
+    ivec2 size = imageSize(sceneColor);
+    ivec2 at = ivec2(gl_GlobalInvocationID.xy) + ivec2(pc.TileWidth.xy);
+    if (at.x >= size.x || at.y >= size.y) return;
+
+    // Reverse-Z: zero is the sky, which a ring on the ground has no business with.
+    float deviceZ = texelFetch(sceneDepth, at, 0).r;
+    if (deviceZ <= 0.0) return;
+
+    vec2 uv = (vec2(at) + 0.5) / vec2(size);
+    vec3 p = WorldAt(uv, deviceZ);
+
+    vec3 up = pc.UpInner.xyz;
+    vec3 d = p - pc.CentreRadius.xyz;
+    float h = dot(d, up);
+    vec3 across = d - up * h;
+    float r = length(across);
+    float R = pc.CentreRadius.w;
+
+    // A craft or a tower standing well over the ring is not the ground it circles.
+    if (abs(h) > max(R, 50.0) || r < 1.0e-3) return;
+
+    vec3 dir = normalize(p);
+    vec3 radial = across / r;
+    float stepX = RadialStep(p, dir, WorldAt(uv + vec2(1.0 / float(size.x), 0.0), deviceZ) - p, up, radial);
+    float stepY = RadialStep(p, dir, WorldAt(uv + vec2(0.0, 1.0 / float(size.y)), deviceZ) - p, up, radial);
+    float footprint = max(length(vec2(stepX, stepY)), 1.0e-4);
+
+    float halfWidth = pc.TileWidth.z;
+    float border;
+    float cover = Line(r, R, footprint, halfWidth, border);
+
+    if (pc.UpInner.w > 0.0)
+    {
+        float innerBorder;
+        cover = max(cover, Line(r, pc.UpInner.w, footprint, halfWidth, innerBorder));
+        border = max(border, innerBorder);
+    }
+
+    // Dashed by the angle round the centre, so the dashes are the same share of the ring at any
+    // size or distance.
+    if (pc.TileWidth.w > 0.0)
+    {
+        vec3 e1 = normalize(cross(up, abs(up.z) < 0.9 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0)));
+        vec3 e2 = cross(up, e1);
+        float t = fract(atan(dot(across, e2), dot(across, e1)) / 6.2831853 * pc.TileWidth.w);
+        float dash = smoothstep(0.0, 0.05, t) * (1.0 - smoothstep(0.55, 0.60, t));
+        cover *= dash;
+        border *= dash;
+    }
+
+    if (border <= 0.0) return;
+
+    // Brighter than the ground it lies on by a fixed factor rather than by a fixed amount: the
+    // image is not yet exposed, so a set brightness is a glare at night and invisible by day. The
+    // floor keeps it readable on ground too dark to multiply.
+    vec4 was = imageLoad(sceneColor, at);
+    float ground = dot(was.rgb, vec3(0.2126, 0.7152, 0.0722));
+    vec3 ink = pc.Colour.rgb * max(ground * 5.0, pc.Colour.w * 4.0);
+
+    vec3 c = mix(was.rgb, was.rgb * 0.15, border * 0.85);
+    c = mix(c, ink, cover);
+    imageStore(sceneColor, at, vec4(c, was.a));
+}

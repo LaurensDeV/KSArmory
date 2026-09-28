@@ -278,55 +278,14 @@ internal sealed class WeaponSystems(Config config)
         }
     }
 
-    /// <summary>The round the weapon let go of most recently, across all its stations.</summary>
-    public static IProjectile? LatestReleased(List<Entry> stations)
-    {
-        IProjectile? latest = null;
-        long at = long.MinValue;
-
-        foreach (Entry s in stations)
-        {
-            if (s.Battery.LastReleased is { } round && s.Battery.LastReleasedAt > at)
-            {
-                latest = round;
-                at = s.Battery.LastReleasedAt;
-            }
-        }
-
-        return latest;
-    }
-
-    /// <summary>
-    /// The station that released the weapon's latest round, which is the one whose falling store a
-    /// new mark can still move -- or the entry itself when nothing has been released.
-    /// </summary>
-    public Entry LatestStation(Entry entry)
-    {
-        StationsOf(entry, _stationScratch);
-
-        Entry found = entry;
-        long at = long.MinValue;
-        foreach (Entry s in _stationScratch)
-        {
-            if (s.Battery.LastReleased is not null && s.Battery.LastReleasedAt > at)
-            {
-                found = s;
-                at = s.Battery.LastReleasedAt;
-            }
-        }
-
-        return found;
-    }
-
     /// <summary>
     /// Designates for a whole weapon: every station takes the mark, so whichever the trigger reaches
-    /// next releases onto it, and the falling stores that <see cref="StoreRetarget"/> allows are
-    /// sent there once.
+    /// next releases onto it, and a falling store dropped with nothing marked is sent there once.
     /// </summary>
-    public void DesignateWeapon(Entry entry, Aimpoint aim, string what, IProjectile? chased)
+    public void DesignateWeapon(Entry entry, Aimpoint aim, string what)
     {
+        ReconcileSteerables();
         StationsOf(entry, _stationScratch);
-        IProjectile? latest = LatestReleased(_stationScratch);
 
         for (int i = 0; i < _stationScratch.Count; i++)
         {
@@ -335,7 +294,46 @@ internal sealed class WeaponSystems(Config config)
 
         foreach (Entry station in _stationScratch)
         {
-            station.Battery.SendStoresInTheAir(what, latest, chased);
+            station.Battery.SendStoresInTheAir(what, station.Battery.Steerable);
+        }
+    }
+
+    /// <summary>
+    /// The station of the entry's weapon that released last, or the entry itself when none has:
+    /// the trigger steps between stations, so the round just fired is rarely the selected one's.
+    /// </summary>
+    public Entry LastReleasing(Entry entry)
+    {
+        StationsOf(entry, _stationScratch);
+
+        Entry found = entry;
+        foreach (Entry s in _stationScratch)
+        {
+            if (s.Battery.ReleasedAt > found.Battery.ReleasedAt) found = s;
+        }
+
+        return found;
+    }
+
+    /// <summary>
+    /// Keeps a steerable store only on the station of each weapon that released last: releasing
+    /// the next store hands the marks to it, whichever rack it came off.
+    /// </summary>
+    public void ReconcileSteerables()
+    {
+        foreach (Entry entry in _entries.Values)
+        {
+            if (entry.Battery.Steerable is null) continue;
+
+            StationsOf(entry, _stationScratch);
+            foreach (Entry other in _stationScratch)
+            {
+                bool releasedSince = other.Battery.ReleasedAt > entry.Battery.ReleasedAt;
+                if (StoreRetarget.Takes(releasedSince)) continue;
+
+                entry.Battery.LockSteerable();
+                break;
+            }
         }
     }
 

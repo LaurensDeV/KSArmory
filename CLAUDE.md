@@ -307,7 +307,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/Interceptor.cs` | guided round: proportional navigation, boost, fuse |
 | `Sim/Slug.cs` | unguided kinetic round: ballistics and a contact fuse |
 | `Sim/TailKit.cs` | steering a falling store onto a place on the ground — **the landing it predicts, moved onto the designation**, because a store thrown from a climb flies away from where it lands and a line-of-sight law turns the wrong way |
-| `Sim/TailKitReach.cs` | how far a store already falling can still walk its landing — **flown, not solved**, because a lateral push settles at the drift where fin authority and lateral drag balance rather than accumulating, so the share of `a·t²` a kit delivers runs 0.46 at a 21 s fall and 0.18 at 95 s and no constant fraction bounds it. **It reports rather than refusing**: a bomb is already falling, so unlike the bus there is no budget left to overspend |
+| `Sim/TailKitReach.cs` | how far a store already falling can still walk its landing — **flown, not solved**, because a lateral push settles at the drift where fin authority and lateral drag balance rather than accumulating, so the share of `a·t²` a kit delivers runs 0.46 at a 21 s fall and 0.18 at 95 s and no constant fraction bounds it. **It decides what a falling store may be sent to**, so it has to stay a floor |
 | `Sim/TailKitReach.cs` | how far a store already falling can still move its landing — **flown, because `½·a·t²` is not a bound**: a lateral push does not accumulate against drag, it settles where fin authority and lateral drag balance, so the share of `a·t²` delivered runs 0.46 at a 21 s fall and 0.18 at 95 s and a constant fitted at two kilometres promises three times the truth from twenty |
 | `Sim/BlastSweep.cs` | how near a burst a body was, and what that does to it — shared by the sweep over craft and the one over rounds |
 | `Sim/BlastWave.cs` | the blast wave in real pascals — **Kinney–Graham**, the overpressure, how long it pushes and the wind behind it — because `BlastDamage`'s law is calibrated to KSA's part strengths and says nothing about what the air is doing |
@@ -401,7 +401,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/IcbmConfig.cs` | one installation's ballistic settings — armed, loft, arrival angle, ascent, staging, trim |
 | `Sim/FinMixer.cs` | one steering command resolved into four blade deflections — **drawn only** |
 | `Sim/FinTest.cs` | the built-in-test sweep a tail kit runs on the rack — **drawn only** |
-| `Sim/StoreRetarget.cs` | which falling stores a new designation reaches — **one dropped with nothing marked, the last released, or the one being chased**, so marking a second target never swings a stick onto it |
+| `Sim/StoreRetarget.cs` | which falling store a new designation reaches — **the one released last, until the weapon releases again, and only inside its fins' reach**: the reach is what tells a correction from aiming the next store |
 | `Sim/FireGate.cs` | whether the launcher is pointing where it is about to shoot |
 | `Sim/FireLadder.cs` | **why a system is not shooting** — the gates in order, and the first one that says no |
 | `Sim/OpticHold.cs` | **why a director is not looking at what it has bracketed** — the same question for the sight, in the precedence the head's own aim applies |
@@ -509,6 +509,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/BurstEjecta.cs` | that airless burst drawn, through the particle system — **the renderer that draws on a body with no air**, because a mushroom is buoyant and there is no cloud to draw there. One-shot emitters, so nothing has to hold or return them |
 | `Ksa/CloudPass.cs` | this mod's own compute shader, dispatched inside KSA's frame — **no renderer was ported to get there**: KSA compiles a `<Shader>` asset out of any mod's folder and `ComputePipelineWrapper` builds the descriptor sets. It also bends the view round **every blast front** strong enough to see (`Shaders/KSArmoryShock.comp`): the scene copied, then written back at an offset where a ray grazes the shock's shell, fifteen times what air does because the real one is a pixel — one copy and bend per front, so where fronts cross their bends add, for about 0.06 ms a front and nothing once the camera is inside it, where no ray can graze the shell. The pass is **the march, and the march is the cost**: 2.9 ms of a 3.3 ms pass for one 20 kt cloud from 12 km, 16 ms with the camera 500 m off and the cloud filling the screen, of which the dust ring is about 2.5, the sun taps 0.9 and the weather 0.4 -- the density's noise is the rest, and already rejected exactly before it runs. A **half-resolution grid** (`MarchScale` 2) is a third of the cost -- 16.6 ms to 4.8 up close, 3.0 to 1.1 from 12 km -- and is **off**: the marched pixel turns every frame and the history does not hide it, eight times the flickering pixels at 0.02x. A paused capture cannot show that, since the turn stops with the frame counter; measure flicker at a crawl, never paused. Fewer steps close up was tried and is not in -- the cap came out lighter and streaked. **The count follows the chord instead, at the same spacing**: a ray grazing the bound or stopped by the ground inside it took all 48 steps over a sliver, and half a ground burst's bound is under the ground -- so a full-size 0.3 kt cloud from 1.5 km went from 4.2 ms to 1.5, and from 500 m from up to 15.2 to 7.7, with the same picture to a quarter of a level and no more flicker. `cost` splits it by stage |
 | `Shaders/KSArmoryFireLight.comp` | a fireball's light on the craft and structures **KSA's light pre-pass dropped it from** -- that pass cuts a light beyond about 3 km before its intensity is counted, so a burst lit the ground round the pad and left the pad black. Read off what the pre-pass wrote, never re-voted; `docs/BLOCKED-ON-KSA.md` |
+| `Ksa/GroundRings.cs` | the targeting rings to paint on the ground this frame, **anchored to the body they lie on** and put back into the ecliptic only when the pass records, as the scorch marks are |
+| `Shaders/KSArmoryRing.comp` | one targeting ring painted on whatever the depth buffer holds — **an exact circle at any size, lying on the terrain under it**, with a line a fixed number of pixels wide; one dispatch per ring over its own patch of screen |
 | `Ksa/CloudPassHook.cs` | the fifth place the mod patches the game, and the first in the renderer — **an ordinary prefix on a public method**, because `SunbloomRenderer.Render` hands over the command buffer at the one instant the scene colour is storage-writable, the depth is sampled, and bloom and the tonemap are both still to come |
 | `Ksa/CloudPassCost.cs` | what that pass costs the GPU, read back out of KSA's own profiler — **the whole frame is sampled beside it**, because 2 ms on a 30 ms frame and 2 ms on an 8 ms one are different answers |
 | `Ksa/BurstSound.cs` | the bang, arriving when it actually would — **each burst's front followed live to the camera**, so seven seconds behind the flash where a cloud is watched from and a minute for 50 Mt 37 km overhead, **as loud as the pressure there** and not at all under 50 Pa or where there is no air, and **slower and deeper by the cube root of the yield**, so a warhead is not the same file as a rocket going off |
@@ -1440,15 +1442,21 @@ steers on nothing, silently. Pushed rather than pulled, because the round has to
 own aimpoint — that is what lets it outlive its launcher, where a loose system has no designation at
 all, and what stops `ClearDesignation` turning a store halfway down back into an unguided one.
 
-**But a store already sent somewhere keeps going there.** A new mark reaches a store dropped with
-nothing marked, the one the weapon released last, and the one the chase camera is riding, and no
-other: re-aiming every falling store swung a whole stick onto the second target anyone marked.
+**But only the store released last, and only inside its reach.** A new mark reaches the store
+released last (`WeaponSystem.Steerable`), as often as the operator likes, until the weapon releases
+again — and only where its fins can still take it. A shift-click is also how the next release is
+aimed, and the reach is what tells the two apart: a click inside it is correcting the falling store,
+one outside is aiming the next, and the falling store keeps its target. Steering every store in the
+air swung a whole stick onto the second target anyone marked; steering only an unmarked one left
+nothing steerable once anything had been marked, because a mark stays for the next release.
 
-**It reports rather than refuses**, which is deliberately the opposite of `Fire`'s "refused rather
-than re-targeted". A missile is committed to something somebody chose; a tail kit has no seeker and
-nothing to be loyal to, it has nothing better to do than steer at whatever it is given, and it lands
-nearer for trying — flown, a place 6 km out from a 5 km release closes to 4.1 km. A refusal there is
-indistinguishable from the bug this fixes, so the shortfall is said in the log instead.
+**And only onto a place its fins can still reach** (`StoreRetarget.Reaches`). Steered at one they
+cannot, a store closes on it — flown, a place 6 km out from a 5 km release closes to 4.1 km — and
+lands in between on nothing, where it would have hit what it was already sent at. The mark still
+stands for the next release, and the log says which store kept its aim. That makes the reach ring a
+decision rather than a readout, so it has to stay a floor, and the drop scenario's `again` send is
+the one designation allowed past it: a store sent further than the ring claims is the only in-game
+evidence that it is one.
 
 **A store with no proximity fuse must not hold the world to a proximity fuse's step.**
 `MaxFaithfulStepSeconds` and `PreferredStepSeconds` both default to `Interceptor.MaxFaithfulStep`,

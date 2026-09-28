@@ -76,6 +76,10 @@ public sealed class KSArmoryMod
     // rockets under ascent: `sight` 5.41 ms of a 7.17 ms `draw`, which is three quarters of the
     // mod's whole drawing cost and about a fifth of the frame. A rocket climbing away from its pad
     // solves a perfectly good 8-to-80-second bomb sight the entire way up, and nothing looks at it.
+    // With no panel -- a headless run -- every craft keeps its sight.
+    private bool ShowsSight(WeaponSystems.Entry e)
+        => _ui is null || ReferenceEquals(e.Craft, _ui.Focused);
+
     private bool FlyingABallisticShot(WeaponSystem battery)
         => _icbms?.For(battery.Platform)?.Config.Armed == true;
 
@@ -383,7 +387,7 @@ public sealed class KSArmoryMod
             _chase.Apply(riding, enabled: true, dt, _lastSimStep, _config.FreezeChaseTransition,
                          _sight.BaseFovDeg);
         }
-        else if (_roster.For(_ui.Focused) is { } chased)
+        else if (_roster.For(_ui.Focused) is { } selected && _roster.LastReleasing(selected) is var chased)
         {
             _chase.Apply(chased.Battery, chased.Policy.ChaseRounds && KsaWorld.InFlightScene,
                          dt, _lastSimStep, _config.FreezeChaseTransition, _sight.BaseFovDeg);
@@ -467,21 +471,19 @@ public sealed class KSArmoryMod
             // Outside the debug overlay switch, and deliberately: this is a sight the operator
             // aims with, not an annotation of how the mod is thinking. Same reasoning as the
             // shell stream above.
+            GroundRings.BeginFrame();
+            GroundRings.Enabled = _config.PaintGroundRings;
             foreach (WeaponSystems.Entry e in _roster.All)
             {
-                if (e.Policy.DrawBombSight && !FlyingABallisticShot(e.Battery))
+                if (e.Policy.DrawBombSight && !FlyingABallisticShot(e.Battery) && ShowsSight(e))
                 {
-                    // One of each per weapon, not per station: the pipper where the next release
-                    // lands, and the reach of the store a new mark would move.
+                    // One pipper per weapon rather than per station: where the next release lands.
                     if (_ui.AimsTheSight(e))
                     {
                         using (_budget.Measure("sight")) SightFor(e.Battery).Draw(e.Battery);
                     }
 
-                    if (ReferenceEquals(_roster.LatestStation(e), e))
-                    {
-                        using (_budget.Measure("store reach")) ReachFor(e.Battery).Draw(e.Battery);
-                    }
+                    using (_budget.Measure("store reach")) ReachFor(e.Battery).Draw(e.Battery);
                 }
             }
 
@@ -559,7 +561,7 @@ public sealed class KSArmoryMod
                 // designator is: every crewed battery reading one cursor would lock all of them.
                 WeaponSystems.Entry? weapon = _roster.For(_ui.Focused);
                 TargetLock.Update(weapon?.Battery, _heads?.Driving(_ui.Focused)?.Head,
-                                  weapon is null ? null : (at, what) => _roster.DesignateWeapon(weapon, at, what, _chase.Round));
+                                  weapon is null ? null : (at, what) => _roster.DesignateWeapon(weapon, at, what));
                 TargetLock.Draw(_roster.For(_ui.Focused)?.Battery, _heads?.Driving(_ui.Focused)?.Head);
             }
             // The sight's own painting. Taking the view is in DriveCameras; this is what is
@@ -625,6 +627,7 @@ public sealed class KSArmoryMod
         }
 
         _roster.ShareStationSettings();
+        _roster.ReconcileSteerables();
 
         using (_budget.Measure("sample")) foreach (WeaponSystems.Entry e in _roster.All) e.Battery.SampleWorld();
         using (_budget.Measure("headsample")) _heads?.SampleWorld();
@@ -804,7 +807,9 @@ public sealed class KSArmoryMod
             // Its own switch and its own solve, per weapon rather than per station: it costs
             // BombSight.MaxSteps integration steps, and eight racks a metre apart would fly eight
             // copies of one fall.
-            if (e.Policy.DrawBombSight && !FlyingABallisticShot(e.Battery))
+            // Only the craft the panel is showing: another craft's sight is solved and drawn for
+            // nobody, and each solve is a flown trajectory.
+            if (e.Policy.DrawBombSight && !FlyingABallisticShot(e.Battery) && ShowsSight(e))
             {
                 // Measured, and the draw beside it is the other half. What each of these costs is
                 // the trajectory flying rather than the lines: the pipper's 5.41 ms in CLAUDE.md
@@ -815,10 +820,9 @@ public sealed class KSArmoryMod
                     using (_budget.Measure("sight solve")) SightFor(e.Battery).Update(e.Battery, _lastSimStep);
                 }
 
-                if (ReferenceEquals(_roster.LatestStation(e), e))
-                {
-                    using (_budget.Measure("reach solve")) ReachFor(e.Battery).Update(e.Battery);
-                }
+                // Only a store falling with nothing marked has a reach worth solving; it clears itself
+                // for every other station.
+                using (_budget.Measure("reach solve")) ReachFor(e.Battery).Update(e.Battery);
             }
             else
             {

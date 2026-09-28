@@ -1019,7 +1019,11 @@ internal sealed class DropScenario
                            ? StoreReach.SolveNow(battery, speaking).Describe(aimEcl)
                            : "no store in the air";
 
-        battery.Designate(Aimpoint.OnGround(handle, anchor, aimEcl, aimVel), "somewhere else");
+        // Past both rules a player's designation obeys: this store already has a target, and the
+        // place may be beyond its reach. A store sent further than the ring says is the only
+        // in-game evidence that the ring is a floor.
+        battery.Designate(Aimpoint.OnGround(handle, anchor, aimEcl, aimVel), "somewhere else",
+                          asInstrument: true);
         _report($"CAPTURE again -- sent {_request.AgainOffsetMetres:F0} m north {since:F1} s after "
                 + $"the release: {reach}");
     }

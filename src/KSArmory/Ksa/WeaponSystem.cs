@@ -155,14 +155,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
     public IReadOnlyList<IProjectile> Rounds => _rounds;
 
-    /// <summary>The round this launcher let go of most recently, flying or not.</summary>
-    public IProjectile? LastReleased { get; private set; }
-
-    /// <summary>When <see cref="LastReleased"/> left, as a count of releases across every launcher.</summary>
-    public long LastReleasedAt { get; private set; }
-
-    private static long _releases;
-
     /// <summary>
     /// Told about every round the instant it stops flying, before it is reaped.
     ///
@@ -219,10 +211,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     public string DesignationName { get; private set; } = "nothing";
 
     /// <summary>Points the installation at something, until told otherwise.</summary>
-    public void Designate(Aimpoint aim, string what)
+    public void Designate(Aimpoint aim, string what, bool asInstrument = false)
     {
         Point(aim, what, log: true);
-        SendStoresInTheAir(what, LastReleased, chased: null);
+        SendStoresInTheAir(what, Steerable, asInstrument);
     }
 
     /// <summary>
@@ -258,10 +250,11 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     // swapping that under it is what Fire(Track) already declines to do; a tail kit has no seeker
     // and nothing to be loyal to, which is the reason one is fitted.
     //
-    // It reports rather than refusing. A place beyond what the kit can still walk to is taken
-    // anyway with the shortfall said out loud: landing nearer beats holding an aim the operator
-    // has just replaced, and a refusal here is indistinguishable from a designation doing nothing.
-    public void SendStoresInTheAir(string what, IProjectile? latest, IProjectile? chased)
+    // Only the store released last takes the mark, until the weapon releases again, and only onto a
+    // place its fins can still reach: a click past that is aiming the next store, not this one. The
+    // designation stands for the next release either way. asInstrument is the drop scenario's, which re-aims a
+    // store already sent somewhere, even past its reach, to measure the ring against the flight.
+    public void SendStoresInTheAir(string what, IProjectile? steerable, bool asInstrument = false)
     {
         // Nothing to send them at. Designating nothing is not how a store is recalled -- see
         // ClearDesignation, which deliberately leaves one already steering alone.
@@ -270,15 +263,18 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         foreach (IProjectile round in _rounds)
         {
             if (round.State != RoundState.Flying || !round.Munition.SteersItsFall) continue;
-            if (!StoreRetarget.Takes(round.Aimpoint.Kind, ReferenceEquals(round, latest),
-                                     ReferenceEquals(round, chased)))
-            {
-                continue;
-            }
+            if (!asInstrument && !ReferenceEquals(round, steerable)) continue;
 
             // Flown before the write, because the region is measured around where the store comes
             // down untouched and the aimpoint it is about to carry says nothing about that.
             TailKitReach reach = StoreReach.SolveNow(this, round);
+
+            if (!asInstrument && !StoreRetarget.Reaches(reach, Designation.PositionEcl))
+            {
+                Announce($"{RoundLabel.For(round.Tube)} keeps its aim: {what} is "
+                         + reach.Describe(Designation.PositionEcl));
+                continue;
+            }
 
             round.Retarget(Designation);
             Announce($"{RoundLabel.For(round.Tube)} now steering at {what} - "
@@ -1060,7 +1056,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // A released store has no business being launched at a track: it leaves the rack and
         // falls, and the log would record a shot at something it was never going to reach. A tail
         // kit does not change that -- it steers onto a fixed point, and cannot chase anything.
-        // WhyNotFiring says the same thing to the operator.
         if (!Munition.Powered) return;
 
         Fire(target);
@@ -2192,11 +2187,33 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             return false;
         }
 
-        if (Munition.Steers && Designation.Kind != AimpointKind.None)
-            return Commit(Designation, DesignationName);
+        bool marked = Munition.Steers && Designation.Kind != AimpointKind.None;
+        bool released = marked ? Commit(Designation, DesignationName) : Commit(Aimpoint.Nothing, Munition.DisplayName);
+        if (!released) return false;
 
-        return Commit(Aimpoint.Nothing, Munition.DisplayName);
+        Steerable = Munition.SteersItsFall && _rounds.Count > 0 ? _rounds[^1] : null;
+        return true;
     }
+
+    /// <summary>
+    /// The store this launcher released last, which the marks inside its reach steer until the
+    /// weapon releases again; null otherwise. <c>WeaponSystems.ReconcileSteerables</c> clears it
+    /// when another station of the weapon has released since.
+    /// </summary>
+    public IProjectile? Steerable
+    {
+        get => _steerable is { State: RoundState.Flying } flying ? flying : null;
+        private set => _steerable = value;
+    }
+
+    private IProjectile? _steerable;
+
+    /// <summary>When this launcher last fired anything, as a count of rounds across every launcher.</summary>
+    public long ReleasedAt { get; private set; }
+
+    private static long _releases;
+
+    public void LockSteerable() => _steerable = null;
 
     /// <summary>
     /// Commits one round to a position in the world rather than to a craft.
@@ -2817,8 +2834,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     // system refusing to see a live round, or seeing one that has landed -- both silent.
     private void AddRound(IProjectile round)
     {
-        LastReleased = round;
-        LastReleasedAt = ++_releases;
+        ReleasedAt = ++_releases;
         _rounds.Add(round);
         _roundSet.Add(round);
     }
@@ -4160,7 +4176,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     public void Reset()
     {
         ClearRounds();
-        LastReleased = null;
+        _steerable = null;
         _pendingKills.Clear();
         _pendingPartKills.Clear();
         _events.Clear();
