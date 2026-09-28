@@ -486,4 +486,19 @@ public class FireLadderTests
 
         Assert.Null(Hold(now));
     }
+
+    /// <summary>
+    /// A loaded store is clear with nothing locked and the drives nowhere: it is released onto a
+    /// designation or onto nothing, so the panel must not say "holding fire" beside a trigger that
+    /// works. An empty one still says so.
+    /// </summary>
+    [Fact]
+    public void ALoadedStoreIsClearWithNothingLocked()
+    {
+        MunitionProfile bomb = new() { Name = "b", DisplayName = "b", Guidance = GuidanceMode.Inertial };
+        FireConditions nothing = Ready() with { Locked = null, HasFiringSolution = false, TrackCount = 0, IsLaid = false };
+
+        Assert.Null(Hold(nothing, munition: bomb));
+        Assert.Equal("out of rounds", Hold(nothing with { Ammo = 0 }, munition: bomb));
+    }
 }

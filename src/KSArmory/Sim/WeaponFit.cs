@@ -151,8 +151,8 @@ public sealed class WeaponFit
     /// Whether fire control can pick a target and shoot at it without being told to.
     ///
     /// <para>The same split <see cref="FireLadder"/> makes: a belt engages on its own, and tubes
-    /// do only if their round leaves under its own power. A rack of stores is released by hand,
-    /// so everything auto-engagement implies — a salvo size, what it may not shoot at, sending
+    /// do only if their round leaves under its own power. A rack of stores is only ever released
+    /// with the trigger, so everything auto-engagement implies — a salvo size, what it may not shoot at, sending
     /// the drives after the cursor — describes nothing it does.</para>
     /// </summary>
     public bool AutoEngages
