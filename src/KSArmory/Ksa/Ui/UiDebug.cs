@@ -29,8 +29,11 @@ internal sealed partial class Ui
                 // The B61's own dial, on up to Tsar Bomba. Logarithmic because it spans five orders
                 // of magnitude and the cloud grows as the cube root; past about 49 kt it spreads
                 // into an anvil.
-                ImGui.SliderFloat("Yield (kt)", ref _config.BurstYieldKt, 0.3f, 50000f,
-                                  "%.2f kt", ImGuiSliderFlags.Logarithmic);
+                float yieldKg = _config.BurstYieldKt * (float)Charge.KgPerKiloton;
+                if (ChargeSlider("Yield", ref yieldKg, 0.3f * (float)Charge.KgPerKiloton, TsarBombaKg))
+                {
+                    _config.BurstYieldKt = yieldKg / (float)Charge.KgPerKiloton;
+                }
 
                 double kt = _config.BurstYieldKt;
 
@@ -97,8 +100,7 @@ internal sealed partial class Ui
             }
             else
             {
-                ImGui.SliderFloat("Charge (kg)", ref _config.BurstChargeKg, 0.01f, 500f,
-                                  "%.2f", ImGuiSliderFlags.Logarithmic);
+                ChargeSlider("Charge", ref _config.BurstChargeKg, 0.01f, 500f);
                 ImGui.TextDisabled($"  lethal {Warhead.LethalRadius(_config.BurstChargeKg):F0} m, "
                                    + $"goes off as {WarheadExplosion.PresetFor(_config.BurstChargeKg) ?? "nothing"}");
                 Tip("The marker under the cursor is drawn at the lethal radius.");

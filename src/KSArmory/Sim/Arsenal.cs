@@ -374,6 +374,7 @@ public static class Arsenal
         FuseArmSeconds = 4f,
 
         ChargeKg = 300_000f,
+        MaxChargeKg = 340_000_000f,   // 340 kt, its top setting
         HitsTerrain = true,
 
         // A store with no proximity fuse must not hold the world to a proximity fuse's step.

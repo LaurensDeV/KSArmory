@@ -425,6 +425,12 @@ public sealed class MunitionProfile
     public float ChargeKg = 20f;
 
     /// <summary>
+    /// The largest charge this warhead can be set to (kg), or zero for no limit of its own. A
+    /// dial-a-yield bomb has a top setting, and tuning past it makes it a different weapon.
+    /// </summary>
+    public float MaxChargeKg;
+
+    /// <summary>
     /// Whether the ground stops this round.
     ///
     /// <para>Off for everything that flies at aircraft, which is why a shell passes through a hill

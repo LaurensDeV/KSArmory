@@ -12,6 +12,28 @@ namespace KSArmory;
 /// </summary>
 internal sealed partial class Ui
 {
+    private const float TsarBombaKg = 50_000_000_000f;
+
+    // A charge spans thirteen orders of magnitude, so the slider moves along its logarithm and the
+    // label says it in whichever of kg, t, kt or Mt reads. Typed input is off because what it would
+    // edit is the logarithm.
+    private static bool ChargeSlider(string label, ref float kg, float minKg, float maxKg)
+    {
+        float lo = MathF.Log10(minKg);
+        float hi = MathF.Log10(maxKg);
+        float at = Math.Clamp(MathF.Log10(Math.Max(kg, minKg)), lo, hi);
+
+        if (!ImGui.SliderFloat(label, ref at, lo, hi, Charge.Say(kg),
+                               ImGuiSliderFlags.NoInput | ImGuiSliderFlags.AlwaysClamp))
+        {
+            if (kg > maxKg) kg = maxKg;
+            return false;
+        }
+
+        kg = Math.Clamp(MathF.Pow(10f, at), minKg, maxKg);
+        return true;
+    }
+
     // Which side this one system takes against the session's teams, which are declared in the
     // settings window. Picked off that roster rather than typed, so a typo cannot declare a team.
     private void DrawIff()
@@ -289,17 +311,13 @@ internal sealed partial class Ui
             // first time anybody touched it. Logarithmic, or the whole conventional range -- every
             // round the mod otherwise ships -- lives in the first thousandth of the travel.
             //
-            // It runs on past the B61's own 340 kt to Tsar Bomba's 50 Mt, the largest ever set off.
-            // Well past playable at a launch site -- 340 kt is already 7.8 km lethal -- which is a
-            // reason to ship at the bottom of the range, not a reason to hide the top of it.
-            ImGui.SliderFloat("Explosive charge (kg)", ref _munition.ChargeKg, 0.01f, 50_000_000_000f,
-                              "%.2f", ImGuiSliderFlags.Logarithmic);
+            // Without a ceiling of its own a warhead runs on to Tsar Bomba's 50 Mt, the largest ever
+            // set off. A dial-a-yield bomb stops at its own top setting instead.
+            float maxCharge = _munition.MaxChargeKg > 0f ? _munition.MaxChargeKg : TsarBombaKg;
+            ChargeSlider("Explosive charge", ref _munition.ChargeKg, 0.01f, maxCharge);
             ImGui.TextDisabled($"  lethal {_munition.LethalRadius:F0} m, "
                                + $"blast {_munition.BlastRadius:F0} m, "
-                               + $"fireball {_munition.FireballRadius:F0} m"
-                               + (_munition.ChargeKg >= 1000f
-                                      ? $"   ({_munition.ChargeKg / 1e6f:F2} kt)"
-                                      : ""));
+                               + $"fireball {_munition.FireballRadius:F0} m");
             // What the ground under a store decides: whether it bursts in the air, and whether a
             // chute slows it enough for whoever dropped it to get away.
             if (_munition.HitsTerrain)
@@ -309,30 +327,46 @@ internal sealed partial class Ui
                 Tip("A radar or barometric fuse: it fires this far over the ground on the way down. "
                     + "Zero bursts on contact. Released lower than this, it bursts on the ground.");
 
-                ImGui.SliderFloat("Parachute sink (m/s)", ref _munition.ChuteSinkMetresPerSecond, 0f, 100f,
-                                  _munition.HasChute ? "%.0f m/s" : "no chute");
-                Tip("How fast it falls under the canopy at sea level. Zero is no parachute.");
+                ImGui.SliderFloat("Parachute", ref _munition.ChuteSinkMetresPerSecond, 0f, 100f,
+                                  _munition.HasChute ? "falls at %.0f m/s" : "none");
+                Tip("A retarding parachute, set by how fast the bomb comes down under it at sea level. "
+                    + "Slower gives whoever dropped it longer to get away. Zero is no parachute.");
 
                 if (_munition.HasChute)
                 {
                     ImGui.SliderFloat("Parachute opens after (s)", ref _munition.ChuteOpensSeconds, 0f, 10f);
                 }
 
-                if (ImGui.Button("Tsar Bomba"))
+                if (TsarBombaKg <= maxCharge)
                 {
-                    _munition.ChargeKg = 50_000_000_000f;
-                    _munition.BurstHeightMetres = 4000f;
-                    _munition.ChuteSinkMetresPerSecond = 18f;
-                    _munition.ChuteOpensSeconds = 1.5f;
-                }
+                    if (ImGui.Button("Tsar Bomba"))
+                    {
+                        _munition.ChargeKg = TsarBombaKg;
+                        _munition.BurstHeightMetres = 4000f;
+                        _munition.ChuteSinkMetresPerSecond = 18f;
+                        _munition.ChuteOpensSeconds = 1.5f;
+                    }
 
-                Tip("50 Mt, bursting 4,000 m up, on a 1,600 m² chute that brought 27 t down at "
-                    + "about 18 m/s. Dropped from 10.5 km it took 188 s to fall, which is what let "
-                    + "the Tu-95 get 45 km away. Edits every store of this kind in the world.");
+                    Tip("50 Mt, bursting 4,000 m up, on a 1,600 m² chute that brought 27 t down at "
+                        + "about 18 m/s. Dropped from 10.5 km it took 188 s to fall, which is what let "
+                        + "the Tu-95 get 45 km away. Edits every store of this kind in the world.");
+                }
             }
 
-            ImGui.SliderFloat("Salvo spacing (s)", ref _profile.SalvoSpacing, 0.05f, 3f);
-            ImGui.SliderFloat("Reload time (s)", ref _profile.ReloadSeconds, 0f, 60f);
+            // Spacing is between rounds of one salvo, so a launcher holding one round has none. A
+            // launcher with no tubes never reloads them: its belt has its own timer.
+            if (_profile.TubeCount > 1)
+            {
+                ImGui.SliderFloat("Salvo spacing (s)", ref _profile.SalvoSpacing, 0.05f, 3f);
+            }
+
+            if (_profile.TubeCount > 0)
+            {
+                ImGui.SliderFloat("Reload time (s)", ref _profile.ReloadSeconds, 0f, 60f,
+                                  _profile.ReloadSeconds > 0f ? "%.1f s" : "never");
+                Tip("How long after the last round leaves before the launcher is full again. "
+                    + "Zero is never: a rail or rack that has let its store go stays empty.");
+            }
 
             DrawOtherArmamentRounds();
             ImGui.TreePop();
