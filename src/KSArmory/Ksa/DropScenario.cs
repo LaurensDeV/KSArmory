@@ -1186,7 +1186,7 @@ internal sealed class DropScenario
         return true;
     }
 
-    private static bool TryLocalFrame(Vehicle craft, Celestial body, out double3 up, out double3 east,
+    internal static bool TryLocalFrame(Vehicle craft, Celestial body, out double3 up, out double3 east,
                                       out double3 north, out double agl)
     {
         double3 here = KsaWorld.PositionEcl(craft);

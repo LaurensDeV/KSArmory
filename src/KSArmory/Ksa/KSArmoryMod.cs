@@ -209,7 +209,9 @@ public sealed class KSArmoryMod
         if (Build.Developer)
         {
             _scenario.Begin(ScenarioRunner.Requested());
-            _bridge = new Bridge(_config, craft => _roster?.For(craft)?.Battery);
+            _bridge = new Bridge(_config, craft => _roster?.For(craft)?.Battery,
+                                 () => _roster?.All ?? [], () => _roster?.Loose ?? [],
+                                 _countermeasures, craft => _ui?.Manage(craft));
         }
 
         Log.Info(Build.Developer

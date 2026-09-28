@@ -21,7 +21,7 @@ namespace KSArmory;
 /// <para>One command at a time, oldest first. A command that takes frames — a step, a capture —
 /// holds the queue until it answers, so a sequence of them is a script that runs in order.</para>
 /// </summary>
-internal sealed class Bridge
+internal sealed class Bridge : IViewPose
 {
     private readonly Config _config;
 
@@ -45,11 +45,22 @@ internal sealed class Bridge
         ["KSArmoryCloudCompute", "KSArmoryCloudResolveCompute", "KSArmoryShockCompute",
          "KSArmoryFireLightCompute", "KSArmoryRingCompute"];
 
-    public Bridge(Config config, Func<Vehicle?, WeaponSystem?> systemFor)
+    public Bridge(Config config, Func<Vehicle?, WeaponSystem?> systemFor,
+                  Func<IEnumerable<WeaponSystems.Entry>> systems, Func<IReadOnlyList<WeaponSystem>> loose,
+                  Countermeasures countermeasures, Action<Vehicle> focus)
     {
+        _loose = loose;
+        _focus = focus;
         _config = config;
         _systemFor = systemFor;
+        _systems = systems;
+        _countermeasures = countermeasures;
     }
+
+    private readonly Func<IEnumerable<WeaponSystems.Entry>> _systems;
+    private readonly Countermeasures _countermeasures;
+    private readonly Action<Vehicle> _focus;
+    private readonly Func<IReadOnlyList<WeaponSystem>> _loose;
 
     // The weapons system a burst that damages is judged by: the flown craft's own, so the burst is
     // its warhead going off there, and the craft itself is its platform -- dented, never broken.
@@ -86,6 +97,8 @@ internal sealed class Bridge
     {
         try
         {
+            HoldFlight();
+
             if (_pose is { } held && _orbitDegPerSecond != 0.0 && double.IsFinite(dtPlayer))
             {
                 _pose = held with { AzimuthDeg = held.AzimuthDeg + (_orbitDegPerSecond * dtPlayer) };
@@ -183,6 +196,12 @@ internal sealed class Bridge
     {
         try
         {
+            if (_watch is not null)
+            {
+                HoldOnRound();
+                return;
+            }
+
             if (_pose is not { } pose || _posedFrom is not { } craft || !KsaWorld.IsAlive(craft)) return;
 
             CloudWatch.Update(craft, pose);
@@ -218,6 +237,11 @@ internal sealed class Bridge
             "step" => BeginStep(command),
             "capture" => BeginCapture(command),
             "load" => BeginLoad(command),
+            "system" => System(command),
+            "dispense" => Dispense(command),
+            "fly" => Fly(command),
+            "watch" => Watch(command),
+            "fire" => Fire(command),
             _ => Failed($"no command '{command.Name}'"),
         };
 
@@ -271,6 +295,10 @@ internal sealed class Bridge
             ["sky_wanted"] = CloudPass.SkyWanted,
             ["sky_drawn"] = CloudPass.SkyDrawn,
             ["camera_held"] = _pose is not null,
+            ["flares_in_air"] = Countermeasures.Live.Count(d => d.Profile.Kind == DecoyKind.Flare),
+            ["chaff_in_air"] = Countermeasures.Live.Count(d => d.Profile.Kind == DecoyKind.Chaff),
+            ["others"] = OthersFromFlown(),
+            ["rounds"] = RoundsInFlight(),
         };
 
         if (NuclearClouds.TryNewest(out double age, out double charge))
@@ -296,6 +324,358 @@ internal sealed class Bridge
         if (field == nameof(Config.VerboseLog)) Log.Threshold = _config.VerboseLog ? Log.Level.Debug : Log.Level.Info;
 
         return Done(new() { [field] = BridgeCommand.FieldText(_config, field) });
+    }
+
+    // One craft's selected weapon fired at a point east, north and up of the craft, through the same
+    // FireAt the designation tool uses -- a bomb released at a place, a missile at a spot in the sky.
+    private Reply Fire(BridgeCommand command)
+    {
+        if (CraftNamed(command.String("craft")) is not { } craft) return Failed("no such craft");
+        if (_systemFor(craft) is not { } weapon) return Failed("no weapons system on that craft");
+        if (KsaWorld.ParentBody(craft) is not { } body
+            || !DropScenario.TryLocalFrame(craft, body, out double3 up, out double3 east, out double3 north, out double agl))
+        {
+            return Failed("no local frame under that craft");
+        }
+
+        double3 at = KsaWorld.PositionEcl(craft) + (east * command.Number("east_m", 0.0))
+                     + (north * command.Number("north_m", 0.0)) + (up * command.Number("up_m", -agl));
+        int before = weapon.Rounds.Count;
+        bool fired = weapon.FireAt(at);
+
+        return fired
+                   ? Done(new() { ["fired"] = weapon.Rounds.Count - before, ["weapon"] = weapon.Profile.DisplayName,
+                                  ["agl_m"] = Math.Round(agl) })
+                   : Failed($"refused: {weapon.Hold}");
+    }
+
+    // Every system with rounds in the air, crewed or loose, and how many.
+    private List<object?> RoundsInFlight()
+    {
+        List<object?> seen = [];
+        foreach (WeaponSystem s in AllSystems())
+        {
+            int flying = s.Rounds.Count(r => r.State == RoundState.Flying);
+            if (flying == 0) continue;
+
+            seen.Add(new Dictionary<string, object?>
+            {
+                ["system"] = SystemName(s),
+                ["loose"] = s.Platform is null,
+                ["flying"] = flying,
+            });
+        }
+
+        return seen;
+    }
+
+    private IEnumerable<WeaponSystem> AllSystems()
+    {
+        foreach (WeaponSystems.Entry e in _systems()) yield return e.Battery;
+        foreach (WeaponSystem s in _loose()) yield return s;
+    }
+
+    private static string SystemName(WeaponSystem s)
+        => s.Platform is { } craft ? KsaWorld.DisplayName(craft) : s.LooseName;
+
+    // One round held in the main view, crewed or loose, from a distance and a direction relative to its
+    // flight: azimuth 0 and elevation 0 is straight behind it, 180 straight ahead of it. Held until the
+    // round ends or release=true, so a paused capture can look at what a round is drawn as.
+    private (WeaponSystem System, IProjectile Round, double Distance, double AzimuthDeg, double ElevationDeg,
+             double FovDeg)? _watch;
+
+    private Reply Watch(BridgeCommand command)
+    {
+        if (command.Flag("release", false))
+        {
+            ReleaseWatch();
+            return Done();
+        }
+
+        string craft = command.String("craft");
+        bool looseOnly = command.Flag("loose", false);
+        int tube = (int)command.Number("tube", 0.0);
+
+        foreach (WeaponSystem s in AllSystems())
+        {
+            if (looseOnly && s.Platform is not null) continue;
+            if (craft.Length > 0 && SystemName(s) != craft) continue;
+
+            IProjectile? round = s.Rounds.FirstOrDefault(r => r.State == RoundState.Flying
+                                                              && (tube == 0 ? r.Tube > 0 : r.Tube == tube));
+            if (round is null) continue;
+
+            if (_watch is null && _pose is null)
+            {
+                _saved = KsaWorld.RememberMainView();
+                _posedFrom = KsaWorld.ControlledVehicle;
+            }
+
+            _pose = null;
+            _watch = (s, round, command.Number("distance_m", 25.0), command.Number("azimuth_deg", 20.0),
+                      command.Number("elevation_deg", 10.0), command.Number("fov_deg", 30.0));
+
+            // Following the round itself, as the chase does: an offset from any other craft is applied
+            // a frame later against where that craft is then, and the two drift by their relative motion.
+            _watchFollow.Track(round, s);
+            if (!KsaWorld.TryFollowOnMainViewport(_watchFollow))
+            {
+                _watch = null;
+                return Failed("the view refused to follow the round");
+            }
+
+            return Done(new()
+            {
+                ["system"] = SystemName(s),
+                ["round"] = RoundLabel.For(round.Tube),
+                ["munition"] = round.Munition.DisplayName,
+                ["loose"] = s.Platform is null,
+                ["age_s"] = Math.Round(round.Age, 2),
+            });
+        }
+
+        return Failed(looseOnly ? "no loose round in the air" : "no round in the air");
+    }
+
+    private readonly RoundFollowable _watchFollow = new();
+
+    ChaseOrbit? IViewPose.Orbit => null;
+
+    private void HoldOnRound()
+    {
+        if (_watch is not { } w) return;
+
+        if (w.Round.State != RoundState.Flying)
+        {
+            ReleaseWatch();
+            return;
+        }
+
+        if (TryWatchPose(out double3 fromRound, out double3 up))
+        {
+            KsaWorld.TryLookFromMainViewport(fromRound, -fromRound, up, w.FovDeg, this);
+        }
+    }
+
+    // Asked again inside the engine's viewport pass. The view follows the round, so the offset is the
+    // separation from it and nothing else, and needs nothing the engine has since moved.
+    bool IViewPose.TryPose(double3 followedEcl, out double3 offsetFromFollowed, out double3 forwardEcl,
+                           out double3 upEcl, out double fovDeg)
+    {
+        fovDeg = _watch?.FovDeg ?? 30.0;
+        forwardEcl = upEcl = offsetFromFollowed = Vec.Zero;
+        if (!TryWatchPose(out offsetFromFollowed, out upEcl)) return false;
+
+        forwardEcl = -offsetFromFollowed;
+        return true;
+    }
+
+    // Where the eye sits from the round, in the round's own flight frame: behind it along its velocity,
+    // turned by the azimuth about local up and raised by the elevation.
+    private bool TryWatchPose(out double3 fromRound, out double3 up)
+    {
+        fromRound = up = Vec.Zero;
+        if (_watch is not { } w || w.Round.State != RoundState.Flying) return false;
+        if (!w.System.TryRoundEffectEcl(w.Round, out double3 roundEcl)) return false;
+
+        double3 along = Vec.Unit(w.Round.VelocityLocal);
+        up = w.System.EffectBody is { } body ? Vec.Unit(roundEcl - KsaWorld.PositionEcl(body)) : Vec.Zero;
+        if (Vec.Len2(along) < 0.5 || Vec.Len2(up) < 0.5) return false;
+
+        double3 side = Vec.Unit(Vec.Cross(along, up));
+        if (Vec.Len2(side) < 0.5) side = Vec.AnyPerpendicular(along);
+        double az = double.DegreesToRadians(w.AzimuthDeg);
+        double el = double.DegreesToRadians(w.ElevationDeg);
+        double3 flat = (-along * Math.Cos(az)) + (side * Math.Sin(az));
+        fromRound = ((flat * Math.Cos(el)) + (up * Math.Sin(el))) * w.Distance;
+        return Vec.IsFinite(fromRound);
+    }
+
+    private void ReleaseWatch()
+    {
+        if (_watch is null) return;
+
+        _watch = null;
+        KsaWorld.StopDrivingMainView();
+        KsaWorld.TryHandBackMainView(_saved, _watchFollow, out _, out _);
+        _watchFollow.Track(null, null);
+        _posedFrom = null;
+    }
+
+    // Every other craft as seen from the one being flown: range, compass bearing, elevation and speed.
+    private static List<object?> OthersFromFlown()
+    {
+        List<object?> seen = [];
+        if (KsaWorld.ControlledVehicle is not { } flown || KsaWorld.ParentBody(flown) is not { } body) return seen;
+        if (!DropScenario.TryLocalFrame(flown, body, out double3 up, out double3 east, out double3 north, out double agl)) return seen;
+
+        double3 here = KsaWorld.PositionEcl(flown);
+        foreach (Vehicle v in KsaWorld.Vehicles)
+        {
+            if (ReferenceEquals(v, flown) || !KsaWorld.IsAlive(v)) continue;
+
+            double3 to = KsaWorld.PositionEcl(v) - here;
+            double range = Vec.Len(to);
+            if (range > 200_000.0) continue;
+
+            double bearing = double.RadiansToDegrees(Math.Atan2(Vec.Dot(to, east), Vec.Dot(to, north)));
+            seen.Add(new Dictionary<string, object?>
+            {
+                ["name"] = KsaWorld.DisplayName(v),
+                ["range_m"] = Math.Round(range),
+                ["bearing_deg"] = Math.Round((bearing + 360.0) % 360.0, 1),
+                ["elevation_deg"] = Math.Round(double.RadiansToDegrees(Math.Asin(Vec.Dot(to, up) / range)), 1),
+                ["radar_m2"] = Math.Round(RadarSignature.CrossSectionFor(KsaWorld.MeanRadius(v))),
+            });
+        }
+
+        seen.Add(new Dictionary<string, object?>
+        {
+            ["name"] = "(flown) " + KsaWorld.DisplayName(flown),
+            ["agl_m"] = Math.Round(agl),
+            ["speed_ms"] = Math.Round(Vec.Len(KsaWorld.VelocityEcl(flown) - KsaWorld.GroundVelocityAt(flown, here))),
+            ["heat_kw_sr"] = Math.Round(KsaWorld.HeatOf(flown), 1),
+            ["radar_m2"] = Math.Round(RadarSignature.CrossSectionFor(KsaWorld.MeanRadius(flown))),
+        });
+
+        return seen;
+    }
+
+    // A craft by the name it shows, falling back to the one being flown.
+    private static Vehicle? CraftNamed(string name)
+    {
+        if (string.IsNullOrEmpty(name)) return KsaWorld.ControlledVehicle;
+
+        foreach (Vehicle v in KsaWorld.Vehicles)
+        {
+            if (KsaWorld.IsAlive(v) && KsaWorld.DisplayName(v) == name) return v;
+        }
+
+        return null;
+    }
+
+    // One craft's weapons settings, as the panel would set them, and optionally its missiles flown on a
+    // seeker of the named band for testing a decoy against it: "infrared", "radar", "radar-gated", "stock".
+    private Reply System(BridgeCommand command)
+    {
+        if (CraftNamed(command.String("craft")) is not { } craft) return Failed("no such craft");
+
+        if (command.Flag("focus", false)) _focus(craft);
+
+        List<object?> changed = [];
+        foreach (WeaponSystems.Entry e in _systems())
+        {
+            if (!ReferenceEquals(e.Craft, craft)) continue;
+
+            SystemConfig p = e.Policy;
+            if (command.Has("auto_engage")) p.AutoEngage = command.Flag("auto_engage", p.AutoEngage);
+            if (command.Has("protect")) p.ProtectControlledVehicle = command.Flag("protect", p.ProtectControlledVehicle);
+            if (command.Has("silent")) p.RadarSilent = command.Flag("silent", p.RadarSilent);
+            if (command.Has("guns")) p.GunsEnabled = command.Flag("guns", p.GunsEnabled);
+            if (command.Has("chase")) p.ChaseRounds = command.Flag("chase", p.ChaseRounds);
+
+            string seeker = command.String("seeker");
+            if (seeker.Length > 0)
+            {
+                MunitionProfile stock = Catalogue.MunitionNamed(e.Battery.Munition.Name);
+                MunitionProfile flown = stock.Copy();
+                if (seeker != "stock")
+                {
+                    flown.Guidance = GuidanceMode.Seeker;
+                    flown.Band = seeker == "infrared" ? SeekerBand.Infrared : SeekerBand.Radar;
+                    flown.DopplerGateMps = seeker == "radar-gated" ? 40f : 0f;
+                    flown.CountermeasureResistance = (float)command.Number("resistance", 0.0);
+                    flown.SeekerFovDeg = Math.Max(flown.SeekerFovDeg, 40f);
+                }
+
+                e.Battery.FlyRoundsAs(flown);
+            }
+
+            changed.Add(new Dictionary<string, object?>
+            {
+                ["launcher"] = e.Battery.Profile.DisplayName,
+                ["auto_engage"] = p.AutoEngage,
+                ["protect"] = p.ProtectControlledVehicle,
+                ["guidance"] = e.Battery.Munition.Guidance.ToString(),
+                ["band"] = e.Battery.Munition.Band.ToString(),
+            });
+        }
+
+        return changed.Count > 0 ? Done(new() { ["systems"] = changed }) : Failed("no weapons system on that craft");
+    }
+
+    // A craft flown by numbers: engine lit, full throttle, nose held at a pitch from the vertical on a
+    // compass heading, restated every frame because an attitude hold is dropped the frame it is not.
+    private (Vehicle Craft, double PitchDeg, double HeadingDeg, bool Burning)? _flight;
+
+    private Reply Fly(BridgeCommand command)
+    {
+        if (command.Flag("stop", false))
+        {
+            if (_flight is { } was)
+            {
+                VehicleCommand.DriveThrottle(was.Craft, 0.0);
+                VehicleCommand.ReleaseAttitude(was.Craft);
+            }
+
+            _flight = null;
+            return Done();
+        }
+
+        if (CraftNamed(command.String("craft")) is not { } craft) return Failed("no such craft");
+
+        _flight = (craft, command.Number("pitch_deg", 0.0), command.Number("heading_deg", 90.0),
+                   command.Flag("engine", true));
+        if (command.Flag("stage", false)) AttitudeHook.Stage(craft);
+
+        return Done(new() { ["flying"] = KsaWorld.DisplayName(craft) });
+    }
+
+    private void HoldFlight()
+    {
+        if (_flight is not { } f) return;
+        if (!KsaWorld.IsAlive(f.Craft) || KsaWorld.ParentBody(f.Craft) is not { } body)
+        {
+            _flight = null;
+            return;
+        }
+
+        VehicleCommand.SetEngine(f.Craft, running: f.Burning);
+        VehicleCommand.DriveThrottle(f.Craft, f.Burning ? 1.0 : 0.0);
+
+        if (!DropScenario.TryLocalFrame(f.Craft, body, out double3 up, out double3 east, out double3 north, out _)) return;
+
+        double pitch = double.DegreesToRadians(f.PitchDeg);
+        double heading = double.DegreesToRadians(f.HeadingDeg);
+        double3 level = (north * Math.Cos(heading)) + (east * Math.Sin(heading));
+        double3 wanted = (up * Math.Cos(pitch)) + (level * Math.Sin(pitch));
+        double3 side = Vec.Unit(Vec.Cross(wanted, up));
+        if (Vec.Len2(side) < 0.5) side = north;
+
+        doubleQuat toCci = body.GetCce2Cci();
+        AttitudeHook.Hold(f.Craft, wanted.Transform(toCci), side.Transform(toCci));
+    }
+
+    // Presses a craft's countermeasure controls: kind is flare, chaff or both; auto sets auto-dispense.
+    private Reply Dispense(BridgeCommand command)
+    {
+        if (CraftNamed(command.String("craft")) is not { } craft) return Failed("no such craft");
+
+        if (command.Has("auto")) _countermeasures.SetAuto(craft, command.Flag("auto", false));
+
+        string kind = command.String("kind");
+        if (kind is "flare" or "both") _countermeasures.Dispense(craft, DecoyKind.Flare);
+        if (kind is "chaff" or "both") _countermeasures.Dispense(craft, DecoyKind.Chaff);
+
+        (int flares, int flareCap) = _countermeasures.Load(craft, DecoyKind.Flare);
+        (int chaff, int chaffCap) = _countermeasures.Load(craft, DecoyKind.Chaff);
+
+        return Done(new()
+        {
+            ["flares"] = $"{flares}/{flareCap}",
+            ["chaff"] = $"{chaff}/{chaffCap}",
+            ["auto"] = _countermeasures.AutoOn(craft),
+        });
     }
 
     private Reply Get(BridgeCommand command)

@@ -4513,6 +4513,22 @@ internal static class KsaWorld
     public readonly record struct MainView(IFollowable? Following, CameraMode Mode, double FovDeg,
                                            bool Valid);
 
+    /// <summary>Where the object the main view follows is now, which is what a Fixed-mode offset is added to.</summary>
+    public static bool TryMainViewFollowedEcl(out double3 ecl)
+    {
+        ecl = Vec.Zero;
+        try
+        {
+            if (Program.MainViewport?.GetCamera()?.Following is not { } followed) return false;
+            ecl = followed.GetPositionEcl();
+            return Vec.IsFinite(ecl);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     /// <summary>
     /// Records the main view so it can be handed back.
     ///

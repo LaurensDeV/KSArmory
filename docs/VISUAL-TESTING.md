@@ -26,6 +26,25 @@ python3 tools/ksa-mcp/server.py cli reload_shaders
 The CLI writes what an MCP client would be shown inline to `tools/ksa-mcp/last/`, and every call
 empties it first -- copy a capture out before the next call.
 
+**An engagement can be staged and looked at the same way.** `system` sets one craft's weapons as its
+panel would -- auto-engage, protect, guns, silent, chase, focus -- and can fly its missiles on an
+infrared or radar seeker to test a decoy against; `dispense` presses a craft's countermeasures; `fly`
+holds a craft at a pitch and heading with its engine lit or cut; `watch` holds the main view on one
+round, crewed or loose, a set distance from it about its own flight; and `status` lists the craft
+around the flown one with their range, bearing and signatures, and every system with rounds up:
+
+```bash
+python3 tools/ksa-mcp/server.py cli system '{"craft":"AA Defence Site","auto_engage":true,"protect":false,"guns":false}'
+python3 tools/ksa-mcp/server.py cli fly '{"craft":"NewRocket_1","pitch_deg":0,"heading_deg":185,"stage":true}'
+python3 tools/ksa-mcp/server.py cli step '{"seconds":0.5}'      # ...until the log says a round is away
+python3 tools/ksa-mcp/server.py cli watch '{"craft":"AA Defence Site","distance_m":12,"azimuth_deg":35}'
+python3 tools/ksa-mcp/server.py cli burst '{"kt":0.02,"east_m":179,"north_m":1792,"damage":true}'
+python3 tools/ksa-mcp/server.py cli capture '{"label":"loose"}'
+```
+
+That is how a round drawn after its launcher was destroyed was first seen: the same 57E6 captured
+before the launcher died and 0.3 and 1.1 s after, in the same pose.
+
 **What it found on its first night**, each in minutes where a flight cost three:
 
 - **The whiteout reached 0.51, not full, at 2.4 km.** Captured at exact ages from a paused burst,

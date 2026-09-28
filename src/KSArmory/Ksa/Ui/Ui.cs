@@ -58,6 +58,9 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     /// <summary>The system the panel is pointed at, for the overlay to highlight.</summary>
     public KSA.Vehicle? Focused { get; private set; }
 
+    /// <summary>Points the panel at a craft, as its switcher row's "..." button does.</summary>
+    public void Manage(KSA.Vehicle craft) => _managed = craft;
+
     // Points the panes at one system. Returns false when there is nothing crewed to point at,
     // which is the only state in which they must not be drawn at all.
     private bool Focus(KSA.Vehicle? craft)

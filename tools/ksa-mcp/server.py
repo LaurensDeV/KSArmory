@@ -398,6 +398,39 @@ TOOLS = {
                             "name. Returns the game's state then, the frames and their temporal map.",
                             {"name": {"type": "string"}, "crop": {"type": "boolean"}}, [],
                             lambda a: player_captures(a.get("name"), bool(a.get("crop", False)))),
+    "ksa_system": ("One craft's weapons settings, as its panel would set them: auto_engage, protect (never "
+                   "target the flown craft), silent. seeker flies its missiles on an infrared, radar or "
+                   "radar-gated seeker to test decoys against, resistance 0-1 beside it; stock puts it back.",
+                   {"craft": {"type": "string"}, "auto_engage": {"type": "boolean"},
+                    "protect": {"type": "boolean"}, "silent": {"type": "boolean"}, "guns": {"type": "boolean"}, "chase": {"type": "boolean"}, "focus": {"type": "boolean"},
+                    "seeker": {"type": "string", "enum": ["infrared", "radar", "radar-gated", "stock"]},
+                    "resistance": _num("0..1")}, ["craft"],
+                   lambda a: [_text(json.dumps(send("system", **a), indent=1))]),
+    "ksa_dispense": ("Press a craft's countermeasures: kind flare, chaff or both; auto sets auto-dispense. "
+                     "The craft defaults to the one being flown.",
+                     {"craft": {"type": "string"}, "kind": {"type": "string", "enum": ["flare", "chaff", "both"]},
+                      "auto": {"type": "boolean"}}, [],
+                     lambda a: [_text(json.dumps(send("dispense", **a)))]),
+    "ksa_fly": ("Fly a craft by numbers: engine lit, full throttle, nose pitch_deg from the vertical on a "
+                "compass heading_deg; stage=true stages once first; engine=false coasts on the same hold. "
+                "stop=true throttles down and lets go.",
+                {"craft": {"type": "string"}, "pitch_deg": _num("deg from vertical"),
+                 "heading_deg": _num("deg, 0 north 90 east"), "stage": {"type": "boolean"},
+                 "engine": {"type": "boolean"},
+                 "stop": {"type": "boolean"}}, [],
+                lambda a: [_text(json.dumps(send("fly", **a)))]),
+    "ksa_watch": ("Hold the main view on one round in the air, crewed or loose (its launcher destroyed), "
+                  "distance_m from it at azimuth_deg/elevation_deg about its flight -- 0/0 is straight "
+                  "behind, 180 ahead. craft names the system (its craft's name, or the dead one's); "
+                  "loose=true only loose rounds; tube picks one. release=true hands the view back.",
+                  {"craft": {"type": "string"}, "loose": {"type": "boolean"}, "tube": _num("tube number"),
+                   "distance_m": _num("m"), "azimuth_deg": _num("deg"), "elevation_deg": _num("deg"),
+                   "fov_deg": _num("deg"), "release": {"type": "boolean"}}, [],
+                  lambda a: [_text(json.dumps(send("watch", **a), indent=1))]),
+    "ksa_fire": ("Fire a craft's selected weapon at a point east_m/north_m/up_m of the craft (up_m defaults "
+                 "to the ground under it), as the designation tool does.",
+                 {"craft": {"type": "string"}, "east_m": _num("m"), "north_m": _num("m"), "up_m": _num("m")}, [],
+                 lambda a: [_text(json.dumps(send("fire", **a)))]),
     "ksa_log": ("The mod's log, filtered.", {"pattern": {"type": "string"}, "lines": _num("count")}, [],
                 lambda a: [_text(log_tail(a.get("pattern", ""), int(a.get("lines", 40))))]),
 }
