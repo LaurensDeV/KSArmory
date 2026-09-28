@@ -1080,9 +1080,9 @@ installation fights *for*, and it is also the side every other sensor reads that
 rounds — on, through `Sim/TeamRoster.cs`, which `KSArmoryMod` declares once a frame off those same
 policies. Writing only the first half is what a switcher flag looks like it does and must not:
 two sites whose flags both say Blue then classify each other `Unknown`, which `EngageUnknown`
-engages by default. `Teams.TeamFor`'s substring of the craft name is the **fallback** underneath,
-for everything in the world with no flag to set — a drone, an airliner, anything carrying nothing
-of this mod's.
+engages by default. A craft with no flag to set — a drone, an airliner, anything carrying nothing of
+this mod's — is on **no team**; it is never placed by its name, which says what a craft is called
+and not whose it is.
 
 It only shows on the rounds. Two mounts standing on the same ground are under
 `SensorProfile.MinTargetSpeed` and never enter each other's track lists at all, so the first
