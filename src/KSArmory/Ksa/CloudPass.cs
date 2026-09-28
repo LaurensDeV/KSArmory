@@ -924,6 +924,8 @@ internal static class CloudPass
 
         if (view.Shock is null && !BuildShock(view, depth)) return;
 
+        Span<VkImageMemoryBarrier2> one = stackalloc VkImageMemoryBarrier2[1];
+
         using (commandBuffer.TagRegion(FrontsTag))
         {
             for (int n = 0; n < _fronts.Count; n++)
@@ -933,7 +935,6 @@ internal static class CloudPass
 
                 Hazard(commandBuffer);
 
-                Span<VkImageMemoryBarrier2> one = stackalloc VkImageMemoryBarrier2[1];
                 BarrierBatch copy = new(one);
                 copy.Add(view.SceneCopy, ImageBarrierInfo.Presets.StorageReadWriteC);
                 copy.SubmitAndFlush(commandBuffer);
@@ -1422,7 +1423,7 @@ internal static class CloudPass
             DstAccessMask = VkAccessFlags2.ShaderReadBit | VkAccessFlags2.ShaderWriteBit,
         };
 
-        batch.Add(ref barrier);
+        batch.Add(in barrier);
         batch.SubmitAndFlush(commandBuffer);
     }
 
