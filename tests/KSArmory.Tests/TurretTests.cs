@@ -409,7 +409,7 @@ public class TurretTests
         for (int i = 0; i < 200; i++) turret.Update(0.05, double.DegreesToRadians(70), ElevRate);
 
         Assert.True(turret.OnTarget);
-        Assert.Equal(Math.Abs(turret.BearingRad), Math.PI, 6);
+        Assert.Equal(Math.PI, Math.Abs(turret.BearingRad), 6);
 
         // And having arrived, it holds rather than creeping or oscillating.
         double settled = turret.BearingRad;

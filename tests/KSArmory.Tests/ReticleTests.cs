@@ -174,12 +174,19 @@ public class ReticleTests
     /// </summary>
     [Theory]
     [InlineData(-0.4, "0 m/s")]
-    [InlineData(-0.0, "0 m/s")]
     [InlineData(0.4, "0 m/s")]
     [InlineData(0.0, "0 m/s")]
     public void AClosingSpeedThatRoundsToNothingHasNoSign(double closing, string expected)
     {
         Assert.EndsWith(expected, Reticle.RangeAndClosing(800.0, closing), StringComparison.Ordinal);
+    }
+
+    /// <summary>Negative zero on its own, because an attribute cannot tell it from zero.</summary>
+    [Fact]
+    public void NegativeZeroClosingHasNoSign()
+    {
+        Assert.EndsWith("0 m/s", Reticle.RangeAndClosing(800.0, -0.0), StringComparison.Ordinal);
+        Assert.DoesNotContain("-", Reticle.RangeAndClosing(800.0, -0.0), StringComparison.Ordinal);
     }
 
     /// <summary>A real closing speed keeps its sign, which is what says opening from closing.</summary>
