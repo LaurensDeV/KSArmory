@@ -164,6 +164,10 @@ public sealed class KSArmoryMod
         // bundle, so at that point there is no part in the world to check a profile against.
         foreach (PackFault fault in Catalogue.Audit(new DeclaredParts())) Log.Warn(fault.ToString());
 
+        // Before anything can load a save: one listing more subparts than a part now declares closes
+        // the game on load. The part templates are loaded by now, which is what it asks.
+        SaveRepairs.RunAll();
+
         // Before anything is crewed: without it nothing this mod does can point a vehicle, and the
         // panel says so rather than leaving a rocket that refuses to steer unexplained.
         AttitudeHook.Install();
