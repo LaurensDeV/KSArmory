@@ -1378,7 +1378,7 @@ def registered(text, registry):
 
     The registry is what the mod actually loads, so it is what the geometry checks below must be
     driven from. Naming the launchers here by hand instead is how a fifth one gets no check at
-    all while this script still exits 0 -- the shape CLAUDE.md warns about, reached at four.
+    all while this script still exits 0 -- the shape tools/model/CLAUDE.md warns about, reached at four.
 
     Launchers that have moved into the shipped definitions file are appended, because a weapon
     that leaves Arsenal.cs otherwise leaves every gate below with it and this script goes on
