@@ -138,21 +138,8 @@ internal sealed class MotorPlume
         // are launched with this, so the 29.8 km/s would throw every one of them off the map.
         double3 velocityCcf = round.VelocityLocal.Transform(live.Body.GetCce2Ccf());
 
-        var origin = new BubbleOrigin
-        {
-            Time = Universe.GetElapsedTime(),
-            Parent = live.Body,
-            BubFrame = BubbleFrame.Ccf,
-            PositionBub = positionCcf,
-            VelocityBub = Vec.IsFinite(velocityCcf) ? velocityCcf : double3.Zero,
-        };
-
-        foreach (var handle in live.Handles)
-        {
-            if (handle.TryGet() is not { } emitter) continue;
-
-            emitter.Origin = origin;
-        }
+        EmitterPool.Point(live.Handles,
+                          EmitterPool.At(live.Body, positionCcf, Vec.IsFinite(velocityCcf) ? velocityCcf : double3.Zero));
     }
 
     private static Live? Acquire(Celestial? body)
@@ -161,8 +148,7 @@ internal sealed class MotorPlume
         {
             if (body is null) return null;
 
-            if (!Program.Instance.ParticleSystem.GetAndInitializeEmitters(PlumeId, out var handles)
-                || handles is null || handles.Count == 0)
+            if (EmitterPool.Take(PlumeId, body) is not { } handles)
             {
                 if (!_warned)
                 {
@@ -172,17 +158,7 @@ internal sealed class MotorPlume
                 return null;
             }
 
-            foreach (var handle in handles)
-            {
-                if (handle.TryGet() is not { } emitter) continue;
-
-                emitter.Context.Astronomical = body;
-                emitter.Context.Vehicle = null;
-                emitter.Context.Part = null;
-                body.AddEmitter(handle);
-            }
-
-            return new Live { Owner = null!, Body = body, Handles = [.. handles] };
+            return new Live { Owner = null!, Body = body, Handles = handles };
         }
         catch (Exception e)
         {
@@ -202,22 +178,5 @@ internal sealed class MotorPlume
         Give(live);
     }
 
-    private static void Give(Live live)
-    {
-        // Kill() first, and it is what actually stops it. Celestial.RemoveEmitter only drops the
-        // handle from that body's list; ParticleSystem.UpdateEmitters walks the whole pool, so a
-        // removed emitter keeps being updated. An Endless one never completes its own simulation,
-        // so it spawns for the rest of the session and is never returned to the pool -- which is
-        // seen as particles frozen where the emitter last was, and eventually as nothing in the
-        // world being able to spawn any.
-        foreach (var handle in live.Handles)
-        {
-            try
-            {
-                if (handle.TryGet() is { } emitter) emitter.Kill();
-                live.Body.RemoveEmitter(handle);
-            }
-            catch { /* An emitter the engine has already reclaimed is already stopped. */ }
-        }
-    }
+    private static void Give(Live live) => EmitterPool.Give(live.Body, live.Handles);
 }

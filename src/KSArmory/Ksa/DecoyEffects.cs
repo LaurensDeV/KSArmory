@@ -90,14 +90,7 @@ internal sealed class DecoyEffects
 
             if (lit is not null)
             {
-                var origin = new BubbleOrigin
-                {
-                    Time = Universe.GetElapsedTime(),
-                    Parent = body,
-                    BubFrame = BubbleFrame.Ccf,
-                    PositionBub = positionCcf,
-                    VelocityBub = double3.Zero,
-                };
+                var origin = EmitterPool.At(body, positionCcf, double3.Zero);
 
                 // Shrinks as it burns down rather than winking out at the end.
                 float size = (float)(0.25 + (0.55 * share));
@@ -163,24 +156,13 @@ internal sealed class DecoyEffects
     {
         try
         {
-            if (!Program.Instance.ParticleSystem.GetAndInitializeEmitters(FlareId, out var handles)
-                || handles is null || handles.Count == 0)
+            if (EmitterPool.Take(FlareId, body) is not { } handles)
             {
                 Warn($"no free emitters for '{FlareId}'; flares will burn unseen");
                 return null;
             }
 
-            foreach (var handle in handles)
-            {
-                if (handle.TryGet() is not { } emitter) continue;
-
-                emitter.Context.Astronomical = body;
-                emitter.Context.Vehicle = null;
-                emitter.Context.Part = null;
-                body.AddEmitter(handle);
-            }
-
-            return new Lit { Body = body, Handles = [.. handles] };
+            return new Lit { Body = body, Handles = handles };
         }
         catch (Exception e)
         {
@@ -189,20 +171,9 @@ internal sealed class DecoyEffects
         }
     }
 
-    // Kill first: removing the handle alone leaves an endless emitter spawning for the session.
     private void Release(Decoy d)
     {
-        if (!_lit.Remove(d, out Lit? lit)) return;
-
-        foreach (var handle in lit.Handles)
-        {
-            try
-            {
-                if (handle.TryGet() is { } emitter) emitter.Kill();
-                lit.Body.RemoveEmitter(handle);
-            }
-            catch { /* An emitter the engine has already reclaimed is already stopped. */ }
-        }
+        if (_lit.Remove(d, out Lit? lit)) EmitterPool.Give(lit.Body, lit.Handles);
     }
 
     private static void Warn(string message)

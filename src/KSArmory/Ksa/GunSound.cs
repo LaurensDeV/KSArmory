@@ -51,14 +51,7 @@ internal sealed class GunSound(Config config)
 
         if (_firing.TryGetValue(system, out IChannel? channel))
         {
-            try
-            {
-                if (channel.IsPlaying()) { channel.SetSpatialAudio(spatial); return; }
-            }
-            catch
-            {
-                // Fall through and try a fresh one.
-            }
+            if (SoundChannels.TryMove(channel, spatial)) return;
 
             _firing.Remove(system);
         }
@@ -92,7 +85,7 @@ internal sealed class GunSound(Config config)
     /// <summary>Cuts every channel. Safe at any time.</summary>
     public void StopAll()
     {
-        foreach (IChannel channel in _firing.Values) Cut(channel);
+        foreach (IChannel channel in _firing.Values) SoundChannels.Cut(channel);
         _firing.Clear();
         _shotsHeard.Clear();
     }
@@ -101,7 +94,7 @@ internal sealed class GunSound(Config config)
     {
         if (!_firing.Remove(system, out IChannel? channel)) return;
 
-        Cut(channel);
+        SoundChannels.Cut(channel);
     }
 
     private void PlayGunshot(IEffectSource system)
@@ -180,7 +173,7 @@ internal sealed class GunSound(Config config)
     {
         spatial = default!;
 
-        Camera? camera = SafeAudioCamera();
+        Camera? camera = SoundChannels.Listener();
         if (camera is null) return false;
 
         // The craft's own position, not the muzzle's. They differ by the couple of metres from the
@@ -190,32 +183,12 @@ internal sealed class GunSound(Config config)
         double3 velEgo = camera.GetVelocityEgo(platform);
         if (!Vec.IsFinite(posEgo) || !Vec.IsFinite(velEgo)) return false;
 
-        spatial = new SpatialAudio(posEgo, velEgo, SafePressure(camera));
+        spatial = new SpatialAudio(posEgo, velEgo, SoundChannels.PressureAt(camera));
         return true;
     }
 
     private void WarnOnce(string id, string message)
     {
         if (_warned.Add(id)) Log.Warn(message);
-    }
-
-    private static void Cut(IChannel channel)
-    {
-        try { channel.Stop(); }
-        catch { /* A channel the engine has already reclaimed is already stopped. */ }
-    }
-
-    private static Camera? SafeAudioCamera()
-    {
-        try { return GameAudio.GetAudioCamera(); }
-        catch { return null; }
-    }
-
-    private static double SafePressure(Camera camera)
-    {
-        // Listener's pressure, not the gun's: it is what decides how much of the sound survives
-        // the trip, and in vacuum that is none of it.
-        try { return PhysicalAtmosphereReference.GetAtmosphericPressure(camera); }
-        catch { return 1.0; }
     }
 }

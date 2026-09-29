@@ -49,12 +49,12 @@ internal sealed class MotorSound(Config config)
             return;
         }
 
-        Camera? camera = SafeAudioCamera();
+        Camera? camera = SoundChannels.Listener();
         if (camera is null) return;
 
         double3 platformEgo = camera.GetPositionEgo(platform);
         double3 platformVelEgo = camera.GetVelocityEgo(platform);
-        double pressure = SafePressure(camera);
+        double pressure = SoundChannels.PressureAt(camera);
 
         foreach (IProjectile round in system.Rounds)
         {
@@ -77,7 +77,7 @@ internal sealed class MotorSound(Config config)
     /// <summary>Cuts every channel. Safe at any time.</summary>
     public void StopAll()
     {
-        foreach ((_, IChannel channel) in _burning.Values) Cut(channel);
+        foreach ((_, IChannel channel) in _burning.Values) SoundChannels.Cut(channel);
         _burning.Clear();
     }
 
@@ -128,14 +128,7 @@ internal sealed class MotorSound(Config config)
 
         if (_burning.TryGetValue(round, out (IRoundsInFlight Owner, IChannel Channel) held))
         {
-            try
-            {
-                if (held.Channel.IsPlaying()) { held.Channel.SetSpatialAudio(spatial); return; }
-            }
-            catch
-            {
-                // Fall through and try to start a fresh one.
-            }
+            if (SoundChannels.TryMove(held.Channel, spatial)) return;
 
             _burning.Remove(round);
         }
@@ -147,7 +140,7 @@ internal sealed class MotorSound(Config config)
     {
         if (!_burning.Remove(round, out (IRoundsInFlight Owner, IChannel Channel) held)) return;
 
-        Cut(held.Channel);
+        SoundChannels.Cut(held.Channel);
     }
 
     private static IChannel? Start(SpatialAudio spatial, Config config)
@@ -184,25 +177,5 @@ internal sealed class MotorSound(Config config)
             }
             return null;
         }
-    }
-
-    private static void Cut(IChannel channel)
-    {
-        try { channel.Stop(); }
-        catch { /* A channel the engine has already reclaimed is already stopped. */ }
-    }
-
-    private static Camera? SafeAudioCamera()
-    {
-        try { return GameAudio.GetAudioCamera(); }
-        catch { return null; }
-    }
-
-    private static double SafePressure(Camera camera)
-    {
-        // Listener's pressure, not the round's: it is what decides how much of the sound survives
-        // the trip, and in vacuum that is none of it.
-        try { return PhysicalAtmosphereReference.GetAtmosphericPressure(camera); }
-        catch { return 1.0; }
     }
 }

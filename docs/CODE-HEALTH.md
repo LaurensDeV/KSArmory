@@ -57,21 +57,16 @@ something else. The tool change is two lines.
   and epoch rules against *every* `IProjectile`, so a third type is checked whether it inherits the
   lines or copies them. Worth doing behind a flight, not alongside a comment sweep.
 
-- [ ] **Emitter pooling is byte-identical across two files** — `MotorPlume` and
-  `MuzzleFlash`, with `DecoyEffects` a third copy of the release — including the Kill-before-`RemoveEmitter` safety comment, whose failure mode is
-  that nothing in the world can spawn particles again. `MotorSound` and `GunSound` likewise, and
-  five files share an identical roster scan. Leaf functions, not a base class: the keys, cardinality
-  and lifetimes genuinely differ.
+- [x] **Emitter pooling and held sounds are shared.** `Ksa/EmitterPool.cs` holds the take, point
+  and give-back that `MotorPlume`, `MuzzleFlash` and `DecoyEffects` each copied, with the
+  Kill-before-`RemoveEmitter` rule in one place, and `Ksa/SoundChannels.cs` holds the listener,
+  pressure, move and stop that `MotorSound` and `GunSound` copied. Leaf functions, not a base class:
+  the keys, cardinality and lifetimes genuinely differ. The chaff puff is left as it was, because it
+  sets a burst's origin before attaching it and the pool helper attaches first.
 
-  Partly done: the identical roster scan in all five is now `WeaponSystems.Knows`, which had to
-  happen anyway so that a system flying rounds for a destroyed craft does not have its plume and
-  motor sound cut on the frame its launcher dies. The `Take`/`Give`/`Point` triple is what is left.
-
-  **Wants a flight, not a tidy-up.** All of it is `Ksa/`, so nothing here is reachable from the test
-  project, and the failure it guards against is silent and global — a pool leaked dry stops every
-  particle in the world, not just this mod's. A faithful extraction is checkable by reading, but
-  "checkable by reading" is exactly what CLAUDE.md says is not evidence. Do it as its own change,
-  with the game open.
+  Flown on 2026-09-29: an AIM-9J's flame and trail at the nozzle, a Mk 42 flash after twenty-odd
+  separate shots, and flare cores lit again after sixteen had burnt at once against the twelve-core
+  cap -- no `no free emitters` line, no sound warning, no exception in KSA's log.
 
 
 ## Comment hygiene
