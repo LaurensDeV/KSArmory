@@ -31,14 +31,11 @@ happen rather than a member that moved.
 - [x] **A hook between applying the vehicle solvers and snapshotting them** — delete `Ksa/AttitudeHook.cs`'s patch the day this exists
 - [x] **A menu-bar hook a mod can register into** — delete `Ksa/Ui/ModMenuEntry.cs` the day this exists
 - [x] **`DistanceReference.IsValid()` stops requiring 100 km** — go back to `IsValid()` on the atmosphere and the ocean the day it does
-- [ ] ~~A high vehicle in a `Ccf` bubble led from inside the radius gets its fictitious forces~~ —
-  **arrived in 2026.9.10.5438**, see below; the mod has not taken it up. Retire the frame gate: it
-  drops and re-flies any shot with a rotating-frame probe on an unsplit bus, and on this build those
-  shots are sound. Key it on the off-gravity instead. To see the fix rather than wait for it — the tail is ~1% of shots —
-  hold one rocket's split and release ~90 s past the rest: the harness's defence site, moved to
-  within 250 m of the aim, then leads a `Ccf` bubble that catches that bus before it splits on
-  nearly every shot. Its off-gravity should read ~0 and its split debt the usual 0.3-0.5 m/s. See
-  the entry below
+- [x] ~~A high vehicle in a `Ccf` bubble led from inside the radius gets its fictitious forces~~ —
+  **arrived in 2026.9.10.5438, and taken up**: `tools/shot-report.py --frame-check` now counts a
+  `Ccf` probe on an unsplit bus only when its off-gravity reads over 1 m/s. Read back over every
+  night on disk, that flags the five shots the fault ruined and none of the 37 sound post-fix shots
+  the frame-only gate re-flew, whose largest push was 0.20 m/s. See the entry below
 - [ ] **`PhysicsStates.ComputeDrag` is still a body-fixed drag box over the mass, with no lift, no
   Mach term and no aerodynamic torque** — RocketWerkz are working on aerodynamics. The day this
   changes, the gun's lead is leading on yesterday's physics; see the entry below
@@ -202,8 +199,8 @@ feature rather than a settled design. It is written to be checkable either way: 
 agreement with prediction to three digits is the part worth keeping whatever the code does next.
 
 Detection is possible from a mod and is built — `tools/shot-report.py --frame-check` counts coast
-probes reporting a rotating frame on a vehicle that has not yet staged, and separates 4 ruined shots
-from 114 sound ones across 118 with no false positive. `ACCURACY-PLAN.md` 3bv, 3ci and 3cn have the
+probes reporting a rotating frame, and since the fix also a push over 1 m/s, on a vehicle that has
+not yet staged, and separates 4 ruined shots from 114 sound ones across 118 with no false positive. `ACCURACY-PLAN.md` 3bv, 3ci and 3cn have the
 flown accounts.
 
 ## A menu bar a mod can add to

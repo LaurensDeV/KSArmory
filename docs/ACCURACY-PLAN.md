@@ -6668,6 +6668,11 @@ So **33f, 33g, 24 and moving the scripted site are held rather than built** — 
 for a cause that is leaving. On the build that carries 5429, fly a night and read the off-gravity on
 any shot the frame gate flags: the frame will still read `Ccf`, and the push should be gone.
 
+**Read back on 2026-09-29, and it is.** The frame gate flagged 37 shots on nights flown on 5438 and
+later, and the largest push among their pre-split `Ccf` probes is **0.20 m/s** against 1.95-6.0 on
+the five it ruined before. `--frame-check` now counts a `Ccf` probe only above 1 m/s, which keeps
+all five and re-flies none of the 37.
+
 ### The second finding: the dwell is a race, not a hold
 
 `PostBoostAim` clears "a correction has been flown" on the frame the trim settles, but `Predict`

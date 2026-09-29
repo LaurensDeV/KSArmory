@@ -1126,8 +1126,8 @@ def paired(root, shots, endpoint="miss", levels_from=None, per_seat=False):
               "not")
         print("      which arm is nearer the target, which a signed endpoint cannot say.")
     if slow:
-        print(f"   {len(slow)} shot(s) excluded: a bus was integrated in a rotating frame before "
-              "it released,")
+        print(f"   {len(slow)} shot(s) excluded: a bus was pushed off its conic in a rotating frame "
+              "before it released,")
         print("      so it picked up ~0.42 m/s2 the guidance never asked for and the trim could "
               "not pay")
         print("      it back. Read off the RUN rather than off the result -- ACCURACY-PLAN.md "
@@ -2686,11 +2686,16 @@ FIRST_LANDING = re.compile(r"warhead trace on .+?: round \d+ (?:landed|burst)")
 # propagated. Symptom, downstream of the cause below.
 SLOW_BURN_MS = 26.0
 
-# One probe is enough. The quantity is now a COUNT of rotating-frame probes on an unsplit bus
-# rather than a sum of accelerations, so there is no scale to calibrate and no dilution to allow
-# for: a bus either was integrated in the wrong frame before it released or it was not. Measured
-# across every night flown, sound shots read exactly 0 and the three ruined ones read 16 and up.
+# One probe is enough. The quantity is a COUNT of rotating-frame probes on an unsplit bus that also
+# read a push, so there is no scale to calibrate and no dilution to allow for.
 DIVERGED_COAST = 0
+
+# What a rotating-frame probe must read to count. Since KSA 2026.9.10.5438 (revision 5429) a Ccf
+# bubble applies the fictitious forces, so the frame alone is harmless: over every night on disk the
+# 37 shots with Ccf probes on an unsplit bus after the fix read at most 0.20 m/s per 10 s probe, while
+# the five ruined before it read 1.95 to 6.0. One metre a second is 0.1 m/s^2 held over a probe, a
+# quarter of the fault's 0.42.
+PUSHED_MPS = 1.0
 
 
 def burn_frame_ms(log_path):
@@ -2719,17 +2724,20 @@ ROTATING = re.compile(r"Ccf origin")
 
 
 def coast_divergence(log_path):
-    """Whether any bus was integrated in a rotating frame before it let its warheads go.
+    """Whether any bus was pushed off its conic in a rotating frame before it let its warheads go.
 
-    Counts coast probes reading `Ccf origin` on a craft that has not yet split. That is the fault
-    itself rather than a proxy for it: a bubble spanning the near-surface radius takes its frame
+    Counts coast probes reading `Ccf origin` AND an off-gravity over `PUSHED_MPS` on a craft that has
+    not yet split. The frame alone stopped being the fault once KSA applied the fictitious forces in a
+    Ccf bubble; before that, a bubble spanning the near-surface radius took its frame
     from its heaviest member, and if that is something on the ground the frame is `Ccf` -- at which
     point a bus a thousand kilometres up is advanced as though the rotating frame were inertial,
     because the fictitious forces sit behind a per-vehicle `InPhysicsRadius` test it fails. It picks
     up about 0.42 m/s^2 it should not have, and four craft of 2026-09-10-trimgate shot 020 measured
     0.428-0.447 against that prediction. ACCURACY-PLAN.md 3bv, 3ci, 3cn.
 
-    Separation is 0 against 16 on that night, every clean shot to nothing.
+    Every probe also carries `off-gravity`, the velocity the bus gained that a Kepler coast over the
+    same interval does not explain. A one-off reading there is not this fault -- a split's shove, or a
+    probe interval that skipped and reads a whole step of gravity -- and none of those are in Ccf.
 
     **Per craft, and bounded by that craft's OWN split.** The first form summed |off-gravity| and
     stopped at the first `release summary` in the file, which on a paired night is the EARLY arm's --
@@ -2747,7 +2755,8 @@ def coast_divergence(log_path):
             continue
 
         probe = COAST_PROBE.search(line)
-        if probe and ROTATING.search(line):
+        pushed = OFF_GRAVITY.search(line)
+        if probe and ROTATING.search(line) and pushed and float(pushed.group(1)) > PUSHED_MPS:
             craft = probe.group("craft").strip()
             # A bus carries the stack's name with a suffix -- `GeoSat FAT 7` splits into
             # `GeoSat FAT 7_1` -- so the child has to be recognised as already split. The clean
@@ -2782,7 +2791,7 @@ def frame_check(root, only=None):
         diverged = drift > DIVERGED_COAST
         shown = f"{ms:.1f} ms" if ms is not None else "no samples"
         flag = "  DIVERGED" if diverged else ""
-        print(f"run: {log_path.stem} rotating-frame probes {drift:.0f}, "
+        print(f"run: {log_path.stem} pushed rotating-frame probes {drift:.0f}, "
               f"burn-phase {shown}{flag}")
         if diverged:
             bad.append(log_path.stem)
