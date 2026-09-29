@@ -21,6 +21,15 @@ public static class FireGate
         => !aiming || !trains || (drivesAccepted && assembliesResolved && settled);
 
     /// <summary>
+    /// Whether a burst already begun may go on. One the operator fired runs to its end wherever the
+    /// barrels swing — the gun is theirs to sweep, and with mouse aim a quick flick is exactly that —
+    /// while an automatic burst stops once the gun has swung off its lay or what it was fired at is
+    /// gone, since it would otherwise go on into the next contact or back to rest.
+    /// </summary>
+    public static bool BurstMayContinue(bool operatorBurst, bool laid, bool targetGone)
+        => operatorBurst || (laid && !targetGone);
+
+    /// <summary>
     /// Whether this engagement belongs to the cannon: inside their envelope, with belt left and
     /// switched on.
     ///

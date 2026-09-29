@@ -438,6 +438,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     // What the current burst was started against. A burst outlives its trigger by design, so
     // Radar.Locked is routinely null while the tail of one is still leaving the barrel.
     private Track? _burstTrack;
+
+    // Whether the burst in progress is one the operator fired, which sweeping the gun does not cut.
+    private bool _operatorBurst;
     private bool _manualTrigger;
 
     // Whether the turret is laid on the cannon's ballistic lead rather than on the target. Set by
@@ -1481,10 +1484,13 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // — so reading Radar.Locked per round hands the tail of every such burst a null.
         if (wantToFire) _burstTrack = Radar.Locked;
 
-        // A burst stops when there is nothing left to put it on: the gun has swung off the lay --
-        // onto the next contact, or back to rest -- or what it was fired at is gone. A lock that
-        // flickers moves neither, so it still does not cut a burst short.
-        bool mayContinue = GunsAreLaid && _burstTrack is not { Contact.IsAlive: false };
+        // Whose the burst is, decided as it starts: a step that finds none in progress may begin one.
+        if (_guns.BurstRemaining <= 0) _operatorBurst = manual;
+
+        // A lock that flickers moves neither the lay nor the target, so it still does not cut a
+        // burst short.
+        bool mayContinue = FireGate.BurstMayContinue(_operatorBurst, GunsAreLaid,
+                                                     _burstTrack is { Contact.IsAlive: false });
 
         int fired = _guns.Step(dt, wantToFire, Profile, mayContinue);
         _manualTrigger = false;
