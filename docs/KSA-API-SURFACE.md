@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-257 types and 704 members across 11 assemblies.
+265 types and 717 members across 11 assemblies.
 
 ## BepuUtilities
 
@@ -32,6 +32,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### Brutal.ByteSize
 
+- `Brutal.ByteSize Of<1>(Brutal.ElementCount)`
 - `Brutal.ByteSize op_Multiply(int, Brutal.ByteSize)`
 
 ### Brutal.ByteSize32
@@ -43,6 +44,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `Brutal.ByteSize64 op_Explicit(int)`
 - `Brutal.ByteSize64 op_Explicit(ulong)`
+
+### Brutal.ElementCount
+
+- `Brutal.ElementCount op_Implicit(int)`
 
 ### Brutal.Pointers.Ptr
 
@@ -103,6 +108,8 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `double W`
 - `double X`
 - `double Y`
+- `double Z`
+- `void .ctor(double, double, double, double)`
 
 ### Brutal.Numerics.double4x4
 
@@ -462,6 +469,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 *referenced as a type only*
 
+### Brutal.VulkanApi.VkBufferUsageFlags
+
+*referenced as a type only*
+
 ### Brutal.VulkanApi.VkDescriptorSet
 
 *referenced as a type only*
@@ -499,6 +510,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.VulkanApi.VkPipelineStageFlags2 DstStageMask`
 - `Brutal.VulkanApi.VkPipelineStageFlags2 SrcStageMask`
 - `void .ctor()`
+
+### Brutal.VulkanApi.VkMemoryPropertyFlags
+
+*referenced as a type only*
 
 ### Brutal.VulkanApi.VkPipelineStageFlags2
 
@@ -539,6 +554,29 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### Brutal.VulkanApi.Abstractions.BufferEx
 
 - `Brutal.VulkanApi.VkBuffer get_VkBuffer()`
+
+### Brutal.VulkanApi.Abstractions.BufferEx+CreateInfo
+
+- `Brutal.ByteSize BufferSize`
+- `Brutal.VulkanApi.VkBufferUsageFlags BufferUsage`
+- `Brutal.VulkanApi.VkMemoryPropertyFlags AllocRequiredProperties`
+- `string Name`
+
+### Brutal.VulkanApi.Abstractions.BufferExExtensions
+
+- `Brutal.VulkanApi.Abstractions.BufferEx CreateBuffer(Brutal.VulkanApi.Abstractions.IBufferAllocator, CreateInfo)`
+
+### Brutal.VulkanApi.Abstractions.IBufferAllocator
+
+*referenced as a type only*
+
+### Brutal.VulkanApi.Abstractions.MappableExtensions
+
+- `Brutal.VulkanApi.Abstractions.MappedMemory Map<1>(!!0)`
+
+### Brutal.VulkanApi.Abstractions.MappedMemory
+
+- `System.Span`1<!!0> AsSpan<1>()`
 
 ## KSA
 
@@ -1107,7 +1145,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.PartInstance
 
-*referenced as a type only*
+- `string InstanceOf`
 
 ### KSA.PartModel
 
@@ -1224,6 +1262,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.VehicleEditor Editor`
 - `System.ReadOnlySpan`1<KSA.Vehicle> get_VehiclesInFrame()`
 - `bool IsControlledVehicleActive`
+- `bool get_DrawUI()`
 - `int ResourceFrameIndex`
 - `void OnGameLoaded()`
 - `void SetCameraUbo(KSA.IViewport)`

@@ -2774,6 +2774,9 @@ are gone; the line stays as the fallback when the shader pass is off.
       bright, 1.5 by default against a tracer's 24. The first version darkened instead, and was
       reported invisible in play on 2026-09-29.
 - [ ] Tracers stay up with the UI hidden (F2), and switch back to lines with **Shader pass** at zero.
+- [ ] With the UI hidden (F2), a click on the world still fires with **Fire at the mouse** on, and
+      shift-click still locks. Reported broken in play on 2026-09-29; the click now also runs from
+      the step when the UI pass does not.
 - [ ] The glow ends where the tracers burn out, just short of where the shells expire, and the burnt-out
       tracers carry on as faint grey streaks with the rest.
 - [ ] The Pantsir's and the M197's belts look right at 1 in 4 — and a Pantsir tracer 30 mm wide.

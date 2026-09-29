@@ -346,6 +346,9 @@ public sealed class KSArmoryMod
         // player riding a frozen offset with no closing, no transition and no aim -- while the
         // world it is pointed at carries on.
         using (_budget.Measure("cameras")) DriveCameras(dtPlayer);
+
+        // The UI pass reads clicks when it runs; with the UI hidden it does not run at all.
+        if (!KsaWorld.UiDrawn && KsaWorld.InFlight) UpdateWorldClicks();
     }
 
     // Drops everything held about a world a save load has just replaced. Nothing else does it:
@@ -395,6 +398,32 @@ public sealed class KSArmoryMod
     // The chase reads the sight's base field from the frame before and the sight is told whether
     // the chase outranks it this frame, so the two are in this order and not the other: swapping
     // them flies a transition begun through a magnified sight down a three-degree straw.
+    // Every tool that acts on a click in the world. Called from the UI pass when it runs and from the
+    // step when it does not, because a hidden UI stops only the pass: ImGui's frame, and with it the
+    // mouse, is read before KSA's DrawUI gate every frame. Its markers are drawn only with the UI.
+    private void UpdateWorldClicks()
+    {
+        if (_roster is null || _ui is null) return;
+
+        _mover.Update(_config);
+        _bursts.Update(_config);
+
+        // Only the system the panel is showing. Every crewed system reading the same cursor would
+        // fire every launcher in the world at one click.
+        if (_roster.For(_ui.Focused) is { } aimed) _designator.Update(aimed.Weapon, aimed.Policy);
+
+        // Same rule, and the same reason: every crewed computer reading one cursor would re-aim every
+        // missile in the world at a single click.
+        if (_icbms?.For(_ui.Focused) is { } aimedSite) _sites.Update(aimedSite);
+
+        // Shift-click locks the installation the panel is showing onto whatever is under the cursor
+        // -- its turret, and its director if it has one -- scoped to the shown system for the same
+        // reason the designator is: every crewed system reading one cursor would lock all of them.
+        WeaponSystems.Entry? weapon = _roster.For(_ui.Focused);
+        TargetLock.Update(weapon?.Weapon, _heads?.Driving(_ui.Focused)?.Head,
+                          weapon is null ? null : (at, what) => _roster.DesignateWeapon(weapon, at, what));
+    }
+
     private void DriveCameras(double dt)
     {
         if (_roster is null || _ui is null) return;
@@ -562,34 +591,12 @@ public sealed class KSArmoryMod
             // After the panel, so a click on a window is not also a click on the world behind it.
             if (KsaWorld.InFlight)
             {
-                _mover.Update(_config);
+                UpdateWorldClicks();
+
                 _mover.Draw(_config);
-                _bursts.Update(_config);
                 _bursts.Draw(_config);
-
-                // Only the system the panel is showing. Every crewed system reading the same
-                // cursor would fire every launcher in the world at one click.
-                if (_roster.For(_ui.Focused) is { } aimed)
-                {
-                    _designator.Update(aimed.Weapon, aimed.Policy);
-                    _designator.Draw(aimed.Weapon, aimed.Policy);
-                }
-
-                // Same rule, and the same reason: every crewed computer reading one cursor would
-                // re-aim every missile in the world at a single click.
-                if (_icbms?.For(_ui.Focused) is { } aimedSite)
-                {
-                    _sites.Update(aimedSite);
-                    _sites.Draw(aimedSite);
-                }
-
-                // Shift-click locks the installation the panel is showing onto whatever is under
-                // the cursor -- its turret, and its director if it has one. Here rather than in
-                // the sight block above so it works on a craft with no camera, and scoped to the shown system for the same reason the
-                // designator is: every crewed system reading one cursor would lock all of them.
-                WeaponSystems.Entry? weapon = _roster.For(_ui.Focused);
-                TargetLock.Update(weapon?.Weapon, _heads?.Driving(_ui.Focused)?.Head,
-                                  weapon is null ? null : (at, what) => _roster.DesignateWeapon(weapon, at, what));
+                if (_roster.For(_ui.Focused) is { } aimed) _designator.Draw(aimed.Weapon, aimed.Policy);
+                if (_icbms?.For(_ui.Focused) is { } aimedSite) _sites.Draw(aimedSite);
                 TargetLock.Draw(_roster.For(_ui.Focused)?.Weapon, _heads?.Driving(_ui.Focused)?.Head);
             }
             // The sight's own painting. Taking the view is in DriveCameras; this is what is

@@ -146,6 +146,9 @@ internal static class KsaWorld
     /// <summary>True while the simulation is stopped. KSA defines this as speed exactly zero.</summary>
     public static bool IsPaused => Universe.IsPaused();
 
+    /// <summary>Whether KSA is drawing its UI this frame: false while F2 or a screenshot hides it.</summary>
+    public static bool UiDrawn => Program.DrawUI;
+
     /// <summary>Current timewarp factor; 1.0 is real time, 0.0 is paused. Display only.</summary>
     public static double SimulationSpeed => Universe.SimulationSpeed;
 

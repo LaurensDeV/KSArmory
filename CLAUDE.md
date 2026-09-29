@@ -587,7 +587,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 704 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 717 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -1260,7 +1260,7 @@ Do the private repo *before* pushing here, or CI fails on the lock it cannot sat
 member that keeps its name and signature and changes its *meaning* — a different reference
 frame, different units, a reordered enum — compiles clean and is wrong in flight. That is what
 the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from 684,000 lines to the files
-defining the 257 types this mod actually uses.
+defining the 265 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 45 in total, 14 MB —
@@ -3187,7 +3187,10 @@ mis-tagged guard is found before a merge rather than never — what is lost is *
   `FixedController` reads no input. So `KSArmoryMod.DriveCameras` runs from `StepOnce` rather than
   from the GUI hook, outside the flight gate so a view is still handed back on the way out, and
   `ChaseCamera` supplies an `IViewPose` as `SightCamera` already did. The same rule sends
-  `NuclearClouds.Update` there: a thing in the world, not a duration somebody is watching.
+  `NuclearClouds.Update` there: a thing in the world, not a duration somebody is watching. **So do
+  clicks on the world** — fire at the mouse, shift-click, the site designator and the debug tools —
+  through `KSArmoryMod.UpdateWorldClicks`: KSA runs `ImGui.NewFrame` before the `DrawUI` gate, so the
+  mouse is read every frame and only the pass that asked about it stops. Their markers stay with the UI.
 
 - **A frame in which this mod's hook never runs is integrated on the next one.** Still true for any
   frame the mod genuinely misses, and the mitigation stands underneath the two-hook arrangement
