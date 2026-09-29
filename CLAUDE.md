@@ -621,6 +621,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/WEAPON-PACKS.md` | **the pack author's reference** — the folder, the optional code entry point, and every attribute a definition file may carry |
 | `docs/EXTENSIBILITY.md` | **mostly built** — how a weapon pack registers itself without this mod knowing it exists, and what such a pack could never express |
 | `.claude/skills/upgrade-ksa/` | the whole KSA-update procedure, as a skill |
+| `.claude/skills/verify-in-game/` | **flying a change before calling it a fix** — whose game it is, which scenario exercises what, the bridge, catching an effect that lasts a moment, and what counts as evidence |
 | `tools/meshinfo.py` | prints mesh bounds from a KSA `.glb` atlas |
 | `tools/validate-parts.py` | checks asset Ids, texture paths, and launch geometry vs the mesh |
 | `tools/listing.py` | `listing/` as Borea's TOML and SpaceDock's markdown — printed to paste; it publishes nothing |
