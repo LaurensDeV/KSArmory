@@ -2781,6 +2781,10 @@ are gone; the line stays as the fallback when the shader pass is off.
       spraying along the sweep. Reported stopping mid-burst in play on 2026-09-29: the lay moves with
       the cursor and the burst was cut the moment the drives fell behind it. An automatic burst
       still stops when the gun swings off its target.
+- [ ] A Phalanx firing through a long string of kills stays audible. Reported going silent in play on
+      2026-09-29: its sounds had no priority, so at FMOD's 128 they lost every real voice to Core's
+      explosions at 123–124. Now 110. Watch KSA's Audio Debug window, where a silenced sound is
+      marked `(virtual)`.
 - [ ] The glow ends where the tracers burn out, just short of where the shells expire, and the burnt-out
       tracers carry on as faint grey streaks with the rest.
 - [ ] The Pantsir's and the M197's belts look right at 1 in 4 — and a Pantsir tracer 30 mm wide.

@@ -11,6 +11,13 @@
   it arrives already mixed and sits in the listener's head.
 -->
 <Assets>
+    <!--
+      Every gun sound here is Priority 110, above everything Core plays: its explosions are 123 and
+      124, its engines 125, and anything undeclared 128, where lower wins. FMOD mixes only 64 voices
+      for real and silences the least important of the rest, so at 128 a gun firing through a string
+      of kills went quiet beside the explosions it was causing. There are only a few gun channels at
+      once, so the explosions keep every other voice.
+    -->
 
     <!--
       Cyclic cannon fire. Quieter and shorter-ranged than a warhead: a gun is loud where you are
@@ -34,19 +41,19 @@
       Same shape as Core's DefaultEngineSoundBehavior, which is a CompoundSound for the same
       reason an engine is: it starts, it runs, it stops.
     -->
-    <Sound Id="KSArmoryCannonSpin" ChannelId="ExternalChannel">
+    <Sound Id="KSArmoryCannonSpin" ChannelId="ExternalChannel" Priority="110">
         <SoundFile Path="Sounds/KSArmory_Cannon_Spin.wav" Volume="1.0"/>
         <SpatialSoundData Id="KSArmoryCannonSpatialData" />
     </Sound>
 
-    <Sound Id="KSArmoryCannonLoop" ChannelId="ExternalChannel">
+    <Sound Id="KSArmoryCannonLoop" ChannelId="ExternalChannel" Priority="110">
         <SoundFile Path="Sounds/KSArmory_Cannon_Loop.wav" Volume="1.0">
             <Loop />
         </SoundFile>
         <SpatialSoundData Id="KSArmoryCannonSpatialData" />
     </Sound>
 
-    <Sound Id="KSArmoryCannonTail" ChannelId="ExternalChannel">
+    <Sound Id="KSArmoryCannonTail" ChannelId="ExternalChannel" Priority="110">
         <SoundFile Path="Sounds/KSArmory_Cannon_Tail.wav" Volume="1.0"/>
         <SpatialSoundData Id="KSArmoryCannonSpatialData" />
     </Sound>
@@ -67,21 +74,21 @@
     </SpatialSoundData>
 
     <!-- One per round, pitched a little each time so forty a minute is not one sample forty times. -->
-    <Sound Id="KSArmoryMk42Gunshot" ChannelId="ExternalChannel">
+    <Sound Id="KSArmoryMk42Gunshot" ChannelId="ExternalChannel" Priority="110">
         <SoundFile Path="Sounds/KSArmory_Mk42_Gunshot.wav" Volume="1.0"/>
         <SpatialSoundData Id="KSArmoryMk42SpatialData" />
         <Pitch Min="0.96" Max="1.04" />
     </Sound>
 
     <!-- The M197, cut by tools/m197-sounds.py. No spin-up: the recording has none. -->
-    <Sound Id="KSArmoryM197Loop" ChannelId="ExternalChannel">
+    <Sound Id="KSArmoryM197Loop" ChannelId="ExternalChannel" Priority="110">
         <SoundFile Path="Sounds/KSArmory_M197_Loop.wav" Volume="1.0">
             <Loop />
         </SoundFile>
         <SpatialSoundData Id="KSArmoryCannonSpatialData" />
     </Sound>
 
-    <Sound Id="KSArmoryM197Tail" ChannelId="ExternalChannel">
+    <Sound Id="KSArmoryM197Tail" ChannelId="ExternalChannel" Priority="110">
         <SoundFile Path="Sounds/KSArmory_M197_Tail.wav" Volume="1.0"/>
         <SpatialSoundData Id="KSArmoryCannonSpatialData" />
     </Sound>
