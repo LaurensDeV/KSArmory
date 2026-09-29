@@ -3182,9 +3182,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // frame out at each end and right on average, which costs one subtraction and leaves the
         // held-for-the-frame convention alone. Measured in game: the travel lies 0.73 radial of the
         // arrival, and only the radial share costs anything. docs/MIRV-NEXT.md item 2.
-        double3 midFrame = -_bodyVelocityEcl * (0.5 * simStep);
-
-        return KsaWorld.GravityAt(body, positionEcl, midFrame) + KsaWorld.BodyFallEcl(body);
+        return KsaWorld.PullOnRound(body, positionEcl, _bodyVelocityEcl, -0.5 * simStep);
     }
 
     private Func<double3, double, double>? _airDensityAt;
@@ -3234,8 +3232,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         if (body is null) return KsaWorld.GravityAt(Platform!, positionEcl);
 
-        return KsaWorld.GravityAt(body, positionEcl, _bodyVelocityEcl * secondsIntoFrame)
-               + KsaWorld.BodyFallEcl(body);
+        return KsaWorld.PullOnRound(body, positionEcl, _bodyVelocityEcl, secondsIntoFrame);
     }
 
     private Func<double3, double, double3>? _gravityAt;

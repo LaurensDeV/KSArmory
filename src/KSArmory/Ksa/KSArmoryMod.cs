@@ -1191,8 +1191,9 @@ public sealed class KSArmoryMod
         }
     }
 
-    // What a sensor holding the round would measure while it coasts: the same pull and the same drag
-    // the round is flown with, so a lead against it is flown against the round's own model.
+    // What a sensor holding the round would measure while it coasts: its body's pull and the round's
+    // own drag, so a lead against it is flown against the round's own model. Without the body's fall,
+    // like a craft's AccelerationEcl and the lead's ground frame: the fall is common to all three.
     private static double3 CoastingAcceleration(IProjectile round, Celestial? body, double3 at)
     {
         if (body is null) return Vec.Zero;

@@ -2078,19 +2078,37 @@ internal static class KsaWorld
     {
         try
         {
-            double mu = ((IParentBody)body).Mu;
-            if (mu <= 0.0) return Vec.Zero;
-
-            double3 toBody = (body.GetPositionEcl() + bodyOffsetEcl) - positionEcl;
-            double dist2 = Vec.Len2(toBody);
-            if (dist2 < 1.0) return Vec.Zero;
-
-            return Vec.Unit(toBody) * (mu / dist2);
+            return PointGravity.Toward(body.GetPositionEcl() + bodyOffsetEcl, ((IParentBody)body).Mu,
+                                       positionEcl);
         }
         catch
         {
             return Vec.Zero;
         }
+    }
+
+    /// <summary>
+    /// The pull a round is flown with (<see cref="PointGravity.OnRound"/>), read off its body.
+    /// <paramref name="bodyVelocityEcl"/> is passed rather than read so it is the same sample the
+    /// round was stepped against.
+    /// </summary>
+    public static double3 PullOnRound(Celestial body, double3 positionEcl, double3 bodyVelocityEcl,
+                                      double secondsIntoFrame)
+    {
+        double mu = 0.0;
+        double3 sample = Vec.Zero;
+        try
+        {
+            mu = ((IParentBody)body).Mu;
+            sample = body.GetPositionEcl();
+        }
+        catch
+        {
+            mu = 0.0;
+        }
+
+        return PointGravity.OnRound(mu, sample, bodyVelocityEcl, BodyFallEcl(body), positionEcl,
+                                    secondsIntoFrame);
     }
 
     /// <summary>
@@ -2125,14 +2143,7 @@ internal static class KsaWorld
             // reads as a null check, and silently answers zero for every body in the game.
             if (body.Parent is not { } primary) return Vec.Zero;
 
-            double mu = primary.Mu;
-            if (mu <= 0.0) return Vec.Zero;
-
-            double3 toPrimary = primary.GetPositionEcl() - body.GetPositionEcl();
-            double dist2 = Vec.Len2(toPrimary);
-            if (dist2 < 1.0) return Vec.Zero;
-
-            return Vec.Unit(toPrimary) * (mu / dist2);
+            return PointGravity.Toward(primary.GetPositionEcl(), primary.Mu, body.GetPositionEcl());
         }
         catch
         {

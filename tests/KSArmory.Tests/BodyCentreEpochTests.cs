@@ -89,15 +89,13 @@ public class BodyCentreEpochTests(ITestOutputHelper Out)
 
         for (int i = 0; i < frames && round.State == RoundState.Flying; i++)
         {
-            // Exactly what WeaponSystem.GravityAtRound composes: one vector for the frame, aimed
-            // either at the sample as taken or at where the body was half-way through the frame.
-            double3 aimAt = correcting ? ground.SampleEcl - carrier * (0.5 * frame)
-                                       : ground.SampleEcl;
+            // What WeaponSystem.GravityAtRound flies: one vector for the frame, aimed either at the
+            // sample as taken or at where the body was half-way through the frame. No fall -- this
+            // body has no primary.
+            double3 pull = PointGravity.OnRound(Mu, ground.SampleEcl, carrier, Vec.Zero, round.PositionEcl,
+                                                correcting ? -0.5 * frame : 0.0);
 
-            double3 toAim = aimAt - round.PositionEcl;
-
-            round.Update(frame, null, Vec.Unit(toAim) * (Mu / Vec.Len2(toAim)), carrier, start,
-                         munition, 0.0);
+            round.Update(frame, null, pull, carrier, start, munition, 0.0);
             ground.FramesIssued++;
         }
 

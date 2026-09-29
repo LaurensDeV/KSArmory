@@ -180,8 +180,7 @@ internal sealed class Countermeasures
                 // so the body is put back half a step for the pull and a whole one for the air: the
                 // same pairing WeaponSystem gives its rounds.
                 double3 bodyVel = body.GetVelocityEcl();
-                double3 gravity = KsaWorld.GravityAt(body, d.PositionEcl, -bodyVel * (0.5 * step))
-                                  + KsaWorld.BodyFallEcl(body);
+                double3 gravity = KsaWorld.PullOnRound(body, d.PositionEcl, bodyVel, -0.5 * step);
                 double3 airAt = d.PositionEcl + (bodyVel * step);
 
                 double3 air = KsaWorld.GroundVelocityAt(body, airAt);

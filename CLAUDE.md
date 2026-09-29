@@ -323,6 +323,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/BlastDamage.cs` | which parts of a craft a burst breaks — **nothing here picks a part**: each is judged on its own distance and the strength the engine derived for it |
 | `Sim/TargetAllocation.cs` | what one craft's weapons have in the air **between them** — the unit that over-commits is the craft, not the weapon |
 | `Sim/RoundReach.cs` | whether a round the ground stops can still get to it — **the reaper for a store that will never arrive**, because a long fall is long rather than stuck |
+| `Sim/PointGravity.cs` | **the pull every round, store and decoy is flown with** — the inverse square aimed where the body was at the round's own instant, plus the body's own fall toward its primary; a contact's acceleration leaves the fall out, as the ground frame does |
 | `Sim/Medium.cs` | what the air or water a round flies through does to it — buoyancy and drag, shared by every round, against **one reference air for every body**, so a round is dragged by the air actually there |
 | `Sim/ContactSweep.cs` | the contact rule: whether a round runs into a body over one step |
 | `Sim/IHullTest.cs` | **the seam a kinetic round asks whether it truly touched something** |
