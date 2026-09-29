@@ -247,6 +247,10 @@ public static class Arsenal
         FuseRadius = 2.5f,
         FuseArmSeconds = 0.03f,
         ChargeKg = 0.05f,
+
+        // Burning out just short of expiry, so the stream visibly ends rather than being cut off.
+        TracerEvery = 4,
+        TracerBurnSeconds = 2.2f,
     };
 
     /// <summary>

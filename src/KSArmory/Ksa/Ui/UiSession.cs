@@ -196,6 +196,11 @@ internal sealed partial class Ui
         Tip("On: the bomb sight's rings are exact circles painted onto the terrain. Off: they are "
             + "drawn as lines, which cut into hills between their corners.");
 
+        ImGui.SliderFloat("Rounds between tracers", ref _config.BallRoundBrightness, 0f, 8f,
+                          _config.BallRoundBrightness > 0f ? "%.1f" : "hidden");
+        Tip("How bright a gun round that is not a tracer is drawn: a faint grey streak, so the "
+            + "stream between the tracers reads. A tracer is 24. Zero shows only the tracers.");
+
         if (_config.DrawOverlays)
         {
             ImGui.Checkbox("Only the system shown in the panel",

@@ -431,6 +431,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     // platform, the sensor and the aim, and differing in what it throws and how far.
     private readonly GunChannel _guns = new();
     private int _nextBarrel;
+
+    // Rounds each barrel has fired, which is what picks its tracers.
+    private long[] _barrelRounds = [];
     private double _gunTrace;
     private double _gunReloadTimer;
 
@@ -1336,6 +1339,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         int barrel = _nextBarrel % Profile.GunMuzzles.Length;
         _nextBarrel = (_nextBarrel + 1) % Profile.GunMuzzles.Length;
 
+        if (_barrelRounds.Length != Profile.GunMuzzles.Length) _barrelRounds = new long[Profile.GunMuzzles.Length];
+        long fedThrough = _barrelRounds[barrel]++;
+
         if (!LauncherPart.TryGetGunMuzzleEcl(Platform, Launcher, guns, Profile, barrel,
                                              PlatformEcl, out double3 muzzle, out double3 axis))
         {
@@ -1382,6 +1388,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             // And drag at the sub-step's midpoint speed. At the speed a sub-step starts with it is always
             // too large, so always short: 2.8 m at 23 km at the 5 ms sub-step, 0.08 m this way.
             DragAtMidpointVelocity = true,
+
+            Tracer = TracerLook.IsTracer(fedThrough, barrel, shell.TracerEvery),
         };
         if (designatedCraft) slug.Aimpoint = Designation;
 
@@ -3898,6 +3906,14 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             // has no platform to ask, and a store aimed at the ground has no target craft either.
             Detonation.Explode(DrawnBurstEcl(round, burst), round.Munition.ChargeKg,
                                round.TargetRef as Vehicle ?? Platform, EffectBody);
+
+            // A shell's smoke outlasts its flash; a missile's burst is KSA's explosion alone.
+            if (RoundLabel.IsGunRound(round.Tube))
+            {
+                FlakPuff.Throw(DrawnBurstEcl(round, burst), round.Munition.ChargeKg,
+                               double.IsFinite(_ground.Height) ? _ground.Height : double.PositiveInfinity,
+                               round.TargetRef as Vehicle ?? Platform, EffectBody);
+            }
 
             // And a cloud, for a charge large enough to have made one. It outlives this system --
             // NuclearClouds keeps it, because a mushroom stands there long after the launcher has

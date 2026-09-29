@@ -124,7 +124,6 @@ public sealed class KSArmoryMod
     private readonly MotorPlume _plumes = new();
     private MotorSmoke _smoke = null!;
     private readonly MuzzleFlash _flashes = new();
-    private readonly TracerTrail _tracers = new();
     private DecoyEffects _decoyEffects = null!;
     private GunSound _gunSound = null!;
     private ScenarioRunner _scenario = null!;
@@ -489,6 +488,7 @@ public sealed class KSArmoryMod
             // shell stream above.
             GroundRings.BeginFrame();
             GroundRings.Enabled = _config.PaintGroundRings;
+            ShellTracers.BallBrightness = _config.BallRoundBrightness;
             foreach (WeaponSystems.Entry e in _roster.All)
             {
                 if (e.Policy.DrawBombSight && !FlyingABallisticShot(e.Weapon) && ShowsSight(e))
@@ -816,13 +816,14 @@ public sealed class KSArmoryMod
 
         // After the rounds have been stepped, so a motor is heard where its round now is
         // rather than where it was at the start of the frame.
+        ShellTracers.BeginFrame();
         foreach (WeaponSystems.Entry e in _roster.All)
         {
             _motors.Update(e.Weapon);
             _plumes.Update(e.Weapon);
             _smoke.Update(e.Weapon);
             _flashes.Update(e.Weapon);
-            _tracers.Update(e.Weapon);
+            ShellTracers.Collect(e.Weapon);
             _gunSound.Update(e.Weapon);
 
             // Its own switch and its own solve, per weapon rather than per station: it costs
@@ -859,7 +860,7 @@ public sealed class KSArmoryMod
         {
             _plumes.Update(loose[i]);
             _smoke.Update(loose[i]);
-            _tracers.Update(loose[i]);
+            ShellTracers.Collect(loose[i]);
         }
 
         // Read before anything else this frame: it takes the newest COMPLETE profiler frame, which
@@ -912,7 +913,6 @@ public sealed class KSArmoryMod
         _motors.Sweep(_roster);
         _plumes.Sweep(_roster);
         _smoke.Sweep(_roster);
-        _tracers.Sweep(_roster);
         _flashes.Sweep(_roster);
         _gunSound.Sweep(_roster);
 
@@ -955,7 +955,6 @@ public sealed class KSArmoryMod
         _gunSound?.StopAll();
         _plumes?.ReleaseAll();
         _decoyEffects?.ReleaseAll();
-        _tracers?.ReleaseAll();
         _flashes?.ReleaseAll();
 
         // Markers pin the craft they are showing, so a destroyed one stays reachable otherwise.

@@ -109,16 +109,36 @@ internal sealed partial class Ui
         for (int i = 0; i < armaments.Count; i++)
         {
             Armament arm = armaments[i];
-            if (arm.Munition == _munition.Name) continue;
+            bool other = arm.Munition != _munition.Name;
+            if (!other && arm.Kind != ArmamentKind.Belt) continue;
 
             MunitionProfile round = Catalogue.MunitionNamed(arm.Munition);
 
             ImGui.Separator();
             ImGui.TextDisabled($"{arm.Label}: {round.DisplayName}");
 
-            ImGui.Checkbox($"Timed airburst (flak)##{arm.Label}", ref round.TimedFuse);
-            Tip("On: rounds burst at the lead solution's flight time, and the proximity fuse still "
-                + "runs. Off: rounds burst on proximity only.");
+            if (other)
+            {
+                ImGui.Checkbox($"Timed airburst (flak)##{arm.Label}", ref round.TimedFuse);
+                Tip("On: rounds burst at the lead solution's flight time, and the proximity fuse still "
+                    + "runs. Off: rounds burst on proximity only.");
+            }
+
+            if (arm.Kind == ArmamentKind.Belt) DrawTracers(round, arm.Label);
+        }
+    }
+
+    private static void DrawTracers(MunitionProfile round, string label)
+    {
+        ImGui.SliderInt($"Tracer every##{label}", ref round.TracerEvery, 0, 10,
+                        round.TracerEvery > 0 ? "1 in %d" : "none");
+        Tip("How the belt is loaded: one round in this many burns a tracer. The rest are drawn as a "
+            + "faint grey streak, so the stream reads while the tracers stay the only bright thing in it.");
+
+        if (round.TracerEvery > 0)
+        {
+            ImGui.SliderFloat($"Tracer burn (s)##{label}", ref round.TracerBurnSeconds, 0.5f, 10f, "%.1f s");
+            Tip("How long a tracer burns before it goes out. The round flies on unseen.");
         }
     }
 

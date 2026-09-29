@@ -18,14 +18,13 @@ internal static class Visuals
     private static readonly float4 RoundColour = new(1.0f, 0.95f, 0.6f, 1.0f);
     private static readonly float4 TrailColour = new(0.8f, 0.8f, 0.85f, 0.45f);
 
-    // Shells in the diagnostic overlay. What a player sees is the particle tracer; this is the
-    // line that says where the simulation thinks the round actually is, which is not the same
-    // claim and is worth being able to check separately.
+    // Shells in the diagnostic overlay. What a player sees is the tracer; this is the line that
+    // says where the simulation thinks the round actually is, which is not the same claim and is
+    // worth being able to check separately.
     private static readonly float4 TracerColour = new(1.0f, 0.72f, 0.18f, 1.0f);
     private const int TracerSegments = 4;
 
-    // Every shell in the air, not just the traced ones. Warm and dim: it must read as a stream of
-    // rounds without competing with the tracers running through it.
+    // Every shell in the air, when the shader pass is not drawing tracers.
     private static readonly float4 ShellColour = new(0.95f, 0.78f, 0.45f, 0.75f);
 
     // How long a shell is drawn, along its own flight.
@@ -94,13 +93,8 @@ internal static class Visuals
     }
 
     /// <summary>
-    /// The shells themselves, drawn whether or not the diagnostic overlay is on.
-    ///
-    /// <para>A tracer is one round in nineteen, which is how a belt is loaded and what
-    /// <see cref="TracerTrail"/> can afford: an emitter is held for its shell's whole flight and
-    /// there are eight of them against a hundred and fifty rounds in the air. Without this the
-    /// other eighteen are drawn as nothing, and a firing CIWS reads as a handful of bright streaks
-    /// through empty sky rather than as a stream of fire.</para>
+    /// The shells as lines, for when the shader pass is not drawing their tracers
+    /// (<see cref="ShellTracers"/>): switched off, or its shader would not build.
     ///
     /// <para>A short segment along each shell's own flight, not a point and not a trail. A point
     /// reads as a ball because a round moves further between frames than any believable radius; a
@@ -109,6 +103,7 @@ internal static class Visuals
     /// </summary>
     public static void DrawShellStream(WeaponSystem system)
     {
+        if (ShellTracers.Painting) return;
         if (system.Rounds.Count == 0 || system.Platform is not { } platform) return;
         if (!KsaWorld.BeginDraw(platform, system.PlatformEcl)) return;
 

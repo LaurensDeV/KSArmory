@@ -581,8 +581,9 @@ Two constraints that come with it:
 
 **What would unblock the physics half.** A public render-target or material/shader hook. Failing that, nothing:
 of the effects a weapons mod normally spends shaders on, this is the only one that applies here.
-Explosions and smoke already go through KSA's XML particle system, tracers are `GizmosRenderer`
-lines, and there are no scorch decals to draw because kills are binary.
+Explosions and smoke already go through KSA's XML particle system, and there are no scorch decals
+to draw because kills are binary. Gun tracers are drawn in the mod's own compute pass
+(`Shaders/KSArmoryTracer.comp`), which the prefix on `SunbloomRenderer.Render` made possible.
 
 **Not blocking the optical head itself.** Main-viewport takeover, HUD symbology and zoom all sit on
 `Ksa/Sight.cs` painting over the existing camera, and none of them need a shader.

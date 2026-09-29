@@ -175,7 +175,7 @@ bindings grew function-pointer overloads that made a `null` text-input callback 
 Numerics rewrite (2026.6 to 2026.9) was read member by member and changes no meaning. What compiles
 clean and still has to be flown or looked at:
 
-- [ ] **Burst smoke rises and the tracers hang.** `GravityStrength` is gone from the particle schema
+- [ ] **Burst smoke rises.** `GravityStrength` is gone from the particle schema
       and the XML deserialiser drops it without a word, so every stage fell at full gravity until
       each was given a `Density`. The values reproduce the old behaviour in sea-level air only:
       higher up the smoke rises less, and below 100 Pa everything falls. Watch a burst at a low
@@ -1105,7 +1105,7 @@ the mesh and the XML, and the suite.
 - [ ] With more than ten in the air the rest draw as streaks and tracers, and the log says so once.
 - [ ] The shell is 78 mm across where a real five-inch shell is 127 mm. Worth a look against the bore
       before asking Mallikas whether that was meant.
-- [ ] The Pantsir's missiles and the CIWS still draw as before, streaks and tracers included. Tube
+- [ ] The Pantsir's missiles and the CIWS's tracers still draw as before. Tube
       bodies are now searched only on a launcher with tubes, so a CIWS session should also stop
       opening with `no round bodies`.
 
@@ -2754,6 +2754,33 @@ air burst, and Tsar Bomba*, has the numbers.
       each kind was drawn and the aurora jumped between bursts.
 
 ---
+
+## 15. Gun tracers and shell smoke
+
+Tracers are the mod's own compute pass now (`Shaders/KSArmoryTracer.comp`), one round in
+`TracerEvery`, and the rest of a belt a faint grey streak. The particle trail and the gizmo line per shell
+are gone; the line stays as the fallback when the shader pass is off.
+
+- [x] A Phalanx burst draws as a string of glowing tracers, brightest at the head, thinner and
+      dimmer downrange, with the ground and trees behind them. **Seen through the bridge's `watch`
+      at 0.1x and 0.2x on 2026-09-29.** 0.02 ms of GPU a frame with a burst in the air.
+- [ ] At 1x each streak is about 44 m. Not captured: the bridge's calls are slower than a CIWS shell
+      lives, so look by eye.
+- [ ] Paused, a tracer is a glowing dot rather than a rod.
+- [ ] The rounds between tracers show as faint grey streaks against the ground and the sky, and
+      are never mistaken for a tracer. **Settings → Display → Rounds between tracers** sets how
+      bright, 1.5 by default against a tracer's 24. The first version darkened instead, and was
+      reported invisible in play on 2026-09-29.
+- [ ] Tracers stay up with the UI hidden (F2), and switch back to lines with **Shader pass** at zero.
+- [ ] The glow ends where the tracers burn out, just short of where the shells expire, and the burnt-out
+      tracers carry on as faint grey streaks with the rest.
+- [ ] The Pantsir's and the M197's belts look right at 1 in 4 — and a Pantsir tracer 30 mm wide.
+- [ ] A tracer passes behind a hill or a hull rather than over it.
+- [ ] A 5"/54 shell bursting in the air leaves a black puff that grows and hangs for 20–30 s. The log
+      says `shell smoke` at every burst, 4 km up in the gunnery scenario, and the first version was
+      seen as faint smudges beside KSA's white explosion smoke; it was then made larger (12 m,
+      growing to 36 m) and that has not been looked at.
+- [ ] No puff from a shell bursting on the ground, and none on the Moon.
 
 ## Reporting back
 

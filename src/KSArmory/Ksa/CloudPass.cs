@@ -41,6 +41,7 @@ internal static class CloudPass
     private const string ShockShaderId = "KSArmoryShockCompute";
     private const string FireLightShaderId = "KSArmoryFireLightCompute";
     private const string RingShaderId = "KSArmoryRingCompute";
+    private const string TracerShaderId = "KSArmoryTracerCompute";
 
     // KSArmoryFireLight.comp's workgroup.
     private const int FireLightGroupX = 16;
@@ -72,6 +73,7 @@ internal static class CloudPass
     private static readonly ProfilerTag DebrisTag = new("KSArmory Cloud: debris"u8);
     private static readonly ProfilerTag RedWaveTag = new("KSArmory Cloud: red wave"u8);
     private static readonly ProfilerTag RingsTag = new("KSArmory Cloud: rings"u8);
+    private static readonly ProfilerTag TracersTag = new("KSArmory Cloud: tracers"u8);
 
     private static readonly List<(float Kind, double Brightness, Push Push)> _sky = [];
 
@@ -146,6 +148,7 @@ internal static class CloudPass
         public required RenderImage SceneCopy;
         public ComputePipelineWrapper? Shock;
         public ComputePipelineWrapper? Rings;
+        public ComputePipelineWrapper? Tracers;
         public ComputePipelineWrapper? FireLight;
         public VkImageView FireLightDepth;
         public VkImageView FireLightNormal;
@@ -622,7 +625,8 @@ internal static class CloudPass
 
             if (_order.Count == 0)
             {
-                Flash(commandBuffer, viewport, camera, width, height, marks > 0);
+                bool traced = Tracers(commandBuffer, viewport, camera, view, depth, frameIndex, width, height);
+                Flash(commandBuffer, viewport, camera, width, height, marks > 0 || traced);
                 return;
             }
 
@@ -743,6 +747,10 @@ internal static class CloudPass
 
                 Shock(commandBuffer, viewport, camera, view, depth);
             }
+
+            // After the clouds, which composite over whatever is in the image and would hide a
+            // tracer in front of one; before the whiteout, which covers everything.
+            Tracers(commandBuffer, viewport, camera, view, depth, frameIndex, width, height);
 
             Flash(commandBuffer, viewport, camera, width, height, hazard: true);
         }
@@ -1010,6 +1018,152 @@ internal static class CloudPass
                 marks++;
             }
         }
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 4)]
+    private struct TracerPush
+    {
+        public int First;              // the view's first segment in the buffer
+        public int Count;
+        public int OriginX;            // the dispatch's first pixel
+        public int OriginY;
+        public float4 Colour;          // the core's colour, and the halo's share of it
+        public float4 BallColour;      // a round with no tracer's
+    }
+
+    // KSArmoryTracer.comp's workgroup.
+    private const int TracerGroup = 16;
+
+    // A view's own run of the buffer, so two views in one frame do not write over each other's
+    // segments before the GPU has read them. Past this many views a frame they wrap.
+    private const int TracerViewsPerFrame = 4;
+
+    // A tracer's burning compound, warm orange: it is only as white as bloom makes it.
+    private static readonly float4 TracerColour = new(1.0f, 0.42f, 0.12f, 0.12f);
+
+    // A round with no tracer: warm grey, sunlit metal seen in passing rather than anything burning.
+    private static readonly float4 BallColour = new(0.9f, 0.85f, 0.75f, 0f);
+
+    private static BufferEx? _tracerBuffer;
+    private static MappedMemory _tracerMemory;
+    private static int _tracerFrames;
+    private static int _tracerFrame = -1;
+    private static int _tracerView;
+
+    // THE GUN TRACERS, added into the scene where they burn: KSArmoryTracer.comp. One dispatch over
+    // the patch of screen they cover, whatever their number.
+    private static bool Tracers(CommandBuffer commandBuffer, IViewport viewport, Camera camera, View view,
+                                IRenderImage depth, int frameIndex, int width, int height)
+    {
+        if (_tracerBuffer is null && !BuildTracerBuffer()) return false;
+        if (view.Tracers is null && !BuildTracers(view, depth)) return false;
+
+        ShellTracers.MarkPainted();
+
+        if (frameIndex != _tracerFrame)
+        {
+            _tracerFrame = frameIndex;
+            _tracerView = 0;
+        }
+
+        int slot = ((((frameIndex % _tracerFrames) + _tracerFrames) % _tracerFrames) * TracerViewsPerFrame)
+                   + (_tracerView++ % TracerViewsPerFrame);
+        int first = slot * ShellTracers.MostPerView;
+
+        Span<ShellTracers.Segment> all = _tracerMemory.AsSpan<ShellTracers.Segment>();
+        Span<ShellTracers.Segment> mine = all.Slice(first, ShellTracers.MostPerView);
+
+        int count = ShellTracers.Build(camera, width, height, mine,
+                                       out int minX, out int minY, out int maxX, out int maxY);
+        if (count == 0) return false;
+
+        minX = Math.Clamp(minX, 0, width);
+        minY = Math.Clamp(minY, 0, height);
+        maxX = Math.Clamp(maxX, 0, width);
+        maxY = Math.Clamp(maxY, 0, height);
+        if (maxX <= minX || maxY <= minY) return false;
+
+        TracerPush push = new()
+        {
+            First = first,
+            Count = count,
+            OriginX = minX,
+            OriginY = minY,
+            Colour = TracerColour,
+            BallColour = BallColour,
+        };
+
+        using (commandBuffer.TagRegion(GpuTag))
+        using (commandBuffer.TagRegion(TracersTag))
+        {
+            Hazard(commandBuffer);
+
+            view.Tracers!.BindPipeline(commandBuffer, viewport.ShaderSlot, default, default, push);
+            commandBuffer.Dispatch((maxX - minX + TracerGroup - 1) / TracerGroup,
+                                   (maxY - minY + TracerGroup - 1) / TracerGroup, 1);
+        }
+
+        return true;
+    }
+
+    // Written by the CPU each frame and read by the GPU, one run per frame in flight -- the shape of
+    // KSA's own gizmo buffers. Kept for the process: it names no image, so a rebuilt view reuses it.
+    private static bool BuildTracerBuffer()
+    {
+        Renderer renderer = Program.GetRenderer();
+        _tracerFrames = Math.Max(renderer.MaxFramesInFlight, 1);
+
+        // Read by reflection and used through the interface, because the allocator's own type
+        // implements one from Brutal.Vulkan.Vma, which this mod does not reference.
+        if (typeof(Renderer).GetProperty("Allocator")?.GetValue(renderer) is not IBufferAllocator allocator)
+        {
+            Warn("no buffer allocator on the renderer; shells are drawn as lines");
+            return false;
+        }
+
+        BufferEx buffer = allocator.CreateBuffer(new BufferEx.CreateInfo
+        {
+            Name = "KSArmory tracers",
+            BufferUsage = VkBufferUsageFlags.StorageBufferBit,
+            BufferSize = ByteSize.Of<ShellTracers.Segment>(_tracerFrames * TracerViewsPerFrame * ShellTracers.MostPerView),
+            AllocRequiredProperties = VkMemoryPropertyFlags.HostVisibleBit | VkMemoryPropertyFlags.HostCoherentBit,
+        });
+
+        _tracerMemory = buffer.Map();
+        _tracerBuffer = buffer;
+        return true;
+    }
+
+    private static bool BuildTracers(View view, IRenderImage depth)
+    {
+        if (!ModLibrary.TryGet<ShaderReference>(TracerShaderId, out var shader) || shader is null)
+        {
+            Warn($"no shader '{TracerShaderId}'; shells are drawn as lines");
+            return false;
+        }
+
+        Renderer renderer = Program.GetRenderer();
+
+        IRenderImage[] storageTargets = [view.Target];
+        IRenderImage[] depthTargets = [depth];
+        VkBuffer[] buffers = [_tracerBuffer!.Value.VkBuffer];
+        VkPushConstantRange[] ranges =
+        [
+            new VkPushConstantRange
+            {
+                Offset = (ByteSize32)0,
+                Size = (ByteSize32)Marshal.SizeOf<TracerPush>(),
+                StageFlags = VkShaderStageFlags.ComputeBit,
+            },
+        ];
+
+        view.Tracers = new ComputePipelineWrapper(
+            storageTargets, depthTargets, default, default, shader,
+            default, ranges, renderer.MaxFramesInFlight, renderer,
+            "KSArmory.Tracers", Program.PointClampedSampler, Program.LinearClampedSampler,
+            storageBuffers: buffers);
+
+        return true;
     }
 
     private static bool BuildRings(View view, IRenderImage depth)

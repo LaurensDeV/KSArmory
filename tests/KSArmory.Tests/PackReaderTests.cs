@@ -38,6 +38,17 @@ public class PackReaderTests
     // ---- Accepting ------------------------------------------------------
 
     [Fact]
+    public void ABeltsTracersAreReadOffTheRound()
+    {
+        PackContents pack = Read(Wrap(
+            """<Munition Name="Shell" DisplayName="Shell" Guidance="None" TracerEvery="5" TracerBurnSeconds="2.5" />"""));
+
+        MunitionProfile round = Assert.Single(pack.Munitions);
+        Assert.Equal(5, round.TracerEvery);
+        Assert.Equal(2.5f, round.TracerBurnSeconds);
+    }
+
+    [Fact]
     public void AWholePackComesThroughWithItsNumbers()
     {
         PackContents pack = Read(Wrap(ARound + ASet + ARail));

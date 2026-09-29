@@ -42,7 +42,8 @@
     8.4 s, arriving at under 300 m/s; MaxFlightSeconds is sized to get there.
 
     No BodyMarker: twelve missile bodies exist because a salvo is twelve rounds, and a burst is
-    hundreds. Shells are drawn as tracers only.
+    hundreds. One shell in four is a tracer, as the OFZT rounds in a mixed belt are, and the rest
+    are drawn as faint grey streaks.
 
     ChargeKg is chosen to give the cannon a 4 m lethal radius. The same law then puts its blast
     radius at about 12 m rather than the 6 m a hand-authored pair would use - that one only
@@ -55,7 +56,9 @@
 
             MassKg="0.39" CalibreMm="30" DragCoefficient="0.3"
 
-            FuseRadius="3" FuseArmSeconds="0.05" ChargeKg="0.16" />
+            FuseRadius="3" FuseArmSeconds="0.05" ChargeKg="0.16"
+
+            TracerEvery="4" TracerBurnSeconds="3.5" />
 
   <!--
     The 1RS1-1E search set, with the engagement envelope of the system it feeds.

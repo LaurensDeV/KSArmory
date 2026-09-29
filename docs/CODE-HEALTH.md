@@ -48,8 +48,8 @@ something else. The tool change is two lines.
   and epoch rules against *every* `IProjectile`, so a third type is checked whether it inherits the
   lines or copies them. Worth doing behind a flight, not alongside a comment sweep.
 
-- [ ] **Emitter pooling is byte-identical across three files** — `MotorPlume`, `TracerTrail`,
-  `MuzzleFlash`, with `DecoyEffects` a fourth copy of the release — including the Kill-before-`RemoveEmitter` safety comment, whose failure mode is
+- [ ] **Emitter pooling is byte-identical across two files** — `MotorPlume` and
+  `MuzzleFlash`, with `DecoyEffects` a third copy of the release — including the Kill-before-`RemoveEmitter` safety comment, whose failure mode is
   that nothing in the world can spawn particles again. `MotorSound` and `GunSound` likewise, and
   five files share an identical roster scan. Leaf functions, not a base class: the keys, cardinality
   and lifetimes genuinely differ.

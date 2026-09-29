@@ -126,6 +126,15 @@ public sealed class MunitionProfile
     public float BodyLength = 3.10f;
 
     /// <summary>
+    /// One gun round in this many carries a tracer, as a belt is loaded; zero for none. The rest are
+    /// drawn as a faint grey streak of their own width, with no glow.
+    /// </summary>
+    public int TracerEvery;
+
+    /// <summary>How long a tracer burns (s). After it the round is drawn like any other.</summary>
+    public float TracerBurnSeconds = 3f;
+
+    /// <summary>
     /// Seconds the fins take to snap from stowed to full span after launch.
     ///
     /// <para>A flick, not a hinge easing open.</para>

@@ -144,6 +144,8 @@ public static class PackReader
             FinMarker = r.Text("FinMarker"),
 
             BodyLength = r.Number("BodyLength", 3.10f),
+            TracerEvery = r.Count("TracerEvery", 0),
+            TracerBurnSeconds = r.Number("TracerBurnSeconds", 3f),
             FinDeploySeconds = r.Number("FinDeploySeconds", 0.18f),
             FinDeflectionDeg = r.Number("FinDeflectionDeg", 0f),
             FinHingeStation = r.Number("FinHingeStation", 0f),

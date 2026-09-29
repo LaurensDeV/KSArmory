@@ -364,6 +364,9 @@ internal sealed class Slug : IProjectile
     /// </summary>
     public bool SecondOrder { get; set; }
 
+    /// <summary>Whether this is one of the belt's tracer rounds: <see cref="MunitionProfile.TracerEvery"/>.</summary>
+    public bool Tracer { get; init; }
+
     /// <summary>
     /// How far above the held surface the re-reading starts. It has to clear what the ground can do
     /// across one frame — a 30% slope over 90 m of track is 27 m — plus a sub-step's drop; anything

@@ -826,8 +826,9 @@ of puffs rather than a plume.
 `VelocityBub` does **not** smear the spawn and cannot be made to — see the last section of this
 file for why. What works is moving the emitter itself: the particles are left behind at the
 positions it occupied, and the frame's travel becomes the streak rather than a gap in one.
-`Ksa/TracerTrail.cs` and `Ksa/MotorPlume.cs` are both that shape, and they pay for it with one
-pooled emitter per moving thing — which is why the tracer only decorates a few shells at a time.
+`Ksa/MotorPlume.cs` is that shape, and pays for it with one pooled emitter per moving thing — which
+is why gun tracers are not particles at all but the mod's own compute pass
+(`Shaders/KSArmoryTracer.comp`): a particle tracer could only decorate eight shells at a time.
 
 ## Threading
 
@@ -1044,7 +1045,7 @@ frame, and for a body-fixed bubble that axis is a compass bearing rather than an
 a turret.
 
 So an effect that has to *travel* is built by moving the emitter, one per moving thing, with the
-origin rewritten each frame. `Ksa/MotorPlume.cs` and `Ksa/TracerTrail.cs` are both that shape. The
+origin rewritten each frame. `Ksa/MotorPlume.cs` is that shape. The
 cost model follows from it: an emitter per object, out of a shared pool, so anything spawning tens
 of objects a second has to cap how many are decorated.
 

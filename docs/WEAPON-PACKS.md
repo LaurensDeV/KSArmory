@@ -143,6 +143,8 @@ Four rules that between them explain most refusals:
 | `ChuteSinkMetresPerSecond` | `0` | a parachute, described by how fast it brings the store down at sea level once open. `0` is none. Needs `HitsTerrain` |
 | `ChuteOpensSeconds` | `1.5` | when after release the chute opens; it fills over a second |
 | `BodyLength` | `3.10` | m, for drawing |
+| `TracerEvery` | `0` | a gun round: one in this many burns a tracer, as a belt is loaded. The rest are drawn as a faint grey streak, as bright as the player's **Rounds between tracers** setting. `0` is none |
+| `TracerBurnSeconds` | `3` | how long a tracer burns before it goes out; the round flies on unseen |
 | `FinDeploySeconds` | `0.18` | |
 | `FinDeflectionDeg` | `0` | fins that visibly steer |
 | `FinHingeStation` | `0` | where along the body the fins hinge |

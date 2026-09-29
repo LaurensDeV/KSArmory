@@ -241,6 +241,12 @@ public sealed class Config
     public bool PaintGroundRings = true;
 
     /// <summary>
+    /// How bright a gun round with no tracer is drawn, against a tracer's 24: a faint grey streak so
+    /// the stream between tracers reads. Zero draws only the tracers.
+    /// </summary>
+    public float BallRoundBrightness = 1.5f;
+
+    /// <summary>
     /// Explosive charge for a hand-fired burst (kg). The same figure a round carries, so the tool
     /// shows what a warhead of that size actually looks like rather than an arbitrary size.
     /// </summary>

@@ -463,6 +463,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/ViewClaim.cs` | who may hold the player's main view, and what that means for the loser |
 | `Sim/OrbitAim.cs` | the orbit-camera angles that would point the view at something |
 | `Sim/ReportDraft.cs` | a bug report or idea being written, and whether it is worth sending |
+| `Sim/TracerLook.cs` | how a tracer is drawn — **the streak is exposure, not the round**: speed over 40 ms of the player's time, so it shortens in slow motion and is the burning base alone when paused; lit out of the muzzle, burnt out on `MunitionProfile.TracerBurnSeconds`, and thinned and dimmed rather than widened with distance. Only one round in `TracerEvery` glows, as a belt is loaded; **the rest a faint grey streak of their own calibre**, a pixel wide at the least and as bright as `Config.BallRoundBrightness`, so the stream reads and the tracers stay the only bright thing |
 | `Sim/Distance.cs` | a distance in the unit that shows it — **a fixed unit goes blind as the shot improves**, and `bias 0.0 km` was the whole of a ten-metre miss printed as nothing |
 | `Sim/Charge.cs` | an explosive charge in the unit that shows it — kg, t, kt or Mt — since the charge slider runs from a shell to 50 Mt |
 | `Sim/Vec.cs`, `Sim/DrawAnchor.cs` | vector helpers, the two-instant draw anchor |
@@ -538,7 +539,9 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/DecoyEffects.cs` | a flare's white-hot core and smoke trail, and chaff's faint grey puff — **at most twelve flare cores lit at once**, because each holds a pooled emitter |
 | `Ksa/MuzzleFlash.cs` | the flash at the cannon's muzzles, one pooled emitter per firing system |
 | `Ksa/GunSound.cs` | the cannon you can hear: one looping channel per firing system, and a gunshot per round from a gun slow enough to be heard shot by shot |
-| `Ksa/TracerTrail.cs` | tracers, an emitter riding a shell rather than thrown from the muzzle |
+| `Ksa/ShellTracers.cs` | every gun round each frame, the tracers and the rest, **resolved and projected when the pass records** through the call that places a round's body, so a tracer sits where the round is; collected after the step, so they stay up with the UI hidden |
+| `Shaders/KSArmoryTracer.comp` | every gun round on screen in one dispatch — a tracer **added into the scene before bloom** with a hot core and a halo, the rest as dim grey light with none, all depth-tested; each workgroup gathers the segments reaching its tile first. Without the pass, `Visuals.DrawShellStream`'s lines are the fallback |
+| `Ksa/FlakPuff.cs` | the black smoke a gun shell leaves where it burst in the air, **sized off the charge by its cube root** from the 5"/54's, and none where there is no air |
 | `Ksa/Sight.cs` | paints the gunner's sight over the camera the optical head drives |
 | `Ksa/SightSurface.cs` | **which window that sight paints on** — and the draw list that reaches it, because a camera window's picture is a window and the main view's is not |
 | `Ksa/SightCamera.cs` | borrows the main view to look through the optical head, and gives it back |

@@ -27,7 +27,7 @@ namespace KSArmory;
 /// throw particles down the bore: the engine assigns <c>EmitterVelocity</c> only for a
 /// vehicle-parented emitter, so <c>InheritVelocity</c> has nothing to inherit from a celestial
 /// parent, and directional spawning is built about a fixed axis of the body frame rather than the
-/// turret's. See <see cref="TracerTrail"/>, which follows the shells instead.</para>
+/// turret's. They are <see cref="ShellTracers"/>, drawn in the shader pass.</para>
 ///
 /// <para>Emitters come from a pool, so every one taken must be returned — <see cref="ReleaseAll"/>
 /// is not tidiness, it is the reason this class holds any state at all. Same contract as
