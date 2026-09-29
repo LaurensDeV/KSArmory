@@ -27,6 +27,10 @@ internal static class IcbmOverlay
     private static readonly float4 ReachEdge = new(1.0f, 0.55f, 0.4f, 0.45f);
     private static readonly float4 OtherAim = new(1.0f, 0.68f, 0.45f, 0.85f);
 
+    // The same two colours for the ring pass, whose alpha is the brightness kept over dark ground.
+    private static readonly float4 PaintedAim = new(1.0f, 0.45f, 0.35f, 0.05f);
+    private static readonly float4 PaintedOtherAim = new(1.0f, 0.68f, 0.45f, 0.05f);
+
     private static readonly ImColor8 Mark = new(255, 115, 90, 235);
     private static readonly ImColor8 MarkHeld = new(245, 215, 115, 235);
     private static readonly ImColor8 MarkBad = new(250, 90, 80, 245);
@@ -203,6 +207,11 @@ internal static class IcbmOverlay
         if (Vec.Len2(up) < 0.5) return;
 
         double radius = RingRadius(computer);
+
+        // Painted on whatever the depth buffer holds, as the bomb sight's pipper is: an exact circle on
+        // the terrain at any size, with no drape to pay for. The lines are what is left without the pass.
+        if (GroundRings.Painting && GroundRings.Add(target, radius, radius * 0.15, PaintedAim)) return;
+
         RingSet set = SetFor(computer);
 
         DrawDrapedCircle(computer, set, set.Aim, target, up, radius, Aim, segments: 64);
@@ -234,6 +243,8 @@ internal static class IcbmOverlay
 
             double3 up = Vec.Unit(KsaWorld.GravityAt(computer.Craft, at) * -1.0);
             if (Vec.Len2(up) < 0.5) continue;
+
+            if (GroundRings.Painting && GroundRings.Add(at, radius, 0.0, PaintedOtherAim)) continue;
 
             DrawDrapedCircle(computer, set, set.TargetRing(i), at, up, radius, OtherAim, segments: 24);
         }
