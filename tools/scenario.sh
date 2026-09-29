@@ -27,6 +27,9 @@
 #   ./tools/scenario.sh mirv:26.485S,68.148W       # ...at somewhere else
 #   ./tools/scenario.sh mirv:26.485S,68.148W,2     # ...and pass only under 2 km
 #   ./tools/scenario.sh 'mirv:24S,62W;24.04S,62W'  # ...or one bus at two places, scored separately
+#   KSARMORY_SCENARIO_SAVE="ICBM E2E RAIL" KSARMORY_SCENARIO_SELECTOTHER=1 ./tools/scenario.sh mirv
+#                                        # ...with the rocket's other launcher selected in the panel:
+#                                        #   the bus must still be what releases
 #     -- QUOTE IT: an unquoted ';' is the shell's own separator, so the second place never arrives
 #   ./tools/scenario.sh head-on --keep   # leave the game running afterwards
 #   ./tools/scenario.sh head-on --shots  # ...and screenshot on CAPTURE (whole screen, opt-in)
@@ -210,11 +213,12 @@ mkdir -p "$USER_DIR/Logs"
 {
     printf '%s|%s\n' "$SCENARIO" "$SAVE"
     printf '%s\n%s\n' "$ARMS" "$ARM_PHASE"
-    printf '%s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s\n' "${KSARMORY_SCENARIO_KEEPSTAGES:+keepstages}" "${KSARMORY_SCENARIO_TRACE:+trace}" \
+    printf '%s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s\n' "${KSARMORY_SCENARIO_KEEPSTAGES:+keepstages}" "${KSARMORY_SCENARIO_TRACE:+trace}" \
         "${KSARMORY_SCENARIO_VERBOSE:+verbose}" "${KSARMORY_SCENARIO_CHASE:+chase}" "${KSARMORY_SCENARIO_CLOUDS:+clouds}" "${KSARMORY_SCENARIO_NOSHADER:+noshader}" "${KSARMORY_SCENARIO_TWOCLOUDS:+twoclouds=$KSARMORY_SCENARIO_TWOCLOUDS}" "${KSARMORY_SCENARIO_CLOUDWARP:+cloudwarp=$KSARMORY_SCENARIO_CLOUDWARP}" "${KSARMORY_SCENARIO_WATCHELEV:+watchelev=$KSARMORY_SCENARIO_WATCHELEV}" "${KSARMORY_SCENARIO_STILLAT:+stillat=$KSARMORY_SCENARIO_STILLAT}" "${KSARMORY_SCENARIO_BLACKOUT:+blackout=$KSARMORY_SCENARIO_BLACKOUT}" "${KSARMORY_SCENARIO_NOBLACKOUT:+noblackout}" \
         "${KSARMORY_SCENARIO_SPEEDS:+speeds=$KSARMORY_SCENARIO_SPEEDS}" \
         "${KSARMORY_SCENARIO_SITE:+site=$KSARMORY_SCENARIO_SITE}" \
-        "${KSARMORY_SCENARIO_FUSE:+fuse=$KSARMORY_SCENARIO_FUSE}" "${KSARMORY_SCENARIO_CHUTE:+chute=$KSARMORY_SCENARIO_CHUTE}"
+        "${KSARMORY_SCENARIO_FUSE:+fuse=$KSARMORY_SCENARIO_FUSE}" "${KSARMORY_SCENARIO_CHUTE:+chute=$KSARMORY_SCENARIO_CHUTE}" \
+        "${KSARMORY_SCENARIO_SELECTOTHER:+selectother}"
 } > "$USER_DIR/Logs/scenario.txt"
 
 # KSA shows a configuration dialog at startup and waits for START KSA to be clicked, which is

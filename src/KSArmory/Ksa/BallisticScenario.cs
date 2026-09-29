@@ -147,6 +147,7 @@ internal sealed class BallisticScenario
     // the site is still well inside a chase camera's view of the burst.
     private const double SiteStandoffMetres = 250.0;
     private bool _saidDisarm;
+    private readonly List<WeaponSystems.Entry> _defences = [];
     private string _saidTrim = "";
     private bool _capturedDeployment;
     private bool _capturedImpact;
@@ -261,12 +262,19 @@ internal sealed class BallisticScenario
         // Held down rather than set once. The site's auto-engage is restored from the save's own
         // settings and can come back after the aim is taken, and one frame of it on is a salvo
         // intercepted.
-        if (_disarmSite && _defendedSite is { } defended && roster.For(defended) is { } defence
-            && defence.Policy.AutoEngage)
+        // Every launcher on the site, not the selected one: any of them left on intercepts.
+        if (_disarmSite && _defendedSite is { } defended)
         {
-            defence.Policy.AutoEngage = false;
+            roster.AllOn(defended, _defences);
+            bool disarmed = false;
+            foreach (WeaponSystems.Entry defence in _defences)
+            {
+                if (!defence.Policy.AutoEngage) continue;
+                defence.Policy.AutoEngage = false;
+                disarmed = true;
+            }
 
-            if (!_saidDisarm)
+            if (disarmed && !_saidDisarm)
             {
                 _saidDisarm = true;
                 _say($"disarmed {KsaWorld.DisplayName(defended)}: a target that shoots down the "

@@ -61,6 +61,11 @@ internal sealed class ScenarioRunner
     private string _armSpec = string.Empty;
     private bool _keepStages;
     private bool _traceWarhead;
+
+    // Select a launcher other than the bus on each rocket before it flies, as an operator would
+    // from the panel. The computer must still release through the bus.
+    private bool _selectOther;
+    private readonly List<WeaponSystems.Entry> _selectScratch = [];
     private int _armPhase;
 
     private bool _isBallistic;
@@ -172,6 +177,21 @@ internal sealed class ScenarioRunner
     // flight joined mid-ascent is a differently conditioned shot rather than a spare one.
     private bool _crewed;
 
+    private void SelectOther(WeaponSystems roster, Vehicle craft)
+    {
+        roster.AllOn(craft, _selectScratch);
+        foreach (WeaponSystems.Entry entry in _selectScratch)
+        {
+            if (Catalogue.ProvidesGuidance(entry.Weapon.Profile.PartId)) continue;
+
+            roster.Select(craft, entry.Ordinal);
+            Report($"{_name}: selected {entry.DisplayName} on {KsaWorld.DisplayName(craft)}, not the bus");
+            return;
+        }
+
+        Report($"{_name}: nothing but the bus on {KsaWorld.DisplayName(craft)} to select");
+    }
+
     private void CrewTheFlights(WeaponSystems roster, IcbmComputers? icbms)
     {
         if (_crewed || icbms is null) return;
@@ -202,6 +222,8 @@ internal sealed class ScenarioRunner
                 Report($"{_name}: {KsaWorld.DisplayName(computer.Craft)} flies arm {drawn.Describe()}");
                 _armFlown.Add(drawn.Name);
             }
+
+            if (_selectOther) SelectOther(roster, computer.Craft);
 
             _shooters.Add(computer.Craft);
             _flights.Add(new BallisticScenario(
@@ -400,6 +422,7 @@ internal sealed class ScenarioRunner
 
         _keepStages = Array.IndexOf(options, "keepstages") >= 0;
         _traceWarhead = Array.IndexOf(options, "trace") >= 0;
+        _selectOther = Array.IndexOf(options, "selectother") >= 0;
 
         // Nobody can tick Verbose log in a scripted run, and the developer detail -- the per-part
         // blast sweep among it -- is only ever wanted from one.
