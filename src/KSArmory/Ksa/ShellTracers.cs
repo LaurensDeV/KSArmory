@@ -93,6 +93,11 @@ internal static class ShellTracers
         double worldRate = KsaWorld.IsPaused ? 0.0 : KsaWorld.SimulationSpeed;
         double3 cameraEcl = camera.PositionEcl;
 
+        // The sun where the eye is, for the rounds seen by it: a few kilometres of flight does not
+        // move it.
+        double ballBrightness = BallBrightness * TracerLook.Daylight(
+            camera.NearbyCelestial is { } near ? KsaWorld.SunElevationDeg(near, cameraEcl) : double.NaN);
+
         // The tracers on the first pass and the rest on the second.
         for (int pass = 0; pass < 2; pass++)
         foreach (WeaponSystem system in _systems)
@@ -156,10 +161,10 @@ internal static class ShellTracers
                 }
                 else
                 {
-                    if (!(BallBrightness > 0.0)) continue;
+                    if (!(ballBrightness > 0.0)) continue;
 
                     (core, double share) = TracerLook.Ball(perMetre, round.Munition.CalibreMm / 1000.0);
-                    level = -BallBrightness * share * burn;
+                    level = -ballBrightness * share * burn;
                 }
 
                 if (!double.IsFinite(hx + hy + tx + ty + core + level)) continue;

@@ -241,8 +241,9 @@ public sealed class Config
     public bool PaintGroundRings = true;
 
     /// <summary>
-    /// How bright a gun round with no tracer is drawn, against a tracer's 24: a faint grey streak so
-    /// the stream between tracers reads. Zero draws only the tracers.
+    /// How bright a gun round with no tracer is drawn in daylight, against a tracer's 24: a faint grey
+    /// streak so the stream between tracers reads. It fades with the sun (<see cref="TracerLook.Daylight"/>).
+    /// Zero draws only the tracers.
     /// </summary>
     public float BallRoundBrightness = 1.5f;
 

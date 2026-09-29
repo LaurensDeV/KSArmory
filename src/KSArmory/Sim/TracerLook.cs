@@ -15,7 +15,8 @@ namespace KSArmory;
 /// <para>A round with no tracer is drawn as the same streak, the round's own width, as a faint grey
 /// light with no halo — a small fraction of a tracer — so the stream reads against the ground and the
 /// sky alike while the tracers stay the only bright thing in it. A darkening was tried first and was
-/// invisible past a hundred metres against grass.</para>
+/// invisible past a hundred metres against grass. It is sunlight off the round, not light of its own,
+/// so it fades with the sun (<see cref="Daylight"/>): at night only the tracers are seen.</para>
 /// </summary>
 public static class TracerLook
 {
@@ -49,6 +50,27 @@ public static class TracerLook
 
     /// <summary>The narrowest a round with no tracer is drawn (px).</summary>
     public const double BallMinPixels = 1.0;
+
+    /// <summary>The sun's elevation (deg) at which a round with no tracer is seen at full brightness.</summary>
+    public const double FullDaylightDeg = 10.0;
+
+    /// <summary>The sun's elevation (deg) past which it is not seen at all: the end of civil twilight.</summary>
+    public const double DarkDeg = -6.0;
+
+    /// <summary>
+    /// How much of its daytime brightness a round with no tracer keeps: all of it with the sun
+    /// <see cref="FullDaylightDeg"/> up, none once it is <see cref="DarkDeg"/> down, eased between.
+    /// A round with no light of its own is seen by the sunlight off it, and a fixed brightness is
+    /// what the exposure raises at night until the rounds read as faint tracers. An unreadable sun
+    /// is daylight, so a round is never hidden for want of an answer.
+    /// </summary>
+    public static double Daylight(double sunElevationDeg)
+    {
+        if (!double.IsFinite(sunElevationDeg)) return 1.0;
+
+        double t = Math.Clamp((sunElevationDeg - DarkDeg) / (FullDaylightDeg - DarkDeg), 0.0, 1.0);
+        return t * t * (3.0 - (2.0 * t));
+    }
 
     /// <summary>
     /// Whether the <paramref name="fedThrough"/>th round through <paramref name="barrel"/> is a

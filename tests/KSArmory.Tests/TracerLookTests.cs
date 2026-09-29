@@ -88,6 +88,23 @@ public class TracerLookTests
         Assert.Equal(TracerLook.BallFloorShare, farShare, 9);
     }
 
+    [Theory]
+    [InlineData(30.0, 1.0)]
+    [InlineData(TracerLook.FullDaylightDeg, 1.0)]
+    [InlineData(TracerLook.DarkDeg, 0.0)]
+    [InlineData(-30.0, 0.0)]
+    [InlineData(double.NaN, 1.0)]
+    public void ARoundWithNoTracerIsSeenBySunlightAndNotAtNight(double sunDeg, double expected)
+        => Assert.Equal(expected, TracerLook.Daylight(sunDeg), 9);
+
+    [Fact]
+    public void DuskFadesTheRoundsRatherThanSwitchingThemOff()
+    {
+        double dusk = TracerLook.Daylight(2.0);
+        Assert.True(dusk is > 0.0 and < 1.0);
+        Assert.True(TracerLook.Daylight(5.0) > dusk);
+    }
+
     [Fact]
     public void ARoundWithNoTracerNeverBurnsOut()
         => Assert.Equal(1.0, TracerLook.Burn(40.0, 15_000.0, double.PositiveInfinity), 9);

@@ -198,8 +198,9 @@ internal sealed partial class Ui
 
         ImGui.SliderFloat("Rounds between tracers", ref _config.BallRoundBrightness, 0f, 8f,
                           _config.BallRoundBrightness > 0f ? "%.1f" : "hidden");
-        Tip("How bright a gun round that is not a tracer is drawn: a faint grey streak, so the "
-            + "stream between the tracers reads. A tracer is 24. Zero shows only the tracers.");
+        Tip("How bright a gun round that is not a tracer is drawn in daylight: a faint grey streak, so "
+            + "the stream between the tracers reads. It fades with the sun, and at night only the "
+            + "tracers are seen. A tracer is 24. Zero shows only the tracers.");
 
         if (_config.DrawOverlays)
         {

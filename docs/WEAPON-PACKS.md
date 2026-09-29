@@ -144,7 +144,7 @@ Four rules that between them explain most refusals:
 | `ChuteOpensSeconds` | `1.5` | when after release the chute opens; it fills over a second |
 | `BodyLength` | `3.10` | m, for drawing |
 | `BodyModel` | *none* | a gun round's model: the Id of a `<SubPart>` template, drawn once per shell in the air with no subpart on the launcher, so there is no limit on how many are seen. Without one a shell is a streak |
-| `TracerEvery` | `0` | a gun round: one in this many burns a tracer, as a belt is loaded. The rest are drawn as a faint grey streak, as bright as the player's **Rounds between tracers** setting. `0` is none |
+| `TracerEvery` | `0` | a gun round: one in this many burns a tracer, as a belt is loaded. The rest are drawn as a faint grey streak, as bright as the player's **Rounds between tracers** setting in daylight and fading with the sun, so at night only the tracers are seen. `0` is none |
 | `TracerBurnSeconds` | `3` | how long a tracer burns before it goes out; the round flies on unseen |
 | `FinDeploySeconds` | `0.18` | |
 | `FinDeflectionDeg` | `0` | fins that visibly steer |
