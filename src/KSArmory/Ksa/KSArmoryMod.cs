@@ -184,7 +184,14 @@ public sealed class KSArmoryMod
 
         LooseBodyDrawHook.Install((viewport, frameIndex) =>
         {
-            if (_roster is not { } roster || roster.Loose.Count == 0) return;
+            if (_roster is not { } roster) return;
+
+            using (_budget.Measure("shell bodies"))
+            {
+                foreach (WeaponSystems.Entry e in roster.All) e.Weapon.DrawShellBodies(viewport, frameIndex);
+            }
+
+            if (roster.Loose.Count == 0) return;
 
             using (_budget.Measure("loose bodies"))
             {

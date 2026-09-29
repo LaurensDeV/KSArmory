@@ -1102,7 +1102,8 @@ the mesh and the XML, and the suite.
 - [ ] A shell drawn as a body has no streak line and no glowing tracer on it. Those are for a shell
       with nothing else on screen, and were drawn on top of the body when it was first seen.
 - [ ] A shell that bursts or lands takes its body with it; nothing is left hanging in the air.
-- [ ] With more than ten in the air the rest draw as streaks and tracers, and the log says so once.
+- [ ] Every shell in the air has a body however many there are: shells are instances of one model
+      now, not subparts lent from a pool of twenty.
 - [ ] The shell is 78 mm across where a real five-inch shell is 127 mm. Worth a look against the bore
       before asking Mallikas whether that was meant.
 - [ ] The Pantsir's missiles and the CIWS's tracers still draw as before. Tube
@@ -1359,9 +1360,10 @@ the mesh and the XML, and the suite.
       stack under it may now sag or break where it held before.
 - [ ] It engages at range: `MaxRange` 15.7 km against the CIWS's 1.5, shells 36–43 seconds out at
       the far end, so the track has to survive far longer than any gun here has needed.
-- [ ] Twenty shell bodies, not ten: at 40 rpm and 43 s of flight nearly thirty can be in the air, and
-      the ones past twenty draw as tracers. The ten added came after the first ten, so a save holding
-      the first version still loads.
+- [ ] The mount declares four subparts now, not twenty-four: the shell subparts are gone and a shell
+      is an instance of its `BodyModel`. A save written before loads only after
+      `./tools/repair-saves.py --fix`; without it the game closes on load.
+- [ ] A shell in the air when its mount is destroyed keeps its body and flies on.
 
 ### 7.1d4 The M197 chin turret — nothing about it has been seen
 

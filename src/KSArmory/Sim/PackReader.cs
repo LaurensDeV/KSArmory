@@ -141,6 +141,7 @@ public static class PackReader
             Name = Qualify(source, name),
             DisplayName = r.Required("DisplayName"),
             BodyMarker = r.Text("BodyMarker"),
+            BodyModel = r.Text("BodyModel"),
             FinMarker = r.Text("FinMarker"),
 
             BodyLength = r.Number("BodyLength", 3.10f),

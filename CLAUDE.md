@@ -348,7 +348,6 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/FireballBlackout.cs` | the air a nuclear fireball ionised, which a **transmitting** radar cannot see through or out of until it cools — a sphere riding up with the ball, about a minute for a megatonne |
 | `Sim/AirlessBurst.cs` | what that burst leaves where there is no air — **the ballistics are the engine's**, because KSA counts no atmosphere below 100 Pa and falls every particle at full local gravity there, so thrown ground arcs and lands with nothing here integrating it |
 | `Sim/Magazine.cs` | which tubes hold a round, which fires next, what each body does |
-| `Sim/BodyPool.cs` | bodies lent to rounds with no tube to key one to — **a shell borrows one for as long as it flies**, and one arriving when every body is lent draws as a tracer |
 | `Sim/RoundLabel.cs` | what to call a round in a line somebody reads — **the one place the tube field's sentinel is decoded**, because a shell has no tube |
 | `Sim/TubeGeometry.cs` | tube positions and directions, pod and radar pose, body placement |
 | `Sim/Turret.cs` | rate-limited traverse and elevation drives — **a limited traverse turns the long way round**, never through the host behind it |
@@ -496,7 +495,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/PreRenderHook.cs` | the second — **a step before the render on a frame that draws no UI**, because StarMap has no hook that is both |
 | `Ksa/WorldReloadHook.cs` | the third — **that a save was loaded**, which nothing else can tell: the mod never leaves the flight scene across one |
 | `Ksa/RoundBodyDrawHook.cs` | the fourth — **a launcher's rounds drawn after the engine has culled the launcher**, because a body is one of its parts and KSA draws none of a craft under a pixel across |
-| `Ksa/LooseBodyDrawHook.cs` | **a destroyed launcher's rounds drawn anyway** — each round's mesh, taken off its subpart at `GoLoose`, added as an instance of the engine's own part model every viewport, because a model outlives the craft its parts were on |
+| `Ksa/LooseBodyDrawHook.cs` | **a destroyed launcher's rounds drawn anyway** — each round's mesh, taken off its subpart at `GoLoose`, added as an instance of the engine's own part model every viewport, because a model outlives the craft its parts were on — **and every gun shell with a model, launcher alive or not**, so however many are in the air: one instanced draw, no subpart each |
 | `Ksa/VehicleCommand.cs` | **the only place this mod flies somebody else's rocket** — attitude, throttle, ignition, staging |
 | `Ksa/IcbmOverlay.cs` | the arc it is on, the rings it is aimed at and the ground the bus can still divert to — the reach and the targets past the lead only for the craft the panel is showing. **The aim and target rings are painted by the ring pass** like the bomb sight's; the reach, an ellipse, and every ring when the pass is off are draped lines, and **one of those is re-draped a frame**, so a six-target set costs a frame what one target does |
 | `Ksa/WarheadTrace.cs` | **one warhead against the prediction of it**, re-flown from where it has got to — measurement only, off by default, and the discriminator is whether the two part *smoothly* or in a *step* |
@@ -1974,8 +1973,11 @@ steady false wind — 0.055 m/s at 25 ms — and it was 30 mm of cross-range on 
 
 **Rounds are drawn as real subparts, anchored to the tube they left.** Twelve `Missile`
 subparts, scaled to nothing until fired, with their transform written each frame. A gun's shells
-leave no tube, so each borrows a body from `Sim/BodyPool.cs` and is placed through the same call from
-the muzzle. Three rules:
+leave no tube and have no subpart: each is an instance of the shell's model, drawn by
+`WeaponSystem.DrawShellBodies` from `Ksa/LooseBodyDrawHook.cs` at the camera's view of the craft plus
+`TryRoundEffectEcl` less the craft's position — `Vehicle.GetMatrixAsmb2Ego`, the placement the engine
+gives the launcher's own parts. The model is the munition's `BodyModel`, a `<SubPart>` template no part
+instances, so however many shells are up the mount declares none. Three rules:
 
 - **Anchor to the tube, add only the travel *since* launch.** `OffsetFromPlatform` is measured
   from the platform's *analytic* orbit position; a subpart is placed against the vehicle's
@@ -2338,7 +2340,7 @@ off its subparts while they still exist, and `Ksa/LooseBodyDrawHook.cs` — a pr
 `PartModelRenderer.UpdateRenderData`, once per visible viewport, pinned like `AttitudeHook` — adds
 them as instances each frame. Placed at the camera's view of the body plus the round's offset from
 it, the pairing the plume hangs on, and turned on by `BodyAttitude.Turn` from where the launcher last
-drew it. A shell is not carried: it is a tracer at that speed anyway, and a burst is 150 of them.
+drew it. A shell with a model is carried the same way; one without is a streak anyway.
 
 The effects were never the launcher's: every emitter this mod starts sets `Context.Astronomical` and
 leaves `Context.Vehicle` null, so a plume has always hung on the *body* rather than on the craft, and

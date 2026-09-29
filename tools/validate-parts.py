@@ -716,6 +716,23 @@ def check_body_markers():
                       file=sys.stderr)
                 problems += 1
 
+    # A gun round's BodyModel names a template, not an instance: every shell is drawn as that
+    # template's model, and a name matching nothing draws every shell as a streak with no word.
+    templates = set()
+    for path in sorted(MOD.glob("KSArmory*.xml")):
+        templates |= set(re.findall(r'<SubPart\s+Id="([^"]+)"\s*>', path.read_text()))
+
+    for munition, body in re.findall(r'(\w+)\s*=\s*new\(\)\s*\{(.*?)\n\s*\};', text, re.S):
+        found = re.search(r'BodyModel\s*=\s*"([^"]+)"', body)
+        if found is None:
+            continue
+
+        checked += 1
+        if found.group(1) not in templates:
+            print(f"  MISSING subpart template for {munition}.BodyModel = \"{found.group(1)}\" — "
+                  f"its shells draw as streaks only", file=sys.stderr)
+            problems += 1
+
     p, c = check_body_markers_resolve_on_their_own_launcher(text)
     problems += p
     checked += c

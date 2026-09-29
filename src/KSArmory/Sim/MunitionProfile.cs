@@ -107,9 +107,17 @@ public sealed class MunitionProfile
 
     /// <summary>
     /// Subpart marker for this round's body mesh, matched against the launcher's subpart Ids.
-    /// Null means the round has no model and draws as a tracer only.
+    /// Null means the round has no model and draws as a streak only.
     /// </summary>
     public string? BodyMarker { get; init; }
+
+    /// <summary>
+    /// The <c>&lt;SubPart&gt;</c> template a gun round is drawn as: every shell in the air is an
+    /// instance of its model, so the launcher declares no subpart for any of them and there is no
+    /// limit on how many are seen. Null draws a gun round as a streak only. Not for a round from a
+    /// tube, which is found by <see cref="BodyMarker"/>.
+    /// </summary>
+    public string? BodyModel { get; init; }
 
     /// <summary>
     /// Subpart marker for this round's fin set, matched the same way as <see cref="BodyMarker"/>.

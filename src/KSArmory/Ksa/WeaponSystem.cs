@@ -414,10 +414,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     private bool _loggedSubParts;
     private double _spinPhase;
     private readonly List<Part> _missileBodies = [];
-    private readonly List<Part> _shellBodies = [];
-    private readonly List<int> _freedShellBodies = [];
-    private BodyPool<IProjectile> _shellPool = new(0);
-    private bool _warnedShellPool;
+    // What a shell is drawn as (DrawShellBodies), from its munition's BodyModel.
+    private PartModel? _shellModel;
     private int _gunShotsFired;
     private double _lastGunShotClock = double.NegativeInfinity;
     private readonly List<Part> _finBodies = [];
@@ -487,12 +485,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
     public double GunSecondsSinceShot => _clock - _lastGunShotClock;
 
-    // A free slot counts: a body is lent at draw time, and a tracer adopts a shell within two frames
-    // of it leaving, so asking only who holds one hands every new shell a tracer first.
     public bool ShellDrawnAsBody(IProjectile round)
         => RoundLabel.IsGunRound(round.Tube)
-           && _shellBodies.Count > 0 && RoundBodiesWork && _config.UseRoundBodies
-           && (_shellPool.Holds(round) || _shellPool.InUse < _shellPool.Capacity);
+           && _shellModel is not null && _config.UseRoundBodies && LooseBodyDrawHook.Installed;
 
     // Simulated, not player, seconds -- so the sweep holds still with a paused world and slows
     // with the panel's slow-motion, which is the whole point of watching it.
@@ -753,17 +748,14 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                 _finBodies.Clear();
             }
 
-            if (Profile.HasCannon && Shell.BodyMarker is not null) LauncherPart.FindMissiles(Launcher, Shell, _shellBodies);
-            else _shellBodies.Clear();
-            HideShellBodies();
-            _shellPool = new BodyPool<IProjectile>(_shellBodies.Count);
+            _shellModel = Profile.HasCannon ? LauncherPart.ModelOfTemplate(Shell.BodyModel) : null;
 
             Log.Info($"launcher subparts: {LauncherPart.DescribeSubParts(Launcher)}");
             Log.Debug($"round bodies found: {_missileBodies.Count}, fin sets {_finBodies.Count} (need {Profile.TubeCount}), "
-                      + $"shell bodies {_shellBodies.Count}");
-            if (Profile.HasCannon && Shell.BodyMarker is { } shellMarker && _shellBodies.Count == 0)
+                      + $"shell model {(_shellModel is null ? "none" : Shell.BodyModel)}");
+            if (Profile.HasCannon && Shell.BodyModel is { } shellModel && _shellModel is null)
             {
-                Log.Warn($"no shell bodies match '{shellMarker}' - shells will draw as tracers only");
+                Log.Warn($"no subpart template '{shellModel}' - shells will draw as streaks only");
             }
             // Only where one was declared. A rack and a rail have no turret by design, so an
             // unguarded warning opens every session with a fault report about a launcher that is
@@ -1892,8 +1884,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// something that travels kilometres rather than turning on the spot, which is why the
     /// gizmo tracers stay available as a fallback.</para>
     ///
-    /// <para>A gun's shells have no tube, so each borrows a body from a pool while it flies and is
-    /// placed through the same call from the muzzle it left.</para>
+    /// <para>A gun's shells have no tube and no subpart: only their attitude is turned here, and
+    /// <see cref="DrawShellBodies"/> draws them.</para>
     ///
     /// <para>Rounds are indexed from one, so tube N is body N-1.</para>
     /// </summary>
@@ -1904,7 +1896,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     public void SyncRoundBodies()
     {
         if (Platform is not { } platform || Launcher is not { } launcher || !KsaWorld.IsAlive(platform)) return;
-        if ((_missileBodies.Count == 0 && _shellBodies.Count == 0) || !RoundBodiesWork) return;
+        if ((_missileBodies.Count == 0 && _shellModel is null) || !RoundBodiesWork) return;
 
         // Switched off by the operator: hide every body so the tracers are what is seen, rather
         // than leaving twelve missiles frozen wherever they were last written.
@@ -1912,11 +1904,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         {
             for (int i = 0; i < _missileBodies.Count; i++) LauncherPart.HideMissile(_missileBodies[i]);
             for (int i = 0; i < _finBodies.Count; i++) LauncherPart.HideMissile(_finBodies[i]);
-            HideShellBodies();
             return;
         }
 
-        if (!SyncShellBodies(platform, launcher)) return;
+        TurnShellBodies(platform, launcher);
 
         // Both counts, because they come from different files and can disagree: the bodies are
         // what the art declares, TubeCount is what the profile does. Sizing this by one and
@@ -2120,31 +2111,15 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         }
     }
 
-    // A shell has no tube to key a body to, so it borrows one from the pool for as long as it flies.
-    // False when the engine refused a body, which turns bodies off for this system.
-    private bool SyncShellBodies(Vehicle platform, Part launcher)
+    // Which way each shell is drawn, on from where it was last drawn as a missile's body is. Only the
+    // attitude: DrawShellBodies places it, in the render pass.
+    private void TurnShellBodies(Vehicle platform, Part launcher)
     {
-        if (_shellBodies.Count == 0) return true;
-
-        _freedShellBodies.Clear();
-        _shellPool.ReleaseWhere(r => r.State != RoundState.Flying || !_roundSet.Contains(r), _freedShellBodies);
-        foreach (int slot in _freedShellBodies) LauncherPart.HideMissile(_shellBodies[slot]);
+        if (_shellModel is null) return;
 
         foreach (IProjectile round in _rounds)
         {
             if (!RoundLabel.IsGunRound(round.Tube) || round.State != RoundState.Flying) continue;
-
-            int slot = _shellPool.SlotFor(round);
-            if (slot < 0)
-            {
-                if (!_warnedShellPool)
-                {
-                    _warnedShellPool = true;
-                    Log.Info($"all {_shellBodies.Count} shell bodies on {Profile.DisplayName} are in the air; "
-                             + "further shells draw as tracers until one lands");
-                }
-                continue;
-            }
 
             double3 release = Vec.IsFinite(round.ReleaseHeadingEcl) && Vec.Len2(round.ReleaseHeadingEcl) > 1e-9
                                   ? round.ReleaseHeadingEcl
@@ -2158,28 +2133,38 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                                       : new DrawnAttitude(LauncherPart.ReleaseAttitudeEcl(launcher, release,
                                                                                           round.LaunchAttitude),
                                                           0.0);
-            drawn = new DrawnAttitude(BodyAttitude.Turn(drawn.Ecl, round.VelocityLocal, density,
-                                                        round.Age - drawn.Age),
-                                      round.Age);
-            _drawnAttitudes[round] = drawn;
-
-            if (!LauncherPart.TryPlaceMissile(platform, launcher, _shellBodies[slot],
-                                              round.LaunchAnchorPartFrame, round.TravelSinceLaunch,
-                                              drawn.Ecl, round.LaunchAttitude))
-            {
-                RoundBodiesWork = false;
-                HideShellBodies();
-                Announce("round bodies rejected by the engine; falling back to tracers");
-                return false;
-            }
+            _drawnAttitudes[round] = new DrawnAttitude(BodyAttitude.Turn(drawn.Ecl, round.VelocityLocal, density,
+                                                                         round.Age - drawn.Age),
+                                                       round.Age);
         }
-        return true;
     }
 
-    private void HideShellBodies()
+    /// <summary>
+    /// Queues every shell in the air for one viewport, as an instance of the shell's model: one draw
+    /// for all of them, and no subpart for any, so there is no limit on how many are seen.
+    ///
+    /// <para>Placed as the engine places the launcher's own parts, off the camera's view of the craft
+    /// (<c>Vehicle.GetMatrixAsmb2Ego</c>), with the round's offset from it taken from
+    /// <see cref="TryRoundEffectEcl"/> less the craft's position -- both read now, so the ecliptic
+    /// motion cancels, and it is where a shell subpart was drawn to the metre.</para>
+    /// </summary>
+    public void DrawShellBodies(IViewport viewport, int frameIndex)
     {
-        for (int i = 0; i < _shellBodies.Count; i++) LauncherPart.HideMissile(_shellBodies[i]);
-        _shellPool.Clear();
+        if (_shellModel is null || !_config.UseRoundBodies || Platform is not { } platform
+            || !KsaWorld.IsAlive(platform) || viewport.GetCamera() is not { } camera) return;
+
+        double3 platformEgo = camera.GetPositionEgo(platform);
+        double3 platformEcl = KsaWorld.PositionEcl(platform);
+
+        foreach (IProjectile round in _rounds)
+        {
+            if (!RoundLabel.IsGunRound(round.Tube) || round.State != RoundState.Flying
+                || !_drawnAttitudes.TryGetValue(round, out DrawnAttitude drawn)
+                || !TryRoundEffectEcl(round, out double3 ecl)) continue;
+
+            double3 ego = platformEgo + (ecl - platformEcl);
+            if (Vec.IsFinite(ego)) AddInstance(_shellModel, double3.One, drawn.Ecl, ego, viewport, frameIndex);
+        }
     }
 
     // The threat the turret should be watching when there is no firing solution yet.
@@ -2968,8 +2953,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         _loggedSubParts = false;
         _missileBodies.Clear();
         _finBodies.Clear();
-        HideShellBodies();
-        _shellBodies.Clear();
 
         // A different platform deserves a fresh assessment: a latch left set from the stack it came
         // off means IsLaid never goes true and the launcher holds fire without saying why.
@@ -3069,6 +3052,14 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
             _looseBodies[round] = new LooseBody(LauncherPart.ModelOf(_missileBodies[index]), blades,
                                                 blades.Length == 0 ? LauncherPart.ModelOf(FinsFor(index)) : null);
+        }
+
+        foreach (IProjectile round in _rounds)
+        {
+            if (_shellModel is not null && RoundLabel.IsGunRound(round.Tube) && _drawnAttitudes.ContainsKey(round))
+            {
+                _looseBodies[round] = new LooseBody(_shellModel, [], null);
+            }
         }
 
         // The engine sheds part of a destroyed craft as debris, and a launcher shed that way carries
@@ -4383,7 +4374,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         {
             for (int i = 0; i < _missileBodies.Count; i++) LauncherPart.HideMissile(_missileBodies[i]);
             for (int i = 0; i < _finBodies.Count; i++) LauncherPart.HideMissile(_finBodies[i]);
-            HideShellBodies();
         }
 
         if (hadRounds)

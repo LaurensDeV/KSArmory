@@ -278,7 +278,7 @@ public static class Arsenal
 
         Name = "5IN54",
         DisplayName = "5\"/54 HEDP",
-        BodyMarker = "Mk42_Shell",
+        BodyModel = "KSArmory_Mk42Shell_SubPart",
         BodyLength = 0.42825f,
 
         LaunchSpeed = 807.7f,

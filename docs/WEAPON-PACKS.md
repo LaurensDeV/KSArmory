@@ -114,7 +114,7 @@ Four rules that between them explain most refusals:
 
 | | Default | |
 | --- | --- | --- |
-| `BodyMarker` | *none* | subpart holding the round's mesh; without one it draws as a tracer |
+| `BodyMarker` | *none* | subpart holding the round's mesh; without one a gun round is drawn as a streak, glowing if `TracerEvery` makes it a tracer |
 | `FinMarker` | *none* | subpart holding one fin blade |
 | `Guidance` | `CommandLink` | `Seeker`, `AntiRadiation`, `CommandLink`, `Inertial`, `None` |
 | `NavConstant` | `4` | proportional-navigation gain; `0` flies straight |
@@ -143,6 +143,7 @@ Four rules that between them explain most refusals:
 | `ChuteSinkMetresPerSecond` | `0` | a parachute, described by how fast it brings the store down at sea level once open. `0` is none. Needs `HitsTerrain` |
 | `ChuteOpensSeconds` | `1.5` | when after release the chute opens; it fills over a second |
 | `BodyLength` | `3.10` | m, for drawing |
+| `BodyModel` | *none* | a gun round's model: the Id of a `<SubPart>` template, drawn once per shell in the air with no subpart on the launcher, so there is no limit on how many are seen. Without one a shell is a streak |
 | `TracerEvery` | `0` | a gun round: one in this many burns a tracer, as a belt is loaded. The rest are drawn as a faint grey streak, as bright as the player's **Rounds between tracers** setting. `0` is none |
 | `TracerBurnSeconds` | `3` | how long a tracer burns before it goes out; the round flies on unseen |
 | `FinDeploySeconds` | `0.18` | |

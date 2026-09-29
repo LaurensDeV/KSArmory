@@ -622,6 +622,24 @@ internal static class LauncherPart
 
 
     /// <summary>
+    /// The mesh a declared <c>&lt;SubPart&gt;</c> template is drawn with, by its Id, with no part of
+    /// it on any craft. Null for an Id nothing declares.
+    /// </summary>
+    public static PartModel? ModelOfTemplate(string? templateId)
+    {
+        if (string.IsNullOrEmpty(templateId)) return null;
+
+        try
+        {
+            return ModelOf(ModLibrary.Get<PartTemplate>(templateId)?.Components);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
     /// The mesh a part is drawn with. Shared by every part of its template and kept by the engine for
     /// the session, so it outlives the craft the part was on.
     /// </summary>
@@ -629,16 +647,22 @@ internal static class LauncherPart
     {
         try
         {
-            if (part?.Template?.Components is not { } components) return null;
-
-            foreach (ModuleBase.TemplateDataBase component in components)
-            {
-                if (component is PartModelModule.Template template) return PartModel.Get(template);
-            }
+            return ModelOf(part?.Template?.Components);
         }
         catch
         {
             // A part mid-teardown has nothing to lend.
+            return null;
+        }
+    }
+
+    private static PartModel? ModelOf(List<ModuleBase.TemplateDataBase>? components)
+    {
+        if (components is null) return null;
+
+        foreach (ModuleBase.TemplateDataBase component in components)
+        {
+            if (component is PartModelModule.Template template) return PartModel.Get(template);
         }
 
         return null;

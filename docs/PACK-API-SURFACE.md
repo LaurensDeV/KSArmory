@@ -11,7 +11,7 @@ ignored.
 
 `docs/WEAPON-PACKS.md` is the same surface written for the author, with the reasons attached.
 
-**Definition schema 1.** 8 elements, 126 attributes, 15 entry-point lines.
+**Definition schema 1.** 8 elements, 129 attributes, 15 entry-point lines.
 
 ## Entry point
 
@@ -43,8 +43,11 @@ to build; widening it to take a profile type would put that back.
 | `Name` | text, required | **required** |
 | `DisplayName` | text, required | **required** |
 | `BodyMarker` | text | *none* |
+| `BodyModel` | text | *none* |
 | `FinMarker` | text | *none* |
 | `BodyLength` | number | `3.10` |
+| `TracerEvery` | whole number | `0` |
+| `TracerBurnSeconds` | number | `3` |
 | `FinDeploySeconds` | number | `0.18` |
 | `FinDeflectionDeg` | number | `0` |
 | `FinHingeStation` | number | `0` |

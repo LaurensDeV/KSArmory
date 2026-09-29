@@ -639,6 +639,10 @@
     </MeshView>
   </SubPart>
 
+  <!--
+    The 5"/54's shell. Declared and instanced by nothing: every shell in the air is drawn as this
+    model (the munition's BodyModel), so the mount carries no subpart for any of them.
+  -->
   <SubPart Id="KSArmory_Mk42Shell_SubPart">
     <PartModel Id="KSArmory_Subpart_Mk42Shell_Model">
       <Mesh Id="KSArmory_Subpart_Mk42Shell" />
@@ -1589,113 +1593,6 @@
       </Transform>
     </SubPart>
 
-    <!--
-      Shell bodies, lent to shells in flight and hidden otherwise. Twenty: a timed shell flies up to
-      43 s to the edge of its 15.7 km envelope and the gun fires one every 1.5 s, so a long engagement
-      can have more shells up than bodies, and a shell finding none free draws as a tracer. Parked in the breech, where the gun house hides them until the mod first
-      runs, and a centimetre apart, because identical bodies on one point share every plane they have.
-      The second ten were added after the first shipped, so they come after them.
-    -->
-    <SubPart Id="KSArmory_Mk42_Shell00" InstanceOf="KSArmory_Mk42Shell_SubPart">
-      <Transform>
-        <Position X="1.55441" Y="0.48097" Z="-0.04500" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mk42_Shell01" InstanceOf="KSArmory_Mk42Shell_SubPart">
-      <Transform>
-        <Position X="1.55441" Y="0.48097" Z="-0.03500" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mk42_Shell02" InstanceOf="KSArmory_Mk42Shell_SubPart">
-      <Transform>
-        <Position X="1.55441" Y="0.48097" Z="-0.02500" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mk42_Shell03" InstanceOf="KSArmory_Mk42Shell_SubPart">
-      <Transform>
-        <Position X="1.55441" Y="0.48097" Z="-0.01500" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mk42_Shell04" InstanceOf="KSArmory_Mk42Shell_SubPart">
-      <Transform>
-        <Position X="1.55441" Y="0.48097" Z="-0.00500" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mk42_Shell05" InstanceOf="KSArmory_Mk42Shell_SubPart">
-      <Transform>
-        <Position X="1.55441" Y="0.48097" Z="0.00500" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mk42_Shell06" InstanceOf="KSArmory_Mk42Shell_SubPart">
-      <Transform>
-        <Position X="1.55441" Y="0.48097" Z="0.01500" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mk42_Shell07" InstanceOf="KSArmory_Mk42Shell_SubPart">
-      <Transform>
-        <Position X="1.55441" Y="0.48097" Z="0.02500" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mk42_Shell08" InstanceOf="KSArmory_Mk42Shell_SubPart">
-      <Transform>
-        <Position X="1.55441" Y="0.48097" Z="0.03500" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mk42_Shell09" InstanceOf="KSArmory_Mk42Shell_SubPart">
-      <Transform>
-        <Position X="1.55441" Y="0.48097" Z="0.04500" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mk42_Shell10" InstanceOf="KSArmory_Mk42Shell_SubPart">
-      <Transform>
-        <Position X="1.55441" Y="0.48097" Z="-0.09500" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mk42_Shell11" InstanceOf="KSArmory_Mk42Shell_SubPart">
-      <Transform>
-        <Position X="1.55441" Y="0.48097" Z="-0.08500" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mk42_Shell12" InstanceOf="KSArmory_Mk42Shell_SubPart">
-      <Transform>
-        <Position X="1.55441" Y="0.48097" Z="-0.07500" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mk42_Shell13" InstanceOf="KSArmory_Mk42Shell_SubPart">
-      <Transform>
-        <Position X="1.55441" Y="0.48097" Z="-0.06500" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mk42_Shell14" InstanceOf="KSArmory_Mk42Shell_SubPart">
-      <Transform>
-        <Position X="1.55441" Y="0.48097" Z="-0.05500" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mk42_Shell15" InstanceOf="KSArmory_Mk42Shell_SubPart">
-      <Transform>
-        <Position X="1.55441" Y="0.48097" Z="0.05500" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mk42_Shell16" InstanceOf="KSArmory_Mk42Shell_SubPart">
-      <Transform>
-        <Position X="1.55441" Y="0.48097" Z="0.06500" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mk42_Shell17" InstanceOf="KSArmory_Mk42Shell_SubPart">
-      <Transform>
-        <Position X="1.55441" Y="0.48097" Z="0.07500" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mk42_Shell18" InstanceOf="KSArmory_Mk42Shell_SubPart">
-      <Transform>
-        <Position X="1.55441" Y="0.48097" Z="0.08500" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mk42_Shell19" InstanceOf="KSArmory_Mk42Shell_SubPart">
-      <Transform>
-        <Position X="1.55441" Y="0.48097" Z="0.09500" />
-      </Transform>
-    </SubPart>
 
     <!--
       Node attach at the mounting face. No ToSurface flag: this one stacks. Scale is the node's

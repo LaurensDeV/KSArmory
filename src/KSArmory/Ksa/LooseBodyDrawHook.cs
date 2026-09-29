@@ -5,7 +5,10 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// Draws the bodies of rounds whose launcher has been destroyed.
+/// Draws the bodies of rounds whose launcher has been destroyed, and every gun shell in the air.
+///
+/// <para>A shell is drawn this way even with its launcher alive: an instance needs no subpart, so the
+/// number in the air is not bounded by how many the part declares.</para>
 ///
 /// <para>A round's body is a subpart of its launcher, and a destroyed craft's parts are released with it.
 /// The mesh a part is drawn with is not: <c>PartModel</c> is shared by every part of its template and
