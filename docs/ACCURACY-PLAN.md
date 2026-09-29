@@ -6673,6 +6673,11 @@ later, and the largest push among their pre-split `Ccf` probes is **0.20 m/s** a
 the five it ruined before. `--frame-check` now counts a `Ccf` probe only above 1 m/s, which keeps
 all five and re-flies none of the 37.
 
+The sustained pre-split pushes the gate never counted, 2–4 m/s on `2026-09-14-miss` shots 17–19, are
+not a fault either. Those shots lost seat 1 to KSA's update modal; with `GeoSat FAT` gone, KSA gave
+that name to FAT 8's bus when it split, and the probes are that bus trimming off its dropped stage.
+The gate follows craft by name, so a reused name reads as a rocket that has not split.
+
 ### The second finding: the dwell is a race, not a hold
 
 `PostBoostAim` clears "a correction has been flown" on the frame the trim settles, but `Predict`
