@@ -2786,7 +2786,7 @@ played through by the owner on 2026-09-29.
       2026-09-29: its sounds had no priority, so at FMOD's 128 they lost every real voice to Core's
       explosions at 123–124. Now 110. Watch KSA's Audio Debug window, where a silenced sound is
       marked `(virtual)`.
-- [ ] At night the rounds between tracers are not seen at all, and at dusk they fade rather than
+- [x] At night the rounds between tracers are not seen at all, and at dusk they fade rather than
       switching off: they are sunlight off the round, full with the sun 10° up and gone at 6° below.
       Only the tracers should show in the dark.
 - [x] The glow ends where the tracers burn out, just short of where the shells expire, and the burnt-out
