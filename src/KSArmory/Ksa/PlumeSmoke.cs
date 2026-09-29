@@ -22,8 +22,8 @@ namespace KSArmory;
 /// mod-declared plume is the <c>isActive</c> argument, computed where the engine calls this for a
 /// nozzle. A caller passing its own never meets it: no nozzle, no propellant, no thrust.</para>
 ///
-/// <para><b>Colour, density and lifetime are per-emitter</b>, passed at submit time — so tinting
-/// this mod's smoke no longer reaches KSA's own boosters, which read their own plume template. The
+/// <para><b>Colour, density and lifetime are per-emitter</b>, passed at submit time — so what
+/// this mod lays never reaches KSA's own boosters, which read their own plume template. The
 /// one thing it still cannot do is draw anywhere but the camera's nearby body, air or not.</para>
 /// </summary>
 internal static class PlumeSmoke
@@ -35,39 +35,8 @@ internal static class PlumeSmoke
     /// <summary>Whether the renderer was found. False means nothing of this will draw.</summary>
     public static bool Available => Resolve() is not null;
 
-    /// <summary>
-    /// Dirties the smoke, or puts it back.
-    ///
-    /// <para>One colour for everything this mod lays, which is what the clouds want: they are all
-    /// the same smoke. It reaches nothing else — a segment carries its own colour now, so a booster
-    /// burning while a cloud stands keeps its own.</para>
-    ///
-    /// <para>A nuclear cloud is genuinely not white for most of its life: reddish-brown early from
-    /// nitrogen oxides made at the fireball's surface, then muddy grey-brown wherever it lifted
-    /// ground with it. Pure white is the condensation at the very top of a clean air burst.</para>
-    /// </summary>
-    public static void Tint(bool dirty)
-    {
-        _colour = dirty ? Dirty : Clean;
-    }
-
-    // What Lay stamps on each segment. Not read by anything until the next segment is laid, so a
-    // colour set while nothing is burning simply applies to whatever is laid next.
-    private static float3 _colour = Clean;
-
-    // Warm grey, and darker than white on every channel: the colour multiplies the sunlight and the
-    // sky ambient together, so pulling it down is what takes the glare off as well as the hue.
-    //
-    // It has to go a long way down to read as dirt. At 0.55 the cloud came back pale blue-white in
-    // flight -- the multiply survives a bright sun, and the atmosphere's in-scatter then adds its
-    // own blue on top, so a mid grey lands somewhere near cumulus. Test photographs put the cloud
-    // well under half the albedo of the weather cloud beside it, which is what this is.
-    //
-    // Properties rather than static fields, because _colour above is initialised from Clean and
-    // static initialisers run in textual order: a field declared here still reads (0, 0, 0) there,
-    // and every trail is laid black.
-    private static float3 Dirty => new(0.30f, 0.26f, 0.21f);
-    private static float3 Clean => new(1f, 1f, 1f);
+    // Every segment is laid white: motor and flare trails are all that go through this renderer.
+    private static readonly float3 Colour = new(1f, 1f, 1f);
 
     /// <summary>
     /// A cursor laying smoke. One per strand of the shape: move it and it draws a capsule from
@@ -104,7 +73,7 @@ internal static class PlumeSmoke
         try
         {
             renderer.SubmitEmitter(strand.State, body, positionCcf,
-                                   initialRadius, expandedRadius, _colour,
+                                   initialRadius, expandedRadius, Colour,
                                    density, StockLifetimeSeconds, isActive: true);
         }
         catch (Exception e)
