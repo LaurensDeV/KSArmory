@@ -180,6 +180,42 @@ is a vehicle apparently sitting at the solar system barycentre.
 
 `IParentBody.Mu` is a plain property — no need to hunt for the gravitational parameter.
 
+### Spawning a kitten on EVA, with a velocity of your choosing
+
+A kitten outside a craft is a `KittenEva`, a `Vehicle` subclass, and the game flies it like any
+other: gravity, drag, tumbling on landing and getting back up, all without the mod touching it
+again. `EVADoor.CreateKittenEva` is private and spawns at the door with the craft's own velocity,
+but everything it calls is public, so a mod can build one anywhere, moving any way:
+
+```csharp
+using ShapesUnlock shapes = ConstraintSim.UnlockShapesBlocking();   // see TestTarget
+Orbit orbit = Orbit.CreateFromStateCci(parent, Universe.GetElapsedTime(), posCci, velCci, colour);
+KittenEva eva = new(system, roster.Character, body2Cce, bodyRates, parent, roster.Name, backpack, orbit);
+craft.RemoveCrew(seat.AssignedKittenHash);                 // after the constructor, so a throw
+roster.TransferToVehicle(KittenRosterEntryData.EvaAssignmentId);   // leaves the kitten seated
+parent.Children.Add(eva);
+eva.UpdateAfterPartTreeModification();
+eva.UpdatePerFrameData();
+```
+
+- **Pass the orbit to the constructor; do not `Teleport`.** `Vehicle.Teleport` recomputes the whole
+  trajectory and, if that fails, logs an error and drops the new orbit without applying it — which a
+  state already intersecting the ground can do.
+- **The vehicle Id must be the roster name.** The game links a kitten on EVA to its roster entry
+  only through that (`KittenRosterWindow`, `Vehicle.KillCrew`, `CrewPortraitPanel`, `Dispose`), and
+  a second vehicle with the same Id is refused by `LookupCollection.Register` and left half-built.
+- **The backpack** is the `KittenBackPackPart` template: `ModLibrary.Get<PartTemplate>` (the
+  `AllParts` list `EVADoor` uses is internal), `new Part(id, template)`, `CreateOwnTree()`,
+  `ReinitializeDerivedValues()`, then `ResourceGroupList.CalculateStages(reconfigureTankContents:
+  true)` in place of the internal `RecreateResourceManagers`, then `RefillConsumables()`.
+- **Nothing moves the camera or the controls.** `EVADoor.SpawnEva` does that itself afterwards
+  (`camera.SetFollow`, `Program.ControlledVehicle = eva`). It also multiplies the kitten's orbit
+  distance by the craft's radius over the kitten's, which from a large craft leaves the view
+  kilometres off; keep the kitten's own `OrbitView.DistancePower` instead.
+- **A kitten dies at 125 g**, filtered over `radius / 200` seconds: `EffectiveMaxGLoad` is 50 g for
+  anything under 5 m, times 2.5 for a kitten (`PhysicsBubble.DetectStructuralFailure`). It is then
+  marked KIA and kept on the roster's LOST tab. `PartFailure` ignores kittens entirely.
+
 ### Per-frame buffers are not readable from a StarMap hook
 
 `Program.VehiclesInFrame` reads back **empty** from `[StarMapAfterOnFrame]`. It is a `FrameSpan`
@@ -334,6 +370,18 @@ than constants — Core's `CoreLaunchPadA_Prefab_LaunchPadA` is 0.2 m + 1.5537 m
 circle — and `LocationReference.GetStaticObject()` is public, so anything drawing a preview marker
 can read the same figures instead of copying them.
 
+**It faces the craft east.** `GetInitialKinematicStateForLocation` builds the attitude with
+`ComputeBody2Cce(radial, south)`, which puts the part's +X straight up, +Y east and +Z north. So a
+craft cannot be set down facing another way through this call; to aim a fixed launcher in a given
+direction, choose *where* it stands instead.
+
+**Very large craft stop being placeable.** Measured on Luna with one part scaled up, at the same
+mass: a 383 km base is set down, stands and is drawn; at 1,160 km it is set down but the camera
+never frames it; at 3,480 km it is left 1,723 km above the ground. Also measured: that 383 km part
+went NaN at 10¹² kg ("unclassifiable orbital energy: NaN" every step) and was fine at 5×10⁷ kg; and
+colliders spanning the whole of it held the world at 0.09x real time, where one small box under
+its middle ran at full speed. See [How large a craft the engine will take](#how-large-a-craft-the-engine-will-take).
+
 ### Aiming the player's camera — `OrbitView`, not `OrbitController`
 
 Writing `Camera.LocalRotation` does nothing lasting: every viewport runs a controller that rebuilds
@@ -465,6 +513,29 @@ registration lists are internal, so a genuinely new part module needs Harmony pa
 them. Simulating the behaviour from a StarMap hook instead avoids all of that, and is what this
 repo does — from `[StarMapAfterGui]` rather than the frame hook, because a postfix on `OnFrame`
 lands *after* the render it was meant to feed. See `docs/FRAMES-AND-EPOCHS.md`.
+
+### A subpart is found at runtime by the Id its part gives it
+
+`Part.SubParts[i].Id` is the Id on the `<SubPart>` *inside the `<Part>`* (`KSArmory_Ciws_Turret`),
+not the template it instances (`KSArmory_CiwsTurret_SubPart`). A marker matched against the
+template's spelling finds nothing, and a body that is never found is simply never moved — the part
+loads and draws at its modelled pose, and no log says why.
+
+### A crew seat on a mod's own part
+
+- **An `<IVASeat>` can sit directly in a part's `<PartGameData>`**, as Core's internal parts do
+  (`CoreIVASpaceAGameData.xml`); `IVASeat.CreateComponents` runs for every part and subpart. A crew
+  window, the launch menu and a save (`<IVASeatData AssignedKittenName="…" />`) all fill it.
+- **Its `PositionAsmb`, `ForwardAxisAsmb` and `UpAxisAsmb` are public fields** in the owning part's
+  frame, and the seated kitten is drawn from them every frame, so writing them moves the kitten.
+  Up is the direction its head points, forward the way it faces.
+- **Seated kittens are only drawn on `Program.ControlledVehicle`** (`Vehicle.UpdateSeatedCrewRenderData`).
+- **The model is drawn 0.63 m under the seat point** (`KittenLocomotionTuning.SeatedOffset`), and the
+  seated pose rests well above that: a seat point on the surface sinks the kitten to its neck, one
+  0.48 m up leaves it hovering, and 0.12 m up looked seated from 50 m away, not checked closer.
+- **Boarding needs an `<EVADoor SeatId="…" />`**, which goes on a `<SubPartGameData>` of the same
+  part. A kitten boards only from within 1 m of that subpart's origin (`KittenEva.CanBoardDoor`), so
+  the door belongs on a subpart whose origin a kitten can actually walk up to.
 
 ### What lets a part start a craft, and what lets one be bolted to
 
@@ -837,6 +908,31 @@ gizmo submission and `Universe.DestroyVehicleFromEvent` are safe from there. Veh
 itself runs on worker threads via `VehicleUpdateTask`; do not mutate vehicle state from those.
 
 Never destroy vehicles while iterating `Program.VehiclesInFrame` — copy to a list first.
+
+## Every way the engine destroys a craft goes through one call
+
+A hard landing, the ground, the sea, a collision, too much g and too much dynamic pressure are all
+raised by `PhysicsBubble.DetectStructuralFailure` as a `VehicleDestructionEvent` and applied by
+`Universe.DestroyVehicleFromEvent` (public static), from `ApplyRenderEventsToVehicles` on the main
+thread. That spawns the explosion, sheds debris and calls `DestroyVehicle(Kill)`. A Harmony prefix
+there returning false is a per-vehicle veto on all of them at once; the event is raised again every
+step the vehicle stays in trouble. Installing one works; whether sparing a craft that way leaves it
+in a sane state has not been flown.
+
+## How large a craft the engine will take
+
+One part scaled from 12 km to 3,480 km, set down on Luna with `TeleportToLocation`:
+
+| Base length | Mass | Result |
+| --- | --- | --- |
+| 12–383 km | 5×10⁷ kg | set down, stands, drawn, no errors |
+| 383 km | 10¹² kg | NaN from the first step, logged every frame |
+| 1,160 km | 5×10⁷ kg | set down, but the camera never frames it |
+| 3,480 km | 5×10⁷ kg | left 1,723 km above the ground |
+
+Colliders cost with their size: two boxes spanning a 383 km part held the world at 0.09x real time
+(the engine holding every frame, the mod's own work 0.2 ms of it); one 2 km box under its middle ran
+at 1.00x. Past a few kilometres a flat base only touches a curved body in the middle anyway.
 
 ## Held controls are cleared on the controlled vehicle while the UI has the keyboard
 

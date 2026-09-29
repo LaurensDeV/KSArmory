@@ -868,6 +868,10 @@ neither of them is longer than a page.
    A save names each subpart's template the same way (`SubPartRef InstanceOf`), so treat those as
    fixed too until a rename of one alone has been loaded.
 
+   **A drive finds its subpart by the Id the `<Part>` gives it**, not the `<SubPart>` template's Id:
+   the CIWS's marker is `Ciws_Turret`, from `KSArmory_Ciws_Turret`. The template's spelling matches
+   nothing, and a body never found is never moved, with nothing in the log.
+
    **A stacking connector carries its diameter as `<Scale>`.** A Core tank has a second, `Internal`
    node just inside each end, and KSA mates a part there whenever the part's own node is no larger
    than it. An unsized node is size one, so a 3 m part sinks onto it — 8 cm into a 2 m tank, 24.5 cm

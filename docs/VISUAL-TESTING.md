@@ -249,6 +249,24 @@ Public-domain frames from the Nevada tests with their yield, range and time afte
 sheet that puts one beside a capture at the same age and framing. "How does ours differ from a real
 one" was answered from memory on the night; this answers it from pictures.
 
+## Two things that come up every session
+
+**A frame-rate drop is the mod's or the engine's, and two log lines say which.** Turn the verbose
+log on through the bridge (`set` with `VerboseLog`, which also moves `Log.Threshold`), wait for two
+ten-second windows, and turn it off. `mod frame:` is the mod's own cost per frame, split by stage;
+`solver load:` beside it is the engine's — how much world time passed per real second, and how many
+frames it held back. The mod at 0.2 ms beside `0.09x real time, 99 frame(s) held` is the engine. The
+first window after the switch includes the switch itself, so read the second. `cost` is the GPU
+side: the whole frame against the cloud pass.
+
+**A test save is a copy of one that already has a craft standing where you want.** Swap that
+craft's `<RootPartRef>` for your part (with its `<SubPartRef>`s, and any `<IVASeatData>`), rename
+the `<Vehicle Id>` and the `<Following Id>`, and give it its own `meta.toml` name. Three things
+bite: each save rolls its own kitten roster, so a seated kitten must be one of that save's names,
+marked assigned; the `Test` system is Earth alone and only `SolLite` saves have Luna, which the
+bridge's `site` can then reach; and a save naming a part that no longer exists terminates the game
+when loaded, so delete test saves with the parts they name.
+
 ## What cannot be had
 
 - **Headless rendering.** KSA ships Windows-only natives and runs its simulation through a Vulkan

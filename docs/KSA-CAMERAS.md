@@ -253,6 +253,19 @@ frame/origin shift. `Program.GetOrbitController()` (`Program.cs:614`) returns th
 **Overwritten every frame:** `Camera.LocalRotation`, `Camera.PositionCce` (hence `PositionEcl`),
 `Camera.NoRotation`. A mod write to any of these in `Orbit` mode is lost.
 
+**It cannot get closer than half the followed object's radius.** Its distance is
+`DistancePower * MeanRadius`, and zooming clamps `DistancePower` at 0.5 (`OrbitController.cs:428`,
+`:617` in the current build). On a craft kilometres across, anything small on it — a seated kitten,
+a detail — cannot be framed. Following a mod `IFollowable` placed on the detail, with a `MeanRadius`
+of a metre, gets as close as wanted.
+
+**Only four kinds of followable get a real reference frame.** `GetFrame2Ecl` handles `Vehicle`,
+`Celestial`, `VehicleEditingSpace` and `WreckageMarker` (`OrbitController.cs:233-333`); anything else
+is given the ecliptic, so a mod `IFollowable` orbited by this controller has its horizon rolled by
+the site's angle from the ecliptic pole. `WreckageMarker` is sealed and fixed where it is made, so a
+level horizon on a mod followable needs `FixedController` with its own up — see
+`Ksa/LevelHorizonController.cs`.
+
 **The useful exception:** `Orbit` mode with `Camera.Unfollow()` — `OnFrame` returns at `:471-475`
 without touching anything, `OnCursorPos`/`OnScroll` no-op because `Camera.Following?.OrbitView` is
 null (`:347`, `:362`, `:387`). That is a **fully mod-driven camera with no controller writes at all**,

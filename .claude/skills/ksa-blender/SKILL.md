@@ -69,6 +69,10 @@ live session — the check on what actually left Blender, which is not always wh
 built. That is a different question from looking at the model, and the only one renders are still
 the right tool for.
 
+A long build script is easier to iterate on as a file than as one `execute_blender_code` payload:
+Blender runs on Windows and reads a WSL path as `\\wsl.localhost\<distro>\...`, so keep the script
+in the scratchpad and `exec(open(path).read(), ns)` it, editing between runs.
+
 ### When the connection is down
 
 The addon listens on **127.0.0.1:9876** inside Blender's own process, and only once **Start MCP
@@ -247,6 +251,15 @@ The traps, all of which fail quietly:
   nothing.
 - **Check the result, do not assume it.** `min`, `mean` and `max` over the pixels costs one line
   and is the difference between a bad map and a bad map you shipped.
+- **A fully metallic surface bakes black in the `DIFFUSE` colour pass.** Set Metallic to 0 on every
+  material for that pass and put it back afterwards; the metalness comes from its own pass anyway.
+- **Blender 5 moved UV selection off the loop's UV data.** `BMLoopUV.select` is gone; it is
+  `BMLoop.uv_select_vert` now, and a script written against the old attribute fails outright.
+- **A copy made for export clashes with the original's name.** `bpy.data.objects.new(name, …)`
+  becomes `name.001` while the original exists, and the export writes that. Export the originals
+  (zeroing any display offset for the export), and make only the `_VM` twins as copies.
+- **A scaled copy shares the atlas.** Scaling a body's mesh keeps its UVs, so a part at another
+  size needs a new `.glb` and no new bake or textures.
 
 ### The background of the atlas is not empty, it is a colour you are choosing
 
