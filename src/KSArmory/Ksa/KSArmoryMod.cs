@@ -111,6 +111,7 @@ public sealed class KSArmoryMod
 
     // What each craft's weapons are doing between them, as against what each is doing alone.
     private readonly Armaments _armaments = new();
+    private readonly TravelSweeps _travel = new();
 
     // Development tool: pick a craft up and set it down somewhere else.
     private readonly CraftMover _mover = new();
@@ -649,6 +650,7 @@ public sealed class KSArmoryMod
         _roster.ReconcileSteerables();
 
         using (_budget.Measure("sample")) foreach (WeaponSystems.Entry e in _roster.All) e.Weapon.SampleWorld();
+        using (_budget.Measure("travel")) _travel.Step(_roster.All, _ui?.Focused);
         using (_budget.Measure("headsample")) _heads?.SampleWorld();
 
         // Gate on the step the engine applied, not on the pause flag. Universe.IsPaused() is

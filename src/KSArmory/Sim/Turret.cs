@@ -70,10 +70,29 @@ public sealed class Turret
     /// <summary>How far either side of forward the traverse may go; pi or more is unlimited.</summary>
     public double TraverseLimitRad { get; set; } = Math.PI;
 
-    private bool TraverseLimited => TraverseLimitRad < Math.PI;
+    /// <summary>
+    /// Where the craft this mount is on leaves its gun room to point. Once set, it replaces
+    /// <see cref="TraverseLimitRad"/> and narrows the elevation at each bearing.
+    /// </summary>
+    public TravelMap? Map { get; set; }
+
+    /// <summary>The arc the traverse may cover, <c>Lo &lt;= 0 &lt;= Hi</c>, or null for a whole turn.</summary>
+    public (double Lo, double Hi)? Arc
+        => Map is { } map ? map.Arc
+         : TraverseLimitRad < Math.PI ? (-TraverseLimitRad, TraverseLimitRad)
+         : null;
+
+    // A bearing in the arc's own unwrapped coordinate, [Lo, Lo + 2pi): past Hi is the gap.
+    private static double Unwrapped(double bearingRad, double lo) => lo + TravelMap.Mod(bearingRad - lo, Math.Tau);
 
     private double ClampBearing(double bearingRad)
-        => TraverseLimited ? Math.Clamp(bearingRad, -TraverseLimitRad, TraverseLimitRad) : bearingRad;
+    {
+        if (Arc is not (double lo, double hi)) return bearingRad;
+
+        double u = Unwrapped(bearingRad, lo);
+        if (u <= hi) return WrapPi(u);
+        return WrapPi(u - hi < lo + Math.Tau - u ? hi : lo);
+    }
 
     /// <summary>Lowest elevation the pods may take at a given bearing: flat across the sector the
     /// bodywork occupies, then easing so traversing out of it lowers them rather than dropping
@@ -197,9 +216,24 @@ public sealed class Turret
     }
 
     private double ClampElevation(double elevation, double atBearingRad)
-        => !double.IsFinite(elevation)
-            ? ElevationRad
-            : Math.Clamp(elevation, DepressionFloorAt(atBearingRad), MaxElevationRad);
+    {
+        if (!double.IsFinite(elevation)) return ElevationRad;
+        (double floor, double ceiling) = ElevationBandAt(atBearingRad);
+        return Math.Clamp(elevation, floor, ceiling);
+    }
+
+    /// <summary>The elevation the drive may take at a bearing: the profile's travel and the map's.</summary>
+    public (double Floor, double Ceiling) ElevationBandAt(double bearingRad)
+    {
+        double floor = DepressionFloorAt(bearingRad), ceiling = MaxElevationRad;
+        if (Map is { } map)
+        {
+            (double mapFloor, double mapCeiling) = map.BandAt(bearingRad);
+            floor = Math.Max(floor, mapFloor);
+            ceiling = Math.Min(ceiling, mapCeiling);
+        }
+        return (floor, Math.Max(floor, ceiling));
+    }
 
     /// <summary>
     /// Advances the drive. Turns the short way round and never faster than
@@ -215,8 +249,8 @@ public sealed class Turret
             // A limited traverse steps without wrapping, so it never takes the short way through
             // the arc behind it.
             double step = slewRateRadPerSec * dt;
-            BearingRad = TraverseLimited
-                ? ClampBearing(BearingRad + Math.Clamp(command - BearingRad, -step, step))
+            BearingRad = Arc is (double lo, double hi)
+                ? StepWithinArc(BearingRad, ClampBearing(command), step, lo, hi)
                 : StepToward(BearingRad, command, step);
         }
 
@@ -233,9 +267,21 @@ public sealed class Turret
         // The interlock, enforced against where the turret *is* rather than where it was told
         // to go. Traversing into the forward arc with the pods low has to lift them out of the
         // bodywork on the way round, not once it arrives.
-        ElevationRad = Math.Clamp(ElevationRad, DepressionFloorAt(BearingRad), MaxElevationRad);
+        (double floorNow, double ceilingNow) = ElevationBandAt(BearingRad);
+        ElevationRad = Math.Clamp(ElevationRad, floorNow, ceilingNow);
 
         SecondsOnTarget = OnTarget ? SecondsOnTarget + dt : 0.0;
+    }
+
+    // Inside the arc a plain clamped move. A mount the arc arrived around while it stood in the gap
+    // leaves by the nearer end, rather than jumping to it.
+    private static double StepWithinArc(double from, double to, double maxStep, double lo, double hi)
+    {
+        double u = Unwrapped(from, lo);
+        if (u > hi) return StepToward(from, WrapPi(u - hi < lo + Math.Tau - u ? hi : lo), maxStep);
+
+        double target = Unwrapped(to, lo);
+        return WrapPi(u + Math.Clamp(target - u, -maxStep, maxStep));
     }
 
     /// <summary>Moves <paramref name="from"/> toward <paramref name="to"/> the short way, by at
@@ -263,6 +309,7 @@ public sealed class Turret
     {
         BearingRad = 0.0;
         ElevationRad = RestElevationRad;
+        Map = null;
         CommandRad = null;
         CommandElevationRad = null;
         SecondsOnTarget = 0.0;

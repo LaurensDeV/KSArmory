@@ -1372,7 +1372,9 @@ three muzzles, `ActuatorLinkageTests` and the traverse-limit tests.
 
 - [ ] It renders painted, hanging under the host with the barrels forward.
 - [ ] It surface-attaches under a nose and is greyed out on an empty editor, as a store is.
-- [ ] The yoke traverses and stops at ±110°, turning the long way round rather than through the host.
+- [ ] The yoke traverses and stops at ±110° until its travel map is swept, then at whatever its craft allows — all the way round on the side of a rocket. The log's `travel map:` line says which, and what the sweep cost.
+- [ ] A gun whose line of fire meets its own craft does not fire through it; the Mk 42 on a deck and the CIWS on a stack get the same map.
+- [ ] A craft breaking up is swept once it settles, with no hitch in the frame budget's `travel` entry.
 - [ ] Each cylinder turns on its top pin and its rod slides out as the gun depresses, staying on the
       gun's pin from -10 to +50.
 - [ ] The belt turns 10° at 50° of depression.

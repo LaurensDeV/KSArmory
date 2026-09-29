@@ -352,6 +352,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/RoundLabel.cs` | what to call a round in a line somebody reads — **the one place the tube field's sentinel is decoded**, because a shell has no tube |
 | `Sim/TubeGeometry.cs` | tube positions and directions, pod and radar pose, body placement |
 | `Sim/Turret.cs` | rate-limited traverse and elevation drives — **a limited traverse turns the long way round**, never through the host behind it |
+| `Sim/TravelMap.cs` | where a gun can point without its barrels or its line of fire meeting its own craft — **a traverse arc and a band of elevation per bearing**, which replace the profile's fixed limit once swept |
+| `Sim/TravelSweep.cs` | which poses of that map to test — **coarse first, then only where the answer changes**, so an obstacle smaller than 10 deg both ways can be missed |
 | `Sim/ActuatorLinkage.cs` | a cylinder on the traverse and a rod on the cannon, posed from the elevation — drawn only |
 | `Sim/GunRotor.cs` | a rotary cannon's barrel cluster, spun up to a barrel per round while it fires and run down after — drawn only |
 | `Sim/PointingDrive.cs` | a head that points rather than trains — two degrees of freedom, no axes of its own |
@@ -477,6 +479,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/OpticParts.cs` | finds a director on a craft, and turns its head |
 | `Ksa/OpticalHead.cs` | **one director** — its own sensor, its own aim, no weapon involved |
 | `Ksa/OpticalHeads.cs` | one head per director fitted, crewed with the craft and followed across a split |
+| `Ksa/TravelSweeps.cs` | sweeps each gun's travel against its own craft with the engine's part ray casts — **50 rays and 1 ms a frame across every mount**, the craft on the panel first, and only once a craft has kept its shape for 60 frames, so a break-up is swept once. Other mounts are left out, since their barrels move |
 | `Ksa/Countermeasures.cs` | every dispenser fitted and every decoy in the air — **stepped after the airborne sample and before any round**, so a seeker reads a decoy as it reads a craft, at the end of the step it integrates |
 | `Ksa/InstalledPacks.cs` | reads those folders and registers what is in them — **what lets a pack be assets only** |
 | `Ksa/DeclaredParts.cs` | the part library as that seam — off `PartTemplate`, because the question is what was *declared*, not what is on a craft |
