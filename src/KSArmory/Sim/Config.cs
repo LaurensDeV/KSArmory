@@ -471,4 +471,21 @@ public sealed class Config
     /// the cone is shown as a shape near the craft that conveys direction and angle.
     /// </summary>
     public float ConeDisplayMetres = 2500f;
+
+    /// <summary>A copy of every setting as it stands now, to be put back with <see cref="Restore"/>.</summary>
+    public Config Snapshot() => (Config)MemberwiseClone();
+
+    /// <summary>
+    /// Puts back every setting <paramref name="snapshot"/> held. Readonly fields are left alone: a
+    /// snapshot shares them by reference, so there is nothing to put back.
+    /// </summary>
+    public void Restore(Config snapshot)
+    {
+        foreach (System.Reflection.FieldInfo field in typeof(Config).GetFields(
+                     System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public
+                     | System.Reflection.BindingFlags.NonPublic))
+        {
+            if (!field.IsInitOnly) field.SetValue(this, field.GetValue(snapshot));
+        }
+    }
 }

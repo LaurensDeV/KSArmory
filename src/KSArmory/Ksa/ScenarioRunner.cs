@@ -44,6 +44,8 @@ internal sealed class ScenarioRunner
 
     private readonly Config _config;
     private Phase _phase = Phase.Idle;
+    private Config? _before;
+    private Log.Level _thresholdBefore;
 
     private string _name = string.Empty;
     private TestTarget.Profile _profile;
@@ -399,6 +401,12 @@ internal sealed class ScenarioRunner
     public void Begin(string? request)
     {
         if (_phase != Phase.Idle || string.IsNullOrWhiteSpace(request)) return;
+
+        // Everything below overrides the player's own settings for the flight. A game kept open
+        // after END is somebody's session again, and one left with the shader pass off draws every
+        // tracer as a debug line.
+        _before = _config.Snapshot();
+        _thresholdBefore = Log.Threshold;
 
         // The request is the first line; the arm spec and its phase are the two after it, and a
         // one-line file is still the whole of the single-arm case.
@@ -1105,6 +1113,9 @@ internal sealed class ScenarioRunner
         for (int i = 0; i < _flights.Count; i++) _flights[i].Release();
         _drop?.Release();
         _gunnery?.Release();
+
+        if (_before is not null) _config.Restore(_before);
+        Log.Threshold = _thresholdBefore;
         Report($"{_name}: {outcome}");
         Report($"{_name}: END");
     }
