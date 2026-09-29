@@ -10,7 +10,8 @@ is the one that cannot engage an aircraft at all and whose target has a say in w
 **Mk 15 Phalanx CIWS** that stacks on a 3 m node and is the one with no missiles at all, a
 **5"/54 Mk 42 mount**, which is the other one with none and the opposite weapon — forty rounds a
 minute to the Phalanx's four and a half thousand, and shells that burst on a time fuze rather than
-having to hit — and a **B61 rack**, which is the one that neither aims nor fires: it lets a bomb go
+having to hit — an **M197 chin turret**, a three-barrel 20 mm cannon that hangs under a nose and
+traverses ±110° — and a **B61 rack**, which is the one that neither aims nor fires: it lets a bomb go
 and the ground does the rest. The **ALE-47 dispensers**, one of flares and one of chaff, shoot nothing:
 they throw decoys that take a missile's seeker away from the craft carrying them. Two sights come with them, and they are the
 same instrument on different mechanisms: an **EO director** on a mast, and a **Rafael LITENING
@@ -350,7 +351,9 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/BodyPool.cs` | bodies lent to rounds with no tube to key one to — **a shell borrows one for as long as it flies**, and one arriving when every body is lent draws as a tracer |
 | `Sim/RoundLabel.cs` | what to call a round in a line somebody reads — **the one place the tube field's sentinel is decoded**, because a shell has no tube |
 | `Sim/TubeGeometry.cs` | tube positions and directions, pod and radar pose, body placement |
-| `Sim/Turret.cs` | rate-limited traverse and elevation drives |
+| `Sim/Turret.cs` | rate-limited traverse and elevation drives — **a limited traverse turns the long way round**, never through the host behind it |
+| `Sim/ActuatorLinkage.cs` | a cylinder on the traverse and a rod on the cannon, posed from the elevation — drawn only |
+| `Sim/GunRotor.cs` | a rotary cannon's barrel cluster, spun up to a barrel per round while it fires and run down after — drawn only |
 | `Sim/PointingDrive.cs` | a head that points rather than trains — two degrees of freedom, no axes of its own |
 | `Sim/FireGeometry.cs` | launch direction and round-body orientation |
 | `Sim/BodyAttitude.cs` | which way a round points, and how a released store noses over |
@@ -564,7 +567,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `src/KSArmory/KSArmory/Bodies.xml` | **what KSA's current bodies are, as data** -- fields, airglow, condensation -- so a custom solar system gains them by adding lines, not code |
 | `src/KSArmory/KSArmory/Weapons.xml` | **this mod's own weapons, as data** — read by `PackScan`'s convention like any pack's, not by KSA |
 | `src/KSArmory/Meshes/`, `Textures/` | art. `KSArmory_MeshAtlas.glb` is generated — rebuild with `tools/model/build.sh`; every other atlas is **authored**, and its `.blend` is not in this repository |
-| `src/KSArmory/Sounds/` | the cannon, cut from a recording by `tools/cut-cannon.py`; the Mk 42's gunshot, cut from its recording by `tools/mk42-sounds.py`. A warhead's burst is KSA's own explosion, sound and all |
+| `src/KSArmory/Sounds/` | the cannon, cut from a recording by `tools/cut-cannon.py`; the Mk 42's gunshot, cut from its recording by `tools/mk42-sounds.py`; the M197's loop and tail, by `tools/m197-sounds.py`. A warhead's burst is KSA's own explosion, sound and all |
 | `src/KSArmory/mod.toml` | serves as both the content-mod and StarMap manifest |
 | `tests/KSArmory.Tests/` | links the KSA-free sources and flies engagements headlessly |
 | `KSArmory.sln` | both projects, for editors only — every script builds a csproj directly |
@@ -623,6 +626,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/model/optic.py` | the EO director: the sight, as a part anything can carry |
 | `tools/model/import-litening.py` | reframes the hand-modelled pod into what KSA reads |
 | `tools/model/mk42-textures.py` | composes the Mk 42's KSA maps, mount and shell, from the set its author paints — **rerun it on every version he sends**, because the unwraps are his and nothing else has to move |
+| `tools/model/m197-textures.py` | the same for the M197, from his `M197_*` set |
 | `tools/model/preview-glb.py` | renders any `.glb` from a few angles, so an authored asset can be judged before it is declared |
 | `tools/model/preview.sh` | runs that from WSL, which is the only comfortable way: Blender is a Windows binary and wants Windows paths for the script *and* for everywhere it writes |
 | `tools/model/checkmesh.py` | finds unpaired node/mesh names, zero-UV-area triangles and coplanar faces in a `.glb`; takes several at once, and `--compare` diffs two atlases by geometry *and* node transform |
@@ -642,6 +646,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/sounds.py` | the synthesised fallback cannon, behind `--synth-cannon` |
 | `tools/cut-cannon.py` | cuts a gunfire recording into spin-up, loop and tail, on measured envelope boundaries |
 | `tools/mk42-sounds.py` | cuts the Mk 42's recording into its mono gunshot |
+| `tools/m197-sounds.py` | cuts the M197's recordings into a seamless mono loop and its tail |
 | `tools/audio/` | the recordings the shipped gun sounds are cut from — the CC0 Phalanx and the Mk 42's — and the provenance of each |
 | `tools/logo.py` | the Kessler Systems wordmark and icon, into `branding/` |
 | `branding/` | the generated logo the README and SpaceDock point at |
@@ -2392,7 +2397,7 @@ only grows a nuclear one. Whatever the burst kills gets KSA's own destruction ex
 
 **The launcher ships its own art, and the asset XML lives at the mod root.** Instancing Core's
 meshes by Id and shipping nothing works, and is the right answer for a part that can be assembled
-from Core's kit; a Pantsir cannot be. The mod carries ten mesh atlases and their textures,
+from Core's kit; a Pantsir cannot be. The mod carries eleven mesh atlases and their textures,
 declared with `<MeshAtlas>` and `<PbrMaterial>` exactly as Core does.
 
 The XML sits at `src/KSArmory/*.xml` rather than in an `Assets/` subfolder **on purpose**.

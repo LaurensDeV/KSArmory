@@ -209,6 +209,14 @@
     <AoRoughMetal Path="Textures/KSArmory_Mk42Shell_PBR.png" Category="Vessel" />
   </PbrMaterial>
 
+  <MeshAtlas Path="Meshes/KSArmory_M197.glb" />
+
+  <PbrMaterial Id="KSArmory_M197_Material">
+    <Diffuse Path="Textures/KSArmory_M197_Diffuse.png" Category="Vessel" />
+    <Normal Path="Textures/KSArmory_M197_Normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Textures/KSArmory_M197_PBR.png" Category="Vessel" />
+  </PbrMaterial>
+
   <!--
     The Mk 15 Phalanx's atlas: base, traversing cheeks, and the elevating head. Authored in Blender;
     the three bodies share one unwrap and one material.
@@ -638,6 +646,77 @@
     </PartModel>
     <MeshView>
       <Mesh Id="KSArmory_Subpart_Mk42Shell_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!-- M197 chin turret. The ring is fixed; the yoke traverses and carries everything else. -->
+  <SubPart Id="KSArmory_M197Ring_SubPart">
+    <PartModel Id="KSArmory_Subpart_M197Ring_Model">
+      <Mesh Id="KSArmory_Subpart_M197Ring" />
+      <Material Id="KSArmory_M197_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_M197Ring_VM" />
+    </MeshView>
+  </SubPart>
+
+  <SubPart Id="KSArmory_M197Yoke_SubPart">
+    <PartModel Id="KSArmory_Subpart_M197Yoke_Model">
+      <Mesh Id="KSArmory_Subpart_M197Yoke" />
+      <Material Id="KSArmory_M197_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_M197Yoke_VM" />
+    </MeshView>
+  </SubPart>
+
+  <SubPart Id="KSArmory_M197Gun_SubPart">
+    <PartModel Id="KSArmory_Subpart_M197Gun_Model">
+      <Mesh Id="KSArmory_Subpart_M197Gun" />
+      <Material Id="KSArmory_M197_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_M197Gun_VM" />
+    </MeshView>
+  </SubPart>
+
+  <SubPart Id="KSArmory_M197Cylinder_SubPart">
+    <PartModel Id="KSArmory_Subpart_M197Cylinder_Model">
+      <Mesh Id="KSArmory_Subpart_M197Cylinder" />
+      <Material Id="KSArmory_M197_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_M197Cylinder_VM" />
+    </MeshView>
+  </SubPart>
+
+  <SubPart Id="KSArmory_M197Rod_SubPart">
+    <PartModel Id="KSArmory_Subpart_M197Rod_Model">
+      <Mesh Id="KSArmory_Subpart_M197Rod" />
+      <Material Id="KSArmory_M197_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_M197Rod_VM" />
+    </MeshView>
+  </SubPart>
+
+  <SubPart Id="KSArmory_M197Belt_SubPart">
+    <PartModel Id="KSArmory_Subpart_M197Belt_Model">
+      <Mesh Id="KSArmory_Subpart_M197Belt" />
+      <Material Id="KSArmory_M197_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_M197Belt_VM" />
+    </MeshView>
+  </SubPart>
+
+  <SubPart Id="KSArmory_M197Barrels_SubPart">
+    <PartModel Id="KSArmory_Subpart_M197Barrels_Model">
+      <Mesh Id="KSArmory_Subpart_M197Barrels" />
+      <Material Id="KSArmory_M197_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_M197Barrels_VM" />
     </MeshView>
   </SubPart>
 
@@ -1628,6 +1707,66 @@
         <Position X="0.00000" />
         <Rotation X="3.14159" Z="3.14159" />
         <Scale X="3.00000" Y="3.00000" Z="3.00000" />
+      </Transform>
+    </Connector>
+
+  </Part>
+
+  <!--
+    M197 20 mm chin turret, radially mounted under a nose like the LITENING pod.
+
+    Geometry authored by Mallikas. +X is out of the mounting face, so down under a nose; +Y is
+    the way the gun faces at rest, and +Z the host's right. Every moving body is exported
+    recentred on its own pivot, and the positions below are Arsenal.M197's TurretPivot plus
+    each ...FromTurret offset.
+  -->
+  <Part Id="KSArmory_Prefab_M197">
+
+    <SubPart Id="KSArmory_M197_Ring" InstanceOf="KSArmory_M197Ring_SubPart" />
+
+    <SubPart Id="KSArmory_M197_Yoke" InstanceOf="KSArmory_M197Yoke_SubPart">
+      <Transform>
+        <Position X="0.00000" Y="0.00000" Z="0.00000" />
+      </Transform>
+    </SubPart>
+
+    <SubPart Id="KSArmory_M197_Gun" InstanceOf="KSArmory_M197Gun_SubPart">
+      <Transform>
+        <Position X="0.33333" Y="-0.10773" Z="0.00000" />
+      </Transform>
+    </SubPart>
+
+    <!-- The actuator: the cylinder on its pin on the yoke, the rod on the gun's pin. -->
+    <SubPart Id="KSArmory_M197_Cylinder" InstanceOf="KSArmory_M197Cylinder_SubPart">
+      <Transform>
+        <Position X="0.03220" Y="0.37308" Z="0.00000" />
+      </Transform>
+    </SubPart>
+
+    <SubPart Id="KSArmory_M197_Rod" InstanceOf="KSArmory_M197Rod_SubPart">
+      <Transform>
+        <Position X="0.33474" Y="0.37308" Z="0.00000" />
+      </Transform>
+    </SubPart>
+
+    <SubPart Id="KSArmory_M197_Belt" InstanceOf="KSArmory_M197Belt_SubPart">
+      <Transform>
+        <Position X="0.06094" Y="-0.10319" Z="0.00000" />
+      </Transform>
+    </SubPart>
+
+    <!-- The three barrels, spun about the bore while the gun fires. -->
+    <SubPart Id="KSArmory_M197_Barrels" InstanceOf="KSArmory_M197Barrels_SubPart">
+      <Transform>
+        <Position X="0.50611" Y="0.70256" Z="0.00000" />
+      </Transform>
+    </SubPart>
+
+    <!-- Attaches by the ring's upper face, which is the mesh origin. -->
+    <Connector Id="_m197ConnectorBase">
+      <Transform>
+        <Position X="0.00000" />
+        <Rotation Z="3.14159" />
       </Transform>
     </Connector>
 

@@ -499,7 +499,11 @@ def check_subpart_positions():
                   ("PodsMarker", "PodPivotFromTurret"),
                   ("GunsMarker", "GunPivotFromTurret"),
                   ("RadarMarker", "RadarPivotFromTurret"),
-                  ("OpticBaseMarker", "OpticBaseFromTurret"))
+                  ("OpticBaseMarker", "OpticBaseFromTurret"),
+                  ("GunCylinderMarker", "GunCylinderPinFromTurret"),
+                  ("GunRodMarker", "GunRodPinFromTurret"),
+                  ("GunFeedMarker", "GunFeedPivotFromTurret"),
+                  ("GunRotorMarker", "GunRotorPivotFromTurret"))
 
     # Per part, not across the whole mod. LauncherPart.FindSubPart searches one launcher's own
     # subparts, so a marker only has to be unique within its part -- and with several launchers
@@ -882,6 +886,7 @@ LAUNCHER_GEOMETRY = {
     "HarmRail": (None, "HARM rail"),          # authored, as above
     "MirvBus": (None, "MIRV bus"),            # authored, clustered -- CLUSTER_LAUNCHERS
     "Mk42": (None, "Mk 42 mount"),            # authored gun -- AUTHORED_GUNS below
+    "M197": (None, "M197 chin turret"),       # authored gun -- AUTHORED_GUNS below
 }
 
 # Launchers whose art was authored AND whose weapon is a gun, so there is no tube and no seat to
@@ -891,7 +896,8 @@ LAUNCHER_GEOMETRY = {
 # munition's BodyLength, centred, because fire control takes a round's origin for its centre.
 #
 #   profile -> (part Id, cannon SubPart, barrel SubPart or None, mesh the muzzle is measured on,
-#               munition profile, shell mesh or None, label)
+#               munition profile, shell mesh or None, label[, the profile field that mesh is
+#               recentred on, when that is not the trunnion])
 AUTHORED_GUNS = {
     # Six barrels round a rotor, and every muzzle is on the one elevating mesh: no barrel subpart,
     # no shell body, because a 20 mm round is drawn as a tracer.
@@ -899,6 +905,11 @@ AUTHORED_GUNS = {
              "KSArmory_Subpart_Mk15Guns", "Cannon20Mm", None, "CIWS"),
     "Mk42": ("KSArmory_Prefab_Mk42", "KSArmory_Mk42_Cannon", "KSArmory_Mk42_Barrel",
              "KSArmory_Subpart_Mk42Barrel", "Shell5In54", "KSArmory_Subpart_Mk42Shell", "Mk 42 mount"),
+    # The muzzles are on the barrel cluster, which is recentred on its spin axis rather than on the
+    # trunnion -- the last field names where, so the tip is measured back to the trunnion.
+    "M197": ("KSArmory_Prefab_M197", "KSArmory_M197_Gun", None,
+             "KSArmory_Subpart_M197Barrels", "Cannon20Mm", None, "M197 chin turret",
+             "GunRotorPivotFromTurret"),
 }
 
 # Launchers whose art was authored rather than generated, and whose geometry is therefore checked
@@ -923,7 +934,7 @@ AUTHORED_LAUNCHERS = {
 
 
 def check_authored_gun_geometry(profile, part_id, cannon_id, barrel_id, muzzle_mesh, munition,
-                                shell_mesh, label):
+                                shell_mesh, label, muzzle_mesh_pivot=None):
     """Checks one authored gun against the mesh and the XML that place it.
 
     No disagreement here fails anything in a build: the mount loads, traverses and elevates, and the
@@ -997,10 +1008,17 @@ def check_authored_gun_geometry(profile, part_id, cannon_id, barrel_id, muzzle_m
     elif tip is None or tip[0] is None:
         report("MISSING", f"mesh {muzzle_mesh} in any declared atlas")
     else:
+        reach = tip[1][1]
+        if muzzle_mesh_pivot is not None:
+            pivot = vector(muzzle_mesh_pivot)
+            if pivot is None:
+                report("MISSING", f"Arsenal.{profile}.{muzzle_mesh_pivot}")
+            else:
+                reach += pivot[1] - gun[1]
         for barrel in barrels:
-            if abs(float(barrel[1]) - tip[1][1]) > 5e-4:
+            if abs(float(barrel[1]) - reach) > 5e-4:
                 report("STALE", f"Arsenal.{profile}.GunMuzzles: barrel ends at Y={barrel[1]} "
-                                f"but {muzzle_mesh} reaches {tip[1][1]:.5f}")
+                                f"but {muzzle_mesh} reaches {reach:.5f} from the trunnion")
                 break
 
     if shell_mesh is not None:

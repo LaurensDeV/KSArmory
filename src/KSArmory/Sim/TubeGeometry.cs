@@ -201,6 +201,46 @@ public static class TubeGeometry
     }
 
     /// <summary>
+    /// The cannon's actuator: the cylinder turning on its pin on the traverse, the rod turning with
+    /// it and riding the cannon's pin. Each mesh is exported recentred on its own pin.
+    /// </summary>
+    public static (DrivePose Cylinder, DrivePose Rod) ActuatorPoses(LauncherProfile profile,
+                                                                   double bearingRad, double elevationRad)
+    {
+        doubleQuat traverse = TurretRotation(bearingRad);
+        double3 rodPin = ActuatorLinkage.RodPin(profile.GunPivotFromTurret, profile.GunRodPinFromTurret,
+                                                profile.GunReferenceElevationRad - elevationRad);
+        double turn = ActuatorLinkage.TurnRad(profile.GunCylinderPinFromTurret, profile.GunRodPinFromTurret, rodPin);
+        doubleQuat rotation = traverse * doubleQuat.CreateFromAxisAngle(ElevationAxis, turn);
+
+        return (new DrivePose(profile.TurretPivot + traverse * profile.GunCylinderPinFromTurret, rotation),
+                new DrivePose(profile.TurretPivot + traverse * rodPin, rotation));
+    }
+
+    /// <summary>
+    /// A rotary cannon's barrel cluster: the cannon's own pose, turned about the bore through the
+    /// cluster's pivot. Riding the cannon's trunnion, it cannot part from the breech.
+    /// </summary>
+    public static DrivePose RotorPose(LauncherProfile profile, double bearingRad, double elevationRad,
+                                      double spinRad)
+    {
+        DrivePose gun = GunPose(profile, bearingRad, elevationRad);
+        doubleQuat spin = doubleQuat.CreateFromAxisAngle(GunAxisGunFrame(profile), spinRad);
+        return new DrivePose(gun.Position + gun.Rotation * (profile.GunRotorPivotFromTurret - profile.GunPivotFromTurret),
+                             gun.Rotation * spin);
+    }
+
+    /// <summary>The cannon's feed, turning on its own pin by a fixed share of the cannon's elevation.</summary>
+    public static DrivePose FeedPose(LauncherProfile profile, double bearingRad, double elevationRad)
+    {
+        doubleQuat traverse = TurretRotation(bearingRad);
+        doubleQuat follow = doubleQuat.CreateFromAxisAngle(
+            ElevationAxis, profile.GunFeedRatio * (profile.GunReferenceElevationRad - elevationRad));
+
+        return new DrivePose(profile.TurretPivot + traverse * profile.GunFeedPivotFromTurret, traverse * follow);
+    }
+
+    /// <summary>
     /// An assembly that elevates about a trunnion offset from the traverse axis, then rides the
     /// turret round. Because the trunnion is offset, the position moves with the traverse and has
     /// to be rewritten too.

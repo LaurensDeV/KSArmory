@@ -47,3 +47,14 @@ cannon it replaced and `KSArmorySounds.xml` goes back to a single looping `<Soun
 The gun's gunshot, one per round. Kept stereo as recorded, so the cut can be remade:
 `./tools/mk42-sounds.py` writes the mono `src/KSArmory/Sounds/KSArmory_Mk42_Gunshot.wav` from it, and
 `--report` prints what it would write. The shell's burst has no sound of its own.
+
+## The M197
+
+| File | Source | Licence |
+| --- | --- | --- |
+| `m197/M197_740rpm.wav` | sent by Mallikas with the model, 2026-09-29 | cleared for shipping with the mod by its author, 2026-09-29 |
+| `m197/M197_Tail.wav` | as above | as above |
+
+A firing loop and its tail, kept stereo as sent. `./tools/m197-sounds.py` writes the mono
+`src/KSArmory/Sounds/KSArmory_M197_{Loop,Tail}.wav`; the loop is cut where the recording repeats its
+own head, so the seam lands inside the shot rhythm. `--report` prints what it would write.

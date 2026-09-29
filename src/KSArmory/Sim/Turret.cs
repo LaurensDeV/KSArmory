@@ -67,6 +67,14 @@ public sealed class Turret
     /// </summary>
     public double ForwardPlateauRad { get; set; } = double.DegreesToRadians(62);
 
+    /// <summary>How far either side of forward the traverse may go; pi or more is unlimited.</summary>
+    public double TraverseLimitRad { get; set; } = Math.PI;
+
+    private bool TraverseLimited => TraverseLimitRad < Math.PI;
+
+    private double ClampBearing(double bearingRad)
+        => TraverseLimited ? Math.Clamp(bearingRad, -TraverseLimitRad, TraverseLimitRad) : bearingRad;
+
     /// <summary>Lowest elevation the pods may take at a given bearing: flat across the sector the
     /// bodywork occupies, then easing so traversing out of it lowers them rather than dropping
     /// them.</summary>
@@ -139,14 +147,14 @@ public sealed class Turret
         if (!Vec.IsFinite(directionPartFrame)) return;
         if (Vec.Len2(directionPartFrame) < 1e-12) return;
 
-        CommandRad = BearingTo(directionPartFrame);
+        CommandRad = ClampBearing(BearingTo(directionPartFrame));
         CommandElevationRad = ClampElevation(ElevationTo(directionPartFrame), CommandRad.Value);
     }
 
     /// <summary>Orders both axes directly, bypassing the radar. Used by the manual override.</summary>
     public void Point(double bearingRad, double? elevationRad = null)
     {
-        if (double.IsFinite(bearingRad)) CommandRad = WrapPi(bearingRad);
+        if (double.IsFinite(bearingRad)) CommandRad = ClampBearing(WrapPi(bearingRad));
         if (elevationRad is { } elevation && double.IsFinite(elevation))
         {
             CommandElevationRad = ClampElevation(elevation, CommandRad ?? BearingRad);
@@ -204,7 +212,12 @@ public sealed class Turret
 
         if (CommandRad is { } command && slewRateRadPerSec > 0.0)
         {
-            BearingRad = StepToward(BearingRad, command, slewRateRadPerSec * dt);
+            // A limited traverse steps without wrapping, so it never takes the short way through
+            // the arc behind it.
+            double step = slewRateRadPerSec * dt;
+            BearingRad = TraverseLimited
+                ? ClampBearing(BearingRad + Math.Clamp(command - BearingRad, -step, step))
+                : StepToward(BearingRad, command, step);
         }
 
         if (CommandElevationRad is { } elevation && elevationRateRadPerSec > 0.0)

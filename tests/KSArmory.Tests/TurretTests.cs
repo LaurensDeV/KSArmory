@@ -468,4 +468,29 @@ public class TurretTests
         turret.Update(0.0, double.DegreesToRadians(70), ElevRate);
         Assert.Equal(0.0, turret.BearingRad, Tolerance);
     }
+
+    [Fact]
+    public void ALimitedTraverseStopsAtItsLimit()
+    {
+        var turret = new Turret { TraverseLimitRad = double.DegreesToRadians(110) };
+
+        turret.Point(double.DegreesToRadians(170));
+        turret.Update(10.0, ElevRate, ElevRate);
+
+        Assert.Equal(110.0, double.RadiansToDegrees(turret.BearingRad), 9);
+    }
+
+    [Fact]
+    public void ALimitedTraverseTurnsTheLongWayRatherThanBehindItself()
+    {
+        // From +100 to -100 the short way is through 180, where the host is.
+        var turret = new Turret { TraverseLimitRad = double.DegreesToRadians(110) };
+        turret.Point(double.DegreesToRadians(100));
+        turret.Update(10.0, ElevRate, ElevRate);
+
+        turret.Point(double.DegreesToRadians(-100));
+        turret.Update(1.0, ElevRate, ElevRate);
+
+        Assert.Equal(55.0, double.RadiansToDegrees(turret.BearingRad), 9);
+    }
 }

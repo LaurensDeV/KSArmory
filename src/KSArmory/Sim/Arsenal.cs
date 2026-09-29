@@ -1043,6 +1043,88 @@ public static class Arsenal
     };
 
     /// <summary>
+    /// M197 three-barrel 20 mm cannon in a chin turret. It surface-attaches under a nose and hangs,
+    /// so the part's +X is down and "elevation" in its frame is depression in the world.
+    ///
+    /// <para>Geometry authored in Blender by Mallikas. The pivots below are the export's.</para>
+    /// </summary>
+    public static readonly LauncherProfile M197 = new()
+    {
+        PartId = "KSArmory_Prefab_M197",
+        DisplayName = "M197 chin turret",
+        Munition = "20MM",
+        Sensor = "TSU",
+
+        TurretMarker = "M197_Yoke",
+        GunsMarker = "M197_Gun",
+        GunCylinderMarker = "M197_Cylinder",
+        GunRodMarker = "M197_Rod",
+        GunFeedMarker = "M197_Belt",
+        GunRotorMarker = "M197_Barrels",
+
+        Tubes = [],
+
+        TurretPivot = new(0.00000, 0.00000, 0.00000),
+        GunPivotFromTurret = new(0.33333, -0.10773, 0.00000),
+        GunReferenceElevationRad = 0.0,           // modelled level
+
+        GunCylinderPinFromTurret = new(0.03220, 0.37308, 0.00000),
+        GunRodPinFromTurret = new(0.33474, 0.37308, 0.00000),
+        GunFeedPivotFromTurret = new(0.06094, -0.10319, 0.00000),
+        GunFeedRatio = 0.2,                       // 10 deg of belt at 50 deg of depression
+        GunRotorPivotFromTurret = new(0.50611, 0.70256, 0.00000),
+
+        GunMunition = "20MM",
+        GunMuzzles =
+        [
+            new(0.07726, 2.63549,  0.00000),
+            new(0.22055, 2.63549, -0.08272),
+            new(0.22055, 2.63549,  0.08272),
+        ],
+
+        SlewRateDeg = 80f,
+        ElevationRateDeg = 60f,
+
+        // Part frame: negative is up toward the host. The upper stop is the model's, where the
+        // actuator's rod reaches its cylinder; the real turret raises the gun 20.5 deg.
+        MinElevationDeg = -10f,
+        MaxElevationDeg = 50f,
+        ForwardArcDeg = 0f,
+        RestElevationDeg = 0f,
+        TraverseLimitDeg = 110f,
+        SettleSeconds = 0.2f,
+
+        SearchRadarFaces = 0,
+
+        GunAmmo = 750,
+        GunRoundsPerMinute = 730f,
+        GunBurstRounds = 16,
+        GunBurstGapSeconds = 0.5f,
+        GunReloadSeconds = 0f,
+
+        GunSoundId = "KSArmoryM197",
+
+        ReloadSeconds = 0f,
+    };
+
+    /// <summary>
+    /// The chin turret's sight. Optical, so it emits nothing, and it looks out of the mounting face
+    /// — down, under a nose — over the gun's whole travel, which reaches 10 deg past the face's plane.
+    /// </summary>
+    public static readonly SensorProfile TurretSight = new()
+    {
+        Name = "TSU",
+        DisplayName = "Telescopic sight unit",
+        Range = 8000f,
+        ConeDeg = 100f,
+        BoresightSource = BoresightMode.MountNormal,
+        ThreatRadius = 2000f,
+        ThreatHorizonSeconds = 20f,
+        LockSeconds = 0.6f,
+        MinTargetSpeed = 0f,
+    };
+
+    /// <summary>
     /// The optical sight a bomb is released on. Not a radar and not a seeker: it exists so the
     /// system has something to draw and something to name what is ahead, because a rack that
     /// engages nothing by itself still has to tell the operator what it is over.
@@ -1287,13 +1369,13 @@ public static class Arsenal
     // ---- Registry -------------------------------------------------------
 
     public static readonly IReadOnlyList<LauncherProfile> Launchers =
-        [SidewinderRail, AmraamRail, HarmRail, Ciws, NukeRack, MirvBus, Mk42];
+        [SidewinderRail, AmraamRail, HarmRail, Ciws, NukeRack, MirvBus, Mk42, M197];
     public static readonly IReadOnlyList<MunitionProfile> Munitions =
         [Missile9J, Missile120C, MissileAgm88, Cannon20Mm, NukeB61, ReentryVehicleMk21,
          Shell5In54];
     public static readonly IReadOnlyList<SensorProfile> Sensors =
         [SeekerHeadAim9, SeekerHeadAim120, SeekerHeadAgm88, SearchRadarVps2,
-         BombSight, EoSensor, PodSensor, BusDesignation, FireControlMk68];
+         BombSight, EoSensor, PodSensor, BusDesignation, FireControlMk68, TurretSight];
 
     /// <summary>
     /// Optical heads. Most are parts in their own right; one rides a launcher's turret, and
@@ -1416,6 +1498,18 @@ public static class Arsenal
                 new(WeaponRole.Sensor, FireControlMk68.DisplayName),
                 new(WeaponRole.Gun, Shell5In54.DisplayName),
                 new(WeaponRole.FireControl, "Mk 68 fire control"),
+            ],
+        },
+        new ComponentProfile
+        {
+            PartId = M197.PartId,
+            Role = WeaponRole.Launcher,
+            DisplayName = M197.DisplayName,
+            Provides =
+            [
+                new(WeaponRole.Sensor, TurretSight.DisplayName),
+                new(WeaponRole.Gun, Cannon20Mm.DisplayName),
+                new(WeaponRole.FireControl, "M97 turret fire control"),
             ],
         },
         new ComponentProfile

@@ -688,6 +688,56 @@
       </Box>
     </Collider>
   </PartGameData>
+
+  <PartGameData Id="KSArmory_Prefab_M197" DisplayName="M197 chin turret">
+    <EditorTag Value="Weapons" />
+    <EditorTag Value="Radial" />
+    <EditorTag Value="NoFaceSnapping" />
+    <Diameter M="1" />
+
+    <!-- Attaches by its ring to the underside of a nose or a fuselage, and hangs from it. -->
+    <Connector Id="_m197ConnectorBase">
+      <Flags>ToSurface</Flags>
+    </Connector>
+
+    <!-- The M197 is 66 kg; the turret, its drives and 750 rounds in the feed make up the rest. -->
+    <SolidSphereMass>
+      <Mass Kg="330" />
+      <Radius M="0.50" />
+    </SolidSphereMass>
+
+    <!-- Boxes at the modelled pose, read off the export's bounds. -->
+    <Collider Id="KSArmory_M197Collider">
+      <Box Id="KSArmory_M197RingCollider">
+        <LocationAsmb X="0.047" Y="0" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.094" />
+        <LengthY M="1.00" />
+        <LengthZ M="1.00" />
+      </Box>
+      <Box Id="KSArmory_M197YokeCollider">
+        <LocationAsmb X="0.188" Y="0.002" Z="0.036" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.37" />
+        <LengthY M="0.62" />
+        <LengthZ M="0.83" />
+      </Box>
+      <Box Id="KSArmory_M197GunCollider">
+        <LocationAsmb X="0.507" Y="-0.008" Z="0.009" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.51" />
+        <LengthY M="0.94" />
+        <LengthZ M="0.64" />
+      </Box>
+      <Box Id="KSArmory_M197BarrelCollider">
+        <LocationAsmb X="0.487" Y="1.494" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.25" />
+        <LengthY M="2.07" />
+        <LengthZ M="0.29" />
+      </Box>
+    </Collider>
+  </PartGameData>
   <PartGameData Id="KSArmory_Prefab_Ale47Flare" DisplayName="AN/ALE-47 Flare Dispenser">
     <EditorTag Value="Weapons" />
     <EditorTag Value="Radial" />

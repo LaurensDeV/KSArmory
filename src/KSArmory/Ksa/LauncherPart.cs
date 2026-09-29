@@ -117,6 +117,16 @@ internal static class LauncherPart
     public static Part? FindOpticBase(Part launcher, LauncherProfile profile)
         => FindSubPart(launcher, profile.OpticBaseMarker);
 
+    /// <summary>The cannon actuator's cylinder, rod and feed. Null for each the launcher has none of.</summary>
+    public static Part? FindGunCylinder(Part launcher, LauncherProfile profile)
+        => FindSubPart(launcher, profile.GunCylinderMarker);
+    public static Part? FindGunRod(Part launcher, LauncherProfile profile)
+        => FindSubPart(launcher, profile.GunRodMarker);
+    public static Part? FindGunFeed(Part launcher, LauncherProfile profile)
+        => FindSubPart(launcher, profile.GunFeedMarker);
+    public static Part? FindGunRotor(Part launcher, LauncherProfile profile)
+        => FindSubPart(launcher, profile.GunRotorMarker);
+
     /// <summary>Collects this round's fin subparts, in tube order. Empty if it has none.</summary>
     public static void FindFins(Part launcher, MunitionProfile munition, List<Part> into)
     {
@@ -803,6 +813,25 @@ internal static class LauncherPart
         catch (Exception e)
         {
             Log.Warn($"search array: could not write spin ({e.GetType().Name}: {e.Message})");
+            return false;
+        }
+    }
+
+    /// <summary>Writes a pose the caller has already solved. False, logged once, if the engine refused it.</summary>
+    public static bool TryApplyPose(Part part, DrivePose pose, string what)
+    {
+        try
+        {
+            part.Asmb2ParentAsmb = pose.Rotation;
+            part.Asmb2ParentAsmbSafe = pose.Rotation;
+            part.PositionParentAsmb = pose.Position;
+            part.PositionParentAsmbSafe = pose.Position;
+            part.ResetCachedPosMatrixValues();
+            return true;
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"{what}: could not write pose ({e.GetType().Name}: {e.Message})");
             return false;
         }
     }

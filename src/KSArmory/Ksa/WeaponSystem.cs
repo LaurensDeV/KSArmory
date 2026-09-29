@@ -295,6 +295,16 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// <summary>The barrel that recoils inside the cannon, when the profile declares one.</summary>
     public Part? BarrelPart { get; private set; }
 
+    /// <summary>The cannon actuator's cylinder, rod and feed, when the profile declares them.</summary>
+    public Part? GunCylinderPart { get; private set; }
+    public Part? GunRodPart { get; private set; }
+    public Part? GunFeedPart { get; private set; }
+
+    /// <summary>A rotary cannon's barrel cluster, when the profile declares one.</summary>
+    public Part? GunRotorPart { get; private set; }
+
+    private readonly GunRotor _rotor = new();
+
     /// <summary>
     /// A carried director's base, which rides the traverse. Null if this launcher carries none.
     ///
@@ -712,6 +722,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         RadarPart = Launcher is null ? null : LauncherPart.FindRadar(Launcher, Profile);
         GunsPart = Launcher is null ? null : LauncherPart.FindGuns(Launcher, Profile);
         BarrelPart = Launcher is null ? null : LauncherPart.FindBarrel(Launcher, Profile);
+        GunCylinderPart = Launcher is null ? null : LauncherPart.FindGunCylinder(Launcher, Profile);
+        GunRodPart = Launcher is null ? null : LauncherPart.FindGunRod(Launcher, Profile);
+        GunFeedPart = Launcher is null ? null : LauncherPart.FindGunFeed(Launcher, Profile);
+        GunRotorPart = Launcher is null ? null : LauncherPart.FindGunRotor(Launcher, Profile);
         OpticBasePart = Launcher is null ? null : LauncherPart.FindOpticBase(Launcher, Profile);
         MountEcl = LauncherPart.ResolveOriginEcl(Platform, Launcher);
 
@@ -1738,6 +1752,31 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                                                                 Profile.GunReturnSeconds)))
         {
             Refuse(DriveChannel.Recoil, "barrel recoil");
+        }
+
+        if ((GunCylinderPart ?? GunRodPart ?? GunFeedPart) is not null
+            && _drives.Works(DriveChannel.Linkage) && _drives.Works(DriveChannel.Guns))
+        {
+            (DrivePose cylinder, DrivePose rod) = TubeGeometry.ActuatorPoses(Profile, Turret.BearingRad, Turret.ElevationRad);
+            bool written = (GunCylinderPart is null || LauncherPart.TryApplyPose(GunCylinderPart, cylinder, "actuator cylinder"))
+                && (GunRodPart is null || LauncherPart.TryApplyPose(GunRodPart, rod, "actuator rod"))
+                && (GunFeedPart is null || LauncherPart.TryApplyPose(
+                        GunFeedPart, TubeGeometry.FeedPose(Profile, Turret.BearingRad, Turret.ElevationRad), "feed"));
+            if (!written) Refuse(DriveChannel.Linkage, "cannon actuator and feed");
+        }
+
+        if (GunRotorPart is not null && _drives.Works(DriveChannel.Linkage) && _drives.Works(DriveChannel.Guns))
+        {
+            // Firing while the next round is due within two intervals of the last.
+            bool firing = _clock - _lastGunShotClock <= 2.0 * Profile.GunRoundInterval;
+            _rotor.Update(dt, firing, GunRotor.FiringRateRadPerSec(Profile),
+                          Profile.GunRotorSpinUpSeconds, Profile.GunRotorSpinDownSeconds);
+            if (!LauncherPart.TryApplyPose(GunRotorPart,
+                    TubeGeometry.RotorPose(Profile, Turret.BearingRad, Turret.ElevationRad, _rotor.AngleRad),
+                    "barrel cluster"))
+            {
+                Refuse(DriveChannel.Linkage, "barrel cluster");
+            }
         }
 
         // A carried director's base, taken round by the traverse and given no aim of its own. The

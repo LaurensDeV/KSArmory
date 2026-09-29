@@ -65,6 +65,10 @@ burst in the air at the predicted intercept rather than having to hit. One press
 the barrel recoils in its slide, and the shell itself is drawn in flight. The mount, its shell and
 their textures were made for this mod by **Mallikas**.
 
+**M197 chin turret** — a three-barrel 20 mm cannon that surface-attaches under a nose and hangs
+from it. 750 rounds at 730 a minute, traversing ±110° and depressing to 50°, with its barrels
+spinning while it fires and its elevation cylinders and ammunition belt following the gun. Model and textures by **Mallikas**.
+
 **B61 bomb rack** — the one that neither aims nor fires: it lets a bomb go and the ground does the
 rest. One B61-12 on a rack that surface-attaches to an aircraft, and a sight that draws the ring
 the bomb will land in — flown rather than solved, so the ring sits wherever the round will actually
@@ -629,8 +633,8 @@ several of the files carry a note saying "do not simplify this", and those notes
 
 That covers the C# mod, the tooling, and the art generated or authored here. Two things came from
 outside. The Phalanx's cannon recording under `tools/audio/` is CC0 and carries no condition on
-redistribution — see the README beside it. And the 5"/54 Mk 42's model, shell and textures were made
-for this mod by Mallikas.
+redistribution — see the README beside it. And the 5"/54 Mk 42's model, shell and textures, and the
+M197's model and textures, were made for this mod by Mallikas.
 
 It does **not** cover Kitten Space Agency itself. The mod compiles against KSA's assemblies but
 never redistributes them: `Import/` is gitignored, the project references them with

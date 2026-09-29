@@ -91,6 +91,26 @@ public sealed class LauncherProfile
     public string? GunBarrelMarker { get; init; }
 
     /// <summary>
+    /// An actuator between the traverse and the cannon: a cylinder pinned to what traverses and a
+    /// rod pinned to the cannon, posed from the elevation by <see cref="ActuatorLinkage"/>. Null for
+    /// cannon with no actuator drawn. Drawn only.
+    /// </summary>
+    public string? GunCylinderMarker { get; init; }
+    public string? GunRodMarker { get; init; }
+
+    /// <summary>
+    /// A body that turns with the cannon at <see cref="GunFeedRatio"/> of its elevation, about a pin
+    /// of its own on the traverse: an ammunition feed. Null for none. Drawn only.
+    /// </summary>
+    public string? GunFeedMarker { get; init; }
+
+    /// <summary>
+    /// A rotary cannon's barrel cluster, spun about the bore while it fires (<see cref="GunRotor"/>).
+    /// Null for cannon whose barrels do not turn. Drawn only.
+    /// </summary>
+    public string? GunRotorMarker { get; init; }
+
+    /// <summary>
     /// An optical director's base, riding the traverse. Null for a launcher carrying none, which
     /// is most of them.
     ///
@@ -139,6 +159,26 @@ public sealed class LauncherProfile
     public double GunReferenceElevationRad { get; init; }
 
     /// <summary>
+    /// The actuator's cylinder pin, on the traverse, and its rod pin, on the cannon at
+    /// <see cref="GunReferenceElevationRad"/> — both relative to the turret's axis, and each the
+    /// pivot its body's mesh is exported recentred on.
+    /// </summary>
+    public double3 GunCylinderPinFromTurret { get; init; }
+    public double3 GunRodPinFromTurret { get; init; }
+
+    /// <summary>Where the feed's pin sits relative to the turret's axis.</summary>
+    public double3 GunFeedPivotFromTurret { get; init; }
+
+    /// <summary>How far the feed turns per radian the cannon turns.</summary>
+    public double GunFeedRatio { get; init; }
+
+    /// <summary>
+    /// A point on the barrel cluster's spin axis at <see cref="GunReferenceElevationRad"/>, relative
+    /// to the turret's axis; the cluster's mesh is exported recentred on it.
+    /// </summary>
+    public double3 GunRotorPivotFromTurret { get; init; }
+
+    /// <summary>
     /// Elevation the pods are modelled at. Runtime elevation is a rotation <em>away</em> from it,
     /// so a refused transform write leaves the vehicle in a pose that looks right.
     /// </summary>
@@ -178,6 +218,13 @@ public sealed class LauncherProfile
     public float ForwardMinElevationDeg = 15f;
     public float ForwardArcDeg = 80f;
     public float ForwardPlateauDeg = 62f;
+
+    /// <summary>
+    /// How far either side of forward the turret may traverse. 180 is all the way round; less is a
+    /// mount whose host is in the way behind it, and then it turns the long way rather than through
+    /// the host.
+    /// </summary>
+    public float TraverseLimitDeg = 180f;
 
     /// <summary>
     /// Elevation the launcher returns to with nothing to look at. Defaults to the pods' modelled
@@ -272,6 +319,10 @@ public sealed class LauncherProfile
     public float GunRecoilSeconds = 0.08f;
     public float GunReturnSeconds = 0.6f;
 
+    /// <summary>How long the barrel cluster takes to come up to speed and to run down (s).</summary>
+    public float GunRotorSpinUpSeconds = 0.2f;
+    public float GunRotorSpinDownSeconds = 1.0f;
+
     /// <summary>
     /// The cannon's sound while firing, by <c>ModLibrary</c> Id. Null plays the shared recording,
     /// retuned toward this gun's rate; a gun naming its own is played as recorded, because a
@@ -306,6 +357,7 @@ public sealed class LauncherProfile
         turret.ForwardMinElevationRad = float.DegreesToRadians(ForwardMinElevationDeg);
         turret.ForwardArcRad = float.DegreesToRadians(ForwardArcDeg);
         turret.ForwardPlateauRad = float.DegreesToRadians(ForwardPlateauDeg);
+        turret.TraverseLimitRad = float.DegreesToRadians(TraverseLimitDeg);
         turret.RestElevationRad = RestElevationRad;
         turret.SeatElevation(RestElevationRad);
     }

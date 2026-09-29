@@ -71,6 +71,7 @@ ALLOWED = {("KSArmory_Subpart_Guns", "KSArmory_Subpart_Turret"): 0.30,
 AUTHORED_TRAINERS = {
     "Ciws": "authored; its head was swept against the cheeks in Blender, -30 to +90",
     "Mk42": "authored by Mallikas; its travel is his model's, not checked here",
+    "M197": "authored by Mallikas; swept against the ring in Blender, -10 to +50",
 }
 
 

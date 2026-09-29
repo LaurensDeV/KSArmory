@@ -1363,6 +1363,24 @@ the mesh and the XML, and the suite.
       the ones past twenty draw as tracers. The ten added came after the first ten, so a save holding
       the first version still loads.
 
+### 7.1d4 The M197 chin turret — nothing about it has been seen
+
+Mallikas's model, split into a fixed ring, a traversing yoke, the gun, the actuators' cylinders and
+rods, the belt and the barrels. Headless gates green: `checkmesh.py --near-max 0` clean (after dropping the belt's
+buried end cap and one interior face in the yoke), `validate-parts.py` holding every pivot and the
+three muzzles, `ActuatorLinkageTests` and the traverse-limit tests.
+
+- [ ] It renders painted, hanging under the host with the barrels forward.
+- [ ] It surface-attaches under a nose and is greyed out on an empty editor, as a store is.
+- [ ] The yoke traverses and stops at ±110°, turning the long way round rather than through the host.
+- [ ] Each cylinder turns on its top pin and its rod slides out as the gun depresses, staying on the
+      gun's pin from -10 to +50.
+- [ ] The belt turns 10° at 50° of depression.
+- [ ] The barrels spin up as it fires, run down over about a second after, and stay in the gun.
+- [ ] At 50° of depression the back of the gun rises about 5 cm into the ring; decide whether that shows.
+- [ ] The loop plays while firing with no click at its seam, and the tail plays when it stops.
+- [ ] The sight sees targets under and ahead of the host, and the gun hits a drone.
+
 ### 7.1f Releasing a bomb
 
 **Reported not working in flight**, with no detail yet, so nothing here is a diagnosis.

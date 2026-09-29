@@ -9,6 +9,7 @@ public enum DriveChannel
     Radar,
     Optic,
     Recoil,
+    Linkage,
 }
 
 /// <summary>
