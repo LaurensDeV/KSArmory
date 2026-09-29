@@ -23,10 +23,10 @@ public interface ISensorPolicy
 }
 
 /// <summary>
-/// One battery's own settings — what <em>this</em> installation is allowed to do.
+/// One system's own settings — what <em>this</em> installation is allowed to do.
 ///
 /// <para>Split from <see cref="Config"/> because these are the only settings that stop making
-/// sense when there is more than one battery in the world. Arming a site, telling it to engage
+/// sense when there is more than one system in the world. Arming a site, telling it to engage
 /// on its own, which side it is on, or driving its turret by hand are decisions about that site;
 /// the roster of team names and what gets drawn are decisions about the session, and stay
 /// shared.</para>
@@ -42,10 +42,10 @@ public sealed class SystemConfig : ISensorPolicy
     // ---- Engagement policy ----------------------------------------------
 
     /// <summary>
-    /// Who this battery will shoot at. Defaults to engaging anything unrecognised, so a world with
+    /// Who this system will shoot at. Defaults to engaging anything unrecognised, so a world with
     /// no teams assigned engages everything.
     ///
-    /// <para>Per battery, because two sites in one world are exactly what taking opposite sides
+    /// <para>Per system, because two sites in one world are exactly what taking opposite sides
     /// means. The team <em>names</em> stay on <see cref="Config.TeamNames"/>.</para>
     /// </summary>
     public IffPolicy Iff { get; } = new();
@@ -53,7 +53,7 @@ public sealed class SystemConfig : ISensorPolicy
     /// <summary>
     /// Never fire on the vehicle the player is flying.
     ///
-    /// <para>Per battery: two sites can sensibly disagree about it, which is the test. Flying into
+    /// <para>Per system: two sites can sensibly disagree about it, which is the test. Flying into
     /// one range as a target while another site guards you is the case, and a single switch makes
     /// that impossible.</para>
     /// </summary>
@@ -85,7 +85,7 @@ public sealed class SystemConfig : ISensorPolicy
     /// <summary>
     /// Ride the main view behind this system's rounds.
     ///
-    /// <para>Per battery rather than per session: with several sites alive, whose missiles are
+    /// <para>Per system rather than per session: with several sites alive, whose missiles are
     /// worth watching is exactly the sort of thing two of them disagree about. There is one main
     /// view, and the frame hook offers it only to the system the panel is showing, so setting this
     /// on any other does nothing until that system is focused.</para>

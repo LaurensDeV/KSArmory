@@ -3,7 +3,7 @@ using Xunit;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// Identification Friend or Foe: which contacts a battery is allowed to shoot at.
+/// Identification Friend or Foe: which contacts a system is allowed to shoot at.
 ///
 /// <para>KSA has no concept of sides, so every rule here is the mod's own. The one that matters
 /// most is that <see cref="Allegiance.Unknown"/> is not a synonym for hostile — a contact with no
@@ -44,8 +44,8 @@ public class IffTests
     }
 
     /// <summary>
-    /// A battery that has not picked a side cannot call anything hostile. Without this, the first
-    /// craft to be given a team name would become an enemy of every unaligned battery at once.
+    /// A system that has not picked a side cannot call anything hostile. Without this, the first
+    /// craft to be given a team name would become an enemy of every unaligned system at once.
     /// </summary>
     [Fact]
     public void ABatteryWithNoTeamOfItsOwnClassifiesNothing()
@@ -193,8 +193,8 @@ public class IffTests
     }
 
     /// <summary>
-    /// A coalition is per-battery: each side lists the others. Nothing infers that an ally's ally
-    /// is a friend, which keeps a battery's view of the world its own.
+    /// A coalition is per-system: each side lists the others. Nothing infers that an ally's ally
+    /// is a friend, which keeps a system's view of the world its own.
     /// </summary>
     [Fact]
     public void AlliancesAreDeclaredFromEachSideSeparately()

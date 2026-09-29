@@ -8,7 +8,7 @@ namespace KSArmory;
 ///
 /// The part itself (KSArmoryAssets.xml) is inert geometry - KSA sees a lump of
 /// structure with mass and a collider. This class is the bridge: it finds that part on the
-/// vehicle, and the battery mounts to it.
+/// vehicle, and the system mounts to it.
 /// </summary>
 internal static class LauncherPart
 {
@@ -54,7 +54,7 @@ internal static class LauncherPart
 
     /// <summary>
     /// Every launcher on a vehicle, in part order, appended to <paramref name="into"/>. Part order
-    /// rather than the <see cref="Part"/> reference is what a battery keys on: KSA rebuilds the
+    /// rather than the <see cref="Part"/> reference is what a system keys on: KSA rebuilds the
     /// part tree during staging and docking, and the ordinal survives that.
     /// </summary>
     public static void FindAll(Vehicle vehicle, List<(Part Part, LauncherProfile Profile)> into)
@@ -962,7 +962,7 @@ internal static class LauncherPart
     /// Muzzle position of one tube, in Ecl.
     ///
     /// The hexagon is laid out in world space about the boresight rather than being read out
-    /// of the part's own rotation. The battery always points its rounds along the boresight,
+    /// of the part's own rotation. The system always points its rounds along the boresight,
     /// so building the ring around that axis keeps the tubes and the departing rounds
     /// consistent with each other.
     /// </summary>

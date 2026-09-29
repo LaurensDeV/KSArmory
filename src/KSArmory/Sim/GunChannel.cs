@@ -6,7 +6,7 @@ namespace KSArmory;
 ///
 /// <para>Nothing like <see cref="Magazine"/>, which tracks which tube holds what. A gun does not
 /// empty tubes — it cycles two barrels against one belt, so what matters is a rate, a burst
-/// length and a pause between bursts. Kept here rather than in the battery because the failure
+/// length and a pause between bursts. Kept here rather than in the system because the failure
 /// modes are all arithmetic: a burst that never ends, a rate that outruns the frame, a belt that
 /// goes negative.</para>
 /// </summary>

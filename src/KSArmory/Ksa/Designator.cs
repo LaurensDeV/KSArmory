@@ -12,7 +12,7 @@ namespace KSArmory;
 /// designation carries no allegiance and no track, so the IFF and liveness gates are not skipped
 /// so much as inapplicable — <see cref="WeaponSystem.FireAt"/> says which gates still run.</para>
 ///
-/// <para>Per battery rather than per session, like every other tool that acts on one
+/// <para>Per system rather than per session, like every other tool that acts on one
 /// installation: two sites in the same world are aimed by different people at different things.</para>
 /// </summary>
 internal sealed class Designator
@@ -26,7 +26,7 @@ internal sealed class Designator
     private const double MarkerMin = 4.0;
 
     /// <summary>Fires at the ground under the cursor when the tool is on and the world is clicked.</summary>
-    public void Update(IManualFire battery, SystemConfig policy)
+    public void Update(IManualFire system, SystemConfig policy)
     {
         if (!policy.MouseFire) return;
 
@@ -44,15 +44,15 @@ internal sealed class Designator
             // pointing rather than at a named place, and the sky is where most of its targets are:
             // requiring a ground hit would leave the CIWS unable to fire at anything above the
             // horizon, which is the one thing a CIWS is for.
-            if (battery.TriggerArmament == ArmamentKind.Belt) battery.FireBurst();
+            if (system.TriggerArmament == ArmamentKind.Belt) system.FireBurst();
             return;
         }
 
-        battery.FireAt(Lifted(groundEcl, battery));
+        system.FireAt(Lifted(groundEcl, system));
     }
 
     /// <summary>Marks where a shot would go, so the tool is aimable before it is fired.</summary>
-    public void Draw(IManualFire battery, SystemConfig policy)
+    public void Draw(IManualFire system, SystemConfig policy)
     {
         if (!policy.MouseFire) return;
         if (ImGui.GetIO().WantCaptureMouse) return;
@@ -60,10 +60,10 @@ internal sealed class Designator
 
         // Its own anchor, rather than whichever was last set: with the shipped defaults there is
         // often none at all, overlays off, no shells in the air, and nothing else drawing.
-        if (battery.Platform is not { } platform) return;
-        if (!KsaWorld.BeginDraw(platform, battery.PlatformEcl)) return;
+        if (system.Platform is not { } platform) return;
+        if (!KsaWorld.BeginDraw(platform, system.PlatformEcl)) return;
 
-        double3 at = Lifted(groundEcl, battery);
+        double3 at = Lifted(groundEcl, system);
 
         // Coloured by whether the weapon could take the shot, because loaded and laid, in range and
         // within the seeker's reach are three refusals that all look like a click doing nothing.
@@ -71,13 +71,13 @@ internal sealed class Designator
         //
         // Asked of the armament the trigger fires. Reading the magazine leaves a gun marked refused
         // forever, since a belt is not a magazine.
-        bool ready = battery.ReadyToFire;
-        double range = battery.Platform is null ? 0.0 : Vec.Len(at - battery.PlatformEcl);
-        bool reaches = range <= battery.TriggerMunition.MaxRange;
+        bool ready = system.ReadyToFire;
+        double range = system.Platform is null ? 0.0 : Vec.Len(at - system.PlatformEcl);
+        bool reaches = range <= system.TriggerMunition.MaxRange;
 
-        float4 colour = ready && reaches && battery.CanGuideOnto(at) ? MarkerColour : RefusedColour;
+        float4 colour = ready && reaches && system.CanGuideOnto(at) ? MarkerColour : RefusedColour;
 
-        double3 up = battery.Platform is { } craft ? KsaWorld.LocalUp(craft) : Vec.Unit(groundEcl);
+        double3 up = system.Platform is { } craft ? KsaWorld.LocalUp(craft) : Vec.Unit(groundEcl);
 
         KsaWorld.DrawCircleEcl(groundEcl, up, Math.Max(MarkerMin, range * MarkerScale), colour);
         KsaWorld.DrawLineEcl(groundEcl, at, colour);
@@ -85,10 +85,10 @@ internal sealed class Designator
 
     // Off the surface by the round's own fireball, so a burst reads as something in the air rather
     // than half-buried in the ground it was aimed at.
-    private static double3 Lifted(double3 groundEcl, IManualFire battery)
+    private static double3 Lifted(double3 groundEcl, IManualFire system)
     {
-        double3 up = battery.Platform is { } craft ? KsaWorld.LocalUp(craft) : Vec.Unit(groundEcl);
+        double3 up = system.Platform is { } craft ? KsaWorld.LocalUp(craft) : Vec.Unit(groundEcl);
 
-        return groundEcl + up * Math.Max(battery.Munition.FireballRadius, 2.0);
+        return groundEcl + up * Math.Max(system.Munition.FireballRadius, 2.0);
     }
 }

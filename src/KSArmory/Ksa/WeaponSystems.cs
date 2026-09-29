@@ -7,7 +7,7 @@ namespace KSArmory;
 /// <see cref="SystemConfig"/>.
 ///
 /// <para>Every craft carrying a recognised part is crewed, permanently and independently: a
-/// battery is pinned to the craft it was created for and never moves, so arming one site, sending
+/// system is pinned to the craft it was created for and never moves, so arming one site, sending
 /// it a target or putting it on a team says nothing about any other.</para>
 ///
 /// <para>Keyed by <see cref="Vehicle"/> reference <em>and launcher ordinal</em>, because a craft
@@ -15,16 +15,16 @@ namespace KSArmory;
 /// the air. Re-pointing one system at a different launcher instead would refill the magazine on
 /// every switch, so a player could drop, switch, drop, switch back and find the bomb returned.</para>
 ///
-/// <para>Entries appear when a system is surveyed and are dropped when the craft dies — a battery
+/// <para>Entries appear when a system is surveyed and are dropped when the craft dies — a system
 /// outliving its platform would keep a destroyed vehicle alive in this dictionary for the
 /// session.</para>
 /// </summary>
 internal sealed class WeaponSystems(Config config)
 {
-    internal sealed record Entry(WeaponSystem Battery, SystemConfig Policy, Vehicle Craft, int Ordinal)
+    internal sealed record Entry(WeaponSystem Weapon, SystemConfig Policy, Vehicle Craft, int Ordinal)
     {
         /// <summary>What the selector calls this weapon.</summary>
-        public string DisplayName => Battery.Profile.DisplayName;
+        public string DisplayName => Weapon.Profile.DisplayName;
     }
 
     private readonly Config _config = config;
@@ -38,7 +38,7 @@ internal sealed class WeaponSystems(Config config)
     private readonly List<(Part Part, LauncherProfile Profile)> _launcherScratch = [];
     private readonly List<(Vehicle Craft, int Ordinal)> _gone = [];
 
-    // Which save's settings the live batteries are holding. Loading a save switches the bucket
+    // Which save's settings the live systems are holding. Loading a save switches the bucket
     // before the craft are rebuilt, so without this the next periodic write stamps the outgoing
     // session's settings onto the save just opened -- which reads as a save that will not keep
     // what it was given.
@@ -72,7 +72,7 @@ internal sealed class WeaponSystems(Config config)
         foreach (KeyValuePair<(Vehicle Craft, int Ordinal), Entry> kv in _entries)
         {
             if (!ReferenceEquals(kv.Key.Craft, craft)) continue;
-            foreach (IProjectile _ in kv.Value.Battery.Rounds) return true;
+            foreach (IProjectile _ in kv.Value.Weapon.Rounds) return true;
         }
 
         return false;
@@ -99,7 +99,7 @@ internal sealed class WeaponSystems(Config config)
 
         foreach (Entry e in _entries.Values)
         {
-            foreach (IProjectile round in e.Battery.Rounds)
+            foreach (IProjectile round in e.Weapon.Rounds)
             {
                 anyInFlight = true;
                 faithful = Math.Min(faithful, round.Munition.MaxFaithfulStepSeconds);
@@ -135,7 +135,7 @@ internal sealed class WeaponSystems(Config config)
 
         foreach (Entry e in _entries.Values)
         {
-            foreach (IProjectile round in e.Battery.Rounds)
+            foreach (IProjectile round in e.Weapon.Rounds)
             {
                 any = true;
                 target = Math.Min(target, round.FaithfulStepSeconds);
@@ -169,7 +169,7 @@ internal sealed class WeaponSystems(Config config)
 
         foreach (Entry e in _entries.Values)
         {
-            if (ReferenceEquals(e.Battery, owner)) return true;
+            if (ReferenceEquals(e.Weapon, owner)) return true;
         }
 
         for (int i = 0; i < _loose.Count; i++)
@@ -214,7 +214,7 @@ internal sealed class WeaponSystems(Config config)
         foreach (Entry entry in _entries.Values)
         {
             if (!ReferenceEquals(entry.Craft, craft)) continue;
-            if (entry.Battery.Sensor.Emits && !entry.Policy.RadarSilent) return true;
+            if (entry.Weapon.Sensor.Emits && !entry.Policy.RadarSilent) return true;
         }
 
         return false;
@@ -271,10 +271,10 @@ internal sealed class WeaponSystems(Config config)
     {
         AllOn(entry.Craft, into);
 
-        string partId = entry.Battery.Profile.PartId;
+        string partId = entry.Weapon.Profile.PartId;
         for (int i = into.Count - 1; i >= 0; i--)
         {
-            if (into[i].Battery.Profile.PartId != partId) into.RemoveAt(i);
+            if (into[i].Weapon.Profile.PartId != partId) into.RemoveAt(i);
         }
     }
 
@@ -289,12 +289,12 @@ internal sealed class WeaponSystems(Config config)
 
         for (int i = 0; i < _stationScratch.Count; i++)
         {
-            _stationScratch[i].Battery.Point(aim, what, log: i == 0);
+            _stationScratch[i].Weapon.Point(aim, what, log: i == 0);
         }
 
         foreach (Entry station in _stationScratch)
         {
-            station.Battery.SendStoresInTheAir(what, station.Battery.Steerable);
+            station.Weapon.SendStoresInTheAir(what, station.Weapon.Steerable);
         }
     }
 
@@ -309,7 +309,7 @@ internal sealed class WeaponSystems(Config config)
         Entry found = entry;
         foreach (Entry s in _stationScratch)
         {
-            if (s.Battery.ReleasedAt > found.Battery.ReleasedAt) found = s;
+            if (s.Weapon.ReleasedAt > found.Weapon.ReleasedAt) found = s;
         }
 
         return found;
@@ -323,15 +323,15 @@ internal sealed class WeaponSystems(Config config)
     {
         foreach (Entry entry in _entries.Values)
         {
-            if (entry.Battery.Steerable is null) continue;
+            if (entry.Weapon.Steerable is null) continue;
 
             StationsOf(entry, _stationScratch);
             foreach (Entry other in _stationScratch)
             {
-                bool releasedSince = other.Battery.ReleasedAt > entry.Battery.ReleasedAt;
+                bool releasedSince = other.Weapon.ReleasedAt > entry.Weapon.ReleasedAt;
                 if (StoreRetarget.Takes(releasedSince)) continue;
 
-                entry.Battery.LockSteerable();
+                entry.Weapon.LockSteerable();
                 break;
             }
         }
@@ -410,7 +410,7 @@ internal sealed class WeaponSystems(Config config)
     public void Sync(IReadOnlyList<(Vehicle Craft, WeaponInventory Inventory)> systems)
     {
         // Before the crewing loop below, and it has to be: it re-keys entries onto craft the loop
-        // is about to walk, and crewing first would put a second battery on the same launcher with
+        // is about to walk, and crewing first would put a second system on the same launcher with
         // a full magazine and default settings.
         FollowDecoupledLaunchers();
 
@@ -420,7 +420,7 @@ internal sealed class WeaponSystems(Config config)
             if (!KsaWorld.IsAlive(craft)) continue;
 
             // The panel lists everything this mod recognises, including a craft carrying only an
-            // optical director. Only the ones that shoot get a battery: crewing the rest gives
+            // optical director. Only the ones that shoot get a system: crewing the rest gives
             // them a launcher-less system running on whichever profile is first in the registry.
             if (!systems[i].Inventory.IsWeaponSystem) continue;
 
@@ -440,7 +440,7 @@ internal sealed class WeaponSystems(Config config)
 
                 SystemConfig policy = new();
 
-                // Whatever this weapon was last set to. Applied before the battery exists so its
+                // Whatever this weapon was last set to. Applied before the system exists so its
                 // first frame runs on the restored settings rather than on defaults it then
                 // overwrites.
                 if (SettingsStore.For(SettingsKey(craft, ordinal)) is { } stored)
@@ -454,14 +454,14 @@ internal sealed class WeaponSystems(Config config)
                     stored.DeclareTeams(_config.TeamNames);
                 }
 
-                WeaponSystem battery = new(_config, policy, ordinal, IsEmitting);
+                WeaponSystem system = new(_config, policy, ordinal, IsEmitting);
 
                 // Pinned on creation, so ResolvePlatform leaves it alone. Without this every
-                // battery would independently elect the craft being flown and they would all pile
+                // system would independently elect the craft being flown and they would all pile
                 // onto it.
-                battery.PinPlatform(craft);
+                system.PinPlatform(craft);
 
-                _entries[(craft, ordinal)] = new Entry(battery, policy, craft, ordinal);
+                _entries[(craft, ordinal)] = new Entry(system, policy, craft, ordinal);
                 Log.Info($"crewed {KsaWorld.DisplayName(craft)} launcher {ordinal + 1} "
                          + $"of {_launcherScratch.Count}");
 
@@ -534,24 +534,24 @@ internal sealed class WeaponSystems(Config config)
     {
         if (!_entries.TryGetValue(key, out Entry? entry)) return;
 
-        WeaponSystem battery = entry.Battery;
+        WeaponSystem system = entry.Weapon;
 
-        if (battery.GoLoose(KsaWorld.ParentBody(key.Craft), KsaWorld.DisplayName(key.Craft)))
+        if (system.GoLoose(KsaWorld.ParentBody(key.Craft), KsaWorld.DisplayName(key.Craft)))
         {
-            _loose.Add(battery);
+            _loose.Add(system);
         }
         else
         {
-            battery.Reset();
+            system.Reset();
 
             // Anything keyed on the system rather than on the craft has to be told, or its entry
             // outlives the craft and keeps a destroyed vehicle reachable for the session.
-            Diagnostics.Forget(battery);
+            Diagnostics.Forget(system);
         }
 
         _entries.Remove(key);
         _selected.Remove(key.Craft);
-        _fruitless.Remove(battery);
+        _fruitless.Remove(system);
         Log.Info(why);
     }
 
@@ -590,7 +590,7 @@ internal sealed class WeaponSystems(Config config)
         bool anyLost = false;
         foreach (KeyValuePair<(Vehicle Craft, int Ordinal), Entry> kv in _entries)
         {
-            if (kv.Value.Battery is { Platform: not null, Launcher: null }) { anyLost = true; break; }
+            if (kv.Value.Weapon is { Platform: not null, Launcher: null }) { anyLost = true; break; }
         }
 
         if (!anyLost) return;
@@ -602,7 +602,7 @@ internal sealed class WeaponSystems(Config config)
         _gone.Clear();
         foreach (KeyValuePair<(Vehicle Craft, int Ordinal), Entry> kv in _entries)
         {
-            if (kv.Value.Battery is not { Platform: not null, Launcher: null }) continue;
+            if (kv.Value.Weapon is not { Platform: not null, Launcher: null }) continue;
             _gone.Add(kv.Key);
         }
 
@@ -612,12 +612,12 @@ internal sealed class WeaponSystems(Config config)
 
             if (TryFollow(_gone[i], entry))
             {
-                _fruitless.Remove(entry.Battery);
+                _fruitless.Remove(entry.Weapon);
                 continue;
             }
 
-            _fruitless.TryGetValue(entry.Battery, out int misses);
-            _fruitless[entry.Battery] = ++misses;
+            _fruitless.TryGetValue(entry.Weapon, out int misses);
+            _fruitless[entry.Weapon] = ++misses;
 
             if (misses < FruitlessSearchesBeforeRetiring) continue;
 
@@ -633,8 +633,8 @@ internal sealed class WeaponSystems(Config config)
     // the search was refused for a reason that is not "nothing carries it".
     private bool TryFollow((Vehicle Craft, int Ordinal) key, Entry entry)
     {
-        WeaponSystem battery = entry.Battery;
-        string wanted = battery.Profile.PartId;
+        WeaponSystem system = entry.Weapon;
+        string wanted = system.Profile.PartId;
 
         _candidates.Clear();
 
@@ -658,7 +658,7 @@ internal sealed class WeaponSystems(Config config)
 
                 _candidates.Add(new HandoverCandidate(
                     i, ordinal,
-                    Vec.Len(KsaWorld.PositionEcl(craft) - battery.PlatformEcl),
+                    Vec.Len(KsaWorld.PositionEcl(craft) - system.PlatformEcl),
                     _entries.ContainsKey((craft, ordinal))));
             }
         }
@@ -695,7 +695,7 @@ internal sealed class WeaponSystems(Config config)
 
         if (choice.Ordinal == 0) WarnIfNameIsTaken(to);
 
-        battery.Rehome(to, choice.Ordinal);
+        system.Rehome(to, choice.Ordinal);
         _handovers.Add((key.Craft, to));
 
         Log.Info($"{KsaWorld.DisplayName(key.Craft)} launcher {key.Ordinal + 1} followed its "
@@ -771,7 +771,7 @@ internal sealed class WeaponSystems(Config config)
         if (changed) SettingsStore.Save();
     }
 
-    // Re-reads every live battery's settings from the store. Used when the save changes under a
+    // Re-reads every live system's settings from the store. Used when the save changes under a
     // roster that is still holding the previous one's.
     private void Adopt()
     {
@@ -807,7 +807,7 @@ internal sealed class WeaponSystems(Config config)
 
     public void Clear()
     {
-        // Last chance: a battery about to be forgotten still holds settings someone chose.
+        // Last chance: a system about to be forgotten still holds settings someone chose.
         WriteNow();
         Discard();
     }
@@ -825,7 +825,7 @@ internal sealed class WeaponSystems(Config config)
     /// </summary>
     public void Discard()
     {
-        foreach (Entry e in _entries.Values) e.Battery.Reset();
+        foreach (Entry e in _entries.Values) e.Weapon.Reset();
         _entries.Clear();
 
         foreach (WeaponSystem loose in _loose) loose.Reset();

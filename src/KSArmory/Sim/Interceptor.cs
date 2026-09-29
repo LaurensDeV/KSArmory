@@ -196,7 +196,7 @@ internal sealed class Interceptor : IProjectile
 
 
     /// <summary>
-    /// Where this round left from, in the launcher part's own frame. Set by the battery at
+    /// Where this round left from, in the launcher part's own frame. Set by the system at
     /// launch and never read by the simulation — it exists so the round's *body* can be placed
     /// against the tube it came out of rather than against the platform's orbit position.
     /// </summary>
@@ -410,7 +410,7 @@ internal sealed class Interceptor : IProjectile
         // What it has gained starts as the ejection up the tube and accumulates along the thrust,
         // and proportional navigation's lateral term lands in it too -- so the round still curves
         // onto its target rather than flying the rail's bearing for ever. For a launcher standing
-        // still the gain *is* the velocity, so nothing about a ground battery's flight changes.
+        // still the gain *is* the velocity, so nothing about a ground system's flight changes.
         if (Age <= munition.TotalBoostSeconds)
         {
             double3 axis = Vec.Unit(localVelocity - LaunchFrameVelocityLocal);

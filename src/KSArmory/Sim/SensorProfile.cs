@@ -119,7 +119,7 @@ public sealed class SensorProfile
     public ScopePresentation Scope = ScopePresentation.None;
 
     /// <summary>
-    /// A track counts as a threat if its closest point of approach to the battery falls inside
+    /// A track counts as a threat if its closest point of approach to the system falls inside
     /// this radius (m). This is what makes "passing by" targets engageable rather than only
     /// head-on ones.
     /// </summary>

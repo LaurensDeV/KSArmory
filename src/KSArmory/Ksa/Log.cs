@@ -51,7 +51,7 @@ internal static class Log
         /// <summary>Developer detail: spawn maths, per-object dumps, geometry read-backs.</summary>
         Debug,
 
-        /// <summary>What the battery did. The default for a release build.</summary>
+        /// <summary>What the system did. The default for a release build.</summary>
         Info,
 
         /// <summary>Only things that went wrong.</summary>

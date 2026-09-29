@@ -1,15 +1,15 @@
 namespace KSArmory;
 
-/// <summary>Which side a contact is on, as far as this battery knows.</summary>
+/// <summary>Which side a contact is on, as far as this system knows.</summary>
 public enum Allegiance
 {
     /// <summary>No team assigned, or none recognised.</summary>
     Unknown,
 
-    /// <summary>Same team as the battery.</summary>
+    /// <summary>Same team as the system.</summary>
     Friendly,
 
-    /// <summary>A team the battery is at war with.</summary>
+    /// <summary>A team the system is at war with.</summary>
     Hostile,
 
     /// <summary>A team that is neither, and is not to be shot at.</summary>
@@ -69,11 +69,11 @@ public static class Teams
 }
 
 /// <summary>
-/// Decides which contacts a battery may engage. <b>IFF is Identification Friend or Foe</b> — the
+/// Decides which contacts a system may engage. <b>IFF is Identification Friend or Foe</b> — the
 /// radar-transponder scheme real air defence uses to avoid shooting its own side.
 ///
 /// <para>KSA has no concept of sides, so teams are the mod's own: a contact carries whatever team
-/// name it was assigned, and this compares it to the battery's. Team names are compared
+/// name it was assigned, and this compares it to the system's. Team names are compared
 /// case-insensitively and a null or empty name is <see cref="Allegiance.Unknown"/>, which is
 /// deliberately not the same as hostile.</para>
 ///
@@ -83,7 +83,7 @@ public static class Teams
 /// </summary>
 public sealed class IffPolicy
 {
-    /// <summary>This battery's own team. Null or empty means it has not picked a side.</summary>
+    /// <summary>This system's own team. Null or empty means it has not picked a side.</summary>
     public string? OwnTeam { get; set; }
 
     /// <summary>Engage contacts with no recognised team. On by default.</summary>

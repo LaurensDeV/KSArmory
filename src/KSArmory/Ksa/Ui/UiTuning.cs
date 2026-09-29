@@ -6,7 +6,7 @@ namespace KSArmory;
 /// The panes that change how a system behaves: which side it is on, and the sensor, guidance and
 /// warhead numbers.
 ///
-/// <para>The distinction the sliders keep making: IFF is per battery, so it edits
+/// <para>The distinction the sliders keep making: IFF is per system, so it edits
 /// <c>_policy</c>; weapon performance belongs to the profiles, so it edits those and every system
 /// of that type feels it. See <see cref="Config"/> for why.</para>
 /// </summary>
@@ -328,7 +328,7 @@ internal sealed partial class Ui
             ImGui.SliderFloat("Launch speed (m/s)", ref _munition.LaunchSpeed, 5f, 300f);
             ImGui.SliderFloat("Max flight time (s)", ref _munition.MaxFlightSeconds, 3f, 180f);
 
-            // The envelope the battery commits inside, which is not how far the round can fly:
+            // The envelope the system commits inside, which is not how far the round can fly:
             // the set sees 36 km and the round reaches 20, and firing at everything detected
             // spends the magazine on contacts the rounds expire short of.
             ImGui.SliderFloat("Min engagement range (m)", ref _munition.MinRange, 0f, 5000f);

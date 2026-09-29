@@ -371,7 +371,7 @@ internal sealed class Bridge : IViewPose
 
     private IEnumerable<WeaponSystem> AllSystems()
     {
-        foreach (WeaponSystems.Entry e in _systems()) yield return e.Battery;
+        foreach (WeaponSystems.Entry e in _systems()) yield return e.Weapon;
         foreach (WeaponSystem s in _loose()) yield return s;
     }
 
@@ -577,7 +577,7 @@ internal sealed class Bridge : IViewPose
             string seeker = command.String("seeker");
             if (seeker.Length > 0)
             {
-                MunitionProfile stock = Catalogue.MunitionNamed(e.Battery.Munition.Name);
+                MunitionProfile stock = Catalogue.MunitionNamed(e.Weapon.Munition.Name);
                 MunitionProfile flown = stock.Copy();
                 if (seeker != "stock")
                 {
@@ -588,16 +588,16 @@ internal sealed class Bridge : IViewPose
                     flown.SeekerFovDeg = Math.Max(flown.SeekerFovDeg, 40f);
                 }
 
-                e.Battery.FlyRoundsAs(flown);
+                e.Weapon.FlyRoundsAs(flown);
             }
 
             changed.Add(new Dictionary<string, object?>
             {
-                ["launcher"] = e.Battery.Profile.DisplayName,
+                ["launcher"] = e.Weapon.Profile.DisplayName,
                 ["auto_engage"] = p.AutoEngage,
                 ["protect"] = p.ProtectControlledVehicle,
-                ["guidance"] = e.Battery.Munition.Guidance.ToString(),
-                ["band"] = e.Battery.Munition.Band.ToString(),
+                ["guidance"] = e.Weapon.Munition.Guidance.ToString(),
+                ["band"] = e.Weapon.Munition.Band.ToString(),
             });
         }
 

@@ -190,7 +190,7 @@ internal sealed class GunneryScenario
     /// <summary>One frame. Null while the run goes on, the verdict once it is over.</summary>
     public string? Update(WeaponSystems.Entry entry, double dt)
     {
-        WeaponSystem gun = entry.Battery;
+        WeaponSystem gun = entry.Weapon;
 
         if (gun.Profile.GunMunition is not { } munition) return $"FAIL {gun.Profile.DisplayName} carries no gun";
 

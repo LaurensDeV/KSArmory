@@ -1,10 +1,10 @@
 namespace KSArmory;
 
 /// <summary>
-/// Which of a battery's magazines and switches an armament draws on.
+/// Which of a system's magazines and switches an armament draws on.
 ///
 /// <para>Carried by the description rather than asked about by whoever reads it: the panel
-/// enumerates armaments and never tests one. It exists because the count a battery keeps and the
+/// enumerates armaments and never tests one. It exists because the count a system keeps and the
 /// switch that lets an armament engage are separately named members rather than a lookup, so
 /// something has to pair them up.</para>
 /// </summary>
@@ -72,7 +72,7 @@ public readonly record struct Armament
         => firing ? $"{Label}: {Tally(remaining)} FIRING" : $"{Label}: {Tally(remaining)}";
 
     /// <summary>
-    /// The battery switch that lets an armament of this kind engage, by reference so a tick box
+    /// The system switch that lets an armament of this kind engage, by reference so a tick box
     /// can drive it.
     ///
     /// <para>Static, and keyed on the kind rather than on an instance, because a caller reading

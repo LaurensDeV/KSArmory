@@ -38,9 +38,9 @@ internal static class Sight
     /// carries no armament — the bracket, the reference and the zoom all still mean something,
     /// and the arm state, the ammo and the gun's pipper do not exist to be drawn.
     /// </param>
-    public static void Draw(IOpticalHead battery, OpticConfig policy, ISightPicture? weapon)
+    public static void Draw(IOpticalHead system, OpticConfig policy, ISightPicture? weapon)
     {
-        if (policy.Viewport < 0 || battery.OpticPart is null) return;
+        if (policy.Viewport < 0 || system.OpticPart is null) return;
 
         // The window this head is actually driving, which need not be the one the player flies
         // from. Everything below is measured and drawn against it -- a projection, a field of
@@ -55,7 +55,7 @@ internal static class Sight
 
             if (policy.Symbology)
             {
-                DrawReferenceLine(surface, battery);
+                DrawReferenceLine(surface, system);
                 DrawBoresight(draw, centre);
             }
 
@@ -67,7 +67,7 @@ internal static class Sight
                 DrawDragIndicator(draw, policy, centre);
             }
 
-            DrawTarget(surface, battery, policy, weapon);
+            DrawTarget(surface, system, policy, weapon);
 
             if (policy.Symbology && weapon is not null) DrawStatus(surface, weapon, policy);
         }
@@ -122,11 +122,11 @@ internal static class Sight
     // The horizontal through the site, drawn from places that genuinely sit on it. A line laid
     // flat across the screen would only be right where the camera happens to be level, and the
     // whole reason to draw one is that it is not.
-    private static void DrawReferenceLine(SightSurface surface, IOpticalHead battery)
+    private static void DrawReferenceLine(SightSurface surface, IOpticalHead system)
     {
         ImDrawListPtr draw = surface.Draw;
 
-        if (!battery.TryOpticViewEcl(out double3 eye, out double3 forward)) return;
+        if (!system.TryOpticViewEcl(out double3 eye, out double3 forward)) return;
 
         // Sized to the field the camera is actually showing. A fixed span puts both ends far
         // outside a magnified picture, and at 3° that is most of a right angle away -- behind the
@@ -136,7 +136,7 @@ internal static class Sight
         double half = Math.Clamp(fovRad, 0.02, 1.2);
 
         Span<double3> arc = stackalloc double3[ArcPoints];
-        int n = SightPicture.ReferenceArc(eye, forward, battery.Boresight, half,
+        int n = SightPicture.ReferenceArc(eye, forward, system.Boresight, half,
                                           ReferenceDistanceMetres, arc);
         if (n < 2) return;
 
@@ -166,13 +166,13 @@ internal static class Sight
     }
 
     // The target bracket, the gun pipper, and the lead between them.
-    private static void DrawTarget(SightSurface surface, IOpticalHead battery, OpticConfig policy,
+    private static void DrawTarget(SightSurface surface, IOpticalHead system, OpticConfig policy,
                                    ISightPicture? weapon)
     {
         ImDrawListPtr draw = surface.Draw;
         float2 centre = surface.Centre;
 
-        if (battery.LockedTrack is not { } track) return;
+        if (system.LockedTrack is not { } track) return;
 
         // Where the craft is *drawn*, which is not where it is simulated. A bracket is the one
         // thing that has to sit exactly on the target, and the analytic-versus-physics gap is
@@ -183,7 +183,7 @@ internal static class Sight
             return;
         }
 
-        bool settled = battery.OpticOnTarget;
+        bool settled = system.OpticOnTarget;
         ImColor8 colour = settled ? Reticle : Pending;
 
         if (!inView)
@@ -210,8 +210,8 @@ internal static class Sight
         // Why the head is not on it, when it is not. The bracket alone says a contact is held,
         // never that anything is being done about it -- and a head resting with a contact tracked
         // draws exactly the picture of a camera that has stopped working.
-        OpticHold hold = OpticFollow.Why(OnAxis(battery, track), policy.MouseAim, policy.Manual,
-                                         battery.Designation.Kind != AimpointKind.None,
+        OpticHold hold = OpticFollow.Why(OnAxis(system, track), policy.MouseAim, policy.Manual,
+                                         system.Designation.Kind != AimpointKind.None,
                                          policy.Tracking, settled);
 
         if (hold.Holds)
@@ -223,9 +223,9 @@ internal static class Sight
     // Whether the head is looking at the contact, measured off the same view the camera is
     // driven from rather than off where the bracket landed -- a bracket clamped to the edge has
     // no distance left in it, which is the case that most needs an answer.
-    private static bool OnAxis(IOpticalHead battery, Track track)
+    private static bool OnAxis(IOpticalHead system, Track track)
     {
-        if (!battery.TryOpticViewEcl(out double3 eye, out double3 forward)) return true;
+        if (!system.TryOpticViewEcl(out double3 eye, out double3 forward)) return true;
 
         double3 toTarget = track.PositionEcl - eye;
         if (Vec.Len2(toTarget) < 1.0) return true;
@@ -235,12 +235,12 @@ internal static class Sight
 
     // Where the shells will actually be. Sized to what the round covers at that range rather than
     // to a fixed icon, so the ring closing on the bracket is the shot coming together.
-    private static void DrawPipper(SightSurface surface, ISightPicture battery,
+    private static void DrawPipper(SightSurface surface, ISightPicture system,
                                    float2 targetAt, Track track, double3 targetEgo)
     {
         ImDrawListPtr draw = surface.Draw;
 
-        if (!battery.TryRingAimEcl(out double3 aimEcl, out bool isGunLead) || !isGunLead) return;
+        if (!system.TryRingAimEcl(out double3 aimEcl, out bool isGunLead) || !isGunLead) return;
 
         // The lead as a separation from the target, carried onto the target's *drawn* position.
         // The solve is measured from the analytic one, so projecting it directly would put the
@@ -256,7 +256,7 @@ internal static class Sight
 
         if (!leadInView) return;
 
-        MunitionProfile shell = Catalogue.MunitionNamed(battery.Profile.GunMunition ?? battery.Munition.Name);
+        MunitionProfile shell = Catalogue.MunitionNamed(system.Profile.GunMunition ?? system.Munition.Name);
 
         float radius = SightZoom.ApparentPixels(Warhead.LethalRadius(shell.ChargeKg), track.Range,
                                                 double.RadiansToDegrees(KsaWorld.ViewportFovRad(surface.Index)),
@@ -271,10 +271,10 @@ internal static class Sight
         draw.AddCircle(at, radius, Gun, 0, 1.6f);
         draw.AddCircleFilled(at, 2.0f, Gun);
 
-        if (battery.GunFlightSeconds > 0.0)
+        if (system.GunFlightSeconds > 0.0)
         {
             Text(draw, new float2(at.X + radius + 6f, at.Y - 7f),
-                 $"TOF {battery.GunFlightSeconds:F1} s", Gun);
+                 $"TOF {system.GunFlightSeconds:F1} s", Gun);
         }
     }
 
@@ -298,32 +298,32 @@ internal static class Sight
 
     // The block a gunner reads without looking away from the target: what is on, what is loaded,
     // and how far in the optics are wound.
-    private static void DrawStatus(SightSurface surface, ISightPicture battery, OpticConfig policy)
+    private static void DrawStatus(SightSurface surface, ISightPicture system, OpticConfig policy)
     {
         ImDrawListPtr draw = surface.Draw;
         float2 at = new(surface.Pos.X + 24f, surface.Pos.Y + 24f);
         const float line = 17f;
 
-        Text(draw, at, battery.Profile.DisplayName, Reticle);
+        Text(draw, at, system.Profile.DisplayName, Reticle);
         at.Y += line;
 
-        if (battery.Profile.TubeCount > 0)
+        if (system.Profile.TubeCount > 0)
         {
-            bool ready = battery.Ammo > 0 && battery.IsLaid;
-            Text(draw, at, $"MSL {battery.Ammo}", ready ? Reticle : Pending);
+            bool ready = system.Ammo > 0 && system.IsLaid;
+            Text(draw, at, $"MSL {system.Ammo}", ready ? Reticle : Pending);
             at.Y += line;
         }
 
-        if (battery.Profile.HasCannon)
+        if (system.Profile.HasCannon)
         {
-            bool ready = battery.GunAmmo > 0 && battery.GunsAreLaid;
-            Text(draw, at, $"GUN {battery.GunAmmo}", ready ? Gun : Pending);
+            bool ready = system.GunAmmo > 0 && system.GunsAreLaid;
+            Text(draw, at, $"GUN {system.GunAmmo}", ready ? Gun : Pending);
             at.Y += line;
         }
 
         // Which weapon owns the bearing. Only one can: the ring is laid on the gun's lead or on the
         // target, and a missile released in the first state leaves along a tube pointing elsewhere.
-        if (battery.TryRingAimEcl(out _, out bool isGunLead))
+        if (system.TryRingAimEcl(out _, out bool isGunLead))
         {
             Text(draw, at, isGunLead ? "GUN HAS THE RING" : "MSL HAS THE RING",
                  isGunLead ? Gun : Reticle);

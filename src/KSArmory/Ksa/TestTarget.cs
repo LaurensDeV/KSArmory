@@ -4,7 +4,7 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// Spawns a drone on a timed pass over the battery, so the system can be exercised without
+/// Spawns a drone on a timed pass over the system, so the system can be exercised without
 /// building a second craft and flying it into position by hand.
 ///
 /// Drones fly one of KSA's stock craft by default, so the thing being shot at is recognisably
@@ -30,10 +30,10 @@ internal static class TestTarget
         return (east * Math.Cos(AzimuthRadians)) + (north * Math.Sin(AzimuthRadians));
     }
 
-    /// <summary>How the drone is aimed relative to the battery.</summary>
+    /// <summary>How the drone is aimed relative to the system.</summary>
     public enum Profile
     {
-        /// <summary>Flies straight at the battery. The easy case.</summary>
+        /// <summary>Flies straight at the system. The easy case.</summary>
         HeadOn,
 
         /// <summary>Crosses overhead at <c>missDistance</c>. The case ProNav exists for.</summary>
@@ -47,7 +47,7 @@ internal static class TestTarget
     /// Creates the drone. Returns null and logs if anything in the spawn chain fails - this is
     /// a testing aid, so it must never take the game down with it.
     /// </summary>
-    /// <param name="platform">The vehicle carrying the battery.</param>
+    /// <param name="platform">The vehicle carrying the system.</param>
     /// <param name="secondsToClosestApproach">Flight time from spawn to the pass.</param>
     /// <param name="speed">Drone speed relative to the platform (m/s).</param>
     /// <param name="missDistance">How close it passes (m). Ignored for <see cref="Profile.HeadOn"/>.</param>
@@ -105,7 +105,7 @@ internal static class TestTarget
             double t = secondsToClosestApproach;
             double spawnRange = speed * t;
 
-            // Direction from the battery to the spawn point: elevation above the horizon,
+            // Direction from the system to the spawn point: elevation above the horizon,
             // azimuth around it.
             double elev = double.DegreesToRadians(elevationDeg);
             double3 azimuth = ApproachBearing(platform);
@@ -244,7 +244,7 @@ internal static class TestTarget
             try
             {
                 double actualRangeKm = Vec.Len(KsaWorld.PositionEcl(drone) - originEcl) / 1000.0;
-                Log.Debug($"  placed at {actualRangeKm:F1} km from the battery (intended {Vec.Len(spawnEcl - originEcl) / 1000.0:F1} km)");
+                Log.Debug($"  placed at {actualRangeKm:F1} km from the system (intended {Vec.Len(spawnEcl - originEcl) / 1000.0:F1} km)");
             }
             catch (Exception e)
             {

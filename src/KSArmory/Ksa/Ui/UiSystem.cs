@@ -7,7 +7,7 @@ namespace KSArmory;
 /// The panes that describe one weapons system: what it is made of, what it can see, and what its
 /// drives and weapons are doing.
 ///
-/// <para>Every method here reads <c>_battery</c> and <c>_policy</c>, which are <b>not</b> fixed —
+/// <para>Every method here reads <c>_system</c> and <c>_policy</c>, which are <b>not</b> fixed —
 /// <see cref="Ui.Focus"/> points them at whichever system is being drawn, and the shell calls it
 /// before any of this runs. A pane added here that is reached another way will quietly describe
 /// the wrong installation.</para>
@@ -112,7 +112,7 @@ internal sealed partial class Ui
         if (stations > 1 && role == WeaponRole.Launcher) DrawStationsLoaded(craft, kind);
 
         // A director is its own instrument and needs no weapons system. Everything else here
-        // describes one, and reads `_battery` -- which Focus leaves unassigned on a craft that
+        // describes one, and reads `_system` -- which Focus leaves unassigned on a craft that
         // carries no armament. A craft with one director and a provided sensor row reaches this
         // with nothing crewed, so the guard is on the path rather than in each handler.
         if (role == WeaponRole.Camera)
@@ -232,21 +232,21 @@ internal sealed partial class Ui
     // Whether a row belongs to the weapon the panel is pointed at. The rows print the *selected*
     // system's numbers, so a row of another kind of launcher has to say it is not that one rather
     // than show numbers belonging to a different weapon. Every station of a kind is one weapon.
-    private bool IsSelectedWeapon(ComponentProfile kind) => _battery.Profile.PartId == kind.PartId;
+    private bool IsSelectedWeapon(ComponentProfile kind) => _system.Profile.PartId == kind.PartId;
 
     // A row standing for several stations, and how many of them still hold a round.
     private void DrawStationsLoaded(KSA.Vehicle craft, ComponentProfile kind)
     {
-        _batteries.AllOn(craft, _stationRows);
+        _roster.AllOn(craft, _stationRows);
 
         int stations = 0;
         int loaded = 0;
         foreach (WeaponSystems.Entry e in _stationRows)
         {
-            if (e.Battery.Profile.PartId != kind.PartId) continue;
+            if (e.Weapon.Profile.PartId != kind.PartId) continue;
 
             stations++;
-            if (e.Battery.Ammo > 0) loaded++;
+            if (e.Weapon.Ammo > 0) loaded++;
         }
 
         ImGui.Text($"{stations} stations, {loaded} loaded");
@@ -256,10 +256,10 @@ internal sealed partial class Ui
 
     private void ForEachStation(Action<WeaponSystem> act)
     {
-        if (_batteries.For(Focused) is not { } selected) { act(_battery); return; }
+        if (_roster.For(Focused) is not { } selected) { act(_system); return; }
 
-        _batteries.StationsOf(selected, _stationRows);
-        foreach (WeaponSystems.Entry e in _stationRows) act(e.Battery);
+        _roster.StationsOf(selected, _stationRows);
+        foreach (WeaponSystems.Entry e in _stationRows) act(e.Weapon);
     }
 
     // Said on a row that is a real weapon but not the one being shown, rather than leaving it to
@@ -275,7 +275,7 @@ internal sealed partial class Ui
     {
         if (!IsSelectedWeapon(kind)) return;
 
-        if (_battery.Launcher is null)
+        if (_system.Launcher is null)
         {
             ImGui.TextColored(Red, "not resolved");
             ImGui.TextDisabled("  the part is fitted but its subparts were not found");
@@ -284,11 +284,11 @@ internal sealed partial class Ui
 
         DrawArmamentTally(ArmamentKind.Tubes);
 
-        if (_battery.ReloadRemaining > 0.0)
+        if (_system.ReloadRemaining > 0.0)
         {
-            ImGui.Text($"Reloading: {_battery.ReloadRemaining:F1}s");
+            ImGui.Text($"Reloading: {_system.ReloadRemaining:F1}s");
             ImGui.ProgressBar(
-                (float)(1.0 - _battery.ReloadRemaining / Math.Max(0.001f, _profile.ReloadSeconds)));
+                (float)(1.0 - _system.ReloadRemaining / Math.Max(0.001f, _profile.ReloadSeconds)));
         }
 
         DrawTurretLine();
@@ -321,7 +321,7 @@ internal sealed partial class Ui
         if (!IsSelectedWeapon(kind)) return;
 
         DrawArmamentTally(ArmamentKind.Belt);
-        ImGui.TextDisabled(_battery.GunsAreLaid ? "  laid" : "  not laid");
+        ImGui.TextDisabled(_system.GunsAreLaid ? "  laid" : "  not laid");
     }
 
     // The set: what it is holding right now, and the one switch that belongs to this set rather
@@ -348,7 +348,7 @@ internal sealed partial class Ui
 
         // Only offered on a set that actually transmits: silencing a passive seeker is a switch
         // that would do nothing, and one that does nothing is worse than one that is absent.
-        if (_battery.Sensor.Emits)
+        if (_system.Sensor.Emits)
         {
             ImGui.Checkbox("Radar silent", ref _policy.RadarSilent);
             Tip("On: the set stops transmitting, so an anti-radiation round has nothing to home on, "
@@ -410,11 +410,11 @@ internal sealed partial class Ui
         // Last, and alone below a rule. It discards the installation's stored settings, so it is
         // kept clear of anything anyone reaches for in a hurry.
         ImGui.Separator();
-        if (ImGui.Button("Reset settings") && _battery.Platform is { } craft)
+        if (ImGui.Button("Reset settings") && _system.Platform is { } craft)
         {
             SettingsStore.Forget(KsaWorld.DisplayName(craft));
             new SystemSettings().ApplyTo(_policy);
-            _batteries.WriteNow();
+            _roster.WriteNow();
             Log.Info($"settings reset for {KsaWorld.DisplayName(craft)}");
         }
         Tip("Back to defaults, and forgotten from the settings file. This resets the whole "
@@ -426,7 +426,7 @@ internal sealed partial class Ui
     {
         if (_fit.FirstOf(kind) is not { } arm) return;
 
-        (int remaining, bool firing) = LiveState(_battery, arm);
+        (int remaining, bool firing) = LiveState(_system, arm);
 
         if (firing) ImGui.TextColored(Red, arm.Describe(remaining, firing));
         else ImGui.Text(arm.Describe(remaining, firing));
@@ -466,7 +466,7 @@ internal sealed partial class Ui
     // headline behind a disclosure triangle is worse than one behind a tab.
     private void DrawSystemHeader()
     {
-        if (_battery.Platform is null)
+        if (_system.Platform is null)
         {
             ImGui.TextColored(Grey, "No platform - take control of a vehicle.");
             ImGui.Separator();
@@ -484,9 +484,9 @@ internal sealed partial class Ui
         // rail every time -- so the second is never fired at all, however often this is pressed.
         if (ImGui.Button("FIRE")) FireSelectedGroup();
         // The same three cases WeaponSystem.FireAtLock branches on, in its order.
-        Tip(_battery.TriggerArmament == ArmamentKind.Belt
+        Tip(_system.TriggerArmament == ArmamentKind.Belt
                 ? "Fire one burst now, wherever the guns are pointing."
-            : !_battery.Munition.Powered
+            : !_system.Munition.Powered
                 ? "Release one store now. A guided store steers onto whatever is designated; an "
                   + "unguided one, or a guided one with nothing designated, simply falls."
                 : "Fire one round now, at the craft you shift-clicked or else at the radar's lock.");
@@ -497,12 +497,12 @@ internal sealed partial class Ui
         // Read off the station the trigger would reach rather than the one selected. Both FIRE
         // buttons go through the group, so both lines beside them have to as well.
         ImGui.SameLine();
-        DrawHoldLine(_battery, _policy.AutoEngage);
+        DrawHoldLine(_system, _policy.AutoEngage);
 
-        if (_battery.Rounds.Count > 0)
+        if (_system.Rounds.Count > 0)
         {
             ImGui.SameLine();
-            ImGui.Text($"   In flight: {_battery.Rounds.Count}");
+            ImGui.Text($"   In flight: {_system.Rounds.Count}");
         }
 
         // Whether it shoots on its own, about the whole system and no part of it -- which is what
@@ -519,7 +519,7 @@ internal sealed partial class Ui
 
         // The window with every weapon's arm and guard state and a trigger of its own: a pop-out
         // of the panel's trigger for one weapon as much as a switcher for several.
-        _batteries.AllOn(Focused, _weaponScratch);
+        _roster.AllOn(Focused, _weaponScratch);
         if (_weaponScratch.Count > 0)
         {
             if (anotherLine) ImGui.SameLine(0f, ImGui.GetFrameHeight());
@@ -575,8 +575,8 @@ internal sealed partial class Ui
     {
         // A designation is not a lock, deliberately: auto-engage fires at the lock, and a craft
         // shift-clicked only to be watched must not be shot at. So the two are reported apart.
-        bool designated = _battery.Designation.Kind != AimpointKind.None;
-        if (designated) ImGui.Text($"designated: {_battery.DesignationName}");
+        bool designated = _system.Designation.Kind != AimpointKind.None;
+        if (designated) ImGui.Text($"designated: {_system.DesignationName}");
 
         // A store is released onto a designation and never onto a lock, so for one the lock is
         // not worth a line.
@@ -586,13 +586,13 @@ internal sealed partial class Ui
             return;
         }
 
-        if (_battery.Radar.Locked is not { } locked)
+        if (_system.Radar.Locked is not { } locked)
         {
             ImGui.TextColored(Grey, "nothing locked");
             return;
         }
 
-        bool solution = _battery.Radar.HasFiringSolution;
+        bool solution = _system.Radar.HasFiringSolution;
 
         ImGui.TextColored(solution ? Red : Amber, solution ? "LOCKED" : "acquiring...");
         ImGui.SameLine();
@@ -610,7 +610,7 @@ internal sealed partial class Ui
     // way this one mount is pointed does not.
     private void DrawTurretControls()
     {
-        if (_battery.Launcher is null || !_fit.Aims) return;
+        if (_system.Launcher is null || !_fit.Aims) return;
 
         ImGui.Checkbox("Track with turret", ref _policy.TurretTracking);
 
@@ -637,53 +637,53 @@ internal sealed partial class Ui
 
     private void DrawTurretLine()
     {
-        if (_battery.Launcher is null) return;
+        if (_system.Launcher is null) return;
 
         // Nothing to lay, so nothing to say: and not "subpart not found", which reads as a fault on
         // a system that is working.
         if (!_fit.Aims) return;
 
-        if (_fit.Traverses && _battery.TurretPart is null)
+        if (_fit.Traverses && _system.TurretPart is null)
         {
             ImGui.TextColored(Amber, "Turret: subpart not found (fixed forward)");
             return;
         }
 
-        if (_battery.AnyDriveRefused)
+        if (_system.AnyDriveRefused)
         {
             string frozen = string.Join(", ",
                 Enum.GetValues<DriveChannel>()
-                    .Where(c => !_battery.DriveWorks(c))
+                    .Where(c => !_system.DriveWorks(c))
                     .Select(c => c.ToString().ToLowerInvariant()));
             ImGui.TextColored(Red, $"Drive: engine refused the transform write ({frozen})");
-            if (!_battery.DriveWorks(DriveChannel.Turret) || !_battery.DriveWorks(DriveChannel.Pods))
+            if (!_system.DriveWorks(DriveChannel.Turret) || !_system.DriveWorks(DriveChannel.Pods))
             {
                 ImGui.TextColored(Red, "Holding fire: the tubes cannot be laid");
                 return;
             }
         }
 
-        double bearing = float.RadiansToDegrees((float)_battery.Turret.BearingRad);
+        double bearing = float.RadiansToDegrees((float)_system.Turret.BearingRad);
         if (bearing < 0.0) bearing += 360.0;
-        double elevation = float.RadiansToDegrees((float)_battery.Turret.ElevationRad);
+        double elevation = float.RadiansToDegrees((float)_system.Turret.ElevationRad);
         string aim = $"Turret: {bearing:F0} deg, elev {elevation:F0} deg";
 
         if (!_policy.TurretTracking)
         {
             ImGui.TextColored(Grey, $"{aim} (tracking off)");
         }
-        else if (_battery.IsLaid)
+        else if (_system.IsLaid)
         {
             ImGui.TextColored(Green, $"{aim} - laid");
         }
-        else if (_battery.Turret.OnTarget)
+        else if (_system.Turret.OnTarget)
         {
             ImGui.TextColored(Amber, $"{aim} - settling");
         }
         else
         {
-            double error = Math.Abs(float.RadiansToDegrees((float)_battery.Turret.ErrorRad));
-            double elevError = Math.Abs(float.RadiansToDegrees((float)_battery.Turret.ElevationErrorRad));
+            double error = Math.Abs(float.RadiansToDegrees((float)_system.Turret.ErrorRad));
+            double elevError = Math.Abs(float.RadiansToDegrees((float)_system.Turret.ElevationErrorRad));
             ImGui.TextColored(Amber, $"{aim} - slewing ({Math.Max(error, elevError):F0} deg to go)");
         }
     }
@@ -701,37 +701,37 @@ internal sealed partial class Ui
         DrawRadarState();
         ImGui.Separator();
 
-        if (_battery.Radar.Tracks.Count == 0)
+        if (_system.Radar.Tracks.Count == 0)
         {
             ImGui.TextDisabled("scope clear");
         }
 
         // An empty scope with craft in the world reads as a broken radar. Saying how many the
         // planet is hiding is the difference between that and a working one with nothing in view.
-        if (_battery.Radar.MaskedByTerrain > 0)
+        if (_system.Radar.MaskedByTerrain > 0)
         {
-            ImGui.TextDisabled($"  {_battery.Radar.MaskedByTerrain} behind the horizon");
+            ImGui.TextDisabled($"  {_system.Radar.MaskedByTerrain} behind the horizon");
         }
 
-        if (_battery.Radar.MaskedByBurst > 0)
+        if (_system.Radar.MaskedByBurst > 0)
         {
-            ImGui.TextDisabled($"  {_battery.Radar.MaskedByBurst} behind a fireball's ionised air");
+            ImGui.TextDisabled($"  {_system.Radar.MaskedByBurst} behind a fireball's ionised air");
         }
 
-        if (_battery.Radar.LostToChaff > 0)
+        if (_system.Radar.LostToChaff > 0)
         {
-            ImGui.TextDisabled($"  {_battery.Radar.LostToChaff} lost to chaff in the notch, reacquiring");
+            ImGui.TextDisabled($"  {_system.Radar.LostToChaff} lost to chaff in the notch, reacquiring");
         }
 
-        if (_battery.Radar.IgnoredWreckage > 0)
+        if (_system.Radar.IgnoredWreckage > 0)
         {
-            ImGui.TextDisabled($"  {_battery.Radar.IgnoredWreckage} piece(s) of wreckage, not engaged");
+            ImGui.TextDisabled($"  {_system.Radar.IgnoredWreckage} piece(s) of wreckage, not engaged");
         }
 
-        for (int i = 0; i < _battery.Radar.Tracks.Count; i++)
+        for (int i = 0; i < _system.Radar.Tracks.Count; i++)
         {
-            Track t = _battery.Radar.Tracks[i];
-            bool isLock = ReferenceEquals(t, _battery.Radar.Locked);
+            Track t = _system.Radar.Tracks[i];
+            bool isLock = ReferenceEquals(t, _system.Radar.Locked);
 
             float4 colour = isLock ? Red : AllegianceColour(t.Allegiance);
             string mark = t.Allegiance == Allegiance.Friendly ? "F"
@@ -746,13 +746,13 @@ internal sealed partial class Ui
             ImGui.SameLine();
             if (ImGui.Button($"designate##{i}"))
             {
-                _battery.Radar.ManualDesignation = t.Contact.Handle;
+                _system.Radar.ManualDesignation = t.Contact.Handle;
             }
         }
 
-        if (_battery.Radar.ManualDesignation is not null && ImGui.Button("Clear designation"))
+        if (_system.Radar.ManualDesignation is not null && ImGui.Button("Clear designation"))
         {
-            _battery.Radar.ManualDesignation = null;
+            _system.Radar.ManualDesignation = null;
         }
 
     }

@@ -133,7 +133,7 @@ internal sealed partial class Ui
     // A burst overhead, where it cannot be missed.
     private void FireTestBurst()
     {
-        if (!_crewed || _battery.Platform is not { } platform)
+        if (!_crewed || _system.Platform is not { } platform)
         {
             Log.Info("no platform to burst over");
             return;
@@ -155,8 +155,8 @@ internal sealed partial class Ui
         if (!_config.FinTestSweep) return;
 
         int hinged = 0;
-        foreach (WeaponSystems.Entry e in _batteries.All)
-            if (e.Battery.Munition.FinsPerRound > 0) hinged++;
+        foreach (WeaponSystems.Entry e in _roster.All)
+            if (e.Weapon.Munition.FinsPerRound > 0) hinged++;
 
         // Says nothing is happening rather than leaving the tick box looking broken: every
         // launcher in the world may well have no hinged blades to sweep.
@@ -237,7 +237,7 @@ internal sealed partial class Ui
     {
         if (!_crewed) { ImGui.TextDisabled("No weapons system selected."); return; }
 
-        if (_battery.Platform is null)
+        if (_system.Platform is null)
         {
             ImGui.TextDisabled("no platform");
             return;
@@ -274,20 +274,20 @@ internal sealed partial class Ui
 
         if (ImGui.Button("Overhead"))
         {
-            TestTarget.Spawn(_battery.Platform, TestTarget.Profile.Overhead,
+            TestTarget.Spawn(_system.Platform, TestTarget.Profile.Overhead,
                 _spawnSeconds, _spawnSpeed, _spawnMiss, craftName);
         }
         ImGui.SameLine();
         if (ImGui.Button("Head-on"))
         {
-            TestTarget.Spawn(_battery.Platform, TestTarget.Profile.HeadOn,
+            TestTarget.Spawn(_system.Platform, TestTarget.Profile.HeadOn,
                 _spawnSeconds, _spawnSpeed, _spawnMiss, craftName);
         }
         Tip("Dives steepest and holds its speed best in atmosphere.");
         ImGui.SameLine();
         if (ImGui.Button("Passing by"))
         {
-            TestTarget.Spawn(_battery.Platform, TestTarget.Profile.PassingBy,
+            TestTarget.Spawn(_system.Platform, TestTarget.Profile.PassingBy,
                 _spawnSeconds, _spawnSpeed, _spawnMiss, craftName);
         }
 
@@ -313,12 +313,12 @@ internal sealed partial class Ui
     private void DrawDiagnostics()
     {
 
-        // Writes the battery's whole world view to the log, including why each nearby vehicle was
+        // Writes the system's whole world view to the log, including why each nearby vehicle was
         // or was not tracked. Far more useful than staring at an empty screen.
         ImGui.BeginDisabled(!_crewed);
         if (ImGui.Button("Write diagnostic dump"))
         {
-            Diagnostics.Dump(_battery, _policy);
+            Diagnostics.Dump(_system, _policy);
         }
         ImGui.EndDisabled();
         ImGui.SameLine();
@@ -349,10 +349,10 @@ internal sealed partial class Ui
         // A diagnostic about the render rate rather than a state of any weapon: it means the
         // frames are outrunning the simulation clock, which is what explains stuttering round
         // bodies. Reads the selected system, so it needs one.
-        if (_crewed && _battery.FramesWithoutSimStep > 0)
+        if (_crewed && _system.FramesWithoutSimStep > 0)
         {
             ImGui.TextColored(Amber,
-                $"Frames with no sim step: {_battery.FramesWithoutSimStep}");
+                $"Frames with no sim step: {_system.FramesWithoutSimStep}");
             Tip("The render rate is outrunning the simulation clock.");
         }
     }
@@ -361,7 +361,7 @@ internal sealed partial class Ui
     {
         if (!_crewed) { ImGui.TextDisabled("No weapons system selected."); return; }
 
-        var events = _battery.Events;
+        var events = _system.Events;
         for (int i = events.Count - 1; i >= 0; i--)
         {
             ImGui.TextDisabled($"[{events[i].AtSeconds:F1}] {events[i].Message}");

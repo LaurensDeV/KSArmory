@@ -14,7 +14,7 @@ namespace KSArmory;
 /// </summary>
 internal interface IProjectile
 {
-    /// <summary>Flying, detonated or expired. The battery reaps on anything but flying.</summary>
+    /// <summary>Flying, detonated or expired. The system reaps on anything but flying.</summary>
     RoundState State { get; }
 
     /// <summary>
@@ -74,7 +74,7 @@ internal interface IProjectile
     IReadOnlyList<double3> TrailOffsets { get; }
 
     /// <summary>
-    /// Where it left from, in the launcher part's own frame. Set by the battery at launch and
+    /// Where it left from, in the launcher part's own frame. Set by the system at launch and
     /// never read by the simulation — it exists so the body can be anchored to its tube.
     /// </summary>
     double3 LaunchAnchorPartFrame { get; set; }
@@ -99,7 +99,7 @@ internal interface IProjectile
 
     /// <summary>
     /// Which round this is. A launcher flying more than one weapon steps and fuses each by its
-    /// own numbers, so the projectile carries them rather than the battery holding one set.
+    /// own numbers, so the projectile carries them rather than the system holding one set.
     /// </summary>
     MunitionProfile Munition { get; init; }
 

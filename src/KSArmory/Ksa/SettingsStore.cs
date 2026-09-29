@@ -20,12 +20,12 @@ namespace KSArmory;
 ///
 /// <para>That placement makes the awkward cases disappear rather than need handling. Deleting a
 /// save deletes these settings with it, so a new save under the same name cannot inherit a
-/// stranger's armed batteries. Copying a save copies them; renaming takes them along. None of that
+/// stranger's armed systems. Copying a save copies them; renaming takes them along. None of that
 /// needs code, which is the whole reason for choosing it over one file keyed by save name.</para>
 ///
 /// <para>A session with no save open — a fresh sandbox — has nowhere to put them and falls back to
 /// a folder in the KSA user directory. Those settings are adopted by the first save that opens,
-/// which is what a player who set a battery up and then saved would expect.</para>
+/// which is what a player who set a system up and then saved would expect.</para>
 ///
 /// <para>Every failure is swallowed and logged. A settings file is a convenience: a mod that
 /// refuses to run because it could not read one is worse than one that starts from defaults.</para>

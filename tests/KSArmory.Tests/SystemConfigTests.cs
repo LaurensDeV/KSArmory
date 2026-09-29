@@ -3,7 +3,7 @@ using Xunit;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// The line between a setting that belongs to one battery and one that belongs to the session.
+/// The line between a setting that belongs to one system and one that belongs to the session.
 ///
 /// <para>These read as trivial, and they are — but the split is the whole reason the type exists,
 /// and the failure mode of getting it wrong is silent. A field that drifts back onto
@@ -42,22 +42,22 @@ public class SystemConfigTests
     }
 
     /// <summary>
-    /// A fresh battery does not engage on its own, tracks, and carries both weapons. Anything else
+    /// A fresh system does not engage on its own, tracks, and carries both weapons. Anything else
     /// would mean a site that starts shooting the moment it is discovered.
     /// </summary>
     [Fact]
     public void AFreshBatteryDoesNotEngageOnItsOwn()
     {
-        var battery = new SystemConfig();
+        var system = new SystemConfig();
 
-        Assert.False(battery.AutoEngage);
-        Assert.True(battery.MissilesEnabled);
-        Assert.True(battery.GunsEnabled);
-        Assert.True(battery.TurretTracking);
+        Assert.False(system.AutoEngage);
+        Assert.True(system.MissilesEnabled);
+        Assert.True(system.GunsEnabled);
+        Assert.True(system.TurretTracking);
     }
 
     /// <summary>
-    /// The other half of the split. Which side a battery takes is its own — two sites in one
+    /// The other half of the split. Which side a system takes is its own — two sites in one
     /// world on opposite sides is the whole case — while the roster of team names belongs to the
     /// session, because a name labels a craft the same way whoever is looking at it.
     /// </summary>
@@ -75,8 +75,8 @@ public class SystemConfigTests
         Assert.Equal(Allegiance.Hostile, north.Iff.Classify("Red"));
         Assert.Equal(Allegiance.Friendly, south.Iff.Classify("Red"));
 
-        // The names are not duplicated per battery, and the policy is not shared: one craft is
-        // on one team however many batteries are looking at it, and each decides for itself
+        // The names are not duplicated per system, and the policy is not shared: one craft is
+        // on one team however many systems are looking at it, and each decides for itself
         // what that means.
         Assert.Contains("Red", world.TeamNames);
         Assert.Null(typeof(SystemConfig).GetField("TeamNames"));

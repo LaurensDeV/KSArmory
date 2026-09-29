@@ -92,7 +92,7 @@ internal sealed class BallisticScenario
     private readonly Action<string> _say;
     private readonly ShotBoard _board;
 
-    // Buffered rather than reported where it happens: the hook fires inside the battery's round
+    // Buffered rather than reported where it happens: the hook fires inside the system's round
     // loop, which is inside the engine's frame hook, and a scenario's output belongs in its own
     // pass where the ordering is the one the log shows.
     private readonly List<string> _landed = [];
@@ -205,7 +205,7 @@ internal sealed class BallisticScenario
     /// <summary>Whatever this shot has come to so far, which is what a timeout reports as well.</summary>
     public ShotVerdict Judge() => _board.Judge(_shot.BarMetres);
 
-    /// <summary>Let go of the battery, so a finished scenario is not still being called back.</summary>
+    /// <summary>Let go of the system, so a finished scenario is not still being called back.</summary>
     public void Release()
     {
         if (_wired is not null) _wired.RoundEnded = null;
@@ -239,8 +239,8 @@ internal sealed class BallisticScenario
             return null;
         }
 
-        WeaponSystem? battery = roster.For(_computer.Craft)?.Battery;
-        Wire(battery);
+        WeaponSystem? system = roster.For(_computer.Craft)?.Weapon;
+        Wire(system);
 
         if (!_committed)
         {
@@ -275,11 +275,11 @@ internal sealed class BallisticScenario
         }
 
         ReportPhase();
-        ReportRefusedStaging(battery);
+        ReportRefusedStaging(system);
         ReportCutoff();
         ReportSeparation();
         ReportTrim();
-        ReportReleases(battery, simStep);
+        ReportReleases(system, simStep);
         ReportImpacts();
 
         if (_board.Released == 0 || _ended < _board.Released) return null;
@@ -336,15 +336,15 @@ internal sealed class BallisticScenario
             }
 
             WeaponSystems.Entry? entry = roster.For(computer.Craft);
-            WeaponSystem? battery = entry?.Battery;
+            WeaponSystem? system = entry?.Weapon;
 
-            if (battery?.Launcher is null)
+            if (system?.Launcher is null)
             {
                 why.Add($"{name} carries no launcher the mod recognises");
                 continue;
             }
 
-            if (battery.Ammo <= 0)
+            if (system.Ammo <= 0)
             {
                 why.Add($"{name}'s launcher is empty");
                 continue;
@@ -358,10 +358,10 @@ internal sealed class BallisticScenario
                 double reach = GroundMetresBetween(parent, fromLat, fromLon,
                                                    _shot.LatitudeDeg, _shot.LongitudeDeg);
 
-                if (battery.Munition.MaxRange < reach)
+                if (system.Munition.MaxRange < reach)
                 {
-                    why.Add($"{name}'s {battery.Munition.DisplayName} reaches "
-                            + $"{battery.Munition.MaxRange / 1000.0:F0} km, "
+                    why.Add($"{name}'s {system.Munition.DisplayName} reaches "
+                            + $"{system.Munition.MaxRange / 1000.0:F0} km, "
                             + $"and the aim point is {reach / 1000.0:F0} km away");
                     continue;
                 }
@@ -379,15 +379,15 @@ internal sealed class BallisticScenario
                                                   computer.Config.TurnStartMetres);
 
             _computer = computer;
-            _loaded = battery.Ammo;
-            _ammoWas = battery.Ammo;
+            _loaded = system.Ammo;
+            _ammoWas = system.Ammo;
             _flownFrom = computer.Craft;
 
             _say(_onThePad
                      ? $"{name} on the ground at {WhereItStands(computer)}, "
-                       + $"{battery.Ammo} x {battery.Munition.DisplayName} aboard"
+                       + $"{system.Ammo} x {system.Munition.DisplayName} aboard"
                      : $"{name} already flying at {computer.AltitudeMetres / 1000.0:F0} km doing "
-                       + $"{airspeed:F0} m/s, {battery.Ammo} x {battery.Munition.DisplayName} aboard");
+                       + $"{airspeed:F0} m/s, {system.Ammo} x {system.Munition.DisplayName} aboard");
 
             double aimLat = _shot.LatitudeDeg;
             double aimLon = _shot.LongitudeDeg;
@@ -457,7 +457,7 @@ internal sealed class BallisticScenario
             // Not all at one point. See SpreadAim: eight groups on one aim are eight groups
             // inside each other's kill radius, and the first one down removes the rest from the
             // measurement.
-            (aimLat, aimLon) = SpreadAim(parent, computer, battery.Munition, aimLat, aimLon);
+            (aimLat, aimLon) = SpreadAim(parent, computer, system.Munition, aimLat, aimLon);
 
             computer.Designate(new AimSite(parent.Id, aimLat, aimLon, "scenario aim point"));
 
@@ -571,10 +571,10 @@ internal sealed class BallisticScenario
     // The computer never stages past a launcher that could come off, because the next sequence on
     // somebody's craft might be the joint holding the warheads. So a stack that needs a second
     // stage will not get one, and the shot falls short for a reason no phase line names.
-    private void ReportRefusedStaging(WeaponSystem? battery)
+    private void ReportRefusedStaging(WeaponSystem? system)
     {
-        if (_saidStaging || battery is null || _computer is not { } computer) return;
-        if (!computer.Command.RequestStage || !battery.CanSeparate) return;
+        if (_saidStaging || system is null || _computer is not { } computer) return;
+        if (!computer.Command.RequestStage || !system.CanSeparate) return;
 
         _saidStaging = true;
 
@@ -582,19 +582,19 @@ internal sealed class BallisticScenario
              + "a multi-stage stack has to be staged by hand from here");
     }
 
-    // Assigned rather than added to, and re-assigned whenever the battery changes: a decoupler puts
+    // Assigned rather than added to, and re-assigned whenever the system changes: a decoupler puts
     // the launcher on another craft mid-flight, and the rounds go with it.
     //
     // Nothing to wire is not a reason to let go. A system whose craft was destroyed goes on flying
     // what it had in the air off the roster's loose list — the same object, no longer answering to
     // For() — and those rounds are still the shot being scored.
-    private void Wire(WeaponSystem? battery)
+    private void Wire(WeaponSystem? system)
     {
-        if (battery is null || ReferenceEquals(battery, _wired)) return;
+        if (system is null || ReferenceEquals(system, _wired)) return;
 
         if (_wired is not null) _wired.RoundEnded = null;
-        _wired = battery;
-        battery.RoundEnded = _onRoundEnded;
+        _wired = system;
+        system.RoundEnded = _onRoundEnded;
     }
 
     private void ReportPhase()
@@ -749,13 +749,13 @@ internal sealed class BallisticScenario
     // A round leaving is the magazine going down by one. The angle beside it is read from the
     // command that let it go, which is this frame's and no other: by the next one the sequencer has
     // moved on to the next tube and is reporting how far off the line *that* one is.
-    private void ReportReleases(WeaponSystem? battery, double simStep)
+    private void ReportReleases(WeaponSystem? system, double simStep)
     {
         _sinceRelease += simStep;
 
-        if (battery is null || _computer is not { } computer) return;
+        if (system is null || _computer is not { } computer) return;
 
-        int ammo = battery.Ammo;
+        int ammo = system.Ammo;
         if (_ammoWas < 0) _ammoWas = ammo;
 
         // The rounds that appeared this frame, paired with the magazine's own count of what left.
@@ -765,7 +765,7 @@ internal sealed class BallisticScenario
         //
         // Only on a frame that let something go: a round appears in the same call the magazine is
         // counted down in, so there is nothing to pair on any other.
-        List<IProjectile> fresh = ammo < _ammoWas ? RoundsNotSeenYet(battery) : [];
+        List<IProjectile> fresh = ammo < _ammoWas ? RoundsNotSeenYet(system) : [];
 
         for (int i = 0; i < _ammoWas - ammo; i++)
         {
@@ -965,10 +965,10 @@ internal sealed class BallisticScenario
     /// <para>Unknowable is not viable: a craft whose surface point or parent cannot be read yet is
     /// not yet a rocket, and the caller asks again next frame.</para>
     /// </summary>
-    public static bool CouldReachTheAim(IcbmComputer computer, WeaponSystem? battery,
+    public static bool CouldReachTheAim(IcbmComputer computer, WeaponSystem? system,
                                         in ShotRequest shot)
     {
-        if (battery?.Launcher is null || battery.Ammo <= 0) return false;
+        if (system?.Launcher is null || system.Ammo <= 0) return false;
         if (computer.Parent is not { } parent) return false;
 
         if (!KsaWorld.TryCraftSurfacePoint(computer.Craft, out _, out double fromLat,
@@ -980,7 +980,7 @@ internal sealed class BallisticScenario
         double reach = GroundMetresBetween(parent, fromLat, fromLon,
                                            shot.LatitudeDeg, shot.LongitudeDeg);
 
-        return battery.Munition.MaxRange >= reach;
+        return system.Munition.MaxRange >= reach;
     }
 
     // Anything armed that is not one of the rockets this run is flying. "Not the launching craft"
@@ -996,7 +996,7 @@ internal sealed class BallisticScenario
     {
         foreach (WeaponSystems.Entry entry in roster.All)
         {
-            Vehicle? craft = entry.Battery.Platform;
+            Vehicle? craft = entry.Weapon.Platform;
 
             if (craft is null || ReferenceEquals(craft, launching)) continue;
             if (!KsaWorld.IsAlive(craft)) continue;
@@ -1050,10 +1050,10 @@ internal sealed class BallisticScenario
     // Object identity, because it is the only thing about a round that survives the coast: the
     // magazine reloads inside QuietAfterReleaseSeconds, so a tube number comes round again while a
     // walk is still running.
-    private List<IProjectile> RoundsNotSeenYet(WeaponSystem battery)
+    private List<IProjectile> RoundsNotSeenYet(WeaponSystem system)
     {
         List<IProjectile> fresh = [];
-        IReadOnlyList<IProjectile> rounds = battery.Rounds;
+        IReadOnlyList<IProjectile> rounds = system.Rounds;
 
         for (int i = 0; i < rounds.Count; i++)
         {
@@ -1118,7 +1118,7 @@ internal sealed class BallisticScenario
     }
 
     // Where the round ended, against the place it was sent. Nothing here may throw: it runs inside
-    // the battery's round loop, which is inside the engine's frame hook.
+    // the system's round loop, which is inside the engine's frame hook.
     private void OnRoundEnded(IProjectile round)
     {
         try

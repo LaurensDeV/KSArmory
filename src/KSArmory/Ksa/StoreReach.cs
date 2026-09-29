@@ -117,11 +117,11 @@ internal sealed class StoreReach
     /// every <see cref="SolveIntervalSeconds"/>. Any other store keeps its aim, so its reach is
     /// nothing anyone can act on.
     /// </summary>
-    public void Update(WeaponSystem battery)
+    public void Update(WeaponSystem system)
     {
-        ArgumentNullException.ThrowIfNull(battery);
+        ArgumentNullException.ThrowIfNull(system);
 
-        if (battery.Steerable is not { } store) { Clear(); return; }
+        if (system.Steerable is not { } store) { Clear(); return; }
 
         if (_sinceSolve.Elapsed.TotalSeconds < (_unsolvable ? UnsolvableIntervalSeconds
                                                             : SolveIntervalSeconds))
@@ -134,7 +134,7 @@ internal sealed class StoreReach
         // With nothing on screen yet, fly all three at once rather than making the player wait
         // three ticks for a ring to appear. The staging exists to keep a recurring lump off the
         // frame, not to withhold the first answer.
-        TailKitReach reach = Solve(battery, store, _ground, _path, Latest.Known ? 1 : 3);
+        TailKitReach reach = Solve(system, store, _ground, _path, Latest.Known ? 1 : 3);
         _unsolvable = reach.Hold == TailKitHold.NoLanding;
 
         // Nothing mid-cycle. The landing is flown on one tick and the probes on the next two, so a
@@ -148,7 +148,7 @@ internal sealed class StoreReach
         // the rings away for more than a second rather than for a frame.
         if (!reach.Known) return;
         if (!KsaWorld.TryAnchorToGround(reach.ImpactEcl, out object? body, out double3 anchor)) return;
-        if (battery.Platform is not { } craft) return;
+        if (system.Platform is not { } craft) return;
 
         double3 up = Vec.Unit(-KsaWorld.GravityAt(craft, reach.ImpactEcl));
         if (Vec.Len2(up) < 0.5) return;
@@ -172,18 +172,18 @@ internal sealed class StoreReach
         // Painted rings need no draping, which is the terrain lookups this would cost.
         if (GroundRings.Painting) return;
 
-        KsaWorld.CollectDrapedCircleEcl(reach.ImpactEcl, up, Warhead.LethalRadius(battery.Munition.ChargeKg),
+        KsaWorld.CollectDrapedCircleEcl(reach.ImpactEcl, up, Warhead.LethalRadius(system.Munition.ChargeKg),
                                         _impactRing, ImpactSegments);
         KsaWorld.CollectDrapedCircleEcl(reach.ImpactEcl, up, reach.RadiusMetres,
                                         _reachRing, ReachSegments);
     }
 
     /// <summary>The first store in the air that steers its own fall, whatever it is aimed at.</summary>
-    public static IProjectile? FallingStore(WeaponSystem battery)
+    public static IProjectile? FallingStore(WeaponSystem system)
     {
-        ArgumentNullException.ThrowIfNull(battery);
+        ArgumentNullException.ThrowIfNull(system);
 
-        foreach (IProjectile round in battery.Rounds)
+        foreach (IProjectile round in system.Rounds)
         {
             if (round.State == RoundState.Flying && round.Munition.SteersItsFall) return round;
         }
@@ -200,12 +200,12 @@ internal sealed class StoreReach
     /// spreads them. A 7 ms lump on the frame somebody pressed a button is nothing; the same lump
     /// arriving unbidden every <see cref="SolveIntervalSeconds"/> is what that split avoids.</para>
     /// </summary>
-    public static TailKitReach SolveNow(WeaponSystem battery, IProjectile round)
+    public static TailKitReach SolveNow(WeaponSystem system, IProjectile round)
     {
-        ArgumentNullException.ThrowIfNull(battery);
+        ArgumentNullException.ThrowIfNull(system);
         ArgumentNullException.ThrowIfNull(round);
 
-        if (battery.Platform is not { } platform) return default;
+        if (system.Platform is not { } platform) return default;
 
         double3 at = round.PositionEcl;
         double3 overGround = round.VelocityEcl - KsaWorld.GroundVelocityAt(platform, at);
@@ -222,10 +222,10 @@ internal sealed class StoreReach
                                 BombSight.StepFor(round.Munition, IntegrationStep), [], round.Age);
     }
 
-    private TailKitReach Solve(WeaponSystem battery, IProjectile round,
+    private TailKitReach Solve(WeaponSystem system, IProjectile round,
                                CoarseGroundTest ground, List<double3> path, int passes)
     {
-        if (battery.Platform is not { } platform) return default;
+        if (system.Platform is not { } platform) return default;
 
         // Every frame term is read at the store rather than at the rack. A bomb released from
         // altitude is kilometres from its launcher, through thinner air and over ground turning at
@@ -287,24 +287,24 @@ internal sealed class StoreReach
     /// close is the only thing that tells an operator whether there is still time to change their
     /// mind.</para>
     /// </summary>
-    public void Draw(WeaponSystem battery)
+    public void Draw(WeaponSystem system)
     {
-        ArgumentNullException.ThrowIfNull(battery);
+        ArgumentNullException.ThrowIfNull(system);
 
-        if (battery.Platform is not { } platform) return;
+        if (system.Platform is not { } platform) return;
 
         double3 impactEcl = default;
         bool landing = Latest.Known && KsaWorld.TryGroundAnchorEcl(_body, _anchor, out impactEcl, out _);
 
         if (GroundRings.Painting)
         {
-            PaintFalling(battery, landing ? impactEcl : null);
+            PaintFalling(system, landing ? impactEcl : null);
             return;
         }
 
         if (!landing) return;
 
-        if (!KsaWorld.BeginDraw(platform, battery.PlatformEcl)) return;
+        if (!KsaWorld.BeginDraw(platform, system.PlatformEcl)) return;
 
         // What the store reaches, so the inner ring means the same thing the pipper's does; and
         // around it the region it can still be walked into, in its own colour, because one says
@@ -316,12 +316,12 @@ internal sealed class StoreReach
     // Every store of this launcher still falling, where it will land: onto its mark where it has
     // one, and where it comes down untouched where it has none, which only the steerable store's
     // solve knows. Round the steerable one, the reach its fins have left.
-    private void PaintFalling(WeaponSystem battery, double3? untouched)
+    private void PaintFalling(WeaponSystem system, double3? untouched)
     {
-        double lethal = Warhead.LethalRadius(battery.Munition.ChargeKg);
-        IProjectile? steerable = battery.Steerable;
+        double lethal = Warhead.LethalRadius(system.Munition.ChargeKg);
+        IProjectile? steerable = system.Steerable;
 
-        foreach (IProjectile round in battery.Rounds)
+        foreach (IProjectile round in system.Rounds)
         {
             if (round.State != RoundState.Flying || !round.Munition.SteersItsFall) continue;
 

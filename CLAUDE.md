@@ -1942,7 +1942,7 @@ too, so the round still curves onto its target rather than flying the rail's bea
 
 **Every launcher this mod had when that was written stood still**, and for a stationary launcher the
 gain *is* the velocity — so "along the flight path" and "along the tube" were the same expression and
-nothing distinguished them. A ground battery's flight is unchanged, which is what makes the
+nothing distinguished them. A ground launcher's flight is unchanged, which is what makes the
 correction safe. The release log has always printed `<n> deg from the platform's track` for exactly
 this reason; on the shot that found it, that number was near 180.
 
@@ -3239,7 +3239,7 @@ mis-tagged guard is found before a merge rather than never — what is lost is *
 
   An unreadable height field makes **no claim** rather than reading as flat ground: flat would put
   every sensor's horizon back at the mean sphere, planet-wide, with nothing to announce it.
-- Battery settings live **inside the save**, at `saves/<save>/KSArmory/systems.json`. KSA's save
+- Weapon-system settings live **inside the save**, at `saves/<save>/KSArmory/systems.json`. KSA's save
   format cannot be extended (`UniverseData` is a fixed XML-mapped class) and StarMap has no save or
   load hook — but a save is a *directory*, so the file sits beside the `universe.xml` it belongs
   to, under a mod-named folder so several mods can do this without agreeing on filenames.

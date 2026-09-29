@@ -1,7 +1,7 @@
 namespace KSArmory;
 
 /// <summary>
-/// Settings that belong to the session rather than to any one battery: the roster of team names,
+/// Settings that belong to the session rather than to any one system: the roster of team names,
 /// what gets drawn, how much is logged.
 ///
 /// <para>What an individual installation is allowed to do lives on <see cref="SystemConfig"/>.
@@ -26,7 +26,7 @@ public sealed class Config
     /// <summary>
     /// Play a rocket motor while a round is boosting.
     ///
-    /// <para>Session-wide rather than per battery: it is a preference about the game's sound, and
+    /// <para>Session-wide rather than per system: it is a preference about the game's sound, and
     /// two sites in one world wanting different answers is not a case anyone has.</para>
     /// </summary>
     public bool MotorSound = true;
@@ -200,7 +200,7 @@ public sealed class Config
     /// the flag; this is only the list of names there are to pick from.</para>
     ///
     /// <para>Session-wide, unlike <see cref="SystemConfig.Iff"/>: a team name labels a craft the
-    /// same way whoever is looking at it, and it is which side each battery takes that differs.</para>
+    /// same way whoever is looking at it, and it is which side each system takes that differs.</para>
     /// </summary>
     public readonly List<string> TeamNames = [];
 
@@ -282,7 +282,7 @@ public sealed class Config
     // ---- Diagnostics ----------------------------------------------------
 
     /// <summary>
-    /// Periodically dump the battery's world view to the log — every loaded vehicle with the
+    /// Periodically dump the system's world view to the log — every loaded vehicle with the
     /// numbers the radar filters on, plus the render-frame state. Off by default; turn it on
     /// in the panel when something is not behaving and the screen is not saying why.
     /// </summary>
@@ -295,7 +295,7 @@ public sealed class Config
     /// Log developer detail — spawn maths, per-vehicle dumps, geometry read-backs.
     ///
     /// A release build starts quiet, because that detail runs to hundreds of lines per
-    /// engagement and buries the handful of lines that say what the battery actually did.
+    /// engagement and buries the handful of lines that say what the system actually did.
     /// This turns it back on without needing a different build, which is what a bug report needs.
     /// </summary>
     public bool VerboseLog;
@@ -390,8 +390,8 @@ public sealed class Config
     /// <summary>
     /// Bracket every weapons system on screen, with an arrow at the edge for one out of view.
     ///
-    /// <para>Session-wide rather than per battery: it draws every system in the world, including
-    /// the ones no battery is running on.</para>
+    /// <para>Session-wide rather than per system: it brackets every weapons system in the world,
+    /// including the ones no <c>WeaponSystem</c> is crewed on.</para>
     /// </summary>
     public bool DrawSystemMarkers = true;
 
@@ -453,7 +453,7 @@ public sealed class Config
 
     /// <summary>
     /// Draw a marker at each threat's predicted closest point of approach — where it will pass
-    /// the battery if it holds course. Off by default: with a 40 s horizon the marker can sit
+    /// the system if it holds course. Off by default: with a 40 s horizon the marker can sit
     /// kilometres from anything visible, which reads as a stray dot rather than a prediction.
     /// </summary>
     public bool DrawClosestApproach;

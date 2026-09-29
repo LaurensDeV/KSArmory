@@ -87,9 +87,9 @@ internal sealed class BombSightOverlay
     private readonly System.Diagnostics.Stopwatch _sinceSolve = System.Diagnostics.Stopwatch.StartNew();
     private bool _unreachable;
 
-    public void Update(WeaponSystem battery, double dtSim)
+    public void Update(WeaponSystem system, double dtSim)
     {
-        if (battery.Platform is not { } platform || battery.Launcher is null) return;
+        if (system.Platform is not { } platform || system.Launcher is null) return;
 
         // Held between solves, so what was drawn last time keeps being drawn.
         double wanted = _unreachable ? UnreachableIntervalSeconds : SolveIntervalSeconds;
@@ -103,9 +103,9 @@ internal sealed class BombSightOverlay
         //
         // A guided tail kit still gets one: it is released and then falls, and the pipper says
         // where it lands if nothing is designated -- which is the release cue either way.
-        if (battery.Munition.Powered) { Clear(); return; }
+        if (system.Munition.Powered) { Clear(); return; }
 
-        if (!TryReleaseState(battery, platform, out double3 releaseEcl, out double3 releaseVelocity))
+        if (!TryReleaseState(system, platform, out double3 releaseEcl, out double3 releaseVelocity))
         {
             Clear();
             return;
@@ -114,7 +114,7 @@ internal sealed class BombSightOverlay
         // Into a scratch list, so a failed solve leaves the last good one on screen. A sight that
         // blanks for a frame reads as broken, and the answer it had a quarter of a second ago is
         // still very nearly right.
-        bool ok = Fly(battery, platform, releaseEcl, releaseVelocity, _next, out double3 impact);
+        bool ok = Fly(system, platform, releaseEcl, releaseVelocity, _next, out double3 impact);
 
         // A store that cannot reach the ground inside BombSight.MaxSteps has no pipper, and it will
         // still have none a frame later -- so back off rather than re-flying 2048 steps at the
@@ -135,10 +135,10 @@ internal sealed class BombSightOverlay
 
         // Already in the ground's frame, so these are plain offsets from the craft.
         _path.Clear();
-        for (int i = 0; i < _next.Count; i++) _path.Add(_next[i] - battery.PlatformEcl);
+        for (int i = 0; i < _next.Count; i++) _path.Add(_next[i] - system.PlatformEcl);
 
         double flightSeconds = Math.Max(0, _next.Count - 1) * IntegrationStep;
-        _impactOffset = impact - battery.PlatformEcl;
+        _impactOffset = impact - system.PlatformEcl;
         _solved = true;
 
         // What the correction is worth, against how far the answer ended up from the craft. If the
@@ -159,13 +159,13 @@ internal sealed class BombSightOverlay
     /// Where a store released this instant would land, solved now rather than read off the ring,
     /// which can be <see cref="SolveIntervalSeconds"/> old.
     /// </summary>
-    public bool TryPredictNow(WeaponSystem battery, out double3 impactEcl)
+    public bool TryPredictNow(WeaponSystem system, out double3 impactEcl)
     {
         impactEcl = Vec.Zero;
-        if (battery.Platform is not { } platform || battery.Munition.Powered) return false;
+        if (system.Platform is not { } platform || system.Munition.Powered) return false;
 
-        return TryReleaseState(battery, platform, out double3 releaseEcl, out double3 velocity)
-               && Fly(battery, platform, releaseEcl, velocity, _next, out impactEcl);
+        return TryReleaseState(system, platform, out double3 releaseEcl, out double3 velocity)
+               && Fly(system, platform, releaseEcl, velocity, _next, out impactEcl);
     }
 
     /// <summary>
@@ -173,19 +173,19 @@ internal sealed class BombSightOverlay
     /// a round actually left with, the difference from <see cref="TryPredictNow"/> is exactly what
     /// the sight assumes about the release.
     /// </summary>
-    public bool TryPredictFrom(WeaponSystem battery, double3 releaseEcl, double3 velocityOverGround,
+    public bool TryPredictFrom(WeaponSystem system, double3 releaseEcl, double3 velocityOverGround,
                                out double3 impactEcl)
     {
         impactEcl = Vec.Zero;
-        return battery.Platform is { } platform
-               && Fly(battery, platform, releaseEcl, velocityOverGround, _next, out impactEcl);
+        return system.Platform is { } platform
+               && Fly(system, platform, releaseEcl, velocityOverGround, _next, out impactEcl);
     }
 
-    private static bool TryReleaseState(WeaponSystem battery, Vehicle platform,
+    private static bool TryReleaseState(WeaponSystem system, Vehicle platform,
                                         out double3 releaseEcl, out double3 velocityOverGround)
     {
         velocityOverGround = Vec.Zero;
-        if (!battery.TryNextReleaseEcl(out releaseEcl, out double3 velocityEcl)) return false;
+        if (!system.TryNextReleaseEcl(out releaseEcl, out double3 velocityEcl)) return false;
 
         // Flown in the ground's frame, not the ecliptic's, and that is the whole trick.
         //
@@ -200,21 +200,21 @@ internal sealed class BombSightOverlay
         // the motion the ground sees, the predicted positions stay next to the planet the terrain
         // is sampled from, and the path comes out already in the frame it has to be drawn in.
         // The airspeed is unchanged: the frame's velocity is subtracted here instead of inside.
-        velocityOverGround = velocityEcl - KsaWorld.GroundVelocityAt(platform, battery.PlatformEcl);
+        velocityOverGround = velocityEcl - KsaWorld.GroundVelocityAt(platform, system.PlatformEcl);
         return true;
     }
 
-    private bool Fly(WeaponSystem battery, Vehicle platform, double3 releaseEcl,
+    private bool Fly(WeaponSystem system, Vehicle platform, double3 releaseEcl,
                      double3 velocityOverGround, List<double3> path, out double3 impactEcl)
         => BombSight.TryPredict(releaseEcl, velocityOverGround,
-                                KsaWorld.GroundVelocityAt(platform, battery.PlatformEcl),
-                                KsaWorld.GroundAccelerationAt(platform, battery.PlatformEcl),
+                                KsaWorld.GroundVelocityAt(platform, system.PlatformEcl),
+                                KsaWorld.GroundAccelerationAt(platform, system.PlatformEcl),
                                 KsaWorld.BodyVelocityAt(platform),
                                 at => KsaWorld.GroundVelocityAt(platform, at),
-                                battery.Munition,
+                                system.Munition,
                                 at => KsaWorld.GravityAt(platform, at),
                                 at => KsaWorld.MediumDensityRatioAt(platform, at),
-                                Ground(), BombSight.StepFor(battery.Munition, IntegrationStep), path,
+                                Ground(), BombSight.StepFor(system.Munition, IntegrationStep), path,
                                 out impactEcl);
 
     // The arc as an anti-aliased line two pixels wide with a dark edge, to match the rings painted
@@ -261,18 +261,18 @@ internal sealed class BombSightOverlay
         return _ground;
     }
 
-    public void Draw(WeaponSystem battery)
+    public void Draw(WeaponSystem system)
     {
         if (!_solved || _path.Count < 2) return;
-        if (battery.Platform is not { } platform) return;
-        if (!KsaWorld.BeginDraw(platform, battery.PlatformEcl)) return;
+        if (system.Platform is not { } platform) return;
+        if (!KsaWorld.BeginDraw(platform, system.PlatformEcl)) return;
 
         // Every rib would be a line per 0.2 s of fall, which is hundreds on a high drop and
         // unreadable. Thinning keeps the arc the same shape and a fraction of the cost.
         // Put back against *this* update's platform sample, which is the one BeginDraw anchored
         // to. Measured and drawn against the same sample, the difference is the offset exactly and
         // carries none of the motion between solves.
-        double3 here = battery.PlatformEcl;
+        double3 here = system.PlatformEcl;
 
         int stride = Math.Max(1, _path.Count / ArcRibs);
 
@@ -301,7 +301,7 @@ internal sealed class BombSightOverlay
         if (Vec.Len2(up) < 0.5) return;
 
         // The store's own lethal radius, so what the ring circles is what the bomb reaches.
-        double radius = Warhead.LethalRadius(battery.Munition.ChargeKg);
+        double radius = Warhead.LethalRadius(system.Munition.ChargeKg);
 
         if (GroundRings.Painting && GroundRings.Add(impactEcl, radius, radius * 0.15, PaintedRing)) return;
 

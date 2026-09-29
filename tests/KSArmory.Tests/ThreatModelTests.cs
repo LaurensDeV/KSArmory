@@ -60,8 +60,8 @@ public class ThreatModelTests
     [Fact]
     public void ATargetDriftingWithUsIsIgnored()
     {
-        // A docked craft shares the battery's motion. Relative speed below MinTargetSpeed, so not a
-        // contact at all - otherwise the battery would track everything parked next to it.
+        // A docked craft shares the system's motion. Relative speed below MinTargetSpeed, so not a
+        // contact at all - otherwise the system would track everything parked next to it.
         SensorProfile s = Sensor();
         Assert.False(ThreatModel.TryAssess(new double3(2000, 0, 0), new double3(1, 0, 0), Up, s, Unseen, out _));
     }

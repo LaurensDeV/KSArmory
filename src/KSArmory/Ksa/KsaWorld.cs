@@ -58,7 +58,7 @@ internal static class KsaWorld
     /// The simulated seconds KSA's last step actually advanced the world by.
     ///
     /// <para>This — not the player-time delta StarMap hands the frame hook, and not a
-    /// difference of clock samples — is what the battery steps on. A paused game reports zero
+    /// difference of clock samples — is what the system steps on. A paused game reports zero
     /// and a warped one reports the real span, and because it is the step the engine applied
     /// rather than one measured around it, it cannot be a step out of phase with the world.
     /// See <see cref="SimClock"/> for why that distinction is worth tens of metres.</para>
@@ -230,7 +230,7 @@ internal static class KsaWorld
     /// value set here holds until something else changes it.</para>
     ///
     /// <para>Everything this mod does is already keyed to simulated time, so a slow world needs
-    /// no special handling: the step simply comes back smaller and the battery,
+    /// no special handling: the step simply comes back smaller and the system,
     /// the drives and the rounds all scale with it.</para>
     /// </summary>
     /// <returns>False if the value was not finite or not positive; the speed is left alone.</returns>
@@ -3595,7 +3595,7 @@ internal static class KsaWorld
     /// off they disagree by tens of degrees. There is deliberately no direction-only form of this
     /// next to it — the two are indistinguishable wherever anyone tests them first.</para>
     ///
-    /// <para>The ray and the range are solved once a frame and shared, so several batteries on
+    /// <para>The ray and the range are solved once a frame and shared, so several systems on
     /// mouse aim cost one terrain query between them rather than one each.</para>
     /// </summary>
     public static bool TryCursorAimEcl(double3 mountEcl, out double3 directionEcl)
@@ -4435,7 +4435,7 @@ internal static class KsaWorld
     /// <summary>
     /// Whether the main view is currently following this craft.
     ///
-    /// <para>Asked before anything borrows the view: a battery on the far side of the world taking
+    /// <para>Asked before anything borrows the view: a system on the far side of the world taking
     /// the camera off whatever the player is watching is a hijack, however good the shot.</para>
     /// </summary>
     public static bool MainViewFollows(IFollowable? target)

@@ -20,10 +20,10 @@ public class WeaponFitTests
     private static readonly SensorProfile Blind = Sensor(0f);
 
     // A turret with two pods of missiles and a belt-fed cannon on the same mount.
-    private static LauncherProfile Battery(int magazineDepth = 0) => new()
+    private static LauncherProfile Weapon(int magazineDepth = 0) => new()
     {
         PartId = "Mod_Prefab_Battery",
-        DisplayName = "battery",
+        DisplayName = "system",
         Munition = "round",
         Sensor = "set",
         Tubes = [new(1, 0, 0), new(1, 0, 0.4)],
@@ -71,7 +71,7 @@ public class WeaponFitTests
     [Fact]
     public void AMixedMountListsBothArmamentsInFiringOrder()
     {
-        WeaponFit fit = WeaponFit.Of(Battery(), Sensor());
+        WeaponFit fit = WeaponFit.Of(Weapon(), Sensor());
 
         Assert.Equal(2, fit.Armaments.Count);
         Assert.Equal(ArmamentKind.Tubes, fit.Armaments[0].Kind);
@@ -110,7 +110,7 @@ public class WeaponFitTests
     [Fact]
     public void AnArmamentReloadsOnlyWhenItIsGivenTimeToDoIt()
     {
-        WeaponFit fit = WeaponFit.Of(Battery(), Sensor());
+        WeaponFit fit = WeaponFit.Of(Weapon(), Sensor());
 
         Assert.True(fit.Armaments[0].Reloads);
         Assert.True(fit.Armaments[1].Reloads);
@@ -132,7 +132,7 @@ public class WeaponFitTests
     [Fact]
     public void ADeepMagazineReportsItsDepthRatherThanItsTubeCount()
     {
-        LauncherProfile deep = Battery(magazineDepth: 200);
+        LauncherProfile deep = Weapon(magazineDepth: 200);
 
         Assert.Equal(200, WeaponFit.MagazineCapacity(deep));
         Assert.Equal(200, WeaponFit.Of(deep, Sensor()).Armaments[0].Capacity);
@@ -143,9 +143,9 @@ public class WeaponFitTests
     {
         // Matches Magazine.Resize, which treats a depth at or below the tube count as no depth
         // at all. Two representations of one number that disagree is the failure being avoided.
-        Assert.Equal(2, WeaponFit.MagazineCapacity(Battery()));
-        Assert.Equal(2, WeaponFit.MagazineCapacity(Battery(magazineDepth: 2)));
-        Assert.Equal(2, WeaponFit.MagazineCapacity(Battery(magazineDepth: 0)));
+        Assert.Equal(2, WeaponFit.MagazineCapacity(Weapon()));
+        Assert.Equal(2, WeaponFit.MagazineCapacity(Weapon(magazineDepth: 2)));
+        Assert.Equal(2, WeaponFit.MagazineCapacity(Weapon(magazineDepth: 0)));
     }
 
     // ---- What a system can be told to do --------------------------------
@@ -153,7 +153,7 @@ public class WeaponFitTests
     [Fact]
     public void AFullBatteryAnswersYesToEveryFaculty()
     {
-        WeaponFit fit = WeaponFit.Of(Battery(), Sensor());
+        WeaponFit fit = WeaponFit.Of(Weapon(), Sensor());
 
         Assert.True(fit.Aims);
         Assert.True(fit.Traverses);
@@ -188,8 +188,8 @@ public class WeaponFitTests
     [Fact]
     public void ASetWithNoRangeIsNoSensor()
     {
-        Assert.False(WeaponFit.Of(Battery(), Blind).Searches);
-        Assert.True(WeaponFit.Of(Battery(), Sensor(500f)).Searches);
+        Assert.False(WeaponFit.Of(Weapon(), Blind).Searches);
+        Assert.True(WeaponFit.Of(Weapon(), Sensor(500f)).Searches);
     }
 
     /// <summary>
@@ -212,7 +212,7 @@ public class WeaponFitTests
     [Fact]
     public void AnArmamentReadsAsWhatIsLeftAgainstAFullLoad()
     {
-        WeaponFit fit = WeaponFit.Of(Battery(), Sensor());
+        WeaponFit fit = WeaponFit.Of(Weapon(), Sensor());
 
         Assert.Equal("1/2", fit.Armaments[0].Tally(1));
         Assert.Equal("Missiles: 1/2", fit.Armaments[0].Describe(1, firing: false));
@@ -225,7 +225,7 @@ public class WeaponFitTests
     public void EachArmamentDrivesItsOwnSwitchAndNotTheOther()
     {
         SystemConfig policy = new();
-        WeaponFit fit = WeaponFit.Of(Battery(), Sensor());
+        WeaponFit fit = WeaponFit.Of(Weapon(), Sensor());
 
         Armament.EnabledIn(policy, fit.Armaments[0].Kind) = false;
         Assert.False(policy.MissilesEnabled);

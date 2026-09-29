@@ -9,7 +9,7 @@ namespace KSArmory;
 ///
 /// <para>Split from <see cref="Ui"/>'s weapons-system panes because a director is not one. It is a
 /// part in its own right, crewed per head rather than per weapons system, and nothing here reads
-/// <c>_battery</c> or <c>_policy</c> — a craft carrying one director and no armament has every row
+/// <c>_system</c> or <c>_policy</c> — a craft carrying one director and no armament has every row
 /// below and none of those.</para>
 /// </summary>
 internal sealed partial class Ui

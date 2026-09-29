@@ -10,7 +10,7 @@ namespace KSArmory;
 /// sites could sensibly disagree, and none of this passes it — there is one screen, one pair of
 /// ears and one clock. Drawn inside a craft's window, all of it reads as that craft's.</para>
 ///
-/// <para>Nothing here may read <c>_battery</c> without checking <c>_crewed</c> first. These are
+/// <para>Nothing here may read <c>_system</c> without checking <c>_crewed</c> first. These are
 /// reachable with no weapons system selected at all, which is the whole point of them.</para>
 /// </summary>
 internal sealed partial class Ui
@@ -255,7 +255,7 @@ internal sealed partial class Ui
         // and stands whatever is selected; this line is a report about the selected system.
         if (!_crewed) return;
 
-        ImGui.TextDisabled(_battery.RoundBodyCount > 0 && _battery.RoundBodiesWork
+        ImGui.TextDisabled(_system.RoundBodyCount > 0 && _system.RoundBodiesWork
             ? "  rounds have real bodies; the tracer hides them up close"
             : "  no round bodies available - tracers are all there is");
     }

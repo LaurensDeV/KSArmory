@@ -67,21 +67,21 @@ internal sealed class TracerTrail
 
     private static bool _warned;
 
-    /// <summary>Starts, moves and ends the tracer of every shell this battery has in the air.</summary>
-    public void Update(IEffectSource battery)
+    /// <summary>Starts, moves and ends the tracer of every shell this system has in the air.</summary>
+    public void Update(IEffectSource system)
     {
-        if (!battery.PlumesEnabled || battery.EffectBody is null)
+        if (!system.PlumesEnabled || system.EffectBody is null)
         {
-            ReleaseOwnedBy(battery);
+            ReleaseOwnedBy(system);
             return;
         }
 
         _candidates.Clear();
-        foreach (IProjectile round in battery.Rounds)
+        foreach (IProjectile round in system.Rounds)
         {
             // Negative tube numbers mark the cannon; the magazine owns zero and up.
             if (RoundLabel.IsGunRound(round.Tube) && round.State == RoundState.Flying
-                && !battery.ShellDrawnAsBody(round))
+                && !system.ShellDrawnAsBody(round))
             {
                 _candidates.Add(round);
             }
@@ -94,11 +94,11 @@ internal sealed class TracerTrail
         foreach (IProjectile round in _candidates)
         {
             if (!_tracing.ContainsKey(round)) continue;
-            if (Follow(round, battery)) lit++;
+            if (Follow(round, system)) lit++;
             newest = Math.Min(newest, round.Age);
         }
 
-        // Newest first. The battery appends rounds as they are fired, so scanning forwards finds
+        // Newest first. The system appends rounds as they are fired, so scanning forwards finds
         // the OLDEST shell still inside the age window, which is the one furthest from the muzzle:
         // the tracer then lights up already downrange instead of at the barrel.
         for (int i = _candidates.Count - 1; i >= 0; i--)
@@ -118,19 +118,19 @@ internal sealed class TracerTrail
             double spacing = Math.Min(round.Munition.MaxFlightSeconds, SpacedLifeSeconds) * SpacingOfLife / MaxTracers;
             if (newest < spacing) break;
 
-            if (!Follow(round, battery)) continue;
+            if (!Follow(round, system)) continue;
 
             lit++;
             newest = round.Age;
         }
 
-        // Anything holding an emitter that the battery has stopped reporting, or that has stopped
+        // Anything holding an emitter that the system has stopped reporting, or that has stopped
         // flying. Without this a reaped shell keeps its emitter for the rest of the session.
         foreach (KeyValuePair<IProjectile, Live> kv in _tracing)
         {
-            if (!ReferenceEquals(kv.Value.Owner, battery)) continue;
-            if (kv.Key.State != RoundState.Flying || !battery.Rounds.Contains(kv.Key)
-                || battery.ShellDrawnAsBody(kv.Key))
+            if (!ReferenceEquals(kv.Value.Owner, system)) continue;
+            if (kv.Key.State != RoundState.Flying || !system.Rounds.Contains(kv.Key)
+                || system.ShellDrawnAsBody(kv.Key))
             {
                 _finished.Add(kv.Key);
             }
@@ -156,11 +156,11 @@ internal sealed class TracerTrail
     // per system, so without an owner every system's sweep treats every other system's rounds as
     // orphans: with two systems firing, each release the other's the instant it runs, and the
     // shared emitter pool churns once per system per frame.
-    private void ReleaseOwnedBy(IEffectSource battery)
+    private void ReleaseOwnedBy(IEffectSource system)
     {
         foreach (KeyValuePair<IProjectile, Live> kv in _tracing)
         {
-            if (ReferenceEquals(kv.Value.Owner, battery)) _finished.Add(kv.Key);
+            if (ReferenceEquals(kv.Value.Owner, system)) _finished.Add(kv.Key);
         }
 
         foreach (IProjectile round in _finished) Release(round);
@@ -174,19 +174,19 @@ internal sealed class TracerTrail
         _tracing.Clear();
     }
 
-    private bool Follow(IProjectile round, IEffectSource battery)
+    private bool Follow(IProjectile round, IEffectSource system)
     {
         // Where the drawn round body is while there is one -- PlatformEcl + OffsetFromPlatform is
         // measured from the platform's ANALYTIC position, which on a landed craft is metres from
         // where its parts actually sit. A shell whose gun has been destroyed has no body, and the
         // analytic form is then exact.
-        if (!battery.TryRoundEffectEcl(round, out double3 ecl)) return false;
+        if (!system.TryRoundEffectEcl(round, out double3 ecl)) return false;
 
         if (!_tracing.TryGetValue(round, out Live? live))
         {
-            if (Acquire(battery.EffectBody) is not { } fresh) return false;
+            if (Acquire(system.EffectBody) is not { } fresh) return false;
 
-            fresh.Owner = battery;
+            fresh.Owner = system;
             live = fresh;
             _tracing[round] = live;
         }

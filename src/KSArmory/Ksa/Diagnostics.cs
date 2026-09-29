@@ -4,7 +4,7 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// Dumps the battery's view of the world to the log.
+/// Dumps the system's view of the world to the log.
 ///
 /// When nothing appears on screen there are two candidate explanations - the mod is not seeing
 /// the world, or it is seeing it and failing to draw. This prints enough of both sides to tell
@@ -22,16 +22,16 @@ internal static class Diagnostics
     private static readonly Dictionary<IWeaponSystemView, double> NextDumpAt = [];
 
     /// <summary>Emit a dump every <paramref name="intervalSeconds"/> while enabled.</summary>
-    public static void Tick(IWeaponSystemView battery, SystemConfig policy,
+    public static void Tick(IWeaponSystemView system, SystemConfig policy,
                             double clock, double intervalSeconds)
     {
-        SampleRadialMotion(battery);
+        SampleRadialMotion(system);
         SampleStep();
 
-        if (NextDumpAt.TryGetValue(battery, out double due) && clock < due) return;
+        if (NextDumpAt.TryGetValue(system, out double due) && clock < due) return;
 
-        NextDumpAt[battery] = clock + intervalSeconds;
-        Dump(battery, policy);
+        NextDumpAt[system] = clock + intervalSeconds;
+        Dump(system, policy);
     }
 
     // How far the platform's analytic position moves radially between frames, worst case since the
@@ -63,9 +63,9 @@ internal static class Diagnostics
         _stepSamples++;
     }
 
-    private static void SampleRadialMotion(IWeaponSystemView battery)
+    private static void SampleRadialMotion(IWeaponSystemView system)
     {
-        if (battery.Platform is not { } platform) return;
+        if (system.Platform is not { } platform) return;
 
         try
         {
@@ -74,10 +74,10 @@ internal static class Diagnostics
             double radius = Vec.Len(KsaWorld.PositionEcl(platform) - parent.GetPositionEcl());
             if (!double.IsFinite(radius)) return;
 
-            Radial.TryGetValue(battery, out (double Last, double Worst) seen);
+            Radial.TryGetValue(system, out (double Last, double Worst) seen);
 
             double moved = seen.Last > 0.0 ? Math.Abs(radius - seen.Last) : 0.0;
-            Radial[battery] = (radius, Math.Max(seen.Worst, moved));
+            Radial[system] = (radius, Math.Max(seen.Worst, moved));
         }
         catch
         {
@@ -89,22 +89,22 @@ internal static class Diagnostics
     public static void ResetTimer() => NextDumpAt.Clear();
 
     /// <summary>Forgets a system, so its entry does not outlive the craft it was crewed on.</summary>
-    public static void Forget(IWeaponSystemView battery)
+    public static void Forget(IWeaponSystemView system)
     {
-        NextDumpAt.Remove(battery);
-        Radial.Remove(battery);
+        NextDumpAt.Remove(system);
+        Radial.Remove(system);
     }
 
-    public static void Dump(IWeaponSystemView battery, SystemConfig policy)
+    public static void Dump(IWeaponSystemView system, SystemConfig policy)
     {
         try
         {
             Log.Debug("---- diagnostic dump ----");
-            DumpPlatform(battery);
-            DumpRendering(battery);
-            DumpVehicles(battery, policy);
-            DumpRadar(battery);
-            DumpAttitudeControl(battery);
+            DumpPlatform(system);
+            DumpRendering(system);
+            DumpVehicles(system, policy);
+            DumpRadar(system);
+            DumpAttitudeControl(system);
             Log.Debug("---- end dump ----");
         }
         catch (Exception e)
@@ -113,9 +113,9 @@ internal static class Diagnostics
         }
     }
 
-    private static void DumpPlatform(IWeaponSystemView battery)
+    private static void DumpPlatform(IWeaponSystemView system)
     {
-        if (battery.Platform is not { } platform)
+        if (system.Platform is not { } platform)
         {
             Log.Debug("platform: NONE (no controlled vehicle)");
             return;
@@ -124,12 +124,12 @@ internal static class Diagnostics
         double3 pos = KsaWorld.PositionEcl(platform);
         double3 vel = KsaWorld.VelocityEcl(platform);
 
-        Log.Debug($"platform: '{KsaWorld.DisplayName(platform)}' launcher={(battery.Launcher is null ? "none" : "fitted")} " +
-                 $"operational={battery.IsOperational} ammo={battery.Ammo}");
+        Log.Debug($"platform: '{KsaWorld.DisplayName(platform)}' launcher={(system.Launcher is null ? "none" : "fitted")} " +
+                 $"operational={system.IsOperational} ammo={system.Ammo}");
         Log.Debug($"  posEcl  = {Fmt(pos)}  |pos| = {Vec.Len(pos):E3}");
         Log.Debug($"  velEcl  = {Fmt(vel)}  speed = {Vec.Len(vel):F1} m/s");
-        Log.Debug($"  bore    = {Fmt(battery.Boresight)}  ({battery.Sensor.BoresightSource})");
-        Log.Debug($"  mount   = {Fmt(battery.MountEcl)}  offset from hull = {Vec.Len(battery.MountEcl - pos):F2} m");
+        Log.Debug($"  bore    = {Fmt(system.Boresight)}  ({system.Sensor.BoresightSource})");
+        Log.Debug($"  mount   = {Fmt(system.MountEcl)}  offset from hull = {Vec.Len(system.MountEcl - pos):F2} m");
 
         // Whether the engine has parked this craft or is still solving it. On an airless body it
         // can barely ever be parked: PhysicsStates forces MotionlessTime to zero every step
@@ -137,7 +137,7 @@ internal static class Diagnostics
         // 255-step sleeper is left, with no drag to get it there.
         try
         {
-            (double _, double worst) = Radial.TryGetValue(battery, out (double, double) seen)
+            (double _, double worst) = Radial.TryGetValue(system, out (double, double) seen)
                                            ? seen
                                            : (0.0, 0.0);
 
@@ -163,7 +163,7 @@ internal static class Diagnostics
             Log.Debug($"  physics = {platform.Situation}, onRails={platform.Situation.IsOnRails()}, "
                      + $"worst radial move between frames {worst * 1000.0:F3} mm");
 
-            Radial[battery] = (Radial.TryGetValue(battery, out (double Last, double _) k) ? k.Last : 0.0, 0.0);
+            Radial[system] = (Radial.TryGetValue(system, out (double Last, double _) k) ? k.Last : 0.0, 0.0);
         }
         catch
         {
@@ -191,7 +191,7 @@ internal static class Diagnostics
 
     // Checks the pieces the gizmo overlay depends on. If the renderer or camera is missing, nothing
     // submitted can ever appear.
-    private static void DumpRendering(IWeaponSystemView battery)
+    private static void DumpRendering(IWeaponSystemView system)
     {
         bool hasRenderer = Program.GizmosRenderer is not null;
         Log.Debug($"render: GizmosRenderer={(hasRenderer ? "ok" : "NULL")}");
@@ -210,7 +210,7 @@ internal static class Diagnostics
         // itself draws with (physics position); EclToEgo(GetPositionEcl()) uses the analytic
         // on-rails position. The gap between them is exactly how far the overlay sits from the
         // craft, so it says whether the anchor is working and how big the error is.
-        if (battery.Platform is { } plat)
+        if (system.Platform is { } plat)
         {
             try
             {
@@ -246,7 +246,7 @@ internal static class Diagnostics
         try
         {
             double3 camEcl = camera.PositionEcl;
-            double3 mountEgo = camera.EclToEgo(battery.MountEcl);
+            double3 mountEgo = camera.EclToEgo(system.MountEcl);
 
             // Ego is camera-relative, so this length is the distance from the eye to the
             // launcher. Wildly large means the frames are not lining up.
@@ -266,7 +266,7 @@ internal static class Diagnostics
 
     // Lists every loaded vehicle with the numbers the radar filters on, and says which filter
     // rejected it. This is the fastest way to see why the track list is empty.
-    private static void DumpVehicles(IWeaponSystemView battery, SystemConfig policy)
+    private static void DumpVehicles(IWeaponSystemView system, SystemConfig policy)
     {
         KsaWorld.CollectVehicles(Scratch);
 
@@ -275,11 +275,11 @@ internal static class Diagnostics
 
         Log.Debug($"vehicles: {Scratch.Count} from CurrentSystem.All  (Program.VehiclesInFrame reports {inFrame})");
 
-        if (battery.Platform is not { } platform) return;
+        if (system.Platform is not { } platform) return;
 
         double3 origin = KsaWorld.PositionEcl(platform);
         double3 originVel = KsaWorld.VelocityEcl(platform);
-        double coneCos = Math.Cos(battery.Sensor.ConeHalfAngleRad);
+        double coneCos = Math.Cos(system.Sensor.ConeHalfAngleRad);
 
         foreach (Vehicle v in Scratch)
         {
@@ -291,19 +291,19 @@ internal static class Diagnostics
             double3 rel = KsaWorld.VelocityEcl(v) - originVel;
             double range = Vec.Len(r);
             double relSpeed = Vec.Len(rel);
-            double cos = Vec.Dot(Vec.Unit(r), battery.Boresight);
+            double cos = Vec.Dot(Vec.Unit(r), system.Boresight);
             double offAxisDeg = double.RadiansToDegrees(Math.Acos(Math.Clamp(cos, -1.0, 1.0)));
 
-            double tCa = Vec.TimeOfClosestApproach(r, rel, battery.Sensor.ThreatHorizonSeconds);
+            double tCa = Vec.TimeOfClosestApproach(r, rel, system.Sensor.ThreatHorizonSeconds);
             double cpa = Vec.Len(r + rel * tCa);
 
             string verdict =
                 policy.ProtectControlledVehicle && ReferenceEquals(v, KsaWorld.ControlledVehicle) ? "SKIP: is controlled vehicle"
-                : range > battery.Sensor.Range ? $"REJECT: out of range ({range / 1000.0:F1} > {battery.Sensor.Range / 1000.0:F1} km)"
-                : cos < coneCos ? $"REJECT: outside cone ({offAxisDeg:F0} deg > {battery.Sensor.ConeDeg:F0})"
-                : relSpeed < battery.Sensor.MinTargetSpeed ? $"REJECT: too slow ({relSpeed:F1} < {battery.Sensor.MinTargetSpeed:F0} m/s)"
-                : cpa <= battery.Sensor.ThreatRadius || range <= battery.Sensor.ThreatRadius ? "TRACK: threat"
-                : $"TRACK: not a threat (cpa {cpa:F0} m > {battery.Sensor.ThreatRadius:F0})";
+                : range > system.Sensor.Range ? $"REJECT: out of range ({range / 1000.0:F1} > {system.Sensor.Range / 1000.0:F1} km)"
+                : cos < coneCos ? $"REJECT: outside cone ({offAxisDeg:F0} deg > {system.Sensor.ConeDeg:F0})"
+                : relSpeed < system.Sensor.MinTargetSpeed ? $"REJECT: too slow ({relSpeed:F1} < {system.Sensor.MinTargetSpeed:F0} m/s)"
+                : cpa <= system.Sensor.ThreatRadius || range <= system.Sensor.ThreatRadius ? "TRACK: threat"
+                : $"TRACK: not a threat (cpa {cpa:F0} m > {system.Sensor.ThreatRadius:F0})";
 
             // How far the analytic position sits from where the craft is drawn. Rounds are fused
             // against the first and struck against the second, so this is the error budget of a
@@ -320,15 +320,15 @@ internal static class Diagnostics
         }
     }
 
-    private static void DumpRadar(IWeaponSystemView battery)
+    private static void DumpRadar(IWeaponSystemView system)
     {
-        Log.Debug($"radar: {battery.Radar.Tracks.Count} track(s), " +
-                 $"maskedByTerrain={battery.Radar.MaskedByTerrain}, " +
-                 $"maskedByBurst={battery.Radar.MaskedByBurst}, " +
-                 $"locked={(battery.Radar.Locked is null ? "none" : battery.Radar.Locked.Contact.DisplayName)}, " +
-                 $"firingSolution={battery.Radar.HasFiringSolution}, roundsInFlight={battery.Rounds.Count}");
+        Log.Debug($"radar: {system.Radar.Tracks.Count} track(s), " +
+                 $"maskedByTerrain={system.Radar.MaskedByTerrain}, " +
+                 $"maskedByBurst={system.Radar.MaskedByBurst}, " +
+                 $"locked={(system.Radar.Locked is null ? "none" : system.Radar.Locked.Contact.DisplayName)}, " +
+                 $"firingSolution={system.Radar.HasFiringSolution}, roundsInFlight={system.Rounds.Count}");
 
-        foreach (IProjectile round in battery.Rounds)
+        foreach (IProjectile round in system.Rounds)
         {
             Log.Debug($"  {RoundLabel.For(round.Tube)}: age {round.Age:F1}s, speed {round.Speed:F0} m/s, lock={round.HasLock}");
         }
@@ -344,9 +344,9 @@ internal static class Diagnostics
     // threshold and are dropped in favour of whatever fires across it. tools/model/checkring.py
     // cannot see this: it measures against the part's declared mass seat, which is the separated
     // case. Nothing else reports the stacked one, which is why this is here.
-    private static void DumpAttitudeControl(IWeaponSystemView battery)
+    private static void DumpAttitudeControl(IWeaponSystemView system)
     {
-        if (battery.Platform is not { } craft) return;
+        if (system.Platform is not { } craft) return;
         if (craft.FlightComputer is not { } computer) return;
 
         double band = 0.5 * computer.AngleDeadband

@@ -246,7 +246,7 @@ internal sealed partial class Ui
         ImGui.SameLine();
         if (ImGui.Button("Release one warhead"))
         {
-            if (!computer.Release(_batteries.For(computer.Craft)?.Battery))
+            if (!computer.Release(_roster.For(computer.Craft)?.Weapon))
             {
                 Log.Warn("nothing to release: no weapon aboard, none left, or it is still reloading");
             }

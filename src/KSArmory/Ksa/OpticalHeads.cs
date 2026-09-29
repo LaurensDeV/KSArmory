@@ -6,7 +6,7 @@ namespace KSArmory;
 /// One <see cref="OpticalHead"/> per director fitted, each with its own <see cref="OpticConfig"/>.
 ///
 /// <para>Keyed on the craft <em>and</em> which director on it, unlike <see cref="WeaponSystems"/>,
-/// which crews one battery per craft. A director is a small part that a craft can sensibly carry
+/// which crews one system per craft. A director is a small part that a craft can sensibly carry
 /// several of — one forward, one aft — and each is an instrument in its own right pointed
 /// somewhere different. Sharing one head between them would make the second one scenery.</para>
 ///

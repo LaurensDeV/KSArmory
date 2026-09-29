@@ -28,7 +28,7 @@ internal partial class Ui
         // and the panel's own trigger already fires that craft's.
         KSA.Vehicle? craft = Focused ?? KsaWorld.ControlledVehicle;
 
-        _batteries.AllOn(craft, _weaponScratch);
+        _roster.AllOn(craft, _weaponScratch);
 
         ImGui.SetNextWindowSize(new float2(320f, 0f), ImGuiCond.FirstUseEver);
 
@@ -66,7 +66,7 @@ internal partial class Ui
     // straight at one station.
     private void FireSelectedGroup()
     {
-        if (_batteries.For(Focused) is { } selected) FireGroup(selected);
+        if (_roster.For(Focused) is { } selected) FireGroup(selected);
     }
 
     // Fires the next station of the selected weapon's group. The trigger is the group's, so it
@@ -77,10 +77,10 @@ internal partial class Ui
 
         // Every station dry. Fire the selected one anyway so its own refusal is announced: the
         // operator gets "launcher empty" from fire control rather than a button that does nothing.
-        if (at < 0) { selected.Battery.FireAtLock(); return; }
+        if (at < 0) { selected.Weapon.FireAtLock(); return; }
 
-        _lastFired[selected.Battery.Profile.PartId] = at;
-        _stations[at].Battery.FireAtLock();
+        _lastFired[selected.Weapon.Profile.PartId] = at;
+        _stations[at].Weapon.FireAtLock();
     }
 
     // Which station of the selected weapon's group the trigger would reach if it were pressed now,
@@ -91,7 +91,7 @@ internal partial class Ui
     // second is loaded and clear to go.
     private int NextStationIndex(WeaponSystems.Entry selected)
     {
-        string partId = selected.Battery.Profile.PartId;
+        string partId = selected.Weapon.Profile.PartId;
         GatherGroup(partId, _stations);
 
         if (_stations.Count <= 1) return _stations.Count - 1;
@@ -101,7 +101,7 @@ internal partial class Ui
         {
             // Whatever the trigger fires. A gun's belt is not its magazine, so asking a gun for
             // rounds would report every station of it empty and the trigger would never reach one.
-            _stationAmmo.Add(s.Battery.TriggerArmament == ArmamentKind.Tubes ? s.Battery.Ammo : s.Battery.GunAmmo);
+            _stationAmmo.Add(s.Weapon.TriggerArmament == ArmamentKind.Tubes ? s.Weapon.Ammo : s.Weapon.GunAmmo);
         }
 
         return WeaponSelection.NextStation(CollectionsMarshal.AsSpan(_stationAmmo),
@@ -122,7 +122,7 @@ internal partial class Ui
     // to the one in hand rather than to nothing, which would paint a green "clear to fire" over a
     // launcher that is holding.
     private WeaponSystem TriggerSystem(WeaponSystem inHand)
-        => _batteries.For(Focused) is { } selected ? TriggerStation(selected).Battery : inHand;
+        => _roster.For(Focused) is { } selected ? TriggerStation(selected).Weapon : inHand;
 
     /// <summary>
     /// The weapon a cue drawn over the world has to speak for, which is the station the trigger
@@ -135,12 +135,12 @@ internal partial class Ui
     /// </summary>
     public WeaponSystem? TriggerWeaponOn(KSA.Vehicle? craft)
     {
-        if (craft is null || _batteries.For(craft) is not { } selected) return null;
+        if (craft is null || _roster.For(craft) is not { } selected) return null;
 
         // Every consumer of _weaponScratch refills it before reading it, so filling it here for a
         // craft the panel is not showing cannot disturb what the panel does with it.
-        _batteries.AllOn(craft, _weaponScratch);
-        return TriggerStation(selected).Battery;
+        _roster.AllOn(craft, _weaponScratch);
+        return TriggerStation(selected).Weapon;
     }
 
     /// <summary>
@@ -149,7 +149,7 @@ internal partial class Ui
     /// </summary>
     public bool AimsTheSight(WeaponSystems.Entry station)
     {
-        _batteries.AllOn(station.Craft, _weaponScratch);
+        _roster.AllOn(station.Craft, _weaponScratch);
         int at = NextStationIndex(station);
 
         return ReferenceEquals(at < 0 ? _stations[0] : _stations[at], station);
@@ -182,12 +182,12 @@ internal partial class Ui
     // whether marking now is worth doing. Not a hold, since it is about a round already gone.
     private WeaponSystem? StationSteering()
     {
-        if (_batteries.For(Focused) is not { } selected) return null;
+        if (_roster.For(Focused) is not { } selected) return null;
 
-        _batteries.StationsOf(selected, _stations);
+        _roster.StationsOf(selected, _stations);
         foreach (WeaponSystems.Entry s in _stations)
         {
-            if (s.Battery.Steerable is not null) return s.Battery;
+            if (s.Weapon.Steerable is not null) return s.Weapon;
         }
 
         return null;
@@ -234,7 +234,7 @@ internal partial class Ui
         into.Clear();
         foreach (WeaponSystems.Entry e in _weaponScratch)
         {
-            if (e.Battery.Profile.PartId == partId) into.Add(e);
+            if (e.Weapon.Profile.PartId == partId) into.Add(e);
         }
     }
 
@@ -253,25 +253,25 @@ internal partial class Ui
     private void CollectWeapons(KSA.Vehicle? craft, List<WeaponChoice> into)
     {
         into.Clear();
-        _batteries.AllOn(craft, _weaponScratch);
+        _roster.AllOn(craft, _weaponScratch);
 
         for (int i = 0; i < _weaponScratch.Count; i++)
         {
-            string partId = _weaponScratch[i].Battery.Profile.PartId;
+            string partId = _weaponScratch[i].Weapon.Profile.PartId;
 
             // Ordinal order, so the first station of a group stands for it and every later one
             // folds into it.
             bool seen = false;
             for (int j = 0; j < i; j++)
             {
-                if (_weaponScratch[j].Battery.Profile.PartId == partId) { seen = true; break; }
+                if (_weaponScratch[j].Weapon.Profile.PartId == partId) { seen = true; break; }
             }
             if (seen) continue;
 
             GatherGroup(partId, _stations);
 
             WeaponSystems.Entry first = _stations[0];
-            IReadOnlyList<Armament> armaments = WeaponFit.Of(first.Battery.Profile, first.Battery.Sensor).Armaments;
+            IReadOnlyList<Armament> armaments = WeaponFit.Of(first.Weapon.Profile, first.Weapon.Sensor).Armaments;
 
             foreach (Armament arm in armaments)
             {
@@ -279,7 +279,7 @@ internal partial class Ui
                 bool guarding = false;
                 foreach (WeaponSystems.Entry s in _stations)
                 {
-                    left += arm.Kind == ArmamentKind.Tubes ? s.Battery.Ammo : s.Battery.GunAmmo;
+                    left += arm.Kind == ArmamentKind.Tubes ? s.Weapon.Ammo : s.Weapon.GunAmmo;
                     guarding |= s.Policy.AutoEngage;
                 }
 
@@ -299,16 +299,16 @@ internal partial class Ui
 
     private static bool IsChosen(WeaponSystems.Entry? selected, WeaponChoice c)
         => selected is not null
-           && selected.Battery.Profile.PartId == c.First.Battery.Profile.PartId
-           && selected.Battery.TriggerArmament == c.Arm.Kind;
+           && selected.Weapon.Profile.PartId == c.First.Weapon.Profile.PartId
+           && selected.Weapon.TriggerArmament == c.Arm.Kind;
 
     private void Choose(KSA.Vehicle? craft, WeaponChoice c)
     {
-        _batteries.Select(craft, c.First.Ordinal);
+        _roster.Select(craft, c.First.Ordinal);
 
         // Every station, because the trigger steps between them and each fires its own.
-        _batteries.StationsOf(c.First, _stations);
-        foreach (WeaponSystems.Entry s in _stations) s.Battery.TriggerArmament = c.Arm.Kind;
+        _roster.StationsOf(c.First, _stations);
+        foreach (WeaponSystems.Entry s in _stations) s.Weapon.TriggerArmament = c.Arm.Kind;
         Focus(Focused);
     }
 
@@ -319,7 +319,7 @@ internal partial class Ui
         CollectWeapons(craft, _choices);
         if (_choices.Count < 2) return false;
 
-        WeaponSystems.Entry? selected = _batteries.For(craft);
+        WeaponSystems.Entry? selected = _roster.For(craft);
 
         string preview = "";
         foreach (WeaponChoice c in _choices)
@@ -355,7 +355,7 @@ internal partial class Ui
 
     private void DrawWeaponList(KSA.Vehicle? craft)
     {
-        WeaponSystems.Entry? selected = _batteries.For(craft);
+        WeaponSystems.Entry? selected = _roster.For(craft);
 
         CollectWeapons(craft, _choices);
         for (int row = 0; row < _choices.Count; row++) DrawWeaponRow(craft, selected, _choices[row], row);
@@ -364,7 +364,7 @@ internal partial class Ui
 
         if (selected is null) return;
 
-        GatherGroup(selected.Battery.Profile.PartId, _stations);
+        GatherGroup(selected.Weapon.Profile.PartId, _stations);
 
         // The trigger, on the selected weapon, so the switcher is usable without the manage window
         // open at all -- which is the whole point of it being a window of its own.
@@ -373,7 +373,7 @@ internal partial class Ui
         // This window is the trigger, so its line has to be about the trigger. Auto-engage off
         // blocks nothing FIRE does, and reporting it here makes a working button look broken.
         ImGui.SameLine();
-        DrawHoldLine(selected.Battery, selected.Policy.AutoEngage);
+        DrawHoldLine(selected.Weapon, selected.Policy.AutoEngage);
     }
 
     private void DrawWeaponRow(KSA.Vehicle? craft, WeaponSystems.Entry? selected, WeaponChoice c, int row)

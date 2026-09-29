@@ -1,7 +1,7 @@
 namespace KSArmory;
 
 /// <summary>
-/// One battery's settings, flattened so they can be written down and read back.
+/// One system's settings, flattened so they can be written down and read back.
 ///
 /// <para>A separate type from <see cref="SystemConfig"/> rather than serialising that directly.
 /// <c>SystemConfig</c> is what the panel edits and the fire control reads; it gains fields freely
@@ -12,7 +12,7 @@ namespace KSArmory;
 /// <para>Everything here is a plain field with a default that matches <c>SystemConfig</c>'s, so a
 /// file written by an older version loads with the new settings at their defaults rather than at
 /// zero — which for <c>MissilesEnabled</c> or <c>TurretTracking</c> would silently disarm half a
-/// battery.</para>
+/// system.</para>
 /// </summary>
 public sealed class SystemSettings
 {
@@ -42,7 +42,7 @@ public sealed class SystemSettings
     public List<string> AlliedTeams { get; set; } = [];
     public List<string> NeutralTeams { get; set; } = [];
 
-    /// <summary>Reads a battery's current settings.</summary>
+    /// <summary>Reads a system's current settings.</summary>
     public static SystemSettings From(SystemConfig config)
     {
         ArgumentNullException.ThrowIfNull(config);
@@ -101,11 +101,11 @@ public sealed class SystemSettings
     }
 
     /// <summary>
-    /// Puts these settings onto a battery.
+    /// Puts these settings onto a system.
     ///
     /// <para>Nothing about an optical head is here. A director keeps its own
     /// <see cref="OpticConfig"/> and is crewed per part rather than per weapons system, so its
-    /// settings are not a battery's to carry.</para>
+    /// settings are not a system's to carry.</para>
     /// </summary>
     public void ApplyTo(SystemConfig config)
     {

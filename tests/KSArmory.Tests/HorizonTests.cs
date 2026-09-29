@@ -6,7 +6,7 @@ namespace KSArmory.Tests;
 
 /// <summary>
 /// The planet getting in the way. Earth-sized numbers throughout, because the interesting case is
-/// a battery on the deck against something low and far off.
+/// a system on the deck against something low and far off.
 /// </summary>
 public class HorizonTests
 {

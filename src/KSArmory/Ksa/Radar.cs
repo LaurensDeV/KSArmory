@@ -4,7 +4,7 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// Search-and-track radar. Sweeps a cone about the battery's boresight and classifies
+/// Search-and-track radar. Sweeps a cone about the system's boresight and classifies
 /// contacts as threats using their closest point of approach rather than raw closing
 /// speed, so a target crossing the site is engaged just as readily as one flying at it.
 /// </summary>
@@ -16,8 +16,8 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
     /// <summary>
     /// What this set can see.
     ///
-    /// <para>Owned by the battery that fitted it rather than read through <c>Config</c>: with more
-    /// than one battery alive a shared field is whichever system resolved last. Live tuning still
+    /// <para>Owned by the system that fitted it rather than read through <c>Config</c>: with more
+    /// than one system alive a shared field is whichever system resolved last. Live tuning still
     /// works, because profiles are shared instances.</para>
     /// </summary>
     /// <remarks>
@@ -54,7 +54,7 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
     /// <summary>
     /// Craft the last scan discarded because the planet was in the way.
     ///
-    /// <para>Counted rather than dropped quietly: a battery that suddenly sees nothing looks
+    /// <para>Counted rather than dropped quietly: a system that suddenly sees nothing looks
     /// broken, and this is the difference between "nothing is flying" and "everything is behind
     /// the world".</para>
     /// </summary>
@@ -107,7 +107,7 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
     /// <summary>
     /// Rebuilds the track list from the current world state.
     /// </summary>
-    /// <param name="platform">The vehicle carrying the battery.</param>
+    /// <param name="platform">The vehicle carrying the system.</param>
     /// <param name="boresight">Unit vector the radar is pointed along, in Ecl.</param>
     /// <param name="dt">Seconds since the previous scan.</param>
     /// <param name="airborne">

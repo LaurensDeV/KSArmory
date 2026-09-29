@@ -110,7 +110,7 @@ public readonly record struct FoundComponent(
 ///
 /// <para>Ordering is the part tree's, which is the order the craft was assembled in. That is
 /// stable for a given craft and is what makes "launcher 2" mean the same thing between frames —
-/// the same reason the battery keys on a part ordinal rather than a <c>Part</c> reference, which
+/// the same reason the system keys on a part ordinal rather than a <c>Part</c> reference, which
 /// KSA rebuilds during staging and docking.</para>
 /// </summary>
 public sealed class WeaponInventory
@@ -146,7 +146,7 @@ public sealed class WeaponInventory
     /// <remarks>
     /// Anything recognised counts. The intended gate is an explicit fire-control part: it gives a
     /// craft's settings an owner, and it stops a piece of debris that happens to carry a launcher
-    /// from becoming a battery of its own. No such part exists, so gating on it would find nothing.
+    /// from becoming a system of its own. No such part exists, so gating on it would find nothing.
     /// </remarks>
     public bool IsWeaponSystem => HasPlatform
                                   && (CountOf(WeaponRole.Launcher) > 0
@@ -166,7 +166,7 @@ public sealed class WeaponInventory
     ///
     /// <para>What the panel lists, as opposed to what it crews. A craft carrying only an optical
     /// director has something of this mod's on it and something worth showing, and is emphatically
-    /// not a weapons system: crewing one gives it a battery with no launcher, which then reports a
+    /// not a weapons system: crewing one gives it a system with no launcher, which then reports a
     /// head it cannot find and reloads a magazine it does not have.</para>
     /// </summary>
     public bool IsInstallation => Components.Count > 0 && HasPlatform;

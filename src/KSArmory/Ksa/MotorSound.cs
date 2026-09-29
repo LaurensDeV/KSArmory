@@ -40,12 +40,12 @@ internal sealed class MotorSound(Config config)
 
     private static bool _warnedMissing;
 
-    /// <summary>Starts, moves and stops the motor of every round this battery has in the air.</summary>
-    public void Update(IRoundsInFlight battery)
+    /// <summary>Starts, moves and stops the motor of every round this system has in the air.</summary>
+    public void Update(IRoundsInFlight system)
     {
-        if (!_config.MotorSound || battery.Platform is not { } platform)
+        if (!_config.MotorSound || system.Platform is not { } platform)
         {
-            SilenceOwnedBy(battery);
+            SilenceOwnedBy(system);
             return;
         }
 
@@ -56,18 +56,18 @@ internal sealed class MotorSound(Config config)
         double3 platformVelEgo = camera.GetVelocityEgo(platform);
         double pressure = SafePressure(camera);
 
-        foreach (IProjectile round in battery.Rounds)
+        foreach (IProjectile round in system.Rounds)
         {
-            if (Burning(round)) Follow(round, battery, platformEgo, platformVelEgo, pressure);
+            if (Burning(round)) Follow(round, system, platformEgo, platformVelEgo, pressure);
             else Silence(round);
         }
 
-        // A round that left the battery's list without burning out - reaped, or the whole salvo
+        // A round that left the system's list without burning out - reaped, or the whole salvo
         // abandoned - never gets a Silence call above, so its channel would play forever.
         foreach (KeyValuePair<IProjectile, (IRoundsInFlight Owner, IChannel Channel)> kv in _burning)
         {
-            if (!ReferenceEquals(kv.Value.Owner, battery)) continue;
-            if (!battery.Rounds.Contains(kv.Key)) _finished.Add(kv.Key);
+            if (!ReferenceEquals(kv.Value.Owner, system)) continue;
+            if (!system.Rounds.Contains(kv.Key)) _finished.Add(kv.Key);
         }
 
         foreach (IProjectile round in _finished) Silence(round);
@@ -93,18 +93,18 @@ internal sealed class MotorSound(Config config)
         _finished.Clear();
     }
 
-    private void SilenceOwnedBy(IRoundsInFlight battery)
+    private void SilenceOwnedBy(IRoundsInFlight system)
     {
         foreach (KeyValuePair<IProjectile, (IRoundsInFlight Owner, IChannel Channel)> kv in _burning)
         {
-            if (ReferenceEquals(kv.Value.Owner, battery)) _finished.Add(kv.Key);
+            if (ReferenceEquals(kv.Value.Owner, system)) _finished.Add(kv.Key);
         }
 
         foreach (IProjectile round in _finished) Silence(round);
         _finished.Clear();
     }
 
-    // The round's own profile, never the battery's. Cannon shells share the battery's round list
+    // The round's own profile, never the system's. Cannon shells share the system's round list
     // and carry a different munition: measured against the missile's burn they would each get a
     // rocket motor for two seconds, and a burst is twelve of them a second. A shell has no motor,
     // which its own BoostSeconds of zero already says.
@@ -113,7 +113,7 @@ internal sealed class MotorSound(Config config)
            && round.Munition.TotalBoostSeconds > 0f
            && round.Age <= round.Munition.TotalBoostSeconds;
 
-    private void Follow(IProjectile round, IRoundsInFlight battery,
+    private void Follow(IProjectile round, IRoundsInFlight system,
                         double3 platformEgo, double3 platformVelEgo, double pressure)
     {
         // Built from the round's offset from its platform, never from an absolute Ecl position
@@ -140,7 +140,7 @@ internal sealed class MotorSound(Config config)
             _burning.Remove(round);
         }
 
-        if (Start(spatial, _config) is { } started) _burning[round] = (battery, started);
+        if (Start(spatial, _config) is { } started) _burning[round] = (system, started);
     }
 
     private void Silence(IProjectile round)

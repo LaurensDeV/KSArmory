@@ -46,7 +46,7 @@ public static class LineOfSight
     ///
     /// <para>The sum of each one's distance to its own horizon. Cheap and closed-form, which is
     /// the point: it rejects a contact as over the horizon without walking the system's bodies,
-    /// and it gives a number a panel can show — a battery on the deck sees a sea-skimmer at a few
+    /// and it gives a number a panel can show — a system on the deck sees a sea-skimmer at a few
     /// tens of kilometres and an aircraft at hundreds, and that difference is most of what
     /// low-level attack is about.</para>
     ///

@@ -208,7 +208,7 @@ internal sealed class DropScenario
     // the one it is being compared with. That is what kept warp and pause untestable.
     private double _burstAge;
 
-    private WeaponSystem? _battery;
+    private WeaponSystem? _system;
     private Vehicle? _craft;
     private string _craftName = string.Empty;
     private double _pitchDeg;
@@ -690,13 +690,13 @@ internal sealed class DropScenario
         {
             foreach (WeaponSystems.Entry e in roster.All)
             {
-                if (e.Battery.Platform is not { } craft || e.Battery.Launcher is null) continue;
+                if (e.Weapon.Platform is not { } craft || e.Weapon.Launcher is null) continue;
                 if (_fromBeforeTheLoad.Contains(craft)) continue;
-                if (e.Battery.Munition.Powered || !e.Battery.Munition.HitsTerrain) continue;
-                if (e.Battery.Ammo <= 0) continue;
+                if (e.Weapon.Munition.Powered || !e.Weapon.Munition.HitsTerrain) continue;
+                if (e.Weapon.Ammo <= 0) continue;
 
                 found = e;
-                FitStore(e.Battery.Munition);
+                FitStore(e.Weapon.Munition);
 
                 // The chase rides whatever the panel is focused on, which is the controlled craft.
                 if (ReferenceEquals(craft, KsaWorld.ControlledVehicle)) break;
@@ -740,13 +740,13 @@ internal sealed class DropScenario
         if (double.IsNaN(_foundAt)) _foundAt = _sim;
         if (_sim - _foundAt < SettleSeconds) return null;
 
-        _battery = found.Battery;
-        _craft = found.Battery.Platform!;
+        _system = found.Weapon;
+        _craft = found.Weapon.Platform!;
         _craftName = KsaWorld.DisplayName(_craft);
 
-        if (_request.Guided && !_battery.Munition.Steers)
+        if (_request.Guided && !_system.Munition.Steers)
         {
-            return $"FAIL a guided drop was asked for, and the {_battery.Munition.DisplayName} does not steer";
+            return $"FAIL a guided drop was asked for, and the {_system.Munition.DisplayName} does not steer";
         }
 
         if (!PlaceCraft(_craft, dt, out string? placing)) return placing;
@@ -761,12 +761,12 @@ internal sealed class DropScenario
 
         if (_watchTheCloud)
         {
-            _report($"{_craftName} stays on the pad: {_battery.Ammo} x "
-                    + $"{_battery.Munition.DisplayName}, chase off, watching from where it stands");
+            _report($"{_craftName} stays on the pad: {_system.Ammo} x "
+                    + $"{_system.Munition.DisplayName}, chase off, watching from where it stands");
 
             _stagedAt = _sim;
 
-            return Drop(_battery, _craft, KsaWorld.ParentBody(_craft)!, 0.0,
+            return Drop(_system, _craft, KsaWorld.ParentBody(_craft)!, 0.0,
                         KsaWorld.LocalUp(_craft), double3.Zero, KsaWorld.LocalUp(_craft));
         }
 
@@ -774,7 +774,7 @@ internal sealed class DropScenario
                 + (ReferenceEquals(_craft, KsaWorld.ControlledVehicle)
                        ? ""
                        : " -- not the controlled craft, so the chase will not ride its store")
-                + $": {_battery.Ammo} x {_battery.Munition.DisplayName}, chase on");
+                + $": {_system.Ammo} x {_system.Munition.DisplayName}, chase on");
 
         AttitudeHook.Stage(_craft);
         _stagedAt = _sim;
@@ -784,7 +784,7 @@ internal sealed class DropScenario
 
     private string? Climb(double dt)
     {
-        WeaponSystem battery = _battery!;
+        WeaponSystem system = _system!;
         Vehicle craft = _craft!;
 
         if (!KsaWorld.IsAlive(craft)) return "FAIL the craft was lost before the release";
@@ -817,15 +817,15 @@ internal sealed class DropScenario
 
         if (agl < _request.ReleaseAglMetres || _pitchDeg < _request.PitchDeg) return null;
 
-        return Drop(battery, craft, body, agl, up, overGround, wanted);
+        return Drop(system, craft, body, agl, up, overGround, wanted);
     }
 
-    private string? Drop(WeaponSystem battery, Vehicle craft, Celestial body, double agl, double3 up,
+    private string? Drop(WeaponSystem system, Vehicle craft, Celestial body, double agl, double3 up,
                          double3 overGround, double3 wanted)
     {
-        BombSightOverlay sight = _sightFor(battery);
+        BombSightOverlay sight = _sightFor(system);
 
-        _haveRing = sight.TryPredictNow(battery, out double3 ringEcl)
+        _haveRing = sight.TryPredictNow(system, out double3 ringEcl)
                     && KsaWorld.TryAnchorToGround(ringEcl, out _ringBody, out _ringAnchor);
 
         if (_request.Guided)
@@ -839,27 +839,27 @@ internal sealed class DropScenario
                 return "FAIL the sight's impact could not be put on the ground";
             }
 
-            battery.Designate(Aimpoint.OnGround(handle, anchor, aimEcl, aimVelocity), "the sight's impact");
+            system.Designate(Aimpoint.OnGround(handle, anchor, aimEcl, aimVelocity), "the sight's impact");
         }
 
-        int before = battery.Rounds.Count;
-        if (!battery.Release() || battery.Rounds.Count <= before) return "FAIL the store would not release";
+        int before = system.Rounds.Count;
+        if (!system.Release() || system.Rounds.Count <= before) return "FAIL the store would not release";
 
-        IProjectile round = battery.Rounds[^1];
+        IProjectile round = system.Rounds[^1];
         _round = round;
         _body = body;
         _releasedAt = _sim;
 
-        double3 groundVelocity = KsaWorld.GroundVelocityAt(craft, battery.PlatformEcl);
-        _haveFlown = sight.TryPredictFrom(battery, round.PositionEcl, round.VelocityEcl - groundVelocity,
+        double3 groundVelocity = KsaWorld.GroundVelocityAt(craft, system.PlatformEcl);
+        _haveFlown = sight.TryPredictFrom(system, round.PositionEcl, round.VelocityEcl - groundVelocity,
                                           out double3 flownEcl)
                      && KsaWorld.TryAnchorToGround(flownEcl, out _, out _flownAnchor);
 
         double3 spin = round is Slug slug ? slug.SpinVelocityEcl : Vec.Zero;
         double3 ejected = round.VelocityEcl - KsaWorld.VelocityEcl(craft) - spin;
-        double rackDeg = battery.Launcher is { } launcher
-                         && LauncherPart.TryGetTubeAxisEcl(craft, launcher, battery.PodsPart,
-                                                           battery.Profile, 0, out double3 axis)
+        double rackDeg = system.Launcher is { } launcher
+                         && LauncherPart.TryGetTubeAxisEcl(craft, launcher, system.PodsPart,
+                                                           system.Profile, 0, out double3 axis)
                              ? double.RadiansToDegrees(Vec.AngleBetween(ejected, axis))
                              : double.NaN;
 
@@ -923,8 +923,8 @@ internal sealed class DropScenario
             // arrive and must not be reported as one. Its State is never written when this happens:
             // AbandonFlight simply drops it from the roster and nothing steps it again, so the
             // budget below would eventually call it "still falling" 180 s later. Asked of the
-            // battery rather than of the round, because only the roster knows.
-            if (_battery is { } owner && !Holds(owner, round))
+            // system rather than of the round, because only the roster knows.
+            if (_system is { } owner && !Holds(owner, round))
             {
                 return $"FAIL the store was taken out of the world {since:F1} s after the release, "
                        + $"at {KsaWorld.SimulationSpeed:F0}x -- it was still flying";
@@ -938,7 +938,7 @@ internal sealed class DropScenario
                 double3 overGround = round.VelocityEcl - KsaWorld.GroundVelocityAt(under, round.PositionEcl);
                 _warpObserved = Math.Max(_warpObserved, KsaWorld.SimulationSpeed);
                 _report($"falling: {since:F0} s, {Vec.Len(overGround):F0} m/s over the ground"
-                        + (_battery!.Platform is null ? ", loose" : "")
+                        + (_system!.Platform is null ? ", loose" : "")
                         + $", {KsaWorld.SimulationSpeed:F0}x"
                         + (KsaWorld.IsAutoWarpActive ? " (auto)" : ""));
             }
@@ -953,9 +953,9 @@ internal sealed class DropScenario
 
     // Whether the roster still has this round. A landed one leaves on the frame it detonates, so
     // this is only meaningful while it is flying.
-    private static bool Holds(WeaponSystem battery, IProjectile round)
+    private static bool Holds(WeaponSystem system, IProjectile round)
     {
-        foreach (IProjectile held in battery.Rounds)
+        foreach (IProjectile held in system.Rounds)
         {
             if (ReferenceEquals(held, round)) return true;
         }
@@ -967,11 +967,11 @@ internal sealed class DropScenario
     // is already falling, and the region it is judged against.
     private void SendItSomewhereElse(double since)
     {
-        if (_battery is not { } battery) return;
+        if (_system is not { } system) return;
 
         if (!double.IsFinite(_request.AgainOffsetMetres))
         {
-            battery.ClearDesignation();
+            system.ClearDesignation();
             _report($"CAPTURE again -- designation cleared {since:F1} s after the release; "
                     + "the store should keep the aim it already has");
             return;
@@ -1006,23 +1006,23 @@ internal sealed class DropScenario
         _sentWasInReach = true;
         _haveSentImpact = false;
 
-        if (StoreReach.FallingStore(battery) is { } measured)
+        if (StoreReach.FallingStore(system) is { } measured)
         {
-            TailKitReach was = StoreReach.SolveNow(battery, measured);
+            TailKitReach was = StoreReach.SolveNow(system, measured);
             _sentWasInReach = !was.Known || was.Covers(aimEcl);
             _sentReachMetres = was.RadiusMetres;
             _haveSentImpact = was.Known
                               && KsaWorld.TryAnchorToGround(was.ImpactEcl, out _, out _sentImpactAnchor);
         }
 
-        string reach = StoreReach.FallingStore(battery) is { } speaking
-                           ? StoreReach.SolveNow(battery, speaking).Describe(aimEcl)
+        string reach = StoreReach.FallingStore(system) is { } speaking
+                           ? StoreReach.SolveNow(system, speaking).Describe(aimEcl)
                            : "no store in the air";
 
         // Past both rules a player's designation obeys: this store already has a target, and the
         // place may be beyond its reach. A store sent further than the ring says is the only
         // in-game evidence that the ring is a floor.
-        battery.Designate(Aimpoint.OnGround(handle, anchor, aimEcl, aimVel), "somewhere else",
+        system.Designate(Aimpoint.OnGround(handle, anchor, aimEcl, aimVel), "somewhere else",
                           asInstrument: true);
         _report($"CAPTURE again -- sent {_request.AgainOffsetMetres:F0} m north {since:F1} s after "
                 + $"the release: {reach}");

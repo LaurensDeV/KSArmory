@@ -8,7 +8,7 @@ namespace KSArmory;
 /// The flash at the cannon's muzzles: one endless emitter per barrel cluster, held open while the
 /// gun is firing and for a moment after each round, then handed back.
 ///
-/// <para>Per battery rather than per round, which is the whole design. A CIWS cycles at 75 rounds
+/// <para>Per system rather than per round, which is the whole design. A CIWS cycles at 75 rounds
 /// a second; taking a burst emitter from the pool that often would drain it within a second and
 /// leave nothing anywhere in the world able to spawn particles again. A gun firing is one
 /// continuous event, so it gets one continuous emitter.</para>
@@ -53,37 +53,37 @@ internal sealed class MuzzleFlash
 
     private static bool _warned;
 
-    /// <summary>Starts, moves and ends the flash for every battery whose cannon are firing.</summary>
-    public void Update(IEffectSource battery)
+    /// <summary>Starts, moves and ends the flash for every system whose cannon are firing.</summary>
+    public void Update(IEffectSource system)
     {
-        bool wanted = battery.PlumesEnabled
-                      && (battery.GunsFiring || battery.GunSecondsSinceShot < ShotFlashSeconds)
-                      && battery.Platform is not null
-                      && battery.HasGunFlash();
+        bool wanted = system.PlumesEnabled
+                      && (system.GunsFiring || system.GunSecondsSinceShot < ShotFlashSeconds)
+                      && system.Platform is not null
+                      && system.HasGunFlash();
 
         if (!wanted)
         {
-            Release(battery);
+            Release(system);
             return;
         }
 
-        Follow(battery);
+        Follow(system);
     }
 
     /// <summary>
-    /// Hands back the emitters of any battery the roster has forgotten.
+    /// Hands back the emitters of any system the roster has forgotten.
     ///
     /// <para>A craft destroyed mid-burst never reaches <see cref="Update"/> again, so without this
     /// its emitter is held for the rest of the session and the pool bleeds one per kill.</para>
     /// </summary>
     public void Sweep(WeaponSystems roster)
     {
-        foreach (IEffectSource battery in _firing.Keys)
+        foreach (IEffectSource system in _firing.Keys)
         {
-            if (!roster.Knows(battery)) _stopped.Add(battery);
+            if (!roster.Knows(system)) _stopped.Add(system);
         }
 
-        foreach (IEffectSource battery in _stopped) Release(battery);
+        foreach (IEffectSource system in _stopped) Release(system);
         _stopped.Clear();
     }
 
@@ -94,20 +94,20 @@ internal sealed class MuzzleFlash
         _firing.Clear();
     }
 
-    private void Follow(IEffectSource battery)
+    private void Follow(IEffectSource system)
     {
-        if (battery.Platform is not { } platform) return;
+        if (system.Platform is not { } platform) return;
 
         Span<double3> points = stackalloc double3[MaxClusters];
-        int count = battery.GunFlashPointsEcl(points);
+        int count = system.GunFlashPointsEcl(points);
         if (count <= 0) return;
 
-        if (!_firing.TryGetValue(battery, out Live? live))
+        if (!_firing.TryGetValue(system, out Live? live))
         {
             if (Acquire(platform, count) is not { } fresh) return;
 
             live = fresh;
-            _firing[battery] = live;
+            _firing[system] = live;
         }
 
         double3 centre = live.Body.GetPositionEcl();
@@ -210,9 +210,9 @@ internal sealed class MuzzleFlash
         return [.. handles];
     }
 
-    private void Release(IEffectSource battery)
+    private void Release(IEffectSource system)
     {
-        if (!_firing.Remove(battery, out Live? live)) return;
+        if (!_firing.Remove(system, out Live? live)) return;
 
         Give(live);
     }

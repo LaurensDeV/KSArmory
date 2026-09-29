@@ -41,32 +41,32 @@ internal sealed class MotorSmoke
     public MotorSmoke(Config config) => _config = config;
 
     /// <summary>Lays this frame's smoke for every round this system has burning.</summary>
-    public void Update(IEffectSource battery)
+    public void Update(IEffectSource system)
     {
-        ArgumentNullException.ThrowIfNull(battery);
+        ArgumentNullException.ThrowIfNull(system);
 
-        if (!_config.MotorSmoke || !PlumeSmoke.Available || battery.EffectBody is not { } body)
+        if (!_config.MotorSmoke || !PlumeSmoke.Available || system.EffectBody is not { } body)
         {
             // Not a release: dropping the entries is all there is to do, and the trail already in
             // the air goes on ageing out of its own accord.
-            ForgetOwnedBy(battery);
+            ForgetOwnedBy(system);
             return;
         }
 
         double3 centre = KsaWorld.PositionEcl(body);
         if (!Vec.IsFinite(centre)) return;
 
-        foreach (IProjectile round in battery.Rounds)
+        foreach (IProjectile round in system.Rounds)
         {
-            if (Burning(round)) Lay(round, battery, body, centre);
+            if (Burning(round)) Lay(round, system, body, centre);
             else _finished.Add(round);
         }
 
         // A round reaped mid-burn never reaches the branch above and would keep its entry.
         foreach (KeyValuePair<IProjectile, Live> kv in _laying)
         {
-            if (!ReferenceEquals(kv.Value.Owner, battery)) continue;
-            if (!battery.Rounds.Contains(kv.Key)) _finished.Add(kv.Key);
+            if (!ReferenceEquals(kv.Value.Owner, system)) continue;
+            if (!system.Rounds.Contains(kv.Key)) _finished.Add(kv.Key);
         }
 
         foreach (IProjectile round in _finished) _laying.Remove(round);
@@ -98,7 +98,7 @@ internal sealed class MotorSmoke
            && round.Munition.TotalBoostSeconds > 0f
            && round.Age <= round.Munition.TotalBoostSeconds;
 
-    private void Lay(IProjectile round, IEffectSource battery, Celestial body, double3 centre)
+    private void Lay(IProjectile round, IEffectSource system, Celestial body, double3 centre)
     {
         // Nothing until the round has cleared its tube. It is seated with its *centre* on the
         // launch anchor, so its nozzle starts half a body length inside and does not reach the
@@ -113,7 +113,7 @@ internal sealed class MotorSmoke
         double clearance = round.Munition.BodyLength;
         if (Vec.Len2(round.TravelSinceLaunch) < clearance * clearance) return;
 
-        if (!battery.TryRoundEffectEcl(round, out double3 ecl)) return;
+        if (!system.TryRoundEffectEcl(round, out double3 ecl)) return;
 
         // Behind the nozzle, not at the round's centre: smoke laid at the middle of the body reads
         // as the missile dragging a column out of its own flank. The same half-length the plume
@@ -126,12 +126,12 @@ internal sealed class MotorSmoke
 
         if (!_laying.TryGetValue(round, out Live? live))
         {
-            live = new Live { Strand = new PlumeSmoke.Strand(), Owner = battery };
+            live = new Live { Strand = new PlumeSmoke.Strand(), Owner = system };
             _laying[round] = live;
         }
         else
         {
-            live.Owner = battery;
+            live.Owner = system;
         }
 
         // Off the round's own size, so a 30 mm shell does not lay the column a HARM does.
@@ -150,11 +150,11 @@ internal sealed class MotorSmoke
         PlumeSmoke.Lay(live.Strand, body, positionCcf, laid, expanded);
     }
 
-    private void ForgetOwnedBy(IEffectSource battery)
+    private void ForgetOwnedBy(IEffectSource system)
     {
         foreach (KeyValuePair<IProjectile, Live> kv in _laying)
         {
-            if (ReferenceEquals(kv.Value.Owner, battery)) _finished.Add(kv.Key);
+            if (ReferenceEquals(kv.Value.Owner, system)) _finished.Add(kv.Key);
         }
 
         foreach (IProjectile round in _finished) _laying.Remove(round);

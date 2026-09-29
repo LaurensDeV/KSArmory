@@ -134,7 +134,7 @@ internal sealed class ScenarioRunner
     // measurement of the budget.
     private const double BallisticSimBudgetSeconds = 5400.0;
 
-    // The world needs a few seconds after load before a craft is flyable and a battery is crewed.
+    // The world needs a few seconds after load before a craft is flyable and a system is crewed.
     private const double SettleSeconds = 4.0;
 
     public ScenarioRunner(Config config, WarpPolicy warp, Func<WeaponSystem, BombSightOverlay> sightFor)
@@ -184,7 +184,7 @@ internal sealed class ScenarioRunner
             // provides guidance, whatever its weapon can reach. Counting one that cannot among our
             // shooters leaves the real rocket with nothing to aim at, and it falls back to bare
             // ground -- flown, and it moved the shot from 12,902 km to 6,261.
-            if (!BallisticScenario.CouldReachTheAim(computer, roster.For(computer.Craft)?.Battery,
+            if (!BallisticScenario.CouldReachTheAim(computer, roster.For(computer.Craft)?.Weapon,
                                                     _shot))
             {
                 continue;
@@ -825,7 +825,7 @@ internal sealed class ScenarioRunner
         WeaponSystems.Entry? entry = null;
         foreach (WeaponSystems.Entry e in roster.All)
         {
-            if (e.Battery.Platform is not null && e.Battery.Launcher is not null) { entry = e; break; }
+            if (e.Weapon.Platform is not null && e.Weapon.Launcher is not null) { entry = e; break; }
         }
 
         switch (_phase)
@@ -880,15 +880,15 @@ internal sealed class ScenarioRunner
                         _lastComplaint = _elapsed;
                         Report($"{_name}: waiting -- "
                                + (KsaWorld.InFlight ? "in flight" : "NO CRAFT IN FLIGHT")
-                               + ", " + (entry is null ? "NO BATTERY CREWED" : "battery crewed"));
+                               + ", " + (entry is null ? "NO SYSTEM CREWED" : "system crewed"));
                     }
                     return;
                 }
 
                 if (_elapsed < SettleSeconds) return;
 
-                Report($"{_name}: crewed {KsaWorld.DisplayName(entry.Battery.Platform!)} "
-                       + $"with {entry.Battery.Profile.DisplayName}");
+                Report($"{_name}: crewed {KsaWorld.DisplayName(entry.Weapon.Platform!)} "
+                       + $"with {entry.Weapon.Profile.DisplayName}");
                 _phase = Phase.Arming;
                 return;
 
@@ -900,7 +900,7 @@ internal sealed class ScenarioRunner
                 entry.Policy.GunsEnabled = true;
                 _config.DrawOverlays = true;
 
-                Report($"{_name}: auto-engage on, {entry.Battery.Ammo} rounds");
+                Report($"{_name}: auto-engage on, {entry.Weapon.Ammo} rounds");
 
                 if (_chase) RideTheChase(entry);
 
@@ -910,7 +910,7 @@ internal sealed class ScenarioRunner
             case Phase.Engaging:
                 if (entry is null) return;
 
-                if (_speeds.Length > 0) StepWorldSpeeds(entry.Battery, playerStep);
+                if (_speeds.Length > 0) StepWorldSpeeds(entry.Weapon, playerStep);
 
                 if (_gunnery is not null)
                 {
@@ -932,7 +932,7 @@ internal sealed class ScenarioRunner
         _config.DiagnosticIntervalSeconds = ChaseDumpSeconds;
         _budget += ChaseSettleSeconds + (SpeedHoldSeconds * _speeds.Length);
 
-        bool onIt = KsaWorld.GoTo(entry.Battery.Platform);
+        bool onIt = KsaWorld.GoTo(entry.Weapon.Platform);
         string speeds = _speeds.Length > 0
             ? $", then {string.Join(", ", Array.ConvertAll(_speeds, s => $"{s:0.###}x"))} for {SpeedHoldSeconds:F0} s each"
             : string.Empty;
@@ -967,13 +967,13 @@ internal sealed class ScenarioRunner
 
     private void Engage(WeaponSystems.Entry entry, double dt)
     {
-        WeaponSystem battery = entry.Battery;
+        WeaponSystem system = entry.Weapon;
 
         if (!_spawned)
         {
             // The same numbers the panel's buttons use, so a scenario reproduces what a person
             // would have clicked rather than a case only the harness can produce.
-            if (TestTarget.Spawn(battery.Platform!, _profile, 30.0, 300.0, 1500.0, "Gemini7") is not { } target)
+            if (TestTarget.Spawn(system.Platform!, _profile, 30.0, 300.0, 1500.0, "Gemini7") is not { } target)
             {
                 Finish("FAIL could not spawn a target");
                 return;
@@ -988,11 +988,11 @@ internal sealed class ScenarioRunner
 
         _sinceSpawn += dt;
 
-        if (_blackoutKt > 0.0 && _blackoutAt < 0.0 && battery.Radar.Tracks.Count > 0
+        if (_blackoutKt > 0.0 && _blackoutAt < 0.0 && system.Radar.Tracks.Count > 0
             && _blackoutTarget is { } held)
         {
             _blackoutAt = _sinceSpawn;
-            BurstBetween(battery.Platform!, held);
+            BurstBetween(system.Platform!, held);
         }
 
         if (_blackoutAt >= 0.0 && _sinceSpawn - _blackoutAt <= BlackoutWatchSeconds
@@ -1000,35 +1000,35 @@ internal sealed class ScenarioRunner
         {
             _blackoutReported = _sinceSpawn;
             Report($"{_name}: blackout +{_sinceSpawn - _blackoutAt:F1} s -- "
-                   + $"{battery.Radar.Tracks.Count} track(s), "
-                   + $"{battery.Radar.MaskedByBurst} behind the fireball, "
-                   + $"locked {(battery.Radar.Locked is null ? "nothing" : "the target")}");
+                   + $"{system.Radar.Tracks.Count} track(s), "
+                   + $"{system.Radar.MaskedByBurst} behind the fireball, "
+                   + $"locked {(system.Radar.Locked is null ? "nothing" : "the target")}");
         }
 
         // The first round leaving is the moment worth a picture: it shows the launcher, the round
         // on its way and the plume, which is most of what a screenshot can settle.
-        if (!_capturedLaunch && battery.Rounds.Count > 0)
+        if (!_capturedLaunch && system.Rounds.Count > 0)
         {
             _capturedLaunch = true;
             Report($"{_name}: CAPTURE launch");
         }
 
-        foreach (IProjectile round in battery.Rounds)
+        foreach (IProjectile round in system.Rounds)
         {
             if (round.State == RoundState.Detonated)
             {
                 Finish($"PASS detonated {round.MissDistance:F1} m from the target "
-                       + $"after {round.Age:F1} s, {battery.Ammo} rounds left");
+                       + $"after {round.Age:F1} s, {system.Ammo} rounds left");
                 return;
             }
         }
 
-        // Rounds are reaped, so a detonation can be missed between frames. The battery's own
+        // Rounds are reaped, so a detonation can be missed between frames. The system's own
         // count falling with nothing in the air is the same news arriving late.
-        if (_sinceSpawn > 15.0 && battery.Rounds.Count == 0 && battery.Ammo < battery.Profile.TubeCount)
+        if (_sinceSpawn > 15.0 && system.Rounds.Count == 0 && system.Ammo < system.Profile.TubeCount)
         {
-            Finish($"PASS engagement over, {battery.Ammo} rounds left "
-                   + "(outcome from the battery, not a round -- see the lines above)");
+            Finish($"PASS engagement over, {system.Ammo} rounds left "
+                   + "(outcome from the system, not a round -- see the lines above)");
         }
     }
 

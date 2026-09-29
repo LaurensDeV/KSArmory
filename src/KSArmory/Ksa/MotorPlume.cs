@@ -33,27 +33,27 @@ internal sealed class MotorPlume
 
     private static bool _warned;
 
-    /// <summary>Starts, moves and ends the plume of every round this battery has burning.</summary>
-    public void Update(IEffectSource battery)
+    /// <summary>Starts, moves and ends the plume of every round this system has burning.</summary>
+    public void Update(IEffectSource system)
     {
-        if (!battery.PlumesEnabled || battery.EffectBody is null)
+        if (!system.PlumesEnabled || system.EffectBody is null)
         {
-            ReleaseOwnedBy(battery);
+            ReleaseOwnedBy(system);
             return;
         }
 
-        foreach (IProjectile round in battery.Rounds)
+        foreach (IProjectile round in system.Rounds)
         {
-            if (Burning(round)) Follow(round, battery);
+            if (Burning(round)) Follow(round, system);
             else _finished.Add(round);
         }
 
-        // Anything of THIS battery's holding an emitter it has stopped reporting. A round reaped
+        // Anything of THIS system's holding an emitter it has stopped reporting. A round reaped
         // mid-burn never reaches the branch above, and its emitter would never come back.
         foreach (KeyValuePair<IProjectile, Live> kv in _burning)
         {
-            if (!ReferenceEquals(kv.Value.Owner, battery)) continue;
-            if (!battery.Rounds.Contains(kv.Key)) _finished.Add(kv.Key);
+            if (!ReferenceEquals(kv.Value.Owner, system)) continue;
+            if (!system.Rounds.Contains(kv.Key)) _finished.Add(kv.Key);
         }
 
         foreach (IProjectile round in _finished) Release(round);
@@ -80,11 +80,11 @@ internal sealed class MotorPlume
     // per system, so without an owner every system's sweep treats every other system's rounds as
     // orphans: with two systems firing, each release the other's the instant it runs, and the
     // shared emitter pool churns once per system per frame.
-    private void ReleaseOwnedBy(IEffectSource battery)
+    private void ReleaseOwnedBy(IEffectSource system)
     {
         foreach (KeyValuePair<IProjectile, Live> kv in _burning)
         {
-            if (ReferenceEquals(kv.Value.Owner, battery)) _finished.Add(kv.Key);
+            if (ReferenceEquals(kv.Value.Owner, system)) _finished.Add(kv.Key);
         }
 
         foreach (IProjectile round in _finished) Release(round);
@@ -103,13 +103,13 @@ internal sealed class MotorPlume
            && round.Munition.TotalBoostSeconds > 0f
            && round.Age <= round.Munition.TotalBoostSeconds;
 
-    private void Follow(IProjectile round, IEffectSource battery)
+    private void Follow(IProjectile round, IEffectSource system)
     {
         if (!_burning.TryGetValue(round, out Live? live))
         {
-            if (Acquire(battery.EffectBody) is not { } fresh) return;
+            if (Acquire(system.EffectBody) is not { } fresh) return;
 
-            fresh.Owner = battery;
+            fresh.Owner = system;
             live = fresh;
             _burning[round] = live;
         }
@@ -119,7 +119,7 @@ internal sealed class MotorPlume
         // from where the body is actually placed -- enough to swamp the nozzle offset below and
         // leave the flame amidships. Once the launcher is destroyed there is no body, and the
         // analytic form is then the exact answer rather than the approximate one.
-        if (!battery.TryRoundEffectEcl(round, out double3 bodyEcl)) return;
+        if (!system.TryRoundEffectEcl(round, out double3 bodyEcl)) return;
 
         // At the nozzle, not at the round's centre. A body mesh is modelled about its middle, so
         // anchoring the flame there puts it half a missile too far forward: 1.5 m on the AIM-9J,

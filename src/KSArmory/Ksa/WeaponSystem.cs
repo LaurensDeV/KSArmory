@@ -335,15 +335,15 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     public bool AnyDriveRefused => _drives.AnyRefused;
 
     /// <summary>
-    /// The weapon system this battery is running, and what it fires and sees with.
+    /// The launcher this system runs, and what it fires and sees with.
     ///
-    /// <para>The battery's own, not the session's: two sites in one world can be different
-    /// systems, and anything reading the config's selection instead gets whichever battery
-    /// updated last. They are the shared <see cref="Catalogue"/> instances, so retuning one from
-    /// the panel still reaches every battery running that system, which is the point.</para>
+    /// <para>Its own, not the session's: two sites in one world can carry different launchers,
+    /// and anything reading the config's selection instead gets whichever system updated last.
+    /// They are the shared <see cref="Catalogue"/> instances, so retuning one from the panel still
+    /// reaches every system running that launcher, which is the point.</para>
     ///
     /// <para>Resolved when the launcher part is found rather than at construction — until then
-    /// the battery does not know what it is.</para>
+    /// the system does not know what it is.</para>
     /// </summary>
     public LauncherProfile Profile { get; private set; } = LauncherProfile.Unfitted;
 
@@ -376,7 +376,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// <inheritdoc cref="Profile"/>
     public SensorProfile Sensor { get; private set; } = SensorProfile.None;
 
-    /// <summary>Whether this battery's rounds may draw a motor plume.</summary>
+    /// <summary>Whether this system's rounds may draw a motor plume.</summary>
     public bool PlumesEnabled => _config.MotorPlume && _config.DrawExplosions;
 
     /// <summary>How far the platform moved between the last two frames (m, Ecl).</summary>
@@ -560,14 +560,14 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     public double3 MountEcl { get; private set; }
 
     /// <summary>
-    /// The platform's Ecl position at the moment this update ran. Everything else the battery
+    /// The platform's Ecl position at the moment this update ran. Everything else the system
     /// records — mount, tracks, rounds — is from the same instant, so this is the reference the
     /// overlay must difference against. Re-reading the platform's position at draw time instead
     /// mixes instants a frame apart, which at ~29.8 km/s of ecliptic motion is ~500 m of error.
     /// </summary>
     public double3 PlatformEcl { get; private set; }
 
-    /// <summary>True when the battery has everything it needs to shoot.</summary>
+    /// <summary>True when the system has everything it needs to shoot.</summary>
     public bool IsOperational => Platform is not null && Launcher is not null;
 
     /// <summary>
@@ -670,7 +670,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         _sampledBody = KsaWorld.ParentBody(Platform);
         _bodyAtSampleEcl = _sampledBody is { } under ? KsaWorld.PositionEcl(under) : Vec.Zero;
 
-        // Whichever registered weapon system is fitted, if any. Adopting it points this battery's
+        // Whichever registered weapon system is fitted, if any. Adopting it points this system's
         // profiles at that system, so everything downstream - drives, guidance, the panel -
         // follows without knowing which launcher this is.
         if (LauncherPart.FindNth(Platform, LauncherOrdinal, _launcherScratch) is var (part, profile))
@@ -774,7 +774,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     }
 
     /// <summary>
-    /// Advances the battery by <paramref name="dt"/> simulated seconds.
+    /// Advances the system by <paramref name="dt"/> simulated seconds.
     ///
     /// <para>Separate from <see cref="SampleWorld"/> on purpose: this is gated on the simulation
     /// clock, so it does not run while paused or on a frame that advanced no time, whereas the
@@ -899,13 +899,13 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             munition);
     }
 
-    // Decides which craft the battery is mounted on. The launcher is a physical part, so the
-    // battery belongs to the craft carrying it and stays there rather than following control.
+    // Decides which craft the system is mounted on. The launcher is a physical part, so the
+    // system belongs to the craft carrying it and stays there rather than following control.
     // Preference order: an explicit pin, then the controlled craft if it has a launcher, then
-    // whatever the battery is already on, then any loaded craft with one. Falls back to the
+    // whatever the system is already on, then any loaded craft with one. Falls back to the
     // controlled vehicle only when the part requirement is switched off.
     //
-    // A pinned battery stays on its craft after the craft dies. The roster retires it and hands its
+    // A pinned system stays on its craft after the craft dies. The roster retires it and hands its
     // rounds to the body; adopting any other craft with a launcher in the meantime would take that
     // craft's launcher over with a freshly filled magazine, and finding none would clear the rounds
     // before they could be handed on.
@@ -930,7 +930,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             return;
         }
 
-        // Otherwise stay put, so switching away to watch does not move the battery.
+        // Otherwise stay put, so switching away to watch does not move the system.
         if (KsaWorld.IsAlive(Platform) && LauncherPart.IsMounted(Platform)) return;
 
         // The current platform is gone or lost its launcher; adopt any craft that has one.
@@ -958,7 +958,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         if (v is not null && Platform is not null)
         {
-            Announce($"battery moved to {KsaWorld.DisplayName(v)}");
+            Announce($"system moved to {KsaWorld.DisplayName(v)}");
         }
         Platform = v;
     }
@@ -1062,7 +1062,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         if (!ThreatModel.MayEngage(target, _policy.Iff)) return;
         if (!ThreatModel.HasSalvoCapacity(target, _policy.RoundsPerTarget)) return;
 
-        // Detection reaches 36 km; the round reaches 20 km. Without this the battery empties
+        // Detection reaches 36 km; the round reaches 20 km. Without this the system empties
         // itself at contacts it cannot possibly catch: an 8.7 km crossing shot expires at 22 s
         // having never closed.
         if (!ThreatModel.InEngagementEnvelope(target, Munition)) return;
@@ -1707,7 +1707,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         Turret.Update(dt, Profile.SlewRateRad, Profile.ElevationRateRad);
 
         // Each assembly latches on its own refusal. The drive keeps integrating either way, so the
-        // drawn facing line goes on showing where the battery believes it is pointing — which is
+        // drawn facing line goes on showing where the system believes it is pointing — which is
         // the only thing that distinguishes a refused write from a wrong solution.
         if (TurretPart is not null && _drives.Works(DriveChannel.Turret)
             && !LauncherPart.TryApplyTurretBearing(TurretPart, Turret.BearingRad))
@@ -1749,7 +1749,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             Refuse(DriveChannel.Optic, "director base");
         }
 
-        // The search array turns regardless of what the battery is doing - it is looking, not
+        // The search array turns regardless of what the system is doing - it is looking, not
         // aiming - so it is driven off the clock rather than off the track. A set with no array
         // modelled still turns one, because the scope's sweep reads this angle; one the engine
         // has frozen does not, so the sweep stops with the mesh.
@@ -1851,7 +1851,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// <para>Rounds are indexed from one, so tube N is body N-1.</para>
     /// </summary>
     /// <para><b>Called every rendered frame, not every simulation step.</b> Writing a subpart
-    /// transform is a drawing job: the battery only steps when simulated time advances, so a frame
+    /// transform is a drawing job: the system only steps when simulated time advances, so a frame
     /// rendered without a step would leave the bodies behind while the world moved on. Placement
     /// reads state and changes none, so running it more often than the simulation is free.</para>
     public void SyncRoundBodies()
@@ -2819,7 +2819,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     }
 
     /// <summary>
-    /// Makes the battery safe: rounds in flight are removed without detonating, and auto-engage goes
+    /// Makes the system safe: rounds in flight are removed without detonating, and auto-engage goes
     /// off.
     ///
     /// <para>Stopping auto-engage is the point. Clearing the air while it is on simply fires again on
@@ -3798,7 +3798,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                 // immune, which looks exactly like the round missing unless it is announced.
                 if (ReferenceEquals(intended, Platform))
                 {
-                    Announce($"hit on {KsaWorld.DisplayName(intended)} ignored - it is now the battery's own platform");
+                    Announce($"hit on {KsaWorld.DisplayName(intended)} ignored - it is now the system's own platform");
                 }
                 else if (_policy.ProtectControlledVehicle && ReferenceEquals(intended, KsaWorld.ControlledVehicle))
                 {

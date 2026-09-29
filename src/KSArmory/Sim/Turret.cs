@@ -245,7 +245,7 @@ public sealed class Turret
         return angle;
     }
 
-    /// <summary>Forgets everything. Used when the battery changes platform.</summary>
+    /// <summary>Forgets everything. Used when the system changes platform.</summary>
     public void Reset()
     {
         BearingRad = 0.0;
