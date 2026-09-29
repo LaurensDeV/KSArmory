@@ -1077,14 +1077,14 @@ meaning is an explanation, not state — the tick already says which.
 
 **A setting nobody can reach is not a setting, and that is enforced.** The panel enumerates its
 controls by hand, so a field added to `SensorProfile`, `MunitionProfile`, `SystemConfig`,
-`OpticConfig` or `IcbmConfig` is read by the code, described in the docs, shipped in the archive,
+`OpticConfig`, `IcbmConfig` or `Config` is read by the code, described in the docs, shipped in the archive,
 and untouchable. Nothing fails and nothing appears in any log. `SensorProfile.HorizonMasking` and
 `TerrainMarginMetres` shipped that way, with a whole section of `CHECKLIST.md` asking for them to be
 toggled.
 
 **And the list of scanned types has to grow with the mod**, which is the failure one level up:
 `IcbmConfig` went unscanned for its whole first life, so a ballistic setting with no control would
-have passed. Adding a settings type without adding it to `TUNABLE` puts every field on it back
+have passed, and `Config` -- the session's own settings, the most player-facing of all -- for longer. Adding a settings type without adding it to `TUNABLE` puts every field on it back
 outside the check, silently.
 
 `tools/check-tunables.py` fails the build on it. Textual, like `check-boundary.sh`, and for the

@@ -20,30 +20,6 @@ not will be found again by the next reader.
   rows in `CLAUDE.md` and the note under "A shipped part's subpart list is append-only" with it.
   `tools/repair-saves.py` stays: it is the manual route and predates this.
 
-## `check-tunables.py` does not scan `Config`, and one setting is unreachable
-
-`TUNABLE` lists `SensorProfile`, `MunitionProfile`, `SystemConfig`, `OpticConfig` and `IcbmConfig`
-— **not `Config`**, which is the session's own settings and the most player-facing of them. That is
-the failure the tool's own docstring warns about ("the list has to grow with the mod"), one level
-up: every field on `Config` has been outside the check for its whole life.
-
-Adding it needs a `RECEIVERS` entry — the panel is split across files and holds the config as
-`_config` and the constructor's `config` — and then reports what is below. Triaged 2026-08-27, rechecked 2026-09-28:
-
-| setting | verdict |
-| --- | --- |
-| `CannonReferenceRpm` | `EXEMPT` — a sound calibration constant |
-| `MotorSoundId` | `EXEMPT` — an asset identity string |
-| `DiagnosticIntervalSeconds` | `EXEMPT`, or a control on the Debug pane |
-| **`FloatingPanelButton`** | **real** — read in `Ui.cs`, written by nothing |
-| `TeamNames` | done — the settings window's Teams pane adds through `Teams.Declare` and removes through `ForgetTeam` |
-
-`TeamNames` also shows a limit of the check: it is a `List<string>`, and its control adds through a
-helper rather than assigning, so the write test cannot see it — it would need a `VIA` entry.
-
-Not done here because each is a separate judgement and the change that found it was about
-something else. The tool change is two lines.
-
 ## Modularity
 
 - [~] **`Interceptor` and `Slug` duplicate the frame and epoch bookkeeping.** The physics is done:

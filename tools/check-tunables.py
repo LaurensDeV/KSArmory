@@ -30,13 +30,17 @@ SIM = REPO / "src" / "KSArmory" / "Sim"
 UI = REPO / "src" / "KSArmory" / "Ksa" / "Ui"
 
 # The types whose members a player is meant to be able to reach.
-TUNABLE = ["SensorProfile", "MunitionProfile", "SystemConfig", "OpticConfig", "IcbmConfig"]
+TUNABLE = ["SensorProfile", "MunitionProfile", "SystemConfig", "OpticConfig", "IcbmConfig", "Config"]
 
 # Members the panel drives through a helper rather than by name -- a tick box bound to a `ref` the
 # helper returns. The value is what must appear in the panel instead, so removing the control still
 # fails the check. An exemption would not: it would claim no control could reach the setting, which
 # is the opposite of the truth here.
 VIA = {
+    # A list rather than a value: the Teams pane adds through Teams.Declare and removes through
+    # ForgetTeam, so it never assigns the field. Declare is the add, and the pane is gone if it is.
+    "Config.TeamNames": "Declare",
+
     "SystemConfig.MissilesEnabled": "EnabledIn",
     "SystemConfig.GunsEnabled": "EnabledIn",
 
@@ -61,6 +65,17 @@ VIA = {
 
 # Members no control could sensibly reach, and why. Anything not here needs one.
 EXEMPT = {
+    "Config.CannonReferenceRpm":
+        "the rate the shared cannon recording was made at -- a calibration of the sample, not a "
+        "preference",
+    "Config.MotorSoundId":
+        "an asset identity string; a pack names its own sound, a player has nothing to choose",
+    "Config.DiagnosticIntervalSeconds":
+        "the cadence of a developer instrument; the scenario runner sets it for a chase, and "
+        "three seconds is what a person reads the dump at",
+    "Config.FloatingPanelButton":
+        "the one route back into a closed panel this mod controls -- the menu-bar entry is ImGui "
+        "behaviour rather than a hook -- so a switch for it is a way to strand yourself",
     "SensorProfile.BoresightSource":
         "which way the set looks is the weapon's design, not a setting",
     "SensorProfile.Emits":
@@ -174,6 +189,7 @@ RECEIVERS = {
     "SystemConfig": ("_policy",),
     "OpticConfig": ("policy",),
     "IcbmConfig": ("config",),
+    "Config": ("_config", "config"),
 }
 
 
