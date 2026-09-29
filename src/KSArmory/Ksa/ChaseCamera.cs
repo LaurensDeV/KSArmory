@@ -389,7 +389,8 @@ internal sealed class ChaseCamera : IViewPose
                 double3 burst = spent.PositionEcl;
                 if (system.EffectBody is { } burstBody)
                 {
-                    burst -= KsaWorld.GroundVelocityAt(burstBody, burst) * spent.DetonationElapsedInFrame;
+                    burst = BlastSweep.GroundAtSample(burst, KsaWorld.GroundVelocityAt(burstBody, burst),
+                                                      spent.DetonationElapsedInFrame);
                 }
 
                 // Watching, the eye is already held on the ground and only the look turns onto the

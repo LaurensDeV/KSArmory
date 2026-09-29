@@ -392,8 +392,8 @@ internal sealed class WarheadTrace
             // One correction, not two. Pairing a parent captured on the last flying frame AND
             // back-dating it overshoots by exactly a frame: flown as -493 m below the surface
             // uncorrected against +517 m above it double-corrected. docs/MIRV-NEXT.md item 8j.
-            double3 parentAtBurst = setup.Parent.GetPositionEcl()
-                                    + setup.Parent.GetVelocityEcl() * round.DetonationElapsedInFrame;
+            double3 parentAtBurst = InFrame.AtBurst(setup.Parent.GetPositionEcl(), setup.Parent.GetVelocityEcl(),
+                                                    round.DetonationElapsedInFrame);
 
             doubleQuat cce2Cci = setup.Parent.GetCce2Cci();
             double3 positionCci = (round.PositionEcl - parentAtBurst).Transform(cce2Cci);
@@ -404,9 +404,9 @@ internal sealed class WarheadTrace
             // By the ground's velocity, spin included: the lookup is answered at the frame's end
             // rotation, and without the spin a round stopped exactly on its surface reads a mean
             // 0.16 m off it.
-            double3 landingEcl = round.PositionEcl
-                                 - KsaWorld.GroundVelocityAt(setup.Parent, round.PositionEcl)
-                                   * round.DetonationElapsedInFrame;
+            double3 landingEcl = BlastSweep.GroundAtSample(round.PositionEcl,
+                                                           KsaWorld.GroundVelocityAt(setup.Parent, round.PositionEcl),
+                                                           round.DetonationElapsedInFrame);
 
             // The burst is somewhere inside this frame while _worldSeconds is at its edge, and
             // DetonationElapsedInFrame is that offset - negative, between -dt and zero. At 7 km/s a

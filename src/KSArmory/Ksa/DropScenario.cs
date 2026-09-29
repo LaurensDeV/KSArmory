@@ -1082,10 +1082,10 @@ internal sealed class DropScenario
         // the ground's own travel across that gap comes off before anchoring. At ~30 km/s it is
         // hundreds of metres.
         double3 burst = round.PositionEcl;
-        double3 carried = KsaWorld.GroundVelocityAt(body, burst) * round.DetonationElapsedInFrame;
 
         // An air burst is scored from the ground under it, which is where the ring is drawn.
-        double3 scored = burst - carried;
+        double3 scored = BlastSweep.GroundAtSample(burst, KsaWorld.GroundVelocityAt(body, burst),
+                                                   round.DetonationElapsedInFrame);
         if (round is Slug { BurstAtHeight: true })
         {
             if (!KsaWorld.TrySnapToGround(scored, out double3 under)) return "FAIL the air burst had no ground under it";

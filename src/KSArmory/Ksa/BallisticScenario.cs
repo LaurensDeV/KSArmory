@@ -1173,8 +1173,8 @@ internal sealed class BallisticScenario
         if (_computer is not { } computer || computer.Parent is not { } parent) return double.NaN;
         if (AimEclOf(computer, target) is not { } aimEcl) return double.NaN;
 
-        double3 aimAtBurst = aimEcl + KsaWorld.GroundVelocityAt(parent, aimEcl)
-                                      * round.DetonationElapsedInFrame;
+        double3 aimAtBurst = InFrame.AtBurst(aimEcl, KsaWorld.GroundVelocityAt(parent, aimEcl),
+                                             round.DetonationElapsedInFrame);
 
         double3 missEcl = round.PositionEcl - aimAtBurst;
         double miss = Vec.Len(missEcl);

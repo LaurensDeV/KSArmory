@@ -3443,7 +3443,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // that offset - up to 507 m at 60 fps near Earth, and in a fixed inertial direction, so it
         // reads as a common bias on every round of a salvo rather than as scatter. The blast sweep
         // and the diagnostic below do the same, so the three numbers agree.
-        double3 aimAtBurst = target.PositionEcl + (target.VelocityEcl * round.DetonationElapsedInFrame);
+        double3 aimAtBurst = InFrame.AtBurst(target.PositionEcl, target.VelocityEcl, round.DetonationElapsedInFrame);
         if (!Vec.IsFinite(aimAtBurst)) aimAtBurst = target.PositionEcl;
 
         double miss = Vec.Len(burst - aimAtBurst);
@@ -3464,7 +3464,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         if (round is not Slug { BurstOnTime: true } shell || round.Aimpoint.Kind != AimpointKind.Vehicle) return;
         if (Platform is not { } platform || SampleTarget(round) is not { } target) return;
 
-        double3 targetAtBurst = target.PositionEcl + (target.VelocityEcl * round.DetonationElapsedInFrame);
+        double3 targetAtBurst = InFrame.AtBurst(target.PositionEcl, target.VelocityEcl, round.DetonationElapsedInFrame);
         double3 up = -KsaWorld.GravityAt(platform, targetAtBurst);
         double3 track = round.Aimpoint.VelocityEcl - KsaWorld.GroundVelocityAt(platform, targetAtBurst);
         if (!Vec.IsFinite(targetAtBurst) || !Vec.IsFinite(up) || !Vec.IsFinite(track)) return;
@@ -3889,8 +3889,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         if (Log.Threshold > Log.Level.Debug || EffectBody is not { } body) return;
 
         double3 drawn = DrawnBurstEcl(round, burst);
-        double3 onTheGround = burst - (KsaWorld.GroundVelocityAt(body, burst)
-                                       * round.DetonationElapsedInFrame);
+        double3 onTheGround = BlastSweep.GroundAtSample(burst, KsaWorld.GroundVelocityAt(body, burst),
+                                                        round.DetonationElapsedInFrame);
 
         if (!Vec.IsFinite(drawn) || !Vec.IsFinite(onTheGround)) return;
 
@@ -3920,7 +3920,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             return analyticEcl;
         }
 
-        double3 carried = analyticEcl - (KsaWorld.VelocityEcl(platform) * round.DetonationElapsedInFrame);
+        double3 carried = InFrame.AtSample(analyticEcl, KsaWorld.VelocityEcl(platform), round.DetonationElapsedInFrame);
         double residual = Vec.Len(drawn - carried);
         if (residual > 1.0)
         {

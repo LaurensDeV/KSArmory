@@ -570,7 +570,7 @@ internal sealed class GunneryScenario
             return;
         }
 
-        double3 aim = at + (velocity * shell.DetonationElapsedInFrame);
+        double3 aim = InFrame.AtBurst(at, velocity, shell.DetonationElapsedInFrame);
         double3 mount = shell.PositionEcl - shell.OffsetFromPlatform;
         double3 miss = shell.PositionEcl - aim;
         double along = Vec.Dot(miss, Vec.Unit(aim - mount));

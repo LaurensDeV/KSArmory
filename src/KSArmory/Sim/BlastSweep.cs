@@ -51,7 +51,7 @@ internal static class BlastSweep
     /// planet's ~30 km/s behind it.
     /// </summary>
     public static double3 GroundAtSample(double3 burstEcl, double3 groundVelocityEcl, double sinceSample)
-        => burstEcl - (groundVelocityEcl * sinceSample);
+        => InFrame.AtSample(burstEcl, groundVelocityEcl, sinceSample);
 
     /// <summary>
     /// What a gap that size means for this warhead.
