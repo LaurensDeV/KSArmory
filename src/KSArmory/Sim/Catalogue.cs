@@ -157,6 +157,29 @@ public static class Catalogue
         return taken;
     }
 
+    /// <summary>
+    /// Whether this part is what flies its craft — a <see cref="WeaponRole.Guidance"/> component, or
+    /// one carrying guidance built in. A ballistic computer releases through the launcher that
+    /// answers yes, never through whichever weapon the panel has selected.
+    /// </summary>
+    public static bool ProvidesGuidance(string? partId)
+    {
+        if (string.IsNullOrEmpty(partId)) return false;
+
+        foreach (ComponentProfile component in _components)
+        {
+            if (component.PartId != partId) continue;
+            if (component.Role == WeaponRole.Guidance) return true;
+
+            foreach (BuiltInComponent built in component.Provides)
+            {
+                if (built.Role == WeaponRole.Guidance) return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>The launcher matching a part Id, or null if that part is not one of ours.</summary>
     public static LauncherProfile? LauncherForPart(string? partId)
         => Arsenal.LauncherForPart(_launchers, partId);

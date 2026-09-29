@@ -184,7 +184,7 @@ internal sealed class ScenarioRunner
             // provides guidance, whatever its weapon can reach. Counting one that cannot among our
             // shooters leaves the real rocket with nothing to aim at, and it falls back to bare
             // ground -- flown, and it moved the shot from 12,902 km to 6,261.
-            if (!BallisticScenario.CouldReachTheAim(computer, roster.For(computer.Craft)?.Weapon,
+            if (!BallisticScenario.CouldReachTheAim(computer, roster.GuidedFrom(computer.Craft)?.Weapon,
                                                     _shot))
             {
                 continue;

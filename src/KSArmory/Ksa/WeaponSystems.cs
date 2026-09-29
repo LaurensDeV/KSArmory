@@ -248,6 +248,26 @@ internal sealed class WeaponSystems(Config config)
         return first;
     }
 
+    /// <summary>
+    /// The launcher a ballistic computer on this craft releases through: the lowest-numbered one
+    /// whose part provides guidance, or null if none does. Never the selection, which follows
+    /// whatever the operator last picked on a craft that may carry other weapons beside the bus.
+    /// </summary>
+    public Entry? GuidedFrom(Vehicle? craft)
+    {
+        if (craft is null) return null;
+
+        Entry? first = null;
+        foreach (KeyValuePair<(Vehicle Craft, int Ordinal), Entry> kv in _entries)
+        {
+            if (!ReferenceEquals(kv.Key.Craft, craft)) continue;
+            if (!Catalogue.ProvidesGuidance(kv.Value.Weapon.Profile.PartId)) continue;
+            if (first is null || kv.Key.Ordinal < first.Ordinal) first = kv.Value;
+        }
+
+        return first;
+    }
+
     /// <summary>Every weapon on a craft, in part order. Cleared and refilled.</summary>
     public void AllOn(Vehicle? craft, List<Entry> into)
     {

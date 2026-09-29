@@ -146,7 +146,7 @@ internal sealed class IcbmComputers(Config session)
 
         foreach (IcbmComputer computer in _computers.Values)
         {
-            computer.Update(simStep, playerStep, weapons.For(computer.Craft)?.Weapon, traceWarhead,
+            computer.Update(simStep, playerStep, weapons.GuidedFrom(computer.Craft)?.Weapon, traceWarhead,
                             _busy);
         }
     }

@@ -239,7 +239,7 @@ internal sealed class BallisticScenario
             return null;
         }
 
-        WeaponSystem? system = roster.For(_computer.Craft)?.Weapon;
+        WeaponSystem? system = roster.GuidedFrom(_computer.Craft)?.Weapon;
         Wire(system);
 
         if (!_committed)
@@ -335,7 +335,7 @@ internal sealed class BallisticScenario
                 continue;
             }
 
-            WeaponSystems.Entry? entry = roster.For(computer.Craft);
+            WeaponSystems.Entry? entry = roster.GuidedFrom(computer.Craft);
             WeaponSystem? system = entry?.Weapon;
 
             if (system?.Launcher is null)
