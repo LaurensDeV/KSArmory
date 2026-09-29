@@ -20,8 +20,9 @@ happen rather than a member that moved.
 - [x] Secondary viewport gets the planet, atmosphere and lighting passes
 - [x] `Camera.NearbyCelestial` is set per camera rather than only for the frame viewport
 - [x] Wheel, suspension or steering module exists
-- [ ] ~~Partial or component damage exists alongside `DestroyVehicleFromEvent`~~ — **arrived in
-  2026.9.4.5400**, see below; the mod has not taken it up
+- [x] ~~Partial or component damage exists alongside `DestroyVehicleFromEvent`~~ — **arrived in
+  2026.9.4.5400, and taken up**: a burst breaks parts one by one through
+  `KsaWorld.TryQueuePartFailure`, which writes the engine's `PartFailureEvent` (`Sim/BlastDamage.cs`)
 - [x] Per-mod vehicle library path, or a way to register saved craft
 - [x] `UncompressedVehicleSave.Load` honours `Character`, making a kitten launchable
 - [x] A character attachment's pose survives the frame, so a mod can aim one

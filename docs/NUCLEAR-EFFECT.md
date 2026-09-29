@@ -540,43 +540,25 @@ it less developed at the instant the smoke takes over, and the ball barely leave
 thermal result `z ∝ √t` anyway, and holds the ball's lift at 1.14 of its own radii across the
 change. `TheFireballLiftsOffAndTheSmokeTakesOverWhereItIs` is what caught it.
 
-### The rise curve is the wrong shape, measurably
+### The rise follows the tracked cloud top
 
-`Rise` is an underdamped second-order step response: it accelerates from rest, overshoots and
-settles. The reasoning was that a buoyant parcel starts at zero velocity, which is true and is not
-what the measurements show at this scale. Teapot Wasp's cloud top was tracked by theodolite
-(WT-1152, Project 9.4) and normalised against its own five-minute rise it goes as **√t**, which is
-also the classical thermal result `z = 2.41 · B^(1/4) · √t` and the vortex-ring result:
+`Rise` is Teapot Wasp's cloud top as tracked by theodolite (WT-1152, Project 9.4), normalised
+against its own five-minute rise and interpolated, with a four per cent overshoot after it because
+Ruth and Post were both tracked peaking and subsiding a few per cent:
 
 | t / rise | 0.10 | 0.30 | 0.50 | 0.60 | 0.80 | 1.00 |
 | --- | --- | --- | --- | --- | --- | --- |
 | **measured** (Wasp, 1.2 kt) | **0.308** | 0.509 | 0.771 | 0.840 | 0.991 | 1.000 |
 | `√(t/rise)` | 0.316 | 0.548 | 0.707 | 0.775 | 0.894 | 1.000 |
-| as drawn | **0.088** | 0.514 | 0.888 | 1.001 | 1.092 | 1.078 |
 
-So the cloud creeps for the first tenth of its rise where the real one has already done a third of
-it, and then arrives early — it is at its ceiling by 0.6 where the real cloud is at 0.84. The
-overshoot itself is real: Ruth and Post were both tracked peaking and then subsiding a few per cent.
+A table rather than a closed form, because none matches both ends: every one that starts like `√t`
+— the classical thermal result `z = 2.41 · B^(1/4) · √t` — arrives late, and every one that arrives
+on time starts too fast. An underdamped step response, which is what a parcel rising from rest
+suggests, creeps for the first tenth of the rise where the real cloud has already done a third.
 
-**And `Rise` is not the curve to change, which is the trap in this item.** What is drawn is not
-`Rise(t)`: a pen sits at `AxisHeight`, which is `(CapCentre + …)·√(progress/ClimbUntil)` with
-`Progress(age) = age/RiseSeconds` — linear — while `CapCentre = top·0.75·Rise(age)`. So the
-**drawn** climb is `Rise(t)·√t`, and the `√t` everyone wants is already half present. Writing
-`Rise = √t` therefore produces a drawn climb of `t`, which is linear: the opposite of the intent,
-and slower off the pad rather than faster. The thing to design is the composition, and the free
-choice is which of the two factors carries it.
-
-At the handover instant that compounding is what bites. The flash is over at `t ≈ 0.05` for
-0.3 kt, where `Rise` is 0.088 today and `√t` would be 0.224 — so the ball's drawn lift moves by
-about 3.6x, against the 1.24 → 2.4 radii the paragraph below estimates. Both say the same thing:
-this cannot be changed without re-checking the handover on a screen.
-
-**Not changed, because the one thing it is currently getting right is the handover.** The ball rides
-this curve, so the slow start is what keeps its lift to 1.24 of its own radii while it is still
-glowing — against 1.9 from the buoyancy laws and the "one to two radii, it is not a rocket" the VFX
-literature gives. A `√t` rise puts it at 2.4 radii, which is still inside that range and closer to
-the physics, so this is worth doing; it needs a form that rises as `√t`, overshoots by about a tenth
-and settles, and that is a curve to design against a screen rather than in a document.
+**The fireball rides it, as the cap.** A fireball cools, goes buoyant and becomes the cap, so the
+glow is drawn at the cap centre and climbs with it — one object at two ages, not a ball on a rise
+law of its own left behind in the stem while its cloud climbs away.
 
 ### What is still wrong with it
 

@@ -75,13 +75,10 @@ The ratios are fine — `Sim/` is a data-and-contracts layer and its comments ca
 and flown numbers. What is left is prose duplicated between a file and the doc it cites, which goes
 stale in two places at once.
 
-- [ ] **`Sim/MushroomCloud.cs` duplicates `docs/NUCLEAR-EFFECT.md`** — 740 comment lines to 613 of
-  code as of 2026-09-28, with sentences near-verbatim from the doc it cites.
-
-  Lowest value on this list and the easiest to do damage with: the ratio is high because the file
-  encodes Glasstone's numbers and why each was departed from, which is the kind of comment CLAUDE.md
-  wants kept. What is actually duplicated is a handful of sentences, so the fix is to cut those and
-  leave the pointer — not to thin the file toward a ratio.
+- [x] **`Sim/MushroomCloud.cs` duplicates `docs/NUCLEAR-EFFECT.md`** — the near-verbatim passages
+  (drawn scale, flash against the rise, base surge, ember, stem lag, cap proportions, born width, the
+  front holding the life) are cut to a sentence and a pointer, and the Glasstone and test-shot numbers
+  kept: 731 comment lines to 599 of code, now 689 to 599.
 
 
 ## Known gaps, recorded rather than fixed

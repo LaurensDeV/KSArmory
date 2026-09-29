@@ -31,11 +31,9 @@ public static class MushroomCloud
     /// How large the cloud is <em>drawn</em>, against the size the laws give it: at one, the laws as
     /// they are.
     ///
-    /// <para>Every dimension here is Glasstone's and checks out against the one measured low-yield
-    /// surface burst to within three per cent. A 0.3 kt fireball is 110 m across under a cap 770 m
-    /// wide, 1:7, which the test photographs agree with. A named factor rather than none so the
-    /// drawing can depart from the laws in one place, while <see cref="CloudTop"/> and
-    /// <see cref="CapRadius"/> keep saying what the laws say.</para>
+    /// <para>A named factor rather than none so the drawing can depart from the laws in one place,
+    /// while <see cref="CloudTop"/> and <see cref="CapRadius"/> keep saying what the laws say.
+    /// <c>docs/NUCLEAR-EFFECT.md</c> has how the laws check out against the measured bursts.</para>
     /// </summary>
     public const double DrawnScale = 1.0;
 
@@ -283,8 +281,8 @@ public static class MushroomCloud
     /// <summary>
     /// The heat, the ground coupling and the stem share in one float, for a push constant with no
     /// room for three: six bits each above a fraction. Six and not eight, because a float's
-    /// resolution falls as its size grows -- at two bytes the heat was left to a sixty-fourth, at
-    /// twelve bits it keeps a thousandth. The shader decodes it exactly as <see cref="UnpackHeat"/>.
+    /// resolution falls as its size grows: at sixteen bits the heat keeps a sixty-fourth, at twelve
+    /// a thousandth. The shader decodes it exactly as <see cref="UnpackHeat"/>.
     /// </summary>
     public static float PackHeat(double heat, double coupling, double stemShare)
     {
@@ -424,9 +422,7 @@ public static class MushroomCloud
 
     /// <summary>
     /// A yield's life, which is <see cref="LifeSeconds"/> and longer only for a cloud its own blast
-    /// front holds in past the rise. The front runs at the speed of sound in real time and the rise
-    /// is compressed, so at 50 Mt the cloud is still growing into the front minutes after the rise
-    /// is over -- and a fixed life would fade it out the moment it reached its full height.
+    /// front holds in past the rise, so it stands at full height before it fades.
     /// </summary>
     public static double LifeFor(double yieldKt) => LifeSeconds + HeldByFront(yieldKt);
 
@@ -561,14 +557,10 @@ public static class MushroomCloud
     /// Radius the ground skirt has reached (m): dust the blast drives outward along the ground, and
     /// then the afterwind draws back in.
     ///
-    /// <para><b>It stays well inside the cap, and that is what separates a land burst from a water
-    /// one.</b> The base surge everybody pictures, a dense wall running outward past the cloud's
-    /// own width, belongs to an <em>underwater</em> burst, where the column of water falls back and
-    /// the spray rolls out over the surface. Nothing on land does that: a surface burst's afterwinds
-    /// blow <em>inward</em> along the ground to feed the stem, so dust thrown out by the blast is
-    /// pulled back to the axis and lifted. The skirt is a collar round the base of the column, not a
-    /// ring beyond the cap. What a land burst does have out there is thinner and faster: the dust the
-    /// blast front itself lifts as it passes, which is <see cref="ShockRadius"/>'s.</para>
+    /// <para><b>It stays well inside the cap</b>: a land burst's afterwinds blow inward to feed the
+    /// stem, so the skirt is a collar round the column, and the outward base surge is a water burst's
+    /// (<c>docs/NUCLEAR-EFFECT.md</c> has why). What a land burst has further out is the dust the
+    /// blast front lifts as it passes, which is <see cref="ShockRadius"/>'s.</para>
     ///
     /// <para>Fast out and slow back, because the blast drives the one and nothing sustains it, while
     /// the inflow lasts as long as the column is rising.</para>
@@ -717,13 +709,9 @@ public static class MushroomCloud
         => yieldKt <= 0.0 ? 0.0 : 3.0 * Math.Pow(yieldKt, 0.4);
 
     /// <summary>
-    /// And how long it is <em>drawn</em> glowing, which parts company with the law at the top of the
-    /// dial.
-    ///
-    /// <para>The cloud's clock is compressed and the flash's is not, so they diverge as the yield
-    /// climbs: 340 kt glows for 30.9 s against a 57 s rise, which is a ball still burning after its
-    /// own mushroom has formed. Compressing the flash by the same factor is not the alternative — it
-    /// works out at a blink — so it runs real until <see cref="LongestGlowSeconds"/>.</para>
+    /// And how long it is <em>drawn</em> glowing: real time until <see cref="LongestGlowSeconds"/>,
+    /// because the cloud's clock is compressed and the flash's is not. <c>docs/NUCLEAR-EFFECT.md</c>
+    /// has why.
     /// </summary>
     public static double FlashSeconds(double yieldKt)
         => Math.Min(DarkAfter(yieldKt), LongestGlowSeconds);
@@ -976,19 +964,11 @@ public static class MushroomCloud
     /// How long the ball goes on glowing after the luminous phase, as a fraction of the <em>rise</em>
     /// rather than of the flash.
     ///
-    /// <para>Measured against the rise on purpose, and it is the same departure
-    /// <see cref="DrawnScale"/> is. The luminous phase is real time and the rise is compressed
-    /// fivefold, so a fireball that goes dark on its own clock is out before the cloud has done one
-    /// part in four hundred of its climb, and what anybody sees is a flash that ends and then a
-    /// cloud. Held against the rise instead, the ball is still there — dull, dimming, and
-    /// <b>climbing on the cap</b> — while the cloud forms around and over it,
-    /// which is the fireball becoming the cloud rather than being replaced by one.</para>
-    ///
-    /// <para>It is an ember, not a second flash. The glow at the end of the luminous phase is
-    /// already an order of magnitude under the bloom threshold, so nothing here flares; it is a hot
-    /// core showing through the erosion gaps in its own smoke until the cloud swallows it, which is
-    /// what Glasstone means by the toroid being "soon hidden by the radioactive cloud and
-    /// debris".</para>
+    /// <para>Against the rise because the rise is the clock the smoke is on: the luminous phase is
+    /// real time, so on its own clock the ball is out before the cloud has done one part in four
+    /// hundred of its climb. Held against the rise it is still there, <b>climbing on the cap</b>,
+    /// while the cloud forms round it. An ember, not a second flash: its glow is already an order of
+    /// magnitude under the bloom threshold. <c>docs/NUCLEAR-EFFECT.md</c> has the handover.</para>
     /// </summary>
     public const double EmberFraction = 0.09;
 
@@ -1034,17 +1014,14 @@ public static class MushroomCloud
     /// <para>It recedes into the cloud rather than fading where it stands. The smoke is growing
     /// around it the whole time, so a ball that keeps its size stays proud of its own cloud and
     /// reads as an object sitting in it; one that shrinks is swallowed, which is what Glasstone
-    /// means by the toroid being soon hidden by the cloud and debris. It also means the cut at the
+    /// means by the toroid being "soon hidden by the radioactive cloud and debris". It also means the cut at the
     /// end removes something small and faint instead of something ball-sized.</para>
     /// </summary>
     public const double EmberShrink = 0.85;
 
     /// <summary>
-    /// The fireball for a charge in kg, at an age.
-    ///
-    /// <para>Its brightness does not scale with yield, which is the surprising part: the surface
-    /// temperature of a fireball is much the same whatever the device, so only its size and how
-    /// long it lasts change. One ramp therefore serves every setting.</para>
+    /// The fireball for a charge in kg, at an age, on one brightness ramp for every yield
+    /// (<see cref="PeakGlow"/>).
     ///
     /// <para>The colour walks the real progression rather than fading an orange ball out —
     /// blue-white at six or seven thousand kelvin, through yellow and orange into deep red as it
@@ -1230,10 +1207,6 @@ public static class MushroomCloud
     // one that starts like sqrt(t) arrives late, and every one that arrives on time starts too
     // fast. sqrt(t) itself is within a per cent at a tenth of the rise and 10 per cent low at
     // eight tenths.
-    //
-    // A step response accelerating from rest is what a buoyant parcel does and is not what was
-    // measured at this scale: it reaches a twelfth of its climb where the real cloud is a third up,
-    // then arrives early and sits at its ceiling from 0.6 onward.
     private static readonly double[] RiseAt = [0.0, 0.10, 0.30, 0.50, 0.60, 0.80, 1.00];
     private static readonly double[] RiseTrack = [0.0, 0.308, 0.509, 0.771, 0.840, 0.991, 1.000];
 
@@ -1257,12 +1230,6 @@ public static class MushroomCloud
     /// </summary>
     public const double StemOfCap = 0.19;
 
-    /// <summary>Where the cloud is at <paramref name="age"/> seconds, for a charge in kg.</summary>
-    /// <param name="burstHeight">
-    /// How far above the ground it went off (m). Every height in the shape is from the ground under
-    /// the burst, so the stem, the skirt and the dust ring stay on the ground and only the cap starts
-    /// up at the burst.
-    /// </param>
     // The cap before anything holds it inside its blast front, with what the stem is measured from.
     private readonly record struct Upright(double Top, double CapR, double Hob, double CapCentre, double CapRadius,
                                            double CapTube, double Spread, double Squash, double Widen, double Aged);
@@ -1330,6 +1297,12 @@ public static class MushroomCloud
         return low;
     }
 
+    /// <summary>Where the cloud is at <paramref name="age"/> seconds, for a charge in kg.</summary>
+    /// <param name="burstHeight">
+    /// How far above the ground it went off (m). Every height in the shape is from the ground under
+    /// the burst, so the stem, the skirt and the dust ring stay on the ground and only the cap starts
+    /// up at the burst.
+    /// </param>
     public static Shape At(double chargeKg, double age, double burstHeight = 0.0, double airRatio = 1.0)
         => At(chargeKg, age, burstHeight, airRatio, null);
 
@@ -1355,17 +1328,8 @@ public static class MushroomCloud
         double widen = cap.Widen;
         double aged = cap.Aged;
 
-        // The stem's top is the cap's underside, always, and it is never anywhere else.
-        //
-        // A stem is dirt the afterwinds lift, so the temptation is to raise it on its own clock and
-        // let it lag the cap. That is the air-burst picture: for a burst high enough that its
-        // fireball never touches the ground, a dust column really does climb separately and join the
-        // cloud later. A surface burst has no such moment -- the dust is already inside the fireball
-        // when it lifts, so the column is continuous from the first instant and the only thing that
-        // develops is how clearly it reads as narrower than the cap.
-        //
-        // Drawn on its own clock instead, it is a free-standing column with clear air above it and a
-        // tip climbing toward an empty sky, which is the named tell of an amateur mushroom.
+        // The stem's top is the cap's underside, always: a surface burst's dust is inside the fireball
+        // as it lifts, so the column never lags the cap (docs/NUCLEAR-EFFECT.md, the four cues).
         // Measured on the cap's height rather than its width, which an anvil has far more of.
         double capHeight = capR * spread * squash;
         double underside = StemCeiling(capCentre, capHeight);
@@ -1382,10 +1346,8 @@ public static class MushroomCloud
         // fast while the front runs at the speed of sound. So while the front is inside the cloud's
         // farthest point, the whole cloud is scaled about the burst to fit it.
         //
-        // About the burst, which for an air burst is up where the cap starts. And against the cloud
-        // as the shader draws it rather than the upright shape: sheared downwind over the stand,
-        // leaned, and with billows standing proud of the tube. A megatonne-class cloud is still
-        // inside its front minutes in, and measured upright its downwind edge ran out ahead of it.
+        // About the burst, which for an air burst is up where the cap starts, and against the cloud
+        // as the shader draws it (DrawnReach) rather than the upright shape.
         double shock = front is { } f ? f.Radius(age) : ShockRadius(kt, age);
         double inside = InsideFront(cap, shock);
 
@@ -1495,9 +1457,8 @@ public static class MushroomCloud
 
     /// <summary>
     /// The share of its width the whole cloud -- cap, roll and stem -- is born with, before it widens
-    /// on the rise's clock. Born at full width, the only thing holding the cloud in is the blast
-    /// front, and a 0.3 kt cloud is two thirds of its final width two seconds in: an expansion far
-    /// faster than the climb. With this it is 29%.
+    /// on the rise's clock, so it does not spread far faster than it climbs.
+    /// <c>docs/NUCLEAR-EFFECT.md</c> has the numbers.
     /// </summary>
     public const double BornWidth = 0.35;
 
@@ -1514,16 +1475,13 @@ public static class MushroomCloud
         return BornWidth + ((1.0 - BornWidth) * (1.0 - ((1.0 - x) * (1.0 - x))));
     }
 
-    // Under the tropopause the cap is taller than it is wide, which is the opposite of the anvil
-    // everyone pictures and is what Glasstone's own two numbers say at these yields: a base at half the cloud top and a
-    // crown at the cloud top is 1004 m of cap over a 769 m width for a 0.3 kt burst. Drawn round
-    // instead, it reads as a lampshade -- flat on top, widest along its lower edge.
+    // Under the tropopause the cap is taller than it is wide, as Glasstone's base at half the cloud
+    // top and crown at the top make it; docs/NUCLEAR-EFFECT.md has why anything flatter reads wrong.
     private const double Oblate = 1.15;
 
     /// <summary>
     /// How high the stem's head may reach: the cap's underside, so the column ends inside the cap
     /// rather than poking out of the top of it.
-    ///
     /// </summary>
     public static double StemCeiling(double capCentre, double capHeight)
         => capCentre - (capHeight * Oblate * 0.7);
