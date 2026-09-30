@@ -4915,6 +4915,19 @@ internal static class KsaWorld
         }
     }
 
+    /// <summary>A deliberate cut of a view the mod is driving, which the roll probe must not call a jump.</summary>
+    public static void CutMainView()
+    {
+        try
+        {
+            if (Program.MainViewport?.FixedController is LevelHorizonController level) level.ExpectCut();
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"could not mark a cut of the main view: {e.Message}");
+        }
+    }
+
     /// <summary>
     /// Takes the mod off the controller without touching the mode, the follow or the field.
     ///

@@ -629,6 +629,7 @@ internal sealed class ChaseCamera : IViewPose
                                   out double3 observer, out double elevationDeg))
             {
                 _followed.HoldAt(system.Platform, observer);
+                KsaWorld.CutMainView();
                 _observing = true;
                 _observerFov = 0.0;
                 _observerMaxFov = _poseFovDeg;
