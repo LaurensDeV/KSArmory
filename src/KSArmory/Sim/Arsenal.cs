@@ -656,7 +656,10 @@ public static class Arsenal
         Scope = ScopePresentation.Search,
 
         Range = 6000f,
-        ConeDeg = 85f,
+
+        // About local up, down to the mount's own -25: a missile skimming in on a flat path sits
+        // under 5 degrees until the last few hundred metres, too late to lay on.
+        ConeDeg = 115f,
 
         ThreatRadius = 2500f,
         ThreatHorizonSeconds = 15f,
@@ -670,10 +673,10 @@ public static class Arsenal
     /// The Mk 68 fire control that lays the mount: the gun's eyes, sitting off the mount rather than
     /// on it.
     ///
-    /// <para>Longer-ranged than the CIWS's set and much narrower, which is the same trade read the
-    /// other way: a director is pointed at one aircraft and tracks it, where a CIWS set watches
-    /// everything close. It sees past the gun's own reach, because a shell needs over twenty
-    /// seconds to arrive at it and the track has to be mature before the first one leaves.</para>
+    /// <para>Longer-ranged than the CIWS's set, which is the same trade read the other way: a
+    /// director is pointed at one aircraft and tracks it, where a CIWS set watches everything close.
+    /// It sees past the gun's own reach, because a shell needs over twenty seconds to arrive at it
+    /// and the track has to be mature before the first one leaves.</para>
     /// </summary>
     public static readonly SensorProfile FireControlMk68 = new()
     {
@@ -682,7 +685,9 @@ public static class Arsenal
         Scope = ScopePresentation.Search,
 
         Range = 18_000f,
-        ConeDeg = 80f,
+
+        // About local up, down to the mount's own -15.
+        ConeDeg = 105f,
 
         ThreatRadius = 15_700f,
         ThreatHorizonSeconds = 30f,
@@ -952,7 +957,9 @@ public static class Arsenal
             new( 0.04700, 2.15000, -0.05543),
         ],
 
-        // The real mount: 150 degrees either side of the centreline, and -25 to +85 in elevation.
+        // The real mount's -25 to +85 in elevation. Its 150 degrees either side keeps the barrels off
+        // a ship's superstructure; on a stack node there is none behind it, and TravelMap keeps it
+        // off whatever craft it is on, so it turns all the way round.
         SlewRateDeg = 100f,
         ElevationRateDeg = 86f,
         MinElevationDeg = -25f,

@@ -84,6 +84,32 @@ public class BoresightTests
     }
 
     /// <summary>
+    /// The launcher's form of <see cref="EveryMastDirectorCanSeeEverywhereItCanPoint"/>: a set
+    /// searching about local up has to reach as low as its mount can depress, or a target skimming
+    /// in under the cone is one the gun could hit and never learns of. The Phalanx searched 85
+    /// degrees and depressed to -25, so a missile on a flat path appeared 275 m out.
+    /// </summary>
+    [Fact]
+    public void EveryTrainedLauncherSearchingAboutLocalUpSeesAsLowAsItPoints()
+    {
+        foreach (LauncherProfile launcher in Catalogue.Launchers)
+        {
+            if (!launcher.Trains) continue;
+
+            SensorProfile sensor = Catalogue.SensorNamed(launcher.Sensor);
+            if (sensor.BoresightSource != BoresightMode.LocalUp) continue;
+
+            double lowest = Math.Min(launcher.MinElevationDeg, launcher.ForwardMinElevationDeg);
+            double widest = 90.0 - lowest;
+
+            Assert.True(sensor.ConeDeg >= widest,
+                $"{launcher.DisplayName}: its {sensor.DisplayName} searches {sensor.ConeDeg:F0} deg "
+                + $"about local up but the mount depresses to {lowest:F0} deg, so there is a "
+                + $"{widest - sensor.ConeDeg:F0} deg band it can shoot into and never see.");
+        }
+    }
+
+    /// <summary>
     /// The general form, and the one that catches the next weapon rather than this one: whatever
     /// a launcher's sensor boresights on, its own tubes must fall inside the cone it searches.
     ///
