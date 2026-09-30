@@ -82,6 +82,21 @@ stale in two places at once.
     craft's analytic and physics positions coincide. Off by default, so the lower priority of the
     two.
 
+- **`KsaWorld.CentreOfMassEcl` may count the centre-of-mass offset twice.** It is
+  `GetPositionEcl() + Asmb2Ego * CenterOfMassAsmb`, and on a floating hull whose `MassToGeometryAsmb`
+  was zero, KSA's buoyancy sphere and `GetPositionEcl()` agreed to a centimetre while
+  `CentreOfMassEcl` read the whole 12.48 m offset higher — so the position already *is* the centre of
+  mass, at least there. It feeds lever arms: blast shoves and a store's release. Wants a flight on a
+  rocket or a rack before anything is changed, because one craft is not the rule.
+
+- **A gun's lay flip-flops when the mount is on a moving craft.** A Mk 42 on a ship doing 13 m/s and
+  heaving ±3 m in waves, laying on a piece of wreckage still rolling on a beach 10 km off, alternated
+  every half second between "laid on it" and "laid to its longest reach", with that reach wandering
+  from 8.9 to 10.2 km of a 23.7 km gun — so the turret never settled. Every mount the lay was flown
+  from stood on the ground, and the target was moving too; which of the two breaks it was not
+  separated. Lay on a stationary target from the moving mount, and on the rolling one from a still
+  mount.
+
 
 ## Did not survive
 

@@ -11,7 +11,7 @@ The rail is in part space, the same convention as the vehicle:
 
     +X  out of the surface the part attaches to
     +Y  along the host's long axis, the way the missile points
-    +Z  the host's right
+    +Z  X x Y: the host's right where +X points down, its left where +X points up
 
 The round is modelled the other way -- nose along +X, centred on its own origin -- because that
 is what the flight code expects of any body mesh, and it is seated onto the rail at runtime by

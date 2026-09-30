@@ -362,6 +362,15 @@ a position instead puts the craft's *origin* at the point and leaves the rest wh
 Because it is a buffered engine event that rebuilds the vehicle's orbit and velocity, it is a
 once-per-action call. Do not drive it per frame to make a craft follow the cursor.
 
+**Over the sea it sets the craft on the seabed**, not the surface: the terrain it rests the hull on
+is the sea floor. A buoyant craft then rises through the water — a 134 m hull set down 4.3 km deep
+climbed at 17.5 m/s for four minutes, which from above reads as a ship sinking. Where the sea is
+shallow it stands on the bottom instead. **Survey before placing**: `Celestial.GetDirCcfFromLatLon`
+plus `GetTerrainHeightFromDirCcf(dir, accurate: true)` against the ocean reference's `Level` gives
+the depth anywhere without putting anything there, and the bridge's `ground` command is exactly
+that. And **setting a grounded craft down again and again can destroy it**: four teleports of a
+ship that had run aground, one after another along a coast, and it did not survive them.
+
 **It silently stands the craft on a pad** — `GetInitialKinematicStateForLocation` calls a private
 `GetLaunchPadHeightAtDirCcf`, which walks `Celestial.BodyTemplate.Locations` for a
 `LandmarkReference { IsLaunchPad: true }` and adds that landmark's static object's
@@ -536,6 +545,33 @@ loads and draws at its modelled pose, and no log says why.
 - **Boarding needs an `<EVADoor SeatId="…" />`**, which goes on a `<SubPartGameData>` of the same
   part. A kitten boards only from within 1 m of that subpart's origin (`KittenEva.CanBoardDoor`), so
   the door belongs on a subpart whose origin a kitten can actually walk up to.
+
+### A kitten walks only on static ground, so a craft is boarded by its grab rail
+
+A kitten on EVA is a Bepu capsule (radius 0.35 m, `PartGameData.xml`'s kitten entry) that rests on
+part colliders like anything else — but its walk mode needs a contact the engine calls ground, and
+`ConstraintSim.IsGroundSurfaceFor` takes a `StaticHandle`: the terrain patch, terrain blocks,
+clutter and launch-pad statics. A vehicle's colliders are dynamic, so on a deck a kitten stands, is
+airborne as far as locomotion is concerned, cannot walk or jump, and does not ride along. There is
+no "standing on a vehicle" frame.
+
+**The supported way onto a craft is its `<Grab>` nodes**, which the capsule's spine already uses: a
+part with any becomes one `GrabRail` of at most 64 nodes in declaration order (`KittenEva.cs`),
+snapped to from within 1 m, climbed node to node at 1 m/s, held 0.5 m out along each node's
+`<Normal>`, and handed off to another part's rail within 1 m at either end. Core's `LadderA` spaces
+its nodes 0.25–0.4 m. A rail that ends within 1 m of an `EVADoor` subpart's origin is a full route
+from the ground to a seat, and boarding puts the kitten straight into the seat: nothing has to be
+walkable.
+
+### Windows are `PartModelGlass`, and an `<Internal>` model is drawn only in IVA
+
+A subpart declared with `<PartModelGlass>` in place of `<PartModel>` goes through
+`MeshGlassIndirect.frag`: alpha-blended at a **fixed 0.75 opacity** rising with Fresnel, tinted by
+the material's diffuse, **back faces culled**. So a pane is a single-sided quad facing out, seen
+from outside and invisible from inside, and the same atlas and material can serve it.
+
+`<Internal>true</Internal>` on a `PartModel` draws it only in the IVA camera (`PartModel.AddInstance`),
+so an interior meant to be seen through a window from outside has to be an ordinary model.
 
 ### What lets a part start a craft, and what lets one be bolted to
 
@@ -933,6 +969,54 @@ One part scaled from 12 km to 3,480 km, set down on Luna with `TeleportToLocatio
 Colliders cost with their size: two boxes spanning a 383 km part held the world at 0.09x real time
 (the engine holding every frame, the mod's own work 0.2 ms of it); one 2 km box under its middle ran
 at 1.00x. Past a few kilometres a flat base only touches a curved body in the middle anyway.
+
+## A vehicle in the sea
+
+Read off `PhysicsEnvironment`, `PhysicsStates` and `VehicleProperties`, and flown with a 134 m hull
+in 2026.9.22.5482.
+
+- **Buoyancy is a sphere, not a hull.** `RecomputeAerodynamicProperties` takes the bounding box —
+  of the colliders where a part has any, else of the mesh — as an elliptic cylinder,
+  `V = π/4 · Y · Z · X`; `RecomputeImmersion` immerses it linearly by how far the bottom of its
+  bounding sphere (radius the half-diagonal) is under the sea, `V · clamp(depth / 2R, 0, 1)`. A part
+  cannot declare a volume. For a long, low hull this floats nothing like a ship: at its real mass a
+  frigate's box rides with the keel tens of metres above the water, so the only lever is the mass,
+  chosen so the sphere puts the waterline where it belongs.
+- **The sphere's centre is the position plus an unrotated offset.** It adds `MassToGeometryAsmb`, an
+  assembly-frame vector, to a planet-frame position without turning it, so with the centre of mass
+  anywhere but the box's centre the waterline moves with where the craft is and which way it
+  points — flown, a 6.7 m offset rode the keel 2 m above the sea. Put the centre of mass at the box's
+  centre and it cannot matter. `docs/BLOCKED-ON-KSA.md` has it.
+- **The force acts at the centre of mass**, so there is no righting moment: a floating craft keeps
+  whatever roll and pitch it has, and anything that should come upright has to be given a torque.
+- **Water drag is the air's box drag with the ocean's density**, `(CdA + 0.1 × wetted area) · ½ρv²`
+  at the centre of mass (`ComputeDrag`). The box's CdA is per axis, so sideways drag dwarfs drag
+  along the long axis, and there is no lift. A slow floating craft goes on rails
+  (`CanInstantlyFloatOnRails`, about 0.07 m/s) at the same sphere's flotation height.
+- **Nothing pushes in water but a rocket engine**, whose nozzle reads only atmospheric pressure and
+  so thrusts underwater as at sea level. No propeller, electric drive or propellant-free engine
+  exists; a mod pushes a craft through water by writing velocity, as blast shoves do.
+- **The sea has waves, sampled at one point.** `OceanRadius` includes the wave height at the craft's
+  position: ±3.5 m off Monterey, and a 134 m hull heaved about ±2.8 m following one point where a
+  real one averages over its length.
+- **A craft's position is its centre of mass.** With the offset above at zero, the buoyancy sphere's
+  centre and `GetPositionEcl()` agreed to a centimetre, so a keel or any other point is measured down
+  from there by `CenterOfMassAsmb`. `KsaWorld.CentreOfMassEcl` adds that offset again, which reads
+  as a double count; `docs/CODE-HEALTH.md` has it.
+- **KSA's coastlines are not the real ones, and its shelves can be very shallow.** Its North Sea is
+  4–8 m deep for 20 km off the Dutch coast, where the real coast is further east; Monterey Bay has
+  24 m of water 2.7 km off the beach. Survey with the height field, never assume the atlas.
+
+**Reading a player's helm off a vehicle** needs no patch: `Vehicle.GetManualThrottle()` is the 0–1
+throttle the throttle keys ramp at 0.7/s, and `GetThrusterFlags()` carries `YawLeft`/`YawRight` (A/D),
+`TranslateBackward` (N) and the rest while held. Neither needs an engine or a thruster aboard, and
+a craft counts as controllable on `Parts.Controls.NumModules > 0`, so a `<Control />` is enough. The
+throttle is saved with the craft (`<EngineThrottle>`), so a save made mid-flight starts at whatever
+it was. And `Vehicle.PrepareWorker(SimStep)` hands a prefix the step the worker is about to
+integrate as `simStep.DeltaTime`.
+
+**Saving the game from a mod** is `GameSaves.MakeUncompressedSave(name)`, the console's `save` —
+public, and the way to turn a scenario set up through the bridge into a save somebody can load.
 
 ## Held controls are cleared on the controlled vehicle while the UI has the keyboard
 

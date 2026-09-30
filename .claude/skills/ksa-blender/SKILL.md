@@ -69,6 +69,20 @@ live session — the check on what actually left Blender, which is not always wh
 built. That is a different question from looking at the model, and the only one renders are still
 the right tool for.
 
+**Importing one of the mod's own `.glb`s turns it over.** Blender's glTF importer converts Y-up to
+Z-up in the vertex data, and the mod's atlases are not Y-up, so an imported body lies on its side
+until its object is given a -90° turn about X. Place a reference mount by its part XML's offsets and
+check a barrel points +Y before trusting any fit against it.
+
+**A boolean leaves two things behind.** The cutters' empty material slots, which a bake then trips
+over (`'NoneType' object has no attribute 'node_tree'`), and n-gons with collinear vertices along
+every cut edge, which triangulate into slivers of zero UV area. Reset the slots after applying, and
+triangulate the n-gons with `ngon_method="BEAUTY"` then `beautify_fill` before unwrapping.
+
+**Check clearance against edges, never vertices.** A cylinder has vertices only at its ends, so a
+mast passing through a radar's sweep has none in the sweep's height band and a vertex test calls it
+clear. Sample points along every edge.
+
 A long build script is easier to iterate on as a file than as one `execute_blender_code` payload:
 Blender runs on Windows and reads a WSL path as `\\wsl.localhost\<distro>\...`, so keep the script
 in the scratchpad and `exec(open(path).read(), ns)` it, editing between runs.
@@ -170,7 +184,10 @@ long and eight wide, and nothing warns you.
 - **+X out of the surface the part attaches to.** Up for something that stacks; for a store under a
   wing it points *away from the pylon*, downward.
 - **+Y along the host's long axis.** A missile's or a pod's nose points +Y.
-- **+Z the host's right.**
+- **+Z is X × Y**, so which side it is depends on which way +X points: the host's right under a
+  pylon, where +X points down, and **its left on anything standing up**, where +X points up. Flown
+  on a hull with +X up and +Y forward: turning the bow toward +Z showed on screen as a turn to the
+  left, and `TeleportToLocation` stands a craft with +X up, +Y east and +Z north.
 
 The origin sits on the mounting face, so every coordinate reads as an offset from where it bolts
 on. **Model in this frame from the start.** A model authored to another convention needs a rotation

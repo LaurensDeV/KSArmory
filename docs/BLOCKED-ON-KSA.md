@@ -40,6 +40,10 @@ happen rather than a member that moved.
 - [ ] **`PhysicsStates.ComputeDrag` is still a body-fixed drag box over the mass, with no lift, no
   Mach term and no aerodynamic torque** — RocketWerkz are working on aerodynamics. The day this
   changes, the gun's lead is leading on yesterday's physics; see the entry below
+- [ ] **`RecomputeImmersion` rotates `MassToGeometryAsmb` into the planet's frame**, or buoyancy
+  gets a centre of its own; see *A floating craft's waterline depends on where it is* below
+- [ ] **A kitten can walk on a vehicle** — `IsGroundSurfaceFor` accepts something other than a
+  static handle; see *Walking on a craft* below
 - [ ] **KSA's destroy runs warm the first time it is called** -- its assemblies compiled ahead
   (ReadyToRun), or a debris split that no longer does first-time work -- **delete
   `JitWarmup.EngineTypes` the day it does**; see the entry below
@@ -848,3 +852,30 @@ returning `BodyTemplate.OceanReference` already means.
 **What would unblock it.** `DistanceReference.IsValid()` dropping the 100 km floor, or the
 atmosphere and ocean composites testing their own fields directly rather than delegating a
 surface-scale distance to an astronomical-scale predicate.
+
+## A floating craft's waterline depends on where it is
+
+`PhysicsEnvironment.RecomputeImmersion` finds the centre of the sphere it floats a craft on as
+`(positionCcf + double3.Unpack(props.MassToGeometryAsmb)).Length()`: a planet-frame position plus
+an assembly-frame offset that is never rotated. So wherever the centre of mass is off the bounding
+box's centre, how high a craft floats changes with where on the planet it is and which way it
+points. Flown with a 134 m hull whose centre of mass sat 6.7 m under the box's centre: the sphere's
+centre landed 3.87 m above the centre of mass rather than 6.7, and the keel rode 2 m above the sea
+instead of 4.6 m below it. Putting the centre of mass on the box's centre removes it, and is the
+workaround until the offset is rotated (`Transform(Asmb2Ccf)`) or buoyancy stops being a sphere.
+`docs/KSA-MODDING-NOTES.md` *A vehicle in the sea* has the rest of the model.
+
+## Walking on a craft
+
+A kitten's walk mode needs ground, and ground is a static contact only
+(`ConstraintSim.IsGroundSurfaceFor(VehicleUpdateState, StaticHandle)`, `ConstraintSim.cs:169-185`):
+terrain, terrain blocks, clutter and launch pads. On a vehicle's deck a kitten stands on the
+colliders but is airborne to its locomotion — no walking, no jumping, and no frame that carries it
+with the craft. What works today is a `<Grab>` rail from the ground to an `EVADoor`
+(`docs/KSA-MODDING-NOTES.md`). Unblocked by vehicle contacts counting as ground, with the kitten
+servoing its speed against the deck rather than the planet (`KittenServoPrecomp.cs:73-82`).
+
+Nor is there anything that pushes in water: a rocket nozzle reads atmospheric pressure alone and
+thrusts underwater as at sea level (`Rocket.cs:179`, `:205`), and no propeller or propellant-free
+engine exists, so a boat is a mod writing velocity every frame.
+
