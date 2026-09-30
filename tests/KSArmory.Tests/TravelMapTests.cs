@@ -124,7 +124,19 @@ public class TravelMapTests
         Assert.True(Vec.Len(probes[0].Start - (gun.TurretPivot + gun.GunPivotFromTurret)) < 1e-9);
         Assert.Equal(2.63549, probes[0].End.Y - probes[0].Start.Y, 5);
         double3 fire = probes[1].End - probes[1].Start;
-        Assert.Equal(TravelSweep.LineOfFireMetres, fire.Y, 6);
+        Assert.Equal(TravelSweep.MinLineOfFireMetres, fire.Y, 6);
         Assert.True(Math.Abs(fire.X) + Math.Abs(fire.Z) < 1e-9);
+    }
+
+    [Fact]
+    public void OnALongCraftTheLineOfFireRunsItsWholeLength()
+    {
+        // A Knox's box, 30.24 x 134 x 14.15 m: its hangar is 36 m forward of the fantail's Phalanx.
+        double halfDiagonal = 0.5 * Math.Sqrt((30.24 * 30.24) + (134.0 * 134.0) + (14.15 * 14.15));
+        double reach = TravelSweep.LineOfFireFor(halfDiagonal);
+        (double3 Start, double3 End)[] probes = TravelSweep.Probes(Arsenal.M197, 0.0, 0.0, reach);
+
+        Assert.True(Vec.Len(probes[1].End - probes[1].Start) >= 134.0, $"{reach:F1} m");
+        Assert.Equal(TravelSweep.MinLineOfFireMetres, TravelSweep.LineOfFireFor(3.0), 9);
     }
 }

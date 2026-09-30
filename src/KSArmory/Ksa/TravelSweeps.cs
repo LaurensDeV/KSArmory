@@ -30,6 +30,7 @@ internal sealed class TravelSweeps
         public Vehicle? Craft;
         public Part? Launcher;
         public int PartCount;
+        public double LineOfFire = TravelSweep.MinLineOfFireMetres;
         public int StableFrames;
         public TravelSweep? Sweep;
         public bool Mapped;
@@ -93,7 +94,11 @@ internal sealed class TravelSweeps
         }
 
         LauncherProfile profile = system.Profile;
-        state.Sweep ??= TravelSweep.For(profile);
+        if (state.Sweep is null)
+        {
+            state.Sweep = TravelSweep.For(profile);
+            state.LineOfFire = TravelSweep.LineOfFireFor(KsaWorld.MeanRadius(craft));
+        }
 
         _clock.Restart();
         int spent = 0;
@@ -105,7 +110,7 @@ internal sealed class TravelSweeps
                && state.Sweep.TryNext(out int i, out int j))
         {
             bool clear = true;
-            foreach ((double3 start, double3 end) in TravelSweep.Probes(profile, i * rows.BearingStepRad, rows.ElevationOfRow(j)))
+            foreach ((double3 start, double3 end) in TravelSweep.Probes(profile, i * rows.BearingStepRad, rows.ElevationOfRow(j), state.LineOfFire))
             {
                 spent++;
                 if (Blocked(craft, launcher, start, end)) { clear = false; break; }
@@ -123,10 +128,19 @@ internal sealed class TravelSweeps
             state.Mapped = true;
             TravelMap map = state.Sweep.Result(minE, maxE, profile.RestElevationRad);
             system.Turret.Map = map;
+            // Where the craft raises the floor most: the one number that says the sweep saw it at all.
+            double worstFloor = double.NegativeInfinity, worstBearing = 0.0;
+            for (int b = 0; b < map.Bearings; b++)
+            {
+                double floor = map.BandAt(b * map.BearingStepRad).Floor;
+                if (floor > worstFloor) { worstFloor = floor; worstBearing = b * map.BearingStepRad; }
+            }
             string arc = map.Arc is (double lo, double hi)
                 ? $"{double.RadiansToDegrees(lo):F0} to {double.RadiansToDegrees(hi):+0;-0} deg"
                 : "all the way round";
-            Log.Info($"travel map: {profile.DisplayName} on {craft.Id} traverses {arc}; "
+            Log.Info($"travel map: {profile.DisplayName} on {craft.Id} traverses {arc}, line of fire "
+                     + $"tested {state.LineOfFire:F0} m past the muzzle, floor raised most to "
+                     + $"{double.RadiansToDegrees(worstFloor):F0} deg at bearing {double.RadiansToDegrees(worstBearing):F0}; "
                      + $"{state.Sweep.Tested} of {state.Sweep.Bearings * state.Sweep.Elevations} poses tested, "
                      + $"{state.Rays} rays in {state.Ms:F2} ms over {state.Frames} frames, worst {state.WorstMs:F2}");
         }

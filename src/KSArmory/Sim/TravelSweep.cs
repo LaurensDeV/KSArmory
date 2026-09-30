@@ -15,8 +15,21 @@ public sealed class TravelSweep
 {
     public const int Coarse = 2;
 
-    /// <summary>How far along the bore the line of fire is tested past the muzzle (m).</summary>
-    public const double LineOfFireMetres = 30.0;
+    /// <summary>
+    /// The least distance along the bore the line of fire is tested past the muzzle (m). A craft
+    /// longer than this is tested across its own length, <see cref="LineOfFireFor"/>: from a Phalanx
+    /// on a frigate's fantail the hangar is 36 m forward and the mack 60 m.
+    /// </summary>
+    public const double MinLineOfFireMetres = 30.0;
+
+    /// <summary>
+    /// How far past the muzzle to test on a craft whose bounding box has this half-diagonal: the
+    /// whole diagonal, which from any mount on the craft reaches past its far end.
+    /// </summary>
+    public static double LineOfFireFor(double craftHalfDiagonalMetres)
+        => double.IsFinite(craftHalfDiagonalMetres)
+               ? Math.Max(MinLineOfFireMetres, 2.0 * craftHalfDiagonalMetres)
+               : MinLineOfFireMetres;
 
     private readonly bool?[,] _cells;
     private readonly Queue<(int, int)> _queue = new();
@@ -106,9 +119,10 @@ public sealed class TravelSweep
 
     /// <summary>
     /// What is tested at one pose, in the launcher part's frame: from the trunnion to the mean of the
-    /// muzzles, then on along the bore for <see cref="LineOfFireMetres"/>.
+    /// muzzles, then on along the bore for <paramref name="lineOfFireMetres"/>.
     /// </summary>
-    public static (double3 Start, double3 End)[] Probes(LauncherProfile profile, double bearingRad, double elevationRad)
+    public static (double3 Start, double3 End)[] Probes(LauncherProfile profile, double bearingRad, double elevationRad,
+                                                       double lineOfFireMetres = MinLineOfFireMetres)
     {
         DrivePose gun = TubeGeometry.GunPose(profile, bearingRad, elevationRad);
 
@@ -119,6 +133,6 @@ public sealed class TravelSweep
         double3 muzzleAt = gun.Position + gun.Rotation * mean;
         double3 bore = TubeGeometry.GunAxisPartFrame(profile, gun.Rotation);
 
-        return [(gun.Position, muzzleAt), (muzzleAt, muzzleAt + bore * LineOfFireMetres)];
+        return [(gun.Position, muzzleAt), (muzzleAt, muzzleAt + bore * lineOfFireMetres)];
     }
 }
