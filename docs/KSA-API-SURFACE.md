@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-265 types and 717 members across 11 assemblies.
+267 types and 717 members across 11 assemblies.
 
 ## BepuUtilities
 
@@ -796,9 +796,17 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `float AmbientPressurePa`
 - `float IntensityJ`
 
+### KSA.ExplosionFlashSystem
+
+*referenced as a type only*
+
 ### KSA.ExplosionSystem
 
 - `void SpawnPreset(string, ref KSA.ExplosionContext)`
+
+### KSA.ExplosionVolumeSystem
+
+*referenced as a type only*
 
 ### KSA.FileReference
 

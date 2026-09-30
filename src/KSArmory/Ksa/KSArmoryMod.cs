@@ -157,6 +157,8 @@ public sealed class KSArmoryMod
         // with no assembly at all, which is most of them.
         InstalledPacks.RegisterAll();
 
+        JitWarmup.Start();
+
         Catalogue.Freeze();
         ReportRegistrations();
 

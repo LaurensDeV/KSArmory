@@ -569,6 +569,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/Designator.cs` | click the world to shoot at that spot, with no target and no lock |
 | `Ksa/TargetLock.cs` | shift-click anything to lock an installation onto it |
 | `Ksa/Diagnostics.cs` | the periodic world dump — what the system can see and why |
+| `Ksa/JitWarmup.cs` | the kill path compiled on a thread of its own at load, so the first kill of a session is not also the first time its code runs -- **the mod's half, and a fifth of the engine's**: what is left of that frame is KSA building its first debris vehicles |
 | `Ksa/Build.cs` | what build this is, read off the assembly rather than written down — and **whether it is a developer's install**, which is what shows the developer tools |
 | `Ksa/SettingsStore.cs` | per-craft settings across sessions, in JSON beside the log |
 | `Ksa/Log.cs` | the mod's own log file, which is the only debugging channel it has |
@@ -1180,7 +1181,7 @@ Do the private repo *before* pushing here, or CI fails on the lock it cannot sat
 member that keeps its name and signature and changes its *meaning* — a different reference
 frame, different units, a reordered enum — compiles clean and is wrong in flight. That is what
 the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from 684,000 lines to the files
-defining the 265 types this mod actually uses.
+defining the 267 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 45 in total, 14 MB —
