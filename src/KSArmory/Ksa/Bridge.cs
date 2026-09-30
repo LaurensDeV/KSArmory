@@ -341,14 +341,17 @@ internal sealed class Bridge : IViewPose
             return Failed("no local frame under that craft");
         }
 
-        double3 at = KsaWorld.PositionEcl(craft) + (east * command.Number("east_m", 0.0))
-                     + (north * command.Number("north_m", 0.0)) + (up * command.Number("up_m", -agl));
+        double3 PointEcl() => KsaWorld.PositionEcl(craft) + (east * command.Number("east_m", 0.0))
+                              + (north * command.Number("north_m", 0.0)) + (up * command.Number("up_m", -agl));
+        double3 at = PointEcl();
         int before = weapon.Rounds.Count;
 
-        // A gun fires where it points, and in play the mouse is what points it. Here nothing does,
-        // so the point is designated as a shift-click would and the burst waits for the lay --
-        // without it every shell leaves along the barrel's rest line, level at a few metres up.
-        if (weapon.TriggerArmament == ArmamentKind.Belt && command.Flag("lay", true))
+        // In play the mouse points the launcher before a click fires it. Here nothing does, so the
+        // point is designated as a shift-click would and the shot waits for the lay -- without it a
+        // shell leaves along the barrel's rest line, and a missile along the pods' and misses by
+        // kilometres, since a 57E6 at speed cannot turn onto a point beside or behind it.
+        bool belt = weapon.TriggerArmament == ArmamentKind.Belt;
+        if ((belt || weapon.Profile.Trains) && command.Flag("lay", true))
         {
             Aimpoint aim = KsaWorld.TryAnchorToGround(at, out object? anchorBody, out double3 anchor)
                                ? Aimpoint.OnGround(anchorBody!, anchor, at, Vec.Zero)
@@ -360,13 +363,27 @@ internal sealed class Bridge : IViewPose
             _running = (dtPlayer, _) =>
             {
                 waited += dtPlayer;
-                if (++frames < 2 || !weapon.GunsAreLaid)
+
+                // Two frames, so the lay is read against the new order rather than the last one's.
+                if (++frames < 2 || !(belt ? weapon.GunsAreLaid : weapon.IsLaid))
                 {
                     return waited > LayBudgetSeconds ? Failed($"not laid after {LayBudgetSeconds:F0} s: {weapon.Hold}") : null;
                 }
 
-                return weapon.FireBurst()
-                           ? Done(new() { ["burst"] = true,
+                if (belt)
+                {
+                    return weapon.FireBurst()
+                               ? Done(new() { ["burst"] = true,
+                                              ["weapon"] = weapon.Profile.DisplayName,
+                                              ["laid_after_s"] = Math.Round(waited, 2),
+                                              ["agl_m"] = Math.Round(agl) })
+                               : Failed($"refused: {weapon.Hold}");
+                }
+
+                // Taken again now: an ecliptic point held across the lay is left seconds of ~30 km/s behind.
+                int ahead = weapon.Rounds.Count;
+                return weapon.FireAt(PointEcl())
+                           ? Done(new() { ["fired"] = weapon.Rounds.Count - ahead,
                                           ["weapon"] = weapon.Profile.DisplayName,
                                           ["laid_after_s"] = Math.Round(waited, 2),
                                           ["agl_m"] = Math.Round(agl) })
@@ -610,6 +627,10 @@ internal sealed class Bridge : IViewPose
             if (command.Has("guns")) p.GunsEnabled = command.Flag("guns", p.GunsEnabled);
             if (command.Has("chase")) p.ChaseRounds = command.Flag("chase", p.ChaseRounds);
 
+            string trigger = command.String("trigger");
+            if (trigger == "cannon") e.Weapon.TriggerArmament = ArmamentKind.Belt;
+            else if (trigger == "tubes") e.Weapon.TriggerArmament = ArmamentKind.Tubes;
+
             string seeker = command.String("seeker");
             if (seeker.Length > 0)
             {
@@ -631,6 +652,7 @@ internal sealed class Bridge : IViewPose
             {
                 ["launcher"] = e.Weapon.Profile.DisplayName,
                 ["auto_engage"] = p.AutoEngage,
+                ["trigger"] = e.Weapon.TriggerArmament == ArmamentKind.Belt ? "cannon" : "tubes",
                 ["protect"] = p.ProtectControlledVehicle,
                 ["guidance"] = e.Weapon.Munition.Guidance.ToString(),
                 ["band"] = e.Weapon.Munition.Band.ToString(),

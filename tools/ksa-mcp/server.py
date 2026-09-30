@@ -400,10 +400,12 @@ TOOLS = {
                             lambda a: player_captures(a.get("name"), bool(a.get("crop", False)))),
     "ksa_system": ("One craft's weapons settings, as its panel would set them: auto_engage, protect (never "
                    "target the flown craft), silent. seeker flies its missiles on an infrared, radar or "
-                   "radar-gated seeker to test decoys against, resistance 0-1 beside it; stock puts it back.",
+                   "radar-gated seeker to test decoys against, resistance 0-1 beside it; stock puts it back. trigger "
+                   "points the trigger at the cannon or the tubes.",
                    {"craft": {"type": "string"}, "auto_engage": {"type": "boolean"},
                     "protect": {"type": "boolean"}, "silent": {"type": "boolean"}, "guns": {"type": "boolean"}, "chase": {"type": "boolean"}, "focus": {"type": "boolean"},
                     "seeker": {"type": "string", "enum": ["infrared", "radar", "radar-gated", "stock"]},
+                    "trigger": {"type": "string", "enum": ["cannon", "tubes"]},
                     "resistance": _num("0..1")}, ["craft"],
                    lambda a: [_text(json.dumps(send("system", **a), indent=1))]),
     "ksa_dispense": ("Press a craft's countermeasures: kind flare, chaff or both; auto sets auto-dispense. "
@@ -428,8 +430,9 @@ TOOLS = {
                    "fov_deg": _num("deg"), "release": {"type": "boolean"}}, [],
                   lambda a: [_text(json.dumps(send("watch", **a), indent=1))]),
     "ksa_fire": ("Fire a craft's selected weapon at a point east_m/north_m/up_m of the craft (up_m defaults "
-                 "to the ground under it). A gun is designated onto the point and fires once it is laid, "
-                 "answering when the shot is away; lay=false fires it wherever it points now.",
+                 "to the ground under it). A gun or a launcher that trains is designated onto the point and "
+                 "fires once it is laid, answering when the shot is away; lay=false fires it wherever it "
+                 "points now.",
                  {"craft": {"type": "string"}, "east_m": _num("m"), "north_m": _num("m"), "up_m": _num("m"),
                   "lay": {"type": "boolean"}}, [],
                  lambda a: [_text(json.dumps(send("fire", **a)))]),
