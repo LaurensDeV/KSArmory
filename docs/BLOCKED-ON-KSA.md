@@ -40,6 +40,9 @@ happen rather than a member that moved.
 - [ ] **`PhysicsStates.ComputeDrag` is still a body-fixed drag box over the mass, with no lift, no
   Mach term and no aerodynamic torque** — RocketWerkz are working on aerodynamics. The day this
   changes, the gun's lead is leading on yesterday's physics; see the entry below
+- [ ] **KSA's destroy runs warm the first time it is called** -- its assemblies compiled ahead
+  (ReadyToRun), or a debris split that no longer does first-time work -- **delete
+  `JitWarmup.EngineTypes` the day it does**; see the entry below
 
 **Rechecked against 2026.9.22.5482: all twelve open items still blocked, and the explosion volumes
 below now draw over an airless body.** `TryToPutOnRails` also returns a vehicle to rails from any
@@ -81,6 +84,26 @@ submits its draw in consecutive statements; `KSA.Rendering.PostProcessing` is an
 pass and a tone curve.
 
 ---
+
+## The first kill of a session pays for KSA's destroy running cold
+
+**What it costs:** the frame a session's first craft is destroyed. On the Mk 42, 2026.9.22.5482,
+`Universe.DestroyVehicleFromEvent` took **28 ms** the first time and 4-11 ms after, nearly all of it
+`PartFailure.ShedDebris` building up to twelve debris pieces as vehicles. The mod's own detonation on
+the same frame was 12.8 ms cold.
+
+**What the mod does about it.** `Ksa/JitWarmup.cs` compiles the path on a thread of its own at load:
+this mod's assembly, which takes its detonation to 2.6 ms, and `EngineTypes`, the engine's half,
+which takes the destroy to 23. The rest is not compilation -- with all of `KSA.dll` compiled it stayed
+at **21.9 ms** -- so it is first-time work inside the debris split that only the engine can do earlier
+or cheaper. The frame went from 44-45 ms to 33-34, flown twice with `gunnery:2`.
+
+**When to delete `EngineTypes`.** When KSA ships its assemblies compiled ahead, or its first destroy
+costs what a later one does. The check: comment out the `EngineTypes` loop, fly
+`KSARMORY_SCENARIO_VERBOSE=1 ./tools/scenario.sh gunnery:2`, and read the `fire` worst on the first
+kill's `mod frame:` line against the second kill's. Within a few milliseconds of each other, the list
+is buying nothing and goes. The mod's own assembly stays warmed either way: that half is this mod's
+code, and no KSA change touches it.
 
 ## Aerodynamics are being worked on, and the gun's lead is a copy of today's
 

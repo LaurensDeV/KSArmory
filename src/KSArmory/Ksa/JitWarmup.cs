@@ -15,7 +15,8 @@ namespace KSArmory;
 internal static class JitWarmup
 {
     // The engine's side of a kill: KsaWorld.Destroy is Universe.DestroyVehicleFromEvent, which spawns
-    // the destruction explosion and sheds up to twelve pieces as vehicles of their own.
+    // the destruction explosion and sheds up to twelve pieces as vehicles of their own. Delete this list
+    // the day KSA's first destroy runs warm; docs/BLOCKED-ON-KSA.md has the check.
     private static readonly Type[] EngineTypes =
     [
         typeof(Universe), typeof(PartFailure), typeof(ExplosionSystem), typeof(ExplosionVolumeSystem),
