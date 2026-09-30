@@ -53,6 +53,7 @@ internal static class TestTarget
     /// <param name="missDistance">How close it passes (m). Ignored for <see cref="Profile.HeadOn"/>.</param>
     /// <param name="craftName">Stock craft to fly, e.g. "Gemini7". Null clones the platform.</param>
     /// <param name="bodyRates">How fast it leaves turning, in its own axes (rad/s).</param>
+    /// <param name="bearing">The level direction to come in along, or zero for <see cref="ApproachBearing"/>.</param>
     public static Vehicle? Spawn(
         Vehicle platform,
         Profile profile,
@@ -60,7 +61,8 @@ internal static class TestTarget
         double speed,
         double missDistance,
         string? craftName = null,
-        double3 bodyRates = default)
+        double3 bodyRates = default,
+        double3 bearing = default)
     {
         try
         {
@@ -80,9 +82,10 @@ internal static class TestTarget
             double3 originVel = KsaWorld.VelocityEcl(platform);
             double3 up = KsaWorld.LocalUp(platform);
 
-            // Build the approach in world space. `heading` is the direction the drone travels.
-            double3 east = Vec.AnyPerpendicular(up);
-            double3 north = Vec.Cross(up, east);
+            // Build the approach in world space. `heading` is the direction the drone travels, and
+            // the pass is offset square to the bearing it comes in on.
+            double3 azimuth = Vec.Len2(bearing) > 0.0 ? Vec.Unit(bearing) : ApproachBearing(platform);
+            double3 north = Vec.Cross(up, azimuth);
 
             // Spawn by elevation angle rather than flying a level track. A level pass computed
             // from range alone starts the drone at ~9 degrees elevation, which is both outside
@@ -108,7 +111,6 @@ internal static class TestTarget
             // Direction from the system to the spawn point: elevation above the horizon,
             // azimuth around it.
             double elev = double.DegreesToRadians(elevationDeg);
-            double3 azimuth = ApproachBearing(platform);
             double3 spawnDir = up * Math.Sin(elev) + azimuth * Math.Cos(elev);
 
             double3 spawnEcl = originEcl + Vec.Unit(spawnDir) * spawnRange;

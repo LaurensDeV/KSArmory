@@ -244,7 +244,8 @@ internal sealed class GunneryScenario
 
         _drone = TestTarget.Spawn(gun.Platform!, _request.Profile, _request.Seconds, _request.Speed,
                                   _request.MissMetres, "Gemini7",
-                                  SpinAxis * double.DegreesToRadians(_request.SpinDegPerSecond));
+                                  SpinAxis * double.DegreesToRadians(_request.SpinDegPerSecond),
+                                  SightBearing(gun));
         if (_drone is null) return "FAIL could not spawn a target";
         if (_request.Burn) VehicleCommand.SetEngine(_drone, true);
 
@@ -697,5 +698,17 @@ internal sealed class GunneryScenario
         string label = double.IsPositiveInfinity(toKm) ? $"beyond {fromKm:F0} km" : $"{fromKm:F0}-{toKm:F0} km";
 
         return misses.Count == 0 ? $"{label} none" : $"{label} {misses.Count} at median {misses[misses.Count / 2]:F1} m";
+    }
+
+    // Where a sight that looks sideways is looking, level, or zero for the fixed bearing. A sight
+    // looking up has no level part, so every gun sighted on the sky keeps the bearing it was flown
+    // on; a chin turret's looks out of its mounting face, and a drone brought in without it comes
+    // from behind the host whenever the gun is on the far side.
+    private static double3 SightBearing(WeaponSystem gun)
+    {
+        if (gun.Sensor.ConeHalfAngleRad >= Math.PI || gun.Platform is not { } platform) return default;
+
+        double3 level = Vec.RejectFrom(gun.Boresight, KsaWorld.LocalUp(platform));
+        return Vec.Len(level) > 0.1 ? Vec.Unit(level) : default;
     }
 }
