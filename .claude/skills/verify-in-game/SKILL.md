@@ -87,8 +87,10 @@ Every call goes under a `timeout`: a bridge `step` blocks, and a hung call other
 shell. A capture saves a PNG under `$U/Logs/bridge/out/<id>/`; it is RGBA, so convert before
 saving it as a JPEG to look at.
 
-**`fire` reporting `"fired": 0` is not a refusal.** A gun that has to lay first fires when it is
-laid; the log line `shell from barrel` says whether it did.
+**`fire` lays a gun before it shoots**: the point is designated, as a shift-click would, and the
+reply comes once the burst has begun, with `laid_after_s`; its rounds appear on the next step. `"lay": false` fires along wherever the
+barrel points, which for an idle gun is its rest line. A missile's `"fired": 0` means the tubes
+were still slewing.
 
 ## 5. Catching something that lasts a moment
 

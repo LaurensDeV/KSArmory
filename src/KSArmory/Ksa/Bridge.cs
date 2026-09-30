@@ -328,7 +328,10 @@ internal sealed class Bridge : IViewPose
 
     // One craft's selected weapon fired at a point east, north and up of the craft, through the same
     // FireAt the designation tool uses -- a bomb released at a place, a missile at a spot in the sky.
-    private Reply Fire(BridgeCommand command)
+    // Player seconds a gun is given to lay onto a bridge point before the shot is given up.
+    private const double LayBudgetSeconds = 30.0;
+
+    private Reply? Fire(BridgeCommand command)
     {
         if (CraftNamed(command.String("craft")) is not { } craft) return Failed("no such craft");
         if (_systemFor(craft) is not { } weapon) return Failed("no weapons system on that craft");
@@ -341,6 +344,38 @@ internal sealed class Bridge : IViewPose
         double3 at = KsaWorld.PositionEcl(craft) + (east * command.Number("east_m", 0.0))
                      + (north * command.Number("north_m", 0.0)) + (up * command.Number("up_m", -agl));
         int before = weapon.Rounds.Count;
+
+        // A gun fires where it points, and in play the mouse is what points it. Here nothing does,
+        // so the point is designated as a shift-click would and the burst waits for the lay --
+        // without it every shell leaves along the barrel's rest line, level at a few metres up.
+        if (weapon.TriggerArmament == ArmamentKind.Belt && command.Flag("lay", true))
+        {
+            Aimpoint aim = KsaWorld.TryAnchorToGround(at, out object? anchorBody, out double3 anchor)
+                               ? Aimpoint.OnGround(anchorBody!, anchor, at, Vec.Zero)
+                               : Aimpoint.AtPoint(at);
+            weapon.Designate(aim, "a bridge point");
+
+            int frames = 0;
+            double waited = 0.0;
+            _running = (dtPlayer, _) =>
+            {
+                waited += dtPlayer;
+                if (++frames < 2 || !weapon.GunsAreLaid)
+                {
+                    return waited > LayBudgetSeconds ? Failed($"not laid after {LayBudgetSeconds:F0} s: {weapon.Hold}") : null;
+                }
+
+                return weapon.FireBurst()
+                           ? Done(new() { ["burst"] = true,
+                                          ["weapon"] = weapon.Profile.DisplayName,
+                                          ["laid_after_s"] = Math.Round(waited, 2),
+                                          ["agl_m"] = Math.Round(agl) })
+                           : Failed($"refused: {weapon.Hold}");
+            };
+
+            return null;
+        }
+
         bool fired = weapon.FireAt(at);
 
         return fired
@@ -401,8 +436,9 @@ internal sealed class Bridge : IViewPose
             if (looseOnly && s.Platform is not null) continue;
             if (craft.Length > 0 && SystemName(s) != craft) continue;
 
+            // No tube asked for is any round, a gun's shells among them: those carry a negative tube.
             IProjectile? round = s.Rounds.FirstOrDefault(r => r.State == RoundState.Flying
-                                                              && (tube == 0 ? r.Tube > 0 : r.Tube == tube));
+                                                              && (tube == 0 || r.Tube == tube));
             if (round is null) continue;
 
             if (_watch is null && _pose is null)

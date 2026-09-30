@@ -428,8 +428,10 @@ TOOLS = {
                    "fov_deg": _num("deg"), "release": {"type": "boolean"}}, [],
                   lambda a: [_text(json.dumps(send("watch", **a), indent=1))]),
     "ksa_fire": ("Fire a craft's selected weapon at a point east_m/north_m/up_m of the craft (up_m defaults "
-                 "to the ground under it), as the designation tool does.",
-                 {"craft": {"type": "string"}, "east_m": _num("m"), "north_m": _num("m"), "up_m": _num("m")}, [],
+                 "to the ground under it). A gun is designated onto the point and fires once it is laid, "
+                 "answering when the shot is away; lay=false fires it wherever it points now.",
+                 {"craft": {"type": "string"}, "east_m": _num("m"), "north_m": _num("m"), "up_m": _num("m"),
+                  "lay": {"type": "boolean"}}, [],
                  lambda a: [_text(json.dumps(send("fire", **a)))]),
     "ksa_log": ("The mod's log, filtered.", {"pattern": {"type": "string"}, "lines": _num("count")}, [],
                 lambda a: [_text(log_tail(a.get("pattern", ""), int(a.get("lines", 40))))]),
