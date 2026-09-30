@@ -160,10 +160,10 @@ installed (`PrepareWorker`, `OnFrameCelestials`, `OnGameLoaded`, `UpdateRenderDa
 running 2026.9.22.5482 - reporting on`, and KSA's own log has no error. Only the rail flew; nothing
 above was looked at, and neither was any of this:
 
-- [ ] **The turret traverses and the pods elevate.** Part matrices are now cached per tree and
+- [x] **The turret traverses and the pods elevate.** Part matrices are now cached per tree and
       rewritten only when `ResetCachedPosMatrixValues` marks them dirty, so a subpart write is either
       drawn or never drawn. Fly a Pantsir engagement and watch the turret, the pods and the round
-      bodies leave the tubes.
+      bodies leave the tubes. **Seen in game on 2026.9.22.5482**: laid through the bridge's cannon trigger, the turret swung from west-low to north-high with the pods near level for the first and raised for the second, and a 57E6 body came out of a pod tube along its line.
 - [ ] **The optical head centres its target at 16x.** The frame order held on reading; look through
       the sight at a crosser to confirm it.
 - [ ] **The parts still appear under Weapons in the editor.**
@@ -428,7 +428,7 @@ If you cannot find it, ignore it — the log files cover everything on this chec
 - [x] `KittenSpaceAgency.*.log` contains `INFO found mod 'KSArmory'`.
 - [x] StarMap prints `Loaded mod: KSArmory from manifest`.
 - [x] `Logs/KSArmory.log` contains `loading (mod id: KSArmory)`.
-- [ ] Then `ready - <every registered launcher>, safe.`
+- [x] Then `ready - <every registered launcher>, safe.`
 
 Both StarMap hooks fire. `[StarMapAllModsLoaded]` lands about **21 s** after
 `[StarMapImmediateLoad]` — it waits for the game to finish loading, so the `ready` line appearing
@@ -563,9 +563,9 @@ else.
 **The open question is whether KSA honours a runtime transform write at all.** Everything else
 here is instrumented so the answer is readable either way.
 
-- [ ] `KSArmory.log` has a `launcher subparts: ...` line naming both subparts. If the turret
+- [x] `KSArmory.log` has a `launcher subparts: ...` line naming both subparts. If the turret
       one is missing or oddly named, `Part.ResolveRuntimeId` rewrote it and the profile's
-      `TurretMarker` needs to match whatever is actually there.
+      `TurretMarker` needs to match whatever is actually there. **Flown on 2026.9.22.5482**: `launcher subparts: KSArmory_Launcher_Chassis, ..._Turret, ..._Pods, ...`.
 - [ ] The panel shows `Turret: N deg` and not `subpart not found` or `engine refused`.
 - [ ] A **cyan line** points out from above the vehicle. That is where the drive *thinks* it is
       aimed — it comes from the mod's own maths, not from the engine.
@@ -641,8 +641,8 @@ first — that rules out geometry before blaming the API.
 The distinction that matters: **passing by** should engage, not just **incoming**.
 
 - [ ] A vessel heading roughly at you: marked as a threat (red), `CPA` small.
-- [ ] A vessel crossing nearby but not aimed at you: **also** marked a threat, if its CPA is
-      under *Threat radius*.
+- [x] A vessel crossing nearby but not aimed at you: **also** marked a threat, if its CPA is
+      under *Threat radius*. **Flown on 2026.9.22.5482**: `KSARMORY_SCENARIO_SAVE=KABOOM scenario.sh passing` engaged and killed a drone flying past, 17 m.
 - [ ] A vessel heading away: shown as a track but **not** a threat.
 - [ ] Lock indicator goes `acquiring...` → `LOCKED` after *Lock time* (1.5 s).
 
@@ -657,7 +657,7 @@ Do all of this at `simspeed 1`.
 - [ ] With a lock and nothing else touched, press **FIRE**. There is no arming step.
 - [ ] `Rounds` drops to 11/12; one muzzle dot turns grey.
 - [ ] A tracer leaves that tube with a trail behind it.
-- [ ] Console logs `[KSArmory] round N away at <target> (X.X km)`.
+- [x] Console logs `[KSArmory] round N away at <target> (X.X km)`.
 
 **If it fails:** "refused: …" in the log tells you which gate stopped it — no launcher,
 empty, or target gone.
@@ -693,8 +693,8 @@ This is the headline behaviour and the thing the headless tests prove in isolati
 
 - [ ] Against a target crossing your position, the round **leads** it — aims at where the
       target is going, not where it is.
-- [ ] It detonates near the target.
-- [ ] Console logs `round N detonated with the target at X m` with X under ~25 m.
+- [x] It detonates near the target.
+- [x] Console logs `round N detonated with the target at X m` with X under ~25 m. **Flown on 2026.9.22.5482**: 17 m head-on and passing, 20 and 18 m overhead.
 
       That number is the range at which the **fuse** fired, bounded by the round's own fuse radius
       plus the target's `MeanRadius` — never how far it missed by. A proximity-fused round reports
@@ -707,10 +707,10 @@ so a real-world failure points at frame timing or the target-state sampling, not
 
 ### 4.4 The warhead kills
 
-- [ ] Target vessel is destroyed on a close detonation.
-- [ ] Console logs `destroyed <name>`.
-- [ ] A detonation between *Lethal radius* and *Blast radius* leaves the target flying, and either
-      logs `near miss on <name>` or `N part(s) broken off <name>`.
+- [x] Target vessel is destroyed on a close detonation.
+- [x] Console logs `destroyed <name>`.
+- [x] A detonation between *Lethal radius* and *Blast radius* leaves the target flying, and either
+      logs `near miss on <name>` or `N part(s) broken off <name>`. **Flown on 2026.9.22.5482**: overhead, round 1 at 20 m broke 4 parts off and left the drone flying; round 2 at 18 m killed it.
 
 #### 4.4a Individual parts break — **flown once against a drone; most of it still unverified**
 
@@ -749,11 +749,11 @@ destroys it. Untick it to get the old binary kill back and compare.
 
 ### 4.5 Salvo and auto-engage
 
-- [ ] Tick **Auto engage**, present a threat, and let it work unattended.
-- [ ] It fires *Rounds per target* rounds (default 2), spaced by *Salvo spacing* (0.45 s).
-- [ ] It does **not** dump all twelve at one target.
-- [ ] After twelve rounds, `Rounds: 0/12` and a reload progress bar appears.
-- [ ] After *Reload time* (12 s), back to 12/12 and `launcher reloaded`.
+- [x] Tick **Auto engage**, present a threat, and let it work unattended.
+- [x] It fires *Rounds per target* rounds (default 2), spaced by *Salvo spacing* (0.45 s). **Flown on 2026.9.22.5482**: two rounds 0.47 s apart, every engagement.
+- [x] It does **not** dump all twelve at one target.
+- [ ] After twelve rounds, `Rounds: 0/12` and a reload progress bar appears. **Seen in game on 2026.9.22.5482**, the log only: `out of rounds` then `reloading (12 s)` counting down. The panel was not looked at.
+- [x] After *Reload time* (12 s), back to 12/12 and `launcher reloaded`. **Seen in game on 2026.9.22.5482**: `launcher reloaded` 12.0 s after round 12, and firing resumed.
 
 ### 4.6 Manual designation
 
@@ -764,10 +764,10 @@ destroys it. Untick it to get the old binary kill back and compare.
 ### 4.7 Countermeasures
 
 - [ ] Both ALE-47 parts appear in the editor, surface-attach, and throw out of their face.
-- [ ] Under **Countermeasures** the flare part reads 15/15 and the chaff part 30/30; **Flares** throws two, a quarter-second apart, and only from a flare part.
+- [x] Under **Countermeasures** the flare part reads 15/15 and the chaff part 30/30; **Flares** throws two, a quarter-second apart, and only from a flare part. **Seen in game on 2026.9.22.5482** on `GUIDED MISSILE TEST - CHAFF`, two of each part: 30/30 and 60/60; one press threw four flares, the second pair 0.22-0.25 s after the first, and no chaff.
 - [x] With a symmetric pair of flare parts, each press throws from both sides at once, and each part runs down by its own salvo. **Seen in game on 2026.9.22.5482** on `GUIDED MISSILE TEST - CHAFF`: four flares a press, two either side of the craft.
-- [ ] A flare is a white-hot point with a white smoke trail, and burns out in about four and a half seconds. The point and the trail **seen on 2026.9.22.5482**; the burn time not measured.
-- [ ] Chaff is a faint grey puff that stops where it was thrown.
+- [x] A flare is a white-hot point with a white smoke trail, and burns out in about four and a half seconds. The point and the trail **seen on 2026.9.22.5482**; the burn time not measured. **Seen in game on 2026.9.22.5482**: the burn time too -- stepped in exact simulated seconds, a pair up at 4.35 s and gone by 4.6.
+- [ ] Chaff is a faint grey puff that stops where it was thrown. **Seen in game on 2026.9.22.5482**: a puff either side of the craft that blooms in place and is gone in about five seconds -- but white-grey rather than faint. Whether that reads right is a look, not a measurement.
 - [x] An AIM-9J at a craft dropping flares is usually taken: the log reads `was taken by MJU-7 flare`, and it bursts away from the craft. **Seen in game on 2026.9.22.5482**, with the Pantsir's missiles flown on an infrared seeker (`ksa_system seeker=infrared`) rather than the rail: four of six taken, `was taken by MJU-7 flare` at 20:1, bursting 54–189 m out; one lost its flare as it burnt out and came back to hit.
 - [x] The same AIM-9J at a craft dropping chaff is not. **Seen in game on 2026.9.22.5482**, the same infrared missiles: flew through the chaff and hit at 18 m.
 - [x] An AIM-120C ignores chaff from a craft flying away from it, and is sometimes taken when the craft beams. **Seen in game on 2026.9.22.5482**, `seeker=radar-gated`: flying directly away, four chaff salvos ignored and hits at 22 and 17 m; climbing square to the line of sight, both taken at 120–134 m. An ungated radar seeker was taken every time.
@@ -776,7 +776,7 @@ destroys it. Untick it to get the old binary kill back and compare.
 - [ ] Three seconds later the Pantsir has you again, and more chaff while still beaming does not break it a second time.
 - [ ] The same chaff while flying straight at or away from the Pantsir breaks nothing.
 - [x] **Auto-dispense** answers an AIM-9J with flares and an AIM-120C with chaff, at most once a second. **Seen in game on 2026.9.22.5482**: flares for the infrared seeker and chaff for both radar ones, salvos 1.0 s apart.
-- [ ] Thirty decoys in the air cost under a millisecond: `decoys` and `decoy fx` in the frame budget.
+- [x] Thirty decoys in the air cost under a millisecond: `decoys` and `decoy fx` in the frame budget. **Seen in game on 2026.9.22.5482**: 32 in the air, `decoys` 0.10 ms mean and 0.31 worst, `decoy fx` 0.01 and 0.45.
 
 ---
 
@@ -801,8 +801,8 @@ Do these deliberately — a failure here is the kind that ruins a save.
 
 Where latent bugs are most likely.
 
-- [ ] **6.1** **Timewarp** — raise sim speed with rounds in flight. Nothing should NaN, crash,
-      or spam the log. Rounds behaving oddly under warp is acceptable; a crash isn't.
+- [x] **6.1** **Timewarp** — raise sim speed with rounds in flight. Nothing should NaN, crash,
+      or spam the log. Rounds behaving oddly under warp is acceptable; a crash isn't. **Seen in game on 2026.9.22.5482**: 1000x asked with a 57E6 in the air; held at 1.5x, `timewarp restored to 1000x - nothing in the air` when it expired, nothing thrown.
 - [ ] **6.2** **Scene change** — go flight → editor → flight. Panel recovers, no exceptions.
 
       **Reported broken**: with the optical head driving the main view, switching to the vehicle
@@ -818,8 +818,8 @@ Where latent bugs are most likely.
       each other. *(`GetPositionEgo` takes a different branch depending on what the camera
       follows, so a mismatch there shifts the whole overlay and makes hits look like misses. The
       log is the arbiter — the fuse trigger ranges stay ~22 m either way.)*
-- [ ] **6.3** **Target dies mid-flight** — destroy the target another way while rounds chase it.
-      They should lose lock and expire, not throw.
+- [x] **6.3** **Target dies mid-flight** — destroy the target another way while rounds chase it.
+      They should lose lock and expire, not throw. **Flown on 2026.9.22.5482**: overhead, round 3 went at a drone round 2 then killed; it lost lock and expired after 30 s, nothing thrown.
 - [ ] **6.3b** **Rocket smoke trail** — fire a Sidewinder or a HARM and watch the trail behind it
   while the motor burns, then that it stops laying at burnout and the trail stays put and drifts.
   Nothing on an airless world or above the atmosphere, which is the renderer's own limit. Check a
@@ -835,7 +835,7 @@ Where latent bugs are most likely.
   keeps its body once loose, drawn from the engine's own part model, so it stays visible past
   burnout. Seen through the bridge's `watch` on a 57E6, a B61 with its tail blades and an AIM-9J
   still guiding after burnout: the same pose either side of the launcher dying, no jump, and one
-  body rather than a second left on the launcher's debris. See `Ksa/LooseBodyDrawHook.cs`.
+  body rather than a second left on the launcher's debris. See `Ksa/LooseBodyDrawHook.cs`. **Flown on 2026.9.22.5482** for a store only: `drop:1500,30,guided,8` logged `NewRocket_1 destroyed - 1 round(s) still in the air`, landed 0 m from the ring, then `last round down, system forgotten`, no errors. The 57E6, a Sidewinder and a CIWS stream were not flown.
 - [ ] **6.5** **Switching control away** — a system is pinned to the craft carrying its launcher
       when it is crewed and nothing moves it after, so taking control of something else leaves it
       defending itself. There is no button: pinning is not the operator's.
@@ -881,15 +881,15 @@ anybody sets out to test it — where before it was a field nothing enabled. Eve
 therefore about the Mk 42 unless the box says otherwise, and the last box has become the
 regression test rather than a curiosity.
 
-- [ ] Fire the Mk 42 at a crossing drone. Shells burst **at** the target's predicted position
-      rather than flying past it.
+- [x] Fire the Mk 42 at a crossing drone. Shells burst **at** the target's predicted position
+      rather than flying past it. **Flown on 2026.9.22.5482**: `gunnery`, the first shell at each of four drones struck it on contact 6.1-6.2 km out.
 - [ ] The burst is visible. The Mk 42's 3.3 kg charge is twenty times the 20 mm's, so this is the
       one case where the drawn effect should read on its own without the floor — if it does not,
       the floor is hiding something rather than helping.
-- [ ] A burst with the target already dead does not count as a hit. `MissDistance` is infinity when
-      nothing is being tracked, and the kill path must not treat that as zero.
+- [x] A burst with the target already dead does not count as a hit. `MissDistance` is infinity when
+      nothing is being tracked, and the kill path must not treat that as zero. **Flown on 2026.9.22.5482**: the six shells after each kill burst on their timers `with nothing in range` and none counted.
 - [ ] The CIWS is unchanged. Its 20 mm leaves `TimedFuse` off, so the whole flak path must still be
-      inert for it: same burst behaviour, same kills, nothing bursting early in the air.
+      inert for it: same burst behaviour, same kills, nothing bursting early in the air. **Seen in game on 2026.9.22.5482** on MASSACRE: the Phalanx's shells detonated on contact or expired at 2.5 s, none timed. Not compared against an earlier build.
 
 ### 7.1c Horizon masking
 
@@ -932,18 +932,18 @@ missile's target sample refused one, and the kill path had no way to reach one. 
 unverified in flight** — `RoundInterceptTests` covers the state machine and the shell geometry,
 and nothing under `Sim/` can reach the wiring.
 
-- [ ] Two sites, opposite teams, one firing at the other. The defender's **cannon** shells reach
+- [x] Two sites, opposite teams, one firing at the other. The defender's **cannon** shells reach
       the incoming round and the log says `intercepted <name> at <n> m`. Before this, the same
-      engagement fired the whole belt and the missile arrived regardless.
+      engagement fired the whole belt and the missile arrived regardless. **Seen in game on 2026.9.22.5482**, with no teams declared: on MASSACRE with the Phalanx set 3 km from the Pantsir, the Pantsir's laying burst was engaged and five 30 mm shells intercepted at 1-3 m, each logged `intercepted AA Defence Site shell from barrel N` and `... was shot down after 3.4 s`.
 - [ ] The intercepted round disappears — from the scope, from the world, and its body with it. Its
-      own launcher says `round N was shot down after <t>s`.
-- [ ] It does **not** explode where it was intercepted. `ShotDown` is not `Detonated`, and an
-      explosion there means something is reading the two as one.
+      own launcher says `round N was shot down after <t>s`. **Seen in game on 2026.9.22.5482**, the log half: each shooter said `shell from barrel N was shot down`. The scope and the body were not looked at.
+- [x] It does **not** explode where it was intercepted. `ShotDown` is not `Detonated`, and an
+      explosion there means something is reading the two as one. **Seen in game on 2026.9.22.5482**: one explosion line for the first contact, the Phalanx's own shell's, and none for the shells it killed.
 - [ ] The defender's **missiles** can do it too, by proximity rather than contact. Needs a target
       further out than the 1.2 km minimum range — inside that the cannon is the only answer, which
       is what `holding fire: target out of reach` says when it happens.
 - [ ] Nothing shoots down its own salvo. Every launcher filters its own rounds out before the radar
-      sees them, but a *second* launcher on the same craft is a separate system with its own list.
+      sees them, but a *second* launcher on the same craft is a separate system with its own list. **Seen in game on 2026.9.22.5482** for one case: the Pantsir engaged nothing of its own. A second launcher on the same craft was not flown. A missile on a flat path is shot down too, now the VPS-2 searches down to the mount's own -25 deg: detected at 2.6 km, engaged from 1.5, intercepted at 2.9 m about 0.7 km out. At 85 deg it was first seen 0.2 s before it burst beside the mount.
 - [ ] Frame time with a full CIWS burst up against a salvo of incoming rounds. The designated-target
       path is one extra sweep per shell, which should be nothing — but that is a prediction.
 - [ ] Two defenders engaging one missile, at different simulation speeds and under warp. Both
@@ -985,19 +985,19 @@ does, so a green suite says little about it.
 
 - [ ] The rail appears in the editor under **Weapons**, and **surface-attaches** to the side of a
       stack. It is not a command source, so a craft made only of a rail will not fly — expected.
-- [ ] The AIM-9J is **visible on the rail** before firing. A tube launcher hides its rounds inside
-      the containers; a rail cannot, so `TubeVisual.Loaded` is exercised here and nowhere else.
-- [ ] The round sits along the rail, fins in an X straddling it. A roll that puts one fin through
+- [x] The AIM-9J is **visible on the rail** before firing. A tube launcher hides its rounds inside
+      the containers; a rail cannot, so `TubeVisual.Loaded` is exercised here and nowhere else. **Seen in game on 2026.9.22.5482**: on `rocket missile`, a bridge capture before firing.
+- [x] The round sits along the rail, fins in an X straddling it. A roll that puts one fin through
       the rail means the seating rotation is not the shortest one `RotationFromTo` promises.
-- [ ] It fires. `Trains` is false, so `IsLaid` is true from the start and nothing waits for drives
-      that do not exist — the failure to look for is fire control deadlocking rather than missing.
-- [ ] The round leaves **along the rail** and is clear of the craft before it turns.
+- [x] It fires. `Trains` is false, so `IsLaid` is true from the start and nothing waits for drives
+      that do not exist — the failure to look for is fire control deadlocking rather than missing. **Flown on 2026.9.22.5482**: `head-on` and a bridge `fire` both launch at once.
+- [x] The round leaves **along the rail** and is clear of the craft before it turns.
       `LaunchAlongTube` is true and the round coasts for `MunitionProfile.SeparationSeconds`
       before steering, so the arc it then flies is bounded by its own lateral g. Watch for a
-      round departing *through* the craft carrying it.
+      round departing *through* the craft carrying it. **Seen in game on 2026.9.22.5482**: paused 0.05 s after a bridge shot at 0.05x it was sliding up the rail, motor lit; 0.6 s later a straight trail from the rail and nothing through the craft.
 - [ ] The search volume follows the craft's attitude, not local up. `BoresightSource` is
       `PartForward` — pitch the craft over and the cone must go with it.
-- [ ] After the one round is gone the launcher stays empty. `ReloadSeconds` is zero.
+- [x] After the one round is gone the launcher stays empty. `ReloadSeconds` is zero. **Seen in game on 2026.9.22.5482**: `refused: out of rounds` over a minute after its shot.
 
 - [ ] **A Pantsir and a rail in the same world at once.** Each keeps its own search cone, round and
       envelope in the panel and in the overlay. Profiles belong to the system for exactly this
@@ -1112,10 +1112,10 @@ the mesh and the XML, and the suite.
 
 **Accuracy against a target that is not flying straight**
 
-- [ ] Long shots hit a test drone. Flown before this, the miss matched half a gravity drop times the
+- [x] Long shots hit a test drone. Flown before this, the miss matched half a gravity drop times the
       flight time squared at every range — 38 m at 2.8 s, 255 m at 7.3 s, 470 m at 8.7 s — because
       the lead predicted the drone along its velocity and an unpowered drone slows and falls. The
-      lead now adds the target's own acceleration, read off the engine with gravity put back.
+      lead now adds the target's own acceleration, read off the engine with gravity put back. **Flown on 2026.9.22.5482**: `gunnery`, contact hits after 10 s of flight on all four drones.
 - [ ] After each timed burst, `lead check` splits the burst's offset along the drone's track, up and
       right, beside what a lead assuming it held its velocity would have missed by. With the fix
       working the first is small while the second is large. If the two still agree, the acceleration
@@ -1198,7 +1198,7 @@ the mesh and the XML, and the suite.
       cursor, not short of it, and the barrel visibly elevates further as the cursor moves out. Laid
       along the line of sight it had fired level and landed within a kilometre or two whatever the
       range. Headless, the flown lay lands within 8 m out to 15 km on a round Earth
-      (`GroundLayTests`).
+      (`GroundLayTests`). **Flown on 2026.9.22.5482** as a designation, not the mouse -- `gunnery:3,ground,,,R`: worst 3.2 m at 2 km, 0.4 at 8 and 0.2 at 15. The barrel was not watched.
 - [ ] Over sky, or over a craft, mouse aim still lays along the line of sight: nothing about the air
       fight changed.
 - [x] Designate ground well past the Mk 42's reach, past 23.7 km, and fire. The shell lands as far out
@@ -1316,7 +1316,7 @@ the mesh and the XML, and the suite.
       `gunnery:1,craft,,,10000` on BIG BOOM flies it unattended.
 - [ ] The burst line of a shell fired at a designated craft says how far from the aim point it went
       off. It did not on the shot above, and why is not known: the shell is handed the craft as its
-      target and its aim point, which is what that line reads.
+      target and its aim point, which is what that line reads. **Still true on 2026.9.22.5482**: `gunnery:1,craft` on BIG BOOM logs `detonated on contact` with no distance.
 - [ ] Chase a shell onto a hillside. It stops short well before it lands. On a 9.9 km ground shot
       from the mountainside it stopped 29 ms before and held on the burst from 4 m: the countdown
       is the fall to the ground straight below, and the slope ahead is met first.
@@ -1423,7 +1423,7 @@ What to record next time, in this order, because each answers a different half:
 - [ ] Designate a point, fly level, and release with the ring on it. The bomb lands within tens of
       metres of it, with the `detonated on the ground, N m from the aim point` line to say how far.
       Hundreds of metres off is the tail kit; `./tools/scenario.sh drop` flies the same release
-      unattended and says which of the sight, the release and the fall the miss belongs to.
+      unattended and says which of the sight, the release and the fall the miss belongs to. **Flown on 2026.9.22.5482** climbing rather than level: `drop:3000,70,guided`, 20 deg above the horizon, landed 0.0 m from the aim point.
 - [ ] The log line for the release, and the whole `KSArmory.log`.
 - [x] The **pipper goes out when the store is released** — the arc from the craft and the ring
       under it, both. It answers "where would one released now land", and once the rack is empty
@@ -1459,9 +1459,9 @@ unflown is everything below the first four boxes: the refusals, the horizon and 
       than none. Reproduces at 2,705 m on earlier code, so the margin is not noise.
 - [x] The line under the trigger reads `Store in the air: N s to go, can still be walked ...`, and
       agrees with the ring. The two are one answer, so a disagreement is a bug rather than a rounding.
-- [ ] Clearing the designation does **not** turn the falling store back into an unguided one.
+- [x] Clearing the designation does **not** turn the falling store back into an unguided one. **Flown on 2026.9.22.5482**: `drop:6000,30,guided,,,20@clear`, landed 0.1 m from the aim it already had.
 - [ ] A release above about 15 km draws no circle at all and says nothing false — the probes are
-      bounded by the pipper's own `BombSight.MaxSteps` horizon.
+      bounded by the pipper's own `BombSight.MaxSteps` horizon. **Not reachable by the scenario**: `drop:16000,30,guided` climbs past 15.6 km and fails with `the sight had no solution to designate`, so nothing is released.
 - [x] **Warp, flown across the range on 2026.9.10.5438.** Identical releases every time — 6,001 m,
       275 m/s, 48 deg above the horizon, ejected 4.0 m/s at 50 deg to the rack — so what differs is
       the warp and nothing else.
@@ -1948,14 +1948,14 @@ Still open below.
 - [ ] **Removing a team** under **KSArmory settings → Teams** moves every craft on it to **No team**
       in the switcher, and each one's **Teams and IFF** tab reads `Own team: none`. Declaring the
       team again does not bring back the allied or neutral ticks it had.
-- [ ] **Warp overrun** - warp hard enough to exceed 0.32 s of simulated time per frame and confirm
-      the log warns how much time was discarded. That warning is a diagnostic, not a fix.
+- [x] **Warp overrun** - warp hard enough to exceed 0.32 s of simulated time per frame and confirm
+      the log warns how much time was discarded. That warning is a diagnostic, not a fix. **Seen in game on 2026.9.22.5482**: `step 19583 ms exceeds the 320 ms ...; 19.26 s of simulated time discarded`.
 - [ ] **Stock drones** — Gemini7 / Hunter / Banjo / Polaris / Rocket each spawn and fly.
 - [ ] **Battery stays put** — fly a second craft; the battery remains on the launcher and the
       panel says so.
 - [ ] **Two launchers on one craft** — two weapons, each with its own magazine, and the selector
       switching between them without either refilling.
-- [ ] **Reload cycle** — let it run dry and auto-reload rather than reloading by hand.
+- [x] **Reload cycle** — let it run dry and auto-reload rather than reloading by hand. **Seen in game on 2026.9.22.5482**: 23 rounds through the bridge across a 12.0 s reload.
 - [ ] **Manual designation** — designate a non-priority track and confirm it is engaged.
 
 ### 7.5 Known-missing behaviour, worth confirming is *survivable*
@@ -2578,13 +2578,13 @@ half stays a live craft after the split.
 Both unflown.
 
 - [ ] Fire the CIWS at something and confirm all four events — shot down, expired, arrived,
-      detonated — read `shell from barrel N` and never a negative number.
-- [ ] Confirm missiles still read `round 1..12`. The tube path is unchanged but shares the call.
-- [ ] Load a scene and confirm the ~48 s first frame produces **no** warning about rounds lagging,
-      with an empty sky. It should appear under **Verbose log** only.
-- [ ] Then warp hard with a salvo in the air and confirm the warning still fires on the *first*
+      detonated — read `shell from barrel N` and never a negative number. **Seen in game on 2026.9.22.5482**: shot down, expired and detonated all read `shell from barrel N`; `arrived` was not produced.
+- [x] Confirm missiles still read `round 1..12`. The tube path is unchanged but shares the call.
+- [x] Load a scene and confirm the ~48 s first frame produces **no** warning about rounds lagging,
+      with an empty sky. It should appear under **Verbose log** only. **Seen in game on 2026.9.22.5482**: KABOOM loaded with nothing in the air, no lag warning.
+- [x] Then warp hard with a salvo in the air and confirm the warning still fires on the *first*
       such frame. That is what the per-kind rate limit exists to protect: with one shared counter
-      the load frame spends the slot and the real overrun is silent.
+      the load frame spends the slot and the real overrun is silent. **Seen in game on 2026.9.22.5482**: the first frame at 1000x with a 57E6 up warned.
 
 **And the site shot two of them down.** The Pantsir at the target detected a warhead at 20 km, fired
 two interceptors, killed it at 11 m, re-laid on the next at 4.1 km and killed that at 15 m. The two
