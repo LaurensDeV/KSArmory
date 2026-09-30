@@ -618,6 +618,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/FROM-KSP-MODDING.md` | the concept map for anyone arriving from KSP part modding |
 | `docs/MODULARITY.md` | how far the profile/registry split actually generalises, and the test gaps to close before widening it |
 | `docs/WEAPON-TAXONOMY.md` | the same question from outside: which real weapon families share this data model, and which need a different one |
+| `docs/GUIDANCE-BACKLOG.md` | **a backlog, not a record** — seeker and guidance types to add eventually (SARH, laser, TV, MMW, APN, the seeker notch, multipath), what each reuses, and what is out of scope |
 | `docs/BATTERY-SPLIT.md` | what `WeaponSystem` should be split into, what to call it instead, and in what order |
 | `docs/WEAPON-PACKS.md` | **the pack author's reference** — the folder, the optional code entry point, and every attribute a definition file may carry |
 | `docs/EXTENSIBILITY.md` | **mostly built** — how a weapon pack registers itself without this mod knowing it exists, and what such a pack could never express |
