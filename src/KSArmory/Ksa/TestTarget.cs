@@ -268,6 +268,48 @@ internal static class TestTarget
         }
     }
 
+    /// <summary>
+    /// A stock craft set down on the ground at a latitude and longitude, standing still -- a target
+    /// to shoot at rather than one flying past. Built above <paramref name="platform"/> and then
+    /// teleported, because the launch menu's own placement is what puts a craft on the surface.
+    /// </summary>
+    public static Vehicle? SpawnParked(Vehicle platform, string craftName, string id, Celestial body,
+                                       double latitudeDeg, double longitudeDeg)
+    {
+        try
+        {
+            if (Universe.CurrentSystem is not { } system || platform.Parent is not { } parent) return null;
+
+            double3 up = KsaWorld.LocalUp(platform);
+            double3 spawnEcl = KsaWorld.PositionEcl(platform) + up * 500.0;
+            if (!ToParentInertial(parent, spawnEcl, KsaWorld.VelocityEcl(platform), out double3 posCci, out double3 velCci))
+            {
+                return null;
+            }
+
+            Orbit orbit = Orbit.CreateFromStateCci(parent, Universe.GetElapsedTime(), posCci, velCci,
+                                                   new byte4(255, 80, 80, 255));
+
+            using ShapesUnlock shapes = ConstraintSim.UnlockShapesBlocking();
+            DroneBlueprint blueprint = BuildDroneParts(platform, craftName);
+            Vehicle craft = Vehicle.CreateVehicle(system, platform.Body2Cce, bodyRates: default,
+                                                  parent, id, blueprint.Parts.Root, orbit);
+            parent.Children.Add(craft);
+            craft.Parts.RecomputeAllDerivedData();
+            craft.UpdateAfterPartTreeModification();
+            craft.UpdatePerFrameData();
+            craft.TeleportToLocation(body, latitudeDeg, longitudeDeg);
+
+            Log.Info($"parked '{id}' ({craftName}) at {latitudeDeg:F4}, {longitudeDeg:F4} on {body.Id}");
+            return craft;
+        }
+        catch (Exception e)
+        {
+            Log.Error("parked target spawn failed", e);
+            return null;
+        }
+    }
+
     /// <summary>Stock craft that ship with the game, usable as drones.</summary>
     public static readonly string[] StockCraft = ["Gemini7", "Hunter", "Banjo", "Polaris", "Rocket"];
 

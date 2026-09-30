@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-267 types and 717 members across 11 assemblies.
+267 types and 718 members across 11 assemblies.
 
 ## BepuUtilities
 
@@ -902,6 +902,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.GameSave get_Selected()`
 - `string get_SaveFolderPath()`
 - `void LoadSaveGame(string)`
+- `void MakeUncompressedSave(string)`
 
 ### KSA.GameSettings
 

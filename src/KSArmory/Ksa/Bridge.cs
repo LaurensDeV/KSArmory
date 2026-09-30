@@ -242,6 +242,9 @@ internal sealed class Bridge : IViewPose
             "fly" => Fly(command),
             "watch" => Watch(command),
             "fire" => Fire(command),
+            "spawn" => Spawn(command),
+            "ground" => Ground(command),
+            "save" => SaveGame(command),
             _ => Failed($"no command '{command.Name}'"),
         };
 
@@ -579,6 +582,7 @@ internal sealed class Bridge : IViewPose
                 ["bearing_deg"] = Math.Round((bearing + 360.0) % 360.0, 1),
                 ["elevation_deg"] = Math.Round(double.RadiansToDegrees(Math.Asin(Math.Clamp(Vec.Dot(to, up) / range, -1.0, 1.0))), 1),
                 ["radar_m2"] = Math.Round(RadarSignature.CrossSectionFor(KsaWorld.MeanRadius(v))),
+                ["situation"] = v.Situation.ToString(),
             });
         }
 
@@ -592,6 +596,61 @@ internal sealed class Bridge : IViewPose
         });
 
         return seen;
+    }
+
+    // A stock craft parked on the ground at lat/lon, as a target: craft is the stock save's name.
+    private static Reply Spawn(BridgeCommand command)
+    {
+        if (KsaWorld.ControlledVehicle is not { } flown) return Failed("no craft is being flown");
+        if (Detonation.BodyFor(flown) is not { } body) return Failed("no body under the craft");
+
+        string stock = command.String("craft");
+        if (stock.Length == 0) stock = "Rocket";
+        string name = command.String("name");
+        if (name.Length == 0) name = $"Target {stock}";
+
+        return TestTarget.SpawnParked(flown, stock, name, body, command.Number("lat", 0.0), command.Number("lon", 0.0)) is { }
+            ? Done(new() { ["name"] = name })
+            : Failed($"could not park a {stock}");
+    }
+
+    // The ground's height against sea level at lat/lon, negative where it is seabed -- or along a line
+    // to to_lat/to_lon in steps -- so a place can be surveyed without setting a craft down on it.
+    private static Reply Ground(BridgeCommand command)
+    {
+        if (KsaWorld.ControlledVehicle is not { } flown || Detonation.BodyFor(flown) is not { } body)
+        {
+            return Failed("no body under the craft");
+        }
+        KsaWorld.TrySeaLevel(body, out double sea);
+
+        double lat = command.Number("lat", 0.0), lon = command.Number("lon", 0.0);
+        double toLat = command.Number("to_lat", lat), toLon = command.Number("to_lon", lon);
+        int steps = Math.Clamp((int)command.Number("steps", 0.0), 0, 200);
+
+        List<object?> line = [];
+        for (int i = 0; i <= steps; i++)
+        {
+            double t = steps == 0 ? 0.0 : (double)i / steps;
+            double la = lat + ((toLat - lat) * t), lo = lon + ((toLon - lon) * t);
+            double3 dir = body.GetDirCcfFromLatLon(la, lo);
+            double height = body.GetTerrainHeightFromDirCcf(dir, accurate: true);
+            line.Add(new Dictionary<string, object?>
+            {
+                ["lat"] = Math.Round(la, 5), ["lon"] = Math.Round(lo, 5), ["ground_m"] = Math.Round(height - sea, 1),
+            });
+        }
+
+        return Done(new() { ["sea_level_m"] = Math.Round(sea, 1), ["points"] = line });
+    }
+
+    // The game written to a save of this name, as KSA's own save console command writes it.
+    private static Reply SaveGame(BridgeCommand command)
+    {
+        string name = command.String("name");
+        if (name.Length == 0) return Failed("a save needs a name");
+        GameSaves.MakeUncompressedSave(name);
+        return Done(new() { ["name"] = name });
     }
 
     // A craft by the name it shows, falling back to the one being flown.
@@ -888,7 +947,7 @@ internal sealed class Bridge : IViewPose
     // height there, so a caller looking for night can tell whether it got one.
     private Reply? Site(BridgeCommand command)
     {
-        if (KsaWorld.ControlledVehicle is not { } craft) return Failed("no craft is being flown");
+        if (CraftNamed(command.String("craft")) is not { } craft) return Failed("no such craft");
         if (Detonation.BodyFor(craft) is not { } here) return Failed("no body under the craft");
 
         string body = command.String("body");

@@ -363,9 +363,11 @@ TOOLS = {
                     "orbit_deg_s": _num("deg a second the view circles the burst, paused or not"),
                     "release": {"type": "boolean"}}, [],
                    lambda a: [_text(json.dumps(send("camera", **{**PRESETS.get(a.pop("preset", ""), {}), **a})))]),
-    "ksa_site": ("Set the craft down at a latitude and longitude, on its body or a named one, and clear the "
-                 "clouds. Returns the sun's elevation there: negative is night.",
-                 {"lat": _num("deg"), "lon": _num("deg"), "body": {"type": "string"}}, ["lat", "lon"],
+    "ksa_site": ("Set a craft (the flown one unless craft names another) down at a latitude and longitude, on its "
+                 "body or a named one, and clear the clouds. Over the sea it lands on the seabed. Returns the sun's "
+                 "elevation there: negative is night.",
+                 {"lat": _num("deg"), "lon": _num("deg"), "body": {"type": "string"}, "craft": {"type": "string"}},
+                 ["lat", "lon"],
                  lambda a: [_text(json.dumps(send("site", timeout=60, **a)))]),
     "ksa_capture": ("Screenshot the game. frames>1 takes a series (every_s simulated seconds, or every_frames "
                     "rendered frames when paused) and returns a sheet, an animation path and a temporal-noise "
@@ -436,6 +438,16 @@ TOOLS = {
                  {"craft": {"type": "string"}, "east_m": _num("m"), "north_m": _num("m"), "up_m": _num("m"),
                   "lay": {"type": "boolean"}}, [],
                  lambda a: [_text(json.dumps(send("fire", **a)))]),
+    "ksa_spawn": ("Park a stock craft (craft, default Rocket) on the ground at lat/lon as a target, named name.",
+                  {"craft": {"type": "string"}, "name": {"type": "string"}, "lat": _num("deg"), "lon": _num("deg")},
+                  ["lat", "lon"], lambda a: [_text(json.dumps(send("spawn", **a)))]),
+    "ksa_ground": ("The ground's height against sea level at lat/lon (negative is seabed depth), or along a line "
+                   "to to_lat/to_lon in steps. Reads the height field; places nothing.",
+                   {"lat": _num("deg"), "lon": _num("deg"), "to_lat": _num("deg"), "to_lon": _num("deg"),
+                    "steps": _num("count")}, ["lat", "lon"],
+                   lambda a: [_text(json.dumps(send("ground", **a)))]),
+    "ksa_save": ("Write the game to a save of this name, as KSA's save console command does.",
+                 {"name": {"type": "string"}}, ["name"], lambda a: [_text(json.dumps(send("save", **a)))]),
     "ksa_log": ("The mod's log, filtered.", {"pattern": {"type": "string"}, "lines": _num("count")}, [],
                 lambda a: [_text(log_tail(a.get("pattern", ""), int(a.get("lines", 40))))]),
 }

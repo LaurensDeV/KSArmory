@@ -87,6 +87,19 @@ Every call goes under a `timeout`: a bridge `step` blocks, and a hung call other
 shell. A capture saves a PNG under `$U/Logs/bridge/out/<id>/`; it is RGBA, so convert before
 saving it as a JPEG to look at.
 
+**Setting a scene up, then keeping it.** `site {"craft":...,"lat":...,"lon":...}` sets any craft
+down, `spawn {"craft":"Rocket","name":...,"lat":...,"lon":...}` parks an uncrewed stock craft as a
+target, `ground {"lat","lon","to_lat","to_lon","steps"}` reads the height against sea level along a
+line without placing anything, and `save {"name":...}` writes it all to a save as KSA's console
+does. `status` gives every craft's situation, which is how to tell `Landed` from in the surf.
+
+- **Survey with `ground` before `site`.** A place at sea sets a craft on the seabed, 4 km down in the
+  open ocean, and a place too shallow for it grounds it; setting a grounded craft down again and
+  again destroyed one. KSA's coastlines and depths are not the atlas's.
+- **`status`'s `agl_m` is height over the ground under the craft**, which at sea is the seabed.
+- **A save keeps the live throttle** (`<EngineThrottle>`): zero it in the file after a `save`, or the
+  craft sets off the moment it loads.
+
 **`fire` lays a gun before it shoots**: the point is designated, as a shift-click would, and the
 reply comes once the burst has begun, with `laid_after_s`; its rounds appear on the next step. `"lay": false` fires along wherever the
 barrel points, which for an idle gun is its rest line. A missile's `"fired": 0` means the tubes

@@ -559,7 +559,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/RoundContact.cs` | somebody else's round in the air, as a thing a radar can see and a gun can shoot at |
 | `Ksa/Track.cs` | one contact, with the kinematics the threat model reasons about |
 | `Ksa/TestTarget.cs` | spawns drones to shoot at, from the panel |
-| `Ksa/Bridge.cs` | **commands from outside the game**, read from a folder beside the log and answered in another — pause, step, burst, camera, capture with a manifest, reload the shaders, and for a scripted engagement a craft's weapons settings, its countermeasures, flying it by pitch and heading, and the view held on one round, crewed or loose — so an agent can drive a game that stays running. **Files, not a socket**, because the mod reaches the network only when a player clicks Send |
+| `Ksa/Bridge.cs` | **commands from outside the game**, read from a folder beside the log and answered in another — pause, step, burst, camera, capture with a manifest, reload the shaders, and for a scripted engagement a craft's weapons settings, its countermeasures, flying it by pitch and heading, a craft set down anywhere, a stock target parked, the game saved, and the view held on one round, crewed or loose — so an agent can drive a game that stays running. **Files, not a socket**, because the mod reaches the network only when a player clicks Send |
 | `Ksa/ScenarioRunner.cs` | flies a scripted scenario with nobody watching, and says what happened |
 | `Ksa/BallisticScenario.cs` | the ballistic one of those — designate, arm, stage, and report what the warheads did |
 | `Ksa/DropScenario.cs` | the store one — fly a craft up, let a store go, and say where it landed against the sight and against a flight off the state it actually left with |
@@ -590,7 +590,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 717 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 718 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
