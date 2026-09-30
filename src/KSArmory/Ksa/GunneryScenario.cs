@@ -633,7 +633,12 @@ internal sealed class GunneryScenario
         string name = shell.StruckBody is Vehicle struck ? KsaWorld.DisplayName(struck) : string.Empty;
         bool onCraft = name.Length > 0
                        && (name == _craftName || name.StartsWith(_craftName + "_", StringComparison.Ordinal));
-        double range = Vec.Len(shell.OffsetFromPlatform);
+        // The shell's position is at the burst and its offset against the mount's end-of-step sample, so
+        // the mount is carried back to the burst, or the range carries up to a step of ~30 km/s.
+        double3 mountAtSample = shell.PositionEcl - shell.OffsetFromPlatform;
+        double3 mountVelocity = _wired?.Platform is { } mount ? KsaWorld.VelocityEcl(mount) : Vec.Zero;
+        double range = Vec.Len(shell.PositionEcl
+                               - InFrame.AtBurst(mountAtSample, mountVelocity, shell.DetonationElapsedInFrame));
 
         if (onCraft) _struck++;
 
