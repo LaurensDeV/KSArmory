@@ -765,17 +765,17 @@ destroys it. Untick it to get the old binary kill back and compare.
 
 - [ ] Both ALE-47 parts appear in the editor, surface-attach, and throw out of their face.
 - [ ] Under **Countermeasures** the flare part reads 15/15 and the chaff part 30/30; **Flares** throws two, a quarter-second apart, and only from a flare part.
-- [ ] With a symmetric pair of flare parts, each press throws from both sides at once, and each part runs down by its own salvo.
-- [ ] A flare is a white-hot point with a white smoke trail, and burns out in about four and a half seconds.
+- [x] With a symmetric pair of flare parts, each press throws from both sides at once, and each part runs down by its own salvo. **Seen in game on 2026.9.22.5482** on `GUIDED MISSILE TEST - CHAFF`: four flares a press, two either side of the craft.
+- [ ] A flare is a white-hot point with a white smoke trail, and burns out in about four and a half seconds. The point and the trail **seen on 2026.9.22.5482**; the burn time not measured.
 - [ ] Chaff is a faint grey puff that stops where it was thrown.
-- [ ] An AIM-9J at a craft dropping flares is usually taken: the log reads `was taken by MJU-7 flare`, and it bursts away from the craft.
-- [ ] The same AIM-9J at a craft dropping chaff is not.
-- [ ] An AIM-120C ignores chaff from a craft flying away from it, and is sometimes taken when the craft beams.
-- [ ] A seduced missile's burst does not register as a hit on the craft unless it was close enough to be.
+- [x] An AIM-9J at a craft dropping flares is usually taken: the log reads `was taken by MJU-7 flare`, and it bursts away from the craft. **Seen in game on 2026.9.22.5482**, with the Pantsir's missiles flown on an infrared seeker (`ksa_system seeker=infrared`) rather than the rail: four of six taken, `was taken by MJU-7 flare` at 20:1, bursting 54–189 m out; one lost its flare as it burnt out and came back to hit.
+- [x] The same AIM-9J at a craft dropping chaff is not. **Seen in game on 2026.9.22.5482**, the same infrared missiles: flew through the chaff and hit at 18 m.
+- [x] An AIM-120C ignores chaff from a craft flying away from it, and is sometimes taken when the craft beams. **Seen in game on 2026.9.22.5482**, `seeker=radar-gated`: flying directly away, four chaff salvos ignored and hits at 22 and 17 m; climbing square to the line of sight, both taken at 120–134 m. An ungated radar seeker was taken every time.
+- [x] A seduced missile's burst does not register as a hit on the craft unless it was close enough to be. **Seen in game on 2026.9.22.5482**: a flare-seduced burst 52 m away logged `near miss`, not damage.
 - [ ] Beaming the Pantsir and dropping chaff logs `lost <craft> to chaff in the notch`; a 57E6 in flight then logs `lost its uplink` and misses.
 - [ ] Three seconds later the Pantsir has you again, and more chaff while still beaming does not break it a second time.
 - [ ] The same chaff while flying straight at or away from the Pantsir breaks nothing.
-- [ ] **Auto-dispense** answers an AIM-9J with flares and an AIM-120C with chaff, at most once a second.
+- [x] **Auto-dispense** answers an AIM-9J with flares and an AIM-120C with chaff, at most once a second. **Seen in game on 2026.9.22.5482**: flares for the infrared seeker and chaff for both radar ones, salvos 1.0 s apart.
 - [ ] Thirty decoys in the air cost under a millisecond: `decoys` and `decoy fx` in the frame budget.
 
 ---
@@ -1056,22 +1056,22 @@ is genuinely new:
       rounds and different seekers is the case the per-system profiles exist for, and it has never
       been run.
 
-### 7.1d3 The 5"/54 Mk 42 mount — it loads and crews; nothing it does has been seen
+### 7.1d3 The 5"/54 Mk 42 mount — it shoots, recoils and hits; the ground lay by hand and some looks are left
 
 **Confirmed from the log**, first version: it registers (`ready - ... 5"/54 Mk 42`), is crewed, and
 resolves its turret and cannon by name, with no asset or XML error in KSA's own log. One shell was
 fired and fell through the planet, reaching 725 km/s — which is what `HitsTerrain` on its profile now
 stops, and that is unflown too.
 
-Everything below is Mallikas's second version — a barrel that recoils, a shell body and a painted texture set — and none of it has been flown. The headless gates are green:
+Everything below is Mallikas's second version — a barrel that recoils, a shell body and a painted texture set. Most of it was flown on 2026.9.22.5482; what is still open is unticked. The headless gates are green:
 `checkmesh.py` clean, `validate-parts.py` holding the trunnion, the barrel, the muzzle and the shell to
 the mesh and the XML, and the suite.
 
 **The model**
 
-- [ ] It renders painted rather than white or magenta, and the shell body carries its olive and yellow.
-- [ ] It sits upright on a 3 m node with the barrel forward. The model was rotated into part space by
-      a map baked into the vertices, and a frame error there is the mount on its side, not something subtle.
+- [x] It renders painted rather than white or magenta, and the shell body carries its olive and yellow. **Seen in game on 2026.9.22.5482**: the mount in haze grey with its dark trunnion band, the shell olive with its yellow band and painted nose.
+- [x] It sits upright on a 3 m node with the barrel forward. The model was rotated into part space by
+      a map baked into the vertices, and a frame error there is the mount on its side, not something subtle. **Seen in game on 2026.9.22.5482**, on the `5inch_gun` save.
 - [x] On a 2 m or a 3 m tank its base sits on the tank's end, not inside it. **Seen in game**; the
       CIWS, fixed the same way, not looked at. Both
       nodes were unsized, so KSA mated them on the tank's nested `Internal` node: saved at 1.92 m on a
@@ -1083,24 +1083,24 @@ the mesh and the XML, and the suite.
       tolerance` in KSA's own log says which part and whether this is it.
 - [ ] The barrel stays in the cannon through a full traverse and from -15 to +85. It rides the
       cannon's trunnion, so it should never part from the breech; if it does, the barrel's `<Position>`
-      and the trunnion disagree.
+      and the trunnion disagree. Seen seated at about +82° and traversed due south on 2026.9.22.5482; depression not flown.
 - [ ] Nothing checks the barrel against the gun house roof at high elevation: `checkswept.py` sweeps
       only the vehicles named in `vehicles()`, and this is not one.
 
 **Recoil**
 
-- [ ] Each shot runs the barrel back and eases it home in about two thirds of a second. The numbers
+- [x] Each shot runs the barrel back and eases it home in about two thirds of a second. The numbers
       are set by eye; if it reads as a twitch or a slide, `GunRecoilMetres`, `GunRecoilSeconds` and
-      `GunReturnSeconds` are the three to move.
-- [ ] Pausing freezes a barrel mid-recoil rather than finishing it: recoil runs on simulated time.
+      `GunReturnSeconds` are the three to move. **Seen in game on 2026.9.22.5482**: at 0.1x the barrel is back in the gun house on the first frame and out again by about half a second of sim time.
+- [x] Pausing freezes a barrel mid-recoil rather than finishing it: recoil runs on simulated time. **Seen in game on 2026.9.22.5482**: two paused captures 4 s apart show it retracted to the same place.
 
 **Shell bodies**
 
 - [x] A shell in flight is drawn as the shell. **Seen in game.**
-- [ ] It flies nose first and carries its olive and yellow; easiest from the chase camera, since at
-      807.7 m/s it covers thirteen metres a frame.
-- [ ] A shell drawn as a body has no streak line and no glowing tracer on it. Those are for a shell
-      with nothing else on screen, and were drawn on top of the body when it was first seen.
+- [x] It flies nose first and carries its olive and yellow; easiest from the chase camera, since at
+      807.7 m/s it covers thirteen metres a frame. **Seen in game on 2026.9.22.5482**, ridden with the bridge's `watch`.
+- [x] A shell drawn as a body has no streak line and no glowing tracer on it. Those are for a shell
+      with nothing else on screen, and were drawn on top of the body when it was first seen. **Seen in game on 2026.9.22.5482**, with the shader pass on.
 - [ ] A shell that bursts or lands takes its body with it; nothing is left hanging in the air.
 - [x] Every shell in the air has a body however many there are: shells are instances of one model
       now, not subparts lent from a pool of twenty.
@@ -1187,10 +1187,10 @@ the mesh and the XML, and the suite.
       engines' exhaust velocity put the first shell on every drone at 8.1 km. Incoming rounds now
       report their pull and drag, unflown against a gun. The whole model is a copy of today's
       engine drag, which RocketWerkz are reworking — `docs/BLOCKED-ON-KSA.md`.
-- [ ] The Phalanx and the Pantsir's cannon go through the same flown lead. Their shells are short-lived,
-      so the change is small, but it is unflown: a CIWS against a crossing drone should hit as before.
+- [x] The Phalanx and the Pantsir's cannon go through the same flown lead. Their shells are short-lived,
+      so the change is small, but it is unflown: a CIWS against a crossing drone should hit as before. **Seen in game on 2026.9.22.5482**: `KSARMORY_SCENARIO_SAVE="CIWS" gunnery:3,passing,15,200,500` 3 of 3 drones, 11 bursts at 0.0 m from 344 shells; `KSARMORY_SCENARIO_SAVE="KABOOM" gunnery:2,passing,12,200,1500` 2 of 2, 6 bursts at 0.0 m, no missile fired.
 - [ ] Frame time with a Mk 42 tracking is not visibly worse. A solve flies the shell a few hundred steps
-      per pass and starts from the last frame's answer; it has not been measured in a frame.
+      per pass and starts from the last frame's answer; it has not been measured in a frame. **Measured on 2026.9.22.5482** with a verbose `gunnery:2`: fire control 0.13–0.38 ms a frame while engaging and the whole mod 0.3–0.7 ms, against 0.15 idle -- but one frame of 44 ms as it took a drone, which is a hitch anyone would see.
 
 **Aiming at the ground**
 
@@ -1250,11 +1250,11 @@ the mesh and the XML, and the suite.
       the almost-airless drag, and a lead now has longer to be wrong in. **Confirmed on 2026.9.10.5438**
       with `gunnery`: 4 of 4 drones had a burst inside the 11 m lethal radius, the first on each 6.0–6.2 km
       out after about 10 s of flight and all 5 at 0.0 m, from 28 shells, with no exception in KSA's log.
-- [ ] The same overhead and far out (`gunnery:3,overhead,...`). A shell to 15.7 km now takes 36–43 s
-      rather than 20–23, and the envelope's far edge straight up is near the shell's ceiling.
-- [ ] Gun shells step second order (`Slug.SecondOrder`). Headlessly at 60 fps a shell 15.7 km out bursts
+- [x] The same overhead and far out (`gunnery:3,overhead,...`). A shell to 15.7 km now takes 36–43 s
+      rather than 20–23, and the envelope's far edge straight up is near the shell's ceiling. **Seen in game on 2026.9.22.5482** with `gunnery:3,overhead,50,300,1500`: 3 of 3 drones, every burst 0.0 m at 11.2–11.4 km after about 22.7 s.
+- [x] Gun shells step second order (`Slug.SecondOrder`). Headlessly at 60 fps a shell 15.7 km out bursts
       1.3 m from its target against 3.8 m first order (`FlownLeadTests`); a CIWS and a Pantsir burst
-      should look and score as before.
+      should look and score as before. **Seen in game on 2026.9.22.5482**: the CIWS and Pantsir runs above score 0.0 m on every burst.
 - [x] The Phalanx still reaches 1486 m and a burst still kills a crossing drone. Its 20 mm round's drag is
       now its mass, calibre and coefficient, 44 times the constant it had: headlessly it takes 2.1 s to
       get there and arrives at under half its muzzle speed, and it lives 2.5 s rather than 2. **Confirmed
@@ -1338,10 +1338,10 @@ the mesh and the XML, and the suite.
 
 - [ ] One press is one shell, with one flash and one gunshot, and auto-engage fires at
       40 rpm. The first flight of this version fired a 20-round burst from one press — a minute of
-      firing, with the flash and a machine-gun loop held open the whole time.
-- [ ] The flash shows at all. A one-round burst closes inside the step it opens, so the flash is held
+      firing, with the flash and a machine-gun loop held open the whole time. **Seen in game on 2026.9.22.5482**: four bridge presses 4 s apart, four shells; one flash each; auto-engage 1.45–1.57 s apart over 28 shots. The gunshot has not been listened to.
+- [x] The flash shows at all. A one-round burst closes inside the step it opens, so the flash is held
       for 0.12 s after each shot rather than for as long as a burst is open. If nothing appears, that
-      hold is too short for the emitter to spawn anything.
+      hold is too short for the emitter to spawn anything. **Seen in game on 2026.9.22.5482**: caught at 0.05x, a flash at the muzzle, and again after twenty-odd separate shots.
 - [ ] No machine-gun rattle. A gun with a gunshot and no loop of its own gets no loop, rather than the
       Phalanx's.
 - [ ] A shell's burst is KSA's `SmallFire`, and sounds like it. The shell carries no burst sound of its
@@ -1365,16 +1365,16 @@ the mesh and the XML, and the suite.
       `./tools/repair-saves.py --fix`; without it the game closes on load.
 - [x] A shell in the air when its mount is destroyed keeps its body and flies on.
 
-### 7.1d4 The M197 chin turret — nothing about it has been seen
+### 7.1d4 The M197 chin turret — it lays all round and hits a drone; the moving parts not looked at
 
 Mallikas's model, split into a fixed ring, a traversing yoke, the gun, the actuators' cylinders and
 rods, the belt and the barrels. Headless gates green: `checkmesh.py --near-max 0` clean (after dropping the belt's
 buried end cap and one interior face in the yoke), `validate-parts.py` holding every pivot and the
 three muzzles, `ActuatorLinkageTests` and the traverse-limit tests.
 
-- [ ] It renders painted, hanging under the host with the barrels forward.
+- [ ] It renders painted, hanging under the host with the barrels forward. Seen on 2026.9.22.5482 on the `M197 TEST` save, which carries it on the side of a rocket: painted gunmetal, barrels along the host. Not yet seen under a nose.
 - [ ] It surface-attaches under a nose and is greyed out on an empty editor, as a store is.
-- [ ] The yoke traverses and stops at ±110° until its travel map is swept, then at whatever its craft allows — all the way round on the side of a rocket. The log's `travel map:` line says which, and what the sweep cost.
+- [x] The yoke traverses and stops at ±110° until its travel map is swept, then at whatever its craft allows — all the way round on the side of a rocket. The log's `travel map:` line says which, and what the sweep cost. **Seen in game on 2026.9.22.5482**: `travel map: M197 chin turret on NewRocket_1 traverses all the way round`, and it laid on points north, south, east and west in about a second each.
 - [ ] A gun whose line of fire meets its own craft does not fire through it; the Mk 42 on a deck and the CIWS on a stack get the same map.
 - [ ] A craft breaking up is swept once it settles, with no hitch in the frame budget's `travel` entry.
 - [ ] Each cylinder turns on its top pin and its rod slides out as the gun depresses, staying on the
@@ -1383,7 +1383,7 @@ three muzzles, `ActuatorLinkageTests` and the traverse-limit tests.
 - [ ] The barrels spin up as it fires, run down over about a second after, and stay in the gun.
 - [ ] At 50° of depression the back of the gun rises about 5 cm into the ring; decide whether that shows.
 - [ ] The loop plays while firing with no click at its seam, and the tail plays when it stops.
-- [ ] The sight sees targets under and ahead of the host, and the gun hits a drone.
+- [x] The sight sees targets under and ahead of the host, and the gun hits a drone. **Seen in game on 2026.9.22.5482**: `gunnery:2,passing,15,150,300` on `M197 TEST`, 2 of 2 drones and 5 bursts at 0.0 m, once the scenario brought them in where the sight looks -- on the fixed bearing it saw nothing. Targets under the host not tried.
 
 ### 7.1f Releasing a bomb
 
@@ -1401,14 +1401,14 @@ never leaves or never arrives, the other is a ring in the wrong place over a rou
 
 What to record next time, in this order, because each answers a different half:
 
-- [ ] Does the rack **release** at all? The trigger fires without a lock and auto-engage refuses
-      it outright and says why, so the panel's *Holding fire* line is the first thing to read.
+- [x] Does the rack **release** at all? The trigger fires without a lock and auto-engage refuses
+      it outright and says why, so the panel's *Holding fire* line is the first thing to read. **Seen in game on 2026.9.22.5482**: `scenario.sh drop` releases at 1001 m.
 - [ ] Does the bomb **fall away from the aircraft**, nose-down, rather than sideways or through it?
-- [ ] Does it **burst on the ground** rather than passing through? `HitsTerrain` is set for this
+- [x] Does it **burst on the ground** rather than passing through? `HitsTerrain` is set for this
       round and the Mk 21 reentry vehicle, so it is nearly the only thing exercising
-      `Ksa/GroundTest.cs`.
-- [ ] Does the **ring** sit where it lands? A ring in the wrong place with a bomb that arrives
-      correctly is the sight; a bomb that goes nowhere near the ring is the round.
+      `Ksa/GroundTest.cs`. **Seen in game on 2026.9.22.5482**: the same drop comes down 36.3 s after release and bursts.
+- [x] Does the **ring** sit where it lands? A ring in the wrong place with a bomb that arrives
+      correctly is the sight; a bomb that goes nowhere near the ring is the round. **Seen in game on 2026.9.22.5482**: 0 m from the ring and 0 m from a flight off the release state.
 - [x] The ring allows for the planet's turn. `BombSight` flies the fall against where the ground has
       carried the release round the centre, reads the terrain where the round is in that turning frame,
       and puts the ring on the ground that will be under the landing: headlessly a 5 km drop at 250 m/s
