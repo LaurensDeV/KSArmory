@@ -434,9 +434,9 @@ TOOLS = {
     "ksa_fire": ("Fire a craft's selected weapon at a point east_m/north_m/up_m of the craft (up_m defaults "
                  "to the ground under it). A gun or a launcher that trains is designated onto the point and "
                  "fires once it is laid, answering when the shot is away; lay=false fires it wherever it "
-                 "points now.",
+                 "points now. rounds sets how many a gun fires in place of its burst.",
                  {"craft": {"type": "string"}, "east_m": _num("m"), "north_m": _num("m"), "up_m": _num("m"),
-                  "lay": {"type": "boolean"}}, [],
+                  "lay": {"type": "boolean"}, "rounds": _num("rounds")}, [],
                  lambda a: [_text(json.dumps(send("fire", **a)))]),
     "ksa_spawn": ("Park a stock craft (craft, default Rocket) on the ground at lat/lon as a target, named name.",
                   {"craft": {"type": "string"}, "name": {"type": "string"}, "lat": _num("deg"), "lon": _num("deg")},

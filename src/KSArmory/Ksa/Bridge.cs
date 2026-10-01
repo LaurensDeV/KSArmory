@@ -375,7 +375,7 @@ internal sealed class Bridge : IViewPose
 
                 if (belt)
                 {
-                    return weapon.FireBurst()
+                    return weapon.FireBurst((int)command.Number("rounds", 0.0))
                                ? Done(new() { ["burst"] = true,
                                               ["weapon"] = weapon.Profile.DisplayName,
                                               ["laid_after_s"] = Math.Round(waited, 2),

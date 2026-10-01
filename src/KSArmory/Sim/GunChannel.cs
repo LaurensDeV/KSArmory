@@ -18,6 +18,11 @@ internal sealed class GunChannel
     /// <summary>Rounds still owed on the burst in progress. Zero between bursts.</summary>
     public int BurstRemaining { get; private set; }
 
+    /// <summary>
+    /// How many rounds the next burst fires in place of the profile's, once; zero for the profile's.
+    /// </summary>
+    public int NextBurstRounds { get; set; }
+
     /// <summary>Seconds until the next round may leave.</summary>
     public double Cooldown { get; private set; }
 
@@ -71,7 +76,8 @@ internal sealed class GunChannel
                 if (Cooldown < 0.0) Cooldown = 0.0;
                 return 0;
             }
-            BurstRemaining = Math.Max(1, profile.GunBurstRounds);
+            BurstRemaining = Math.Max(1, NextBurstRounds > 0 ? NextBurstRounds : profile.GunBurstRounds);
+            NextBurstRounds = 0;
         }
 
         double interval = profile.GunRoundInterval;

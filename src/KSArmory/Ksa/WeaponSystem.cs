@@ -2671,8 +2671,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     ///
     /// <para>Every refusal is announced. "Nothing happened" is the same symptom for a switched-off
     /// cannon, an empty belt and a mount still slewing.</para>
+    ///
+    /// <para><paramref name="rounds"/> above zero fires that many rather than the profile's burst.</para>
     /// </summary>
-    public bool FireBurst()
+    public bool FireBurst(int rounds = 0)
     {
         if (!Profile.HasCannon) { Announce("refused: no cannon fitted"); return false; }
         if (Platform is null) { Announce("refused: no platform"); return false; }
@@ -2681,6 +2683,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         if (_guns.IsEmpty) { Announce("refused: belt empty"); return false; }
         if (!GunsAreLaid) { Announce("refused: cannon still laying"); return false; }
 
+        _guns.NextBurstRounds = Math.Max(rounds, 0);
         _manualTrigger = true;
         return true;
     }

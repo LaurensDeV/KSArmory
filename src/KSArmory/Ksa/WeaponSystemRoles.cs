@@ -323,7 +323,7 @@ internal interface IManualFire : IWeaponPlatform, IWeaponLoadout
     bool CanGuideOnto(double3 pointEcl);
 
     /// <summary>Opens a cannon burst along wherever the mount is laid.</summary>
-    bool FireBurst();
+    bool FireBurst(int rounds = 0);
 
     /// <summary>Which armament the manual trigger fires, and so which one a click on the world does.</summary>
     ArmamentKind TriggerArmament { get; }
