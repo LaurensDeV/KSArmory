@@ -25,8 +25,10 @@ namespace KSArmory;
 /// each short of the engine's threshold leave nothing asked about one at a time. So a front that
 /// arrives while another is still due at the same part inside this one's positive phase hands its
 /// load on, and the part is loaded once, at the last of them, with what is left of each and the
-/// most head-on pair meeting as at a wall (<see cref="BlastDamage.Combine"/>). Loaded past what
-/// breaks it, the part breaks, unless the craft is one the burst may only dent.</para>
+/// most head-on pair meeting as at a wall (<see cref="BlastDamage.Combine"/>). Each front was charged
+/// to the part's health at its flash, so what fronts together cost it on top is that reflection
+/// (<see cref="BlastDamage.MeetingShare"/>), and the part breaks when its health runs out, unless the
+/// craft is one the burst may only dent.</para>
 /// </summary>
 internal static class BlastArrivals
 {
@@ -49,6 +51,9 @@ internal static class BlastArrivals
         // The burst's own front, in the air it went off in.
         public required BlastFront Front;
         public required bool MayBreak;
+
+        // Config.DamageScale when the burst went off.
+        public required double DamageScale;
 
         // Seconds since the burst, and the front's arrival at this part as things stand now.
         public double Age;
@@ -105,10 +110,11 @@ internal static class BlastArrivals
     /// seconds ago, to reach one part. <paramref name="airRatio"/> is the air at the burst against
     /// sea level, zero where there is none, which strikes at once: with no air there is no front.
     /// <paramref name="mayBreak"/> is false for a craft the burst only dents, which fronts together
-    /// cannot break either.
+    /// cannot break either. <paramref name="damageScale"/> is what fronts meeting here cost the part's
+    /// health per share (<see cref="PartHealth"/>).
     /// </summary>
     public static void Queue(Vehicle craft, Part part, double3 burstEcl, double sinceBurst, double airRatio,
-                             double chargeKg, double crashTolerancePascals, bool mayBreak,
+                             double chargeKg, double crashTolerancePascals, bool mayBreak, double damageScale,
                              double reflection = BlastWave.SurfaceReflection, GroundReflection? ground = null,
                              BlastFront? front = null)
     {
@@ -127,6 +133,7 @@ internal static class BlastArrivals
             Ground = ground ?? GroundReflection.FreeAir,
             Front = front ?? BlastFront.SeaLevel(chargeKg),
             MayBreak = mayBreak,
+            DamageScale = damageScale,
             Age = Math.Max(sinceBurst, 0.0),
         });
     }
@@ -330,11 +337,14 @@ internal static class BlastArrivals
                 }
             }
 
-            (double ratio, double share) = BlastDamage.Combine(CollectionsMarshal.AsSpan(_together));
+            (double ratio, _) = BlastDamage.Combine(CollectionsMarshal.AsSpan(_together));
             int together = _together.Count > 1 ? 1 : 0;
 
-            // One front alone was judged at the flash; only fronts together are new here.
-            if (load.MayBreak && together > 0 && share >= 1.0)
+            // Each front already cost the part its own share at its flash; what meeting adds is the
+            // reflection between them, and that is all that is charged here.
+            if (load.MayBreak && together > 0
+                && PartHealth.World.Hit(load.Part, BlastDamage.MeetingShare(CollectionsMarshal.AsSpan(_together)),
+                                        load.DamageScale))
             {
                 if (!_broken.TryGetValue(load.Craft, out List<Part>? parts)) _broken[load.Craft] = parts = [];
                 parts.Add(load.Part);

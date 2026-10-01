@@ -307,6 +307,11 @@ internal sealed partial class Ui
         Tip("More detail in the log, which is what a bug report wants. It starts off; this turns "
             + "it on without needing a different build.");
 
+        ImGui.Checkbox("Part health bars", ref _config.DrawPartHealth);
+        Tip($"A bar over every part of every craft within {PartHealthBars.RangeMetres / 1000.0:F0} km of the "
+            + "camera, and over any damaged part further out: green whole, red nearly gone. The settings "
+            + "window's Damage scale sets how fast it drains.");
+
         if (Build.Developer) DrawDiagnostics();
     }
 

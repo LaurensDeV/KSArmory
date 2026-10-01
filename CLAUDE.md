@@ -322,6 +322,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/BlastShove.cs` | what that wind does to a craft, **part by part**, summed into a kick and a turn about the centre of mass — a tall rocket hit side-on tips because it is pushed hardest above its middle |
 | `Sim/ViewShake.cs` | the view thrown about as a front passes the eye — a jolt then a rattle, as hard as the real overpressure there |
 | `Sim/BlastDamage.cs` | which parts of a craft a burst breaks — **nothing here picks a part**: each is judged on its own distance and the strength the engine derived for it |
+| `Sim/PartHealth.cs` | what is left of each part — a burst costs its `BlastDamage.Share` times `Config.DamageScale`, **one exactly where the part fails**, so at 1x a fresh part breaks where it always did and what changes is that a load short of that is not forgotten |
 | `Sim/TargetAllocation.cs` | what one craft's weapons have in the air **between them** — the unit that over-commits is the craft, not the weapon |
 | `Sim/RoundReach.cs` | whether a round the ground stops can still get to it — **the reaper for a store that will never arrive**, because a long fall is long rather than stuck |
 | `Sim/PointGravity.cs` | **the pull every round, store and decoy is flown with** — the inverse square aimed where the body was at the round's own instant, plus the body's own fall toward its primary; a contact's acceleration leaves the fall out, as the ground frame does |
@@ -519,7 +520,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/Fireball.cs` | the light a nuclear fireball casts -- **the light alone**, because the ball is the cloud pass's fire, and a mesh sphere in the raymarched cloud read as a dark ball that drifted off centre when the camera panned |
 | `Ksa/PlumeSmoke.cs` | smoke through the renderer KSA draws booster plumes with, one reflected field away — **the motor trail's now; the nuclear cloud left it for a raymarch** |
 | `Ksa/MotorSmoke.cs` | the trail a burning round leaves, through that same renderer — one cursor per round |
-| `Ksa/BlastArrivals.cs` | what a burst loads, **held until the front gets there** — the dent, the dust and the push land as the shock passes the part, on the simulated clock like the bang — **followed live**, the burst anchored to the ground and each part struck when the burst's own front (`Sim/BlastFront.cs`) reaches where it is now, so a craft in flight is hit where and when it actually meets the front, and one climbing faster than it is never caught. **Fronts reaching one part inside each other's positive phase load it once, together** — what is left of each, the most head-on pair meeting as at a wall (`BlastDamage.Combine`) — and past what breaks it the part breaks |
+| `Ksa/BlastArrivals.cs` | what a burst loads, **held until the front gets there** — the dent, the dust and the push land as the shock passes the part, on the simulated clock like the bang — **followed live**, the burst anchored to the ground and each part struck when the burst's own front (`Sim/BlastFront.cs`) reaches where it is now, so a craft in flight is hit where and when it actually meets the front, and one climbing faster than it is never caught. **Fronts reaching one part inside each other's positive phase load it once, together** — what is left of each, the most head-on pair meeting as at a wall (`BlastDamage.Combine`) — and charged to `Sim/PartHealth.cs` for the reflection their meeting adds, each front having paid its own share at its flash |
 | `Ksa/BlastShake.cs` | the front passing the **camera** — the rattle, struck by `BurstSound` as the front arrives so the shake and the bang are one arrival; the model, and `CloudPass` moves the picture |
 | `Ksa/BlastPuff.cs` | the dust a front throws off the face it strikes — **a sprite the colour of dirt**, because KSA's billboard is unlit and ignores the particle colour |
 | `Ksa/NuclearClouds.cs` | the mushroom clouds standing in the world — **state and the fireball only**: the shape is drawn by `Ksa/CloudPass.cs`, which reads the newest cloud off this and raymarches it |
@@ -549,6 +550,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/SightSurface.cs` | **which window that sight paints on** — and the draw list that reaches it, because a camera window's picture is a window and the main view's is not |
 | `Ksa/SightCamera.cs` | borrows the main view to look through the optical head, and gives it back |
 | `Ksa/Markers.cs` | on-screen brackets over every weapons system, labelled on hover or when pinned |
+| `Ksa/PartHealthBars.cs` | a health bar over each part near the camera, and over any damaged one — **debugging**, on `Config.DrawPartHealth` |
 | `Ksa/LockCueOverlay.cs` | brackets on **what the selected weapon is engaging**, closing as the lock matures |
 | `Ksa/RoundFollowable.cs` | a round, presented to the engine as something a camera can follow |
 | `Ksa/ChaseHud.cs` | brackets around what a chased round is flying at |
@@ -2076,6 +2078,20 @@ point — and fails by never detonating at all, not by a near miss.
 distance from the burst and its own `CrashTolerancePascals` — a number the engine derives from the
 part's mass and volume — so a warhead against a booster's tail takes the engines and leaves the
 payload, and no profile says anything about damage. `Sim/BlastDamage.cs` is the whole rule.
+
+**And a part has health, which a burst spends rather than tests.** `BlastDamage.Share` is the real
+overpressure over what breaks the part — exactly one at the failure radius — and `Sim/PartHealth.cs`
+takes that times `Config.DamageScale` off a part that starts at one. So at 1x a fresh part breaks
+exactly where the sweep alone broke it (`PartHealthTests` pins it part for part), and at 0.1x the
+same burst has to land ten times. **No one hit costs more than a whole share**: a shell bursting on the
+skin is hundreds of them, so uncapped the scale did nothing against a gun. A shell that struck and broke
+nothing tops the nearest part up to a whole share, blast included, and **that part breaks off** when it runs
+out, with the fragment guard deciding whether that is the craft. So a 20 mm strike on a rocket at 1x takes
+the tank it hit rather than the rocket, which it used to; destroying the craft there made a gun's every
+fifth round at 0.2x a kill. The ledger
+holds the engine's `Part` weakly, so nothing prunes it, and it is not saved: a reload starts every
+part whole. With `DamageIndividualParts` off there are no parts to charge, and a burst in the lethal
+radius still destroys the craft.
 
 **Its reach is the mod's own law re-anchored, not a second damage model.** Cube-root scaling says a
 given overpressure is felt at a fixed *scaled* distance and pressure near the burst falls as the

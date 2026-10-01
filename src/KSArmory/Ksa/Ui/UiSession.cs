@@ -44,6 +44,14 @@ internal sealed partial class Ui
             + "part breaks further out than a dense one, and losing enough of them at once still "
             + "destroys the craft outright. Off: inside the lethal radius the whole craft is destroyed.");
 
+        ImGui.SliderFloat("Damage scale", ref _config.DamageScale, 0.001f, 10f, "%.3fx", ImGuiSliderFlags.Logarithmic);
+        Tip("How much of a part's health one burst takes. Every part starts whole and loses what each "
+            + "burst puts on it, so a load short of breaking it is not forgotten. At 1x a fresh part breaks "
+            + "where it always has; at 0.1x it takes ten such bursts, and a shell has to strike the same "
+            + "part ten times before it breaks off -- no one hit takes more than a whole part, however "
+            + "close it burst. Parts only: with individual parts off, a burst in the "
+            + "lethal radius still destroys the craft.");
+
         ImGui.Checkbox("Nuclear bursts black out radar", ref _config.NuclearBlackout);
         Tip("On: a nuclear fireball ionises the air round it, and a radar cannot see through that or "
             + "out of it until it cools -- about a minute for a megatonne, seconds for a fraction of a "

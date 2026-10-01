@@ -166,6 +166,18 @@ public sealed class Config
     public bool DamageIndividualParts = true;
 
     /// <summary>
+    /// How much of a part's health a burst takes, as a multiple of its <see cref="BlastDamage.Share"/>
+    /// — see <see cref="PartHealth"/>. At one a fresh part breaks exactly where it always has; at a
+    /// tenth the same burst has to land ten times. A shell that strikes costs the part it struck a
+    /// whole share times this, blast included, and that part breaks off when it runs out. No one hit
+    /// costs more than a whole share, so at a tenth every hit takes a tenth, however close it burst.
+    /// </summary>
+    public float DamageScale = 1f;
+
+    /// <summary>A health bar over every part of every craft near the camera.</summary>
+    public bool DrawPartHealth;
+
+    /// <summary>
     /// Whether a nuclear fireball blacks out the radar beams that cross it, for as long as the air
     /// it ionised stays hot — see <see cref="FireballBlackout"/>. Only sets that transmit are
     /// blinded. Off, a burst is something radar looks straight through.

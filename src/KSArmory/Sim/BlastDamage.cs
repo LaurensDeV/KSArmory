@@ -156,6 +156,37 @@ internal static class BlastDamage
     }
 
     /// <summary>
+    /// How much of a part one burst uses up: its real overpressure over the real overpressure that
+    /// breaks the part, so one or more exactly where <see cref="FailureRadius"/> says it breaks and a
+    /// fraction beyond it, falling as the real wave does rather than as the cube. Nothing past
+    /// <see cref="Warhead.BlastRadius"/>. The units <see cref="Combine"/> adds fronts in.
+    /// </summary>
+    public static double Share(double chargeKg, double crashTolerancePascals, double gap)
+    {
+        if (!(gap <= Warhead.BlastRadius(chargeKg))) return 0.0;
+        if (gap <= FailureRadius(chargeKg, crashTolerancePascals)) return Math.Max(1.0, Real(chargeKg, crashTolerancePascals, gap));
+
+        return Math.Min(Real(chargeKg, crashTolerancePascals, gap), 1.0);
+
+        static double Real(double charge, double tolerance, double gap)
+        {
+            (double real, double breaking) = RealLoad(charge, tolerance, gap);
+            return breaking > 0.0 && double.IsFinite(real) ? real / breaking : 0.0;
+        }
+    }
+
+    /// <summary>
+    /// What meeting adds to fronts reaching one part together, over each counted alone at its
+    /// flash: the most head-on pair's reflection off a wall, against what breaks the part. Never
+    /// negative, because what a front did at its arrival is not undone by the next one arriving.
+    /// </summary>
+    public static double MeetingShare(ReadOnlySpan<FrontLoad> loads)
+    {
+        double extra = Reflected(loads, out double breaking);
+        return breaking > 0.0 ? extra / breaking : 0.0;
+    }
+
+    /// <summary>
     /// What several fronts reaching one part come to, at the instant the last of them arrives: each
     /// earlier one for what is left of it by then (<see cref="BlastWave.Remaining"/>), and the most
     /// head-on pair meeting as at a wall (<see cref="BlastWave.ReflectedPascals"/>) rather than
@@ -181,6 +212,18 @@ internal static class BlastDamage
         if (!(breaking > 0.0)) return (strongest, 0.0);
         if (loads.Length == 1) return (loads[0].Ratio, sum / breaking);
 
+        double share = (sum + Reflected(loads, out _)) / breaking;
+        double ratio = Math.Pow(share, Math.Log(EngineDentShare) / Math.Log(YieldShare));
+        return (Math.Max(ratio, strongest), share);
+    }
+
+    // The largest head-on pair's reflection over the two simply adding, in pascals, beside the
+    // real overpressure that breaks the part.
+    private static double Reflected(ReadOnlySpan<FrontLoad> loads, out double breaking)
+    {
+        breaking = 0.0;
+        foreach (FrontLoad load in loads) breaking = Math.Max(breaking, load.BreakingPascals);
+
         double extra = 0.0;
         for (int i = 0; i < loads.Length; i++)
         {
@@ -198,9 +241,7 @@ internal static class BlastDamage
             }
         }
 
-        double share = (sum + extra) / breaking;
-        double ratio = Math.Pow(share, Math.Log(EngineDentShare) / Math.Log(YieldShare));
-        return (Math.Max(ratio, strongest), share);
+        return extra;
     }
 
     /// <summary>
@@ -261,6 +302,29 @@ internal static class BlastDamage
             {
                 failed.Add(part.Index);
             }
+        }
+    }
+
+    /// <summary>
+    /// Every part of one craft this burst reaches, with its <see cref="Share"/>: what
+    /// <see cref="Sweep"/> breaks is exactly what comes out at one or more.
+    /// </summary>
+    public static void Shares(double3 burstEcl, double sinceSample, double3 velocityEcl,
+                              ReadOnlySpan<DamageablePart> parts, MunitionProfile munition,
+                              List<(int Index, double Share)> into)
+    {
+        ArgumentNullException.ThrowIfNull(munition);
+        ArgumentNullException.ThrowIfNull(into);
+
+        for (int i = 0; i < parts.Length; i++)
+        {
+            DamageablePart part = parts[i];
+
+            double gap = BlastSweep.SurfaceGap(part.PositionEcl, velocityEcl, sinceSample,
+                                               burstEcl, part.RadiusMetres);
+            double share = Share(munition.ChargeKg * part.Reflection, part.CrashTolerancePascals, gap);
+
+            if (share > 0.0) into.Add((part.Index, share));
         }
     }
 }

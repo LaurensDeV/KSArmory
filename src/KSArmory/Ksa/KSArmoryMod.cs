@@ -577,6 +577,9 @@ public sealed class KSArmoryMod
             if (KsaWorld.InFlight && _config.DrawSystemMarkers)
                 using (_budget.Measure("markers")) Markers.Draw(_ui.Systems, _ui.Focused, dt);
 
+            if (KsaWorld.InFlight && _config.DrawPartHealth)
+                using (_budget.Measure("health bars")) PartHealthBars.Draw();
+
             // The weapon the trigger is pointed at, which is what the switcher and the sight
             // already follow -- so the brackets are always on what FIRE would actually shoot.
             // After the markers, so a lock reads over a system bracket on the same contact.

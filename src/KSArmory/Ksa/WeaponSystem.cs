@@ -79,6 +79,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     private BlastFront _front = BlastFront.SeaLevel(0.0);
     private readonly List<Part> _partHandles = [];
     private readonly List<int> _failedParts = [];
+    private readonly List<(int Index, double Share)> _partShares = [];
     private readonly List<(int Index, double PressureRatio, double GapMetres)> _dentLoads = [];
 
     // Craft one burst has already damaged. See where it is cleared for why this is not _pendingKills.
@@ -4154,7 +4155,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             double due = air ? _front.ArrivalSeconds(gap) - elapsed : 0.0;
             BlastArrivals.Queue(v, _partHandles[index], groundAtSample, -elapsed, air ? airRatio : 0.0,
                                 munition.ChargeKg, _partScratch[index].CrashTolerancePascals, mayBreak,
-                                _partScratch[index].Reflection, _ground, _front);
+                                _config.DamageScale, _partScratch[index].Reflection, _ground, _front);
 
             first = Math.Min(first, due);
             last = Math.Max(last, due);
@@ -4214,9 +4215,16 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         Reflect(munition);
 
+        // Each part pays what the burst puts on it out of what earlier bursts left, and breaks when
+        // that runs out -- at a scale of one, a fresh part exactly where the sweep alone broke it.
         _failedParts.Clear();
-        BlastDamage.Sweep(burst, elapsed, KsaWorld.VelocityEcl(v),
-                          CollectionsMarshal.AsSpan(_partScratch), munition, _failedParts);
+        _partShares.Clear();
+        BlastDamage.Shares(burst, elapsed, KsaWorld.VelocityEcl(v),
+                           CollectionsMarshal.AsSpan(_partScratch), munition, _partShares);
+        foreach ((int index, double share) in _partShares)
+        {
+            if (PartHealth.World.Hit(_partHandles[index], share, _config.DamageScale)) _failedParts.Add(index);
+        }
 
         // And what it loads short of breaking, dented, before anything decides the craft's fate:
         // a craft that survives is the one the dents are for.
@@ -4231,16 +4239,24 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             {
                 double gap = BlastSweep.SurfaceGap(p.PositionEcl, velocity, elapsed, burst, p.RadiusMetres);
                 double reach = BlastDamage.FailureRadius(munition.ChargeKg * p.Reflection, p.CrashTolerancePascals);
+                double health = PartHealth.World.Of(_partHandles[p.Index]);
                 Log.Debug($"blast on {craft}: {_partHandles[p.Index].Id} gap {gap:F1} m, reach {reach:F1} m "
-                          + $"at {p.CrashTolerancePascals / 1e6:F2} MPa{(gap <= reach ? ", breaks" : string.Empty)}");
+                          + $"at {p.CrashTolerancePascals / 1e6:F2} MPa, health {health:P0}"
+                          + $"{(_failedParts.Contains(p.Index) ? ", breaks" : string.Empty)}");
             }
         }
 
         if (_failedParts.Count == 0)
         {
             // The sweep answered, and the answer was that nothing was near enough. Only a verdict
-            // reached elsewhere overrides that.
-            return confirmed ? QueueWholeCraft(v) : false;
+            // reached elsewhere overrides that: the round struck, so the part nearest it pays a whole
+            // share and breaks off like any other when that runs out -- the fragment guard below then
+            // says whether losing it is the craft.
+            if (!confirmed) return false;
+            if (StruckPart(v, burst, elapsed) is not { } struck) return QueueWholeCraft(v);
+            if (!StrikeBreaks(v, struck)) return true;
+
+            _failedParts.Add(struck);
         }
 
         // KSA's own judgement about what its fragment machinery can survive, asked rather than
@@ -4275,6 +4291,38 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         Announce($"{added} part(s) broken off {KsaWorld.DisplayName(v)}");
         return true;
+    }
+
+    // The part nearest a strike, or null for a craft with no part to charge.
+    private int? StruckPart(Vehicle v, double3 burst, double elapsed)
+    {
+        double3 velocity = KsaWorld.VelocityEcl(v);
+        int? nearest = null;
+        double best = double.PositiveInfinity;
+        foreach (DamageablePart p in _partScratch)
+        {
+            double gap = BlastSweep.SurfaceGap(p.PositionEcl, velocity, elapsed, burst, p.RadiusMetres);
+            if (gap < best) (best, nearest) = (gap, p.Index);
+        }
+
+        return nearest;
+    }
+
+    // Tops the struck part's charge for this burst up to a whole share -- its blast has already paid
+    // part of it -- and says whether that leaves it nothing.
+    private bool StrikeBreaks(Vehicle v, int struck)
+    {
+        double paid = 0.0;
+        foreach ((int index, double share) in _partShares)
+        {
+            if (index == struck) paid = Math.Min(share, 1.0);
+        }
+
+        Part part = _partHandles[struck];
+        if (PartHealth.World.Hit(part, 1.0 - paid, _config.DamageScale)) return true;
+
+        Announce($"hit {part.Id} on {KsaWorld.DisplayName(v)}: {PartHealth.World.Of(part):P0} left");
+        return false;
     }
 
     private bool QueueWholeCraft(Vehicle v)

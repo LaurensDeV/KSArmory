@@ -454,8 +454,8 @@ half of this feature can be flown and confirmed before any of it touches fire co
 
 ## 10. What this mechanism will never do
 
-- **Damage the craft.** A decal is paint. KSA exposes no partial-damage model — CLAUDE.md's *Kills
-  are binary* stands, and a hull with forty scorch marks on it is as alive as one with none.
+- **Damage the craft.** A decal is paint. What a hit costs a part is `Sim/PartHealth.cs`'s, and a
+  hull with forty scorch marks on it is exactly as hurt as that says, marks or none.
 - **Persist.** The marks are runtime state, like tracks and rounds in flight. They could be written
   into `saves/<save>/KSArmory/` the way system settings are, but nothing about the mechanism requires
   it and a reload starting clean is defensible.

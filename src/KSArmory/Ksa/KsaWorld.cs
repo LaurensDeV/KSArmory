@@ -2630,6 +2630,26 @@ internal static class KsaWorld
     }
 
     /// <summary>
+    /// Where a part's box centre is drawn, in Ego: off the craft's drawn position rather than its
+    /// analytic one, which on a landed craft is metres away.
+    /// </summary>
+    public static bool TryPartEgo(Vehicle v, Part part, out double3 centreEgo)
+    {
+        centreEgo = default;
+        if (!TryPartBox(part, out double3 centreAsmb, out _) || !TryVehicleEgo(v, out double3 craftEgo)) return false;
+
+        try
+        {
+            centreEgo = craftEgo + (v.Asmb2Ego * (centreAsmb - v.CenterOfMassAsmb));
+            return Vec.IsFinite(centreEgo);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
     /// How hot a craft looks to a heat seeker, in kW/sr: its engines' thrust at the throttle it is
     /// set to, while there is propellant to burn. The throttle is the manual control's, which is every
     /// craft's in this build; an engine shut down at full throttle still reads hot.
