@@ -204,6 +204,11 @@ internal sealed partial class Ui
         Tip("On: the bomb sight's rings are exact circles painted onto the terrain. Off: they are "
             + "drawn as lines, which cut into hills between their corners.");
 
+        ImGui.Checkbox("Shell holes", ref _config.BulletHoles);
+        Tip($"On: a shell that strikes a hull leaves a hole with soot round it, painted on the hull and "
+            + $"carried with it. The newest {BulletHoles.MaxHoles} are kept, and the nearest "
+            + $"{CloudPass.MostHolesPainted} in view are painted. Off: nothing is marked.");
+
         ImGui.SliderFloat("Rounds between tracers", ref _config.BallRoundBrightness, 0f, 8f,
                           _config.BallRoundBrightness > 0f ? "%.1f" : "hidden");
         Tip("How bright a gun round that is not a tracer is drawn in daylight: a faint grey streak, so "

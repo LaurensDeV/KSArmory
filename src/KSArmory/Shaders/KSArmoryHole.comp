@@ -1,0 +1,199 @@
+#version 450
+
+// Shell holes painted on whatever the depth buffer holds along the path each shell went in on: a
+// black hole, torn dark petals round it, and soot fading out to the scorch radius, broken up so it
+// does not read as a disc. One dispatch over every hole on screen: they arrive with the pixels each
+// can reach, and each workgroup first gathers the ones reaching its tile, so a pixel is read and
+// written once whatever the number. Measured across the path rather than round the point, because
+// the burst dents the skin half a metre in and a sphere about the undented point never reaches it.
+//
+// Bindings follow ComputePipelineWrapper's order: the storage image, the depth it samples, then the
+// storage buffer of holes.
+
+layout (local_size_x = 16, local_size_y = 16) in;
+
+layout (set = 1, binding = 0, Rgba16f) uniform image2D sceneColor;
+layout (set = 1, binding = 1) uniform sampler2D sceneDepth;
+
+struct Hole
+{
+    vec4 CentreScorch;  // the hole, camera-relative, and the soot's radius
+    vec4 InwardReach;   // the way the shell went in, and how far along it past the point the mark reaches
+    vec4 SideShare;     // a direction square to that, fixed to the part, and this hole's share of the soot
+    vec4 CoreSeed;      // the hole's radius, and a seed for its pattern
+    vec4 Rect;          // the pixels it can reach: first x, first y, last x, last y
+};
+
+layout (std430, set = 1, binding = 2) readonly buffer Holes
+{
+    Hole holes[];
+};
+
+layout (push_constant) uniform PushConstants
+{
+    mat4 InvViewProj;        // clip -> camera-relative world
+    ivec4 FirstCountOrigin;  // first hole, how many, the dispatch's first pixel
+} pc;
+
+// A bit a hole, for every hole a view can paint: CloudPass.MostHolesPainted, rounded up to a word.
+const int MaskWords = 13;
+
+// How far out of the hull, against the way the shell came, a surface is still marked. A tank is
+// convex, so its skin round the hole curves away from the shell and almost nothing is in front of the
+// point; anything more than a few centimetres out is not the hull -- a droplet of the tank's own leak
+// passing in front of the hole, which writes depth and would otherwise wear the hole.
+const float OutFront = 0.05;
+const float LeastOutFront = 0.03;
+
+// Which holes reach this tile. A mask rather than a list, so walking it gives them in the order they
+// were listed in: atomics hand list slots out in whatever order threads arrive, which differs frame to
+// frame and flickers where two holes' petals overlap.
+shared uint tileMask[MaskWords];
+
+vec3 WorldAt(vec2 uv, float deviceZ)
+{
+    vec4 clip = vec4(uv * 2.0 - 1.0, deviceZ, 1.0);
+    vec4 p = pc.InvViewProj * clip;
+    return p.xyz / p.w;
+}
+
+float Hash(vec3 p)
+{
+    p = fract(p * 0.3183099 + vec3(0.71, 0.113, 0.419));
+    p *= 17.0;
+    return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+}
+
+float Noise(vec3 p)
+{
+    vec3 i = floor(p);
+    vec3 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+
+    return mix(mix(mix(Hash(i), Hash(i + vec3(1, 0, 0)), f.x),
+                   mix(Hash(i + vec3(0, 1, 0)), Hash(i + vec3(1, 1, 0)), f.x), f.y),
+               mix(mix(Hash(i + vec3(0, 0, 1)), Hash(i + vec3(1, 0, 1)), f.x),
+                   mix(Hash(i + vec3(0, 1, 1)), Hash(i + vec3(1, 1, 1)), f.x), f.y), f.z);
+}
+
+// One hole's mark over the colour so far, at a surface point p a pixel footprint across.
+vec3 Mark(Hole h, vec3 p, float footprint, vec3 was)
+{
+    float scorch = h.CentreScorch.w;
+    vec3 d = p - h.CentreScorch.xyz;
+    float along = dot(d, h.InwardReach.xyz);
+    if (!(along < h.InwardReach.w) || !(along > -max(OutFront * scorch, LeastOutFront))) return was;
+
+    vec3 across = d - h.InwardReach.xyz * along;
+    float r = length(across);
+    if (!(r < scorch)) return was;
+
+    // Never under a pixel and a half across, or a 20 mm hole is gone past a few metres.
+    float core = max(h.CoreSeed.x, 1.5 * footprint);
+    float share = h.SideShare.w;
+
+    // Round the hole on the hull, turning with the part: a point on the unit circle, and the angle.
+    vec3 e1 = h.SideShare.xyz;
+    vec3 e2 = cross(h.InwardReach.xyz, e1);
+    vec2 flat2 = vec2(dot(across, e1), dot(across, e2));
+    vec2 circle = flat2 / max(r, 1.0e-6);
+    float angle = atan(circle.y, circle.x);
+    vec3 seed = vec3(h.CoreSeed.y * 13.7, h.CoreSeed.y * 7.1, h.CoreSeed.y * 3.3);
+
+    // The hole's own outline, ragged at two scales so it is never a circle.
+    float edge = core * (0.62 + 0.38 * Noise(vec3(circle * 2.2, 0.0) + seed)
+                              + 0.22 * Noise(vec3(circle * 7.0, 1.0) + seed * 1.3));
+    float hole = 1.0 - smoothstep(edge - 0.5 * footprint, edge + 0.5 * footprint, r);
+
+    // The petals: five to eight tongues of skin torn back from the edge, each its own length and
+    // width, dark where they fold into the hole and mottled rather than one flat shade.
+    float count = 5.0 + floor(Hash(seed + 0.37) * 4.0);
+    float turn = angle / 6.2831853 * count + Hash(seed + 0.91);
+    float k = floor(turn);
+    float t = fract(turn);
+    float width = 1.0 - abs(2.0 * t - 1.0);
+    float length1 = core * (0.3 + 0.9 * Hash(vec3(k, seed.y, 0.5)));
+    float tip = edge + length1 * pow(width, 0.6 + Hash(vec3(k, 2.0, seed.z)));
+    float petal = (1.0 - smoothstep(tip - footprint, tip + footprint, r)) * (1.0 - hole);
+    float fold = clamp((r - edge) / max(tip - edge, 1.0e-4), 0.0, 1.0);
+    float mottle = Noise(vec3(flat2 / core * 5.0, 3.0) + seed);
+    float petalShade = mix(0.04, 0.32, fold) * (0.6 + 0.8 * mottle);
+
+    // A glint of bare metal where a petal's torn edge catches the light, in places rather than all round.
+    float lip = smoothstep(tip - 2.0 * footprint, tip - 0.5 * footprint, r) * petal
+                * step(0.55, Noise(vec3(circle * 5.0, 4.0) + seed));
+
+    // The soot: dark, ragged in its reach, streaked outward and patchy within.
+    float reach = scorch * (0.55 + 0.45 * Noise(vec3(circle * 3.0, 5.0) + seed));
+    float streak = Noise(vec3(circle * 11.0, r / scorch * 1.5) + seed);
+    float patchy = Noise(vec3(flat2 / scorch * 7.0, 6.0) + seed);
+    float soot = pow(1.0 - smoothstep(edge, reach, r), 0.7) * mix(0.65 + 0.35 * patchy, streak, 0.35);
+
+    // Pits where fragments struck round it, thinning out with distance.
+    vec2 cell = floor(flat2 / (core * 0.7));
+    vec2 inCell = fract(flat2 / (core * 0.7)) - 0.5
+                  - (vec2(Hash(vec3(cell, seed.x)), Hash(vec3(cell, seed.y + 7.0))) - 0.5) * 0.6;
+    float pitted = step(1.0 - 0.45 * share * (1.0 - r / scorch), Hash(vec3(cell, seed.z + 3.0)));
+    float pit = pitted * (1.0 - smoothstep(0.08, 0.14, length(inCell))) * step(tip, r);
+
+    vec3 c = mix(was, was * vec3(0.05, 0.045, 0.04), clamp(soot, 0.0, 1.0) * share);
+    c = mix(c, was * 0.03, pit * 0.9);
+    c = mix(c, was * petalShade, petal);
+    c = mix(c, was * 1.4, lip * 0.6);
+    return mix(c, vec3(0.0), hole);
+}
+
+void main()
+{
+    ivec2 size = imageSize(sceneColor);
+    ivec2 tileMin = pc.FirstCountOrigin.zw + ivec2(gl_WorkGroupID.xy) * 16;
+    vec2 lo = vec2(tileMin);
+    vec2 hi = lo + vec2(16.0);
+
+    if (gl_LocalInvocationIndex < uint(MaskWords)) tileMask[gl_LocalInvocationIndex] = 0u;
+    barrier();
+
+    int first = pc.FirstCountOrigin.x;
+    int count = min(pc.FirstCountOrigin.y, MaskWords * 32);
+    for (int i = int(gl_LocalInvocationIndex); i < count; i += 256)
+    {
+        vec4 rect = holes[first + i].Rect;
+        if (rect.x > hi.x || rect.y > hi.y || rect.z < lo.x || rect.w < lo.y) continue;
+
+        atomicOr(tileMask[i >> 5], 1u << uint(i & 31));
+    }
+    barrier();
+
+    ivec2 at = tileMin + ivec2(gl_LocalInvocationID.xy);
+    if (at.x >= size.x || at.y >= size.y) return;
+
+    uint reached = 0u;
+    for (int w = 0; w < MaskWords; w++) reached |= tileMask[w];
+    if (reached == 0u) return;
+
+    // Reverse-Z: zero is the sky.
+    float deviceZ = texelFetch(sceneDepth, at, 0).r;
+    if (deviceZ <= 0.0) return;
+
+    vec2 uv = (vec2(at) + 0.5) / vec2(size);
+    vec3 p = WorldAt(uv, deviceZ);
+
+    // What one pixel spans here, so the edges are a pixel soft at any range.
+    float footprint = max(length(WorldAt(uv + vec2(1.0 / float(size.x), 0.0), deviceZ) - p), 1.0e-5);
+
+    vec4 was = imageLoad(sceneColor, at);
+    vec3 c = was.rgb;
+
+    for (int w = 0; w < MaskWords; w++)
+    {
+        uint bits = tileMask[w];
+        while (bits != 0u)
+        {
+            int b = findLSB(bits);
+            bits &= bits - 1u;
+            c = Mark(holes[first + (w * 32) + b], p, footprint, c);
+        }
+    }
+
+    imageStore(sceneColor, at, vec4(c, was.a));
+}

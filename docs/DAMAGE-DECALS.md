@@ -29,6 +29,12 @@ against **2026.8.22.5348** and the line numbers are ours.
 >
 > Nothing about §2 or §3 is affected: those are about what a decal *is*, not where it is recorded.
 
+> **Shell holes are built, and not this way.** A hole is procedural — no image, no normal — so it
+> took the ring pass's route instead: `Ksa/BulletHoles.cs` keeps the anchor §7.1 describes, off a
+> fresh `RayCastEgo` at the strike, and `Shaders/KSArmoryHole.comp` paints it from `CloudPass` over
+> its own few pixels. No new patch, pipeline state or descriptor ring. What this file still plans is
+> an **image** decal and a proximity burst's scorch (§7.2), which that route does not give.
+
 **And the mechanism is no longer the only way to get a projected decal in this repository.**
 `Ksa/CloudPass.cs` reconstructs world position from the resolved depth inside
 `SunbloomRenderer.Render` and marks the ground there, which is a depth-projected decal by another

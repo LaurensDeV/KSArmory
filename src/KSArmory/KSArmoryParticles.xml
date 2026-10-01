@@ -565,6 +565,7 @@
     <Shader Id="KSArmoryShockCompute" Path="Shaders/KSArmoryShock.comp" />
     <Shader Id="KSArmoryFireLightCompute" Path="Shaders/KSArmoryFireLight.comp" />
     <Shader Id="KSArmoryRingCompute" Path="Shaders/KSArmoryRing.comp" />
+    <Shader Id="KSArmoryHoleCompute" Path="Shaders/KSArmoryHole.comp" />
     <Shader Id="KSArmoryTracerCompute" Path="Shaders/KSArmoryTracer.comp" />
 
 </Assets>

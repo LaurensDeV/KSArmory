@@ -3831,6 +3831,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // Trust that number rather than re-deriving it.
         // Not for a round a decoy took: its miss distance is to the decoy. The splash below still
         // judges what it actually burst beside.
+        // A shell that touched a hull leaves its hole there, whoever's hull it was: it is paint.
+        if (round.StruckBody is Vehicle holed) BulletHoles.Strike(holed, round);
+
         if (!seduced && (round.StruckBody ?? round.TargetRef) is Vehicle intended && KsaWorld.IsAlive(intended))
         {
             double lethalRange = judged.LethalRadius + KsaWorld.MeanRadius(intended);

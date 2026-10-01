@@ -374,6 +374,7 @@ public sealed class KSArmoryMod
         // The clouds, the burned ground, the flash and the bang still on its way all belong to the
         // world that was replaced: anchored to its bodies, they would stand in the new one.
         NuclearClouds.Clear();
+        BulletHoles.Clear();
 
         // Keyed on live craft, every one of which DeserializeSave has just destroyed. CollectTeams
         // rebuilds it on the next step that runs, so this only matters for a world that stays
@@ -530,6 +531,8 @@ public sealed class KSArmoryMod
             // shell stream above.
             GroundRings.BeginFrame();
             GroundRings.Enabled = _config.PaintGroundRings;
+            BulletHoles.Enabled = _config.BulletHoles;
+            BulletHoles.Prune();
             ShellTracers.BallBrightness = _config.BallRoundBrightness;
             foreach (WeaponSystems.Entry e in _roster.All)
             {

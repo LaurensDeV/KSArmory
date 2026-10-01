@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Reflection;
 using Brutal.ImGuiApi;
@@ -2642,6 +2643,125 @@ internal static class KsaWorld
         {
             centreEgo = craftEgo + (v.Asmb2Ego * (centreAsmb - v.CenterOfMassAsmb));
             return Vec.IsFinite(centreEgo);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Where a round's path meets a craft's mesh, as the sub-part it struck, the point in that
+    /// sub-part's own frame — the engine's <c>RayCastEgo</c> answers in exactly that frame — and
+    /// where the cast started in the same frame, which is the path the round came in along.
+    /// <paramref name="separation"/> is the craft's centre less the round, both at the instant it
+    /// struck, and the cast starts <paramref name="castFromMetres"/> back along
+    /// <paramref name="travel"/>, the round's velocity relative to the craft.
+    /// </summary>
+    public static bool TryHullHit(Vehicle v, double3 separation, double3 travel, double castFromMetres,
+                                  out Part? subPart, out double3 local, out double3 cameFrom)
+    {
+        subPart = null;
+        local = cameFrom = default;
+
+        double length = Vec.Len(travel);
+        if (!IsAlive(v) || !(length > 0.0) || !Vec.IsFinite(separation)) return false;
+
+        try
+        {
+            double3 along = travel / length;
+            double4x4 asmb2Round = v.GetMatrixAsmb2Ego(separation);
+            Ray ray = new() { Origin = along * -castFromMetres, Direction = along };
+
+            double nearest = double.MaxValue;
+            foreach (Part part in v.Parts.Parts)
+            {
+                if (!part.RayCastEgo(in asmb2Round, ray, out double near, out _, out double3 at, out _,
+                                     out _, out _, out Part? struck, out _)
+                    || struck is null || near < 0.0 || near >= nearest)
+                {
+                    continue;
+                }
+
+                nearest = near;
+                subPart = struck;
+                local = at;
+            }
+
+            if (subPart is null) return false;
+
+            double4x4.Invert(subPart.MatrixAsmb2Ego(in asmb2Round), out double4x4 toLocal);
+            cameFrom = ray.Origin.Transform(toLocal);
+            return Vec.IsFinite(local) && Vec.IsFinite(cameFrom);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>The live craft a part is on.</summary>
+    public static bool TryCraftOf(Part part, [NotNullWhen(true)] out Vehicle? craft)
+    {
+        craft = null;
+
+        try
+        {
+            craft = part.FullPart.Tree?.OwningVehicle;
+            return craft is not null && IsAlive(craft);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// The matrix the engine draws a craft with for <paramref name="camera"/>, with where its centre
+    /// of mass is then and how far its parts reach from it.
+    /// </summary>
+    public static bool TryVehicleMatrixEgo(Vehicle v, Camera camera, out double4x4 asmb2Ego, out double3 centreEgo,
+                                           out double radiusMetres)
+    {
+        asmb2Ego = default;
+        centreEgo = default;
+        radiusMetres = 0.0;
+
+        try
+        {
+            asmb2Ego = v.GetMatrixAsmb2Ego(camera);
+            centreEgo = v.CenterOfMassAsmb.Transform(asmb2Ego);
+            radiusMetres = MeanRadius(v);
+            return Vec.IsFinite(centreEgo);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>A sub-part's own frame to the camera, off its craft's <see cref="TryVehicleMatrixEgo"/>.</summary>
+    public static bool TryPartMatrixEgo(Part subPart, in double4x4 vehicleAsmb2Ego, out double4x4 toEgo)
+    {
+        toEgo = default;
+
+        try
+        {
+            toEgo = subPart.MatrixAsmb2Ego(in vehicleAsmb2Ego);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>Whether a part is on a craft that is still in the world.</summary>
+    public static bool IsOnLiveCraft(Part part)
+    {
+        try
+        {
+            return part.FullPart.Tree?.OwningVehicle is { } v && IsAlive(v);
         }
         catch
         {

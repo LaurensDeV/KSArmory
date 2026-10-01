@@ -174,6 +174,12 @@ public sealed class Config
     /// </summary>
     public float DamageScale = 1f;
 
+    /// <summary>
+    /// Whether a shell that strikes a hull leaves a hole there, soot and all — see
+    /// <see cref="HoleLook"/>. Painted by the cloud pass, so nothing without it.
+    /// </summary>
+    public bool BulletHoles = true;
+
     /// <summary>A health bar over every part of every craft near the camera.</summary>
     public bool DrawPartHealth;
 

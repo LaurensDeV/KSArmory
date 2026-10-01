@@ -41,6 +41,7 @@ internal static class CloudPass
     private const string ShockShaderId = "KSArmoryShockCompute";
     private const string FireLightShaderId = "KSArmoryFireLightCompute";
     private const string RingShaderId = "KSArmoryRingCompute";
+    private const string HoleShaderId = "KSArmoryHoleCompute";
     private const string TracerShaderId = "KSArmoryTracerCompute";
 
     // KSArmoryFireLight.comp's workgroup.
@@ -73,6 +74,7 @@ internal static class CloudPass
     private static readonly ProfilerTag DebrisTag = new("KSArmory Cloud: debris"u8);
     private static readonly ProfilerTag RedWaveTag = new("KSArmory Cloud: red wave"u8);
     private static readonly ProfilerTag RingsTag = new("KSArmory Cloud: rings"u8);
+    private static readonly ProfilerTag HolesTag = new("KSArmory Cloud: holes"u8);
     private static readonly ProfilerTag TracersTag = new("KSArmory Cloud: tracers"u8);
 
     private static readonly List<(float Kind, double Brightness, Push Push)> _sky = [];
@@ -148,6 +150,7 @@ internal static class CloudPass
         public required RenderImage SceneCopy;
         public ComputePipelineWrapper? Shock;
         public ComputePipelineWrapper? Rings;
+        public ComputePipelineWrapper? Holes;
         public ComputePipelineWrapper? Tracers;
         public ComputePipelineWrapper? FireLight;
         public VkImageView FireLightDepth;
@@ -520,6 +523,9 @@ internal static class CloudPass
             // The targeting rings, on the ground with the marks and under any cloud standing over
             // them.
             Rings(commandBuffer, viewport, camera, view, depth, width, height, ref marks);
+
+            // The holes shells have left in hulls, on the hull under any smoke standing in front of it.
+            Holes(commandBuffer, viewport, camera, view, depth, frameIndex, width, height, ref marks);
 
             // THE SKY a high burst lights: the X-ray-heated layer, the aurora at each end of the field line
             // and a thin-air burst's debris shell, each a full-screen dispatch with a negative bound. Every
@@ -1021,6 +1027,291 @@ internal static class CloudPass
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 4)]
+    private struct HolePush
+    {
+        public float4x4 InvViewProj;
+        public int First;              // the view's first hole in the buffer
+        public int Count;
+        public int OriginX;            // the dispatch's first pixel
+        public int OriginY;
+    }
+
+    /// <summary>One hole as <c>KSArmoryHole.comp</c> reads it, std430.</summary>
+    [StructLayout(LayoutKind.Sequential, Pack = 4)]
+    public struct HoleData
+    {
+        public float4 CentreScorch;    // the hole, camera-relative, and the soot's radius
+        public float4 InwardReach;     // the way the shell went in, and how far along it the mark reaches
+        public float4 SideShare;       // a direction square to that, fixed to the part, and the soot's share
+        public float4 CoreSeed;        // the hole's radius and its pattern's seed
+        public float4 Rect;            // the pixels it can reach: first x, first y, last x, last y
+    }
+
+    /// The most holes painted in one view in one frame: every one kept. Fewer, taken nearest first,
+    /// drops whichever end of a riddled craft is further from the camera as the view moves.
+    /// </summary>
+    public const int MostHolesPainted = BulletHoles.MaxHoles;
+
+    // HoleData runs, one a view, per frame in flight; past this many views a frame they wrap.
+    private const int HoleViewsPerFrame = 4;
+
+    // KSArmoryHole.comp's workgroup.
+    private const int HoleGroup = 16;
+
+    private const double HoleReachMetres = 1.0;
+
+    // The soot reaches at most this many hole radii, so a 20 mm round's is a hand across, not an arm.
+    private const double SootInCores = 6.0;
+
+    // A hole whose soot is smaller than this many pixels across is not painted at all.
+    private const double LeastHolePixels = 1.0;
+
+    private static readonly List<BulletHoles.Placed> _holesInView = [];
+    private static BufferEx? _holeBuffer;
+    private static MappedMemory _holeMemory;
+    private static int _holeFrames;
+    private static int _holeFrame = -1;
+    private static int _holeView;
+
+    // Set for each view before BulletHoles.Place asks it, so the test needs no closure.
+    private static Camera? _holeCamera;
+    private static int _holeWidth;
+    private static int _holeHeight;
+    private static readonly BulletHoles.CraftInView CraftInView = IsCraftInView;
+
+    // THE SHELL HOLES, on the hulls they were punched in: KSArmoryHole.comp. One dispatch over the
+    // patch of screen they cover between them, each workgroup gathering only the holes that reach it.
+    private static void Holes(CommandBuffer commandBuffer, IViewport viewport, Camera camera, View view,
+                              IRenderImage depth, int frameIndex, int width, int height, ref int marks)
+    {
+        if (!BulletHoles.Enabled || BulletHoles.Count == 0) return;
+        if (_holeBuffer is null && !BuildHoleBuffer()) return;
+        if (view.Holes is null && !BuildHoles(view, depth)) return;
+
+        long started = System.Diagnostics.Stopwatch.GetTimestamp();
+
+        _holeCamera = camera;
+        _holeWidth = width;
+        _holeHeight = height;
+        BulletHoles.Place(camera, CraftInView, _holesInView);
+        _holeCamera = null;
+
+        _holesInView.Sort((a, b) => a.Range.CompareTo(b.Range));
+
+        if (frameIndex != _holeFrame)
+        {
+            _holeFrame = frameIndex;
+            _holeView = 0;
+        }
+
+        int slot = ((((frameIndex % _holeFrames) + _holeFrames) % _holeFrames) * HoleViewsPerFrame)
+                   + (_holeView++ % HoleViewsPerFrame);
+        int first = slot * MostHolesPainted;
+        Span<HoleData> mine = _holeMemory.AsSpan<HoleData>().Slice(first, MostHolesPainted);
+
+        int count = 0;
+        int minX = width, minY = height, maxX = 0, maxY = 0;
+        for (int i = 0; i < _holesInView.Count && count < MostHolesPainted; i++)
+        {
+            BulletHoles.Placed hole = _holesInView[i];
+            double soot = Math.Min(hole.Scorch, SootInCores * hole.Core);
+            double reach = Math.Max(soot, HoleReachMetres);
+            if (!HoleRect(camera, hole.Centre, Math.Sqrt((soot * soot) + (reach * reach)), width, height,
+                          out int x0, out int y0, out int x1, out int y1)) continue;
+
+            _holesInView[count] = hole with { Scorch = (float)soot };
+            mine[count] = new HoleData
+            {
+                CentreScorch = new float4((float)hole.Centre.X, (float)hole.Centre.Y, (float)hole.Centre.Z, (float)soot),
+                InwardReach = new float4((float)hole.Inward.X, (float)hole.Inward.Y, (float)hole.Inward.Z, (float)reach),
+                SideShare = new float4((float)hole.Side.X, (float)hole.Side.Y, (float)hole.Side.Z, 1f),
+                CoreSeed = new float4(hole.Core, hole.Seed, 0f, 0f),
+                Rect = new float4(x0, y0, x1, y1),
+            };
+
+            minX = Math.Min(minX, x0);
+            minY = Math.Min(minY, y0);
+            maxX = Math.Max(maxX, x1);
+            maxY = Math.Max(maxY, y1);
+            count++;
+        }
+
+        ShareSoot(count, mine);
+
+        if (count > 0 && maxX > minX && maxY > minY)
+        {
+            HolePush push = new()
+            {
+                InvViewProj = camera.VPInv.viewProjection,
+                First = first,
+                Count = count,
+                OriginX = minX,
+                OriginY = minY,
+            };
+
+            using (commandBuffer.TagRegion(GpuTag))
+            using (commandBuffer.TagRegion(HolesTag))
+            {
+                if (marks > 0) Hazard(commandBuffer);
+
+                view.Holes!.BindPipeline(commandBuffer, viewport.ShaderSlot, default, default, push);
+                commandBuffer.Dispatch((maxX - minX + HoleGroup - 1) / HoleGroup,
+                                       (maxY - minY + HoleGroup - 1) / HoleGroup, 1);
+                marks++;
+            }
+        }
+
+        _holesCpuSeconds += System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalSeconds;
+        _holesCpuFrames++;
+
+        if (_recorded - _holesLoggedAt >= 300)
+        {
+            double cpuMs = _holesCpuSeconds / Math.Max(_holesCpuFrames, 1) * 1000.0;
+            _holesCpuSeconds = 0.0;
+            _holesCpuFrames = 0;
+            _holesLoggedAt = _recorded;
+            int placed = _holesInView.Count;
+            Log.Debug(() => $"holes: {BulletHoles.Count} held, {placed} placed, {count} painted, "
+                            + $"{cpuMs:F3} ms of CPU a view");
+        }
+    }
+
+    private static long _holesLoggedAt = long.MinValue / 2;
+    private static double _holesCpuSeconds;
+    private static int _holesCpuFrames;
+
+    // Whether any hole on a craft could reach a pixel of the view being recorded: not wholly behind
+    // the camera, not wholly off the screen, and its widest soot at its nearest part at least
+    // LeastHolePixels across. One projection a craft, where a hole needs a matrix chain.
+    private static bool IsCraftInView(double3 centreEgo, double radius, double widestScorch)
+    {
+        if (_holeCamera is not { } camera) return false;
+
+        double4 clip = camera.EgoToClipDouble(centreEgo);
+        if (!double.IsFinite(clip.W) || clip.W < -radius) return false;
+        if (clip.W <= radius) return true;
+
+        double4 edge = camera.EgoToClipDouble(centreEgo + Vec.Unit(Vec.AnyPerpendicular(centreEgo)));
+        if (!(edge.W > 1.0e-3)) return true;
+
+        double x = clip.X / clip.W, y = clip.Y / clip.W;
+        double pixelsPerMetre = Math.Sqrt(Math.Pow((edge.X / edge.W - x) * 0.5 * _holeWidth, 2)
+                                          + Math.Pow((edge.Y / edge.W - y) * 0.5 * _holeHeight, 2));
+        if (!double.IsFinite(pixelsPerMetre)) return true;
+
+        double across = radius * pixelsPerMetre;
+        if (Math.Abs(x) * 0.5 * _holeWidth > (0.5 * _holeWidth) + across) return false;
+        if (Math.Abs(y) * 0.5 * _holeHeight > (0.5 * _holeHeight) + across) return false;
+
+        double nearestScale = clip.W / (clip.W - radius);
+        return widestScorch * 2.0 * pixelsPerMetre * nearestScale >= LeastHolePixels;
+    }
+
+    // How dark a patch of soot gets however many holes share it: a burst lands dozens of rounds on one
+    // spot, and each drawn at full strength stacks the lot to solid black with every hole lost in it.
+    private const double SootWhereShared = 0.7;
+
+    private static readonly int[] _byX = new int[MostHolesPainted];
+    private static readonly int[] _sharing = new int[MostHolesPainted];
+    private static readonly Comparer<int> ByX =
+        Comparer<int>.Create((a, b) => _holesInView[a].Centre.X.CompareTo(_holesInView[b].Centre.X));
+
+    // Each hole's soot at the strength that leaves all the holes overlapping it, together, as dark as
+    // SootWhereShared: 1 - (1 - A)^(1/n) for n of them. Neighbours are found along one axis first, so
+    // the pairs compared are the ones near each other rather than every pair of several hundred.
+    private static void ShareSoot(int count, Span<HoleData> holes)
+    {
+        double widest = 0.0;
+        for (int i = 0; i < count; i++)
+        {
+            _byX[i] = i;
+            _sharing[i] = 1;
+            widest = Math.Max(widest, _holesInView[i].Scorch);
+        }
+
+        Array.Sort(_byX, 0, count, ByX);
+
+        for (int a = 0; a < count; a++)
+        {
+            BulletHoles.Placed hi = _holesInView[_byX[a]];
+            for (int b = a + 1; b < count; b++)
+            {
+                BulletHoles.Placed hj = _holesInView[_byX[b]];
+                if (hj.Centre.X - hi.Centre.X > hi.Scorch + widest) break;
+
+                double reach = hi.Scorch + hj.Scorch;
+                if (Vec.Len2(hi.Centre - hj.Centre) >= reach * reach) continue;
+
+                _sharing[_byX[a]]++;
+                _sharing[_byX[b]]++;
+            }
+        }
+
+        for (int i = 0; i < count; i++)
+        {
+            holes[i].SideShare.W = (float)(1.0 - Math.Pow(1.0 - SootWhereShared, 1.0 / _sharing[i]));
+        }
+    }
+
+    // The pixels a hole's mark can reach, or false for one behind the camera, off the screen or under
+    // a pixel across. A sphere projects to about its centre plus the radius across the line of sight,
+    // which is all a mark this small needs.
+    private static bool HoleRect(Camera camera, double3 centreEgo, double radius, int width, int height,
+                                 out int x0, out int y0, out int x1, out int y1)
+    {
+        x0 = y0 = x1 = y1 = 0;
+
+        double4 clip = camera.EgoToClipDouble(centreEgo);
+        if (!(clip.W > 1.0e-3) || !double.IsFinite(clip.W)) return false;
+
+        double4 edge = camera.EgoToClipDouble(centreEgo + (Vec.Unit(Vec.AnyPerpendicular(centreEgo)) * radius));
+        if (!(edge.W > 1.0e-3)) return false;
+
+        double x = ((clip.X / clip.W * 0.5) + 0.5) * width;
+        double y = ((clip.Y / clip.W * 0.5) + 0.5) * height;
+        double ex = ((edge.X / edge.W * 0.5) + 0.5) * width;
+        double ey = ((edge.Y / edge.W * 0.5) + 0.5) * height;
+
+        // Slack for the soot reaching round a curved hull, which the radius across the view misses.
+        double pixels = Math.Sqrt(((ex - x) * (ex - x)) + ((ey - y) * (ey - y))) * 1.5 + 2.0;
+        if (!double.IsFinite(pixels) || pixels < LeastHolePixels + 2.0) return false;
+        if (x + pixels < 0.0 || y + pixels < 0.0 || x - pixels > width || y - pixels > height) return false;
+
+        x0 = Math.Clamp((int)Math.Floor(x - pixels), 0, width);
+        y0 = Math.Clamp((int)Math.Floor(y - pixels), 0, height);
+        x1 = Math.Clamp((int)Math.Ceiling(x + pixels), 0, width);
+        y1 = Math.Clamp((int)Math.Ceiling(y + pixels), 0, height);
+        return x1 > x0 && y1 > y0;
+    }
+
+    // Written by the CPU each frame and read by the GPU, one run per view per frame in flight, as the
+    // tracers' is. Kept for the process: it names no image, so a rebuilt view reuses it.
+    private static bool BuildHoleBuffer()
+    {
+        Renderer renderer = Program.GetRenderer();
+        _holeFrames = Math.Max(renderer.MaxFramesInFlight, 1);
+
+        if (typeof(Renderer).GetProperty("Allocator")?.GetValue(renderer) is not IBufferAllocator allocator)
+        {
+            Warn("no buffer allocator on the renderer; shell holes are not painted");
+            BulletHoles.Enabled = false;
+            return false;
+        }
+
+        BufferEx buffer = allocator.CreateBuffer(new BufferEx.CreateInfo
+        {
+            Name = "KSArmory holes",
+            BufferUsage = VkBufferUsageFlags.StorageBufferBit,
+            BufferSize = ByteSize.Of<HoleData>(_holeFrames * HoleViewsPerFrame * MostHolesPainted),
+            AllocRequiredProperties = VkMemoryPropertyFlags.HostVisibleBit | VkMemoryPropertyFlags.HostCoherentBit,
+        });
+
+        _holeMemory = buffer.Map();
+        _holeBuffer = buffer;
+        return true;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 4)]
     private struct TracerPush
     {
         public int First;              // the view's first segment in the buffer
@@ -1161,6 +1452,39 @@ internal static class CloudPass
             storageTargets, depthTargets, default, default, shader,
             default, ranges, renderer.MaxFramesInFlight, renderer,
             "KSArmory.Tracers", Program.PointClampedSampler, Program.LinearClampedSampler,
+            storageBuffers: buffers);
+
+        return true;
+    }
+
+    private static bool BuildHoles(View view, IRenderImage depth)
+    {
+        if (!ModLibrary.TryGet<ShaderReference>(HoleShaderId, out var shader) || shader is null)
+        {
+            Warn($"no shader '{HoleShaderId}'; shell holes are not painted");
+            BulletHoles.Enabled = false;
+            return false;
+        }
+
+        Renderer renderer = Program.GetRenderer();
+
+        IRenderImage[] storageTargets = [view.Target];
+        IRenderImage[] depthTargets = [depth];
+        VkPushConstantRange[] ranges =
+        [
+            new VkPushConstantRange
+            {
+                Offset = (ByteSize32)0,
+                Size = (ByteSize32)Marshal.SizeOf<HolePush>(),
+                StageFlags = VkShaderStageFlags.ComputeBit,
+            },
+        ];
+
+        VkBuffer[] buffers = [_holeBuffer!.Value.VkBuffer];
+        view.Holes = new ComputePipelineWrapper(
+            storageTargets, depthTargets, default, default, shader,
+            default, ranges, renderer.MaxFramesInFlight, renderer,
+            "KSArmory.Holes", Program.PointClampedSampler, Program.LinearClampedSampler,
             storageBuffers: buffers);
 
         return true;
