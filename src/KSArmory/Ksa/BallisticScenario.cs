@@ -219,6 +219,7 @@ internal sealed class BallisticScenario
         _sinceComplaint += playerStep;
 
         if (icbms is null) return null;
+        _icbms = icbms;
 
         // A rocket whose arm would not apply is not flown. Everything else about the run is still
         // valid -- the other rockets carry their own arms -- so this ends one flight rather than
@@ -677,6 +678,14 @@ internal sealed class BallisticScenario
 
     private bool _coasting;
 
+    private IcbmComputers? _icbms;
+
+    // A walk goes quiet for longer than QuietAfterReleaseSeconds between its stops, and a stop's
+    // trim at the warp's 88 ms steps spent a median 6.85 m/s per aim pass against 0.81 at 1x, so
+    // warping there measures the step rather than the walk. docs/MIRV-TARGETS.md.
+    private bool AnyBusStillWalking()
+        => _icbms is { } icbms && icbms.All.Any(c => c.Walk.Walking);
+
     // Longer than the magazine's own reload, so a salvo still running is never mistaken for one
     // that has finished.
     private const double QuietAfterReleaseSeconds = 5.0;
@@ -838,7 +847,7 @@ internal sealed class BallisticScenario
                 _releasedLastSeen = _board.Released;
                 _sinceLastRelease = 0.0;
             }
-            else if (_sinceLastRelease >= QuietAfterReleaseSeconds)
+            else if (_sinceLastRelease >= QuietAfterReleaseSeconds && !AnyBusStillWalking())
             {
                 WarpTheCoast();
             }
