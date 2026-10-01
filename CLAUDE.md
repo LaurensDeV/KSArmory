@@ -323,6 +323,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/ViewShake.cs` | the view thrown about as a front passes the eye — a jolt then a rattle, as hard as the real overpressure there |
 | `Sim/BlastDamage.cs` | which parts of a craft a burst breaks — **nothing here picks a part**: each is judged on its own distance and the strength the engine derived for it |
 | `Sim/HoleLook.cs` | how big a shell's mark on a hull is — the hole at one and a half calibres, the soot by the cube root of the charge |
+| `Sim/TankLeak.cs` | where the liquid in a holed tank stands and how fast it runs out — **the surface square to the acceleration the craft feels**, followed with a 1.5 s lag because liquid crossing a tank takes seconds (read raw, a coasting craft's attitude pulses settled and floated it several times a second), found by counting points spread through the tank's own shape rather than solving a tilted one: `TankShape` is KSA's one family of tank, a truncated cone with a dome each end, its kind and proportions read off the template by `KsaWorld.TryTankShape` and **fitted into the part's box**, because a template is sized to KSA's volume model and not its mesh (the stock 3 m tank's is 3 m in *radius*) while the holes are on the mesh; the plain cylinder in the box where it cannot be read, and Bernoulli's rate through each hole under it, `√(2P/ρ + 2ah)` — **only a hole inside that shape, give or take the skin**, so a raceway holed on the same part leaks nothing. KSA models no pressure, so the tank's is the mod's, **0.2 bar and held constant**: low enough that depth and pull still double or halve a leak, where a flight tank's couple of bar would make the hole's place irrelevant, and enough that a **coasting craft** — its liquid floating, wetting the walls — leaks from any hole as often as the tank is full |
+| `Sim/LeakStream.cs` | a hole's stream, **flown parcel by parcel** (`LeakJet`) in a frame riding with the craft but not turning with it, under the pull the craft feels reversed — so a throttle change bends it from the hole outward and a turn swings it, where an arc solved for the acceleration of the moment re-bends whole in a frame; thinning as it speeds up (`r ∝ 1/√v`) and whole for about thirty diameters before it is drops |
 | `Sim/PartHealth.cs` | what is left of each part — a burst costs its `BlastDamage.Share` times `Config.DamageScale`, **one exactly where the part fails**, so at 1x a fresh part breaks where it always did and what changes is that a load short of that is not forgotten |
 | `Sim/TargetAllocation.cs` | what one craft's weapons have in the air **between them** — the unit that over-commits is the craft, not the weapon |
 | `Sim/RoundReach.cs` | whether a round the ground stops can still get to it — **the reaper for a store that will never arrive**, because a long fall is long rather than stuck |
@@ -530,6 +532,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Shaders/KSArmoryFireLight.comp` | a fireball's light on the craft and structures **KSA's light pre-pass dropped it from** -- that pass cuts a light beyond about 3 km before its intensity is counted, so a burst lit the ground round the pad and left the pad black. Read off what the pre-pass wrote, never re-voted; `docs/BLOCKED-ON-KSA.md` |
 | `Ksa/GroundRings.cs` | the targeting rings to paint on the ground this frame, **anchored to the body they lie on** and put back into the ecliptic only when the pass records, as the scorch marks are |
 | `Shaders/KSArmoryRing.comp` | one targeting ring painted on whatever the depth buffer holds — **an exact circle at any size, lying on the terrain under it**, with a line a fixed number of pixels wide; one dispatch per ring over its own patch of screen |
+| `Ksa/Leaks.cs` | holed tanks draining ten times a second, **written to the tank from `AttitudeHook`'s window** the way KSA's own `DepleteConsumables` does it, mass recomputed after, since the engine does not; a stream from every leaking hole, the sixteen biggest drawn, started behind the skin as KSA's dents have left it — **not particles**, because KSA draws none a motion can stretch |
+| `Shaders/KSArmoryLeak.comp` | every leak's stream in one dispatch, as the tracers are — a rope of liquid darkening and tinting what is behind it, a highlight down its middle, and drops past its breakup |
 | `Ksa/BulletHoles.cs` | the holes shells have left in hulls — **held in the struck sub-part's own frame**, as the engine's ray cast answers it, and carried to the camera through the matrix the engine draws that sub-part with, so a hole cannot drift off the mesh; the newest 400 kept |
 | `Shaders/KSArmoryHole.comp` | one hole painted on whatever the depth buffer holds along the shell's path — black hole, torn petals, ragged soot — **measured across the path, not round the point**, because the same burst dents the skin 0.57 m in and a sphere about the undented point never reaches it; one dispatch per hole over its own few pixels, the nearest 96 in view |
 | `Ksa/CloudPassHook.cs` | a place the mod patches the game, and the first in the renderer — **an ordinary prefix on a public method**, because `SunbloomRenderer.Render` hands over the command buffer at the one instant the scene colour is storage-writable, the depth is sampled, and bloom and the tonemap are both still to come |
@@ -595,7 +599,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 718 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 751 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -1187,7 +1191,7 @@ Do the private repo *before* pushing here, or CI fails on the lock it cannot sat
 member that keeps its name and signature and changes its *meaning* — a different reference
 frame, different units, a reordered enum — compiles clean and is wrong in flight. That is what
 the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from 684,000 lines to the files
-defining the 267 types this mod actually uses.
+defining the 285 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 45 in total, 14 MB —

@@ -2700,6 +2700,188 @@ internal static class KsaWorld
         }
     }
 
+    /// <summary>
+    /// The acceleration a craft feels, in its own assembly frame — what an accelerometer aboard reads:
+    /// thrust, drag and the ground's push, with gravity left out. Liquid settles against it.
+    /// </summary>
+    public static double3 FeltAccelerationAsmb(Vehicle v)
+    {
+        try
+        {
+            double3 felt = v.Asmb2Ego.Inverse() * v.AccelerationBody.Transform(v.Body2Cce);
+            return Vec.IsFinite(felt) ? felt : Vec.Zero;
+        }
+        catch
+        {
+            return Vec.Zero;
+        }
+    }
+
+    /// <summary>
+    /// A tank's own shape — outside and, inside its wall, what the liquid fills — with where it sits in
+    /// its part: the origin and the part-frame directions of its own x, y and z.
+    ///
+    /// <para>Read off the tank's template, a private field found by reflection and verified; a tank of a
+    /// shape this does not know, or a build that has moved the field, answers false and the caller takes
+    /// the cylinder filling the part's box instead.</para>
+    /// </summary>
+    public static bool TryTankShape(Tank tank, out TankShape outside, out TankShape inside, out double3 origin,
+                                    out double3 axisX, out double3 axisY, out double3 axisZ)
+    {
+        outside = inside = default;
+        origin = axisX = axisY = axisZ = default;
+
+        try
+        {
+            if (TankTemplateField?.GetValue(tank) is not AsmbTankTemplate template) return false;
+
+            double wall;
+            switch (template)
+            {
+                case SphericalTankTemplate sphere:
+                    outside = TankShape.Sphere(sphere.OuterRadius);
+                    wall = sphere.WallThickness;
+                    break;
+                case CylindricalTankTemplate cylinder:
+                    outside = TankShape.Conical(cylinder.Length, cylinder.OuterRadius, cylinder.OuterRadius,
+                                                cylinder.DomeHeightFraction);
+                    wall = cylinder.WallThickness;
+                    break;
+                case ConicalTankTemplate cone:
+                    outside = TankShape.Conical(cone.Length, cone.RadiusBase, cone.RadiusTop, cone.DomeHeightFraction);
+                    wall = cone.WallThickness;
+                    break;
+                default:
+                    return false;
+            }
+
+            inside = outside.Inside(wall);
+            origin = template.LocationAsmb;
+            floatQuat paf2Asmb = template.GetPaf2Asmb();
+            axisX = double3.Unpack(new float3(1f, 0f, 0f).Transform(paf2Asmb));
+            axisY = double3.Unpack(new float3(0f, 1f, 0f).Transform(paf2Asmb));
+            axisZ = double3.Unpack(new float3(0f, 0f, 1f).Transform(paf2Asmb));
+
+            return outside.Extent.Radius > 0.0 && Vec.IsFinite(origin) && Vec.IsFinite(axisX);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static FieldInfo? TankTemplateField
+    {
+        get
+        {
+            if (_tankTemplateProbed) return _tankTemplateField;
+
+            _tankTemplateProbed = true;
+            _tankTemplateField = typeof(Tank).GetField("_template", BindingFlags.Instance | BindingFlags.NonPublic);
+            if (_tankTemplateField is null || !typeof(AsmbTankTemplate).IsAssignableFrom(_tankTemplateField.FieldType))
+            {
+                Log.Warn("Tank._template has moved - leaking tanks are taken as the cylinder filling their box");
+                _tankTemplateField = null;
+            }
+
+            return _tankTemplateField;
+        }
+    }
+
+    private static FieldInfo? _tankTemplateField;
+    private static bool _tankTemplateProbed;
+
+    /// <summary>The tank a part carries, on the part or any of its sub-parts.</summary>
+    public static bool TryTankOf(Part part, [NotNullWhen(true)] out Tank? tank)
+    {
+        tank = null;
+
+        try
+        {
+            Part full = part.FullPart;
+            Span<Tank> own = full.Modules.Get<Tank>();
+            if (!own.IsEmpty)
+            {
+                tank = own[0];
+                return true;
+            }
+
+            foreach (Part sub in full.SubParts)
+            {
+                Span<Tank> theirs = sub.Modules.Get<Tank>();
+                if (theirs.IsEmpty) continue;
+
+                tank = theirs[0];
+                return true;
+            }
+
+            return false;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Where a point in a sub-part's own frame is drawn, in Ecl: through the matrix the engine draws the
+    /// part with for the main camera, and back, since a craft's drawn place and its analytic one are
+    /// metres apart on the ground. For a particle emitter, which takes Ecl.
+    /// </summary>
+    public static bool TryDrawnPartPointEcl(Part subPart, double3 local, out double3 ecl)
+    {
+        ecl = default;
+
+        try
+        {
+            if (Program.GetMainCamera() is not { } camera) return false;
+            if (!TryCraftOf(subPart, out Vehicle? craft)) return false;
+
+            double4x4 vehicle = craft.GetMatrixAsmb2Ego(camera);
+            ecl = camera.EgoToEcl(local.Transform(subPart.MatrixAsmb2Ego(in vehicle)));
+            return Vec.IsFinite(ecl);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>Where a craft's centre of mass is drawn, in Ecl, for the main camera; see <see cref="TryDrawnPartPointEcl"/>.</summary>
+    public static bool TryDrawnCentreEcl(Vehicle craft, out double3 ecl)
+    {
+        ecl = default;
+
+        try
+        {
+            if (Program.GetMainCamera() is not { } camera || !IsAlive(craft)) return false;
+
+            ecl = camera.EgoToEcl(craft.CenterOfMassAsmb.Transform(craft.GetMatrixAsmb2Ego(camera)));
+            return Vec.IsFinite(ecl);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>A part's own frame to its craft's assembly frame, sub-parts' parents included.</summary>
+    public static bool TryPartToVehicleAsmb(Part part, out double4x4 toVehicle)
+    {
+        toVehicle = default;
+
+        try
+        {
+            double4x4 identity = double4x4.Identity;
+            toVehicle = part.MatrixAsmb2Ego(in identity);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     /// <summary>The live craft a part is on.</summary>
     public static bool TryCraftOf(Part part, [NotNullWhen(true)] out Vehicle? craft)
     {

@@ -52,6 +52,13 @@ internal sealed partial class Ui
             + "close it burst. Parts only: with individual parts off, a burst in the "
             + "lethal radius still destroys the craft.");
 
+        ImGui.Checkbox("Holed tanks leak", ref _config.TankLeaks);
+        Tip("On: a tank a shell has holed loses its liquid through every hole under the level, driven by a low "
+            + "tank pressure and by the depth above the hole and the pull the craft feels, and streams where it "
+            + "goes. The liquid settles against that pull, so a craft on its side drains from its lower holes and "
+            + "a hole above the level leaks nothing. Coasting in orbit the liquid floats, and every hole leaks as "
+            + "often as it is under it -- about as often as the tank is full.");
+
         ImGui.Checkbox("Nuclear bursts black out radar", ref _config.NuclearBlackout);
         Tip("On: a nuclear fireball ionises the air round it, and a radar cannot see through that or "
             + "out of it until it cools -- about a minute for a megatonne, seconds for a fraction of a "

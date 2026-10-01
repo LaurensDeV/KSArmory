@@ -331,6 +331,10 @@ internal static class AttitudeHook
         {
             if (Staging.Count > 0 && Staging.Remove(__instance)) VehicleCommand.Stage(__instance);
 
+            // Tank contents are written here for the same reason attitude is: anywhere else the
+            // worker's copy goes over them.
+            Leaks.Apply(__instance);
+
             if (Shoves.Count > 0 && Shoves.Remove(__instance, out (double3 Linear, double3 Angular, double Wind, double3 AwayEcl) shove))
             {
                 double3 before = KsaWorld.VelocityEcl(__instance);

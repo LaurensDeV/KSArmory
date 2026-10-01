@@ -375,6 +375,7 @@ public sealed class KSArmoryMod
         // world that was replaced: anchored to its bodies, they would stand in the new one.
         NuclearClouds.Clear();
         BulletHoles.Clear();
+        Leaks.Clear();
 
         // Keyed on live craft, every one of which DeserializeSave has just destroyed. CollectTeams
         // rebuilds it on the next step that runs, so this only matters for a world that stays
@@ -532,6 +533,7 @@ public sealed class KSArmoryMod
             GroundRings.BeginFrame();
             GroundRings.Enabled = _config.PaintGroundRings;
             BulletHoles.Enabled = _config.BulletHoles;
+            Leaks.Enabled = _config.TankLeaks;
             BulletHoles.Prune();
             ShellTracers.BallBrightness = _config.BallRoundBrightness;
             foreach (WeaponSystems.Entry e in _roster.All)
@@ -914,6 +916,7 @@ public sealed class KSArmoryMod
         // And the bangs and fronts still on their way.
         BurstSound.Update(_lastSimStep);
         using (_budget.Measure("fronts")) BlastArrivals.Update(_lastSimStep);
+        using (_budget.Measure("leaks")) Leaks.Update(_lastSimStep);
         BlastShake.Update(_lastSimStep);
         AttitudeHook.CheckShoves(_lastSimStep);
 

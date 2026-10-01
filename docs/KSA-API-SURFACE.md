@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-267 types and 718 members across 11 assemblies.
+285 types and 751 members across 11 assemblies.
 
 ## BepuUtilities
 
@@ -117,7 +117,9 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.double4x4 CreateScale(Brutal.Numerics.double3)`
 - `Brutal.Numerics.double4x4 CreateTranslation(Brutal.Numerics.double3)`
 - `Brutal.Numerics.double4x4 Unpack(ref Brutal.Numerics.float4x4)`
+- `Brutal.Numerics.double4x4 get_Identity()`
 - `Brutal.Numerics.double4x4 op_Multiply(Brutal.Numerics.double4x4, Brutal.Numerics.double4x4)`
+- `bool Invert(Brutal.Numerics.double4x4, ref Brutal.Numerics.double4x4)`
 - `double get_M11()`
 - `double get_M12()`
 - `double get_M13()`
@@ -184,6 +186,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `Brutal.Numerics.float4x4 Pack(ref Brutal.Numerics.double4x4)`
 - `Brutal.Numerics.float4x4 get_Identity()`
+
+### Brutal.Numerics.floatQuat
+
+*referenced as a type only*
 
 ### Brutal.Numerics.int2
 
@@ -586,6 +592,15 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `float Thrust`
 - `float get_ExhaustVelocity()`
 
+### KSA.AsmbTankTemplate
+
+*referenced as a type only*
+
+### KSA.AsmbTransformTemplate
+
+- `Brutal.Numerics.floatQuat GetPaf2Asmb()`
+- `KSA.Vector3Reference LocationAsmb`
+
 ### KSA.Astronomical
 
 - `Brutal.Numerics.double3 GetPositionEcl()`
@@ -730,6 +745,14 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 *referenced as a type only*
 
+### KSA.ConicalTankTemplate
+
+- `KSA.DistanceReference Length`
+- `KSA.DistanceReference RadiusBase`
+- `KSA.DistanceReference RadiusTop`
+- `KSA.DistanceReference WallThickness`
+- `double DomeHeightFraction`
+
 ### KSA.Constants
 
 - `string get_DocumentsFolderPath()`
@@ -754,6 +777,13 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.CrewDisposition
 
 *referenced as a type only*
+
+### KSA.CylindricalTankTemplate
+
+- `KSA.DistanceReference Length`
+- `KSA.DistanceReference OuterRadius`
+- `KSA.DistanceReference WallThickness`
+- `double DomeHeightFraction`
 
 ### KSA.Decoupler
 
@@ -789,6 +819,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `Brutal.Numerics.double3 Transform(Brutal.Numerics.double3, Brutal.Numerics.double4x4)`
 - `Brutal.Numerics.double3 Transform(Brutal.Numerics.double3, Brutal.Numerics.doubleQuat)`
+
+### KSA.EmptyStruct
+
+*referenced as a type only*
 
 ### KSA.ExplosionContext
 
@@ -834,6 +868,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.PerAxisAttitudeControlSystem ActiveControlSystem`
 - `KSA.VehicleReferenceFrame AttitudeFrame`
 - `float AngleDeadband`
+- `void ReadUpdatedVehicleConfiguration(KSA.Vehicle)`
 - `void SetAttitudeProfile(KSA.FlightComputerAttitudeProfile)`
 - `void SetManualThrustMode(KSA.FlightComputerManualThrustMode)`
 
@@ -869,6 +904,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `KSA.UniverseTime get_ExpiryGameTime()`
 - `void .ctor(KSA.Orbit, KSA.KeyHash)`
+
+### KSA.Float3Ex
+
+- `Brutal.Numerics.float3 Transform(Brutal.Numerics.float3, Brutal.Numerics.floatQuat)`
 
 ### KSA.FloatReference
 
@@ -980,6 +1019,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 *referenced as a type only*
 
+### KSA.ISubstanceStore
+
+*referenced as a type only*
+
 ### KSA.IVelocity
 
 - `Brutal.Numerics.double3 GetVelocityEcl()`
@@ -1015,6 +1058,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.KittenEva
 
 - `void .ctor(KSA.CelestialSystem, string, Brutal.Numerics.doubleQuat, Brutal.Numerics.double3, KSA.IParentBody, string, KSA.Part, KSA.Orbit)`
+
+### KSA.Liquid
+
+- `float StorageDensity`
 
 ### KSA.LookupCollection`1
 
@@ -1063,6 +1110,18 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `System.Span`1<!!0> Get<1>()`
 - `bool HasAny<1>()`
 
+### KSA.ModuleStateful`4
+
+*referenced as a type only*
+
+### KSA.ModuleStateful`4+StateList
+
+*referenced as a type only*
+
+### KSA.ModuleStateful`4+StateList+ModuleAndAllMutableStatesRef
+
+*referenced as a type only*
+
 ### KSA.Module`1
 
 *referenced as a type only*
@@ -1070,6 +1129,19 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.Module`1+List
 
 *referenced as a type only*
+
+### KSA.Mole
+
+- `KSA.Liquid get_Liquid()`
+- `float ConsumeStored(ref KSA.MoleState, float)`
+
+### KSA.MoleGlobalState
+
+- `bool ValuesUpdated`
+
+### KSA.MoleState
+
+- `float Mass`
 
 ### KSA.MultiChannelWrapper
 
@@ -1105,6 +1177,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.double3 get_PositionParentAsmb()`
 - `Brutal.Numerics.double3 get_PositionVehicleAsmb()`
 - `Brutal.Numerics.double3 get_Scale()`
+- `Brutal.Numerics.double4x4 MatrixAsmb2Ego(ref Brutal.Numerics.double4x4)`
 - `Brutal.Numerics.doubleQuat get_Asmb2ParentAsmb()`
 - `Brutal.Numerics.doubleQuat get_Asmb2VehicleAsmb()`
 - `KSA.ModuleList Modules`
@@ -1113,6 +1186,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.PartTemplate Template`
 - `KSA.PartTree Tree`
 - `System.ReadOnlySpan`1<KSA.Part> get_SubParts()`
+- `System.ValueTuple`2<Brutal.Numerics.double3, Brutal.Numerics.double3> get_BoundingBoxPartAsmb()`
 - `System.ValueTuple`2<Brutal.Numerics.double3, Brutal.Numerics.double3> get_BoundingBoxVehicleAsmb()`
 - `bool RayCastEgo(ref Brutal.Numerics.double4x4, KSA.Ray, ref double, ref double, ref Brutal.Numerics.double3, ref Brutal.Numerics.double3, ref Brutal.Numerics.double3, ref Brutal.Numerics.double3, ref KSA.Part, ref KSA.Part)`
 - `bool get_IsAttachedInternal()`
@@ -1190,12 +1264,16 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.PartTree DeepCopy()`
 - `KSA.SequenceList SequenceList`
 - `KSA.SequencePerformanceList PerformanceSequences`
+- `KSA.Vehicle OwningVehicle`
 - `List<KSA.Control> Controls`
+- `StateList<KSA.Mole, KSA.MoleState, KSA.MoleGlobalState, KSA.EmptyStruct> Moles`
+- `System.ReadOnlySpan`1<KSA.ISubstanceStore> get_SubstanceStores()`
 - `System.ReadOnlySpan`1<KSA.Part> get_Parts()`
 - `VehicleDents Dents`
 - `int get_Count()`
 - `void EnsureDerived(KSA.DerivedData)`
 - `void RecomputeAllDerivedData()`
+- `void RecomputeTotalFillFraction()`
 - `void UpdateRenderData(ref Brutal.Numerics.double4x4, bool, KSA.IViewport, int)`
 
 ### KSA.PerAxisAttitudeControlSystem
@@ -1412,6 +1490,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.SequencePerformanceList
 
 - `float get_TotalDeltaV()`
+- `void SetDirty()`
 
 ### KSA.SerializedId
 
@@ -1453,6 +1532,11 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `double get_AtmosphericPressure()`
 - `void .ctor(Brutal.Numerics.double3, Brutal.Numerics.double3, double)`
 
+### KSA.SphericalTankTemplate
+
+- `KSA.DistanceReference OuterRadius`
+- `KSA.DistanceReference WallThickness`
+
 ### KSA.StateVectors
 
 - `KSA.UniverseTime StateTime`
@@ -1470,6 +1554,11 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.SunbloomRenderer
 
 - `void Render(Brutal.VulkanApi.CommandBuffer, KSA.IViewport, int)`
+
+### KSA.Tank
+
+- `System.Collections.Generic.List`1<KSA.Mole> Moles`
+- `float StorageVolume`
 
 ### KSA.TextureReference
 
@@ -1504,6 +1593,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `bool Equals(KSA.UniverseTime)`
 - `double Seconds()`
 - `void .ctor(double)`
+
+### KSA.Vector3Reference
+
+- `Brutal.Numerics.double3 op_Implicit(KSA.Vector3Reference)`
 
 ### KSA.Vehicle
 
@@ -1572,6 +1665,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `float TotalPropellantMass`
 - `float TotalSurfaceArea`
 - `float get_TotalMass()`
+- `void RecomputeMassProperties(System.ReadOnlySpan`1<KSA.ISubstanceStore>, System.ReadOnlySpan`1<KSA.MoleState>)`
 - `void SetOnRails(bool)`
 
 ### KSA.VehicleReferenceFrame

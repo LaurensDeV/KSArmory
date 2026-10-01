@@ -43,7 +43,7 @@ internal sealed class Bridge : IViewPose
 
     private static readonly string[] ShaderIds =
         ["KSArmoryCloudCompute", "KSArmoryCloudResolveCompute", "KSArmoryShockCompute",
-         "KSArmoryFireLightCompute", "KSArmoryRingCompute"];
+         "KSArmoryFireLightCompute", "KSArmoryRingCompute", "KSArmoryHoleCompute", "KSArmoryLeakCompute"];
 
     public Bridge(Config config, Func<Vehicle?, WeaponSystem?> systemFor,
                   Func<IEnumerable<WeaponSystems.Entry>> systems, Func<IReadOnlyList<WeaponSystem>> loose,

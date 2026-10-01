@@ -42,6 +42,7 @@ internal static class CloudPass
     private const string FireLightShaderId = "KSArmoryFireLightCompute";
     private const string RingShaderId = "KSArmoryRingCompute";
     private const string HoleShaderId = "KSArmoryHoleCompute";
+    private const string LeakShaderId = "KSArmoryLeakCompute";
     private const string TracerShaderId = "KSArmoryTracerCompute";
 
     // KSArmoryFireLight.comp's workgroup.
@@ -75,6 +76,7 @@ internal static class CloudPass
     private static readonly ProfilerTag RedWaveTag = new("KSArmory Cloud: red wave"u8);
     private static readonly ProfilerTag RingsTag = new("KSArmory Cloud: rings"u8);
     private static readonly ProfilerTag HolesTag = new("KSArmory Cloud: holes"u8);
+    private static readonly ProfilerTag LeaksTag = new("KSArmory Cloud: leaks"u8);
     private static readonly ProfilerTag TracersTag = new("KSArmory Cloud: tracers"u8);
 
     private static readonly List<(float Kind, double Brightness, Push Push)> _sky = [];
@@ -151,6 +153,7 @@ internal static class CloudPass
         public ComputePipelineWrapper? Shock;
         public ComputePipelineWrapper? Rings;
         public ComputePipelineWrapper? Holes;
+        public ComputePipelineWrapper? Leaks;
         public ComputePipelineWrapper? Tracers;
         public ComputePipelineWrapper? FireLight;
         public VkImageView FireLightDepth;
@@ -526,6 +529,9 @@ internal static class CloudPass
 
             // The holes shells have left in hulls, on the hull under any smoke standing in front of it.
             Holes(commandBuffer, viewport, camera, view, depth, frameIndex, width, height, ref marks);
+
+            // The streams leaking tanks throw, over the hull they run down.
+            Streams(commandBuffer, viewport, camera, view, depth, frameIndex, width, height, ref marks);
 
             // THE SKY a high burst lights: the X-ray-heated layer, the aurora at each end of the field line
             // and a thin-air burst's debris shell, each a full-screen dispatch with a negative bound. Every
@@ -1047,6 +1053,7 @@ internal static class CloudPass
         public float4 Rect;            // the pixels it can reach: first x, first y, last x, last y
     }
 
+    /// <summary>
     /// The most holes painted in one view in one frame: every one kept. Fewer, taken nearest first,
     /// drops whichever end of a riddled craft is further from the camera as the view moves.
     /// </summary>
@@ -1058,6 +1065,8 @@ internal static class CloudPass
     // KSArmoryHole.comp's workgroup.
     private const int HoleGroup = 16;
 
+    // How far along the shell's path a mark reaches past the point it met the hull, at the least: the
+    // burst's own dent is 0.57 m deep for a 5"/54, and the skin as drawn is down there.
     private const double HoleReachMetres = 1.0;
 
     // The soot reaches at most this many hole radii, so a 20 mm round's is a hand across, not an arm.
@@ -1308,6 +1317,233 @@ internal static class CloudPass
 
         _holeMemory = buffer.Map();
         _holeBuffer = buffer;
+        return true;
+    }
+
+    /// <summary>One stretch of a leak's stream as <c>KSArmoryLeak.comp</c> reads it, std430.</summary>
+    [StructLayout(LayoutKind.Sequential, Pack = 4)]
+    public struct StreamSegment
+    {
+        public float4 Head;            // x, y in pixels, device depth, metres along the stream
+        public float4 Tail;            // x, y in pixels, device depth, metres along the stream
+        public float4 Look;            // half-width in pixels at each end, metres it runs whole, a seed
+        public float4 Flow;            // seconds the liquid has been out at each end, the jet's radius in metres
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 4)]
+    private struct StreamPush
+    {
+        public int First;              // the view's first segment in the buffer
+        public int Count;
+        public int OriginX;            // the dispatch's first pixel
+        public int OriginY;
+        public float Clock;            // Leaks.Clock, which the pattern moves on
+    }
+
+    private const int StreamSegmentsPerView = Leaks.MostStreams * (LeakStream.Points - 1);
+
+    private static BufferEx? _streamBuffer;
+    private static MappedMemory _streamMemory;
+    private static int _streamFrames;
+    private static int _streamFrame = -1;
+    private static int _streamView;
+    private static readonly LeakStream.Point[] _arc = new LeakStream.Point[LeakStream.Points];
+    private static readonly double4[] _clip = new double4[LeakStream.Points];
+    private static readonly double[] _across = new double[LeakStream.Points];
+    private static double _streamCpuSeconds;
+    private static int _streamCpuFrames;
+    private static long _streamLoggedAt = long.MinValue / 2;
+
+    // THE LEAKS' STREAMS: KSArmoryLeak.comp. One dispatch over the patch of screen they cover.
+    private static void Streams(CommandBuffer commandBuffer, IViewport viewport, Camera camera, View view,
+                                IRenderImage depth, int frameIndex, int width, int height, ref int marks)
+    {
+        IReadOnlyList<Leaks.Stream> streams = KSArmory.Leaks.Streams;
+        if (streams.Count == 0) return;
+        if (_streamBuffer is null && !BuildStreamBuffer()) return;
+        if (view.Leaks is null && !BuildStreams(view, depth)) return;
+
+        long started = System.Diagnostics.Stopwatch.GetTimestamp();
+        try
+        {
+            RecordStreams(commandBuffer, viewport, camera, view, frameIndex, width, height, streams, ref marks);
+        }
+        finally
+        {
+            _streamCpuSeconds += System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalSeconds;
+            _streamCpuFrames++;
+            if (_recorded - _streamLoggedAt >= 300)
+            {
+                double ms = _streamCpuSeconds / Math.Max(_streamCpuFrames, 1) * 1000.0;
+                _streamCpuSeconds = 0.0;
+                _streamCpuFrames = 0;
+                _streamLoggedAt = _recorded;
+                int drawn = streams.Count;
+                Log.Debug(() => $"leak streams: {drawn} drawn, {ms:F3} ms of CPU a view");
+            }
+        }
+    }
+
+    private static void RecordStreams(CommandBuffer commandBuffer, IViewport viewport, Camera camera, View view,
+                                      int frameIndex, int width, int height, IReadOnlyList<Leaks.Stream> streams,
+                                      ref int marks)
+    {
+        if (frameIndex != _streamFrame)
+        {
+            _streamFrame = frameIndex;
+            _streamView = 0;
+        }
+
+        int slot = ((((frameIndex % _streamFrames) + _streamFrames) % _streamFrames) * HoleViewsPerFrame)
+                   + (_streamView++ % HoleViewsPerFrame);
+        int first = slot * StreamSegmentsPerView;
+        Span<StreamSegment> mine = _streamMemory.AsSpan<StreamSegment>().Slice(first, StreamSegmentsPerView);
+
+        double3 cameraEcl = camera.PositionEcl;
+        int count = 0;
+        int minX = width, minY = height, maxX = 0, maxY = 0;
+
+        for (int s = 0; s < streams.Count && s < KSArmory.Leaks.MostStreams; s++)
+        {
+            Leaks.Stream stream = streams[s];
+            int points = Math.Min(stream.Count, _arc.Length);
+            for (int i = 0; i < points; i++)
+            {
+                _arc[i] = stream.Points[i] with { Position = stream.Points[i].Position - cameraEcl };
+            }
+
+            float whole = (float)LeakStream.WholeForMetres(stream.ExitRadius);
+
+            // Each point projected once, with its width: a segment shares both its ends with its neighbours.
+            for (int i = 0; i < points; i++)
+            {
+                _clip[i] = camera.EgoToClipDouble(_arc[i].Position);
+                _across[i] = PixelsAcross(camera, _arc[i].Position, _arc[i].Radius, width, height);
+            }
+
+            for (int i = 1; i < points; i++)
+            {
+                double4 h = _clip[i - 1];
+                double4 t = _clip[i];
+                if (!TracerLook.TryClipToFront(ref h, ref t, 0.05)) continue;
+
+                (double hx, double hy) = ToPixel(h, width, height);
+                (double tx, double ty) = ToPixel(t, width, height);
+                double headWidth = _across[i - 1];
+                double tailWidth = _across[i];
+                if (!double.IsFinite(hx + hy + tx + ty + headWidth + tailWidth)) continue;
+
+                mine[count++] = new StreamSegment
+                {
+                    Head = new float4((float)hx, (float)hy, (float)(h.Z / h.W), (float)_arc[i - 1].AlongMetres),
+                    Tail = new float4((float)tx, (float)ty, (float)(t.Z / t.W), (float)_arc[i].AlongMetres),
+                    Look = new float4((float)headWidth, (float)tailWidth, whole, stream.Seed),
+                    Flow = new float4((float)_arc[i - 1].OutSeconds, (float)_arc[i].OutSeconds,
+                                      (float)stream.ExitRadius, 0f),
+                };
+
+                int reach = (int)Math.Ceiling(Math.Max(headWidth, tailWidth)) + 2;
+                minX = Math.Min(minX, (int)Math.Floor(Math.Min(hx, tx)) - reach);
+                minY = Math.Min(minY, (int)Math.Floor(Math.Min(hy, ty)) - reach);
+                maxX = Math.Max(maxX, (int)Math.Ceiling(Math.Max(hx, tx)) + reach);
+                maxY = Math.Max(maxY, (int)Math.Ceiling(Math.Max(hy, ty)) + reach);
+            }
+        }
+
+        minX = Math.Clamp(minX, 0, width);
+        minY = Math.Clamp(minY, 0, height);
+        maxX = Math.Clamp(maxX, 0, width);
+        maxY = Math.Clamp(maxY, 0, height);
+        if (count == 0 || maxX <= minX || maxY <= minY) return;
+
+        StreamPush push = new()
+        {
+            First = first,
+            Count = count,
+            OriginX = minX,
+            OriginY = minY,
+            Clock = (float)KSArmory.Leaks.Clock,
+        };
+
+        using (commandBuffer.TagRegion(GpuTag))
+        using (commandBuffer.TagRegion(LeaksTag))
+        {
+            if (marks > 0) Hazard(commandBuffer);
+
+            view.Leaks!.BindPipeline(commandBuffer, viewport.ShaderSlot, default, default, push);
+            commandBuffer.Dispatch((maxX - minX + HoleGroup - 1) / HoleGroup, (maxY - minY + HoleGroup - 1) / HoleGroup, 1);
+            marks++;
+        }
+    }
+
+    private static (double X, double Y) ToPixel(double4 clip, int width, int height)
+        => (((clip.X / clip.W * 0.5) + 0.5) * width, ((clip.Y / clip.W * 0.5) + 0.5) * height);
+
+    // How many pixels a radius spans across the line of sight at a point, off the camera's own projection.
+    private static double PixelsAcross(Camera camera, double3 pointEgo, double radius, int width, int height)
+    {
+        double4 at = camera.EgoToClipDouble(pointEgo);
+        double4 aside = camera.EgoToClipDouble(pointEgo + (Vec.Unit(Vec.AnyPerpendicular(pointEgo)) * radius));
+        if (!(at.W > 1.0e-3) || !(aside.W > 1.0e-3)) return 0.0;
+
+        (double ax, double ay) = ToPixel(at, width, height);
+        (double bx, double by) = ToPixel(aside, width, height);
+        return Math.Sqrt(((bx - ax) * (bx - ax)) + ((by - ay) * (by - ay)));
+    }
+
+    private static bool BuildStreamBuffer()
+    {
+        Renderer renderer = Program.GetRenderer();
+        _streamFrames = Math.Max(renderer.MaxFramesInFlight, 1);
+
+        if (typeof(Renderer).GetProperty("Allocator")?.GetValue(renderer) is not IBufferAllocator allocator)
+        {
+            Warn("no buffer allocator on the renderer; leaks are not drawn");
+            return false;
+        }
+
+        BufferEx buffer = allocator.CreateBuffer(new BufferEx.CreateInfo
+        {
+            Name = "KSArmory leaks",
+            BufferUsage = VkBufferUsageFlags.StorageBufferBit,
+            BufferSize = ByteSize.Of<StreamSegment>(_streamFrames * HoleViewsPerFrame * StreamSegmentsPerView),
+            AllocRequiredProperties = VkMemoryPropertyFlags.HostVisibleBit | VkMemoryPropertyFlags.HostCoherentBit,
+        });
+
+        _streamMemory = buffer.Map();
+        _streamBuffer = buffer;
+        return true;
+    }
+
+    private static bool BuildStreams(View view, IRenderImage depth)
+    {
+        if (!ModLibrary.TryGet<ShaderReference>(LeakShaderId, out var shader) || shader is null)
+        {
+            Warn($"no shader '{LeakShaderId}'; leaks are not drawn");
+            return false;
+        }
+
+        Renderer renderer = Program.GetRenderer();
+
+        IRenderImage[] storageTargets = [view.Target];
+        IRenderImage[] depthTargets = [depth];
+        VkBuffer[] buffers = [_streamBuffer!.Value.VkBuffer];
+        VkPushConstantRange[] ranges =
+        [
+            new VkPushConstantRange
+            {
+                Offset = (ByteSize32)0,
+                Size = (ByteSize32)Marshal.SizeOf<StreamPush>(),
+                StageFlags = VkShaderStageFlags.ComputeBit,
+            },
+        ];
+
+        view.Leaks = new ComputePipelineWrapper(
+            storageTargets, depthTargets, default, default, shader,
+            default, ranges, renderer.MaxFramesInFlight, renderer,
+            "KSArmory.Leaks", Program.PointClampedSampler, Program.LinearClampedSampler,
+            storageBuffers: buffers);
+
         return true;
     }
 

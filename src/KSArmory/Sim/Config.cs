@@ -180,6 +180,13 @@ public sealed class Config
     /// </summary>
     public bool BulletHoles = true;
 
+    /// <summary>
+    /// Whether a holed tank leaks — see <see cref="TankLeak"/>: the liquid settles against the
+    /// acceleration the craft feels, so a craft on its side drains from its lower holes and a hole above
+    /// the liquid leaks nothing; coasting, the liquid floats and any hole leaks as often as it is under it.
+    /// </summary>
+    public bool TankLeaks = true;
+
     /// <summary>A health bar over every part of every craft near the camera.</summary>
     public bool DrawPartHealth;
 
