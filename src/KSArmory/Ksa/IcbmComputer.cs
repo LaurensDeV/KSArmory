@@ -1729,7 +1729,8 @@ internal sealed class IcbmComputer
             plan.CeilingMetresPerSecond,
             Config.PulseTrim ? Config.PulseSeconds : 0.0,
             Config.StoppingInsideTheBandIsDone,
-            Config.StallFallsBackToHolding));
+            Config.StallFallsBackToHolding,
+            Config.TrimCountsTheCommandInFlight));
 
         // The mode goes through the attitude window for the same reason the aim does: applying a
         // worker's results copies the whole flight computer over anything written outside it. The
@@ -2511,10 +2512,8 @@ internal sealed class IcbmComputer
             return;
         }
 
-        // The bias is the ground under the OLD aim -- how far short that arc was falling on that
-        // terrain -- so carrying it onto a new place applies one target's correction to another.
         // Retarget rather than Reset, which would re-seed the plant at the pre-burn 1/Gain.
-        _aim.Retarget();
+        _aim.Retarget(Config.CarryAimBiasAcrossHops);
 
         // Re-solved to the same committed arrival, which is what makes a hop a hop rather than a
         // new shot: every warhead of the walk arrives at one instant however far apart they land.

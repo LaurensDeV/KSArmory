@@ -1596,7 +1596,10 @@ regardless, and the lateral jets are doing most of the work. It fires **one dire
 thrust that is only measurable along the direction being fired, and a bus's lateral authority is
 whatever its nozzle layout happened to give it — **the shipped one has all six**, 4.000 units fore
 and aft and 4.243 in each lateral direction with the roll torques cancelling, which
-`tools/model/checkring.py --translation` reads off the XML. And it is a **precondition
+`tools/model/checkring.py --translation` reads off the XML. **It counts the frame its last hold still
+owes before choosing again** (`IcbmConfig.TrimCountsTheCommandInFlight`), because a command reaches the
+engine a frame after it is written: at a warped step half a frame is the band, and without it the trim
+chased its own overshoot between opposite jets, 8.13 m/s an aim pass against 0.70 with it. And it is a **precondition
 of being ready to deploy** rather than a step inside the release sequence, which is what stops one
 warhead leaving on the attached stack's solution and the rest on the shoved bus's.
 

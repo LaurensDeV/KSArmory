@@ -849,6 +849,24 @@ internal sealed partial class Ui
             + "improving at ten metres. Off: a cycle counts only if it closes "
             + $"{AimCorrection.ImprovedByMetres:F0} m, which no cycle can at a ten-metre miss.");
 
+        bool carry = config.CarryAimBiasAcrossHops;
+        if (ImGui.Checkbox("Carry the aim bias across a hop", ref carry))
+        {
+            config.CarryAimBiasAcrossHops = carry;
+        }
+        Tip("On: a bus walking between targets starts each stop's aim correction from the bias the "
+            + "last stop walked to. Off: each stop starts from no bias and corrects it again from "
+            + "scratch. A set of one target never hops, so it is the same either way.");
+
+        bool inFlight = config.TrimCountsTheCommandInFlight;
+        if (ImGui.Checkbox("Trim counts the command in flight", ref inFlight))
+        {
+            config.TrimCountsTheCommandInFlight = inFlight;
+        }
+        Tip("On: the trim allows for the frame of thrust its last command has still to deliver, "
+            + "which stops it overshooting back and forth at long frame steps. Off: it chooses on the "
+            + "velocity alone, and under timewarp chases its own overshoot between opposite jets.");
+
         bool onReading = config.DecideOnTheReading;
         if (ImGui.Checkbox("Decide each pass on its reading", ref onReading))
         {

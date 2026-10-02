@@ -279,6 +279,7 @@ internal sealed class AimCorrection
     private bool _haveLast;
     private double _bestMiss = double.PositiveInfinity;
     private double3 _bestBias;
+    private double3 _walkedBias;
     private int _worseFor;
 
     /// <summary>
@@ -392,6 +393,7 @@ internal sealed class AimCorrection
         {
             if (++_worseFor >= WorseBeforeStopping)
             {
+                _walkedBias = BiasCci;
                 BiasCci = _bestBias;
                 Settled = true;
                 return;
@@ -421,6 +423,7 @@ internal sealed class AimCorrection
     {
         if (Settled) return;
 
+        _walkedBias = BiasCci;
         if (double.IsFinite(_bestMiss)) BiasCci = _bestBias;
         Settled = true;
     }
@@ -452,23 +455,27 @@ internal sealed class AimCorrection
     /// <summary>
     /// Start again on a different place, on the same coast.
     ///
-    /// <para><b>The bias goes and the plant stays.</b> The bias is how far short the arc was falling
-    /// on the ground under the <em>old</em> aim, so carrying it onto another place applies one
-    /// target's correction to another. The response is the coast's, exactly as
-    /// <see cref="Resume"/> seeds it — a hop re-solves the arc to the new aim at the same committed
-    /// arrival, which is the same plant. <see cref="Reset"/>'s <c>1 / Gain</c> is the pre-burn
-    /// seeding and takes quarter steps, which on a walk costs a pass, and a coast pass is a median
-    /// 65 s.</para>
+    /// <para>The response is the coast's, exactly as <see cref="Resume"/> seeds it — a hop
+    /// re-solves the arc to the new aim at the same committed arrival, which is the same plant.
+    /// <see cref="Reset"/>'s <c>1 / Gain</c> is the pre-burn seeding and takes quarter steps, which
+    /// on a walk costs a pass, and a coast pass is a median 65 s.</para>
+    ///
+    /// <para><b>Carried, the next stop starts from the bias the loop had walked
+    /// to</b> — not the one <see cref="Freeze"/> reverted to, which the trim never flew and which on an
+    /// inner stop is zero. Flown at four targets 1 km apart on flat ground, every inner stop's walked
+    /// bias sat at 210–360 m, so starting from zero opened every stop with a pass whose ~220 m first
+    /// reading also banked as the best, under the flat 250 m band, and nothing after it could beat
+    /// it. <see cref="IcbmConfig.CarryAimBiasAcrossHops"/>.</para>
     /// </summary>
-    public void Retarget()
+    public void Retarget(bool carryBias = false)
     {
-        BiasCci = Vec.Zero;
+        BiasCci = carryBias && Vec.IsFinite(_walkedBias) ? _walkedBias : Vec.Zero;
         Settled = false;
         _bestMiss = double.PositiveInfinity;
-        _bestBias = Vec.Zero;
+        _bestBias = BiasCci;
         _worseFor = 0;
         _response = 1.0;
-        _lastBias = Vec.Zero;
+        _lastBias = BiasCci;
         _lastError = Vec.Zero;
         _haveLast = false;
     }
@@ -476,6 +483,7 @@ internal sealed class AimCorrection
     public void Reset()
     {
         BiasCci = Vec.Zero;
+        _walkedBias = Vec.Zero;
         Settled = false;
         _bestMiss = double.PositiveInfinity;
         _bestBias = Vec.Zero;

@@ -425,6 +425,30 @@ internal sealed class IcbmConfig
     public bool AimThresholdTracksTheMiss;
 
     /// <summary>
+    /// Whether a bus walking between targets starts each stop's aim correction from the bias the
+    /// last stop walked to, rather than from none. <see cref="AimCorrection.Retarget"/> has the
+    /// reasoning; a set of one never hops, so it is untouched either way.
+    ///
+    /// <para><b>On.</b> Flown paired at four targets with the next switch it took the landing to
+    /// 0.35x [0.18, 0.73] and a walk's trim spend to 0.36–0.64x, 8 of 8 shots; on its own, spend
+    /// 8 of 8 and the landing 0.61x [0.34, 1.03]. <c>docs/MIRV-TARGETS.md</c>.</para>
+    /// </summary>
+    public bool CarryAimBiasAcrossHops = true;
+
+    /// <summary>
+    /// Whether the bus's trim takes the frame its last hold still owes off what is left to gain
+    /// before choosing again. A command reaches the engine a frame after it is written, and once the
+    /// step is long enough that half a frame of thrust is the stop band, choosing without it
+    /// overshoots out of the band on the opposite axis every time — a limit cycle at long steps,
+    /// none at 1x. <see cref="BusTrim"/>.
+    ///
+    /// <para><b>On.</b> Flown at four targets, an aim pass at 84–117 ms steps cost 0.70 m/s over 42
+    /// passes against 8.13 without it, and a walk's spend fell 8 of 8 shots; on a single target the
+    /// landing is non-inferior at 0.88x [0.64, 1.13]. <c>docs/MIRV-TARGETS.md</c>.</para>
+    /// </summary>
+    public bool TrimCountsTheCommandInFlight = true;
+
+    /// <summary>
     /// Whether a post-boost pass is decided on the reading that follows a flown correction, rather
     /// than on one fifteen seconds later.
     ///

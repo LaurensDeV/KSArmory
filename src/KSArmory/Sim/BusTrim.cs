@@ -112,7 +112,13 @@ internal readonly record struct TrimSituation(
     /// Whether a pulse phase that stops closing gives way to holding rather than ending the null —
     /// <see cref="IcbmConfig.StallFallsBackToHolding"/>.
     /// </summary>
-    bool StallFallsBackToHolding = false);
+    bool StallFallsBackToHolding = false,
+
+    /// <summary>
+    /// Whether the frame a hold still owes is taken off what is left to gain before the next
+    /// direction is chosen — <see cref="IcbmConfig.TrimCountsTheCommandInFlight"/>.
+    /// </summary>
+    bool CountsTheCommandInFlight = false);
 
 /// <summary>What to fire and whether the warheads may go.</summary>
 /// <param name="Acceleration">
@@ -634,6 +640,17 @@ internal sealed class BusTrim
         if (!TrySolve(in now, out double3 toGainCci))
         {
             return Command(TrimAxes.None, "waiting for the cutoff trajectory to propagate");
+        }
+
+        // A command reaches the engine's worker on the frame after it is written, so the hold chosen
+        // last frame has a whole frame still to deliver. Chosen without it, a frame of thrust lands
+        // on an error the band already called closed: at 0.5 x a x step the overshoot always leaves
+        // the band on the opposite side, which at 88 ms steps burned 4-18 m/s a pass in flight
+        // against 0.7-0.9 at 15 ms.
+        if (now.CountsTheCommandInFlight && _fire != TrimAxes.None && !_pulsedLast
+            && !_pushDirLast.Equals(Vec.Zero) && _accel > 0.0 && double.IsFinite(_accel))
+        {
+            toGainCci -= Vec.Unit(_pushDirLast) * (_accel * step);
         }
 
         _toGain = Vec.Len(toGainCci);
