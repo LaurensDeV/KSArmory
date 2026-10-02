@@ -233,6 +233,13 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
     public bool HasRegion => Hold == ReachHold.Drawn;
 
     /// <summary>
+    /// Whether the reach was flown, so a place on the ground can be measured against it — which a
+    /// full set and a spent budget still are. The walk is planned off those offsets, so a set that
+    /// fills the bus has to be measurable even though no ring is drawn for it, or none of it is a stop.
+    /// </summary>
+    public bool HasFootprint => Hold is ReachHold.Drawn or ReachHold.Full or ReachHold.Spent;
+
+    /// <summary>
     /// Whether the ring sits on the landing, which it does while the lead is the only stop the bus
     /// makes — every set of one, whichever entry the lead is.
     /// </summary>
@@ -334,7 +341,7 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
     {
         alongMetres = 0.0;
         crossMetres = 0.0;
-        if (!HasRegion || !Vec.IsFinite(offsetCci)) return false;
+        if (!HasFootprint || !Vec.IsFinite(offsetCci)) return false;
 
         double3 resolved = Footprint.Frame.Resolve(body.CarryCci(offsetCci, Footprint.FlightSeconds));
 

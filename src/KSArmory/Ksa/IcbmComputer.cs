@@ -4042,7 +4042,7 @@ internal sealed class IcbmComputer
         alongMetres = 0.0;
         crossMetres = 0.0;
 
-        if (!Reach.HasRegion) return false;
+        if (!Reach.HasFootprint) return false;
 
         return Reach.TryOffsets(Body, (pointCcf - _reachLandingCcf).Transform(_reachCcf2Cci),
                                 out alongMetres, out crossMetres);
