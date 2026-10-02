@@ -924,3 +924,41 @@ tables above can be re-derived off that. `BallisticScenario` no longer warps unt
 (`~/shots/2026-10-02-walk-smoke`, 2 shots, 16 rockets), the 8x arrives 5 s after the last release, both
 PASS, a walk spends a median 23.9 m/s, and every inner stop 3.5–4.2. It also takes the long step out of the
 scenario, so a regression in counting the command in flight would no longer show in a walk.
+
+## A full set never walked, and starting a walk at cutoff — 2026-10-02
+
+**Six targets never walked, and that is fixed** (`a7f49a4c`). Six is `TargetSet.MaxTargets`, so the reach
+reads `Full`, and `HasRegion` is false for anything but `Drawn`. The computer measured each target against
+the reach only while `HasRegion` held, so a full set reached the planner with no warheads on any target:
+nothing was planned, nothing logged a walk, and all six went to the lead. Every earlier night flew four
+targets or fewer and never got there. Measuring now asks `ReachDisplay.HasFootprint`; the ring and the click
+refusal still go by `HasRegion`. Flown on six targets 6.5 km apart (`~/shots/scripts-2026-10-02/verify-six.log`):
+every rocket plans `6 stops, 49.8 m/s of 60` once the coast begins. Stopped before release, so **no six-stop
+walk has been flown to the ground yet**.
+
+**On the pad the same set is refused, and that is expected.** Before cutoff the reach is the epoch floor, and
+the planner prices a 6.5 km hop at **17.6 m/s** against the one pass's 10, so it says
+`a hop wants 17.6 m/s and one pass will fly 10`. The coast re-flies the reach at ~955 m per m/s, prices
+the same hop at 6.8, and the plan is replaced, because nothing commits it until a warhead leaves.
+
+**`IcbmConfig.WalkStartsAtCutoff`** (`5f8e9e87`, off, unflown) puts a walk's first release at the start of the
+coast instead of ending its last on `ReleaseBeforeArrivalSeconds`. A hop bought early moves the landing
+further per m/s (1,076 m against 688 at 6,179 km), so a chain could be spaced ~8.5 km rather than ~4.5, for a
+per-warhead floor nearer 55 m than 14.
+
+**The night declared for it is void, and the declaration needs revising before it flies.**
+`~/shots/2026-10-02-walk-cutoff` flew one shot before the full-set fault was found: both arms released everything
+on target 6. Two things to change in `~/shots/scripts-2026-10-02/DECLARE-walk-cutoff.md` before re-flying it:
+
+- **At 6.5 km base is not expected to refuse.** The planner prices every hop at one reach for the whole coast
+  (`ReachDisplay.For`'s single `atEachSlot`), so the switch moves *when* the hops are flown and not what they
+  are priced at. Base and early both plan six stops at 6.8 m/s a hop. What separates the arms is what the hops
+  **cost when flown**, which is what the night has to measure: per-hop divert, total spend, truncations. To make
+  base refuse, the spacing has to exceed one pass at the flown reach, ~9.5 km, or the planner has to price each
+  slot at its own reach.
+- **The primary endpoint is then spend and truncation, not stops planned**, and the landing secondary stands
+  (every warhead inside the lethal radius; early's floor is expected to rise).
+
+**Next, in order:** re-fly a six-target walk on `dev` with the switch off to see one complete; revise the
+declaration as above; fly the paired night. Then the levers: spend the trim reserve kept back for the split's
+null after stop 1, and price each slot at its own reach.
