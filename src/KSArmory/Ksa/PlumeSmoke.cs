@@ -19,8 +19,14 @@ namespace KSArmory;
 /// of it except the field name inside <c>docs/KSA-API-SURFACE.md</c>.</para>
 ///
 /// <para><b>A duty cycle is not in the way.</b> The <c>DutyCycle &gt; 0</c> test that stops a
-/// mod-declared plume is the <c>isActive</c> argument, computed where the engine calls this for a
+/// mod-declared plume is the <c>isFlowing</c> argument, computed where the engine calls this for a
 /// nozzle. A caller passing its own never meets it: no nozzle, no propellant, no thrust.</para>
+///
+/// <para><b>A segment only swells if it is thrown.</b> KSA grows a segment as a jet entraining
+/// air, <c>r = r₀·∛(1 + t/T)</c> with <c>T = r₀ / (3·k·v)</c> on its release speed <c>v</c>, and at
+/// rest it keeps its laid radius and full heat — a glowing wire. So each segment is thrown back
+/// along the trail at the speed that reaches its expanded radius in <see cref="SwellSeconds"/>,
+/// which also moves it along its own line rather than off it.</para>
 ///
 /// <para><b>Colour, density and lifetime are per-emitter</b>, passed at submit time — so what
 /// this mod lays never reaches KSA's own boosters, which read their own plume template. The
@@ -51,6 +57,14 @@ internal static class PlumeSmoke
     private const float StockDensity = 1f;
     private const float StockLifetimeSeconds = 1200f;
 
+    // The engine's own expansion time before it modelled entrainment, which the trails were tuned on.
+    private const float SwellSeconds = 5f;
+
+    // PlumeTrailSettings.ExhaustEntrainmentCoefficient, a readonly field; and the tracker lays a
+    // segment at 1.65 nozzle radii (PlumeTrailEmitterTracker.SubmitEmitter).
+    private const float Entrainment = 0.2f;
+    private const float LaidPerNozzleRadius = 1.65f;
+
     /// <summary>
     /// Lays this strand's next segment, at a body-fixed position.
     ///
@@ -58,23 +72,36 @@ internal static class PlumeSmoke
     /// <paramref name="expandedRadius"/> what it swells to, which is how one moving point becomes a
     /// billowing column rather than a wire.</para>
     /// </summary>
+    /// <param name="thrownCcf">
+    /// Which way the smoke leaves the source, body-fixed; only the direction is read. Zero throws it
+    /// straight up.
+    /// </param>
     /// <param name="density">
     /// How thick this segment is, against <see cref="StockDensity"/>. A booster's plume is 1. Below
     /// 1 a segment transmits rather than scattering, which is the only way to make a bundle of
     /// overlapping segments read as dust instead of as a solid.
     /// </param>
-    public static void Lay(Strand strand, Celestial body, double3 positionCcf,
+    public static void Lay(Strand strand, Celestial body, double3 positionCcf, double3 thrownCcf,
                            float initialRadius, float expandedRadius, float density = StockDensity)
     {
 
         if (Resolve() is not { } renderer) return;
         if (!Vec.IsFinite(positionCcf)) return;
 
+        float nozzle = initialRadius / LaidPerNozzleRadius;
+        double swell = Math.Max(expandedRadius / initialRadius, 1.0);
+        double speed = nozzle * ((swell * swell * swell) - 1.0) / (3.0 * Entrainment * SwellSeconds);
+
+        double3 along = Vec.Unit(thrownCcf);
+        if (Vec.Len2(along) < 0.5) along = Vec.Unit(positionCcf);
+
+        var frame = new PlumeTrailEmitterFrame(positionCcf, double3.Zero, doubleQuat.Identity,
+                                               double3.Zero, Universe.GetElapsedSeconds());
         try
         {
-            renderer.SubmitEmitter(strand.State, body, positionCcf,
-                                   initialRadius, expandedRadius, Colour,
-                                   density, StockLifetimeSeconds, isActive: true);
+            renderer.SubmitEmitter(strand.State, body, in frame, double3.Zero, along * speed,
+                                   nozzle, expandedRadius, Colour, density, StockLifetimeSeconds,
+                                   isFlowing: true, isInsideAtmosphere: true);
         }
         catch (Exception e)
         {

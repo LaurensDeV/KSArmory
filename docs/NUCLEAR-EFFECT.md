@@ -57,7 +57,7 @@ sibling `VolumetricExhaustRenderer` did get an accessor for. So the whole system
 `GetField(NonPublic | Instance)` away.
 
 **`DutyCycle > 0f` is not a gate.** `docs/BLOCKED-ON-KSA.md` describes it as the reason the XML route
-fails, which is right, but it is worth being exact: it is the `isActive` *argument*, computed at the
+fails, which is right, but it is worth being exact: it is the `isFlowing` *argument*, computed at the
 one call site in `Vehicle.UpdatePlumeTrailEmitters`. `SubmitEmitter` forwards a bool. A caller
 passing `true` never meets it — no nozzle, no propellant, no thrust.
 
@@ -65,7 +65,8 @@ What makes it the best fit for a cloud that stands over a target:
 
 - Segments are stored in **CCF**, the body-fixed rotating frame, so a planted cloud stays over the
   ground for its whole life rather than being left behind by the planet.
-- Segment lifetime is **1200 s** and the radius expands over a settable time.
+- Segment lifetime is **1200 s**, and the radius swells as a jet entraining air, so a segment
+  laid at rest never swells at all; `Ksa/PlumeSmoke.cs` throws each one back along the trail.
 - After expansion the vertices advect through a **simplex wind field, sheared by altitude**. The cap
   drifts against the stem for free, which is otherwise choreography.
 - Erosion noise scale is derived from segment radius, so large capsules billow at a large scale

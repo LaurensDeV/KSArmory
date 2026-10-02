@@ -8,7 +8,7 @@ Each entry cites what the decompiled corpus says, so a claim can be rechecked af
 rather than taken on trust. **Recheck this file when the game moves** — the whole point of it is
 that some of these will quietly become possible.
 
-Findings are against KSA **2026.9.22.5482**. Paths are relative to
+Findings are against KSA **2026.10.7.5541**. Paths are relative to
 `../ksa-game-assemblies/current/src`.
 
 ## Recheck after a KSA update
@@ -17,8 +17,11 @@ Tick when rechecked against the new build, then untick for the next one. `tools/
 will not surface any of these — none is a signature change, and most are a call that does not
 happen rather than a member that moved.
 
-- [x] Secondary viewport gets the planet, atmosphere and lighting passes
-- [x] `Camera.NearbyCelestial` is set per camera rather than only for the frame viewport
+- [x] Secondary viewport gets the planet, atmosphere and lighting passes — **partly, in
+  2026.10.7.5541**: terrain and sky, not clouds, ocean or clustered lights; see the entry below
+- [x] `Camera.NearbyCelestial` is set per camera rather than only for the frame viewport — **partly,
+  in 2026.10.7.5541**: the field is still the frame camera's, but `Camera.GetEffectiveNearbyCelestial`
+  resolves one for any camera, and the planet and atmosphere passes read that
 - [x] Wheel, suspension or steering module exists
 - [x] ~~Partial or component damage exists alongside `DestroyVehicleFromEvent`~~ — **arrived in
   2026.9.4.5400, and taken up**: a burst breaks parts one by one through
@@ -38,7 +41,7 @@ happen rather than a member that moved.
   night on disk, that flags the five shots the fault ruined and none of the 37 sound post-fix shots
   the frame-only gate re-flew, whose largest push was 0.20 m/s. See the entry below
 - [ ] **`PhysicsStates.ComputeDrag` is still a body-fixed drag box over the mass, with no lift, no
-  Mach term and no aerodynamic torque** — RocketWerkz are working on aerodynamics. The day this
+  Mach term and no restoring torque** — RocketWerkz are working on aerodynamics. The day this
   changes, the gun's lead is leading on yesterday's physics; see the entry below
 - [ ] **`RecomputeImmersion` rotates `MassToGeometryAsmb` into the planet's frame**, or buoyancy
   gets a centre of its own; see *A floating craft's waterline depends on where it is* below
@@ -47,6 +50,14 @@ happen rather than a member that moved.
 - [ ] **KSA's destroy runs warm the first time it is called** -- its assemblies compiled ahead
   (ReadyToRun), or a debris split that no longer does first-time work -- **delete
   `JitWarmup.EngineTypes` the day it does**; see the entry below
+
+**Rechecked against 2026.10.7.5541: everything open is still blocked except the camera window,
+which now draws terrain and a sky.** A secondary viewport is created with `RenderTerrain`
+(`Program.cs:952`) and runs the planet renderer and `RenderAtmosphereOnly` for its own slot
+(`Program.cs:4469-4572`), and the atmosphere LUTs are per viewport. Clouds, the ocean, ground clutter,
+volumetric trails and the clustered light pre-pass are still the main view's. `ComputeDrag` is
+byte-identical; a long-step RK8 integrator was added for vehicles outside the physics radius, where
+there is no drag. There is no new StarMap hook, and `KSA.dll` is still not ReadyToRun.
 
 **Rechecked against 2026.9.22.5482: all twelve open items still blocked, and the explosion volumes
 below now draw over an airless body.** `TryToPutOnRails` also returns a vehicle to rails from any
@@ -120,7 +131,8 @@ current model by hand in a place no tool will flag when it changes.
 against the mass, then an implicit damping factor `1 / (1 + F·dt / (m·v))` that is negligible at
 these speeds and is not copied. The box is `VehicleProperties.AerodynamicCdABody`: each face's area
 weighted 0.3 on +X, 1.0 on −X and 1.2 on the sides, by how squarely the air meets it. There is **no
-Mach term, no lift and no aerodynamic torque**. `Sim/DragShape.cs` is the copy and
+Mach term, no lift and no restoring torque** — only a rate-damping one, `0.1 × TotalSurfaceArea`
+against the body rates, which a lead on the centre of mass does not need. `Sim/DragShape.cs` is the copy and
 `KsaWorld.DragShapeOf` reads the terms off a craft; `Sim/BallisticLead.cs` flies a target on it.
 
 **How it was confirmed, so the check can be repeated.** `scenario.sh gunnery:1,overhead,30,300,1500`
@@ -298,6 +310,10 @@ deliberate one.
 **Wanted.** The launcher's electro-optical head drives a second camera window, so the sight can be
 watched while flying something else. The head, the tracking, the reticule and the camera write all
 work; the *picture* is wrong.
+
+**Partly lifted in 2026.10.7.5541, and not yet flown**: a secondary viewport now runs the planet
+renderer and the sky for its own slot, so it should show terrain and haze — still without clouds,
+ocean, ground clutter or clustered lights. What follows is the account against the builds before it.
 
 **What happens.** A secondary viewport shows a raw starfield above a hard horizon and a
 featureless grey ball, where the main view at the same position shows sky, clouds and terrain.
@@ -539,12 +555,12 @@ rather than the mod's gizmo tracers.
 
 **The declarative route is closed.** The XML tag is real — `<PlumeTrail Id="DefaultPlumeTrail"/>`
 inside a `<ReactionPlume>` — but the emitter only produces anything when
-`current.State.DutyCycle > 0f && flag` (`KSA/KSA/Vehicle.cs:5678`), where `DutyCycle` is
+`current.State.DutyCycle > 0f && current.State.ExhaustVelocity > 0f` (`KSA/KSA/Vehicle.cs:5712`), where `DutyCycle` is
 accumulated by a **burning rocket core**. The mod's rounds have no motor, no propellant and no
 staging, and a real motor would apply real thrust to the launcher, since the round bodies are its
 subparts.
 
-That gate is the `isActive` argument rather than a property of the renderer, so a caller passing its
+That gate is the `isFlowing` argument rather than a property of the renderer, so a caller passing its
 own never meets it. `VolumetricTrailRenderer.SubmitEmitter` is `public` and `PlumeTrailEmitterState`
 is a public class, so `Ksa/PlumeSmoke.cs` holds one cursor per round and submits it each frame — no
 nozzle, no propellant, no thrust. The single obstacle is that `Program._volumetricTrailRenderer` is

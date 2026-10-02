@@ -107,7 +107,8 @@ internal sealed class DecoyEffects
         if (!_config.MotorSmoke || !PlumeSmoke.Available) return;
 
         if (!_smoking.TryGetValue(d, out PlumeSmoke.Strand? strand)) _smoking[d] = strand = new PlumeSmoke.Strand();
-        PlumeSmoke.Lay(strand, body, positionCcf, 0.3f, (float)(1.5 + (2.5 * _config.MotorSmokeWidth)));
+        double3 behind = (KsaWorld.GroundVelocityAt(body, d.PositionEcl) - d.VelocityEcl).Transform(body.GetCce2Ccf());
+        PlumeSmoke.Lay(strand, body, positionCcf, behind, 0.3f, (float)(1.5 + (2.5 * _config.MotorSmokeWidth)));
     }
 
     private static void Puff(Celestial body, double3 positionCcf)

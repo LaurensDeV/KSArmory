@@ -45,19 +45,20 @@ layout (set = 1, binding = 2, R32f) uniform image2D layerDistance;
 
 layout (set = 1, binding = 3) uniform sampler2D sceneDepth;
 
-// The engine's aerial-perspective LUTs, in the order ComputePipelineWrapper takes them: storage
-// images first, then every image sampler. The transmittance LUT is not here -- it is already in the
-// global set at binding 7, which the wrapper binds for every compute pass.
-layout (set = 1, binding = 4) uniform sampler2D aerialRangeLut;
-layout (set = 1, binding = 5) uniform sampler3D aerialColorRgbTransmittanceRLut;
-layout (set = 1, binding = 6) uniform sampler3D aerialTransmittanceGbLut;
+// The engine's atmosphere LUTs, as the viewport's own set from AtmosphereRenderer -- the bindings
+// Core's RaymarchCloud.comp reads them at. Per viewport, so a camera window gets its own haze.
+layout (set = 3, binding = 0) uniform sampler2DArray transmittanceLut;
+layout (set = 3, binding = 1) uniform sampler3D aerialColorRgbTransmittanceRLut;
+layout (set = 3, binding = 2) uniform sampler3D aerialTransmittanceGbLut;
+layout (set = 3, binding = 3) uniform sampler2D aerialRangeLut;
+layout (set = 3, binding = 7) uniform sampler2DArray ambientLut;
 
 // KSA's own weather clouds as they were drawn this frame, at the cloud renderer's low resolution:
 // their light with transmittance in alpha, and how far each pixel's cloud is from the camera in
 // kilometres. They write no depth, so without these everything drawn here off the depth buffer is
 // drawn in front of every cloud. Stand-ins when clouds are off -- see weatherBound.
-layout (set = 1, binding = 7) uniform sampler2D weatherColor;
-layout (set = 1, binding = 8) uniform sampler2D weatherDistance;
+layout (set = 1, binding = 4) uniform sampler2D weatherColor;
+layout (set = 1, binding = 5) uniform sampler2D weatherDistance;
 
 layout (push_constant) uniform PushConstants
 {
@@ -277,7 +278,7 @@ struct WeatherShadowLayer
     vec4 padding;
 };
 
-layout (set = 1, binding = 9) uniform WeatherShadowStatic
+layout (set = 1, binding = 6) uniform WeatherShadowStatic
 {
     WeatherShadowLayer layers[4];
     int layerCount;
@@ -302,7 +303,7 @@ struct WeatherShadowMoving
     vec4 averageNoiseOffset;
 };
 
-layout (set = 1, binding = 10) uniform WeatherShadowDynamic
+layout (set = 1, binding = 7) uniform WeatherShadowDynamic
 {
     WeatherShadowMoving layers[4];
 } weatherShadowDynamic;
@@ -2128,7 +2129,7 @@ void main()
 
         vec3 sky = GetAmbient(camRelative, global.lighting.planetPosition.xyz,
                               normalize(global.lighting.sunPosition.xyz - camRelative),
-                              global.lighting.planetRadius, atmosRadius, ambientLutGlobal,
+                              global.lighting.planetRadius, atmosRadius, ambientLut,
                               float(global.lighting.atmosphereLutLayer))
                    * global.lighting.sunColor.rgb;
 
@@ -2354,7 +2355,7 @@ void main()
                                           normalize(global.lighting.sunPosition.xyz - mid),
                                           global.lighting.planetRadius,
                                           global.lighting.planetRadius + global.lighting.atmosphereHeight,
-                                          ambientLutGlobal, float(global.lighting.atmosphereLutLayer))
+                                          ambientLut, float(global.lighting.atmosphereLutLayer))
                                * global.lighting.sunColor.rgb;
 
                 // The dust IS the ground, lifted, so it takes the ground's HUE where there is ground
@@ -2472,7 +2473,7 @@ void main()
                 target, dir, global.lighting.planetPosition.xyz, global.lighting.sunPosition.xyz,
                 atmosphereTop, global.lighting.planetRadius, global.lighting.planetRadius,
                 global.lighting.sunColor.rgb, aerialRangeLut,
-                aerialColorRgbTransmittanceRLut, aerialTransmittanceGbLut, transmittanceLutGlobal,
+                aerialColorRgbTransmittanceRLut, aerialTransmittanceGbLut, transmittanceLut,
                 float(global.lighting.atmosphereLutLayer),
                 inscatter, eyeTransmittance, sunTransmittance);
         }

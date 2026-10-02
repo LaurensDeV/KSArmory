@@ -2,7 +2,7 @@
 
 Everything here comes out of the shipped assemblies of **KSA build 2026.9.10.5438**, read with
 `tools/apidump`, or out of the StarMap sources, and was rechecked against **2026.9.22.5482**
-wherever that build changed a type this mod uses. KSA is pre-release and unofficially moddable:
+and again against **2026.10.7.5541** wherever that build changed a type this mod uses. KSA is pre-release and unofficially moddable:
 none of this is documented by RocketWerkz, and **it will drift between game builds**. Re-run
 the dumper rather than trusting this file after an update.
 
@@ -1017,6 +1017,15 @@ integrate as `simStep.DeltaTime`.
 
 **Saving the game from a mod** is `GameSaves.MakeUncompressedSave(name)`, the console's `save` —
 public, and the way to turn a scenario set up through the bridge into a save somebody can load.
+
+## A manual throttle is capped at 0.9 of the airframe's g limit
+
+Since 2026.10.7.5541 `FlightComputer.ComputeControl` caps a non-Auto throttle at whatever keeps
+thrust under `0.9 * MaxGLoad * g` (`SolveGLoadThrottleCap`), and flags `IsThrottleGLoadLimited`.
+`MaxGLoad` is `VehicleStructuralLimits.EffectiveMaxGLoad` off the bounding sphere -- the same limit
+`IcbmProgram.StructuralMarginFraction` already holds the throttle to 0.9 of, so the two caps
+coincide and the engine's should not bind under the mod's. If they ever disagree, the computer
+reads the throttle the vehicle reports, so it sees the cap rather than fighting it.
 
 ## Held controls are cleared on the controlled vehicle while the UI has the keyboard
 

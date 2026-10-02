@@ -19,8 +19,7 @@ namespace KSArmory;
 /// for it. The segments already laid are the world's, not this class's.</para>
 ///
 /// <para>Three limits, all the engine's and all read out of it rather than guessed:
-/// a segment lives <b>1200 s</b> and expands over <b>5 s</b>, both global settings shared with
-/// every booster in the world; segments are capped at <b>16,384 per celestial body</b> and evicted
+/// a segment lives <b>1200 s</b>, a global setting shared with every booster in the world; segments are capped at <b>16,384 per celestial body</b> and evicted
 /// oldest-first, which is a budget shared with <see cref="NuclearClouds"/>; and only the camera's
 /// nearby body is drawn, with or without air, so a motor burning above the atmosphere lays a trail
 /// there too.</para>
@@ -140,14 +139,14 @@ internal sealed class MotorSmoke
         // calibre: a HARM is 4.17 m long and about a quarter of a metre across, so anything near
         // unity here is a column tens of times wider than the round. The laid radius is roughly
         // the body, and the expanded one is what makes a moving point read as a billowing trail
-        // rather than a wire -- reached within the engine's 5 s expansion, so it is what the trail
+        // rather than a wire -- reached within PlumeSmoke's 5 s swell, so it is what the trail
         // looks like for almost all of its life rather than an eventual size.
         double width = round.Munition.BodyLength * _config.MotorSmokeWidth;
 
         float laid = (float)(width * 0.08);
         float expanded = (float)(width * 0.7);
 
-        PlumeSmoke.Lay(live.Strand, body, positionCcf, laid, expanded);
+        PlumeSmoke.Lay(live.Strand, body, positionCcf, (-along).Transform(body.GetCce2Ccf()), laid, expanded);
     }
 
     private void ForgetOwnedBy(IEffectSource system)

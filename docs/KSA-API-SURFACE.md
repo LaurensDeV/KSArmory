@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-285 types and 751 members across 11 assemblies.
+287 types and 753 members across 11 assemblies.
 
 ## BepuUtilities
 
@@ -572,6 +572,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `Brutal.VulkanApi.Abstractions.BufferEx CreateBuffer(Brutal.VulkanApi.Abstractions.IBufferAllocator, CreateInfo)`
 
+### Brutal.VulkanApi.Abstractions.DescriptorSetLayoutEx
+
+- `Brutal.VulkanApi.VkDescriptorSetLayout op_Implicit(Brutal.VulkanApi.Abstractions.DescriptorSetLayoutEx)`
+
 ### Brutal.VulkanApi.Abstractions.IBufferAllocator
 
 *referenced as a type only*
@@ -639,9 +643,8 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.AtmosphereRenderer
 
-- `KSA.Rendering.RenderImage get_AerialPerspectiveColorRgbTransmittanceR()`
-- `KSA.Rendering.RenderImage get_AerialPerspectiveRange()`
-- `KSA.Rendering.RenderImage get_AerialPerspectiveTransmittanceGb()`
+- `Brutal.VulkanApi.Abstractions.DescriptorSetLayoutEx GetAtmosphereLutsDescriptorSetLayout()`
+- `Brutal.VulkanApi.VkDescriptorSet GetAtmosphereLutsDescriptorSet(int)`
 
 ### KSA.AttitudeControlSystem
 
@@ -1307,6 +1310,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `KSA.Atmosphere.Rendering.CloudRenderer GetCloudRenderer()`
 
+### KSA.PlumeTrailEmitterFrame
+
+- `void .ctor(Brutal.Numerics.double3, Brutal.Numerics.double3, Brutal.Numerics.doubleQuat, Brutal.Numerics.double3, double)`
+
 ### KSA.PlumeTrailEmitterState
 
 - `void .ctor()`
@@ -1375,7 +1382,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.Rendering.ComputePipelineWrapper
 
-- `void .ctor(System.Span`1<KSA.Rendering.IRenderImage>, System.Span`1<KSA.Rendering.IRenderImage>, System.Span`1<KSA.Rendering.IRenderImage>, System.Span`1<KSA.Rendering.IRenderImage>, KSA.ShaderReference, System.Span`1<Brutal.VulkanApi.VkDescriptorSetLayout>, System.Span`1<Brutal.VulkanApi.VkPushConstantRange>, int, Core.Renderer, string, Brutal.VulkanApi.VkSampler, Brutal.VulkanApi.VkSampler, Brutal.VulkanApi.VkShaderStageFlags, System.Span`1<Brutal.VulkanApi.VkImageView>, System.Span`1<Brutal.VulkanApi.VkBuffer>, System.Nullable`1<Brutal.VulkanApi.VkSpecializationInfo>, System.Span`1<KSA.Rendering.IRenderImage>, System.Span`1<KSA.Rendering.IRenderImage>, System.Span`1<Brutal.VulkanApi.VkBuffer>, System.Span`1<KSA.Rendering.IRenderImage>, Brutal.VulkanApi.VkSampler, System.Span`1<Brutal.VulkanApi.VkBuffer>, System.Span`1<Brutal.ByteSize>, System.Nullable`1<Brutal.ShaderCApi.CompileOptions>)`
+- `void .ctor(System.Span`1<KSA.Rendering.IRenderImage>, System.Span`1<KSA.Rendering.IRenderImage>, System.Span`1<KSA.Rendering.IRenderImage>, System.Span`1<KSA.Rendering.IRenderImage>, KSA.ShaderReference, System.Span`1<Brutal.VulkanApi.VkDescriptorSetLayout>, System.Span`1<Brutal.VulkanApi.VkPushConstantRange>, int, Core.Renderer, string, Brutal.VulkanApi.VkSampler, Brutal.VulkanApi.VkSampler, Brutal.VulkanApi.VkShaderStageFlags, System.Span`1<Brutal.VulkanApi.VkImageView>, System.Span`1<Brutal.VulkanApi.VkBuffer>, System.Nullable`1<Brutal.VulkanApi.VkSpecializationInfo>, System.Span`1<KSA.Rendering.IRenderImage>, System.Span`1<KSA.Rendering.IRenderImage>, System.Span`1<Brutal.VulkanApi.VkBuffer>, System.Span`1<KSA.Rendering.IRenderImage>, Brutal.VulkanApi.VkSampler, System.Span`1<Brutal.VulkanApi.VkBuffer>, System.Span`1<Brutal.ByteSize>, System.Nullable`1<Brutal.ShaderCApi.CompileOptions>, bool)`
 - `void BindPipeline<1>(Brutal.VulkanApi.CommandBuffer, int, System.Span`1<Brutal.VulkanApi.VkDescriptorSet>, System.Span`1<Brutal.ByteSize32>, !!0)`
 
 ### KSA.Rendering.IRenderImage
@@ -1579,9 +1586,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `bool IsPaused()`
 - `bool get_IsAutoWarpActive()`
 - `double GetAchivedSpeedFraction()`
+- `double GetElapsedSeconds()`
 - `double get_SimulationSpeed()`
 - `void AutoWarpStop(bool)`
-- `void AutoWarpTo(KSA.UniverseTime, double)`
+- `void AutoWarpTo(KSA.UniverseTime, double, bool)`
 - `void DestroyVehicle(KSA.Vehicle, KSA.CrewDisposition)`
 - `void DestroyVehicleFromEvent(KSA.Vehicle, KSA.VehicleDestructionEvent)`
 - `void SetSimulationSpeed(KSA.SimSpeed)`
@@ -1712,7 +1720,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `float ErosionMaxDepth`
 - `float SkyAmbientBrightness`
 - `int SelfShadowStepCount`
-- `void SubmitEmitter(KSA.PlumeTrailEmitterState, KSA.Celestial, Brutal.Numerics.double3, float, float, Brutal.Numerics.float3, float, float, bool)`
+- `void SubmitEmitter(KSA.PlumeTrailEmitterState, KSA.Celestial, ref KSA.PlumeTrailEmitterFrame, Brutal.Numerics.double3, Brutal.Numerics.double3, float, float, Brutal.Numerics.float3, float, float, bool, bool)`
 
 ## StarMap.API
 

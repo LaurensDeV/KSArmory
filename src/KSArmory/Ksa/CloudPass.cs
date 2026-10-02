@@ -726,8 +726,8 @@ internal static class CloudPass
                     // BarrierBatch, so this stands on public API like the rest of the pass.
                     if (drawn > 0 || marks > 0) Hazard(commandBuffer);
 
-                    // The VIEWPORT's slot, never the frame index. That argument picks the dynamic
-                    // offset into the global set, which is where global.lighting lives: a frame
+                    // The VIEWPORT's slot, never the frame index. That argument picks the
+                    // viewport's own global set, which is where global.lighting lives: a frame
                     // index there reads a different viewport's planet, sun and radii on every frame
                     // in flight, and anything lit from that block flickers at frame rate.
                     // On the coarse grid one invocation stands for a square of pixels, so the dispatch
@@ -2148,23 +2148,13 @@ internal static class CloudPass
         IRenderImage[] storageTargets = [colour, view.LayerColour, view.LayerDistance];
         IRenderImage[] depthTargets = [depth];
 
-        // The engine's aerial-perspective LUTs, as this pass's own samplers -- which is how Core's
-        // consumers take them too. The transmittance LUT is not among them because it is already in
-        // the global set the wrapper binds at 0, and the scalars the call wants -- planet position,
-        // sun position, radii, the layer -- are in that set's lighting block. So there is no
-        // uniform buffer here and nothing of this mod's to keep in step with the engine.
-        AtmosphereRenderer air = Program.PlanetAtmosphereRenderer;
-        IRenderImage[] aerial =
+        // KSA's weather clouds, so the burst is drawn behind the ones in front of it. With clouds
+        // switched off there is nothing to bind and a descriptor cannot be left empty, so the
+        // pass's own distance layer stands in and CloudFlags tells the shader not to read it.
+        IRenderImage[] weather =
         [
-            air.AerialPerspectiveRange,
-            air.AerialPerspectiveColorRgbTransmittanceR,
-            air.AerialPerspectiveTransmittanceGb,
-
-            // KSA's weather clouds, so the burst is drawn behind the ones in front of it. With
-            // clouds switched off there is nothing to bind and a descriptor cannot be left empty,
-            // so the range LUT stands in and CloudFlags tells the shader not to read it.
-            (IRenderImage?)weatherColour ?? air.AerialPerspectiveRange,
-            (IRenderImage?)weatherDistance ?? air.AerialPerspectiveRange,
+            (IRenderImage?)weatherColour ?? view.LayerDistance,
+            (IRenderImage?)weatherDistance ?? view.LayerDistance,
         ];
         VkPushConstantRange[] ranges =
         [
@@ -2177,18 +2167,25 @@ internal static class CloudPass
         ];
 
         // KSA's bindless textures at set 2, which the weather's coverage maps are read out of; the
-        // builder numbers external sets from 2, and KSA declares this one for compute as well.
-        VkDescriptorSetLayout[] external = [Program.Instance.TextureSystem.Layout];
+        // builder numbers external sets from 2, and KSA declares this one for compute as well. Then
+        // the atmosphere's LUTs at 3, the set Core's own cloud march reads them from; the scalars
+        // the aerial-perspective call wants are in the global set's lighting block, so there is no
+        // uniform buffer here and nothing of this mod's to keep in step with the engine.
+        VkDescriptorSetLayout[] external =
+        [
+            Program.Instance.TextureSystem.Layout,
+            Program.PlanetAtmosphereRenderer.GetAtmosphereLutsDescriptorSetLayout(),
+        ];
 
-        // And the weather's shadow data in this pass's own set, after everything above: bindings 9
-        // and 10 in the builder's order, the second advanced a slice per frame in flight.
+        // And the weather's shadow data in this pass's own set, after everything above: bindings 6
+        // and 7 in the builder's order, the second advanced a slice per frame in flight.
         VkBuffer[] shadowData = [shadowFixed];
         VkBuffer[] shadowPerFrame = [shadowFrame];
         ByteSize[] shadowSlice = [CloudShadowRenderData.DynamicUboStride];
 
         using Specialization tuned = new();
         _pipeline = new ComputePipelineWrapper(
-            storageTargets, depthTargets, aerial, default, shader,
+            storageTargets, depthTargets, weather, default, shader,
             external, ranges, renderer.MaxFramesInFlight, renderer,
             "KSArmory.CloudPass", Program.PointClampedSampler, Program.LinearClampedSampler,
             specializationInfo: tuned.Info,
@@ -2201,13 +2198,14 @@ internal static class CloudPass
         return true;
     }
 
-    // Binds the cloud pipeline with the bindless textures, and its own set at this frame's slice of
-    // the weather's per-frame shadow buffer -- the first dynamic offset after the global set's, since
-    // offsets are taken in set order -- which is how KSA's own passes read it.
+    // Binds the cloud pipeline with the bindless textures, this viewport's atmosphere LUTs, and its
+    // own set at this frame's slice of the weather's per-frame shadow buffer -- the pass's only
+    // dynamic offset -- which is how KSA's own passes read it.
     private static void BindCloud(CommandBuffer commandBuffer, IViewport viewport, Camera camera, Push push)
     {
-        Span<VkDescriptorSet> sets = stackalloc VkDescriptorSet[1];
+        Span<VkDescriptorSet> sets = stackalloc VkDescriptorSet[2];
         sets[0] = Program.Instance.TextureSystem.DescriptorSet;
+        sets[1] = Program.PlanetAtmosphereRenderer.GetAtmosphereLutsDescriptorSet(viewport.ShaderSlot);
 
         Span<ByteSize32> offsets = stackalloc ByteSize32[1];
         offsets[0] = Program.Instance.ResourceFrameIndex * CloudShadowRenderData.DynamicUboStride;
