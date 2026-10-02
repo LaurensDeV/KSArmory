@@ -617,13 +617,8 @@ So the shipped answer is **two to six targets on the gate-ending schedule**, 4.5
 | ~~0~~ | **Done** — `tests/KSArmory.Tests/MirvDivertTests.cs`. ±100 km is real **only from cutoff**; at today's release gate the footprint is a 34 × 18 km box. See the three findings at the top. | No |
 | 1 | **Targets as data**. **Done** — `Sim/TargetSet.cs`, `Sim/TargetEdit.cs`, `ShotRequest` naming several, the list on `IcbmComputer` with `Designate` split from `AddTarget`, clicks that add **before launch and during the coast**, and the panel's rows. Which entry the flight is aimed at is `TargetSet.LeadIndex`, re-elected to the farthest reach by `ElectFarthestLead` on every add while the aim is still free — so the flown order and the itinerary's agree, which is what unblocked phase 3. Where the warheads go is phase 3's, and what `BallisticScenario` designates is still the first place alone. | Unchanged |
 | 2 | **Reach display**. **Done, both sides of cutoff** — `Sim/DivertFootprint.cs` is both clocks plus `TryAtTheEpoch` for a flight that has not flown, and `Sim/ReachDisplay.cs` is the drawn region, the cursor's verdict and the panel's readout as one answer; `IcbmOverlay` drapes the ellipse and numbers the targets, and `SiteDesignator` greys the ring and says **outside reach**. **The missile's own region before target 1 is not built** and is the only part of this row left: it is a reach solve per candidate point along a bearing sweep, 37–68 ms a ring, so it wants the few-bearings-a-frame build this row's prose describes. | No |
-<<<<<<< HEAD
-| 3 | **The release loop**: re-aim per target, per-warhead target bookkeeping in the log. Shared targets release together. **Built and unflown** — `Sim/ReleaseLoop.cs` plans the walk and `Sim/ReleaseWalker.cs` is the cursor the flight is actuated through: `IcbmComputer` opens the gate early, hands the sequencer a stop's quota, and on each handover re-aims, resets the seven things a stop owns and lets `BusTrim` null onto the new solution. The ceiling turned out not to need raising, six targets 4 km apart pricing at 55.1 m/s against the 60 cap. **Both blockers are gone**: the arrival needs no re-latch (`ResolveCoastArc` already solves pinned) and the booster flies to the farthest. **Nothing in it executes for a set of one** — `ReleaseWalker.Walking` is false, so the gate is NaN and the program reads the setting live. | Yes, and never flown |
-| 4 | **Instruments and nights**: per-target scoring in `shot-report.py`, the matching check with one target, then 2/4/6. | Yes |
-=======
-| 3 | **The release loop**: re-aim per target, per-warhead target bookkeeping in the log. Shared targets release together. **The decision half is done and nothing actuates it** — `Sim/ReleaseLoop.cs` plans the walk, cuts a set to what the budget and the coast reach, counts a stop's quota out and refuses honestly; the ceiling turned out not to need raising, six targets 4 km apart pricing at 55.1 m/s against the 60 cap. **Both blockers are gone**: the arrival needs no re-latch (`ResolveCoastArc` already solves pinned) and the booster now flies to the farthest. What remains is the actuation in `Ksa/IcbmComputer.cs`, and it is the first thing here that changes what flies. | Not yet |
-| 4 | **Instruments and nights**: per-target scoring in `shot-report.py`, the matching check with one target, then 2/4/6. **The instruments are built and nothing has been flown** — `ShotBoard`, the scenario's `TARGET` lines and per-warhead attribution, and the report's `== targets` section with `miss`, `spread`, `landing`, `centre` and `dispersion` all reduced per target. Checked on a synthetic night and against two real single-target nights that still read byte for byte. | Yes |
->>>>>>> d412631 (test(mirv): score a split salvo one group per target)
+| 3 | **The release loop**: re-aim per target, per-warhead target bookkeeping in the log. Shared targets release together. **Built and flown** (2026-09-21 and 2026-10-01, below) — `Sim/ReleaseLoop.cs` plans the walk and `Sim/ReleaseWalker.cs` is the cursor the flight is actuated through: `IcbmComputer` opens the gate early, hands the sequencer a stop's quota, and on each handover re-aims, resets the seven things a stop owns and lets `BusTrim` null onto the new solution. The ceiling turned out not to need raising, six targets 4 km apart pricing at 55.1 m/s against the 60 cap. **Both blockers are gone**: the arrival needs no re-latch (`ResolveCoastArc` already solves pinned) and the booster flies to the farthest. **Nothing in it executes for a set of one** — `ReleaseWalker.Walking` is false, so the gate is NaN and the program reads the setting live. | Yes — flown at four targets |
+| 4 | **Instruments and nights**: per-target scoring in `shot-report.py`, the matching check with one target, then 2/4/6. **The instruments are built and flown at four targets** — `ShotBoard`, the scenario's `TARGET` lines and per-warhead attribution, and the report's `== targets` section with `miss`, `spread`, `landing`, `centre` and `dispersion` all reduced per target. Checked on a synthetic night and against two real single-target nights that still read byte for byte. | Yes |
 | 5 | **Later**: area targets (option C), saving the target list with the craft, reordering by hand. | — |
 
 **A budget problem, and it is smaller than the worst case said.** Five hops at
@@ -859,8 +854,73 @@ one per stop, so a set of four stops is exposed to **four** draws from whatever 
 47 m/s correction.
 
 **The open question is what makes a correction cost 47 m/s instead of 5**, and one flight cannot answer
-it. It is not simply the loop reverting its walk — `shipping 0.0 m` after a full revert happens on the
+it. *Answered 2026-10-01, in the next section: the simulation step.* It is not simply the loop reverting its walk — `shipping 0.0 m` after a full revert happens on the
 healthy rockets too, four times on `FAT 6`, `FAT 7`, `FAT 8` and `FAT` between them. **Measure the
 distribution before changing anything**: the per-stop spend is already on the release line, so a
 handful of four-target flights gives it without new instrumentation. Until then the spacing tables
 cannot be re-derived, because what bounds a set is the correction spend rather than the hop.
+
+## Flown: what a stop's correction costs, and why — 2026-10-01
+
+Two nights at four targets 1 km apart, `SOLVER SCALE 8`, 24.0S 62.0W, 6,135 km. Declared beforehand in
+`~/shots/scripts-2026-09-21/DECLARE-correction-spend.md` and `~/shots/scripts-2026-10-01/`.
+
+**The distribution** (`~/shots/2026-10-01-correction-spend`, 5 shots, 40 rockets, one arm): 25 of 40 ran
+the whole 60 m/s and 9 ended their walk early. Per stop, median [max]: **12.6 [15.4], 4.7 [41.0],
+18.8 [43.2], 11.7 [28.6]** m/s. Stop 1 is never expensive.
+
+**The expensive mode is the step, not the walk.** Every aim pass that moved the aim 100–400 m, split by
+whether the simulation speed rose above 1x during it:
+
+| | passes | trim spend, median | over 3 m/s |
+| --- | --- | --- | --- |
+| 1x throughout | 47 | **0.81 m/s** | 0 |
+| sped up | 56 | **6.85 m/s** | 44 |
+
+The aim move is worth about 0.43 m/s at 510 m of landing per m/s. What raised the speed was the scenario
+itself: `BallisticScenario.WarpTheCoast` asks for 8x once releases have been quiet for five seconds, which a
+walk is between its stops, and `WarpPolicy` holds that to 4.47x for the warheads already in the air — so
+every inner stop trimmed at 84–117 ms steps and stop 1 at 15. At those steps `BusTrim.StopBand` is half a
+frame of thrust, and a command reaches the engine a frame after it is written: a hold chosen without the
+frame still in flight lands outside the band on the opposite side, and the trim chatters between opposite
+jets at 0.04–0.08 m/s for the rest of the pass, a hundred commands to a pass. **A player warping through a
+walk meets the same thing**; the scenario only made it reproducible.
+
+**Two more things made every inner stop pay a pass.** `AimCorrection.Retarget` zeroed the bias, and the
+loop walks back to 210–360 m at every stop, so every inner stop's first reading was ~220 m out — over the
+156 m that triggers a pass — and that reading banked as the best under the flat 250 m band, so nothing later
+could score as better and the loop ran on to `PassesWithoutImprovement`.
+
+**The headless rig does not see the step at all.** `TrimBus` applies a command the step it is chosen; made to
+apply it a frame late, with pulses and jittered 84–117 ms steps, it spends 1.3–2.0 m/s on 0.38 owed at
+*every* step, 1x included. `TrimLatencyTests` pins the arithmetic only.
+
+**The 2x2** (`~/shots/2026-10-01-carry-bias`, 8 shots, 64 rockets, paired, `arm/carry-bias`):
+`IcbmConfig.CarryAimBiasAcrossHops` starts each stop from the bias the last one walked to, and
+`IcbmConfig.TrimCountsTheCommandInFlight` takes the frame a hold still owes off what is left before choosing.
+
+| arm | walk spend vs base, per shot | lower on | landing, median | ran out / truncated |
+| --- | --- | --- | --- | --- |
+| base | — | — | 18.7 m | 8 / 2 of 16 |
+| carry | 0.40–0.73 | 8 of 8 | 11.0 m | 1 / 0 |
+| in flight | 0.42–0.73 | 8 of 8 | 13.9 m | 0 / 0 |
+| **both** | **0.36–0.64** | **8 of 8** | **5.4 m** | **0 / 0** |
+
+On the landing, `both` vs base is **0.35x [0.18, 0.73], RESOLVED**; carry is 0.61x [0.34, 1.03] on 6 of 8
+shots, and in flight 0.75x [0.36, 0.86] on 8 of 8, both unresolved by the report's shot-flip test. With the frame counted, a
+pass at the long step cost **0.70 m/s** over 42 passes with none over 3 — base at 1x is 0.77.
+
+**And on one target** (`~/shots/2026-10-02-inflight-single`, 8 shots, 64 rockets, paired,
+`base|inflight`, declared non-inferior below 1.25x): the in-flight count is **0.88x [0.64, 1.13]** on the
+landing, both arms grouping within millimetres (medians 2.88 and 2.30 mm). The default endpoint reads every
+rocket as 0 m at that level and pairs nothing, so it is read with `--endpoint landing`.
+
+**Both ship on**, in `3b4b4f6f`.
+
+**What it leaves.** The planner's charge per stop (`SingleTargetMetresPerSecond` once, then hops) is now
+roughly right rather than structurally optimistic: a walk on `both` spends 13 + 3.4 + 3.3 + 3.3. The spacing
+tables above can be re-derived off that. `BallisticScenario` no longer warps until every bus has walked
+(`9c2e77ad`), so a scenario walk is now measured at 1x: flown on `dev` with both switches on
+(`~/shots/2026-10-02-walk-smoke`, 2 shots, 16 rockets), the 8x arrives 5 s after the last release, both
+PASS, a walk spends a median 23.9 m/s, and every inner stop 3.5–4.2. It also takes the long step out of the
+scenario, so a regression in counting the command in flight would no longer show in a walk.
