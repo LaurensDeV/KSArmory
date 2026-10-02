@@ -816,9 +816,9 @@ internal sealed class IcbmComputer
             return;
         }
 
-        // NaN unless a walk is running, and then the gate the itinerary counts its releases back
-        // from -- gate + (N-1) x 65 s, so the LAST release still lands on the setting. A walk of one
-        // is NaN, which leaves the program reading the setting live as it always has.
+        // NaN unless a walk is running, and then when its first release is due -- gate + (N-1) x 65 s,
+        // so the LAST release lands on the setting, or the start of the coast with WalkStartsAtCutoff.
+        // A walk of one is NaN, which leaves the program reading the setting live as it always has.
         Program.ReleaseGateSeconds = _walker.GateOverrideSeconds(Config.ReleaseBeforeArrivalSeconds);
 
         bool wasBurning = Program.IsBurning;
@@ -3840,7 +3840,8 @@ internal sealed class IcbmComputer
 
         Reach = ReachDisplay.For(_reachFootprint, PlacedTargets(),
                                  new ReleaseItinerary.Bus(Config.ReleaseBeforeArrivalSeconds,
-                                                          coast, WarheadsAboard),
+                                                          coast, WarheadsAboard,
+                                                          FromCutoff: Config.WalkStartsAtCutoff),
                                  Program.Phase, SalvoIsOver, TargetSet.MaxTargets,
                                  Warhead.LethalRadius(_warhead!.ChargeKg), _targets.LeadIndex,
                                  coasting ? ReachHold.Unflown : ReachHold.EpochUnmeasured);

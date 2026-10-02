@@ -867,6 +867,15 @@ internal sealed partial class Ui
             + "which stops it overshooting back and forth at long frame steps. Off: it chooses on the "
             + "velocity alone, and under timewarp chases its own overshoot between opposite jets.");
 
+        bool fromCutoff = config.WalkStartsAtCutoff;
+        if (ImGui.Checkbox("Start a walk at cutoff", ref fromCutoff))
+        {
+            config.WalkStartsAtCutoff = fromCutoff;
+        }
+        Tip("On: a bus with several targets lets the first go as soon as the coast begins, where its "
+            + "fuel moves a landing furthest, so its targets can be spread wider. Off: the walk ends on "
+            + "the release gate, where each warhead lands most precisely. One target is the same either way.");
+
         bool onReading = config.DecideOnTheReading;
         if (ImGui.Checkbox("Decide each pass on its reading", ref onReading))
         {

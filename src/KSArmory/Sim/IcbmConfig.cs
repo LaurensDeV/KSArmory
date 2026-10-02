@@ -449,6 +449,20 @@ internal sealed class IcbmConfig
     public bool TrimCountsTheCommandInFlight = true;
 
     /// <summary>
+    /// Whether a bus walking between several targets starts its walk as soon as the coast begins,
+    /// rather than ending it on <see cref="ReleaseBeforeArrivalSeconds"/>.
+    ///
+    /// <para>A hop bought early moves the landing further per m/s — 1,076 m against 688 at the first
+    /// slot at 6,179 km — and one trim pass's 10 m/s ceiling reaches further with it, so the widest a
+    /// six-target chain can be spaced goes from about 4.5 km to about 8.5, past the Mk 21's 6 km blast
+    /// radius. What it costs is the gate's own reason: the ejection kick has longer to grow, which puts
+    /// each warhead's floor nearer 55 m than 14. A set of one never walks and is untouched.</para>
+    ///
+    /// <para><b>Off, and unflown.</b> <c>docs/MIRV-TARGETS.md</c>.</para>
+    /// </summary>
+    public bool WalkStartsAtCutoff;
+
+    /// <summary>
     /// Whether a post-boost pass is decided on the reading that follows a flown correction, rather
     /// than on one fifteen seconds later.
     ///
