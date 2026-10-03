@@ -954,3 +954,13 @@ shots/NNN-<arm>.log   the whole mod log, copied out before the next shot truncat
 
 Keep the whole directory. It is small next to what it cost, the release states in it re-fly
 headlessly, and it is the only thing that makes the *next* protocol argument settleable.
+
+## A frame-rate break on 2026-10-03
+
+**Nights before and after 2026-10-03 do not fly the same frame.** Until then a scenario's rings were draped on the
+CPU, because a scenario turns the cloud off and the rings rode the same pass; on the four-target walk that was
+`icbmdraw` **7.5 ms of a 9 ms mod frame**. Every ring is painted by the ring pass now, with the cloud still off, and
+the same shot reads `icbmdraw` **1.0 ms**. Paired comparisons within one night are untouched; a number compared
+across that date is partly a statement about the frame, which the long-range stall rate is known to follow (read
+the frame rate off both nights, `docs/ACCURACY-PLAN.md` 3fi). The same date is when `IcbmConfig.ShedWarheadMass`
+went on.
