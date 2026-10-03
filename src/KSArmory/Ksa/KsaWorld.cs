@@ -1892,6 +1892,32 @@ internal static class KsaWorld
     }
 
     /// <summary>
+    /// Whether the engines running now stop when told to. False while any active engine burns a
+    /// solid grain: KSA's <c>SolidMotor</c> keeps burning once lit whatever it is commanded, and only
+    /// a spent grain stops it. True when it cannot be read, which is every engine that throttles.
+    /// </summary>
+    public static bool RunningEnginesCanStop(Vehicle craft)
+    {
+        try
+        {
+            Span<EngineController> engines = craft.Parts.Modules.Get<EngineController>();
+            for (int i = 0; i < engines.Length; i++)
+            {
+                if (!engines[i].IsActive) continue;
+                foreach (RocketCore core in engines[i].Cores)
+                {
+                    if (core is SolidMotor) return false;
+                }
+            }
+            return true;
+        }
+        catch
+        {
+            return true;
+        }
+    }
+
+    /// <summary>
     /// The craft's control frame, as three axes in the parent body's inertial frame: the nose, the
     /// starboard beam and the belly.
     ///

@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-292 types and 784 members across 11 assemblies.
+295 types and 787 members across 11 assemblies.
 
 ## BepuUtilities
 
@@ -607,6 +607,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.ActiveEnginePerformance
 
 - `float MassFlowRate`
+- `float MinThrottle`
 - `float Thrust`
 - `float get_ExhaustVelocity()`
 
@@ -844,6 +845,11 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.EmptyStruct
 
 *referenced as a type only*
+
+### KSA.EngineController
+
+- `KSA.RocketCore[] Cores`
+- `bool get_IsActive()`
 
 ### KSA.ExplosionContext
 
@@ -1518,6 +1524,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.DensityReference Density`
 - `KSA.DistanceReference Level`
 
+### KSA.RocketCore
+
+*referenced as a type only*
+
 ### KSA.ScreenshotCapture
 
 - `void Request(int, string)`
@@ -1566,6 +1576,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `bool HasAnyContact(KSA.Situation)`
 - `bool IsOnRails(KSA.Situation)`
+
+### KSA.SolidMotor
+
+*referenced as a type only*
 
 ### KSA.SoundBehavior
 

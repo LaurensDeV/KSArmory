@@ -3369,9 +3369,12 @@ internal sealed class IcbmComputer
             PlaneChangeCost = 0.0;
         }
 
+        double3 noseCci = KsaWorld.TryControlFrameCci(Craft, Parent, out double3 nose, out _, out _) ? nose : default;
+
         return new IcbmState(Body, positionCci, velocityCci, aimCci, hasAim, booster, density,
                              Craft.IsAnyEnginePropellantAvailable(), _throttleAchieved, playerStep,
-                             _aim.IsSteady, StackDeltaV(), StructuralLimitGee());
+                             _aim.IsSteady, StackDeltaV(), StructuralLimitGee(),
+                             KsaWorld.RunningEnginesCanStop(Craft), engines.MinThrottle, noseCci);
     }
 
     /// <summary>What the engine will destroy this airframe at, in standard gravities, or zero if it
