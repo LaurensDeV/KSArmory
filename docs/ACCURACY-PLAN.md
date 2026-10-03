@@ -12153,3 +12153,42 @@ This night asks whether a bus that gets lighter costs precision, not whether it 
 * **Refuted** by `landing` at 1.20x or above, a `shed` flight with no `store mass` lines, or a `base` flight with any.
 * **Watch:** `clock` or trim endings on `shed` that `base` does not have, any shot timed out, any rocket destroyed in its
   ascent, KSA's own log on every launch, and the frame rate (`mod frame: … over N frames`).
+
+**Flown, 2026-10-03: non-inferior on one target.** `~/shots/2026-10-03-shed`, 12 paired blocks on `1db05277`
+(`agent/store-mass`) and KSA 2026.10.7.5541, as declared. All 12 shots passed, 96 of 96 flights arrived, frame time
+28.6 ms, no shot output carried an exception and the throttle-discard warning the smoke shot met never recurred.
+
+| endpoint | `shed` vs `base` | per shot | declared |
+| --- | --- | --- | --- |
+| **`landing`, primary** | **0.89x [0.73, 1.07]** | won 9 of 12, signed-rank p=0.064 | ships under a 1.20 upper bound |
+| landing, median | 2.25 mm against 2.47 | | |
+| centre / dispersion | 1.04 / 1.97 mm against 1.26 / 2.34 | | about as `landing` |
+
+**The mechanism was exactly as declared:** 24 `store mass` lines in every shot, from precisely the four rockets
+flying `shed` that shot and none of the four flying `base`, each bus going 2,766 → 1,266 kg in six 250 kg steps.
+Endings `floor`/`payback` 12/36 on `base` against 14/34 on `shed`, no `clock` or trim ending, owed 2.69 against
+2.71 m/s.
+
+**What it shows is narrower than it looks.** The six warheads leave within about 0.1 s, so a single-target bus is
+never asked to manoeuvre lighter; the night shows shedding costs nothing there, which is what a single-target
+non-inferiority bar can show. Whether it ships on waits for 3fn, where the bus walks after shedding.
+
+## 3fn. The same switch where the bus moves after shedding — declared 2026-10-03
+
+3fm cannot see the switch's main effect. Its smoke shot showed why: a single-target bus lets all six warheads go
+within 0.1 s, so the lighter bus never manoeuvres again. The mass matters on a walk, where the bus trims onto each
+next target with the earlier targets' warheads already gone. So the same switch flies again on the four-target set
+the 2026-10-01 nights walked:
+
+```bash
+KSARMORY_SCENARIO_SAVE='SOLVER SCALE 8' ./tools/shot-batch.sh --paired 'base|shed:ShedWarheadMass=true' \
+    --aim '24.0S,62.0W;24.009S,62.0W;24.018S,62.0W;24.027S,62.0W' --blocks 8 --out ~/shots/2026-10-03-shed-walk
+```
+
+* **Primary: per-target `landing`, the same ×1.20 non-inferiority bar.** Ships on only if 3fm also passes.
+* **Mechanism per flight:** `shed` buses log their `store mass` lines spread across the walk's stops rather than in
+  one burst; `base` logs none.
+* **Expected:** the later hops cost a lighter bus less velocity, since the thrusters accelerate it harder; the trim
+  measures that rather than assuming it, so neither better nor worse landings are predicted.
+* **Refuted** by `landing` at 1.20x or above on any target, a refused hop on `shed` that `base` does not have, or
+  any `clock` or trim ending only on `shed`.
