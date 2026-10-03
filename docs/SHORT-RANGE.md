@@ -157,6 +157,25 @@ Reusing machinery that exists:
 - Gate in Step 0's rig: cut reason `ShouldCutOff` (not the backstop), q at cutoff ≤ 1.2 kPa, apogee > 100 km,
   predicted miss within a few km; long range bit-equal.
 
+**Built 2026-10-03 as `IcbmConfig.AscentReserveSeconds`, off at zero** — not the three levers above but one
+rule: once the velocity still to gain is less than that many seconds of burning, the pitch programme throttles
+back in proportion **and steers along what is left to gain** instead of the schedule. Throttling alone was
+tried first and made it worse (418 km: 990 km out at 10 s, 6,900 km at 15 s), because the schedule kept
+pointing at the horizon and the excess grew sideways.
+
+In the rig at 15 s: 418 km hands over with 479 m/s to gain instead of 4,734 and keeps 4.6 t in the upper
+instead of 0.2; 418–1,200 km all cut off on `countdown` within 0.3 km. **100–300 km still fail**: the
+velocity still to gain reaches zero anyway, because the core's 12% minimum throttle is still ~3 g — the
+stack's limit, not the rule's. `AscentReserveGoldenTests` holds every fixture with more than 15 s to spare
+bit-equal (2,000 km and beyond; the least burn left in the pitch programme runs smoothly from 3 s at 418 km
+to 19 s at 2,000 and 65 s at 6,269), requires the engaged 1,000–1,600 km shots to land no worse, and
+checks it can see a difference at 418 km.
+
+**Flown once, 418 km, SCALE 1, 15 s:** handover at 72 km with **2,341 m/s** to gain (5,265 without it),
+cutoff on the countdown at 120 km 0.09 m/s short, release ~25 s later with 1:24 to impact, six of six
+within **21.9 m**, arriving at 73.8°. One flight: the mechanism, not the accuracy. The rig said 479 m/s at
+handover, so the game still overshoots more than the rig does.
+
 ### Step 3 — honest refusal, reported in flight
 
 - When the backstop fires on the handover frame with `_lowestToGain` having bottomed in the pitch programme,
