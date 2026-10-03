@@ -11,8 +11,11 @@ nothing here goes unrun before a merge.
 A line appearing below is a claim that the test guards nothing. That is worth a second
 look in review: `ProbeCrossingFloorTests` reads exactly like a study and is not.
 
-10 tests:
+13 tests:
 
+- `GameStackShortRangeTests.TheShortShotOnTheGamesStack`
+- `ShortRangeAscentTests.TheAscentFliesTheSameShapeWhateverTheRange`
+- `ShortRangeAscentTests.WhatAShortArcActuallyWants`
 - `SubStepConvergenceTests.AcrossReleaseStatesTheSubStepIsABiasAndAScatter`
 - `SubStepConvergenceTests.TheFrameTheSubStepsDivideDoesNotChangeTheBias`
 - `SubStepConvergenceTests.TheLandingSettlesAsTheSubStepFalls`

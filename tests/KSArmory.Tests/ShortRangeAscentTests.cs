@@ -22,7 +22,11 @@ namespace KSArmory.Tests;
 /// thin, and by then the stack is at ~65 km doing ~3 km/s — already more than a short shot needs,
 /// so there is nothing left for the loop to decide. The floor is the ascent, and the ascent is
 /// flown before anything knows how far away the target is.</para>
+///
+/// <para>This rig is two liquid stages that throttle and stop on command; the stack the game flies
+/// is in <see cref="GameStackShortRangeTests"/>.</para>
 /// </summary>
+[Trait("kind", "study")]
 public class ShortRangeAscentTests(ITestOutputHelper Out)
 {
     private const double Mu = 3.986004418e14;
