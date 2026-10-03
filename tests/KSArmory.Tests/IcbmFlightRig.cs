@@ -198,20 +198,35 @@ internal sealed class IcbmFlightRig
         /// </summary>
         public double BurnoutMassFlowRatio = 1.0;
 
+        /// <summary>
+        /// The share of the propellant burnt in a solid's tail-off, and the mass flow it ends at over
+        /// the ignition flow. Zero is no tail-off: the flow holds its ramp to the last kilogram.
+        /// </summary>
+        public double TailOffFraction;
+
+        /// <inheritdoc cref="TailOffFraction"/>
+        public double TailOffEndRatio = 1.0;
+
         private double _loaded = double.NaN;
 
         /// <summary>The propellant aboard at the start of the flight.</summary>
         public double LoadedPropellantKg => double.IsNaN(_loaded) ? _loaded = PropellantKg : _loaded;
 
-        private bool Varies => VacuumExhaustVelocity > 0.0 || BurnoutMassFlowRatio != 1.0;
+        private bool Varies => VacuumExhaustVelocity > 0.0 || BurnoutMassFlowRatio != 1.0 || TailOffFraction > 0.0;
 
         public double MassFlowNow()
         {
             if (!Varies) return MassFlow;
 
             double ignition = ThrustNewtons / ExhaustVelocity;
-            double burnt = LoadedPropellantKg > 0.0 ? 1.0 - PropellantKg / LoadedPropellantKg : 0.0;
-            return ignition * (1.0 + (BurnoutMassFlowRatio - 1.0) * Math.Clamp(burnt, 0.0, 1.0));
+            double burnt = Math.Clamp(LoadedPropellantKg > 0.0 ? 1.0 - PropellantKg / LoadedPropellantKg : 0.0, 0.0, 1.0);
+            double tail = 1.0 - TailOffFraction;
+            if (TailOffFraction > 0.0 && burnt > tail)
+            {
+                double peak = 1.0 + (BurnoutMassFlowRatio - 1.0) * tail;
+                return ignition * (peak + (TailOffEndRatio - peak) * (burnt - tail) / TailOffFraction);
+            }
+            return ignition * (1.0 + (BurnoutMassFlowRatio - 1.0) * burnt);
         }
 
         public double ThrustAt(double densityRatio)

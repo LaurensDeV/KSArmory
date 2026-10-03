@@ -1160,16 +1160,13 @@ internal sealed class IcbmProgram
     // How far the airflow may hold the thrust off what is left to gain before burning stops helping.
     private const double UsefulThrustDeg = 30.0;
 
-    // The load an angle of attack puts on the airframe goes as q times the angle, so the angle
-    // allowed at max-q is far stricter than slow flight needs -- and slow flight is where a steep
-    // arc is held or lost: at 1.2 g and 50 m/s, 8 degrees cannot stop gravity turning the path over.
-    private const double AngleOfAttackPressurePa = 10_000.0;
-
+    // KSA's drag acts at the vehicle's centre with no turning moment -- the only aerodynamic torque
+    // damps rotation -- and structural failure depends on g-load alone, so an angle of attack costs
+    // drag and nothing else in this build. A short shot steers freely: the eight degrees that suit a
+    // long ascent are exactly what stops a core lit in thick air pointing where the shot needs.
+    // RocketWerkz are reworking aerodynamics; docs/BLOCKED-ON-KSA.md.
     private double AllowedAngleOfAttackDeg(in IcbmState state)
-        => _absorbing || _handedOverInTheAir
-               ? Math.Max(Config.MaxAngleOfAttackDeg,
-                          Config.MaxAngleOfAttackDeg * AngleOfAttackPressurePa / Math.Max(state.DynamicPressurePa, 1.0))
-               : Config.MaxAngleOfAttackDeg;
+        => _shortShot ? 180.0 : Config.MaxAngleOfAttackDeg;
 
     // What the running stage will add whether it is told to stop or not: all of what a solid motor
     // has left. The arc is lofted until it needs at least that, which is the only thing that can be

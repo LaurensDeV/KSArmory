@@ -43,7 +43,9 @@ happen rather than a member that moved.
   the frame-only gate re-flew, whose largest push was 0.20 m/s. See the entry below
 - [ ] **`PhysicsStates.ComputeDrag` is still a body-fixed drag box over the mass, with no lift, no
   Mach term and no restoring torque** — RocketWerkz are working on aerodynamics. The day this
-  changes, the gun's lead is leading on yesterday's physics; see the entry below
+  changes, the gun's lead is leading on yesterday's physics; see the entry below. And
+  `IcbmConfig.FlyAnyRange` lets a short shot steer at any angle of attack because nothing here can
+  tip a stack over: an aerodynamic moment would make that a way to lose the rocket
 - [ ] **`RecomputeImmersion` rotates `MassToGeometryAsmb` into the planet's frame**, or buoyancy
   gets a centre of its own; see *A floating craft's waterline depends on where it is* below
 - [ ] **A kitten can walk on a vehicle** — `IsGroundSurfaceFor` accepts something other than a

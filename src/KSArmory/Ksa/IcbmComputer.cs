@@ -892,16 +892,18 @@ internal sealed class IcbmComputer
         FlightComputerAttitudeMode wasMode = Craft.FlightComputer.AttitudeMode;
         FlightComputerAttitudeTrackTarget wasTrack = Craft.FlightComputer.AttitudeTrackTarget;
 
-        // At cutoff rather than at the first release, which on a nominal shot is the same frame:
-        // the launcher has the whole coast to settle, and every kilogram of spent stack is mass its
-        // own thrusters would otherwise have to turn between releases.
+        // When the release gate opens, which on a long shot is minutes after cutoff -- so the bus
+        // holds attitude for the whole coast with the empty stack on. IcbmConfig.SeparateAtCutoff
+        // drops it when the burn ends instead, and a short shot always does: there the stack also
+        // coasts through air.
         //
         // Both of these run before anything decides whether a warhead may go, and the ordering is
         // the point. The decoupler's shove is about a metre a second and it arrives after the last
         // thing that could compensate for it; letting a round go on the same frame the split is
         // asked for sends one warhead on the attached stack's solution and the rest on the shoved
         // bus's. Measured in flight as a 163 m outlier inside a 3.6 km group.
-        if (Command.ReadyToDeploy) SeparateOnce(release);
+        bool burnOver = Program.Phase == IcbmPhase.Coast && (Config.SeparateAtCutoff || Program.IsShortShot);
+        if (Command.ReadyToDeploy || burnOver) SeparateOnce(release);
 
         DriveTrim(simStep, state, release);
 

@@ -42,6 +42,7 @@ public class GameStackShortRangeTests(ITestOutputHelper Out)
     /// </summary>
     // Three SRBs lit alone at ignition: 249.8 t burnt in 100.2 s, flow 2.11 t/s growing to ~2.9,
     // exhaust 2,170 m/s at the pad and ~2,700 high up (impulse-weighted 2,385); 24.3 t of casings.
+    // The last 21.4 t go in an eleven-second tail-off, thrust 8.1 MN falling to about 1.
     // The core lights as they drop: 25.55 MN at 4,056 m/s, 88.9 t burnt to depletion, 9.6 t dropped.
     // The upper is 955 kN at 4,278 m/s on 31.8 t, and burned down to 6.4 t still lit on a flown
     // 1,000 km shot (2026-10-03), so its dry mass is at most that.
@@ -72,7 +73,8 @@ public class GameStackShortRangeTests(ITestOutputHelper Out)
                 {
                     DryMassKg = 24_300, PropellantKg = 249_800,
                     ThrustNewtons = 2_110.0 * 2_170.0, ExhaustVelocity = 2_170,
-                    VacuumExhaustVelocity = 2_700, BurnoutMassFlowRatio = 1.36, Solid = true,
+                    VacuumExhaustVelocity = 2_700, BurnoutMassFlowRatio = 1.45, Solid = true,
+                    TailOffFraction = 0.086, TailOffEndRatio = 0.2,
                 },
                 new() { DryMassKg = 9_600, PropellantKg = 88_900, ThrustNewtons = 25_550_000, ExhaustVelocity = 4_056 },
                 new() { DryMassKg = 6_000, PropellantKg = 25_800, ThrustNewtons = 955_000, ExhaustVelocity = 4_278 },
