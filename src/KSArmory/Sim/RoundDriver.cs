@@ -107,10 +107,12 @@ internal static class RoundDriver
         }
         else if (round is Interceptor missile)
         {
-            // The air alone. An interceptor's flight is dominated by its own guidance rather than by
-            // gravity or the ground, but the medium decides whether it flies at all: held for the
-            // frame, a round low over the sea reads as under it.
+            // The air, and the ground for one that stops on it. An interceptor's flight is dominated
+            // by its own guidance rather than by gravity, but the medium decides whether it flies at
+            // all: held for the frame, a round low over the sea reads as under it.
             missile.AirDensityAt = fields.AirDensityAt;
+            missile.Ground = fields.Ground;
+            missile.GroundCentreDriftAt = fields.GroundCentreDriftAt;
         }
 
         round.Update(dt, target, gravity, frameVelocityEcl, platformEcl, munition, mediumDensityRatio);

@@ -19,6 +19,7 @@ happen rather than a member that moved.
 
 - [x] Secondary viewport gets the planet, atmosphere and lighting passes — **partly, in
   2026.10.7.5541**: terrain and sky, not clouds, ocean or clustered lights; see the entry below
+- [ ] A secondary viewport's terrain is shadowed by cascades fitted to its own camera, not the main one's
 - [x] `Camera.NearbyCelestial` is set per camera rather than only for the frame viewport — **partly,
   in 2026.10.7.5541**: the field is still the frame camera's, but `Camera.GetEffectiveNearbyCelestial`
   resolves one for any camera, and the planet and atmosphere passes read that
@@ -305,15 +306,43 @@ would mean depending on two third-party framework mods, which is a different dec
 missing engine feature — this mod currently requires only StarMap. Recorded here so the trade is a
 deliberate one.
 
+## Secondary viewport: its terrain's shadows follow the main camera
+
+**Wanted.** A director's camera window whose ground holds still while the player looks around.
+
+**What happens.** Turning the main camera makes the terrain in a camera window flicker and shift,
+in every sensor mode including colour, so the mod's own pass is not involved. Seen from play on
+2026.10.7.5541.
+
+**Why.** The sun's shadow maps are built once a frame, for the main view:
+`SunShadowSystem.UpdateUniforms(RenderedViewport, ...)` and
+`_cascadedShadowSystem.UpdateUniforms(RenderedViewport.GetCamera(), ...)` run with
+`_frameViewport = MainViewport` (`Program.cs:4329-4331`). `PlanetRenderer.Render` binds the same
+sun-shadow and cascade sets for whatever viewport it is drawing (`PlanetRenderer.cs:2016-2027`), so
+a window's terrain is shadowed through cascades fitted to another camera's frustum, and they move
+whenever that camera does. Part meshes are spared: `SuperMeshRenderSystem` reads `UseShadows` per
+view (`:208`), which no secondary viewport has.
+
+**Why a mod cannot fix it.** It would mean a second shadow render per window, through cascade and
+shadow systems that hold one set of uniforms per frame and are constructed by `Program`.
+
+**What would unblock it.** Cascades per viewport, or the planet pass honouring `UseShadows` the way
+the part pass does — an unshadowed window is a better picture than one whose shadows move.
+
 ## Secondary viewport: no sky, clouds, atmosphere or terrain
 
 **Wanted.** The launcher's electro-optical head drives a second camera window, so the sight can be
 watched while flying something else. The head, the tracking, the reticule and the camera write all
 work; the *picture* is wrong.
 
-**Partly lifted in 2026.10.7.5541, and not yet flown**: a secondary viewport now runs the planet
-renderer and the sky for its own slot, so it should show terrain and haze — still without clouds,
-ocean, ground clutter or clustered lights. What follows is the account against the builds before it.
+**Partly lifted in 2026.10.7.5541, and taken up — not yet flown**: a secondary viewport now runs
+the planet renderer and the sky for its own slot, with its own LOD off its own camera
+(`PlanetViewportData.OnFrame`) and the grey ball suppressed through
+`Camera.GetEffectiveNearbyCelestial` — still without clouds, ocean, ground clutter, volumetric
+trails or clustered lights, which stay in the main-only half of `RenderGame`. Detail textures also
+stream round the main camera alone (`PlanetRenderer.OnFrame` is called for the frame viewport), so
+a window looking far from the player may see coarser ground. The director now drives a window from
+any craft (`KSArmoryMod.DriveCameraWindows`). What follows is the account against the builds before it.
 
 **What happens.** A secondary viewport shows a raw starfield above a hard horizon and a
 featureless grey ball, where the main view at the same position shows sky, clouds and terrain.

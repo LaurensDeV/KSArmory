@@ -48,6 +48,19 @@ internal static class Sight
         // window, at the wrong scale, from a camera pointing somewhere else.
         if (!SightSurface.TryFor(policy.Viewport, out SightSurface surface)) return;
 
+        Draw(system, policy, weapon, surface);
+    }
+
+    /// <summary>Paints the sight on a surface already resolved, and releases it.</summary>
+    public static void Draw(IOpticalHead system, OpticConfig policy, ISightPicture? weapon,
+                            SightSurface surface)
+    {
+        if (system.OpticPart is null)
+        {
+            surface.Finish();
+            return;
+        }
+
         try
         {
             ImDrawListPtr draw = surface.Draw;
@@ -68,6 +81,12 @@ internal static class Sight
             }
 
             DrawTarget(surface, system, policy, weapon);
+
+            // Outside the symbology switch, like the drag ring: it says the picture is of the
+            // craft itself, which no setting should hide.
+            if (system.Masked) DrawWarning(surface, "MASK", 28f);
+            if (system.AtGimbalLimit) DrawWarning(surface, "GIMBAL LIMIT", 46f);
+            DrawLaser(surface, system, policy);
 
             if (policy.Symbology && weapon is not null) DrawStatus(surface, weapon, policy);
         }
@@ -177,14 +196,24 @@ internal static class Sight
         // Where the craft is *drawn*, which is not where it is simulated. A bracket is the one
         // thing that has to sit exactly on the target, and the analytic-versus-physics gap is
         // metres on the ground -- noise at 50° of field and tens of pixels at 3°.
-        if (!track.Contact.TryDrawEgo(out double3 targetEgo)) return;
-        if (!KsaWorld.TryProjectEgoOrClamp(surface.Index, targetEgo, out float2 at, out bool inView))
+        //
+        // And as the surface's own camera draws it: a camera window follows nothing and draws a
+        // craft somewhere else from the main view, which follows the player's.
+        double3 targetEgo;
+        if (surface.Index != KsaWorld.MainViewportIndex && track.Contact is VehicleContact craftContact)
+        {
+            if (!KsaWorld.TryDrawnMiddleEcl(craftContact.Vehicle, out double3 targetEcl, surface.Index)) return;
+            if (!KsaWorld.TryMainCameraEgo(targetEcl, out targetEgo)) return;
+        }
+        else if (!track.Contact.TryDrawEgo(out targetEgo))
         {
             return;
         }
 
+        if (!KsaWorld.TryProjectEgoOrClamp(surface.Index, targetEgo, out float2 at, out bool inView)) return;
+
         bool settled = system.OpticOnTarget;
-        ImColor8 colour = settled ? Reticle : Pending;
+        ImColor8 colour = settled && !system.Masked ? Reticle : Pending;
 
         if (!inView)
         {
@@ -342,6 +371,42 @@ internal static class Sight
     {
         draw.AddLine(a + new float2(1f, 1f), b + new float2(1f, 1f), Shadow, 2.5f);
         draw.AddLine(a, b, colour, 1.6f);
+    }
+
+    private static readonly ImColor8 Laser = new(255, 80, 80, 235);
+
+    // The laser's state low in the picture, and a diamond where its spot lands. The range is the
+    // laser's own: the slant range to whatever the beam met, not to the tracked contact.
+    private static void DrawLaser(SightSurface surface, IOpticalHead system, OpticConfig policy)
+    {
+        if (!system.HasLaser || !policy.Lasing) return;
+
+        string line = system.LaserInhibited ? "LASER BLOCKED"
+                    : system.Spot is { } spot ? $"LASER   {Distance.Say(spot.RangeMetres)}"
+                    : "LASER   NO RETURN";
+
+        float2 size = ImGui.CalcTextSize(line);
+        float2 at = new(surface.Centre.X - size.X * 0.5f, surface.Pos.Y + surface.Size.Y - 64f);
+        Text(surface.Draw, at, line, system.LaserInhibited ? Pending : Laser);
+
+        if (system.Spot is not { } landed) return;
+        if (!KsaWorld.TryMainCameraEgo(landed.PositionEcl, out double3 spotEgo)) return;
+        if (!KsaWorld.TryProjectEgoOrClamp(surface.Index, spotEgo, out float2 p, out bool inView) || !inView) return;
+
+        const float r = 5f;
+        float2 n = new(p.X, p.Y - r), e = new(p.X + r, p.Y), s = new(p.X, p.Y + r), w = new(p.X - r, p.Y);
+        Line(surface.Draw, n, e, Laser);
+        Line(surface.Draw, e, s, Laser);
+        Line(surface.Draw, s, w, Laser);
+        Line(surface.Draw, w, n, Laser);
+    }
+
+    // A pod's warnings, under the crosshair: on the picture rather than the panel, whose lines would
+    // jump as they come and go.
+    private static void DrawWarning(SightSurface surface, string label, float below)
+    {
+        float2 size = ImGui.CalcTextSize(label);
+        Text(surface.Draw, new float2(surface.Centre.X - size.X * 0.5f, surface.Centre.Y + below), label, Pending);
     }
 
     private static void Text(ImDrawListPtr draw, float2 at, string what, ImColor8 colour)

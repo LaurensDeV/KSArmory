@@ -238,6 +238,8 @@ tubes, a cannon, or both; the Phalanx has no tubes at all.
 | | Default | |
 | --- | --- | --- |
 | `GunAmmo` | `480` | belt |
+| `StoreMassKg` | `0` | what one tube round weighs as carried (kg). The part's declared mass should include its full load: each round fired takes this much off it, and a reload puts it back. `0` sheds nothing |
+| `GunRoundMassKg` | `0` | the same for one complete round in the belt, case and charge included |
 | `GunRoundsPerMinute` | `2500` | |
 | `GunBurstRounds`, `GunBurstGapSeconds` | `12`, `0.55` | |
 | `GunReloadSeconds` | `0` | the same for the belt |
@@ -275,6 +277,9 @@ observation post. `PartId`, `DisplayName`, `Sensor`, `BaseMarker`, `HeadMarker` 
 | `MinElevationDeg`, `MaxElevationDeg` | `-20`, `85` | mast heads |
 | `MaxOffBoresightDeg` | `135` | roll-nod heads: the nod stop, which is the only travel limit a rolling head has |
 | `KeyholeDeg` | `4` | cone about the roll axis the aim is held out of. Dead along it there is no roll angle, and a target crossing the nose asks for unbounded roll rate |
+| `MaxMagnification` | `16` | how far the optics wind in, against KSA's 50° view; the zoom steps x1, x2, x4… up to it and ends on it. 53 is a 1° field, the floor the camera takes |
+| `HasLaser` | `false` | a laser rangefinder and designator on the line of sight, fired from the camera window's LASE button; its spot is what a laser-guided weapon homes on, by its code |
+| `LaserRangeMetres` | `20000` | how far the laser returns from; past it the beam lases at nothing |
 
 ---
 

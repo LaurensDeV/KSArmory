@@ -20,6 +20,9 @@ internal partial class Ui
 {
     private bool _weaponsOpen;
 
+    // The craft the window was opened for from the switcher, or null for the panel's own focus.
+    private KSA.Vehicle? _weaponsCraft;
+
     private void DrawWeaponsWindow()
     {
         if (!_weaponsOpen) return;
@@ -33,7 +36,8 @@ internal partial class Ui
         ImGui.SetNextWindowSize(new float2(320f, 0f), ImGuiCond.FirstUseEver);
 
         bool open = _weaponsOpen;
-        if (ImGui.Begin("Weapons###KSArmoryWeapons", ref open))
+        string title = craft is null ? "Weapons" : $"Weapons - {KsaWorld.DisplayName(craft)}";
+        if (ImGui.Begin($"{title}###KSArmoryWeapons", ref open))
         {
             if (_weaponScratch.Count == 0)
             {

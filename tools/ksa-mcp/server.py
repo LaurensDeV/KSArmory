@@ -410,6 +410,15 @@ TOOLS = {
                     "trigger": {"type": "string", "enum": ["cannon", "tubes"]},
                     "resistance": _num("0..1")}, ["craft"],
                    lambda a: [_text(json.dumps(send("system", **a), indent=1))]),
+    "ksa_optic": ("A craft's optical directors, as their rows would set them: view new (a spare camera "
+                  "window), main, off or a window index; magnification; tracking; bearing_deg and elevation_deg aim it by hand; lase and code fire its laser. Reads each window's "
+                  "camera back: its field of view, where its picture is, and the body it thinks it is near.",
+                  {"craft": {"type": "string"}, "view": {"type": "string"}, "magnification": _num("x"),
+                   "tracking": {"type": "boolean"}, "manual": {"type": "boolean"},
+                   "bearing_deg": _num("deg"), "elevation_deg": _num("deg"),
+                   "sensor": {"type": "string", "enum": ["Colour", "Tv", "WhiteHot", "BlackHot"]},
+                   "lase": {"type": "boolean"}, "code": _num("1111-1788")}, ["craft"],
+                  lambda a: [_text(json.dumps(send("optic", **a), indent=1))]),
     "ksa_dispense": ("Press a craft's countermeasures: kind flare, chaff or both; auto sets auto-dispense. "
                      "The craft defaults to the one being flown.",
                      {"craft": {"type": "string"}, "kind": {"type": "string", "enum": ["flare", "chaff", "both"]},

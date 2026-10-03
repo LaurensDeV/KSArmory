@@ -136,5 +136,20 @@ public sealed class OpticProfile
     /// </summary>
     public float KeyholeDeg = 4f;
 
+    /// <summary>
+    /// How far the optics wind in, against the engine's 50° view. The zoom steps through the
+    /// doubling detents up to it, and ends on it when it is not one.
+    /// </summary>
+    public float MaxMagnification = 16f;
+
+    /// <summary>
+    /// A laser on the line of sight: a rangefinder and a designator, its spot on whatever the
+    /// beam first meets. Off for an optic that is a camera and nothing else.
+    /// </summary>
+    public bool HasLaser;
+
+    /// <summary>How far the laser returns from (m). Past it the beam is lasing at nothing.</summary>
+    public float LaserRangeMetres = 20000f;
+
     public double SlewRateRad => float.DegreesToRadians(SlewRateDeg);
 }

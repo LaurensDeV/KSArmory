@@ -741,6 +741,9 @@ public static class Arsenal
         DisplayName = "MIRV bus",
         Munition = "MK21",
         Sensor = "MIRVBUS",
+
+        // About 250 kg an Mk 21 (KSArmoryGameData.xml), shed only with IcbmConfig.ShedWarheadMass on.
+        StoreMassKg = 250f,
         TubeArmamentLabel = "Warheads",
         Tubes =
         [
@@ -783,6 +786,7 @@ public static class Arsenal
         DisplayName = "LAU-7 Sidewinder rail",
         Munition = "AIM9J",
         Sensor = "AIM9SEEK",
+        StoreMassKg = 78f,
 
         // The nose of the seated round and the direction it leaves along. A fixed launcher has no
         // pods for its tubes to follow, so unlike the Pantsir's parallel bundle this one has to
@@ -834,6 +838,7 @@ public static class Arsenal
         DisplayName = "LAU-128 AMRAAM rail",
         Munition = "AIM120C",
         Sensor = "AIM120SEEK",
+        StoreMassKg = 161.5f,
 
         // The nose of the seated round and the direction it leaves along: the seat offset out of
         // the mounting face, plus half a body length forward.
@@ -870,6 +875,7 @@ public static class Arsenal
         DisplayName = "LAU-118 HARM rail",
         Munition = "AGM88",
         Sensor = "AGM88SEEK",
+        StoreMassKg = 360f,
 
         // The nose of the seated round and the direction it leaves along: the seat offset out of
         // the mounting face, plus half a body length forward.
@@ -904,6 +910,7 @@ public static class Arsenal
         DisplayName = "B61 bomb rack",
         Munition = "B61",
         Sensor = "BOMBSIGHT",
+        StoreMassKg = 374f,
         TubeArmamentLabel = "Bombs",
         Tubes = [new(new(0.43510, 1.77800, 0.00000), new(0, 1, 0))],
         MuzzleForwardOffset = 0.435,
@@ -973,6 +980,10 @@ public static class Arsenal
 
         // 4500 rpm, and 1550 rounds. Long bursts, because that is what a CIWS does.
         GunAmmo = 1550,
+
+        // A 20 x 102 mm cartridge, case and charge in, is about a quarter of a kilo; the part's 6,200 kg
+        // is with a full magazine.
+        GunRoundMassKg = 0.26f,
         GunRoundsPerMinute = 4500f,
         GunBurstRounds = 60,
         GunBurstGapSeconds = 0.35f,
@@ -1108,6 +1119,7 @@ public static class Arsenal
         SearchRadarFaces = 0,
 
         GunAmmo = 750,
+        GunRoundMassKg = 0.26f,
         GunRoundsPerMinute = 730f,
         GunBurstRounds = 16,
         GunBurstGapSeconds = 0.5f,
@@ -1308,6 +1320,13 @@ public static class Arsenal
 
         MaxOffBoresightDeg = 150f,
         KeyholeDeg = 4f,
+
+        // Its narrow field is 1° (GlobalSecurity's AN/AAQ-28 page, and the SAAF's Litening III),
+        // which is x53 against the 50° the zoom is measured from -- and SightZoom.MinFovDeg.
+        MaxMagnification = 53f,
+
+        // A rangefinder and designator, as every pod of the class carries.
+        HasLaser = true,
     };
 
     // ---- Countermeasures -------------------------------------------------
@@ -1321,6 +1340,7 @@ public static class Arsenal
         Name = "MJU7",
         DisplayName = "MJU-7 flare",
         Kind = DecoyKind.Flare,
+        MassKg = 0.37f,
         PeakSignature = 25f,
         RiseSeconds = 0f,
         LifeSeconds = 4.5f,
@@ -1338,6 +1358,7 @@ public static class Arsenal
         Name = "RR170",
         DisplayName = "RR-170 chaff",
         Kind = DecoyKind.Chaff,
+        MassKg = 0.095f,
 
         // On RadarSignature's scale, which reads a craft of 11 m mean radius as 400 m².
         PeakSignature = 400f,

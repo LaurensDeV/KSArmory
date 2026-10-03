@@ -453,6 +453,10 @@ internal sealed class WeaponSystems(Config config)
             {
                 if (_entries.ContainsKey((craft, ordinal))) continue;
 
+                // Already crewed under another place: a rack that renumbered when its neighbour
+                // dropped keeps its own system and magazine, and a second here would be a full one.
+                if (IsHeld(_launcherScratch[ordinal].Part)) continue;
+
                 // Settings are keyed on the display name, which craft from one blueprint share.
                 // They will restore each other's and overwrite each other on save, and nothing
                 // else would ever say so.
@@ -472,6 +476,7 @@ internal sealed class WeaponSystems(Config config)
                     // leaves every system sure of its allegiance in a world that has forgotten the
                     // teams exist. Every contact is then Unknown, which is engageable by default.
                     stored.DeclareTeams(_config.TeamNames);
+                    _config.AdoptRules(policy.Iff);
                 }
 
                 WeaponSystem system = new(_config, policy, ordinal, IsEmitting);
@@ -649,6 +654,16 @@ internal sealed class WeaponSystems(Config config)
         _gone.Clear();
     }
 
+    private bool IsHeld(Part part)
+    {
+        foreach (Entry e in _entries.Values)
+        {
+            if (ReferenceEquals(e.Weapon.HeldPart, part)) return true;
+        }
+
+        return false;
+    }
+
     // Whether the entry is settled: either its launcher was found somewhere and it moved, or
     // the search was refused for a reason that is not "nothing carries it".
     private bool TryFollow((Vehicle Craft, int Ordinal) key, Entry entry)
@@ -657,6 +672,7 @@ internal sealed class WeaponSystems(Config config)
         string wanted = system.Profile.PartId;
 
         _candidates.Clear();
+        (int Craft, int Ordinal)? exact = null;
 
         for (int i = 0; i < _handoverScratch.Count; i++)
         {
@@ -672,8 +688,13 @@ internal sealed class WeaponSystems(Config config)
 
             for (int ordinal = 0; ordinal < _launcherScratch.Count; ordinal++)
             {
-                // On the part Id, not on the Part reference: KSA rebuilds the tree during staging,
-                // so a reference does not survive the very event this is reacting to.
+                // The very part, which a split carries whole onto the new craft; by its Id only for a
+                // system that never held one.
+                if (system.HeldPart is { } held && ReferenceEquals(_launcherScratch[ordinal].Part, held))
+                {
+                    exact = (i, ordinal);
+                }
+
                 if (_launcherScratch[ordinal].Profile.PartId != wanted) continue;
 
                 _candidates.Add(new HandoverCandidate(
@@ -682,6 +703,8 @@ internal sealed class WeaponSystems(Config config)
                     _entries.ContainsKey((craft, ordinal))));
             }
         }
+
+        if (exact is { } found) return MoveTo(key, entry, _handoverScratch[found.Craft], found.Ordinal, system.HeldPart, "its own part");
 
         Handover choice = PlatformHandover.Choose(_candidates);
 
@@ -698,29 +721,38 @@ internal sealed class WeaponSystems(Config config)
         if (choice.Verdict != HandoverVerdict.Move) return false;
 
         Vehicle to = _handoverScratch[choice.CraftIndex];
-        (Vehicle, int) newKey = (to, choice.Ordinal);
 
         // The craft carrying it already has a system on that ordinal, so the launcher is not
         // missing from the world - it is simply already crewed.
-        if (_entries.ContainsKey(newKey)) return true;
+        if (_entries.ContainsKey((to, choice.Ordinal))) return true;
+
+        return MoveTo(key, entry, to, choice.Ordinal, held: null, choice.Why);
+    }
+
+    private bool MoveTo((Vehicle Craft, int Ordinal) key, Entry entry, Vehicle to, int ordinal, Part? held, string why)
+    {
+        // A key is an identity, not a place: when the place is taken by a system holding another
+        // part, the next free one is filed instead.
+        int filed = ordinal;
+        while (_entries.ContainsKey((to, filed))) filed++;
 
         _entries.Remove(key);
-        _entries[newKey] = entry with { Craft = to, Ordinal = choice.Ordinal };
+        _entries[(to, filed)] = entry with { Craft = to, Ordinal = filed };
 
         if (_selected.TryGetValue(key.Craft, out int selected) && selected == key.Ordinal)
         {
             _selected.Remove(key.Craft);
-            _selected[to] = choice.Ordinal;
+            _selected[to] = filed;
         }
 
-        if (choice.Ordinal == 0) WarnIfNameIsTaken(to);
+        if (filed == 0) WarnIfNameIsTaken(to);
 
-        system.Rehome(to, choice.Ordinal);
+        entry.Weapon.Rehome(to, ordinal, held);
         _handovers.Add((key.Craft, to));
 
         Log.Info($"{KsaWorld.DisplayName(key.Craft)} launcher {key.Ordinal + 1} followed its "
-                 + $"launcher onto {KsaWorld.DisplayName(to)} launcher {choice.Ordinal + 1} "
-                 + $"({choice.Why}); settings now filed under \"{SettingsKey(to, choice.Ordinal)}\"");
+                 + $"launcher onto {KsaWorld.DisplayName(to)} launcher {ordinal + 1} "
+                 + $"({why}); settings now filed under \"{SettingsKey(to, filed)}\"");
 
         return true;
     }

@@ -12128,3 +12128,28 @@ that no session spans and the cap can be held off.
 constant across them — so a longer freeze is not what the slower machine is buying. One frame's
 delta-v rises only 22% over the same step, against 91% on the residual. **What else the step reaches
 is open**, and it is the live end of 3fi rather than the freeze.
+
+## 3fm. Warheads taking their mass with them — declared 2026-10-03
+
+`IcbmConfig.ShedWarheadMass` takes each Mk 21's 250 kg off the bus as it leaves (`Ksa/StoreMass.cs`), scaled in place so
+the lump stays on the thruster ring. True to the vehicle, and it changes the shot: shedding 1,500 kg of the bus over six
+releases should roughly double the pointing band by the last (it scales as one over the inertia). The trim measures its
+acceleration rather than assuming it, so that half should adapt.
+
+**Declared before it flies:**
+
+```bash
+KSARMORY_SCENARIO_SAVE='SOLVER SCALE 8' ./tools/shot-batch.sh --paired 'base|shed:ShedWarheadMass=true' \
+    --aim 24.0S,62.0W --blocks 12 --out ~/shots/2026-10-03-shed
+```
+
+This night asks whether a bus that gets lighter costs precision, not whether it buys any.
+
+* **Primary: `--endpoint landing`, a ×1.20 non-inferiority bar.** Ships on if the one-sided 97.5% upper bound is under
+  1.20x; stays off if the median is 1.20x or above; unresolved otherwise.
+* **Beside it:** `centre` and `dispersion` about as `landing`.
+* **Mechanism per flight:** every `shed` rocket logs `store mass: KSArmory_Prefab_MirvBus … now` six times, ending near
+  1,250 kg of 2,750; no `base` rocket logs one.
+* **Refuted** by `landing` at 1.20x or above, a `shed` flight with no `store mass` lines, or a `base` flight with any.
+* **Watch:** `clock` or trim endings on `shed` that `base` does not have, any shot timed out, any rocket destroyed in its
+  ascent, KSA's own log on every launch, and the frame rate (`mod frame: … over N frames`).

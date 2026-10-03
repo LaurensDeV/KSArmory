@@ -1,0 +1,95 @@
+#version 450
+
+// A director's camera window as its sensor sees it: a monochrome TV channel, or a thermal one in
+// white-hot or black-hot. KSA has no temperature per pixel, so heat is the scene's brightness with
+// the sky -- nothing behind it in the depth buffer -- read as cold. Before bloom and the tonemap, so
+// the result stays in the scene's own exposure: grey is mapped back round the frame's mean
+// brightness rather than written as a display value.
+//
+// Bindings follow ComputePipelineWrapper's order: storage images, then the depth it samples.
+
+layout (local_size_x = 8, local_size_y = 8) in;
+
+layout (set = 1, binding = 0, Rgba16f) uniform image2D sceneColor;
+layout (set = 1, binding = 1, R32f) uniform image2D meanLevel;
+layout (set = 1, binding = 2) uniform sampler2D sceneDepth;
+
+layout (push_constant) uniform PushConstants
+{
+    vec4 ModeTime;   // 1 TV, 2 white-hot, 3 black-hot; seconds for the grain; 0 to measure, 1 to map
+} pc;
+
+const vec3 Luma = vec3(0.2126, 0.7152, 0.0722);
+
+float Hash(vec2 p)
+{
+    return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+}
+
+// The frame's mean brightness off a sparse grid, by one invocation in its own dispatch: read while
+// the mapping pass writes the image, the cells would already be grey.
+void Measure(ivec2 size)
+{
+    float sum = 0.0;
+    for (int y = 0; y < 16; y++)
+    {
+        for (int x = 0; x < 16; x++)
+        {
+            ivec2 at = ivec2((vec2(x, y) + 0.5) / 16.0 * vec2(size));
+            sum += log(max(dot(imageLoad(sceneColor, at).rgb, Luma), 1.0e-4));
+        }
+    }
+    imageStore(meanLevel, ivec2(0), vec4(exp(sum / 256.0)));
+}
+
+void main()
+{
+    ivec2 size = imageSize(sceneColor);
+
+    if (pc.ModeTime.z < 0.5)
+    {
+        if (gl_GlobalInvocationID.xy == uvec2(0)) Measure(size);
+        return;
+    }
+
+    ivec2 px = ivec2(gl_GlobalInvocationID.xy);
+    if (px.x >= size.x || px.y >= size.y) return;
+
+    int mode = int(pc.ModeTime.x + 0.5);
+    if (mode < 1 || mode > 3) return;
+
+    vec4 c = imageLoad(sceneColor, px);
+    float y = max(dot(c.rgb, Luma), 0.0);
+    float mid = max(imageLoad(meanLevel, ivec2(0)).r, 1.0e-4);
+
+    vec2 uv = (vec2(px) + 0.5) / vec2(size);
+    bool sky = texture(sceneDepth, uv).r <= 0.0;
+
+    // Into 0..1 about the mean, where a curve and an inversion mean something.
+    float heat = y;
+    if (mode != 1 && sky) heat *= 0.12;
+    float t = heat / (heat + mid);
+
+    if (mode == 1)
+    {
+        t = smoothstep(0.0, 1.0, t);
+    }
+    else
+    {
+        // Thermal detail is coarse and contrasty; the hottest things clip.
+        t = clamp((t - 0.18) * 1.6, 0.0, 1.0);
+        if (mode == 3) t = 1.0 - t;
+        // A faint fixed column pattern, as an uncooled detector leaves.
+        t += (Hash(vec2(px.x, 0.0)) - 0.5) * 0.02;
+    }
+
+    float grain = (Hash(vec2(px) + fract(pc.ModeTime.y * 13.7)) - 0.5) * (mode == 1 ? 0.02 : 0.025);
+    vec2 d = uv - 0.5;
+    float vignette = 1.0 - dot(d, d) * 0.6;
+
+    t = clamp((t + grain) * vignette, 0.0, 0.999);
+
+    // Back out of 0..1 onto the scene's scale, so the tonemap exposes it as it did the colour.
+    float g = mid * t / (1.0 - t);
+    imageStore(sceneColor, px, vec4(vec3(g), c.a));
+}

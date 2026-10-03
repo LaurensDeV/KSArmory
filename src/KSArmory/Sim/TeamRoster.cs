@@ -34,8 +34,8 @@ public sealed class TeamRoster
     /// team declares nothing, which leaves the craft on no team.
     ///
     /// <para><paramref name="rank"/> settles a craft whose installations disagree — the panel's
-    /// flag sets every one of them together, so that is the operator having edited a single
-    /// system's team under Tuning. Lowest rank wins, which is the first launcher, because the roster
+    /// flag sets every one of them together, so that is a split carrying a part across, or settings
+    /// saved before. Lowest rank wins, which is the first launcher, because the roster
     /// enumerates in a dictionary's order and an allegiance decided by that is an unreproducible
     /// bug report.</para>
     /// </summary>

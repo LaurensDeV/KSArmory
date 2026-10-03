@@ -27,6 +27,9 @@ public sealed class DecoyProfile
     /// <summary>Seconds until the signature has decayed to nothing, which is when the decoy is gone.</summary>
     public float LifeSeconds = 4f;
 
+    /// <summary>What one weighs (kg), which its dispenser's part mass includes and gives up when it is thrown.</summary>
+    public float MassKg;
+
     /// <summary>
     /// Quadratic drag at sea-level air, per metre: deceleration is this times speed squared.
     /// <c>g / k</c> is the square of the speed it settles to falling.

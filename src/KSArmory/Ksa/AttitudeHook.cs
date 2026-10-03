@@ -335,6 +335,9 @@ internal static class AttitudeHook
             // worker's copy goes over them.
             Leaks.Apply(__instance);
 
+            // And a launcher's mass, lighter by what it has fired, for the same reason.
+            StoreMass.Apply(__instance);
+
             if (Shoves.Count > 0 && Shoves.Remove(__instance, out (double3 Linear, double3 Angular, double Wind, double3 AwayEcl) shove))
             {
                 double3 before = KsaWorld.VelocityEcl(__instance);

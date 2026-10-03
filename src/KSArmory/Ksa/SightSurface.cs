@@ -18,7 +18,8 @@ namespace KSArmory;
 /// list would put the whole reticule behind it. The foreground list of that window's <em>platform
 /// viewport</em> is the one that lands on top — and naming the platform viewport is what follows
 /// the window onto a second monitor, because ImGui gives a torn-off window one of its own and a
-/// list belonging to the wrong one draws on the wrong screen.</para>
+/// list belonging to the wrong one draws on the wrong screen. That list is above every window, so
+/// a window the mod draws itself paints on its own list instead (<see cref="InWindow"/>).</para>
 /// </summary>
 internal readonly struct SightSurface
 {
@@ -126,6 +127,18 @@ internal readonly struct SightSurface
 
         Log.Debug(() => $"sight: window {index} imgui={imGuiId} resolved={resolved} "
                         + $"at {pos.X:F0},{pos.Y:F0} size {size.X:F0}x{size.Y:F0}");
+    }
+
+    /// <summary>
+    /// The picture in a window the mod draws itself, painted on that window's own list so the
+    /// windows over it cover the sight as they cover the picture. Call between its Begin and End.
+    /// </summary>
+    public static SightSurface InWindow(int index, float2 pos, float2 size)
+    {
+        ImDrawListPtr draw = ImGui.GetWindowDrawList();
+        draw.PushClipRect(pos, pos + size, true);
+
+        return new SightSurface(draw, pos, size, index, clipped: true);
     }
 
     /// <summary>Releases the clip. Every path that took a surface must reach this.</summary>

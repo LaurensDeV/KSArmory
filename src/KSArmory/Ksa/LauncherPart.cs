@@ -53,9 +53,9 @@ internal static class LauncherPart
     public static bool IsMounted(Vehicle? vehicle) => vehicle is not null && Find(vehicle) is not null;
 
     /// <summary>
-    /// Every launcher on a vehicle, in part order, appended to <paramref name="into"/>. Part order
-    /// rather than the <see cref="Part"/> reference is what a system keys on: KSA rebuilds the
-    /// part tree during staging and docking, and the ordinal survives that.
+    /// Every launcher on a vehicle, in part order, appended to <paramref name="into"/>. A system holds
+    /// its part by reference once it has found it (<see cref="WeaponSystem.HeldPart"/>): KSA moves
+    /// parts whole through a split and a dock, and the ordinal is what renumbers.
     /// </summary>
     public static void FindAll(Vehicle vehicle, List<(Part Part, LauncherProfile Profile)> into)
     {

@@ -148,6 +148,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// <summary>Rounds left in the launcher.</summary>
     public int Ammo => _magazine.Ammo;
 
+    /// <summary>Rounds the magazine holds when full.</summary>
+    public int MagazineFull => _magazine.Full;
+
     public IReadOnlyList<IProjectile> Rounds => _rounds;
 
     /// <summary>
@@ -171,6 +174,14 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
     /// <summary>The launcher part on the platform, or null if none is fitted.</summary>
     public Part? Launcher { get; private set; }
+
+    /// <summary>
+    /// The launcher part this system is crewed on, kept while it is lost so it can be followed by
+    /// identity. KSA moves a part whole through a split, so the reference outlives its place in the
+    /// part list: two racks of one kind renumber when one drops, and following the place swaps their
+    /// magazines.
+    /// </summary>
+    public Part? HeldPart { get; private set; }
 
     /// <summary>The launcher's turret subpart, which the mod slews onto the track.</summary>
     public Part? TurretPart { get; private set; }
@@ -685,7 +696,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // Whichever registered weapon system is fitted, if any. Adopting it points this system's
         // profiles at that system, so everything downstream - drives, guidance, the panel -
         // follows without knowing which launcher this is.
-        if (LauncherPart.FindNth(Platform, LauncherOrdinal, _launcherScratch) is var (part, profile))
+        if (ResolveLauncher(Platform) is var (part, profile))
         {
             // One-shot, not "the launcher was missing last frame". A part tree is rebuilt during
             // staging and docking, so a read can fail for a frame and come back - and a
@@ -2940,7 +2951,30 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// and the system is dropped when the last one lands. Here the launcher is alive on a live
     /// craft with rounds still in its tubes, and all of it has to keep running.</para>
     /// </summary>
-    public void Rehome(Vehicle craft, int ordinal)
+    // The part it holds, wherever it now sits on this craft; its ordinal only until it holds one.
+    private (Part Part, LauncherProfile Profile)? ResolveLauncher(Vehicle platform)
+    {
+        if (HeldPart is not { } held)
+        {
+            (Part Part, LauncherProfile Profile)? found = LauncherPart.FindNth(platform, LauncherOrdinal, _launcherScratch);
+            if (found is { } first) HeldPart = first.Part;
+            return found;
+        }
+
+        LauncherPart.FindAll(platform, _launcherScratch);
+        for (int i = 0; i < _launcherScratch.Count; i++)
+        {
+            if (!ReferenceEquals(_launcherScratch[i].Item1, held)) continue;
+
+            LauncherOrdinal = i;
+            return _launcherScratch[i];
+        }
+
+        return null;
+    }
+
+    /// <param name="held">The exact part it was followed onto, or null to take whatever sits at the ordinal.</param>
+    public void Rehome(Vehicle craft, int ordinal, Part? held = null)
     {
         if (!KsaWorld.IsAlive(craft)) return;
 
@@ -2956,6 +2990,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         PlatformEcl = toEcl;
         PlatformStepEcl = Vec.Zero;
         LauncherOrdinal = ordinal;
+        HeldPart = held;
 
         // The subpart references are this craft's part tree, and the tree the launcher now lives in
         // is a different one. Cleared so they are found again rather than written to parts that
@@ -3756,7 +3791,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // radar it then destroys is the case that misleads.
         string how = round switch
         {
-            Slug { HitGround: true } => "on the ground",
+            Slug { HitGround: true } or Interceptor { HitGround: true } => "on the ground",
             Slug { BurstAtHeight: true } => $"at its fuse height, {round.Munition.BurstHeightMetres:F0} m over the ground",
             _ when round.StruckBody is not null => "on contact",
             _ when seduced => $"on {seeker!.OnDecoy!.Profile.DisplayName}",
@@ -4460,6 +4495,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
     public void Reset()
     {
+        HeldPart = null;
         ClearRounds();
         _steerable = null;
         _pendingKills.Clear();

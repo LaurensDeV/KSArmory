@@ -901,6 +901,18 @@ internal sealed class IcbmConfig
     public bool WarheadDragFromItsShape = true;
 
     /// <summary>
+    /// Take each warhead's mass off the bus as it leaves.
+    ///
+    /// <para><b>Off, and unflown.</b> True to the vehicle, and it changes the shot every number in
+    /// <c>docs/ACCURACY-PLAN.md</c> was measured on: shedding about half the bus over six releases
+    /// roughly doubles the pointing band by the last, because the band scales as one over the inertia.
+    /// The trim measures its acceleration rather than assuming it, so that half adapts. The mass comes
+    /// off where the part declares it, on the thruster ring, never at a tube. Wants a paired night
+    /// before it ships on.</para>
+    /// </summary>
+    public bool ShedWarheadMass;
+
+    /// <summary>
     /// Solve each warhead's separation kick through the air rather than in vacuum — the ring's image, the arrival
     /// and the velocity sensitivity flown with the release probe's own drag, <see cref="ReleaseFocus.FlownSensitivity"/>.
     ///

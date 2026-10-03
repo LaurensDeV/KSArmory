@@ -97,7 +97,7 @@ internal sealed partial class Ui
     }
 
     // Everything that belongs to the session and to playing with the mod: what is drawn, what is
-    // heard, the teams, and the settings that change how the weapons behave.
+    // heard, and the settings that change how the weapons behave.
     //
     // A window rather than a tree on the main panel, because the panel is a list of the systems in
     // the world and that list is the only thing on it that changes as the world does.
@@ -105,44 +105,9 @@ internal sealed partial class Ui
     {
         if (ImGui.CollapsingHeader("Display", ImGuiTreeNodeFlags.DefaultOpen)) DrawDisplayPane();
         if (ImGui.CollapsingHeader("Sound")) DrawSoundPane();
-        if (ImGui.CollapsingHeader("Teams", ImGuiTreeNodeFlags.DefaultOpen)) DrawTeamsPane();
 
         ImGui.SeparatorText("Weapons");
         DrawWarpHold();
-    }
-
-    // The roster of team names. The session's rather than a craft's, because a name labels a craft
-    // the same way whoever is looking at it; which side each installation takes stays with it.
-    private void DrawTeamsPane()
-    {
-        List<string> teams = _config.TeamNames;
-        string? removed = null;
-
-        if (teams.Count == 0) ImGui.TextDisabled("No teams: every contact classifies as Unknown.");
-
-        for (int i = 0; i < teams.Count; i++)
-        {
-            ImGui.TextColored(TeamColour(i), teams[i]);
-            ImGui.SameLine();
-
-            ImGui.PushID(i);
-            if (ImGui.SmallButton("Remove")) removed = teams[i];
-            Tip("Takes every craft off this team, and out of every craft's allied and neutral lists.");
-            ImGui.PopID();
-        }
-
-        // After the loop, so the list is not shortened under the index walking it.
-        if (removed is not null) ForgetTeam(removed);
-
-        if (TextField("Add team", ref _newTeamEntry) && Teams.Declare(teams, _newTeamEntry) is not null)
-        {
-            _newTeamEntry = string.Empty;
-        }
-
-        ImGui.SameLine();
-        Help("KSA has no team field, so a craft's team is the flag on its switcher row. A craft "
-             + "with no flag to set -- a drone, or anything with nothing of this mod's fitted -- is "
-             + "on no team, whatever it is called.");
     }
 
     // The developer tools, in a window of their own rather than a section of the settings one.

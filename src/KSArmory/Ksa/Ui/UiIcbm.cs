@@ -1086,6 +1086,12 @@ internal sealed partial class Ui
             + "hand-typed constant, which is what a paired night now flies as its comparator. Needs the kick below, "
             + "which is why they went on together.");
 
+        bool shed = config.ShedWarheadMass;
+        if (ImGui.Checkbox("Warheads take their mass with them", ref shed)) config.ShedWarheadMass = shed;
+        Tip("On: each warhead's 250 kg comes off the bus as it leaves, as on the real vehicle. Off, and unflown: "
+            + "a lighter bus holds its pointing more loosely by the last release, so this wants a paired night "
+            + "before it ships on.");
+
         bool throughTheAir = config.KickThroughTheAir;
         if (ImGui.Checkbox("Solve the separation kicks through the air", ref throughTheAir))
         {
