@@ -1603,7 +1603,9 @@ internal sealed class IcbmComputer
         // as 8.24 m/s nulled and 19.26 more asked for after `0 left`, a fifth of the whole budget
         // spent on nobody -- and spent manoeuvring six metres from the spent stack, which is the
         // manoeuvre the clearance had just refused on safety grounds.
-        if (!Config.TrimBeforeRelease || !Command.ReadyToDeploy || SalvoFinished)
+        // A vacuum trim has nothing to null onto in the air, and the warheads of a shot that releases
+        // at cutoff are already away by the time one could settle.
+        if (!Config.TrimBeforeRelease || !Command.ReadyToDeploy || SalvoFinished || Program.ReleasesAtCutoff)
         {
             if (_trim.Firing != TrimAxes.None)
             {
@@ -3419,10 +3421,6 @@ internal sealed class IcbmComputer
     // is what keeps a multi-stage rocket from reporting itself unreachable while sitting on the pad
     // with the range to spare. NaN when it cannot be read, which puts the single-stage estimate
     // back rather than claiming a stack has nothing.
-    // How close to its cutoff a short shot's projection is trusted from inside the air: the
-    // refusal exists for a projection that is still the pad, and twenty seconds out it is not.
-    private const double ShortShotObservesWithinSeconds = 20.0;
-
     // The running stage alone, off the same staging display. NaN when it cannot be read.
     private double RunningStageDeltaV()
     {
@@ -3543,6 +3541,7 @@ internal sealed class IcbmComputer
         // first frame the launcher is both ready and settled, and a reference latched before the
         // decoupler's shove has been taken back out describes a line no warhead will leave on.
         bool trimming = Config.TrimBeforeRelease && Command.ReadyToDeploy && !_trimAbandoned
+                        && !Program.ReleasesAtCutoff
                         && (!_trim.Done || _postBoost.Correcting);
 
         if (weapon is null || !Command.ReadyToDeploy || trimming)
@@ -4247,13 +4246,8 @@ internal sealed class IcbmComputer
             //
             // PostBoostAim is handed `TrimSettled: _trim.Done` and refuses to judge a pass on an
             // unflown correction. This is the same question asked one call earlier.
-            // A short shot cuts off in the air by design, so near its cutoff the projection is a real
-            // state rather than the pad, and the air is what the warheads will fly through.
-            bool nearAShortCutoff = Program.IsShortShot && Program.IsBurning
-                                    && Command.SecondsToCutoff < ShortShotObservesWithinSeconds;
-
             if (Config.CorrectAim && state.HasAim && !TrimIsFiring
-                && (AimCorrection.DepartureIsWorthObserving(DensityRatioAt(fromCci)) || nearAShortCutoff)
+                && AimCorrection.DepartureIsWorthObserving(DensityRatioAt(fromCci))
                 && (Program.IsBurning || (_measureDue && _trim.Done)))
             {
                 PriceTheAim(state);

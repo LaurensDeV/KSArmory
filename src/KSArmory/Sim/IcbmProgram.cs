@@ -407,6 +407,11 @@ internal sealed class IcbmProgram
     // the air. Nothing that only a short shot needs may reach one that never was.
     private bool _shortShot;
 
+    private bool _releasesAtCutoff;
+
+    // Whether a short shot's engine is off, coasting out of the air before its last burn.
+    private bool _paused;
+
     // Set by the closed loop for the frame it is building: the engine stays off until the vehicle
     // has turned to the burn.
     private bool _waitingForAttitude;
@@ -467,6 +472,9 @@ internal sealed class IcbmProgram
     /// handed over inside the air. Only <see cref="IcbmConfig.FlyAnyRange"/> makes one.
     /// </summary>
     public bool IsShortShot => _shortShot;
+
+    /// <summary>Whether this flight cut off in the air as a short shot, and so releases at cutoff.</summary>
+    public bool ReleasesAtCutoff => _releasesAtCutoff;
 
     /// <summary>
     /// How long the engines have been out, which is how far the coast has carried the vehicle from
@@ -642,6 +650,8 @@ internal sealed class IcbmProgram
         _absorbing = false;
         _handedOverInTheAir = false;
         _shortShot = false;
+        _releasesAtCutoff = false;
+        _paused = false;
         _fellShort = false;
         _arrivalFloorUnaffordable = false;
         ResidualAtCutoff = double.NaN;
@@ -741,6 +751,7 @@ internal sealed class IcbmProgram
         // for a few metres a second, through an airflow limit that stops it pointing anywhere useful.
         if (Config.FlyAnyRange && dry && _absorbing && _toGain <= BusTrim.MaxMetresPerSecond)
         {
+            _releasesAtCutoff = state.AirDensityRatio >= Medium.NoticeableDensity;
             ResidualAtCutoff = _toGain;
             ResidualVectorCci = _toGainVectorCci;
             AccelerationAtCutoff = state.Booster.AccelerationNow;
@@ -1146,6 +1157,9 @@ internal sealed class IcbmProgram
 
     private const double AlignBeforeBurningDeg = 15.0;
 
+    // How far the airflow may hold the thrust off what is left to gain before burning stops helping.
+    private const double UsefulThrustDeg = 30.0;
+
     // The load an angle of attack puts on the airframe goes as q times the angle, so the angle
     // allowed at max-q is far stricter than slow flight needs -- and slow flight is where a steep
     // arc is held or lost: at 1.2 g and 50 m/s, 8 degrees cannot stop gravity turning the path over.
@@ -1159,39 +1173,36 @@ internal sealed class IcbmProgram
 
     // What the running stage will add whether it is told to stop or not: all of what a solid motor
     // has left. The arc is lofted until it needs at least that, which is the only thing that can be
-    // done with velocity that cannot be refused.
-    //
-    // A stage that can stop but not throttle below its floor is the same problem more slowly: held
-    // back against the reserve it still eats the velocity to gain, and would reach the end before
-    // the air is thin enough to hand over. Lofted to keep the reserve at its floor, it burns gently
-    // into thin air and hands over with something left to steer.
+    // done with velocity that cannot be refused. A stage that can stop is never absorbed: it is cut
+    // off when the shot is complete, wherever that is.
     private double Unavoidable(in IcbmState state)
     {
-        if (!Config.FlyAnyRange || !state.Booster.CanThrust) return 0.0;
-        if (!state.RunningStageCanStop)
-        {
-            return double.IsFinite(state.RunningStageDeltaV) && state.RunningStageDeltaV >= 0.0
-                       ? state.RunningStageDeltaV
-                       : state.Booster.DeltaVRemaining;
-        }
-        if (Phase != IcbmPhase.PitchProgram) return 0.0;
+        if (!Config.FlyAnyRange || state.RunningStageCanStop || !state.Booster.CanThrust) return 0.0;
 
-        double floor = Math.Max(state.MinThrottle, MinCommandedThrottle);
-        return ReserveSeconds * state.Booster.AccelerationNow * floor;
+        return double.IsFinite(state.RunningStageDeltaV) && state.RunningStageDeltaV >= 0.0
+                   ? state.RunningStageDeltaV
+                   : state.Booster.DeltaVRemaining;
     }
 
     private IcbmCommand PitchProgram(in IcbmState state)
     {
         // A short shot can top out inside the air, and then no thin air is coming: past the top of
         // the climb the closed loop is the only phase that can still cut off.
-        bool climbOver = Config.FlyAnyRange && state.Altitude >= Config.TurnStartMetres
-                         && Vec.Dot(state.VelocityCci - state.Body.GroundVelocityCci(state.PositionCci), state.UpCci) <= 0.0;
+        bool clear = state.Altitude >= Config.TurnStartMetres;
+        bool climbing = Vec.Dot(state.VelocityCci - state.Body.GroundVelocityCci(state.PositionCci), state.UpCci) > 0.0;
+        bool climbOver = Config.FlyAnyRange && clear && !climbing;
 
-        if (climbOver
-            || (state.DynamicPressurePa <= Config.HandoverPressurePa
-                && state.Altitude >= Config.TurnStartMetres))
+        // A stage that can stop and is within the reserve of finishing the shot hands over now: the
+        // closed loop cuts it off at the right instant, in the air if that is where the shot is done.
+        // Waiting for thin air instead is what overshot -- the schedule cannot cut off, a floor still
+        // pushes, and in thick air the stack cannot point where a lofted arc wants it.
+        bool complete = Config.FlyAnyRange && clear && state.RunningStageCanStop
+                        && ReserveBinds(ThrottleUnderAccelerationCap(1.0, state), state);
+
+        if (climbOver || complete
+            || (state.DynamicPressurePa <= Config.HandoverPressurePa && clear))
         {
-            _handedOverInTheAir = climbOver && state.DynamicPressurePa > Config.HandoverPressurePa;
+            _handedOverInTheAir = (climbOver || complete) && state.DynamicPressurePa > Config.HandoverPressurePa;
             _shortShot |= _handedOverInTheAir;
             Phase = IcbmPhase.ClosedLoop;
             return ClosedLoop(state);
@@ -1214,7 +1225,8 @@ internal sealed class IcbmProgram
 
         // Once the reserve binds, the schedule is pointing somewhere the shot no longer needs to go:
         // what is left to gain is the only direction that does not add to it.
-        if (ReserveBinds(ThrottleUnderAccelerationCap(1.0, state), state) && !_toGainVectorCci.Equals(Vec.Zero))
+        if (!Config.FlyAnyRange && ReserveBinds(ThrottleUnderAccelerationCap(1.0, state), state)
+            && !_toGainVectorCci.Equals(Vec.Zero))
         {
             return Fly(IcbmPhase.PitchProgram, Limit(_toGainVectorCci, state), state, "pitch programme, held back");
         }
@@ -1224,8 +1236,38 @@ internal sealed class IcbmProgram
 
     private IcbmCommand ClosedLoop(in IcbmState state)
     {
+        bool climbing = Vec.Dot(state.VelocityCci - state.Body.GroundVelocityCci(state.PositionCci), state.UpCci) > 0.0;
+        bool thickAir = state.DynamicPressurePa > Config.HandoverPressurePa;
+
+        // A stage that can stop and has finished the shot in thick air pauses instead of ending: the
+        // stack coasts up out of the air with the loop still solving, and the engine lights again in
+        // thin air -- or at the top of the climb -- to take out what drag cost on the way. The cutoff
+        // that counts is then made where the vacuum arc is true.
+        if (_paused && (!thickAir || !climbing))
+        {
+            _paused = false;
+            _lowestToGain = double.PositiveInfinity;
+        }
+
+        if (_paused)
+        {
+            _waitingForAttitude = true;
+            return Fly(IcbmPhase.ClosedLoop, Limit(_thrustDirCci.Equals(Vec.Zero) ? Vec.Unit(state.VelocityCci) : _thrustDirCci, state),
+                       state, "coasting out of the air");
+        }
+
+        if (ShouldCutOff(state) && Config.FlyAnyRange && _shortShot && state.RunningStageCanStop && thickAir && climbing)
+        {
+            _paused = true;
+            _waitingForAttitude = true;
+            return Fly(IcbmPhase.ClosedLoop, Limit(_thrustDirCci.Equals(Vec.Zero) ? Vec.Unit(state.VelocityCci) : _thrustDirCci, state),
+                       state, "coasting out of the air");
+        }
+
         if (ShouldCutOff(state))
         {
+            _releasesAtCutoff = _shortShot && state.AirDensityRatio >= Medium.NoticeableDensity;
+
             // Recorded here rather than in Coasting, which clears it. What was left when the
             // engines stopped is the whole story of a shot that lands short on an otherwise
             // perfect trajectory, and reporting a zero says every burn closed perfectly - which is
@@ -1250,10 +1292,33 @@ internal sealed class IcbmProgram
         // is dry. So the engine waits for the vehicle to come round. A long burn barely notices.
         // An engine with a throttle floor still pushes at it, so one that can stop does, and lights
         // again once the vehicle has come round.
-        _waitingForAttitude = _shortShot && state.RunningStageCanStop && !state.ThrustAxisCci.Equals(Vec.Zero)
-                              && Vec.AngleBetween(state.ThrustAxisCci, wanted) > double.DegreesToRadians(AlignBeforeBurningDeg);
+        double3 limited = Limit(wanted, state);
 
-        return Fly(IcbmPhase.ClosedLoop, Limit(wanted, state), state, "guiding to cutoff");
+        if (_shortShot && state.RunningStageCanStop)
+        {
+            // Where the airflow will not let the vehicle point usefully, burning along the limited line
+            // only adds to what is left. Climbing, the air thins and the allowance opens, so it waits;
+            // with the climb over, or so little left that the bus trim can take it, it stops here.
+            bool usable = Vec.AngleBetween(limited, wanted) <= double.DegreesToRadians(UsefulThrustDeg);
+
+            if (!usable && (!climbing || _toGain <= BusTrim.MaxMetresPerSecond))
+            {
+                _releasesAtCutoff = state.AirDensityRatio >= Medium.NoticeableDensity;
+                ResidualAtCutoff = _toGain;
+                ResidualVectorCci = _toGainVectorCci;
+                AccelerationAtCutoff = state.Booster.AccelerationNow;
+                StepAtCutoff = _lastStep;
+                ThrottleAtCutoff = state.ThrottleAchieved;
+                Phase = IcbmPhase.Coast;
+                return Coasting(state);
+            }
+
+            _waitingForAttitude = !usable
+                                  || (!state.ThrustAxisCci.Equals(Vec.Zero)
+                                      && Vec.AngleBetween(state.ThrustAxisCci, limited) > double.DegreesToRadians(AlignBeforeBurningDeg));
+        }
+
+        return Fly(IcbmPhase.ClosedLoop, limited, state, "guiding to cutoff");
     }
 
     // Cutting off is a timing problem, not a threshold one. An engine can only be shut down on a
@@ -1340,7 +1405,10 @@ internal sealed class IcbmProgram
         bool climbing = Vec.Dot(state.VelocityCci, state.UpCci) > 0.0;
         bool highEnough = !climbing || state.Altitude >= Config.DeployAltitudeMetres;
 
-        bool ready = !_fellShort && highEnough && closeEnough;
+        // A short shot that stopped in the air lets its warheads go now: they fly from here on their
+        // own drag, which the prediction models, where the whole stack coasting on would bend the arc
+        // further than the bus can trim -- 58 m/s owed on the first 50 km shot flown.
+        bool ready = !_fellShort && ((highEnough && closeEnough) || _releasesAtCutoff);
 
         // A burn that ended because the tanks did is not the same as one that ended because the
         // shot was complete, and the two are indistinguishable from every other number on the
@@ -1392,7 +1460,9 @@ internal sealed class IcbmProgram
         double3 held = AscentProfile.HoldIntoTheAirflow(wanted, state.AirflowCci, state.DynamicPressurePa,
                                                         AllowedAngleOfAttackDeg(state));
 
-        if (state.Altitude >= Config.TurnEndMetres) return held;
+        // A short shot braking at the top of a low arc has to point down; the floor is for a handover
+        // on an airless body, which would otherwise go downhill at treetop height.
+        if (state.Altitude >= Config.TurnEndMetres || _shortShot) return held;
 
         double3 up = state.UpCci;
         if (Vec.Dot(held, up) >= 0.0) return held;
@@ -1503,7 +1573,7 @@ internal sealed class IcbmProgram
 
         _throttle = ThrottleUnderAccelerationCap(_throttle, state);
 
-        if (phase == IcbmPhase.PitchProgram) _throttle = HoldBackTheAscent(_throttle, state);
+        if (phase == IcbmPhase.PitchProgram && !Config.FlyAnyRange) _throttle = HoldBackTheAscent(_throttle, state);
 
         bool waiting = _waitingForAttitude && phase == IcbmPhase.ClosedLoop;
         _waitingForAttitude = false;

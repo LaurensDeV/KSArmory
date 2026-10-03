@@ -280,7 +280,8 @@ public class GameStackShortRangeTests(ITestOutputHelper Out)
             _sincePredict = 0.0;
 
             bool clear = AimCorrection.DepartureIsWorthObserving(DensityAt(p.CutoffPositionCci));
-            bool near = inTheAir && p.IsShortShot && command.SecondsToCutoff < 20.0;
+            bool solid = rig.StageIndex < rig.Stages.Count && rig.Stages[rig.StageIndex].Solid;
+            bool near = inTheAir && p.IsShortShot && solid && command.SecondsToCutoff < 20.0;
             if (!clear && !near) return;
 
             if (!ImpactPredictor.TryPredict(Earth, p.CutoffPositionCci, arc.RequiredVelocityCci, 1.0,
@@ -296,15 +297,15 @@ public class GameStackShortRangeTests(ITestOutputHelper Out)
     }
 
     [Theory]
-    [InlineData("game", false)]
     [InlineData("game", true)]
-    [InlineData("all-solid", false)]
     [InlineData("all-solid", true)]
-    [InlineData("solid only", false)]
     [InlineData("solid only", true)]
+    [InlineData("liquid", true)]
+    [InlineData("hot liquid", true)]
+    [InlineData("game", false)]
     public void TheShortShotWithItsAimCorrected(string stack, bool inTheAir)
         => Sweep(true, 0.5, 0.0, flyAnyRange: true, stack: stack, aimInTheAir: inTheAir,
-                 ranges: [25.0, 50.0, 100.0, 200.0, 300.0, 1_000.0, 2_000.0]);
+                 ranges: [25.0, 50.0, 100.0, 150.0, 200.0, 300.0, 418.0, 500.0, 700.0, 1_000.0, 2_000.0]);
 
     private void Sweep(bool stackDeltaV, double arrivalPreference, double reserveSeconds, bool flyAnyRange = false,
                        string stack = "game", double[]? ranges = null, bool? aimInTheAir = null)
