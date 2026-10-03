@@ -34,7 +34,7 @@ public class ShortRangeAscentTests(ITestOutputHelper Out)
 
     private static BallisticBody Earth => new(Mu, R, new double3(0, 0, 1), 7.2921159e-5);
 
-    private static double3 OnTheGround(double eastMetres)
+    internal static double3 OnTheGround(double eastMetres)
     {
         double a = eastMetres / R;
         return new double3(R * Math.Cos(a), R * Math.Sin(a), 0.0);
@@ -44,7 +44,7 @@ public class ShortRangeAscentTests(ITestOutputHelper Out)
     // IcbmFlightTests' own pad rig, unchanged, because it is the one configuration known to fly a
     // ground launch here. The vehicle has to start co-rotating -- a pad is not at rest in Cci -- and
     // varying anything else would make the range stop being the only variable.
-    private static IcbmFlightRig PadRig()
+    internal static IcbmFlightRig PadRig()
     {
         double3 pad = OnTheGround(0.0);
 

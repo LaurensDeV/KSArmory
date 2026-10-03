@@ -790,6 +790,23 @@ internal sealed class IcbmConfig
     public double HoldDirectionSeconds;
 
     /// <summary>
+    /// Seconds of burn the pitch programme leaves for the closed loop: once the velocity still to
+    /// gain is less than this much burning at the throttle it would fly, the throttle comes down in
+    /// proportion. Zero is off.
+    ///
+    /// <para>The pitch programme cannot cut off, and on a short shot it reaches the velocity it needs
+    /// long before the air is thin enough to hand over. Flown wide open it then adds kilometres a
+    /// second that the closed loop has to take off with the upper stage, through an airflow limit
+    /// that will not let it turn round until q is under 200 Pa: at 418 km on <c>SOLVER SCALE 1</c> that
+    /// was 5,265 m/s at handover and a burn that ran dry 119 m/s short. A long shot's velocity to
+    /// gain stays far above any reserve until handover, so it never engages there.
+    /// <c>docs/SHORT-RANGE.md</c> Step 2.</para>
+    ///
+    /// <para><b>Off, and unflown.</b></para>
+    /// </summary>
+    public double AscentReserveSeconds;
+
+    /// <summary>
     /// Give each warhead the separation velocity that lands it where the tubes' mean would —
     /// <see cref="ReleaseFocus"/>.
     ///

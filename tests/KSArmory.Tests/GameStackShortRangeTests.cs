@@ -30,7 +30,7 @@ public class GameStackShortRangeTests(ITestOutputHelper Out)
     }
 
     /// <summary>Due south of the pad, along the meridian.</summary>
-    private static double3 South(double metres) => At(PadLatitudeDeg - double.RadiansToDegrees(metres / R));
+    internal static double3 South(double metres) => At(PadLatitudeDeg - double.RadiansToDegrees(metres / R));
 
     private static double DensityAt(double3 pointCci) => Math.Exp(-Math.Max(0.0, Vec.Len(pointCci) - R) / ScaleHeight);
 
@@ -45,7 +45,7 @@ public class GameStackShortRangeTests(ITestOutputHelper Out)
     // The core lights as they drop: 25.55 MN at 4,056 m/s, 88.9 t burnt to depletion, 9.6 t dropped.
     // The upper is 955 kN at 4,278 m/s on 31.8 t, and burned down to 6.4 t still lit on a flown
     // 1,000 km shot (2026-10-03), so its dry mass is at most that.
-    private static IcbmFlightRig GameStack(bool reportsStackDeltaV)
+    internal static IcbmFlightRig GameStack(bool reportsStackDeltaV)
     {
         double3 pad = At(PadLatitudeDeg);
 
@@ -81,8 +81,12 @@ public class GameStackShortRangeTests(ITestOutputHelper Out)
     }
 
     // What the scenario forces before it arms (Ksa/BallisticScenario.cs Commit).
-    private static IcbmConfig ScenarioConfig(double arrivalPreference)
-        => new() { Armed = true, MaxAccelerationGee = 8.0f, MinArrivalAngleDeg = 0.0, ArrivalPreference = arrivalPreference };
+    private static IcbmConfig ScenarioConfig(double arrivalPreference, double ascentReserveSeconds = 0.0)
+        => new()
+        {
+            Armed = true, MaxAccelerationGee = 8.0f, MinArrivalAngleDeg = 0.0, ArrivalPreference = arrivalPreference,
+            AscentReserveSeconds = ascentReserveSeconds,
+        };
 
     /// <summary>Watches the program without moving the aim, and records why the burn ended.</summary>
     private sealed class Watch(IcbmFlightRig rig) : IcbmFlightRig.IAimLoop
@@ -102,6 +106,7 @@ public class GameStackShortRangeTests(ITestOutputHelper Out)
         public double LeastToGainAltitude = double.NaN;
         public double LeastToGainSeconds = double.NaN;
         public double HandoverAltitude = double.NaN;
+        public double HandoverToGain = double.NaN;
 
         public bool Cut;
         public string Reason = "";
@@ -130,6 +135,7 @@ public class GameStackShortRangeTests(ITestOutputHelper Out)
             {
                 _sawClosedLoop = true;
                 HandoverAltitude = alt;
+                HandoverToGain = p.VelocityToGain;
             }
 
             if (Cut || p.Phase != IcbmPhase.Coast) return;
@@ -179,12 +185,24 @@ public class GameStackShortRangeTests(ITestOutputHelper Out)
     [InlineData(false, 0.0)]
     [InlineData(true, 0.0)]
     public void TheShortShotOnTheGamesStack(bool stackDeltaV, double arrivalPreference)
+        => Sweep(stackDeltaV, arrivalPreference, 0.0);
+
+    /// <summary>The same sweep with <see cref="IcbmConfig.AscentReserveSeconds"/>, as the game flies it.</summary>
+    [Theory]
+    [InlineData(5.0)]
+    [InlineData(10.0)]
+    [InlineData(15.0)]
+    public void TheShortShotHeldBackForTheClosedLoop(double reserveSeconds)
+        => Sweep(true, 0.5, reserveSeconds);
+
+    private void Sweep(bool stackDeltaV, double arrivalPreference, double reserveSeconds)
     {
-        Out.WriteLine($"stack delta-v {(stackDeltaV ? "reported" : "absent")}, arrival preference {arrivalPreference}");
+        Out.WriteLine($"stack delta-v {(stackDeltaV ? "reported" : "absent")}, arrival preference {arrivalPreference}, "
+                      + $"ascent reserve {reserveSeconds} s");
         Out.WriteLine("THE ASCENT'S FLOOR, NOT THE SHOT: no shove, trim, release, aim correction or bus drag.");
         Out.WriteLine($"{"range",7} {"reason",9} {"hdovr",5} {"latch",5} {"stage",5} {"t",5} {"alt",5} {"speed",6} "
                       + $"{"q Pa",6} {"climb",5} {"apogee",6} {"SRB on",11} {"least to gain pre-loop",22} "
-                      + $"{"lands",6} {"miss",7}");
+                      + $"{"lands",6} {"miss",7} {"hdovr gain",10} {"left t",6}");
 
         MunitionProfile warhead = Arsenal.Mk21WithDragFromShape(Arsenal.ReentryVehicleMk21);
 
@@ -194,7 +212,7 @@ public class GameStackShortRangeTests(ITestOutputHelper Out)
             Watch watch = new(rig);
             rig.AimLoop = watch;
 
-            IcbmProgram program = new(ScenarioConfig(arrivalPreference));
+            IcbmProgram program = new(ScenarioConfig(arrivalPreference, reserveSeconds));
             double3 aim = South(km * 1000.0);
             IcbmFlightRig.Flight flight = rig.Fly(program, aim, 0.02, 4_000.0);
 
@@ -225,7 +243,7 @@ public class GameStackShortRangeTests(ITestOutputHelper Out)
                           + $"{StageNames[Math.Min(watch.StageAtCut, 3)],5} {watch.CutSeconds,5:F0} {watch.CutAltitude / 1000.0,5:F1} "
                           + $"{watch.CutSpeed,6:F0} {watch.CutQ,6:F0} {watch.CutClimbDeg,5:F1} "
                           + $"{ApogeeAltitude(flight.CutoffPositionCci, flight.CutoffVelocityCci) / 1000.0,6:F0} {srb,11} {least,22} "
-                          + $"{lands} {miss}");
+                          + $"{lands} {miss} {watch.HandoverToGain,10:F0} {flight.PropellantLeftKg / 1000.0,6:F1}");
         }
     }
 }

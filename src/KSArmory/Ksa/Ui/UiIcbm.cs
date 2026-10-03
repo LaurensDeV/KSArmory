@@ -927,6 +927,18 @@ internal sealed partial class Ui
                   + "leaves more square to it. Off the orbit plane that is 59-93% of what the cutoff "
                   + "leaves, and it grows 5.9x over a 4x step against 4.1x in plane. Unflown.");
 
+        float reserve = (float)config.AscentReserveSeconds;
+        if (ImGui.SliderFloat("Ascent keeps for the closed loop (s, 0 = off)", ref reserve, 0.0f, 30.0f))
+        {
+            config.AscentReserveSeconds = reserve < 0.5f ? 0.0 : reserve;
+        }
+        Tip(config.AscentReserveSeconds > 0.0
+                ? $"The pitch programme throttles back once less than {config.AscentReserveSeconds:F0} s "
+                  + "of burning is left, so a short shot reaches thin air with something still to gain "
+                  + "rather than kilometres a second too much. Unflown."
+                : "0: the pitch programme flies wide open whatever the shot needs. A short shot then "
+                  + "overshoots and spends the upper stage braking; flown at 418 km that ran dry.");
+
         bool resample = config.ResampleGroundAtImpact;
         if (ImGui.Checkbox("Warheads re-read the ground as they meet it", ref resample))
         {

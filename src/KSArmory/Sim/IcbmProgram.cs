@@ -1087,6 +1087,13 @@ internal sealed class IcbmProgram
         double pitch = AscentProfile.PitchDegreesAt(state.Altitude, Config.TurnStartMetres, Config.TurnEndMetres);
         double3 wanted = AscentProfile.Aim(state.UpCci, DownrangeCci, pitch);
 
+        // Once the reserve binds, the schedule is pointing somewhere the shot no longer needs to go:
+        // what is left to gain is the only direction that does not add to it.
+        if (ReserveBinds(ThrottleUnderAccelerationCap(1.0, state), state) && !_toGainVectorCci.Equals(Vec.Zero))
+        {
+            return Fly(IcbmPhase.PitchProgram, Limit(_toGainVectorCci, state), state, "pitch programme, held back");
+        }
+
         return Fly(IcbmPhase.PitchProgram, Limit(wanted, state), state, $"pitch programme, {pitch:F0} deg");
     }
 
@@ -1305,6 +1312,26 @@ internal sealed class IcbmProgram
         return Math.Clamp(Math.Min(wanted, cap / full), 0.0, 1.0);
     }
 
+    // Holds the remaining burn at the reserve rather than letting it run to nothing: the velocity
+    // still to gain then decays rather than crossing zero, and the closed loop inherits something to
+    // steer instead of an excess it cannot brake in the air.
+    private double HoldBackTheAscent(double wanted, in IcbmState state)
+    {
+        if (!ReserveBinds(wanted, state)) return wanted;
+
+        double keep = Config.AscentReserveSeconds * state.Booster.AccelerationNow * wanted;
+        return Math.Clamp(wanted * _toGain / keep, MinCommandedThrottle, wanted);
+    }
+
+    private bool ReserveBinds(double throttle, in IcbmState state)
+    {
+        double reserve = Config.AscentReserveSeconds;
+        if (!(reserve > 0.0) || Arc is null) return false;
+
+        double accel = state.Booster.AccelerationNow * throttle;
+        return accel > 0.0 && double.IsFinite(accel) && _toGain < reserve * accel;
+    }
+
     private IcbmCommand Fly(IcbmPhase phase, double3 direction, in IcbmState state, string hold)
     {
         LastBooster = state.Booster;
@@ -1337,6 +1364,8 @@ internal sealed class IcbmProgram
         if (phase != IcbmPhase.ClosedLoop) _throttle = 1.0;
 
         _throttle = ThrottleUnderAccelerationCap(_throttle, state);
+
+        if (phase == IcbmPhase.PitchProgram) _throttle = HoldBackTheAscent(_throttle, state);
 
         return new IcbmCommand(phase, direction, _throttle, EngineOn: true, stage,
                                _toGain, Math.Max(_countdown, 0.0), ReadyToDeploy: false, Hold: hold,
