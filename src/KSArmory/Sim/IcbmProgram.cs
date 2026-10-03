@@ -1180,7 +1180,9 @@ internal sealed class IcbmProgram
             ResolveCoastArc(state);
         }
 
-        double shortBy = _fellShort ? _toGain : 0.0;
+        // Off the record, not _toGain: the line below zeroes that, so every coast frame after the
+        // first would report the shortfall as nothing.
+        double shortBy = _fellShort ? ResidualAtCutoff : 0.0;
         Phase = IcbmPhase.Coast;
         _toGain = 0.0;
         if (_fellShort) Reach = IcbmReach.ShortOfPropellant;
