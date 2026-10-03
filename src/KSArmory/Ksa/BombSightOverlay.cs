@@ -25,10 +25,7 @@ internal sealed class BombSightOverlay
 
     private const int ArcRibs = 48;
 
-    private static readonly float4 ArcColour = new(1.0f, 0.75f, 0.15f, 1f);
-    private static readonly float4 RingColour = new(1.0f, 0.45f, 0.10f, 1f);
-
-    // The same orange painted on the ground, its alpha the brightness it keeps over dark ground.
+    // The pipper's orange, its alpha the brightness it keeps over dark ground.
     private static readonly float4 PaintedRing = new(1.0f, 0.45f, 0.10f, 0.05f);
 
     // The arc, as offsets from the platform sample it was solved against -- never as ecliptic
@@ -276,36 +273,15 @@ internal sealed class BombSightOverlay
 
         int stride = Math.Max(1, _path.Count / ArcRibs);
 
-        if (GroundRings.Painting)
-        {
-            DrawArcOnScreen(here, stride);
-        }
-        else
-        {
-            for (int i = stride; i < _path.Count; i += stride)
-            {
-                KsaWorld.DrawLineEcl(here + _path[i - stride], here + _path[i], ArcColour);
-            }
+        DrawArcOnScreen(here, stride);
 
-            KsaWorld.DrawLineEcl(here + _path[^Math.Min(_path.Count, stride + 1)],
-                                 here + _path[^1], ArcColour);
-        }
-
-        // Draped on the terrain, so the ring reads as a place on the ground rather than a disc
+        // Painted on the terrain, so the ring reads as a place on the ground rather than a disc
         // floating over it.
-        // Radial at the impact, which is what a ring lying on the ground is flat against. Taken
-        // off gravity because that is the one direction the mod already resolves everywhere.
         double3 impactEcl = here + _impactOffset;
-
-        double3 up = Vec.Unit(KsaWorld.GravityAt(platform, impactEcl) * -1.0);
-        if (Vec.Len2(up) < 0.5) return;
 
         // The store's own lethal radius, so what the ring circles is what the bomb reaches.
         double radius = Warhead.LethalRadius(system.Munition.ChargeKg);
 
-        if (GroundRings.Painting && GroundRings.Add(impactEcl, radius, radius * 0.15, PaintedRing)) return;
-
-        KsaWorld.DrawCircleEcl(impactEcl, up, radius, RingColour);
-        KsaWorld.DrawCircleEcl(impactEcl, up, radius * 0.15, RingColour, segments: 16);
+        GroundRings.Add(impactEcl, radius, radius * 0.15, PaintedRing);
     }
 }

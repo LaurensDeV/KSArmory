@@ -18,19 +18,15 @@ namespace KSArmory;
 /// </summary>
 internal static class GroundRings
 {
+    // An ellipse carries its long axis's tip as a second ground anchor, so the axis turns with the
+    // planet as the centre does; Minor is its short radius, and zero for a circle.
     private readonly record struct Ring(object Body, double3 Anchor, double Radius, double Inner, float4 Colour,
-                                        int Dashes);
+                                        int Dashes, double3 TipAnchor = default, double Minor = 0.0);
 
     /// <summary>How many dashes a dashed ring is cut into, whatever its size.</summary>
     public const int Dashed = 48;
 
     private static readonly List<Ring> _rings = [];
-
-    /// <summary>Whether rings are painted rather than drawn as lines, from the session's setting.</summary>
-    public static bool Enabled { get; set; }
-
-    /// <summary>Whether a ring handed over now will be painted, so the caller can draw lines if not.</summary>
-    public static bool Painting => Enabled && CloudPass.Available;
 
     public static int Count => _rings.Count;
 
@@ -63,9 +59,37 @@ internal static class GroundRings
         return true;
     }
 
+    /// <summary>
+    /// An ellipse lying on the ground: <paramref name="majorEcl"/> is the long semi-axis as a vector,
+    /// <paramref name="minor"/> the short one's length.
+    /// </summary>
+    public static bool AddEllipse(double3 centreEcl, double3 majorEcl, double minor, float4 colour)
+    {
+        double major = Vec.Len(majorEcl);
+        if (!(major > 0.0) || !(minor > 0.0)) return false;
+        if (!KsaWorld.TryAnchorToGround(centreEcl, out object? body, out double3 anchor) || body is null) return false;
+        if (!KsaWorld.TryAnchorToGround(centreEcl + majorEcl, out object? tipBody, out double3 tip)
+            || !ReferenceEquals(tipBody, body))
+        {
+            return false;
+        }
+
+        _rings.Add(new Ring(body, anchor, major, 0.0, colour, 0, tip, minor));
+        return true;
+    }
+
     public static bool TryAt(int index, out double3 centreEcl, out double3 up, out double radius,
                              out double inner, out float4 colour, out int dashes)
+        => TryAt(index, out centreEcl, out up, out radius, out inner, out colour, out dashes, out _, out _);
+
+    /// <param name="major">An ellipse's long axis as a unit vector in the ground plane, zero for a circle.</param>
+    /// <param name="minor">An ellipse's short radius, zero for a circle.</param>
+    public static bool TryAt(int index, out double3 centreEcl, out double3 up, out double radius,
+                             out double inner, out float4 colour, out int dashes, out double3 major,
+                             out double minor)
     {
+        major = default;
+        minor = 0.0;
         centreEcl = up = default;
         radius = inner = 0.0;
         colour = default;
@@ -90,6 +114,17 @@ internal static class GroundRings
         inner = ring.Inner;
         colour = ring.Colour;
         dashes = ring.Dashes;
+
+        if (ring.Minor > 0.0)
+        {
+            if (!KsaWorld.TryGroundAnchorEcl(ring.Body, ring.TipAnchor, out double3 tipEcl, out _)) return false;
+
+            double3 axis = tipEcl - centreEcl;
+            major = Vec.Unit(axis - (up * Vec.Dot(axis, up)));
+            minor = ring.Minor;
+            if (Vec.Len2(major) < 0.5) return false;
+        }
+
         return Vec.Len2(up) > 0.5;
     }
 }

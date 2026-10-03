@@ -288,19 +288,11 @@ public sealed class Config
     /// <summary>
     /// How strongly the nuclear cloud draws, as a fraction of full.
     ///
-    /// <para>It is a compute pass of this mod's own, run inside KSA's frame before bloom. Zero does
-    /// not dispatch at all, which is the way to turn the cloud off without turning off
-    /// <see cref="NuclearClouds"/> — the fireball and the ember ride that one.</para>
+    /// <para>It is a compute pass of this mod's own, run inside KSA's frame before bloom. Zero skips
+    /// the cloud and everything a burst draws in the sky, and still paints the targeting rings, the
+    /// holes and the tracers, which have no other way onto the screen.</para>
     /// </summary>
     public float ShaderPass = 1f;
-
-    /// <summary>
-    /// Whether the bomb sight's rings are painted on the ground by the shader pass rather than
-    /// drawn as lines. Painted, a ring is an exact circle lying on whatever is under it; the lines
-    /// are a polygon draped on sampled heights, which cuts into hills between its corners. Falls
-    /// back to the lines when the pass is not running.
-    /// </summary>
-    public bool PaintGroundRings = true;
 
     /// <summary>
     /// How bright a gun round with no tracer is drawn in daylight, against a tracer's 24: a faint grey

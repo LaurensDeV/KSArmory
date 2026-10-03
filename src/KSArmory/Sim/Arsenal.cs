@@ -742,7 +742,7 @@ public static class Arsenal
         Munition = "MK21",
         Sensor = "MIRVBUS",
 
-        // About 250 kg an Mk 21 (KSArmoryGameData.xml), shed only with IcbmConfig.ShedWarheadMass on.
+        // About 250 kg an Mk 21 (KSArmoryGameData.xml), shed as each leaves (IcbmConfig.ShedWarheadMass).
         StoreMassKg = 250f,
         TubeArmamentLabel = "Warheads",
         Tubes =

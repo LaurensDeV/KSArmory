@@ -3410,7 +3410,6 @@ internal static class KsaWorld
 
             if (!_anchor.IsValid) return false;
 
-
             _anchored = true;
             return true;
         }
@@ -3419,7 +3418,6 @@ internal static class KsaWorld
             return false;
         }
     }
-
 
     /// <summary>
     /// The anchor's position in the render frame, straight from the engine. Drawing here involves
@@ -4727,7 +4725,6 @@ internal static class KsaWorld
     }
 
 
-
     /// <summary>
     /// Whether the player is watching this craft — flying it, or pointing the camera at it.
     ///
@@ -5734,270 +5731,9 @@ internal static class KsaWorld
     }
 
     /// <summary>
-    /// A ring lying flat about <paramref name="normalEcl"/>, in metres.
-    ///
-    /// <para>Drawn from line segments rather than through <c>GizmosRenderer.DrawCircle</c>, which
-    /// builds a full circle from twelve of them — a dodecagon, and plainly one at any size worth
-    /// looking at.</para>
-    ///
-    /// <para>For marking a place on the ground. A sphere large enough to read as "this craft" is
-    /// by construction large enough to hide it.</para>
-    /// </summary>
-    /// <param name="drape">
-    /// Follow the terrain under each segment. A ring holds one radius, which is flat in space: on
-    /// a slope half of it ends up underground and the rest hangs in the air.
-    /// </param>
-    public static void DrawCircleEcl(double3 centreEcl, double3 normalEcl, double radius,
-                                     float4 colour, int segments = 64, bool drape = true,
-                                     double clearance = 0.5)
-    {
-        if (Program.GizmosRenderer is null) return;
-        if (!Vec.IsFinite(centreEcl) || !(radius > 0.0)) return;
-
-        double3 up = Vec.Unit(normalEcl);
-        if (Vec.Len2(up) < 0.5) return;
-
-        // Any two axes square to the normal. Which two does not matter for a circle.
-        double3 seed = Math.Abs(up.X) < 0.9 ? new double3(1, 0, 0) : new double3(0, 1, 0);
-        double3 a = Vec.Unit(Vec.Cross(up, seed)) * radius;
-        double3 b = Vec.Unit(Vec.Cross(up, a)) * radius;
-
-        int steps = Math.Clamp(segments, 8, 256);
-        Celestial? body = drape ? NearestCelestial(centreEcl) : null;
-
-        if (body is not null && DrapedRingFor(body, centreEcl, up, a, radius, steps, clearance) is { } ring)
-        {
-            DrawDrapedRing(body, ring, colour);
-            return;
-        }
-
-        double3 previous = OnGround(body, centreEcl + a, clearance);
-
-        for (int i = 1; i <= steps; i++)
-        {
-            double angle = Math.Tau * i / steps;
-            double3 next = OnGround(body, centreEcl + (a * Math.Cos(angle)) + (b * Math.Sin(angle)),
-                                    clearance);
-
-            DrawLineEcl(previous, next, colour);
-            previous = next;
-        }
-    }
-
-    // A draped ring, in the frame of the body it lies on: the ground under it does not move in that
-    // frame, so a ring drawn again where it was is the same ring. Draping is a terrain lookup a point,
-    // which is most of what this mod costs a frame with a sight up; a ring standing still re-draped
-    // every frame would pay it for an answer that never changes.
-    private sealed class DrapedRing
-    {
-        public required Celestial Body;
-        public required double3 CentreFixed;
-        public required double3 NormalFixed;
-        public required double3 AxisFixed;
-        public required double Radius;
-        public required int Steps;
-        public required double Clearance;
-        public required double3[] PointsFixed;
-        public long LastUsed;
-    }
-
-    // How far a ring's centre may be from where it was draped and still be that ring: a centimetre,
-    // over which no ground a craft can stand on rises by a millimetre. And how far its first axis may
-    // have turned -- it is laid off a direction fixed in space, which the ground turns under.
-    private const double DrapeReuseMetres = 0.01;
-    private const double DrapeReuseRadians = 1.0e-4;
-    private const int DrapedRingsKept = 8;
-
-    private static readonly List<DrapedRing> _drapedRings = [];
-    private static long _drapeUses;
-
-    // The ring draped here before, or this one draped now and kept. Null when the body's frame
-    // cannot be read, and the caller then drapes every point afresh.
-    private static DrapedRing? DrapedRingFor(Celestial body, double3 centreEcl, double3 up, double3 a, double radius,
-                                             int steps, double clearance)
-    {
-        try
-        {
-            doubleQuat toFixed = doubleQuat.Conjugate(body.GetBodyFixed2Ecl());
-            double3 bodyEcl = body.GetPositionEcl();
-            double3 centreFixed = toFixed * (centreEcl - bodyEcl);
-            double3 normalFixed = toFixed * up;
-            double3 axisFixed = toFixed * Vec.Unit(a);
-            if (!Vec.IsFinite(centreFixed)) return null;
-
-            _drapeUses++;
-            foreach (DrapedRing kept in _drapedRings)
-            {
-                if (!ReferenceEquals(kept.Body, body) || kept.Steps != steps || kept.Clearance != clearance) continue;
-                if (Math.Abs(kept.Radius - radius) > radius * 1.0e-9) continue;
-                if (Vec.Len(kept.CentreFixed - centreFixed) > DrapeReuseMetres) continue;
-                if (Vec.Len(kept.NormalFixed - normalFixed) > DrapeReuseRadians) continue;
-                if (Vec.Len(kept.AxisFixed - axisFixed) > DrapeReuseRadians) continue;
-
-                kept.LastUsed = _drapeUses;
-                return kept;
-            }
-
-            double3 b = Vec.Unit(Vec.Cross(up, a)) * radius;
-            double3[] points = new double3[steps + 1];
-            for (int i = 0; i <= steps; i++)
-            {
-                double angle = Math.Tau * i / steps;
-                double3 at = OnGround(body, centreEcl + (a * Math.Cos(angle)) + (b * Math.Sin(angle)), clearance);
-                points[i] = toFixed * (at - bodyEcl);
-            }
-
-            DrapedRing ring = new()
-            {
-                Body = body,
-                CentreFixed = centreFixed,
-                NormalFixed = normalFixed,
-                AxisFixed = axisFixed,
-                Radius = radius,
-                Steps = steps,
-                Clearance = clearance,
-                PointsFixed = points,
-                LastUsed = _drapeUses,
-            };
-
-            if (_drapedRings.Count >= DrapedRingsKept)
-            {
-                int oldest = 0;
-                for (int i = 1; i < _drapedRings.Count; i++)
-                {
-                    if (_drapedRings[i].LastUsed < _drapedRings[oldest].LastUsed) oldest = i;
-                }
-
-                _drapedRings.RemoveAt(oldest);
-            }
-
-            _drapedRings.Add(ring);
-            return ring;
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
-    private static void DrawDrapedRing(Celestial body, DrapedRing ring, float4 colour)
-    {
-        doubleQuat toEcl = body.GetBodyFixed2Ecl();
-        double3 bodyEcl = body.GetPositionEcl();
-
-        double3 previous = bodyEcl + (toEcl * ring.PointsFixed[0]);
-        for (int i = 1; i < ring.PointsFixed.Length; i++)
-        {
-            double3 next = bodyEcl + (toEcl * ring.PointsFixed[i]);
-            DrawLineEcl(previous, next, colour);
-            previous = next;
-        }
-    }
-
-    /// <summary>
-    /// The points of a draped circle, as offsets from its centre, for a caller that wants to keep
-    /// the shape rather than rebuild it. Offsets rather than positions because the ecliptic carries
-    /// the planet's motion and a stored absolute point is left behind within a frame.
-    /// </summary>
-    public static void CollectDrapedCircleEcl(double3 centreEcl, double3 normalEcl, double radius,
-                                              List<double3> into, int segments = 64,
-                                              double clearance = 2.0)
-    {
-        into.Clear();
-
-        double3 n = Vec.Unit(normalEcl);
-        if (!Vec.IsFinite(n) || Vec.Len2(n) < 0.5 || !(radius > 0.0)) return;
-
-        // Any two axes square to the normal, built the same way DrawCircleEcl builds them so the
-        // cached ring and the drawn one cannot disagree about where a segment starts.
-        double3 seed = Math.Abs(n.X) < 0.9 ? new double3(1, 0, 0) : new double3(0, 1, 0);
-        double3 a = Vec.Unit(Vec.Cross(n, seed)) * radius;
-        double3 b = Vec.Unit(Vec.Cross(n, a)) * radius;
-
-        int steps = Math.Clamp(segments, 8, 256);
-        Celestial? body = NearestCelestial(centreEcl);
-
-        for (int i = 0; i <= steps; i++)
-        {
-            double t = 2.0 * Math.PI * i / steps;
-            double3 at = centreEcl + a * Math.Cos(t) + b * Math.Sin(t);
-
-            into.Add(OnGround(body, at, clearance) - centreEcl);
-        }
-    }
-
-    /// <summary>
-    /// The same for a ring whose two semi-axes are given outright rather than derived from a
-    /// normal — a reach footprint, whose axes are the ellipse's and belong to the arrival frame
-    /// rather than to whichever perpendicular a circle happens to pick.
-    /// </summary>
-    public static void CollectDrapedRingEcl(double3 centreEcl, double3 semiMajorEcl,
-                                            double3 semiMinorEcl, List<double3> into,
-                                            int segments = 48, double clearance = 2.0)
-    {
-        into.Clear();
-
-        if (!Vec.IsFinite(centreEcl) || !Vec.IsFinite(semiMajorEcl) || !Vec.IsFinite(semiMinorEcl)) return;
-        if (Vec.Len2(semiMajorEcl) <= 0.0) return;
-
-        int steps = Math.Clamp(segments, 8, 256);
-        Celestial? body = NearestCelestial(centreEcl);
-
-        for (int i = 0; i <= steps; i++)
-        {
-            double t = Math.Tau * i / steps;
-            double3 at = centreEcl + semiMajorEcl * Math.Cos(t) + semiMinorEcl * Math.Sin(t);
-
-            into.Add(OnGround(body, at, clearance) - centreEcl);
-        }
-    }
-
-    // Lifted clear of the surface by a little: a line exactly on the terrain z-fights with it and
-    // disappears in patches, which looks worse than being slightly above it.
-    // Onto a body already found, or left where it is with none: finding the body is a walk of every
-    // celestial in the system, and a draped ring is 82 points per overlay per frame all over one.
-    private static double3 OnGround(Celestial? body, double3 atEcl, double clearance)
-    {
-        if (body is null || !TrySnapToGround(body, atEcl, out double3 ground, out double3 centre)) return atEcl;
-
-        return ground + Vec.Unit(ground - centre) * clearance;
-    }
-
-    private static double3 NearestBodyCentre(double3 nearEcl)
-    {
-        try
-        {
-            if (Universe.CurrentSystem is not { } system) return Vec.Zero;
-
-            double3 centre = Vec.Zero;
-            double best = double.MaxValue;
-
-            for (int i = 0; i < system.Count; i++)
-            {
-                if (system.GetIndex(i) is not Celestial body) continue;
-
-                double3 at = body.GetPositionEcl();
-                double distance = Vec.Len(nearEcl - at);
-                if (distance >= best) continue;
-
-                best = distance;
-                centre = at;
-            }
-
-            return centre;
-        }
-        catch
-        {
-            return Vec.Zero;
-        }
-    }
-
-    /// <summary>
     /// Puts a point on the ground beneath it: same direction from the body's centre, radius taken
     /// from the terrain there.
     ///
-    /// <para>What makes a ring drawn on a slope follow the slope. A ring at one radius is flat in
-    /// space, so on anything but level ground half of it is buried and the other half floats.</para>
     /// </summary>
     public static bool TrySnapToGround(double3 nearEcl, out double3 onGroundEcl) =>
         TrySnapToGround(nearEcl, out onGroundEcl, out _);

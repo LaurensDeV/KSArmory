@@ -535,7 +535,6 @@ public sealed class KSArmoryMod
             // aims with, not an annotation of how the mod is thinking. Same reasoning as the
             // shell stream above.
             GroundRings.BeginFrame();
-            GroundRings.Enabled = _config.PaintGroundRings;
             BulletHoles.Enabled = _config.BulletHoles;
             Leaks.Enabled = _config.TankLeaks;
             BulletHoles.Prune();

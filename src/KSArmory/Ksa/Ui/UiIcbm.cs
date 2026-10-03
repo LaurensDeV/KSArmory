@@ -1088,9 +1088,9 @@ internal sealed partial class Ui
 
         bool shed = config.ShedWarheadMass;
         if (ImGui.Checkbox("Warheads take their mass with them", ref shed)) config.ShedWarheadMass = shed;
-        Tip("On: each warhead's 250 kg comes off the bus as it leaves, as on the real vehicle. Off, and unflown: "
-            + "a lighter bus holds its pointing more loosely by the last release, so this wants a paired night "
-            + "before it ships on.");
+        Tip("On, and shipped: each warhead's 250 kg comes off the bus as it leaves, as on the real vehicle. "
+            + "Flown no worse on one target and on a four-target walk. Off keeps the bus at its loaded mass "
+            + "throughout, which is what nights before 2026-10-03 flew.");
 
         bool throughTheAir = config.KickThroughTheAir;
         if (ImGui.Checkbox("Solve the separation kicks through the air", ref throughTheAir))

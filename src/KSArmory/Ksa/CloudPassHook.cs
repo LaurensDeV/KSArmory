@@ -99,8 +99,10 @@ internal static class CloudPassHook
 
     private static void BeforeSunbloom(CommandBuffer commandBuffer, IViewport viewport, int frameIndex)
     {
+        // Always: at zero the pass skips only the cloud, and the rings, holes and tracers it paints
+        // have no other way onto the screen.
         float tint = _tint?.Invoke() ?? 0f;
-        if (tint > 0f) CloudPass.Record(commandBuffer, viewport, frameIndex, tint);
+        CloudPass.Record(commandBuffer, viewport, frameIndex, Math.Max(0f, tint));
 
         // Last and whatever the cloud pass is set to: a sensor sees the burst too, and its look is
         // the director's setting rather than a display one.

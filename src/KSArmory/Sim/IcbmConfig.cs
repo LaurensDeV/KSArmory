@@ -903,14 +903,14 @@ internal sealed class IcbmConfig
     /// <summary>
     /// Take each warhead's mass off the bus as it leaves.
     ///
-    /// <para><b>Off, and unflown.</b> True to the vehicle, and it changes the shot every number in
-    /// <c>docs/ACCURACY-PLAN.md</c> was measured on: shedding about half the bus over six releases
-    /// roughly doubles the pointing band by the last, because the band scales as one over the inertia.
-    /// The trim measures its acceleration rather than assuming it, so that half adapts. The mass comes
-    /// off where the part declares it, on the thruster ring, never at a tube. Wants a paired night
-    /// before it ships on.</para>
+    /// <para><b>On.</b> True to the vehicle, and it changes the shot: shedding about half the bus over
+    /// six releases loosens the pointing band, which scales as one over the inertia. The trim measures
+    /// its acceleration rather than assuming it, so that half adapts. The mass comes off where the part
+    /// declares it, on the thruster ring, never at a tube. Flown non-inferior against a ×1.20 bar on one
+    /// target, 0.89x [0.73, 1.07], and on a four-target walk, 0.90x [0.83, 0.99];
+    /// <c>docs/ACCURACY-PLAN.md</c> 3fm and 3fn.</para>
     /// </summary>
-    public bool ShedWarheadMass;
+    public bool ShedWarheadMass = true;
 
     /// <summary>
     /// Solve each warhead's separation kick through the air rather than in vacuum — the ring's image, the arrival

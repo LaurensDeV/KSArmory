@@ -172,9 +172,6 @@ internal sealed partial class Ui
         ImGui.Checkbox("World overlay", ref _config.DrawOverlays);
         Tip("Everything drawn in the world around a system.");
 
-        ImGui.Checkbox("Paint rings on the ground", ref _config.PaintGroundRings);
-        Tip("On: the bomb sight's rings are exact circles painted onto the terrain. Off: they are "
-            + "drawn as lines, which cut into hills between their corners.");
 
         ImGui.Checkbox("Shell holes", ref _config.BulletHoles);
         Tip($"On: a shell that strikes a hull leaves a hole with soot round it, painted on the hull and "

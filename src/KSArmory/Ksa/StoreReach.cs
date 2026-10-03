@@ -41,10 +41,7 @@ internal sealed class StoreReach
     // the whole cost of this feature spent on nothing.
     private const double UnsolvableIntervalSeconds = 2.0;
 
-    private static readonly float4 ImpactColour = new(1.0f, 0.45f, 0.10f, 1f);
-    private static readonly float4 ReachColour = new(0.45f, 0.85f, 1.0f, 0.75f);
-
-    // The same two painted on the ground, their alpha the brightness each keeps over dark ground.
+    // The two painted on the ground, their alpha the brightness each keeps over dark ground.
     // White and dashed rather than the pipper's solid orange: the pipper is where the next store
     // lands, and this is one already falling.
     private static readonly float4 PaintedImpact = new(1.0f, 1.0f, 1.0f, 0.05f);
@@ -77,22 +74,6 @@ internal sealed class StoreReach
     private object? _body;
     private double3 _anchor;
 
-    // The two rings as offsets from the landing, draped once per solve rather than per frame.
-    //
-    // Draping asks the terrain where every segment sits, and both rings together are 96 lookups.
-    // Paid every frame that was 1.52 ms of a 16.7 ms budget -- more than the three flown
-    // trajectories behind it, for a shape that does not move: a ring on the ground is a place on
-    // the ground, and the ground is where it was. Offsets rather than positions for the reason
-    // CollectDrapedCircleEcl gives: an absolute point carries the planet's motion and is left
-    // behind within one frame.
-    private readonly List<double3> _impactRing = [];
-    private readonly List<double3> _reachRing = [];
-
-    // Fewer on the inner one: it is the store's own lethal radius, a few hundred metres, and a
-    // circle that small is smooth long before the outer one is.
-    private const int ImpactSegments = 32;
-    private const int ReachSegments = 64;
-
     /// <summary>What the last solve found. <c>Unreadable</c> until one has landed.</summary>
     public TailKitReach Latest { get; private set; }
 
@@ -101,8 +82,6 @@ internal sealed class StoreReach
     {
         Latest = default;
         _body = null;
-        _impactRing.Clear();
-        _reachRing.Clear();
 
         // The part-built answer goes with it, or the next store inherits this one's axes.
         _building = default;
@@ -148,10 +127,7 @@ internal sealed class StoreReach
         // the rings away for more than a second rather than for a frame.
         if (!reach.Known) return;
         if (!KsaWorld.TryAnchorToGround(reach.ImpactEcl, out object? body, out double3 anchor)) return;
-        if (system.Platform is not { } craft) return;
-
-        double3 up = Vec.Unit(-KsaWorld.GravityAt(craft, reach.ImpactEcl));
-        if (Vec.Len2(up) < 0.5) return;
+        if (system.Platform is null) return;
 
         // Published together, and it has to be. The anchor is what the rings are drawn around and
         // the offsets are measured from the landing it came from, so writing one without the other
@@ -168,14 +144,6 @@ internal sealed class StoreReach
         Latest = reach;
         _body = body;
         _anchor = anchor;
-
-        // Painted rings need no draping, which is the terrain lookups this would cost.
-        if (GroundRings.Painting) return;
-
-        KsaWorld.CollectDrapedCircleEcl(reach.ImpactEcl, up, Warhead.LethalRadius(system.Munition.ChargeKg),
-                                        _impactRing, ImpactSegments);
-        KsaWorld.CollectDrapedCircleEcl(reach.ImpactEcl, up, reach.RadiusMetres,
-                                        _reachRing, ReachSegments);
     }
 
     /// <summary>The first store in the air that steers its own fall, whatever it is aimed at.</summary>
@@ -291,26 +259,12 @@ internal sealed class StoreReach
     {
         ArgumentNullException.ThrowIfNull(system);
 
-        if (system.Platform is not { } platform) return;
+        if (system.Platform is null) return;
 
         double3 impactEcl = default;
         bool landing = Latest.Known && KsaWorld.TryGroundAnchorEcl(_body, _anchor, out impactEcl, out _);
 
-        if (GroundRings.Painting)
-        {
-            PaintFalling(system, landing ? impactEcl : null);
-            return;
-        }
-
-        if (!landing) return;
-
-        if (!KsaWorld.BeginDraw(platform, system.PlatformEcl)) return;
-
-        // What the store reaches, so the inner ring means the same thing the pipper's does; and
-        // around it the region it can still be walked into, in its own colour, because one says
-        // where it is going and the other how much choice is left.
-        Ring(_impactRing, impactEcl, ImpactColour);
-        Ring(_reachRing, impactEcl, ReachColour);
+        PaintFalling(system, landing ? impactEcl : null);
     }
 
     // Every store of this launcher still falling, where it will land: onto its mark where it has
@@ -354,15 +308,6 @@ internal sealed class StoreReach
                 return true;
             default:
                 return false;
-        }
-    }
-
-    // Put back against this frame's landing, which is the sample the offsets were measured from.
-    private static void Ring(List<double3> offsets, double3 centreEcl, float4 colour)
-    {
-        for (int i = 1; i < offsets.Count; i++)
-        {
-            KsaWorld.DrawLineEcl(centreEcl + offsets[i - 1], centreEcl + offsets[i], colour);
         }
     }
 }

@@ -12192,3 +12192,26 @@ KSARMORY_SCENARIO_SAVE='SOLVER SCALE 8' ./tools/shot-batch.sh --paired 'base|she
   measures that rather than assuming it, so neither better nor worse landings are predicted.
 * **Refuted** by `landing` at 1.20x or above on any target, a refused hop on `shed` that `base` does not have, or
   any `clock` or trim ending only on `shed`.
+
+**Flown, 2026-10-03: non-inferior on the walk, and the switch ships on.** `~/shots/2026-10-03-shed-walk`, 8 paired
+blocks on `b9887107` (code identical to 3fm's), as declared. All 8 shots passed, 64 of 64 flights went to all four
+places, frame time 28.2 ms, no shot output carried an exception, no hop was refused on either arm.
+
+| endpoint | `shed` vs `base` | per shot | declared |
+| --- | --- | --- | --- |
+| **`landing`, every warhead against its own target** | **0.90x [0.83, 0.99]** | won 7 of 8, signed-rank p=0.023 | ships under a 1.20 upper bound |
+| landing, median | 3.24 mm against 3.13 | | |
+| centre | 5.36 mm against 4.54 | | |
+
+**The mechanism was as declared:** 24 `store mass` lines a shot from exactly the `shed` rockets, spread over the
+walk's four stops (one, one, two and two warheads, about a minute apart) rather than in one burst. Endings
+`floor`/`noimprov`/`payback` 28/2/2 on `base` against 27/1/4, no `clock` or trim ending, owed 2.74 m/s on both.
+
+**A gap in the declaration, written down rather than smoothed over.** The primary was declared *per target*, and
+`shot-report.py --paired` has no per-target split: its `== targets` section pools both arms, and the scenario's
+`TARGET` lines print kilometres to three places, which reads every target's worst warhead on both arms as 0.000 km —
+under a metre — and nothing finer. The landing above is the same quantity weighted over all four targets. A
+per-target paired split in the report is the instrument a future walk night should have before it declares one.
+
+**Both nights cleared their bars, so `IcbmConfig.ShedWarheadMass` ships on.** Numbers flown before 2026-10-03 were
+flown on a bus that never got lighter.

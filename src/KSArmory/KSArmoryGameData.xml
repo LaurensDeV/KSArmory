@@ -607,8 +607,8 @@
         their axial lever arm is zero and only the axial pair can pitch: 4.412 against 5.685.
 
         It is a choice inside a mass model that is already approximate. The six RVs' 250 kg each is
-        part of this lump, and with IcbmConfig.ShedWarheadMass on it comes off as they leave, scaled
-        in place so the lump stays on the ring (Ksa/StoreMass.cs); off, the default, it never sheds.
+        part of this lump, and it comes off as they leave (IcbmConfig.ShedWarheadMass, on), scaled in
+        place so the lump stays on the ring (Ksa/StoreMass.cs).
       -->
       <LocationAsmb X="0.30" />
     </SolidSphereMass>
