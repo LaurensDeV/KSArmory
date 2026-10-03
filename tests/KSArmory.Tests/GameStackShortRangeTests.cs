@@ -43,8 +43,8 @@ public class GameStackShortRangeTests(ITestOutputHelper Out)
     // Three SRBs lit alone at ignition: 249.8 t burnt in 100.2 s, flow 2.11 t/s growing to ~2.9,
     // exhaust 2,170 m/s at the pad and ~2,700 high up (impulse-weighted 2,385); 24.3 t of casings.
     // The core lights as they drop: 25.55 MN at 4,056 m/s, 88.9 t burnt to depletion, 9.6 t dropped.
-    // The upper is 955 kN at 4,278 m/s on 31.8 t; its split is not in the log -- 15.2 t was left at a
-    // 12,900 km cutoff without running dry -- and no shot here reaches it.
+    // The upper is 955 kN at 4,278 m/s on 31.8 t, and burned down to 6.4 t still lit on a flown
+    // 1,000 km shot (2026-10-03), so its dry mass is at most that.
     private static IcbmFlightRig GameStack(bool reportsStackDeltaV)
     {
         double3 pad = At(PadLatitudeDeg);
@@ -75,7 +75,7 @@ public class GameStackShortRangeTests(ITestOutputHelper Out)
                     VacuumExhaustVelocity = 2_700, BurnoutMassFlowRatio = 1.36, Solid = true,
                 },
                 new() { DryMassKg = 9_600, PropellantKg = 88_900, ThrustNewtons = 25_550_000, ExhaustVelocity = 4_056 },
-                new() { DryMassKg = 12_000, PropellantKg = 19_800, ThrustNewtons = 955_000, ExhaustVelocity = 4_278 },
+                new() { DryMassKg = 6_000, PropellantKg = 25_800, ThrustNewtons = 955_000, ExhaustVelocity = 4_278 },
             ],
         };
     }
