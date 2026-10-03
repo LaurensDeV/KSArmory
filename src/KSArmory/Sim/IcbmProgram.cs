@@ -1287,8 +1287,6 @@ internal sealed class IcbmProgram
         // A short burn is over before a slow vehicle has turned to it, and every second spent pushing
         // the wrong way moves what is left to gain: the loop then chases its own tail until the stage
         // is dry. So the engine waits for the vehicle to come round. A long burn barely notices.
-        // An engine with a throttle floor still pushes at it, so one that can stop does, and lights
-        // again once the vehicle has come round.
         double3 limited = Limit(wanted, state);
 
         if (_shortShot && state.RunningStageCanStop)
@@ -1574,6 +1572,16 @@ internal sealed class IcbmProgram
 
         bool waiting = _waitingForAttitude && phase == IcbmPhase.ClosedLoop;
         _waitingForAttitude = false;
+
+        // Waiting for the vehicle to come round, the engine stays lit at the least it will burn: a
+        // stack that steers by gimballing its engines has only reaction control without them, and
+        // flown at 200 km one tumbled into the sea with the engine held off until it was pointed.
+        // Only the coast out of the air is a real shutdown.
+        if (waiting && !_paused)
+        {
+            waiting = false;
+            _throttle = MinCommandedThrottle;
+        }
 
         return new IcbmCommand(phase, direction, _throttle, EngineOn: !waiting, stage,
                                _toGain, Math.Max(_countdown, 0.0), ReadyToDeploy: false, Hold: hold,

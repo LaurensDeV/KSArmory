@@ -61,6 +61,9 @@ public class GameStackShortRangeTests(ITestOutputHelper Out)
             // 166 s, 75 km and 2,524; cutoff 236.6 s at 201 km against ~235 s at 197. The rig's
             // default drag reached thin air 24 s early.
             DragAreaM2 = 60.0,
+            // It steers by gimballing its engines; with them off, a 158 t stack barely turns -- flown at
+            // 200 km it tumbled into the sea waiting to come round.
+            UnpoweredAttitudeRateDegPerSec = 1.0,
             StartsUnlit = true,
             ReportsStackDeltaV = reportsStackDeltaV,
             CommandLatencyFrames = 1,
@@ -214,7 +217,7 @@ public class GameStackShortRangeTests(ITestOutputHelper Out)
             Body = Earth, PositionCci = pad, VelocityCci = Earth.GroundVelocityCci(pad), Stages = stages,
             BoundingSphereRadiusMetres = radius, DragAreaM2 = dragAreaM2, StartsUnlit = true,
             ReportsStackDeltaV = true, CommandLatencyFrames = 1, MinThrottle = minThrottle,
-            ThrottleRatePerSecond = 0.7, StepJitter = 0.5,
+            ThrottleRatePerSecond = 0.7, StepJitter = 0.5, UnpoweredAttitudeRateDegPerSec = 1.0,
         };
     }
 

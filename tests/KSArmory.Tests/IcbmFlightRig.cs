@@ -25,6 +25,12 @@ internal sealed class IcbmFlightRig
     /// <summary>How fast the vehicle can swing its thrust line. Zero points it wherever it is told.</summary>
     public double AttitudeRateDegPerSec = 12.0;
 
+    /// <summary>
+    /// How fast it turns with no engine burning, or NaN for as fast as with one. A stack that steers by
+    /// gimballing its engines has only reaction control left when they stop.
+    /// </summary>
+    public double UnpoweredAttitudeRateDegPerSec = double.NaN;
+
     /// <summary>Drag area over mass. Zero for a rig with no air resistance at all.</summary>
     public double DragAreaOverMass = 4e-5;
 
@@ -442,7 +448,12 @@ internal sealed class IcbmFlightRig
 
             SlewThrottle(applied, h);
 
-            Swing(applied.ThrustDirectionCci, h);
+            bool powered = (applied.EngineOn && ThrottleAchieved > 0.0 && StageIndex < Stages.Count
+                            && Stages[StageIndex].PropellantKg > 0.0 && _lit)
+                           || (StageIndex < Stages.Count && Stages[StageIndex].Solid && _lit
+                               && Stages[StageIndex].PropellantKg > 0.0);
+            Swing(applied.ThrustDirectionCci, h,
+                  powered || double.IsNaN(UnpoweredAttitudeRateDegPerSec) ? AttitudeRateDegPerSec : UnpoweredAttitudeRateDegPerSec);
 
             double q = 0.5 * density * SeaLevelDensity * Vec.Len2(airflow);
             peakQ = Math.Max(peakQ, q);
@@ -480,13 +491,13 @@ internal sealed class IcbmFlightRig
         ThrottleAchieved += Math.Clamp(error, -limit, limit);
     }
 
-    private void Swing(double3 wanted, double step)
+    private void Swing(double3 wanted, double step, double rateDegPerSec)
     {
         double3 want = Vec.Unit(wanted);
         if (want.Equals(Vec.Zero)) return;
-        if (AttitudeRateDegPerSec <= 0.0) { _pointing = want; return; }
+        if (rateDegPerSec <= 0.0) { _pointing = want; return; }
 
-        double limit = AttitudeRateDegPerSec * Math.PI / 180.0 * step;
+        double limit = rateDegPerSec * Math.PI / 180.0 * step;
         double angle = Vec.AngleBetween(_pointing, want);
         if (angle <= limit) { _pointing = want; return; }
 
