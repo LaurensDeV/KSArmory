@@ -15,8 +15,7 @@ point. From 1,200 km up the cutoff scales normally.
 **But that rig is not the game's rocket.** `PadRig` is two liquid stages that throttle instantly to anything
 and stop when told. The `SOLVER SCALE` saves fly three radial SRBs lit alone at ignition, a liquid core and an
 upper stage. Step 0 below flies that stack: the SRBs overshoot only the shortest shots, and the core is what
-overshoots the rest. The one short shot flown in game (418 km, 08-31, SCALE 8, the same rocket) missed by
-0.36–3.63 km, which matches neither rig.
+overshoots the rest.
 
 ### Step 0 in the rig: the game's stack — measured headlessly 2026-10-03, not flown
 
@@ -27,35 +26,44 @@ settings. One drag area, **60 m²**, fitted to that shot, puts the rig's handove
 2,551 m/s to gain against a flown 166 s / 75 km / 2,524, and cutoff at 236.6 s / 201 km against ~235 s /
 197 km. The rig's default drag reached thin air 24 s early, and with it the table below was milder.
 
-**In the rig, every shot from 100 to 1,000 km fails, and 418 km is among them.** Two outcomes, and which one
-depends on whether the velocity still to gain bottomed under `BackstopBelow` (2 m/s) during the pitch programme:
+**Flown 2026-10-03, today's code, SCALE 1, one flight each (mechanisms, not accuracy):**
 
-| range | pref 0 | pref 0.5 | least to gain before the loop |
+- **418 km fails.** Handover at 76 km with **5,265 m/s** still to gain; the closed loop turned the stack round
+  and burned it dry, **119 m/s short**; warheads held. One released by hand landed 41 km out.
+- **1,000 km passes, the same way.** Handover at 76 km with **3,173 m/s** to gain, braked on the upper stage,
+  cut off 0.10 m/s short at 162 km; six of six within **4.9 m**. The upper burned from 31.8 t to 6.4 t,
+  still lit.
+
+So both shots overshoot along the pitch programme and then spend the upper stage taking it off; whether one
+lands is whether the upper has enough. **That is a margin, not guidance**, and the 08-31 418 km landing was
+on the right side of it.
+
+**The rig, with the upper stage bounded by that flight** (6.0 t dry; "pref" is `ArrivalPreference`, the
+game's default 0.5 with the stack's delta-v reported is what flies):
+
+| range | pref 0.5, stack delta-v | pref 0 | least to gain before the loop |
 | --- | --- | --- | --- |
-| 100–300 km | backstop on the handover frame, ~4.6 km/s, lands 1,800–2,100 km out | same (300 km: burnout) | 1–2 m/s at 94–111 s, 19–30 km |
-| 418–1,200 km | burns every stage dry, lands 840–1,577 km out | burnout to 1,000 km; 1,200 km cuts off at 0.3–27 km | 3–26 m/s (pref 0), 263–1,021 (pref 0.5) |
-| 2,000 km | `countdown`, 4.5 km | `countdown`, 0.2 km | 144 / 1,241–1,497 m/s |
+| 100–200 km | backstop on the handover frame, ~4.6 km/s, lands 1,600–2,100 km out | same | 1–2 m/s at 94–105 s, 19–25 km |
+| 300–1,200 km | lands, except 500 km (burnout, 19 km) | lands at 418–500; burns dry at 700–1,200 | 118–1,021 m/s (pref 0.5), 3–26 (pref 0) |
+| 2,000 km | `countdown`, 0.2 km | `countdown`, 4.5 km | 1,497 / 144 m/s |
+
+It lands 418 km where the game fell 119 m/s short: 0.4 t of upper-stage dry mass is ~270 m/s here, and the
+flights bound it from one side only. **Read the 300–1,200 km rows as "on the margin", not as "lands".**
 
 Traced: **the core is what overshoots, not the SRBs.** The pitch programme flies the core at 8 g down to 0°
-pitch for ~40 s after the shot has what it needs; the velocity still to gain climbs to 2–4 km/s by
-handover. The closed loop then cannot take it off: `HoldIntoTheAirflow` keeps thrust within 8° of the airflow
-until q < 200 Pa (~95 km), and after that the upper stage burns retrograde until dry. Stack delta-v
-reported or not changes nothing below 1,200 km.
+pitch for ~40 s after the shot has what it needs. The closed loop cannot brake until q < 200 Pa (~95 km),
+because `HoldIntoTheAirflow` keeps thrust within 8° of the airflow; after that the upper burns retrograde.
+The 2 m/s backstop decides 100–300 km: under it the loop cuts on the handover frame with the overshoot aboard.
 
 **The SRB question, answered in the rig:** the least to gain falls *during* the SRB burn only at ~100 km
 (94 s, burnout at 101 s); from ~200 km it falls after the core has lit, where the throttle reaches. So the
 Step 2 throttle cap can serve this stack from ~200 km; 100 km needs the pitch schedule or a refusal.
 
-**And it contradicts the one short flight.** The 418 km shot on 08-31 (same rocket, same ascent code; 
-`ArrivalPreference` did not exist, so effectively 0; 8 g) landed 0.36–3.63 km out. The rig says it lands
-1,085 km out. Its log was not kept. Until E1 explains the difference, the rig's short-range outcomes are a
-hypothesis: the ascent matches on a long shot and nothing yet says the game stops overshooting on a short one.
-
 ### Mechanisms read off the code, not flown
 
 | # | Mechanism | Where |
 | --- | --- | --- |
-| M1 | The pitch programme cannot cut off; `ShouldCutOff` and the throttle ramp live only in `ClosedLoop()`. Handover needs q ≤ 1,200 Pa, which a 1–2.5 km/s shot reaches at 54–65 km, long after it has the velocity it needs. `Resolve` runs during the pitch programme and drives `_lowestToGain` near zero; on the first closed-loop frame the 2 m/s "rising again" backstop cuts at once. Traced in the Step 0 rig: it fires on the handover frame at 100–300 km; from 418 km the least to gain stays above 2 m/s and the loop burns the stack dry instead. Not flown. | IcbmProgram ~935, 1078–1139, 1335 |
+| M1 | The pitch programme cannot cut off; `ShouldCutOff` and the throttle ramp live only in `ClosedLoop()`. Handover needs q ≤ 1,200 Pa, which a 1–2.5 km/s shot reaches at 54–65 km, long after it has the velocity it needs. `Resolve` runs during the pitch programme and drives `_lowestToGain` near zero; on the first closed-loop frame the 2 m/s "rising again" backstop cuts at once. Traced in the Step 0 rig: it fires on the handover frame at 100–200 km (300 km at pref 0); above that the loop takes over and brakes on the upper stage, which flown at 418 km ran dry 119 m/s short and at 1,000 km made it. | IcbmProgram ~935, 1078–1139, 1335 |
 | M2 | When cutoff falls on the handover frame the arrival is never latched (`Resolve` ran while the phase was `PitchProgram`; the latch needs `ClosedLoop`). No committed arrival, so `ResolveCoastArc` returns at once, `Freeze` cannot run, `ReleaseAnArrivalTheTrimCannotFly` cannot help. Unreachable at long range: the closed loop always latches within `LatchArrivalWithinSeconds` (20 s). | IcbmProgram 678, 976–980, 1156–1159 |
 | M3 | The aim correction sees nothing departing below ~73.7 km (`DepartureIsWorthObserving`, density 1e-4) — during the burn or after it. | AimCorrection 242–244; IcbmComputer ~4227 |
 | M4 | With no reading, `PostBoostAim` (`DecideOnTheReading`) holds release for up to 120 s, about the whole fall of a 300 km lob. | PostBoostAim 287, 327–331 |
@@ -107,8 +115,8 @@ solve's Δv far below the stack's, or a range threshold), so a long shot never e
 ### Step 0 — a rig that is the game's rocket, and a baseline. No behaviour change.
 
 Items 1–4 are built (`GameStackShortRangeTests`, `IcbmFlightRig`'s `Solid`, `VacuumExhaustVelocity`,
-`BurnoutMassFlowRatio`, `DragAreaM2` and `ReportsStackDeltaV`, all off by default); results above. 5 and 6
-are not done.
+`BurnoutMassFlowRatio`, `DragAreaM2` and `ReportsStackDeltaV`, all off by default) and 6 is flown at 418 and
+1,000 km; results above. 5 is not done.
 
 1. Build a pad rig from the `SOLVER SCALE 1` stack (read off the save or a flown log): stage masses and thrust,
    **SRBs as a stage that cannot throttle or stop**, three staging events. Flown actuator values:
