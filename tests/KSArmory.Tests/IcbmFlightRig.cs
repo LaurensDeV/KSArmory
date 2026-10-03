@@ -357,7 +357,10 @@ internal sealed class IcbmFlightRig
                                       ThrottleAchieved: ThrottleAchieved,
                                       AimIsSteady: AimLoop?.IsSteady ?? true,
                                       StackDeltaV: ReportsStackDeltaV ? StackDeltaV() : double.NaN,
-                                      StructuralLimitGee: StructuralLimitGee);
+                                      StructuralLimitGee: StructuralLimitGee,
+                                      RunningStageCanStop: StageIndex >= Stages.Count || !Stages[StageIndex].Solid,
+                                      MinThrottle: MinThrottle,
+                                      ThrustAxisCci: _pointing);
 
                 command = program.Update(elapsed == 0.0 ? 0.0 : h, state);
 

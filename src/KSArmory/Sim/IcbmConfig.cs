@@ -807,6 +807,18 @@ internal sealed class IcbmConfig
     public double AscentReserveSeconds;
 
     /// <summary>
+    /// Fly a shot of any range on any stack. A solid stage's remaining delta-v is velocity it will add
+    /// whatever it is told, so the arc is lofted until it needs at least that much — past the
+    /// cheapest arc the need climbs with the flight time to escape, so one always exists. And once
+    /// the shot is matching such a stage, or a stoppable one is throttled as low as it goes against
+    /// <see cref="AscentReserveSeconds"/> (15 s if that is zero), the closed loop takes over from the
+    /// pitch programme, because it is the only phase that can cut off.
+    ///
+    /// <para><b>Off, and unflown.</b> <c>docs/SHORT-RANGE.md</c>.</para>
+    /// </summary>
+    public bool FlyAnyRange;
+
+    /// <summary>
     /// Give each warhead the separation velocity that lands it where the tubes' mean would —
     /// <see cref="ReleaseFocus"/>.
     ///

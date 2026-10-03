@@ -91,7 +91,8 @@ internal static class BurnoutGuidance
                                 out Command command, double loft = 1.0, bool longWay = false,
                                 double cutoffSeed = 0.0, double flightSeed = double.NaN,
                                 double arrivalFromNowSeconds = double.NaN,
-                                double minArrivalDeg = 0.0)
+                                double minArrivalDeg = 0.0,
+                                double minToGain = 0.0)
     {
         command = default;
 
@@ -148,7 +149,7 @@ internal static class BurnoutGuidance
             bool solvedArc = false;
             heldTheArrival = false;
 
-            if (double.IsFinite(arrivalFromNowSeconds)
+            if (double.IsFinite(arrivalFromNowSeconds) && !(minToGain > 0.0)
                 && arrivalFromNowSeconds - timeToCutoff >= BallisticArc.MinFlightSeconds)
             {
                 solvedArc = BallisticArc.TrySolve(body, cutoffPosition, aimAtCutoff,
@@ -169,7 +170,7 @@ internal static class BurnoutGuidance
             {
                 solvedArc = BallisticArc.TryCheapest(body, cutoffPosition, velocityAtCutoffUnpowered,
                                                      aimAtCutoff, out arc, loft, longWay, flightSeed,
-                                                     minArrivalDeg);
+                                                     minArrivalDeg, minToGain);
             }
 
             if (!solvedArc) return false;

@@ -86,7 +86,19 @@ internal readonly record struct IcbmState(
     /// number an operator can be expected to know about somebody else's rocket. Zero is the reading
     /// being <em>absent</em>, which is not the same as there being no limit.</para>
     /// </summary>
-    double StructuralLimitGee = 0.0)
+    double StructuralLimitGee = 0.0,
+
+    /// <summary>
+    /// Whether the running stage stops when told to. False for a solid motor, which burns to the end
+    /// once lit; true for anything the caller cannot tell, which is every engine KSA throttles.
+    /// </summary>
+    bool RunningStageCanStop = true,
+
+    /// <summary>The least throttle the running engines hold, or zero if the caller cannot tell.</summary>
+    double MinThrottle = 0.0,
+
+    /// <summary>Which way the engines are actually pushing, or zero if the caller cannot tell.</summary>
+    double3 ThrustAxisCci = default)
 {
     public double Altitude => Body.AltitudeOf(PositionCci);
 
@@ -375,6 +387,22 @@ internal sealed class IcbmProgram
     private bool _resolveCoastArc;
     private double _throttle = 1.0;
     private double _lowestToGain = double.PositiveInfinity;
+
+    // What the running stage cannot be stopped from adding, as of the last solve, and whether the
+    // arc was lofted to need exactly that.
+    private double _unavoidable;
+    private bool _absorbing;
+
+    // Whether the closed loop took over at the top of a climb still inside the air.
+    private bool _handedOverInTheAir;
+
+    // Whether this flight has been flown as a short shot at all: lofted to absorb, or handed over in
+    // the air. Nothing that only a short shot needs may reach one that never was.
+    private bool _shortShot;
+
+    // Set by the closed loop for the frame it is building: the engine stays off until the vehicle
+    // has turned to the burn.
+    private bool _waitingForAttitude;
     private bool _fellShort;
     private double _arrivalFromLaunch = double.NaN;
     private string _reachHold = "";
@@ -597,6 +625,10 @@ internal sealed class IcbmProgram
         _lastStep = 0.0;
         _throttle = 1.0;
         _lowestToGain = double.PositiveInfinity;
+        _unavoidable = 0.0;
+        _absorbing = false;
+        _handedOverInTheAir = false;
+        _shortShot = false;
         _fellShort = false;
         _arrivalFloorUnaffordable = false;
         ResidualAtCutoff = double.NaN;
@@ -690,6 +722,20 @@ internal sealed class IcbmProgram
         // arrived by now.
         bool dry = !state.PropellantAvailable || !state.Booster.CanThrust;
         if (step > 0.0) _drySeconds = dry ? _drySeconds + step : 0.0;
+
+        // A solid that has just delivered the arc it was matched to leaves a residual the bus trim
+        // can fly; lighting the next stage to add it would put a full-sized motor to work in the air
+        // for a few metres a second, through an airflow limit that stops it pointing anywhere useful.
+        if (Config.FlyAnyRange && dry && _absorbing && _toGain <= BusTrim.MaxMetresPerSecond)
+        {
+            ResidualAtCutoff = _toGain;
+            ResidualVectorCci = _toGainVectorCci;
+            AccelerationAtCutoff = state.Booster.AccelerationNow;
+            StepAtCutoff = _lastStep;
+            ThrottleAtCutoff = state.ThrottleAchieved;
+            Phase = IcbmPhase.Coast;
+            return Coasting(state);
+        }
 
         if (_drySeconds > DrySecondsBeforeGivingUp)
         {
@@ -891,10 +937,12 @@ internal sealed class IcbmProgram
                               ? _arrivalFromLaunch - _sinceLaunch
                               : double.NaN;
 
+        _unavoidable = Unavoidable(state);
+
         bool steered = BurnoutGuidance.TrySteer(
             state.Body, state.PositionCci, state.VelocityCci, state.AimNowCci, state.Booster,
             out BurnoutGuidance.Command command, Config.Loft, LongWay, _cutoffSeed, _flightSeed,
-            arrivalFromNow, FloorDeg);
+            arrivalFromNow, FloorDeg, _unavoidable);
 
         // A floor is what to aim for, not a reason to fly nowhere. A stack that cannot afford the
         // arrival asked for still has a target, and the shallow arc it can afford is worth far more
@@ -923,6 +971,14 @@ internal sealed class IcbmProgram
         }
 
         Arc = command.Arc;
+        // Not re-read on a dry frame: the cutoff at a solid's burnout asks what the arc was matched to
+        // while it burned.
+        if (state.Booster.CanThrust)
+        {
+            _absorbing = (_unavoidable > 0.0 || (Config.FlyAnyRange && !state.RunningStageCanStop))
+                         && command.VelocityToGain <= _unavoidable * 1.01 + BusTrim.MaxMetresPerSecond;
+            _shortShot |= _absorbing;
+        }
         CutoffPositionCci = command.CutoffPositionCci;
         ReferencePositionCci = command.CutoffPositionCci;
         SecondsSinceReference = 0.0;
@@ -973,7 +1029,7 @@ internal sealed class IcbmProgram
         // vehicle's current state converges on the arc it is already flying, so a loft above one
         // walks the answer outward every cycle and the shot chases a trajectory running away from
         // it — 162 km, measured. The window is what stops that being unbounded.
-        if (Phase == IcbmPhase.ClosedLoop && !double.IsFinite(_arrivalFromLaunch)
+        if (Phase == IcbmPhase.ClosedLoop && !double.IsFinite(_arrivalFromLaunch) && !(_unavoidable > 0.0)
             && (state.AimIsSteady || _sinceClosedLoop >= LatchArrivalWithinSeconds))
         {
             _arrivalFromLaunch = _sinceLaunch + command.SecondsToCutoff + command.Arc.FlightSeconds;
@@ -1075,16 +1131,67 @@ internal sealed class IcbmProgram
         return Fly(Phase, state.UpCci, state, "vertical rise");
     }
 
+    private const double AlignBeforeBurningDeg = 15.0;
+
+    // The load an angle of attack puts on the airframe goes as q times the angle, so the angle
+    // allowed at max-q is far stricter than slow flight needs -- and slow flight is where a steep
+    // arc is held or lost: at 1.2 g and 50 m/s, 8 degrees cannot stop gravity turning the path over.
+    private const double AngleOfAttackPressurePa = 10_000.0;
+
+    private double AllowedAngleOfAttackDeg(in IcbmState state)
+        => _absorbing || _handedOverInTheAir
+               ? Math.Max(Config.MaxAngleOfAttackDeg,
+                          Config.MaxAngleOfAttackDeg * AngleOfAttackPressurePa / Math.Max(state.DynamicPressurePa, 1.0))
+               : Config.MaxAngleOfAttackDeg;
+
+    // What the running stage will add whether it is told to stop or not: all of what a solid motor
+    // has left. The arc is lofted until it needs at least that, which is the only thing that can be
+    // done with velocity that cannot be refused.
+    //
+    // A stage that can stop but not throttle below its floor is the same problem more slowly: held
+    // back against the reserve it still eats the velocity to gain, and would reach the end before
+    // the air is thin enough to hand over. Lofted to keep the reserve at its floor, it burns gently
+    // into thin air and hands over with something left to steer.
+    private double Unavoidable(in IcbmState state)
+    {
+        if (!Config.FlyAnyRange || !state.Booster.CanThrust) return 0.0;
+        if (!state.RunningStageCanStop) return state.Booster.DeltaVRemaining;
+        if (Phase != IcbmPhase.PitchProgram) return 0.0;
+
+        double floor = Math.Max(state.MinThrottle, MinCommandedThrottle);
+        return ReserveSeconds * state.Booster.AccelerationNow * floor;
+    }
+
     private IcbmCommand PitchProgram(in IcbmState state)
     {
-        if (state.DynamicPressurePa <= Config.HandoverPressurePa
-            && state.Altitude >= Config.TurnStartMetres)
+        // A short shot can top out inside the air, and then no thin air is coming: past the top of
+        // the climb the closed loop is the only phase that can still cut off.
+        bool climbOver = Config.FlyAnyRange && state.Altitude >= Config.TurnStartMetres
+                         && Vec.Dot(state.VelocityCci - state.Body.GroundVelocityCci(state.PositionCci), state.UpCci) <= 0.0;
+
+        if (climbOver
+            || (state.DynamicPressurePa <= Config.HandoverPressurePa
+                && state.Altitude >= Config.TurnStartMetres))
         {
+            _handedOverInTheAir = climbOver && state.DynamicPressurePa > Config.HandoverPressurePa;
+            _shortShot |= _handedOverInTheAir;
             Phase = IcbmPhase.ClosedLoop;
             return ClosedLoop(state);
         }
 
         double pitch = AscentProfile.PitchDegreesAt(state.Altitude, Config.TurnStartMetres, Config.TurnEndMetres);
+
+        // Matching a solid means a lofted arc, and the schedule would pitch the stack below it. Held
+        // at the arc's own climb from above, the path is never kicked over and left to sag: at a
+        // gravity and a bit of thrust, eight degrees of attack cannot lift it back.
+        if (_absorbing && Arc is { } lofted)
+        {
+            double3 relative = lofted.RequiredVelocityCci - state.Body.GroundVelocityCci(state.PositionCci);
+            double climb = double.RadiansToDegrees(Math.Asin(Math.Clamp(
+                Vec.Dot(Vec.Unit(relative), state.UpCci), -1.0, 1.0)));
+            pitch = Math.Max(pitch, climb);
+        }
+
         double3 wanted = AscentProfile.Aim(state.UpCci, DownrangeCci, pitch);
 
         // Once the reserve binds, the schedule is pointing somewhere the shot no longer needs to go:
@@ -1119,6 +1226,14 @@ internal sealed class IcbmProgram
                   : 1.0;
 
         double3 wanted = _thrustDirCci.Equals(Vec.Zero) ? Vec.Unit(state.VelocityCci) : _thrustDirCci;
+
+        // A short burn is over before a slow vehicle has turned to it, and every second spent pushing
+        // the wrong way moves what is left to gain: the loop then chases its own tail until the stage
+        // is dry. So the engine waits for the vehicle to come round. A long burn barely notices.
+        // An engine with a throttle floor still pushes at it, so one that can stop does, and lights
+        // again once the vehicle has come round.
+        _waitingForAttitude = _shortShot && state.RunningStageCanStop && !state.ThrustAxisCci.Equals(Vec.Zero)
+                              && Vec.AngleBetween(state.ThrustAxisCci, wanted) > double.DegreesToRadians(AlignBeforeBurningDeg);
 
         return Fly(IcbmPhase.ClosedLoop, Limit(wanted, state), state, "guiding to cutoff");
     }
@@ -1257,7 +1372,7 @@ internal sealed class IcbmProgram
     private double3 Limit(double3 wanted, in IcbmState state)
     {
         double3 held = AscentProfile.HoldIntoTheAirflow(wanted, state.AirflowCci, state.DynamicPressurePa,
-                                                        Config.MaxAngleOfAttackDeg);
+                                                        AllowedAngleOfAttackDeg(state));
 
         if (state.Altitude >= Config.TurnEndMetres) return held;
 
@@ -1319,13 +1434,18 @@ internal sealed class IcbmProgram
     {
         if (!ReserveBinds(wanted, state)) return wanted;
 
-        double keep = Config.AscentReserveSeconds * state.Booster.AccelerationNow * wanted;
+        double keep = ReserveSeconds * state.Booster.AccelerationNow * wanted;
         return Math.Clamp(wanted * _toGain / keep, MinCommandedThrottle, wanted);
     }
 
+    // Fifteen seconds when flying any range and nothing was asked for: what the game's stack flew
+    // 418 km on (docs/SHORT-RANGE.md).
+    private double ReserveSeconds => Config.AscentReserveSeconds > 0.0 ? Config.AscentReserveSeconds
+                                   : Config.FlyAnyRange ? 15.0 : 0.0;
+
     private bool ReserveBinds(double throttle, in IcbmState state)
     {
-        double reserve = Config.AscentReserveSeconds;
+        double reserve = ReserveSeconds;
         if (!(reserve > 0.0) || Arc is null) return false;
 
         double accel = state.Booster.AccelerationNow * throttle;
@@ -1367,7 +1487,10 @@ internal sealed class IcbmProgram
 
         if (phase == IcbmPhase.PitchProgram) _throttle = HoldBackTheAscent(_throttle, state);
 
-        return new IcbmCommand(phase, direction, _throttle, EngineOn: true, stage,
+        bool waiting = _waitingForAttitude && phase == IcbmPhase.ClosedLoop;
+        _waitingForAttitude = false;
+
+        return new IcbmCommand(phase, direction, _throttle, EngineOn: !waiting, stage,
                                _toGain, Math.Max(_countdown, 0.0), ReadyToDeploy: false, Hold: hold,
                                Reach: Reach, SecondsToArrival: SecondsToArrival, SecondsToBurn: 0.0,
                                ShortfallMetresPerSecond: _shortfall);

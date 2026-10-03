@@ -121,7 +121,8 @@ internal static class BallisticArc
                                    double3 aimNowCci, out Solution solution,
                                    double loft = 1.0, bool longWay = false,
                                    double seedFlightSeconds = double.NaN,
-                                   double minArrivalDeg = 0.0)
+                                   double minArrivalDeg = 0.0,
+                                   double minToGain = 0.0)
     {
         solution = default;
         if (!body.IsUsable) return false;
@@ -157,6 +158,11 @@ internal static class BallisticArc
             chosen = refined;
         }
 
+        if (minToGain > 0.0)
+        {
+            chosen = Absorbing(body, fromCci, fromVelocityCci, aimNowCci, chosen, horizon, longWay, floor, minToGain);
+        }
+
         if (!TrySolve(body, fromCci, aimNowCci, chosen, out solution, longWay)) return false;
 
         // The cheapest time is carried out separately from the one actually flown, and the caller
@@ -169,6 +175,47 @@ internal static class BallisticArc
         // depressed shot becomes past a certain point, and it is the one failure here that looks
         // entirely reasonable in every other number.
         return solution.LowestRadius >= body.SurfaceRadius - 1.0;
+    }
+
+    // The flight time whose arc needs exactly minToGain, on the lofted side of the cheapest: past
+    // the cheapest arc the cost climbs with the flight time all the way to escape, so a stack that
+    // cannot avoid adding that much has an arc for it. Below the cheapest the same costs are on
+    // depressed arcs, which graze the air. Where nothing reaches it, the dearest arc found.
+    private static double Absorbing(BallisticBody body, double3 fromCci, double3 fromVelocityCci,
+                                    double3 aimNowCci, double from, double horizon, bool longWay,
+                                    double floorDeg, double minToGain)
+    {
+        double CostOf(double t) => CostAt(body, fromCci, fromVelocityCci, aimNowCci, t, longWay, floorDeg);
+
+        if (CostOf(from) >= minToGain) return from;
+
+        const int Steps = 64;
+        double step = (horizon - from) / Steps;
+        double lo = from, best = from, bestCost = CostOf(from);
+
+        for (int i = 1; i <= Steps; i++)
+        {
+            double t = from + step * i;
+            double cost = CostOf(t);
+            if (!double.IsFinite(cost)) continue;
+
+            if (cost >= minToGain)
+            {
+                double hi = t;
+                for (int k = 0; k < 40; k++)
+                {
+                    double mid = 0.5 * (lo + hi);
+                    double c = CostOf(mid);
+                    if (double.IsFinite(c) && c >= minToGain) hi = mid; else lo = mid;
+                }
+                return hi;
+            }
+
+            lo = t;
+            if (cost > bestCost) { bestCost = cost; best = t; }
+        }
+
+        return best;
     }
 
     /// <summary>

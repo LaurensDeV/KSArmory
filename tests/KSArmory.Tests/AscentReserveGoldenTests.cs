@@ -52,10 +52,11 @@ public class AscentReserveGoldenTests
         "game 1600", "game 2000", "game 2500", "game flown 09-07",
     };
 
-    private static (IcbmFlightRig Rig, IcbmConfig Config, double3 Aim) Fixture(string name, double reserve)
+    private static (IcbmFlightRig Rig, IcbmConfig Config, double3 Aim) Fixture(string name, double reserve,
+                                                                               bool anyRange = false)
     {
         string[] p = name.Split(' ');
-        IcbmConfig config = new() { Armed = true, AscentReserveSeconds = reserve };
+        IcbmConfig config = new() { Armed = true, AscentReserveSeconds = reserve, FlyAnyRange = anyRange };
 
         switch (p[0])
         {
@@ -72,9 +73,9 @@ public class AscentReserveGoldenTests
         }
     }
 
-    private static IcbmFlightRig.Flight Fly(string name, double reserve)
+    private static IcbmFlightRig.Flight Fly(string name, double reserve, bool anyRange = false)
     {
-        (IcbmFlightRig rig, IcbmConfig config, double3 aim) = Fixture(name, reserve);
+        (IcbmFlightRig rig, IcbmConfig config, double3 aim) = Fixture(name, reserve, anyRange);
         return rig.Fly(new IcbmProgram(config), aim, 0.02, 6_000.0);
     }
 
@@ -86,6 +87,23 @@ public class AscentReserveGoldenTests
         IcbmFlightRig.Flight on = Fly(fixture, Reserve);
 
         Assert.True(off.Reached, $"{fixture} never cut off with the reserve off: {off.Hold}");
+        Assert.Equal(off.CutoffSeconds, on.CutoffSeconds);
+        Assert.Equal(off.CutoffPositionCci, on.CutoffPositionCci);
+        Assert.Equal(off.CutoffVelocityCci, on.CutoffVelocityCci);
+    }
+
+    /// <summary>
+    /// <see cref="IcbmConfig.FlyAnyRange"/> leaves them alone too: what a solid stage cannot avoid
+    /// adding is less than these shots need, and the floor its throttle sets is far under what they
+    /// still have to gain.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(LongShots))]
+    public void ALongShotIsFlownExactlyAsItWasAtAnyRange(string fixture)
+    {
+        IcbmFlightRig.Flight off = Fly(fixture, 0.0);
+        IcbmFlightRig.Flight on = Fly(fixture, 0.0, anyRange: true);
+
         Assert.Equal(off.CutoffSeconds, on.CutoffSeconds);
         Assert.Equal(off.CutoffPositionCci, on.CutoffPositionCci);
         Assert.Equal(off.CutoffVelocityCci, on.CutoffVelocityCci);

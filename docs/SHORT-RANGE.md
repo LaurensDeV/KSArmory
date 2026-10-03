@@ -176,6 +176,46 @@ cutoff on the countdown at 120 km 0.09 m/s short, release ~25 s later with 1:24 
 within **21.9 m**, arriving at 73.8°. One flight: the mechanism, not the accuracy. The rig said 479 m/s at
 handover, so the game still overshoots more than the rig does.
 
+### Any range, any stack — `IcbmConfig.FlyAnyRange`, built in the rig 2026-10-03, off, unflown
+
+A refusal is not the goal: every shot from the shortest up, on whatever stack is flying it. The physics allows
+it, because the arcs to a fixed target do not top out at one speed — past the cheapest arc there is a lofted
+one for every speed up to escape — so velocity a stack cannot avoid gaining can always be absorbed by steeper
+arcs instead of being braked off. Four mechanisms, all only on shots that enter the short regime:
+
+1. **A solid's remaining delta-v is a floor on the velocity to gain** (`BallisticArc.TryCheapest`'s
+   `minToGain`): the solver takes the cheapest arc that needs at least that, lofted. A solid then steers itself
+   onto the arc it can actually fly, and the program cuts off at its burnout when what is left is inside the bus
+   trim's reach, without lighting the stage above.
+2. **An engine that cannot throttle low enough is lofted against its floor** — the reserve times its
+   minimum-throttle acceleration — so it burns gently into thin air instead of eating the reserve. While being
+   lofted the pitch is held at or above the arc's own climb (eight degrees of attack cannot lift a sagging path at
+   1.2 g), and the angle of attack allowed grows as q falls (8° at 10 kPa, more below).
+3. **The closed loop takes over at the top of a climb that stays inside the air**, because no thin air is
+   coming and only the closed loop can cut off.
+4. **An engine that can stop waits for the vehicle to turn before burning** (`IcbmState.ThrustAxisCci`),
+   because a short burn is over before a slow vehicle has come round and pushing the wrong way meanwhile moves
+   what is left to gain until the stage is dry. Engine off, not throttle down: a floor still pushes.
+
+**In the rig**, five stacks from the same pad (the game's, an all-solid three-stage, the SRBs alone, a liquid
+pair, a 25 MN liquid core with a 40% floor), 25–5,000 km: **45 of 47 cut off normally.** Cutting off in thin air
+they land 0.0–0.9 km out. The misses over a kilometre are solids burning out low — 2.1 km at 100 km on the
+game's stack, 3.7 km at 200 km all-solid, 2.4–5.6 km for the SRBs alone at 1,000–2,000 km — and they are drag
+on a coast the vacuum arcs do not see. The two failures: the game's stack at 200 km never cuts off, and the
+SRBs alone cannot reach 5,000 km. `AscentReserveGoldenTests` holds every long fixture bit-equal with it on.
+
+**What it took to get there is the open problem.** The state machine is rules layered on the vacuum design, and
+each rule moved a failure somewhere else: coasting a stoppable stage instead of lofting it fixed nothing and
+broke the game's stack at 150–418 km; gating the engine on the velocity to gain instead of the command left
+vehicles waiting for ever in thick air. Every remaining failure and every miss over a kilometre is the same
+regime — a stack steering or coasting through dense air at low speed — and the honest next step is a guidance
+that models it rather than another rule: the coast predicted with the stack's own drag (`DragShape` already
+mirrors the engine's), and the aim corrected against that prediction where today `DepartureIsWorthObserving`
+refuses to look (M3).
+
+**Not wired in game.** `Ksa/IcbmComputer.cs` does not yet fill `RunningStageCanStop`, `MinThrottle` or
+`ThrustAxisCci`, so in game a solid reads as an engine that stops and mechanisms 1, 2 and 4 cannot act.
+
 ### Step 3 — honest refusal, reported in flight
 
 - When the backstop fires on the handover frame with `_lowestToGain` having bottomed in the pitch programme,

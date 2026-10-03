@@ -939,6 +939,16 @@ internal sealed partial class Ui
                 : "0: the pitch programme flies wide open whatever the shot needs. A short shot then "
                   + "overshoots and spends the upper stage braking; flown at 418 km that ran dry.");
 
+        bool anyRange = config.FlyAnyRange;
+        if (ImGui.Checkbox("Fly any range on any stack", ref anyRange))
+        {
+            config.FlyAnyRange = anyRange;
+        }
+        Tip("On: a solid stage's remaining delta-v is absorbed by lofting the arc, an engine that cannot "
+            + "throttle low enough is lofted against its floor, the closed loop takes over at the top of a "
+            + "climb that stays in the air, and a stage that can stop waits for the vehicle to turn before "
+            + "burning. A long shot is flown exactly as with it off. Unflown.");
+
         bool resample = config.ResampleGroundAtImpact;
         if (ImGui.Checkbox("Warheads re-read the ground as they meet it", ref resample))
         {

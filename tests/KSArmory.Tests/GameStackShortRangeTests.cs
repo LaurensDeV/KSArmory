@@ -81,11 +81,12 @@ public class GameStackShortRangeTests(ITestOutputHelper Out)
     }
 
     // What the scenario forces before it arms (Ksa/BallisticScenario.cs Commit).
-    private static IcbmConfig ScenarioConfig(double arrivalPreference, double ascentReserveSeconds = 0.0)
+    private static IcbmConfig ScenarioConfig(double arrivalPreference, double ascentReserveSeconds = 0.0,
+                                             bool flyAnyRange = false)
         => new()
         {
             Armed = true, MaxAccelerationGee = 8.0f, MinArrivalAngleDeg = 0.0, ArrivalPreference = arrivalPreference,
-            AscentReserveSeconds = ascentReserveSeconds,
+            AscentReserveSeconds = ascentReserveSeconds, FlyAnyRange = flyAnyRange,
         };
 
     /// <summary>Watches the program without moving the aim, and records why the burn ended.</summary>
@@ -195,10 +196,69 @@ public class GameStackShortRangeTests(ITestOutputHelper Out)
     public void TheShortShotHeldBackForTheClosedLoop(double reserveSeconds)
         => Sweep(true, 0.5, reserveSeconds);
 
-    private void Sweep(bool stackDeltaV, double arrivalPreference, double reserveSeconds)
+    /// <summary>The same sweep with <see cref="IcbmConfig.FlyAnyRange"/>.</summary>
+    [Fact]
+    public void TheShortShotAtAnyRange() => Sweep(true, 0.5, 0.0, flyAnyRange: true);
+
+    // Other kinds of stack from the same pad, none of them flown: an all-solid three-stage missile
+    // (roughly Minuteman III), the SRBs with nothing above them, IcbmFlightTests' liquid pair, and a
+    // big liquid core that cannot throttle below 40%.
+    private static IcbmFlightRig FromThePad(List<IcbmFlightRig.Stage> stages, double dragAreaM2,
+                                           double minThrottle, double radius)
     {
+        double3 pad = At(PadLatitudeDeg);
+        return new IcbmFlightRig
+        {
+            Body = Earth, PositionCci = pad, VelocityCci = Earth.GroundVelocityCci(pad), Stages = stages,
+            BoundingSphereRadiusMetres = radius, DragAreaM2 = dragAreaM2, StartsUnlit = true,
+            ReportsStackDeltaV = true, CommandLatencyFrames = 1, MinThrottle = minThrottle,
+            ThrottleRatePerSecond = 0.7, StepJitter = 0.5,
+        };
+    }
+
+    internal static IcbmFlightRig AllSolid() => FromThePad(
+    [
+        new() { DryMassKg = 2_300, PropellantKg = 20_800, ThrustNewtons = 900_000, ExhaustVelocity = 2_550, Solid = true },
+        new() { DryMassKg = 800, PropellantKg = 6_200, ThrustNewtons = 270_000, ExhaustVelocity = 2_800, Solid = true },
+        new() { DryMassKg = 1_500, PropellantKg = 3_300, ThrustNewtons = 150_000, ExhaustVelocity = 2_850, Solid = true },
+    ], 2.5, 0.0, 9.0);
+
+    internal static IcbmFlightRig SolidOnly() => FromThePad(
+    [
+        new()
+        {
+            DryMassKg = 27_300, PropellantKg = 249_800, ThrustNewtons = 2_110.0 * 2_170.0, ExhaustVelocity = 2_170,
+            VacuumExhaustVelocity = 2_700, BurnoutMassFlowRatio = 1.36, Solid = true,
+        },
+    ], 50.0, 0.0, 12.76);
+
+    internal static IcbmFlightRig Liquid() => FromThePad(
+    [
+        new() { DryMassKg = 4_000, PropellantKg = 46_000, ThrustNewtons = 1_400_000, ExhaustVelocity = 2_600 },
+        new() { DryMassKg = 1_200, PropellantKg = 12_000, ThrustNewtons = 260_000, ExhaustVelocity = 3_000 },
+    ], 4.0, 0.0, 0.0);
+
+    internal static IcbmFlightRig HotLiquid() => FromThePad(
+    [
+        new() { DryMassKg = 9_600, PropellantKg = 88_900, ThrustNewtons = 25_550_000, ExhaustVelocity = 4_056 },
+        new() { DryMassKg = 6_000, PropellantKg = 25_800, ThrustNewtons = 955_000, ExhaustVelocity = 4_278 },
+    ], 25.0, 0.4, 12.76);
+
+    [Theory]
+    [InlineData("all-solid")]
+    [InlineData("solid only")]
+    [InlineData("liquid")]
+    [InlineData("hot liquid")]
+    public void AnyStackAtAnyRange(string stack)
+        => Sweep(true, 0.5, 0.0, flyAnyRange: true, stack: stack,
+                 ranges: [25.0, 50.0, 100.0, 200.0, 300.0, 500.0, 1_000.0, 2_000.0, 5_000.0]);
+
+    private void Sweep(bool stackDeltaV, double arrivalPreference, double reserveSeconds, bool flyAnyRange = false,
+                       string stack = "game", double[]? ranges = null)
+    {
+        Out.WriteLine($"stack: {stack}");
         Out.WriteLine($"stack delta-v {(stackDeltaV ? "reported" : "absent")}, arrival preference {arrivalPreference}, "
-                      + $"ascent reserve {reserveSeconds} s");
+                      + $"ascent reserve {reserveSeconds} s{(flyAnyRange ? ", any range" : "")}");
         Out.WriteLine("THE ASCENT'S FLOOR, NOT THE SHOT: no shove, trim, release, aim correction or bus drag.");
         Out.WriteLine($"{"range",7} {"reason",9} {"hdovr",5} {"latch",5} {"stage",5} {"t",5} {"alt",5} {"speed",6} "
                       + $"{"q Pa",6} {"climb",5} {"apogee",6} {"SRB on",11} {"least to gain pre-loop",22} "
@@ -206,15 +266,22 @@ public class GameStackShortRangeTests(ITestOutputHelper Out)
 
         MunitionProfile warhead = Arsenal.Mk21WithDragFromShape(Arsenal.ReentryVehicleMk21);
 
-        foreach (double km in new[] { 100.0, 200.0, 300.0, 418.0, 500.0, 700.0, 1_000.0, 1_200.0, 2_000.0 })
+        foreach (double km in ranges ?? [50.0, 100.0, 150.0, 200.0, 300.0, 418.0, 500.0, 700.0, 1_000.0, 1_200.0, 2_000.0])
         {
-            IcbmFlightRig rig = GameStack(stackDeltaV);
+            IcbmFlightRig rig = stack switch
+            {
+                "all-solid" => AllSolid(),
+                "solid only" => SolidOnly(),
+                "liquid" => Liquid(),
+                "hot liquid" => HotLiquid(),
+                _ => GameStack(stackDeltaV),
+            };
             Watch watch = new(rig);
             rig.AimLoop = watch;
 
-            IcbmProgram program = new(ScenarioConfig(arrivalPreference, reserveSeconds));
+            IcbmProgram program = new(ScenarioConfig(arrivalPreference, reserveSeconds, flyAnyRange));
             double3 aim = South(km * 1000.0);
-            IcbmFlightRig.Flight flight = rig.Fly(program, aim, 0.02, 4_000.0);
+            IcbmFlightRig.Flight flight = rig.Fly(program, aim, 0.02, 6_000.0);
 
             string head = $"{km,6:F0}k";
             if (!flight.Reached || !watch.Cut)
