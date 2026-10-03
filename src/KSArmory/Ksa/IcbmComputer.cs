@@ -1006,7 +1006,8 @@ internal sealed class IcbmComputer
                           + $" | full-throttle {booster.AccelerationNow / 9.80665:F2} g, "
                           + $"load {load.PeakGLoad:F2} of {load.MaxGLoad:F1} g"
                           + $" (thrust {booster.ThrustNewtons / 1000.0:F0} kN, "
-                          + $"mass {booster.TotalMassKg / 1000.0:F1} t)");
+                          + $"mass {booster.TotalMassKg / 1000.0:F1} t) | stage dv {RunningStageDeltaV():F0} m/s, "
+                          + $"{(KsaWorld.RunningEnginesCanStop(Craft) ? "can stop" : "solid")}");
             }
             VehicleCommand.SetEngine(Craft, running: true);
 
@@ -3374,7 +3375,8 @@ internal sealed class IcbmComputer
         return new IcbmState(Body, positionCci, velocityCci, aimCci, hasAim, booster, density,
                              Craft.IsAnyEnginePropellantAvailable(), _throttleAchieved, playerStep,
                              _aim.IsSteady, StackDeltaV(), StructuralLimitGee(),
-                             KsaWorld.RunningEnginesCanStop(Craft), engines.MinThrottle, noseCci);
+                             KsaWorld.RunningEnginesCanStop(Craft), engines.MinThrottle, noseCci,
+                             RunningStageDeltaV());
     }
 
     /// <summary>What the engine will destroy this airframe at, in standard gravities, or zero if it
@@ -3417,6 +3419,24 @@ internal sealed class IcbmComputer
     // is what keeps a multi-stage rocket from reporting itself unreachable while sitting on the pad
     // with the range to spare. NaN when it cannot be read, which puts the single-stage estimate
     // back rather than claiming a stack has nothing.
+    // How close to its cutoff a short shot's projection is trusted from inside the air: the
+    // refusal exists for a projection that is still the pad, and twenty seconds out it is not.
+    private const double ShortShotObservesWithinSeconds = 20.0;
+
+    // The running stage alone, off the same staging display. NaN when it cannot be read.
+    private double RunningStageDeltaV()
+    {
+        try
+        {
+            float stage = Craft.Parts.PerformanceSequences.FindActiveSequenceDeltaV();
+            return float.IsFinite(stage) && stage >= 0.0f ? stage : double.NaN;
+        }
+        catch
+        {
+            return double.NaN;
+        }
+    }
+
     private double StackDeltaV()
     {
         try
@@ -4227,8 +4247,13 @@ internal sealed class IcbmComputer
             //
             // PostBoostAim is handed `TrimSettled: _trim.Done` and refuses to judge a pass on an
             // unflown correction. This is the same question asked one call earlier.
+            // A short shot cuts off in the air by design, so near its cutoff the projection is a real
+            // state rather than the pad, and the air is what the warheads will fly through.
+            bool nearAShortCutoff = Program.IsShortShot && Program.IsBurning
+                                    && Command.SecondsToCutoff < ShortShotObservesWithinSeconds;
+
             if (Config.CorrectAim && state.HasAim && !TrimIsFiring
-                && AimCorrection.DepartureIsWorthObserving(DensityRatioAt(fromCci))
+                && (AimCorrection.DepartureIsWorthObserving(DensityRatioAt(fromCci)) || nearAShortCutoff)
                 && (Program.IsBurning || (_measureDue && _trim.Done)))
             {
                 PriceTheAim(state);

@@ -253,9 +253,63 @@ public class GameStackShortRangeTests(ITestOutputHelper Out)
         => Sweep(true, 0.5, 0.0, flyAnyRange: true, stack: stack,
                  ranges: [25.0, 50.0, 100.0, 200.0, 300.0, 500.0, 1_000.0, 2_000.0, 5_000.0]);
 
-    private void Sweep(bool stackDeltaV, double arrivalPreference, double reserveSeconds, bool flyAnyRange = false,
-                       string stack = "game", double[]? ranges = null)
+    /// <summary>
+    /// The aim corrected against the warhead's own drag, as <c>IcbmComputer</c> corrects it — but
+    /// looking from inside the air once the shot is short and its cutoff is near, where today
+    /// <see cref="AimCorrection.DepartureIsWorthObserving"/> refuses. The refusal exists for a
+    /// projected cutoff that is still the pad; twenty seconds out it is not.
+    /// </summary>
+    private sealed class AimingWatch(IcbmFlightRig rig, Watch watch, MunitionProfile warhead, bool inTheAir)
+        : IcbmFlightRig.IAimLoop
     {
+        private readonly AimCorrection _aim = new();
+        private double _sincePredict = double.PositiveInfinity;
+
+        public double3 Apply(double3 aimNowCci) => _aim.Apply(aimNowCci);
+        public bool IsSteady => _aim.IsSteady;
+
+        public void AfterUpdate(IcbmProgram p, in IcbmCommand command, double3 aimNowCci, double h)
+        {
+            watch.AfterUpdate(p, command, aimNowCci, h);
+
+            if (double.IsFinite(p.CommittedArrivalFromNow)) _aim.Freeze();
+            if (!p.IsBurning || p.Arc is not { } arc) return;
+
+            _sincePredict += h;
+            if (_sincePredict < 0.5) return;
+            _sincePredict = 0.0;
+
+            bool clear = AimCorrection.DepartureIsWorthObserving(DensityAt(p.CutoffPositionCci));
+            bool near = inTheAir && p.IsShortShot && command.SecondsToCutoff < 20.0;
+            if (!clear && !near) return;
+
+            if (!ImpactPredictor.TryPredict(Earth, p.CutoffPositionCci, arc.RequiredVelocityCci, 1.0,
+                                            ImpactPredictor.DefaultMaxSeconds, out ImpactPredictor.Impact hit,
+                                            null, null, new ImpactPredictor.Drag(DensityAt, warhead)))
+            {
+                return;
+            }
+
+            double3 target = rig.Body.CarryCci(aimNowCci, command.SecondsToCutoff);
+            _aim.Observe(hit.GroundFixedPointCci, target);
+        }
+    }
+
+    [Theory]
+    [InlineData("game", false)]
+    [InlineData("game", true)]
+    [InlineData("all-solid", false)]
+    [InlineData("all-solid", true)]
+    [InlineData("solid only", false)]
+    [InlineData("solid only", true)]
+    public void TheShortShotWithItsAimCorrected(string stack, bool inTheAir)
+        => Sweep(true, 0.5, 0.0, flyAnyRange: true, stack: stack, aimInTheAir: inTheAir,
+                 ranges: [25.0, 50.0, 100.0, 200.0, 300.0, 1_000.0, 2_000.0]);
+
+    private void Sweep(bool stackDeltaV, double arrivalPreference, double reserveSeconds, bool flyAnyRange = false,
+                       string stack = "game", double[]? ranges = null, bool? aimInTheAir = null)
+    {
+        if (aimInTheAir is { } air) Out.WriteLine($"aim corrected, {(air ? "inside the air near cutoff" : "only above the air")}");
         Out.WriteLine($"stack: {stack}");
         Out.WriteLine($"stack delta-v {(stackDeltaV ? "reported" : "absent")}, arrival preference {arrivalPreference}, "
                       + $"ascent reserve {reserveSeconds} s{(flyAnyRange ? ", any range" : "")}");
@@ -277,7 +331,9 @@ public class GameStackShortRangeTests(ITestOutputHelper Out)
                 _ => GameStack(stackDeltaV),
             };
             Watch watch = new(rig);
-            rig.AimLoop = watch;
+            rig.AimLoop = aimInTheAir is { } inAir
+                              ? new AimingWatch(rig, watch, Arsenal.Mk21WithDragFromShape(Arsenal.ReentryVehicleMk21), inAir)
+                              : watch;
 
             IcbmProgram program = new(ScenarioConfig(arrivalPreference, reserveSeconds, flyAnyRange));
             double3 aim = South(km * 1000.0);

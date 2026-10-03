@@ -98,7 +98,14 @@ internal readonly record struct IcbmState(
     double MinThrottle = 0.0,
 
     /// <summary>Which way the engines are actually pushing, or zero if the caller cannot tell.</summary>
-    double3 ThrustAxisCci = default)
+    double3 ThrustAxisCci = default,
+
+    /// <summary>
+    /// What the running stage alone has left, or NaN if unknown. <see cref="Booster"/>'s figure puts the
+    /// whole vehicle's propellant behind the running engines, which for a solid with liquid stages
+    /// above it is several times what the grain can give.
+    /// </summary>
+    double RunningStageDeltaV = double.NaN)
 {
     public double Altitude => Body.AltitudeOf(PositionCci);
 
@@ -454,6 +461,12 @@ internal sealed class IcbmProgram
     public double3 DownrangeCci { get; private set; }
 
     public double SecondsSinceLaunch => _sinceLaunch;
+
+    /// <summary>
+    /// Whether this flight has been flown as a short shot: lofted to absorb an unstoppable stage, or
+    /// handed over inside the air. Only <see cref="IcbmConfig.FlyAnyRange"/> makes one.
+    /// </summary>
+    public bool IsShortShot => _shortShot;
 
     /// <summary>
     /// How long the engines have been out, which is how far the coast has carried the vehicle from
@@ -1155,7 +1168,12 @@ internal sealed class IcbmProgram
     private double Unavoidable(in IcbmState state)
     {
         if (!Config.FlyAnyRange || !state.Booster.CanThrust) return 0.0;
-        if (!state.RunningStageCanStop) return state.Booster.DeltaVRemaining;
+        if (!state.RunningStageCanStop)
+        {
+            return double.IsFinite(state.RunningStageDeltaV) && state.RunningStageDeltaV >= 0.0
+                       ? state.RunningStageDeltaV
+                       : state.Booster.DeltaVRemaining;
+        }
         if (Phase != IcbmPhase.PitchProgram) return 0.0;
 
         double floor = Math.Max(state.MinThrottle, MinCommandedThrottle);
