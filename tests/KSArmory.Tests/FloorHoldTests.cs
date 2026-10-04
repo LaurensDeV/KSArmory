@@ -53,6 +53,10 @@ public class FloorHoldTests(ITestOutputHelper Out)
         return new Outcome(rig.PeakFloorRateDegPerSec, program.ResidualAtCutoff, miss);
     }
 
+    // The arcs the slowed line acts on: an arc that climbs above the release altitude is flown with the
+    // line followed, as without the setting.
+    internal static readonly double[] LowArcs = [150.0, 200.0, 300.0, 418.0];
+
     [Fact]
     public void AStackAtItsFloorDoesNotChaseWhatIsLeftIntoASpin()
     {
@@ -60,7 +64,7 @@ public class FloorHoldTests(ITestOutputHelper Out)
         double worstOn = 0.0;
 
         foreach (double step in new[] { 0.02, 0.025 })
-        foreach (double km in Ranges)
+        foreach (double km in LowArcs)
         {
             Outcome off = Fly(km, 0.0, step, 0.5);
             Outcome on = Fly(km, 0.5, step, 0.5);
@@ -73,8 +77,8 @@ public class FloorHoldTests(ITestOutputHelper Out)
         }
 
         // The rig has to show the fault, or a quiet result with the flag on says nothing about it.
-        Assert.True(spunOff >= 6, $"the rig spun on only {spunOff} of 10 with the line followed to the end");
-        Assert.True(spunOn <= 2, $"{spunOn} of 10 still spun with the line slowed");
+        Assert.True(spunOff >= 5, $"the rig spun on only {spunOff} of 8 with the line followed to the end");
+        Assert.True(spunOn <= 2, $"{spunOn} of 8 still spun with the line slowed");
         Assert.True(worstOn < 30.0, $"slowing the line left {worstOn:F1} m/s ungained");
     }
 
@@ -88,7 +92,7 @@ public class FloorHoldTests(ITestOutputHelper Out)
         int spun = 0;
 
         foreach (double step in new[] { 0.02, 0.025 })
-        foreach (double km in new[] { 150.0, 200.0, 300.0, 418.0 })
+        foreach (double km in LowArcs)
         {
             Outcome vacuum = Fly(km, 0.5, step, 0.5, finishInTheAir: true);
             Outcome drag = Fly(km, 0.5, step, 0.5, finishInTheAir: true, solveWithDrag: true);

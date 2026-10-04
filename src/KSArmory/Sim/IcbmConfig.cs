@@ -844,7 +844,8 @@ internal sealed class IcbmConfig
     /// cutting off on the line slowed through the pause, which flown left 30 m/s across it and landed
     /// 4.6 km out at 200 km. The chase after a relight is not stopped by this alone: it is meant with
     /// <see cref="ShortShotFinishesInTheAir"/>, which removes the relight, and
-    /// <see cref="ShortShotSolvesWithDrag"/>; <c>docs/SHORT-RANGE.md</c>. <c>docs/SHORT-RANGE.md</c>,
+    /// <see cref="ShortShotSolvesWithDrag"/>, and like them acts only on an arc that stays under
+    /// <see cref="DeployAltitudeMetres"/>; <c>docs/SHORT-RANGE.md</c>. <c>docs/SHORT-RANGE.md</c>,
     /// "Why 150 km failed".</para>
     ///
     /// <para><b>Off, and unflown.</b></para>

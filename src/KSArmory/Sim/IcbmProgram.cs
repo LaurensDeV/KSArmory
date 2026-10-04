@@ -974,9 +974,13 @@ internal sealed class IcbmProgram
     /// <summary>How fast the thrust line may turn under <see cref="IcbmConfig.ShortShotSlowsLineSeconds"/>.</summary>
     public const double SlowLineDegPerSec = 5.0;
 
+    // Only on an arc that stays under the release altitude, like the in-air finish it was built for: a
+    // higher arc pauses and relights, the relight's first frame is solved on the line slowed through the
+    // coast, and it cuts off at once. Flown, 700 km cut off 73 m/s short and 1,000 km landed 1.0 km out
+    // against millimetres with the line followed.
     private bool SlowsTheLine(in IcbmState state)
         => Config.ShortShotSlowsLineSeconds > 0.0 && Config.FlyAnyRange && _shortShot
-           && Phase == IcbmPhase.ClosedLoop && state.RunningStageCanStop;
+           && Phase == IcbmPhase.ClosedLoop && state.RunningStageCanStop && StaysUnderTheReleaseAltitude(state);
 
     /// <summary>How close to cutoff <see cref="IcbmConfig.ShortShotSolvesWithDrag"/> starts flying arcs.</summary>
     public const double DragSolveWithinSeconds = 20.0;
