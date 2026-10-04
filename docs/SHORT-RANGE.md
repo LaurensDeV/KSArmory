@@ -231,28 +231,43 @@ normal shot: the release probe predicted 0.17 m, each warhead's kick cancelled t
 warhead read 0.000 m. That is the flat-ground floor long shots have had since 2026-09-17 (`ACCURACY-PLAN.md`
 3el–3en).
 
-**Why 150 km failed** (`~/shots/2026-10-04-anyrange7/150.KSArmory.log`). There were two faults, one after the
-other:
+**Why 150 km failed**, and why it is not about 150 km. The staging probe (`d32f7eb`) and nine flights on that
+build (`~/shots/2026-10-04-probe/`, FlyAnyRange on and nothing else) settled it:
 
-- **The core tumbled at its floor.** The closed loop took over at 23 km with 668 m/s to gain. The core started
-  turning, paused in thick air, and turned at 16°/s under RCS alone for 40 s; RCS could not stop it. While the
-  engine is off, `IcbmComputer` drives the throttle to full, so the relight came back at 0.87 throttle and
-  17.7 g. That stopped the spin: under 1°/s at 0.31 throttle. Then the program dropped to its 11.6% floor to
-  wait for the turn. Within three seconds the stack was turning at 62°/s, and later at up to 103°/s. The
-  program asked for the floor for the next 48 s and never got pointed. The core burned about 3,400 m/s of its
-  stage at the floor and gained 540 of the 668 m/s.
-- **The upper did not light.** The computer staged when the core ran dry. The dry core came off, but what was
-  left was 31.6 t with no thrust and 0 m/s of stage delta-v. Every other flight that staged in the loop lit the
-  upper at 31.8 t and about 8,700 m/s within half a second. The next sequence would separate the bus, so the
-  computer refused it, and the burn ended 128 m/s short at 32 km. The log does not say why the upper stayed
-  dark. KSA has no ullage rule, the vehicle count did not change, and `EngineOn` was held every frame. The
-  missing 0.2 t is the only lead.
+| # | range | result | spin at core separation | upper engine |
+| --- | --- | --- | --- | --- |
+| 1 | 150 km | **failed**, 109 m/s short | 78°/s | **knocked off** 0.12 s after |
+| 2 | 200 km | 28 m | 109°/s | kept |
+| 3 | 300 km | 1.39 km | core finished the burn | — |
+| 4 | 150 km | 167 m | 75°/s | kept |
+| 5 | 418 km | 1.12 km | core finished the burn | — |
+| 6 | 200 km | **failed**, 68 m/s short | 82°/s | **knocked off** 0.17 s after |
+| 7 | 500 km | 6 m | 93°/s | kept |
+| 8 | 150 km | 107 m | 71°/s | kept |
+| 9 | 25 km | 140 m | 88°/s | kept |
 
-So "burn at the floor rather than off" (rule 3) holds a gimballed stack only while it is roughly pointed. At
-the floor, a large slew drove it into a spin it never recovered from. Two changes would want a flag and a
-flight: relight at the floor rather than at full, and give up waiting to turn once the rates pass some bound.
-Why the upper stayed dark needs instrumentation first: log each engine's state and each tank's contents at
-staging.
+- **The stack spins up at the floor, every time the core is dropped.** Near cutoff the countdown ramp
+  (`IcbmProgram`, `_countdown / ThrottleDownSeconds`) takes the core to its 11.6% floor with about 16 m/s still
+  to gain, and steering is held only below about 3.5 m/s there. Every guidance pass points along what is left to
+  gain, and at the floor the stack's own thrust moves that faster than the stack can turn. It flips (a 100°
+  slew), and from then on the wait-to-turn holds the engine lit at the floor while pointing up to 90° off. That
+  keeps the target moving for the rest of the core. Flown at 150 km: under 1°/s at 0.31 throttle, then 62°/s
+  three seconds into the floor, 40-112°/s for 47 s. The TVC is not short of authority, which is about 25-45°/s²
+  at the floor. It used about 10°/s² throughout, following a target that kept moving.
+- **A spinning separation can break the upper's engine off.** KSA fails a part on contact pressure and removes
+  it without a log line or a change in vehicle count. Here the part is the LR91 Vac (`EngineA3`, 200 kg) whose
+  nozzle sits inside the interstage. Without it the stage has nothing to light, and the computer will not stage
+  past the bus, so the burn ends short with the warheads held and the bus rides them into the ground. Two of
+  seven spinning separations lost it, at 82 and 101°/s, while 109°/s once kept it. It is a collision, not a rate
+  threshold.
+- **Before the pause, the same runaway** left about 17°/s on the stack going into the pause, which RCS alone
+  (about 0.1°/s²) could not stop in 40 s. The relight at 0.87 throttle stopped it, overshooting to about
+  84°/s first.
+
+So rule 3's "burn at the floor rather than off" holds a gimballed stack only while it is pointed. The fix is to
+stop chasing near cutoff: hold the direction once what is left is within about a second of floor thrust. A
+rate limit on staging cannot help, because a dry core has no TVC left. Neither can relighting at the floor,
+because the full-throttle relight is what stopped the earlier spin.
 
 **In the rig**, five stacks (the game's, an all-solid three-stage, the SRBs alone, a liquid pair, a 25 MN core
 with a 40% floor), 25–5,000 km: every stack cuts off at every range it can reach, 0.0–3.1 km out, bar two at about
