@@ -996,10 +996,13 @@ internal sealed class IcbmProgram
 
     // Not for a solid that is absorbing what it cannot help adding: there the flight time is re-picked
     // whenever the aim moves, so moving the aim does not move the landing one for one.
+    // Nor on an arc that climbs above the release altitude: released there, the aim correction after
+    // cutoff answers drag, and an offset baked into the burn is only trim spent taking it back out.
     private bool SolvesWithDrag(in IcbmState state)
         => Config.ShortShotSolvesWithDrag && Config.FlyAnyRange && _shortShot && !_paused
            && Phase == IcbmPhase.ClosedLoop && !(_unavoidable > 0.0)
-           && state.DensityRatioAt is not null && state.Warhead is not null;
+           && state.DensityRatioAt is not null && state.Warhead is not null
+           && StaysUnderTheReleaseAltitude(state);
 
     // A point moved east and north on the ground, kept at its own radius.
     private static double3 Offset(double3 aimCci, double east, double north, BallisticBody body)
@@ -1354,6 +1357,17 @@ internal sealed class IcbmProgram
     private bool StaysUnderTheReleaseAltitude(in IcbmState state)
         => Arc is { } arc && arc.ApogeeRadius - state.Body.SurfaceRadius < Config.DeployAltitudeMetres;
 
+    // Finished in the air on an arc that climbs above the release altitude, the shot drops the stack and
+    // releases above the air as a long shot does, where the trim and the per-warhead kicks are what give
+    // millimetres: released at once instead, from a stack still turning, 700 km landed 0.80 km out
+    // against 2.2 mm.
+    private bool ReleasesWhereItCutsOff(in IcbmState state)
+    {
+        bool staysUnder = StaysUnderTheReleaseAltitude(state);
+        if (Config.ShortShotFinishesInTheAir) return staysUnder;
+        return state.AirDensityRatio >= Medium.NoticeableDensity || staysUnder;
+    }
+
     // What the running stage will add whether it is told to stop or not: all of what a solid motor
     // has left. The arc is lofted until it needs at least that, which is the only thing that can be
     // done with velocity that cannot be refused. A stage that can stop is never absorbed: it is cut
@@ -1452,7 +1466,7 @@ internal sealed class IcbmProgram
 
         if (ShouldCutOff(state))
         {
-            _releasesAtCutoff = _shortShot && (state.AirDensityRatio >= Medium.NoticeableDensity || StaysUnderTheReleaseAltitude(state));
+            _releasesAtCutoff = _shortShot && ReleasesWhereItCutsOff(state);
 
             // Recorded here rather than in Coasting, which clears it. What was left when the
             // engines stopped is the whole story of a shot that lands short on an otherwise

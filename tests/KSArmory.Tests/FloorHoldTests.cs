@@ -79,6 +79,8 @@ public class FloorHoldTests(ITestOutputHelper Out)
     }
 
     // Cut off in the air on a vacuum arc, a shot falls short by the drag; solved with it, it does not.
+    // Only where the arc stays under the release altitude and the warheads leave at cutoff: above it they
+    // are released as a long shot's are, which the rig does not fly.
     [Fact]
     public void AShotFinishedInTheAirLandsWhenItsArcIsSolvedWithDrag()
     {
@@ -86,7 +88,7 @@ public class FloorHoldTests(ITestOutputHelper Out)
         int spun = 0;
 
         foreach (double step in new[] { 0.02, 0.025 })
-        foreach (double km in Ranges)
+        foreach (double km in new[] { 150.0, 200.0, 300.0, 418.0 })
         {
             Outcome vacuum = Fly(km, 0.5, step, 0.5, finishInTheAir: true);
             Outcome drag = Fly(km, 0.5, step, 0.5, finishInTheAir: true, solveWithDrag: true);
