@@ -176,45 +176,68 @@ cutoff on the countdown at 120 km 0.09 m/s short, release ~25 s later with 1:24 
 within **21.9 m**, arriving at 73.8°. One flight: the mechanism, not the accuracy. The rig said 479 m/s at
 handover, so the game still overshoots more than the rig does.
 
-### Any range, any stack — `IcbmConfig.FlyAnyRange`, built in the rig 2026-10-03, off, unflown
+### Any range, any stack — `IcbmConfig.FlyAnyRange`, off, flown 2026-10-04
 
-A refusal is not the goal: every shot from the shortest up, on whatever stack is flying it. The physics allows
-it, because the arcs to a fixed target do not top out at one speed — past the cheapest arc there is a lofted
-one for every speed up to escape — so velocity a stack cannot avoid gaining can always be absorbed by steeper
-arcs instead of being braked off. Four mechanisms, all only on shots that enter the short regime:
+A refusal is not the goal: every shot from the shortest up, on whatever stack is flying it. Built and flown
+over one night, each flight's failure becoming the next rule; what stands:
 
 1. **A solid's remaining delta-v is a floor on the velocity to gain** (`BallisticArc.TryCheapest`'s
-   `minToGain`): the solver takes the cheapest arc that needs at least that, lofted. A solid then steers itself
-   onto the arc it can actually fly, and the program cuts off at its burnout when what is left is inside the bus
-   trim's reach, without lighting the stage above.
-2. **An engine that cannot throttle low enough is lofted against its floor** — the reserve times its
-   minimum-throttle acceleration — so it burns gently into thin air instead of eating the reserve. While being
-   lofted the pitch is held at or above the arc's own climb (eight degrees of attack cannot lift a sagging path at
-   1.2 g), and the angle of attack allowed grows as q falls (8° at 10 kPa, more below).
-3. **The closed loop takes over at the top of a climb that stays inside the air**, because no thin air is
-   coming and only the closed loop can cut off.
-4. **An engine that can stop waits for the vehicle to turn before burning** (`IcbmState.ThrustAxisCci`),
-   because a short burn is over before a slow vehicle has come round and pushing the wrong way meanwhile moves
-   what is left to gain until the stage is dry. Engine off, not throttle down: a floor still pushes.
+   `minToGain`), read off KSA's staging display for the running stage alone (`RunningStageDeltaV`; the booster's
+   figure puts the whole stack's propellant behind the SRBs and lofted the first flight for 5 km/s). Past the
+   cheapest arc the need climbs with the flight time to escape, so the solver takes the lofted arc the solid can
+   actually fly, the pitch is held at or above that arc's climb, and the program cuts off at the solid's burnout
+   when what is left is inside the bus trim's reach.
+2. **A stage that can stop is cut off when the shot is complete, wherever that is**, never held back or
+   absorbed: it hands over to the closed loop once within the reserve (15 s) of finishing. Waiting for thin air
+   instead is what overshot — the schedule cannot cut off, a floor still pushes, and in thick air the stack
+   cannot point where a lofted arc wants it — and what flew 200 and 418 km into the upper stage burning back.
+3. **Done in thick air, it pauses and coasts out**, the loop still solving, and relights in thin air or at the
+   top of the climb, so the cutoff that counts is made where the vacuum arc is true. Where the airflow will not let
+   it point usefully it waits while climbing and stops once the climb is over; while it waits to turn it burns at
+   its floor rather than off, because a stack that steers by gimballing its engines has nothing else (flown at
+   200 km, one tumbled into the sea with the engine held off until it was pointed).
+4. **A short shot steers at any angle of attack** — KSA's drag has no turning moment and structural failure is
+   g-load alone, so in this build an angle costs drag and nothing else (`docs/BLOCKED-ON-KSA.md`) — and **pins its
+   arrival the moment the closed loop takes it**: left free, the cheapest arc from a point on a lofted one is a
+   lower one, and the velocity to gain swung round to point backwards through a pause.
+5. **Release.** A short shot drops the spent stack at cutoff (`IcbmConfig.SeparateAtCutoff` does the same for any
+   shot, off). One that cuts off in the air, or whose arc stays under `DeployAltitudeMetres`, releases at cutoff,
+   at once, from the bus still on the stack — no trim, no post-boost hold, no wait to settle. Each of those was a
+   flown failure: the stack coasting through air with the warheads aboard (13.7 km), separating then releasing
+   beside it (a 2.2 / 10 km split), a release gate that opened on the descent (10 km), a 53 s wait for a stack
+   with no engine to stop sweeping its tubes (8.9 km).
 
-**In the rig**, five stacks from the same pad (the game's, an all-solid three-stage, the SRBs alone, a liquid
-pair, a 25 MN liquid core with a 40% floor), 25–5,000 km: **45 of 47 cut off normally.** Cutting off in thin air
-they land 0.0–0.9 km out. The misses over a kilometre are solids burning out low — 2.1 km at 100 km on the
-game's stack, 3.7 km at 200 km all-solid, 2.4–5.6 km for the SRBs alone at 1,000–2,000 km — and they are drag
-on a coast the vacuum arcs do not see. The two failures: the game's stack at 200 km never cuts off, and the
-SRBs alone cannot reach 5,000 km. `AscentReserveGoldenTests` holds every long fixture bit-equal with it on.
+**Flown, `SOLVER SCALE 1`, one flight per range on the build named** (mechanisms, not accuracy; a group's spread
+is metres, the miss is the shot):
 
-**What it took to get there is the open problem.** The state machine is rules layered on the vacuum design, and
-each rule moved a failure somewhere else: coasting a stoppable stage instead of lofting it fixed nothing and
-broke the game's stack at 150–418 km; gating the engine on the velocity to gain instead of the command left
-vehicles waiting for ever in thick air. Every remaining failure and every miss over a kilometre is the same
-regime — a stack steering or coasting through dense air at low speed — and the honest next step is a guidance
-that models it rather than another rule: the coast predicted with the stack's own drag (`DragShape` already
-mirrors the engine's), and the aim corrected against that prediction where today `DepartureIsWorthObserving`
-refuses to look (M3).
+| range | stock code | night's last build | how it ended |
+| --- | --- | --- | --- |
+| 25 km | — | **56 m** (`a8dce5a`) | SRBs to 35 km, closed loop finished at 55 km, released at once |
+| 50 km | — | **0.11 km** (`ee963f9`) | SRBs alone, closed loop finished it, released at cutoff |
+| 100 km | — | **0.21 km** (`ee963f9`) | core finished it at 16 km on the way down, released there |
+| 150 km | — | **failed** (`a8dce5a`) | burn ended 128 m/s short at 32 km; warheads held. Not yet diagnosed |
+| 200 km | — | **42 m** (`f3ea4a1`), **1.6 km** (`e85e940`) | the 1.6 km is the drag the prediction named at cutoff |
+| 300 km | — | 8.9 km, 2 m group (`e85e940`); **1.19 km** (`a8dce5a`) | the first waited 53 s to settle; released at once, it beat its own 1.43 km prediction |
+| 418 km | **burned dry 119 and 61 m/s short** | **0.75 km** (`e85e940`) | arc under the release altitude, released at cutoff |
+| 500 km | — | **7 m** (`e85e940`) | climbed above release altitude, normal release |
+| 700 km | — | landed (`e85e940`) | score reads under a metre: see below |
+| 1,000 km | **4.9 m** | landed (`ee963f9`) | score reads under a metre: see below |
+| 2,000 km | — | landed, no short-shot path engaged (`ee963f9`) | score reads under a metre |
 
-**Not wired in game.** `Ksa/IcbmComputer.cs` does not yet fill `RunningStageCanStop`, `MinThrottle` or
-`ThrustAxisCci`, so in game a solid reads as an engine that stops and mechanisms 1, 2 and 4 cannot act.
+**A score of a millimetre is not a score.** At 700, 1,000 and 2,000 km the scenario reported every warhead
+within a few millimetres; it moves `AA Defence Site` to within 250 m of the aim point, and the warheads striking it
+appear to snap the measurement. Read those three as "landed at the target", accuracy unmeasured, until the harness
+scores against the aim point and not the structure.
+
+**In the rig**, five stacks (the game's, an all-solid three-stage, the SRBs alone, a liquid pair, a 25 MN core
+with a 40% floor), 25–5,000 km: every stack cuts off at every range it can reach, 0.0–3.1 km out, bar two at about
+5 km (all-solid 200 km, SRBs alone 2,000 km). The rig cannot start a tumble, so it did not reproduce two of the
+night's flown failures. `AscentReserveGoldenTests` holds every long fixture bit-equal with it on.
+
+**Still open.** Correcting the aim from inside the air was tried and is not in: worse for liquids, mixed for
+solids. The core still spends propellant at its floor while turning (200 km used most of the core that way), and
+in-air cutoffs leave the drag the prediction already names — 1.6 km at 200 km against a prediction of 1.63. A
+drag-aware arc, solved rather than corrected after, is the lever for both.
 
 ### Step 3 — honest refusal, reported in flight
 
