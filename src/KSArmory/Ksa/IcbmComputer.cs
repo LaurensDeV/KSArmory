@@ -127,6 +127,7 @@ internal sealed class IcbmComputer
     private readonly Diagnostics.PartWatch _partWatch = new();
     private readonly List<string> _lostParts = [];
     private double _sinceStaging = double.NaN;
+    private bool _saidLineSlowed;
     private int _stagingProbe;
 
     // The session's own settings, as opposed to this installation's. Only the disposal switch is
@@ -1029,8 +1030,16 @@ internal sealed class IcbmComputer
                           + $"mass {booster.TotalMassKg / 1000.0:F1} t) | stage dv {RunningStageDeltaV():F0} m/s, "
                           + $"{(KsaWorld.RunningEnginesCanStop(Craft) ? "can stop" : "solid")} | "
                           + $"to gain {Program.VelocityToGain:F2} m/s, countdown {Program.Countdown:F3} s, "
-                          + $"held below {Program.HoldDirectionBelowNow:F2} m/s");
+                          + $"held below {Program.HoldDirectionBelowNow:F2} m/s"
+                          + (Program.LineSlowed ? ", line slowed" : ""));
             }
+            if (Program.LineSlowed && !_saidLineSlowed)
+            {
+                _saidLineSlowed = true;
+                Log.Info($"{KsaWorld.DisplayName(Craft)} ICBM: slowing the thrust line with "
+                         + $"{Program.VelocityToGain:F1} m/s to gain, turning {Diagnostics.SpinDegPerSec(Craft):F1} deg/s");
+            }
+
             VehicleCommand.SetEngine(Craft, running: true);
 
             // Never past the launcher. A stage runs dry with the engines still commanded on and

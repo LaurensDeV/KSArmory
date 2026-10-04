@@ -494,6 +494,9 @@ internal sealed class IcbmProgram
     /// <summary>Below this velocity to gain the steering direction is held, as of the last solve.</summary>
     public double HoldDirectionBelowNow { get; private set; } = double.NaN;
 
+    /// <summary>Whether the last solve turned the line at a bounded rate (<see cref="IcbmConfig.ShortShotSlowsLineSeconds"/>).</summary>
+    public bool LineSlowed { get; private set; }
+
     /// <summary>
     /// What was still to gain the instant the engines stopped — the number that says whether a
     /// shot's error is the burn or the aim. NaN until a burn has ended.
@@ -641,6 +644,7 @@ internal sealed class IcbmProgram
         _sinceSolve = double.PositiveInfinity;
         _countdown = double.PositiveInfinity;
         HoldDirectionBelowNow = double.NaN;
+        LineSlowed = false;
         _toGain = 0.0;
         _thrustDirCci = Vec.Zero;
         _stageCooldown = 0.0;
@@ -1037,6 +1041,8 @@ internal sealed class IcbmProgram
                       && _toGain < state.Booster.AccelerationNow
                                    * Math.Clamp(state.ThrottleAchieved, state.MinThrottle, 1.0)
                                    * Config.ShortShotSlowsLineSeconds;
+
+        LineSlowed = slewed;
 
         if (slewed)
         {
