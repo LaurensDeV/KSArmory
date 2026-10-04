@@ -319,6 +319,11 @@ trap cleanup EXIT
 DEADLINE=$(( SECONDS + DEADLINE_SECONDS ))
 VERDICT=""
 SEEN=""
+# A game that exits writes no verdict, so the wait would run to the deadline. Asked every ~10 s,
+# and only once the game has been seen running, so a slow start is not read as an exit.
+GAME_SEEN=0
+GAME_GONE=0
+NEXT_GAME_CHECK=$SECONDS
 
 while (( SECONDS < DEADLINE )); do
     [[ -f "$LOG" ]] || { sleep 2; continue; }
@@ -354,6 +359,17 @@ while (( SECONDS < DEADLINE )); do
     done < "$LOG"
 
     [[ -n "$VERDICT" ]] && break
+
+    if (( SECONDS >= NEXT_GAME_CHECK )); then
+        NEXT_GAME_CHECK=$(( SECONDS + 10 ))
+        if tasklist.exe 2>/dev/null | grep -q StarMap; then
+            GAME_SEEN=1
+            GAME_GONE=0
+        elif (( GAME_SEEN )); then
+            GAME_GONE=$(( GAME_GONE + 1 ))
+            (( GAME_GONE >= 2 )) && { VERDICT=EXITED; break; }
+        fi
+    fi
     sleep 2
 done
 
@@ -366,6 +382,8 @@ fi
 echo
 case "$VERDICT" in
     PASS) echo "scenario '$SCENARIO': PASS" ;;
+    EXITED) echo "scenario '$SCENARIO': FAIL -- the game exited before a verdict" >&2
+          exit 1 ;;
     "")   echo "scenario '$SCENARIO': no verdict within $(( DEADLINE_SECONDS / 60 )) minutes" >&2
           echo "  the game may still be on StarMap's configuration dialog -- it needs START KSA clicked" >&2
           exit 1 ;;
