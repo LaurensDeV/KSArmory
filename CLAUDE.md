@@ -77,6 +77,60 @@ not a loss.
 What stays is the *invariant* and its consequence — the ordering that looks arbitrary, the
 measured number, the engine contract. What goes is how anyone came to know it.
 
+### Writing them: the default is no comment
+
+**Before writing a comment, name the fact it carries that the code does not.** If that fact
+cannot be said in one clause — an engine contract, a measured number, a constraint from
+elsewhere, an ordering that is not arbitrary, an approach that was tried and lost — there is
+no comment to write. Most new lines get none.
+
+**A comment describes the code, never the edit.** "Now reads the air alone", "changed to
+midpoint", "new:", "fix for the short shot" are all the diff talking. What changed and why
+goes in the commit body and in the reply to the user; the comment says only what is true of
+the line as it stands.
+
+**Rename before commenting.** If a comment explains what a name means, the name is wrong.
+Fix the name and drop the comment.
+
+**Two lines at the site, the rest in `docs/`.** A comment that wants a third line is a doc
+paragraph with a one-line pointer. Do not put the derivation, the alternatives or the
+measurement table in the source.
+
+**A number carries its unit and what it was measured on.** "0.2 m, flown at 23 km" is a
+fact; "about 0.2" is not, and neither is a rig number written as though it were flown.
+
+**None of these, ever:**
+- an XML `<summary>` that restates the member's name or signature
+- section banners and dividers
+- commented-out code
+- a `TODO` with no condition that would close it
+- a comment addressed to the reviewer ("note that", "as requested", "see above")
+
+**In a test, the name says what is asserted.** A comment is for why the fixture is shaped as
+it is — the platform advanced before the update, the step varied — because that is what a
+later reader "simplifies" away.
+
+### Reading and editing them
+
+**A comment is a claim, not evidence.** Check it against the code before reasoning from it,
+and never copy a claim from one comment into another, or into a doc, without having verified
+it.
+
+**Changing a line means re-reading the comments around it.** One the change makes untrue is
+fixed or deleted in the same edit. That includes the method's doc comment and any `docs/`
+line the comment points to.
+
+**Trim a long comment to its invariant; do not delete the invariant with it.** A verbose
+comment usually has one sentence worth keeping. Find it before cutting.
+
+**Clean up over-commented code when you meet it.** In any file a task reaches, trim or delete
+comments that restate the code, narrate history or run to paragraphs, whether or not the
+task is about them. Keep the invariant; move reasoning worth keeping to `docs/` with a
+pointer.
+
+**In a commit of its own.** A comment cleanup is `style`, separate from the `fix` or `feat`
+it rode in with, so the behaviour diff stays readable and the cleanup can be reverted alone.
+
 ## Committing
 
 **Every commit message must be a [Conventional Commit](https://www.conventionalcommits.org/).**
