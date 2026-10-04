@@ -288,7 +288,15 @@ What did not work, in the rig:
 
 What it does not reach: at 150 km the first closed-loop pass turns the line 13° from the pitch programme's.
 The stack is still turning at about 20°/s when the burn finishes in thick air and pauses, and RCS cannot
-stop it, so it relights 136° off and spins again. Those are the 4 of 40.
+stop it, so it relights 136° off and spins again.
+
+**Not ready: most of the rig's 4 of 40 is an artefact.** `Update` solves before `ClosedLoop` unpauses, so a
+relight's first frame is solved on the line slowed through the coast, and its countdown is cut off on at
+once. Flown twice at 200 km with the flag on (`~/shots/2026-10-04-slowline{,2}/01-on-200`), that left
+30-32 m/s across the line and landed 4.6 km out, against 28 m and 2.1 km off. Making the relight wait for a
+solve of its own puts the rig back at 29 of 40 spinning. Leaving the line free during the pause instead gives
+18 of 40. So slowing the line stops the chase before a pause, and the same chase starts again after the
+relight; nothing here stops that yet.
 
 **In the rig**, five stacks (the game's, an all-solid three-stage, the SRBs alone, a liquid pair, a 25 MN core
 with a 40% floor), 25–5,000 km: every stack cuts off at every range it can reach, 0.0–3.1 km out, bar two at about
