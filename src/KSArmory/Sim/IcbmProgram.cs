@@ -1058,7 +1058,9 @@ internal sealed class IcbmProgram
 
         if (LineSlowed) return command;
 
-        double limit = Math.Max(5_000.0, 0.05 * Vec.Len(state.AimNowCci - state.PositionCci));
+        // A guard against a projection gone wrong, not a bound on what drag can cost: at 150 km the
+        // offset a shot needs is about 7 km, and held at 5% of the distance it stopped 0.7-1.1 km short.
+        double limit = Math.Max(15_000.0, 0.10 * Vec.Len(state.AimNowCci - state.PositionCci));
 
         for (int i = 0; i < DragIterations; i++)
         {
