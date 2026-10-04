@@ -1433,11 +1433,18 @@ internal sealed class IcbmProgram
         bool climbing = Vec.Dot(state.VelocityCci - state.Body.GroundVelocityCci(state.PositionCci), state.UpCci) > 0.0;
         bool thickAir = state.DynamicPressurePa > Config.HandoverPressurePa;
 
+        // Under ShortShotFinishesInTheAir an arc that climbs above the release altitude coasts out until a
+        // cutoff would not release in the air at once. Under HandoverPressurePa alone it can still cut off
+        // where the air counts: flown at 700 km, at 64 km, released from a stack still turning, with kicks
+        // of 0.5-0.66 m/s against a 10 mm/s cap, 0.36 km out; cut off at 98 km the same shot landed 2.2 mm.
+        bool highArc = Config.ShortShotFinishesInTheAir && !StaysUnderTheReleaseAltitude(state);
+        bool inTheAir = thickAir || (highArc && state.AirDensityRatio >= Medium.NoticeableDensity);
+
         // A stage that can stop and has finished the shot in thick air pauses instead of ending: the
         // stack coasts up out of the air with the loop still solving, and the engine lights again in
         // thin air -- or at the top of the climb -- to take out what drag cost on the way. The cutoff
         // that counts is then made where the vacuum arc is true.
-        if (_paused && (!thickAir || !climbing))
+        if (_paused && (!inTheAir || !climbing))
         {
             _paused = false;
             _lineCarriedOver = true;
@@ -1456,7 +1463,7 @@ internal sealed class IcbmProgram
         // long-shot release gives millimetres: released at once in the air instead, 700 km landed 0.80 km
         // out, and coasted on the bus alone through the air to the release altitude, 500 km landed 107 km
         // out with 287 m/s of drag owed to the trim.
-        if (ShouldCutOff(state) && Config.FlyAnyRange && _shortShot && state.RunningStageCanStop && thickAir && climbing
+        if (ShouldCutOff(state) && Config.FlyAnyRange && _shortShot && state.RunningStageCanStop && inTheAir && climbing
             && !(Config.ShortShotFinishesInTheAir && StaysUnderTheReleaseAltitude(state)))
         {
             _paused = true;

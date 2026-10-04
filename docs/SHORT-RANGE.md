@@ -317,7 +317,10 @@ together:
   700 km landed 0.80 km out against 2.2 mm, and 1,000 km 0.98 km out. Coasted on the bus alone through the air
   to the release altitude, 500 km owed the trim 287 m/s of drag and landed 107 km out. The slowed line is held
   to the same arcs: around a pause it makes the relight cut off on the line it slowed through the coast, and
-  flown that left 700 km 73 m/s short and 1,000 km 1.0 km out.
+  flown that left 700 km 73 m/s short and 1,000 km 1.0 km out. And such an arc coasts out until the air is
+  under `Medium.NoticeableDensity`, not merely under `HandoverPressurePa`: between the two a cutoff still releases
+  at once in the air. Flown at 700 km, a cutoff at 64 km released from a stack still turning landed 0.36 km out,
+  against 2.2 mm from a cutoff at 98 km.
 
 In `FloorHoldStudy`, 40 flights at 150-500 km over four frame steps:
 
