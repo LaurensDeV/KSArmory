@@ -751,7 +751,7 @@ internal sealed class IcbmProgram
         // for a few metres a second, through an airflow limit that stops it pointing anywhere useful.
         if (Config.FlyAnyRange && dry && _absorbing && _toGain <= BusTrim.MaxMetresPerSecond)
         {
-            _releasesAtCutoff = state.AirDensityRatio >= Medium.NoticeableDensity;
+            _releasesAtCutoff = state.AirDensityRatio >= Medium.NoticeableDensity || StaysUnderTheReleaseAltitude(state);
             ResidualAtCutoff = _toGain;
             ResidualVectorCci = _toGainVectorCci;
             AccelerationAtCutoff = state.Booster.AccelerationNow;
@@ -1172,6 +1172,12 @@ internal sealed class IcbmProgram
     private double AllowedAngleOfAttackDeg(in IcbmState state)
         => _shortShot ? 180.0 : Config.MaxAngleOfAttackDeg;
 
+    // A coast that never climbs to the release altitude has nowhere to wait for a release: the gate
+    // opens on the way down, inside the air, after a hold the trim may not finish. Flown at 418 km
+    // with an 89 km apogee, that released 44 s before impact and landed 10 km out.
+    private bool StaysUnderTheReleaseAltitude(in IcbmState state)
+        => Arc is { } arc && arc.ApogeeRadius - state.Body.SurfaceRadius < Config.DeployAltitudeMetres;
+
     // What the running stage will add whether it is told to stop or not: all of what a solid motor
     // has left. The arc is lofted until it needs at least that, which is the only thing that can be
     // done with velocity that cannot be refused. A stage that can stop is never absorbed: it is cut
@@ -1267,7 +1273,7 @@ internal sealed class IcbmProgram
 
         if (ShouldCutOff(state))
         {
-            _releasesAtCutoff = _shortShot && state.AirDensityRatio >= Medium.NoticeableDensity;
+            _releasesAtCutoff = _shortShot && (state.AirDensityRatio >= Medium.NoticeableDensity || StaysUnderTheReleaseAltitude(state));
 
             // Recorded here rather than in Coasting, which clears it. What was left when the
             // engines stopped is the whole story of a shot that lands short on an otherwise
@@ -1302,7 +1308,7 @@ internal sealed class IcbmProgram
 
             if (!usable && (!climbing || _toGain <= BusTrim.MaxMetresPerSecond))
             {
-                _releasesAtCutoff = state.AirDensityRatio >= Medium.NoticeableDensity;
+                _releasesAtCutoff = state.AirDensityRatio >= Medium.NoticeableDensity || StaysUnderTheReleaseAltitude(state);
                 ResidualAtCutoff = _toGain;
                 ResidualVectorCci = _toGainVectorCci;
                 AccelerationAtCutoff = state.Booster.AccelerationNow;

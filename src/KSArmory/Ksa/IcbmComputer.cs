@@ -902,8 +902,15 @@ internal sealed class IcbmComputer
         // thing that could compensate for it; letting a round go on the same frame the split is
         // asked for sends one warhead on the attached stack's solution and the rest on the shoved
         // bus's. Measured in flight as a 163 m outlier inside a 3.6 km group.
-        bool burnOver = Program.Phase == IcbmPhase.Coast && (Config.SeparateAtCutoff || Program.IsShortShot);
-        if (Command.ReadyToDeploy || burnOver) SeparateOnce(release);
+        //
+        // A shot that releases at cutoff does not separate at all: its warheads leave the bus while it
+        // is still on the stack, which is heavier and steadier than a bus just shoved off it, with no
+        // trim to null the shove and no clearance to wait for. Flown at 300 km, separating first put
+        // two warheads at 2.2 km and the four released after the split at 10.
+        bool atCutoff = Program.ReleasesAtCutoff;
+        bool burnOver = Program.Phase == IcbmPhase.Coast && !atCutoff
+                        && (Config.SeparateAtCutoff || Program.IsShortShot);
+        if ((Command.ReadyToDeploy && !atCutoff) || burnOver) SeparateOnce(release);
 
         DriveTrim(simStep, state, release);
 
