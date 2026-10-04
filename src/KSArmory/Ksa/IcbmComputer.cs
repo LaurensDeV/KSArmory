@@ -119,6 +119,16 @@ internal sealed class IcbmComputer
     private readonly List<Vehicle> _afterStage = [];
     private bool _awaitingStage;
 
+    // The craft's engines and parts read either side of every staging, and any part it loses outside
+    // one. A part KSA destroys by contact leaves no line anywhere else, and a stage that lit reads
+    // exactly like one whose engine was knocked off until the next stage is asked for.
+    private static readonly double[] StagingProbeAt = [0.0, 0.25, 1.0, 2.0];
+    private const double StagingWindowSeconds = 2.5;
+    private readonly Diagnostics.PartWatch _partWatch = new();
+    private readonly List<string> _lostParts = [];
+    private double _sinceStaging = double.NaN;
+    private int _stagingProbe;
+
     // The session's own settings, as opposed to this installation's. Only the disposal switch is
     // read from it: what a stage costs the frame is a property of the world, not of one shot.
     private readonly Config _session;
@@ -804,6 +814,7 @@ internal sealed class IcbmComputer
         }
 
         IcbmState state = Sample(playerStep, out bool usable);
+        StepStagingProbe(simStep);
 
         // After Sample, which is what writes Parent, Body and the aim in this frame's coordinates,
         // and before Release below - so a warhead let go this frame is picked up with its clock at
@@ -1016,7 +1027,9 @@ internal sealed class IcbmComputer
                           + $"load {load.PeakGLoad:F2} of {load.MaxGLoad:F1} g"
                           + $" (thrust {booster.ThrustNewtons / 1000.0:F0} kN, "
                           + $"mass {booster.TotalMassKg / 1000.0:F1} t) | stage dv {RunningStageDeltaV():F0} m/s, "
-                          + $"{(KsaWorld.RunningEnginesCanStop(Craft) ? "can stop" : "solid")}");
+                          + $"{(KsaWorld.RunningEnginesCanStop(Craft) ? "can stop" : "solid")} | "
+                          + $"to gain {Program.VelocityToGain:F2} m/s, countdown {Program.Countdown:F3} s, "
+                          + $"held below {Program.HoldDirectionBelowNow:F2} m/s");
             }
             VehicleCommand.SetEngine(Craft, running: true);
 
@@ -1036,6 +1049,12 @@ internal sealed class IcbmComputer
                     KsaWorld.CollectVehicles(_wasBeforeStage);
                     _awaitingStage = true;
 
+                    Log.Info($"staging probe on {KsaWorld.DisplayName(Craft)}: before -- "
+                             + $"{Diagnostics.DescribeEngines(Craft)}, turning "
+                             + $"{Diagnostics.SpinDegPerSec(Craft):F1} deg/s");
+                    _sinceStaging = 0.0;
+                    _stagingProbe = 0;
+
                     AttitudeHook.Stage(Craft);
                 }
                 else if (!_saidRefusedStage)
@@ -1044,7 +1063,8 @@ internal sealed class IcbmComputer
                     // pad it is the launch not happening rather than a stage going unspent.
                     _saidRefusedStage = true;
                     Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)} wants a stage and will "
-                             + "not fire one that separates its own launcher; stage it by hand");
+                             + "not fire one that separates its own launcher; stage it by hand -- "
+                             + Diagnostics.DescribeEngines(Craft));
                 }
             }
         }
@@ -1380,6 +1400,43 @@ internal sealed class IcbmComputer
             Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)} separating the launcher "
                      + "from the stack before deploying");
         }
+    }
+
+    private void StepStagingProbe(double simStep)
+    {
+        if (!KsaWorld.IsAlive(Craft)) return;
+
+        bool inWindow = double.IsFinite(_sinceStaging);
+        if (inWindow) _sinceStaging += simStep;
+
+        if (_partWatch.TryLost(Craft, _lostParts))
+        {
+            string when = inWindow && _sinceStaging <= StagingWindowSeconds
+                              ? $"{_sinceStaging:F2} s after a staging"
+                              : "outside any staging";
+
+            Log.Info($"{KsaWorld.DisplayName(Craft)} lost {_lostParts.Count} part(s) {when}, turning "
+                     + $"{Diagnostics.SpinDegPerSec(Craft):F1} deg/s: {string.Join(", ", _lostParts)}");
+        }
+
+        if (!inWindow) return;
+
+        if (_stagingProbe < StagingProbeAt.Length && _sinceStaging >= StagingProbeAt[_stagingProbe])
+        {
+            Log.Info($"staging probe on {KsaWorld.DisplayName(Craft)}: +{_sinceStaging:F2} s -- "
+                     + $"{Diagnostics.DescribeEngines(Craft)}, turning "
+                     + $"{Diagnostics.SpinDegPerSec(Craft):F1} deg/s");
+
+            // Once, at a second: by then a stage that lit has thrust, and a dropped stage has gone.
+            if (StagingProbeAt[_stagingProbe] == 1.0 && Diagnostics.EngineCount(Craft) == 0)
+            {
+                Log.Info($"staging left no engine on {KsaWorld.DisplayName(Craft)}");
+            }
+
+            _stagingProbe++;
+        }
+
+        if (_sinceStaging > StagingWindowSeconds) _sinceStaging = double.NaN;
     }
 
     // What came off at the last staging, by the same difference WhatWasDropped uses. Run one frame

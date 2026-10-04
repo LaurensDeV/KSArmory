@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-295 types and 788 members across 11 assemblies.
+296 types and 797 members across 11 assemblies.
 
 ## BepuUtilities
 
@@ -848,8 +848,11 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.EngineController
 
+- `KSA.RocketControllerData VacuumData`
 - `KSA.RocketCore[] Cores`
 - `bool get_IsActive()`
+- `float MinimumThrottle`
+- `int get_Sequence()`
 
 ### KSA.ExplosionContext
 
@@ -1233,7 +1236,9 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `bool RayCastEgo(ref Brutal.Numerics.double4x4, KSA.Ray, ref double, ref double, ref Brutal.Numerics.double3, ref Brutal.Numerics.double3, ref Brutal.Numerics.double3, ref Brutal.Numerics.double3, ref KSA.Part, ref KSA.Part)`
 - `bool get_IsAttachedInternal()`
 - `double get_CrashTolerancePascals()`
+- `float ComputeSubtreeInertMass()`
 - `string get_Id()`
+- `uint InstanceId`
 - `void ResetCachedPosMatrixValues()`
 - `void SetInertMassPropertiesAsmb(ref KSA.OffsetMassProperties)`
 - `void set_Asmb2ParentAsmb(Brutal.Numerics.doubleQuat)`
@@ -1314,6 +1319,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `System.ReadOnlySpan`1<KSA.ISubstanceStore> get_SubstanceStores()`
 - `System.ReadOnlySpan`1<KSA.Part> get_Parts()`
 - `VehicleDents Dents`
+- `float get_EngineThrottleMin()`
 - `int get_Count()`
 - `void EnsureDerived(KSA.DerivedData)`
 - `void RecomputeAllDerivedData()`
@@ -1524,6 +1530,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.DensityReference Density`
 - `KSA.DistanceReference Level`
 
+### KSA.RocketControllerData
+
+- `Brutal.Numerics.float3 ThrustMax`
+
 ### KSA.RocketCore
 
 *referenced as a type only*
@@ -1540,6 +1550,8 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.SequenceList
 
 - `System.ReadOnlySpan`1<KSA.Sequence> get_Sequences()`
+- `int GetNextSequenceNumber()`
+- `int get_ActiveSequence()`
 - `void ActivateNextSequence(KSA.Vehicle)`
 
 ### KSA.SequencePerformanceList

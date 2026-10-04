@@ -488,6 +488,12 @@ internal sealed class IcbmProgram
     /// <summary>Velocity still to gain at the last solve. Zero once the burn is over.</summary>
     public double VelocityToGain => _toGain;
 
+    /// <summary>Seconds of full-throttle burn left on the cutoff countdown; infinite when none is running.</summary>
+    public double Countdown => _countdown;
+
+    /// <summary>Below this velocity to gain the steering direction is held, as of the last solve.</summary>
+    public double HoldDirectionBelowNow { get; private set; } = double.NaN;
+
     /// <summary>
     /// What was still to gain the instant the engines stopped — the number that says whether a
     /// shot's error is the burn or the aim. NaN until a burn has ended.
@@ -634,6 +640,7 @@ internal sealed class IcbmProgram
         _flightSeed = double.NaN;
         _sinceSolve = double.PositiveInfinity;
         _countdown = double.PositiveInfinity;
+        HoldDirectionBelowNow = double.NaN;
         _toGain = 0.0;
         _thrustDirCci = Vec.Zero;
         _stageCooldown = 0.0;
@@ -1013,6 +1020,7 @@ internal sealed class IcbmProgram
         _lowestToGain = Math.Min(_lowestToGain, _toGain);
 
         double holdBelow = HoldDirectionThreshold(state);
+        HoldDirectionBelowNow = holdBelow;
 
         if (_toGain > holdBelow || _thrustDirCci.Equals(Vec.Zero))
         {
