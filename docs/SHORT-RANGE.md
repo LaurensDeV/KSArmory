@@ -296,7 +296,41 @@ once. Flown twice at 200 km with the flag on (`~/shots/2026-10-04-slowline{,2}/0
 30-32 m/s across the line and landed 4.6 km out, against 28 m and 2.1 km off. Making the relight wait for a
 solve of its own puts the rig back at 29 of 40 spinning. Leaving the line free during the pause instead gives
 18 of 40. So slowing the line stops the chase before a pause, and the same chase starts again after the
-relight; nothing here stops that yet.
+relight.
+
+**So don't relight: finish in the air, and solve the arc with drag.** Off, rig only, unflown. Three settings
+together:
+
+- `ShortShotSlowsLineSeconds` (0.5).
+- `IcbmConfig.ShortShotFinishesInTheAir`: a short shot's burn that ends in thick air cuts off and releases
+  there instead of pausing. That removes the relight, and with it the chase.
+- `IcbmConfig.ShortShotSolvesWithDrag`: in the last 20 s of the burn, each guidance pass flies the solved arc
+  with the warhead's drag from its projected cutoff. It measures the landing against the target carried to the
+  instant the solve carried it to (`BurnoutGuidance.Command.CarrySeconds`). It moves the aim east and north by
+  the miss, solves again, and keeps the new solve only if it lands nearer, up to two times a pass. Under it the
+  arrival floor is waived, because a moved aim's vacuum arc is shallower than the warhead's and a failed floor
+  unlatches the arrival. Absorbing solids are excluded, because their flight time is re-picked whenever the aim
+  moves.
+
+In `FloorHoldStudy`, 40 flights at 150-500 km over four frame steps:
+
+| | spun | worst residual | median miss | worst miss |
+| --- | --- | --- | --- | --- |
+| all off | 31/40 | 424 m/s | 0.96 km | 2.39 km |
+| slowed line, in the air, vacuum arc | 0/40 | 8 m/s | 3.99 km | 6.18 km |
+| **all three** | **0/40** | **7.7 m/s** | **0.07 km** | **0.22 km** |
+| drag solve alone (pausing) | 37/40 | 6 m/s | 0.01 km | 0.71 km |
+
+The offset is still moving at hundreds of metres a second as cutoff nears. Frozen 0.75 s early it left the
+miss at 2.5 km, so it now moves until the line is slowed. Two limits on these numbers:
+
+- **The rig grades itself in part.** Its miss is flown with the same drag model the solve uses. The game's
+  warhead goes through the same `Medium.Drag`, but at another step and order, and what the bus does between
+  cutoff and release (release at cutoff here) is not modelled.
+- **The rig's attitude is a stand-in for KSA's.** It reproduces the night's spin rate (31/40) but not its
+  shape exactly.
+
+Only a flight settles either.
 
 **In the rig**, five stacks (the game's, an all-solid three-stage, the SRBs alone, a liquid pair, a 25 MN core
 with a 40% floor), 25–5,000 km: every stack cuts off at every range it can reach, 0.0–3.1 km out, bar two at about

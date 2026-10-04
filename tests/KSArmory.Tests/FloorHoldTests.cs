@@ -19,22 +19,25 @@ public class FloorHoldTests(ITestOutputHelper Out)
 
     internal static readonly double[] Ranges = [150.0, 200.0, 300.0, 418.0, 500.0];
 
-    internal static IcbmConfig Config(double slowLineSeconds)
+    internal static IcbmConfig Config(double slowLineSeconds, bool finishInTheAir = false, bool solveWithDrag = false)
         => new()
         {
             Armed = true, MaxAccelerationGee = 8.0f, MinArrivalAngleDeg = 0.0, ArrivalPreference = 0.5,
-            FlyAnyRange = true, ShortShotSlowsLineSeconds = slowLineSeconds,
+            FlyAnyRange = true, ShortShotSlowsLineSeconds = slowLineSeconds, ShortShotFinishesInTheAir = finishInTheAir,
+            ShortShotSolvesWithDrag = solveWithDrag,
         };
 
     internal readonly record struct Outcome(double FloorRateDegPerSec, double ResidualMetresPerSecond, double MissKm);
 
-    internal static Outcome Fly(double km, double slowLineSeconds, double step, double jitter)
+    internal static Outcome Fly(double km, double slowLineSeconds, double step, double jitter, bool finishInTheAir = false,
+                                bool solveWithDrag = false)
     {
         IcbmFlightRig rig = GameStackShortRangeTests.GameStack(true);
         rig.AttitudeHasInertia = true;
         rig.StepJitter = jitter;
+        rig.Warhead = Arsenal.Mk21WithDragFromShape(Arsenal.ReentryVehicleMk21);
 
-        IcbmProgram program = new(Config(slowLineSeconds));
+        IcbmProgram program = new(Config(slowLineSeconds, finishInTheAir, solveWithDrag));
         double3 aim = GameStackShortRangeTests.South(km * 1000.0);
         IcbmFlightRig.Flight flight = rig.Fly(program, aim, step, 6_000.0);
 
@@ -74,6 +77,31 @@ public class FloorHoldTests(ITestOutputHelper Out)
         Assert.True(spunOn <= 2, $"{spunOn} of 10 still spun with the line slowed");
         Assert.True(worstOn < 30.0, $"slowing the line left {worstOn:F1} m/s ungained");
     }
+
+    // Cut off in the air on a vacuum arc, a shot falls short by the drag; solved with it, it does not.
+    [Fact]
+    public void AShotFinishedInTheAirLandsWhenItsArcIsSolvedWithDrag()
+    {
+        double worstVacuum = 0.0, worstDrag = 0.0;
+        int spun = 0;
+
+        foreach (double step in new[] { 0.02, 0.025 })
+        foreach (double km in Ranges)
+        {
+            Outcome vacuum = Fly(km, 0.5, step, 0.5, finishInTheAir: true);
+            Outcome drag = Fly(km, 0.5, step, 0.5, finishInTheAir: true, solveWithDrag: true);
+            Out.WriteLine($"{km,4:F0} km {step * 1000,2:F0} ms: vacuum arc {vacuum.MissKm,6:F2} km, "
+                          + $"drag solved {drag.MissKm,6:F2} km, {drag.FloorRateDegPerSec,5:F1} deg/s at the floor");
+
+            worstVacuum = Math.Max(worstVacuum, vacuum.MissKm);
+            worstDrag = Math.Max(worstDrag, drag.MissKm);
+            if (drag.FloorRateDegPerSec > 20.0) spun++;
+        }
+
+        Assert.True(worstVacuum > 2.0, $"the vacuum arc missed by at most {worstVacuum:F2} km, so this measures nothing");
+        Assert.True(worstDrag < 0.5, $"solved with drag it still missed by {worstDrag:F2} km");
+        Assert.Equal(0, spun);
+    }
 }
 
 /// <summary>
@@ -86,7 +114,10 @@ public class FloorHoldStudy(ITestOutputHelper Out)
     [Fact]
     public void TheSlowedLineAcrossStepsAndSettings()
     {
-        foreach (double seconds in new[] { 0.0, 0.25, 0.5, 1.0 })
+        foreach ((double seconds, bool inAir, bool drag) in new[]
+                 {
+                     (0.0, false, false), (0.5, false, false), (0.5, true, false), (0.5, true, true), (0.0, false, true),
+                 })
         {
             int flights = 0, spun = 0, over10 = 0;
             double worst = 0.0;
@@ -96,7 +127,7 @@ public class FloorHoldStudy(ITestOutputHelper Out)
             foreach (double jitter in new[] { 0.5, 0.2 })
             foreach (double km in FloorHoldTests.Ranges)
             {
-                FloorHoldTests.Outcome o = FloorHoldTests.Fly(km, seconds, step, jitter);
+                FloorHoldTests.Outcome o = FloorHoldTests.Fly(km, seconds, step, jitter, inAir, drag);
                 flights++;
                 if (o.FloorRateDegPerSec > 20.0) spun++;
                 if (o.ResidualMetresPerSecond > 10.0) over10++;
@@ -105,7 +136,7 @@ public class FloorHoldStudy(ITestOutputHelper Out)
             }
 
             misses.Sort();
-            Out.WriteLine($"{seconds:F2} s: spun at the floor {spun,2}/{flights}, over 10 m/s ungained {over10,2}/{flights}, "
+            Out.WriteLine($"{seconds:F2} s{(inAir ? ", in the air" : "")}{(drag ? ", drag solved" : "")}: spun at the floor {spun,2}/{flights}, over 10 m/s ungained {over10,2}/{flights}, "
                           + $"worst {worst,6:F1} m/s, miss median {misses[misses.Count / 2]:F2} km, worst {misses[^1]:F2} km");
         }
     }

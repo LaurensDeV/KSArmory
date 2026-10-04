@@ -48,6 +48,9 @@ internal sealed class IcbmFlightRig
     /// </summary>
     public double TvcAuthorityPerThrust = 1.0;
 
+    /// <summary>What the bus carries, handed to the program with the rig's air; null hands it neither.</summary>
+    public MunitionProfile? Warhead;
+
     /// <summary>Angular acceleration with no engine burning. Flown on the game's stack: about 0.1-0.2.</summary>
     public double RcsAuthorityDegPerSec2 = 0.15;
 
@@ -418,7 +421,9 @@ internal sealed class IcbmFlightRig
                                       StructuralLimitGee: StructuralLimitGee,
                                       RunningStageCanStop: StageIndex >= Stages.Count || !Stages[StageIndex].Solid,
                                       MinThrottle: MinThrottle,
-                                      ThrustAxisCci: _pointing);
+                                      ThrustAxisCci: _pointing,
+                                      DensityRatioAt: Warhead is null ? null : p => DensityRatioAt(Body.AltitudeOf(p)),
+                                      Warhead: Warhead);
 
                 command = program.Update(elapsed == 0.0 ? 0.0 : h, state);
 

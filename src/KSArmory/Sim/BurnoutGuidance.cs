@@ -52,7 +52,8 @@ internal static class BurnoutGuidance
         double SecondsToCutoff,
         double3 CutoffPositionCci,
         BallisticArc.Solution Arc,
-        bool HeldTheArrival)
+        bool HeldTheArrival,
+        double CarrySeconds = double.NaN)
     {
         /// <summary>The burn is done. Anything further is spending propellant on making it worse.</summary>
         public bool AtCutoff => VelocityToGain <= CutoffMetresPerSecond;
@@ -107,6 +108,7 @@ internal static class BurnoutGuidance
 
         double3 cutoffPosition = positionCci;
         double3 toGainOut = Vec.Zero;
+        double carried = 0.0;
         BallisticArc.Solution arc = default;
         double toGain = 0.0;
         bool solved = false;
@@ -145,6 +147,7 @@ internal static class BurnoutGuidance
             // cutoff. The loop converges anyway, because the term goes to zero as the burn ends,
             // which is exactly why it is easy to leave in and never see.
             double3 aimAtCutoff = body.CarryCci(aimNowCci, timeToCutoff);
+            carried = timeToCutoff;
 
             bool solvedArc = false;
             heldTheArrival = false;
@@ -206,7 +209,7 @@ internal static class BurnoutGuidance
 
         if (!solved) return false;
 
-        command = new Command(thrustDir, toGain, toGainOut, wanted, cutoffPosition, arc, heldTheArrival);
+        command = new Command(thrustDir, toGain, toGainOut, wanted, cutoffPosition, arc, heldTheArrival, carried);
         return true;
     }
 }

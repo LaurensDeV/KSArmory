@@ -842,12 +842,36 @@ internal sealed class IcbmConfig
     /// gravity turn what is left too, and a held line left 70-165 m/s ungained. In the rig at 0.5 s,
     /// 4 of 40 flights spin against 31 of 40 off (<c>FloorHoldStudy</c>), but most of that is a relight
     /// cutting off on the line slowed through the pause, which flown left 30 m/s across it and landed
-    /// 4.6 km out at 200 km. The chase after a relight is not stopped; <c>docs/SHORT-RANGE.md</c>. <c>docs/SHORT-RANGE.md</c>,
+    /// 4.6 km out at 200 km. The chase after a relight is not stopped by this alone: it is meant with
+    /// <see cref="ShortShotFinishesInTheAir"/>, which removes the relight, and
+    /// <see cref="ShortShotSolvesWithDrag"/>; <c>docs/SHORT-RANGE.md</c>. <c>docs/SHORT-RANGE.md</c>,
     /// "Why 150 km failed".</para>
     ///
     /// <para><b>Off, and unflown.</b></para>
     /// </summary>
     public double ShortShotSlowsLineSeconds;
+
+    /// <summary>
+    /// A short shot whose burn finishes in thick air cuts off there and releases, rather than pausing to
+    /// coast out of the air and lighting again.
+    ///
+    /// <para>The relight is where the floor chase comes back: the stack coasts out still turning, which
+    /// RCS cannot stop, and lights pointing well away from what is left. Cut off in the air, the vacuum
+    /// arc is wrong by the drag the prediction already names. <b>Off, and unflown.</b></para>
+    /// </summary>
+    public bool ShortShotFinishesInTheAir;
+
+    /// <summary>
+    /// In the last <see cref="IcbmProgram.DragSolveWithinSeconds"/> of a short shot's burn, fly each
+    /// solved arc with the warhead's drag and move the aim until it lands on the target.
+    ///
+    /// <para>Cut off in the air, a vacuum arc falls short by the drag the prediction already names --
+    /// 1.63 km predicted and 1.59 flown at 200 km. Correcting the aim afterwards from inside the air was
+    /// tried and is not in: it is a loop reading at 2 Hz with a ratchet, and in the air each reading
+    /// is mostly the cutoff state moving. This solves the same miss inside each pass instead.
+    /// <b>Off, and unflown.</b></para>
+    /// </summary>
+    public bool ShortShotSolvesWithDrag;
 
     /// <summary>
     /// Give each warhead the separation velocity that lands it where the tubes' mean would —

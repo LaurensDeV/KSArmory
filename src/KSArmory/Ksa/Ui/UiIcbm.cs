@@ -971,6 +971,24 @@ internal sealed partial class Ui
                   + "chases: flown, every core that ran dry separated spinning, and twice the spent core knocked the "
                   + "upper's engine off.");
 
+        bool inTheAir = config.ShortShotFinishesInTheAir;
+        if (ImGui.Checkbox("Short shot finishes in the air", ref inTheAir))
+        {
+            config.ShortShotFinishesInTheAir = inTheAir;
+        }
+        Tip("On: a short shot whose burn ends in thick air cuts off and releases there, instead of pausing to "
+            + "coast out of the air and lighting again -- the relight is where the stack starts spinning again. "
+            + "Pair it with solving the arc with drag, or it falls short by the drag. Unflown.");
+
+        bool withDrag = config.ShortShotSolvesWithDrag;
+        if (ImGui.Checkbox("Short shot solves its arc with drag", ref withDrag))
+        {
+            config.ShortShotSolvesWithDrag = withDrag;
+        }
+        Tip($"On: in the last {IcbmProgram.DragSolveWithinSeconds:F0} s of a short shot's burn, each arc is flown with "
+            + "the warhead's drag and the aim moved until it lands on the target, so a cutoff in the air does not "
+            + "fall short by the drag. Unflown.");
+
         bool resample = config.ResampleGroundAtImpact;
         if (ImGui.Checkbox("Warheads re-read the ground as they meet it", ref resample))
         {

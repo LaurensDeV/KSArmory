@@ -105,7 +105,13 @@ internal readonly record struct IcbmState(
     /// whole vehicle's propellant behind the running engines, which for a solid with liquid stages
     /// above it is several times what the grain can give.
     /// </summary>
-    double RunningStageDeltaV = double.NaN)
+    double RunningStageDeltaV = double.NaN,
+
+    /// <summary>The air at a point, as a ratio to the reference sea level, or null if the caller cannot say.</summary>
+    Func<double3, double>? DensityRatioAt = null,
+
+    /// <summary>What the bus carries, whose drag an arc is flown with; null if the caller cannot say.</summary>
+    MunitionProfile? Warhead = null)
 {
     public double Altitude => Body.AltitudeOf(PositionCci);
 
@@ -649,6 +655,10 @@ internal sealed class IcbmProgram
         _countdown = double.PositiveInfinity;
         HoldDirectionBelowNow = double.NaN;
         LineSlowed = false;
+        _dragEast = 0.0;
+        _dragNorth = 0.0;
+        _dragEngaged = false;
+        DragMissMetres = double.NaN;
         _lineCarriedOver = true;
         _toGain = 0.0;
         _thrustDirCci = Vec.Zero;
@@ -968,6 +978,114 @@ internal sealed class IcbmProgram
         => Config.ShortShotSlowsLineSeconds > 0.0 && Config.FlyAnyRange && _shortShot
            && Phase == IcbmPhase.ClosedLoop && state.RunningStageCanStop;
 
+    /// <summary>How close to cutoff <see cref="IcbmConfig.ShortShotSolvesWithDrag"/> starts flying arcs.</summary>
+    public const double DragSolveWithinSeconds = 20.0;
+
+    private const int DragIterations = 2;
+    private const double DragStepSeconds = 1.0;
+
+    /// <summary>How far the drag solve has moved the aim, in metres; zero when it has not.</summary>
+    public double DragOffsetMetres => Math.Sqrt(_dragEast * _dragEast + _dragNorth * _dragNorth);
+
+    /// <summary>Where the drag solve's last arc lands from the target, in metres; NaN when it has not flown one.</summary>
+    public double DragMissMetres { get; private set; } = double.NaN;
+
+    private double _dragEast;
+    private double _dragNorth;
+    private bool _dragEngaged;
+
+    // Not for a solid that is absorbing what it cannot help adding: there the flight time is re-picked
+    // whenever the aim moves, so moving the aim does not move the landing one for one.
+    private bool SolvesWithDrag(in IcbmState state)
+        => Config.ShortShotSolvesWithDrag && Config.FlyAnyRange && _shortShot && !_paused
+           && Phase == IcbmPhase.ClosedLoop && !(_unavoidable > 0.0)
+           && state.DensityRatioAt is not null && state.Warhead is not null;
+
+    // A point moved east and north on the ground, kept at its own radius.
+    private static double3 Offset(double3 aimCci, double east, double north, BallisticBody body)
+    {
+        if (east == 0.0 && north == 0.0) return aimCci;
+        (double3 e, double3 n) = EastNorth(aimCci, body);
+        return Vec.Unit(aimCci + e * east + n * north) * Vec.Len(aimCci);
+    }
+
+    private static (double3 East, double3 North) EastNorth(double3 pointCci, BallisticBody body)
+    {
+        double3 up = Vec.Unit(pointCci);
+        double3 east = Vec.Unit(Vec.Cross(Vec.Unit(body.SpinAxisCci), up));
+        return (east, Vec.Cross(up, east));
+    }
+
+    // The arc flown with the warhead's drag from the cutoff it was solved from, against the target at
+    // the same instant the solve carried it to: a target at any other epoch is wrong by the ground's
+    // turn over the difference, 465 m/s on the equator.
+    private static bool TryDragMiss(in IcbmState state, in BurnoutGuidance.Command command, out double3 missCci)
+    {
+        missCci = default;
+        if (!double.IsFinite(command.CarrySeconds)) return false;
+
+        if (!ImpactPredictor.TryPredict(state.Body, command.CutoffPositionCci, command.Arc.RequiredVelocityCci,
+                                        DragStepSeconds, ImpactPredictor.DefaultMaxSeconds, out ImpactPredictor.Impact hit,
+                                        drag: new ImpactPredictor.Drag(state.DensityRatioAt!, state.Warhead!)))
+        {
+            return false;
+        }
+
+        double3 target = state.Body.CarryCci(state.AimNowCci, command.CarrySeconds);
+        double3 miss = hit.GroundFixedPointCci - target;
+        double3 up = Vec.Unit(target);
+        missCci = miss - up * Vec.Dot(miss, up);
+        return Vec.IsFinite(missCci);
+    }
+
+    // Moved by what the drag-flown arc misses by and solved again, inside this pass: with the arrival
+    // pinned, the landing follows the aim about one for one. An offset is kept only if it lands nearer,
+    // and it moves right up to the slowed line: the offset a shot needs changes at hundreds of metres a
+    // second as cutoff nears, and frozen 0.75 s early it left the rig 2.5 km out instead of 0.07.
+    private BurnoutGuidance.Command SolveWithDrag(in IcbmState state, BurnoutGuidance.Command command,
+                                                  double arrivalFromNow)
+    {
+        _dragEngaged = true;
+        if (!TryDragMiss(state, command, out double3 miss)) return command;
+        DragMissMetres = Vec.Len(miss);
+
+        if (LineSlowed) return command;
+
+        double limit = Math.Max(5_000.0, 0.05 * Vec.Len(state.AimNowCci - state.PositionCci));
+
+        for (int i = 0; i < DragIterations; i++)
+        {
+            (double3 e, double3 n) = EastNorth(state.Body.CarryCci(state.AimNowCci, command.CarrySeconds), state.Body);
+            double east = _dragEast - Vec.Dot(miss, e);
+            double north = _dragNorth - Vec.Dot(miss, n);
+
+            double length = Math.Sqrt(east * east + north * north);
+            if (length > limit)
+            {
+                east *= limit / length;
+                north *= limit / length;
+            }
+
+            if (!BurnoutGuidance.TrySteer(state.Body, state.PositionCci, state.VelocityCci,
+                                          Offset(state.AimNowCci, east, north, state.Body), state.Booster,
+                                          out BurnoutGuidance.Command trial, Config.Loft, LongWay, _cutoffSeed,
+                                          _flightSeed, arrivalFromNow, 0.0, _unavoidable)
+                || !TryDragMiss(state, trial, out double3 trialMiss)
+                || Vec.Len(trialMiss) >= Vec.Len(miss))
+            {
+                break;
+            }
+
+            _dragEast = east;
+            _dragNorth = north;
+            command = trial;
+            miss = trialMiss;
+            DragMissMetres = Vec.Len(miss);
+        }
+
+        return command;
+    }
+
     private void Resolve(in IcbmState state)
     {
         bool burning = IsBurning;
@@ -988,10 +1106,17 @@ internal sealed class IcbmProgram
 
         _unavoidable = Unavoidable(state);
 
+        // Under the drag solve the aim is moved and the floor is judged on the vacuum arc to the moved
+        // point, which is shallower than the warhead's real one: a floor applied there unlatches the
+        // arrival a short shot pins, and the latch is what stops it chasing a lower arc.
+        bool dragGate = SolvesWithDrag(state);
+        double floorDeg = dragGate && _dragEngaged ? 0.0 : FloorDeg;
+        double3 aimUsed = dragGate ? Offset(state.AimNowCci, _dragEast, _dragNorth, state.Body) : state.AimNowCci;
+
         bool steered = BurnoutGuidance.TrySteer(
-            state.Body, state.PositionCci, state.VelocityCci, state.AimNowCci, state.Booster,
+            state.Body, state.PositionCci, state.VelocityCci, aimUsed, state.Booster,
             out BurnoutGuidance.Command command, Config.Loft, LongWay, _cutoffSeed, _flightSeed,
-            arrivalFromNow, FloorDeg, _unavoidable);
+            arrivalFromNow, floorDeg, _unavoidable);
 
         // A floor is what to aim for, not a reason to fly nowhere. A stack that cannot afford the
         // arrival asked for still has a target, and the shallow arc it can afford is worth far more
@@ -1001,10 +1126,10 @@ internal sealed class IcbmProgram
         {
             _arrivalFloorUnaffordable = false;
         }
-        else if (FloorDeg > 0.0)
+        else if (floorDeg > 0.0)
         {
             steered = BurnoutGuidance.TrySteer(
-                state.Body, state.PositionCci, state.VelocityCci, state.AimNowCci, state.Booster,
+                state.Body, state.PositionCci, state.VelocityCci, aimUsed, state.Booster,
                 out command, Config.Loft, LongWay, _cutoffSeed, _flightSeed, arrivalFromNow);
 
             if (steered) _arrivalFloorUnaffordable = true;
@@ -1017,6 +1142,11 @@ internal sealed class IcbmProgram
             // away a launch that is going perfectly well.
             if (Arc is null) (_reachIfNoArc, _reachHold) = WhyNot(state);
             return;
+        }
+
+        if (dragGate && command.SecondsToCutoff <= DragSolveWithinSeconds)
+        {
+            command = SolveWithDrag(state, command, arrivalFromNow);
         }
 
         Arc = command.Arc;
@@ -1311,7 +1441,8 @@ internal sealed class IcbmProgram
                        state, "coasting out of the air");
         }
 
-        if (ShouldCutOff(state) && Config.FlyAnyRange && _shortShot && state.RunningStageCanStop && thickAir && climbing)
+        if (ShouldCutOff(state) && Config.FlyAnyRange && _shortShot && state.RunningStageCanStop && thickAir && climbing
+            && !Config.ShortShotFinishesInTheAir)
         {
             _paused = true;
             _waitingForAttitude = true;

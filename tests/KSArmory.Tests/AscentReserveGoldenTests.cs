@@ -60,6 +60,7 @@ public class AscentReserveGoldenTests
         IcbmConfig config = new()
         {
             Armed = true, AscentReserveSeconds = reserve, FlyAnyRange = anyRange, ShortShotSlowsLineSeconds = slowLine,
+            ShortShotFinishesInTheAir = slowLine > 0.0, ShortShotSolvesWithDrag = slowLine > 0.0,
         };
 
         switch (p[0])
@@ -80,6 +81,8 @@ public class AscentReserveGoldenTests
     private static IcbmFlightRig.Flight Fly(string name, double reserve, bool anyRange = false, double slowLine = 0.0)
     {
         (IcbmFlightRig rig, IcbmConfig config, double3 aim) = Fixture(name, reserve, anyRange, slowLine);
+        // Both arms carry the warhead, so a drag solve that engaged where it should not would show.
+        rig.Warhead = Arsenal.Mk21WithDragFromShape(Arsenal.ReentryVehicleMk21);
         return rig.Fly(new IcbmProgram(config), aim, 0.02, 6_000.0);
     }
 
@@ -114,12 +117,13 @@ public class AscentReserveGoldenTests
     }
 
     /// <summary>
-    /// <see cref="IcbmConfig.ShortShotSlowsLineSeconds"/> acts only on a short shot, so a long one is flown
-    /// to the bit. Where it does act is <see cref="FloorHoldTests"/>.
+    /// <see cref="IcbmConfig.ShortShotSlowsLineSeconds"/>, <see cref="IcbmConfig.ShortShotFinishesInTheAir"/>
+    /// and <see cref="IcbmConfig.ShortShotSolvesWithDrag"/> act only on a short shot, so a long one is flown
+    /// to the bit. Where they do act is <see cref="FloorHoldTests"/>.
     /// </summary>
     [Theory]
     [MemberData(nameof(LongShots))]
-    public void ALongShotIsFlownExactlyAsItWasWithTheLineSlowed(string fixture)
+    public void ALongShotIsFlownExactlyAsItWasWithTheShortShotSettingsOn(string fixture)
     {
         IcbmFlightRig.Flight off = Fly(fixture, 0.0, anyRange: true);
         IcbmFlightRig.Flight on = Fly(fixture, 0.0, anyRange: true, slowLine: 0.5);

@@ -1031,7 +1031,10 @@ internal sealed class IcbmComputer
                           + $"{(KsaWorld.RunningEnginesCanStop(Craft) ? "can stop" : "solid")} | "
                           + $"to gain {Program.VelocityToGain:F2} m/s, countdown {Program.Countdown:F3} s, "
                           + $"held below {Program.HoldDirectionBelowNow:F2} m/s"
-                          + (Program.LineSlowed ? ", line slowed" : ""));
+                          + (Program.LineSlowed ? ", line slowed" : "")
+                          + (double.IsFinite(Program.DragMissMetres)
+                                 ? $", drag offset {Program.DragOffsetMetres:F0} m, drag-flown miss {Program.DragMissMetres:F0} m"
+                                 : ""));
             }
             if (Program.LineSlowed && !_saidLineSlowed)
             {
@@ -3453,7 +3456,7 @@ internal sealed class IcbmComputer
                              Craft.IsAnyEnginePropellantAvailable(), _throttleAchieved, playerStep,
                              _aim.IsSteady, StackDeltaV(), StructuralLimitGee(),
                              KsaWorld.RunningEnginesCanStop(Craft), engines.MinThrottle, noseCci,
-                             RunningStageDeltaV());
+                             RunningStageDeltaV(), _densityRatio ??= DensityRatioAt, _warhead);
     }
 
     /// <summary>What the engine will destroy this airframe at, in standard gravities, or zero if it
