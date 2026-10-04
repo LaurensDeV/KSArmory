@@ -3635,7 +3635,11 @@ internal sealed class IcbmComputer
             // sequencer. A launcher carrying nothing prices a cant at nothing, which is right —
             // there is no round to throw off the line.
             EjectionMetresPerSecond: _warhead?.LaunchSpeed ?? 0.0,
-            SecondsLeftToDeploy: window, HeldDirectionCci: held, HeldRollCci: roll));
+            // None for a shot that releases at cutoff: waiting for a stack with no engine to settle
+            // costs a coast through air, and flown at 300 km that was 53 s of it for a release that
+            // went late anyway, 8.9 km out against a prediction of 1.4.
+            SecondsLeftToDeploy: Program.ReleasesAtCutoff ? 0.0 : window,
+            HeldDirectionCci: held, HeldRollCci: roll));
     }
 
     // Where a released round starts, as a difference from where the craft is.
