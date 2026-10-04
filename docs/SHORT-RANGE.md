@@ -273,8 +273,10 @@ seconds of the thrust being made, the line turns at most 5°/s (`IcbmProgram.Slo
 runs on the part along it. The rig learned to tumble for this (`IcbmFlightRig.AttitudeHasInertia`: a
 sampled controller with authority in proportion to thrust, and RCS alone with the engine off). Followed to
 the end, the line spins the stack on 31 of 40 flights at 150-500 km across four frame steps. That matches the
-night. At 0.5 s, 4 of 40 spin, the worst residual falls from 424 to 24 m/s, and the drag-flown miss moves
-from a median of 0.96 km to 1.09 (`FloorHoldStudy`).
+night. At 0.5 s, 4 of 40 spin, the worst residual falls from 424 to 16 m/s, and the drag-flown miss moves
+from a median of 0.96 km to 1.13 (`FloorHoldStudy`). The slowed line starts only from a fresh solve:
+the first flight with it on relit at 0.77 throttle with all of what was left under the threshold. The line
+turned from the direction held through the pause, and the burn ended 32 m/s square to it, 4.6 km out.
 
 What did not work, in the rig:
 

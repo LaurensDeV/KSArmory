@@ -840,7 +840,8 @@ internal sealed class IcbmConfig
     /// core. Flown, every core that ran dry separated spinning at 70-109 deg/s, and twice in seven the
     /// spent core knocked the upper's engine off. Holding the line still instead was tried: drag and
     /// gravity turn what is left too, and a held line left 70-165 m/s ungained. In the rig at 0.5 s,
-    /// 4 of 40 flights spin against 31 of 40 off (<c>FloorHoldStudy</c>). <c>docs/SHORT-RANGE.md</c>,
+    /// 4 of 40 flights spin against 31 of 40 off (<c>FloorHoldStudy</c>). The line starts from a fresh
+    /// solve after a handover or a relight, never from the one held before it. <c>docs/SHORT-RANGE.md</c>,
     /// "Why 150 km failed".</para>
     ///
     /// <para><b>Off, and unflown.</b></para>

@@ -415,6 +415,10 @@ internal sealed class IcbmProgram
     // Set by the closed loop for the frame it is building: the engine stays off until the vehicle
     // has turned to the burn.
     private bool _waitingForAttitude;
+
+    // Whether the line is still the one carried in from before the closed loop took over or the engine
+    // last stopped. A slowed line turns from where it is, so it has to start from a fresh solve.
+    private bool _lineCarriedOver = true;
     private bool _fellShort;
     private double _arrivalFromLaunch = double.NaN;
     private string _reachHold = "";
@@ -645,6 +649,7 @@ internal sealed class IcbmProgram
         _countdown = double.PositiveInfinity;
         HoldDirectionBelowNow = double.NaN;
         LineSlowed = false;
+        _lineCarriedOver = true;
         _toGain = 0.0;
         _thrustDirCci = Vec.Zero;
         _stageCooldown = 0.0;
@@ -914,6 +919,7 @@ internal sealed class IcbmProgram
         if (_windowWait <= lead)
         {
             Phase = IcbmPhase.ClosedLoop;
+            _lineCarriedOver = true;
 
             // Solve before steering, not after. The closed loop opens by asking whether the burn is
             // already finished, and the velocity still to gain is zero until something has worked
@@ -1037,7 +1043,7 @@ internal sealed class IcbmProgram
         // Within this much of the thrust being made, what is left to gain turns faster than the stack
         // can follow it, and steering straight at it chases. So the line is turned toward it at a
         // bounded rate instead: fast enough for what drag and gravity do to it, too slow to run away.
-        bool slewed = SlowsTheLine(state) && _toGain > holdBelow && !_thrustDirCci.Equals(Vec.Zero)
+        bool slewed = SlowsTheLine(state) && _toGain > holdBelow && !_thrustDirCci.Equals(Vec.Zero) && !_lineCarriedOver
                       && _toGain < state.Booster.AccelerationNow
                                    * Math.Clamp(state.ThrottleAchieved, state.MinThrottle, 1.0)
                                    * Config.ShortShotSlowsLineSeconds;
@@ -1053,10 +1059,11 @@ internal sealed class IcbmProgram
             double seconds = state.Booster.SecondsToGain(Math.Max(along, 0.0));
             _countdown = double.IsFinite(seconds) ? seconds : 0.0;
         }
-        else if (_toGain > holdBelow || _thrustDirCci.Equals(Vec.Zero))
+        else if (_toGain > holdBelow || _thrustDirCci.Equals(Vec.Zero) || (_lineCarriedOver && SlowsTheLine(state)))
         {
             _thrustDirCci = command.ThrustDirectionCci;
             _countdown = command.SecondsToCutoff;
+            if (Phase == IcbmPhase.ClosedLoop) _lineCarriedOver = false;
         }
         else
         {
@@ -1251,6 +1258,7 @@ internal sealed class IcbmProgram
             _handedOverInTheAir = (climbOver || complete) && state.DynamicPressurePa > Config.HandoverPressurePa;
             _shortShot |= _handedOverInTheAir;
             Phase = IcbmPhase.ClosedLoop;
+            _lineCarriedOver = true;
             return ClosedLoop(state);
         }
 
@@ -1292,6 +1300,7 @@ internal sealed class IcbmProgram
         if (_paused && (!thickAir || !climbing))
         {
             _paused = false;
+            _lineCarriedOver = true;
             _lowestToGain = double.PositiveInfinity;
         }
 
