@@ -1357,16 +1357,6 @@ internal sealed class IcbmProgram
     private bool StaysUnderTheReleaseAltitude(in IcbmState state)
         => Arc is { } arc && arc.ApogeeRadius - state.Body.SurfaceRadius < Config.DeployAltitudeMetres;
 
-    // Finished in the air on an arc that climbs above the release altitude, the shot drops the stack and
-    // releases above the air as a long shot does, where the trim and the per-warhead kicks are what give
-    // millimetres: released at once instead, from a stack still turning, 700 km landed 0.80 km out
-    // against 2.2 mm.
-    private bool ReleasesWhereItCutsOff(in IcbmState state)
-    {
-        bool staysUnder = StaysUnderTheReleaseAltitude(state);
-        if (Config.ShortShotFinishesInTheAir) return staysUnder;
-        return state.AirDensityRatio >= Medium.NoticeableDensity || staysUnder;
-    }
 
     // What the running stage will add whether it is told to stop or not: all of what a solid motor
     // has left. The arc is lofted until it needs at least that, which is the only thing that can be
@@ -1455,8 +1445,13 @@ internal sealed class IcbmProgram
                        state, "coasting out of the air");
         }
 
+        // Under ShortShotFinishesInTheAir only an arc that stays under the release altitude finishes in the
+        // air. One that climbs above it still pauses and relights to cut off above the air, where the
+        // long-shot release gives millimetres: released at once in the air instead, 700 km landed 0.80 km
+        // out, and coasted on the bus alone through the air to the release altitude, 500 km landed 107 km
+        // out with 287 m/s of drag owed to the trim.
         if (ShouldCutOff(state) && Config.FlyAnyRange && _shortShot && state.RunningStageCanStop && thickAir && climbing
-            && !Config.ShortShotFinishesInTheAir)
+            && !(Config.ShortShotFinishesInTheAir && StaysUnderTheReleaseAltitude(state)))
         {
             _paused = true;
             _waitingForAttitude = true;
@@ -1466,7 +1461,7 @@ internal sealed class IcbmProgram
 
         if (ShouldCutOff(state))
         {
-            _releasesAtCutoff = _shortShot && ReleasesWhereItCutsOff(state);
+            _releasesAtCutoff = _shortShot && (state.AirDensityRatio >= Medium.NoticeableDensity || StaysUnderTheReleaseAltitude(state));
 
             // Recorded here rather than in Coasting, which clears it. What was left when the
             // engines stopped is the whole story of a shot that lands short on an otherwise

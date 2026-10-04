@@ -311,9 +311,11 @@ together:
   arrival floor is waived, because a moved aim's vacuum arc is shallower than the warhead's and a failed floor
   unlatches the arrival. Absorbing solids are excluded, because their flight time is re-picked whenever the aim
   moves.
-- **Both apply only where the arc stays under `DeployAltitudeMetres`.** An arc that climbs above it is cut off
-  in the air too, without pausing, but drops the stack and releases above the air as a long shot does. Released
-  at once from a stack still turning, 700 km landed 0.80 km out against 2.2 mm, and 1,000 km 0.98 km out.
+- **Both apply only where the arc stays under `DeployAltitudeMetres`.** An arc that climbs above it still
+  pauses and relights, so it cuts off above the air and gets the long-shot release that gives millimetres. Both
+  ways of finishing such a shot in the air were flown and lost. Released at once from a stack still turning,
+  700 km landed 0.80 km out against 2.2 mm, and 1,000 km 0.98 km out. Coasted on the bus alone through the air
+  to the release altitude, 500 km owed the trim 287 m/s of drag and landed 107 km out.
 
 In `FloorHoldStudy`, 40 flights at 150-500 km over four frame steps:
 

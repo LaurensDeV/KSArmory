@@ -852,8 +852,10 @@ internal sealed class IcbmConfig
     public double ShortShotSlowsLineSeconds;
 
     /// <summary>
-    /// A short shot whose burn finishes in thick air cuts off there and releases, rather than pausing to
-    /// coast out of the air and lighting again.
+    /// A short shot whose burn finishes in thick air, on an arc that stays under
+    /// <see cref="DeployAltitudeMetres"/>, cuts off there and releases, rather than pausing to coast out of
+    /// the air and lighting again. A higher arc still pauses: its release above the air is what gives it
+    /// millimetres.
     ///
     /// <para>The relight is where the floor chase comes back: the stack coasts out still turning, which
     /// RCS cannot stop, and lights pointing well away from what is left. Cut off in the air, the vacuum
