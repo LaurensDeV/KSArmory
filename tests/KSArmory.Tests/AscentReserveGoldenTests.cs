@@ -53,10 +53,14 @@ public class AscentReserveGoldenTests
     };
 
     private static (IcbmFlightRig Rig, IcbmConfig Config, double3 Aim) Fixture(string name, double reserve,
-                                                                               bool anyRange = false)
+                                                                               bool anyRange = false,
+                                                                               double slowLine = 0.0)
     {
         string[] p = name.Split(' ');
-        IcbmConfig config = new() { Armed = true, AscentReserveSeconds = reserve, FlyAnyRange = anyRange };
+        IcbmConfig config = new()
+        {
+            Armed = true, AscentReserveSeconds = reserve, FlyAnyRange = anyRange, ShortShotSlowsLineSeconds = slowLine,
+        };
 
         switch (p[0])
         {
@@ -73,9 +77,9 @@ public class AscentReserveGoldenTests
         }
     }
 
-    private static IcbmFlightRig.Flight Fly(string name, double reserve, bool anyRange = false)
+    private static IcbmFlightRig.Flight Fly(string name, double reserve, bool anyRange = false, double slowLine = 0.0)
     {
-        (IcbmFlightRig rig, IcbmConfig config, double3 aim) = Fixture(name, reserve, anyRange);
+        (IcbmFlightRig rig, IcbmConfig config, double3 aim) = Fixture(name, reserve, anyRange, slowLine);
         return rig.Fly(new IcbmProgram(config), aim, 0.02, 6_000.0);
     }
 
@@ -103,6 +107,22 @@ public class AscentReserveGoldenTests
     {
         IcbmFlightRig.Flight off = Fly(fixture, 0.0);
         IcbmFlightRig.Flight on = Fly(fixture, 0.0, anyRange: true);
+
+        Assert.Equal(off.CutoffSeconds, on.CutoffSeconds);
+        Assert.Equal(off.CutoffPositionCci, on.CutoffPositionCci);
+        Assert.Equal(off.CutoffVelocityCci, on.CutoffVelocityCci);
+    }
+
+    /// <summary>
+    /// <see cref="IcbmConfig.ShortShotSlowsLineSeconds"/> acts only on a short shot, so a long one is flown
+    /// to the bit. Where it does act is <see cref="FloorHoldTests"/>.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(LongShots))]
+    public void ALongShotIsFlownExactlyAsItWasWithTheLineSlowed(string fixture)
+    {
+        IcbmFlightRig.Flight off = Fly(fixture, 0.0, anyRange: true);
+        IcbmFlightRig.Flight on = Fly(fixture, 0.0, anyRange: true, slowLine: 0.5);
 
         Assert.Equal(off.CutoffSeconds, on.CutoffSeconds);
         Assert.Equal(off.CutoffPositionCci, on.CutoffPositionCci);

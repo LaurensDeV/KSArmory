@@ -60,6 +60,25 @@ internal static class Vec
     }
 
     /// <summary>
+    /// <paramref name="from"/> turned toward <paramref name="to"/> by at most
+    /// <paramref name="maxRadians"/>, as a unit vector. Exactly opposite, it turns about any
+    /// perpendicular.
+    /// </summary>
+    public static double3 TurnToward(double3 from, double3 to, double maxRadians)
+    {
+        double3 a = Unit(from), b = Unit(to);
+        if (a.Equals(Zero)) return b;
+        if (b.Equals(Zero)) return a;
+
+        double angle = AngleBetween(a, b);
+        if (angle <= maxRadians) return b;
+
+        double3 cross = Cross(a, b);
+        double3 axis = Len2(cross) > 1e-24 ? Unit(cross) : AnyPerpendicular(a);
+        return Unit(doubleQuat.CreateFromAxisAngle(axis, Math.Max(maxRadians, 0.0)) * a);
+    }
+
+    /// <summary>
     /// Time of closest approach for a point separating as r(t) = r + v*t, clamped to
     /// [0, horizon]. Returns 0 for a stationary relative pair.
     /// </summary>

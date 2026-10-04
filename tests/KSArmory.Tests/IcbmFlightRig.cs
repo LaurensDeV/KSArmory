@@ -35,6 +35,35 @@ internal sealed class IcbmFlightRig
     public double DragAreaOverMass = 4e-5;
 
     /// <summary>
+    /// Turn the thrust line by a torque rather than at a set rate: an angular rate driven by a
+    /// controller sampled every <see cref="AttitudeControlPeriodSeconds"/>, with authority in
+    /// proportion to thrust. Off, the line is swung at <see cref="AttitudeRateDegPerSec"/> straight
+    /// at whatever it is told, which can never lag a moving target and so can never tumble.
+    /// </summary>
+    public bool AttitudeHasInertia;
+
+    /// <summary>
+    /// Angular acceleration per unit of thrust acceleration, in deg/s^2 per m/s^2. Flown on the
+    /// game's core: about 1.4 at full throttle and 0.6-0.8 at its floor.
+    /// </summary>
+    public double TvcAuthorityPerThrust = 1.0;
+
+    /// <summary>Angular acceleration with no engine burning. Flown on the game's stack: about 0.1-0.2.</summary>
+    public double RcsAuthorityDegPerSec2 = 0.15;
+
+    /// <summary>How often the attitude controller acts; KSA's gimbal wakes every 0.1 s.</summary>
+    public double AttitudeControlPeriodSeconds = 0.1;
+
+    /// <summary>The fastest the stack turned while the closed loop was flying it, under inertia.</summary>
+    public double PeakClosedLoopRateDegPerSec { get; private set; }
+
+    /// <summary>The same, counted only while the throttle sat within 0.02 of its floor.</summary>
+    public double PeakFloorRateDegPerSec { get; private set; }
+
+    /// <summary>Called every closed-loop frame under inertia: time, throttle, velocity to gain, pointing error, rate.</summary>
+    public Action<double, double, double, double, double, double3>? AttitudeTrace;
+
+    /// <summary>
     /// A drag area fixed to the airframe, divided by whatever the stack weighs now. Zero leaves
     /// <see cref="DragAreaOverMass"/> in charge, which holds the deceleration constant as the stack
     /// empties.
@@ -175,6 +204,9 @@ internal sealed class IcbmFlightRig
     private bool _brokeUp;
 
     private double3 _pointing;
+    private double3 _omega;
+    private double3 _alpha;
+    private double _controlIn;
 
     internal sealed class Stage
     {
@@ -333,6 +365,11 @@ internal sealed class IcbmFlightRig
     public Flight Fly(IcbmProgram program, double3 aimAtEpoch, double step, double maxSeconds)
     {
         _pointing = Vec.Unit(PositionCci);
+        _omega = Vec.Zero;
+        _alpha = Vec.Zero;
+        _controlIn = 0.0;
+        PeakClosedLoopRateDegPerSec = 0.0;
+        PeakFloorRateDegPerSec = 0.0;
         _lit = !StartsUnlit;
         _peakThrustGee = 0.0;
         _filteredGee = 0.0;
@@ -452,8 +489,26 @@ internal sealed class IcbmFlightRig
                             && Stages[StageIndex].PropellantKg > 0.0 && _lit)
                            || (StageIndex < Stages.Count && Stages[StageIndex].Solid && _lit
                                && Stages[StageIndex].PropellantKg > 0.0);
-            Swing(applied.ThrustDirectionCci, h,
-                  powered || double.IsNaN(UnpoweredAttitudeRateDegPerSec) ? AttitudeRateDegPerSec : UnpoweredAttitudeRateDegPerSec);
+            if (AttitudeHasInertia)
+            {
+                double degPerSec2 = powered ? TvcAuthorityPerThrust * ThrustAcceleration(density) : RcsAuthorityDegPerSec2;
+                Turn(applied.ThrustDirectionCci, h, degPerSec2 * Math.PI / 180.0);
+
+                if (program.Phase == IcbmPhase.ClosedLoop)
+                {
+                    double rate = Vec.Len(_omega) * 180.0 / Math.PI;
+                    PeakClosedLoopRateDegPerSec = Math.Max(PeakClosedLoopRateDegPerSec, rate);
+                    if (powered && ThrottleAchieved <= MinThrottle + 0.02) PeakFloorRateDegPerSec = Math.Max(PeakFloorRateDegPerSec, rate);
+                    AttitudeTrace?.Invoke(elapsed, powered ? ThrottleAchieved : 0.0, program.VelocityToGain,
+                                          Vec.AngleBetween(_pointing, Vec.Unit(applied.ThrustDirectionCci)) * 180.0 / Math.PI, rate,
+                                          applied.ThrustDirectionCci);
+                }
+            }
+            else
+            {
+                Swing(applied.ThrustDirectionCci, h,
+                      powered || double.IsNaN(UnpoweredAttitudeRateDegPerSec) ? AttitudeRateDegPerSec : UnpoweredAttitudeRateDegPerSec);
+            }
 
             double q = 0.5 * density * SeaLevelDensity * Vec.Len2(airflow);
             peakQ = Math.Max(peakQ, q);
@@ -489,6 +544,40 @@ internal sealed class IcbmFlightRig
         double limit = ThrottleRatePerSecond * step;
         double error = wanted - ThrottleAchieved;
         ThrottleAchieved += Math.Clamp(error, -limit, limit);
+    }
+
+    private double ThrustAcceleration(double density)
+    {
+        if (StageIndex >= Stages.Count) return 0.0;
+        double mass = MassAbove(StageIndex);
+        return mass > 0.0 ? Stages[StageIndex].ThrustAt(density) * Math.Clamp(ThrottleAchieved, 0.0, 1.0) / mass : 0.0;
+    }
+
+    // A sampled controller of the shape KSA's gimbal law has: the rate at which it could still stop
+    // on the target at half its authority, reached as fast as the authority allows, held for one period.
+    private void Turn(double3 wanted, double step, double authority)
+    {
+        _controlIn -= step;
+        double3 want = Vec.Unit(wanted);
+
+        if (_controlIn <= 0.0 && !want.Equals(Vec.Zero))
+        {
+            _controlIn += AttitudeControlPeriodSeconds;
+
+            double angle = Vec.AngleBetween(_pointing, want);
+            double3 cross = Vec.Cross(_pointing, want);
+            double3 axis = Vec.Len2(cross) > 1e-18 ? Vec.Unit(cross) : Vec.Zero;
+            double3 desired = axis * Math.Sqrt(authority * angle);
+            double3 alpha = (desired - _omega) / AttitudeControlPeriodSeconds;
+            double len = Vec.Len(alpha);
+            _alpha = len > authority && len > 0.0 ? alpha * (authority / len) : alpha;
+        }
+
+        _omega += _alpha * step;
+        _omega -= _pointing * Vec.Dot(_omega, _pointing);
+
+        double turn = Vec.Len(_omega) * step;
+        if (turn > 0.0) _pointing = Vec.Unit(doubleQuat.CreateFromAxisAngle(Vec.Unit(_omega), turn) * _pointing);
     }
 
     private void Swing(double3 wanted, double step, double rateDegPerSec)

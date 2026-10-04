@@ -958,6 +958,19 @@ internal sealed partial class Ui
             + "climb that stays in the air, and a stage that can stop waits for the vehicle to turn before "
             + "burning. A long shot is flown exactly as with it off. Unflown.");
 
+        float slowLine = (float)config.ShortShotSlowsLineSeconds;
+        if (ImGui.SliderFloat("Short shot slows its line within (s, 0 = off)", ref slowLine, 0.0f, 2.0f))
+        {
+            config.ShortShotSlowsLineSeconds = slowLine < 0.05f ? 0.0 : slowLine;
+        }
+        Tip(config.ShortShotSlowsLineSeconds > 0.0
+                ? $"Once less than {config.ShortShotSlowsLineSeconds:F2} s of the thrust being made is left to gain, "
+                  + $"the thrust line turns at most {IcbmProgram.SlowLineDegPerSec:F0} deg/s and the burn runs on the part "
+                  + "along it, so a stack at its throttle floor cannot chase what is left into a spin. Unflown."
+                : "0: the line follows what is left to gain to the end. On a short shot at the throttle floor that "
+                  + "chases: flown, every core that ran dry separated spinning, and twice the spent core knocked the "
+                  + "upper's engine off.");
+
         bool resample = config.ResampleGroundAtImpact;
         if (ImGui.Checkbox("Warheads re-read the ground as they meet it", ref resample))
         {

@@ -1,0 +1,112 @@
+using Brutal.Numerics;
+using Xunit;
+using Xunit.Abstractions;
+
+namespace KSArmory.Tests;
+
+/// <summary>
+/// The game's stack flown with an attitude that has inertia, near cutoff at its throttle floor.
+/// <see cref="IcbmConfig.ShortShotSlowsLineSeconds"/>; <c>docs/SHORT-RANGE.md</c>, "Why 150 km failed".
+///
+/// <para>The rig reproduces the flown fault before it judges the fix: with the line followed to the end,
+/// most of these flights spin up at the floor, as every flown core that ran dry did.</para>
+/// </summary>
+public class FloorHoldTests(ITestOutputHelper Out)
+{
+    internal const double R = 6_371_000.0;
+
+    internal static BallisticBody Earth => new(3.986004418e14, R, new double3(0, 0, 1), 7.2921159e-5);
+
+    internal static readonly double[] Ranges = [150.0, 200.0, 300.0, 418.0, 500.0];
+
+    internal static IcbmConfig Config(double slowLineSeconds)
+        => new()
+        {
+            Armed = true, MaxAccelerationGee = 8.0f, MinArrivalAngleDeg = 0.0, ArrivalPreference = 0.5,
+            FlyAnyRange = true, ShortShotSlowsLineSeconds = slowLineSeconds,
+        };
+
+    internal readonly record struct Outcome(double FloorRateDegPerSec, double ResidualMetresPerSecond, double MissKm);
+
+    internal static Outcome Fly(double km, double slowLineSeconds, double step, double jitter)
+    {
+        IcbmFlightRig rig = GameStackShortRangeTests.GameStack(true);
+        rig.AttitudeHasInertia = true;
+        rig.StepJitter = jitter;
+
+        IcbmProgram program = new(Config(slowLineSeconds));
+        double3 aim = GameStackShortRangeTests.South(km * 1000.0);
+        IcbmFlightRig.Flight flight = rig.Fly(program, aim, step, 6_000.0);
+
+        double miss = double.NaN;
+        if (ImpactPredictor.TryPredict(Earth, flight.CutoffPositionCci, flight.CutoffVelocityCci, 1.0,
+                                       ImpactPredictor.DefaultMaxSeconds, out ImpactPredictor.Impact hit, null, null,
+                                       new ImpactPredictor.Drag(p => Math.Exp(-Math.Max(0.0, Vec.Len(p) - R) / 8_000.0),
+                                                                Arsenal.Mk21WithDragFromShape(Arsenal.ReentryVehicleMk21))))
+        {
+            miss = R * Vec.AngleBetween(hit.GroundFixedPointCci, Earth.CarryCci(aim, flight.CutoffSeconds)) / 1000.0;
+        }
+
+        return new Outcome(rig.PeakFloorRateDegPerSec, program.ResidualAtCutoff, miss);
+    }
+
+    [Fact]
+    public void AStackAtItsFloorDoesNotChaseWhatIsLeftIntoASpin()
+    {
+        int spunOff = 0, spunOn = 0;
+        double worstOn = 0.0;
+
+        foreach (double step in new[] { 0.02, 0.025 })
+        foreach (double km in Ranges)
+        {
+            Outcome off = Fly(km, 0.0, step, 0.5);
+            Outcome on = Fly(km, 0.5, step, 0.5);
+            Out.WriteLine($"{km,4:F0} km {step * 1000,2:F0} ms: off {off.FloorRateDegPerSec,6:F1} deg/s {off.ResidualMetresPerSecond,6:F1} m/s, "
+                          + $"on {on.FloorRateDegPerSec,6:F1} deg/s {on.ResidualMetresPerSecond,6:F1} m/s");
+
+            if (off.FloorRateDegPerSec > 20.0) spunOff++;
+            if (on.FloorRateDegPerSec > 20.0) spunOn++;
+            worstOn = Math.Max(worstOn, on.ResidualMetresPerSecond);
+        }
+
+        // The rig has to show the fault, or a quiet result with the flag on says nothing about it.
+        Assert.True(spunOff >= 6, $"the rig spun on only {spunOff} of 10 with the line followed to the end");
+        Assert.True(spunOn <= 2, $"{spunOn} of 10 still spun with the line slowed");
+        Assert.True(worstOn < 30.0, $"slowing the line left {worstOn:F1} m/s ungained");
+    }
+}
+
+/// <summary>
+/// <see cref="FloorHoldTests"/> across frame steps, jitter and settings, for the record of how the setting
+/// was chosen.
+/// </summary>
+[Trait("kind", "study")]
+public class FloorHoldStudy(ITestOutputHelper Out)
+{
+    [Fact]
+    public void TheSlowedLineAcrossStepsAndSettings()
+    {
+        foreach (double seconds in new[] { 0.0, 0.25, 0.5, 1.0 })
+        {
+            int flights = 0, spun = 0, over10 = 0;
+            double worst = 0.0;
+            List<double> misses = [];
+
+            foreach (double step in new[] { 0.017, 0.02, 0.025, 0.033 })
+            foreach (double jitter in new[] { 0.5, 0.2 })
+            foreach (double km in FloorHoldTests.Ranges)
+            {
+                FloorHoldTests.Outcome o = FloorHoldTests.Fly(km, seconds, step, jitter);
+                flights++;
+                if (o.FloorRateDegPerSec > 20.0) spun++;
+                if (o.ResidualMetresPerSecond > 10.0) over10++;
+                worst = Math.Max(worst, o.ResidualMetresPerSecond);
+                if (double.IsFinite(o.MissKm)) misses.Add(o.MissKm);
+            }
+
+            misses.Sort();
+            Out.WriteLine($"{seconds:F2} s: spun at the floor {spun,2}/{flights}, over 10 m/s ungained {over10,2}/{flights}, "
+                          + $"worst {worst,6:F1} m/s, miss median {misses[misses.Count / 2]:F2} km, worst {misses[^1]:F2} km");
+        }
+    }
+}

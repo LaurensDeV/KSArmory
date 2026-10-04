@@ -264,15 +264,35 @@ build (`~/shots/2026-10-04-probe/`, FlyAnyRange on and nothing else) settled it:
   (about 0.1°/s²) could not stop in 40 s. The relight at 0.87 throttle stopped it, overshooting to about
   84°/s first.
 
-So rule 3's "burn at the floor rather than off" holds a gimballed stack only while it is pointed. The fix is to
-stop chasing near cutoff: hold the direction once what is left is within about a second of floor thrust. A
-rate limit on staging cannot help, because a dry core has no TVC left. Neither can relighting at the floor,
-because the full-throttle relight is what stopped the earlier spin.
+So rule 3's "burn at the floor rather than off" holds a gimballed stack only while it is pointed. A rate limit
+on staging cannot help, because a dry core has no TVC left. Neither can relighting at the floor, because the
+full-throttle relight is what stopped the earlier spin.
+
+**`IcbmConfig.ShortShotSlowsLineSeconds`, off, rig only.** Once what is left to gain is within that many
+seconds of the thrust being made, the line turns at most 5°/s (`IcbmProgram.SlowLineDegPerSec`), and the burn
+runs on the part along it. The rig learned to tumble for this (`IcbmFlightRig.AttitudeHasInertia`: a
+sampled controller with authority in proportion to thrust, and RCS alone with the engine off). Followed to
+the end, the line spins the stack on 31 of 40 flights at 150-500 km across four frame steps. That matches the
+night. At 0.5 s, 4 of 40 spin, the worst residual falls from 424 to 24 m/s, and the drag-flown miss moves
+from a median of 0.96 km to 1.09 (`FloorHoldStudy`).
+
+What did not work, in the rig:
+
+- **Holding the line still** left 70-165 m/s ungained, because drag and gravity turn what is left too.
+- **Seconds of floor thrust, or of full thrust,** scale the threshold wrongly. A 0.7/s throttle cannot follow
+  the ramp down a 25 g core, so the chase starts while it is still making most of its thrust.
+- **An instant throttle** still spins at the floor. Throttle lag is not the cause.
+- **Staying lit at the floor until the stack stopped turning before a pause** made the floor chase worse.
+
+What it does not reach: at 150 km the first closed-loop pass turns the line 13° from the pitch programme's.
+The stack is still turning at about 20°/s when the burn finishes in thick air and pauses, and RCS cannot
+stop it, so it relights 136° off and spins again. Those are the 4 of 40.
 
 **In the rig**, five stacks (the game's, an all-solid three-stage, the SRBs alone, a liquid pair, a 25 MN core
 with a 40% floor), 25–5,000 km: every stack cuts off at every range it can reach, 0.0–3.1 km out, bar two at about
-5 km (all-solid 200 km, SRBs alone 2,000 km). The rig cannot start a tumble, so it did not reproduce two of the
-night's flown failures. `AscentReserveGoldenTests` holds every long fixture bit-equal with it on.
+5 km (all-solid 200 km, SRBs alone 2,000 km). With its default attitude the rig cannot start a tumble, so it
+did not reproduce two of the night's flown failures; `AttitudeHasInertia` can.
+`AscentReserveGoldenTests` holds every long fixture bit-equal with it on.
 
 **Still open.** Correcting the aim from inside the air was tried and is not in: worse for liquids, mixed for
 solids. The core still spends propellant at its floor while turning (200 km used most of the core that way), and

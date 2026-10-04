@@ -951,6 +951,13 @@ internal sealed class IcbmProgram
         return Math.Min(HoldDirectionBelow, held);
     }
 
+    /// <summary>How fast the thrust line may turn under <see cref="IcbmConfig.ShortShotSlowsLineSeconds"/>.</summary>
+    public const double SlowLineDegPerSec = 5.0;
+
+    private bool SlowsTheLine(in IcbmState state)
+        => Config.ShortShotSlowsLineSeconds > 0.0 && Config.FlyAnyRange && _shortShot
+           && Phase == IcbmPhase.ClosedLoop && state.RunningStageCanStop;
+
     private void Resolve(in IcbmState state)
     {
         bool burning = IsBurning;
@@ -962,6 +969,7 @@ internal sealed class IcbmProgram
 
         if (!due) return;
 
+        double sinceLastSolve = double.IsFinite(_sinceSolve) ? _sinceSolve : SolveIntervalSeconds;
         _sinceSolve = 0.0;
 
         double arrivalFromNow = double.IsFinite(_arrivalFromLaunch)
@@ -1022,7 +1030,24 @@ internal sealed class IcbmProgram
         double holdBelow = HoldDirectionThreshold(state);
         HoldDirectionBelowNow = holdBelow;
 
-        if (_toGain > holdBelow || _thrustDirCci.Equals(Vec.Zero))
+        // Within this much of the thrust being made, what is left to gain turns faster than the stack
+        // can follow it, and steering straight at it chases. So the line is turned toward it at a
+        // bounded rate instead: fast enough for what drag and gravity do to it, too slow to run away.
+        bool slewed = SlowsTheLine(state) && _toGain > holdBelow && !_thrustDirCci.Equals(Vec.Zero)
+                      && _toGain < state.Booster.AccelerationNow
+                                   * Math.Clamp(state.ThrottleAchieved, state.MinThrottle, 1.0)
+                                   * Config.ShortShotSlowsLineSeconds;
+
+        if (slewed)
+        {
+            double turn = double.DegreesToRadians(SlowLineDegPerSec) * sinceLastSolve;
+            _thrustDirCci = Vec.TurnToward(_thrustDirCci, command.ThrustDirectionCci, turn);
+
+            double along = Vec.Dot(command.ToGainVectorCci, _thrustDirCci);
+            double seconds = state.Booster.SecondsToGain(Math.Max(along, 0.0));
+            _countdown = double.IsFinite(seconds) ? seconds : 0.0;
+        }
+        else if (_toGain > holdBelow || _thrustDirCci.Equals(Vec.Zero))
         {
             _thrustDirCci = command.ThrustDirectionCci;
             _countdown = command.SecondsToCutoff;

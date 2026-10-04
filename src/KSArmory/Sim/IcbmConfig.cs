@@ -829,6 +829,25 @@ internal sealed class IcbmConfig
     public bool FlyAnyRange;
 
     /// <summary>
+    /// On a short shot whose stage can stop, turn the thrust line at no more than
+    /// <see cref="IcbmProgram.SlowLineDegPerSec"/> once what is left to gain is within this many seconds
+    /// of the thrust being made, and burn on the part along it. Zero is off.
+    ///
+    /// <para>Every pass steers along what is left to gain, and near cutoff the stack's own thrust turns
+    /// that line faster than the stack can follow: it moves at <c>a sin(err) / v</c>, which grows without
+    /// bound as <c>v</c> falls. A 25 g core cannot throttle down as fast as it uses up what is left, and
+    /// at its floor it still makes 3 g, so the line flips and the stack chases it for the rest of the
+    /// core. Flown, every core that ran dry separated spinning at 70-109 deg/s, and twice in seven the
+    /// spent core knocked the upper's engine off. Holding the line still instead was tried: drag and
+    /// gravity turn what is left too, and a held line left 70-165 m/s ungained. In the rig at 0.5 s,
+    /// 4 of 40 flights spin against 31 of 40 off (<c>FloorHoldStudy</c>). <c>docs/SHORT-RANGE.md</c>,
+    /// "Why 150 km failed".</para>
+    ///
+    /// <para><b>Off, and unflown.</b></para>
+    /// </summary>
+    public double ShortShotSlowsLineSeconds;
+
+    /// <summary>
     /// Give each warhead the separation velocity that lands it where the tubes' mean would —
     /// <see cref="ReleaseFocus"/>.
     ///
