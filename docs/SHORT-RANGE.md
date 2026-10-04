@@ -215,19 +215,44 @@ is metres, the miss is the shot):
 | 25 km | — | **56 m** (`a8dce5a`) | SRBs to 35 km, closed loop finished at 55 km, released at once |
 | 50 km | — | **0.11 km** (`ee963f9`) | SRBs alone, closed loop finished it, released at cutoff |
 | 100 km | — | **0.21 km** (`ee963f9`) | core finished it at 16 km on the way down, released there |
-| 150 km | — | **failed** (`a8dce5a`) | burn ended 128 m/s short at 32 km; warheads held. Not yet diagnosed |
+| 150 km | — | **failed** (`a8dce5a`) | the core tumbled at its floor and burned dry, then the upper did not light: see below |
 | 200 km | — | **42 m** (`f3ea4a1`), **1.6 km** (`e85e940`) | the 1.6 km is the drag the prediction named at cutoff |
 | 300 km | — | 8.9 km, 2 m group (`e85e940`); **1.19 km** (`a8dce5a`) | the first waited 53 s to settle; released at once, it beat its own 1.43 km prediction |
 | 418 km | **burned dry 119 and 61 m/s short** | **0.75 km** (`e85e940`) | arc under the release altitude, released at cutoff |
 | 500 km | — | **7 m** (`e85e940`) | climbed above release altitude, normal release |
-| 700 km | — | landed (`e85e940`) | score reads under a metre: see below |
-| 1,000 km | **4.9 m** | landed (`ee963f9`) | score reads under a metre: see below |
-| 2,000 km | — | landed, no short-shot path engaged (`ee963f9`) | score reads under a metre |
+| 700 km | — | **2.2 mm** (`e85e940`) | normal release above the air |
+| 1,000 km | **4.9 m** | **4.0 mm** (`ee963f9`) | normal release above the air |
+| 2,000 km | — | **3.7 mm**, no short-shot path engaged (`ee963f9`) | normal release above the air |
 
-**A score of a millimetre is not a score.** At 700, 1,000 and 2,000 km the scenario reported every warhead
-within a few millimetres; it moves `AA Defence Site` to within 250 m of the aim point, and the warheads striking it
-appear to snap the measurement. Read those three as "landed at the target", accuracy unmeasured, until the harness
-scores against the aim point and not the structure.
+**The millimetres at 700 km and up are real.** They were first read as the warheads striking `AA Defence Site`,
+which the scenario parks near the aim. But the site stands 250 m off the aim, and the harness scores each burst
+against the aim point (`BallisticScenario.MissFromAim`), not against the structure. The 700 km log shows a
+normal shot: the release probe predicted 0.17 m, each warhead's kick cancelled that, and the trace from each
+warhead read 0.000 m. That is the flat-ground floor long shots have had since 2026-09-17 (`ACCURACY-PLAN.md`
+3el–3en).
+
+**Why 150 km failed** (`~/shots/2026-10-04-anyrange7/150.KSArmory.log`). There were two faults, one after the
+other:
+
+- **The core tumbled at its floor.** The closed loop took over at 23 km with 668 m/s to gain. The core started
+  turning, paused in thick air, and turned at 16°/s under RCS alone for 40 s; RCS could not stop it. While the
+  engine is off, `IcbmComputer` drives the throttle to full, so the relight came back at 0.87 throttle and
+  17.7 g. That stopped the spin: under 1°/s at 0.31 throttle. Then the program dropped to its 11.6% floor to
+  wait for the turn. Within three seconds the stack was turning at 62°/s, and later at up to 103°/s. The
+  program asked for the floor for the next 48 s and never got pointed. The core burned about 3,400 m/s of its
+  stage at the floor and gained 540 of the 668 m/s.
+- **The upper did not light.** The computer staged when the core ran dry. The dry core came off, but what was
+  left was 31.6 t with no thrust and 0 m/s of stage delta-v. Every other flight that staged in the loop lit the
+  upper at 31.8 t and about 8,700 m/s within half a second. The next sequence would separate the bus, so the
+  computer refused it, and the burn ended 128 m/s short at 32 km. The log does not say why the upper stayed
+  dark. KSA has no ullage rule, the vehicle count did not change, and `EngineOn` was held every frame. The
+  missing 0.2 t is the only lead.
+
+So "burn at the floor rather than off" (rule 3) holds a gimballed stack only while it is roughly pointed. At
+the floor, a large slew drove it into a spin it never recovered from. Two changes would want a flag and a
+flight: relight at the floor rather than at full, and give up waiting to turn once the rates pass some bound.
+Why the upper stayed dark needs instrumentation first: log each engine's state and each tank's contents at
+staging.
 
 **In the rig**, five stacks (the game's, an all-solid three-stage, the SRBs alone, a liquid pair, a 25 MN core
 with a 40% floor), 25–5,000 km: every stack cuts off at every range it can reach, 0.0–3.1 km out, bar two at about
