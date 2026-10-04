@@ -1053,8 +1053,12 @@ internal sealed class IcbmProgram
         // vehicle's current state converges on the arc it is already flying, so a loft above one
         // walks the answer outward every cycle and the shot chases a trajectory running away from
         // it — 162 km, measured. The window is what stops that being unbounded.
+        // A short shot pins it the moment the loop has it. Left free, the cheapest arc from a point on
+        // a lofted one is a lower one, so the velocity to gain swings round to point backwards and down
+        // -- flown at 200 km, through a pause that coasted out of the air, into a relight a hundred
+        // degrees off that burned the core dry turning.
         if (Phase == IcbmPhase.ClosedLoop && !double.IsFinite(_arrivalFromLaunch) && !(_unavoidable > 0.0)
-            && (state.AimIsSteady || _sinceClosedLoop >= LatchArrivalWithinSeconds))
+            && (state.AimIsSteady || _sinceClosedLoop >= LatchArrivalWithinSeconds || _shortShot))
         {
             _arrivalFromLaunch = _sinceLaunch + command.SecondsToCutoff + command.Arc.FlightSeconds;
         }
