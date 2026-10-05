@@ -436,7 +436,7 @@ Liquid3, SRB4 (four boosters), Light (2 m) and Heavy. Each was turned into a sce
 | Liquid3 | 390 m | 283 m | 6 m, after a long tumble |
 | SRB4 | 62 m | 81 m | 5 m |
 | Heavy | 1.04 km | 166 m | 10 m |
-| Light | fails both: its upper stage has a thrust-to-weight of about 0.96 and burns out 1.1-2.2 km/s short | | |
+| Light | fails both: its first stage's 4.2 km/s is spent low in the air, and its 0.67 g upper cannot finish | | |
 
 Each first flight found something GeoSat FAT never showed:
 
@@ -446,9 +446,12 @@ Each first flight found something GeoSat FAT never showed:
   the last 0.8 s.** The offset now keeps moving.
 - **Liquid3 tumbled at 700 km.** Its second stage is a full A2 making 16 g, so it chases at the floor on a high
   arc, where the slowed line is off. Its third stage had the margin to finish anyway. Not fixed yet.
-- **Light is the rocket's fault, and the computer said "Reachable" on the pad.** Its check is delta-v alone, and
-  a stage that cannot lift itself has delta-v it cannot use. A pre-launch warning off KSA's own per-stage
-  thrust-to-weight is next.
+- **Light is guidance on a light, hot stack, not the rocket alone.** Its first stage alone carries 4,207 m/s
+  against a 1,205 m/s shot, so "Reachable" on the pad was right on delta-v. But the closed loop took it at 1 km,
+  and 50 s at the scenario's 8 g cap took what was left to gain only from 1,088 to 628 m/s. The stack pointed
+  where it was told, to within 0.3°, so the commanded direction itself is what spent the stage, against drag
+  and gravity low in the air. Then the 0.67 g upper stage could not finish. Open: find what direction the loop
+  asks for there, and why it hands over at 1 km.
 
 GeoSat FAT at 200 km on the same build landed 197 m, as before. And the bus is now let go once its salvo is away:
 it used to hold its attitude, firing its thrusters, for the rest of its fall. That was flown on all five flights.
