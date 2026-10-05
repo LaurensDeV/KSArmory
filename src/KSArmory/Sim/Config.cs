@@ -230,6 +230,43 @@ public sealed class Config
     public readonly List<string> TeamNames = [];
 
     /// <summary>
+    /// Each team's rules of engagement, by name; see <see cref="KSArmory.TeamRules"/>. Not saved on
+    /// their own: every system carries its team's copy, so a team takes them back from the first of
+    /// its systems a save restores (<see cref="AdoptRules"/>).
+    /// </summary>
+    public readonly Dictionary<string, TeamRules> TeamRules = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The rules for a craft on no team.</summary>
+    public readonly TeamRules NoTeamRules = new();
+
+    /// <summary>A team's rules, made on first asking; <see cref="NoTeamRules"/> for no team.</summary>
+    public TeamRules RulesFor(string? team)
+    {
+        if (string.IsNullOrWhiteSpace(team)) return NoTeamRules;
+        if (TeamRules.TryGetValue(team, out TeamRules? rules)) return rules;
+
+        rules = new TeamRules();
+        TeamRules[team] = rules;
+        return rules;
+    }
+
+    /// <summary>A restored system's settings become its team's, if the team has none yet this session.</summary>
+    public void AdoptRules(IffPolicy restored)
+    {
+        if (string.IsNullOrWhiteSpace(restored.OwnTeam) || TeamRules.ContainsKey(restored.OwnTeam)) return;
+
+        RulesFor(restored.OwnTeam).TakeFrom(restored);
+    }
+
+    /// <summary>Takes a team out of every team's rules, and drops its own.</summary>
+    public void ForgetRules(string team)
+    {
+        TeamRules.Remove(team);
+        NoTeamRules.Forget(team);
+        foreach (TeamRules rules in TeamRules.Values) rules.Forget(team);
+    }
+
+    /// <summary>
     /// Click the world to set off a warhead there.
     ///
     /// <para>A development tool for looking at the effect without flying an engagement to get one.
@@ -251,19 +288,11 @@ public sealed class Config
     /// <summary>
     /// How strongly the nuclear cloud draws, as a fraction of full.
     ///
-    /// <para>It is a compute pass of this mod's own, run inside KSA's frame before bloom. Zero does
-    /// not dispatch at all, which is the way to turn the cloud off without turning off
-    /// <see cref="NuclearClouds"/> — the fireball and the ember ride that one.</para>
+    /// <para>It is a compute pass of this mod's own, run inside KSA's frame before bloom. Zero skips
+    /// the cloud and everything a burst draws in the sky, and still paints the targeting rings, the
+    /// holes and the tracers, which have no other way onto the screen.</para>
     /// </summary>
     public float ShaderPass = 1f;
-
-    /// <summary>
-    /// Whether the bomb sight's rings are painted on the ground by the shader pass rather than
-    /// drawn as lines. Painted, a ring is an exact circle lying on whatever is under it; the lines
-    /// are a polygon draped on sampled heights, which cuts into hills between its corners. Falls
-    /// back to the lines when the pass is not running.
-    /// </summary>
-    public bool PaintGroundRings = true;
 
     /// <summary>
     /// How bright a gun round with no tracer is drawn in daylight, against a tracer's 24: a faint grey

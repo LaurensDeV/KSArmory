@@ -298,6 +298,16 @@ public sealed class LauncherProfile
     /// <summary>Rounds in the belt, across all barrels.</summary>
     public int GunAmmo = 480;
 
+    /// <summary>
+    /// What one tube round weighs as carried (kg), which the part's mass includes and gives up when
+    /// the round leaves. Zero sheds nothing. Not <see cref="MunitionProfile.MassKg"/>, which sets the
+    /// round's drag and for a gun is the projectile alone.
+    /// </summary>
+    public float StoreMassKg;
+
+    /// <summary>What one complete round in the belt weighs (kg), case and charge included; see <see cref="StoreMassKg"/>.</summary>
+    public float GunRoundMassKg;
+
     /// <summary>Cyclic rate, rounds per minute across all barrels.</summary>
     public float GunRoundsPerMinute = 2500f;
 

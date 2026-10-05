@@ -44,14 +44,16 @@ VIA = {
     "SystemConfig.MissilesEnabled": "EnabledIn",
     "SystemConfig.GunsEnabled": "EnabledIn",
 
-    # A policy object rather than a value: the reference never changes and the panel writes what
-    # is inside it. Its own team is the field that decides every classification, so it stands for
-    # the group -- the teams pane is gone if that write is gone.
-    "SystemConfig.Iff": "Iff.OwnTeam",
+    # A policy object rather than a value: the reference never changes. Its own team is the switcher
+    # row's flag, written through SetTeam for every system and director on the craft; the rest of it
+    # is the team's, copied from Config.TeamRules each frame.
+    "SystemConfig.Iff": "SetTeam",
+    "OpticConfig.Iff": "SetTeam",
 
-    # A director's own allegiance, edited on its own row under the Director tab. Its own,
-    # because a head finds its own targets and a craft can carry one with no armament.
-    "OpticConfig.Iff": "Iff.OwnTeam",
+    # Each team's rules, made on first asking and edited in the Teams window through the helper that
+    # draws one team's switches; the relations step through TeamRules.Set.
+    "Config.TeamRules": "RulesFor",
+    "Config.NoTeamRules": "DrawTeamRules",
 
     # The scope's window is opened from the sensor's component row, through the same one-window-
     # at-a-time helper the director's map uses. The button is the control; TakeScope is how it

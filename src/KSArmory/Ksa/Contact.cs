@@ -75,8 +75,9 @@ internal interface IContact
     DragShape? DragShape { get; }
 
     /// <summary>
-    /// Where it is drawn, which is not where it is simulated — see <c>docs/FRAMES-AND-EPOCHS.md</c>.
-    /// False when it cannot be placed, which the overlay reads as "draw nothing".
+    /// Where its middle is drawn, which is not where it is simulated — see
+    /// <c>docs/FRAMES-AND-EPOCHS.md</c> — and for a craft not its centre of mass, which a bracket
+    /// would sit below. False when it cannot be placed, which the overlay reads as "draw nothing".
     /// </summary>
     bool TryDrawEgo(out double3 posEgo);
 
@@ -129,5 +130,5 @@ internal sealed class VehicleContact(Vehicle vehicle) : IContact
 
     public DragShape? DragShape => KsaWorld.DragShapeOf(Vehicle);
 
-    public bool TryDrawEgo(out double3 posEgo) => KsaWorld.TryVehicleEgo(Vehicle, out posEgo);
+    public bool TryDrawEgo(out double3 posEgo) => KsaWorld.TryVehicleCentreEgo(Vehicle, out posEgo);
 }

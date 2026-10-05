@@ -443,7 +443,8 @@ internal sealed class ScenarioRunner
         // from a camera riding three metres behind the bomb that made it.
         _showClouds = Array.IndexOf(options, "clouds") >= 0;
 
-        // The pass IS the cloud, so it follows the cloud switch rather than having one of its own.
+        // The cloud follows the cloud switch rather than having one of its own. At zero the pass still
+        // runs and paints the rings, holes and tracers; only a burst's own visuals are off.
         // Timing runs either way: a run with the cloud off is the baseline the other is read
         // against, and a number with no control looks decisive before it has said anything.
         // "noshader" keeps the cloud and its pinned camera and turns only the PASS off, which is

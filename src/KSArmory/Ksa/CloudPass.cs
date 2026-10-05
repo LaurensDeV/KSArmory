@@ -397,6 +397,22 @@ internal static class CloudPass
             View view = ViewFor(viewport, colour, width, height);
             view.Frames++;
 
+            // With the cloud off, what is painted onto the scene still is: the targeting rings, which
+            // nothing else draws, the holes, the leaks and the tracers. Only a burst's own visuals --
+            // the cloud, its marks, its light and its sky -- wait for it, and none of what they need
+            // to build is touched.
+            if (tint <= 0f)
+            {
+                if (Program.GetRenderCamera() is not { } plain) return;
+
+                int painted = 0;
+                Rings(commandBuffer, viewport, plain, view, depth, width, height, ref painted);
+                Holes(commandBuffer, viewport, plain, view, depth, frameIndex, width, height, ref painted);
+                Streams(commandBuffer, viewport, plain, view, depth, frameIndex, width, height, ref painted);
+                Tracers(commandBuffer, viewport, plain, view, depth, frameIndex, width, height);
+                return;
+            }
+
             // The weather is the main view's: KSA renders its clouds for that one alone, and their
             // images laid over a camera window would hide its burst behind somebody else's sky.
             RenderImage? weatherColour = null;
@@ -980,7 +996,7 @@ internal static class CloudPass
         public float4 CentreRadius;    // the centre, camera-relative, and the radius
         public float4 UpInner;         // the local vertical, and a second ring's radius or zero
         public float4 Colour;          // the ink, and the brightness it keeps over dark ground
-        public float4 TileWidth;       // the tile's first pixel, the line's half-width in pixels, dashes or zero
+        public float4 TileWidth;       // the tile's first pixel, the line's half-width in pixels, dashes or zero -- or minus an ellipse's short radius
     }
 
     // The line's half-width in pixels, which the shader holds however far off or oblique the ring is.
@@ -1005,7 +1021,8 @@ internal static class CloudPass
             for (int i = 0; i < GroundRings.Count; i++)
             {
                 if (!GroundRings.TryAt(i, out double3 centreEcl, out double3 up, out double radius,
-                                       out double inner, out float4 colour, out int dashes)) continue;
+                                       out double inner, out float4 colour, out int dashes,
+                                       out double3 major, out double minor)) continue;
 
                 double3 centre = centreEcl - camera.PositionEcl;
                 if (!Vec.IsFinite(centre)) continue;
@@ -1024,6 +1041,16 @@ internal static class CloudPass
                     Colour = colour,
                     TileWidth = new float4(tile.OriginX, tile.OriginY, RingHalfWidthPixels, dashes),
                 };
+
+                // An ellipse: both directions packed into the four floats the up and the inner ring
+                // take, and the short radius where the dashes go, negative to say which this is.
+                if (minor > 0.0)
+                {
+                    float2 upPacked = OctahedralPack(up);
+                    float2 majorPacked = OctahedralPack(major);
+                    push.UpInner = new float4(upPacked.X, upPacked.Y, majorPacked.X, majorPacked.Y);
+                    push.TileWidth.W = -(float)minor;
+                }
 
                 view.Rings!.BindPipeline(commandBuffer, viewport.ShaderSlot, default, default, push);
                 commandBuffer.Dispatch(tile.GroupsX, tile.GroupsY, 1);
@@ -1730,8 +1757,7 @@ internal static class CloudPass
     {
         if (!ModLibrary.TryGet<ShaderReference>(RingShaderId, out var shader) || shader is null)
         {
-            Warn($"no shader '{RingShaderId}'; targeting rings are drawn as lines");
-            GroundRings.Enabled = false;
+            Warn($"no shader '{RingShaderId}'; targeting rings will not draw");
             return false;
         }
 

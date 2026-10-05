@@ -129,6 +129,21 @@ internal interface IOpticalHead : IWeaponPlatform
     /// <summary>True once the head has caught up with what it was told to look at.</summary>
     bool OpticOnTarget { get; }
 
+    /// <summary>True while its own craft stands across its line of sight.</summary>
+    bool Masked { get; }
+
+    /// <summary>Whether its gimbal is at a limit and will go no further.</summary>
+    bool AtGimbalLimit { get; }
+
+    /// <summary>Whether it carries a laser at all.</summary>
+    bool HasLaser { get; }
+
+    /// <summary>Its laser is wanted and held off by <see cref="Masked"/>.</summary>
+    bool LaserInhibited { get; }
+
+    /// <summary>Where its laser is landing, or null.</summary>
+    LaserSpot? Spot { get; }
+
     /// <summary>The contact the sensor is holding, or null.</summary>
     Track? LockedTrack { get; }
 
@@ -165,7 +180,7 @@ internal interface IOpticalHead : IWeaponPlatform
     bool TryOpticViewEcl(out double3 eyeEcl, out double3 forwardEcl);
 
     /// <inheritdoc cref="OpticalHead.TryOpticViewEclAt"/>
-    bool TryOpticViewEclAt(double3 platformEcl, out double3 eyeEcl, out double3 forwardEcl);
+    bool TryOpticViewEclAt(double3 platformEcl, out double3 eyeEcl, out double3 forwardEcl, int viewIndex = -1);
 }
 
 /// <summary>

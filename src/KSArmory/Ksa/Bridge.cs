@@ -47,8 +47,10 @@ internal sealed class Bridge : IViewPose
 
     public Bridge(Config config, Func<Vehicle?, WeaponSystem?> systemFor,
                   Func<IEnumerable<WeaponSystems.Entry>> systems, Func<IReadOnlyList<WeaponSystem>> loose,
-                  Countermeasures countermeasures, Action<Vehicle> focus)
+                  Countermeasures countermeasures, Action<Vehicle> focus,
+                  Func<IEnumerable<OpticalHeads.Entry>> heads)
     {
+        _heads = heads;
         _loose = loose;
         _focus = focus;
         _config = config;
@@ -58,6 +60,7 @@ internal sealed class Bridge : IViewPose
     }
 
     private readonly Func<IEnumerable<WeaponSystems.Entry>> _systems;
+    private readonly Func<IEnumerable<OpticalHeads.Entry>> _heads;
     private readonly Countermeasures _countermeasures;
     private readonly Action<Vehicle> _focus;
     private readonly Func<IReadOnlyList<WeaponSystem>> _loose;
@@ -238,6 +241,7 @@ internal sealed class Bridge : IViewPose
             "capture" => BeginCapture(command),
             "load" => BeginLoad(command),
             "system" => System(command),
+            "optic" => Optic(command),
             "dispense" => Dispense(command),
             "fly" => Fly(command),
             "watch" => Watch(command),
@@ -582,6 +586,7 @@ internal sealed class Bridge : IViewPose
                 ["bearing_deg"] = Math.Round((bearing + 360.0) % 360.0, 1),
                 ["elevation_deg"] = Math.Round(double.RadiansToDegrees(Math.Asin(Math.Clamp(Vec.Dot(to, up) / range, -1.0, 1.0))), 1),
                 ["radar_m2"] = Math.Round(RadarSignature.CrossSectionFor(KsaWorld.MeanRadius(v))),
+                ["mass_kg"] = Math.Round(KsaWorld.MassKg(v), 2),
                 ["situation"] = v.Situation.ToString(),
             });
         }
@@ -593,6 +598,7 @@ internal sealed class Bridge : IViewPose
             ["speed_ms"] = Math.Round(Vec.Len(KsaWorld.VelocityEcl(flown) - KsaWorld.GroundVelocityAt(flown, here))),
             ["heat_kw_sr"] = Math.Round(KsaWorld.HeatOf(flown), 1),
             ["radar_m2"] = Math.Round(RadarSignature.CrossSectionFor(KsaWorld.MeanRadius(flown))),
+            ["mass_kg"] = Math.Round(KsaWorld.MassKg(flown), 2),
         });
 
         return seen;
@@ -719,6 +725,72 @@ internal sealed class Bridge : IViewPose
         }
 
         return changed.Count > 0 ? Done(new() { ["systems"] = changed }) : Failed("no weapons system on that craft");
+    }
+
+    // A craft's directors, as their rows would set them. view is "new" for a spare camera window,
+    // "main", "off" or a window's index; the reply reads each window's camera back.
+    private Reply Optic(BridgeCommand command)
+    {
+        if (CraftNamed(command.String("craft")) is not { } craft) return Failed("no such craft");
+
+        List<object?> heads = [];
+        foreach (OpticalHeads.Entry e in _heads())
+        {
+            if (!ReferenceEquals(e.Head.Platform, craft)) continue;
+
+            OpticConfig p = e.Policy;
+            string view = command.String("view");
+            if (view == "off") p.Viewport = -1;
+            else if (view == "main") p.Viewport = KsaWorld.MainViewportIndex;
+            else if (view == "new")
+            {
+                if (!KsaWorld.TryOpenCameraWindow(out int opened)) return Failed("no camera window spare");
+                p.Viewport = opened;
+            }
+            else if (int.TryParse(view, out int index)) p.Viewport = index;
+
+            if (command.Has("magnification")) p.Magnification = SightZoom.Clamp(command.Number("magnification", 1.0));
+            if (command.Has("tracking")) p.Tracking = command.Flag("tracking", p.Tracking);
+            if (command.Has("bearing_deg") || command.Has("elevation_deg"))
+            {
+                p.Manual = true;
+                p.ManualBearingDeg = (float)command.Number("bearing_deg", p.ManualBearingDeg);
+                p.ManualElevationDeg = (float)command.Number("elevation_deg", p.ManualElevationDeg);
+            }
+            if (command.Has("manual")) p.Manual = command.Flag("manual", p.Manual);
+            if (Enum.TryParse(command.String("sensor"), ignoreCase: true, out SensorMode sensor)) p.Sensor = sensor;
+            if (command.Has("lase")) p.Lasing = command.Flag("lase", p.Lasing);
+            if (command.Has("code") && LaserCode.IsValid((int)command.Number("code", 0))) p.LaserCode = (int)command.Number("code", 0);
+
+            Dictionary<string, object?> row = new()
+            {
+                ["head"] = e.Head.Profile.DisplayName,
+                ["viewport"] = p.Viewport,
+                ["magnification"] = p.Magnification,
+                ["tracking"] = p.Tracking,
+                ["sensor"] = p.Sensor.ToString(),
+            };
+
+            if (p.Viewport >= 0)
+            {
+                row["fov_deg"] = double.RadiansToDegrees(KsaWorld.ViewportFovRad(p.Viewport));
+                if (KsaWorld.TryViewportPicture(p.Viewport, out float2 pos, out float2 size, out _))
+                {
+                    row["picture"] = new[] { pos.X, pos.Y, size.X, size.Y };
+                }
+                if (KsaWorld.TryReadViewportPose(p.Viewport, out double3 eye, out _, out _)
+                    && e.Head.Platform is { } platform)
+                {
+                    row["eye_from_craft_m"] = Vec.Len(eye - KsaWorld.PositionEcl(platform));
+                }
+                row["nearby"] = KsaWorld.DescribeViewportContext(p.Viewport);
+                row["aim"] = e.Head.DescribeAim(p.Viewport);
+            }
+
+            heads.Add(row);
+        }
+
+        return heads.Count > 0 ? Done(new() { ["heads"] = heads }) : Failed("no director on that craft");
     }
 
     // A craft flown by numbers: engine lit, full throttle, nose held at a pitch from the vertical on a

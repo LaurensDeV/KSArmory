@@ -77,9 +77,10 @@ internal sealed class Designator
 
         float4 colour = ready && reaches && system.CanGuideOnto(at) ? MarkerColour : RefusedColour;
 
-        double3 up = system.Platform is { } craft ? KsaWorld.LocalUp(craft) : Vec.Unit(groundEcl);
-
-        KsaWorld.DrawCircleEcl(groundEcl, up, Math.Max(MarkerMin, range * MarkerScale), colour);
+        // Painted, its alpha the brightness it keeps over dark ground; the line up to a lifted
+        // aim point stays a line.
+        GroundRings.Add(groundEcl, Math.Max(MarkerMin, range * MarkerScale), 0.0,
+                        new float4(colour.X, colour.Y, colour.Z, 0.05f));
         KsaWorld.DrawLineEcl(groundEcl, at, colour);
     }
 

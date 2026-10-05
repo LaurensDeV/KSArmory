@@ -871,6 +871,11 @@ _renderedViewportIndex = _mainViewportIndex;                            // Progr
 
 ### A. Why a secondary viewport shows stars, a hard horizon and a grey ball
 
+> **Superseded in 2026.10.7.5541** for terrain and sky: `RenderViewport` now runs the planet renderer
+> and `RenderAtmosphereOnly` for a viewport flagged `RenderTerrain`, which every secondary is, and
+> the grey ball is suppressed through `Camera.GetEffectiveNearbyCelestial`. Clouds, the ocean and
+> clustered lights are still main-only. What follows is the account against the older builds.
+
 **That picture is structural, not a state bug.** It is two separate facts:
 
 #### A.1 What `RenderViewport` actually runs (`Program.cs:4168-4284`)

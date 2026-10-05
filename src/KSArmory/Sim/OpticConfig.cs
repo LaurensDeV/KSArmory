@@ -73,9 +73,19 @@ public sealed class OpticConfig : ISensorPolicy
     public float ManualBearingDeg;
     public float ManualElevationDeg = 10f;
 
-    /// <summary>Which viewport this head draws into. -1 is off; the main view is the only one
-    /// that renders a planet, so a secondary is for watching rather than aiming.</summary>
+    /// <summary>Which viewport this head draws into. -1 is off. A camera window draws terrain and
+    /// sky but not KSA's clouds, ocean or lights, which the main view alone gets.</summary>
     public int Viewport = -1;
+
+    /// <summary>Which channel a camera window shows. TV by default, as a pod comes up in; the main
+    /// view is always colour, being the player's own.</summary>
+    public SensorMode Sensor = SensorMode.Tv;
+
+    /// <summary>Whether this director's laser is firing, on an optic that has one.</summary>
+    public bool Lasing;
+
+    /// <summary>The laser's pulse code; a weapon homes on the spot carrying its own. See <see cref="LaserCode"/>.</summary>
+    public int LaserCode = KSArmory.LaserCode.Default;
 
     /// <summary>A factor on whatever field the player already had, so the same setting is the
     /// same instrument to two people with different preferences. See <see cref="SightZoom"/>.</summary>

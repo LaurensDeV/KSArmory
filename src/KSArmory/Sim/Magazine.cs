@@ -49,6 +49,9 @@ internal sealed class Magazine
     /// <summary>Firing positions this launcher has. Kept for callers that mean tubes.</summary>
     public int Capacity => _loaded.Length;
 
+    /// <summary>Rounds it holds when full: the reserve for a deep magazine, one a tube otherwise.</summary>
+    public int Full => Depth > 0 ? Depth : _loaded.Length;
+
     /// <summary>
     /// Rounds still in the tubes, counted from the flags rather than tracked beside them. Two
     /// representations of one fact can disagree; one cannot.

@@ -197,8 +197,8 @@ whatever is left after the ones already chosen, taken along the cheapest order t
 
 **Built, and four things about it are the decisions.** The reach and the numbered rings are drawn for the
 craft the panel is showing and no other — the same scoping `SiteDesignator` already had, because only one
-computer is being clicked at. **Only one ring is re-draped a frame**, so a six-target set costs a frame what
-a single-target shot has always cost; seven deadlines a second are met at any frame rate. The flight that
+computer is being clicked at. *(Since 2026-10-03 every bus's targets are drawn, and every ring and the reach are painted by the ring
+pass with no draped fallback.)* The flight that
 prices the ellipse — seven of `ImpactPredictor`, 2.6 ms headless, against the readout's one — runs on a
 **five-second wall clock rather than only on a change to the set**, which is what the bullet above assumed:
 the reach decays as the bus descends, 1,076 to 886 m per m/s over a 330 s schedule, so a footprint held from

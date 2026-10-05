@@ -445,6 +445,121 @@ internal static class Diagnostics
         }
     }
 
+    /// <summary>
+    /// A craft's engines as the engine holds them. After a staging this tells a stage that lit from
+    /// one that lost its engine: KSA's throttle floor reads 1 only once no engine is left at all,
+    /// and a part destroyed by contact leaves without a line in any log.
+    /// </summary>
+    public static string DescribeEngines(Vehicle craft)
+    {
+        try
+        {
+            PartTree tree = craft.Parts;
+            var line = new System.Text.StringBuilder();
+            line.Append($"{tree.Count} part(s), throttle floor {tree.EngineThrottleMin:F3}, "
+                        + $"sequence {tree.SequenceList.ActiveSequence} of next {tree.SequenceList.GetNextSequenceNumber()}");
+
+            Span<EngineController> engines = tree.Modules.Get<EngineController>();
+            if (engines.Length == 0) line.Append(", no engines");
+
+            for (int i = 0; i < engines.Length; i++)
+            {
+                EngineController engine = engines[i];
+                float3 thrust = engine.VacuumData.ThrustMax;
+                double kN = Math.Sqrt(thrust.X * thrust.X + thrust.Y * thrust.Y + thrust.Z * thrust.Z) / 1000.0;
+
+                line.Append($"; {engine.Parent.Id}#{engine.Parent.InstanceId} sequence {engine.Sequence} "
+                            + $"{(engine.IsActive ? "active" : "idle")}, floor {engine.MinimumThrottle:F3}, "
+                            + $"vacuum {kN:F0} kN");
+            }
+
+            return line.ToString();
+        }
+        catch (Exception e)
+        {
+            return $"engines unreadable ({e.GetType().Name})";
+        }
+    }
+
+    public static int EngineCount(Vehicle craft)
+    {
+        try
+        {
+            return craft.Parts.Modules.Get<EngineController>().Length;
+        }
+        catch
+        {
+            return -1;
+        }
+    }
+
+    /// <summary>
+    /// Which parts have left one craft since it was last looked at, by instance and with the mass
+    /// each had. A count compared every frame; the parts themselves are read only when it changes.
+    /// </summary>
+    public sealed class PartWatch
+    {
+        private readonly Dictionary<uint, string> _parts = [];
+        private readonly HashSet<uint> _now = [];
+        private Vehicle? _craft;
+        private int _count = -1;
+
+        public bool TryLost(Vehicle craft, List<string> lost)
+        {
+            lost.Clear();
+
+            try
+            {
+                int count = craft.Parts.Count;
+
+                if (ReferenceEquals(craft, _craft) && count == _count) return false;
+
+                bool same = ReferenceEquals(craft, _craft);
+
+                _now.Clear();
+                ReadOnlySpan<Part> parts = craft.Parts.Parts;
+                for (int i = 0; i < parts.Length; i++) _now.Add(parts[i].InstanceId);
+
+                if (same)
+                {
+                    foreach ((uint id, string what) in _parts)
+                    {
+                        if (!_now.Contains(id)) lost.Add(what);
+                    }
+                }
+
+                _craft = craft;
+                _count = count;
+                _parts.Clear();
+
+                for (int i = 0; i < parts.Length; i++)
+                {
+                    Part part = parts[i];
+                    _parts[part.InstanceId] = $"{part.Id}#{part.InstanceId} ({part.ComputeSubtreeInertMass():F0} kg dry)";
+                }
+
+                return lost.Count > 0;
+            }
+            catch
+            {
+                _craft = null;
+                return false;
+            }
+        }
+    }
+
+    public static double SpinDegPerSec(Vehicle craft)
+    {
+        try
+        {
+            return Vec.Len(craft.BodyRates) * 180.0 / Math.PI;
+        }
+        catch
+        {
+            return double.NaN;
+        }
+    }
+
     private static string DisplayNameOf(Vehicle craft) => KsaWorld.DisplayName(craft);
 
     private static double Deg(double radians) => radians * 180.0 / Math.PI;

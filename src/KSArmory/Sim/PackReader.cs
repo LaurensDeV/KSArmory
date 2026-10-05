@@ -272,6 +272,9 @@ public static class PackReader
             MaxElevationDeg = r.Number("MaxElevationDeg", 85f),
             MaxOffBoresightDeg = r.Number("MaxOffBoresightDeg", 135f),
             KeyholeDeg = r.Number("KeyholeDeg", 4f),
+            MaxMagnification = r.Number("MaxMagnification", 16f),
+            HasLaser = r.Flag("HasLaser", false),
+            LaserRangeMetres = r.Number("LaserRangeMetres", 20000f),
         };
 
         // A roll-nod head with no roll body cannot show what it is doing; a mast head having
@@ -349,6 +352,8 @@ public static class PackReader
             MuzzleOffset = r.Number("MuzzleOffset", 8f),
 
             GunAmmo = r.Count("GunAmmo", 480),
+            StoreMassKg = r.Number("StoreMassKg", 0f),
+            GunRoundMassKg = r.Number("GunRoundMassKg", 0f),
             GunRoundsPerMinute = r.Number("GunRoundsPerMinute", 2500f),
             GunBurstRounds = r.Count("GunBurstRounds", 12),
             GunBurstGapSeconds = r.Number("GunBurstGapSeconds", 0.55f),

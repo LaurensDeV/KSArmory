@@ -222,6 +222,16 @@ internal sealed class IcbmConfig
     public bool TrimBeforeRelease = true;
 
     /// <summary>
+    /// Drop the spent stack the moment the burn ends rather than when the release gate opens. Off:
+    /// the bus then holds its attitude for the whole coast with the empty stack still on, spending
+    /// its own thrusters on mass that is about to be thrown away, and on a short shot coasting
+    /// through air with that stack's drag. The trim still waits for the gate, so it nulls the
+    /// separation shove before anything leaves; what moves is when the shove arrives. A short shot
+    /// under <see cref="FlyAnyRange"/> separates at cutoff whatever this says. <b>Unflown.</b>
+    /// </summary>
+    public bool SeparateAtCutoff;
+
+    /// <summary>
     /// Keep a mark on the designated target, with the time to impact beside it.
     ///
     /// <para>Separate from the trajectory, and on by default, because it answers a different
@@ -790,6 +800,85 @@ internal sealed class IcbmConfig
     public double HoldDirectionSeconds;
 
     /// <summary>
+    /// Seconds of burn the pitch programme leaves for the closed loop: once the velocity still to
+    /// gain is less than this much burning at the throttle it would fly, the throttle comes down in
+    /// proportion. Zero is off.
+    ///
+    /// <para>The pitch programme cannot cut off, and on a short shot it reaches the velocity it needs
+    /// long before the air is thin enough to hand over. Flown wide open it then adds kilometres a
+    /// second that the closed loop has to take off with the upper stage, through an airflow limit
+    /// that will not let it turn round until q is under 200 Pa: at 418 km on <c>SOLVER SCALE 1</c> that
+    /// was 5,265 m/s at handover and a burn that ran dry 119 m/s short. A long shot's velocity to
+    /// gain stays far above any reserve until handover, so it never engages there.
+    /// <c>docs/SHORT-RANGE.md</c> Step 2.</para>
+    ///
+    /// <para><b>Off, and unflown.</b></para>
+    /// </summary>
+    public double AscentReserveSeconds;
+
+    /// <summary>
+    /// Fly a shot of any range on any stack. A solid stage's remaining delta-v is velocity it will add
+    /// whatever it is told, so the arc is lofted until it needs at least that much — past the
+    /// cheapest arc the need climbs with the flight time to escape, so one always exists. And once
+    /// the shot is matching such a stage, or a stoppable one is throttled as low as it goes against
+    /// <see cref="AscentReserveSeconds"/> (15 s if that is zero), the closed loop takes over from the
+    /// pitch programme, because it is the only phase that can cut off.
+    ///
+    /// <para><b>On.</b> Flown 2026-10-04/05 from 25 to 2,000 km with the other short-shot settings, every shot landed; <c>docs/SHORT-RANGE.md</c>.</para>
+    /// </summary>
+    public bool FlyAnyRange = true;
+
+    /// <summary>
+    /// On a short shot whose stage can stop, turn the thrust line at no more than
+    /// <see cref="IcbmProgram.SlowLineDegPerSec"/> once what is left to gain is within this many seconds
+    /// of the thrust being made, and burn on the part along it. Zero is off.
+    ///
+    /// <para>Every pass steers along what is left to gain, and near cutoff the stack's own thrust turns
+    /// that line faster than the stack can follow: it moves at <c>a sin(err) / v</c>, which grows without
+    /// bound as <c>v</c> falls. A 25 g core cannot throttle down as fast as it uses up what is left, and
+    /// at its floor it still makes 3 g, so the line flips and the stack chases it for the rest of the
+    /// core. Flown, every core that ran dry separated spinning at 70-109 deg/s, and twice in seven the
+    /// spent core knocked the upper's engine off. Holding the line still instead was tried: drag and
+    /// gravity turn what is left too, and a held line left 70-165 m/s ungained. In the rig at 0.5 s,
+    /// 4 of 40 flights spin against 31 of 40 off (<c>FloorHoldStudy</c>), but most of that is a relight
+    /// cutting off on the line slowed through the pause, which flown left 30 m/s across it and landed
+    /// 4.6 km out at 200 km. The chase after a relight is not stopped by this alone: it is meant with
+    /// <see cref="ShortShotFinishesInTheAir"/>, which removes the relight, and
+    /// <see cref="ShortShotSolvesWithDrag"/>, and like them acts only on an arc that stays under
+    /// <see cref="DeployAltitudeMetres"/>; <c>docs/SHORT-RANGE.md</c>, "Why 150 km failed".</para>
+    ///
+    /// <para><b>On.</b> Flown 2026-10-04/05 from 25 to 2,000 km with the other short-shot settings, every shot landed; <c>docs/SHORT-RANGE.md</c>.</para>
+    /// </summary>
+    public double ShortShotSlowsLineSeconds = 0.5;
+
+    /// <summary>
+    /// A short shot whose burn finishes in thick air, on an arc that stays under
+    /// <see cref="DeployAltitudeMetres"/>, cuts off there and releases, rather than pausing to coast out of
+    /// the air and lighting again. A higher arc still pauses: its release above the air is what gives it
+    /// millimetres.
+    ///
+    /// <para>The relight is where the floor chase comes back: the stack coasts out still turning, which
+    /// RCS cannot stop, and lights pointing well away from what is left. Cut off in the air, the vacuum
+    /// arc is wrong by the drag the prediction already names.</para>
+    ///
+    /// <para><b>On.</b> Flown 2026-10-04/05 from 25 to 2,000 km with the other short-shot settings, every shot landed; <c>docs/SHORT-RANGE.md</c>.</para>
+    /// </summary>
+    public bool ShortShotFinishesInTheAir = true;
+
+    /// <summary>
+    /// In the last <see cref="IcbmProgram.DragSolveWithinSeconds"/> of a short shot's burn, fly each
+    /// solved arc with the warhead's drag and move the aim until it lands on the target.
+    ///
+    /// <para>Cut off in the air, a vacuum arc falls short by the drag the prediction already names --
+    /// 1.63 km predicted and 1.59 flown at 200 km. Correcting the aim afterwards from inside the air was
+    /// tried and is not in: it is a loop reading at 2 Hz with a ratchet, and in the air each reading
+    /// is mostly the cutoff state moving. This solves the same miss inside each pass instead.</para>
+    ///
+    /// <para><b>On.</b> Flown 2026-10-04/05 from 25 to 2,000 km with the other short-shot settings, every shot landed; <c>docs/SHORT-RANGE.md</c>.</para>
+    /// </summary>
+    public bool ShortShotSolvesWithDrag = true;
+
+    /// <summary>
     /// Give each warhead the separation velocity that lands it where the tubes' mean would —
     /// <see cref="ReleaseFocus"/>.
     ///
@@ -899,6 +988,18 @@ internal sealed class IcbmConfig
     /// baseline as an arm — turning this off is what the comparator now is.</para>
     /// </summary>
     public bool WarheadDragFromItsShape = true;
+
+    /// <summary>
+    /// Take each warhead's mass off the bus as it leaves.
+    ///
+    /// <para><b>On.</b> True to the vehicle, and it changes the shot: shedding about half the bus over
+    /// six releases loosens the pointing band, which scales as one over the inertia. The trim measures
+    /// its acceleration rather than assuming it, so that half adapts. The mass comes off where the part
+    /// declares it, on the thruster ring, never at a tube. Flown non-inferior against a ×1.20 bar on one
+    /// target, 0.89x [0.73, 1.07], and on a four-target walk, 0.90x [0.83, 0.99];
+    /// <c>docs/ACCURACY-PLAN.md</c> 3fm and 3fn.</para>
+    /// </summary>
+    public bool ShedWarheadMass = true;
 
     /// <summary>
     /// Solve each warhead's separation kick through the air rather than in vacuum — the ring's image, the arrival

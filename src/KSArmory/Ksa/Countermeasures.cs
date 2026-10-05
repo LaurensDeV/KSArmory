@@ -13,7 +13,15 @@ namespace KSArmory;
 /// </summary>
 internal sealed class Countermeasures
 {
-    internal sealed record Entry(Vehicle Craft, int Ordinal, Dispenser Dispenser);
+    // Its part, and the craft and place it is on now. Keyed on the part, which KSA moves whole through a
+    // split, so a dispenser carried onto another craft keeps what it has left.
+    internal sealed class Entry(Part part, Vehicle craft, int ordinal, Dispenser dispenser)
+    {
+        public Part Part { get; } = part;
+        public Vehicle Craft { get; set; } = craft;
+        public int Ordinal { get; set; } = ordinal;
+        public Dispenser Dispenser { get; } = dispenser;
+    }
 
     // Auto-dispense is the craft's, not a part's: one warning receiver, answered from whichever
     // dispensers hold the right load.
@@ -28,9 +36,11 @@ internal sealed class Countermeasures
 
     private static readonly List<Decoy> _live = [];
 
-    private readonly Dictionary<(Vehicle Craft, int Ordinal), Entry> _entries = [];
+    private readonly Dictionary<Part, Entry> _entries = new(ReferenceEqualityComparer.Instance);
     private readonly List<(Part Part, DispenserProfile Profile)> _scratch = [];
-    private readonly List<(Vehicle, int)> _stale = [];
+    private readonly List<Part> _stale = [];
+    private readonly HashSet<Part> _seen = new(ReferenceEqualityComparer.Instance);
+    private readonly HashSet<Vehicle> _unread = new(ReferenceEqualityComparer.Instance);
     private readonly List<IncomingMissile> _incoming = [];
 
     /// <summary>Every decoy still burning or blooming, for the seekers and the effects to read.</summary>
@@ -55,28 +65,53 @@ internal sealed class Countermeasures
     /// <summary>Crews every dispenser now fitted and forgets every one gone with its craft.</summary>
     public void Sync(IReadOnlyList<Vehicle> craft)
     {
+        _seen.Clear();
+        _unread.Clear();
+
         for (int i = 0; i < craft.Count; i++)
         {
             Vehicle v = craft[i];
             if (!KsaWorld.IsAlive(v) || !KsaWorld.HasPlatform(v)) continue;
 
-            FindAll(v, _scratch);
+            if (!FindAll(v, _scratch))
+            {
+                _unread.Add(v);
+                continue;
+            }
+
             for (int ordinal = 0; ordinal < _scratch.Count; ordinal++)
             {
-                if (_entries.ContainsKey((v, ordinal))) continue;
+                Part part = _scratch[ordinal].Part;
+                _seen.Add(part);
 
-                _entries[(v, ordinal)] = new Entry(v, ordinal, new Dispenser(_scratch[ordinal].Profile));
+                if (_entries.TryGetValue(part, out Entry? known))
+                {
+                    if (!ReferenceEquals(known.Craft, v))
+                    {
+                        Log.Info($"a countermeasures dispenser went with its part onto {KsaWorld.DisplayName(v)}, "
+                                 + $"{known.Dispenser.Remaining} left");
+                    }
+
+                    known.Craft = v;
+                    known.Ordinal = ordinal;
+                    continue;
+                }
+
+                _entries[part] = new Entry(part, v, ordinal, new Dispenser(_scratch[ordinal].Profile));
                 Log.Info($"fitted a countermeasures dispenser on {KsaWorld.DisplayName(v)}");
             }
         }
 
+        // Gone only from a craft whose parts were read: one mid-rebuild is not one without them, and
+        // dropping its dispensers would refill them on the next frame.
         _stale.Clear();
-        foreach (KeyValuePair<(Vehicle Craft, int Ordinal), Entry> kv in _entries)
+        foreach (Entry e in _entries.Values)
         {
-            if (!KsaWorld.IsAlive(kv.Key.Craft) || FindNth(kv.Key.Craft, kv.Key.Ordinal) is null) _stale.Add(kv.Key);
+            if (_seen.Contains(e.Part) || (_unread.Contains(e.Craft) && KsaWorld.IsAlive(e.Craft))) continue;
+            _stale.Add(e.Part);
         }
 
-        foreach ((Vehicle, int) key in _stale) _entries.Remove(key);
+        foreach (Part part in _stale) _entries.Remove(part);
 
         foreach (Vehicle v in _crafts.Keys.ToList())
         {
@@ -226,12 +261,11 @@ internal sealed class Countermeasures
     // craft is sampled, so it is not stepped until the next frame.
     private void Eject(Entry e)
     {
-        if (FindNth(e.Craft, e.Ordinal) is not { } found) return;
+        if (Catalogue.DispenserForPart(e.Part.Id) is not { } profile) return;
 
         try
         {
-            Part part = found.Part;
-            DispenserProfile profile = found.Profile;
+            Part part = e.Part;
 
             double3 faceAsmb = part.PositionVehicleAsmb + (part.Asmb2VehicleAsmb * (profile.EjectDirection * 0.2));
             double3 at = KsaWorld.VehicleAsmbToEcl(e.Craft, faceAsmb);
@@ -250,13 +284,20 @@ internal sealed class Countermeasures
         }
     }
 
-    private (Part Part, DispenserProfile Profile)? FindNth(Vehicle craft, int ordinal)
+    /// <summary>What each dispenser's part should weigh now, from what it has left.</summary>
+    public void WantStoreMass()
     {
-        FindAll(craft, _scratch);
-        return ordinal < _scratch.Count ? _scratch[ordinal] : null;
+        foreach (Entry e in _entries.Values)
+        {
+            DispenserProfile profile = e.Dispenser.Profile;
+            double perRound = Catalogue.DecoyNamed(profile.Decoy).MassKg;
+
+            StoreMass.Want(e.Craft, e.Part, StoreLoad.ShedKg(perRound, profile.Count, e.Dispenser.Remaining));
+        }
     }
 
-    private static void FindAll(Vehicle vehicle, List<(Part Part, DispenserProfile Profile)> into)
+    // False when the part tree could not be read, which is not the same as holding none.
+    private static bool FindAll(Vehicle vehicle, List<(Part Part, DispenserProfile Profile)> into)
     {
         into.Clear();
         try
@@ -266,10 +307,12 @@ internal sealed class Countermeasures
             {
                 if (parts[i] is { } part && Catalogue.DispenserForPart(part.Id) is { } profile) into.Add((part, profile));
             }
+
+            return true;
         }
         catch
         {
-            // Part tree can be mid-rebuild during staging or docking.
+            return false;
         }
     }
 }

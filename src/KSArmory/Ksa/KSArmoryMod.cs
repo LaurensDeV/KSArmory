@@ -220,7 +220,8 @@ public sealed class KSArmoryMod
             _scenario.Begin(ScenarioRunner.Requested());
             _bridge = new Bridge(_config, craft => _roster?.For(craft)?.Weapon,
                                  () => _roster?.All ?? [], () => _roster?.Loose ?? [],
-                                 _countermeasures, craft => _ui?.Manage(craft));
+                                 _countermeasures, craft => _ui?.Manage(craft),
+                                 () => _heads?.All ?? []);
         }
 
         Log.Info(Build.Developer
@@ -376,6 +377,7 @@ public sealed class KSArmoryMod
         NuclearClouds.Clear();
         BulletHoles.Clear();
         Leaks.Clear();
+        StoreMass.Clear();
 
         // Keyed on live craft, every one of which DeserializeSave has just destroyed. CollectTeams
         // rebuilds it on the next step that runs, so this only matters for a world that stays
@@ -456,9 +458,11 @@ public sealed class KSArmoryMod
             _chase.Release();
         }
 
+        DriveCameraWindows(dt);
+
         if (KsaWorld.InFlight && _heads?.Driving(_ui.Focused) is { } head)
         {
-            TakeOpticView(head.Head, head.Policy, dt);
+            TakeMainView(head.Head, head.Policy);
         }
         else if (KsaWorld.InFlightScene)
         {
@@ -531,7 +535,6 @@ public sealed class KSArmoryMod
             // aims with, not an annotation of how the mod is thinking. Same reasoning as the
             // shell stream above.
             GroundRings.BeginFrame();
-            GroundRings.Enabled = _config.PaintGroundRings;
             BulletHoles.Enabled = _config.BulletHoles;
             Leaks.Enabled = _config.TankLeaks;
             BulletHoles.Prune();
@@ -614,11 +617,31 @@ public sealed class KSArmoryMod
             // yields the main view to the chase without releasing it, and painting through that
             // leaves its bracket over a picture of something else, stacked under the chase's own.
             if (KsaWorld.InFlight && _heads?.Driving(_ui.Focused) is { } head
-                && ViewClaim.SightPaints(head.Policy.Viewport >= 0,
-                                         head.Policy.Viewport == KsaWorld.MainViewportIndex,
-                                         _sight.Holding, _chase.HoldsMainView))
+                && head.Policy.Viewport == KsaWorld.MainViewportIndex
+                && ViewClaim.SightPaints(true, true, _sight.Holding, _chase.HoldsMainView))
             {
                 Sight.Draw(head.Head, head.Policy, _roster.For(_ui.Focused)?.Weapon);
+            }
+
+            // Every camera window a head drives: its window first, which says where the picture
+            // is, then its sight, with the weapon on that head's own craft rather than the one the
+            // panel is showing.
+            if (KsaWorld.InFlightScene && _heads is not null)
+            {
+                foreach (OpticalHeads.Entry e in _heads.All)
+                {
+                    if (!_windowsDriven.Contains(e.Policy.Viewport)) continue;
+
+                    ISightPicture? weapon = _roster.For(e.Head.Platform)?.Weapon;
+                    OpticalHeads.Entry shown = e;
+
+                    if (!DirectorWindow.Draw(e.Head, e.Policy, ViewportTitle(e.Head),
+                                             surface => Sight.Draw(shown.Head, shown.Policy, weapon, surface))
+                        && e.Policy.Viewport >= 0)
+                    {
+                        Sight.Draw(e.Head, e.Policy, weapon);
+                    }
+                }
             }
 
         }
@@ -751,6 +774,9 @@ public sealed class KSArmoryMod
                 using (_budget.Measure("allocate")) _armaments.Refresh(_roster.All);
 
                 using (_budget.Measure("fire")) foreach (WeaponSystems.Entry e in _roster.All) e.Weapon.Update(step, _airborne);
+
+                // After the fire loop, so a round that left this step has already come off.
+                using (_budget.Measure("store mass")) WantStoreMass();
 
                 // Systems whose craft has been destroyed, still flying what they had in the air.
                 // After the crewed ones and on the same step, so a round is stepped exactly once
@@ -1013,14 +1039,10 @@ public sealed class KSArmoryMod
         Log.Shutdown();
     }
 
-    // Puts the view on the launcher's optical head, on whichever window the player chose.
-    //
-    // The main view and a secondary one are driven by different mechanisms and cannot share one:
-    // a secondary camera follows nothing, so it is positioned outright, while the main camera is
-    // following the player's craft and KSA places it at following.GetPositionEcl() + CameraOffset
-    // during its own pass. The main view is also the only one that draws a planet - see
-    // docs/BLOCKED-ON-KSA.md - so it is the one worth having and the one that has to be given back.
-    private void TakeOpticView(OpticalHead system, OpticConfig policy, double dt)
+    // The main view, for the head on the craft the panel is showing. There is one main view, so
+    // one head at a time; it follows the player's craft, so KSA places it at
+    // following.GetPositionEcl() + CameraOffset during its own pass, and it has to be given back.
+    private void TakeMainView(OpticalHead system, OpticConfig policy)
     {
         bool wantsMainView = policy.Viewport == KsaWorld.MainViewportIndex;
 
@@ -1032,14 +1054,60 @@ public sealed class KSArmoryMod
         // Taking the view back by hand switches the optic off, rather than merely releasing it
         // once. The setting is what asks for the view, so leaving it on means the very next frame
         // takes it straight back -- which reads as the mod refusing to let go.
-        if (did == ViewAction.StandDown)
+        if (did == ViewAction.StandDown) policy.Viewport = -1;
+    }
+
+    // Every head with a camera window drives it, whichever craft the panel is showing: a window
+    // is how a site is watched while flying something else, and one that froze whenever the
+    // panel moved on would be no use for that.
+    private HashSet<int> _windowsDriven = [], _windowsDrivenBefore = [];
+
+    private void DriveCameraWindows(double dt)
+    {
+        (_windowsDrivenBefore, _windowsDriven) = (_windowsDriven, _windowsDrivenBefore);
+        _windowsDriven.Clear();
+        SensorPass.BeginFrame();
+
+        if (_heads is not null && KsaWorld.InFlightScene)
         {
-            policy.Viewport = -1;
-            return;
+            Vehicle? focused = _ui?.Focused;
+            int main = KsaWorld.MainViewportIndex;
+
+            foreach (OpticalHeads.Entry e in _heads.All)
+            {
+                int index = e.Policy.Viewport;
+                if (index < 0 || index == main) continue;
+
+                // Two heads on one window would fight for it every frame. The first keeps it.
+                if (!_windowsDriven.Add(index))
+                {
+                    e.Policy.Viewport = -1;
+                    continue;
+                }
+
+                bool trace = ReferenceEquals(e.Head.Platform, focused);
+                if (DriveWindow(e.Head, e.Policy, dt, trace)) SensorPass.Want(index, e.Policy.Sensor);
+
+                // Kept through a frame the eye could not be resolved, so the window is not closed
+                // under the player for it; dropped once the head lets the window go.
+                if (e.Policy.Viewport != index) _windowsDriven.Remove(index);
+            }
         }
 
-        if (wantsMainView || policy.Viewport < 0) return;
+        // A window nothing drives is closed: with KSA's own window taken off it there is nothing
+        // left to close it by, and it would go on rendering unseen.
+        foreach (int released in _windowsDrivenBefore)
+        {
+            if (_windowsDriven.Contains(released)) continue;
 
+            KsaWorld.ResetViewportFov(released);
+            KsaWorld.CloseCameraWindow(released);
+        }
+    }
+
+    // One camera window on one head. It follows nothing, so it is positioned outright.
+    private bool DriveWindow(OpticalHead system, OpticConfig policy, double dt, bool traced)
+    {
         // The window has an X on it. Closing one while a head is driving it leaves this pointing
         // at a viewport nobody is showing, which draws nothing and reads as the head having
         // stopped working -- so it is switched off here rather than left to look broken.
@@ -1047,26 +1115,38 @@ public sealed class KSArmoryMod
         {
             policy.Viewport = -1;
             Log.Info("camera: that window was closed; the director is off");
-            return;
+            return false;
         }
 
-        if (system.OpticPart is null) return;
-        if (!system.TryOpticViewEcl(out double3 eye, out double3 forward))
+        if (system.OpticPart is null) return false;
+
+        bool trace = false;
+        if (traced)
         {
             _viewTrace += 1;
-            if (_viewTrace % 60 == 0) Log.Debug(() => "camera: could not resolve the optical head's eye");
-            return;
+            trace = _viewTrace % 60 == 0;
         }
 
-        _viewTrace += 1;
-        bool trace = _viewTrace % 60 == 0;
+        // Everything as this window's own camera draws it. It follows nothing, so it draws every
+        // craft at its simulated position, where the main camera draws those in its craft's
+        // physics bubble at their physics ones: metres apart, by a different amount each frame,
+        // which is a fixed angle of shake and grows with the zoom.
+        double3 anchor = system.PlatformEcl;
+        if (system.Platform is { } platform
+            && KsaWorld.TryDrawnCentreEcl(platform, out double3 drawnEcl, policy.Viewport))
+        {
+            anchor = drawnEcl;
+        }
 
-        // What happened to the pose since it was last written. The mod writes this camera in the
-        // GUI pass, after the viewport controllers have run, and the engine renders afterwards --
-        // so between one write and the next nothing should have moved it. A drift here is the
-        // discriminator for a scene that will not sit still in the window: near zero means the
-        // camera is being obeyed and the geometry is drawn in somebody else's frame, and a real
-        // number means something is writing over the aim.
+        if (!system.TryOpticViewEclAt(anchor, out double3 eye, out double3 forward, policy.Viewport))
+        {
+            if (trace) Log.Debug(() => "camera: could not resolve the optical head's eye");
+            return false;
+        }
+
+        // What happened to the pose since it was last written. Between one write and the render
+        // nothing should move it, so a drift here separates a camera that is being written over
+        // from geometry drawn in somebody else's frame.
         if (trace) ProbeViewDrift(policy.Viewport);
 
         // Says which head this window is showing. It matters because the window is meant to be
@@ -1074,14 +1154,19 @@ public sealed class KSArmoryMod
         // it, and four cameras all called "Camera 3" are four of the same window.
         KsaWorld.NameViewport(policy.Viewport, ViewportTitle(system));
 
+        // A window has no player's field to borrow, so the magnification is taken against the
+        // engine's default, which is what the window shows at x1.
+        double fovDeg = SightZoom.FovDegreesFor(SightZoom.DefaultFovDeg, policy.Magnification);
+
         // Local "up" at the launcher, which is what the boresight already is — so the horizon
         // sits level rather than rolling with the ecliptic.
         bool took = KsaWorld.TryLookFromViewport(policy.Viewport, eye, forward,
-                                                 system.Boresight, dt);
+                                                 system.Boresight, fovDeg, dt);
         if (trace)
         {
             Log.Debug(() => $"camera: view {policy.Viewport} of {KsaWorld.ViewportCount} "
-                            + $"took={took} eye={eye.X:F0},{eye.Y:F0},{eye.Z:F0} "
+                            + $"took={took} fov={fovDeg:F1} drawnGap={Vec.Len(anchor - system.PlatformEcl):F2} m "
+                            + $"eye={eye.X:F0},{eye.Y:F0},{eye.Z:F0} "
                             + $"fwd={forward.X:F3},{forward.Y:F3},{forward.Z:F3}");
         }
 
@@ -1090,6 +1175,8 @@ public sealed class KSArmoryMod
             policy.Viewport = -1;
             Log.Warn("camera: could not drive that view; released it");
         }
+
+        return took;
     }
 
     // Where the camera window was left, so the next pass can say whether anything moved it.
@@ -1135,6 +1222,33 @@ public sealed class KSArmoryMod
              : part;
     }
 
+    // What each launcher and dispenser part should weigh now, from what it still carries. Asked of
+    // every one every frame, including those that shed nothing, so one put back -- a reload, a switch
+    // turned off -- has its mass put back too.
+    private void WantStoreMass()
+    {
+        foreach (WeaponSystems.Entry e in _roster!.All)
+        {
+            WeaponSystem w = e.Weapon;
+            if (w.Launcher is not { } part || w.Platform is not { } craft) continue;
+
+            LauncherProfile p = w.Profile;
+
+            // A bus's warheads change the shot every accuracy number is measured on, so they come off
+            // only once a night has shown that costs nothing.
+            double perRound = _icbms?.For(craft) is { } computer && !computer.Config.ShedWarheadMass
+                            ? 0.0
+                            : p.StoreMassKg;
+
+            double shed = StoreLoad.ShedKg(perRound, w.MagazineFull, w.Ammo)
+                        + StoreLoad.ShedKg(p.GunRoundMassKg, p.GunAmmo, w.GunAmmo);
+
+            StoreMass.Want(craft, part, shed);
+        }
+
+        _countermeasures?.WantStoreMass();
+    }
+
     // Which side each craft fights for, as the panel's flag set it -- the half of IFF a craft's
     // display name cannot carry.
     //
@@ -1143,8 +1257,8 @@ public sealed class KSArmoryMod
     // craft per frame, against the Contains-per-declared-team it saves every sensor on every
     // contact.
     //
-    // The rank, not the order, is what settles a craft whose installations were given different
-    // sides under Tuning: both rosters enumerate in a dictionary's order, and an allegiance
+    // The rank, not the order, is what settles a craft whose installations disagree about their
+    // side: both rosters enumerate in a dictionary's order, and an allegiance
     // decided by that is an unreproducible bug report.
     private void CollectTeams()
     {
@@ -1155,6 +1269,7 @@ public sealed class KSArmoryMod
             foreach (WeaponSystems.Entry e in _roster.All)
             {
                 KsaWorld.TeamRoster.Declare(e.Craft, e.Policy.Iff.OwnTeam, e.Ordinal);
+                _config.RulesFor(e.Policy.Iff.OwnTeam).ApplyTo(e.Policy.Iff);
             }
         }
 
@@ -1163,6 +1278,7 @@ public sealed class KSArmoryMod
         foreach (OpticalHeads.Entry h in _heads.All)
         {
             KsaWorld.TeamRoster.Declare(h.Head.Platform, h.Policy.Iff.OwnTeam, TeamRoster.DirectorRank);
+            _config.RulesFor(h.Policy.Iff.OwnTeam).ApplyTo(h.Policy.Iff);
         }
     }
 

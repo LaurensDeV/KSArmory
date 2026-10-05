@@ -346,6 +346,18 @@ public class IcbmFlightTests
 
         Assert.Contains("short of the solution", flight.Hold);
         Assert.Equal(IcbmPhase.Coast, flight.FinalPhase);
+
+        // The panel reads every coast frame, not only the one the burn ended on.
+        double shortBy = program.ResidualAtCutoff;
+        Assert.True(shortBy > 1.0, $"fell short by {shortBy:F1} m/s");
+
+        IcbmState coasting = new(Earth, rig.PositionCci, rig.VelocityCci, aim, HasAim: true,
+                                 rig.Performance(), 0.0, PropellantAvailable: false);
+        IcbmCommand later = program.Update(2.0, coasting);
+
+        Assert.Equal(IcbmReach.ShortOfPropellant, later.Reach);
+        Assert.Equal(shortBy, later.ShortfallMetresPerSecond, 6);
+        Assert.Contains($"burn ended {shortBy:F0} m/s short", later.Hold);
     }
 
     [Fact]

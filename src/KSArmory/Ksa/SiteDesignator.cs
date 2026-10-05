@@ -105,14 +105,12 @@ internal sealed class SiteDesignator
         // while the cursor is still over it, than as a line of red text after the click.
         ReachVerdict verdict = Verdict(computer, groundEcl, body);
 
-        double3 up = computer.Parent is { } centre
-                         ? Vec.Unit(groundEcl - centre.GetPositionEcl())
-                         : KsaWorld.LocalUp(anchor);
-
         double range = Vec.Len(groundEcl - KsaWorld.PositionEcl(anchor));
+        float4 ink = ReachDisplay.Takes(verdict) ? MarkerColour : RefusedColour;
 
-        KsaWorld.DrawCircleEcl(groundEcl, up, Math.Max(MarkerMin, range * MarkerScale),
-                               ReachDisplay.Takes(verdict) ? MarkerColour : RefusedColour);
+        // Painted, its alpha the brightness it keeps over dark ground.
+        GroundRings.Add(groundEcl, Math.Max(MarkerMin, range * MarkerScale), 0.0,
+                        new float4(ink.X, ink.Y, ink.Z, 0.05f));
 
         Say(ReachDisplay.CursorSays(verdict));
     }

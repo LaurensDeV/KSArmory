@@ -712,6 +712,13 @@ internal static class KsaWorld
 
     public static double3 VelocityEcl(Vehicle v) => v.GetVelocityEcl();
 
+    /// <summary>A craft's whole mass as KSA flies it (kg), or NaN.</summary>
+    public static double MassKg(Vehicle v)
+    {
+        try { return v.Props.TotalMass; }
+        catch { return double.NaN; }
+    }
+
     /// <summary>
     /// How fast a craft is turning, in Ecl, rad/s.
     ///
@@ -998,6 +1005,55 @@ internal static class KsaWorld
     }
 
     /// <summary>
+    /// How far along a ray the ground of the nearest body is first met, within
+    /// <paramref name="maxRange"/>. Walked out from <paramref name="eye"/> by <see cref="TerrainRay"/>.
+    /// </summary>
+    public static bool TryRayGround(double3 eye, double3 direction, double maxRange,
+                                    out Celestial? nearest, out double nearestRange)
+    {
+        nearest = null;
+        nearestRange = double.MaxValue;
+
+        try
+        {
+            if (Universe.CurrentSystem is not { } system) return false;
+
+            for (int i = 0; i < system.Count; i++)
+            {
+                if (system.GetIndex(i) is not Celestial body) continue;
+
+                double3 centre = body.GetPositionEcl();
+                double top = MaxTerrainHeightMetres(body);
+
+                // Far enough to cross the whole body. Only the part below its highest ground is
+                // walked, and the walk stops at the first place it is under it.
+                double reach = Math.Min(maxRange, 2.0 * (Vec.Len(eye - centre) + body.MeanRadius + top));
+
+                // Terrain only. A launch pad is 8 m of pedestal 40 m across, and adding it here
+                // models it as an 8 m thicker planet: at 5 km the resolved point moves 2.8 km, and
+                // sweeping the cursor over the pad edge swings the bearing from the mount through
+                // 168 degrees between one pixel and the next. Where a structure's surface is has
+                // no answer in this engine -- see docs/BLOCKED-ON-KSA.md.
+                if (!TerrainRay.TryFirstHit(eye, direction, reach, centre, body.MeanRadius, top,
+                                            new TerrainHeights(body, accurate: true), out double range)
+                    || range >= nearestRange)
+                {
+                    continue;
+                }
+
+                nearest = body;
+                nearestRange = range;
+            }
+
+            return nearest is not null;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Where the cursor's ray first meets a celestial's ground, as a place a craft can be put or a
     /// round can be sent.
     ///
@@ -1018,36 +1074,9 @@ internal static class KsaWorld
         try
         {
             if (!TryCursorRayEcl(out double3 eye, out double3 direction)) return false;
-            if (Universe.CurrentSystem is not { } system) return false;
-
-            Celestial? nearest = null;
-            double nearestRange = double.MaxValue;
-
-            for (int i = 0; i < system.Count; i++)
+            if (!TryRayGround(eye, direction, double.MaxValue, out Celestial? nearest, out double nearestRange))
             {
-                if (system.GetIndex(i) is not Celestial body) continue;
-
-                double3 centre = body.GetPositionEcl();
-                double top = MaxTerrainHeightMetres(body);
-
-                // Far enough to cross the whole body. Only the part below its highest ground is
-                // walked, and the walk stops at the first place it is under it.
-                double reach = 2.0 * (Vec.Len(eye - centre) + body.MeanRadius + top);
-
-                // Terrain only. A launch pad is 8 m of pedestal 40 m across, and adding it here
-                // models it as an 8 m thicker planet: at 5 km the resolved point moves 2.8 km, and
-                // sweeping the cursor over the pad edge swings the bearing from the mount through
-                // 168 degrees between one pixel and the next. Where a structure's surface is has
-                // no answer in this engine -- see docs/BLOCKED-ON-KSA.md.
-                if (!TerrainRay.TryFirstHit(eye, direction, reach, centre, body.MeanRadius, top,
-                                            new TerrainHeights(body, accurate: true), out double range)
-                    || range >= nearestRange)
-                {
-                    continue;
-                }
-
-                nearest = body;
-                nearestRange = range;
+                return false;
             }
 
             if (nearest is null) return false;
@@ -1859,6 +1888,32 @@ internal static class KsaWorld
         catch
         {
             return null;
+        }
+    }
+
+    /// <summary>
+    /// Whether the engines running now stop when told to. False while any active engine burns a
+    /// solid grain: KSA's <c>SolidMotor</c> keeps burning once lit whatever it is commanded, and only
+    /// a spent grain stops it. True when it cannot be read, which is every engine that throttles.
+    /// </summary>
+    public static bool RunningEnginesCanStop(Vehicle craft)
+    {
+        try
+        {
+            Span<EngineController> engines = craft.Parts.Modules.Get<EngineController>();
+            for (int i = 0; i < engines.Length; i++)
+            {
+                if (!engines[i].IsActive) continue;
+                foreach (RocketCore core in engines[i].Cores)
+                {
+                    if (core is SolidMotor) return false;
+                }
+            }
+            return true;
+        }
+        catch
+        {
+            return true;
         }
     }
 
@@ -2847,14 +2902,19 @@ internal static class KsaWorld
         }
     }
 
-    /// <summary>Where a craft's centre of mass is drawn, in Ecl, for the main camera; see <see cref="TryDrawnPartPointEcl"/>.</summary>
-    public static bool TryDrawnCentreEcl(Vehicle craft, out double3 ecl)
+    /// <summary>
+    /// Where a craft's centre of mass is drawn, in Ecl; see <see cref="TryDrawnPartPointEcl"/>. For
+    /// the main camera, or for one viewport's: a camera following a craft draws the others in its
+    /// physics bubble at their physics positions and one following nothing at their simulated ones,
+    /// metres apart and by a different amount each frame.
+    /// </summary>
+    public static bool TryDrawnCentreEcl(Vehicle craft, out double3 ecl, int viewIndex = -1)
     {
         ecl = default;
 
         try
         {
-            if (Program.GetMainCamera() is not { } camera || !IsAlive(craft)) return false;
+            if (CameraFor(viewIndex) is not { } camera || !IsAlive(craft)) return false;
 
             ecl = camera.EgoToEcl(craft.CenterOfMassAsmb.Transform(craft.GetMatrixAsmb2Ego(camera)));
             return Vec.IsFinite(ecl);
@@ -3376,7 +3436,6 @@ internal static class KsaWorld
 
             if (!_anchor.IsValid) return false;
 
-
             _anchored = true;
             return true;
         }
@@ -3386,7 +3445,6 @@ internal static class KsaWorld
         }
     }
 
-
     /// <summary>
     /// The anchor's position in the render frame, straight from the engine. Drawing here involves
     /// no arithmetic of the mod's own, so it isolates "is the anchor right" from "is the Ecl
@@ -3395,6 +3453,25 @@ internal static class KsaWorld
     public static double3 AnchorEgo => _anchor.Ego;
 
     public static bool HasAnchor => _anchored;
+
+    /// <summary>
+    /// A point into the main camera's Ego by that camera alone, not the draw anchor: the inverse of
+    /// what <see cref="TryProjectEgoOrClamp"/> undoes to re-base a point into another window.
+    /// </summary>
+    public static bool TryMainCameraEgo(double3 posEcl, out double3 posEgo)
+    {
+        posEgo = Vec.Zero;
+        try
+        {
+            if (Program.GetMainCamera() is not { } main) return false;
+            posEgo = main.EclToEgo(posEcl);
+            return Vec.IsFinite(posEgo);
+        }
+        catch
+        {
+            return false;
+        }
+    }
 
     /// <summary>Converts an Ecl position into the anchored Ego frame.</summary>
     public static bool TryEclToEgo(double3 posEcl, out double3 posEgo)
@@ -3438,6 +3515,69 @@ internal static class KsaWorld
         return TryEclToEgo(PositionEcl(v), out posEgo);
     }
 
+    /// <summary>
+    /// Where the middle of a craft's box is drawn, in Ego -- what a sight brackets and a director
+    /// holds. A craft's position is its centre of mass, which on a vehicle with a heavy chassis is
+    /// near the bottom: at x16 the head then sat on the wheels.
+    /// </summary>
+    public static bool TryVehicleCentreEgo(Vehicle v, out double3 posEgo)
+    {
+        if (!TryVehicleEgo(v, out posEgo)) return false;
+
+        try
+        {
+            double3 centre = posEgo + (v.Asmb2Ego * v.MassToGeometryAsmb);
+            if (Vec.IsFinite(centre)) posEgo = centre;
+        }
+        catch { /* the centre of mass, which is where it always looked */ }
+
+        return true;
+    }
+
+    /// <summary>
+    /// The middle of a craft's box where it is drawn, in Ecl -- what a camera has to point at. The
+    /// simulated position is metres off it on a craft moving over the ground, by a different amount
+    /// each frame, which at a 1° field is a picture jumping around its target.
+    /// </summary>
+    public static bool TryDrawnMiddleEcl(Vehicle v, out double3 ecl, int viewIndex = -1)
+    {
+        ecl = default;
+
+        try
+        {
+            if (CameraFor(viewIndex) is not { } camera || !IsAlive(v)) return false;
+
+            double3 middleAsmb = v.CenterOfMassAsmb + v.MassToGeometryAsmb;
+            ecl = camera.EgoToEcl(middleAsmb.Transform(v.GetMatrixAsmb2Ego(camera)));
+            return Vec.IsFinite(ecl);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    // The main camera, or one viewport's.
+    private static Camera? CameraFor(int viewIndex)
+        => viewIndex >= 0 && viewIndex != MainViewportIndex
+            ? (TryViewport(viewIndex, out IGameViewport viewport) ? viewport.GetCamera() : null)
+            : Program.GetMainCamera();
+
+    /// <summary>The middle of a craft's box, in Ecl, against its simulated position.</summary>
+    public static double3 CentreEcl(Vehicle v)
+    {
+        double3 at = PositionEcl(v);
+        try
+        {
+            double3 centre = at + (v.Asmb2Ego * v.MassToGeometryAsmb);
+            return Vec.IsFinite(centre) ? centre : at;
+        }
+        catch
+        {
+            return at;
+        }
+    }
+
     public static void DrawSphereEgo(double3 positionEgo, float radiusMetres, float4 colour)
     {
         Program.GizmosRenderer?.DrawSphere(positionEgo, radiusMetres, colour);
@@ -3479,6 +3619,106 @@ internal static class KsaWorld
 
         viewport = viewports[index];
         return viewport is not null;
+    }
+
+    // ViewportBase.OptionFlags has a protected setter. Clearing HasUi on a window the mod draws
+    // itself is what stops KSA wrapping the same picture in its own window; releasing the window
+    // puts the defaults back (GameViewport.ResetToDefaults), so nothing here has to restore it.
+    private static readonly MethodInfo? OptionFlagsSetter =
+        typeof(ViewportBase).GetProperty(nameof(ViewportBase.OptionFlags))?.GetSetMethod(nonPublic: true);
+
+    /// <summary>
+    /// Takes KSA's own window and orbit lines off a camera viewport, leaving it rendering, so the
+    /// mod can show the picture in a window of its own. False when that cannot be done, and KSA's
+    /// window stays.
+    /// </summary>
+    public static bool TryHideViewportWindow(int index)
+    {
+        try
+        {
+            if (OptionFlagsSetter is null) return false;
+            if (!TryViewport(index, out IGameViewport viewport)) return false;
+            if (viewport.Type != ViewportType.Secondary || !viewport.Visible) return false;
+
+            // Orbit lines too: a sight looking past the Moon otherwise shows its orbit across the picture.
+            const ViewportOptionFlags taken = ViewportOptionFlags.HasUi | ViewportOptionFlags.RenderOrbitLines;
+
+            ViewportOptionFlags flags = viewport.OptionFlags;
+            if ((flags & taken) == 0) return true;
+
+            OptionFlagsSetter.Invoke(viewport, [flags & ~taken]);
+            return (viewport.OptionFlags & taken) == 0;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>A camera window's rendered picture as an ImGui texture, and the size it renders at.</summary>
+    public static bool TryViewportTexture(int index, out ImTextureRef texture, out float2 size)
+    {
+        texture = default;
+        size = default;
+        try
+        {
+            if (!TryViewport(index, out IGameViewport viewport)) return false;
+            texture = viewport.ImGuiTexture;
+            size = new float2(viewport.Width, viewport.Height);
+            return size.X > 0f && size.Y > 0f;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Says where a camera window's picture is on the desktop, as KSA's own window would have:
+    /// the sight and the projections read it back through <see cref="TryViewportPicture"/>.
+    /// </summary>
+    public static void PlaceViewportPicture(int index, float2 pos, uint imGuiId, int2 wantedSize)
+    {
+        try
+        {
+            if (!TryViewport(index, out IGameViewport viewport)) return;
+
+            viewport.SetPosition(pos);
+            viewport.ImGuiId = imGuiId;
+
+            if (wantedSize.X >= 64 && wantedSize.Y >= 64
+                && (wantedSize.X != viewport.Width || wantedSize.Y != viewport.Height))
+            {
+                viewport.RequestResize(wantedSize);
+            }
+        }
+        catch { /* a window that cannot be placed draws where it last was */ }
+    }
+
+    /// <summary>Hands a camera window back to KSA, as its own close button does.</summary>
+    public static void CloseCameraWindow(int index)
+    {
+        try
+        {
+            if (TryViewport(index, out IGameViewport viewport)) ViewportRegistry.ReleaseSecondaryViewport(viewport);
+        }
+        catch { /* already gone */ }
+    }
+
+    /// <summary>A camera window by the panel's index, for a renderer hook keyed on the viewport.</summary>
+    public static bool TryGameViewport(int index, out IViewport viewport)
+    {
+        viewport = null!;
+        try
+        {
+            if (!TryViewport(index, out IGameViewport found)) return false;
+            viewport = found;
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     /// <summary>
@@ -3650,41 +3890,6 @@ internal static class KsaWorld
         {
             try { return GameViewports.Length; }
             catch { return 0; }
-        }
-    }
-
-    /// <summary>
-    /// Indices of the camera windows a player can actually see.
-    ///
-    /// <para>KSA keeps viewports of its own that are never shown — the thumbnail renderer is
-    /// one — and they are indistinguishable from real windows by index alone. Driving one looks
-    /// exactly like the feature not working.</para>
-    /// </summary>
-    public static void CollectUsableViewports(List<int> into)
-    {
-        into.Clear();
-        try
-        {
-            ReadOnlySpan<IGameViewport> viewports = GameViewports;
-
-            // The view the player flies from is listed separately by the panel, because taking it
-            // is a different mechanism: it is followed and driven through FixedController, where
-            // a secondary camera follows nothing and is positioned outright. Asked of the engine
-            // rather than assumed to be index 0 — if the two ever disagree it would appear twice.
-            int main = MainViewportIndex;
-
-            for (int i = 0; i < viewports.Length; i++)
-            {
-                if (i == main) continue;
-
-                // Secondary is the only kind that is somewhere to put a sight. The registry also
-                // lists the crew portraits, which are visible windows and not views of the world.
-                if (viewports[i] is { Visible: true, Type: ViewportType.Secondary }) into.Add(i);
-            }
-        }
-        catch
-        {
-            into.Clear();
         }
     }
 
@@ -4075,6 +4280,99 @@ internal static class KsaWorld
         }
     }
 
+    /// <summary>
+    /// The nearest craft a ray from <paramref name="eye"/> meets within <paramref name="maxRange"/>,
+    /// on its mesh, leaving out <paramref name="exclude"/>. Positions are the simulated ones, so the
+    /// answer is in the same frame as the eye a caller derives from them.
+    /// </summary>
+    public static bool TryRayCraftHit(double3 eye, double3 direction, Vehicle? exclude, double maxRange,
+                                      out Vehicle? hitCraft, out double range)
+    {
+        hitCraft = null;
+        range = maxRange;
+
+        try
+        {
+            Ray ray = new() { Origin = default, Direction = Vec.Unit(direction) };
+            CollectVehicles(_pickScratch);
+
+            foreach (Vehicle craft in _pickScratch)
+            {
+                if (ReferenceEquals(craft, exclude) || craft.Parts is not { } tree) continue;
+
+                double radius = MeanRadius(craft);
+                double3 centre = PositionEcl(craft);
+                if (!(radius > 0.0) || Vec.Len(centre - eye) - radius > range) continue;
+                if (!Picking.TryHitSphere(eye, direction, centre, radius, out _)) continue;
+
+                double4x4 asmb2Ego = craft.GetMatrixAsmb2Ego(centre - eye);
+                ReadOnlySpan<Part> parts = tree.Parts;
+
+                for (int i = 0; i < parts.Length; i++)
+                {
+                    if (parts[i].RayCastEgo(in asmb2Ego, ray, out double hit, out _,
+                                            out _, out _, out _, out _, out _, out _)
+                        && hit > 0.0 && hit < range)
+                    {
+                        range = hit;
+                        hitCraft = craft;
+                    }
+                }
+            }
+
+            return hitCraft is not null;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Whether a craft's own parts stand across a line of sight leaving a point on it -- what a
+    /// targeting pod calls MASK. False when the craft could not be cast against, which the caller
+    /// reads as "no claim", never as clear.
+    /// </summary>
+    /// <param name="craftEcl">The craft's position, from the same sample as <paramref name="fromEcl"/>:
+    /// the cast is in a frame centred on the eye, so only their difference matters.</param>
+    public static bool TryCraftMasks(Vehicle craft, double3 craftEcl, double3 fromEcl, double3 direction,
+                                     double reach, out bool masked)
+    {
+        masked = false;
+
+        try
+        {
+            if (!IsAlive(craft) || craft.Parts is not { } tree) return false;
+            if (!(Vec.Len2(direction) > 0.0) || !(reach > 0.0)) return false;
+
+            double4x4 asmb2Ego = craft.GetMatrixAsmb2Ego(craftEcl - fromEcl);
+            Ray ray = new() { Origin = default, Direction = Vec.Unit(direction) };
+
+            ReadOnlySpan<Part> parts = tree.Parts;
+            for (int i = 0; i < parts.Length; i++)
+            {
+                if (!parts[i].RayCastEgo(in asmb2Ego, ray, out double hit, out _,
+                                         out _, out _, out _, out _, out _, out _))
+                {
+                    continue;
+                }
+
+                // Past a few centimetres: the eye sits just outside the head's own glass.
+                if (hit > 0.05 && hit < reach)
+                {
+                    masked = true;
+                    return true;
+                }
+            }
+
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     // The craft being flown is usually the one carrying the launcher, and it sits under the cursor
     // for most of an orbit view. Snapping the aim onto it would whip the turret round to point at
     // its own hull every time the pointer crossed it.
@@ -4453,7 +4751,6 @@ internal static class KsaWorld
     }
 
 
-
     /// <summary>
     /// Whether the player is watching this craft — flying it, or pointing the camera at it.
     ///
@@ -4673,25 +4970,6 @@ internal static class KsaWorld
             // A tree being rebuilt underneath the read, during staging or docking. Next frame sees
             // the finished one; reporting a half-built craft would be worse than reporting none.
             into.Clear();
-        }
-    }
-
-    /// <summary>A short description of one open view, for the panel's picker.</summary>
-    public static string DescribeViewport(int index)
-    {
-        try
-        {
-            IGameViewport v = GameViewports[index];
-
-            // The window's own name, so the button and the title bar say the same thing. An
-            // index would not: KSA titles a camera by its viewport Id, which is its position in
-            // a list that also holds the thumbnail and the crew portraits, and the two have
-            // never agreed.
-            return v.Name;
-        }
-        catch
-        {
-            return $"#{index}";
         }
     }
 
@@ -5338,8 +5616,9 @@ internal static class KsaWorld
     /// <see cref="TryOpenCameraWindow"/>. A mod still cannot <em>make</em> a viewport, which is
     /// the difference between borrowing a window and stealing the main camera.</para>
     /// </summary>
+    /// <param name="fovDeg">The field of view to draw with, clamped here as the main view's is.</param>
     public static bool TryLookFromViewport(int index, double3 eyeEcl, double3 forwardEcl,
-                                           double3 upEcl, double dt)
+                                           double3 upEcl, double fovDeg, double dt)
     {
         if (!Vec.IsFinite(eyeEcl) || !Vec.IsFinite(forwardEcl) || !Vec.IsFinite(upEcl)) return false;
         if (Vec.Len2(forwardEcl) < 1e-12) return false;
@@ -5382,20 +5661,21 @@ internal static class KsaWorld
             // drawn from the old place looking the new way.
             camera.LookAt(eyeEcl, eyeEcl + Vec.Unit(forwardEcl) * 1000.0, upEcl);
 
-            // Moving a camera does not tell it where it now is. The sky, the atmosphere and the
-            // terrain LOD are all shaded from this context, which the engine derives per camera
-            // for its own controller — so a camera the mod has moved keeps whatever its
-            // controller last worked out and renders the sky from there. Copied from the main
-            // view, which is metres away and has it right.
-            if (Program.GetMainCamera() is { } reference)
+            // SetFieldOfView does not clamp, and the projection throws outside (0, 180).
+            float wanted = (float)Math.Clamp(double.IsFinite(fovDeg) ? fovDeg : SightZoom.DefaultFovDeg,
+                                             SightZoom.MinFovDeg, SightZoom.MaxFovDeg);
+            if (Math.Abs(double.RadiansToDegrees(camera.GetFieldOfView()) - wanted) >= 1e-3)
             {
-                camera.NearbyCelestial = reference.NearbyCelestial;
-                camera.CurrentAltitudeKm = reference.CurrentAltitudeKm;
-                camera.DistanceToNearbyCelestialKm = reference.DistanceToNearbyCelestialKm;
-                camera.DistanceToNearbyCelestialSurfaceMeanKm =
-                    reference.DistanceToNearbyCelestialSurfaceMeanKm;
-                camera.NearbyCelestialTerrainHeight = reference.NearbyCelestialTerrainHeight;
+                camera.SetFieldOfView(wanted);
             }
+
+            SetNearbyContext(camera);
+
+            // LookAt sets the rotation alone; the view matrix the render, the culling and every
+            // projection read is rebuilt in Camera.OnFrame, which ran in the viewport pass before
+            // this. Without it the window draws with last frame's aim: one frame of the line of
+            // sight's swing, a fixed angle that judders with the frame time and grows with the zoom.
+            camera.OnFrame(dt);
 
             // Setting the fields is not enough on its own: the sky and atmosphere are shaded from
             // data the engine uploads per viewport, which by this point in the frame already holds
@@ -5415,271 +5695,71 @@ internal static class KsaWorld
         }
     }
 
-    /// <summary>
-    /// A ring lying flat about <paramref name="normalEcl"/>, in metres.
-    ///
-    /// <para>Drawn from line segments rather than through <c>GizmosRenderer.DrawCircle</c>, which
-    /// builds a full circle from twelve of them — a dodecagon, and plainly one at any size worth
-    /// looking at.</para>
-    ///
-    /// <para>For marking a place on the ground. A sphere large enough to read as "this craft" is
-    /// by construction large enough to hide it.</para>
-    /// </summary>
-    /// <param name="drape">
-    /// Follow the terrain under each segment. A ring holds one radius, which is flat in space: on
-    /// a slope half of it ends up underground and the rest hangs in the air.
-    /// </param>
-    public static void DrawCircleEcl(double3 centreEcl, double3 normalEcl, double radius,
-                                     float4 colour, int segments = 64, bool drape = true,
-                                     double clearance = 0.5)
+    // The engine derives this context for the main camera alone (Program.OnFrameCelestials), and
+    // a window's terrain LOD, sky and grey-ball suppression all read it. Derived from the window's
+    // own camera rather than copied from the main one: the two can be hundreds of kilometres
+    // apart, and the copied altitude picks a planet mesh LOD for where the player is.
+    private static void SetNearbyContext(Camera camera)
     {
-        if (Program.GizmosRenderer is null) return;
-        if (!Vec.IsFinite(centreEcl) || !(radius > 0.0)) return;
+        Celestial? body = Program.FindNearbyCelestial(camera);
 
-        double3 up = Vec.Unit(normalEcl);
-        if (Vec.Len2(up) < 0.5) return;
-
-        // Any two axes square to the normal. Which two does not matter for a circle.
-        double3 seed = Math.Abs(up.X) < 0.9 ? new double3(1, 0, 0) : new double3(0, 1, 0);
-        double3 a = Vec.Unit(Vec.Cross(up, seed)) * radius;
-        double3 b = Vec.Unit(Vec.Cross(up, a)) * radius;
-
-        int steps = Math.Clamp(segments, 8, 256);
-        Celestial? body = drape ? NearestCelestial(centreEcl) : null;
-
-        if (body is not null && DrapedRingFor(body, centreEcl, up, a, radius, steps, clearance) is { } ring)
+        if (body is null || !body.IsBillboarded())
         {
-            DrawDrapedRing(body, ring, colour);
+            camera.NearbyCelestial = null;
             return;
         }
 
-        double3 previous = OnGround(body, centreEcl + a, clearance);
+        double distanceKm = camera.DistanceTo(body.GetPositionEcl()) * 0.001;
+        double surfaceKm = distanceKm - body.MeanRadius * 0.001;
 
-        for (int i = 1; i <= steps; i++)
-        {
-            double angle = Math.Tau * i / steps;
-            double3 next = OnGround(body, centreEcl + (a * Math.Cos(angle)) + (b * Math.Sin(angle)),
-                                    clearance);
-
-            DrawLineEcl(previous, next, colour);
-            previous = next;
-        }
+        // The engine's own cut-off for a nearby body, so a window and the main view agree on it.
+        camera.NearbyCelestial = surfaceKm > 80000.0 ? null : body;
+        camera.DistanceToNearbyCelestialKm = distanceKm;
+        camera.DistanceToNearbyCelestialSurfaceMeanKm = surfaceKm;
+        camera.NearbyCelestialTerrainHeight = body.GetTerrainHeight(camera) * 0.001;
+        camera.CurrentAltitudeKm = Program.GetCurrentAltitudeKm(camera);
     }
 
-    // A draped ring, in the frame of the body it lies on: the ground under it does not move in that
-    // frame, so a ring drawn again where it was is the same ring. Draping is a terrain lookup a point,
-    // which is most of what this mod costs a frame with a sight up; a ring standing still re-draped
-    // every frame would pay it for an answer that never changes.
-    private sealed class DrapedRing
-    {
-        public required Celestial Body;
-        public required double3 CentreFixed;
-        public required double3 NormalFixed;
-        public required double3 AxisFixed;
-        public required double Radius;
-        public required int Steps;
-        public required double Clearance;
-        public required double3[] PointsFixed;
-        public long LastUsed;
-    }
-
-    // How far a ring's centre may be from where it was draped and still be that ring: a centimetre,
-    // over which no ground a craft can stand on rises by a millimetre. And how far its first axis may
-    // have turned -- it is laid off a direction fixed in space, which the ground turns under.
-    private const double DrapeReuseMetres = 0.01;
-    private const double DrapeReuseRadians = 1.0e-4;
-    private const int DrapedRingsKept = 8;
-
-    private static readonly List<DrapedRing> _drapedRings = [];
-    private static long _drapeUses;
-
-    // The ring draped here before, or this one draped now and kept. Null when the body's frame
-    // cannot be read, and the caller then drapes every point afresh.
-    private static DrapedRing? DrapedRingFor(Celestial body, double3 centreEcl, double3 up, double3 a, double radius,
-                                             int steps, double clearance)
+    /// <summary>The body a viewport's camera thinks it is near, and its altitude, for the bridge.</summary>
+    public static string DescribeViewportContext(int index)
     {
         try
         {
-            doubleQuat toFixed = doubleQuat.Conjugate(body.GetBodyFixed2Ecl());
-            double3 bodyEcl = body.GetPositionEcl();
-            double3 centreFixed = toFixed * (centreEcl - bodyEcl);
-            double3 normalFixed = toFixed * up;
-            double3 axisFixed = toFixed * Vec.Unit(a);
-            if (!Vec.IsFinite(centreFixed)) return null;
+            if (!TryViewport(index, out IGameViewport viewport)) return "no viewport";
+            if (viewport.GetCamera() is not { } camera) return "no camera";
 
-            _drapeUses++;
-            foreach (DrapedRing kept in _drapedRings)
-            {
-                if (!ReferenceEquals(kept.Body, body) || kept.Steps != steps || kept.Clearance != clearance) continue;
-                if (Math.Abs(kept.Radius - radius) > radius * 1.0e-9) continue;
-                if (Vec.Len(kept.CentreFixed - centreFixed) > DrapeReuseMetres) continue;
-                if (Vec.Len(kept.NormalFixed - normalFixed) > DrapeReuseRadians) continue;
-                if (Vec.Len(kept.AxisFixed - axisFixed) > DrapeReuseRadians) continue;
-
-                kept.LastUsed = _drapeUses;
-                return kept;
-            }
-
-            double3 b = Vec.Unit(Vec.Cross(up, a)) * radius;
-            double3[] points = new double3[steps + 1];
-            for (int i = 0; i <= steps; i++)
-            {
-                double angle = Math.Tau * i / steps;
-                double3 at = OnGround(body, centreEcl + (a * Math.Cos(angle)) + (b * Math.Sin(angle)), clearance);
-                points[i] = toFixed * (at - bodyEcl);
-            }
-
-            DrapedRing ring = new()
-            {
-                Body = body,
-                CentreFixed = centreFixed,
-                NormalFixed = normalFixed,
-                AxisFixed = axisFixed,
-                Radius = radius,
-                Steps = steps,
-                Clearance = clearance,
-                PointsFixed = points,
-                LastUsed = _drapeUses,
-            };
-
-            if (_drapedRings.Count >= DrapedRingsKept)
-            {
-                int oldest = 0;
-                for (int i = 1; i < _drapedRings.Count; i++)
-                {
-                    if (_drapedRings[i].LastUsed < _drapedRings[oldest].LastUsed) oldest = i;
-                }
-
-                _drapedRings.RemoveAt(oldest);
-            }
-
-            _drapedRings.Add(ring);
-            return ring;
+            return camera.NearbyCelestial is { } body
+                ? $"{body.Id} at {camera.CurrentAltitudeKm:F2} km"
+                : "none";
         }
-        catch
+        catch (Exception e)
         {
-            return null;
-        }
-    }
-
-    private static void DrawDrapedRing(Celestial body, DrapedRing ring, float4 colour)
-    {
-        doubleQuat toEcl = body.GetBodyFixed2Ecl();
-        double3 bodyEcl = body.GetPositionEcl();
-
-        double3 previous = bodyEcl + (toEcl * ring.PointsFixed[0]);
-        for (int i = 1; i < ring.PointsFixed.Length; i++)
-        {
-            double3 next = bodyEcl + (toEcl * ring.PointsFixed[i]);
-            DrawLineEcl(previous, next, colour);
-            previous = next;
+            return e.GetType().Name;
         }
     }
 
     /// <summary>
-    /// The points of a draped circle, as offsets from its centre, for a caller that wants to keep
-    /// the shape rather than rebuild it. Offsets rather than positions because the ecliptic carries
-    /// the planet's motion and a stored absolute point is left behind within a frame.
+    /// Gives a camera window back the engine's default field of view, once nothing is driving it.
+    ///
+    /// <para>The window is the player's again through View &gt; Add Camera, and its own zoom keys
+    /// clamp to 15°, so a director let go at x16 would otherwise leave it at 3° with no way out.</para>
     /// </summary>
-    public static void CollectDrapedCircleEcl(double3 centreEcl, double3 normalEcl, double radius,
-                                              List<double3> into, int segments = 64,
-                                              double clearance = 2.0)
-    {
-        into.Clear();
-
-        double3 n = Vec.Unit(normalEcl);
-        if (!Vec.IsFinite(n) || Vec.Len2(n) < 0.5 || !(radius > 0.0)) return;
-
-        // Any two axes square to the normal, built the same way DrawCircleEcl builds them so the
-        // cached ring and the drawn one cannot disagree about where a segment starts.
-        double3 seed = Math.Abs(n.X) < 0.9 ? new double3(1, 0, 0) : new double3(0, 1, 0);
-        double3 a = Vec.Unit(Vec.Cross(n, seed)) * radius;
-        double3 b = Vec.Unit(Vec.Cross(n, a)) * radius;
-
-        int steps = Math.Clamp(segments, 8, 256);
-        Celestial? body = NearestCelestial(centreEcl);
-
-        for (int i = 0; i <= steps; i++)
-        {
-            double t = 2.0 * Math.PI * i / steps;
-            double3 at = centreEcl + a * Math.Cos(t) + b * Math.Sin(t);
-
-            into.Add(OnGround(body, at, clearance) - centreEcl);
-        }
-    }
-
-    /// <summary>
-    /// The same for a ring whose two semi-axes are given outright rather than derived from a
-    /// normal — a reach footprint, whose axes are the ellipse's and belong to the arrival frame
-    /// rather than to whichever perpendicular a circle happens to pick.
-    /// </summary>
-    public static void CollectDrapedRingEcl(double3 centreEcl, double3 semiMajorEcl,
-                                            double3 semiMinorEcl, List<double3> into,
-                                            int segments = 48, double clearance = 2.0)
-    {
-        into.Clear();
-
-        if (!Vec.IsFinite(centreEcl) || !Vec.IsFinite(semiMajorEcl) || !Vec.IsFinite(semiMinorEcl)) return;
-        if (Vec.Len2(semiMajorEcl) <= 0.0) return;
-
-        int steps = Math.Clamp(segments, 8, 256);
-        Celestial? body = NearestCelestial(centreEcl);
-
-        for (int i = 0; i <= steps; i++)
-        {
-            double t = Math.Tau * i / steps;
-            double3 at = centreEcl + semiMajorEcl * Math.Cos(t) + semiMinorEcl * Math.Sin(t);
-
-            into.Add(OnGround(body, at, clearance) - centreEcl);
-        }
-    }
-
-    // Lifted clear of the surface by a little: a line exactly on the terrain z-fights with it and
-    // disappears in patches, which looks worse than being slightly above it.
-    // Onto a body already found, or left where it is with none: finding the body is a walk of every
-    // celestial in the system, and a draped ring is 82 points per overlay per frame all over one.
-    private static double3 OnGround(Celestial? body, double3 atEcl, double clearance)
-    {
-        if (body is null || !TrySnapToGround(body, atEcl, out double3 ground, out double3 centre)) return atEcl;
-
-        return ground + Vec.Unit(ground - centre) * clearance;
-    }
-
-    private static double3 NearestBodyCentre(double3 nearEcl)
+    public static void ResetViewportFov(int index)
     {
         try
         {
-            if (Universe.CurrentSystem is not { } system) return Vec.Zero;
+            if (!TryViewport(index, out IGameViewport viewport)) return;
+            if (viewport.Type != ViewportType.Secondary) return;
 
-            double3 centre = Vec.Zero;
-            double best = double.MaxValue;
-
-            for (int i = 0; i < system.Count; i++)
-            {
-                if (system.GetIndex(i) is not Celestial body) continue;
-
-                double3 at = body.GetPositionEcl();
-                double distance = Vec.Len(nearEcl - at);
-                if (distance >= best) continue;
-
-                best = distance;
-                centre = at;
-            }
-
-            return centre;
+            viewport.BaseCamera?.SetFieldOfView((float)SightZoom.DefaultFovDeg);
         }
-        catch
-        {
-            return Vec.Zero;
-        }
+        catch { /* a window that cannot be reset is still a window */ }
     }
 
     /// <summary>
     /// Puts a point on the ground beneath it: same direction from the body's centre, radius taken
     /// from the terrain there.
     ///
-    /// <para>What makes a ring drawn on a slope follow the slope. A ring at one radius is flat in
-    /// space, so on anything but level ground half of it is buried and the other half floats.</para>
     /// </summary>
     public static bool TrySnapToGround(double3 nearEcl, out double3 onGroundEcl) =>
         TrySnapToGround(nearEcl, out onGroundEcl, out _);

@@ -256,6 +256,10 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
     {
         if (Platform is not { IsDisposed: false } platform || Director is null) return;
 
+        // The one place it is held to this optic's own: the panel, the window and the bridge all write it.
+        _policy.Magnification = Math.Clamp(_policy.Magnification, SightZoom.MinMagnification,
+                                           SightZoom.Clamp(Profile.MaxMagnification));
+
         Radar.Sensor = Sensor;
         Radar.Scan(platform, SensorBoresight, dt, airborne);
 
@@ -281,6 +285,9 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
                      + "where it stopped and the head goes on aiming");
         }
 
+        UpdateMask(platform);
+        UpdateLaser(platform);
+
         if (OpticPart is not { } head || !_driveWorks) return;
 
         if (!OpticParts.TryApplyAim(head, Profile, Mount, AimWhenDrawn))
@@ -288,6 +295,94 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
             _driveWorks = false;
             Log.Warn("optic: the engine refused the head's transform; it is frozen where it stopped");
         }
+    }
+
+    /// <summary>
+    /// Whether the head's own craft blocks its line of sight: to what it follows when it follows
+    /// something, along its axis otherwise. Only worked out while it is showing a view.
+    /// </summary>
+    public bool Masked { get; private set; }
+
+    private void UpdateMask(Vehicle platform)
+    {
+        Masked = false;
+        if (_policy.Viewport < 0 && !LaserWanted) return;
+        if (!TryOpticViewEcl(out double3 eye, out double3 forward)) return;
+
+        double reach = 2.0 * KsaWorld.MeanRadius(platform) + 10.0;
+        double3 direction = forward;
+
+        if (TryFollowedDrawnEcl(-1, out double3 target))
+        {
+            direction = target - eye;
+            reach = Math.Min(reach, Vec.Len(direction));
+        }
+
+        if (KsaWorld.TryCraftMasks(platform, PlatformEcl, eye, direction, reach, out bool masked))
+        {
+            Masked = masked;
+        }
+    }
+
+    public bool HasLaser => Profile.HasLaser;
+
+    /// <summary>
+    /// Whether a roll-nod gimbal is at its nod stop or in the keyhole straight ahead, where a head at
+    /// its limit and a head with nothing to look at would otherwise look the same.
+    /// </summary>
+    public bool AtGimbalLimit
+    {
+        get
+        {
+            if (Profile.Gimbal != GimbalKind.RollNod) return false;
+
+            double off = double.RadiansToDegrees(OpticGeometry.OffBoresightRad(Mount, AimWhenDrawn));
+            return off >= Profile.MaxOffBoresightDeg - 0.5 || off <= Profile.KeyholeDeg + 0.5;
+        }
+    }
+
+    private bool LaserWanted => HasLaser && _policy.Lasing;
+
+    /// <summary>The laser is wanted and held off because the craft itself is in the way.</summary>
+    public bool LaserInhibited { get; private set; }
+
+    /// <summary>Where the laser is landing this frame, or null: off, inhibited, or out of range.</summary>
+    public LaserSpot? Spot { get; private set; }
+
+    /// <summary>What the spot is on, as a player would call it: a craft's name, or the ground.</summary>
+    public string SpotOn { get; private set; } = string.Empty;
+
+    // Along the line of sight the picture is centred on, to the first craft or ground it meets.
+    // Its own craft is left out of the cast: MASK has already said whether that is in the way.
+    private void UpdateLaser(Vehicle platform)
+    {
+        Spot = null;
+        LaserInhibited = LaserWanted && Masked;
+
+        if (!LaserWanted || LaserInhibited) return;
+        if (!LaserCode.IsValid(_policy.LaserCode)) return;
+        if (!TryOpticViewEcl(out double3 eye, out double3 forward)) return;
+
+        double reach = Profile.LaserRangeMetres;
+        bool onCraft = KsaWorld.TryRayCraftHit(eye, forward, platform, reach, out Vehicle? craft, out double range);
+
+        if (KsaWorld.TryRayGround(eye, forward, onCraft ? range : reach, out Celestial? body, out double ground)
+            && (!onCraft || ground < range))
+        {
+            onCraft = false;
+            range = ground;
+        }
+        else if (!onCraft)
+        {
+            return;
+        }
+
+        double3 at = eye + (Vec.Unit(forward) * range);
+        double3 velocity = onCraft ? KsaWorld.VelocityEcl(craft!) : KsaWorld.GroundVelocityAt(body!, at);
+
+        Spot = new LaserSpot(platform, _policy.LaserCode, at, velocity, range);
+        SpotOn = onCraft ? KsaWorld.DisplayName(craft!) : "the ground";
+        LaserDesignators.Add(Spot.Value);
     }
 
     /// <summary>Clears the refusal latches, because a new craft deserves a fresh assessment.</summary>
@@ -348,7 +443,9 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
     /// different instant from the mod's own sample and the difference is a frame of the planet's
     /// motion.</para>
     /// </summary>
-    public bool TryOpticViewEclAt(double3 platformEcl, out double3 eyeEcl, out double3 forwardEcl)
+    /// <param name="viewIndex">The viewport the view is for, whose camera says where the target is drawn.</param>
+    public bool TryOpticViewEclAt(double3 platformEcl, out double3 eyeEcl, out double3 forwardEcl,
+                                  int viewIndex = -1)
     {
         eyeEcl = forwardEcl = Vec.Zero;
 
@@ -370,7 +467,7 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
         // sliders is settled on wherever the operator left it, and re-solving that onto the radar's
         // contact snaps the picture away from a head that has not moved.
         if (!_drive.OnTarget) return true;
-        if (!TryFollowedDrawnEcl(out double3 drawnEcl)) return true;
+        if (!TryFollowedDrawnEcl(viewIndex, out double3 drawnEcl)) return true;
 
         double3 toTarget = drawnEcl - eyeEcl;
         if (Vec.Len2(toTarget) > 1.0) forwardEcl = Vec.Unit(toTarget);
@@ -384,7 +481,7 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
     //
     // The drawn position rather than the simulated one, because this decides where a camera points
     // and the target is drawn at the former. The two differ by metres on a landed craft.
-    private bool TryFollowedDrawnEcl(out double3 drawnEcl)
+    private bool TryFollowedDrawnEcl(int viewIndex, out double3 drawnEcl)
     {
         drawnEcl = Vec.Zero;
 
@@ -398,17 +495,50 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
 
             if (Designation.Handle is Vehicle craft && KsaWorld.IsAlive(craft))
             {
-                drawnEcl = KsaWorld.PositionEcl(craft);
+                if (!KsaWorld.TryDrawnMiddleEcl(craft, out drawnEcl, viewIndex)) drawnEcl = KsaWorld.CentreEcl(craft);
                 return true;
             }
 
             return false;
         }
 
-        return _aimed == Aimed.Track
-               && Radar.Watched is { } watched
-               && watched.Contact.TryDrawEgo(out double3 ego)
-               && KsaWorld.TryEgoToEcl(ego, out drawnEcl);
+        if (_aimed != Aimed.Track || Radar.Watched is not { } watched) return false;
+
+        if (watched.Contact is VehicleContact craftContact)
+        {
+            return KsaWorld.TryDrawnMiddleEcl(craftContact.Vehicle, out drawnEcl, viewIndex);
+        }
+
+        return watched.Contact.TryDrawEgo(out double3 ego) && KsaWorld.TryEgoToEcl(ego, out drawnEcl);
+    }
+
+    /// <summary>
+    /// What a camera window's aim is doing, for the bridge: the rung taken, the drive's error, and
+    /// how far the window's camera is off what it follows, as that window draws it.
+    /// </summary>
+    public Dictionary<string, object?> DescribeAim(int viewIndex)
+    {
+        Dictionary<string, object?> row = new()
+        {
+            ["aimed"] = _aimed.ToString(),
+            ["drive_error_deg"] = double.RadiansToDegrees(_drive.ErrorRad),
+            ["on_target"] = _drive.OnTarget,
+            ["masked"] = Masked,
+            ["lasing"] = Spot is not null,
+            ["laser_inhibited"] = LaserInhibited,
+            ["laser_range_m"] = Spot?.RangeMetres,
+            ["watching"] = Radar.Watched?.Contact.DisplayName,
+            ["designated"] = Designation.Kind.ToString(),
+        };
+
+        if (TryFollowedDrawnEcl(viewIndex, out double3 targetEcl)
+            && KsaWorld.TryReadViewportPose(viewIndex, out double3 eye, out double3 forward, out _))
+        {
+            row["camera_off_target_deg"] = double.RadiansToDegrees(Vec.AngleBetween(forward, targetEcl - eye));
+            row["range_m"] = Vec.Len(targetEcl - eye);
+        }
+
+        return row;
     }
 
     // Which rung the last AimPartFrame took. The view re-solve reads it rather than choosing again,
@@ -511,7 +641,7 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
 
         if (Designation.Kind == AimpointKind.Vehicle && Designation.Handle is Vehicle live)
         {
-            targetEcl = KsaWorld.PositionEcl(live);
+            if (!KsaWorld.TryDrawnMiddleEcl(live, out targetEcl)) targetEcl = KsaWorld.CentreEcl(live);
         }
         else if (Designation.NeedsResampling)
         {

@@ -114,6 +114,11 @@ internal sealed class BallisticScenario
     private int _ammoWas = -1;
     private int _ended;
     private double _sinceRelease;
+    private double _busLostFor;
+
+    // How long a bus that let nothing go must stay gone before the shot is called. A separation
+    // hands the computer to a new vehicle within the frame; this only rules out reading that frame.
+    private const double BusLostSeconds = 2.0;
     private double _sinceComplaint;
     private Vehicle? _defendedSite;
     private bool _watchedTheTarget;
@@ -290,6 +295,18 @@ internal sealed class BallisticScenario
         ReportTrim();
         ReportReleases(system, simStep);
         ReportImpacts();
+
+        // A bus that died holding every warhead will release none, and nothing below ever ends a
+        // salvo that never started: the flight would sit until the harness's wall clock ran out.
+        if (_board.Released == 0)
+        {
+            _busLostFor = KsaWorld.IsAlive(_computer.Craft) ? 0.0 : _busLostFor + simStep;
+            if (_busLostFor >= BusLostSeconds)
+            {
+                return $"FAIL the bus was destroyed with {_loaded} warhead(s) aboard and none released -- "
+                       + $"{_computer.Command.Hold}";
+            }
+        }
 
         if (_board.Released == 0 || _ended < _board.Released) return null;
         if (_sinceRelease < SalvoOverSeconds) return null;

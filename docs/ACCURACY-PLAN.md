@@ -12128,3 +12128,90 @@ that no session spans and the cap can be held off.
 constant across them — so a longer freeze is not what the slower machine is buying. One frame's
 delta-v rises only 22% over the same step, against 91% on the residual. **What else the step reaches
 is open**, and it is the live end of 3fi rather than the freeze.
+
+## 3fm. Warheads taking their mass with them — declared 2026-10-03
+
+`IcbmConfig.ShedWarheadMass` takes each Mk 21's 250 kg off the bus as it leaves (`Ksa/StoreMass.cs`), scaled in place so
+the lump stays on the thruster ring. True to the vehicle, and it changes the shot: shedding 1,500 kg of the bus over six
+releases should roughly double the pointing band by the last (it scales as one over the inertia). The trim measures its
+acceleration rather than assuming it, so that half should adapt.
+
+**Declared before it flies:**
+
+```bash
+KSARMORY_SCENARIO_SAVE='SOLVER SCALE 8' ./tools/shot-batch.sh --paired 'base|shed:ShedWarheadMass=true' \
+    --aim 24.0S,62.0W --blocks 12 --out ~/shots/2026-10-03-shed
+```
+
+This night asks whether a bus that gets lighter costs precision, not whether it buys any.
+
+* **Primary: `--endpoint landing`, a ×1.20 non-inferiority bar.** Ships on if the one-sided 97.5% upper bound is under
+  1.20x; stays off if the median is 1.20x or above; unresolved otherwise.
+* **Beside it:** `centre` and `dispersion` about as `landing`.
+* **Mechanism per flight:** every `shed` rocket logs `store mass: KSArmory_Prefab_MirvBus … now` six times, ending near
+  1,250 kg of 2,750; no `base` rocket logs one.
+* **Refuted** by `landing` at 1.20x or above, a `shed` flight with no `store mass` lines, or a `base` flight with any.
+* **Watch:** `clock` or trim endings on `shed` that `base` does not have, any shot timed out, any rocket destroyed in its
+  ascent, KSA's own log on every launch, and the frame rate (`mod frame: … over N frames`).
+
+**Flown, 2026-10-03: non-inferior on one target.** `~/shots/2026-10-03-shed`, 12 paired blocks on `1db05277`
+(`agent/store-mass`) and KSA 2026.10.7.5541, as declared. All 12 shots passed, 96 of 96 flights arrived, frame time
+28.6 ms, no shot output carried an exception and the throttle-discard warning the smoke shot met never recurred.
+
+| endpoint | `shed` vs `base` | per shot | declared |
+| --- | --- | --- | --- |
+| **`landing`, primary** | **0.89x [0.73, 1.07]** | won 9 of 12, signed-rank p=0.064 | ships under a 1.20 upper bound |
+| landing, median | 2.25 mm against 2.47 | | |
+| centre / dispersion | 1.04 / 1.97 mm against 1.26 / 2.34 | | about as `landing` |
+
+**The mechanism was exactly as declared:** 24 `store mass` lines in every shot, from precisely the four rockets
+flying `shed` that shot and none of the four flying `base`, each bus going 2,766 → 1,266 kg in six 250 kg steps.
+Endings `floor`/`payback` 12/36 on `base` against 14/34 on `shed`, no `clock` or trim ending, owed 2.69 against
+2.71 m/s.
+
+**What it shows is narrower than it looks.** The six warheads leave within about 0.1 s, so a single-target bus is
+never asked to manoeuvre lighter; the night shows shedding costs nothing there, which is what a single-target
+non-inferiority bar can show. Whether it ships on waits for 3fn, where the bus walks after shedding.
+
+## 3fn. The same switch where the bus moves after shedding — declared 2026-10-03
+
+3fm cannot see the switch's main effect. Its smoke shot showed why: a single-target bus lets all six warheads go
+within 0.1 s, so the lighter bus never manoeuvres again. The mass matters on a walk, where the bus trims onto each
+next target with the earlier targets' warheads already gone. So the same switch flies again on the four-target set
+the 2026-10-01 nights walked:
+
+```bash
+KSARMORY_SCENARIO_SAVE='SOLVER SCALE 8' ./tools/shot-batch.sh --paired 'base|shed:ShedWarheadMass=true' \
+    --aim '24.0S,62.0W;24.009S,62.0W;24.018S,62.0W;24.027S,62.0W' --blocks 8 --out ~/shots/2026-10-03-shed-walk
+```
+
+* **Primary: per-target `landing`, the same ×1.20 non-inferiority bar.** Ships on only if 3fm also passes.
+* **Mechanism per flight:** `shed` buses log their `store mass` lines spread across the walk's stops rather than in
+  one burst; `base` logs none.
+* **Expected:** the later hops cost a lighter bus less velocity, since the thrusters accelerate it harder; the trim
+  measures that rather than assuming it, so neither better nor worse landings are predicted.
+* **Refuted** by `landing` at 1.20x or above on any target, a refused hop on `shed` that `base` does not have, or
+  any `clock` or trim ending only on `shed`.
+
+**Flown, 2026-10-03: non-inferior on the walk, and the switch ships on.** `~/shots/2026-10-03-shed-walk`, 8 paired
+blocks on `b9887107` (code identical to 3fm's), as declared. All 8 shots passed, 64 of 64 flights went to all four
+places, frame time 28.2 ms, no shot output carried an exception, no hop was refused on either arm.
+
+| endpoint | `shed` vs `base` | per shot | declared |
+| --- | --- | --- | --- |
+| **`landing`, every warhead against its own target** | **0.90x [0.83, 0.99]** | won 7 of 8, signed-rank p=0.023 | ships under a 1.20 upper bound |
+| landing, median | 3.24 mm against 3.13 | | |
+| centre | 5.36 mm against 4.54 | | |
+
+**The mechanism was as declared:** 24 `store mass` lines a shot from exactly the `shed` rockets, spread over the
+walk's four stops (one, one, two and two warheads, about a minute apart) rather than in one burst. Endings
+`floor`/`noimprov`/`payback` 28/2/2 on `base` against 27/1/4, no `clock` or trim ending, owed 2.74 m/s on both.
+
+**A gap in the declaration, written down rather than smoothed over.** The primary was declared *per target*, and
+`shot-report.py --paired` has no per-target split: its `== targets` section pools both arms, and the scenario's
+`TARGET` lines print kilometres to three places, which reads every target's worst warhead on both arms as 0.000 km —
+under a metre — and nothing finer. The landing above is the same quantity weighted over all four targets. A
+per-target paired split in the report is the instrument a future walk night should have before it declares one.
+
+**Both nights cleared their bars, so `IcbmConfig.ShedWarheadMass` ships on.** Numbers flown before 2026-10-03 were
+flown on a bus that never got lighter.

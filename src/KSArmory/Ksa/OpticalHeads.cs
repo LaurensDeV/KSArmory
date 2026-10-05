@@ -277,6 +277,7 @@ internal sealed class OpticalHeads(Config config)
     /// <summary>One simulated step for every head.</summary>
     public void Update(double dt, IReadOnlyList<IContact>? airborne = null)
     {
+        LaserDesignators.BeginFrame();
         foreach (Entry e in _entries.Values) e.Head.Update(dt, airborne);
     }
 

@@ -547,8 +547,9 @@ It also explains a flown result rather than only predicting one: the canted+radi
 
 **The seat is a choice and is written down as one.** The loaded centroid is near X = 1.77, and
 putting it there would give every nozzle a 1.4 m arm and a far worse quantum. It sits inside a mass
-model that is already approximate — the six RVs are rounds this mod simulates and carry no KSA mass,
-so the 6,300 kg never sheds as they leave.
+model that is already approximate — the six RVs are rounds this mod simulates, and since 2026-10-03
+their mass sheds from the lump as they leave (`IcbmConfig.ShedWarheadMass`, on, `ACCURACY-PLAN.md` 3fm
+and 3fn). It scales the lump in place rather than taking mass off at the tubes, so the seat survives.
 
 **And what it costs is velocity, not pointing.** That is what made it invisible. All three arms
 release their warheads at **0.00 degrees** off the salvo's line, and the arm that trims *tightest*

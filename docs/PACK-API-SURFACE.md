@@ -11,7 +11,7 @@ ignored.
 
 `docs/WEAPON-PACKS.md` is the same surface written for the author, with the reasons attached.
 
-**Definition schema 1.** 8 elements, 129 attributes, 15 entry-point lines.
+**Definition schema 1.** 8 elements, 134 attributes, 15 entry-point lines.
 
 ## Entry point
 
@@ -154,6 +154,8 @@ to build; widening it to take a profile type would put that back.
 | `EjectAwayFromMount` | number | `0` |
 | `MuzzleOffset` | number | `8` |
 | `GunAmmo` | whole number | `480` |
+| `StoreMassKg` | number | `0` |
+| `GunRoundMassKg` | number | `0` |
 | `GunRoundsPerMinute` | number | `2500` |
 | `GunBurstRounds` | whole number | `12` |
 | `GunBurstGapSeconds` | number | `0.55` |
@@ -177,6 +179,9 @@ to build; widening it to take a profile type would put that back.
 | `MaxElevationDeg` | number | `85` |
 | `MaxOffBoresightDeg` | number | `135` |
 | `KeyholeDeg` | number | `4` |
+| `MaxMagnification` | number | `16` |
+| `HasLaser` | true or false | `false` |
+| `LaserRangeMetres` | number | `20000` |
 
 ### `<Tube>` - child of `<Launcher>`
 

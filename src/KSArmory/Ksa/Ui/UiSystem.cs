@@ -51,6 +51,14 @@ internal sealed partial class Ui
             ImGui.SeparatorText(stations > 1 ? $"{kind.DisplayName}  x{stations}" : kind.DisplayName);
             ImGui.PushID(kind.PartId);
 
+            // A part with a single row under it needs no fold of its own: it would only repeat
+            // the heading above it.
+            int rows = 0;
+            foreach (FoundComponent c in inv.Components)
+            {
+                if (ReferenceEquals(c.Profile, kind)) rows++;
+            }
+
             // Every row of a weapon prints the selected one's numbers and edits its settings, so a
             // weapon that is not selected says so once and draws none of them. A director it
             // carries is its own instrument and still gets its row.
@@ -77,7 +85,7 @@ internal sealed partial class Ui
                         // the current id scope, so without this the second director's tick boxes
                         // are the first's.
                         ImGui.PushID(i);
-                        DrawComponentRow(craft, c, kind, role, nth, stations, of);
+                        DrawComponentRow(craft, c, kind, role, nth, stations, of, alone: rows == 1);
                         ImGui.PopID();
                         drawn = true;
                     }
@@ -100,14 +108,15 @@ internal sealed partial class Ui
     // One role of one kind of part -- once for all its stations, or once per head for a director --
     // and whatever it is that the panel can drive.
     private void DrawComponentRow(KSA.Vehicle craft, FoundComponent c, ComponentProfile kind, WeaponRole role,
-                                  int nth, int stations, int of)
+                                  int nth, int stations, int of, bool alone)
     {
         string label = !StacksStations(role) && of > 1 ? $"{c.DisplayName}  {nth + 1} of {of}" : c.DisplayName;
+        bool folded = !(alone && label == kind.DisplayName);
 
         // Open unless folded away. A craft carries a handful of components and their controls are
         // the reason to be on this tab at all, so a closed fold costs a click on every visit and
         // buys back one line of screen.
-        if (!ImGui.TreeNodeEx(label, ImGuiTreeNodeFlags.DefaultOpen)) return;
+        if (folded && !ImGui.TreeNodeEx(label, ImGuiTreeNodeFlags.DefaultOpen)) return;
 
         if (stations > 1 && role == WeaponRole.Launcher) DrawStationsLoaded(craft, kind);
 
@@ -142,7 +151,7 @@ internal sealed partial class Ui
             }
         }
 
-        ImGui.TreePop();
+        if (folded) ImGui.TreePop();
     }
 
     // A dispenser needs no weapons system either: a transport with nothing but flares aboard has every

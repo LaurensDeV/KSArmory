@@ -45,7 +45,6 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     private readonly WatchCamera _watch = watch;
     private readonly CraftMover _mover = mover;
     private readonly BurstTool _bursts = bursts;
-    private readonly List<int> _viewports = [];
     private readonly List<SurveyedPart> _surveyed = [];
     private readonly List<OpticalHeads.Entry> _headScratch = [];
     private readonly List<WeaponSystems.Entry> _weaponScratch = [];
@@ -94,6 +93,9 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     private Pane[] Panes => _panes ??=
     [
         new("KSArmory settings", DrawSettingsPane, PaneGroup.Session),
+
+        // Who fights whom, in one place: a team's rules are every system on it.
+        new("Teams", DrawTeamsWindow, PaneGroup.Session),
 
         // Its own button beside settings, rather than a collapsed header inside that window. Sim
         // speed, the target spawner and the log are all reached *while* an engagement is running,
@@ -231,7 +233,15 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         {
             _managed = null;
         }
-        Focused = _managed ?? _roster.Default();
+        if (_weaponsCraft is not null && (!_weaponsOpen || !KsaWorld.IsAlive(_weaponsCraft)
+                                          || _roster.For(_weaponsCraft) is null))
+        {
+            _weaponsCraft = null;
+        }
+
+        // The Weapons window, opened from a row, is the craft being operated: its trigger, its
+        // designator and its sight follow it.
+        Focused = _weaponsCraft ?? _managed ?? _roster.Default();
 
         // Two different questions, and collapsing them into one is a null dereference. The manage
         // window has something to show for a system *or* a director, so it asks the second; the
@@ -341,13 +351,13 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
             return;
         }
 
-        if (!ImGui.BeginTable("##switcher", 5, ImGuiTableFlags.SizingStretchProp)) return;
+        if (!ImGui.BeginTable("##switcher", 6, ImGuiTableFlags.SizingStretchProp)) return;
 
-        // What only some rows have beside the name, and what every row has after it: a missing icon
-        // then leaves blank space beside a name drawn as plain text, which reads as the name's own
-        // rather than as a hole, and each icon keeps its column. Guard is only on a craft that
-        // engages on its own and chase on any with a weapon, so a row loses icons from the name out.
+        // Weapons first, as the one most reached for. Each icon keeps its column, so a craft without
+        // one -- guard is only on a craft that engages on its own -- leaves a gap rather than
+        // shifting the rest.
         ImGui.TableSetupColumn("##name", ImGuiTableColumnFlags.WidthStretch);
+        ImGui.TableSetupColumn("##weapons", ImGuiTableColumnFlags.WidthFixed);
         ImGui.TableSetupColumn("##guard", ImGuiTableColumnFlags.WidthFixed);
         ImGui.TableSetupColumn("##chase", ImGuiTableColumnFlags.WidthFixed);
         ImGui.TableSetupColumn("##team", ImGuiTableColumnFlags.WidthFixed);
@@ -400,6 +410,9 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         DrawSwitcherName(craft, inv);
 
         ImGui.TableNextColumn();
+        if (_rowSystems.Count > 0) DrawWeaponsButton(craft);
+
+        ImGui.TableNextColumn();
         if (_rowSystems.Count > 0) DrawGuardButton();
 
         ImGui.TableNextColumn();
@@ -413,7 +426,12 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         ImGui.TableNextColumn();
         bool open = ReferenceEquals(_managed, craft);
         if (open) ImGui.PushStyleColor(ImGuiCol.Button, LitButton);
-        if (ImGui.Button("...")) _managed = craft;
+        if (ImGui.Button("..."))
+        {
+            // One craft operated at a time: its window's trigger fires the focused craft's weapons.
+            _managed = craft;
+            _weaponsCraft = null;
+        }
         if (open) ImGui.PopStyleColor();
         Tip(open ? "Its window is the one open." : "Everything else about it, in its own window.");
     }
@@ -520,6 +538,30 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
             + "the burst, or about two seconds after the round has nothing left to arrive at. "
             + "Right-drag looks around the round and the wheel moves in or out; let go and the view "
             + "eases back behind it.");
+    }
+
+    // Straight to the Weapons window for this craft, without opening its own window first.
+    private void DrawWeaponsButton(KSA.Vehicle craft)
+    {
+        bool open = _weaponsOpen && ReferenceEquals(Focused, craft);
+
+        if (IconButton("##weapons", Icon.Missile, open ? ChaseInk : OffInk, lit: open))
+        {
+            if (open)
+            {
+                _weaponsOpen = false;
+            }
+            else
+            {
+                _weaponsCraft = craft;
+                _weaponsOpen = true;
+
+                // Another craft's window would fire this craft's weapons from its own trigger.
+                if (_managed is not null && !ReferenceEquals(_managed, craft)) _managed = null;
+            }
+        }
+
+        Tip(open ? "Its weapons are open." : "Its weapons: what each is loaded with, whether it is armed, and a trigger.");
     }
 
     // A click opens the menu, because it is the control a new player tries first and creating the
@@ -663,7 +705,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     private static readonly ImColor8 OffInk = new(140, 140, 150, 255);
     private static readonly ImColor8 Lens = new(24, 26, 32, 255);
 
-    private enum Icon { Shield, Camera, Flag }
+    private enum Icon { Shield, Camera, Flag, Missile }
 
     // A square button the height of a text one, with a symbol drawn on it. Drawn rather than
     // typed, because KSA's fonts carry basic Latin only and a symbol would render as a box.
@@ -701,6 +743,14 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
             case Icon.Flag:
                 draw.AddLine(P(0.3f, 0.16f), P(0.3f, 0.86f), ink, 1.5f);
                 draw.AddTriangleFilled(P(0.3f, 0.18f), P(0.78f, 0.34f), P(0.3f, 0.5f), ink);
+                break;
+
+            case Icon.Missile:
+                // Climbing to the right: body, nose and a pair of tail fins.
+                draw.AddQuadFilled(P(0.20f, 0.70f), P(0.28f, 0.78f), P(0.70f, 0.36f), P(0.62f, 0.28f), ink);
+                draw.AddTriangleFilled(P(0.62f, 0.28f), P(0.70f, 0.36f), P(0.84f, 0.14f), ink);
+                draw.AddTriangleFilled(P(0.24f, 0.74f), P(0.14f, 0.58f), P(0.32f, 0.66f), ink);
+                draw.AddTriangleFilled(P(0.24f, 0.74f), P(0.40f, 0.84f), P(0.32f, 0.66f), ink);
                 break;
         }
     }
@@ -774,7 +824,6 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
                         ImGui.EndTabItem();
                     }
                     if (ImGui.BeginTabItem("Tuning")) { DrawTuning(); ImGui.EndTabItem(); }
-                    if (ImGui.BeginTabItem("Teams and IFF")) { DrawIff(); ImGui.EndTabItem(); }
                 }
                 ImGui.EndTabBar();
             }
@@ -925,6 +974,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
 
         foreach (WeaponSystems.Entry e in _roster.All) e.Policy.Iff.Forget(team);
         foreach (OpticalHeads.Entry h in _heads.All) h.Policy.Iff.Forget(team);
+        _config.ForgetRules(team);
     }
 
     private static float4 AllegianceColour(Allegiance a) => a switch

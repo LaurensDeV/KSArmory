@@ -31,7 +31,8 @@ public static class SightZoom
     public const double DefaultFovDeg = 50.0;
 
     public const float MinMagnification = 1f;
-    public const float MaxMagnification = 24f;
+    /// <summary>The most any optic may be fitted with; each has its own, <c>OpticProfile.MaxMagnification</c>.</summary>
+    public const float MaxMagnification = 64f;
 
     /// <summary>
     /// The magnifications the panel and the wheel step through.
@@ -39,7 +40,25 @@ public static class SightZoom
     /// <para>Detents rather than a continuous slider: a gunner's sight has fixed optical stops, and
     /// a factor arrived at by dragging is a number nobody can return to.</para>
     /// </summary>
-    public static ReadOnlySpan<float> Detents => [1f, 2f, 4f, 8f, 16f];
+    public static ReadOnlySpan<float> Detents => [1f, 2f, 4f, 8f, 16f, 32f, 64f];
+
+    /// <summary>
+    /// The stops one optic has: every detent up to its maximum, and the maximum itself when it is
+    /// not one, so an optic fitted to its real narrowest field ends on it.
+    /// </summary>
+    public static int StopsFor(float max, Span<float> into)
+    {
+        const float slack = 1e-3f;
+        int n = 0;
+
+        foreach (float detent in Detents)
+        {
+            if (detent <= max + slack) into[n++] = detent;
+        }
+
+        if (n == 0 || Math.Abs(into[n - 1] - max) > slack) into[n++] = Clamp(max);
+        return n;
+    }
 
     /// <summary>
     /// The field of view (deg) that magnifies <paramref name="baseFovDeg"/> by
@@ -77,9 +96,10 @@ public static class SightZoom
     /// restored from a save or left over from an older detent table still steps sensibly instead of
     /// sticking at one end.</para>
     /// </summary>
-    public static float Stepped(float magnification, int steps)
+    public static float Stepped(float magnification, int steps, float max = 16f)
     {
-        ReadOnlySpan<float> detents = Detents;
+        Span<float> stops = stackalloc float[Detents.Length + 1];
+        ReadOnlySpan<float> detents = stops[..StopsFor(max, stops)];
         const float slack = 1e-3f;
 
         // Counted from the detent the value has already reached in the direction of travel, so a

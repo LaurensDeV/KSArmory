@@ -106,6 +106,28 @@ internal sealed class Interceptor : IProjectile
     /// </summary>
     public Func<double3, double, double>? AirDensityAt { get; set; }
 
+    /// <summary>
+    /// Where the ground is. Every missile asks, unlike a shell: a salvo is a dozen rounds rather than
+    /// a burst's hundred and fifty, and one fired downhill otherwise flies through the hill still
+    /// steering. Not <see cref="MunitionProfile.HitsTerrain"/>, which also means a store that ends by
+    /// landing. Sampled once a frame at the round's own instant and held, as a <see cref="Slug"/>
+    /// holds it.
+    /// </summary>
+    public IGroundTest? Ground { get; set; }
+
+    /// <summary>How far the ground's centre has moved by a time into the frame; see <see cref="Slug.GroundCentreDriftAt"/>.</summary>
+    public Func<double, double3>? GroundCentreDriftAt { get; set; }
+
+    /// <summary>It flew into the ground, and its warhead went off there.</summary>
+    public bool HitGround { get; private set; }
+
+    private bool _haveGround;
+    private double3 _groundCentre;
+    private double _groundRadius;
+
+    private double3 GroundCentre(double secondsIntoFrame)
+        => GroundCentreDriftAt is { } drift ? _groundCentre + drift(secondsIntoFrame) : _groundCentre;
+
     public RoundState State { get; private set; } = RoundState.Flying;
 
     /// <inheritdoc cref="IProjectile.ShootDown"/>
@@ -331,6 +353,13 @@ internal sealed class Interceptor : IProjectile
 
         _frameVelocityEcl = frameVelocityEcl;
 
+        // At the round's own instant: the body sample is a frame newer, and asked with the raw
+        // pre-step position it reads the height field a frame of ~30 km/s away.
+        double3 atOwnEpoch = PositionEcl - (GroundCentreDriftAt?.Invoke(-dt) ?? Vec.Zero);
+        _haveGround = Ground is { } ground
+                      && ground.TryGround(atOwnEpoch, out _groundCentre, out _groundRadius)
+                      && double.IsFinite(_groundRadius) && _groundRadius > 0.0;
+
         int steps = Math.Clamp((int)Math.Ceiling(dt / SubStep), 1, MaxSubSteps);
         double h = dt / steps;
         double elapsed = 0.0;
@@ -543,7 +572,30 @@ internal sealed class Interceptor : IProjectile
 
         double3 stepEcl = VelocityEcl * h;
         DistanceFlown += Vec.Len((VelocityEcl - frameVelocityEcl) * h);
+        double3 before = PositionEcl;
         PositionEcl += stepEcl;
+
+        if (_haveGround)
+        {
+            double was = Vec.Len(before - GroundCentre(elapsedInFrame - frameSeconds)) - _groundRadius;
+            double now = Vec.Len(PositionEcl - GroundCentre(elapsedInFrame + h - frameSeconds)) - _groundRadius;
+
+            // Only crossing down from above. A tube can sit a hair under the coarse height field,
+            // and a round that started below it would otherwise burst on its own rail.
+            if (was > 0.0 && now <= 0.0)
+            {
+                double f = Math.Clamp(was / (was - now), 0.0, 1.0);
+
+                PositionEcl = before + stepEcl * f;
+                // Not a fuse range: zero would read as a direct hit on the target. The blast sweep
+                // judges what was near where it went off.
+                MissDistance = double.PositiveInfinity;
+                HitGround = true;
+                DetonationElapsedInFrame = elapsedInFrame + h * f - frameSeconds;
+                State = RoundState.Detonated;
+                return;
+            }
+        }
 
         if (!Vec.IsFinite(PositionEcl) || !Vec.IsFinite(VelocityEcl))
         {

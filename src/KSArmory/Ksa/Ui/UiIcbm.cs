@@ -927,6 +927,68 @@ internal sealed partial class Ui
                   + "leaves more square to it. Off the orbit plane that is 59-93% of what the cutoff "
                   + "leaves, and it grows 5.9x over a 4x step against 4.1x in plane. Unflown.");
 
+        float reserve = (float)config.AscentReserveSeconds;
+        if (ImGui.SliderFloat("Ascent keeps for the closed loop (s, 0 = off)", ref reserve, 0.0f, 30.0f))
+        {
+            config.AscentReserveSeconds = reserve < 0.5f ? 0.0 : reserve;
+        }
+        Tip(config.AscentReserveSeconds > 0.0
+                ? $"The pitch programme throttles back once less than {config.AscentReserveSeconds:F0} s "
+                  + "of burning is left, so a short shot reaches thin air with something still to gain "
+                  + "rather than kilometres a second too much. Unflown."
+                : "0: the pitch programme flies wide open whatever the shot needs. A short shot then "
+                  + "overshoots and spends the upper stage braking; flown at 418 km that ran dry.");
+
+        bool separateEarly = config.SeparateAtCutoff;
+        if (ImGui.Checkbox("Drop the spent stack at cutoff", ref separateEarly))
+        {
+            config.SeparateAtCutoff = separateEarly;
+        }
+        Tip("On: the empty stack comes off when the burn ends, so the bus does not spend its own "
+            + "thrusters holding it through the coast. Off: it comes off when the release gate opens. "
+            + "The trim waits for the gate either way. A short shot always drops it at cutoff. Unflown.");
+
+        bool anyRange = config.FlyAnyRange;
+        if (ImGui.Checkbox("Fly any range on any stack", ref anyRange))
+        {
+            config.FlyAnyRange = anyRange;
+        }
+        Tip("On: a solid stage's remaining delta-v is absorbed by lofting the arc, an engine that cannot "
+            + "throttle low enough is lofted against its floor, the closed loop takes over at the top of a "
+            + "climb that stays in the air, and a stage that can stop waits for the vehicle to turn before "
+            + "burning. A long shot is flown exactly as with it off.");
+
+        float slowLine = (float)config.ShortShotSlowsLineSeconds;
+        if (ImGui.SliderFloat("Short shot slows its line within (s, 0 = off)", ref slowLine, 0.0f, 2.0f))
+        {
+            config.ShortShotSlowsLineSeconds = slowLine < 0.05f ? 0.0 : slowLine;
+        }
+        Tip(config.ShortShotSlowsLineSeconds > 0.0
+                ? $"Once less than {config.ShortShotSlowsLineSeconds:F2} s of the thrust being made is left to gain, "
+                  + $"the thrust line turns at most {IcbmProgram.SlowLineDegPerSec:F0} deg/s and the burn runs on the part "
+                  + "along it, so a stack at its throttle floor cannot chase what is left into a spin."
+                : "0: the line follows what is left to gain to the end. On a short shot at the throttle floor that "
+                  + "chases: flown, every core that ran dry separated spinning, and twice the spent core knocked the "
+                  + "upper's engine off.");
+
+        bool inTheAir = config.ShortShotFinishesInTheAir;
+        if (ImGui.Checkbox("Short shot finishes in the air", ref inTheAir))
+        {
+            config.ShortShotFinishesInTheAir = inTheAir;
+        }
+        Tip("On: a short shot whose burn ends in thick air cuts off and releases there, instead of pausing to "
+            + "coast out of the air and lighting again -- the relight is where the stack starts spinning again. "
+            + "Pair it with solving the arc with drag, or it falls short by the drag.");
+
+        bool withDrag = config.ShortShotSolvesWithDrag;
+        if (ImGui.Checkbox("Short shot solves its arc with drag", ref withDrag))
+        {
+            config.ShortShotSolvesWithDrag = withDrag;
+        }
+        Tip($"On: in the last {IcbmProgram.DragSolveWithinSeconds:F0} s of a short shot's burn, each arc is flown with "
+            + "the warhead's drag and the aim moved until it lands on the target, so a cutoff in the air does not "
+            + "fall short by the drag.");
+
         bool resample = config.ResampleGroundAtImpact;
         if (ImGui.Checkbox("Warheads re-read the ground as they meet it", ref resample))
         {
@@ -1085,6 +1147,12 @@ internal sealed partial class Ui
             + "paired blocks: the worst warhead of a group 0.80x, the spread lower on 17 of 20 shots. Off is the old "
             + "hand-typed constant, which is what a paired night now flies as its comparator. Needs the kick below, "
             + "which is why they went on together.");
+
+        bool shed = config.ShedWarheadMass;
+        if (ImGui.Checkbox("Warheads take their mass with them", ref shed)) config.ShedWarheadMass = shed;
+        Tip("On, and shipped: each warhead's 250 kg comes off the bus as it leaves, as on the real vehicle. "
+            + "Flown no worse on one target and on a four-target walk. Off keeps the bus at its loaded mass "
+            + "throughout, which is what nights before 2026-10-03 flew.");
 
         bool throughTheAir = config.KickThroughTheAir;
         if (ImGui.Checkbox("Solve the separation kicks through the air", ref throughTheAir))
