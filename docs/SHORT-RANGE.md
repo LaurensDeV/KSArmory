@@ -421,8 +421,23 @@ and both baseline landings were 11 m and 150 m. With the settings on, no core se
       0.1 m/s on the full-thrust projection where flown shots end at 0.45, mostly across the line. The flown
       log points elsewhere: in the last 0.1 s the drag solve was still moving the aim (by 26 m) and its
       predicted miss swung between 56 and 81 m, which would leave a residual across the line.
-   2. Release without the sweep: stop the turn before releasing, or cancel each tube's velocity in its
-      separation. Only a flight can test either.
+   2. ~~Release without the sweep.~~ Done 2026-10-05, and the sweep was not the cause. Read off the
+      flown logs, each salvo's warheads landed on one line in release order, each a frame later on a
+      stack the air had slowed (about 50 mm/s a frame on Liquid2, 110-140 on SRB4), and the release
+      probe predicted every landing to centimetres while its kick was refused over the 10 mm/s cap.
+      `IcbmConfig.ShortShotReleasesTogether` lets the salvo go in one frame and
+      `ShortShotMissKickMetresPerSecond` raises that salvo's cap (`2c0413d9`, both off). Flown paired
+      (`~/shots/2026-10-05-together/`), worst warhead, defaults against both on at 1 m/s:
+
+      | | 150 km | 300 km |
+      | --- | --- | --- |
+      | Real Liquid2 | 46 m -> 1.5 mm | 93 m -> 0.20 m |
+      | Real SRB4 | 114 m -> 2.6 mm | 134 m -> 0.66 m |
+      | GeoSat FAT | 87 m -> 3.8 mm | 115 m -> 0.63 m |
+
+      And on GeoSat FAT alone (`~/shots/2026-10-05-cover/`): 25 km 7.2 mm, 200 km 4.2 mm, 418 km
+      7.1 mm. 500 km released above the air as before, 4 m. The cap alone at 0.3 m/s was not enough:
+      the later warheads wanted 306-638 mm/s. Left: a common 0.2-0.66 m at 300 km, cause not found.
 2. **Correct after cutoff in the air.** The bus's thrusters can still act between cutoff and release, solved
    against the drag-flown probe rather than a vacuum arc. The trim reads drag as debt in the air (M6), and
    coasting the bus alone through the air is what cost 107 km.
@@ -469,6 +484,17 @@ three, so the liquid first stages stand on four A3s. All nine passed, with no ex
 
 Worst warhead, and the group's spread. Liquid3 does not tumble at 700 km: the tumble was the old Test Liquid3's
 16 g second stage, not three stages.
+
+**The spin after the boosters drop** (GeoSat FAT at 25 km) is the floor chase again, started by the
+boosters overshooting: they leave 13 m/s to gain pointing 67 deg off the nose, and the core lights at the
+0.9 throttle the solids were flown at, so it grows to 104 m/s and the stack turns at up to 88 deg/s. It
+costs propellant, not the shot: flown, the six landed within 7 mm. Two fixes were tried in the rig, with
+the throttle lever carried through the solid stage as KSA's is, and neither is in. Lighting the core at
+its floor halved the overshoot (13 -> 56 m/s) but still chased at 54 deg/s, because floor thrust 67 deg off
+the line still pushes the wrong way. Holding the engine off to turn with under 100 m/s left stopped the
+spin (2-36 deg/s against 89-114) and left 2-8 m/s ungained, because in the air the stack is not allowed to
+point 100 deg off its path and so cuts off without turning. The cause is the boosters overshooting a shot
+shorter than they deliver; the fix, if it is wanted, is shaping the ascent so they burn out on the arc.
 
 GeoSat FAT at 200 km on the same build landed 197 m, as before. And the bus is now let go once its salvo is away:
 it used to hold its attitude, firing its thrusters, for the rest of its fall. That was flown on all five flights.
