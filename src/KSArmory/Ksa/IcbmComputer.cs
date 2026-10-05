@@ -391,6 +391,10 @@ internal sealed class IcbmComputer
     // to an impact nothing was going to make, and as a predicted miss climbing past 500 km once the
     // real warheads were long down.
     private bool _salvoAway;
+
+    // Handed back once the last warhead is away: nothing aboard is going anywhere, and holding an empty
+    // bus's attitude fires its thrusters for the rest of the coast for nothing.
+    private bool _letGoAfterSalvo;
     private bool _saidClearOnce;
 
     /// <summary>
@@ -543,6 +547,7 @@ internal sealed class IcbmComputer
         PredictedImpact = null;
         PredictedMissMetres = double.NaN;
         _salvoAway = false;
+        _letGoAfterSalvo = false;
 
         // A new aim point is a new shot, and the trace's walk is measured against an aim that has
         // just moved. Whatever is still in the air from the last one is dropped rather than scored
@@ -961,7 +966,23 @@ internal sealed class IcbmComputer
             // Unless the coast has been told to go quiet. Commanding an actuator is what takes the
             // vehicle off rails, and off rails it is integrated rather than propagated -- worth
             // ~4 m/s per probe of cross-track push in a shared bubble. IcbmConfig.QuietCoast.
-            if (QuietDuringCoast())
+            if (SalvoIsOver)
+            {
+                if (!_letGoAfterSalvo)
+                {
+                    _letGoAfterSalvo = true;
+                    AttitudeHook.Release(Craft);
+                    if (_driving)
+                    {
+                        VehicleCommand.ReleaseAttitude(Craft);
+                        _driving = false;
+                    }
+                    VehicleCommand.DriveTranslation(Craft, TrimAxes.None);
+                    AttitudeHook.PulseMode(Craft, pulsing: false);
+                    Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)}: the salvo is away; the bus is let go");
+                }
+            }
+            else if (QuietDuringCoast())
             {
                 // Quiet, not Release: dropping the aim leaves the computer holding its last target
                 // and still firing for it, which is the whole cost back.
