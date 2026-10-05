@@ -443,9 +443,10 @@ TOOLS = {
     "ksa_fire": ("Fire a craft's selected weapon at a point east_m/north_m/up_m of the craft (up_m defaults "
                  "to the ground under it). A gun or a launcher that trains is designated onto the point and "
                  "fires once it is laid, answering when the shot is away; lay=false fires it wherever it "
-                 "points now. rounds sets how many a gun fires in place of its burst.",
+                 "points now. rounds sets how many a gun fires in place of its burst. station=N fires the "
+                 "craft's Nth launcher instead of the selected one.",
                  {"craft": {"type": "string"}, "east_m": _num("m"), "north_m": _num("m"), "up_m": _num("m"),
-                  "lay": {"type": "boolean"}, "rounds": _num("rounds")}, [],
+                  "lay": {"type": "boolean"}, "rounds": _num("rounds"), "station": _num("launcher number")}, [],
                  lambda a: [_text(json.dumps(send("fire", **a)))]),
     "ksa_control": ("Fly the named craft: the camera follows it and the controls drive it.",
                     {"craft": {"type": "string"}}, ["craft"], lambda a: [_text(json.dumps(send("control", **a)))]),

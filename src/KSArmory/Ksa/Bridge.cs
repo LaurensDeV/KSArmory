@@ -340,10 +340,24 @@ internal sealed class Bridge : IViewPose
     // Player seconds a gun is given to lay onto a bridge point before the shot is given up.
     private const double LayBudgetSeconds = 30.0;
 
+    // The selected weapon, or with station=N the craft's Nth launcher.
+    private WeaponSystem? StationOn(Vehicle craft, BridgeCommand command)
+    {
+        if (!command.Has("station")) return _systemFor(craft);
+
+        int ordinal = (int)command.Number("station", 1) - 1;
+        foreach (WeaponSystems.Entry e in _systems())
+        {
+            if (ReferenceEquals(e.Craft, craft) && e.Ordinal == ordinal) return e.Weapon;
+        }
+
+        return null;
+    }
+
     private Reply? Fire(BridgeCommand command)
     {
         if (CraftNamed(command.String("craft")) is not { } craft) return Failed("no such craft");
-        if (_systemFor(craft) is not { } weapon) return Failed("no weapons system on that craft");
+        if (StationOn(craft, command) is not { } weapon) return Failed("no weapons system on that craft");
         if (KsaWorld.ParentBody(craft) is not { } body
             || !DropScenario.TryLocalFrame(craft, body, out double3 up, out double3 east, out double3 north, out double agl))
         {
