@@ -293,7 +293,9 @@ internal sealed class WarheadTrace
                 Sample(setup, round, simStep, advanced);
             }
 
-            if (_sinceRefly >= (dense ? DenseReflyIntervalSeconds : ReflyIntervalSeconds))
+            // Every frame for the first second: a short shot's walk off its release probe all happens there.
+            double interval = age < 1.0 ? 0.0 : dense ? DenseReflyIntervalSeconds : ReflyIntervalSeconds;
+            if (_sinceRefly >= interval)
             {
                 _sinceRefly = 0.0;
                 Refly(setup, round);
@@ -326,6 +328,10 @@ internal sealed class WarheadTrace
                   + $" sim={KsaWorld.SimulationSpeed:F2}x"
                   + $" frame={_frames}"
                   + $" alt={altitude / 1000.0:F3}km r={Vec.Len(positionCci):F1}"
+                  + (round.Age < 1.0
+                         ? $" cci=({positionCci.X:F4},{positionCci.Y:F4},{positionCci.Z:F4})"
+                           + $" vcci=({velocityCci.X:F5},{velocityCci.Y:F5},{velocityCci.Z:F5})"
+                         : "")
                   + $" v={Vec.Len(velocityCci):F1}m/s local={round.Speed:F1}m/s"
                   + Whose(setup, round));
     }
@@ -361,6 +367,11 @@ internal sealed class WarheadTrace
                   + $" v {Vec.Len(velocityCci):F0}m/s"
                   + Walk(setup, atReleaseEpoch)
                   + $"; {Ground(setup, hit.GroundFixedPointCci, setup.TrueAimCci):F0} m from the aim"
+                  + (round.Age < 1.0
+                         ? $" | aimR {setup.TerrainRadiusAt(setup.TrueAimCci):F4}"
+                           + $" rho10km {setup.DensityRatioAt(setup.TrueAimCci * (1.0 + 10_000.0 / Vec.Len(setup.TrueAimCci))):E8}"
+                           + $" hitR {Vec.Len(hit.GroundFixedPointCci):F4}"
+                         : "")
                   + Whose(setup, round));
     }
 
