@@ -426,6 +426,33 @@ and both baseline landings were 11 m and 150 m. With the settings on, no core se
 4. **The floor:** the drag model in the air, separation inside the air, and the arrival angle. No amount of
    correction removes these.
 
+**Flown on rockets this mod did not ship** (2026-10-05). `tools/make-rocket.py` built five designs: Liquid2,
+Liquid3, SRB4 (four boosters), Light (2 m) and Heavy. Each was turned into a scenario save with the bridge
+(`TEST <name>`) and flown on `dev`'s defaults at 150 km and 700 km (`~/shots/2026-10-05-stacks{,2}/`):
+
+| rocket | 150 km, first | 150 km, after the fixes below | 700 km |
+| --- | --- | --- | --- |
+| Liquid2 | 3.35 km | 0.52 km | 6 m |
+| Liquid3 | 390 m | 283 m | 6 m, after a long tumble |
+| SRB4 | 62 m | 81 m | 5 m |
+| Heavy | 1.04 km | 166 m | 10 m |
+| Light | fails both: its upper stage has a thrust-to-weight of about 0.96 and burns out 1.1-2.2 km/s short | | |
+
+Each first flight found something GeoSat FAT never showed:
+
+- **Liquid2 needed more than the drag offset's cap.** It cuts off at 19 km on its first stage. The cap is now
+  max(40 km, 25% of the distance).
+- **Heavy's line stayed slowed to cutoff, and the frozen offset let its predicted miss grow from 0 to 856 m in
+  the last 0.8 s.** The offset now keeps moving.
+- **Liquid3 tumbled at 700 km.** Its second stage is a full A2 making 16 g, so it chases at the floor on a high
+  arc, where the slowed line is off. Its third stage had the margin to finish anyway. Not fixed yet.
+- **Light is the rocket's fault, and the computer said "Reachable" on the pad.** Its check is delta-v alone, and
+  a stage that cannot lift itself has delta-v it cannot use. A pre-launch warning off KSA's own per-stage
+  thrust-to-weight is next.
+
+GeoSat FAT at 200 km on the same build landed 197 m, as before. And the bus is now let go once its salvo is away:
+it used to hold its attitude, firing its thrusters, for the rest of its fall. That was flown on all five flights.
+
 **In the rig**, five stacks (the game's, an all-solid three-stage, the SRBs alone, a liquid pair, a 25 MN core
 with a 40% floor), 25–5,000 km: every stack cuts off at every range it can reach, 0.0–3.1 km out, bar two at about
 5 km (all-solid 200 km, SRBs alone 2,000 km). With its default attitude the rig cannot start a tumble, so it
