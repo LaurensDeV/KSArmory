@@ -249,6 +249,8 @@ internal sealed class Bridge : IViewPose
             "spawn" => Spawn(command),
             "ground" => Ground(command),
             "save" => SaveGame(command),
+            "control" => Control(command),
+            "remove" => RemoveCraft(command),
             _ => Failed($"no command '{command.Name}'"),
         };
 
@@ -648,6 +650,23 @@ internal sealed class Bridge : IViewPose
         }
 
         return Done(new() { ["sea_level_m"] = Math.Round(sea, 1), ["points"] = line });
+    }
+
+    // Fly the named craft: the camera follows it and the controls drive it.
+    private static Reply Control(BridgeCommand command)
+        => CraftNamed(command.String("craft")) is { } craft && KsaWorld.GoTo(craft)
+               ? Done(new() { ["craft"] = KsaWorld.DisplayName(craft) })
+               : Failed("no such craft, or the engine would not hand it over");
+
+    // A named craft taken out of the world, leaving nothing behind -- never the one being flown, which
+    // the engine would take the scene with.
+    private static Reply RemoveCraft(BridgeCommand command)
+    {
+        string name = command.String("craft");
+        if (name.Length == 0 || CraftNamed(name) is not { } craft) return Failed("no such craft");
+        if (ReferenceEquals(craft, KsaWorld.ControlledVehicle)) return Failed("that craft is being flown; control another first");
+        KsaWorld.Remove(craft);
+        return Done(new() { ["removed"] = name });
     }
 
     // The game written to a save of this name, as KSA's own save console command writes it.

@@ -447,7 +447,12 @@ TOOLS = {
                  {"craft": {"type": "string"}, "east_m": _num("m"), "north_m": _num("m"), "up_m": _num("m"),
                   "lay": {"type": "boolean"}, "rounds": _num("rounds")}, [],
                  lambda a: [_text(json.dumps(send("fire", **a)))]),
-    "ksa_spawn": ("Park a stock craft (craft, default Rocket) on the ground at lat/lon as a target, named name.",
+    "ksa_control": ("Fly the named craft: the camera follows it and the controls drive it.",
+                    {"craft": {"type": "string"}}, ["craft"], lambda a: [_text(json.dumps(send("control", **a)))]),
+    "ksa_remove": ("Take a named craft out of the world, leaving no debris. Refuses the craft being flown.",
+                   {"craft": {"type": "string"}}, ["craft"], lambda a: [_text(json.dumps(send("remove", **a)))]),
+    "ksa_spawn": ("Park a craft (craft, default Rocket) on the ground at lat/lon, named name: one of KSA's stock "
+                  "designs, or one from the player's own design library.",
                   {"craft": {"type": "string"}, "name": {"type": "string"}, "lat": _num("deg"), "lon": _num("deg")},
                   ["lat", "lon"], lambda a: [_text(json.dumps(send("spawn", **a)))]),
     "ksa_ground": ("The ground's height against sea level at lat/lon (negative is seabed depth), or along a line "

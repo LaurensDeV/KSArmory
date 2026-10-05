@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-296 types and 797 members across 11 assemblies.
+297 types and 799 members across 11 assemblies.
 
 ## BepuUtilities
 
@@ -1760,6 +1760,11 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.VehicleSaveData
 
 - `string Character`
+
+### KSA.VehicleSaves
+
+- `System.ReadOnlySpan`1<KSA.VehicleSave> AsSpan()`
+- `void Refresh()`
 
 ### KSA.VehicleUpdateState
 

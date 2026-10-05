@@ -412,7 +412,7 @@ internal static class TestTarget
             {
                 // Both are genuinely nullable in KSA - FindSave returns VehicleSave? and Load
                 // returns PartTree? - so the checks below are load-bearing rather than defensive.
-                VehicleSave? save = DefaultVehicleSaves.FindSave(craftName);
+                VehicleSave? save = DefaultVehicleSaves.FindSave(craftName) ?? LibrarySave(craftName);
                 if (save is not null)
                 {
                     PartTree? tree = save.Load(Program.MainViewport);
@@ -427,6 +427,17 @@ internal static class TestTarget
         }
 
         return new DroneBlueprint(platform.Parts.DeepCopy(), string.Empty);
+    }
+
+    // A design from the player's own library, read fresh so one written while the game runs is found.
+    private static VehicleSave? LibrarySave(string name)
+    {
+        VehicleSaves.Refresh();
+        foreach (VehicleSave save in VehicleSaves.AsSpan())
+        {
+            if (save.Id == name) return save;
+        }
+        return null;
     }
 
     // Converts an ecliptic state into the parent body's inertial frame. Cce is the parent-centred
