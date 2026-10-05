@@ -415,8 +415,12 @@ and both baseline landings were 11 m and 150 m. With the settings on, no core se
    uncompensated. Long shots hold the line at full thrust above the air and barely see it.
 
    Next, in order:
-   1. Project the burn at the throttle the ramp will hold, under the short-shot settings, so the gravity and
-      drag of the remaining burn are compensated. Long shots must stay bit-equal.
+   1. ~~Project the burn at the throttle the ramp will hold.~~ Tried 2026-10-05 and lost in the rig
+      (`FloorHoldTests` at the low arcs, 20 and 25 ms): the mean residual went from 1.59 to 3.70 m/s and the
+      mean miss from 61 to 96 m. The rig also does not reproduce the flown residual: it already ends at about
+      0.1 m/s on the full-thrust projection where flown shots end at 0.45, mostly across the line. The flown
+      log points elsewhere: in the last 0.1 s the drag solve was still moving the aim (by 26 m) and its
+      predicted miss swung between 56 and 81 m, which would leave a residual across the line.
    2. Release without the sweep: stop the turn before releasing, or cancel each tube's velocity in its
       separation. Only a flight can test either.
 2. **Correct after cutoff in the air.** The bus's thrusters can still act between cutoff and release, solved
@@ -452,6 +456,19 @@ Each first flight found something GeoSat FAT never showed:
   where it was told, to within 0.3°, so the commanded direction itself is what spent the stage, against drag
   and gravity low in the air. Then the 0.67 g upper stage could not finish. Open: find what direction the loop
   asks for there, and why it hands over at 1 km.
+
+**Realistic stacks** (`~/shots/2026-10-05-real/`), lifting off at 1.2-1.5 with every stage able to lift what
+is above it. The first liquid designs stood on one A2's bell and toppled where they were parked, breaking in
+three, so the liquid first stages stand on four A3s. All nine passed, with no exceptions in KSA's log:
+
+| rocket | 150 km | 300 km | 700 km |
+| --- | --- | --- | --- |
+| Real Liquid2 (4xA3, 1.49) | 72 m, spread 62 | 104 m, spread 76 | 4 m |
+| Real Liquid3 (4xA3, 1.21) | 57 m, spread 30 | 49 m, spread 7 | under 0.5 m |
+| Real SRB4 (A2 + 4 SRBs) | 73 m, spread 56 | 157 m, spread 88 | 3 m |
+
+Worst warhead, and the group's spread. Liquid3 does not tumble at 700 km: the tumble was the old Test Liquid3's
+16 g second stage, not three stages.
 
 GeoSat FAT at 200 km on the same build landed 197 m, as before. And the bus is now let go once its salvo is away:
 it used to hold its attitude, firing its thrusters, for the rest of its fall. That was flown on all five flights.
