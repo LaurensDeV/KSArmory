@@ -1056,8 +1056,9 @@ internal sealed class IcbmProgram
 
     // Moved by what the drag-flown arc misses by and solved again, inside this pass: with the arrival
     // pinned, the landing follows the aim about one for one. An offset is kept only if it lands nearer,
-    // and it moves right up to the slowed line: the offset a shot needs changes at hundreds of metres a
-    // second as cutoff nears, and frozen 0.75 s early it left the rig 2.5 km out instead of 0.07.
+    // and it keeps moving to cutoff: the offset a shot needs changes at hundreds of metres a second as
+    // cutoff nears, and frozen under a slowed line that lasted to cutoff, a flown miss grew from 0 to
+    // 856 m in the last 0.8 s.
     private BurnoutGuidance.Command SolveWithDrag(in IcbmState state, BurnoutGuidance.Command command,
                                                   double arrivalFromNow)
     {
@@ -1065,11 +1066,9 @@ internal sealed class IcbmProgram
         if (!TryDragMiss(state, command, out double3 miss)) return command;
         DragMissMetres = Vec.Len(miss);
 
-        if (LineSlowed) return command;
-
-        // A guard against a projection gone wrong, not a bound on what drag can cost: at 150 km the
-        // offset a shot needs is about 7 km, and held at 5% of the distance it stopped 0.7-1.1 km short.
-        double limit = Math.Max(15_000.0, 0.10 * Vec.Len(state.AimNowCci - state.PositionCci));
+        // A guard against a projection gone wrong, not a bound on what drag can cost: a stack that cuts
+        // off at 19 km needs more than 15 km at 150 km, and capped there it landed 3.3 km out.
+        double limit = Math.Max(40_000.0, 0.25 * Vec.Len(state.AimNowCci - state.PositionCci));
 
         for (int i = 0; i < DragIterations; i++)
         {
