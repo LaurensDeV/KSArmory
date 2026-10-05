@@ -391,7 +391,19 @@ and both baseline landings were 11 m and 150 m. With the settings on, no core se
    landings when the drag solve said zero. The drag solve now flies the throw too (`IcbmState.ReleaseImpulseCci`),
    and in the rig that takes 200-418 km from 77-165 m to 12-37 m (`TheDragSolveFliesTheTubesThrow`).
 
-   What is left after that is the release spread: stop the turn before releasing, or cancel each tube's
+   **Flown with the throw** (`905cd3f`, `~/shots/2026-10-05-throw{,2}/`), worst warhead and the group's mean:
+
+   | range | before | with the throw | group centre |
+   | --- | --- | --- | --- |
+   | 25 km | 58 m | **12 m** | +1 m downrange, +12 cross |
+   | 150 km | 171-190 m | **75 m, 93 m** | +40/+9 downrange, +12/+62 cross |
+   | 200 km | 192-241 m | **136 m, 99 m** | +80/+22 downrange, +30/+57 cross |
+   | 300 km | 205-218 m | **140 m** | -37 downrange, +57 cross |
+   | 418 km | 342-350 m | **221 m** | +111 downrange, +7 cross |
+
+   The long bias is gone except at 418 km. What is left is a 30-60 m cross offset that now has the same sign
+   on most flights, and the release spread of 38-162 m. Next is to read that cross offset off the logs, as the
+   throw was, and then release without the sweep: stop the turn before releasing, or cancel each tube's
    velocity in its separation. Only a flight can test either.
 2. **Correct after cutoff in the air.** The bus's thrusters can still act between cutoff and release, solved
    against the drag-flown probe rather than a vacuum arc. The trim reads drag as debt in the air (M6), and
