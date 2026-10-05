@@ -463,6 +463,9 @@ drag-aware arc, solved rather than corrected after, is the lever for both.
 
 - If the headless golden harness is bit-equal and two long-range flights (2,000 km at `10.622,-80.604`, and the
   Chaco site 24.0 S 62.0 W) log no regime gate engaging, **no night is needed** (SHOT-PROTOCOL §0).
+  **Met 2026-10-05:** the golden harness is bit-equal with every short-shot setting on, and both flights logged
+  none of the new code. 2,000 km landed under a metre (`3d1ed5d`). Chaco, on `dev` with the settings on by
+  default (`3cc3572`), cut off at 183 km and landed six of six 0.2-2.4 mm from the aim.
 - Otherwise a declared paired night at 2,000 km or Chaco on SCALE 8 with seat levelling, the bar written into the
   docs before flying (e.g. 97.5% upper bound below 1.25 on the worst warhead), ≥14 blocks; compare only within the
   night (frame-rate break of 2026-10-03). `shot-report.py` has no non-inferiority option; read the bound off the
