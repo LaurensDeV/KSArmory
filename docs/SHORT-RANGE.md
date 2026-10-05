@@ -1,8 +1,8 @@
 # Short-range ballistic shots (100–1,000 km)
 
 **Built and flown, with the plan it started from.** Every range from 25 to 2,000 km flies and lands on the game's
-stack with `FlyAnyRange` and the three short-shot settings on by default, flown 2026-10-04/05: the low arcs to
-12-221 m, the high arcs to metres. Start at "Any range, any stack" for what is built and why. The sections before
+stack with `FlyAnyRange` and the short-shot settings on by default, flown 2026-10-04/05: the low arcs to
+millimetres (3-37 mm on GeoSat FAT, 25-300 km) and the high arcs to metres. Start at "Any range, any stack" for what is built and why. The sections before
 it are the 2026-10-03 plan, kept for its measurements; the sections after it are the next steps and are not
 built.
 
@@ -437,7 +437,9 @@ and both baseline landings were 11 m and 150 m. With the settings on, no core se
 
       And on GeoSat FAT alone (`~/shots/2026-10-05-cover/`): 25 km 7.2 mm, 200 km 4.2 mm, 418 km
       7.1 mm. 500 km released above the air as before, 4 m. The cap alone at 0.3 m/s was not enough:
-      the later warheads wanted 306-638 mm/s. Left: a common 0.2-0.66 m at 300 km, cause not found.
+      the later warheads wanted 306-638 mm/s. With the solids handled below as well, GeoSat FAT at 300 km
+      came in at 29 mm and Real SRB4 at 1.32 m, the group within 4 mm either way: a common offset at
+      300 km on some stacks, cause not found.
 2. **Correct after cutoff in the air.** The bus's thrusters can still act between cutoff and release, solved
    against the drag-flown probe rather than a vacuum arc. The trim reads drag as debt in the air (M6), and
    coasting the bus alone through the air is what cost 107 km.
@@ -485,16 +487,43 @@ three, so the liquid first stages stand on four A3s. All nine passed, with no ex
 Worst warhead, and the group's spread. Liquid3 does not tumble at 700 km: the tumble was the old Test Liquid3's
 16 g second stage, not three stages.
 
-**The spin after the boosters drop** (GeoSat FAT at 25 km) is the floor chase again, started by the
-boosters overshooting: they leave 13 m/s to gain pointing 67 deg off the nose, and the core lights at the
-0.9 throttle the solids were flown at, so it grows to 104 m/s and the stack turns at up to 88 deg/s. It
-costs propellant, not the shot: flown, the six landed within 7 mm. Two fixes were tried in the rig, with
-the throttle lever carried through the solid stage as KSA's is, and neither is in. Lighting the core at
-its floor halved the overshoot (13 -> 56 m/s) but still chased at 54 deg/s, because floor thrust 67 deg off
-the line still pushes the wrong way. Holding the engine off to turn with under 100 m/s left stopped the
-spin (2-36 deg/s against 89-114) and left 2-8 m/s ungained, because in the air the stack is not allowed to
-point 100 deg off its path and so cuts off without turning. The cause is the boosters overshooting a shot
-shorter than they deliver; the fix, if it is wanted, is shaping the ascent so they burn out on the arc.
+**The spin after the boosters drop**, and the swing at 150-300 km, were both the solids. At 25 km GeoSat FAT's
+boosters overshoot: matched to the arc exactly and flown on the schedule, they left 13 m/s pointing 67 deg off
+the nose, and the core, lit at the 0.9 the lever was left at, chased it at up to 115 deg/s. At 150-300 km they
+were carried through a tail-off under the stack's weight -- 0.86 to 0.59 g for 6 s -- which sagged the path,
+took what was left from 560 to 3,100 m/s and turned the stack into the separation at 19 deg/s.
+
+Two things tried first and not in, in the rig with the lever carried through the solid stage as KSA's is:
+lighting the core at its floor alone still chased (13 -> 56 m/s, 54 deg/s), because floor thrust 67 deg off
+the line still pushes the wrong way; holding the engine off to turn stopped the spin and left 2-8 m/s, because
+in the air the stack is not allowed to point 100 deg off its path.
+
+What is in (`IcbmConfig.SolidsLeaveMetresPerSecond` 30, `DropSolidsUnderWeight`, both on):
+
+- **The solids are steered along what is left and asked to leave 30 m/s**, so what they leave lies ahead of
+  the nose rather than anywhere.
+- **The arrival is pinned from their burnout every solve**, so the stage after them finishes the arc they were
+  steered onto. Left free, the cheapest arc from a lofted one swung what was left from 30 m/s along the nose
+  to 6 m/s 75 deg off it; pinned from the uncapped time to gain it was five seconds late and 20 deg off.
+- **The stage after them lights at its floor**, the lever set while only solids burn, which they ignore: lit
+  at full, 30 m/s is a 0.3 s burn at 2 m/s a frame.
+- **On a short shot, solids under the stack's weight are dropped** when a stage is left after them.
+
+Flown (`~/shots/2026-10-05-{solids,drop}/`), peak turn from the booster drop to cutoff and worst warhead:
+
+| | before | now | worst warhead |
+| --- | --- | --- | --- |
+| GeoSat FAT 25 km | 115 deg/s | 6.4 deg/s | 37 mm |
+| GeoSat FAT 60 km | | 9.7 deg/s | 14 mm |
+| GeoSat FAT 150 km | 42-63 deg/s | 10.2 deg/s | 3.3 mm |
+| GeoSat FAT 200 km | 48 deg/s | 8.0 deg/s | 5.1 mm |
+| GeoSat FAT 300 km | | 15.9 deg/s | 29 mm |
+| Real SRB4 150 km | 27-36 deg/s | 9.9 deg/s | 5.0 mm |
+| Real SRB4 300 km | | 15.3 deg/s | 1.32 m |
+| Real Liquid2 150 km, no solids | | 7.4 deg/s | 3.3 mm |
+
+What is left at 150-300 km is one re-point of about 16 deg as the core takes over, then within 0.3 deg to
+cutoff. `SolidsLeaveTests` holds both halves in the rig.
 
 GeoSat FAT at 200 km on the same build landed 197 m, as before. And the bus is now let go once its salvo is away:
 it used to hold its attitude, firing its thrusters, for the rest of its fall. That was flown on all five flights.
