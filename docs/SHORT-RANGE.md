@@ -372,8 +372,20 @@ and both baseline landings were 11 m and 150 m. With the settings on, no core se
 
 **Accuracy, next**, in order:
 
-1. **Measure the low arcs' miss term by term**, as the long shots were: the residual at cutoff against its
-   sensitivity, the drag solve's last predicted miss, and the flown landing against both.
+1. **Measured: the low arcs' miss is two terms of about the same size.** Read off the six low-arc flights on the
+   final builds (25-418 km):
+   - **A common offset of 100-220 m, set at cutoff.** Each group's mean lands where the computer predicted at
+     cutoff (0.10-0.22 km). The drag solve stops moving its offset once the line is slowed, about the last half
+     second, while the offset the shot needs is still moving at hundreds of metres a second. And 0.2-0.5 m/s is
+     left ungained.
+   - **A spread of 70-220 m within each group, set at release.** After an in-air cutoff the stack is still
+     turning, and the tubes sweep at 1-3 m/s as the warheads leave one by one, each with its own sideways
+     velocity. The per-warhead kicks are capped at 10 mm/s and cannot cancel it. At 25 km, with the tubes at
+     1.0 m/s and a short fall, the spread is 3 m.
+
+   So the next two levers are separate: keep the drag solve correcting up to cutoff, which the rig can test; and
+   release without the sweep, by stopping the turn first or by cancelling each tube's velocity in its separation,
+   which only a flight can test.
 2. **Correct after cutoff in the air.** The bus's thrusters can still act between cutoff and release, solved
    against the drag-flown probe rather than a vacuum arc. The trim reads drag as debt in the air (M6), and
    coasting the bus alone through the air is what cost 107 km.
