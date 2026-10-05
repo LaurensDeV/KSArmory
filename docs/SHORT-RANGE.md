@@ -402,9 +402,22 @@ and both baseline landings were 11 m and 150 m. With the settings on, no core se
    | 418 km | 342-350 m | **221 m** | +111 downrange, +7 cross |
 
    The long bias is gone except at 418 km. What is left is a 30-60 m cross offset that now has the same sign
-   on most flights, and the release spread of 38-162 m. Next is to read that cross offset off the logs, as the
-   throw was, and then release without the sweep: stop the turn before releasing, or cancel each tube's
-   velocity in its separation. Only a flight can test either.
+   on most flights, and the release spread of 38-162 m.
+
+   **The offset left is the residual at cutoff, and it is not random.** On the seven throw flights the
+   residual's cross part is positive every time (0.12-0.45 m/s), and every group lands on the positive cross
+   side (+7 to +62 m). Its radial part decides the downrange: -0.34 to -0.37 m/s landed +40 to +111 m long,
+   -0.03 to +0.20 within about 40 m either way. The likely cause: `BurnoutGuidance` projects the rest of the
+   burn at full thrust (`BoosterPerformance.SecondsToGain`, and the countdown counts full-thrust seconds), but
+   a short shot spends its last seconds at its 12% floor. The real time left is then about eight times
+   longer, and gravity, plus the stack's drag that the projection does not model at all, act over it
+   uncompensated. Long shots hold the line at full thrust above the air and barely see it.
+
+   Next, in order:
+   1. Project the burn at the throttle the ramp will hold, under the short-shot settings, so the gravity and
+      drag of the remaining burn are compensated. Long shots must stay bit-equal.
+   2. Release without the sweep: stop the turn before releasing, or cancel each tube's velocity in its
+      separation. Only a flight can test either.
 2. **Correct after cutoff in the air.** The bus's thrusters can still act between cutoff and release, solved
    against the drag-flown probe rather than a vacuum arc. The trim reads drag as debt in the air (M6), and
    coasting the bus alone through the air is what cost 107 km.
