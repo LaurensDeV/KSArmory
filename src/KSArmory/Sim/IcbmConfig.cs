@@ -824,9 +824,9 @@ internal sealed class IcbmConfig
     /// <see cref="AscentReserveSeconds"/> (15 s if that is zero), the closed loop takes over from the
     /// pitch programme, because it is the only phase that can cut off.
     ///
-    /// <para><b>Off, and unflown.</b> <c>docs/SHORT-RANGE.md</c>.</para>
+    /// <para><b>On.</b> Flown 2026-10-04/05 from 25 to 2,000 km with the other short-shot settings, every shot landed; <c>docs/SHORT-RANGE.md</c>.</para>
     /// </summary>
-    public bool FlyAnyRange;
+    public bool FlyAnyRange = true;
 
     /// <summary>
     /// On a short shot whose stage can stop, turn the thrust line at no more than
@@ -845,12 +845,11 @@ internal sealed class IcbmConfig
     /// 4.6 km out at 200 km. The chase after a relight is not stopped by this alone: it is meant with
     /// <see cref="ShortShotFinishesInTheAir"/>, which removes the relight, and
     /// <see cref="ShortShotSolvesWithDrag"/>, and like them acts only on an arc that stays under
-    /// <see cref="DeployAltitudeMetres"/>; <c>docs/SHORT-RANGE.md</c>. <c>docs/SHORT-RANGE.md</c>,
-    /// "Why 150 km failed".</para>
+    /// <see cref="DeployAltitudeMetres"/>; <c>docs/SHORT-RANGE.md</c>, "Why 150 km failed".</para>
     ///
-    /// <para><b>Off, and unflown.</b></para>
+    /// <para><b>On.</b> Flown 2026-10-04/05 from 25 to 2,000 km with the other short-shot settings, every shot landed; <c>docs/SHORT-RANGE.md</c>.</para>
     /// </summary>
-    public double ShortShotSlowsLineSeconds;
+    public double ShortShotSlowsLineSeconds = 0.5;
 
     /// <summary>
     /// A short shot whose burn finishes in thick air, on an arc that stays under
@@ -860,9 +859,11 @@ internal sealed class IcbmConfig
     ///
     /// <para>The relight is where the floor chase comes back: the stack coasts out still turning, which
     /// RCS cannot stop, and lights pointing well away from what is left. Cut off in the air, the vacuum
-    /// arc is wrong by the drag the prediction already names. <b>Off, and unflown.</b></para>
+    /// arc is wrong by the drag the prediction already names.</para>
+    ///
+    /// <para><b>On.</b> Flown 2026-10-04/05 from 25 to 2,000 km with the other short-shot settings, every shot landed; <c>docs/SHORT-RANGE.md</c>.</para>
     /// </summary>
-    public bool ShortShotFinishesInTheAir;
+    public bool ShortShotFinishesInTheAir = true;
 
     /// <summary>
     /// In the last <see cref="IcbmProgram.DragSolveWithinSeconds"/> of a short shot's burn, fly each
@@ -871,10 +872,11 @@ internal sealed class IcbmConfig
     /// <para>Cut off in the air, a vacuum arc falls short by the drag the prediction already names --
     /// 1.63 km predicted and 1.59 flown at 200 km. Correcting the aim afterwards from inside the air was
     /// tried and is not in: it is a loop reading at 2 Hz with a ratchet, and in the air each reading
-    /// is mostly the cutoff state moving. This solves the same miss inside each pass instead.
-    /// <b>Off, and unflown.</b></para>
+    /// is mostly the cutoff state moving. This solves the same miss inside each pass instead.</para>
+    ///
+    /// <para><b>On.</b> Flown 2026-10-04/05 from 25 to 2,000 km with the other short-shot settings, every shot landed; <c>docs/SHORT-RANGE.md</c>.</para>
     /// </summary>
-    public bool ShortShotSolvesWithDrag;
+    public bool ShortShotSolvesWithDrag = true;
 
     /// <summary>
     /// Give each warhead the separation velocity that lands it where the tubes' mean would —

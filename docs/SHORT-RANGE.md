@@ -1,9 +1,10 @@
 # Short-range ballistic shots (100–1,000 km)
 
-**A plan, not a record.** Nothing here has been built or flown except where it says *measured*. Written
-2026-10-03 from three research passes over the code and two adversarial reviews of a first draft; a
-third review (every mechanism below checked line by line against the source) was still running when this
-was written, and its verdicts are not folded in.
+**Built and flown, with the plan it started from.** Every range from 25 to 2,000 km flies and lands on the game's
+stack with `FlyAnyRange` and the three short-shot settings on by default, flown 2026-10-04/05: the low arcs to
+12-221 m, the high arcs to metres. Start at "Any range, any stack" for what is built and why. The sections before
+it are the 2026-10-03 plan, kept for its measurements; the sections after it are the next steps and are not
+built.
 
 ## What is known
 
@@ -176,7 +177,7 @@ cutoff on the countdown at 120 km 0.09 m/s short, release ~25 s later with 1:24 
 within **21.9 m**, arriving at 73.8°. One flight: the mechanism, not the accuracy. The rig said 479 m/s at
 handover, so the game still overshoots more than the rig does.
 
-### Any range, any stack — `IcbmConfig.FlyAnyRange`, off, flown 2026-10-04
+### Any range, any stack — `IcbmConfig.FlyAnyRange`, on by default, flown 2026-10-04/05
 
 A refusal is not the goal: every shot from the shortest up, on whatever stack is flying it. Built and flown
 over one night, each flight's failure becoming the next rule; what stands:
@@ -268,7 +269,7 @@ So rule 3's "burn at the floor rather than off" holds a gimballed stack only whi
 on staging cannot help, because a dry core has no TVC left. Neither can relighting at the floor, because the
 full-throttle relight is what stopped the earlier spin.
 
-**`IcbmConfig.ShortShotSlowsLineSeconds`, off, rig only.** Once what is left to gain is within that many
+**`IcbmConfig.ShortShotSlowsLineSeconds`, on by default at 0.5 s.** Once what is left to gain is within that many
 seconds of the thrust being made, the line turns at most 5°/s (`IcbmProgram.SlowLineDegPerSec`), and the burn
 runs on the part along it. The rig learned to tumble for this (`IcbmFlightRig.AttitudeHasInertia`: a
 sampled controller with authority in proportion to thrust, and RCS alone with the engine off). Followed to
@@ -298,7 +299,7 @@ solve of its own puts the rig back at 29 of 40 spinning. Leaving the line free d
 18 of 40. So slowing the line stops the chase before a pause, and the same chase starts again after the
 relight.
 
-**So don't relight: finish in the air, and solve the arc with drag.** Off, rig only, unflown. Three settings
+**So don't relight: finish in the air, and solve the arc with drag.** On by default, flown. Three settings
 together:
 
 - `ShortShotSlowsLineSeconds` (0.5).

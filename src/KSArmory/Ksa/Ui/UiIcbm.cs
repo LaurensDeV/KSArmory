@@ -956,7 +956,7 @@ internal sealed partial class Ui
         Tip("On: a solid stage's remaining delta-v is absorbed by lofting the arc, an engine that cannot "
             + "throttle low enough is lofted against its floor, the closed loop takes over at the top of a "
             + "climb that stays in the air, and a stage that can stop waits for the vehicle to turn before "
-            + "burning. A long shot is flown exactly as with it off. Unflown.");
+            + "burning. A long shot is flown exactly as with it off.");
 
         float slowLine = (float)config.ShortShotSlowsLineSeconds;
         if (ImGui.SliderFloat("Short shot slows its line within (s, 0 = off)", ref slowLine, 0.0f, 2.0f))
@@ -966,7 +966,7 @@ internal sealed partial class Ui
         Tip(config.ShortShotSlowsLineSeconds > 0.0
                 ? $"Once less than {config.ShortShotSlowsLineSeconds:F2} s of the thrust being made is left to gain, "
                   + $"the thrust line turns at most {IcbmProgram.SlowLineDegPerSec:F0} deg/s and the burn runs on the part "
-                  + "along it, so a stack at its throttle floor cannot chase what is left into a spin. Unflown."
+                  + "along it, so a stack at its throttle floor cannot chase what is left into a spin."
                 : "0: the line follows what is left to gain to the end. On a short shot at the throttle floor that "
                   + "chases: flown, every core that ran dry separated spinning, and twice the spent core knocked the "
                   + "upper's engine off.");
@@ -978,7 +978,7 @@ internal sealed partial class Ui
         }
         Tip("On: a short shot whose burn ends in thick air cuts off and releases there, instead of pausing to "
             + "coast out of the air and lighting again -- the relight is where the stack starts spinning again. "
-            + "Pair it with solving the arc with drag, or it falls short by the drag. Unflown.");
+            + "Pair it with solving the arc with drag, or it falls short by the drag.");
 
         bool withDrag = config.ShortShotSolvesWithDrag;
         if (ImGui.Checkbox("Short shot solves its arc with drag", ref withDrag))
@@ -987,7 +987,7 @@ internal sealed partial class Ui
         }
         Tip($"On: in the last {IcbmProgram.DragSolveWithinSeconds:F0} s of a short shot's burn, each arc is flown with "
             + "the warhead's drag and the aim moved until it lands on the target, so a cutoff in the air does not "
-            + "fall short by the drag. Unflown.");
+            + "fall short by the drag.");
 
         bool resample = config.ResampleGroundAtImpact;
         if (ImGui.Checkbox("Warheads re-read the ground as they meet it", ref resample))
