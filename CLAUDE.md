@@ -2046,6 +2046,13 @@ its rounds were cleared before they could go loose. The hand-over is anchored at
 **when the platform was last sampled**, the instant the rounds' offsets are measured at, because a
 craft that died in the engine's own step was sampled a frame ago.
 
+**Except where its own part survives on a piece with a hull.** A crash can destroy the craft object and
+leave the launcher part whole on a fragment, and crewed afresh there the system starts with a full
+magazine: a rack that had dropped its bomb showed it again, and could drop it twice. So retiring first
+looks for the very part — by reference, never by Id, and only on a craft `HasPlatform` — and moves the
+system there as a decoupler's split does. Flown: a HARM rail fired and shot down followed onto
+`NewRocket_1_2` with "0 round(s) aboard", where it used to be crewed with `ammo=1`.
+
 **A round's drawn offset is `PositionEcl − platformEcl`, measured *after* the step against the
 platform sample from the *same* frame, with no extrapolation.** Write the update index as `k`,
 the platform sample as `Q(k)` and the round's position after its step as `P(k)`. Measured by a

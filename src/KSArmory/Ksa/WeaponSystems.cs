@@ -542,8 +542,34 @@ internal sealed class WeaponSystems(Config config)
 
         foreach ((Vehicle Craft, int Ordinal) key in _gone)
         {
+            if (_entries.TryGetValue(key, out Entry? entry) && TryFollowHeldPart(key, entry)) continue;
+
             Retire(key, "a crewed system was destroyed");
         }
+    }
+
+    // A crash can destroy the craft object and leave the launcher part whole on a piece of it. Crewed
+    // afresh there, the system starts with a full magazine: a rack that had dropped its bomb showed it
+    // again and could drop it twice. Only the very part, and only onto a craft that is a platform.
+    private bool TryFollowHeldPart((Vehicle Craft, int Ordinal) key, Entry entry)
+    {
+        if (entry.Weapon.HeldPart is not { } held) return false;
+
+        foreach (Vehicle craft in KsaWorld.Vehicles)
+        {
+            if (!KsaWorld.IsAlive(craft) || ReferenceEquals(craft, key.Craft) || !KsaWorld.HasPlatform(craft)) continue;
+
+            LauncherPart.FindAll(craft, _launcherScratch);
+            for (int ordinal = 0; ordinal < _launcherScratch.Count; ordinal++)
+            {
+                if (ReferenceEquals(_launcherScratch[ordinal].Part, held))
+                {
+                    return MoveTo(key, entry, craft, ordinal, held, "its own part, off a craft that was destroyed");
+                }
+            }
+        }
+
+        return false;
     }
 
     // Takes one system off the roster, flying whatever it has in the air first.
