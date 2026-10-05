@@ -103,7 +103,20 @@ PRESETS = {
     "KSA Test SRB4": dict(stages=["A2x3:LF3W6HBx2", "A3:LF3W3HB"], srb=4),
     "KSA Test Light": dict(stages=["A2:LF2W4HAx2", "A4:LF2W2HA"]),
     "KSA Test Heavy": dict(stages=["A2x4:LF3W6HBx4", "A3:LF3W6HB"]),
+    # Lifting off at 1.2-1.7 rather than 10-20, and every stage able to lift what is above it. A liquid
+    # first stage stands on four engines: a tall stack on one A2's bell topples where it is parked and
+    # breaks in three, and four A2s lift off at 4.5 or more.
+    "KSA Real Liquid2": dict(stages=["A3x4:LF3W6HBx2", "A3:LF3W3HB"]),
+    "KSA Real Liquid3": dict(stages=["A3x4:LF3W6HBx2", "A3:LF3W3HB", "A3:LF3W3HB"]),
+    "KSA Real SRB4": dict(stages=["A2:LF3W6HBx3", "A3:LF3W3HB"], srb=4),
 }
+
+# A liquid stage that cannot lift what is above it spends its propellant against gravity, and a first
+# stage far above it reaches the closed loop low and fast: flown, KSA Test Light (14.6 at liftoff, a
+# 0.67 upper) spent 4.2 km/s of first stage in the air and failed at 150 and 700 km.
+MIN_LIFTOFF_TWR = 1.1
+MIN_STAGE_TWR = 0.9
+HOT_LIFTOFF_TWR = 4.0
 REFERENCE_SPEC = dict(stages=["A2x4:LF3W6HBx2", "A3:LF3W3HB"], srb=3)
 
 
@@ -1016,6 +1029,15 @@ def report(rocket, path, lib, references):
     for w in rocket.warnings:
         print(f"   ! {w}")
     problems, notes = validate(path, lib, references[0] if references else None)
+    for i, r in enumerate(rows):
+        twr = r["thrust"] / (r["m0"] * G0)
+        if i == 0 and twr < MIN_LIFTOFF_TWR:
+            problems.append(f"cannot lift off: thrust-to-weight {twr:.2f} under {MIN_LIFTOFF_TWR}")
+        elif not r["sl"] and twr < MIN_STAGE_TWR:
+            problems.append(f"{r['what'].strip()} cannot lift what is above it: thrust-to-weight {twr:.2f} "
+                            f"under {MIN_STAGE_TWR}")
+        if i == 0 and twr > HOT_LIFTOFF_TWR:
+            print(f"   ! hot: thrust-to-weight {twr:.1f} at liftoff hands the shot to the closed loop low and fast")
     for p in problems:
         print(f"   PROBLEM {p}")
     for n in notes:
