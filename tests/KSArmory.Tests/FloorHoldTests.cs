@@ -24,7 +24,7 @@ public class FloorHoldTests(ITestOutputHelper Out)
         {
             Armed = true, MaxAccelerationGee = 8.0f, MinArrivalAngleDeg = 0.0, ArrivalPreference = 0.5,
             FlyAnyRange = true, ShortShotSlowsLineSeconds = slowLineSeconds, ShortShotFinishesInTheAir = finishInTheAir,
-            ShortShotSolvesWithDrag = solveWithDrag,
+            ShortShotSolvesWithDrag = solveWithDrag, SolidsLeaveMetresPerSecond = 0.0, DropSolidsUnderWeight = false,
         };
 
     internal readonly record struct Outcome(double FloorRateDegPerSec, double ResidualMetresPerSecond, double MissKm);
@@ -133,6 +133,80 @@ public class FloorHoldTests(ITestOutputHelper Out)
 
         Assert.True(unseen - seen > 0.05, $"flying the throw moved the mean miss from {unseen:F3} to {seen:F3} km");
         Assert.True(worstSeen < 0.3, $"flown with the throw it still missed by {worstSeen:F2} km");
+    }
+}
+
+/// <summary>
+/// A stack whose solids overshoot a short shot, flown with the throttle lever carried through the solid
+/// stage as KSA's is. <see cref="IcbmConfig.SolidsLeaveMetresPerSecond"/>.
+/// </summary>
+public class SolidsLeaveTests(ITestOutputHelper Out)
+{
+    private (double PeakRate, double Residual) Fly(double km, double leave, double step, bool drop = false)
+    {
+        IcbmFlightRig rig = GameStackShortRangeTests.GameStack(true);
+        rig.AttitudeHasInertia = true;
+        rig.StepJitter = 0.5;
+        rig.LeverMovesUnderSolids = true;
+        rig.Warhead = Arsenal.Mk21WithDragFromShape(Arsenal.ReentryVehicleMk21);
+
+        IcbmConfig config = FloorHoldTests.Config(0.5, true, true);
+        config.SolidsLeaveMetresPerSecond = leave;
+        config.DropSolidsUnderWeight = drop;
+        IcbmProgram program = new(config);
+        rig.Fly(program, GameStackShortRangeTests.South(km * 1000.0), step, 6_000.0);
+
+        return (rig.PeakClosedLoopRateDegPerSec, program.ResidualAtCutoff);
+    }
+
+    // Shots the solids alone can carry: the stage after them is left only a margin.
+    [Fact]
+    public void TheStageAfterSolidsThatCarryTheShotDoesNotSpin()
+    {
+        int spunOff = 0;
+        double worstRate = 0.0, worstResidual = 0.0;
+
+        foreach (double km in new[] { 25.0, 40.0, 60.0, 100.0 })
+        foreach (double step in new[] { 0.02, 0.025 })
+        {
+            var off = Fly(km, 0.0, step);
+            var on = Fly(km, 30.0, step);
+            Out.WriteLine($"{km,3:F0} km {step * 1000,2:F0} ms: matched {off.PeakRate,6:F1} deg/s {off.Residual,5:F2} m/s | "
+                          + $"30 m/s left {on.PeakRate,6:F1} deg/s {on.Residual,5:F2} m/s");
+
+            if (off.PeakRate > 60.0) spunOff++;
+            worstRate = Math.Max(worstRate, on.PeakRate);
+            worstResidual = Math.Max(worstResidual, on.Residual);
+        }
+
+        Assert.True(spunOff >= 6, $"matched to the solids only {spunOff} of 8 spun, so this measures nothing");
+        Assert.True(worstRate < 15.0, $"leaving a margin still turned at {worstRate:F1} deg/s");
+        Assert.True(worstResidual < 1.5, $"leaving a margin left {worstResidual:F2} m/s at cutoff");
+    }
+
+    // Shots the stage after the solids carries most of: what sags the path is the solids' tail-off.
+    [Fact]
+    public void SolidsDroppedUnderWeightHandOverWithoutASwing()
+    {
+        int swungCarried = 0;
+        double worstRate = 0.0, worstResidual = 0.0;
+
+        foreach (double km in new[] { 150.0, 200.0, 300.0, 418.0 })
+        foreach (double step in new[] { 0.02, 0.025 })
+        {
+            var off = Fly(km, 30.0, step);
+            var on = Fly(km, 30.0, step, drop: true);
+            Out.WriteLine($"{km,3:F0} km {step * 1000,2:F0} ms: carried {off.PeakRate,6:F1} deg/s {off.Residual,5:F2} m/s | "
+                          + $"dropped {on.PeakRate,6:F1} deg/s {on.Residual,5:F2} m/s");
+
+            if (off.PeakRate > 35.0) swungCarried++;
+            worstRate = Math.Max(worstRate, on.PeakRate);
+            worstResidual = Math.Max(worstResidual, on.Residual);
+        }
+
+        Assert.True(swungCarried >= 6, $"carried through the tail-off only {swungCarried} of 8 swung, so this measures nothing");
+        Assert.True(worstRate < 30.0, $"dropped under weight it still turned at {worstRate:F1} deg/s");
+        Assert.True(worstResidual < 1.0, $"dropped under weight it left {worstResidual:F2} m/s at cutoff");
     }
 }
 

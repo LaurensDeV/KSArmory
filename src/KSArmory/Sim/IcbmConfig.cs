@@ -959,19 +959,40 @@ internal sealed class IcbmConfig
     /// centimetres while its kick, 96-168 mm/s at 300 km, was refused: each round left the bus later and
     /// further along one line, the group walking 28-104 m. <c>docs/SHORT-RANGE.md</c>.</para>
     ///
-    /// <para><b>Off.</b> Flown 2026-10-05 at 1 m/s with <see cref="ShortShotReleasesTogether"/>, three
-    /// stacks at 150 and 300 km: 1.5-3.8 mm and 0.20-0.66 m, against 46-134 m off. At 0.3 m/s alone the
+    /// <para><b>1 m/s.</b> Flown 2026-10-05 with <see cref="ShortShotReleasesTogether"/>, three stacks at
+    /// 150 and 300 km: 1.5-3.8 mm and 0.20-0.66 m, against 46-134 m with neither. At 0.3 m/s alone the
     /// later warheads of each salvo still wanted 306-638 mm/s.</para>
     /// </summary>
-    public double ShortShotMissKickMetresPerSecond;
+    public double ShortShotMissKickMetresPerSecond = 1.0;
 
     /// <summary>
     /// Let every warhead of a single-target salvo released at cutoff go in the frame the first does,
     /// rather than one a frame. The stack slows in the air between releases, and flown each later
-    /// warhead landed further along one line. <b>Off.</b> Flown 2026-10-05 with
+    /// warhead landed further along one line. <b>On.</b> Flown 2026-10-05 with
     /// <see cref="ShortShotMissKickMetresPerSecond"/>: six warheads within 4 mm of each other.
     /// </summary>
-    public bool ShortShotReleasesTogether;
+    public bool ShortShotReleasesTogether = true;
+
+    /// <summary>
+    /// What solids that cannot be stopped are asked to leave for the stage after them, in m/s, with the
+    /// solids steered along what is left while they burn; zero matches the arc to them exactly and flies
+    /// them on the schedule.
+    ///
+    /// <para><b>30 m/s.</b> Matched exactly, the solids overshot a 25 km shot by 13 m/s 67 deg off the
+    /// nose and the core, lit high, chased it at 115 deg/s; flown 2026-10-05 at 30, 6.4 deg/s at 25 km and
+    /// 9.7 at 60, warheads within 37 mm. <c>docs/SHORT-RANGE.md</c>.</para>
+    /// </summary>
+    public double SolidsLeaveMetresPerSecond = 30.0;
+
+    /// <summary>
+    /// On a short shot, drop solids once they push less than the stack weighs, if a stage is left after
+    /// them, and light that stage at its floor.
+    ///
+    /// <para><b>On.</b> Carried through their tail-off, they left the stack turning at 19 deg/s as they
+    /// separated and 27-63 deg/s after; flown 2026-10-05 at 150-300 km on two stacks, 0.1-0.2 deg/s at
+    /// separation and 8-16 after. <c>docs/SHORT-RANGE.md</c>.</para>
+    /// </summary>
+    public bool DropSolidsUnderWeight = true;
 
     /// <summary>
     /// Measure the miss <see cref="CancelProbeMissAtSeparation"/> cancels as the chord between the probe's

@@ -117,7 +117,10 @@ internal readonly record struct IcbmState(
     double3 ReleaseOffsetCci = default,
 
     /// <summary>What a warhead leaves with on top of the bus's velocity -- its tube's throw; zero if the caller cannot say.</summary>
-    double3 ReleaseImpulseCci = default)
+    double3 ReleaseImpulseCci = default,
+
+    /// <summary>Something is running and every running engine is a solid, which ignores the throttle; false if the caller cannot say.</summary>
+    bool OnlySolidsRunning = false)
 {
     public double Altitude => Body.AltitudeOf(PositionCci);
 
@@ -1250,7 +1253,17 @@ internal sealed class IcbmProgram
         // a lofted one is a lower one, so the velocity to gain swings round to point backwards and down
         // -- flown at 200 km, through a pause that coasted out of the air, into a relight a hundred
         // degrees off that burned the core dry turning.
-        if (Phase == IcbmPhase.ClosedLoop && !double.IsFinite(_arrivalFromLaunch) && !(_unavoidable > 0.0)
+        // Re-pinned every solve while the solids are matched, so the stage after them finishes the arc they
+        // were steered onto: left free at burnout, the cheapest arc from a lofted one swung what was left
+        // from 30 m/s along the nose to 6 m/s 75 deg off it.
+        if (Config.SolidsLeaveMetresPerSecond > 0.0 && _absorbing && _unavoidable > 0.0
+            && double.IsFinite(command.CarrySeconds))
+        {
+            // From where the arc departs, the solids' burnout, never the uncapped time to gain: that
+            // counts the margin at the solids' own tail-off thrust, seconds after they are spent.
+            _arrivalFromLaunch = _sinceLaunch + command.CarrySeconds + command.Arc.FlightSeconds;
+        }
+        else if (Phase == IcbmPhase.ClosedLoop && !double.IsFinite(_arrivalFromLaunch) && !(_unavoidable > 0.0)
             && (state.AimIsSteady || _sinceClosedLoop >= LatchArrivalWithinSeconds || _shortShot))
         {
             _arrivalFromLaunch = _sinceLaunch + command.SecondsToCutoff + command.Arc.FlightSeconds;
@@ -1380,9 +1393,11 @@ internal sealed class IcbmProgram
     {
         if (!Config.FlyAnyRange || state.RunningStageCanStop || !state.Booster.CanThrust) return 0.0;
 
-        return double.IsFinite(state.RunningStageDeltaV) && state.RunningStageDeltaV >= 0.0
-                   ? state.RunningStageDeltaV
-                   : state.Booster.DeltaVRemaining;
+        double solid = double.IsFinite(state.RunningStageDeltaV) && state.RunningStageDeltaV >= 0.0
+                           ? state.RunningStageDeltaV
+                           : state.Booster.DeltaVRemaining;
+
+        return solid + Math.Max(Config.SolidsLeaveMetresPerSecond, 0.0);
     }
 
     private IcbmCommand PitchProgram(in IcbmState state)
@@ -1424,6 +1439,13 @@ internal sealed class IcbmProgram
         }
 
         double3 wanted = AscentProfile.Aim(state.UpCci, DownrangeCci, pitch);
+
+        // Steered along what is left, the solids leave their margin ahead of the nose, where the stage
+        // after them finishes it without turning; flown on the schedule, it lay up to 67 deg off it.
+        if (Config.SolidsLeaveMetresPerSecond > 0.0 && _absorbing && clear && !_toGainVectorCci.Equals(Vec.Zero))
+        {
+            return Fly(IcbmPhase.PitchProgram, Limit(_toGainVectorCci, state), state, "solids steered onto the arc");
+        }
 
         // Once the reserve binds, the schedule is pointing somewhere the shot no longer needs to go:
         // what is left to gain is the only direction that does not add to it.
@@ -1754,6 +1776,23 @@ internal sealed class IcbmProgram
         return accel > 0.0 && double.IsFinite(accel) && _toGain < reserve * accel;
     }
 
+    private bool DropsSolidsUnderWeight(in IcbmState state)
+        => Config.DropSolidsUnderWeight && Config.FlyAnyRange && state.OnlySolidsRunning
+           && (_absorbing || StaysUnderTheReleaseAltitude(state));
+
+    // A solid tails off for seconds before it is spent, and under the stack's weight it only sags the
+    // path: flown at 150 km, 0.86 to 0.59 g for 6 s took what was left from 560 to 3,100 m/s and the stack
+    // into the separation turning at 19 deg/s. Only with something after it to light.
+    private bool SolidsUnderWeight(in IcbmState state)
+        => DropsSolidsUnderWeight(state)
+           && state.Booster.CanThrust
+           && state.Booster.AccelerationNow < Vec.Len(state.Body.GravityCci(state.PositionCci))
+           && double.IsFinite(state.StackDeltaV) && double.IsFinite(state.RunningStageDeltaV)
+           && state.StackDeltaV > state.RunningStageDeltaV + MinNextStageMetresPerSecond;
+
+    /// <summary>What the stack must have beyond its running solids for them to be dropped early.</summary>
+    public const double MinNextStageMetresPerSecond = 100.0;
+
     private IcbmCommand Fly(IcbmPhase phase, double3 direction, in IcbmState state, string hold)
     {
         LastBooster = state.Booster;
@@ -1772,7 +1811,8 @@ internal sealed class IcbmProgram
         // below is gone and whatever is now lit has to prove itself first, or a stage that takes a
         // moment to come up is discarded on the very next cooldown. The dry timer bounds both, so
         // neither can walk down the sequence list for ever.
-        bool stage = Config.AutoStage && _stageCooldown <= 0.0 && unlit && (_thrustSeen || !_everLit);
+        bool stage = Config.AutoStage && _stageCooldown <= 0.0 && (unlit || SolidsUnderWeight(state))
+                     && (_thrustSeen || !_everLit);
 
         // The dry timer deliberately keeps running across a stage request. Clearing it here means
         // a stack with nothing left to stage asks again every cooldown for ever, and a flight that
@@ -1786,6 +1826,14 @@ internal sealed class IcbmProgram
         if (phase != IcbmPhase.ClosedLoop) _throttle = 1.0;
 
         _throttle = ThrottleUnderAccelerationCap(_throttle, state);
+
+        // The stage after the solids lights at whatever the lever was left at, and it comes down at about
+        // 0.7/s: lit at full, a 30 m/s margin is a 0.3 s burn at 2 m/s a frame.
+        if (state.OnlySolidsRunning
+            && ((Config.SolidsLeaveMetresPerSecond > 0.0 && _absorbing) || DropsSolidsUnderWeight(state)))
+        {
+            _throttle = MinCommandedThrottle;
+        }
 
         if (phase == IcbmPhase.PitchProgram && !Config.FlyAnyRange) _throttle = HoldBackTheAscent(_throttle, state);
 

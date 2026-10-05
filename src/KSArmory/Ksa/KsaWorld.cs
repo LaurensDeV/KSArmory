@@ -1891,6 +1891,30 @@ internal static class KsaWorld
         }
     }
 
+    /// <summary>Whether something is running and every running engine is a solid; false if unreadable.</summary>
+    public static bool OnlySolidsRunning(Vehicle craft)
+    {
+        try
+        {
+            bool any = false;
+            Span<EngineController> engines = craft.Parts.Modules.Get<EngineController>();
+            for (int i = 0; i < engines.Length; i++)
+            {
+                if (!engines[i].IsActive) continue;
+                foreach (RocketCore core in engines[i].Cores)
+                {
+                    if (core is not SolidMotor) return false;
+                    any = true;
+                }
+            }
+            return any;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     /// <summary>
     /// Whether the engines running now stop when told to. False while any active engine burns a
     /// solid grain: KSA's <c>SolidMotor</c> keeps burning once lit whatever it is commanded, and only

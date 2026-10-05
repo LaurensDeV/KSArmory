@@ -129,6 +129,14 @@ internal sealed class IcbmFlightRig
     public double MinThrottle;
 
     /// <summary>
+    /// The throttle lever moves while solids burn, and the stage after them lights wherever it was
+    /// left, as KSA's vehicle throttle does. Off holds it at full through a solid stage.
+    /// </summary>
+    public bool LeverMovesUnderSolids;
+
+    private double _lever = 1.0;
+
+    /// <summary>
     /// How unevenly the step arrives, as a fraction either side of the nominal one.
     ///
     /// <para>Zero is a metronome, which nothing outside a test is. KSA's step is
@@ -393,6 +401,7 @@ internal sealed class IcbmFlightRig
         double3 lastBurnDirection = Vec.Zero;
         Queue<IcbmCommand> inFlight = new();
         ThrottleAchieved = 1.0;
+        _lever = 1.0;
         int frame = 0;
         SolidBurnedOnSeconds = 0.0;
         SolidAddedMetresPerSecond = 0.0;
@@ -434,7 +443,8 @@ internal sealed class IcbmFlightRig
                                       Warhead: Warhead,
                                       ReleaseImpulseCci: HandsOverTheThrow && ReleaseLaunchSpeed > 0.0
                                                              ? Vec.Unit(command.ThrustDirectionCci) * ReleaseLaunchSpeed
-                                                             : default);
+                                                             : default,
+                                      OnlySolidsRunning: StageIndex < Stages.Count && Stages[StageIndex].Solid);
 
                 command = program.Update(elapsed == 0.0 ? 0.0 : h, state);
 
@@ -545,7 +555,17 @@ internal sealed class IcbmFlightRig
     {
         double wanted = command.EngineOn ? Math.Clamp(command.Throttle, MinThrottle, 1.0) : 1.0;
 
-        if (ThrottleRatePerSecond <= 0.0 || (StageIndex < Stages.Count && Stages[StageIndex].Solid))
+        bool solid = StageIndex < Stages.Count && Stages[StageIndex].Solid;
+
+        if (LeverMovesUnderSolids && ThrottleRatePerSecond > 0.0)
+        {
+            double move = double.IsInfinity(ThrottleRatePerSecond) ? double.PositiveInfinity : ThrottleRatePerSecond * step;
+            _lever += Math.Clamp(wanted - _lever, -move, move);
+            ThrottleAchieved = solid ? 1.0 : _lever;
+            return;
+        }
+
+        if (ThrottleRatePerSecond <= 0.0 || solid)
         {
             ThrottleAchieved = 1.0;
             return;

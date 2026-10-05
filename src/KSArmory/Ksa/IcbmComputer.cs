@@ -3500,11 +3500,12 @@ internal sealed class IcbmComputer
         double3 noseCci = KsaWorld.TryControlFrameCci(Craft, Parent, out double3 nose, out _, out _) ? nose : default;
 
         return new IcbmState(Body, positionCci, velocityCci, aimCci, hasAim, booster, density,
-                             Craft.IsAnyEnginePropellantAvailable(), _throttleAchieved, playerStep,
+                             Craft.IsAnyEnginePropellantAvailable(),
+                             KsaWorld.OnlySolidsRunning(Craft) ? 1.0 : _throttleAchieved, playerStep,
                              _aim.IsSteady, StackDeltaV(), StructuralLimitGee(),
                              KsaWorld.RunningEnginesCanStop(Craft), engines.MinThrottle, noseCci,
                              RunningStageDeltaV(), _densityRatio ??= DensityRatioAt, _warhead,
-                             ReleaseOffsetCci(), ReleaseImpulseCci());
+                             ReleaseOffsetCci(), ReleaseImpulseCci(), KsaWorld.OnlySolidsRunning(Craft));
     }
 
     /// <summary>What the engine will destroy this airframe at, in standard gravities, or zero if it

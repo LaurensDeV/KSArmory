@@ -1143,6 +1143,23 @@ internal sealed partial class Ui
         Tip("On: a single-target salvo released at cutoff in the air goes in the frame the first warhead does. "
             + "Off: one a frame, each leaving a stack the air has slowed a little more.");
 
+        float solidsLeave = (float)config.SolidsLeaveMetresPerSecond;
+        if (ImGui.SliderFloat("Solids leave for the next stage (m/s)", ref solidsLeave, 0f, 100f, "%.0f"))
+        {
+            config.SolidsLeaveMetresPerSecond = solidsLeave;
+        }
+        Tip("Above 0: solids that cannot be stopped are steered along what is left to gain and asked to "
+            + "leave this much for the stage after them, so it lights with what is left ahead of its nose. "
+            + "0: the arc is matched to them exactly and they fly the schedule.");
+
+        bool dropSolids = config.DropSolidsUnderWeight;
+        if (ImGui.Checkbox("Drop solids once they push less than the stack weighs", ref dropSolids))
+        {
+            config.DropSolidsUnderWeight = dropSolids;
+        }
+        Tip("On, on a short shot: solids tailing off under the stack's weight are dropped and the stage after "
+            + "them lit at its floor, rather than carried through seconds that only sag the path.");
+
         bool followGround = config.ProbeMissFollowsTheGround;
         if (ImGui.Checkbox("Measure that miss over the ground as it lies", ref followGround))
         {
