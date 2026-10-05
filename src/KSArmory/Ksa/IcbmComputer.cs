@@ -3592,7 +3592,10 @@ internal sealed class IcbmComputer
 
         try
         {
-            double3 nowCci = _departsIn > 0.0 ? Body.CarryCci(pointCci, -_departsIn) : pointCci;
+            // Only while burning: the aim cycle sets _departsIn at ~2 Hz and a short shot releases at cutoff,
+            // before it is cleared, so read stale the probe stood on ground turned away: 1.13 m low at 300 km.
+            double carry = Program.IsBurning ? _departsIn : 0.0;
+            double3 nowCci = carry > 0.0 ? Body.CarryCci(pointCci, -carry) : pointCci;
             double3 dirCcf = Vec.Unit(nowCci).Transform(parent.GetCci2Ccf());
             if (!Vec.IsFinite(dirCcf) || dirCcf.Equals(Vec.Zero)) return Body.SurfaceRadius;
 
