@@ -966,6 +966,16 @@ internal sealed class IcbmConfig
     public double ShortShotMissKickMetresPerSecond = 1.0;
 
     /// <summary>
+    /// Give that cap to every short shot's salvo, including one released above the air after the trim.
+    ///
+    /// <para>There the probe predicted the landing to centimetres, 2-10 m out on ten flights at 500 and 700 km,
+    /// and each warhead's 19-50 mm/s kick was refused at <see cref="ReleaseFocus.MaxMissKickMetresPerSecond"/>.
+    /// <b>On.</b> Flown 2026-10-06 on three stacks at both ranges: 1.4-3.0 mm, every kick taken.
+    /// <c>docs/SHORT-RANGE.md</c>.</para>
+    /// </summary>
+    public bool ShortShotKickCapAfterTheTrim = true;
+
+    /// <summary>
     /// Let every warhead of a single-target salvo released at cutoff go in the frame the first does,
     /// rather than one a frame. The stack slows in the air between releases, and flown each later
     /// warhead landed further along one line. <b>On.</b> Flown 2026-10-05 with

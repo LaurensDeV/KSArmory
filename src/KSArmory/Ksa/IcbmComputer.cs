@@ -3186,7 +3186,8 @@ internal sealed class IcbmComputer
         Config.ShortShotReleasesTogether && Program.ReleasesAtCutoff && !_walker.Walking;
 
     private double MissKickCap =>
-        Config.ShortShotMissKickMetresPerSecond > 0.0 && Program.ReleasesAtCutoff
+        Config.ShortShotMissKickMetresPerSecond > 0.0
+        && (Program.ReleasesAtCutoff || (Config.ShortShotKickCapAfterTheTrim && Program.IsShortShot))
             ? Config.ShortShotMissKickMetresPerSecond
             : ReleaseFocus.MaxMissKickMetresPerSecond;
 

@@ -1135,6 +1135,14 @@ internal sealed partial class Ui
         Tip("A salvo released at cutoff in the air may be kicked up to this much off each warhead's probe miss. "
             + $"0 keeps the {ReleaseFocus.MaxMissKickMetresPerSecond * 1000.0:F0} mm/s every other salvo has.");
 
+        bool afterTrim = config.ShortShotKickCapAfterTheTrim;
+        if (ImGui.Checkbox("Short shot's kick cap after the trim too", ref afterTrim))
+        {
+            config.ShortShotKickCapAfterTheTrim = afterTrim;
+        }
+        Tip("On: a short shot released above the air after the bus trim gets the short shot's kick cap as well. "
+            + $"Off: it keeps the {ReleaseFocus.MaxMissKickMetresPerSecond * 1000.0:F0} mm/s a long shot has.");
+
         bool together = config.ShortShotReleasesTogether;
         if (ImGui.Checkbox("Short shot releases its salvo in one frame", ref together))
         {
