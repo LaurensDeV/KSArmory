@@ -342,6 +342,45 @@ miss at 2.5 km, so it now moves until the line is slowed. Two limits on these nu
 
 Only a flight settles either.
 
+**Flown 2026-10-04/05**, `SOLVER SCALE 1`, the three settings on as one arm (`ShortShotSlowsLineSeconds=0.5`,
+`ShortShotFinishesInTheAir`, `ShortShotSolvesWithDrag`), worst warhead of six. No KSA exceptions on any flight.
+
+| range | path | flown | build |
+| --- | --- | --- | --- |
+| 25 km | low arc, released at cutoff | 58 m | `3d1ed5d` |
+| 150 km | low arc | 97-184 m, two flights (0.49-0.85 km before the clamp fix) | `1e62ba1` |
+| 200 km | low arc | 176-240 m, three flights; 192 m | `3d1ed5d`; `1e62ba1` |
+| 300 km | low arc | 218 m | `11ab4bb` |
+| 418 km | low arc | 350 m | `11ab4bb` |
+| 500 km | high arc, cut off above the air | 9 m; 7 m | `11ab4bb`; `5604099` |
+| 700 km | high arc | 6 m, 5 m | `11ab4bb` |
+| 1,000 km | high arc | under a metre | `1e62ba1` |
+| 2,000 km | long shot, none of it engages | under a metre | `3d1ed5d` |
+
+Paired against FlyAnyRange alone at 150 and 200 km (`~/shots/2026-10-04-inair/`): **the arm landed 6 of 6 and the
+baseline 2 of 5**. All three baseline failures were the upper's engine knocked off at a spinning core separation,
+and both baseline landings were 11 m and 150 m. With the settings on, no core separated during a burn.
+
+**Where the low arcs' last few hundred metres come from**, read off the logs:
+
+- The landing matches the computer's own prediction at cutoff: 0.17 km predicted against 0.24 landed at 200 km,
+  and 0.24 against 0.39 at 500 before the high-arc fix. So the miss is set at cutoff, by what is left to gain
+  (0.1-0.6 m/s) and by the drag offset freezing once the line is slowed.
+- A low arc releases at cutoff, so no release probe runs and no warhead is kicked. Nothing after cutoff
+  corrects anything. A high arc gets the long-shot release, and that is the whole difference between metres and
+  hundreds of metres.
+
+**Accuracy, next**, in order:
+
+1. **Measure the low arcs' miss term by term**, as the long shots were: the residual at cutoff against its
+   sensitivity, the drag solve's last predicted miss, and the flown landing against both.
+2. **Correct after cutoff in the air.** The bus's thrusters can still act between cutoff and release, solved
+   against the drag-flown probe rather than a vacuum arc. The trim reads drag as debt in the air (M6), and
+   coasting the bus alone through the air is what cost 107 km.
+3. **The per-warhead kicks against the release probe**, once what is left is inside their 10 mm/s cap.
+4. **The floor:** the drag model in the air, separation inside the air, and the arrival angle. No amount of
+   correction removes these.
+
 **In the rig**, five stacks (the game's, an all-solid three-stage, the SRBs alone, a liquid pair, a 25 MN core
 with a 40% floor), 25–5,000 km: every stack cuts off at every range it can reach, 0.0–3.1 km out, bar two at about
 5 km (all-solid 200 km, SRBs alone 2,000 km). With its default attitude the rig cannot start a tumble, so it
