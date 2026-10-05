@@ -1119,7 +1119,10 @@ internal sealed class IcbmComputer
             _throttleAchieved = VehicleCommand.DriveThrottle(Craft, 1.0);
         }
 
-        if (Config.AutoRelease && _deploy.ReleaseNow) Release(release);
+        if (Config.AutoRelease && _deploy.ReleaseNow && Release(release) && ReleasesTogether)
+        {
+            while (release is { ReadyToFire: true } && Release(release)) { }
+        }
 
         // After the release, so a stop whose last warhead went this frame hands over on this frame
         // rather than spending one more holding an aim nothing is left for.
@@ -3100,12 +3103,13 @@ internal sealed class IcbmComputer
             ReleaseFocus.FlownSensitivity? throughTheAir =
                 Config.KickThroughTheAir && (focusRing || miss is not null) ? KickColumnsThroughTheAir(from, who, what) : null;
 
+            double missCap = MissKickCap;
             ReleaseFocus.Separation kick = ReleaseFocus.Kick(Body, from.PositionCci, from.VelocityCci,
                                                              from.Impact.Seconds, offsetCci,
                                                              released.SpinVelocityEcl.Transform(cce2Cci),
                                                              focusRing,
                                                              Config.CancelSpinAtSeparation,
-                                                             miss, shrink, throughTheAir);
+                                                             miss, shrink, throughTheAir, missCap);
 
             bool missGiven = kick.Miss == ReleaseFocus.MissOutcome.Cancelled;
             bool anything = kick.RingFocused || kick.SpinCancelled || missGiven;
@@ -3128,7 +3132,7 @@ internal sealed class IcbmComputer
             {
                 Log.Info($"focus on {who}: {what}'s release probe miss{missSaid} not cancelled -- its "
                          + $"{Vec.Len(kick.MissKickCci) * 1000.0:F3} mm/s kick is over the "
-                         + $"{ReleaseFocus.MaxMissKickMetresPerSecond * 1000.0:F1} mm/s cap");
+                         + $"{missCap * 1000.0:F1} mm/s cap");
             }
 
             if (kick.Miss == ReleaseFocus.MissOutcome.Cancelled)
@@ -3176,6 +3180,16 @@ internal sealed class IcbmComputer
     // The salvo's columns flown once and carried to each release, or re-flown when this release is too far along the
     // coast or over other ground for the ones held. Said on every warhead, so a flight can confirm the arm engaged
     // and read what it cost in the frame; null, said, solves that warhead in vacuum as the switch off would.
+    // The bus slows in the air between one release and the next, so each later warhead leaves on a
+    // slower bus: flown at 150-300 km, about 50 mm/s a frame and a group walking 28-104 m.
+    private bool ReleasesTogether =>
+        Config.ShortShotReleasesTogether && Program.ReleasesAtCutoff && !_walker.Walking;
+
+    private double MissKickCap =>
+        Config.ShortShotMissKickMetresPerSecond > 0.0 && Program.ReleasesAtCutoff
+            ? Config.ShortShotMissKickMetresPerSecond
+            : ReleaseFocus.MaxMissKickMetresPerSecond;
+
     private ReleaseFocus.FlownSensitivity? KickColumnsThroughTheAir(in ReleaseProbe from, string who, string what)
     {
         if (_warhead is not { } warhead) return null;

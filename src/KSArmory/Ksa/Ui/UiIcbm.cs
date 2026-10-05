@@ -1127,6 +1127,22 @@ internal sealed partial class Ui
             + $"{ReleaseFocus.MaxMissKickMetresPerSecond * 1000.0:F0} mm/s. Off: the warheads leave on "
             + "the state the aim loop stopped at, which it predicts to land a metre or so short.");
 
+        float shortCap = (float)(config.ShortShotMissKickMetresPerSecond * 1000.0);
+        if (ImGui.SliderFloat("Short shot's kick cap (mm/s)", ref shortCap, 0f, 500f, "%.0f"))
+        {
+            config.ShortShotMissKickMetresPerSecond = shortCap / 1000.0;
+        }
+        Tip("A salvo released at cutoff in the air may be kicked up to this much off each warhead's probe miss. "
+            + $"0 keeps the {ReleaseFocus.MaxMissKickMetresPerSecond * 1000.0:F0} mm/s every other salvo has.");
+
+        bool together = config.ShortShotReleasesTogether;
+        if (ImGui.Checkbox("Short shot releases its salvo in one frame", ref together))
+        {
+            config.ShortShotReleasesTogether = together;
+        }
+        Tip("On: a single-target salvo released at cutoff in the air goes in the frame the first warhead does. "
+            + "Off: one a frame, each leaving a stack the air has slowed a little more.");
+
         bool followGround = config.ProbeMissFollowsTheGround;
         if (ImGui.Checkbox("Measure that miss over the ground as it lies", ref followGround))
         {

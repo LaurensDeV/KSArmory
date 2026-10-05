@@ -952,6 +952,28 @@ internal sealed class IcbmConfig
     public bool CancelProbeMissAtSeparation = true;
 
     /// <summary>
+    /// The cap on that kick for a salvo released at cutoff in the air, in m/s; zero keeps
+    /// <see cref="ReleaseFocus.MaxMissKickMetresPerSecond"/>.
+    ///
+    /// <para>Released at cutoff there is no trim, and flown the probe predicted each warhead's landing to
+    /// centimetres while its kick, 96-168 mm/s at 300 km, was refused: each round left the bus later and
+    /// further along one line, the group walking 28-104 m. <c>docs/SHORT-RANGE.md</c>.</para>
+    ///
+    /// <para><b>Off.</b> Flown 2026-10-05 at 1 m/s with <see cref="ShortShotReleasesTogether"/>, three
+    /// stacks at 150 and 300 km: 1.5-3.8 mm and 0.20-0.66 m, against 46-134 m off. At 0.3 m/s alone the
+    /// later warheads of each salvo still wanted 306-638 mm/s.</para>
+    /// </summary>
+    public double ShortShotMissKickMetresPerSecond;
+
+    /// <summary>
+    /// Let every warhead of a single-target salvo released at cutoff go in the frame the first does,
+    /// rather than one a frame. The stack slows in the air between releases, and flown each later
+    /// warhead landed further along one line. <b>Off.</b> Flown 2026-10-05 with
+    /// <see cref="ShortShotMissKickMetresPerSecond"/>: six warheads within 4 mm of each other.
+    /// </summary>
+    public bool ShortShotReleasesTogether;
+
+    /// <summary>
     /// Measure the miss <see cref="CancelProbeMissAtSeparation"/> cancels as the chord between the probe's
     /// impact and the target on the ground as it lies, rather than square to local up —
     /// <see cref="ReleaseFocus.TryMissOnTheGround"/>.

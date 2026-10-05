@@ -206,6 +206,24 @@ public class ReleaseMissTests(ITestOutputHelper Out)
         Assert.Equal(Vec.Zero, beyond.KickCci);
     }
 
+    [Theory]
+    [InlineData(Arc.Traced)]
+    [InlineData(Arc.Long)]
+    public void ARaisedCapCancelsAMissTheDefaultRefuses(Arc arc)
+    {
+        Probe probe = ProbeFor(arc);
+        double3 far = TargetOff(probe, -40.0, +12.0);
+
+        ReleaseFocus.Separation refused = KickFor(probe, far);
+        ReleaseFocus.Separation given = KickFor(probe, far, cap: 0.5);
+        double landed = Vec.Len(Landed(probe.PositionCci, probe.VelocityCci + given.KickCci) - far);
+        Out.WriteLine($"  {arc}: {Vec.Len(given.MissKickCci) * 1000.0:F1} mm/s lands {landed:F3} m from the target");
+
+        Assert.Equal(ReleaseFocus.MissOutcome.OverTheCap, refused.Miss);
+        Assert.Equal(ReleaseFocus.MissOutcome.Cancelled, given.Miss);
+        Assert.True(landed < 1.0, $"cancelled, the 42 m miss still lands {landed:F2} m out");
+    }
+
     [Fact]
     public void AMissThatWillNotSolveGivesNothing()
     {
@@ -274,9 +292,10 @@ public class ReleaseMissTests(ITestOutputHelper Out)
     }
 
     private static ReleaseFocus.Separation KickFor(in Probe probe, double3 targetCci,
-                                                   (double3 Mean, double Keep)? shrinkToward = null)
+                                                   (double3 Mean, double Keep)? shrinkToward = null,
+                                                   double cap = ReleaseFocus.MaxMissKickMetresPerSecond)
         => ReleaseFocus.Kick(Earth, probe.PositionCci, probe.VelocityCci, probe.Hit.Seconds, Vec.Zero, Vec.Zero,
                              focusRing: false, cancelSpin: false,
                              new ReleaseFocus.ProbeMiss(probe.Hit.GroundFixedPointCci, targetCci),
-                             shrinkToward);
+                             shrinkToward, missCapMetresPerSecond: cap);
 }

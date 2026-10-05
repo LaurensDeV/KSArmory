@@ -451,7 +451,7 @@ internal static class ReleaseFocus
     /// <param name="spinCci">What the round was thrown with at its mouth: <see cref="Slug.SpinVelocityEcl"/>, turned.</param>
     /// <param name="cancelMiss">
     /// The release probe's impact and target, or null to leave the mean where the aim loop put it.
-    /// Refused past <see cref="MaxMissKickMetresPerSecond"/>.
+    /// Refused past <paramref name="missCapMetresPerSecond"/>.
     /// </param>
     /// <param name="shrinkToward">
     /// The mean of the miss kicks already applied in this release, and how much of a warhead's own
@@ -471,7 +471,8 @@ internal static class ReleaseFocus
                                   double flightSeconds, double3 offsetCci, double3 spinCci,
                                   bool focusRing, bool cancelSpin, ProbeMiss? cancelMiss = null,
                                   (double3 Mean, double Keep)? shrinkToward = null,
-                                  FlownSensitivity? throughTheAir = null)
+                                  FlownSensitivity? throughTheAir = null,
+                                  double missCapMetresPerSecond = MaxMissKickMetresPerSecond)
     {
         throughTheAir = throughTheAir?.For(body.Mu, positionCci, flightSeconds);
 
@@ -504,7 +505,7 @@ internal static class ReleaseFocus
                     missKick = toward.Mean + (missKick - toward.Mean) * toward.Keep;
                 }
 
-                if (!(Vec.Len(missKick) <= MaxMissKickMetresPerSecond))
+                if (!(Vec.Len(missKick) <= missCapMetresPerSecond))
                 {
                     miss = MissOutcome.OverTheCap;
                 }
