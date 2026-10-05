@@ -705,6 +705,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/pack-api.py` | records the API a weapon pack binds to, and fails when it moves — **the mirror of `api-surface.sh`**, because a pack lives in somebody else's repository and never builds here |
 | `tools/check-studies.py` | which tests are tagged out of the push loop, as a committed record — **it cannot tell a mis-tag from a real one**, and does not try: it puts the change in the author's own diff, where a human can still ask |
 | `tools/repair-saves.py` | realigns saves written before a part lost a subpart |
+| `tools/make-rocket.py` | a rocket design carrying the MIRV bus, from a few stages on a command line -- **part positions from the parts' own connectors**, checked against GeoSat FAT to 1.5 mm, and the game's staging and fuel grouping; written into the player's design library and turned into a scenario save with the bridge's `spawn`, `control`, `remove` and `save` |
 | `tools/make-scaling-save.py` | a save carrying N copies of one rocket, for pricing how the vehicle solver scales |
 | `tools/model/` | the headless Blender generators, and the checkers over what they export — which need neither Blender nor the game |
 | `tools/model/pantsir.py` | the Pantsir, and the entry point that builds the whole atlas |
