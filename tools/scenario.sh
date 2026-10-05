@@ -320,7 +320,9 @@ DEADLINE=$(( SECONDS + DEADLINE_SECONDS ))
 VERDICT=""
 SEEN=""
 # A game that exits writes no verdict, so the wait would run to the deadline. Asked every ~10 s,
-# and only once the game has been seen running, so a slow start is not read as an exit.
+# and only once the game has been seen running, so a slow start is not read as an exit. A tasklist
+# call that fails answers nothing at all, which reads exactly like no game: it is not counted, and
+# it takes three answers in a row that list processes without StarMap to call the game gone.
 GAME_SEEN=0
 GAME_GONE=0
 NEXT_GAME_CHECK=$SECONDS
@@ -362,12 +364,13 @@ while (( SECONDS < DEADLINE )); do
 
     if (( SECONDS >= NEXT_GAME_CHECK )); then
         NEXT_GAME_CHECK=$(( SECONDS + 10 ))
-        if tasklist.exe 2>/dev/null | grep -q StarMap; then
+        TASKS=$(tasklist.exe 2>/dev/null || true)
+        if grep -q StarMap <<<"$TASKS"; then
             GAME_SEEN=1
             GAME_GONE=0
-        elif (( GAME_SEEN )); then
+        elif (( GAME_SEEN )) && grep -qi '\.exe' <<<"$TASKS"; then
             GAME_GONE=$(( GAME_GONE + 1 ))
-            (( GAME_GONE >= 2 )) && { VERDICT=EXITED; break; }
+            (( GAME_GONE >= 3 )) && { VERDICT=EXITED; break; }
         fi
     fi
     sleep 2
