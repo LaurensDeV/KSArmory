@@ -30,19 +30,23 @@ public class FloorHoldTests(ITestOutputHelper Out)
     internal readonly record struct Outcome(double FloorRateDegPerSec, double ResidualMetresPerSecond, double MissKm);
 
     internal static Outcome Fly(double km, double slowLineSeconds, double step, double jitter, bool finishInTheAir = false,
-                                bool solveWithDrag = false)
+                                bool solveWithDrag = false, double throw_ = 0.0, bool throwHandedOver = true)
     {
         IcbmFlightRig rig = GameStackShortRangeTests.GameStack(true);
         rig.AttitudeHasInertia = true;
         rig.StepJitter = jitter;
         rig.Warhead = Arsenal.Mk21WithDragFromShape(Arsenal.ReentryVehicleMk21);
+        rig.ReleaseLaunchSpeed = throw_;
+        rig.HandsOverTheThrow = throwHandedOver;
 
         IcbmProgram program = new(Config(slowLineSeconds, finishInTheAir, solveWithDrag));
         double3 aim = GameStackShortRangeTests.South(km * 1000.0);
         IcbmFlightRig.Flight flight = rig.Fly(program, aim, step, 6_000.0);
 
         double miss = double.NaN;
-        if (ImpactPredictor.TryPredict(Earth, flight.CutoffPositionCci, flight.CutoffVelocityCci, 1.0,
+        // Released at cutoff, each warhead leaves with its tube's throw along the line the stack points.
+        double3 thrown = flight.CutoffVelocityCci + Vec.Unit(flight.CoastDirectionCci) * throw_;
+        if (ImpactPredictor.TryPredict(Earth, flight.CutoffPositionCci, thrown, 1.0,
                                        ImpactPredictor.DefaultMaxSeconds, out ImpactPredictor.Impact hit, null, null,
                                        new ImpactPredictor.Drag(p => Math.Exp(-Math.Max(0.0, Vec.Len(p) - R) / 8_000.0),
                                                                 Arsenal.Mk21WithDragFromShape(Arsenal.ReentryVehicleMk21))))
@@ -107,6 +111,28 @@ public class FloorHoldTests(ITestOutputHelper Out)
         Assert.True(worstVacuum > 2.0, $"the vacuum arc missed by at most {worstVacuum:F2} km, so this measures nothing");
         Assert.True(worstDrag < 0.5, $"solved with drag it still missed by {worstDrag:F2} km");
         Assert.Equal(0, spun);
+    }
+
+    // A warhead leaves its tube at half a metre a second along the line, and flown without that every low arc
+    // landed 69-214 m long. The drag solve has to fly the throw the warhead will actually get.
+    [Fact]
+    public void TheDragSolveFliesTheTubesThrow()
+    {
+        double unseen = 0.0, seen = 0.0, worstSeen = 0.0;
+
+        foreach (double km in LowArcs)
+        {
+            Outcome without = Fly(km, 0.5, 0.02, 0.5, true, true, throw_: 0.5, throwHandedOver: false);
+            Outcome with = Fly(km, 0.5, 0.02, 0.5, true, true, throw_: 0.5, throwHandedOver: true);
+            Out.WriteLine($"{km,4:F0} km: throw left out {without.MissKm * 1000,6:F0} m, flown {with.MissKm * 1000,6:F0} m");
+
+            unseen += without.MissKm / LowArcs.Length;
+            seen += with.MissKm / LowArcs.Length;
+            worstSeen = Math.Max(worstSeen, with.MissKm);
+        }
+
+        Assert.True(unseen - seen > 0.05, $"flying the throw moved the mean miss from {unseen:F3} to {seen:F3} km");
+        Assert.True(worstSeen < 0.3, $"flown with the throw it still missed by {worstSeen:F2} km");
     }
 }
 

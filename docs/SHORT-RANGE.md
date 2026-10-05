@@ -383,9 +383,16 @@ and both baseline landings were 11 m and 150 m. With the settings on, no core se
      velocity. The per-warhead kicks are capped at 10 mm/s and cannot cancel it. At 25 km, with the tubes at
      1.0 m/s and a short fall, the spread is 3 m.
 
-   So the next two levers are separate: keep the drag solve correcting up to cutoff, which the rig can test; and
-   release without the sweep, by stopping the turn first or by cancelling each tube's velocity in its separation,
-   which only a flight can test.
+   Logged frame by frame (`~/shots/2026-10-05-cutoff/`), the freeze is not the offset: below the normal
+   hold the line is followed again, and the drag solve's predicted miss is back to 0 m at cutoff. What it
+   left out is the tube's throw. Every warhead leaves at 0.5 m/s along the line, and every low-arc group
+   landed long by 69-229 m and 24-87 m to one side, which is 0.5 m/s times 212-378 m per m/s along
+   (`LowArcSensitivityStudy`). The computer's own prediction adds the throw, which is why it matched the
+   landings when the drag solve said zero. The drag solve now flies the throw too (`IcbmState.ReleaseImpulseCci`),
+   and in the rig that takes 200-418 km from 77-165 m to 12-37 m (`TheDragSolveFliesTheTubesThrow`).
+
+   What is left after that is the release spread: stop the turn before releasing, or cancel each tube's
+   velocity in its separation. Only a flight can test either.
 2. **Correct after cutoff in the air.** The bus's thrusters can still act between cutoff and release, solved
    against the drag-flown probe rather than a vacuum arc. The trim reads drag as debt in the air (M6), and
    coasting the bus alone through the air is what cost 107 km.

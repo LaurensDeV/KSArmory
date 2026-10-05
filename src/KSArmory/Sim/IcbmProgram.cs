@@ -111,7 +111,13 @@ internal readonly record struct IcbmState(
     Func<double3, double>? DensityRatioAt = null,
 
     /// <summary>What the bus carries, whose drag an arc is flown with; null if the caller cannot say.</summary>
-    MunitionProfile? Warhead = null)
+    MunitionProfile? Warhead = null,
+
+    /// <summary>Where a warhead leaves from, against the bus's own position; zero if the caller cannot say.</summary>
+    double3 ReleaseOffsetCci = default,
+
+    /// <summary>What a warhead leaves with on top of the bus's velocity -- its tube's throw; zero if the caller cannot say.</summary>
+    double3 ReleaseImpulseCci = default)
 {
     public double Altitude => Body.AltitudeOf(PositionCci);
 
@@ -1031,7 +1037,10 @@ internal sealed class IcbmProgram
         missCci = default;
         if (!double.IsFinite(command.CarrySeconds)) return false;
 
-        if (!ImpactPredictor.TryPredict(state.Body, command.CutoffPositionCci, command.Arc.RequiredVelocityCci,
+        // With the tube's throw, as the warhead leaves: 0.5 m/s along the line is 100-190 m at these ranges,
+        // and flown without it every low arc landed that much long.
+        if (!ImpactPredictor.TryPredict(state.Body, command.CutoffPositionCci + state.ReleaseOffsetCci,
+                                        command.Arc.RequiredVelocityCci + state.ReleaseImpulseCci,
                                         DragStepSeconds, ImpactPredictor.DefaultMaxSeconds, out ImpactPredictor.Impact hit,
                                         drag: new ImpactPredictor.Drag(state.DensityRatioAt!, state.Warhead!)))
         {

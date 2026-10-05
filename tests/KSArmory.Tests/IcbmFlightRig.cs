@@ -51,6 +51,14 @@ internal sealed class IcbmFlightRig
     /// <summary>What the bus carries, handed to the program with the rig's air; null hands it neither.</summary>
     public MunitionProfile? Warhead;
 
+    /// <summary>
+    /// The warhead's throw off its tube, along the line the program last commanded, as the computer reports
+    /// it before release; zero throws nothing. <see cref="HandsOverTheThrow"/> off keeps it from the program.
+    /// </summary>
+    public double ReleaseLaunchSpeed;
+
+    public bool HandsOverTheThrow = true;
+
     /// <summary>Angular acceleration with no engine burning. Flown on the game's stack: about 0.1-0.2.</summary>
     public double RcsAuthorityDegPerSec2 = 0.15;
 
@@ -423,7 +431,10 @@ internal sealed class IcbmFlightRig
                                       MinThrottle: MinThrottle,
                                       ThrustAxisCci: _pointing,
                                       DensityRatioAt: Warhead is null ? null : p => DensityRatioAt(Body.AltitudeOf(p)),
-                                      Warhead: Warhead);
+                                      Warhead: Warhead,
+                                      ReleaseImpulseCci: HandsOverTheThrow && ReleaseLaunchSpeed > 0.0
+                                                             ? Vec.Unit(command.ThrustDirectionCci) * ReleaseLaunchSpeed
+                                                             : default);
 
                 command = program.Update(elapsed == 0.0 ? 0.0 : h, state);
 

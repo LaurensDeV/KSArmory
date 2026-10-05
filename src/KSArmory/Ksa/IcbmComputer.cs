@@ -3468,7 +3468,8 @@ internal sealed class IcbmComputer
                              Craft.IsAnyEnginePropellantAvailable(), _throttleAchieved, playerStep,
                              _aim.IsSteady, StackDeltaV(), StructuralLimitGee(),
                              KsaWorld.RunningEnginesCanStop(Craft), engines.MinThrottle, noseCci,
-                             RunningStageDeltaV(), _densityRatio ??= DensityRatioAt, _warhead);
+                             RunningStageDeltaV(), _densityRatio ??= DensityRatioAt, _warhead,
+                             ReleaseOffsetCci(), ReleaseImpulseCci());
     }
 
     /// <summary>What the engine will destroy this airframe at, in standard gravities, or zero if it
