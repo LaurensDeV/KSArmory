@@ -1017,6 +1017,18 @@ internal sealed class IcbmComputer
                          + $"{load.MaxGLoad:F1} g limit at {_throttleAchieved:F2} throttle");
             }
 
+            // Every frame of a short shot's last two seconds, because the throttle probe's half-second
+            // cannot show what moves the cutoff: the drag offset freezing, the line being slowed, and what is
+            // left across the line once it is.
+            if (Log.Threshold <= Log.Level.Debug && Program.Phase == IcbmPhase.ClosedLoop
+                && double.IsFinite(Program.DragMissMetres) && Program.Countdown < 2.0)
+            {
+                Log.Debug($"cutoff approach on {KsaWorld.DisplayName(Craft)}: countdown {Program.Countdown:F3} s, "
+                          + $"to gain {Program.VelocityToGain:F2} m/s, achieved {_throttleAchieved:F3}, "
+                          + $"line {(Program.LineSlowed ? "slowed" : "followed")}, drag offset {Program.DragOffsetMetres:F0} m, "
+                          + $"drag-flown miss {Program.DragMissMetres:F0} m");
+            }
+
             _sinceThrottleProbe += playerStep;
             if (Log.Threshold <= Log.Level.Debug && _sinceThrottleProbe >= ProbeIntervalSeconds)
             {

@@ -111,6 +111,57 @@ public class FloorHoldTests(ITestOutputHelper Out)
 }
 
 /// <summary>
+/// How far a metre a second left at cutoff moves a low arc's landing, along the thrust, up and across --
+/// which turns the residual at cutoff into metres on the ground.
+/// </summary>
+[Trait("kind", "study")]
+public class LowArcSensitivityStudy(ITestOutputHelper Out)
+{
+    [Fact]
+    public void WhatAMetreASecondAtCutoffCosts()
+    {
+        MunitionProfile warhead = Arsenal.Mk21WithDragFromShape(Arsenal.ReentryVehicleMk21);
+        Func<double3, double> air = p => Math.Exp(-Math.Max(0.0, Vec.Len(p) - FloorHoldTests.R) / 8_000.0);
+        BallisticBody earth = FloorHoldTests.Earth;
+
+        foreach (double km in new[] { 25.0, 150.0, 200.0, 300.0, 418.0 })
+        {
+            IcbmFlightRig rig = GameStackShortRangeTests.GameStack(true);
+            rig.AttitudeHasInertia = true;
+            rig.Warhead = warhead;
+            IcbmProgram program = new(FloorHoldTests.Config(0.5, true, true));
+            IcbmFlightRig.Flight flight = rig.Fly(program, GameStackShortRangeTests.South(km * 1000.0), 0.02, 6_000.0);
+
+            double3 r = flight.CutoffPositionCci, v = flight.CutoffVelocityCci;
+            double3 along = Vec.Unit(v - earth.GroundVelocityCci(r));
+            double3 up = Vec.Unit(r - along * Vec.Dot(r, along));
+            double3 across = Vec.Unit(Vec.Cross(along, up));
+
+            if (!Land(r, v, out double3 base0)) { Out.WriteLine($"{km} km: no landing"); continue; }
+
+            string row = $"{km,4:F0} km, cut at {earth.AltitudeOf(r) / 1000.0,4:F0} km:";
+            foreach ((string name, double3 axis) in new[] { ("along", along), ("up", up), ("across", across) })
+            {
+                row += Land(r, v + axis, out double3 moved) ? $" {name} {FloorHoldTests.R * Vec.AngleBetween(base0, moved),6:F0} m" : $" {name} --";
+            }
+            Out.WriteLine(row + " per m/s");
+        }
+
+        bool Land(double3 r, double3 v, out double3 point)
+        {
+            point = default;
+            if (!ImpactPredictor.TryPredict(earth, r, v, 1.0, ImpactPredictor.DefaultMaxSeconds,
+                                            out ImpactPredictor.Impact hit, drag: new ImpactPredictor.Drag(air, warhead)))
+            {
+                return false;
+            }
+            point = hit.GroundFixedPointCci;
+            return true;
+        }
+    }
+}
+
+/// <summary>
 /// <see cref="FloorHoldTests"/> across frame steps, jitter and settings, for the record of how the setting
 /// was chosen.
 /// </summary>
