@@ -535,6 +535,14 @@ internal sealed partial class Ui
             + "bus until Release one warhead is pressed.");
         if (!config.AutoRelease) ImGui.TextDisabled("  nothing leaves the bus until the button above is pressed");
 
+        if (computer.Munition is { } warhead)
+        {
+            ImGui.TextDisabled(warhead.BurstHeightMetres > 0f
+                                   ? $"Warheads burst {warhead.BurstHeightMetres:F0} m over the ground"
+                                   : "Warheads burst on the ground");
+            Tip("Set by the burst height on the Tuning tab, which every warhead of this kind shares.");
+        }
+
         bool autoStage = config.AutoStage;
         if (ImGui.Checkbox("Stage automatically", ref autoStage)) config.AutoStage = autoStage;
         Tip("On: lights the first engine, then fires each stage as the running one runs dry. Off: "

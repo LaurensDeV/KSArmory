@@ -98,7 +98,7 @@ first night), before Tier 3.
 | 4.4 | **Per-stop pricing in the walk planner**, and the trim reserve after stop 1 spent. | MIRV-TARGETS | S–M |
 | 4.5 | **The missile's own reach before target 1** (37–68 ms a ring, spread over frames). | MIRV-TARGETS Phase 2 | M |
 | 4.6 | **How large an `ArrivalPreference` is safe**: 0.5 has flown as the default since 3aa (0.48x against 0.8); the safe fraction, and 0.5 at the long geometry, are what is open. | WHAT-THE-PLAYER-SETS §6.2; ACCURACY-PLAN 3aa | M |
-| 4.7 | **Height of burst on the Ballistic tab** (exists on `MunitionProfile.BurstHeightMetres`, reachable only from developer panes). | -- | S |
+| ~~4.7~~ | **Height of burst on the Ballistic tab.** It was never developer-only: the Tuning tab has had the slider for any store the ground stops, the Mk 21 included. The Ballistic tab now says where the warheads will burst and points there, since a second slider would break "one field, one control" (2026-10-06, not yet seen in game). | -- | S |
 | 4.8 | **MIRV phase 5**: area targets, the list saved with the craft, reordering by hand. | MIRV-TARGETS phases | M–L |
 | 4.9 | **The AIRS guidance ring** and its component pane (art, the `Guidance` role moved off the bus, a mass split needing its own night). | GUIDANCE-SECTION | L |
 | 4.10 | **The mod spawning the craft on the pad** (frame ordering of `CreateVehicleBuffer`; control past `FillSeats`). | CLAUDE.md | M |
