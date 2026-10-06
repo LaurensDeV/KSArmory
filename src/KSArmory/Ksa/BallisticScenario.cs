@@ -1211,6 +1211,23 @@ internal sealed class BallisticScenario
                                              round.DetonationElapsedInFrame);
 
         double3 missEcl = round.PositionEcl - aimAtBurst;
+        string struck = "";
+
+        // A warhead that struck a craft burst above the ground it was aimed at, so it is carried down its own
+        // path to that ground: a strike on a structure standing on the aim scores the guidance, not its height.
+        if (round.StruckBody is not null)
+        {
+            double3 up = Vec.Unit(aimEcl - parent.GetPositionEcl());
+            double3 along = Vec.Unit(round.VelocityEcl - KsaWorld.GroundVelocityAt(parent, aimEcl));
+            double height = Vec.Dot(missEcl, up);
+            double descent = -Vec.Dot(along, up);
+            if (height > 0.0 && descent > 0.0)
+            {
+                missEcl += along * (height / descent);
+                struck = $", struck a craft {height:F2} m up and carried to the ground";
+            }
+        }
+
         double miss = Vec.Len(missEcl);
         if (!double.IsFinite(miss)) return double.NaN;
 
@@ -1231,6 +1248,7 @@ internal sealed class BallisticScenario
             // The distance stands on its own; losing the components loses no reading anything scores.
         }
 
+        resolved += struck;
         return miss;
     }
 
