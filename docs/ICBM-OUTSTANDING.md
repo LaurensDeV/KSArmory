@@ -36,8 +36,7 @@ rather than advertising new ones. The minimum to merge `dev` into `main`:
    watching a rocket hang over its target.
 3. **A half-hour look at 1.2** (held controls dropped under a modal or a focused field) to know whether it needs to
    block.
-4. **`SaveRepairs` ships in this release and is removed in the one after** (docs/CODE-HEALTH.md): it was added on
-   `dev` after v0.9.4, so no player has had it yet.
+4. ~~**`SaveRepairs`**~~ shipped in v0.9.5 and is removed on `dev` for the release after.
 
 1.3–1.5 follow the release; they are robustness a player can live without for one version.
 

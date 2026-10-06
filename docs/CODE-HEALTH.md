@@ -13,7 +13,7 @@ not will be found again by the next reader.
 
 ## Remove the automatic save repair after the release that ships it
 
-- [ ] **Delete `Ksa/SaveRepairs.cs`, `Sim/SaveRepair.cs` and `SaveRepairTests.cs`, and the
+- [x] **Delete `Ksa/SaveRepairs.cs`, `Sim/SaveRepair.cs` and `SaveRepairTests.cs`, and the
   `SaveRepairs.RunAll()` call in `KSArmoryMod.OnFullyLoaded`, in the release after the first one to
   ship them** (the first release after v0.9.4). The owner's decision: the repair exists only to carry
   saves across the Mk 42 losing its twenty shell subparts, for one release. Remove the two layout

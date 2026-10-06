@@ -524,7 +524,6 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/ViewClaim.cs` | who may hold the player's main view, and what that means for the loser |
 | `Sim/OrbitAim.cs` | the orbit-camera angles that would point the view at something |
 | `Sim/ReportDraft.cs` | a bug report or idea being written, and whether it is worth sending |
-| `Sim/SaveRepair.cs` | a save realigned with a part that has lost subparts — **text in, text out**, `tools/repair-saves.py`'s rules ported; **temporary**, see `docs/CODE-HEALTH.md` |
 | `Sim/TracerLook.cs` | how a tracer is drawn — **the streak is exposure, not the round**: speed over 40 ms of the player's time, so it shortens in slow motion and is the burning base alone when paused; lit out of the muzzle, burnt out on `MunitionProfile.TracerBurnSeconds`, and thinned and dimmed rather than widened with distance. Only one round in `TracerEvery` glows, as a belt is loaded; **the rest a faint grey streak of their own calibre**, a pixel wide at the least and as bright as `Config.BallRoundBrightness` **in daylight, fading with the sun to nothing at night** — sunlight off the round, never light of its own — so the stream reads and the tracers stay the only bright thing |
 | `Sim/Distance.cs` | a distance in the unit that shows it — **a fixed unit goes blind as the shot improves**, and `bias 0.0 km` was the whole of a ten-metre miss printed as nothing |
 | `Sim/Charge.cs` | an explosive charge in the unit that shows it — kg, t, kt or Mt — since the charge slider runs from a shell to 50 Mt |
@@ -611,7 +610,6 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/GunSound.cs` | the cannon you can hear: one looping channel per firing system, and a gunshot per round from a gun slow enough to be heard shot by shot |
 | `Ksa/ShellTracers.cs` | every gun round each frame, the tracers and the rest, **resolved and projected when the pass records** through the call that places a round's body, so a tracer sits where the round is; collected after the step, so they stay up with the UI hidden |
 | `Shaders/KSArmoryTracer.comp` | every gun round on screen in one dispatch — a tracer **added into the scene before bloom** with a hot core and a halo, the rest as dim grey light with none, all depth-tested; each workgroup gathers the segments reaching its tile first. Without the pass, `Visuals.DrawShellStream`'s lines are the fallback |
-| `Ksa/SaveRepairs.cs` | every save and library craft repaired once at startup, before one can be loaded, against the part templates the game loaded, a `.ksarmory-repair.bak` beside each rewritten file; **temporary**, removed the release after it ships — `docs/CODE-HEALTH.md` |
 | `Ksa/FlakPuff.cs` | the black smoke a gun shell leaves where it burst in the air, **sized off the charge by its cube root** from the 5"/54's, and none where there is no air |
 | `Ksa/Ui/DirectorWindow.cs` | a director's camera window drawn by the mod — KSA's picture of the leased viewport with zoom, sensor mode and tracking laid over it. **KSA's own window round it is taken off by reflection** (`KsaWorld.TryHideViewportWindow`), and where that fails KSA's stays and this draws nothing |
 | `Ksa/LaserDesignators.cs` | every laser spot in the world this frame — **any craft's**, read by code, because a weapon homes on a code and not on its own launcher's pod. A pod's beam stops at the first craft mesh or ground it meets, and MASK holds it off rather than letting it fire into its own craft |
@@ -663,7 +661,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 801 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 800 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -854,8 +852,7 @@ neither of them is longer than a page.
    a `<SubPart>` throws `IndexOutOfRangeException` from inside `Popup.DrawAll` and **terminates the
    game** on every save holding that part. Adding is free. Leave a stub to hold
    the count, or repair the saves with `tools/repair-saves.py`;
-   `docs/KSA-MODDING-NOTES.md` has the loop. For one release the mod also does that itself at
-   startup (`Ksa/SaveRepairs.cs`), which is temporary and is not a reason to remove another subpart.
+   `docs/KSA-MODDING-NOTES.md` has the loop.
 
    **Nor is a shipped `<Part>` Id renameable.** A save names it (`PartRef InstanceOf`), and loading
    one throws `PartTemplate is null` from `PartInstance.GetTemplate` — also terminating the game.
