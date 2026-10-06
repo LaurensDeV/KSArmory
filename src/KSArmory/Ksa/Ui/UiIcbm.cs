@@ -1167,6 +1167,16 @@ internal sealed partial class Ui
         Tip("On: on an arc that releases after the trim, what is left turning back up anywhere under the trim's "
             + "reach ends the burn and the trim finishes it. Off: only under 2 m/s.");
 
+        bool waitsOut = config.TrimWaitsOutTheStack;
+        if (ImGui.Checkbox("Trim waits for the spent stack to open", ref waitsOut))
+        {
+            config.TrimWaitsOutTheStack = waitsOut;
+        }
+        Tip("On: when what the bus owes its solution points back at the stack it dropped, the trim waits until the "
+            + "separation has carried them far enough apart that paying it cannot close them to the keep-out before the "
+            + $"release, as long as that leaves {SeparationClearance.TrimNeedsSeconds:F0} s to trim. Off: it trims as soon "
+            + "as the stack is a sphere and ten metres away.");
+
         bool throughClear = config.ThrottleThroughTheKeyboardClear;
         if (ImGui.Checkbox("Throttle keeps moving while a window has the keyboard", ref throughClear))
         {

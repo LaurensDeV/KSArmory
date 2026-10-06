@@ -1660,7 +1660,31 @@ internal sealed class IcbmComputer
         // An unreadable stack falls back to the clock rather than to "clear": a part tree
         // mid-rebuild reads as no distance at all, and treating that as clearance is exactly the
         // case this exists to prevent -- and it is asked fresh every pass, never remembered.
-        return SeparationClearance.Check(apart, radius, _sinceSplit);
+        return SeparationClearance.Check(apart, radius, _sinceSplit, ForTheTrimMetres(radius));
+    }
+
+    // Zero once the release is within a pass of the trim: the wait must leave the trim time to fly.
+    private double ForTheTrimMetres(double radius)
+    {
+        if (!Config.TrimWaitsOutTheStack || _separatedFrom is not { } stack || !KsaWorld.IsAlive(stack)
+            || Parent is not { } parent || !Vec.IsFinite(_trim.ToGainCci))
+        {
+            return 0.0;
+        }
+
+        // The release goes when the post-boost passes finish, at the latest when their clock runs out, and never
+        // before the release gate.
+        double toRelease = Math.Max(_postBoost.SecondsLeft, double.IsFinite(SecondsToRelease) ? SecondsToRelease : 0.0);
+        if (!(toRelease > SeparationClearance.TrimNeedsSeconds)) return 0.0;
+
+        doubleQuat cce2Cci = parent.GetCce2Cci();
+        double3 fromStack = (KsaWorld.PositionEcl(Craft) - KsaWorld.PositionEcl(stack)).Transform(cce2Cci);
+        double3 relative = (KsaWorld.VelocityEcl(Craft) - KsaWorld.VelocityEcl(stack)).Transform(cce2Cci);
+        if (!Vec.IsFinite(fromStack) || !Vec.IsFinite(relative) || fromStack.Equals(double3.Zero)) return 0.0;
+
+        double closing = -Vec.Dot(relative + _trim.ToGainCci, Vec.Unit(fromStack));
+        return SeparationClearance.ForTheTrimMetres(ProximityWatch.KeepOutFor(radius), closing,
+                                                    toRelease - SeparationClearance.TrimNeedsSeconds);
     }
 
     // One line per change of state, which is all any of this is worth while nothing is happening

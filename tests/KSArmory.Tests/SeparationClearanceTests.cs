@@ -167,4 +167,35 @@ public class SeparationClearanceTests
         Assert.False(after.IsClear);
         Assert.True(after.OnTheClock);
     }
+
+    [Fact]
+    public void ATrimClosingThePairWaitsUntilTheGapOutlastsTheCoast()
+    {
+        double need = SeparationClearance.ForTheTrimMetres(21.2, 0.73, 100.0);
+
+        Assert.Equal(21.2 + 73.0, need, 9);
+        Assert.False(SeparationClearance.Check(Wanted + 1.0, StageRadius, 60.0, need).IsClear);
+        Assert.True(SeparationClearance.Check(need, StageRadius, 60.0, need).IsClear);
+    }
+
+    [Theory]
+    [InlineData(-0.5, 100.0)]
+    [InlineData(0.73, double.NaN)]
+    [InlineData(0.73, -5.0)]
+    public void ATrimThatOpensThePairOrAnUnknownReleaseAddsNothing(double closing, double toRelease)
+    {
+        Assert.Equal(0.0, SeparationClearance.ForTheTrimMetres(21.2, closing, toRelease));
+        Assert.True(SeparationClearance.Check(Wanted, StageRadius, 1.0,
+                                              SeparationClearance.ForTheTrimMetres(21.2, closing, toRelease)).IsClear);
+    }
+
+    [Fact]
+    public void WaitingForTheTrimNeverOutlastsTheTimeoutIntoAnAbandon()
+    {
+        Clearance waiting = SeparationClearance.Check(Wanted + 1.0, StageRadius,
+                                                      SeparationClearance.TimeoutSeconds * 3.0, 500.0);
+
+        Assert.False(waiting.IsClear);
+        Assert.False(waiting.Abandoned);
+    }
 }

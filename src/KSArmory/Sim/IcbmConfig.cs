@@ -1016,6 +1016,13 @@ internal sealed class IcbmConfig
     public bool ThrottleThroughTheKeyboardClear = true;
 
     /// <summary>
+    /// Before the bus trims back toward the stack it just dropped, let the separation shove carry it far enough that
+    /// the pair cannot close to the keep-out before the release -- <see cref="SeparationClearance.ForTheTrimMetres"/>.
+    /// <b>Off</b> until flown. <c>docs/ICBM-OUTSTANDING.md</c> 1.8.
+    /// </summary>
+    public bool TrimWaitsOutTheStack;
+
+    /// <summary>
     /// Let every warhead of a single-target salvo released at cutoff go in the frame the first does,
     /// rather than one a frame. The stack slows in the air between releases, and flown each later
     /// warhead landed further along one line. <b>On.</b> Flown 2026-10-05 with

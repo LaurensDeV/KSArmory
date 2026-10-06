@@ -258,6 +258,9 @@ internal sealed class PostBoostAim
 
     private Stage _stage = Stage.Settling;
     private double _elapsed;
+
+    /// <summary>How long the passes may still run before the salvo goes whatever they have reached.</summary>
+    public double SecondsLeft => _stage == Stage.Finished ? 0.0 : Math.Max(0.0, MaxSeconds - _elapsed);
     private double _cycleStartedAt;
     private double _lastCycleSeconds = FirstCycleSeconds;
     private double3 _anchor;
