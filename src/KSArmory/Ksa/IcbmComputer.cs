@@ -1846,7 +1846,6 @@ internal sealed class IcbmComputer
             nose, right, down, _mayTrim, budget, _keepOutTowardCci,
             plan.CeilingMetresPerSecond,
             Config.PulseTrim ? Config.PulseSeconds : 0.0,
-            Config.StoppingInsideTheBandIsDone,
             Config.StallFallsBackToHolding,
             Config.TrimCountsTheCommandInFlight));
 

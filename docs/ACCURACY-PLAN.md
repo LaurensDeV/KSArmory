@@ -11699,6 +11699,9 @@ a belief that was collapsing.
 The half that survives is `arm/trim-done`, which is `StoppingInsideTheBandIsDone` alone, rebuilt on
 today's `dev` with its threshold corrected to `PulseEntry(band)`.
 
+*`StoppingInsideTheBandIsDone` was merged off and never flown; `StallFallsBackToHolding` (3fh) took the
+give-ups it was for to zero, and it was removed on 2026-10-06.*
+
 ## 3fc. A stalled null is two axes that will not move — 2026-09-18
 
 Also read off the logs already on disk, and the cleanest separator found so far. `IcbmComputer.Say`
