@@ -1135,8 +1135,14 @@ internal sealed class BallisticScenario
                                ? computer.Targets[i].Site.Coordinates
                                : "a place the flight never held";
 
+            // The verdict's km to three places reads a millimetre group as 0.000; the tail is what a night is scored on.
+            ShotGroup group = _board.For(i);
+            string metres = group.Arrived > 0
+                                ? $" | in metres: worst {group.Worst:F4}, best {group.Best:F4}, mean {group.Mean:F4}, "
+                                  + $"spread {group.Spread:F4}"
+                                : "";
             _say($"TARGET {i + 1} of {_board.Targets}{whose}: {where} -- "
-                 + _board.JudgeTarget(i, _shot.BarMetres).Said);
+                 + _board.JudgeTarget(i, _shot.BarMetres).Said + metres);
         }
     }
 

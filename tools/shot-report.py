@@ -122,6 +122,8 @@ VERDICT = re.compile(
     r"worst\s+([\d.]+)\s*km,\s*best\s+([\d.]+)\s*km,\s*"
     r"mean\s+([\d.]+)\s*km,\s*spread\s+([\d.]+)\s*km")
 ARRIVED = re.compile(r"(\d+)\s+of\s+(\d+)\s+arrived")
+# A TARGET line's metre-resolution tail; the verdict's km to three places reads a millimetre group as 0.000.
+TARGET_METRES = re.compile(r"in metres: worst ([\d.]+), best ([\d.]+), mean ([\d.]+), spread ([\d.]+)")
 PICKUP = re.compile(r"already flying at\s+(\d+)\s*km doing\s+(\d+)\s*m/s")
 ONPAD = re.compile(r"on the ground at")
 # The craft is optional because logs written before the line carried a name still have to read.
@@ -458,6 +460,9 @@ def read_targets(text, craft=None):
         v = VERDICT.search(said)
         if v:
             row["worst"], row["best"], row["mean"], row["spread"] = (float(g) for g in v.groups())
+        tail = TARGET_METRES.search(said)
+        if tail:
+            row["worst"], row["best"], row["mean"], row["spread"] = (float(g) / 1000.0 for g in tail.groups())
         a = ARRIVED.search(said)
         if a:
             row["arrived"], row["released"] = int(a.group(1)), int(a.group(2))
@@ -1246,8 +1251,16 @@ def paired(root, shots, endpoint="miss", levels_from=None, per_seat=False):
         print(f"   seat levels {'subtracted' if signed else 'divided'} out "
               f"(arm-neutral{borrowed or ', from this night'}): " + each)
         if lopsided:
-            print(f"   seats excluded for flying only one arm: "
+            print(f"   seats excluded for scoring above zero on only one arm: "
                   + ", ".join(f"s{s + 1}" for s in lopsided))
+        print()
+
+    # A flight that lands inside the endpoint's print quantum scores exactly zero, and a ratio cannot be
+    # taken of it: `miss` reads km to three places, so a millimetre arm vanishes from every table below.
+    floored = sum(1 for r in shots if usable(r) and score(r) == 0)
+    if floored and not signed:
+        print(f"   {floored} flight(s) scored exactly 0 {unit} -- inside this endpoint's print quantum, so left out")
+        print(f"   of the seat levels and the ratios. --endpoint landing reads the per-warhead lines in metres.")
         print()
 
     for name in order[1:]:
@@ -1296,7 +1309,7 @@ def paired(root, shots, endpoint="miss", levels_from=None, per_seat=False):
                 losses += 1
 
         if not ratios:
-            print(f"   {name}: no shot flew both it and {base}")
+            print(f"   {name}: no shot has both it and {base} scored above zero")
             print(f"   {' ' * len(name)}  so nothing above is an arm comparison -- see the note.")
             continue
 
