@@ -43,6 +43,18 @@ internal sealed class PostCutoffRig
 
     public double BudgetMetresPerSecond = PostBoostAim.MaxTrimMetresPerSecond;
 
+    /// <summary>
+    /// The stack's velocity off the solution. Non-zero is a bus that owes its solution something toward the stack it
+    /// dropped, as one braking nose-retrograde out of orbit does.
+    /// </summary>
+    public double3 StackDriftCci = Vec.Zero;
+
+    /// <summary>Whether the gate waits for the stack to open first -- <see cref="IcbmConfig.TrimWaitsOutTheStack"/>.</summary>
+    public bool WaitsOutTheStack;
+
+    /// <summary>When the release comes, counted from the split: the coast after the trim is watched until then.</summary>
+    public double CoastSeconds;
+
     /// <summary>What one run came to.</summary>
     internal readonly record struct Outcome(
         bool Abandoned,
@@ -50,7 +62,8 @@ internal sealed class PostCutoffRig
         double ResidualMetresPerSecond,
         double SecondsRun,
         double ClosestApproachMetres,
-        string Said);
+        string Said,
+        double ClosestOnceClearMetres = double.PositiveInfinity);
 
     /// <summary>
     /// Run the loop until it ends, and say how.
@@ -70,14 +83,20 @@ internal sealed class PostCutoffRig
         Clearance clearance = default;
         TrimCommand command = default;
 
+        double3 stackVelocity = ReferenceVelocityCci + StackDriftCci;
+        double closestOnceClear = double.PositiveInfinity;
+        bool wasClear = false;
+
         trim.Begin();
 
         while (since < maxSeconds)
         {
             double apart = Vec.Len(apartCci);
             closest = Math.Min(closest, apart);
+            if (wasClear) closestOnceClear = Math.Min(closestOnceClear, apart);
 
-            clearance = SeparationClearance.Check(apart, StageRadiusMetres, since);
+            clearance = SeparationClearance.Check(apart, StageRadiusMetres, since, ForTheTrim(trim, apartCci, velocity - stackVelocity, since));
+            wasClear |= clearance.IsClear;
 
             PostCutoffSequence.Plan plan = PostCutoffSequence.Decide(
                 clearance.IsClear, clearance.Abandoned, postBoostCycles: 0,
@@ -104,14 +123,33 @@ internal sealed class PostCutoffRig
 
             // The halves part at whatever the bus is doing relative to the solution the stack was
             // left on. Nulling that is what shuts the gate the trim needs open.
-            apartCci += (velocity - ReferenceVelocityCci) * StepSeconds;
+            apartCci += (velocity - stackVelocity) * StepSeconds;
             since += StepSeconds;
 
             if (command.Done) break;
         }
 
+        for (double t = since; command.Done && t < CoastSeconds; t += StepSeconds)
+        {
+            apartCci += (velocity - stackVelocity) * StepSeconds;
+            closestOnceClear = Math.Min(closestOnceClear, Vec.Len(apartCci));
+        }
+
         return new Outcome(false, command.Done, Vec.Len(velocity - ReferenceVelocityCci),
-                           since, closest, command.Said);
+                           since, closest, command.Said, closestOnceClear);
+    }
+
+    // As IcbmComputer.ForTheTrimMetres asks it, with the coast standing in for the post-boost clock.
+    private double ForTheTrim(BusTrim trim, double3 fromStackCci, double3 relativeCci, double since)
+    {
+        if (!WaitsOutTheStack || !Vec.IsFinite(trim.ToGainCci) || fromStackCci.Equals(Vec.Zero)) return 0.0;
+
+        double toRelease = CoastSeconds - since;
+        if (!(toRelease > SeparationClearance.TrimNeedsSeconds)) return 0.0;
+
+        double closing = -Vec.Dot(relativeCci + trim.ToGainCci, Vec.Unit(fromStackCci));
+        return SeparationClearance.ForTheTrimMetres(ProximityWatch.KeepOutFor(StageRadiusMetres), closing,
+                                                    toRelease);
     }
 
     // The bus's own control axes, as the rig lays them out. One direction at a time, which is what
