@@ -676,14 +676,6 @@ internal sealed partial class Ui
         Tip("On: thrusters put it back on the solution after the split, which the burn cannot. Off: the "
             + "warheads leave on whatever the cutoff and the decoupler left the bus doing.");
 
-        bool repoint = config.RepointBetweenReleases;
-        if (ImGui.Checkbox("Aim each tube before it fires", ref repoint))
-        {
-            config.RepointBetweenReleases = repoint;
-        }
-        Tip("On: turns between releases so every round leaves on the same line. Off: all rounds leave on "
-            + "the attitude the burn ended on, and spread by the tube cant.");
-
         float budget = (float)config.TrimBudgetMetresPerSecond;
         if (ImGui.SliderFloat("Trim budget", ref budget, 0f,
                               (float)PostBoostAim.MaxTrimMetresPerSecond,
@@ -782,59 +774,6 @@ internal sealed partial class Ui
         if (ImGui.SliderFloat("Release warheads above (m)", ref deploy, 1_000f, 400_000f, "%.0f"))
         {
             config.DeployAltitudeMetres = deploy;
-        }
-
-        ImGui.SeparatorText("Coast");
-
-        bool quiet = config.QuietCoast;
-        if (ImGui.Checkbox("Let go of the attitude while coasting", ref quiet))
-        {
-            config.QuietCoast = quiet;
-        }
-        Tip($"On: stops pointing inside {config.QuietCoastDeg:F1} deg and points again past "
-            + $"{config.ReacquireCoastDeg:F1} deg. A commanded thruster is what takes the bus off "
-            + "rails, and off rails it is integrated rather than coasted. Off: the bus is pointed "
-            + "every frame of the coast, which keeps it off rails throughout.");
-
-        if (config.QuietCoast)
-        {
-            bool afterCorrection = config.QuietCoastAfterCorrection;
-            if (ImGui.Checkbox("  Wait for the correction to finish", ref afterCorrection))
-            {
-                config.QuietCoastAfterCorrection = afterCorrection;
-            }
-            Tip("On: the correction runs the whole coast, so this leaves almost no window -- measured in "
-                + "flight at 417 of 429 coast probes still holding. Off: quiet between trim passes; the "
-                + "trim itself always takes the attitude back.");
-
-            float go = (float)config.QuietCoastDeg;
-            if (ImGui.SliderFloat("  Let go inside (deg)", ref go, 0.05f, 5.0f, "%.2f"))
-            {
-                config.QuietCoastDeg = go;
-            }
-
-            float back = (float)config.ReacquireCoastDeg;
-            if (ImGui.SliderFloat("  Take it back past (deg)", ref back, 0.1f, 20.0f, "%.1f"))
-            {
-                config.ReacquireCoastDeg = back;
-            }
-
-            float ends = (float)config.QuietCoastEndsBeforeReleaseSeconds;
-            if (ImGui.SliderFloat("  Re-point before release (s)", ref ends, 0.0f, 240.0f, "%.0f"))
-            {
-                config.QuietCoastEndsBeforeReleaseSeconds = ends;
-            }
-            Tip($"Back under command {config.QuietCoastEndsBeforeReleaseSeconds:F0} s before the release "
-                + "approach: the release waits for the bus to be steady, and steady is not pointed.");
-
-            bool rails = config.RailsDuringCoast;
-            if (ImGui.Checkbox("  Assert rails while quiet", ref rails))
-            {
-                config.RailsDuringCoast = rails;
-            }
-            Tip("On: the coast is propagated as an exact conic rather than integrated -- the half going "
-                + "quiet alone cannot do, because a Ccf bubble never puts a coasting craft back on rails. "
-                + "Off: quiet only; in a Ccf bubble the engine will not return it to rails on its own.");
         }
 
         ImGui.SeparatorText("Research switches");

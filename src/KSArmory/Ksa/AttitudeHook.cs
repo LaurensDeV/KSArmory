@@ -42,14 +42,6 @@ internal static class AttitudeHook
 
     private static readonly Dictionary<Vehicle, Aim> Wanted = [];
 
-    // Craft whose attitude is actively cancelled each frame rather than pointed.
-    private static readonly HashSet<Vehicle> Quieted = [];
-
-    // Those whose quiet should also assert rails. A subset of Quieted rather than a parallel state:
-    // any commanded actuator flips rails straight back off, so asserting it anywhere else would be
-    // a write the next sub-step undoes.
-    private static readonly HashSet<Vehicle> Railed = [];
-
     // Craft whose manual thrust is in the engine's pulse mode this frame. Held here rather than
     // written where the trim decides it, because the flight computer is copied over wholesale when
     // a worker's results are applied -- the same reason the attitude is written from this window.
@@ -166,39 +158,6 @@ internal static class AttitudeHook
     {
         if (!KsaWorld.IsAlive(craft)) return;
         Wanted[craft] = new Aim(directionCci, rollReferenceCci);
-    }
-
-    /// <summary>
-    /// Actively stop the flight computer tracking, every frame, until <see cref="Release"/>.
-    ///
-    /// <para>Not the same as <see cref="Release"/>. Dropping the standing aim only stops this mod
-    /// <em>writing</em> a target; the computer keeps the one it has and goes on firing thrusters to
-    /// hold it, which keeps <c>anyActuatorCommanded</c> set and the vehicle off rails. Measured:
-    /// a craft with <c>aimed=False</c> still read <c>Auto/Custom</c> and still spent 276 of 376
-    /// coast probes off rails, against the pointed arm's 282. Cancelling has to be a write, and it
-    /// has to happen in this window like every other one.</para>
-    /// </summary>
-    public static void Quiet(Vehicle craft)
-    {
-        if (!KsaWorld.IsAlive(craft)) return;
-
-        Wanted.Remove(craft);
-        Quieted.Add(craft);
-    }
-
-    /// <summary>
-    /// Assert rails as well as going quiet, so the coast is propagated rather than integrated.
-    ///
-    /// <para>Only meaningful alongside <see cref="Quiet"/>, and refused otherwise: a commanded
-    /// actuator puts the vehicle off rails on the same sub-step, so asserting it while anything is
-    /// still pointing is a write undone immediately.</para>
-    /// </summary>
-    public static void QuietOnRails(Vehicle craft)
-    {
-        if (!KsaWorld.IsAlive(craft)) return;
-
-        Quiet(craft);
-        Railed.Add(craft);
     }
 
     /// <summary>
@@ -322,12 +281,10 @@ internal static class AttitudeHook
         }
     }
 
-    /// <summary>Stop pointing it, and stop quieting it. The vehicle is the player's again.</summary>
+    /// <summary>Stop pointing it. The vehicle is the player's again.</summary>
     public static void Release(Vehicle craft)
     {
         Wanted.Remove(craft);
-        Quieted.Remove(craft);
-        Railed.Remove(craft);
 
         // Left in pulse mode, the player's own translation keys would fire in millisecond taps. The
         // write is owed to the prefix rather than made here, because one made outside that window is
@@ -389,24 +346,6 @@ internal static class AttitudeHook
                 VehicleCommand.SetPulseMode(__instance, pulsing: false);
             }
 
-            if (Quieted.Contains(__instance))
-            {
-                VehicleCommand.ReleaseAttitude(__instance);
-
-                // Releasing the actuator is necessary and not sufficient. PhysicsStates'
-                // TryToPutOnRails returns a coasting vehicle to rails only when the bubble origin
-                // is Cci, and in a Ccf bubble there is no path back at all -- so a bus quieted
-                // inside one stays integrated for the rest of the coast, which is what 3ay
-                // measured as 276 of 376 probes off rails against a pointed arm's 282.
-                //
-                // Asserting rails is the other half. It does not leave the bubble; it makes the
-                // bubble irrelevant, because a rails Freefall vehicle takes ApplyFreefallMotion and
-                // an exact conic whatever the frame. docs/ACCURACY-PLAN.md 3bv.
-                if (Railed.Contains(__instance)) VehicleCommand.TryAssertRails(__instance);
-
-                return;
-            }
-
             if (Wanted.Count == 0) return;
             if (!Wanted.TryGetValue(__instance, out Aim aim)) return;
 
@@ -416,8 +355,6 @@ internal static class AttitudeHook
         {
             // Stand down rather than throwing again next frame. One report, then silence.
             Wanted.Remove(__instance);
-            Quieted.Remove(__instance);
-            Railed.Remove(__instance);
             Pulsing.Remove(__instance);
             Pulsed.Remove(__instance);
             Restore.Remove(__instance);

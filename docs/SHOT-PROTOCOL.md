@@ -694,7 +694,7 @@ own file, which is what makes a constant an arm at all. The knobs `MIRV-NEXT.md`
 | what a pass has to beat, and what one costs | `AimCorrection.ImprovedByFraction`/`ImprovedByFloorMetres`, `PostBoostAim.HoldingCostsMetresPerSecond`, `BusTrim.SettledMetresPerSecond` — **one arm, not three**: the bar cannot go below the trim's leavings, because those are what moves the reading it is judging. Item 7f. |
 | the warhead's own sub-step | `src/KSArmory/Sim/Arsenal.cs`, `ReentryVehicleMk21.SubStepSeconds`. First order at 30.6 m per ms, and `ProbeGapTests` says it *widens* the round-versus-probe gap alone (591 -> 754 m) — the same cancelling-pair shape as item 2d. Fly it paired or not at all. |
 | predicting the warhead with the warhead's integrator | `src/KSArmory/Sim/ImpactPredictor.cs` — the other side of the same gap, 591 -> 47 m headless. Item 2h. |
-| re-pointing between releases | `src/KSArmory/Sim/IcbmConfig.cs`, `RepointBetweenReleases` |
+| re-pointing between releases | removed 2026-10-06 (`RepointBetweenReleases`, off on a flown verdict); `Sim/ReleaseSequence.cs` would have to be wired back in |
 | the arrival-angle floor | `src/KSArmory/Sim/IcbmConfig.cs`, `MinArrivalAngleDeg` — the largest lever there is, and it changes every other term's price, so it is a poor thing to have as a *factor* alongside others. Fly it as its own night. |
 | the ejection kick | `src/KSArmory/Sim/Arsenal.cs`, `ReentryVehicleMk21.LaunchSpeed` |
 

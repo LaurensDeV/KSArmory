@@ -1380,10 +1380,8 @@ def _say_coast(shots, order):
     126 healthy ones went off rails at some point, so a binary reading separates nothing; what
     separates them is how much of the coast, 70% against 1%.
 
-    And it is what makes a null readable. The quiet window is bounded at both ends
-    (`Sim/CoastQuiet.cs`), so how much of a coast it covers is a per-flight outcome — an arm that
-    changed nothing because it never engaged looks exactly like one that engaged and did not
-    matter, and only this table tells them apart.
+    And it is what makes a null readable: an arm that changed nothing because it never engaged
+    looks exactly like one that engaged and did not matter, and only this table tells them apart.
     """
     rows = [s for s in shots if s.get("within") and usable(s) and s.get("rails_probes")]
     if not rows:

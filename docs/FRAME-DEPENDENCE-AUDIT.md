@@ -177,5 +177,6 @@ the one thing here worth a line in a log rather than a night.
 47 — is not the pulse cadence and, per 3fk, not `StopBand` and not `Stalled`. The standing candidate
 is the off-rails coast: KSA integrates the bus at the frame step while `BusTrim` compares against an
 exact Kepler propagation, which is a recession proportional to the step — 0.25 mm/s per second at
-28 ms against 0.19 at 21, against 3.7 mm/s per second of authority. `IcbmConfig.RailsDuringCoast` is
-the switch and it is unassigned.
+28 ms against 0.19 at 21, against 3.7 mm/s per second of authority. `IcbmConfig.RailsDuringCoast` was
+the switch, removed unflown on 2026-10-06 with `QuietCoast`; `StallFallsBackToHolding` has since taken
+the stall rate to zero (`docs/ACCURACY-PLAN.md` 3fh).

@@ -408,7 +408,7 @@ Every one of these is behind "a walk exists", so a set of one executes none of t
   plant is the coast's, and `Reset` re-seeds it at the pre-burn `1 / Gain` — quarter steps, which buys a
   pass, and a coast pass is a median 65 s.
 * **`SalvoFinished` and `_salvoAway` have to mean "the walk is over"**, not "a warhead has left": both gate
-  things that must keep running between stops — `DriveTrim` on the first, `RefreshReach` and `CoastQuiet` on
+  things that must keep running between stops — `DriveTrim` on the first, `RefreshReach` on
   the second. `SalvoFinished` reads `ReleaseWalker.Done` because the magazine count cannot answer it: a walk
   that dropped a stop keeps those warheads aboard, so `WarheadsAway` never reaches the salvo's size and the
   trim would solve and fire at a bus with nothing left to release.

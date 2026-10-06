@@ -3998,7 +3998,8 @@ vehicle off rails, per coast probe. Every candidate after `anyActuatorCommanded`
 three nights have now been spent on a term that turns out not to be the one.
 
 `QuietCoast` stays built and stays **off**: it is verified harmless and verified useless, so there
-is nothing to ship and nothing to revert. If the real cause is later removed, it costs nothing to
+is nothing to ship and nothing to revert. *(Removed 2026-10-06, with `RailsDuringCoast` and its band
+settings: never shipped on, and 3bz judged it unable to pay.)* If the real cause is later removed, it costs nothing to
 re-ask whether the hold matters on top of that.
 
 ## 3bg. The off-rails diagnostic, and a third of it is not the actuators — flown 2026-09-06
@@ -11038,7 +11039,7 @@ what 20b is flying against.
 | ~~16~~ | ~~Make each headless fixture state its own arrival geometry~~ | done | **`ArrivalPreference = 0.5` ships as the default; 15 cases across 7 classes now state their geometry through `FixtureGeometry`, 1,854 pass** — 3ao |
 | ~~14~~ | ~~A per-craft coast probe~~ | done | **caught the failure: sharp onset at 505 km, accelerating, and the guard proven not to be the cause** — 3am |
 | ~~20~~ | ~~**Stop driving attitude through the coast.** Rails is gated on `anyActuatorCommanded`, not on bubble membership~~ | done, twice | **works and was unbounded: 0.15x on divergent worlds, 89x on healthy ones** — 3ba |
-| **20b** | **Fly the quiet window to a verdict on divergent worlds.** Healthy is settled (harmless, twice). The divergent case is 4 of 5 worlds in favour, and the endpoint is the lost-mode MEDIAN, not the rate | ~3 nights, or 1 per divergent world | 3bi: 85.84 km to 50.35 within the lost mode; the rate does not move |
+| ~~20b~~ | **Closed unflown: `QuietCoast` was removed 2026-10-06.** ~~Fly the quiet window to a verdict on divergent worlds.~~ Healthy is settled (harmless, twice). The divergent case is 4 of 5 worlds in favour, and the endpoint is the lost-mode MEDIAN, not the rate | ~3 nights, or 1 per divergent world | 3bi: 85.84 km to 50.35 within the lost mode; the rate does not move |
 | **20c** | **Check the frame-time regime on the next divergent world** — free, already logged | 0 shots | 3bi: the two disagreeing worlds sit either side of the 24 ms boundary, 23.3 against 26.5 |
 | ~~19b~~ | ~~**Log which of `PhysicsBubble`'s conditions holds a bus off rails**~~ | done | **built and verified: on a healthy world 11 of 34 off-rails probes are `neither actuator flag`, and `FreefallNeedsFullPhysics` fits the 6% arithmetically** — 3bg |
 | **19c** | **Read `Cci`/`Ccf` on a divergent world.** The frame decides whether off rails is recoverable at all, and the diagnostic is built and public | free on the next divergent world | 3bv: `Ccf` closes the account, `Cci` refutes it |
@@ -12084,8 +12085,8 @@ So 3fi's residue at a matched debt is not the stall clock, and its own guess —
 commanded, so KSA integrates it at the frame step while the trim solves against an exact Kepler
 propagation of the cutoff state. That mismatch is a recession the frame rate does move — about
 0.25 mm/s per second at 28 ms against 0.19 at 21 on a 200 km orbit, against a pulse phase's
-3.7 mm/s per second of authority. Unmeasured in flight, and `IcbmConfig.RailsDuringCoast` is the
-switch that would settle it.
+3.7 mm/s per second of authority. Unmeasured in flight; `IcbmConfig.RailsDuringCoast` was the
+switch that would have settled it, and was removed unflown on 2026-10-06 with `QuietCoast`.
 
 ## Where the ballistic thread stands — 2026-09-20
 
@@ -12117,8 +12118,8 @@ under the floor with zero stalls). The debt is **mostly radial, not axial** — 
 2. **The off-rails coast.** The bus is integrated at the frame step while `BusTrim` compares against an
    exact Kepler propagation, which is a recession the frame rate moves — about 7% of a pulse phase's
    authority and step-proportional. It is the right shape for the one thing the debt does not explain
-   (3fi: 9 of 18 against 2 of 30 at matched debt). `IcbmConfig.RailsDuringCoast` exists and is
-   unassigned; it needs a flown coast, not a rig. 3fk.
+   (3fi: 9 of 18 against 2 of 30 at matched debt). `IcbmConfig.RailsDuringCoast` was the switch, and
+   was removed unflown on 2026-10-06 with `QuietCoast`: the stall it would explain is gone (3fh). 3fk.
 3. **A flight rig that reaches past cutoff.** `IcbmFlightRig.Fly` returns at cutoff, so nothing from the
    coast onward — trim, correction, release — is provable headlessly. Every question above and the whole
    of the MIRV release loop is gated on flying rather than testing because of it.

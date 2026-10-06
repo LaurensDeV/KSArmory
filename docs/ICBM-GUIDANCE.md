@@ -1116,7 +1116,7 @@ vehicle — and on what it is throwing.
 ### Nothing paces a salvo it is not re-pointing
 
 Releases are one at a time only because each tube wants a different attitude. With no axes latched —
-`IcbmConfig.RepointBetweenReleases` off — every tube wants the same one, the only gate left is that
+and nothing latches them since `RepointBetweenReleases` was removed — every tube wants the same one, the only gate left is that
 the vehicle is steady, and the magazine empties in consecutive frames: **five rounds in 67 ms**,
 flown, and all six impacts inside 32 ms of each other.
 
@@ -1407,7 +1407,7 @@ correction winding each other up, is fixed and has flown since.
 
 - **Whether the flight computer can hold a commanded *offset*** on a stack with marginal control
   authority. The rig assumes a 12 deg/s slew. A separated bus commanded six degrees off its held
-  line hunted rather than settling, which is why `RepointBetweenReleases` is off; the pointing
+  line hunted rather than settling, which is why re-pointing was left off and then removed (`RepointBetweenReleases`, 2026-10-06); the pointing
   band has since come down from 9.63° to 0.37° and nothing has asked it for a turn again.
 - **Staging.** `ActivateNextSequence` fires whatever the player put in the next sequence, which is
   not necessarily an engine — including the ignition, where the program will try again on the

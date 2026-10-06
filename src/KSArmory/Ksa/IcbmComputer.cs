@@ -789,8 +789,8 @@ internal sealed class IcbmComputer
         // letting Predict resume writing the arrival and bringing the readout back counting down to
         // the BUS's own impact, about half a minute later.
         //
-        // All three readers want the latched meaning: the coast probe stops predicting once the
-        // salvo is gone, and CoastQuiet asks whether it has gone rather than what is airborne.
+        // Every reader wants the latched meaning: the coast probe stops predicting once the salvo
+        // is gone.
         _salvoAway |= release is IRoundsInFlight flying && flying.Rounds.Count > 0;
 
         // The largest reading rather than the latest: a frame with no weapon resolved, or one taken
@@ -969,10 +969,6 @@ internal sealed class IcbmComputer
 
             // Handed to the hook rather than written here. A write from this pass is discarded
             // before anything reads it - see AttitudeHook.
-            //
-            // Unless the coast has been told to go quiet. Commanding an actuator is what takes the
-            // vehicle off rails, and off rails it is integrated rather than propagated -- worth
-            // ~4 m/s per probe of cross-track push in a shared bubble. IcbmConfig.QuietCoast.
             if (SalvoIsOver)
             {
                 if (!_letGoAfterSalvo)
@@ -988,17 +984,6 @@ internal sealed class IcbmComputer
                     AttitudeHook.PulseMode(Craft, pulsing: false);
                     Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)}: the salvo is away; the bus is let go");
                 }
-            }
-            else if (QuietDuringCoast())
-            {
-                // Quiet, not Release: dropping the aim leaves the computer holding its last target
-                // and still firing for it, which is the whole cost back.
-                //
-                // And on rails as well where asked, because quiet alone is only half of it: in a Ccf
-                // bubble TryToPutOnRails refuses, so a quieted bus stays integrated for the rest of
-                // the coast. IcbmConfig.RailsDuringCoast, docs/ACCURACY-PLAN.md 3bv.
-                if (Config.RailsDuringCoast) AttitudeHook.QuietOnRails(Craft);
-                else AttitudeHook.Quiet(Craft);
             }
             else
             {
@@ -2022,25 +2007,6 @@ internal sealed class IcbmComputer
                    : $", nearest {KsaWorld.DisplayName(near)} at {metres / 1000.0:F2} km";
     }
 
-    // The band and both bounds live in Sim/CoastQuiet.cs, where they can be tested -- this is the
-    // predicate whose missing bounds cost 89x on the worlds that were already healthy.
-    private readonly CoastQuiet _coastQuiet = new();
-
-    private bool QuietDuringCoast()
-        => _coastQuiet.Update(new CoastQuietState(
-                                  Enabled: Config.QuietCoast,
-                                  Coasting: Program.Phase == IcbmPhase.Coast,
-                                  Burning: Program.IsBurning,
-                                  Trimming: TrimIsFiring,
-                                  SalvoAway: SalvoIsOver,
-                                  CorrectionFinished:
-                                      _postBoostSaid || !Config.QuietCoastAfterCorrection,
-                                  InReleaseApproach: CoastQuiet.InReleaseApproach(
-                                      SecondsToReleaseApproach,
-                                      Config.QuietCoastEndsBeforeReleaseSeconds),
-                                  PointingErrorDeg: KsaWorld.PointingErrorDeg(Craft)),
-                              Config.QuietCoastDeg, Config.ReacquireCoastDeg);
-
     // A flight-plan margin as a reader wants it: a number, or "inf" for a horizon nothing reaches.
     private static string Fmt(double seconds) =>
         double.IsPositiveInfinity(seconds) ? "inf"
@@ -2240,19 +2206,6 @@ internal sealed class IcbmComputer
         // the governor behind it, and neither is visible anywhere else. docs/ACCURACY-PLAN.md 17.
         bool? rails = KsaWorld.OnRails(Craft);
 
-        // Whether the hold is letting go right now, and which gate is keeping it from doing so.
-        // Without this a night that reads as a null cannot say whether the fix failed or simply
-        // never engaged -- the quiet window is bounded at both ends (Sim/CoastQuiet.cs), so how
-        // much of a coast it actually covers is a per-flight outcome rather than a constant.
-        string hold = !Config.QuietCoast ? ""
-                      : _coastQuiet.IsQuiet ? ", quiet"
-                      : Config.QuietCoastAfterCorrection && !_postBoostSaid
-                          ? ", holding (correcting)"
-                      : CoastQuiet.InReleaseApproach(SecondsToReleaseApproach,
-                                                     Config.QuietCoastEndsBeforeReleaseSeconds)
-                          ? ", holding (release approach)"
-                      : ", holding (off the line)";
-
         // Which actuator term is holding it, when one is. Absent on a vehicle that is on rails and
         // absent on one held off by something neither flag can see -- and that second absence is
         // the informative one, because it is what says to go looking past the actuators.
@@ -2273,7 +2226,6 @@ internal sealed class IcbmComputer
                       + (actuator is null ? rails is false ? " (neither actuator flag)" : "" : $" ({actuator})")
                       + frame
                       + RailsSaid()
-                      + hold
                       + $", trim {(TrimIsFiring ? "firing" : _trim.Done ? "done" : "idle")}"
                       + $", {_sinceObserve:F0} s since the aim last read"
                       + (_measureDue ? ", reading due" : "");
@@ -3733,25 +3685,6 @@ internal sealed class IcbmComputer
             Log.Info($"{KsaWorld.DisplayName(Craft)}: {_proximity.Closest.Said}");
         }
 
-        // Latched once the launcher is ready to deploy and the split's transient has died down —
-        // not once it is steady enough to release, which is a far tighter number and one a light
-        // bus may never reach.
-        if (!_sequence.Begun && Config.RepointBetweenReleases
-            && !(_tubeSpinSpeed > ReleaseSequence.SteadyToLatchMetresPerSecond))
-        {
-            int found = weapon.TubeAxesEcl(_tubeAxes);
-            if (found > 0 && Parent is { } parent)
-            {
-                doubleQuat cce2Cci = parent.GetCce2Cci();
-                for (int i = 0; i < found; i++) _tubeAxes[i] = _tubeAxes[i].Transform(cce2Cci);
-
-                if (_sequence.Begin(_tubeAxes.AsSpan(0, found)))
-                {
-                    Log.Info($"aiming each of {found} tube(s) before it fires");
-                }
-            }
-        }
-
         double3 nextAxis = Vec.Zero;
         double3 noseAxis = Vec.Zero;
 
@@ -3915,18 +3848,6 @@ internal sealed class IcbmComputer
 
     private double3 ReleaseImpulseCci()
     {
-        // Once the sequence is turning the vehicle, the line every round leaves on is the latched
-        // reference and nothing else. The *live* mean of the tube axes swings by a full cant as
-        // each tube is brought onto that line, so predicting with it describes a round nobody is
-        // about to release - and feeds the aim correction a target that moves six times a salvo.
-        //
-        // It is also simply the right number: a re-pointed tube throws the whole LaunchSpeed along
-        // the reference, not its cosine.
-        if (_sequence.Begun && _warhead is { LaunchSpeed: > 0f } aimed)
-        {
-            return _sequence.ReferenceCci * aimed.LaunchSpeed;
-        }
-
         if (_releaseMeasured) return _releaseKickCci;
         if (_warhead is not { LaunchSpeed: > 0f } warhead) return Vec.Zero;
 

@@ -182,31 +182,6 @@ internal sealed class IcbmConfig
     public bool AutoRelease = true;
 
     /// <summary>
-    /// Turn the vehicle between releases so each tube in turn throws along the same line.
-    ///
-    /// <para>Where tubes are canted, rounds released from one attitude leave on different vectors and
-    /// scatter, and there is one aim for all of them: measured in flight at about 1,200 m across six
-    /// warheads six degrees off the bus's axis. The shipped bus's tubes are parallel to it
-    /// (<see cref="Arsenal.MirvBus"/>).</para>
-    ///
-    /// <para><b>Off, for a flown reason.</b> Flown once it
-    /// could actually latch its axes, a separated bus released its six tubes at 5.2, 2.1, 8.2,
-    /// 12.8, 14.1 and 11.7 degrees off the line — against the six degrees of cant the turning
-    /// exists to remove. It is not that the turn fails to help; it is that this vehicle cannot hold
-    /// the attitude it is turned to, so commanding one leaves the tube further off the line than
-    /// leaving it alone does.</para>
-    ///
-    /// <para>The machinery around it is worth keeping and is not the problem: the salvo no longer
-    /// takes three minutes, the release is budgeted in one currency, and the give-up paths name
-    /// which failure it is. What is missing is a bus that can hold an offset — more attitude
-    /// authority, or a turn small enough to be held.</para>
-    ///
-    /// <para>Free for a launcher it does not describe: a single tube is the mean of its own axes, so
-    /// nothing is asked to turn.</para>
-    /// </summary>
-    public bool RepointBetweenReleases;
-
-    /// <summary>
     /// Put the bus back on its solution with its own thrusters before letting anything go.
     ///
     /// <para>The burn ends exact and two things then move the vehicle off it: whatever the cutoff
@@ -350,55 +325,6 @@ internal sealed class IcbmConfig
     /// fourteen, the interval now excluding anything better than 0.94x. <c>docs/ACCURACY-PLAN.md</c> 3br.</para>
     /// </summary>
     public bool AimWithinTrimBudget;
-
-    /// <summary>
-    /// Let go of the attitude once the bus is pointing where it will release, and take it back only
-    /// if it drifts.
-    ///
-    /// <para>KSA puts a vehicle off rails for as long as an actuator is <em>commanded</em>
-    /// (<c>PhysicsBubble</c>'s per-vehicle rails choice), and off rails it is integrated rather than
-    /// propagated as a conic. A bus sharing a physics bubble is harmless while it is on rails —
-    /// measured at 224 to 241 coast probes of a divergent world costing nothing — and the free ride
-    /// ends the moment this mod's own hold commands a thruster. What follows is ~4 m/s per probe of
-    /// non-gravitational push, 90% of it across the plane, which walks the predicted impact and
-    /// takes the shot to 88 km. <c>docs/ACCURACY-PLAN.md</c> 3ax.</para>
-    ///
-    /// <para>Holding is still what keeps the release line, so this is a band rather than a release:
-    /// quiet inside <see cref="QuietCoastDeg"/>, and pointing again past
-    /// <see cref="ReacquireCoastDeg"/>. Only during the coast, and never while burning, trimming or
-    /// deploying — those need the attitude and are not where the coast's damage is done.</para>
-    ///
-    /// <para><b>It is bounded at both ends, and flying it without either end cost 89x.</b> Quiet
-    /// begins only once the post-boost correction has finished and ends a margin before the release
-    /// approach — see <see cref="QuietCoastEndsBeforeReleaseSeconds"/>. Neither bound costs much of
-    /// what it is for: the coast to release runs ~980 s, the correction is over inside 120 of them,
-    /// and the hold in between is ~88% of the exposure.</para>
-    ///
-    /// <para><b>Off, and off is what ships</b>, until it has been flown against a forced control.</para>
-    /// </summary>
-    public bool QuietCoast;
-
-    /// <summary>
-    /// Assert rails as well as going quiet, so the coast is propagated rather than integrated.
-    ///
-    /// <para><b>This is the half <see cref="QuietCoast"/> was missing.</b> Releasing the actuator is
-    /// necessary and not sufficient: <c>PhysicsStates.TryToPutOnRails</c> puts a coasting vehicle
-    /// back on rails only when the physics bubble's origin frame is <c>Cci</c>, and a bubble whose
-    /// heaviest member sits below the near-surface radius — a rocket on its pad, a spent stage under
-    /// 167 km — is <c>Ccf</c>, where there is no path back at all. Flown 2026-09-05: a quieted arm
-    /// spent 276 of 376 coast probes off rails against a pointed arm's 282.</para>
-    ///
-    /// <para>Off rails and above its own <c>InPhysicsRadius</c>, the engine drops the centrifugal
-    /// and Coriolis terms — a deficit of <c>2w x v + w x (w x r)</c>, 0.42 m/s^2 at 2.9 km/s, which
-    /// is the non-gravitational push that walks the impact 50 to 160 km.
-    /// <c>docs/ACCURACY-PLAN.md</c> 3bv has the derivation and the corroboration from logs already
-    /// taken.</para>
-    ///
-    /// <para><b>Off, and off is what ships</b>, until it has been flown. It does nothing unless
-    /// <see cref="QuietCoast"/> is on as well, because any commanded actuator takes the vehicle off
-    /// rails again on the same sub-step.</para>
-    /// </summary>
-    public bool RailsDuringCoast;
 
     /// <summary>
     /// Let the aim correction's improvement threshold follow the miss instead of being 250 m flat.
@@ -1203,50 +1129,6 @@ internal sealed class IcbmConfig
     /// cap exists so that a separation cannot become a burn.</para>
     /// </remarks>
     public double WarheadFootprintMetres;
-
-    /// <summary>Pointing error under which the coast hold lets go, in degrees.</summary>
-    public double QuietCoastDeg = 0.5;
-
-    /// <summary>Pointing error at which it takes the attitude back, in degrees.</summary>
-    public double ReacquireCoastDeg = 2.0;
-
-    /// <summary>
-    /// Whether the quiet window also waits for the post-boost correction to finish.
-    ///
-    /// <para><b>Off, because measured in flight it makes the whole feature a no-op.</b> The
-    /// reasoning for it was sound and the timing is not: the trim resolves onto the vehicle's own
-    /// control axes, so a bus drifting between passes was thought to thrust along stale ones. But
-    /// the correction does not occupy the start of the coast — it occupies <em>all</em> of it. Flown
-    /// 2026-09-06, one paired shot: <c>holding (correcting)</c> on <b>417 of 429</b> coast probes,
-    /// with the loop finishing only inside the release approach. Waiting for it leaves no window at
-    /// all, and the flight measured exactly 0% of the coast quiet.</para>
-    ///
-    /// <para>Kept as a switch rather than deleted because the concern is real and untested — the
-    /// trim is already excluded by <c>TrimIsFiring</c> while it fires, and what is unproven is
-    /// whether it needs the line held <em>between</em> passes as well. That is one arm of a night,
-    /// not a guess to bake in.</para>
-    /// </summary>
-    public bool QuietCoastAfterCorrection;
-
-    /// <summary>
-    /// How long before the release approach the coast hold takes the attitude back, in seconds.
-    ///
-    /// <para><b>Steady is not pointed.</b> <c>ReleaseSequence</c> waits for the bus to be steady
-    /// before it latches its reference, and a bus nobody is holding is perfectly steady while
-    /// aimed somewhere wrong — so warheads leave along whatever line the drift left. Flown
-    /// 2026-09-05 with no such bound: the lost mode went from 12 of 56 to 1 of 56, and the healthy
-    /// median from 0.017 km to 3.607.</para>
-    ///
-    /// <para>Re-pointing is cheap because going quiet does not move the bus. No actuator commanded
-    /// is <em>on rails</em>, which is exact conic propagation — the drift is attitude and nothing
-    /// else, so taking the line back restores it with no trajectory to undo.</para>
-    ///
-    /// <para>Measured against the margin it needs rather than chosen: a slew at the <c>Strict</c>
-    /// profile's 30 deg/s is seconds even from the far side, and settling is
-    /// <see cref="PostBoostAim.SettlesWithinSeconds"/>. Sixty is several times both, and costs ~6%
-    /// of the quiet window.</para>
-    /// </summary>
-    public double QuietCoastEndsBeforeReleaseSeconds = 60.0;
 
     /// <summary>
     /// What a second of holding the warheads is charged at, overriding

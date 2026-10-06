@@ -2545,7 +2545,7 @@ the axes latching properly: commanding six degrees off the held line made the ve
 six tubes releasing at 5.2, 2.1, 8.2, 12.8, 14.1 and 11.7 degrees off it — against the six degrees
 of cant the turn exists to remove. The sweep never came under the gate, every release was a
 timeout, and the salvo took three minutes, against 1.7–0.3 km on the same shot without it. So
-`RepointBetweenReleases` stays **off**, and the ~1 km spread is the cant.
+`RepointBetweenReleases` stayed **off** and was removed on 2026-10-06; the ~1 km spread is the cant.
 
 Reopening it means a different bus — finer RCS, more inertia, or thrusters placed for translation
 — which is a craft design change rather than a mod one. `docs/MIRV-NEXT.md` §5 and §5a carry the

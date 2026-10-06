@@ -1516,9 +1516,9 @@ bus's six tubes — every axis is now `(1, 0, 0)` — and `ReleasePointing.Repoi
 between releases turns the vehicle by nothing. The cheaper answer was to stop creating the spread,
 and it was taken.
 
-The machinery stays, behind `RepointBetweenReleases` and still off, because a weapon pack may
-register a launcher that *is* canted; `CantedRing` exists as the test specimen for exactly that,
-and five suites fly against it.
+The machinery stays in `Sim/ReleaseSequence.cs` because a weapon pack may register a launcher that
+*is* canted; `CantedRing` exists as the test specimen for exactly that, and five suites fly against
+it. The switch that wired it into the flight, `RepointBetweenReleases`, was removed on 2026-10-06.
 
 ```
 Rocket_1 control: None/None/None, roll Decoupled, control part NONE
@@ -1551,8 +1551,8 @@ straight tubes do not create. They are priced here against the cant that was —
 this term was worth **233 m** of spread, not the 2.69 km an earlier pass priced it at on an arc
 nobody flies — and that is what any canted launcher would be buying back.
 
-The mod-side defect 5a found is still worth having and stays in, behind `RepointBetweenReleases`
-and still off: the turn is now built from the live tube axis rather than the commanded one, so if a
+The mod-side defect 5a found is still worth having and stays in `Sim/ReleaseSequence.cs`, unwired since
+`RepointBetweenReleases` was removed on 2026-10-06: the turn is now built from the live tube axis rather than the commanded one, so if a
 bus ever exists that can hold the command, it will hold the right one.
 
 ## 5-old. Re-pointing — off again, and this time flown

@@ -110,42 +110,6 @@ internal static class VehicleCommand
     }
 
     /// <summary>
-    /// Assert that this vehicle is coasting on rails, so the engine propagates it as an exact conic
-    /// instead of integrating it.
-    ///
-    /// <para><b>The bubble cannot be escaped, so this makes it irrelevant instead.</b>
-    /// <c>PhysicsStates.TryToPutOnRails</c> returns a coasting vehicle to rails only when the
-    /// bubble's origin frame is <c>Cci</c>; a bubble whose heaviest member sits below the
-    /// near-surface radius is <c>Ccf</c>, and inside one there is no path back. A bus that goes
-    /// quiet in a <c>Ccf</c> bubble therefore stays integrated for the whole coast rather than
-    /// propagated as a conic. <c>docs/ACCURACY-PLAN.md</c> 3bv.</para>
-    ///
-    /// <para>A rails <c>Freefall</c> vehicle takes <c>ApplyFreefallMotion</c> and an exact conic
-    /// whatever the frame, and <c>UpdateFromAnalytic</c> handles a <c>Ccf</c> origin correctly, so
-    /// the assertion is enough on its own. It does not teleport: the conic is re-seeded from the
-    /// integrated state the vehicle actually has.</para>
-    ///
-    /// <para><b>Only ever alongside a released attitude.</b> Any commanded actuator puts the
-    /// vehicle off rails on the same sub-step, so this is a write the engine would undo the moment
-    /// anything points the craft — which is why <see cref="AttitudeHook.QuietOnRails"/> is the only
-    /// caller and why it releases the attitude first.</para>
-    /// </summary>
-    public static void TryAssertRails(Vehicle craft)
-    {
-        if (!KsaWorld.IsAlive(craft)) return;
-
-        try
-        {
-            craft.GetPhysicsStatesMutable().Props.SetOnRails(isOnRails: true);
-        }
-        catch
-        {
-            // Losing this turns the feature off rather than breaking the flight: the coast is then
-            // integrated exactly as it is without it.
-        }
-    }
-
-    /// <summary>
     /// Adds an impulse and an angular impulse about the centre of mass, both in the craft's own
     /// assembly frame, the way <c>Vehicle.Split</c> pushes two halves apart: into the physics state
     /// it keeps, off rails so the change is integrated rather than overwritten by the conic, with
