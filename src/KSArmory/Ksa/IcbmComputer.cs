@@ -156,11 +156,6 @@ internal sealed class IcbmComputer
     // the walk actually tracks and an instrument that moved it would be measuring itself.
     private readonly List<WarheadTrace> _traces = [];
 
-    // The miss kicks already applied in this release, for IcbmConfig.ShrinkMissKickToTheGroup.
-    // Scoped to one salvo: a warhead is shrunk toward what its own siblings asked for, never
-    // toward a previous rocket's.
-    private double3 _missKickSum = Vec.Zero;
-    private int _missKickCount;
     private readonly SalvoProbe _salvoProbe = new();
     private bool _traceWanted;
 
@@ -545,8 +540,6 @@ internal sealed class IcbmComputer
         _saidTraceStranded = false;
         foreach (WarheadTrace trace in _traces) trace.Forget();
         _traces.Clear();
-        _missKickSum = Vec.Zero;
-        _missKickCount = 0;
         _salvoProbe.Forget();
         _flownKick = null;
         _walker.Reset();
@@ -2402,8 +2395,6 @@ internal sealed class IcbmComputer
             {
                 _salvoSize = 1 + weapon.TubesReadyToFire;
                 _salvoProbe.Forget();
-                _missKickSum = Vec.Zero;
-                _missKickCount = 0;
                 SayWhatTheLoopLeft();
                 SayWhatTheGroundUnderTheAimIsLike();
             }
@@ -2590,8 +2581,6 @@ internal sealed class IcbmComputer
         // A probe of the previous target's trajectory solves the wrong separation kick, and the
         // miss-kick sums are the shape of that stop's group rather than of this one's.
         _salvoProbe.Forget();
-        _missKickSum = Vec.Zero;
-        _missKickCount = 0;
         _flownKick = null;
 
         _trimAbandoned = false;
@@ -3033,12 +3022,6 @@ internal sealed class IcbmComputer
                                              Config.ProbeMissFollowsTheGround ? TerrainRadiusAt : null)
                 : null;
 
-            // Only once a sibling has gone: the first warhead out has nothing to be shrunk toward,
-            // and shrinking it toward zero would throw away the common part the kick is for.
-            (double3, double)? shrink = Config.ShrinkMissKickToTheGroup > 0.0 && _missKickCount > 0
-                ? (_missKickSum / _missKickCount, 1.0 - Math.Clamp(Config.ShrinkMissKickToTheGroup, 0.0, 1.0))
-                : null;
-
             ReleaseFocus.FlownSensitivity? throughTheAir =
                 Config.KickThroughTheAir && (focusRing || miss is not null) ? KickColumnsThroughTheAir(from, who, what) : null;
 
@@ -3048,7 +3031,7 @@ internal sealed class IcbmComputer
                                                              released.SpinVelocityEcl.Transform(cce2Cci),
                                                              focusRing,
                                                              Config.CancelSpinAtSeparation,
-                                                             miss, shrink, throughTheAir, missCap);
+                                                             miss, throughTheAir, missCap);
 
             bool missGiven = kick.Miss == ReleaseFocus.MissOutcome.Cancelled;
             bool anything = kick.RingFocused || kick.SpinCancelled || missGiven;
@@ -3072,12 +3055,6 @@ internal sealed class IcbmComputer
                 Log.Info($"focus on {who}: {what}'s release probe miss{missSaid} not cancelled -- its "
                          + $"{Vec.Len(kick.MissKickCci) * 1000.0:F3} mm/s kick is over the "
                          + $"{missCap * 1000.0:F1} mm/s cap");
-            }
-
-            if (kick.Miss == ReleaseFocus.MissOutcome.Cancelled)
-            {
-                _missKickSum += kick.MissKickCci;
-                _missKickCount++;
             }
 
             if (!anything) return;

@@ -1169,19 +1169,6 @@ internal sealed partial class Ui
             + "so refusals begin under 3 m on a 345 s flight, and the log says when one was refused. "
             + "Flown at 2 m, every warhead landed on its ring. It is NOT a MIRV footprint -- the fireball "
             + "alone is 706 m -- and real per-target spread needs the bus to manoeuvre between releases.");
-
-        float shrink = (float)config.ShrinkMissKickToTheGroup;
-        if (ImGui.SliderFloat("Shrink miss kick to the group", ref shrink, 0f, 1f, "%.2f"))
-        {
-            config.ShrinkMissKickToTheGroup = shrink;
-        }
-        Tip($"How much of a warhead's own release-probe miss kick to replace with what its siblings "
-            + $"already asked for. {config.ShrinkMissKickToTheGroup:F2}; 0 is its own, which is every flight "
-            + "so far. The shared part of that kick is worth 459 mm of centre and is always kept; the part "
-            + "that differs between siblings behaves as injected noise, and the landing regresses on it at "
-            + "-1.09. Counterfactually 0.5 is 0.89x on the median worst warhead and 0.93x on ground steep "
-            + "enough to amplify without bound. NEVER FLOWN -- every one of those numbers is arithmetic on "
-            + "logged shots rather than a flight.");
     }
 
     private static float4 PhaseColour(IcbmPhase phase) => phase switch

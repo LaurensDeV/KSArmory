@@ -10432,6 +10432,10 @@ each half-group because that is where the effect lives. It needs plumbing that d
 **Still not built and still not a `fix`.** But 3ef's "no affordable flown design can confirm it" is
 withdrawn: two nights at 69% is affordable, and the decision is the user's rather than mine.
 
+*`IcbmConfig.ShrinkMissKickToTheGroup` carried it, off and never flown, and was removed on 2026-10-06
+with nothing in the plan to fly it: the counterfactual above stands, the within-rocket split it needs
+was never built, and the kick's shrink was three lines of `ReleaseFocus.Kick` to put back.*
+
 ## 3ek. On flat ground the group is 3.8 mm, and the miss is the frame-time walk — 2026-09-17
 
 `~/shots/2026-09-17-chaco`, **one shot, 8 of 8 PASS**, KSA's own log clean. `SOLVER SCALE 8` aimed at
@@ -10734,7 +10738,7 @@ reference air`, then `release probe: round N borrows round M's, ~23 ms old, for 
 impact`, then that round's `focus on` lines, and it lands millimetres from the aim instead of 1.7–2.0 m.
 
 Seen in passing and not touched: `IcbmComputer.StepTrace` clears `_missKickSum` every frame the trace is not wanted,
-so with tracing off `ShrinkMissKickToTheGroup` never finds a sibling. It is off at zero and never flown.
+so with tracing off `ShrinkMissKickToTheGroup` never finds a sibling. It is off at zero and never flown. *(Removed 2026-10-06.)*
 
 ### And the fix is not a 204 m statement — the waterline is pinned too
 
