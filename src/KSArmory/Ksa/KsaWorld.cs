@@ -5265,6 +5265,41 @@ internal static class KsaWorld
         }
     }
 
+    private static FieldInfo? _manualInputs;
+    private static FieldInfo? _engineThrottle;
+
+    /// <summary>
+    /// Move a craft's throttle by <paramref name="delta"/> outright, clamped as the engine clamps it: what holding the
+    /// throttle key would do, for the frames KSA clears held keys. False where the private field cannot be reached.
+    /// </summary>
+    public static bool TryNudgeThrottle(Vehicle craft, double delta)
+    {
+        try
+        {
+            _manualInputs ??= typeof(Vehicle).GetField("_manualControlInputs", BindingFlags.NonPublic | BindingFlags.Instance);
+            if (_manualInputs?.GetValue(craft) is not { } inputs) return false;
+            _engineThrottle ??= inputs.GetType().GetField("EngineThrottle", BindingFlags.Public | BindingFlags.Instance);
+            if (_engineThrottle is null) return false;
+
+            float have = (float)_engineThrottle.GetValue(inputs)!;
+            _engineThrottle.SetValue(inputs, Math.Clamp(have + (float)delta, craft.GetMinThrottle(), 1f));
+
+            // ManualControlInputs is a struct, so what was read is a boxed copy and has to go back.
+            _manualInputs.SetValue(craft, inputs);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>Claim the keyboard for the UI on the next frame, as a modal or a focused text field does.</summary>
+    public static void HoldTheKeyboard() => Brutal.ImGuiApi.ImGui.SetNextFrameWantCaptureKeyboard(true);
+
+    /// <summary>The player's frame time, which is what KSA moves a held throttle key by.</summary>
+    public static double PlayerDeltaTime => Program.GetPlayerDeltaTime();
+
     /// <summary>
     /// Whether KSA is throwing away the held controls on this craft this frame, and which of its reasons
     /// applies.

@@ -84,6 +84,8 @@
 # startVehicle at it, or name it here:
 #
 #   KSARMORY_SCENARIO_CRAFT="Peacekeeper" ./tools/scenario.sh mirv
+#   KSARMORY_SCENARIO_HOLDKEYS=1 ./tools/scenario.sh mirv   # ...with the UI holding the keyboard throughout,
+#                                     as KSA's update notice does to every launch once a newer build is out
 #
 # Everything after that is done for you: it finds whichever craft in the scene has a ballistic
 # computer and its wheels on the ground, designates the aim point, arms, asks the world
@@ -216,12 +218,12 @@ mkdir -p "$USER_DIR/Logs"
 {
     printf '%s|%s\n' "$SCENARIO" "$SAVE"
     printf '%s\n%s\n' "$ARMS" "$ARM_PHASE"
-    printf '%s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s\n' "${KSARMORY_SCENARIO_KEEPSTAGES:+keepstages}" "${KSARMORY_SCENARIO_TRACE:+trace}" \
+    printf '%s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s\n' "${KSARMORY_SCENARIO_KEEPSTAGES:+keepstages}" "${KSARMORY_SCENARIO_TRACE:+trace}" \
         "${KSARMORY_SCENARIO_VERBOSE:+verbose}" "${KSARMORY_SCENARIO_CHASE:+chase}" "${KSARMORY_SCENARIO_CLOUDS:+clouds}" "${KSARMORY_SCENARIO_NOSHADER:+noshader}" "${KSARMORY_SCENARIO_TWOCLOUDS:+twoclouds=$KSARMORY_SCENARIO_TWOCLOUDS}" "${KSARMORY_SCENARIO_CLOUDWARP:+cloudwarp=$KSARMORY_SCENARIO_CLOUDWARP}" "${KSARMORY_SCENARIO_WATCHELEV:+watchelev=$KSARMORY_SCENARIO_WATCHELEV}" "${KSARMORY_SCENARIO_STILLAT:+stillat=$KSARMORY_SCENARIO_STILLAT}" "${KSARMORY_SCENARIO_BLACKOUT:+blackout=$KSARMORY_SCENARIO_BLACKOUT}" "${KSARMORY_SCENARIO_NOBLACKOUT:+noblackout}" \
         "${KSARMORY_SCENARIO_SPEEDS:+speeds=$KSARMORY_SCENARIO_SPEEDS}" \
         "${KSARMORY_SCENARIO_SITE:+site=$KSARMORY_SCENARIO_SITE}" \
         "${KSARMORY_SCENARIO_FUSE:+fuse=$KSARMORY_SCENARIO_FUSE}" "${KSARMORY_SCENARIO_CHUTE:+chute=$KSARMORY_SCENARIO_CHUTE}" \
-        "${KSARMORY_SCENARIO_SELECTOTHER:+selectother}"
+        "${KSARMORY_SCENARIO_SELECTOTHER:+selectother}" "${KSARMORY_SCENARIO_HOLDKEYS:+holdkeys}"
 } > "$USER_DIR/Logs/scenario.txt"
 
 # KSA shows a configuration dialog at startup and waits for START KSA to be clicked, which is

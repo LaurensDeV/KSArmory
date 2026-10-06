@@ -60,6 +60,7 @@ internal sealed class ScenarioRunner
     // Which variant each rocket flies, when a batch is comparing two inside one world. Null is the
     // ordinary case: every rocket flies whatever was built.
     private ShotArms? _arms;
+    private bool _holdKeys;
     private string _armSpec = string.Empty;
     private bool _keepStages;
     private bool _traceWarhead;
@@ -431,6 +432,7 @@ internal sealed class ScenarioRunner
         _keepStages = Array.IndexOf(options, "keepstages") >= 0;
         _traceWarhead = Array.IndexOf(options, "trace") >= 0;
         _selectOther = Array.IndexOf(options, "selectother") >= 0;
+        _holdKeys = Array.IndexOf(options, "holdkeys") >= 0;
 
         // Nobody can tick Verbose log in a scripted run, and the developer detail -- the per-part
         // blast sweep among it -- is only ever wanted from one.
@@ -822,6 +824,9 @@ internal sealed class ScenarioRunner
     {
         if (_phase is Phase.Idle or Phase.Done) return;
         if (!double.IsFinite(playerStep) || playerStep <= 0.0) return;
+
+        // The UI holding the keyboard is what an open popup does to the rocket being flown, without the popup.
+        if (_holdKeys) KsaWorld.HoldTheKeyboard();
 
         // Nobody is there to click a popup away, and an open one holds the controlled rocket's throttle.
         IReadOnlyList<string> closed = KsaWorld.CloseEnginePopups();
