@@ -72,6 +72,14 @@ internal static class AttitudeHook
     // Which way a craft's throttle key is held this frame, for the frames KSA clears held keys on the craft being flown.
     private static readonly Dictionary<Vehicle, int> ThrottleKeys = [];
 
+    // Crafts whose held translation jets are put back after KSA clears them, and what was held this frame.
+    private static readonly HashSet<Vehicle> JetsThroughTheClear = [];
+    private static readonly Dictionary<Vehicle, ThrusterMapFlags> HeldJets = [];
+
+    private const ThrusterMapFlags Translation = ThrusterMapFlags.TranslateForward | ThrusterMapFlags.TranslateBackward
+                                                 | ThrusterMapFlags.TranslateRight | ThrusterMapFlags.TranslateLeft
+                                                 | ThrusterMapFlags.TranslateDown | ThrusterMapFlags.TranslateUp;
+
     // Shoves written, read back two steps later, once the worker that integrated them has had its
     // results applied: what the craft's velocity did against what was written, because a frame
     // wrong in the conversion shows as a craft thrown the wrong way. Then followed for a few seconds,
@@ -120,8 +128,11 @@ internal static class AttitudeHook
             MethodInfo prefix = typeof(AttitudeHook).GetMethod(
                 nameof(BeforePrepareWorker), BindingFlags.NonPublic | BindingFlags.Static)!;
 
+            MethodInfo postfix = typeof(AttitudeHook).GetMethod(
+                nameof(AfterPrepareWorker), BindingFlags.NonPublic | BindingFlags.Static)!;
+
             _harmony = new Harmony(HarmonyId);
-            _harmony.Patch(target, prefix: new HarmonyMethod(prefix));
+            _harmony.Patch(target, prefix: new HarmonyMethod(prefix), postfix: new HarmonyMethod(postfix));
 
             Installed = true;
             Trouble = "";
@@ -192,6 +203,16 @@ internal static class AttitudeHook
     {
         if (direction == 0) ThrottleKeys.Remove(craft);
         else ThrottleKeys[craft] = direction;
+    }
+
+    /// <summary>
+    /// Keep a craft's held translation jets through KSA's clear of held keys, as <see cref="ThrottleKey"/> keeps its
+    /// throttle moving: the clear zeroes them inside <c>PrepareWorker</c>, after the prefix.
+    /// </summary>
+    public static void KeepJetsThroughTheClear(Vehicle craft, bool keep)
+    {
+        if (keep) JetsThroughTheClear.Add(craft);
+        else JetsThroughTheClear.Remove(craft);
     }
 
     /// <summary>
@@ -293,6 +314,22 @@ internal static class AttitudeHook
         if (Pulsed.Remove(craft)) Restore.Add(craft);
     }
 
+    // After the clear and after the worker's copy is taken, so the jets go into both.
+    private static void AfterPrepareWorker(Vehicle __instance)
+    {
+        try
+        {
+            if (HeldJets.Count > 0 && HeldJets.Remove(__instance, out ThrusterMapFlags jets) && jets != ThrusterMapFlags.None)
+            {
+                KsaWorld.TryRestoreJets(__instance, jets);
+            }
+        }
+        catch (Exception e)
+        {
+            Log.Error("held jets could not be put back", e);
+        }
+    }
+
     // Runs inside KSA's frame loop, immediately before the flight computer is snapshotted for the
     // worker. Everything here is wrapped, because an exception at this point is not a log line.
     private static void BeforePrepareWorker(Vehicle __instance)
@@ -300,6 +337,12 @@ internal static class AttitudeHook
         try
         {
             if (Staging.Count > 0 && Staging.Remove(__instance)) VehicleCommand.Stage(__instance);
+
+            if (JetsThroughTheClear.Count > 0 && JetsThroughTheClear.Contains(__instance)
+                && KsaWorld.DiscardsHeldControls(__instance, out _))
+            {
+                HeldJets[__instance] = __instance.GetThrusterFlags() & Translation;
+            }
 
             // The clear runs inside PrepareWorker after this and takes the held keys, never the throttle value, so the
             // step the key would have made is made here, at KSA's own 0.7 a second of the player's frame.

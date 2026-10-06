@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-300 types and 808 members across 11 assemblies.
+302 types and 809 members across 11 assemblies.
 
 ## BepuUtilities
 
@@ -1123,6 +1123,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 *referenced as a type only*
 
+### KSA.ManualControlInputs
+
+*referenced as a type only*
+
 ### KSA.MassProperties
 
 - `BepuUtilities.Symmetric3x3 Inertia`
@@ -1656,6 +1660,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.TextureReference Get()`
 - `int get_BindlessHandle()`
 
+### KSA.ThrusterMapFlags
+
+*referenced as a type only*
+
 ### KSA.Transform3D
 
 - `Brutal.Numerics.double3 get_PositionEcl()`
@@ -1713,6 +1721,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.PartTree get_Parts()`
 - `KSA.PhysicsStates GetPhysicsStatesMutable()`
 - `KSA.Situation get_Situation()`
+- `KSA.ThrusterMapFlags GetThrusterFlags()`
 - `KSA.Vehicle CreateVehicle(KSA.CelestialSystem, Brutal.Numerics.doubleQuat, Brutal.Numerics.double3, KSA.IParentBody, string, KSA.Part, KSA.Orbit)`
 - `KSA.Vehicle get_BubbleLeader()`
 - `bool IsAnyEnginePropellantAvailable()`

@@ -1845,6 +1845,7 @@ internal sealed class IcbmComputer
         // worker's results copies the whole flight computer over anything written outside it. The
         // directions are commanded the same way either way.
         AttitudeHook.PulseMode(Craft, trim.Pulse);
+        AttitudeHook.KeepJetsThroughTheClear(Craft, Config.JetsThroughTheKeyboardClear);
         VehicleCommand.DriveTranslation(Craft, trim.Fire);
 
         // The post-boost passes. With the thrusters quiet and the nose steady the correction gets a

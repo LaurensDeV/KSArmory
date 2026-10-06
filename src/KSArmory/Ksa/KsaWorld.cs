@@ -5294,6 +5294,41 @@ internal static class KsaWorld
         }
     }
 
+    private static FieldInfo? _workerState;
+    private static FieldInfo? _workerInputs;
+    private static FieldInfo? _thrusterFlags;
+
+    /// <summary>
+    /// Put translation jets back on a craft after KSA has cleared its held keys: on the vehicle's own inputs and on
+    /// the copy its worker reads, both structs held by value. False where a private field cannot be reached.
+    /// </summary>
+    public static bool TryRestoreJets(Vehicle craft, ThrusterMapFlags jets)
+    {
+        try
+        {
+            _manualInputs ??= typeof(Vehicle).GetField("_manualControlInputs", BindingFlags.NonPublic | BindingFlags.Instance);
+            _workerState ??= typeof(Vehicle).GetField("_threadWorkerUpdateState", BindingFlags.NonPublic | BindingFlags.Instance);
+            if (_manualInputs is null || _workerState?.GetValue(craft) is not { } state) return false;
+
+            _workerInputs ??= state.GetType().GetField("ManualControlInputs", BindingFlags.Public | BindingFlags.Instance);
+            _thrusterFlags ??= typeof(ManualControlInputs).GetField("ThrusterCommandFlags", BindingFlags.Public | BindingFlags.Instance);
+            if (_workerInputs is null || _thrusterFlags is null) return false;
+
+            object own = _manualInputs.GetValue(craft)!;
+            _thrusterFlags.SetValue(own, (ThrusterMapFlags)_thrusterFlags.GetValue(own)! | jets);
+            _manualInputs.SetValue(craft, own);
+
+            object worker = _workerInputs.GetValue(state)!;
+            _thrusterFlags.SetValue(worker, (ThrusterMapFlags)_thrusterFlags.GetValue(worker)! | jets);
+            _workerInputs.SetValue(state, worker);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     /// <summary>Claim the keyboard for the UI on the next frame, as a modal or a focused text field does.</summary>
     public static void HoldTheKeyboard() => Brutal.ImGuiApi.ImGui.SetNextFrameWantCaptureKeyboard(true);
 

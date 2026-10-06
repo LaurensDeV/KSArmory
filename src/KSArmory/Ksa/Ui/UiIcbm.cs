@@ -1066,6 +1066,14 @@ internal sealed partial class Ui
             + $"release, as long as that leaves {SeparationClearance.TrimNeedsSeconds:F0} s to trim. Off: it trims as soon "
             + "as the stack is a sphere and ten metres away.");
 
+        bool jetsThrough = config.JetsThroughTheKeyboardClear;
+        if (ImGui.Checkbox("Trim jets keep firing while a window has the keyboard", ref jetsThrough))
+        {
+            config.JetsThroughTheKeyboardClear = jetsThrough;
+        }
+        Tip("On: while KSA drops the flown craft's held keys, the trim's jets are put back after the drop, so the bus "
+            + "still trims. Off: the trim stops firing until the window closes.");
+
         bool throughClear = config.ThrottleThroughTheKeyboardClear;
         if (ImGui.Checkbox("Throttle keeps moving while a window has the keyboard", ref throughClear))
         {
