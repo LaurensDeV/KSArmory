@@ -1047,7 +1047,8 @@ internal sealed class IcbmComputer
                 Log.Debug($"cutoff approach on {KsaWorld.DisplayName(Craft)}: countdown {Program.Countdown:F3} s, "
                           + $"to gain {Program.VelocityToGain:F2} m/s, achieved {_throttleAchieved:F3}, "
                           + $"line {(Program.LineSlowed ? "slowed" : "followed")}, drag offset {Program.DragOffsetMetres:F0} m, "
-                          + $"drag-flown miss {Program.DragMissMetres:F0} m");
+                          + $"drag-flown miss {Program.DragMissMetres:F0} m, alt {state.Altitude / 1000.0:F2} km, climbing "
+                          + $"{Vec.Dot(state.AirflowCci, state.UpCci):F1} m/s, arrival committed in {Program.CommittedArrivalFromNow:F1} s");
             }
 
             _sinceThrottleProbe += playerStep;

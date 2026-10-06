@@ -558,20 +558,26 @@ worst warhead of six, one flight each, every kick taken and no exceptions in KSA
 
 The 25 km column was flown on the build before the kick cap, which does not reach a release at cutoff.
 
-**Open: a liquid stack hovers at 25 km.** Real Liquid2 and Real Liquid3 both did, every time. The last two
-seconds' throttle-down asks for what is left over `ThrottleDownSeconds`, which assumes all of the thrust closes
-it. On the arc that holds, because the required velocity falls with gravity too. A stack that has slowed to
-nearly still pointing up loses g along the line instead, and the ramp settles where what is left over two
-seconds equals it: Real Liquid2 held 22 m/s at 1.00 g for twelve minutes, burning out its first stage and most
-of its second, and finished only when the throttle it asked for fell under the engine's 0.112 floor. It
-then landed 0.5 mm out. Real Liquid3 was stopped after nine minutes of the same. The rig flies the same stack
-up the arc and never stalls, so it cannot reproduce it.
+**Open: a liquid stack hovers at 25 km.** Real Liquid2 and Real Liquid3 both did, every time, and the rig does
+not. Traced on 2026-10-06 (`~/shots/2026-10-06-hover/liquid2-diag`, altitude, climb and committed arrival on the
+`cutoff approach` line): the closed loop enters its throttle-down at 6 km climbing 194 m/s, closes slowly at
+0.2-0.4 throttle while the stack coasts up to 8.8 km and falls back, and ends **stood still 1.6 km over the
+target**. There the committed arrival alternates between pinned 20.1-20.4 s ahead and released, solve by solve --
+judged unsolvable, given up, and re-pinned at once because a short shot pins whatever the loop has. A 20 s fall
+from 1.6 km needs an 18-22 m/s toss upward; with the arrival re-pinned the required velocity does not fall with
+gravity, the ramp asks for what is left over two seconds, and it settles at thrust = weight. Liquid2 held 22 m/s at
+1.00 g for twelve minutes, burned out most of two stages, and finished only when the throttle it asked for fell
+under the engine's 0.112 floor; it then landed 0.5 mm out.
 
-Not in, both tried: the throttle-down plus gravity along the line cut off at 0.33 throttle in the rig where the
-ramp ends at 0.03, the last-frame error the ramp exists to remove; plus the loss measured between solves
-(`ShortShotThrottleCoversTheLoss`) landed Real Liquid3 at 5.5 mm and Real Liquid2 at **119 m**, holding 0.35-0.6
-throttle down to the last few m/s and cutting off 2.16 m/s short. A fix has to act only while the closure has
-stalled, and needs a rig fixture that stalls first.
+The likely root is the geometry rather than the throttle: a transfer from directly over the target is nearly
+radial, which the docs name as a case the Lambert solve cannot answer, so the pin cannot hold there. Not in, all
+flown or measured: the throttle-down plus gravity along the line, always (0.33 throttle at cutoff in the rig, where
+the ramp ends at 0.03); plus the loss measured between solves (Liquid3 5.5 mm, Liquid2 **119 m**, 2.16 m/s short);
+holding the drag offset once the ramp passes 30 s (still hovered: with the drag solve off the shot closed in 79 s
+and landed 336 m out, so the moving offset is how the stack is slowed into the hover, not what holds it there);
+and gravity added only once the ramp passes 30 s (no hover, closed in 2.5-3 min, but cut off 2.9 m/s short with
+the arrival still flipping: 24.8 m and 26.1 m; GeoSat FAT untouched at 2.5 mm). Next: stop the closed loop
+re-pinning onto a near-radial transfer, and a rig fixture that ends over its target.
 
 **Open: a hot core chases its floor** (Real SRB4, 500 and 700 km). Its core makes 8-10 g at full thrust, so
 the 30 m/s or so the closed loop is left with is inside the throttle-down from the moment it takes over. The
