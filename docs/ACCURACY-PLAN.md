@@ -8,6 +8,38 @@ Read this first; those two keep their reasoning and their measurements.
 the KSA corpus and the backlog itself — and between them they moved the top of the list from "tune a
 constant" to "there is a bug, and the engine has a lever nobody used".
 
+## 12,900 km on 2026-10-06 — the kick cap, and seat 1
+
+**Flown** on `SOLVER SCALE 8`, `--aim none` (the save's defended site, 12,900 km), dev `26945783` then
+`145da333`: two base worlds (`~/shots/2026-10-06-longrange/`), then a declared paired night of eight
+(`~/shots/2026-10-06-longkick/`, `~/shots/scripts-2026-10-06/DECLARE-longkick.md`).
+
+**Every rocket lands on its release probe, and the probe is metres out.** On the base worlds each probe
+predicted the landing to centimetres, 5-98 m from the aim, and the kick that would cancel it, 11-20 mm/s and
+up, was refused at `ReleaseFocus.MaxMissKickMetresPerSecond`. The one rocket whose kick fitted under 10 mm/s
+landed 2 mm out. The same shape as the short shots at 500-700 km (`SHORT-RANGE.md`).
+
+**`IcbmConfig.LongShotMissKickMetresPerSecond` at 1.0, paired**, worst warhead per rocket over seats 2-8:
+
+| arm | n | median | worst | under 25 mm |
+| --- | --- | --- | --- | --- |
+| base, 10 mm/s | 28 | 7.1 m | 67.4 m | 8, the ones whose kick fitted |
+| kick, 1 m/s | 28 | **2.0 mm** | **17.6 mm** | 28 |
+
+The declared bar is met many times over. **It ships off**: whether a long shot may separate at up to 1 m/s
+is a design choice the declaration left to the owner, not the night.
+
+**Seat 1 is apart, on both arms, for two reasons.** It is aimed at the defended structure itself, where
+`AimSpread` rings the other seats round it, so a warhead kicked exactly onto the aim **strikes the
+structure** ("detonated on contact", loading `AA Defence Site`) about 2.5 m above the ground: scored against
+the ground point, that is 4.55 m short, four flights of eight at -3.85 m downrange, +0.20 cross. The trace
+re-flown 0.35 s before impact still reads 0.6 mm from the probe, so it is the target, not the flight. And
+seat 1's **aim loop starts about two minutes before its handover**, where every other seat starts 30 s
+before, measures the plant at 0.07-0.85 instead of 1.00, and walks its bias out to 12.9 km: on four flights
+of ten across both nights that left 27, 54, 113 and 475 m. Seat 1 is also the controlled craft, and a
+3 s frame follows its cutoff on both base worlds; the ICBM computer takes the unclamped step, so its clocks do
+not lose it. Cause not found.
+
 ## Where it stands after 2026-09-15 — read this first
 
 **The one-line version: the shot is 0.04 m median per rocket, down from 17 before eleven fixes that all
