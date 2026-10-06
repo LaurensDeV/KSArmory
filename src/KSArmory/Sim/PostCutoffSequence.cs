@@ -56,6 +56,15 @@ internal static class PostCutoffSequence
     }
 
     /// <summary>
+    /// Whether the release waits on the trim. A precondition of being ready rather than a step inside the release
+    /// sequence, because that sequence latches its reference on the first ready frame, and a reference latched before
+    /// the decoupler's shove is out describes a line no warhead will leave on.
+    /// </summary>
+    public static bool TrimHoldsTheRelease(bool trimBeforeRelease, bool readyToDeploy, bool trimAbandoned,
+                                           bool releasesAtCutoff, bool trimDone, bool correcting)
+        => trimBeforeRelease && readyToDeploy && !trimAbandoned && !releasesAtCutoff && (!trimDone || correcting);
+
+    /// <summary>
     /// One frame of the loop, from the clearance's verdict and what the trim has spent.
     /// </summary>
     /// <param name="keepOutCoversTheClearance">

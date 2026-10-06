@@ -142,14 +142,10 @@ internal sealed class PostCutoffRig
     // As IcbmComputer.ForTheTrimMetres asks it, with the coast standing in for the post-boost clock.
     private double ForTheTrim(BusTrim trim, double3 fromStackCci, double3 relativeCci, double since)
     {
-        if (!WaitsOutTheStack || !Vec.IsFinite(trim.ToGainCci) || fromStackCci.Equals(Vec.Zero)) return 0.0;
+        if (!WaitsOutTheStack || !Vec.IsFinite(trim.ToGainCci)) return 0.0;
 
-        double toRelease = CoastSeconds - since;
-        if (!(toRelease > SeparationClearance.TrimNeedsSeconds)) return 0.0;
-
-        double closing = -Vec.Dot(relativeCci + trim.ToGainCci, Vec.Unit(fromStackCci));
-        return SeparationClearance.ForTheTrimMetres(ProximityWatch.KeepOutFor(StageRadiusMetres), closing,
-                                                    toRelease);
+        return SeparationClearance.ForTheTrimMetres(ProximityWatch.KeepOutFor(StageRadiusMetres), fromStackCci,
+                                                    relativeCci, trim.ToGainCci, CoastSeconds - since);
     }
 
     // The bus's own control axes, as the rig lays them out. One direction at a time, which is what

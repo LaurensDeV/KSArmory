@@ -1636,16 +1636,13 @@ internal sealed class IcbmComputer
         // The release goes when the post-boost passes finish, at the latest when their clock runs out, and never
         // before the release gate.
         double toRelease = Math.Max(_postBoost.SecondsLeft, double.IsFinite(SecondsToRelease) ? SecondsToRelease : 0.0);
-        if (!(toRelease > SeparationClearance.TrimNeedsSeconds)) return 0.0;
 
         doubleQuat cce2Cci = parent.GetCce2Cci();
         double3 fromStack = (KsaWorld.PositionEcl(Craft) - KsaWorld.PositionEcl(stack)).Transform(cce2Cci);
         double3 relative = (KsaWorld.VelocityEcl(Craft) - KsaWorld.VelocityEcl(stack)).Transform(cce2Cci);
-        if (!Vec.IsFinite(fromStack) || !Vec.IsFinite(relative) || fromStack.Equals(double3.Zero)) return 0.0;
 
-        double closing = -Vec.Dot(relative + _trim.ToGainCci, Vec.Unit(fromStack));
-        return SeparationClearance.ForTheTrimMetres(ProximityWatch.KeepOutFor(radius), closing,
-                                                    toRelease);
+        return SeparationClearance.ForTheTrimMetres(ProximityWatch.KeepOutFor(radius), fromStack, relative,
+                                                    _trim.ToGainCci, toRelease);
     }
 
     // One line per change of state, which is all any of this is worth while nothing is happening
@@ -3592,13 +3589,9 @@ internal sealed class IcbmComputer
         double3 held = Command.ThrustDirectionCci;
         double3 roll = _rollReference;
 
-        // The trim is a precondition of being ready rather than a step inside the sequence, and
-        // that is what keeps the sequencer's reference honest: it latches the tube axes on the
-        // first frame the launcher is both ready and settled, and a reference latched before the
-        // decoupler's shove has been taken back out describes a line no warhead will leave on.
-        bool trimming = Config.TrimBeforeRelease && Command.ReadyToDeploy && !_trimAbandoned
-                        && !Program.ReleasesAtCutoff
-                        && (!_trim.Done || _postBoost.Correcting);
+        bool trimming = PostCutoffSequence.TrimHoldsTheRelease(Config.TrimBeforeRelease, Command.ReadyToDeploy,
+                                                               _trimAbandoned, Program.ReleasesAtCutoff,
+                                                               _trim.Done, _postBoost.Correcting);
 
         if (weapon is null || !Command.ReadyToDeploy || trimming)
         {

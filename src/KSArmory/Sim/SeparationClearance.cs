@@ -1,3 +1,5 @@
+using Brutal.Numerics;
+
 namespace KSArmory;
 
 /// <summary>Whether the thing that let go has got far enough away to act, and what to say about it.</summary>
@@ -84,6 +86,21 @@ internal static class SeparationClearance
            && secondsToRelease > 0.0
                ? keepOutMetres + (closingAfterTrim * secondsToRelease)
                : 0.0;
+
+    /// <summary>
+    /// The same distance from the pair's geometry: the bus's position and velocity relative to the stack, what the trim
+    /// owes, and the time to the release. Zero inside <see cref="TrimNeedsSeconds"/> of the release, which must leave the
+    /// trim time to fly.
+    /// </summary>
+    public static double ForTheTrimMetres(double keepOutMetres, double3 fromStackCci, double3 relativeCci,
+                                          double3 trimOwesCci, double secondsToRelease)
+    {
+        if (!(secondsToRelease > TrimNeedsSeconds)) return 0.0;
+        if (!Vec.IsFinite(fromStackCci) || !Vec.IsFinite(relativeCci) || fromStackCci.Equals(Vec.Zero)) return 0.0;
+
+        double closing = -Vec.Dot(relativeCci + trimOwesCci, Vec.Unit(fromStackCci));
+        return ForTheTrimMetres(keepOutMetres, closing, secondsToRelease);
+    }
 
     public static Clearance Check(double metresApart, double stageRadiusMetres, double secondsSinceSplit,
                                   double forTheTrimMetres = 0.0)
