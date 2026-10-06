@@ -461,6 +461,10 @@ TOOLS = {
                    {"lat": _num("deg"), "lon": _num("deg"), "to_lat": _num("deg"), "to_lon": _num("deg"),
                     "steps": _num("count")}, ["lat", "lon"],
                    lambda a: [_text(json.dumps(send("ground", **a)))]),
+    "ksa_orbit": ("Put a named craft on a circular orbit alt_km up (default 300), passing over lat/lon on "
+                  "heading_deg (default 180, south), as KSA's own Set Orbit window does.",
+                  {"craft": {"type": "string"}, "alt_km": _num("km"), "lat": _num("deg"), "lon": _num("deg"),
+                   "heading_deg": _num("deg")}, ["lat", "lon"], lambda a: [_text(json.dumps(send("orbit", **a)))]),
     "ksa_save": ("Write the game to a save of this name, as KSA's save console command does.",
                  {"name": {"type": "string"}}, ["name"], lambda a: [_text(json.dumps(send("save", **a)))]),
     "ksa_log": ("The mod's log, filtered.", {"pattern": {"type": "string"}, "lines": _num("count")}, [],

@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-297 types and 800 members across 11 assemblies.
+300 types and 808 members across 11 assemblies.
 
 ## BepuUtilities
 
@@ -738,6 +738,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.doubleQuat GetCce2Cci()`
 - `Brutal.Numerics.doubleQuat GetCcf2Cce()`
 - `Brutal.Numerics.doubleQuat GetCcf2Cci()`
+- `Brutal.Numerics.doubleQuat GetCcf2Cci(KSA.UniverseTime)`
 - `Brutal.Numerics.doubleQuat GetCci2Cce()`
 - `Brutal.Numerics.doubleQuat GetCci2Ccf()`
 - `KSA.CelestialTemplate get_BodyTemplate()`
@@ -1085,6 +1086,21 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 *referenced as a type only*
 
+### KSA.InputEvents
+
+- `TypedBuffer`1<TeleportInputData> TeleportInputBuffer`
+
+### KSA.InputEvents+TeleportInputData
+
+- `KSA.Orbit Orbit`
+- `KSA.Vehicle Vehicle`
+- `System.Nullable`1<Brutal.Numerics.double3> BodyRates`
+- `System.Nullable`1<Brutal.Numerics.doubleQuat> Body2Cce`
+
+### KSA.InputEvents+TypedBuffer`1
+
+*referenced as a type only*
+
 ### KSA.JobSystems
 
 - `Brutal.Concurrency.Jobs.JobScheduler VehicleSolver`
@@ -1196,6 +1212,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.Orbit
 
+- `Brutal.Numerics.byte4 OrbitLineColor`
 - `KSA.IParentBody get_Parent()`
 - `KSA.Orbit CreateFromStateCci(KSA.IParentBody, KSA.UniverseTime, Brutal.Numerics.double3, Brutal.Numerics.double3, Brutal.Numerics.byte4)`
 - `double get_Apoapsis()`
@@ -1649,6 +1666,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `KSA.CelestialSystem get_CurrentSystem()`
 - `KSA.SimStep GetLastSimStep()`
+- `KSA.SimStep GetNextSimStep()`
 - `KSA.UniverseTime GetElapsedTime()`
 - `bool IsPaused()`
 - `bool get_IsAutoWarpActive()`
