@@ -197,16 +197,6 @@ internal sealed class IcbmConfig
     public bool TrimBeforeRelease = true;
 
     /// <summary>
-    /// Drop the spent stack the moment the burn ends rather than when the release gate opens. Off:
-    /// the bus then holds its attitude for the whole coast with the empty stack still on, spending
-    /// its own thrusters on mass that is about to be thrown away, and on a short shot coasting
-    /// through air with that stack's drag. The trim still waits for the gate, so it nulls the
-    /// separation shove before anything leaves; what moves is when the shove arrives. A short shot
-    /// under <see cref="FlyAnyRange"/> separates at cutoff whatever this says. <b>Unflown.</b>
-    /// </summary>
-    public bool SeparateAtCutoff;
-
-    /// <summary>
     /// Keep a mark on the designated target, with the time to impact beside it.
     ///
     /// <para>Separate from the trajectory, and on by default, because it answers a different

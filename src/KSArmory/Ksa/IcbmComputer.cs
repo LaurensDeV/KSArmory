@@ -901,9 +901,8 @@ internal sealed class IcbmComputer
         FlightComputerAttitudeTrackTarget wasTrack = Craft.FlightComputer.AttitudeTrackTarget;
 
         // When the release gate opens, which on a long shot is minutes after cutoff -- so the bus
-        // holds attitude for the whole coast with the empty stack on. IcbmConfig.SeparateAtCutoff
-        // drops it when the burn ends instead, and a short shot always does: there the stack also
-        // coasts through air.
+        // holds attitude for the whole coast with the empty stack on. A short shot drops it when the
+        // burn ends instead: there the stack also coasts through air.
         //
         // Both of these run before anything decides whether a warhead may go, and the ordering is
         // the point. The decoupler's shove is about a metre a second and it arrives after the last
@@ -917,7 +916,7 @@ internal sealed class IcbmComputer
         // two warheads at 2.2 km and the four released after the split at 10.
         bool atCutoff = Program.ReleasesAtCutoff;
         bool burnOver = Program.Phase == IcbmPhase.Coast && !atCutoff
-                        && (Config.SeparateAtCutoff || Program.IsShortShot);
+                        && Program.IsShortShot;
         if ((Command.ReadyToDeploy && !atCutoff) || burnOver) SeparateOnce(release);
 
         DriveTrim(simStep, state, release);

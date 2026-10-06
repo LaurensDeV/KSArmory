@@ -202,8 +202,8 @@ over one night, each flight's failure becoming the next rule; what stands:
    g-load alone, so in this build an angle costs drag and nothing else (`docs/BLOCKED-ON-KSA.md`) — and **pins its
    arrival the moment the closed loop takes it**: left free, the cheapest arc from a point on a lofted one is a
    lower one, and the velocity to gain swung round to point backwards through a pause.
-5. **Release.** A short shot drops the spent stack at cutoff (`IcbmConfig.SeparateAtCutoff` does the same for any
-   shot, off). One that cuts off in the air, or whose arc stays under `DeployAltitudeMetres`, releases at cutoff,
+5. **Release.** A short shot drops the spent stack at cutoff (`IcbmConfig.SeparateAtCutoff`, which did the same for
+   any shot, was removed unflown on 2026-10-06). One that cuts off in the air, or whose arc stays under `DeployAltitudeMetres`, releases at cutoff,
    at once, from the bus still on the stack — no trim, no post-boost hold, no wait to settle. Each of those was a
    flown failure: the stack coasting through air with the warheads aboard (13.7 km), separating then releasing
    beside it (a 2.2 / 10 km split), a release gate that opened on the descent (10 km), a 53 s wait for a stack

@@ -850,15 +850,6 @@ internal sealed partial class Ui
                 : "0: 15 s while flying any range is on, which supplies it; wide open only with that off, where a "
                   + "short shot overshoots and spends the upper stage braking -- flown at 418 km, it ran dry.");
 
-        bool separateEarly = config.SeparateAtCutoff;
-        if (ImGui.Checkbox("Drop the spent stack at cutoff", ref separateEarly))
-        {
-            config.SeparateAtCutoff = separateEarly;
-        }
-        Tip("On: the empty stack comes off when the burn ends, so the bus does not spend its own "
-            + "thrusters holding it through the coast. Off: it comes off when the release gate opens. "
-            + "The trim waits for the gate either way. A short shot always drops it at cutoff. Unflown.");
-
         bool anyRange = config.FlyAnyRange;
         if (ImGui.Checkbox("Fly any range on any stack", ref anyRange))
         {
