@@ -22,6 +22,7 @@ internal sealed class IcbmComputers(Config session)
 
     private readonly Dictionary<Vehicle, IcbmComputer> _computers = [];
     private readonly List<Vehicle> _stale = [];
+    private readonly List<SurveyedPart> _surveyed = [];
 
     // Who is mid-burn or mid-trim this frame, worked out once and handed to every computer. Reused
     // rather than rebuilt, because it is walked every frame of every flight.
@@ -93,6 +94,11 @@ internal sealed class IcbmComputers(Config session)
             if (!KsaWorld.IsAlive(craft)) continue;
             if (!systems[i].Inventory.HasGuidance) continue;
             if (_computers.ContainsKey(craft)) continue;
+
+            // The list is the panel's survey, refreshed every 60 draws, so on the frame a stack drops its bus it
+            // still lists the stack as carrying guidance; asked again here, it crewed a spare on every spent stage.
+            KsaWorld.SurveyParts(craft, _surveyed);
+            if (!WeaponSurvey.Survey(_surveyed, Catalogue.Components).HasGuidance) continue;
 
             _computers[craft] = new IcbmComputer(craft, new IcbmConfig(), _session);
             Log.Debug($"ICBM computer crewed on {KsaWorld.DisplayName(craft)}");
