@@ -38,9 +38,6 @@ internal sealed class PostCutoffRig
     /// <summary>The stack's bounding sphere, which is what the clearance is measured against.</summary>
     public double StageRadiusMetres = 5.3;
 
-    /// <summary>Whether the first pass may spend the budget — <see cref="IcbmConfig.TrimCeilingFromBudget"/>.</summary>
-    public bool CeilingFromBudget;
-
     /// <summary>Whether the keep-out covers the timeout — <see cref="IcbmConfig.KeepOutCoversTheClearance"/>.</summary>
     public bool KeepOutCoversTheClearance;
 
@@ -84,8 +81,7 @@ internal sealed class PostCutoffRig
 
             PostCutoffSequence.Plan plan = PostCutoffSequence.Decide(
                 clearance.IsClear, clearance.Abandoned, postBoostCycles: 0,
-                BudgetMetresPerSecond, trim.SpentMetresPerSecond, CeilingFromBudget,
-                KeepOutCoversTheClearance);
+                BudgetMetresPerSecond, trim.SpentMetresPerSecond, KeepOutCoversTheClearance);
 
             if (plan.Abandon)
             {

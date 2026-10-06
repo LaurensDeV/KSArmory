@@ -688,24 +688,6 @@ internal sealed partial class Ui
             + $"{PostBoostAim.MaxTrimMetresPerSecond:F0} m/s anyway, so a budget under that is the one "
             + "that binds.");
 
-        bool fromBudget = config.TrimCeilingFromBudget;
-        if (ImGui.Checkbox("First pass may spend the budget", ref fromBudget))
-        {
-            config.TrimCeilingFromBudget = fromBudget;
-        }
-        Tip("On: the pass that nulls the separation may spend what the budget has left. Off: that pass "
-            + $"is capped at {BusTrim.MaxMetresPerSecond:F0} m/s, and a bus that owes more releases "
-            + "untrimmed.");
-
-        bool affordable = config.AimWithinTrimBudget;
-        if (ImGui.Checkbox("Aim only where the trim can reach", ref affordable))
-        {
-            config.AimWithinTrimBudget = affordable;
-        }
-        Tip("On: the correction stops at the aim the remaining budget can fly it to. Off: the "
-            + $"correction may walk {AimCorrection.MaxMetres / 1000.0:F0} km, which one budget cannot "
-            + "fly at any range.");
-
         bool keepOut = config.KeepOutCoversTheClearance;
         if (ImGui.Checkbox("Keep trimming past the clearance", ref keepOut))
         {

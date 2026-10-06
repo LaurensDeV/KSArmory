@@ -4577,7 +4577,7 @@ against a 60 m/s budget.
 
 Two and a half to twelve times more aim than the actuator can follow, at every range this mod
 shoots at. `Sim/AimAuthority.cs` prices it from the trajectory — two transfers, differenced, nothing
-to tune — and `IcbmConfig.AimWithinTrimBudget` holds the loop to it. Off by default and **unflown**.
+to tune — and `IcbmConfig.AimWithinTrimBudget` held the loop to it. *(Flown since and lost, 1.11x, ACCURACY-PLAN 3br; removed 2026-10-06.)*
 
 **What it cannot do** is make a shot want a nearer aim. If the correction genuinely needs 200 km it
 clamps and the shot still misses, with the propellant unspent rather than wasted. The argument for
@@ -4873,7 +4873,7 @@ The endpoint agrees without resolving: `both` is 1.22x with four shots at **53.9
 104.78** times the baseline. A sign test cannot see that — it won 5 of 12, p=0.774 — but four
 catastrophes in twelve is not a distribution anyone should fly again.
 
-**So: do not fly `TrimCeilingFromBudget`.** It is off by default and stays off.
+**So: do not fly `TrimCeilingFromBudget`.** It stayed off, and was removed on 2026-10-06.
 
 ### And `payback` is now measured three times
 

@@ -21,7 +21,7 @@ public class PostCutoffSequenceTests
     public void TheFirstPassIsHeldToTheTrimsOwnConstant()
     {
         double ceiling = PostCutoffSequence.CeilingFor(
-            postBoostCycles: 0, Budget, spentMetresPerSecond: 0.0, fromBudget: false);
+            postBoostCycles: 0, Budget, spentMetresPerSecond: 0.0);
 
         Assert.True(double.IsNaN(ceiling));
     }
@@ -33,20 +33,9 @@ public class PostCutoffSequenceTests
     [Fact]
     public void OnceAPassHasRunTheCeilingIsWhatIsLeftOfTheBudget()
     {
-        Assert.Equal(60.0, PostCutoffSequence.CeilingFor(1, Budget, 0.0, fromBudget: false));
-        Assert.Equal(42.0, PostCutoffSequence.CeilingFor(1, Budget, 18.0, fromBudget: false));
-        Assert.Equal(26.0, PostCutoffSequence.CeilingFor(3, Budget, 34.0, fromBudget: false));
-    }
-
-    /// <summary>
-    /// The setting under test: the guard asks whether the AIM has moved when the question is
-    /// whether the BUS has separated, and 11 of 14 flown trims were over the constant at the split.
-    /// </summary>
-    [Fact]
-    public void TheSettingExtendsTheBudgetCeilingToTheFirstPass()
-    {
-        Assert.Equal(60.0, PostCutoffSequence.CeilingFor(0, Budget, 0.0, fromBudget: true));
-        Assert.Equal(50.0, PostCutoffSequence.CeilingFor(0, Budget, 10.0, fromBudget: true));
+        Assert.Equal(60.0, PostCutoffSequence.CeilingFor(1, Budget, 0.0));
+        Assert.Equal(42.0, PostCutoffSequence.CeilingFor(1, Budget, 18.0));
+        Assert.Equal(26.0, PostCutoffSequence.CeilingFor(3, Budget, 34.0));
     }
 
     /// <summary>
@@ -59,15 +48,15 @@ public class PostCutoffSequenceTests
     [InlineData(0.0, 0.0)]
     public void TheCeilingIsNeverNegative(double budget, double spent)
     {
-        Assert.Equal(0.0, PostCutoffSequence.CeilingFor(1, budget, spent, fromBudget: false));
+        Assert.Equal(0.0, PostCutoffSequence.CeilingFor(1, budget, spent));
     }
 
     [Fact]
     public void AnUnreadableBudgetIsNoAllowanceRatherThanAnInfiniteOne()
     {
-        Assert.Equal(0.0, PostCutoffSequence.CeilingFor(1, double.NaN, 0.0, fromBudget: false));
+        Assert.Equal(0.0, PostCutoffSequence.CeilingFor(1, double.NaN, 0.0));
         Assert.Equal(0.0, PostCutoffSequence.CeilingFor(1, double.PositiveInfinity,
-                                                        double.PositiveInfinity, fromBudget: false));
+                                                        double.PositiveInfinity));
     }
 
     /// <summary>
@@ -79,7 +68,7 @@ public class PostCutoffSequenceTests
     {
         PostCutoffSequence.Plan plan = PostCutoffSequence.Decide(
             clearanceIsClear: false, clearanceAbandoned: true, postBoostCycles: 2,
-            Budget, spentMetresPerSecond: 5.0, ceilingFromBudget: true);
+            Budget, spentMetresPerSecond: 5.0);
 
         Assert.True(plan.Abandon);
         Assert.False(plan.MayTrim);
@@ -94,7 +83,7 @@ public class PostCutoffSequenceTests
     {
         PostCutoffSequence.Plan plan = PostCutoffSequence.Decide(
             clearanceIsClear: true, clearanceAbandoned: true, postBoostCycles: 0,
-            Budget, 0.0, ceilingFromBudget: false);
+            Budget, 0.0);
 
         Assert.True(plan.Abandon);
         Assert.False(plan.MayTrim);
@@ -113,7 +102,7 @@ public class PostCutoffSequenceTests
     {
         PostCutoffSequence.Plan plan = PostCutoffSequence.Decide(
             clearanceIsClear: false, clearanceAbandoned: true, postBoostCycles: 0,
-            Budget, spentMetresPerSecond: 0.0, ceilingFromBudget: false,
+            Budget, spentMetresPerSecond: 0.0,
             keepOutCoversTheClearance: true);
 
         Assert.False(plan.Abandon);
@@ -128,7 +117,7 @@ public class PostCutoffSequenceTests
     {
         PostCutoffSequence.Plan plan = PostCutoffSequence.Decide(
             clearanceIsClear: false, clearanceAbandoned: true, postBoostCycles: 2,
-            Budget, spentMetresPerSecond: 18.0, ceilingFromBudget: false,
+            Budget, spentMetresPerSecond: 18.0,
             keepOutCoversTheClearance: true);
 
         Assert.Equal(42.0, plan.CeilingMetresPerSecond);
@@ -140,7 +129,7 @@ public class PostCutoffSequenceTests
     {
         PostCutoffSequence.Plan plan = PostCutoffSequence.Decide(
             clearanceIsClear: false, clearanceAbandoned: true, postBoostCycles: 0,
-            Budget, 0.0, ceilingFromBudget: false, keepOutCoversTheClearance: false);
+            Budget, 0.0, keepOutCoversTheClearance: false);
 
         Assert.True(plan.Abandon);
         Assert.False(plan.MayTrim);
@@ -156,9 +145,9 @@ public class PostCutoffSequenceTests
     public void ItChangesNothingWhileTheClearanceHasNotTimedOut(bool clear)
     {
         PostCutoffSequence.Plan on = PostCutoffSequence.Decide(
-            clear, clearanceAbandoned: false, 1, Budget, 5.0, false, keepOutCoversTheClearance: true);
+            clear, clearanceAbandoned: false, 1, Budget, 5.0, keepOutCoversTheClearance: true);
         PostCutoffSequence.Plan off = PostCutoffSequence.Decide(
-            clear, clearanceAbandoned: false, 1, Budget, 5.0, false, keepOutCoversTheClearance: false);
+            clear, clearanceAbandoned: false, 1, Budget, 5.0, keepOutCoversTheClearance: false);
 
         Assert.Equal(off, on);
     }
@@ -170,8 +159,7 @@ public class PostCutoffSequenceTests
     public void TheTrimFiresOnlyWhenTheClearanceSaysSo(bool clear)
     {
         PostCutoffSequence.Plan plan = PostCutoffSequence.Decide(
-            clear, clearanceAbandoned: false, postBoostCycles: 0, Budget, 0.0,
-            ceilingFromBudget: false);
+            clear, clearanceAbandoned: false, postBoostCycles: 0, Budget, 0.0);
 
         Assert.False(plan.Abandon);
         Assert.Equal(clear, plan.MayTrim);
@@ -182,78 +170,18 @@ public class PostCutoffSequenceTests
     /// two that agree today.
     /// </summary>
     [Theory]
-    [InlineData(0, 0.0, false)]
-    [InlineData(0, 0.0, true)]
-    [InlineData(2, 18.0, false)]
-    [InlineData(4, 61.0, true)]
-    public void ThePlanCarriesTheSameCeilingTheRuleGives(int cycles, double spent, bool fromBudget)
+    [InlineData(0, 0.0)]
+    [InlineData(2, 18.0)]
+    [InlineData(4, 61.0)]
+    public void ThePlanCarriesTheSameCeilingTheRuleGives(int cycles, double spent)
     {
         PostCutoffSequence.Plan plan = PostCutoffSequence.Decide(
-            clearanceIsClear: true, clearanceAbandoned: false, cycles, Budget, spent, fromBudget);
+            clearanceIsClear: true, clearanceAbandoned: false, cycles, Budget, spent);
 
-        double direct = PostCutoffSequence.CeilingFor(cycles, Budget, spent, fromBudget);
+        double direct = PostCutoffSequence.CeilingFor(cycles, Budget, spent);
 
         Assert.Equal(double.IsNaN(direct), double.IsNaN(plan.CeilingMetresPerSecond));
         if (!double.IsNaN(direct)) Assert.Equal(direct, plan.CeilingMetresPerSecond);
-    }
-
-    /// <summary>
-    /// A steep arrival's demand is large and <em>stationary</em>: the geometry asks for 7-11 m/s
-    /// where a shallow one asks 2.45, and it asks once. That is not a runaway and the old rule
-    /// could not tell the difference, which is what declined the whole correction on the shot that
-    /// produced the tightest group ever measured here.
-    /// </summary>
-    [Theory]
-    [InlineData(11.0, 11.0)]
-    [InlineData(11.0, 10.5)]
-    [InlineData(7.0, 9.0)]
-    [InlineData(2.45, 2.40)]
-    public void ALargeStationaryDemandIsNotARunaway(double now, double before)
-    {
-        Assert.False(PostCutoffSequence.IsRunaway(now, before));
-    }
-
-    /// <summary>
-    /// A wind-up is the correction and the trim driving one vehicle through one prediction, and its
-    /// signature is the first jump: 8h's trace nulls to 0.02 m/s and the next solve asks 12.63,
-    /// which is 632x.
-    /// </summary>
-    [Theory]
-    [InlineData(12.63, 0.02)]
-    [InlineData(3.0, 1.0)]
-    [InlineData(11.0, 2.45)]
-    public void ADemandThatGrowsAcrossPassesIsARunaway(double now, double before)
-    {
-        Assert.True(PostCutoffSequence.IsRunaway(now, before));
-    }
-
-    /// <summary>
-    /// And the step <em>after</em> that is not caught, which is correct rather than a gap.
-    ///
-    /// <para>8h's 12.63 to 15.61 is 1.24x, and a correction whose aim has genuinely moved varies by
-    /// about that much between passes. The wind-up is stopped at the jump that made it one; asking
-    /// this rule to catch its continuation as well would mean refusing legitimate passes, which is
-    /// the magnitude rule's own failure wearing a smaller number.</para>
-    /// </summary>
-    [Fact]
-    public void TheContinuationOfAWindUpIsNotCaughtAgain()
-    {
-        Assert.True(PostCutoffSequence.IsRunaway(12.63, 0.02));
-        Assert.False(PostCutoffSequence.IsRunaway(15.61, 12.63));
-    }
-
-    /// <summary>
-    /// The first demand is never a runaway on its own evidence -- there is nothing to compare it
-    /// against, and refusing it would be the magnitude rule wearing a different name.
-    /// </summary>
-    [Theory]
-    [InlineData(11.0, double.NaN)]
-    [InlineData(11.0, 0.0)]
-    [InlineData(double.NaN, 5.0)]
-    [InlineData(double.PositiveInfinity, 5.0)]
-    public void WithNothingToCompareAgainstNothingIsARunaway(double now, double before)
-    {
-        Assert.False(PostCutoffSequence.IsRunaway(now, before));
     }
 
     /// <summary>
@@ -265,7 +193,7 @@ public class PostCutoffSequenceTests
     public void TheShippedSequenceNarrowsAsTheBudgetIsSpent()
     {
         double[] spent = [0.0, 18.0, 34.0, 47.0, 60.0];
-        double[] ceilings = [.. spent.Select((v, i) => PostCutoffSequence.CeilingFor(i, Budget, v, false))];
+        double[] ceilings = [.. spent.Select((v, i) => PostCutoffSequence.CeilingFor(i, Budget, v))];
 
         Assert.True(double.IsNaN(ceilings[0]));
 

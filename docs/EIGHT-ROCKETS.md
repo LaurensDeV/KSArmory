@@ -153,7 +153,10 @@ experiment of 24** rather than flown and pooled: at n=12 a sign test *can* reach
 unlike 8ag's five-shot look this one was capable of stopping and continuing after it is real
 optional stopping.
 
-`TrimCeilingFromBudget` drops the `Cycles > 0` guard on the per-pass ceiling: it asks whether the
+*Both settings below were since flown to a loss and removed on 2026-10-06 — `TrimCeilingFromBudget`
+harmful (`docs/MIRV-NEXT.md` 8ae), `AimWithinTrimBudget` 1.11x (`docs/ACCURACY-PLAN.md` 3br).*
+
+`TrimCeilingFromBudget` dropped the `Cycles > 0` guard on the per-pass ceiling: it asks whether the
 *aim* has moved when the question is whether the *bus* has separated, and 11 of 14 flown trims were
 already over the ten-metre ceiling with no wait at all. `BusTrim.Stalled` and the budget still bound
 the loop. It licenses a 10–20 m/s correction whose size tracks an arrival disagreement rather than a

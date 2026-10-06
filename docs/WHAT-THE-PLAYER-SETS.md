@@ -43,7 +43,7 @@ somebody typed.
 | `MaxAccelerationGee` | **already nearly derived** — the mod reads the airframe's own limit and takes the smaller. Drop the asking half |
 | `TurnStartMetres`, `TurnEndMetres`, `MaxAngleOfAttackDeg`, `HandoverPressurePa` | **internal.** The ascent profile is engineering; a player has no view on the dynamic pressure at which guidance takes over |
 | `DeployAltitudeMetres`, `ReleaseBeforeArrivalSeconds`, `TrimBudgetMetresPerSecond` | **internal.** Sequencing |
-| `TrimCeilingFromBudget`, `AimWithinTrimBudget`, `KeepOutCoversTheClearance`, `TrimBeforeRelease`, `CorrectAim` | **internal.** Each is a right answer or a wrong one, not a taste. They stay settable from a shot spec, which is what `Sim/ShotArms.cs` is for |
+| `KeepOutCoversTheClearance`, `TrimBeforeRelease`, `CorrectAim` | **internal.** Each is a right answer or a wrong one, not a taste. They stay settable from a shot spec, which is what `Sim/ShotArms.cs` is for |
 
 **They do not disappear; they stop being questions.** A field an arm can still set is still testable
 by `tools/shot-batch.sh --paired`, which is the whole reason the research surface exists. What

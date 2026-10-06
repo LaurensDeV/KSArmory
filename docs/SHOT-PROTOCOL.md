@@ -176,7 +176,7 @@ so `--paired` gives four rockets the change and four the baseline in one run, an
 bus, the arrival and the release timing are all back inside the comparison.
 
 ```bash
-./tools/shot-batch.sh --paired 'base|ceiling:TrimCeilingFromBudget=true' --blocks 6
+./tools/shot-batch.sh --paired 'base|held:HoldDirectionSeconds=0.35' --blocks 6
 ./tools/shot-report.py ~/shots/<night> --paired
 ```
 

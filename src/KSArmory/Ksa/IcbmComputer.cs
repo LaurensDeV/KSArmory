@@ -87,15 +87,7 @@ internal sealed class IcbmComputer
     private bool _mayTrim = true;
     private bool _saidBudget;
 
-    // What the current and previous post-boost passes asked the trim for, which is what separates a
-    // wind-up from a correction the geometry genuinely needs.
-    private double _demandThisPass = double.NaN;
-    private double _demandLastPass = double.NaN;
-    private bool _saidRunaway;
 
-    // Whether the aim's affordable reach has been reported. Once per flight: it is a fact about the
-    // trajectory rather than an event, and it moves slowly.
-    private bool _saidAimReach;
     private bool _saidFloorUnaffordable;
     private bool _saidRefusedStage;
     private bool _saidStructuralLimit;
@@ -536,10 +528,6 @@ internal sealed class IcbmComputer
         _sinceSplit = 0.0;
         _mayTrim = true;
         _saidBudget = false;
-        _saidRunaway = false;
-        _saidAimReach = false;
-        _demandThisPass = double.NaN;
-        _demandLastPass = double.NaN;
         _saidFloorUnaffordable = false;
         WarheadsAway = 0;
         _salvoSize = 0;
@@ -709,10 +697,6 @@ internal sealed class IcbmComputer
         _sinceSplit = 0.0;
         _mayTrim = true;
         _saidBudget = false;
-        _saidRunaway = false;
-        _saidAimReach = false;
-        _demandThisPass = double.NaN;
-        _demandLastPass = double.NaN;
         _saidFloorUnaffordable = false;
         _owedAtSplit = double.NaN;
         Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)} stood down: {why}");
@@ -1794,7 +1778,7 @@ internal sealed class IcbmComputer
         PostCutoffSequence.Plan plan = PostCutoffSequence.Decide(
             clearance.IsClear, clearance.Abandoned, _postBoost.Cycles,
             Config.TrimBudgetMetresPerSecond, _trim.SpentMetresPerSecond,
-            Config.TrimCeilingFromBudget, Config.KeepOutCoversTheClearance);
+            Config.KeepOutCoversTheClearance);
 
         if (plan.Abandon)
         {
@@ -1882,13 +1866,6 @@ internal sealed class IcbmComputer
         // steadiness is the term that actually moves the reading rather than a proxy for it.
         ReleaseAnArrivalTheTrimCannotFly(trim);
 
-        // What this pass is asking for, kept so the next one can be compared against it. Size alone
-        // cannot separate a large correction the geometry needs from a loop winding itself up.
-        if (double.IsFinite(trim.ToGainMetresPerSecond) && trim.ToGainMetresPerSecond > 0.0)
-        {
-            _demandThisPass = trim.ToGainMetresPerSecond;
-        }
-
         int passesBefore = _postBoost.Cycles;
 
         MeasureHoldingCost();
@@ -1911,23 +1888,8 @@ internal sealed class IcbmComputer
 
         if (pass.MayMeasure) _measureDue = true;
 
-        // A demand that has grown half again since the last pass is the correction and the trim
-        // driving each other rather than the shot needing more. Only checked where the ceiling has
-        // been widened to the budget: the constant is its own guard otherwise, and this is what
-        // makes widening it defensible rather than a licence to spend the tank on a wind-up.
-        if (Config.TrimCeilingFromBudget && !_saidRunaway
-            && PostCutoffSequence.IsRunaway(_demandThisPass, _demandLastPass))
-        {
-            _saidRunaway = true;
-            Log.Info($"post-boost on {KsaWorld.DisplayName(Craft)}: the demand grew from "
-                     + $"{_demandLastPass:F2} to {_demandThisPass:F2} m/s across passes, which is a "
-                     + "wind-up rather than a larger shot; keeping the best aim found");
-            _aim.Freeze();
-        }
-
         if (_postBoost.Cycles > passesBefore)
         {
-            _demandLastPass = _demandThisPass;
             // Consumed, so the next decision waits for a reading taken after this correction has
             // actually been flown rather than re-reading the one that prompted it.
             _freshMiss = double.NaN;
@@ -2553,8 +2515,7 @@ internal sealed class IcbmComputer
         => ReleaseLoop.CanFlyTheHop(
                step.NextHopMetresPerSecond, _trim.ToGainMetresPerSecond,
                PostCutoffSequence.CeilingFor(0, Config.TrimBudgetMetresPerSecond,
-                                             _trim.SpentMetresPerSecond,
-                                             Config.TrimCeilingFromBudget),
+                                             _trim.SpentMetresPerSecond),
                _trim.SpentMetresPerSecond, Config.TrimBudgetMetresPerSecond);
 
     // The stop the bus is on takes the rest: it is already trimmed and corrected onto this target,
@@ -2644,9 +2605,6 @@ internal sealed class IcbmComputer
         _holdingCostForPass = -1;
         _trimFloor = double.NaN;
         _trimFloorForPass = -1;
-        _demandThisPass = double.NaN;
-        _demandLastPass = double.NaN;
-        _saidRunaway = false;
         _saidCleared = false;
         _saidTrim = "";
         _trimShape = "";
@@ -4347,8 +4305,6 @@ internal sealed class IcbmComputer
                 && (Program.IsBurning || (_measureDue && _trim.Done))
                 && !AimWaitsForTheSolids(state))
             {
-                PriceTheAim(state);
-
                 double biasWas = Vec.Len(_aim.BiasCci);
 
                 // How far the state the prediction DEPARTS FROM travelled since the last reading. The impact moves 3,520 m
@@ -4403,52 +4359,6 @@ internal sealed class IcbmComputer
         {
             PredictedImpact = null;
             PredictedMissMetres = double.NaN;
-        }
-    }
-
-    // How far the correction may walk the aim before the trim can no longer fly it there.
-    //
-    // Only after cutoff. While the engines are lit the actuator is the burn, which re-solves to
-    // whatever the aim says and costs propellant rather than accuracy; the trim's budget is the
-    // limit only once the burn is the thing that has ended.
-    private void PriceTheAim(in IcbmState state)
-    {
-        if (!Config.AimWithinTrimBudget || Program.IsBurning)
-        {
-            _aim.AffordableMetres = double.PositiveInfinity;
-            return;
-        }
-
-        double left = Math.Max(0.0, Config.TrimBudgetMetresPerSecond - _trim.SpentMetresPerSecond);
-
-        // Left standing rather than clamped when the trajectory will not price: a bound of zero is
-        // the correction switched off, which is the one outcome nobody asked for.
-        if (!AimAuthority.TryMetresFor(state.Body, state.PositionCci, _trueAimCci,
-                                       Program.CommittedArrivalFromNow, left, out double reach))
-        {
-            _aim.AffordableMetres = double.PositiveInfinity;
-
-            if (!_saidAimReach)
-            {
-                _saidAimReach = true;
-                Log.Info($"aim reach on {KsaWorld.DisplayName(Craft)}: the trajectory would not "
-                         + "price, so the aim keeps its full range");
-            }
-
-            return;
-        }
-
-        _aim.AffordableMetres = reach;
-
-        // Said once, and only when it BINDS. A bound wider than AimCorrection.MaxMetres changes
-        // nothing, and a setting that cannot be seen to have done anything is one whose flown
-        // result means nothing either way. The number is what the budget buys at this trajectory's exchange rate.
-        if (!_saidAimReach && reach < AimCorrection.MaxMetres)
-        {
-            _saidAimReach = true;
-            Log.Info($"aim reach on {KsaWorld.DisplayName(Craft)}: {left:F0} m/s of trim buys "
-                     + $"{reach / 1000.0:F0} km of aim, against the {AimCorrection.MaxMetres / 1000.0:F0} km "
-                     + "the correction may otherwise walk");
         }
     }
 }

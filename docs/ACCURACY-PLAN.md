@@ -4623,6 +4623,8 @@ know the ceiling was the common failure.
 
 ## 3br. AimWithinTrimBudget does not help, and 3bq's inference was wrong — flown 2026-09-07
 
+> *`AimWithinTrimBudget` was removed on 2026-10-06 on this verdict.*
+
 Item 10 flown to a verdict, `2026-09-07-1312`, 14 paired blocks at 6,269 km with the levelled
 estimator.
 
@@ -11115,7 +11117,7 @@ between two modes, and the baseline swings 2.7x between sessions.
 
 ## Dead — do not spend on these
 
-`TrimCeilingFromBudget` (harmful: 0 of 32 payback against 12, four shots at 54-105x).
+`TrimCeilingFromBudget` (harmful: 0 of 32 payback against 12, four shots at 54-105x; removed 2026-10-06).
 `SeparationClearance.TimeoutSeconds` 20 -> 25 (resolved 1 of 16, and `clearance` is 0 of 96 endings now).
 Tightening `AimCorrection.SteadyMetres` (worse at every value: 100 -> 2,329 m, 25 -> 2,568).
 `MaxResponse` (6/12/24/60 bit-identical) and `ImprovedByMetres` (50/250/1000 identical).

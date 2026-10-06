@@ -39,15 +39,13 @@ internal static class PostCutoffSequence
     /// budget is the real limit on what the bus can spend, <c>BusTrim.Stalled</c> already ends a
     /// loop that is not closing, and a third bound above both would have nothing left to bound.</para>
     ///
-    /// <para><paramref name="fromBudget"/> is <see cref="IcbmConfig.TrimCeilingFromBudget"/> and
-    /// extends that to the first pass as well. The guard it lifts asks whether the <em>aim</em> has
-    /// moved when the question is whether the <em>bus</em> has separated: 11 of 14 flown trims were
-    /// already over the constant at the split, with no wait at all.</para>
+    /// <para>Extending it to the first pass as well was flown and harmful: 0 of 32 corrections paid
+    /// back against 12, and four shots 54-105x worse. <c>docs/MIRV-NEXT.md</c> 8ae.</para>
     /// </summary>
     public static double CeilingFor(int postBoostCycles, double budgetMetresPerSecond,
-                                    double spentMetresPerSecond, bool fromBudget)
+                                    double spentMetresPerSecond)
     {
-        if (postBoostCycles <= 0 && !fromBudget) return double.NaN;
+        if (postBoostCycles <= 0) return double.NaN;
 
         // Never negative: a budget already overspent is no allowance rather than a debt, and a
         // negative ceiling reads to BusTrim as a refusal of every pass including the ones that
@@ -56,36 +54,6 @@ internal static class PostCutoffSequence
 
         return double.IsFinite(left) ? Math.Max(0.0, left) : 0.0;
     }
-
-    /// <summary>
-    /// How much larger a pass's demand may be than the one before it before it is a wind-up.
-    ///
-    /// <para>Half again, because the two cases are not close. A steep arrival asks for 7–11 m/s
-    /// where a shallow one asks 2.45, and asks for it <em>once</em> — the geometry does not change
-    /// between passes. A runaway is the aim correction and the trim driving one vehicle through one
-    /// prediction, and it grows by an order of magnitude a pass: 0.02 m/s trimmed, 12.63 asked
-    /// next.</para>
-    /// </summary>
-    public const double RunawayGrowth = 1.5;
-
-    /// <summary>
-    /// Whether a demand is winding up rather than merely being large.
-    ///
-    /// <para><b>Size is the wrong question and always was.</b> What the per-pass ceiling guards
-    /// against is the reference <em>moving</em> — the correction re-solving under the trim's own
-    /// thrust — and a magnitude cannot tell that from a large correction the geometry genuinely
-    /// needs. It is why a 15° arrival flew a group six warheads wide on one point and then had the
-    /// whole correction declined: <c>docs/METRE-LEVEL.md</c> B1.</para>
-    ///
-    /// <para>Answers false until there is a previous pass to compare against, so the first demand
-    /// is never a runaway on its own evidence. The budget and <c>BusTrim.Stalled</c> are what bound
-    /// a loop that is wrong about this.</para>
-    /// </summary>
-    public static bool IsRunaway(double demandNow, double demandLastPass,
-                                 double growth = RunawayGrowth)
-        => double.IsFinite(demandNow) && double.IsFinite(demandLastPass)
-           && demandLastPass > 0.0 && growth > 0.0
-           && demandNow > demandLastPass * growth;
 
     /// <summary>
     /// One frame of the loop, from the clearance's verdict and what the trim has spent.
@@ -97,10 +65,9 @@ internal static class PostCutoffSequence
     /// </param>
     public static Plan Decide(bool clearanceIsClear, bool clearanceAbandoned, int postBoostCycles,
                               double budgetMetresPerSecond, double spentMetresPerSecond,
-                              bool ceilingFromBudget, bool keepOutCoversTheClearance = false)
+                              bool keepOutCoversTheClearance = false)
     {
-        double ceiling = CeilingFor(postBoostCycles, budgetMetresPerSecond, spentMetresPerSecond,
-                                    ceilingFromBudget);
+        double ceiling = CeilingFor(postBoostCycles, budgetMetresPerSecond, spentMetresPerSecond);
 
         // Abandoning is what the timeout does when nothing else can answer "is it safe to fire".
         // The interlock can: it is computed in the same pass, it already knows which way the stack

@@ -26,15 +26,15 @@ public class ShotArmsTests
     [Fact]
     public void AnArmCarriesTheSettingsItVaries()
     {
-        ShotArms arms = Parse("base|trim:TrimCeilingFromBudget=true,TrimBudgetMetresPerSecond=90");
+        ShotArms arms = Parse("base|held:HoldDirectionSeconds=0.35,TrimBudgetMetresPerSecond=90");
 
         Assert.Equal(2, arms.Count);
 
-        ShotArms.Arm trim = arms.For(1);
-        Assert.Equal("trim", trim.Name);
-        Assert.Equal(2, trim.Settings.Count);
-        Assert.Equal("TrimCeilingFromBudget", trim.Settings[0].Field);
-        Assert.Equal("90", trim.Settings[1].Value);
+        ShotArms.Arm held = arms.For(1);
+        Assert.Equal("held", held.Name);
+        Assert.Equal(2, held.Settings.Count);
+        Assert.Equal("HoldDirectionSeconds", held.Settings[0].Field);
+        Assert.Equal("90", held.Settings[1].Value);
     }
 
     /// <summary>
@@ -170,29 +170,29 @@ public class ShotArmsTests
     {
         IcbmConfig shipped = new();
 
-        Assert.False(shipped.TrimCeilingFromBudget);
-        Assert.False(shipped.AimWithinTrimBudget);
+        Assert.Equal(0.0, shipped.HoldDirectionSeconds);
+        Assert.False(shipped.WalkStartsAtCutoff);
 
         // The one that is on, because it is the one that was resolved: 11 of 13 paired shots at
         // p=0.022. A baseline arm naming nothing therefore ships WITH it, which is what makes it
         // the baseline rather than a fourth variant.
         Assert.True(shipped.KeepOutCoversTheClearance);
 
-        ShotArms arms = Parse("base|ceiling:TrimCeilingFromBudget=true");
+        ShotArms arms = Parse("base|held:HoldDirectionSeconds=0.35");
         Assert.True(ShotArms.TryApply(arms.For(0), shipped, out _));
-        Assert.False(shipped.TrimCeilingFromBudget);
+        Assert.Equal(0.0, shipped.HoldDirectionSeconds);
 
         Assert.True(ShotArms.TryApply(arms.For(1), shipped, out _));
-        Assert.True(shipped.TrimCeilingFromBudget);
+        Assert.Equal(0.35, shipped.HoldDirectionSeconds);
     }
 
     [Fact]
     public void AnArmSaysWhatItVariesSoTheLogCanAttributeAShot()
     {
-        ShotArms arms = Parse("base|trim:TrimCeilingFromBudget=true");
+        ShotArms arms = Parse("base|held:HoldDirectionSeconds=0.35");
 
         Assert.Equal("base", arms.For(0).Describe());
-        Assert.Contains("TrimCeilingFromBudget=true", arms.For(1).Describe());
+        Assert.Contains("HoldDirectionSeconds=0.35", arms.For(1).Describe());
     }
 
     /// <summary>

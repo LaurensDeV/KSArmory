@@ -73,7 +73,7 @@ internal sealed class ShotArms
     /// Reads a spec: arms separated by <c>|</c>, each a name and optionally
     /// <c>:field=value,field=value</c>.
     ///
-    /// <para><c>base|trim:TrimCeilingFromBudget=true</c> is two arms, the first leaving the
+    /// <para><c>base|held:HoldDirectionSeconds=0.35</c> is two arms, the first leaving the
     /// settings exactly as the scenario left them.</para>
     /// </summary>
     public static bool TryParse(string? spec, out ShotArms arms, out string fault)

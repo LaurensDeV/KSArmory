@@ -284,49 +284,6 @@ internal sealed class IcbmConfig
     public double TrimBudgetMetresPerSecond = PostBoostAim.MaxTrimMetresPerSecond;
 
     /// <summary>
-    /// Size the trim's per-pass ceiling from what is left of the budget on the <em>first</em> pass
-    /// too, rather than only once the aim has moved.
-    ///
-    /// <para>The ceiling asks how much one pass may spend, and it is
-    /// <see cref="BusTrim.MaxMetresPerSecond"/> — ten — until <c>PostBoostAim.Cycles</c> is above
-    /// zero. That guard asks whether the <em>aim</em> has moved when the question is whether the
-    /// <em>bus</em> has separated: flown, 11 of 14 trims were already over ten with no wait at all,
-    /// so the pass that matters most is refused before the loop that would have raised the ceiling
-    /// has run once.</para>
-    ///
-    /// <para><b>It carries its own guard.</b> Widening the ceiling to the budget without one is a
-    /// licence to spend the tank on a wind-up, so with this on the loop also refuses a demand that
-    /// has grown half again since the previous pass — <see cref="PostCutoffSequence.IsRunaway"/>.
-    /// Size was always the wrong question: a steep arrival asks 7–11 m/s where a shallow one asks
-    /// 2.45, and asks once, while a runaway grows by an order of magnitude a pass.</para>
-    ///
-    /// <para><b>Off: flown and harmful</b> -- 0 of 32 corrections paid back against 12 without it, and four
-    /// shots 54-105x worse. <c>docs/ACCURACY-PLAN.md</c> ~L11117.</para>
-    /// </summary>
-    public bool TrimCeilingFromBudget;
-
-    /// <summary>
-    /// Hold the aim correction to an aim the trim can actually fly it to.
-    ///
-    /// <para><see cref="AimCorrection.MaxMetres"/> is 300 km flat, and what the budget buys is
-    /// 24 km on a 3,459 km shot and 113 km on a 12,902 km one — so the loop is licensed to walk
-    /// somewhere the actuator can never follow. The flown symptom is a demand that exceeds whatever
-    /// is left of the ceiling on every pass until the budget is gone, which reads as the solve
-    /// diverging: it is not, it is an aim move being priced honestly.
-    /// <see cref="AimAuthority"/> has the exchange rate.</para>
-    ///
-    /// <para>Nearer and flyable beats further and not, because the endings are not on one scale: a
-    /// correction that ran to completion landed at 140 m and every other ending at 5 to 45 km.
-    /// What it cannot do is make the shot want a nearer aim — if the correction genuinely needs
-    /// 200 km, this clamps it and the shot still misses, with the propellant unspent rather than
-    /// wasted.</para>
-    ///
-    /// <para><b>Off: flown and does not help.</b> 0.85x over twelve paired shots, then 1.11x [0.94, 1.29] over
-    /// fourteen, the interval now excluding anything better than 0.94x. <c>docs/ACCURACY-PLAN.md</c> 3br.</para>
-    /// </summary>
-    public bool AimWithinTrimBudget;
-
-    /// <summary>
     /// Let the aim correction's improvement threshold follow the miss instead of being 250 m flat.
     ///
     /// <para><b>The loop currently cannot see its own shot.</b>
