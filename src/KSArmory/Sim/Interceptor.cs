@@ -22,9 +22,8 @@ internal enum RoundState
 /// hands it back, and a caller with nothing to identify leaves it out.</para>
 ///
 /// <para><paramref name="Emitting"/> is whether the contact is radiating this frame, which only
-/// <see cref="GuidanceMode.AntiRadiation"/> reads. It defaults to <c>true</c> so that every other
-/// weapon behaves exactly as it did before the field existed — a caller that has no notion of
-/// emission is describing a target every other seeker can still see.</para>
+/// <see cref="GuidanceMode.AntiRadiation"/> reads. It defaults to <c>true</c> because a caller that
+/// has no notion of emission is describing a target every other seeker can still see.</para>
 /// </summary>
 internal readonly record struct TargetState(double3 PositionEcl, double3 VelocityEcl, double Radius,
                                             object? Handle = null, bool Emitting = true);
@@ -49,15 +48,17 @@ internal sealed class Interceptor : IProjectile
     /// Fixed integration step. Frames are subdivided to this, which keeps the guidance stable and
     /// stops fast targets tunnelling through the fuse radius.
     ///
-    /// <para>Shared with every other <see cref="IProjectile"/>: <see cref="SimClock"/> refuses
-    /// steps beyond what these allow, and that guard is only correct if everything integrates to
-    /// the same resolution.</para>
+    /// <para>Also the default for <see cref="MunitionProfile.SubStep"/>, which is what a
+    /// <see cref="Slug"/> sub-steps at.</para>
     /// </summary>
     internal const double SubStep = 0.005;
 
     internal const int MaxSubSteps = 64;
 
-    /// <summary>Longest step integrable without coarsening; SimClock refuses beyond it.</summary>
+    /// <summary>
+    /// Longest step integrable without coarsening, and the default <see cref="SimClock.MaxStep"/> and
+    /// <see cref="MunitionProfile.MaxFaithfulStepSeconds"/> hold a round with no opinion to.
+    /// </summary>
     public const double MaxFaithfulStep = SubStep * MaxSubSteps;
 
     /// <inheritdoc cref="IProjectile.PositionEcl"/>
@@ -104,6 +105,28 @@ internal sealed class Interceptor : IProjectile
     /// near sea level, where the drag is 840 times the air's and stops it when the motor does.</para>
     /// </summary>
     public Func<double3, double, double>? AirDensityAt { get; set; }
+
+    /// <summary>
+    /// Where the ground is. Every missile asks, unlike a shell: a salvo is a dozen rounds rather than
+    /// a burst's hundred and fifty, and one fired downhill otherwise flies through the hill still
+    /// steering. Not <see cref="MunitionProfile.HitsTerrain"/>, which also means a store that ends by
+    /// landing. Sampled once a frame at the round's own instant and held, as a <see cref="Slug"/>
+    /// holds it.
+    /// </summary>
+    public IGroundTest? Ground { get; set; }
+
+    /// <summary>How far the ground's centre has moved by a time into the frame; see <see cref="Slug.GroundCentreDriftAt"/>.</summary>
+    public Func<double, double3>? GroundCentreDriftAt { get; set; }
+
+    /// <summary>It flew into the ground, and its warhead went off there.</summary>
+    public bool HitGround { get; private set; }
+
+    private bool _haveGround;
+    private double3 _groundCentre;
+    private double _groundRadius;
+
+    private double3 GroundCentre(double secondsIntoFrame)
+        => GroundCentreDriftAt is { } drift ? _groundCentre + drift(secondsIntoFrame) : _groundCentre;
 
     public RoundState State { get; private set; } = RoundState.Flying;
 
@@ -195,7 +218,7 @@ internal sealed class Interceptor : IProjectile
 
 
     /// <summary>
-    /// Where this round left from, in the launcher part's own frame. Set by the battery at
+    /// Where this round left from, in the launcher part's own frame. Set by the system at
     /// launch and never read by the simulation — it exists so the round's *body* can be placed
     /// against the tube it came out of rather than against the platform's orbit position.
     /// </summary>
@@ -211,9 +234,8 @@ internal sealed class Interceptor : IProjectile
     /// The launching craft's velocity in the round's own frame at release, so the motor can push
     /// along the round rather than along everything it inherited.
     ///
-    /// <para>Zero for a launcher standing still, which is every launcher this mod had when the
-    /// boost was written — and is why thrusting along the flight path was indistinguishable from
-    /// thrusting along the tube. Set at launch and never updated.</para>
+    /// <para>Zero for a launcher standing still, for which thrusting along the flight path and
+    /// along the tube are the same thing. Set at launch and never updated.</para>
     /// </summary>
     public double3 LaunchFrameVelocityLocal { get; set; }
 
@@ -279,6 +301,9 @@ internal sealed class Interceptor : IProjectile
 
     public double Speed => Vec.Len(VelocityLocal);
 
+    /// <inheritdoc cref="IProjectile.SteeringCommandEcl"/>
+    public double3 SteeringCommandEcl { get; private set; }
+
     /// <summary>
     /// How far the fins have deployed, 0 stowed to 1 at full span.
     ///
@@ -287,9 +312,6 @@ internal sealed class Interceptor : IProjectile
     /// Pure presentation: the flight model has no notion of fins, and this changes nothing
     /// about how the round flies.</para>
     /// </summary>
-    /// <inheritdoc cref="IProjectile.SteeringCommandEcl"/>
-    public double3 SteeringCommandEcl { get; private set; }
-
     public double FinDeployment(MunitionProfile munition)
     {
         if (munition.FinDeploySeconds <= 0f) return 1.0;
@@ -300,8 +322,8 @@ internal sealed class Interceptor : IProjectile
     /// Advances the round by <paramref name="dt"/> seconds, subdividing internally.
     /// </summary>
     /// <param name="target">
-    /// Target state sampled at the start of this frame, or null if the target is gone.
-    /// Extrapolated linearly across sub-steps.
+    /// Target state sampled at the end of this step, or null if the target is gone. Back-dated
+    /// to the round's epoch and extrapolated linearly across sub-steps.
     /// </param>
     /// <param name="gravity">Gravitational acceleration at the round, in Ecl (m/s^2).</param>
     /// <param name="frameVelocityEcl">
@@ -330,6 +352,13 @@ internal sealed class Interceptor : IProjectile
         if (target is null) TargetRef = null;
 
         _frameVelocityEcl = frameVelocityEcl;
+
+        // At the round's own instant: the body sample is a frame newer, and asked with the raw
+        // pre-step position it reads the height field a frame of ~30 km/s away.
+        double3 atOwnEpoch = PositionEcl - (GroundCentreDriftAt?.Invoke(-dt) ?? Vec.Zero);
+        _haveGround = Ground is { } ground
+                      && ground.TryGround(atOwnEpoch, out _groundCentre, out _groundRadius)
+                      && double.IsFinite(_groundRadius) && _groundRadius > 0.0;
 
         int steps = Math.Clamp((int)Math.Ceiling(dt / SubStep), 1, MaxSubSteps);
         double h = dt / steps;
@@ -410,7 +439,7 @@ internal sealed class Interceptor : IProjectile
         // What it has gained starts as the ejection up the tube and accumulates along the thrust,
         // and proportional navigation's lateral term lands in it too -- so the round still curves
         // onto its target rather than flying the rail's bearing for ever. For a launcher standing
-        // still the gain *is* the velocity, so nothing about a ground battery's flight changes.
+        // still the gain *is* the velocity, so nothing about a ground system's flight changes.
         if (Age <= munition.TotalBoostSeconds)
         {
             double3 axis = Vec.Unit(localVelocity - LaunchFrameVelocityLocal);
@@ -543,7 +572,30 @@ internal sealed class Interceptor : IProjectile
 
         double3 stepEcl = VelocityEcl * h;
         DistanceFlown += Vec.Len((VelocityEcl - frameVelocityEcl) * h);
+        double3 before = PositionEcl;
         PositionEcl += stepEcl;
+
+        if (_haveGround)
+        {
+            double was = Vec.Len(before - GroundCentre(elapsedInFrame - frameSeconds)) - _groundRadius;
+            double now = Vec.Len(PositionEcl - GroundCentre(elapsedInFrame + h - frameSeconds)) - _groundRadius;
+
+            // Only crossing down from above. A tube can sit a hair under the coarse height field,
+            // and a round that started below it would otherwise burst on its own rail.
+            if (was > 0.0 && now <= 0.0)
+            {
+                double f = Math.Clamp(was / (was - now), 0.0, 1.0);
+
+                PositionEcl = before + stepEcl * f;
+                // Not a fuse range: zero would read as a direct hit on the target. The blast sweep
+                // judges what was near where it went off.
+                MissDistance = double.PositiveInfinity;
+                HitGround = true;
+                DetonationElapsedInFrame = elapsedInFrame + h * f - frameSeconds;
+                State = RoundState.Detonated;
+                return;
+            }
+        }
 
         if (!Vec.IsFinite(PositionEcl) || !Vec.IsFinite(VelocityEcl))
         {

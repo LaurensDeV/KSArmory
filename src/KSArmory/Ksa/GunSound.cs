@@ -4,10 +4,10 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// The cannon you can hear: one looping spatialised channel per battery, held while the gun fires,
+/// The cannon you can hear: one looping spatialised channel per system, held while the gun fires,
 /// and a gunshot for every round from a gun slow enough to be heard shot by shot.
 ///
-/// <para>Per battery rather than per round for the loop, and that is not an optimisation. A Phalanx
+/// <para>Per system rather than per round for the loop, and that is not an optimisation. A Phalanx
 /// cycles at 4500 rounds a minute; the shots arrive at 75 Hz, which is inside the range the ear
 /// reads as <em>pitch</em> rather than as rhythm, so what a listener hears is one buzz and not
 /// seventy-five bangs. Playing a one-shot per round would model the wrong thing and ask FMOD for 75
@@ -34,57 +34,50 @@ internal sealed class GunSound(Config config)
     private readonly List<IEffectSource> _stopped = [];
     private readonly HashSet<string> _warned = [];
 
-    /// <summary>Starts, moves and stops the gun of every battery that is firing, and plays each round's gunshot.</summary>
-    public void Update(IEffectSource battery)
+    /// <summary>Starts, moves and stops the gun of every system that is firing, and plays each round's gunshot.</summary>
+    public void Update(IEffectSource system)
     {
         // Ahead of the firing gate: the last round of a burst is fired on the frame the cannon stop.
-        PlayGunshot(battery);
+        PlayGunshot(system);
 
-        if (!_config.CannonSound || !battery.GunsFiring || battery.Platform is not { } platform
-            || (battery.Profile.GunSoundId is null && battery.Profile.GunshotSoundId is not null))
+        if (!_config.CannonSound || !system.GunsFiring || system.Platform is not { } platform
+            || (system.Profile.GunSoundId is null && system.Profile.GunshotSoundId is not null))
         {
-            Silence(battery);
+            Silence(system);
             return;
         }
 
         if (!TrySpatial(platform, out SpatialAudio spatial)) return;
 
-        if (_firing.TryGetValue(battery, out IChannel? channel))
+        if (_firing.TryGetValue(system, out IChannel? channel))
         {
-            try
-            {
-                if (channel.IsPlaying()) { channel.SetSpatialAudio(spatial); return; }
-            }
-            catch
-            {
-                // Fall through and try a fresh one.
-            }
+            if (SoundChannels.TryMove(channel, spatial)) return;
 
-            _firing.Remove(battery);
+            _firing.Remove(system);
         }
 
-        if (Start(spatial, battery) is { } started) _firing[battery] = started;
+        if (Start(spatial, system) is { } started) _firing[system] = started;
     }
 
     /// <summary>
-    /// Cuts the channel of any battery the roster has forgotten. A craft destroyed mid-burst never
+    /// Cuts the channel of any system the roster has forgotten. A craft destroyed mid-burst never
     /// reaches <see cref="Update"/> again, and its channel would play for the rest of the session.
     /// </summary>
     public void Sweep(WeaponSystems roster)
     {
-        foreach (IEffectSource battery in _firing.Keys)
+        foreach (IEffectSource system in _firing.Keys)
         {
-            if (!roster.Knows(battery)) _stopped.Add(battery);
+            if (!roster.Knows(system)) _stopped.Add(system);
         }
-        foreach (IEffectSource battery in _shotsHeard.Keys)
+        foreach (IEffectSource system in _shotsHeard.Keys)
         {
-            if (!roster.Knows(battery) && !_stopped.Contains(battery)) _stopped.Add(battery);
+            if (!roster.Knows(system) && !_stopped.Contains(system)) _stopped.Add(system);
         }
 
-        foreach (IEffectSource battery in _stopped)
+        foreach (IEffectSource system in _stopped)
         {
-            Silence(battery);
-            _shotsHeard.Remove(battery);
+            Silence(system);
+            _shotsHeard.Remove(system);
         }
         _stopped.Clear();
     }
@@ -92,33 +85,33 @@ internal sealed class GunSound(Config config)
     /// <summary>Cuts every channel. Safe at any time.</summary>
     public void StopAll()
     {
-        foreach (IChannel channel in _firing.Values) Cut(channel);
+        foreach (IChannel channel in _firing.Values) SoundChannels.Cut(channel);
         _firing.Clear();
         _shotsHeard.Clear();
     }
 
-    private void Silence(IEffectSource battery)
+    private void Silence(IEffectSource system)
     {
-        if (!_firing.Remove(battery, out IChannel? channel)) return;
+        if (!_firing.Remove(system, out IChannel? channel)) return;
 
-        Cut(channel);
+        SoundChannels.Cut(channel);
     }
 
-    private void PlayGunshot(IEffectSource battery)
+    private void PlayGunshot(IEffectSource system)
     {
-        int fired = battery.GunShotsFired;
+        int fired = system.GunShotsFired;
 
-        // A battery first heard now owes nothing for the rounds it fired before anybody was listening.
-        if (!_shotsHeard.TryGetValue(battery, out int heard))
+        // A system first heard now owes nothing for the rounds it fired before anybody was listening.
+        if (!_shotsHeard.TryGetValue(system, out int heard))
         {
-            _shotsHeard[battery] = fired;
+            _shotsHeard[system] = fired;
             return;
         }
         if (fired == heard) return;
-        _shotsHeard[battery] = fired;
+        _shotsHeard[system] = fired;
 
-        if (!_config.CannonSound || battery.Profile.GunshotSoundId is not { } id
-            || battery.Platform is not { } platform
+        if (!_config.CannonSound || system.Profile.GunshotSoundId is not { } id
+            || system.Platform is not { } platform
             || !TrySpatial(platform, out SpatialAudio spatial))
         {
             return;
@@ -142,9 +135,9 @@ internal sealed class GunSound(Config config)
         }
     }
 
-    private IChannel? Start(SpatialAudio spatial, IEffectSource battery)
+    private IChannel? Start(SpatialAudio spatial, IEffectSource system)
     {
-        string id = battery.Profile.GunSoundId ?? CannonId;
+        string id = system.Profile.GunSoundId ?? CannonId;
         try
         {
             if (ModLibrary.Get<SoundBehavior>(id) is not { } sound)
@@ -155,15 +148,15 @@ internal sealed class GunSound(Config config)
 
             sound.Play(spatial, _config.CannonVolume, out IChannel? channel);
 
-            if (channel is not null && battery.Profile.GunSoundId is null
-                && _config.CannonReferenceRpm > 0f && battery.Profile.GunRoundsPerMinute > 0f)
+            if (channel is not null && system.Profile.GunSoundId is null
+                && _config.CannonReferenceRpm > 0f && system.Profile.GunRoundsPerMinute > 0f)
             {
                 // Clamped, because the sample is a recording of one real gun rather than a
                 // synthesised pulse train. Pitch moves the cycle and the timbre together, so a
                 // large shift does not give a slower gun, it gives the same gun played wrong.
                 // Within a quarter either way it still reads as a cannon of a different rate.
                 channel.PitchMultiplier = Math.Clamp(
-                    battery.Profile.GunRoundsPerMinute / _config.CannonReferenceRpm, 0.8f, 1.25f);
+                    system.Profile.GunRoundsPerMinute / _config.CannonReferenceRpm, 0.8f, 1.25f);
                 channel.ApplyParameters();
             }
 
@@ -180,7 +173,7 @@ internal sealed class GunSound(Config config)
     {
         spatial = default!;
 
-        Camera? camera = SafeAudioCamera();
+        Camera? camera = SoundChannels.Listener();
         if (camera is null) return false;
 
         // The craft's own position, not the muzzle's. They differ by the couple of metres from the
@@ -190,32 +183,12 @@ internal sealed class GunSound(Config config)
         double3 velEgo = camera.GetVelocityEgo(platform);
         if (!Vec.IsFinite(posEgo) || !Vec.IsFinite(velEgo)) return false;
 
-        spatial = new SpatialAudio(posEgo, velEgo, SafePressure(camera));
+        spatial = new SpatialAudio(posEgo, velEgo, SoundChannels.PressureAt(camera));
         return true;
     }
 
     private void WarnOnce(string id, string message)
     {
         if (_warned.Add(id)) Log.Warn(message);
-    }
-
-    private static void Cut(IChannel channel)
-    {
-        try { channel.Stop(); }
-        catch { /* A channel the engine has already reclaimed is already stopped. */ }
-    }
-
-    private static Camera? SafeAudioCamera()
-    {
-        try { return GameAudio.GetAudioCamera(); }
-        catch { return null; }
-    }
-
-    private static double SafePressure(Camera camera)
-    {
-        // Listener's pressure, not the gun's: it is what decides how much of the sound survives
-        // the trip, and in vacuum that is none of it.
-        try { return PhysicalAtmosphereReference.GetAtmosphericPressure(camera); }
-        catch { return 1.0; }
     }
 }

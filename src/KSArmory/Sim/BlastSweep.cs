@@ -30,9 +30,9 @@ internal static class BlastSweep
     /// instant.
     ///
     /// <para><paramref name="sinceSample"/> is what pairs them. The body's position was sampled
-    /// before the round finished its step, so comparing it to the burst as it stands measures one
-    /// step of the closing motion and calls it a miss distance — carrying it forward by its own
-    /// velocity is what puts the two on one clock. Both terms are ecliptic and the answer is a
+    /// at the step's end and the round burst part-way through it, so comparing the two as they stand
+    /// measures that much of the closing motion and calls it a miss distance — carrying the body back
+    /// by its own velocity is what puts the two on one clock. Both terms are ecliptic and the answer is a
     /// difference, so the 29.8 km/s they share cancels and never reaches the result.</para>
     ///
     /// <para>The surface rather than the centre, because <paramref name="meanRadius"/> is a
@@ -51,15 +51,14 @@ internal static class BlastSweep
     /// planet's ~30 km/s behind it.
     /// </summary>
     public static double3 GroundAtSample(double3 burstEcl, double3 groundVelocityEcl, double sinceSample)
-        => burstEcl - (groundVelocityEcl * sinceSample);
+        => InFrame.AtSample(burstEcl, groundVelocityEcl, sinceSample);
 
     /// <summary>
     /// What a gap that size means for this warhead.
     ///
     /// <para>Both radii come off the one charge, so they cannot be set into a state where the
-    /// lethal radius is the larger — see <see cref="Warhead"/>. Kills are binary because KSA has
-    /// no damage model below destruction, which is why a near miss is a thing to announce rather
-    /// than a thing to apply.</para>
+    /// lethal radius is the larger — see <see cref="Warhead"/>. This is the verdict on the whole
+    /// body; which parts a burst breaks is <see cref="BlastDamage"/>'s.</para>
     /// </summary>
     public static BlastEffect Effect(double gap, MunitionProfile munition)
     {

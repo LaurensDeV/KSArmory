@@ -52,7 +52,8 @@ internal static class BurnoutGuidance
         double SecondsToCutoff,
         double3 CutoffPositionCci,
         BallisticArc.Solution Arc,
-        bool HeldTheArrival)
+        bool HeldTheArrival,
+        double CarrySeconds = double.NaN)
     {
         /// <summary>The burn is done. Anything further is spending propellant on making it worse.</summary>
         public bool AtCutoff => VelocityToGain <= CutoffMetresPerSecond;
@@ -91,7 +92,8 @@ internal static class BurnoutGuidance
                                 out Command command, double loft = 1.0, bool longWay = false,
                                 double cutoffSeed = 0.0, double flightSeed = double.NaN,
                                 double arrivalFromNowSeconds = double.NaN,
-                                double minArrivalDeg = 0.0)
+                                double minArrivalDeg = 0.0,
+                                double minToGain = 0.0)
     {
         command = default;
 
@@ -106,6 +108,7 @@ internal static class BurnoutGuidance
 
         double3 cutoffPosition = positionCci;
         double3 toGainOut = Vec.Zero;
+        double carried = 0.0;
         BallisticArc.Solution arc = default;
         double toGain = 0.0;
         bool solved = false;
@@ -144,11 +147,12 @@ internal static class BurnoutGuidance
             // cutoff. The loop converges anyway, because the term goes to zero as the burn ends,
             // which is exactly why it is easy to leave in and never see.
             double3 aimAtCutoff = body.CarryCci(aimNowCci, timeToCutoff);
+            carried = timeToCutoff;
 
             bool solvedArc = false;
             heldTheArrival = false;
 
-            if (double.IsFinite(arrivalFromNowSeconds)
+            if (double.IsFinite(arrivalFromNowSeconds) && !(minToGain > 0.0)
                 && arrivalFromNowSeconds - timeToCutoff >= BallisticArc.MinFlightSeconds)
             {
                 solvedArc = BallisticArc.TrySolve(body, cutoffPosition, aimAtCutoff,
@@ -169,7 +173,7 @@ internal static class BurnoutGuidance
             {
                 solvedArc = BallisticArc.TryCheapest(body, cutoffPosition, velocityAtCutoffUnpowered,
                                                      aimAtCutoff, out arc, loft, longWay, flightSeed,
-                                                     minArrivalDeg);
+                                                     minArrivalDeg, minToGain);
             }
 
             if (!solvedArc) return false;
@@ -205,17 +209,7 @@ internal static class BurnoutGuidance
 
         if (!solved) return false;
 
-        command = new Command(thrustDir, toGain, toGainOut, wanted, cutoffPosition, arc, heldTheArrival);
+        command = new Command(thrustDir, toGain, toGainOut, wanted, cutoffPosition, arc, heldTheArrival, carried);
         return true;
     }
-
-    /// <summary>
-    /// Whether the propellant left can finish the shot, with a stated margin.
-    ///
-    /// <para>Asked continuously rather than once at launch. A stack that could reach the target
-    /// from the pad and cannot reach it from where a bad ascent has put it is the ordinary failure,
-    /// and it is worth saying so while there is still a burn left to redirect.</para>
-    /// </summary>
-    public static bool CanReach(in Command command, BoosterPerformance booster, double marginFraction = 0.05)
-        => booster.DeltaVRemaining >= command.VelocityToGain * (1.0 + marginFraction);
 }

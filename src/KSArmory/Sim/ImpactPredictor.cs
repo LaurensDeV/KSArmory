@@ -77,7 +77,7 @@ internal static class ImpactPredictor
     /// flight model to keep in step with the first.</para>
     /// </summary>
     /// <param name="DensityRatioAt">Air density at a point on the arc, relative to sea level.</param>
-    /// <param name="Munition">The round whose <c>DragK</c> applies — the warhead, not the bus.</param>
+    /// <param name="Munition">The round whose drag applies — the warhead, not the bus.</param>
     internal readonly record struct Drag(Func<double3, double> DensityRatioAt, MunitionProfile Munition);
 
     /// <summary>
@@ -141,9 +141,8 @@ internal static class ImpactPredictor
     /// <param name="atmosphericStepSeconds">
     /// The step to fall back to once there is air, or NaN for <see cref="AtmosphericStepSeconds"/>.
     ///
-    /// <para>A parameter so it can be <em>measured</em>. It is the predictor's own integration
-    /// error, it is what the aim correction converges against, and until it could be varied from
-    /// outside nobody could say what it was worth.</para>
+    /// <para>A parameter so it can be <em>measured</em>: it is the predictor's own integration
+    /// error, and it is what the aim correction converges against.</para>
     /// </param>
     /// <param name="stopOnTheSurface">
     /// Report where the arc meets the ground between the last sample above it and the first below,

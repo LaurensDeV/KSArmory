@@ -1,0 +1,122 @@
+#version 450
+
+// Gun rounds: a tracer as a glowing segment added into the scene before bloom, so a bright core
+// blooms like any other light, and a round with no tracer as a faint grey streak of its own width
+// with no halo -- a negative brightness. One dispatch over every tracer on screen: the segments arrive projected, in
+// pixels, from ShellTracers, and each workgroup first gathers the ones that can reach its tile so a
+// pixel tests only its neighbours rather than the whole stream.
+//
+// Bindings follow ComputePipelineWrapper's order: the storage image, the depth it samples, then the
+// storage buffer of segments.
+
+layout (local_size_x = 16, local_size_y = 16) in;
+
+layout (set = 1, binding = 0, Rgba16f) uniform image2D sceneColor;
+layout (set = 1, binding = 1) uniform sampler2D sceneDepth;
+
+struct Segment
+{
+    vec4 Head;  // x, y in pixels, device depth, brightness; negative is a round with no tracer
+    vec4 Tail;  // x, y in pixels, device depth, the core's half-width in pixels
+};
+
+layout (std430, set = 1, binding = 2) readonly buffer Segments
+{
+    Segment segments[];
+};
+
+layout (push_constant) uniform PushConstants
+{
+    ivec4 FirstCountOrigin;  // first segment, how many, the dispatch's first pixel
+    vec4 Colour;             // the core's colour, and the halo's share of it
+    vec4 BallColour;         // a round with no tracer's colour
+} pc;
+
+// Past this many streaks through one 16-pixel tile the rest are not drawn there; it is already solid.
+const int MostPerTile = 256;
+
+// How far the halo reaches, in core half-widths, and the pixels past that nothing is drawn.
+const float HaloWidths = 5.0;
+
+// The tail keeps this share of the head's brightness: the eye's blend is brightest where the
+// light is now.
+const float TailShare = 0.25;
+
+shared int tileCount;
+shared int tileList[MostPerTile];
+
+void main()
+{
+    ivec2 size = imageSize(sceneColor);
+    ivec2 origin = pc.FirstCountOrigin.zw;
+    ivec2 tileMin = origin + ivec2(gl_WorkGroupID.xy) * 16;
+    vec2 lo = vec2(tileMin);
+    vec2 hi = lo + vec2(16.0);
+
+    if (gl_LocalInvocationIndex == 0u) tileCount = 0;
+    barrier();
+
+    int first = pc.FirstCountOrigin.x;
+    int count = pc.FirstCountOrigin.y;
+    for (int i = int(gl_LocalInvocationIndex); i < count; i += 256)
+    {
+        Segment s = segments[first + i];
+        float reach = s.Tail.w * HaloWidths + 2.0;
+        vec2 sLo = min(s.Head.xy, s.Tail.xy) - vec2(reach);
+        vec2 sHi = max(s.Head.xy, s.Tail.xy) + vec2(reach);
+        if (any(greaterThan(sLo, hi)) || any(lessThan(sHi, lo))) continue;
+
+        int slot = atomicAdd(tileCount, 1);
+        if (slot < MostPerTile) tileList[slot] = i;
+    }
+    barrier();
+
+    ivec2 at = tileMin + ivec2(gl_LocalInvocationID.xy);
+    if (at.x >= size.x || at.y >= size.y) return;
+
+    int n = min(tileCount, MostPerTile);
+    if (n == 0) return;
+
+    // Reverse-Z: larger is nearer, and zero is the sky.
+    float sceneZ = texelFetch(sceneDepth, at, 0).r;
+    vec2 p = vec2(at) + 0.5;
+
+    float light = 0.0;
+    float ball = 0.0;
+    for (int k = 0; k < n; k++)
+    {
+        Segment s = segments[first + tileList[k]];
+
+        vec2 a = s.Head.xy;
+        vec2 ab = s.Tail.xy - a;
+        float len2 = dot(ab, ab);
+        float t = len2 > 1.0e-6 ? clamp(dot(p - a, ab) / len2, 0.0, 1.0) : 0.0;
+        float d = length(p - (a + ab * t));
+
+        float halfW = s.Tail.w;
+        if (d > halfW * HaloWidths + 1.5) continue;
+
+        // Depth varies linearly across the screen along a line, so it can be interpolated in
+        // pixels. A hair of slack, so a tracer grazing the ground is not cut to dashes.
+        float z = mix(s.Head.z, s.Tail.z, t);
+        if (z < sceneZ * 0.9995) continue;
+
+        float core = 1.0 - smoothstep(halfW - 0.5, halfW + 0.5, d);
+
+        if (s.Head.w < 0.0)
+        {
+            ball += -s.Head.w * core;
+            continue;
+        }
+
+        float halo = exp(-(d * d) / (2.0 * halfW * halfW * HaloWidths * HaloWidths * 0.25));
+        float along = mix(1.0, TailShare, t);
+
+        light += s.Head.w * along * (core + pc.Colour.w * halo);
+    }
+
+    if (light <= 0.0 && ball <= 0.0) return;
+
+    vec4 was = imageLoad(sceneColor, at);
+    imageStore(sceneColor, at, vec4(was.rgb + pc.Colour.rgb * light + pc.BallColour.rgb * ball, was.a));
+}

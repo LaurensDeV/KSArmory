@@ -19,8 +19,7 @@ namespace KSArmory;
 /// for it. The segments already laid are the world's, not this class's.</para>
 ///
 /// <para>Three limits, all the engine's and all read out of it rather than guessed:
-/// a segment lives <b>1200 s</b> and expands over <b>5 s</b>, both global settings shared with
-/// every booster in the world; segments are capped at <b>16,384 per celestial body</b> and evicted
+/// a segment lives <b>1200 s</b>, a global setting shared with every booster in the world; segments are capped at <b>16,384 per celestial body</b> and evicted
 /// oldest-first, which is a budget shared with <see cref="NuclearClouds"/>; and only the camera's
 /// nearby body is drawn, with or without air, so a motor burning above the atmosphere lays a trail
 /// there too.</para>
@@ -41,32 +40,32 @@ internal sealed class MotorSmoke
     public MotorSmoke(Config config) => _config = config;
 
     /// <summary>Lays this frame's smoke for every round this system has burning.</summary>
-    public void Update(IEffectSource battery)
+    public void Update(IEffectSource system)
     {
-        ArgumentNullException.ThrowIfNull(battery);
+        ArgumentNullException.ThrowIfNull(system);
 
-        if (!_config.MotorSmoke || !PlumeSmoke.Available || battery.EffectBody is not { } body)
+        if (!_config.MotorSmoke || !PlumeSmoke.Available || system.EffectBody is not { } body)
         {
             // Not a release: dropping the entries is all there is to do, and the trail already in
             // the air goes on ageing out of its own accord.
-            ForgetOwnedBy(battery);
+            ForgetOwnedBy(system);
             return;
         }
 
         double3 centre = KsaWorld.PositionEcl(body);
         if (!Vec.IsFinite(centre)) return;
 
-        foreach (IProjectile round in battery.Rounds)
+        foreach (IProjectile round in system.Rounds)
         {
-            if (Burning(round)) Lay(round, battery, body, centre);
+            if (Burning(round)) Lay(round, system, body, centre);
             else _finished.Add(round);
         }
 
         // A round reaped mid-burn never reaches the branch above and would keep its entry.
         foreach (KeyValuePair<IProjectile, Live> kv in _laying)
         {
-            if (!ReferenceEquals(kv.Value.Owner, battery)) continue;
-            if (!battery.Rounds.Contains(kv.Key)) _finished.Add(kv.Key);
+            if (!ReferenceEquals(kv.Value.Owner, system)) continue;
+            if (!system.Rounds.Contains(kv.Key)) _finished.Add(kv.Key);
         }
 
         foreach (IProjectile round in _finished) _laying.Remove(round);
@@ -98,7 +97,7 @@ internal sealed class MotorSmoke
            && round.Munition.TotalBoostSeconds > 0f
            && round.Age <= round.Munition.TotalBoostSeconds;
 
-    private void Lay(IProjectile round, IEffectSource battery, Celestial body, double3 centre)
+    private void Lay(IProjectile round, IEffectSource system, Celestial body, double3 centre)
     {
         // Nothing until the round has cleared its tube. It is seated with its *centre* on the
         // launch anchor, so its nozzle starts half a body length inside and does not reach the
@@ -113,7 +112,7 @@ internal sealed class MotorSmoke
         double clearance = round.Munition.BodyLength;
         if (Vec.Len2(round.TravelSinceLaunch) < clearance * clearance) return;
 
-        if (!battery.TryRoundEffectEcl(round, out double3 ecl)) return;
+        if (!system.TryRoundEffectEcl(round, out double3 ecl)) return;
 
         // Behind the nozzle, not at the round's centre: smoke laid at the middle of the body reads
         // as the missile dragging a column out of its own flank. The same half-length the plume
@@ -126,12 +125,12 @@ internal sealed class MotorSmoke
 
         if (!_laying.TryGetValue(round, out Live? live))
         {
-            live = new Live { Strand = new PlumeSmoke.Strand(), Owner = battery };
+            live = new Live { Strand = new PlumeSmoke.Strand(), Owner = system };
             _laying[round] = live;
         }
         else
         {
-            live.Owner = battery;
+            live.Owner = system;
         }
 
         // Off the round's own size, so a 30 mm shell does not lay the column a HARM does.
@@ -140,21 +139,21 @@ internal sealed class MotorSmoke
         // calibre: a HARM is 4.17 m long and about a quarter of a metre across, so anything near
         // unity here is a column tens of times wider than the round. The laid radius is roughly
         // the body, and the expanded one is what makes a moving point read as a billowing trail
-        // rather than a wire -- reached within the engine's 5 s expansion, so it is what the trail
+        // rather than a wire -- reached within PlumeSmoke's 5 s swell, so it is what the trail
         // looks like for almost all of its life rather than an eventual size.
         double width = round.Munition.BodyLength * _config.MotorSmokeWidth;
 
         float laid = (float)(width * 0.08);
         float expanded = (float)(width * 0.7);
 
-        PlumeSmoke.Lay(live.Strand, body, positionCcf, laid, expanded);
+        PlumeSmoke.Lay(live.Strand, body, positionCcf, (-along).Transform(body.GetCce2Ccf()), laid, expanded);
     }
 
-    private void ForgetOwnedBy(IEffectSource battery)
+    private void ForgetOwnedBy(IEffectSource system)
     {
         foreach (KeyValuePair<IProjectile, Live> kv in _laying)
         {
-            if (ReferenceEquals(kv.Value.Owner, battery)) _finished.Add(kv.Key);
+            if (ReferenceEquals(kv.Value.Owner, system)) _finished.Add(kv.Key);
         }
 
         foreach (IProjectile round in _finished) _laying.Remove(round);

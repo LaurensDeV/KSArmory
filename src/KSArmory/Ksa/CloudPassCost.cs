@@ -147,15 +147,13 @@ internal static class CloudPassCost
         // Said even when the pass never ran, because that is the baseline the other run is read
         // against and a run that reports nothing looks like a run that measured nothing.
         //
-        // And a pass that FAILED to build says so rather than reading as one switched off. The two
-        // were the same line, so a shader that would not compile -- which the C# build cannot
-        // catch, because KSA compiles it at load -- was indistinguishable from the deliberate
-        // noshader control. That cost a debugging cycle on a GLSL declaration order.
+        // And a pass that FAILED to build says so rather than reading as one switched off: as one
+        // line, a shader that will not compile -- which the C# build cannot catch, because KSA
+        // compiles it at load -- is indistinguishable from the deliberate noshader control.
         //
         // Asked of a build that RAN and failed, not of there being no pipeline. A pass switched
-        // off is never asked to build, so reading the absence of one as a failure put "FAILED TO
-        // BUILD" on every control run -- which is the same confusion back again with the sign
-        // flipped, and worse, because a control is the run that is supposed to report nothing.
+        // off is never asked to build, so reading the absence of one as a failure puts "FAILED TO
+        // BUILD" on every control run -- the same confusion with the sign flipped, and worse, because a control is the run that is supposed to report nothing.
         string had = _passFrames > 0
                          ? $"pass {_passTotalMs / _passFrames:F2} ms a frame over {_passFrames}, "
                            + $"peak {_passPeakMs:F2}"

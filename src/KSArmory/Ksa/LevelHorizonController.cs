@@ -67,6 +67,12 @@ internal sealed class LevelHorizonController(Camera camera) : FixedController(ca
         _grossReported = 0;
     }
 
+    /// <summary>
+    /// Tell the probe the next frame is a cut, so it does not report the jump as a fault. The roll
+    /// carried between frames is kept: a cut that looks along the same bearing wants it.
+    /// </summary>
+    public void ExpectCut() => _probed = false;
+
     // How fast a levelled picture rights itself (rad/s). See the correction in OnFrame.
     private const double LevelRateRad = Math.PI;
 

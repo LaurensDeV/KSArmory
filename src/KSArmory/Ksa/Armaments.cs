@@ -50,15 +50,15 @@ internal sealed class Armaments
 
         foreach (WeaponSystems.Entry entry in systems)
         {
-            if (entry.Battery.Platform is not { } craft) continue;
+            if (entry.Weapon.Platform is not { } craft) continue;
 
             TargetAllocation tally = For(craft);
 
             // Handed to the system here rather than by the caller, so it cannot be stepped with a
             // tally from a craft it has since been rehomed off.
-            entry.Battery.CraftRounds = tally;
+            entry.Weapon.CraftRounds = tally;
 
-            foreach (IProjectile round in entry.Battery.Rounds)
+            foreach (IProjectile round in entry.Weapon.Rounds)
             {
                 if (round.State == RoundState.Flying) tally.Commit(round.TargetRef);
             }
@@ -90,7 +90,7 @@ internal sealed class Armaments
             bool stillArmed = false;
             foreach (WeaponSystems.Entry entry in systems)
             {
-                if (ReferenceEquals(entry.Battery.Platform, craft)) { stillArmed = true; break; }
+                if (ReferenceEquals(entry.Weapon.Platform, craft)) { stillArmed = true; break; }
             }
 
             if (!stillArmed) _stale.Add(craft);

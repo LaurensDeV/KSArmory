@@ -65,7 +65,7 @@ public class ChaseObserverTests(ITestOutputHelper output)
         Assert.True(atFlash >= 2.0 * Warhead.FireballRadius(b61) - 1e-9);
         Assert.True(risen > 2.0 * atFlash);
         Assert.InRange(risen, 0.8 * MushroomCloud.DrawnCloudTop(0.3), 1.6 * MushroomCloud.DrawnCloudTop(0.3));
-        Assert.InRange(ChaseView.ObserverDistanceMetres(b61), 2000.0, 3000.0);
+        Assert.InRange(ChaseView.ObserverDistanceMetres(b61), 3500.0, 4000.0);
 
         foreach (double kt in new[] { 0.3, 10.0, 340.0 })
         {

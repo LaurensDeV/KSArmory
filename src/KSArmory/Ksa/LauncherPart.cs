@@ -8,7 +8,7 @@ namespace KSArmory;
 ///
 /// The part itself (KSArmoryAssets.xml) is inert geometry - KSA sees a lump of
 /// structure with mass and a collider. This class is the bridge: it finds that part on the
-/// vehicle, and the battery mounts to it.
+/// vehicle, and the system mounts to it.
 /// </summary>
 internal static class LauncherPart
 {
@@ -53,9 +53,9 @@ internal static class LauncherPart
     public static bool IsMounted(Vehicle? vehicle) => vehicle is not null && Find(vehicle) is not null;
 
     /// <summary>
-    /// Every launcher on a vehicle, in part order, appended to <paramref name="into"/>. Part order
-    /// rather than the <see cref="Part"/> reference is what a battery keys on: KSA rebuilds the
-    /// part tree during staging and docking, and the ordinal survives that.
+    /// Every launcher on a vehicle, in part order, appended to <paramref name="into"/>. A system holds
+    /// its part by reference once it has found it (<see cref="WeaponSystem.HeldPart"/>): KSA moves
+    /// parts whole through a split and a dock, and the ordinal is what renumbers.
     /// </summary>
     public static void FindAll(Vehicle vehicle, List<(Part Part, LauncherProfile Profile)> into)
     {
@@ -116,6 +116,16 @@ internal static class LauncherPart
     /// <summary>A carried director's base, which rides the traverse. Null for a launcher with none.</summary>
     public static Part? FindOpticBase(Part launcher, LauncherProfile profile)
         => FindSubPart(launcher, profile.OpticBaseMarker);
+
+    /// <summary>The cannon actuator's cylinder, rod and feed. Null for each the launcher has none of.</summary>
+    public static Part? FindGunCylinder(Part launcher, LauncherProfile profile)
+        => FindSubPart(launcher, profile.GunCylinderMarker);
+    public static Part? FindGunRod(Part launcher, LauncherProfile profile)
+        => FindSubPart(launcher, profile.GunRodMarker);
+    public static Part? FindGunFeed(Part launcher, LauncherProfile profile)
+        => FindSubPart(launcher, profile.GunFeedMarker);
+    public static Part? FindGunRotor(Part launcher, LauncherProfile profile)
+        => FindSubPart(launcher, profile.GunRotorMarker);
 
     /// <summary>Collects this round's fin subparts, in tube order. Empty if it has none.</summary>
     public static void FindFins(Part launcher, MunitionProfile munition, List<Part> into)
@@ -262,7 +272,7 @@ internal static class LauncherPart
 
             // Stowed: flat against the casing, so the round clears the bore. A hinged set has no
             // stowed state and four blades rather than one, so the caller places those itself —
-            // scaling blade zero to nothing here is how they went missing on the rack.
+            // scaling blade zero to nothing here would leave one missing on the rack.
             if (fins is not null && munition.FinsPerRound == 0)
                 TryPlaceFins(fins, seated, rotation, 0.0, munition);
             return true;
@@ -582,9 +592,9 @@ internal static class LauncherPart
             doubleQuat ecl2Asmb = doubleQuat.Conjugate(platform.Asmb2Ego);
             doubleQuat asmb2Part = doubleQuat.Conjugate(launcher.Asmb2VehicleAsmb);
 
-            // asmb2Part is currently identity - the launcher is mounted unrotated relative to the
-            // vehicle assembly - but PositionParentAsmb is the assembly frame, so the conversion
-            // is kept explicit rather than relying on that holding.
+            // asmb2Part is the launcher's own mounting -- nothing on a surface mount and a half turn
+            // on a stack one -- and PositionParentAsmb is measured in the parent part's frame.
+            //
             // How far the craft has turned since this round left. The anchor is a world point
             // written in the part's frame, so it has to be carried back through that.
             doubleQuat sinceLaunch = doubleQuat.Concatenate(launchAttitude, ecl2Asmb);
@@ -610,6 +620,53 @@ internal static class LauncherPart
         }
     }
 
+
+    /// <summary>
+    /// The mesh a declared <c>&lt;SubPart&gt;</c> template is drawn with, by its Id, with no part of
+    /// it on any craft. Null for an Id nothing declares.
+    /// </summary>
+    public static PartModel? ModelOfTemplate(string? templateId)
+    {
+        if (string.IsNullOrEmpty(templateId)) return null;
+
+        try
+        {
+            return ModelOf(ModLibrary.Get<PartTemplate>(templateId)?.Components);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// The mesh a part is drawn with. Shared by every part of its template and kept by the engine for
+    /// the session, so it outlives the craft the part was on.
+    /// </summary>
+    public static PartModel? ModelOf(Part? part)
+    {
+        try
+        {
+            return ModelOf(part?.Template?.Components);
+        }
+        catch
+        {
+            // A part mid-teardown has nothing to lend.
+            return null;
+        }
+    }
+
+    private static PartModel? ModelOf(List<ModuleBase.TemplateDataBase>? components)
+    {
+        if (components is null) return null;
+
+        foreach (ModuleBase.TemplateDataBase component in components)
+        {
+            if (component is PartModelModule.Template template) return PartModel.Get(template);
+        }
+
+        return null;
+    }
 
     /// <summary>The attitude a round leaves this launcher at. See <see cref="TubeGeometry.ReleaseAttitudeEcl"/>.</summary>
     public static doubleQuat ReleaseAttitudeEcl(Part launcher, double3 releaseHeadingEcl, doubleQuat launchAttitude)
@@ -784,6 +841,25 @@ internal static class LauncherPart
         }
     }
 
+    /// <summary>Writes a pose the caller has already solved. False, logged once, if the engine refused it.</summary>
+    public static bool TryApplyPose(Part part, DrivePose pose, string what)
+    {
+        try
+        {
+            part.Asmb2ParentAsmb = pose.Rotation;
+            part.Asmb2ParentAsmbSafe = pose.Rotation;
+            part.PositionParentAsmb = pose.Position;
+            part.PositionParentAsmbSafe = pose.Position;
+            part.ResetCachedPosMatrixValues();
+            return true;
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"{what}: could not write pose ({e.GetType().Name}: {e.Message})");
+            return false;
+        }
+    }
+
     /// <summary>Carries a director's base round with the traverse. Cosmetic to the launcher.</summary>
     public static bool TryApplyOpticBase(Part opticBase, LauncherProfile profile, double turretBearingRad)
     {
@@ -939,7 +1015,7 @@ internal static class LauncherPart
     /// Muzzle position of one tube, in Ecl.
     ///
     /// The hexagon is laid out in world space about the boresight rather than being read out
-    /// of the part's own rotation. The battery always points its rounds along the boresight,
+    /// of the part's own rotation. The system always points its rounds along the boresight,
     /// so building the ring around that axis keeps the tubes and the departing rounds
     /// consistent with each other.
     /// </summary>

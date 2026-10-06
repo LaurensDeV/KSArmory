@@ -29,13 +29,19 @@ against **2026.8.22.5348** and the line numbers are ours.
 >
 > Nothing about §2 or §3 is affected: those are about what a decal *is*, not where it is recorded.
 
+> **Shell holes are built, and not this way.** A hole is procedural — no image, no normal — so it
+> took the ring pass's route instead: `Ksa/BulletHoles.cs` keeps the anchor §7.1 describes, off a
+> fresh `RayCastEgo` at the strike, and `Shaders/KSArmoryHole.comp` paints it from `CloudPass` over
+> its own few pixels. No new patch, pipeline state or descriptor ring. What this file still plans is
+> an **image** decal and a proximity burst's scorch (§7.2), which that route does not give.
+
 **And the mechanism is no longer the only way to get a projected decal in this repository.**
 `Ksa/CloudPass.cs` reconstructs world position from the resolved depth inside
 `SunbloomRenderer.Render` and marks the ground there, which is a depth-projected decal by another
 route — it conforms to terrain and tessellation, and it reaches anything in the depth buffer.
 What the box rasterisation below still buys over it is **cost and scale**: a cube touches only its
 own screen footprint where a compute dispatch is full-screen, which is the whole reason
-`NuclearClouds.MaxScorches` is four. It also buys image-based decals, which a procedural mark
+`NuclearClouds.MaxScorches` is twelve. It also buys image-based decals, which a procedural mark
 does not need and a burn mark on a hull does.
 
 ---
@@ -395,12 +401,11 @@ the same frame. Composing them anywhere else reopens the question.
 
 ## 8. What it costs us
 
-**It would be the second place this mod patches the game.** CLAUDE.md currently says
-`Ksa/AttitudeHook.cs` is *"the one place this mod patches the game"*, and that sentence is
-load-bearing — it is why the rule about not patching has a single, arguable exception rather than a
-growing list. A decal pass makes it two, on a target with a materially different risk profile:
-`AttitudeHook` prefixes one `public virtual` method whose signature is tracked in
-`docs/KSA-API-SURFACE.md`, where a decal pass binds to a dozen render internals at once. That is a
+**It would be another place this mod patches the game, and a different kind.** There are six today
+(`AttitudeHook`, `PreRenderHook`, `WorldReloadHook`, `RoundBodyDrawHook`, `LooseBodyDrawHook` and
+`CloudPassHook`), each prefixing or postfixing one method, most of them with the signature tracked in
+`docs/KSA-API-SURFACE.md`. A decal pass has a materially different risk profile: it binds to a dozen
+render internals at once. That is a
 decision to take deliberately, not a detail of the implementation.
 
 The rest, roughly in order of how likely it is to bite:
@@ -455,8 +460,8 @@ half of this feature can be flown and confirmed before any of it touches fire co
 
 ## 10. What this mechanism will never do
 
-- **Damage the craft.** A decal is paint. KSA exposes no partial-damage model — CLAUDE.md's *Kills
-  are binary* stands, and a hull with forty scorch marks on it is as alive as one with none.
+- **Damage the craft.** A decal is paint. What a hit costs a part is `Sim/PartHealth.cs`'s, and a
+  hull with forty scorch marks on it is exactly as hurt as that says, marks or none.
 - **Persist.** The marks are runtime state, like tracks and rounds in flight. They could be written
   into `saves/<save>/KSArmory/` the way system settings are, but nothing about the mechanism requires
   it and a reload starting clean is defensible.

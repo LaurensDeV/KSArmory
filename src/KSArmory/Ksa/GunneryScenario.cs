@@ -190,7 +190,7 @@ internal sealed class GunneryScenario
     /// <summary>One frame. Null while the run goes on, the verdict once it is over.</summary>
     public string? Update(WeaponSystems.Entry entry, double dt)
     {
-        WeaponSystem gun = entry.Battery;
+        WeaponSystem gun = entry.Weapon;
 
         if (gun.Profile.GunMunition is not { } munition) return $"FAIL {gun.Profile.DisplayName} carries no gun";
 
@@ -244,7 +244,8 @@ internal sealed class GunneryScenario
 
         _drone = TestTarget.Spawn(gun.Platform!, _request.Profile, _request.Seconds, _request.Speed,
                                   _request.MissMetres, "Gemini7",
-                                  SpinAxis * double.DegreesToRadians(_request.SpinDegPerSecond));
+                                  SpinAxis * double.DegreesToRadians(_request.SpinDegPerSecond),
+                                  SightBearing(gun));
         if (_drone is null) return "FAIL could not spawn a target";
         if (_request.Burn) VehicleCommand.SetEngine(_drone, true);
 
@@ -570,7 +571,7 @@ internal sealed class GunneryScenario
             return;
         }
 
-        double3 aim = at + (velocity * shell.DetonationElapsedInFrame);
+        double3 aim = InFrame.AtBurst(at, velocity, shell.DetonationElapsedInFrame);
         double3 mount = shell.PositionEcl - shell.OffsetFromPlatform;
         double3 miss = shell.PositionEcl - aim;
         double along = Vec.Dot(miss, Vec.Unit(aim - mount));
@@ -632,7 +633,12 @@ internal sealed class GunneryScenario
         string name = shell.StruckBody is Vehicle struck ? KsaWorld.DisplayName(struck) : string.Empty;
         bool onCraft = name.Length > 0
                        && (name == _craftName || name.StartsWith(_craftName + "_", StringComparison.Ordinal));
-        double range = Vec.Len(shell.OffsetFromPlatform);
+        // The shell's position is at the burst and its offset against the mount's end-of-step sample, so
+        // the mount is carried back to the burst, or the range carries up to a step of ~30 km/s.
+        double3 mountAtSample = shell.PositionEcl - shell.OffsetFromPlatform;
+        double3 mountVelocity = _wired?.Platform is { } mount ? KsaWorld.VelocityEcl(mount) : Vec.Zero;
+        double range = Vec.Len(shell.PositionEcl
+                               - InFrame.AtBurst(mountAtSample, mountVelocity, shell.DetonationElapsedInFrame));
 
         if (onCraft) _struck++;
 
@@ -697,5 +703,17 @@ internal sealed class GunneryScenario
         string label = double.IsPositiveInfinity(toKm) ? $"beyond {fromKm:F0} km" : $"{fromKm:F0}-{toKm:F0} km";
 
         return misses.Count == 0 ? $"{label} none" : $"{label} {misses.Count} at median {misses[misses.Count / 2]:F1} m";
+    }
+
+    // Where a sight that looks sideways is looking, level, or zero for the fixed bearing. A sight
+    // looking up has no level part, so every gun sighted on the sky keeps the bearing it was flown
+    // on; a chin turret's looks out of its mounting face, and a drone brought in without it comes
+    // from behind the host whenever the gun is on the far side.
+    private static double3 SightBearing(WeaponSystem gun)
+    {
+        if (gun.Sensor.ConeHalfAngleRad >= Math.PI || gun.Platform is not { } platform) return default;
+
+        double3 level = Vec.RejectFrom(gun.Boresight, KsaWorld.LocalUp(platform));
+        return Vec.Len(level) > 0.1 ? Vec.Unit(level) : default;
     }
 }

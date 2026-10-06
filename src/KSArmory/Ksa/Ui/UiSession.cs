@@ -10,7 +10,7 @@ namespace KSArmory;
 /// sites could sensibly disagree, and none of this passes it — there is one screen, one pair of
 /// ears and one clock. Drawn inside a craft's window, all of it reads as that craft's.</para>
 ///
-/// <para>Nothing here may read <c>_battery</c> without checking <c>_crewed</c> first. These are
+/// <para>Nothing here may read <c>_system</c> without checking <c>_crewed</c> first. These are
 /// reachable with no weapons system selected at all, which is the whole point of them.</para>
 /// </summary>
 internal sealed partial class Ui
@@ -44,6 +44,21 @@ internal sealed partial class Ui
             + "part breaks further out than a dense one, and losing enough of them at once still "
             + "destroys the craft outright. Off: inside the lethal radius the whole craft is destroyed.");
 
+        ImGui.SliderFloat("Damage scale", ref _config.DamageScale, 0.001f, 10f, "%.3fx", ImGuiSliderFlags.Logarithmic);
+        Tip("How much of a part's health one burst takes. Every part starts whole and loses what each "
+            + "burst puts on it, so a load short of breaking it is not forgotten. At 1x a fresh part breaks "
+            + "where it always has; at 0.1x it takes ten such bursts, and a shell has to strike the same "
+            + "part ten times before it breaks off -- no one hit takes more than a whole part, however "
+            + "close it burst. Parts only: with individual parts off, a burst in the "
+            + "lethal radius still destroys the craft.");
+
+        ImGui.Checkbox("Holed tanks leak", ref _config.TankLeaks);
+        Tip("On: a tank a shell has holed loses its liquid through every hole under the level, driven by a low "
+            + "tank pressure and by the depth above the hole and the pull the craft feels, and streams where it "
+            + "goes. The liquid settles against that pull, so a craft on its side drains from its lower holes and "
+            + "a hole above the level leaks nothing. Coasting in orbit the liquid floats, and every hole leaks as "
+            + "often as it is under it -- about as often as the tank is full.");
+
         ImGui.Checkbox("Nuclear bursts black out radar", ref _config.NuclearBlackout);
         Tip("On: a nuclear fireball ionises the air round it, and a radar cannot see through that or "
             + "out of it until it cools -- about a minute for a megatonne, seconds for a fraction of a "
@@ -52,6 +67,10 @@ internal sealed partial class Ui
         ImGui.Checkbox("Weapons on one craft share a target count", ref _config.ShareTargetsAcrossWeapons);
         Tip("On: two rails on one craft will not each fire a full salvo at the same target. "
             + "Off: each weapon counts only its own rounds.");
+
+        ImGui.Checkbox("High bursts send a red wave", ref _config.RedWave);
+        Tip("On: a burst 60 km up or higher sends a faint red sphere out through the upper air for "
+            + "minutes, as Teak did -- a night sight. Off: it is not drawn.");
 
         ImGui.Checkbox("Mushroom clouds", ref _config.NuclearClouds);
         Tip("On: a nuclear burst leaves a cloud standing, at 6-8 ms a frame. "
@@ -78,7 +97,7 @@ internal sealed partial class Ui
     }
 
     // Everything that belongs to the session and to playing with the mod: what is drawn, what is
-    // heard, the teams, and the settings that change how the weapons behave.
+    // heard, and the settings that change how the weapons behave.
     //
     // A window rather than a tree on the main panel, because the panel is a list of the systems in
     // the world and that list is the only thing on it that changes as the world does.
@@ -86,45 +105,9 @@ internal sealed partial class Ui
     {
         if (ImGui.CollapsingHeader("Display", ImGuiTreeNodeFlags.DefaultOpen)) DrawDisplayPane();
         if (ImGui.CollapsingHeader("Sound")) DrawSoundPane();
-        if (ImGui.CollapsingHeader("Teams", ImGuiTreeNodeFlags.DefaultOpen)) DrawTeamsPane();
 
         ImGui.SeparatorText("Weapons");
         DrawWarpHold();
-    }
-
-    // The roster of team names. The session's rather than a craft's, because a name labels a craft
-    // the same way whoever is looking at it; which side each installation takes stays with it.
-    private void DrawTeamsPane()
-    {
-        List<string> teams = _config.TeamNames;
-        string? removed = null;
-
-        if (teams.Count == 0) ImGui.TextDisabled("No teams: every contact classifies as Unknown.");
-
-        for (int i = 0; i < teams.Count; i++)
-        {
-            ImGui.TextColored(TeamColour(i), teams[i]);
-            ImGui.SameLine();
-
-            ImGui.PushID(i);
-            if (ImGui.SmallButton("Remove")) removed = teams[i];
-            Tip("Takes every craft off this team, and out of every craft's allied and neutral lists.");
-            ImGui.PopID();
-        }
-
-        // After the loop, so the list is not shortened under the index walking it.
-        if (removed is not null) ForgetTeam(removed);
-
-        if (TextField("Add team", ref _newTeamEntry) && Teams.Declare(teams, _newTeamEntry) is not null)
-        {
-            _newTeamEntry = string.Empty;
-        }
-
-        ImGui.SameLine();
-        Help("KSA has no team field, so a craft is placed two ways. The flag on its switcher row "
-             + "is the one that counts. Failing that -- a drone, or anything with nothing of this "
-             + "mod's fitted -- the team's name anywhere in the craft's name puts it on that side, "
-             + "so \"Red\" also matches \"Redstone\". Longest match wins. Name teams distinctly.");
     }
 
     // The developer tools, in a window of their own rather than a section of the settings one.
@@ -189,6 +172,18 @@ internal sealed partial class Ui
         ImGui.Checkbox("World overlay", ref _config.DrawOverlays);
         Tip("Everything drawn in the world around a system.");
 
+
+        ImGui.Checkbox("Shell holes", ref _config.BulletHoles);
+        Tip($"On: a shell that strikes a hull leaves a hole with soot round it, painted on the hull and "
+            + $"carried with it. The newest {BulletHoles.MaxHoles} are kept, and the nearest "
+            + $"{CloudPass.MostHolesPainted} in view are painted. Off: nothing is marked.");
+
+        ImGui.SliderFloat("Rounds between tracers", ref _config.BallRoundBrightness, 0f, 8f,
+                          _config.BallRoundBrightness > 0f ? "%.1f" : "hidden");
+        Tip("How bright a gun round that is not a tracer is drawn in daylight: a faint grey streak, so "
+            + "the stream between the tracers reads. It fades with the sun, and at night only the "
+            + "tracers are seen. A tracer is 24. Zero shows only the tracers.");
+
         if (_config.DrawOverlays)
         {
             ImGui.Checkbox("Only the system shown in the panel",
@@ -248,7 +243,7 @@ internal sealed partial class Ui
         // and stands whatever is selected; this line is a report about the selected system.
         if (!_crewed) return;
 
-        ImGui.TextDisabled(_battery.RoundBodyCount > 0 && _battery.RoundBodiesWork
+        ImGui.TextDisabled(_system.RoundBodyCount > 0 && _system.RoundBodiesWork
             ? "  rounds have real bodies; the tracer hides them up close"
             : "  no round bodies available - tracers are all there is");
     }

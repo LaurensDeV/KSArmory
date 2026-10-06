@@ -25,7 +25,7 @@ namespace KSArmory;
 /// <param name="velocityEcl">Its velocity at that instant, carrying the frame's ~29.8 km/s.</param>
 /// <param name="firedBy">
 /// The system that launched it. Carried so a round inherits its shooter's allegiance: a launcher's
-/// own missiles must read as friendly to everything on its side, or a battery engages its own
+/// own missiles must read as friendly to everything on its side, or a system engages its own
 /// salvo the moment it clears the tubes.
 /// </param>
 /// <param name="declaredTeam">

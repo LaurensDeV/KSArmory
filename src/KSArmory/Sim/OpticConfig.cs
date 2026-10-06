@@ -3,8 +3,8 @@ namespace KSArmory;
 /// <summary>
 /// One director's own settings — what <em>this</em> head is doing.
 ///
-/// <para>Separate from <see cref="SystemConfig"/> rather than folded into it, because a head is no
-/// longer part of a weapons system. A craft can carry a director and no armament at all, and a
+/// <para>Separate from <see cref="SystemConfig"/> rather than folded into it, because a head is not
+/// part of a weapons system. A craft can carry a director and no armament at all, and a
 /// craft can carry two launchers and one director; neither shape works if the head's settings are
 /// a weapon's.</para>
 ///
@@ -73,9 +73,19 @@ public sealed class OpticConfig : ISensorPolicy
     public float ManualBearingDeg;
     public float ManualElevationDeg = 10f;
 
-    /// <summary>Which viewport this head draws into. -1 is off; the main view is the only one
-    /// that renders a planet, so a secondary is for watching rather than aiming.</summary>
+    /// <summary>Which viewport this head draws into. -1 is off. A camera window draws terrain and
+    /// sky but not KSA's clouds, ocean or lights, which the main view alone gets.</summary>
     public int Viewport = -1;
+
+    /// <summary>Which channel a camera window shows. TV by default, as a pod comes up in; the main
+    /// view is always colour, being the player's own.</summary>
+    public SensorMode Sensor = SensorMode.Tv;
+
+    /// <summary>Whether this director's laser is firing, on an optic that has one.</summary>
+    public bool Lasing;
+
+    /// <summary>The laser's pulse code; a weapon homes on the spot carrying its own. See <see cref="LaserCode"/>.</summary>
+    public int LaserCode = KSArmory.LaserCode.Default;
 
     /// <summary>A factor on whatever field the player already had, so the same setting is the
     /// same instrument to two people with different preferences. See <see cref="SightZoom"/>.</summary>

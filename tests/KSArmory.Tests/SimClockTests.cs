@@ -3,10 +3,10 @@ using Xunit;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// What the battery does with the simulation step KSA reports.
+/// What the system does with the simulation step KSA reports.
 ///
 /// <para>Stepping on StarMap's player-time delta is wrong twice over: it is wall-clock, so it
-/// keeps running through a pause and the battery matures a firing solution into a frozen world,
+/// keeps running through a pause and the system matures a firing solution into a frozen world,
 /// and it stays at 1× under warp, so the world outruns the rounds.</para>
 ///
 /// <para>And it has to be the step KSA applied rather than a clock differenced around it.

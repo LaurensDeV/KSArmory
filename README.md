@@ -65,6 +65,10 @@ burst in the air at the predicted intercept rather than having to hit. One press
 the barrel recoils in its slide, and the shell itself is drawn in flight. The mount, its shell and
 their textures were made for this mod by **Mallikas**.
 
+**M197 chin turret** — a three-barrel 20 mm cannon that surface-attaches under a nose and hangs
+from it. 750 rounds at 730 a minute, traversing ±110° and depressing to 50°, with its barrels
+spinning while it fires and its elevation cylinders and ammunition belt following the gun. Model and textures by **Mallikas**.
+
 **B61 bomb rack** — the one that neither aims nor fires: it lets a bomb go and the ground does the
 rest. One B61-12 on a rack that surface-attaches to an aircraft, and a sight that draws the ring
 the bomb will land in — flown rather than solved, so the ring sits wherever the round will actually
@@ -85,32 +89,55 @@ observation post. A launcher may carry one as well, and the Pantsir's turret roo
 pod's centreline while the ball nods within it, and the picture is counter-rotated so what the pod
 hangs from stays at the top of it.
 
+And one piece of kit that shoots nothing:
+
+**AN/ALE-47 flare and chaff dispensers** — two parts on one 30-cell body, one loaded with fifteen
+MJU-7 flares and the other with thirty RR-170 chaff cartridges, as a real magazine section takes one
+kind. Each surface-attaches to anything and throws out of its face, so the loadout is chosen by what
+is fitted. A flare takes a heat seeker looking at it; chaff takes a radar one, but a Doppler seeker
+only while the target flies square to the missile, because chaff stops dead in the air. Fired by
+hand from the craft's countermeasures row, or left to answer on its own when a missile comes for it.
+See
+[Countermeasures](#countermeasures).
+
 A further weapon is an entry in the registry plus its art: see
 [Adding a weapon system](#adding-a-weapon-system).
 
-**Or it need not be in this mod at all.** A *weapon pack* is an ordinary KSA mod that declares a
-dependency on KSArmory and hands it a file of definitions; KSArmory never looks for one and holds
-no list of them. `KSArmory-example-mod` is a complete worked example — a Mk 82 bomb rack, which
+**Or it need not be in this mod at all.** A *weapon pack* is an ordinary KSA mod with a `KSArmory/`
+folder of definitions in it and no code; KSArmory reads that folder inside every installed mod and
+holds no list of packs. `KSArmory-example-mod` is a complete worked example — a Mk 82 bomb rack, which
 used to ship here — and `docs/WEAPON-PACKS.md` is the reference.
 
-> Built against KSA build `2026.9.22.5482`. KSA is pre-release and has no official code-modding
+> Built against KSA build `2026.10.7.5541`. KSA is pre-release and has no official code-modding
 > API; this uses the community [StarMap](https://github.com/StarMapLoader/StarMap) loader and
 > may need updating when the game does. The community
 > [wiki](https://kittenspaceagency.wiki.gg/) is a useful reference for the game itself.
 
 ## Install
 
-### What you need first
+### With Borea (recommended)
 
-- **Kitten Space Agency.** Built against build `2026.9.22.5482`; a different build may need a
-  rebuild of the mod. **Windows and Linux both work** — the mod is a portable .NET assembly with
-  no native code, so the single release archive is the same on either.
-- **[StarMap](https://github.com/StarMapLoader/StarMap/releases)**, the community mod loader.
-  KSA has no official code-modding API, so nothing here runs without it. Edit its
-  `StarMapConfig.json` to point at your KSA install — StarMap reads that file **relative to its
-  own directory**, so it has to be launched from where it lives.
+[Borea](https://github.com/KSAModding/Borea/releases/latest) is the community mod manager for KSA,
+on Windows, Linux and macOS. It installs the StarMap loader for you, registers the mod and
+launches the game through the loader, so none of the manual steps below apply.
 
-### Steps
+1. Install Borea from its [releases page](https://github.com/KSAModding/Borea/releases/latest).
+2. Open **[KSArmory on Borea](https://ksamodding.github.io/Borea/mod/KSArmory/)** and click
+   **Install with Borea**, or search for KSArmory on Borea's Discover page.
+3. Start the game **from Borea**. Starting KSA directly bypasses the loader: the parts still
+   appear in the editor, but none of the behaviour runs.
+
+Borea also installs updates when a new release appears.
+
+### By hand
+
+You need **Kitten Space Agency**, built against build `2026.10.7.5541`. A different build may
+need a rebuild of the mod. **Windows and Linux both work**: the mod is a portable .NET assembly
+with no native code, so one release archive covers both. You also need
+**[StarMap](https://github.com/StarMapLoader/StarMap/releases)**, the community mod loader. KSA has
+no official code-modding API, so nothing here runs without it. Edit its `StarMapConfig.json` to
+point at your KSA install. StarMap reads that file **relative to its own directory**, so launch it
+from where it lives.
 
 1. **Get the mod.** Download `KSArmory-<version>.zip` from
    [Releases](../../releases), or build it yourself with `./tools/package.sh`.
@@ -120,7 +147,7 @@ used to ship here — and `docs/WEAPON-PACKS.md` is the reference.
    | Platform | KSA user directory |
    | --- | --- |
    | Windows | `Documents\My Games\Kitten Space Agency\` |
-   | Linux | wherever KSA keeps its user data — commonly `~/.local/share/Kitten Space Agency/`; the folder containing `manifest.toml` and `Logs/` is the one you want |
+   | Linux | wherever KSA keeps its user data, commonly `~/.local/share/Kitten Space Agency/`; the folder containing `manifest.toml` and `Logs/` is the one you want |
    | Proton / Wine | inside the prefix, at `.../drive_c/users/steamuser/Documents/My Games/Kitten Space Agency/` |
 
    You should end up with:
@@ -137,10 +164,10 @@ used to ship here — and `docs/WEAPON-PACKS.md` is the reference.
    ```
 
    The folder layout matters, and on Linux so does the **case**. `KSArmoryAssets.xml` refers
-   to `Meshes/` and `Textures/` by relative path; a case mismatch is silently tolerated on
-   Windows and fails on Linux. Unzip rather than retyping the names.
+   to `Meshes/` and `Textures/` by relative path. A case mismatch is silently tolerated on
+   Windows and fails on Linux, so unzip rather than retyping the names.
 
-3. **Register it in `manifest.toml`.** This step is required — *dropping the folder in is not
+3. **Register it in `manifest.toml`.** This step is required: *dropping the folder in is not
    enough*. Open `manifest.toml` in the same user directory and add:
 
    ```toml
@@ -152,18 +179,15 @@ used to ship here — and `docs/WEAPON-PACKS.md` is the reference.
    KSA discovers mods through that list, and StarMap walks the same list to find code mods.
    Without an entry, nothing loads and nothing tells you why.
 
-4. **Launch through StarMap, not the game directly.** Starting KSA directly bypasses the loader
-   entirely: the part will still appear in the editor, but none of the behaviour will run.
-
-   On Windows that is `StarMap.exe`. StarMap also ships `StarMap.dll` — a portable .NET
-   assembly — so on Linux `dotnet StarMap.dll` from the same folder is the equivalent. Either
-   way it must run from its own directory, because it reads `StarMapConfig.json` relative to
-   itself.
+4. **Launch through StarMap, not the game directly.** On Windows that is `StarMap.exe`. StarMap
+   also ships `StarMap.dll`, a portable .NET assembly, so on Linux `dotnet StarMap.dll` from the
+   same folder is the equivalent.
 
 ### Check it worked
 
 The mod writes its own log to `Logs/KSArmory.log` under the KSA user directory, and prints
-the path it chose to stdout on startup — handy if it ended up somewhere unexpected. The file is
+the path it chose to stdout on startup — handy if it ended up somewhere unexpected. **Under Borea
+it is currently written to the shared profile in `Documents`, not to the instance's own folder.** The file is
 truncated each session. You should see:
 
 ```
@@ -181,7 +205,7 @@ and the **KSArmory** panel appears once you are in flight.
 
 | Symptom | Cause |
 | --- | --- |
-| No `KSArmory.log` at all | StarMap never ran the mod. Check the `manifest.toml` entry, and that you launched `StarMap.exe`. |
+| No `KSArmory.log` at all | StarMap never ran the mod. Under Borea, check the game was started from Borea. By hand, check the `manifest.toml` entry, and that you launched `StarMap.exe`. |
 | Part missing from the editor | The asset XML did not load. KSA's own log, the newest `KittenSpaceAgency.*.log` in the same folder, is where XML and asset errors appear. |
 | Part is there but nothing happens in flight | The DLL did not load, but the XML did — check `mod.toml`'s `EntryAssembly = "KSArmory"` matches the DLL name. |
 | Part renders untextured or invisible | `Meshes/` or `Textures/` did not come across, or the folder layout was flattened. |
@@ -227,6 +251,49 @@ launcher commits **Rounds per target** rounds before re-evaluating.
 | **Fuse radius** | Trigger distance. Larger is more forgiving; it does not increase lethality. |
 | **Explosive charge** | What actually kills. Lethal and blast radius are both read off it by the cube root, so doubling it multiplies the reach by 1.26. Between the two the target survives. |
 | **Gravity compensation** | 1.0 makes guidance ignore the fall. Drop it for lobbed, ballistic-looking shots. |
+
+### Countermeasures
+
+A guided round's seeker is one of three kinds, and that is what decides which decoy can take it:
+
+| Round | Seeker | Flares | Chaff |
+| --- | --- | --- | --- |
+| AIM-9J | infrared, no counter-countermeasures | usually decoyed | ignored |
+| AIM-120C | radar, pulse-Doppler | ignored | only while the target beams |
+| AGM-88 | homes on emission | ignored | ignored |
+| 57E6 | command link from the launcher | ignored | breaks the Pantsir's track while you beam it — see below |
+
+A decoy is in the running once it outshines the target in the seeker's field: heat falls with the
+square of range and a radar return with the fourth power. A radar seeker holds its target in a range
+gate, so only chaff within 150 m of the target counts; a heat seeker sees every flare in its field. Each decoy is judged **once**, the first
+moment it does, and takes the seeker with an 80% chance less the round's resistance. A seeker that
+is taken follows the decoy until it is spent, and its fuse fires on it, so a missile seduced close
+to the craft can still hurt it. Then it looks for its target again, or flies on blind.
+
+**Notching the Pantsir.** A 57E6 has nothing aboard to fool, but the set steering it can lose its
+track. Turn square to the Pantsir so you are closing on it at under 30 m/s, and drop chaff: a bigger
+return beside you with the same Doppler takes the set's gate, the track breaks, and any 57E6 already
+in the air loses its uplink and flies on unguided. The set takes three seconds to find you again,
+then holds you on its optical channel for as long as you stay in the notch — so it works once per
+pass, and turning back towards it ends it. Flares do nothing to it. A sensor's `ChaffNotchMps`,
+`ChaffReacquireSeconds` and `OpticalBackup` set this, on the Tuning tab under the sensor.
+
+Every seeker setting is on the **Tuning** tab under Guidance, and a weapon pack sets them as
+attributes on its `<Munition>`:
+
+| Setting | Attribute | Default | |
+| --- | --- | --- | --- |
+| **Seeker** | `SeekerBand` | `Radar` | `Radar`, `Infrared`, or `None` for a seeker no decoy fools. Read only for `Guidance="Seeker"` |
+| **Countermeasure resistance** | `CountermeasureResistance` | `0` | 0 to 1: how much of a decoy's chance the seeker refuses |
+| **Looks again after a decoy** | `ReacquiresAfterDecoy` | `true` | whether a seeker goes back to its target once the decoy is spent |
+| **Doppler gate** | `DopplerGateMps` | `0` | m/s; chaff is only seen within this of the target's closing speed. Zero is no gate |
+
+Each dispenser's component row shows what it has left, and the first carries the craft's controls:
+**Flares**, **Chaff** or **Both** throw a salvo of two cartridges a quarter of a second apart from
+every dispenser holding that load, together, so a symmetric pair throws either side of the craft and
+each dispenser fitted makes a press heavier. **Auto-dispense** throws on its own when a
+missile whose seeker is on the craft closes inside 6 km: flares for a heat seeker, chaff for a radar
+one, both for anything it cannot place, at most once a second. A dispenser is never reloaded.
 
 ## Testing
 
@@ -359,14 +426,14 @@ and checks every asset Id and texture path, because all of those fail silently i
 
 Everything since is **authored** in Blender and its `.blend` is not in this repository, so a
 committed asset cannot be rebuilt from a clean checkout — which is why `checkmesh.py` and
-`validate-parts.py` matter more for those than for the generated four.
+`validate-parts.py` matter more for those than for the generated three.
 
 The part itself is inert — KSA sees structure with mass and a collider. The C# mod finds it on
 the vehicle and mounts the battery there. That split avoids registering a custom module type
 into the engine's internal update lists, which is not reachable without patching.
 
-**Adding a weapon system is data, not code.** `src/KSArmory/Sim/Arsenal.cs` registers each
-launcher, round and sensor as a profile; discovery is by part Id, so nothing in the simulation
+**Adding a weapon system is data, not code.** `src/KSArmory/Sim/Arsenal.cs` and
+`src/KSArmory/KSArmory/Weapons.xml` register each launcher, round and sensor as a profile; discovery is by part Id, so nothing in the simulation
 or the game binding names a particular vehicle. A new system is an entry there plus its art.
 
 The source is split by whether it can see KSA at all: `Sim/` cannot, `Ksa/` does. The test
@@ -527,7 +594,7 @@ because they live there rather than inside `LauncherPart`.
 
 ### Adding a weapon system
 
-It is data, not code. Nothing in `Sim/` or `Ksa/` names the Pantsir.
+It is data, not code. Nothing in `Sim/` or `Ksa/` names the Pantsir outside the registry.
 
 1. Model it — authored in Blender, following `.claude/skills/ksa-blender/SKILL.md`. The headless
    generator builds the three parts that predate that and is not extended.
@@ -566,8 +633,8 @@ several of the files carry a note saying "do not simplify this", and those notes
 
 That covers the C# mod, the tooling, and the art generated or authored here. Two things came from
 outside. The Phalanx's cannon recording under `tools/audio/` is CC0 and carries no condition on
-redistribution — see the README beside it. And the 5"/54 Mk 42's model, shell and textures were made
-for this mod by Mallikas.
+redistribution — see the README beside it. And the 5"/54 Mk 42's model, shell and textures, and the
+M197's model and textures, were made for this mod by Mallikas.
 
 It does **not** cover Kitten Space Agency itself. The mod compiles against KSA's assemblies but
 never redistributes them: `Import/` is gitignored, the project references them with

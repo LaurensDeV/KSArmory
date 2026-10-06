@@ -77,7 +77,7 @@ public class BoostAxisTests
 
     /// <summary>
     /// The property that makes this safe to change: a launcher standing still has gained exactly
-    /// what it has, so every ground battery flies as it always did. That is also why thrusting
+    /// what it has, so every ground system flies as it always did. That is also why thrusting
     /// along the flight path was indistinguishable from thrusting along the tube for as long as
     /// every launcher in the mod sat on the ground.
     /// </summary>

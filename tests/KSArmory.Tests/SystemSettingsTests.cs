@@ -66,7 +66,7 @@ public class SystemSettingsTests
     /// <summary>
     /// A file written before a setting existed must load it at its default. Zero would be the
     /// obvious result of deserialising a missing field, and for MissilesEnabled or TurretTracking
-    /// that silently disarms half a battery.
+    /// that silently disarms half a system.
     /// </summary>
     [Fact]
     public void AMissingSettingArrivesAtItsDefaultNotAtZero()
@@ -215,8 +215,8 @@ public class SystemSettingsTests
     }
 
     /// <summary>
-    /// A battery carries nothing about an optical head. A director is a part in its own right
-    /// with its own OpticConfig, crewed per part rather than per weapons system, so a battery's
+    /// A system carries nothing about an optical head. A director is a part in its own right
+    /// with its own OpticConfig, crewed per part rather than per weapons system, so a system's
     /// settings have no business naming one — and a craft can carry a director and no weapon.
     /// </summary>
     [Fact]

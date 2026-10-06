@@ -6,76 +6,32 @@ namespace KSArmory;
 /// The panes that change how a system behaves: which side it is on, and the sensor, guidance and
 /// warhead numbers.
 ///
-/// <para>The distinction the sliders keep making: IFF is per battery, so it edits
+/// <para>The distinction the sliders keep making: IFF is per system, so it edits
 /// <c>_policy</c>; weapon performance belongs to the profiles, so it edits those and every system
 /// of that type feels it. See <see cref="Config"/> for why.</para>
 /// </summary>
 internal sealed partial class Ui
 {
-    // Which side this one system takes against the session's teams, which are declared in the
-    // settings window. Picked off that roster rather than typed, so a typo cannot declare a team.
-    private void DrawIff()
+    private const float TsarBombaKg = 50_000_000_000f;
+
+    // A charge spans thirteen orders of magnitude, so the slider moves along its logarithm and the
+    // label says it in whichever of kg, t, kt or Mt reads. Typed input is off because what it would
+    // edit is the logarithm.
+    private static bool ChargeSlider(string label, ref float kg, float minKg, float maxKg)
     {
-        ImGui.Text($"Own team: {_policy.Iff.OwnTeam ?? "none"}");
-        Tip("This system's alone. The flag beside the craft in the panel's list sets every weapon "
-            + "and director on it at once.");
-        if (_policy.Iff.OwnTeam is null)
+        float lo = MathF.Log10(minKg);
+        float hi = MathF.Log10(maxKg);
+        float at = Math.Clamp(MathF.Log10(Math.Max(kg, minKg)), lo, hi);
+
+        if (!ImGui.SliderFloat(label, ref at, lo, hi, Charge.Say(kg),
+                               ImGuiSliderFlags.NoInput | ImGuiSliderFlags.AlwaysClamp))
         {
-            ImGui.SameLine();
-            ImGui.TextDisabled("- everything is Unknown");
+            if (kg > maxKg) kg = maxKg;
+            return false;
         }
 
-        if (_config.TeamNames.Count == 0)
-        {
-            ImGui.TextDisabled("  no teams declared; add them under KSArmory settings");
-        }
-
-        for (int i = 0; i < _config.TeamNames.Count; i++)
-        {
-            string team = _config.TeamNames[i];
-            bool own = string.Equals(team, _policy.Iff.OwnTeam, StringComparison.OrdinalIgnoreCase);
-
-            bool allied = _policy.Iff.AlliedTeams.Contains(team);
-            bool neutral = _policy.Iff.NeutralTeams.Contains(team);
-
-            ImGui.PushID(i);
-
-            ImGui.PushStyleColor(ImGuiCol.Text, AllegianceColour(_policy.Iff.Classify(team)));
-            if (ImGui.RadioButton(team, own)) _policy.Iff.OwnTeam = own ? null : team;
-            ImGui.PopStyleColor();
-            Tip(own ? "This system's own team. Click to take it off." : "Click to make it this system's own team.");
-
-            if (!own)
-            {
-                ImGui.SameLine();
-                if (ImGui.Checkbox("allied", ref allied))
-                {
-                    Toggle(_policy.Iff.AlliedTeams, team, allied);
-                    if (allied) _policy.Iff.NeutralTeams.Remove(team);
-                }
-
-                ImGui.SameLine();
-                if (ImGui.Checkbox("neutral", ref neutral))
-                {
-                    Toggle(_policy.Iff.NeutralTeams, team, neutral);
-                    if (neutral) _policy.Iff.AlliedTeams.Remove(team);
-                }
-            }
-
-            ImGui.PopID();
-        }
-
-        ImGui.Separator();
-
-        bool engageUnknown = _policy.Iff.EngageUnknown;
-        if (ImGui.Checkbox("Engage unknown contacts", ref engageUnknown)) _policy.Iff.EngageUnknown = engageUnknown;
-
-        bool engageNeutral = _policy.Iff.EngageNeutral;
-        if (ImGui.Checkbox("Engage neutrals", ref engageNeutral)) _policy.Iff.EngageNeutral = engageNeutral;
-
-        bool protectFriendly = _policy.Iff.ProtectFriendly;
-        if (ImGui.Checkbox("Never engage friendlies", ref protectFriendly)) _policy.Iff.ProtectFriendly = protectFriendly;
-
+        kg = Math.Clamp(MathF.Pow(10f, at), minKg, maxKg);
+        return true;
     }
 
     // Rounds this system throws that the guidance node does not already tune. Sliders enumerated
@@ -87,16 +43,36 @@ internal sealed partial class Ui
         for (int i = 0; i < armaments.Count; i++)
         {
             Armament arm = armaments[i];
-            if (arm.Munition == _munition.Name) continue;
+            bool other = arm.Munition != _munition.Name;
+            if (!other && arm.Kind != ArmamentKind.Belt) continue;
 
             MunitionProfile round = Catalogue.MunitionNamed(arm.Munition);
 
             ImGui.Separator();
             ImGui.TextDisabled($"{arm.Label}: {round.DisplayName}");
 
-            ImGui.Checkbox($"Timed airburst (flak)##{arm.Label}", ref round.TimedFuse);
-            Tip("On: rounds burst at the lead solution's flight time, and the proximity fuse still "
-                + "runs. Off: rounds burst on proximity only.");
+            if (other)
+            {
+                ImGui.Checkbox($"Timed airburst (flak)##{arm.Label}", ref round.TimedFuse);
+                Tip("On: rounds burst at the lead solution's flight time, and the proximity fuse still "
+                    + "runs. Off: rounds burst on proximity only.");
+            }
+
+            if (arm.Kind == ArmamentKind.Belt) DrawTracers(round, arm.Label);
+        }
+    }
+
+    private static void DrawTracers(MunitionProfile round, string label)
+    {
+        ImGui.SliderInt($"Tracer every##{label}", ref round.TracerEvery, 0, 10,
+                        round.TracerEvery > 0 ? "1 in %d" : "none");
+        Tip("How the belt is loaded: one round in this many burns a tracer. The rest are drawn as a "
+            + "faint grey streak, so the stream reads while the tracers stay the only bright thing in it.");
+
+        if (round.TracerEvery > 0)
+        {
+            ImGui.SliderFloat($"Tracer burn (s)##{label}", ref round.TracerBurnSeconds, 0.5f, 10f, "%.1f s");
+            Tip("How long a tracer burns before it goes out. The round flies on unseen.");
         }
     }
 
@@ -167,6 +143,17 @@ internal sealed partial class Ui
             ImGui.TextDisabled("  rejects clutter, and loses a target crossing exactly abeam");
         }
 
+        ImGui.SliderFloat("Chaff notch (m/s)", ref _sensor.ChaffNotchMps, 0f, 100f);
+        Tip("A target closing slower than this, with chaff in its resolution cell outshining it, is lost. "
+            + "Zero: chaff never breaks this set's track.");
+        if (_sensor.ChaffNotchMps > 0f)
+        {
+            ImGui.SliderFloat("Reacquire after chaff (s)", ref _sensor.ChaffReacquireSeconds, 0f, 15f);
+            ImGui.Checkbox("Optical channel holds the track", ref _sensor.OpticalBackup);
+            Tip("On: once found again, the target is held on the camera for as long as it stays in the notch, "
+                + "so the same manoeuvre does not break the track twice.");
+        }
+
         ImGui.SliderFloat("Clutter floor (m)", ref _sensor.ClutterFloorMetres, 0f, 2000f);
         if (_sensor.ClutterFloorMetres > 0f)
         {
@@ -228,6 +215,33 @@ internal sealed partial class Ui
         }
     }
 
+    private void DrawSeekerBand()
+    {
+        ImGui.Text("Seeker");
+        ImGui.SameLine();
+        if (ImGui.RadioButton("radar##band", _munition.Band == SeekerBand.Radar)) _munition.Band = SeekerBand.Radar;
+        ImGui.SameLine();
+        if (ImGui.RadioButton("infrared##band", _munition.Band == SeekerBand.Infrared)) _munition.Band = SeekerBand.Infrared;
+        ImGui.SameLine();
+        if (ImGui.RadioButton("unfoolable##band", _munition.Band == SeekerBand.None)) _munition.Band = SeekerBand.None;
+        Tip("What decoy can take it: flares fool an infrared seeker, chaff a radar one, nothing the third.");
+
+        if (_munition.Band == SeekerBand.None) return;
+
+        ImGui.SliderFloat("Countermeasure resistance", ref _munition.CountermeasureResistance, 0f, 1f);
+        Tip($"How much of a decoy's {SeekerLock.SeductionChance:P0} chance of taking the seeker it refuses. "
+            + "Each decoy is judged once, the first moment it outshines the target.");
+        ImGui.Checkbox("Looks again after a decoy", ref _munition.ReacquiresAfterDecoy);
+        Tip("On: once the decoy is spent the seeker goes back to the target if it can still see it. Off: it flies on blind.");
+
+        if (_munition.Band == SeekerBand.Radar)
+        {
+            ImGui.SliderFloat("Doppler gate (m/s)", ref _munition.DopplerGateMps, 0f, 200f);
+            Tip("Zero is no gate. Otherwise chaff is only seen while its closing speed is within this of the "
+                + "target's, which for chaff that has stopped in the air means only while the target beams.");
+        }
+    }
+
     private void DrawGuidanceNode()
     {
         if (ImGui.TreeNode("Guidance"))
@@ -258,13 +272,17 @@ internal sealed partial class Ui
                     ImGui.SliderFloat("Boost time (s)", ref _munition.BoostSeconds, 0f, 10f);
                     ImGui.SliderFloat("Coast before steering (s)", ref _munition.SeparationSeconds, 0f, 3f);
                     Tip("A round leaves along the tube and is clear before it turns.");
+
+                    // Only a seeker the round carries can be fooled; a command link and an
+                    // anti-radiation head see nothing a flare or chaff makes.
+                    if (_munition.Guidance == GuidanceMode.Seeker) DrawSeekerBand();
                 }
             }
 
             ImGui.SliderFloat("Launch speed (m/s)", ref _munition.LaunchSpeed, 5f, 300f);
             ImGui.SliderFloat("Max flight time (s)", ref _munition.MaxFlightSeconds, 3f, 180f);
 
-            // The envelope the battery commits inside, which is not how far the round can fly:
+            // The envelope the system commits inside, which is not how far the round can fly:
             // the set sees 36 km and the round reaches 20, and firing at everything detected
             // spends the magazine on contacts the rounds expire short of.
             ImGui.SliderFloat("Min engagement range (m)", ref _munition.MinRange, 0f, 5000f);
@@ -289,20 +307,62 @@ internal sealed partial class Ui
             // first time anybody touched it. Logarithmic, or the whole conventional range -- every
             // round the mod otherwise ships -- lives in the first thousandth of the travel.
             //
-            // 340 kt is the top of the B61's own dial, so the slider covers the real weapon rather
-            // than stopping partway up it. It is well past playable at a launch site -- the lethal
-            // radius alone is 7.8 km -- which is a reason to ship at the bottom of the range, not a
-            // reason to hide the top of it.
-            ImGui.SliderFloat("Explosive charge (kg)", ref _munition.ChargeKg, 0.01f, 340_000_000f,
-                              "%.2f", ImGuiSliderFlags.Logarithmic);
+            // Without a ceiling of its own a warhead runs on to Tsar Bomba's 50 Mt, the largest ever
+            // set off. A dial-a-yield bomb stops at its own top setting instead.
+            float maxCharge = _munition.MaxChargeKg > 0f ? _munition.MaxChargeKg : TsarBombaKg;
+            ChargeSlider("Explosive charge", ref _munition.ChargeKg, 0.01f, maxCharge);
             ImGui.TextDisabled($"  lethal {_munition.LethalRadius:F0} m, "
                                + $"blast {_munition.BlastRadius:F0} m, "
-                               + $"fireball {_munition.FireballRadius:F0} m"
-                               + (_munition.ChargeKg >= 1000f
-                                      ? $"   ({_munition.ChargeKg / 1e6f:F2} kt)"
-                                      : ""));
-            ImGui.SliderFloat("Salvo spacing (s)", ref _profile.SalvoSpacing, 0.05f, 3f);
-            ImGui.SliderFloat("Reload time (s)", ref _profile.ReloadSeconds, 0f, 60f);
+                               + $"fireball {_munition.FireballRadius:F0} m");
+            // What the ground under a store decides: whether it bursts in the air, and whether a
+            // chute slows it enough for whoever dropped it to get away.
+            if (_munition.HitsTerrain)
+            {
+                ImGui.SliderFloat("Burst height (m)", ref _munition.BurstHeightMetres, 0f, 10000f,
+                                  "%.0f m", ImGuiSliderFlags.Logarithmic);
+                Tip("A radar or barometric fuse: it fires this far over the ground on the way down. "
+                    + "Zero bursts on contact. Released lower than this, it bursts on the ground.");
+
+                ImGui.SliderFloat("Parachute", ref _munition.ChuteSinkMetresPerSecond, 0f, 100f,
+                                  _munition.HasChute ? "falls at %.0f m/s" : "none");
+                Tip("A retarding parachute, set by how fast the bomb comes down under it at sea level. "
+                    + "Slower gives whoever dropped it longer to get away. Zero is no parachute.");
+
+                if (_munition.HasChute)
+                {
+                    ImGui.SliderFloat("Parachute opens after (s)", ref _munition.ChuteOpensSeconds, 0f, 10f);
+                }
+
+                if (TsarBombaKg <= maxCharge)
+                {
+                    if (ImGui.Button("Tsar Bomba"))
+                    {
+                        _munition.ChargeKg = TsarBombaKg;
+                        _munition.BurstHeightMetres = 4000f;
+                        _munition.ChuteSinkMetresPerSecond = 18f;
+                        _munition.ChuteOpensSeconds = 1.5f;
+                    }
+
+                    Tip("50 Mt, bursting 4,000 m up, on a 1,600 m² chute that brought 27 t down at "
+                        + "about 18 m/s. Dropped from 10.5 km it took 188 s to fall, which is what let "
+                        + "the Tu-95 get 45 km away. Edits every store of this kind in the world.");
+                }
+            }
+
+            // Spacing is between rounds of one salvo, so a launcher holding one round has none. A
+            // launcher with no tubes never reloads them: its belt has its own timer.
+            if (_profile.TubeCount > 1)
+            {
+                ImGui.SliderFloat("Salvo spacing (s)", ref _profile.SalvoSpacing, 0.05f, 3f);
+            }
+
+            if (_profile.TubeCount > 0)
+            {
+                ImGui.SliderFloat("Reload time (s)", ref _profile.ReloadSeconds, 0f, 60f,
+                                  _profile.ReloadSeconds > 0f ? "%.1f s" : "never");
+                Tip("How long after the last round leaves before the launcher is full again. "
+                    + "Zero is never: a rail or rack that has let its store go stays empty.");
+            }
 
             DrawOtherArmamentRounds();
             ImGui.TreePop();

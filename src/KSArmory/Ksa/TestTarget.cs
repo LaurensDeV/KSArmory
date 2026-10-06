@@ -4,7 +4,7 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// Spawns a drone on a timed pass over the battery, so the system can be exercised without
+/// Spawns a drone on a timed pass over the system, so the system can be exercised without
 /// building a second craft and flying it into position by hand.
 ///
 /// Drones fly one of KSA's stock craft by default, so the thing being shot at is recognisably
@@ -30,10 +30,10 @@ internal static class TestTarget
         return (east * Math.Cos(AzimuthRadians)) + (north * Math.Sin(AzimuthRadians));
     }
 
-    /// <summary>How the drone is aimed relative to the battery.</summary>
+    /// <summary>How the drone is aimed relative to the system.</summary>
     public enum Profile
     {
-        /// <summary>Flies straight at the battery. The easy case.</summary>
+        /// <summary>Flies straight at the system. The easy case.</summary>
         HeadOn,
 
         /// <summary>Crosses overhead at <c>missDistance</c>. The case ProNav exists for.</summary>
@@ -47,12 +47,13 @@ internal static class TestTarget
     /// Creates the drone. Returns null and logs if anything in the spawn chain fails - this is
     /// a testing aid, so it must never take the game down with it.
     /// </summary>
-    /// <param name="platform">The vehicle carrying the battery.</param>
+    /// <param name="platform">The vehicle carrying the system.</param>
     /// <param name="secondsToClosestApproach">Flight time from spawn to the pass.</param>
     /// <param name="speed">Drone speed relative to the platform (m/s).</param>
     /// <param name="missDistance">How close it passes (m). Ignored for <see cref="Profile.HeadOn"/>.</param>
     /// <param name="craftName">Stock craft to fly, e.g. "Gemini7". Null clones the platform.</param>
     /// <param name="bodyRates">How fast it leaves turning, in its own axes (rad/s).</param>
+    /// <param name="bearing">The level direction to come in along, or zero for <see cref="ApproachBearing"/>.</param>
     public static Vehicle? Spawn(
         Vehicle platform,
         Profile profile,
@@ -60,7 +61,8 @@ internal static class TestTarget
         double speed,
         double missDistance,
         string? craftName = null,
-        double3 bodyRates = default)
+        double3 bodyRates = default,
+        double3 bearing = default)
     {
         try
         {
@@ -80,9 +82,10 @@ internal static class TestTarget
             double3 originVel = KsaWorld.VelocityEcl(platform);
             double3 up = KsaWorld.LocalUp(platform);
 
-            // Build the approach in world space. `heading` is the direction the drone travels.
-            double3 east = Vec.AnyPerpendicular(up);
-            double3 north = Vec.Cross(up, east);
+            // Build the approach in world space. `heading` is the direction the drone travels, and
+            // the pass is offset square to the bearing it comes in on.
+            double3 azimuth = Vec.Len2(bearing) > 0.0 ? Vec.Unit(bearing) : ApproachBearing(platform);
+            double3 north = Vec.Cross(up, azimuth);
 
             // Spawn by elevation angle rather than flying a level track. A level pass computed
             // from range alone starts the drone at ~9 degrees elevation, which is both outside
@@ -105,10 +108,9 @@ internal static class TestTarget
             double t = secondsToClosestApproach;
             double spawnRange = speed * t;
 
-            // Direction from the battery to the spawn point: elevation above the horizon,
+            // Direction from the system to the spawn point: elevation above the horizon,
             // azimuth around it.
             double elev = double.DegreesToRadians(elevationDeg);
-            double3 azimuth = ApproachBearing(platform);
             double3 spawnDir = up * Math.Sin(elev) + azimuth * Math.Cos(elev);
 
             double3 spawnEcl = originEcl + Vec.Unit(spawnDir) * spawnRange;
@@ -244,7 +246,7 @@ internal static class TestTarget
             try
             {
                 double actualRangeKm = Vec.Len(KsaWorld.PositionEcl(drone) - originEcl) / 1000.0;
-                Log.Debug($"  placed at {actualRangeKm:F1} km from the battery (intended {Vec.Len(spawnEcl - originEcl) / 1000.0:F1} km)");
+                Log.Debug($"  placed at {actualRangeKm:F1} km from the system (intended {Vec.Len(spawnEcl - originEcl) / 1000.0:F1} km)");
             }
             catch (Exception e)
             {
@@ -262,6 +264,48 @@ internal static class TestTarget
         catch (Exception e)
         {
             Log.Error("test target spawn failed", e);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// A stock craft set down on the ground at a latitude and longitude, standing still -- a target
+    /// to shoot at rather than one flying past. Built above <paramref name="platform"/> and then
+    /// teleported, because the launch menu's own placement is what puts a craft on the surface.
+    /// </summary>
+    public static Vehicle? SpawnParked(Vehicle platform, string craftName, string id, Celestial body,
+                                       double latitudeDeg, double longitudeDeg)
+    {
+        try
+        {
+            if (Universe.CurrentSystem is not { } system || platform.Parent is not { } parent) return null;
+
+            double3 up = KsaWorld.LocalUp(platform);
+            double3 spawnEcl = KsaWorld.PositionEcl(platform) + up * 500.0;
+            if (!ToParentInertial(parent, spawnEcl, KsaWorld.VelocityEcl(platform), out double3 posCci, out double3 velCci))
+            {
+                return null;
+            }
+
+            Orbit orbit = Orbit.CreateFromStateCci(parent, Universe.GetElapsedTime(), posCci, velCci,
+                                                   new byte4(255, 80, 80, 255));
+
+            using ShapesUnlock shapes = ConstraintSim.UnlockShapesBlocking();
+            DroneBlueprint blueprint = BuildDroneParts(platform, craftName);
+            Vehicle craft = Vehicle.CreateVehicle(system, platform.Body2Cce, bodyRates: default,
+                                                  parent, id, blueprint.Parts.Root, orbit);
+            parent.Children.Add(craft);
+            craft.Parts.RecomputeAllDerivedData();
+            craft.UpdateAfterPartTreeModification();
+            craft.UpdatePerFrameData();
+            craft.TeleportToLocation(body, latitudeDeg, longitudeDeg);
+
+            Log.Info($"parked '{id}' ({craftName}) at {latitudeDeg:F4}, {longitudeDeg:F4} on {body.Id}");
+            return craft;
+        }
+        catch (Exception e)
+        {
+            Log.Error("parked target spawn failed", e);
             return null;
         }
     }
@@ -368,7 +412,7 @@ internal static class TestTarget
             {
                 // Both are genuinely nullable in KSA - FindSave returns VehicleSave? and Load
                 // returns PartTree? - so the checks below are load-bearing rather than defensive.
-                VehicleSave? save = DefaultVehicleSaves.FindSave(craftName);
+                VehicleSave? save = DefaultVehicleSaves.FindSave(craftName) ?? LibrarySave(craftName);
                 if (save is not null)
                 {
                     PartTree? tree = save.Load(Program.MainViewport);
@@ -383,6 +427,17 @@ internal static class TestTarget
         }
 
         return new DroneBlueprint(platform.Parts.DeepCopy(), string.Empty);
+    }
+
+    // A design from the player's own library, read fresh so one written while the game runs is found.
+    private static VehicleSave? LibrarySave(string name)
+    {
+        VehicleSaves.Refresh();
+        foreach (VehicleSave save in VehicleSaves.AsSpan())
+        {
+            if (save.Id == name) return save;
+        }
+        return null;
     }
 
     // Converts an ecliptic state into the parent body's inertial frame. Cce is the parent-centred

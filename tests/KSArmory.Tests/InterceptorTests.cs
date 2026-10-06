@@ -75,7 +75,7 @@ public class InterceptorTests
     }
 
     /// <summary>
-    /// A target passing by rather than flying at the battery. Pure pursuit tail-chases and misses
+    /// A target passing by rather than flying at the system. Pure pursuit tail-chases and misses
     /// here; proportional navigation must lead.
     /// </summary>
     [Fact]

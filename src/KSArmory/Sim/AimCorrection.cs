@@ -279,6 +279,7 @@ internal sealed class AimCorrection
     private bool _haveLast;
     private double _bestMiss = double.PositiveInfinity;
     private double3 _bestBias;
+    private double3 _walkedBias;
     private int _worseFor;
 
     /// <summary>
@@ -326,12 +327,6 @@ internal sealed class AimCorrection
         if (Settled) return;
 
         // It is a feedback loop and the plant is not always the one the gain was chosen for.
-        // Moving the aim moves the impact by about as much again while the solver may pick its own
-        // flight time; once the arrival is latched, the same aim change forces a different
-        // trajectory to arrive at the same instant, and on a shallow near-orbital shot that
-        // amplifies the response past where a gain of a half is stable. The loop then walks away
-        // from its own best while the miss it is removing grows.
-        //
         // Flown at 3,459 km from a near-orbital pickup: 55.1 km of miss down to 43.7 at 77 km of
         // bias, then 44.7, 47.9, 65.2, 126.1, and pinned at the 300 km limit with 209 km of miss.
         // The same loop converges in eight cycles when the flight time is free, which is why this
@@ -344,10 +339,10 @@ internal sealed class AimCorrection
         //
         // A fixed fraction is only right for a fixed plant, and this one changes underneath the
         // loop: while the solver may pick its own flight time, moving the aim moves the impact by
-        // about as much again, and a half converges. Once the guidance latches the arrival the same
-        // aim change forces a different trajectory to arrive at the same instant, and on a shallow
-        // near-orbital arrival the impact moves several times further — at which point a half is
-        // above the stability limit and the loop walks away from its own best.
+        // about as much again. Once the guidance latches the arrival the same aim change forces a
+        // different trajectory to arrive at the same instant, and on a shallow near-orbital arrival
+        // the impact moves several times further — at which point a fixed fraction can be above the
+        // stability limit and the loop walks away from its own best.
         //
         // Measuring it needs no probe: every cycle already moves the aim and sees what the impact
         // did, which is the same secant a Newton step is built from.
@@ -398,6 +393,7 @@ internal sealed class AimCorrection
         {
             if (++_worseFor >= WorseBeforeStopping)
             {
+                _walkedBias = BiasCci;
                 BiasCci = _bestBias;
                 Settled = true;
                 return;
@@ -406,10 +402,9 @@ internal sealed class AimCorrection
         else
         {
             // A pass level with the best ends the excursion. WorseBeforeStopping is a run - the
-            // patch the loop is meant to sit through - and without this the count accumulated over
-            // a whole flight, so twelve scattered excursions stopped it as readily as one patch of
-            // twelve. Unreachable while the band was a flat 250 m, because nothing at this shot's
-            // scale is 250 m worse than the best.
+            // patch the loop is meant to sit through - so twelve scattered excursions must not stop
+            // it as readily as one patch of twelve. It matters only when the band tracks the miss:
+            // at a flat 250 m nothing at this shot's scale is 250 m worse than the best.
             _worseFor = 0;
         }
 
@@ -428,6 +423,7 @@ internal sealed class AimCorrection
     {
         if (Settled) return;
 
+        _walkedBias = BiasCci;
         if (double.IsFinite(_bestMiss)) BiasCci = _bestBias;
         Settled = true;
     }
@@ -459,23 +455,27 @@ internal sealed class AimCorrection
     /// <summary>
     /// Start again on a different place, on the same coast.
     ///
-    /// <para><b>The bias goes and the plant stays.</b> The bias is how far short the arc was falling
-    /// on the ground under the <em>old</em> aim, so carrying it onto another place applies one
-    /// target's correction to another. The response is the coast's, exactly as
-    /// <see cref="Resume"/> seeds it — a hop re-solves the arc to the new aim at the same committed
-    /// arrival, which is the same plant. <see cref="Reset"/>'s <c>1 / Gain</c> is the pre-burn
-    /// seeding and takes quarter steps, which on a walk costs a pass, and a coast pass is a median
-    /// 65 s.</para>
+    /// <para>The response is the coast's, exactly as <see cref="Resume"/> seeds it — a hop
+    /// re-solves the arc to the new aim at the same committed arrival, which is the same plant.
+    /// <see cref="Reset"/>'s <c>1 / Gain</c> is the pre-burn seeding and takes quarter steps, which
+    /// on a walk costs a pass, and a coast pass is a median 65 s.</para>
+    ///
+    /// <para><b>Carried, the next stop starts from the bias the loop had walked
+    /// to</b> — not the one <see cref="Freeze"/> reverted to, which the trim never flew and which on an
+    /// inner stop is zero. Flown at four targets 1 km apart on flat ground, every inner stop's walked
+    /// bias sat at 210–360 m, so starting from zero opened every stop with a pass whose ~220 m first
+    /// reading also banked as the best, under the flat 250 m band, and nothing after it could beat
+    /// it. <see cref="IcbmConfig.CarryAimBiasAcrossHops"/>.</para>
     /// </summary>
-    public void Retarget()
+    public void Retarget(bool carryBias = false)
     {
-        BiasCci = Vec.Zero;
+        BiasCci = carryBias && Vec.IsFinite(_walkedBias) ? _walkedBias : Vec.Zero;
         Settled = false;
         _bestMiss = double.PositiveInfinity;
-        _bestBias = Vec.Zero;
+        _bestBias = BiasCci;
         _worseFor = 0;
         _response = 1.0;
-        _lastBias = Vec.Zero;
+        _lastBias = BiasCci;
         _lastError = Vec.Zero;
         _haveLast = false;
     }
@@ -483,6 +483,7 @@ internal sealed class AimCorrection
     public void Reset()
     {
         BiasCci = Vec.Zero;
+        _walkedBias = Vec.Zero;
         Settled = false;
         _bestMiss = double.PositiveInfinity;
         _bestBias = Vec.Zero;

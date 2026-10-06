@@ -18,14 +18,13 @@ internal static class Visuals
     private static readonly float4 RoundColour = new(1.0f, 0.95f, 0.6f, 1.0f);
     private static readonly float4 TrailColour = new(0.8f, 0.8f, 0.85f, 0.45f);
 
-    // Shells in the diagnostic overlay. What a player sees is the particle tracer; this is the
-    // line that says where the simulation thinks the round actually is, which is not the same
-    // claim and is worth being able to check separately.
+    // Shells in the diagnostic overlay. What a player sees is the tracer; this is the line that
+    // says where the simulation thinks the round actually is, which is not the same claim and is
+    // worth being able to check separately.
     private static readonly float4 TracerColour = new(1.0f, 0.72f, 0.18f, 1.0f);
     private const int TracerSegments = 4;
 
-    // Every shell in the air, not just the traced ones. Warm and dim: it must read as a stream of
-    // rounds without competing with the tracers running through it.
+    // Every shell in the air, when the shader pass is not drawing tracers.
     private static readonly float4 ShellColour = new(0.95f, 0.78f, 0.45f, 0.75f);
 
     // How long a shell is drawn, along its own flight.
@@ -42,42 +41,60 @@ internal static class Visuals
     private static readonly float4 NorthColour = new(1.0f, 1.0f, 1.0f, 0.9f);
     private static readonly float4 ArrayColour = new(0.5f, 1.0f, 0.6f, 0.9f);
 
-    public static void Draw(IWeaponSystemView battery, Config config)
+    private static readonly float4 FlareColour = new(1.0f, 0.95f, 0.8f, 1.0f);
+    private static readonly float4 ChaffColour = new(0.7f, 0.75f, 0.85f, 0.8f);
+
+    /// <summary>
+    /// Every decoy in the air as a sphere sized by its signature. Placed off the craft that threw it,
+    /// because both are end-of-step samples and so their difference carries none of the frame's motion.
+    /// </summary>
+    public static void DrawDecoys(IReadOnlyList<Decoy> decoys)
     {
-        if (battery.Platform is null) return;
+        for (int i = 0; i < decoys.Count; i++)
+        {
+            Decoy d = decoys[i];
+            if (d.DroppedBy is not KSA.Vehicle craft || !KsaWorld.IsAlive(craft)) continue;
+            if (!KsaWorld.TryVehicleEgo(craft, out double3 craftEgo)) continue;
+
+            double share = d.Profile.PeakSignature > 0f ? d.Signature / d.Profile.PeakSignature : 0.0;
+            float radius = (float)(1.0 + (4.0 * share));
+
+            KsaWorld.DrawSphereEgo(craftEgo + (d.PositionEcl - KsaWorld.PositionEcl(craft)), radius,
+                                   d.Profile.Kind == DecoyKind.Flare ? FlareColour : ChaffColour);
+        }
+    }
+
+    public static void Draw(IWeaponSystemView system, Config config)
+    {
+        if (system.Platform is null) return;
 
         // Anchor to the platform's render position; everything else is drawn as an offset from
         // it. Converting absolute Ecl positions instead lands the overlay on the craft's
         // analytic orbit position, which for a landed craft is visibly beside the craft itself.
-        if (!KsaWorld.BeginDraw(battery.Platform, battery.PlatformEcl)) return;
+        if (!KsaWorld.BeginDraw(system.Platform, system.PlatformEcl)) return;
 
-        double3 origin = battery.MountEcl;
+        double3 origin = system.MountEcl;
 
         // The overlay is clocked to the craft's own forward axis. Left to an arbitrary
         // perpendicular it turns with the planet under a boresight that is local "up".
         double3 clockRef = Vec.Zero;
-        if (battery.Launcher is { } launcher)
+        if (system.Launcher is { } launcher)
         {
-            LauncherPart.TryLauncherDirectionEcl(battery.Platform, launcher, new double3(0, 1, 0),
+            LauncherPart.TryLauncherDirectionEcl(system.Platform, launcher, new double3(0, 1, 0),
                                                  out clockRef);
         }
 
-        if (config.DrawRadarVolume) DrawSearchVolume(origin, battery.Boresight, clockRef, battery.Sensor, config);
-        if (config.DrawTracks) DrawTracks(battery, origin, config);
-        if (config.DrawMissiles) DrawRounds(battery, config);
-        if (battery.Launcher is not null && config.DrawTubeMarkers) DrawLoadedTubes(battery, config, origin);
-        if (config.DrawTurretFacing) DrawTurretFacing(battery);
-        if (config.DrawBearingReference) DrawBearingReference(battery);
+        if (config.DrawRadarVolume) DrawSearchVolume(origin, system.Boresight, clockRef, system.Sensor, config);
+        if (config.DrawTracks) DrawTracks(system, origin, config);
+        if (config.DrawMissiles) DrawRounds(system, config);
+        if (system.Launcher is not null && config.DrawTubeMarkers) DrawLoadedTubes(system, config, origin);
+        if (config.DrawTurretFacing) DrawTurretFacing(system);
+        if (config.DrawBearingReference) DrawBearingReference(system);
     }
 
     /// <summary>
-    /// The shells themselves, drawn whether or not the diagnostic overlay is on.
-    ///
-    /// <para>A tracer is one round in nineteen, which is how a belt is loaded and what
-    /// <see cref="TracerTrail"/> can afford: an emitter is held for its shell's whole flight and
-    /// there are eight of them against a hundred and fifty rounds in the air. Without this the
-    /// other eighteen are drawn as nothing, and a firing CIWS reads as a handful of bright streaks
-    /// through empty sky rather than as a stream of fire.</para>
+    /// The shells as lines, for when the shader pass is not drawing their tracers
+    /// (<see cref="ShellTracers"/>): switched off, or its shader would not build.
     ///
     /// <para>A short segment along each shell's own flight, not a point and not a trail. A point
     /// reads as a ball because a round moves further between frames than any believable radius; a
@@ -86,6 +103,7 @@ internal static class Visuals
     /// </summary>
     public static void DrawShellStream(WeaponSystem system)
     {
+        if (ShellTracers.Painting) return;
         if (system.Rounds.Count == 0 || system.Platform is not { } platform) return;
         if (!KsaWorld.BeginDraw(platform, system.PlatformEcl)) return;
 
@@ -151,11 +169,11 @@ internal static class Visuals
         }
     }
 
-    private static void DrawTracks(IWeaponSystemView battery, double3 origin, Config config)
+    private static void DrawTracks(IWeaponSystemView system, double3 origin, Config config)
     {
-        foreach (Track track in battery.Radar.Tracks)
+        foreach (Track track in system.Radar.Tracks)
         {
-            bool isLock = ReferenceEquals(track, battery.Radar.Locked);
+            bool isLock = ReferenceEquals(track, system.Radar.Locked);
             float4 colour = isLock ? LockColour : track.IsThreat ? ThreatColour : TrackColour;
 
             float marker = (float)Math.Clamp(track.Range * 0.02, 12.0, 220.0);
@@ -178,7 +196,7 @@ internal static class Visuals
             // can land kilometres from anything on screen, where it just looks like a stray dot.
             if (config.DrawClosestApproach)
             {
-                double3 cpa = track.PositionEcl + (track.VelocityEcl - KsaWorld.VelocityEcl(battery.Platform!))
+                double3 cpa = track.PositionEcl + (track.VelocityEcl - KsaWorld.VelocityEcl(system.Platform!))
                                                   * track.TimeToClosestApproach;
                 KsaWorld.DrawSphereEcl(cpa, marker * 0.4f, CpaColour);
             }
@@ -187,10 +205,10 @@ internal static class Visuals
 
     // Marks which tubes still hold a round. Rounds are fired in tube order, so the first TubeCount
     // - Ammo tubes are the spent ones.
-    private static void DrawLoadedTubes(IWeaponSystemView battery, Config config, double3 origin)
+    private static void DrawLoadedTubes(IWeaponSystemView system, Config config, double3 origin)
     {
-        LauncherProfile profile = battery.Profile;
-        int spent = profile.TubeCount - battery.Ammo;
+        LauncherProfile profile = system.Profile;
+        int spent = profile.TubeCount - system.Ammo;
 
         // Prefer the part's own transform so the markers sit on the actual tubes rather than on
         // a correctly-sized ring at an arbitrary rotation.
@@ -200,10 +218,10 @@ internal static class Visuals
         // and very nearly is - the markers still follow the traverse, so they track left and
         // right correctly and simply refuse to go up and down.
         Span<double3> muzzles = stackalloc double3[profile.TubeCount];
-        bool exact = battery.Platform is { } platform
-                     && battery.TubesResolved
+        bool exact = system.Platform is { } platform
+                     && system.TubesResolved
                      && KsaWorld.HasAnchor
-                     && LauncherPart.TryGetTubeMuzzlesEgo(platform, battery.PodsPart ?? battery.Launcher, profile,
+                     && LauncherPart.TryGetTubeMuzzlesEgo(platform, system.PodsPart ?? system.Launcher, profile,
                                                        KsaWorld.AnchorEgo, muzzles);
 
         for (int tube = 0; tube < profile.TubeCount; tube++)
@@ -214,7 +232,7 @@ internal static class Visuals
             {
                 KsaWorld.DrawSphereEgo(muzzles[tube], 0.16f, colour);
             }
-            else if (KsaWorld.TryEclToEgo(LauncherPart.MuzzleEcl(profile, origin, battery.Boresight, tube), out double3 ego))
+            else if (KsaWorld.TryEclToEgo(LauncherPart.MuzzleEcl(profile, origin, system.Boresight, tube), out double3 ego))
             {
                 KsaWorld.DrawSphereEgo(ego, 0.16f, colour);
             }
@@ -225,12 +243,12 @@ internal static class Visuals
     // cosmetics: it separates "the slew maths is wrong" from "the engine ignored the transform
     // write". If the line sweeps onto the target and the mesh does not follow it, the maths is fine
     // and Asmb2ParentAsmb is not being honoured.
-    private static void DrawTurretFacing(IWeaponSystemView battery)
+    private static void DrawTurretFacing(IWeaponSystemView system)
     {
-        if (battery.Platform is not { } platform) return;
+        if (system.Platform is not { } platform) return;
 
-        double bearing = battery.Turret.BearingRad;
-        double elevation = battery.Turret.ElevationRad;
+        double bearing = system.Turret.BearingRad;
+        double elevation = system.Turret.ElevationRad;
         double horizontal = Math.Cos(elevation);
         double3 facingPart = new(Math.Sin(elevation),
                                  horizontal * Math.Cos(bearing),
@@ -240,10 +258,10 @@ internal static class Visuals
         // the part frame; a line converted from the vehicle frame is out by the part's rotation,
         // which on a stack mount is a half turn, pointing the line the opposite way to the gun it
         // reports.
-        if (battery.Launcher is not { } launcher) return;
+        if (system.Launcher is not { } launcher) return;
         if (!LauncherPart.TryLauncherDirectionEcl(platform, launcher, facingPart, out double3 facingEcl)) return;
 
-        double3 from = battery.MountEcl + battery.Boresight * 3.2;
+        double3 from = system.MountEcl + system.Boresight * 3.2;
         KsaWorld.DrawLineEcl(from, from + facingEcl * 45.0, TurretColour);
     }
 
@@ -254,15 +272,15 @@ internal static class Visuals
     // wrong one draws a sweep that turns the opposite way to the dish while agreeing with it twice
     // a revolution -- which reads as an offset rather than a reversal. Drawn beside the dish, that
     // stops being a matter of watching carefully.
-    private static void DrawBearingReference(IWeaponSystemView battery)
+    private static void DrawBearingReference(IWeaponSystemView system)
     {
-        if (battery.Platform is not { } platform) return;
+        if (system.Platform is not { } platform) return;
         if (KsaWorld.ParentBody(platform) is not { } body) return;
 
         MapFrame? built;
         try
         {
-            built = MapFrame.TryAt(body.GetPositionEcl(), battery.MountEcl, body.GetRotationAxisCce());
+            built = MapFrame.TryAt(body.GetPositionEcl(), system.MountEcl, body.GetRotationAxisCce());
         }
         catch
         {
@@ -271,19 +289,19 @@ internal static class Visuals
 
         if (built is not { } frame) return;
 
-        double3 from = battery.MountEcl + battery.Boresight * 3.2;
+        double3 from = system.MountEcl + system.Boresight * 3.2;
 
         // North itself, long and white, so everything else is read against it.
         KsaWorld.DrawLineEcl(from, from + (frame.North * 60.0), NorthColour);
 
-        int faces = battery.Profile.SearchRadarFaces;
+        int faces = system.Profile.SearchRadarFaces;
         if (faces <= 0) return;
 
         double3 forward = frame.ToLocalDirection(platform.Asmb2Ego * new double3(0, 1, 0));
         if (!Vec.IsFinite(forward)) return;
 
         double heading = ScopeGeometry.BearingRad(forward.X, forward.Y);
-        double array = battery.Turret.BearingRad + battery.RadarSpinRad;
+        double array = system.Turret.BearingRad + system.RadarSpinRad;
 
         Span<double> bearings = stackalloc double[ScopeGeometry.MaxSweepFaces];
         int count = ScopeGeometry.SweepBearings(heading, array, faces, bearings);
@@ -297,13 +315,13 @@ internal static class Visuals
         }
     }
 
-    private static void DrawRounds(IWeaponSystemView battery, Config config)
+    private static void DrawRounds(IWeaponSystemView system, Config config)
     {
         // A 6 m tracer sphere swallows the real 3 m round bodies, so it is only drawn when there
         // is nothing better to show, or when asked for.
-        bool haveBodies = battery.RoundBodiesWork && battery.RoundBodyCount > 0;
+        bool haveBodies = system.RoundBodiesWork && system.RoundBodyCount > 0;
 
-        foreach (IProjectile round in battery.Rounds)
+        foreach (IProjectile round in system.Rounds)
         {
             // Rounds are stored as platform-relative offsets, so they draw straight off the
             // anchor with no absolute-position arithmetic to go stale.

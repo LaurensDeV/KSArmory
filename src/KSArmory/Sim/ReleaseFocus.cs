@@ -451,11 +451,11 @@ internal static class ReleaseFocus
     /// <param name="spinCci">What the round was thrown with at its mouth: <see cref="Slug.SpinVelocityEcl"/>, turned.</param>
     /// <param name="cancelMiss">
     /// The release probe's impact and target, or null to leave the mean where the aim loop put it.
-    /// Refused past <see cref="MaxMissKickMetresPerSecond"/>.
+    /// Refused past <paramref name="missCapMetresPerSecond"/>.
     /// </param>
     /// <param name="shrinkToward">
     /// The mean of the miss kicks already applied in this release, and how much of a warhead's own
-    /// departure from it to keep. Null keeps all of it, which is what every flight before this did.
+    /// departure from it to keep. Null keeps all of it.
     ///
     /// <para>The kick cancels what the probe says <em>this</em> warhead will miss by, and flown that
     /// differential behaves as noise injected one for one — the landing regresses on it at -1.090,
@@ -464,14 +464,15 @@ internal static class ReleaseFocus
     /// discards the part that is not shared.</para>
     /// </param>
     /// <param name="throughTheAir">
-    /// The ring's image and both solves flown through the air, or null to coast them in vacuum as every flight
-    /// before this did. Carried to this release along the coast; the spin is given back exactly either way.
+    /// The ring's image and both solves flown through the air, or null to coast them in vacuum.
+    /// Carried to this release along the coast; the spin is given back exactly either way.
     /// </param>
     public static Separation Kick(BallisticBody body, double3 positionCci, double3 velocityCci,
                                   double flightSeconds, double3 offsetCci, double3 spinCci,
                                   bool focusRing, bool cancelSpin, ProbeMiss? cancelMiss = null,
                                   (double3 Mean, double Keep)? shrinkToward = null,
-                                  FlownSensitivity? throughTheAir = null)
+                                  FlownSensitivity? throughTheAir = null,
+                                  double missCapMetresPerSecond = MaxMissKickMetresPerSecond)
     {
         throughTheAir = throughTheAir?.For(body.Mu, positionCci, flightSeconds);
 
@@ -504,7 +505,7 @@ internal static class ReleaseFocus
                     missKick = toward.Mean + (missKick - toward.Mean) * toward.Keep;
                 }
 
-                if (!(Vec.Len(missKick) <= MaxMissKickMetresPerSecond))
+                if (!(Vec.Len(missKick) <= missCapMetresPerSecond))
                 {
                     miss = MissOutcome.OverTheCap;
                 }

@@ -7,7 +7,7 @@ namespace KSArmory;
 /// The panes that describe one weapons system: what it is made of, what it can see, and what its
 /// drives and weapons are doing.
 ///
-/// <para>Every method here reads <c>_battery</c> and <c>_policy</c>, which are <b>not</b> fixed —
+/// <para>Every method here reads <c>_system</c> and <c>_policy</c>, which are <b>not</b> fixed —
 /// <see cref="Ui.Focus"/> points them at whichever system is being drawn, and the shell calls it
 /// before any of this runs. A pane added here that is reached another way will quietly describe
 /// the wrong installation.</para>
@@ -21,8 +21,6 @@ internal sealed partial class Ui
         KsaWorld.SurveyParts(craft, _surveyed);
         WeaponInventory inv = WeaponSurvey.Survey(_surveyed, Catalogue.Components);
 
-        ImGui.TextDisabled($"{_surveyed.Count} part(s) on the craft");
-
         // IsInstallation, not IsWeaponSystem: a craft carrying one director and no armament is
         // something this mod recognises, and it is the case this pane most needs to describe.
         if (!inv.IsInstallation)
@@ -33,48 +31,97 @@ internal sealed partial class Ui
             return;
         }
 
-        // One group per role, read off the enum rather than listed here. A hand-written list
-        // silently omits a role added later, which reads as the survey not finding one.
-        foreach (WeaponRole role in Enum.GetValues<WeaponRole>())
+        // One section per kind of part, holding every role it plays: a rack is a launcher, a
+        // release and a sight, and listing it under three headings shows one weapon three times.
+        // Several of one kind are the stations of one weapon, so they share a section too.
+        _kinds.Clear();
+        foreach (FoundComponent c in inv.Components)
         {
-            int n = inv.CountOf(role);
-            if (n == 0) continue;
+            if (!_kinds.Contains(c.Profile)) _kinds.Add(c.Profile);
+        }
 
-            ImGui.SeparatorText(GroupName(role));
-
-            int nth = 0;
-            for (int i = 0; i < inv.Components.Count; i++)
+        foreach (ComponentProfile kind in _kinds)
+        {
+            int stations = 0;
+            foreach (FoundComponent c in inv.Components)
             {
-                FoundComponent c = inv.Components[i];
-                if (c.Role != role) continue;
-
-                // Per component, not per label. Several of one kind draw identical controls, and
-                // ImGui keys a widget on its label within the current id scope -- so without this
-                // the second director's tick boxes are the first's.
-                ImGui.PushID(i);
-                DrawComponentRow(craft, c, role, nth, n);
-                ImGui.PopID();
-
-                nth++;
+                if (ReferenceEquals(c.Profile, kind) && c.Role == kind.Role) stations++;
             }
+
+            ImGui.SeparatorText(stations > 1 ? $"{kind.DisplayName}  x{stations}" : kind.DisplayName);
+            ImGui.PushID(kind.PartId);
+
+            // A part with a single row under it needs no fold of its own: it would only repeat
+            // the heading above it.
+            int rows = 0;
+            foreach (FoundComponent c in inv.Components)
+            {
+                if (ReferenceEquals(c.Profile, kind)) rows++;
+            }
+
+            // Every row of a weapon prints the selected one's numbers and edits its settings, so a
+            // weapon that is not selected says so once and draws none of them. A director it
+            // carries is its own instrument and still gets its row.
+            bool otherWeapon = _crewed && kind.Role == WeaponRole.Launcher && !IsSelectedWeapon(kind);
+            if (otherWeapon) NotSelected();
+
+            // Role order read off the enum rather than listed here: a hand-written list silently
+            // omits a role added later, which reads as the survey not finding one.
+            foreach (WeaponRole role in Enum.GetValues<WeaponRole>())
+            {
+                int of = inv.CountOf(role);
+                int nth = 0;
+                bool drawn = false;
+
+                for (int i = 0; i < inv.Components.Count; i++)
+                {
+                    FoundComponent c = inv.Components[i];
+                    if (c.Role != role) continue;
+
+                    if (ReferenceEquals(c.Profile, kind) && !(drawn && StacksStations(role))
+                        && !(otherWeapon && StacksStations(role)))
+                    {
+                        // Per component, not per label. ImGui keys a widget on its label within
+                        // the current id scope, so without this the second director's tick boxes
+                        // are the first's.
+                        ImGui.PushID(i);
+                        DrawComponentRow(craft, c, kind, role, nth, stations, of, alone: rows == 1);
+                        ImGui.PopID();
+                        drawn = true;
+                    }
+
+                    nth++;
+                }
+            }
+
+            ImGui.PopID();
         }
     }
 
-    // One component: where it sits, and whatever it is that the panel can drive.
-    private void DrawComponentRow(KSA.Vehicle craft, FoundComponent c, WeaponRole role, int nth, int of)
+    private readonly List<ComponentProfile> _kinds = [];
+
+    // A director has its own controls per head and one computer flies the craft, so neither is a
+    // station of anything.
+    private static bool StacksStations(WeaponRole role)
+        => role is not (WeaponRole.Camera or WeaponRole.Guidance or WeaponRole.Countermeasures);
+
+    // One role of one kind of part -- once for all its stations, or once per head for a director --
+    // and whatever it is that the panel can drive.
+    private void DrawComponentRow(KSA.Vehicle craft, FoundComponent c, ComponentProfile kind, WeaponRole role,
+                                  int nth, int stations, int of, bool alone)
     {
-        string label = of > 1 ? $"{c.DisplayName}  {nth + 1} of {of}" : c.DisplayName;
+        string label = !StacksStations(role) && of > 1 ? $"{c.DisplayName}  {nth + 1} of {of}" : c.DisplayName;
+        bool folded = !(alone && label == kind.DisplayName);
 
         // Open unless folded away. A craft carries a handful of components and their controls are
         // the reason to be on this tab at all, so a closed fold costs a click on every visit and
         // buys back one line of screen.
-        if (!ImGui.TreeNodeEx(label, ImGuiTreeNodeFlags.DefaultOpen)) return;
+        if (folded && !ImGui.TreeNodeEx(label, ImGuiTreeNodeFlags.DefaultOpen)) return;
 
-        double3 at = c.PositionVehicleAsmb;
-        ImGui.TextDisabled($"at ({at.X:F2}, {at.Y:F2}, {at.Z:F2}) m");
+        if (stations > 1 && role == WeaponRole.Launcher) DrawStationsLoaded(craft, kind);
 
         // A director is its own instrument and needs no weapons system. Everything else here
-        // describes one, and reads `_battery` -- which Focus leaves unassigned on a craft that
+        // describes one, and reads `_system` -- which Focus leaves unassigned on a craft that
         // carries no armament. A craft with one director and a provided sensor row reaches this
         // with nothing crewed, so the guard is on the path rather than in each handler.
         if (role == WeaponRole.Camera)
@@ -85,6 +132,10 @@ internal sealed partial class Ui
         {
             DrawGuidanceComponent(craft, nth);
         }
+        else if (role == WeaponRole.Countermeasures)
+        {
+            DrawDispenserComponent(craft, nth);
+        }
         else if (!_crewed)
         {
             ImGui.TextDisabled("no weapons system on this craft");
@@ -94,13 +145,75 @@ internal sealed partial class Ui
             switch (role)
             {
                 case WeaponRole.FireControl: DrawFireControlComponent(); break;
-                case WeaponRole.Launcher: DrawLauncherComponent(c, nth); break;
-                case WeaponRole.Gun: DrawGunComponent(c, nth); break;
-                case WeaponRole.Sensor: DrawSensorComponent(c, nth); break;
+                case WeaponRole.Launcher: DrawLauncherComponent(kind); break;
+                case WeaponRole.Gun: DrawGunComponent(kind); break;
+                case WeaponRole.Sensor: DrawSensorComponent(kind); break;
             }
         }
 
-        ImGui.TreePop();
+        if (folded) ImGui.TreePop();
+    }
+
+    // A dispenser needs no weapons system either: a transport with nothing but flares aboard has every
+    // control here. The nth dispenser component is the nth dispenser, by the same part-order pairing
+    // the cameras rely on. The controls are the craft's and drawn once, under the first: a press is
+    // answered by every dispenser holding that load.
+    private void DrawDispenserComponent(KSA.Vehicle craft, int nth)
+    {
+        _countermeasures.On(craft, _dispenserScratch);
+        if (nth >= _dispenserScratch.Count)
+        {
+            ImGui.TextColored(Amber, "not fitted - no dispenser resolved for this part");
+            return;
+        }
+
+        Dispenser d = _dispenserScratch[nth].Dispenser;
+        string what = d.Kind == DecoyKind.Flare ? "flares" : "chaff";
+        ImGui.TextColored(d.Remaining > 0 ? Green : Grey, $"{d.Remaining}/{d.Profile.Count} {what}");
+
+        if (nth == 0) DrawCountermeasureControls(craft);
+    }
+
+    private void DrawCountermeasureControls(KSA.Vehicle craft)
+    {
+        (int flares, int flareCap) = _countermeasures.Load(craft, DecoyKind.Flare);
+        (int chaff, int chaffCap) = _countermeasures.Load(craft, DecoyKind.Chaff);
+
+        ImGui.Separator();
+        ImGui.Text($"Aboard: {flares}/{flareCap} flares, {chaff}/{chaffCap} chaff");
+
+        ImGui.BeginDisabled(flares == 0);
+        if (ImGui.Button("Flares")) _countermeasures.Dispense(craft, DecoyKind.Flare);
+        ImGui.EndDisabled();
+        Tip("A salvo of two flares, a quarter-second apart, from every flare dispenser aboard at once, so a "
+            + "symmetric pair throws either side of the craft. A flare takes a heat seeker looking at it, and "
+            + "does nothing to a radar one.");
+        ImGui.SameLine();
+
+        ImGui.BeginDisabled(chaff == 0);
+        if (ImGui.Button("Chaff")) _countermeasures.Dispense(craft, DecoyKind.Chaff);
+        ImGui.EndDisabled();
+        Tip("A salvo of two chaff cartridges from every chaff dispenser aboard. Chaff stops dead in the air, so a Doppler seeker only sees it "
+            + "while you fly square to the missile.");
+        ImGui.SameLine();
+
+        ImGui.BeginDisabled(flares == 0 && chaff == 0);
+        if (ImGui.Button("Both"))
+        {
+            _countermeasures.Dispense(craft, DecoyKind.Flare);
+            _countermeasures.Dispense(craft, DecoyKind.Chaff);
+        }
+        ImGui.EndDisabled();
+        Tip("A salvo of each, for a missile whose seeker you cannot place.");
+
+        bool auto = _countermeasures.AutoOn(craft);
+        if (ImGui.Checkbox("Auto-dispense", ref auto)) _countermeasures.SetAuto(craft, auto);
+        Tip($"Throws on its own when a missile aimed at this craft closes inside {AutoDispense.WarningRangeMetres / 1000.0:F0} km: "
+            + "flares for a heat seeker, chaff for a radar one, both for anything else, at most every "
+            + $"{AutoDispense.RetriggerSeconds:F0} s.");
+
+        if (_countermeasures.Busy(craft)) ImGui.TextDisabled("dispensing");
+        else if (flares == 0 && chaff == 0) ImGui.TextColored(Amber, "empty");
     }
 
     // Whether the computer is flying, not how: it flies the whole vehicle, so its settings are a tab
@@ -125,16 +238,38 @@ internal sealed partial class Ui
         ImGui.TextDisabled("  target, arming and settings on the Ballistic tab");
     }
 
-    // Whether a row is the weapon the panel is currently pointed at.
-    //
-    // Every launcher is crewed now, so the question is no longer "is this one running" but "is this
-    // the selected one" -- and the rows below print the *selected* system's numbers. Without this
-    // a craft with two identical racks shows the same ammo under both, which reads as one magazine
-    // shared between them.
-    //
-    // Matched on the launcher's ordinal against the row's position among launcher components. Both
-    // are part order, which is what makes them the same sequence.
-    private bool IsSelectedWeapon(int nth) => nth == _battery.LauncherOrdinal;
+    // Whether a row belongs to the weapon the panel is pointed at. The rows print the *selected*
+    // system's numbers, so a row of another kind of launcher has to say it is not that one rather
+    // than show numbers belonging to a different weapon. Every station of a kind is one weapon.
+    private bool IsSelectedWeapon(ComponentProfile kind) => _system.Profile.PartId == kind.PartId;
+
+    // A row standing for several stations, and how many of them still hold a round.
+    private void DrawStationsLoaded(KSA.Vehicle craft, ComponentProfile kind)
+    {
+        _roster.AllOn(craft, _stationRows);
+
+        int stations = 0;
+        int loaded = 0;
+        foreach (WeaponSystems.Entry e in _stationRows)
+        {
+            if (e.Weapon.Profile.PartId != kind.PartId) continue;
+
+            stations++;
+            if (e.Weapon.Ammo > 0) loaded++;
+        }
+
+        ImGui.Text($"{stations} stations, {loaded} loaded");
+    }
+
+    private readonly List<WeaponSystems.Entry> _stationRows = [];
+
+    private void ForEachStation(Action<WeaponSystem> act)
+    {
+        if (_roster.For(Focused) is not { } selected) { act(_system); return; }
+
+        _roster.StationsOf(selected, _stationRows);
+        foreach (WeaponSystems.Entry e in _stationRows) act(e.Weapon);
+    }
 
     // Said on a row that is a real weapon but not the one being shown, rather than leaving it to
     // be inferred from numbers belonging to a different rack.
@@ -145,12 +280,11 @@ internal sealed partial class Ui
     }
 
     // The launcher: what it holds, how it is laid, and the switches that belong to it.
-    private void DrawLauncherComponent(FoundComponent c, int nth)
+    private void DrawLauncherComponent(ComponentProfile kind)
     {
-        _ = c;
-        if (!IsSelectedWeapon(nth)) { NotSelected(); return; }
+        if (!IsSelectedWeapon(kind)) return;
 
-        if (_battery.Launcher is null)
+        if (_system.Launcher is null)
         {
             ImGui.TextColored(Red, "not resolved");
             ImGui.TextDisabled("  the part is fitted but its subparts were not found");
@@ -159,19 +293,20 @@ internal sealed partial class Ui
 
         DrawArmamentTally(ArmamentKind.Tubes);
 
-        if (_battery.ReloadRemaining > 0.0)
+        if (_system.ReloadRemaining > 0.0)
         {
-            ImGui.Text($"Reloading: {_battery.ReloadRemaining:F1}s");
+            ImGui.Text($"Reloading: {_system.ReloadRemaining:F1}s");
             ImGui.ProgressBar(
-                (float)(1.0 - _battery.ReloadRemaining / Math.Max(0.001f, _profile.ReloadSeconds)));
+                (float)(1.0 - _system.ReloadRemaining / Math.Max(0.001f, _profile.ReloadSeconds)));
         }
 
         DrawTurretLine();
         DrawTurretControls();
 
-        if (ImGui.Button("Reload")) _battery.Reload();
+        // Every station of the weapon, since the row stands for all of them.
+        if (ImGui.Button("Reload")) ForEachStation(b => b.Reload());
         ImGui.SameLine();
-        if (ImGui.Button("Safe all")) _battery.SafeAll();
+        if (ImGui.Button("Safe all")) ForEachStation(b => b.SafeAll());
 
         // A view control, so it sits with the weapon whose rounds it would ride.
         ImGui.Checkbox("Chase this launcher's rounds", ref _policy.ChaseRounds);
@@ -190,22 +325,21 @@ internal sealed partial class Ui
     }
 
     // The cannon: its belt, and whether it is live.
-    private void DrawGunComponent(FoundComponent c, int nth)
+    private void DrawGunComponent(ComponentProfile kind)
     {
-        _ = c;
-        if (!IsSelectedWeapon(nth)) { NotSelected(); return; }
+        if (!IsSelectedWeapon(kind)) return;
 
         DrawArmamentTally(ArmamentKind.Belt);
-        ImGui.TextDisabled(_battery.GunsAreLaid ? "  laid" : "  not laid");
+        ImGui.TextDisabled(_system.GunsAreLaid ? "  laid" : "  not laid");
     }
 
     // The set: what it is holding right now, and the one switch that belongs to this set rather
     // than to every set of its type. Its numbers are on the Tuning tab, because they belong to the
     // profile and every system running that loadout shares them; the full scope is its own tab,
     // where it has one, because a track list is a list and a component row is not the place for one.
-    private void DrawSensorComponent(FoundComponent c, int nth)
+    private void DrawSensorComponent(ComponentProfile kind)
     {
-        if (!IsSelectedWeapon(nth))
+        if (!IsSelectedWeapon(kind))
         {
             ImGui.TextDisabled("its own set; not the one fire control reads");
             return;
@@ -223,7 +357,7 @@ internal sealed partial class Ui
 
         // Only offered on a set that actually transmits: silencing a passive seeker is a switch
         // that would do nothing, and one that does nothing is worse than one that is absent.
-        if (_battery.Sensor.Emits)
+        if (_system.Sensor.Emits)
         {
             ImGui.Checkbox("Radar silent", ref _policy.RadarSilent);
             Tip("On: the set stops transmitting, so an anti-radiation round has nothing to home on, "
@@ -237,7 +371,7 @@ internal sealed partial class Ui
 
         // A button rather than a tick box: it opens a window, and a checkmark reads as "this
         // setting is on" while the window arrives somewhere else unannounced. Tinted while open.
-        // The local matters -- TakeScope flips the flag the pop reads. Same defect as Map above.
+        // The local matters -- TakeScope flips the flag the pop reads.
         bool scopeTinted = _policy.ScopeOpen;
         if (scopeTinted) ImGui.PushStyleColor(ImGuiCol.Button, new float4(0.20f, 0.42f, 0.30f, 1f));
         if (ImGui.Button("Scope")) TakeScope(_policy);
@@ -285,11 +419,11 @@ internal sealed partial class Ui
         // Last, and alone below a rule. It discards the installation's stored settings, so it is
         // kept clear of anything anyone reaches for in a hurry.
         ImGui.Separator();
-        if (ImGui.Button("Reset settings") && _battery.Platform is { } craft)
+        if (ImGui.Button("Reset settings") && _system.Platform is { } craft)
         {
             SettingsStore.Forget(KsaWorld.DisplayName(craft));
             new SystemSettings().ApplyTo(_policy);
-            _batteries.WriteNow();
+            _roster.WriteNow();
             Log.Info($"settings reset for {KsaWorld.DisplayName(craft)}");
         }
         Tip("Back to defaults, and forgotten from the settings file. This resets the whole "
@@ -301,7 +435,7 @@ internal sealed partial class Ui
     {
         if (_fit.FirstOf(kind) is not { } arm) return;
 
-        (int remaining, bool firing) = LiveState(_battery, arm);
+        (int remaining, bool firing) = LiveState(_system, arm);
 
         if (firing) ImGui.TextColored(Red, arm.Describe(remaining, firing));
         else ImGui.Text(arm.Describe(remaining, firing));
@@ -341,21 +475,64 @@ internal sealed partial class Ui
     // headline behind a disclosure triangle is worse than one behind a tab.
     private void DrawSystemHeader()
     {
-        if (_battery.Platform is null)
+        if (_system.Platform is null)
         {
             ImGui.TextColored(Grey, "No platform - take control of a vehicle.");
             ImGui.Separator();
             return;
         }
 
-        // Which weapon everything below applies to. A button rather than the switcher itself: it
-        // is a window, and switching weapons is done while flying rather than with the manage
-        // window open. A craft with one launcher carrying one armament has nothing to choose and
-        // says nothing; a Pantsir alone has its missiles and its cannon.
-        _batteries.AllOn(Focused, _weaponScratch);
+        // The weapon and its trigger on one line, so what FIRE releases is never in doubt: several
+        // kinds of weapon on one craft share one trigger, and a picker somewhere else leaves the
+        // operator guessing which of them it reaches.
         WeaponFit fit = _fit;
-        if (_weaponScratch.Count > 1 || fit.Armaments.Count > 1)
+        if (DrawWeaponPicker(Focused)) ImGui.SameLine();
+
+        // Through the group, not straight at the selected station. Two rails carrying the same
+        // store are one weapon with two stations, and firing the selected one reaches the same
+        // rail every time -- so the second is never fired at all, however often this is pressed.
+        if (ImGui.Button("FIRE")) FireSelectedGroup();
+        // The same three cases WeaponSystem.FireAtLock branches on, in its order.
+        Tip(_system.TriggerArmament == ArmamentKind.Belt
+                ? "Fire one burst now, wherever the guns are pointing."
+            : !_system.Munition.Powered
+                ? "Release one store now. A guided store steers onto whatever is designated; an "
+                  + "unguided one, or a guided one with nothing designated, simply falls."
+                : "Fire one round now, at the craft you shift-clicked or else at the radar's lock.");
+
+        // Auto-engage off is a mode, not a hold: FIRE still works, so saying "holding fire" about
+        // it sends the operator looking for a fault that is not there.
+        //
+        // Read off the station the trigger would reach rather than the one selected. Both FIRE
+        // buttons go through the group, so both lines beside them have to as well.
+        ImGui.SameLine();
+        DrawHoldLine(_system, _policy.AutoEngage);
+
+        if (_system.Rounds.Count > 0)
         {
+            ImGui.SameLine();
+            ImGui.Text($"   In flight: {_system.Rounds.Count}");
+        }
+
+        // Whether it shoots on its own, about the whole system and no part of it -- which is what
+        // this strip is for. Absent on a rack of stores rather than disabled: nothing it carries
+        // engages on its own, and a tick box that cannot change anything looks like the reason.
+        bool anotherLine = false;
+        if (fit.AutoEngages)
+        {
+            ImGui.Checkbox("Auto engage", ref _policy.AutoEngage);
+            Tip("On: it picks whatever its sensors and IFF allow and fires at it by itself. "
+                + "Off: it fires only when you press FIRE.");
+            anotherLine = true;
+        }
+
+        // The window with every weapon's arm and guard state and a trigger of its own: a pop-out
+        // of the panel's trigger for one weapon as much as a switcher for several.
+        _roster.AllOn(Focused, _weaponScratch);
+        if (_weaponScratch.Count > 0)
+        {
+            if (anotherLine) ImGui.SameLine(0f, ImGui.GetFrameHeight());
+
             // Held in a local because the button toggles the very flag that guards the pop.
             // Read twice, a click pops a style it never pushed -- or pushes one it never pops and
             // leaks the tint into everything drawn after it.
@@ -363,82 +540,20 @@ internal sealed partial class Ui
             if (weaponsTinted) ImGui.PushStyleColor(ImGuiCol.Button, new float4(0.20f, 0.42f, 0.30f, 1f));
             if (ImGui.Button("Weapons")) _weaponsOpen = !_weaponsOpen;
             if (weaponsTinted) ImGui.PopStyleColor();
-
-            string showing = $"{_battery.Profile.DisplayName} ({_battery.LauncherOrdinal + 1})";
-            if (fit.Armaments.Count > 1 && fit.FirstOf(_battery.TriggerArmament) is { } arm)
-            {
-                showing += $": {arm.Label}";
-            }
-
-            ImGui.SameLine();
-            ImGui.TextDisabled(_weaponScratch.Count > 1
-                                   ? $"{_weaponScratch.Count} on this craft — showing {showing}"
-                                   : $"showing {showing}");
-        }
-
-        // The two that decide whether anything leaves the rails, immediately above the line that
-        // says why it has not. Here rather than on the fire-control component row because they are
-        // about the whole system and no part of it -- which is what this strip is for. Anything
-        // folded inside a tab is somewhere nobody looks when the question is why the launcher is
-        // silent.
-        //
-        // Auto-engage is absent on a rack of stores rather than disabled: nothing it carries engages
-        // on its own, so FireLadder answers "released by hand" however this is set. A tick box that
-        // cannot change the answer is worse than no tick box, because it looks like the reason.
-        if (fit.AutoEngages)
-        {
-            ImGui.Checkbox("Auto engage", ref _policy.AutoEngage);
-            Tip("On: it picks whatever its sensors and IFF allow and fires at it by itself. "
-                + "Off: it fires only when you press FIRE.");
-
-            // Spaced off the tick box: FIRE does something the moment it is clicked rather than
-            // setting a state.
-            ImGui.SameLine(0f, ImGui.GetFrameHeight());
-        }
-
-        // Through the group, not straight at the selected station. Two rails carrying the same
-        // store are one weapon with two stations, and firing the selected one reaches the same
-        // rail every time -- so the second is never fired at all, however often this is pressed.
-        // The switcher's own trigger has always stepped between them; this is the prominent
-        // button and did not, which is the one an operator actually uses.
-        if (ImGui.Button("FIRE")) FireSelectedGroup();
-        // The same three cases WeaponSystem.FireAtLock branches on, in its order.
-        Tip(_battery.TriggerArmament == ArmamentKind.Belt
-                ? "Fire one burst now, wherever the guns are pointing."
-            : !_battery.Munition.Powered
-                ? "Release one store now. A guided store steers onto whatever is designated; an "
-                  + "unguided one, or a guided one with nothing designated, simply falls."
-                : "Fire one round now, at the craft you shift-clicked or else at the radar's lock. "
-                  + "To fire a launcher's cannon instead, pick it in the Weapons window.");
-
-        // Auto-engage off is a mode, not a hold: FIRE still works, so saying "holding fire" about
-        // it sends the operator looking for a fault that is not there.
-        //
-        // Read off the station the trigger would reach rather than the one selected. Both FIRE
-        // buttons go through the group, so both lines beside them have to as well.
-        DrawHoldLine(_battery, _policy.AutoEngage);
-
-        if (_battery.Rounds.Count > 0)
-        {
-            ImGui.SameLine();
-            ImGui.Text($"   In flight: {_battery.Rounds.Count}");
         }
 
         DrawClockWarning();
         ImGui.Separator();
     }
 
-    // Only when the clock is a problem. Fire control runs on simulated time, so a paused or
-    // heavily warped world explains a silent system -- and unsaid, that is indistinguishable from
+    // Only when the clock is a problem. Fire control runs on simulated time, so a heavily warped
+    // world explains a silent system -- and unsaid, that is indistinguishable from
     // tracking being broken. The ordinary cases say nothing: the game has its own speed readout,
     // and repeating it here is a line that is always present and never news.
     private void DrawClockWarning()
     {
-        if (KsaWorld.IsPaused)
-        {
-            ImGui.TextDisabled("Paused - stopped with the world");
-            return;
-        }
+        // The game already shows that it is paused.
+        if (KsaWorld.IsPaused) return;
 
         if (_warp.Yielded)
         {
@@ -467,13 +582,26 @@ internal sealed partial class Ui
     // engageability, so it earns its own line and nothing else does.
     private void DrawRadarState()
     {
-        if (_battery.Radar.Locked is not { } locked)
+        // A designation is not a lock, deliberately: auto-engage fires at the lock, and a craft
+        // shift-clicked only to be watched must not be shot at. So the two are reported apart.
+        bool designated = _system.Designation.Kind != AimpointKind.None;
+        if (designated) ImGui.Text($"designated: {_system.DesignationName}");
+
+        // A store is released onto a designation and never onto a lock, so for one the lock is
+        // not worth a line.
+        if (_fit.Drops)
+        {
+            if (!designated) ImGui.TextColored(Grey, "nothing designated - shift-click the ground");
+            return;
+        }
+
+        if (_system.Radar.Locked is not { } locked)
         {
             ImGui.TextColored(Grey, "nothing locked");
             return;
         }
 
-        bool solution = _battery.Radar.HasFiringSolution;
+        bool solution = _system.Radar.HasFiringSolution;
 
         ImGui.TextColored(solution ? Red : Amber, solution ? "LOCKED" : "acquiring...");
         ImGui.SameLine();
@@ -491,7 +619,7 @@ internal sealed partial class Ui
     // way this one mount is pointed does not.
     private void DrawTurretControls()
     {
-        if (_battery.Launcher is null || !_fit.Aims) return;
+        if (_system.Launcher is null || !_fit.Aims) return;
 
         ImGui.Checkbox("Track with turret", ref _policy.TurretTracking);
 
@@ -518,57 +646,53 @@ internal sealed partial class Ui
 
     private void DrawTurretLine()
     {
-        if (_battery.Launcher is null) return;
+        if (_system.Launcher is null) return;
 
-        // A launcher with nothing to lay is not a launcher whose drives are missing, and saying
-        // "subpart not found" at one of them reads as a fault on a system that is working.
-        if (!_fit.Aims)
-        {
-            ImGui.TextDisabled("Mount: fixed - it shoots where the craft points");
-            return;
-        }
+        // Nothing to lay, so nothing to say: and not "subpart not found", which reads as a fault on
+        // a system that is working.
+        if (!_fit.Aims) return;
 
-        if (_fit.Traverses && _battery.TurretPart is null)
+        if (_fit.Traverses && _system.TurretPart is null)
         {
             ImGui.TextColored(Amber, "Turret: subpart not found (fixed forward)");
             return;
         }
 
-        if (_battery.AnyDriveRefused)
+        if (_system.AnyDriveRefused)
         {
             string frozen = string.Join(", ",
                 Enum.GetValues<DriveChannel>()
-                    .Where(c => !_battery.DriveWorks(c))
+                    .Where(c => !_system.DriveWorks(c))
                     .Select(c => c.ToString().ToLowerInvariant()));
             ImGui.TextColored(Red, $"Drive: engine refused the transform write ({frozen})");
-            if (!_battery.DriveWorks(DriveChannel.Turret) || !_battery.DriveWorks(DriveChannel.Pods))
+            if (!_system.DriveWorks(DriveChannel.Turret) || !_system.DriveWorks(DriveChannel.Pods))
             {
                 ImGui.TextColored(Red, "Holding fire: the tubes cannot be laid");
                 return;
             }
         }
 
-        double bearing = float.RadiansToDegrees((float)_battery.Turret.BearingRad);
+        double bearing = float.RadiansToDegrees((float)_system.Turret.BearingRad);
         if (bearing < 0.0) bearing += 360.0;
-        double elevation = float.RadiansToDegrees((float)_battery.Turret.ElevationRad);
+        double elevation = float.RadiansToDegrees((float)_system.Turret.ElevationRad);
         string aim = $"Turret: {bearing:F0} deg, elev {elevation:F0} deg";
 
         if (!_policy.TurretTracking)
         {
             ImGui.TextColored(Grey, $"{aim} (tracking off)");
         }
-        else if (_battery.IsLaid)
+        else if (_system.IsLaid)
         {
             ImGui.TextColored(Green, $"{aim} - laid");
         }
-        else if (_battery.Turret.OnTarget)
+        else if (_system.Turret.OnTarget)
         {
             ImGui.TextColored(Amber, $"{aim} - settling");
         }
         else
         {
-            double error = Math.Abs(float.RadiansToDegrees((float)_battery.Turret.ErrorRad));
-            double elevError = Math.Abs(float.RadiansToDegrees((float)_battery.Turret.ElevationErrorRad));
+            double error = Math.Abs(float.RadiansToDegrees((float)_system.Turret.ErrorRad));
+            double elevError = Math.Abs(float.RadiansToDegrees((float)_system.Turret.ElevationErrorRad));
             ImGui.TextColored(Amber, $"{aim} - slewing ({Math.Max(error, elevError):F0} deg to go)");
         }
     }
@@ -586,32 +710,37 @@ internal sealed partial class Ui
         DrawRadarState();
         ImGui.Separator();
 
-        if (_battery.Radar.Tracks.Count == 0)
+        if (_system.Radar.Tracks.Count == 0)
         {
             ImGui.TextDisabled("scope clear");
         }
 
         // An empty scope with craft in the world reads as a broken radar. Saying how many the
         // planet is hiding is the difference between that and a working one with nothing in view.
-        if (_battery.Radar.MaskedByTerrain > 0)
+        if (_system.Radar.MaskedByTerrain > 0)
         {
-            ImGui.TextDisabled($"  {_battery.Radar.MaskedByTerrain} behind the horizon");
+            ImGui.TextDisabled($"  {_system.Radar.MaskedByTerrain} behind the horizon");
         }
 
-        if (_battery.Radar.MaskedByBurst > 0)
+        if (_system.Radar.MaskedByBurst > 0)
         {
-            ImGui.TextDisabled($"  {_battery.Radar.MaskedByBurst} behind a fireball's ionised air");
+            ImGui.TextDisabled($"  {_system.Radar.MaskedByBurst} behind a fireball's ionised air");
         }
 
-        if (_battery.Radar.IgnoredWreckage > 0)
+        if (_system.Radar.LostToChaff > 0)
         {
-            ImGui.TextDisabled($"  {_battery.Radar.IgnoredWreckage} piece(s) of wreckage, not engaged");
+            ImGui.TextDisabled($"  {_system.Radar.LostToChaff} lost to chaff in the notch, reacquiring");
         }
 
-        for (int i = 0; i < _battery.Radar.Tracks.Count; i++)
+        if (_system.Radar.IgnoredWreckage > 0)
         {
-            Track t = _battery.Radar.Tracks[i];
-            bool isLock = ReferenceEquals(t, _battery.Radar.Locked);
+            ImGui.TextDisabled($"  {_system.Radar.IgnoredWreckage} piece(s) of wreckage, not engaged");
+        }
+
+        for (int i = 0; i < _system.Radar.Tracks.Count; i++)
+        {
+            Track t = _system.Radar.Tracks[i];
+            bool isLock = ReferenceEquals(t, _system.Radar.Locked);
 
             float4 colour = isLock ? Red : AllegianceColour(t.Allegiance);
             string mark = t.Allegiance == Allegiance.Friendly ? "F"
@@ -626,13 +755,13 @@ internal sealed partial class Ui
             ImGui.SameLine();
             if (ImGui.Button($"designate##{i}"))
             {
-                _battery.Radar.ManualDesignation = t.Contact.Handle;
+                _system.Radar.ManualDesignation = t.Contact.Handle;
             }
         }
 
-        if (_battery.Radar.ManualDesignation is not null && ImGui.Button("Clear designation"))
+        if (_system.Radar.ManualDesignation is not null && ImGui.Button("Clear designation"))
         {
-            _battery.Radar.ManualDesignation = null;
+            _system.Radar.ManualDesignation = null;
         }
 
     }

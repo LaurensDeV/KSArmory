@@ -1,7 +1,7 @@
 # What a gun lay beyond reach costs, and how to make it cheaper
 
-**A plan, not a record.** Four headless investigations on 2026-09-15, each prototyped on its own branch. Nothing here
-is merged or flown.
+**A plan, not a record.** Four headless investigations on 2026-09-15, each prototyped on its own branch. None of the four
+levers is merged or flown; two of the defects found on the way are fixed on `dev`.
 
 ## Where it stands
 
@@ -42,9 +42,10 @@ Every prototype passes the suite on its branch. Times are headless and warm unle
   none fails seeded from its own answer against 73. Flown on the CIWS save, `gunnery:2,head-on`: 9 hits and both
   drones destroyed, against 4 shells and no hit, because the unfixed lead alternated between solving and not and the
   gun never settled. The RK4 branch is no longer needed for this.
-- **Ocean density below the mean radius.** `KsaWorld.MediumDensityRatioAt` reads ocean below sea level, so a place at
-  the mean radius samples water in the last steps of a flight. With it modelled, Earth's 35.5 km search stopped at
-  0.419 of the way against 0.667. Headless only; places near sea level may be affected in game.
+- ~~**Ocean density below the mean radius.**~~ **Fixed on `dev`.** `KsaWorld.MediumDensityRatioAt` reads ocean below
+  sea level, so a place at the mean radius sampled water in the last steps of a flight; with it modelled, Earth's
+  35.5 km search stopped at 0.419 of the way against 0.667. The lay now reads the air alone
+  (`KsaWorld.AirDensityRatioAt`, through `WeaponSystem.LeadDensityAt`).
 - **A spinning Mars at 312 km** lands 19–28 m from the place named on both the old and the new search, outside the
   11 m lethal radius. Unexplained; the benchmark's air handling or the flight model.
 - **A search carried across frames needs a snapshot** of the body's centre, mu, spin and air and a copy of the round,

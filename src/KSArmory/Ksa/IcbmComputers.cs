@@ -22,6 +22,7 @@ internal sealed class IcbmComputers(Config session)
 
     private readonly Dictionary<Vehicle, IcbmComputer> _computers = [];
     private readonly List<Vehicle> _stale = [];
+    private readonly List<SurveyedPart> _surveyed = [];
 
     // Who is mid-burn or mid-trim this frame, worked out once and handed to every computer. Reused
     // rather than rebuilt, because it is walked every frame of every flight.
@@ -61,10 +62,10 @@ internal sealed class IcbmComputers(Config session)
         }
 
         // NOT the trim's finer step, however much its precision wants one. Asking WarpPolicy for
-        // 66 ms where the burn asks 300 is a demand the world could not meet: flown, it answered
-        // "the world will not run slow enough to simulate this" and ABANDONED four burns, and an
-        // abandoned burn falls short -- every warhead of that night landed 182 to 316 km short of a
-        // target the same save had been hitting within 5 to 15 km. BusTrim.MaxFaithfulStep records
+        // 66 ms where the burn asks 300 is a demand the world cannot meet: flown, it answers
+        // "the world will not run slow enough to simulate this" and ABANDONS burns, and an
+        // abandoned burn falls short -- measured at 182 to 316 km short of a target the same save
+        // hit within 5 to 15 km. BusTrim.MaxFaithfulStep records
         // what the trim would like; nothing may turn it into a demand that can lose a burn.
         //
         // The precision is still worth having and the route to it is not this one: it has to come
@@ -93,6 +94,11 @@ internal sealed class IcbmComputers(Config session)
             if (!KsaWorld.IsAlive(craft)) continue;
             if (!systems[i].Inventory.HasGuidance) continue;
             if (_computers.ContainsKey(craft)) continue;
+
+            // The list is the panel's survey, refreshed every 60 draws, so on the frame a stack drops its bus it
+            // still lists the stack as carrying guidance; asked again here, it crewed a spare on every spent stage.
+            KsaWorld.SurveyParts(craft, _surveyed);
+            if (!WeaponSurvey.Survey(_surveyed, Catalogue.Components).HasGuidance) continue;
 
             _computers[craft] = new IcbmComputer(craft, new IcbmConfig(), _session);
             Log.Debug($"ICBM computer crewed on {KsaWorld.DisplayName(craft)}");
@@ -146,7 +152,7 @@ internal sealed class IcbmComputers(Config session)
 
         foreach (IcbmComputer computer in _computers.Values)
         {
-            computer.Update(simStep, playerStep, weapons.For(computer.Craft)?.Battery, traceWarhead,
+            computer.Update(simStep, playerStep, weapons.GuidedFrom(computer.Craft)?.Weapon, traceWarhead,
                             _busy);
         }
     }

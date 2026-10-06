@@ -3,11 +3,13 @@ namespace KSArmory;
 /// <summary>
 /// What a mod depending on KSArmory calls to add its weapons.
 ///
-/// <para><b>This is the whole public surface</b>, and it is deliberately two members wide. KSArmory
-/// never looks for packs — it has no list of them, reads no manifest and scans no folder — so a
-/// pack is an ordinary StarMap mod that declares <c>ModDependencies = [ { ModId = "KSArmory" } ]</c>
-/// and calls this from its own <c>[StarMapBeforeMain]</c>. StarMap holds it back until this mod is
-/// up and shares this assembly with it, both by default.</para>
+/// <para><b>This is the whole code surface</b>, and it is deliberately three members wide. It is
+/// for the pack that ships an assembly: a pack with no code needs none of it, because
+/// <c>InstalledPacks</c> reads a <c>KSArmory/</c> folder in every installed mod and registers what
+/// it finds through the same <see cref="Register"/>. A pack with code is an ordinary StarMap mod
+/// that declares <c>ModDependencies = [ { ModId = "KSArmory" } ]</c> and calls this from its own
+/// <c>[StarMapBeforeMain]</c>. StarMap holds it back until this mod is up and shares this assembly
+/// with it, both by default.</para>
 ///
 /// <para><b>Text, not profiles.</b> Constructing a <see cref="LauncherProfile"/> means referencing
 /// <c>Brutal.Core.Numerics</c> for <c>double3</c>, which is RocketWerkz's to distribute and not

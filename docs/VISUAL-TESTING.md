@@ -26,6 +26,25 @@ python3 tools/ksa-mcp/server.py cli reload_shaders
 The CLI writes what an MCP client would be shown inline to `tools/ksa-mcp/last/`, and every call
 empties it first -- copy a capture out before the next call.
 
+**An engagement can be staged and looked at the same way.** `system` sets one craft's weapons as its
+panel would -- auto-engage, protect, guns, silent, chase, focus -- and can fly its missiles on an
+infrared or radar seeker to test a decoy against; `dispense` presses a craft's countermeasures; `fly`
+holds a craft at a pitch and heading with its engine lit or cut; `watch` holds the main view on one
+round, crewed or loose, a set distance from it about its own flight; and `status` lists the craft
+around the flown one with their range, bearing and signatures, and every system with rounds up:
+
+```bash
+python3 tools/ksa-mcp/server.py cli system '{"craft":"AA Defence Site","auto_engage":true,"protect":false,"guns":false}'
+python3 tools/ksa-mcp/server.py cli fly '{"craft":"NewRocket_1","pitch_deg":0,"heading_deg":185,"stage":true}'
+python3 tools/ksa-mcp/server.py cli step '{"seconds":0.5}'      # ...until the log says a round is away
+python3 tools/ksa-mcp/server.py cli watch '{"craft":"AA Defence Site","distance_m":12,"azimuth_deg":35}'
+python3 tools/ksa-mcp/server.py cli burst '{"kt":0.02,"east_m":179,"north_m":1792,"damage":true}'
+python3 tools/ksa-mcp/server.py cli capture '{"label":"loose"}'
+```
+
+That is how a round drawn after its launcher was destroyed was first seen: the same 57E6 captured
+before the launcher died and 0.3 and 1.1 s after, in the same pose.
+
 **What it found on its first night**, each in minutes where a flight cost three:
 
 - **The whiteout reached 0.51, not full, at 2.4 km.** Captured at exact ages from a paused burst,
@@ -230,6 +249,24 @@ Public-domain frames from the Nevada tests with their yield, range and time afte
 sheet that puts one beside a capture at the same age and framing. "How does ours differ from a real
 one" was answered from memory on the night; this answers it from pictures.
 
+## Two things that come up every session
+
+**A frame-rate drop is the mod's or the engine's, and two log lines say which.** Turn the verbose
+log on through the bridge (`set` with `VerboseLog`, which also moves `Log.Threshold`), wait for two
+ten-second windows, and turn it off. `mod frame:` is the mod's own cost per frame, split by stage;
+`solver load:` beside it is the engine's — how much world time passed per real second, and how many
+frames it held back. The mod at 0.2 ms beside `0.09x real time, 99 frame(s) held` is the engine. The
+first window after the switch includes the switch itself, so read the second. `cost` is the GPU
+side: the whole frame against the cloud pass.
+
+**A test save is a copy of one that already has a craft standing where you want.** Swap that
+craft's `<RootPartRef>` for your part (with its `<SubPartRef>`s, and any `<IVASeatData>`), rename
+the `<Vehicle Id>` and the `<Following Id>`, and give it its own `meta.toml` name. Three things
+bite: each save rolls its own kitten roster, so a seated kitten must be one of that save's names,
+marked assigned; the `Test` system is Earth alone and only `SolLite` saves have Luna, which the
+bridge's `site` can then reach; and a save naming a part that no longer exists terminates the game
+when loaded, so delete test saves with the parts they name.
+
 ## What cannot be had
 
 - **Headless rendering.** KSA ships Windows-only natives and runs its simulation through a Vulkan
@@ -245,8 +282,11 @@ one" was answered from memory on the night; this answers it from pictures.
 **Debug views and tunables are one mechanism.** Both are specialization constants
 (`Sim/ShaderTunables.cs`): declared with a `constant_id` and a default in the GLSL, overridden when
 the pipeline is built, so `tune` is a pipeline rebuild — milliseconds, no recompile — and a debug
-view costs the picture nothing. `DebugView` 1–5 draws coverage, depth, the weather mask, sunlight
-and the fireball's share of the light; the rest are the look's constants.
+view costs the picture nothing. `DebugView` 1–8 draws coverage, depth, the weather mask, sunlight,
+the fireball's share of the light, the sky's ambient, the air's own light in front, and the light per
+unit of cover at a quarter; the rest are the look's constants. The last three found the megatonne
+cloud's white-out: every term was sane and the light per unit of cover was four times any of them,
+which is the march counting a step's extinction as the light it scattered.
 `ShaderTunablesTests` holds the list and the GLSL to one another. The first use of the sunlight view
 turned up a defect: the stem under the cap read fully lit, because the shadow march's four taps step
 over a cap a few hundred metres thick a kilometre up the ray. A point under the cap now adds the

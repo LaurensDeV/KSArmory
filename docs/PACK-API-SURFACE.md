@@ -11,7 +11,7 @@ ignored.
 
 `docs/WEAPON-PACKS.md` is the same surface written for the author, with the reasons attached.
 
-**Definition schema 1.** 8 elements, 116 attributes, 15 entry-point lines.
+**Definition schema 1.** 8 elements, 134 attributes, 15 entry-point lines.
 
 ## Entry point
 
@@ -43,8 +43,11 @@ to build; widening it to take a profile type would put that back.
 | `Name` | text, required | **required** |
 | `DisplayName` | text, required | **required** |
 | `BodyMarker` | text | *none* |
+| `BodyModel` | text | *none* |
 | `FinMarker` | text | *none* |
 | `BodyLength` | number | `3.10` |
+| `TracerEvery` | whole number | `0` |
+| `TracerBurnSeconds` | number | `3` |
 | `FinDeploySeconds` | number | `0.18` |
 | `FinDeflectionDeg` | number | `0` |
 | `FinHingeStation` | number | `0` |
@@ -61,6 +64,10 @@ to build; widening it to take a profile type would put that back.
 | `MaxLateralG` | number | `35` |
 | `Guidance` | one of `Seeker`, `AntiRadiation`, `CommandLink`, `Inertial`, `None` | `CommandLink` |
 | `SeekerFovDeg` | number | `55` |
+| `SeekerBand` | one of `Radar`, `Infrared`, `None` | `Radar` |
+| `CountermeasureResistance` | number | `0` |
+| `ReacquiresAfterDecoy` | true or false | `true` |
+| `DopplerGateMps` | number | `0` |
 | `SeparationSeconds` | number | `0` |
 | `GravityCompensation` | number | `1` |
 | `NeutralDensityRatio` | number | `0` |
@@ -73,6 +80,9 @@ to build; widening it to take a profile type would put that back.
 | `FuseArmSeconds` | number | `0.6` |
 | `ChargeKg` | number | `20` |
 | `HitsTerrain` | true or false | `false` |
+| `BurstHeightMetres` | number | `0` |
+| `ChuteSinkMetresPerSecond` | number | `0` |
+| `ChuteOpensSeconds` | number | `1.5` |
 
 ### `<Sensor>` - what a launcher can see
 
@@ -91,6 +101,9 @@ to build; widening it to take a profile type would put that back.
 | `Emits` | true or false | `false` |
 | `ReferenceCrossSectionM2` | number | `0` |
 | `NotchSpeed` | number | `0` |
+| `ChaffNotchMps` | number | `0` |
+| `ChaffReacquireSeconds` | number | `3` |
+| `OpticalBackup` | true or false | `false` |
 | `ClutterFloorMetres` | number | `0` |
 | `HorizonMasking` | true or false | `true` |
 | `TerrainMarginMetres` | number | `0` |
@@ -135,16 +148,18 @@ to build; widening it to take a profile type would put that back.
 | `RestElevationDeg` | number | *the modelled pose* |
 | `MagazineDepth` | whole number | `0` |
 | `SalvoSpacing` | number | `0.45` |
-| `ReloadSeconds` | number | `12` |
+| `ReloadSeconds` | number | `0` |
 | `LaunchAlongTube` | true or false | `true` |
 | `LaunchLoft` | number | `0.35` |
 | `EjectAwayFromMount` | number | `0` |
 | `MuzzleOffset` | number | `8` |
 | `GunAmmo` | whole number | `480` |
+| `StoreMassKg` | number | `0` |
+| `GunRoundMassKg` | number | `0` |
 | `GunRoundsPerMinute` | number | `2500` |
 | `GunBurstRounds` | whole number | `12` |
 | `GunBurstGapSeconds` | number | `0.55` |
-| `GunReloadSeconds` | number | `20` |
+| `GunReloadSeconds` | number | `0` |
 
 ### `<Optic>` - a sighting head, needing no weapon on the craft
 
@@ -164,6 +179,9 @@ to build; widening it to take a profile type would put that back.
 | `MaxElevationDeg` | number | `85` |
 | `MaxOffBoresightDeg` | number | `135` |
 | `KeyholeDeg` | number | `4` |
+| `MaxMagnification` | number | `16` |
+| `HasLaser` | true or false | `false` |
+| `LaserRangeMetres` | number | `20000` |
 
 ### `<Tube>` - child of `<Launcher>`
 
@@ -189,5 +207,5 @@ to build; widening it to take a profile type would put that back.
 
 | Attribute | Reads | Default |
 | --- | --- | --- |
-| `Role` | one of `FireControl`, `Launcher`, `Sensor`, `Camera`, `Gun`, `Guidance` | `Sensor` |
+| `Role` | one of `FireControl`, `Launcher`, `Sensor`, `Camera`, `Gun`, `Guidance`, `Countermeasures` | `Sensor` |
 | `DisplayName` | text, required | **required** |

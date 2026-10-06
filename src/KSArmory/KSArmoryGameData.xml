@@ -606,8 +606,9 @@
         into pitch and yaw actuators and coarsens the quantum that aims the release. At X = 0.30
         their axial lever arm is zero and only the axial pair can pitch: 4.412 against 5.685.
 
-        It is a choice inside a mass model that is already approximate - the six RVs are rounds
-        this mod simulates and carry no KSA mass, so the lump never sheds as they leave.
+        It is a choice inside a mass model that is already approximate. The six RVs' 250 kg each is
+        part of this lump, and it comes off as they leave (IcbmConfig.ShedWarheadMass, on), scaled in
+        place so the lump stays on the ring (Ksa/StoreMass.cs).
       -->
       <LocationAsmb X="0.30" />
     </SolidSphereMass>
@@ -688,4 +689,112 @@
       </Box>
     </Collider>
   </PartGameData>
+
+  <PartGameData Id="KSArmory_Prefab_M197" DisplayName="M197 chin turret">
+    <EditorTag Value="Weapons" />
+    <EditorTag Value="Radial" />
+    <EditorTag Value="NoFaceSnapping" />
+    <Diameter M="1" />
+
+    <!-- Attaches by its ring to the underside of a nose or a fuselage, and hangs from it. -->
+    <Connector Id="_m197ConnectorBase">
+      <Flags>ToSurface</Flags>
+    </Connector>
+
+    <!-- The M197 is 66 kg; the turret, its drives and 750 rounds in the feed make up the rest. -->
+    <SolidSphereMass>
+      <Mass Kg="330" />
+      <Radius M="0.50" />
+    </SolidSphereMass>
+
+    <!-- Boxes at the modelled pose, read off the export's bounds. -->
+    <Collider Id="KSArmory_M197Collider">
+      <Box Id="KSArmory_M197RingCollider">
+        <LocationAsmb X="0.047" Y="0" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.094" />
+        <LengthY M="1.00" />
+        <LengthZ M="1.00" />
+      </Box>
+      <Box Id="KSArmory_M197YokeCollider">
+        <LocationAsmb X="0.188" Y="0.002" Z="0.036" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.37" />
+        <LengthY M="0.62" />
+        <LengthZ M="0.83" />
+      </Box>
+      <Box Id="KSArmory_M197GunCollider">
+        <LocationAsmb X="0.507" Y="-0.008" Z="0.009" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.51" />
+        <LengthY M="0.94" />
+        <LengthZ M="0.64" />
+      </Box>
+      <Box Id="KSArmory_M197BarrelCollider">
+        <LocationAsmb X="0.487" Y="1.494" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.25" />
+        <LengthY M="2.07" />
+        <LengthZ M="0.29" />
+      </Box>
+    </Collider>
+  </PartGameData>
+  <PartGameData Id="KSArmory_Prefab_Ale47Flare" DisplayName="AN/ALE-47 Flare Dispenser">
+    <EditorTag Value="Weapons" />
+    <EditorTag Value="Radial" />
+    <EditorTag Value="NoFaceSnapping" />
+    <Diameter M="0.3" />
+
+    <!-- Attaches by the flange to the side of a stack; the cartridges leave from the far face. -->
+    <Connector Id="_cmConnectorBase">
+      <Flags>ToSurface</Flags>
+    </Connector>
+
+    <!-- About 3 kg of module and fifteen MJU-7s at 0.37 kg. -->
+    <SolidSphereMass>
+      <Mass Kg="8.6" />
+      <Radius M="0.15" />
+    </SolidSphereMass>
+
+    <!-- Off _ColPrim_KSArmory_Ale47Flare: the flange and housing, standing off the face at X = 0. -->
+    <Collider Id="KSArmory_Ale47FlareCollider">
+      <Box Id="KSArmory_Ale47FlareBodyCollider">
+        <LocationAsmb X="0.07" Y="0" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.14" />
+        <LengthY M="0.28" />
+        <LengthZ M="0.216" />
+      </Box>
+    </Collider>
+  </PartGameData>
+
+  <PartGameData Id="KSArmory_Prefab_Ale47Chaff" DisplayName="AN/ALE-47 Chaff Dispenser">
+    <EditorTag Value="Weapons" />
+    <EditorTag Value="Radial" />
+    <EditorTag Value="NoFaceSnapping" />
+    <Diameter M="0.3" />
+
+    <!-- Attaches by the flange to the side of a stack; the cartridges leave from the far face. -->
+    <Connector Id="_cmConnectorBase">
+      <Flags>ToSurface</Flags>
+    </Connector>
+
+    <!-- About 3 kg of module and thirty RR-170s at 0.095 kg. -->
+    <SolidSphereMass>
+      <Mass Kg="5.9" />
+      <Radius M="0.15" />
+    </SolidSphereMass>
+
+    <!-- Off _ColPrim_KSArmory_Ale47Chaff: the flange and housing, standing off the face at X = 0. -->
+    <Collider Id="KSArmory_Ale47ChaffCollider">
+      <Box Id="KSArmory_Ale47ChaffBodyCollider">
+        <LocationAsmb X="0.07" Y="0" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.14" />
+        <LengthY M="0.28" />
+        <LengthZ M="0.216" />
+      </Box>
+    </Collider>
+  </PartGameData>
+
 </Assets>

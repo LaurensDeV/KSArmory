@@ -246,7 +246,7 @@ internal sealed partial class Ui
         ImGui.SameLine();
         if (ImGui.Button("Release one warhead"))
         {
-            if (!computer.Release(_batteries.For(computer.Craft)?.Battery))
+            if (!computer.Release(_roster.For(computer.Craft)?.Weapon))
             {
                 Log.Warn("nothing to release: no weapon aboard, none left, or it is still reloading");
             }
@@ -582,7 +582,7 @@ internal sealed partial class Ui
         }
 
         // Asked beside achieved, because those two differing is the whole reason this control
-        // exists: before it, the arrival was whatever the cheapest arc happened to give.
+        // exists: without it, the arrival is whatever the cheapest arc happens to give.
         double planned = computer.Program.Arc?.ArrivalAngleDeg ?? double.NaN;
         string arriving = double.IsFinite(planned) ? $"; the arc it has arrives at {planned:F0} deg"
                                                    : "; no arc solved yet";
@@ -849,6 +849,33 @@ internal sealed partial class Ui
             + "improving at ten metres. Off: a cycle counts only if it closes "
             + $"{AimCorrection.ImprovedByMetres:F0} m, which no cycle can at a ten-metre miss.");
 
+        bool carry = config.CarryAimBiasAcrossHops;
+        if (ImGui.Checkbox("Carry the aim bias across a hop", ref carry))
+        {
+            config.CarryAimBiasAcrossHops = carry;
+        }
+        Tip("On: a bus walking between targets starts each stop's aim correction from the bias the "
+            + "last stop walked to. Off: each stop starts from no bias and corrects it again from "
+            + "scratch. A set of one target never hops, so it is the same either way.");
+
+        bool inFlight = config.TrimCountsTheCommandInFlight;
+        if (ImGui.Checkbox("Trim counts the command in flight", ref inFlight))
+        {
+            config.TrimCountsTheCommandInFlight = inFlight;
+        }
+        Tip("On: the trim allows for the frame of thrust its last command has still to deliver, "
+            + "which stops it overshooting back and forth at long frame steps. Off: it chooses on the "
+            + "velocity alone, and under timewarp chases its own overshoot between opposite jets.");
+
+        bool fromCutoff = config.WalkStartsAtCutoff;
+        if (ImGui.Checkbox("Start a walk at cutoff", ref fromCutoff))
+        {
+            config.WalkStartsAtCutoff = fromCutoff;
+        }
+        Tip("On: a bus with several targets lets the first go as soon as the coast begins, where its "
+            + "fuel moves a landing furthest, so its targets can be spread wider. Off: the walk ends on "
+            + "the release gate, where each warhead lands most precisely. One target is the same either way.");
+
         bool onReading = config.DecideOnTheReading;
         if (ImGui.Checkbox("Decide each pass on its reading", ref onReading))
         {
@@ -899,6 +926,68 @@ internal sealed partial class Ui
                   + "is 0.22 s at 63 fps and 0.29 s at 47 -- so a slower machine holds it longer and "
                   + "leaves more square to it. Off the orbit plane that is 59-93% of what the cutoff "
                   + "leaves, and it grows 5.9x over a 4x step against 4.1x in plane. Unflown.");
+
+        float reserve = (float)config.AscentReserveSeconds;
+        if (ImGui.SliderFloat("Ascent keeps for the closed loop (s, 0 = off)", ref reserve, 0.0f, 30.0f))
+        {
+            config.AscentReserveSeconds = reserve < 0.5f ? 0.0 : reserve;
+        }
+        Tip(config.AscentReserveSeconds > 0.0
+                ? $"The pitch programme throttles back once less than {config.AscentReserveSeconds:F0} s "
+                  + "of burning is left, so a short shot reaches thin air with something still to gain "
+                  + "rather than kilometres a second too much."
+                : "0: 15 s while flying any range is on, which supplies it; wide open only with that off, where a "
+                  + "short shot overshoots and spends the upper stage braking -- flown at 418 km, it ran dry.");
+
+        bool separateEarly = config.SeparateAtCutoff;
+        if (ImGui.Checkbox("Drop the spent stack at cutoff", ref separateEarly))
+        {
+            config.SeparateAtCutoff = separateEarly;
+        }
+        Tip("On: the empty stack comes off when the burn ends, so the bus does not spend its own "
+            + "thrusters holding it through the coast. Off: it comes off when the release gate opens. "
+            + "The trim waits for the gate either way. A short shot always drops it at cutoff. Unflown.");
+
+        bool anyRange = config.FlyAnyRange;
+        if (ImGui.Checkbox("Fly any range on any stack", ref anyRange))
+        {
+            config.FlyAnyRange = anyRange;
+        }
+        Tip("On: a solid stage's remaining delta-v is absorbed by lofting the arc, an engine that cannot "
+            + "throttle low enough is lofted against its floor, the closed loop takes over at the top of a "
+            + "climb that stays in the air, and a stage that can stop waits for the vehicle to turn before "
+            + "burning. A long shot is flown exactly as with it off.");
+
+        float slowLine = (float)config.ShortShotSlowsLineSeconds;
+        if (ImGui.SliderFloat("Short shot slows its line within (s, 0 = off)", ref slowLine, 0.0f, 2.0f))
+        {
+            config.ShortShotSlowsLineSeconds = slowLine < 0.05f ? 0.0 : slowLine;
+        }
+        Tip(config.ShortShotSlowsLineSeconds > 0.0
+                ? $"Once less than {config.ShortShotSlowsLineSeconds:F2} s of the thrust being made is left to gain, "
+                  + $"the thrust line turns at most {IcbmProgram.SlowLineDegPerSec:F0} deg/s and the burn runs on the part "
+                  + "along it, so a stack at its throttle floor cannot chase what is left into a spin."
+                : "0: the line follows what is left to gain to the end. On a short shot at the throttle floor that "
+                  + "chases: flown, every core that ran dry separated spinning, and twice the spent core knocked the "
+                  + "upper's engine off.");
+
+        bool inTheAir = config.ShortShotFinishesInTheAir;
+        if (ImGui.Checkbox("Short shot finishes in the air", ref inTheAir))
+        {
+            config.ShortShotFinishesInTheAir = inTheAir;
+        }
+        Tip("On: a short shot whose burn ends in thick air cuts off and releases there, instead of pausing to "
+            + "coast out of the air and lighting again -- the relight is where the stack starts spinning again. "
+            + "Pair it with solving the arc with drag, or it falls short by the drag.");
+
+        bool withDrag = config.ShortShotSolvesWithDrag;
+        if (ImGui.Checkbox("Short shot solves its arc with drag", ref withDrag))
+        {
+            config.ShortShotSolvesWithDrag = withDrag;
+        }
+        Tip($"On: in the last {IcbmProgram.DragSolveWithinSeconds:F0} s of a short shot's burn, each arc is flown with "
+            + "the warhead's drag and the aim moved until it lands on the target, so a cutoff in the air does not "
+            + "fall short by the drag.");
 
         bool resample = config.ResampleGroundAtImpact;
         if (ImGui.Checkbox("Warheads re-read the ground as they meet it", ref resample))
@@ -1034,9 +1123,83 @@ internal sealed partial class Ui
             config.CancelProbeMissAtSeparation = cancelMiss;
         }
         Tip("On: each warhead leaves with the least velocity that moves the release probe's predicted "
-            + "impact onto the aim point along the ground -- a few millimetres a second, refused past "
-            + $"{ReleaseFocus.MaxMissKickMetresPerSecond * 1000.0:F0} mm/s. Off: the warheads leave on "
+            + "impact onto the aim point along the ground -- millimetres to centimetres a second, refused "
+            + "past the kick caps below. Off: the warheads leave on "
             + "the state the aim loop stopped at, which it predicts to land a metre or so short.");
+
+        float shortCap = (float)(config.ShortShotMissKickMetresPerSecond * 1000.0);
+        if (ImGui.SliderFloat("Short shot's kick cap (mm/s)", ref shortCap, 0f, 500f, "%.0f"))
+        {
+            config.ShortShotMissKickMetresPerSecond = shortCap / 1000.0;
+        }
+        Tip("A salvo released at cutoff in the air may be kicked up to this much off each warhead's probe miss. "
+            + $"0 keeps the {ReleaseFocus.MaxMissKickMetresPerSecond * 1000.0:F0} mm/s every other salvo has.");
+
+        float longCap = (float)(config.LongShotMissKickMetresPerSecond * 1000.0);
+        if (ImGui.SliderFloat("Long shot's kick cap (mm/s)", ref longCap, 0f, 1000f, "%.0f"))
+        {
+            config.LongShotMissKickMetresPerSecond = longCap / 1000.0;
+        }
+        Tip("A long shot's salvo may be kicked up to this much off each warhead's probe miss. "
+            + $"0 keeps the {ReleaseFocus.MaxMissKickMetresPerSecond * 1000.0:F0} mm/s.");
+
+        bool waitsForSolids = config.AimWaitsForTheSolids;
+        if (ImGui.Checkbox("Aim correction waits for the solids", ref waitsForSolids))
+        {
+            config.AimWaitsForTheSolids = waitsForSolids;
+        }
+        Tip("On: a long shot does not correct its aim while solids that cannot stop are burning, since the arc is "
+            + "held by what they must deliver. Off: it may, on the craft whose stage delta-v KSA reports.");
+
+        bool afterTrim = config.ShortShotKickCapAfterTheTrim;
+        if (ImGui.Checkbox("Short shot's kick cap after the trim too", ref afterTrim))
+        {
+            config.ShortShotKickCapAfterTheTrim = afterTrim;
+        }
+        Tip("On: a short shot released above the air after the bus trim gets the short shot's kick cap as well. "
+            + $"Off: it keeps the {ReleaseFocus.MaxMissKickMetresPerSecond * 1000.0:F0} mm/s a long shot has.");
+
+        bool backstop = config.ShortShotBackstopsAtTheTrim;
+        if (ImGui.Checkbox("Short shot's backstop arms at the trim's reach", ref backstop))
+        {
+            config.ShortShotBackstopsAtTheTrim = backstop;
+        }
+        Tip("On: on an arc that releases after the trim, what is left turning back up anywhere under the trim's "
+            + "reach ends the burn and the trim finishes it. Off: only under 2 m/s.");
+
+        bool throughClear = config.ThrottleThroughTheKeyboardClear;
+        if (ImGui.Checkbox("Throttle keeps moving while a window has the keyboard", ref throughClear))
+        {
+            config.ThrottleThroughTheKeyboardClear = throughClear;
+        }
+        Tip("On: while KSA drops the flown craft's held keys -- a modal, the console or a text field has the keyboard -- "
+            + "the step the throttle key would have made is written to the throttle directly. Off: the throttle freezes "
+            + "where it was until the window closes.");
+
+        bool together = config.ShortShotReleasesTogether;
+        if (ImGui.Checkbox("Short shot releases its salvo in one frame", ref together))
+        {
+            config.ShortShotReleasesTogether = together;
+        }
+        Tip("On: a single-target salvo released at cutoff in the air goes in the frame the first warhead does. "
+            + "Off: one a frame, each leaving a stack the air has slowed a little more.");
+
+        float solidsLeave = (float)config.SolidsLeaveMetresPerSecond;
+        if (ImGui.SliderFloat("Solids leave for the next stage (m/s)", ref solidsLeave, 0f, 100f, "%.0f"))
+        {
+            config.SolidsLeaveMetresPerSecond = solidsLeave;
+        }
+        Tip("Above 0: solids that cannot be stopped are steered along what is left to gain and asked to "
+            + "leave this much for the stage after them, so it lights with what is left ahead of its nose. "
+            + "0: the arc is matched to them exactly and they fly the schedule.");
+
+        bool dropSolids = config.DropSolidsUnderWeight;
+        if (ImGui.Checkbox("Drop solids once they push less than the stack weighs", ref dropSolids))
+        {
+            config.DropSolidsUnderWeight = dropSolids;
+        }
+        Tip("On, on a short shot: solids tailing off under the stack's weight are dropped and the stage after "
+            + "them lit at its floor, rather than carried through seconds that only sag the path.");
 
         bool followGround = config.ProbeMissFollowsTheGround;
         if (ImGui.Checkbox("Measure that miss over the ground as it lies", ref followGround))
@@ -1058,6 +1221,12 @@ internal sealed partial class Ui
             + "paired blocks: the worst warhead of a group 0.80x, the spread lower on 17 of 20 shots. Off is the old "
             + "hand-typed constant, which is what a paired night now flies as its comparator. Needs the kick below, "
             + "which is why they went on together.");
+
+        bool shed = config.ShedWarheadMass;
+        if (ImGui.Checkbox("Warheads take their mass with them", ref shed)) config.ShedWarheadMass = shed;
+        Tip("On, and shipped: each warhead's 250 kg comes off the bus as it leaves, as on the real vehicle. "
+            + "Flown no worse on one target and on a four-target walk. Off keeps the bus at its loaded mass "
+            + "throughout, which is what nights before 2026-10-03 flew.");
 
         bool throughTheAir = config.KickThroughTheAir;
         if (ImGui.Checkbox("Solve the separation kicks through the air", ref throughTheAir))

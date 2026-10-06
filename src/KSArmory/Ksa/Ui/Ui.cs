@@ -7,7 +7,7 @@ namespace KSArmory;
 /// The operator's panel: auto-engage, radar and guidance tuning, the track list with
 /// manual designation, and a rolling event log.
 /// </summary>
-internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHeads heads, IcbmComputers icbms, WarpPolicy warp, WatchCamera watch, CraftMover mover, BurstTool bursts, Func<WeaponSystem, StoreReach> reachFor)
+internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHeads heads, Countermeasures countermeasures, IcbmComputers icbms, WarpPolicy warp, WatchCamera watch, CraftMover mover, BurstTool bursts, Func<WeaponSystem, StoreReach> reachFor)
 {
     // The overlay's own answer rather than a fresh one: solving here would be three flown
     // trajectories per frame for a readout the ring is already showing, and a line that
@@ -20,30 +20,31 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     private static readonly float4 Grey = new(0.65f, 0.65f, 0.7f, 1f);
 
     // Warp above which a frame carries more simulated time than the interceptor can integrate, so
-    // the battery stands rounds down. Indicative only: the real limit is per frame, so a lower
+    // the system stands rounds down. Indicative only: the real limit is per frame, so a lower
     // frame rate reaches it sooner. Assumes 60 fps.
     private const double MaxTrackableWarp = Interceptor.MaxFaithfulStep * 60.0;
 
     private readonly Config _config = config;
-    private readonly WeaponSystems _batteries = roster;
+    private readonly WeaponSystems _roster = roster;
     private readonly OpticalHeads _heads = heads;
+    private readonly Countermeasures _countermeasures = countermeasures;
+    private readonly List<Countermeasures.Entry> _dispenserScratch = [];
     private readonly WarpPolicy _warp = warp;
 
     // The system the panes read. Not fixed, and not set here: Focus points them at whichever
     // system is being drawn and this file calls it before anything else runs. The panes live in
     // UiSystem.cs and UiTuning.cs and simply use them, so a pane reached by any other path will
     // quietly describe the wrong installation.
-    private WeaponSystem _battery = null!;
+    private WeaponSystem _system = null!;
     private SystemConfig _policy = null!;
 
     // Whether the two above are safe to read this frame. A craft can be worth a window without
     // being a weapons system -- one director and no armament is the case -- and everything under
-    // Debug and every pane reads a battery.
+    // Debug and every pane reads a system.
     private bool _crewed;
     private readonly WatchCamera _watch = watch;
     private readonly CraftMover _mover = mover;
     private readonly BurstTool _bursts = bursts;
-    private readonly List<int> _viewports = [];
     private readonly List<SurveyedPart> _surveyed = [];
     private readonly List<OpticalHeads.Entry> _headScratch = [];
     private readonly List<WeaponSystems.Entry> _weaponScratch = [];
@@ -56,13 +57,16 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     /// <summary>The system the panel is pointed at, for the overlay to highlight.</summary>
     public KSA.Vehicle? Focused { get; private set; }
 
+    /// <summary>Points the panel at a craft, as its switcher row's "..." button does.</summary>
+    public void Manage(KSA.Vehicle craft) => _managed = craft;
+
     // Points the panes at one system. Returns false when there is nothing crewed to point at,
     // which is the only state in which they must not be drawn at all.
     private bool Focus(KSA.Vehicle? craft)
     {
-        if (_batteries.For(craft) is not { } entry) return false;
+        if (_roster.For(craft) is not { } entry) return false;
 
-        _battery = entry.Battery;
+        _system = entry.Weapon;
         _policy = entry.Policy;
         return true;
     }
@@ -89,6 +93,9 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     private Pane[] Panes => _panes ??=
     [
         new("KSArmory settings", DrawSettingsPane, PaneGroup.Session),
+
+        // Who fights whom, in one place: a team's rules are every system on it.
+        new("Teams", DrawTeamsWindow, PaneGroup.Session),
 
         // Its own button beside settings, rather than a collapsed header inside that window. Sim
         // speed, the target spawner and the log are all reached *while* an engagement is running,
@@ -173,9 +180,9 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     [ModMenuEntry("KSArmory")]
     public static void DrawModMenu()
     {
-        // The identical call through this mod's own bar is wrapped; this one was not, so anything
-        // thrown here went into ModMenu's menu build instead of the log -- leaving an entry that
-        // does nothing and no evidence anywhere of why.
+        // Wrapped as the identical call through this mod's own bar is: unwrapped, anything thrown
+        // here goes into ModMenu's menu build instead of the log -- leaving an entry that does
+        // nothing and no evidence anywhere of why.
         try
         {
             Current?.DrawMenuContents();
@@ -203,34 +210,42 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         KsaWorld.InvalidateCensus();
 
         RefreshSystems();
-        _batteries.Sync(_systems);
-        _icbms.Sync(_systems, _batteries.Handovers);
+        _roster.Sync(_systems);
+        _icbms.Sync(_systems, _roster.Handovers);
 
 
         // Follow a weapon that a decoupler carried onto another craft, before the test below
         // notices the old one has nothing left and shuts the window - which would happen in the
         // middle of a deployment, on the frame the operator most wants to be watching.
-        for (int i = 0; i < _batteries.Handovers.Count; i++)
+        for (int i = 0; i < _roster.Handovers.Count; i++)
         {
-            if (ReferenceEquals(_managed, _batteries.Handovers[i].From))
+            if (ReferenceEquals(_managed, _roster.Handovers[i].From))
             {
-                _managed = _batteries.Handovers[i].To;
+                _managed = _roster.Handovers[i].To;
             }
         }
 
-        // Dropped when the craft has nothing left to manage -- a battery *or* a director. Testing
-        // the battery alone clears the selection on the frame after a camera-only craft is picked,
+        // Dropped when the craft has nothing left to manage -- a system *or* a director. Testing
+        // the system alone clears the selection on the frame after a camera-only craft is picked,
         // so the window opens and shuts again before it is ever drawn.
         if (_managed is not null
-            && _batteries.For(_managed) is null && _heads.FirstOn(_managed) is null)
+            && _roster.For(_managed) is null && _heads.FirstOn(_managed) is null)
         {
             _managed = null;
         }
-        Focused = _managed ?? _batteries.Default();
+        if (_weaponsCraft is not null && (!_weaponsOpen || !KsaWorld.IsAlive(_weaponsCraft)
+                                          || _roster.For(_weaponsCraft) is null))
+        {
+            _weaponsCraft = null;
+        }
+
+        // The Weapons window, opened from a row, is the craft being operated: its trigger, its
+        // designator and its sight follow it.
+        Focused = _weaponsCraft ?? _managed ?? _roster.Default();
 
         // Two different questions, and collapsing them into one is a null dereference. The manage
-        // window has something to show for a battery *or* a director, so it asks the second; the
-        // panes all read `_battery`, which `Focus` leaves unassigned when it answers false, so they
+        // window has something to show for a system *or* a director, so it asks the second; the
+        // panes all read `_system`, which `Focus` leaves unassigned when it answers false, so they
         // must ask the first.
         _crewed = Focus(Focused);
 
@@ -253,7 +268,6 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
                 // about one particular system is a pane.
                 DrawSystemList();
                 ImGui.Separator();
-                DrawPaneToggles();
                 DrawReportFooter();
             }
 
@@ -333,16 +347,17 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
 
         if (_systems.Count == 0)
         {
-            ImGui.TextColored(Grey, "Nothing of this mod's is fitted to anything.");
-            ImGui.TextDisabled("Fit a launcher from Weapons, or an EO director from Sensors.");
-            Tip("A craft with only a director is listed too. It is not a weapon, but it has a "
-                + "camera worth pointing.");
+            ImGui.TextColored(Grey, "No weapons or sensors on any craft.");
             return;
         }
 
-        if (!ImGui.BeginTable("##switcher", 5, ImGuiTableFlags.SizingStretchProp)) return;
+        if (!ImGui.BeginTable("##switcher", 6, ImGuiTableFlags.SizingStretchProp)) return;
 
+        // Weapons first, as the one most reached for. Each icon keeps its column, so a craft without
+        // one -- guard is only on a craft that engages on its own -- leaves a gap rather than
+        // shifting the rest.
         ImGui.TableSetupColumn("##name", ImGuiTableColumnFlags.WidthStretch);
+        ImGui.TableSetupColumn("##weapons", ImGuiTableColumnFlags.WidthFixed);
         ImGui.TableSetupColumn("##guard", ImGuiTableColumnFlags.WidthFixed);
         ImGui.TableSetupColumn("##chase", ImGuiTableColumnFlags.WidthFixed);
         ImGui.TableSetupColumn("##team", ImGuiTableColumnFlags.WidthFixed);
@@ -385,7 +400,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     private void DrawSwitcherRow(KSA.Vehicle craft, WeaponInventory inv)
     {
         _rowSystems.Clear();
-        foreach (WeaponSystems.Entry e in _batteries.All)
+        foreach (WeaponSystems.Entry e in _roster.All)
         {
             if (ReferenceEquals(e.Craft, craft)) _rowSystems.Add(e);
         }
@@ -393,6 +408,9 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         _heads.On(craft, _rowHeads);
 
         DrawSwitcherName(craft, inv);
+
+        ImGui.TableNextColumn();
+        if (_rowSystems.Count > 0) DrawWeaponsButton(craft);
 
         ImGui.TableNextColumn();
         if (_rowSystems.Count > 0) DrawGuardButton();
@@ -403,9 +421,19 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         ImGui.TableNextColumn();
         DrawTeamButton(craft);
 
+        // Tinted while this craft's window is open, which is often not the craft being flown and
+        // is otherwise said nowhere in the list.
         ImGui.TableNextColumn();
-        if (ImGui.Button("...")) _managed = craft;
-        Tip("Everything else about it, in its own window.");
+        bool open = ReferenceEquals(_managed, craft);
+        if (open) ImGui.PushStyleColor(ImGuiCol.Button, LitButton);
+        if (ImGui.Button("..."))
+        {
+            // One craft operated at a time: its window's trigger fires the focused craft's weapons.
+            _managed = craft;
+            _weaponsCraft = null;
+        }
+        if (open) ImGui.PopStyleColor();
+        Tip(open ? "Its window is the one open." : "Everything else about it, in its own window.");
     }
 
     // Clicking a name flies it, as in every switcher of this kind; looking at it without taking
@@ -417,13 +445,25 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         bool flying = ReferenceEquals(craft, KsaWorld.ControlledVehicle);
         float width = ImGui.GetContentRegionAvail().X;
 
-        if (flying) ImGui.PushStyleColor(ImGuiCol.Button, FlyingButton);
-        if (ImGui.Button($"{KsaWorld.DisplayName(craft)}##name", new float2?(new float2(width, 0f)))
+        // The flown craft is the only filled row, and marked as well as coloured so the colour is
+        // not the only thing saying it. Every other name is text until hovered, so the list reads
+        // as a list rather than as a wall of identical buttons.
+        ImGui.PushStyleColor(ImGuiCol.Button, flying ? FlyingButton : new float4(0f, 0f, 0f, 0f));
+        if (flying) ImGui.PushStyleColor(ImGuiCol.ButtonHovered, FlyingButtonHovered);
+        float2 leftAligned = new(0f, 0.5f);
+        ImGui.PushStyleVar(ImGuiStyleVar.ButtonTextAlign, in leftAligned);
+
+        // Indented by a marker's width on every row, so the names line up whether marked or not.
+        if (ImGui.Button($"     {KsaWorld.DisplayName(craft)}##name", new float2?(new float2(width, 0f)))
             && !flying)
         {
             KsaWorld.GoTo(craft);
         }
-        if (flying) ImGui.PopStyleColor();
+
+        ImGui.PopStyleVar(1);
+        ImGui.PopStyleColor(flying ? 2 : 1);
+
+        if (flying) DrawFlyingMarker(ImGui.GetItemRectMin(), ImGui.GetItemRectMax());
 
         if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
         {
@@ -431,8 +471,8 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
             _watch.Watch(craft);
         }
 
-        string status = _batteries.For(craft) is { } e
-            ? $"{(e.Policy.AutoEngage ? "GUARDING" : "manual")}  {Tally(e.Battery)}{Speed(e.Battery)}"
+        string status = _roster.For(craft) is { } e
+            ? $"{(e.Policy.AutoEngage ? "GUARDING" : "manual")}  {Tally(e.Weapon)}{Speed(e.Weapon)}"
             : Describe(inv);
 
         Tip(status + "\n\n" + (flying ? "You are flying it." : "Click to fly it.")
@@ -480,7 +520,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     }
 
     private static bool CanAutoEngage(WeaponSystems.Entry e)
-        => WeaponFit.Of(e.Battery.Profile, e.Battery.Sensor).AutoEngages;
+        => WeaponFit.Of(e.Weapon.Profile, e.Weapon.Sensor).AutoEngages;
 
     private void DrawChaseButton()
     {
@@ -498,6 +538,30 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
             + "the burst, or about two seconds after the round has nothing left to arrive at. "
             + "Right-drag looks around the round and the wheel moves in or out; let go and the view "
             + "eases back behind it.");
+    }
+
+    // Straight to the Weapons window for this craft, without opening its own window first.
+    private void DrawWeaponsButton(KSA.Vehicle craft)
+    {
+        bool open = _weaponsOpen && ReferenceEquals(Focused, craft);
+
+        if (IconButton("##weapons", Icon.Missile, open ? ChaseInk : OffInk, lit: open))
+        {
+            if (open)
+            {
+                _weaponsOpen = false;
+            }
+            else
+            {
+                _weaponsCraft = craft;
+                _weaponsOpen = true;
+
+                // Another craft's window would fire this craft's weapons from its own trigger.
+                if (_managed is not null && !ReferenceEquals(_managed, craft)) _managed = null;
+            }
+        }
+
+        Tip(open ? "Its weapons are open." : "Its weapons: what each is loaded with, whether it is armed, and a trigger.");
     }
 
     // A click opens the menu, because it is the control a new player tries first and creating the
@@ -563,8 +627,6 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
             ImGui.CloseCurrentPopup();
         }
         Tip("Type a name and press Enter to create the team and put this craft on it.");
-        Help("A craft with nothing of this mod's fitted has no flag, so it is placed by its name "
-             + "instead: the team's name anywhere in the craft's name puts it on that side.");
     }
 
     // Every system and director on the row's craft: a craft fights for one side.
@@ -583,7 +645,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     // carries no weapon. What the flag shows and what the list groups by.
     private string? TeamOf(KSA.Vehicle craft)
     {
-        if (_batteries.For(craft) is { } entry) return entry.Policy.Iff.OwnTeam;
+        if (_roster.For(craft) is { } entry) return entry.Policy.Iff.OwnTeam;
 
         _heads.On(craft, _teamHeads);
         return _teamHeads.Count > 0 ? _teamHeads[0].Policy.Iff.OwnTeam : null;
@@ -621,14 +683,29 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         => new((byte)(c.X * 255f), (byte)(c.Y * 255f), (byte)(c.Z * 255f), (byte)(c.W * 255f));
 
     private static readonly float4 LitButton = new(0.22f, 0.36f, 0.26f, 1f);
-    private static readonly float4 FlyingButton = new(0.20f, 0.32f, 0.48f, 1f);
+    private static readonly float4 FlyingButton = new(0.16f, 0.42f, 0.24f, 1f);
+    private static readonly float4 FlyingButtonHovered = new(0.20f, 0.52f, 0.30f, 1f);
+    private static readonly ImColor8 FlyingMarker = new(235, 255, 235, 255);
+
+    // A small triangle at the left of the flown craft's name. Drawn rather than typed, as the icons
+    // are, because the font carries basic Latin only.
+    private static void DrawFlyingMarker(float2 min, float2 max)
+    {
+        float h = max.Y - min.Y;
+        float x = min.X + (h * 0.3f);
+
+        ImGui.GetWindowDrawList().AddTriangleFilled(new float2(x, min.Y + (h * 0.25f)),
+                                                    new float2(x, min.Y + (h * 0.75f)),
+                                                    new float2(x + (h * 0.4f), min.Y + (h * 0.5f)),
+                                                    FlyingMarker);
+    }
     private static readonly ImColor8 GuardInk = new(100, 240, 120, 255);
     private static readonly ImColor8 PartlyInk = new(255, 200, 70, 255);
     private static readonly ImColor8 ChaseInk = new(130, 190, 255, 255);
     private static readonly ImColor8 OffInk = new(140, 140, 150, 255);
     private static readonly ImColor8 Lens = new(24, 26, 32, 255);
 
-    private enum Icon { Shield, Camera, Flag }
+    private enum Icon { Shield, Camera, Flag, Missile }
 
     // A square button the height of a text one, with a symbol drawn on it. Drawn rather than
     // typed, because KSA's fonts carry basic Latin only and a symbol would render as a box.
@@ -667,6 +744,14 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
                 draw.AddLine(P(0.3f, 0.16f), P(0.3f, 0.86f), ink, 1.5f);
                 draw.AddTriangleFilled(P(0.3f, 0.18f), P(0.78f, 0.34f), P(0.3f, 0.5f), ink);
                 break;
+
+            case Icon.Missile:
+                // Climbing to the right: body, nose and a pair of tail fins.
+                draw.AddQuadFilled(P(0.20f, 0.70f), P(0.28f, 0.78f), P(0.70f, 0.36f), P(0.62f, 0.28f), ink);
+                draw.AddTriangleFilled(P(0.62f, 0.28f), P(0.70f, 0.36f), P(0.84f, 0.14f), ink);
+                draw.AddTriangleFilled(P(0.24f, 0.74f), P(0.14f, 0.58f), P(0.32f, 0.66f), ink);
+                draw.AddTriangleFilled(P(0.24f, 0.74f), P(0.40f, 0.84f), P(0.32f, 0.66f), ink);
+                break;
         }
     }
 
@@ -680,13 +765,11 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
             return;
         }
 
-        // ###id keeps one window across a change of craft, so it holds its size and place
-        // instead of opening afresh every time a different system is managed.
         // Point the panes at *this* window's craft. Focus was worked out at the top of the frame
         // from last frame's selection, so the window that opens on the click that selected it
-        // would otherwise show -- and edit -- the previously focused battery for one frame.
+        // would otherwise show -- and edit -- the previously focused system for one frame.
         // A craft can carry a director and no armament at all, and every tab but Components reads
-        // a battery. Rather than refusing to open -- which leaves the operator with a listed craft
+        // a system. Rather than refusing to open -- which leaves the operator with a listed craft
         // and no way into its camera -- the window opens with what that craft actually has.
         bool armed = Focus(craft);
         if (!armed && _heads.FirstOn(craft) is null)
@@ -741,7 +824,6 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
                         ImGui.EndTabItem();
                     }
                     if (ImGui.BeginTabItem("Tuning")) { DrawTuning(); ImGui.EndTabItem(); }
-                    if (ImGui.BeginTabItem("Teams and IFF")) { DrawIff(); ImGui.EndTabItem(); }
                 }
                 ImGui.EndTabBar();
             }
@@ -755,9 +837,9 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     // Airspeed against the ground under it, the way a round's is measured -- in the ecliptic every
     // craft on the planet reads 29.8 km/s and none of them are going anywhere. Blank below walking
     // pace, because a row for a launcher parked on its pad does not need a zero in it.
-    private static string Speed(IWeaponSystemView battery)
+    private static string Speed(IWeaponSystemView system)
     {
-        if (battery.Platform is not { } craft || !KsaWorld.IsAlive(craft)) return "";
+        if (system.Platform is not { } craft || !KsaWorld.IsAlive(craft)) return "";
 
         try
         {
@@ -773,10 +855,10 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         }
     }
 
-    private static string Tally(WeaponSystem battery)
+    private static string Tally(WeaponSystem system)
     {
-        WeaponFit fit = WeaponFit.Of(battery.Profile, battery.Sensor);
-        return string.Join("  ", fit.Armaments.Select(a => a.Tally(LiveState(battery, a).Remaining)));
+        WeaponFit fit = WeaponFit.Of(system.Profile, system.Sensor);
+        return string.Join("  ", fit.Armaments.Select(a => a.Tally(LiveState(system, a).Remaining)));
     }
 
     private static string Describe(WeaponInventory inv)
@@ -799,17 +881,6 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         _ => null,
     };
 
-    // Plural, and spaced: the enum names are identifiers and read as such on screen.
-    private static string GroupName(WeaponRole role) => role switch
-    {
-        WeaponRole.FireControl => "Fire control",
-        WeaponRole.Launcher => "Launchers",
-        WeaponRole.Sensor => "Sensors",
-        WeaponRole.Camera => "Cameras",
-        WeaponRole.Gun => "Guns",
-        _ => role.ToString(),
-    };
-
     private void DrawPaneToggles()
     {
         // One button. Everything session-wide lives in the window behind it, so the main panel is
@@ -828,7 +899,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
             Pane pane = Panes[i];
             if (pane.Group != group) continue;
 
-            if (shown++ % 2 == 1) ImGui.SameLine();
+            if (shown++ > 0) ImGui.SameLine();
 
             // A button, never a tick box. A checkmark reads as "this setting is on", so a window
             // arriving instead is unannounced and the tick says nothing about where it went.
@@ -857,24 +928,24 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         }
     }
 
-    // The weapon system of whichever battery the panel is showing. Tuning edits the shared
-    // Arsenal instance, so it reaches every battery running that system.
-    private LauncherProfile _profile => _battery.Profile;
-    private MunitionProfile _munition => _battery.Munition;
-    private SensorProfile _sensor => _battery.Sensor;
+    // The profiles of whichever system the panel is showing. Tuning edits the shared
+    // Arsenal instance, so it reaches every system running that launcher.
+    private LauncherProfile _profile => _system.Profile;
+    private MunitionProfile _munition => _system.Munition;
+    private SensorProfile _sensor => _system.Sensor;
 
     // What the focused system is fitted with, which is what decides which controls exist. Read
     // fresh every time: the profiles it is derived from are the same instances the tuning sliders
     // edit, so anything held across frames answers for the load the system started with.
-    private WeaponFit _fit => WeaponFit.Of(_battery.Profile, _battery.Sensor);
+    private WeaponFit _fit => WeaponFit.Of(_system.Profile, _system.Sensor);
 
-    // The battery's own counters, paired with the armament they belong to. The one place that
-    // names an armament kind: a battery exposes a counter per weapon rather than a lookup, so
+    // The system's own counters, paired with the armament they belong to. The one place that
+    // names an armament kind: a system exposes a counter per weapon rather than a lookup, so
     // something has to bridge the description to them.
-    private static (int Remaining, bool Firing) LiveState(WeaponSystem battery, Armament arm)
+    private static (int Remaining, bool Firing) LiveState(WeaponSystem system, Armament arm)
         => arm.Kind == ArmamentKind.Belt
-            ? (battery.GunAmmo, battery.GunsFiring)
-            : (battery.Ammo, false);
+            ? (system.GunAmmo, system.GunsFiring)
+            : (system.Ammo, false);
 
     // Speeds worth a button. KSA's own roller stops at 0.1x; these go two decades below.
     private static readonly (string Label, double Speed)[] SlowMotionSpeeds =
@@ -901,8 +972,9 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     {
         _config.TeamNames.RemoveAll(t => string.Equals(t, team, StringComparison.OrdinalIgnoreCase));
 
-        foreach (WeaponSystems.Entry e in _batteries.All) e.Policy.Iff.Forget(team);
+        foreach (WeaponSystems.Entry e in _roster.All) e.Policy.Iff.Forget(team);
         foreach (OpticalHeads.Entry h in _heads.All) h.Policy.Iff.Forget(team);
+        _config.ForgetRules(team);
     }
 
     private static float4 AllegianceColour(Allegiance a) => a switch

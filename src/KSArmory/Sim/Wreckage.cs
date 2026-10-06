@@ -13,7 +13,7 @@ namespace KSArmory;
 /// <c>Vehicle.GenerateSplitId</c> names a piece <c>{parent}_{n}</c> — unless the piece carries a
 /// named control part, when it takes that name instead and is not wreckage by this rule, which is
 /// right: somebody can fly it. If the engine stops naming pieces this way, nothing is recognised
-/// and wreckage is engaged as it was before.</para>
+/// and wreckage is engaged like any other contact.</para>
 ///
 /// <para>The broken craft keeps its own name and stays a target, because losing parts is not
 /// being destroyed.</para>

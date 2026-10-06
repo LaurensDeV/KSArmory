@@ -17,7 +17,7 @@ Part space, the same convention as every other part here:
 
     +X  out of the surface it attaches to -- "up" for a director on a deck
     +Y  along the host's long axis
-    +Z  the host's right
+    +Z  X x Y: the host's right where +X points down, its left where +X points up
 
 ## Two bodies, and why the head is recentred
 

@@ -23,8 +23,8 @@ internal sealed class DropScenario
     ///
     /// <para><c>warp</c> is a factor to set once the store is away, or <c>auto</c> for KSA's own
     /// warp-to-a-time. They are not the same test: the engine <em>refuses</em> a speed change while
-    /// an auto-warp runs, and that refusal is what <see cref="WarpPolicy"/> used to abandon the
-    /// store over.</para>
+    /// an auto-warp runs, and <see cref="WarpPolicy"/> has to stand down for that refusal rather than
+    /// abandon the store over it.</para>
     ///
     /// <para><c>again</c> is <c>&lt;seconds&gt;@&lt;metres&gt;</c> — send the store somewhere else
     /// that long after the release, that far north of the ring — or <c>&lt;seconds&gt;@clear</c> to
@@ -143,8 +143,8 @@ internal sealed class DropScenario
 
     private double _allCapturedAt = double.NaN;
 
-    // Whether this burst has a fireball at all. Nothing to do with air: a fireball is incandescent
-    // gas, and the vacuum one is if anything brighter for having no atmosphere in the way.
+    // Whether this burst has a fireball at all. Nothing to do with air: with none it still flashes,
+    // briefly, as the device's own vapour.
     private bool BurstIsNuclear
         => (_watchTheCloud || ChaseTheCloud) && _round is { } r && r.Munition.ChargeKg >= MushroomCloud.ThresholdKg;
 
@@ -208,7 +208,7 @@ internal sealed class DropScenario
     // the one it is being compared with. That is what kept warp and pause untestable.
     private double _burstAge;
 
-    private WeaponSystem? _battery;
+    private WeaponSystem? _system;
     private Vehicle? _craft;
     private string _craftName = string.Empty;
     private double _pitchDeg;
@@ -480,7 +480,7 @@ internal sealed class DropScenario
     // The fifth is an ABSOLUTE age rather than a fraction, because it is about the cloud's whole
     // life and not its rise: MushroomCloud.Fade holds at one until half way through the stand and
     // then squares away to nothing, and a run ending at the rise stops sixteen seconds before any
-    // of that starts. It was never photographed, which is how the fade reached the shader at all.
+    // of that starts, so without this the fade is never photographed.
     private double[] CaptureAges()
     {
         double watch = WatchSeconds;
@@ -490,8 +490,8 @@ internal sealed class DropScenario
         if (!BurstIsNuclear || _round is not { } round) return rise;
 
         // The flash, before the rise fractions. The ball is incandescent for under two seconds at
-        // this yield and the earliest of those fractions is 3.8 s, so the whole of the burst
-        // lighting its own cloud happened before any capture had ever been taken.
+        // this yield and the earliest of those fractions is 3.8 s, so without this none of the
+        // burst lighting its own cloud is ever photographed.
         double flash = MushroomCloud.FlashSeconds(MushroomCloud.KilotonsFor(round.Munition.ChargeKg));
 
         // Two during the luminous phase: the whiteout peaks about a tenth of the way through it
@@ -564,8 +564,8 @@ internal sealed class DropScenario
     // which is the only question left about it.
     //
     // Cued off the burst's SIMULATED age, so a run at any speed photographs the same cloud. Wall
-    // clock was the same number at 1x and a different cloud at every other speed, which is what
-    // made "does warp change what this looks like" a question nothing could ask. The linger is
+    // clock is the same number at 1x and a different cloud at every other speed, which would make
+    // "does warp change what this looks like" a question nothing could ask. The linger is
     // still ended on wall clock, because how long to hold a camera is a viewing duration.
     private void CaptureBurst()
     {
@@ -661,6 +661,27 @@ internal sealed class DropScenario
         if (_stillTaken >= StillShots) KsaWorld.SetPaused(false);
     }
 
+    /// <summary>A height fuse for the store, in metres over the ground: zero leaves it to burst on contact.</summary>
+    public double FuseMetres { get; init; }
+
+    /// <summary>A parachute for the store, as the rate it sinks at: zero leaves it without one.</summary>
+    public double ChuteSink { get; init; }
+
+    private bool _storeFitted;
+
+    // Fits what was asked of the store to the profile it flies, once, before it is released.
+    private void FitStore(MunitionProfile munition)
+    {
+        if (_storeFitted) return;
+        _storeFitted = true;
+        if (!(FuseMetres > 0.0) && !(ChuteSink > 0.0)) return;
+
+        munition.BurstHeightMetres = (float)FuseMetres;
+        munition.ChuteSinkMetresPerSecond = (float)ChuteSink;
+        _report($"store fitted with a {(FuseMetres > 0.0 ? $"{FuseMetres:F0} m height fuse" : "contact fuse")}"
+                + (ChuteSink > 0.0 ? $" and a {ChuteSink:F0} m/s chute" : string.Empty));
+    }
+
     private string? Wait(WeaponSystems roster, double dt)
     {
         WeaponSystems.Entry? found = null;
@@ -669,12 +690,13 @@ internal sealed class DropScenario
         {
             foreach (WeaponSystems.Entry e in roster.All)
             {
-                if (e.Battery.Platform is not { } craft || e.Battery.Launcher is null) continue;
+                if (e.Weapon.Platform is not { } craft || e.Weapon.Launcher is null) continue;
                 if (_fromBeforeTheLoad.Contains(craft)) continue;
-                if (e.Battery.Munition.Powered || !e.Battery.Munition.HitsTerrain) continue;
-                if (e.Battery.Ammo <= 0) continue;
+                if (e.Weapon.Munition.Powered || !e.Weapon.Munition.HitsTerrain) continue;
+                if (e.Weapon.Ammo <= 0) continue;
 
                 found = e;
+                FitStore(e.Weapon.Munition);
 
                 // The chase rides whatever the panel is focused on, which is the controlled craft.
                 if (ReferenceEquals(craft, KsaWorld.ControlledVehicle)) break;
@@ -688,7 +710,7 @@ internal sealed class DropScenario
             // A craft already set down at a site that then disappears from flight is not coming
             // back: a rocket stood on uneven ground topples, and the wait below would say so every
             // ten seconds for as long as anybody let it. Everything else in this scenario has a
-            // budget and gives up; this is the one place that had none.
+            // budget and gives up, and so does this.
             if (_siteRequested)
             {
                 if (double.IsNaN(_lostSince)) _lostSince = _sim;
@@ -718,13 +740,13 @@ internal sealed class DropScenario
         if (double.IsNaN(_foundAt)) _foundAt = _sim;
         if (_sim - _foundAt < SettleSeconds) return null;
 
-        _battery = found.Battery;
-        _craft = found.Battery.Platform!;
+        _system = found.Weapon;
+        _craft = found.Weapon.Platform!;
         _craftName = KsaWorld.DisplayName(_craft);
 
-        if (_request.Guided && !_battery.Munition.Steers)
+        if (_request.Guided && !_system.Munition.Steers)
         {
-            return $"FAIL a guided drop was asked for, and the {_battery.Munition.DisplayName} does not steer";
+            return $"FAIL a guided drop was asked for, and the {_system.Munition.DisplayName} does not steer";
         }
 
         if (!PlaceCraft(_craft, dt, out string? placing)) return placing;
@@ -739,12 +761,12 @@ internal sealed class DropScenario
 
         if (_watchTheCloud)
         {
-            _report($"{_craftName} stays on the pad: {_battery.Ammo} x "
-                    + $"{_battery.Munition.DisplayName}, chase off, watching from where it stands");
+            _report($"{_craftName} stays on the pad: {_system.Ammo} x "
+                    + $"{_system.Munition.DisplayName}, chase off, watching from where it stands");
 
             _stagedAt = _sim;
 
-            return Drop(_battery, _craft, KsaWorld.ParentBody(_craft)!, 0.0,
+            return Drop(_system, _craft, KsaWorld.ParentBody(_craft)!, 0.0,
                         KsaWorld.LocalUp(_craft), double3.Zero, KsaWorld.LocalUp(_craft));
         }
 
@@ -752,7 +774,7 @@ internal sealed class DropScenario
                 + (ReferenceEquals(_craft, KsaWorld.ControlledVehicle)
                        ? ""
                        : " -- not the controlled craft, so the chase will not ride its store")
-                + $": {_battery.Ammo} x {_battery.Munition.DisplayName}, chase on");
+                + $": {_system.Ammo} x {_system.Munition.DisplayName}, chase on");
 
         AttitudeHook.Stage(_craft);
         _stagedAt = _sim;
@@ -762,7 +784,7 @@ internal sealed class DropScenario
 
     private string? Climb(double dt)
     {
-        WeaponSystem battery = _battery!;
+        WeaponSystem system = _system!;
         Vehicle craft = _craft!;
 
         if (!KsaWorld.IsAlive(craft)) return "FAIL the craft was lost before the release";
@@ -795,15 +817,15 @@ internal sealed class DropScenario
 
         if (agl < _request.ReleaseAglMetres || _pitchDeg < _request.PitchDeg) return null;
 
-        return Drop(battery, craft, body, agl, up, overGround, wanted);
+        return Drop(system, craft, body, agl, up, overGround, wanted);
     }
 
-    private string? Drop(WeaponSystem battery, Vehicle craft, Celestial body, double agl, double3 up,
+    private string? Drop(WeaponSystem system, Vehicle craft, Celestial body, double agl, double3 up,
                          double3 overGround, double3 wanted)
     {
-        BombSightOverlay sight = _sightFor(battery);
+        BombSightOverlay sight = _sightFor(system);
 
-        _haveRing = sight.TryPredictNow(battery, out double3 ringEcl)
+        _haveRing = sight.TryPredictNow(system, out double3 ringEcl)
                     && KsaWorld.TryAnchorToGround(ringEcl, out _ringBody, out _ringAnchor);
 
         if (_request.Guided)
@@ -817,27 +839,27 @@ internal sealed class DropScenario
                 return "FAIL the sight's impact could not be put on the ground";
             }
 
-            battery.Designate(Aimpoint.OnGround(handle, anchor, aimEcl, aimVelocity), "the sight's impact");
+            system.Designate(Aimpoint.OnGround(handle, anchor, aimEcl, aimVelocity), "the sight's impact");
         }
 
-        int before = battery.Rounds.Count;
-        if (!battery.Release() || battery.Rounds.Count <= before) return "FAIL the store would not release";
+        int before = system.Rounds.Count;
+        if (!system.Release() || system.Rounds.Count <= before) return "FAIL the store would not release";
 
-        IProjectile round = battery.Rounds[^1];
+        IProjectile round = system.Rounds[^1];
         _round = round;
         _body = body;
         _releasedAt = _sim;
 
-        double3 groundVelocity = KsaWorld.GroundVelocityAt(craft, battery.PlatformEcl);
-        _haveFlown = sight.TryPredictFrom(battery, round.PositionEcl, round.VelocityEcl - groundVelocity,
+        double3 groundVelocity = KsaWorld.GroundVelocityAt(craft, system.PlatformEcl);
+        _haveFlown = sight.TryPredictFrom(system, round.PositionEcl, round.VelocityEcl - groundVelocity,
                                           out double3 flownEcl)
                      && KsaWorld.TryAnchorToGround(flownEcl, out _, out _flownAnchor);
 
         double3 spin = round is Slug slug ? slug.SpinVelocityEcl : Vec.Zero;
         double3 ejected = round.VelocityEcl - KsaWorld.VelocityEcl(craft) - spin;
-        double rackDeg = battery.Launcher is { } launcher
-                         && LauncherPart.TryGetTubeAxisEcl(craft, launcher, battery.PodsPart,
-                                                           battery.Profile, 0, out double3 axis)
+        double rackDeg = system.Launcher is { } launcher
+                         && LauncherPart.TryGetTubeAxisEcl(craft, launcher, system.PodsPart,
+                                                           system.Profile, 0, out double3 axis)
                              ? double.RadiansToDegrees(Vec.AngleBetween(ejected, axis))
                              : double.NaN;
 
@@ -901,8 +923,8 @@ internal sealed class DropScenario
             // arrive and must not be reported as one. Its State is never written when this happens:
             // AbandonFlight simply drops it from the roster and nothing steps it again, so the
             // budget below would eventually call it "still falling" 180 s later. Asked of the
-            // battery rather than of the round, because only the roster knows.
-            if (_battery is { } owner && !Holds(owner, round))
+            // system rather than of the round, because only the roster knows.
+            if (_system is { } owner && !Holds(owner, round))
             {
                 return $"FAIL the store was taken out of the world {since:F1} s after the release, "
                        + $"at {KsaWorld.SimulationSpeed:F0}x -- it was still flying";
@@ -916,7 +938,7 @@ internal sealed class DropScenario
                 double3 overGround = round.VelocityEcl - KsaWorld.GroundVelocityAt(under, round.PositionEcl);
                 _warpObserved = Math.Max(_warpObserved, KsaWorld.SimulationSpeed);
                 _report($"falling: {since:F0} s, {Vec.Len(overGround):F0} m/s over the ground"
-                        + (_battery!.Platform is null ? ", loose" : "")
+                        + (_system!.Platform is null ? ", loose" : "")
                         + $", {KsaWorld.SimulationSpeed:F0}x"
                         + (KsaWorld.IsAutoWarpActive ? " (auto)" : ""));
             }
@@ -931,9 +953,9 @@ internal sealed class DropScenario
 
     // Whether the roster still has this round. A landed one leaves on the frame it detonates, so
     // this is only meaningful while it is flying.
-    private static bool Holds(WeaponSystem battery, IProjectile round)
+    private static bool Holds(WeaponSystem system, IProjectile round)
     {
-        foreach (IProjectile held in battery.Rounds)
+        foreach (IProjectile held in system.Rounds)
         {
             if (ReferenceEquals(held, round)) return true;
         }
@@ -945,11 +967,11 @@ internal sealed class DropScenario
     // is already falling, and the region it is judged against.
     private void SendItSomewhereElse(double since)
     {
-        if (_battery is not { } battery) return;
+        if (_system is not { } system) return;
 
         if (!double.IsFinite(_request.AgainOffsetMetres))
         {
-            battery.ClearDesignation();
+            system.ClearDesignation();
             _report($"CAPTURE again -- designation cleared {since:F1} s after the release; "
                     + "the store should keep the aim it already has");
             return;
@@ -984,20 +1006,24 @@ internal sealed class DropScenario
         _sentWasInReach = true;
         _haveSentImpact = false;
 
-        if (StoreReach.FallingStore(battery) is { } measured)
+        if (StoreReach.FallingStore(system) is { } measured)
         {
-            TailKitReach was = StoreReach.SolveNow(battery, measured);
+            TailKitReach was = StoreReach.SolveNow(system, measured);
             _sentWasInReach = !was.Known || was.Covers(aimEcl);
             _sentReachMetres = was.RadiusMetres;
             _haveSentImpact = was.Known
                               && KsaWorld.TryAnchorToGround(was.ImpactEcl, out _, out _sentImpactAnchor);
         }
 
-        string reach = StoreReach.FallingStore(battery) is { } speaking
-                           ? StoreReach.SolveNow(battery, speaking).Describe(aimEcl)
+        string reach = StoreReach.FallingStore(system) is { } speaking
+                           ? StoreReach.SolveNow(system, speaking).Describe(aimEcl)
                            : "no store in the air";
 
-        battery.Designate(Aimpoint.OnGround(handle, anchor, aimEcl, aimVel), "somewhere else");
+        // Past both rules a player's designation obeys: this store already has a target, and the
+        // place may be beyond its reach. A store sent further than the ring says is the only
+        // in-game evidence that the ring is a floor.
+        system.Designate(Aimpoint.OnGround(handle, anchor, aimEcl, aimVel), "somewhere else",
+                          asInstrument: true);
         _report($"CAPTURE again -- sent {_request.AgainOffsetMetres:F0} m north {since:F1} s after "
                 + $"the release: {reach}");
     }
@@ -1038,8 +1064,8 @@ internal sealed class DropScenario
         if (LingerSpeed != 1.0)
         {
             // Zero is a pause and not a speed, and goes through the call that says so.
-            // SetSimulationSpeed refuses it outright, which is why asking for it as a speed left
-            // the world at 1x while the run reported it had asked for a pause.
+            // SetSimulationSpeed refuses it outright, so asking for it as a speed leaves the world
+            // at 1x while the run reports it asked for a pause.
             bool held = LingerSpeed <= 0.0
                             ? KsaWorld.SetPaused(true)
                             : KsaWorld.SetSimulationSpeed(LingerSpeed);
@@ -1056,9 +1082,18 @@ internal sealed class DropScenario
         // the ground's own travel across that gap comes off before anchoring. At ~30 km/s it is
         // hundreds of metres.
         double3 burst = round.PositionEcl;
-        double3 carried = KsaWorld.GroundVelocityAt(body, burst) * round.DetonationElapsedInFrame;
 
-        if (!KsaWorld.TryAnchorToGround(burst - carried, out _, out double3 landed))
+        // An air burst is scored from the ground under it, which is where the ring is drawn.
+        double3 scored = BlastSweep.GroundAtSample(burst, KsaWorld.GroundVelocityAt(body, burst),
+                                                   round.DetonationElapsedInFrame);
+        if (round is Slug { BurstAtHeight: true })
+        {
+            if (!KsaWorld.TrySnapToGround(scored, out double3 under)) return "FAIL the air burst had no ground under it";
+            _report($"burst {Vec.Len(scored - under):F0} m over the ground");
+            scored = under;
+        }
+
+        if (!KsaWorld.TryAnchorToGround(scored, out _, out double3 landed))
         {
             return "FAIL the burst could not be put on the ground";
         }
@@ -1151,7 +1186,7 @@ internal sealed class DropScenario
         return true;
     }
 
-    private static bool TryLocalFrame(Vehicle craft, Celestial body, out double3 up, out double3 east,
+    internal static bool TryLocalFrame(Vehicle craft, Celestial body, out double3 up, out double3 east,
                                       out double3 north, out double agl)
     {
         double3 here = KsaWorld.PositionEcl(craft);

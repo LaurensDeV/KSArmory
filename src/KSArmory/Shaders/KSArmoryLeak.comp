@@ -1,0 +1,177 @@
+#version 450
+
+// The streams leaking tanks throw: a thin rope of liquid along each stream's arc, dark at its edges
+// and lit through its middle as a tube of liquid is, with a glint along it; whole for its first few
+// tens of diameters and then drops. Everything that moves -- the beads it swells into, its sway, its
+// drops -- is keyed on when the liquid at that point left the hole, so it travels down the stream
+// with the liquid. One dispatch over every stream on screen: the segments arrive projected,
+// in pixels, from CloudPass, and each workgroup first gathers the ones reaching its tile.
+//
+// Bindings follow ComputePipelineWrapper's order: the storage image, the depth it samples, then the
+// storage buffer of segments.
+
+layout (local_size_x = 16, local_size_y = 16) in;
+
+layout (set = 1, binding = 0, Rgba16f) uniform image2D sceneColor;
+layout (set = 1, binding = 1) uniform sampler2D sceneDepth;
+
+struct Segment
+{
+    vec4 Head;  // x, y in pixels, device depth, metres along the stream from the hole
+    vec4 Tail;  // x, y in pixels, device depth, metres along the stream from the hole
+    vec4 Look;  // half-width in pixels at the head and at the tail, metres it runs whole, a seed
+    vec4 Flow;  // seconds the liquid has been out at the head and at the tail, the jet's radius in metres
+};
+
+layout (std430, set = 1, binding = 2) readonly buffer Segments
+{
+    Segment segments[];
+};
+
+layout (push_constant) uniform PushConstants
+{
+    ivec4 FirstCountOrigin;  // first segment, how many, the dispatch's first pixel
+    float Clock;             // simulated seconds, which the pattern moves on
+} pc;
+
+const int MostPerTile = 256;
+
+// A propellant's colour through a thin film: close to clear, a little warm.
+const vec3 Tint = vec3(0.95, 0.92, 0.82);
+
+// How often a bead, a sway and a drop leave the hole, per second of the liquid's own time. A tank's jet
+// at a few metres a second swells into beads about nine of its diameters long.
+const float BeadsPerSecond = 13.0;
+const float SwaysPerSecond = 2.3;
+const float DropsPerSecond = 17.0;
+
+// Never drawn under this many pixels wide, so a stream reads at range as a thread rather than vanishing.
+const float LeastHalfWidth = 1.0;
+
+shared int tileCount;
+shared int tileList[MostPerTile];
+
+float Hash(float x)
+{
+    return fract(sin(x * 12.9898) * 43758.5453);
+}
+
+float Noise(float x)
+{
+    float i = floor(x);
+    float f = fract(x);
+    return mix(Hash(i), Hash(i + 1.0), f * f * (3.0 - 2.0 * f));
+}
+
+void main()
+{
+    ivec2 size = imageSize(sceneColor);
+    ivec2 tileMin = pc.FirstCountOrigin.zw + ivec2(gl_WorkGroupID.xy) * 16;
+    vec2 lo = vec2(tileMin);
+    vec2 hi = lo + vec2(16.0);
+
+    if (gl_LocalInvocationIndex == 0u) tileCount = 0;
+    barrier();
+
+    int first = pc.FirstCountOrigin.x;
+    int count = pc.FirstCountOrigin.y;
+    for (int i = int(gl_LocalInvocationIndex); i < count; i += 256)
+    {
+        Segment s = segments[first + i];
+        float reach = max(s.Look.x, s.Look.y) + 2.0;
+        vec2 sLo = min(s.Head.xy, s.Tail.xy) - vec2(reach);
+        vec2 sHi = max(s.Head.xy, s.Tail.xy) + vec2(reach);
+        if (any(greaterThan(sLo, hi)) || any(lessThan(sHi, lo))) continue;
+
+        int slot = atomicAdd(tileCount, 1);
+        if (slot < MostPerTile) tileList[slot] = i;
+    }
+    barrier();
+
+    ivec2 at = tileMin + ivec2(gl_LocalInvocationID.xy);
+    if (at.x >= size.x || at.y >= size.y) return;
+
+    int n = min(tileCount, MostPerTile);
+    if (n == 0) return;
+
+    // Reverse-Z: larger is nearer, and zero is the sky.
+    float sceneZ = texelFetch(sceneDepth, at, 0).r;
+    vec2 p = vec2(at) + 0.5;
+
+    // The stream in front at this pixel, if any: where two segments meet, or two streams cross, the
+    // one covering most wins rather than both darkening it.
+    float cover = 0.0;
+    float side = 0.0;
+    float glint = 0.0;
+    for (int k = 0; k < n; k++)
+    {
+        Segment s = segments[first + tileList[k]];
+
+        vec2 a = s.Head.xy;
+        vec2 ab = s.Tail.xy - a;
+        float len2 = dot(ab, ab);
+        float t = len2 > 1.0e-6 ? clamp(dot(p - a, ab) / len2, 0.0, 1.0) : 0.0;
+
+        // When the liquid here left the hole: its own clock, which every pattern is a function of.
+        float out1 = mix(s.Flow.x, s.Flow.y, t);
+        float left = pc.Clock - out1;
+        float seed = s.Look.w;
+        float along = mix(s.Head.w, s.Tail.w, t);
+        float whole = s.Look.z;
+        float grown = clamp(along / max(whole, 1.0e-3), 0.0, 1.0);
+
+        // Beads: the jet swelling and narrowing, more as it runs.
+        float bead = 1.0 + (0.12 + 0.18 * grown) * sin(6.2831853 * BeadsPerSecond * left + seed)
+                         + 0.15 * (Noise(left * 7.0 + seed) - 0.5);
+        float trueHalf = mix(s.Look.x, s.Look.y, t) * bead;
+        float halfW = max(trueHalf, LeastHalfWidth);
+
+        // Sway: the stream wandering from side to side, from nothing at the hole.
+        vec2 across = len2 > 1.0e-6 ? vec2(-ab.y, ab.x) / sqrt(len2) : vec2(0.0);
+        float sway = halfW * 1.4 * grown * (sin(6.2831853 * SwaysPerSecond * left + seed * 3.1)
+                                            + 0.5 * (Noise(left * 3.0 + seed * 1.7) - 0.5));
+        vec2 centreline = a + ab * t + across * sway;
+        float lateral = dot(p - centreline, across);
+        float d = length(p - centreline);
+        if (d > halfW + 1.5) continue;
+
+        // Depth varies linearly across the screen along a line, so it can be interpolated in pixels.
+        float z = mix(s.Head.z, s.Tail.z, t);
+        if (z < sceneZ * 0.9995) continue;
+
+        // A thread drawn wider than it is shows as lighter than a real stream would.
+        float c = (1.0 - smoothstep(halfW - 0.5, halfW + 0.5, d)) * mix(0.55, 1.0, clamp(trueHalf, 0.0, 1.0));
+
+        // Past its whole length the rope is drops, each its own size, falling with the liquid.
+        if (along > whole)
+        {
+            float phase = DropsPerSecond * left + seed;
+            float drop = floor(phase);
+            float size = 0.3 + 0.45 * Hash(drop + seed);
+            float inDrop = abs(fract(phase) - 0.5) * 2.0;
+            float broken = smoothstep(whole, whole * 1.6, along);
+            c *= mix(1.0, 1.0 - smoothstep(size - 0.15, size + 0.15, inDrop), broken);
+        }
+
+        if (c > cover)
+        {
+            cover = c;
+            side = clamp(lateral / halfW, -1.0, 1.0);
+            glint = 0.55 + 0.9 * Noise(left * 23.0 + seed * 5.0);
+        }
+    }
+
+    if (cover <= 0.0) return;
+
+    vec4 was = imageLoad(sceneColor, at);
+    float lum = dot(was.rgb, vec3(0.2126, 0.7152, 0.0722));
+
+    // A tube of liquid: dark at its edges, where the light behind it is bent away, and letting it
+    // through in its middle; and a glint just off its centre, flickering along it.
+    float edge = side * side;
+    vec3 body = was.rgb * mix(0.62, 0.22, edge) * Tint;
+    vec3 c = mix(was.rgb, body, cover * 0.95);
+    float highlight = exp(-((side + 0.35) * (side + 0.35)) / 0.03);
+    c += Tint * (lum * 1.1 + 0.03) * highlight * glint * cover;
+    imageStore(sceneColor, at, vec4(c, was.a));
+}

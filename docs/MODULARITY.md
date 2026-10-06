@@ -126,10 +126,10 @@ Change 1 crosses the `tools/model/pantsir.py` → `muzzles.json` → `Arsenal` b
 across a boundary drifts, and that validator is the only thing holding these two copies together —
 see CLAUDE.md.
 
-One minor item is still open: `Catalogue.MunitionNamed` falls back to the first registered entry
-on an unknown name with no warning, so a typo'd key silently flies the wrong round — a 30 mm
-barrel throwing 45 m/s SAMs. The fallback is pinned by `WeaponSystemSelectionTests` rather than
-merely noted.
+`Catalogue.MunitionNamed` still falls back to the first registered entry on an unknown name, which
+keeps a typo playable and would fly a 30 mm barrel throwing 45 m/s SAMs. It cannot reach a player:
+`ArsenalTests.EveryLauncherNamesARegisteredMunitionAndSensor` fails on a built-in naming nothing,
+guns included, and `PackReader` refuses a pack's reference that names nothing registered.
 `Sight.DrawStatus` names no system: it reads the fitted profile's `DisplayName`.
 
 ---

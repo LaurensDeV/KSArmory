@@ -154,12 +154,12 @@ internal sealed class IcbmConfig
     /// <summary>
     /// Warp the ballistic coast without being asked each time, up to the release point.
     ///
-    /// <para><b>On.</b> It was off on the principle that taking the world's clock away because a
-    /// target happened to be designated is not a weapon's decision — and that principle survives in
-    /// where it stops, not in the default. Nothing about this config is persisted, so "off" was not
-    /// a setting an operator could make once: it was a tick box to find again on every launch, and
-    /// forgetting it costs a ballistic coast in real time. Measured on two shots the same evening:
-    /// 3.5 minutes of wall clock with it, seventeen without.</para>
+    /// <para><b>On.</b> Taking the world's clock away because a target happened to be designated is
+    /// not a weapon's decision, and that principle lives in where it stops rather than in the
+    /// default. Nothing about this config is persisted, so "off" would not be a setting an operator
+    /// could make once: it would be a tick box to find again on every launch, and forgetting it costs
+    /// a ballistic coast in real time. Measured on two shots the same evening: 3.5 minutes of wall
+    /// clock with it, seventeen without.</para>
     ///
     /// <para>The button beside it remains the way to take the action deliberately, and this still
     /// hands the world back a settling margin short of the release rather than running to it.</para>
@@ -184,11 +184,12 @@ internal sealed class IcbmConfig
     /// <summary>
     /// Turn the vehicle between releases so each tube in turn throws along the same line.
     ///
-    /// <para>Tubes are canted — a MIRV bus's six sit six degrees off its own axis — so rounds
-    /// released from one attitude leave on different vectors and scatter, and there is one aim for
-    /// all of them. Measured in flight at about 1,200 m across six warheads.</para>
+    /// <para>Where tubes are canted, rounds released from one attitude leave on different vectors and
+    /// scatter, and there is one aim for all of them: measured in flight at about 1,200 m across six
+    /// warheads six degrees off the bus's axis. The shipped bus's tubes are parallel to it
+    /// (<see cref="Arsenal.MirvBus"/>).</para>
     ///
-    /// <para><b>Off, and now for a flown reason rather than a suspected one.</b> Flown once it
+    /// <para><b>Off, for a flown reason.</b> Flown once it
     /// could actually latch its axes, a separated bus released its six tubes at 5.2, 2.1, 8.2,
     /// 12.8, 14.1 and 11.7 degrees off the line — against the six degrees of cant the turning
     /// exists to remove. It is not that the turn fails to help; it is that this vehicle cannot hold
@@ -219,6 +220,16 @@ internal sealed class IcbmConfig
     /// what the trim's own budget is for.</para>
     /// </summary>
     public bool TrimBeforeRelease = true;
+
+    /// <summary>
+    /// Drop the spent stack the moment the burn ends rather than when the release gate opens. Off:
+    /// the bus then holds its attitude for the whole coast with the empty stack still on, spending
+    /// its own thrusters on mass that is about to be thrown away, and on a short shot coasting
+    /// through air with that stack's drag. The trim still waits for the gate, so it nulls the
+    /// separation shove before anything leaves; what moves is when the shove arrives. A short shot
+    /// under <see cref="FlyAnyRange"/> separates at cutoff whatever this says. <b>Unflown.</b>
+    /// </summary>
+    public bool SeparateAtCutoff;
 
     /// <summary>
     /// Keep a mark on the designated target, with the time to impact beside it.
@@ -290,11 +301,10 @@ internal sealed class IcbmConfig
     /// <para><b>Defaulted to the reserve above it rather than to a number of its own.</b> There are
     /// two budgets and only one of them is derived: <see cref="PostBoostAim.MaxTrimMetresPerSecond"/>
     /// is sized against what a bus actually carries — 60 leaves one separation null on the smallest
-    /// in the 70–90 range — while this one had a literal 25 and no account of where it came from. The undocumented
-    /// one won, silently: flown at Mahia the trim spent all 25 and stopped <b>0.45 m/s</b> short of
-    /// finishing a pass it had already committed to, on a bus with tens to spare. Tying the two
-    /// together means the operator's lever moves the budget <em>down</em> from the real reserve, which
-    /// is the only direction it was ever useful in.</para>
+    /// in the 70–90 range. A separate literal binds first and silently: at 25, flown at Mahia, the trim
+    /// spent all of it and stopped <b>0.45 m/s</b> short of finishing a pass it had already committed
+    /// to, on a bus with tens to spare. Tying the two together means the operator's lever moves the
+    /// budget <em>down</em> from the real reserve, which is the only direction it is useful in.</para>
     /// </summary>
     public double TrimBudgetMetresPerSecond = PostBoostAim.MaxTrimMetresPerSecond;
 
@@ -315,11 +325,8 @@ internal sealed class IcbmConfig
     /// Size was always the wrong question: a steep arrival asks 7–11 m/s where a shallow one asks
     /// 2.45, and asks once, while a runaway grows by an order of magnitude a pass.</para>
     ///
-    /// <para><b>Off, and off is what ships.</b> It licenses a 10–20 m/s correction whose size
-    /// tracks a disagreement about the arrival rather than a decoupler's shove, and whether that is
-    /// the trim earning its propellant or chasing a stale arrival has not been flown.
-    /// <c>docs/EIGHT-ROCKETS.md</c> item 1, and <c>docs/METRE-LEVEL.md</c> B1, where it is one of
-    /// three things blocking the arrival angle that gets the miss under fifty metres.</para>
+    /// <para><b>Off: flown and harmful</b> -- 0 of 32 corrections paid back against 12 without it, and four
+    /// shots 54-105x worse. <c>docs/ACCURACY-PLAN.md</c> ~L11117.</para>
     /// </summary>
     public bool TrimCeilingFromBudget;
 
@@ -329,7 +336,7 @@ internal sealed class IcbmConfig
     /// <para><see cref="AimCorrection.MaxMetres"/> is 300 km flat, and what the budget buys is
     /// 24 km on a 3,459 km shot and 113 km on a 12,902 km one — so the loop is licensed to walk
     /// somewhere the actuator can never follow. The flown symptom is a demand that exceeds whatever
-    /// is left of the ceiling on every pass until the budget is gone, read until now as the solve
+    /// is left of the ceiling on every pass until the budget is gone, which reads as the solve
     /// diverging: it is not, it is an aim move being priced honestly.
     /// <see cref="AimAuthority"/> has the exchange rate.</para>
     ///
@@ -339,10 +346,8 @@ internal sealed class IcbmConfig
     /// 200 km, this clamps it and the shot still misses, with the propellant unspent rather than
     /// wasted.</para>
     ///
-    /// <para><b>Off, and off is what ships.</b> Twelve paired shots at 2,000 km put it at
-    /// <b>0.85x</b> over the shipped default, 9 wins of 12, sign p=0.146 — the interval is
-    /// [0.53, 1.14], so it rules out anything worse than 1.14x and does not rule out nothing at
-    /// all. It is the only setting here that has never lost.</para>
+    /// <para><b>Off: flown and does not help.</b> 0.85x over twelve paired shots, then 1.11x [0.94, 1.29] over
+    /// fourteen, the interval now excluding anything better than 0.94x. <c>docs/ACCURACY-PLAN.md</c> 3br.</para>
     /// </summary>
     public bool AimWithinTrimBudget;
 
@@ -423,6 +428,44 @@ internal sealed class IcbmConfig
     /// <c>docs/ACCURACY-PLAN.md</c> 3cp.</para>
     /// </summary>
     public bool AimThresholdTracksTheMiss;
+
+    /// <summary>
+    /// Whether a bus walking between targets starts each stop's aim correction from the bias the
+    /// last stop walked to, rather than from none. <see cref="AimCorrection.Retarget"/> has the
+    /// reasoning; a set of one never hops, so it is untouched either way.
+    ///
+    /// <para><b>On.</b> Flown paired at four targets with the next switch it took the landing to
+    /// 0.35x [0.18, 0.73] and a walk's trim spend to 0.36–0.64x, 8 of 8 shots; on its own, spend
+    /// 8 of 8 and the landing 0.61x [0.34, 1.03]. <c>docs/MIRV-TARGETS.md</c>.</para>
+    /// </summary>
+    public bool CarryAimBiasAcrossHops = true;
+
+    /// <summary>
+    /// Whether the bus's trim takes the frame its last hold still owes off what is left to gain
+    /// before choosing again. A command reaches the engine a frame after it is written, and once the
+    /// step is long enough that half a frame of thrust is the stop band, choosing without it
+    /// overshoots out of the band on the opposite axis every time — a limit cycle at long steps,
+    /// none at 1x. <see cref="BusTrim"/>.
+    ///
+    /// <para><b>On.</b> Flown at four targets, an aim pass at 84–117 ms steps cost 0.70 m/s over 42
+    /// passes against 8.13 without it, and a walk's spend fell 8 of 8 shots; on a single target the
+    /// landing is non-inferior at 0.88x [0.64, 1.13]. <c>docs/MIRV-TARGETS.md</c>.</para>
+    /// </summary>
+    public bool TrimCountsTheCommandInFlight = true;
+
+    /// <summary>
+    /// Whether a bus walking between several targets starts its walk as soon as the coast begins,
+    /// rather than ending it on <see cref="ReleaseBeforeArrivalSeconds"/>.
+    ///
+    /// <para>A hop bought early moves the landing further per m/s — 1,076 m against 688 at the first
+    /// slot at 6,179 km — and one trim pass's 10 m/s ceiling reaches further with it, so the widest a
+    /// six-target chain can be spaced goes from about 4.5 km to about 8.5, past the Mk 21's 6 km blast
+    /// radius. What it costs is the gate's own reason: the ejection kick has longer to grow, which puts
+    /// each warhead's floor nearer 55 m than 14. A set of one never walks and is untouched.</para>
+    ///
+    /// <para><b>Off, and unflown.</b> <c>docs/MIRV-TARGETS.md</c>.</para>
+    /// </summary>
+    public bool WalkStartsAtCutoff;
 
     /// <summary>
     /// Whether a post-boost pass is decided on the reading that follows a flown correction, rather
@@ -709,8 +752,8 @@ internal sealed class IcbmConfig
     /// and deliver 1.01x of what they ask. <c>docs/ACCURACY-PLAN.md</c> 3fd.</para>
     ///
     /// <para><b>One-shot, and the progress clock restarts with it.</b> A second stall belongs to the
-    /// hold and ends the null, so this cannot become the wait that never ends — which is what the
-    /// deleted <c>arm/trim-band</c> version was, costing 110 s and a worse residual. 3fb.</para>
+    /// hold and ends the null, so this cannot become the wait that never ends, which costs 110 s and
+    /// a worse residual. 3fb.</para>
     ///
     /// <para><b>On.</b> Flown over 24 paired blocks at 12,902 km against a declared primary endpoint:
     /// <b>0 of 24 flights lost against 16 of 24</b>, Fisher p = 0.0000, base worse in 6 of 6 accepted
@@ -750,6 +793,86 @@ internal sealed class IcbmConfig
     /// <para><b>Off, and unflown.</b> 0.35 s is 20 frames at the rate the plateau was measured on.</para>
     /// </summary>
     public double HoldDirectionSeconds;
+
+    /// <summary>
+    /// Seconds of burn the pitch programme leaves for the closed loop: once the velocity still to
+    /// gain is less than this much burning at the throttle it would fly, the throttle comes down in
+    /// proportion. Zero is off.
+    ///
+    /// <para>The pitch programme cannot cut off, and on a short shot it reaches the velocity it needs
+    /// long before the air is thin enough to hand over. Flown wide open it then adds kilometres a
+    /// second that the closed loop has to take off with the upper stage, through an airflow limit
+    /// that will not let it turn round until q is under 200 Pa: at 418 km on <c>SOLVER SCALE 1</c> that
+    /// was 5,265 m/s at handover and a burn that ran dry 119 m/s short. A long shot's velocity to
+    /// gain stays far above any reserve until handover, so it never engages there.
+    /// <c>docs/SHORT-RANGE.md</c> Step 2.</para>
+    ///
+    /// <para><b>Zero here, and 15 s under <see cref="FlyAnyRange"/></b>, which supplies it whatever this says. Flown
+    /// at 15 s at 418 km. <c>docs/SHORT-RANGE.md</c>.</para>
+    /// </summary>
+    public double AscentReserveSeconds;
+
+    /// <summary>
+    /// Fly a shot of any range on any stack. A solid stage's remaining delta-v is velocity it will add
+    /// whatever it is told, so the arc is lofted until it needs at least that much — past the
+    /// cheapest arc the need climbs with the flight time to escape, so one always exists. And once
+    /// the shot is matching such a stage, or a stoppable one is throttled as low as it goes against
+    /// <see cref="AscentReserveSeconds"/> (15 s if that is zero), the closed loop takes over from the
+    /// pitch programme, because it is the only phase that can cut off.
+    ///
+    /// <para><b>On.</b> Flown 2026-10-04/05 from 25 to 2,000 km with the other short-shot settings, every shot landed; <c>docs/SHORT-RANGE.md</c>.</para>
+    /// </summary>
+    public bool FlyAnyRange = true;
+
+    /// <summary>
+    /// On a short shot whose stage can stop, turn the thrust line at no more than
+    /// <see cref="IcbmProgram.SlowLineDegPerSec"/> once what is left to gain is within this many seconds
+    /// of the thrust being made, and burn on the part along it. Zero is off.
+    ///
+    /// <para>Every pass steers along what is left to gain, and near cutoff the stack's own thrust turns
+    /// that line faster than the stack can follow: it moves at <c>a sin(err) / v</c>, which grows without
+    /// bound as <c>v</c> falls. A 25 g core cannot throttle down as fast as it uses up what is left, and
+    /// at its floor it still makes 3 g, so the line flips and the stack chases it for the rest of the
+    /// core. Flown, every core that ran dry separated spinning at 70-109 deg/s, and twice in seven the
+    /// spent core knocked the upper's engine off. Holding the line still instead was tried: drag and
+    /// gravity turn what is left too, and a held line left 70-165 m/s ungained. In the rig at 0.5 s,
+    /// 4 of 40 flights spin against 31 of 40 off (<c>FloorHoldStudy</c>), but most of that is a relight
+    /// cutting off on the line slowed through the pause, which flown left 30 m/s across it and landed
+    /// 4.6 km out at 200 km. The chase after a relight is not stopped by this alone: it is meant with
+    /// <see cref="ShortShotFinishesInTheAir"/>, which removes the relight, and
+    /// <see cref="ShortShotSolvesWithDrag"/>, and like them acts only on an arc that stays under
+    /// <see cref="DeployAltitudeMetres"/>; <c>docs/SHORT-RANGE.md</c>, "Why 150 km failed".</para>
+    ///
+    /// <para><b>On.</b> Flown 2026-10-04/05 from 25 to 2,000 km with the other short-shot settings, every shot landed; <c>docs/SHORT-RANGE.md</c>.</para>
+    /// </summary>
+    public double ShortShotSlowsLineSeconds = 0.5;
+
+    /// <summary>
+    /// A short shot whose burn finishes in thick air, on an arc that stays under
+    /// <see cref="DeployAltitudeMetres"/>, cuts off there and releases, rather than pausing to coast out of
+    /// the air and lighting again. A higher arc still pauses: its release above the air is what gives it
+    /// millimetres.
+    ///
+    /// <para>The relight is where the floor chase comes back: the stack coasts out still turning, which
+    /// RCS cannot stop, and lights pointing well away from what is left. Cut off in the air, the vacuum
+    /// arc is wrong by the drag the prediction already names.</para>
+    ///
+    /// <para><b>On.</b> Flown 2026-10-04/05 from 25 to 2,000 km with the other short-shot settings, every shot landed; <c>docs/SHORT-RANGE.md</c>.</para>
+    /// </summary>
+    public bool ShortShotFinishesInTheAir = true;
+
+    /// <summary>
+    /// In the last <see cref="IcbmProgram.DragSolveWithinSeconds"/> of a short shot's burn, fly each
+    /// solved arc with the warhead's drag and move the aim until it lands on the target.
+    ///
+    /// <para>Cut off in the air, a vacuum arc falls short by the drag the prediction already names --
+    /// 1.63 km predicted and 1.59 flown at 200 km. Correcting the aim afterwards from inside the air was
+    /// tried and is not in: it is a loop reading at 2 Hz with a ratchet, and in the air each reading
+    /// is mostly the cutoff state moving. This solves the same miss inside each pass instead.</para>
+    ///
+    /// <para><b>On.</b> Flown 2026-10-04/05 from 25 to 2,000 km with the other short-shot settings, every shot landed; <c>docs/SHORT-RANGE.md</c>.</para>
+    /// </summary>
+    public bool ShortShotSolvesWithDrag = true;
 
     /// <summary>
     /// Give each warhead the separation velocity that lands it where the tubes' mean would —
@@ -809,9 +932,10 @@ internal sealed class IcbmConfig
     /// landings puts the median centre at 0.22 m, from 1.26.</para>
     ///
     /// <para><b>Not the hold fed forward</b>, which the loop chases: one velocity on a round that has
-    /// already left, after the aim has committed, read back by nothing. Refused past
-    /// <see cref="ReleaseFocus.MaxMissKickMetresPerSecond"/>, so a miss the loop failed to close cannot
-    /// be flown out by a separation. Independent of the two above, and summed with them.</para>
+    /// already left, after the aim has committed, read back by nothing. Refused past a cap --
+    /// <see cref="LongShotMissKickMetresPerSecond"/> or <see cref="ShortShotMissKickMetresPerSecond"/> -- so a
+    /// miss the loop failed to close cannot be flown out by a separation. Independent of the two above, and
+    /// summed with them.</para>
     ///
     /// <para><b>Along the ground only</b>, so a crossing the probe found under the surface keeps its
     /// depth — 28 cm of ground on the traced arc — for <see cref="PredictionStopsOnTheSurface"/>.</para>
@@ -823,6 +947,102 @@ internal sealed class IcbmConfig
     /// warhead. <c>docs/ACCURACY-PLAN.md</c> 3dh.</para>
     /// </summary>
     public bool CancelProbeMissAtSeparation = true;
+
+    /// <summary>
+    /// The cap on that kick for a salvo released at cutoff in the air, in m/s; zero keeps
+    /// <see cref="ReleaseFocus.MaxMissKickMetresPerSecond"/>.
+    ///
+    /// <para>Released at cutoff there is no trim, and flown the probe predicted each warhead's landing to
+    /// centimetres while its kick, 96-168 mm/s at 300 km, was refused: each round left the bus later and
+    /// further along one line, the group walking 28-104 m. <c>docs/SHORT-RANGE.md</c>.</para>
+    ///
+    /// <para><b>1 m/s.</b> Flown 2026-10-05 with <see cref="ShortShotReleasesTogether"/>, three stacks at
+    /// 150 and 300 km: 1.5-3.8 mm and 0.20-0.66 m, against 46-134 m with neither. At 0.3 m/s alone the
+    /// later warheads of each salvo still wanted 306-638 mm/s.</para>
+    /// </summary>
+    public double ShortShotMissKickMetresPerSecond = 1.0;
+
+    /// <summary>
+    /// Give that cap to every short shot's salvo, including one released above the air after the trim.
+    ///
+    /// <para>There the probe predicted the landing to centimetres, 2-10 m out on ten flights at 500 and 700 km,
+    /// and each warhead's 19-50 mm/s kick was refused at <see cref="ReleaseFocus.MaxMissKickMetresPerSecond"/>.
+    /// <b>On.</b> Flown 2026-10-06 on three stacks at both ranges: 1.4-3.0 mm, every kick taken.
+    /// <c>docs/SHORT-RANGE.md</c>.</para>
+    /// </summary>
+    public bool ShortShotKickCapAfterTheTrim = true;
+
+    /// <summary>
+    /// The cap on that kick for a long shot, in m/s; zero keeps <see cref="ReleaseFocus.MaxMissKickMetresPerSecond"/>.
+    ///
+    /// <para>At 12,900 km the probe predicted each rocket's landing to centimetres, 5-98 m out, and kicks of
+    /// 11-20 mm/s and more were refused at the 10 mm/s sized on the Chaco geometry. <b>1 m/s.</b> Paired over
+    /// eight worlds on 2026-10-06: 2.0 mm median and 17.6 mm worst against 7.1 m and 67.4 m.
+    /// <c>docs/ACCURACY-PLAN.md</c>.</para>
+    /// </summary>
+    public double LongShotMissKickMetresPerSecond = 1.0;
+
+    /// <summary>
+    /// Hold a long shot's aim correction while solids that cannot stop are burning and KSA reports what they have
+    /// left -- which it does for the controlled craft alone, so the other seats correct exactly as before.
+    ///
+    /// <para>Only the controlled craft can read its stage's delta-v off KSA's staging display, so only its solve is
+    /// held by what its solids must still deliver -- and its aim loop opened two minutes early, read a response of
+    /// 0.07-0.85 and released with 0.8-8.5 km of bias where the other seats released 0.5-0.6 km: 27-475 m on four
+    /// flights of ten at 12,900 km. <b>On.</b> Flown on three worlds at 12,900 km and one at the Chaco: seat 1
+    /// opened 30-35 s before handover like the rest, read 1.01, and every rocket landed within 16.2 mm.
+    /// <c>docs/ACCURACY-PLAN.md</c>.</para>
+    /// </summary>
+    public bool AimWaitsForTheSolids = true;
+
+    /// <summary>
+    /// Arm a short shot's backstop at <see cref="BusTrim.MaxMetresPerSecond"/> rather than
+    /// <see cref="IcbmProgram.BackstopBelow"/> when its arc releases after the trim, so a residual that bottoms out
+    /// and turns back up is cut off -- or, inside the air, coasted out -- and handed to the trim.
+    ///
+    /// <para>Real SRB4's 7 g core, at its 0.12 floor, closed to 2.4 m/s at 500 km with its thrust lagging the line,
+    /// missed the 2 m/s backstop, overshot to 53 m/s and chased for minutes, finishing inside the air: 108 m at
+    /// 500 km and 156 m at 700. <b>On.</b> Flown: it cut off at 87 km with 10.9 m/s left and landed 3.9 and 2.8 mm,
+    /// and GeoSat FAT at 500 and 700 km never tripped it, 0.9 and 2.7 mm. <c>docs/SHORT-RANGE.md</c>.</para>
+    /// </summary>
+    public bool ShortShotBackstopsAtTheTrim = true;
+
+    /// <summary>
+    /// Keep working the throttle on the craft being flown while KSA discards its held keys -- whenever a modal or a text
+    /// field has the keyboard, which KSA's own update notice does at every launch once a newer build is out. The step
+    /// the key would make is written to the throttle itself instead. Flown on Real Liquid2 at 150 km with the keyboard
+    /// held throughout: off, stuck at full through cutoff and 21-25 mm; on, 0.2-2.4 mm. <c>docs/ICBM-OUTSTANDING.md</c> 1.2.
+    /// </summary>
+    public bool ThrottleThroughTheKeyboardClear = true;
+
+    /// <summary>
+    /// Let every warhead of a single-target salvo released at cutoff go in the frame the first does,
+    /// rather than one a frame. The stack slows in the air between releases, and flown each later
+    /// warhead landed further along one line. <b>On.</b> Flown 2026-10-05 with
+    /// <see cref="ShortShotMissKickMetresPerSecond"/>: six warheads within 4 mm of each other.
+    /// </summary>
+    public bool ShortShotReleasesTogether = true;
+
+    /// <summary>
+    /// What solids that cannot be stopped are asked to leave for the stage after them, in m/s, with the
+    /// solids steered along what is left while they burn; zero matches the arc to them exactly and flies
+    /// them on the schedule.
+    ///
+    /// <para><b>30 m/s.</b> Matched exactly, the solids overshot a 25 km shot by 13 m/s 67 deg off the
+    /// nose and the core, lit high, chased it at 115 deg/s; flown 2026-10-05 at 30, 6.4 deg/s at 25 km and
+    /// 9.7 at 60, warheads within 37 mm. <c>docs/SHORT-RANGE.md</c>.</para>
+    /// </summary>
+    public double SolidsLeaveMetresPerSecond = 30.0;
+
+    /// <summary>
+    /// On a short shot, drop solids once they push less than the stack weighs, if a stage is left after
+    /// them, and light that stage at its floor.
+    ///
+    /// <para><b>On.</b> Carried through their tail-off, they left the stack turning at 19 deg/s as they
+    /// separated and 27-63 deg/s after; flown 2026-10-05 at 150-300 km on two stacks, 0.1-0.2 deg/s at
+    /// separation and 8-16 after. <c>docs/SHORT-RANGE.md</c>.</para>
+    /// </summary>
+    public bool DropSolidsUnderWeight = true;
 
     /// <summary>
     /// Measure the miss <see cref="CancelProbeMissAtSeparation"/> cancels as the chord between the probe's
@@ -861,6 +1081,18 @@ internal sealed class IcbmConfig
     /// baseline as an arm — turning this off is what the comparator now is.</para>
     /// </summary>
     public bool WarheadDragFromItsShape = true;
+
+    /// <summary>
+    /// Take each warhead's mass off the bus as it leaves.
+    ///
+    /// <para><b>On.</b> True to the vehicle, and it changes the shot: shedding about half the bus over
+    /// six releases loosens the pointing band, which scales as one over the inertia. The trim measures
+    /// its acceleration rather than assuming it, so that half adapts. The mass comes off where the part
+    /// declares it, on the thruster ring, never at a tube. Flown non-inferior against a ×1.20 bar on one
+    /// target, 0.89x [0.73, 1.07], and on a four-target walk, 0.90x [0.83, 0.99];
+    /// <c>docs/ACCURACY-PLAN.md</c> 3fm and 3fn.</para>
+    /// </summary>
+    public bool ShedWarheadMass = true;
 
     /// <summary>
     /// Solve each warhead's separation kick through the air rather than in vacuum — the ring's image, the arrival
@@ -956,8 +1188,8 @@ internal sealed class IcbmConfig
     /// about <b>3.5 m</b> — <see cref="WarheadFootprint.WidestAt"/> is the number for a given
     /// flight. Past it the kick is refused and the warhead flies the group's aim, which from outside
     /// looks exactly like this setting doing nothing, so the log says which happened. The probe's own
-    /// miss kick shares the cap: flown at 2 m on a 6,179 km shot the largest kick was 7.07 mm/s, so
-    /// refusals begin under 3 m (<c>docs/ACCURACY-PLAN.md</c> 3ek).</para>
+    /// miss kick has its own caps, <see cref="LongShotMissKickMetresPerSecond"/> and
+    /// <see cref="ShortShotMissKickMetresPerSecond"/>.</para>
     ///
     /// <para><b>It is not a MIRV footprint.</b> Against a 706 m fireball and a 2 km lethal radius,
     /// 3.5 m is nothing. Real per-target spread needs the bus to manoeuvre between releases, and the
@@ -1064,7 +1296,7 @@ internal sealed class IcbmConfig
     /// every direction withheld the trim waits, which is what the timeout wanted, and
     /// <see cref="BusTrim.MaxSeconds"/> and the budget bound the wait.</para>
     ///
-    /// <para><b>On, and the only setting in this file resolved by flight.</b> Thirteen paired shots
+    /// <para><b>On, and resolved by flight.</b> Thirteen paired shots
     /// at 2,000 km, arms alternating within each world: <b>11 wins, median 0.49x, sign p=0.022 and
     /// signed-rank p=0.017</b>, with every one of 21 abandonments removed. The two runs were flown
     /// separately and pooled, and the interim look could not have stopped early — at five shots the

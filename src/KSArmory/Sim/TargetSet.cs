@@ -3,17 +3,16 @@ namespace KSArmory;
 /// <summary>
 /// The places one bus is aimed at, and how many of its warheads each one gets.
 ///
-/// <para>A salvo has always gone to a single designation, which is one site and one count. This is
-/// that generalised to at most <see cref="MaxTargets"/>, and it is deliberately only the
-/// <em>data</em>: nothing here flies a bus between targets, and a set of one behaves exactly as a
+/// <para>A single designation is one site and one count. This is that generalised to at most
+/// <see cref="MaxTargets"/>, and it is deliberately only the <em>data</em>: nothing here flies a bus between targets, and a set of one behaves exactly as a
 /// lone designation does. <c>docs/MIRV-TARGETS.md</c> is the whole plan.</para>
 ///
 /// <para><b>Spare warheads stay aboard rather than being spread by default.</b> They can be given to
 /// a target by raising its count, and warheads sharing a target are released <em>together</em> —
 /// phase 0 measured that a bus's own warheads cannot destroy one another
 /// (<c>WeaponSystem.FillIncoming</c> takes a system's own rounds out of the list the blast sweep
-/// walks), so the arrival stagger this plan was first written around buys nothing and costs 8.33 m/s
-/// of divert for half a second of separation, against 2.91 m/s for 2 km of ground.</para>
+/// walks), so an arrival stagger buys nothing and costs 8.33 m/s of divert for half a second of
+/// separation, against 2.91 m/s for 2 km of ground.</para>
 /// </summary>
 internal sealed class TargetSet
 {

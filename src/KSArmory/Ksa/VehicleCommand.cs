@@ -141,7 +141,7 @@ internal static class VehicleCommand
         catch
         {
             // Losing this turns the feature off rather than breaking the flight: the coast is then
-            // integrated exactly as it was before any of this existed.
+            // integrated exactly as it is without it.
         }
     }
 
@@ -223,7 +223,7 @@ internal static class VehicleCommand
     /// asked for, because a stack whose motors cannot be throttled at all would otherwise have its
     /// cutoff timed against a thrust it never came down to.</para>
     /// </summary>
-    public static double DriveThrottle(Vehicle craft, double wanted)
+    public static double DriveThrottle(Vehicle craft, double wanted, bool throughTheClear = false)
     {
         if (!KsaWorld.IsAlive(craft)) return 1.0;
 
@@ -232,6 +232,7 @@ internal static class VehicleCommand
 
         bool up = have < want - ThrottleTolerance;
         bool down = have > want + ThrottleTolerance;
+        AttitudeHook.ThrottleKey(craft, throughTheClear ? (up ? 1 : down ? -1 : 0) : 0);
 
         craft.ProcessInput(InputAction.MainEngineThrottleUp,
                            up ? GlfwKeyAction.Press : GlfwKeyAction.Release, default);

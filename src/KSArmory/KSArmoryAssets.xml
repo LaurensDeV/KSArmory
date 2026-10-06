@@ -96,6 +96,20 @@
   </PbrMaterial>
 
   <!--
+    The AN/ALE-47 dispensers' atlas: two bodies, one per load, sharing one unwrap and one material.
+    Authored to the export contract: node names match mesh names, each has its _VM twin and a
+    _ColPrim_ box, so it is copied in as exported. +X is out of the mounting face, which is the
+    face the cartridges leave from.
+  -->
+  <MeshAtlas Path="Meshes/KSArmory_Ale47.glb" />
+
+  <PbrMaterial Id="KSArmory_Ale47_Material">
+    <Diffuse Path="Textures/KSArmory_Ale47_Diffuse.png" Category="Vessel" />
+    <Normal Path="Textures/KSArmory_Ale47_Normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Textures/KSArmory_Ale47_PBR.png" Category="Vessel" />
+  </PbrMaterial>
+
+  <!--
     The AMRAAM's atlas and its one material.
 
     Authored in Blender over MCP like the pod and the suspension rail, and unwrapped rather than
@@ -193,6 +207,14 @@
     <Diffuse Path="Textures/KSArmory_Mk42Shell_Diffuse.png" Category="Vessel" />
     <Normal Path="Textures/KSArmory_Mk42Shell_Normal.png" Category="Vessel" />
     <AoRoughMetal Path="Textures/KSArmory_Mk42Shell_PBR.png" Category="Vessel" />
+  </PbrMaterial>
+
+  <MeshAtlas Path="Meshes/KSArmory_M197.glb" />
+
+  <PbrMaterial Id="KSArmory_M197_Material">
+    <Diffuse Path="Textures/KSArmory_M197_Diffuse.png" Category="Vessel" />
+    <Normal Path="Textures/KSArmory_M197_Normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Textures/KSArmory_M197_PBR.png" Category="Vessel" />
   </PbrMaterial>
 
   <!--
@@ -375,6 +397,27 @@
     </PartModel>
     <MeshView>
       <Mesh Id="KSArmory_Subpart_OpticHead_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!-- AN/ALE-47 dispenser, flare and chaff loads. Nothing on either moves. -->
+  <SubPart Id="KSArmory_Ale47Flare_SubPart">
+    <PartModel Id="KSArmory_Subpart_Ale47Flare_Model">
+      <Mesh Id="KSArmory_Ale47Flare" />
+      <Material Id="KSArmory_Ale47_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Ale47Flare_VM" />
+    </MeshView>
+  </SubPart>
+
+  <SubPart Id="KSArmory_Ale47Chaff_SubPart">
+    <PartModel Id="KSArmory_Subpart_Ale47Chaff_Model">
+      <Mesh Id="KSArmory_Ale47Chaff" />
+      <Material Id="KSArmory_Ale47_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Ale47Chaff_VM" />
     </MeshView>
   </SubPart>
 
@@ -596,6 +639,10 @@
     </MeshView>
   </SubPart>
 
+  <!--
+    The 5"/54's shell. Declared and instanced by nothing: every shell in the air is drawn as this
+    model (the munition's BodyModel), so the mount carries no subpart for any of them.
+  -->
   <SubPart Id="KSArmory_Mk42Shell_SubPart">
     <PartModel Id="KSArmory_Subpart_Mk42Shell_Model">
       <Mesh Id="KSArmory_Subpart_Mk42Shell" />
@@ -603,6 +650,77 @@
     </PartModel>
     <MeshView>
       <Mesh Id="KSArmory_Subpart_Mk42Shell_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!-- M197 chin turret. The ring is fixed; the yoke traverses and carries everything else. -->
+  <SubPart Id="KSArmory_M197Ring_SubPart">
+    <PartModel Id="KSArmory_Subpart_M197Ring_Model">
+      <Mesh Id="KSArmory_Subpart_M197Ring" />
+      <Material Id="KSArmory_M197_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_M197Ring_VM" />
+    </MeshView>
+  </SubPart>
+
+  <SubPart Id="KSArmory_M197Yoke_SubPart">
+    <PartModel Id="KSArmory_Subpart_M197Yoke_Model">
+      <Mesh Id="KSArmory_Subpart_M197Yoke" />
+      <Material Id="KSArmory_M197_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_M197Yoke_VM" />
+    </MeshView>
+  </SubPart>
+
+  <SubPart Id="KSArmory_M197Gun_SubPart">
+    <PartModel Id="KSArmory_Subpart_M197Gun_Model">
+      <Mesh Id="KSArmory_Subpart_M197Gun" />
+      <Material Id="KSArmory_M197_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_M197Gun_VM" />
+    </MeshView>
+  </SubPart>
+
+  <SubPart Id="KSArmory_M197Cylinder_SubPart">
+    <PartModel Id="KSArmory_Subpart_M197Cylinder_Model">
+      <Mesh Id="KSArmory_Subpart_M197Cylinder" />
+      <Material Id="KSArmory_M197_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_M197Cylinder_VM" />
+    </MeshView>
+  </SubPart>
+
+  <SubPart Id="KSArmory_M197Rod_SubPart">
+    <PartModel Id="KSArmory_Subpart_M197Rod_Model">
+      <Mesh Id="KSArmory_Subpart_M197Rod" />
+      <Material Id="KSArmory_M197_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_M197Rod_VM" />
+    </MeshView>
+  </SubPart>
+
+  <SubPart Id="KSArmory_M197Belt_SubPart">
+    <PartModel Id="KSArmory_Subpart_M197Belt_Model">
+      <Mesh Id="KSArmory_Subpart_M197Belt" />
+      <Material Id="KSArmory_M197_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_M197Belt_VM" />
+    </MeshView>
+  </SubPart>
+
+  <SubPart Id="KSArmory_M197Barrels_SubPart">
+    <PartModel Id="KSArmory_Subpart_M197Barrels_Model">
+      <Mesh Id="KSArmory_Subpart_M197Barrels" />
+      <Material Id="KSArmory_M197_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_M197Barrels_VM" />
     </MeshView>
   </SubPart>
 
@@ -1475,113 +1593,6 @@
       </Transform>
     </SubPart>
 
-    <!--
-      Shell bodies, lent to shells in flight and hidden otherwise. Twenty: a timed shell flies up to
-      43 s to the edge of its 15.7 km envelope and the gun fires one every 1.5 s, so a long engagement
-      can have more shells up than bodies, and a shell finding none free draws as a tracer. Parked in the breech, where the gun house hides them until the mod first
-      runs, and a centimetre apart, because identical bodies on one point share every plane they have.
-      The second ten were added after the first shipped, so they come after them.
-    -->
-    <SubPart Id="KSArmory_Mk42_Shell00" InstanceOf="KSArmory_Mk42Shell_SubPart">
-      <Transform>
-        <Position X="1.55441" Y="0.48097" Z="-0.04500" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mk42_Shell01" InstanceOf="KSArmory_Mk42Shell_SubPart">
-      <Transform>
-        <Position X="1.55441" Y="0.48097" Z="-0.03500" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mk42_Shell02" InstanceOf="KSArmory_Mk42Shell_SubPart">
-      <Transform>
-        <Position X="1.55441" Y="0.48097" Z="-0.02500" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mk42_Shell03" InstanceOf="KSArmory_Mk42Shell_SubPart">
-      <Transform>
-        <Position X="1.55441" Y="0.48097" Z="-0.01500" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mk42_Shell04" InstanceOf="KSArmory_Mk42Shell_SubPart">
-      <Transform>
-        <Position X="1.55441" Y="0.48097" Z="-0.00500" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mk42_Shell05" InstanceOf="KSArmory_Mk42Shell_SubPart">
-      <Transform>
-        <Position X="1.55441" Y="0.48097" Z="0.00500" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mk42_Shell06" InstanceOf="KSArmory_Mk42Shell_SubPart">
-      <Transform>
-        <Position X="1.55441" Y="0.48097" Z="0.01500" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mk42_Shell07" InstanceOf="KSArmory_Mk42Shell_SubPart">
-      <Transform>
-        <Position X="1.55441" Y="0.48097" Z="0.02500" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mk42_Shell08" InstanceOf="KSArmory_Mk42Shell_SubPart">
-      <Transform>
-        <Position X="1.55441" Y="0.48097" Z="0.03500" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mk42_Shell09" InstanceOf="KSArmory_Mk42Shell_SubPart">
-      <Transform>
-        <Position X="1.55441" Y="0.48097" Z="0.04500" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mk42_Shell10" InstanceOf="KSArmory_Mk42Shell_SubPart">
-      <Transform>
-        <Position X="1.55441" Y="0.48097" Z="-0.09500" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mk42_Shell11" InstanceOf="KSArmory_Mk42Shell_SubPart">
-      <Transform>
-        <Position X="1.55441" Y="0.48097" Z="-0.08500" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mk42_Shell12" InstanceOf="KSArmory_Mk42Shell_SubPart">
-      <Transform>
-        <Position X="1.55441" Y="0.48097" Z="-0.07500" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mk42_Shell13" InstanceOf="KSArmory_Mk42Shell_SubPart">
-      <Transform>
-        <Position X="1.55441" Y="0.48097" Z="-0.06500" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mk42_Shell14" InstanceOf="KSArmory_Mk42Shell_SubPart">
-      <Transform>
-        <Position X="1.55441" Y="0.48097" Z="-0.05500" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mk42_Shell15" InstanceOf="KSArmory_Mk42Shell_SubPart">
-      <Transform>
-        <Position X="1.55441" Y="0.48097" Z="0.05500" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mk42_Shell16" InstanceOf="KSArmory_Mk42Shell_SubPart">
-      <Transform>
-        <Position X="1.55441" Y="0.48097" Z="0.06500" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mk42_Shell17" InstanceOf="KSArmory_Mk42Shell_SubPart">
-      <Transform>
-        <Position X="1.55441" Y="0.48097" Z="0.07500" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mk42_Shell18" InstanceOf="KSArmory_Mk42Shell_SubPart">
-      <Transform>
-        <Position X="1.55441" Y="0.48097" Z="0.08500" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mk42_Shell19" InstanceOf="KSArmory_Mk42Shell_SubPart">
-      <Transform>
-        <Position X="1.55441" Y="0.48097" Z="0.09500" />
-      </Transform>
-    </SubPart>
 
     <!--
       Node attach at the mounting face. No ToSurface flag: this one stacks. Scale is the node's
@@ -1597,4 +1608,91 @@
     </Connector>
 
   </Part>
+
+  <!--
+    M197 20 mm chin turret, radially mounted under a nose like the LITENING pod.
+
+    Geometry authored by Mallikas. +X is out of the mounting face, so down under a nose; +Y is
+    the way the gun faces at rest, and +Z the host's right. Every moving body is exported
+    recentred on its own pivot, and the positions below are Arsenal.M197's TurretPivot plus
+    each ...FromTurret offset.
+  -->
+  <Part Id="KSArmory_Prefab_M197">
+
+    <SubPart Id="KSArmory_M197_Ring" InstanceOf="KSArmory_M197Ring_SubPart" />
+
+    <SubPart Id="KSArmory_M197_Yoke" InstanceOf="KSArmory_M197Yoke_SubPart">
+      <Transform>
+        <Position X="0.00000" Y="0.00000" Z="0.00000" />
+      </Transform>
+    </SubPart>
+
+    <SubPart Id="KSArmory_M197_Gun" InstanceOf="KSArmory_M197Gun_SubPart">
+      <Transform>
+        <Position X="0.33333" Y="-0.10773" Z="0.00000" />
+      </Transform>
+    </SubPart>
+
+    <!-- The actuator: the cylinder on its pin on the yoke, the rod on the gun's pin. -->
+    <SubPart Id="KSArmory_M197_Cylinder" InstanceOf="KSArmory_M197Cylinder_SubPart">
+      <Transform>
+        <Position X="0.03220" Y="0.37308" Z="0.00000" />
+      </Transform>
+    </SubPart>
+
+    <SubPart Id="KSArmory_M197_Rod" InstanceOf="KSArmory_M197Rod_SubPart">
+      <Transform>
+        <Position X="0.33474" Y="0.37308" Z="0.00000" />
+      </Transform>
+    </SubPart>
+
+    <SubPart Id="KSArmory_M197_Belt" InstanceOf="KSArmory_M197Belt_SubPart">
+      <Transform>
+        <Position X="0.06094" Y="-0.10319" Z="0.00000" />
+      </Transform>
+    </SubPart>
+
+    <!-- The three barrels, spun about the bore while the gun fires. -->
+    <SubPart Id="KSArmory_M197_Barrels" InstanceOf="KSArmory_M197Barrels_SubPart">
+      <Transform>
+        <Position X="0.50611" Y="0.70256" Z="0.00000" />
+      </Transform>
+    </SubPart>
+
+    <!-- Attaches by the ring's upper face, which is the mesh origin. -->
+    <Connector Id="_m197ConnectorBase">
+      <Transform>
+        <Position X="0.00000" />
+        <Rotation Z="3.14159" />
+      </Transform>
+    </Connector>
+
+  </Part>
+  <!--
+    AN/ALE-47 countermeasures dispensers, radially mounted. One kind per part, as a real magazine
+    section is loaded: the flare module's fifteen 1x2-inch cells, the chaff module's thirty 1x1.
+  -->
+  <Part Id="KSArmory_Prefab_Ale47Flare">
+    <SubPart Id="KSArmory_Ale47Flare_Body" InstanceOf="KSArmory_Ale47Flare_SubPart" />
+
+    <!-- Attaches by the flange, which the export puts on the mesh origin. -->
+    <Connector Id="_cmConnectorBase">
+      <Transform>
+        <Position X="0.00000" />
+        <Rotation Z="3.14159" />
+      </Transform>
+    </Connector>
+  </Part>
+
+  <Part Id="KSArmory_Prefab_Ale47Chaff">
+    <SubPart Id="KSArmory_Ale47Chaff_Body" InstanceOf="KSArmory_Ale47Chaff_SubPart" />
+
+    <Connector Id="_cmConnectorBase">
+      <Transform>
+        <Position X="0.00000" />
+        <Rotation Z="3.14159" />
+      </Transform>
+    </Connector>
+  </Part>
+
 </Assets>

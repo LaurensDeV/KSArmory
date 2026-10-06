@@ -47,10 +47,14 @@ internal sealed class BurstTool
         // and lifting a surface burst by the wrong one makes it an air burst, which is a different
         // weapon: the whole cloud model below assumes the fireball is touching the ground.
         double radius = config.BurstNuclear
-                            ? MushroomCloud.PeakFireballRadius(config.BurstYieldKt)
+                            ? MushroomCloud.PeakFireballRadius(config.BurstYieldKt, config.BurstHeightMetres)
                             : Warhead.FireballRadius(chargeKg);
 
-        double3 at = groundEcl + (up * Math.Max(radius, 2.0));
+        // An air burst goes off where it was asked to; one lower than its own fireball is lifted
+        // clear of the ground as a surface burst is.
+        double height = config.BurstNuclear ? Math.Max(config.BurstHeightMetres, 0.0) : 0.0;
+        double3 burst = groundEcl + (up * height);
+        double3 at = groundEcl + (up * Math.Max(Math.Max(radius, 2.0), height));
 
         Detonation.Explode(at, chargeKg, KsaWorld.ControlledVehicle);
 
@@ -63,7 +67,8 @@ internal sealed class BurstTool
         //
         // Unconditional: NuclearClouds decides for itself whether a charge is large enough to have
         // made a cloud, so the tool does not need to know and cannot disagree with the real path.
-        NuclearClouds.Begin(groundEcl, KsaWorld.ControlledVehicle, chargeKg);
+        // An air burst's own point, since the cloud measures its height from it.
+        NuclearClouds.Begin(burst, KsaWorld.ControlledVehicle, chargeKg);
 
         // The marker is drawn at the cursor and the burst happens at the cursor, so the one hides
         // the other. Sized off the flash rather than fixed: that is how long there is something to
@@ -73,7 +78,7 @@ internal sealed class BurstTool
 
         Log.Info($"burst tool: {WarheadExplosion.PresetFor(chargeKg) ?? "no explosion"}, "
                  + (config.BurstNuclear
-                        ? $"{config.BurstYieldKt:F2} kt"
+                        ? $"{config.BurstYieldKt:F2} kt at {height:F0} m"
                         : $"{chargeKg:F2} kg")
                  + $", lethal {Warhead.LethalRadius(chargeKg):F0} m");
     }

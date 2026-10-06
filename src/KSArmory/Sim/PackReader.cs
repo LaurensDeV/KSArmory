@@ -141,9 +141,12 @@ public static class PackReader
             Name = Qualify(source, name),
             DisplayName = r.Required("DisplayName"),
             BodyMarker = r.Text("BodyMarker"),
+            BodyModel = r.Text("BodyModel"),
             FinMarker = r.Text("FinMarker"),
 
             BodyLength = r.Number("BodyLength", 3.10f),
+            TracerEvery = r.Count("TracerEvery", 0),
+            TracerBurnSeconds = r.Number("TracerBurnSeconds", 3f),
             FinDeploySeconds = r.Number("FinDeploySeconds", 0.18f),
             FinDeflectionDeg = r.Number("FinDeflectionDeg", 0f),
             FinHingeStation = r.Number("FinHingeStation", 0f),
@@ -162,6 +165,10 @@ public static class PackReader
             MaxLateralG = r.Number("MaxLateralG", 35f),
             Guidance = r.Choice("Guidance", GuidanceMode.CommandLink),
             SeekerFovDeg = r.Number("SeekerFovDeg", 55f),
+            Band = r.Choice("SeekerBand", SeekerBand.Radar),
+            CountermeasureResistance = r.Number("CountermeasureResistance", 0f),
+            ReacquiresAfterDecoy = r.Flag("ReacquiresAfterDecoy", true),
+            DopplerGateMps = r.Number("DopplerGateMps", 0f),
             SeparationSeconds = r.Number("SeparationSeconds", 0f),
             GravityCompensation = r.Number("GravityCompensation", 1f),
             NeutralDensityRatio = r.Number("NeutralDensityRatio", 0f),
@@ -175,6 +182,9 @@ public static class PackReader
             FuseArmSeconds = r.Number("FuseArmSeconds", 0.6f),
             ChargeKg = r.Number("ChargeKg", 20f),
             HitsTerrain = r.Flag("HitsTerrain", false),
+            BurstHeightMetres = r.Number("BurstHeightMetres", 0f),
+            ChuteSinkMetresPerSecond = r.Number("ChuteSinkMetresPerSecond", 0f),
+            ChuteOpensSeconds = r.Number("ChuteOpensSeconds", 1.5f),
 
             Stages = r.Stages(),
         };
@@ -182,6 +192,14 @@ public static class PackReader
         // A round given part of what its drag is computed from would fly on DragK without a word.
         int shape = (round.MassKg > 0f ? 1 : 0) + (round.CalibreMm > 0f ? 1 : 0) + (round.DragCoefficient > 0f ? 1 : 0);
         if (shape is 1 or 2) r.Fault("MassKg, CalibreMm and DragCoefficient go together: give all three, or none and DragK");
+
+        if (round.CountermeasureResistance is < 0f or > 1f) r.Fault("CountermeasureResistance runs from 0 to 1");
+
+        // Both are measured against the ground under the round, which only a round the ground stops has.
+        if ((round.BurstHeightMetres > 0f || round.HasChute) && !round.HitsTerrain)
+        {
+            r.Fault("BurstHeightMetres and ChuteSinkMetresPerSecond need HitsTerrain=\"true\"");
+        }
 
         if (!r.Sound()) return;
         if (Duplicate(round.Name, into, m => m.Name, r)) return;
@@ -213,6 +231,9 @@ public static class PackReader
 
             ReferenceCrossSectionM2 = r.Number("ReferenceCrossSectionM2", 0f),
             NotchSpeed = r.Number("NotchSpeed", 0f),
+            ChaffNotchMps = r.Number("ChaffNotchMps", 0f),
+            ChaffReacquireSeconds = r.Number("ChaffReacquireSeconds", 3f),
+            OpticalBackup = r.Flag("OpticalBackup", false),
             ClutterFloorMetres = r.Number("ClutterFloorMetres", 0f),
             HorizonMasking = r.Flag("HorizonMasking", true),
             TerrainMarginMetres = r.Number("TerrainMarginMetres", 0f),
@@ -251,6 +272,9 @@ public static class PackReader
             MaxElevationDeg = r.Number("MaxElevationDeg", 85f),
             MaxOffBoresightDeg = r.Number("MaxOffBoresightDeg", 135f),
             KeyholeDeg = r.Number("KeyholeDeg", 4f),
+            MaxMagnification = r.Number("MaxMagnification", 16f),
+            HasLaser = r.Flag("HasLaser", false),
+            LaserRangeMetres = r.Number("LaserRangeMetres", 20000f),
         };
 
         // A roll-nod head with no roll body cannot show what it is doing; a mast head having
@@ -321,17 +345,19 @@ public static class PackReader
 
             MagazineDepth = r.Count("MagazineDepth", 0),
             SalvoSpacing = r.Number("SalvoSpacing", 0.45f),
-            ReloadSeconds = r.Number("ReloadSeconds", 12f),
+            ReloadSeconds = r.Number("ReloadSeconds", 0f),
             LaunchAlongTube = r.Flag("LaunchAlongTube", true),
             LaunchLoft = r.Number("LaunchLoft", 0.35f),
             EjectAwayFromMount = r.Number("EjectAwayFromMount", 0f),
             MuzzleOffset = r.Number("MuzzleOffset", 8f),
 
             GunAmmo = r.Count("GunAmmo", 480),
+            StoreMassKg = r.Number("StoreMassKg", 0f),
+            GunRoundMassKg = r.Number("GunRoundMassKg", 0f),
             GunRoundsPerMinute = r.Number("GunRoundsPerMinute", 2500f),
             GunBurstRounds = r.Count("GunBurstRounds", 12),
             GunBurstGapSeconds = r.Number("GunBurstGapSeconds", 0.55f),
-            GunReloadSeconds = r.Number("GunReloadSeconds", 20f),
+            GunReloadSeconds = r.Number("GunReloadSeconds", 0f),
         };
 
         List<BuiltInComponent> declared = r.Provides();
@@ -546,7 +572,7 @@ public static class PackReader
             return fallback;
         }
 
-        /// <summary>An angle written in degrees and held in radians, as every profile holds it.</summary>
+        /// <summary>An angle written in degrees, for a profile field held in radians.</summary>
         public double Angle(string attribute, double fallbackRad)
         {
             if (Text(attribute) is not { } raw) return fallbackRad;

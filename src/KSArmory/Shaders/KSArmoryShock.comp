@@ -19,7 +19,7 @@ layout (push_constant) uniform PushConstants
     mat4 InvViewProj;       // clip -> camera-relative world
     vec4 CentreRadius;      // the burst, camera-relative, and how far the front has got
     vec4 CentreUvStrength;  // the burst on screen, how hard the front bends light, its thickness
-    vec4 UpMode;            // the local vertical at the burst, and 0 to copy or 1 to bend
+    vec4 UpMode;            // the local vertical at the burst, one plus its height over the ground long, and 0 to copy or 1 to bend
     vec4 Shake;             // across and up in shares of the height, a roll in radians, 1 while shaking
 } pc;
 
@@ -68,8 +68,11 @@ vec2 RingBend(vec2 uv)
     // Three widths is CloudPass.ShockBandWidths, which skips a front the camera is that far inside.
     if (abs(x) > 3.0) return vec2(0.0);
 
-    // Only the half above the ground; the other half is underground.
-    if (dot(nearest - centre, pc.UpMode.xyz) < -width) return vec2(0.0);
+    // Only what is above the ground; the rest is underground. The up vector's length past one is how
+    // far over the ground the burst was, so an air burst's front is a sphere until it reaches it.
+    vec3 up = normalize(pc.UpMode.xyz);
+    float overGround = max(length(pc.UpMode.xyz) - 1.0, 0.0);
+    if (dot(nearest - centre, up) < -(overGround + width)) return vec2(0.0);
 
     // And only where nothing in the scene stands in front of it.
     float deviceZ = texture(sceneDepth, uv).r;

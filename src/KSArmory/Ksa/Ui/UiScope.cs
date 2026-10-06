@@ -29,13 +29,15 @@ internal partial class Ui
     private static readonly uint ScopeBlip = ImGui.ColorConvertFloat4ToU32(new float4(0.55f, 1.00f, 0.62f, 1f));
     private static readonly uint ScopeThreat = ImGui.ColorConvertFloat4ToU32(new float4(1.00f, 0.78f, 0.20f, 1f));
     private static readonly uint ScopeLocked = ImGui.ColorConvertFloat4ToU32(new float4(1.00f, 0.45f, 0.30f, 1f));
+    private static readonly float4 ScopeHostileInk = new(1.00f, 0.22f, 0.22f, 1f);
+    private static readonly uint ScopeHostile = ImGui.ColorConvertFloat4ToU32(ScopeHostileInk);
 
 
     // Opens this system's scope window and shuts anyone else's, so there is one rather than one
     // per installation stacked on top of each other. Same rule the director's map follows.
     private void TakeScope(SystemConfig policy)
     {
-        foreach (WeaponSystems.Entry other in _batteries.All)
+        foreach (WeaponSystems.Entry other in _roster.All)
         {
             if (!ReferenceEquals(other.Policy, policy)) other.Policy.ScopeOpen = false;
         }
@@ -47,10 +49,10 @@ internal partial class Ui
     {
         WeaponSystems.Entry? scoped = null;
         string? tab = null;
-        foreach (WeaponSystems.Entry entry in _batteries.All)
+        foreach (WeaponSystems.Entry entry in _roster.All)
         {
             // A saved setting can outlive the set it was saved against.
-            if (entry.Policy.ScopeOpen && ScopeTab(entry.Battery.Sensor) is { } name)
+            if (entry.Policy.ScopeOpen && ScopeTab(entry.Weapon.Sensor) is { } name)
             {
                 scoped = entry;
                 tab = name;
@@ -63,11 +65,11 @@ internal partial class Ui
         bool visible = open.Policy.ScopeOpen;
         ImGui.SetNextWindowSize(new float2(420f, 520f), ImGuiCond.FirstUseEver);
 
-        if (ImGui.Begin($"{tab} scope — {open.Battery.Profile.DisplayName}###ksarmory_scope",
+        if (ImGui.Begin($"{tab} scope — {open.Weapon.Profile.DisplayName}###ksarmory_scope",
                         ref visible))
         {
             // The same drawing the tab gets. A second copy would be a second thing to keep in step.
-            DrawScopeFor(open.Battery, open.Policy);
+            DrawScopeFor(open.Weapon, open.Policy);
         }
 
         ImGui.End();
@@ -75,11 +77,11 @@ internal partial class Ui
     }
 
     // The scope, at the head of the Radar tab and above the track list.
-    private void DrawScope() => DrawScopeFor(_battery, _policy);
+    private void DrawScope() => DrawScopeFor(_system, _policy);
 
-    private void DrawScopeFor(WeaponSystem battery, SystemConfig policy)
+    private void DrawScopeFor(WeaponSystem system, SystemConfig policy)
     {
-        if (battery.Platform is not { IsDisposed: false } platform)
+        if (system.Platform is not { IsDisposed: false } platform)
         {
             ImGui.TextColored(Amber, "no craft");
             return;
@@ -91,9 +93,13 @@ internal partial class Ui
         Celestial? body = KsaWorld.ParentBody(platform);
         MapFrame? frame = body is null
             ? null
-            : ScopeFrame(body, battery.MountEcl);
+            : ScopeFrame(body, system.MountEcl);
 
-        DrawScopeControls(policy);
+        Span<float> steps = stackalloc float[ScopeGeometry.RangeStepCount];
+        steps = steps[..ScopeGeometry.RangeSteps(system.Sensor.Range, steps)];
+        float range = ScopeGeometry.SnapRange(policy.ScopeRangeMetres, steps);
+
+        DrawScopeControls(policy, steps, range);
 
         if (frame is not { } local)
         {
@@ -111,44 +117,41 @@ internal partial class Ui
 
         ImDrawListPtr draw = ImGui.GetWindowDrawList();
 
-        DrawScopeFace(draw, centre, radius, policy.ScopeRangeMetres);
+        DrawScopeFace(draw, centre, radius);
         // A silent set is not scanning, so it paints no sweep.
-        if (!policy.RadarSilent) DrawScopeSweep(draw, centre, radius, battery, local);
-        DrawScopeContacts(draw, centre, radius, battery, policy, local, policy.ScopeRangeMetres);
+        if (!policy.RadarSilent) DrawScopeSweep(draw, centre, radius, system, local);
+        DrawScopeContacts(draw, centre, radius, system, policy, local, range);
 
         ImGui.Dummy(new float2(side, side));
 
         DrawScopeKey();
     }
 
-    private static void DrawScopeControls(SystemConfig policy)
+    private static void DrawScopeControls(SystemConfig policy, ReadOnlySpan<float> steps, float range)
     {
         ImGui.Text("Range:");
         ImGui.SameLine();
 
-        ReadOnlySpan<float> spans = ScopeRanges;
-        for (int i = 0; i < spans.Length; i++)
+        for (int i = 0; i < steps.Length; i++)
         {
             if (i > 0) ImGui.SameLine();
 
-            bool on = Math.Abs(policy.ScopeRangeMetres - spans[i]) < 1f;
+            bool on = Math.Abs(range - steps[i]) < 1f;
             if (on) ImGui.PushStyleColor(ImGuiCol.Button, new float4(0.20f, 0.42f, 0.30f, 1f));
 
-            if (ImGui.Button(spans[i] >= 1000f ? $"{spans[i] / 1000f:F0} km" : $"{spans[i]:F0} m"))
-            {
-                policy.ScopeRangeMetres = spans[i];
-            }
+            if (ImGui.Button(ScopeDistance(steps[i]))) policy.ScopeRangeMetres = steps[i];
 
             if (on) ImGui.PopStyleColor();
         }
 
-        ImGui.TextDisabled($"rings every {ScopeGeometry.RingRange(policy.ScopeRangeMetres, 0) / 1000.0:F1} km");
+        ImGui.TextDisabled($"rings every {ScopeDistance((float)ScopeGeometry.RingRange(range, 0))}"
+                           + "   widest is the set's reach");
     }
 
-    // Range settings the scope steps between, as the map steps its span.
-    private static ReadOnlySpan<float> ScopeRanges => [5_000f, 20_000f, 50_000f, 200_000f];
+    private static string ScopeDistance(float metres)
+        => metres >= 1000f ? $"{metres / 1000f:0.#} km" : $"{metres:F0} m";
 
-    private static void DrawScopeFace(ImDrawListPtr draw, float2 centre, float radius, float range)
+    private static void DrawScopeFace(ImDrawListPtr draw, float2 centre, float radius)
     {
         draw.AddCircleFilled(centre, radius, ScopeFace, 64);
 
@@ -180,20 +183,20 @@ internal partial class Ui
     // which is the honest reading of "this set is not scanning". One trace per radiating face:
     // the Pantsir's wedge is double-sided, so it paints two half a turn apart.
     private static void DrawScopeSweep(ImDrawListPtr draw, float2 centre, float radius,
-                                       WeaponSystem battery, MapFrame frame)
+                                       WeaponSystem system, MapFrame frame)
     {
-        int faces = battery.Profile.SearchRadarFaces;
+        int faces = system.Profile.SearchRadarFaces;
         if (faces <= 0) return;
 
         // Where the array's zero mark points, on the ground. The array turns about the craft's own
         // up, so its bearing is the craft's heading plus however far it has spun.
-        if (!TryCraftHeading(battery, frame, out double heading)) return;
+        if (!TryCraftHeading(system, frame, out double heading)) return;
 
         Span<double> bearings = stackalloc double[ScopeGeometry.MaxSweepFaces];
         // Traverse plus spin: the array rides the turret, so its angle is both. RadarPose composes
         // them by adding, and reading the spin alone leaves the sweep behind whenever the turret
         // has slewed off the craft's centreline.
-        double array = battery.Turret.BearingRad + battery.RadarSpinRad;
+        double array = system.Turret.BearingRad + system.RadarSpinRad;
         int count = ScopeGeometry.SweepBearings(heading, array, faces, bearings);
 
         for (int i = 0; i < count; i++)
@@ -205,10 +208,10 @@ internal partial class Ui
 
     // The craft's own forward, as a compass bearing. Its +Y is the direction it drives, and the
     // array's angle is measured from there.
-    private static bool TryCraftHeading(WeaponSystem battery, MapFrame frame, out double bearingRad)
+    private static bool TryCraftHeading(WeaponSystem system, MapFrame frame, out double bearingRad)
     {
         bearingRad = 0.0;
-        if (battery.Platform is not { IsDisposed: false } platform) return false;
+        if (system.Platform is not { IsDisposed: false } platform) return false;
 
         try
         {
@@ -225,14 +228,14 @@ internal partial class Ui
     }
 
     private void DrawScopeContacts(ImDrawListPtr draw, float2 centre, float radius,
-                                   WeaponSystem battery, SystemConfig policy, MapFrame frame,
+                                   WeaponSystem system, SystemConfig policy, MapFrame frame,
                                    float range)
     {
-        Track? locked = battery.LockedTrack;
+        Track? locked = system.LockedTrack;
 
-        for (int i = 0; i < battery.Radar.Tracks.Count; i++)
+        for (int i = 0; i < system.Radar.Tracks.Count; i++)
         {
-            Track track = battery.Radar.Tracks[i];
+            Track track = system.Radar.Tracks[i];
 
             double3 offset = frame.ToLocal(track.PositionEcl);
             double bearing = ScopeGeometry.BearingRad(offset.X, offset.Y);
@@ -242,9 +245,13 @@ internal partial class Ui
             float2 at = Face(centre, radius, ScopeGeometry.Plot(bearing, ground, range));
 
             bool isLocked = locked is not null && ReferenceEquals(track, locked);
-            uint colour = isLocked ? ScopeLocked : track.IsThreat ? ScopeThreat : ScopeBlip;
+            ScopeGeometry.Blip symbol = SymbolOf(track, policy);
+            uint colour = isLocked ? ScopeLocked
+                        : symbol == ScopeGeometry.Blip.Hostile ? ScopeHostile
+                        : track.IsThreat ? ScopeThreat
+                        : ScopeBlip;
 
-            switch (SymbolOf(track, policy))
+            switch (symbol)
             {
                 case ScopeGeometry.Blip.Missile:
                     draw.AddText(new float2(at.X - 5f, at.Y - 7f), colour, "M");
@@ -254,6 +261,10 @@ internal partial class Ui
                 // and a symbol that renders as a box on somebody else's machine is worse than none.
                 case ScopeGeometry.Blip.Unknown:
                     draw.AddNgon(at, 6f, colour, 3, isLocked ? 2.2f : 1.5f);
+                    break;
+
+                case ScopeGeometry.Blip.Hostile:
+                    DrawHostile(draw, at, system, frame, track, colour, isLocked, beyond);
                     break;
 
                 default:
@@ -283,6 +294,46 @@ internal partial class Ui
         }
     }
 
+    // A hostile's triangle points the way it is going over the ground, with a thin line running on
+    // past the lock ring. Against the ground under it, never the ecliptic: that velocity carries
+    // the planet's 29.8 km/s and would point every contact the same way.
+    private static void DrawHostile(ImDrawListPtr draw, float2 at, WeaponSystem system, MapFrame frame,
+                                    Track track, uint colour, bool isLocked, bool beyond)
+    {
+        float thickness = isLocked ? 2.2f : 1.5f;
+
+        // Clamped to the rim, the symbol is not where the craft is, so a heading drawn from it
+        // would run along a track the craft is not on.
+        if (beyond || !TryGroundHeading(system, frame, track, out double heading))
+        {
+            draw.AddNgon(at, 6f, colour, 3, thickness);
+            return;
+        }
+
+        float2 along = ScopeGeometry.Plot(heading, 1.0, 1.0);
+        float2 across = new(-along.Y, along.X);
+
+        float2 nose = new(at.X + (along.X * 8f), at.Y + (along.Y * 8f));
+        float2 left = new(at.X - (along.X * 5f) + (across.X * 6f), at.Y - (along.Y * 5f) + (across.Y * 6f));
+        float2 right = new(at.X - (along.X * 5f) - (across.X * 6f), at.Y - (along.Y * 5f) - (across.Y * 6f));
+        draw.AddTriangle(nose, left, right, colour, thickness);
+
+        draw.AddLine(nose, new float2(at.X + (along.X * 34f), at.Y + (along.Y * 34f)), colour, 1.0f);
+    }
+
+    private static bool TryGroundHeading(WeaponSystem system, MapFrame frame, Track track, out double bearingRad)
+    {
+        bearingRad = 0.0;
+        if (system.Platform is not { IsDisposed: false } platform) return false;
+
+        double3 overGround = frame.ToLocalDirection(
+            track.VelocityEcl - KsaWorld.GroundVelocityAt(platform, track.PositionEcl));
+        if (TerrainMap.HeadingDeg(overGround) is not { } heading) return false;
+
+        bearingRad = double.DegreesToRadians(heading);
+        return true;
+    }
+
     // The track antenna, on the lock. Every set here hands a contact from its search to a tracker
     // that follows it alone, and this is that handover made visible. Stops at the ring, so the
     // symbol inside it stays readable.
@@ -304,7 +355,8 @@ internal partial class Ui
         // Spelled out rather than drawn: the triangle on the face is geometry precisely because the
         // font may not carry one, so putting a Greek delta in the key would reintroduce the risk it
         // was avoided for.
-        ImGui.TextDisabled("X  known side      triangle  unknown side");
+        ImGui.TextColored(ScopeHostileInk, "triangle pointing, with a line  hostile, and its heading");
+        ImGui.TextDisabled("X  friendly or neutral      triangle  unknown side");
         ImGui.TextDisabled("M  round in the air     R  transmitting");
         ImGui.TextDisabled("ringed, with a line  the lock, held by the track radar");
     }
@@ -317,13 +369,12 @@ internal partial class Ui
     // side -- a whole scope of unknowns, which is the second opinion this line exists not to be.
     // The radar has already resolved it.
     private static ScopeGeometry.Blip SymbolOf(Track track, SystemConfig policy)
-        => ScopeGeometry.SymbolFor(track.Contact is RoundContact,
-                                   policy.Iff.Classify(track.Team) != Allegiance.Unknown);
+        => ScopeGeometry.SymbolFor(track.Contact is RoundContact, policy.Iff.Classify(track.Team));
 
     // Read off the same roster the anti-radiation path asks, rather than a second source that
     // could disagree about who is transmitting.
     private bool IsEmitting(Track track)
-        => track.Contact.Handle is Vehicle craft && _batteries.IsEmitting(craft);
+        => track.Contact.Handle is Vehicle craft && _roster.IsEmitting(craft);
 
     // The body's own frame, so a bearing on the scope is a bearing on the ground rather than one
     // measured off the ecliptic -- 23 degrees out on Earth. Same query the map's scan makes.

@@ -21,7 +21,7 @@ namespace KSArmory;
 /// <para>One command at a time, oldest first. A command that takes frames — a step, a capture —
 /// holds the queue until it answers, so a sequence of them is a script that runs in order.</para>
 /// </summary>
-internal sealed class Bridge
+internal sealed class Bridge : IViewPose
 {
     private readonly Config _config;
 
@@ -42,13 +42,28 @@ internal sealed class Bridge
     private Vehicle? _posedFrom;
 
     private static readonly string[] ShaderIds =
-        ["KSArmoryCloudCompute", "KSArmoryCloudResolveCompute", "KSArmoryShockCompute"];
+        ["KSArmoryCloudCompute", "KSArmoryCloudResolveCompute", "KSArmoryShockCompute",
+         "KSArmoryFireLightCompute", "KSArmoryRingCompute", "KSArmoryHoleCompute", "KSArmoryLeakCompute"];
 
-    public Bridge(Config config, Func<Vehicle?, WeaponSystem?> systemFor)
+    public Bridge(Config config, Func<Vehicle?, WeaponSystem?> systemFor,
+                  Func<IEnumerable<WeaponSystems.Entry>> systems, Func<IReadOnlyList<WeaponSystem>> loose,
+                  Countermeasures countermeasures, Action<Vehicle> focus,
+                  Func<IEnumerable<OpticalHeads.Entry>> heads)
     {
+        _heads = heads;
+        _loose = loose;
+        _focus = focus;
         _config = config;
         _systemFor = systemFor;
+        _systems = systems;
+        _countermeasures = countermeasures;
     }
+
+    private readonly Func<IEnumerable<WeaponSystems.Entry>> _systems;
+    private readonly Func<IEnumerable<OpticalHeads.Entry>> _heads;
+    private readonly Countermeasures _countermeasures;
+    private readonly Action<Vehicle> _focus;
+    private readonly Func<IReadOnlyList<WeaponSystem>> _loose;
 
     // The weapons system a burst that damages is judged by: the flown craft's own, so the burst is
     // its warhead going off there, and the craft itself is its platform -- dented, never broken.
@@ -85,6 +100,8 @@ internal sealed class Bridge
     {
         try
         {
+            HoldFlight();
+
             if (_pose is { } held && _orbitDegPerSecond != 0.0 && double.IsFinite(dtPlayer))
             {
                 _pose = held with { AzimuthDeg = held.AzimuthDeg + (_orbitDegPerSecond * dtPlayer) };
@@ -182,6 +199,12 @@ internal sealed class Bridge
     {
         try
         {
+            if (_watch is not null)
+            {
+                HoldOnRound();
+                return;
+            }
+
             if (_pose is not { } pose || _posedFrom is not { } craft || !KsaWorld.IsAlive(craft)) return;
 
             CloudWatch.Update(craft, pose);
@@ -217,6 +240,17 @@ internal sealed class Bridge
             "step" => BeginStep(command),
             "capture" => BeginCapture(command),
             "load" => BeginLoad(command),
+            "system" => System(command),
+            "optic" => Optic(command),
+            "dispense" => Dispense(command),
+            "fly" => Fly(command),
+            "watch" => Watch(command),
+            "fire" => Fire(command),
+            "spawn" => Spawn(command),
+            "ground" => Ground(command),
+            "save" => SaveGame(command),
+            "control" => Control(command),
+            "remove" => RemoveCraft(command),
             _ => Failed($"no command '{command.Name}'"),
         };
 
@@ -263,7 +297,17 @@ internal sealed class Bridge
             ["speed"] = KsaWorld.SimulationSpeed,
             ["clouds"] = NuclearClouds.Count,
             ["marks"] = NuclearClouds.ScorchCount,
+            ["glows"] = NuclearClouds.GlowCount,
+            ["curtains"] = NuclearClouds.AuroraCount,
+            ["waves"] = NuclearClouds.WaveCount,
+            ["thin"] = Enumerable.Range(0, NuclearClouds.Count).Count(NuclearClouds.IsThin),
+            ["sky_wanted"] = CloudPass.SkyWanted,
+            ["sky_drawn"] = CloudPass.SkyDrawn,
             ["camera_held"] = _pose is not null,
+            ["flares_in_air"] = Countermeasures.Live.Count(d => d.Profile.Kind == DecoyKind.Flare),
+            ["chaff_in_air"] = Countermeasures.Live.Count(d => d.Profile.Kind == DecoyKind.Chaff),
+            ["others"] = OthersFromFlown(),
+            ["rounds"] = RoundsInFlight(),
         };
 
         if (NuclearClouds.TryNewest(out double age, out double charge))
@@ -289,6 +333,571 @@ internal sealed class Bridge
         if (field == nameof(Config.VerboseLog)) Log.Threshold = _config.VerboseLog ? Log.Level.Debug : Log.Level.Info;
 
         return Done(new() { [field] = BridgeCommand.FieldText(_config, field) });
+    }
+
+    // One craft's selected weapon fired at a point east, north and up of the craft, through the same
+    // FireAt the designation tool uses -- a bomb released at a place, a missile at a spot in the sky.
+    // Player seconds a gun is given to lay onto a bridge point before the shot is given up.
+    private const double LayBudgetSeconds = 30.0;
+
+    // The selected weapon, or with station=N the craft's Nth launcher.
+    private WeaponSystem? StationOn(Vehicle craft, BridgeCommand command)
+    {
+        if (!command.Has("station")) return _systemFor(craft);
+
+        int ordinal = (int)command.Number("station", 1) - 1;
+        foreach (WeaponSystems.Entry e in _systems())
+        {
+            if (ReferenceEquals(e.Craft, craft) && e.Ordinal == ordinal) return e.Weapon;
+        }
+
+        return null;
+    }
+
+    private Reply? Fire(BridgeCommand command)
+    {
+        if (CraftNamed(command.String("craft")) is not { } craft) return Failed("no such craft");
+        if (StationOn(craft, command) is not { } weapon) return Failed("no weapons system on that craft");
+        if (KsaWorld.ParentBody(craft) is not { } body
+            || !DropScenario.TryLocalFrame(craft, body, out double3 up, out double3 east, out double3 north, out double agl))
+        {
+            return Failed("no local frame under that craft");
+        }
+
+        double3 PointEcl() => KsaWorld.PositionEcl(craft) + (east * command.Number("east_m", 0.0))
+                              + (north * command.Number("north_m", 0.0)) + (up * command.Number("up_m", -agl));
+        double3 at = PointEcl();
+        int before = weapon.Rounds.Count;
+
+        // In play the mouse points the launcher before a click fires it. Here nothing does, so the
+        // point is designated as a shift-click would and the shot waits for the lay -- without it a
+        // shell leaves along the barrel's rest line, and a missile along the pods' and misses by
+        // kilometres, since a 57E6 at speed cannot turn onto a point beside or behind it.
+        bool belt = weapon.TriggerArmament == ArmamentKind.Belt;
+        if ((belt || weapon.Profile.Trains) && command.Flag("lay", true))
+        {
+            Aimpoint aim = KsaWorld.TryAnchorToGround(at, out object? anchorBody, out double3 anchor)
+                               ? Aimpoint.OnGround(anchorBody!, anchor, at, Vec.Zero)
+                               : Aimpoint.AtPoint(at);
+            weapon.Designate(aim, "a bridge point");
+
+            int frames = 0;
+            double waited = 0.0;
+            _running = (dtPlayer, _) =>
+            {
+                waited += dtPlayer;
+
+                // Two frames, so the lay is read against the new order rather than the last one's.
+                if (++frames < 2 || !(belt ? weapon.GunsAreLaid : weapon.IsLaid))
+                {
+                    return waited > LayBudgetSeconds ? Failed($"not laid after {LayBudgetSeconds:F0} s: {weapon.Hold}") : null;
+                }
+
+                if (belt)
+                {
+                    return weapon.FireBurst((int)command.Number("rounds", 0.0))
+                               ? Done(new() { ["burst"] = true,
+                                              ["weapon"] = weapon.Profile.DisplayName,
+                                              ["laid_after_s"] = Math.Round(waited, 2),
+                                              ["agl_m"] = Math.Round(agl) })
+                               : Failed($"refused: {weapon.Hold}");
+                }
+
+                // Taken again now: an ecliptic point held across the lay is left seconds of ~30 km/s behind.
+                int ahead = weapon.Rounds.Count;
+                return weapon.FireAt(PointEcl())
+                           ? Done(new() { ["fired"] = weapon.Rounds.Count - ahead,
+                                          ["weapon"] = weapon.Profile.DisplayName,
+                                          ["laid_after_s"] = Math.Round(waited, 2),
+                                          ["agl_m"] = Math.Round(agl) })
+                           : Failed($"refused: {weapon.Hold}");
+            };
+
+            return null;
+        }
+
+        bool fired = weapon.FireAt(at);
+
+        return fired
+                   ? Done(new() { ["fired"] = weapon.Rounds.Count - before, ["weapon"] = weapon.Profile.DisplayName,
+                                  ["agl_m"] = Math.Round(agl) })
+                   : Failed($"refused: {weapon.Hold}");
+    }
+
+    // Every system with rounds in the air, crewed or loose, and how many.
+    private List<object?> RoundsInFlight()
+    {
+        List<object?> seen = [];
+        foreach (WeaponSystem s in AllSystems())
+        {
+            int flying = s.Rounds.Count(r => r.State == RoundState.Flying);
+            if (flying == 0) continue;
+
+            seen.Add(new Dictionary<string, object?>
+            {
+                ["system"] = SystemName(s),
+                ["loose"] = s.Platform is null,
+                ["flying"] = flying,
+            });
+        }
+
+        return seen;
+    }
+
+    private IEnumerable<WeaponSystem> AllSystems()
+    {
+        foreach (WeaponSystems.Entry e in _systems()) yield return e.Weapon;
+        foreach (WeaponSystem s in _loose()) yield return s;
+    }
+
+    private static string SystemName(WeaponSystem s)
+        => s.Platform is { } craft ? KsaWorld.DisplayName(craft) : s.LooseName;
+
+    // One round held in the main view, crewed or loose, from a distance and a direction relative to its
+    // flight: azimuth 0 and elevation 0 is straight behind it, 180 straight ahead of it. Held until the
+    // round ends or release=true, so a paused capture can look at what a round is drawn as.
+    private (WeaponSystem System, IProjectile Round, double Distance, double AzimuthDeg, double ElevationDeg,
+             double FovDeg)? _watch;
+
+    private Reply Watch(BridgeCommand command)
+    {
+        if (command.Flag("release", false))
+        {
+            ReleaseWatch();
+            return Done();
+        }
+
+        string craft = command.String("craft");
+        bool looseOnly = command.Flag("loose", false);
+        int tube = (int)command.Number("tube", 0.0);
+
+        foreach (WeaponSystem s in AllSystems())
+        {
+            if (looseOnly && s.Platform is not null) continue;
+            if (craft.Length > 0 && SystemName(s) != craft) continue;
+
+            // No tube asked for is any round, a gun's shells among them: those carry a negative tube.
+            IProjectile? round = s.Rounds.FirstOrDefault(r => r.State == RoundState.Flying
+                                                              && (tube == 0 || r.Tube == tube));
+            if (round is null) continue;
+
+            if (_watch is null && _pose is null)
+            {
+                _saved = KsaWorld.RememberMainView();
+                _posedFrom = KsaWorld.ControlledVehicle;
+            }
+
+            _pose = null;
+            _watch = (s, round, command.Number("distance_m", 25.0), command.Number("azimuth_deg", 20.0),
+                      command.Number("elevation_deg", 10.0), command.Number("fov_deg", 30.0));
+
+            // Following the round itself, as the chase does: an offset from any other craft is applied
+            // a frame later against where that craft is then, and the two drift by their relative motion.
+            _watchFollow.Track(round, s);
+            if (!KsaWorld.TryFollowOnMainViewport(_watchFollow))
+            {
+                _watch = null;
+                return Failed("the view refused to follow the round");
+            }
+
+            return Done(new()
+            {
+                ["system"] = SystemName(s),
+                ["round"] = RoundLabel.For(round.Tube),
+                ["munition"] = round.Munition.DisplayName,
+                ["loose"] = s.Platform is null,
+                ["age_s"] = Math.Round(round.Age, 2),
+            });
+        }
+
+        return Failed(looseOnly ? "no loose round in the air" : "no round in the air");
+    }
+
+    private readonly RoundFollowable _watchFollow = new();
+
+    ChaseOrbit? IViewPose.Orbit => null;
+
+    private void HoldOnRound()
+    {
+        if (_watch is not { } w) return;
+
+        if (w.Round.State != RoundState.Flying)
+        {
+            ReleaseWatch();
+            return;
+        }
+
+        if (TryWatchPose(out double3 fromRound, out double3 up))
+        {
+            KsaWorld.TryLookFromMainViewport(fromRound, -fromRound, up, w.FovDeg, this);
+        }
+    }
+
+    // Asked again inside the engine's viewport pass. The view follows the round, so the offset is the
+    // separation from it and nothing else, and needs nothing the engine has since moved.
+    bool IViewPose.TryPose(double3 followedEcl, out double3 offsetFromFollowed, out double3 forwardEcl,
+                           out double3 upEcl, out double fovDeg)
+    {
+        fovDeg = _watch?.FovDeg ?? 30.0;
+        forwardEcl = upEcl = offsetFromFollowed = Vec.Zero;
+        if (!TryWatchPose(out offsetFromFollowed, out upEcl)) return false;
+
+        forwardEcl = -offsetFromFollowed;
+        return true;
+    }
+
+    // Where the eye sits from the round, in the round's own flight frame: behind it along its velocity,
+    // turned by the azimuth about local up and raised by the elevation.
+    private bool TryWatchPose(out double3 fromRound, out double3 up)
+    {
+        fromRound = up = Vec.Zero;
+        if (_watch is not { } w || w.Round.State != RoundState.Flying) return false;
+        if (!w.System.TryRoundEffectEcl(w.Round, out double3 roundEcl)) return false;
+
+        double3 along = Vec.Unit(w.Round.VelocityLocal);
+        up = w.System.EffectBody is { } body ? Vec.Unit(roundEcl - KsaWorld.PositionEcl(body)) : Vec.Zero;
+        if (Vec.Len2(along) < 0.5 || Vec.Len2(up) < 0.5) return false;
+
+        double3 side = Vec.Unit(Vec.Cross(along, up));
+        if (Vec.Len2(side) < 0.5) side = Vec.AnyPerpendicular(along);
+        double az = double.DegreesToRadians(w.AzimuthDeg);
+        double el = double.DegreesToRadians(w.ElevationDeg);
+        double3 flat = (-along * Math.Cos(az)) + (side * Math.Sin(az));
+        fromRound = ((flat * Math.Cos(el)) + (up * Math.Sin(el))) * w.Distance;
+        return Vec.IsFinite(fromRound);
+    }
+
+    private void ReleaseWatch()
+    {
+        if (_watch is null) return;
+
+        _watch = null;
+        KsaWorld.StopDrivingMainView();
+        KsaWorld.TryHandBackMainView(_saved, _watchFollow, out _, out _);
+        _watchFollow.Track(null, null);
+        _posedFrom = null;
+    }
+
+    // Every other craft as seen from the one being flown: range, compass bearing, elevation and speed.
+    private static List<object?> OthersFromFlown()
+    {
+        List<object?> seen = [];
+        if (KsaWorld.ControlledVehicle is not { } flown || KsaWorld.ParentBody(flown) is not { } body) return seen;
+        if (!DropScenario.TryLocalFrame(flown, body, out double3 up, out double3 east, out double3 north, out double agl)) return seen;
+
+        double3 here = KsaWorld.PositionEcl(flown);
+        foreach (Vehicle v in KsaWorld.Vehicles)
+        {
+            if (ReferenceEquals(v, flown) || !KsaWorld.IsAlive(v)) continue;
+
+            double3 to = KsaWorld.PositionEcl(v) - here;
+            double range = Vec.Len(to);
+            if (range > 200_000.0) continue;
+
+            double bearing = double.RadiansToDegrees(Math.Atan2(Vec.Dot(to, east), Vec.Dot(to, north)));
+            seen.Add(new Dictionary<string, object?>
+            {
+                ["name"] = KsaWorld.DisplayName(v),
+                ["range_m"] = Math.Round(range),
+                ["bearing_deg"] = Math.Round((bearing + 360.0) % 360.0, 1),
+                ["elevation_deg"] = Math.Round(double.RadiansToDegrees(Math.Asin(Math.Clamp(Vec.Dot(to, up) / range, -1.0, 1.0))), 1),
+                ["radar_m2"] = Math.Round(RadarSignature.CrossSectionFor(KsaWorld.MeanRadius(v))),
+                ["mass_kg"] = Math.Round(KsaWorld.MassKg(v), 2),
+                ["situation"] = v.Situation.ToString(),
+            });
+        }
+
+        seen.Add(new Dictionary<string, object?>
+        {
+            ["name"] = "(flown) " + KsaWorld.DisplayName(flown),
+            ["agl_m"] = Math.Round(agl),
+            ["speed_ms"] = Math.Round(Vec.Len(KsaWorld.VelocityEcl(flown) - KsaWorld.GroundVelocityAt(flown, here))),
+            ["heat_kw_sr"] = Math.Round(KsaWorld.HeatOf(flown), 1),
+            ["radar_m2"] = Math.Round(RadarSignature.CrossSectionFor(KsaWorld.MeanRadius(flown))),
+            ["mass_kg"] = Math.Round(KsaWorld.MassKg(flown), 2),
+        });
+
+        return seen;
+    }
+
+    // A stock craft parked on the ground at lat/lon, as a target: craft is the stock save's name.
+    private static Reply Spawn(BridgeCommand command)
+    {
+        if (KsaWorld.ControlledVehicle is not { } flown) return Failed("no craft is being flown");
+        if (Detonation.BodyFor(flown) is not { } body) return Failed("no body under the craft");
+
+        string stock = command.String("craft");
+        if (stock.Length == 0) stock = "Rocket";
+        string name = command.String("name");
+        if (name.Length == 0) name = $"Target {stock}";
+
+        return TestTarget.SpawnParked(flown, stock, name, body, command.Number("lat", 0.0), command.Number("lon", 0.0)) is { }
+            ? Done(new() { ["name"] = name })
+            : Failed($"could not park a {stock}");
+    }
+
+    // The ground's height against sea level at lat/lon, negative where it is seabed -- or along a line
+    // to to_lat/to_lon in steps -- so a place can be surveyed without setting a craft down on it.
+    private static Reply Ground(BridgeCommand command)
+    {
+        if (KsaWorld.ControlledVehicle is not { } flown || Detonation.BodyFor(flown) is not { } body)
+        {
+            return Failed("no body under the craft");
+        }
+        KsaWorld.TrySeaLevel(body, out double sea);
+
+        double lat = command.Number("lat", 0.0), lon = command.Number("lon", 0.0);
+        double toLat = command.Number("to_lat", lat), toLon = command.Number("to_lon", lon);
+        int steps = Math.Clamp((int)command.Number("steps", 0.0), 0, 200);
+
+        List<object?> line = [];
+        for (int i = 0; i <= steps; i++)
+        {
+            double t = steps == 0 ? 0.0 : (double)i / steps;
+            double la = lat + ((toLat - lat) * t), lo = lon + ((toLon - lon) * t);
+            double3 dir = body.GetDirCcfFromLatLon(la, lo);
+            double height = body.GetTerrainHeightFromDirCcf(dir, accurate: true);
+            line.Add(new Dictionary<string, object?>
+            {
+                ["lat"] = Math.Round(la, 5), ["lon"] = Math.Round(lo, 5), ["ground_m"] = Math.Round(height - sea, 1),
+            });
+        }
+
+        return Done(new() { ["sea_level_m"] = Math.Round(sea, 1), ["points"] = line });
+    }
+
+    // Fly the named craft: the camera follows it and the controls drive it.
+    private static Reply Control(BridgeCommand command)
+        => CraftNamed(command.String("craft")) is { } craft && KsaWorld.GoTo(craft)
+               ? Done(new() { ["craft"] = KsaWorld.DisplayName(craft) })
+               : Failed("no such craft, or the engine would not hand it over");
+
+    // A named craft taken out of the world, leaving nothing behind -- never the one being flown, which
+    // the engine would take the scene with.
+    private static Reply RemoveCraft(BridgeCommand command)
+    {
+        string name = command.String("craft");
+        if (name.Length == 0 || CraftNamed(name) is not { } craft) return Failed("no such craft");
+        if (ReferenceEquals(craft, KsaWorld.ControlledVehicle)) return Failed("that craft is being flown; control another first");
+        KsaWorld.Remove(craft);
+        return Done(new() { ["removed"] = name });
+    }
+
+    // The game written to a save of this name, as KSA's own save console command writes it.
+    private static Reply SaveGame(BridgeCommand command)
+    {
+        string name = command.String("name");
+        if (name.Length == 0) return Failed("a save needs a name");
+        GameSaves.MakeUncompressedSave(name);
+        return Done(new() { ["name"] = name });
+    }
+
+    // A craft by the name it shows, falling back to the one being flown.
+    private static Vehicle? CraftNamed(string name)
+    {
+        if (string.IsNullOrEmpty(name)) return KsaWorld.ControlledVehicle;
+
+        foreach (Vehicle v in KsaWorld.Vehicles)
+        {
+            if (KsaWorld.IsAlive(v) && KsaWorld.DisplayName(v) == name) return v;
+        }
+
+        return null;
+    }
+
+    // One craft's weapons settings, as the panel would set them, and optionally its missiles flown on a
+    // seeker of the named band for testing a decoy against it: "infrared", "radar", "radar-gated", "stock".
+    private Reply System(BridgeCommand command)
+    {
+        if (CraftNamed(command.String("craft")) is not { } craft) return Failed("no such craft");
+
+        if (command.Flag("focus", false)) _focus(craft);
+
+        List<object?> changed = [];
+        foreach (WeaponSystems.Entry e in _systems())
+        {
+            if (!ReferenceEquals(e.Craft, craft)) continue;
+
+            SystemConfig p = e.Policy;
+            if (command.Has("auto_engage")) p.AutoEngage = command.Flag("auto_engage", p.AutoEngage);
+            if (command.Has("protect")) p.ProtectControlledVehicle = command.Flag("protect", p.ProtectControlledVehicle);
+            if (command.Has("silent")) p.RadarSilent = command.Flag("silent", p.RadarSilent);
+            if (command.Has("guns")) p.GunsEnabled = command.Flag("guns", p.GunsEnabled);
+            if (command.Has("chase")) p.ChaseRounds = command.Flag("chase", p.ChaseRounds);
+
+            string trigger = command.String("trigger");
+            if (trigger == "cannon") e.Weapon.TriggerArmament = ArmamentKind.Belt;
+            else if (trigger == "tubes") e.Weapon.TriggerArmament = ArmamentKind.Tubes;
+
+            string seeker = command.String("seeker");
+            if (seeker.Length > 0)
+            {
+                MunitionProfile stock = Catalogue.MunitionNamed(e.Weapon.Munition.Name);
+                MunitionProfile flown = stock.Copy();
+                if (seeker != "stock")
+                {
+                    flown.Guidance = GuidanceMode.Seeker;
+                    flown.Band = seeker == "infrared" ? SeekerBand.Infrared : SeekerBand.Radar;
+                    flown.DopplerGateMps = seeker == "radar-gated" ? 40f : 0f;
+                    flown.CountermeasureResistance = (float)command.Number("resistance", 0.0);
+                    flown.SeekerFovDeg = Math.Max(flown.SeekerFovDeg, 40f);
+                }
+
+                e.Weapon.FlyRoundsAs(flown);
+            }
+
+            changed.Add(new Dictionary<string, object?>
+            {
+                ["launcher"] = e.Weapon.Profile.DisplayName,
+                ["auto_engage"] = p.AutoEngage,
+                ["trigger"] = e.Weapon.TriggerArmament == ArmamentKind.Belt ? "cannon" : "tubes",
+                ["protect"] = p.ProtectControlledVehicle,
+                ["guidance"] = e.Weapon.Munition.Guidance.ToString(),
+                ["band"] = e.Weapon.Munition.Band.ToString(),
+            });
+        }
+
+        return changed.Count > 0 ? Done(new() { ["systems"] = changed }) : Failed("no weapons system on that craft");
+    }
+
+    // A craft's directors, as their rows would set them. view is "new" for a spare camera window,
+    // "main", "off" or a window's index; the reply reads each window's camera back.
+    private Reply Optic(BridgeCommand command)
+    {
+        if (CraftNamed(command.String("craft")) is not { } craft) return Failed("no such craft");
+
+        List<object?> heads = [];
+        foreach (OpticalHeads.Entry e in _heads())
+        {
+            if (!ReferenceEquals(e.Head.Platform, craft)) continue;
+
+            OpticConfig p = e.Policy;
+            string view = command.String("view");
+            if (view == "off") p.Viewport = -1;
+            else if (view == "main") p.Viewport = KsaWorld.MainViewportIndex;
+            else if (view == "new")
+            {
+                if (!KsaWorld.TryOpenCameraWindow(out int opened)) return Failed("no camera window spare");
+                p.Viewport = opened;
+            }
+            else if (int.TryParse(view, out int index)) p.Viewport = index;
+
+            if (command.Has("magnification")) p.Magnification = SightZoom.Clamp(command.Number("magnification", 1.0));
+            if (command.Has("tracking")) p.Tracking = command.Flag("tracking", p.Tracking);
+            if (command.Has("bearing_deg") || command.Has("elevation_deg"))
+            {
+                p.Manual = true;
+                p.ManualBearingDeg = (float)command.Number("bearing_deg", p.ManualBearingDeg);
+                p.ManualElevationDeg = (float)command.Number("elevation_deg", p.ManualElevationDeg);
+            }
+            if (command.Has("manual")) p.Manual = command.Flag("manual", p.Manual);
+            if (Enum.TryParse(command.String("sensor"), ignoreCase: true, out SensorMode sensor)) p.Sensor = sensor;
+            if (command.Has("lase")) p.Lasing = command.Flag("lase", p.Lasing);
+            if (command.Has("code") && LaserCode.IsValid((int)command.Number("code", 0))) p.LaserCode = (int)command.Number("code", 0);
+
+            Dictionary<string, object?> row = new()
+            {
+                ["head"] = e.Head.Profile.DisplayName,
+                ["viewport"] = p.Viewport,
+                ["magnification"] = p.Magnification,
+                ["tracking"] = p.Tracking,
+                ["sensor"] = p.Sensor.ToString(),
+            };
+
+            if (p.Viewport >= 0)
+            {
+                row["fov_deg"] = double.RadiansToDegrees(KsaWorld.ViewportFovRad(p.Viewport));
+                if (KsaWorld.TryViewportPicture(p.Viewport, out float2 pos, out float2 size, out _))
+                {
+                    row["picture"] = new[] { pos.X, pos.Y, size.X, size.Y };
+                }
+                if (KsaWorld.TryReadViewportPose(p.Viewport, out double3 eye, out _, out _)
+                    && e.Head.Platform is { } platform)
+                {
+                    row["eye_from_craft_m"] = Vec.Len(eye - KsaWorld.PositionEcl(platform));
+                }
+                row["nearby"] = KsaWorld.DescribeViewportContext(p.Viewport);
+                row["aim"] = e.Head.DescribeAim(p.Viewport);
+            }
+
+            heads.Add(row);
+        }
+
+        return heads.Count > 0 ? Done(new() { ["heads"] = heads }) : Failed("no director on that craft");
+    }
+
+    // A craft flown by numbers: engine lit, full throttle, nose held at a pitch from the vertical on a
+    // compass heading, restated every frame because an attitude hold is dropped the frame it is not.
+    private (Vehicle Craft, double PitchDeg, double HeadingDeg, bool Burning)? _flight;
+
+    private Reply Fly(BridgeCommand command)
+    {
+        if (command.Flag("stop", false))
+        {
+            if (_flight is { } was)
+            {
+                VehicleCommand.DriveThrottle(was.Craft, 0.0);
+                VehicleCommand.ReleaseAttitude(was.Craft);
+            }
+
+            _flight = null;
+            return Done();
+        }
+
+        if (CraftNamed(command.String("craft")) is not { } craft) return Failed("no such craft");
+
+        _flight = (craft, command.Number("pitch_deg", 0.0), command.Number("heading_deg", 90.0),
+                   command.Flag("engine", true));
+        if (command.Flag("stage", false)) AttitudeHook.Stage(craft);
+
+        return Done(new() { ["flying"] = KsaWorld.DisplayName(craft) });
+    }
+
+    private void HoldFlight()
+    {
+        if (_flight is not { } f) return;
+        if (!KsaWorld.IsAlive(f.Craft) || KsaWorld.ParentBody(f.Craft) is not { } body)
+        {
+            _flight = null;
+            return;
+        }
+
+        VehicleCommand.SetEngine(f.Craft, running: f.Burning);
+        VehicleCommand.DriveThrottle(f.Craft, f.Burning ? 1.0 : 0.0);
+
+        if (!DropScenario.TryLocalFrame(f.Craft, body, out double3 up, out double3 east, out double3 north, out _)) return;
+
+        double pitch = double.DegreesToRadians(f.PitchDeg);
+        double heading = double.DegreesToRadians(f.HeadingDeg);
+        double3 level = (north * Math.Cos(heading)) + (east * Math.Sin(heading));
+        double3 wanted = (up * Math.Cos(pitch)) + (level * Math.Sin(pitch));
+        double3 side = Vec.Unit(Vec.Cross(wanted, up));
+        if (Vec.Len2(side) < 0.5) side = north;
+
+        doubleQuat toCci = body.GetCce2Cci();
+        AttitudeHook.Hold(f.Craft, wanted.Transform(toCci), side.Transform(toCci));
+    }
+
+    // Presses a craft's countermeasure controls: kind is flare, chaff or both; auto sets auto-dispense.
+    private Reply Dispense(BridgeCommand command)
+    {
+        if (CraftNamed(command.String("craft")) is not { } craft) return Failed("no such craft");
+
+        if (command.Has("auto")) _countermeasures.SetAuto(craft, command.Flag("auto", false));
+
+        string kind = command.String("kind");
+        if (kind is "flare" or "both") _countermeasures.Dispense(craft, DecoyKind.Flare);
+        if (kind is "chaff" or "both") _countermeasures.Dispense(craft, DecoyKind.Chaff);
+
+        (int flares, int flareCap) = _countermeasures.Load(craft, DecoyKind.Flare);
+        (int chaff, int chaffCap) = _countermeasures.Load(craft, DecoyKind.Chaff);
+
+        return Done(new()
+        {
+            ["flares"] = $"{flares}/{flareCap}",
+            ["chaff"] = $"{chaff}/{chaffCap}",
+            ["auto"] = _countermeasures.AutoOn(craft),
+        });
     }
 
     private Reply Get(BridgeCommand command)
@@ -326,6 +935,14 @@ internal sealed class Bridge
                         + (frame.North * command.Number("north_m", 0.0));
         if (!KsaWorld.TrySnapToGround(above, out double3 ground)) return Failed("no ground under that point");
 
+        // Over the sea the surface is the water, not the seabed under it: up_m is measured from there.
+        if (KsaWorld.TrySeaLevel(body, out double sea))
+        {
+            double3 fromCentre = ground - body.GetPositionEcl();
+            double seaRadius = body.MeanRadius + sea;
+            if (Vec.Len(fromCentre) < seaRadius) ground = body.GetPositionEcl() + (Vec.Unit(fromCentre) * seaRadius);
+        }
+
         double charge = kt * 1.0e6;
 
         // up_m sets it off that far above the ground: an air burst, and the one way to put a burst
@@ -338,8 +955,16 @@ internal sealed class Bridge
         double3 lifted = ground + (frame.Up * (up != 0.0 ? 0.0 : Math.Max(MushroomCloud.PeakFireballRadius(kt), 2.0)));
         // KSA's own explosion as well unless told not to, which is how a warhead goes off; without it
         // the burst is this mod's drawing alone, which is what separates the two when one misdraws.
-        if (command.Flag("explode", true)) Detonation.Explode(lifted, charge, craft);
-        NuclearClouds.Begin(ground, craft, charge);
+        // count sets off that many in the same frame, spacing_m apart eastward: a bus's salvo, which a
+        // burst a call can never be, since calls are further apart than one burst stays one event.
+        int count = Math.Clamp((int)command.Number("count", 1.0), 1, 12);
+        double spacing = command.Number("spacing_m", 0.0);
+        for (int i = 0; i < count; i++)
+        {
+            double3 offset = frame.East * (spacing * i);
+            if (command.Flag("explode", true)) Detonation.Explode(lifted + offset, charge, craft);
+            NuclearClouds.Begin(ground + offset, craft, charge);
+        }
 
         // And, asked for, what a warhead of that yield does to every craft it reaches.
         if (command.Flag("damage", false))
@@ -427,7 +1052,7 @@ internal sealed class Bridge
     // height there, so a caller looking for night can tell whether it got one.
     private Reply? Site(BridgeCommand command)
     {
-        if (KsaWorld.ControlledVehicle is not { } craft) return Failed("no craft is being flown");
+        if (CraftNamed(command.String("craft")) is not { } craft) return Failed("no such craft");
         if (Detonation.BodyFor(craft) is not { } here) return Failed("no body under the craft");
 
         string body = command.String("body");
@@ -754,13 +1379,14 @@ internal sealed class Bridge
             ["nuclear_blackout"] = _config.NuclearBlackout,
         };
 
-        if (NuclearClouds.TryNewest(out double age, out double charge))
+        if (NuclearClouds.TryNewest(out double age, out double charge, out double height))
         {
             double kt = MushroomCloud.KilotonsFor(charge);
-            MushroomCloud.Shape shape = MushroomCloud.At(charge, age);
+            NuclearClouds.TryNewestShape(out MushroomCloud.Shape shape);
 
             m["burst_age_s"] = Math.Round(age, 3);
             m["kt"] = kt;
+            m["burst_height_m"] = Math.Round(height);
             m["cap_centre_m"] = Math.Round(shape.CapCentre);
             m["cap_radius_m"] = Math.Round(shape.CapRadius);
         }
@@ -768,14 +1394,14 @@ internal sealed class Bridge
         if (NuclearClouds.TryWatch(out double3 burstEcl, out double3 up, out _, out double top, out _))
         {
             m["burst_screen"] = Screen(burstEcl);
-            m["cap_screen"] = NuclearClouds.TryNewest(out double a, out double c)
-                                  ? Screen(burstEcl + (Vec.Unit(up) * MushroomCloud.At(c, a).CapCentre))
+            m["cap_screen"] = NuclearClouds.TryNewestShape(out MushroomCloud.Shape capShape)
+                                  ? Screen(burstEcl + (Vec.Unit(up) * capShape.CapCentre))
                                   : null;
             m["top_screen"] = Screen(burstEcl + (Vec.Unit(up) * top));
 
-            if (NuclearClouds.TryNewest(out double nowAge, out double nowCharge))
+            if (NuclearClouds.TryNewestShape(out MushroomCloud.Shape boxShape))
             {
-                m["cloud_box"] = CloudBox(burstEcl, Vec.Unit(up), MushroomCloud.At(nowCharge, nowAge));
+                m["cloud_box"] = CloudBox(burstEcl, Vec.Unit(up), boxShape);
             }
 
             if (KsaWorld.TryMainCameraPose(out double3 eye, out _))

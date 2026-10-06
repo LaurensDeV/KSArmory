@@ -6,12 +6,10 @@ namespace KSArmory;
 /// <summary>
 /// Borrows the player's main view and looks through the optical head, then gives it back.
 ///
-/// <para><b>The main view rather than a second one, because a secondary viewport draws no planet.</b>
-/// Every pass that makes one look like a planet — the planet renderer, the light and shadow
-/// passes, the ocean, the atmosphere and cloud compute — runs only for the frame viewport, so a
-/// sight on a secondary window shows a starfield over a featureless grey ball. That is the
-/// engine's own limit, and taking the main view is the workaround `docs/BLOCKED-ON-KSA.md`
-/// names.</para>
+/// <para><b>The main view is the full picture.</b> A camera window draws terrain and sky, but the
+/// clouds, the ocean and the clustered lights run only for the frame viewport
+/// (<c>docs/BLOCKED-ON-KSA.md</c>), so this is the option for a sight that has to look right and
+/// a window the one for watching a site from somewhere else.</para>
 ///
 /// <para><b>It follows the launcher's own craft, whatever the player was following.</b>
 /// <c>FixedController</c> places the camera at <c>following.GetPositionEcl() + CameraOffset</c>
@@ -103,9 +101,9 @@ internal sealed class SightCamera : IViewPose
         if (Log.Threshold > Log.Level.Debug) return;
 
         // Whatever the head is actually following, which is the designation when there is one and
-        // the set's own pick otherwise. Asking only for a track measured nothing at all while a
-        // designation was driving -- and a designated patch of ground is never a track, so the
-        // probe was silent in exactly the case it was wanted for.
+        // the set's own pick otherwise. Asking only for a track measures nothing at all while a
+        // designation is driving -- and a designated patch of ground is never a track, so the
+        // probe would be silent in exactly the case it is wanted for.
         double3 targetEcl;
         double3 targetVel;
 

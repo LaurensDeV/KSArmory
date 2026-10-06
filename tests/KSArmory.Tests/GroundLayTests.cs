@@ -398,6 +398,26 @@ public class GroundLayTests(ITestOutputHelper output)
     }
 
     /// <summary>
+    /// A reach under a thousandth of the way to the place is still found. A 20 mm round reaches about a
+    /// kilometre and a half, so a place 2,000 km off has it at under 0.1% of the way, finer than a search
+    /// resolving the way in thousandths can see: it found nothing, and the gun was laid along the line
+    /// of sight with no word that the place was out of reach.
+    /// </summary>
+    [Fact]
+    public void AReachUnderAThousandthOfTheWayIsStillFound()
+    {
+        const double awayKm = 2000.0;
+
+        Assert.True(BallisticLead.TrySolveFlownOrReach(Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero, Ground(awayKm),
+                                                       Vec.Zero, Vec.Zero, null, Arsenal.Cannon20Mm, GravityAt, DensityAt,
+                                                       Vec.Zero, 1.0, out _, out _, out double fraction));
+
+        double reachedKm = fraction * Vec.Len(Ground(awayKm)) / 1000.0;
+        output.WriteLine($"20 mm at {awayKm:F0} km: reach found at {reachedKm:F2} km ({fraction:P3} of the way)");
+        Assert.InRange(reachedKm, 0.5, 5.0);
+    }
+
+    /// <summary>
     /// A place beyond reach. Laid along the line of sight the shell lands a kilometre or two out; laid on
     /// the farthest point along that line it can get to, it goes as far as any elevation throws it within
     /// its lifetime.

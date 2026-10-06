@@ -60,6 +60,19 @@ public enum GuidanceMode
 }
 
 /// <summary>
+/// What a <see cref="GuidanceMode.Seeker"/> round sees its target with, which is what decides the
+/// decoy that can take it away: a flare only fools a heat seeker, chaff only a radar.
+/// </summary>
+public enum SeekerBand
+{
+    Radar,
+    Infrared,
+
+    /// <summary>A seeker no decoy fools — an imaging head, or one steering on a coordinate.</summary>
+    None,
+}
+
+/// <summary>
 /// Everything that makes one round behave differently from another: how it burns, how it
 /// steers, how far it can see, and what it does when it gets there.
 ///
@@ -94,9 +107,17 @@ public sealed class MunitionProfile
 
     /// <summary>
     /// Subpart marker for this round's body mesh, matched against the launcher's subpart Ids.
-    /// Null means the round has no model and draws as a tracer only.
+    /// Null means the round has no model and draws as a streak only.
     /// </summary>
     public string? BodyMarker { get; init; }
+
+    /// <summary>
+    /// The <c>&lt;SubPart&gt;</c> template a gun round is drawn as: every shell in the air is an
+    /// instance of its model, so the launcher declares no subpart for any of them and there is no
+    /// limit on how many are seen. Null draws a gun round as a streak only. Not for a round from a
+    /// tube, which is found by <see cref="BodyMarker"/>.
+    /// </summary>
+    public string? BodyModel { get; init; }
 
     /// <summary>
     /// Subpart marker for this round's fin set, matched the same way as <see cref="BodyMarker"/>.
@@ -111,6 +132,15 @@ public sealed class MunitionProfile
     /// out of it. This is what lets the mod seat it properly instead.
     /// </summary>
     public float BodyLength = 3.10f;
+
+    /// <summary>
+    /// One gun round in this many carries a tracer, as a belt is loaded; zero for none. The rest are
+    /// drawn as a faint grey streak of their own width, with no glow.
+    /// </summary>
+    public int TracerEvery;
+
+    /// <summary>How long a tracer burns (s). After it the round is drawn like any other.</summary>
+    public float TracerBurnSeconds = 3f;
 
     /// <summary>
     /// Seconds the fins take to snap from stowed to full span after launch.
@@ -159,7 +189,8 @@ public sealed class MunitionProfile
     /// </summary>
     ///
     /// <remarks>
-    /// Empty for a single-stage round, which is every round the mod ships. Two <i>powered</i>
+    /// Empty for a single-stage round; the AGM-88's sustainer is the one entry any shipped round
+    /// carries. Two <i>powered</i>
     /// stages are genuinely different accelerations for different durations, and averaging them
     /// into one gets the burnout speed roughly right and the trajectory wrong. The 57E6 is not
     /// that case: its second stage carries no motor, so a hard burn and then a coast is the round
@@ -329,6 +360,35 @@ public sealed class MunitionProfile
     public float SeekerFovDeg = 55f;
 
     /// <summary>
+    /// What the seeker sees with. Read only for <see cref="GuidanceMode.Seeker"/>: a command-link
+    /// round has no seeker to fool and an anti-radiation one homes on an emission, which neither
+    /// decoy makes.
+    /// </summary>
+    public SeekerBand Band = SeekerBand.Radar;
+
+    /// <summary>
+    /// How much of a decoy's chance of taking the seeker this round refuses, 0 to 1. Zero is a seeker
+    /// that follows whatever is brightest; one is a seeker no decoy takes.
+    /// </summary>
+    public float CountermeasureResistance;
+
+    /// <summary>Whether a seeker a decoy took goes back to the target once the decoy is spent, or flies on blind.</summary>
+    public bool ReacquiresAfterDecoy = true;
+
+    /// <summary>
+    /// How far a return's closing speed may sit from the target's and still be seen, in m/s; zero is no gate.
+    ///
+    /// <para>A Doppler seeker tracks a closing speed, and chaff stops dead in the air, so chaff only
+    /// falls inside the gate when the target is beaming — flying square to the line of sight, where
+    /// its own closing speed is the air's too. That is the whole of why chaff against a pulse-Doppler
+    /// missile is a manoeuvre and not a button.</para>
+    /// </summary>
+    public float DopplerGateMps;
+
+    /// <summary>Whether a decoy can take this round's seeker at all.</summary>
+    public bool Seducible => Guidance == GuidanceMode.Seeker && Band != SeekerBand.None;
+
+    /// <summary>
     /// Seconds after launch during which the round does not steer at all.
     ///
     /// <para>Separation. A round that starts guiding on its first sub-step turns immediately, and
@@ -425,6 +485,12 @@ public sealed class MunitionProfile
     public float ChargeKg = 20f;
 
     /// <summary>
+    /// The largest charge this warhead can be set to (kg), or zero for no limit of its own. A
+    /// dial-a-yield bomb has a top setting, and tuning past it makes it a different weapon.
+    /// </summary>
+    public float MaxChargeKg;
+
+    /// <summary>
     /// Whether the ground stops this round.
     ///
     /// <para>Off for everything that flies at aircraft, which is why a shell passes through a hill
@@ -436,6 +502,30 @@ public sealed class MunitionProfile
     /// how every round behaves: a CIWS burst is 150 shells in the air and a rack holds one bomb.</para>
     /// </summary>
     public bool HitsTerrain;
+
+    /// <summary>
+    /// Height above the ground at which the fuse fires on the way down (m): a radar or barometric
+    /// fuse, which is what makes an air burst. Zero bursts on contact. Needs <see cref="HitsTerrain"/>,
+    /// since the ground under the round is what it is measured against, and waits for
+    /// <see cref="FuseArmSeconds"/>; a store released below it bursts on the ground instead.
+    /// </summary>
+    public float BurstHeightMetres;
+
+    /// <summary>
+    /// How fast the store falls under its parachute at sea level once open (m/s), which is the
+    /// drag the canopy adds: <c>g / v²</c> per metre. Zero is no chute. A chute is what lets the
+    /// aircraft get clear of a large yield -- Tsar Bomba came down on 1,600 m² at about 18 m/s.
+    /// </summary>
+    public float ChuteSinkMetresPerSecond;
+
+    /// <summary>Seconds after release the parachute opens. It takes <see cref="ChuteInflationSeconds"/> to fill.</summary>
+    public float ChuteOpensSeconds = 1.5f;
+
+    /// <summary>How long a canopy takes to fill once it opens, over which its drag comes on.</summary>
+    public const double ChuteInflationSeconds = 1.0;
+
+    /// <summary>Whether this store carries a parachute.</summary>
+    public bool HasChute => ChuteSinkMetresPerSecond > 0f;
 
     /// <summary>Radius inside which a detonation is unconditionally lethal (m).</summary>
     public float LethalRadius => (float)Warhead.LethalRadius(ChargeKg);

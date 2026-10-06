@@ -51,7 +51,7 @@ internal enum Approach
 /// conic is no longer the whole flight, but it still bounds it: one whose lowest point is under the lowest
 /// the ground can be ends on the ground, for the same reason. A shell lobbed under a weak pull stays up for
 /// minutes — from Mars a 5"/54 at its longest reach flies past its two-minute clock — and reaping it on
-/// the clock was what ended its reach there.</para>
+/// the clock would end its reach there.</para>
 ///
 /// <para><b>The clock still has to be able to run.</b> Holding it for everything that is not failing
 /// leaves a round nothing reaps at all: a body with no atmosphere never starts an air clock, so a store

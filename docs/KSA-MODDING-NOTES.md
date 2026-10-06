@@ -2,7 +2,7 @@
 
 Everything here comes out of the shipped assemblies of **KSA build 2026.9.10.5438**, read with
 `tools/apidump`, or out of the StarMap sources, and was rechecked against **2026.9.22.5482**
-wherever that build changed a type this mod uses. KSA is pre-release and unofficially moddable:
+and again against **2026.10.7.5541** wherever that build changed a type this mod uses. KSA is pre-release and unofficially moddable:
 none of this is documented by RocketWerkz, and **it will drift between game builds**. Re-run
 the dumper rather than trusting this file after an update.
 
@@ -180,6 +180,42 @@ is a vehicle apparently sitting at the solar system barycentre.
 
 `IParentBody.Mu` is a plain property — no need to hunt for the gravitational parameter.
 
+### Spawning a kitten on EVA, with a velocity of your choosing
+
+A kitten outside a craft is a `KittenEva`, a `Vehicle` subclass, and the game flies it like any
+other: gravity, drag, tumbling on landing and getting back up, all without the mod touching it
+again. `EVADoor.CreateKittenEva` is private and spawns at the door with the craft's own velocity,
+but everything it calls is public, so a mod can build one anywhere, moving any way:
+
+```csharp
+using ShapesUnlock shapes = ConstraintSim.UnlockShapesBlocking();   // see TestTarget
+Orbit orbit = Orbit.CreateFromStateCci(parent, Universe.GetElapsedTime(), posCci, velCci, colour);
+KittenEva eva = new(system, roster.Character, body2Cce, bodyRates, parent, roster.Name, backpack, orbit);
+craft.RemoveCrew(seat.AssignedKittenHash);                 // after the constructor, so a throw
+roster.TransferToVehicle(KittenRosterEntryData.EvaAssignmentId);   // leaves the kitten seated
+parent.Children.Add(eva);
+eva.UpdateAfterPartTreeModification();
+eva.UpdatePerFrameData();
+```
+
+- **Pass the orbit to the constructor; do not `Teleport`.** `Vehicle.Teleport` recomputes the whole
+  trajectory and, if that fails, logs an error and drops the new orbit without applying it — which a
+  state already intersecting the ground can do.
+- **The vehicle Id must be the roster name.** The game links a kitten on EVA to its roster entry
+  only through that (`KittenRosterWindow`, `Vehicle.KillCrew`, `CrewPortraitPanel`, `Dispose`), and
+  a second vehicle with the same Id is refused by `LookupCollection.Register` and left half-built.
+- **The backpack** is the `KittenBackPackPart` template: `ModLibrary.Get<PartTemplate>` (the
+  `AllParts` list `EVADoor` uses is internal), `new Part(id, template)`, `CreateOwnTree()`,
+  `ReinitializeDerivedValues()`, then `ResourceGroupList.CalculateStages(reconfigureTankContents:
+  true)` in place of the internal `RecreateResourceManagers`, then `RefillConsumables()`.
+- **Nothing moves the camera or the controls.** `EVADoor.SpawnEva` does that itself afterwards
+  (`camera.SetFollow`, `Program.ControlledVehicle = eva`). It also multiplies the kitten's orbit
+  distance by the craft's radius over the kitten's, which from a large craft leaves the view
+  kilometres off; keep the kitten's own `OrbitView.DistancePower` instead.
+- **A kitten dies at 125 g**, filtered over `radius / 200` seconds: `EffectiveMaxGLoad` is 50 g for
+  anything under 5 m, times 2.5 for a kitten (`PhysicsBubble.DetectStructuralFailure`). It is then
+  marked KIA and kept on the roster's LOST tab. `PartFailure` ignores kittens entirely.
+
 ### Per-frame buffers are not readable from a StarMap hook
 
 `Program.VehiclesInFrame` reads back **empty** from `[StarMapAfterOnFrame]`. It is a `FrameSpan`
@@ -326,6 +362,15 @@ a position instead puts the craft's *origin* at the point and leaves the rest wh
 Because it is a buffered engine event that rebuilds the vehicle's orbit and velocity, it is a
 once-per-action call. Do not drive it per frame to make a craft follow the cursor.
 
+**Over the sea it sets the craft on the seabed**, not the surface: the terrain it rests the hull on
+is the sea floor. A buoyant craft then rises through the water — a 134 m hull set down 4.3 km deep
+climbed at 17.5 m/s for four minutes, which from above reads as a ship sinking. Where the sea is
+shallow it stands on the bottom instead. **Survey before placing**: `Celestial.GetDirCcfFromLatLon`
+plus `GetTerrainHeightFromDirCcf(dir, accurate: true)` against the ocean reference's `Level` gives
+the depth anywhere without putting anything there, and the bridge's `ground` command is exactly
+that. And **setting a grounded craft down again and again can destroy it**: four teleports of a
+ship that had run aground, one after another along a coast, and it did not survive them.
+
 **It silently stands the craft on a pad** — `GetInitialKinematicStateForLocation` calls a private
 `GetLaunchPadHeightAtDirCcf`, which walks `Celestial.BodyTemplate.Locations` for a
 `LandmarkReference { IsLaunchPad: true }` and adds that landmark's static object's
@@ -333,6 +378,18 @@ once-per-action call. Do not drive it per frame to make a craft follow the curso
 than constants — Core's `CoreLaunchPadA_Prefab_LaunchPadA` is 0.2 m + 1.5537 m over a 108.3 m
 circle — and `LocationReference.GetStaticObject()` is public, so anything drawing a preview marker
 can read the same figures instead of copying them.
+
+**It faces the craft east.** `GetInitialKinematicStateForLocation` builds the attitude with
+`ComputeBody2Cce(radial, south)`, which puts the part's +X straight up, +Y east and +Z north. So a
+craft cannot be set down facing another way through this call; to aim a fixed launcher in a given
+direction, choose *where* it stands instead.
+
+**Very large craft stop being placeable.** Measured on Luna with one part scaled up, at the same
+mass: a 383 km base is set down, stands and is drawn; at 1,160 km it is set down but the camera
+never frames it; at 3,480 km it is left 1,723 km above the ground. Also measured: that 383 km part
+went NaN at 10¹² kg ("unclassifiable orbital energy: NaN" every step) and was fine at 5×10⁷ kg; and
+colliders spanning the whole of it held the world at 0.09x real time, where one small box under
+its middle ran at full speed. See [How large a craft the engine will take](#how-large-a-craft-the-engine-will-take).
 
 ### Aiming the player's camera — `OrbitView`, not `OrbitController`
 
@@ -385,6 +442,46 @@ void ProgressBar(float fraction, in float2? size = null, ImString overlay = defa
 void Separator();  void SameLine(float offsetFromStartX = 0, float spacing = -1);  void End();
 ```
 
+### Your own UI: overlays, fonts, windows and the HUD
+
+Read from the source of the Webcast Telemetry Overlay mod (`elevatorctln/KSA-Public-Telemetry`,
+commit `fb4c595`) and checked against the decompiled `Program.cs`. **None of it is built here.**
+
+**Something can still be drawn with the UI hidden.** `Program.OnFrame` runs `OnDrawUiFrame`,
+`OnDrawUiViewports` and `OnDrawUiThreadSafe` inside `if (DrawUI)`, then calls `DrawFps()` outside
+it, still inside the ImGui frame and before `ImGui.Render()` (Program.cs ~2255–2276). A Harmony
+postfix on the private static `Program.DrawFps` therefore runs every frame with F2 on or off, and
+can draw on the foreground list. That mod checks `Program.DrawUI` inside the postfix and draws
+only when it is false, so nothing is drawn twice. Two catches: `ScreenshotCapture` clears
+`DrawUI` too, so whatever is drawn there lands in screenshots; and the method is private, so there
+is no signature to pin — if it moves, the patch fails to apply and the feature has to switch off
+rather than break.
+
+**Screen overlays** go on `ImGui.GetForegroundDrawList()`, laid out against
+`ImGui.GetMainViewport().WorkPos/WorkSize`. To stay clear of KSA's menu bar, look the bar up with
+`ImGui.Internal.FindWindowByName("Menu Bar"u8)` and read its `Pos`, `Size` and `WasActive`.
+
+**Custom fonts load at runtime.** KSA's own fonts carry basic Latin only, but a mod can ship a
+`.ttf` and add it: `ImGui.GetIO().Fonts.AddFontFromFileTTF(path, sizePixels, &config, default)`,
+then `ImGui.PushFont(font, sizePixels)` / `PopFont()`. That mod loads its fonts lazily from its
+first draw call, and falls back to the game font if loading fails. An icon font would replace
+hand-drawn symbols.
+
+**A window can be one of KSA's own.** Subclass `KSA.ImGuiWindow` and implement `IStaticWindow`.
+The `ImGuiWindow` constructor adds any `IStaticWindow` to a static list, and KSA's
+`ImGuiWindow.DrawAllStaticWindows` draws every shown one (`OnDrawUi`) with KSA's window chrome.
+Override `DrawContent(IViewport)`, and use `SetShown` and `SetWindowTitle`.
+
+**KSA's flight HUD can be hidden and put back.** Call `SetEnabled(false)` on each entry of
+`GaugeCanvas.AllCanvases` that is `Enabled` and not `AlwaysEnabled`, keeping the list of what was
+switched off so that exactly those can be restored. Re-scan when the count changes, because
+canvases are created lazily.
+
+**Vertex colours are editable after a primitive is added.** Record `drawList.VtxBuffer.Count`
+before and after `AddConvexPolyFilled`, then rewrite `vertex.col` over that range in
+`drawList.VtxBuffer.Span`. That is a gradient across any convex shape, which `AddRectFilledMultiColor`
+only gives for rectangles.
+
 ## Parts and the module system
 
 Parts are declared in XML under `<install>/Content/Core/*.xml`, paired as
@@ -425,6 +522,56 @@ registration lists are internal, so a genuinely new part module needs Harmony pa
 them. Simulating the behaviour from a StarMap hook instead avoids all of that, and is what this
 repo does — from `[StarMapAfterGui]` rather than the frame hook, because a postfix on `OnFrame`
 lands *after* the render it was meant to feed. See `docs/FRAMES-AND-EPOCHS.md`.
+
+### A subpart is found at runtime by the Id its part gives it
+
+`Part.SubParts[i].Id` is the Id on the `<SubPart>` *inside the `<Part>`* (`KSArmory_Ciws_Turret`),
+not the template it instances (`KSArmory_CiwsTurret_SubPart`). A marker matched against the
+template's spelling finds nothing, and a body that is never found is simply never moved — the part
+loads and draws at its modelled pose, and no log says why.
+
+### A crew seat on a mod's own part
+
+- **An `<IVASeat>` can sit directly in a part's `<PartGameData>`**, as Core's internal parts do
+  (`CoreIVASpaceAGameData.xml`); `IVASeat.CreateComponents` runs for every part and subpart. A crew
+  window, the launch menu and a save (`<IVASeatData AssignedKittenName="…" />`) all fill it.
+- **Its `PositionAsmb`, `ForwardAxisAsmb` and `UpAxisAsmb` are public fields** in the owning part's
+  frame, and the seated kitten is drawn from them every frame, so writing them moves the kitten.
+  Up is the direction its head points, forward the way it faces.
+- **Seated kittens are only drawn on `Program.ControlledVehicle`** (`Vehicle.UpdateSeatedCrewRenderData`).
+- **The model is drawn 0.63 m under the seat point** (`KittenLocomotionTuning.SeatedOffset`), and the
+  seated pose rests well above that: a seat point on the surface sinks the kitten to its neck, one
+  0.48 m up leaves it hovering, and 0.12 m up looked seated from 50 m away, not checked closer.
+- **Boarding needs an `<EVADoor SeatId="…" />`**, which goes on a `<SubPartGameData>` of the same
+  part. A kitten boards only from within 1 m of that subpart's origin (`KittenEva.CanBoardDoor`), so
+  the door belongs on a subpart whose origin a kitten can actually walk up to.
+
+### A kitten walks only on static ground, so a craft is boarded by its grab rail
+
+A kitten on EVA is a Bepu capsule (radius 0.35 m, `PartGameData.xml`'s kitten entry) that rests on
+part colliders like anything else — but its walk mode needs a contact the engine calls ground, and
+`ConstraintSim.IsGroundSurfaceFor` takes a `StaticHandle`: the terrain patch, terrain blocks,
+clutter and launch-pad statics. A vehicle's colliders are dynamic, so on a deck a kitten stands, is
+airborne as far as locomotion is concerned, cannot walk or jump, and does not ride along. There is
+no "standing on a vehicle" frame.
+
+**The supported way onto a craft is its `<Grab>` nodes**, which the capsule's spine already uses: a
+part with any becomes one `GrabRail` of at most 64 nodes in declaration order (`KittenEva.cs`),
+snapped to from within 1 m, climbed node to node at 1 m/s, held 0.5 m out along each node's
+`<Normal>`, and handed off to another part's rail within 1 m at either end. Core's `LadderA` spaces
+its nodes 0.25–0.4 m. A rail that ends within 1 m of an `EVADoor` subpart's origin is a full route
+from the ground to a seat, and boarding puts the kitten straight into the seat: nothing has to be
+walkable.
+
+### Windows are `PartModelGlass`, and an `<Internal>` model is drawn only in IVA
+
+A subpart declared with `<PartModelGlass>` in place of `<PartModel>` goes through
+`MeshGlassIndirect.frag`: alpha-blended at a **fixed 0.75 opacity** rising with Fresnel, tinted by
+the material's diffuse, **back faces culled**. So a pane is a single-sided quad facing out, seen
+from outside and invisible from inside, and the same atlas and material can serve it.
+
+`<Internal>true</Internal>` on a `PartModel` draws it only in the IVA camera (`PartModel.AddInstance`),
+so an interior meant to be seen through a window from outside has to be an ordinary model.
 
 ### What lets a part start a craft, and what lets one be bolted to
 
@@ -786,8 +933,9 @@ of puffs rather than a plume.
 `VelocityBub` does **not** smear the spawn and cannot be made to — see the last section of this
 file for why. What works is moving the emitter itself: the particles are left behind at the
 positions it occupied, and the frame's travel becomes the streak rather than a gap in one.
-`Ksa/TracerTrail.cs` and `Ksa/MotorPlume.cs` are both that shape, and they pay for it with one
-pooled emitter per moving thing — which is why the tracer only decorates a few shells at a time.
+`Ksa/MotorPlume.cs` is that shape, and pays for it with one pooled emitter per moving thing — which
+is why gun tracers are not particles at all but the mod's own compute pass
+(`Shaders/KSArmoryTracer.comp`): a particle tracer could only decorate eight shells at a time.
 
 ## Threading
 
@@ -796,6 +944,88 @@ gizmo submission and `Universe.DestroyVehicleFromEvent` are safe from there. Veh
 itself runs on worker threads via `VehicleUpdateTask`; do not mutate vehicle state from those.
 
 Never destroy vehicles while iterating `Program.VehiclesInFrame` — copy to a list first.
+
+## Every way the engine destroys a craft goes through one call
+
+A hard landing, the ground, the sea, a collision, too much g and too much dynamic pressure are all
+raised by `PhysicsBubble.DetectStructuralFailure` as a `VehicleDestructionEvent` and applied by
+`Universe.DestroyVehicleFromEvent` (public static), from `ApplyRenderEventsToVehicles` on the main
+thread. That spawns the explosion, sheds debris and calls `DestroyVehicle(Kill)`. A Harmony prefix
+there returning false is a per-vehicle veto on all of them at once; the event is raised again every
+step the vehicle stays in trouble. Installing one works; whether sparing a craft that way leaves it
+in a sane state has not been flown.
+
+## How large a craft the engine will take
+
+One part scaled from 12 km to 3,480 km, set down on Luna with `TeleportToLocation`:
+
+| Base length | Mass | Result |
+| --- | --- | --- |
+| 12–383 km | 5×10⁷ kg | set down, stands, drawn, no errors |
+| 383 km | 10¹² kg | NaN from the first step, logged every frame |
+| 1,160 km | 5×10⁷ kg | set down, but the camera never frames it |
+| 3,480 km | 5×10⁷ kg | left 1,723 km above the ground |
+
+Colliders cost with their size: two boxes spanning a 383 km part held the world at 0.09x real time
+(the engine holding every frame, the mod's own work 0.2 ms of it); one 2 km box under its middle ran
+at 1.00x. Past a few kilometres a flat base only touches a curved body in the middle anyway.
+
+## A vehicle in the sea
+
+Read off `PhysicsEnvironment`, `PhysicsStates` and `VehicleProperties`, and flown with a 134 m hull
+in 2026.9.22.5482.
+
+- **Buoyancy is a sphere, not a hull.** `RecomputeAerodynamicProperties` takes the bounding box —
+  of the colliders where a part has any, else of the mesh — as an elliptic cylinder,
+  `V = π/4 · Y · Z · X`; `RecomputeImmersion` immerses it linearly by how far the bottom of its
+  bounding sphere (radius the half-diagonal) is under the sea, `V · clamp(depth / 2R, 0, 1)`. A part
+  cannot declare a volume. For a long, low hull this floats nothing like a ship: at its real mass a
+  frigate's box rides with the keel tens of metres above the water, so the only lever is the mass,
+  chosen so the sphere puts the waterline where it belongs.
+- **The sphere's centre is the position plus an unrotated offset.** It adds `MassToGeometryAsmb`, an
+  assembly-frame vector, to a planet-frame position without turning it, so with the centre of mass
+  anywhere but the box's centre the waterline moves with where the craft is and which way it
+  points — flown, a 6.7 m offset rode the keel 2 m above the sea. Put the centre of mass at the box's
+  centre and it cannot matter. `docs/BLOCKED-ON-KSA.md` has it.
+- **The force acts at the centre of mass**, so there is no righting moment: a floating craft keeps
+  whatever roll and pitch it has, and anything that should come upright has to be given a torque.
+- **Water drag is the air's box drag with the ocean's density**, `(CdA + 0.1 × wetted area) · ½ρv²`
+  at the centre of mass (`ComputeDrag`). The box's CdA is per axis, so sideways drag dwarfs drag
+  along the long axis, and there is no lift. A slow floating craft goes on rails
+  (`CanInstantlyFloatOnRails`, about 0.07 m/s) at the same sphere's flotation height.
+- **Nothing pushes in water but a rocket engine**, whose nozzle reads only atmospheric pressure and
+  so thrusts underwater as at sea level. No propeller, electric drive or propellant-free engine
+  exists; a mod pushes a craft through water by writing velocity, as blast shoves do.
+- **The sea has waves, sampled at one point.** `OceanRadius` includes the wave height at the craft's
+  position: ±3.5 m off Monterey, and a 134 m hull heaved about ±2.8 m following one point where a
+  real one averages over its length.
+- **A craft's position is its centre of mass.** With the offset above at zero, the buoyancy sphere's
+  centre and `GetPositionEcl()` agreed to a centimetre, so a keel or any other point is measured down
+  from there by `CenterOfMassAsmb`. `KsaWorld.CentreOfMassEcl` adds that offset again, which reads
+  as a double count; `docs/CODE-HEALTH.md` has it.
+- **KSA's coastlines are not the real ones, and its shelves can be very shallow.** Its North Sea is
+  4–8 m deep for 20 km off the Dutch coast, where the real coast is further east; Monterey Bay has
+  24 m of water 2.7 km off the beach. Survey with the height field, never assume the atlas.
+
+**Reading a player's helm off a vehicle** needs no patch: `Vehicle.GetManualThrottle()` is the 0–1
+throttle the throttle keys ramp at 0.7/s, and `GetThrusterFlags()` carries `YawLeft`/`YawRight` (A/D),
+`TranslateBackward` (N) and the rest while held. Neither needs an engine or a thruster aboard, and
+a craft counts as controllable on `Parts.Controls.NumModules > 0`, so a `<Control />` is enough. The
+throttle is saved with the craft (`<EngineThrottle>`), so a save made mid-flight starts at whatever
+it was. And `Vehicle.PrepareWorker(SimStep)` hands a prefix the step the worker is about to
+integrate as `simStep.DeltaTime`.
+
+**Saving the game from a mod** is `GameSaves.MakeUncompressedSave(name)`, the console's `save` —
+public, and the way to turn a scenario set up through the bridge into a save somebody can load.
+
+## A manual throttle is capped at 0.9 of the airframe's g limit
+
+Since 2026.10.7.5541 `FlightComputer.ComputeControl` caps a non-Auto throttle at whatever keeps
+thrust under `0.9 * MaxGLoad * g` (`SolveGLoadThrottleCap`), and flags `IsThrottleGLoadLimited`.
+`MaxGLoad` is `VehicleStructuralLimits.EffectiveMaxGLoad` off the bounding sphere -- the same limit
+`IcbmProgram.StructuralMarginFraction` already holds the throttle to 0.9 of, so the two caps
+coincide and the engine's should not bind under the mod's. If they ever disagree, the computer
+reads the throttle the vehicle reports, so it sees the cap rather than fighting it.
 
 ## Held controls are cleared on the controlled vehicle while the UI has the keyboard
 
@@ -838,7 +1068,7 @@ centreOfMassAsmb, pointBody, normalBody, impulsePerArea, area)`**, which is publ
   enqueues under a lock and the vehicle's own module update drains the queue, so it can be called
   from a mod hook; `FxDeformation.Shared.TotalReported` counts what it accepted.
 
-`KsaWorld.ReportBlastDents` is the worked example. The mesh editor's **Add test dent** is the other
+`KsaWorld.ReportBlastDent` is the worked example. The mesh editor's **Add test dent** is the other
 way in, `FxDeformation.DebugImpact`, and places one at random.
 
 ## A compute pass can read KSA's weather shadows, but not through KSA's set
@@ -1004,7 +1234,7 @@ frame, and for a body-fixed bubble that axis is a compass bearing rather than an
 a turret.
 
 So an effect that has to *travel* is built by moving the emitter, one per moving thing, with the
-origin rewritten each frame. `Ksa/MotorPlume.cs` and `Ksa/TracerTrail.cs` are both that shape. The
+origin rewritten each frame. `Ksa/MotorPlume.cs` is that shape. The
 cost model follows from it: an emitter per object, out of a shared pool, so anything spawning tens
 of objects a second has to cap how many are decorated.
 

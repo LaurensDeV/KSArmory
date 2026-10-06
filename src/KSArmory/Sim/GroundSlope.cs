@@ -12,12 +12,12 @@ namespace KSArmory;
 /// at all**: where the round stops is decided by the ground rather than by the shot, and re-aiming
 /// walks away from the answer. <c>docs/KINETIC-FLOOR.md</c> section 5.</para>
 ///
-/// <para>This exists because that regime turned out not to be hypothetical. Measured over 1,273
-/// warheads at the flown site — 26.485S, 68.148W, in the Andes — the local slope runs to a median
+/// <para>That regime is not hypothetical. Measured over 1,273 warheads at 26.485S, 68.148W, in
+/// the Andes, the local slope runs to a median
 /// of 0.152 and a 90th percentile of 1.092, which at the flown 32° arrival puts a quarter of
 /// rockets past gain one, where their groups blow up from about 7 mm to 20–28 mm
 /// (<c>docs/ACCURACY-PLAN.md</c> 3ej). **A site has to be judged before a night is spent on it**,
-/// and until now the only instrument for that was flying the night.</para>
+/// and this judges it without flying.</para>
 /// </summary>
 public static class GroundSlope
 {

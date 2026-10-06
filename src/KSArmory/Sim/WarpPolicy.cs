@@ -151,8 +151,8 @@ internal sealed class WarpPolicy
         }
 
         // Asking is refused and the refusal cannot be told from a slow write, so the guard would
-        // count to FramesAwaitingWrite and abandon everything in the air — which is what deleted a
-        // store released high and then warped to. Whatever was already asked for is dropped rather
+        // count to FramesAwaitingWrite and abandon everything in the air — which deletes a store
+        // released high and then warped to. Whatever was already asked for is dropped rather
         // than left pending, or the count resumes where it left off when the warp ends.
         if (autoWarpRunning)
         {

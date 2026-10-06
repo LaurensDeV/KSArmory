@@ -93,8 +93,8 @@ internal static class Kepler
     /// <summary>
     /// How long this orbit takes to come round, or NaN for one that never does.
     ///
-    /// <para>The natural horizon for "when should the burn start": past one revolution the geometry
-    /// repeats, so a search that runs longer is re-examining answers it already has.</para>
+    /// <para>What the burn-window search counts its horizon in. The vehicle's own state repeats each
+    /// revolution; the ground under it does not, which is why that search runs several.</para>
     /// </summary>
     public static double PeriodSeconds(double mu, double3 positionCci, double3 velocityCci)
     {

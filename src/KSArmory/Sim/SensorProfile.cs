@@ -119,7 +119,7 @@ public sealed class SensorProfile
     public ScopePresentation Scope = ScopePresentation.None;
 
     /// <summary>
-    /// A track counts as a threat if its closest point of approach to the battery falls inside
+    /// A track counts as a threat if its closest point of approach to the system falls inside
     /// this radius (m). This is what makes "passing by" targets engageable rather than only
     /// head-on ones.
     /// </summary>
@@ -149,10 +149,9 @@ public sealed class SensorProfile
 
     // ---- What the set can tell targets apart by ------------------------------
     //
-    // Each of the three is off at zero, and zero is the default: with all three at zero the set
-    // behaves exactly as it did before any of them existed. They are the substrate for chaff and
-    // decoys, which need detection to depend on what a target *is* before either can mean
-    // anything -- see docs/AUDIT-2026-08.md.
+    // Each is off at its default, so a set that says nothing about them does not tell targets apart
+    // at all. They are the substrate for chaff and decoys, which need detection to depend on what a
+    // target *is* before either can mean anything -- see docs/AUDIT-2026-08.md.
 
     /// <summary>
     /// The cross-section <see cref="Range"/> is quoted against (m²). Zero means the set reaches
@@ -179,6 +178,25 @@ public sealed class SensorProfile
     /// speed and exists to ignore things drifting alongside.</para>
     /// </summary>
     public float NotchSpeed;
+
+    /// <summary>
+    /// How slowly a target must be closing for chaff beside it to break this set's track, in m/s. Zero
+    /// is a set chaff never breaks.
+    ///
+    /// <para>Its own number rather than <see cref="NotchSpeed"/>: a set can hold a beaming target on its
+    /// range gate and still have that gate captured by a bigger return at the same Doppler. See
+    /// <see cref="ChaffNotch"/>.</para>
+    /// </summary>
+    public float ChaffNotchMps;
+
+    /// <summary>Seconds a track chaff broke takes to be found again.</summary>
+    public float ChaffReacquireSeconds = 3f;
+
+    /// <summary>
+    /// Whether an optical channel holds a track the radar lost, so chaff breaks it once per pass through
+    /// the notch rather than on every cartridge.
+    /// </summary>
+    public bool OpticalBackup;
 
     /// <summary>
     /// Contacts less than this above the surface are lost in ground return (m). Zero means none.

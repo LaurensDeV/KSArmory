@@ -8,7 +8,7 @@ namespace KSArmory;
 /// The flash at the cannon's muzzles: one endless emitter per barrel cluster, held open while the
 /// gun is firing and for a moment after each round, then handed back.
 ///
-/// <para>Per battery rather than per round, which is the whole design. A CIWS cycles at 75 rounds
+/// <para>Per system rather than per round, which is the whole design. A CIWS cycles at 75 rounds
 /// a second; taking a burst emitter from the pool that often would drain it within a second and
 /// leave nothing anywhere in the world able to spawn particles again. A gun firing is one
 /// continuous event, so it gets one continuous emitter.</para>
@@ -27,7 +27,7 @@ namespace KSArmory;
 /// throw particles down the bore: the engine assigns <c>EmitterVelocity</c> only for a
 /// vehicle-parented emitter, so <c>InheritVelocity</c> has nothing to inherit from a celestial
 /// parent, and directional spawning is built about a fixed axis of the body frame rather than the
-/// turret's. See <see cref="TracerTrail"/>, which follows the shells instead.</para>
+/// turret's. They are <see cref="ShellTracers"/>, drawn in the shader pass.</para>
 ///
 /// <para>Emitters come from a pool, so every one taken must be returned — <see cref="ReleaseAll"/>
 /// is not tidiness, it is the reason this class holds any state at all. Same contract as
@@ -53,37 +53,37 @@ internal sealed class MuzzleFlash
 
     private static bool _warned;
 
-    /// <summary>Starts, moves and ends the flash for every battery whose cannon are firing.</summary>
-    public void Update(IEffectSource battery)
+    /// <summary>Starts, moves and ends the flash for every system whose cannon are firing.</summary>
+    public void Update(IEffectSource system)
     {
-        bool wanted = battery.PlumesEnabled
-                      && (battery.GunsFiring || battery.GunSecondsSinceShot < ShotFlashSeconds)
-                      && battery.Platform is not null
-                      && battery.HasGunFlash();
+        bool wanted = system.PlumesEnabled
+                      && (system.GunsFiring || system.GunSecondsSinceShot < ShotFlashSeconds)
+                      && system.Platform is not null
+                      && system.HasGunFlash();
 
         if (!wanted)
         {
-            Release(battery);
+            Release(system);
             return;
         }
 
-        Follow(battery);
+        Follow(system);
     }
 
     /// <summary>
-    /// Hands back the emitters of any battery the roster has forgotten.
+    /// Hands back the emitters of any system the roster has forgotten.
     ///
     /// <para>A craft destroyed mid-burst never reaches <see cref="Update"/> again, so without this
     /// its emitter is held for the rest of the session and the pool bleeds one per kill.</para>
     /// </summary>
     public void Sweep(WeaponSystems roster)
     {
-        foreach (IEffectSource battery in _firing.Keys)
+        foreach (IEffectSource system in _firing.Keys)
         {
-            if (!roster.Knows(battery)) _stopped.Add(battery);
+            if (!roster.Knows(system)) _stopped.Add(system);
         }
 
-        foreach (IEffectSource battery in _stopped) Release(battery);
+        foreach (IEffectSource system in _stopped) Release(system);
         _stopped.Clear();
     }
 
@@ -94,20 +94,20 @@ internal sealed class MuzzleFlash
         _firing.Clear();
     }
 
-    private void Follow(IEffectSource battery)
+    private void Follow(IEffectSource system)
     {
-        if (battery.Platform is not { } platform) return;
+        if (system.Platform is not { } platform) return;
 
         Span<double3> points = stackalloc double3[MaxClusters];
-        int count = battery.GunFlashPointsEcl(points);
+        int count = system.GunFlashPointsEcl(points);
         if (count <= 0) return;
 
-        if (!_firing.TryGetValue(battery, out Live? live))
+        if (!_firing.TryGetValue(system, out Live? live))
         {
             if (Acquire(platform, count) is not { } fresh) return;
 
             live = fresh;
-            _firing[battery] = live;
+            _firing[system] = live;
         }
 
         double3 centre = live.Body.GetPositionEcl();
@@ -118,34 +118,15 @@ internal sealed class MuzzleFlash
             double3 positionCcf = (points[i] - centre).Transform(cce2Ccf);
             if (!Vec.IsFinite(positionCcf)) continue;
 
-            Point(live.Clusters[i], new BubbleOrigin
-            {
-                Time = Universe.GetElapsedTime(),
-                Parent = live.Body,
-                BubFrame = BubbleFrame.Ccf,
-                PositionBub = positionCcf,
-
-                // Zero for the flash, and InheritVelocity is off to match: gas leaves the barrel
-                // and stays where the air is.
-                VelocityBub = double3.Zero,
-            });
+            // Zero velocity, and InheritVelocity is off to match: gas leaves the barrel and stays
+            // where the air is.
+            EmitterPool.Point(live.Clusters[i], EmitterPool.At(live.Body, positionCcf, double3.Zero));
         }
     }
 
     // More barrel clusters than any mount is going to have. A cap rather than a list so the
     // per-frame path allocates nothing.
     private const int MaxClusters = 8;
-
-    private static void Point(List<ParticleEmitter<ParticleUpdateData, ParticleRenderData>.Handle> handles,
-                              BubbleOrigin origin)
-    {
-        foreach (var handle in handles)
-        {
-            if (handle.TryGet() is not { } emitter) continue;
-
-            emitter.Origin = origin;
-        }
-    }
 
     private static Live? Acquire(Vehicle platform, int clusters)
     {
@@ -158,10 +139,16 @@ internal sealed class MuzzleFlash
             var sets = new List<List<ParticleEmitter<ParticleUpdateData, ParticleRenderData>.Handle>>();
             for (int i = 0; i < clusters; i++)
             {
-                if (Take(FlashId, body) is not { } set)
+                if (EmitterPool.Take(FlashId, body) is not { } set)
                 {
+                    if (!_warned)
+                    {
+                        _warned = true;
+                        Log.Warn($"no free emitters for '{FlashId}'; the cannon will fire without it");
+                    }
+
                     // Give back whatever was taken, or they leak for the session.
-                    foreach (var taken in sets) Give(new Live { Body = body, Clusters = [taken] });
+                    foreach (var taken in sets) EmitterPool.Give(body, taken);
                     return null;
                 }
 
@@ -183,57 +170,15 @@ internal sealed class MuzzleFlash
         }
     }
 
-    private static List<ParticleEmitter<ParticleUpdateData, ParticleRenderData>.Handle>? Take(
-        string id, Celestial body)
+    private void Release(IEffectSource system)
     {
-        if (!Program.Instance.ParticleSystem.GetAndInitializeEmitters(id, out var handles)
-            || handles is null || handles.Count == 0)
-        {
-            if (!_warned)
-            {
-                _warned = true;
-                Log.Warn($"no free emitters for '{id}'; the cannon will fire without it");
-            }
-            return null;
-        }
-
-        foreach (var handle in handles)
-        {
-            if (handle.TryGet() is not { } emitter) continue;
-
-            emitter.Context.Astronomical = body;
-            emitter.Context.Vehicle = null;
-            emitter.Context.Part = null;
-            body.AddEmitter(handle);
-        }
-
-        return [.. handles];
-    }
-
-    private void Release(IEffectSource battery)
-    {
-        if (!_firing.Remove(battery, out Live? live)) return;
+        if (!_firing.Remove(system, out Live? live)) return;
 
         Give(live);
     }
 
     private static void Give(Live live)
     {
-        // Kill() first, and it is what actually stops it. Celestial.RemoveEmitter only drops the
-        // handle from that body's list; ParticleSystem.UpdateEmitters walks the whole pool, so a
-        // removed emitter keeps being updated. An Endless one never completes its own simulation,
-        // so it spawns for the rest of the session and is never returned to the pool -- which is
-        // seen as particles frozen where the emitter last was, and eventually as nothing in the
-        // world being able to spawn any.
-        foreach (var set in live.Clusters)
-        foreach (var handle in set)
-        {
-            try
-            {
-                if (handle.TryGet() is { } emitter) emitter.Kill();
-                live.Body.RemoveEmitter(handle);
-            }
-            catch { /* A body torn down mid-frame has already taken its emitters with it. */ }
-        }
+        foreach (var set in live.Clusters) EmitterPool.Give(live.Body, set);
     }
 }

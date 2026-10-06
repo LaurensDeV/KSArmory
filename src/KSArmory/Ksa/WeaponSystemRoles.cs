@@ -129,6 +129,21 @@ internal interface IOpticalHead : IWeaponPlatform
     /// <summary>True once the head has caught up with what it was told to look at.</summary>
     bool OpticOnTarget { get; }
 
+    /// <summary>True while its own craft stands across its line of sight.</summary>
+    bool Masked { get; }
+
+    /// <summary>Whether its gimbal is at a limit and will go no further.</summary>
+    bool AtGimbalLimit { get; }
+
+    /// <summary>Whether it carries a laser at all.</summary>
+    bool HasLaser { get; }
+
+    /// <summary>Its laser is wanted and held off by <see cref="Masked"/>.</summary>
+    bool LaserInhibited { get; }
+
+    /// <summary>Where its laser is landing, or null.</summary>
+    LaserSpot? Spot { get; }
+
     /// <summary>The contact the sensor is holding, or null.</summary>
     Track? LockedTrack { get; }
 
@@ -165,7 +180,7 @@ internal interface IOpticalHead : IWeaponPlatform
     bool TryOpticViewEcl(out double3 eyeEcl, out double3 forwardEcl);
 
     /// <inheritdoc cref="OpticalHead.TryOpticViewEclAt"/>
-    bool TryOpticViewEclAt(double3 platformEcl, out double3 eyeEcl, out double3 forwardEcl);
+    bool TryOpticViewEclAt(double3 platformEcl, out double3 eyeEcl, out double3 forwardEcl, int viewIndex = -1);
 }
 
 /// <summary>
@@ -323,7 +338,7 @@ internal interface IManualFire : IWeaponPlatform, IWeaponLoadout
     bool CanGuideOnto(double3 pointEcl);
 
     /// <summary>Opens a cannon burst along wherever the mount is laid.</summary>
-    bool FireBurst();
+    bool FireBurst(int rounds = 0);
 
     /// <summary>Which armament the manual trigger fires, and so which one a click on the world does.</summary>
     ArmamentKind TriggerArmament { get; }
@@ -364,8 +379,8 @@ internal interface IWeaponSystemView : IRoundsInFlight, IWeaponLoadout
     /// a release makes, ejector and spin included, so a sight flown from it predicts the release.
     ///
     /// <para>False when there is no next release: an empty rack, or one whose every tube is still
-    /// holding the round it fired. There is no answer to give then, and giving one is what left a
-    /// pipper on the ground under a rack that had nothing left to drop.</para>
+    /// holding the round it fired. There is no answer to give then, and giving one leaves a pipper
+    /// on the ground under a rack that has nothing left to drop.</para>
     /// </summary>
     bool TryNextReleaseEcl(out double3 positionEcl, out double3 velocityEcl);
 

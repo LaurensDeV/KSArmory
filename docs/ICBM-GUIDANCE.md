@@ -764,7 +764,10 @@ Four things make it honest rather than self-confirming, and the first two were e
 
 ## The correction is also right for one release epoch, and the bus lets go at another
 
-**Unfixed. Measured headlessly; the mechanism is established and the flown magnitude is not.**
+**Superseded.** Every warhead is now kicked off the miss its own release probe predicts from its own release state
+(`IcbmConfig.CancelProbeMissAtSeparation`, with the 1 m/s caps), so whatever the coast did by the epoch a warhead
+leaves at is cancelled for that warhead; flown at millimetres from 25 to 12,900 km on 2026-10-06. The section is
+kept for the mechanism. It read, when written: unfixed, measured headlessly.
 
 Flown, four deorbits of the same 2,300–2,700 km range, every one cutting off within 0.1 km of its
 own prediction: the warheads landed further off the later they were let go — 431 m at a ~50 s
@@ -931,8 +934,9 @@ next section.
 
 ## The ground a round meets, and a correction that did not survive flight
 
-**Open.** A round lands further from its own release prediction than either the flight model or the
-predictor can account for, and the obvious fix made it worse.
+**Fixed since** (`docs/ACCURACY-PLAN.md` 3cs; `IcbmConfig.ResampleGroundAtImpact`, which re-reads the ground under
+every sub-step within 200 m of it). It read, when written: a round lands further from its own release prediction
+than either the flight model or the predictor can account for, and the obvious fix made it worse.
 
 `IGroundTest` answers with a **body centre and a surface radius**, and the round holds both for the
 frame — one terrain lookup instead of one per sub-step, which is what makes a 150-shell burst

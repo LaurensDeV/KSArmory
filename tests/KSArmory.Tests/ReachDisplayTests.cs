@@ -196,6 +196,39 @@ public class ReachDisplayTests(ITestOutputHelper Out)
         Assert.Equal(ReachVerdict.OffBody, Display([]).Verdict(TargetClick.Add, false, 0.0, 0.0));
     }
 
+    /// <summary>
+    /// A full set draws no ring and is still measured, because the computer places its targets off
+    /// the reach it drew last: refusing them leaves every target without warheads and no walk at all.
+    /// </summary>
+    [Fact]
+    public void AFullSetIsStillMeasuredSoItCanWalk()
+    {
+        ReachDisplay first = Display([Lead]);
+        Assert.True(first.TryAxes(Earth, out _, out double3 minor));
+        double3 step = minor * (1_000.0 / Vec.Len(minor));
+
+        ReachDisplay previous = first;
+        ReachDisplay full = first;
+
+        for (int pass = 0; pass < 2; pass++)
+        {
+            var placed = new List<ReachDisplay.Placed>();
+            for (int k = 0; k < TargetSet.MaxTargets; k++)
+            {
+                bool known = previous.TryOffsets(Earth, step * k, out double along, out double cross);
+                placed.Add(new ReachDisplay.Placed(along, cross, known ? 1 : 0));
+            }
+
+            full = Display(placed);
+            previous = full;
+        }
+
+        Assert.Equal(ReachHold.Full, full.Hold);
+        Assert.False(full.HasRegion);
+        Assert.True(full.TryOffsets(Earth, step, out _, out _));
+        Assert.Equal(TargetSet.MaxTargets, full.Flown.Stops);
+    }
+
     /// <summary>Six is all a bus goes to, and the region stops being drawn at it.</summary>
     [Fact]
     public void AFullSetHasNoRegionAndTakesNoClick()

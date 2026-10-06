@@ -81,9 +81,9 @@ public class ChaseStopShortTests
     {
         Assert.Equal(ChaseView.MinWatchSeconds, ChaseView.WatchSeconds(3.3));
         Assert.Equal(ChaseView.MinWatchSeconds, ChaseView.WatchSeconds(MushroomCloud.ThresholdKg - 1.0));
-        Assert.InRange(ChaseView.WatchSeconds(0.3e6), 4.0, 4.5);
-        Assert.InRange(ChaseView.WatchSeconds(10.0e6), 13.0, 14.0);
-        Assert.InRange(ChaseView.WatchSeconds(340.0e6), 43.0, 44.0);
+        Assert.InRange(ChaseView.WatchSeconds(0.3e6), 6.2, 6.7);
+        Assert.InRange(ChaseView.WatchSeconds(10.0e6), 20.0, 21.5);
+        Assert.InRange(ChaseView.WatchSeconds(340.0e6), 66.5, 67.5);
 
         // A 340 kt bomb falling at 250 m/s 30 s out is inside its watch; a 0.3 kt one is not.
         double3 falling = new(0.0, 0.0, -250.0);
@@ -108,7 +108,7 @@ public class ChaseStopShortTests
         Assert.True(near.Z > Vec.Unit(toBurst).Z);
 
         // From as far as the column height was chosen at, it is looked at as it always was.
-        double3 farBurst = new(2000.0, 0.0, -150.0);
+        double3 farBurst = new(3000.0, 0.0, -150.0);
         double3 farColumn = farBurst + new double3(0.0, 0.0, lift);
         Assert.Equal(Vec.Unit(farColumn), ChaseView.WatchBurstForward(farBurst, farColumn, 60.0));
     }

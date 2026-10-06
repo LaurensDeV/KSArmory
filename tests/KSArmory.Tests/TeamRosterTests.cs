@@ -16,18 +16,18 @@ namespace KSArmory.Tests;
 /// </summary>
 public class TeamRosterTests
 {
-    private static readonly List<string> Sides = ["Red", "Blue"];
-
-    /// <summary>A craft nothing has spoken for falls through to its name, as it always did.</summary>
+    /// <summary>
+    /// A craft nobody has spoken for is on no team, whatever it is called. A name says what a craft
+    /// is called, not whose it is, and "Redstone" is not on Red.
+    /// </summary>
     [Fact]
-    public void ACraftNobodyHasPlacedIsPlacedByItsName()
+    public void ACraftNobodyHasPlacedIsOnNoTeam()
     {
         var roster = new TeamRoster();
-        var craft = new object();
+        var iff = new IffPolicy { OwnTeam = "Red" };
 
-        Assert.Null(roster.For(craft));
-        Assert.Equal("Red", roster.TeamFor(craft, "Red Leader", Sides));
-        Assert.Null(roster.TeamFor(craft, "Kerbal X", Sides));
+        Assert.Null(roster.For(new object()));
+        Assert.Equal(Allegiance.Unknown, iff.Classify(roster.For(new object())));
     }
 
     /// <summary>
@@ -46,8 +46,8 @@ public class TeamRosterTests
         var iff = new IffPolicy { OwnTeam = "Blue" };
 
         Assert.Equal(Allegiance.Friendly,
-                     iff.Classify(roster.TeamFor(phalanx, "Mk 15 Phalanx", Sides)));
-        Assert.False(iff.MayEngageTeam(roster.TeamFor(phalanx, "Mk 15 Phalanx", Sides)));
+                     iff.Classify(roster.For(phalanx)));
+        Assert.False(iff.MayEngageTeam(roster.For(phalanx)));
     }
 
     /// <summary>
@@ -60,31 +60,13 @@ public class TeamRosterTests
         var roster = new TeamRoster();
         var iff = new IffPolicy { OwnTeam = "Blue" };
 
-        Assert.Equal(Allegiance.Unknown, iff.Classify(roster.TeamFor(new object(), "Mk 15 Phalanx", Sides)));
-        Assert.True(iff.MayEngageTeam(roster.TeamFor(new object(), "Mk 15 Phalanx", Sides)));
+        Assert.Equal(Allegiance.Unknown, iff.Classify(roster.For(new object())));
+        Assert.True(iff.MayEngageTeam(roster.For(new object())));
     }
 
-    /// <summary>
-    /// The flag beats the name, because it is the one somebody set on purpose — and because the
-    /// substring rule has no way to tell "Redstone" from a craft on Red.
-    /// </summary>
+    /// <summary>A blank flag is no team, not a team called nothing.</summary>
     [Fact]
-    public void WhatTheFlagSaysBeatsWhatTheNameSays()
-    {
-        var roster = new TeamRoster();
-        var craft = new object();
-
-        roster.Declare(craft, "Blue");
-
-        Assert.Equal("Blue", roster.TeamFor(craft, "Red Leader", Sides));
-    }
-
-    /// <summary>
-    /// Declaring nothing is not declaring "no team": a craft whose flag is clear is still placed
-    /// by its name, which is the only thing left that can place it.
-    /// </summary>
-    [Fact]
-    public void ABlankDeclarationLeavesTheNameToAnswer()
+    public void ABlankDeclarationIsNoTeam()
     {
         var roster = new TeamRoster();
         var craft = new object();
@@ -93,7 +75,6 @@ public class TeamRosterTests
         roster.Declare(craft, "   ");
 
         Assert.Null(roster.For(craft));
-        Assert.Equal("Red", roster.TeamFor(craft, "Red Leader", Sides));
     }
 
     /// <summary>

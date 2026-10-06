@@ -9,11 +9,9 @@ namespace KSArmory;
 /// 45 km — 40x to 300x, which is not a distribution with a tail. Everything upstream of it, the
 /// guidance and the burn and the arrival angle, is worth less than whether this loop finishes.</para>
 ///
-/// <para>It lived in <c>Ksa/IcbmComputer.cs</c> until it was measured, which meant the largest term
-/// in the mod's accuracy could only be examined by flying a night — and a night needs a working
-/// game and a machine that happens to be in the fast regime, which turned out not to be
-/// dependable. <c>docs/MIRV-NEXT.md</c> <b>8ac</b>. The pieces it orchestrates were always here;
-/// only the order they run in was not.</para>
+/// <para>It is here rather than in <c>Ksa/IcbmComputer.cs</c> so the largest term in the mod's
+/// accuracy can be examined headlessly rather than only by flying a night.
+/// <c>docs/MIRV-NEXT.md</c> <b>8ac</b>.</para>
 /// </summary>
 internal static class PostCutoffSequence
 {

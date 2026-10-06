@@ -22,7 +22,11 @@ namespace KSArmory.Tests;
 /// thin, and by then the stack is at ~65 km doing ~3 km/s — already more than a short shot needs,
 /// so there is nothing left for the loop to decide. The floor is the ascent, and the ascent is
 /// flown before anything knows how far away the target is.</para>
+///
+/// <para>This rig is two liquid stages that throttle and stop on command; the stack the game flies
+/// is in <see cref="GameStackShortRangeTests"/>.</para>
 /// </summary>
+[Trait("kind", "study")]
 public class ShortRangeAscentTests(ITestOutputHelper Out)
 {
     private const double Mu = 3.986004418e14;
@@ -30,7 +34,7 @@ public class ShortRangeAscentTests(ITestOutputHelper Out)
 
     private static BallisticBody Earth => new(Mu, R, new double3(0, 0, 1), 7.2921159e-5);
 
-    private static double3 OnTheGround(double eastMetres)
+    internal static double3 OnTheGround(double eastMetres)
     {
         double a = eastMetres / R;
         return new double3(R * Math.Cos(a), R * Math.Sin(a), 0.0);
@@ -40,7 +44,7 @@ public class ShortRangeAscentTests(ITestOutputHelper Out)
     // IcbmFlightTests' own pad rig, unchanged, because it is the one configuration known to fly a
     // ground launch here. The vehicle has to start co-rotating -- a pad is not at rest in Cci -- and
     // varying anything else would make the range stop being the only variable.
-    private static IcbmFlightRig PadRig()
+    internal static IcbmFlightRig PadRig()
     {
         double3 pad = OnTheGround(0.0);
 

@@ -60,7 +60,7 @@ Do not push yet if you want to inspect the diff first — it is local either way
 ./tools/ksa-api-diff.sh ../ksa-game-assemblies
 ```
 
-This reads `docs/KSA-API-SURFACE.md` — the 664 members this mod genuinely binds to, extracted
+This reads `docs/KSA-API-SURFACE.md` — the 801 members this mod genuinely binds to, extracted
 from the compiled assembly's metadata — against the new corpus, and answers two questions:
 
 **Missing members.** Mechanical and precise. Each one is a break you must fix. `MOVED` means it
@@ -112,7 +112,9 @@ claim still holds.
 | A particle feels gravity times `1 - airDensity / Density`, with no air below 100 Pa, and an unknown XML element is dropped without a word | `ParticleEmitter.cs`, `ParticleEmitterReference.cs` | Every smoke stage in `KSArmoryParticles.xml` sinks instead of rising, and the tracers fall. |
 | `ExplosionSystem.SpawnPreset` sizes a burst by `IntensityJ / 5e10`, floored at 0.05, and Core's presets keep their Ids and fireball radii | `ExplosionSystem.cs`, `ExplosionIntensity.cs`, `Content/Core/ExplosionAssets.xml` | Warheads go off at the wrong size, or not at all. `Sim/WarheadExplosion.cs` copies the floor and two radii, and the load log's `warhead explosion ... DID NOT RESOLVE` names a lost Id. |
 | `Part.CrashTolerancePascals` is derived from collider volume against `PartStructuralLimits.BaseStrength` | `Part.cs`, `PartStructuralLimits.cs` | `BlastDamage.ReferencePascals` stops being KSA's `BaseStrength`, and every warhead's reach against every part moves by the cube root of the difference. Move the constant with it. |
-| Drag is `AerodynamicCdABody` against the body-frame airflow, plus `0.1 × TotalSurfaceArea`, times ½ρv² over the mass — no lift, no Mach, no torque | `PhysicsStates.cs` (`ComputeDrag`), `BoundingBoxCdA.cs` | The gun leads every target on a copy of this. **RocketWerkz are working on aerodynamics**, so expect it to move; `docs/BLOCKED-ON-KSA.md` has the check to fly and what to change. |
+| Drag is `AerodynamicCdABody` against the body-frame airflow, plus `0.1 × TotalSurfaceArea`, times ½ρv² over the mass — no lift, no Mach, and only a rate-damping torque | `PhysicsStates.cs` (`ComputeDrag`), `BoundingBoxCdA.cs` | The gun leads every target on a copy of this. **RocketWerkz are working on aerodynamics**, so expect it to move; `docs/BLOCKED-ON-KSA.md` has the check to fly and what to change. |
+| A trail segment swells as an entraining jet, `r₀·∛(1 + t/T)` with `T = r₀ / (3·0.2·v)` on its release speed, laid at 1.65 nozzle radii, and at rest keeps its laid radius and full heat | `PlumeVertex.cs`, `PlumeTimingProfile.cs`, `PlumeTrailEmitterTracker.cs`, `PlumeTrailSettings.cs` | `PlumeSmoke` derives a release speed from these to swell in 5 s; move them and every motor and flare trail changes width or glows. |
+| A non-Auto throttle is capped at `0.9 × MaxGLoad × g` | `FlightComputer.cs` (`SolveGLoadThrottleCap`) | It coincides with `IcbmProgram.StructuralMarginFraction`; a different factor makes the engine and the ballistic computer's caps disagree. |
 
 | A part tree's derived data is rebuilt once a frame by `PartTree.FlushDirtyDerived`, before the vehicle solvers, or on `EnsureDerived`; `SequenceList.Sequences` does not ask for it | `PartTree.cs`, `Program.cs` (`PrepareFrame`) | `LauncherSeparation` reads a staging list from before a split. It calls `EnsureDerived(DerivedData.Sequences)` for this reason. |
 | `ResetCachedPosMatrixValues` also marks the tree's `PartTreeRenderData` dirty, and part matrices are packed to `float` per term and multiplied there | `Part.cs`, `PartTreeRenderData.cs` | A subpart write without the reset is never drawn, not just drawn stale; and a round far from its launcher shivers however close the camera is. |
@@ -146,6 +148,13 @@ What to look for, in order of how quietly it fails:
 - **A renamed Core Id** the mod references — a mesh, a material, an editor tag.
   `./tools/validate-parts.py` catches this class, but **only run against the install**; with
   `--offline` it cannot see Core at all and passes regardless.
+- **A renamed or new body in `Astronomicals.xml`.** `src/KSArmory/KSArmory/Bodies.xml` is keyed by body
+  Id; a renamed body silently loses its field and airglow. The game logs "names no body in this solar
+  system" once the world loads -- read for it, and give any new body an entry.
+- **A different atmosphere model.** Every altitude law in the nuclear effects assumes KSA's air is
+  isothermal, `SeaLevel·exp(-h/H)` for pressure and density alike (`PhysicalAtmosphereReference`), cut
+  off at its boundary height. If `GetAtmosphericPressureAtAltitude` or `...DensityAtAltitude` stop
+  sharing that form, `Sim/BodyAir.cs` no longer mirrors the game and `BodyAirTests` will not notice.
 
 ## 5. Build, fix, test
 

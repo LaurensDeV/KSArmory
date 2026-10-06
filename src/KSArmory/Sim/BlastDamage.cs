@@ -9,8 +9,8 @@ namespace KSArmory;
 /// The caller's own handle on the part. Opaque here, so the sweep never holds an engine object.
 /// </param>
 /// <param name="PositionEcl">
-/// Where the part is, sampled at the frame start like every other body in the sweep — carried
-/// forward to the burst's instant by the craft's own velocity, which is what
+/// Where the part is, sampled at the step's end like every other body in the sweep — carried
+/// back to the burst's instant by the craft's own velocity, which is what
 /// <see cref="BlastSweep.SurfaceGap"/> exists to do.
 /// </param>
 /// <param name="RadiusMetres">
@@ -21,8 +21,13 @@ namespace KSArmory;
 /// What the engine says it takes to break this part. Derived from its mass and volume unless the
 /// part template overrides it, so a profile never has to say anything about damage.
 /// </param>
+/// <param name="Reflection">
+/// What the ground under the burst adds to the blast at the part, as a multiple of the free-air
+/// overpressure (<see cref="GroundReflection.GainAt"/>): one in free air, which is what the damage law
+/// is calibrated in. The law goes as the cube of the distance, so it scales the charge.
+/// </param>
 internal readonly record struct DamageablePart(
-    int Index, double3 PositionEcl, double RadiusMetres, double CrashTolerancePascals);
+    int Index, double3 PositionEcl, double RadiusMetres, double CrashTolerancePascals, double Reflection = 1.0);
 
 /// <summary>
 /// One front's load on one part, as <see cref="BlastDamage.Combine"/> adds it to the others reaching
@@ -140,7 +145,7 @@ internal static class BlastDamage
 
     /// <summary>
     /// A load in real pascals beside the real overpressure that breaks the same part, both at sea
-    /// level: what <see cref="CombinedDentRatio"/> adds up. The failure radius scales with the cube
+    /// level: what <see cref="Combine"/> adds up. The failure radius scales with the cube
     /// root of the charge, so the breaking overpressure is the part's, whatever the burst.
     /// </summary>
     public static (double RealPascals, double BreakingPascals) RealLoad(double chargeKg, double crashTolerancePascals,
@@ -148,6 +153,37 @@ internal static class BlastDamage
     {
         return (BlastWave.PeakOverpressurePascals(chargeKg, gap),
                 BlastWave.PeakOverpressurePascals(chargeKg, FailureRadius(chargeKg, crashTolerancePascals)));
+    }
+
+    /// <summary>
+    /// How much of a part one burst uses up: its real overpressure over the real overpressure that
+    /// breaks the part, so one or more exactly where <see cref="FailureRadius"/> says it breaks and a
+    /// fraction beyond it, falling as the real wave does rather than as the cube. Nothing past
+    /// <see cref="Warhead.BlastRadius"/>. The units <see cref="Combine"/> adds fronts in.
+    /// </summary>
+    public static double Share(double chargeKg, double crashTolerancePascals, double gap)
+    {
+        if (!(gap <= Warhead.BlastRadius(chargeKg))) return 0.0;
+        if (gap <= FailureRadius(chargeKg, crashTolerancePascals)) return Math.Max(1.0, Real(chargeKg, crashTolerancePascals, gap));
+
+        return Math.Min(Real(chargeKg, crashTolerancePascals, gap), 1.0);
+
+        static double Real(double charge, double tolerance, double gap)
+        {
+            (double real, double breaking) = RealLoad(charge, tolerance, gap);
+            return breaking > 0.0 && double.IsFinite(real) ? real / breaking : 0.0;
+        }
+    }
+
+    /// <summary>
+    /// What meeting adds to fronts reaching one part together, over each counted alone at its
+    /// flash: the most head-on pair's reflection off a wall, against what breaks the part. Never
+    /// negative, because what a front did at its arrival is not undone by the next one arriving.
+    /// </summary>
+    public static double MeetingShare(ReadOnlySpan<FrontLoad> loads)
+    {
+        double extra = Reflected(loads, out double breaking);
+        return breaking > 0.0 ? extra / breaking : 0.0;
     }
 
     /// <summary>
@@ -176,6 +212,18 @@ internal static class BlastDamage
         if (!(breaking > 0.0)) return (strongest, 0.0);
         if (loads.Length == 1) return (loads[0].Ratio, sum / breaking);
 
+        double share = (sum + Reflected(loads, out _)) / breaking;
+        double ratio = Math.Pow(share, Math.Log(EngineDentShare) / Math.Log(YieldShare));
+        return (Math.Max(ratio, strongest), share);
+    }
+
+    // The largest head-on pair's reflection over the two simply adding, in pascals, beside the
+    // real overpressure that breaks the part.
+    private static double Reflected(ReadOnlySpan<FrontLoad> loads, out double breaking)
+    {
+        breaking = 0.0;
+        foreach (FrontLoad load in loads) breaking = Math.Max(breaking, load.BreakingPascals);
+
         double extra = 0.0;
         for (int i = 0; i < loads.Length; i++)
         {
@@ -193,9 +241,7 @@ internal static class BlastDamage
             }
         }
 
-        double share = (sum + extra) / breaking;
-        double ratio = Math.Pow(share, Math.Log(EngineDentShare) / Math.Log(YieldShare));
-        return (Math.Max(ratio, strongest), share);
+        return extra;
     }
 
     /// <summary>
@@ -222,7 +268,7 @@ internal static class BlastDamage
 
             double gap = BlastSweep.SurfaceGap(part.PositionEcl, velocityEcl, sinceSample,
                                                burstEcl, part.RadiusMetres);
-            double ratio = DentRatio(munition.ChargeKg, part.CrashTolerancePascals, gap);
+            double ratio = DentRatio(munition.ChargeKg * part.Reflection, part.CrashTolerancePascals, gap);
 
             if (ratio > 0.0) into.Add((part.Index, ratio, gap));
         }
@@ -233,8 +279,8 @@ internal static class BlastDamage
     /// indices they were handed over with.
     ///
     /// <para><paramref name="sinceSample"/> and <paramref name="velocityEcl"/> pair the parts with
-    /// the burst the same way the craft sweep pairs a whole vehicle: the positions were taken
-    /// before the round finished its step. Per part rather than per craft would be more exact by
+    /// the burst the same way the craft sweep pairs a whole vehicle: the positions belong to the
+    /// step's end, and the round burst part-way through it. Per part rather than per craft would be more exact by
     /// the craft's rotation over one step, which is centimetres, and there is no per-part velocity
     /// to read anyway.</para>
     /// </summary>
@@ -252,10 +298,33 @@ internal static class BlastDamage
             double gap = BlastSweep.SurfaceGap(part.PositionEcl, velocityEcl, sinceSample,
                                                burstEcl, part.RadiusMetres);
 
-            if (gap <= FailureRadius(munition.ChargeKg, part.CrashTolerancePascals))
+            if (gap <= FailureRadius(munition.ChargeKg * part.Reflection, part.CrashTolerancePascals))
             {
                 failed.Add(part.Index);
             }
+        }
+    }
+
+    /// <summary>
+    /// Every part of one craft this burst reaches, with its <see cref="Share"/>: what
+    /// <see cref="Sweep"/> breaks is exactly what comes out at one or more.
+    /// </summary>
+    public static void Shares(double3 burstEcl, double sinceSample, double3 velocityEcl,
+                              ReadOnlySpan<DamageablePart> parts, MunitionProfile munition,
+                              List<(int Index, double Share)> into)
+    {
+        ArgumentNullException.ThrowIfNull(munition);
+        ArgumentNullException.ThrowIfNull(into);
+
+        for (int i = 0; i < parts.Length; i++)
+        {
+            DamageablePart part = parts[i];
+
+            double gap = BlastSweep.SurfaceGap(part.PositionEcl, velocityEcl, sinceSample,
+                                               burstEcl, part.RadiusMetres);
+            double share = Share(munition.ChargeKg * part.Reflection, part.CrashTolerancePascals, gap);
+
+            if (share > 0.0) into.Add((part.Index, share));
         }
     }
 }

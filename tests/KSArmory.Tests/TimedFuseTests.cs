@@ -78,7 +78,7 @@ public class TimedFuseTests
         var velocity = new double3(0, 300, 0);
         Slug slug = Fired(new double3(1_000, 0, 0), 2.0);
 
-        // Resampled every frame, the way the battery feeds it. One fixed snapshot would park the
+        // Resampled every frame, the way the system feeds it. One fixed snapshot would park the
         // target where the shell was aimed and the proximity fuse would take it first.
         for (double t = 0.0; slug.State == RoundState.Flying; t += 0.1)
         {

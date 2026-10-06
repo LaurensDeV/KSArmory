@@ -201,6 +201,46 @@ public static class TubeGeometry
     }
 
     /// <summary>
+    /// The cannon's actuator: the cylinder turning on its pin on the traverse, the rod turning with
+    /// it and riding the cannon's pin. Each mesh is exported recentred on its own pin.
+    /// </summary>
+    public static (DrivePose Cylinder, DrivePose Rod) ActuatorPoses(LauncherProfile profile,
+                                                                   double bearingRad, double elevationRad)
+    {
+        doubleQuat traverse = TurretRotation(bearingRad);
+        double3 rodPin = ActuatorLinkage.RodPin(profile.GunPivotFromTurret, profile.GunRodPinFromTurret,
+                                                profile.GunReferenceElevationRad - elevationRad);
+        double turn = ActuatorLinkage.TurnRad(profile.GunCylinderPinFromTurret, profile.GunRodPinFromTurret, rodPin);
+        doubleQuat rotation = traverse * doubleQuat.CreateFromAxisAngle(ElevationAxis, turn);
+
+        return (new DrivePose(profile.TurretPivot + traverse * profile.GunCylinderPinFromTurret, rotation),
+                new DrivePose(profile.TurretPivot + traverse * rodPin, rotation));
+    }
+
+    /// <summary>
+    /// A rotary cannon's barrel cluster: the cannon's own pose, turned about the bore through the
+    /// cluster's pivot. Riding the cannon's trunnion, it cannot part from the breech.
+    /// </summary>
+    public static DrivePose RotorPose(LauncherProfile profile, double bearingRad, double elevationRad,
+                                      double spinRad)
+    {
+        DrivePose gun = GunPose(profile, bearingRad, elevationRad);
+        doubleQuat spin = doubleQuat.CreateFromAxisAngle(GunAxisGunFrame(profile), spinRad);
+        return new DrivePose(gun.Position + gun.Rotation * (profile.GunRotorPivotFromTurret - profile.GunPivotFromTurret),
+                             gun.Rotation * spin);
+    }
+
+    /// <summary>The cannon's feed, turning on its own pin by a fixed share of the cannon's elevation.</summary>
+    public static DrivePose FeedPose(LauncherProfile profile, double bearingRad, double elevationRad)
+    {
+        doubleQuat traverse = TurretRotation(bearingRad);
+        doubleQuat follow = doubleQuat.CreateFromAxisAngle(
+            ElevationAxis, profile.GunFeedRatio * (profile.GunReferenceElevationRad - elevationRad));
+
+        return new DrivePose(profile.TurretPivot + traverse * profile.GunFeedPivotFromTurret, traverse * follow);
+    }
+
+    /// <summary>
     /// An assembly that elevates about a trunnion offset from the traverse axis, then rides the
     /// turret round. Because the trunnion is offset, the position moves with the traverse and has
     /// to be rewritten too.
@@ -375,13 +415,14 @@ public static class TubeGeometry
     ///
     /// <para><b>The anchor is a point in the world, written down in the part's frame.</b> The
     /// travel term is converted through the craft's <em>current</em> attitude every frame and so
-    /// stays put; the anchor was not, so it rode the craft. Rolling the launcher then swung every
-    /// round already in flight about the craft's own centre — on a stack that lever arm is the
-    /// whole distance from the tube to the centre of mass, which is metres, not millimetres.</para>
+    /// stays put; an anchor left in the part frame rides the craft, and rolling the launcher then
+    /// swings every round already in flight about the craft's own centre — on a stack that lever arm
+    /// is the whole distance from the tube to the centre of mass, which is metres, not
+    /// millimetres.</para>
     ///
     /// <para><paramref name="sinceLaunchAsmb"/> is <c>Conjugate(attitude now) * attitude at
     /// launch</c>: identity while the craft holds still, so a launcher that never turns is
-    /// untouched by this and every round fired before it behaves exactly as it did.</para>
+    /// untouched by this.</para>
     /// </summary>
     public static double3 CarryAnchor(double3 anchorPartFrame, doubleQuat sinceLaunchAsmb,
                                       doubleQuat asmb2Part)
@@ -392,9 +433,8 @@ public static class TubeGeometry
         return Vec.IsFinite(carried) ? carried : anchorPartFrame;
     }
 
-    // A quaternion that is not unit length has never been set -- a round from before the field
-    // existed -- so whatever it was going to carry stands as it is rather than being multiplied by
-    // nonsense.
+    // A quaternion that is not unit length has never been set, so whatever it was going to carry
+    // stands as it is rather than being multiplied by nonsense.
     private static bool IsRotation(doubleQuat q)
     {
         double norm = (q.X * q.X) + (q.Y * q.Y) + (q.Z * q.Z) + (q.W * q.W);

@@ -75,6 +75,19 @@ public class SightZoomTests
     }
 
     /// <summary>
+    /// An optic whose narrowest field is not a doubling ends on it: the LITENING's 1° is x53.
+    /// </summary>
+    [Fact]
+    public void AnOpticsOwnMaximumIsItsLastStop()
+    {
+        Assert.Equal(32f, SightZoom.Stepped(16f, 1, 53f));
+        Assert.Equal(53f, SightZoom.Stepped(32f, 1, 53f));
+        Assert.Equal(53f, SightZoom.Stepped(53f, 1, 53f));
+        Assert.Equal(32f, SightZoom.Stepped(53f, -1, 53f));
+        Assert.Equal(1.0, SightZoom.FovDegreesFor(SightZoom.DefaultFovDeg, Arsenal.Litening.MaxMagnification), 1);
+    }
+
+    /// <summary>
     /// A value between two detents — restored from a save, or left over from an older table —
     /// steps to the neighbour on the side it is going, rather than sticking on the nearest.
     /// </summary>

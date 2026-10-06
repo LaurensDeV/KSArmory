@@ -1,15 +1,15 @@
 namespace KSArmory;
 
-/// <summary>Which side a contact is on, as far as this battery knows.</summary>
+/// <summary>Which side a contact is on, as far as this system knows.</summary>
 public enum Allegiance
 {
     /// <summary>No team assigned, or none recognised.</summary>
     Unknown,
 
-    /// <summary>Same team as the battery.</summary>
+    /// <summary>Same team as the system.</summary>
     Friendly,
 
-    /// <summary>A team the battery is at war with.</summary>
+    /// <summary>A team the system is at war with.</summary>
     Hostile,
 
     /// <summary>A team that is neither, and is not to be shot at.</summary>
@@ -17,46 +17,11 @@ public enum Allegiance
 }
 
 /// <summary>
-/// Which team a craft's <em>name</em> puts it on, and the roster of names itself — part of the
-/// half of IFF that runs before <see cref="IffPolicy.Classify"/> gets a string to compare. The
-/// other part, and the one that answers first, is <see cref="TeamRoster"/>.
+/// The roster of team names itself. Which team a craft is on is <see cref="TeamRoster"/>'s: a craft
+/// is on the side its flag says, and a craft with no flag is on none.
 /// </summary>
 public static class Teams
 {
-    /// <summary>
-    /// The team whose name appears in <paramref name="craftName"/>, or null if none does.
-    ///
-    /// <para><b>The fallback, not the mechanism.</b> A craft carrying a launcher or a director is
-    /// placed by its flag — see <see cref="TeamRoster"/> — and this answers for everything else in
-    /// the world, which has no flag to set and only a name.</para>
-    ///
-    /// <para>A <b>substring</b> match, because KSA has no team field. That is its trap: a craft
-    /// called "Redstone" lands on team "Red" without anyone having said so. Longest match wins, so
-    /// listing "Red Team" alongside "Red" resolves the pair that is actually ambiguous; nothing
-    /// resolves the pair that merely shares a prefix — which is the other reason the flag comes
-    /// first.</para>
-    /// </summary>
-    public static string? TeamFor(string? craftName, IReadOnlyList<string> teamNames)
-    {
-        if (string.IsNullOrEmpty(craftName) || teamNames.Count == 0) return null;
-
-        string? best = null;
-
-        for (int i = 0; i < teamNames.Count; i++)
-        {
-            string team = teamNames[i];
-
-            if (string.IsNullOrWhiteSpace(team)) continue;
-            if (craftName.Contains(team, StringComparison.OrdinalIgnoreCase)
-                && (best is null || team.Length > best.Length))
-            {
-                best = team;
-            }
-        }
-
-        return best;
-    }
-
     /// <summary>
     /// The team after <paramref name="current"/> in the declared order, wrapping to the first —
     /// what a switcher row's flag steps through. None is not a stop on the way round, so two teams
@@ -104,11 +69,11 @@ public static class Teams
 }
 
 /// <summary>
-/// Decides which contacts a battery may engage. <b>IFF is Identification Friend or Foe</b> — the
+/// Decides which contacts a system may engage. <b>IFF is Identification Friend or Foe</b> — the
 /// radar-transponder scheme real air defence uses to avoid shooting its own side.
 ///
 /// <para>KSA has no concept of sides, so teams are the mod's own: a contact carries whatever team
-/// name it was assigned, and this compares it to the battery's. Team names are compared
+/// name it was assigned, and this compares it to the system's. Team names are compared
 /// case-insensitively and a null or empty name is <see cref="Allegiance.Unknown"/>, which is
 /// deliberately not the same as hostile.</para>
 ///
@@ -118,7 +83,7 @@ public static class Teams
 /// </summary>
 public sealed class IffPolicy
 {
-    /// <summary>This battery's own team. Null or empty means it has not picked a side.</summary>
+    /// <summary>This system's own team. Null or empty means it has not picked a side.</summary>
     public string? OwnTeam { get; set; }
 
     /// <summary>Engage contacts with no recognised team. On by default.</summary>

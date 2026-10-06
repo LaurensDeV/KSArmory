@@ -51,8 +51,8 @@ public static class OpticGeometry
 
     /// <summary>
     /// Where a head's mesh looks when it is not turned: the part's <c>+Y</c>, which is the face
-    /// the window is modelled on. Every rotation written to the head is the shortest one carrying
-    /// this onto the aim, so a model with its lens anywhere else arrives pointing sideways.
+    /// the window is modelled on. Every rotation written to the head carries this onto the aim, so
+    /// a model with its lens anywhere else arrives pointing sideways.
     /// </summary>
     public static readonly double3 RestDirection = new(0, 1, 0);
 

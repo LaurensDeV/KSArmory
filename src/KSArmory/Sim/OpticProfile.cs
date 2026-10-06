@@ -38,7 +38,7 @@ public enum GimbalKind
 /// One optical head: where it sits, how fast it turns, and what it sees with.
 ///
 /// <para>Its own profile type rather than fields on <see cref="LauncherProfile"/>, because a head
-/// is no longer part of a launcher. It bolts to anything, finds its own targets and drives the
+/// need not be part of a launcher. It bolts to anything, finds its own targets and drives the
 /// player's view, so a craft carrying nothing else is an observation post.</para>
 ///
 /// <para>Two bodies and no named axes. A head is aimed by the shortest rotation onto the
@@ -135,6 +135,21 @@ public sealed class OpticProfile
     /// stops the whole nose snapping round as the aim creeps past the axis.</para>
     /// </summary>
     public float KeyholeDeg = 4f;
+
+    /// <summary>
+    /// How far the optics wind in, against the engine's 50° view. The zoom steps through the
+    /// doubling detents up to it, and ends on it when it is not one.
+    /// </summary>
+    public float MaxMagnification = 16f;
+
+    /// <summary>
+    /// A laser on the line of sight: a rangefinder and a designator, its spot on whatever the
+    /// beam first meets. Off for an optic that is a camera and nothing else.
+    /// </summary>
+    public bool HasLaser;
+
+    /// <summary>How far the laser returns from (m). Past it the beam is lasing at nothing.</summary>
+    public float LaserRangeMetres = 20000f;
 
     public double SlewRateRad => float.DegreesToRadians(SlewRateDeg);
 }

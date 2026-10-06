@@ -65,6 +65,61 @@ public static class ScopeGeometry
                           (float)(-unit * Math.Cos(bearingRad)));
     }
 
+    /// <summary>How many range settings a scope offers.</summary>
+    public const int RangeStepCount = 3;
+
+    /// <summary>
+    /// The range settings a set's scope steps between: all of its reach, half and a quarter.
+    ///
+    /// <para>Off the set's own range rather than a fixed table, so the widest setting's rim is where
+    /// the set stops seeing. A fixed table would leave a 6 km Phalanx on a 20 km face with its whole
+    /// picture in the middle ring, and offer 200 km to sets that see 36.</para>
+    ///
+    /// <para>The full reach is rounded up — to 100 m under 2 km, to a whole kilometre above — so a
+    /// ring is a readable number. Ordered nearest first.</para>
+    /// </summary>
+    public static int RangeSteps(double sensorRange, Span<float> into)
+    {
+        if (into.Length < RangeStepCount) return 0;
+
+        double quantum = sensorRange < 2000.0 ? 100.0 : 1000.0;
+        double full = double.IsFinite(sensorRange) && sensorRange > 0.0
+            ? Math.Ceiling(sensorRange / quantum) * quantum
+            : 5000.0;
+
+        into[0] = (float)(full / 4.0);
+        into[1] = (float)(full / 2.0);
+        into[2] = (float)full;
+        return RangeStepCount;
+    }
+
+    /// <summary>
+    /// The step a stored setting lands on: the nearest by ratio, or the widest for zero.
+    ///
+    /// <para>Nearest by ratio because the steps are a factor of two apart, so 30 km against steps of
+    /// 9, 18 and 36 is nearer 36 in any sense an operator means. Zero is "the whole reach", which is
+    /// what an installation nobody has touched opens at.</para>
+    /// </summary>
+    public static float SnapRange(float stored, ReadOnlySpan<float> steps)
+    {
+        if (steps.IsEmpty) return stored;
+        if (!(stored > 0f) || !float.IsFinite(stored)) return steps[^1];
+
+        float best = steps[0];
+        double bestGap = double.MaxValue;
+        foreach (float step in steps)
+        {
+            double gap = Math.Abs(Math.Log(stored / step));
+            if (gap < bestGap)
+            {
+                best = step;
+                bestGap = gap;
+            }
+        }
+
+        return best;
+    }
+
     /// <summary>Most faces a scope will draw a trace for, so a caller can size a buffer.</summary>
     public const int MaxSweepFaces = 8;
 
@@ -112,8 +167,11 @@ public static class ScopeGeometry
     /// <summary>What a blip on the scope is, which decides the symbol drawn for it.</summary>
     public enum Blip
     {
-        /// <summary>A craft whose side is known: friendly, hostile or neutral. Drawn X.</summary>
+        /// <summary>A craft whose side is known and not hostile: friendly or neutral. Drawn X.</summary>
         Known,
+
+        /// <summary>A craft on a side this set is at war with. Drawn as a red triangle with its heading.</summary>
+        Hostile,
 
         /// <summary>A craft whose side is not known, and so a potential threat. Drawn as a triangle.</summary>
         Unknown,
@@ -127,17 +185,18 @@ public static class ScopeGeometry
     ///
     /// <para>A round in the air outranks everything: what it is matters more than whose it is,
     /// because it is the one contact that is arriving whatever its allegiance says. After that the
-    /// question is only whether the side is known.</para>
+    /// question is whose side it is on, and a hostile outranks a side merely known.</para>
     ///
     /// <para>Emission is <em>not</em> one of these. A craft can be a known vessel and transmitting
     /// at the same time, so it is a mark carried beside the symbol rather than a symbol of its own —
     /// see <see cref="Emitting"/>. Making it exclusive would mean a hostile that switches its set on
     /// stops being drawn as a hostile.</para>
     /// </summary>
-    public static Blip SymbolFor(bool isRound, bool sideKnown)
+    public static Blip SymbolFor(bool isRound, Allegiance side)
         => isRound ? Blip.Missile
-         : sideKnown ? Blip.Known
-         : Blip.Unknown;
+         : side == Allegiance.Hostile ? Blip.Hostile
+         : side == Allegiance.Unknown ? Blip.Unknown
+         : Blip.Known;
 
     /// <summary>The mark a transmitting contact carries beside its symbol.</summary>
     ///

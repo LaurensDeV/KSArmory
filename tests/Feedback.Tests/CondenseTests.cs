@@ -48,7 +48,7 @@ public class CondenseTests
     [Fact]
     public void ARealSizedLogIsWellInsideTheLimits()
     {
-        // A working battery writes the same dozen messages over and over. If this ever stops
+        // A working system writes the same dozen messages over and over. If this ever stops
         // holding, logs start being withheld from honest reporters.
         string log = string.Concat(Enumerable.Repeat(
             """

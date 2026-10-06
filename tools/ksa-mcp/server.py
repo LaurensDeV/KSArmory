@@ -311,6 +311,10 @@ PRESETS = {
     "overhead": {"azimuth_deg": 0, "elevation_deg": 70, "distance_m": 0, "aim": 0.2},
     "far": {"azimuth_deg": 0, "elevation_deg": 5, "distance_m": 10000, "aim": 0.45},
     "downwind": {"azimuth_deg": 90, "elevation_deg": 14, "distance_m": 0, "aim": 0.45},
+    # The high-altitude sky from above: a burst's shell, glow and aurora from 900 km, and on the limb
+    # from 1,500 km, where the aurora's march is at its dearest.
+    "orbit": {"azimuth_deg": 0, "elevation_deg": 35, "distance_m": 900000, "aim": 0.0},
+    "limb": {"azimuth_deg": 0, "elevation_deg": 10, "distance_m": 1500000, "aim": 0.0},
 }
 
 
@@ -342,7 +346,9 @@ TOOLS = {
                   {"kt": _num("yield"), "east_m": _num("metres east"), "north_m": _num("metres north"),
                    "explode": {"type": "boolean"}, "damage": {"type": "boolean"},
                    "spare_own": {"type": "boolean"}, "up_m": _num("metres above the ground"),
-                   "in_frame_s": _num("seconds before the step's end it went off, negative")},
+                   "in_frame_s": _num("seconds before the step's end it went off, negative"),
+                   "count": _num("how many in the same frame, as a bus's salvo (1-12)"),
+                   "spacing_m": _num("metres east between them")},
                   ["kt"], lambda a: [_text(json.dumps(send("burst", **a)))]),
     "ksa_dents": ("The dents the engine holds on the flown craft, each with the angle between its push and the "
                   "line from the last damaging burst to it. clear=true takes them all off.",
@@ -357,9 +363,11 @@ TOOLS = {
                     "orbit_deg_s": _num("deg a second the view circles the burst, paused or not"),
                     "release": {"type": "boolean"}}, [],
                    lambda a: [_text(json.dumps(send("camera", **{**PRESETS.get(a.pop("preset", ""), {}), **a})))]),
-    "ksa_site": ("Set the craft down at a latitude and longitude, on its body or a named one, and clear the "
-                 "clouds. Returns the sun's elevation there: negative is night.",
-                 {"lat": _num("deg"), "lon": _num("deg"), "body": {"type": "string"}}, ["lat", "lon"],
+    "ksa_site": ("Set a craft (the flown one unless craft names another) down at a latitude and longitude, on its "
+                 "body or a named one, and clear the clouds. Over the sea it lands on the seabed. Returns the sun's "
+                 "elevation there: negative is night.",
+                 {"lat": _num("deg"), "lon": _num("deg"), "body": {"type": "string"}, "craft": {"type": "string"}},
+                 ["lat", "lon"],
                  lambda a: [_text(json.dumps(send("site", timeout=60, **a)))]),
     "ksa_capture": ("Screenshot the game. frames>1 takes a series (every_s simulated seconds, or every_frames "
                     "rendered frames when paused) and returns a sheet, an animation path and a temporal-noise "
@@ -377,8 +385,9 @@ TOOLS = {
                            "game. A compile error comes back as the error; the old shader stays.", {}, [],
                            lambda a: [_text(reload_shaders())]),
     "ksa_tune": ("Set a shader look constant while the game runs (a pipeline rebuild, no recompile), or "
-                 "with no name list them; reset=true puts every one back. DebugView 1-5 swaps the picture "
-                 "for one term: 1 coverage, 2 depth, 3 weather mask, 4 sunlight, 5 fireball share.",
+                 "with no name list them; reset=true puts every one back. DebugView 1-8 swaps the picture "
+                 "for one term: 1 coverage, 2 depth, 3 weather mask, 4 sunlight, 5 fireball share, 6 sky "
+                 "ambient, 7 aerial inscatter, 8 light per unit of cover at a quarter.",
                  {"name": {"type": "string"}, "value": _num("value"), "reset": {"type": "boolean"}}, [],
                  lambda a: [_text(json.dumps(send("tune", **a), indent=1))]),
     "ksa_cost": ("What the cloud pass costs the GPU against the whole frame: reset=true starts measuring, "
@@ -391,6 +400,69 @@ TOOLS = {
                             "name. Returns the game's state then, the frames and their temporal map.",
                             {"name": {"type": "string"}, "crop": {"type": "boolean"}}, [],
                             lambda a: player_captures(a.get("name"), bool(a.get("crop", False)))),
+    "ksa_system": ("One craft's weapons settings, as its panel would set them: auto_engage, protect (never "
+                   "target the flown craft), silent. seeker flies its missiles on an infrared, radar or "
+                   "radar-gated seeker to test decoys against, resistance 0-1 beside it; stock puts it back. trigger "
+                   "points the trigger at the cannon or the tubes.",
+                   {"craft": {"type": "string"}, "auto_engage": {"type": "boolean"},
+                    "protect": {"type": "boolean"}, "silent": {"type": "boolean"}, "guns": {"type": "boolean"}, "chase": {"type": "boolean"}, "focus": {"type": "boolean"},
+                    "seeker": {"type": "string", "enum": ["infrared", "radar", "radar-gated", "stock"]},
+                    "trigger": {"type": "string", "enum": ["cannon", "tubes"]},
+                    "resistance": _num("0..1")}, ["craft"],
+                   lambda a: [_text(json.dumps(send("system", **a), indent=1))]),
+    "ksa_optic": ("A craft's optical directors, as their rows would set them: view new (a spare camera "
+                  "window), main, off or a window index; magnification; tracking; bearing_deg and elevation_deg aim it by hand; lase and code fire its laser. Reads each window's "
+                  "camera back: its field of view, where its picture is, and the body it thinks it is near.",
+                  {"craft": {"type": "string"}, "view": {"type": "string"}, "magnification": _num("x"),
+                   "tracking": {"type": "boolean"}, "manual": {"type": "boolean"},
+                   "bearing_deg": _num("deg"), "elevation_deg": _num("deg"),
+                   "sensor": {"type": "string", "enum": ["Colour", "Tv", "WhiteHot", "BlackHot"]},
+                   "lase": {"type": "boolean"}, "code": _num("1111-1788")}, ["craft"],
+                  lambda a: [_text(json.dumps(send("optic", **a), indent=1))]),
+    "ksa_dispense": ("Press a craft's countermeasures: kind flare, chaff or both; auto sets auto-dispense. "
+                     "The craft defaults to the one being flown.",
+                     {"craft": {"type": "string"}, "kind": {"type": "string", "enum": ["flare", "chaff", "both"]},
+                      "auto": {"type": "boolean"}}, [],
+                     lambda a: [_text(json.dumps(send("dispense", **a)))]),
+    "ksa_fly": ("Fly a craft by numbers: engine lit, full throttle, nose pitch_deg from the vertical on a "
+                "compass heading_deg; stage=true stages once first; engine=false coasts on the same hold. "
+                "stop=true throttles down and lets go.",
+                {"craft": {"type": "string"}, "pitch_deg": _num("deg from vertical"),
+                 "heading_deg": _num("deg, 0 north 90 east"), "stage": {"type": "boolean"},
+                 "engine": {"type": "boolean"},
+                 "stop": {"type": "boolean"}}, [],
+                lambda a: [_text(json.dumps(send("fly", **a)))]),
+    "ksa_watch": ("Hold the main view on one round in the air, crewed or loose (its launcher destroyed), "
+                  "distance_m from it at azimuth_deg/elevation_deg about its flight -- 0/0 is straight "
+                  "behind, 180 ahead. craft names the system (its craft's name, or the dead one's); "
+                  "loose=true only loose rounds; tube picks one. release=true hands the view back.",
+                  {"craft": {"type": "string"}, "loose": {"type": "boolean"}, "tube": _num("tube number"),
+                   "distance_m": _num("m"), "azimuth_deg": _num("deg"), "elevation_deg": _num("deg"),
+                   "fov_deg": _num("deg"), "release": {"type": "boolean"}}, [],
+                  lambda a: [_text(json.dumps(send("watch", **a), indent=1))]),
+    "ksa_fire": ("Fire a craft's selected weapon at a point east_m/north_m/up_m of the craft (up_m defaults "
+                 "to the ground under it). A gun or a launcher that trains is designated onto the point and "
+                 "fires once it is laid, answering when the shot is away; lay=false fires it wherever it "
+                 "points now. rounds sets how many a gun fires in place of its burst. station=N fires the "
+                 "craft's Nth launcher instead of the selected one.",
+                 {"craft": {"type": "string"}, "east_m": _num("m"), "north_m": _num("m"), "up_m": _num("m"),
+                  "lay": {"type": "boolean"}, "rounds": _num("rounds"), "station": _num("launcher number")}, [],
+                 lambda a: [_text(json.dumps(send("fire", **a)))]),
+    "ksa_control": ("Fly the named craft: the camera follows it and the controls drive it.",
+                    {"craft": {"type": "string"}}, ["craft"], lambda a: [_text(json.dumps(send("control", **a)))]),
+    "ksa_remove": ("Take a named craft out of the world, leaving no debris. Refuses the craft being flown.",
+                   {"craft": {"type": "string"}}, ["craft"], lambda a: [_text(json.dumps(send("remove", **a)))]),
+    "ksa_spawn": ("Park a craft (craft, default Rocket) on the ground at lat/lon, named name: one of KSA's stock "
+                  "designs, or one from the player's own design library.",
+                  {"craft": {"type": "string"}, "name": {"type": "string"}, "lat": _num("deg"), "lon": _num("deg")},
+                  ["lat", "lon"], lambda a: [_text(json.dumps(send("spawn", **a)))]),
+    "ksa_ground": ("The ground's height against sea level at lat/lon (negative is seabed depth), or along a line "
+                   "to to_lat/to_lon in steps. Reads the height field; places nothing.",
+                   {"lat": _num("deg"), "lon": _num("deg"), "to_lat": _num("deg"), "to_lon": _num("deg"),
+                    "steps": _num("count")}, ["lat", "lon"],
+                   lambda a: [_text(json.dumps(send("ground", **a)))]),
+    "ksa_save": ("Write the game to a save of this name, as KSA's save console command does.",
+                 {"name": {"type": "string"}}, ["name"], lambda a: [_text(json.dumps(send("save", **a)))]),
     "ksa_log": ("The mod's log, filtered.", {"pattern": {"type": "string"}, "lines": _num("count")}, [],
                 lambda a: [_text(log_tail(a.get("pattern", ""), int(a.get("lines", 40))))]),
 }

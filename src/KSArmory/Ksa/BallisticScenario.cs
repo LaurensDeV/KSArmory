@@ -18,8 +18,8 @@ namespace KSArmory;
 /// a speed the policy is holding is a loop neither side wins, which is why the number asked for
 /// sits under what the policy would allow a burn to run at anyway.</para>
 ///
-/// <para>What it cannot do is put a rocket on the pad — see <c>CLAUDE.md</c>, "A fully
-/// self-contained scenario is not possible from a mod". It waits for a craft that already has one
+/// <para>What it cannot do is put a rocket on the pad — see <c>CLAUDE.md</c>, "A scenario
+/// cannot place a craft through the system XML". It waits for a craft that already has one
 /// aboard.</para>
 /// </summary>
 internal sealed class BallisticScenario
@@ -92,7 +92,7 @@ internal sealed class BallisticScenario
     private readonly Action<string> _say;
     private readonly ShotBoard _board;
 
-    // Buffered rather than reported where it happens: the hook fires inside the battery's round
+    // Buffered rather than reported where it happens: the hook fires inside the system's round
     // loop, which is inside the engine's frame hook, and a scenario's output belongs in its own
     // pass where the ordering is the one the log shows.
     private readonly List<string> _landed = [];
@@ -114,6 +114,11 @@ internal sealed class BallisticScenario
     private int _ammoWas = -1;
     private int _ended;
     private double _sinceRelease;
+    private double _busLostFor;
+
+    // How long a bus that let nothing go must stay gone before the shot is called. A separation
+    // hands the computer to a new vehicle within the frame; this only rules out reading that frame.
+    private const double BusLostSeconds = 2.0;
     private double _sinceComplaint;
     private Vehicle? _defendedSite;
     private bool _watchedTheTarget;
@@ -147,6 +152,7 @@ internal sealed class BallisticScenario
     // the site is still well inside a chase camera's view of the burst.
     private const double SiteStandoffMetres = 250.0;
     private bool _saidDisarm;
+    private readonly List<WeaponSystems.Entry> _defences = [];
     private string _saidTrim = "";
     private bool _capturedDeployment;
     private bool _capturedImpact;
@@ -165,7 +171,7 @@ internal sealed class BallisticScenario
 
     // Whose turn it is to point the player's camera. There is one view and every flight wants to
     // send it to the target when its salvo is away, so without a claim eight rockets move it eight
-    // times -- the same shared-resource mistake the world clock had before Sim/WorldSpeed.cs.
+    // times -- the same shared-resource problem Sim/WorldSpeed.cs settles for the world clock.
     //
     // One-element array rather than a bool because it is shared by reference across the flights.
     private readonly bool[] _viewTaken;
@@ -205,7 +211,7 @@ internal sealed class BallisticScenario
     /// <summary>Whatever this shot has come to so far, which is what a timeout reports as well.</summary>
     public ShotVerdict Judge() => _board.Judge(_shot.BarMetres);
 
-    /// <summary>Let go of the battery, so a finished scenario is not still being called back.</summary>
+    /// <summary>Let go of the system, so a finished scenario is not still being called back.</summary>
     public void Release()
     {
         if (_wired is not null) _wired.RoundEnded = null;
@@ -218,6 +224,7 @@ internal sealed class BallisticScenario
         _sinceComplaint += playerStep;
 
         if (icbms is null) return null;
+        _icbms = icbms;
 
         // A rocket whose arm would not apply is not flown. Everything else about the run is still
         // valid -- the other rockets carry their own arms -- so this ends one flight rather than
@@ -239,8 +246,8 @@ internal sealed class BallisticScenario
             return null;
         }
 
-        WeaponSystem? battery = roster.For(_computer.Craft)?.Battery;
-        Wire(battery);
+        WeaponSystem? system = roster.GuidedFrom(_computer.Craft)?.Weapon;
+        Wire(system);
 
         if (!_committed)
         {
@@ -261,12 +268,19 @@ internal sealed class BallisticScenario
         // Held down rather than set once. The site's auto-engage is restored from the save's own
         // settings and can come back after the aim is taken, and one frame of it on is a salvo
         // intercepted.
-        if (_disarmSite && _defendedSite is { } defended && roster.For(defended) is { } defence
-            && defence.Policy.AutoEngage)
+        // Every launcher on the site, not the selected one: any of them left on intercepts.
+        if (_disarmSite && _defendedSite is { } defended)
         {
-            defence.Policy.AutoEngage = false;
+            roster.AllOn(defended, _defences);
+            bool disarmed = false;
+            foreach (WeaponSystems.Entry defence in _defences)
+            {
+                if (!defence.Policy.AutoEngage) continue;
+                defence.Policy.AutoEngage = false;
+                disarmed = true;
+            }
 
-            if (!_saidDisarm)
+            if (disarmed && !_saidDisarm)
             {
                 _saidDisarm = true;
                 _say($"disarmed {KsaWorld.DisplayName(defended)}: a target that shoots down the "
@@ -275,12 +289,24 @@ internal sealed class BallisticScenario
         }
 
         ReportPhase();
-        ReportRefusedStaging(battery);
+        ReportRefusedStaging(system);
         ReportCutoff();
         ReportSeparation();
         ReportTrim();
-        ReportReleases(battery, simStep);
+        ReportReleases(system, simStep);
         ReportImpacts();
+
+        // A bus that died holding every warhead will release none, and nothing below ever ends a
+        // salvo that never started: the flight would sit until the harness's wall clock ran out.
+        if (_board.Released == 0)
+        {
+            _busLostFor = KsaWorld.IsAlive(_computer.Craft) ? 0.0 : _busLostFor + simStep;
+            if (_busLostFor >= BusLostSeconds)
+            {
+                return $"FAIL the bus was destroyed with {_loaded} warhead(s) aboard and none released -- "
+                       + $"{_computer.Command.Hold}";
+            }
+        }
 
         if (_board.Released == 0 || _ended < _board.Released) return null;
         if (_sinceRelease < SalvoOverSeconds) return null;
@@ -335,16 +361,16 @@ internal sealed class BallisticScenario
                 continue;
             }
 
-            WeaponSystems.Entry? entry = roster.For(computer.Craft);
-            WeaponSystem? battery = entry?.Battery;
+            WeaponSystems.Entry? entry = roster.GuidedFrom(computer.Craft);
+            WeaponSystem? system = entry?.Weapon;
 
-            if (battery?.Launcher is null)
+            if (system?.Launcher is null)
             {
                 why.Add($"{name} carries no launcher the mod recognises");
                 continue;
             }
 
-            if (battery.Ammo <= 0)
+            if (system.Ammo <= 0)
             {
                 why.Add($"{name}'s launcher is empty");
                 continue;
@@ -358,10 +384,10 @@ internal sealed class BallisticScenario
                 double reach = GroundMetresBetween(parent, fromLat, fromLon,
                                                    _shot.LatitudeDeg, _shot.LongitudeDeg);
 
-                if (battery.Munition.MaxRange < reach)
+                if (system.Munition.MaxRange < reach)
                 {
-                    why.Add($"{name}'s {battery.Munition.DisplayName} reaches "
-                            + $"{battery.Munition.MaxRange / 1000.0:F0} km, "
+                    why.Add($"{name}'s {system.Munition.DisplayName} reaches "
+                            + $"{system.Munition.MaxRange / 1000.0:F0} km, "
                             + $"and the aim point is {reach / 1000.0:F0} km away");
                     continue;
                 }
@@ -379,15 +405,15 @@ internal sealed class BallisticScenario
                                                   computer.Config.TurnStartMetres);
 
             _computer = computer;
-            _loaded = battery.Ammo;
-            _ammoWas = battery.Ammo;
+            _loaded = system.Ammo;
+            _ammoWas = system.Ammo;
             _flownFrom = computer.Craft;
 
             _say(_onThePad
                      ? $"{name} on the ground at {WhereItStands(computer)}, "
-                       + $"{battery.Ammo} x {battery.Munition.DisplayName} aboard"
+                       + $"{system.Ammo} x {system.Munition.DisplayName} aboard"
                      : $"{name} already flying at {computer.AltitudeMetres / 1000.0:F0} km doing "
-                       + $"{airspeed:F0} m/s, {battery.Ammo} x {battery.Munition.DisplayName} aboard");
+                       + $"{airspeed:F0} m/s, {system.Ammo} x {system.Munition.DisplayName} aboard");
 
             double aimLat = _shot.LatitudeDeg;
             double aimLon = _shot.LongitudeDeg;
@@ -457,7 +483,7 @@ internal sealed class BallisticScenario
             // Not all at one point. See SpreadAim: eight groups on one aim are eight groups
             // inside each other's kill radius, and the first one down removes the rest from the
             // measurement.
-            (aimLat, aimLon) = SpreadAim(parent, computer, battery.Munition, aimLat, aimLon);
+            (aimLat, aimLon) = SpreadAim(parent, computer, system.Munition, aimLat, aimLon);
 
             computer.Designate(new AimSite(parent.Id, aimLat, aimLon, "scenario aim point"));
 
@@ -536,8 +562,7 @@ internal sealed class BallisticScenario
 
         // The harness does not light the rocket. Ignition is the program's own first stage request
         // and firing a second sequence here would spend one of the player's on top of it -- and a
-        // harness that staged by hand is a harness that passes whether or not the computer can
-        // launch at all, which is how a computer with no ignition flew every shot in the suite.
+        // harness that staged by hand would pass whether or not the computer can launch at all.
         if (_onThePad)
         {
             if (computer.Program.Phase != IcbmPhase.Rising) return;
@@ -560,7 +585,7 @@ internal sealed class BallisticScenario
         // only part anyone looks at.
         //
         // One flight does this, not eight: the view is shared, and eight rockets each parking it
-        // is the same shared-resource mistake the world clock had.
+        // is the same shared-resource problem Sim/WorldSpeed.cs settles for the world clock.
         if (!_viewTaken[0] && _computer?.Parent is { } parent
             && KsaWorld.WatchFrom(parent, FlightZoomPower))
         {
@@ -572,10 +597,10 @@ internal sealed class BallisticScenario
     // The computer never stages past a launcher that could come off, because the next sequence on
     // somebody's craft might be the joint holding the warheads. So a stack that needs a second
     // stage will not get one, and the shot falls short for a reason no phase line names.
-    private void ReportRefusedStaging(WeaponSystem? battery)
+    private void ReportRefusedStaging(WeaponSystem? system)
     {
-        if (_saidStaging || battery is null || _computer is not { } computer) return;
-        if (!computer.Command.RequestStage || !battery.CanSeparate) return;
+        if (_saidStaging || system is null || _computer is not { } computer) return;
+        if (!computer.Command.RequestStage || !system.CanSeparate) return;
 
         _saidStaging = true;
 
@@ -583,19 +608,19 @@ internal sealed class BallisticScenario
              + "a multi-stage stack has to be staged by hand from here");
     }
 
-    // Assigned rather than added to, and re-assigned whenever the battery changes: a decoupler puts
+    // Assigned rather than added to, and re-assigned whenever the system changes: a decoupler puts
     // the launcher on another craft mid-flight, and the rounds go with it.
     //
     // Nothing to wire is not a reason to let go. A system whose craft was destroyed goes on flying
     // what it had in the air off the roster's loose list — the same object, no longer answering to
     // For() — and those rounds are still the shot being scored.
-    private void Wire(WeaponSystem? battery)
+    private void Wire(WeaponSystem? system)
     {
-        if (battery is null || ReferenceEquals(battery, _wired)) return;
+        if (system is null || ReferenceEquals(system, _wired)) return;
 
         if (_wired is not null) _wired.RoundEnded = null;
-        _wired = battery;
-        battery.RoundEnded = _onRoundEnded;
+        _wired = system;
+        system.RoundEnded = _onRoundEnded;
     }
 
     private void ReportPhase()
@@ -623,8 +648,8 @@ internal sealed class BallisticScenario
     // has gone.
     // FORTY-FIVE KEEPS THE GATE SHUT ON THIS SHOT, AND THAT IS WORTH 470 m. The warheads are held
     // until the arrival is inside ReleaseBeforeArrivalSeconds, 420 s, and the coast is entered with
-    // about 464 s to run -- so the margin asks for 465 and the coast is flown at 1x throughout. That
-    // was discovered by accident and then measured on purpose; IcbmProgram.SteadyBeforeReleaseSeconds
+    // about 464 s to run -- so the margin asks for 465 and the coast is flown at 1x throughout.
+    // IcbmProgram.SteadyBeforeReleaseSeconds
     // carries the number and the measurement, because the panel's own coast warp stops at the same
     // place and two copies of it would drift.
     //
@@ -669,6 +694,14 @@ internal sealed class BallisticScenario
     }
 
     private bool _coasting;
+
+    private IcbmComputers? _icbms;
+
+    // A walk goes quiet for longer than QuietAfterReleaseSeconds between its stops, and a stop's
+    // trim at the warp's 88 ms steps spent a median 6.85 m/s per aim pass against 0.81 at 1x, so
+    // warping there measures the step rather than the walk. docs/MIRV-TARGETS.md.
+    private bool AnyBusStillWalking()
+        => _icbms is { } icbms && icbms.All.Any(c => c.Walk.Walking);
 
     // Longer than the magazine's own reload, so a salvo still running is never mistaken for one
     // that has finished.
@@ -750,13 +783,13 @@ internal sealed class BallisticScenario
     // A round leaving is the magazine going down by one. The angle beside it is read from the
     // command that let it go, which is this frame's and no other: by the next one the sequencer has
     // moved on to the next tube and is reporting how far off the line *that* one is.
-    private void ReportReleases(WeaponSystem? battery, double simStep)
+    private void ReportReleases(WeaponSystem? system, double simStep)
     {
         _sinceRelease += simStep;
 
-        if (battery is null || _computer is not { } computer) return;
+        if (system is null || _computer is not { } computer) return;
 
-        int ammo = battery.Ammo;
+        int ammo = system.Ammo;
         if (_ammoWas < 0) _ammoWas = ammo;
 
         // The rounds that appeared this frame, paired with the magazine's own count of what left.
@@ -766,7 +799,7 @@ internal sealed class BallisticScenario
         //
         // Only on a frame that let something go: a round appears in the same call the magazine is
         // counted down in, so there is nothing to pair on any other.
-        List<IProjectile> fresh = ammo < _ammoWas ? RoundsNotSeenYet(battery) : [];
+        List<IProjectile> fresh = ammo < _ammoWas ? RoundsNotSeenYet(system) : [];
 
         for (int i = 0; i < _ammoWas - ammo; i++)
         {
@@ -810,22 +843,20 @@ internal sealed class BallisticScenario
         // released after the change grouped at 3.67-3.75 km.
         //
         // Keyed on the releases going quiet rather than on the magazine emptying, so a shot that
-        // holds warheads back still warps -- which is what tying it to a full salvo got wrong, and
-        // what tying it to the first release was trying to avoid.
+        // holds warheads back still warps.
         _sinceLastRelease += simStep;
 
         // The long wait before the release point, which is most of the flight now the warheads are
         // held until the arrival is close. Warped through, and given back well before the first one
-        // leaves: every warhead has to see the same frame in its opening seconds, which is what
-        // warping between releases got wrong.
+        // leaves: every warhead has to see the same frame in its opening seconds, which warping
+        // between releases would break.
         CoastToTheReleasePoint();
 
         // Counted off the releases rather than off the magazine, because the magazine refills.
         // `ammo < _loaded` reads as "the salvo has gone" for about three seconds and then stops:
         // the launcher reloads inside QuietAfterReleaseSeconds, ammo returns to its loaded count,
-        // and the branch is never entered again. Measured 2026-08-25 -- `holding fire: reloading
-        // (3 s)` lands 34 ms after the sixth warhead leaves, so this never fired at all and the
-        // whole 381 s coast ran at 1x. ShotGroup.Released only ever increases.
+        // and the branch is never entered again: `holding fire: reloading (3 s)` lands 34 ms after
+        // the sixth warhead leaves. ShotGroup.Released only ever increases.
         if (_board.Released > 0)
         {
             if (_board.Released != _releasedLastSeen)
@@ -833,7 +864,7 @@ internal sealed class BallisticScenario
                 _releasedLastSeen = _board.Released;
                 _sinceLastRelease = 0.0;
             }
-            else if (_sinceLastRelease >= QuietAfterReleaseSeconds)
+            else if (_sinceLastRelease >= QuietAfterReleaseSeconds && !AnyBusStillWalking())
             {
                 WarpTheCoast();
             }
@@ -850,7 +881,7 @@ internal sealed class BallisticScenario
         => AimSpread.GroundMetresBetween(aLat, aLon, bLat, bLon, body.MeanRadius);
 
     // The places after the first, for a shot at several. A request naming one adds nothing at all,
-    // so the flight is left exactly as it was before a set could hold more than one place.
+    // so a single-target flight is unchanged by it.
     private void AddTheOtherTargets(IcbmComputer computer, Celestial parent,
                                     double leadLat, double leadLon)
     {
@@ -968,10 +999,10 @@ internal sealed class BallisticScenario
     /// <para>Unknowable is not viable: a craft whose surface point or parent cannot be read yet is
     /// not yet a rocket, and the caller asks again next frame.</para>
     /// </summary>
-    public static bool CouldReachTheAim(IcbmComputer computer, WeaponSystem? battery,
+    public static bool CouldReachTheAim(IcbmComputer computer, WeaponSystem? system,
                                         in ShotRequest shot)
     {
-        if (battery?.Launcher is null || battery.Ammo <= 0) return false;
+        if (system?.Launcher is null || system.Ammo <= 0) return false;
         if (computer.Parent is not { } parent) return false;
 
         if (!KsaWorld.TryCraftSurfacePoint(computer.Craft, out _, out double fromLat,
@@ -983,7 +1014,7 @@ internal sealed class BallisticScenario
         double reach = GroundMetresBetween(parent, fromLat, fromLon,
                                            shot.LatitudeDeg, shot.LongitudeDeg);
 
-        return battery.Munition.MaxRange >= reach;
+        return system.Munition.MaxRange >= reach;
     }
 
     // Anything armed that is not one of the rockets this run is flying. "Not the launching craft"
@@ -999,7 +1030,7 @@ internal sealed class BallisticScenario
     {
         foreach (WeaponSystems.Entry entry in roster.All)
         {
-            Vehicle? craft = entry.Battery.Platform;
+            Vehicle? craft = entry.Weapon.Platform;
 
             if (craft is null || ReferenceEquals(craft, launching)) continue;
             if (!KsaWorld.IsAlive(craft)) continue;
@@ -1053,10 +1084,10 @@ internal sealed class BallisticScenario
     // Object identity, because it is the only thing about a round that survives the coast: the
     // magazine reloads inside QuietAfterReleaseSeconds, so a tube number comes round again while a
     // walk is still running.
-    private List<IProjectile> RoundsNotSeenYet(WeaponSystem battery)
+    private List<IProjectile> RoundsNotSeenYet(WeaponSystem system)
     {
         List<IProjectile> fresh = [];
-        IReadOnlyList<IProjectile> rounds = battery.Rounds;
+        IReadOnlyList<IProjectile> rounds = system.Rounds;
 
         for (int i = 0; i < rounds.Count; i++)
         {
@@ -1104,8 +1135,14 @@ internal sealed class BallisticScenario
                                ? computer.Targets[i].Site.Coordinates
                                : "a place the flight never held";
 
+            // The verdict's km to three places reads a millimetre group as 0.000; the tail is what a night is scored on.
+            ShotGroup group = _board.For(i);
+            string metres = group.Arrived > 0
+                                ? $" | in metres: worst {group.Worst:F4}, best {group.Best:F4}, mean {group.Mean:F4}, "
+                                  + $"spread {group.Spread:F4}"
+                                : "";
             _say($"TARGET {i + 1} of {_board.Targets}{whose}: {where} -- "
-                 + _board.JudgeTarget(i, _shot.BarMetres).Said);
+                 + _board.JudgeTarget(i, _shot.BarMetres).Said + metres);
         }
     }
 
@@ -1121,7 +1158,7 @@ internal sealed class BallisticScenario
     }
 
     // Where the round ended, against the place it was sent. Nothing here may throw: it runs inside
-    // the battery's round loop, which is inside the engine's frame hook.
+    // the system's round loop, which is inside the engine's frame hook.
     private void OnRoundEnded(IProjectile round)
     {
         try
@@ -1176,10 +1213,27 @@ internal sealed class BallisticScenario
         if (_computer is not { } computer || computer.Parent is not { } parent) return double.NaN;
         if (AimEclOf(computer, target) is not { } aimEcl) return double.NaN;
 
-        double3 aimAtBurst = aimEcl + KsaWorld.GroundVelocityAt(parent, aimEcl)
-                                      * round.DetonationElapsedInFrame;
+        double3 aimAtBurst = InFrame.AtBurst(aimEcl, KsaWorld.GroundVelocityAt(parent, aimEcl),
+                                             round.DetonationElapsedInFrame);
 
         double3 missEcl = round.PositionEcl - aimAtBurst;
+        string struck = "";
+
+        // A warhead that struck a craft burst above the ground it was aimed at, so it is carried down its own
+        // path to that ground: a strike on a structure standing on the aim scores the guidance, not its height.
+        if (round.StruckBody is not null)
+        {
+            double3 up = Vec.Unit(aimEcl - parent.GetPositionEcl());
+            double3 along = Vec.Unit(round.VelocityEcl - KsaWorld.GroundVelocityAt(parent, aimEcl));
+            double height = Vec.Dot(missEcl, up);
+            double descent = -Vec.Dot(along, up);
+            if (height > 0.0 && descent > 0.0)
+            {
+                missEcl += along * (height / descent);
+                struck = $", struck a craft {height:F2} m up and carried to the ground";
+            }
+        }
+
         double miss = Vec.Len(missEcl);
         if (!double.IsFinite(miss)) return double.NaN;
 
@@ -1200,6 +1254,7 @@ internal sealed class BallisticScenario
             // The distance stands on its own; losing the components loses no reading anything scores.
         }
 
+        resolved += struck;
         return miss;
     }
 

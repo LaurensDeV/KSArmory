@@ -129,9 +129,13 @@ internal static class FireLadder
         if (now.HasTubes)
         {
             if (!policy.MissilesEnabled) return Binding("missiles are switched off");
-            if (!munition.Powered) return Binding("a store is released by hand, not auto-engaged");
             if (now.Ammo <= 0) return Binding("out of rounds");
             if (now.SalvoSeconds > 0.0) return Binding("between salvos");
+
+            // A store is released onto a designation or onto nothing, so no rung below -- a lock, a
+            // settled drive -- applies to it, and a loaded one is clear. Automatic fire never
+            // drops one: UpdateFireControl refuses it on its own.
+            if (!munition.Powered) return null;
         }
         else
         {

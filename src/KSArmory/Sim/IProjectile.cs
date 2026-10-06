@@ -7,17 +7,20 @@ namespace KSArmory;
 ///
 /// <para>A <see cref="MunitionProfile"/> varies one round within a single flight model — burn
 /// harder, steer harder, fuse wider. It cannot express a different <em>kind</em> of weapon:
-/// <see cref="Interceptor"/>'s loop is integrate → guide → fuse, and a slug has no guidance stage
-/// while a beam has no flight. Those are separate implementations of this.</para>
+/// <see cref="Interceptor"/>'s loop is integrate → guide → fuse, a slug's is a fall that ends on
+/// contact, and a beam has no flight. Those are separate implementations of this.</para>
 ///
 /// <para>Every member here has a caller on the KSA side. Must stay free of KSA types.</para>
 /// </summary>
 internal interface IProjectile
 {
-    /// <summary>Flying, detonated or expired. The battery reaps on anything but flying.</summary>
+    /// <summary>Flying, detonated or expired. The system reaps on anything but flying.</summary>
     RoundState State { get; }
 
-    /// <summary>Which tube it left, numbered from one. Selects its body subpart.</summary>
+    /// <summary>
+    /// Which tube it left, numbered from one, which selects its body subpart. A gun round carries
+    /// the negative of its barrel instead (<see cref="RoundLabel"/>).
+    /// </summary>
     int Tube { get; }
 
     /// <summary>Seconds since launch.</summary>
@@ -71,7 +74,7 @@ internal interface IProjectile
     IReadOnlyList<double3> TrailOffsets { get; }
 
     /// <summary>
-    /// Where it left from, in the launcher part's own frame. Set by the battery at launch and
+    /// Where it left from, in the launcher part's own frame. Set by the system at launch and
     /// never read by the simulation — it exists so the body can be anchored to its tube.
     /// </summary>
     double3 LaunchAnchorPartFrame { get; set; }
@@ -96,7 +99,7 @@ internal interface IProjectile
 
     /// <summary>
     /// Which round this is. A launcher flying more than one weapon steps and fuses each by its
-    /// own numbers, so the projectile carries them rather than the battery holding one set.
+    /// own numbers, so the projectile carries them rather than the system holding one set.
     /// </summary>
     MunitionProfile Munition { get; init; }
 

@@ -112,7 +112,13 @@ internal readonly record struct TrimSituation(
     /// Whether a pulse phase that stops closing gives way to holding rather than ending the null —
     /// <see cref="IcbmConfig.StallFallsBackToHolding"/>.
     /// </summary>
-    bool StallFallsBackToHolding = false);
+    bool StallFallsBackToHolding = false,
+
+    /// <summary>
+    /// Whether the frame a hold still owes is taken off what is left to gain before the next
+    /// direction is chosen — <see cref="IcbmConfig.TrimCountsTheCommandInFlight"/>.
+    /// </summary>
+    bool CountsTheCommandInFlight = false);
 
 /// <summary>What to fire and whether the warheads may go.</summary>
 /// <param name="Acceleration">
@@ -162,7 +168,7 @@ internal readonly record struct TrimCommand(
 /// decides that per nozzle from its thrust direction alone. Firing one direction means
 /// every number in the loop was observed rather than assumed, and a direction that turns out to
 /// move nothing is struck off and the next one tried — so a vehicle with only an axial pair still
-/// gets the whole axial error out, which is nearly all of it.</para>
+/// gets the whole axial error out.</para>
 ///
 /// <para><b>It gives up rather than holding warheads</b>, exactly as <see cref="ReleaseSequence"/>
 /// does. A bus with no thrusters, or one that has run its tank dry, releases on the trajectory it
@@ -275,7 +281,7 @@ internal sealed class BusTrim
     /// <para><b>Longer than <see cref="DirectionStallSeconds"/>, and it has to be.</b> A bus with no
     /// lateral authority spends the first stretch pushing at nothing, so a loop that gave up on the
     /// total over the same span would give up before the direction that does not work has been
-    /// struck off — leaving the axial error, which is nearly all of it, untouched.</para>
+    /// struck off — leaving the axial error untouched.</para>
     /// </summary>
     public const double StallSeconds = 10.0;
 
@@ -378,13 +384,13 @@ internal sealed class BusTrim
     private TrimAxes _fire;
     private TrimAxes _dead;
 
-    // Whether the last command was a pulse. A pulse is a millisecond of thrust in a frame, so an
-    // acceleration measured across one reads a fraction of the truth — and that reading sizes the
-    // pulse floor, charges the budget, and decides whether a direction still moves the bus.
     // Whether the pulse phase has already given way to holding on this null. One-shot: a second stall
     // is the hold's own and ends the null, so this cannot become a wait that never ends.
     private bool _gaveWayToHolding;
 
+    // Whether the last command was a pulse. A pulse is a millisecond of thrust in a frame, so an
+    // acceleration measured across one reads a fraction of the truth — and that reading sizes the
+    // pulse floor, charges the budget, and decides whether a direction still moves the bus.
     private bool _pulsedLast;
 
     // The frame before that. A command reaches the engine's worker one frame after it is written, so
@@ -636,6 +642,17 @@ internal sealed class BusTrim
             return Command(TrimAxes.None, "waiting for the cutoff trajectory to propagate");
         }
 
+        // A command reaches the engine's worker on the frame after it is written, so the hold chosen
+        // last frame has a whole frame still to deliver. Chosen without it, a frame of thrust lands
+        // on an error the band already called closed: at 0.5 x a x step the overshoot always leaves
+        // the band on the opposite side, which at 88 ms steps burned 4-18 m/s a pass in flight
+        // against 0.7-0.9 at 15 ms.
+        if (now.CountsTheCommandInFlight && _fire != TrimAxes.None && !_pulsedLast
+            && !_pushDirLast.Equals(Vec.Zero) && _accel > 0.0 && double.IsFinite(_accel))
+        {
+            toGainCci -= Vec.Unit(_pushDirLast) * (_accel * step);
+        }
+
         _toGain = Vec.Len(toGainCci);
         _toGainCci = toGainCci;
 
@@ -863,9 +880,6 @@ internal sealed class BusTrim
         return Vec.IsFinite(toward) && !toward.Equals(Vec.Zero) ? Vec.Unit(toward) : Vec.Zero;
     }
 
-    // Against the lowest ever reached rather than the last cycle's, because the number wanders: a
-    // bang-bang loop overshoots by a quantum and comes back, so "worse than last time" is the
-    // ordinary state of a loop that is working.
     // Give the progress watch a fresh run. Only for a change of regime: a loop that restarts its own
     // clock while nothing else changed cannot stall at all.
     private void Restart()
@@ -874,6 +888,9 @@ internal sealed class BusTrim
         _sinceProgress = 0.0;
     }
 
+    // Against the lowest ever reached rather than the last cycle's, because the number wanders: a
+    // bang-bang loop overshoots by a quantum and comes back, so "worse than last time" is the
+    // ordinary state of a loop that is working.
     private bool Stalled(double step, double progress)
     {
         if (_toGain <= _lowest - progress)
@@ -887,10 +904,6 @@ internal sealed class BusTrim
         return _sinceProgress >= StallSeconds;
     }
 
-    // A direction that fires for long enough without moving its own component is not connected to
-    // anything, and the loop has to find that out rather than assume a layout. Struck off rather
-    // than given up on: an axial pair is the one every thruster set has, and a bus with only that
-    // still has nearly all of the error to remove.
     // Whether the direction being fired is doing anything at all.
     //
     // Against the best acceleration this bus has ever shown rather than against a constant, because
@@ -900,6 +913,10 @@ internal sealed class BusTrim
     private bool Alive()
         => _bestAccel > 0.0 && _pushed > AliveFraction * _bestAccel;
 
+    // A direction that fires for long enough without moving its own component is not connected to
+    // anything, and the loop has to find that out rather than assume a layout. Struck off rather
+    // than given up on: an axial pair is the one every thruster set has, and a bus with only that
+    // still has the axial error to remove.
     private void Watch(double step, TrimAxes pick, double component)
     {
         if (pick != _watching)
@@ -998,9 +1015,6 @@ internal sealed class BusTrim
         return Vec.IsFinite(toGainCci);
     }
 
-    // Only across an interval the thrusters were in force for the whole of. A command written this
-    // frame is copied into the engine's worker on the next one, so the first interval after a
-    // change is a mixture and the estimate it gives is somewhere between the two.
     // What this null's pulses asked for against what arrived. Empty for a null that never pulsed, so a
     // hold's message is unchanged. The ratio is the point: near one, the pulses are arriving and a
     // phase that stopped closing was chasing its reference; far below one, they are not, and the lever
@@ -1015,6 +1029,9 @@ internal sealed class BusTrim
                           + $"{_pulseAlong / _pulsesFelt:F2} of it along the direction asked)"
                         : " -- none of them delivered)");
 
+    // Only across an interval the thrusters were in force for the whole of. A command written this
+    // frame is copied into the engine's worker on the next one, so the first interval after a
+    // change is a mixture and the estimate it gives is somewhere between the two.
     private void Measure(double step, in TrimSituation now)
     {
         if (step <= 0.0 || !Vec.IsFinite(now.VelocityCci))

@@ -114,12 +114,16 @@ Four rules that between them explain most refusals:
 
 | | Default | |
 | --- | --- | --- |
-| `BodyMarker` | *none* | subpart holding the round's mesh; without one it draws as a tracer |
+| `BodyMarker` | *none* | subpart holding the round's mesh; without one a gun round is drawn as a streak, glowing if `TracerEvery` makes it a tracer |
 | `FinMarker` | *none* | subpart holding one fin blade |
 | `Guidance` | `CommandLink` | `Seeker`, `AntiRadiation`, `CommandLink`, `Inertial`, `None` |
 | `NavConstant` | `4` | proportional-navigation gain; `0` flies straight |
 | `MaxLateralG` | `35` | how hard it may turn |
 | `SeekerFovDeg` | `55` | how far off its nose a seeker still sees the target |
+| `SeekerBand` | `Radar` | `Radar`, `Infrared` or `None`: which decoy can take a `Seeker` round. Chaff fools radar, flares fool infrared, nothing fools `None` |
+| `CountermeasureResistance` | `0` | 0 to 1: how much of a decoy's chance of taking the seeker it refuses |
+| `ReacquiresAfterDecoy` | `true` | whether a seeker a decoy took looks for its target again once the decoy is spent |
+| `DopplerGateMps` | `0` | m/s; a radar seeker only sees chaff within this of the target's closing speed, which is only while the target beams. Zero is no gate |
 | `LaunchSpeed` | `45` | m/s imparted at release. A rail imparts almost nothing |
 | `BoostSeconds` | `2.4` | motor burn |
 | `BoostAccel` | `520` | m/s² while burning |
@@ -135,7 +139,13 @@ Four rules that between them explain most refusals:
 | `FuseArmSeconds` | `0.6` | how long the proximity fuse is dead after release. A shell still strikes what it touches |
 | `ChargeKg` | `20` | **the warhead, as one number.** Lethal radius, blast radius and fireball are all derived from it by the cube-root law, so doubling it multiplies reach by 1.26 |
 | `HitsTerrain` | `false` | stops at the ground. Costs a terrain sample per round per frame |
+| `BurstHeightMetres` | `0` | an air-burst fuse: fires this far over the ground on the way down. `0` bursts on contact. Needs `HitsTerrain` |
+| `ChuteSinkMetresPerSecond` | `0` | a parachute, described by how fast it brings the store down at sea level once open. `0` is none. Needs `HitsTerrain` |
+| `ChuteOpensSeconds` | `1.5` | when after release the chute opens; it fills over a second |
 | `BodyLength` | `3.10` | m, for drawing |
+| `BodyModel` | *none* | a gun round's model: the Id of a `<SubPart>` template, drawn once per shell in the air with no subpart on the launcher, so there is no limit on how many are seen. Without one a shell is a streak |
+| `TracerEvery` | `0` | a gun round: one in this many burns a tracer, as a belt is loaded. The rest are drawn as a faint grey streak, as bright as the player's **Rounds between tracers** setting in daylight and fading with the sun, so at night only the tracers are seen. `0` is none |
+| `TracerBurnSeconds` | `3` | how long a tracer burns before it goes out; the round flies on unseen |
 | `FinDeploySeconds` | `0.18` | |
 | `FinDeflectionDeg` | `0` | fins that visibly steer |
 | `FinHingeStation` | `0` | where along the body the fins hinge |
@@ -170,6 +180,9 @@ each `<Stage>` follows it in order:
 | `Scope` | `None` | what picture it puts in front of the operator: `None`, `Search`, or `Emitters`. `None` shows no scope tab at all, which is right for a seeker head or a designation set; `Emitters` is an anti-radiation seeker's list of who is radiating |
 | `ReferenceCrossSectionM2` | `0` (off) | contact size scaling. Range goes as the **fourth** root, so a target a hundredth the size is seen at a third the range |
 | `NotchSpeed` | `0` (off) | Doppler notch. Rejects clutter **and** loses a target crossing exactly abeam |
+| `ChaffNotchMps` | `0` (off) | a target closing slower than this, with a bigger chaff return in its resolution cell, breaks the track |
+| `ChaffReacquireSeconds` | `3` | how long a track chaff broke takes to be found again |
+| `OpticalBackup` | `false` | once found again, an optical channel holds the target while it stays in the notch, so chaff breaks it once per pass |
 | `ClutterFloorMetres` | `0` (off) | height below which contacts are lost in ground return |
 | `HorizonMasking` | `true` | whether the planet's bulk blocks line of sight |
 | `TerrainMarginMetres` | `0` | inflates the masking sphere |
@@ -190,7 +203,7 @@ holds fire on for ever, with no gate reporting why.
 | `<Tube Position="x, y, z" Direction="x, y, z" />` | — | one per tube. `Direction` is optional; without it the tube points along the pod axis. Splayed tubes, a VLS and an MLRS are all just tube lists |
 | `MagazineDepth` | `0` (= tube count) | rounds carried |
 | `SalvoSpacing` | `0.45` | s between launches |
-| `ReloadSeconds` | `12` | `0` means no reload — a rail is spent |
+| `ReloadSeconds` | `0` | seconds after emptying before the launcher refills itself; `0` is never, and Reload in the panel is the only refill |
 | `LaunchAlongTube` | `true` | false throws the round off-axis toward a high off-boresight target |
 | `LaunchLoft` | `0.35` | bias toward the launcher's boresight, and read only when `LaunchAlongTube` is false |
 | `EjectAwayFromMount` | `0` | m/s pushing the round clear. What a rail and a rack use |
@@ -225,9 +238,11 @@ tubes, a cannon, or both; the Phalanx has no tubes at all.
 | | Default | |
 | --- | --- | --- |
 | `GunAmmo` | `480` | belt |
+| `StoreMassKg` | `0` | what one tube round weighs as carried (kg). The part's declared mass should include its full load: each round fired takes this much off it, and a reload puts it back. `0` sheds nothing |
+| `GunRoundMassKg` | `0` | the same for one complete round in the belt, case and charge included |
 | `GunRoundsPerMinute` | `2500` | |
 | `GunBurstRounds`, `GunBurstGapSeconds` | `12`, `0.55` | |
-| `GunReloadSeconds` | `20` | |
+| `GunReloadSeconds` | `0` | the same for the belt |
 | `GunArmamentLabel` | `Cannon` | |
 
 **A launcher declares gear it carries inside itself**, with a `<Provides>` row per assembly that is
@@ -262,8 +277,40 @@ observation post. `PartId`, `DisplayName`, `Sensor`, `BaseMarker`, `HeadMarker` 
 | `MinElevationDeg`, `MaxElevationDeg` | `-20`, `85` | mast heads |
 | `MaxOffBoresightDeg` | `135` | roll-nod heads: the nod stop, which is the only travel limit a rolling head has |
 | `KeyholeDeg` | `4` | cone about the roll axis the aim is held out of. Dead along it there is no roll angle, and a target crossing the nose asks for unbounded roll rate |
+| `MaxMagnification` | `16` | how far the optics wind in, against KSA's 50° view; the zoom steps x1, x2, x4… up to it and ends on it. 53 is a 1° field, the floor the camera takes |
+| `HasLaser` | `false` | a laser rangefinder and designator on the line of sight, fired from the camera window's LASE button; its spot is what a laser-guided weapon homes on, by its code |
+| `LaserRangeMetres` | `20000` | how far the laser returns from; past it the beam lases at nothing |
 
 ---
+
+## Bodies.xml -- describing a planet
+
+A solar-system mod, or any mod, can say what a nuclear burst needs to know about a body that KSA does
+not declare. Put a file with a `<Bodies>` root in the same `KSArmory/` folder; it is told from a weapon
+pack by its root element, and read in every enabled mod.
+
+```xml
+<Bodies>
+  <Body Id="MyMoon" FieldTesla="5e-6" FieldTiltDeg="10" Airglow="CarbonDioxide" Gamma="1.3"
+        Condensation="false" Surface="true" XRayOpacity="1" />
+</Bodies>
+```
+
+| Attribute | Meaning | When left out |
+|---|---|---|
+| `Id` | the body's Id, as KSA's system declares it | required |
+| `FieldTesla` | dipole strength at the surface equator (T) | no field: no aurora, no debris held along it |
+| `FieldTiltDeg`, `FieldAzimuthDeg` | the dipole's tilt from the spin axis, and which way | 0 |
+| `Airglow` | `OxygenNitrogen`, `CarbonDioxide`, `Hydrogen` or `Neutral` | `Neutral`: a dim, uncoloured glow |
+| `Condensation` | whether a burst raises white condensation | follows whether the body has an ocean |
+| `Gamma` | the air's ratio of specific heats, for the speed of sound | 1.4 |
+| `Surface` | whether there is ground at all | true |
+| `XRayOpacity` | X-ray stopping per kilogram, against nitrogen and oxygen's | 1 |
+
+Everything about the air itself -- pressure, density, scale height, where it ends -- comes from the
+body's own atmosphere in KSA and is never restated here. A later mod's entry for a body replaces an
+earlier one's, with a line in the log saying so; once the world has loaded, one line lists every entry
+the solar system has no body for, which is where a misspelt or renamed Id shows up.
 
 ## Names, and using somebody else's round
 

@@ -24,6 +24,24 @@ internal static class Fireball
 
     private static int _lights;
     private static bool _stoodDown;
+    private static Light _pushed;
+
+    /// <summary>
+    /// The light handed to KSA this frame, as it was handed: camera-relative where it was sampled,
+    /// its range, and its colour times its intensity. False on a frame with none.
+    /// </summary>
+    public static bool TryPushed(out double3 centreEgo, out float range, out float3 radiant)
+    {
+        centreEgo = default;
+        range = 0f;
+        radiant = default;
+        if (_lights <= 0) return false;
+
+        centreEgo = _pushed.Position;
+        range = _pushed.Range;
+        radiant = _pushed.Color * _pushed.Intensity;
+        return true;
+    }
 
     /// <summary>Whether the burst can light the world, or the engine's own spawner has the list.</summary>
     public static bool LightAccepted => LightDebug.Target is null;
@@ -95,8 +113,9 @@ internal static class Fireball
         // falloff has made it faint by then. No shadows: the terrain takes this light through KSA's
         // forward list, which has none, so a shadow map would cost a cube of the whole landscape a
         // frame for nothing on the ground.
-        LightDebug.Lights.Add(Light.CreatePointLight(
-            centreEgo, (float)(radiusMetres * RangeInRadii), colour, intensity, ELightFlags.None));
+        _pushed = Light.CreatePointLight(
+            centreEgo, (float)(radiusMetres * RangeInRadii), colour, intensity, ELightFlags.None);
+        LightDebug.Lights.Add(_pushed);
 
         _lights = 1;
     }

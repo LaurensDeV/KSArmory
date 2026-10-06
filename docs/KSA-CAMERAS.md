@@ -20,14 +20,15 @@ moved with it. A citation is still a pointer rather than a proof: check before r
 Grounded **only** in the decompiled engine at
 `../ksa-game-assemblies/current/src`.
 All citations are relative to that root. Nothing here is taken from any mod's own code or docs.
-Build: **2026.9.22.5482**. Line numbers move on every KSA update, so a citation that does not land
+Build: **2026.10.7.5541**. Line numbers move on every KSA update, so a citation that does not land
 on what it claims means this file is behind the corpus, not that the corpus is wrong.
 
 > **Its citations and its viewport sections are against 2026.8.22.5348, and section 2 in particular
 > is stale.** 2026.9.10.5438 changed `Camera.cs` and `FixedController.cs` by local renames only, and
 > 2026.9.22.5482 left `FixedController.cs` alone, changed `Camera.cs` in place (the key-event call
-> takes `in`) and kept `Program.OnFrame`'s order — so the claims below were rechecked against both
-> and the citations were not. One claim the later build adds to: a mouse button other than the left
+> takes `in`) and kept `Program.OnFrame`'s order, and 2026.10.7.5541 only added
+> `Camera.GetEffectiveNearbyCelestial` and made `FixedController` skip character-portrait viewports
+> — so the claims below were rechecked against all three and the citations were not. One claim the later build adds to: a mouse button other than the left
 > can now be bound to an input action, and `Program.OnMouseButton` dispatches that binding before
 > the controller sees the press.
 > 2026.9.4.5400 replaced the `Viewport` class with `IViewport` / `ViewportBase` /
@@ -252,6 +253,19 @@ frame/origin shift. `Program.GetOrbitController()` (`Program.cs:614`) returns th
 
 **Overwritten every frame:** `Camera.LocalRotation`, `Camera.PositionCce` (hence `PositionEcl`),
 `Camera.NoRotation`. A mod write to any of these in `Orbit` mode is lost.
+
+**It cannot get closer than half the followed object's radius.** Its distance is
+`DistancePower * MeanRadius`, and zooming clamps `DistancePower` at 0.5 (`OrbitController.cs:428`,
+`:617` in the current build). On a craft kilometres across, anything small on it — a seated kitten,
+a detail — cannot be framed. Following a mod `IFollowable` placed on the detail, with a `MeanRadius`
+of a metre, gets as close as wanted.
+
+**Only four kinds of followable get a real reference frame.** `GetFrame2Ecl` handles `Vehicle`,
+`Celestial`, `VehicleEditingSpace` and `WreckageMarker` (`OrbitController.cs:233-333`); anything else
+is given the ecliptic, so a mod `IFollowable` orbited by this controller has its horizon rolled by
+the site's angle from the ecliptic pole. `WreckageMarker` is sealed and fixed where it is made, so a
+level horizon on a mod followable needs `FixedController` with its own up — see
+`Ksa/LevelHorizonController.cs`.
 
 **The useful exception:** `Orbit` mode with `Camera.Unfollow()` — `OnFrame` returns at `:471-475`
 without touching anything, `OnCursorPos`/`OnScroll` no-op because `Camera.Following?.OrbitView` is
@@ -856,6 +870,11 @@ _renderedViewportIndex = _mainViewportIndex;                            // Progr
 ---
 
 ### A. Why a secondary viewport shows stars, a hard horizon and a grey ball
+
+> **Superseded in 2026.10.7.5541** for terrain and sky: `RenderViewport` now runs the planet renderer
+> and `RenderAtmosphereOnly` for a viewport flagged `RenderTerrain`, which every secondary is, and
+> the grey ball is suppressed through `Camera.GetEffectiveNearbyCelestial`. Clouds, the ocean and
+> clustered lights are still main-only. What follows is the account against the older builds.
 
 **That picture is structural, not a state bug.** It is two separate facts:
 

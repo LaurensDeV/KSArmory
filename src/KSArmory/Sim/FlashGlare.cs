@@ -28,14 +28,18 @@ public static class FlashGlare
     /// power at the pulse's peak spread over a sphere, against sunlight, and scaled by how bright
     /// the ball is drawn now against its peak. A 0.3 kt burst is about 60 suns at 2.4 km. Taken off
     /// the power rather than off the drawn ball's size, which at the instant of the flash is still
-    /// small and put the same burst at 8.
+    /// small and put the same burst at 8. In the air it went off in (<see cref="ThermalAltitude"/>):
+    /// a stratospheric burst gives more of itself as light, and over a shorter pulse.
     /// </summary>
-    public static double Suns(double yieldKt, double range, double glow)
+    public static double Suns(double yieldKt, double range, double glow, double airRatio = 1.0)
     {
-        double peakSeconds = MushroomCloud.ThermalMaximumSeconds(yieldKt);
+        double scale = ThermalAltitude.PulseScale(airRatio);
+        double peakSeconds = scale == 1.0
+                                 ? MushroomCloud.ThermalMaximumSeconds(yieldKt)
+                                 : MushroomCloud.ThermalMaximumSeconds(yieldKt) * scale;
         if (!(peakSeconds > 0.0) || !(range > 1.0) || !(glow > 0.0)) return 0.0;
 
-        double watts = ThermalFraction * yieldKt * 4.184e12 / (PulseWidthInPeaks * peakSeconds);
+        double watts = ThermalAltitude.ThermalFraction(airRatio) * yieldKt * 4.184e12 / (PulseWidthInPeaks * peakSeconds);
         double atEye = watts / (4.0 * Math.PI * range * range);
 
         return atEye / SolarConstant * Math.Clamp(glow / MushroomCloud.PeakGlow, 0.0, 1.0);

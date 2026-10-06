@@ -3,7 +3,7 @@ using Xunit;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// Identification Friend or Foe: which contacts a battery is allowed to shoot at.
+/// Identification Friend or Foe: which contacts a system is allowed to shoot at.
 ///
 /// <para>KSA has no concept of sides, so every rule here is the mod's own. The one that matters
 /// most is that <see cref="Allegiance.Unknown"/> is not a synonym for hostile — a contact with no
@@ -44,8 +44,8 @@ public class IffTests
     }
 
     /// <summary>
-    /// A battery that has not picked a side cannot call anything hostile. Without this, the first
-    /// craft to be given a team name would become an enemy of every unaligned battery at once.
+    /// A system that has not picked a side cannot call anything hostile. Without this, the first
+    /// craft to be given a team name would become an enemy of every unaligned system at once.
     /// </summary>
     [Fact]
     public void ABatteryWithNoTeamOfItsOwnClassifiesNothing()
@@ -193,8 +193,8 @@ public class IffTests
     }
 
     /// <summary>
-    /// A coalition is per-battery: each side lists the others. Nothing infers that an ally's ally
-    /// is a friend, which keeps a battery's view of the world its own.
+    /// A coalition is per-system: each side lists the others. Nothing infers that an ally's ally
+    /// is a friend, which keeps a system's view of the world its own.
     /// </summary>
     [Fact]
     public void AlliancesAreDeclaredFromEachSideSeparately()
@@ -235,71 +235,6 @@ public class IffTests
         blue.NeutralTeams.Add("Green");
 
         Assert.Equal(Allegiance.Neutral, blue.Classify("Green"));
-    }
-
-    // ---- Which team a name puts a craft on -------------------------------
-    //
-    // The half that runs before Classify gets a string. Everything above assumes a team name has
-    // already been resolved off the craft; this is where that resolution can go wrong, and it is
-    // the half that decides what a player's roster actually does.
-
-    private static readonly List<string> Sides = ["Red", "Blue"];
-
-    [Fact]
-    public void ANameCarryingATeamIsOnThatTeam()
-    {
-        Assert.Equal("Red", Teams.TeamFor("Red Leader", Sides));
-    }
-
-    [Fact]
-    public void MatchingIsCaseInsensitive()
-    {
-        Assert.Equal("Blue", Teams.TeamFor("BLUE four", Sides));
-    }
-
-    [Fact]
-    public void ANameCarryingNoTeamIsOnNone()
-    {
-        Assert.Null(Teams.TeamFor("Kerbal X", Sides));
-    }
-
-    [Fact]
-    public void AnEmptyRosterPutsNothingOnATeam()
-    {
-        Assert.Null(Teams.TeamFor("Red Leader", []));
-    }
-
-    /// <summary>A blank entry in the roster matches every name, so it is skipped rather than won by.</summary>
-    [Fact]
-    public void ABlankTeamNameIsNotATeam()
-    {
-        Assert.Null(Teams.TeamFor("Red Leader", ["", "   "]));
-    }
-
-    /// <summary>
-    /// Longest match wins, which is the whole reason the loop does not stop at the first hit:
-    /// listing "Red" and "Red Team" together is exactly the ambiguity a player creates by naming
-    /// their sides that way, and the specific one has to win.
-    /// </summary>
-    [Fact]
-    public void TheLongestMatchWinsWhateverOrderTheRosterIsIn()
-    {
-        Assert.Equal("Red Team", Teams.TeamFor("Red Team Leader", ["Red", "Red Team"]));
-        Assert.Equal("Red Team", Teams.TeamFor("Red Team Leader", ["Red Team", "Red"]));
-    }
-
-    /// <summary>
-    /// The trap, pinned rather than fixed. A substring match is all a craft's display name can
-    /// support, so a name that merely contains a team's is assigned to it — and no ordering or
-    /// longest-match rule separates "Redstone" from "Red", because there is only one candidate.
-    ///
-    /// <para>Here so that whoever changes the matching rule finds out what they have changed. It
-    /// is the documented cost of having no team field to read.</para>
-    /// </summary>
-    [Fact]
-    public void ANameThatMerelyContainsATeamIsStillPutOnIt()
-    {
-        Assert.Equal("Red", Teams.TeamFor("Redstone", Sides));
     }
 
     // ---- Stepping a switcher row's flag ----------------------------------

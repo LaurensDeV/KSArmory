@@ -13,9 +13,9 @@ namespace KSArmory;
 ///
 /// <para><b>Carried, not derived.</b> A heading worked out afresh each frame has to get from the
 /// release direction to the airflow in one step, and a store thrown upwards comes down pointing
-/// the opposite way from its rack. There is no single turn between opposite directions, so the body
-/// flipped over the top of the climb and rolled about its nose on the way down, wherever the tail
-/// kit moved the flight. Turning what was drawn last frame never asks for more than a frame's
+/// the opposite way from its rack. There is no single turn between opposite directions, so a derived
+/// heading flips over the top of the climb and rolls about its nose on the way down, wherever the
+/// tail kit moves the flight. Turning what was drawn last frame never asks for more than a frame's
 /// turn.</para>
 ///
 /// <para><b>What turns a body is dynamic pressure, not speed.</b> Speed alone is the same number

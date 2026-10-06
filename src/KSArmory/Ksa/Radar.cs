@@ -4,7 +4,7 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// Search-and-track radar. Sweeps a cone about the battery's boresight and classifies
+/// Search-and-track radar. Sweeps a cone about the system's boresight and classifies
 /// contacts as threats using their closest point of approach rather than raw closing
 /// speed, so a target crossing the site is engaged just as readily as one flying at it.
 /// </summary>
@@ -16,8 +16,8 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
     /// <summary>
     /// What this set can see.
     ///
-    /// <para>Owned by the battery that fitted it rather than read through <c>Config</c>: with more
-    /// than one battery alive a shared field is whichever system resolved last. Live tuning still
+    /// <para>Owned by the system that fitted it rather than read through <c>Config</c>: with more
+    /// than one system alive a shared field is whichever system resolved last. Live tuning still
     /// works, because profiles are shared instances.</para>
     /// </summary>
     /// <remarks>
@@ -54,7 +54,7 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
     /// <summary>
     /// Craft the last scan discarded because the planet was in the way.
     ///
-    /// <para>Counted rather than dropped quietly: a battery that suddenly sees nothing looks
+    /// <para>Counted rather than dropped quietly: a system that suddenly sees nothing looks
     /// broken, and this is the difference between "nothing is flying" and "everything is behind
     /// the world".</para>
     /// </summary>
@@ -65,6 +65,14 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
     /// a set that has gone blind reads as a broken one unless it says why.
     /// </summary>
     public int MaskedByBurst { get; private set; }
+
+    /// <summary>Contacts the last scan lost to chaff beside them in the notch. See <see cref="ChaffNotch"/>.</summary>
+    public int LostToChaff { get; private set; }
+
+    private readonly ChaffNotch _notch = new();
+
+    /// <summary>Whether chaff has taken this contact's track and the set is still hunting for it.</summary>
+    public bool ChaffBroke(object? handle) => _notch.IsBroken(handle);
 
     /// <summary>
     /// Pieces of craft this mod's warheads broke up, left out of the picture this scan. Counted for
@@ -99,7 +107,7 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
     /// <summary>
     /// Rebuilds the track list from the current world state.
     /// </summary>
-    /// <param name="platform">The vehicle carrying the battery.</param>
+    /// <param name="platform">The vehicle carrying the system.</param>
     /// <param name="boresight">Unit vector the radar is pointed along, in Ecl.</param>
     /// <param name="dt">Seconds since the previous scan.</param>
     /// <param name="airborne">
@@ -114,7 +122,9 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
         _byHandle.Clear();
         MaskedByTerrain = 0;
         MaskedByBurst = 0;
+        LostToChaff = 0;
         IgnoredWreckage = 0;
+        _notch.BeginScan(dt);
 
         // A set that has been told to stop transmitting sees nothing. That is the whole of the
         // trade against an anti-radiation round -- going quiet costs the site its own picture, so
@@ -173,6 +183,8 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
             }
         }
 
+        _notch.EndScan();
+
         (_acceleration, _accelerationNext) = (_accelerationNext, _acceleration);
         _accelerationNext.Clear();
 
@@ -198,10 +210,9 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
     {
         if (!contact.IsAlive) return;
 
-        // What the panel's flag put it on, and only failing that what its name reads as. The flag
-        // is the one somebody set on purpose, and it is also the cheaper of the two: a dictionary
-        // hit against a Contains over every declared team name.
-        string? team = contact.DeclaredTeam ?? Teams.TeamFor(contact.TeamKey, _config.TeamNames);
+        // What the panel's flag put it on, and nothing else: a craft's name says what it is called,
+        // not whose it is.
+        string? team = contact.DeclaredTeam;
         Allegiance allegiance = _policy.Iff.Classify(team);
 
         double3 targetPos = contact.PositionEcl;
@@ -228,6 +239,17 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
 
         if (!ThreatModel.TryAssess(targetPos - originEcl, targetVel - originVel,
                                    boresight, _sensor, signature, out var a)) return;
+
+        // Chaff in the notch, which takes the track rather than hiding the contact: dropping it here is
+        // what resets its dwell, so the lock has to mature again once it is found.
+        bool wasBroken = _notch.IsBroken(contact.Handle);
+        if (_notch.Hides(_sensor, contact.Handle, originEcl, originVel, targetPos, targetVel,
+                         RadarSignature.CrossSectionFor(contact.MeanRadius), Countermeasures.Live))
+        {
+            LostToChaff++;
+            if (!wasBroken) Log.Info($"{_sensor.DisplayName} lost {contact.DisplayName} to chaff in the notch");
+            return;
+        }
 
         // A fireball's ionised air, which absorbs a beam that crosses it. A handful of spheres, so
         // cheap, but asked only of what the cone let through and only of a set that transmits.

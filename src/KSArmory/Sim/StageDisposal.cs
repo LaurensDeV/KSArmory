@@ -27,6 +27,11 @@ internal static class StageDisposal
     /// world and nearest to the craft", and a kilometre is far enough that nothing adjacent to the
     /// craft can be mistaken for one. A rocket under power puts a dropped stage past it within
     /// seconds, so waiting for it costs nothing.</para>
+    ///
+    /// <para>It protects nothing against another rocket's stages, which a world staging together
+    /// hands to whichever census looks first and which are kilometres off already. What keeps that
+    /// safe is the census's one-frame window and KSA giving the new vehicle to the part that drops
+    /// away: over 62,013 such removals none was ever seen alive again.</para>
     /// </summary>
     public const double ClearOfTheCraftMetres = 1000.0;
 

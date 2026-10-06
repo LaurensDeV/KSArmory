@@ -3,7 +3,7 @@ using Brutal.Numerics;
 namespace KSArmory;
 
 /// <summary>
-/// The turret's azimuth drive: where it is pointing, where it has been told to point, and how
+/// The turret's traverse and elevation drives: where it is pointing, where it has been told to point, and how
 /// fast it is allowed to get there.
 ///
 /// <para>Deliberately free of KSA types, like <see cref="Interceptor"/> and <see cref="Vec"/> —
@@ -37,9 +37,9 @@ public sealed class Turret
     public const double DefaultRestElevation = 0.9599; // 55 degrees
 
     /// <summary>
-    /// Travel limits on the elevation drive. The floor is level, not slightly below it: a real
-    /// launcher does not depress past horizontal, and there is nothing worth shooting at down
-    /// there anyway — the battery defends the sky above itself.
+    /// Travel limits on the elevation drive, set from the profile. The default floor is level: a
+    /// launcher that defends the sky above itself does not depress past horizontal, and a mount
+    /// that does says so in its profile.
     /// </summary>
     public double MinElevationRad { get; set; }
     public double MaxElevationRad { get; set; } = double.DegreesToRadians(82);
@@ -66,6 +66,33 @@ public sealed class Turret
     /// tubes are abeam the obstruction. The ease belongs outside the conflict, not across it.</para>
     /// </summary>
     public double ForwardPlateauRad { get; set; } = double.DegreesToRadians(62);
+
+    /// <summary>How far either side of forward the traverse may go; pi or more is unlimited.</summary>
+    public double TraverseLimitRad { get; set; } = Math.PI;
+
+    /// <summary>
+    /// Where the craft this mount is on leaves its gun room to point. Once set, it replaces
+    /// <see cref="TraverseLimitRad"/> and narrows the elevation at each bearing.
+    /// </summary>
+    public TravelMap? Map { get; set; }
+
+    /// <summary>The arc the traverse may cover, <c>Lo &lt;= 0 &lt;= Hi</c>, or null for a whole turn.</summary>
+    public (double Lo, double Hi)? Arc
+        => Map is { } map ? map.Arc
+         : TraverseLimitRad < Math.PI ? (-TraverseLimitRad, TraverseLimitRad)
+         : null;
+
+    // A bearing in the arc's own unwrapped coordinate, [Lo, Lo + 2pi): past Hi is the gap.
+    private static double Unwrapped(double bearingRad, double lo) => lo + TravelMap.Mod(bearingRad - lo, Math.Tau);
+
+    private double ClampBearing(double bearingRad)
+    {
+        if (Arc is not (double lo, double hi)) return bearingRad;
+
+        double u = Unwrapped(bearingRad, lo);
+        if (u <= hi) return WrapPi(u);
+        return WrapPi(u - hi < lo + Math.Tau - u ? hi : lo);
+    }
 
     /// <summary>Lowest elevation the pods may take at a given bearing: flat across the sector the
     /// bodywork occupies, then easing so traversing out of it lowers them rather than dropping
@@ -118,8 +145,8 @@ public sealed class Turret
     ///
     /// Rotating by <c>a</c> about +X carries +Y to <c>(0, cos a, sin a)</c>, so the bearing of a
     /// direction is just the angle of its (Y, Z) components. The X component — how far above or
-    /// below the horizon the target sits — is deliberately dropped: this is an azimuth drive,
-    /// and the missile pods are at a fixed elevation.
+    /// below the horizon the target sits — is deliberately dropped: that is
+    /// <see cref="ElevationTo"/>'s.
     /// </summary>
     public static double BearingTo(double3 directionPartFrame)
         => Math.Atan2(directionPartFrame.Z, directionPartFrame.Y);
@@ -139,14 +166,14 @@ public sealed class Turret
         if (!Vec.IsFinite(directionPartFrame)) return;
         if (Vec.Len2(directionPartFrame) < 1e-12) return;
 
-        CommandRad = BearingTo(directionPartFrame);
+        CommandRad = ClampBearing(BearingTo(directionPartFrame));
         CommandElevationRad = ClampElevation(ElevationTo(directionPartFrame), CommandRad.Value);
     }
 
     /// <summary>Orders both axes directly, bypassing the radar. Used by the manual override.</summary>
     public void Point(double bearingRad, double? elevationRad = null)
     {
-        if (double.IsFinite(bearingRad)) CommandRad = WrapPi(bearingRad);
+        if (double.IsFinite(bearingRad)) CommandRad = ClampBearing(WrapPi(bearingRad));
         if (elevationRad is { } elevation && double.IsFinite(elevation))
         {
             CommandElevationRad = ClampElevation(elevation, CommandRad ?? BearingRad);
@@ -189,9 +216,24 @@ public sealed class Turret
     }
 
     private double ClampElevation(double elevation, double atBearingRad)
-        => !double.IsFinite(elevation)
-            ? ElevationRad
-            : Math.Clamp(elevation, DepressionFloorAt(atBearingRad), MaxElevationRad);
+    {
+        if (!double.IsFinite(elevation)) return ElevationRad;
+        (double floor, double ceiling) = ElevationBandAt(atBearingRad);
+        return Math.Clamp(elevation, floor, ceiling);
+    }
+
+    /// <summary>The elevation the drive may take at a bearing: the profile's travel and the map's.</summary>
+    public (double Floor, double Ceiling) ElevationBandAt(double bearingRad)
+    {
+        double floor = DepressionFloorAt(bearingRad), ceiling = MaxElevationRad;
+        if (Map is { } map)
+        {
+            (double mapFloor, double mapCeiling) = map.BandAt(bearingRad);
+            floor = Math.Max(floor, mapFloor);
+            ceiling = Math.Min(ceiling, mapCeiling);
+        }
+        return (floor, Math.Max(floor, ceiling));
+    }
 
     /// <summary>
     /// Advances the drive. Turns the short way round and never faster than
@@ -204,7 +246,12 @@ public sealed class Turret
 
         if (CommandRad is { } command && slewRateRadPerSec > 0.0)
         {
-            BearingRad = StepToward(BearingRad, command, slewRateRadPerSec * dt);
+            // A limited traverse steps without wrapping, so it never takes the short way through
+            // the arc behind it.
+            double step = slewRateRadPerSec * dt;
+            BearingRad = Arc is (double lo, double hi)
+                ? StepWithinArc(BearingRad, ClampBearing(command), step, lo, hi)
+                : StepToward(BearingRad, command, step);
         }
 
         if (CommandElevationRad is { } elevation && elevationRateRadPerSec > 0.0)
@@ -220,9 +267,21 @@ public sealed class Turret
         // The interlock, enforced against where the turret *is* rather than where it was told
         // to go. Traversing into the forward arc with the pods low has to lift them out of the
         // bodywork on the way round, not once it arrives.
-        ElevationRad = Math.Clamp(ElevationRad, DepressionFloorAt(BearingRad), MaxElevationRad);
+        (double floorNow, double ceilingNow) = ElevationBandAt(BearingRad);
+        ElevationRad = Math.Clamp(ElevationRad, floorNow, ceilingNow);
 
         SecondsOnTarget = OnTarget ? SecondsOnTarget + dt : 0.0;
+    }
+
+    // Inside the arc a plain clamped move. A mount the arc arrived around while it stood in the gap
+    // leaves by the nearer end, rather than jumping to it.
+    private static double StepWithinArc(double from, double to, double maxStep, double lo, double hi)
+    {
+        double u = Unwrapped(from, lo);
+        if (u > hi) return StepToward(from, WrapPi(u - hi < lo + Math.Tau - u ? hi : lo), maxStep);
+
+        double target = Unwrapped(to, lo);
+        return WrapPi(u + Math.Clamp(target - u, -maxStep, maxStep));
     }
 
     /// <summary>Moves <paramref name="from"/> toward <paramref name="to"/> the short way, by at
@@ -245,11 +304,12 @@ public sealed class Turret
         return angle;
     }
 
-    /// <summary>Forgets everything. Used when the battery changes platform.</summary>
+    /// <summary>Forgets everything. Used when the system changes platform.</summary>
     public void Reset()
     {
         BearingRad = 0.0;
         ElevationRad = RestElevationRad;
+        Map = null;
         CommandRad = null;
         CommandElevationRad = null;
         SecondsOnTarget = 0.0;

@@ -119,16 +119,16 @@ internal static class BurstFlash
 
                 // The light it puts in the eye, in suns, against the light the eye is used to --
                 // on the scale an eye answers on, so a burst four times further off is a step
-                // dimmer rather than a sixteenth as bright. Linear in the light, it was a whiteout
-                // at 2.4 km and next to nothing at 10.
-                double suns = FlashGlare.Suns(MushroomCloud.KilotonsFor(charge), range, flash.Glow);
+                // dimmer rather than a sixteenth as bright. Linear in the light, it would be a
+                // whiteout at 2.4 km and next to nothing at 10.
+                double suns = FlashGlare.Suns(MushroomCloud.KilotonsFor(charge), range, flash.Glow,
+                                              NuclearClouds.BurningAir(i));
                 double adapted = FlashGlare.AdaptedTo(
                     body is not null ? KsaWorld.SunElevationDeg(body, eyeEcl) : double.NaN);
 
                 // ...and how much of that reaches somebody facing where they are facing. Without
-                // it a burst directly BEHIND the camera whited the screen out exactly as one dead
-                // ahead did, because the pose was read for its position and its direction thrown
-                // away.
+                // it a burst directly BEHIND the camera whites the screen out exactly as one dead
+                // ahead does.
                 double offAxisDeg = double.RadiansToDegrees(
                     Vec.AngleBetween(burstEcl - eyeEcl, forwardEcl));
 
@@ -165,7 +165,7 @@ internal static class BurstFlash
 
             // ADDED, not the larger of the two: a flash that arrives over a few frames blinds as much
             // as one that arrives in one. Held at the largest step, a burst reaching full brightness
-            // in two frames stopped at the first one's 0.6.
+            // in two frames stops at the first one's 0.6.
             if (dt > 0.0) _held *= Math.Exp(-dt / _fadeSeconds);
             double added = Math.Min(_held + rise, 1.0) - _held;
 

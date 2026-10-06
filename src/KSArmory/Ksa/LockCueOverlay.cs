@@ -41,15 +41,15 @@ internal static class LockCueOverlay
     private const float CaretLength = 16f;
     private const float CaretHalfWidth = 7f;
 
-    public static void Draw(WeaponSystem battery)
+    public static void Draw(WeaponSystem system)
     {
-        Track? track = battery.Radar.Locked;
+        Track? track = system.Radar.Locked;
         if (track is null || !track.Contact.IsAlive) return;
 
-        bool held = battery.Hold is not null;
+        bool held = system.Hold is not null;
 
         LockPhase phase = LockCue.Phase(hasTrack: true,
-                                        locked: battery.Radar.HasFiringSolution,
+                                        locked: system.Radar.HasFiringSolution,
                                         clearToFire: !held,
                                         held: held);
 
@@ -101,16 +101,16 @@ internal static class LockCueOverlay
             _ => Acquiring,
         };
 
-        if (inView) DrawBracket(draw, at, track, battery, phase, colour);
+        if (inView) DrawBracket(draw, at, track, system, phase, colour);
         else DrawCaret(draw, at, main, colour);
 
         ImGui.End();
     }
 
     private static void DrawBracket(ImDrawListPtr draw, float2 at, Track track,
-                                    WeaponSystem battery, LockPhase phase, ImColor8 colour)
+                                    WeaponSystem system, LockPhase phase, ImColor8 colour)
     {
-        float acquisition = LockCue.Acquisition(track.HeldSeconds, battery.Sensor.LockSeconds);
+        float acquisition = LockCue.Acquisition(track.HeldSeconds, system.Sensor.LockSeconds);
 
         Span<ReticleStroke> strokes = stackalloc ReticleStroke[Reticle.MaxStrokes];
         int n = Reticle.Build(at, Half, LockCue.Standoff(acquisition),
@@ -134,7 +134,7 @@ internal static class LockCueOverlay
         //
         // Under the bracket, not beside it: the chase HUD's range and a designation's readout are
         // both written to the right of the same target.
-        if (phase == LockPhase.Held && battery.Hold is { } why)
+        if (phase == LockPhase.Held && system.Hold is { } why)
         {
             draw.AddText(new float2(at.X - Half * 1.8f, at.Y + Half * 1.8f + 4f), colour, why);
         }

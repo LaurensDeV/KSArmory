@@ -49,7 +49,7 @@ internal static class Vec
     /// separation the dot product cannot resolve below one epsilon of 1.0 reads as exactly nothing.
     /// That floor is <c>sqrt(2*eps)</c> = 2.1e-8 rad, which taken across a planet's radius is
     /// <b>0.134 m</b> — larger than a ballistic group's whole miss, so every distance measured this
-    /// way printed 0.000. The sine is steep at both endpoints and the cross product is a
+    /// way prints 0.000. The sine is steep at both endpoints and the cross product is a
     /// subtraction, so this form carries no such floor.
     /// </remarks>
     public static double AngleBetween(double3 a, double3 b)
@@ -57,6 +57,25 @@ internal static class Vec
         double3 ua = Unit(a), ub = Unit(b);
         if (ua.Equals(Zero) || ub.Equals(Zero)) return 0.0;
         return Math.Atan2(Len(Cross(ua, ub)), Dot(ua, ub));
+    }
+
+    /// <summary>
+    /// <paramref name="from"/> turned toward <paramref name="to"/> by at most
+    /// <paramref name="maxRadians"/>, as a unit vector. Exactly opposite, it turns about any
+    /// perpendicular.
+    /// </summary>
+    public static double3 TurnToward(double3 from, double3 to, double maxRadians)
+    {
+        double3 a = Unit(from), b = Unit(to);
+        if (a.Equals(Zero)) return b;
+        if (b.Equals(Zero)) return a;
+
+        double angle = AngleBetween(a, b);
+        if (angle <= maxRadians) return b;
+
+        double3 cross = Cross(a, b);
+        double3 axis = Len2(cross) > 1e-24 ? Unit(cross) : AnyPerpendicular(a);
+        return Unit(doubleQuat.CreateFromAxisAngle(axis, Math.Max(maxRadians, 0.0)) * a);
     }
 
     /// <summary>

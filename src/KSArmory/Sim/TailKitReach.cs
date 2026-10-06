@@ -35,8 +35,8 @@ internal enum TailKitHold
 ///
 /// <para><b>This exists to be shown.</b> A kit's authority collapses as the ground comes up, so
 /// designating after release works, works partly, or does nothing — with nothing on screen to say
-/// which. A player who cannot see the region reads all three as the weapon being broken, which is
-/// what sent them clicking at the ground over and over. Same argument <see cref="ReachDisplay"/>
+/// which. A player who cannot see the region reads all three as the weapon being broken, and clicks
+/// at the ground over and over. Same argument <see cref="ReachDisplay"/>
 /// makes for the bus, and the same answer: one region, drawn, reported and read off the panel, so
 /// the three cannot disagree.</para>
 ///
@@ -50,12 +50,11 @@ internal enum TailKitHold
 /// <see cref="Slug"/> through the same <see cref="TailKit"/> law the store is obeying, which is
 /// what <see cref="BombSight"/> does for the pipper and for the same reason.</para>
 ///
-/// <para><b>It reports; it does not refuse.</b> A designation outside the region is still taken —
-/// see <c>WeaponSystem.Designate</c>. The store has nothing better to do than steer at it, landing
-/// nearer is strictly better than holding an aim the operator has just replaced, and a refusal here
-/// is indistinguishable from the bug this exists to fix. That is the opposite of the bus, where a
-/// hop the trim cannot pay for strands warheads; the difference is that a bomb is already falling,
-/// so there is no budget left to overspend.</para>
+/// <para><b>It decides as well as reports.</b> A store already falling is sent only somewhere inside
+/// the region (<see cref="StoreRetarget.Reaches"/>): steered at a place it cannot reach it lands in
+/// between and hits nothing, where it would have hit what it was already sent at. So the region has
+/// to be a floor -- one that over-promises sends a store where it cannot arrive, and one that
+/// under-promises refuses a place it could have reached.</para>
 /// </summary>
 /// <param name="Hold">Whether there is a region, and why there is not.</param>
 /// <param name="SecondsToGo">The fall still to come, flown.</param>
@@ -69,9 +68,9 @@ internal readonly record struct TailKitReach(
     // reach pushes at full lateral authority all the way down, and where that puts it is the edge
     // of the region. The law saturates above a·t²/N, so two is three times what it takes.
     //
-    // And not more, because the aim is flown to: at four, a store released from 20 km was sent at
-    // a point 70 km away, which stretched the fall past BombSight.MaxSteps — the probe never
-    // landed and a store with a perfectly good landing reported no region at all.
+    // And not more, because the aim is flown to: at four, a store released from 20 km is sent at
+    // a point 70 km away, which stretches the fall past BombSight.MaxSteps — the probe never lands
+    // and a store with a perfectly good landing reports no region at all.
     private const double ProbeSaturation = 2.0;
 
     // The share of the swept extreme a designation can be settled on. The probe measures where a
@@ -121,7 +120,8 @@ internal readonly record struct TailKitReach(
                                         IGroundTest? ground,
                                         double stepSeconds,
                                         List<double3> scratch,
-                                        ref double alongMetres, ref double acrossMetres)
+                                        ref double alongMetres, ref double acrossMetres,
+                                        double startAge = 0.0)
     {
         ArgumentNullException.ThrowIfNull(munition);
         ArgumentNullException.ThrowIfNull(gravityAt);
@@ -194,7 +194,7 @@ internal readonly record struct TailKitReach(
             bool landed = BombSight.TryPredict(roundPositionEcl, velocityOverGround, groundVelocityEcl,
                                                groundAccelerationEcl, bodyVelocityEcl, groundVelocityAt,
                                                munition, gravityAt, densityAt, ground, stepSeconds,
-                                               scratch, out impactEcl, steerAt);
+                                               scratch, out impactEcl, steerAt, startAge);
 
             fallSeconds = Math.Max(0, scratch.Count - 1) * stepSeconds;
             return landed;
@@ -245,7 +245,8 @@ internal readonly record struct TailKitReach(
                                    Func<double3, double> densityAt,
                                    IGroundTest? ground,
                                    double stepSeconds,
-                                   List<double3> scratch)
+                                   List<double3> scratch,
+                                   double startAge = 0.0)
     {
         ArgumentNullException.ThrowIfNull(munition);
         ArgumentNullException.ThrowIfNull(scratch);
@@ -314,7 +315,7 @@ internal readonly record struct TailKitReach(
             bool landed = BombSight.TryPredict(roundPositionEcl, velocityOverGround, groundVelocityEcl,
                                                groundAccelerationEcl, bodyVelocityEcl, groundVelocityAt,
                                                munition, gravityAt, densityAt, ground, stepSeconds,
-                                               scratch, out impactEcl, steerAt);
+                                               scratch, out impactEcl, steerAt, startAge);
 
             fallSeconds = Math.Max(0, scratch.Count - 1) * stepSeconds;
             return landed;
@@ -329,9 +330,8 @@ internal readonly record struct TailKitReach(
                 => $"inside the kit's reach ({Distance.Say(MissFrom(aimEcl))} to walk, "
                    + $"{Distance.Say(RadiusMetres)} of authority over {SecondsToGo:F0} s of fall)",
             TailKitHold.Known
-                => $"{Distance.Say(ShortfallFrom(aimEcl))} beyond the kit's reach - it will steer "
-                   + $"at it and fall short ({Distance.Say(RadiusMetres)} of authority over "
-                   + $"{SecondsToGo:F0} s of fall)",
+                => $"{Distance.Say(ShortfallFrom(aimEcl))} beyond the kit's reach "
+                   + $"({Distance.Say(RadiusMetres)} of authority over {SecondsToGo:F0} s of fall)",
             TailKitHold.Unguided => "unguided - it lands where it was thrown",
             TailKitHold.NoLanding => "no landing to move yet - the kit takes hold once it is coming down",
             _ => "nothing readable where the store is",

@@ -8,6 +8,49 @@ Read this first; those two keep their reasoning and their measurements.
 the KSA corpus and the backlog itself — and between them they moved the top of the list from "tune a
 constant" to "there is a bug, and the engine has a lever nobody used".
 
+## 12,900 km on 2026-10-06 — the kick cap, and seat 1
+
+**Flown** on `SOLVER SCALE 8`, `--aim none` (the save's defended site, 12,900 km), dev `26945783` then
+`145da333`: two base worlds (`~/shots/2026-10-06-longrange/`), then a declared paired night of eight
+(`~/shots/2026-10-06-longkick/`, `~/shots/scripts-2026-10-06/DECLARE-longkick.md`).
+
+**Every rocket lands on its release probe, and the probe is metres out.** On the base worlds each probe
+predicted the landing to centimetres, 5-98 m from the aim, and the kick that would cancel it, 11-20 mm/s and
+up, was refused at `ReleaseFocus.MaxMissKickMetresPerSecond`. The one rocket whose kick fitted under 10 mm/s
+landed 2 mm out. The same shape as the short shots at 500-700 km (`SHORT-RANGE.md`).
+
+**`IcbmConfig.LongShotMissKickMetresPerSecond` at 1.0, paired**, worst warhead per rocket over seats 2-8:
+
+| arm | n | median | worst | under 25 mm |
+| --- | --- | --- | --- | --- |
+| base, 10 mm/s | 28 | 7.1 m | 67.4 m | 8, the ones whose kick fitted |
+| kick, 1 m/s | 28 | **2.0 mm** | **17.6 mm** | 28 |
+
+The declared bar is met many times over, and it **ships on**: the owner took the design question the
+declaration left open -- whether a long shot may separate at up to 1 m/s -- and said yes.
+
+**Seat 1 is apart, on both arms, for two reasons.** It is aimed at the defended structure itself, where
+`AimSpread` rings the other seats round it, so a warhead kicked exactly onto the aim **strikes the
+structure** ("detonated on contact", loading `AA Defence Site`) about 2.5 m above the ground: scored against
+the ground point, that is 4.55 m short, four flights of eight at -3.85 m downrange, +0.20 cross. The trace
+re-flown 0.35 s before impact still reads 0.6 mm from the probe, so it is the target, not the flight. And
+seat 1's **aim loop starts about two minutes before its handover**, where every other seat starts 30 s
+before, measures the plant at 0.07-0.85 instead of 1.00, and walks its bias out to 12.9 km: on four flights
+of ten across both nights that left 27, 54, 113 and 475 m. **Found and fixed:** seat 1 is the controlled
+craft, and KSA computes the staging display's delta-v for that vehicle alone (`stage dv 0 m/s` on the other
+seven, 3,853 lines of 3,861). Knowing its solids' remaining delta-v, its solve is held by what they must still
+deliver while they burn, so moving the aim barely moves the prediction; the loop read that as error. Ten worlds
+of ten opened 117-119 s before handover and released with 0.8-8.5 km of bias, against 31-32 s and 0.5-0.6 km
+for seat 3. `IcbmConfig.AimWaitsForTheSolids` (on) holds the loop while solids burn **and KSA reports what they
+have left**, so only that craft is held: at the Chaco every seat opens during the solids, and gated on the solids
+alone seats 2-8 would have waited for nothing. Flown (`~/shots/2026-10-06-verify/`): two worlds held on the
+solids alone and one on the reported delta-v at 12,900 km, seat 1 opening 30-35 s before handover, reading 1.01
+and releasing with 0.51-2.52 km, every rocket within 16.2 mm; and one at the Chaco, seats 2-8 opening at 86 s as
+before, seat 1 at 168 s instead of 59, every rocket 2.8-8.1 mm.
+
+A 3 s frame also follows seat 1's cutoff on both base worlds; the ICBM computer takes the unclamped step, so its
+clocks do not lose it, and nothing above implicates it.
+
 ## Where it stands after 2026-09-15 — read this first
 
 **The one-line version: the shot is 0.04 m median per rocket, down from 17 before eleven fixes that all
@@ -86,10 +129,10 @@ lever-arm fix (`arm/spin-lever-arm`) stays a decision rather than a default. The
    and nothing flies it — the revert's size predicts the release probe at +0.10 over 536 flights —
    which overturns D below. `AimThresholdTracksTheMiss` (item 34) flew 0.78x on the release probe,
    unresolved and flat on the landing, and stays off (3cq).
-6. **The km-scale tail is fixed upstream (3cn, 3cr).** RocketWerkz revision 5429, unreleased as of
-   2026-09-11, applies the fictitious forces a `Ccf` bubble was stripping from a high bus. The
-   mod-side workarounds 33f, 33g and 24 are held; `BLOCKED-ON-KSA.md` has the recheck for the build
-   that carries it, and a way to reproduce the bubble on demand.
+6. **The km-scale tail is fixed upstream (3cn, 3cr).** RocketWerkz revision 5429, released in 5438,
+   applies the fictitious forces a `Ccf` bubble was stripping from a high bus; read back on 2026-09-29,
+   the largest pre-split push over 37 flagged shots is 0.20 m/s against 1.95-6.0 before. The mod-side
+   workarounds 33f, 33g and 24 are closed unbuilt.
 7. **One instrument fault fixed.** `shot-report.py`'s shot-flip null refitted seat levels that
    `--levels-from` had borrowed, and read p=0.005 where the honest test says 0.082 (3cq). No earlier
    verdict changes. And 3cd/3ck's arrival-angle null had a confound — the steep arm fell on slower
@@ -1132,7 +1175,7 @@ that runs out of improvement has converged at short range and failed at long.
 `DeriveHoldingCost` stays off. It is resolved better at 2,000 km, unresolved and possibly worse at
 12,900, and shipping it on the strength of the first would be the one-geometry generalisation this
 file has spent two days correcting — the same error that put 26.0 in the code, made with a better
-method.
+method. *(Superseded later in this log: it ships on — "So `DeriveHoldingCost` ships on", below.)*
 
 **What it is still right about:** no constant is correct at both ranges either. 26.0 is nine to twenty
 times the measured cost at both geometries flown. The answer is neither the constant nor this
@@ -6668,6 +6711,16 @@ So **33f, 33g, 24 and moving the scripted site are held rather than built** — 
 for a cause that is leaving. On the build that carries 5429, fly a night and read the off-gravity on
 any shot the frame gate flags: the frame will still read `Ccf`, and the push should be gone.
 
+**Read back on 2026-09-29, and it is.** The frame gate flagged 37 shots on nights flown on 5438 and
+later, and the largest push among their pre-split `Ccf` probes is **0.20 m/s** against 1.95-6.0 on
+the five it ruined before. `--frame-check` now counts a `Ccf` probe only above 1 m/s, which keeps
+all five and re-flies none of the 37.
+
+The sustained pre-split pushes the gate never counted, 2–4 m/s on `2026-09-14-miss` shots 17–19, are
+not a fault either. Those shots lost seat 1 to KSA's update modal; with `GeoSat FAT` gone, KSA gave
+that name to FAT 8's bus when it split, and the probes are that bus trimming off its dropped stage.
+The gate follows craft by name, so a reused name reads as a rocket that has not split.
+
 ### The second finding: the dwell is a race, not a hold
 
 `PostBoostAim` clears "a correction has been flown" on the frame the trim settles, but `Predict`
@@ -8504,7 +8557,7 @@ its ascent, and KSA's own log was clean on all 12 launches. Frame time 28.8 ms; 
 The median rocket went **0.04 → 0.07 m** and its group's centre 0.03 → 0.07. Per shot the landing ratio ran 1.66,
 1.98, 2.06, 1.83, 1.86, 2.65, 1.63, 1.96, 1.92, 1.66, 1.35, 2.16 — never once below 1.
 
-**The declared refutation fired** (`landing` at 1.5x or above), so `IcbmConfig.WarheadDragFromItsShape` **stays off**.
+**The declared refutation fired** (`landing` at 1.5x or above), so `IcbmConfig.WarheadDragFromItsShape` **stays off**. *(Superseded: re-flown with the kick through the air, it won and ships on — 3eu.)*
 
 **The mechanism was exactly as smoked**, so this is not a broken arm: the warheads arrive at **3,977–4,186 m/s against
 5,550–5,627**, at 32.0–32.4° on both, and each lands within centimetres of its own release probe — the prediction, the
@@ -9513,7 +9566,7 @@ that makes the other measurable. That is the finding this night bought.
 
 **Shipped on after 3em**, which flew it again once the walk was 3 mm wide. Recorded here as it stood:
 `IcbmConfig.DragAtMidpointVelocity` **stays off**: the mechanism is proven headlessly to a micron and the
-flight is consistent with it and underpowered, which is not the same as verified.
+flight is consistent with it and underpowered, which is not the same as verified. *(Superseded: flown again on a quiet walk, it ships on — 3em.)*
 
 ## 3dz. Item 49b built, and its night declared — 2026-09-16
 
@@ -10947,7 +11000,7 @@ what 20b is flying against.
 | ~~42~~ | ~~The bus's spin every warhead is thrown with~~ — `IcbmConfig.CancelSpinAtSeparation` | **flown 2026-09-13, 24 paired blocks — SHIPPED ON** | **centre 0.55x [0.49, 0.60] on 22 of 24, the landing 0.70x [0.65, 0.80] on 23 of 24, dispersion 1.00x.** Each centroid follows its logged thrown spin at slope +1.15 on `base` and −0.03 on `spin`; the median rocket 2.30 → 1.74 m, rockets under 2 m 33 → 62 of 96. What the centre has left is a one-signed −1.05 m downrange, unattributed. The lever-arm fix (`f18e46b`, `arm/spin-lever-arm`) is still unflown and off `dev` — **3de, 3dd** |
 | ~~43~~ | ~~**The aim loop's lag at release**~~ — `IcbmConfig.CancelProbeMissAtSeparation` | **flown 2026-09-14/15, 16 paired blocks — SHIPPED ON: `centre` 0.10x [0.09, 0.15] on 16 of 16, the median rocket 1.29 → 0.14 m, each centroid's slope on its probe +1.003 → +0.011; shots 17–20 lost to KSA's update modal (3dh)** | **3df** — `payback` releases once the miss is under one cycle of the walk the holding cost drives, so each reading acted on is a cycle stale: −0.98 m on `payback` endings against −0.13 on `floor`, and the impact walks short at 0.98x the logged cost. Cancel each probe's miss at separation with `ReleaseFocus.TryKick`'s solve, ~4 mm/s, feeding no loop — which is what 3co's feed-forward did and lost on. Counterfactually the centre 1.26 → 0.22 m on the spin arm. **Next to fly**: priced on the shipped arm (3dg) at a median rocket of 1.27 → ~0.05 m, a bound at the probe's 0.1 m print, with 1 flight in 80 refused by the cap. **Smoked 2026-09-14, and its night declared on the millimetre print (after 3dg)**: every kick fired, and on four flights the kicked prediction kept +0.20 ± 0.08 of the probe's miss — in the solve, not the fall |
 | ~~43b~~ | ~~**The miss kick over relief**~~ — measured square to up, a height difference `Δh` between the probe's impact and the target lands the round `Δh · cot γ` off: 14–31% of a miss over a 0.10–0.15 slope, and a side slope turns a cross miss into range | **flown 2026-09-15, 12 paired blocks — SHIPPED ON: `centre` 0.20x [0.14, 0.36] on 12 of 12, the median rocket 0.157 → 0.039 m, each centroid's downrange on `dh · cot γ` +0.850 square to up against −0.067 along the chord (3di)** | **43b** — cancel the chord between the two ends on the ground with the same solve: within 1.7 mm headlessly on every slope. Flown, relief explains the smoke's and shot 1's leftovers where a slope per seat explains none |
-| ~~44~~ | ~~**The warhead's drag from what it is**~~ — `IcbmConfig.WarheadDragFromItsShape` | **flown 2026-09-16, 12 paired blocks — STAYS OFF: `landing` 1.89x [1.66, 2.06], lost 12 of 12, the median rocket 0.04 → 0.07 m; the declared refutation fired (3dk)** | **3dj** — not a precision lever but the round made physical: headlessly from the flown release state it arrives at 2,838 m/s against 5,049 and lands 9.44 m from its drag-aware prediction against 8.87. The prediction, the aim loop and the kick all read the same profile, so the landing should not move much |
+| ~~44~~ | ~~**The warhead's drag from what it is**~~ — `IcbmConfig.WarheadDragFromItsShape` | **flown 2026-09-16, 12 paired blocks — STAYS OFF: `landing` 1.89x [1.66, 2.06], lost 12 of 12, the median rocket 0.04 → 0.07 m; the declared refutation fired (3dk); won and ships on with the kick through the air (3eu)** | **3dj** — not a precision lever but the round made physical: headlessly from the flown release state it arrives at 2,838 m/s against 5,049 and lands 9.44 m from its drag-aware prediction against 8.87. The prediction, the aim loop and the kick all read the same profile, so the landing should not move much |
 | ~~34b~~ | ~~Feed the hold forward~~ | **flown and lost 2026-09-10** | **+234 m against a 7 m term** — 30x out of scale. The mechanism stands; a blanket offset on every cycle does not, because the release happens when the loop stops rather than a fixed dwell later. **3co** |
 | ~~31~~ | ~~Stop stage disposal shedding debris~~ | **built 2026-09-09, unflown** | `KsaWorld.Remove` → `Universe.DestroyVehicle`, which sheds nothing where `DestroyVehicleFromEvent` sheds twelve. **3ci/3bv** — inference, not measurement: it removes the only discriminator, but nothing yet proves it breaks the chain |
 | **32** | **Record the per-arm descent step**, or hold the world step for the whole flight | small | **3ci** — the arms never overlap in time and steep always falls in a faster-running world, which confounds *every* `ArrivalPreference` night ever flown, 3cd and 3ch included |
@@ -10955,9 +11008,9 @@ what 20b is flying against.
 | ~~33~~ | ~~The intermittent 300 m release-probe miss~~ | **caused and fixed 2026-09-10, unflown** | the post-cutoff reading was taken off a correction still in flight, because `!TrimIsFiring` is not `_trim.Done`. Perfect separation both ways at `response ≥ 2.55` — **3cl** |
 | ~~33b~~ | ~~Fly the fix~~ | **flown 2026-09-10, confirmed** | **6 of 160 to 0 of 160**, max response 2.76 to 1.32, the upper mode gone from all 20 shots. Median unchanged at 6.0 m — a tail, not a rocket — **3cm** |
 | ~~33e~~ | ~~The trim gives up and the arm lands 4 km out~~ | **caused 2026-09-10** | a physics bubble spanning the near-surface radius: 0.42 m/s² of missing fictitious force, four craft measuring 0.428-0.447. **The engine's, not the mod's** — **3cn** |
-| ~~33f~~ | ~~Assert rails through the whole coast~~, not only inside `QuietCoast`'s latch | **held — the cause is fixed upstream in KSA revision 5429** (3cr) | **3cn** — the only candidate that addresses the cause, and **not built**: `TryAssertRails` is documented as valid only alongside a *released* attitude, and the coast holds one. The evidence cuts both ways — the engine's actuator flags read 0%, so nothing was undoing it — and 33h's diagnostic is what decides it |
+| ~~33f~~ | ~~Assert rails through the whole coast~~, not only inside `QuietCoast`'s latch | **closed unbuilt — the cause is fixed upstream in KSA 5438, read back 2026-09-29** (3cr) | **3cn** — the only candidate that addresses the cause, and **not built**: `TryAssertRails` is documented as valid only alongside a *released* attitude, and the coast holds one. The evidence cuts both ways — the engine's actuator flags read 0%, so nothing was undoing it — and 33h's diagnostic is what decides it |
 | ~~33h~~ | ~~Name the bubble leader, and keep probing after release~~ | **built 2026-09-10, unflown** | the leader is named and a spent bus is watched to re-entry. **3cn** — the merge seed was bracketed to ten seconds and unattributable because every bus in the window had gone silent |
-| ~~33g~~ | **Held — its cause is fixed upstream in KSA revision 5429 (3cr).** ~~Refuse a split debt the world caused~~ rather than spending 13 m/s of tank chasing it — a debt several times a decoupler's ~1.1 m/s arriving with off-gravity non-zero is not a shove | small | **3cn** — the warheads leave on that trajectory either way; the propellant should not |
+| ~~33g~~ | **Closed unbuilt — its cause is fixed upstream in KSA 5438, read back 2026-09-29 (3cr).** ~~Refuse a split debt the world caused~~ rather than spending 13 m/s of tank chasing it — a debt several times a decoupler's ~1.1 m/s arriving with off-gravity non-zero is not a shove | small | **3cn** — the warheads leave on that trajectory either way; the propellant should not |
 | **33c** | **Pre-register the 80 m release-probe rule**, dropping the SHOT and re-flying it | small | **3cl** — a clean empty band from 72 to 100 m over 672 flights, zero sound flights lost, and a flight-level drop is what manufactures a false RESOLVED |
 | **33d** | **Why seats 3, 5 and 7** carry every high plant reading on every arm | `--terrain`, no shots | **3cl** — the downrange slope at each aim point is the missing number, and it is not in any log |
 | ~~30~~ | ~~The pre-release residual, ~7 m, does not follow the ground.~~ | **fixed by 36** | it was the post-boost race, not the ground: **−7.45 → +0.47 m**, won 20 of 20 — **3ct** |
@@ -10989,7 +11042,7 @@ what 20b is flying against.
 | **20c** | **Check the frame-time regime on the next divergent world** — free, already logged | 0 shots | 3bi: the two disagreeing worlds sit either side of the 24 ms boundary, 23.3 against 26.5 |
 | ~~19b~~ | ~~**Log which of `PhysicsBubble`'s conditions holds a bus off rails**~~ | done | **built and verified: on a healthy world 11 of 34 off-rails probes are `neither actuator flag`, and `FreefallNeedsFullPhysics` fits the 6% arithmetically** — 3bg |
 | **19c** | **Read `Cci`/`Ccf` on a divergent world.** The frame decides whether off rails is recoverable at all, and the diagnostic is built and public | free on the next divergent world | 3bv: `Ccf` closes the account, `Cci` refutes it |
-| ~~24~~ | **Held — the push it escapes is fixed upstream in KSA revision 5429 (3cr).** ~~Force rails through the coast~~ — `Props.SetOnRails(true)`, public, makes the bubble irrelevant rather than escaping it. Only compatible with QuietCoast, and must be released before the deployment settles | build, then 14 paired | 3bv: this is QuietCoast's missing half |
+| ~~24~~ | **Closed unbuilt — the push it escapes is fixed upstream in KSA 5438, read back 2026-09-29 (3cr).** ~~Force rails through the coast~~ — `Props.SetOnRails(true)`, public, makes the bubble irrelevant rather than escaping it. Only compatible with QuietCoast, and must be released before the deployment settles | build, then 14 paired | 3bv: this is QuietCoast's missing half |
 | **8** | `minTargetFrameRate` — **16, not 10**, and flown as a paired arm on the miss rather than adopted on the throughput number | 14 paired shots | 1.88x throughput for 0.232 m/s of trim residual against today's 0.119; at 10 the step leaves `BusTrim.MaxFaithfulStep` — 4b |
 | ~~21~~ | ~~**Gate a rotation command's nozzle set to zero net force**~~ | done, and already green | **`checkring.py` has measured it since `333f7b0` and `check-all.sh` gates it: the shipped bus leaks 0.000 on all three axes, so the coast push is not the mod's own thrusters** — 4c |
 | **23** | **Make the ascent know how far the target is.** Every shot under ~800 km is identical because guidance takes over on dynamic pressure, by which point the stack has ~3 km/s and the shot needs less | 0 shots to reproduce | 3bk: a 100 km target is flown exactly as an 800 km one |
@@ -12118,3 +12171,90 @@ that no session spans and the cap can be held off.
 constant across them — so a longer freeze is not what the slower machine is buying. One frame's
 delta-v rises only 22% over the same step, against 91% on the residual. **What else the step reaches
 is open**, and it is the live end of 3fi rather than the freeze.
+
+## 3fm. Warheads taking their mass with them — declared 2026-10-03
+
+`IcbmConfig.ShedWarheadMass` takes each Mk 21's 250 kg off the bus as it leaves (`Ksa/StoreMass.cs`), scaled in place so
+the lump stays on the thruster ring. True to the vehicle, and it changes the shot: shedding 1,500 kg of the bus over six
+releases should roughly double the pointing band by the last (it scales as one over the inertia). The trim measures its
+acceleration rather than assuming it, so that half should adapt.
+
+**Declared before it flies:**
+
+```bash
+KSARMORY_SCENARIO_SAVE='SOLVER SCALE 8' ./tools/shot-batch.sh --paired 'base|shed:ShedWarheadMass=true' \
+    --aim 24.0S,62.0W --blocks 12 --out ~/shots/2026-10-03-shed
+```
+
+This night asks whether a bus that gets lighter costs precision, not whether it buys any.
+
+* **Primary: `--endpoint landing`, a ×1.20 non-inferiority bar.** Ships on if the one-sided 97.5% upper bound is under
+  1.20x; stays off if the median is 1.20x or above; unresolved otherwise.
+* **Beside it:** `centre` and `dispersion` about as `landing`.
+* **Mechanism per flight:** every `shed` rocket logs `store mass: KSArmory_Prefab_MirvBus … now` six times, ending near
+  1,250 kg of 2,750; no `base` rocket logs one.
+* **Refuted** by `landing` at 1.20x or above, a `shed` flight with no `store mass` lines, or a `base` flight with any.
+* **Watch:** `clock` or trim endings on `shed` that `base` does not have, any shot timed out, any rocket destroyed in its
+  ascent, KSA's own log on every launch, and the frame rate (`mod frame: … over N frames`).
+
+**Flown, 2026-10-03: non-inferior on one target.** `~/shots/2026-10-03-shed`, 12 paired blocks on `1db05277`
+(`agent/store-mass`) and KSA 2026.10.7.5541, as declared. All 12 shots passed, 96 of 96 flights arrived, frame time
+28.6 ms, no shot output carried an exception and the throttle-discard warning the smoke shot met never recurred.
+
+| endpoint | `shed` vs `base` | per shot | declared |
+| --- | --- | --- | --- |
+| **`landing`, primary** | **0.89x [0.73, 1.07]** | won 9 of 12, signed-rank p=0.064 | ships under a 1.20 upper bound |
+| landing, median | 2.25 mm against 2.47 | | |
+| centre / dispersion | 1.04 / 1.97 mm against 1.26 / 2.34 | | about as `landing` |
+
+**The mechanism was exactly as declared:** 24 `store mass` lines in every shot, from precisely the four rockets
+flying `shed` that shot and none of the four flying `base`, each bus going 2,766 → 1,266 kg in six 250 kg steps.
+Endings `floor`/`payback` 12/36 on `base` against 14/34 on `shed`, no `clock` or trim ending, owed 2.69 against
+2.71 m/s.
+
+**What it shows is narrower than it looks.** The six warheads leave within about 0.1 s, so a single-target bus is
+never asked to manoeuvre lighter; the night shows shedding costs nothing there, which is what a single-target
+non-inferiority bar can show. Whether it ships on waits for 3fn, where the bus walks after shedding.
+
+## 3fn. The same switch where the bus moves after shedding — declared 2026-10-03
+
+3fm cannot see the switch's main effect. Its smoke shot showed why: a single-target bus lets all six warheads go
+within 0.1 s, so the lighter bus never manoeuvres again. The mass matters on a walk, where the bus trims onto each
+next target with the earlier targets' warheads already gone. So the same switch flies again on the four-target set
+the 2026-10-01 nights walked:
+
+```bash
+KSARMORY_SCENARIO_SAVE='SOLVER SCALE 8' ./tools/shot-batch.sh --paired 'base|shed:ShedWarheadMass=true' \
+    --aim '24.0S,62.0W;24.009S,62.0W;24.018S,62.0W;24.027S,62.0W' --blocks 8 --out ~/shots/2026-10-03-shed-walk
+```
+
+* **Primary: per-target `landing`, the same ×1.20 non-inferiority bar.** Ships on only if 3fm also passes.
+* **Mechanism per flight:** `shed` buses log their `store mass` lines spread across the walk's stops rather than in
+  one burst; `base` logs none.
+* **Expected:** the later hops cost a lighter bus less velocity, since the thrusters accelerate it harder; the trim
+  measures that rather than assuming it, so neither better nor worse landings are predicted.
+* **Refuted** by `landing` at 1.20x or above on any target, a refused hop on `shed` that `base` does not have, or
+  any `clock` or trim ending only on `shed`.
+
+**Flown, 2026-10-03: non-inferior on the walk, and the switch ships on.** `~/shots/2026-10-03-shed-walk`, 8 paired
+blocks on `b9887107` (code identical to 3fm's), as declared. All 8 shots passed, 64 of 64 flights went to all four
+places, frame time 28.2 ms, no shot output carried an exception, no hop was refused on either arm.
+
+| endpoint | `shed` vs `base` | per shot | declared |
+| --- | --- | --- | --- |
+| **`landing`, every warhead against its own target** | **0.90x [0.83, 0.99]** | won 7 of 8, signed-rank p=0.023 | ships under a 1.20 upper bound |
+| landing, median | 3.24 mm against 3.13 | | |
+| centre | 5.36 mm against 4.54 | | |
+
+**The mechanism was as declared:** 24 `store mass` lines a shot from exactly the `shed` rockets, spread over the
+walk's four stops (one, one, two and two warheads, about a minute apart) rather than in one burst. Endings
+`floor`/`noimprov`/`payback` 28/2/2 on `base` against 27/1/4, no `clock` or trim ending, owed 2.74 m/s on both.
+
+**A gap in the declaration, written down rather than smoothed over.** The primary was declared *per target*, and
+`shot-report.py --paired` has no per-target split: its `== targets` section pools both arms, and the scenario's
+`TARGET` lines print kilometres to three places, which reads every target's worst warhead on both arms as 0.000 km —
+under a metre — and nothing finer. The landing above is the same quantity weighted over all four targets. A
+per-target paired split in the report is the instrument a future walk night should have before it declares one.
+
+**Both nights cleared their bars, so `IcbmConfig.ShedWarheadMass` ships on.** Numbers flown before 2026-10-03 were
+flown on a bus that never got lighter.

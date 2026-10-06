@@ -27,6 +27,9 @@
 #   ./tools/scenario.sh mirv:26.485S,68.148W       # ...at somewhere else
 #   ./tools/scenario.sh mirv:26.485S,68.148W,2     # ...and pass only under 2 km
 #   ./tools/scenario.sh 'mirv:24S,62W;24.04S,62W'  # ...or one bus at two places, scored separately
+#   KSARMORY_SCENARIO_SAVE="ICBM E2E RAIL" KSARMORY_SCENARIO_SELECTOTHER=1 ./tools/scenario.sh mirv
+#                                        # ...with the rocket's other launcher selected in the panel:
+#                                        #   the bus must still be what releases
 #     -- QUOTE IT: an unquoted ';' is the shell's own separator, so the second place never arrives
 #   ./tools/scenario.sh head-on --keep   # leave the game running afterwards
 #   ./tools/scenario.sh head-on --shots  # ...and screenshot on CAPTURE (whole screen, opt-in)
@@ -43,6 +46,8 @@
 #   KSARMORY_SCENARIO_NOSHADER=1 ...     # ...the same run with the pass off, as its control
 #   KSARMORY_SCENARIO_TWOCLOUDS=1 ...    # ...and a second burst 1 km away, which is the only way
 #                                        # to exercise the pass with more than one cloud standing
+#   KSARMORY_SCENARIO_FUSE=1500 KSARMORY_SCENARIO_CHUTE=18 ./tools/scenario.sh drop:6000,0,dumb
+#                                        # ...the store air-burst 1500 m up, under an 18 m/s chute
 #   KSARMORY_SCENARIO_CLOUDWARP=20 ...   # ...watch the burst at 20x, or 0 to pause on it. The
 #                                        #   fall's own warp is given back when the store lands, so
 #                                        #   this is the only way the cloud is advanced at anything
@@ -79,6 +84,8 @@
 # startVehicle at it, or name it here:
 #
 #   KSARMORY_SCENARIO_CRAFT="Peacekeeper" ./tools/scenario.sh mirv
+#   KSARMORY_SCENARIO_HOLDKEYS=1 ./tools/scenario.sh mirv   # ...with the UI holding the keyboard throughout,
+#                                     as KSA's update notice does to every launch once a newer build is out
 #
 # Everything after that is done for you: it finds whichever craft in the scene has a ballistic
 # computer and its wheels on the ground, designates the aim point, arms, asks the world
@@ -87,6 +94,9 @@
 # worst warhead of the group against a bar you can move from the request line.
 #
 set -euo pipefail
+
+# Nothing here reads stdin, and the Windows tools it runs would swallow a caller's heredoc.
+exec </dev/null
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -208,10 +218,12 @@ mkdir -p "$USER_DIR/Logs"
 {
     printf '%s|%s\n' "$SCENARIO" "$SAVE"
     printf '%s\n%s\n' "$ARMS" "$ARM_PHASE"
-    printf '%s %s %s %s %s %s %s %s %s %s %s %s %s %s\n' "${KSARMORY_SCENARIO_KEEPSTAGES:+keepstages}" "${KSARMORY_SCENARIO_TRACE:+trace}" \
+    printf '%s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s\n' "${KSARMORY_SCENARIO_KEEPSTAGES:+keepstages}" "${KSARMORY_SCENARIO_TRACE:+trace}" \
         "${KSARMORY_SCENARIO_VERBOSE:+verbose}" "${KSARMORY_SCENARIO_CHASE:+chase}" "${KSARMORY_SCENARIO_CLOUDS:+clouds}" "${KSARMORY_SCENARIO_NOSHADER:+noshader}" "${KSARMORY_SCENARIO_TWOCLOUDS:+twoclouds=$KSARMORY_SCENARIO_TWOCLOUDS}" "${KSARMORY_SCENARIO_CLOUDWARP:+cloudwarp=$KSARMORY_SCENARIO_CLOUDWARP}" "${KSARMORY_SCENARIO_WATCHELEV:+watchelev=$KSARMORY_SCENARIO_WATCHELEV}" "${KSARMORY_SCENARIO_STILLAT:+stillat=$KSARMORY_SCENARIO_STILLAT}" "${KSARMORY_SCENARIO_BLACKOUT:+blackout=$KSARMORY_SCENARIO_BLACKOUT}" "${KSARMORY_SCENARIO_NOBLACKOUT:+noblackout}" \
         "${KSARMORY_SCENARIO_SPEEDS:+speeds=$KSARMORY_SCENARIO_SPEEDS}" \
-        "${KSARMORY_SCENARIO_SITE:+site=$KSARMORY_SCENARIO_SITE}"
+        "${KSARMORY_SCENARIO_SITE:+site=$KSARMORY_SCENARIO_SITE}" \
+        "${KSARMORY_SCENARIO_FUSE:+fuse=$KSARMORY_SCENARIO_FUSE}" "${KSARMORY_SCENARIO_CHUTE:+chute=$KSARMORY_SCENARIO_CHUTE}" \
+        "${KSARMORY_SCENARIO_SELECTOTHER:+selectother}" "${KSARMORY_SCENARIO_HOLDKEYS:+holdkeys}"
 } > "$USER_DIR/Logs/scenario.txt"
 
 # KSA shows a configuration dialog at startup and waits for START KSA to be clicked, which is
@@ -311,21 +323,27 @@ trap cleanup EXIT
 # cover a human-free start plus the flight itself.
 DEADLINE=$(( SECONDS + DEADLINE_SECONDS ))
 VERDICT=""
-SEEN=""
+PRINTED=0
+# A game that exits writes no verdict, so the wait would run to the deadline. Asked every ~10 s,
+# and only once the game has been seen running, so a slow start is not read as an exit. A tasklist
+# call that fails answers nothing at all, which reads exactly like no game: it is not counted, and
+# it takes three answers in a row that list processes without StarMap to call the game gone.
+GAME_SEEN=0
+GAME_GONE=0
+NEXT_GAME_CHECK=$SECONDS
 
 while (( SECONDS < DEADLINE )); do
     [[ -f "$LOG" ]] || { sleep 2; continue; }
 
-    while IFS= read -r line; do
-        case "$line" in
-            *"SCENARIO"*) ;;
-            *) continue ;;
-        esac
+    # Counted rather than remembered: matching each line against everything seen was quadratic, ran
+    # minutes behind an eight-rocket log, and could hide a verdict inside a longer line. A shorter
+    # log is a restart or a truncation, and is read from its start.
+    COUNT=$(grep -cF SCENARIO "$LOG" 2>/dev/null || true)
+    (( ${COUNT:-0} < PRINTED )) && PRINTED=0
+    mapfile -t FRESH < <(grep -F SCENARIO "$LOG" 2>/dev/null | tail -n +$(( PRINTED + 1 )))
+    PRINTED=$(( PRINTED + ${#FRESH[@]} ))
 
-        # Only report each line once; the log is re-read rather than followed, so a restart or a
-        # truncation cannot leave this waiting on output it already consumed.
-        [[ "$SEEN" == *"$line"* ]] && continue
-        SEEN+="$line"
+    for line in "${FRESH[@]}"; do
         echo "   ${line#*SCENARIO }"
 
         case "$line" in
@@ -344,9 +362,21 @@ while (( SECONDS < DEADLINE )); do
             *FAIL*)    VERDICT=FAIL ;;
             *TIMEOUT*) VERDICT=TIMEOUT ;;
         esac
-    done < "$LOG"
+    done
 
     [[ -n "$VERDICT" ]] && break
+
+    if (( SECONDS >= NEXT_GAME_CHECK )); then
+        NEXT_GAME_CHECK=$(( SECONDS + 10 ))
+        TASKS=$(tasklist.exe 2>/dev/null || true)
+        if grep -q StarMap <<<"$TASKS"; then
+            GAME_SEEN=1
+            GAME_GONE=0
+        elif (( GAME_SEEN )) && grep -qi '\.exe' <<<"$TASKS"; then
+            GAME_GONE=$(( GAME_GONE + 1 ))
+            (( GAME_GONE >= 3 )) && { VERDICT=EXITED; break; }
+        fi
+    fi
     sleep 2
 done
 
@@ -359,6 +389,8 @@ fi
 echo
 case "$VERDICT" in
     PASS) echo "scenario '$SCENARIO': PASS" ;;
+    EXITED) echo "scenario '$SCENARIO': FAIL -- the game exited before a verdict" >&2
+          exit 1 ;;
     "")   echo "scenario '$SCENARIO': no verdict within $(( DEADLINE_SECONDS / 60 )) minutes" >&2
           echo "  the game may still be on StarMap's configuration dialog -- it needs START KSA clicked" >&2
           exit 1 ;;

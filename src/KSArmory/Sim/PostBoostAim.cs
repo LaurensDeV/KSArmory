@@ -23,11 +23,11 @@ namespace KSArmory;
 /// Whether the trim has refused the arc it was last given, which ends the correction for a
 /// different reason and wants a different thing said about it.
 ///
-/// <para><b>Kept apart from <paramref name="AimHasSettled"/> deliberately.</b> The two were one
-/// flag, so a trim that refused the correction's very first step reported <c>aim settled 5.9 km
-/// out</c> — a sentence with no true half in it, on a shot that then landed 5.2 km out. A converged
-/// aim means the shot is as good as this bus can make it; a refused trim means nothing was
-/// corrected at all and the miss on the readout is the miss you get.</para>
+/// <para><b>Kept apart from <paramref name="AimHasSettled"/> deliberately.</b> As one flag, a trim
+/// that refused the correction's very first step reads <c>aim settled 5.9 km out</c> — a sentence
+/// with no true half in it. A converged aim means the shot is as good as this bus can make it; a
+/// refused trim means nothing was corrected at all and the miss on the readout is the miss you
+/// get.</para>
 /// </param>
 /// <param name="TrimSpentMetresPerSecond">
 /// What the passes have taken out of the tank so far — <see cref="BusTrim.SpentMetresPerSecond"/>.
@@ -368,9 +368,7 @@ internal sealed class PostBoostAim
         // It says how many passes it got and claims nothing about *why* the trim stopped. Five
         // paths set that flag -- a spent budget, a solve too large to be a separation, a stall, a
         // timeout, no solution to trim against -- and this sequencer cannot tell them apart. The
-        // trim says which in its own line, and guessing here cost three flights chasing the wrong
-        // one: "none of it was applied" was written for the first-pass case and read as a reason
-        // long after two passes had taken the release from 3.5 km to 1.9.
+        // trim says which in its own line, and a guess here sends a reader after the wrong one.
         if (now.TrimGaveUp)
         {
             return Finish(Cycles > 0

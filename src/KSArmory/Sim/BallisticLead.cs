@@ -340,7 +340,7 @@ public static class BallisticLead
     /// each moving as its own ground does; without it they are on the straight line and move with the
     /// target.</para>
     ///
-    /// <para>Found by halving along the way, up to <see cref="ReachHalvings"/> solves. A target that has
+    /// <para>Found by halving along the way, up to <see cref="MostReachHalvings"/> solves. A target that has
     /// not moved far is settled by confirming the last answer instead — that place still solves and a
     /// little further does not — which is three.</para>
     /// </summary>
@@ -370,8 +370,8 @@ public static class BallisticLead
 
         // Once more from nothing before calling it out of reach. Seeded from last frame's answer the first miss is
         // already small, and near the longest reach the turns that take a small miss out are learnt too slowly to
-        // beat the stall rule -- so a lay that solved last frame failed this one and was thrown to the longest
-        // reach instead, on 47 frames in 300 at 23 km. A search from nothing takes big turns and learns them.
+        // beat the stall rule -- so without this a lay that solved last frame fails this one and is thrown to the
+        // longest reach instead, on 47 frames in 300 at 23 km. A search from nothing takes big turns and learns them.
         if (Vec.Len2(directionHint) > 0.0
             && TrySolveFlown(shooterPos, shooterVelocity, groundVelocity, groundAcceleration, bodyVelocity, targetPos,
                              targetVelocity, targetAccelerationEcl, targetDragShape, munition, gravityAt, densityAt,
@@ -402,6 +402,12 @@ public static class BallisticLead
         double far = 1.0;
         bool found = false;
 
+        // Resolved in metres, not in a share of the way: a gun reaching 1.5 km towards a place 2,000 km
+        // off has its whole reach under a thousandth of the way, and a search that stops there finds
+        // nothing at all.
+        double resolution = Math.Min(ReachResolution, ReachResolutionMetres / Math.Max(Vec.Len(toTarget), 1.0));
+        int halvings = Math.Min(MostReachHalvings, (int)Math.Ceiling(Math.Log2(1.0 / resolution)) + 2);
+
         if (reachHint > 0.0 && reachHint < 1.0 && Solves(reachHint, out double3 atHint, out double hintTime))
         {
             found = true;
@@ -410,14 +416,14 @@ public static class BallisticLead
             flightTimeSeconds = hintTime;
             hint = atHint - shooterPos;
 
-            if (!Solves(Math.Min(1.0, reachHint + ReachResolution), out _, out _))
+            if (!Solves(Math.Min(1.0, reachHint + resolution), out _, out _))
             {
                 reachFraction = reachHint;
                 return true;
             }
         }
 
-        for (int i = 0; i < ReachHalvings && far - near > ReachResolution; i++)
+        for (int i = 0; i < halvings && far - near > resolution; i++)
         {
             double mid = 0.5 * (near + far);
 
@@ -439,9 +445,12 @@ public static class BallisticLead
         return found;
     }
 
-    // A thousandth of the way: 24 m at 24 km, inside what the fall scatters a shell by anyway.
+    // A thousandth of the way, or 25 m where that is finer: 24 m at 24 km, inside what the fall scatters
+    // a shell by anyway. Each halving flies a shell, and an out-of-reach answer is reused for half a
+    // second, so the extra halvings a far place needs are paid when it moves rather than every frame.
     private const double ReachResolution = 0.001;
-    private const int ReachHalvings = 12;
+    private const double ReachResolutionMetres = 25.0;
+    private const int MostReachHalvings = 24;
 
     /// <summary>
     /// The places on the ground on the way from under one point to under another, for

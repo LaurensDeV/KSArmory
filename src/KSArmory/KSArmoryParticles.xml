@@ -51,6 +51,11 @@
         <Normal Path="Textures/KSArmory_Smoke_Normal.png" Category="Vessel" />
         <AoRoughMetal Path="Textures/KSArmory_Smoke_PBR.png" Category="Vessel" />
     </PbrMaterial>
+    <PbrMaterial Id="KSArmoryFlakMaterial">
+        <Diffuse Path="Textures/KSArmory_Flak_Diffuse.png" Category="Vessel" />
+        <Normal Path="Textures/KSArmory_Smoke_Normal.png" Category="Vessel" />
+        <AoRoughMetal Path="Textures/KSArmory_Smoke_PBR.png" Category="Vessel" />
+    </PbrMaterial>
     <PbrMaterial Id="KSArmoryDustMaterial">
         <Diffuse Path="Textures/KSArmory_Dust_Diffuse.png" Category="Vessel" />
         <Normal Path="Textures/KSArmory_Smoke_Normal.png" Category="Vessel" />
@@ -98,6 +103,71 @@
         <ParticleVelocity X="2.5" Y="2.5" Z="2.5"/>
         <ParticleVelocityShift Value="0.7"/>
         <ParticleExtra X="0.5" Y="0" Z="0" W="0"/>
+    </ParticleEmitter>
+
+    <!--
+      A burning flare: magnesium-Teflon-Viton at around 2,000 K, white-hot with a thin orange fringe.
+      Endless while it burns and handed back when it is spent, like the motor plume. HDR well above
+      the plume's so it blooms: a flare is the brightest thing in the sky for its first seconds.
+
+      Nothing inherited and no spawn velocity to speak of: the flare is re-anchored every frame, and
+      its trail is the smoke, not the particles. Size is rewritten per frame as the flare burns down.
+    -->
+    <ParticleEmitter Id="KSArmoryFlare" Density="1.225">
+        <MaxParticles Value="48" />
+        <Mesh Id="ParticleSphere"/>
+        <Renderer>SimpleColor</Renderer>
+        <Updaters>SimpleMovement</Updaters>
+        <Updaters>ShrinkOverLifetime</Updaters>
+        <Updaters>HueShift</Updaters>
+        <Updaters>ModelMatrix</Updaters>
+        <Updaters>Age</Updaters>
+        <SpawnMode>Endless</SpawnMode>
+        <EmitterSpawnLogic>Sphere</EmitterSpawnLogic>
+        <EmitterSize Value="0.15"/>
+        <EmitterExtents X="0.1" Y="0" Z="0"/>
+        <SpawnRate Value="120"/>
+        <Force X="0" Y="0" Z="0" />
+        <InheritVelocity Value="false"/>
+        <ParticleColor X="40" Y="36" Z="28" W="1"/>
+        <ParticleColorShift X="0.1" Y="0.35" Z="0.6"/>
+        <ParticleLifespan X="0.04" Y="0.12"/>
+        <ParticleSpawnLogic>ScatterFromCenter</ParticleSpawnLogic>
+        <ParticleSize X="0.4" Y="0.8"/>
+        <ParticleVelocity X="1" Y="1" Z="1"/>
+        <ParticleVelocityShift Value="0.7"/>
+        <ParticleExtra X="0.5" Y="0" Z="0" W="0"/>
+    </ParticleEmitter>
+
+    <!--
+      A chaff cartridge blooming: a faint grey-silver cloud tens of metres across within a second,
+      which is nearly invisible in life. One burst where the dipoles stopped in the air; the sprite is
+      the gun's smoke, kept thin. Density a hair over air's, so it settles as slowly as chaff does.
+    -->
+    <ParticleEmitter Id="KSArmoryChaffPuff" Drag="4" Density="1.24">
+        <MaxParticles Value="24" />
+        <Mesh Id="Plane"/>
+        <Renderer>Billboard</Renderer>
+        <MaterialId Value="KSArmorySmokeMaterial"/>
+        <Updaters>SimpleMovement</Updaters>
+        <Updaters>GrowOverLifetime</Updaters>
+        <!-- W is the grow ratio: without it the curve runs to zero and the cloud implodes. -->
+        <EmitterExtra W="4"/>
+        <Updaters>ModelMatrix</Updaters>
+        <Updaters>Age</Updaters>
+        <SpawnMode>Burst</SpawnMode>
+        <EmitterSpawnLogic>Sphere</EmitterSpawnLogic>
+        <EmitterSize Value="2"/>
+        <SpawnRate Value="24"/>
+        <Force X="0" Y="0" Z="0" />
+        <InheritVelocity Value="false"/>
+        <ParticleColor X="1" Y="1" Z="1" W="0.25"/>
+        <ParticleLifespan X="3" Y="6"/>
+        <ParticleSpawnLogic>ScatterFromCenter</ParticleSpawnLogic>
+        <ParticleSize X="2" Y="5"/>
+        <ParticleVelocity X="8" Y="8" Z="8"/>
+        <ParticleVelocityShift Value="0.8"/>
+        <ParticleExtra X="0.8" Y="0" Z="0" W="0"/>
     </ParticleEmitter>
 
     <!--
@@ -182,6 +252,38 @@
       into a drift along the blast rather than a streak; KSA scales it by the local air, so it is
       stronger low down. Density a little over air's, so the dust sinks slowly as it clears.
     -->
+    <!--
+      The smoke a shell leaves where it burst in the air: black, growing as it spreads, and hanging
+      where it went off long after the shell. Ksa/FlakPuff.cs sizes it and sets how long it lasts
+      from the charge, so these numbers are the 5"/54's. Density is air's, so it neither rises nor
+      falls, and the drag stops the scatter within a second.
+    -->
+    <ParticleEmitter Id="KSArmoryFlakPuff" Drag="2.0" Density="1.225">
+        <MaxParticles Value="16" />
+        <Mesh Id="Plane"/>
+        <Renderer>Billboard</Renderer>
+        <MaterialId Value="KSArmoryFlakMaterial"/>
+        <Updaters>SimpleMovement</Updaters>
+        <Updaters>GrowOverLifetime</Updaters>
+        <!-- W is the grow ratio: the puff ends three times the size it started. -->
+        <EmitterExtra W="3.0"/>
+        <Updaters>ModelMatrix</Updaters>
+        <Updaters>Age</Updaters>
+        <SpawnMode>Burst</SpawnMode>
+        <EmitterSpawnLogic>Sphere</EmitterSpawnLogic>
+        <EmitterSize Value="1"/>
+        <SpawnRate Value="16"/>
+        <Force X="0" Y="0" Z="0" />
+        <InheritVelocity Value="false"/>
+        <ParticleColor X="1" Y="1" Z="1" W="1"/>
+        <ParticleLifespan X="18" Y="28"/>
+        <ParticleSpawnLogic>ScatterFromCenter</ParticleSpawnLogic>
+        <ParticleSize X="8" Y="12"/>
+        <ParticleVelocity X="4" Y="4" Z="4"/>
+        <ParticleVelocityShift Value="0.6"/>
+        <ParticleExtra X="0.8" Y="0" Z="0" W="0"/>
+    </ParticleEmitter>
+
     <ParticleEmitter Id="KSArmoryBlastPuff" Drag="1.5" Density="1.35">
         <MaxParticles Value="28" />
         <Mesh Id="Plane"/>
@@ -206,57 +308,6 @@
         <ParticleVelocity X="3" Y="3" Z="3"/>
         <ParticleVelocityShift Value="0.8"/>
         <ParticleExtra X="0.8" Y="0" Z="0" W="0"/>
-    </ParticleEmitter>
-
-    <!--
-      Tracers. One emitter rides a shell and is moved to it every frame, so the particles it leaves
-      behind mark the path the round actually took.
-
-      It cannot be done from the muzzle instead, which was tried first: EmitterVelocity is assigned
-      by the engine only for a vehicle-parented emitter (ParticleEmitter.UpdateUniforms), so from a
-      celestial parent InheritVelocity has nothing to inherit and BubbleOrigin.VelocityBub never
-      reaches spawning. Particles launched there simply hang at the barrel. Directional spawning is
-      no better: the cone is built about a fixed axis of the body frame, not the turret's.
-
-      So the particles carry no velocity of their own and want none. They are short-lived and
-      stationary, and the streak comes entirely from the emitter having moved between frames, which
-      at 1100 m/s is 18 m a frame.
-
-      Density is sea-level air's, so the marks float: they show where the shell has been, and a
-      mark that falls is a mark in the wrong place.
-    -->
-    <ParticleEmitter Id="KSArmoryTracer" Density="1.225">
-        <MaxParticles Value="64" />
-        <Mesh Id="ParticleSphere"/>
-        <Renderer>SimpleColor</Renderer>
-        <Updaters>SimpleMovement</Updaters>
-        <Updaters>ShrinkOverLifetime</Updaters>
-        <Updaters>ModelMatrix</Updaters>
-        <Updaters>Age</Updaters>
-        <SpawnMode>Endless</SpawnMode>
-        <EmitterSpawnLogic>Sphere</EmitterSpawnLogic>
-        <EmitterSize Value="0.02"/>
-        <EmitterExtents X="0.02" Y="0" Z="0"/>
-
-        <!--
-          Dense and brief, and both numbers follow from the shell's speed. At 1100 m/s the emitter
-          moves 18 m between frames, so 120 spawns a second leaves a particle every 9 m: a string
-          of beads rather than a streak, and at any size big enough to see they read as fireballs
-          flying in formation. 900 a second puts one every 1.2 m, which merges. The lifespan is
-          then the streak's LENGTH divided by that speed: 0.05 s is 55 m of tail.
-        -->
-        <SpawnRate Value="900"/>
-        <ParticleLifespan X="0.035" Y="0.06"/>
-        <ParticleSize X="0.10" Y="0.20"/>
-
-        <Force X="0" Y="0" Z="0" />
-        <InheritVelocity Value="false"/>
-        <ParticleColor X="18" Y="7" Z="1.5" W="1"/>
-        <ParticleColorShift X="0.2" Y="0.08" Z="0"/>
-        <ParticleSpawnLogic>ScatterFromCenter</ParticleSpawnLogic>
-        <ParticleVelocity X="0.8" Y="0.8" Z="0.8"/>
-        <ParticleVelocityShift Value="0.5"/>
-        <ParticleExtra X="0.6" Y="0" Z="0" W="0"/>
     </ParticleEmitter>
 
     <!--
@@ -512,5 +563,11 @@
     <Shader Id="KSArmoryCloudCompute" Path="Shaders/KSArmoryCloud.comp" />
     <Shader Id="KSArmoryCloudResolveCompute" Path="Shaders/KSArmoryCloudResolve.comp" />
     <Shader Id="KSArmoryShockCompute" Path="Shaders/KSArmoryShock.comp" />
+    <Shader Id="KSArmorySensorCompute" Path="Shaders/KSArmorySensor.comp" />
+    <Shader Id="KSArmoryFireLightCompute" Path="Shaders/KSArmoryFireLight.comp" />
+    <Shader Id="KSArmoryRingCompute" Path="Shaders/KSArmoryRing.comp" />
+    <Shader Id="KSArmoryHoleCompute" Path="Shaders/KSArmoryHole.comp" />
+    <Shader Id="KSArmoryLeakCompute" Path="Shaders/KSArmoryLeak.comp" />
+    <Shader Id="KSArmoryTracerCompute" Path="Shaders/KSArmoryTracer.comp" />
 
 </Assets>

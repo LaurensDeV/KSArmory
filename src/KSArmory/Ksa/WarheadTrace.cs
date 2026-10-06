@@ -293,7 +293,9 @@ internal sealed class WarheadTrace
                 Sample(setup, round, simStep, advanced);
             }
 
-            if (_sinceRefly >= (dense ? DenseReflyIntervalSeconds : ReflyIntervalSeconds))
+            // Every frame for the first second: a short shot's walk off its release probe all happens there.
+            double interval = age < 1.0 ? 0.0 : dense ? DenseReflyIntervalSeconds : ReflyIntervalSeconds;
+            if (_sinceRefly >= interval)
             {
                 _sinceRefly = 0.0;
                 Refly(setup, round);
@@ -326,6 +328,10 @@ internal sealed class WarheadTrace
                   + $" sim={KsaWorld.SimulationSpeed:F2}x"
                   + $" frame={_frames}"
                   + $" alt={altitude / 1000.0:F3}km r={Vec.Len(positionCci):F1}"
+                  + (round.Age < 1.0
+                         ? $" cci=({positionCci.X:F4},{positionCci.Y:F4},{positionCci.Z:F4})"
+                           + $" vcci=({velocityCci.X:F5},{velocityCci.Y:F5},{velocityCci.Z:F5})"
+                         : "")
                   + $" v={Vec.Len(velocityCci):F1}m/s local={round.Speed:F1}m/s"
                   + Whose(setup, round));
     }
@@ -361,6 +367,11 @@ internal sealed class WarheadTrace
                   + $" v {Vec.Len(velocityCci):F0}m/s"
                   + Walk(setup, atReleaseEpoch)
                   + $"; {Ground(setup, hit.GroundFixedPointCci, setup.TrueAimCci):F0} m from the aim"
+                  + (round.Age < 1.0
+                         ? $" | aimR {setup.TerrainRadiusAt(setup.TrueAimCci):F4}"
+                           + $" rho10km {setup.DensityRatioAt(setup.TrueAimCci * (1.0 + 10_000.0 / Vec.Len(setup.TrueAimCci))):E8}"
+                           + $" hitR {Vec.Len(hit.GroundFixedPointCci):F4}"
+                         : "")
                   + Whose(setup, round));
     }
 
@@ -392,8 +403,8 @@ internal sealed class WarheadTrace
             // One correction, not two. Pairing a parent captured on the last flying frame AND
             // back-dating it overshoots by exactly a frame: flown as -493 m below the surface
             // uncorrected against +517 m above it double-corrected. docs/MIRV-NEXT.md item 8j.
-            double3 parentAtBurst = setup.Parent.GetPositionEcl()
-                                    + setup.Parent.GetVelocityEcl() * round.DetonationElapsedInFrame;
+            double3 parentAtBurst = InFrame.AtBurst(setup.Parent.GetPositionEcl(), setup.Parent.GetVelocityEcl(),
+                                                    round.DetonationElapsedInFrame);
 
             doubleQuat cce2Cci = setup.Parent.GetCce2Cci();
             double3 positionCci = (round.PositionEcl - parentAtBurst).Transform(cce2Cci);
@@ -404,9 +415,9 @@ internal sealed class WarheadTrace
             // By the ground's velocity, spin included: the lookup is answered at the frame's end
             // rotation, and without the spin a round stopped exactly on its surface reads a mean
             // 0.16 m off it.
-            double3 landingEcl = round.PositionEcl
-                                 - KsaWorld.GroundVelocityAt(setup.Parent, round.PositionEcl)
-                                   * round.DetonationElapsedInFrame;
+            double3 landingEcl = BlastSweep.GroundAtSample(round.PositionEcl,
+                                                           KsaWorld.GroundVelocityAt(setup.Parent, round.PositionEcl),
+                                                           round.DetonationElapsedInFrame);
 
             // The burst is somewhere inside this frame while _worldSeconds is at its edge, and
             // DetonationElapsedInFrame is that offset - negative, between -dt and zero. At 7 km/s a
@@ -607,7 +618,7 @@ internal sealed class WarheadTrace
         // its own flight time -- while _probeAlong and _probeCross were taken from the arrival, so
         // resolving the raw separation turns it by the planet's spin over the fall: 1.4 deg at
         // 340 s, a couple of centimetres across for every metre downrange. IcbmComputer.ProbeMissSaid
-        // has carried it since it was written; this did not. ACCURACY-PLAN.md 3dw.
+        // carries it the same way. ACCURACY-PLAN.md 3dw.
         //
         // The two points are un-carried by slightly DIFFERENT times, and that residue stays: a round
         // that stops higher arrives earlier and genuinely lands on ground the planet has turned less
@@ -615,8 +626,7 @@ internal sealed class WarheadTrace
         double3 separation = setup.Body.CarryCci(atReleaseEpochCci - _probeGroundCci, _probeSeconds);
 
         // Four decimals, because the print is the endpoint's resolution and the endpoint has moved
-        // by two orders of magnitude. Whole metres was wrong when the walk was metres (3ci); two
-        // decimals is wrong now it is 21 mm, and it is wrong in a way that hides the question being
+        // by two orders of magnitude. Two decimals is too coarse for a 21 mm walk, and wrong in a way that hides the question being
         // asked of it -- the increments BETWEEN re-flies are tenths of a millimetre, so at 10 mm
         // they are almost all zero and a rate read off them is quantisation. Measured: whether the
         // walk grows per frame or per simulated second reads r = -0.185 against +0.083 on 399

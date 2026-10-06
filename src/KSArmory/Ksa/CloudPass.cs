@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using Brutal;
 using Brutal.Numerics;
@@ -8,6 +9,7 @@ using Core;
 using KSA;
 using KSA.Atmosphere.Rendering;
 using KSA.Rendering;
+using KSA.Rendering.Lighting;
 using RenderCore;
 
 namespace KSArmory;
@@ -18,8 +20,8 @@ namespace KSArmory;
 /// <para><b>No renderer was ported to get here and nothing is patched but one prefix.</b> KSA
 /// compiles a <c>&lt;Shader&gt;</c> asset out of any mod's folder, <c>ComputePipelineWrapper</c>
 /// builds the descriptor sets, and <c>Program.GetRenderer</c> and the clamp samplers are public
-/// statics. What was missing was somewhere to dispatch from, and
-/// <see cref="CloudPassHook"/> found it.</para>
+/// statics. The one thing it adds is somewhere to dispatch from, which is
+/// <see cref="CloudPassHook"/>.</para>
 ///
 /// <para><b>Where it runs is the whole design.</b> Just before <c>SunbloomRenderer.Render</c> the
 /// engine has already put the scene colour into a storage layout and the depth into a sampled one,
@@ -37,6 +39,18 @@ internal static class CloudPass
     private const string ShaderId = "KSArmoryCloudCompute";
     private const string ResolveShaderId = "KSArmoryCloudResolveCompute";
     private const string ShockShaderId = "KSArmoryShockCompute";
+    private const string FireLightShaderId = "KSArmoryFireLightCompute";
+    private const string RingShaderId = "KSArmoryRingCompute";
+    private const string HoleShaderId = "KSArmoryHoleCompute";
+    private const string LeakShaderId = "KSArmoryLeakCompute";
+    private const string TracerShaderId = "KSArmoryTracerCompute";
+
+    // KSArmoryFireLight.comp's workgroup.
+    private const int FireLightGroupX = 16;
+    private const int FireLightGroupY = 8;
+
+    // The albedo the fill assumes where the planet's cannot be read: KSA's own default, 0.5 to the 2.2.
+    private const double FireLightAlbedo = 0.218;
 
     // The compute shader's workgroup, which has to match KSArmoryCloud.comp's local_size.
     private const int Group = 8;
@@ -54,13 +68,71 @@ internal static class CloudPass
     private static readonly ProfilerTag MarchTag = new("KSArmory Cloud: march"u8);
     private static readonly ProfilerTag ResolveTag = new("KSArmory Cloud: resolve"u8);
     private static readonly ProfilerTag FrontsTag = new("KSArmory Cloud: fronts"u8);
+    private static readonly ProfilerTag FireLightTag = new("KSArmory Cloud: fire light"u8);
     private static readonly ProfilerTag FlashTag = new("KSArmory Cloud: flash"u8);
+    private static readonly ProfilerTag GlowTag = new("KSArmory Cloud: glow"u8);
+    private static readonly ProfilerTag AuroraTag = new("KSArmory Cloud: aurora"u8);
+    private static readonly ProfilerTag DebrisTag = new("KSArmory Cloud: debris"u8);
+    private static readonly ProfilerTag RedWaveTag = new("KSArmory Cloud: red wave"u8);
+    private static readonly ProfilerTag RingsTag = new("KSArmory Cloud: rings"u8);
+    private static readonly ProfilerTag HolesTag = new("KSArmory Cloud: holes"u8);
+    private static readonly ProfilerTag LeaksTag = new("KSArmory Cloud: leaks"u8);
+    private static readonly ProfilerTag TracersTag = new("KSArmory Cloud: tracers"u8);
+
+    private static readonly List<(float Kind, double Brightness, Push Push)> _sky = [];
+
+    /// <summary>How many sky dispatches the last frame asked for, and how many it drew.</summary>
+    public static int SkyWanted { get; private set; }
+
+    /// <inheritdoc cref="SkyWanted"/>
+    public static int SkyDrawn { get; private set; }
+
+    private static void KeepTheNewestOfEachKind()
+    {
+        _skyKinds.Clear();
+        foreach ((float kind, _, _) in _sky) _skyKinds.Add(kind);
+
+        SkyDispatch.Choose(_skyKinds, _keep);
+
+        _kept.Clear();
+        foreach (int i in _keep) _kept.Add(_sky[i]);
+        _sky.Clear();
+        _sky.AddRange(_kept);
+    }
+
+    private static readonly List<float> _skyKinds = [];
+    private static readonly List<int> _keep = [];
+    private static readonly List<(float Kind, double Brightness, Push Push)> _kept = [];
+
+    // One kind's share of the frame's sky, in its own profiler region so `cost` splits the three.
+    private static void DrawSky(CommandBuffer commandBuffer, IViewport viewport, Camera camera, int width, int height,
+                                float kind, ProfilerTag tag, ref int marks)
+    {
+        bool any = false;
+        foreach ((float k, _, _) in _sky) any |= k == kind;
+        if (!any) return;
+
+        using (commandBuffer.TagRegion(GpuTag))
+        using (commandBuffer.TagRegion(tag))
+        {
+            foreach ((float k, _, Push push) in _sky)
+            {
+                if (k != kind) continue;
+
+                if (marks > 0) Hazard(commandBuffer);
+
+                BindCloud(commandBuffer, viewport, camera, push);
+                commandBuffer.Dispatch((width + Group - 1) / Group, (height + Group - 1) / Group, 1);
+                marks++;
+            }
+        }
+    }
 
     private static ComputePipelineWrapper? _pipeline;
 
     // Everything one viewport's clouds are drawn with. The pass is recorded once per viewport a
     // frame, and a camera window has its own target, its own size and its own history -- sharing
-    // one set drew a window's clouds into the main view's image whenever the two were one size.
+    // one set draws a window's clouds into the main view's image whenever the two are one size.
     private sealed class View
     {
         public required IRenderImage Target;
@@ -79,6 +151,14 @@ internal static class CloudPass
         // the pixel it writes, and the bend reads nothing else.
         public required RenderImage SceneCopy;
         public ComputePipelineWrapper? Shock;
+        public ComputePipelineWrapper? Rings;
+        public ComputePipelineWrapper? Holes;
+        public ComputePipelineWrapper? Leaks;
+        public ComputePipelineWrapper? Tracers;
+        public ComputePipelineWrapper? FireLight;
+        public VkImageView FireLightDepth;
+        public VkImageView FireLightNormal;
+        public VkImageView FireLightIrradiance;
         public readonly ComputePipelineWrapper?[] Resolve = new ComputePipelineWrapper?[2];
         public int Parity;
 
@@ -146,7 +226,7 @@ internal static class CloudPass
     /// Whether a build was attempted and did not produce a pipeline.
     ///
     /// <para>Not the same question as <see cref="Available"/> being false, and reading it as the
-    /// same is what made a deliberate control run report a shader that would not compile: a pass
+    /// same reports a shader that would not compile for a pass nobody switched on: a pass
     /// switched off is never asked to build, so it has no pipeline for a reason that is not a
     /// fault. Only a build that ran and failed sets this.</para>
     /// </summary>
@@ -317,6 +397,22 @@ internal static class CloudPass
             View view = ViewFor(viewport, colour, width, height);
             view.Frames++;
 
+            // With the cloud off, what is painted onto the scene still is: the targeting rings, which
+            // nothing else draws, the holes, the leaks and the tracers. Only a burst's own visuals --
+            // the cloud, its marks, its light and its sky -- wait for it, and none of what they need
+            // to build is touched.
+            if (tint <= 0f)
+            {
+                if (Program.GetRenderCamera() is not { } plain) return;
+
+                int painted = 0;
+                Rings(commandBuffer, viewport, plain, view, depth, width, height, ref painted);
+                Holes(commandBuffer, viewport, plain, view, depth, frameIndex, width, height, ref painted);
+                Streams(commandBuffer, viewport, plain, view, depth, frameIndex, width, height, ref painted);
+                Tracers(commandBuffer, viewport, plain, view, depth, frameIndex, width, height);
+                return;
+            }
+
             // The weather is the main view's: KSA renders its clouds for that one alone, and their
             // images laid over a camera window would hide its burst behind somebody else's sky.
             RenderImage? weatherColour = null;
@@ -366,10 +462,16 @@ internal static class CloudPass
             _order.Clear();
             for (int i = 0; i < NuclearClouds.Count && _order.Count < MaxClouds; i++)
             {
+                // Air too thin for a mushroom leaves a shell of glowing debris, drawn below as light.
+                if (NuclearClouds.IsThin(i)) continue;
                 if (!NuclearClouds.TryAt(i, out double3 at, out _, out _, out _, out _, out _, out _, out _, out _)) continue;
 
                 _order.Add((i, Vec.Len2(at - camera.PositionEcl)));
             }
+
+            // THE FIREBALL'S LIGHT on what KSA's pre-pass dropped it from, before anything is drawn
+            // over those surfaces.
+            FireLight(commandBuffer, viewport, camera, view, depth);
 
             // THE GROUND FIRST, because the clouds composite over what is already in the image and
             // a mark is under the column rather than in front of it.
@@ -387,7 +489,7 @@ internal static class CloudPass
                 {
                     if (!NuclearClouds.TryScorch(i, out double3 markEcl, out double markRadius,
                                                  out double3 markWind, out double markOverSea,
-                                                 out bool markAirless)) continue;
+                                                 out bool markAirless, out double markCoupling)) continue;
 
                     double3 markCentre = markEcl - camera.PositionEcl;
                     if (!Vec.IsFinite(markCentre)) continue;
@@ -399,7 +501,7 @@ internal static class CloudPass
                     // reason NuclearClouds bounds how many may stand. Its own footprint is a few
                     // per cent of that.
                     Tile tile = TileFor(camera, markCentre, markWind, markRadius,
-                                        markAirless ? 1.0 : ScorchScreenReach, width, height);
+                                        markAirless ? 1.0 : ScorchFootprint.Reach, width, height);
                     if (tile.Empty) continue;
 
                     RecordTile(tile, width, height);
@@ -422,10 +524,11 @@ internal static class CloudPass
                         // How far the patch's centre stands above the sea, in the one float of the
                         // cloud's shape a mark does not use. Always set: zero would read as a mark
                         // standing on the waterline and blank everything below its own centre.
-                        // And whether KSA's weather clouds are bound, in the next float along, and
-                        // whether there was air to carry a plume downwind, in the one after.
+                        // And whether KSA's weather clouds are bound, in the next float along,
+                        // whether there was air to carry a plume downwind, in the one after, and how
+                        // much of a surface burst it was, which is how much fallout it dropped.
                         Shape = new float4((float)markOverSea, weather ? 1f : 0f,
-                                           markAirless ? 1f : 0f, 0f),
+                                           markAirless ? 1f : 0f, (float)markCoupling),
                     };
 
                     if (marks > 0) Hazard(commandBuffer);
@@ -436,9 +539,122 @@ internal static class CloudPass
                 }
             }
 
+            // The targeting rings, on the ground with the marks and under any cloud standing over
+            // them.
+            Rings(commandBuffer, viewport, camera, view, depth, width, height, ref marks);
+
+            // The holes shells have left in hulls, on the hull under any smoke standing in front of it.
+            Holes(commandBuffer, viewport, camera, view, depth, frameIndex, width, height, ref marks);
+
+            // The streams leaking tanks throw, over the hull they run down.
+            Streams(commandBuffer, viewport, camera, view, depth, frameIndex, width, height, ref marks);
+
+            // THE SKY a high burst lights: the X-ray-heated layer, the aurora at each end of the field line
+            // and a thin-air burst's debris shell, each a full-screen dispatch with a negative bound. Every
+            // one is gathered first and up to SkyDispatch.MostOf of each kind drawn, newest first, since a bus bursting over several
+            // targets asks for a dozen or more and each is a pass over the whole screen. They add light, so
+            // the order they are drawn in is nobody's business.
+            _sky.Clear();
+
+            for (int i = 0; i < NuclearClouds.GlowCount; i++)
+            {
+                // Drawn against the planet the camera is near, which is the only one the shader has:
+                // a glow over another body would be drawn as a shell round this one.
+                if (!NuclearClouds.TryGlow(i, out double3 glowEcl, out double nits, out double green,
+                                           out object? over)) continue;
+                if (!ReferenceEquals(over, camera.NearbyCelestial)) continue;
+
+                double3 lit = glowEcl - camera.PositionEcl;
+                if (!Vec.IsFinite(lit)) continue;
+
+                // Its size is the layer's, in the fireball's first two floats, and its brightness the bound's:
+                // the layer where this body's air stops the X-rays, not a height.
+                BodyAir glowAir = KsaWorld.BodyAirOf(camera.NearbyCelestial);
+                _sky.Add((SkyDispatch.Glow, nits, new Push
+                {
+                    InvViewProj = camera.VPInv.viewProjection,
+                    CentreRadius = new float4((float)lit.X, (float)lit.Y, (float)lit.Z, -(float)nits),
+                    FireSun = new float4((float)XRayGlow.LayerAltitude(glowAir), (float)XRayGlow.LayerThickness(glowAir),
+                                         SkyDispatch.Glow, 0f),
+                    Shape = new float4((float)green, 0f, 0f, 0f),
+                }));
+            }
+
+            for (int i = 0; i < NuclearClouds.AuroraCount; i++)
+            {
+                if (!NuclearClouds.TryAurora(i, out double3 footEcl, out double3 eastEcl, out double sinLatitude,
+                                             out double nits, out double age, out object? over)) continue;
+                if (!ReferenceEquals(over, camera.NearbyCelestial)) continue;
+
+                double3 foot = footEcl - camera.PositionEcl;
+                if (!Vec.IsFinite(foot)) continue;
+
+                _sky.Add((SkyDispatch.Aurora, nits, new Push
+                {
+                    InvViewProj = camera.VPInv.viewProjection,
+                    CentreRadius = new float4((float)foot.X, (float)foot.Y, (float)foot.Z, -(float)nits),
+                    FireSun = new float4((float)Aurora.BottomAltitude(KsaWorld.BodyAirOf(camera.NearbyCelestial)),
+                                         (float)Aurora.TopAltitude(KsaWorld.BodyAirOf(camera.NearbyCelestial)),
+                                         SkyDispatch.Aurora,
+                                         (float)sinLatitude),
+                    Shape = new float4((float)eastEcl.X, (float)eastEcl.Y, (float)eastEcl.Z, (float)age),
+                }));
+            }
+
+            for (int i = 0; i < NuclearClouds.Count; i++)
+            {
+                if (!NuclearClouds.TryDebris(i, out double3 shellEcl, out double3 fieldEcl, out double shellRadius,
+                                             out DebrisShell.Look look, out object? over,
+                                             out double clipAltitude)) continue;
+                if (!ReferenceEquals(over, camera.NearbyCelestial)) continue;
+
+                double3 shell = shellEcl - camera.PositionEcl;
+                if (!Vec.IsFinite(shell)) continue;
+
+                _sky.Add((SkyDispatch.Debris, look.Radiance, new Push
+                {
+                    InvViewProj = camera.VPInv.viewProjection,
+                    AgeStrengthWind = new float4((float)look.Colour.X, (float)look.Colour.Y, (float)look.Colour.Z,
+                                                 (float)look.Fill),
+                    CentreRadius = new float4((float)shell.X, (float)shell.Y, (float)shell.Z, -(float)look.Radiance),
+                    FireSun = new float4((float)shellRadius, (float)look.Elongation, SkyDispatch.Debris,
+                                         (float)clipAltitude),
+                    Shape = new float4((float)fieldEcl.X, (float)fieldEcl.Y, (float)fieldEcl.Z,
+                                       (float)NuclearClouds.AgeOf(i)),
+                }));
+            }
+
+            for (int i = 0; i < NuclearClouds.WaveCount; i++)
+            {
+                if (!NuclearClouds.TryWave(i, out double3 waveEcl, out double waveRadius, out double nits,
+                                           out object? over)) continue;
+                if (!ReferenceEquals(over, camera.NearbyCelestial)) continue;
+
+                double3 from = waveEcl - camera.PositionEcl;
+                if (!Vec.IsFinite(from)) continue;
+
+                _sky.Add((SkyDispatch.RedWave, nits, new Push
+                {
+                    InvViewProj = camera.VPInv.viewProjection,
+                    CentreRadius = new float4((float)from.X, (float)from.Y, (float)from.Z, -(float)nits),
+                    FireSun = new float4((float)waveRadius, (float)RedWave.TrailMetres, SkyDispatch.RedWave,
+                                         (float)RedWave.RedAltitude(KsaWorld.BodyAirOf(camera.NearbyCelestial))),
+                }));
+            }
+
+            SkyWanted = _sky.Count;
+            KeepTheNewestOfEachKind();
+
+            SkyDrawn = _sky.Count;
+            DrawSky(commandBuffer, viewport, camera, width, height, SkyDispatch.Glow, GlowTag, ref marks);
+            DrawSky(commandBuffer, viewport, camera, width, height, SkyDispatch.Aurora, AuroraTag, ref marks);
+            DrawSky(commandBuffer, viewport, camera, width, height, SkyDispatch.Debris, DebrisTag, ref marks);
+            DrawSky(commandBuffer, viewport, camera, width, height, SkyDispatch.RedWave, RedWaveTag, ref marks);
+
             if (_order.Count == 0)
             {
-                Flash(commandBuffer, viewport, camera, width, height, marks > 0);
+                bool traced = Tracers(commandBuffer, viewport, camera, view, depth, frameIndex, width, height);
+                Flash(commandBuffer, viewport, camera, width, height, marks > 0 || traced);
                 return;
             }
 
@@ -482,8 +698,8 @@ internal static class CloudPass
                     {
                         InvViewProj = camera.VPInv.viewProjection,
                         // The target's own size is not in here: the shader asks imageSize() for it,
-                        // which freed the two floats the wind needed. The block is at Vulkan's
-                        // guaranteed 128 bytes and there was nowhere else to take them from.
+                        // which leaves the two floats the wind needs. The block is at Vulkan's
+                        // guaranteed 128 bytes with nothing spare.
                         //
                         // The strength carries the cloud's own fade. It holds at one through the
                         // rise and half the stand and then squares away to nothing, so a cloud
@@ -494,23 +710,30 @@ internal static class CloudPass
                                                   (float)radius),
                         // Neither the cloud's up nor the direction to the sun is in here: the
                         // shader derives both from the burst, the planet and the star, all of which
-                        // it already has. That freed the floats for the fireball's radius and glow,
+                        // it already has. That leaves the floats for the fireball's radius and glow,
                         // which let a burst light the cloud it is inside. The third is the heat left
                         // in the cloud's core, which outlasts the ball: the whiteout is a dispatch
                         // of its own, after every cloud, so the float is free here.
                         //
                         // No scorch here: the ground a burst burned outlives the column over it,
                         // so it is its own dispatch below and a cloud never draws one. The fourth
-                        // float is therefore free on this dispatch, and carries two flags -- see
+                        // float is therefore free on this dispatch, and carries the flags packed by
                         // CloudFlags.
+                        //
+                        // The heat shares its float with how much of a surface burst this was and
+                        // how much of a stem it raised: MushroomCloud.PackHeat.
                         FireSun = new float4((float)flash.Radius, (float)flash.Glow,
-                                             (float)heat,
-                                             CloudFlags(water, weather, first: drawn == 0, shape.Shock)),
+                                             MushroomCloud.PackHeat(heat, shape.Coupling, shape.StemShare),
+                                             KSArmory.CloudFlags.Pack(water, weather, first: drawn == 0, shape.Shock,
+                                                                      NuclearClouds.DrynessAt(_order[n].Index))),
 
                         // The same shape MushroomCloud carries, so every dimension stays
                         // Glasstone's rather than being invented again in GLSL.
+                        // The stem's radius carries how far up the column reaches in its fraction:
+                        // MushroomCloud.PackStem.
                         Shape = new float4((float)shape.CapCentre, (float)shape.CapRadius,
-                                           (float)shape.CapTube, (float)shape.StemRadius),
+                                           (float)shape.CapTube,
+                                           MushroomCloud.PackStem(shape.StemRadius, shape.ColumnTop)),
                     };
 
                     // Between dispatches, because every one of them reads the scene image and
@@ -519,8 +742,8 @@ internal static class CloudPass
                     // BarrierBatch, so this stands on public API like the rest of the pass.
                     if (drawn > 0 || marks > 0) Hazard(commandBuffer);
 
-                    // The VIEWPORT's slot, never the frame index. That argument picks the dynamic
-                    // offset into the global set, which is where global.lighting lives: a frame
+                    // The VIEWPORT's slot, never the frame index. That argument picks the
+                    // viewport's own global set, which is where global.lighting lives: a frame
                     // index there reads a different viewport's planet, sun and radii on every frame
                     // in flight, and anything lit from that block flickers at frame rate.
                     // On the coarse grid one invocation stands for a square of pixels, so the dispatch
@@ -552,6 +775,10 @@ internal static class CloudPass
 
                 Shock(commandBuffer, viewport, camera, view, depth);
             }
+
+            // After the clouds, which composite over whatever is in the image and would hide a
+            // tracer in front of one; before the whiteout, which covers everything.
+            Tracers(commandBuffer, viewport, camera, view, depth, frameIndex, width, height);
 
             Flash(commandBuffer, viewport, camera, width, height, hazard: true);
         }
@@ -654,7 +881,7 @@ internal static class CloudPass
         public float4x4 InvViewProj;
         public float4 CentreRadius;        // the burst, camera-relative, and how far the front has got
         public float4 CentreUvStrength;    // the burst on screen, how hard it bends, its thickness
-        public float4 UpMode;              // the vertical at the burst, and 0 to copy or 1 to bend
+        public float4 UpMode;              // the vertical at the burst, one plus its height long, and 0 to copy or 1 to bend
         public float4 Shake;               // the picture thrown across and up, its roll, and 1 while shaking
     }
 
@@ -690,7 +917,7 @@ internal static class CloudPass
         for (int i = 0; i < NuclearClouds.Count && _fronts.Count < MaxClouds; i++)
         {
             if (!NuclearClouds.TryFront(i, out double3 burstEcl, out double3 up, out double front,
-                                        out double chargeKg)) continue;
+                                        out double chargeKg, out double overGround)) continue;
 
             double strength = Math.Clamp(Warhead.LethalRadius(chargeKg) / front, 0.0, 1.0);
             if (strength <= ShockFaintest) continue;
@@ -718,7 +945,9 @@ internal static class CloudPass
                 CentreUvStrength = new float4((float)((x * 0.5) + 0.5), (float)((y * 0.5) + 0.5),
                                               ShockBend * (float)strength,
                                               (float)width),
-                UpMode = new float4((float)up.X, (float)up.Y, (float)up.Z, 0f),
+                // Unit up, lengthened by the burst's height over the ground: KSArmoryShock.comp.
+                UpMode = new float4((float)(up.X * (1.0 + overGround)), (float)(up.Y * (1.0 + overGround)),
+                                    (float)(up.Z * (1.0 + overGround)), 0f),
             });
         }
 
@@ -731,6 +960,8 @@ internal static class CloudPass
 
         if (view.Shock is null && !BuildShock(view, depth)) return;
 
+        Span<VkImageMemoryBarrier2> one = stackalloc VkImageMemoryBarrier2[1];
+
         using (commandBuffer.TagRegion(FrontsTag))
         {
             for (int n = 0; n < _fronts.Count; n++)
@@ -740,7 +971,6 @@ internal static class CloudPass
 
                 Hazard(commandBuffer);
 
-                Span<VkImageMemoryBarrier2> one = stackalloc VkImageMemoryBarrier2[1];
                 BarrierBatch copy = new(one);
                 copy.Add(view.SceneCopy, ImageBarrierInfo.Presets.StorageReadWriteC);
                 copy.SubmitAndFlush(commandBuffer);
@@ -758,6 +988,1006 @@ internal static class CloudPass
     }
 
     private static readonly List<ShockPush> _fronts = [];
+
+    [StructLayout(LayoutKind.Sequential, Pack = 4)]
+    private struct RingPush
+    {
+        public float4x4 InvViewProj;
+        public float4 CentreRadius;    // the centre, camera-relative, and the radius
+        public float4 UpInner;         // the local vertical, and a second ring's radius or zero
+        public float4 Colour;          // the ink, and the brightness it keeps over dark ground
+        public float4 TileWidth;       // the tile's first pixel, the line's half-width in pixels, dashes or zero -- or minus an ellipse's short radius
+    }
+
+    // The line's half-width in pixels, which the shader holds however far off or oblique the ring is.
+    private const float RingHalfWidthPixels = 1.75f;
+
+    // How far past the radius the tile reaches, in radii: the line's own width and its border at a
+    // grazing angle, where a pixel covers a long stretch of ground.
+    private const double RingTileReach = 1.15;
+
+    // THE TARGETING RINGS, painted on the ground: KSArmoryRing.comp. One dispatch per ring, over its
+    // own patch of screen, so a ring costs what it covers. None once the UI pass has stopped handing
+    // them over, which is what hiding the UI does.
+    private static void Rings(CommandBuffer commandBuffer, IViewport viewport, Camera camera, View view,
+                              IRenderImage depth, int width, int height, ref int marks)
+    {
+        if (GroundRings.Count == 0 || !GroundRings.Fresh) return;
+        if (view.Rings is null && !BuildRings(view, depth)) return;
+
+        using (commandBuffer.TagRegion(GpuTag))
+        using (commandBuffer.TagRegion(RingsTag))
+        {
+            for (int i = 0; i < GroundRings.Count; i++)
+            {
+                if (!GroundRings.TryAt(i, out double3 centreEcl, out double3 up, out double radius,
+                                       out double inner, out float4 colour, out int dashes,
+                                       out double3 major, out double minor)) continue;
+
+                double3 centre = centreEcl - camera.PositionEcl;
+                if (!Vec.IsFinite(centre)) continue;
+
+                Tile tile = TileFor(camera, centre, Vec.AnyPerpendicular(up), radius, RingTileReach,
+                                    width, height);
+                if (tile.Empty) continue;
+
+                if (marks > 0) Hazard(commandBuffer);
+
+                RingPush push = new()
+                {
+                    InvViewProj = camera.VPInv.viewProjection,
+                    CentreRadius = new float4((float)centre.X, (float)centre.Y, (float)centre.Z, (float)radius),
+                    UpInner = new float4((float)up.X, (float)up.Y, (float)up.Z, (float)inner),
+                    Colour = colour,
+                    TileWidth = new float4(tile.OriginX, tile.OriginY, RingHalfWidthPixels, dashes),
+                };
+
+                // An ellipse: both directions packed into the four floats the up and the inner ring
+                // take, and the short radius where the dashes go, negative to say which this is.
+                if (minor > 0.0)
+                {
+                    float2 upPacked = OctahedralPack(up);
+                    float2 majorPacked = OctahedralPack(major);
+                    push.UpInner = new float4(upPacked.X, upPacked.Y, majorPacked.X, majorPacked.Y);
+                    push.TileWidth.W = -(float)minor;
+                }
+
+                view.Rings!.BindPipeline(commandBuffer, viewport.ShaderSlot, default, default, push);
+                commandBuffer.Dispatch(tile.GroupsX, tile.GroupsY, 1);
+                marks++;
+            }
+        }
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 4)]
+    private struct HolePush
+    {
+        public float4x4 InvViewProj;
+        public int First;              // the view's first hole in the buffer
+        public int Count;
+        public int OriginX;            // the dispatch's first pixel
+        public int OriginY;
+    }
+
+    /// <summary>One hole as <c>KSArmoryHole.comp</c> reads it, std430.</summary>
+    [StructLayout(LayoutKind.Sequential, Pack = 4)]
+    public struct HoleData
+    {
+        public float4 CentreScorch;    // the hole, camera-relative, and the soot's radius
+        public float4 InwardReach;     // the way the shell went in, and how far along it the mark reaches
+        public float4 SideShare;       // a direction square to that, fixed to the part, and the soot's share
+        public float4 CoreSeed;        // the hole's radius and its pattern's seed
+        public float4 Rect;            // the pixels it can reach: first x, first y, last x, last y
+    }
+
+    /// <summary>
+    /// The most holes painted in one view in one frame: every one kept. Fewer, taken nearest first,
+    /// drops whichever end of a riddled craft is further from the camera as the view moves.
+    /// </summary>
+    public const int MostHolesPainted = BulletHoles.MaxHoles;
+
+    // HoleData runs, one a view, per frame in flight; past this many views a frame they wrap.
+    private const int HoleViewsPerFrame = 4;
+
+    // KSArmoryHole.comp's workgroup.
+    private const int HoleGroup = 16;
+
+    // How far along the shell's path a mark reaches past the point it met the hull, at the least: the
+    // burst's own dent is 0.57 m deep for a 5"/54, and the skin as drawn is down there.
+    private const double HoleReachMetres = 1.0;
+
+    // The soot reaches at most this many hole radii, so a 20 mm round's is a hand across, not an arm.
+    private const double SootInCores = 6.0;
+
+    // A hole whose soot is smaller than this many pixels across is not painted at all.
+    private const double LeastHolePixels = 1.0;
+
+    private static readonly List<BulletHoles.Placed> _holesInView = [];
+    private static BufferEx? _holeBuffer;
+    private static MappedMemory _holeMemory;
+    private static int _holeFrames;
+    private static int _holeFrame = -1;
+    private static int _holeView;
+
+    // Set for each view before BulletHoles.Place asks it, so the test needs no closure.
+    private static Camera? _holeCamera;
+    private static int _holeWidth;
+    private static int _holeHeight;
+    private static readonly BulletHoles.CraftInView CraftInView = IsCraftInView;
+
+    // THE SHELL HOLES, on the hulls they were punched in: KSArmoryHole.comp. One dispatch over the
+    // patch of screen they cover between them, each workgroup gathering only the holes that reach it.
+    private static void Holes(CommandBuffer commandBuffer, IViewport viewport, Camera camera, View view,
+                              IRenderImage depth, int frameIndex, int width, int height, ref int marks)
+    {
+        if (!BulletHoles.Enabled || BulletHoles.Count == 0) return;
+        if (_holeBuffer is null && !BuildHoleBuffer()) return;
+        if (view.Holes is null && !BuildHoles(view, depth)) return;
+
+        long started = System.Diagnostics.Stopwatch.GetTimestamp();
+
+        _holeCamera = camera;
+        _holeWidth = width;
+        _holeHeight = height;
+        BulletHoles.Place(camera, CraftInView, _holesInView);
+        _holeCamera = null;
+
+        _holesInView.Sort((a, b) => a.Range.CompareTo(b.Range));
+
+        if (frameIndex != _holeFrame)
+        {
+            _holeFrame = frameIndex;
+            _holeView = 0;
+        }
+
+        int slot = ((((frameIndex % _holeFrames) + _holeFrames) % _holeFrames) * HoleViewsPerFrame)
+                   + (_holeView++ % HoleViewsPerFrame);
+        int first = slot * MostHolesPainted;
+        Span<HoleData> mine = _holeMemory.AsSpan<HoleData>().Slice(first, MostHolesPainted);
+
+        int count = 0;
+        int minX = width, minY = height, maxX = 0, maxY = 0;
+        for (int i = 0; i < _holesInView.Count && count < MostHolesPainted; i++)
+        {
+            BulletHoles.Placed hole = _holesInView[i];
+            double soot = Math.Min(hole.Scorch, SootInCores * hole.Core);
+            double reach = Math.Max(soot, HoleReachMetres);
+            if (!HoleRect(camera, hole.Centre, Math.Sqrt((soot * soot) + (reach * reach)), width, height,
+                          out int x0, out int y0, out int x1, out int y1)) continue;
+
+            _holesInView[count] = hole with { Scorch = (float)soot };
+            mine[count] = new HoleData
+            {
+                CentreScorch = new float4((float)hole.Centre.X, (float)hole.Centre.Y, (float)hole.Centre.Z, (float)soot),
+                InwardReach = new float4((float)hole.Inward.X, (float)hole.Inward.Y, (float)hole.Inward.Z, (float)reach),
+                SideShare = new float4((float)hole.Side.X, (float)hole.Side.Y, (float)hole.Side.Z, 1f),
+                CoreSeed = new float4(hole.Core, hole.Seed, 0f, 0f),
+                Rect = new float4(x0, y0, x1, y1),
+            };
+
+            minX = Math.Min(minX, x0);
+            minY = Math.Min(minY, y0);
+            maxX = Math.Max(maxX, x1);
+            maxY = Math.Max(maxY, y1);
+            count++;
+        }
+
+        ShareSoot(count, mine);
+
+        if (count > 0 && maxX > minX && maxY > minY)
+        {
+            HolePush push = new()
+            {
+                InvViewProj = camera.VPInv.viewProjection,
+                First = first,
+                Count = count,
+                OriginX = minX,
+                OriginY = minY,
+            };
+
+            using (commandBuffer.TagRegion(GpuTag))
+            using (commandBuffer.TagRegion(HolesTag))
+            {
+                if (marks > 0) Hazard(commandBuffer);
+
+                view.Holes!.BindPipeline(commandBuffer, viewport.ShaderSlot, default, default, push);
+                commandBuffer.Dispatch((maxX - minX + HoleGroup - 1) / HoleGroup,
+                                       (maxY - minY + HoleGroup - 1) / HoleGroup, 1);
+                marks++;
+            }
+        }
+
+        _holesCpuSeconds += System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalSeconds;
+        _holesCpuFrames++;
+
+        if (_recorded - _holesLoggedAt >= 300)
+        {
+            double cpuMs = _holesCpuSeconds / Math.Max(_holesCpuFrames, 1) * 1000.0;
+            _holesCpuSeconds = 0.0;
+            _holesCpuFrames = 0;
+            _holesLoggedAt = _recorded;
+            int placed = _holesInView.Count;
+            Log.Debug(() => $"holes: {BulletHoles.Count} held, {placed} placed, {count} painted, "
+                            + $"{cpuMs:F3} ms of CPU a view");
+        }
+    }
+
+    private static long _holesLoggedAt = long.MinValue / 2;
+    private static double _holesCpuSeconds;
+    private static int _holesCpuFrames;
+
+    // Whether any hole on a craft could reach a pixel of the view being recorded: not wholly behind
+    // the camera, not wholly off the screen, and its widest soot at its nearest part at least
+    // LeastHolePixels across. One projection a craft, where a hole needs a matrix chain.
+    private static bool IsCraftInView(double3 centreEgo, double radius, double widestScorch)
+    {
+        if (_holeCamera is not { } camera) return false;
+
+        double4 clip = camera.EgoToClipDouble(centreEgo);
+        if (!double.IsFinite(clip.W) || clip.W < -radius) return false;
+        if (clip.W <= radius) return true;
+
+        double4 edge = camera.EgoToClipDouble(centreEgo + Vec.Unit(Vec.AnyPerpendicular(centreEgo)));
+        if (!(edge.W > 1.0e-3)) return true;
+
+        double x = clip.X / clip.W, y = clip.Y / clip.W;
+        double pixelsPerMetre = Math.Sqrt(Math.Pow((edge.X / edge.W - x) * 0.5 * _holeWidth, 2)
+                                          + Math.Pow((edge.Y / edge.W - y) * 0.5 * _holeHeight, 2));
+        if (!double.IsFinite(pixelsPerMetre)) return true;
+
+        double across = radius * pixelsPerMetre;
+        if (Math.Abs(x) * 0.5 * _holeWidth > (0.5 * _holeWidth) + across) return false;
+        if (Math.Abs(y) * 0.5 * _holeHeight > (0.5 * _holeHeight) + across) return false;
+
+        double nearestScale = clip.W / (clip.W - radius);
+        return widestScorch * 2.0 * pixelsPerMetre * nearestScale >= LeastHolePixels;
+    }
+
+    // How dark a patch of soot gets however many holes share it: a burst lands dozens of rounds on one
+    // spot, and each drawn at full strength stacks the lot to solid black with every hole lost in it.
+    private const double SootWhereShared = 0.7;
+
+    private static readonly int[] _byX = new int[MostHolesPainted];
+    private static readonly int[] _sharing = new int[MostHolesPainted];
+    private static readonly Comparer<int> ByX =
+        Comparer<int>.Create((a, b) => _holesInView[a].Centre.X.CompareTo(_holesInView[b].Centre.X));
+
+    // Each hole's soot at the strength that leaves all the holes overlapping it, together, as dark as
+    // SootWhereShared: 1 - (1 - A)^(1/n) for n of them. Neighbours are found along one axis first, so
+    // the pairs compared are the ones near each other rather than every pair of several hundred.
+    private static void ShareSoot(int count, Span<HoleData> holes)
+    {
+        double widest = 0.0;
+        for (int i = 0; i < count; i++)
+        {
+            _byX[i] = i;
+            _sharing[i] = 1;
+            widest = Math.Max(widest, _holesInView[i].Scorch);
+        }
+
+        Array.Sort(_byX, 0, count, ByX);
+
+        for (int a = 0; a < count; a++)
+        {
+            BulletHoles.Placed hi = _holesInView[_byX[a]];
+            for (int b = a + 1; b < count; b++)
+            {
+                BulletHoles.Placed hj = _holesInView[_byX[b]];
+                if (hj.Centre.X - hi.Centre.X > hi.Scorch + widest) break;
+
+                double reach = hi.Scorch + hj.Scorch;
+                if (Vec.Len2(hi.Centre - hj.Centre) >= reach * reach) continue;
+
+                _sharing[_byX[a]]++;
+                _sharing[_byX[b]]++;
+            }
+        }
+
+        for (int i = 0; i < count; i++)
+        {
+            holes[i].SideShare.W = (float)(1.0 - Math.Pow(1.0 - SootWhereShared, 1.0 / _sharing[i]));
+        }
+    }
+
+    // The pixels a hole's mark can reach, or false for one behind the camera, off the screen or under
+    // a pixel across. A sphere projects to about its centre plus the radius across the line of sight,
+    // which is all a mark this small needs.
+    private static bool HoleRect(Camera camera, double3 centreEgo, double radius, int width, int height,
+                                 out int x0, out int y0, out int x1, out int y1)
+    {
+        x0 = y0 = x1 = y1 = 0;
+
+        double4 clip = camera.EgoToClipDouble(centreEgo);
+        if (!(clip.W > 1.0e-3) || !double.IsFinite(clip.W)) return false;
+
+        double4 edge = camera.EgoToClipDouble(centreEgo + (Vec.Unit(Vec.AnyPerpendicular(centreEgo)) * radius));
+        if (!(edge.W > 1.0e-3)) return false;
+
+        double x = ((clip.X / clip.W * 0.5) + 0.5) * width;
+        double y = ((clip.Y / clip.W * 0.5) + 0.5) * height;
+        double ex = ((edge.X / edge.W * 0.5) + 0.5) * width;
+        double ey = ((edge.Y / edge.W * 0.5) + 0.5) * height;
+
+        // Slack for the soot reaching round a curved hull, which the radius across the view misses.
+        double pixels = Math.Sqrt(((ex - x) * (ex - x)) + ((ey - y) * (ey - y))) * 1.5 + 2.0;
+        if (!double.IsFinite(pixels) || pixels < LeastHolePixels + 2.0) return false;
+        if (x + pixels < 0.0 || y + pixels < 0.0 || x - pixels > width || y - pixels > height) return false;
+
+        x0 = Math.Clamp((int)Math.Floor(x - pixels), 0, width);
+        y0 = Math.Clamp((int)Math.Floor(y - pixels), 0, height);
+        x1 = Math.Clamp((int)Math.Ceiling(x + pixels), 0, width);
+        y1 = Math.Clamp((int)Math.Ceiling(y + pixels), 0, height);
+        return x1 > x0 && y1 > y0;
+    }
+
+    // Written by the CPU each frame and read by the GPU, one run per view per frame in flight, as the
+    // tracers' is. Kept for the process: it names no image, so a rebuilt view reuses it.
+    private static bool BuildHoleBuffer()
+    {
+        Renderer renderer = Program.GetRenderer();
+        _holeFrames = Math.Max(renderer.MaxFramesInFlight, 1);
+
+        if (typeof(Renderer).GetProperty("Allocator")?.GetValue(renderer) is not IBufferAllocator allocator)
+        {
+            Warn("no buffer allocator on the renderer; shell holes are not painted");
+            BulletHoles.Enabled = false;
+            return false;
+        }
+
+        BufferEx buffer = allocator.CreateBuffer(new BufferEx.CreateInfo
+        {
+            Name = "KSArmory holes",
+            BufferUsage = VkBufferUsageFlags.StorageBufferBit,
+            BufferSize = ByteSize.Of<HoleData>(_holeFrames * HoleViewsPerFrame * MostHolesPainted),
+            AllocRequiredProperties = VkMemoryPropertyFlags.HostVisibleBit | VkMemoryPropertyFlags.HostCoherentBit,
+        });
+
+        _holeMemory = buffer.Map();
+        _holeBuffer = buffer;
+        return true;
+    }
+
+    /// <summary>One stretch of a leak's stream as <c>KSArmoryLeak.comp</c> reads it, std430.</summary>
+    [StructLayout(LayoutKind.Sequential, Pack = 4)]
+    public struct StreamSegment
+    {
+        public float4 Head;            // x, y in pixels, device depth, metres along the stream
+        public float4 Tail;            // x, y in pixels, device depth, metres along the stream
+        public float4 Look;            // half-width in pixels at each end, metres it runs whole, a seed
+        public float4 Flow;            // seconds the liquid has been out at each end, the jet's radius in metres
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 4)]
+    private struct StreamPush
+    {
+        public int First;              // the view's first segment in the buffer
+        public int Count;
+        public int OriginX;            // the dispatch's first pixel
+        public int OriginY;
+        public float Clock;            // Leaks.Clock, which the pattern moves on
+    }
+
+    private const int StreamSegmentsPerView = Leaks.MostStreams * (LeakStream.Points - 1);
+
+    private static BufferEx? _streamBuffer;
+    private static MappedMemory _streamMemory;
+    private static int _streamFrames;
+    private static int _streamFrame = -1;
+    private static int _streamView;
+    private static readonly LeakStream.Point[] _arc = new LeakStream.Point[LeakStream.Points];
+    private static readonly double4[] _clip = new double4[LeakStream.Points];
+    private static readonly double[] _across = new double[LeakStream.Points];
+    private static double _streamCpuSeconds;
+    private static int _streamCpuFrames;
+    private static long _streamLoggedAt = long.MinValue / 2;
+
+    // THE LEAKS' STREAMS: KSArmoryLeak.comp. One dispatch over the patch of screen they cover.
+    private static void Streams(CommandBuffer commandBuffer, IViewport viewport, Camera camera, View view,
+                                IRenderImage depth, int frameIndex, int width, int height, ref int marks)
+    {
+        IReadOnlyList<Leaks.Stream> streams = KSArmory.Leaks.Streams;
+        if (streams.Count == 0) return;
+        if (_streamBuffer is null && !BuildStreamBuffer()) return;
+        if (view.Leaks is null && !BuildStreams(view, depth)) return;
+
+        long started = System.Diagnostics.Stopwatch.GetTimestamp();
+        try
+        {
+            RecordStreams(commandBuffer, viewport, camera, view, frameIndex, width, height, streams, ref marks);
+        }
+        finally
+        {
+            _streamCpuSeconds += System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalSeconds;
+            _streamCpuFrames++;
+            if (_recorded - _streamLoggedAt >= 300)
+            {
+                double ms = _streamCpuSeconds / Math.Max(_streamCpuFrames, 1) * 1000.0;
+                _streamCpuSeconds = 0.0;
+                _streamCpuFrames = 0;
+                _streamLoggedAt = _recorded;
+                int drawn = streams.Count;
+                Log.Debug(() => $"leak streams: {drawn} drawn, {ms:F3} ms of CPU a view");
+            }
+        }
+    }
+
+    private static void RecordStreams(CommandBuffer commandBuffer, IViewport viewport, Camera camera, View view,
+                                      int frameIndex, int width, int height, IReadOnlyList<Leaks.Stream> streams,
+                                      ref int marks)
+    {
+        if (frameIndex != _streamFrame)
+        {
+            _streamFrame = frameIndex;
+            _streamView = 0;
+        }
+
+        int slot = ((((frameIndex % _streamFrames) + _streamFrames) % _streamFrames) * HoleViewsPerFrame)
+                   + (_streamView++ % HoleViewsPerFrame);
+        int first = slot * StreamSegmentsPerView;
+        Span<StreamSegment> mine = _streamMemory.AsSpan<StreamSegment>().Slice(first, StreamSegmentsPerView);
+
+        double3 cameraEcl = camera.PositionEcl;
+        int count = 0;
+        int minX = width, minY = height, maxX = 0, maxY = 0;
+
+        for (int s = 0; s < streams.Count && s < KSArmory.Leaks.MostStreams; s++)
+        {
+            Leaks.Stream stream = streams[s];
+            int points = Math.Min(stream.Count, _arc.Length);
+            for (int i = 0; i < points; i++)
+            {
+                _arc[i] = stream.Points[i] with { Position = stream.Points[i].Position - cameraEcl };
+            }
+
+            float whole = (float)LeakStream.WholeForMetres(stream.ExitRadius);
+
+            // Each point projected once, with its width: a segment shares both its ends with its neighbours.
+            for (int i = 0; i < points; i++)
+            {
+                _clip[i] = camera.EgoToClipDouble(_arc[i].Position);
+                _across[i] = PixelsAcross(camera, _arc[i].Position, _arc[i].Radius, width, height);
+            }
+
+            for (int i = 1; i < points; i++)
+            {
+                double4 h = _clip[i - 1];
+                double4 t = _clip[i];
+                if (!TracerLook.TryClipToFront(ref h, ref t, 0.05)) continue;
+
+                (double hx, double hy) = ToPixel(h, width, height);
+                (double tx, double ty) = ToPixel(t, width, height);
+                double headWidth = _across[i - 1];
+                double tailWidth = _across[i];
+                if (!double.IsFinite(hx + hy + tx + ty + headWidth + tailWidth)) continue;
+
+                mine[count++] = new StreamSegment
+                {
+                    Head = new float4((float)hx, (float)hy, (float)(h.Z / h.W), (float)_arc[i - 1].AlongMetres),
+                    Tail = new float4((float)tx, (float)ty, (float)(t.Z / t.W), (float)_arc[i].AlongMetres),
+                    Look = new float4((float)headWidth, (float)tailWidth, whole, stream.Seed),
+                    Flow = new float4((float)_arc[i - 1].OutSeconds, (float)_arc[i].OutSeconds,
+                                      (float)stream.ExitRadius, 0f),
+                };
+
+                int reach = (int)Math.Ceiling(Math.Max(headWidth, tailWidth)) + 2;
+                minX = Math.Min(minX, (int)Math.Floor(Math.Min(hx, tx)) - reach);
+                minY = Math.Min(minY, (int)Math.Floor(Math.Min(hy, ty)) - reach);
+                maxX = Math.Max(maxX, (int)Math.Ceiling(Math.Max(hx, tx)) + reach);
+                maxY = Math.Max(maxY, (int)Math.Ceiling(Math.Max(hy, ty)) + reach);
+            }
+        }
+
+        minX = Math.Clamp(minX, 0, width);
+        minY = Math.Clamp(minY, 0, height);
+        maxX = Math.Clamp(maxX, 0, width);
+        maxY = Math.Clamp(maxY, 0, height);
+        if (count == 0 || maxX <= minX || maxY <= minY) return;
+
+        StreamPush push = new()
+        {
+            First = first,
+            Count = count,
+            OriginX = minX,
+            OriginY = minY,
+            Clock = (float)KSArmory.Leaks.Clock,
+        };
+
+        using (commandBuffer.TagRegion(GpuTag))
+        using (commandBuffer.TagRegion(LeaksTag))
+        {
+            if (marks > 0) Hazard(commandBuffer);
+
+            view.Leaks!.BindPipeline(commandBuffer, viewport.ShaderSlot, default, default, push);
+            commandBuffer.Dispatch((maxX - minX + HoleGroup - 1) / HoleGroup, (maxY - minY + HoleGroup - 1) / HoleGroup, 1);
+            marks++;
+        }
+    }
+
+    private static (double X, double Y) ToPixel(double4 clip, int width, int height)
+        => (((clip.X / clip.W * 0.5) + 0.5) * width, ((clip.Y / clip.W * 0.5) + 0.5) * height);
+
+    // How many pixels a radius spans across the line of sight at a point, off the camera's own projection.
+    private static double PixelsAcross(Camera camera, double3 pointEgo, double radius, int width, int height)
+    {
+        double4 at = camera.EgoToClipDouble(pointEgo);
+        double4 aside = camera.EgoToClipDouble(pointEgo + (Vec.Unit(Vec.AnyPerpendicular(pointEgo)) * radius));
+        if (!(at.W > 1.0e-3) || !(aside.W > 1.0e-3)) return 0.0;
+
+        (double ax, double ay) = ToPixel(at, width, height);
+        (double bx, double by) = ToPixel(aside, width, height);
+        return Math.Sqrt(((bx - ax) * (bx - ax)) + ((by - ay) * (by - ay)));
+    }
+
+    private static bool BuildStreamBuffer()
+    {
+        Renderer renderer = Program.GetRenderer();
+        _streamFrames = Math.Max(renderer.MaxFramesInFlight, 1);
+
+        if (typeof(Renderer).GetProperty("Allocator")?.GetValue(renderer) is not IBufferAllocator allocator)
+        {
+            Warn("no buffer allocator on the renderer; leaks are not drawn");
+            return false;
+        }
+
+        BufferEx buffer = allocator.CreateBuffer(new BufferEx.CreateInfo
+        {
+            Name = "KSArmory leaks",
+            BufferUsage = VkBufferUsageFlags.StorageBufferBit,
+            BufferSize = ByteSize.Of<StreamSegment>(_streamFrames * HoleViewsPerFrame * StreamSegmentsPerView),
+            AllocRequiredProperties = VkMemoryPropertyFlags.HostVisibleBit | VkMemoryPropertyFlags.HostCoherentBit,
+        });
+
+        _streamMemory = buffer.Map();
+        _streamBuffer = buffer;
+        return true;
+    }
+
+    private static bool BuildStreams(View view, IRenderImage depth)
+    {
+        if (!ModLibrary.TryGet<ShaderReference>(LeakShaderId, out var shader) || shader is null)
+        {
+            Warn($"no shader '{LeakShaderId}'; leaks are not drawn");
+            return false;
+        }
+
+        Renderer renderer = Program.GetRenderer();
+
+        IRenderImage[] storageTargets = [view.Target];
+        IRenderImage[] depthTargets = [depth];
+        VkBuffer[] buffers = [_streamBuffer!.Value.VkBuffer];
+        VkPushConstantRange[] ranges =
+        [
+            new VkPushConstantRange
+            {
+                Offset = (ByteSize32)0,
+                Size = (ByteSize32)Marshal.SizeOf<StreamPush>(),
+                StageFlags = VkShaderStageFlags.ComputeBit,
+            },
+        ];
+
+        view.Leaks = new ComputePipelineWrapper(
+            storageTargets, depthTargets, default, default, shader,
+            default, ranges, renderer.MaxFramesInFlight, renderer,
+            "KSArmory.Leaks", Program.PointClampedSampler, Program.LinearClampedSampler,
+            storageBuffers: buffers);
+
+        return true;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 4)]
+    private struct TracerPush
+    {
+        public int First;              // the view's first segment in the buffer
+        public int Count;
+        public int OriginX;            // the dispatch's first pixel
+        public int OriginY;
+        public float4 Colour;          // the core's colour, and the halo's share of it
+        public float4 BallColour;      // a round with no tracer's
+    }
+
+    // KSArmoryTracer.comp's workgroup.
+    private const int TracerGroup = 16;
+
+    // A view's own run of the buffer, so two views in one frame do not write over each other's
+    // segments before the GPU has read them. Past this many views a frame they wrap.
+    private const int TracerViewsPerFrame = 4;
+
+    // A tracer's burning compound, warm orange: it is only as white as bloom makes it.
+    private static readonly float4 TracerColour = new(1.0f, 0.42f, 0.12f, 0.12f);
+
+    // A round with no tracer: warm grey, sunlit metal seen in passing rather than anything burning.
+    private static readonly float4 BallColour = new(0.9f, 0.85f, 0.75f, 0f);
+
+    private static BufferEx? _tracerBuffer;
+    private static MappedMemory _tracerMemory;
+    private static int _tracerFrames;
+    private static int _tracerFrame = -1;
+    private static int _tracerView;
+
+    // THE GUN TRACERS, added into the scene where they burn: KSArmoryTracer.comp. One dispatch over
+    // the patch of screen they cover, whatever their number.
+    private static bool Tracers(CommandBuffer commandBuffer, IViewport viewport, Camera camera, View view,
+                                IRenderImage depth, int frameIndex, int width, int height)
+    {
+        if (_tracerBuffer is null && !BuildTracerBuffer()) return false;
+        if (view.Tracers is null && !BuildTracers(view, depth)) return false;
+
+        ShellTracers.MarkPainted();
+
+        if (frameIndex != _tracerFrame)
+        {
+            _tracerFrame = frameIndex;
+            _tracerView = 0;
+        }
+
+        int slot = ((((frameIndex % _tracerFrames) + _tracerFrames) % _tracerFrames) * TracerViewsPerFrame)
+                   + (_tracerView++ % TracerViewsPerFrame);
+        int first = slot * ShellTracers.MostPerView;
+
+        Span<ShellTracers.Segment> all = _tracerMemory.AsSpan<ShellTracers.Segment>();
+        Span<ShellTracers.Segment> mine = all.Slice(first, ShellTracers.MostPerView);
+
+        int count = ShellTracers.Build(camera, width, height, mine,
+                                       out int minX, out int minY, out int maxX, out int maxY);
+        if (count == 0) return false;
+
+        minX = Math.Clamp(minX, 0, width);
+        minY = Math.Clamp(minY, 0, height);
+        maxX = Math.Clamp(maxX, 0, width);
+        maxY = Math.Clamp(maxY, 0, height);
+        if (maxX <= minX || maxY <= minY) return false;
+
+        TracerPush push = new()
+        {
+            First = first,
+            Count = count,
+            OriginX = minX,
+            OriginY = minY,
+            Colour = TracerColour,
+            BallColour = BallColour,
+        };
+
+        using (commandBuffer.TagRegion(GpuTag))
+        using (commandBuffer.TagRegion(TracersTag))
+        {
+            Hazard(commandBuffer);
+
+            view.Tracers!.BindPipeline(commandBuffer, viewport.ShaderSlot, default, default, push);
+            commandBuffer.Dispatch((maxX - minX + TracerGroup - 1) / TracerGroup,
+                                   (maxY - minY + TracerGroup - 1) / TracerGroup, 1);
+        }
+
+        return true;
+    }
+
+    // Written by the CPU each frame and read by the GPU, one run per frame in flight -- the shape of
+    // KSA's own gizmo buffers. Kept for the process: it names no image, so a rebuilt view reuses it.
+    private static bool BuildTracerBuffer()
+    {
+        Renderer renderer = Program.GetRenderer();
+        _tracerFrames = Math.Max(renderer.MaxFramesInFlight, 1);
+
+        // Read by reflection and used through the interface, because the allocator's own type
+        // implements one from Brutal.Vulkan.Vma, which this mod does not reference.
+        if (typeof(Renderer).GetProperty("Allocator")?.GetValue(renderer) is not IBufferAllocator allocator)
+        {
+            Warn("no buffer allocator on the renderer; shells are drawn as lines");
+            return false;
+        }
+
+        BufferEx buffer = allocator.CreateBuffer(new BufferEx.CreateInfo
+        {
+            Name = "KSArmory tracers",
+            BufferUsage = VkBufferUsageFlags.StorageBufferBit,
+            BufferSize = ByteSize.Of<ShellTracers.Segment>(_tracerFrames * TracerViewsPerFrame * ShellTracers.MostPerView),
+            AllocRequiredProperties = VkMemoryPropertyFlags.HostVisibleBit | VkMemoryPropertyFlags.HostCoherentBit,
+        });
+
+        _tracerMemory = buffer.Map();
+        _tracerBuffer = buffer;
+        return true;
+    }
+
+    private static bool BuildTracers(View view, IRenderImage depth)
+    {
+        if (!ModLibrary.TryGet<ShaderReference>(TracerShaderId, out var shader) || shader is null)
+        {
+            Warn($"no shader '{TracerShaderId}'; shells are drawn as lines");
+            return false;
+        }
+
+        Renderer renderer = Program.GetRenderer();
+
+        IRenderImage[] storageTargets = [view.Target];
+        IRenderImage[] depthTargets = [depth];
+        VkBuffer[] buffers = [_tracerBuffer!.Value.VkBuffer];
+        VkPushConstantRange[] ranges =
+        [
+            new VkPushConstantRange
+            {
+                Offset = (ByteSize32)0,
+                Size = (ByteSize32)Marshal.SizeOf<TracerPush>(),
+                StageFlags = VkShaderStageFlags.ComputeBit,
+            },
+        ];
+
+        view.Tracers = new ComputePipelineWrapper(
+            storageTargets, depthTargets, default, default, shader,
+            default, ranges, renderer.MaxFramesInFlight, renderer,
+            "KSArmory.Tracers", Program.PointClampedSampler, Program.LinearClampedSampler,
+            storageBuffers: buffers);
+
+        return true;
+    }
+
+    private static bool BuildHoles(View view, IRenderImage depth)
+    {
+        if (!ModLibrary.TryGet<ShaderReference>(HoleShaderId, out var shader) || shader is null)
+        {
+            Warn($"no shader '{HoleShaderId}'; shell holes are not painted");
+            BulletHoles.Enabled = false;
+            return false;
+        }
+
+        Renderer renderer = Program.GetRenderer();
+
+        IRenderImage[] storageTargets = [view.Target];
+        IRenderImage[] depthTargets = [depth];
+        VkPushConstantRange[] ranges =
+        [
+            new VkPushConstantRange
+            {
+                Offset = (ByteSize32)0,
+                Size = (ByteSize32)Marshal.SizeOf<HolePush>(),
+                StageFlags = VkShaderStageFlags.ComputeBit,
+            },
+        ];
+
+        VkBuffer[] buffers = [_holeBuffer!.Value.VkBuffer];
+        view.Holes = new ComputePipelineWrapper(
+            storageTargets, depthTargets, default, default, shader,
+            default, ranges, renderer.MaxFramesInFlight, renderer,
+            "KSArmory.Holes", Program.PointClampedSampler, Program.LinearClampedSampler,
+            storageBuffers: buffers);
+
+        return true;
+    }
+
+    private static bool BuildRings(View view, IRenderImage depth)
+    {
+        if (!ModLibrary.TryGet<ShaderReference>(RingShaderId, out var shader) || shader is null)
+        {
+            Warn($"no shader '{RingShaderId}'; targeting rings will not draw");
+            return false;
+        }
+
+        Renderer renderer = Program.GetRenderer();
+
+        IRenderImage[] storageTargets = [view.Target];
+        IRenderImage[] depthTargets = [depth];
+        VkPushConstantRange[] ranges =
+        [
+            new VkPushConstantRange
+            {
+                Offset = (ByteSize32)0,
+                Size = (ByteSize32)Marshal.SizeOf<RingPush>(),
+                StageFlags = VkShaderStageFlags.ComputeBit,
+            },
+        ];
+
+        view.Rings = new ComputePipelineWrapper(
+            storageTargets, depthTargets, default, default, shader,
+            default, ranges, renderer.MaxFramesInFlight, renderer,
+            "KSArmory.Rings", Program.PointClampedSampler, Program.LinearClampedSampler);
+
+        return true;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 4)]
+    private struct FireLightPush
+    {
+        public float4x4 InvViewProj;
+        public float4 LightRange;          // the light as KSA was handed it, camera-relative, and its range
+        public float4 Radiant;             // its colour times its intensity, and the planet's mean albedo
+        public float4 Cce2Ccf;             // the planet's rotation, world to its own frame, as a quaternion
+        public float4 GroundMap;           // its colour map and a sampler, bindless; negative for none
+    }
+
+    // THE FIREBALL'S LIGHT where KSA's light pre-pass dropped it: KSArmoryFireLight.comp. The main
+    // view alone, because that is the one view the pre-pass runs for; nothing when its images cannot
+    // be reached, which leaves the craft as dark as KSA left them.
+    private static void FireLight(CommandBuffer commandBuffer, IViewport viewport, Camera camera, View view,
+                                  IRenderImage depth)
+    {
+        if (!Fireball.TryPushed(out double3 lightEgo, out float range, out float3 radiant)) return;
+        if (!ReferenceEquals(viewport, Program.MainViewport)) return;
+        if (Program.Instance?.PrePassRenderer is not { OpaqueHasValidDepth: true } prePass) return;
+        if (prePass.OpaquePrePassData.Target is not { } target) return;
+        if (target.ColorImage is not { } normal || target.DepthImage is not { } prePassDepth) return;
+        if (target.Extent.Width != view.Width || target.Extent.Height != view.Height) return;
+        if (!TryPrePassIrradiance(out RenderImage? irradiance)) return;
+
+        if (view.FireLight is null
+            || !view.FireLightDepth.Equals(prePassDepth.ImageView)
+            || !view.FireLightNormal.Equals(normal.ImageView)
+            || !view.FireLightIrradiance.Equals(irradiance!.ImageView))
+        {
+            if (!BuildFireLight(view, depth, prePassDepth, normal, irradiance!)) return;
+        }
+
+        FireLightPush push = new()
+        {
+            InvViewProj = camera.VPInv.viewProjection,
+            LightRange = new float4((float)lightEgo.X, (float)lightEgo.Y, (float)lightEgo.Z, range),
+            Radiant = new float4(radiant.X, radiant.Y, radiant.Z, (float)MeanAlbedo(camera.NearbyCelestial)),
+            Cce2Ccf = Cce2CcfQuaternion(camera.NearbyCelestial),
+            GroundMap = GroundMapFor(camera.NearbyCelestial),
+        };
+
+        using (commandBuffer.TagRegion(GpuTag))
+        using (commandBuffer.TagRegion(FireLightTag))
+        {
+            // From the fragment read KSA left it in to a compute read, through KSA's own tracked
+            // state, so the engine barriers it back next frame from wherever this left it.
+            Span<VkImageMemoryBarrier2> one = stackalloc VkImageMemoryBarrier2[1];
+            BarrierBatch toSample = new(one);
+            toSample.Add(irradiance!, ImageBarrierInfo.Presets.SampledReadC);
+            toSample.SubmitAndFlush(commandBuffer);
+
+            Span<VkDescriptorSet> sets = stackalloc VkDescriptorSet[1];
+            sets[0] = Program.Instance.TextureSystem.DescriptorSet;
+            view.FireLight!.BindPipeline(commandBuffer, viewport.ShaderSlot, sets, default, push);
+            commandBuffer.Dispatch((view.Width + FireLightGroupX - 1) / FireLightGroupX,
+                                   (view.Height + FireLightGroupY - 1) / FireLightGroupY, 1);
+            Hazard(commandBuffer);
+        }
+    }
+
+    // The pre-pass keeps a surface's normal and not its colour, so the fill takes the albedo the
+    // terrain round it averages -- KSA's own meanDiffuseLuminosity, which is what Planet.frag scales the
+    // ground's colour to -- and the pixel's own hue. A fixed number instead was the terrain's several
+    // times over, and the pad glowed beside the grass.
+    private static double MeanAlbedo(Celestial? body)
+    {
+        try
+        {
+            float? mean = body?.BodyTemplate.ScatteringReference?.MeanDiffuseLuminosity is { } reference
+                              ? (float)reference
+                              : null;
+            return mean is { } m && float.IsFinite(m) && m > 0f ? Math.Pow(m, 2.2) : FireLightAlbedo;
+        }
+        catch
+        {
+            return FireLightAlbedo;
+        }
+    }
+
+    // The planet's rotation as the shader applies it, built from what Transform does to each axis
+    // rather than from the type's own layout, so a convention nobody has checked cannot turn it inside
+    // out. Identity where there is no body.
+    private static float4 Cce2CcfQuaternion(Celestial? body)
+    {
+        if (body is null) return new float4(0f, 0f, 0f, 1f);
+
+        double3 x = new double3(1, 0, 0).Transform(body.GetCce2Ccf());
+        double3 y = new double3(0, 1, 0).Transform(body.GetCce2Ccf());
+        double3 z = new double3(0, 0, 1).Transform(body.GetCce2Ccf());
+        double m00 = x.X, m10 = x.Y, m20 = x.Z, m01 = y.X, m11 = y.Y, m21 = y.Z, m02 = z.X, m12 = z.Y, m22 = z.Z;
+
+        double trace = m00 + m11 + m22;
+        double qw, qx, qy, qz;
+        if (trace > 0.0)
+        {
+            double s = Math.Sqrt(trace + 1.0) * 2.0;
+            (qw, qx, qy, qz) = (0.25 * s, (m21 - m12) / s, (m02 - m20) / s, (m10 - m01) / s);
+        }
+        else if (m00 > m11 && m00 > m22)
+        {
+            double s = Math.Sqrt(1.0 + m00 - m11 - m22) * 2.0;
+            (qw, qx, qy, qz) = ((m21 - m12) / s, 0.25 * s, (m01 + m10) / s, (m02 + m20) / s);
+        }
+        else if (m11 > m22)
+        {
+            double s = Math.Sqrt(1.0 + m11 - m00 - m22) * 2.0;
+            (qw, qx, qy, qz) = ((m02 - m20) / s, (m01 + m10) / s, 0.25 * s, (m12 + m21) / s);
+        }
+        else
+        {
+            double s = Math.Sqrt(1.0 + m22 - m00 - m11) * 2.0;
+            (qw, qx, qy, qz) = ((m10 - m01) / s, (m02 + m20) / s, (m12 + m21) / s, 0.25 * s);
+        }
+
+        return new float4((float)qx, (float)qy, (float)qz, (float)qw);
+    }
+
+    // The planet's colour cube map and a sampler, as the bindless handles the shader indexes; negative
+    // where the body has none, which leaves ground at the planet's mean albedo.
+    private static float4 GroundMapFor(Celestial? body)
+    {
+        try
+        {
+            if (body?.BodyTemplate.DiffuseReference?.Get() is { } map)
+            {
+                return new float4(map.BindlessHandle, Program.Instance.TextureSystem.SamplerClampHandle, 0f, 0f);
+            }
+        }
+        catch
+        {
+            // No map to read; the mean stands in.
+        }
+
+        return new float4(-1f, -1f, 0f, 0f);
+    }
+
+    private static FieldInfo? _irradianceField;
+    private static bool _irradianceMissing;
+
+    // What KSA's light pre-pass wrote, which is the only way to know which pixels it dropped the light
+    // from: its vote runs per subgroup among whichever lanes reach that light in their own lists, so it
+    // cannot be repeated. A private field, and without it the fill is off rather than guessed.
+    private static bool TryPrePassIrradiance(out RenderImage? image)
+    {
+        image = null;
+        if (_irradianceMissing) return false;
+
+        try
+        {
+            if (Program.LightSystem is not ClusteredLightSystem lights) return false;
+            _irradianceField ??= typeof(ClusteredLightSystem).GetField(
+                "_diffuseIrradianceImage", BindingFlags.NonPublic | BindingFlags.Instance);
+            image = _irradianceField?.GetValue(lights) as RenderImage;
+        }
+        catch
+        {
+            image = null;
+        }
+
+        if (image is null)
+        {
+            _irradianceMissing = true;
+            Warn("KSA's light pre-pass result could not be read; a fireball will not light craft beyond 3 km");
+        }
+
+        return image is not null;
+    }
+
+    private static bool BuildFireLight(View view, IRenderImage depth, RenderImage prePassDepth, RenderImage normal,
+                                       RenderImage irradiance)
+    {
+        view.FireLight = null;
+        if (!ModLibrary.TryGet<ShaderReference>(FireLightShaderId, out var shader) || shader is null)
+        {
+            Warn($"no shader '{FireLightShaderId}'; a fireball will not light craft beyond 3 km");
+            return false;
+        }
+
+        Renderer renderer = Program.GetRenderer();
+
+        IRenderImage[] storageTargets = [view.Target];
+        IRenderImage[] depthTargets = [depth, prePassDepth];
+        VkImageView[] readOnly = [normal.ImageView, irradiance.ImageView];
+        VkPushConstantRange[] ranges =
+        [
+            new VkPushConstantRange
+            {
+                Offset = (ByteSize32)0,
+                Size = (ByteSize32)Marshal.SizeOf<FireLightPush>(),
+                StageFlags = VkShaderStageFlags.ComputeBit,
+            },
+        ];
+
+        VkDescriptorSetLayout[] external = [Program.Instance.TextureSystem.Layout];
+        view.FireLight = new ComputePipelineWrapper(
+            storageTargets, depthTargets, default, default, shader,
+            external, ranges, renderer.MaxFramesInFlight, renderer,
+            "KSArmory.FireLight", Program.PointClampedSampler, Program.LinearClampedSampler,
+            colorSamplerLinearViewsReadOnlyLayout: readOnly);
+        view.FireLightDepth = prePassDepth.ImageView;
+        view.FireLightNormal = normal.ImageView;
+        view.FireLightIrradiance = irradiance.ImageView;
+
+        return true;
+    }
 
     private static bool BuildShock(View view, IRenderImage depth)
     {
@@ -801,10 +2031,15 @@ internal static class CloudPass
         // Zero when the source cannot be resolved, which the shader reads as a glare with no
         // centre: one colour everywhere, the warm one.
         double3 source = double3.Zero;
-        if (NuclearClouds.TryBall(BurstFlash.SourceIndex, out double3 burstEcl))
+        double ballRadius = 0.0;
+        if (NuclearClouds.TryBall(BurstFlash.SourceIndex, out double3 burstEcl, out double radius))
         {
             double3 centre = burstEcl - camera.PositionEcl;
-            if (Vec.IsFinite(centre)) source = centre;
+            if (Vec.IsFinite(centre))
+            {
+                source = centre;
+                ballRadius = radius;
+            }
         }
 
         using (commandBuffer.TagRegion(GpuTag))
@@ -815,7 +2050,10 @@ internal static class CloudPass
             Push flash = new()
             {
                 InvViewProj = camera.VPInv.viewProjection,
-                AgeStrengthWind = float4.Zero,
+                // The ball's radius, so the shader can ask how much of it the eye can see, and
+                // whether it is a thin-air burst's debris shell, which the halo must not paint over.
+                AgeStrengthWind = new float4((float)ballRadius,
+                                             NuclearClouds.BallIsThin(BurstFlash.SourceIndex) ? 1f : 0f, 0f, 0f),
                 CentreRadius = new float4((float)source.X, (float)source.Y, (float)source.Z, 0f),
                 // The halo's level, how violet the flash still is, and the halo's colour ride in
                 // floats a flash has no other use for.
@@ -849,8 +2087,8 @@ internal static class CloudPass
     // ALONG THE WIND rather than a cube about the centre. The plume runs one way, so a cube sized
     // to its reach is three times too big in the other five directions -- and the cost of that is
     // not a few unused workgroups: its corners end up behind a camera watching from two and a half
-    // kilometres, which takes the whole-screen fallback every time. Measured at 100.0% of the
-    // screen before this and 55.1% after.
+    // kilometres, which takes the whole-screen fallback every time. Measured at 55.1% of the
+    // screen against 100.0% for the cube.
     //
     // Anything behind the camera takes the whole screen. A corner with a clip w at or under zero
     // has no screen position at all, and projecting it anyway folds the box inside out -- which
@@ -861,7 +2099,7 @@ internal static class CloudPass
         Tile whole = new(0, 0, (width + Group - 1) / Group, (height + Group - 1) / Group);
 
         double reach = radius * reachInRadii;
-        double across = radius * ScorchScreenWidth;
+        double across = radius * ScorchFootprint.Across;
         if (!(reach > 0.0) || !Vec.IsFinite(downwind)) return whole;
 
         double3 along = Vec.Unit(downwind);
@@ -877,7 +2115,7 @@ internal static class CloudPass
         {
             // Upwind only by the patch's ragged rim; downwind by the plume's whole run.
             double3 at = centreEgo
-                         + (along * ((corner & 1) == 0 ? -radius * ScorchScreenBehind : reach))
+                         + (along * ((corner & 1) == 0 ? -radius * ScorchFootprint.Behind : reach))
                          + (side * ((corner & 2) == 0 ? -across : across))
                          + (other * ((corner & 4) == 0 ? -across : across));
 
@@ -902,29 +2140,6 @@ internal static class CloudPass
         return new Tile(x0 * Group, y0 * Group, x1 - x0, y1 - y0);
     }
 
-    // How far a mark reaches downwind, across and upwind, in patch radii. All three are the
-    // SHADER's constants restated -- the plume's run with its wandering tip, its widest half-width
-    // with its wandering edge and soft cut, and the patch's ragged rim -- and if any grows past what
-    // is here the mark is cropped at a straight edge partway along itself, which reads as terrain
-    // rather than as a fault. ScorchFootprintTests is the only thing that compares the two sides.
-    private const double ScorchScreenReach = 3.3;
-    private const double ScorchScreenWidth = 1.8;
-    private const double ScorchScreenBehind = 1.2;
-
-    // The fourth fireball float on a cloud's dispatch: 1 if the column is spray, 2 if there are no
-    // weather clouds to respect and 4 if it is the frame's first cloud, which clears the layer; and
-    // eight times the blast front's radius in whole metres, which the ring of dust it lifts is drawn
-    // from -- summed and NEGATED, because a positive value there is what makes the shader read a
-    // dispatch as a ground mark. Exact as a float to 2,000 km, which the front never reaches while
-    // the cloud stands. KSArmoryCloud.comp decodes exactly this.
-    private static float CloudFlags(bool water, bool weather, bool first, double shockMetres)
-    {
-        double shock = Math.Clamp(Math.Round(shockMetres), 0.0, MostShockMetres);
-        return -(float)((water ? 1.0 : 0.0) + (weather ? 0.0 : 2.0) + (first ? 4.0 : 0.0) + (8.0 * shock));
-    }
-
-    private const double MostShockMetres = 2.0e6;
-
     // One compute-write to compute-read barrier, so a dispatch sees what the one before it wrote.
     private static void Hazard(CommandBuffer commandBuffer)
     {
@@ -939,7 +2154,7 @@ internal static class CloudPass
             DstAccessMask = VkAccessFlags2.ShaderReadBit | VkAccessFlags2.ShaderWriteBit,
         };
 
-        batch.Add(ref barrier);
+        batch.Add(in barrier);
         batch.SubmitAndFlush(commandBuffer);
     }
 
@@ -959,23 +2174,13 @@ internal static class CloudPass
         IRenderImage[] storageTargets = [colour, view.LayerColour, view.LayerDistance];
         IRenderImage[] depthTargets = [depth];
 
-        // The engine's aerial-perspective LUTs, as this pass's own samplers -- which is how Core's
-        // consumers take them too. The transmittance LUT is not among them because it is already in
-        // the global set the wrapper binds at 0, and the scalars the call wants -- planet position,
-        // sun position, radii, the layer -- are in that set's lighting block. So there is no
-        // uniform buffer here and nothing of this mod's to keep in step with the engine.
-        AtmosphereRenderer air = Program.PlanetAtmosphereRenderer;
-        IRenderImage[] aerial =
+        // KSA's weather clouds, so the burst is drawn behind the ones in front of it. With clouds
+        // switched off there is nothing to bind and a descriptor cannot be left empty, so the
+        // pass's own distance layer stands in and CloudFlags tells the shader not to read it.
+        IRenderImage[] weather =
         [
-            air.AerialPerspectiveRange,
-            air.AerialPerspectiveColorRgbTransmittanceR,
-            air.AerialPerspectiveTransmittanceGb,
-
-            // KSA's weather clouds, so the burst is drawn behind the ones in front of it. With
-            // clouds switched off there is nothing to bind and a descriptor cannot be left empty,
-            // so the range LUT stands in and CloudFlags tells the shader not to read it.
-            (IRenderImage?)weatherColour ?? air.AerialPerspectiveRange,
-            (IRenderImage?)weatherDistance ?? air.AerialPerspectiveRange,
+            (IRenderImage?)weatherColour ?? view.LayerDistance,
+            (IRenderImage?)weatherDistance ?? view.LayerDistance,
         ];
         VkPushConstantRange[] ranges =
         [
@@ -988,18 +2193,25 @@ internal static class CloudPass
         ];
 
         // KSA's bindless textures at set 2, which the weather's coverage maps are read out of; the
-        // builder numbers external sets from 2, and KSA declares this one for compute as well.
-        VkDescriptorSetLayout[] external = [Program.Instance.TextureSystem.Layout];
+        // builder numbers external sets from 2, and KSA declares this one for compute as well. Then
+        // the atmosphere's LUTs at 3, the set Core's own cloud march reads them from; the scalars
+        // the aerial-perspective call wants are in the global set's lighting block, so there is no
+        // uniform buffer here and nothing of this mod's to keep in step with the engine.
+        VkDescriptorSetLayout[] external =
+        [
+            Program.Instance.TextureSystem.Layout,
+            Program.PlanetAtmosphereRenderer.GetAtmosphereLutsDescriptorSetLayout(),
+        ];
 
-        // And the weather's shadow data in this pass's own set, after everything above: bindings 9
-        // and 10 in the builder's order, the second advanced a slice per frame in flight.
+        // And the weather's shadow data in this pass's own set, after everything above: bindings 6
+        // and 7 in the builder's order, the second advanced a slice per frame in flight.
         VkBuffer[] shadowData = [shadowFixed];
         VkBuffer[] shadowPerFrame = [shadowFrame];
         ByteSize[] shadowSlice = [CloudShadowRenderData.DynamicUboStride];
 
         using Specialization tuned = new();
         _pipeline = new ComputePipelineWrapper(
-            storageTargets, depthTargets, aerial, default, shader,
+            storageTargets, depthTargets, weather, default, shader,
             external, ranges, renderer.MaxFramesInFlight, renderer,
             "KSArmory.CloudPass", Program.PointClampedSampler, Program.LinearClampedSampler,
             specializationInfo: tuned.Info,
@@ -1012,13 +2224,14 @@ internal static class CloudPass
         return true;
     }
 
-    // Binds the cloud pipeline with the bindless textures, and its own set at this frame's slice of
-    // the weather's per-frame shadow buffer -- the first dynamic offset after the global set's, since
-    // offsets are taken in set order -- which is how KSA's own passes read it.
+    // Binds the cloud pipeline with the bindless textures, this viewport's atmosphere LUTs, and its
+    // own set at this frame's slice of the weather's per-frame shadow buffer -- the pass's only
+    // dynamic offset -- which is how KSA's own passes read it.
     private static void BindCloud(CommandBuffer commandBuffer, IViewport viewport, Camera camera, Push push)
     {
-        Span<VkDescriptorSet> sets = stackalloc VkDescriptorSet[1];
+        Span<VkDescriptorSet> sets = stackalloc VkDescriptorSet[2];
         sets[0] = Program.Instance.TextureSystem.DescriptorSet;
+        sets[1] = Program.PlanetAtmosphereRenderer.GetAtmosphereLutsDescriptorSet(viewport.ShaderSlot);
 
         Span<ByteSize32> offsets = stackalloc ByteSize32[1];
         offsets[0] = Program.Instance.ResourceFrameIndex * CloudShadowRenderData.DynamicUboStride;

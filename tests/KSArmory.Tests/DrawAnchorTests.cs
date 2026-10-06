@@ -27,7 +27,7 @@ public class DrawAnchorTests
     [Fact]
     public void GeometryAtTheOldReference_MapsOntoTheCurrentRenderPosition()
     {
-        // Platform was here when the battery ran; it has since moved a frame's worth.
+        // Platform was here when the system ran; it has since moved a frame's worth.
         double3 platformThen = new(1.475e11, 0, 0);
         double3 platformNowEgo = new(12, -3, 45);   // wherever the camera puts it now
 

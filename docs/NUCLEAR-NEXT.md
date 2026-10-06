@@ -59,13 +59,14 @@ largest gap.
 | White condensation cap, dirty-brown underside, dark brown stem | **Built**: the crown whitens from 6 s as the soot clears, over the brown underside. Hard to see under an overcast, which lights the whole cloud flat |
 | Often a thin, tall stem, with dust visibly drawn up into the cap's underside | **Built**: the stem is 0.19 of the cap's radius, and its top flares into a trumpet of streaked dust drawn up into the underside (`InflowDensity`), plain by 25 s |
 | Past the tropopause the cap spreads into an anvil | Built (item 5) |
-| Fallout curtains take minutes to show | **Built**: nothing until 18 s on the rise's clock, full by 32 |
+| Fallout curtains take minutes to show | **Built**: nothing until 27 s on the rise's clock, full by 48 |
 
 **After that.** A real cloud lasts tens of minutes to hours, drifting, shearing and spreading into
-a long plume, with a haze of dust over ground zero. **The drawn one stands four minutes now**, where
+a long plume, with a haze of dust over ground zero. **The drawn one stands eight minutes now**, where
 it burst — still by decision (item 3), and asked for longer on 2026-09-23: over the stand the cap
-spreads by 60% and thins, the stem narrows away first, and the whole fades out over the last minute,
-gone at 278 s. Flown at 10x: a full mushroom at 49 s, a wider cap on a thinner stem at 109, a broad
+spreads by 60% and thins by 15% (`AgedThinning`, 35% until 2026-09-24, which read as see-through
+across the whole cloud), the stem narrows away first, and the whole fades out over the last 90 s,
+gone at 537 s. Not yet flown at these times; at the old ones, 10x: a full mushroom at 49 s, a wider cap on a thinner stem at 109, a broad
 flat cap on a thread at 189. It does not drift, but it **shears**: over the stand its upper part is drawn out downwind to 2.2 times its reach on that side (`AgedShear`), the upwind edge and the foot unmoved — at 200 s the cap is half as long again downwind, the same paused frame with the shear at zero as the control. The march's bound grows with it, and the lean is measured against the bound the risen cloud had rather than that one: reckoned against the growing bound it was a quarter weaker by the end of the stand (`MushroomCloud.RisenBound`, `GrownBound`). **It costs the pass the
 whole time it is on screen**, and a six-warhead bus stands six of them.
 
@@ -101,8 +102,8 @@ whole time it is on screen**, and a six-warhead bus stands six of them.
   shimmer would add only its own bend pass, and only while the ball is hot.
 - **Guy-wire spikes** are a tower shot's, and nothing in the arsenal is on a tower.
 
-**By design.** The cloud is drawn at 65% of its law (`MushroomCloud.DrawnScale`); a true 0.3 kt
-ball is 1:7 against its cap and reads as wrong.
+**By design.** The cloud is drawn at its law (`MushroomCloud.DrawnScale` is 1), so a 0.3 kt ball
+is 1:7 against its cap, as the test photographs have it.
 
 **Ranked for what they would change on screen:** ~~the dirty rising fireball, with glow through the
 dust and the brown of the oxides; the ball turning into a ring of fire; the dust ring racing out
@@ -319,9 +320,8 @@ instead of only from the scale, which is the one thing a player cannot currently
 
 **Reachable, and it was wrongly demoted.** The shipped *defaults* are the B61's 0.3 kt and the Mk 21's
 20 kt, which is what a first reading took for the arsenal — but the Tuning tab's charge slider runs to
-**340,000,000 kg**, the real B61's top setting of 340 kt. The cloud is drawn at `DrawnScale` 0.65 of
-its law, so a tropopause drawn to the same scale is reached at the law's own **~49 kt**, and at 340 kt
-the drawn top is 13.6 km. That is the whole range where the yield should read from the silhouette.
+**50,000,000,000 kg**, past the real B61's top setting of 340 kt to Tsar Bomba's 50 Mt. The cloud is drawn at its law, so the
+tropopause is reached at **~49 kt**, and at 340 kt the drawn top is 16.0 km. That is the whole range where the yield should read from the silhouette.
 
 `TWOCLOUDS=1000` puts a 300 kt burst beside the 0.3 kt one, which is the run to look at it with — and
 the first run to look at *anything* in this file above 30 kt.
@@ -474,6 +474,50 @@ would reuse the claim ladder and the zoom that already exist.
 Probably blocked. The height field is GPU-side; `docs/DAMAGE-DECALS.md` records that ground clutter
 placement is entirely on the GPU and that the readback path is never constructed in a shipping
 build. Worth re-checking after a KSA update rather than planning around.
+
+---
+
+## Air bursts and high altitude — what is built, and what is not
+
+Built on 2026-09-24/25 (`docs/NUCLEAR-EFFECT.md`, *The air burst, and Tsar Bomba*): a burst's
+height over the ground or sea, the cloud standing on the ground under it, ground coupling and a
+column that forms late and stops short of a high burst's cap, Tsar Bomba calibrated on its reported
+cloud, the ground's reflection in the damage law (the hemisphere, the Mach stem, its level push), the
+double bang from above the stem, no mushroom in thin air, and the X-ray glow over the atmosphere. Then
+a research pass asked what else separates air, surface and high-altitude bursts. Its sources were
+Glasstone and Dolan from memory, not fetched, so the section numbers want checking before a comment
+quotes them. What it found, most noticeable first, and not built:
+
+- **The dust wall grows with the triple point.** The ring of dust is the same low wall whatever the
+  burst height; under an air burst it should rise as the Mach stem's top climbs. Needs the burst
+  height in the shader, where the push constant has no room left; the column top already shares one.
+- **The negative phase.** After the positive phase the air pulls back toward the burst -- a suction
+  of at most about 4 psi -- and the afterwinds draw air in and up the stem, so loose craft and dust
+  drift back toward ground zero. Cheap: `BlastWave`/`BlastShove` past Friedlander's zero crossing.
+  G&D 3.04-3.07.
+- **What kills in vacuum is radiation, not blast.** Above the air, X-rays travel line of sight with an
+  inverse-square fall-off, and the kill radius against a spacecraft runs to kilometres or tens at a
+  megatonne. The mod's blast damage applies there unchanged. A fluence threshold per part, line of
+  sight only. G&D ch. II and VIII.
+- ~~**The aurora**~~ **built on 2026-09-25**, on a dipole along the spin axis (`Sim/Aurora.cs`).
+  **The radiation belts** are not: trapped electrons that degraded about a third of low-orbit
+  satellites after Starfish, as a dose per orbit through the shell the burst's field line fills.
+- **High-altitude EMP**: an E1 pulse to about 50 kV/m over everything in line of sight, `sqrt(2Rh)`
+  -- 2,200 km of ground from 400 km. As gameplay, avionics or radar off for seconds inside the disc.
+  G&D ch. XI.
+- **Radar and radio blackout that scales with altitude**: hours of absorption over thousands of
+  kilometres from a high burst, where `FireballBlackout` is local and short. G&D ch. X.
+- **The precursor** over heated ground (desert, asphalt): a dusty wave running ahead of the front's
+  foot, with dynamic pressure several times the ideal. A lobe on the dust ring, gated on the surface.
+  G&D 3.79-3.83.
+- **The reflected shock through the fireball** of a low air burst, flattening its underside, and a
+  low dust skirt rising before the stem forms.
+- **The thermal footprint and fires.** Ignition at 5-10 cal/cm², beyond the 5 psi radius at a
+  megatonne; an air burst's reaches further than a surface burst's, which loses about half its thermal
+  yield to the ground. Clouds under a burst reflect it back up. Fires are expensive, and the plumes
+  that were built read as smokestacks. G&D ch. VII.
+- **Neutron-induced activity** under a low air burst -- the only residual hazard a true air burst
+  leaves, within about a kilometre, for hours. Invisible, so only worth it if dose is a mechanic.
 
 ---
 

@@ -1,7 +1,7 @@
 namespace KSArmory;
 
 /// <summary>
-/// Settings that belong to the session rather than to any one battery: the roster of team names,
+/// Settings that belong to the session rather than to any one system: the roster of team names,
 /// what gets drawn, how much is logged.
 ///
 /// <para>What an individual installation is allowed to do lives on <see cref="SystemConfig"/>.
@@ -26,7 +26,7 @@ public sealed class Config
     /// <summary>
     /// Play a rocket motor while a round is boosting.
     ///
-    /// <para>Session-wide rather than per battery: it is a preference about the game's sound, and
+    /// <para>Session-wide rather than per system: it is a preference about the game's sound, and
     /// two sites in one world wanting different answers is not a case anyone has.</para>
     /// </summary>
     public bool MotorSound = true;
@@ -41,7 +41,7 @@ public sealed class Config
     public float CannonVolume = 0.8f;
 
     /// <summary>
-    /// The rate the cannon loop was synthesised at, in rounds per minute.
+    /// The rate of the gun the shared cannon loop was recorded from, in rounds per minute.
     ///
     /// <para>Playback pitch is the gun's own rate over this, clamped. The CIWS is at this rate, so
     /// it plays the recording untouched; anything else is retuned toward its own cycle without
@@ -90,8 +90,8 @@ public sealed class Config
     /// ever stops working, a mod with no way to reopen its panel is unusable.</para>
     ///
     /// <para>Drawn whenever it is on, including with <b>ModMenu</b> installed. Suppressing it there
-    /// traded the one route this mod controls for another mod's menu, and left no recovery when
-    /// that did not work: the control that would switch it back on is inside the shut panel.</para>
+    /// would trade the one route this mod controls for another mod's menu, with no recovery if that
+    /// failed: the control that would switch it back on is inside the shut panel.</para>
     /// </summary>
     public bool FloatingPanelButton = true;
 
@@ -160,11 +160,35 @@ public sealed class Config
     /// that engulfs a drone still kills it outright.</para>
     ///
     /// <para>Off returns the mod to binary kills: inside the lethal radius the craft is destroyed,
-    /// outside it nothing happens. That is what shipped before KSA had a part-failure model, and
-    /// it is the way back if fragments turn out to cost more frame time than they are worth — one
+    /// outside it nothing happens. It is the way back if fragments turn out to cost more frame time than they are worth — one
     /// craft can become several, and every one of them is simulated.</para>
     /// </summary>
     public bool DamageIndividualParts = true;
+
+    /// <summary>
+    /// How much of a part's health a burst takes, as a multiple of its <see cref="BlastDamage.Share"/>
+    /// — see <see cref="PartHealth"/>. At one a fresh part breaks exactly where it always has; at a
+    /// tenth the same burst has to land ten times. A shell that strikes costs the part it struck a
+    /// whole share times this, blast included, and that part breaks off when it runs out. No one hit
+    /// costs more than a whole share, so at a tenth every hit takes a tenth, however close it burst.
+    /// </summary>
+    public float DamageScale = 1f;
+
+    /// <summary>
+    /// Whether a shell that strikes a hull leaves a hole there, soot and all — see
+    /// <see cref="HoleLook"/>. Painted by the cloud pass, so nothing without it.
+    /// </summary>
+    public bool BulletHoles = true;
+
+    /// <summary>
+    /// Whether a holed tank leaks — see <see cref="TankLeak"/>: the liquid settles against the
+    /// acceleration the craft feels, so a craft on its side drains from its lower holes and a hole above
+    /// the liquid leaks nothing; coasting, the liquid floats and any hole leaks as often as it is under it.
+    /// </summary>
+    public bool TankLeaks = true;
+
+    /// <summary>A health bar over every part of every craft near the camera.</summary>
+    public bool DrawPartHealth;
 
     /// <summary>
     /// Whether a nuclear fireball blacks out the radar beams that cross it, for as long as the air
@@ -172,6 +196,12 @@ public sealed class Config
     /// blinded. Off, a burst is something radar looks straight through.
     /// </summary>
     public bool NuclearBlackout = true;
+
+    /// <summary>
+    /// Whether a burst high in the air sends out its red wave (<see cref="RedWave"/>) -- a faint red
+    /// sphere through the thermosphere for minutes. One full-screen dispatch while it lasts.
+    /// </summary>
+    public bool RedWave = true;
 
     /// <summary>
     /// Count rounds per <em>craft</em> rather than per weapon when deciding whether a target has
@@ -182,23 +212,59 @@ public sealed class Config
     /// obeyed twice over and twice the missiles are spent. <see cref="TargetAllocation"/> is the
     /// shared tally.</para>
     ///
-    /// <para>Off restores the per-weapon count, which is what shipped before. Worth keeping,
+    /// <para>Off counts per weapon. Worth keeping,
     /// because it is a real choice rather than a bug: a player who fitted two launchers to put
     /// four rounds on a target is asking for exactly the behaviour this stops.</para>
     /// </summary>
     public bool ShareTargetsAcrossWeapons = true;
 
     /// <summary>
-    /// Substring that marks a craft as belonging to a team, matched against its name.
+    /// The teams declared this session, in the order a switcher row's flag steps through them.
     ///
-    /// <para>KSA has no team field, so a name convention is the only assignment that needs no
-    /// extra UI: a craft called "Red Hunter" is on team "Red" if that is listed here. Empty means
-    /// no craft is ever classified and everything stays Unknown.</para>
+    /// <para>KSA has no team field. Which team a craft is on is <see cref="TeamRoster"/>'s, set by
+    /// the flag; this is only the list of names there are to pick from.</para>
     ///
     /// <para>Session-wide, unlike <see cref="SystemConfig.Iff"/>: a team name labels a craft the
-    /// same way whoever is looking at it, and it is which side each battery takes that differs.</para>
+    /// same way whoever is looking at it, and it is which side each system takes that differs.</para>
     /// </summary>
     public readonly List<string> TeamNames = [];
+
+    /// <summary>
+    /// Each team's rules of engagement, by name; see <see cref="KSArmory.TeamRules"/>. Not saved on
+    /// their own: every system carries its team's copy, so a team takes them back from the first of
+    /// its systems a save restores (<see cref="AdoptRules"/>).
+    /// </summary>
+    public readonly Dictionary<string, TeamRules> TeamRules = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The rules for a craft on no team.</summary>
+    public readonly TeamRules NoTeamRules = new();
+
+    /// <summary>A team's rules, made on first asking; <see cref="NoTeamRules"/> for no team.</summary>
+    public TeamRules RulesFor(string? team)
+    {
+        if (string.IsNullOrWhiteSpace(team)) return NoTeamRules;
+        if (TeamRules.TryGetValue(team, out TeamRules? rules)) return rules;
+
+        rules = new TeamRules();
+        TeamRules[team] = rules;
+        return rules;
+    }
+
+    /// <summary>A restored system's settings become its team's, if the team has none yet this session.</summary>
+    public void AdoptRules(IffPolicy restored)
+    {
+        if (string.IsNullOrWhiteSpace(restored.OwnTeam) || TeamRules.ContainsKey(restored.OwnTeam)) return;
+
+        RulesFor(restored.OwnTeam).TakeFrom(restored);
+    }
+
+    /// <summary>Takes a team out of every team's rules, and drops its own.</summary>
+    public void ForgetRules(string team)
+    {
+        TeamRules.Remove(team);
+        NoTeamRules.Forget(team);
+        foreach (TeamRules rules in TeamRules.Values) rules.Forget(team);
+    }
 
     /// <summary>
     /// Click the world to set off a warhead there.
@@ -222,11 +288,18 @@ public sealed class Config
     /// <summary>
     /// How strongly the nuclear cloud draws, as a fraction of full.
     ///
-    /// <para>It is a compute pass of this mod's own, run inside KSA's frame before bloom. Zero does
-    /// not dispatch at all, which is the way to turn the cloud off without turning off
-    /// <see cref="NuclearClouds"/> — the fireball and the ember ride that one.</para>
+    /// <para>It is a compute pass of this mod's own, run inside KSA's frame before bloom. Zero skips
+    /// the cloud and everything a burst draws in the sky, and still paints the targeting rings, the
+    /// holes and the tracers, which have no other way onto the screen.</para>
     /// </summary>
     public float ShaderPass = 1f;
+
+    /// <summary>
+    /// How bright a gun round with no tracer is drawn in daylight, against a tracer's 24: a faint grey
+    /// streak so the stream between tracers reads. It fades with the sun (<see cref="TracerLook.Daylight"/>).
+    /// Zero draws only the tracers.
+    /// </summary>
+    public float BallRoundBrightness = 1.5f;
 
     /// <summary>
     /// Explosive charge for a hand-fired burst (kg). The same figure a round carries, so the tool
@@ -245,12 +318,18 @@ public sealed class Config
     public bool BurstNuclear;
 
     /// <summary>
-    /// Yield for that (kt), spanning the B61's own dial.
+    /// Yield for that (kt), from the B61's lowest setting to Tsar Bomba's 50 Mt.
     ///
     /// <para>Kilotons rather than kilograms because that is the unit the thing is specified in, and
     /// the conversion is exact: a kilotonne of TNT equivalent is a million kilograms of it.</para>
     /// </summary>
     public float BurstYieldKt = 0.3f;
+
+    /// <summary>
+    /// How far above the clicked ground that burst goes off (m). Zero is a surface burst; Tsar
+    /// Bomba went off about 4,000 m up.
+    /// </summary>
+    public float BurstHeightMetres;
 
     /// <summary>
     /// Pick a craft up with one click and set it down with the next.
@@ -264,7 +343,7 @@ public sealed class Config
     // ---- Diagnostics ----------------------------------------------------
 
     /// <summary>
-    /// Periodically dump the battery's world view to the log — every loaded vehicle with the
+    /// Periodically dump the system's world view to the log — every loaded vehicle with the
     /// numbers the radar filters on, plus the render-frame state. Off by default; turn it on
     /// in the panel when something is not behaving and the screen is not saying why.
     /// </summary>
@@ -277,7 +356,7 @@ public sealed class Config
     /// Log developer detail — spawn maths, per-vehicle dumps, geometry read-backs.
     ///
     /// A release build starts quiet, because that detail runs to hundreds of lines per
-    /// engagement and buries the handful of lines that say what the battery actually did.
+    /// engagement and buries the handful of lines that say what the system actually did.
     /// This turns it back on without needing a different build, which is what a bug report needs.
     /// </summary>
     public bool VerboseLog;
@@ -372,8 +451,8 @@ public sealed class Config
     /// <summary>
     /// Bracket every weapons system on screen, with an arrow at the edge for one out of view.
     ///
-    /// <para>Session-wide rather than per battery: it draws every system in the world, including
-    /// the ones no battery is running on.</para>
+    /// <para>Session-wide rather than per system: it brackets every weapons system in the world,
+    /// including the ones no <c>WeaponSystem</c> is crewed on.</para>
     /// </summary>
     public bool DrawSystemMarkers = true;
 
@@ -435,7 +514,7 @@ public sealed class Config
 
     /// <summary>
     /// Draw a marker at each threat's predicted closest point of approach — where it will pass
-    /// the battery if it holds course. Off by default: with a 40 s horizon the marker can sit
+    /// the system if it holds course. Off by default: with a 40 s horizon the marker can sit
     /// kilometres from anything visible, which reads as a stray dot rather than a prediction.
     /// </summary>
     public bool DrawClosestApproach;
@@ -446,4 +525,21 @@ public sealed class Config
     /// the cone is shown as a shape near the craft that conveys direction and angle.
     /// </summary>
     public float ConeDisplayMetres = 2500f;
+
+    /// <summary>A copy of every setting as it stands now, to be put back with <see cref="Restore"/>.</summary>
+    public Config Snapshot() => (Config)MemberwiseClone();
+
+    /// <summary>
+    /// Puts back every setting <paramref name="snapshot"/> held. Readonly fields are left alone: a
+    /// snapshot shares them by reference, so there is nothing to put back.
+    /// </summary>
+    public void Restore(Config snapshot)
+    {
+        foreach (System.Reflection.FieldInfo field in typeof(Config).GetFields(
+                     System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public
+                     | System.Reflection.BindingFlags.NonPublic))
+        {
+            if (!field.IsInitOnly) field.SetValue(this, field.GetValue(snapshot));
+        }
+    }
 }

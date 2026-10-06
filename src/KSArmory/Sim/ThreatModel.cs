@@ -9,7 +9,7 @@ namespace KSArmory;
 /// Both are pure arithmetic over relative motion, so they live here rather than beside the
 /// sensor and fire control that call them, where nothing under <c>Ksa/</c> can be tested.</para>
 ///
-/// <para>Everything works in <em>relative</em> position and velocity — target minus battery —
+/// <para>Everything works in <em>relative</em> position and velocity — target minus system —
 /// so the ecliptic frame's ~1.5e11 m offset and ~29.8 km/s of common motion cancel before any
 /// of it runs. See <see cref="DrawAnchor"/> for why that distinction is load-bearing here.</para>
 /// </summary>
@@ -42,8 +42,8 @@ internal static class ThreatModel
     {
         /// <summary>
         /// A contact nothing extra is known about. Deliberately makes every rule that reads it
-        /// inert, so a call site that cannot supply the data gets the behaviour that shipped
-        /// before the data existed rather than a silently different one.
+        /// inert, so a call site that cannot supply the data gets none of those rules rather than
+        /// a silently different one.
         /// </summary>
         public static ContactSignature Unknown => new(0.0, double.PositiveInfinity);
     }
@@ -52,8 +52,8 @@ internal static class ThreatModel
     /// Tests one contact against the search volume and, if it clears, works out its threat
     /// geometry.
     /// </summary>
-    /// <param name="r">Target position relative to the battery (m), in Ecl.</param>
-    /// <param name="v">Target velocity relative to the battery (m/s), in Ecl.</param>
+    /// <param name="r">Target position relative to the system (m), in Ecl.</param>
+    /// <param name="v">Target velocity relative to the system (m/s), in Ecl.</param>
     /// <param name="boresight">Unit vector the radar points along, in Ecl.</param>
     /// <returns>
     /// False when the contact is out of range for its size, outside the cone, too slow, sitting in
@@ -128,8 +128,8 @@ internal static class ThreatModel
     /// How far this set reaches against a contact of this size.
     ///
     /// <para>Its own <see cref="SensorProfile.Range"/> unless the set has been given a reference
-    /// cross-section, so a profile that says nothing about size behaves exactly as it did before
-    /// there was anything to say.</para>
+    /// cross-section, so a profile that says nothing about size reaches the same distance whatever
+    /// it is looking at.</para>
     /// </summary>
     public static double DetectionRange(SensorProfile sensor, ContactSignature signature)
         => RadarSignature.DetectionRange(sensor.Range,
@@ -180,7 +180,7 @@ internal static class ThreatModel
     /// The threat reaching its closest approach soonest, or -1 if nothing qualifies.
     ///
     /// <para>Returns an index rather than the track itself so the caller keeps its own richer
-    /// type — the alternative is handing back a <see cref="TrackState"/> the battery would have
+    /// type — the alternative is handing back a <see cref="TrackState"/> the system would have
     /// to cast to get the vehicle out of.</para>
     ///
     /// <para>Deliberately independent of list order: this is used to aim the turret while the
@@ -230,7 +230,7 @@ internal static class ThreatModel
     /// <summary>
     /// Whether another round may be committed to this track.
     ///
-    /// <para>This is what stops the battery emptying all twelve tubes into the first contact it
+    /// <para>This is what stops the system emptying all twelve tubes into the first contact it
     /// sees and having nothing left for the second. It counts rounds already in the air, not
     /// rounds fired, so a miss frees the allocation again when the round expires.</para>
     /// </summary>

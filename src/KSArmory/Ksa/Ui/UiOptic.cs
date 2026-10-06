@@ -9,7 +9,7 @@ namespace KSArmory;
 ///
 /// <para>Split from <see cref="Ui"/>'s weapons-system panes because a director is not one. It is a
 /// part in its own right, crewed per head rather than per weapons system, and nothing here reads
-/// <c>_battery</c> or <c>_policy</c> — a craft carrying one director and no armament has every row
+/// <c>_system</c> or <c>_policy</c> — a craft carrying one director and no armament has every row
 /// below and none of those.</para>
 /// </summary>
 internal sealed partial class Ui
@@ -34,103 +34,65 @@ internal sealed partial class Ui
             ImGui.TextColored(Amber, "Optical director: roll gimbal subpart not found");
         }
 
-        DrawGimbalState(entry.Head);
-
-        // Only windows the player can actually see. KSA keeps offscreen viewports of its own, and
-        // offering those means picking a view that shows nothing, which is indistinguishable from
-        // the feature being broken.
-        KsaWorld.CollectUsableViewports(_viewports);
 
         int main = KsaWorld.MainViewportIndex;
+        bool onWindow = policy.Viewport >= 0 && policy.Viewport != main;
 
-        ImGui.Text("Director view:");
+        // Buttons, all three: each opens or takes something, and a radio or a tick box reads as a
+        // setting while a window arrives somewhere else.
+        bool spare = KsaWorld.SpareCameraWindows > 0;
+        if (!onWindow && !spare) ImGui.BeginDisabled();
+        if (Toggle("Camera", onWindow))
+        {
+            if (onWindow) policy.Viewport = -1;
+            else if (KsaWorld.TryOpenCameraWindow(out int opened)) TakeWindow(policy, opened);
+        }
+        if (!onWindow && !spare) ImGui.EndDisabled();
+        Tip(spare || onWindow
+                ? "This director's own camera window, with zoom, sensor mode and tracking on the picture. "
+                  + "Drag it out of the game onto another monitor. It shows terrain and sky but not KSA's "
+                  + "clouds, ocean or lights, and its ground shadows move with the main view."
+                : "All four of KSA's camera windows are in use; close one to open another.");
+
         ImGui.SameLine();
+        if (Toggle("Main view", policy.Viewport == main))
+        {
+            if (policy.Viewport == main) policy.Viewport = -1;
+            else TakeMainView(policy, main);
+        }
+        Tip("Look through this director with the view you fly from.");
 
-        if (ImGui.RadioButton("off", policy.Viewport < 0)) policy.Viewport = -1;
-
-        // The main view first, because it is the one that works. It is offered whatever else is
-        // open and needs nothing opening, so the head is usable on a bare game.
         ImGui.SameLine();
-        if (ImGui.RadioButton("main view", policy.Viewport == main)) TakeMainView(policy, main);
-
-        // On their own line rather than trailing the two above: a window is named after whatever
-        // is driving it, so these are as long as a pod and a craft name and wrap the row.
-        foreach (int index in _viewports)
-        {
-            if (ImGui.RadioButton(KsaWorld.DescribeViewport(index), policy.Viewport == index))
-            {
-                policy.Viewport = index;
-            }
-            Tip("Drag the window's title bar out of the game to put it on another monitor; the "
-                + "sight goes with it.");
-
-            ImGui.SameLine();
-        }
-
-        // The same call behind KSA's View > Add Camera, offered here because that is a menu
-        // nobody finds while looking at this row. Selected as well as opened: opening a window
-        // and leaving it showing whatever the last owner pointed it at is a button that appears
-        // to do nothing.
-        if (KsaWorld.SpareCameraWindows > 0)
-        {
-            if (ImGui.Button("New window") && KsaWorld.TryOpenCameraWindow(out int opened))
-            {
-                policy.Viewport = opened;
-            }
-        }
-        else if (_viewports.Count == 0)
-        {
-            ImGui.TextDisabled("no camera windows spare");
-        }
-        else
-        {
-            ImGui.NewLine();
-        }
+        if (Toggle("Map", policy.MapOpen)) TakeMap(policy);
+        Tip("A map of the ground under this head, with what it can see on it.");
 
         if (policy.Viewport == main)
         {
-            // Named explicitly because neither reflex works. Driving the view puts it in Fixed
-            // mode, and FixedController reads no input at all, so the mouse is inert; Shift+C
-            // routes through Viewport.NextCameraMode, whose switch has no Fixed case and returns
-            // false. The View menu sets a mode outright, which is why it is the one that works.
-            ImGui.TextDisabled("  borrowed while selected. KSA's View > Orbit Camera takes it");
-            ImGui.TextDisabled("  back and switches this off - the mouse and Shift+C will not");
-        }
-        else if (policy.Viewport >= 0)
-        {
-            ImGui.TextColored(Amber, "  no terrain, sky or cloud here: KSA runs those passes for");
-            ImGui.TextColored(Amber, "  the main view alone. Craft and rounds draw normally.");
-            Tip("docs/BLOCKED-ON-KSA.md has the engine reason.");
+            // Neither reflex works: driving the view puts it in Fixed mode, which reads no input,
+            // and Shift+C's switch has no Fixed case. The View menu sets a mode outright.
+            ImGui.TextDisabled("  KSA's View > Orbit Camera takes the view back");
         }
 
-        // A button rather than a tick box: it opens a window, and a checkmark reads as "this
-        // setting is on" while the window arrives somewhere else unannounced. Tinted while open,
-        // which is what a tick box was being asked to say.
-        // The local matters: TakeMap flips MapOpen, so reading it again after the button pops a
-        // style that was never pushed. Same defect as the Weapons button above.
-        bool mapTinted = policy.MapOpen;
-        if (mapTinted) ImGui.PushStyleColor(ImGuiCol.Button, new float4(0.20f, 0.42f, 0.30f, 1f));
-        if (ImGui.Button("Map")) TakeMap(policy);
-        if (mapTinted) ImGui.PopStyleColor();
-        Tip("Opens or closes a map of the ground under this head, with what it can see on it.");
+        DrawWhatItWatches(entry.Head);
+        if (entry.Head.HasLaser) DrawLaser(entry.Head, policy, onWindow);
 
-        ImGui.Checkbox("Track with the director", ref policy.Tracking);
+        ImGui.Text("Aim:");
         ImGui.SameLine();
-        ImGui.Checkbox("Aim by hand", ref policy.Manual);
+        ImGui.Checkbox("Track", ref policy.Tracking);
+        Tip("Slew onto what the director is holding.");
         ImGui.SameLine();
-        ImGui.Checkbox("Mouse aim", ref policy.MouseAim);
-        Tip("On: the head follows the cursor, ahead of tracking and of the hand-aim sliders.");
+        ImGui.Checkbox("Mouse", ref policy.MouseAim);
+        Tip("Follow the cursor, ahead of tracking and of hand aim.");
+        ImGui.SameLine();
+        ImGui.Checkbox("Hand", ref policy.Manual);
+        Tip("Point it with sliders.");
 
-        if (policy.MouseAim)
+        // The rest area exists because a head driving its own picture chases a cursor its own
+        // turning keeps off centre; from another view there is no such loop.
+        if (policy.MouseAim && policy.Viewport == main)
         {
-            // Only meaningful on the main view: the rest area exists because a head driving its
-            // own picture chases a cursor its own turning keeps off centre, and pointing at a site
-            // from another view has no such loop.
-            if (policy.Viewport == KsaWorld.MainViewportIndex)
-            {
-                ImGui.SliderFloat("Rest area (px)", ref policy.MouseDeadZonePx, 0f, 200f);
-                Tip("Inside the ring the head holds; outside it, the head follows the cursor.");
-            }
+            ImGui.SliderFloat("Rest area (px)", ref policy.MouseDeadZonePx, 0f, 200f);
+            Tip("Inside the ring the head holds; outside it, the head follows the cursor.");
         }
 
         if (policy.Manual)
@@ -151,51 +113,60 @@ internal sealed partial class Ui
             if (rollNod) Tip("Tilts the ball within the nose, which the roll turns.");
         }
 
-        if (policy.Viewport >= 0) DrawSightLine(entry.Head, policy, main);
+        // The camera window carries its own zoom; the main view has nowhere else to put one.
+        if (policy.Viewport == main) DrawMagnification(entry.Head, policy);
 
-        // The chosen window has gone, so stop writing to something that is no longer shown. The
-        // main view is exempt: it is never in the collected list, and it cannot be closed.
-        if (policy.Viewport >= 0 && policy.Viewport != main && !_viewports.Contains(policy.Viewport))
-        {
-            policy.Viewport = -1;
-        }
+        DrawOpticSettings(entry.Head, policy);
+
+        // The chosen window has gone, so stop writing to something that is no longer shown.
+        if (onWindow && !KsaWorld.IsUsableCameraWindow(policy.Viewport)) policy.Viewport = -1;
     }
 
-    // Which mechanism this head is, and where it has got to in that mechanism's own terms.
-    //
-    // Worth a line because a head at its stop and a head with nothing to look at are the same
-    // picture from outside -- the same reason the header strip says why fire is being held. The
-    // two gimbals are described in different words on purpose: a pod has no elevation and a mast
-    // head has no roll, and quoting either in the other's terms is a number nobody can act on.
-    private static void DrawGimbalState(OpticalHead head)
+    // The laser's switch and what it is doing, in words. On a camera window the switch is on the
+    // picture, so here it is reported rather than duplicated. The code is under Settings: it
+    // matters only to a weapon homing on it, and the default does.
+    private void DrawLaser(OpticalHead head, OpticConfig policy, bool onWindow)
     {
-        OpticProfile profile = head.Profile;
-        MountFrame mount = head.Mount;
-        double3 aim = head.AimWhenDrawn;
-
-        if (profile.Gimbal != GimbalKind.RollNod)
+        if (onWindow)
         {
-            double elevation = double.RadiansToDegrees(OpticGeometry.ElevationRad(mount, aim));
+            if (!policy.Lasing)
+            {
+                ImGui.TextDisabled("Laser: off - LASER on the camera window fires it");
+                return;
+            }
 
-            ImGui.TextDisabled($"  elevating head: {elevation:F0} deg over the mounting face "
-                               + $"({profile.MinElevationDeg:F0} to {profile.MaxElevationDeg:F0})");
-            return;
+            ImGui.Text("Laser:");
+        }
+        else
+        {
+            if (Toggle(policy.Lasing ? "Stop laser" : "Fire laser", policy.Lasing)) policy.Lasing = !policy.Lasing;
+            Tip("Measures the distance to whatever the crosshair is on, and marks it for laser-guided "
+                + "weapons. It will not fire through your own craft.");
+            if (!policy.Lasing) return;
         }
 
-        double off = double.RadiansToDegrees(OpticGeometry.OffBoresightRad(mount, aim));
-        double roll = double.RadiansToDegrees(OpticGeometry.RollAngleRad(mount, aim));
+        ImGui.SameLine();
+        if (head.LaserInhibited) ImGui.TextColored(Amber, "blocked by your own craft");
+        else if (head.Spot is { } spot) ImGui.Text($"{Distance.Say(spot.RangeMetres)} to {head.SpotOn}");
+        else ImGui.TextDisabled($"nothing within {Distance.Say(head.Profile.LaserRangeMetres)}");
+    }
 
-        ImGui.TextDisabled($"  roll-nod gimbal: nose rolled {roll:F0} deg, sight nodded {off:F0} deg "
-                           + $"off the centreline (stop {profile.MaxOffBoresightDeg:F0})");
+    private static void DrawLaserCode(OpticConfig policy)
+    {
+        ImGui.SetNextItemWidth(70f);
+        int code = policy.LaserCode;
+        if (ImGui.InputInt("Laser code##laser", ref code, 0, 0) && LaserCode.IsValid(code)) policy.LaserCode = code;
+        Tip("A laser-guided weapon homes on the spot carrying its own code, from any craft. Four digits, "
+            + "1111 to 1788: the first 1, the second 1-7, the last two 1-8.");
+    }
 
-        if (off >= profile.MaxOffBoresightDeg - 0.5)
-        {
-            ImGui.TextColored(Amber, "  at the nod stop: the gimbal will go no further");
-        }
-        else if (off <= profile.KeyholeDeg + 0.5)
-        {
-            ImGui.TextColored(Amber, "  in the keyhole: dead ahead has no roll angle at all");
-        }
+    // A button that shows whether what it opens is open.
+    private static bool Toggle(string label, bool on)
+    {
+        if (on) ImGui.PushStyleColor(ImGuiCol.Button, new float4(0.20f, 0.42f, 0.30f, 1f));
+        bool pressed = ImGui.Button(label);
+        if (on) ImGui.PopStyleColor();
+        return pressed;
     }
 
     // Magnification and symbology. Detents rather than a slider: a real sight has optical stops,
@@ -215,23 +186,37 @@ internal sealed partial class Ui
         policy.Viewport = main;
     }
 
-    private void DrawSightLine(OpticalHead head, OpticConfig policy, int main)
+    // One head per camera window, from any craft: two writing one camera fight every frame.
+    private void TakeWindow(OpticConfig policy, int index)
     {
-        ImGui.Text("Magnification:");
+        foreach (OpticalHeads.Entry other in _heads.All)
+        {
+            if (!ReferenceEquals(other.Policy, policy) && other.Policy.Viewport == index)
+            {
+                other.Policy.Viewport = -1;
+            }
+        }
 
-        foreach (float detent in SightZoom.Detents)
+        policy.Viewport = index;
+    }
+
+    private static void DrawMagnification(OpticalHead head, OpticConfig policy)
+    {
+        ImGui.Text("Zoom:");
+
+        Span<float> stops = stackalloc float[SightZoom.Detents.Length + 1];
+        foreach (float detent in stops[..SightZoom.StopsFor(head.Profile.MaxMagnification, stops)])
         {
             ImGui.SameLine();
             bool selected = Math.Abs(policy.Magnification - detent) < 1e-3f;
             if (ImGui.RadioButton($"x{detent:0.#}##zoom", selected)) policy.Magnification = detent;
         }
+    }
 
-        // Only on the main view. A secondary viewport's camera is positioned outright rather than
-        // driven through the borrowed-view path, so nothing writes its field of view.
-        if (policy.Viewport != main)
-        {
-            ImGui.TextDisabled("  the main view only - nothing sets a secondary view's zoom");
-        }
+    // What nobody needs on the way past, folded.
+    private void DrawOpticSettings(OpticalHead head, OpticConfig policy)
+    {
+        if (!ImGui.TreeNode("Settings")) return;
 
         ImGui.Checkbox("Sight symbology", ref policy.Symbology);
         ImGui.SameLine();
@@ -240,8 +225,11 @@ internal sealed partial class Ui
             + "roll is carried from frame to frame. Off: the picture is rigid with the head, so it "
             + "rolls with the craft, and sideways stays sideways.");
 
-        ImGui.Separator();
-        DrawDirectorIff(head, policy);
+        if (head.HasLaser) DrawLaserCode(policy);
+
+        // The head's own; who it may watch is its team's, in the Teams window.
+        ImGui.Checkbox("Never look at the vehicle I'm flying", ref policy.ProtectControlledVehicle);
+        ImGui.TreePop();
     }
 
     // What the head is following right now, and the only way to stop it.
@@ -258,92 +246,14 @@ internal sealed partial class Ui
         if (head.Designation.Kind != AimpointKind.None)
         {
             ImGui.Text($"Watching: {head.DesignationName}");
+            Tip("Designated by hand, which beats whatever the head's own sensor would have picked.");
             ImGui.SameLine();
             if (ImGui.Button("Release")) head.ClearDesignation();
-
-            ImGui.TextDisabled("  designated by hand");
-            Tip("A designation beats whatever the head's own sensor would have picked.");
             return;
         }
 
         ImGui.TextDisabled(head.LockedTrack is { } track
-                           ? $"Watching: {track.Contact.DisplayName} (its own pick)"
-                           : "Watching: nothing on scope");
-
-        ImGui.TextDisabled("  shift-click the world to point it at something");
-    }
-
-    // Who this director will look at. Its own, not the weapon's: a head finds its own targets
-    // through its own sensor, and a craft can carry one with no armament at all. The team is picked
-    // off the session's roster, which is the list of names that exist.
-    private void DrawDirectorIff(OpticalHead head, OpticConfig policy)
-    {
-        IffPolicy iff = policy.Iff;
-
-        DrawWhatItWatches(head);
-
-        ImGui.Checkbox("Never look at the vehicle I'm flying",
-                       ref policy.ProtectControlledVehicle);
-
-        // Only when there is something to pick. With no teams the whole node held two lines of
-        // prose and no control, which is a fold that opens onto nothing -- and one of those lines
-        // explained an implementation decision to somebody who never asked.
-        if (_config.TeamNames.Count == 0)
-        {
-            ImGui.TextDisabled("no teams declared; add them under KSArmory settings to sort contacts");
-            return;
-        }
-
-        if (!ImGui.TreeNode("Who it may watch")) return;
-
-        ImGui.Text($"Own team: {iff.OwnTeam ?? "(none)"}");
-
-        for (int i = 0; i < _config.TeamNames.Count; i++)
-        {
-            string team = _config.TeamNames[i];
-
-            // PushID rather than a ## suffix: several directors can be drawn in one window once
-            // the panel lists them, and a label is only unique within its own id scope.
-            ImGui.PushID(i);
-
-            bool own = string.Equals(team, iff.OwnTeam, StringComparison.OrdinalIgnoreCase);
-            // Through `policy` rather than the local, so the write says which object it lands on.
-            if (ImGui.RadioButton(team, own)) policy.Iff.OwnTeam = own ? null : team;
-
-            if (!own)
-            {
-                bool allied = iff.AlliedTeams.Contains(team);
-                bool neutral = iff.NeutralTeams.Contains(team);
-
-                ImGui.SameLine();
-                if (ImGui.Checkbox("allied", ref allied))
-                {
-                    Toggle(iff.AlliedTeams, team, allied);
-                    if (allied) iff.NeutralTeams.Remove(team);
-                }
-
-                ImGui.SameLine();
-                if (ImGui.Checkbox("neutral", ref neutral))
-                {
-                    Toggle(iff.NeutralTeams, team, neutral);
-                    if (neutral) iff.AlliedTeams.Remove(team);
-                }
-            }
-
-            ImGui.PopID();
-        }
-
-        // The same three switches the weapon has, worded for an instrument: a director watches
-        // rather than engages, so "engage neutrals" would describe something it cannot do.
-        bool unknown = iff.EngageUnknown;
-        if (ImGui.Checkbox("Watch unknown contacts", ref unknown)) iff.EngageUnknown = unknown;
-
-        bool neutrals = iff.EngageNeutral;
-        if (ImGui.Checkbox("Watch neutrals", ref neutrals)) iff.EngageNeutral = neutrals;
-
-        bool friendly = iff.ProtectFriendly;
-        if (ImGui.Checkbox("Never watch friendlies", ref friendly)) iff.ProtectFriendly = friendly;
-
-        ImGui.TreePop();
+                           ? $"Watching: {track.Contact.DisplayName}"
+                           : "Watching: nothing - shift-click the world to point it");
     }
 }

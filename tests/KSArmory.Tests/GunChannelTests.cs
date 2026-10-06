@@ -24,6 +24,30 @@ public class GunChannelTests
     };
 
     /// <summary>
+    /// A burst asked for by length fires that many, once; the next is the profile's again.
+    /// </summary>
+    [Fact]
+    public void ABurstAskedForByLengthFiresThatManyOnce()
+    {
+        LauncherProfile profile = Profile(burst: 12);
+        var gun = new GunChannel();
+        gun.Fill(100);
+
+        gun.NextBurstRounds = 1;
+        int first = 0;
+        for (int i = 0; i < 20; i++) first += gun.Step(0.020, wantToFire: i == 0, profile);
+
+        // Past the gap between bursts, which the first one started.
+        for (int i = 0; i < 50; i++) gun.Step(0.020, wantToFire: false, profile);
+
+        int second = 0;
+        for (int i = 0; i < 40; i++) second += gun.Step(0.020, wantToFire: i == 0, profile);
+
+        Assert.Equal(1, first);
+        Assert.Equal(12, second);
+    }
+
+    /// <summary>
     /// 2400 rounds/minute is a round every 25 ms, so a 100 ms frame owes four. Firing one and
     /// dropping the rest caps the cannon at the frame rate — which reads as a feeble gun, not as
     /// a bug, and would change with the player's hardware.
@@ -36,6 +60,29 @@ public class GunChannelTests
         gun.Fill(100);
 
         Assert.Equal(4, gun.Step(0.100, wantToFire: true, profile));
+    }
+
+    /// <summary>
+    /// Mouse aim moves the lay with the cursor, and the drives take a moment to follow, so a flick
+    /// leaves the gun off its lay mid-burst. The operator's burst runs on; an automatic one stops.
+    /// </summary>
+    [Theory]
+    [InlineData(true, 12)]
+    [InlineData(false, 1)]
+    public void SweepingTheGunCutsOnlyAnAutomaticBurst(bool operatorBurst, int expected)
+    {
+        LauncherProfile profile = Profile(burst: 12);
+        var gun = new GunChannel();
+        gun.Fill(100);
+
+        int fired = gun.Step(0.020, wantToFire: true, profile);
+        for (int i = 0; i < 40; i++)
+        {
+            bool mayContinue = FireGate.BurstMayContinue(operatorBurst, laid: false, targetGone: false);
+            fired += gun.Step(0.020, wantToFire: false, profile, mayContinue);
+        }
+
+        Assert.Equal(expected, fired);
     }
 
     [Fact]

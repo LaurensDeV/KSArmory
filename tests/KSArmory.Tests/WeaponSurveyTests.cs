@@ -89,7 +89,7 @@ public class WeaponSurveyTests
     }
 
     /// <summary>
-    /// Tree order, so "launcher 2" means the same thing between frames. The battery already keys
+    /// Tree order, so "launcher 2" means the same thing between frames. The system already keys
     /// on a part ordinal rather than a Part reference for this reason — KSA rebuilds the tree
     /// during staging and docking.
     /// </summary>
@@ -178,7 +178,7 @@ public class WeaponSurveyTests
         Assert.True(inv.IsInstallation);
         Assert.Equal(1, inv.CountOf(WeaponRole.Camera));
 
-        // And emphatically not worth crewing. A battery on a craft with no launcher falls back to
+        // And emphatically not worth crewing. A system on a craft with no launcher falls back to
         // whichever profile is first in the registry, then reports a head it cannot find and
         // reloads a magazine it does not have -- which is what shipped for one commit.
         Assert.False(inv.IsWeaponSystem);

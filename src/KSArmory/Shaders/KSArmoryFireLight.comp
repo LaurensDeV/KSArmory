@@ -1,0 +1,134 @@
+#version 450
+
+// A fireball's light on the craft and structures KSA's light pre-pass left dark. That pass skips a
+// light for a subgroup of pixels when dotNL / d^2 is under 1e-7 for every lane reaching it, before the
+// light's intensity is taken into account: right for a lamp, and it drops a fireball's light beyond
+// about 3 km however bright it is. Terrain is lit by the forward loop, which has no such cut. So this
+// reads what the pre-pass wrote, and where the fireball's share is missing from it adds the forward
+// loop's diffuse term -- nowhere else, so nothing is lit twice. docs/NUCLEAR-EFFECT.md has the engine
+// code.
+//
+// Set 2 is KSA's bindless textures, which the planet's colour map is read from.
+//
+// Bindings follow ComputePipelineWrapper's order: the storage image, then the depths it samples, then
+// the views it reads in their read-only layout. Set 0 is the engine's global set, which the wrapper
+// binds, and the sun comes out of it through KSArmoryCloud.comp's header.
+
+#define SET_TEXTURE 2
+#define SET_CLOUD_DATA 5
+
+#include "Content/CoreAtmosphere.glsl"
+
+layout (local_size_x = 16, local_size_y = 8) in;
+
+layout (set = 1, binding = 0, Rgba16f) uniform image2D sceneColor;
+layout (set = 1, binding = 1) uniform sampler2D sceneDepth;
+layout (set = 1, binding = 2) uniform sampler2D prePassDepth;
+layout (set = 1, binding = 3) uniform sampler2D prePassNormal;
+layout (set = 1, binding = 4) uniform sampler2D prePassIrradiance;
+
+layout (push_constant) uniform PushConstants
+{
+    mat4 InvViewProj;       // clip -> camera-relative world
+    vec4 LightRange;        // the light as KSA was handed it, camera-relative, and its range
+    vec4 Radiant;           // its colour times its intensity, and the planet's mean albedo
+    vec4 Cce2Ccf;           // the planet's rotation, as a quaternion taking a world direction to its own frame
+    vec4 GroundMap;         // the planet's colour map and a sampler, as bindless handles; negative for none
+} pc;
+
+// A pixel whose irradiance holds less than this share of the fireball's was dropped: the other lights
+// are lamps beside it, and one it kept holds all of it.
+const float KeptShare = 0.5;
+
+// How much of the pixel's own hue the fill takes, the rest grey, where the albedo is the planet's mean.
+// That is where the sun does not reach, so the pixel is dark and its hue half noise: taken in full it
+// turned black metal green and orange.
+const float HueShare = 0.4;
+
+vec3 WorldAt(vec2 uv, float deviceZ)
+{
+    vec4 clip = vec4(uv * 2.0 - 1.0, deviceZ, 1.0);
+    vec4 p = pc.InvViewProj * clip;
+    return p.xyz / p.w;
+}
+
+float Luminance(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
+
+// The fireball's irradiance at a point facing along a normal: the forward loop's, which is what KSA
+// lit the terrain with.
+vec3 FireIrradiance(vec3 p, vec3 n)
+{
+    vec3 toLight = pc.LightRange.xyz - p;
+    float d2 = dot(toLight, toLight);
+    float invDist = inversesqrt(max(d2, 1e-12));
+    float dotNL = max(dot(n, toLight * invDist), 0.0);
+    float x2 = d2 / max(pc.LightRange.w * pc.LightRange.w, 1e-12);
+    float falloff = clamp(1.0 - x2 * x2, 0.0, 1.0);
+    return pc.Radiant.rgb * (dotNL * invDist * invDist * falloff);
+}
+
+// The planet's colour map at a point: the ground's own albedo, which is what Planet.frag and a
+// terrain-sampled static object such as a pad's apron scale their colour back to. Sampled a few
+// levels down, since what the fill wants is the ground round here rather than one texel of it.
+vec3 GroundAlbedoAt(vec3 p)
+{
+    vec3 fromCentre = p - global.lighting.planetPosition.xyz;
+    vec3 v = normalize(fromCentre);
+    vec3 q = pc.Cce2Ccf.xyz;
+    vec3 ccf = v + 2.0 * cross(q, cross(q, v) + pc.Cce2Ccf.w * v);
+
+    return textureLod(samplerCube(globalTextureCubes[int(pc.GroundMap.x)], samplers[int(pc.GroundMap.y)]),
+                      ccf, 3.0).rgb;
+}
+
+void main()
+{
+    ivec2 size = imageSize(sceneColor);
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    if (pixel.x >= size.x || pixel.y >= size.y) return;
+
+    float raw = texelFetch(prePassDepth, pixel, 0).r;
+    if (raw <= 0.0) return;
+
+    // Only where the object is what the eye sees, rather than terrain standing in front of it.
+    float scene = texelFetch(sceneDepth, pixel, 0).r;
+    if (abs(scene - raw) > 1e-3 * raw) return;
+
+    vec2 uv = (vec2(pixel) + 0.5) / vec2(size);
+    vec3 p = WorldAt(uv, raw);
+    vec3 n = normalize(texelFetch(prePassNormal, pixel, 0).xyz);
+
+    vec3 irradiance = FireIrradiance(p, n);
+    if (Luminance(irradiance) <= 0.0) return;
+
+    // KSA's own saturates to infinity under the ball, and infinity counts as kept.
+    if (Luminance(texelFetch(prePassIrradiance, pixel, 0).rgb) >= KeptShare * Luminance(irradiance)) return;
+
+    // The pre-pass keeps a surface's normal and not its colour, but the pixel already shows it: in
+    // sunlight it is albedo / pi times the sun's colour, what the air lets through and N.L, which is
+    // StaticObject.frag's direct term, so the albedo divides out -- low where the surface is in a shadow
+    // the sun term cannot see, which errs dark. A surface turned nearly away from the sun divides by
+    // almost nothing and is not trusted: its edges lit up as a line. Where the sun does not reach the
+    // pixel is black and says nothing. A surface lying on the ground -- the pad and its apron -- takes
+    // the ground's own albedo there off the planet's colour map, which is what an apron is textured
+    // from; anything else the planet's mean albedo in its hue less the sky's blue. Taken off the screen
+    // instead, from the ground showing beside it, it copied the trees there across the apron.
+    vec4 was = imageLoad(sceneColor, pixel);
+    float level = Luminance(was.rgb);
+    vec3 hue = level > 1e-6 ? clamp(was.rgb / level, 0.5, 1.5) : vec3(1.0);
+    hue.b = min(hue.b, max(hue.r, hue.g));
+    vec3 byMean = pc.Radiant.w * mix(vec3(1.0), hue, HueShare);
+
+    vec3 toSun = normalize(global.lighting.sunPosition.xyz - p);
+    float sunNL = max(dot(n, toSun), 0.0);
+    vec3 perAlbedo = global.lighting.sunColor.rgb * global.lighting.occlusionColor.rgb * (sunNL / 3.14159265);
+    vec3 bySun = clamp(was.rgb / max(perAlbedo, vec3(1e-6)), 0.0, 0.6);
+    float sunlit = smoothstep(0.2, 0.4, sunNL)
+                   * smoothstep(0.02, 0.10, Luminance(global.lighting.occlusionColor.rgb));
+
+    bool lying = dot(n, normalize(p - global.lighting.planetPosition.xyz)) > 0.9;
+    vec3 unlit = lying && pc.GroundMap.x >= 0.0 ? GroundAlbedoAt(p) : byMean;
+
+    vec3 albedo = mix(unlit, bySun, sunlit);
+    imageStore(sceneColor, pixel, vec4(was.rgb + irradiance * albedo / 3.14159265, was.a));
+}

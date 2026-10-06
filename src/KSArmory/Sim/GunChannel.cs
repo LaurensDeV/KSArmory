@@ -6,7 +6,7 @@ namespace KSArmory;
 ///
 /// <para>Nothing like <see cref="Magazine"/>, which tracks which tube holds what. A gun does not
 /// empty tubes — it cycles two barrels against one belt, so what matters is a rate, a burst
-/// length and a pause between bursts. Kept here rather than in the battery because the failure
+/// length and a pause between bursts. Kept here rather than in the system because the failure
 /// modes are all arithmetic: a burst that never ends, a rate that outruns the frame, a belt that
 /// goes negative.</para>
 /// </summary>
@@ -17,6 +17,11 @@ internal sealed class GunChannel
 
     /// <summary>Rounds still owed on the burst in progress. Zero between bursts.</summary>
     public int BurstRemaining { get; private set; }
+
+    /// <summary>
+    /// How many rounds the next burst fires in place of the profile's, once; zero for the profile's.
+    /// </summary>
+    public int NextBurstRounds { get; set; }
 
     /// <summary>Seconds until the next round may leave.</summary>
     public double Cooldown { get; private set; }
@@ -71,7 +76,8 @@ internal sealed class GunChannel
                 if (Cooldown < 0.0) Cooldown = 0.0;
                 return 0;
             }
-            BurstRemaining = Math.Max(1, profile.GunBurstRounds);
+            BurstRemaining = Math.Max(1, NextBurstRounds > 0 ? NextBurstRounds : profile.GunBurstRounds);
+            NextBurstRounds = 0;
         }
 
         double interval = profile.GunRoundInterval;

@@ -6,8 +6,8 @@ namespace KSArmory;
 /// <summary>
 /// Development tools: spawning targets, moving craft, setting off warheads by hand, and the log.
 ///
-/// <para>Nothing here is part of playing with the mod, which is why it all sits behind the
-/// collapsed Debug group rather than alongside the system panes.</para>
+/// <para>Nothing here is part of playing with the mod, which is why it all sits in the debug windows
+/// rather than alongside the system panes.</para>
 /// </summary>
 internal sealed partial class Ui
 {
@@ -26,16 +26,67 @@ internal sealed partial class Ui
 
             if (_config.BurstNuclear)
             {
-                // The B61's own dial. Logarithmic because it spans three orders of magnitude and
-                // the cloud grows as the cube root; past about 49 kt it spreads into an anvil.
-                ImGui.SliderFloat("Yield (kt)", ref _config.BurstYieldKt, 0.3f, 340f,
-                                  "%.2f kt", ImGuiSliderFlags.Logarithmic);
+                // The B61's own dial, on up to Tsar Bomba. Logarithmic because it spans five orders
+                // of magnitude and the cloud grows as the cube root; past about 49 kt it spreads
+                // into an anvil.
+                float yieldKg = _config.BurstYieldKt * (float)Charge.KgPerKiloton;
+                if (ChargeSlider("Yield", ref yieldKg, 0.3f * (float)Charge.KgPerKiloton, TsarBombaKg))
+                {
+                    _config.BurstYieldKt = yieldKg / (float)Charge.KgPerKiloton;
+                }
 
                 double kt = _config.BurstYieldKt;
 
-                ImGui.TextDisabled($"  fireball {MushroomCloud.PeakFireballRadius(kt) * 2.0:F0} m "
+                ImGui.SliderFloat("Height of burst (m)", ref _config.BurstHeightMetres, 0f, 100000f,
+                                  "%.0f m", ImGuiSliderFlags.Logarithmic);
+                Tip("Zero sets it off on the ground. Above the fallout-safe height the fireball "
+                    + "does not reach the ground: no fallout, a browner cloud, and a thinner column "
+                    + "of dust under it -- none at all from high enough. Tsar Bomba was 50 Mt at "
+                    + "about 4,000 m. Above about 30 km the air is too thin for a column at all: the "
+                    + "debris climbs as one glowing ball.");
+
+                if (ImGui.Button("Tsar Bomba"))
+                {
+                    _config.BurstYieldKt = 50000f;
+                    _config.BurstHeightMetres = 4000f;
+                }
+
+                Tip("50 Mt, 4,000 m up.");
+
+                double height = _config.BurstHeightMetres;
+                double coupling = MushroomCloud.GroundCoupling(kt, height);
+
+                // The air that high over the craft being flown, which is what decides whether there is a
+                // mushroom at all -- said in so many words, because from the ground a burst over the air
+                // looks like nothing happened.
+                double air = KsaWorld.ControlledVehicle is { } flying
+                                 ? KsaWorld.AirDensityRatioAt(flying, KsaWorld.PositionEcl(flying)
+                                                                     + (KsaWorld.LocalUp(flying) * height))
+                                 : 1.0;
+
+                if (XRayGlow.Lights(air))
+                {
+                    ImGui.TextColored(Amber, $"  {height / 1000.0:F0} km up is over the air: no cloud from the ground");
+                    ImGui.TextDisabled("  a small ball of debris, the sky glowing red, and auroras where its field line comes down");
+                    ImGui.TextDisabled("  -- near it and in the other hemisphere -- all best seen at night");
+                }
+                else if (MushroomCloud.IsThin(air))
+                {
+                    ImGui.TextColored(Amber, $"  {height / 1000.0:F0} km up is too thin for a mushroom");
+                    ImGui.TextDisabled("  its debris climbs as one glowing ball, with nothing under it");
+                }
+                else
+                {
+                    ImGui.TextDisabled(coupling > 0.99
+                                           ? "  a surface burst"
+                                           : coupling < 0.01
+                                               ? $"  an air burst: no fallout, {MushroomCloud.StemShare(kt, height):P0} of a stem"
+                                               : $"  {coupling:P0} a surface burst");
+                }
+
+                ImGui.TextDisabled($"  fireball {MushroomCloud.PeakFireballRadius(kt, height) * 2.0 * MushroomCloud.ThinAirGrowth(air):F0} m "
                                    + $"across for {MushroomCloud.FlashSeconds(kt):F1} s");
-                ImGui.TextDisabled($"  cloud to {MushroomCloud.DrawnStandingTop(kt) / 1000.0:F2} km, "
+                ImGui.TextDisabled($"  cloud to {MushroomCloud.TallestDrawn(kt, height, air) / 1000.0:F2} km, "
                                    + $"cap {MushroomCloud.DrawnCapAcross(kt) / 1000.0:F2} km "
                                    + $"across, over {MushroomCloud.RiseSeconds:F0} s");
                 ImGui.TextDisabled($"  lethal {Warhead.LethalRadius(kt * 1.0e6):F0} m");
@@ -49,8 +100,7 @@ internal sealed partial class Ui
             }
             else
             {
-                ImGui.SliderFloat("Charge (kg)", ref _config.BurstChargeKg, 0.01f, 500f,
-                                  "%.2f", ImGuiSliderFlags.Logarithmic);
+                ChargeSlider("Charge", ref _config.BurstChargeKg, 0.01f, 500f);
                 ImGui.TextDisabled($"  lethal {Warhead.LethalRadius(_config.BurstChargeKg):F0} m, "
                                    + $"goes off as {WarheadExplosion.PresetFor(_config.BurstChargeKg) ?? "nothing"}");
                 Tip("The marker under the cursor is drawn at the lethal radius.");
@@ -83,7 +133,7 @@ internal sealed partial class Ui
     // A burst overhead, where it cannot be missed.
     private void FireTestBurst()
     {
-        if (!_crewed || _battery.Platform is not { } platform)
+        if (!_crewed || _system.Platform is not { } platform)
         {
             Log.Info("no platform to burst over");
             return;
@@ -105,8 +155,8 @@ internal sealed partial class Ui
         if (!_config.FinTestSweep) return;
 
         int hinged = 0;
-        foreach (WeaponSystems.Entry e in _batteries.All)
-            if (e.Battery.Munition.FinsPerRound > 0) hinged++;
+        foreach (WeaponSystems.Entry e in _roster.All)
+            if (e.Weapon.Munition.FinsPerRound > 0) hinged++;
 
         // Says nothing is happening rather than leaving the tick box looking broken: every
         // launcher in the world may well have no hinged blades to sweep.
@@ -187,7 +237,7 @@ internal sealed partial class Ui
     {
         if (!_crewed) { ImGui.TextDisabled("No weapons system selected."); return; }
 
-        if (_battery.Platform is null)
+        if (_system.Platform is null)
         {
             ImGui.TextDisabled("no platform");
             return;
@@ -224,20 +274,20 @@ internal sealed partial class Ui
 
         if (ImGui.Button("Overhead"))
         {
-            TestTarget.Spawn(_battery.Platform, TestTarget.Profile.Overhead,
+            TestTarget.Spawn(_system.Platform, TestTarget.Profile.Overhead,
                 _spawnSeconds, _spawnSpeed, _spawnMiss, craftName);
         }
         ImGui.SameLine();
         if (ImGui.Button("Head-on"))
         {
-            TestTarget.Spawn(_battery.Platform, TestTarget.Profile.HeadOn,
+            TestTarget.Spawn(_system.Platform, TestTarget.Profile.HeadOn,
                 _spawnSeconds, _spawnSpeed, _spawnMiss, craftName);
         }
         Tip("Dives steepest and holds its speed best in atmosphere.");
         ImGui.SameLine();
         if (ImGui.Button("Passing by"))
         {
-            TestTarget.Spawn(_battery.Platform, TestTarget.Profile.PassingBy,
+            TestTarget.Spawn(_system.Platform, TestTarget.Profile.PassingBy,
                 _spawnSeconds, _spawnSpeed, _spawnMiss, craftName);
         }
 
@@ -257,18 +307,23 @@ internal sealed partial class Ui
         Tip("More detail in the log, which is what a bug report wants. It starts off; this turns "
             + "it on without needing a different build.");
 
+        ImGui.Checkbox("Part health bars", ref _config.DrawPartHealth);
+        Tip($"A bar over every part of every craft within {PartHealthBars.RangeMetres / 1000.0:F0} km of the "
+            + "camera, and over any damaged part further out: green whole, red nearly gone. The settings "
+            + "window's Damage scale sets how fast it drains.");
+
         if (Build.Developer) DrawDiagnostics();
     }
 
     private void DrawDiagnostics()
     {
 
-        // Writes the battery's whole world view to the log, including why each nearby vehicle was
+        // Writes the system's whole world view to the log, including why each nearby vehicle was
         // or was not tracked. Far more useful than staring at an empty screen.
         ImGui.BeginDisabled(!_crewed);
         if (ImGui.Button("Write diagnostic dump"))
         {
-            Diagnostics.Dump(_battery, _policy);
+            Diagnostics.Dump(_system, _policy);
         }
         ImGui.EndDisabled();
         ImGui.SameLine();
@@ -299,10 +354,10 @@ internal sealed partial class Ui
         // A diagnostic about the render rate rather than a state of any weapon: it means the
         // frames are outrunning the simulation clock, which is what explains stuttering round
         // bodies. Reads the selected system, so it needs one.
-        if (_crewed && _battery.FramesWithoutSimStep > 0)
+        if (_crewed && _system.FramesWithoutSimStep > 0)
         {
             ImGui.TextColored(Amber,
-                $"Frames with no sim step: {_battery.FramesWithoutSimStep}");
+                $"Frames with no sim step: {_system.FramesWithoutSimStep}");
             Tip("The render rate is outrunning the simulation clock.");
         }
     }
@@ -311,7 +366,7 @@ internal sealed partial class Ui
     {
         if (!_crewed) { ImGui.TextDisabled("No weapons system selected."); return; }
 
-        var events = _battery.Events;
+        var events = _system.Events;
         for (int i = events.Count - 1; i >= 0; i--)
         {
             ImGui.TextDisabled($"[{events[i].AtSeconds:F1}] {events[i].Message}");

@@ -8,8 +8,8 @@ namespace KSArmory;
 /// the side it fights for, and the side everything else reads it and its rounds on. Without the
 /// second half two sites whose flags both say Blue each classify the other as
 /// <see cref="Allegiance.Unknown"/>, which <see cref="IffPolicy.EngageUnknown"/> engages by
-/// default. <see cref="Teams.TeamFor"/> is the fallback underneath, for a craft nothing of this
-/// mod's is fitted to.</para>
+/// default. A craft with no flag -- one nothing of this mod's is fitted to -- is on no team, and
+/// never placed by what it is called.</para>
 ///
 /// <para>Keyed on the craft by <b>reference</b>, never by name: craft built from one blueprint
 /// share a display name, which <c>WeaponSystems.WarnIfNameIsTaken</c> already warns about.</para>
@@ -31,11 +31,11 @@ public sealed class TeamRoster
 
     /// <summary>
     /// Records that <paramref name="craft"/> fights for <paramref name="team"/>. A null or blank
-    /// team declares nothing, which leaves the craft's name to answer for it.
+    /// team declares nothing, which leaves the craft on no team.
     ///
     /// <para><paramref name="rank"/> settles a craft whose installations disagree — the panel's
-    /// flag sets every one of them together, so that is the operator having edited a single
-    /// system's team under Tuning. Lowest rank wins, which is the first launcher, because the roster
+    /// flag sets every one of them together, so that is a split carrying a part across, or settings
+    /// saved before. Lowest rank wins, which is the first launcher, because the roster
     /// enumerates in a dictionary's order and an allegiance decided by that is an unreproducible
     /// bug report.</para>
     /// </summary>
@@ -50,11 +50,4 @@ public sealed class TeamRoster
     /// <summary>The side this craft was put on, or null when nothing has said.</summary>
     public string? For(object? craft)
         => craft is not null && _declared.TryGetValue(craft, out Membership m) ? m.Team : null;
-
-    /// <summary>
-    /// The side a contact is on: what it was declared to be, and failing that whatever its name
-    /// resolves to. One call, so nothing can consult half of it.
-    /// </summary>
-    public string? TeamFor(object? craft, string? craftName, IReadOnlyList<string> teamNames)
-        => For(craft) ?? Teams.TeamFor(craftName, teamNames);
 }

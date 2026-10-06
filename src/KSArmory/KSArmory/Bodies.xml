@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  What a nuclear burst needs to know about a body that KSA does not declare, keyed by the body's Id.
+  Read by KSArmory from the KSArmory/ folder of every mod, so a solar-system mod describes its own
+  bodies the same way; a body with no entry has no magnetic field and a dim, uncoloured airglow.
+  docs/NUCLEAR-ALTITUDE.md, "Planet-agnostic by construction".
+
+  FieldTesla       dipole strength at the surface equator (T); none by default
+  FieldTiltDeg     its tilt from the spin axis; FieldAzimuthDeg which way
+  Airglow          OxygenNitrogen, CarbonDioxide, Hydrogen or Neutral (the default)
+  Condensation     whether a burst raises white condensation; unset follows weather and ocean
+  Gamma            the air's ratio of specific heats (1.4 by default)
+  Surface          whether there is ground at all (true by default)
+  XRayOpacity      X-ray stopping per kilogram against nitrogen and oxygen's (1 by default)
+
+  Fields are the published surface-equator values.
+-->
+<Bodies>
+  <Body Id="Mercury" FieldTesla="3e-7" />
+  <Body Id="Venus" Airglow="CarbonDioxide" Gamma="1.29" Condensation="false" />
+  <Body Id="Earth" FieldTesla="3.1e-5" FieldTiltDeg="0" Airglow="OxygenNitrogen" Condensation="true" Gamma="1.4" />
+  <Body Id="Mars" Airglow="CarbonDioxide" Gamma="1.29" Condensation="false" />
+  <Body Id="Jupiter" FieldTesla="4.2e-4" Airglow="Hydrogen" Surface="false" Gamma="1.45" XRayOpacity="0.01" />
+  <Body Id="Saturn" FieldTesla="2.1e-5" Airglow="Hydrogen" Surface="false" Gamma="1.45" XRayOpacity="0.01" />
+  <Body Id="Uranus" FieldTesla="2.3e-5" FieldTiltDeg="59" Airglow="Hydrogen" Surface="false" Gamma="1.45" XRayOpacity="0.01" />
+</Bodies>

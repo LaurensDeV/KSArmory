@@ -40,8 +40,11 @@ internal static class TargetLock
     private static readonly ImColor8 Designated = new(255, 190, 60, 235);
     private static readonly ImColor8 DesignatedHidden = new(255, 190, 60, 90);
 
-    /// <summary>Reads the click, if there was one, and locks whatever is under it.</summary>
-    public static void Update(WeaponSystem? system, OpticalHead? head)
+    /// <summary>
+    /// Reads the click, if there was one, and locks whatever is under it. The weapon is designated
+    /// through <paramref name="designate"/>, which reaches every station of it.
+    /// </summary>
+    public static void Update(WeaponSystem? system, OpticalHead? head, Action<Aimpoint, string>? designate)
     {
         if (!Requested()) return;
 
@@ -56,7 +59,7 @@ internal static class TargetLock
             Aimpoint at = Aimpoint.OnVehicle(craft, KsaWorld.PositionEcl(craft),
                                              KsaWorld.VelocityEcl(craft), KsaWorld.MeanRadius(craft));
 
-            system?.Designate(at, KsaWorld.DisplayName(craft));
+            designate?.Invoke(at, KsaWorld.DisplayName(craft));
             head?.Designate(at, KsaWorld.DisplayName(craft));
             return;
         }
@@ -72,7 +75,7 @@ internal static class TargetLock
             Aimpoint at = Aimpoint.OnGround(handle!, anchor, groundEcl, Vec.Zero);
             string what = $"{body} {lat:F2}, {lon:F2}";
 
-            system?.Designate(at, what);
+            designate?.Invoke(at, what);
             head?.Designate(at, what);
         }
 

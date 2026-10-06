@@ -8,7 +8,7 @@ public enum WeaponRole
     /// <summary>Decides what the craft shoots at. One per craft.</summary>
     FireControl,
 
-    /// <summary>Throws guided rounds. Carries its own tubes.</summary>
+    /// <summary>Throws rounds. Every registered launcher part carries it, tubes or not.</summary>
     Launcher,
 
     /// <summary>Finds targets. Feeds the threat model.</summary>
@@ -39,6 +39,12 @@ public enum WeaponRole
     /// section and no weapon would have the reverse. docs/GUIDANCE-SECTION.md.</para>
     /// </summary>
     Guidance,
+
+    /// <summary>
+    /// Throws flares and chaff. Its own role rather than a <see cref="Launcher"/>: nothing it throws is
+    /// aimed, tracked or fused, and a craft carrying only a dispenser is not a weapons system.
+    /// </summary>
+    Countermeasures,
 }
 
 /// <summary>
@@ -104,7 +110,7 @@ public readonly record struct FoundComponent(
 ///
 /// <para>Ordering is the part tree's, which is the order the craft was assembled in. That is
 /// stable for a given craft and is what makes "launcher 2" mean the same thing between frames —
-/// the same reason the battery keys on a part ordinal rather than a <c>Part</c> reference, which
+/// the same reason the system keys on a part ordinal rather than a <c>Part</c> reference, which
 /// KSA rebuilds during staging and docking.</para>
 /// </summary>
 public sealed class WeaponInventory
@@ -140,7 +146,7 @@ public sealed class WeaponInventory
     /// <remarks>
     /// Anything recognised counts. The intended gate is an explicit fire-control part: it gives a
     /// craft's settings an owner, and it stops a piece of debris that happens to carry a launcher
-    /// from becoming a battery of its own. No such part exists, so gating on it would find nothing.
+    /// from becoming a system of its own. No such part exists, so gating on it would find nothing.
     /// </remarks>
     public bool IsWeaponSystem => HasPlatform
                                   && (CountOf(WeaponRole.Launcher) > 0
@@ -160,7 +166,7 @@ public sealed class WeaponInventory
     ///
     /// <para>What the panel lists, as opposed to what it crews. A craft carrying only an optical
     /// director has something of this mod's on it and something worth showing, and is emphatically
-    /// not a weapons system: crewing one gives it a battery with no launcher, which then reports a
+    /// not a weapons system: crewing one gives it a system with no launcher, which then reports a
     /// head it cannot find and reloads a magazine it does not have.</para>
     /// </summary>
     public bool IsInstallation => Components.Count > 0 && HasPlatform;

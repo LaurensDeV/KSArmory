@@ -25,8 +25,61 @@ internal sealed class IcbmFlightRig
     /// <summary>How fast the vehicle can swing its thrust line. Zero points it wherever it is told.</summary>
     public double AttitudeRateDegPerSec = 12.0;
 
+    /// <summary>
+    /// How fast it turns with no engine burning, or NaN for as fast as with one. A stack that steers by
+    /// gimballing its engines has only reaction control left when they stop.
+    /// </summary>
+    public double UnpoweredAttitudeRateDegPerSec = double.NaN;
+
     /// <summary>Drag area over mass. Zero for a rig with no air resistance at all.</summary>
     public double DragAreaOverMass = 4e-5;
+
+    /// <summary>
+    /// Turn the thrust line by a torque rather than at a set rate: an angular rate driven by a
+    /// controller sampled every <see cref="AttitudeControlPeriodSeconds"/>, with authority in
+    /// proportion to thrust. Off, the line is swung at <see cref="AttitudeRateDegPerSec"/> straight
+    /// at whatever it is told, which can never lag a moving target and so can never tumble.
+    /// </summary>
+    public bool AttitudeHasInertia;
+
+    /// <summary>
+    /// Angular acceleration per unit of thrust acceleration, in deg/s^2 per m/s^2. Flown on the
+    /// game's core: about 1.4 at full throttle and 0.6-0.8 at its floor.
+    /// </summary>
+    public double TvcAuthorityPerThrust = 1.0;
+
+    /// <summary>What the bus carries, handed to the program with the rig's air; null hands it neither.</summary>
+    public MunitionProfile? Warhead;
+
+    /// <summary>
+    /// The warhead's throw off its tube, along the line the program last commanded, as the computer reports
+    /// it before release; zero throws nothing. <see cref="HandsOverTheThrow"/> off keeps it from the program.
+    /// </summary>
+    public double ReleaseLaunchSpeed;
+
+    public bool HandsOverTheThrow = true;
+
+    /// <summary>Angular acceleration with no engine burning. Flown on the game's stack: about 0.1-0.2.</summary>
+    public double RcsAuthorityDegPerSec2 = 0.15;
+
+    /// <summary>How often the attitude controller acts; KSA's gimbal wakes every 0.1 s.</summary>
+    public double AttitudeControlPeriodSeconds = 0.1;
+
+    /// <summary>The fastest the stack turned while the closed loop was flying it, under inertia.</summary>
+    public double PeakClosedLoopRateDegPerSec { get; private set; }
+
+    /// <summary>The same, counted only while the throttle sat within 0.02 of its floor.</summary>
+    public double PeakFloorRateDegPerSec { get; private set; }
+
+    /// <summary>Called every closed-loop frame under inertia: time, throttle, velocity to gain, pointing error, rate.</summary>
+    public Action<double, double, double, double, double, double3>? AttitudeTrace;
+
+    /// <summary>
+    /// A drag area fixed to the airframe, divided by whatever the stack weighs now. Zero leaves
+    /// <see cref="DragAreaOverMass"/> in charge, which holds the deceleration constant as the stack
+    /// empties.
+    /// </summary>
+    public double DragAreaM2;
 
     public double ScaleHeightMetres = 8000.0;
 
@@ -74,6 +127,14 @@ internal sealed class IcbmFlightRig
     /// creeps at that for the last couple of seconds.</para>
     /// </summary>
     public double MinThrottle;
+
+    /// <summary>
+    /// The throttle lever moves while solids burn, and the stage after them lights wherever it was
+    /// left, as KSA's vehicle throttle does. Off holds it at full through a solid stage.
+    /// </summary>
+    public bool LeverMovesUnderSolids;
+
+    private double _lever = 1.0;
 
     /// <summary>
     /// How unevenly the step arrives, as a fraction either side of the nominal one.
@@ -162,6 +223,9 @@ internal sealed class IcbmFlightRig
     private bool _brokeUp;
 
     private double3 _pointing;
+    private double3 _omega;
+    private double3 _alpha;
+    private double _controlIn;
 
     internal sealed class Stage
     {
@@ -171,6 +235,68 @@ internal sealed class IcbmFlightRig
         public required double ExhaustVelocity;
 
         public double MassFlow => ThrustNewtons / ExhaustVelocity;
+
+        /// <summary>
+        /// A solid motor: it ignores the throttle and burns to the end once lit, whatever the
+        /// program asks. False is every other suite's stage.
+        /// </summary>
+        public bool Solid;
+
+        /// <summary>
+        /// The exhaust velocity in vacuum, or zero for one that does not change with the air. When
+        /// set, <see cref="ExhaustVelocity"/> is the sea-level figure and the two are blended on the
+        /// density ratio, which for an isothermal atmosphere is the pressure ratio.
+        /// </summary>
+        public double VacuumExhaustVelocity;
+
+        /// <summary>
+        /// The mass flow at burnout over the mass flow at ignition, varied linearly with the share of
+        /// propellant burnt. One is a constant flow; a solid's grain usually grows.
+        /// </summary>
+        public double BurnoutMassFlowRatio = 1.0;
+
+        /// <summary>
+        /// The share of the propellant burnt in a solid's tail-off, and the mass flow it ends at over
+        /// the ignition flow. Zero is no tail-off: the flow holds its ramp to the last kilogram.
+        /// </summary>
+        public double TailOffFraction;
+
+        /// <inheritdoc cref="TailOffFraction"/>
+        public double TailOffEndRatio = 1.0;
+
+        private double _loaded = double.NaN;
+
+        /// <summary>The propellant aboard at the start of the flight.</summary>
+        public double LoadedPropellantKg => double.IsNaN(_loaded) ? _loaded = PropellantKg : _loaded;
+
+        private bool Varies => VacuumExhaustVelocity > 0.0 || BurnoutMassFlowRatio != 1.0 || TailOffFraction > 0.0;
+
+        public double MassFlowNow()
+        {
+            if (!Varies) return MassFlow;
+
+            double ignition = ThrustNewtons / ExhaustVelocity;
+            double burnt = Math.Clamp(LoadedPropellantKg > 0.0 ? 1.0 - PropellantKg / LoadedPropellantKg : 0.0, 0.0, 1.0);
+            double tail = 1.0 - TailOffFraction;
+            if (TailOffFraction > 0.0 && burnt > tail)
+            {
+                double peak = 1.0 + (BurnoutMassFlowRatio - 1.0) * tail;
+                return ignition * (peak + (TailOffEndRatio - peak) * (burnt - tail) / TailOffFraction);
+            }
+            return ignition * (1.0 + (BurnoutMassFlowRatio - 1.0) * burnt);
+        }
+
+        public double ThrustAt(double densityRatio)
+        {
+            if (!Varies) return ThrustNewtons;
+
+            double ve = VacuumExhaustVelocity > 0.0
+                            ? VacuumExhaustVelocity - (VacuumExhaustVelocity - ExhaustVelocity) * Math.Clamp(densityRatio, 0.0, 1.0)
+                            : ExhaustVelocity;
+            return MassFlowNow() * ve;
+        }
+
+        public double VacuumVelocity => VacuumExhaustVelocity > 0.0 ? VacuumExhaustVelocity : ExhaustVelocity;
     }
 
     internal readonly record struct Flight(
@@ -208,16 +334,45 @@ internal sealed class IcbmFlightRig
         return Math.Exp(-Math.Max(altitude, 0.0) / ScaleHeightMetres);
     }
 
-    public BoosterPerformance Performance()
+    public BoosterPerformance Performance(double densityRatio = 0.0)
     {
         if (StageIndex >= Stages.Count) return new BoosterPerformance(0, 0, MassAbove(StageIndex), 0);
         Stage s = Stages[StageIndex];
 
         // The propellant is still aboard an unlit stack -- KSA's PropellantMass counts tanks, not
         // engines -- and it is the thrust that reads zero.
-        return _lit ? new BoosterPerformance(s.ThrustNewtons, s.MassFlow, MassAbove(StageIndex), s.PropellantKg)
+        return _lit ? new BoosterPerformance(s.ThrustAt(densityRatio), s.MassFlowNow(),
+                                             MassAbove(StageIndex), s.PropellantKg)
                     : new BoosterPerformance(0, 0, MassAbove(StageIndex), s.PropellantKg);
     }
+
+    /// <summary>
+    /// Whether the rig reports the whole stack's delta-v, as the engine does for its staging
+    /// display. False is every other suite, which leaves the program on the running stage's figure.
+    /// </summary>
+    public bool ReportsStackDeltaV;
+
+    /// <summary>The ideal vacuum delta-v of every stage not yet dropped.</summary>
+    public double StackDeltaV()
+    {
+        double dv = 0.0;
+        for (int i = StageIndex; i < Stages.Count; i++)
+        {
+            double full = MassAbove(i);
+            double empty = full - Stages[i].PropellantKg;
+            if (empty > 0.0 && full > empty) dv += Stages[i].VacuumVelocity * Math.Log(full / empty);
+        }
+        return dv;
+    }
+
+    /// <summary>
+    /// How long a solid stage burned on after the program cut off, and the velocity it added. Zero
+    /// for a flight whose cutoff the stack obeyed.
+    /// </summary>
+    public double SolidBurnedOnSeconds { get; private set; }
+
+    /// <inheritdoc cref="SolidBurnedOnSeconds"/>
+    public double SolidAddedMetresPerSecond { get; private set; }
 
     /// <summary>
     /// Fly it. <paramref name="aimAtEpoch"/> is fixed to the ground and carried by the spin.
@@ -229,6 +384,11 @@ internal sealed class IcbmFlightRig
     public Flight Fly(IcbmProgram program, double3 aimAtEpoch, double step, double maxSeconds)
     {
         _pointing = Vec.Unit(PositionCci);
+        _omega = Vec.Zero;
+        _alpha = Vec.Zero;
+        _controlIn = 0.0;
+        PeakClosedLoopRateDegPerSec = 0.0;
+        PeakFloorRateDegPerSec = 0.0;
         _lit = !StartsUnlit;
         _peakThrustGee = 0.0;
         _filteredGee = 0.0;
@@ -241,12 +401,19 @@ internal sealed class IcbmFlightRig
         double3 lastBurnDirection = Vec.Zero;
         Queue<IcbmCommand> inFlight = new();
         ThrottleAchieved = 1.0;
+        _lever = 1.0;
         int frame = 0;
+        SolidBurnedOnSeconds = 0.0;
+        SolidAddedMetresPerSecond = 0.0;
+        foreach (Stage s in Stages) _ = s.LoadedPropellantKg;
+        double cutAt = double.NaN;
+        double3 velocityAtCut = default;
 
         while (elapsed < maxSeconds)
         {
-            double h = program.NeedsShortSteps ? step : Math.Max(step, CoastStepSeconds);
-            if (program.NeedsShortSteps && StepJitter > 0.0)
+            bool shortSteps = program.NeedsShortSteps || !double.IsNaN(cutAt);
+            double h = shortSteps ? step : Math.Max(step, CoastStepSeconds);
+            if (shortSteps && StepJitter > 0.0)
             {
                 h = step * (frame++ % 2 == 0 ? 1.0 + StepJitter : 1.0 - StepJitter);
             }
@@ -260,14 +427,24 @@ internal sealed class IcbmFlightRig
             {
                 IcbmState state = new(Body, PositionCci, VelocityCci,
                                       AimLoop?.Apply(aimNow) ?? aimNow, HasAim: true,
-                                      Performance(), density,
+                                      Performance(density), density,
                                       PropellantAvailable: _lit && StageIndex < Stages.Count
                                                            && Stages[StageIndex].PropellantKg > 0.0,
                                       // What the stack has, never what was asked of it. A real one
                                       // ramps, and one with solid motors ignores the ask entirely.
                                       ThrottleAchieved: ThrottleAchieved,
                                       AimIsSteady: AimLoop?.IsSteady ?? true,
-                                      StructuralLimitGee: StructuralLimitGee);
+                                      StackDeltaV: ReportsStackDeltaV ? StackDeltaV() : double.NaN,
+                                      StructuralLimitGee: StructuralLimitGee,
+                                      RunningStageCanStop: StageIndex >= Stages.Count || !Stages[StageIndex].Solid,
+                                      MinThrottle: MinThrottle,
+                                      ThrustAxisCci: _pointing,
+                                      DensityRatioAt: Warhead is null ? null : p => DensityRatioAt(Body.AltitudeOf(p)),
+                                      Warhead: Warhead,
+                                      ReleaseImpulseCci: HandsOverTheThrow && ReleaseLaunchSpeed > 0.0
+                                                             ? Vec.Unit(command.ThrustDirectionCci) * ReleaseLaunchSpeed
+                                                             : default,
+                                      OnlySolidsRunning: StageIndex < Stages.Count && Stages[StageIndex].Solid);
 
                 command = program.Update(elapsed == 0.0 ? 0.0 : h, state);
 
@@ -285,8 +462,24 @@ internal sealed class IcbmFlightRig
             // correction would ever have seen, and leaving it out hides what the aim ended up worth.
             AimLoop?.AfterUpdate(program, command, aimNow, h);
 
-            if (program.Phase == IcbmPhase.Coast)
+            // A solid motor ignores the cutoff, so the state the warheads coast from is its burnout.
+            bool solidStillBurning = program.Phase == IcbmPhase.Coast && _lit && StageIndex < Stages.Count
+                                     && Stages[StageIndex].Solid && Stages[StageIndex].PropellantKg > 0.0;
+
+            if (solidStillBurning && double.IsNaN(cutAt))
             {
+                cutAt = elapsed;
+                velocityAtCut = VelocityCci;
+            }
+
+            if (program.Phase == IcbmPhase.Coast && !solidStillBurning)
+            {
+                if (!double.IsNaN(cutAt))
+                {
+                    SolidBurnedOnSeconds = elapsed - cutAt;
+                    SolidAddedMetresPerSecond = Vec.Len(VelocityCci - velocityAtCut);
+                }
+
                 return new Flight(true, PositionCci, VelocityCci, elapsed,
                                   StageIndex < Stages.Count ? Stages[StageIndex].PropellantKg : 0.0,
                                   program.Phase, command.Hold, peakQ, peakAoa,
@@ -318,7 +511,30 @@ internal sealed class IcbmFlightRig
 
             SlewThrottle(applied, h);
 
-            Swing(applied.ThrustDirectionCci, h);
+            bool powered = (applied.EngineOn && ThrottleAchieved > 0.0 && StageIndex < Stages.Count
+                            && Stages[StageIndex].PropellantKg > 0.0 && _lit)
+                           || (StageIndex < Stages.Count && Stages[StageIndex].Solid && _lit
+                               && Stages[StageIndex].PropellantKg > 0.0);
+            if (AttitudeHasInertia)
+            {
+                double degPerSec2 = powered ? TvcAuthorityPerThrust * ThrustAcceleration(density) : RcsAuthorityDegPerSec2;
+                Turn(applied.ThrustDirectionCci, h, degPerSec2 * Math.PI / 180.0);
+
+                if (program.Phase == IcbmPhase.ClosedLoop)
+                {
+                    double rate = Vec.Len(_omega) * 180.0 / Math.PI;
+                    PeakClosedLoopRateDegPerSec = Math.Max(PeakClosedLoopRateDegPerSec, rate);
+                    if (powered && ThrottleAchieved <= MinThrottle + 0.02) PeakFloorRateDegPerSec = Math.Max(PeakFloorRateDegPerSec, rate);
+                    AttitudeTrace?.Invoke(elapsed, powered ? ThrottleAchieved : 0.0, program.VelocityToGain,
+                                          Vec.AngleBetween(_pointing, Vec.Unit(applied.ThrustDirectionCci)) * 180.0 / Math.PI, rate,
+                                          applied.ThrustDirectionCci);
+                }
+            }
+            else
+            {
+                Swing(applied.ThrustDirectionCci, h,
+                      powered || double.IsNaN(UnpoweredAttitudeRateDegPerSec) ? AttitudeRateDegPerSec : UnpoweredAttitudeRateDegPerSec);
+            }
 
             double q = 0.5 * density * SeaLevelDensity * Vec.Len2(airflow);
             peakQ = Math.Max(peakQ, q);
@@ -339,7 +555,17 @@ internal sealed class IcbmFlightRig
     {
         double wanted = command.EngineOn ? Math.Clamp(command.Throttle, MinThrottle, 1.0) : 1.0;
 
-        if (ThrottleRatePerSecond <= 0.0)
+        bool solid = StageIndex < Stages.Count && Stages[StageIndex].Solid;
+
+        if (LeverMovesUnderSolids && ThrottleRatePerSecond > 0.0)
+        {
+            double move = double.IsInfinity(ThrottleRatePerSecond) ? double.PositiveInfinity : ThrottleRatePerSecond * step;
+            _lever += Math.Clamp(wanted - _lever, -move, move);
+            ThrottleAchieved = solid ? 1.0 : _lever;
+            return;
+        }
+
+        if (ThrottleRatePerSecond <= 0.0 || solid)
         {
             ThrottleAchieved = 1.0;
             return;
@@ -356,13 +582,47 @@ internal sealed class IcbmFlightRig
         ThrottleAchieved += Math.Clamp(error, -limit, limit);
     }
 
-    private void Swing(double3 wanted, double step)
+    private double ThrustAcceleration(double density)
+    {
+        if (StageIndex >= Stages.Count) return 0.0;
+        double mass = MassAbove(StageIndex);
+        return mass > 0.0 ? Stages[StageIndex].ThrustAt(density) * Math.Clamp(ThrottleAchieved, 0.0, 1.0) / mass : 0.0;
+    }
+
+    // A sampled controller of the shape KSA's gimbal law has: the rate at which it could still stop
+    // on the target at half its authority, reached as fast as the authority allows, held for one period.
+    private void Turn(double3 wanted, double step, double authority)
+    {
+        _controlIn -= step;
+        double3 want = Vec.Unit(wanted);
+
+        if (_controlIn <= 0.0 && !want.Equals(Vec.Zero))
+        {
+            _controlIn += AttitudeControlPeriodSeconds;
+
+            double angle = Vec.AngleBetween(_pointing, want);
+            double3 cross = Vec.Cross(_pointing, want);
+            double3 axis = Vec.Len2(cross) > 1e-18 ? Vec.Unit(cross) : Vec.Zero;
+            double3 desired = axis * Math.Sqrt(authority * angle);
+            double3 alpha = (desired - _omega) / AttitudeControlPeriodSeconds;
+            double len = Vec.Len(alpha);
+            _alpha = len > authority && len > 0.0 ? alpha * (authority / len) : alpha;
+        }
+
+        _omega += _alpha * step;
+        _omega -= _pointing * Vec.Dot(_omega, _pointing);
+
+        double turn = Vec.Len(_omega) * step;
+        if (turn > 0.0) _pointing = Vec.Unit(doubleQuat.CreateFromAxisAngle(Vec.Unit(_omega), turn) * _pointing);
+    }
+
+    private void Swing(double3 wanted, double step, double rateDegPerSec)
     {
         double3 want = Vec.Unit(wanted);
         if (want.Equals(Vec.Zero)) return;
-        if (AttitudeRateDegPerSec <= 0.0) { _pointing = want; return; }
+        if (rateDegPerSec <= 0.0) { _pointing = want; return; }
 
-        double limit = AttitudeRateDegPerSec * Math.PI / 180.0 * step;
+        double limit = rateDegPerSec * Math.PI / 180.0 * step;
         double angle = Vec.AngleBetween(_pointing, want);
         if (angle <= limit) { _pointing = want; return; }
 
@@ -392,22 +652,25 @@ internal sealed class IcbmFlightRig
         double mass = MassAbove(StageIndex);
         double3 acceleration = Body.GravityCci(PositionCci);
 
-        if (DragAreaOverMass > 0.0 && density > 0.0)
+        double areaOverMass = DragAreaM2 > 0.0 && mass > 0.0 ? DragAreaM2 / mass : DragAreaOverMass;
+        if (areaOverMass > 0.0 && density > 0.0)
         {
             double speed = Vec.Len(airflow);
-            acceleration -= airflow * (0.5 * density * SeaLevelDensity * speed * DragAreaOverMass);
+            acceleration -= airflow * (0.5 * density * SeaLevelDensity * speed * areaOverMass);
         }
 
         double throttle = Math.Clamp(ThrottleAchieved, 0.0, 1.0);
 
-        bool burning = command.EngineOn && throttle > 0.0
+        bool solid = StageIndex < Stages.Count && Stages[StageIndex].Solid && _lit;
+
+        bool burning = (command.EngineOn || solid) && throttle > 0.0
                        && StageIndex < Stages.Count && Stages[StageIndex].PropellantKg > 0.0;
 
         if (burning && mass > 0.0)
         {
             Stage s = Stages[StageIndex];
-            double burnt = Math.Min(s.PropellantKg, s.MassFlow * throttle * step);
-            double thrustAccel = s.ThrustNewtons * throttle / mass;
+            double burnt = Math.Min(s.PropellantKg, s.MassFlowNow() * throttle * step);
+            double thrustAccel = s.ThrustAt(density) * throttle / mass;
             _peakThrustGee = Math.Max(_peakThrustGee, thrustAccel / 9.80665);
             acceleration += _pointing * thrustAccel;
             s.PropellantKg -= burnt;

@@ -47,8 +47,8 @@ public static class InstalledPacks
                     continue;
 
                 case PackAvailability.Disabled:
-                    Log.Warn($"pack '{id}' carries weapons but the mod is disabled in manifest.toml, "
-                             + "so its parts are not loaded and its weapons are not registered");
+                    Log.Warn($"pack '{id}' carries definitions but the mod is disabled in manifest.toml, "
+                             + "so its parts are not loaded and nothing in it is registered");
                     continue;
             }
 
@@ -66,6 +66,15 @@ public static class InstalledPacks
         catch (IOException e)
         {
             Log.Warn($"pack '{id}': {Path.GetFileName(file)} cannot be read - {e.Message}");
+            return;
+        }
+
+        // A bodies file sits beside the weapon packs and is told from one by its root: handed to the pack
+        // reader it would be refused as a pack on every load.
+        if (BodyReader.IsBodies(definitions))
+        {
+            foreach (PackFault fault in BodyCatalogue.Register(definitions, id)) Log.Warn(fault.ToString());
+            Log.Info($"pack '{id}': {Path.GetFileName(file)} describes bodies");
             return;
         }
 

@@ -44,6 +44,8 @@ internal sealed class ScenarioRunner
 
     private readonly Config _config;
     private Phase _phase = Phase.Idle;
+    private Config? _before;
+    private Log.Level _thresholdBefore;
 
     private string _name = string.Empty;
     private TestTarget.Profile _profile;
@@ -58,9 +60,15 @@ internal sealed class ScenarioRunner
     // Which variant each rocket flies, when a batch is comparing two inside one world. Null is the
     // ordinary case: every rocket flies whatever was built.
     private ShotArms? _arms;
+    private bool _holdKeys;
     private string _armSpec = string.Empty;
     private bool _keepStages;
     private bool _traceWarhead;
+
+    // Select a launcher other than the bus on each rocket before it flies, as an operator would
+    // from the panel. The computer must still release through the bus.
+    private bool _selectOther;
+    private readonly List<WeaponSystems.Entry> _selectScratch = [];
     private int _armPhase;
 
     private bool _isBallistic;
@@ -134,7 +142,7 @@ internal sealed class ScenarioRunner
     // measurement of the budget.
     private const double BallisticSimBudgetSeconds = 5400.0;
 
-    // The world needs a few seconds after load before a craft is flyable and a battery is crewed.
+    // The world needs a few seconds after load before a craft is flyable and a system is crewed.
     private const double SettleSeconds = 4.0;
 
     public ScenarioRunner(Config config, WarpPolicy warp, Func<WeaponSystem, BombSightOverlay> sightFor)
@@ -172,6 +180,21 @@ internal sealed class ScenarioRunner
     // flight joined mid-ascent is a differently conditioned shot rather than a spare one.
     private bool _crewed;
 
+    private void SelectOther(WeaponSystems roster, Vehicle craft)
+    {
+        roster.AllOn(craft, _selectScratch);
+        foreach (WeaponSystems.Entry entry in _selectScratch)
+        {
+            if (Catalogue.ProvidesGuidance(entry.Weapon.Profile.PartId)) continue;
+
+            roster.Select(craft, entry.Ordinal);
+            Report($"{_name}: selected {entry.DisplayName} on {KsaWorld.DisplayName(craft)}, not the bus");
+            return;
+        }
+
+        Report($"{_name}: nothing but the bus on {KsaWorld.DisplayName(craft)} to select");
+    }
+
     private void CrewTheFlights(WeaponSystems roster, IcbmComputers? icbms)
     {
         if (_crewed || icbms is null) return;
@@ -184,7 +207,7 @@ internal sealed class ScenarioRunner
             // provides guidance, whatever its weapon can reach. Counting one that cannot among our
             // shooters leaves the real rocket with nothing to aim at, and it falls back to bare
             // ground -- flown, and it moved the shot from 12,902 km to 6,261.
-            if (!BallisticScenario.CouldReachTheAim(computer, roster.For(computer.Craft)?.Battery,
+            if (!BallisticScenario.CouldReachTheAim(computer, roster.GuidedFrom(computer.Craft)?.Weapon,
                                                     _shot))
             {
                 continue;
@@ -202,6 +225,8 @@ internal sealed class ScenarioRunner
                 Report($"{_name}: {KsaWorld.DisplayName(computer.Craft)} flies arm {drawn.Describe()}");
                 _armFlown.Add(drawn.Name);
             }
+
+            if (_selectOther) SelectOther(roster, computer.Craft);
 
             _shooters.Add(computer.Craft);
             _flights.Add(new BallisticScenario(
@@ -249,10 +274,9 @@ internal sealed class ScenarioRunner
         if (!allDone) return;
 
         // Not FinishAll yet. WarheadTrace reports from a poll on the frame AFTER the round stops
-        // flying, and the last impact and END landed in the same millisecond -- so the arm that
-        // lands last never reported at all. On a paired night that is one whole arm: the walk night
-        // of 2026-09-08 traced 8 away and 4 landed in every one of its fourteen shots, all four
-        // baseline. Invisible on a single-arm night, where the roster lands in one window.
+        // flying, and the last impact and END can land in the same millisecond -- so the arm that
+        // lands last would never report at all. On a paired night that is one whole arm; on a
+        // single-arm night the roster lands in one window and it cannot show.
         _phase = Phase.Settling;
         _settleFrom = _elapsed;
     }
@@ -312,8 +336,8 @@ internal sealed class ScenarioRunner
 
     // One world, one clock, and every flight in it has an opinion -- so the requests are collected
     // and the slowest wins rather than each flight writing the speed and the last one winning.
-    // Sim/WorldSpeed.cs holds the rule. With one rocket this is exactly what the scenario used to
-    // do to itself; with several it is the difference between a shot flown at the speed it chose
+    // Sim/WorldSpeed.cs holds the rule. With one rocket this is the rocket's own request; with
+    // several it is the difference between a shot flown at the speed it chose
     // and one flown at whichever speed another rocket happened to want.
     private readonly List<double> _wantedSpeeds = [];
 
@@ -379,6 +403,12 @@ internal sealed class ScenarioRunner
     {
         if (_phase != Phase.Idle || string.IsNullOrWhiteSpace(request)) return;
 
+        // Everything below overrides the player's own settings for the flight. A game kept open
+        // after END is somebody's session again, and one left with the shader pass off draws every
+        // tracer as a debug line.
+        _before = _config.Snapshot();
+        _thresholdBefore = Log.Threshold;
+
         // The request is the first line; the arm spec and its phase are the two after it, and a
         // one-line file is still the whole of the single-arm case.
         // Trimmed per line rather than over the whole text: the file is written from WSL and read
@@ -393,14 +423,16 @@ internal sealed class ScenarioRunner
         // because the game is a Windows process launched from WSL and the environment does not
         // survive that -- the same reason the request itself travels this way.
         //
-        // A set rather than one token, because the second option was wanted the moment there was
-        // one: an equality test against the whole line silently ignores every flag but the first.
+        // A set rather than one token: an equality test against the whole line silently ignores
+        // every flag but the first.
         string[] options = lines.Length > 3
             ? lines[3].Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             : [];
 
         _keepStages = Array.IndexOf(options, "keepstages") >= 0;
         _traceWarhead = Array.IndexOf(options, "trace") >= 0;
+        _selectOther = Array.IndexOf(options, "selectother") >= 0;
+        _holdKeys = Array.IndexOf(options, "holdkeys") >= 0;
 
         // Nobody can tick Verbose log in a scripted run, and the developer detail -- the per-part
         // blast sweep among it -- is only ever wanted from one.
@@ -413,10 +445,10 @@ internal sealed class ScenarioRunner
         // from a camera riding three metres behind the bomb that made it.
         _showClouds = Array.IndexOf(options, "clouds") >= 0;
 
-        // The pass IS the cloud, so it follows the cloud switch rather than having one of its own.
+        // The cloud follows the cloud switch rather than having one of its own. At zero the pass still
+        // runs and paints the rings, holes and tracers; only a burst's own visuals are off.
         // Timing runs either way: a run with the cloud off is the baseline the other is read
-        // against, and a number with no control is what made this instrument look decisive before
-        // it had said anything.
+        // against, and a number with no control looks decisive before it has said anything.
         // "noshader" keeps the cloud and its pinned camera and turns only the PASS off, which is
         // the control: same scene, same view, one variable. Without it a baseline run is framed
         // differently from the run it is meant to be read against.
@@ -427,12 +459,12 @@ internal sealed class ScenarioRunner
         // a bus's six warheads land about 9 mm apart and are deliberately one cloud, and the only
         // shot that spreads them is a multi-target ballistic run whose coast is hours long.
         // "twoclouds" or "twoclouds=<multiple>". The multiple is on the SECOND burst's yield, so
-        // one run can carry two different sizes -- which is the only way the airless dome has been
-        // looked at anywhere but the B61's third of a kilotonne.
+        // one run can carry two different sizes -- which is the only way to look at the airless dome
+        // at anything but the B61's third of a kilotonne.
         // "cloudwarp=<n>": run the LINGER at that speed, which nothing else does. The drop's own
         // warp argument is handed back the instant the store lands, deliberately -- the hand-back
-        // should not be watched at warp -- so the cloud, the mark and the fireball had never been
-        // advanced at anything but 1x. A speed of 0 pauses instead, which is the other half of the
+        // should not be watched at warp -- so without this the cloud, the mark and the fireball are
+        // never advanced at anything but 1x. A speed of 0 pauses instead, which is the other half of the
         // same question.
         _cloudWarp = 1.0;
         _stillAt = -1.0;
@@ -478,6 +510,11 @@ internal sealed class ScenarioRunner
 
         _twoClouds = false;
         _secondYield = 1.0;
+
+        // "fuse=<m>" and "chute=<m/s>": the store bursts that far over the ground, under a chute that
+        // brings it down that fast -- an air burst dropped for real rather than set off by the bridge.
+        _fuse = OptionNumber(options, "fuse=");
+        _chute = OptionNumber(options, "chute=");
 
         foreach (string option in options)
         {
@@ -629,6 +666,29 @@ internal sealed class ScenarioRunner
         Report($"{_name}: START profile={_profile} save='{_save}'");
     }
 
+    private double _fuse;
+    private double _chute;
+
+    // A non-negative number after a prefix in the option list, or zero where there is none.
+    private static double OptionNumber(IEnumerable<string> options, string prefix)
+    {
+        foreach (string option in options)
+        {
+            if (!option.StartsWith(prefix, StringComparison.Ordinal)) continue;
+
+            if (double.TryParse(option[prefix.Length..], System.Globalization.NumberStyles.Float,
+                                System.Globalization.CultureInfo.InvariantCulture, out double value)
+                && value >= 0.0)
+            {
+                return value;
+            }
+
+            Log.Warn($"scenario: ignored '{option}' -- it is {prefix}<number>");
+        }
+
+        return 0.0;
+    }
+
     private void BeginDrop(string arguments)
     {
         if (!DropScenario.Request.TryParse(arguments, out DropScenario.Request drop, out string trouble))
@@ -645,6 +705,8 @@ internal sealed class ScenarioRunner
             StillAt = _stillAt,
             SecondBurst = _twoClouds,
             SecondBurstYield = _secondYield,
+            FuseMetres = _fuse,
+            ChuteSink = _chute,
         };
 
         // Same allowance the gunnery run makes: a site is usually another body, the full system
@@ -763,6 +825,9 @@ internal sealed class ScenarioRunner
         if (_phase is Phase.Idle or Phase.Done) return;
         if (!double.IsFinite(playerStep) || playerStep <= 0.0) return;
 
+        // The UI holding the keyboard is what an open popup does to the rocket being flown, without the popup.
+        if (_holdKeys) KsaWorld.HoldTheKeyboard();
+
         // Nobody is there to click a popup away, and an open one holds the controlled rocket's throttle.
         IReadOnlyList<string> closed = KsaWorld.CloseEnginePopups();
         if (closed.Count > 0)
@@ -797,7 +862,7 @@ internal sealed class ScenarioRunner
         WeaponSystems.Entry? entry = null;
         foreach (WeaponSystems.Entry e in roster.All)
         {
-            if (e.Battery.Platform is not null && e.Battery.Launcher is not null) { entry = e; break; }
+            if (e.Weapon.Platform is not null && e.Weapon.Launcher is not null) { entry = e; break; }
         }
 
         switch (_phase)
@@ -852,15 +917,15 @@ internal sealed class ScenarioRunner
                         _lastComplaint = _elapsed;
                         Report($"{_name}: waiting -- "
                                + (KsaWorld.InFlight ? "in flight" : "NO CRAFT IN FLIGHT")
-                               + ", " + (entry is null ? "NO BATTERY CREWED" : "battery crewed"));
+                               + ", " + (entry is null ? "NO SYSTEM CREWED" : "system crewed"));
                     }
                     return;
                 }
 
                 if (_elapsed < SettleSeconds) return;
 
-                Report($"{_name}: crewed {KsaWorld.DisplayName(entry.Battery.Platform!)} "
-                       + $"with {entry.Battery.Profile.DisplayName}");
+                Report($"{_name}: crewed {KsaWorld.DisplayName(entry.Weapon.Platform!)} "
+                       + $"with {entry.Weapon.Profile.DisplayName}");
                 _phase = Phase.Arming;
                 return;
 
@@ -872,7 +937,7 @@ internal sealed class ScenarioRunner
                 entry.Policy.GunsEnabled = true;
                 _config.DrawOverlays = true;
 
-                Report($"{_name}: auto-engage on, {entry.Battery.Ammo} rounds");
+                Report($"{_name}: auto-engage on, {entry.Weapon.Ammo} rounds");
 
                 if (_chase) RideTheChase(entry);
 
@@ -882,7 +947,7 @@ internal sealed class ScenarioRunner
             case Phase.Engaging:
                 if (entry is null) return;
 
-                if (_speeds.Length > 0) StepWorldSpeeds(entry.Battery, playerStep);
+                if (_speeds.Length > 0) StepWorldSpeeds(entry.Weapon, playerStep);
 
                 if (_gunnery is not null)
                 {
@@ -904,7 +969,7 @@ internal sealed class ScenarioRunner
         _config.DiagnosticIntervalSeconds = ChaseDumpSeconds;
         _budget += ChaseSettleSeconds + (SpeedHoldSeconds * _speeds.Length);
 
-        bool onIt = KsaWorld.GoTo(entry.Battery.Platform);
+        bool onIt = KsaWorld.GoTo(entry.Weapon.Platform);
         string speeds = _speeds.Length > 0
             ? $", then {string.Join(", ", Array.ConvertAll(_speeds, s => $"{s:0.###}x"))} for {SpeedHoldSeconds:F0} s each"
             : string.Empty;
@@ -939,13 +1004,13 @@ internal sealed class ScenarioRunner
 
     private void Engage(WeaponSystems.Entry entry, double dt)
     {
-        WeaponSystem battery = entry.Battery;
+        WeaponSystem system = entry.Weapon;
 
         if (!_spawned)
         {
             // The same numbers the panel's buttons use, so a scenario reproduces what a person
             // would have clicked rather than a case only the harness can produce.
-            if (TestTarget.Spawn(battery.Platform!, _profile, 30.0, 300.0, 1500.0, "Gemini7") is not { } target)
+            if (TestTarget.Spawn(system.Platform!, _profile, 30.0, 300.0, 1500.0, "Gemini7") is not { } target)
             {
                 Finish("FAIL could not spawn a target");
                 return;
@@ -960,11 +1025,11 @@ internal sealed class ScenarioRunner
 
         _sinceSpawn += dt;
 
-        if (_blackoutKt > 0.0 && _blackoutAt < 0.0 && battery.Radar.Tracks.Count > 0
+        if (_blackoutKt > 0.0 && _blackoutAt < 0.0 && system.Radar.Tracks.Count > 0
             && _blackoutTarget is { } held)
         {
             _blackoutAt = _sinceSpawn;
-            BurstBetween(battery.Platform!, held);
+            BurstBetween(system.Platform!, held);
         }
 
         if (_blackoutAt >= 0.0 && _sinceSpawn - _blackoutAt <= BlackoutWatchSeconds
@@ -972,35 +1037,35 @@ internal sealed class ScenarioRunner
         {
             _blackoutReported = _sinceSpawn;
             Report($"{_name}: blackout +{_sinceSpawn - _blackoutAt:F1} s -- "
-                   + $"{battery.Radar.Tracks.Count} track(s), "
-                   + $"{battery.Radar.MaskedByBurst} behind the fireball, "
-                   + $"locked {(battery.Radar.Locked is null ? "nothing" : "the target")}");
+                   + $"{system.Radar.Tracks.Count} track(s), "
+                   + $"{system.Radar.MaskedByBurst} behind the fireball, "
+                   + $"locked {(system.Radar.Locked is null ? "nothing" : "the target")}");
         }
 
         // The first round leaving is the moment worth a picture: it shows the launcher, the round
         // on its way and the plume, which is most of what a screenshot can settle.
-        if (!_capturedLaunch && battery.Rounds.Count > 0)
+        if (!_capturedLaunch && system.Rounds.Count > 0)
         {
             _capturedLaunch = true;
             Report($"{_name}: CAPTURE launch");
         }
 
-        foreach (IProjectile round in battery.Rounds)
+        foreach (IProjectile round in system.Rounds)
         {
             if (round.State == RoundState.Detonated)
             {
                 Finish($"PASS detonated {round.MissDistance:F1} m from the target "
-                       + $"after {round.Age:F1} s, {battery.Ammo} rounds left");
+                       + $"after {round.Age:F1} s, {system.Ammo} rounds left");
                 return;
             }
         }
 
-        // Rounds are reaped, so a detonation can be missed between frames. The battery's own
+        // Rounds are reaped, so a detonation can be missed between frames. The system's own
         // count falling with nothing in the air is the same news arriving late.
-        if (_sinceSpawn > 15.0 && battery.Rounds.Count == 0 && battery.Ammo < battery.Profile.TubeCount)
+        if (_sinceSpawn > 15.0 && system.Rounds.Count == 0 && system.Ammo < system.Profile.TubeCount)
         {
-            Finish($"PASS engagement over, {battery.Ammo} rounds left "
-                   + "(outcome from the battery, not a round -- see the lines above)");
+            Finish($"PASS engagement over, {system.Ammo} rounds left "
+                   + "(outcome from the system, not a round -- see the lines above)");
         }
     }
 
@@ -1054,6 +1119,9 @@ internal sealed class ScenarioRunner
         for (int i = 0; i < _flights.Count; i++) _flights[i].Release();
         _drop?.Release();
         _gunnery?.Release();
+
+        if (_before is not null) _config.Restore(_before);
+        Log.Threshold = _thresholdBefore;
         Report($"{_name}: {outcome}");
         Report($"{_name}: END");
     }

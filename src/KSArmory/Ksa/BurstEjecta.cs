@@ -26,6 +26,9 @@ internal static class BurstEjecta
     private const string ShellId = "KSArmoryNuclearShell";
     private const string WilsonId = "KSArmoryNuclearWilson";
 
+    // The condensation shell's optical depth through its middle: translucent, as the films show it.
+    private const double WilsonDepth = 4.0;
+
     private static bool _warned;
 
     /// <summary>
@@ -77,8 +80,8 @@ internal static class BurstEjecta
             }
 
             // Said whatever happens, including when nothing is thrown. Reporting only the case
-            // that drew something is what made a burst drawing half its effect look like a burst
-            // the mod had never seen: the shell fired, the dust did not, and the log was silent.
+            // that drew something makes a burst drawing half its effect look like a burst the mod
+            // never saw: the shell fires, the dust does not, and the log is silent.
             string ejecta = $"no ejecta: a {fireball:F0} m fireball does not reach the ground";
 
             if (AirlessBurst.ThrowsEjecta(chargeKg, burstAltitudeMetres))
@@ -101,8 +104,8 @@ internal static class BurstEjecta
 
                         // The same spread the emitter throws with, because the two are one fact:
                         // a grain that leaves 25% fast flies 25% longer. Ranged independently, the
-                        // fast grains were deleted at the top of their climb and the slow ones went
-                        // on falling after they had arrived.
+                        // fast grains would be deleted at the top of their climb and the slow ones
+                        // go on falling after they had arrived.
                         e.ParticleInfo.Lifespan = new float2(
                             (float)(thrown.FlightSeconds * (1.0 - AirlessBurst.SpeedSpread)),
                             (float)(thrown.FlightSeconds * (1.0 + AirlessBurst.SpeedSpread)));
@@ -161,10 +164,15 @@ internal static class BurstEjecta
                 VelocityBub = double3.Zero,
             };
 
+            // KSA's volumetric particle takes its density per METRE: the depth to the sun through it is
+            // about 0.31 x radius x density, and along the view 1.12 x (Shared.glsl, Volumetric.comp).
+            // At the emitter's own opacity a sphere a kilometre across is hundreds deep and draws as black
+            // smoke, so the density is set against the radius to keep the shell translucent at any size.
             Fire(WilsonId, body, origin, e =>
             {
                 e.ParticleInfo.Size = new float2((float)radius, (float)radius);
                 e.ParticleInfo.Lifespan = new float2((float)seconds, (float)seconds);
+                e.Opacity = (float)(WilsonDepth / (1.12 * radius));
             });
 
             Log.Info($"condensation cloud: {radius:F0} m for {seconds:F2} s");
