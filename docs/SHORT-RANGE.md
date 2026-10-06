@@ -576,8 +576,21 @@ the ramp ends at 0.03); plus the loss measured between solves (Liquid3 5.5 mm, L
 holding the drag offset once the ramp passes 30 s (still hovered: with the drag solve off the shot closed in 79 s
 and landed 336 m out, so the moving offset is how the stack is slowed into the hover, not what holds it there);
 and gravity added only once the ramp passes 30 s (no hover, closed in 2.5-3 min, but cut off 2.9 m/s short with
-the arrival still flipping: 24.8 m and 26.1 m; GeoSat FAT untouched at 2.5 mm). Next: stop the closed loop
-re-pinning onto a near-radial transfer, and a rig fixture that ends over its target.
+the arrival still flipping: 24.8 m and 26.1 m; GeoSat FAT untouched at 2.5 mm).
+
+**It reproduces in the rig** (`ShortShotHoverTests`, a study): the Real Liquid2 fixture with the Mk 21 aboard, so the
+drag solve runs, closes at 12 and 20 m^2 of drag and hovers at 30 and 45 m^2, stood still at 1.67 km with the arrival
+re-pinned every other solve, as flown. Without the warhead the drag solve never runs and nothing stalls, which is why
+the first fixture did not. Two phases: first the drag offset walks the aim at 100-250 m/s while the stack climbs out of
+thick air, a loss the two-second ramp settles against; then gravity under the re-pinned arrival.
+
+Also not in, from the rig and three flights: the loss measured over half a second and carried once the ramp has run
+10 s, with the hold and the slowed line both counting the net closure rather than the thrust. In the rig it closed all
+four drag areas at 0.10-0.18 m/s, and 1.51 at 45 m^2; flown, both liquids stopped hovering -- 46-54 s instead of twelve
+minutes -- but bottomed out 1.5 m/s short with the aim still walking at ~100 m/s, and the 2 m/s backstop cut them off
+2.1-2.5 m/s short: 65-116 m. Real SRB4 at 25 km and Real Liquid2 at 150 km were untouched, 1.8 and 7.1 mm.
+Next: the rig's aim walks far slower than the game's at the end, so the fixture needs the flown offset rate before
+the next attempt is worth a flight; and stop the closed loop re-pinning onto a near-radial transfer.
 
 **A hot core overshot its cutoff, fixed** (Real SRB4, 500 and 700 km; `IcbmConfig.ShortShotBackstopsAtTheTrim`,
 on). Its core makes 7-13 g, and at its 0.12 floor still 0.8 g, so the ramp's last seconds are spent on the
