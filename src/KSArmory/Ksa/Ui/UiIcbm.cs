@@ -935,9 +935,9 @@ internal sealed partial class Ui
         Tip(config.AscentReserveSeconds > 0.0
                 ? $"The pitch programme throttles back once less than {config.AscentReserveSeconds:F0} s "
                   + "of burning is left, so a short shot reaches thin air with something still to gain "
-                  + "rather than kilometres a second too much. Unflown."
-                : "0: the pitch programme flies wide open whatever the shot needs. A short shot then "
-                  + "overshoots and spends the upper stage braking; flown at 418 km that ran dry.");
+                  + "rather than kilometres a second too much."
+                : "0: 15 s while flying any range is on, which supplies it; wide open only with that off, where a "
+                  + "short shot overshoots and spends the upper stage braking -- flown at 418 km, it ran dry.");
 
         bool separateEarly = config.SeparateAtCutoff;
         if (ImGui.Checkbox("Drop the spent stack at cutoff", ref separateEarly))

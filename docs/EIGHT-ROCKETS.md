@@ -93,6 +93,8 @@ and it is printed on every one of those lines already.
 
 ## What to do, ranked
 
+**Historical as of 2026-10-06.** The current ranking is `docs/ICBM-OUTSTANDING.md`.
+
 **0a. Fly it spread. Two thirds of every short-range shot was never measured.** `docs/MIRV-NEXT.md`
 **8ah**: a Mk 21's 2.0 km lethal radius reaches other warheads, so eight groups on one aim point are
 eight groups inside each other's kill radius and the first one down destroys the rest — three of

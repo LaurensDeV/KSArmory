@@ -703,7 +703,8 @@ booster aimed. See *Phase 3 found two things* above.
   what `ReleaseLoop` is built around. **Unflown either way.**
 * **Release before or after the aim correction for target 1?** Today the correction runs once. With several
   targets it runs once per target; whether the first one's can be shortened is a phase 0 question.
-* **What the player sees in flight**: which target the bus is currently aimed at, and a countdown per target.
+* ~~**What the player sees in flight**~~: built -- the panel says which stop the bus is on, and each target's mark
+  carries its own countdown (`Ksa/IcbmOverlay.cs`).
 
 ## Flown: a bus that went to two places — 2026-09-21
 

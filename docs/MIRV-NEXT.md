@@ -5,7 +5,8 @@ Everything below is either measured in flight or explicitly marked as untested. 
 
 **Most of it is now a record rather than a plan**, and the item numbers are the addressing scheme —
 forty-three references from other docs and from source comments point at them, so a section keeps
-its number wherever its state ends up. What is still open:
+its number wherever its state ends up. **The table below is historical as of 2026-10-06**; what is open now for
+the ballistic computer and the bus is ranked in `docs/ICBM-OUTSTANDING.md`. What was open when it was written:
 
 | | |
 | --- | --- |

@@ -1,8 +1,9 @@
-# Short-range ballistic shots (100–1,000 km)
+# Short-range ballistic shots (25–1,000 km)
 
 **Built and flown, with the plan it started from.** Every range from 25 to 2,000 km flies and lands on the game's
-stack with `FlyAnyRange` and the short-shot settings on by default, flown 2026-10-04/05: the low arcs to
-millimetres (3-37 mm on GeoSat FAT, 25-300 km) and the high arcs to metres. Start at "Any range, any stack" for what is built and why. The sections before
+stack with `FlyAnyRange` and the short-shot settings on by default. On 2026-10-06's defaults four rockets land at a
+median of 1.4-6.9 mm from 25 to 700 km, one flight a cell, with the 25 km liquids still hovering before they do; the
+matrix and what is open are near the end. Start at "Any range, any stack" for what is built and why. The sections before
 it are the 2026-10-03 plan, kept for its measurements; the sections after it are the next steps and are not
 built.
 
@@ -664,5 +665,5 @@ Last: M8's scan refined only when the best coarse sample is in the first bins, a
 
 ## Not in scope
 
-Ranges under ~100 km (a tactical missile with its own stack); depressed or terrain-following trajectories;
+Depressed or terrain-following trajectories;
 multi-target walks under ~485 s of coast — they collapse to one stop, and the reach display should say so.

@@ -325,11 +325,8 @@ internal sealed class IcbmConfig
     /// Size was always the wrong question: a steep arrival asks 7–11 m/s where a shallow one asks
     /// 2.45, and asks once, while a runaway grows by an order of magnitude a pass.</para>
     ///
-    /// <para><b>Off, and off is what ships.</b> It licenses a 10–20 m/s correction whose size
-    /// tracks a disagreement about the arrival rather than a decoupler's shove, and whether that is
-    /// the trim earning its propellant or chasing a stale arrival has not been flown.
-    /// <c>docs/EIGHT-ROCKETS.md</c> item 1, and <c>docs/METRE-LEVEL.md</c> B1, where it is one of
-    /// three things blocking the arrival angle that gets the miss under fifty metres.</para>
+    /// <para><b>Off: flown and harmful</b> -- 0 of 32 corrections paid back against 12 without it, and four
+    /// shots 54-105x worse. <c>docs/ACCURACY-PLAN.md</c> ~L11117.</para>
     /// </summary>
     public bool TrimCeilingFromBudget;
 
@@ -349,10 +346,8 @@ internal sealed class IcbmConfig
     /// 200 km, this clamps it and the shot still misses, with the propellant unspent rather than
     /// wasted.</para>
     ///
-    /// <para><b>Off, and off is what ships.</b> Twelve paired shots at 2,000 km put it at
-    /// <b>0.85x</b> over the shipped default, 9 wins of 12, sign p=0.146 — the interval is
-    /// [0.53, 1.14], so it rules out anything worse than 1.14x and does not rule out nothing at
-    /// all. It is the only setting here that has never lost.</para>
+    /// <para><b>Off: flown and does not help.</b> 0.85x over twelve paired shots, then 1.11x [0.94, 1.29] over
+    /// fourteen, the interval now excluding anything better than 0.94x. <c>docs/ACCURACY-PLAN.md</c> 3br.</para>
     /// </summary>
     public bool AimWithinTrimBudget;
 
@@ -812,7 +807,8 @@ internal sealed class IcbmConfig
     /// gain stays far above any reserve until handover, so it never engages there.
     /// <c>docs/SHORT-RANGE.md</c> Step 2.</para>
     ///
-    /// <para><b>Off, and unflown.</b></para>
+    /// <para><b>Zero here, and 15 s under <see cref="FlyAnyRange"/></b>, which supplies it whatever this says. Flown
+    /// at 15 s at 418 km. <c>docs/SHORT-RANGE.md</c>.</para>
     /// </summary>
     public double AscentReserveSeconds;
 
@@ -1184,8 +1180,8 @@ internal sealed class IcbmConfig
     /// about <b>3.5 m</b> — <see cref="WarheadFootprint.WidestAt"/> is the number for a given
     /// flight. Past it the kick is refused and the warhead flies the group's aim, which from outside
     /// looks exactly like this setting doing nothing, so the log says which happened. The probe's own
-    /// miss kick shares the cap: flown at 2 m on a 6,179 km shot the largest kick was 7.07 mm/s, so
-    /// refusals begin under 3 m (<c>docs/ACCURACY-PLAN.md</c> 3ek).</para>
+    /// miss kick has its own caps, <see cref="LongShotMissKickMetresPerSecond"/> and
+    /// <see cref="ShortShotMissKickMetresPerSecond"/>.</para>
     ///
     /// <para><b>It is not a MIRV footprint.</b> Against a 706 m fireball and a 2 km lethal radius,
     /// 3.5 m is nothing. Real per-target spread needs the bus to manoeuvre between releases, and the
