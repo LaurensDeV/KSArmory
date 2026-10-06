@@ -66,6 +66,7 @@ internal sealed class IcbmComputer
     private readonly ProximityWatch _proximity = new();
     private double3 _keepOutTowardCci;
     private bool _saidProximity;
+    private bool _saidStalled;
     private bool _saidCleared;
     private readonly PostBoostAim _postBoost = new();
     private bool _postBoostSaid;
@@ -841,6 +842,12 @@ internal sealed class IcbmComputer
         bool wasBurning = Program.IsBurning;
         Command = Program.Update(simStep, state);
         ReportLongStep(wasBurning, simStep, state);
+
+        if (!_saidStalled && Command.Hold.StartsWith("cutoff stalled", StringComparison.Ordinal))
+        {
+            _saidStalled = true;
+            Log.Info($"{KsaWorld.DisplayName(Craft)} ICBM: {Command.Hold}");
+        }
 
         CollectShedStages();
         DisposeShedStages();

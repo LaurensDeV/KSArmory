@@ -298,6 +298,12 @@ internal sealed class IcbmProgram
     /// </summary>
     public const double ThrottleDownSeconds = 2.0;
 
+    /// <summary>
+    /// How long the last seconds' throttle-down may run before the program says it has stalled. A closing one lasts
+    /// 10-15 s; a liquid stack stood still over a 25 km target held one for twelve minutes. <c>docs/SHORT-RANGE.md</c>.
+    /// </summary>
+    public const double StalledRampSeconds = 30.0;
+
     /// <summary>The least thrust worth commanding. Below this, engines misbehave and so does the maths.</summary>
     public const double MinCommandedThrottle = 0.03;
 
@@ -413,6 +419,7 @@ internal sealed class IcbmProgram
     // What the running stage cannot be stopped from adding, as of the last solve, and whether the
     // arc was lofted to need exactly that.
     private double _unavoidable;
+    private double _secondsInTheRamp;
     private bool _absorbing;
 
     // Whether the closed loop took over at the top of a climb still inside the air.
@@ -696,6 +703,7 @@ internal sealed class IcbmProgram
         ThrottleAtCutoff = double.NaN;
         LongestStepWhileBurning = 0.0;
         _arrivalFromLaunch = double.NaN;
+        _secondsInTheRamp = 0.0;
         _reachHold = "";
         _reachIfNoArc = IcbmReach.NoTrajectory;
         _sinceWindow = double.PositiveInfinity;
@@ -1519,6 +1527,7 @@ internal sealed class IcbmProgram
             return Coasting(state);
         }
 
+        _secondsInTheRamp = _countdown < ThrottleDownSeconds ? _secondsInTheRamp + _lastStep : 0.0;
         _throttle = ThrottleDownSeconds > 0.0 && _countdown < ThrottleDownSeconds
                   ? Math.Clamp(_countdown / ThrottleDownSeconds, MinCommandedThrottle, 1.0)
                   : 1.0;
@@ -1554,7 +1563,10 @@ internal sealed class IcbmProgram
                                       && Vec.AngleBetween(state.ThrustAxisCci, limited) > double.DegreesToRadians(AlignBeforeBurningDeg));
         }
 
-        return Fly(IcbmPhase.ClosedLoop, limited, state, "guiding to cutoff");
+        return Fly(IcbmPhase.ClosedLoop, limited, state,
+                   _secondsInTheRamp > StalledRampSeconds
+                       ? $"cutoff stalled: the stack is holding its own weight, {_toGain:F0} m/s still to gain"
+                       : "guiding to cutoff");
     }
 
     // Cutting off is a timing problem, not a threshold one. An engine can only be shut down on a

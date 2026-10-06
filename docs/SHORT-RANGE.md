@@ -590,8 +590,15 @@ Also not in, from the rig and three flights: the loss measured over half a secon
 four drag areas at 0.10-0.18 m/s, and 1.51 at 45 m^2; flown, both liquids stopped hovering -- 46-54 s instead of twelve
 minutes -- but bottomed out 1.5 m/s short with the aim still walking at ~100 m/s, and the 2 m/s backstop cut them off
 2.1-2.5 m/s short: 65-116 m. Real SRB4 at 25 km and Real Liquid2 at 150 km were untouched, 1.8 and 7.1 mm.
-Next: the rig's aim walks far slower than the game's at the end, so the fixture needs the flown offset rate before
-the next attempt is worth a flight; and stop the closed loop re-pinning onto a near-radial transfer.
+Also not in: never re-pinning once the pin has been given up. In the rig the arrival is then free, and the stack
+hovers exactly as long (1,108 s at 30 m^2): stood still over the target even the cheapest arc wants a ~20 m/s toss,
+so the re-pin is not what holds it there, and the near-radial transfer is refuted as the cause.
+
+**What ships instead is the truth on the panel.** Once the throttle-down has run `IcbmProgram.StalledRampSeconds`
+(30 s, against a closing ramp's 10-15), the computer's hold reads "cutoff stalled: the stack is holding its own
+weight, N m/s still to gain", and the log says so once. Flown on Real Liquid2 at 25 km: reported five minutes into a
+twelve-minute hover, which then landed 0.2-0.4 mm out. Next for the cause: the rig's aim walks far slower than the
+game's at the end, so the fixture needs the flown offset rate before another attempt is worth a flight.
 
 **A hot core overshot its cutoff, fixed** (Real SRB4, 500 and 700 km; `IcbmConfig.ShortShotBackstopsAtTheTrim`,
 on). Its core makes 7-13 g, and at its 0.12 floor still 0.8 g, so the ramp's last seconds are spent on the
