@@ -1645,7 +1645,7 @@ internal sealed class IcbmComputer
 
         double closing = -Vec.Dot(relative + _trim.ToGainCci, Vec.Unit(fromStack));
         return SeparationClearance.ForTheTrimMetres(ProximityWatch.KeepOutFor(radius), closing,
-                                                    toRelease - SeparationClearance.TrimNeedsSeconds);
+                                                    toRelease);
     }
 
     // One line per change of state, which is all any of this is worth while nothing is happening
