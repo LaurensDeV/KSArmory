@@ -1577,8 +1577,15 @@ internal sealed class IcbmProgram
         if (_countdown <= 0.5 * _lastStep * Math.Max(achieved, 1e-3)) return true;
 
         double oneStep = state.Booster.AccelerationNow * _lastStep;
-        return _lowestToGain < BackstopBelow && _toGain > _lowestToGain + Math.Max(oneStep, 1.0);
+        return _lowestToGain < BackstopArmsBelow(state) && _toGain > _lowestToGain + Math.Max(oneStep, 1.0);
     }
+
+    // A short shot that releases after the trim can hand it anything up to its reach. A 7 g core at its floor bottomed
+    // out at 2.4 m/s with its thrust lagging the line, missed the 2 m/s backstop, and overshot to 53 m/s and back.
+    private double BackstopArmsBelow(in IcbmState state)
+        => Config.ShortShotBackstopsAtTheTrim && _shortShot && !StaysUnderTheReleaseAltitude(state)
+               ? Math.Max(BackstopBelow, BusTrim.MaxMetresPerSecond)
+               : BackstopBelow;
 
     /// <summary>
     /// Ask for the arc to be re-solved from where the bus is now, to the aim it has now.

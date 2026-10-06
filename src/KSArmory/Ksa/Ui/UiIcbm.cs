@@ -1159,6 +1159,14 @@ internal sealed partial class Ui
         Tip("On: a short shot released above the air after the bus trim gets the short shot's kick cap as well. "
             + $"Off: it keeps the {ReleaseFocus.MaxMissKickMetresPerSecond * 1000.0:F0} mm/s a long shot has.");
 
+        bool backstop = config.ShortShotBackstopsAtTheTrim;
+        if (ImGui.Checkbox("Short shot's backstop arms at the trim's reach", ref backstop))
+        {
+            config.ShortShotBackstopsAtTheTrim = backstop;
+        }
+        Tip("On: on an arc that releases after the trim, what is left turning back up anywhere under the trim's "
+            + "reach ends the burn and the trim finishes it. Off: only under 2 m/s.");
+
         bool together = config.ShortShotReleasesTogether;
         if (ImGui.Checkbox("Short shot releases its salvo in one frame", ref together))
         {

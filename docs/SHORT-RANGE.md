@@ -544,7 +544,7 @@ centimetres, 2-10 m out, and every 19-50 mm/s kick was refused. With the short s
 | GeoSat FAT | 1.7 mm (probe 10.9 m) | 3.0 mm (probe 5.0 m) |
 | Real Liquid2 | 1.8 mm (probe 0.7 m) | 2.7 mm (probe 3.4 m) |
 | Real Liquid3 | 1.5 mm (probe 5.1 m) | 1.4 mm (probe 2.9 m) |
-| Real SRB4 | 108 m, floor chase | 156 m, floor chase |
+| Real SRB4 | 108 m, floor chase; **3.9 mm** with the backstop below | 156 m; **2.8 mm** |
 
 **Every range from 100 to 418 km, four rockets, on `d1ec327c`'s defaults** (`~/shots/2026-10-06-matrix/`),
 worst warhead of six, one flight each, every kick taken and no exceptions in KSA's log:
@@ -579,13 +579,18 @@ and gravity added only once the ramp passes 30 s (no hover, closed in 2.5-3 min,
 the arrival still flipping: 24.8 m and 26.1 m; GeoSat FAT untouched at 2.5 mm). Next: stop the closed loop
 re-pinning onto a near-radial transfer, and a rig fixture that ends over its target.
 
-**Open: a hot core chases its floor** (Real SRB4, 500 and 700 km). Its core makes 8-10 g at full thrust, so
-the 30 m/s or so the closed loop is left with is inside the throttle-down from the moment it takes over. The
-ramp asks for 0.03; the engine gives its 0.115 floor, about 1 g; and with gimbals the only steering, the stack
-turns at up to 60 deg/s with its attitude 87 deg off the line while what is left sits at 29-36 m/s for two
-minutes. Whether it ends above the air decides the shot: on 2026-10-05, before the solids changes, it did and
-landed 2.65 m out; on 2026-10-06 it finished on the way down, released at cutoff and landed 108 and 156 m out.
-Not a regression from `SolidsLeaveMetresPerSecond`: the 2026-10-05 flight chased the same floor.
+**A hot core overshot its cutoff, fixed** (Real SRB4, 500 and 700 km; `IcbmConfig.ShortShotBackstopsAtTheTrim`,
+on). Its core makes 7-13 g, and at its 0.12 floor still 0.8 g, so the ramp's last seconds are spent on the
+floor. Flown at 500 km it closed from 65 m/s to 2.4 m/s, with its thrust lagging the line by enough to leave
+that much square to it, missed the 2 m/s backstop by 0.4, and drove straight through: what was left grew to
+53 m/s, came back to 8, overshot again, and the stack chased its own line at up to 50 deg/s for minutes,
+finishing inside the air and releasing at cutoff -- 108 m at 500 km, 156 m at 700 (`~/shots/2026-10-06-loss/`).
+On a short shot whose arc releases after the trim the backstop now arms at the trim's 10 m/s rather than 2: the
+residual turning back up ends the burn -- or, in the air, coasts it out -- and the trim takes the rest. Flown
+(`~/shots/2026-10-06-srb4/`): cut off at 87 km with 10.9 m/s left, the bus trimmed 7.2 m/s, **3.9 mm** at 500 km
+and **2.8 mm** at 700; GeoSat FAT at both never tripped it, 0.9 and 2.7 mm. Not in: cutting off instead of
+stopping the engine to turn once under the trim's reach above the air -- it never fired, because the overshoot
+happens in the air and above 10 m/s.
 
 **In the rig**, five stacks (the game's, an all-solid three-stage, the SRBs alone, a liquid pair, a 25 MN core
 with a 40% floor), 25–5,000 km: every stack cuts off at every range it can reach, 0.0–3.1 km out, bar two at about

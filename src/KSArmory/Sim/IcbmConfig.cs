@@ -1000,6 +1000,18 @@ internal sealed class IcbmConfig
     public bool AimWaitsForTheSolids = true;
 
     /// <summary>
+    /// Arm a short shot's backstop at <see cref="BusTrim.MaxMetresPerSecond"/> rather than
+    /// <see cref="IcbmProgram.BackstopBelow"/> when its arc releases after the trim, so a residual that bottoms out
+    /// and turns back up is cut off -- or, inside the air, coasted out -- and handed to the trim.
+    ///
+    /// <para>Real SRB4's 7 g core, at its 0.12 floor, closed to 2.4 m/s at 500 km with its thrust lagging the line,
+    /// missed the 2 m/s backstop, overshot to 53 m/s and chased for minutes, finishing inside the air: 108 m at
+    /// 500 km and 156 m at 700. <b>On.</b> Flown: it cut off at 87 km with 10.9 m/s left and landed 3.9 and 2.8 mm,
+    /// and GeoSat FAT at 500 and 700 km never tripped it, 0.9 and 2.7 mm. <c>docs/SHORT-RANGE.md</c>.</para>
+    /// </summary>
+    public bool ShortShotBackstopsAtTheTrim = true;
+
+    /// <summary>
     /// Let every warhead of a single-target salvo released at cutoff go in the frame the first does,
     /// rather than one a frame. The stack slows in the air between releases, and flown each later
     /// warhead landed further along one line. <b>On.</b> Flown 2026-10-05 with
