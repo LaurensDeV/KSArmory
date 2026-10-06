@@ -1143,6 +1143,14 @@ internal sealed partial class Ui
         Tip("A long shot's salvo may be kicked up to this much off each warhead's probe miss. "
             + $"0 keeps the {ReleaseFocus.MaxMissKickMetresPerSecond * 1000.0:F0} mm/s.");
 
+        bool waitsForSolids = config.AimWaitsForTheSolids;
+        if (ImGui.Checkbox("Aim correction waits for the solids", ref waitsForSolids))
+        {
+            config.AimWaitsForTheSolids = waitsForSolids;
+        }
+        Tip("On: a long shot does not correct its aim while solids that cannot stop are burning, since the arc is "
+            + "held by what they must deliver. Off: it may, on the craft whose stage delta-v KSA reports.");
+
         bool afterTrim = config.ShortShotKickCapAfterTheTrim;
         if (ImGui.Checkbox("Short shot's kick cap after the trim too", ref afterTrim))
         {

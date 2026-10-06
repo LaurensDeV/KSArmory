@@ -3552,6 +3552,12 @@ internal sealed class IcbmComputer
     // with the range to spare. NaN when it cannot be read, which puts the single-stage estimate
     // back rather than claiming a stack has nothing.
     // The running stage alone, off the same staging display. NaN when it cannot be read.
+    // While reported solids burn, a long shot's arc is held by what they must deliver, not by the aim: read there at
+    // 0.07-0.85 the loop walked its bias 15 km. KSA reports a stage's delta-v for the controlled craft alone.
+    private bool AimWaitsForTheSolids(in IcbmState state)
+        => Config.AimWaitsForTheSolids && Program.Phase == IcbmPhase.PitchProgram && !Program.IsShortShot
+           && !state.RunningStageCanStop && state.RunningStageDeltaV > 0.0;
+
     private double RunningStageDeltaV()
     {
         try
@@ -4385,7 +4391,8 @@ internal sealed class IcbmComputer
             // unflown correction. This is the same question asked one call earlier.
             if (Config.CorrectAim && state.HasAim && !TrimIsFiring
                 && AimCorrection.DepartureIsWorthObserving(DensityRatioAt(fromCci))
-                && (Program.IsBurning || (_measureDue && _trim.Done)))
+                && (Program.IsBurning || (_measureDue && _trim.Done))
+                && !AimWaitsForTheSolids(state))
             {
                 PriceTheAim(state);
 

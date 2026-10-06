@@ -36,9 +36,20 @@ the ground point, that is 4.55 m short, four flights of eight at -3.85 m downran
 re-flown 0.35 s before impact still reads 0.6 mm from the probe, so it is the target, not the flight. And
 seat 1's **aim loop starts about two minutes before its handover**, where every other seat starts 30 s
 before, measures the plant at 0.07-0.85 instead of 1.00, and walks its bias out to 12.9 km: on four flights
-of ten across both nights that left 27, 54, 113 and 475 m. Seat 1 is also the controlled craft, and a
-3 s frame follows its cutoff on both base worlds; the ICBM computer takes the unclamped step, so its clocks do
-not lose it. Cause not found.
+of ten across both nights that left 27, 54, 113 and 475 m. **Found and fixed:** seat 1 is the controlled
+craft, and KSA computes the staging display's delta-v for that vehicle alone (`stage dv 0 m/s` on the other
+seven, 3,853 lines of 3,861). Knowing its solids' remaining delta-v, its solve is held by what they must still
+deliver while they burn, so moving the aim barely moves the prediction; the loop read that as error. Ten worlds
+of ten opened 117-119 s before handover and released with 0.8-8.5 km of bias, against 31-32 s and 0.5-0.6 km
+for seat 3. `IcbmConfig.AimWaitsForTheSolids` (on) holds the loop while solids burn **and KSA reports what they
+have left**, so only that craft is held: at the Chaco every seat opens during the solids, and gated on the solids
+alone seats 2-8 would have waited for nothing. Flown (`~/shots/2026-10-06-verify/`): two worlds held on the
+solids alone and one on the reported delta-v at 12,900 km, seat 1 opening 30-35 s before handover, reading 1.01
+and releasing with 0.51-2.52 km, every rocket within 16.2 mm; and one at the Chaco, seats 2-8 opening at 86 s as
+before, seat 1 at 168 s instead of 59, every rocket 2.8-8.1 mm.
+
+A 3 s frame also follows seat 1's cutoff on both base worlds; the ICBM computer takes the unclamped step, so its
+clocks do not lose it, and nothing above implicates it.
 
 ## Where it stands after 2026-09-15 — read this first
 

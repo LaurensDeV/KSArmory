@@ -987,6 +987,19 @@ internal sealed class IcbmConfig
     public double LongShotMissKickMetresPerSecond = 1.0;
 
     /// <summary>
+    /// Hold a long shot's aim correction while solids that cannot stop are burning and KSA reports what they have
+    /// left -- which it does for the controlled craft alone, so the other seats correct exactly as before.
+    ///
+    /// <para>Only the controlled craft can read its stage's delta-v off KSA's staging display, so only its solve is
+    /// held by what its solids must still deliver -- and its aim loop opened two minutes early, read a response of
+    /// 0.07-0.85 and released with 0.8-8.5 km of bias where the other seats released 0.5-0.6 km: 27-475 m on four
+    /// flights of ten at 12,900 km. <b>On.</b> Flown on three worlds at 12,900 km and one at the Chaco: seat 1
+    /// opened 30-35 s before handover like the rest, read 1.01, and every rocket landed within 16.2 mm.
+    /// <c>docs/ACCURACY-PLAN.md</c>.</para>
+    /// </summary>
+    public bool AimWaitsForTheSolids = true;
+
+    /// <summary>
     /// Let every warhead of a single-target salvo released at cutoff go in the frame the first does,
     /// rather than one a frame. The stack slows in the air between releases, and flown each later
     /// warhead landed further along one line. <b>On.</b> Flown 2026-10-05 with
