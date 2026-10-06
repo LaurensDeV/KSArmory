@@ -615,29 +615,17 @@ internal sealed class IcbmConfig
     public double HoldDirectionSeconds;
 
     /// <summary>
-    /// Seconds of burn the pitch programme leaves for the closed loop: once the velocity still to
-    /// gain is less than this much burning at the throttle it would fly, the throttle comes down in
-    /// proportion. Zero is off.
-    ///
-    /// <para>The pitch programme cannot cut off, and on a short shot it reaches the velocity it needs
-    /// long before the air is thin enough to hand over. Flown wide open it then adds kilometres a
-    /// second that the closed loop has to take off with the upper stage, through an airflow limit
-    /// that will not let it turn round until q is under 200 Pa: at 418 km on <c>SOLVER SCALE 1</c> that
-    /// was 5,265 m/s at handover and a burn that ran dry 119 m/s short. A long shot's velocity to
-    /// gain stays far above any reserve until handover, so it never engages there.
-    /// <c>docs/SHORT-RANGE.md</c> Step 2.</para>
-    ///
-    /// <para><b>Zero here, and 15 s under <see cref="FlyAnyRange"/></b>, which supplies it whatever this says. Flown
-    /// at 15 s at 418 km. <c>docs/SHORT-RANGE.md</c>.</para>
+    /// A rig's reserve in place of <see cref="IcbmProgram.AscentReserveSeconds"/>, applied with
+    /// <see cref="FlyAnyRange"/> off as well. Zero leaves it to that switch. No control reaches it.
     /// </summary>
-    public double AscentReserveSeconds;
+    internal double AscentReserveOverrideSeconds { get; init; }
 
     /// <summary>
     /// Fly a shot of any range on any stack. A solid stage's remaining delta-v is velocity it will add
     /// whatever it is told, so the arc is lofted until it needs at least that much — past the
     /// cheapest arc the need climbs with the flight time to escape, so one always exists. And once
     /// the shot is matching such a stage, or a stoppable one is throttled as low as it goes against
-    /// <see cref="AscentReserveSeconds"/> (15 s if that is zero), the closed loop takes over from the
+    /// <see cref="IcbmProgram.AscentReserveSeconds"/>, the closed loop takes over from the
     /// pitch programme, because it is the only phase that can cut off.
     ///
     /// <para><b>On.</b> Flown 2026-10-04/05 from 25 to 2,000 km with the other short-shot settings, every shot landed; <c>docs/SHORT-RANGE.md</c>.</para>

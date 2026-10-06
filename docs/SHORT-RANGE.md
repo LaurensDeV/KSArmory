@@ -159,7 +159,8 @@ Reusing machinery that exists:
 - Gate in Step 0's rig: cut reason `ShouldCutOff` (not the backstop), q at cutoff ≤ 1.2 kPa, apogee > 100 km,
   predicted miss within a few km; long range bit-equal.
 
-**Built 2026-10-03 as `IcbmConfig.AscentReserveSeconds`, off at zero** — not the three levers above but one
+**Built 2026-10-03 as `IcbmConfig.AscentReserveSeconds`, off at zero** *(since 2026-10-06 the constant
+`IcbmProgram.AscentReserveSeconds`, 15 s, applied under `FlyAnyRange`)* — not the three levers above but one
 rule: once the velocity still to gain is less than that many seconds of burning, the pitch programme throttles
 back in proportion **and steers along what is left to gain** instead of the schedule. Throttling alone was
 tried first and made it worse (418 km: 990 km out at 10 s, 6,900 km at 15 s), because the schedule kept

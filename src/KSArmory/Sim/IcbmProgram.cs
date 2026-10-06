@@ -195,6 +195,15 @@ internal sealed class IcbmProgram
     /// <summary>How often the trajectory is re-solved. Everything between is the countdown.</summary>
     public const double SolveIntervalSeconds = 0.25;
 
+    /// <summary>
+    /// Seconds of burn the pitch programme leaves for the closed loop under
+    /// <see cref="IcbmConfig.FlyAnyRange"/>: once less than this much burning is left, the throttle
+    /// comes down in proportion, so a short shot reaches thin air with something still to gain
+    /// rather than kilometres a second too much. Flown at 418 km; <c>docs/SHORT-RANGE.md</c> Step 2.
+    /// A long shot never gets near it before handover.
+    /// </summary>
+    public const double AscentReserveSeconds = 15.0;
+
     /// <summary>Inside this much of cutoff, solve every step. It is thirty frames and it decides the shot.</summary>
     public const double SolveEveryStepWithin = 0.75;
 
@@ -1781,10 +1790,9 @@ internal sealed class IcbmProgram
         return Math.Clamp(wanted * _toGain / keep, MinCommandedThrottle, wanted);
     }
 
-    // Fifteen seconds when flying any range and nothing was asked for: what the game's stack flew
-    // 418 km on (docs/SHORT-RANGE.md).
-    private double ReserveSeconds => Config.AscentReserveSeconds > 0.0 ? Config.AscentReserveSeconds
-                                   : Config.FlyAnyRange ? 15.0 : 0.0;
+    private double ReserveSeconds => Config.AscentReserveOverrideSeconds > 0.0
+                                         ? Config.AscentReserveOverrideSeconds
+                                         : Config.FlyAnyRange ? AscentReserveSeconds : 0.0;
 
     private bool ReserveBinds(double throttle, in IcbmState state)
     {
