@@ -439,7 +439,7 @@ and both baseline landings were 11 m and 150 m. With the settings on, no core se
       7.1 mm. 500 km released above the air as before, 4 m. The cap alone at 0.3 m/s was not enough:
       the later warheads wanted 306-638 mm/s. With the solids handled below as well, GeoSat FAT at 300 km
       came in at 29 mm and Real SRB4 at 1.32 m, the group within 4 mm either way: a common offset at
-      300 km on some stacks, cause not found.
+      300 km on some stacks: the ground read at the wrong place after cutoff, fixed below.
 2. **Correct after cutoff in the air.** The bus's thrusters can still act between cutoff and release, solved
    against the drag-flown probe rather than a vacuum arc. The trim reads drag as debt in the air (M6), and
    coasting the bus alone through the air is what cost 107 km.
@@ -527,6 +527,59 @@ cutoff. `SolidsLeaveTests` holds both halves in the rig.
 
 GeoSat FAT at 200 km on the same build landed 197 m, as before. And the bus is now let go once its salvo is away:
 it used to hold its attitude, firing its thrusters, for the rest of its fall. That was flown on all five flights.
+
+**The ground at the aim after cutoff** (2026-10-06). `TerrainRadiusAt` carried the aim back by the countdown to
+cutoff whether or not the engines were still burning, and a short shot releases at cutoff before the aim cycle
+clears it, so the release probe read ground up to a fraction of a second of the planet's turn away: 1.13 m lower
+at 300 km. Read only while burning, Real SRB4 at 300 km went from 1.22-1.32 m to 5.4-7.7 mm.
+
+**The kick cap after the trim** (`IcbmConfig.ShortShotKickCapAfterTheTrim`, on). An arc that climbs above the
+air releases after the bus trim rather than at cutoff, so it kept the long shot's 10 mm/s cap on the kick that
+cancels the release probe's miss. On ten flights at 500 and 700 km the probe predicted the landing to
+centimetres, 2-10 m out, and every 19-50 mm/s kick was refused. With the short shot's 1 m/s cap
+(`~/shots/2026-10-06-loss/`), worst warhead:
+
+| rocket | 500 km | 700 km |
+| --- | --- | --- |
+| GeoSat FAT | 1.7 mm (probe 10.9 m) | 3.0 mm (probe 5.0 m) |
+| Real Liquid2 | 1.8 mm (probe 0.7 m) | 2.7 mm (probe 3.4 m) |
+| Real Liquid3 | 1.5 mm (probe 5.1 m) | 1.4 mm (probe 2.9 m) |
+| Real SRB4 | 108 m, floor chase | 156 m, floor chase |
+
+**Every range from 100 to 418 km, four rockets, on `d1ec327c`'s defaults** (`~/shots/2026-10-06-matrix/`),
+worst warhead of six, one flight each, every kick taken and no exceptions in KSA's log:
+
+| rocket | 25 km | 100 km | 150 km | 200 km | 300 km | 418 km |
+| --- | --- | --- | --- | --- | --- | --- |
+| GeoSat FAT | 6.3 mm | 5.2 mm | 4.3 mm | 9.0 mm | 4.3 mm | 14.1 mm |
+| Real SRB4 | 1.4 mm | 3.5 mm | 4.1 mm | 18.6 mm | 5.2 mm | 2.9 mm |
+| Real Liquid2 | 0.5 mm, after hovering | 4.3 mm | 3.2 mm | 3.4 mm | 3.5 mm | 4.7 mm |
+| Real Liquid3 | hovered, stopped | 4.2 mm | 5.7 mm | 4.8 mm | 3.6 mm | 3.5 mm |
+
+The 25 km column was flown on the build before the kick cap, which does not reach a release at cutoff.
+
+**Open: a liquid stack hovers at 25 km.** Real Liquid2 and Real Liquid3 both did, every time. The last two
+seconds' throttle-down asks for what is left over `ThrottleDownSeconds`, which assumes all of the thrust closes
+it. On the arc that holds, because the required velocity falls with gravity too. A stack that has slowed to
+nearly still pointing up loses g along the line instead, and the ramp settles where what is left over two
+seconds equals it: Real Liquid2 held 22 m/s at 1.00 g for twelve minutes, burning out its first stage and most
+of its second, and finished only when the throttle it asked for fell under the engine's 0.112 floor. It
+then landed 0.5 mm out. Real Liquid3 was stopped after nine minutes of the same. The rig flies the same stack
+up the arc and never stalls, so it cannot reproduce it.
+
+Not in, both tried: the throttle-down plus gravity along the line cut off at 0.33 throttle in the rig where the
+ramp ends at 0.03, the last-frame error the ramp exists to remove; plus the loss measured between solves
+(`ShortShotThrottleCoversTheLoss`) landed Real Liquid3 at 5.5 mm and Real Liquid2 at **119 m**, holding 0.35-0.6
+throttle down to the last few m/s and cutting off 2.16 m/s short. A fix has to act only while the closure has
+stalled, and needs a rig fixture that stalls first.
+
+**Open: a hot core chases its floor** (Real SRB4, 500 and 700 km). Its core makes 8-10 g at full thrust, so
+the 30 m/s or so the closed loop is left with is inside the throttle-down from the moment it takes over. The
+ramp asks for 0.03; the engine gives its 0.115 floor, about 1 g; and with gimbals the only steering, the stack
+turns at up to 60 deg/s with its attitude 87 deg off the line while what is left sits at 29-36 m/s for two
+minutes. Whether it ends above the air decides the shot: on 2026-10-05, before the solids changes, it did and
+landed 2.65 m out; on 2026-10-06 it finished on the way down, released at cutoff and landed 108 and 156 m out.
+Not a regression from `SolidsLeaveMetresPerSecond`: the 2026-10-05 flight chased the same floor.
 
 **In the rig**, five stacks (the game's, an all-solid three-stage, the SRBs alone, a liquid pair, a 25 MN core
 with a 40% floor), 25–5,000 km: every stack cuts off at every range it can reach, 0.0–3.1 km out, bar two at about
