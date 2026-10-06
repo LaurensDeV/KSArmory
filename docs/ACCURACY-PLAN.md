@@ -6595,7 +6595,8 @@ leaves less converged — a common cause. Base's 110 m reverts would carry their
 
 * **`AimThresholdTracksTheMiss` stays off.** Open on the release, flat on the landing — nothing a
   player sees. Not worth a third night unless the bias is removed first and the scatter becomes the
-  term.
+  term. *(Removed 2026-10-06; `ReleaseInsideTheTrimFloor`, 3cu, gives the post-boost
+  pass count the same tracking band and ships.)*
 * **The pre-release term is a bias of about 6 m and a dwell, not a stopping rule.** That is the
   next thing to attack before release.
 
@@ -10991,7 +10992,7 @@ what 20b is flying against.
 | **28** | ~~Make `WarheadTrace` cover the whole roster~~ | **mostly done** | **it was stranded, not sampled: 8 begun / 4 finished, now 7. Craft named; 3cd's 1.50x walk figure is void** — 3ce |
 | ~~30~~ | ~~Fix the walk estimator~~ | **built 2026-09-09, unflown** | shot-flip null, `--levels-from`, centimetre logging. Cross-levelled the two nights read **0.87x and 0.88x** where in-sample they read 0.72x and 1.12x — **the nights never disagreed, the divisor did**. Still to do: trace more than round 1 |
 | **30b** | **Trace more than round 1**, so the declared endpoint is not one warhead against a six-warhead mean | medium | **3ci** — the last of the estimator faults, and the one that needs a change to `WarheadTrace` rather than to the report |
-| ~~34~~ | ~~Re-fly `AimThresholdTracksTheMiss` on the release endpoint~~ | **flown 2026-09-11, 20 blocks** | **0.78x [0.51, 1.11], shot-flip p=0.082 — UNRESOLVED, open; the landing 0.98x.** `noimprov` 42 to 6 of 80, and the short bias untouched, 71 and 74 of 80 short. Stays off. The revert at release is never flown (3cp), and the report's null was mis-built under `--levels-from` and read p=0.005 first — **3cq** |
+| ~~34~~ | ~~Re-fly `AimThresholdTracksTheMiss` on the release endpoint~~ | **flown 2026-09-11, 20 blocks** | **0.78x [0.51, 1.11], shot-flip p=0.082 — UNRESOLVED, open; the landing 0.98x.** `noimprov` 42 to 6 of 80, and the short bias untouched, 71 and 74 of 80 short. Stayed off; removed 2026-10-06. The revert at release is never flown (3cp), and the report's null was mis-built under `--levels-from` and read p=0.005 first — **3cq** |
 | ~~35~~ | ~~Re-read the ground as a warhead meets it~~ — `IcbmConfig.ResampleGroundAtImpact` | **flown 2026-09-11, 20 paired blocks — SHIPPED ON** | **walk 0.30x [0.26, 0.40], won 20 of 20; miss 0.60x [0.54, 0.79], won 16 of 20.** Every arm flight stopped within 0.1 m of its own surface, and the miss's p90 fell from 53 m to 23. **3cr, 3cs** |
 | ~~36~~ | ~~Decide on the reading, not fifteen seconds after it~~ — `IcbmConfig.DecideOnTheReading` | **flown 2026-09-11, 20 paired blocks — SHIPPED ON** | **signed release +8.3 m [+6.2, +10.5], won 20 of 20: −7.45 → +0.47 m, short 73 → 38 of 80. Miss 0.58x [0.44, 1.08], won 13 of 20, shot-flip p=0.001.** Rocket landing median 12.5 → 6.5 m, p90 24 → 14. 79 of 80 flights now end on `noimprov`, which is the next term — **3cr, 3ct** |
 | ~~37~~ | ~~Integrate a warhead's fall to second order~~ — `IcbmConfig.SecondOrderWarheads` | **flown 2026-09-12, 20 paired blocks — SHIPPED ON** | **signed walk +1.73 m [+1.54, +1.88], won 20 of 20 and 8 of 8 seats; its magnitude 0.37x [0.30, 0.44]; cross +0.19 → +0.03 m.** The walk was the round's own first-order step, 1.986 m short of the exact conic headlessly. The landing unmoved at 1.05x [0.94, 1.59], unresolved — 2 m one-signed under a ±5 m release scatter — **3cu** |

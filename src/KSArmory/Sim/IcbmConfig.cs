@@ -284,35 +284,6 @@ internal sealed class IcbmConfig
     public double TrimBudgetMetresPerSecond = PostBoostAim.MaxTrimMetresPerSecond;
 
     /// <summary>
-    /// Let the aim correction's improvement threshold follow the miss instead of being 250 m flat.
-    ///
-    /// <para><b>The loop currently cannot see its own shot.</b>
-    /// <see cref="AimCorrection.ImprovedByMetres"/> is 250 m absolute and
-    /// <see cref="PostBoostAim.PassesWithoutImprovement"/> is three, so a cycle counts as an
-    /// improvement only by bringing the impact 250 m closer — and traced 2026-09-07 the aim is
-    /// <b>8 and 18 m</b> off at release on two flights landing at 12 and 19, with 1 to 4 m made
-    /// during the whole fall. No cycle can improve by 250 m at that scale, so the loop always stops
-    /// on three passes whatever it might have achieved. <c>docs/ACCURACY-PLAN.md</c> 3bw.</para>
-    ///
-    /// <para>On, the band is <c>max(1 m, 0.25 x best)</c> — a quarter being what 250 m was at the
-    /// kilometre-scale miss the constant was chosen for, so it reproduces the old behaviour where it
-    /// was calibrated and tightens as the shot improves. The floor is what the instrument can
-    /// resolve rather than what is wanted.</para>
-    ///
-    /// <para><b>Off, and off is what ships.</b> Flown twice and unresolved both times: 0.88x
-    /// [0.84, 1.10] on the miss over 14 shots, then 0.78x [0.51, 1.11] on the release probe over 20,
-    /// with the landing at 0.98x. It takes <c>noimprov</c> from 42 of 80 flights to 6 and leaves the
-    /// short bias at release where it was. <c>docs/ACCURACY-PLAN.md</c> 3cq.</para>
-    ///
-    /// <para><b>Its only channel is that stopping rule.</b> <see cref="AimCorrection.Freeze"/>
-    /// reverts to the best-scoring aim at release, but in the frame the warheads leave, so the
-    /// revert moves none of them: the flat band's 110 m median revert predicts the release probe at
-    /// +0.10. What the band changes is how many passes the trim flies before release.
-    /// <c>docs/ACCURACY-PLAN.md</c> 3cp.</para>
-    /// </summary>
-    public bool AimThresholdTracksTheMiss;
-
-    /// <summary>
     /// Whether a bus walking between targets starts each stop's aim correction from the bias the
     /// last stop walked to, rather than from none. <see cref="AimCorrection.Retarget"/> has the
     /// reasoning; a set of one never hops, so it is untouched either way.

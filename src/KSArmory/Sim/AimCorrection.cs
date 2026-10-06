@@ -119,9 +119,9 @@ internal sealed class AimCorrection
     /// <summary>
     /// How much closer a cycle must bring the impact to count, given the best seen so far.
     ///
-    /// <para><paramref name="tracksTheMiss"/> false is the shipped constant and the behaviour every
-    /// flown night has had. True scales it with the miss, which is what
-    /// <see cref="IcbmConfig.AimThresholdTracksTheMiss"/> asks for.</para>
+    /// <para><paramref name="tracksTheMiss"/> false is the flat constant the aim loop ships with.
+    /// True scales it with the miss, which is what <see cref="PostBoostAim"/> judges its passes on
+    /// under <see cref="IcbmConfig.ReleaseInsideTheTrimFloor"/>.</para>
     /// </summary>
     public static double ImprovementThreshold(double bestMissMetres, bool tracksTheMiss)
     {

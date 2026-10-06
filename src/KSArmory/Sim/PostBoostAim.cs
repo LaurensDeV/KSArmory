@@ -53,7 +53,6 @@ internal readonly record struct PostBoostSituation(
     double TrimSpentMetresPerSecond,
     bool TrimGaveUp = false,
     double HoldingCostMetresPerSecond = 0.0,
-    bool ThresholdTracksTheMiss = false,
     bool DecideOnTheReading = false,
     bool ReleaseInsideTheTrimFloor = false,
     double TrimFloorMetres = double.NaN);
@@ -404,7 +403,7 @@ internal sealed class PostBoostAim
         // The floor brings the tracking band with it: a floor to release inside is no use to a loop
         // the flat band stops at 14 m while every pass is still closing.
         double band = AimCorrection.ImprovementThreshold(
-            _bestMiss, now.ThresholdTracksTheMiss || now.ReleaseInsideTheTrimFloor);
+            _bestMiss, now.ReleaseInsideTheTrimFloor);
 
         if (now.PredictedMissMetres < _bestMiss - band)
         {

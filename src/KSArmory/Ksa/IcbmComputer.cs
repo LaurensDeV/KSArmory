@@ -1880,7 +1880,6 @@ internal sealed class IcbmComputer
             HoldingCostMetresPerSecond: double.IsFinite(_holdingCost)
                                             ? _holdingCost
                                             : Config.HoldingCostMetresPerSecond,
-            ThresholdTracksTheMiss: Config.AimThresholdTracksTheMiss,
             DecideOnTheReading: Config.DecideOnTheReading,
             ReleaseInsideTheTrimFloor: Config.ReleaseInsideTheTrimFloor,
             TrimFloorMetres: _trimFloor));
@@ -4319,8 +4318,7 @@ internal sealed class IcbmComputer
                 double sinceLast = _sinceObserve;
                 _sinceObserve = 0.0;
 
-                _aim.Observe(hit.GroundFixedPointCci, _trueAimCci,
-                             Config.AimThresholdTracksTheMiss);
+                _aim.Observe(hit.GroundFixedPointCci, _trueAimCci);
 
                 // The loop's own state, which nothing else reports. A demand that grows pass over
                 // pass and a step sized by a response stuck at the clamp's floor are the same

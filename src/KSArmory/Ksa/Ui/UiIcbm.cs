@@ -760,16 +760,6 @@ internal sealed partial class Ui
 
         ImGui.SeparatorText("Research switches");
 
-        bool tracks = config.AimThresholdTracksTheMiss;
-        if (ImGui.Checkbox("Aim threshold follows the miss", ref tracks))
-        {
-            config.AimThresholdTracksTheMiss = tracks;
-        }
-        Tip($"On: a cycle counts if it closes max({AimCorrection.ImprovedByFloorMetres:F0} m, "
-            + $"{AimCorrection.ImprovedByFraction:P0} of the best), so the loop can still see itself "
-            + "improving at ten metres. Off: a cycle counts only if it closes "
-            + $"{AimCorrection.ImprovedByMetres:F0} m, which no cycle can at a ten-metre miss.");
-
         bool carry = config.CarryAimBiasAcrossHops;
         if (ImGui.Checkbox("Carry the aim bias across a hop", ref carry))
         {

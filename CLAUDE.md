@@ -1776,10 +1776,11 @@ is arithmetically dead**, and so is the `worse` arm that needs 250 m the other w
 `AimRatchetTests` pins the arithmetic. The terminal `Freeze()` then reverts the bias by 110 m on a
 median flight — **and the revert moves no warhead.** They leave in that same frame, on the trajectory
 the last trim pass flew, so over 536 flights the revert predicts the release probe at +0.10. What the
-dead band actually does is stop the post-cutoff loop early, on `PassesWithoutImprovement`.
-`IcbmConfig.AimThresholdTracksTheMiss` is the way out of that and is **off**: flown twice, 0.88x
-[0.84, 1.10] on the miss and then **0.78x [0.51, 1.11] on the release probe**, both unresolved, with
-the landing at 0.98x. `docs/ACCURACY-PLAN.md` 3cp and 3cq.
+dead band did was stop the post-cutoff loop early, on `PassesWithoutImprovement`, and that loop now
+judges its passes on a band that follows the miss wherever `IcbmConfig.ReleaseInsideTheTrimFloor` is
+on, which ships (`docs/ACCURACY-PLAN.md` 3cu). The aim loop itself keeps the flat band: a switch
+giving it the tracking one flew 0.88x [0.84, 1.10] on the miss and 0.78x [0.51, 1.11] on the release
+probe, both unresolved, with the landing at 0.98x, and was removed (3cp, 3cq).
 
 **The miss is one product, and there is no floor under it.** Flown from the same cutoff position
 with the *exact* required velocity, the integrator lands on the target to under a metre — so the
