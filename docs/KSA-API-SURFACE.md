@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-297 types and 799 members across 11 assemblies.
+297 types and 801 members across 11 assemblies.
 
 ## BepuUtilities
 
@@ -342,6 +342,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `void SetCursorScreenPos(ref Brutal.Numerics.float2)`
 - `void SetItemDefaultFocus()`
 - `void SetKeyboardFocusHere(int)`
+- `void SetNextFrameWantCaptureKeyboard(bool)`
 - `void SetNextItemAllowOverlap()`
 - `void SetNextItemWidth(float)`
 - `void SetNextWindowBgAlpha(float)`
@@ -1407,6 +1408,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `bool IsControlledVehicleActive`
 - `bool get_DrawUI()`
 - `double GetCurrentAltitudeKm(KSA.Camera)`
+- `double GetPlayerDeltaTime()`
 - `int ResourceFrameIndex`
 - `void OnGameLoaded()`
 - `void SetCameraUbo(KSA.IViewport)`

@@ -1019,11 +1019,11 @@ internal sealed class IcbmComputer
 
         if (Command.EngineOn)
         {
-            _throttleAchieved = VehicleCommand.DriveThrottle(Craft, Command.Throttle);
+            _throttleAchieved = VehicleCommand.DriveThrottle(Craft, Command.Throttle, Config.ThrottleThroughTheKeyboardClear);
 
             // A held control the engine drops reads exactly like a throttle on its way down, until the
             // airframe comes apart. The gap is past the servo's own tolerance, so a settled throttle is quiet.
-            if (!_saidHeldControlsDiscarded && Math.Abs(_throttleAchieved - Command.Throttle) > 0.05
+            if (!_saidHeldControlsDiscarded && Math.Abs(_throttleAchieved - Math.Max(Command.Throttle, Craft.GetMinThrottle())) > 0.05
                 && KsaWorld.DiscardsHeldControls(Craft, out string discarded))
             {
                 _saidHeldControlsDiscarded = true;
@@ -1124,7 +1124,7 @@ internal sealed class IcbmComputer
         else if (_driving)
         {
             VehicleCommand.SetEngine(Craft, running: false);
-            _throttleAchieved = VehicleCommand.DriveThrottle(Craft, 1.0);
+            _throttleAchieved = VehicleCommand.DriveThrottle(Craft, 1.0, Config.ThrottleThroughTheKeyboardClear);
         }
 
         if (Config.AutoRelease && _deploy.ReleaseNow && Release(release) && ReleasesTogether)

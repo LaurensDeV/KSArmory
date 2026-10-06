@@ -77,6 +77,9 @@ internal static class AttitudeHook
     // any other hook is overwritten by the worker's results before anything reads it.
     private static readonly Dictionary<Vehicle, (double3 Linear, double3 Angular, double Wind, double3 AwayEcl)> Shoves = [];
 
+    // Which way a craft's throttle key is held this frame, for the frames KSA clears held keys on the craft being flown.
+    private static readonly Dictionary<Vehicle, int> ThrottleKeys = [];
+
     // Shoves written, read back two steps later, once the worker that integrated them has had its
     // results applied: what the craft's velocity did against what was written, because a frame
     // wrong in the conversion shows as a craft thrown the wrong way. Then followed for a few seconds,
@@ -223,6 +226,16 @@ internal static class AttitudeHook
     }
 
     /// <summary>
+    /// Hold a craft's throttle key up (+1), down (-1) or neither (0) through KSA's clear of held keys, which it makes on
+    /// the craft being flown while the UI has the keyboard. Elsewhere the key itself is what moves the throttle.
+    /// </summary>
+    public static void ThrottleKey(Vehicle craft, int direction)
+    {
+        if (direction == 0) ThrottleKeys.Remove(craft);
+        else ThrottleKeys[craft] = direction;
+    }
+
+    /// <summary>
     /// Fire this craft's next stage when its worker is next prepared. Staged directly when the hook
     /// is not installed, because a stage that never fires is worse than one that can race.
     /// </summary>
@@ -330,6 +343,14 @@ internal static class AttitudeHook
         try
         {
             if (Staging.Count > 0 && Staging.Remove(__instance)) VehicleCommand.Stage(__instance);
+
+            // The clear runs inside PrepareWorker after this and takes the held keys, never the throttle value, so the
+            // step the key would have made is made here, at KSA's own 0.7 a second of the player's frame.
+            if (ThrottleKeys.Count > 0 && ThrottleKeys.TryGetValue(__instance, out int key)
+                && KsaWorld.DiscardsHeldControls(__instance, out _))
+            {
+                KsaWorld.TryNudgeThrottle(__instance, key * KsaWorld.PlayerDeltaTime * 0.7);
+            }
 
             // Tank contents are written here for the same reason attitude is: anywhere else the
             // worker's copy goes over them.

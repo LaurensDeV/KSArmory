@@ -1167,6 +1167,15 @@ internal sealed partial class Ui
         Tip("On: on an arc that releases after the trim, what is left turning back up anywhere under the trim's "
             + "reach ends the burn and the trim finishes it. Off: only under 2 m/s.");
 
+        bool throughClear = config.ThrottleThroughTheKeyboardClear;
+        if (ImGui.Checkbox("Throttle keeps moving while a window has the keyboard", ref throughClear))
+        {
+            config.ThrottleThroughTheKeyboardClear = throughClear;
+        }
+        Tip("On: while KSA drops the flown craft's held keys -- a modal, the console or a text field has the keyboard -- "
+            + "the step the throttle key would have made is written to the throttle directly. Off: the throttle freezes "
+            + "where it was until the window closes.");
+
         bool together = config.ShortShotReleasesTogether;
         if (ImGui.Checkbox("Short shot releases its salvo in one frame", ref together))
         {

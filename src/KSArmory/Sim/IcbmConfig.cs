@@ -1008,6 +1008,14 @@ internal sealed class IcbmConfig
     public bool ShortShotBackstopsAtTheTrim = true;
 
     /// <summary>
+    /// Keep working the throttle on the craft being flown while KSA discards its held keys -- whenever a modal or a text
+    /// field has the keyboard, which KSA's own update notice does at every launch once a newer build is out. The step
+    /// the key would make is written to the throttle itself instead. Flown on Real Liquid2 at 150 km with the keyboard
+    /// held throughout: off, stuck at full through cutoff and 21-25 mm; on, 0.2-2.4 mm. <c>docs/ICBM-OUTSTANDING.md</c> 1.2.
+    /// </summary>
+    public bool ThrottleThroughTheKeyboardClear = true;
+
+    /// <summary>
     /// Let every warhead of a single-target salvo released at cutoff go in the frame the first does,
     /// rather than one a frame. The stack slows in the air between releases, and flown each later
     /// warhead landed further along one line. <b>On.</b> Flown 2026-10-05 with
