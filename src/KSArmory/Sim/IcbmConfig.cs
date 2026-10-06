@@ -976,6 +976,15 @@ internal sealed class IcbmConfig
     public bool ShortShotKickCapAfterTheTrim = true;
 
     /// <summary>
+    /// The cap on that kick for a long shot, in m/s; zero keeps <see cref="ReleaseFocus.MaxMissKickMetresPerSecond"/>.
+    ///
+    /// <para>At 12,900 km the probe predicted each rocket's landing to centimetres, 5-98 m out, and kicks of
+    /// 11-20 mm/s and more were refused at the 10 mm/s sized on the Chaco geometry. <b>Off</b> until a paired
+    /// night. <c>docs/ACCURACY-PLAN.md</c>.</para>
+    /// </summary>
+    public double LongShotMissKickMetresPerSecond;
+
+    /// <summary>
     /// Let every warhead of a single-target salvo released at cutoff go in the frame the first does,
     /// rather than one a frame. The stack slows in the air between releases, and flown each later
     /// warhead landed further along one line. <b>On.</b> Flown 2026-10-05 with

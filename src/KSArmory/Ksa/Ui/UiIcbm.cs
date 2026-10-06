@@ -1135,6 +1135,14 @@ internal sealed partial class Ui
         Tip("A salvo released at cutoff in the air may be kicked up to this much off each warhead's probe miss. "
             + $"0 keeps the {ReleaseFocus.MaxMissKickMetresPerSecond * 1000.0:F0} mm/s every other salvo has.");
 
+        float longCap = (float)(config.LongShotMissKickMetresPerSecond * 1000.0);
+        if (ImGui.SliderFloat("Long shot's kick cap (mm/s)", ref longCap, 0f, 1000f, "%.0f"))
+        {
+            config.LongShotMissKickMetresPerSecond = longCap / 1000.0;
+        }
+        Tip("A long shot's salvo may be kicked up to this much off each warhead's probe miss. "
+            + $"0 keeps the {ReleaseFocus.MaxMissKickMetresPerSecond * 1000.0:F0} mm/s.");
+
         bool afterTrim = config.ShortShotKickCapAfterTheTrim;
         if (ImGui.Checkbox("Short shot's kick cap after the trim too", ref afterTrim))
         {

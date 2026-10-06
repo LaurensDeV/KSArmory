@@ -3189,7 +3189,9 @@ internal sealed class IcbmComputer
         Config.ShortShotMissKickMetresPerSecond > 0.0
         && (Program.ReleasesAtCutoff || (Config.ShortShotKickCapAfterTheTrim && Program.IsShortShot))
             ? Config.ShortShotMissKickMetresPerSecond
-            : ReleaseFocus.MaxMissKickMetresPerSecond;
+            : Config.LongShotMissKickMetresPerSecond > 0.0 && !Program.IsShortShot
+                ? Config.LongShotMissKickMetresPerSecond
+                : ReleaseFocus.MaxMissKickMetresPerSecond;
 
     private ReleaseFocus.FlownSensitivity? KickColumnsThroughTheAir(in ReleaseProbe from, string who, string what)
     {
