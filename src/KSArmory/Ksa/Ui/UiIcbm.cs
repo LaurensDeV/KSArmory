@@ -1123,8 +1123,8 @@ internal sealed partial class Ui
             config.CancelProbeMissAtSeparation = cancelMiss;
         }
         Tip("On: each warhead leaves with the least velocity that moves the release probe's predicted "
-            + "impact onto the aim point along the ground -- a few millimetres a second, refused past "
-            + $"{ReleaseFocus.MaxMissKickMetresPerSecond * 1000.0:F0} mm/s. Off: the warheads leave on "
+            + "impact onto the aim point along the ground -- millimetres to centimetres a second, refused "
+            + "past the kick caps below. Off: the warheads leave on "
             + "the state the aim loop stopped at, which it predicts to land a metre or so short.");
 
         float shortCap = (float)(config.ShortShotMissKickMetresPerSecond * 1000.0);

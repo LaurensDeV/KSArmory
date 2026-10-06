@@ -936,9 +936,10 @@ internal sealed class IcbmConfig
     /// landings puts the median centre at 0.22 m, from 1.26.</para>
     ///
     /// <para><b>Not the hold fed forward</b>, which the loop chases: one velocity on a round that has
-    /// already left, after the aim has committed, read back by nothing. Refused past
-    /// <see cref="ReleaseFocus.MaxMissKickMetresPerSecond"/>, so a miss the loop failed to close cannot
-    /// be flown out by a separation. Independent of the two above, and summed with them.</para>
+    /// already left, after the aim has committed, read back by nothing. Refused past a cap --
+    /// <see cref="LongShotMissKickMetresPerSecond"/> or <see cref="ShortShotMissKickMetresPerSecond"/> -- so a
+    /// miss the loop failed to close cannot be flown out by a separation. Independent of the two above, and
+    /// summed with them.</para>
     ///
     /// <para><b>Along the ground only</b>, so a crossing the probe found under the surface keeps its
     /// depth — 28 cm of ground on the traced arc — for <see cref="PredictionStopsOnTheSurface"/>.</para>
@@ -979,10 +980,11 @@ internal sealed class IcbmConfig
     /// The cap on that kick for a long shot, in m/s; zero keeps <see cref="ReleaseFocus.MaxMissKickMetresPerSecond"/>.
     ///
     /// <para>At 12,900 km the probe predicted each rocket's landing to centimetres, 5-98 m out, and kicks of
-    /// 11-20 mm/s and more were refused at the 10 mm/s sized on the Chaco geometry. <b>Off</b> until a paired
-    /// night. <c>docs/ACCURACY-PLAN.md</c>.</para>
+    /// 11-20 mm/s and more were refused at the 10 mm/s sized on the Chaco geometry. <b>1 m/s.</b> Paired over
+    /// eight worlds on 2026-10-06: 2.0 mm median and 17.6 mm worst against 7.1 m and 67.4 m.
+    /// <c>docs/ACCURACY-PLAN.md</c>.</para>
     /// </summary>
-    public double LongShotMissKickMetresPerSecond;
+    public double LongShotMissKickMetresPerSecond = 1.0;
 
     /// <summary>
     /// Let every warhead of a single-target salvo released at cutoff go in the frame the first does,

@@ -26,8 +26,8 @@ landed 2 mm out. The same shape as the short shots at 500-700 km (`SHORT-RANGE.m
 | base, 10 mm/s | 28 | 7.1 m | 67.4 m | 8, the ones whose kick fitted |
 | kick, 1 m/s | 28 | **2.0 mm** | **17.6 mm** | 28 |
 
-The declared bar is met many times over. **It ships off**: whether a long shot may separate at up to 1 m/s
-is a design choice the declaration left to the owner, not the night.
+The declared bar is met many times over, and it **ships on**: the owner took the design question the
+declaration left open -- whether a long shot may separate at up to 1 m/s -- and said yes.
 
 **Seat 1 is apart, on both arms, for two reasons.** It is aimed at the defended structure itself, where
 `AimSpread` rings the other seats round it, so a warhead kicked exactly onto the aim **strikes the
