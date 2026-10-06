@@ -58,6 +58,12 @@ internal static class SeparationClearance
     /// <summary>What a coast must leave the trim before the release, once it waits for the stack to open.</summary>
     public const double TrimNeedsSeconds = 30.0;
 
+    /// <summary>
+    /// How long past the expected release the gap must still hold: the passes can outrun their estimate, and a gap
+    /// sized to reach the keep-out exactly at the release was crossed 0.1 m inside it in <c>PastCutoffTests</c>.
+    /// </summary>
+    public const double PastTheReleaseSeconds = 20.0;
+
     /// <param name="metresApart">
     /// How far apart the two are, or NaN when the discarded stage cannot be read.
     ///
@@ -84,7 +90,7 @@ internal static class SeparationClearance
     public static double ForTheTrimMetres(double keepOutMetres, double closingAfterTrim, double secondsToRelease)
         => closingAfterTrim > 0.0 && double.IsFinite(keepOutMetres) && double.IsFinite(secondsToRelease)
            && secondsToRelease > 0.0
-               ? keepOutMetres + (closingAfterTrim * secondsToRelease)
+               ? keepOutMetres + (closingAfterTrim * (secondsToRelease + PastTheReleaseSeconds))
                : 0.0;
 
     /// <summary>

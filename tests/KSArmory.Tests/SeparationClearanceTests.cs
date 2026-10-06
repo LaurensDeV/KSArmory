@@ -173,7 +173,7 @@ public class SeparationClearanceTests
     {
         double need = SeparationClearance.ForTheTrimMetres(21.2, 0.73, 100.0);
 
-        Assert.Equal(21.2 + 73.0, need, 9);
+        Assert.Equal(21.2 + (0.73 * (100.0 + SeparationClearance.PastTheReleaseSeconds)), need, 9);
         Assert.False(SeparationClearance.Check(Wanted + 1.0, StageRadius, 60.0, need).IsClear);
         Assert.True(SeparationClearance.Check(need, StageRadius, 60.0, need).IsClear);
     }
