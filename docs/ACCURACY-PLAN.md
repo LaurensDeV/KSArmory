@@ -6971,7 +6971,9 @@ vehicle's 1 ms sub-step.
 
 * **Flown shape.** Over the trace's re-fly lines on 240 re-reading rounds the walk grows linearly
   with time from release — −0.18 m at 10-20% of the flight, −0.61 at 40-50%, −1.17 at 70-80%,
-  −1.74 at the end — smoothly and mostly in vacuum, with no step at release or in the air.
+  −1.74 at the end — smoothly and mostly in vacuum, with no step at release or in the air. Over 160
+  flights the walk's median is −2.1 m, short on 149 of them *(carried over from `IcbmConfig`'s comment,
+  2026-10-06)*.
 * **Reproduced.** Twelve logged release states flown through a copy of the round against a
   converged reference: −1.49 to −1.90 m, mean −1.76; with the predictor's own crossing bias added,
   −1.94 against −2.08 flown. The cross component is the same term, +0.15 to +0.19 m against +0.19
@@ -8397,6 +8399,10 @@ which is not scored.
 43b's shape — a height difference between impact and target lands a round `Δh · cot γ` long or short whichever way it
 missed — and the downrange leftover doubles from flights below the median probe miss to those above it, 0.124 → 0.264 m,
 at a rank correlation of +0.17, p = 0.19: suggestive and unresolved. 43b's night reads it against the logged rise.
+
+**The kick moves the impact along the ground only**, so a crossing the probe found under the surface keeps its depth
+— 28 cm of ground on the traced arc — for 40b's surface stop to remove. It costs four Kepler coasts a warhead.
+*(Carried over from `IcbmConfig`'s comment when it was cut to a pointer, 2026-10-06.)*
 
 **Four shots lost to KSA's update modal.** KSA 2026.9.10.5438 was published between shots 16 and 17, and from then on
 every launch raised `UpdateAvailablePopup`, a console modal nobody clicks. `Vehicle.PrepareWorker` clears held input on
@@ -10466,6 +10472,13 @@ At 1 m the terrain loop gain has a median of **0.01** and a maximum of **0.20** 
 4.61 mm/s and a maximum of **7.07**, so on this shot refusals would begin under 3 m, not at the
 3.45 m `WarheadFootprint.WidestAt` gives for the ring alone. `IcbmConfig` and the tooltip now say so.
 
+**Why zero ships, and why the ring is worth having anyway.** At zero, six 1.80 m reentry vehicles arrive
+a median 8.7 mm apart, interpenetrate — rounds do not collide with one another — and burst as one. A kick
+asked to put every warhead in one place cannot be checked, because each is asked for the same thing; asked
+for a known ring, it is an actuator with a delivered-against-asked residual, which is how 3ef split the
+kick's share out. Against a 706 m fireball a few metres of ring is nothing, so it is a measurement and not
+a MIRV footprint. *(Carried over from `IcbmConfig`'s comment, 2026-10-06.)*
+
 ### Flat ground halves the group and leaves the worst warhead where it was
 
 | | rockets | rms dispersion, median | group centre from the aim, median | worst warhead, median |
@@ -11332,6 +11345,11 @@ endpoints**, because the point is to delete a constant known to be unphysical wi
 Pooled over 80 flights an arm: dispersion **3.35 → 2.68 mm**, mean landing **3.45 → 2.90 mm**, centre
 1.53 → 1.20 mm. The centre is **unresolved** (13 of 20, p = 0.26), which is the declared no-penalty
 condition rather than a loss. **All eight seats improved**, 0.64x to 0.93x.
+
+What the air kick costs: seven predictions on the salvo's first release, carried along the coast to the
+rest — 1.7 ms headless, and flown over 80 rockets a median of 0.74 ms and a worst of 1.51, with no two
+rockets' columns ever landing in the same 10 ms of one frame. *(Carried over from `IcbmConfig`'s comment,
+2026-10-06.)*
 
 **The mechanism is resolved, and it is the one the switch was built on.** The ring slope — each landing
 about its own group's centre regressed on the ring image its `spin at separation` line logs, pooled over

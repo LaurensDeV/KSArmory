@@ -426,7 +426,8 @@ and both baseline landings were 11 m and 150 m. With the settings on, no core se
    2. ~~Release without the sweep.~~ Done 2026-10-05, and the sweep was not the cause. Read off the
       flown logs, each salvo's warheads landed on one line in release order, each a frame later on a
       stack the air had slowed (about 50 mm/s a frame on Liquid2, 110-140 on SRB4), and the release
-      probe predicted every landing to centimetres while its kick was refused over the 10 mm/s cap.
+      probe predicted every landing to centimetres while its kick was refused over the 10 mm/s cap —
+      kicks of 96-168 mm/s at 300 km, with each group walking 28-104 m along its line.
       `IcbmConfig.ShortShotReleasesTogether` lets the salvo go in one frame and
       `ShortShotMissKickMetresPerSecond` raises that salvo's cap (`2c0413d9`, both off). Flown paired
       (`~/shots/2026-10-05-together/`), worst warhead, defaults against both on at 1 m/s:

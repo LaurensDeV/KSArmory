@@ -620,6 +620,10 @@ weapon's decision. The button is how the action is taken. What the tick box does
 delegate the press — ticking it *is* the permission, given once instead of every shot — and it stops
 in the same place the button does.
 
+Nothing in `IcbmConfig` is saved, so off would not be a setting an operator makes once: it would be a
+tick box to find again on every launch, and forgetting it costs a ballistic coast in real time. On two
+shots flown the same evening that was 3.5 minutes of wall clock with it and seventeen without.
+
 ## A stable orbit is known not to come down
 
 The impact prediction is flown, and a vehicle in a stable orbit never arrives — so flying it means
