@@ -93,6 +93,9 @@
 #
 set -euo pipefail
 
+# Nothing here reads stdin, and the Windows tools it runs would swallow a caller's heredoc.
+exec </dev/null
+
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
@@ -318,7 +321,7 @@ trap cleanup EXIT
 # cover a human-free start plus the flight itself.
 DEADLINE=$(( SECONDS + DEADLINE_SECONDS ))
 VERDICT=""
-SEEN=""
+PRINTED=0
 # A game that exits writes no verdict, so the wait would run to the deadline. Asked every ~10 s,
 # and only once the game has been seen running, so a slow start is not read as an exit. A tasklist
 # call that fails answers nothing at all, which reads exactly like no game: it is not counted, and
@@ -330,16 +333,15 @@ NEXT_GAME_CHECK=$SECONDS
 while (( SECONDS < DEADLINE )); do
     [[ -f "$LOG" ]] || { sleep 2; continue; }
 
-    while IFS= read -r line; do
-        case "$line" in
-            *"SCENARIO"*) ;;
-            *) continue ;;
-        esac
+    # Counted rather than remembered: matching each line against everything seen was quadratic, ran
+    # minutes behind an eight-rocket log, and could hide a verdict inside a longer line. A shorter
+    # log is a restart or a truncation, and is read from its start.
+    COUNT=$(grep -cF SCENARIO "$LOG" 2>/dev/null || true)
+    (( ${COUNT:-0} < PRINTED )) && PRINTED=0
+    mapfile -t FRESH < <(grep -F SCENARIO "$LOG" 2>/dev/null | tail -n +$(( PRINTED + 1 )))
+    PRINTED=$(( PRINTED + ${#FRESH[@]} ))
 
-        # Only report each line once; the log is re-read rather than followed, so a restart or a
-        # truncation cannot leave this waiting on output it already consumed.
-        [[ "$SEEN" == *"$line"* ]] && continue
-        SEEN+="$line"
+    for line in "${FRESH[@]}"; do
         echo "   ${line#*SCENARIO }"
 
         case "$line" in
@@ -358,7 +360,7 @@ while (( SECONDS < DEADLINE )); do
             *FAIL*)    VERDICT=FAIL ;;
             *TIMEOUT*) VERDICT=TIMEOUT ;;
         esac
-    done < "$LOG"
+    done
 
     [[ -n "$VERDICT" ]] && break
 

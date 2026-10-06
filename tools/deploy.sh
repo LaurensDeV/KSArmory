@@ -7,6 +7,9 @@
 #
 set -euo pipefail
 
+# Nothing here reads stdin, and tasklist.exe would swallow a caller's heredoc.
+exec </dev/null
+
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CONFIG="${1:-Release}"
 
