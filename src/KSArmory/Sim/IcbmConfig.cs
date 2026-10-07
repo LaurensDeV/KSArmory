@@ -351,16 +351,16 @@ internal sealed class IcbmConfig
 
     /// <summary>
     /// Keep the trim's jets firing on the craft being flown while KSA discards its held keys, by putting the held
-    /// translation flags back after the clear. <b>Off</b> until flown with the keyboard held. <c>docs/ICBM-OUTSTANDING.md</c> 1.2.
+    /// translation flags back after the clear. On: 1.29 km off, 2.4 mm on, one pair. <c>docs/ICBM-OUTSTANDING.md</c> 1.2.
     /// </summary>
-    public bool JetsThroughTheKeyboardClear;
+    public bool JetsThroughTheKeyboardClear = true;
 
     /// <summary>
     /// Before the bus trims back toward the stack it just dropped, let the separation shove carry it far enough that
     /// the pair cannot close to the keep-out before the release -- <see cref="SeparationClearance.ForTheTrimMetres"/>.
-    /// <b>Off</b> until flown. <c>docs/ICBM-OUTSTANDING.md</c> 1.8.
+    /// From orbit, on: 8 of 8 clear; off: 6 of 13 inside the keep-out. No cost on the pad. <c>docs/ICBM-OUTSTANDING.md</c> 1.8.
     /// </summary>
-    public bool TrimWaitsOutTheStack;
+    public bool TrimWaitsOutTheStack = true;
 
     /// <summary>
     /// Let every warhead of a single-target salvo released at cutoff go in the frame the first does, since
