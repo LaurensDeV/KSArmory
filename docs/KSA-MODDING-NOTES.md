@@ -2,7 +2,7 @@
 
 Everything here comes out of the shipped assemblies of **KSA build 2026.9.10.5438**, read with
 `tools/apidump`, or out of the StarMap sources, and was rechecked against **2026.9.22.5482**
-and again against **2026.10.7.5541** wherever that build changed a type this mod uses. KSA is pre-release and unofficially moddable:
+and again against **2026.10.7.5541** and **2026.10.10.5554** wherever those builds changed a type this mod uses. KSA is pre-release and unofficially moddable:
 none of this is documented by RocketWerkz, and **it will drift between game builds**. Re-run
 the dumper rather than trusting this file after an update.
 
@@ -1026,6 +1026,16 @@ thrust under `0.9 * MaxGLoad * g` (`SolveGLoadThrottleCap`), and flags `IsThrott
 `IcbmProgram.StructuralMarginFraction` already holds the throttle to 0.9 of, so the two caps
 coincide and the engine's should not bind under the mod's. If they ever disagree, the computer
 reads the throttle the vehicle reports, so it sees the cap rather than fighting it.
+
+## TVC tracking has an integral term, and the steering period stretches when settled
+
+Since 2026.10.10.5554 `FlightComputer.ComputeTvcControlAxis` tracks an attitude with a third state, the
+integrated angle error (`ErrorAngleIntegrals`, clamped to ±1, zeroed on any axis not on TVC, saved
+with the vehicle), so a stack with a constant disturbing torque now holds the commanded attitude rather
+than a steady offset from it. The fixed 0.1 s control period became `SteeringInterval`, which grows
+once both pitch and yaw errors are under 0.001° and their drift allows, and above 0.1 s RCS rotation is
+switched off as the old 600 s long-burn hold did. Every `Custom` attitude the ballistic computer
+commands goes through this law; the flown effect on the burn's pointing is unmeasured.
 
 ## Held controls are cleared on the controlled vehicle while the UI has the keyboard
 
