@@ -300,7 +300,7 @@ One rocket finishes its burn, fires KSA's auto-warp, and the seven **still burni
 steps. Their one-frame velocity quantum goes from 0.081 m/s to 1.675 m/s. Misses: 0.68 km for the
 one that triggered it, 14-37 km for the rest.
 
-`Ksa/IcbmComputer.cs`'s `CanWarpAhead` asks `!NeedsShortSteps` of **this computer only**, and its own
+`Ksa/IcbmComputer.Warp.cs`'s `CanWarpAhead` asks `!NeedsShortSteps` of **this computer only**, and its own
 comment names the consequence: *"WarpPolicy cannot slow the world at all while an auto-warp is
 running, so a warp started over the top of one is a warp nothing can rein in."* It is the identical
 one-world/several-flights mistake `Sim/WorldSpeed.cs` was written to fix for the speed path, left
@@ -3306,8 +3306,8 @@ save. So the bound removed 98% of the disposal work, which is exactly what the f
 
 ### Why: one chance, on a one-frame assumption
 
-`CollectShedStages()` runs at `IcbmComputer.cs:515`, near the top of `Update`. `_awaitingStage` is
-set at `:684`, near the bottom, immediately before `VehicleCommand.Stage`. So the snapshot is taken
+`CollectShedStages()` runs near the top of `IcbmComputer.Update`. `_awaitingStage` is
+set near the bottom, immediately before `VehicleCommand.Stage`. So the snapshot is taken
 in frame N and the census runs in frame N+1 — and clears `_awaitingStage` on that single pass,
 whether or not anything of this craft's was found.
 
@@ -4406,7 +4406,7 @@ Fisher p = 2.5e-6.**
 **And the trigger is staging synchrony.** In a clean world all eight stage-2 commands land within
 **5 ms** — one frame — so the next census pass holds every new stack, each computer adopts a
 neighbour's, and 167 disposals fire at once. In a divergent world one rocket stages **171 ms** late,
-misses that single pass (`_awaitingStage` is cleared on one pass, `IcbmComputer.cs:1047-1049`), and
+misses that single pass (`_awaitingStage` is cleared on one pass, `IcbmComputer.CollectShedStages`), and
 the seven fragments its stack later breaks into are never claimed by anyone. Median stage-2 spread:
 **182 ms divergent against 5 ms healthy**; every world at or above 100 ms diverged and every world
 below it was clean.
@@ -6069,7 +6069,7 @@ flights — from 3.75% of the flights.
 ### The cause: `!TrimIsFiring` is not `_trim.Done`
 
 ```csharp
-public bool TrimIsFiring => _trim.Armed && !_trim.Done && _mayTrim;   // IcbmComputer.cs:342
+public bool TrimIsFiring => _trim.Armed && !_trim.Done && _mayTrim;   // IcbmComputer.cs
 ```
 
 The post-cutoff Observe gate asked `!TrimIsFiring`; `PostBoostAim`, one call earlier, is handed

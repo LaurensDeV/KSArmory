@@ -170,7 +170,7 @@ otherwise.
 > **Stale in two places, and the premise is now in doubt — 2026-08-26.**
 >
 > **Item 2 has landed.** `9b48bd1` made `BusTrim.MaxMetresPerSecond` a *floor* under a ceiling the
-> caller sizes per job (`BusTrim.cs:419-421`, wired at `IcbmComputer.cs:1127-1133`, pinned by
+> caller sizes per job (`BusTrim.cs:419-421`, wired in `IcbmComputer.DriveTrim`, pinned by
 > `BusTrimTests.TheCallerMaySizeThePerSolveCeilingButNeverBelowTheConstant`). The failure quoted
 > below — `MaxMetresPerSecond declined it whole` — cannot recur.
 >
@@ -444,7 +444,7 @@ What is *still* wrong is the other half, and `docs/MIRV-NEXT.md` item 7g names i
 build it:
 
 ```csharp
-if (trim.Done) _separatedFrom = null;        // Ksa/IcbmComputer.cs:982
+if (trim.Done) _separatedFrom = null;        // IcbmComputer.DriveTrim
 ```
 
 Once the first trim pass reports done, the reference to the discarded stage is dropped. Every pass

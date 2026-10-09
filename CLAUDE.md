@@ -553,6 +553,16 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/BombSightOverlay.cs` | the pipper: the impact ring and the arc down to it |
 | `Ksa/StoreReach.cs` | that region flown, drawn, logged and read off the panel — **one answer for all of them**, because a ring that disagrees with the line beside the trigger or the log reads as the tool being broken. Three `BombSight` flights a solve, so solved only while a store that steers its own fall is actually in the air, at half the pipper's rate |
 | `Ksa/IcbmComputer.cs` | **one craft's ballistic computer** — reads the world, runs the program, flies the rocket |
+| `Ksa/IcbmComputer.Warp.cs` | that computer's warp-ahead — **handed to KSA's own warp-to-a-time in hops**, and carried only while it is the computer's |
+| `Ksa/IcbmComputer.Separation.cs` | letting the launcher go, the stages a split or a staging shed, and the clearance the trim waits on |
+| `Ksa/IcbmComputer.Trim.cs` | driving `BusTrim` on the bus's own jets, the post-boost passes it feeds, and what the trim is said and measured to owe |
+| `Ksa/IcbmComputer.Coast.cs` | the coast written down every ten simulated seconds — rails, the bubble, what is near — **measurement, not control** |
+| `Ksa/IcbmComputer.Release.cs` | letting a warhead go, the line the launcher holds for it, and the once-a-flight release summary |
+| `Ksa/IcbmComputer.Walk.cs` | the walk between targets as actuated — a stop's hand-over, and a hop the trim cannot fly refused |
+| `Ksa/IcbmComputer.Trace.cs` | starting and stepping `WarheadTrace`s, the craft alive or not |
+| `Ksa/IcbmComputer.Kick.cs` | the separation kick each warhead is thrown with, and the release probe it is solved against |
+| `Ksa/IcbmComputer.Prediction.cs` | the flown impact prediction the aim correction reads |
+| `Ksa/IcbmComputer.Reach.cs` | the divert footprint flown, pinned at the epoch, and read back as offsets and axes for the panel and the overlay |
 | `Ksa/IcbmComputers.cs` | one per craft carrying a part that provides `Guidance` — **the MIRV bus alone today**, so a Pantsir or a rail gets none — crewed and forgotten with it |
 | `Ksa/AttitudeHook.cs` | **one of the six places this mod patches the game** — the only window in which an attitude command survives |
 | `Ksa/PreRenderHook.cs` | the second — **a step before the render on a frame that draws no UI**, because StarMap has no hook that is both |
