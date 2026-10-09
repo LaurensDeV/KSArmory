@@ -47,13 +47,12 @@ not will be found again by the next reader.
 
 ## The ballistic computer
 
-- [ ] **`Ksa/IcbmComputer.cs` is 4,337 lines and about 120 methods**, and everything after cutoff -- the split,
+- [~] **`Ksa/IcbmComputer.cs` was 4,337 lines and about 120 methods**, and everything after cutoff -- the split,
   clearance, trim, post-boost passes, aim correction and release -- is orchestrated there, out of the tests' reach.
-  Split it into partials by concern (trim, coast probe, release and separation, prediction), one pure-move commit
-  per file, each with its Layout row. `docs/ICBM-OUTSTANDING.md` 5.3. A rig that flies past cutoff (2.5) is the
+  It is split into ten partials by concern, 1,531 lines left in the main file. `docs/ICBM-OUTSTANDING.md` 5.3. A rig that flies past cutoff (2.5) is the
   other half: whatever of that orchestration is arithmetic belongs in `Sim/`, where it can be flown headlessly.
-- [ ] **`Sim/IcbmProgram.cs` is 1,899 lines**, the phase machine and every phase's rules in one class. Split by
-  phase after `IcbmComputer`.
+- [x] **`Sim/IcbmProgram.cs` was 1,966 lines**, the phase machine and every phase's rules in one class. Split by
+  phase into eight partials, 994 lines left in the main file. `docs/ICBM-OUTSTANDING.md` 5.3.
 - [~] **`Sim/IcbmConfig.cs` carries 65 settings.** Thirteen with flown or judged verdicts were removed on
   2026-10-06 (5.1), and every doc comment is now its verdict and a pointer (5.2, 452 lines from 1,065). Several
   that remain are off and unflown, and each is either flown and decided or removed.

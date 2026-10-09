@@ -437,6 +437,14 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/AscentProfile.cs` | the schedule flown while there is air, and the limit that keeps the stack in one piece |
 | `Sim/PostBoostAim.cs` | correcting the aim after the engines stop — **the trim is the actuator**, and holding the warheads to do it has a price. **Nothing is read off a bus whose nose is turning**: the prediction carries the kick along it |
 | `Sim/IcbmProgram.cs` | **the flight** — pad to cutoff to release, as one phase machine |
+| `Sim/IcbmProgram.Ascent.cs` | the vertical rise and the pitch programme, and when the ascent hands over to the closed loop |
+| `Sim/IcbmProgram.Holding.cs` | coasting on purpose until the burn window opens |
+| `Sim/IcbmProgram.Solve.cs` | the trajectory re-solved a few times a second, and the countdown it sets |
+| `Sim/IcbmProgram.Drag.cs` | a short shot's arc flown with the warhead's drag, and the aim moved by what it misses |
+| `Sim/IcbmProgram.ClosedLoop.cs` | guiding to cutoff — the throttle-down, the held line, the pause out of the air, and when to stop |
+| `Sim/IcbmProgram.Coast.cs` | after cutoff — the arc re-solved for the aim correction, and the release gate |
+| `Sim/IcbmProgram.Reach.cs` | whether the tanks can pay for the shot, why there is no arc, and the arrival floor the search is bounded by |
+| `Sim/IcbmProgram.Limits.cs` | what may be commanded — the airflow and horizon limit on the line, the acceleration cap, the ascent reserve, spent solids |
 | `Sim/HoldingCost.cs` | what a second of holding the warheads costs, measured off the arc rather than typed — **the floor under the miss**, and it runs from 0.82 m/s at 500 km to 21.79 at 12,900, so no constant is right |
 | `Sim/BusTrim.cs` | putting the bus back on its solution after the split — **the only thing that can**, because the burn is over |
 | `Sim/PostCutoffSequence.cs` | what the loop after cutoff does next — **the decision that dominates where the warheads land**, since a correction that finishes lands at 140 m and every other ending at 5–45 km |
