@@ -477,6 +477,43 @@ def read_targets(text, craft=None):
     return [latest[k] for k in sorted(latest)]
 
 
+def narrow_to_target(shots, k):
+    """Each flight cut down to the warheads it sent to target `k` (1-based), as though that were its
+    whole salvo, so every endpoint and the paired test read one target at a time.
+
+    A flight that never went to `k` is dropped rather than scored as a miss: a set of one has only
+    target 1, and a split flight that sent nothing there is already flagged by `say_targets`.
+    """
+    narrowed = []
+    for shot in shots:
+        if not shot.get("split"):
+            if k == 1:
+                narrowed.append(shot)
+            continue
+
+        row = next((r for r in shot["targets"] if r["k"] == k), None)
+        if row is None:
+            continue
+
+        mine = [i for i, t in enumerate(shot.get("group_target") or []) if t == k]
+        one = dict(shot)
+        one["split"] = False
+        one["targets"] = [row]
+        one["released"], one["arrived"] = row["released"], row["arrived"]
+        one["mean"], one["worst"], one["best"], one["spread"] = (
+            row["mean"], row["worst"], row["best"], row["spread"])
+        one["group_m"] = [shot["group_m"][i] for i in mine]
+        one["group_parts"] = [shot["group_parts"][i] for i in mine]
+        one["group_target"] = [k] * len(mine)
+        narrowed.append(one)
+    return narrowed
+
+
+def target_count(shots):
+    """How many places the night's split flights were sent to, or 1 for a night that flew one."""
+    return max((r["of"] for s in shots if s.get("split") for r in s["targets"]), default=1)
+
+
 def _fold_targets(shot):
     """Put a split flight's per-target groups back into the four columns everything else reads."""
     rows = shot["targets"]
@@ -1065,7 +1102,7 @@ def _say_decomposition(shots, key, order, section=False):
         print()
 
 
-def paired(root, shots, endpoint="miss", levels_from=None, per_seat=False):
+def paired(root, shots, endpoint="miss", levels_from=None, per_seat=False, target=None):
     """Compare the variants flown INSIDE each shot, which is the only comparison this
     instrument currently supports.
 
@@ -1086,6 +1123,9 @@ def paired(root, shots, endpoint="miss", levels_from=None, per_seat=False):
 
     if spec in ("", "<none>"):
         sys.exit("this batch was not flown paired -- there is no within-run split to report")
+
+    if target is not None:
+        shots = narrow_to_target(shots, target)
 
     order = [piece.split(":")[0].strip() for piece in spec.split("|") if piece.strip()]
 
@@ -1118,6 +1158,8 @@ def paired(root, shots, endpoint="miss", levels_from=None, per_seat=False):
     label, unit, score, signed = ENDPOINTS[endpoint]
 
     print(f"== paired within {len(groups)} shot(s) in {root}")
+    if target is not None:
+        print(f"   TARGET {target} only: every flight scored on the warheads it sent there")
     print(f"   scored on the {label} ({unit})")
     if per_seat:
         print("   PER SEAT: every seat is compared only with itself, so nothing is levelled or pooled "
@@ -1232,6 +1274,8 @@ def paired(root, shots, endpoint="miss", levels_from=None, per_seat=False):
     # effect being chased, so which set is used has to be stated rather than assumed.
     if levels_from:
         other_root, other_shots = load(levels_from)
+        if target is not None:
+            other_shots = narrow_to_target(other_shots, target)
         outside, _ = fit(other_shots, score)
         missing = sorted(set(levels) - set(outside))
         if not outside:
@@ -3154,6 +3198,10 @@ def main():
                          "rocket's group, which is the only one the aim correction cannot reach, "
                          "or landing, centre and dispersion: the miss off each warhead's 0.1 m "
                          "line, and that miss split into where the group went and how wide it is")
+    ap.add_argument("--target", metavar="K", type=int,
+                    help="with --paired: score only the warheads each flight sent to target K "
+                         "(1-based). A night that went to several places is otherwise reported "
+                         "pooled and then once per target")
     ap.add_argument("--levels-from", metavar="DIR",
                     help="fit the seat levels from another night, so the divisor cannot absorb "
                          "any of the arm under test")
@@ -3194,8 +3242,24 @@ def main():
         main_effect(shots, args.main)
         return
 
+    if args.target is not None and not args.paired:
+        sys.exit("--target narrows what --paired scores; pass --paired too")
+
     if args.paired:
+        if args.target is not None:
+            paired(root, shots, args.endpoint, args.levels_from, args.per_seat, args.target)
+            return
+
         paired(root, shots, args.endpoint, args.levels_from, args.per_seat)
+
+        # Pooled, a walk is weighted by how many warheads each stop got; a target the arm made
+        # worse can hide under three it made better.
+        for k in range(1, target_count(shots) + 1) if target_count(shots) > 1 else ():
+            print(f"\n{'=' * 100}")
+            try:
+                paired(root, shots, args.endpoint, args.levels_from, args.per_seat, k)
+            except SystemExit as refused:
+                print(f"   TARGET {k}: {refused}")
         return
 
     if args.endpoint != "miss":
