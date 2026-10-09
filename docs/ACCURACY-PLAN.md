@@ -12285,5 +12285,48 @@ walk's four stops (one, one, two and two warheads, about a minute apart) rather 
 under a metre — and nothing finer. The landing above is the same quantity weighted over all four targets. A
 per-target paired split in the report is the instrument a future walk night should have before it declares one.
 
+**Read per target on 2026-10-08, once `shot-report.py --paired` could** (`--target K`, and a split
+night is now reported pooled and then once per target). The pooled 0.90x is reproduced exactly; per
+target, on `landing`:
+
+| target | warheads a rocket | `shed` vs `base` | against the 1.20 bar |
+| --- | --- | --- | --- |
+| 1 | 2 | 0.83x [0.61, 0.90] | clears |
+| 2 | 2 | 0.77x [0.67, 0.98] | clears |
+| 3 | 1 | 1.24x [0.63, 1.95] | **does not clear**: unresolved, upper bound 1.95 |
+| 4 | 1 | 0.94x [0.83, 1.45] | **does not clear**: upper bound 1.45 |
+
+So the declaration as written -- per target -- is **not met on the last two stops**, which carry one
+warhead each and so read a single landing a rocket. Nothing points to a fault there: target 3's interval
+spans 0.63 to 1.95, which is what eight one-warhead groups can say, and 3 and 4 are where a shed bus is
+lightest. The switch stays on, since the pooled bar was met and nothing was refused or lost; a walk
+night that wants a per-target verdict should give each stop at least two warheads.
+
 **Both nights cleared their bars, so `IcbmConfig.ShedWarheadMass` ships on.** Numbers flown before 2026-10-03 were
 flown on a bus that never got lighter.
+
+## 3fo. Off the orbit plane, the rig does not reproduce the flown rise with the step — 2026-10-09
+
+3fl left open **what else the step reaches**, given that the freeze's duration does not move with it. `CutoffStepStudy`
+(a study; `test.sh --studies`) flies `IcbmFlightRig` aimed 26° off the orbit plane (lat 0.45, four longitudes a
+step) on a stage cut off in the flown regime: 1.42 MN on 2.6 t dry, ending at **111 m/s² and 12% throttle** against
+the flown 113–115 and 11%, so the 5 m/s `HoldDirectionBelow` cap binds as it does in flight. Medians, m/s:
+
+| step | game's actuator (jitter 0.5, latency 1) | along / square | no jitter | no latency | one frame's Δv |
+| --- | --- | --- | --- | --- | --- |
+| 16.7 ms | 0.144 | 0.096 / 0.033 | 0.050 | 0.126 | 0.23 |
+| 23.3 ms | 0.147 | 0.101 / 0.046 | 0.070 | 0.173 | 0.32 |
+| 28.0 ms | 0.142 | 0.115 / 0.000 | 0.152 | 0.208 | 0.19 |
+| 40.0 ms | 0.230 | 0.178 / 0.138 | 0.113 | 0.186 | 0.27 |
+
+Flown, the same step from 23 to 28 ms took the residual **0.175 → 0.335** with its cross-track share 67% → 79%
+(3fl). The rig matches the flown level at 23 ms and **does not reproduce the rise**: 0.147 → 0.142, and its residual
+is mostly *along* the thrust line, a third to two thirds of the last frame's Δv, where the flown one is mostly square
+to it. An instant throttle servo changes nothing (the throttle is already on its 12% floor); removing the frame of
+command latency makes it worse. A 300 kN version of the same fixture, cutting off at 23.8 m/s² with the cap not
+binding, was flat at 0.014–0.019 m/s without jitter.
+
+So the off-plane geometry and the step, as the rig models them, do not account for the flown cross-track rise. What
+grows it in flight is something the rig does not have; the rig points the thrust exactly along the commanded line, so
+the engine's attitude tracking of that line is the first candidate, and it is unmeasured. Nothing here argues for
+`IcbmConfig.HoldDirectionSeconds` as a step fix, which leaves it the flat 12% shorter freeze 3fl describes.
