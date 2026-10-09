@@ -80,7 +80,7 @@ public class CutoffResidualTests(ITestOutputHelper Out)
     /// </summary>
     private const double ShallowArrival = 0.0;
 
-    private static IcbmProgram Armed(double holdSeconds = 0.0) => new(new IcbmConfig { Armed = true, ArrivalPreference = FixtureGeometry.ArrivalPreference, MinArrivalAngleDeg = ShallowArrival, HoldDirectionSeconds = holdSeconds });
+    private static IcbmProgram Armed() => new(new IcbmConfig { Armed = true, ArrivalPreference = FixtureGeometry.ArrivalPreference, MinArrivalAngleDeg = ShallowArrival });
 
     /// <summary>
     /// Every fixture above aims along the orbit track, where the burn has no out-of-plane work to
@@ -129,21 +129,18 @@ public class CutoffResidualTests(ITestOutputHelper Out)
 
     /// <summary>
     /// And the freeze that leaves it lasts <c>HoldDirectionFrames x step</c> seconds, so a slower
-    /// machine holds the line longer — <see cref="IcbmConfig.HoldDirectionSeconds"/> is the duration
-    /// said in seconds instead.
+    /// machine holds the line longer -- in the rig, where the 5 m/s cap does not bind. In flight it
+    /// does (ACCURACY-PLAN 3fl).
     /// </summary>
     [Theory]
-    [InlineData(0.0167, 0.0400, 0.0, 2.60)]
-    [InlineData(0.0167, 0.0400, 0.35, 1.15)]
-    [InlineData(0.0210, 0.0280, 0.0, 1.45)]
-    [InlineData(0.0210, 0.0280, 0.35, 1.05)]
-    public void TheSteeringFreezeLastsTheSameTimeAtEitherFrameRate(
-        double fastStep, double slowStep, double holdSeconds, double mostStretch)
+    [InlineData(0.0167, 0.0400, 2.60)]
+    [InlineData(0.0210, 0.0280, 1.45)]
+    public void TheSteeringFreezeStretchesNoFurtherThanTheStep(double fastStep, double slowStep, double mostStretch)
     {
-        (double slow, double slowLeft) = Freezing(slowStep, holdSeconds);
-        (double fast, double fastLeft) = Freezing(fastStep, holdSeconds);
+        (double slow, double slowLeft) = Freezing(slowStep);
+        (double fast, double fastLeft) = Freezing(fastStep);
 
-        Out.WriteLine($"holding for {(holdSeconds > 0.0 ? $"{holdSeconds * 1000:F0} ms" : "20 frames")}: "
+        Out.WriteLine($"holding for 20 frames: "
                       + $"{fast:F3} s at a {fastStep * 1000:F0} ms step and {slow:F3} s at "
                       + $"{slowStep * 1000:F0}, {slow / fast:F2}x, "
                       + $"leaving {fastLeft:F4} m/s and {slowLeft:F4}");
@@ -155,13 +152,13 @@ public class CutoffResidualTests(ITestOutputHelper Out)
     }
 
     // The freeze seen from outside: the last stretch over which the commanded direction never moves.
-    private static (double Seconds, double Residual) Freezing(double step, double holdSeconds)
+    private static (double Seconds, double Residual) Freezing(double step)
     {
         IcbmFlightRig rig = LikeTheGame();
         Freeze watch = new();
         rig.AimLoop = watch;
 
-        IcbmProgram program = Armed(holdSeconds);
+        IcbmProgram program = Armed();
         IcbmFlightRig.Flight flight = rig.Fly(program, At(0.45, 1.3), step, 6_000.0);
         Assert.True(flight.Reached, $"the burn never reached coast: {flight.Hold}");
 

@@ -1002,14 +1002,7 @@ internal sealed class IcbmProgram
 
         if (!(frame > 0.0)) return HoldDirectionBelow;
 
-        // A count of frames is a duration that grows with the step, and off the orbit plane what it
-        // leaves square to the frozen line grows with it -- see IcbmConfig.HoldDirectionSeconds.
-        // One frame is the floor: below that the direction being held is noise.
-        double held = Config.HoldDirectionSeconds > 0.0
-                          ? Math.Max(frame, frame / _lastStep * Config.HoldDirectionSeconds)
-                          : HoldDirectionFrames * frame;
-
-        return Math.Min(HoldDirectionBelow, held);
+        return Math.Min(HoldDirectionBelow, HoldDirectionFrames * frame);
     }
 
     /// <summary>How fast the thrust line may turn under <see cref="IcbmConfig.ShortShotSlowsLineSeconds"/>.</summary>

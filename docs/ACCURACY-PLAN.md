@@ -12329,4 +12329,5 @@ binding, was flat at 0.014–0.019 m/s without jitter.
 So the off-plane geometry and the step, as the rig models them, do not account for the flown cross-track rise. What
 grows it in flight is something the rig does not have; the rig points the thrust exactly along the commanded line, so
 the engine's attitude tracking of that line is the first candidate, and it is unmeasured. Nothing here argues for
-`IcbmConfig.HoldDirectionSeconds` as a step fix, which leaves it the flat 12% shorter freeze 3fl describes.
+`IcbmConfig.HoldDirectionSeconds` as a step fix, which leaves it the flat 12% shorter freeze 3fl describes. It was
+deleted on 2026-10-09, unflown.

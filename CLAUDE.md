@@ -1810,9 +1810,10 @@ at 40. A shot aimed along the track has no out-of-plane work left to freeze, so 
 nothing and the residual grows exactly linearly with the step; aimed **26° off the plane** the
 residual is **59–93% square to the thrust line** and grows **5.9x over a 4x step**. Flown at
 12,902 km the cross-track share is 81% at 23 ms and 94% at 28, which is the off-plane figure — and
-every cutoff fixture flies equator to equator, where it is identically zero.
-`IcbmConfig.HoldDirectionSeconds` says the limit in seconds instead and is **off and unflown**;
-`docs/ACCURACY-PLAN.md` 3fk has what a night would have to settle.
+every cutoff fixture flies equator to equator, where it is identically zero. **In flight the 5 m/s
+cap binds first**, so the freeze lasts the same 0.4 s at either frame rate, and a rig flown off the plane
+at the flown cutoff does not reproduce the flown rise; a seconds-valued freeze was built and deleted
+unflown (`docs/ACCURACY-PLAN.md` 3fl, 3fo).
 
 **A crossing search that stops on the first sample past the boundary is biased, not merely
 imprecise.** `ImpactPredictor` accepted the first point below the ground, so a tolerance expressed

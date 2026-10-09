@@ -26,15 +26,15 @@ public class ShotArmsTests
     [Fact]
     public void AnArmCarriesTheSettingsItVaries()
     {
-        ShotArms arms = Parse("base|held:HoldDirectionSeconds=0.35,TrimBudgetMetresPerSecond=90");
+        ShotArms arms = Parse("base|sub:WarheadSubStepMs=2,TrimBudgetMetresPerSecond=90");
 
         Assert.Equal(2, arms.Count);
 
-        ShotArms.Arm held = arms.For(1);
-        Assert.Equal("held", held.Name);
-        Assert.Equal(2, held.Settings.Count);
-        Assert.Equal("HoldDirectionSeconds", held.Settings[0].Field);
-        Assert.Equal("90", held.Settings[1].Value);
+        ShotArms.Arm sub = arms.For(1);
+        Assert.Equal("sub", sub.Name);
+        Assert.Equal(2, sub.Settings.Count);
+        Assert.Equal("WarheadSubStepMs", sub.Settings[0].Field);
+        Assert.Equal("90", sub.Settings[1].Value);
     }
 
     /// <summary>
@@ -170,7 +170,7 @@ public class ShotArmsTests
     {
         IcbmConfig shipped = new();
 
-        Assert.Equal(0.0, shipped.HoldDirectionSeconds);
+        Assert.Equal(0.0, shipped.WarheadSubStepMs);
         Assert.False(shipped.WalkStartsAtCutoff);
 
         // The one that is on, because it is the one that was resolved: 11 of 13 paired shots at
@@ -178,21 +178,21 @@ public class ShotArmsTests
         // the baseline rather than a fourth variant.
         Assert.True(shipped.KeepOutCoversTheClearance);
 
-        ShotArms arms = Parse("base|held:HoldDirectionSeconds=0.35");
+        ShotArms arms = Parse("base|sub:WarheadSubStepMs=2");
         Assert.True(ShotArms.TryApply(arms.For(0), shipped, out _));
-        Assert.Equal(0.0, shipped.HoldDirectionSeconds);
+        Assert.Equal(0.0, shipped.WarheadSubStepMs);
 
         Assert.True(ShotArms.TryApply(arms.For(1), shipped, out _));
-        Assert.Equal(0.35, shipped.HoldDirectionSeconds);
+        Assert.Equal(2.0, shipped.WarheadSubStepMs);
     }
 
     [Fact]
     public void AnArmSaysWhatItVariesSoTheLogCanAttributeAShot()
     {
-        ShotArms arms = Parse("base|held:HoldDirectionSeconds=0.35");
+        ShotArms arms = Parse("base|sub:WarheadSubStepMs=2");
 
         Assert.Equal("base", arms.For(0).Describe());
-        Assert.Contains("HoldDirectionSeconds=0.35", arms.For(1).Describe());
+        Assert.Contains("WarheadSubStepMs=2", arms.For(1).Describe());
     }
 
     /// <summary>

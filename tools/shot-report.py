@@ -99,7 +99,7 @@ BODY_RADIUS_M = 6371000.0
 # seven. Silent undercounting reads exactly like a smaller night.
 PERFLIGHT = re.compile(r"FLIGHT (.+?) :: (PASS|FAIL) (.*)$", re.M)
 
-# "mirv: GeoSat FAT 2 flies arm held (HoldDirectionSeconds=0.35)". The craft is non-greedy and the
+# "mirv: GeoSat FAT 2 flies arm sub (WarheadSubStepMs=2)". The craft is non-greedy and the
 # arm is one token, because craft names carry spaces and arm names do not.
 FLIESARM = re.compile(r"^.*?: (.+?) flies arm (\S+)", re.M)
 

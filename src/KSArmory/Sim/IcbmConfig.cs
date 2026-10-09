@@ -243,14 +243,6 @@ internal sealed class IcbmConfig
     public bool StallFallsBackToHolding = true;
 
     /// <summary>
-    /// How long the burn's thrust line may be frozen before cutoff, in seconds of burning, floored at one
-    /// frame; zero counts it in frames instead (<see cref="IcbmProgram.HoldDirectionFrames"/>, which ships).
-    /// <b>Off, and unflown</b>: in flight <see cref="IcbmProgram.HoldDirectionBelow"/> binds first, so this
-    /// would only be a 12% shorter freeze. <c>docs/ACCURACY-PLAN.md</c> 3fk, 3fl.
-    /// </summary>
-    public double HoldDirectionSeconds;
-
-    /// <summary>
     /// A rig's reserve in place of <see cref="IcbmProgram.AscentReserveSeconds"/>, applied with
     /// <see cref="FlyAnyRange"/> off as well. Zero leaves it to that switch. No control reaches it.
     /// </summary>

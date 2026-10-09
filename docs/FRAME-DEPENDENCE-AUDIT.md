@@ -19,14 +19,15 @@ is not, so it lasts `Frames x step` seconds and grew the off-plane residual 5.9x
    equator to equator, which is where every cutoff fixture flies — the blindness was one line of
    fixture geometry and it hid a real term for months.
 
-Counts: **9 DECISION**, **13 FRAME-BOUNDED**, **27 CONVERGENCE**. One DECISION has a
-seconds-valued sibling already built (`IcbmConfig.HoldDirectionSeconds`, off); the rest have none.
+Counts: **9 DECISION**, **13 FRAME-BOUNDED**, **27 CONVERGENCE**. None has a
+seconds-valued sibling: the one built, `IcbmConfig.HoldDirectionSeconds`, was deleted unflown on 2026-10-09, since
+in flight the 5 m/s cap makes the freeze step-independent already (§1).
 
 ## DECISION — a policy whose effective value moves with the step
 
 | Constant | Made of | 17 ms / 25 ms / 40 ms | Consequence | Seconds sibling |
 | --- | --- | --- | --- | --- |
-| `IcbmProgram.HoldDirectionFrames` = 20 | `Frames x step` seconds of frozen thrust line | measured **0.167 s / — / 0.400 s**; nominal `20 x step` is 0.34/0.50/0.80, shorter in flight because `HoldDirectionBelow` caps the entry and the throttle ramp slows the burn-off | everything the required velocity does in the freeze is left square to a line nothing can still thrust along. 0–2% of the residual along the track, **59–93% at 26° off the plane**; headless the 40 ms residual goes 0.3299 → 0.1468 m/s, which at 4,700 m per m/s is ~0.9 km | **`IcbmConfig.HoldDirectionSeconds`**, built, **off**, unflown |
+| `IcbmProgram.HoldDirectionFrames` = 20 | `Frames x step` seconds of frozen thrust line | measured **0.167 s / — / 0.400 s**; nominal `20 x step` is 0.34/0.50/0.80, shorter in flight because `HoldDirectionBelow` caps the entry and the throttle ramp slows the burn-off | everything the required velocity does in the freeze is left square to a line nothing can still thrust along. 0–2% of the residual along the track, **59–93% at 26° off the plane**; headless the 40 ms residual goes 0.3299 → 0.1468 m/s, which at 4,700 m per m/s is ~0.9 km | none: `HoldDirectionSeconds` deleted 2026-10-09 (§1) |
 | `WarpPolicy.OverridesBeforeYielding` = 2 | frames in which the speed reads above the request | 51 / 75 / 120 ms of tolerated contest | the condition tested is a *state*, not an event, so it counts frames. A yield is cleared only by an empty sky, so one spurious yield stands the policy down for the whole flight — 9 of 12 shots yielded, warheads landing on 117–267 ms frames against 18–33 for the 3 that held. An auto-warp ramp lasting 60 ms stands the mod down at 120 fps and not at 25 | none |
 | `BusTrim.AccelerationGain` = 0.25 | a 4-frame EWMA time constant on the measured thruster acceleration | 0.068 / 0.100 / 0.160 s of lag | after every direction change `StopBand`, the budget charge and `Alive()` run on a stale acceleration for that long. Defensible — the noise rejected is a velocity difference over one step, whose size goes as `1/step` — but the lag is a duration and it grows | none |
 | `SalvoProbe.MaxAgeSeconds` = 0.5 | a seconds bound over a span counted in frames | salvo span `6 x step` = 0.10 / 0.15 / 0.24 s | a salvo lets its six go one per frame. Past ~12 fps the last warhead's borrowed probe is refused as `TooOld` and it leaves unkicked, which lands 1.7–2.0 m out. The bound is right; what it bounds is frame-counted | none needed — the span is the fault |
@@ -45,7 +46,6 @@ seconds-valued sibling already built (`IcbmConfig.HoldDirectionSeconds`, off); t
 | `IcbmProgram.ShouldCutOff`: `_countdown <= 0.5 x _lastStep x throttleAchieved` | half of what one more frame of burning adds. An engine stops on a frame boundary, so this puts the cutoff at the boundary nearest the ideal instant |
 | `IcbmProgram.ShouldCutOff`: `oneStep = accel x _lastStep`, floored at 1.0 | the rising-again backstop asks whether the velocity to gain grew by more than one frame's worth. The noise it discriminates against *is* one frame of thrust |
 | `IcbmProgram.HoldDirectionThreshold`: `frame = accel x _lastStep x throttle` | the base quantity is correct and stays. Only the `x HoldDirectionFrames` multiplier on it is the bug |
-| `IcbmConfig.HoldDirectionSeconds` floored at `frame` | below one frame the direction being held is the difference of two nearly equal vectors — the fault `HoldDirectionBelow` exists for |
 | `BusTrim.StopBand(accel, step)` = `max(0.02, 0.5 x accel x step)` | half a frame of jets. A threshold below what a frame adds is one nothing can reach and the loop hunts round it. The 0.02 floor keeps the step out of it below 71 ms on the shipped bus |
 | `BusTrim._firingFor >= 2` | a command reaches the engine's worker one frame after it is written, so the first interval after a change is a mixture. Two frames is the pipeline's own length, not a duration |
 | `BusTrim._pulsedLast`/`_pulsedBefore`, `_pushDirLast`/`_pushDirBefore` | the same one-frame write latency, as shift registers |
@@ -77,7 +77,7 @@ constant. What is left is the interval's quantisation — `ceil(0.5 / step) x st
 
 ## What to fly, ranked
 
-### 1. `HoldDirectionSeconds`, off the orbit plane
+### 1. The steering freeze, off the orbit plane
 
 **Mechanism.** The freeze begins at `Frames x accel x step x throttle` of velocity still to gain and
 burns off at `accel x throttle`, so it lasts `Frames x step` seconds. Whatever the required velocity
@@ -90,7 +90,8 @@ two nights on disk. Capped, the threshold is a velocity, and a velocity over `ac
 duration the frame never reaches: the freeze measured **0.399 s at a 23 ms step and 0.395 s at
 28 ms**. `HoldDirectionSeconds=0.35` is therefore a flat 12% shorter freeze at either frame rate — a
 constant, not a step-independence fix. `docs/ACCURACY-PLAN.md` 3fl, and it withdraws 3fk's request
-for this night.
+for this night. 3fo flew the rig off the plane at the flown cutoff and did not reproduce the flown rise either, so
+the switch was deleted on 2026-10-09.
 
 **Which geometry exposes it.** **Off the plane, and nothing else does.** A shot aimed along the
 track has no out-of-plane work left to freeze: 0–2% of the residual is square to the thrust line

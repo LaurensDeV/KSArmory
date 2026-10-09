@@ -3,7 +3,7 @@
 # Flies a batch of ballistic shots overnight, interleaved between arms, and keeps every log.
 #
 #     ./tools/shot-batch.sh --aim 26.5S,64.0W --arms base=HEAD,grav=arm/gravity --blocks 6
-#     ./tools/shot-batch.sh --paired 'base|held:HoldDirectionSeconds=0.35' --blocks 6
+#     ./tools/shot-batch.sh --paired 'base|sub:WarheadSubStepMs=2' --blocks 6
 #     ./tools/shot-batch.sh --aim none --arms base=HEAD --blocks 6   # shoot whatever the save defends
 #     ./tools/shot-batch.sh --aim '24S,62W;24.04S,62W' ...          # one bus at two places
 #       -- QUOTE it: an unquoted ';' is the shell's own separator. The bar, if any, lands on
