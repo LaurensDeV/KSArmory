@@ -2400,6 +2400,8 @@ Fit a KSArmory weapon to any rocket — the MIRV bus is the one it is for — an
       vanishes over the sky. Clicking sets a latitude and longitude that match what KSA's own
       readouts say for that place.
 - [ ] The ring greys out over a body that is not the one being flown around.
+- [ ] A target on another body is refused: the tab says `designated on <body>, which is not the body this
+      vehicle is flying around`, and nothing is flown at it.
 - [ ] With the tool off, world clicks do nothing to the target. A click on the panel never does,
       either way.
 - [ ] Typing coordinates and pressing **Designate those coordinates** works independently of it.
@@ -2413,6 +2415,8 @@ Fit a KSArmory weapon to any rocket — the MIRV bus is the one it is for — an
       appear, and both are plausible (hundreds of kilometres, tens of minutes).
 - [ ] A target on the far side of the planet says `not enough in the tanks` with two numbers, or
       solves — either is fine, a wrong-looking apogee is not.
+- [ ] Before the burn, `Delta-v: needs N m/s, has M m/s` sits under the reach lines, with *has* the
+      stack's figure on the craft being flown and close to the sum of its stages in the editor.
 - [ ] The **Loft** slider moves the apogee and the flight time together, and 1.00 is the lowest
       *To gain* of any setting.
 - [ ] The trajectory is drawn in the world as an arc, with a ring on the aim point.

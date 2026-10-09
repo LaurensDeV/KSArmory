@@ -83,7 +83,7 @@ Answered per craft, before launch, against the designated point:
 | line | state |
 | --- | --- |
 | **no trajectory / short by N m/s / too shallow** | **already shown**, `UiIcbm.DrawIcbmStatus` — with the shortfall in m/s, the unaffordable-floor case, and the off-plane cost and closest approach |
-| **delta-v** | **already shown**, scattered: `Still to gain: N m/s` against `This stage: N km/s`. What is missing is one pre-launch need-against-have line, in one place and one unit |
+| **delta-v** | **shown**: before the burn, `Delta-v: needs N m/s, has M m/s` under the reach lines, marked as one stage's reckoning where the engine does not report the whole stack, and absent where it reports nothing |
 | **flight time, arrival angle** | **already shown**, off the held arc |
 | **expected miss: N m** | **absent**, and the only genuinely new one. Needs §5's guard |
 
@@ -117,7 +117,7 @@ same rig `docs/SHOT-PROTOCOL.md` already describes. Until a cell is flown, that 
 2. **Fly `ArrivalPreference`.** Built, and ships at 0.5. What is unflown is what fraction is safe: near one
    leaves the shot no propellant margin, and 3h's B1 notes a steep floor asks 7-11 m/s of post-boost
    correction against a baseline's 2.45.
-3. **One delta-v line**, need against have, in one place. The reach cases are already shown — see §4.
+3. ~~**One delta-v line**, need against have, in one place.~~ **Built 2026-10-09**, `IcbmProgram.NeedMetresPerSecond` against `HaveMetresPerSecond`. The reach cases were already shown — see §4.
 4. **Fly the validation matrix**, then show the miss where it is earned.
 5. **Retire the settings** from the panel, keeping them settable from a shot spec. **Partly done:**
    the Ballistic tab shows the §3 controls and the arrival floor — which `NO ARC ARRIVES` names, so

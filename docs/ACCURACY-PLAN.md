@@ -12331,3 +12331,31 @@ grows it in flight is something the rig does not have; the rig points the thrust
 the engine's attitude tracking of that line is the first candidate, and it is unmeasured. Nothing here argues for
 `IcbmConfig.HoldDirectionSeconds` as a step fix, which leaves it the flat 12% shorter freeze 3fl describes. It was
 deleted on 2026-10-09, unflown.
+
+## 3fp. The 3.3-5.3 m/s split debt is the cutoff's overshoot, carried through the coast -- 2026-10-09
+
+3fe asked why one or two rockets a world owe 3.3-5.3 m/s at the split against a 1.15-1.4 floor, and guessed the
+frame the decoupler's shove lands on. **Read off the logs on disk, it is not the shove.** 1,272 `split debt on`
+lines (`IcbmComputer.SayTheSplitDebt`) joined to each craft's first `ICBM: Coast ... cut off X m/s short (A along, R
+radial, C cross ...)` line; scripts in the 10-09 session scratchpad (`debt.py`, `cut.py`, `an2-5.py`).
+
+* **Only long range has a tail.** Nine short-range nights, 648 rockets: worst 1.26 m/s, medians 0.70-0.91. Seven
+  long-range nights (12,900 km, ~2,337 s of coast to the split), 624 rockets in 78 worlds: 101 owe over 3.3, from
+  11 of 56 (09-18-longrange) to 34 of 264 (nopulse) and 13 of 64 (10-06-longkick).
+* **It is the cutoff residual's along-track part, with the sign of an overshoot.** 99 of the 101 cut off with
+  `along` negative, past the solution, against 57 of 389 owing 2 m/s or less; in 61 of the 101 it is more than the
+  line's own one-frame quantum (0.37 m/s), against none of the 389. Owed against the residual: r = 0.78 on the
+  scalar, 0.81 on `along`; by `along`, below -0.4 m/s the median owed is 4.25 (40 of 45 in the tail), -0.4 to -0.2
+  3.38 (44 of 79), -0.2 to 0 2.02 (15 of 125), 0 to +0.2 1.46 (2 of 375).
+* **It lands on the bus's `down` axis.** On the 272 rockets that print the split by axis, `down` goes from -0.79
+  m/s at 1.0-1.5 owed to -4.11 in the tail, while `nose` stays near +1, which is the decoupler. Fitted on the
+  residual's three parts, `down` has r = 0.95, about 5.1 m/s per m/s along and 4.3 per m/s radial.
+* **Nothing about the split separates it**: the step there (r = 0.07, ~63 fps either way), the step at cutoff (27 ms
+  against 26), the throttle at cutoff (11% either way), splits coinciding (they are ~5 s apart), split order, the
+  coast's summed off-gravity slip (0.04 against 0.01 m/s) and the flown-minus-committed arrival (r = 0.07).
+
+Checked by hand on 10-06-longkick: 13 of 64 owe over 3.3, 12 of them cut off with `along` negative, against 1 of the
+34 owing under 2. So 3fe's "nothing explains which" is withdrawn: what explains it is a cutoff that overshoots along
+the track by more than a frame, and ~2,300 s of coast multiplying it by about five. **Open**: why some cutoffs
+overshoot by more than a frame, which belongs to the cutoff rather than the decoupler, and why a short-range coast
+(~925 s) carries a 0.4 m/s residual into no more than 1.2 m/s of debt.

@@ -1913,9 +1913,11 @@ is a vehicle holding a perfectly steady attitude ninety degrees from the one ask
 UI holds the keyboard, that vehicle is marked inactive, or the world runs past 30x. So a modal, the
 console or a focused text field freezes the controlled rocket's throttle mid-burn, and KSA opens a modal
 by itself at every launch once a newer build is published — a rocket under it keeps full throttle
-through a staging that needs it lowered, past its airframe's limit. `ScenarioRunner` closes KSA's popups
-while it runs and `IcbmComputer` says when it is happening; a player typing into a panel during a burn
-is not handled. `docs/KSA-MODDING-NOTES.md` has the engine code.
+through a staging that needs it lowered, past its airframe's limit. So whenever `KsaWorld.DiscardsHeldControls`
+says the clear will run -- a modal, or a player typing into a panel -- the throttle's step and the trim's jets are
+put back from `AttitudeHook`'s window (`IcbmConfig.ThrottleThroughTheKeyboardClear`,
+`JetsThroughTheKeyboardClear`), and `ScenarioRunner` closes KSA's popups as well. `docs/KSA-MODDING-NOTES.md` has the
+engine code.
 
 **The pointing deadband is a high-water mark, and it has to be put back each frame.** KSA widens
 `AngleDeadband` to whatever one control period of the minimum thruster impulse can produce — a
