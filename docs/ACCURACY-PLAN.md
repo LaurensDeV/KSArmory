@@ -12359,3 +12359,11 @@ Checked by hand on 10-06-longkick: 13 of 64 owe over 3.3, 12 of them cut off wit
 the track by more than a frame, and ~2,300 s of coast multiplying it by about five. **Open**: why some cutoffs
 overshoot by more than a frame, which belongs to the cutoff rather than the decoupler, and why a short-range coast
 (~925 s) carries a 0.4 m/s residual into no more than 1.2 m/s of debt.
+
+**The overshoot is quantised.** Every one of the 79 rockets whose along-track residual is past a frame sits 1.0-1.7
+of its own last frame past the solution, and none further; it follows neither the step at cutoff (r = 0.00) nor the
+throttle, acceleration or the longest step of the burn. That is the cutoff's own half-frame band moved by one whole
+frame of thrust -- an engine still burning a frame after the command, on some rockets and not others. Cutting off
+in the same frame as another rocket does not separate them, and the night's share of held frames (0.5-2.8%) is far
+under its overshoot share (8-16%). The logs cannot resolve a frame, so `IcbmComputer.WatchTheCutoffTail` now prints
+the thrust felt on the four frames after the command (`cutoff tail on`); the next long-range night says which.

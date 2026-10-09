@@ -796,6 +796,7 @@ internal sealed partial class IcbmComputer
         bool wasBurning = Program.IsBurning;
         Command = Program.Update(simStep, state);
         ReportLongStep(wasBurning, simStep, state);
+        WatchTheCutoffTail(wasBurning, simStep, state);
 
         if (!_saidStalled && Command.Hold.StartsWith("cutoff stalled", StringComparison.Ordinal))
         {
@@ -1163,6 +1164,45 @@ internal sealed partial class IcbmComputer
         Log.Warn($"{KsaWorld.DisplayName(Craft)} burn flown across a {simStep * 1000.0:F0} ms step, "
                  + $"over the {IcbmProgram.MaxFaithfulStep * 1000.0:F0} ms a cutoff can resolve -- "
                  + $"about {state.Booster.AccelerationNow * simStep:F0} m/s in that one frame");
+    }
+
+    // Frames read after the cutoff command. One frame of command latency is two frames of reading.
+    private const int CutoffTailFrames = 4;
+
+    private int _cutoffTailFrame = -1;
+    private double3 _tailVelocityCci;
+    private double3 _tailPositionCci;
+    private double3 _tailLineCci;
+
+    // What the engine still pushed after the cutoff was commanded, frame by frame, along the line the burn ended on:
+    // an extra frame of thrust here is the long-range split debt's overshoot (ACCURACY-PLAN 3fp).
+    private void WatchTheCutoffTail(bool wasBurning, double simStep, in IcbmState state)
+    {
+        if (Program.IsBurning)
+        {
+            _cutoffTailFrame = 0;
+            _tailVelocityCci = state.VelocityCci;
+            _tailPositionCci = state.PositionCci;
+            _tailLineCci = Command.ThrustDirectionCci;
+            return;
+        }
+
+        if (_cutoffTailFrame < 0 || _cutoffTailFrame >= CutoffTailFrames || Program.Phase != IcbmPhase.Coast) return;
+        if (!(simStep > 0.0) || _tailLineCci.Equals(Vec.Zero)) return;
+
+        double3 gravity = state.Body.GravityCci((state.PositionCci + _tailPositionCci) * 0.5);
+        double3 felt = state.VelocityCci - _tailVelocityCci - gravity * simStep;
+        double along = Vec.Dot(felt, Vec.Unit(_tailLineCci));
+        double floorFrame = Program.AccelerationAtCutoff * simStep * Program.ThrottleAtCutoff;
+
+        Log.Info($"cutoff tail on {KsaWorld.DisplayName(Craft)}: frame {_cutoffTailFrame}"
+                 + $"{(wasBurning ? " (the command's)" : "")}, {simStep * 1000.0:F1} ms, "
+                 + $"{along:+0.000;-0.000;0.000} m/s along the line and {Vec.Len(felt - Vec.Unit(_tailLineCci) * along):F3} off it, "
+                 + $"one frame at the cutoff throttle is {floorFrame:F3}, engine reports {state.ThrottleAchieved:F3}");
+
+        _cutoffTailFrame++;
+        _tailVelocityCci = state.VelocityCci;
+        _tailPositionCci = state.PositionCci;
     }
 
     // How near the airframe's limit is worth a line in the log.
