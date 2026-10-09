@@ -177,10 +177,14 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
     /// What to say when no footprint came in. The caller knows which of the two ways of knowing one
     /// it was asking for, and they fail for different reasons.
     /// </param>
+    /// <param name="pricePerSlot">
+    /// <see cref="IcbmConfig.PriceEachHopAtItsSlot"/>: each hop, and the ring, at the reach of the slot
+    /// it is flown in rather than at the reach the footprint was measured with.
+    /// </param>
     public static ReachDisplay For(DivertFootprint? footprint, IReadOnlyList<Placed>? placed,
-                                   in ReleaseItinerary.Bus bus, IcbmPhase phase, bool salvoAway,
+                                   in ReleaseItinerary.Bus means, IcbmPhase phase, bool salvoAway,
                                    int maxTargets, double spacingMetres, int lead,
-                                   ReachHold unpriced)
+                                   ReachHold unpriced, bool pricePerSlot = false)
     {
         int targets = placed?.Count ?? 0;
 
@@ -188,9 +192,11 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
         if (phase == IcbmPhase.NoSolution) return None(ReachHold.NoShot, targets);
         if (footprint is not { } reach) return None(unpriced, targets);
 
-        // One number for the whole coast rather than one per slot, and the smaller axis of the two.
-        // The itinerary then prices every hop at the reach the ring is drawn at, so the readout and
-        // the picture cannot disagree -- and pinned the two axes agree to within 3% anyway.
+        ReleaseItinerary.Bus bus = pricePerSlot ? means with { ReachMeasuredAtSeconds = reach.FlightSeconds }
+                                                : means;
+
+        // The smaller axis, which pinned is within 3% of the other. One number, which the itinerary
+        // scales per slot under pricePerSlot exactly as the ring is, so the two cannot disagree.
         double perMetrePerSecond = reach.SemiMinorMetresPerMetrePerSecond;
         double[] atEachSlot = [perMetrePerSecond];
 
@@ -206,11 +212,15 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
         double hop = Math.Min(left, BusTrim.MaxMetresPerSecond);
         int room = Math.Max(0, ReleaseItinerary.TargetsWithin(spacingMetres, atEachSlot, bus) - targets);
 
+        // The next add is the new last stop, so the ring is drawn at the reach of that slot.
+        double ringScale = bus.PricesEachSlot ? bus.SlotReachScale(bus.GateFor(itinerary.Count + 1)) : 1.0;
+
         ReachDisplay display = new(ReachHold.Drawn, reach, left, hop, itinerary.LeftBuysMetres,
                                    targets, room, spacingMetres,
                                    walk.AlongMetres, walk.CrossMetres, walk.FromTarget)
         {
             Flown = flown,
+            SlotReachScale = ringScale,
         };
 
         if (targets >= maxTargets) return display with { Hold = ReachHold.Full };
@@ -228,6 +238,15 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
     /// the display stops being drawn, and the plan behind the bus must not change anyway.</para>
     /// </summary>
     public ReleaseWalk Flown { get; init; }
+
+    /// <summary>
+    /// The share of <see cref="Footprint"/> the next hop is drawn and refused at — one unless
+    /// <see cref="IcbmConfig.PriceEachHopAtItsSlot"/> prices it at a later slot than the footprint was
+    /// measured at.
+    /// </summary>
+    public double SlotReachScale { get; init; }
+
+    private double RingScale => SlotReachScale is > 0.0 and <= 1.0 ? SlotReachScale : 1.0;
 
     /// <summary>Whether there is a region on the ground at all.</summary>
     public bool HasRegion => Hold == ReachHold.Drawn;
@@ -247,11 +266,11 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
 
     /// <summary>How far the ring reaches along its long axis, in metres.</summary>
     public double SemiMajorMetres
-        => HasRegion ? Footprint.SemiMajorMetresPerMetrePerSecond * HopMetresPerSecond : 0.0;
+        => HasRegion ? Footprint.SemiMajorMetresPerMetrePerSecond * HopMetresPerSecond * RingScale : 0.0;
 
     /// <summary>The same across it.</summary>
     public double SemiMinorMetres
-        => HasRegion ? Footprint.SemiMinorMetresPerMetrePerSecond * HopMetresPerSecond : 0.0;
+        => HasRegion ? Footprint.SemiMinorMetresPerMetrePerSecond * HopMetresPerSecond * RingScale : 0.0;
 
     /// <summary>
     /// What a click at a ground offset from the landing would do.
@@ -281,7 +300,7 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
         // Against one hop's ceiling, which is what the ring is drawn at: a refusal measured on the
         // whole budget would refuse ground inside the outline and take clicks outside it.
         return Footprint.Reaches(alongMetres - NextHopAlongMetres, crossMetres - NextHopCrossMetres,
-                                 HopMetresPerSecond)
+                                 HopMetresPerSecond * RingScale)
                    ? ReachVerdict.Adds
                    : ReachVerdict.OutsideReach;
     }

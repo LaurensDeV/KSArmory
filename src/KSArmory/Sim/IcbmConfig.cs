@@ -153,6 +153,19 @@ internal sealed class IcbmConfig
     public bool WalkStartsAtCutoff;
 
     /// <summary>
+    /// Whether the walk planner prices each hop at the reach of the slot it is flown in, scaled down
+    /// from the reach measured now, rather than every hop at that one reach. <b>Off, and unflown.</b>
+    /// <c>docs/MIRV-TARGETS.md</c>.
+    /// </summary>
+    public bool PriceEachHopAtItsSlot;
+
+    /// <summary>
+    /// Whether the trim reserve kept beyond the budget for nulling the split may be spent on hops once a
+    /// walk's first stop has let its warheads go. <b>Off, and unflown.</b> <c>docs/MIRV-TARGETS.md</c>.
+    /// </summary>
+    public bool SpendTheSplitReserveAfterTheFirstStop;
+
+    /// <summary>
     /// Whether a post-boost pass is decided on the reading that follows a flown correction rather than
     /// one fifteen seconds later. On: the release +8.3 m [+6.2, +10.5] on 20 of 20, the miss 0.58x.
     /// <c>docs/ACCURACY-PLAN.md</c> 3cr, 3ct.

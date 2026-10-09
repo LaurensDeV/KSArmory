@@ -972,3 +972,30 @@ declaration as above (**done 2026-10-09**: `~/shots/scripts-2026-10-02/DECLARE-w
 as its step 0, flown spend and truncation primary, the landing pooled because one warhead a stop cannot carry a
 per-target verdict); fly the paired night. Then the levers: spend the trim reserve kept back for the split's
 null after stop 1, and price each slot at its own reach.
+
+## Both levers built, off and unflown — 2026-10-09
+
+**`IcbmConfig.PriceEachHopAtItsSlot`** prices each hop at the reach of the slot it is flown in. The reach
+the planner is handed is measured at one time to go (`DivertFootprint.FlightSeconds`: the columns' own fall
+while coasting, the gate on the pad), and each slot gets that reach times `t_slot / t_measured`, never above
+one (`ReleaseItinerary.Bus.SlotReachScale`). The pinned reach is concave in the time to go, about
+`sin(ωt)/ω`, so scaling it down linearly is a floor; holding it at one for an earlier slot keeps the pad,
+whose epoch estimate is measured at the gate, exactly where it was. The ring is drawn and a click refused at
+the slot the next add would be flown in, the last of one more stop, so the picture still agrees with the
+plan. Coasting it is the honest direction and the refusing one: a 4 km chain the coast prices at 4.19 m/s a
+hop off 955 m per m/s at 1,200 s wants 12.0 for its last hop at the gate, more than one pass flies
+(`WalkPricingTests`).
+
+**`IcbmConfig.SpendTheSplitReserveAfterTheFirstStop`** releases the 10 m/s the tank keeps beyond the 60 m/s
+budget for nulling the split (`ReleaseLoop.SplitNullReserveMetresPerSecond`, the margin
+`PostBoostAimTests.TheBudgetLeavesEnoughToNullASeparation` holds) once the first stop's whole quota has gone
+(`ReleaseWalker.FirstStopAway`). The planner charges stops after the first against 70; the flight raises the
+trim's budget, the hop check and the post-boost cutoff by the same 10 from that frame, and never for a set of
+one. A six-stop chain 9.5 km apart costs 63.6 m/s: five stops without it, six with. The planner still prices
+against `PostBoostAim.MaxTrimMetresPerSecond` rather than `TrimBudgetMetresPerSecond`, as it did before.
+
+**Flying them.** The first wants a four-target walk at a spacing the coast-now price accepts and the slot
+price refuses, flown with it off, to see which of the two the per-hop spend on the release lines follows. The
+second wants a six-target walk the budget cuts, flown on the smallest bus the rack is fitted to, reading the
+trim's spend against what the tank actually held: the reserve was sized to be left over, so spending it
+leaves the smallest bus nothing, and nothing has measured how often a walk's last hop runs to its ceiling.

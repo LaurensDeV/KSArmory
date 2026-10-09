@@ -57,10 +57,15 @@ internal sealed partial class IcbmComputer
         Reach = ReachDisplay.For(_reachFootprint, PlacedTargets(),
                                  new ReleaseItinerary.Bus(Config.ReleaseBeforeArrivalSeconds,
                                                           coast, WarheadsAboard,
-                                                          FromCutoff: Config.WalkStartsAtCutoff),
+                                                          FromCutoff: Config.WalkStartsAtCutoff,
+                                                          ReserveAfterFirstStopMetresPerSecond:
+                                                              Config.SpendTheSplitReserveAfterTheFirstStop
+                                                                  ? ReleaseLoop.SplitNullReserveMetresPerSecond
+                                                                  : 0.0),
                                  Program.Phase, SalvoIsOver, TargetSet.MaxTargets,
                                  Warhead.LethalRadius(_warhead!.ChargeKg), _targets.LeadIndex,
-                                 coasting ? ReachHold.Unflown : ReachHold.EpochUnmeasured);
+                                 coasting ? ReachHold.Unflown : ReachHold.EpochUnmeasured,
+                                 Config.PriceEachHopAtItsSlot);
 
         // Held rather than re-read, and only replaced by a plan that has stops. A frame whose
         // footprint did not come down would otherwise take the walk away on the approach to the

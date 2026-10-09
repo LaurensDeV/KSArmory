@@ -44,7 +44,7 @@ internal sealed partial class IcbmComputer
         _walker.Finish();
 
         Log.Info(ReleaseWalker.SayWalk(KsaWorld.DisplayName(Craft), _wentTo,
-                                       _trim.SpentMetresPerSecond, Config.TrimBudgetMetresPerSecond,
+                                       _trim.SpentMetresPerSecond, TrimBudgetMetresPerSecond,
                                        Math.Max(0, _salvoSize - WarheadsAway)));
     }
 
@@ -59,9 +59,16 @@ internal sealed partial class IcbmComputer
     private HopHold TheTrimWillFlyTheNextHop(in ReleaseStep step)
         => ReleaseLoop.CanFlyTheHop(
                step.NextHopMetresPerSecond, _trim.ToGainMetresPerSecond,
-               PostCutoffSequence.CeilingFor(0, Config.TrimBudgetMetresPerSecond,
+               PostCutoffSequence.CeilingFor(0, TrimBudgetMetresPerSecond,
                                              _trim.SpentMetresPerSecond),
-               _trim.SpentMetresPerSecond, Config.TrimBudgetMetresPerSecond);
+               _trim.SpentMetresPerSecond, TrimBudgetMetresPerSecond);
+
+    // The flight's trim budget, with the split's reserve once a walk's first stop has let go.
+    private double TrimBudgetMetresPerSecond
+        => ReleaseLoop.BudgetWithReserve(Config.TrimBudgetMetresPerSecond, ReserveReleasedMetresPerSecond);
+
+    private double ReserveReleasedMetresPerSecond
+        => ReleaseLoop.ReserveReleased(Config.SpendTheSplitReserveAfterTheFirstStop, _walker.FirstStopAway);
 
     // The stop the bus is on takes the rest: it is already trimmed and corrected onto this target,
     // so the warheads left are delivered rather than assigned to a place nothing flew the bus to.
@@ -75,7 +82,7 @@ internal sealed partial class IcbmComputer
 
         string why = hold == HopHold.BeyondTheBudget
             ? $"the flight has spent {_trim.SpentMetresPerSecond:F2} m/s of its "
-              + $"{Config.TrimBudgetMetresPerSecond:F0} and cannot pay the {wants:F2} m/s more"
+              + $"{TrimBudgetMetresPerSecond:F0} and cannot pay the {wants:F2} m/s more"
             : $"one pass would have to fly {wants:F2} m/s of "
               + $"{BusTrim.CeilingFor(double.NaN):F0} and would refuse all of it";
 
@@ -98,7 +105,7 @@ internal sealed partial class IcbmComputer
         Log.Info(ReleaseWalker.SayRelease(_walker.Stop + 1, _walker.Walk.Stops,
                                           KsaWorld.DisplayName(Craft), step.Target, site, step.Away,
                                           _trim.SpentMetresPerSecond - _spentAtStopStart,
-                                          Math.Max(0.0, Config.TrimBudgetMetresPerSecond
+                                          Math.Max(0.0, TrimBudgetMetresPerSecond
                                                         - _trim.SpentMetresPerSecond)));
     }
 

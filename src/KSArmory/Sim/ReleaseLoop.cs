@@ -83,7 +83,7 @@ internal readonly record struct ReleaseWalk(ReleaseItinerary Itinerary, ReleaseW
 
             ReleaseWalkHold.Walking =>
                 $"{Stops} stops, {Itinerary.NeedsMetresPerSecond:F1} m/s of "
-                + $"{Itinerary.Means.BudgetMetresPerSecond:F0}"
+                + $"{Itinerary.Means.WalkBudgetMetresPerSecond:F0}"
                 + (Dropped > 0
                        ? $" -- {Dropped} target{(Dropped == 1 ? "" : "s")} dropped, "
                          + "their warheads stay aboard"
@@ -158,6 +158,30 @@ internal readonly record struct ReleaseStep(int Target, int Warheads, int Away, 
 /// </summary>
 internal static class ReleaseLoop
 {
+    /// <summary>
+    /// What the tank keeps beyond the trim budget for nulling the split, in metres a second: one null
+    /// at the most a pass will fly, which <c>PostBoostAimTests.TheBudgetLeavesEnoughToNullASeparation</c>
+    /// holds the budget to.
+    /// </summary>
+    public const double SplitNullReserveMetresPerSecond = BusTrim.MaxMetresPerSecond;
+
+    /// <summary>
+    /// What the budget gains once a walk's first stop has let its warheads go, which is after the split
+    /// has been nulled — <see cref="IcbmConfig.SpendTheSplitReserveAfterTheFirstStop"/>.
+    /// </summary>
+    public static double ReserveReleased(bool spendIt, bool firstStopAway)
+        => spendIt && firstStopAway ? SplitNullReserveMetresPerSecond : 0.0;
+
+    /// <summary>
+    /// A flight's trim budget with <paramref name="reserveMetresPerSecond"/> added — never to one that is
+    /// none (zero) or unlimited (negative), whose meaning a reserve does not change.
+    /// </summary>
+    public static double BudgetWithReserve(double budgetMetresPerSecond, double reserveMetresPerSecond)
+        => budgetMetresPerSecond > 0.0 && double.IsFinite(budgetMetresPerSecond)
+           && reserveMetresPerSecond > 0.0 && double.IsFinite(reserveMetresPerSecond)
+               ? budgetMetresPerSecond + reserveMetresPerSecond
+               : budgetMetresPerSecond;
+
     /// <summary>
     /// Plan a walk, or say why there is not one.
     /// </summary>

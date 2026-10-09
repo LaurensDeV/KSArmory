@@ -809,6 +809,24 @@ internal sealed partial class Ui
             + "fuel moves a landing furthest, so its targets can be spread wider. Off: the walk ends on "
             + "the release gate, where each warhead lands most precisely. One target is the same either way.");
 
+        bool perSlot = config.PriceEachHopAtItsSlot;
+        if (ImGui.Checkbox("Price each hop where it is flown", ref perSlot))
+        {
+            config.PriceEachHopAtItsSlot = perSlot;
+        }
+        Tip("On: the walk planner prices each hop at how far fuel moves a landing at the moment that hop "
+            + "is flown, which is less the later it comes, so some spreads it used to accept are refused or "
+            + "cut short. Off: every hop is priced at the reach measured now. Unflown.");
+
+        bool reserve = config.SpendTheSplitReserveAfterTheFirstStop;
+        if (ImGui.Checkbox("Spend the split reserve after stop 1", ref reserve))
+        {
+            config.SpendTheSplitReserveAfterTheFirstStop = reserve;
+        }
+        Tip($"On: once a walk's first target has its warheads, the {ReleaseLoop.SplitNullReserveMetresPerSecond:F0} m/s "
+            + "the tank keeps beyond the trim budget for nulling the stage split may be spent on later hops. "
+            + "Off: the walk never spends past the budget. One target is the same either way. Unflown.");
+
         bool onReading = config.DecideOnTheReading;
         if (ImGui.Checkbox("Decide each pass on its reading", ref onReading))
         {

@@ -32,6 +32,11 @@ namespace KSArmory;
 /// <param name="TrimSpentMetresPerSecond">
 /// What the passes have taken out of the tank so far — <see cref="BusTrim.SpentMetresPerSecond"/>.
 /// </param>
+/// <param name="BudgetMetresPerSecond">
+/// What the passes may take out of it before the salvo goes on the aim as it is —
+/// <see cref="PostBoostAim.MaxTrimMetresPerSecond"/>, and the split's reserve on top of it under
+/// <see cref="IcbmConfig.SpendTheSplitReserveAfterTheFirstStop"/>.
+/// </param>
 /// <param name="DecideOnTheReading">
 /// Whether a frame with no reading leaves the flown correction for the reading that follows —
 /// <see cref="IcbmConfig.DecideOnTheReading"/>.
@@ -55,7 +60,8 @@ internal readonly record struct PostBoostSituation(
     double HoldingCostMetresPerSecond = 0.0,
     bool DecideOnTheReading = false,
     bool ReleaseInsideTheTrimFloor = false,
-    double TrimFloorMetres = double.NaN);
+    double TrimFloorMetres = double.NaN,
+    double BudgetMetresPerSecond = PostBoostAim.MaxTrimMetresPerSecond);
 
 /// <summary>
 /// Correcting the aim after the engines have stopped, with the trim as the actuator.
@@ -292,7 +298,7 @@ internal sealed class PostBoostAim
 
         if (_elapsed >= MaxSeconds) return Finish($"released after {_elapsed:F0} s of correcting");
 
-        if (now.TrimSpentMetresPerSecond >= MaxTrimMetresPerSecond)
+        if (now.TrimSpentMetresPerSecond >= now.BudgetMetresPerSecond)
         {
             return Finish($"released on {now.TrimSpentMetresPerSecond:F0} m/s of trim, "
                           + "which is the bus's budget for correcting");

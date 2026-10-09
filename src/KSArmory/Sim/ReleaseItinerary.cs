@@ -116,13 +116,47 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
     /// <see cref="IcbmConfig.WalkStartsAtCutoff"/>: a walk's first release is due as soon as the
     /// coast begins rather than its last one landing on the gate. See <see cref="GateFor"/>.
     /// </param>
+    /// <param name="ReachMeasuredAtSeconds">
+    /// How long before arrival the given reach was measured, so each slot is priced at
+    /// <see cref="SlotReachScale"/> of it — <see cref="IcbmConfig.PriceEachHopAtItsSlot"/>. NaN
+    /// prices every slot at the reach as given.
+    /// </param>
+    /// <param name="ReserveAfterFirstStopMetresPerSecond">
+    /// What the budget gains once the first stop's warheads are away —
+    /// <see cref="IcbmConfig.SpendTheSplitReserveAfterTheFirstStop"/>. Zero leaves it the budget.
+    /// </param>
     internal readonly record struct Bus(double GateSeconds, double CoastSeconds, int Warheads,
                                         double HopSeconds = MedianHopSeconds,
                                         double BudgetMetresPerSecond = PostBoostAim.MaxTrimMetresPerSecond,
                                         double SpentMetresPerSecond = SingleTargetMetresPerSecond,
                                         double HopMetresPerSecond = BusTrim.MaxMetresPerSecond,
-                                        bool FromCutoff = false)
+                                        bool FromCutoff = false,
+                                        double ReachMeasuredAtSeconds = double.NaN,
+                                        double ReserveAfterFirstStopMetresPerSecond = 0.0)
     {
+        public bool PricesEachSlot => ReachMeasuredAtSeconds > 0.0 && double.IsFinite(ReachMeasuredAtSeconds);
+
+        /// <summary>
+        /// The share of the measured reach a release <paramref name="beforeArrivalSeconds"/> out keeps.
+        ///
+        /// <para>Linear in the time to go and never above one, which makes it a floor: the pinned reach
+        /// is concave in the time to go, about <c>sin(ωt)/ω</c>.</para>
+        /// </summary>
+        public double SlotReachScale(double beforeArrivalSeconds)
+            => PricesEachSlot && beforeArrivalSeconds >= 0.0 && double.IsFinite(beforeArrivalSeconds)
+                   ? Math.Min(1.0, beforeArrivalSeconds / ReachMeasuredAtSeconds)
+                   : 1.0;
+
+        /// <summary>What stop <paramref name="stop"/>, counted from zero, may have spent by its release.</summary>
+        public double BudgetAt(int stop) => stop > 0 ? WalkBudgetMetresPerSecond : BudgetMetresPerSecond;
+
+        /// <summary>The budget every hop is paid from, which is after the first stop's warheads are away.</summary>
+        public double WalkBudgetMetresPerSecond
+            => ReserveAfterFirstStopMetresPerSecond > 0.0 && double.IsFinite(BudgetMetresPerSecond)
+               && double.IsFinite(ReserveAfterFirstStopMetresPerSecond)
+                   ? BudgetMetresPerSecond + ReserveAfterFirstStopMetresPerSecond
+                   : BudgetMetresPerSecond;
+
         /// <summary>
         /// The gate a walk of <paramref name="stops"/> counts its releases back from.
         ///
@@ -225,13 +259,13 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
 
         for (int k = 0; k < stops.Length; k++)
         {
-            double reach = ReachAt(reachMetresPerMetrePerSecond, k);
+            double before = BeforeArrivalSeconds(k, stops.Length, gate, bus.HopSeconds);
+            double reach = ReachAtSlot(reachMetresPerMetrePerSecond, k, before, bus);
             double hop = k == 0 ? 0.0 : HopOnto(targets[taken[k].Target], bus, reach);
             spent += hop;
 
-            stops[k] = new Stop(taken[k].Target, taken[k].Warheads,
-                                BeforeArrivalSeconds(k, stops.Length, gate, bus.HopSeconds),
-                                hop, spent, reach, k == 0 || Within(spent, bus.BudgetMetresPerSecond));
+            stops[k] = new Stop(taken[k].Target, taken[k].Warheads, before,
+                                hop, spent, reach, k == 0 || Within(spent, bus.BudgetAt(k)));
         }
 
         return new ReleaseItinerary(stops, bus, without);
@@ -284,7 +318,7 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
         int most = Math.Max(0, bus.Warheads);
         if (most <= 1) return most;
 
-        double budget = bus.BudgetMetresPerSecond;
+        double budget = bus.WalkBudgetMetresPerSecond;
         if (!double.IsFinite(budget)) return most;
 
         for (int n = 2; n <= most; n++)
@@ -309,7 +343,7 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
     {
         if (targets <= 1) return double.PositiveInfinity;
 
-        double budget = bus.BudgetMetresPerSecond;
+        double budget = bus.WalkBudgetMetresPerSecond;
         if (!double.IsFinite(budget)) return double.PositiveInfinity;
 
         double left = budget - Math.Max(0.0, bus.SpentMetresPerSecond);
@@ -377,8 +411,8 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
 
     /// <summary>What is left of the budget once the whole set is paid for, never negative.</summary>
     public double LeftMetresPerSecond
-        => double.IsFinite(Means.BudgetMetresPerSecond)
-               ? Math.Max(0.0, Means.BudgetMetresPerSecond - NeedsMetresPerSecond)
+        => double.IsFinite(Means.WalkBudgetMetresPerSecond)
+               ? Math.Max(0.0, Means.WalkBudgetMetresPerSecond - NeedsMetresPerSecond)
                : double.PositiveInfinity;
 
     /// <summary>
@@ -409,7 +443,7 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
                             + $"last at {LastBeforeArrivalSeconds:F0} s";
 
         string line = $"{Count} target{(Count == 1 ? "" : "s")}, {when}, "
-                      + $"{NeedsMetresPerSecond:F1} m/s of {Means.BudgetMetresPerSecond:F0}";
+                      + $"{NeedsMetresPerSecond:F1} m/s of {Means.WalkBudgetMetresPerSecond:F0}";
 
         List<string> refused = [];
 
@@ -430,9 +464,12 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
     {
         double total = 0.0;
 
+        double gate = bus.GateFor(targets);
+
         for (int k = 1; k < targets; k++)
         {
-            total += PriceOf(spacingMetres, ReachAt(reach, k), bus);
+            double before = BeforeArrivalSeconds(k, targets, gate, bus.HopSeconds);
+            total += PriceOf(spacingMetres, ReachAtSlot(reach, k, before, bus), bus);
         }
 
         return total;
@@ -456,6 +493,14 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
         if (reach is null || reach.Count == 0) return double.NaN;
 
         return reach[Math.Min(index, reach.Count - 1)];
+    }
+
+    private static double ReachAtSlot(IReadOnlyList<double>? reach, int index, double beforeArrivalSeconds,
+                                      in Bus bus)
+    {
+        double measured = ReachAt(reach, index);
+
+        return bus.PricesEachSlot ? measured * bus.SlotReachScale(beforeArrivalSeconds) : measured;
     }
 
     private static double HopOnto(in Target target, in Bus bus, double reachMetresPerMetrePerSecond)

@@ -60,6 +60,12 @@ internal sealed class ReleaseWalker
     /// </summary>
     public bool Committed => _committed;
 
+    /// <summary>
+    /// Whether a walk's first stop has let all its warheads go, which is after the split has been
+    /// nulled. Never for a set of one.
+    /// </summary>
+    public bool FirstStopAway => _walk.Walks && (Stop > 0 || !Step.ReleaseHere);
+
     /// <summary>What this stop wants of the flight right now.</summary>
     public ReleaseStep Step => ReleaseLoop.Step(_walk, Stop, AwayThisStop);
 

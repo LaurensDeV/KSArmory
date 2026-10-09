@@ -126,7 +126,7 @@ internal sealed partial class IcbmComputer
         // item 8h.
         PostCutoffSequence.Plan plan = PostCutoffSequence.Decide(
             clearance.IsClear, clearance.Abandoned, _postBoost.Cycles,
-            Config.TrimBudgetMetresPerSecond, _trim.SpentMetresPerSecond,
+            TrimBudgetMetresPerSecond, _trim.SpentMetresPerSecond,
             Config.KeepOutCoversTheClearance);
 
         if (plan.Abandon)
@@ -150,7 +150,7 @@ internal sealed partial class IcbmComputer
         // again for every run that follows. And the stop has to *end* the trim: expressed as
         // withholding fire it never lifts, because only firing spends the tank -- and the warheads
         // do not leave until the trim is done.
-        double budget = Config.TrimBudgetMetresPerSecond;
+        double budget = TrimBudgetMetresPerSecond;
 
         if (!_saidBudget && !_trim.WithinBudget(budget))
         {
@@ -227,6 +227,7 @@ internal sealed partial class IcbmComputer
             AimHasSettled: _aim.Settled,
             TrimGaveUp: _trim.GaveUp,
             TrimSpentMetresPerSecond: _trim.SpentMetresPerSecond,
+            BudgetMetresPerSecond: PostBoostAim.MaxTrimMetresPerSecond + ReserveReleasedMetresPerSecond,
             HoldingCostMetresPerSecond: double.IsFinite(_holdingCost)
                                             ? _holdingCost
                                             : Config.HoldingCostMetresPerSecond,
