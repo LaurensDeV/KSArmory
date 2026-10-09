@@ -88,7 +88,7 @@ first night), before Tier 3.
 | --- | --- | --- | --- |
 | 4.1 | **Expected-miss readout**, shown only in cells flown for completion and accuracy, at more than one frame rate -- or it advertises millimetres on rockets and hardware never flown. Depends on 2.1–2.3. | WHAT-THE-PLAYER-SETS §4-6 | L |
 | ~~4.2~~ | **Built 2026-10-09, not yet seen in game:** before the burn the panel prints `Delta-v: needs N m/s, has M m/s`, marked as one stage's reckoning where the engine does not report the whole stack (only the craft being flown has it), and nothing where it reports nothing, as an unlit stage does. CHECKLIST 12.2. | WHAT-THE-PLAYER-SETS §6.3 | S–M |
-| 4.3 | **A six-target walk released all the way down** (never flown; revise its declaration first, after 2.6). | MIRV-TARGETS last section | M |
+| 4.3 | **A six-target walk released all the way down** (never flown). **Declaration revised 2026-10-09** (`~/shots/scripts-2026-10-02/DECLARE-walk-cutoff-v2.md`): one walk to the ground first, then the paired `WalkStartsAtCutoff` night scored on flown trim spend and truncation, the landing pooled. Needs two nights' game time. | MIRV-TARGETS last section | M |
 | 4.4 | **Per-stop pricing in the walk planner**, and the trim reserve after stop 1 spent. | MIRV-TARGETS | S–M |
 | 4.5 | **The missile's own reach before target 1** (37–68 ms a ring, spread over frames). | MIRV-TARGETS Phase 2 | M |
 | 4.6 | **How large an `ArrivalPreference` is safe**: 0.5 has flown as the default since 3aa (0.48x against 0.8); the safe fraction, and 0.5 at the long geometry, are what is open. | WHAT-THE-PLAYER-SETS §6.2; ACCURACY-PLAN 3aa | M |

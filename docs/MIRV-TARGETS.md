@@ -961,5 +961,7 @@ on target 6. Two things to change in `~/shots/scripts-2026-10-02/DECLARE-walk-cu
   (every warhead inside the lethal radius; early's floor is expected to rise).
 
 **Next, in order:** re-fly a six-target walk on `dev` with the switch off to see one complete; revise the
-declaration as above; fly the paired night. Then the levers: spend the trim reserve kept back for the split's
+declaration as above (**done 2026-10-09**: `~/shots/scripts-2026-10-02/DECLARE-walk-cutoff-v2.md`, with that walk
+as its step 0, flown spend and truncation primary, the landing pooled because one warhead a stop cannot carry a
+per-target verdict); fly the paired night. Then the levers: spend the trim reserve kept back for the split's
 null after stop 1, and price each slot at its own reach.
