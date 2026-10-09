@@ -353,7 +353,7 @@ With several targets, the release step becomes a loop:
 What already exists and is reused: the trajectory solve (`BallisticArc`, `Lambert`), the trim (`BusTrim`),
 the correction loop (`PostBoostAim`, `AimCorrection`), the release and kick, the trace. What is new is the loop
 around them and the bookkeeping of which warhead belongs to which target — `Sim/ReleaseLoop.cs`, built and
-tested, and `Sim/ReleaseWalker.cs`, the cursor `Ksa/IcbmComputer.cs` actuates it through — see *What the
+tested, and `Sim/ReleaseWalker.cs`, the cursor `Ksa/Icbm/IcbmComputer.cs` actuates it through — see *What the
 actuation is* below.
 
 **The per-pass ceiling does not need raising after all.** A hop is flown as a fresh null with the correction's

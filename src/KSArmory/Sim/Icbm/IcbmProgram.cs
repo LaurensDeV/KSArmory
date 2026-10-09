@@ -692,7 +692,7 @@ internal sealed partial class IcbmProgram
     /// where the burn does.</para>
     ///
     /// <para>The caller decides when, and it should be a state that is already lost rather than a
-    /// threshold — <c>Ksa/IcbmComputer.cs</c> asks only once the trim has refused over its ceiling.
+    /// threshold — <c>Ksa/Icbm/IcbmComputer.cs</c> asks only once the trim has refused over its ceiling.
     /// </para>
     /// </summary>
     public bool ReleaseArrival()

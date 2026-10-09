@@ -972,7 +972,7 @@ Four candidates for the remaining ~1.3 km, none of them measurable in a rig whos
 `ModelInputAgreementTests` is the other half of `ProbeGapTests`: that one hands both models one
 world and prices what their integrators do differently, this one asks whether the game hands them
 one world at all. In flight the round takes its inputs through `Ksa/WeaponSystem.cs` in `Ecl` and
-the prediction takes its own through `Ksa/IcbmComputer.cs` in `Cci`, and those are different code
+the prediction takes its own through `Ksa/Icbm/IcbmComputer.cs` in `Cci`, and those are different code
 paths reading different engine calls.
 
 **Four of the five agree, and three of them agree exactly rather than closely:**
@@ -1025,7 +1025,7 @@ long, it is not.
 its `Ecl` frame consistent with the planet's and leaves only the solar tide (0.009% of the term).
 That is a behaviour change reaching every round the mod fires, and belongs in a flight.
 - **The waterline — closed, and worth keeping as the shape.** `Ksa/GroundTest.cs` clamps the height
-  field to sea level and `Ksa/IcbmComputer.cs`'s `TerrainRadiusAt` now does too, through the same
+  field to sea level and `Ksa/Icbm/IcbmComputer.cs`'s `TerrainRadiusAt` now does too, through the same
   `GroundSurface.Height`. While it did not, a round over water stopped kilometres above the surface
   the prediction flew to — 35 km of ground at the mean depth, and zero over dry land, so a shot that
   arrived inland saw none of it. `SurfaceAgreementTests` prices it. The class of fault is not closed:
@@ -4687,7 +4687,7 @@ regimes rather than about the integrator.
 
 Every piece of the post-cutoff chain is already in `Sim/` — `BusTrim`, `PostBoostAim`,
 `AimCorrection`, `SeparationClearance`, `IcbmProgram`. What is **not** is the sequencing that runs
-them, which lives in `Ksa/IcbmComputer.cs` and therefore cannot be tested at all: whether a pass is
+them, which lives in `Ksa/Icbm/IcbmComputer.cs` and therefore cannot be tested at all: whether a pass is
 taken, what the ceiling is sized from, when the trim is resumed, what ends the loop. That is exactly
 the decision 8z measured at **140 m against 5–45 km**, and it is reachable only by flying.
 
@@ -5160,7 +5160,7 @@ directly. Tonight: 29.8 ms, 2 passes, 0.10 km.
 
 `MirvBudgetTests` re-measures the whole group now that every term the 11 km budget was dominated by
 has been fixed. It flies the real `IcbmProgram` through `IcbmFlightRig` with the aim correction wired
-as `Ksa/IcbmComputer.cs` wires it, takes the state the engines actually stopped in, and puts six
+as `Ksa/Icbm/IcbmComputer.cs` wires it, takes the state the engines actually stopped in, and puts six
 warheads off it — six real `Slug`s at the step `WarpPolicy` holds the world to.
 
 **The rig reproduces the flown bias and does not reproduce the flown spread.** Flown as the game

@@ -9,7 +9,7 @@ namespace KSArmory;
 /// 45 km — 40x to 300x, which is not a distribution with a tail. Everything upstream of it, the
 /// guidance and the burn and the arrival angle, is worth less than whether this loop finishes.</para>
 ///
-/// <para>It is here rather than in <c>Ksa/IcbmComputer.cs</c> so the largest term in the mod's
+/// <para>It is here rather than in <c>Ksa/Icbm/IcbmComputer.cs</c> so the largest term in the mod's
 /// accuracy can be examined headlessly rather than only by flying a night.
 /// <c>docs/MIRV-NEXT.md</c> <b>8ac</b>.</para>
 /// </summary>

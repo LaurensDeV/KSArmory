@@ -403,7 +403,7 @@ see [Flying one without watching it](#flying-one-without-watching-it).
 **A shot that never lit says so**, rather than reading as one that ran out of propellant. The whole
 velocity is still to gain either way, and the two want completely different things done about them.
 
-`Ksa/IcbmComputer.StagingWouldDropTheLauncher` still refuses any sequence that would separate the
+`Ksa/Icbm/IcbmComputer.StagingWouldDropTheLauncher` still refuses any sequence that would separate the
 launcher, which on the pad is the launch not happening rather than a stage going unspent. It says so
 once, because the refusal is otherwise silent.
 

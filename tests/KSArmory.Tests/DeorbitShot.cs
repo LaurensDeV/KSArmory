@@ -116,7 +116,7 @@ internal static class DeorbitShot
     /// The same relief with the sea filled in, which is the surface a round actually stops on.
     ///
     /// <para>Both the round and the prediction of it clamp here — <c>Ksa/GroundTest.cs</c> directly
-    /// and <c>Ksa/IcbmComputer.cs</c>'s <c>TerrainRadiusAt</c> through its <c>SurfaceHeight</c> — so
+    /// and <c>Ksa/Icbm/IcbmComputer.cs</c>'s <c>TerrainRadiusAt</c> through its <c>SurfaceHeight</c> — so
     /// this is the surface each of them stops on rather than a difference between them.
     /// <c>docs/KSA-TERRAIN.md</c> has what the height field reports under an ocean.</para>
     /// </summary>

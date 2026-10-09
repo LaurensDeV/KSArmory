@@ -4,7 +4,7 @@ namespace KSArmory.Tests;
 
 /// <summary>
 /// The post-cutoff loop, run headlessly: the clearance, the sequencer, the trim and the correction
-/// in the order <c>Ksa/IcbmComputer.cs</c> runs them, against a bus that moves when it is pushed.
+/// in the order <c>Ksa/Icbm/IcbmComputer.cs</c> runs them, against a bus that moves when it is pushed.
 ///
 /// <para><b>The point is the feedback, not the pieces.</b> Each of those was already testable
 /// alone. What could only be reached by flying is that they drive each other: the decoupler's shove

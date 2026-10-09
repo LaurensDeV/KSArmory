@@ -6,7 +6,7 @@ namespace KSArmory.Tests;
 /// The loop that decides where the warheads land, now that it can be asked without a rocket.
 ///
 /// <para>Flown, a correction that ran to completion landed at 140 m and every other ending at 5 to
-/// 45 km. Until this moved out of <c>Ksa/IcbmComputer.cs</c> none of it could be examined except by
+/// 45 km. Until this moved out of <c>Ksa/Icbm/IcbmComputer.cs</c> none of it could be examined except by
 /// spending a night — and a night needs a machine in the fast regime, which is not dependable.</para>
 /// </summary>
 public class PostCutoffSequenceTests

@@ -142,7 +142,7 @@ public class MirvBudgetTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// <see cref="AimCorrection"/> ridden the way <c>Ksa/IcbmComputer.cs</c> rides it today: predict
+    /// <see cref="AimCorrection"/> ridden the way <c>Ksa/Icbm/IcbmComputer.cs</c> rides it today: predict
     /// from the solved cutoff state with the warhead's own drag and the mean ejection kick already
     /// added, bring the answer back to the epoch the target is expressed in, score against the
     /// target rather than against the biased aim, and freeze when the arrival commits.

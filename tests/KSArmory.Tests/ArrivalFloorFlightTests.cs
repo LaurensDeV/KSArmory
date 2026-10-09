@@ -38,7 +38,7 @@ public class ArrivalFloorFlightTests(ITestOutputHelper Out)
     };
 
     /// <summary>
-    /// <see cref="AimCorrection"/> riding a flight the way <c>Ksa/IcbmComputer.cs</c> rides one:
+    /// <see cref="AimCorrection"/> riding a flight the way <c>Ksa/Icbm/IcbmComputer.cs</c> rides one:
     /// predict from the solved cutoff state with the warhead's own drag, score in the epoch the
     /// target is expressed in, freeze when the arrival commits.
     /// </summary>

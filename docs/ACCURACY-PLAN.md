@@ -300,7 +300,7 @@ One rocket finishes its burn, fires KSA's auto-warp, and the seven **still burni
 steps. Their one-frame velocity quantum goes from 0.081 m/s to 1.675 m/s. Misses: 0.68 km for the
 one that triggered it, 14-37 km for the rest.
 
-`Ksa/IcbmComputer.Warp.cs`'s `CanWarpAhead` asks `!NeedsShortSteps` of **this computer only**, and its own
+`Ksa/Icbm/IcbmComputer.Warp.cs`'s `CanWarpAhead` asks `!NeedsShortSteps` of **this computer only**, and its own
 comment names the consequence: *"WarpPolicy cannot slow the world at all while an auto-warp is
 running, so a warp started over the top of one is a warp nothing can rein in."* It is the identical
 one-world/several-flights mistake `Sim/WorldSpeed.cs` was written to fix for the speed path, left

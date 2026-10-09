@@ -436,15 +436,15 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/BurnoutGuidance.cs` | where to point and when to stop — velocity still to be gained |
 | `Sim/AscentProfile.cs` | the schedule flown while there is air, and the limit that keeps the stack in one piece |
 | `Sim/PostBoostAim.cs` | correcting the aim after the engines stop — **the trim is the actuator**, and holding the warheads to do it has a price. **Nothing is read off a bus whose nose is turning**: the prediction carries the kick along it |
-| `Sim/IcbmProgram.cs` | **the flight** — pad to cutoff to release, as one phase machine |
-| `Sim/IcbmProgram.Ascent.cs` | the vertical rise and the pitch programme, and when the ascent hands over to the closed loop |
-| `Sim/IcbmProgram.Holding.cs` | coasting on purpose until the burn window opens |
-| `Sim/IcbmProgram.Solve.cs` | the trajectory re-solved a few times a second, and the countdown it sets |
-| `Sim/IcbmProgram.Drag.cs` | a short shot's arc flown with the warhead's drag, and the aim moved by what it misses |
-| `Sim/IcbmProgram.ClosedLoop.cs` | guiding to cutoff — the throttle-down, the held line, the pause out of the air, and when to stop |
-| `Sim/IcbmProgram.Coast.cs` | after cutoff — the arc re-solved for the aim correction, and the release gate |
-| `Sim/IcbmProgram.Reach.cs` | whether the tanks can pay for the shot, why there is no arc, and the arrival floor the search is bounded by |
-| `Sim/IcbmProgram.Limits.cs` | what may be commanded — the airflow and horizon limit on the line, the acceleration cap, the ascent reserve, spent solids |
+| `Sim/Icbm/IcbmProgram.cs` | **the flight** — pad to cutoff to release, as one phase machine |
+| `Sim/Icbm/IcbmProgram.Ascent.cs` | the vertical rise and the pitch programme, and when the ascent hands over to the closed loop |
+| `Sim/Icbm/IcbmProgram.Holding.cs` | coasting on purpose until the burn window opens |
+| `Sim/Icbm/IcbmProgram.Solve.cs` | the trajectory re-solved a few times a second, and the countdown it sets |
+| `Sim/Icbm/IcbmProgram.Drag.cs` | a short shot's arc flown with the warhead's drag, and the aim moved by what it misses |
+| `Sim/Icbm/IcbmProgram.ClosedLoop.cs` | guiding to cutoff — the throttle-down, the held line, the pause out of the air, and when to stop |
+| `Sim/Icbm/IcbmProgram.Coast.cs` | after cutoff — the arc re-solved for the aim correction, and the release gate |
+| `Sim/Icbm/IcbmProgram.Reach.cs` | whether the tanks can pay for the shot, why there is no arc, and the arrival floor the search is bounded by |
+| `Sim/Icbm/IcbmProgram.Limits.cs` | what may be commanded — the airflow and horizon limit on the line, the acceleration cap, the ascent reserve, spent solids |
 | `Sim/HoldingCost.cs` | what a second of holding the warheads costs, measured off the arc rather than typed — **the floor under the miss**, and it runs from 0.82 m/s at 500 km to 21.79 at 12,900, so no constant is right |
 | `Sim/BusTrim.cs` | putting the bus back on its solution after the split — **the only thing that can**, because the burn is over |
 | `Sim/PostCutoffSequence.cs` | what the loop after cutoff does next — **the decision that dominates where the warheads land**, since a correction that finishes lands at 140 m and every other ending at 5–45 km |
@@ -561,18 +561,18 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/TerrainMapScan.cs` | that height field as a cached grid — **the cost lives here**, so it is paid on movement rather than per frame |
 | `Ksa/BombSightOverlay.cs` | the pipper: the impact ring and the arc down to it |
 | `Ksa/StoreReach.cs` | that region flown, drawn, logged and read off the panel — **one answer for all of them**, because a ring that disagrees with the line beside the trigger or the log reads as the tool being broken. Three `BombSight` flights a solve, so solved only while a store that steers its own fall is actually in the air, at half the pipper's rate |
-| `Ksa/IcbmComputer.cs` | **one craft's ballistic computer** — reads the world, runs the program, flies the rocket |
-| `Ksa/IcbmComputer.Warp.cs` | that computer's warp-ahead — **handed to KSA's own warp-to-a-time in hops**, and carried only while it is the computer's |
-| `Ksa/IcbmComputer.Separation.cs` | letting the launcher go, the stages a split or a staging shed, and the clearance the trim waits on |
-| `Ksa/IcbmComputer.Trim.cs` | driving `BusTrim` on the bus's own jets, the post-boost passes it feeds, and what the trim is said and measured to owe |
-| `Ksa/IcbmComputer.Coast.cs` | the coast written down every ten simulated seconds — rails, the bubble, what is near — **measurement, not control** |
-| `Ksa/IcbmComputer.Release.cs` | letting a warhead go, the line the launcher holds for it, and the once-a-flight release summary |
-| `Ksa/IcbmComputer.Walk.cs` | the walk between targets as actuated — a stop's hand-over, and a hop the trim cannot fly refused |
-| `Ksa/IcbmComputer.Trace.cs` | starting and stepping `WarheadTrace`s, the craft alive or not |
-| `Ksa/IcbmComputer.Kick.cs` | the separation kick each warhead is thrown with, and the release probe it is solved against |
-| `Ksa/IcbmComputer.Prediction.cs` | the flown impact prediction the aim correction reads |
-| `Ksa/IcbmComputer.Reach.cs` | the divert footprint flown, pinned at the epoch, and read back as offsets and axes for the panel and the overlay |
-| `Ksa/IcbmComputers.cs` | one per craft carrying a part that provides `Guidance` — **the MIRV bus alone today**, so a Pantsir or a rail gets none — crewed and forgotten with it |
+| `Ksa/Icbm/IcbmComputer.cs` | **one craft's ballistic computer** — reads the world, runs the program, flies the rocket |
+| `Ksa/Icbm/IcbmComputer.Warp.cs` | that computer's warp-ahead — **handed to KSA's own warp-to-a-time in hops**, and carried only while it is the computer's |
+| `Ksa/Icbm/IcbmComputer.Separation.cs` | letting the launcher go, the stages a split or a staging shed, and the clearance the trim waits on |
+| `Ksa/Icbm/IcbmComputer.Trim.cs` | driving `BusTrim` on the bus's own jets, the post-boost passes it feeds, and what the trim is said and measured to owe |
+| `Ksa/Icbm/IcbmComputer.Coast.cs` | the coast written down every ten simulated seconds — rails, the bubble, what is near — **measurement, not control** |
+| `Ksa/Icbm/IcbmComputer.Release.cs` | letting a warhead go, the line the launcher holds for it, and the once-a-flight release summary |
+| `Ksa/Icbm/IcbmComputer.Walk.cs` | the walk between targets as actuated — a stop's hand-over, and a hop the trim cannot fly refused |
+| `Ksa/Icbm/IcbmComputer.Trace.cs` | starting and stepping `WarheadTrace`s, the craft alive or not |
+| `Ksa/Icbm/IcbmComputer.Kick.cs` | the separation kick each warhead is thrown with, and the release probe it is solved against |
+| `Ksa/Icbm/IcbmComputer.Prediction.cs` | the flown impact prediction the aim correction reads |
+| `Ksa/Icbm/IcbmComputer.Reach.cs` | the divert footprint flown, pinned at the epoch, and read back as offsets and axes for the panel and the overlay |
+| `Ksa/Icbm/IcbmComputers.cs` | one per craft carrying a part that provides `Guidance` — **the MIRV bus alone today**, so a Pantsir or a rail gets none — crewed and forgotten with it |
 | `Ksa/AttitudeHook.cs` | **one of the six places this mod patches the game** — the only window in which an attitude command survives |
 | `Ksa/PreRenderHook.cs` | the second — **a step before the render on a frame that draws no UI**, because StarMap has no hook that is both |
 | `Ksa/WorldReloadHook.cs` | the third — **that a save was loaded**, which nothing else can tell: the mod never leaves the flight scene across one |
@@ -1523,7 +1523,7 @@ is simply left alone up to about 480x and there is nothing to refuse. Past that 
 engine **rejects a speed change outright while its own warp-to-a-time runs**, which is exactly what
 a player does while waiting minutes for a store to land. From inside the policy that refusal is
 indistinguishable from a write that has not landed, so `FramesAwaitingWrite` counts to four and
-abandons everything in the air, which at warp is under a second. `Ksa/IcbmComputers.cs` already
+abandons everything in the air, which at warp is under a second. `Ksa/Icbm/IcbmComputers.cs` already
 stands down for an auto-warp; the rounds path did not, and `WarpPolicyTests` now fails on frame 5
 without the guard.
 

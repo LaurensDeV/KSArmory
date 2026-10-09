@@ -192,7 +192,7 @@ internal sealed class IcbmFlightRig
 
     /// <summary>
     /// Something riding the flight that moves the aim and watches what the shot does about it —
-    /// <see cref="AimCorrection"/> wired the way <c>Ksa/IcbmComputer.cs</c> wires it.
+    /// <see cref="AimCorrection"/> wired the way <c>Ksa/Icbm/IcbmComputer.cs</c> wires it.
     ///
     /// <para>Null is a vehicle aimed exactly where it was pointed, which is every other suite.</para>
     /// </summary>

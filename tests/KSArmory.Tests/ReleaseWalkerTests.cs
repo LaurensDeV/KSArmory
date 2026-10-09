@@ -10,7 +10,7 @@ namespace KSArmory.Tests;
 /// is asserted here on the numbers the flight reads rather than on the plan: a walker holding a
 /// one-stop plan gives the gate as NaN — so <c>IcbmProgram</c> reads the setting live — the
 /// magazine untouched, and the lead as the target of every round. That is the whole of
-/// what <c>Ksa/IcbmComputer.cs</c> asks it, so nothing in the loop can execute without
+/// what <c>Ksa/Icbm/IcbmComputer.cs</c> asks it, so nothing in the loop can execute without
 /// <see cref="ReleaseWalker.Walking"/>, which is false for every one-stop set.</para>
 /// </summary>
 public class ReleaseWalkerTests(ITestOutputHelper Out)

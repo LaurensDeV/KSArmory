@@ -5,7 +5,7 @@ namespace KSArmory.Tests;
 /// <summary>
 /// A flight from the pad to where its warhead lands: <see cref="IcbmFlightRig"/> to cutoff, then the split, the
 /// clearance, the trim, the post-boost passes, the freeze, the separation kick and the fall, driven through the same
-/// <c>Sim/</c> types in the order <c>Ksa/IcbmComputer.cs</c> drives them, so a test can assert on the landing.
+/// <c>Sim/</c> types in the order <c>Ksa/Icbm/IcbmComputer.cs</c> drives them, so a test can assert on the landing.
 ///
 /// <para>It is also the aim correction the computer runs during the burn, as an <see cref="IcbmFlightRig.IAimLoop"/>,
 /// because the bias the burn leaves is what the passes after cutoff start from.</para>
@@ -22,7 +22,7 @@ namespace KSArmory.Tests;
 /// </summary>
 internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
 {
-    // Ksa/IcbmComputer.cs's own cadence and step.
+    // Ksa/Icbm/IcbmComputer.cs's own cadence and step.
     private const double PredictIntervalSeconds = 0.5;
     private const double PredictStepSeconds = 2.0;
 

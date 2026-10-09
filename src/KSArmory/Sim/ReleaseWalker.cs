@@ -10,7 +10,7 @@ namespace KSArmory;
 /// magazine it was given and <see cref="TargetIndex"/> hands back the lead — each of them the value
 /// a flight with no walk reads. That is what makes a single-target shot the one every
 /// accuracy measurement on this mod was taken against, and it is pinned in
-/// <c>ReleaseWalkerTests</c> rather than left to reading <c>Ksa/IcbmComputer.cs</c>.</para>
+/// <c>ReleaseWalkerTests</c> rather than left to reading <c>Ksa/Icbm/IcbmComputer.cs</c>.</para>
 ///
 /// <para><b>A plan is committed by the first warhead leaving.</b> Until then the set can still be
 /// edited and the walk is re-planned as the reach is re-flown; after it the bus has already been
