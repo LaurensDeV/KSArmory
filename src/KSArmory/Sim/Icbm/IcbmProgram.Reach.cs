@@ -48,6 +48,10 @@ internal sealed partial class IcbmProgram
         ArrivalFloorDeg = Math.Max(Config.MinArrivalAngleDeg, wanted);
     }
 
+    /// <summary>Whether the aim correction sits out this flight's burn, <see cref="IcbmConfig.AimWaitsForCutoffUnderAFloor"/>.</summary>
+    public bool AimSitsOutTheBurn
+        => Config.AimWaitsForCutoffUnderAFloor && (Config.MinArrivalAngleDeg > 0.0 || Config.ArrivalPreference > 0.0);
+
     // What the search is bounded by: the latched floor, or the operator's own number.
     private double FloorDeg => double.IsFinite(ArrivalFloorDeg)
                                    ? ArrivalFloorDeg

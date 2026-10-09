@@ -1083,6 +1083,15 @@ internal sealed partial class Ui
         Tip("On: the aim correction the burn froze starts again at cutoff. Off: on the first frame the engines are "
             + "off, which a hold for a burn window spends, leaving the passes after cutoff on a frozen aim. Unflown.");
 
+        bool waitsUnderFloor = config.AimWaitsForCutoffUnderAFloor;
+        if (ImGui.Checkbox("Aim correction waits for cutoff under a floor", ref waitsUnderFloor))
+        {
+            config.AimWaitsForCutoffUnderAFloor = waitsUnderFloor;
+        }
+        Tip("On: with Steepest arrival or Precision against range set, the aim correction takes no reading during the "
+            + "burn and the passes after cutoff do the correcting. A floored search hops between arcs as the correction "
+            + "opens, and the correction banks the hop as drag. Unflown.");
+
         bool pushes = config.ShortShotPushesThroughAStall;
         if (ImGui.Checkbox("Short shot pushes through a stalled throttle-down", ref pushes))
         {

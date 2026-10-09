@@ -672,3 +672,40 @@ is there so the next attempt starts from a rig that can see it.
 surviving the latch — gated on the bound, unreachable by default. Anything touching the correction
 wants flights, and `docs/MIRV-NEXT.md` item 7d says six of them settle a change worth a kilometre and
 settle nothing worth two hundred metres.
+
+### Built 2026-10-10, off and unflown: the burn sits out under a floor
+
+**The search does not walk, it hops.** Traced cycle by cycle from orbit at 3,459 km, a floored search
+alternates between an arc on the bound, with a drag shortfall of 10–35 km, and one a few degrees
+steeper losing under one; each hop moves the cutoff by 15–20 s. And **the preference is a floor too**,
+so the shipped `ArrivalPreference` 0.5 has the same fault on this geometry: 2.26 km over rough ground
+against 0.07 uncorrected.
+
+**Waiting for the search to settle does not fix it.** A gate that took no reading until the cutoff had
+stood still for 2 s opened on a quiet stretch of the first kind of arc, banked its shortfall, and the
+search then hopped: 12.5 km at 15°, and 15.2 km at preference 0.5 against 2.26 shipped.
+`docs/ICBM-OUTSTANDING.md` 1.8 records the same result from a flight.
+
+**And the latch is load-bearing.** Holding the readings leaves the aim never steady, so the arrival
+stays free for the whole of `IcbmProgram.LatchArrivalWithinSeconds`; at 2,000 km and preference 0.5
+the search walked onto a 15,183 s arc in that time and the shot missed by 5,003 km.
+
+**`IcbmConfig.AimWaitsForCutoffUnderAFloor`** takes no aim reading while the engines burn whenever a
+floor is asked or preferred, and latches the arrival without waiting for one; the passes after cutoff
+still correct. It is the "correction off" row above where there is a floor and the shipped one where
+there is none (`ArrivalFloorFlightTests.UnderAFloorSittingOutTheBurnLandsWhereTheArcGoes` and
+`WithNoFloorSittingOutTheBurnChangesNothing`). Over rough ground, from orbit, to the cutoff state:
+
+| | shipped | switch on |
+| --- | --- | --- |
+| 3,459 km, floor 15° | 8.53 km | 0.018 km |
+| 3,459 km, floor 20° | 20.33 km | 0.084 km |
+| 3,459 km, preference 0.5 | 2.26 km | 0.074 km |
+| 5,000 km, floor 20° | 7.33 km | 1.50 km |
+| 7,645 km, floor 15° | 1.16 km | 1.40 km |
+| 2,000 km, preference 0.5 | 0.10 km | 0.10 km |
+
+In the rig the latch alone carries it, because the aim freezes once the arrival commits. From the pad
+the correction reads during the pitch programme, before any latch, which is what the reading gate is
+for. **It changes every shipped shot, pad or orbit**, because 0.5 is a floor; what a flight has to
+show is that the post-boost passes remove what the burn no longer does.

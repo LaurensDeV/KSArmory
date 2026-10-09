@@ -364,6 +364,13 @@ internal sealed class IcbmConfig
     public bool AimResumesAtCutoff;
 
     /// <summary>
+    /// Under an arrival floor, asked or preferred, take no aim reading during the burn and latch the arrival without
+    /// waiting for one; the passes after cutoff still correct. The floored search hops between arcs as the correction
+    /// opens, and it banks the hop as drag. Unflown. <c>docs/ARRIVAL-ANGLE.md</c>, "Built 2026-10-10".
+    /// </summary>
+    public bool AimWaitsForCutoffUnderAFloor;
+
+    /// <summary>
     /// Keep working the throttle on the craft being flown while KSA discards its held keys, by writing the
     /// key's step to the throttle. On: 21–25 mm off, 0.2–2.4 mm on. <c>docs/ICBM-OUTSTANDING.md</c> 1.2.
     /// </summary>

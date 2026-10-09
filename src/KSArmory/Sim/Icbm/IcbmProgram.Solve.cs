@@ -175,7 +175,7 @@ internal sealed partial class IcbmProgram
             _arrivalFromLaunch = _sinceLaunch + command.CarrySeconds + command.Arc.FlightSeconds;
         }
         else if (Phase == IcbmPhase.ClosedLoop && !double.IsFinite(_arrivalFromLaunch) && !(_unavoidable > 0.0)
-            && (state.AimIsSteady || _sinceClosedLoop >= LatchArrivalWithinSeconds || _shortShot))
+            && (state.AimIsSteady || AimSitsOutTheBurn || _sinceClosedLoop >= LatchArrivalWithinSeconds || _shortShot))
         {
             _arrivalFromLaunch = _sinceLaunch + command.SecondsToCutoff + command.Arc.FlightSeconds;
         }

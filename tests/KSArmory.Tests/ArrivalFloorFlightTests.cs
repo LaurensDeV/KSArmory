@@ -107,7 +107,7 @@ public class ArrivalFloorFlightTests(ITestOutputHelper Out)
                                      _elapsed + command.SecondsToCutoff));
             }
 
-            if (!off) _aim.Observe(scored, aimNowCci);
+            if (!off && !(program.IsBurning && program.AimSitsOutTheBurn)) _aim.Observe(scored, aimNowCci);
         }
     }
 
@@ -116,13 +116,14 @@ public class ArrivalFloorFlightTests(ITestOutputHelper Out)
 
     private static Shot Fly(double floorDeg, bool off = false,
                             double metres = DeorbitShot.RangeMetres,
-                            Func<double3, double>? ground = null)
+                            Func<double3, double>? ground = null, double preference = FixtureGeometry.ArrivalPreference,
+                            bool waits = false)
     {
         IcbmFlightRig rig = InOrbit();
         Loop loop = new(rig, off, ground);
         rig.AimLoop = loop;
 
-        IcbmProgram program = new(new IcbmConfig { Armed = true, ArrivalPreference = FixtureGeometry.ArrivalPreference, MinArrivalAngleDeg = floorDeg });
+        IcbmProgram program = new(new IcbmConfig { Armed = true, ArrivalPreference = preference, MinArrivalAngleDeg = floorDeg, AimWaitsForCutoffUnderAFloor = waits });
         double3 aim = Downrange(metres);
 
         return new Shot(rig.Fly(program, aim, 0.02, 12_000.0), program, loop, aim, ground);
@@ -357,5 +358,43 @@ public class ArrivalFloorFlightTests(ITestOutputHelper Out)
 
         Assert.True(rough > smooth + 500.0,
                     $"relief should move the shot; {rough:F0} m against {smooth:F0} m");
+    }
+
+    /// <summary>
+    /// <see cref="IcbmConfig.AimWaitsForCutoffUnderAFloor"/> leaves the floored shot on the arc the search found,
+    /// and an unfloored one exactly as it was.
+    ///
+    /// <para>The latch has to stop waiting for the correction as well. Held without that, the aim is never steady,
+    /// the arrival stays free for the whole latch window, and a 2,000 km shot at preference 0.5 walked onto a
+    /// 15,183 s arc and missed by 5,003 km.</para>
+    /// </summary>
+    [Theory]
+    [InlineData(DeorbitShot.RangeMetres, 15.0, 0.0)]
+    [InlineData(DeorbitShot.RangeMetres, 20.0, 0.0)]
+    [InlineData(DeorbitShot.RangeMetres, 0.0, 0.5)]
+    [InlineData(2_000_000.0, 0.0, 0.5)]
+    [InlineData(5_000_000.0, 20.0, 0.0)]
+    public void UnderAFloorSittingOutTheBurnLandsWhereTheArcGoes(double metres, double floorDeg, double preference)
+    {
+        double shipped = MissMetres(Fly(floorDeg, metres: metres, preference: preference, ground: DeorbitShot.RoughGround));
+        double waits = MissMetres(Fly(floorDeg, metres: metres, preference: preference, ground: DeorbitShot.RoughGround,
+                                      waits: true));
+
+        Out.WriteLine($"{metres / 1000.0:F0} km, floor {floorDeg:F0} deg, preference {preference:F2}: "
+                      + $"shipped {shipped / 1000.0:F3} km, waits {waits / 1000.0:F3} km");
+
+        Assert.True(waits < 2_000.0, $"sitting out the burn should land on the arc; {waits:F0} m");
+    }
+
+    [Theory]
+    [InlineData(DeorbitShot.RangeMetres)]
+    [InlineData(7_645_000.0)]
+    public void WithNoFloorSittingOutTheBurnChangesNothing(double metres)
+    {
+        Shot shipped = Fly(0.0, metres: metres, preference: 0.0, ground: DeorbitShot.RoughGround);
+        Shot waits = Fly(0.0, metres: metres, preference: 0.0, ground: DeorbitShot.RoughGround, waits: true);
+
+        Assert.False(waits.Program.AimSitsOutTheBurn);
+        Assert.Equal(MissMetres(shipped), MissMetres(waits));
     }
 }
