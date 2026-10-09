@@ -528,6 +528,23 @@ internal sealed partial class IcbmComputer
         Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)} designated {site.Describe()}");
     }
 
+    /// <summary>What a save keeps of this computer: its settings and its targets, never its flight.</summary>
+    public BallisticSettings Setup => BallisticSettings.From(Config, _targets.Entries, _targets.LeadIndex);
+
+    /// <summary>
+    /// Put back a setup read from a save, disarmed. Only on a computer that is flying nothing, since
+    /// replacing the targets under a shot aims it at places it was not flown for.
+    /// </summary>
+    public bool Restore(BallisticSettings setup)
+    {
+        if (Config.Armed || Program.Phase != IcbmPhase.Idle) return false;
+
+        setup.ApplyTo(Config, _targets);
+        Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)}: settings and "
+                 + $"{_targets.Count} target(s) restored from the save, disarmed");
+        return true;
+    }
+
     /// <summary>
     /// Add a place for the warheads to go, and touch nothing else.
     ///

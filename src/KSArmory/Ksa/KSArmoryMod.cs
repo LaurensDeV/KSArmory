@@ -977,7 +977,11 @@ public sealed class KSArmoryMod
         // half a second, and a load in that window loses the settings twice over, once because
         // they were never written for that save and again when a later check writes the
         // freshly-defaulted ones over the file. It is a file timestamp, not work.
-        _roster.Remember();
+        switch (_roster.Remember())
+        {
+            case WeaponSystems.SettingsMoment.Saved: _icbms?.WriteDown(); break;
+            case WeaponSystems.SettingsMoment.Reopened: _icbms?.Adopt(); break;
+        }
         }
     }
 
@@ -1011,6 +1015,7 @@ public sealed class KSArmoryMod
         // Markers pin the craft they are showing, so a destroyed one stays reachable otherwise.
         Markers.Forget();
 
+        _icbms?.WriteDown();
         _roster?.Clear();
         _armaments.Clear();
         _heads?.Clear();
@@ -1454,6 +1459,7 @@ public sealed class KSArmoryMod
         if (_faults < FaultLimit) return;
 
         _disabled = true;
+        _icbms?.WriteDown();
         _roster?.Clear();
         _armaments.Clear();
         _heads?.Clear();

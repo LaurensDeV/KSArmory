@@ -100,11 +100,37 @@ internal sealed class IcbmComputers(Config session)
             KsaWorld.SurveyParts(craft, _surveyed);
             if (!WeaponSurvey.Survey(_surveyed, Catalogue.Components).HasGuidance) continue;
 
-            _computers[craft] = new IcbmComputer(craft, new IcbmConfig(), _session);
+            IcbmComputer computer = new(craft, new IcbmConfig(), _session);
+            _computers[craft] = computer;
             Log.Debug($"ICBM computer crewed on {KsaWorld.DisplayName(craft)}");
+
+            if (SettingsStore.BallisticFor(KsaWorld.DisplayName(craft)) is { } stored) computer.Restore(stored);
         }
 
         Retire();
+    }
+
+    /// <summary>Writes every computer's setup into the store, for the game having just saved.</summary>
+    public void WriteDown()
+    {
+        bool changed = false;
+        foreach (IcbmComputer computer in _computers.Values)
+        {
+            if (!KsaWorld.IsAlive(computer.Craft)) continue;
+            changed |= SettingsStore.RememberBallistic(KsaWorld.DisplayName(computer.Craft), computer.Setup);
+        }
+
+        if (changed) SettingsStore.Save();
+    }
+
+    /// <summary>Re-reads every idle computer's setup, for a different save opened under them.</summary>
+    public void Adopt()
+    {
+        foreach (IcbmComputer computer in _computers.Values)
+        {
+            if (!KsaWorld.IsAlive(computer.Craft)) continue;
+            if (SettingsStore.BallisticFor(KsaWorld.DisplayName(computer.Craft)) is { } stored) computer.Restore(stored);
+        }
     }
 
     // A weapon that a decoupler carried onto another craft takes its computer with it, because the

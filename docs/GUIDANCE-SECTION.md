@@ -195,8 +195,9 @@ bus is what the settings would then appear to describe.
 The **designated site stays with the weapon**, which is where `IcbmConfig`'s own doc comment
 already puts it: the target is a designation, and it belongs to the thing that will act on it.
 
-`IcbmConfig` moves from being created per craft in `Sync` to being owned by the master ring, which
-also gives `SettingsStore` an ordinal to key on — the same shape as two rails on one aircraft.
+`IcbmConfig` moves from being created per craft in `Sync` to being owned by the master ring. The
+save keys a computer's setup on its craft's name today (`ballistic.json`, beside `systems.json`);
+a ring would give it an ordinal to key on — the same shape as two rails on one aircraft.
 
 ## Gates before it flies
 

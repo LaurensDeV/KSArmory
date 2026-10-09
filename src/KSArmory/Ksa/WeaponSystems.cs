@@ -804,11 +804,14 @@ internal sealed class WeaponSystems(Config config)
         return null;
     }
 
+    /// <summary>What <see cref="Remember"/> found, so the ballistic computers follow the same save.</summary>
+    public enum SettingsMoment { Nothing, Saved, Reopened }
+
     /// <summary>
     /// Writes down anything that has changed. Cheap to call often: the store compares against what
     /// it already holds and only reports a change when there is one.
     /// </summary>
-    public void Remember()
+    public SettingsMoment Remember()
     {
         string scope = SettingsStore.CurrentScope;
         if (_scope.Length == 0)
@@ -822,19 +825,19 @@ internal sealed class WeaponSystems(Config config)
             _scope = scope;
             _savedAt = KsaWorld.CurrentSaveStamp();
             Adopt();
-            return;
+            return SettingsMoment.Reopened;
         }
 
         // Only when the game saves. A load then finds the settings as they were at that moment,
         // because nothing has been written over them since.
         long stamp = KsaWorld.CurrentSaveStamp();
-        if (stamp == 0 || stamp == _savedAt) return;
+        if (stamp == 0 || stamp == _savedAt) return SettingsMoment.Nothing;
 
         bool firstSight = _savedAt == 0;
         _savedAt = stamp;
 
         // The first stamp seen is the save as it already was, not the player saving.
-        if (firstSight) return;
+        if (firstSight) return SettingsMoment.Nothing;
 
         Log.Info("settings: the game saved, writing the systems' settings with it");
 
@@ -847,6 +850,7 @@ internal sealed class WeaponSystems(Config config)
         }
 
         if (changed) SettingsStore.Save();
+        return SettingsMoment.Saved;
     }
 
     // Re-reads every live system's settings from the store. Used when the save changes under a

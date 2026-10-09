@@ -2681,6 +2681,16 @@ Fly a MIRV shot, and once the burn is over and the bus is coasting:
 - [ ] Disarming mid-flight does the same.
 - [ ] Destroying the craft mid-flight does not throw, and nothing in the log complains afterwards.
 
+### 12.6a It survives a save — built, not flown
+
+- [ ] Designate two or three targets, give them warheads, move the lead, change a setting (loft or
+      **Warp the coast**), save, and reload: the targets, their counts, the lead and the setting are
+      all back, and the log says `settings and N target(s) restored from the save, disarmed`.
+      `saves/<save>/KSArmory/ballistic.json` holds them under the craft's name.
+- [ ] The computer comes back **disarmed** even if it was armed when saved.
+- [ ] Save mid-coast with the computer armed, reload: nothing throws, the computer is idle and
+      disarmed with its targets, and nothing fires the engines.
+
 ### 12.8 Timewarp
 
 A burn now asks `WarpPolicy` to hold the world down, the same way rounds in the air do. This is the

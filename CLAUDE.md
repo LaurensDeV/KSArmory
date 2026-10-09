@@ -472,6 +472,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/PlatformHandover.cs` | which craft a part went to, when a decoupler took it off the one carrying it — **one decision, every roster that follows a part** |
 | `Sim/StageDisposal.cs` | whether a spent stage may be taken out of the world — **frame time is the only thing that buys simulation rate**, and a rocket sheds four vehicles to keep two |
 | `Sim/IcbmConfig.cs` | one installation's ballistic settings — armed, loft, arrival angle, ascent, staging, trim |
+| `Sim/BallisticSettings.cs` | a ballistic computer's setup flattened for the save — every `IcbmConfig` field moved off its default, by name, **but `Armed`**, and the target set — **text in, text out**, so a missing field keeps its default and a malformed one is refused with a reason headlessly |
 | `Sim/FinMixer.cs` | one steering command resolved into four blade deflections — **drawn only** |
 | `Sim/FinTest.cs` | the built-in-test sweep a tail kit runs on the rack — **drawn only** |
 | `Sim/StoreRetarget.cs` | which falling store a new designation reaches — **the one released last, until the weapon releases again, and only inside its fins' reach**: the reach is what tells a correction from aiming the next store |
@@ -660,7 +661,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/Diagnostics.cs` | the periodic world dump — what the system can see and why |
 | `Ksa/JitWarmup.cs` | the kill path compiled on a thread of its own at load, so the first kill of a session is not also the first time its code runs -- **the mod's half, and a fifth of the engine's**: what is left of that frame is KSA building its first debris vehicles |
 | `Ksa/Build.cs` | what build this is, read off the assembly rather than written down — and **whether it is a developer's install**, which is what shows the developer tools |
-| `Ksa/SettingsStore.cs` | per-craft settings across sessions, in JSON beside the log |
+| `Ksa/SettingsStore.cs` | per-craft settings across sessions, in JSON inside the save — `systems.json` and `ballistic.json` |
 | `Ksa/Log.cs` | the mod's own log file, which is the only debugging channel it has |
 | `src/KSArmory/KSArmory*.xml` | the parts, the warhead effects and the sounds — at the mod root, mirroring Core. **No character**: a mod's character ends up on kittens in nearly every save, which then cannot load without it — `tools/repair-saves.py` re-dresses them |
 | `src/KSArmory/KSArmory/Bodies.xml` | **what KSA's current bodies are, as data** -- fields, airglow, condensation -- so a custom solar system gains them by adding lines, not code |
@@ -3337,3 +3338,7 @@ mis-tagged guard is found before a merge rather than never — what is lost is *
   timestamp — not continuously. A continuous write is what stops a reload restoring anything: the
   file is always already up to date with the session, so there is nothing older to go back to.
   What is *not* persisted is system *state* — ammo, tracks, rounds in flight all start fresh.
+
+  A ballistic computer's setup rides the same write into `ballistic.json` beside it, keyed on the
+  craft's name: its `IcbmConfig` and its target set, **never its flight**, so a computer saved armed,
+  burning or coasting comes back disarmed and idle with its targets. Not yet verified in game.

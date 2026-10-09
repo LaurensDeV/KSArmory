@@ -620,8 +620,8 @@ weapon's decision. The button is how the action is taken. What the tick box does
 delegate the press — ticking it *is* the permission, given once instead of every shot — and it stops
 in the same place the button does.
 
-Nothing in `IcbmConfig` is saved, so off would not be a setting an operator makes once: it would be a
-tick box to find again on every launch, and forgetting it costs a ballistic coast in real time. On two
+Off would be a setting an operator makes once per craft, since a save keeps it (`ballistic.json`),
+but a new craft starts from the default, and forgetting it there costs a ballistic coast in real time. On two
 shots flown the same evening that was 3.5 minutes of wall clock with it and seventeen without.
 
 ## A stable orbit is known not to come down
@@ -1436,8 +1436,15 @@ flown arrival to under half a degree over 10–30° and diverges only for a graz
 acceleration cap and a stage that lights hot — see [The cap is right and the actuator is too
 slow](#the-cap-is-right-and-the-actuator-is-too-slow).
 
-**Nothing is persisted.** The target and the settings are lost on a reload; `SettingsStore` keys per
-craft and per launcher ordinal, and this roster keys per craft, so the two do not line up yet.
+**A save keeps the setup and never the flight, and that is not yet flown.** Every `IcbmConfig`
+setting moved off its default but `Armed`, the targets with their warhead counts and which one leads
+are written into
+`saves/<save>/KSArmory/ballistic.json` when the game saves, keyed on the craft's display name as
+`systems.json` is (`Sim/BallisticSettings.cs`). A load puts them on the computer crewed for that
+craft, **disarmed**, whatever it was doing when saved: a computer saved mid-burn or mid-coast comes
+back idle with its targets and flies nothing until armed again. A setting left at its default is not
+written, so a default changed in a later release reaches that save. Restoring a flight in progress — the
+phase, the latched arrival, the aim bias, the trim's debt — is not built.
 
 **The delta-v readout is one stage's.** KSA reports the running stage's engines, which is why a
 shot short of the propellant is flown and reported rather than refused: a launch gate built on that
