@@ -344,6 +344,14 @@ internal sealed class IcbmConfig
     public bool ShortShotBackstopsAtTheTrim = true;
 
     /// <summary>
+    /// Once a short shot's throttle-down has run <see cref="IcbmProgram.PushesThroughAfterSeconds"/> in the air, add the
+    /// measured push against it to the throttle, lead the line across it and freeze the line only under
+    /// <see cref="IcbmProgram.PushesThroughHoldBelow"/>. Flown, Real Liquid2 at 25 km: off, a 12.5 min hover and
+    /// 0.1-0.4 mm; on, 18 s and 0.4-1.8 mm. <c>docs/SHORT-RANGE.md</c>.
+    /// </summary>
+    public bool ShortShotPushesThroughAStall = true;
+
+    /// <summary>
     /// Keep working the throttle on the craft being flown while KSA discards its held keys, by writing the
     /// key's step to the throttle. On: 21–25 mm off, 0.2–2.4 mm on. <c>docs/ICBM-OUTSTANDING.md</c> 1.2.
     /// </summary>

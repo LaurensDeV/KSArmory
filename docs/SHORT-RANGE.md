@@ -599,8 +599,53 @@ so the re-pin is not what holds it there, and the near-radial transfer is refute
 **What ships instead is the truth on the panel.** Once the throttle-down has run `IcbmProgram.StalledRampSeconds`
 (30 s, against a closing ramp's 10-15), the computer's hold reads "cutoff stalled: the stack is holding its own
 weight, N m/s still to gain", and the log says so once. Flown on Real Liquid2 at 25 km: reported five minutes into a
-twelve-minute hover, which then landed 0.2-0.4 mm out. Next for the cause: the rig's aim walks far slower than the
-game's at the end, so the fixture needs the flown offset rate before another attempt is worth a flight.
+twelve-minute hover, which then landed 0.2-0.4 mm out.
+
+**Traced in the rig on 2026-10-09, and a candidate behind a switch.** The aim walk was not the missing term: the
+rig's offset walks at 90-250 m/s through the throttle-down, as the flown `cutoff approach` lines do. Two things hold
+the hover, one after the other:
+
+* **The stall is the ramp's steady error.** The throttle asks for what is left over `ThrottleDownSeconds`, a
+  proportional law, so against a steady push it settles with two seconds of that push still to gain. The push is the
+  stack's own drag, which the vacuum arc does not see, plus the drag solve walking the aim. Freezing the drag offset
+  from the start of the ramp makes it worse, not better (every area hovers, 12 m^2 lands 5 km out): with the offset
+  held, to-gain still crawls from 15 to 1 m/s over thirty seconds at 0.1-0.27 throttle.
+* **The hover is `BallisticArc.MinFlightSeconds`.** A stall long enough runs the pinned arrival down to 20 s; the
+  pinned solve is then refused, and the cheapest arc cannot be shorter either, so the arrival reads 20.4 s for good,
+  as flown. A toss onto a 20 s fall from 1.6 km is ~20 m/s, which is two seconds of one gravity: the ramp then
+  commands exactly the stack's weight. Lowering the floor to 5 s only moves the hover (to a 5.5 s arrival, the same
+  19.6 m/s to gain); the floor is where it sits, not why it starts.
+
+`IcbmConfig.ShortShotPushesThroughAStall` (off, unflown) acts once the ramp has run
+`IcbmProgram.PushesThroughAfterSeconds` (10 s) in the air: the push is measured from how the velocity to gain moved
+against what the thrust should have done, its component along the line is added to the throttle, the line is led
+across it by what it will add before the burn ends, and the steering freezes only under 1 m/s. All three are needed:
+the throttle alone closes every area but leaves 0.5-1.7 m/s **across** the frozen line (31.7 m at 12 m^2), which is
+plausibly the 1.5 m/s the 10-06 feed-forward flights bottomed out on. In `ShortShotHoverTests`:
+
+| drag area | off | on |
+| --- | --- | --- |
+| 12 m^2 | 32.7 s, 0.11 m/s, 6.1 m | 32.5 s, 0.12 m/s, 6.4 m |
+| 20 m^2 | 41.8 s, 0.37 m/s, 4.0 m | 36.8 s, 0.28 m/s, 7.0 m |
+| 30 m^2 | **1,108 s**, 0.13 m/s | 41.0 s, 0.55 m/s, 2.8 m |
+| 45 m^2 | **1,087 s**, 0.15 m/s | 45.0 s, 0.53 m/s, 1.6 m |
+
+Closed-loop seconds, residual at cutoff, landing from the cutoff state. The whole suite passes with it on. Gated on
+the stalled ramp because ungated it spins `FloorHoldTests`' stacks at their floor and moves two completion bounds.
+**Flown 2026-10-09**, one flight each on `agent/hover` (`~/shots/2026-10-09-push`, the switch set by the scenario's
+arm, verbose):
+
+| flight | throttle-down | cut off short | six warheads |
+| --- | --- | --- | --- |
+| Real Liquid2, 25 km, on | **18 s**, cut at 8.6 km climbing | 0.51 m/s | 0.4-1.8 mm |
+| Real Liquid3, 25 km, on | **18 s**, cut at 9 km | 0.41 m/s | 8.6-10.1 mm |
+| Real Liquid2, 150 km, on | 15 s | 0.06 m/s | 2.2-4.0 mm (7.1 on 10-06) |
+| Real Liquid2, 25 km, off | **12.5 min**, "cutoff stalled" | 0.14 m/s | 0.1-0.4 mm |
+
+No exceptions in any KSA log. The hover is gone on both liquids, and Liquid3, which on 10-06 hovered and never
+finished, lands. What it costs is the hover's accidental precision: off, the stack finishes at its floor, stood still
+1.6 km over the target, and lands closer. The 150 km ramp ran past the 10 s gate, so the switch may have acted there
+too; it says no harm on a ramp that closes, not that it stays out of one.
 
 **A hot core overshot its cutoff, fixed** (Real SRB4, 500 and 700 km; `IcbmConfig.ShortShotBackstopsAtTheTrim`,
 on). Its core makes 7-13 g, and at its 0.12 floor still 0.8 g, so the ramp's last seconds are spent on the

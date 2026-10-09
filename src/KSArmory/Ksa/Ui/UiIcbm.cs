@@ -1056,6 +1056,16 @@ internal sealed partial class Ui
         Tip("On: on an arc that releases after the trim, what is left turning back up anywhere under the trim's "
             + "reach ends the burn and the trim finishes it. Off: only under 2 m/s.");
 
+        bool pushes = config.ShortShotPushesThroughAStall;
+        if (ImGui.Checkbox("Short shot pushes through a stalled throttle-down", ref pushes))
+        {
+            config.ShortShotPushesThroughAStall = pushes;
+        }
+        Tip($"On: once the last seconds' throttle-down has run {IcbmProgram.PushesThroughAfterSeconds:F0} s in the air, "
+            + "the throttle adds what drag is measured pushing against it, the line is led across that push, and it "
+            + $"freezes only under {IcbmProgram.PushesThroughHoldBelow:F0} m/s. Off: a liquid stack can settle holding "
+            + "its own weight.");
+
         bool waitsOut = config.TrimWaitsOutTheStack;
         if (ImGui.Checkbox("Trim waits for the spent stack to open", ref waitsOut))
         {

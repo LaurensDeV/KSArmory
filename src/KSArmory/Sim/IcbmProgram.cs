@@ -313,6 +313,17 @@ internal sealed class IcbmProgram
     /// </summary>
     public const double StalledRampSeconds = 30.0;
 
+    /// <summary>
+    /// Seconds in the throttle-down before <see cref="IcbmConfig.ShortShotPushesThroughAStall"/> acts. A closing one
+    /// lasts 10-15 s, so most flights never reach it.
+    /// </summary>
+    public const double PushesThroughAfterSeconds = 10.0;
+
+    /// <summary>The steering freeze while pushing through, in m/s: drag keeps pushing across a frozen line.</summary>
+    public const double PushesThroughHoldBelow = 1.0;
+
+    private const double PushFilterSeconds = 0.5;
+
     /// <summary>The least thrust worth commanding. Below this, engines misbehave and so does the maths.</summary>
     public const double MinCommandedThrottle = 0.03;
 
@@ -429,6 +440,8 @@ internal sealed class IcbmProgram
     // arc was lofted to need exactly that.
     private double _unavoidable;
     private double _secondsInTheRamp;
+    private double3 _lastToGainCci;
+    private double3 _pushCci;
     private bool _absorbing;
 
     // Whether the closed loop took over at the top of a climb still inside the air.
@@ -713,6 +726,8 @@ internal sealed class IcbmProgram
         LongestStepWhileBurning = 0.0;
         _arrivalFromLaunch = double.NaN;
         _secondsInTheRamp = 0.0;
+        _lastToGainCci = default;
+        _pushCci = default;
         _reachHold = "";
         _reachIfNoArc = IcbmReach.NoTrajectory;
         _sinceWindow = double.PositiveInfinity;
@@ -1200,11 +1215,23 @@ internal sealed class IcbmProgram
         SecondsSinceReference = 0.0;
         _cutoffSeed = command.SecondsToCutoff;
         _flightSeed = command.Arc.CheapestFlightSeconds;
+        if (Config.ShortShotPushesThroughAStall && _shortShot && Phase == IcbmPhase.ClosedLoop && sinceLastSolve > 0.0
+            && !_lastToGainCci.Equals(Vec.Zero) && !_thrustDirCci.Equals(Vec.Zero))
+        {
+            // What moved the velocity to gain other than the thrust: the stack's drag, which the vacuum arc does not see,
+            // and the drag solve walking the aim.
+            double3 axis = state.ThrustAxisCci.Equals(Vec.Zero) ? _thrustDirCci : state.ThrustAxisCci;
+            double3 push = (command.ToGainVectorCci - _lastToGainCci) / sinceLastSolve
+                         + axis * (state.Booster.AccelerationNow * Math.Clamp(state.ThrottleAchieved, 0.0, 1.0));
+            _pushCci += (push - _pushCci) * Math.Clamp(sinceLastSolve / PushFilterSeconds, 0.0, 1.0);
+        }
+        _lastToGainCci = command.ToGainVectorCci;
         _toGain = command.VelocityToGain;
         _toGainVectorCci = command.ToGainVectorCci;
         _lowestToGain = Math.Min(_lowestToGain, _toGain);
 
-        double holdBelow = HoldDirectionThreshold(state);
+        bool pushing = PushesThrough(state);
+        double holdBelow = pushing ? Math.Min(HoldDirectionThreshold(state), PushesThroughHoldBelow) : HoldDirectionThreshold(state);
         HoldDirectionBelowNow = holdBelow;
 
         // Within this much of the thrust being made, what is left to gain turns faster than the stack
@@ -1228,7 +1255,7 @@ internal sealed class IcbmProgram
         }
         else if (_toGain > holdBelow || _thrustDirCci.Equals(Vec.Zero) || (_lineCarriedOver && SlowsTheLine(state)))
         {
-            _thrustDirCci = command.ThrustDirectionCci;
+            _thrustDirCci = pushing ? LeadAcrossThePush(state, command) : command.ThrustDirectionCci;
             _countdown = command.SecondsToCutoff;
             if (Phase == IcbmPhase.ClosedLoop) _lineCarriedOver = false;
         }
@@ -1538,7 +1565,7 @@ internal sealed class IcbmProgram
 
         _secondsInTheRamp = _countdown < ThrottleDownSeconds ? _secondsInTheRamp + _lastStep : 0.0;
         _throttle = ThrottleDownSeconds > 0.0 && _countdown < ThrottleDownSeconds
-                  ? Math.Clamp(_countdown / ThrottleDownSeconds, MinCommandedThrottle, 1.0)
+                  ? Math.Clamp(_countdown / ThrottleDownSeconds + PushAlongTheLine(state), MinCommandedThrottle, 1.0)
                   : 1.0;
 
         double3 wanted = _thrustDirCci.Equals(Vec.Zero) ? Vec.Unit(state.VelocityCci) : _thrustDirCci;
@@ -1587,6 +1614,28 @@ internal sealed class IcbmProgram
     // So: stop when less than half a frame of burning is left, which puts the cutoff at the frame
     // boundary nearest the ideal instant and leaves the residual symmetric. The rising-again test
     // behind it is the backstop for a solve that never converges at all.
+    // A proportional ramp settles where it asks for exactly what pushes against it: two seconds of the stack's drag
+    // left to gain, which on a liquid stack in the air never reaches the cutoff. docs/SHORT-RANGE.md.
+    private bool PushesThrough(in IcbmState state)
+        => Config.ShortShotPushesThroughAStall && _shortShot && Phase == IcbmPhase.ClosedLoop
+           && _secondsInTheRamp > PushesThroughAfterSeconds && state.AirDensityRatio >= Medium.NoticeableDensity
+           && !_pushCci.Equals(Vec.Zero);
+
+    private double PushAlongTheLine(in IcbmState state)
+        => PushesThrough(state) && state.Booster.AccelerationNow > 0.0
+           ? Math.Max(Vec.Dot(_pushCci, _thrustDirCci), 0.0) / state.Booster.AccelerationNow
+           : 0.0;
+
+    // Pointed ahead of what is left by what the push will add across it before the burn ends.
+    private double3 LeadAcrossThePush(in IcbmState state, in BurnoutGuidance.Command command)
+    {
+        double3 along = Vec.Unit(command.ToGainVectorCci);
+        double3 across = _pushCci - along * Vec.Dot(_pushCci, along);
+        double closing = Math.Max(state.Booster.AccelerationNow * Math.Clamp(state.ThrottleAchieved, state.MinThrottle, 1.0), 1e-3);
+        double3 led = Vec.Unit(command.ToGainVectorCci + across * (command.VelocityToGain / closing));
+        return led.Equals(Vec.Zero) ? command.ThrustDirectionCci : led;
+    }
+
     private bool ShouldCutOff(in IcbmState state)
     {
         if (_toGain <= BurnoutGuidance.CutoffMetresPerSecond) return true;
