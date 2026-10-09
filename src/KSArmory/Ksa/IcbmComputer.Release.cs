@@ -117,6 +117,7 @@ internal sealed partial class IcbmComputer
 
         Log.Info($"release summary on {KsaWorld.DisplayName(Craft)}: "
                  + $"cut off {Program.ResidualAtCutoff:F3} m/s short, "
+                 + $"thrust spent {Program.ThrustSpentMetresPerSecond:F0} m/s against {Program.ToGainAtIgnition:F0} to gain at ignition, "
                  + $"trim owed {Rate(_owedAtSplit)} at the split and "
                  + $"{Rate(_trim.AtReleaseMetresPerSecond)} on release "
                  + $"({Rate(_trim.SpentMetresPerSecond)} spent"

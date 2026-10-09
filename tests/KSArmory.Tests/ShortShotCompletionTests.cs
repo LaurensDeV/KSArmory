@@ -97,4 +97,19 @@ public class ShortShotCompletionTests
         Assert.Equal(reportsStackDeltaV, program.HaveIsTheWholeStack);
         Assert.Equal(reportsStackDeltaV, double.IsFinite(program.HaveMetresPerSecond));
     }
+
+    // What a reach drawn before launch has to allow for: the thrust spent beyond what the pad asked of the stack.
+    [Fact]
+    public void TheAscentSpendsMoreThanThePadAsked()
+    {
+        IcbmFlightRig rig = GameStackShortRangeTests.GameStack(true);
+        IcbmProgram program = new(new IcbmConfig { Armed = true, MaxAccelerationGee = 8.0f, MinArrivalAngleDeg = 0.0, FlyAnyRange = true });
+
+        IcbmFlightRig.Flight flight = rig.Fly(program, GameStackShortRangeTests.South(1_000_000.0), 0.02, 6_000.0);
+
+        Assert.True(flight.Reached, flight.Hold);
+        Assert.True(program.ToGainAtIgnition > 0.0, $"to gain at ignition {program.ToGainAtIgnition}");
+        Assert.True(program.ThrustSpentMetresPerSecond > program.ToGainAtIgnition,
+                    $"spent {program.ThrustSpentMetresPerSecond:F0} against {program.ToGainAtIgnition:F0}");
+    }
 }

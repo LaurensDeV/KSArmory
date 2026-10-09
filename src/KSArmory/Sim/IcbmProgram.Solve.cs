@@ -95,6 +95,7 @@ internal sealed partial class IcbmProgram
         _toGain = command.VelocityToGain;
         _toGainVectorCci = command.ToGainVectorCci;
         _lowestToGain = Math.Min(_lowestToGain, _toGain);
+        if (double.IsNaN(ToGainAtIgnition) && IsBurning) ToGainAtIgnition = _toGain;
 
         bool pushing = PushesThrough(state);
         double holdBelow = pushing ? Math.Min(HoldDirectionThreshold(state), PushesThroughHoldBelow) : HoldDirectionThreshold(state);

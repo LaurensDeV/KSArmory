@@ -591,6 +591,15 @@ internal sealed partial class IcbmProgram
     /// </summary>
     public double LongestStepWhileBurning { get; private set; }
 
+    /// <summary>Velocity to gain on the first solve with the engines burning, in m/s; NaN before one.</summary>
+    public double ToGainAtIgnition { get; private set; } = double.NaN;
+
+    /// <summary>
+    /// The thrust's delta-v over the burn, in m/s. Less <see cref="ToGainAtIgnition"/> it is what the ascent lost to
+    /// gravity, drag and steering, which a reach drawn before launch has to allow for.
+    /// </summary>
+    public double ThrustSpentMetresPerSecond { get; private set; }
+
     /// <summary>
     /// The throttle the stack actually had when the engines stopped.
     ///
@@ -746,6 +755,8 @@ internal sealed partial class IcbmProgram
         StepAtCutoff = double.NaN;
         ThrottleAtCutoff = double.NaN;
         LongestStepWhileBurning = 0.0;
+        ToGainAtIgnition = double.NaN;
+        ThrustSpentMetresPerSecond = 0.0;
         _arrivalFromLaunch = double.NaN;
         _secondsInTheRamp = 0.0;
         _lastToGainCci = default;
@@ -793,6 +804,10 @@ internal sealed partial class IcbmProgram
         double step = double.IsFinite(stepSeconds) && stepSeconds > 0.0 ? stepSeconds : 0.0;
         if (step > 0.0) _lastStep = step;
         if (step > 0.0 && IsBurning) LongestStepWhileBurning = Math.Max(LongestStepWhileBurning, step);
+        if (step > 0.0 && IsBurning && state.Booster.AccelerationNow > 0.0)
+        {
+            ThrustSpentMetresPerSecond += state.Booster.AccelerationNow * Math.Clamp(state.ThrottleAchieved, 0.0, 1.0) * step;
+        }
 
         _stageCooldown = Math.Max(0.0, _stageCooldown - step);
         _sinceSolve += step;
