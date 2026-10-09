@@ -94,6 +94,28 @@ public class PastCutoffTests(ITestOutputHelper Out)
         Assert.True(shot.ProbeMissMetres < 10.0, $"the bus released {shot.ProbeMissMetres:F1} m out");
     }
 
+    // IcbmFlightTests' lunar stack, flown on the shipped settings through the trim, the passes and the release: nothing
+    // after cutoff may assume air or Earth.
+    [Fact]
+    public void ALunarShotLandsOnItsTarget()
+    {
+        BallisticBody moon = new(4.9048695e12, 1_737_400.0, new double3(0, 0, 1), 2.6617e-6);
+        double3 pad = new(moon.SurfaceRadius, 0, 0);
+        IcbmFlightRig flight = new()
+        {
+            Body = moon, PositionCci = pad, VelocityCci = moon.GroundVelocityCci(pad), ScaleHeightMetres = 0.0,
+            DragAreaOverMass = 0.0, CommandLatencyFrames = 1, StepJitter = 0.5,
+            Stages = [new() { DryMassKg = 1_500, PropellantKg = 6_000, ThrustNewtons = 45_000, ExhaustVelocity = 3_000 }],
+        };
+
+        IcbmProgram program = new(new IcbmConfig { Armed = true });
+        PastCutoffRig rig = PastCutoffRig.For(flight, program, Mk21, _ => 0.0);
+        PastCutoffRig.Outcome shot = Say(rig.Fly(new double3(moon.SurfaceRadius * Math.Cos(0.6), moon.SurfaceRadius * Math.Sin(0.6), 0)));
+
+        Assert.True(shot.Released, shot.Said);
+        Assert.True(shot.LandedMetres < 1.0, $"landed {shot.LandedMetres:F2} m out");
+    }
+
     private PastCutoffRig.Outcome Say(PastCutoffRig.Outcome o)
     {
         Out.WriteLine($"released {o.Released}, landed {o.LandedMetres:F3} m, probe {o.ProbeMissMetres:F1} m, "
