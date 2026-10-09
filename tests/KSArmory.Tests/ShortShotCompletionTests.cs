@@ -14,7 +14,7 @@ public class ShortShotCompletionTests
     private const double R = 6_371_000.0;
     private const double ScaleHeight = 8_000.0;
 
-    private static readonly double[] Ranges = [50.0, 100.0, 200.0, 300.0, 500.0, 1_000.0, 2_000.0];
+    private static readonly double[] Ranges = [25.0, 50.0, 100.0, 200.0, 300.0, 500.0, 1_000.0, 2_000.0];
 
     private static double DensityAt(double3 pointCci) => Math.Exp(-Math.Max(0.0, Vec.Len(pointCci) - R) / ScaleHeight);
 
@@ -62,5 +62,22 @@ public class ShortShotCompletionTests
             double missKm = R * Vec.AngleBetween(hit.GroundFixedPointCci, earth.CarryCci(aim, flight.CutoffSeconds)) / 1000.0;
             Assert.True(missKm < boundKm, $"{stack} at {km} km lands {missKm:F1} km out, past {boundKm} km");
         }
+    }
+
+    // The drag areas that stood still over a 25 km target for eighteen minutes; the Mk 21 aboard is what runs the drag
+    // solve that stalls the throttle-down.
+    [Theory]
+    [InlineData(30.0)]
+    [InlineData(45.0)]
+    public void ALiquidStackCutsOffAt25KmRatherThanHovering(double dragAreaM2)
+    {
+        IcbmFlightRig rig = ShortShotHoverTests.RealLiquid2(dragAreaM2);
+        IcbmProgram program = new(new IcbmConfig { Armed = true, MaxAccelerationGee = 8.0f, MinArrivalAngleDeg = 0.0, FlyAnyRange = true });
+        double3 aim = ShortShotHoverTests.At(ShortShotHoverTests.PadLatitudeDeg - double.RadiansToDegrees(25_000.0 / R));
+
+        IcbmFlightRig.Flight flight = rig.Fly(program, aim, 0.02, 1_200.0);
+
+        Assert.True(flight.Reached, $"never cut off: {flight.FinalPhase} '{flight.Hold}'");
+        Assert.True(flight.CutoffSeconds < 200.0, $"cut off {flight.CutoffSeconds:F0} s after launch");
     }
 }
