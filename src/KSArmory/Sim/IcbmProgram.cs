@@ -482,6 +482,18 @@ internal sealed class IcbmProgram
     /// <summary>Whether this shot can be made, and if not, which way it cannot.</summary>
     public IcbmReach Reach { get; private set; } = IcbmReach.Unknown;
 
+    /// <summary>What the shot still needs, in m/s, as of the last solve; NaN before one.</summary>
+    public double NeedMetresPerSecond { get; private set; } = double.NaN;
+
+    /// <summary>What the stack has left against it, in m/s; NaN when unknown.</summary>
+    public double HaveMetresPerSecond { get; private set; } = double.NaN;
+
+    /// <summary>
+    /// Whether <see cref="HaveMetresPerSecond"/> is the engine's figure for the whole stack rather than the running
+    /// stage's exhaust velocity over all the propellant, which reads a staged rocket low.
+    /// </summary>
+    public bool HaveIsTheWholeStack { get; private set; }
+
     /// <summary>The arc the last solve was flying to. Null until guidance has found one.</summary>
     public BallisticArc.Solution? Arc { get; private set; }
 
@@ -689,6 +701,9 @@ internal sealed class IcbmProgram
     {
         Phase = IcbmPhase.Idle;
         Reach = IcbmReach.Unknown;
+        NeedMetresPerSecond = double.NaN;
+        HaveMetresPerSecond = double.NaN;
+        HaveIsTheWholeStack = false;
         Arc = null;
         ReferencePositionCci = Vec.Zero;
         SecondsSinceReference = 0.0;
@@ -1331,9 +1346,12 @@ internal sealed class IcbmProgram
     // right way round to be wrong, which is why it remains the fallback.
     private void AssessReach(in IcbmState state, double required)
     {
-        double available = state.StackDeltaV > 0.0 && double.IsFinite(state.StackDeltaV)
-                               ? state.StackDeltaV
-                               : state.Booster.DeltaVRemaining;
+        bool wholeStack = state.StackDeltaV > 0.0 && double.IsFinite(state.StackDeltaV);
+        double available = wholeStack ? state.StackDeltaV : state.Booster.DeltaVRemaining;
+
+        NeedMetresPerSecond = required;
+        HaveMetresPerSecond = available > 0.0 ? available : double.NaN;
+        HaveIsTheWholeStack = wholeStack;
 
         if (!(available > 0.0))
         {

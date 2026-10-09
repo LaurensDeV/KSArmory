@@ -285,6 +285,20 @@ internal sealed partial class Ui
                 + "velocity that burn left ungained.");
         }
 
+        IcbmProgram program = computer.Program;
+        if (program.Phase is IcbmPhase.Idle or IcbmPhase.NoSolution or IcbmPhase.Holding
+            && double.IsFinite(program.NeedMetresPerSecond) && double.IsFinite(program.HaveMetresPerSecond))
+        {
+            ImGui.TextDisabled($"Delta-v: needs {program.NeedMetresPerSecond:F0} m/s, has {program.HaveMetresPerSecond:F0} m/s"
+                               + (program.HaveIsTheWholeStack ? "" : " (one stage's reckoning)"));
+            Tip(program.HaveIsTheWholeStack
+                    ? "Needs: what the solved shot asks of the stack from here. Has: the engine's own figure for the "
+                      + "whole stack, across the stages it has not yet flown."
+                    : "Needs: what the solved shot asks of the stack from here. Has: the running stage's exhaust velocity "
+                      + "over all the propellant, because the engine reports the whole stack only for the craft being "
+                      + "flown. That reads a staged rocket low, so a shortfall here may not be one.");
+        }
+
         // Its own line because it is the one unreachable a setting on this panel can fix, and
         // reading it as "no trajectory" sends the operator after a different target instead.
         if (command.Reach == IcbmReach.TooShallow)

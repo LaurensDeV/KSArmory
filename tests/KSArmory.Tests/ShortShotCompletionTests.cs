@@ -80,4 +80,21 @@ public class ShortShotCompletionTests
         Assert.True(flight.Reached, $"never cut off: {flight.FinalPhase} '{flight.Hold}'");
         Assert.True(flight.CutoffSeconds < 200.0, $"cut off {flight.CutoffSeconds:F0} s after launch");
     }
+
+    // Only the craft being flown reports its whole stack. The rest are reckoned off the running stage, which before it
+    // is lit has no exhaust velocity: what it has is then unknown, never zero.
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void ThePadDeltaVLineIsTheWholeStackOrNothing(bool reportsStackDeltaV)
+    {
+        IcbmFlightRig rig = GameStackShortRangeTests.GameStack(reportsStackDeltaV);
+        IcbmProgram program = new(new IcbmConfig { Armed = true, MaxAccelerationGee = 8.0f, MinArrivalAngleDeg = 0.0, FlyAnyRange = true });
+
+        rig.Fly(program, GameStackShortRangeTests.South(500_000.0), 0.02, 0.1);
+
+        Assert.True(program.NeedMetresPerSecond > 0.0, $"needs {program.NeedMetresPerSecond}");
+        Assert.Equal(reportsStackDeltaV, program.HaveIsTheWholeStack);
+        Assert.Equal(reportsStackDeltaV, double.IsFinite(program.HaveMetresPerSecond));
+    }
 }
