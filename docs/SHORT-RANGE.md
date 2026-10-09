@@ -561,7 +561,7 @@ worst warhead of six, one flight each, every kick taken and no exceptions in KSA
 
 The 25 km column was flown on the build before the kick cap, which does not reach a release at cutoff.
 
-**Open: a liquid stack hovers at 25 km.** Real Liquid2 and Real Liquid3 both did, every time, and the rig does
+**A liquid stack hovered at 25 km; fixed 2026-10-09, below.** Real Liquid2 and Real Liquid3 both did, every time, and the rig does
 not. Traced on 2026-10-06 (`~/shots/2026-10-06-hover/liquid2-diag`, altitude, climb and committed arrival on the
 `cutoff approach` line): the closed loop enters its throttle-down at 6 km climbing 194 m/s, closes slowly at
 0.2-0.4 throttle while the stack coasts up to 8.8 km and falls back, and ends **stood still 1.6 km over the
@@ -616,7 +616,7 @@ the hover, one after the other:
   commands exactly the stack's weight. Lowering the floor to 5 s only moves the hover (to a 5.5 s arrival, the same
   19.6 m/s to gain); the floor is where it sits, not why it starts.
 
-`IcbmConfig.ShortShotPushesThroughAStall` (off, unflown) acts once the ramp has run
+`IcbmConfig.ShortShotPushesThroughAStall` (on since 2026-10-09) acts once the ramp has run
 `IcbmProgram.PushesThroughAfterSeconds` (10 s) in the air: the push is measured from how the velocity to gain moved
 against what the thrust should have done, its component along the line is added to the throttle, the line is led
 across it by what it will add before the burn ends, and the steering freezes only under 1 m/s. All three are needed:
@@ -644,7 +644,7 @@ arm, verbose):
 
 No exceptions in any KSA log. The hover is gone on both liquids, and Liquid3, which on 10-06 hovered and never
 finished, lands. What it costs is the hover's accidental precision: off, the stack finishes at its floor, stood still
-1.6 km over the target, and lands closer. The 150 km ramp ran past the 10 s gate, so the switch may have acted there
+1.6 km over the target, and lands closer. **Shipped on.** The 150 km ramp ran past the 10 s gate, so the switch may have acted there
 too; it says no harm on a ramp that closes, not that it stays out of one.
 
 **A hot core overshot its cutoff, fixed** (Real SRB4, 500 and 700 km; `IcbmConfig.ShortShotBackstopsAtTheTrim`,
