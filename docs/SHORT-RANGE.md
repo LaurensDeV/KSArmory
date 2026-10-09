@@ -477,6 +477,17 @@ Each first flight found something GeoSat FAT never showed:
   and gravity low in the air. Then the 0.67 g upper stage could not finish. Open: find what direction the loop
   asks for there, and why it hands over at 1 km.
 
+  **Read again on 2026-10-09** (`~/shots/2026-10-06-night/stk-light`, on the later code it hands over at 26 km, not
+  1): for the whole 50 s first stage the throttle asks exactly the 8 g cap (0.548 x 14.6 g down to 0.229 x 34.9 g)
+  while the felt load stays at 1.9-2.0 g, so **about six gravities are drag**, and 3.4 km/s of the stage's 4.2
+  bought 700 m/s of the shot; the upper then burns 400 s and ends 1,764 m/s short. A rig fixture fitted to the
+  throttle lines (41.4 t, 6.35 MN, 4,300 m/s vacuum, 2.9 t dry; upper 92 kN on 12.4 t) **flies fine up to 13 m^2 of
+  drag area and fails like the flight from 25 m^2** -- about 400 s and 1.5-4 km/s short -- which is several times a
+  2 m stack's cross-section, so KSA's drag on this stack is the first thing to look at (`Sim/DragShape.cs` copies the
+  engine's box). Throttling the ascent to a dynamic-pressure limit, tried in the rig, cuts the shortfall (25 m^2 at
+  150 km: 4,064 to 806-828 m/s at 20-40 kPa; at 700 km, 1,473 to 709-1,198) and does not make it land, and at
+  40 m^2 it barely moves; not in.
+
 **Realistic stacks** (`~/shots/2026-10-05-real/`), lifting off at 1.2-1.5 with every stage able to lift what
 is above it. The first liquid designs stood on one A2's bell and toppled where they were parked, breaking in
 three, so the liquid first stages stand on four A3s. All nine passed, with no exceptions in KSA's log:
