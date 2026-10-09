@@ -488,6 +488,15 @@ Each first flight found something GeoSat FAT never showed:
   150 km: 4,064 to 806-828 m/s at 20-40 kPa; at 700 km, 1,473 to 709-1,198) and does not make it land, and at
   40 m^2 it barely moves; not in.
 
+  **And 25 m^2 is exactly what KSA gives it.** `VehicleProperties.RecomputeAerodynamicProperties` takes one
+  bounding box for the whole craft: 0.3 x (pi/4) w^2 on the nose, and `PhysicsStates.ComputeDrag` adds a tenth of
+  the box's whole surface area, `2((pi/4) w^2 + 2 L w)`, whichever way the air comes. The Light preset is 2 m tanks
+  (`A2:LF2W4HAx2`, `A4:LF2W2HA` in `tools/make-rocket.py`) under the MIRV bus, which is 3.0 m wide, so the box is
+  3 m wide its whole length: about 2.1 m^2 on the nose and 25 m^2 of skin at ~20 m long, eight times a 2 m stack's
+  cross-section. **So the stack is a drag brick in KSA's model, not a guidance fault**, and nothing in the program
+  is wrong to find. A stack as wide as its bus is the player's answer; the computer's, if it is ever wanted, is an
+  ascent that stays slow until the air is thin, which the 20-40 kPa trial above says is not enough on its own.
+
 **Realistic stacks** (`~/shots/2026-10-05-real/`), lifting off at 1.2-1.5 with every stage able to lift what
 is above it. The first liquid designs stood on one A2's bell and toppled where they were parked, breaking in
 three, so the liquid first stages stand on four A3s. All nine passed, with no exceptions in KSA's log:
