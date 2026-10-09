@@ -12367,3 +12367,7 @@ frame of thrust -- an engine still burning a frame after the command, on some ro
 in the same frame as another rocket does not separate them, and the night's share of held frames (0.5-2.8%) is far
 under its overshoot share (8-16%). The logs cannot resolve a frame, so `IcbmComputer.WatchTheCutoffTail` now prints
 the thrust felt on the four frames after the command (`cutoff tail on`); the next long-range night says which.
+A steady latency is not it: `IcbmFlightRig` at the flown cutoff (1.42 MN on 2.6 t, 26 deg off the plane, 25 ms
+jittered) with two frames of command latency instead of one still cuts off -0.13 to +0.37 of a frame along the line,
+because the ramp re-solves every frame and absorbs a constant delay. What overshoots is a frame that is late once, at
+the cutoff.
