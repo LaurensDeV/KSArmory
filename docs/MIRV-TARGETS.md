@@ -179,6 +179,13 @@ whatever is left after the ones already chosen, taken along the cheapest order t
   than a region around a point, the vehicle is not inside it, and an inclination bounds it in a way no
   bearing sweep can find. It is also unaffordable: `BurnWindow.TryFind` is 7.1 ms from a 400 km orbit, so a
   usable ring is **2.6 s**. Say so and draw nothing.
+* **Target 1's region is not built, and should not be until it can be a floor** (2026-10-09). The solve sketched
+  below compares the cheapest arc's velocity to gain against what the stack has, which leaves out the ascent's
+  gravity and drag losses, so it would draw a *ceiling*: a place inside it that the stack cannot reach, the way the
+  Light stack read Reachable on the pad and burned out 1,764 m/s short (`docs/SHORT-RANGE.md`). Every other reach
+  this mod draws is a floor for that reason. What it needs first is an ascent-loss allowance measured off flown
+  shots -- velocity to gain on the pad against the delta-v the stack actually spent by cutoff, by stack and range --
+  which no log line carries today.
 * **Recomputed only when the set of targets changes**, never per frame. A pad ring is **37–68 ms** with the
   flight time seeded across the sweep and 112 ms without, so it is built a few bearings a frame rather than
   in one hitch — `IcbmOverlay.Draw` already costs 11.1 ms of a 15.1 ms mod frame. Target 1's region is a few dozen
