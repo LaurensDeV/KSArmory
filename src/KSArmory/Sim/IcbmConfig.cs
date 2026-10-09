@@ -344,6 +344,13 @@ internal sealed class IcbmConfig
     public bool ShortShotPushesThroughAStall = true;
 
     /// <summary>
+    /// Resume the aim correction at cutoff rather than on the first frame the engines are off, which a hold for a burn
+    /// window spends. In <c>PastCutoffRig</c>, an orbital bus aimed 400 km behind: off, 0 post-boost passes and released
+    /// 404.6 m out; on, 4 passes and 1.3 m. Unflown. <c>docs/ICBM-OUTSTANDING.md</c> 1.9.
+    /// </summary>
+    public bool AimResumesAtCutoff;
+
+    /// <summary>
     /// Keep working the throttle on the craft being flown while KSA discards its held keys, by writing the
     /// key's step to the throttle. On: 21–25 mm off, 0.2–2.4 mm on. <c>docs/ICBM-OUTSTANDING.md</c> 1.2.
     /// </summary>

@@ -874,10 +874,10 @@ internal sealed class IcbmComputer
         // two halves, and the second half is only solvable once the first has finished.
         if (Program.IsBurning && double.IsFinite(Program.CommittedArrivalFromNow)) _aim.Freeze();
 
-        // And starts again the moment the engines do stop, because the thing that made the two
-        // halves fight is the burn: with the trajectory fixed, the arc follows the aim and the trim
-        // flies the difference. Once only, so a coast pass that genuinely settles stays settled.
-        if (!Program.IsBurning && !_resumedForCoast)
+        // And starts again once the engines stop, because the thing that made the two halves fight is
+        // the burn: with the trajectory fixed, the arc follows the aim and the trim flies the
+        // difference. Once only, so a coast pass that genuinely settles stays settled.
+        if (Program.ResumesTheAim && !_resumedForCoast)
         {
             _resumedForCoast = true;
             _aim.Resume();

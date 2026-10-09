@@ -1043,6 +1043,14 @@ internal sealed partial class Ui
         Tip("On: on an arc that releases after the trim, what is left turning back up anywhere under the trim's "
             + "reach ends the burn and the trim finishes it. Off: only under 2 m/s.");
 
+        bool resumesAtCutoff = config.AimResumesAtCutoff;
+        if (ImGui.Checkbox("Aim correction resumes at cutoff", ref resumesAtCutoff))
+        {
+            config.AimResumesAtCutoff = resumesAtCutoff;
+        }
+        Tip("On: the aim correction the burn froze starts again at cutoff. Off: on the first frame the engines are "
+            + "off, which a hold for a burn window spends, leaving the passes after cutoff on a frozen aim. Unflown.");
+
         bool pushes = config.ShortShotPushesThroughAStall;
         if (ImGui.Checkbox("Short shot pushes through a stalled throttle-down", ref pushes))
         {

@@ -605,6 +605,13 @@ internal sealed class IcbmProgram
     public bool IsBurning => Phase is IcbmPhase.Rising or IcbmPhase.PitchProgram or IcbmPhase.ClosedLoop;
 
     /// <summary>
+    /// Whether the aim correction frozen by the burn may start again: once the engines are off, or under
+    /// <see cref="IcbmConfig.AimResumesAtCutoff"/> only once they have cut off, so a hold for a burn window,
+    /// with nothing settled to resume, does not spend it.
+    /// </summary>
+    public bool ResumesTheAim => Config.AimResumesAtCutoff ? Phase == IcbmPhase.Coast : !IsBurning;
+
+    /// <summary>
     /// Whether the world has to be kept slow. The burn itself, and the last minute before it —
     /// a window is no use if one warped frame steps clean over it.
     /// </summary>

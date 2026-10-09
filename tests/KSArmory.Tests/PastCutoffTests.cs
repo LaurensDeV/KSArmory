@@ -79,6 +79,21 @@ public class PastCutoffTests(ITestOutputHelper Out)
         Assert.True(shot.LandedMetres < 1.0, $"landed {shot.LandedMetres:F2} m out");
     }
 
+    // Aimed behind the bus, so it holds for its burn window before it burns: a resume spent in that hold leaves the
+    // aim frozen after cutoff. docs/ICBM-OUTSTANDING.md 1.9.
+    [Fact]
+    public void ABusThatHoldsForItsWindowStillCorrectsItsAimAfterCutoff()
+    {
+        IcbmProgram program = new(new IcbmConfig { Armed = true, AimResumesAtCutoff = true });
+        PastCutoffRig rig = PastCutoffRig.For(InOrbit(), program, Mk21, DensityAt);
+        rig.MaxSecondsAfterCutoff = 6_000.0;
+        PastCutoffRig.Outcome shot = Say(rig.Fly(Downrange(-400_000.0)));
+
+        Assert.True(shot.Released, shot.Said);
+        Assert.True(shot.PostBoostPasses >= 1, $"no post-boost pass was taken: '{shot.PostBoostEnded}'");
+        Assert.True(shot.ProbeMissMetres < 10.0, $"the bus released {shot.ProbeMissMetres:F1} m out");
+    }
+
     private PastCutoffRig.Outcome Say(PastCutoffRig.Outcome o)
     {
         Out.WriteLine($"released {o.Released}, landed {o.LandedMetres:F3} m, probe {o.ProbeMissMetres:F1} m, "

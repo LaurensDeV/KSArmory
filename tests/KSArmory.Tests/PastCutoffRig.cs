@@ -180,7 +180,7 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
     {
         if (Program.IsBurning && double.IsFinite(Program.CommittedArrivalFromNow)) _aim.Freeze();
 
-        if (!Program.IsBurning && !_resumedForCoast)
+        if (Program.ResumesTheAim && !_resumedForCoast)
         {
             _resumedForCoast = true;
             _aim.Resume();
