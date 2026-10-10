@@ -277,9 +277,8 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
             double before = BeforeArrivalSeconds(k, stops.Length, gate, bus.HopSeconds);
             double reach = ReachAtSlot(reachMetresPerMetrePerSecond, k, before, bus);
             double hop = k == 0 ? 0.0 : HopOnto(targets[taken[k].Target], bus, reach);
-            double pass = k == 0 || !double.IsFinite(targets[taken[k].Target].HopLengthMetres)
-                              ? double.NaN
-                              : PriceOf(targets[taken[k].Target].HopLengthMetres, reach, bus);
+            double pass = k == 0 ? double.NaN : PassOnto(targets[taken[k].Target], bus, reachMetresPerMetrePerSecond, k,
+                                                         BeforeArrivalSeconds(k - 1, stops.Length, gate, bus.HopSeconds));
             spent += hop;
 
             stops[k] = new Stop(taken[k].Target, taken[k].Warheads, before,
@@ -519,6 +518,20 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
         double measured = ReachAt(reach, index);
 
         return bus.PricesEachSlot ? measured * bus.SlotReachScale(beforeArrivalSeconds) : measured;
+    }
+
+    // What one pass flies for the hop: its length, at the reach of the slot the hop is flown in, which is straight
+    // after the stop before releases and not at this stop's own release. NaN where the price already is that.
+    private static double PassOnto(in Target target, in Bus bus, IReadOnlyList<double>? reach, int index,
+                                   double flownBeforeArrivalSeconds)
+    {
+        if (double.IsFinite(target.HopMetresPerSecond)) return double.NaN;
+
+        bool perAxis = double.IsFinite(target.HopLengthMetres);
+        if (!perAxis && !bus.PricesEachSlot) return double.NaN;
+
+        double length = perAxis ? target.HopLengthMetres : target.HopMetres;
+        return PriceOf(length, ReachAtSlot(reach, index, flownBeforeArrivalSeconds, bus), bus);
     }
 
     private static double HopOnto(in Target target, in Bus bus, double reachMetresPerMetrePerSecond)

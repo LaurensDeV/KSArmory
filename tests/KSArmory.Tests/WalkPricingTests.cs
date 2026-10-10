@@ -71,10 +71,26 @@ public class WalkPricingTests
         Assert.True(asGiven.Walks);
         Assert.Equal(4_000.0 / MeasuredReach, asGiven.HopMetresPerSecond);
 
-        // The last hop is bought 420 s out, where a metre a second moves the landing 334 m: 12.0 m/s,
-        // more than one pass flies.
+        // The last hop is priced at 420 s out, 12.0 m/s, and flown straight after the stop before, where one pass
+        // is 10.4 m/s: still more than a pass flies.
+        ReleaseItinerary.Stop last = perSlot.Itinerary.Stops[3];
+
         Assert.Equal(ReleaseWalkHold.HopBeyondOnePass, perSlot.Hold);
-        Assert.Equal(4_000.0 / (MeasuredReach * Gate / MeasuredAt), perSlot.HopMetresPerSecond, 9);
+        Assert.Equal(4_000.0 / (MeasuredReach * Gate / MeasuredAt), last.HopMetresPerSecond, 9);
+        Assert.Equal(4_000.0 / (MeasuredReach * perSlot.Itinerary.Stops[2].BeforeArrivalSeconds / MeasuredAt),
+                     last.PassFlies, 9);
+        Assert.Equal(last.PassFlies, perSlot.HopMetresPerSecond, 9);
+    }
+
+    [Fact]
+    public void APassIsJudgedAtTheSlotItsHopIsFlownIn()
+    {
+        ReleaseWalk perSlot = ReleaseLoop.Plan(Chain(4, 3_600.0), Bus(perSlot: true), [MeasuredReach], lead: 0);
+        ReleaseItinerary.Stop last = perSlot.Itinerary.Stops[3];
+
+        Assert.True(last.HopMetresPerSecond > BusTrim.MaxMetresPerSecond);
+        Assert.True(last.PassFlies <= BusTrim.MaxMetresPerSecond);
+        Assert.True(perSlot.Walks, perSlot.Hold.ToString());
     }
 
     [Fact]
