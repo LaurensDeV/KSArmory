@@ -999,3 +999,38 @@ price refuses, flown with it off, to see which of the two the per-hop spend on t
 second wants a six-target walk the budget cuts, flown on the smallest bus the rack is fitted to, reading the
 trim's spend against what the tank actually held: the reserve was sized to be left over, so spending it
 leaves the smallest bus nothing, and nothing has measured how often a walk's last hop runs to its ceiling.
+
+## Flown: six stops to the ground, and a stop costs twice its hop — 2026-10-10
+
+Step 0 of `DECLARE-walk-cutoff-v2.md`: one world of `SOLVER SCALE 8`, six targets one warhead each along the
+meridian from 24.0S 62.0W, shipped settings, `fadfdd84` (`~/shots/2026-10-10-walk-step0*`). The world ran at 1x
+on 13 ms steps throughout, so this is not 10-01's warped trim.
+
+**At the declared 6.5 km no rocket walks.** Planned after cutoff at six and then five stops, the first hop
+priced 10.0 m/s against the 10 a pass may fly, `HopBeyondOnePass` held the walk, and all six warheads went to the
+lead on all eight rockets. That is the planner refusing as designed. The declaration expected 6.8 m/s a hop; the widest set ending on the
+gate is the 4.5 km this file already gives.
+
+**At 4 km every rocket walks five of six stops, and the walking is exact**: every warhead released landed
+2.8-44 mm from its own target. Every walk then ends at stop 5 on the 60 m/s budget, `the walk ends here`, and the
+nearest target gets nothing.
+
+| stop | flown, median [range] | priced |
+| --- | --- | --- |
+| 1, the lead | 12.58 [7.37, 12.98] m/s | the remainder of 36.9 m/s for six stops |
+| 2 | 11.38 [11.20, 12.21] | 6.43-6.88 |
+| 3 | 12.18 [11.84, 12.91] | 6.43-6.88 |
+| 4 | 12.82 [12.53, 13.89] | 6.43-6.88 |
+| 5 | 11.30 [10.95, 13.61] | 6.43-6.88 |
+
+**The hop's own pass costs what it is priced at; what follows it does not.** On one rocket the pass after stop 1
+opened at 6.44 m/s against 6.47 priced, took that down to 3.5 m/s in a few seconds, and spent the next 50 s
+alternating nose and belly every frame as the demand fell from 3.5 to 0.1, for 11.29 m/s in all. The trim fires
+one direction at a time, so a demand split across the bus's axes is paid in the sum of its components while the
+planner prices the straight line between landings: up to 1.41x across two axes and 1.73x across three. That
+could account for the factor; it is not verified headless, and the tail's slowness is not explained.
+
+**The night is not flown**: a stop that never releases is the declaration's own void condition. What would let a
+six-stop walk finish is pricing a hop in what the trim pays (or letting the trim fire the straight line), and stop
+1's correction in the budget; the 4.4 per-slot pricing makes hops dearer, not cheaper, so on its own it would
+refuse earlier rather than finish.
