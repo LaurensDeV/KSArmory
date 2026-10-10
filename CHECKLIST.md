@@ -2674,6 +2674,21 @@ Fly a MIRV shot, and once the burn is over and the bus is coasting:
 - [ ] Turning **Show what the bus can still divert to** off stops both: no outline, and no
       `reach on <craft>` lines.
 
+### 12.7g A walk between targets, priced at what the bus spends — flown 2026-10-10
+
+Hops are priced at what the trim pays on the bus's own axes and at the reach of the slot each is flown in, and the
+stack wait holds only the split. `docs/MIRV-TARGETS.md`, "six stops to the ground".
+
+- [x] Six targets 4 km apart from the pad: every bus plans the stops it can pay for (four), keeps the other warheads
+      aboard, and releases every stop it planned, millimetres from each target. Scenario, two worlds, 16 of 16.
+- [x] Seat 1 walks like the rest: nothing holds a hop off the spent stack once the first warhead is away.
+- [x] At 12,900 km the stack wait no longer holds the first correction: 2.3 mm median against 26 mm, and from orbit
+      every bus still keeps to its keep-out.
+- [ ] By hand: with six targets placed, the panel says how many stops the walk will fly and that the rest stay
+      aboard, before launch.
+- [ ] The reach ring on the ground is smaller than it was before the per-axis price, and a click inside it is a stop
+      the walk then flies rather than one it drops mid-flight.
+
 ### 12.6 It gives the vehicle back
 
 - [ ] **Abort** stops the engines and returns attitude control. Flying by hand works immediately

@@ -6,26 +6,30 @@ as they land, and the order is re-ranked when one does.
 
 ## Where it stands
 
-Worst warhead per rocket, median over rockets, on `dev` as of `e0195cef`. Short-range cells are one flight each.
+Worst warhead per rocket, median over rockets, on GeoSat FAT; the commit each row was flown on is beside it. Short-range
+cells are one flight each.
 
 | range | n | median | worst |
 | --- | --- | --- | --- |
-| 25 km | 3 | 1.4 mm | 6.3 mm -- Real Liquid2 lands only after a 12-minute hover; Real Liquid3 never completed |
-| 100–418 km | 4 each | 4.0–6.9 mm | 18.6 mm |
-| 500 / 700 km | 4 each | 1.8 / 2.8 mm | 3.9 mm |
+| 25 km (`e0195cef`, Real Liquid2 and 3 after 1.1) | 3 | 1.4 mm | 6.3 mm; the two Real liquids since 1.1 finish in 18 s, 0.4-1.8 and 8.6-10.1 mm |
+| 100–418 km (`e0195cef`) | 4 each | 4.0–6.9 mm | 18.6 mm |
+| 500 / 700 km (`e0195cef`) | 4 each | 1.8 / 2.8 mm | 3.9 mm |
 | 1,983–5,331 km (`d866e85c`) | 16 each | 2.9–6.0 mm | 61.5 mm -- one group off as a whole at 3,268 km |
-| 6,179 km (Chaco) | 8 | 5.8 mm | 8.1 mm |
-| 12,900 km | 32 | 2.0 mm | 16.2 mm (seats 2–8; seat 1 below) |
+| 6,179 km, Chaco (`d866e85c`) | 8, and 8 in the Sol system | 4.6 / 5.5 mm | 5.9 / 7.0 mm |
+| 12,900 km (`39001d05`'s scoped arm, now shipped) | 16 | 2.3 mm | 12 mm; seat 1 1.1-1.2 mm |
+
+Other stacks (2.3, `0a1ab267`, one flight a cell): ThreeStage and SolidHeavy in millimetres at 700 and 6,179 km; LowTWR
+in millimetres at 6,179 and 2.3 km at 700 (1.12); OneStage destroyed at both (1.11).
 
 **A level, not a floor, and not yet a promise.** SHORT-RANGE.md's own bar is 3–6 flights before naming a level; only
 `SOLVER SCALE 8` on Earth has flown long; 2,000–6,000 km has flown one night, two worlds a site (3fq); every night
-ran at 32–63 fps on one machine; and **a median hides the shots that never land** -- a 12-minute hover and a stack that
-never finished are both inside the 25 km row. Today's default-on fixes rest on one to four flights each. Anything that
+ran at 32–63 fps on one machine; and **a median hides the shots that never land** -- a stack that breaks its own
+airframe (1.11) is not in any row above. Today's default-on fixes rest on one to four flights each. Anything that
 reaches players or the changelog should say "a level" too.
 
 **Seat 1 is the player's case.** It is the controlled craft, the only one KSA reports stage delta-v for, and the only
-one a player flies; the 12,900 km median is over seats 2–8. It now lands like the rest (two worlds, after
-`AimWaitsForTheSolids`), but every long-range number should report it on its own.
+one a player flies, so every long-range number should report it on its own: 1.1-1.2 mm at 12,900 km on the shipped
+stack wait, but 19-24 mm at Mato Grosso on both worlds (3fq), which is not chased.
 
 ## The release gate
 
