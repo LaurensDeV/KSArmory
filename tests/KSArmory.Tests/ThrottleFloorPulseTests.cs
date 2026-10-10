@@ -75,4 +75,31 @@ public class ThrottleFloorPulseTests(ITestOutputHelper Out)
         Assert.True(shot.Released, shot.Said);
         Assert.True(shot.LandedMetres < 1.0, $"landed {shot.LandedMetres:F2} m out");
     }
+
+    // KSA reports an engine's thrust off whether it is active in its stage and has propellant, never off the on/off flag a
+    // pulse switches (EngineController.ComputeActivePerformance), so an engine pulsed off is not a spent stage.
+    private sealed class StagingWatch : IcbmFlightRig.IAimLoop
+    {
+        public int PulsedFrames, StagedWhilePulsing;
+        public double3 Apply(double3 aimNowCci) => aimNowCci;
+        public bool IsSteady => true;
+        public void AfterUpdate(IcbmProgram program, in IcbmCommand command, double3 aimNowCci, double step)
+        {
+            if (!command.Pulsing) return;
+            PulsedFrames++;
+            if (command.RequestStage) StagedWhilePulsing++;
+        }
+    }
+
+    [Fact]
+    public void APulsedOffEngineIsNeverStagedAway()
+    {
+        IcbmFlightRig rig = OneStage();
+        StagingWatch watch = new();
+        rig.AimLoop = watch;
+        rig.Fly(Program(pulses: true), GameStackShortRangeTests.South(6_179_000.0), 1.0 / 60.0, 3_000.0);
+
+        Assert.True(watch.PulsedFrames > 100, $"only {watch.PulsedFrames} frames pulsed");
+        Assert.Equal(0, watch.StagedWhilePulsing);
+    }
 }
