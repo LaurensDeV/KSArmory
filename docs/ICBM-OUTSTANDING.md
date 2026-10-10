@@ -38,7 +38,7 @@ throttle (1.2). `SaveRepairs` shipped in it and is removed on `dev` for the rele
 1.2's trim jets, 1.1's push through a stalled throttle-down, the stack wait (1.8) scoped to the split so long shots
 and walks are not held by it (1.10), the computer's targets and settings kept in the save (1.4, unverified in game),
 and a walk priced at what the bus spends (4.3, 4.4). 1.11 is the one a player can hit with a stack they built and
-lose the whole shot to; 1.3, 1.5 and 1.12 are robustness a player can live without for one more version.
+lose the whole shot to, and its fix is built and off until flown; 1.3, 1.5 and 1.12 are robustness a player can live without for one more version.
 
 ## Tier 0 -- cheap, and every later night runs through them
 
