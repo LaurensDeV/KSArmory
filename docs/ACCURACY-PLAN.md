@@ -12443,3 +12443,8 @@ everywhere would bring 1.8's orbital contacts back, so two narrower changes are 
 the post-boost corrections to the keep-out. Pausing the passes' clock while the trim is held was tried in the rig and
 is not in: the wait is sized on the time left, so with the clock paused it never judged the stack far enough, held to
 the 240 s limit and then let the 1.8 orbit case close to 3.5 m of its stack.
+
+**`StackWaitsOnlyForTheSplit` flown and on** (`~/shots/2026-10-10-scoped/`). Four worlds paired at 12,900 km: scoped
+2.3 mm median, 12 mm worst, no pass clock run out and no bus inside the keep-out, against 26.2 mm, 527 m and 16 of
+16 run out shipped. Four `ORBIT 300` shots alternating the arms: every bus at exactly its 21.2 m keep-out and
+2.1-7.9 mm either way, the scoped arm with no clock run out.
