@@ -55,6 +55,9 @@ public class ThrottleFloorPulseTests(ITestOutputHelper Out)
 
         Assert.True(broke.BrokeUp, "held at its floor the stack should break");
         Assert.True(whole.Reached && !whole.BrokeUp, $"pulsed, it broke at {whole.PeakFilteredGee:F1} g");
+
+        // Room for the ripple an on frame near burnout leaves, which in flight carried a 15-18 g average past 21.2.
+        Assert.True(whole.PeakFilteredGee < 0.85 * pulsed.StructuralLimitGee, $"pulsed peak {whole.PeakFilteredGee:F1} g");
         Assert.True(residual < 0.5 * FloorFrameMetresPerSecond, $"{residual:F2} m/s left at cutoff");
     }
 

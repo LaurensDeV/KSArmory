@@ -98,7 +98,18 @@ internal sealed partial class IcbmProgram
     /// </summary>
     public const double PulseOffOverTheAirframeFraction = 0.9;
 
+    /// <summary>
+    /// The share of the airframe's limit a pulsing engine's average load is held to, by KSA's own reading. Flown, duty set
+    /// off the program's thrust estimate averaged 15-18 g of 21.2 because the floor held 1.69x that estimate, and an on
+    /// frame near burnout, about 30 g, rippled the rest of the way.
+    /// </summary>
+    public const double PulseLoadFraction = 0.6;
+
+    // How fast the measured share of frames on is followed: KSA's smoothing on a ~12 m stack, 0.06 s, rounded up.
+    private const double PulseShareSeconds = 0.1;
+
     private double _pulseCarry;
+    private double _pulseOnShare;
     private bool _pulsedOff;
     private bool _pulsing;
     private double _pulseQuantum;
@@ -114,6 +125,7 @@ internal sealed partial class IcbmProgram
             || !(floor > 0.0) || !(_throttle < floor))
         {
             _pulseCarry = 0.0;
+            _pulseOnShare = 1.0;
             _pulsing = false;
             _pulseQuantum = 0.0;
             return (false, false);
@@ -123,15 +135,29 @@ internal sealed partial class IcbmProgram
 
         double duty = Math.Clamp(_throttle / floor, 0.0, 1.0);
 
+        // What an on frame really loads the airframe with is KSA's smoothed load over the share of frames that were on.
+        if (state.StructuralLimitGee > 0.0 && double.IsFinite(state.LoadGee) && _pulseOnShare > 0.05)
+        {
+            double onLoad = state.LoadGee / _pulseOnShare;
+            if (onLoad > 0.0) duty = Math.Min(duty, PulseLoadFraction * state.StructuralLimitGee / onLoad);
+        }
+
         bool overTheAirframe = state.StructuralLimitGee > 0.0 && double.IsFinite(state.LoadGee)
                                && state.LoadGee >= state.StructuralLimitGee * PulseOffOverTheAirframeFraction;
-        if (overTheAirframe) return (true, true);
 
-        _pulseCarry += duty;
-        if (_pulseCarry < 1.0) return (true, true);
+        bool on = false;
+        if (!overTheAirframe)
+        {
+            _pulseCarry += duty;
+            if (_pulseCarry >= 1.0)
+            {
+                _pulseCarry -= 1.0;
+                on = true;
+            }
+        }
 
-        _pulseCarry -= 1.0;
-        return (true, false);
+        _pulseOnShare += ((on ? 1.0 : 0.0) - _pulseOnShare) * Math.Clamp(_lastStep / PulseShareSeconds, 0.0, 1.0);
+        return (true, !on);
     }
 
     private bool DropsSolidsUnderWeight(in IcbmState state)
