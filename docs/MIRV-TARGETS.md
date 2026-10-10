@@ -1034,3 +1034,33 @@ could account for the factor; it is not verified headless, and the tail's slowne
 six-stop walk finish is pricing a hop in what the trim pays (or letting the trim fire the straight line), and stop
 1's correction in the budget; the 4.4 per-slot pricing makes hops dearer, not cheaper, so on its own it would
 refuse earlier rather than finish.
+
+### Fixed, and flown: a hop priced at what the trim pays, at the slot it is flown in
+
+**The axis sum is confirmed headless.** `HopTrimPriceTests` flies a hop's velocity change through `BusTrim` at 13
+ms on six 0.55 m/s² jets: along one axis it costs its length, across two 1.41x, across three 1.73x, at every
+step. `DivertFootprint.TryAxisPrice` inverts the pinned divert's three rows and resolves the result on the bus's
+control frame, so a 2.5 km hop the trim flies for 11.90 m/s is priced at 11.95, where its length says 7.05.
+`IcbmConfig.PriceHopsAtWhatTheTrimPays` prices hops so; a hop also carries its length, because `BusTrim`'s
+10 m/s ceiling bounds a pass by length and it flew that 11.90 in one.
+
+**Alone it is not enough**, flown on the same walk paired against the shipped price (`~/shots/2026-10-10-walk-trimprice`):
+hops priced at 10.2-11.2 m/s, but each stop flew 1.4-4.2 m/s over its price and the excess grew stop by stop,
+which is the reach shrinking as the hops come nearer arrival -- 4.4's `PriceEachHopAtItsSlot`. Flown together
+they refused every walk (`walk-both`): the pass was judged at the stop's own release, 10.1-10.8 m/s, where the
+hop is flown straight after the stop before and its first pass flew 6.4-7.0. `ReleaseItinerary.PassOnto` now
+judges the pass at the slot it is flown in, and the budget keeps the stop's own, which overcharges by about what
+each stop's own correction costs.
+
+**Flown together, both on** (`~/shots/2026-10-10-walk-both2`, two worlds, four rockets an arm):
+
+| | planned | flew every stop planned | per stop, flown against priced | left |
+| --- | --- | --- | --- | --- |
+| shipped | 6 stops | 0 of 8, every walk dry at stop 5 | 11.0-14.2 against 6.4-6.9 | 0.0-1.7 m/s |
+| both prices | 4 stops, 2 targets dropped, their warheads aboard | 7 of 8 | stops 2-4: 13.3-16.0 against 11.6-15.3 | 2.3-4.5 m/s |
+
+Every warhead the seven released landed within millimetres of its own target. Both switches ship on. **The eighth
+is a different fault**: seat 1, whose hop after stop 1 pointed back at the spent stack, so `TrimWaitsOutTheStack`
+held it two minutes for the stack to open to 680 m; the hop was flown late, stop 2's correction ran out its 120 s
+and released 773 m out, and stop 3's correction asked for more than one pass and was refused whole, 3.2 km. The
+keep-out and the walk were built apart and have not met before; one of eight, so not yet a rate.
