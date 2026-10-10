@@ -720,7 +720,7 @@ show is that the post-boost passes remove what the burn no longer does.
 | | switch on, 2 shots | 0, 0 | 19.46, 19.45 m/s | 0.155, 0.175 m |
 | `SOLVER SCALE 8` pad, Chaco, preference 0.5 | 2 worlds paired, 8 a side | -- | -- | landing 2.57 against 2.38 mm, 0.95x unresolved |
 
-Every one of 112 rockets arrived, and no KSA log carries an exception. At a 15° floor the shipped burn took at most
+Every one of the 24 rockets arrived, and no KSA log carries an exception. At a 15° floor the shipped burn took at most
 one reading, so there was nothing for the switch to remove, and the floored shot lands in centimetres rather than
 the 2.28-2.68 km above -- for 13-19 m/s of trim against 7-9, the post-cutoff loop walking 2.6-2.7 km of bias. Why
 the burn reads so little is not established. The likeliest reason is that `ORBIT 300` deorbits on a solid that
