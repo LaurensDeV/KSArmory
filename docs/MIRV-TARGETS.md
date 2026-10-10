@@ -1064,3 +1064,9 @@ is a different fault**: seat 1, whose hop after stop 1 pointed back at the spent
 held it two minutes for the stack to open to 680 m; the hop was flown late, stop 2's correction ran out its 120 s
 and released 773 m out, and stop 3's correction asked for more than one pass and was refused whole, 3.2 km. The
 keep-out and the walk were built apart and have not met before; one of eight, so not yet a rate.
+
+**Fixed with the long-range stack wait** (`ACCURACY-PLAN.md` 3fr): the wait now holds only the split's own null and
+ends once any warhead has left, since a walk's handover restarts the post-boost passes and read every hop as the split
+again. Flown on the shipped code, two 4 km worlds (`~/shots/2026-10-10-walk-hopwait`): 16 of 16 buses flew all four
+stops planned, none held, every warhead within millimetres; before the hand-over rule, seat 1 was held and ended
+3.3 km off in both worlds.
