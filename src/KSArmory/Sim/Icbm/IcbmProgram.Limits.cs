@@ -105,6 +105,12 @@ internal sealed partial class IcbmProgram
     /// </summary>
     public const double PulseLoadFraction = 0.6;
 
+    /// <summary>
+    /// The most one pulsed frame is taken to remove, as a multiple of a frame at the reported floor: the 1.69x the flown
+    /// floor held, with room, and no more, so a re-solve between frames cannot pass for a frame's thrust.
+    /// </summary>
+    public const double PulseQuantumOverTheFloor = 2.0;
+
     // How fast the measured share of frames on is followed: KSA's smoothing on a ~12 m stack, 0.06 s, rounded up.
     private const double PulseShareSeconds = 0.1;
 

@@ -171,8 +171,12 @@ internal sealed partial class IcbmProgram
         if (_toGain <= BurnoutGuidance.CutoffMetresPerSecond) return true;
 
         // Pulsing, a frame on is a quantum the countdown cannot see -- the floor held 1.69x what the engine reported -- so
-        // the burn ends once less than half the largest drop one frame has made is left.
-        if (_pulsing && _pulseQuantum > 0.0 && _toGain <= 0.5 * _pulseQuantum) return true;
+        // the burn ends once less than half the largest drop one frame has made is left. Never more than twice what one
+        // frame at the floor can add: flown, a re-solve between frames read as a 'quantum' of over 150 m/s and cut the
+        // burn 76 m/s short.
+        double frameAtTheFloor = state.MinThrottle * state.Booster.AccelerationNow * _lastStep;
+        double quantum = Math.Min(_pulseQuantum, PulseQuantumOverTheFloor * frameAtTheFloor);
+        if (_pulsing && quantum > 0.0 && _toGain <= 0.5 * quantum) return true;
 
         // Against the throttle the vehicle actually has, never the one that was asked for. A stack
         // whose motors do not throttle, or one still ramping down, would otherwise be cut off on a
