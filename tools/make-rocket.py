@@ -15,6 +15,7 @@ GeoSat FAT this way and compares it, part by part, to the craft the game saved.
     ./tools/make-rocket.py --out DIR --preset "KSA Test Liquid2" --preset "KSA Test SRB4"
     ./tools/make-rocket.py --out DIR --all-presets
     ./tools/make-rocket.py --out DIR --name "My Rocket" --stage A2x4:LF3W6HBx2 --stage A3:LF3W3HB --srb 4
+    ./tools/make-rocket.py --out DIR --name "Bus Early" --stage A2x4:LF3W6HBx2 --stage A3:LF3W3HB --bus-after 1
     ./tools/make-rocket.py --check-reference
     ./tools/make-rocket.py --validate DIR/*/vehicle.xml
 
@@ -437,8 +438,8 @@ def resource_groups(root):
 # Building a rocket
 
 class Rocket:
-    def __init__(self, lib, name, stages, srb=0):
-        self.lib, self.name, self.srb = lib, name, srb
+    def __init__(self, lib, name, stages, srb=0, bus_after=None):
+        self.lib, self.name, self.srb, self.bus_after = lib, name, srb, bus_after
         self.stages = [parse_stage(s) if isinstance(s, str) else s for s in stages]
         self.warnings = []
         self.engines_by_stage = []
@@ -593,6 +594,8 @@ class Rocket:
                 stage["interstage"].modules = [("DecouplerData", {"Sequence": str(seq)}, None)]
             seq += 1
         self.bus_decoupler.modules = [("DecouplerData", {"Sequence": str(seq)}, None)]
+        if self.bus_after is not None:
+            self.misplace_the_bus()
         self.last_sequence = seq
         for tanks in self.tanks_by_stage:
             for tank in tanks:
@@ -613,6 +616,22 @@ class Rocket:
             if seqs and not any(m[1].get("Enabled") == "false" for m in node.modules):
                 orders[seqs[0]] = orders.get(seqs[0], 0) + 1
                 node.order = orders[seqs[0]]
+
+    def misplace_the_bus(self):
+        """Fire the bus decoupler straight after stage `bus_after`, as a player might: the stage list then reaches the
+        launcher before the stages above it, which is what the computer must refuse to stage past."""
+        after = self.bus_after
+        if not 1 <= after < len(self.stages):
+            sys.exit(f"{self.name}: --bus-after {after} must name a stage below the top one, 1 to {len(self.stages) - 1}")
+        first_stage_seq = 2 + (1 if self.srb else 0) - 1
+        at = first_stage_seq + after
+        for node in self.root.walk():
+            if node is self.bus_decoupler:
+                continue
+            for _, attrs, _ in node.modules:
+                if "Sequence" in attrs and int(attrs["Sequence"]) >= at:
+                    attrs["Sequence"] = str(int(attrs["Sequence"]) + 1)
+        self.bus_decoupler.modules = [("DecouplerData", {"Sequence": str(at)}, None)]
 
     def check_clearance(self):
         for k, stage in enumerate(self.stages[1:], start=1):
@@ -1018,7 +1037,8 @@ def report(rocket, path, lib, references):
     liftoff, rows = rocket.performance()
     print(f"\n{rocket.name}  ->  {path}")
     print(f"   parts {sum(1 for _ in rocket.root.walk())}, liftoff {liftoff / 1000:.1f} t, "
-          f"sequences 1-{rocket.last_sequence} (bus decoupler last)")
+          f"sequences 1-{rocket.last_sequence} (bus decoupler "
+          + (f"after stage {rocket.bus_after}" if rocket.bus_after else "last") + ")")
     total = 0.0
     for r in rows:
         twr = r["thrust"] / (r["m0"] * G0)
@@ -1053,6 +1073,7 @@ def main():
     ap.add_argument("--name", help="a rocket of your own: its name, which is also its folder")
     ap.add_argument("--stage", action="append", default=[], help="ENGINE[xN]:TANK[xN], bottom first")
     ap.add_argument("--srb", type=int, default=0, help="radial boosters on the first stage")
+    ap.add_argument("--bus-after", type=int, help="fire the bus decoupler straight after this stage, counted from 1")
     ap.add_argument("--list", action="store_true", help="presets and the parts a stage can use")
     ap.add_argument("--check-reference", action="store_true",
                     help="regenerate GeoSat FAT and compare it with the craft the game saved")
@@ -1104,12 +1125,12 @@ def main():
             sys.exit(f"no preset {name!r}; --list names them")
         specs[name] = PRESETS[name]
     if a.name:
-        specs[a.name] = dict(stages=a.stage, srb=a.srb)
+        specs[a.name] = dict(stages=a.stage, srb=a.srb, bus_after=a.bus_after)
     if specs and not a.out:
         sys.exit("--out is required to write a rocket")
     build = game_build()
     for name, spec in specs.items():
-        rocket = Rocket(lib, name, spec["stages"], spec.get("srb", 0))
+        rocket = Rocket(lib, name, spec["stages"], spec.get("srb", 0), spec.get("bus_after"))
         path = write(rocket, a.out, build)
         ok &= report(rocket, path, lib, references)
     if not (specs or a.validate or a.check_reference):
