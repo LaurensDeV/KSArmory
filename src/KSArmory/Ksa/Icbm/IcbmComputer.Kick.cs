@@ -179,9 +179,10 @@ internal sealed partial class IcbmComputer
                                                              released.SpinVelocityEcl.Transform(cce2Cci),
                                                              focusRing,
                                                              Config.CancelSpinAtSeparation,
-                                                             miss, throughTheAir, missCap);
+                                                             miss, throughTheAir, missCap,
+                                                             Config.MissKickStopsAtTheCap);
 
-            bool missGiven = kick.Miss == ReleaseFocus.MissOutcome.Cancelled;
+            bool missGiven = kick.Miss is ReleaseFocus.MissOutcome.Cancelled or ReleaseFocus.MissOutcome.AtTheCap;
             bool anything = kick.RingFocused || kick.SpinCancelled || missGiven;
 
             if (focusRing && !kick.RingFocused)
@@ -229,7 +230,13 @@ internal sealed partial class IcbmComputer
                          + $"{Vec.Len(released.SpinVelocityEcl) * 1000.0:F3} mm/s of spin it was thrown with");
             }
 
-            if (missGiven)
+            if (kick.Miss == ReleaseFocus.MissOutcome.AtTheCap)
+            {
+                Log.Info($"focus on {who}: {what} is kicked the {missCap * 1000.0:F1} mm/s cap of the "
+                         + $"{Vec.Len(kick.MissKickCci) * 1000.0:F3} mm/s that would cancel the release probe's "
+                         + $"miss{missSaid}, along the same line");
+            }
+            else if (missGiven)
             {
                 Log.Info($"focus on {who}: {what} is kicked {Vec.Len(kick.MissKickCci) * 1000.0:F3} mm/s to "
                          + $"cancel the release probe's miss{missSaid}");

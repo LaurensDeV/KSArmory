@@ -426,12 +426,13 @@ internal static class ReleaseFocus
                                               Func<double3, double>? GroundRadiusAt = null);
 
     /// <summary>What became of the release probe's miss at a separation.</summary>
-    internal enum MissOutcome { NotAsked, Cancelled, Unsolved, OverTheCap }
+    internal enum MissOutcome { NotAsked, Cancelled, Unsolved, OverTheCap, AtTheCap }
 
     /// <summary>What <see cref="Kick"/> gives a round, and which of its parts it could give.</summary>
     /// <param name="MissKickCci">
     /// The probe miss's own kick as solved, and past the cap as well, so a refusal can say how large
-    /// it was. Only in <paramref name="KickCci"/> when <paramref name="Miss"/> is Cancelled.
+    /// it was. In <paramref name="KickCci"/> when <paramref name="Miss"/> is Cancelled, and cut to the cap
+    /// along the same line when it is AtTheCap.
     /// </param>
     internal readonly record struct Separation(double3 KickCci, double3 RingKickCci, bool RingFocused,
                                                bool SpinCancelled, double3 MissKickCci, MissOutcome Miss,
@@ -451,7 +452,12 @@ internal static class ReleaseFocus
     /// <param name="spinCci">What the round was thrown with at its mouth: <see cref="Slug.SpinVelocityEcl"/>, turned.</param>
     /// <param name="cancelMiss">
     /// The release probe's impact and target, or null to leave the mean where the aim loop put it.
-    /// Refused past <paramref name="missCapMetresPerSecond"/>.
+    /// Refused past <paramref name="missCapMetresPerSecond"/>, or taken at it under
+    /// <paramref name="missStopsAtTheCap"/>.
+    /// </param>
+    /// <param name="missStopsAtTheCap">
+    /// <see cref="IcbmConfig.MissKickStopsAtTheCap"/>: a miss kick over the cap is given at the cap along the line
+    /// that cancels it, which takes the same share of the miss to first order, rather than refused whole.
     /// </param>
     /// <param name="throughTheAir">
     /// The ring's image and both solves flown through the air, or null to coast them in vacuum.
@@ -461,7 +467,8 @@ internal static class ReleaseFocus
                                   double flightSeconds, double3 offsetCci, double3 spinCci,
                                   bool focusRing, bool cancelSpin, ProbeMiss? cancelMiss = null,
                                   FlownSensitivity? throughTheAir = null,
-                                  double missCapMetresPerSecond = MaxMissKickMetresPerSecond)
+                                  double missCapMetresPerSecond = MaxMissKickMetresPerSecond,
+                                  bool missStopsAtTheCap = false)
     {
         throughTheAir = throughTheAir?.For(body.Mu, positionCci, flightSeconds);
 
@@ -488,9 +495,19 @@ internal static class ReleaseFocus
             }
             else
             {
-                if (!(Vec.Len(missKick) <= missCapMetresPerSecond))
+                double length = Vec.Len(missKick);
+
+                if (!(length <= missCapMetresPerSecond))
                 {
-                    miss = MissOutcome.OverTheCap;
+                    if (missStopsAtTheCap && missCapMetresPerSecond > 0.0 && double.IsFinite(length))
+                    {
+                        kick += missKick * (missCapMetresPerSecond / length);
+                        miss = MissOutcome.AtTheCap;
+                    }
+                    else
+                    {
+                        miss = MissOutcome.OverTheCap;
+                    }
                 }
                 else
                 {

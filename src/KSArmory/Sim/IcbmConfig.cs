@@ -344,6 +344,13 @@ internal sealed class IcbmConfig
     public double LongShotMissKickMetresPerSecond = 1.0;
 
     /// <summary>
+    /// Give a miss kick over its cap at the cap, along the line that cancels it, rather than refuse it whole. At
+    /// 12,900 km seven of 48 groups landed 442-550 m out on a kick of 1.01-1.17 m/s against the 1 m/s cap, which at
+    /// the cap would have taken 86-99% of it. <b>Off, and unflown.</b> <c>docs/ACCURACY-PLAN.md</c> 3fr.
+    /// </summary>
+    public bool MissKickStopsAtTheCap;
+
+    /// <summary>
     /// Hold a long shot's aim correction while solids that cannot stop are burning and KSA reports what
     /// they have left, which it does for the controlled craft alone. On: every rocket within 16.2 mm.
     /// <c>docs/ACCURACY-PLAN.md</c>, "12,900 km on 2026-10-06".

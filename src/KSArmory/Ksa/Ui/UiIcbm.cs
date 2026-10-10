@@ -1061,6 +1061,14 @@ internal sealed partial class Ui
         Tip("A long shot's salvo may be kicked up to this much off each warhead's probe miss. "
             + $"0 keeps the {ReleaseFocus.MaxMissKickMetresPerSecond * 1000.0:F0} mm/s.");
 
+        bool atTheCap = config.MissKickStopsAtTheCap;
+        if (ImGui.Checkbox("A kick over its cap stops at the cap", ref atTheCap))
+        {
+            config.MissKickStopsAtTheCap = atTheCap;
+        }
+        Tip("On: a warhead whose probe miss would need more than the cap is kicked the cap along the same line, "
+            + "taking that share of the miss. Off: it is not kicked for the miss at all. Unflown.");
+
         bool waitsForSolids = config.AimWaitsForTheSolids;
         if (ImGui.Checkbox("Aim correction waits for the solids", ref waitsForSolids))
         {
