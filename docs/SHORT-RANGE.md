@@ -741,3 +741,27 @@ Last: M8's scan refined only when the best coarse sample is in the first bins, a
 
 Depressed or terrain-following trajectories;
 multi-target walks under ~485 s of coast — they collapse to one stop, and the reach display should say so.
+
+## Four more player-shaped stacks — 2026-10-10
+
+ICBM-OUTSTANDING 2.3. `tools/make-rocket.py` built four stacks the eight earlier ones did not cover, made into saves
+with the bridge (`TEST Any <name>`, parked 160 m north of the pad) and each flown once at 700 km due south
+(22.3125 N 80.604 W) and once at Chaco, 6,179 km, on `0a1ab267` (`~/shots/2026-10-10-anyrocket/`). No exceptions.
+
+| stack | stages | liftoff TWR | 700 km | 6,179 km |
+| --- | --- | --- | --- | --- |
+| OneStage | 4 x A2 under three LF3W6HB | 16.4 | **bus destroyed** guiding to cutoff | **bus destroyed** in the pitch programme |
+| LowTWR | one A2 under three LF3W6HB, A3 upper | 3.5 | **2.3 km**, all six together | millimetres |
+| ThreeStage | 4 x A2, A3, A3 | 13.7 | millimetres | millimetres |
+| SolidHeavy | one A3 core, four SRBs | core 1.0 | millimetres | millimetres |
+
+**OneStage cannot throttle low enough to survive its own burn.** Four A2s floor at 11.6% of 25.7 MN, and as the
+stage empties that floor alone climbs past the airframe: asked for 3-8% throttle, held at 11.6, the load rose
+19.6 -> 21.0 g against KSA's 21.2 g limit and the stack broke, at both ranges. Nothing in the computer can answer it
+with the throttle; what would is cutting the engines once the floor alone exceeds the airframe and handing the rest
+to the trim or a coast, and saying so on the pad.
+
+**LowTWR at 700 km is 1.1's stall on a new stack.** The cutoff stalled with the stack holding its own weight and cut
+off 10.5 m/s short; the bus owed 8.4 m/s at the split, the split's own stack wait held it, and the first correction
+then asked 10.4 m/s against one pass's 10, was refused whole, and the warheads left 2.3 km out with nothing trimmed.
+
