@@ -254,7 +254,7 @@ internal sealed partial class IcbmComputer
     {
         if (!Config.TrimWaitsOutTheStack || _separatedFrom is not { } stack || !KsaWorld.IsAlive(stack)
             || Parent is not { } parent || !Vec.IsFinite(_trim.ToGainCci)
-            || (Config.StackWaitsOnlyForTheSplit && _postBoost.Cycles > 0))
+            || (Config.StackWaitsOnlyForTheSplit && (_postBoost.Cycles > 0 || WarheadsAway > 0)))
         {
             return 0.0;
         }

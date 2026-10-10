@@ -409,7 +409,7 @@ internal sealed class IcbmConfig
 
     /// <summary>
     /// Hold the trim for <see cref="TrimWaitsOutTheStack"/> only while it nulls the split, never for a post-boost
-    /// correction, leaving the stack to the keep-out after that. On: at 12,900 km 2.3 mm median and 12 mm worst
+    /// correction or a walk's hop, leaving the stack to the keep-out after that. On: at 12,900 km 2.3 mm median and 12 mm worst
     /// against 26.2 mm and 527 m with every correction held, and from orbit every bus still at its keep-out.
     /// <c>docs/ACCURACY-PLAN.md</c> 3fr.
     /// </summary>
