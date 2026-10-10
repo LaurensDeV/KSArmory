@@ -673,7 +673,7 @@ surviving the latch — gated on the bound, unreachable by default. Anything tou
 wants flights, and `docs/MIRV-NEXT.md` item 7d says six of them settle a change worth a kilometre and
 settle nothing worth two hundred metres.
 
-### Built 2026-10-10, off and unflown: the burn sits out under a floor
+### Built 2026-10-10, and off: the burn sits out under a floor
 
 **The search does not walk, it hops.** Traced cycle by cycle from orbit at 3,459 km, a floored search
 alternates between an arc on the bound, with a drag shortfall of 10–35 km, and one a few degrees
@@ -709,3 +709,21 @@ In the rig the latch alone carries it, because the aim freezes once the arrival 
 the correction reads during the pitch programme, before any latch, which is what the reading gate is
 for. **It changes every shipped shot, pad or orbit**, because 0.5 is a floor; what a flight has to
 show is that the post-boost passes remove what the burn no longer does.
+
+**Flown 2026-10-10, and the rig's kilometres are not the flown stack's.** `~/shots/2026-10-10-floor/`, `d866e85c`.
+
+| | arm | bias at cutoff | trim spent | worst warhead |
+| --- | --- | --- | --- | --- |
+| `ORBIT 300`, preference 0.5 | shipped, 2 shots | 653, 522 m | 7.71, 7.87 m/s | 3.2, 3.4 mm |
+| | switch on, 2 shots | 0, 0 | 7.32, 9.44 m/s | 8.6, 4.3 mm |
+| `ORBIT 300`, floor 15°, preference 0 | shipped, 2 shots | 0, 984 m | 19.11, 12.87 m/s | 0.157, 0.063 m |
+| | switch on, 2 shots | 0, 0 | 19.46, 19.45 m/s | 0.155, 0.175 m |
+| `SOLVER SCALE 8` pad, Chaco, preference 0.5 | 2 worlds paired, 8 a side | -- | -- | landing 2.57 against 2.38 mm, 0.95x unresolved |
+
+Every one of 112 rockets arrived, and no KSA log carries an exception. At a 15° floor the shipped burn took at most
+one reading, so there was nothing for the switch to remove, and the floored shot lands in centimetres rather than
+the 2.28-2.68 km above -- for 13-19 m/s of trim against 7-9, the post-cutoff loop walking 2.6-2.7 km of bias. Why
+the burn reads so little is not established. The likeliest reason is that `ORBIT 300` deorbits on a solid that
+cannot stop, which pins the arrival on every solve and freezes the aim with it, where the rig's bus is a liquid
+stage whose arrival stays free. **The switch stays off**: on this stack it is neutral at best, and what it was
+built for wants a pick-up with a liquid deorbit stage, which no save has.

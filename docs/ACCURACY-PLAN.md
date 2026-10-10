@@ -12371,3 +12371,39 @@ A steady latency is not it: `IcbmFlightRig` at the flown cutoff (1.42 MN on 2.6 
 jittered) with two frames of command latency instead of one still cuts off -0.13 to +0.37 of a frame along the line,
 because the ramp re-solves every frame and absorbs a constant delay. What overshoots is a frame that is late once, at
 the cutoff.
+
+## 3fq. 2,000-6,000 km on current code, and the cutoff's tail is the same frame on every rocket -- 2026-10-10
+
+ICBM-OUTSTANDING 2.2, flown from `SOLVER SCALE 8` on `d866e85c` (DLL `716bef9d`), shipped settings, one arm.
+`~/shots/2026-10-09-range/`; the summary script is `night.py` in the 10-10 session scratchpad. 80 rockets in ten
+worlds, every one PASS, 480 of 480 warheads arrived, no exception in any KSA log.
+
+| site | range | rockets | worst warhead, median / max | seat 1 | fps median / min |
+| --- | --- | --- | --- | --- | --- |
+| Kansas 38.5 N 98.5 W | 1,983 km | 16 | 3.0 / 4.7 mm | 3.3, 4.1 mm | 43 / 33 |
+| Saskatchewan 51.0 N 106.0 W | 3,268 km | 16 | 6.0 / 61.5 mm | 3.3, 8.3 mm | 60 / 33 |
+| Amazon 3.0 S 60.0 W | 4,148 km | 16 | 3.0 / 5.2 mm | 2.1, 3.4 mm | 53 / 33 |
+| Mato Grosso 13.0 S 56.0 W | 5,331 km | 16 | 2.9 / 4.1 mm | 19.1, 24.3 mm | 57 / 32 |
+| Chaco 24.0 S 62.0 W | 6,181 km | 8 | 4.6 / 5.9 mm | 3.2 mm | 46 / 32 |
+| Chaco, full Sol system | 6,181 km | 8 | 5.5 / 7.0 mm | 4.1 mm | 46 / 32 |
+
+`shot-report.py --terrain` calls Saskatchewan and Mato Grosso well conditioned (+0.15% and +0.07% downrange
+slope). The Saskatchewan 61.5 mm is one rocket's whole group moved together, 51 mm downrange and 34 mm across with
+the six within a few millimetres of each other: a centre, not a spread. Seat 1 at Mato Grosso landed 19-24 mm on
+both worlds against 2.9 for the rest; its release summaries show nothing apart (0.86 and 0.74 m/s owed at the split,
+bias 400 and 412 m). Not chased; two worlds at one site is a seat effect until another site shows it.
+
+**The cutoff's tail is one frame, on every rocket.** `cutoff tail on` (3fp's instrument) on all 80: thrust on the
+command's own frame and on the next, each 0.99-1.00 of a frame at the cutoff throttle (0.24-0.37 m/s together),
+and nothing on frames 2 and 3. 28 of the 80 cut off with `along` negative, none past -0.2 m/s, so inside the
+half-frame band rather than 3fp's frame past it. So the frame after the command
+is a steady property of how KSA applies a cutoff rather than something that happens to some rockets, and 3fp's
+open question -- why some long-range cutoffs land a whole frame past -- is not answered by it: those would show a
+third thrusting frame, which only a 12,900 km night can catch.
+
+**The `thrust spent` line does not give 4.5 an ascent loss on this stack.** GeoSat FAT spends 11.9-13.9 km/s by
+cutoff whatever the range, 3.3x the velocity to gain at ignition at 1,983 km and 1.9x at 6,181: its solids cannot
+stop and a short shot burns the excess off on purpose. From `ORBIT 300` the same line reads 4,913 against 4,669,
+1.05x. An allowance wants a stack whose solids do not outrun the shot, or a count that leaves the burn-off out.
+
+Not flown: the cell at a deliberately poor frame rate, and METRE-LEVEL §3's orbit matrix.
