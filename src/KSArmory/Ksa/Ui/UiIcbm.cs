@@ -816,7 +816,8 @@ internal sealed partial class Ui
         }
         Tip("On: the walk planner prices each hop at how far fuel moves a landing at the moment that hop "
             + "is flown, which is less the later it comes, so some spreads it used to accept are refused or "
-            + "cut short. Off: every hop is priced at the reach measured now. Unflown.");
+            + "cut short. Off: every hop is priced at the reach measured now, and a walk can run out of trim "
+            + "before its last target.");
 
         bool reserve = config.SpendTheSplitReserveAfterTheFirstStop;
         if (ImGui.Checkbox("Spend the split reserve after stop 1", ref reserve))
@@ -834,7 +835,7 @@ internal sealed partial class Ui
         }
         Tip("On: each hop between targets is priced at what the bus's jets actually spend on it -- they fire one axis "
             + "at a time, so a diagonal hop costs up to 1.7x its length -- and the reach ring shrinks to match. Off: a "
-            + "hop is priced at its length, and a walk can run out of trim before its last target. Unflown.");
+            + "hop is priced at its length, and a walk can run out of trim before its last target.");
 
         bool onReading = config.DecideOnTheReading;
         if (ImGui.Checkbox("Decide each pass on its reading", ref onReading))

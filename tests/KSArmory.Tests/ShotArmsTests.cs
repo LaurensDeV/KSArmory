@@ -172,13 +172,17 @@ public class ShotArmsTests
 
         Assert.Equal(0.0, shipped.WarheadSubStepMs);
         Assert.False(shipped.WalkStartsAtCutoff);
-        Assert.False(shipped.PriceEachHopAtItsSlot);
         Assert.False(shipped.SpendTheSplitReserveAfterTheFirstStop);
 
         // The one that is on, because it is the one that was resolved: 11 of 13 paired shots at
         // p=0.022. A baseline arm naming nothing therefore ships WITH it, which is what makes it
         // the baseline rather than a fourth variant.
         Assert.True(shipped.KeepOutCoversTheClearance);
+
+        // And the walk's two prices, resolved together on a 4 km walk: 7 of 8 flew every stop planned against
+        // 0 of 16.
+        Assert.True(shipped.PriceEachHopAtItsSlot);
+        Assert.True(shipped.PriceHopsAtWhatTheTrimPays);
 
         ShotArms arms = Parse("base|sub:WarheadSubStepMs=2");
         Assert.True(ShotArms.TryApply(arms.For(0), shipped, out _));

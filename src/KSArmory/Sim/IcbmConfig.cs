@@ -154,10 +154,11 @@ internal sealed class IcbmConfig
 
     /// <summary>
     /// Whether the walk planner prices each hop at the reach of the slot it is flown in, scaled down
-    /// from the reach measured now, rather than every hop at that one reach. <b>Off, and unflown.</b>
-    /// <c>docs/MIRV-TARGETS.md</c>.
+    /// from the reach measured now, rather than every hop at that one reach. On, with
+    /// <see cref="PriceHopsAtWhatTheTrimPays"/>: flown at 4 km, 7 of 8 walks flew every stop planned, against
+    /// 0 of 16 priced at the reach measured now. <c>docs/MIRV-TARGETS.md</c>, "six stops to the ground".
     /// </summary>
-    public bool PriceEachHopAtItsSlot;
+    public bool PriceEachHopAtItsSlot = true;
 
     /// <summary>
     /// Whether the trim reserve kept beyond the budget for nulling the split may be spent on hops once a
@@ -167,11 +168,12 @@ internal sealed class IcbmConfig
 
     /// <summary>
     /// Whether a walk prices each hop at what <see cref="BusTrim"/> pays for it -- the divert's parts on the bus's
-    /// three axes summed, since it fires one at a time -- rather than at its length. Flown at 4 km, hops priced
-    /// 6.4-6.9 m/s cost 11-14 and every walk ran dry at stop 5 of 6. <b>Off, and unflown.</b>
-    /// <c>docs/MIRV-TARGETS.md</c>, "six stops to the ground".
+    /// three axes summed, since it fires one at a time -- rather than at its length. Off, hops priced 6.4-6.9
+    /// m/s flew at 11-14 and every walk at 4 km ran dry at stop 5 of 6; on with
+    /// <see cref="PriceEachHopAtItsSlot"/>, 7 of 8 flew every stop planned. <c>docs/MIRV-TARGETS.md</c>,
+    /// "six stops to the ground".
     /// </summary>
-    public bool PriceHopsAtWhatTheTrimPays;
+    public bool PriceHopsAtWhatTheTrimPays = true;
 
     /// <summary>
     /// Whether a post-boost pass is decided on the reading that follows a flown correction rather than
