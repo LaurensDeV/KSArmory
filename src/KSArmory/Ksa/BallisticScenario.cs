@@ -695,6 +695,21 @@ internal sealed class BallisticScenario
 
     private bool _coasting;
 
+    // A bus holding for its window is pressed through it as a player would press the panel's button, which is the only
+    // way the wait passes: the computer never warps a hold by itself, so unpressed one sits at 1x for as long as it is.
+    private void WarpToTheBurnWindow()
+    {
+        if (_warpedToWindow || _computer is not { } computer || computer.Command.Phase != IcbmPhase.Holding) return;
+
+        if (computer.TryWarpToWindow())
+        {
+            _warpedToWindow = true;
+            _say("pressed warp to the burn window");
+        }
+    }
+
+    private bool _warpedToWindow;
+
     private IcbmComputers? _icbms;
 
     // A walk goes quiet for longer than QuietAfterReleaseSeconds between its stops, and a stop's
@@ -850,6 +865,7 @@ internal sealed class BallisticScenario
         // held until the arrival is close. Warped through, and given back well before the first one
         // leaves: every warhead has to see the same frame in its opening seconds, which warping
         // between releases would break.
+        WarpToTheBurnWindow();
         CoastToTheReleasePoint();
 
         // Counted off the releases rather than off the magazine, because the magazine refills.
