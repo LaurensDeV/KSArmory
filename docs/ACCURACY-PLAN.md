@@ -12407,3 +12407,39 @@ stop and a short shot burns the excess off on purpose. From `ORBIT 300` the same
 1.05x. An allowance wants a stack whose solids do not outrun the shot, or a count that leaves the burn-off out.
 
 Not flown: the cell at a deliberately poor frame rate, and METRE-LEVEL §3's orbit matrix.
+
+## 3fr. At 12,900 km the overshoot is gone, and the stack wait now costs the correction -- 2026-10-10
+
+Six `SOLVER SCALE 8` worlds, `--aim none`, `d73faee5`..`016a5f34` (`~/shots/2026-10-10-longrange-tail/`), one arm,
+48 rockets, all PASS.
+
+**3fp's overshoot did not happen.** All 48 thrust on the cutoff command's frame and exactly one more, each 0.99-1.00
+of a frame at the cutoff throttle, then nothing; none cut off with `along` negative, and the most any owed at the
+split was 2.27 m/s, against 101 of 624 over 3.3 on the nights 3fp read. So the third frame 3fp was looking for is
+not there to find on current code, and what removed the overshoot between 10-06 and today is not established.
+
+**The landing is worse than 10-06's, and the stack wait is why.** Worst warhead per rocket, median 38 mm (10-06:
+2.0 mm), and seven of 48 landed their whole group 442-550 m out. Every one of the 48 was held by
+`TrimWaitsOutTheStack` -- the split happens at the release gate, the first post-boost correction wants about 3.2 km
+of aim and 11 m/s back toward the stack, and the trim waits for the stack to open to some 850 m -- and every one ran
+out `PostBoostAim.MaxSeconds` (120 s), `released after 120 s of correcting`, with the aim reverted to its 3.0-3.6 km
+first reading. The release kick then carries the shot: the probe's 250-550 m miss is cancelled when it costs under
+`LongShotMissKickMetresPerSecond`'s 1 m/s (0.82-0.85 m/s on the good rockets) and **dropped whole** when it costs
+more (1.01-1.17 m/s on all seven bad ones). `MaxSeconds` says no shot reached it; at this range every shot does.
+1.8's flights priced the wait at nothing measurable at shorter range, which this does not contradict.
+
+**Flown paired with the wait off** (`~/shots/2026-10-10-longrange-nowait/`, four worlds, eight rockets an arm a
+world on the batch's balanced seats):
+
+| | worst warhead, median | worst | over 0.1 m | ran out the 120 s | closest to the stack |
+| --- | --- | --- | --- | --- | --- |
+| wait on (shipped) | 24.2 mm | 518 m | 3 of 16 | 15 of 16 | 15.2 m, the keep-out |
+| wait off | 2.2 mm | 11 mm | 0 of 16 | 0 of 16 | 15.2 m, the keep-out |
+
+So at this range the wait costs the correction and buys nothing the keep-out interlock does not already hold. Off
+everywhere would bring 1.8's orbital contacts back, so two narrower changes are built, both off:
+`MissKickStopsAtTheCap`, which takes a kick over its cap at the cap rather than dropping it, and
+`StackWaitsOnlyForTheSplit`, which keeps the wait for the split's own null -- the debt 1.8 was flown on -- and leaves
+the post-boost corrections to the keep-out. Pausing the passes' clock while the trim is held was tried in the rig and
+is not in: the wait is sized on the time left, so with the clock paused it never judged the stack far enough, held to
+the 240 s limit and then let the 1.8 orbit case close to 3.5 m of its stack.
