@@ -1,0 +1,65 @@
+using Brutal.Numerics;
+using Xunit;
+using Xunit.Abstractions;
+
+namespace KSArmory.Tests;
+
+/// <summary>
+/// A walk between targets flown past cutoff on <see cref="PastCutoffRig"/>, so what a hop costs can be read without a
+/// night: the per-axis sum and the shrinking reach were both found by flying (<c>docs/MIRV-TARGETS.md</c>, "six stops to
+/// the ground").
+/// </summary>
+public class WalkRigTests(ITestOutputHelper Out)
+{
+    private const double R = 6_371_000.0;
+
+    private static double DensityAt(double3 p) => Math.Exp(-Math.Max(0.0, Vec.Len(p) - R) / 8_000.0);
+
+    // The game's stack at 2,000 km, walked inward from the farthest of four targets 4 km apart, on the flown bus's
+    // 0.55 m/s^2 jets and a flown-sized split.
+    private PastCutoffRig Walk(out PastCutoffRig.Outcome last)
+    {
+        IcbmProgram program = new(new IcbmConfig
+        {
+            Armed = true, MaxAccelerationGee = 8.0f, MinArrivalAngleDeg = 0.0, ArrivalPreference = 0.5, FlyAnyRange = true,
+        });
+
+        PastCutoffRig rig = PastCutoffRig.For(GameStackShortRangeTests.GameStack(true), program,
+                                              Arsenal.Mk21WithDragFromShape(Arsenal.ReentryVehicleMk21), DensityAt);
+        rig.ThrusterMetresPerSecond2 = 0.55;
+        rig.ShoveMetresPerSecond = 1.0;
+        for (int k = 1; k < 4; k++) rig.WalkAimsAtEpoch.Add(GameStackShortRangeTests.South(2_000_000.0 - k * 4_000.0));
+
+        last = rig.Fly(GameStackShortRangeTests.South(2_000_000.0));
+        for (int k = 0; k < rig.Stops.Count; k++)
+        {
+            Out.WriteLine($"stop {k + 1}: landed {rig.Stops[k].LandedMetres:F2} m, divert {rig.Stops[k].DivertMetresPerSecond:F2} "
+                          + $"m/s, spent {rig.Stops[k].SpentMetresPerSecond:F2}");
+        }
+
+        return rig;
+    }
+
+    [Fact]
+    public void EveryStopOfAWalkLandsOnItsOwnTarget()
+    {
+        PastCutoffRig rig = Walk(out PastCutoffRig.Outcome last);
+
+        Assert.True(last.Released, last.Said);
+        Assert.Equal(4, rig.Stops.Count);
+        Assert.All(rig.Stops, stop => Assert.True(stop.LandedMetres < 1.0, $"landed {stop.LandedMetres:F2} m out"));
+    }
+
+    // Each hop is flown nearer arrival than the one before, where a metre a second moves the landing less.
+    [Fact]
+    public void EachHopCostsMoreThanTheOneBefore()
+    {
+        PastCutoffRig rig = Walk(out _);
+
+        for (int k = 2; k < rig.Stops.Count; k++)
+        {
+            Assert.True(rig.Stops[k].DivertMetresPerSecond > rig.Stops[k - 1].DivertMetresPerSecond,
+                        $"stop {k + 1} cost {rig.Stops[k].DivertMetresPerSecond:F2} after {rig.Stops[k - 1].DivertMetresPerSecond:F2}");
+        }
+    }
+}

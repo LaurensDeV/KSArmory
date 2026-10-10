@@ -16,8 +16,9 @@ namespace KSArmory.Tests;
 /// so the split is an impulse on a chosen frame and the stack has no size but its radius; the halves pass through
 /// each other rather than colliding; one frame of command latency and nothing else of the engine's frame order;
 /// no tube offsets, ring or spin, so every warhead leaves the same state and one is flown; no release sequence, so
-/// the warheads go on the frame the trim lets them; no terrain; and none of the computer's readouts, its
-/// arrival release (<c>ReleaseAnArrivalTheTrimCannotFly</c>) or its multi-target walk. The warhead falls through
+/// the warheads go on the frame the trim lets them; no terrain; and none of the computer's readouts or its
+/// arrival release (<c>ReleaseAnArrivalTheTrimCannotFly</c>). A walk is flown to stops it is given, one warhead each, with
+/// no planner choosing them. The warhead falls through
 /// <see cref="ImpactPredictor"/> at a finer step than the probe, not as a <see cref="Slug"/>.</para>
 /// </summary>
 internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
@@ -61,6 +62,17 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
     public int CommandLatencyFrames = 1;
 
     public double MaxSecondsAfterCutoff = 3_000.0;
+
+    /// <summary>
+    /// Further places to walk to after the lead, one warhead each, in the order flown; empty releases at the lead alone.
+    /// The hand-over between them is <c>IcbmComputer.HandOverTo</c>'s.
+    /// </summary>
+    public List<double3> WalkAimsAtEpoch { get; } = [];
+
+    /// <summary>What each stop of a walk came to, the lead first.</summary>
+    internal readonly record struct Stop(double LandedMetres, double DivertMetresPerSecond, double SpentMetresPerSecond);
+
+    public List<Stop> Stops { get; } = [];
 
     private readonly AimCorrection _aim = new();
     private readonly BusTrim _trim = new();
@@ -208,6 +220,10 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
 
         Queue<TrimCommand> inFlight = new();
         double t = cutoffSeconds;
+        int stops = 1 + WalkAimsAtEpoch.Count;
+        int stop = 0;
+        double spentAtLastStop = 0.0;
+        if (stops > 1) Program.ReleaseGateSeconds = ReleaseItinerary.BeforeArrivalSeconds(0, stops, Program.ReleaseGate, ReleaseItinerary.MedianHopSeconds);
         double splitAt = double.NaN;
         double h = 0.0;
 
@@ -238,7 +254,15 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
 
             if (Config.AutoRelease && _command.ReadyToDeploy && !held)
             {
-                return Release(t, double.IsNaN(splitAt) ? double.NaN : t - splitAt);
+                Outcome released = Release(t, double.IsNaN(splitAt) ? double.NaN : t - splitAt);
+                double spent = _trim.SpentMetresPerSecond;
+                Stops.Add(new Stop(released.LandedMetres, spent - spentAtLastStop, spent));
+                spentAtLastStop = spent;
+
+                if (++stop >= stops) return released;
+
+                aimAtEpoch = WalkAimsAtEpoch[stop - 1];
+                HandOver(stop, stops);
             }
 
             double next = _command.ReadyToDeploy || _didSplit ? StepSeconds : CoastStepSeconds;
@@ -268,6 +292,25 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
         return new Outcome(true, false, double.NaN, double.NaN, double.NaN, _postBoost.Cycles, _postBoostSaidWhy,
                            _proximity.Closest, _owedAtSplit, _trim.SpentMetresPerSecond, BiasMetres, _trimAbandoned,
                            _heldOffSeconds, $"no release within {MaxSecondsAfterCutoff:F0} s of cutoff: {_command.Hold}");
+    }
+
+    // IcbmComputer.HandOverTo, less the release sequence and the salvo probe, which this rig does not model.
+    private void HandOver(int stop, int stops)
+    {
+        Program.ReleaseGateSeconds = ReleaseItinerary.BeforeArrivalSeconds(stop, stops, Config.ReleaseBeforeArrivalSeconds,
+                                                                          ReleaseItinerary.MedianHopSeconds);
+        _aim.Retarget(Config.CarryAimBiasAcrossHops);
+        Program.CorrectCoastArc();
+        _trim.Resume();
+        _postBoost.Reset();
+        _trimAbandoned = false;
+        _postBoostSaid = false;
+        _measureDue = false;
+        _freshMiss = double.NaN;
+        _holdingCost = double.NaN;
+        _holdingCostForPass = -1;
+        _trimFloor = double.NaN;
+        _trimFloorForPass = -1;
     }
 
     private void Knock()
