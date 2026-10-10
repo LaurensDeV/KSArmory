@@ -1130,6 +1130,15 @@ internal sealed partial class Ui
             + $"release, as long as that leaves {SeparationClearance.TrimNeedsSeconds:F0} s to trim. Off: it trims as soon "
             + "as the stack is a sphere and ten metres away.");
 
+        bool pulses = config.PulsesBelowTheFloor;
+        if (ImGui.Checkbox("Pulse the engine below its lowest throttle", ref pulses))
+        {
+            config.PulsesBelowTheFloor = pulses;
+        }
+        Tip("On: when guidance wants less thrust than a liquid engine's lowest throttle, the engine is switched on and off "
+            + "in that share of frames, and held off while the airframe is within a tenth of breaking. Off: the engine "
+            + "stays at its lowest throttle, which can break a light stack on big engines. Unflown.");
+
         bool onlySplit = config.StackWaitsOnlyForTheSplit;
         if (ImGui.Checkbox("Stack wait only for the split", ref onlySplit))
         {

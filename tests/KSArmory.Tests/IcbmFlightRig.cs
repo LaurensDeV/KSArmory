@@ -129,6 +129,12 @@ internal sealed class IcbmFlightRig
     public double MinThrottle;
 
     /// <summary>
+    /// The thrust share the engine actually holds at its floor, where that is more than the <see cref="MinThrottle"/> it
+    /// reports; NaN for the same. Flown on four A2s, KSA's load at the floor ran 1.69x the thrust the program reckoned.
+    /// </summary>
+    public double FloorHeld = double.NaN;
+
+    /// <summary>
     /// The throttle lever moves while solids burn, and the stage after them lights wherever it was
     /// left, as KSA's vehicle throttle does. Off holds it at full through a solid stage.
     /// </summary>
@@ -436,6 +442,7 @@ internal sealed class IcbmFlightRig
                                       AimIsSteady: AimLoop?.IsSteady ?? true,
                                       StackDeltaV: ReportsStackDeltaV ? StackDeltaV() : double.NaN,
                                       StructuralLimitGee: StructuralLimitGee,
+                                      LoadGee: BoundingSphereRadiusMetres > 0.0 ? _filteredGee : double.NaN,
                                       RunningStageCanStop: StageIndex >= Stages.Count || !Stages[StageIndex].Solid,
                                       MinThrottle: MinThrottle,
                                       ThrustAxisCci: _pointing,
@@ -553,7 +560,7 @@ internal sealed class IcbmFlightRig
 
     private void SlewThrottle(in IcbmCommand command, double step)
     {
-        double wanted = command.EngineOn ? Math.Clamp(command.Throttle, MinThrottle, 1.0) : 1.0;
+        double wanted = command.EngineOn || command.Pulsing ? Math.Clamp(command.Throttle, MinThrottle, 1.0) : 1.0;
 
         bool solid = StageIndex < Stages.Count && Stages[StageIndex].Solid;
 
@@ -586,7 +593,9 @@ internal sealed class IcbmFlightRig
     {
         if (StageIndex >= Stages.Count) return 0.0;
         double mass = MassAbove(StageIndex);
-        return mass > 0.0 ? Stages[StageIndex].ThrustAt(density) * Math.Clamp(ThrottleAchieved, 0.0, 1.0) / mass : 0.0;
+        double share = Math.Clamp(ThrottleAchieved, 0.0, 1.0);
+        if (double.IsFinite(FloorHeld) && share > 0.0) share = Math.Max(share, FloorHeld);
+        return mass > 0.0 ? Stages[StageIndex].ThrustAt(density) * share / mass : 0.0;
     }
 
     // A sampled controller of the shape KSA's gimbal law has: the rate at which it could still stop
@@ -660,6 +669,7 @@ internal sealed class IcbmFlightRig
         }
 
         double throttle = Math.Clamp(ThrottleAchieved, 0.0, 1.0);
+        if (double.IsFinite(FloorHeld) && throttle > 0.0) throttle = Math.Max(throttle, FloorHeld);
 
         bool solid = StageIndex < Stages.Count && Stages[StageIndex].Solid && _lit;
 

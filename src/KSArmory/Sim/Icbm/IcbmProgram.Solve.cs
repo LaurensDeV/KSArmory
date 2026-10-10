@@ -7,7 +7,7 @@ internal sealed partial class IcbmProgram
     private void Resolve(in IcbmState state)
     {
         bool burning = IsBurning;
-        if (burning && _lastStep > 0.0) _countdown -= _lastStep * Math.Clamp(state.ThrottleAchieved, 0.0, 1.0);
+        if (burning && _lastStep > 0.0 && !_pulsedOff) _countdown -= _lastStep * Math.Clamp(state.ThrottleAchieved, 0.0, 1.0);
 
         bool due = _sinceSolve >= SolveIntervalSeconds
                 || _countdown <= SolveEveryStepWithin
@@ -92,6 +92,7 @@ internal sealed partial class IcbmProgram
             _pushCci += (push - _pushCci) * Math.Clamp(sinceLastSolve / PushFilterSeconds, 0.0, 1.0);
         }
         _lastToGainCci = command.ToGainVectorCci;
+        if (_pulsing && sinceLastSolve <= _lastStep * 1.5) _pulseQuantum = Math.Max(_pulseQuantum, _toGain - command.VelocityToGain);
         _toGain = command.VelocityToGain;
         _toGainVectorCci = command.ToGainVectorCci;
         _lowestToGain = Math.Min(_lowestToGain, _toGain);

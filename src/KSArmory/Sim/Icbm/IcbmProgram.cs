@@ -120,7 +120,13 @@ internal readonly record struct IcbmState(
     double3 ReleaseImpulseCci = default,
 
     /// <summary>Something is running and every running engine is a solid, which ignores the throttle; false if the caller cannot say.</summary>
-    bool OnlySolidsRunning = false)
+    bool OnlySolidsRunning = false,
+
+    /// <summary>
+    /// The load the engine judges the airframe on now, KSA's smoothed acceleration in standard gravities; NaN if the caller
+    /// cannot say.
+    /// </summary>
+    double LoadGee = double.NaN)
 {
     public double Altitude => Body.AltitudeOf(PositionCci);
 
@@ -147,7 +153,13 @@ internal readonly record struct IcbmCommand(
     IcbmReach Reach,
     double SecondsToArrival,
     double SecondsToBurn,
-    double ShortfallMetresPerSecond);
+    double ShortfallMetresPerSecond,
+
+    /// <summary>
+    /// The engine is being switched on and off to average a throttle below its floor, so an off frame holds the lever at
+    /// <see cref="Throttle"/> rather than winding it up for a relight.
+    /// </summary>
+    bool Pulsing = false);
 
 /// <summary>
 /// The flight, from the pad to warhead release: a schedule while there is air, closed-loop
@@ -974,6 +986,9 @@ internal sealed partial class IcbmProgram
 
         if (phase == IcbmPhase.PitchProgram && !Config.FlyAnyRange) _throttle = HoldBackTheAscent(_throttle, state);
 
+        (bool pulsing, bool pulsedOff) = PulseBelowTheFloor(state);
+        _pulsedOff = pulsedOff;
+
         bool waiting = _waitingForAttitude && phase == IcbmPhase.ClosedLoop;
         _waitingForAttitude = false;
 
@@ -987,10 +1002,12 @@ internal sealed partial class IcbmProgram
             _throttle = MinCommandedThrottle;
         }
 
-        return new IcbmCommand(phase, direction, _throttle, EngineOn: !waiting, stage,
+        double commanded = pulsing && !waiting ? state.MinThrottle : _throttle;
+
+        return new IcbmCommand(phase, direction, commanded, EngineOn: !waiting && !pulsedOff, stage,
                                _toGain, Math.Max(_countdown, 0.0), ReadyToDeploy: false, Hold: hold,
                                Reach: Reach, SecondsToArrival: SecondsToArrival, SecondsToBurn: 0.0,
-                               ShortfallMetresPerSecond: _shortfall);
+                               ShortfallMetresPerSecond: _shortfall, Pulsing: pulsing && !waiting);
     }
 
     /// <summary>A duration a person can read at a glance, which "4271 s" is not.</summary>

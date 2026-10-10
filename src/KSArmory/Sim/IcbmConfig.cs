@@ -408,6 +408,14 @@ internal sealed class IcbmConfig
     public bool TrimWaitsOutTheStack = true;
 
     /// <summary>
+    /// Make a throttle below a liquid engine's floor by switching the engine on and off in that share of frames, and hold
+    /// it off while KSA's load is within a tenth of breaking the airframe. Flown without it, a stack whose four A2s floor at
+    /// 11.6% was loaded past KSA's 21.2 g by that floor and destroyed at 700 and 6,179 km. <b>Off, and unflown.</b>
+    /// <c>docs/ICBM-OUTSTANDING.md</c> 1.11.
+    /// </summary>
+    public bool PulsesBelowTheFloor;
+
+    /// <summary>
     /// Hold the trim for <see cref="TrimWaitsOutTheStack"/> only while it nulls the split, never for a post-boost
     /// correction or a walk's hop, leaving the stack to the keep-out after that. On: at 12,900 km 2.3 mm median and 12 mm worst
     /// against 26.2 mm and 527 m with every correction held, and from orbit every bus still at its keep-out.

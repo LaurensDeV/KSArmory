@@ -92,6 +92,48 @@ internal sealed partial class IcbmProgram
         return accel > 0.0 && double.IsFinite(accel) && _toGain < reserve * accel;
     }
 
+    /// <summary>
+    /// The share of the airframe's limit at which a pulsing engine is held off whatever its duty says. KSA's own load is
+    /// what is read, because the thrust the program estimates at the floor ran 1.69x short of it on the flown stack.
+    /// </summary>
+    public const double PulseOffOverTheAirframeFraction = 0.9;
+
+    private double _pulseCarry;
+    private bool _pulsedOff;
+    private bool _pulsing;
+    private double _pulseQuantum;
+
+    // A throttle below the floor, made as a share of frames at the floor. KSA judges the airframe on its acceleration
+    // smoothed over radius / 200 m/s, about 0.06 s on a 12 m stack, so frames a few times shorter than that average out.
+    // IcbmConfig.PulsesBelowTheFloor; docs/ICBM-OUTSTANDING.md 1.11.
+    private (bool Pulsing, bool Off) PulseBelowTheFloor(in IcbmState state)
+    {
+        double floor = state.MinThrottle;
+
+        if (!Config.PulsesBelowTheFloor || !IsBurning || !state.RunningStageCanStop || state.OnlySolidsRunning
+            || !(floor > 0.0) || !(_throttle < floor))
+        {
+            _pulseCarry = 0.0;
+            _pulsing = false;
+            _pulseQuantum = 0.0;
+            return (false, false);
+        }
+
+        _pulsing = true;
+
+        double duty = Math.Clamp(_throttle / floor, 0.0, 1.0);
+
+        bool overTheAirframe = state.StructuralLimitGee > 0.0 && double.IsFinite(state.LoadGee)
+                               && state.LoadGee >= state.StructuralLimitGee * PulseOffOverTheAirframeFraction;
+        if (overTheAirframe) return (true, true);
+
+        _pulseCarry += duty;
+        if (_pulseCarry < 1.0) return (true, true);
+
+        _pulseCarry -= 1.0;
+        return (true, false);
+    }
+
     private bool DropsSolidsUnderWeight(in IcbmState state)
         => Config.DropSolidsUnderWeight && Config.FlyAnyRange && state.OnlySolidsRunning
            && (_absorbing || StaysUnderTheReleaseAltitude(state));

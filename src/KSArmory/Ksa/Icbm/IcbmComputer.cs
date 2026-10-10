@@ -1080,7 +1080,8 @@ internal sealed partial class IcbmComputer
         else if (_driving)
         {
             VehicleCommand.SetEngine(Craft, running: false);
-            _throttleAchieved = VehicleCommand.DriveThrottle(Craft, 1.0, Config.ThrottleThroughTheKeyboardClear);
+            _throttleAchieved = VehicleCommand.DriveThrottle(Craft, Command.Pulsing ? Command.Throttle : 1.0,
+                                                             Config.ThrottleThroughTheKeyboardClear);
         }
 
         if (Config.AutoRelease && _deploy.ReleaseNow && Release(release) && ReleasesTogether)
@@ -1377,7 +1378,8 @@ internal sealed partial class IcbmComputer
                              _aim.IsSteady, StackDeltaV(), StructuralLimitGee(),
                              KsaWorld.RunningEnginesCanStop(Craft), engines.MinThrottle, noseCci,
                              RunningStageDeltaV(), _densityRatio ??= DensityRatioAt, _warhead,
-                             ReleaseOffsetCci(), ReleaseImpulseCci(), KsaWorld.OnlySolidsRunning(Craft));
+                             ReleaseOffsetCci(), ReleaseImpulseCci(), KsaWorld.OnlySolidsRunning(Craft),
+                             AirframeLimitGee > 0.0 ? Craft.StructuralLoad.PeakGLoad : double.NaN);
     }
 
     /// <summary>What the engine will destroy this airframe at, in standard gravities, or zero if it
