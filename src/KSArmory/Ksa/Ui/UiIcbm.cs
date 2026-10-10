@@ -1090,7 +1090,7 @@ internal sealed partial class Ui
         }
         Tip("On: with Steepest arrival or Precision against range set, the aim correction takes no reading during the "
             + "burn and the passes after cutoff do the correcting. A floored search hops between arcs as the correction "
-            + "opens, and the correction banks the hop as drag. Unflown.");
+            + "opens, and the correction banks the hop as drag. Neutral flown on a solid deorbit stage; unflown on a liquid one.");
 
         bool pushes = config.ShortShotPushesThroughAStall;
         if (ImGui.Checkbox("Short shot pushes through a stalled throttle-down", ref pushes))

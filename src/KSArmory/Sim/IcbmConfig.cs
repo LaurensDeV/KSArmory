@@ -366,7 +366,8 @@ internal sealed class IcbmConfig
     /// <summary>
     /// Under an arrival floor, asked or preferred, take no aim reading during the burn and latch the arrival without
     /// waiting for one; the passes after cutoff still correct. The floored search hops between arcs as the correction
-    /// opens, and it banks the hop as drag. Unflown. <c>docs/ARRIVAL-ANGLE.md</c>, "Built 2026-10-10".
+    /// opens, and it banks the hop as drag. Flown neutral on a solid deorbit stage; unflown on a liquid one.
+    /// <c>docs/ARRIVAL-ANGLE.md</c>, "Built 2026-10-10".
     /// </summary>
     public bool AimWaitsForCutoffUnderAFloor;
 
