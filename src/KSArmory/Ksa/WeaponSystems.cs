@@ -78,6 +78,23 @@ internal sealed class WeaponSystems(Config config)
         return false;
     }
 
+    /// <summary>Each system with rounds in the air and how many, for the warp log.</summary>
+    public string WhoHasRoundsUp()
+    {
+        string who = "";
+        foreach (Entry e in _entries.Values)
+        {
+            if (e.Weapon.Rounds.Count > 0) who += $" {e.Weapon.Profile.PartId}:{e.Weapon.Rounds.Count};";
+        }
+
+        for (int i = 0; i < _loose.Count; i++)
+        {
+            if (_loose[i].Rounds.Count > 0) who += $" loose {_loose[i].Profile.PartId}:{_loose[i].Rounds.Count};";
+        }
+
+        return who;
+    }
+
     /// <summary>
     /// The shortest step any round in the world needs, and whether there is anything up at all.
     ///

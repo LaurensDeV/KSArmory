@@ -839,7 +839,8 @@ internal sealed class ScenarioRunner
         double dt = double.IsFinite(simStep) && simStep > 0.0 ? simStep : 0.0;
 
         _elapsed += playerStep;
-        _simElapsed += dt;
+        // A hold for a burn window is not a stuck flight, and it can be most of a day.
+        if (!_flights.Exists(f => f.IsHolding)) _simElapsed += dt;
 
         // Not while settling. Every flight has already been judged by then, so a run that spent its
         // budget flying and then crossed it waiting for a trace would be reported TIMEOUT with a

@@ -74,6 +74,18 @@ internal sealed class IcbmComputers(Config session)
         return anyBurning ? IcbmProgram.MaxFaithfulStep : double.MaxValue;
     }
 
+    /// <summary>Each computer holding the world short, and why.</summary>
+    public string WhoNeedsShortSteps()
+    {
+        string who = "";
+        foreach (IcbmComputer computer in _computers.Values)
+        {
+            if (computer.NeedsShortSteps) who += $" {KsaWorld.DisplayName(computer.Craft)}:{computer.ShortStepsBecause};";
+        }
+
+        return who;
+    }
+
     /// <summary>Stand every burning computer down, for a world that outran what it can fly.</summary>
     public void AbandonBurns(string why)
     {

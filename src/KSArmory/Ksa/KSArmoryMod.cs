@@ -1422,7 +1422,9 @@ public sealed class KSArmoryMod
                 if (KsaWorld.SetSimulationSpeed(d.Speed))
                 {
                     Log.Info(d.Action == WarpAction.Slow
-                                 ? $"timewarp held at {d.Speed:F1}x - {d.Why}"
+                                 ? $"timewarp held at {d.Speed:F1}x - {d.Why} --"
+                                   + $"{(anyInFlight ? $" rounds{_roster.WhoHasRoundsUp()}" : "")}"
+                                   + $"{(anyBurning ? $" flights{_icbms?.WhoNeedsShortSteps()}" : "")}"
                                  : $"timewarp restored to {d.Speed:F0}x - {d.Why}");
                 }
                 break;
