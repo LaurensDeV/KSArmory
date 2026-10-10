@@ -61,7 +61,7 @@ internal sealed partial class IcbmComputer
                step.NextHopMetresPerSecond, _trim.ToGainMetresPerSecond,
                PostCutoffSequence.CeilingFor(0, TrimBudgetMetresPerSecond,
                                              _trim.SpentMetresPerSecond),
-               _trim.SpentMetresPerSecond, TrimBudgetMetresPerSecond);
+               _trim.SpentMetresPerSecond, TrimBudgetMetresPerSecond, step.NextPassMetresPerSecond);
 
     // The flight's trim budget, with the split's reserve once a walk's first stop has let go.
     private double TrimBudgetMetresPerSecond

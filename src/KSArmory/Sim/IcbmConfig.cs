@@ -166,6 +166,14 @@ internal sealed class IcbmConfig
     public bool SpendTheSplitReserveAfterTheFirstStop;
 
     /// <summary>
+    /// Whether a walk prices each hop at what <see cref="BusTrim"/> pays for it -- the divert's parts on the bus's
+    /// three axes summed, since it fires one at a time -- rather than at its length. Flown at 4 km, hops priced
+    /// 6.4-6.9 m/s cost 11-14 and every walk ran dry at stop 5 of 6. <b>Off, and unflown.</b>
+    /// <c>docs/MIRV-TARGETS.md</c>, "six stops to the ground".
+    /// </summary>
+    public bool PriceHopsAtWhatTheTrimPays;
+
+    /// <summary>
     /// Whether a post-boost pass is decided on the reading that follows a flown correction rather than
     /// one fifteen seconds later. On: the release +8.3 m [+6.2, +10.5] on 20 of 20, the miss 0.58x.
     /// <c>docs/ACCURACY-PLAN.md</c> 3cr, 3ct.

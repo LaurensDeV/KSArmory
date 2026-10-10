@@ -84,9 +84,15 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
     /// The hop's price stated outright, which overrides <paramref name="HopMetres"/>. NaN prices it
     /// from the distance and the reach.
     /// </param>
+    /// <param name="HopLengthMetres">
+    /// How far the landing moves when <paramref name="HopMetres"/> is a price rather than a distance — what one
+    /// trim pass has to fly, which <see cref="BusTrim"/> bounds by length while the budget pays per axis. NaN
+    /// where the two are the same.
+    /// </param>
     internal readonly record struct Target(int Warheads, double ReachMetres,
                                            double HopMetres = double.NaN,
-                                           double HopMetresPerSecond = double.NaN);
+                                           double HopMetresPerSecond = double.NaN,
+                                           double HopLengthMetres = double.NaN);
 
     /// <summary>What the bus has to spend, and how long it has to spend it in.</summary>
     /// <param name="GateSeconds">
@@ -188,9 +194,18 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
     /// says</b>: the bus arrives on that trajectory, so refusing it would refuse the shot that
     /// already flies.
     /// </param>
+    /// <param name="PassMetresPerSecond">
+    /// What one trim pass has to fly for the hop, against <see cref="BusTrim.MaxMetresPerSecond"/> — its length,
+    /// which is less than <paramref name="HopMetresPerSecond"/> where that is priced per axis. NaN where they
+    /// are the same.
+    /// </param>
     internal readonly record struct Stop(int Target, int Warheads, double BeforeArrivalSeconds,
                                          double HopMetresPerSecond, double SpentMetresPerSecond,
-                                         double ReachMetresPerMetrePerSecond, bool Affordable);
+                                         double ReachMetresPerMetrePerSecond, bool Affordable,
+                                         double PassMetresPerSecond = double.NaN)
+    {
+        public double PassFlies => double.IsFinite(PassMetresPerSecond) ? PassMetresPerSecond : HopMetresPerSecond;
+    }
 
     /// <summary>
     /// When the <paramref name="index"/>'th of <paramref name="targets"/> releases, in seconds
@@ -262,10 +277,13 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
             double before = BeforeArrivalSeconds(k, stops.Length, gate, bus.HopSeconds);
             double reach = ReachAtSlot(reachMetresPerMetrePerSecond, k, before, bus);
             double hop = k == 0 ? 0.0 : HopOnto(targets[taken[k].Target], bus, reach);
+            double pass = k == 0 || !double.IsFinite(targets[taken[k].Target].HopLengthMetres)
+                              ? double.NaN
+                              : PriceOf(targets[taken[k].Target].HopLengthMetres, reach, bus);
             spent += hop;
 
             stops[k] = new Stop(taken[k].Target, taken[k].Warheads, before,
-                                hop, spent, reach, k == 0 || Within(spent, bus.BudgetAt(k)));
+                                hop, spent, reach, k == 0 || Within(spent, bus.BudgetAt(k)), pass);
         }
 
         return new ReleaseItinerary(stops, bus, without);

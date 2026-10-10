@@ -65,7 +65,7 @@ internal sealed partial class IcbmComputer
                                  Program.Phase, SalvoIsOver, TargetSet.MaxTargets,
                                  Warhead.LethalRadius(_warhead!.ChargeKg), _targets.LeadIndex,
                                  coasting ? ReachHold.Unflown : ReachHold.EpochUnmeasured,
-                                 Config.PriceEachHopAtItsSlot);
+                                 Config.PriceEachHopAtItsSlot, Config.PriceHopsAtWhatTheTrimPays);
 
         // Held rather than re-read, and only replaced by a plan that has stops. A frame whose
         // footprint did not come down would otherwise take the walk away on the approach to the
@@ -179,6 +179,13 @@ internal sealed partial class IcbmComputer
                 return;
             }
 
+            if (Config.PriceHopsAtWhatTheTrimPays
+                && KsaWorld.TryControlFrameCci(Craft, parent, out double3 nose, out double3 right, out double3 down)
+                && DivertFootprint.TryAxisPrice(Body, flown, nose, right, down, out DivertFootprint.AxisPrice axes))
+            {
+                footprint = footprint with { Axes = axes };
+            }
+
             _reachFootprint = footprint;
 
             // Both rotations sampled here and kept, not asked for again: the columns' axes and the
@@ -192,7 +199,8 @@ internal sealed partial class IcbmComputer
             Log.Debug($"reach on {KsaWorld.DisplayName(Craft)}: "
                       + $"{footprint.SemiMajorMetresPerMetrePerSecond:F0} x "
                       + $"{footprint.SemiMinorMetresPerMetrePerSecond:F0} m per m/s pinned, "
-                      + $"flown in {ms:F2} ms for a {flown.FlightSeconds:F0} s fall");
+                      + $"flown in {ms:F2} ms for a {flown.FlightSeconds:F0} s fall"
+                      + (footprint.Axes.Known ? $", the trim paying up to {footprint.WorstAxisFactor():F2}x a divert's length" : ""));
         }
         catch (Exception e)
         {

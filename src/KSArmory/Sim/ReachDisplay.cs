@@ -181,10 +181,16 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
     /// <see cref="IcbmConfig.PriceEachHopAtItsSlot"/>: each hop, and the ring, at the reach of the slot
     /// it is flown in rather than at the reach the footprint was measured with.
     /// </param>
+    /// <param name="priceAtTheTrim">
+    /// <see cref="IcbmConfig.PriceHopsAtWhatTheTrimPays"/>: each hop at
+    /// <see cref="DivertFootprint.TrimCostMetresPerSecond"/>, and the ring, the refusal and the readouts at
+    /// the worst bearing's, so a point the ring takes is one the planner can pay for.
+    /// </param>
     public static ReachDisplay For(DivertFootprint? footprint, IReadOnlyList<Placed>? placed,
                                    in ReleaseItinerary.Bus means, IcbmPhase phase, bool salvoAway,
                                    int maxTargets, double spacingMetres, int lead,
-                                   ReachHold unpriced, bool pricePerSlot = false)
+                                   ReachHold unpriced, bool pricePerSlot = false,
+                                   bool priceAtTheTrim = false)
     {
         int targets = placed?.Count ?? 0;
 
@@ -200,7 +206,15 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
         double perMetrePerSecond = reach.SemiMinorMetresPerMetrePerSecond;
         double[] atEachSlot = [perMetrePerSecond];
 
-        Walk walk = Order(placed, lead);
+        double axisFactor = priceAtTheTrim ? reach.WorstAxisFactor() : 1.0;
+
+        // In metres the straight-line reach would charge the same as the trim pays, so the itinerary's own
+        // division by the reach, and its per-slot scaling, carry over unchanged.
+        Func<double, double, double>? hopMetres = priceAtTheTrim
+            ? (along, cross) => reach.TrimCostMetresPerSecond(along, cross) * perMetrePerSecond
+            : null;
+
+        Walk walk = Order(placed, lead, hopMetres);
         ReleaseItinerary itinerary = ReleaseItinerary.Plan(walk.Set, bus, atEachSlot);
 
         // Planned off the same ordered set the ring is drawn from, rather than built again beside
@@ -209,18 +223,20 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
         ReleaseWalk flown = ReleaseLoop.Plan(walk.Set, bus, atEachSlot, lead);
 
         double left = itinerary.LeftMetresPerSecond;
-        double hop = Math.Min(left, BusTrim.MaxMetresPerSecond);
-        int room = Math.Max(0, ReleaseItinerary.TargetsWithin(spacingMetres, atEachSlot, bus) - targets);
+        double hop = Math.Min(left / axisFactor, BusTrim.MaxMetresPerSecond);
+        int room = Math.Max(0, ReleaseItinerary.TargetsWithin(spacingMetres, [perMetrePerSecond / axisFactor], bus)
+                               - targets);
 
         // The next add is the new last stop, so the ring is drawn at the reach of that slot.
         double ringScale = bus.PricesEachSlot ? bus.SlotReachScale(bus.GateFor(itinerary.Count + 1)) : 1.0;
 
-        ReachDisplay display = new(ReachHold.Drawn, reach, left, hop, itinerary.LeftBuysMetres,
+        ReachDisplay display = new(ReachHold.Drawn, reach, left, hop, itinerary.LeftBuysMetres / axisFactor,
                                    targets, room, spacingMetres,
                                    walk.AlongMetres, walk.CrossMetres, walk.FromTarget)
         {
             Flown = flown,
             SlotReachScale = ringScale,
+            AxisFactor = axisFactor,
         };
 
         if (targets >= maxTargets) return display with { Hold = ReachHold.Full };
@@ -245,6 +261,13 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
     /// measured at.
     /// </summary>
     public double SlotReachScale { get; init; }
+
+    /// <summary>
+    /// What the budget left is divided by before it sizes the ring, for the trim paying a divert axis by axis —
+    /// one unless <see cref="IcbmConfig.PriceHopsAtWhatTheTrimPays"/>. One pass's own ceiling is a length and is
+    /// not divided.
+    /// </summary>
+    public double AxisFactor { get; init; } = 1.0;
 
     private double RingScale => SlotReachScale is > 0.0 and <= 1.0 ? SlotReachScale : 1.0;
 
@@ -477,7 +500,12 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
     /// <para><c>Plan</c> re-sorts on <see cref="ReleaseItinerary.Target.ReachMetres"/>, so the rank
     /// is emitted descending to reproduce exactly this order.</para>
     /// </remarks>
-    public static Walk Order(IReadOnlyList<Placed>? placed, int lead)
+    /// <param name="hopMetres">
+    /// What a hop of this many metres along and across is charged as, in straight-line metres; null charges its
+    /// length.
+    /// </param>
+    public static Walk Order(IReadOnlyList<Placed>? placed, int lead,
+                             Func<double, double, double>? hopMetres = null)
     {
         if (placed is null || placed.Count == 0) return new Walk([], 0.0, 0.0, 0);
 
@@ -541,10 +569,13 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
             Placed to = placed[order[k]];
             double along = Finite(to.AlongMetres), cross = Finite(to.CrossMetres);
 
-            double hop = Math.Sqrt(((along - atAlong) * (along - atAlong))
-                                   + ((cross - atCross) * (cross - atCross)));
+            double length = Math.Sqrt(((along - atAlong) * (along - atAlong))
+                                      + ((cross - atCross) * (cross - atCross)));
 
-            set[order[k]] = new ReleaseItinerary.Target(to.Warheads, order.Count - k, hop);
+            set[order[k]] = hopMetres is null
+                ? new ReleaseItinerary.Target(to.Warheads, order.Count - k, length)
+                : new ReleaseItinerary.Target(to.Warheads, order.Count - k, hopMetres(along - atAlong, cross - atCross),
+                                              HopLengthMetres: length);
 
             atAlong = along;
             atCross = cross;

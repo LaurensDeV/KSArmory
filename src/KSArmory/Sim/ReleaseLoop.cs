@@ -118,7 +118,8 @@ internal readonly record struct ReleaseWalk(ReleaseItinerary Itinerary, ReleaseW
 internal readonly record struct ReleaseStep(int Target, int Warheads, int Away, bool ReleaseHere,
                                             bool Handover, bool Finished, int NextTarget,
                                             double HopMetresPerSecond, double BeforeArrivalSeconds,
-                                            double NextHopMetresPerSecond = 0.0)
+                                            double NextHopMetresPerSecond = 0.0,
+                                            double NextPassMetresPerSecond = 0.0)
 {
     /// <summary>The line a night is scored off: which warheads went where, and what it cost.</summary>
     public string Say(int stop, int stops, double spentMetresPerSecond, double leftMetresPerSecond)
@@ -214,7 +215,7 @@ internal static class ReleaseLoop
         double dearest = 0.0;
         for (int k = 0; k < plan.Count; k++)
         {
-            dearest = Math.Max(dearest, plan.Stops[k].HopMetresPerSecond);
+            dearest = Math.Max(dearest, plan.Stops[k].PassFlies);
         }
 
         return dearest > BusTrim.MaxMetresPerSecond
@@ -262,7 +263,8 @@ internal static class ReleaseLoop
         return new ReleaseStep(at.Target, at.Warheads, away, owes, !owes && more, !owes && !more,
                                more ? walk.Itinerary.Stops[stop + 1].Target : -1,
                                at.HopMetresPerSecond, at.BeforeArrivalSeconds,
-                               more ? walk.Itinerary.Stops[stop + 1].HopMetresPerSecond : 0.0);
+                               more ? walk.Itinerary.Stops[stop + 1].HopMetresPerSecond : 0.0,
+                               more ? walk.Itinerary.Stops[stop + 1].PassFlies : 0.0);
     }
 
     /// <summary>
@@ -314,13 +316,20 @@ internal static class ReleaseLoop
     /// <para>The whole pass has to be payable, not merely its first metre: a budget that runs out
     /// part way leaves the warhead between two targets, which is worse than either.</para>
     /// </remarks>
+    /// <param name="passMetresPerSecond">
+    /// What the pass flies for the hop where that is less than its price — <see cref="ReleaseStep.NextPassMetresPerSecond"/>.
+    /// NaN judges the pass on the price.
+    /// </param>
     public static HopHold CanFlyTheHop(double hopMetresPerSecond, double owedMetresPerSecond,
                                        double ceilingMetresPerSecond, double spentMetresPerSecond,
-                                       double budgetMetresPerSecond)
+                                       double budgetMetresPerSecond, double passMetresPerSecond = double.NaN)
     {
         double wants = PassMustFly(hopMetresPerSecond, owedMetresPerSecond);
+        double flies = double.IsFinite(passMetresPerSecond) && passMetresPerSecond > 0.0
+                           ? PassMustFly(passMetresPerSecond, owedMetresPerSecond)
+                           : wants;
 
-        if (wants > BusTrim.CeilingFor(ceilingMetresPerSecond)) return HopHold.BeyondOnePass;
+        if (flies > BusTrim.CeilingFor(ceilingMetresPerSecond)) return HopHold.BeyondOnePass;
 
         // A nanometre a second of slack, for ReleaseItinerary's own reason: the affordable spacing
         // is the exact root of this comparison and lands on either side of it by one ulp.

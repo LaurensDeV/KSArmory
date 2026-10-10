@@ -827,6 +827,15 @@ internal sealed partial class Ui
             + "the tank keeps beyond the trim budget for nulling the stage split may be spent on later hops. "
             + "Off: the walk never spends past the budget. One target is the same either way. Unflown.");
 
+        bool atTheTrim = config.PriceHopsAtWhatTheTrimPays;
+        if (ImGui.Checkbox("Price hops at what the trim pays", ref atTheTrim))
+        {
+            config.PriceHopsAtWhatTheTrimPays = atTheTrim;
+        }
+        Tip("On: each hop between targets is priced at what the bus's jets actually spend on it -- they fire one axis "
+            + "at a time, so a diagonal hop costs up to 1.7x its length -- and the reach ring shrinks to match. Off: a "
+            + "hop is priced at its length, and a walk can run out of trim before its last target. Unflown.");
+
         bool onReading = config.DecideOnTheReading;
         if (ImGui.Checkbox("Decide each pass on its reading", ref onReading))
         {

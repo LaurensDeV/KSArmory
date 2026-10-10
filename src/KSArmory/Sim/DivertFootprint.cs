@@ -29,6 +29,11 @@ namespace KSArmory;
 /// nothing</b>, the two axes agreeing to within 3%, and only <see cref="CostMetresPerSecond"/> should read
 /// it there.
 /// </param>
+/// <param name="Axes">
+/// What a metre of landing costs on each of the bus's own control axes, which is what <see cref="BusTrim"/>
+/// pays: it fires one axis at a time, so a divert costs the sum of its parts on them rather than its length.
+/// Unset where the columns or the axes were not to hand.
+/// </param>
 /// <param name="FromTheRealState">
 /// Whether the columns came from the bus's own state, or the reach is the release epoch's alone. A
 /// footprint drawn from the pad is an estimate whose long axis was out by 1.04x, 0.51x and 0.59x at three
@@ -42,8 +47,26 @@ internal readonly record struct DivertFootprint(double SemiMajorMetresPerMetrePe
                                                 DivertFootprint.ArrivalClock Clock,
                                                 ArrivalFrame Frame,
                                                 double FlightSeconds,
-                                                bool FromTheRealState)
+                                                bool FromTheRealState,
+                                                DivertFootprint.AxisPrice Axes = default)
 {
+    /// <summary>
+    /// The velocity change per metre of landing along and across the track, resolved on the bus's nose, right and
+    /// down, with the arrival pinned.
+    /// </summary>
+    internal readonly record struct AxisPrice(double3 PerMetreAlong, double3 PerMetreAcross)
+    {
+        public bool Known => Vec.IsFinite(PerMetreAlong) && Vec.IsFinite(PerMetreAcross)
+                             && (Vec.Len2(PerMetreAlong) > 0.0 || Vec.Len2(PerMetreAcross) > 0.0);
+    }
+
+    /// <summary>
+    /// The most a divert's per-axis sum can be over its length, which is three orthogonal axes taking equal
+    /// parts — what a divert is priced at where the axes are not known, so the price stays a floor.
+    /// </summary>
+    public static readonly double AxisSumCeiling = Math.Sqrt(3.0);
+
+
     /// <summary>What the arrival instant is allowed to do while the bus moves its landing.</summary>
     internal enum ArrivalClock
     {
@@ -213,6 +236,83 @@ internal readonly record struct DivertFootprint(double SemiMajorMetresPerMetrePe
                                                               : (onMinor == 0.0 ? 0.0 : double.PositiveInfinity);
 
         return Math.Sqrt((major * major) + (minor * minor));
+    }
+
+    /// <summary>
+    /// What the trim pays to move the landing this far: the divert's parts on the bus's axes summed, or
+    /// <see cref="AxisSumCeiling"/> times its length where the axes are not known.
+    /// </summary>
+    public double TrimCostMetresPerSecond(double alongMetres, double crossMetres)
+    {
+        if (!Axes.Known) return AxisSumCeiling * CostMetresPerSecond(alongMetres, crossMetres);
+
+        double3 dv = (Axes.PerMetreAlong * alongMetres) + (Axes.PerMetreAcross * crossMetres);
+        return Math.Abs(dv.X) + Math.Abs(dv.Y) + Math.Abs(dv.Z);
+    }
+
+    /// <summary>
+    /// The worst ratio of what the trim pays to the divert's length over every bearing on the ground: what the
+    /// ring is shrunk by so that every point inside it is affordable.
+    /// </summary>
+    public double WorstAxisFactor()
+    {
+        if (!Axes.Known) return AxisSumCeiling;
+
+        double worst = 1.0;
+        for (int i = 0; i < AxisFactorBearings; i++)
+        {
+            double bearing = Math.PI * i / AxisFactorBearings;
+            double along = Math.Cos(bearing), cross = Math.Sin(bearing);
+            double length = CostMetresPerSecond(along, cross);
+
+            if (length > 0.0 && double.IsFinite(length))
+            {
+                worst = Math.Max(worst, TrimCostMetresPerSecond(along, cross) / length);
+            }
+        }
+
+        return Math.Min(worst, AxisSumCeiling);
+    }
+
+    // Over half a turn, since the cost is even in the displacement: a degree apart.
+    private const int AxisFactorBearings = 180;
+
+    /// <summary>
+    /// Read the per-axis price off the same columns <see cref="TryFrom"/> reads the ellipse off, for a bus
+    /// holding <paramref name="noseCci"/>, <paramref name="rightCci"/> and <paramref name="downCci"/>.
+    /// </summary>
+    /// <remarks>
+    /// Pinned, a divert is the exactly-determined 3x3 the trim solves — the two ground rows and the clock — so
+    /// each column of its inverse is a cross product of the other two rows over the determinant.
+    /// </remarks>
+    public static bool TryAxisPrice(BallisticBody body, ReleaseFocus.FlownSensitivity flown, double3 noseCci,
+                                    double3 rightCci, double3 downCci, out AxisPrice price)
+    {
+        price = default;
+
+        if (!(Vec.Len2(noseCci) > 0.0) || !(Vec.Len2(rightCci) > 0.0) || !(Vec.Len2(downCci) > 0.0)) return false;
+
+        double3 overGround = flown.ArrivalVelocityCci - body.GroundVelocityCci(flown.ArrivedCci);
+        if (!ArrivalFrame.TryAt(flown.ArrivedCci, overGround, out ArrivalFrame frame)) return false;
+
+        double3 along = new(Vec.Dot(flown.VelocityX, frame.Downrange), Vec.Dot(flown.VelocityY, frame.Downrange),
+                            Vec.Dot(flown.VelocityZ, frame.Downrange));
+        double3 cross = new(Vec.Dot(flown.VelocityX, frame.Cross), Vec.Dot(flown.VelocityY, frame.Cross),
+                            Vec.Dot(flown.VelocityZ, frame.Cross));
+        double3 clock = flown.ArrivalSecondsPerMetrePerSecond;
+
+        double det = Vec.Dot(along, Vec.Cross(cross, clock));
+        if (!(Math.Abs(det) > 0.0) || !double.IsFinite(det)) return false;
+
+        double3 perAlong = Vec.Cross(cross, clock) / det;
+        double3 perAcross = Vec.Cross(clock, along) / det;
+
+        double3 nose = Vec.Unit(noseCci), right = Vec.Unit(rightCci), down = Vec.Unit(downCci);
+
+        price = new AxisPrice(new double3(Vec.Dot(perAlong, nose), Vec.Dot(perAlong, right), Vec.Dot(perAlong, down)),
+                              new double3(Vec.Dot(perAcross, nose), Vec.Dot(perAcross, right),
+                                          Vec.Dot(perAcross, down)));
+        return price.Known;
     }
 
     /// <summary>Whether a displacement is inside what the stated budget can pay for.</summary>
