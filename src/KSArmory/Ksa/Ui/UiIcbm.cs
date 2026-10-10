@@ -1137,7 +1137,7 @@ internal sealed partial class Ui
         }
         Tip("On: the trim waits for the stack only while it nulls the split; a post-boost correction afterwards is left "
             + "to the keep-out, which withholds any jet closing on the stack inside it. Off: every correction waits, and "
-            + "a long shot can release before its first one is flown. Unflown.");
+            + "a long shot can release before its first one is flown.");
 
         bool jetsThrough = config.JetsThroughTheKeyboardClear;
         if (ImGui.Checkbox("Trim jets keep firing while a window has the keyboard", ref jetsThrough))

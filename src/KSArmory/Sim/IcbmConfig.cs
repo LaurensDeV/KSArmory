@@ -409,11 +409,11 @@ internal sealed class IcbmConfig
 
     /// <summary>
     /// Hold the trim for <see cref="TrimWaitsOutTheStack"/> only while it nulls the split, never for a post-boost
-    /// correction, leaving the stack to the keep-out after that. At 12,900 km the wait held the first correction on
-    /// 15 of 16 buses until the passes' clock ran out, 24 mm median and three groups past 0.5 km, against 2.2 mm and
-    /// 11 mm with no wait and no bus inside the keep-out. <b>Off, and unflown.</b> <c>docs/ACCURACY-PLAN.md</c> 3fr.
+    /// correction, leaving the stack to the keep-out after that. On: at 12,900 km 2.3 mm median and 12 mm worst
+    /// against 26.2 mm and 527 m with every correction held, and from orbit every bus still at its keep-out.
+    /// <c>docs/ACCURACY-PLAN.md</c> 3fr.
     /// </summary>
-    public bool StackWaitsOnlyForTheSplit;
+    public bool StackWaitsOnlyForTheSplit = true;
 
     /// <summary>
     /// Let every warhead of a single-target salvo released at cutoff go in the frame the first does, since

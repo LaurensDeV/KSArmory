@@ -183,6 +183,7 @@ public class ShotArmsTests
         // 0 of 16.
         Assert.True(shipped.PriceEachHopAtItsSlot);
         Assert.True(shipped.PriceHopsAtWhatTheTrimPays);
+        Assert.True(shipped.StackWaitsOnlyForTheSplit);
 
         ShotArms arms = Parse("base|sub:WarheadSubStepMs=2");
         Assert.True(ShotArms.TryApply(arms.For(0), shipped, out _));
