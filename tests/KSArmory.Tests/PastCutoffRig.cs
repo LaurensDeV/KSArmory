@@ -376,7 +376,11 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
 
     private double ForTheTrimMetres()
     {
-        if (!Config.TrimWaitsOutTheStack || !_haveStack || !Vec.IsFinite(_trim.ToGainCci)) return 0.0;
+        if (!Config.TrimWaitsOutTheStack || !_haveStack || !Vec.IsFinite(_trim.ToGainCci)
+            || (Config.StackWaitsOnlyForTheSplit && _postBoost.Cycles > 0))
+        {
+            return 0.0;
+        }
 
         double toArrival = Program.CommittedArrivalFromNow;
         double secondsToRelease = _command.ShortfallMetresPerSecond > 0.0 || !double.IsFinite(toArrival)

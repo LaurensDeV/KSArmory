@@ -253,7 +253,8 @@ internal sealed partial class IcbmComputer
     private double ForTheTrimMetres(double radius)
     {
         if (!Config.TrimWaitsOutTheStack || _separatedFrom is not { } stack || !KsaWorld.IsAlive(stack)
-            || Parent is not { } parent || !Vec.IsFinite(_trim.ToGainCci))
+            || Parent is not { } parent || !Vec.IsFinite(_trim.ToGainCci)
+            || (Config.StackWaitsOnlyForTheSplit && _postBoost.Cycles > 0))
         {
             return 0.0;
         }

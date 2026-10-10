@@ -1130,6 +1130,15 @@ internal sealed partial class Ui
             + $"release, as long as that leaves {SeparationClearance.TrimNeedsSeconds:F0} s to trim. Off: it trims as soon "
             + "as the stack is a sphere and ten metres away.");
 
+        bool onlySplit = config.StackWaitsOnlyForTheSplit;
+        if (ImGui.Checkbox("Stack wait only for the split", ref onlySplit))
+        {
+            config.StackWaitsOnlyForTheSplit = onlySplit;
+        }
+        Tip("On: the trim waits for the stack only while it nulls the split; a post-boost correction afterwards is left "
+            + "to the keep-out, which withholds any jet closing on the stack inside it. Off: every correction waits, and "
+            + "a long shot can release before its first one is flown. Unflown.");
+
         bool jetsThrough = config.JetsThroughTheKeyboardClear;
         if (ImGui.Checkbox("Trim jets keep firing while a window has the keyboard", ref jetsThrough))
         {

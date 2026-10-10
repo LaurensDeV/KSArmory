@@ -79,6 +79,25 @@ public class PastCutoffTests(ITestOutputHelper Out)
         Assert.True(shot.LandedMetres < 1.0, $"landed {shot.LandedMetres:F2} m out");
     }
 
+    // The split's own null still waits with the wait scoped to it: it is the debt 1.8 was flown on.
+    [Fact]
+    public void ScopedToTheSplitTheWaitStillKeepsTheBusOffTheStack()
+    {
+        IcbmProgram program = new(new IcbmConfig { Armed = true, StackWaitsOnlyForTheSplit = true });
+        PastCutoffRig rig = PastCutoffRig.For(InOrbit(), program, Mk21, DensityAt);
+        rig.ShoveMetresPerSecond = 0.70;
+        rig.SharedErrorAlongNoseMetresPerSecond = 0.38;
+        rig.ContactRestitution = 0.32;
+        rig.StageRadiusMetres = 3.5;
+        rig.ThrusterMetresPerSecond2 = 0.55;
+        PastCutoffRig.Outcome shot = Say(rig.Fly(Downrange(2_416_000.0)));
+
+        Assert.True(shot.Released, shot.Said);
+        Assert.False(shot.Closest.Breached, shot.Closest.Said);
+        Assert.Equal(0, rig.Contacts);
+        Assert.True(shot.LandedMetres < 1.0, $"landed {shot.LandedMetres:F2} m out");
+    }
+
     // Aimed behind the bus, so it holds for its burn window before it burns: a resume spent in that hold leaves the
     // aim frozen after cutoff. docs/ICBM-OUTSTANDING.md 1.9.
     [Fact]
