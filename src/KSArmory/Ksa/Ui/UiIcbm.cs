@@ -1101,6 +1101,14 @@ internal sealed partial class Ui
         Tip("On: the aim correction the burn froze starts again at cutoff. Off: on the first frame the engines are "
             + "off, which a hold for a burn window spends, leaving the passes after cutoff on a frozen aim. Unflown.");
 
+        bool keepsWindow = config.HoldKeepsItsWindow;
+        if (ImGui.Checkbox("A hold keeps its burn window", ref keepsWindow))
+        {
+            config.HoldKeepsItsWindow = keepsWindow;
+        }
+        Tip("On: once the hold waits for a window it waits for that one. Off: each re-solve leaves at once if that "
+            + "costs under 1,000 m/s more, which near the window it always does. Unflown.");
+
         bool waitsUnderFloor = config.AimWaitsForCutoffUnderAFloor;
         if (ImGui.Checkbox("Aim correction waits for cutoff under a floor", ref waitsUnderFloor))
         {

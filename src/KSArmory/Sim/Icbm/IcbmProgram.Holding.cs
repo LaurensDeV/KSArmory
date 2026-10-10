@@ -19,7 +19,8 @@ internal sealed partial class IcbmProgram
                 // now can also be flatly impossible, or cost the entire orbital velocity, and that
                 // is what this is for.
                 bool worthWaiting = !double.IsFinite(window.CostIfLeavingNow)
-                                 || window.Saving >= WaitMustSaveMetresPerSecond;
+                                 || window.Saving >= WaitMustSaveMetresPerSecond
+                                 || (Config.HoldKeepsItsWindow && _windowWait > 0.0);
 
                 _windowWait = worthWaiting ? window.WaitSeconds : 0.0;
                 _windowCost = window.Cost;

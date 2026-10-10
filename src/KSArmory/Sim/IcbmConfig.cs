@@ -381,6 +381,13 @@ internal sealed class IcbmConfig
     public bool AimResumesAtCutoff;
 
     /// <summary>
+    /// Keep a burn window once the hold has chosen to wait for it. Off, every re-solve asks again whether waiting saves
+    /// 1,000 m/s, and nearing the window leaving now always passes: flown under warp, it lit 7.2 deg off the plane at
+    /// 15,800x on a 50 s step. Unflown. <c>docs/ICBM-OUTSTANDING.md</c> 1.9.
+    /// </summary>
+    public bool HoldKeepsItsWindow;
+
+    /// <summary>
     /// Under an arrival floor, asked or preferred, take no aim reading during the burn and latch the arrival without
     /// waiting for one; the passes after cutoff still correct. The floored search hops between arcs as the correction
     /// opens, and it banks the hop as drag. Flown neutral on a solid deorbit stage; unflown on a liquid one.
