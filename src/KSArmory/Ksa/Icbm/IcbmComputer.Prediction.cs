@@ -131,48 +131,18 @@ internal sealed partial class IcbmComputer
                 ? Body.SurfaceRadius * Vec.AngleBetween(hit.GroundFixedPointCci, _trueAimCci)
                 : double.NaN;
 
-            // Not while the trim is firing, and this is the whole reason the two can coexist. The
-            // correction's only observer is this prediction, and the trim is actively moving the
-            // vehicle it is taken from - so the bias absorbs a displacement the trim then reads as
-            // a larger error and burns harder at. Same shape as the release sequence's latched
-            // reference, and it runs away rather than merely drifting: flown, a shot 0.1 km off at
-            // cutoff wound up by a factor of ten every ten cycles to 139 m/s of commanded trim.
-            // What the correction is being told and what it has done about it, per cycle. A bias
-            // that ends at its limit says nothing about how it got there - walked, jumped, or
-            // pushed back and forth - and those want different fixes.
-            //
-            // Named, for the reason why_it_ended and the cutoff line are: eight rockets write this
-            // into one log, so unattributed it is a set of readings rather than eight traces and no
-            // bias can be paired with the miss its own rocket landed at.
+            // Per cycle and named per craft: eight rockets share one log, and the path a bias took is what tells a walk
+            // from a jump.
             Log.Debug($"aim on {KsaWorld.DisplayName(Craft)}: bias {Distance.Say(AimBiasMetres)}, predicted miss "
                       + $"{Distance.Say(PredictedMissMetres)}, from "
                       + $"{(fromCutoff ? "the solved cutoff" : "the live state")}, "
                       + $"kick {Vec.Len(ReleaseImpulseCci()):F2} m/s");
 
-            // During the burn every cycle is a measurement. After it they are rationed: the
-            // correction's only observer is this prediction, so one taken between the aim moving
-            // and the trim having flown the new arc reads its own unspent correction as error and
-            // steps again on top of it.
-            // And not from inside the air. Mid-burn the prediction departs from the projected
-            // cutoff, which before the vehicle has flown is the pad -- so the arc is flown with drag
-            // from sea level and lands thousands of kilometres short of a target nothing is wrong
-            // with. AimCorrection.DepartureIsWorthObserving has the flown numbers.
-            // After cutoff the reading has to come off a correction the bus has FLOWN, which is
-            // `_trim.Done` and not `!TrimIsFiring`. The two differ only through `_mayTrim`, and
-            // `_mayTrim` goes false whenever the separation interlock re-closes -- which it does on
-            // 45 flights of 160, by centimetres, because the trim's first job is to null the very
-            // shove that is carrying the halves apart. So the thrusters fall quiet with the
-            // correction still in transit, this gate opens, and the impact is sampled mid-flight.
-            //
-            // What it costs is not the one reading. The next reading's secant attributes the whole
-            // overshoot to the aim move and freezes the plant estimate at 2.59-2.76 where the true
-            // plant is 1.04-1.11, so the loop converges three times too slowly and the flat 250 m
-            // band stops it two readings early. Across 2026-09-10-release that is exactly the six
-            // flights whose response exceeded 2.55, and exactly the six that released 263-481 m off
-            // against a 2-24 m norm -- perfect separation, both ways. ACCURACY-PLAN.md 3cl.
-            //
-            // PostBoostAim is handed `TrimSettled: _trim.Done` and refuses to judge a pass on an
-            // unflown correction. This is the same question asked one call earlier.
+            // Each refusal is a loop that ran away in flight. Not while the trim fires: the bias absorbs the trim's own
+            // displacement, and a shot 0.1 km off wound up to 139 m/s of trim. Not from inside the air, where before the
+            // vehicle has flown the departure is the pad (AimCorrection.DepartureIsWorthObserving). After cutoff only off a
+            // correction the trim has flown, `_trim.Done` rather than `!TrimIsFiring`, which an interlock re-closing lets
+            // through mid-flight (ACCURACY-PLAN.md 3cl).
             if (Config.CorrectAim && state.HasAim && !TrimIsFiring
                 && AimCorrection.DepartureIsWorthObserving(DensityRatioAt(fromCci))
                 && (Program.IsBurning || (_measureDue && _trim.Done))
