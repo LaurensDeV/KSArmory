@@ -446,6 +446,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/Icbm/IcbmProgram.Reach.cs` | whether the tanks can pay for the shot, why there is no arc, and the arrival floor the search is bounded by |
 | `Sim/Icbm/IcbmProgram.Limits.cs` | what may be commanded — the airflow and horizon limit on the line, the acceleration cap, the ascent reserve, spent solids |
 | `Sim/HoldPointing.cs` | when a stack holding for its window turns onto the burn -- **just as long before ignition as the turn takes**, and drifting again if the window moves away, because pointed on the bus's jets a stack empties them in minutes at 1x and a warp burns nothing |
+| `Sim/ReleaseCoast.cs` | where the predicted arc will be when the warheads leave it -- **the kick added there, not at cutoff**, because the release is a fixed time before arrival and a kick added at cutoff on a four-hour coast lands 2.8 km from the same kick at the release (`IcbmConfig.KickAtTheRelease`, off until flown) |
 | `Sim/HoldingCost.cs` | what a second of holding the warheads costs, measured off the arc rather than typed — **the floor under the miss**, and it runs from 0.82 m/s at 500 km to 21.79 at 12,900, so no constant is right |
 | `Sim/BusTrim.cs` | putting the bus back on its solution after the split — **the only thing that can**, because the burn is over |
 | `Sim/PostCutoffSequence.cs` | what the loop after cutoff does next — **the decision that dominates where the warheads land**, since a correction that finishes lands at 140 m and every other ending at 5–45 km |

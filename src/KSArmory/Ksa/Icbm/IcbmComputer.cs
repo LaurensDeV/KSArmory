@@ -71,6 +71,8 @@ internal sealed partial class IcbmComputer
     private bool _resumedForCoast;
     private bool _trimAbandoned;
     private double _departsIn;
+    private double _coastedToRelease;
+    private double _predictedArrivalFromNow = double.NaN;
     private ReleaseCommand _deploy;
     private bool _awaitingSplit;
     private bool _didSplit;
@@ -1556,7 +1558,7 @@ internal sealed partial class IcbmComputer
         {
             // Only while burning: the aim cycle sets _departsIn at ~2 Hz and a short shot releases at cutoff,
             // before it is cleared, so read stale the probe stood on ground turned away: 1.13 m low at 300 km.
-            double carry = Program.IsBurning ? _departsIn : 0.0;
+            double carry = (Program.IsBurning ? _departsIn : 0.0) + _coastedToRelease;
             double3 nowCci = carry > 0.0 ? Body.CarryCci(pointCci, -carry) : pointCci;
             double3 dirCcf = Vec.Unit(nowCci).Transform(parent.GetCci2Ccf());
             if (!Vec.IsFinite(dirCcf) || dirCcf.Equals(Vec.Zero)) return Body.SurfaceRadius;

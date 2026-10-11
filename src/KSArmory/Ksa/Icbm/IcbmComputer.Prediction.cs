@@ -44,6 +44,7 @@ internal sealed partial class IcbmComputer
         _sincePredict += simStep;
         _sinceObserve += simStep;
         _sincePredictWall += state.PlayerStepSeconds;
+        _predictedArrivalFromNow -= simStep;
 
         bool guidanceWants = Program.IsBurning || _measureDue;
 
@@ -73,8 +74,17 @@ internal sealed partial class IcbmComputer
                          ? Math.Max(0.0, Command.SecondsToCutoff)
                          : 0.0;
 
+        double coasted = 0.0;
+        if (Config.KickAtTheRelease)
+        {
+            fromCci = ReleaseCoast.ToRelease(Body, fromCci, alongCci, _predictedArrivalFromNow - departsIn,
+                                             Program.ReleaseGate,
+                                             DensityRatioAt, out alongCci, out coasted);
+        }
+
         // Held in a field because the terrain callback runs inside the prediction and needs it too.
         _departsIn = departsIn;
+        _coastedToRelease = coasted;
 
         fromCci += ReleaseOffsetCci();
         alongCci += ReleaseImpulseCci();
@@ -93,11 +103,16 @@ internal sealed partial class IcbmComputer
         ImpactPredictor.Drag? air =
             _warhead is { } warhead ? new ImpactPredictor.Drag(DensityRatioAt, warhead) : null;
 
-        if (ImpactPredictor.TryPredict(Body, fromCci, alongCci, PredictStepSeconds,
-                                       ImpactPredictor.DefaultMaxSeconds, out ImpactPredictor.Impact hit,
-                                       TerrainRadiusAt, _path, air,
-                                       stopOnTheSurface: Config.PredictionStopsOnTheSurface,
-                                       stopOnTheTerrain: Config.PredictionStopsOnTheTerrain))
+        bool landed = ImpactPredictor.TryPredict(Body, fromCci, alongCci, PredictStepSeconds,
+                                                 ImpactPredictor.DefaultMaxSeconds, out ImpactPredictor.Impact hit,
+                                                 TerrainRadiusAt, _path, air,
+                                                 stopOnTheSurface: Config.PredictionStopsOnTheSurface,
+                                                 stopOnTheTerrain: Config.PredictionStopsOnTheTerrain);
+
+        // The release probe asks the same terrain callback, from a state that is already at the release.
+        _coastedToRelease = 0.0;
+
+        if (landed)
         {
             // The predictor un-carries its impact by its own flight time, which puts the ground
             // point in the body-fixed frame of the instant the arc *departs*. Mid-burn that instant
@@ -108,12 +123,15 @@ internal sealed partial class IcbmComputer
             // so the correction chases a ruler moving at ~400 m/s against a target moving at 465.
             // Flown headless at 2,000 km, a shot needing no correction at all was put 191.6 km wrong
             // by nulling it; at 3,459 km, 37.1 km against 0.4 km once both are in one epoch.
+            double carry = departsIn + coasted;
             hit = hit with
             {
-                GroundFixedPointCci = departsIn > 0.0
-                                    ? Body.CarryCci(hit.GroundFixedPointCci, -departsIn)
+                GroundFixedPointCci = carry > 0.0
+                                    ? Body.CarryCci(hit.GroundFixedPointCci, -carry)
                                     : hit.GroundFixedPointCci,
+                Seconds = hit.Seconds + coasted,
             };
+            _predictedArrivalFromNow = departsIn + hit.Seconds;
 
             PredictedImpact = hit;
             PredictsFromCutoff = fromCutoff;

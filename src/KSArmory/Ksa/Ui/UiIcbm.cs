@@ -1117,6 +1117,15 @@ internal sealed partial class Ui
         Tip("On: the aim correction the burn froze starts again at cutoff. Off: on the first frame the engines are "
             + "off, which a hold for a burn window spends, leaving the passes after cutoff on a frozen aim.");
 
+        bool kickAtRelease = config.KickAtTheRelease;
+        if (ImGui.Checkbox("Prediction adds the kick at the release", ref kickAtRelease))
+        {
+            config.KickAtTheRelease = kickAtRelease;
+        }
+        Tip("On: the aim's prediction coasts to the release before adding the warheads' separation kick. Off: it adds "
+            + "the kick at cutoff, which on a long coast gives it hours to grow and the burn's aim corrects for kilometres "
+            + "that never happen.");
+
         bool keepsWindow = config.HoldKeepsItsWindow;
         if (ImGui.Checkbox("A hold keeps its burn window", ref keepsWindow))
         {

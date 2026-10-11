@@ -383,6 +383,15 @@ internal sealed class IcbmConfig
     public bool AimResumesAtCutoff = true;
 
     /// <summary>
+    /// Add the separation kick to the predicted arc where the warheads will leave it -- the departure coasted in vacuum
+    /// to <see cref="IcbmProgram.ReleaseGate"/> before arrival (<see cref="ReleaseCoast"/>) -- rather than at cutoff or
+    /// wherever the bus is now. Off, the kick is given the whole coast to grow in: flown to 40 N, 10 E from
+    /// <c>ORBIT 300</c>, a four-hour coast, the burn's aim absorbed 1.6 km of it, the release found 2 km the trim could
+    /// not pay so close in, and the warheads landed 1.93 km out. Not yet flown. <c>docs/ICBM-OUTSTANDING.md</c> 1.14.
+    /// </summary>
+    public bool KickAtTheRelease = false;
+
+    /// <summary>
     /// Keep a burn window once the hold has chosen to wait for it. Off, every re-solve asks again whether waiting saves
     /// 1,000 m/s, and nearing the window leaving now always passes: flown under warp, it lit 7.2 deg off the plane at
     /// 15,800x on a 50 s step. From <c>ORBIT 300</c>, without it 2 of 2 holds left mid-warp, 7-47 deg off the plane;
