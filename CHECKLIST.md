@@ -2696,13 +2696,16 @@ stack wait holds only the split. `docs/MIRV-TARGETS.md`, "six stops to the groun
 - [ ] Disarming mid-flight does the same.
 - [ ] Destroying the craft mid-flight does not throw, and nothing in the log complains afterwards.
 
-### 12.6a It survives a save — built, not flown
+### 12.6a It survives a save — flown 2026-10-11
 
-- [ ] Designate two or three targets, give them warheads, move the lead, change a setting (loft or
+- [x] Designate two or three targets, give them warheads, move the lead, change a setting (loft or
       **Warp the coast**), save, and reload: the targets, their counts, the lead and the setting are
       all back, and the log says `settings and N target(s) restored from the save, disarmed`.
       `saves/<save>/KSArmory/ballistic.json` holds them under the craft's name.
-- [ ] The computer comes back **disarmed** even if it was armed when saved.
+      *2026-10-11: two targets, Loft 1.15 and ArrivalPreference 0.4, saved under a new name mid-burn and
+      loaded in a fresh game: all back, "2 target(s) restored from the save, disarmed". It found that the
+      open save was never known (`Ksa/SaveHook.cs`).*
+- [x] The computer comes back **disarmed** even if it was armed when saved. *Saved armed and burning.*
 - [ ] Save mid-coast with the computer armed, reload: nothing throws, the computer is idle and
       disarmed with its targets, and nothing fires the engines.
 
@@ -2717,8 +2720,9 @@ section that proves it, and it is the failure that produced a 3,255 km miss befo
       `timewarp not held`, rather than fighting you for the control frame by frame.
 - [ ] If a slowdown is refused outright, the burn is **abandoned** and the log says why. Check the
       vehicle is handed back rather than left pointing at a target it can no longer reach.
-- [ ] After cutoff the hold is released — the coast is not integrated by anything, so warping
-      through it is fine and should be allowed.
+- [x] After cutoff the hold is released — the coast is not integrated by anything, so warping
+      through it is fine and should be allowed. *2026-10-11: it was not -- the post-boost loop read as
+      correcting for the whole coast and held it at 6.8x; fixed, a four-hour coast now warps in nine seconds.*
 - [ ] `Config.LimitWarpInFlight` off restores the old behaviour. Expect a large miss; that is the
       point of the setting, not a bug.
 
