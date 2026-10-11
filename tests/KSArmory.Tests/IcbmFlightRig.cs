@@ -65,6 +65,16 @@ internal sealed class IcbmFlightRig
     /// <summary>How often the attitude controller acts; KSA's gimbal wakes every 0.1 s.</summary>
     public double AttitudeControlPeriodSeconds = 0.1;
 
+    /// <summary>
+    /// Steer with KSA's own gimbal law (<see cref="KsaTvcLaw"/>) rather than the stand-in, under <see cref="AttitudeHasInertia"/>.
+    /// Its period is the law's adaptive steering interval, not <see cref="AttitudeControlPeriodSeconds"/>.
+    /// </summary>
+    public bool UsesKsaAttitudeLaw;
+
+    private readonly KsaTvcLaw _law = new();
+    private double3 _lawReference = new(0, 0, 1);
+    private double _sinceLawUpdate;
+
     /// <summary>The fastest the stack turned while the closed loop was flying it, under inertia.</summary>
     public double PeakClosedLoopRateDegPerSec { get; private set; }
 
@@ -605,7 +615,12 @@ internal sealed class IcbmFlightRig
         _controlIn -= step;
         double3 want = Vec.Unit(wanted);
 
-        if (_controlIn <= 0.0 && !want.Equals(Vec.Zero))
+        if (UsesKsaAttitudeLaw)
+        {
+            _sinceLawUpdate += step;
+            if (_controlIn <= 0.0 && !want.Equals(Vec.Zero)) UpdateLaw(want, authority);
+        }
+        else if (_controlIn <= 0.0 && !want.Equals(Vec.Zero))
         {
             _controlIn += AttitudeControlPeriodSeconds;
 
@@ -623,6 +638,26 @@ internal sealed class IcbmFlightRig
 
         double turn = Vec.Len(_omega) * step;
         if (turn > 0.0) _pointing = Vec.Unit(doubleQuat.CreateFromAxisAngle(Vec.Unit(_omega), turn) * _pointing);
+    }
+
+    // In a frame carried with the nose, so the two axes do not flip as it swings past the reference.
+    private void UpdateLaw(double3 want, double authority)
+    {
+        double3 y = Vec.Cross(_pointing, _lawReference);
+        if (Vec.Len2(y) < 1e-12) y = Vec.Cross(_pointing, new double3(1, 0, 0));
+        y = Vec.Unit(y);
+        double3 z = Vec.Cross(_pointing, y);
+        _lawReference = z;
+
+        double angle = Vec.AngleBetween(want, _pointing);
+        double3 cross = Vec.Cross(want, _pointing);
+        double3 error = Vec.Len2(cross) > 1e-18 ? Vec.Unit(cross) * angle : Vec.Zero;
+
+        (double cy, double cz) = _law.Update(Vec.Dot(error, y), Vec.Dot(error, z), Vec.Dot(_omega, y), Vec.Dot(_omega, z),
+                                             authority, Vec.Dot(_alpha, y), Vec.Dot(_alpha, z), _sinceLawUpdate);
+        _sinceLawUpdate = 0.0;
+        _alpha = (y * cy + z * cz) * authority;
+        _controlIn += _law.SteeringInterval;
     }
 
     private void Swing(double3 wanted, double step, double rateDegPerSec)
