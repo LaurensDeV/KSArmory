@@ -253,6 +253,45 @@ internal static class BurnWindow
         return true;
     }
 
+    /// <summary>
+    /// The window a hold has already chosen, refined where it is rather than searched for afresh.
+    ///
+    /// <para>A fresh search takes the earliest window within <see cref="GoodEnoughFraction"/> of the best in a day, and a
+    /// near window whose cost drifts across that line as it approaches is swapped for another at the last minute -- flown,
+    /// onto ones 32 and 56 deg off the plane. False when the kept window can no longer be solved, which is the one reason
+    /// to search again.</para>
+    /// </summary>
+    public static bool TryKeep(BallisticBody body, double3 positionCci, double3 velocityCci, double3 aimNowCci,
+                               double keptWaitSeconds, out Window window, double loft = 1.0, double minArrivalDeg = 0.0)
+    {
+        window = default;
+
+        if (!body.IsUsable || !(keptWaitSeconds >= 0.0)) return false;
+        if (!Vec.IsFinite(positionCci) || !Vec.IsFinite(velocityCci)) return false;
+
+        double period = Kepler.PeriodSeconds(body.Mu, positionCci, velocityCci);
+        bool bound = double.IsFinite(period) && period > 0.0;
+        double span = (bound ? period : UnboundHorizonSeconds) / NearSamples;
+
+        double costNow = CostAt(body, positionCci, velocityCci, aimNowCci, 0.0, loft, period, double.NaN, minArrivalDeg,
+                                out _, out _, out _);
+
+        double wait = Refine(body, positionCci, velocityCci, aimNowCci, loft, period,
+                             Math.Max(0.0, keptWaitSeconds - span), keptWaitSeconds + span, double.NaN, minArrivalDeg);
+
+        double cost = CostAt(body, positionCci, velocityCci, aimNowCci, wait, loft, period, double.NaN, minArrivalDeg,
+                             out BallisticArc.Solution arc, out double3 direction, out _);
+
+        if (!double.IsFinite(cost)) return false;
+
+        double offPlane = StateAt(body, positionCci, velocityCci, wait, period, bound, out double3 from, out double3 moving)
+                              ? OrbitPlane.OffPlaneRadians(from, moving, body.CarryCci(aimNowCci, wait))
+                              : double.NaN;
+
+        window = new Window(wait, arc, cost, costNow, direction, offPlane, arc.ArrivalAngleDeg);
+        return true;
+    }
+
     // Costs one departure and keeps it if it beats what is held.
     private static void Weigh(BallisticBody body, double3 positionCci, double3 velocityCci,
                               double3 aimNowCci, double wait, double loft, double period,

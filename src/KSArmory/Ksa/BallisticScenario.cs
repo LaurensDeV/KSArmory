@@ -702,16 +702,12 @@ internal sealed class BallisticScenario
     // way the wait passes: the computer never warps a hold by itself, so unpressed one sits at 1x for as long as it is.
     private void WarpToTheBurnWindow()
     {
-        if (_warpedToWindow || _computer is not { } computer || computer.Command.Phase != IcbmPhase.Holding) return;
+        // Pressed again whenever a long hold is not warping, as a player would: a window that moves after a warp has ended
+        // otherwise leaves the hold at 1x until the scenario times out.
+        if (_computer is not { } computer || computer.Command.Phase != IcbmPhase.Holding) return;
 
-        if (computer.TryWarpToWindow())
-        {
-            _warpedToWindow = true;
-            _say("pressed warp to the burn window");
-        }
+        if (computer.TryWarpToWindow()) _say("pressed warp to the burn window");
     }
-
-    private bool _warpedToWindow;
 
     private IcbmComputers? _icbms;
 

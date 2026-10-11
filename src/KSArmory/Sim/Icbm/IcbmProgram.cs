@@ -268,6 +268,12 @@ internal sealed partial class IcbmProgram
 
     public const double LightOnStepsUnderSeconds = 1.0;
 
+    /// <summary>How near its burn line a holding stack's nose has to be before the burn lights.</summary>
+    public const double LightWithinDeg = 10.0;
+
+    /// <summary>The most a held burn waits past its ignition for a late turn to finish.</summary>
+    public const double WaitToTurnSeconds = 120.0;
+
     /// <summary>Seconds until the held burn lights, or NaN outside a hold.</summary>
     public double SecondsToIgnitionInHold => Phase == IcbmPhase.Holding && double.IsFinite(_windowWait) ? SecondsToIgnition : double.NaN;
 
@@ -490,6 +496,12 @@ internal sealed partial class IcbmProgram
 
     // The burn is centred on the window, so it lights this long before it.
     private double _burnLead;
+    private double _waitedToTurn;
+    private double _windowAnchor = double.NaN;
+    private bool _heldToDrift;
+
+    /// <summary>How long the held burn has waited past its ignition for the nose to come round.</summary>
+    public double WaitedToTurnSeconds => _waitedToTurn;
 
     private double SecondsToIgnition => Math.Max(_windowWait - _burnLead, 0.0);
     private double _windowCost;
@@ -792,6 +804,9 @@ internal sealed partial class IcbmProgram
         ArrivalFloorFromDeg = double.NaN;
         _windowWait = double.NaN;
         _burnLead = 0.0;
+        _waitedToTurn = 0.0;
+        _windowAnchor = double.NaN;
+        _heldToDrift = false;
         _windowCost = 0.0;
         _windowDirection = Vec.Zero;
         _shortfall = 0.0;
@@ -837,6 +852,7 @@ internal sealed partial class IcbmProgram
         _sinceWindow += state.PlayerStepSeconds > 0.0 ? state.PlayerStepSeconds : step;
         _sinceArrivalBudget += state.PlayerStepSeconds > 0.0 ? state.PlayerStepSeconds : step;
         if (double.IsFinite(_windowWait)) _windowWait -= step;
+        if (double.IsFinite(_windowAnchor)) _windowAnchor -= step;
         if (Phase is not (IcbmPhase.Idle or IcbmPhase.NoSolution)) _sinceLaunch += step;
         if (Phase == IcbmPhase.Coast) _sinceCutoff += step;
         if (Phase == IcbmPhase.Coast) SecondsSinceReference += step;
