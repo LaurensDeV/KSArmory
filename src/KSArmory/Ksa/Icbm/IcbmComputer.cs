@@ -924,7 +924,7 @@ internal sealed partial class IcbmComputer
         // along. Left free, the vehicle drifts when it should be settled.
         bool aimed = false;
 
-        if (Command.Phase is not (IcbmPhase.Idle or IcbmPhase.NoSolution))
+        if (Command.Phase is not (IcbmPhase.Idle or IcbmPhase.NoSolution) && !Program.Drifting)
         {
             // Advanced on the *nominal* line, not on the sequencer's offset one. The carried
             // reference is about continuity, and a direction that steps by a cant six times would
@@ -975,6 +975,11 @@ internal sealed partial class IcbmComputer
         else
         {
             AttitudeHook.Release(Craft);
+            if (Program.Drifting && _driving)
+            {
+                VehicleCommand.ReleaseAttitude(Craft);
+                _driving = false;
+            }
         }
 
         // The direction actually handed to the hook, not the nominal one: the release sequence turns

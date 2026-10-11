@@ -388,6 +388,13 @@ internal sealed class IcbmConfig
     public bool HoldKeepsItsWindow;
 
     /// <summary>
+    /// Let the bus drift through a hold, pointing for the burn only in the last <see cref="IcbmProgram.PointBeforeIgnitionSeconds"/>.
+    /// Off, the attitude is held for the whole wait: flown from <c>ORBIT 300</c> with a day's hold warped through, the jets
+    /// measured 0.000 m/s2 at the trim, 2.44 m/s went unpaid and the warheads landed 1.70 km out. Unflown.
+    /// </summary>
+    public bool HoldDriftsUntilIgnition;
+
+    /// <summary>
     /// Under an arrival floor, asked or preferred, take no aim reading during the burn and latch the arrival without
     /// waiting for one; the passes after cutoff still correct. The floored search hops between arcs as the correction
     /// opens, and it banks the hop as drag. Flown neutral on a solid deorbit stage; unflown on a liquid one.

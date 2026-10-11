@@ -266,7 +266,14 @@ internal sealed partial class IcbmProgram
     /// <summary>Warp is held this long before ignition, not only during the burn itself.</summary>
     public const double WarpHoldLeadSeconds = 60.0;
 
+    // Time to slew a drifting stack round onto its burn line before ignition.
+    public const double PointBeforeIgnitionSeconds = 300.0;
+
     public const double LightOnStepsUnderSeconds = 1.0;
+
+    /// <summary>Whether the hold has no attitude to hold yet, under <see cref="IcbmConfig.HoldDriftsUntilIgnition"/>.</summary>
+    public bool Drifting => Config.HoldDriftsUntilIgnition && Phase == IcbmPhase.Holding
+                         && double.IsFinite(_windowWait) && SecondsToIgnition > PointBeforeIgnitionSeconds;
 
     /// <summary>
     /// How long before the release the world has to be back at normal speed.
