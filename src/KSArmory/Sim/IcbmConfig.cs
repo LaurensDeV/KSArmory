@@ -406,6 +406,14 @@ internal sealed class IcbmConfig
     public bool HoldPointsLoosely;
 
     /// <summary>
+    /// When the next stage would drop the launcher, move that stage to the end of the staging list -- as a player's drag
+    /// does -- and stage on, where it holds the joint alone. Flown on <c>TEST Any BusEarly</c>: off, the burn ended 435
+    /// and 4,461 m/s short and the bus crashed with all six warheads aboard; on, it moved stage 2 to last and landed all
+    /// six within 5 mm at 700 and 6,179 km. <c>docs/ICBM-OUTSTANDING.md</c> 1.5.
+    /// </summary>
+    public bool MovesAnEarlyRelease = true;
+
+    /// <summary>
     /// Under an arrival floor, asked or preferred, take no aim reading during the burn and latch the arrival without
     /// waiting for one; the passes after cutoff still correct. The floored search hops between arcs as the correction
     /// opens, and it banks the hop as drag. Flown neutral on a solid deorbit stage; unflown on a liquid one.

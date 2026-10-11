@@ -285,6 +285,17 @@ internal sealed partial class Ui
                 + "velocity that burn left ungained.");
         }
 
+        if (computer.StagesAfterTheRelease is > 0 and int after && !computer.Program.IsBurning
+            && computer.Program.Phase != IcbmPhase.Coast)
+        {
+            ImGui.TextColored(Bad, $"The bus's release is staged before {after} more stage{(after == 1 ? "" : "s")}"
+                                       + (computer.Config.MovesAnEarlyRelease
+                                              ? ": it will be moved to the end when the burn reaches it"
+                                              : ": the burn will stop there and the shot fall short"));
+            Tip("The staging list fires the decoupler holding the bus before the stages after it, which would let the "
+                + "warheads go with the burn unfinished. Drag it to the end of the staging list to fix it before launch.");
+        }
+
         IcbmProgram program = computer.Program;
         if (program.Phase is IcbmPhase.Idle or IcbmPhase.NoSolution or IcbmPhase.Holding
             && double.IsFinite(program.NeedMetresPerSecond) && double.IsFinite(program.HaveMetresPerSecond))
@@ -1125,6 +1136,14 @@ internal sealed partial class Ui
         }
         Tip("On: while waiting for a burn window the bus is pointed to 1 deg, and to 0.2 deg once the burn lights. "
             + "Off: 0.2 deg throughout, which a few minutes of waiting at 1x pays for with every drop in the bus's jets. Unflown.");
+
+        bool movesRelease = config.MovesAnEarlyRelease;
+        if (ImGui.Checkbox("Move a release staged too early to the end", ref movesRelease))
+        {
+            config.MovesAnEarlyRelease = movesRelease;
+        }
+        Tip("On: when the next stage would let the bus off with stages still to burn, it is moved to the end of the staging "
+            + "list and the burn goes on. Off: it is refused, and the shot falls short with the warheads aboard.");
 
         bool waitsUnderFloor = config.AimWaitsForCutoffUnderAFloor;
         if (ImGui.Checkbox("Aim correction waits for cutoff under a floor", ref waitsUnderFloor))

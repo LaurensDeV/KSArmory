@@ -80,6 +80,8 @@ internal sealed partial class IcbmComputer
 
     private bool _saidFloorUnaffordable;
     private bool _saidRefusedStage;
+    private bool _movedRelease;
+    private IManualFire? _release;
     private bool _saidStructuralLimit;
     private bool _saidLongStep;
     private bool _saidOverLimit;
@@ -461,6 +463,9 @@ internal sealed partial class IcbmComputer
     // Not the clearance wait: the trim reads no aim, so the two loops cannot drive each other
     // there - and a correction frozen across a long wait is its own fault, since what it absorbs
     // is what the fall loses to drag and terrain and that changes as the release point descends.
+    /// <summary>How many stages still fire after the launcher's release in the staging list, for the pad's warning.</summary>
+    public int StagesAfterTheRelease => _release?.StagesAfterTheRelease ?? 0;
+
     /// <summary>Whether a stage the program asked for was refused because it would drop the launcher.</summary>
     public bool RefusedAStage => _saidRefusedStage;
 
@@ -714,6 +719,8 @@ internal sealed partial class IcbmComputer
                        bool traceWarhead = false,
                        IReadOnlyList<IcbmComputer>? busyElsewhere = null)
     {
+        _release = release;
+
         // A warhead outlives the bus that let it go, and on a steep arrival the bus does not last:
         // it breaks up on reentry BEFORE its own warheads arrive -- measured 10:43:26 against
         // impacts at 10:43:38-49. A trace that stops with its craft therefore loses exactly the
@@ -1086,7 +1093,21 @@ internal sealed partial class IcbmComputer
 
                     AttitudeHook.Stage(Craft);
                 }
-                else if (!_saidRefusedStage)
+                else if (Config.MovesAnEarlyRelease && !_movedRelease && release is { } early)
+                {
+                    // Once: a move the list refuses would otherwise be asked again every second and a half.
+                    _movedRelease = true;
+                    string craft = KsaWorld.DisplayName(Craft);
+                    AttitudeHook.StageAfter(Craft, () =>
+                    {
+                        bool moved = early.MoveReleaseLast(out string why);
+                        Log.Info($"ICBM computer on {craft} wants a stage that would drop its launcher: {why}"
+                                 + (moved ? "; staging on" : "; it will not fire it -- stage it by hand"));
+                        _saidRefusedStage = !moved;
+                        return moved;
+                    });
+                }
+                else if (!_saidRefusedStage && !Config.MovesAnEarlyRelease)
                 {
                     // Said once, because the refusal is otherwise completely silent -- and on the
                     // pad it is the launch not happening rather than a stage going unspent.

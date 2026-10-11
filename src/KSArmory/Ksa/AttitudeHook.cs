@@ -64,6 +64,9 @@ internal static class AttitudeHook
     // under it throws "Update task failed" out of SequencePerformanceList.Recompute.
     private static readonly HashSet<Vehicle> Staging = [];
 
+    // Craft owed a stage only once a move of the staging list has gone through, in the same window.
+    private static readonly Dictionary<Vehicle, Func<bool>> StagingAfter = [];
+
     // Craft owed a blast's push, as an impulse and an angular impulse about the centre of mass in
     // the craft's assembly frame. Written here for the reason attitude is: a velocity written from
     // any other hook is overwritten by the worker's results before anything reads it.
@@ -149,6 +152,7 @@ internal static class AttitudeHook
     {
         Wanted.Clear();
         Staging.Clear();
+        StagingAfter.Clear();
         Shoves.Clear();
 
         try
@@ -213,6 +217,23 @@ internal static class AttitudeHook
     {
         if (keep) JetsThroughTheClear.Add(craft);
         else JetsThroughTheClear.Remove(craft);
+    }
+
+    /// <summary>
+    /// Fire this craft's next stage when its worker is next prepared, if <paramref name="first"/> succeeds there first --
+    /// a change to the staging list has to be made in the same window the stage is.
+    /// </summary>
+    public static void StageAfter(Vehicle craft, Func<bool> first)
+    {
+        if (!KsaWorld.IsAlive(craft)) return;
+
+        if (!Installed)
+        {
+            if (first()) VehicleCommand.Stage(craft);
+            return;
+        }
+
+        StagingAfter[craft] = first;
     }
 
     /// <summary>
@@ -337,6 +358,10 @@ internal static class AttitudeHook
         try
         {
             if (Staging.Count > 0 && Staging.Remove(__instance)) VehicleCommand.Stage(__instance);
+            if (StagingAfter.Count > 0 && StagingAfter.Remove(__instance, out Func<bool>? first) && first())
+            {
+                VehicleCommand.Stage(__instance);
+            }
 
             if (JetsThroughTheClear.Count > 0 && JetsThroughTheClear.Contains(__instance)
                 && KsaWorld.DiscardsHeldControls(__instance, out _))
@@ -402,6 +427,7 @@ internal static class AttitudeHook
             Pulsed.Remove(__instance);
             Restore.Remove(__instance);
             Staging.Remove(__instance);
+            StagingAfter.Remove(__instance);
             Shoves.Remove(__instance);
 
             if (_complained) return;

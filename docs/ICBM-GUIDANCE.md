@@ -1406,9 +1406,10 @@ Two things about it are worth knowing before reading a result:
   a loop neither side wins.
 - **It does not stage.** Ignition is the program's own first stage request, and a harness that
   lights the rocket by hand is one that passes whether or not the computer can launch at all —
-  which is how a computer with no ignition flew every shot here. The computer will not stage past a
-  launcher that could come off — `IcbmComputer.StagingWouldDropTheLauncher` — so a multi-stage stack
-  needs its later stages by hand, and the run says so when the program asks for one it cannot have.
+  which is how a computer with no ignition flew every shot here. A stage that would let the bus off
+  with stages still to burn is moved to the end of the staging list and the burn goes on
+  (`IcbmConfig.MovesAnEarlyRelease`); one it cannot move without delaying an engine is refused, and the
+  run says so.
 
 The output is the report: cutoff residual and the computer's own predicted miss, the separation, the
 trim's two numbers, every release with how far off the salvo's line its tube was, and every impact

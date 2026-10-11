@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-303 types and 811 members across 11 assemblies.
+303 types and 813 members across 11 assemblies.
 
 ## BepuUtilities
 
@@ -1570,6 +1570,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `System.ReadOnlySpan`1<KSA.Part> get_Parts()`
 - `bool Activated`
+- `int Number`
 
 ### KSA.SequenceList
 
@@ -1577,6 +1578,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `int GetNextSequenceNumber()`
 - `int get_ActiveSequence()`
 - `void ActivateNextSequence(KSA.Vehicle)`
+- `void MoveSequence(KSA.Sequence, KSA.Sequence)`
 
 ### KSA.SequencePerformanceList
 
