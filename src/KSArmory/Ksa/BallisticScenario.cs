@@ -208,7 +208,9 @@ internal sealed class BallisticScenario
                          : !_committed ? "waiting for a launch solution"
                          : $"{_reported}, {_board.Released} released, {_board.Arrived} down";
 
-    public bool IsHolding => _computer?.Program.Phase == IcbmPhase.Holding;
+    /// <summary>Whether the flight is waiting on a known instant: a burn window, or the release at the end of its coast.</summary>
+    public bool IsWaiting => _computer?.Program.Phase is IcbmPhase.Holding
+                             || (_computer?.Program.Phase == IcbmPhase.Coast && _board.Released == 0);
 
     /// <summary>Whatever this shot has come to so far, which is what a timeout reports as well.</summary>
     public ShotVerdict Judge() => _board.Judge(_shot.BarMetres);
