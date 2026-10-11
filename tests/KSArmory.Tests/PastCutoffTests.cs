@@ -43,7 +43,8 @@ public class PastCutoffTests(ITestOutputHelper Out)
     // 0.5 m/s contact measured in flight.
     private PastCutoffRig.Outcome OwingTowardTheStack(bool waits, out PastCutoffRig rig)
     {
-        IcbmProgram program = new(new IcbmConfig { Armed = true, TrimWaitsOutTheStack = waits });
+        // The breach this needs is a knife edge in the cutoff state, found on a burn held at its floor.
+        IcbmProgram program = new(new IcbmConfig { Armed = true, TrimWaitsOutTheStack = waits, PulsesBelowTheFloor = false });
         rig = PastCutoffRig.For(InOrbit(), program, Mk21, DensityAt);
         rig.ShoveMetresPerSecond = 0.70;
         rig.SharedErrorAlongNoseMetresPerSecond = 0.38;

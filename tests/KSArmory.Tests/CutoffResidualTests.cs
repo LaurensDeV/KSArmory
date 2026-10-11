@@ -80,7 +80,8 @@ public class CutoffResidualTests(ITestOutputHelper Out)
     /// </summary>
     private const double ShallowArrival = 0.0;
 
-    private static IcbmProgram Armed() => new(new IcbmConfig { Armed = true, ArrivalPreference = FixtureGeometry.ArrivalPreference, MinArrivalAngleDeg = ShallowArrival });
+    // Held at the floor: a pulsed ramp spreads the same frames on over more seconds, which is not the freeze measured here.
+    private static IcbmProgram Armed() => new(new IcbmConfig { Armed = true, ArrivalPreference = FixtureGeometry.ArrivalPreference, MinArrivalAngleDeg = ShallowArrival, PulsesBelowTheFloor = false });
 
     /// <summary>
     /// Every fixture above aims along the orbit track, where the burn has no out-of-plane work to
