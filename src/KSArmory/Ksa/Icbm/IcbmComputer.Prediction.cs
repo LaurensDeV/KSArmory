@@ -44,7 +44,6 @@ internal sealed partial class IcbmComputer
         _sincePredict += simStep;
         _sinceObserve += simStep;
         _sincePredictWall += state.PlayerStepSeconds;
-        _predictedArrivalFromNow -= simStep;
 
         bool guidanceWants = Program.IsBurning || _measureDue;
 
@@ -77,8 +76,14 @@ internal sealed partial class IcbmComputer
         double coasted = 0.0;
         if (Config.KickAtTheRelease)
         {
-            fromCci = ReleaseCoast.ToRelease(Body, fromCci, alongCci, _predictedArrivalFromNow - departsIn,
-                                             Program.ReleaseGate,
+            // The arrival the release gate counts against, never the last prediction's: that is a cycle old, and
+            // through the burn's swings in the aim it lagged by enough to settle the loop and latch mid-swing.
+            double committed = Program.CommittedArrivalFromNow;
+            double flight = double.IsFinite(committed) ? committed - departsIn
+                          : fromCutoff ? Program.Arc!.Value.FlightSeconds
+                          : double.NaN;
+
+            fromCci = ReleaseCoast.ToRelease(Body, fromCci, alongCci, flight, Program.ReleaseGate,
                                              DensityRatioAt, out alongCci, out coasted);
         }
 
@@ -131,7 +136,6 @@ internal sealed partial class IcbmComputer
                                     : hit.GroundFixedPointCci,
                 Seconds = hit.Seconds + coasted,
             };
-            _predictedArrivalFromNow = departsIn + hit.Seconds;
 
             PredictedImpact = hit;
             PredictsFromCutoff = fromCutoff;

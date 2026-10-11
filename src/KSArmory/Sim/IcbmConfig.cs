@@ -392,13 +392,13 @@ internal sealed class IcbmConfig
     public bool KickAtTheRelease = false;
 
     /// <summary>
-    /// When the burn commits its arrival, freeze the aim on the last reading if it missed by less than the banked best,
+    /// When the burn commits its arrival, freeze the aim on the best of the last ten readings if it missed by less than the banked best,
     /// rather than always reverting to the best. The flat 250 m band banks nothing under 250 m, so on the 2026-10-11
     /// 6,181 km night every rocket converged to 1-6 m and was reverted to a best two minutes stale, cut off 4.2 km off
     /// its own prediction, and spent 16-18 m/s of trim where the split asked 2.5-3. Not yet flown.
     /// <c>docs/ICBM-OUTSTANDING.md</c> 1.16.
     /// </summary>
-    public bool FreezeKeepsABetterLastAim = false;
+    public bool FreezeKeepsABetterRecentAim = false;
 
     /// <summary>
     /// Keep a burn window once the hold has chosen to wait for it. Off, every re-solve asks again whether waiting saves

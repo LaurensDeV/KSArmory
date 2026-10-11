@@ -1126,12 +1126,12 @@ internal sealed partial class Ui
             + "the kick at cutoff, which on a long coast gives it hours to grow and the burn's aim corrects for kilometres "
             + "that never happen.");
 
-        bool keepsBetter = config.FreezeKeepsABetterLastAim;
-        if (ImGui.Checkbox("The burn's freeze keeps a better last aim", ref keepsBetter))
+        bool keepsBetter = config.FreezeKeepsABetterRecentAim;
+        if (ImGui.Checkbox("The burn's freeze keeps a better recent aim", ref keepsBetter))
         {
-            config.FreezeKeepsABetterLastAim = keepsBetter;
+            config.FreezeKeepsABetterRecentAim = keepsBetter;
         }
-        Tip("On: when the burn commits its arrival the aim stays on the last reading if it missed by less than the best "
+        Tip("On: when the burn commits its arrival the aim stays on the best of the last ten readings if it missed by less than the best "
             + "banked. Off: it reverts to the best, which under the flat 250 m band can be minutes stale and kilometres "
             + "off a loop that has since converged.");
 

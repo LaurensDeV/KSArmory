@@ -39,22 +39,45 @@ public class AimFreezeTests
     }
 
     [Fact]
-    public void KeepingABetterLastAimFreezesOnTheReadingThatMissedLeast()
+    public void KeepingABetterRecentAimFreezesOnTheReadingThatMissedLeast()
     {
         var (aim, with) = Walked(160.0, 600.0, 40.0, 4.0);
 
-        aim.Freeze(keepABetterLastAim: true);
+        aim.Freeze(keepABetterRecentAim: true);
 
         Assert.Equal(with[3], aim.BiasCci);
         Assert.True(aim.Settled);
     }
 
     [Fact]
-    public void ALastAimWorseThanTheBestStillRevertsToTheBest()
+    public void RecentAimsWorseThanTheBestStillRevertToTheBest()
     {
-        var (aim, with) = Walked(40.0, 200.0);
+        var (aim, with) = Walked(40.0, 200.0, 300.0);
 
-        aim.Freeze(keepABetterLastAim: true);
+        aim.Freeze(keepABetterRecentAim: true);
+
+        Assert.Equal(with[0], aim.BiasCci);
+    }
+
+    // Shot 1 of 2026-10-11's evening night: converged to metres, then the prediction jumped 1.4 km a second before the
+    // arrival latched.
+    [Fact]
+    public void AJumpJustBeforeTheLatchDoesNotSendTheFreezeBackToTheStaleBest()
+    {
+        var (aim, with) = Walked(160.0, 600.0, 40.0, 4.0, 1_380.0);
+
+        aim.Freeze(keepABetterRecentAim: true);
+
+        Assert.Equal(with[3], aim.BiasCci);
+    }
+
+    [Fact]
+    public void AReadingOlderThanTheWindowIsNotKept()
+    {
+        double[] misses = [160.0, 4.0, .. Enumerable.Repeat(170.0, 10)];
+        var (aim, with) = Walked(misses);
+
+        aim.Freeze(keepABetterRecentAim: true);
 
         Assert.Equal(with[0], aim.BiasCci);
     }

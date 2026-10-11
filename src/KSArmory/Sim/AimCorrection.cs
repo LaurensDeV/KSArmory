@@ -282,6 +282,12 @@ internal sealed class AimCorrection
     private double3 _walkedBias;
     private int _worseFor;
 
+    // The last readings and the aims they were taken with, for a freeze that would rather keep a recent good one.
+    private const int RecentReadings = 10;
+    private readonly double3[] _recentBias = new double3[RecentReadings];
+    private readonly double[] _recentMiss = new double[RecentReadings];
+    private int _recentCount;
+
     /// <summary>
     /// Where to actually aim, given where the shot is meant to land.
     ///
@@ -378,6 +384,9 @@ internal sealed class AimCorrection
         _haveLast = true;
 
         double miss = Vec.Len(error);
+        _recentBias[_recentCount % RecentReadings] = BiasCci;
+        _recentMiss[_recentCount % RecentReadings] = miss;
+        _recentCount++;
 
         // The band the loop judges itself by, which has to shrink with the shot: 250 m was a
         // quarter of the miss when it was chosen and is twenty-five times it now.
@@ -419,17 +428,28 @@ internal sealed class AimCorrection
     /// at the same instant, which is the plant it cannot hold. Flown: 4.9 km of predicted miss
     /// while free, degrading to 13.4 km by cutoff if it keeps going.</para>
     /// </summary>
-    /// <param name="keepABetterLastAim">
-    /// Keep the last aim read instead when it missed by less than the best. The best only moves on beating itself by the
-    /// band, so on a 6,181 km night it was banked at 160 m minutes before the loop reached 4 m, and the revert flew to
-    /// cutoff 4.2 km off for the trim to take back. <see cref="IcbmConfig.FreezeKeepsABetterLastAim"/>.
+    /// <param name="keepABetterRecentAim">
+    /// Keep the best of the last ten readings' aims instead when it missed by less than the banked best. The best only
+    /// moves on beating itself by the band, so on a 6,181 km night it was banked at 160 m minutes before the loop reached
+    /// 4 m, and the revert flew to cutoff 4.2 km off for the trim to take back. Ten, not the last alone: the prediction
+    /// jumped 1.4 km a second before one latch. <see cref="IcbmConfig.FreezeKeepsABetterRecentAim"/>.
     /// </param>
-    public void Freeze(bool keepABetterLastAim = false)
+    public void Freeze(bool keepABetterRecentAim = false)
     {
         if (Settled) return;
 
         _walkedBias = BiasCci;
-        if (keepABetterLastAim && _haveLast && Vec.Len(_lastError) < _bestMiss) BiasCci = _lastBias;
+
+        int recent = -1;
+        if (keepABetterRecentAim)
+        {
+            for (int i = 0; i < Math.Min(_recentCount, RecentReadings); i++)
+            {
+                if (_recentMiss[i] < _bestMiss && (recent < 0 || _recentMiss[i] < _recentMiss[recent])) recent = i;
+            }
+        }
+
+        if (recent >= 0) BiasCci = _recentBias[recent];
         else if (double.IsFinite(_bestMiss)) BiasCci = _bestBias;
         Settled = true;
     }
@@ -448,6 +468,7 @@ internal sealed class AimCorrection
     /// </summary>
     public void Resume()
     {
+        _recentCount = 0;
         if (!Settled) return;
 
         Settled = false;
@@ -475,6 +496,7 @@ internal sealed class AimCorrection
     /// </summary>
     public void Retarget(bool carryBias = false)
     {
+        _recentCount = 0;
         BiasCci = carryBias && Vec.IsFinite(_walkedBias) ? _walkedBias : Vec.Zero;
         Settled = false;
         _bestMiss = double.PositiveInfinity;
@@ -488,6 +510,7 @@ internal sealed class AimCorrection
 
     public void Reset()
     {
+        _recentCount = 0;
         BiasCci = Vec.Zero;
         _walkedBias = Vec.Zero;
         Settled = false;
