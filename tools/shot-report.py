@@ -349,6 +349,7 @@ RELEASE_FIELDS = {
     "worse_for":    re.compile(r"worse for (\d+)"),
     "floor_deg":    re.compile(r"against a ([-\d.]+) deg floor"),
     "afford_deg":   re.compile(r"of the ([-\d.]+) deg the tanks could afford"),
+    "trim_spent":   re.compile(r"\(([\d.]+) m/s spent"),
 }
 
 
@@ -611,7 +612,7 @@ def read_shot(out_path, log_path, craft=None):
             "arrived": None, "released": None, "pickup_km": None, "pickup_ms": None,
             "residual": None, "own_km": None, "trim_split": None, "trim_release": None,
             "arc_deg": [], "release_owed": [], "response": [], "raw_response": [],
-            "plant": [], "worse_for": [], "floor_deg": [], "afford_deg": [],
+            "plant": [], "worse_for": [], "floor_deg": [], "afford_deg": [], "trim_spent": [],
             "offline": [], "probe_km": [], "thrown": [], "arrival_deg": [],
             "arrival_ms": [], "trace_km": [], "walk_m": [], "walk_down": [], "walk_cross": [],
             "early_s": [], "final_down": [], "final_cross": [], "final_aim": [],
@@ -2358,6 +2359,16 @@ RELEASE_FLOOR_M = 0.5
 SPREAD_FLOOR_M = 0.1
 
 
+def _trim_score(shot):
+    """What the bus's jets spent by the first release, in m/s, off the release summary.
+
+    The split's own debt is 2.5-3 m/s of it; on the 2026-10-11 6,181 km night the rest was 13-15
+    more, taking back an aim the burn's freeze reverted and a kick added at cutoff. Both are paid
+    in trim rather than in landing, so a night scored on the landing alone cannot see either.
+    """
+    return shot["trim_spent"][0] if shot.get("trim_spent") else None
+
+
 def _release_score(shot):
     """What this flight is already wrong by BEFORE the warheads are let go, in metres.
 
@@ -2650,6 +2661,7 @@ ENDPOINTS = {
     "miss": ("miss at the ground", "km", lambda s: s["mean"], False),
     "walk": ("downrange walk after release", "m", _walk_score, False),
     "release": ("miss the shot already has at release", "m", _release_score, False),
+    "trim": ("trim the bus spent by its first release", "m/s", _trim_score, False),
     "spread": ("spread within one rocket's group", "m", _spread_score, False),
     "landing": ("mean landing distance of one rocket's warheads", "m", _landing_score, False),
     "centre": ("distance of one rocket's group centre from the aim", "m", _centre_score, False),

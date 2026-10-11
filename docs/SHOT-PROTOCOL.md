@@ -566,6 +566,14 @@ distance — the 0.86 m tube ring through 3db's gains (1.85 downrange, 0.93 cros
 inequality breaks on any of the 160 flights. That night reads `dispersion` at 0.98x because the model
 gave both arms one ring: the construction, not a finding.
 
+### `--endpoint trim`: what the bus's jets paid
+
+Every other endpoint asks where the warheads went, and a change that moves the shot's prediction rather than its
+landing pays in trim instead: the post-boost passes take the difference back and the landing reads the same. This
+reads the `release summary`'s `(N m/s spent)` per flight. On 2026-10-11's 6,181 km night (`pulse-chaco`) seats 2-8
+spent ~17 m/s against the split's 2.5-3 and seat 1, whose burn freeze did not revert, 9-11 -- so the seat levels it
+divides out can be most of the effect, and a `--per-seat` reading is worth looking at beside it.
+
 ### A salvo sent to several places
 
 **The FLIGHT line carries no group statistics at all for one, on purpose.** `worst .. best .. mean ..
