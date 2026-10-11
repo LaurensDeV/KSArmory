@@ -460,6 +460,9 @@ internal sealed partial class IcbmComputer
     // Not the clearance wait: the trim reads no aim, so the two loops cannot drive each other
     // there - and a correction frozen across a long wait is its own fault, since what it absorbs
     // is what the fall loses to drag and terrain and that changes as the release point descends.
+    /// <summary>Whether a stage the program asked for was refused because it would drop the launcher.</summary>
+    public bool RefusedAStage => _saidRefusedStage;
+
     public bool TrimIsFiring => _trim.Armed && !_trim.Done && _mayTrim;
 
     public Celestial? Parent { get; private set; }

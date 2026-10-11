@@ -596,18 +596,17 @@ internal sealed class BallisticScenario
         }
     }
 
-    // The computer never stages past a launcher that could come off, because the next sequence on
-    // somebody's craft might be the joint holding the warheads. So a stack that needs a second
-    // stage will not get one, and the shot falls short for a reason no phase line names.
+    // A stage the computer refuses because it would drop the launcher leaves the shot short for a
+    // reason no phase line names.
     private void ReportRefusedStaging(WeaponSystem? system)
     {
         if (_saidStaging || system is null || _computer is not { } computer) return;
-        if (!computer.Command.RequestStage || !system.CanSeparate) return;
+        if (!computer.RefusedAStage) return;
 
         _saidStaging = true;
 
-        _say("the program wants a stage and will not take one past a launcher that can separate -- "
-             + "a multi-stage stack has to be staged by hand from here");
+        _say("the program wants a stage that would drop the launcher, and will not fire it -- "
+             + "stage it by hand from here");
     }
 
     // Assigned rather than added to, and re-assigned whenever the system changes: a decoupler puts
