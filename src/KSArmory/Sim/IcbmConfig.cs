@@ -435,8 +435,10 @@ internal sealed class IcbmConfig
     /// <summary>
     /// Make a throttle below a liquid engine's floor by switching the engine on and off in that share of frames, and hold
     /// it off while KSA's load is within a tenth of breaking the airframe. Flown without it, a stack whose four A2s floor at
-    /// 11.6% was loaded past KSA's 21.2 g by that floor and destroyed at 700 and 6,179 km. <b>Off, and unflown.</b>
-    /// <c>docs/ICBM-OUTSTANDING.md</c> 1.11.
+    /// 11.6% was loaded past KSA's 21.2 g by that floor and destroyed at 700 and 6,179 km; with it, whole and every warhead
+    /// within 5 mm at both. Paired on GeoSat FAT it changes nothing: 1.06x at 6,181 km and 0.99x at 12,900, 80 rockets.
+    /// Off because on, six rig tests fail -- the walk rig lands 4-12 km out -- which no flight has shown, and nobody yet
+    /// knows whether the rig or the flights are right. <c>docs/ICBM-OUTSTANDING.md</c> 1.11.
     /// </summary>
     public bool PulsesBelowTheFloor;
 

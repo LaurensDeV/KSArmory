@@ -1162,7 +1162,7 @@ internal sealed partial class Ui
         }
         Tip("On: when guidance wants less thrust than a liquid engine's lowest throttle, the engine is switched on and off "
             + "in that share of frames, and held off while the airframe is within a tenth of breaking. Off: the engine "
-            + "stays at its lowest throttle, which can break a light stack on big engines. Unflown.");
+            + "stays at its lowest throttle, which can break a light stack on big engines.");
 
         bool onlySplit = config.StackWaitsOnlyForTheSplit;
         if (ImGui.Checkbox("Stack wait only for the split", ref onlySplit))
