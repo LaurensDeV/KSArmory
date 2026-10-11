@@ -518,6 +518,11 @@ internal sealed partial class Ui
         {
             ImGui.TextDisabled($"{what}: it is still on the ground");
         }
+        else if (computer.Program.Phase == IcbmPhase.Holding)
+        {
+            // Released now a holding bus stays in orbit, which is true and says nothing about the plan.
+            ImGui.TextDisabled($"{what}: after the burn in {IcbmProgram.Clock(computer.Command.SecondsToBurn)}");
+        }
         else
         {
             ImGui.TextColored(Bad, $"{what}: it never comes down");
