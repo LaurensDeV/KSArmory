@@ -16,6 +16,7 @@ GeoSat FAT this way and compares it, part by part, to the craft the game saved.
     ./tools/make-rocket.py --out DIR --all-presets
     ./tools/make-rocket.py --out DIR --name "My Rocket" --stage A2x4:LF3W6HBx2 --stage A3:LF3W3HB --srb 4
     ./tools/make-rocket.py --out DIR --name "Bus Early" --stage A2x4:LF3W6HBx2 --stage A3:LF3W3HB --bus-after 1
+    ./tools/make-rocket.py --out DIR --name "Solid Core" --solid-core 1 --stage A3:LF3W3HB
     ./tools/make-rocket.py --check-reference
     ./tools/make-rocket.py --validate DIR/*/vehicle.xml
 
@@ -89,6 +90,8 @@ SRB_DRY_KG = 9600.0
 SRB_VE = 2560.0
 SRB_GRAIN = {"CorePropulsionC_Prefab_SRBESegmentLargeA": 50057.6914,
              "CorePropulsionC_Prefab_SRBEThrustAssemblyA": 33506.2227}
+SOLID_SEGMENT = "CorePropulsionC_Prefab_SRBESegmentLargeA"
+SOLID_MOTOR = "CorePropulsionC_Prefab_SRBEThrustAssemblyA"
 
 # What the bus carries, as GeoSat FAT saves it.
 BUS_PROPELLANT = [("MMH(l)", 51.6452, 0.3846), ("N2O4(l)", 82.6323, 0.6154)]
@@ -438,9 +441,14 @@ def resource_groups(root):
 # Building a rocket
 
 class Rocket:
-    def __init__(self, lib, name, stages, srb=0, bus_after=None):
+    def __init__(self, lib, name, stages, srb=0, bus_after=None, solid_core=0):
         self.lib, self.name, self.srb, self.bus_after = lib, name, srb, bus_after
         self.stages = [parse_stage(s) if isinstance(s, str) else s for s in stages]
+        self.solid_core = solid_core
+        self.solid_motor = None
+        self.solid_segments = []
+        if solid_core:
+            self.stages.insert(0, dict(solid=solid_core))
         self.warnings = []
         self.engines_by_stage = []
         self.tanks_by_stage = []
@@ -462,20 +470,32 @@ class Rocket:
         lib = self.lib
         if not self.stages:
             sys.exit(f"{self.name}: no stages")
-        diameters = [lib.diameter(s["tank"]) for s in self.stages]
+        diameters = [lib.diameter(SOLID_SEGMENT if "solid" in s else s["tank"]) for s in self.stages]
         for d in diameters:
             if d not in INTERSTAGES:
                 sys.exit(f"{self.name}: only 3W and 2W stages are supported, not {d}W")
-        for lower, upper in zip(diameters, diameters[1:]):
-            if upper > lower:
+        for k, (lower, upper) in enumerate(zip(diameters, diameters[1:])):
+            if upper > lower and not (k == 0 and self.solid_core):
                 sys.exit(f"{self.name}: a {upper}W stage over a {lower}W one needs an adapter "
-                         "this tool does not build")
+                         "this tool builds only over a solid core")
+        if self.srb and self.solid_core:
+            sys.exit(f"{self.name}: boosters on a solid core are not built")
         if self.srb and (diameters[0] != 3 or "LF3W6H" not in self.stages[0]["tank"]):
             sys.exit(f"{self.name}: boosters attach as GeoSat FAT's do, to a 3W 6H first-stage tank")
 
         above = None  # (node, connector index) the next stage down hangs from
         for k in range(len(self.stages) - 1, -1, -1):
             stage = self.stages[k]
+            if "solid" in stage:
+                parent, conn = above
+                for _ in range(stage["solid"]):
+                    seg = parent.attach(Node(lib, SOLID_SEGMENT), conn, 0)
+                    self.solid_segments.append(seg)
+                    parent, conn = seg, 1
+                self.solid_motor = parent.attach(Node(lib, SOLID_MOTOR), conn, 0)
+                self.engines_by_stage.insert(0, [])
+                self.tanks_by_stage.insert(0, [])
+                continue
             tanks = []
             for i in range(stage["tanks"]):
                 tank = Node(lib, stage["tank"])
@@ -504,9 +524,13 @@ class Rocket:
                 inter = plate.attach(Node(lib, inter_id), rim, dec)
                 bottom = 1 - dec
                 stage["interstage"] = inter
-                if diameters[k - 1] != diameters[k]:
+                if diameters[k - 1] > diameters[k]:
                     bridge = inter.attach(Node(lib, BRIDGE_3W2W), bottom, 1)
                     above = (bridge, 0)
+                elif diameters[k - 1] < diameters[k]:
+                    # Turned over, the adapter narrows downward onto a narrower stage.
+                    bridge = inter.attach(Node(lib, BRIDGE_3W2W, (0.0, 0.0, math.pi)), bottom, 0)
+                    above = (bridge, 1)
                 else:
                     above = (inter, bottom)
         self.mount_bus(diameters[-1])
@@ -588,6 +612,12 @@ class Rocket:
             for booster in self.boosters:
                 booster[0].modules = [("DecouplerData", {"Sequence": str(seq)}, None)]
         for k, stage in enumerate(self.stages):
+            if "solid" in stage:
+                for seg in self.solid_segments:
+                    seg.modules = [grain(SRB_GRAIN[seg.pid])]
+                self.solid_motor.modules = [grain(SRB_GRAIN[self.solid_motor.pid]),
+                                            ("SolidMotorData", {"InstanceOf": "MotorCore", "DefaultGrain": "Neutral"}, None),
+                                            controller("SRBEMotor", seq)]
             for engine in self.engines_by_stage[k]:
                 engine.modules = [controller(self.lib.engine_controller(engine.pid), seq)]
             if "interstage" in stage:
@@ -636,7 +666,7 @@ class Rocket:
     def check_clearance(self):
         for k, stage in enumerate(self.stages[1:], start=1):
             inter = stage.get("interstage")
-            lower_top = self.tanks_by_stage[k - 1][0]
+            lower_top = (self.tanks_by_stage[k - 1] or self.solid_segments)[0]
             top_of_lower = lower_top.pos[0] + self.lib.get(lower_top.pid).connectors[0].pos[0]
             for engine in self.engines_by_stage[k]:
                 bell = engine.pos[0] - self.lib.bell_below_origin(engine.pid)
@@ -652,6 +682,10 @@ class Rocket:
         stage_mass = []
         for k, stage in enumerate(self.stages):
             prop, dry = 0.0, 0.0
+            if "solid" in stage:
+                parts = self.solid_segments + [self.solid_motor]
+                prop = sum(SRB_GRAIN[n.pid] for n in parts)
+                dry = sum(lib.declared_mass(n.pid) for n in parts)
             for tank in self.tanks_by_stage[k]:
                 p, s = lib.tank(tank.pid)
                 prop, dry = prop + p, dry + s
@@ -672,6 +706,11 @@ class Rocket:
             rows.append(dict(what=f"{self.srb} boosters", m0=liftoff, thrust=self.srb * SRB_THRUST_LIFTOFF,
                              dv=SRB_VE * math.log(liftoff / m1), sl=True))
         for k, stage in enumerate(self.stages):
+            if "solid" in stage:
+                m0, m1 = masses[k]
+                rows.append(dict(what=f"stage 1: solid core, {stage['solid']} x SRBE segment",
+                                 m0=m0, thrust=SRB_THRUST_LIFTOFF, dv=SRB_VE * math.log(m0 / m1), sl=True))
+                continue
             perf = ENGINES[short(stage["engine"]).replace("Engine", "")]
             vac = perf["vac"] * stage["engines"]
             sl = (perf["vac"] - SEA_LEVEL_PA * math.pi * perf["exit_d"] ** 2 / 4) * stage["engines"]
@@ -1074,6 +1113,8 @@ def main():
     ap.add_argument("--stage", action="append", default=[], help="ENGINE[xN]:TANK[xN], bottom first")
     ap.add_argument("--srb", type=int, default=0, help="radial boosters on the first stage")
     ap.add_argument("--bus-after", type=int, help="fire the bus decoupler straight after this stage, counted from 1")
+    ap.add_argument("--solid-core", type=int, default=0,
+                    help="a first stage of this many 2 m solid segments and a thrust assembly, under the --stage list")
     ap.add_argument("--list", action="store_true", help="presets and the parts a stage can use")
     ap.add_argument("--check-reference", action="store_true",
                     help="regenerate GeoSat FAT and compare it with the craft the game saved")
@@ -1125,12 +1166,12 @@ def main():
             sys.exit(f"no preset {name!r}; --list names them")
         specs[name] = PRESETS[name]
     if a.name:
-        specs[a.name] = dict(stages=a.stage, srb=a.srb, bus_after=a.bus_after)
+        specs[a.name] = dict(stages=a.stage, srb=a.srb, bus_after=a.bus_after, solid_core=a.solid_core)
     if specs and not a.out:
         sys.exit("--out is required to write a rocket")
     build = game_build()
     for name, spec in specs.items():
-        rocket = Rocket(lib, name, spec["stages"], spec.get("srb", 0), spec.get("bus_after"))
+        rocket = Rocket(lib, name, spec["stages"], spec.get("srb", 0), spec.get("bus_after"), spec.get("solid_core", 0))
         path = write(rocket, a.out, build)
         ok &= report(rocket, path, lib, references)
     if not (specs or a.validate or a.check_reference):
