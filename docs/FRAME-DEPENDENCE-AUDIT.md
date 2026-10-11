@@ -23,6 +23,13 @@ Counts: **9 DECISION**, **13 FRAME-BOUNDED**, **27 CONVERGENCE**. None has a
 seconds-valued sibling: the one built, `IcbmConfig.HoldDirectionSeconds`, was deleted unflown on 2026-10-09, since
 in flight the 5 m/s cap makes the freeze step-independent already (§1).
 
+
+**What a slow machine can do to these, measured 2026-10-11: nothing past 33 ms.** KSA advances the world at most
+`1/minTargetFrameRate` per frame, 33 ms at the default, and a machine that cannot keep up slows the world rather than
+lengthening the step -- pinned to two cores the game ran at 9 fps and cut off on a 14.6 ms step. Vsync already holds
+this machine's eight- and sixteen-rocket nights to 33.3 ms at cutoff, so every night is flown at the bound a slower
+machine would see. A player who raises `minTargetFrameRate` above 30 shortens the step; one who lowers it is the only
+way past 33 ms. ICBM-OUTSTANDING 2.2.
 ## DECISION — a policy whose effective value moves with the step
 
 | Constant | Made of | 17 ms / 25 ms / 40 ms | Consequence | Seconds sibling |
