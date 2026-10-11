@@ -376,23 +376,26 @@ internal sealed class IcbmConfig
     /// <summary>
     /// Resume the aim correction at cutoff rather than on the first frame the engines are off, which a hold for a burn
     /// window spends. In <c>PastCutoffRig</c>, an orbital bus aimed 400 km behind: off, 0 post-boost passes and released
-    /// 404.6 m out; on, 4 passes and 1.3 m. Unflown. <c>docs/ICBM-OUTSTANDING.md</c> 1.9.
+    /// 404.6 m out; on, 4 passes and 1.3 m. Paired on the pad at 6,181 km, 1.07x [0.73, 1.59] over 32 rockets, both near
+    /// 3 mm; from orbit it flew on every hold that landed. <c>docs/ICBM-OUTSTANDING.md</c> 1.9.
     /// </summary>
-    public bool AimResumesAtCutoff;
+    public bool AimResumesAtCutoff = true;
 
     /// <summary>
     /// Keep a burn window once the hold has chosen to wait for it. Off, every re-solve asks again whether waiting saves
     /// 1,000 m/s, and nearing the window leaving now always passes: flown under warp, it lit 7.2 deg off the plane at
-    /// 15,800x on a 50 s step. Unflown. <c>docs/ICBM-OUTSTANDING.md</c> 1.9.
+    /// 15,800x on a 50 s step. From <c>ORBIT 300</c>, without it 2 of 2 holds left mid-warp, 7-47 deg off the plane;
+    /// with it 5 of 5 lit on their window. <c>docs/ICBM-OUTSTANDING.md</c> 1.9.
     /// </summary>
-    public bool HoldKeepsItsWindow;
+    public bool HoldKeepsItsWindow = true;
 
     /// <summary>
     /// Let the bus drift through a hold, pointing for the burn only in the last <see cref="IcbmProgram.PointBeforeIgnitionSeconds"/>.
     /// Off, the attitude is held for the whole wait: flown from <c>ORBIT 300</c> with a day's hold warped through, the jets
-    /// measured 0.000 m/s2 at the trim, 2.44 m/s went unpaid and the warheads landed 1.70 km out. Unflown.
+    /// measured 0.000 m/s2 at the trim, 2.44 m/s went unpaid and the warheads landed 1.70 km out. With it, 2 of 3 holds
+    /// trimmed and landed within 5 mm; the third pointed for five minutes at 1x before lighting and emptied them anyway.
     /// </summary>
-    public bool HoldDriftsUntilIgnition;
+    public bool HoldDriftsUntilIgnition = true;
 
     /// <summary>
     /// Point with KSA's Balanced profile while holding for a window, 1 deg of deadband against Strict's 0.2, and Strict once

@@ -1099,7 +1099,7 @@ internal sealed partial class Ui
             config.AimResumesAtCutoff = resumesAtCutoff;
         }
         Tip("On: the aim correction the burn froze starts again at cutoff. Off: on the first frame the engines are "
-            + "off, which a hold for a burn window spends, leaving the passes after cutoff on a frozen aim. Unflown.");
+            + "off, which a hold for a burn window spends, leaving the passes after cutoff on a frozen aim.");
 
         bool keepsWindow = config.HoldKeepsItsWindow;
         if (ImGui.Checkbox("A hold keeps its burn window", ref keepsWindow))
@@ -1107,7 +1107,7 @@ internal sealed partial class Ui
             config.HoldKeepsItsWindow = keepsWindow;
         }
         Tip("On: once the hold waits for a window it waits for that one. Off: each re-solve leaves at once if that "
-            + "costs under 1,000 m/s more, which near the window it always does. Unflown.");
+            + "costs under 1,000 m/s more, which near the window it always does.");
 
         bool drifts = config.HoldDriftsUntilIgnition;
         if (ImGui.Checkbox("A hold drifts until ignition", ref drifts))
@@ -1116,7 +1116,7 @@ internal sealed partial class Ui
         }
         Tip("On: the bus holds no attitude while it waits for a burn window, and points for the burn only in the last "
             + $"{IcbmProgram.PointBeforeIgnitionSeconds / 60.0:F0} minutes. Off: it points for the whole wait, which a long "
-            + "hold pays for in RCS propellant the trim then lacks. Unflown.");
+            + "hold pays for in RCS propellant the trim then lacks.");
 
         bool loosely = config.HoldPointsLoosely;
         if (ImGui.Checkbox("A hold points loosely", ref loosely))
