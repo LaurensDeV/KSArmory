@@ -81,6 +81,8 @@ internal sealed partial class IcbmComputer
     private bool _saidFloorUnaffordable;
     private bool _saidRefusedStage;
     private bool _movedRelease;
+    private bool _pointingForTheBurn;
+    private double _pointLeadSeconds = HoldPointing.MaxLeadSeconds;
     private IManualFire? _release;
     private bool _saidStructuralLimit;
     private bool _saidLongStep;
@@ -463,6 +465,43 @@ internal sealed partial class IcbmComputer
     // Not the clearance wait: the trim reads no aim, so the two loops cannot drive each other
     // there - and a correction frozen across a long wait is its own fault, since what it absorbs
     // is what the fall loses to drag and terrain and that changes as the release point descends.
+    // A hold drifts until the turn onto its burn is due, and goes back to drifting if the window moves away: pointed on
+    // the bus's jets the stack empties them in minutes at 1x. HoldPointing has why.
+    private bool Drifting(in IcbmState state)
+    {
+        double toIgnition = Program.SecondsToIgnitionInHold;
+        if (!Config.HoldDriftsUntilIgnition || !double.IsFinite(toIgnition))
+        {
+            _pointingForTheBurn = false;
+            return false;
+        }
+
+        _pointLeadSeconds = PointLeadSeconds(state);
+        bool was = _pointingForTheBurn;
+        _pointingForTheBurn = HoldPointing.Points(toIgnition, _pointLeadSeconds, was);
+
+        if (_pointingForTheBurn != was)
+        {
+            Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)}: "
+                     + (_pointingForTheBurn ? "turning onto the burn" : "drifting again, the window moved")
+                     + $", {toIgnition:F0} s before ignition against a {_pointLeadSeconds:F0} s lead");
+        }
+
+        return !_pointingForTheBurn;
+    }
+
+    private double PointLeadSeconds(in IcbmState state)
+    {
+        if (Parent is not { } parent || Command.ThrustDirectionCci.Equals(Vec.Zero)
+            || !KsaWorld.TryControlFrameCci(Craft, parent, out double3 nose, out _, out _)
+            || !KsaWorld.TryRcsAuthority(Craft, out double accel, out double rateLimit))
+        {
+            return HoldPointing.MaxLeadSeconds;
+        }
+
+        return HoldPointing.LeadSeconds(Vec.AngleBetween(nose, Command.ThrustDirectionCci), accel, rateLimit);
+    }
+
     /// <summary>How many stages still fire after the launcher's release in the staging list, for the pad's warning.</summary>
     public int StagesAfterTheRelease => _release?.StagesAfterTheRelease ?? 0;
 
@@ -935,7 +974,9 @@ internal sealed partial class IcbmComputer
         // along. Left free, the vehicle drifts when it should be settled.
         bool aimed = false;
 
-        if (Command.Phase is not (IcbmPhase.Idle or IcbmPhase.NoSolution) && !Program.Drifting)
+        bool drifting = Drifting(state);
+
+        if (Command.Phase is not (IcbmPhase.Idle or IcbmPhase.NoSolution) && !drifting)
         {
             // Advanced on the *nominal* line, not on the sequencer's offset one. The carried
             // reference is about continuity, and a direction that steps by a cant six times would
@@ -988,7 +1029,7 @@ internal sealed partial class IcbmComputer
         else
         {
             AttitudeHook.Release(Craft);
-            if (Program.Drifting && _driving)
+            if (drifting && _driving)
             {
                 VehicleCommand.ReleaseAttitude(Craft);
                 _driving = false;

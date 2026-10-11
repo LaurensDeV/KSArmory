@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-303 types and 813 members across 11 assemblies.
+303 types and 815 members across 11 assemblies.
 
 ## BepuUtilities
 
@@ -892,6 +892,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.float3 ErrorAngles`
 - `Brutal.Numerics.float3 ErrorRates`
 - `Brutal.Numerics.float3 RateBit`
+- `Brutal.Numerics.float3 RcsTorqueAuthority`
 - `KSA.ActiveEnginePerformance ActiveEnginePerformanceMax`
 - `KSA.FlightComputerAttitudeMode AttitudeMode`
 - `KSA.FlightComputerAttitudeTrackTarget AttitudeTrackTarget`
@@ -900,6 +901,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.PerAxisAttitudeControlSystem ActiveControlSystem`
 - `KSA.VehicleReferenceFrame AttitudeFrame`
 - `float AngleDeadband`
+- `float RateLimit`
 - `void ReadUpdatedVehicleConfiguration(KSA.Vehicle)`
 - `void SetAttitudeProfile(KSA.FlightComputerAttitudeProfile)`
 - `void SetManualThrustMode(KSA.FlightComputerManualThrustMode)`

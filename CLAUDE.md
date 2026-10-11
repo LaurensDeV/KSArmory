@@ -445,6 +445,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/Icbm/IcbmProgram.Coast.cs` | after cutoff — the arc re-solved for the aim correction, and the release gate |
 | `Sim/Icbm/IcbmProgram.Reach.cs` | whether the tanks can pay for the shot, why there is no arc, and the arrival floor the search is bounded by |
 | `Sim/Icbm/IcbmProgram.Limits.cs` | what may be commanded — the airflow and horizon limit on the line, the acceleration cap, the ascent reserve, spent solids |
+| `Sim/HoldPointing.cs` | when a stack holding for its window turns onto the burn -- **just as long before ignition as the turn takes**, and drifting again if the window moves away, because pointed on the bus's jets a stack empties them in minutes at 1x and a warp burns nothing |
 | `Sim/HoldingCost.cs` | what a second of holding the warheads costs, measured off the arc rather than typed — **the floor under the miss**, and it runs from 0.82 m/s at 500 km to 21.79 at 12,900, so no constant is right |
 | `Sim/BusTrim.cs` | putting the bus back on its solution after the split — **the only thing that can**, because the burn is over |
 | `Sim/PostCutoffSequence.cs` | what the loop after cutoff does next — **the decision that dominates where the warheads land**, since a correction that finishes lands at 140 m and every other ending at 5–45 km |
@@ -681,7 +682,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 813 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 815 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -1664,8 +1665,9 @@ construction, because it never asks again. Third time this mod has met this shap
 `Vec.PerpendicularTo` and `OpticGeometry`.
 
 **Attitude is driven for every phase that is doing something**, not only while an engine is lit — after
-cutoff the bus keeps the line the warheads leave along. **A hold is the exception**: it drifts until five
-minutes before ignition (`IcbmConfig.HoldDriftsUntilIgnition`), because pointing a whole stack on the bus's
+cutoff the bus keeps the line the warheads leave along. **A hold is the exception**: it drifts until the turn
+onto its burn is due -- as long before ignition as the turn takes, from the nose's angle and the jets' authority
+(`Sim/HoldPointing.cs`) -- and drifts again if the window moves away, because pointing a whole stack on the bus's
 jets empties them in minutes at 1x and leaves the trim nothing to pay with — flown, 1.70 km out.
 
 **The burn is exact when it ends, and two things then move the vehicle off it.** The frame the

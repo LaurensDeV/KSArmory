@@ -391,7 +391,8 @@ internal sealed class IcbmConfig
     public bool HoldKeepsItsWindow = true;
 
     /// <summary>
-    /// Let the bus drift through a hold, pointing for the burn only in the last <see cref="IcbmProgram.PointBeforeIgnitionSeconds"/>.
+    /// Let the bus drift through a hold, turning onto its burn only as long before ignition as the turn takes
+    /// (<see cref="HoldPointing"/>), and drifting again if the window moves away.
     /// Off, the attitude is held for the whole wait: flown from <c>ORBIT 300</c> with a day's hold warped through, the jets
     /// measured 0.000 m/s2 at the trim, 2.44 m/s went unpaid and the warheads landed 1.70 km out. With it, 4 of 5 holds
     /// trimmed and landed within 5 mm; the fifth pointed for five minutes at 1x before lighting and emptied them anyway.

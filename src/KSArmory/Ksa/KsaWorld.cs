@@ -1943,6 +1943,28 @@ internal static class KsaWorld
     }
 
     /// <summary>
+    /// How fast the craft's own jets can turn it, as its flight computer reckons it: the weaker of pitch and yaw's angular
+    /// acceleration, and the profile's rate limit, both in radians.
+    /// </summary>
+    public static bool TryRcsAuthority(Vehicle craft, out double accelRadPerS2, out double rateLimitRadPerS)
+    {
+        accelRadPerS2 = double.NaN;
+        rateLimitRadPerS = double.NaN;
+
+        try
+        {
+            FlightComputer computer = craft.FlightComputer;
+            accelRadPerS2 = Math.Min(computer.RcsTorqueAuthority.Y, computer.RcsTorqueAuthority.Z);
+            rateLimitRadPerS = computer.RateLimit;
+            return accelRadPerS2 > 0.0 && double.IsFinite(accelRadPerS2);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
     /// The craft's control frame, as three axes in the parent body's inertial frame: the nose, the
     /// starboard beam and the belly.
     ///

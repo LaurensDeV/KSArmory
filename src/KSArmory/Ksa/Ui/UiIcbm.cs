@@ -1125,8 +1125,8 @@ internal sealed partial class Ui
         {
             config.HoldDriftsUntilIgnition = drifts;
         }
-        Tip("On: the bus holds no attitude while it waits for a burn window, and points for the burn only in the last "
-            + $"{IcbmProgram.PointBeforeIgnitionSeconds / 60.0:F0} minutes. Off: it points for the whole wait, which a long "
+        Tip("On: the bus holds no attitude while it waits for a burn window, and turns onto the burn only as long before "
+            + "ignition as the turn takes, drifting again if the window moves away. Off: it points for the whole wait, which a long "
             + "hold pays for in RCS propellant the trim then lacks.");
 
         bool loosely = config.HoldPointsLoosely;

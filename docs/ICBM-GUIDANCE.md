@@ -558,9 +558,12 @@ the bus's own jets, and at KSA's Strict deadband of 0.2 deg against a target tur
 fire continuously: flown from `ORBIT 300`, a minute of pointing at 1x left them 0.55 m/s2 and four and a
 half to five minutes left them at nothing, so the trim after cutoff could not pay 2.4-3.2 m/s and two
 holds landed 1.2-1.7 km out. Under KSA's warp the bus is on rails and burns nothing, so what drains it is
-real time spent pointed. `IcbmConfig.HoldDriftsUntilIgnition` (on) leaves the attitude free until
-`IcbmProgram.PointBeforeIgnitionSeconds` before ignition; `HoldPointsLoosely` (off, two flights) points
-with the Balanced profile's 1 deg until the burn lights.
+real time spent pointed. `IcbmConfig.HoldDriftsUntilIgnition` (on) leaves the attitude free until the
+turn onto the burn is due -- `HoldPointing.LeadSeconds`, the turn's time from the nose's angle and the jets'
+authority, with slack and a margin -- and lets it drift again if the window moves a minute or more away; the
+computer's own warp stops a minute before that turn rather than before ignition. Flown on three holds, the jets
+kept 0.54-0.57 m/s2 to the trim on all three. `HoldPointsLoosely` (off, five flights) points with the Balanced
+profile's 1 deg until the burn lights.
 
 ## The wait is handed to the game, and taken back carefully
 

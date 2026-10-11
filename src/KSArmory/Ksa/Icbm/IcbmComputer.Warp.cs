@@ -124,7 +124,7 @@ internal sealed partial class IcbmComputer
     private double SecondsToTheNextThingThatMatters
         => Program.Phase switch
         {
-            IcbmPhase.Holding => Command.SecondsToBurn,
+            IcbmPhase.Holding => Config.HoldDriftsUntilIgnition ? Command.SecondsToBurn - _pointLeadSeconds : Command.SecondsToBurn,
             IcbmPhase.Coast => SecondsToReleaseApproach,
             _ => double.NaN,
         };
