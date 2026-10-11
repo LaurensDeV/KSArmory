@@ -992,7 +992,7 @@ budget for nulling the split (`ReleaseLoop.SplitNullReserveMetresPerSecond`, the
 (`ReleaseWalker.FirstStopAway`). The planner charges stops after the first against 70; the flight raises the
 trim's budget, the hop check and the post-boost cutoff by the same 10 from that frame, and never for a set of
 one. A six-stop chain 9.5 km apart costs 63.6 m/s: five stops without it, six with. The planner still prices
-against `PostBoostAim.MaxTrimMetresPerSecond` rather than `TrimBudgetMetresPerSecond`, as it did before.
+against `PostBoostAim.MaxTrimMetresPerSecond` rather than `TrimBudgetMetresPerSecond`, as it did before. **On since 2026-10-11**: flown paired on the 4 km six-target walk, 12 of 12 buses walked five stops against four on all 12 without it, every released warhead within 5 mm.
 
 **Flying them.** The first wants a four-target walk at a spacing the coast-now price accepts and the slot
 price refuses, flown with it off, to see which of the two the per-hop spend on the release lines follows. The

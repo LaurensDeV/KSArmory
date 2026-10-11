@@ -1662,9 +1662,10 @@ on its own axis. `Sim/AimFrame.cs` carries the reference forward instead: contin
 construction, because it never asks again. Third time this mod has met this shape, after
 `Vec.PerpendicularTo` and `OpticGeometry`.
 
-**Attitude is driven for every phase that is doing something**, not only while an engine is lit — a
-hold is an hour of being pointed at a burn, and after cutoff the bus keeps the line the warheads
-leave along.
+**Attitude is driven for every phase that is doing something**, not only while an engine is lit — after
+cutoff the bus keeps the line the warheads leave along. **A hold is the exception**: it drifts until five
+minutes before ignition (`IcbmConfig.HoldDriftsUntilIgnition`), because pointing a whole stack on the bus's
+jets empties them in minutes at 1x and leaves the trim nothing to pay with — flown, 1.70 km out.
 
 **The burn is exact when it ends, and two things then move the vehicle off it.** The frame the
 cutoff landed on, and the decoupler that drops the spent stack — 7 kN against a six-tonne bus is

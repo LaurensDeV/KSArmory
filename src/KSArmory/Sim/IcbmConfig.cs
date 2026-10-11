@@ -386,15 +386,15 @@ internal sealed class IcbmConfig
     /// Keep a burn window once the hold has chosen to wait for it. Off, every re-solve asks again whether waiting saves
     /// 1,000 m/s, and nearing the window leaving now always passes: flown under warp, it lit 7.2 deg off the plane at
     /// 15,800x on a 50 s step. From <c>ORBIT 300</c>, without it 2 of 2 holds left mid-warp, 7-47 deg off the plane;
-    /// with it 5 of 5 lit on their window. <c>docs/ICBM-OUTSTANDING.md</c> 1.9.
+    /// with it 7 of 7 lit on their window. <c>docs/ICBM-OUTSTANDING.md</c> 1.9.
     /// </summary>
     public bool HoldKeepsItsWindow = true;
 
     /// <summary>
     /// Let the bus drift through a hold, pointing for the burn only in the last <see cref="IcbmProgram.PointBeforeIgnitionSeconds"/>.
     /// Off, the attitude is held for the whole wait: flown from <c>ORBIT 300</c> with a day's hold warped through, the jets
-    /// measured 0.000 m/s2 at the trim, 2.44 m/s went unpaid and the warheads landed 1.70 km out. With it, 2 of 3 holds
-    /// trimmed and landed within 5 mm; the third pointed for five minutes at 1x before lighting and emptied them anyway.
+    /// measured 0.000 m/s2 at the trim, 2.44 m/s went unpaid and the warheads landed 1.70 km out. With it, 4 of 5 holds
+    /// trimmed and landed within 5 mm; the fifth pointed for five minutes at 1x before lighting and emptied them anyway.
     /// </summary>
     public bool HoldDriftsUntilIgnition = true;
 

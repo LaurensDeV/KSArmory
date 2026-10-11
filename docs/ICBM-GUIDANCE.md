@@ -550,9 +550,17 @@ the third time this mod has met it.
 
 ## Attitude is driven for every phase that is doing something
 
-Not only while an engine is lit. A hold can be an hour long with the vehicle pointed at a burn for
-all of it, and after cutoff the bus has to keep the line it was cut off on for the warheads to
-leave along it. Leaving either free is a vehicle drifting when it should be settled.
+Not only while an engine is lit: after cutoff the bus has to keep the line it was cut off on for the
+warheads to leave along it, and leaving it free is a vehicle drifting when it should be settled.
+
+**A hold is the exception, and the reason is propellant.** Before cutoff the whole stack is pointed on
+the bus's own jets, and at KSA's Strict deadband of 0.2 deg against a target turning with the orbit they
+fire continuously: flown from `ORBIT 300`, a minute of pointing at 1x left them 0.55 m/s2 and four and a
+half to five minutes left them at nothing, so the trim after cutoff could not pay 2.4-3.2 m/s and two
+holds landed 1.2-1.7 km out. Under KSA's warp the bus is on rails and burns nothing, so what drains it is
+real time spent pointed. `IcbmConfig.HoldDriftsUntilIgnition` (on) leaves the attitude free until
+`IcbmProgram.PointBeforeIgnitionSeconds` before ignition; `HoldPointsLoosely` (off, two flights) points
+with the Balanced profile's 1 deg until the burn lights.
 
 ## The wait is handed to the game, and taken back carefully
 
@@ -569,6 +577,16 @@ trying to brake the world from a thousand times speed in one frame — and the f
 computes from a step that size is nearly zero. Measured: `simulation speed 1213.07x -> 1.00x`, then
 `timewarp held at 0.0x`, then `0.00x (paused)`, then the burn abandoned for the world not running
 slow enough to simulate it.
+
+**And the hold counts to ignition, not to the window.** The burn is centred on the window, so it lights
+half its length early -- minutes, on GeoSat FAT -- and a margin, a short-step flag and a "burn in" counting
+to the window left KSA's warp running at ignition: the first frame of the burn was 110-126 s and the
+engines "never lit". All three count to ignition, the hold will not light on a step over
+`IcbmProgram.LightOnStepsUnderSeconds`, and a warp the computer started is stopped once ignition is under
+`WarpHoldLeadSeconds` away, since the window can move under a warp. **And it keeps the window it chose**
+(`IcbmConfig.HoldKeepsItsWindow`): each re-solve otherwise asks again whether waiting still saves
+`WaitMustSaveMetresPerSecond`, and nearing the window leaving now always passes -- flown, 2 of 2 holds left
+mid-warp 7-47 deg off the plane, and 7 of 7 with it lit on their window.
 
 Two rules come out of that, and they are the same rule twice:
 
