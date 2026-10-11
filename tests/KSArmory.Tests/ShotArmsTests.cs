@@ -172,7 +172,6 @@ public class ShotArmsTests
 
         Assert.Equal(0.0, shipped.WarheadSubStepMs);
         Assert.False(shipped.WalkStartsAtCutoff);
-        Assert.False(shipped.SpendTheSplitReserveAfterTheFirstStop);
 
         // The one that is on, because it is the one that was resolved: 11 of 13 paired shots at
         // p=0.022. A baseline arm naming nothing therefore ships WITH it, which is what makes it
@@ -184,6 +183,9 @@ public class ShotArmsTests
         Assert.True(shipped.PriceEachHopAtItsSlot);
         Assert.True(shipped.PriceHopsAtWhatTheTrimPays);
         Assert.True(shipped.StackWaitsOnlyForTheSplit);
+
+        // And the split reserve on a walk's later hops: 12 of 12 buses walked five stops against four on all 12 without.
+        Assert.True(shipped.SpendTheSplitReserveAfterTheFirstStop);
 
         ShotArms arms = Parse("base|sub:WarheadSubStepMs=2");
         Assert.True(ShotArms.TryApply(arms.For(0), shipped, out _));

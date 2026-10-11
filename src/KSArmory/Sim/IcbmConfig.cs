@@ -162,9 +162,10 @@ internal sealed class IcbmConfig
 
     /// <summary>
     /// Whether the trim reserve kept beyond the budget for nulling the split may be spent on hops once a
-    /// walk's first stop has let its warheads go. <b>Off, and unflown.</b> <c>docs/MIRV-TARGETS.md</c>.
+    /// walk's first stop has let its warheads go. Flown paired on a 4 km six-target walk: 12 of 12 buses walked five stops
+    /// against four for all 12 without it, every warhead within 5 mm. <c>docs/MIRV-TARGETS.md</c>.
     /// </summary>
-    public bool SpendTheSplitReserveAfterTheFirstStop;
+    public bool SpendTheSplitReserveAfterTheFirstStop = true;
 
     /// <summary>
     /// Whether a walk prices each hop at what <see cref="BusTrim"/> pays for it -- the divert's parts on the bus's

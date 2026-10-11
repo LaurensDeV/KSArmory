@@ -826,7 +826,7 @@ internal sealed partial class Ui
         }
         Tip($"On: once a walk's first target has its warheads, the {ReleaseLoop.SplitNullReserveMetresPerSecond:F0} m/s "
             + "the tank keeps beyond the trim budget for nulling the stage split may be spent on later hops. "
-            + "Off: the walk never spends past the budget. One target is the same either way. Unflown.");
+            + "Off: the walk never spends past the budget. One target is the same either way.");
 
         bool atTheTrim = config.PriceHopsAtWhatTheTrimPays;
         if (ImGui.Checkbox("Price hops at what the trim pays", ref atTheTrim))
