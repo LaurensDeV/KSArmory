@@ -928,7 +928,7 @@ internal sealed partial class IcbmComputer
 
         // The aim stops moving when the arrival stops being free. They are one problem solved in
         // two halves, and the second half is only solvable once the first has finished.
-        if (Program.IsBurning && double.IsFinite(Program.CommittedArrivalFromNow)) _aim.Freeze();
+        if (Program.IsBurning && double.IsFinite(Program.CommittedArrivalFromNow)) _aim.Freeze(Config.FreezeKeepsABetterLastAim);
 
         // And starts again once the engines stop, because the thing that made the two halves fight is
         // the burn: with the trajectory fixed, the arc follows the aim and the trim flies the

@@ -419,12 +419,18 @@ internal sealed class AimCorrection
     /// at the same instant, which is the plant it cannot hold. Flown: 4.9 km of predicted miss
     /// while free, degrading to 13.4 km by cutoff if it keeps going.</para>
     /// </summary>
-    public void Freeze()
+    /// <param name="keepABetterLastAim">
+    /// Keep the last aim read instead when it missed by less than the best. The best only moves on beating itself by the
+    /// band, so on a 6,181 km night it was banked at 160 m minutes before the loop reached 4 m, and the revert flew to
+    /// cutoff 4.2 km off for the trim to take back. <see cref="IcbmConfig.FreezeKeepsABetterLastAim"/>.
+    /// </param>
+    public void Freeze(bool keepABetterLastAim = false)
     {
         if (Settled) return;
 
         _walkedBias = BiasCci;
-        if (double.IsFinite(_bestMiss)) BiasCci = _bestBias;
+        if (keepABetterLastAim && _haveLast && Vec.Len(_lastError) < _bestMiss) BiasCci = _lastBias;
+        else if (double.IsFinite(_bestMiss)) BiasCci = _bestBias;
         Settled = true;
     }
 
