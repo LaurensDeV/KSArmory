@@ -794,6 +794,14 @@ Four things make it honest rather than self-confirming, and the first two were e
 leaves at is cancelled for that warhead; flown at millimetres from 25 to 12,900 km on 2026-10-06. The section is
 kept for the mechanism. It read, when written: unfixed, measured headlessly.
 
+**Except where the coast is long enough to outgrow the caps.** The release probe's kick is capped at 1 m/s, and on a
+four-hour coast from orbit (`ORBIT 300` to 40 N, 10 E) the kick added at cutoff left 2.1 km to take back 393 s out,
+where the trim measured 384 m per m/s: about 5.5 m/s, refused whole, and the warheads landed 1.93 km out. The fix
+named at the end of this section is now built as `IcbmConfig.KickAtTheRelease` (`Sim/ReleaseCoast.cs`), **off** until
+a paired night at 6,181 km and a re-fly of that coast: it coasts the departure to `ReleaseBeforeArrivalSeconds`
+before arrival rather than by the clearing delay, since that is when the release happens.
+`docs/ICBM-OUTSTANDING.md` 1.14.
+
 Flown, four deorbits of the same 2,300–2,700 km range, every one cutting off within 0.1 km of its
 own prediction: the warheads landed further off the later they were let go — 431 m at a ~50 s
 release, 8.2–9.0 km at ~106 s, and grouped tightly each time. A tight group far from the target is a

@@ -2478,6 +2478,10 @@ trying to fly a vertical rise.
 - [x] `IMPACT IN` counts down and keeps counting through the burn, the cutoff and the coast.
 - [ ] The mark on the target stays on screen, and points from the edge when it is out of view.
 - [ ] A target the stack cannot afford reads `TARGET UNREACHABLE` with a shortfall in m/s.
+- [ ] With **Prediction adds the kick at the release** on (`IcbmConfig.KickAtTheRelease`), a target far off the
+      plane from `ORBIT 300` (40 N, 10 E: a four-hour coast) keeps a steady predicted miss through the coast and
+      lands inside 5 mm, where off it walked 0.35 -> 4.4 -> 1.35 km and landed 1.93 km out
+      (`docs/ICBM-OUTSTANDING.md` 1.14).
 
 ### 12.7 It lets go of its stack
 
