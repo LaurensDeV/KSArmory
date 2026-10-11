@@ -1706,7 +1706,11 @@ that can only leave *now* takes an eleven-kilometre-a-second answer, burns the t
 the wrong continent. The same shot costs two hundred metres a second most of a revolution later.
 Waiting is a fallback rather than an optimisation: it has to save kilometres a second, because the
 thing being traded away is arriving — and the earliest window within a margin of the best wins,
-because the cheapest departure in a day is not the one to want.
+because the cheapest departure in a day is not the one to want. **And once a hold has chosen a window it keeps it**
+(`BurnWindow.TryKeep`): searched afresh every five seconds, a near window drifting across that margin was swapped
+at the last minute for a later or dearer one, and burns lit 32 and 56 degrees off the plane. A fresh search wins
+only by agreeing or by finding an earlier window as good, and the kept one is refined about the instant first
+chosen -- refined about its own last refinement it walks away, the loft runaway again.
 
 **The horizon is a day, and the planet is why.** A revolution turns the ground twenty-two degrees,
 so within one orbit a target off the track stays off it and the only answer available is a plane

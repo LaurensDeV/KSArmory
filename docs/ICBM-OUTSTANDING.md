@@ -22,9 +22,8 @@ Other stacks (2.3, `0a1ab267`, one flight a cell): ThreeStage and SolidHeavy in 
 in millimetres at 6,179 and 2.3 km at 700 (1.12); OneStage destroyed at both, and whole within 5 mm with pulsing on,
 which ships on since 2026-10-11 (1.11). SolidCore (an all-solid first stage) in millimetres at both; BusEarly (the
 launcher's decoupler staged early) crashed with its warheads at both when refused, and lands within 5 mm at both with
-the release moved to the end, which ships (1.5). From orbit (`ORBIT 300`, 2026-10-11) a bus holding for its window keeps its jets and lands in
-millimetres when its window holds still -- which it does not reliably: of the last three, one lit on a far dearer
-window and landed 2.99 km out (1.13, 1.15).
+the release moved to the end, which ships (1.5). From orbit (`ORBIT 300`, 2026-10-11) a bus holding for its window keeps its jets and its window and
+lands in millimetres, 3 of 3 on the shipped settings (1.13, 1.15).
 
 **A level, not a floor, and not yet a promise.** SHORT-RANGE.md's own bar is 3–6 flights before naming a level; only
 `SOLVER SCALE 8` on Earth has flown long; 2,000–6,000 km has flown one night, two worlds a site (3fq); every night
@@ -45,10 +44,9 @@ throttle (1.2). `SaveRepairs` shipped in it and is removed on `dev` for the rele
 1.2's trim jets, 1.1's push through a stalled throttle-down, the stack wait (1.8) scoped to the split so long shots
 and walks are not held by it (1.10), the computer's targets and settings kept in the save the game actually loaded and wrote (1.4, verified in game),
 a walk priced at what the bus spends with the split reserve on its later hops (4.4), an orbital hold that warps
-and keeps its jets (1.9, 1.13), a coast that warps, and a stack whose throttle floor outruns its airframe
+and keeps its jets and its window (1.9, 1.13, 1.15), a coast that warps, and a stack whose throttle floor outruns its airframe
 pulsed rather than broken (1.11). a launcher's release staged too early moved to the end
-rather than losing the shot (1.5). 1.3, 1.12, 1.14 and 1.15 are robustness a player can live without for one more
-version, 1.15 the one a player holding in orbit is most likely to meet.
+rather than losing the shot (1.5). 1.3, 1.12 and 1.14 are robustness a player can live without for one more version.
 
 ## Tier 0 -- cheap, and every later night runs through them
 
@@ -81,7 +79,7 @@ version, 1.15 the one a player holding in orbit is most likely to meet.
 | 1.12 | **A first correction just over one pass is refused whole.** LowTWR at 700 km stalled and cut off 10.5 m/s short; its first post-boost correction asked 10.4 m/s against `BusTrim.MaxMetresPerSecond`'s 10, was refused, and all six warheads left 2.3 km out with nothing trimmed. **Not built 2026-10-10:** flying such a pass to the ceiling rather than refusing it is the first-pass ceiling raise MIRV-NEXT 8ae flew and lost (0 of 32 paid back against 12); the lever is upstream, the stall that cut off 10.5 m/s short, which is 1.1's family on a new stack. | SHORT-RANGE | M |
 | ~~1.13~~ | **Done 2026-10-11: a hold turns onto its burn just in time (`09054425`).** Held pointed on the bus's jets at KSA's Strict 0.2 deg a stack empties them in minutes at 1x (a minute left 0.55 m/s2, five left nothing, and two holds landed 1.2-1.7 km out); under a warp it burns nothing. The hold now drifts until the turn is due -- `Sim/HoldPointing.cs`, the turn's time from the nose's angle and the jets' own authority, with slack and a 30 s margin, up to 300 s -- drifts again if the window moves a minute or more away, and the computer's warp stops a minute before the turn. Flown on three holds: the jets kept 0.54-0.57 m/s2 to the trim on all three. `HoldPointsLoosely` (Balanced, 1 deg, off) flew five holds harmlessly and is now only a fallback. **The slack is a guess**: on one hold the warp overshot and the turn began 11 s before ignition against a 64 s lead -- 1.15. | ICBM-GUIDANCE "Attitude is driven"; `~/shots/2026-10-11-day` `jit-*` | done |
 | 1.14 | **A coast of hours far off the plane lands kilometres out.** `ORBIT 300` to 40 N, 10 E (43 deg off the plane, 12.5 km/s burned, four hours of coast): the trim alternated tail and belly every frame at about 1.8 m/s and then stopped closing with 15 m/s left, landing 1.93 km out (`~/shots/2026-10-11-day/far-fix`). One flight, on a geometry no player is likely to fly; read it before building anything. | flown | S |
-| 1.15 | **A hold's window moves under it, onto a dearer burn.** The burn-window search re-runs every 5 s, and `BurnWindow` takes the earliest window within a margin of the best; a near window whose cost drifts out of that margin as it approaches is swapped at the last minute for the next day's, or for a nearer one far off the plane. Flown 2026-10-11 from `ORBIT 300` to 31.3 N, 82 W, three holds on one save: lit 55.6, 3.6 and 32.1 deg off the plane at 9,184, 5,056 and 5,901 m/s to gain, the first landing 2.99 km out; and the window had already flipped between 1:07 and 23:55 away on earlier holds. Two consequences: **a warp aimed at the old instant overshoots the turn** (the turn began at 0 and 11 s before ignition against 85 and 64 s leads, and the computer's warp-stop fired at "0:00 to go"), and **a scenario that pressed warp once sits at 1x** after a window moves a day away (the scenario presses warp only once). The fixes, in order: keep the chosen window -- refine it rather than search afresh -- unless it becomes unaffordable; hold ignition until the nose is within a few degrees of the burn line when the turn starts late; and have the scenario press warp again whenever a long hold is not warping. | flown | M |
+| ~~1.15~~ | **Done 2026-10-11 (`d1174117`): a hold keeps its window and lights it only once turned.** The hold re-searched a day every 5 s and took the earliest window within 15% of the best, so a near window drifting across that line was swapped at the last minute for a later or dearer one: flown, burns lit 55.6 and 32.1 deg off the plane at 9,184 and 5,901 m/s, one landing 2.99 km out; a warp aimed at the old instant overshot the turn; and a scenario that pressed warp once sat at 1x after the window moved a day. Now a fresh search is taken only when it agrees with the window held or finds an earlier one as good, and otherwise the held window is refined about the instant first chosen (`BurnWindow.TryKeep`) -- about the last refinement instead, a window cheaper a little later walked away past the test's horizon, the shape this code has met before; after a real hold the burn waits up to two minutes for the nose to come within 10 deg of its line; and the scenario presses warp again whenever a long hold is not warping. `DeorbitTests.AKeptWindowStaysWhereItWasChosen`, `AHoldDoesNotLightMidTurn`. **Flown, three holds:** every warhead within 5 mm, every burn on the window it set out for, turns started 41-65 s before ignition. **One edge left:** a turn that runs past its window lets the window go, and the next search takes the same window an orbit later -- flown once, re-warped and landed in millimetres. Keeping the window while the turn is waited for is the fix, if it matters. | flown | done |
 
 ## Tier 2 -- measurement, before any more accuracy claims
 
@@ -148,13 +146,11 @@ countdown (built); 10-06's kick caps, solids hold, backstop and structure scorin
 
 ## Order of work
 
-Re-ranked 2026-10-11, evening. Done since the last ranking: 0.8, 1.4, 1.5, 1.11 (on), 1.13, 2.3, 2.5, 2.7, 4.3 (lost) and 4.4.
+Re-ranked 2026-10-11, evening. Done since the last ranking: 0.8, 1.4, 1.5, 1.11 (on), 1.13, 1.15, 2.3, 2.5, 2.7, 4.3 (lost) and 4.4.
 
-1. **1.15, a hold's window moving under it**: keep the chosen window, hold ignition until the turn is done, and have
-   the scenario re-press warp; then three holds to show the window stays put.
-2. **2.2's poor-frame-rate cell**: find a cap that bites (vsync off with `fpslimit`), then fly the cell.
-3. **Freeze the short-range code, then 2.1** over two nights; 1.12 and 3.2 belong to it.
-4. **1.14**, one long far-off-plane coast that landed 1.93 km out: read the log before building anything.
-5. **1.6 at the game**: the CHECKLIST lines nothing scripted can tick.
-6. **Tier 3 only once Tier 2 names the largest term left**, and Tier 4 by what players ask for -- 4.1 last, since it is
+1. **2.2's poor-frame-rate cell**: find a cap that bites (vsync off with `fpslimit`), then fly the cell.
+2. **Freeze the short-range code, then 2.1** over two nights; 1.12 and 3.2 belong to it.
+3. **1.14**, one long far-off-plane coast that landed 1.93 km out: read the log before building anything.
+4. **1.6 at the game**: the CHECKLIST lines nothing scripted can tick.
+5. **Tier 3 only once Tier 2 names the largest term left**, and Tier 4 by what players ask for -- 4.1 last, since it is
    the one that makes a promise.
