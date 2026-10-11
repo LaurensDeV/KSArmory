@@ -831,6 +831,17 @@ internal sealed class WeaponSystems(Config config)
     public SettingsMoment Remember()
     {
         string scope = SettingsStore.CurrentScope;
+
+        // Seen directly where the hook is in, so a save under a new name is written into rather than
+        // adopted as though it had been loaded.
+        bool savedNow = SaveHook.ConsumeSaved();
+        if (savedNow)
+        {
+            _scope = scope;
+            _savedAt = KsaWorld.CurrentSaveStamp();
+            return WriteDown();
+        }
+
         if (_scope.Length == 0)
         {
             // First pass: Sync has already applied whatever this bucket holds.
@@ -845,6 +856,8 @@ internal sealed class WeaponSystems(Config config)
             return SettingsMoment.Reopened;
         }
 
+        if (SaveHook.Installed) return SettingsMoment.Nothing;
+
         // Only when the game saves. A load then finds the settings as they were at that moment,
         // because nothing has been written over them since.
         long stamp = KsaWorld.CurrentSaveStamp();
@@ -856,7 +869,12 @@ internal sealed class WeaponSystems(Config config)
         // The first stamp seen is the save as it already was, not the player saving.
         if (firstSight) return SettingsMoment.Nothing;
 
-        Log.Info("settings: the game saved, writing the systems' settings with it");
+        return WriteDown();
+    }
+
+    private SettingsMoment WriteDown()
+    {
+        Log.Info($"settings: the game saved {SettingsStore.CurrentScope}, writing the systems' settings with it");
 
         bool changed = false;
         foreach (KeyValuePair<(Vehicle Craft, int Ordinal), Entry> kv in _entries)

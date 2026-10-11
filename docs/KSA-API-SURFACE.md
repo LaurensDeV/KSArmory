@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-302 types and 809 members across 11 assemblies.
+303 types and 811 members across 11 assemblies.
 
 ## BepuUtilities
 
@@ -967,6 +967,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.GameSave
 
 - `string get_Id()`
+- `void Load()`
 
 ### KSA.GameSaves
 
@@ -1669,6 +1670,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.double3 get_PositionEcl()`
 - `Brutal.Numerics.doubleQuat LocalRotation`
 - `void set_PositionEcl(Brutal.Numerics.double3)`
+
+### KSA.UncompressedSave
+
+- `KSA.GameSave Make(string)`
 
 ### KSA.Universe
 

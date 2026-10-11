@@ -573,9 +573,10 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/Icbm/IcbmComputer.Prediction.cs` | the flown impact prediction the aim correction reads |
 | `Ksa/Icbm/IcbmComputer.Reach.cs` | the divert footprint flown, pinned at the epoch, and read back as offsets and axes for the panel and the overlay |
 | `Ksa/Icbm/IcbmComputers.cs` | one per craft carrying a part that provides `Guidance` — **the MIRV bus alone today**, so a Pantsir or a rail gets none — crewed and forgotten with it |
-| `Ksa/AttitudeHook.cs` | **one of the six places this mod patches the game** — the only window in which an attitude command survives |
+| `Ksa/AttitudeHook.cs` | **one of the seven places this mod patches the game** — the only window in which an attitude command survives |
 | `Ksa/PreRenderHook.cs` | the second — **a step before the render on a frame that draws no UI**, because StarMap has no hook that is both |
 | `Ksa/WorldReloadHook.cs` | the third — **that a save was loaded**, which nothing else can tell: the mod never leaves the flight scene across one |
+| `Ksa/SaveHook.cs` | **which save is open, and that the game just wrote one** — postfixes on `UncompressedSave.Load` and `Make`, because KSA keeps no record of the loaded save and `GameSaves.Selected` is only the row highlighted in its list, which a console load, a scenario and a save-as never set |
 | `Ksa/RoundBodyDrawHook.cs` | the fourth — **a launcher's rounds drawn after the engine has culled the launcher**, because a body is one of its parts and KSA draws none of a craft under a pixel across |
 | `Ksa/LooseBodyDrawHook.cs` | **a destroyed launcher's rounds drawn anyway** — each round's mesh, taken off its subpart at `GoLoose`, added as an instance of the engine's own part model every viewport, because a model outlives the craft its parts were on — **and every gun shell with a model, launcher alive or not**, so however many are in the air: one instanced draw, no subpart each |
 | `Ksa/VehicleCommand.cs` | **the only place this mod flies somebody else's rocket** — attitude, throttle, ignition, staging |
@@ -680,7 +681,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 809 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 811 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -1278,7 +1279,7 @@ Do the private repo *before* pushing here, or CI fails on the lock it cannot sat
 member that keeps its name and signature and changes its *meaning* — a different reference
 frame, different units, a reordered enum — compiles clean and is wrong in flight. That is what
 the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from 684,000 lines to the files
-defining the 302 types this mod actually uses.
+defining the 303 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 45 in total, 14 MB —
@@ -1854,7 +1855,7 @@ angle-of-attack limiter on pressure rather than density or altitude is what make
 Moon work without anything knowing the Moon has no air — thin air at two kilometres a second is
 still kilopascals.
 
-**Attitude is written from a Harmony prefix, and it is one of six patches.** KSA
+**Attitude is written from a Harmony prefix, and it is one of seven patches.** KSA
 double-buffers a vehicle's flight computer: `ApplyVehicleSolvers` writes the worker's result over
 it, `ExecuteNextVehicleSolvers` snapshots it for the next worker, and *then* the GUI pass runs — so
 a command written from any StarMap hook is not in the snapshot and is overwritten before anything
@@ -3335,11 +3336,13 @@ mis-tagged guard is found before a merge rather than never — what is lost is *
   deleting a save deletes its settings, copying copies them, renaming takes them along. A session
   with no save open falls back to `<user dir>/KSArmory/`, and the first save opened adopts it.
 
-  **Settings are written when the game writes its save**, detected by watching `universe.xml`'s
-  timestamp — not continuously. A continuous write is what stops a reload restoring anything: the
+  **Settings are written when the game writes its save**, seen through `Ksa/SaveHook.cs`'s postfix on
+  `UncompressedSave.Make`, which is every save, overwrite and save-as and knows its name — not continuously.
+  Where the hook cannot be installed, `universe.xml`'s timestamp is watched instead. A continuous write is what stops a reload restoring anything: the
   file is always already up to date with the session, so there is nothing older to go back to.
   What is *not* persisted is system *state* — ammo, tracks, rounds in flight all start fresh.
 
   A ballistic computer's setup rides the same write into `ballistic.json` beside it, keyed on the
   craft's name: its `IcbmConfig` and its target set, **never its flight**, so a computer saved armed,
-  burning or coasting comes back disarmed and idle with its targets. Not yet verified in game.
+  burning or coasting comes back disarmed and idle with its targets. Verified in game 2026-10-11: a save-as mid-flight
+  wrote two non-default settings and both targets, and a fresh game loading it logged them restored, disarmed.

@@ -1750,7 +1750,7 @@ internal static class KsaWorld
     {
         try
         {
-            if (GameSaves.Selected?.Id is not { Length: > 0 } id) return 0;
+            if (CurrentSaveId() is not { Length: > 0 } id) return 0;
 
             string folder = Path.Combine(GameSaves.SaveFolderPath, id);
             string universe = Path.Combine(folder, "universe.xml");
@@ -1829,6 +1829,7 @@ internal static class KsaWorld
     {
         try
         {
+            if (SaveHook.Installed) return SaveHook.OpenSaveId ?? string.Empty;
             return GameSaves.Selected?.Id ?? string.Empty;
         }
         catch
