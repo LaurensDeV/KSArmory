@@ -17,8 +17,8 @@ namespace KSArmory.Tests;
 /// each other rather than colliding; one frame of command latency and nothing else of the engine's frame order;
 /// no tube offsets, ring or spin, so every warhead leaves the same state and one is flown; no release sequence, so
 /// the warheads go on the frame the trim lets them; no terrain; and none of the computer's readouts or its
-/// arrival release (<c>ReleaseAnArrivalTheTrimCannotFly</c>). A walk is flown to stops it is given, one warhead each, with
-/// no planner choosing them. The warhead falls through
+/// arrival release (<c>ReleaseAnArrivalTheTrimCannotFly</c>). A walk is flown either to stops it is given, one warhead
+/// each, or to <see cref="PlannedTargets"/>, planned as the computer plans one. The warhead falls through
 /// <see cref="ImpactPredictor"/> at a finer step than the probe, not as a <see cref="Slug"/>.</para>
 /// </summary>
 internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
@@ -73,6 +73,31 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
     internal readonly record struct Stop(double LandedMetres, double DivertMetresPerSecond, double SpentMetresPerSecond);
 
     public List<Stop> Stops { get; } = [];
+
+    /// <summary>
+    /// A set the rig plans its own walk over, as <c>IcbmComputer</c> does: the reach flown every few seconds of
+    /// coast, the stops and their order from <see cref="ReachDisplay"/> and <see cref="ReleaseWalker"/>, and each hop
+    /// asked of the trim before it is flown. <see cref="Fly"/> is given the lead. Empty flies <see cref="WalkAimsAtEpoch"/>.
+    /// </summary>
+    public List<(double3 AimAtEpoch, int Warheads)> PlannedTargets { get; } = [];
+
+    public int PlannedLead;
+
+    /// <summary>The plan the walker took, for a test to read; default until one is taken.</summary>
+    public ReleaseWalk Plan => _walker.Walk;
+
+    /// <summary>Whether a hop was refused and the walk ended where the bus was.</summary>
+    public bool Curtailed => _walker.Curtailed;
+
+    // Ksa/Icbm/IcbmComputer.cs's reach cadence.
+    private const double ReachIntervalSeconds = 5.0;
+
+    private readonly ReleaseWalker _walker = new();
+    private DivertFootprint? _footprint;
+    private double3 _landingNowCci;
+    private double _landingAt = double.NaN;
+    private double _sinceReach = double.PositiveInfinity;
+    private ReachDisplay? _reach;
 
     private readonly AimCorrection _aim = new();
     private readonly BusTrim _trim = new();
@@ -242,6 +267,8 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
             FreezeOrResume();
             Predict(h, state);
 
+            if (PlannedTargets.Count > 0) PlanTheWalk(h, state, t);
+
             bool atCutoff = Program.ReleasesAtCutoff;
             bool burnOver = Program.Phase == IcbmPhase.Coast && !atCutoff && Program.IsShortShot;
             if ((_command.ReadyToDeploy && !atCutoff) || burnOver) SeparateOnce();
@@ -259,10 +286,39 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
                 Stops.Add(new Stop(released.LandedMetres, spent - spentAtLastStop, spent));
                 spentAtLastStop = spent;
 
-                if (++stop >= stops) return released;
+                if (PlannedTargets.Count > 0)
+                {
+                    if (!_walker.Walking) return released;
 
-                aimAtEpoch = WalkAimsAtEpoch[stop - 1];
-                HandOver(stop, stops);
+                    for (int w = _walker.Step.Warheads; w > 0; w--) _walker.WarheadAway();
+                    ReleaseStep step = _walker.Step;
+
+                    if (!step.Handover)
+                    {
+                        _walker.Finish();
+                        return released;
+                    }
+
+                    if (ReleaseLoop.CanFlyTheHop(step.NextHopMetresPerSecond, _trim.ToGainMetresPerSecond,
+                                                 PostCutoffSequence.CeilingFor(0, Budget, _trim.SpentMetresPerSecond),
+                                                 _trim.SpentMetresPerSecond, Budget, step.NextPassMetresPerSecond)
+                        != HopHold.WillFly)
+                    {
+                        _walker.StopHere();
+                        return released;
+                    }
+
+                    _walker.Advance();
+                    aimAtEpoch = PlannedTargets[step.NextTarget].AimAtEpoch;
+                    HandOverToPlanned();
+                }
+                else
+                {
+                    if (++stop >= stops) return released;
+
+                    aimAtEpoch = WalkAimsAtEpoch[stop - 1];
+                    HandOver(stop, stops);
+                }
             }
 
             double next = _command.ReadyToDeploy || _didSplit ? StepSeconds : CoastStepSeconds;
@@ -311,6 +367,113 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
         _holdingCostForPass = -1;
         _trimFloor = double.NaN;
         _trimFloorForPass = -1;
+    }
+
+    // IcbmComputer.TrimBudgetMetresPerSecond: the split's reserve once a walk's first stop has let go.
+    private double Budget
+        => ReleaseLoop.BudgetWithReserve(Config.TrimBudgetMetresPerSecond,
+                                         ReleaseLoop.ReserveReleased(Config.SpendTheSplitReserveAfterTheFirstStop,
+                                                                     _walker.FirstStopAway));
+
+    private int WarheadsAboard
+    {
+        get
+        {
+            int n = 0;
+            foreach ((double3 _, int w) in PlannedTargets) n += w;
+            return n;
+        }
+    }
+
+    // IcbmComputer.RefreshReach and FlyTheReach, less the overlay: the plan is all the rig reads.
+    private void PlanTheWalk(double step, in IcbmState state, double t)
+    {
+        bool coasting = Program.Phase == IcbmPhase.Coast;
+        double coast = _walker.CoastForPlanning(Program.CommittedArrivalFromNow, coasting);
+
+        if (coasting)
+        {
+            _sinceReach += step;
+            if (_sinceReach >= ReachIntervalSeconds) FlyTheReach(state, t);
+        }
+
+        List<ReachDisplay.Placed> placed = [];
+        foreach ((double3 aim, int warheads) in PlannedTargets)
+        {
+            double along = 0.0, cross = 0.0;
+            bool known = _reach is { } r && double.IsFinite(_landingAt)
+                         && r.TryOffsets(Body, Body.CarryCci(aim, t) - Body.CarryCci(_landingNowCci, t - _landingAt),
+                                         out along, out cross);
+            placed.Add(known ? new ReachDisplay.Placed(along, cross, warheads) : new ReachDisplay.Placed(0.0, 0.0, 0));
+        }
+
+        ReachDisplay reach = ReachDisplay.For(
+            _footprint, placed,
+            new ReleaseItinerary.Bus(Config.ReleaseBeforeArrivalSeconds, coast, WarheadsAboard,
+                                     FromCutoff: Config.WalkStartsAtCutoff,
+                                     ReserveAfterFirstStopMetresPerSecond: Config.SpendTheSplitReserveAfterTheFirstStop
+                                                                               ? ReleaseLoop.SplitNullReserveMetresPerSecond
+                                                                               : 0.0),
+            Program.Phase, false, TargetSet.MaxTargets, KSArmory.Warhead.LethalRadius(Warhead.ChargeKg), PlannedLead,
+            ReachHold.Unflown, Config.PriceEachHopAtItsSlot, Config.PriceHopsAtWhatTheTrimPays);
+        _reach = reach;
+
+        if (reach.Flown.Stops > 0) _walker.Plan(reach.Flown);
+        Program.ReleaseGateSeconds = _walker.GateOverrideSeconds(Config.ReleaseBeforeArrivalSeconds);
+    }
+
+    private void FlyTheReach(in IcbmState state, double t)
+    {
+        _sinceReach = 0.0;
+
+        double3 positionCci = state.PositionCci;
+        double3 velocityCci = state.VelocityCci + ReleaseImpulseCci();
+        if (!AimCorrection.DepartureIsWorthObserving(DensityAt(positionCci)))
+        {
+            _footprint = null;
+            return;
+        }
+
+        ReleaseFocus.FlownSensitivity? flown = ReleaseFocus.FlownSensitivity.TryFly(
+            Body, positionCci, velocityCci,
+            new ReleaseFocus.Air(new ImpactPredictor.Drag(DensityAt, Warhead), PredictStepSeconds, Body.SurfaceRadius,
+                                 Config.PredictionStopsOnTheSurface, Config.PredictionStopsOnTheTerrain));
+
+        if (flown is null || !DivertFootprint.TryFrom(Body, flown, DivertFootprint.ArrivalClock.Pinned,
+                                                       fromTheRealState: true, out DivertFootprint footprint))
+        {
+            _footprint = null;
+            return;
+        }
+
+        Frame(out double3 nose, out double3 right, out double3 down);
+        if (Config.PriceHopsAtWhatTheTrimPays
+            && DivertFootprint.TryAxisPrice(Body, flown, nose, right, down, out DivertFootprint.AxisPrice axes))
+        {
+            footprint = footprint with { Axes = axes };
+        }
+
+        _footprint = footprint;
+        _landingNowCci = Body.CarryCci(flown.ArrivedCci, -flown.FlightSeconds);
+        _landingAt = t;
+    }
+
+    // IcbmComputer.HandOverTo, for a walk the rig planned: the walker sets the gate.
+    private void HandOverToPlanned()
+    {
+        _aim.Retarget(Config.CarryAimBiasAcrossHops);
+        Program.CorrectCoastArc();
+        _trim.Resume();
+        _postBoost.Reset();
+        _trimAbandoned = false;
+        _postBoostSaid = false;
+        _measureDue = false;
+        _freshMiss = double.NaN;
+        _holdingCost = double.NaN;
+        _holdingCostForPass = -1;
+        _trimFloor = double.NaN;
+        _trimFloorForPass = -1;
+        Program.ReleaseGateSeconds = _walker.GateOverrideSeconds(Config.ReleaseBeforeArrivalSeconds);
     }
 
     private void Knock()
@@ -451,7 +614,7 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
 
         PostCutoffSequence.Plan plan = PostCutoffSequence.Decide(
             clearance.IsClear, clearance.Abandoned, _postBoost.Cycles,
-            Config.TrimBudgetMetresPerSecond, _trim.SpentMetresPerSecond, Config.KeepOutCoversTheClearance);
+            Budget, _trim.SpentMetresPerSecond, Config.KeepOutCoversTheClearance);
 
         if (plan.Abandon)
         {
@@ -467,7 +630,7 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
         TrimCommand trim = _trim.Update(step, new TrimSituation(
             state.Body, state.PositionCci, state.VelocityCci,
             Program.ReferencePositionCci, Program.Arc?.RequiredVelocityCci ?? Vec.Zero, Program.SecondsSinceReference,
-            nose, right, down, _mayTrim, Config.TrimBudgetMetresPerSecond, _keepOutTowardCci,
+            nose, right, down, _mayTrim, Budget, _keepOutTowardCci,
             plan.CeilingMetresPerSecond,
             Config.PulseTrim ? Config.PulseSeconds : 0.0,
             Config.StallFallsBackToHolding,

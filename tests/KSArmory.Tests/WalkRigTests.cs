@@ -65,4 +65,48 @@ public class WalkRigTests(ITestOutputHelper Out)
                         $"stop {k + 1} cost {rig.Stops[k].DivertMetresPerSecond:F2} after {rig.Stops[k - 1].DivertMetresPerSecond:F2}");
         }
     }
+
+    // The flown 4 km six-target walk at 6,181 km (MIRV-TARGETS, "six stops to the ground"): 12 of 12 buses walked four
+    // stops without the split reserve and five with it. The rig plans four and six: a stop optimistic with the reserve.
+    private PastCutoffRig Planned(bool reserve)
+    {
+        IcbmProgram program = new(new IcbmConfig
+        {
+            Armed = true, MaxAccelerationGee = 8.0f, MinArrivalAngleDeg = 0.0, ArrivalPreference = 0.5, FlyAnyRange = true,
+            PulsesBelowTheFloor = false, SpendTheSplitReserveAfterTheFirstStop = reserve,
+        });
+
+        PastCutoffRig rig = PastCutoffRig.For(GameStackShortRangeTests.GameStack(true), program,
+                                              Arsenal.Mk21WithDragFromShape(Arsenal.ReentryVehicleMk21), DensityAt);
+        rig.ThrusterMetresPerSecond2 = 0.55;
+        rig.ShoveMetresPerSecond = 1.0;
+        for (int k = 0; k < 6; k++) rig.PlannedTargets.Add((GameStackShortRangeTests.South(6_181_000.0 - k * 4_000.0), 1));
+        rig.PlannedLead = 0;
+
+        PastCutoffRig.Outcome last = rig.Fly(GameStackShortRangeTests.South(6_181_000.0));
+        Out.WriteLine($"reserve {(reserve ? "on" : "off")}: planned {rig.Plan.Stops} stops, flew {rig.Stops.Count}, "
+                      + $"curtailed {rig.Curtailed}: {last.Said}");
+        for (int k = 0; k < rig.Stops.Count; k++)
+        {
+            Out.WriteLine($"  stop {k + 1}: landed {rig.Stops[k].LandedMetres:F2} m, divert {rig.Stops[k].DivertMetresPerSecond:F2} m/s");
+        }
+
+        return rig;
+    }
+
+    [Fact]
+    public void APlannedWalkLandsEveryStopItFliesAndTheReserveBuysAnother()
+    {
+        PastCutoffRig off = Planned(reserve: false);
+        PastCutoffRig on = Planned(reserve: true);
+
+        Assert.True(off.Plan.Stops >= 4, $"planned {off.Plan.Stops} stops without the reserve");
+        Assert.True(on.Stops.Count > off.Stops.Count, $"the reserve flew {on.Stops.Count} stops against {off.Stops.Count}");
+
+        foreach (PastCutoffRig rig in new[] { off, on })
+        {
+            int landedOwn = rig.Curtailed ? rig.Stops.Count - 1 : rig.Stops.Count;
+            for (int k = 0; k < landedOwn; k++) Assert.True(rig.Stops[k].LandedMetres < 1.0, $"stop {k + 1} landed {rig.Stops[k].LandedMetres:F2} m out");
+        }
+    }
 }
