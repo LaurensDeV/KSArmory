@@ -36,7 +36,7 @@ namespace KSArmory;
 internal static class AttitudeHook
 {
     /// <summary>What a vehicle should be pointed at, until told otherwise.</summary>
-    internal readonly record struct Aim(double3 DirectionCci, double3 RollReferenceCci);
+    internal readonly record struct Aim(double3 DirectionCci, double3 RollReferenceCci, bool Loosely);
 
     private const string HarmonyId = "com.kesslersystems.ksarmory.attitude";
 
@@ -165,10 +165,10 @@ internal static class AttitudeHook
     }
 
     /// <summary>Point this craft here, every frame, until <see cref="Release"/>.</summary>
-    public static void Hold(Vehicle craft, double3 directionCci, double3 rollReferenceCci)
+    public static void Hold(Vehicle craft, double3 directionCci, double3 rollReferenceCci, bool loosely = false)
     {
         if (!KsaWorld.IsAlive(craft)) return;
-        Wanted[craft] = new Aim(directionCci, rollReferenceCci);
+        Wanted[craft] = new Aim(directionCci, rollReferenceCci, loosely);
     }
 
     /// <summary>
@@ -392,7 +392,7 @@ internal static class AttitudeHook
             if (Wanted.Count == 0) return;
             if (!Wanted.TryGetValue(__instance, out Aim aim)) return;
 
-            VehicleCommand.TryAim(__instance, aim.DirectionCci, aim.RollReferenceCci);
+            VehicleCommand.TryAim(__instance, aim.DirectionCci, aim.RollReferenceCci, aim.Loosely);
         }
         catch (Exception e)
         {

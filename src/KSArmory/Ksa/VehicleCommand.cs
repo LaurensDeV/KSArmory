@@ -49,7 +49,7 @@ internal static class VehicleCommand
     /// zero: a commanded inertial direction wants no feed-forward, and the horizon frame's rates
     /// would have the flight computer chasing a rotation nobody asked for.</para>
     /// </summary>
-    public static bool TryAim(Vehicle craft, double3 directionCci, double3 rollReferenceCci)
+    public static bool TryAim(Vehicle craft, double3 directionCci, double3 rollReferenceCci, bool loosely = false)
     {
         if (!KsaWorld.IsAlive(craft)) return false;
         if (KsaWorld.ParentBody(craft) is not { } parent) return false;
@@ -90,7 +90,7 @@ internal static class VehicleCommand
         // are two orders finer, and nothing lowers it again: measured at 11.4 degrees of deadband
         // against a live rate bit worth 0.07. Assigning the profile puts it back, and KSA's own max
         // re-establishes the real floor on the same frame.
-        computer.SetAttitudeProfile(FlightComputerAttitudeProfile.Strict);
+        computer.SetAttitudeProfile(loosely ? FlightComputerAttitudeProfile.Balanced : FlightComputerAttitudeProfile.Strict);
 
         // An automatic burn would fight this for the attitude and run its own throttle.
         computer.BurnMode = FlightComputerBurnMode.Manual;

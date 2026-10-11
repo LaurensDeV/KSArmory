@@ -967,7 +967,9 @@ internal sealed partial class IcbmComputer
             }
             else
             {
-                AttitudeHook.Hold(Craft, _deploy.DirectionCci, _deploy.RollCci);
+                // A Strict deadband held through a wait empties the bus's jets in minutes, flown.
+                AttitudeHook.Hold(Craft, _deploy.DirectionCci, _deploy.RollCci,
+                                  loosely: Config.HoldPointsLoosely && Program.Phase == IcbmPhase.Holding);
                 aimed = AttitudeHook.Installed;
                 if (aimed) _driving = true;
             }

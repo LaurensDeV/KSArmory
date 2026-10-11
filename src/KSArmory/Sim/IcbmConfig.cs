@@ -395,6 +395,13 @@ internal sealed class IcbmConfig
     public bool HoldDriftsUntilIgnition;
 
     /// <summary>
+    /// Point with KSA's Balanced profile while holding for a window, 1 deg of deadband against Strict's 0.2, and Strict once
+    /// the burn lights. Off, Strict throughout: flown from <c>ORBIT 300</c>, a minute of pointing at 1x left the jets 0.55
+    /// m/s2 and 4.5-5 minutes left them empty. Unflown.
+    /// </summary>
+    public bool HoldPointsLoosely;
+
+    /// <summary>
     /// Under an arrival floor, asked or preferred, take no aim reading during the burn and latch the arrival without
     /// waiting for one; the passes after cutoff still correct. The floored search hops between arcs as the correction
     /// opens, and it banks the hop as drag. Flown neutral on a solid deorbit stage; unflown on a liquid one.

@@ -1118,6 +1118,14 @@ internal sealed partial class Ui
             + $"{IcbmProgram.PointBeforeIgnitionSeconds / 60.0:F0} minutes. Off: it points for the whole wait, which a long "
             + "hold pays for in RCS propellant the trim then lacks. Unflown.");
 
+        bool loosely = config.HoldPointsLoosely;
+        if (ImGui.Checkbox("A hold points loosely", ref loosely))
+        {
+            config.HoldPointsLoosely = loosely;
+        }
+        Tip("On: while waiting for a burn window the bus is pointed to 1 deg, and to 0.2 deg once the burn lights. "
+            + "Off: 0.2 deg throughout, which a few minutes of waiting at 1x pays for with every drop in the bus's jets. Unflown.");
+
         bool waitsUnderFloor = config.AimWaitsForCutoffUnderAFloor;
         if (ImGui.Checkbox("Aim correction waits for cutoff under a floor", ref waitsUnderFloor))
         {
