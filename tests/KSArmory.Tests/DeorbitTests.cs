@@ -153,4 +153,54 @@ public class DeorbitTests
         Assert.True(double.IsFinite(command.SecondsToArrival),
                     "and it still knows when the warheads land");
     }
+
+    /// <summary>
+    /// The burn lights half its length before the window, so the world has to be slowed by then and
+    /// not by the window itself: a warp still running at ignition flies the first frame of the burn
+    /// on a step of minutes. Stepped at 30 s, as a warp does, on a stage weak enough that the lead is
+    /// several minutes, and slowed to 0.1 s once it asks, as the warp policy would.
+    /// </summary>
+    [Fact]
+    public void AHoldAsksForShortStepsBeforeItLightsTheBurn()
+    {
+        IcbmFlightRig orbit = InOrbit(300_000.0, 0.0);
+        IcbmFlightRig rig = new()
+        {
+            Body = Earth,
+            PositionCci = orbit.PositionCci,
+            VelocityCci = orbit.VelocityCci,
+            Stages = [new() { DryMassKg = 3_000, PropellantKg = 40_000, ThrustNewtons = 6_000, ExhaustVelocity = 3_100 }],
+        };
+        double3 aim = At(0.0, -0.6);
+
+        IcbmProgram program = new(new IcbmConfig { Armed = true, MinArrivalAngleDeg = 0.0 });
+        double3 position = rig.PositionCci, velocity = rig.VelocityCci;
+        bool heldOver = false, shortBefore = false;
+        double litOnStep = double.NaN;
+
+        for (double t = 0.0, step = 30.0; t < 20_000.0; t += step)
+        {
+            step = program.NeedsShortSteps ? 0.1 : 30.0;
+
+            IcbmState state = new(Earth, position, velocity, Earth.CarryCci(aim, t), HasAim: true,
+                                  rig.Performance(), 0.0, PropellantAvailable: true);
+
+            bool wasShort = program.NeedsShortSteps;
+            IcbmCommand command = program.Update(step, state);
+
+            if (command.Phase is not IcbmPhase.Holding and not IcbmPhase.Idle)
+            {
+                heldOver = true;
+                shortBefore = wasShort;
+                litOnStep = step;
+                break;
+            }
+
+            Assert.True(Kepler.TryCoast(Mu, position, velocity, step, out position, out velocity));
+        }
+
+        Assert.True(heldOver, "it never left the hold");
+        Assert.True(shortBefore, "it lit the burn with the world still free to warp");
+        Assert.True(litOnStep <= 1.0, $"it lit the burn on a {litOnStep:F0} s step");
+    }
 }

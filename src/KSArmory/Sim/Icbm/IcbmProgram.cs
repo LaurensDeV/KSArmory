@@ -263,8 +263,10 @@ internal sealed partial class IcbmProgram
     /// </summary>
     public const double AssumedBurnLeadSeconds = 20.0;
 
-    /// <summary>Warp is held this long before the window opens, not only during the burn itself.</summary>
+    /// <summary>Warp is held this long before ignition, not only during the burn itself.</summary>
     public const double WarpHoldLeadSeconds = 60.0;
+
+    public const double LightOnStepsUnderSeconds = 1.0;
 
     /// <summary>
     /// How long before the release the world has to be back at normal speed.
@@ -482,6 +484,11 @@ internal sealed partial class IcbmProgram
 
     private double _sinceWindow = double.PositiveInfinity;
     private double _windowWait = double.NaN;
+
+    // The burn is centred on the window, so it lights this long before it.
+    private double _burnLead;
+
+    private double SecondsToIgnition => Math.Max(_windowWait - _burnLead, 0.0);
     private double _windowCost;
     private double3 _windowDirection;
     private double _shortfall;
@@ -630,7 +637,7 @@ internal sealed partial class IcbmProgram
         => double.IsFinite(_closestOffPlane) ? _closestOffPlane * 180.0 / Math.PI : double.NaN;
 
     /// <summary>Seconds until the burn should start, or zero once it has. NaN when unknown.</summary>
-    public double SecondsToBurn => Phase == IcbmPhase.Holding ? Math.Max(_windowWait, 0.0)
+    public double SecondsToBurn => Phase == IcbmPhase.Holding ? SecondsToIgnition
                                  : IsBurning ? 0.0
                                  : double.NaN;
 
@@ -650,7 +657,7 @@ internal sealed partial class IcbmProgram
     /// </summary>
     public bool NeedsShortSteps
         => IsBurning
-        || (Phase == IcbmPhase.Holding && double.IsFinite(_windowWait) && _windowWait <= WarpHoldLeadSeconds);
+        || (Phase == IcbmPhase.Holding && double.IsFinite(_windowWait) && SecondsToIgnition <= WarpHoldLeadSeconds);
 
     /// <summary>
     /// How long until the warheads arrive, from now. NaN once the burn is over, where the flown
@@ -781,6 +788,7 @@ internal sealed partial class IcbmProgram
         ArrivalFloorDeg = double.NaN;
         ArrivalFloorFromDeg = double.NaN;
         _windowWait = double.NaN;
+        _burnLead = 0.0;
         _windowCost = 0.0;
         _windowDirection = Vec.Zero;
         _shortfall = 0.0;

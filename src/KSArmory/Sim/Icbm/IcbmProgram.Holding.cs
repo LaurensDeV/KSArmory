@@ -44,7 +44,10 @@ internal sealed partial class IcbmProgram
 
         if (!double.IsFinite(lead)) lead = AssumedBurnLeadSeconds;
 
-        if (_windowWait <= lead)
+        _burnLead = lead;
+
+        // A burn lit on a warped step flies its first frame for minutes; NeedsShortSteps is already slowing the world.
+        if (_windowWait <= lead && _lastStep <= LightOnStepsUnderSeconds)
         {
             Phase = IcbmPhase.ClosedLoop;
             _lineCarriedOver = true;
@@ -66,7 +69,7 @@ internal sealed partial class IcbmProgram
                                ReadyToDeploy: false,
                                Hold: $"holding for the burn window, {Clock(_windowWait)} away",
                                Reach: Reach, SecondsToArrival: SecondsToArrival,
-                               SecondsToBurn: Math.Max(_windowWait, 0.0),
+                               SecondsToBurn: SecondsToIgnition,
                                ShortfallMetresPerSecond: _shortfall);
     }
 }

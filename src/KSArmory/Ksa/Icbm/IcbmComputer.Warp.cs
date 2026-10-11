@@ -191,6 +191,16 @@ internal sealed partial class IcbmComputer
             return;
         }
 
+        // A hold's ignition can come inside the margin when the window moves under a warp.
+        if (KsaWorld.IsAutoWarpActive && SecondsToTheNextThingThatMatters <= IcbmProgram.WarpHoldLeadSeconds)
+        {
+            Log.Info($"stopping the warp on {KsaWorld.DisplayName(Craft)}, "
+                     + $"{IcbmProgram.Clock(SecondsToTheNextThingThatMatters)} to go");
+            KsaWorld.StopAutoWarp();
+            _warpIsOurs = false;
+            return;
+        }
+
         // Still running: leave it alone. It stops itself at the margin, which is the whole reason
         // for asking it to stop short rather than braking the world by hand.
         if (KsaWorld.IsAutoWarpActive) return;
