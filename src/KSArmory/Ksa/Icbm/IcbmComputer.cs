@@ -443,10 +443,11 @@ internal sealed partial class IcbmComputer
     /// a twenty-five minute coast and the rest still warps. Turning the coast warp off outright buys
     /// the same accuracy and costs the player the whole fall in real time.</para>
     /// </summary>
-    // The post-boost loop starts out Settling, so before cutoff it reads as correcting and would hold every orbital hold at real time.
+    // The post-boost loop starts out Settling and is stepped only once the bus is ready to release, so until then it
+    // reads as correcting and would hold a hold, and a coast of hours, at real time.
     public bool NeedsShortSteps => Program.NeedsShortSteps || TrimIsFiring || PostBoostIsCorrecting;
 
-    private bool PostBoostIsCorrecting => Program.Phase == IcbmPhase.Coast && _postBoost.Correcting;
+    private bool PostBoostIsCorrecting => Command.ReadyToDeploy && _postBoost.Correcting;
 
     /// <summary>Which of <see cref="NeedsShortSteps"/>'s three terms is holding the world, for the warp log.</summary>
     public string ShortStepsBecause
