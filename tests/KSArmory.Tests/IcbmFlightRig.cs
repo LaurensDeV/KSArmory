@@ -84,6 +84,9 @@ internal sealed class IcbmFlightRig
     /// <summary>Called every closed-loop frame under inertia: time, throttle, velocity to gain, pointing error, rate.</summary>
     public Action<double, double, double, double, double, double3>? AttitudeTrace;
 
+    /// <summary>Called after every program update: time, phase, altitude, velocity to gain, throttle achieved.</summary>
+    public Action<double, IcbmPhase, double, double, double>? StepTrace;
+
     /// <summary>
     /// A drag area fixed to the airframe, divided by whatever the stack weighs now. Zero leaves
     /// <see cref="DragAreaOverMass"/> in charge, which holds the deceleration constant as the stack
@@ -464,6 +467,8 @@ internal sealed class IcbmFlightRig
                                       OnlySolidsRunning: StageIndex < Stages.Count && Stages[StageIndex].Solid);
 
                 command = program.Update(elapsed == 0.0 ? 0.0 : h, state);
+                StepTrace?.Invoke(elapsed, program.Phase, Vec.Len(PositionCci) - Body.SurfaceRadius, program.VelocityToGain,
+                                  ThrottleAchieved);
 
                 // The next sequence, whatever it happens to be: on an unlit stack it is the
                 // ignition, and only after that does it drop what is below.
