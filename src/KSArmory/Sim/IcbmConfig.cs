@@ -378,9 +378,10 @@ internal sealed class IcbmConfig
     /// <summary>
     /// Hand the ascent to the closed loop once burning on the schedule has raised the velocity to gain past
     /// <see cref="IcbmProgram.OutrunShareOfTheStack"/> of what the stack holds, on a stage that can stop. Flown 2026-10-12, RealSRB4
-    /// at 1,000 km: 3 of 3 stayed on the schedule to 88 km and burned out 12.8-13.7 km/s short. <c>docs/ICBM-OUTSTANDING.md</c> 1.17.
+    /// at 1,000 km: off, 3 of 3 burned out 12.8-13.7 km/s short; on, 3 of 3 within 2.5 mm, and it never trips on GeoSat FAT at
+    /// 1,983 km. <c>docs/ICBM-OUTSTANDING.md</c> 1.17.
     /// </summary>
-    public bool HandsOverWhenBurningAddsToTheShot = false;
+    public bool HandsOverWhenBurningAddsToTheShot = true;
 
     /// <summary>
     /// Resume the aim correction at cutoff rather than on the first frame the engines are off, which a hold for a burn

@@ -1194,7 +1194,7 @@ internal sealed partial class Ui
         }
         Tip("On: once burning on the pitch programme has raised the velocity to gain past "
             + $"{IcbmProgram.OutrunShareOfTheStack:P0} of what the stack holds, on a stage that can stop, the closed loop takes "
-            + "over inside the air. Off: a stack flown flat and fast stays on the schedule until it burns out. Unflown.");
+            + "over inside the air. Off: a stack flown flat and fast stays on the schedule until it burns out.");
 
         bool waitsOut = config.TrimWaitsOutTheStack;
         if (ImGui.Checkbox("Trim waits for the spent stack to open", ref waitsOut))
