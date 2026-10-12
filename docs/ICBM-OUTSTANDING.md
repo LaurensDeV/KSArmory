@@ -167,6 +167,13 @@ and 4.4.
    stops as base's (none truncated that base completed), every released warhead stays within 10 mm, the paired
    per-target landing ratio's upper bound is under 1.25, and no short-range cell fails to complete that completed on
    night one. Otherwise it stays off and the night says which condition failed.
+   **Block 1 failed the walk condition, and why is the gate:** the base buses walked 5 stops; the pkg buses walked
+   none, every warhead to one stop. A later gate shortens every stop's fall, so the reach per m/s shrinks and every hop
+   is dearer -- the first hop priced 13.0 m/s against base's 10.8, which is 420/350 -- over one pass, so no walk was
+   planned before the split, and the split then waited for the plain 350 s gate. **Re-declared:** `base|kf`
+   (`KickAtTheRelease`, `FreezeKeepsABetterRecentAim`, gate left at 420) on the same walk set, 6 blocks, judged on the
+   same walk, 10 mm and 1.25 conditions; the short-range cells keep the full package, being single-target. If both
+   pass, what can ship is the two switches on and the 350 s gate for single-target shots only.
 2. **1.18**: the stack, diagnosed -- its upper bell strikes the interstage on every flight. Decide between a stack fix and a computer-side hold on the upper's steering after a staging; read what RealLiquid3 does differently first.
 3. **2.1's second night**: the cells not yet flown (100, 150, 200, 300 km, and GeoSat FAT and the Any stacks), one
    flight each, completion first. 1.12 and 3.2 belong to it.
