@@ -178,6 +178,18 @@ internal sealed class ReleaseWalker
         => Walking ? ReleaseLoop.FirstBeforeArrivalSeconds(_walk, gateSeconds) : double.NaN;
 
     /// <summary>
+    /// <see cref="GateOverrideSeconds"/>, or <see cref="IcbmConfig.SingleTargetReleaseBeforeArrivalSeconds"/> for a
+    /// computer with one target. Several targets keep the walk's gate even before a walk is planned, because the split and
+    /// the pricing of the first hop are both counted from it.
+    /// </summary>
+    public double GateOverrideSeconds(IcbmConfig config, int targets)
+    {
+        double walk = GateOverrideSeconds(config.ReleaseBeforeArrivalSeconds);
+        if (double.IsFinite(walk) || targets > 1) return walk;
+        return config.SingleTargetReleaseBeforeArrivalSeconds >= 0.0 ? config.SingleTargetReleaseBeforeArrivalSeconds : double.NaN;
+    }
+
+    /// <summary>
     /// How much of the magazine <see cref="ReleaseSequence"/> may let go, which is this stop's quota
     /// rather than everything loaded.
     /// </summary>

@@ -124,6 +124,13 @@ internal sealed class IcbmConfig
     public double ReleaseBeforeArrivalSeconds = 420.0;
 
     /// <summary>
+    /// The release gate for a computer with one target, in seconds before arrival; negative is
+    /// <see cref="ReleaseBeforeArrivalSeconds"/>. A walk keeps that one, since a later gate shortens every stop's fall
+    /// and prices its hops past one pass: 13.0 m/s at 350 s against 10.8 at 420, flown. <c>docs/ICBM-OUTSTANDING.md</c> 1.14.
+    /// </summary>
+    public double SingleTargetReleaseBeforeArrivalSeconds = -1.0;
+
+    /// <summary>
     /// How much the bus may spend on trimming across the whole flight, in m/s; zero is none, negative
     /// unlimited. Defaults to <see cref="PostBoostAim.MaxTrimMetresPerSecond"/>, the reserve sized against
     /// what a bus carries: a separate 25 bound first and stopped a committed pass 0.45 m/s short.

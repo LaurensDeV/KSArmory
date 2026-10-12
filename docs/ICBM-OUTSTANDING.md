@@ -185,6 +185,13 @@ and 4.4.
    and RealLiquid2's 1,000 km upper engine surviving its strike this time (1.18). Defaults not moved: the walk
    condition is declared and failed, and the 350 s gate needs the single-target-only form built before it can ship
    at all. `~/shots/2026-10-12-pkg`.
+   **Built 2026-10-12, off: `SingleTargetReleaseBeforeArrivalSeconds`**, chosen in `ReleaseWalker.GateOverrideSeconds`
+   (`OnlyOneTargetTakesTheSingleTargetGate`): one target takes it, several keep the walk's 420 even before a walk is
+   planned, since the split and the first hop's price are counted from it. **Declared (`~/shots/2026-10-12-single`):**
+   `base|pkg2` with pkg2 = the two switches and the single gate at 350 -- 6 blocks at Chaco, one target, and 2 on the
+   walk set. pkg2 ships as the default if the Chaco landing ratio's upper bound is under 1.0 (this morning's `late` was
+   0.74x [0.63, 0.94]), every warhead within 10 mm, and on the walk set pkg2 plans the same stop counts as base, every
+   warhead within 10 mm.
 2. **1.18**: the stack, diagnosed -- its upper bell strikes the interstage on every flight. Decide between a stack fix and a computer-side hold on the upper's steering after a staging; read what RealLiquid3 does differently first.
 3. **2.1's second night**: the cells not yet flown (100, 150, 200, 300 km, and GeoSat FAT and the Any stacks), one
    flight each, completion first. 1.12 and 3.2 belong to it.

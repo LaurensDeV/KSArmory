@@ -87,6 +87,20 @@ public class ReleaseWalkerTests(ITestOutputHelper Out)
         }
     }
 
+    [Fact]
+    public void OnlyOneTargetTakesTheSingleTargetGate()
+    {
+        IcbmConfig config = new() { SingleTargetReleaseBeforeArrivalSeconds = 350.0 };
+
+        Assert.Equal(350.0, new ReleaseWalker().GateOverrideSeconds(config, targets: 1));
+        Assert.True(double.IsNaN(new ReleaseWalker().GateOverrideSeconds(config, targets: 2)));
+        Assert.True(double.IsNaN(new ReleaseWalker().GateOverrideSeconds(new IcbmConfig(), targets: 1)));
+
+        ReleaseWalker walking = Walking(4);
+        Assert.Equal(walking.GateOverrideSeconds(Gate), walking.GateOverrideSeconds(config, targets: 4));
+        Assert.True(walking.GateOverrideSeconds(config, targets: 4) > Gate);
+    }
+
     /// <summary>
     /// <b>The mirror, and the one nothing had.</b> The same three numbers on a set of <em>two</em>:
     /// the gate opens a hop early, the sequencer is bounded to the stop's quota rather than handed

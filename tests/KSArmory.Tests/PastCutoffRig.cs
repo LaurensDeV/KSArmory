@@ -419,7 +419,7 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
         _reach = reach;
 
         if (reach.Flown.Stops > 0) _walker.Plan(reach.Flown);
-        Program.ReleaseGateSeconds = _walker.GateOverrideSeconds(Config.ReleaseBeforeArrivalSeconds);
+        Program.ReleaseGateSeconds = _walker.GateOverrideSeconds(Config, Math.Max(PlannedTargets.Count, 1));
     }
 
     private void FlyTheReach(in IcbmState state, double t)
@@ -473,7 +473,7 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
         _holdingCostForPass = -1;
         _trimFloor = double.NaN;
         _trimFloorForPass = -1;
-        Program.ReleaseGateSeconds = _walker.GateOverrideSeconds(Config.ReleaseBeforeArrivalSeconds);
+        Program.ReleaseGateSeconds = _walker.GateOverrideSeconds(Config, Math.Max(PlannedTargets.Count, 1));
     }
 
     private void Knock()

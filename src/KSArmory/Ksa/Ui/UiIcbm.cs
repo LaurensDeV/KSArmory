@@ -707,7 +707,23 @@ internal sealed partial class Ui
         }
         Tip("The warheads are held until this long before arrival, so the ejection kick has less "
             + "flight to grow in. At 0 they go as soon as the altitude allows, which is early on the "
-            + "way up.");
+            + "way up. A walk between several targets ends its last release here.");
+
+        bool ownGate = config.SingleTargetReleaseBeforeArrivalSeconds >= 0.0;
+        if (ImGui.Checkbox("One target releases on its own gate", ref ownGate))
+        {
+            config.SingleTargetReleaseBeforeArrivalSeconds = ownGate ? 350.0 : -1.0;
+        }
+        if (ownGate)
+        {
+            float single = (float)config.SingleTargetReleaseBeforeArrivalSeconds;
+            if (ImGui.SliderFloat("One target at", ref single, 0f, 900f, "%.0f s before arrival"))
+            {
+                config.SingleTargetReleaseBeforeArrivalSeconds = single;
+            }
+        }
+        Tip("On: a shot at one target lets its warheads go at this gate instead. A walk keeps the gate above, "
+            + "since a later one shortens every stop's fall and prices its hops past what one pass flies.");
 
         bool trim = config.TrimBeforeRelease;
         if (ImGui.Checkbox("Trim the bus before releasing", ref trim)) config.TrimBeforeRelease = trim;

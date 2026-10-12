@@ -871,10 +871,9 @@ internal sealed partial class IcbmComputer
             return;
         }
 
-        // NaN unless a walk is running, and then when its first release is due -- gate + (N-1) x 65 s,
-        // so the LAST release lands on the setting, or the start of the coast with WalkStartsAtCutoff.
-        // A walk of one is NaN, which leaves the program reading the setting live as it always has.
-        Program.ReleaseGateSeconds = _walker.GateOverrideSeconds(Config.ReleaseBeforeArrivalSeconds);
+        // A walk's first release is gate + (N-1) x 65 s, so the LAST lands on the setting, or the start of the coast
+        // with WalkStartsAtCutoff. NaN leaves the program reading the setting live.
+        Program.ReleaseGateSeconds = _walker.GateOverrideSeconds(Config, _targets.Count);
 
         bool wasBurning = Program.IsBurning;
         Command = Program.Update(simStep, state);
