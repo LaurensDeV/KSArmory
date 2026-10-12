@@ -105,6 +105,14 @@ On the 3,459 km deorbit every budget in this repository is measured on
 **153 m** from a converged flight of the same round, and the extrapolation is a fit rather than a
 guess.
 
+**Re-flown 2026-10-12, and the table above is wrong where the step exceeds 1 ms.** The rig handed the
+round its step as the frame, and the round sub-steps at its own 1 ms whatever the frame is, so every
+row above 1 ms flew at 1 ms. Flown at the stated sub-step (`Arsenal.RoundAtSubStep`), on this harness's
+first-order round: 5 ms 68.7 m, 2.5 ms 30.5 m, 1 ms 22.9 m, 0.5 ms 7.6 m -- not linear, and the
+shipped Mk 21 is the 1 ms row, 22.9 m on this first-order flight. The 153 m and every figure built on
+it below are an artefact; the integrator term the table at the top carries, 5.4 mm, is the
+second-order round's and is unaffected.
+
 ### It is a wrong place, not a wrong time — and that is why the angle helps
 
 A 5 ms round arrives 20.6 ms early. The ground turns 9.6 m under it in that, against a 145 m miss,
@@ -567,8 +575,8 @@ millimetres at 32 degrees for no propellant at all.
 - **Nothing here is flown but the sub-step**, below. It is headless, and the rig's planet is at the origin.
 - **The ruler.** Every budget in this repository scores a miss with `R * Vec.AngleBetween`. As an arc
   cosine that could not read under **13.4 cm**, and the 5 ms figures above were taken through it;
-  `Vec.AngleBetween` is now `atan2`, and `TheHarnessCannotScoreAMissUnderThirteenCentimetres` — named
-  for the old floor — reads 3.12 cm as 3.12 cm.
+  `Vec.AngleBetween` is now `atan2`, and `TheHarnessReadsMillimetreMissesAsTheyAre` reads 3.12 cm as
+  3.12 cm.
 
 ---
 
