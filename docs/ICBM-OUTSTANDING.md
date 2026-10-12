@@ -160,7 +160,12 @@ and 4.4.
 
 1. **The 1.14/1.16 package at a 350 s gate**: a walk night and a short-range check with `KickAtTheRelease`,
    `FreezeKeepsABetterRecentAim` and `ReleaseBeforeArrivalSeconds` 350, since the walk is counted back from the gate;
-   then the three defaults move together or not at all.
+   then the three defaults move together or not at all. **Declared and flying 2026-10-12 (`~/shots/2026-10-12-pkg`):**
+   `base|pkg` on the 4 km six-target set from `SOLVER SCALE 8`, 8 blocks; then the three Real stacks at 25, 418 and
+   1,000 km with the package, one flight a cell against 2.1's night one. The package ships if pkg buses walk as many
+   stops as base's (none truncated that base completed), every released warhead stays within 10 mm, the paired
+   per-target landing ratio's upper bound is under 1.25, and no short-range cell fails to complete that completed on
+   night one. Otherwise it stays off and the night says which condition failed.
 2. **1.18**: the stack, diagnosed -- its upper bell strikes the interstage on every flight. Decide between a stack fix and a computer-side hold on the upper's steering after a staging; read what RealLiquid3 does differently first.
 3. **2.1's second night**: the cells not yet flown (100, 150, 200, 300 km, and GeoSat FAT and the Any stacks), one
    flight each, completion first. 1.12 and 3.2 belong to it.
