@@ -122,18 +122,17 @@ internal sealed partial class IcbmComputer
         }
     }
 
-    // What came off at the last staging, by the same difference WhatWasDropped uses. Run one frame
-    // late because the stage is deferred through the engine's input buffer -- a census taken on the
-    // frame the command was issued sees the world before it.
+    // What came off at the last staging, by the same difference WhatWasDropped uses. Taken every frame
+    // until something appears, because the stage goes through AttitudeHook's queue and the engine's
+    // input buffer and lands frames after the command, about 0.02 s on a core staging.
     private void CollectShedStages()
     {
         if (!_awaitingStage) return;
 
-        _awaitingStage = false;
-
         _afterStage.Clear();
         KsaWorld.CollectVehicles(_afterStage);
 
+        bool found = false;
         for (int i = 0; i < _afterStage.Count; i++)
         {
             Vehicle other = _afterStage[i];
@@ -146,8 +145,12 @@ internal sealed partial class IcbmComputer
             }
 
             _shed.Add(other);
+            found = true;
         }
 
+        if (!found && double.IsFinite(_sinceStaging) && _sinceStaging <= StagingWindowSeconds) return;
+
+        _awaitingStage = false;
         _wasBeforeStage.Clear();
     }
 
