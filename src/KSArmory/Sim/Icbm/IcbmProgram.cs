@@ -312,6 +312,15 @@ internal sealed partial class IcbmProgram
     /// </summary>
     public const double LatchArrivalWithinSeconds = 20.0;
 
+    /// <summary>Under <see cref="IcbmConfig.StagesIntoTheAirflow"/>, the air a spent stage is turned into it in.</summary>
+    public const double StageIntoTheAirflowAbovePa = 1_000.0;
+
+    /// <summary>How near the airflow the nose must be before the spent stage goes.</summary>
+    public const double StageIntoTheAirflowWithinDeg = 3.0;
+
+    /// <summary>How long a staging is held for the turn before it goes anyway: a dry stage is only dead weight.</summary>
+    public const double StageIntoTheAirflowForSeconds = 10.0;
+
     /// <summary>
     /// How long after the solids burn out inside the closed loop before a steady aim may latch the arrival, under
     /// <see cref="IcbmConfig.LatchWaitsOutTheSolids"/>: the aim read steady against the solid stage's projection, and
@@ -477,6 +486,7 @@ internal sealed partial class IcbmProgram
     private double _sinceCutoff;
     private double _sinceClosedLoop;
     private double _sinceSolidsOut = double.NaN;
+    private double _stageHeldForTheAirflow;
     private double _lastStep;
     private bool _resolveCoastArc;
     private double _throttle = 1.0;
@@ -811,6 +821,7 @@ internal sealed partial class IcbmProgram
         _sinceCutoff = 0.0;
         _sinceClosedLoop = 0.0;
         _sinceSolidsOut = double.NaN;
+        _stageHeldForTheAirflow = 0.0;
         _lastStep = 0.0;
         _throttle = 1.0;
         _lowestToGain = double.PositiveInfinity;
@@ -1034,6 +1045,13 @@ internal sealed partial class IcbmProgram
         bool stage = Config.AutoStage && _stageCooldown <= 0.0 && (unlit || SolidsUnderWeight(state))
                      && (_thrustSeen || !_everLit);
 
+        if (stage && unlit && _everLit && HoldsTheStageForTheAirflow(phase, state))
+        {
+            stage = false;
+            direction = Vec.Unit(state.AirflowCci);
+            hold = "turning into the airflow to drop the spent stage";
+        }
+
         // The dry timer deliberately keeps running across a stage request. Clearing it here means
         // a stack with nothing left to stage asks again every cooldown for ever, and a flight that
         // is over never ends.
@@ -1041,6 +1059,7 @@ internal sealed partial class IcbmProgram
         {
             _stageCooldown = StageCooldownSeconds;
             _thrustSeen = false;
+            _stageHeldForTheAirflow = 0.0;
         }
 
         if (phase != IcbmPhase.ClosedLoop) _throttle = 1.0;
@@ -1079,6 +1098,24 @@ internal sealed partial class IcbmProgram
                                _toGain, Math.Max(_countdown, 0.0), ReadyToDeploy: false, Hold: hold,
                                Reach: Reach, SecondsToArrival: SecondsToArrival, SecondsToBurn: 0.0,
                                ShortfallMetresPerSecond: _shortfall, Pulsing: pulsing && !waiting);
+    }
+
+    // A dry stage dropped in the air at an angle of attack is pushed sideways by its own drag into what it leaves:
+    // RealLiquid2's core, at 24 deg and 7.7 kPa, struck the upper's bell every flight. Turned into the airflow first, the
+    // drag is along the stack. Bounded, so a stack that cannot turn still stages.
+    private bool HoldsTheStageForTheAirflow(IcbmPhase phase, in IcbmState state)
+    {
+        if (!Config.StagesIntoTheAirflow || phase != IcbmPhase.ClosedLoop) return false;
+        if (state.DynamicPressurePa < StageIntoTheAirflowAbovePa || state.ThrustAxisCci.Equals(Vec.Zero)) return false;
+        if (_stageHeldForTheAirflow >= StageIntoTheAirflowForSeconds) return false;
+
+        double off = double.RadiansToDegrees(Vec.AngleBetween(state.ThrustAxisCci, state.AirflowCci));
+        if (off <= StageIntoTheAirflowWithinDeg) return false;
+
+        // The dry timer waits out the turn: it would otherwise give the burn up 4 s into one.
+        _stageHeldForTheAirflow += _lastStep;
+        _drySeconds = Math.Max(0.0, _drySeconds - _lastStep);
+        return true;
     }
 
     /// <summary>A duration a person can read at a glance, which "4271 s" is not.</summary>

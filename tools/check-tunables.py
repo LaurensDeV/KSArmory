@@ -135,6 +135,7 @@ EXEMPT = {
 # The ballistic computer's research switches: flown as arms from a shot spec, which sets a field by name,
 # and taken off the panel because the shipped default is the answer. ICBM-OUTSTANDING 5.5.
 RESEARCH = (
+    "StagesIntoTheAirflow",
     "LatchWaitsOutTheSolids",
     "AimResumesAtCutoff",
     "AimWaitsForCutoffUnderAFloor",

@@ -393,6 +393,14 @@ internal sealed class IcbmConfig
     public bool LatchWaitsOutTheSolids = false;
 
     /// <summary>
+    /// Before dropping a dry stage inside the air during the closed loop, turn the nose into the airflow. Off, the
+    /// stage goes at whatever angle of attack the guidance holds: RealLiquid2 at 1,000 km drops its core at 24 deg and
+    /// 7.7 kPa, and the core's sideways drag carries it into the upper's bell, striking it every flight and breaking
+    /// the engine on four of six. <c>docs/ICBM-OUTSTANDING.md</c> 1.18.
+    /// </summary>
+    public bool StagesIntoTheAirflow = false;
+
+    /// <summary>
     /// Resume the aim correction at cutoff rather than on the first frame the engines are off, which a hold for a burn
     /// window spends. In <c>PastCutoffRig</c>, an orbital bus aimed 400 km behind: off, 0 post-boost passes and released
     /// 404.6 m out; on, 4 passes and 1.3 m. Paired on the pad at 6,181 km, 1.07x [0.73, 1.59] over 32 rockets, both near
