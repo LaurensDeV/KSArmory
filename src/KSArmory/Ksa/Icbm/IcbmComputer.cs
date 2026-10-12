@@ -70,6 +70,7 @@ internal sealed partial class IcbmComputer
     private int _trimFloorForPass = -1;
     private bool _resumedForCoast;
     private bool _aimResetForTheOutrun;
+    private bool _aimRebasedForTheSolids;
     private bool _trimAbandoned;
     private double _departsIn;
     private double _coastedToRelease;
@@ -551,6 +552,7 @@ internal sealed partial class IcbmComputer
         _trimFloorForPass = -1;
         _resumedForCoast = false;
         _aimResetForTheOutrun = false;
+        _aimRebasedForTheSolids = false;
         _trimAbandoned = false;
         _trimShape = "";
         _saidTrim = "";
@@ -736,6 +738,7 @@ internal sealed partial class IcbmComputer
         _trimFloorForPass = -1;
         _resumedForCoast = false;
         _aimResetForTheOutrun = false;
+        _aimRebasedForTheSolids = false;
         _trimAbandoned = false;
         _trimShape = "";
         _saidTrim = "";
@@ -931,6 +934,14 @@ internal sealed partial class IcbmComputer
         }
 
         // Read off a schedule that was adding to the shot, which the closed loop is about to stop flying.
+        if (Program.SolidsWentOutInTheLoop && !_aimRebasedForTheSolids)
+        {
+            _aimRebasedForTheSolids = true;
+            Log.Info($"{KsaWorld.DisplayName(Craft)} ICBM: the solids burned out in the closed loop; the aim keeps its "
+                     + $"{Distance.Say(Vec.Len(_aim.BiasCci))} of bias and forgets its best");
+            _aim.Rebase();
+        }
+
         if (Program.OutranTheStack && !_aimResetForTheOutrun)
         {
             _aimResetForTheOutrun = true;

@@ -599,6 +599,12 @@ internal sealed partial class IcbmProgram
     /// </summary>
     public bool OutranTheStack { get; private set; }
 
+    /// <summary>
+    /// Whether solids have burned out inside the closed loop, under <see cref="IcbmConfig.LatchWaitsOutTheSolids"/>. The
+    /// prediction steps at their jettison, so the best miss the aim banked against the solid stage's projection is void.
+    /// </summary>
+    public bool SolidsWentOutInTheLoop => double.IsFinite(_sinceSolidsOut);
+
     /// <summary>Whether this flight cut off in the air as a short shot, and so releases at cutoff.</summary>
     public bool ReleasesAtCutoff => _releasesAtCutoff;
 

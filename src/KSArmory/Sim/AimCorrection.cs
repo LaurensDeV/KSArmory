@@ -508,6 +508,19 @@ internal sealed class AimCorrection
         _haveLast = false;
     }
 
+    /// <summary>
+    /// Forget the best miss and keep the aim, for a plant that has just stepped under it: readings against the new
+    /// prediction would otherwise all count as worse than a best banked on the old one, and settle back onto it.
+    /// </summary>
+    public void Rebase()
+    {
+        Settled = false;
+        _bestMiss = double.PositiveInfinity;
+        _bestBias = BiasCci;
+        _worseFor = 0;
+        _recentCount = 0;
+    }
+
     public void Reset()
     {
         _recentCount = 0;
