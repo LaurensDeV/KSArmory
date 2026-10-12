@@ -1,6 +1,6 @@
 # Six warheads, six targets
 
-**Mostly a plan, and no longer entirely.** Phases 1 and 2 are built. `TargetSet` is the list of up to six
+**Mostly built.** Phases 1 to 4 are built, 3 and 4 flown in scenarios; phase 5 is not. `TargetSet` is the list of up to six
 targets with their warhead counts and the release plan a flight would read, `TargetEdit` is when that list
 may be edited, `IcbmComputer` holds one, a click on the world past cutoff adds to it, and the panel lists it
 with per-target counts and a remove. `DivertFootprint` is the reach on the ground, taken off the sensitivity
@@ -9,12 +9,12 @@ answer the outline, the cursor and the panel all read — so the region drawn an
 disagree. **And the list can now be assembled before launch**, because pinned the reach is the release epoch
 rather than the arc: the booster is then aimed at the farthest target, which is what the release loop needs
 of it. **What is still not built is the missile's own reach before target 1**: that is `IcbmReach` asked
-along bearings per candidate point, tens of milliseconds a ring. **Phase 3 is built and unflown**: the bus
+along bearings per candidate point, tens of milliseconds a ring. **Phase 3 is built and flown, at up to six targets**: the bus
 walks the itinerary, re-aiming and releasing each target's quota, and `Sim/ReleaseWalker.cs` is what makes a
 set of one execute none of it — so that shot, which every accuracy measurement on this mod is taken against,
 is the one it has always been.
 
-**And phase 4's instruments are built beside it, also unflown.** `ShotBoard` scores a salvo one group per
+**And phase 4's instruments are built beside it, and flown with it.** `ShotBoard` scores a salvo one group per
 target, `BallisticScenario` asks for several and prints a `TARGET` line each, and `shot-report.py` reads
 them. A warhead is scored against the target `IcbmComputer.TargetOfRound` recorded for it at the release,
 which is the only reading that survives the walk: the lead moves at the next handover, so asking at impact
@@ -108,8 +108,8 @@ From the player's side:
    **outside reach**; a click there does nothing.
 3. The first click places target 1. **Targets 2–6 can be placed before launch as well as during the
    coast**, because pinned the footprint is the release epoch and not the arc — see *The pad can draw
-   the pinned reach* below. The region shrinks with each one added, and the ring sits around the last
-   target placed rather than around the landing, because that is where the next hop starts.
+   the pinned reach* below. The region shrinks with each one added, and the ring sits around the walk's last
+   stop rather than around the landing, because that is where the next hop starts.
 4. The panel lists the targets, how many warheads each gets, and whether the whole set fits the bus's
    fuel and the time left before reentry. Targets can be removed; removing one gives its reach back.
 5. Launch as today. The rocket flies to target 1's trajectory, and after separation the bus releases,
@@ -163,11 +163,12 @@ what a player actually spends.
 **It shrinks as targets are added, because divert is spent in sequence.** Going from target *i* to target
 *i+1* costs roughly the velocity change that moves the landing between them. The reach for the next target is
 whatever is left after the ones already chosen, taken along the cheapest order through them. Six points have
-720 orders, so the cheapest is found by trying them all.
+720 orders. Built, the order is greedy nearest-first from the lead, not the cheapest of the 720 — see
+*Both of those, diagnosed* below.
 
 ### How it is drawn
 
-* A **ground outline**, draped on the terrain like the existing aim ring (`IcbmOverlay`), in the designation
+* A **ground outline**, painted by the ring pass like the aim ring (`IcbmOverlay`), in the designation
   colour: the missile's reach before target 1, the bus footprint after.
 * **Drawn at the ceiling the loop can actually spend**, which is `BusTrim.MaxMetresPerSecond` — 10 m/s, not
   the 30–45 the budget suggests. At 6,179 km that is about **6.9 x 3.6 km** free-clock and **3.5 x 3.5 km**
@@ -303,7 +304,7 @@ as landing, with zero `intercepted` lines in the whole night. `AimSpread`'s frat
 
 **The filter is load-bearing here and was not written for this.** Its comment says a launcher must not
 shoot down its own missiles as they leave the tubes — it fills `_incoming` for the *radar*, and the splash
-sweep at `WeaponSystem.cs:3399` walks that same list. So this plan depends on a list built for targeting
+sweep in `WeaponSystem.Detonate` walks that same list. So this plan depends on a list built for targeting
 also being the one the blast reads, which is true today and is nobody's stated invariant. That is what A'
 is for.
 
@@ -327,7 +328,8 @@ Options:
 filtering a system's own rounds, since the whole cost of A is that one line in `FillIncoming`.
 
 * **Default split**: all six spread evenly over the chosen targets, the remainder to the earliest-chosen
-  (2 targets: 3 and 3; 4 targets: 2, 2, 1, 1).
+  (2 targets: 3 and 3; 4 targets: 2, 2, 1, 1). *Built otherwise: a target is added with no warheads
+  (`TargetSet.TryAdd`), so spares stay aboard until the panel's **Split evenly** (`TargetSet.Balance`).*
 * **Per-target count** in the panel, 1–6, total at most six. Warheads not assigned anywhere are **kept aboard**
   (option B) and the panel says so, so B stays available to a player who wants it.
 * **No stagger.** It was this plan's mechanism for "two on one" and phase 0 retired it: the warheads
@@ -344,7 +346,8 @@ aim correction, release all six ~22 ms apart (`ReleaseSequence`), each with its 
 
 With several targets, the release step becomes a loop:
 
-1. **Order** the targets by the cheapest divert sequence (the same order the reach display used).
+1. **Order** the targets by the cheapest divert sequence (the same order the reach display used). Built as
+   nearest-first from the lead (`ReachDisplay.Order`).
 2. **For each target in order**: solve the trajectory to it, trim the bus onto it (`BusTrim` against that
    solution), run the aim correction (`PostBoostAim`), release that target's warheads — all of them, together
    — with their kicks, and record which tube went where.
@@ -363,6 +366,8 @@ the same 10 m/s the ring is drawn at, because `ReachDisplay` deliberately sizes 
 against it and refuse, not to lift it.
 
 ### Phase 3 found two things, and the first blocks it — 2026-09-20
+
+*Both are fixed: see* The booster is aimed at the farthest target *and* The hop is charged where it is measured *above.*
 
 **The itinerary starts where the bus is not.** `ReleaseItinerary` orders farthest-reach-first and takes stop 0
 to be the one "the bus already arrives on" — which needs the booster aimed at the *farthest* target. But
@@ -405,13 +410,14 @@ Every one of these is behind "a walk exists", so a set of one executes none of t
   `ReleaseSequence.Emptied` latches at zero and is then the signal that a stop is done — and it is zero
   again once the walk is over, because **a rack reloads a few seconds after a salvo** and would otherwise
   send warheads the plan never assigned anywhere.
-* **A handover puts back**: `TargetSet.SetLead`; `AimCorrection.Reset` (the bias is the ground under the *old*
+* **A handover puts back**: `TargetSet.SetLead`; the aim correction (the bias is the ground under the *old*
   aim); `IcbmProgram.CorrectCoastArc`; `BusTrim.Resume` — **never `Reset`**, which would zero
   `SpentMetresPerSecond` and hand the budget back; `PostBoostAim.Reset`; `ReleaseSequence.Reset` (its tube
   reference is the old attitude); `SalvoProbe.Forget`, the miss-kick sums and the salvo's flown kick columns,
   because a probe of the previous target's trajectory solves the wrong kick. And `_trimAbandoned`, or a stop
   that released untrimmed leaves every later one untrimmed too. The aim goes through
-  `AimCorrection.Retarget` rather than `Reset`: the bias belongs to the old aim and has to go, but the
+  `AimCorrection.Retarget` rather than `Reset`, which starts the stop from the bias the last one walked to
+  while `IcbmConfig.CarryAimBiasAcrossHops` is on (it ships on) and from zero otherwise; the
   plant is the coast's, and `Reset` re-seeds it at the pre-burn `1 / Gain` — quarter steps, which buys a
   pass, and a coast pass is a median 65 s.
 * **`SalvoFinished` and `_salvoAway` have to mean "the walk is over"**, not "a warhead has left": both gate
@@ -481,7 +487,8 @@ then cuts it exactly as `CoastFits` did. At two targets the threshold is a neigh
 the gate. Not fixed, because both ways out are worse than the fault — latching the reach at cutoff
 over-promises a walk the bus cannot pay for at the gate, which is what `ReleaseLoop` exists to refuse,
 and pricing each slot at its own reach needs a decay model nothing has measured. What is fixed is that
-it can no longer happen **silently**.
+it can no longer happen **silently**. *Since priced per slot: `IcbmConfig.PriceEachHopAtItsSlot`, on — see* Both
+levers built *below.*
 
 **And the obvious fixture would not have.** `ReleaseWalkerTests.ASetOfTwoDrivesEveryNumberTheFlightReads`
 is the one-target sweep at arity two — a bounded `TubesLeft`, a finite `GateOverrideSeconds`, an
@@ -622,11 +629,11 @@ So the shipped answer is **two to six targets on the gate-ending schedule**, 4.5
 | | What | Flies anything? |
 | --- | --- | --- |
 | ~~0~~ | **Done** — `tests/KSArmory.Tests/MirvDivertTests.cs`. ±100 km is real **only from cutoff**; at today's release gate the footprint is a 34 × 18 km box. See the three findings at the top. | No |
-| 1 | **Targets as data**. **Done** — `Sim/TargetSet.cs`, `Sim/TargetEdit.cs`, `ShotRequest` naming several, the list on `IcbmComputer` with `Designate` split from `AddTarget`, clicks that add **before launch and during the coast**, and the panel's rows. Which entry the flight is aimed at is `TargetSet.LeadIndex`, re-elected to the farthest reach by `ElectFarthestLead` on every add while the aim is still free — so the flown order and the itinerary's agree, which is what unblocked phase 3. Where the warheads go is phase 3's, and what `BallisticScenario` designates is still the first place alone. | Unchanged |
-| 2 | **Reach display**. **Done, both sides of cutoff** — `Sim/DivertFootprint.cs` is both clocks plus `TryAtTheEpoch` for a flight that has not flown, and `Sim/ReachDisplay.cs` is the drawn region, the cursor's verdict and the panel's readout as one answer; `IcbmOverlay` drapes the ellipse and numbers the targets, and `SiteDesignator` greys the ring and says **outside reach**. **The missile's own region before target 1 is not built** and is the only part of this row left: it is a reach solve per candidate point along a bearing sweep, 37–68 ms a ring, so it wants the few-bearings-a-frame build this row's prose describes. | No |
-| 3 | **The release loop**: re-aim per target, per-warhead target bookkeeping in the log. Shared targets release together. **Built and flown** (2026-09-21 and 2026-10-01, below) — `Sim/ReleaseLoop.cs` plans the walk and `Sim/ReleaseWalker.cs` is the cursor the flight is actuated through: `IcbmComputer` opens the gate early, hands the sequencer a stop's quota, and on each handover re-aims, resets the seven things a stop owns and lets `BusTrim` null onto the new solution. The ceiling turned out not to need raising, six targets 4 km apart pricing at 55.1 m/s against the 60 cap. **Both blockers are gone**: the arrival needs no re-latch (`ResolveCoastArc` already solves pinned) and the booster flies to the farthest. **Nothing in it executes for a set of one** — `ReleaseWalker.Walking` is false, so the gate is NaN and the program reads the setting live. | Yes — flown at four targets |
+| 1 | **Targets as data**. **Done** — `Sim/TargetSet.cs`, `Sim/TargetEdit.cs`, `ShotRequest` naming several, the list on `IcbmComputer` with `Designate` split from `AddTarget`, clicks that add **before launch and during the coast**, and the panel's rows. Which entry the flight is aimed at is `TargetSet.LeadIndex`, re-elected to the farthest reach by `ElectFarthestLead` on every add while the aim is still free — so the flown order and the itinerary's agree, which is what unblocked phase 3. Where the warheads go is phase 3's; `BallisticScenario` designates the first place and adds the rest. | Unchanged |
+| 2 | **Reach display**. **Done, both sides of cutoff** — `Sim/DivertFootprint.cs` is both clocks plus `TryAtTheEpoch` for a flight that has not flown, and `Sim/ReachDisplay.cs` is the drawn region, the cursor's verdict and the panel's readout as one answer; the ring pass paints the reach and `IcbmOverlay` numbers the targets, and `SiteDesignator` greys the ring and says **outside reach**. **The missile's own region before target 1 is not built** and is the only part of this row left: it is a reach solve per candidate point along a bearing sweep, 37–68 ms a ring, so it wants the few-bearings-a-frame build this row's prose describes. | No |
+| 3 | **The release loop**: re-aim per target, per-warhead target bookkeeping in the log. Shared targets release together. **Built and flown** (2026-09-21 and 2026-10-01, below) — `Sim/ReleaseLoop.cs` plans the walk and `Sim/ReleaseWalker.cs` is the cursor the flight is actuated through: `IcbmComputer` opens the gate early, hands the sequencer a stop's quota, and on each handover re-aims, resets the seven things a stop owns and lets `BusTrim` null onto the new solution. The ceiling turned out not to need raising, six targets 4 km apart pricing at 55.1 m/s against the 60 cap. **Both blockers are gone**: the arrival needs no re-latch (`ResolveCoastArc` already solves pinned) and the booster flies to the farthest. **Nothing in it executes for a set of one** — `ReleaseWalker.Walking` is false, so the gate is NaN and the program reads the setting live. | Yes — flown at up to six targets |
 | 4 | **Instruments and nights**: per-target scoring in `shot-report.py`, the matching check with one target, then 2/4/6. **The instruments are built and flown at four targets** — `ShotBoard`, the scenario's `TARGET` lines and per-warhead attribution, and the report's `== targets` section with `miss`, `spread`, `landing`, `centre` and `dispersion` all reduced per target. Checked on a synthetic night and against two real single-target nights that still read byte for byte. | Yes |
-| 5 | **Later**: area targets (option C), saving the target list with the craft, reordering by hand. | — |
+| 5 | **Later**: area targets (option C), reordering by hand. The list is saved, in the save's `ballistic.json` keyed on the craft's name. | — |
 
 **A budget problem, and it is smaller than the worst case said.** Five hops at
 `BusTrim.MaxMetresPerSecond` plus the 16.1 m/s a single-target flight already spends is **66 m/s against
@@ -649,8 +656,8 @@ shown and the ground the bus can reach are one answer.
 second night at 6,135 km confirmed it costs nothing where it never fires — `docs/ACCURACY-PLAN.md` 3fh and
 3fj. Six diverts on that loop are six passes rather than six chances to lose the shot.
 
-**What blocks phase 3 now is neither of those**: it is that the itinerary's first stop is not where the
-booster aimed. See *Phase 3 found two things* above.
+**What blocked phase 3 after those** was that the itinerary's first stop was not where the
+booster aimed, fixed by `TargetSet.ElectFarthestLead`. See *Phase 3 found two things* above.
 
 ## Open questions
 
@@ -664,7 +671,7 @@ booster aimed. See *Phase 3 found two things* above.
   shot every other measurement here is taken against. It settles *Does the first target stay special?* below
   too: farthest reach first puts the dearest hop in the slot with the most leverage, and the first stop is the
   one the bus already arrives on, so **the booster is aimed at the farthest target** rather than at the first
-  one chosen — which is now built, because the set can be assembled before the aim is committed. Unflown, and
+  one chosen — which is now built, because the set can be assembled before the aim is committed. Flown, and
   it leaves the bullet below untouched: moving the gate *itself* still costs the first target.
 * **What bounds a set is its spacing, not its count** — priced in `tests/KSArmory.Tests/ReleaseTradeTests.cs`
   off the pinned footprint at each slot. Charging every hop `BusTrim.MaxMetresPerSecond` reads
@@ -702,12 +709,12 @@ booster aimed. See *Phase 3 found two things* above.
   millimetres from the aim. For six targets it costs **4x the reach at 6,179 km and 7x at 12,902**. Moving it
   multiplies every velocity residual by the same factor — the trim's floor goes 14 m → 55 m — which against a
   2 km lethal radius is nothing and against the batch scoring is everything. **A paired-arm question before
-  phase 3, not an assumption.**
+  phase 3, not an assumption.** Flown 2026-10-11 as `WalkStartsAtCutoff`, and it lost: the gate stays.
 * ~~**Does the first target stay special?**~~ **Answered, and built: the booster flies to the farthest, not
   to the first clicked.** `TargetSet.ElectFarthestLead` re-elects the lead on every add while the aim is
   still free. Aiming at the middle of the set instead halves the largest divert and makes the first release
   a divert too — untried, and it would need the lead to stop being the stop that costs nothing, which is
-  what `ReleaseLoop` is built around. **Unflown either way.**
+  what `ReleaseLoop` is built around. The farthest lead is flown (2026-09-21); the middle is untried.
 * **Release before or after the aim correction for target 1?** Today the correction runs once. With several
   targets it runs once per target; whether the first one's can be shortened is a phase 0 question.
 * ~~**What the player sees in flight**~~: built -- the panel says which stop the bus is on, and each target's mark
@@ -740,7 +747,8 @@ length at cutoff.
 At 4 km spacing the walk ran and the warheads landed **4.00 km out, scored as arrived**. The walker
 prices the *hop* against `BusTrim.MaxMetresPerSecond` and accepts at 9.73 m/s; the trim is then asked
 for the hop **plus the residual already on the bus**, 10.29, trips the same ceiling and refuses the
-whole pass — so the bus never moves and the warheads leave on the old solution. **Open**; tonight it was
+whole pass — so the bus never moves and the warheads leave on the old solution. **Open** that night, fixed
+since (*The walk accepted a hop the trim then refused*); it was
 dodged by choosing a spacing the hop could afford. The reach at that epoch is 411 m per m/s, so 4 km is
 9.7 m/s and sits on the ceiling by construction.
 
@@ -949,7 +957,7 @@ the planner prices a 6.5 km hop at **17.6 m/s** against the one pass's 10, so it
 `a hop wants 17.6 m/s and one pass will fly 10`. The coast re-flies the reach at ~955 m per m/s, prices
 the same hop at 6.8, and the plan is replaced, because nothing commits it until a warhead leaves.
 
-**`IcbmConfig.WalkStartsAtCutoff`** (`5f8e9e87`, off, unflown) puts a walk's first release at the start of the
+**`IcbmConfig.WalkStartsAtCutoff`** (`5f8e9e87`, off; flown 2026-10-11 and lost, `ICBM-OUTSTANDING.md` 4.3) puts a walk's first release at the start of the
 coast instead of ending its last on `ReleaseBeforeArrivalSeconds`. A hop bought early moves the landing
 further per m/s (1,076 m against 688 at 6,179 km), so a chain could be spaced ~8.5 km rather than ~4.5, for a
 per-warhead floor nearer 55 m than 14.
@@ -974,6 +982,8 @@ per-target verdict); fly the paired night. Then the levers: spend the trim reser
 null after stop 1, and price each slot at its own reach.
 
 ## Both levers built, off and unflown — 2026-10-09
+
+*Both ship on now: `PriceEachHopAtItsSlot` since 2026-10-10, `SpendTheSplitReserveAfterTheFirstStop` since 2026-10-11.*
 
 **`IcbmConfig.PriceEachHopAtItsSlot`** prices each hop at the reach of the slot it is flown in. The reach
 the planner is handed is measured at one time to go (`DivertFootprint.FlightSeconds`: the columns' own fall

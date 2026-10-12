@@ -4,7 +4,7 @@ Everything below is either measured in flight or explicitly marked as untested. 
 `CHECKLIST.md` §12.7 has the in-flight list. This file is only the backlog.
 
 **Most of it is now a record rather than a plan**, and the item numbers are the addressing scheme —
-forty-three references from other docs and from source comments point at them, so a section keeps
+over a hundred references from other docs, tests and source comments point at them, so a section keeps
 its number wherever its state ends up. **The table below is historical as of 2026-10-06**; what is open now for
 the ballistic computer and the bus is ranked in `docs/ICBM-OUTSTANDING.md`. What was open when it was written:
 
@@ -209,7 +209,7 @@ Both are dwarfed by what the loop itself is worth, which is why that is as far a
 The finer step is item 2's own candidate flown at the wrong value, and it doubled the miss. `f619daa`
 later measured why: the round's disagreement with its predictor is two terms of opposite sign, so it
 crosses zero near a 138 ms frame and overshoots the other way below it — shortening the coast frame
-without bound is a regression. `PreferredStepSeconds` now sits at **0.225**, the reachable frame
+without bound is a regression. `PreferredStepSeconds` then sat at **0.225** (0.180 since item 7e), the reachable frame
 nearest that crossing, flown five against five for a median 1.66 -> 1.06 km.
 
 ## -1a. Two errors were cancelling — and it was not the round against its predictor
@@ -1191,7 +1191,7 @@ reproduces: the rig gives 4.2 and this flight ~15.
    **307 m for 76 seconds of the player's evening**, and the next 44 m costs another 138. The
    sign risk this claimed not to have is real: the round's error is *not* monotone in the frame —
    it is two terms of opposite sign, crossing zero near 138 ms and overshooting the other way below
-   it, which is why `PreferredStepSeconds` sits at 0.225 rather than lower. **Not done** — it
+   it, which is why `PreferredStepSeconds` sat at 0.225 rather than lower (0.180 since item 7e). **Not done** — it
    trades against a decision `WarpPolicy` made deliberately. The trace now puts the frame-driven
    share at ~680 m of a 1,943 m gap, so this is worth more than the table claims and still not most
    of it.
@@ -1758,6 +1758,8 @@ separated bus, which closed the item: the correction needed a turn the vehicle's
 would not make. It now reads **0.31**, because the band was a deadband latched at the separation
 transient rather than a property of what is aboard — item 5. So the corrected command is worth
 switching on and the ~0.9 km of spread is back on the table.
+
+*Superseded by item 5: the tubes are straight, so there is no cant to correct, and the switch is gone.*
 
 ## 5b. Firing each tube on its own crossing — tried on paper, does not win
 
@@ -3746,7 +3748,7 @@ of the five floored shots stopped on the same line:**
 post-boost: released on 40 m/s of trim, which is the bus's budget for correcting
 ```
 
-`PostBoostAim.MaxTrimMetresPerSecond` is 40 and `IcbmConfig.TrimBudgetMetresPerSecond` defaults to
+`PostBoostAim.MaxTrimMetresPerSecond` was 40 (60 now) and `IcbmConfig.TrimBudgetMetresPerSecond` defaults to
 it. What each was still owed when it ran out:
 
 | shot | passes | owed at release | bias | miss |
@@ -5250,10 +5252,14 @@ kick to its prediction.
 
 ### Ranked, cheapest first
 
+*Superseded: 1 by item 2 (gravity per sub-step won once paired with the mid-frame aim), 2 by item 8
+(`PostBoostAim` reopens the aim after cutoff), 4 by item 5 (no cant on the shipped bus). The live ranking
+is `docs/ICBM-OUTSTANDING.md`.*
+
 1. ~~**Re-read gravity per sub-step, or cap the coast step.**~~ **Both halves have flown.** The
    gravity re-read lost three times out of three (item 2d), and item 2's decomposition says why: it
    removes the term that was cancelling the round's own integration error, so the two halves have to
-   go together or neither. The coast step is capped — `PreferredStepSeconds` at **0.225**, flown for
+   go together or neither. The coast step is capped — `PreferredStepSeconds` at **0.225** (0.180 since item 7e), flown for
    a median 1.66 -> 1.06 km — and is not the same field as `MaxFaithfulStepSeconds`, which flew at
    48-60 km. The pricing below stands; ~160 m of bias at 8x and the whole 1x/8x split with it, one
    argument becoming a lambda with `Mu` already to hand.

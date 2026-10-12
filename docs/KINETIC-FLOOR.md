@@ -33,9 +33,9 @@ arrival, and on an **88-degree** one — the same 200 km pickup with the whole o
 out, which is what a rod actually is.
 
 **7.1 degrees is the rig's cheapest unfloored deorbit, not what anything flies.** `ErrorBudgetTests`
-measures that arrival and the column is arithmetic at it; the flown shots arrive at **12.9 to 17.5**,
-where `cot` is 4.37 rather than 8.03. Every height-driven term below therefore costs about
-**0.54x** what its 7.1-degree entry says. The two-column shape is what carries the argument — a
+measures that arrival and the column is arithmetic at it; the flown shots arrive at **32.0**,
+where `cot` is 1.60 rather than 8.03. Every height-driven term below therefore costs about
+**0.2x** what its 7.1-degree entry says. The two-column shape is what carries the argument — a
 height becomes ground in proportion to `cot(gamma)`, and that is the lever — and it survives the
 correction with the span narrowed rather than removed.
 
@@ -48,7 +48,7 @@ correction with the span narrowed rather than removed.
 | **the float terrain staircase** | ≤ 0.9 m | ≤ 0.02 m | `Celestial.cs:833` packs the direction to `float3`. **This is a horizontal tread (~0.38 m of ground) times the local slope, not a vertical quantum** — centimetres on ordinary ground, and it does not belong beside the 0.2985 m vertical quantum as if it were the same kind of term | **no** — inside the engine |
 | **the ecliptic's own arithmetic** | 1.8 mm | 1.8 mm | `double3` at 1.5e11 m; ulp 30.5 um | no, and it does not matter |
 | **the engine clock** | ≤ 104 mm | ≤ 104 mm | `UniverseTime` is Int128 ns; `SimStep.DeltaTime` is the unrounded double | no, and it does not matter |
-| **naming the target** | 0.2 m – 1.9 km | same | one pixel of the player's viewport, through `SiteDesignator` | yes — zoom, or a coordinate entry that does not exist |
+| **naming the target** | 0.2 m – 1.9 km | same | one pixel of the player's viewport, through `SiteDesignator` | yes — zoom, or the panel's coordinate entry |
 | **the terrain's own gain** | 1.2x to unbounded | 1.02–1.12x | `slope / tan(gamma)`, a fixed point with no solution above 1 | only by arriving steeply |
 | *(the harness's ruler)* | *13.4 cm* | *13.4 cm* | `R * Vec.AngleBetween` is an arc cosine | *n/a — a floor on the measurement, not the shot* |
 
@@ -57,6 +57,9 @@ Everything below is that table with its evidence.
 ---
 
 ## 1. The round's own integrator — the largest real term
+
+Measured on the first-order 5 ms round. A released warhead now steps second order at the Mk 21's 1 ms
+(`IcbmConfig.SecondOrderWarheads`, `Slug.SecondOrder`), re-reading the air and the pull each sub-step.
 
 `Sim/Slug.cs` integrates with **symplectic Euler** at `Interceptor.SubStep` (5 ms), holding gravity
 and the air's motion across the sub-steps of one frame. `Sim/ImpactPredictor.cs` is **RK4** and
@@ -118,11 +121,11 @@ air by `Medium.FaithfulStepInAir`:
 
 Three hundred vector updates a frame for a six-warhead group is not a lot. **A hundred and fifty
 CIWS shells at 1 ms is 7,500**, which is the case that would have to be measured before the constant
-moved — and `Sim/MunitionProfile.cs` carries `SubStepSeconds`, so the per-round step exists and
-nothing in the arsenal asks for one.
+moved — and `Sim/MunitionProfile.cs` carries `SubStepSeconds`, so the per-round step exists; the
+Mk 21 is the one round that asks for one, at 1 ms.
 
-The 64-sub-step clamp never binds on entry: it caps one `Update` at 0.32 s, which is six times the
-step `WarpPolicy` already holds the world to once there is air.
+The sub-step clamp never binds on entry: `MunitionProfile.MaxSubSteps` is derived so a frame of
+`MaxFaithfulStepSeconds` is always covered, and in air `WarpPolicy` holds the world well under that.
 
 ---
 
@@ -132,6 +135,9 @@ step `WarpPolicy` already holds the world to once there is air.
 centre and a radius — for the whole frame. That is deliberate and documented: the terrain query is
 the expensive call. The consequence is that the round stops on the height that was under it at the
 *top* of the frame, and over sloping ground that is stale by the track it covered.
+
+A released warhead now re-reads the ground every sub-step within 200 m of it
+(`IcbmConfig.ResampleGroundAtImpact`, `Slug.GroundResampleBandMetres`); the numbers below are the round without that.
 
 With slope `s`, arrival `gamma` and a frame's ground track `d`, the stopping error is
 `s.d / (tan gamma + s)`. Measured through that at 2,713 m/s
@@ -355,8 +361,8 @@ Two things that are *not* floors, checked and cleared:
 
 - `Sim/AimSite.cs` stores latitude and longitude as `double`. `Describe()` prints three decimal
   places — 0.001 degrees of latitude is 111 m — but that is display only and is never read back.
-- The aim point is **not persisted at all**: `Sim/IcbmConfig.cs` carries no site, so there is no
-  serialisation to quantise it.
+- The aim point is persisted as JSON doubles in `ballistic.json` (`Sim/BallisticSettings.cs`), so
+  saving it does not quantise it either. The panel also takes a typed latitude and longitude, as doubles.
 
 The refinement loop in `TryCursorGroundPoint` has its own limit, and it is item 5's gain by another
 name: its fixed-point iteration converges only while `slope / tan(depression) < 1`, which from
@@ -456,7 +462,7 @@ file.
 
 ### An unguided kinetic round
 
-**About 1.2 m, on a near-vertical arrival, as the mod ships.**
+**About 1.2 m, on a near-vertical arrival, at a 5 ms sub-step** — ≈ 0.4 m at the 1 ms the Mk 21 ships.
 
 Root-sum-square at 88 degrees, a 17 ms frame, 5% ground slope and an exactly-known aim point:
 
@@ -475,7 +481,7 @@ integration accuracy buys nothing.
 
 **On a 7.1-degree arrival the same budget is ≈ 160 m** — 153 m of integrator, 4.4 m of quanta,
 10–39 m of frame-held ground, the whole lot multiplied by a terrain gain of 1.2x to unbounded. At
-the **12.9 degrees** the mod actually arrives at, the height-driven terms come down by 0.54x and the
+the **32.0 degrees** the mod actually arrives at, the height-driven terms come down by 0.2x and the
 total with them; the figure has not been re-measured there and is not worth guessing at, because the
 conclusion does not turn on it. It is not a precision weapon at either angle, and no amount of
 guidance work makes it one; the geometry has to change.
@@ -505,7 +511,7 @@ than that at the shallowest angle anything here flies. The propellant a steep ar
   run-to-run variation is **not** pacing. It is a single latched `WarpPolicy` decision that either
   happens or does not, worth 0.7-2.6 km; `docs/MIRV-NEXT.md` item 7e has the measurement and
   conditioning on the coast step leaves 10-88 m.
-- **Nothing here is flown.** It is all headless, and the rig's planet is at the origin.
+- **Nothing here is flown but the sub-step**, below. It is headless, and the rig's planet is at the origin.
 - **The 13 cm ruler.** Every budget in this repository scores a miss with
   `R * Vec.AngleBetween`, an arc cosine, whose resolution at Earth's radius is **13.4 cm**
   (`TheHarnessCannotScoreAMissUnderThirteenCentimetres`). No measurement taken through it can report

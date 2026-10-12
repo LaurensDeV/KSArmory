@@ -196,8 +196,8 @@ Three things make the paired version work, and the third is the one that is easy
 * **The change must be a *setting*, not a branch.** One build flies the whole night; the arms differ
   by what `IcbmConfig` says. A branch cannot be two things in one world.
 * **The variants alternate down the roster, and the phase rotates between shots.** A rocket's place
-  in the roster is worth **175x** in miss, monotone (8y), so handing one arm the first four rockets
-  measures the gradient and calls it the change. `Sim/ShotArms.cs` does both.
+  in the roster was worth **175x** in miss, monotone (8y), until the interlock removed the gradient
+  (`docs/EIGHT-ROCKETS.md`); any such gradient handed to one arm is measured as the change. `Sim/ShotArms.cs` does both.
 
 What it cannot compare is anything the rockets share: the build, the system, the terrain under the
 target. Those still need a night.
@@ -237,8 +237,8 @@ a null.
 100x — and lets `WarpPolicy` take it back wherever something is being integrated, which is the span
 that matters. Asking for a *step* instead was tried and reverted: it pinned the whole pre-release
 cruise, forty minutes in which nothing is integrated and any step is free, and cost four times the
-wall clock a shot for no accuracy. The step that matters is the trim's, and it is asked for where it
-is needed, as `BusTrim.MaxFaithfulStep`. So the frame-time screen stays: it still says what a night
+wall clock a shot for no accuracy. The step that matters is the trim's, and `BusTrim.MaxFaithfulStep` records it without
+asking `WarpPolicy` for it, because that demand abandoned burns (`Ksa/Icbm/IcbmComputers.cs`). So the frame-time screen stays: it still says what a night
 cost and what regime it ran in.
 
 It marks the *session*, not the shot: within a night the rank correlation between a shot's frame
@@ -690,8 +690,10 @@ Arm names are `+`-joined factor names, and the report pools on them:
 ### What an arm actually edits
 
 An arm is a commit, so a one-constant arm is a one-line commit on a branch. The scenario sets
-`IcbmConfig.Armed` and **nothing else** — every other setting flies at the default declared in its
-own file, which is what makes a constant an arm at all. The knobs `MIRV-NEXT.md` currently ranks:
+`IcbmConfig.Armed`, an 8 g `MaxAccelerationGee` where the craft has none, and `MinArrivalAngleDeg`
+and `CorrectAim` at their shipped defaults — every other setting flies at the default declared in its
+own file, which is what makes a constant an arm at all. The knobs `MIRV-NEXT.md` ranked in 2026-08; dated — the 1 ms sub-step has shipped, and a setting is now flown
+as a `--paired` arm (`Sim/ShotArms.cs`) rather than a commit:
 
 | the arm | file, and what to change |
 | --- | --- |
@@ -810,7 +812,7 @@ rather than the tree.
 
 A round arriving at `g` below the horizontal covers `cot(g)` of ground for every unit it descends,
 so ground falling away downrange at `tan(a)` moves the impact by `1/(tan g - tan a)` per unit of
-trajectory error. Flat ground gives `cot(g)` — 8.0 at the 7.1° this scenario arrives at. As `tan(a)`
+trajectory error. Flat ground gives `cot(g)` — 8.0 at a 7.1° arrival and 1.6 at 32°. As `tan(a)`
 approaches `tan(g)` the trajectory and the ground become parallel and the impact point diverges.
 
 This is not a bias that averages out over a night. It is a **degenerate intersection**: a few tens of

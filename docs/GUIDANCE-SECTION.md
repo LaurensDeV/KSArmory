@@ -22,9 +22,10 @@ rocket that today has no way to get one.
 ## The role is `Guidance`, not `FireControl`
 
 `WeaponRole.FireControl` is taken, and it is taken by everything: the LAU-7, LAU-128, LAU-118,
-Mk 15, B61 rack and MIRV bus all declare a built-in `FireControl` in `Arsenal.Components`. So
-tightening `IsWeaponSystem` to require one changes nothing, and the `IsWeaponSystem` remark asking
-for "an explicit fire-control part" is asking for something that already exists six times over.
+Mk 15, Mk 42, M197, B61 rack and MIRV bus all declare a built-in `FireControl` in
+`Arsenal.Components`. So tightening `IsWeaponSystem` to require one changes nothing, and the
+`IsWeaponSystem` remark asking for "an explicit fire-control part" is asking for something that
+already exists eight times over.
 
 The distinction that has teeth is a different axis:
 
@@ -58,7 +59,7 @@ The bus declares one connector (`_mirvConnectorBase`) and mounts on a 3 m node, 
 and the ring goes **above the decoupler**:
 
 ```
-[ MIRV bus         ]   6 x Mk 21, 16 nozzles, its own tank and battery
+[ MIRV bus         ]   6 x Mk 21, 20 nozzles, its own tank and battery
 [ guidance section ]   <- 3.00 m dia, 0.55 m tall, 450 kg
 [ decoupler        ]
 [ third stage      ]

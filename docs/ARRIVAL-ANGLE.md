@@ -23,12 +23,12 @@ item 5e are that wall and the one thing that might move it.
 
 **Everything below is measured** by `tests/KSArmory.Tests/ArrivalAngleTests.cs`,
 `ArrivalFloorTests.cs` — the search — and `ArrivalFloorFlightTests.cs`, which flies the whole program
-at a floor. Only the two shots under *Flown* have left the ground. `docs/ICBM-GUIDANCE.md` is the
+at a floor. Only the shots under *Flown* and *Built 2026-10-10* have left the ground. `docs/ICBM-GUIDANCE.md` is the
 guidance itself; `docs/KSA-TERRAIN.md` is where the surface numbers come from.
 
 **What the rig cannot see.** The planet sits at the origin and does not move, which is the one case
 where a frame carrier is identically zero — so nothing here can measure an epoch fault, including the
-open one in `docs/ICBM-GUIDANCE.md` about the ground a round meets. What it *can* say is that such a
+one in `docs/ICBM-GUIDANCE.md` about the ground a round meets (fixed since, `IcbmConfig.ResampleGroundAtImpact`). What it *can* say is that such a
 fault, if it is a height error, is multiplied by the same `cot γ` as everything else on this page,
 and that is 8.1 at seven degrees, 4.4 at 12.9, and **1.6 at the 32.0 the mod now flies**.
 
@@ -58,8 +58,8 @@ shallower at all — measured across every retrograde brake from 120 m/s to a fu
 
 So **five degrees is not reachable with a Mk 21** — that stands, and more strongly — and twelve is not
 a choice the guidance made: it is the shallowest thing the shipped round can do. It is a **floor**, not a flown figure — every shot this mod
-has flown arrives at 12.9 to 17.5 degrees, comfortably above it, because the arc it is put on is
-steeper than the cheapest deorbit rather than because entry bent it.
+has flown arrives well above it, at 32 degrees and steeper since `ArrivalPreference` shipped, because the
+arc it is put on is steeper than the cheapest deorbit rather than because entry bent it.
 
 The floor belongs to the *round*, and moves a long way with its sectional density:
 
@@ -482,12 +482,13 @@ arc arrives at 17 deg"*.
   arc under the bound, which hands the cycle back to the constrained search and re-commits to an
   arrival that satisfies it. **Gated on the bound being set**, so nothing on the default path can
   reach it; `ArrivalFloorFlightTests.AHeldArrivalIsHeldWhateverItArrivesAtWhenNoFloorIsSet` is where
-  that is decided rather than in a downstream miss. Unflown.
+  that is decided rather than in a downstream miss. Flown under a floor only in *Built 2026-10-10* below.
 - **It does not know about propellant.** A floor that turns a 150 m/s deorbit into a 3.5 km/s one is
   accepted by the search and then reported as `ShortOfPropellant` by `AssessReach`, which is the
   right division of labour and still two readouts to look at rather than one.
-- **The coast half of it does not work.** The search flies the constrained arc and the shot cuts off
-  on it; what follows is *Flown* at the bottom of this page.
+- **The coast half of it did not work when first flown.** The search flies the constrained arc and the
+  shot cuts off on it; what follows is *Flown* at the bottom of this page, and *Built 2026-10-10* is
+  the later flight that lands a 15° floor in centimetres.
 
 ---
 
@@ -495,9 +496,11 @@ arc arrives at 17 deg"*.
 
 **Fly a 15–20 degree arrival, deorbited by braking hard onto a target 2,000–2,700 km ahead.** Set
 `MinArrivalAngleDeg` to 15 or 20 and leave `Loft` at one: the floor asks for the angle directly,
-where loft asks for a flight time and lets the angle fall out of it.
+where loft asks for a flight time and lets the angle fall out of it. The shipped `ArrivalPreference`
+0.5 already arrives steeper than that from the pad and from `ORBIT 300`, so a 15° floor does not bind
+there (`docs/ICBM-OUTSTANDING.md` 1.3).
 
-| | at the flown 7.1° | at 15° | at 20° |
+| | at 7.1° | at 15° | at 20° |
 | --- | --- | --- | --- |
 | velocity sensitivity, rms | 5,614 | 1,072 | 686 |
 | a 10% error in the drag model | 1,795 m | 77 m | 29 m |
@@ -541,13 +544,14 @@ velocity it throws away to get there.
 
 ## What is not settled
 
-- **Only the floor has been flown, twice.** Everything else here is measured through the real
+- **Only the floor and the preference have been flown** (*Flown* and *Built 2026-10-10* below, and
+  `docs/ICBM-OUTSTANDING.md` 1.3). Everything else here is measured through the real
   solver, the real drag model and the real `ImpactPredictor`, on a planet that sits at the origin —
   which is exactly the case a frame carrier cannot show up in.
 - **The drag model itself is exponential and unvalidated.** The 10% column prices an error in it; it
   does not say the model has one. What it does say is that at seven degrees the question matters and
-  at fifteen it does not — and the mod already flies 12.9 to 17.5, so it is nearer the end where the
-  question does not matter than this file was written assuming.
+  at fifteen it does not — and the mod already flies 32 degrees and steeper, so it is at the end where
+  the question does not matter.
 - **The sea clamp is what the last column of that table used to cost.** All three surfaces now go
   through `GroundSurface.Height`, so it is taken out rather than steepened away. What is left is the
   wave displacement KSA's own physics uses and the mod does not — metres, which is tens of metres of
@@ -560,6 +564,8 @@ velocity it throws away to get there.
 
 
 ## Flown: the floor works and the coast correction will not fly it
+
+Superseded by *Built 2026-10-10* below, where floored shots land in centimetres.
 
 Two shots at `MinArrivalAngleDeg = 15`, against the same pick-up every other measurement here uses.
 

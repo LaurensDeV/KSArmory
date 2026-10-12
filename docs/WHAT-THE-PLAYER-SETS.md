@@ -2,7 +2,7 @@
 
 **A plan, not a record.** §6 marks what of it has been built.
 
-The ballistic computer had **24 settings on `IcbmConfig`** when this was written (58 now) and about eighteen of them were research
+The ballistic computer had **24 settings on `IcbmConfig`** when this was written (79 now) and about eighteen of them were research
 instruments that reached the panel because that is where a setting has to go to be reachable — see
 CLAUDE.md's rule that a setting nobody can reach is not a setting. That rule is right and it has had
 an unintended result: the panel now offers a player a page of numbers whose correct values are
@@ -114,9 +114,8 @@ same rig `docs/SHOT-PROTOCOL.md` already describes. Until a cell is flown, that 
 ## 6. Order
 
 1. ~~**Derive the holding cost.**~~ Done and shipping on — `ACCURACY-PLAN` 3w, 110 m to 30 m.
-2. **Fly `ArrivalPreference`.** Built, and ships at 0.5. What is unflown is what fraction is safe: near one
-   leaves the shot no propellant margin, and 3h's B1 notes a steep floor asks 7-11 m/s of post-boost
-   correction against a baseline's 2.45.
+2. ~~**Fly `ArrivalPreference`.**~~ Flown, and ships at 0.5: it won at 2,000 km (0.48x) and 6,269 km
+   (0.69x); 0.65 is bimodal and 0.8 a settled loss at 5.55x — `ACCURACY-PLAN` 3aa, 3am.
 3. ~~**One delta-v line**, need against have, in one place.~~ **Built 2026-10-09**, `IcbmProgram.NeedMetresPerSecond` against `HaveMetresPerSecond`. The reach cases were already shown — see §4.
 4. **Fly the validation matrix**, then show the miss where it is earned.
 5. **Retire the settings** from the panel, keeping them settable from a shot spec. **Partly done:**

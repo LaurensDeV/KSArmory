@@ -1,11 +1,11 @@
 # Short-range ballistic shots (25–1,000 km)
 
-**Built and flown, with the plan it started from.** Every range from 25 to 2,000 km flies and lands on the game's
-stack with `FlyAnyRange` and the short-shot settings on by default. On 2026-10-06's defaults four rockets land at a
-median of 1.4-6.9 mm from 25 to 700 km, one flight a cell, with the 25 km liquids still hovering before they do; the
-matrix and what is open are near the end. Start at "Any range, any stack" for what is built and why. The sections before
-it are the 2026-10-03 plan, kept for its measurements; the sections after it are the next steps and are not
-built.
+**Built and flown, with the plan it started from.** Every range from 25 to 2,000 km flies with `FlyAnyRange` and the
+short-shot settings on by default, and the game's stack and the Real stacks land in millimetres from 25 to 700 km. At
+1,000 km RealSRB4 and RealLiquid2 do not yet complete (`docs/ICBM-OUTSTANDING.md` 1.17, 1.18). Start at "Any range,
+any stack" for what is built and why. The sections before it are the 2026-10-03 plan, kept for its measurements. Of
+the steps after it, Step 4 and the characterisation were flown on 2026-10-12 as ICBM-OUTSTANDING 2.1; Steps 1 and 3
+and the fallbacks are not built.
 
 ## What is known
 
@@ -76,6 +76,9 @@ Step 2 throttle cap can serve this stack from ~200 km; 100 km needs the pitch sc
 | M9 | `HoldingCost` probes 106 s ahead and silently falls back to 26 m/s on a shorter coast. Walks collapse to one stop under ~485 s of coast. | HoldingCost; ReleaseWalker |
 | M10 | `AimSpread` turns SCALE 8 into a range ladder below ~500 km (100 km seats fly 100–246 km). SCALE 1 and 2 are fine. | AimSpread |
 | M11 | **The spent stack rides along until release**: `SeparateOnce` fires only on `ReadyToDeploy`, which on a short shot waits for the climb past 100 km or for apogee — so the coast is flown with the empty stage on, a high-drag body. | IcbmComputer 904 |
+
+Line numbers are the single-file `IcbmProgram.cs` and `IcbmComputer.cs` of 2026-10-03; both are now split into
+`Sim/Icbm/IcbmProgram.*.cs` and `Ksa/Icbm/IcbmComputer.*.cs`.
 
 ## The design decision: loft the short shot, don't teach the computer to fly in air
 
@@ -429,7 +432,7 @@ and both baseline landings were 11 m and 150 m. With the settings on, no core se
       probe predicted every landing to centimetres while its kick was refused over the 10 mm/s cap —
       kicks of 96-168 mm/s at 300 km, with each group walking 28-104 m along its line.
       `IcbmConfig.ShortShotReleasesTogether` lets the salvo go in one frame and
-      `ShortShotMissKickMetresPerSecond` raises that salvo's cap (`2c0413d9`, both off). Flown paired
+      `ShortShotMissKickMetresPerSecond` raises that salvo's cap (`2c0413d9`, off there; both on now, at 1 m/s). Flown paired
       (`~/shots/2026-10-05-together/`), worst warhead, defaults against both on at 1 m/s:
 
       | | 150 km | 300 km |
@@ -700,6 +703,8 @@ drag-aware arc, solved rather than corrected after, is the lever for both.
 
 ### Step 4 — fly it (E1, cumulative)
 
+Flown 2026-10-12 at 25, 418 and 1,000 km on the Real stacks; results are `docs/ICBM-OUTSTANDING.md` 2.1, 1.17 and 1.18.
+
 - SOLVER SCALE 1, one build, configurations by `./tools/scenario.sh 'mirv:<lat>,-80.604,<bar km>' --arms
   'on:Flag=true'`, `KSARMORY_SCENARIO_TRACE=1`. Cumulative: Step 1, then 1+2, then 1+2+3.
 - Ranges 1,000 → 500 → 300 → 200 → 100 km due south of the pad (28.608 N 80.604 W, R = 6,371 km). Aims, all
@@ -729,6 +734,8 @@ drag-aware arc, solved rather than corrected after, is the lever for both.
 
 Flags on only, 6–12 flights at the floor range and at 1,000 km: median, worst, and release completeness against
 the bar. A paired flags-off arm only if flags-off is shown to land at all.
+
+Flown as three flights a cell on 2026-10-12, not six to twelve: `docs/ICBM-OUTSTANDING.md` 2.1.
 
 ### Fallbacks, only if E1 shows a stack or range the loft cannot serve
 
@@ -760,6 +767,9 @@ stage empties that floor alone climbs past the airframe: asked for 3-8% throttle
 19.6 -> 21.0 g against KSA's 21.2 g limit and the stack broke, at both ranges. Nothing in the computer can answer it
 with the throttle; what would is cutting the engines once the floor alone exceeds the airframe and handing the rest
 to the trim or a coast, and saying so on the pad.
+
+Answered instead by pulsing the engine below its floor (`IcbmConfig.PulsesBelowTheFloor`, on): OneStage then flies
+whole and lands within 5 mm at both ranges (`docs/ICBM-OUTSTANDING.md` 1.11).
 
 **LowTWR at 700 km is 1.1's stall on a new stack.** The cutoff stalled with the stack holding its own weight and cut
 off 10.5 m/s short; the bus owed 8.4 m/s at the split, the split's own stack wait held it, and the first correction

@@ -16,7 +16,7 @@ is not, so it lasts `Frames x step` seconds and grew the off-plane residual 5.9x
 2. Ask what the number is *made of*. A count of frames is a duration; a count of passes whose
    passes are seconds-gated is not; a per-frame filter weight is a time constant in disguise.
 3. Ask what geometry makes the consequence visible. `HoldDirectionFrames` is **identically zero**
-   equator to equator, which is where every cutoff fixture flies — the blindness was one line of
+   equator to equator, which is where the cutoff fixtures fly — the blindness was one line of
    fixture geometry and it hid a real term for months.
 
 Counts: **9 DECISION**, **13 FRAME-BOUNDED**, **27 CONVERGENCE**. None has a
@@ -103,11 +103,11 @@ the switch was deleted on 2026-10-09.
 **Which geometry exposes it.** **Off the plane, and nothing else does.** A shot aimed along the
 track has no out-of-plane work left to freeze: 0–2% of the residual is square to the thrust line
 there and grows exactly linearly with the step. At 26° off it the share is 59–93% and grows 5.9x
-over the same 4x. Every cutoff **fixture** is equator to equator, where the term is identically zero;
+over the same 4x. Every cutoff **fixture** but `CutoffResidualTests`' off-plane one is equator to equator, where the term is identically zero;
 the flown shots are not — they run 2.9–3.3° off plane and carry a 67–79% cross-track share.
 
-**Standing gap underneath it.** `IcbmFlightRig` never leaves the plane. Until it does, no headless
-fixture can see this class of fault at all.
+**The rig does fly off the plane** (`CutoffResidualTests`, `CutoffStepStudy`), and there it does not reproduce
+the flown rise with the step (3fo).
 
 ### 2. `WarpPolicy.OverridesBeforeYielding`, off nights already flown
 
@@ -118,7 +118,7 @@ request, not on every competing write, so three frames of contest is 51 ms at 12
 **Read off the nights on disk, and it never fires.** `timewarp not held` appears **0 times in 77
 shots** across 2026-09-18-nopulse, 2026-09-19-fallback and 2026-09-20-shortfallback, against 74
 `timewarp held at` lines on one of them — so the policy is active and never yields. The 9-of-12
-measurement in `WarpPolicy`'s own comment is from some other context. **Latent, not live**: real in
+measurement in the table above is `docs/ACCURACY-PLAN.md` 3al, where the harness's own 8x request was the competing writer. **Latent, not live**: real in
 the code, unreachable by the ballistic scenario as flown, and nothing to fly until something makes
 it fire.
 

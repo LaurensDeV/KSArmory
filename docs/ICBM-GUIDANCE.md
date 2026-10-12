@@ -6,9 +6,9 @@ it reads how much thrust the stack has, how fast it is consuming itself and how 
 cycle, and fires the next sequence when there is nothing to burn with — which on the pad is
 the ignition and afterwards is the spent stage.
 
-**Where it lives.** The whole of the decision-making is under `Sim/` and tested headlessly. `Ksa/`
-contains two conversions and nothing else — the world into an `IcbmState`, and the answer into
-writes on somebody else's vehicle.
+**Where it lives.** The guidance is under `Sim/` and tested headlessly. `Ksa/Icbm/` turns the world
+into an `IcbmState` and the answer into writes on somebody else's vehicle, and carries what only the
+game can answer: staging, separation, the trim's jets, the release and the warp.
 
 ---
 
@@ -156,7 +156,8 @@ outside they are the same silence. Mid-ascent it is a real wall — from a 60 km
 round the planet reaches 46° and no further. From orbit it is a price rather than a wall: across a
 day of departures every floor short of vertical is satisfiable, for up to the whole orbital velocity.
 
-**Off by default**, so nothing about the flights already measured changes until it is set.
+**Off by default.** `IcbmConfig.ArrivalPreference`, which ships at 0.5, latches a floor of its own on
+every flight: half the steepest arrival the tanks can pay for.
 
 ---
 
@@ -288,11 +289,12 @@ it is one the game already makes for itself:
 | ignition | `Vehicle.ProcessInput(MainEngineStartup, …)` | the keyboard |
 | throttle | `Vehicle.ProcessInput(MainEngineThrottleUp/Down, …)` | the keyboard |
 | translation | `Vehicle.ProcessInput(Translate*, …)` | the keyboard, for the bus trim |
+| pulse mode | `FlightComputer.SetManualThrustMode(Pulse)` | the keyboard's `ToggleManualThrustMode` |
 | staging | `SequenceList.ActivateNextSequence` | the keyboard |
 
 Nothing private is reached for, which is what turns a KSA update into a build error rather than
-into a rocket that flies sideways. One thing *is* patched, and it is the only thing in this mod
-that is: an attitude command written from a StarMap hook is overwritten before anything reads it,
+into a rocket that flies sideways. One thing *is* patched for it, one of the seven patches in the
+mod: an attitude command written from a StarMap hook is overwritten before anything reads it,
 so `Ksa/AttitudeHook.cs` prefixes `Vehicle.PrepareWorker` — a `public virtual` method, pinned into
 `docs/KSA-API-SURFACE.md` so a signature change is a build error too.
 
@@ -403,9 +405,10 @@ see [Flying one without watching it](#flying-one-without-watching-it).
 **A shot that never lit says so**, rather than reading as one that ran out of propellant. The whole
 velocity is still to gain either way, and the two want completely different things done about them.
 
-`Ksa/Icbm/IcbmComputer.StagingWouldDropTheLauncher` still refuses any sequence that would separate the
-launcher, which on the pad is the launch not happening rather than a stage going unspent. It says so
-once, because the refusal is otherwise silent.
+`Ksa/Icbm/IcbmComputer.StagingWouldDropTheLauncher` still catches any sequence that would separate the
+launcher. With `IcbmConfig.MovesAnEarlyRelease` (on) that stage is moved to the end of the staging
+list and the burn goes on; with it off, or where the list refuses the move, the stage is not fired and
+the log says so once, because the refusal is otherwise silent.
 
 ## The acceleration limit is the airframe's, not the operator's
 
@@ -453,8 +456,11 @@ rather than the load having dropped.
 What stops it being written headlessly is that `RocketCore.ComputePropellantAvailable` takes an
 `isBurning` flag and is abstract — a combustor and a solid motor answer it their own way. If a cut
 engine reads as **no propellant available**, the program sees a dry stage and stages away a live one
-on the next cooldown, which is far worse than the load it was avoiding. That has to be watched in
-game before anything is built on it.
+on the next cooldown, which is far worse than the load it was avoiding.
+
+The cut is now used below a liquid engine's throttle floor (`IcbmConfig.PulsesBelowTheFloor`, on), and
+flown that way it staged nothing away (`docs/ICBM-OUTSTANDING.md` 1.11). It is not applied to a stage
+that lights hot.
 
 ## When to burn is a separate question from how
 
@@ -603,7 +609,7 @@ Two rules come out of that, and they are the same rule twice:
   over. Each hop covers a shorter span and so runs gentler. A warp the computer started is also
   one it ends outright the moment the hold is over.
 
-And `MaxFaithfulStep` is a round third of a second, which is a round's 0.32 to within a rounding —
+And `MaxFaithfulStep` is 0.3 s, which is a round's 0.32 to within a rounding —
 18.0x against 19.2x at 60 fps. Asking the world to run materially slower than
 anything else in the mod needs buys a few hundred metres and costs the shot, because the policy
 answering that request is a control loop against an actuator shared with the player.
@@ -635,11 +641,10 @@ begun over the top of one is a warp nothing can rein in.
 
 ### Automatic only if somebody said so
 
-`IcbmConfig.WarpTheCoast` is on by default, and the default is the rule rather than an opinion about
-the feature: taking the world's clock away because a target happened to be designated is not a
-weapon's decision. The button is how the action is taken. What the tick box does is let an operator
-delegate the press — ticking it *is* the permission, given once instead of every shot — and it stops
-in the same place the button does.
+`IcbmConfig.WarpTheCoast` is on by default. Taking the world's clock away because a target happened
+to be designated is not a weapon's decision, so the button is how the action is taken. What the tick
+box does is let an operator delegate the press — ticking it *is* the permission, given once instead of
+every shot — and it stops in the same place the button does. It warps only the craft being flown.
 
 Off would be a setting an operator makes once per craft, since a save keeps it (`ballistic.json`),
 but a new craft starts from the default, and forgetting it there costs a ballistic coast in real time. On two
@@ -797,10 +802,11 @@ kept for the mechanism. It read, when written: unfixed, measured headlessly.
 **Except where the coast is long enough to outgrow the caps.** The release probe's kick is capped at 1 m/s, and on a
 four-hour coast from orbit (`ORBIT 300` to 40 N, 10 E) the kick added at cutoff left 2.1 km to take back 393 s out,
 where the trim measured 384 m per m/s: about 5.5 m/s, refused whole, and the warheads landed 1.93 km out. The fix
-named at the end of this section is now built as `IcbmConfig.KickAtTheRelease` (`Sim/ReleaseCoast.cs`), **off** until
-a paired night at 6,181 km and a re-fly of that coast: it coasts the departure to `ReleaseBeforeArrivalSeconds`
-before arrival rather than by the clearing delay, since that is when the release happens.
-`docs/ICBM-OUTSTANDING.md` 1.14.
+named at the end of this section is now built as `IcbmConfig.KickAtTheRelease` (`Sim/ReleaseCoast.cs`), and is
+**off**: it coasts the departure to `IcbmProgram.ReleaseGate` before arrival rather than by the clearing delay, since
+that is when the release happens. Flown on 2026-10-12 it cut the trim to about a quarter at 6,181 km and landed the
+far coast at 0.4-1.3 mm with `FreezeKeepsABetterRecentAim`, and waits on a later release gate being checked on walks
+and short range. `docs/ICBM-OUTSTANDING.md` 1.14, 1.16.
 
 Flown, four deorbits of the same 2,300–2,700 km range, every one cutting off within 0.1 km of its
 own prediction: the warheads landed further off the later they were let go — 431 m at a ~50 s
@@ -897,7 +903,9 @@ frame pacing — 8.33 ms against 25.0 ms measured in flight on a 120 Hz screen �
 It is the fourth thing the rig had to stop being better than the game at, after the command latency,
 the throttle servo and the throttle floor.
 
-**Not yet flown.** The mechanism, the reproduction and the improvement are all headless.
+**In flight the five metres a second binds first.** Read off 456 rockets at 12,902 km, the frame count
+hits that cap on 93–100% of them, so the freeze lasts about 0.4 s at either frame rate and the
+improvement above is headless only (`docs/ACCURACY-PLAN.md` 3fl).
 
 ## A tumbling bus does not deploy
 
@@ -1056,8 +1064,8 @@ depend on their remembering.
 disagreement with its own predictor is two terms of opposite sign — one proportional to the frame at
 about 31 m per millisecond, one constant near −4.2 km — so the error crosses zero near a 138 ms
 frame rather than falling to nothing as the frame shrinks: +1,806 m at 194 ms, −1,400 at 96, −3,493
-at 24. `MunitionProfile.PreferredStepSeconds` is 0.225 s on the Mk 21 for that reason, and warp
-being quantised to powers of two lands it on the 96 ms below the crossing.
+at 24. `MunitionProfile.PreferredStepSeconds` is 0.180 s on the Mk 21 for that reason: `WarpPolicy`
+lands the coast at 76–110 ms, near the 96 ms below the crossing (`docs/MIRV-NEXT.md` item 7e).
 
 ## Each tube is aimed before it fires, and the launcher may let go of its stack first
 
@@ -1310,8 +1318,9 @@ Five things it is careful about, and each is a way it went wrong first:
   attitude *is* the release line, so turning to burn and turning back costs the whole settle twice
   and disturbs the thing the sequencer is about to latch. KSA maps a nozzle to
   `TranslateForward`/`Right`/`Down` by which control-frame axis its thrust points along, so
-  `KsaWorld.TryControlFrameCci` reads `Ctrl2Body ∘ Body2Cce ∘ Cce2Cci` and the flags fall out. And
-  the dominant component is axial anyway: a decoupler pushes along the joint it came apart at.
+  `KsaWorld.TryControlFrameCci` reads `Ctrl2Body ∘ Body2Cce ∘ Cce2Cci` and the flags fall out. The
+  debt is mostly not axial: flown and decomposed onto the bus's axes, the radial term is three times
+  the axial one and only 20% of the total is axial (`docs/ACCURACY-PLAN.md` 3fh).
 - **One direction at a time, because the stop threshold is only knowable where it was measured.**
   Half a frame of thrust is the rule, and the acceleration in it is measured — the velocity change
   less what gravity did over the same interval — which is only attributable along the direction
@@ -1365,9 +1374,10 @@ it.
 **The residual is a timing limit, not a control error**, exactly as it is at cutoff: one step of the
 thrusters is `acceleration × step`. Headlessly at 3 m/s², a 17 ms step leaves 0.001 m/s and a 300 ms
 step leaves 0.202 m/s. So the trim registers with `WarpPolicy` alongside a burn — `IcbmComputer`
-answers `NeedsShortSteps` for it — and the known next lever, if the flown number turns out too
-coarse, is KSA's own `FlightComputerManualThrustMode.Pulse`: a 5.4 ms pulse every 0.15 s is the same
-trick as the burn's throttle ramp at a ~3.6% duty cycle.
+answers `NeedsShortSteps` for it — and the null is finished in KSA's own
+`FlightComputerManualThrustMode.Pulse` (`IcbmConfig.PulseTrim`, on, with `PulseSeconds` 0.001): one
+pulse of each thruster at most every 0.15 s, the same trick as the burn's throttle ramp
+(`docs/ACCURACY-PLAN.md` 3cu).
 
 ## The attitude at cutoff is held, not solved
 
@@ -1390,9 +1400,10 @@ seconds](#hold-the-direction-frames-before-cutoff-not-seconds).
 - **`Burn starts in mm:ss`** while holding, so a computer sitting there doing nothing for an hour is
   distinguishable from a broken one.
 - **`TARGET UNREACHABLE`**, in two flavours: no trajectory arrives there at all, or one does and the
-  tanks cannot pay for it. The second is stated with the shortfall and with the caveat that it is
-  measured with one stage's exhaust velocity over the whole vehicle's propellant — which understates
-  a deeply staged rocket, and understating is the right way round to be wrong.
+  tanks cannot pay for it. The second is stated with the shortfall, against the engine's figure for
+  the whole stack where it gives one — the craft being flown — and otherwise one stage's exhaust
+  velocity over the whole vehicle's propellant, which understates a deeply staged rocket, and
+  understating is the right way round to be wrong.
 - **`NO ARC ARRIVES AT n DEG OR STEEPER`**, which is the third and is separate because it is the one
   a control on this panel fixes. It names the steepest arrival the search did find, so the operator
   can see how far the minimum has to come down.
@@ -1408,7 +1419,8 @@ ballistic computer and its wheels on the ground, designates, arms, and follows t
 last impact. `mirv:26.485S,68.148W,2` moves the aim point and the bar it is judged against.
 
 The operator still supplies the rocket — a mod cannot put one on the pad, see `CLAUDE.md` — so the
-craft has to be the one the game boots into, or named in `KSARMORY_SCENARIO_CRAFT`.
+craft has to be the one the game boots into, in a save named in `KSARMORY_SCENARIO_SAVE`, or named in
+`KSARMORY_SCENARIO_CRAFT`.
 
 Two things about it are worth knowing before reading a result:
 
@@ -1446,7 +1458,7 @@ correction winding each other up, is fixed and has flown since.
 - **Staging.** `ActivateNextSequence` fires whatever the player put in the next sequence, which is
   not necessarily an engine — including the ignition, where the program will try again on the
   cooldown until the dry timer ends the flight.
-- **Staging under warp.** The world is now held down for a burn (see below), but whether KSA
+- **Staging under warp.** The world is now held down for a burn (see above), but whether KSA
   applies thrust and staging faithfully at the speeds it is held *to* has not been watched.
 
 **Other bodies are out of scope, and "anywhere" means anywhere on the body being flown around.** A
@@ -1458,15 +1470,17 @@ one. The panel says so when the designated body is not the parent.
 flew the constrained arc, reported `reach Reachable` and cut off 0.01 m/s short, with the tightest
 group ever measured here — and then landed 2.28 and 2.68 km out, because the aim correction opens
 on the trajectory search rather than on the drag shortfall a steep arrival abolishes.
-`docs/ARRIVAL-ANGLE.md` has the per-cycle trace and why neither headless remedy is shipped. One
+`docs/ARRIVAL-ANGLE.md` has the per-cycle trace. `IcbmConfig.AimWaitsForCutoffUnderAFloor` is built and
+off: flown neutral on a solid deorbit stage, its case is a liquid one picked up in orbit
+(`docs/ICBM-OUTSTANDING.md` 1.3). One
 known bound on the search half: the floor is applied to the *vacuum* arc, which agrees with the
 flown arrival to under half a degree over 10–30° and diverges only for a graze.
 
-**Whether cutting the engine makes a stack read dry.** The one thing standing between the
-acceleration cap and a stage that lights hot — see [The cap is right and the actuator is too
-slow](#the-cap-is-right-and-the-actuator-is-too-slow).
+**A stage that lights hot.** Cutting the engine below a liquid floor is flown without reading dry
+(`IcbmConfig.PulsesBelowTheFloor`); applying the same cut to a stage that lights hot is not built —
+see [The cap is right and the actuator is too slow](#the-cap-is-right-and-the-actuator-is-too-slow).
 
-**A save keeps the setup and never the flight, and that is not yet flown.** Every `IcbmConfig`
+**A save keeps the setup and never the flight**, verified in game on 2026-10-11. Every `IcbmConfig`
 setting moved off its default but `Armed`, the targets with their warhead counts and which one leads
 are written into
 `saves/<save>/KSArmory/ballistic.json` when the game saves, keyed on the craft's display name as
@@ -1476,6 +1490,7 @@ back idle with its targets and flies nothing until armed again. A setting left a
 written, so a default changed in a later release reaches that save. Restoring a flight in progress — the
 phase, the latched arrival, the aim bias, the trim's debt — is not built.
 
-**The delta-v readout is one stage's.** KSA reports the running stage's engines, which is why a
-shot short of the propellant is flown and reported rather than refused: a launch gate built on that
-number would turn away every multi-stage rocket in the game.
+**The delta-v readout is one stage's except on the craft being flown.** KSA reports the whole stack
+only for the controlled craft and otherwise the running stage's engines, which is why a shot short of
+the propellant is flown and reported rather than refused: a launch gate built on that number would
+turn away every multi-stage rocket nobody is flying.

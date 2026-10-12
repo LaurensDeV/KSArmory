@@ -1,5 +1,7 @@
 # Improving accuracy at eight rockets
 
+**Superseded: a record of 2026-08-27 to 08-30.** The live ranking is `docs/ICBM-OUTSTANDING.md`, and sixteen-rocket worlds have since flown (its item 2.2).
+
 **What this is.** Eight rockets in one world is now a usable measuring instrument — eight scored
 shots for the wall-clock cost of one. This is the state of it, what is known about what limits the
 accuracy, and what to do next, ranked. `docs/MIRV-NEXT.md` items **8s** through **8ab** are the
@@ -31,6 +33,8 @@ differed completely. Any change flown from here has to be judged against that, w
 `docs/SHOT-PROTOCOL.md` is for.
 
 ## Sixteen does not work, and why that matters here
+
+*Superseded: 32 rockets flown in sixteen-rocket worlds at 27-32 ms, every warhead within 10 mm (`docs/ICBM-OUTSTANDING.md` 2.2).*
 
 | | vehicles | sim rate | passing |
 | --- | --- | --- | --- |
@@ -116,8 +120,7 @@ Both of the arms below are settings rather than branches, for exactly this reaso
 **1. ~~`interlock` + `trimceil`.~~ Flown 2026-08-30, and `trimceil` is harmful — do not fly it.**
 `docs/MIRV-NEXT.md` **8ae**: over 96 flights it produced **zero `payback` endings** against twelve on
 the baseline, converting every one into `settled`, which lands at 6.91 km where `payback` lands at
-0.06. It also threw four shots of twelve at 54x to 105x the baseline. Off by default and it stays
-off.
+0.06. It also threw four shots of twelve at 54x to 105x the baseline. Removed on 2026-10-06.
 
 **And `payback` is a symptom rather than a lever.** Its rule fires when the predicted miss is
 already under about 156 m — `lastCycleSeconds x HoldingCostsMetresPerSecond`, 6 x 26 — so its 0.06 km
@@ -201,16 +204,15 @@ it from a 28 km one is worth more than anything else here. The logs are on disk.
 
 * **Scaling past eight.** The terminal `draw` cost is the wall, and the biggest piece of it is
   `IcbmOverlay`'s trajectory arc, which transforms a thousands-of-point path every frame before
-  striding it to 96 segments. The aim ring beside it is already cached; the arc is not. Fix that
+  striding it to 96 segments. The rings are painted by the ring pass; the arc is still transformed whole. Fix that
   before trying sixteen again.
 * **More frame-budget spans.** Every call in the simulation path is wrapped and they total ~1.4 ms.
   What is left is in `draw`.
 
 ## Tools, and what to trust
 
-* `tools/shot-report.py` scores **every rocket in a run** (`split_flights`). Its other columns —
-  residual, trim, passes — are still read over the whole log and describe the world rather than one
-  flight; per-flight attribution wants the log partitioned by craft name.
+* `tools/shot-report.py` scores **every rocket in a run** (`split_flights`), and reads its other
+  columns — residual, trim, passes — per craft wherever the log line names one (`read_shot`).
 * **`shot-report.py`'s between-run comparison still pools per flight, so its p-values are
   inflated.** The gate aggregates per shot since `eb8a4eb`; `compare()` does not. A `LOSS` at
   p=0.003 over 45 flight records was 1.48x at p=0.836 over 6 shots. `--paired` does not have this
