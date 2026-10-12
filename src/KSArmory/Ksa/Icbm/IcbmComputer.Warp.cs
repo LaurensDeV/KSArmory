@@ -125,9 +125,16 @@ internal sealed partial class IcbmComputer
         => Program.Phase switch
         {
             IcbmPhase.Holding => Config.HoldDriftsUntilIgnition ? Command.SecondsToBurn - _pointLeadSeconds : Command.SecondsToBurn,
-            IcbmPhase.Coast => SecondsToReleaseApproach,
+            IcbmPhase.Coast => SecondsToReleaseApproach - UnplannedWalkSeconds,
             _ => double.NaN,
         };
+
+    // A walk is planned only after the split, off the reach flown then, and it moves the gate earlier by
+    // a hop per extra stop. Warping to the plain gate first left the walk no time to hop at all.
+    private double UnplannedWalkSeconds
+        => _targets.Count > 1 && !_walker.Walking && !_walker.Committed
+               ? (_targets.Count - 1) * ReleaseItinerary.MedianHopSeconds
+               : 0.0;
 
     /// <summary>
     /// How long until the warheads are due to leave, or NaN when nothing is waiting for that.
