@@ -385,6 +385,14 @@ internal sealed class IcbmConfig
     public bool HandsOverWhenBurningAddsToTheShot = true;
 
     /// <summary>
+    /// Where solids burn out inside the closed loop, count the arrival's latch window and the steady aim from their
+    /// burnout rather than from the loop's start. Off, the latch fires on the jettison's own frame, against a
+    /// prediction the solid stage's projection made: flown from <c>ORBIT 300</c> to 40 N, 10 E, the miss jumped 1.1 m
+    /// to 1.57 km in that cycle and the loop froze on it. <c>docs/ICBM-OUTSTANDING.md</c> 1.14.
+    /// </summary>
+    public bool LatchWaitsOutTheSolids = false;
+
+    /// <summary>
     /// Resume the aim correction at cutoff rather than on the first frame the engines are off, which a hold for a burn
     /// window spends. In <c>PastCutoffRig</c>, an orbital bus aimed 400 km behind: off, 0 post-boost passes and released
     /// 404.6 m out; on, 4 passes and 1.3 m. Paired on the pad at 6,181 km, 1.07x [0.73, 1.59] over 32 rockets, both near

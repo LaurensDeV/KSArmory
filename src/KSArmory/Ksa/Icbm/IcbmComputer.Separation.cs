@@ -44,7 +44,7 @@ internal sealed partial class IcbmComputer
         }
     }
 
-    private void StepStagingProbe(double simStep)
+    private void StepStagingProbe(double simStep, in IcbmState state)
     {
         if (!KsaWorld.IsAlive(Craft)) return;
 
@@ -63,7 +63,7 @@ internal sealed partial class IcbmComputer
 
         if (!inWindow) return;
 
-        LogStagingGap(simStep);
+        LogStagingGap(simStep, state);
 
         if (_stagingProbe < StagingProbeAt.Length && _sinceStaging >= StagingProbeAt[_stagingProbe])
         {
@@ -85,7 +85,7 @@ internal sealed partial class IcbmComputer
 
     // A split hands the shed stage the craft's own ManualControlInputs object, so its engines follow the
     // craft's throttle. The opening acceleration tells a shed stage still pushing from a bell clipping it.
-    private void LogStagingGap(double simStep)
+    private void LogStagingGap(double simStep, in IcbmState state)
     {
         if (_sinceStaging > StagingGapSeconds || Log.Threshold > Log.Level.Debug) return;
 
@@ -116,9 +116,12 @@ internal sealed partial class IcbmComputer
                 push = "shed engines unreadable";
             }
 
+            double offAirflow = Vec.AngleBetween(state.ThrustAxisCci, state.AirflowCci) * 180.0 / Math.PI;
+
             Log.Debug($"staging gap on {KsaWorld.DisplayName(Craft)}: +{_sinceStaging:F3} s, {KsaWorld.DisplayName(stage)} "
                       + $"{apart:F2} m, opening {opening:+0.00;-0.00} m/s{accel}, {push}, turning "
-                      + $"{Diagnostics.SpinDegPerSec(Craft):F1} deg/s");
+                      + $"{Diagnostics.SpinDegPerSec(Craft):F1} deg/s, nose {offAirflow:F1} deg off the airflow at "
+                      + $"q {state.DynamicPressurePa / 1000.0:F1} kPa");
         }
     }
 

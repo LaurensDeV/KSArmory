@@ -858,7 +858,7 @@ internal sealed partial class IcbmComputer
         }
 
         IcbmState state = Sample(playerStep, out bool usable);
-        StepStagingProbe(simStep);
+        StepStagingProbe(simStep, state);
 
         // After Sample, which is what writes Parent, Body and the aim in this frame's coordinates,
         // and before Release below - so a warhead let go this frame is picked up with its clock at

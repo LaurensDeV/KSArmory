@@ -312,6 +312,13 @@ internal sealed partial class IcbmProgram
     /// </summary>
     public const double LatchArrivalWithinSeconds = 20.0;
 
+    /// <summary>
+    /// How long after the solids burn out inside the closed loop before a steady aim may latch the arrival, under
+    /// <see cref="IcbmConfig.LatchWaitsOutTheSolids"/>: the aim read steady against the solid stage's projection, and
+    /// the jettison moves the prediction in one cycle -- 1.57 km on the four-hour coast from orbit.
+    /// </summary>
+    public const double SteadyAfterTheSolidsSeconds = 3.0;
+
     /// <summary>Long enough for the stack to settle before the next stage is considered.</summary>
     public const double StageCooldownSeconds = 1.5;
 
@@ -469,6 +476,7 @@ internal sealed partial class IcbmProgram
     private double _sinceLaunch;
     private double _sinceCutoff;
     private double _sinceClosedLoop;
+    private double _sinceSolidsOut = double.NaN;
     private double _lastStep;
     private bool _resolveCoastArc;
     private double _throttle = 1.0;
@@ -796,6 +804,7 @@ internal sealed partial class IcbmProgram
         _sinceLaunch = 0.0;
         _sinceCutoff = 0.0;
         _sinceClosedLoop = 0.0;
+        _sinceSolidsOut = double.NaN;
         _lastStep = 0.0;
         _throttle = 1.0;
         _lowestToGain = double.PositiveInfinity;
@@ -885,6 +894,7 @@ internal sealed partial class IcbmProgram
         if (Phase == IcbmPhase.Coast) _sinceCutoff += step;
         if (Phase == IcbmPhase.Coast) SecondsSinceReference += step;
         if (Phase == IcbmPhase.ClosedLoop) _sinceClosedLoop += step;
+        if (double.IsFinite(_sinceSolidsOut)) _sinceSolidsOut += step;
 
         if (!Config.Armed) return Idle(state, "not armed");
         if (!state.HasAim) return Idle(state, "no target designated");

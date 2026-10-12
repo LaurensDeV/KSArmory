@@ -22,7 +22,12 @@ internal sealed partial class IcbmProgram
                               ? _arrivalFromLaunch - _sinceLaunch
                               : double.NaN;
 
+        double wasUnavoidable = _unavoidable;
         _unavoidable = Unavoidable(state);
+        if (Config.LatchWaitsOutTheSolids && Phase == IcbmPhase.ClosedLoop && wasUnavoidable > 0.0 && !(_unavoidable > 0.0))
+        {
+            _sinceSolidsOut = 0.0;
+        }
 
         // Under the drag solve the aim is moved and the floor is judged on the vacuum arc to the moved
         // point, which is shallower than the warhead's real one: a floor applied there unlatches the
@@ -176,8 +181,7 @@ internal sealed partial class IcbmProgram
             _arrivalFromLaunch = _sinceLaunch + command.CarrySeconds + command.Arc.FlightSeconds;
         }
         else if (Phase == IcbmPhase.ClosedLoop && !double.IsFinite(_arrivalFromLaunch) && !(_unavoidable > 0.0)
-            && (state.AimIsSteady || AimSitsOutTheBurn || _sinceClosedLoop >= LatchArrivalWithinSeconds
-                || (_shortShot && !OutranTheStack)))
+            && LatchMayCommit(state))
         {
             _arrivalFromLaunch = _sinceLaunch + command.SecondsToCutoff + command.Arc.FlightSeconds;
         }
@@ -189,5 +193,19 @@ internal sealed partial class IcbmProgram
             // arc is what this did before commitment and it works.
             _arrivalFromLaunch = double.NaN;
         }
+    }
+
+    // The closed loop's latch: a steady aim, an aim that sits out the burn, the window, or a short shot. Once solids
+    // have burned out inside the loop, the window and the steady aim count from their burnout instead.
+    private bool LatchMayCommit(in IcbmState state)
+    {
+        if (double.IsFinite(_sinceSolidsOut))
+        {
+            return (state.AimIsSteady && _sinceSolidsOut >= SteadyAfterTheSolidsSeconds) || AimSitsOutTheBurn
+                || _sinceSolidsOut >= LatchArrivalWithinSeconds || (_shortShot && !OutranTheStack);
+        }
+
+        return state.AimIsSteady || AimSitsOutTheBurn || _sinceClosedLoop >= LatchArrivalWithinSeconds
+            || (_shortShot && !OutranTheStack);
     }
 }
