@@ -36,11 +36,20 @@ public class HotCoreTests(ITestOutputHelper Out)
             [
                 new()
                 {
-                    DryMassKg = 38_400, PropellantKg = 334_300, ThrustNewtons = 6_320_000, ExhaustVelocity = 2_560,
-                    VacuumExhaustVelocity = 2_700, Solid = true, TailOffFraction = 0.086, TailOffEndRatio = 0.2,
+                    DryMassKg = 38_400, PropellantKg = 334_300, ThrustNewtons = 6_340_000, ExhaustVelocity = 2_150,
+                    VacuumExhaustVelocity = 2_700, Solid = true, BurnoutMassFlowRatio = 1.4,
+                    TailOffFraction = 0.17, TailOffEndRatio = 0.15, DragAreaM2 = 150.0,
                 },
-                new() { DryMassKg = 5_600, PropellantKg = 134_800, ThrustNewtons = 6_430_000, ExhaustVelocity = 4_170 },
-                new() { DryMassKg = 4_100, PropellantKg = 27_700, ThrustNewtons = 956_000, ExhaustVelocity = 4_700 },
+                new()
+                {
+                    DryMassKg = 5_600, PropellantKg = 134_800, ThrustNewtons = 6_430_000, ExhaustVelocity = 4_170,
+                    DragAreaM2 = 80.0,
+                },
+                new()
+                {
+                    DryMassKg = 4_100, PropellantKg = 27_700, ThrustNewtons = 956_000, ExhaustVelocity = 4_700,
+                    DragAreaM2 = 15.0,
+                },
             ],
         };
     }

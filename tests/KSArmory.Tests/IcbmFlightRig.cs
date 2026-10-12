@@ -94,6 +94,11 @@ internal sealed class IcbmFlightRig
     /// </summary>
     public double DragAreaM2;
 
+    /// <summary>The drag area of what is still attached, a stage's own where it declares one.</summary>
+    public double DragAreaNowM2 => StageIndex < Stages.Count && Stages[StageIndex].DragAreaM2 > 0.0
+                                       ? Stages[StageIndex].DragAreaM2
+                                       : DragAreaM2;
+
     public double ScaleHeightMetres = 8000.0;
 
     public double SeaLevelDensity = 1.225;
@@ -254,6 +259,12 @@ internal sealed class IcbmFlightRig
         public required double ExhaustVelocity;
 
         public double MassFlow => ThrustNewtons / ExhaustVelocity;
+
+        /// <summary>
+        /// The stack's drag area while this stage is the one running, or zero for the rig's own. KSA's box is the
+        /// whole craft's, so it shrinks at every staging, and a stack with side boosters loses most of it at once.
+        /// </summary>
+        public double DragAreaM2;
 
         /// <summary>
         /// A solid motor: it ignores the throttle and burns to the end once lit, whatever the
@@ -701,7 +712,8 @@ internal sealed class IcbmFlightRig
         double mass = MassAbove(StageIndex);
         double3 acceleration = Body.GravityCci(PositionCci);
 
-        double areaOverMass = DragAreaM2 > 0.0 && mass > 0.0 ? DragAreaM2 / mass : DragAreaOverMass;
+        double area = DragAreaNowM2;
+        double areaOverMass = area > 0.0 && mass > 0.0 ? area / mass : DragAreaOverMass;
         if (areaOverMass > 0.0 && density > 0.0)
         {
             double speed = Vec.Len(airflow);
