@@ -16,6 +16,11 @@ the ignition and afterwards is the spent stage.
 into an `IcbmState` and the answer into writes on somebody else's vehicle, and carries what only the
 game can answer: staging, separation, the trim's jets, the release and the warp.
 
+**One computer per craft, not per launcher.** A craft can carry two rails and shoot them at different
+things, but it has exactly one trajectory, so a second computer aboard is a second autopilot fighting
+the first for the same engines. That is the one place `Ksa/Icbm/IcbmComputers.cs` and `WeaponSystems`
+disagree about what to key on.
+
 ## Contents
 
 - **Frames and the solve**: [The algorithm, and why this one](#the-algorithm-and-why-this-one) · [Frames](#frames) · [Flight time is the parameter, and the arrival time gets latched](#flight-time-is-the-parameter-and-the-arrival-time-gets-latched) · [Arrival angle is asked for, not read off](#arrival-angle-is-asked-for-not-read-off) · [Nothing is flown open loop](#nothing-is-flown-open-loop) · [The prediction flies the warhead, not the bus](#the-prediction-flies-the-warhead-not-the-bus) · [The prediction is of the warhead's state, not the bus's](#the-prediction-is-of-the-warheads-state-not-the-buss) · [A stable orbit is known not to come down](#a-stable-orbit-is-known-not-to-come-down) · [The aim is corrected by what the flown prediction loses](#the-aim-is-corrected-by-what-the-flown-prediction-loses)
@@ -224,6 +229,21 @@ keeping:
   `AtmosphericStepSeconds` applies only once there is density worth integrating, so a coast pays
   nothing.
 - **`DragK = 0` reproduces the vacuum answer exactly**, so nothing above the atmosphere moved.
+- **It reads the air alone** (`KsaWorld.AirDensityRatioAt`), as the gun's lay does. The medium reads
+  ocean anywhere under the mean sphere, land above it or not, so under 204 m of ground an air step's
+  stages read 837x the air there and throw the warhead off the planet — the release probe's only flown
+  failure (`docs/ACCURACY-PLAN.md` 3ep).
+
+**The warhead's drag is its own shape's, and it ships with the kick flown through the air.** The Mk 21
+is registered with a hand-typed `DragK` of 1.5e-5 — a ballistic coefficient near 8,400 lb/ft² against
+the 100 to 5,000 published for reentry vehicles, **known unphysical** — and
+`IcbmConfig.WarheadDragFromItsShape` swaps in the drag from its mass, calibre and coefficient; the
+constant survives only as the arm a paired night flies against. It is **one change with
+`IcbmConfig.KickThroughTheAir`, and neither ships alone**: a warhead at 3.6x the drag leaves 8.8 mm of
+the ring's image in its group where the constant leaves 2.1. Together, over 20 paired blocks against a
+declared non-inferiority bar, the worst warhead went **0.80x** with a 97.5% upper bound of 0.985 and the
+group's spread was lower on 17 of 20 shots (`docs/ACCURACY-PLAN.md` 3eu; 3dk and 3eo are the two
+losses that flew one without the other).
 
 **And this is what made the aim correction below inert.** It observes the *prediction*. A difference
 the prediction cannot see is a difference no amount of correcting removes — the loop drove the
@@ -309,6 +329,42 @@ Four things make it honest rather than self-confirming, and the first two were e
   direction. Flown: own prediction 60.4 km out, then 9.7 km.
 - The miss is scored against the **target**, never against the biased aim. Scoring the correction
   against itself reports a perfect shot however far the rounds actually land.
+
+**A correction loop can only remove what its observer can see**, and the observer has been wrong in
+both directions — blind to a drag it did not model (see above), and seeing misses that were not there.
+Three more rules come from that:
+
+- **The prediction and the target are read on one clock.** Mid-burn the prediction departs from the
+  *cutoff* state, seconds ahead, and `ImpactPredictor` un-carries its impact into the body-fixed frame
+  of that instant while the target is known in the frame of *now*. Compared raw, they measure the
+  planet's turn over the rest of the burn and call it miss — not a tunable bias, because it shrinks to
+  nothing as cutoff arrives, so the correction chases a ruler moving at ~400 m/s against ground moving
+  at 465. Headless at 2,000 km it put a shot needing no correction at all 191.6 km wrong; flown, closing
+  it took the warheads from 11.25 km to 5.35 km. `TerrainRadiusAt` carries the same un-carry, and once
+  the engines are off both reduce to one expression and agree exactly.
+- **A prediction departing from inside the air is refused** (`AimCorrection.DepartureIsWorthObserving`,
+  at `Medium.NoticeableDensity`, because that is the same question asked of the same model). Before the
+  vehicle has flown, the projected cutoff is the pad, so the arc is flown with drag from sea level and
+  reads **1,522 km** of miss for an aim that is exactly right. Unrefused, the loop pinned the bias at
+  `AimCorrection.MaxMetres` on its first cycle and half the flights could never pay the trim to walk it
+  back, landing 300 km out; refused, 8 of 8 landed within 0.33 km against a worst of 310.42.
+- **The miss is not monotonic in the aim, so the loop walks past its best**
+  (`AimCorrection.WorseBeforeStopping`, 12). At 7,645 km a best of 3.34 km was followed by a five-cycle
+  patch out to 5.89 km and then 1.73 km at a bias 38 km further on — 1.15 km of flown miss against
+  15.74 for a loop that gave up inside the patch. Stopping early is not conservative: stopping makes
+  `IsSteady` true, which commits the arrival, and the 3.34 km it stopped for measured 15.86 km one cycle
+  later. `IcbmProgram.LatchArrivalWithinSeconds` bounds it above.
+
+**And the best-aim ratchet is dead below 250 m.** `AimCorrection` banks a new best only on beating the
+old by `ImprovedByMetres`, a flat 250 m, so once the best is 250 m or less improving on it would take a
+negative miss, and the `worse` arm needs 250 m the other way (`AimRatchetTests`). The terminal `Freeze()`
+then reverts the bias by a median 110 m — **and the revert moves no warhead**: they leave that same frame
+on the trajectory the last trim pass flew, and over 536 flights the revert predicts the release probe at
++0.10. What the dead band did was stop the post-cutoff loop early on `PassesWithoutImprovement`; that loop
+now judges its passes on a band that follows the miss wherever `IcbmConfig.ReleaseInsideTheTrimFloor` is on,
+which ships (`docs/ACCURACY-PLAN.md` 3cu). The aim loop keeps the flat band: a switch giving it the tracking
+one flew 0.88x [0.84, 1.10] on the miss and 0.78x [0.51, 1.11] on the release probe, unresolved, and was
+removed (3cp, 3cq).
 
 ## The ascent
 
@@ -469,9 +525,21 @@ answer](#roll-and-the-direction-that-has-no-answer).
 **The pointing deadband is re-derived every frame**, because KSA only ever raises it. It widens
 `AngleDeadband` to what one control period of the minimum thruster impulse can produce and takes a
 `max` against the standing value, so a bus carries the guard sized for the boost RCS of the stack
-it dropped — measured at 11.40° against a live rate bit worth 0.07. Assigning the profile puts it
-back and KSA's own `max` re-establishes the real floor on the same frame: a separated bus's
-pointing band goes **9.63° to 0.37°**.
+it dropped — measured at 11.40° against a live rate bit worth 0.07. The transient that sets it is the
+frame the bus separates: its mass properties resolve, the rate bit momentarily reads **55 deg/s**, and
+`0.2 x 55` is 11.04°, held for the whole deployment — which is why cutting the impulse driving it by 35%
+did not move it (it went slightly *up*). Assigning the profile in `VehicleCommand.TryAim` puts it back
+and KSA's own `max` re-establishes the real floor on the same frame: a separated bus's pointing band
+goes **9.63° to 0.37°**. `Strict` rather than `Balanced` because it is also the fastest of the three,
+30 deg/s of rate limit against 5.
+
+**And the quantum that floor is built from belongs to the whole ring.** KSA enrols a nozzle in a
+rotation axis at a thrust share of **0.1**, not the 0.5 translation uses, and sums the enrolled set into
+`MinRotationalImpulse` — so a nozzle nobody meant to steer with still coarsens the quantum that does.
+What decides enrolment is the axial gap between the ring and where the part declares its mass, which
+defaults to the mounting face where nothing physically is. `tools/model/checkring.py` gates it, and
+nothing else can: the mesh is clean, the pivots agree and `checkswept.py` finds no intersection.
+`docs/MIRV-NEXT.md` has the measurement.
 
 **Commands other than the attitude take a frame to arrive.** KSA copies a vehicle's control inputs
 into its worker state in `PrepareWorker`, which runs before this mod's hook, so an ignition,
@@ -755,6 +823,13 @@ least well behaved.
 last few per cent is not a trade a weapon should make on its own, so the earliest window within
 `GoodEnoughFraction` of the best wins.
 
+**And once a hold has chosen a window it keeps it** (`BurnWindow.TryKeep`). Searched afresh every five
+seconds, a near window whose cost drifted across that margin as it approached was swapped at the last
+minute for a later or dearer one, and burns lit 32 and 56 degrees off the plane. A fresh search still
+wins when it agrees with the kept window or finds an earlier one as good; when it has jumped later or
+dearer, the kept window is refined instead — about the instant first chosen, never about its own last
+refinement, which walks away the way the loft runaway did.
+
 **Where the plane change belongs falls out rather than being told.** Costing departures and taking
 the cheapest puts the burn a quarter of an orbit before the target, and makes it 97% normal to the
 plane — which is the textbook answer, arrived at without the textbook. `OrbitPlaneTests` pins it,
@@ -933,7 +1008,7 @@ still arrives at the coast holding whatever the last frame of the upper stage ad
 Headlessly, through the real transfer solver, on the flown 2,700 km deorbit: a 1.1 m/s shove is
 **2.4 km of miss, trimmed to 2 m in 1.5 s**.
 
-Five things it is careful about, and each is a way it went wrong first:
+Six things it is careful about, and each is a way it went wrong first:
 
 - **It nulls against the trajectory the guidance flew to, not a transfer solved from where the bus
   happens to be.** The pair `(CutoffPositionCci, Arc.RequiredVelocityCci)` is a conic; carry it
@@ -959,7 +1034,8 @@ Five things it is careful about, and each is a way it went wrong first:
   `TranslateForward`/`Right`/`Down` by which control-frame axis its thrust points along, so
   `KsaWorld.TryControlFrameCci` reads `Ctrl2Body ∘ Body2Cce ∘ Cce2Cci` and the flags fall out. The
   debt is mostly not axial: flown and decomposed onto the bus's axes, the radial term is three times
-  the axial one and only 20% of the total is axial (`docs/ACCURACY-PLAN.md` 3fh).
+  the axial one — medians 1.71 m/s down against 0.63 along the nose — and only 20% of the total is
+  axial (`docs/ACCURACY-PLAN.md` 3fh), so the lateral jets do most of the work.
 - **One direction at a time, because the stop threshold is only knowable where it was measured.**
   Half a frame of thrust is the rule, and the acceleration in it is measured — the velocity change
   less what gravity did over the same interval — which is only attributable along the direction
@@ -972,7 +1048,8 @@ Five things it is careful about, and each is a way it went wrong first:
   The shipped bus is four clusters of five — an axial pair, a tangential pair for roll, and one
   radial jet on the cluster bisector — so it does have lateral translation, and the roll pair is
   exactly tangential rather than canted precisely so a sideways command cannot reach it and leave a
-  torque behind. What that lateral authority was wanted for — `docs/MIRV-NEXT.md` item 5c, trimming
+  torque behind: 4.000 units fore and aft and 4.243 in each lateral direction, all six live, which
+  `tools/model/checkring.py --translation` reads off the XML. What that lateral authority was wanted for — `docs/MIRV-NEXT.md` item 5c, trimming
   the bus between releases so each tube's kick lands where the last one's did — is moot on this bus
   either way, because straight tubes give every warhead the same kick.
 - **It may not finish before the shove has arrived.** The split is deferred through the engine's
@@ -981,7 +1058,13 @@ Five things it is careful about, and each is a way it went wrong first:
   looks again. `SettleSeconds` is the guard, and it is also why separation now runs *before*
   anything decides whether a warhead may go: flown, the first round left at `23:04:26.025` and the
   split landed at `.071`, which is how one warhead came off the attached stack and five off the
-  shoved bus.
+  shoved bus. So the trim is a **precondition of being ready to deploy**
+  (`PostCutoffSequence.TrimHoldsTheRelease`) rather than a step inside the release sequence.
+- **It counts the frame its last hold still owes before choosing again**
+  (`IcbmConfig.TrimCountsTheCommandInFlight`, on), because a command reaches the engine a frame after
+  it is written, and at a warped step half a frame is the whole stop band. Without it the trim chased its
+  own overshoot between opposite jets: an aim pass at 84–117 ms steps spent 8.13 m/s against 0.70 with
+  it.
 - **It gives up rather than holding warheads**, on the same argument `ReleaseSequence` gives up on.
   A stall on the total — not on one direction — is what stops it: with a fixed arrival, a lateral
   error the bus cannot null grows a fresh axial requirement every cycle, so the axial jets chase it
@@ -1295,7 +1378,8 @@ typed shape. First order holds well enough to draw with: flown against linear at
 **The propellant, read rather than estimated**: the bus tank holds **134.3 kg** of MMH/NTO (`51.6452` kg
 of MMH at a mass fraction of `0.3846`, straight out of the save), and KSA's own design chain gives an
 exhaust velocity of 2,906 m/s. That is **143 m/s fore and aft, 101 on one lateral axis, and 72 across
-both** — `BusTrim` fires one direction at a time, so a two-axis divert pays the L1 norm. Against that,
+both** — `BusTrim` fires one direction at a time, so a divert pays the L1 norm of its parts on the
+bus's own axes, up to 1.73x its length across all three (`DivertFootprint.CostMetresPerSecond`). Against that,
 `PostBoostAim.MaxTrimMetresPerSecond` is 60 and a flown single-target shot spends a median 16.1 m/s
 (p90 17.9, worst 21.8). **The guidance cap binds; the tank does not**, and 30–45 m/s is left to divert
 with under the cap against 56–127 in the tank.
@@ -1420,7 +1504,12 @@ aim costs propellant and not accuracy. After it the arc is pinned to an instant 
 and past cutoff there is no engine left at all — so a coast add is a divert stop and never a new lead.
 
 It has to be the farthest because the itinerary takes its first stop to be the one the bus already arrives
-on; a walk whose first stop is not where the booster aimed is refused (`ReleaseWalkHold.NotWhereTheBusIsAimed`).
+on; a walk whose first stop is not where the booster aimed is refused (`ReleaseWalkHold.NotWhereTheBusIsAimed`),
+because it costs about twice what it is priced at.
+
+**And the lead is never removable** (`TargetEdit.MayRemove`) — the lead rather than the first chosen,
+because the release schedule may fly them in another order — since the arc, the aim correction and the
+trim are all solved against it.
 
 ### The hop is charged where it is measured
 
@@ -1431,6 +1520,11 @@ landing* accepted two targets on opposite edges at one radius each, and the pair
 against a 10 m/s ring**, which `ReleaseLoop` refused.
 `ReachDisplayTests.ASecondTargetIsMeasuredFromTheStopTheHopLeavesFrom` asserts the old form would have taken
 the click, so it cannot pass against the code it exists to detect.
+
+**The walk is ordered nearest-first from wherever the bus has got to** (`ReachDisplay.Order`), never in
+the order the player clicked: four collinear targets clicked near-to-far and led from the far end
+walked 3 → 0 → 1 → 2, out to the near end and back, 5 km of travel for a 3 km chain. **And the reach
+bounds an add, never a designation**, because target 1 is the booster's question, not the bus's.
 
 ### Spare warheads, when fewer than six targets are picked
 
@@ -1541,7 +1635,20 @@ Every one of these is behind "a walk exists", so a set of one executes none of t
   otherwise take the walk away on the approach to the gate and shut `ReadyToDeploy` mid-walk.
 * **The coast a set is planned against is its own length, latched at cutoff** —
   `ReleaseWalker.CoastForPlanning`, off `IcbmProgram.CommittedArrivalFromNow`, taken before anything can
-  decide the reach is not wanted. `docs/MIRV-TARGETS.md`, *The clock cut the walk*.
+  decide the reach is not wanted. `docs/MIRV-TARGETS.md`, *The clock cut the walk*. Handed the
+  countdown instead, `CoastFits` cut the set to one stop at exactly `gate + hop`, the instant the first
+  release was due, and the walk never started.
+* **The plan is committed by the first warhead leaving.** Until then it is re-planned as the reach is
+  re-flown; after it, re-ordering stops behind the bus would aim it at a place it has been.
+* **A hop is accepted on the trim's own question, not the planner's** (`ReleaseLoop.CanFlyTheHop`): the
+  hop *plus* what the bus still owes, against `PostCutoffSequence.CeilingFor`, because the trim refuses a
+  whole pass over its ceiling — a 9.73 m/s hop arrived as 10.29 and left three warheads 4 km out. **And
+  against the flight's whole budget**, which nothing downstream refuses at all: four stops spending
+  11.21, 17.08 and 31.72 m/s reached 60.01 of 60, and the fourth released at `divert 0.00` a kilometre
+  from where its warhead was sent.
+* **A refused hop ends the walk where the bus is** (`ReleaseWalker.StopHere`) rather than finishing it:
+  the stop the bus is on is already trimmed and corrected onto, so the warheads left are delivered there
+  rather than riding the bus down.
 
 **What scoring reads.** `IcbmComputer.TargetOfRound` answers which
 of `Targets` a released warhead was sent to, recorded at the instant it left — nothing downstream can
@@ -2025,4 +2132,6 @@ phase, the latched arrival, the aim bias, the trim's debt — is not built.
 **The delta-v readout is one stage's except on the craft being flown.** KSA reports the whole stack
 only for the controlled craft and otherwise the running stage's engines, which is why a shot short of
 the propellant is flown and reported rather than refused: a launch gate built on that number would
-turn away every multi-stage rocket nobody is flying.
+turn away every multi-stage rocket nobody is flying. It flies, falls short, says by how much, and holds
+its warheads, because releasing on a trajectory known to fall short scatters them over whatever is under
+the short fall.

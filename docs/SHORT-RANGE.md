@@ -99,7 +99,7 @@ Why not the first draft's version:
   timing and the 2 s ramp mean nothing there. And a cutoff at 30–50 km (q 10–20 kPa) coasts with the stack on:
   roughly 30–60 m/s lost at ~350 m per m/s, **10–20 km short** at 300 km, uncorrected. If a cutoff in air is ever
   wanted, hand over to `ClosedLoop` early instead of duplicating `ShouldCutOff`.
-- **A bus-drag predictor is a second flight model** — what CLAUDE.md warns against. Releasing at cutoff makes the
+- **A bus-drag predictor is a second flight model** — what `docs/ICBM-GUIDANCE.md` warns against. Releasing at cutoff makes the
   warhead's drag the right model and removes the need.
 - **A computed minimum range from the pad (old Step 1) is not computable honestly.** It needs the open-loop ascent
   flown through air with this stack's thrust, mass flow and staging; `BoosterPerformance` knows the running stage

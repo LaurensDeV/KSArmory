@@ -1507,7 +1507,7 @@ tens of degrees a second — so the guard was sized by one transient and held th
 coast. `VehicleCommand.TryAim` assigns the attitude profile every frame and KSA's own `max`
 re-establishes the real floor on the same frame. Flown 22 August, eight shots an arm interleaved:
 band a median 9.62 -> 0.37 degrees, walk from the release probe 1169 -> 363 m, median miss
-0.94 -> 0.38 km, ratio 0.37 (97% interval 0.26-0.57, p 0.002). `CLAUDE.md` has the engine mechanism.
+0.94 -> 0.38 km, ratio 0.37 (97% interval 0.26-0.57, p 0.002). `docs/ICBM-GUIDANCE.md`, *What it commands, and what it does not*, has the engine mechanism.
 
 So the reason this item was closed has gone: a six-degree turn is no longer inside the dead zone.
 What closes it instead is that **there is no longer a cant to correct.** `ab6584d` straightened the
@@ -2224,7 +2224,7 @@ is the first flown evidence for the case that document makes.
 
 1. **Do not merge `neverfreeze` or the pair.** Settled, twice over.
 2. **Do not judge `ownint` at this target.** Its 21 shots measure a hillside. It is right on
-   principle — `CLAUDE.md` already says a prediction modelling drag its own way is a second flight
+   principle — `docs/ICBM-GUIDANCE.md` already says a prediction modelling drag its own way is a second flight
    model — but this night neither confirms nor refutes it. Re-fly it somewhere the arrival is not
    parallel to the ground, or at a steeper arrival.
 3. **`arm/arr15` is not refused, and it is expensive.** The headless check is done — see *A 15°

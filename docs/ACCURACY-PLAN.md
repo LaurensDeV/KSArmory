@@ -6395,7 +6395,7 @@ Against a term of ~7 m that is **thirty times out of scale**, in the opposite di
 
 **The tell is that the loop was happy.** One flight's aim loop converged 0.24 -> 0.10 -> 0.01 ->
 0.01 km and stopped, while the release probe on that same flight read +234 m. The observer and the
-world disagreed by 224 m — which is exactly CLAUDE.md's own rule that *a correction loop can only
+world disagreed by 224 m — which is exactly `docs/ICBM-GUIDANCE.md`'s own rule that *a correction loop can only
 remove what its observer can see*, met from the other side: **the observer was moved**.
 
 Why it is structurally wrong rather than mistuned: `departsIn` drives the coasted state, the frame
