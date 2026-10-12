@@ -376,6 +376,13 @@ internal sealed class IcbmConfig
     public bool ShortShotPushesThroughAStall = true;
 
     /// <summary>
+    /// Hand the ascent to the closed loop once burning on the schedule has raised the velocity to gain, and the dynamic
+    /// pressure has stopped falling, for <see cref="IcbmProgram.RisingToGainSeconds"/>, on a stage that can stop and holds the rest. Flown 2026-10-12, RealSRB4
+    /// at 1,000 km: 3 of 3 stayed on the schedule to 88 km and burned out 12.8-13.7 km/s short. <c>docs/ICBM-OUTSTANDING.md</c> 1.17.
+    /// </summary>
+    public bool HandsOverWhenBurningAddsToTheShot = false;
+
+    /// <summary>
     /// Resume the aim correction at cutoff rather than on the first frame the engines are off, which a hold for a burn
     /// window spends. In <c>PastCutoffRig</c>, an orbital bus aimed 400 km behind: off, 0 post-boost passes and released
     /// 404.6 m out; on, 4 passes and 1.3 m. Paired on the pad at 6,181 km, 1.07x [0.73, 1.59] over 32 rockets, both near

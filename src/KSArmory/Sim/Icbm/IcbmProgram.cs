@@ -216,6 +216,15 @@ internal sealed partial class IcbmProgram
     /// </summary>
     public const double AscentReserveSeconds = 15.0;
 
+    /// <summary>
+    /// How far the velocity to gain must climb without falling, and for how long with the dynamic pressure not falling either,
+    /// before the ascent hands over.
+    /// </summary>
+    public const double RisingToGainMarginMetresPerSecond = 10.0;
+
+    /// <inheritdoc cref="RisingToGainMarginMetresPerSecond"/>
+    public const double RisingToGainSeconds = 2.0;
+
     /// <summary>Inside this much of cutoff, solve every step. It is thirty frames and it decides the shot.</summary>
     public const double SolveEveryStepWithin = 0.75;
 
@@ -458,6 +467,11 @@ internal sealed partial class IcbmProgram
     private bool _resolveCoastArc;
     private double _throttle = 1.0;
     private double _lowestToGain = double.PositiveInfinity;
+    private double _risingFrom;
+    private double _lastRisingToGain;
+    private double _risingSeconds;
+    private double _lastPressurePa;
+    private double _pressureRisingSeconds;
 
     // What the running stage cannot be stopped from adding, as of the last solve, and whether the
     // arc was lofted to need exactly that.
@@ -775,6 +789,11 @@ internal sealed partial class IcbmProgram
         _lastStep = 0.0;
         _throttle = 1.0;
         _lowestToGain = double.PositiveInfinity;
+        _risingFrom = 0.0;
+        _lastRisingToGain = 0.0;
+        _risingSeconds = 0.0;
+        _lastPressurePa = 0.0;
+        _pressureRisingSeconds = 0.0;
         _unavoidable = 0.0;
         _absorbing = false;
         _handedOverInTheAir = false;

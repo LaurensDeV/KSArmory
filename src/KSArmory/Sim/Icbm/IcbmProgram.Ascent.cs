@@ -44,6 +44,35 @@ internal sealed partial class IcbmProgram
         return solid + Math.Max(Config.SolidsLeaveMetresPerSecond, 0.0);
     }
 
+    // Burning on the schedule keeps adding to what is left while the air stops thinning, on a stage that can stop and holds
+    // the rest: no thin air is coming. Flown, RealSRB4 at 1,000 km never handed over otherwise. A long shot's to-gain rises
+    // on the schedule too, with the air thinning fast, so the pressure is what tells them apart.
+    private bool ToGainIsRising(in IcbmState state)
+    {
+        _pressureRisingSeconds = state.DynamicPressurePa >= _lastPressurePa ? _pressureRisingSeconds + _lastStep : 0.0;
+        _lastPressurePa = state.DynamicPressurePa;
+
+        double stage = double.IsFinite(state.RunningStageDeltaV) && state.RunningStageDeltaV >= 0.0
+                           ? state.RunningStageDeltaV
+                           : state.Booster.DeltaVRemaining;
+
+        // A rise starts again whenever it falls, so a staging's jump that then falls away never counts.
+        if (Arc is null || !state.RunningStageCanStop || !state.Booster.CanThrust || !(_toGain > 0.0) || !(stage > _toGain)
+            || _toGain < _lastRisingToGain)
+        {
+            _risingFrom = _toGain;
+            _risingSeconds = 0.0;
+        }
+        else
+        {
+            _risingSeconds += _lastStep;
+        }
+
+        _lastRisingToGain = _toGain;
+        return _risingSeconds >= RisingToGainSeconds && _toGain - _risingFrom >= RisingToGainMarginMetresPerSecond
+               && _pressureRisingSeconds >= RisingToGainSeconds;
+    }
+
     private IcbmCommand PitchProgram(in IcbmState state)
     {
         // A short shot can top out inside the air, and then no thin air is coming: past the top of
@@ -59,10 +88,12 @@ internal sealed partial class IcbmProgram
         bool complete = Config.FlyAnyRange && clear && state.RunningStageCanStop
                         && ReserveBinds(ThrottleUnderAccelerationCap(1.0, state), state);
 
-        if (climbOver || complete
+        bool adding = Config.FlyAnyRange && Config.HandsOverWhenBurningAddsToTheShot && clear && ToGainIsRising(state);
+
+        if (climbOver || complete || adding
             || (state.DynamicPressurePa <= Config.HandoverPressurePa && clear))
         {
-            _handedOverInTheAir = (climbOver || complete) && state.DynamicPressurePa > Config.HandoverPressurePa;
+            _handedOverInTheAir = (climbOver || complete || adding) && state.DynamicPressurePa > Config.HandoverPressurePa;
             _shortShot |= _handedOverInTheAir;
             Phase = IcbmPhase.ClosedLoop;
             _lineCarriedOver = true;
