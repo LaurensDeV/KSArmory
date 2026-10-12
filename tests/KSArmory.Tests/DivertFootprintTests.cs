@@ -253,7 +253,7 @@ public class DivertFootprintTests(ITestOutputHelper Out)
     /// release: the free major runs <b>497 to 1,816</b> m per m/s, a 3.66x swing, and the pinned reach
     /// <b>395 to 407</b>, a 1.03x one — the low end being the 12,787 km shot arriving at 13.3°, which
     /// is the shallowest geometry in the matrix. If this ever stops holding,
-    /// <c>docs/MIRV-TARGETS.md</c>'s pre-launch half goes with it.</para>
+    /// <c>docs/ICBM-GUIDANCE.md</c>'s "The pad can draw the pinned reach" goes with it.</para>
     /// </remarks>
     [Fact]
     public void ThePinnedReachIsTheReleaseEpochAndTheArcCannotMoveIt()

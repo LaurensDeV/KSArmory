@@ -15,7 +15,7 @@ namespace KSArmory;
 /// <see cref="ArrivalClock.Free"/> is a long ellipse along the track and is only honest if a release loop
 /// re-commits the arrival per destination. Drawing the free one where the flight pins the clock shows a
 /// reach 2–12x too long, so <see cref="TryFrom"/> takes the choice rather than offering one.
-/// <c>docs/MIRV-TARGETS.md</c>.</para>
+/// <c>docs/ICBM-GUIDANCE.md</c>, "Several targets".</para>
 ///
 /// <para><b>Free-clock, the long axis belongs to the arrival angle, not to the range.</b> It runs about
 /// <c>450 · cot γ</c> metres per m/s at the release epoch, so it is 25:1 at 9°, 3:1 at 20° and 2:1 at

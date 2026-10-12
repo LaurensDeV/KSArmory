@@ -5,7 +5,7 @@ namespace KSArmory;
 ///
 /// <para>A single designation is one site and one count. This is that generalised to at most
 /// <see cref="MaxTargets"/>, and it is deliberately only the <em>data</em>: nothing here flies a bus between targets, and a set of one behaves exactly as a
-/// lone designation does. <c>docs/MIRV-TARGETS.md</c> is the whole plan.</para>
+/// lone designation does. <c>docs/ICBM-GUIDANCE.md</c>, "Several targets", is the whole account.</para>
 ///
 /// <para><b>Spare warheads stay aboard rather than being spread by default.</b> They can be given to
 /// a target by raising its count, and warheads sharing a target are released <em>together</em> —

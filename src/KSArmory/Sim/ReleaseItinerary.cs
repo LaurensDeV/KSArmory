@@ -38,8 +38,8 @@ namespace KSArmory;
 ///
 /// <para><b>It reports rather than truncates.</b> Dropping a target moves every release later, so a
 /// trimmed set is a different schedule and not a prefix of this one: <see cref="Fits"/> says how
-/// many the budget and the coast reach, and the caller re-plans. <c>docs/MIRV-TARGETS.md</c> is the
-/// whole plan.</para>
+/// many the budget and the coast reach, and the caller re-plans. <c>docs/ICBM-GUIDANCE.md</c>, "Several
+/// targets", is the whole account.</para>
 /// </summary>
 internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.Stop> Stops,
                                                  ReleaseItinerary.Bus Means,

@@ -52,8 +52,8 @@ internal readonly record struct ShotRequest(double LatitudeDeg, double Longitude
     }
 
     /// <summary>
-    /// Where a shot goes when nobody says. It is the aim point <c>docs/ICBM-GUIDANCE.md</c>'s flown
-    /// numbers were taken against, 2,300–2,700 km downrange of the pad they were flown from, which
+    /// Where a shot goes when nobody says. It is the aim point the deorbit numbers in <c>docs/ACCURACY-PLAN.md</c>,
+    /// "Moved from ICBM-GUIDANCE", were taken against, 2,300–2,700 km downrange of the pad they were flown from, which
     /// is what makes a run comparable with what is written down.
     /// </summary>
     public const double DefaultLatitudeDeg = -26.485;

@@ -3,9 +3,9 @@ namespace KSArmory;
 /// <summary>
 /// One installation's own settings for its ICBM computer: what can differ between two missiles in the
 /// same world. The target is not here; it is a designation, held by the weapons system that acts on it.
-/// Each setting says what it does, its verdict, and where the account is; the accounts are in
-/// <c>docs/ACCURACY-PLAN.md</c>, <c>docs/SHORT-RANGE.md</c>, <c>docs/MIRV-TARGETS.md</c> and
-/// <c>docs/ARRIVAL-ANGLE.md</c>.
+/// Each setting says what it does, its verdict, and where the account is; how they fit together is
+/// <c>docs/ICBM-GUIDANCE.md</c>, and the flights are in <c>docs/ACCURACY-PLAN.md</c>, <c>docs/SHORT-RANGE.md</c>,
+/// <c>docs/MIRV-TARGETS.md</c> and <c>docs/ARRIVAL-ANGLE.md</c>.
 /// </summary>
 internal sealed class IcbmConfig
 {
@@ -106,7 +106,7 @@ internal sealed class IcbmConfig
 
     /// <summary>
     /// Draw the ground the coasting bus can still divert to, and refuse a click outside it. The switch
-    /// that stops paying for its flights. <c>docs/MIRV-TARGETS.md</c>.
+    /// that stops paying for its flights. <c>docs/ICBM-GUIDANCE.md</c>, "Several targets".
     /// </summary>
     public bool ShowDivertReach = true;
 
@@ -148,7 +148,7 @@ internal sealed class IcbmConfig
     /// <summary>
     /// Whether a walk between several targets starts at cutoff rather than ending on
     /// <see cref="ReleaseBeforeArrivalSeconds"/>: about twice the spacing, a worse floor per warhead.
-    /// <b>Off, and unflown.</b> <c>docs/MIRV-TARGETS.md</c>.
+    /// <b>Off: flown 2026-10-11 and lost.</b> <c>docs/ICBM-OUTSTANDING.md</c> 4.3.
     /// </summary>
     public bool WalkStartsAtCutoff;
 
@@ -275,7 +275,8 @@ internal sealed class IcbmConfig
     /// <summary>
     /// Fly a shot of any range on any stack: loft the arc until it needs at least what a solid stage will
     /// add, and hand a stage that cannot stop or is at its floor to the closed loop. On; 25 to 2,000 km have
-    /// landed, though RealSRB4 cannot finish 1,000 km (<c>docs/ICBM-OUTSTANDING.md</c> 1.17). <c>docs/SHORT-RANGE.md</c>.
+    /// landed, though RealSRB4 cannot finish 1,000 km (<c>docs/ICBM-OUTSTANDING.md</c> 1.17). <c>docs/ICBM-GUIDANCE.md</c>,
+    /// "Short shots".
     /// </summary>
     public bool FlyAnyRange = true;
 

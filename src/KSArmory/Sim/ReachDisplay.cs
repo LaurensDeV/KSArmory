@@ -80,7 +80,7 @@ internal enum ReachVerdict
 ///
 /// <para><b>Pinned, and there is no choice about it.</b> The flight latches the arrival at
 /// closed-loop handover, so <see cref="DivertFootprint.ArrivalClock.Free"/> would draw a region 2
-/// to 12 times too long along the track. <c>docs/MIRV-TARGETS.md</c>.</para>
+/// to 12 times too long along the track. <c>docs/ICBM-GUIDANCE.md</c>, "Several targets".</para>
 ///
 /// <para><b>And pinned, it can be drawn before the burn as well as after it.</b> Free-clock the long
 /// axis is <c>450 · cot γ</c> and belongs to the arc actually flown; pinned both axes collapse onto
@@ -124,7 +124,7 @@ internal enum ReachVerdict
 /// </param>
 /// <param name="SpacingMetres">
 /// The closest two targets are allowed to be, which is the warhead's lethal radius — overlapping
-/// blast is the player's business and overlapping kill is not. <c>docs/MIRV-TARGETS.md</c>.
+/// blast is the player's business and overlapping kill is not. <c>docs/ICBM-GUIDANCE.md</c>, "Several targets".
 /// </param>
 /// <param name="NextHopAlongMetres">
 /// Downrange from the landing to the stop the next hop leaves from, which is where the ring is

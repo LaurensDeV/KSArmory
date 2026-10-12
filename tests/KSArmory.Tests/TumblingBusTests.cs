@@ -11,8 +11,8 @@ namespace KSArmory.Tests;
 ///
 /// <para><b>It does not work, and these tests are why.</b> The idea is the obvious answer to a
 /// vehicle with slew authority and no ability to hold — which is what the flown bus is — so it is
-/// worth being able to show that it loses rather than re-deriving it. <c>docs/ICBM-GUIDANCE.md</c>
-/// has the arithmetic; the three tests below are its three legs, and each one alone is enough.</para>
+/// worth being able to show that it loses rather than re-deriving it. <c>docs/ACCURACY-PLAN.md</c>,
+/// "Moved from ICBM-GUIDANCE", has the arithmetic; the three tests below are its three legs, and each one alone is enough.</para>
 ///
 /// <para>Nothing here drives a policy the mod implements. The comparison is made in the sequencer's
 /// own currency — <see cref="ReleaseSequence.LateralFromCant"/>, metres a second at the tube — so a
