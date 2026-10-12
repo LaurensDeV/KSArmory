@@ -12468,3 +12468,294 @@ the 240 s limit and then let the 1.8 orbit case close to 3.5 m of its stack.
 2.3 mm median, 12 mm worst, no pass clock run out and no bus inside the keep-out, against 26.2 mm, 527 m and 16 of
 16 run out shipped. Four `ORBIT 300` shots alternating the arms: every bus at exactly its 21.2 m keep-out and
 2.1-7.9 mm either way, the scoped arm with no clock run out.
+
+## Moved from ICBM-GUIDANCE.md, 2026-10-12
+
+Sections and paragraphs of `docs/ICBM-GUIDANCE.md` that were records rather than reference, moved verbatim,
+and the ranked flights of the retired `docs/FRAME-DEPENDENCE-AUDIT.md` not recorded elsewhere; its
+classification of the constants is now `docs/ICBM-GUIDANCE.md`, "Constants that carry the frame".
+
+### The correction is also right for one release epoch, and the bus lets go at another
+
+**Superseded.** Every warhead is now kicked off the miss its own release probe predicts from its own release state
+(`IcbmConfig.CancelProbeMissAtSeparation`, with the 1 m/s caps), so whatever the coast did by the epoch a warhead
+leaves at is cancelled for that warhead; flown at millimetres from 25 to 12,900 km on 2026-10-06. The section is
+kept for the mechanism. It read, when written: unfixed, measured headlessly.
+
+**Except where the coast is long enough to outgrow the caps.** The release probe's kick is capped at 1 m/s, and on a
+four-hour coast from orbit (`ORBIT 300` to 40 N, 10 E) the kick added at cutoff left 2.1 km to take back 393 s out,
+where the trim measured 384 m per m/s: about 5.5 m/s, refused whole, and the warheads landed 1.93 km out. The fix
+named at the end of this section is now built as `IcbmConfig.KickAtTheRelease` (`Sim/ReleaseCoast.cs`), and is
+**off**: it coasts the departure to `IcbmProgram.ReleaseGate` before arrival rather than by the clearing delay, since
+that is when the release happens. Flown on 2026-10-12 it cut the trim to about a quarter at 6,181 km and landed the
+far coast at 0.4-1.3 mm with `FreezeKeepsABetterRecentAim`, and waits on a later release gate being checked on walks
+and short range. `docs/ICBM-OUTSTANDING.md` 1.14, 1.16.
+
+Flown, four deorbits of the same 2,300–2,700 km range, every one cutting off within 0.1 km of its
+own prediction: the warheads landed further off the later they were let go — 431 m at a ~50 s
+release, 8.2–9.0 km at ~106 s, and grouped tightly each time. A tight group far from the target is a
+bias, and nothing was burning, so something moved the shot while the bus coasted.
+
+**Nothing moved the arc.** `LateReleaseTests` flies one converged cutoff state and releases the same
+warhead at t+0, t+50, t+106 and t+200 with the separation spring switched off: the impact does not
+move at all — 0.0 m at t+50, 0.1 m at t+106. Every epoch term in the prediction cancels exactly, so
+this is not the frame bookkeeping.
+
+**What moved is the spring's leverage.** Two metres a second applied at cutoff walks the impact
+**8.421 km**; the same two metres a second applied 106 s down the same arc walks it **5.672 km**.
+The correction converges during the burn against a prediction flown from `CutoffPositionCci` with
+the ejection kick already added — a release the instant the engines stop — so it takes out the
+leverage the kick has *there*, and every second the bus then holds the warhead is leverage already
+spent. Converged for t+0 the shot is exact at t+0 and **2,748 m** off at t+106; converged for t+106
+it is 2,745 m off at t+0 and exact at t+106. One quantity, taken out at the wrong point on the arc,
+and symmetric in the delay.
+
+It is exactly proportional to what the spring throws — 1.374 / 2.748 / 5.496 km at 1, 2 and 4 m/s —
+which is the shape that says the ejection is being mis-timed rather than the arc being wrong.
+
+**The other candidate is real and an order of magnitude too small.** `AimCorrection.BiasCci` is a
+free vector in the body's *inertial* frame while the target it is added to is a point on a turning
+planet, so an aim that is right at one instant goes stale at the next — and the loop stops
+re-converging for the whole of the bus trim, which was 48 s in flight. Measured over 106 s with the
+136 km bias rising ground drives: **0 m at the equator, 469 m at 26.5°, 910 m at 60°**. Most of what
+goes stale is radial and `Apply` renormalises that away, which is why it is second-order rather than
+`bias × ωt`. Correcting it needs the spin axis, so it is a signature change rather than a local one.
+
+**The fix is to model the release at the epoch the release happens**, in `IcbmComputer.Predict`:
+coast the cutoff state forward by the bus's own cutoff-to-release delay before adding
+`ReleaseOffsetCci` and `ReleaseImpulseCci`. It can only be right for one warhead of a salvo — six
+released over twenty seconds still spread by the same rate, about **26 m per second of delay** at
+2 m/s from a 200 km deorbit and a quarter of that at the shipped 0.5 — so the second half of the
+answer is releasing promptly. That is what `SeparationClearance.TimeoutSeconds` is: the wait for the
+spent stack to get clear gets twenty seconds and then the salvo goes anyway, which bounds the term
+whether or not the epoch is ever modelled.
+
+### What is left, and the shape of it
+
+Flown, on a 2,500-2,800 km deorbit onto a target 4 km up: **best 371 m, CEP ~710 m**, from 59 km at
+the start of the work. Every warhead's miss is one common offset plus its own tube cant, and the two
+are separable by regressing the six misses against their tube's cant.
+
+**The cant term is geometry and is not a defect.** On a launcher whose tubes sit on a cone — which
+the MIRV bus no longer does, see below — one aim means each warhead
+leaves on its own vector — ±400 to ±590 m depending on range. Removing it means aiming each tube
+separately, which is what a real bus does by re-pointing between releases.
+
+**The common term is a constant ~730 m, and its signature is the useful part:**
+
+| flight | range | cutoff residual | common offset |
+| --- | --- | --- | --- |
+| 17:24 | 2,806 km | 0.29 m/s | 727 m |
+| 17:36 | 2,521 km | 0.12 m/s | 734 m |
+
+It does not move with the cutoff residual — halving that changed nothing — and it does not scale with
+range, so it is a **fixed distance rather than a fixed angle**. The release probe reads 0.1 km on
+both, so it is a difference between the prediction and the round rather than an error in the aim.
+
+A term that is constant in metres, independent of trajectory and of how well the burn ended, is
+per-frame rather than per-flight. That is the epoch family, and the item it turned out to be is the
+next section.
+
+### The ground a round meets, and a correction that did not survive flight
+
+**Fixed since** (`docs/ACCURACY-PLAN.md` 3cs; `IcbmConfig.ResampleGroundAtImpact`, which re-reads the ground under
+every sub-step within 200 m of it). It read, when written: a round lands further from its own release prediction
+than either the flight model or the predictor can account for, and the obvious fix made it worse.
+
+`IGroundTest` answers with a **body centre and a surface radius**, and the round holds both for the
+frame — one terrain lookup instead of one per sub-step, which is what makes a 150-shell burst
+affordable. The centre is a sample of something moving at ~29.8 km/s in the ecliptic and the round's
+own position carries that same motion, so on the face of it a round crossing the frame against a
+frozen centre reads the carrier as a change of **altitude**, which on a ~5° arrival is eleven times
+as much ground.
+
+Headless, in a frame translating at 29.8 km/s against the same shot at rest, that reads as 850 m on
+a 16.7 ms frame and up to 10.8 km on a long one — and carrying the centre forward by the ground
+frame's velocity removes it completely, leaving the round 60 m from its own prediction instead of
+790.
+
+**In flight it did the opposite.** The last build without the carry put six warheads 431 m – 1.4 km
+out, each within 0.3–1.2 km of its own release probe. Every build with it has been worse, and the
+cleanest of them is unambiguous: cutoff residual 0.24 m/s, bus trimmed to 0.017 m/s, **release probe
+0.0 km**, warheads down at **6.1–7.2 km**. Nothing upstream was wrong; only the round's own flight
+disagreed with the prediction of it.
+
+So the carry is reverted. Two things are worth keeping from the attempt:
+
+- **The symptom is diagnostic on its own.** A prediction that does not move while the rounds do is
+  the signature `docs/FRAMES-AND-EPOCHS.md` already records from an earlier flown failure — a carry
+  applied to a sample that was already in phase. It is the same shape, and the size is right: the
+  phase was measured as worth about 7 km taken the wrong way, and the flight lost 6.5.
+- **Every headless rig flies the round about a planet sitting still at the origin**, which is the one
+  case where a carrier fault is identically zero — so a rig that introduces a carrier can measure a
+  real sensitivity and still get the *sign* from an assumption nothing tests.
+
+What settles it is the phase at which `IGroundTest` writes the centre relative to the round's own
+position, and that is a fact about the engine's frame order rather than about this maths. Until it
+is measured in flight rather than reasoned about, the round keeps the behaviour that flew best.
+
+### The world slows itself for the entry, not for the coast
+
+Flown at 10x simulation speed, with no clamp and no discarded time — the step stayed inside what a
+round can integrate — six warheads landed **381 km long**. At 1x the same shot lands within a
+kilometre. Long means too little drag, and the step was ~170 ms against ~17 ms at 1x.
+
+Part of that is a round reading the air **once a frame** and holding it across every 5 ms sub-step:
+density falls off on an 8 km scale height and a re-entering round covers more than a kilometre a
+frame, so it flies the whole frame through the thinner air it had at the top of it. `Slug` now
+re-samples inside the sub-step loop through `AirDensityAt`, which halves the frame-length
+sensitivity — measured across 17, 170 and 320 ms frames.
+
+**The 381 km is not in the fall, and that is now measured rather than assumed.** Sweeping the frame
+step from 1 ms to 320 ms on this trajectory moves the impact **smoothly and linearly, about 1.7 m
+per millisecond of frame** — 249 m at 170 ms, 550 m at 320 ms. No threshold anywhere. Three
+candidates were killed outright:
+
+- **Sub-step saturation** cannot fire inside the legal range: `steps = min(64, ceil(dt/0.005))`
+  holds the effective sub-step at exactly 5.00 ms at both 170 ms and 320 ms, and only grows past
+  `dt > 0.32 s`, which is where the clamp already refuses.
+- **Atmospheric skip** is real as a regime but nowhere near this shot: the flown arc's perigee is
+  **675 km below the surface**, a committed entry. The 17 ms and 170 ms trajectories lie on top of
+  each other the whole way down. The worst frame-length error obtainable anywhere in the skip family
+  is 57.7 km, on a 12,500 km grazing arc unlike this one in every respect.
+- **A missed ground crossing** is bounded by one frame of travel — 561 m at 170 ms — because the
+  stale radius is re-read at the top of the next frame and the round detonates on the first sub-step
+  below it. It cannot tunnel: a sub-step is tens of metres against a 6,371 km sphere.
+
+So the cause is **still unidentified**, and it is somewhere other than the round's own integration.
+What it would take is large: +371 km needs 203 m/s prograde, or 90 m/s radial, or 28 km of release
+altitude.
+
+### Lighting the first engine is a stage request
+
+**The gate used to be "something has thrust", full stop**, which is a launch that could never
+happen: nothing has thrust on a pad, so no sequence was ever fired. The vehicle held its vertical
+rise on the attitude thrusters, saw no propellant for four seconds, and reported `burn ended
+7843 m/s short of the solution` — a burn it had never begun. What hid it is that **the rig starts
+lit**: a first stage already pushing on frame zero flies every shot in `IcbmFlightTests` whether or
+not the computer has an ignition at all, and `IcbmFlightRig.StartsUnlit` is the fifth thing the rig
+has had to stop being better than the game at. So did the harness, which used to stage by hand —
+see [Flying one without watching it](#flying-one-without-watching-it).
+
+### The prediction flies the warhead, not the bus
+
+**And *where* the air is sampled matters, though less than it first appeared.** The round's own
+update read the air's velocity once, at the platform, and used it for every round it owned.
+Against a *stationary* platform that is worth **29.4 km** on this shot — the air over a launch site
+and over a target 2,700 km away moves 24° apart. Against a **bus**, which is what actually throws
+these, it is worth almost nothing: the bus coasts on nearly the warheads' own arc, so it stays
+beside them the whole way down. Flying it changed the impact by under a kilometre.
+
+The fix stands — gravity and density were already read at the round's own position and the air
+should be too — but it is not what closed the miss, and the headless number was measured against
+the wrong kind of platform.
+
+Flown: 59 km short with no drag, **17-20 km** with it.
+
+### The prediction is of the warhead's state, not the bus's
+
+Two other candidates were measured and killed rather than argued about: the spin the tube's lever
+arm adds to a released round is 0.007–0.039 m/s (at most 133 m), and the rounds leave 10 m below
+the craft's analytic orbit position the prediction is taken from (134 m).
+
+### A tumbling bus does not deploy
+
+**What that flight also showed is that the prediction is sound.** Against each round's own impact it
+was out by a mean of **647 m** and as little as 100 m, on a salvo that missed by 7.4 km — so the
+flight model was tracking the rounds while the aim was wrong. Separating those two is what the
+release probe is for.
+
+### Each tube is aimed before it fires, and the launcher may let go of its stack first
+
+**And the MIRV bus is now one of those launchers.** Its six tubes were straightened, so every tube
+*is* the mean and the re-pointing rotation is the identity for it too. That is deliberate rather
+than a loss: the turn this machinery makes was one KSA's own attitude controller would not perform
+on a separated bus — the pointing band measured **22.11°** against a 6° cant, and inside its dead
+zone the tracker simply does not fire. `docs/MIRV-NEXT.md` item 5 has the evidence. So the cant was
+not correctable in flight, and the cheaper answer was to stop creating it.
+
+The band is no longer that wide. Re-deriving the deadband from the thrusters actually aboard, and
+seating the bus's mass in its own thruster ring, took a separated bus from **9.63° to 0.37°** — but
+nothing has been re-flown against a turn, and with the tubes straight there is no cant left for one
+to correct.
+
+#### Waiting for the tube to cross the line does not work either
+
+The bus reaches the commanded attitude in about four seconds and then drifts straight back out: it
+has slew authority and no ability to hold. The obvious answer is to stop commanding anything and let
+the geometry come instead — the tubes sweep as the bus tumbles, so fire each one at the moment its
+own axis is nearest the line. **It loses**, for three separate reasons, any one of which is enough.
+`TumblingBusTests` holds all three; none of it has been flown.
+
+**The case that looks ideal is the null case.** A roll about the bus's own axis does carry the six
+tubes through each other's clock positions — but they all ride one cone of the cant's own half-angle,
+so each tube arrives exactly where the last one was, which is six degrees off the line. Measured at
+0.000000000° of variation through two full rolls. The offset is not merely un-improved by waiting, it
+is *constant*: there is no crossing to predict and no moment better than now.
+
+**The ceiling is a mean of 3.4°, and nothing can reach it.** Under a fixed-axis tumble a tube traces
+a cone about that axis, so the nearest it ever comes to the line is one cant times the cosine of its
+clock angle from the plane the tumble axis and the reference share. Two tubes of six can reach the
+line; the two a quarter-turn from them can never leave the full cant. Over every tumble axis tried
+the luckiest leaves the ring a mean **3.37° off — 0.117 m/s at the tube against 0.209 firing now** —
+and that is an oracle with no window, no clock and no magazine order to obey.
+
+**What kills it is that waiting is self-defeating.** The reference is latched while the bus is *on*
+it, so from that instant the bus axis is walking away at the tumble rate — and every second spent
+waiting for one tube's crossing is a second of that walk added to *every tube not yet fired*. The two
+effects very nearly cancel: over tumble rates of 0.5–6 °/s the mean angle a salvo is released at goes
+from 6.0° to **5.2–7.2°**, which is to say it does not come down at all.
+
+Priced as the spread of lateral velocity the salvo puts on its six rounds, and with waiting **free**
+— no window and none of the ~26 m per second of holding in `docs/MIRV-NEXT.md` item 2b — the best any
+tumble axis offers is **76–94% of firing now**, and at 6 °/s one geometry reaches **122%**, which is
+worse. The salvos that get there run **7.7–60 s**, so the holding costs another 200–1,560 m of spread
+on top, uncounted in those percentages.
+
+So the cant is removed by turning the bus or not at all, and what would change the answer is a
+vehicle that can hold an attitude. Same finding as the section above, from the other side.
+
+### What to fly, ranked (`docs/FRAME-DEPENDENCE-AUDIT.md`)
+
+#### 2. `WarpPolicy.OverridesBeforeYielding`, off nights already flown
+
+**Mechanism.** `++_overrides` fires on every frame in which the world's speed reads above the
+request, not on every competing write, so three frames of contest is 51 ms at 120 fps and 120 ms at
+25. A yield is permanent for the flight.
+
+**Read off the nights on disk, and it never fires.** `timewarp not held` appears **0 times in 77
+shots** across 2026-09-18-nopulse, 2026-09-19-fallback and 2026-09-20-shortfallback, against 74
+`timewarp held at` lines on one of them — so the policy is active and never yields. The 9-of-12
+measurement in the table above is `docs/ACCURACY-PLAN.md` 3al, where the harness's own 8x request was the competing writer. **Latent, not live**: real in
+the code, unreachable by the ballistic scenario as flown, and nothing to fly until something makes
+it fire.
+
+**Which geometry exposes it.** Not geometry — **the coast-to-window transition**, where KSA's own
+auto-warp ramps while the mod is asking for a speed. A shot that never warps never reaches it.
+
+#### 3. `BusTrim.AccelerationGain` as a time constant
+
+**Mechanism.** A fixed per-frame EWMA weight is a lag of `step / 0.25` seconds. `_accel` sizes the
+stop band, charges the budget and decides whether a direction is struck off, and after every
+direction change all three run on a stale reading for that long.
+
+**What a night has to measure.** The frames between a direction change and `_accel` reaching its
+plateau, which the trim's own debug line already prints. Then the same count at two frame rates. A
+seconds-valued sibling is `gain = clamp(step / TimeConstantSeconds, 0, 1)`; 0.1 s reproduces today's
+behaviour at 25 ms.
+
+**Which geometry exposes it.** A bus that changes direction often — a **high separation debt**,
+above the 1.5 m/s floor under which 3fd found no stall has ever happened — and a coarse frame. The
+47 fps nights against the 63 fps ones are the existing contrast.
+
+#### 4. `SalvoProbe.MaxAgeSeconds` over a frame-counted salvo
+
+**Mechanism.** The salvo goes one warhead per frame, so its span is `6 x step`. The bound on a
+borrowed probe's age is 0.5 s. They cross at about 12 fps.
+
+**What a night has to measure.** The count of `Source.TooOld` choices per flight against the block's
+frame rate. Expect zero; the value is in knowing rather than in fixing.
+
+**Which geometry exposes it.** Only where a warhead's *own* probe fails, which is 3ep's case — a
+designation on the sea, or ground under 204 m where the step crossing it reads the ocean. A shot at
+ordinary land never borrows at all.

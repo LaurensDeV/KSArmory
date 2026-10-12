@@ -1,11 +1,9 @@
 # Short-range ballistic shots (25–1,000 km)
 
-**Built and flown, with the plan it started from.** Every range from 25 to 2,000 km flies with `FlyAnyRange` and the
-short-shot settings on by default, and the game's stack and the Real stacks land in millimetres from 25 to 700 km. At
-1,000 km RealSRB4 and RealLiquid2 do not yet complete (`docs/ICBM-OUTSTANDING.md` 1.17, 1.18). Start at "Any range,
-any stack" for what is built and why. The sections before it are the 2026-10-03 plan, kept for its measurements. Of
-the steps after it, Step 4 and the characterisation were flown on 2026-10-12 as ICBM-OUTSTANDING 2.1; Steps 1 and 3
-and the fallbacks are not built.
+**A record.** How short shots are flown now is `docs/ICBM-GUIDANCE.md`, "Short shots"; what is open is
+`docs/ICBM-OUTSTANDING.md` 1.17, 1.18 and 3.2. What stays here is the 2026-10-03 plan, kept for its measurements,
+and every flight since. Of the plan's steps, Step 4 and the characterisation were flown on 2026-10-12 as
+ICBM-OUTSTANDING 2.1; Steps 1 and 3 and the fallbacks are not built.
 
 ## What is known
 
@@ -184,34 +182,8 @@ handover, so the game still overshoots more than the rig does.
 
 ### Any range, any stack — `IcbmConfig.FlyAnyRange`, on by default, flown 2026-10-04/05
 
-A refusal is not the goal: every shot from the shortest up, on whatever stack is flying it. Built and flown
-over one night, each flight's failure becoming the next rule; what stands:
+*The rules that stand moved to `docs/ICBM-GUIDANCE.md`, "Short shots". The flights that found them follow.*
 
-1. **A solid's remaining delta-v is a floor on the velocity to gain** (`BallisticArc.TryCheapest`'s
-   `minToGain`), read off KSA's staging display for the running stage alone (`RunningStageDeltaV`; the booster's
-   figure puts the whole stack's propellant behind the SRBs and lofted the first flight for 5 km/s). Past the
-   cheapest arc the need climbs with the flight time to escape, so the solver takes the lofted arc the solid can
-   actually fly, the pitch is held at or above that arc's climb, and the program cuts off at the solid's burnout
-   when what is left is inside the bus trim's reach.
-2. **A stage that can stop is cut off when the shot is complete, wherever that is**, never held back or
-   absorbed: it hands over to the closed loop once within the reserve (15 s) of finishing. Waiting for thin air
-   instead is what overshot — the schedule cannot cut off, a floor still pushes, and in thick air the stack
-   cannot point where a lofted arc wants it — and what flew 200 and 418 km into the upper stage burning back.
-3. **Done in thick air, it pauses and coasts out**, the loop still solving, and relights in thin air or at the
-   top of the climb, so the cutoff that counts is made where the vacuum arc is true. Where the airflow will not let
-   it point usefully it waits while climbing and stops once the climb is over; while it waits to turn it burns at
-   its floor rather than off, because a stack that steers by gimballing its engines has nothing else (flown at
-   200 km, one tumbled into the sea with the engine held off until it was pointed).
-4. **A short shot steers at any angle of attack** — KSA's drag has no turning moment and structural failure is
-   g-load alone, so in this build an angle costs drag and nothing else (`docs/BLOCKED-ON-KSA.md`) — and **pins its
-   arrival the moment the closed loop takes it**: left free, the cheapest arc from a point on a lofted one is a
-   lower one, and the velocity to gain swung round to point backwards through a pause.
-5. **Release.** A short shot drops the spent stack at cutoff (`IcbmConfig.SeparateAtCutoff`, which did the same for
-   any shot, was removed unflown on 2026-10-06). One that cuts off in the air, or whose arc stays under `DeployAltitudeMetres`, releases at cutoff,
-   at once, from the bus still on the stack — no trim, no post-boost hold, no wait to settle. Each of those was a
-   flown failure: the stack coasting through air with the warheads aboard (13.7 km), separating then releasing
-   beside it (a 2.2 / 10 km split), a release gate that opened on the descent (10 km), a 53 s wait for a stack
-   with no engine to stop sweeping its tubes (8.9 km).
 
 **Flown, `SOLVER SCALE 1`, one flight per range on the build named** (mechanisms, not accuracy; a group's spread
 is metres, the miss is the shot):
@@ -304,29 +276,9 @@ solve of its own puts the rig back at 29 of 40 spinning. Leaving the line free d
 18 of 40. So slowing the line stops the chase before a pause, and the same chase starts again after the
 relight.
 
-**So don't relight: finish in the air, and solve the arc with drag.** On by default, flown. Three settings
-together:
+**So don't relight: finish in the air, and solve the arc with drag.** On by default, flown; the three settings are
+in `docs/ICBM-GUIDANCE.md`, "Short shots".
 
-- `ShortShotSlowsLineSeconds` (0.5).
-- `IcbmConfig.ShortShotFinishesInTheAir`: a short shot's burn that ends in thick air cuts off and releases
-  there instead of pausing. That removes the relight, and with it the chase.
-- `IcbmConfig.ShortShotSolvesWithDrag`: in the last 20 s of the burn, each guidance pass flies the solved arc
-  with the warhead's drag from its projected cutoff. It measures the landing against the target carried to the
-  instant the solve carried it to (`BurnoutGuidance.Command.CarrySeconds`). It moves the aim east and north by
-  the miss, solves again, and keeps the new solve only if it lands nearer, up to two times a pass. Under it the
-  arrival floor is waived, because a moved aim's vacuum arc is shallower than the warhead's and a failed floor
-  unlatches the arrival. Absorbing solids are excluded, because their flight time is re-picked whenever the aim
-  moves.
-- **All three apply only where the arc stays under `DeployAltitudeMetres`.** An arc that climbs above it still
-  pauses and relights, so it cuts off above the air and gets the long-shot release that gives millimetres. Both
-  ways of finishing such a shot in the air were flown and lost. Released at once from a stack still turning,
-  700 km landed 0.80 km out against 2.2 mm, and 1,000 km 0.98 km out. Coasted on the bus alone through the air
-  to the release altitude, 500 km owed the trim 287 m/s of drag and landed 107 km out. The slowed line is held
-  to the same arcs: around a pause it makes the relight cut off on the line it slowed through the coast, and
-  flown that left 700 km 73 m/s short and 1,000 km 1.0 km out. And such an arc coasts out until the air is
-  under `Medium.NoticeableDensity`, not merely under `HandoverPressurePa`: between the two a cutoff still releases
-  at once in the air. Flown at 700 km, a cutoff at 64 km released from a stack still turning landed 0.36 km out,
-  against 2.2 mm from a cutoff at 98 km.
 
 In `FloorHoldStudy`, 40 flights at 150-500 km over four frame steps:
 
@@ -524,16 +476,9 @@ lighting the core at its floor alone still chased (13 -> 56 m/s, 54 deg/s), beca
 the line still pushes the wrong way; holding the engine off to turn stopped the spin and left 2-8 m/s, because
 in the air the stack is not allowed to point 100 deg off its path.
 
-What is in (`IcbmConfig.SolidsLeaveMetresPerSecond` 30, `DropSolidsUnderWeight`, both on):
+What is in (`IcbmConfig.SolidsLeaveMetresPerSecond` 30, `DropSolidsUnderWeight`, both on) is in
+`docs/ICBM-GUIDANCE.md`, "Short shots".
 
-- **The solids are steered along what is left and asked to leave 30 m/s**, so what they leave lies ahead of
-  the nose rather than anywhere.
-- **The arrival is pinned from their burnout every solve**, so the stage after them finishes the arc they were
-  steered onto. Left free, the cheapest arc from a lofted one swung what was left from 30 m/s along the nose
-  to 6 m/s 75 deg off it; pinned from the uncapped time to gain it was five seconds late and 20 deg off.
-- **The stage after them lights at its floor**, the lever set while only solids burn, which they ignore: lit
-  at full, 30 m/s is a 0.3 s burn at 2 m/s a frame.
-- **On a short shot, solids under the stack's weight are dropped** when a stage is left after them.
 
 Flown (`~/shots/2026-10-05-{solids,drop}/`), peak turn from the booster drop to cutoff and worst warhead:
 
@@ -619,10 +564,9 @@ Also not in: never re-pinning once the pin has been given up. In the rig the arr
 hovers exactly as long (1,108 s at 30 m^2): stood still over the target even the cheapest arc wants a ~20 m/s toss,
 so the re-pin is not what holds it there, and the near-radial transfer is refuted as the cause.
 
-**What ships instead is the truth on the panel.** Once the throttle-down has run `IcbmProgram.StalledRampSeconds`
-(30 s, against a closing ramp's 10-15), the computer's hold reads "cutoff stalled: the stack is holding its own
-weight, N m/s still to gain", and the log says so once. Flown on Real Liquid2 at 25 km: reported five minutes into a
-twelve-minute hover, which then landed 0.2-0.4 mm out.
+**What ships instead is the truth on the panel**, and `IcbmConfig.ShortShotPushesThroughAStall`; both are in
+`docs/ICBM-GUIDANCE.md`, "Short shots".
+
 
 **Traced in the rig on 2026-10-09, and a candidate behind a switch.** The aim walk was not the missing term: the
 rig's offset walks at 90-250 m/s through the throttle-down, as the flown `cutoff approach` lines do. Two things hold
@@ -639,11 +583,8 @@ the hover, one after the other:
   commands exactly the stack's weight. Lowering the floor to 5 s only moves the hover (to a 5.5 s arrival, the same
   19.6 m/s to gain); the floor is where it sits, not why it starts.
 
-`IcbmConfig.ShortShotPushesThroughAStall` (on since 2026-10-09) acts once the ramp has run
-`IcbmProgram.PushesThroughAfterSeconds` (10 s) in the air: the push is measured from how the velocity to gain moved
-against what the thrust should have done, its component along the line is added to the throttle, the line is led
-across it by what it will add before the burn ends, and the steering freezes only under 1 m/s. All three are needed:
-the throttle alone closes every area but leaves 0.5-1.7 m/s **across** the frozen line (31.7 m at 12 m^2), which is
+`IcbmConfig.ShortShotPushesThroughAStall` (on since 2026-10-09) is described in `docs/ICBM-GUIDANCE.md`,
+"Short shots". All three of its parts are needed: the throttle alone closes every area but leaves 0.5-1.7 m/s **across** the frozen line (31.7 m at 12 m^2), which is
 plausibly the 1.5 m/s the 10-06 feed-forward flights bottomed out on. In `ShortShotHoverTests`:
 
 | drag area | off | on |
@@ -774,4 +715,3 @@ whole and lands within 5 mm at both ranges (`docs/ICBM-OUTSTANDING.md` 1.11).
 **LowTWR at 700 km is 1.1's stall on a new stack.** The cutoff stalled with the stack holding its own weight and cut
 off 10.5 m/s short; the bus owed 8.4 m/s at the split, the split's own stack wait held it, and the first correction
 then asked 10.4 m/s against one pass's 10, was refused whole, and the warheads left 2.3 km out with nothing trimmed.
-

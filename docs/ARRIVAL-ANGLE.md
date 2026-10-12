@@ -28,7 +28,7 @@ guidance itself; `docs/KSA-TERRAIN.md` is where the surface numbers come from.
 
 **What the rig cannot see.** The planet sits at the origin and does not move, which is the one case
 where a frame carrier is identically zero — so nothing here can measure an epoch fault, including the
-one in `docs/ICBM-GUIDANCE.md` about the ground a round meets (fixed since, `IcbmConfig.ResampleGroundAtImpact`). What it *can* say is that such a
+one about the ground a round meets in `docs/ACCURACY-PLAN.md`, "Moved from ICBM-GUIDANCE" (fixed since, `IcbmConfig.ResampleGroundAtImpact`). What it *can* say is that such a
 fault, if it is a height error, is multiplied by the same `cot γ` as everything else on this page,
 and that is 8.1 at seven degrees, 4.4 at 12.9, and **1.6 at the 32.0 the mod now flies**.
 
