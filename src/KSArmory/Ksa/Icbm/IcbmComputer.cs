@@ -1100,7 +1100,10 @@ internal sealed partial class IcbmComputer
                           + (Program.LineSlowed ? ", line slowed" : "")
                           + (double.IsFinite(Program.DragMissMetres)
                                  ? $", drag offset {Program.DragOffsetMetres:F0} m, drag-flown miss {Program.DragMissMetres:F0} m"
-                                 : ""));
+                                 : "")
+                          + $" | {Program.Phase}, alt {state.Altitude / 1000.0:F2} km, climbing "
+                          + $"{Vec.Dot(state.AirflowCci, state.UpCci):F1} m/s, airspeed {Vec.Len(state.AirflowCci):F0} m/s, "
+                          + $"q {state.DynamicPressurePa:F0} Pa");
             }
             if (Program.LineSlowed && !_saidLineSlowed)
             {
