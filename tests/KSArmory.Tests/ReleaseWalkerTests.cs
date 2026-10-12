@@ -94,7 +94,8 @@ public class ReleaseWalkerTests(ITestOutputHelper Out)
 
         Assert.Equal(350.0, new ReleaseWalker().GateOverrideSeconds(config, targets: 1));
         Assert.True(double.IsNaN(new ReleaseWalker().GateOverrideSeconds(config, targets: 2)));
-        Assert.True(double.IsNaN(new ReleaseWalker().GateOverrideSeconds(new IcbmConfig(), targets: 1)));
+        Assert.True(double.IsNaN(new ReleaseWalker().GateOverrideSeconds(
+            new IcbmConfig { SingleTargetReleaseBeforeArrivalSeconds = -1.0 }, targets: 1)));
 
         ReleaseWalker walking = Walking(4);
         Assert.Equal(walking.GateOverrideSeconds(Gate), walking.GateOverrideSeconds(config, targets: 4));

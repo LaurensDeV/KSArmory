@@ -1108,9 +1108,11 @@ pulse of each thruster at most every 0.15 s, the same trick as the burn's thrott
 `ShortShotMissKickMetresPerSecond`, both 1 m/s). So what the coast did by the instant a warhead leaves is
 cancelled for that warhead, at whatever epoch it leaves. `docs/ACCURACY-PLAN.md` 3dh has the flight.
 
-**A coast long enough outgrows the cap.** `IcbmConfig.KickAtTheRelease` (off) adds the separation kick to the
-predicted arc at `IcbmProgram.ReleaseGate` before arrival (`Sim/ReleaseCoast.cs`) rather than at cutoff.
-`docs/ICBM-OUTSTANDING.md` 1.14 and 1.16 have the flights and what it waits on.
+**A coast long enough outgrows the cap.** `IcbmConfig.KickAtTheRelease` (on) adds the separation kick to the
+predicted arc at `IcbmProgram.ReleaseGate` before arrival (`Sim/ReleaseCoast.cs`) rather than at cutoff. It ships
+with `FreezeKeepsABetterRecentAim` and a single target's own 350 s gate
+(`SingleTargetReleaseBeforeArrivalSeconds`; a walk keeps 420): a fifth of the trim, and the four-hour coast from
+orbit in millimetres where it landed 1.93 km out. `docs/ICBM-OUTSTANDING.md` 1.14 and 1.16 have the flights.
 
 Tried and superseded: one correction for the whole salvo, right for one release epoch -- `docs/ACCURACY-PLAN.md`,
 "Moved from ICBM-GUIDANCE".

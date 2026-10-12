@@ -126,9 +126,10 @@ internal sealed class IcbmConfig
     /// <summary>
     /// The release gate for a computer with one target, in seconds before arrival; negative is
     /// <see cref="ReleaseBeforeArrivalSeconds"/>. A walk keeps that one, since a later gate shortens every stop's fall
-    /// and prices its hops past one pass: 13.0 m/s at 350 s against 10.8 at 420, flown. <c>docs/ICBM-OUTSTANDING.md</c> 1.14.
+    /// and prices its hops past one pass: 13.0 m/s at 350 s against 10.8 at 420, flown. 350 ships with
+    /// <see cref="KickAtTheRelease"/> and <see cref="FreezeKeepsABetterRecentAim"/>: <c>docs/ICBM-OUTSTANDING.md</c> 1.14.
     /// </summary>
-    public double SingleTargetReleaseBeforeArrivalSeconds = -1.0;
+    public double SingleTargetReleaseBeforeArrivalSeconds = 350.0;
 
     /// <summary>
     /// How much the bus may spend on trimming across the whole flight, in m/s; zero is none, negative
@@ -396,19 +397,20 @@ internal sealed class IcbmConfig
     /// to <see cref="IcbmProgram.ReleaseGate"/> before arrival (<see cref="ReleaseCoast"/>) -- rather than at cutoff or
     /// wherever the bus is now. Off, the kick is given the whole coast to grow in: flown to 40 N, 10 E from
     /// <c>ORBIT 300</c>, a four-hour coast, the burn's aim absorbed 1.6 km of it, the release found 2 km the trim could
-    /// not pay so close in, and the warheads landed 1.93 km out. Flown 2026-10-12: trim 0.30x at 6,181 km and that coast in millimetres; it
-    /// ships only with a later release gate, the landing being 1.21x without one. <c>docs/ICBM-OUTSTANDING.md</c> 1.14.
+    /// not pay so close in, and the warheads landed 1.93 km out. On, with <see cref="FreezeKeepsABetterRecentAim"/> and a
+    /// 350 s single-target gate: trim 0.20-0.27x on three nights, that coast in millimetres, the landing neutral (1.21x
+    /// without the later gate). <c>docs/ICBM-OUTSTANDING.md</c> 1.14.
     /// </summary>
-    public bool KickAtTheRelease = false;
+    public bool KickAtTheRelease = true;
 
     /// <summary>
     /// When the burn commits its arrival, freeze the aim on the best of the last ten readings if it missed by less than the banked best,
     /// rather than always reverting to the best. The flat 250 m band banks nothing under 250 m, so on the 2026-10-11
     /// 6,181 km night every rocket converged to 1-6 m and was reverted to a best two minutes stale, cut off 4.2 km off
-    /// its own prediction, and spent 16-18 m/s of trim where the split asked 2.5-3. Flown 2026-10-12: trim 0.54x.
-    /// <c>docs/ICBM-OUTSTANDING.md</c> 1.16.
+    /// its own prediction, and spent 16-18 m/s of trim where the split asked 2.5-3. On, with <see cref="KickAtTheRelease"/>:
+    /// trim 0.54x alone. <c>docs/ICBM-OUTSTANDING.md</c> 1.16.
     /// </summary>
-    public bool FreezeKeepsABetterRecentAim = false;
+    public bool FreezeKeepsABetterRecentAim = true;
 
     /// <summary>
     /// Keep a burn window once the hold has chosen to wait for it. Off, every re-solve asks again whether waiting saves
