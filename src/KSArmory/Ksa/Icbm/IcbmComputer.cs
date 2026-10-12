@@ -109,6 +109,9 @@ internal sealed partial class IcbmComputer
     // exactly like one whose engine was knocked off until the next stage is asked for.
     private static readonly double[] StagingProbeAt = [0.0, 0.25, 1.0, 2.0];
     private const double StagingWindowSeconds = 2.5;
+    private const double StagingGapSeconds = 0.6;
+    private Vehicle? _gapStage;
+    private double _gapOpening = double.NaN;
     private readonly Diagnostics.PartWatch _partWatch = new();
     private readonly List<string> _lostParts = [];
     private double _sinceStaging = double.NaN;
@@ -1147,6 +1150,7 @@ internal sealed partial class IcbmComputer
                              + $"{Diagnostics.SpinDegPerSec(Craft):F1} deg/s");
                     _sinceStaging = 0.0;
                     _stagingProbe = 0;
+                    _gapStage = null;
 
                     AttitudeHook.Stage(Craft);
                 }

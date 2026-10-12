@@ -63,6 +63,8 @@ internal sealed partial class IcbmComputer
 
         if (!inWindow) return;
 
+        LogStagingGap(simStep);
+
         if (_stagingProbe < StagingProbeAt.Length && _sinceStaging >= StagingProbeAt[_stagingProbe])
         {
             Log.Info($"staging probe on {KsaWorld.DisplayName(Craft)}: +{_sinceStaging:F2} s -- "
@@ -79,6 +81,45 @@ internal sealed partial class IcbmComputer
         }
 
         if (_sinceStaging > StagingWindowSeconds) _sinceStaging = double.NaN;
+    }
+
+    // A split hands the shed stage the craft's own ManualControlInputs object, so its engines follow the
+    // craft's throttle. The opening acceleration tells a shed stage still pushing from a bell clipping it.
+    private void LogStagingGap(double simStep)
+    {
+        if (_sinceStaging > StagingGapSeconds || Log.Threshold > Log.Level.Debug) return;
+
+        for (int i = 0; i < _shed.Count; i++)
+        {
+            Vehicle stage = _shed[i];
+            if (!KsaWorld.IsAlive(stage)) continue;
+
+            double3 between = KsaWorld.PositionEcl(Craft) - KsaWorld.PositionEcl(stage);
+            double apart = Vec.Len(between);
+            double opening = apart > 0.0
+                                 ? Vec.Dot(KsaWorld.VelocityEcl(Craft) - KsaWorld.VelocityEcl(stage), between) / apart
+                                 : double.NaN;
+
+            string accel = ReferenceEquals(_gapStage, stage) && simStep > 0.0 && double.IsFinite(_gapOpening)
+                               ? $", opening accel {(opening - _gapOpening) / simStep:+0.0;-0.0} m/s^2"
+                               : "";
+            _gapStage = stage;
+            _gapOpening = opening;
+
+            string push;
+            try
+            {
+                push = $"shed propellant {stage.IsAnyEnginePropellantAvailable()}, throttle {stage.GetManualThrottle():F3}";
+            }
+            catch
+            {
+                push = "shed engines unreadable";
+            }
+
+            Log.Debug($"staging gap on {KsaWorld.DisplayName(Craft)}: +{_sinceStaging:F3} s, {KsaWorld.DisplayName(stage)} "
+                      + $"{apart:F2} m, opening {opening:+0.00;-0.00} m/s{accel}, {push}, turning "
+                      + $"{Diagnostics.SpinDegPerSec(Craft):F1} deg/s");
+        }
     }
 
     // What came off at the last staging, by the same difference WhatWasDropped uses. Run one frame
