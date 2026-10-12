@@ -12759,3 +12759,68 @@ frame rate. Expect zero; the value is in knowing rather than in fixing.
 **Which geometry exposes it.** Only where a warhead's *own* probe fails, which is 3ep's case — a
 designation on the sea, or ground under 204 m where the step crossing it reads the ocean. A shot at
 ordinary land never borrows at all.
+
+### Each tube is aimed before it fires -- the canted bus's measurements
+
+A launcher's tubes can be canted — some sit degrees off the launcher's own axis at several clock
+positions — so rounds released from one attitude leave on six different vectors. There is one aim
+for all of them, so no aim correction can remove it. Measured in flight, on the bus when its tubes were
+canted: **about 1,200 m across six warheads**, and regressing each warhead's miss against its own tube's cant gives **−3,246 m per m/s**
+of lateral impulse against an independently measured radial sensitivity of −3,401. It is the tube
+geometry printing itself onto the ground.
+
+`Sim/ReleasePointing.cs` turns the vehicle by one cant before each release so the tube about to fire
+lies on the mean of the tube axes — which is the line the aim correction already assumes a round is
+thrown along. Flown headlessly through the real drag model from one cutoff state: **1,730 m of
+spread as canted, 0 m re-pointed**, and unchanged by the vehicle's roll.
+
+### The release gate is one budget, not two thresholds -- the flown case and its reproduction
+
+Two independent thresholds compare nothing, and a marginal vehicle is where that shows. Flown on a
+separated bus whose sweep floored at **0.113 m/s** against a 0.05 gate:
+
+```
+09:36:27.212  turning onto tube 1, 6.0 deg to go
+09:36:31.411  turning onto tube 1, 0.5 deg to go      <- on the line, refused for being unsteady
+09:36:35.726  tube 1 is not following the turn, 7.0 deg off against 6.0 when it started
+09:36:51.044  releasing tube 1 late, 5.1 deg off the line and tubes sweeping 0.058 m/s
+```
+
+The moment it refused was **0.130 m/s** at the tube; the one it took fifteen seconds later was
+**0.291**. It chose the worse of the two, and no tightening or loosening of either threshold fixes
+that — the pair cannot see that one term is spent against the other.
+
+**Where the budget cannot be met, the pointing is spent as far as it will go.** A sweep that is a
+floor is not a wait: the release goes at the pointing's own best, which is recognisable only by it
+passing — `ClosingDegrees` past the closest the turn ever got. Reproduced headlessly on those flown
+numbers, the release moves from **23.9 s at 5.1° to 4.4 s at 0.8°**, and 0.291 m/s at the tube to
+0.139.
+
+**What arms that is the sweep having stopped coming down**, over `StoppedImprovingSeconds` and with
+the vehicle at that floor now rather than at the top of a swing. Both are needed and neither alone
+would do: a vehicle still braking its own rotation improves its floor every few tenths of a second,
+and one still oscillating is *on the line* and *still* at different instants, so it can satisfy the
+pair only once it has stopped. A rigid stack therefore never reaches the fallback and is released
+inside the budget, which `ReleaseSequenceTests.AVehicleThatCanHoldIsStillReleasedInsideTheBudget`
+pins — against the two thresholds that flew, the same vehicle went at **0.062 m/s**, outside a budget
+it could have met.
+
+The alignment threshold stops existing as a number of its own: what a cant costs is the whole
+budget, which on the Mk 21's 0.5 m/s kick is 5.7° and on a 2 m/s one is 1.4°. An absolute angle
+picked beside a separate sweep gate cannot be right, because which of the two binds depends on the
+vehicle — and on what it is throwing.
+
+**None of this has been flown.** It is arithmetic and a headless reproduction of one flight's log.
+
+### A turn that is not being followed -- the flown bus
+
+Flown on a separated ~6,300 kg bus, the reported angle climbed **monotonically from 5.9° to 10.3°
+over seven seconds** and the sequencer spent the whole per-tube clock on it. The last two rows are
+given up on in seconds rather than at the sixty-second timeout, and each says which one it was — the
+rest of the salvo then goes on the mean axis, which is the same shot the setting-off case gets.
+
+Whether that flight's drift was residual tumble from the decoupler, or something moving the command,
+is **not established**: the sequencer's own command is provably constant, so the log now separates
+"still coming round" from "not following", and every release records which tube went, how far off the
+line, and how fast the tubes were sweeping. Six impact points are only diagnosable against the six
+release states that produced them.
