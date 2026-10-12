@@ -4229,7 +4229,7 @@ seven degrees; this shot geometry already arrives at 13.6 without any floor at a
 buying 13.6 -> 17.8 and not 7 -> 15. `docs/ARRIVAL-ANGLE.md` prices the gain steeply in the angle,
 so most of what 8t measured had already been collected before the arm was flown.
 
-**So the 18x figure in `docs/EIGHT-ROCKETS.md` was not wrong, it was spent.** Any future claim for
+**So 8t's 18x figure was not wrong, it was spent.** Any future claim for
 the arrival floor has to state the baseline angle it is against, because that is the number the
 whole effect lives on.
 
@@ -4658,7 +4658,7 @@ prints the session's frame time and refuses to let a null pass quietly above 24 
 **And the cause was the system, not the machine — 2026-08-29.** KSA loads `lastSystemId`, which was
 `Sol`: twenty-five bodies, every one of them work the engine does per frame and work this mod does
 per ground lookup, for a ballistic shot that needs Earth. `SolLite` is Earth and the Moon. The lever
-was documented in `EIGHT-ROCKETS.md` and left opt-in, so every night in this file was flown on
+was documented in the eight-rocket plan and left opt-in, so every night in this file was flown on
 whichever system the operator last picked, unrecorded.
 
 `scenario.sh` now defaults `mirv` to `SolLite` and `shot-batch.sh` writes the system into

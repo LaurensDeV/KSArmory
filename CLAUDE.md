@@ -693,13 +693,11 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/LAY-COST.md` | **a plan, not a record** — what a gun lay beyond reach costs a frame, and four measured ways to make it cheaper, none merged |
 | `docs/ICBM-GUIDANCE.md` | **the ballistic computer** — the algorithm, the frames, the cutoff, and what has not been flown |
 | `docs/ACCURACY-PLAN.md` | **a record** — the dated notebook of every accuracy night and finding since 2026-08-30, numbered entries (3aq, 3fh, ...) that code comments cite; the live ranking is `docs/ICBM-OUTSTANDING.md` |
-| `docs/EIGHT-ROCKETS.md` | **a record, superseded** — accuracy at eight rockets, 2026-08-27 to 08-30: where the instrument stood and what limited it |
 | `docs/MIRV-NEXT.md` | **a record** — the bus's numbered backlog of 2026-08, cited by item; item **7g** is the flown account of the aim freeze — and of the crest the night turned out to be measuring |
 | `docs/FRAME-DEPENDENCE-AUDIT.md` | **every guidance constant that carries the frame**, sorted into the policy that must not, the quantity that genuinely is one frame's worth, and the solver count that is neither — with what to fly and the geometry each one hides at |
 | `docs/SHOT-PROTOCOL.md` | **how to spend a night of shots** — how many a difference costs, why the baseline is re-flown all night, and the rule that says when to stop |
 | `docs/ARRIVAL-ANGLE.md` | **what a steeper arrival is worth** — precision, impact speed and propellant against the angle a round comes in at, why twelve degrees is the air's answer rather than the guidance's, and the control that asks for another |
 | `docs/KINETIC-FLOOR.md` | **how accurate a round could possibly be** — the terms no amount of guidance work removes, and why the arrival angle is the whole lever |
-| `docs/WHAT-THE-PLAYER-SETS.md` | **a plan, partly built** — the ballistic computer with almost nothing to configure: what it derives, what it shows, and the one trade left for the player |
 | `docs/SHORT-RANGE.md` | **mostly a record** — 25–1,000 km shots: why every short target once flew one identical cutoff, the loft that answered it, and the flights since; what is open is in `docs/ICBM-OUTSTANDING.md` 2.1, 1.17 and 1.18 |
 | `docs/MIRV-TARGETS.md` | **mostly built** — up to six targets for one bus: the reach drawn on the ground and refused outside it, what spare warheads do, and the release loop that diverts between targets |
 | `docs/ICBM-OUTSTANDING.md` | **a plan, not a record** — everything still open for the ballistic computer and the bus, ranked into tiers with the evidence for each, a **release gate** for merging `dev` into `main`, and the order of work; read it before picking up ICBM/MIRV work |

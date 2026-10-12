@@ -197,7 +197,7 @@ Three things make the paired version work, and the third is the one that is easy
   by what `IcbmConfig` says. A branch cannot be two things in one world.
 * **The variants alternate down the roster, and the phase rotates between shots.** A rocket's place
   in the roster was worth **175x** in miss, monotone (8y), until the interlock removed the gradient
-  (`docs/EIGHT-ROCKETS.md`); any such gradient handed to one arm is measured as the change. `Sim/ShotArms.cs` does both.
+  (8ag; 8ai re-measured it flat over 96 flights); any such gradient handed to one arm is measured as the change. `Sim/ShotArms.cs` does both.
 
 What it cannot compare is anything the rockets share: the build, the system, the terrain under the
 target. Those still need a night.
@@ -751,6 +751,16 @@ half of the night.
 `shot-report.py` reduces all of it to one line per arm and, with `--shots`, one line per shot. The
 raw logs stay under `shots/` so a surprising line can be read in full.
 
+Two cautions on reading it:
+
+* **A line's absence is evidence only if the line could have been printed.** Four findings on the
+  separation were artefacts of an instrument with one output, among them a clearance that "never
+  succeeded" because its success sentence was discarded on the branch producing it (MIRV-NEXT 8w;
+  `docs/ACCURACY-PLAN.md` "Ranked highly on reasoning since refuted").
+* **`mod frame:` (`Sim/FrameBudget.cs`) reports each span's worst frame separately**, so per-span
+  worsts come from different frames and do not add up. It is written only at `Debug`, so a night
+  logged above it has no frame budget at all.
+
 ## 5. Contamination, and why the tree is frozen
 
 Three batches in the last session were contaminated by the tree being edited, or a second batch
@@ -785,9 +795,10 @@ The tree must be **clean** when the batch starts — `shot-batch.sh` refuses oth
 from uncommitted work is a binary nobody can rebuild, and the entire night hangs on being able to
 say what flew.
 
-Editing the tree *after* the arms are built is harmless and still not advised: `git checkout` of
-another branch mid-batch would only confuse the operator, and `--resume` needs the batch directory
-rather than the tree.
+Editing the tree *after* the arms are built is harmless **except for `tools/*.sh`**, which every shot
+still runs from the tree: bash reads a script as it goes, so a running `scenario.sh` resumes into the
+middle of the edited file. `git checkout` of another branch mid-batch would only confuse the
+operator, and `--resume` needs the batch directory rather than the tree.
 
 ### Before starting
 
@@ -802,6 +813,10 @@ rather than the tree.
   the shot times out 40 minutes later. `KittenSpaceAgency.log` says `a new version of KSA is
   available` when it applies. `ScenarioRunner` closes KSA's popups while it runs, and the smoke's
   output says `closed KSA's UpdateAvailablePopup` when it did.
+- **The system is the one the comparison wants.** `scenario.sh` flies `mirv` in `SolLite`, Earth
+  and the Moon, unless `KSARMORY_SCENARIO_SYSTEM` says otherwise, and `shot-batch.sh` records it in
+  `batch.tsv`. Patched conics, so it cannot change an Earth trajectory; the 25-body `Sol` costs frame
+  time, and frame time is the shot (MIRV-NEXT 8ac).
 - One shot flown by hand end to end, to confirm the aim point produces a verdict rather than a
   timeout. Fifty timeouts is the same information as one.
 - **Check the ground under the aim point**, on that one hand-flown shot:

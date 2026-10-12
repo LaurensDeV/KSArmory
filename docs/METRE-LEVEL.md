@@ -711,7 +711,7 @@ A tenth of the wall clock on a *single* rocket, where the vehicle count was neve
 The lever is at N: eight rockets shed twenty-four stages, and at the measured ~2.0 ms per vehicle
 that is roughly 48 ms off a 78.7 ms frame — which is the whole distance between the 3.2x above and
 the straight 8x that "get frames under 33 ms" promises. Measured at eight on 2026-08-27: 17
-vehicles at 1.00x (`docs/EIGHT-ROCKETS.md`).
+vehicles at 1.00x (`docs/MIRV-NEXT.md` 8v).
 
 **The half a MIRV bus drops is never taken**, whatever the setting says: `SeparationClearance` reads
 an unreadable distance as a blind clock rather than as clearance, so removing the stack would

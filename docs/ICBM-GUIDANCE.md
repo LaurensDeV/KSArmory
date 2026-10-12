@@ -1409,8 +1409,17 @@ seconds](#hold-the-direction-frames-before-cutoff-not-seconds).
   can see how far the minimum has to come down.
 - **The arrival angle asked for beside the one the planned arc achieves**, under the
   steepest-arrival slider. Those two differing is the whole reason the control exists.
+- **`Delta-v: needs N m/s, has M m/s`** before the burn, marked as one stage's reckoning where the
+  engine does not report the whole stack.
 - **A mark on the target** that stays on screen wherever it is, clamped to the edge when it is out
   of view, with the countdown beside it.
+
+**What it asks is almost nothing.** Arm, stage automatically, the steepest arrival — which
+`NO ARC ARRIVES` names, so it cannot be folded away — and **Precision against range**
+(`ArrivalPreference`), the one trade: a steeper arrival and a longer hold buy precision with reach
+and time. Everything else on `IcbmConfig` is a property of the trajectory rather than a preference,
+and sits under one **Engineering** fold that opens closed and appears only on a developer's install,
+still settable from a shot spec.
 
 ## Flying one without watching it
 
