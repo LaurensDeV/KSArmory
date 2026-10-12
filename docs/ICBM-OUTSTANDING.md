@@ -174,6 +174,17 @@ and 4.4.
    (`KickAtTheRelease`, `FreezeKeepsABetterRecentAim`, gate left at 420) on the same walk set, 6 blocks, judged on the
    same walk, 10 mm and 1.25 conditions; the short-range cells keep the full package, being single-target. If both
    pass, what can ship is the two switches on and the 350 s gate for single-target shots only.
+   **Flown 2026-10-12, and by the letter it fails the walk condition.** Walk, `base|kf`, 6 blocks, 48 buses: landing
+   0.94x [0.78, 1.24], 4 of 6 paired shots won, unresolved, inside the 1.25 bound; every released warhead within 9.9
+   mm; but kf walked 4 stops on 4 of 24 buses where base did on 2 of 24 (block 6: three kf buses short, every base bus
+   full). Every short walk on either arm is the same edge -- 55.1-56.5 m/s spent of 70 and a last hop of ~15.2 m/s
+   that does not fit -- and the split's trim spend is 5.05 m/s for kf against 5.23 for base, so this reads as the
+   budget's knife-edge rather than the switches; 4 against 2 is not separable at 24. Short-range with the full
+   package: 9 of 9 cells complete and pass, worst warhead 1.5/2.2/11.2 mm at 25 km (SRB4/Liquid2/Liquid3), 5.2/1.4/2.0
+   at 418 and 3.2/2.4/2.1 at 1,000 -- every one at or under night one's level, RealLiquid3's 25 km level unchanged,
+   and RealLiquid2's 1,000 km upper engine surviving its strike this time (1.18). Defaults not moved: the walk
+   condition is declared and failed, and the 350 s gate needs the single-target-only form built before it can ship
+   at all. `~/shots/2026-10-12-pkg`.
 2. **1.18**: the stack, diagnosed -- its upper bell strikes the interstage on every flight. Decide between a stack fix and a computer-side hold on the upper's steering after a staging; read what RealLiquid3 does differently first.
 3. **2.1's second night**: the cells not yet flown (100, 150, 200, 300 km, and GeoSat FAT and the Any stacks), one
    flight each, completion first. 1.12 and 3.2 belong to it.
