@@ -1777,11 +1777,13 @@ a flown failure first:
    instead is what overshot — the schedule cannot cut off, a floor still pushes, and in thick air the stack
    cannot point where a lofted arc wants it — and what flew 200 and 418 km into the upper stage burning back.
    **Built, off: `HandsOverWhenBurningAddsToTheShot`** also hands over once the schedule has raised the velocity to
-   gain *and* the dynamic pressure has stopped falling for `RisingToGainSeconds`, on a stage that can stop and holds
-   the rest. A stack flown flat and fast never reaches thin air: RealSRB4 at 1,000 km stayed on the schedule to 88 km
-   and burned out 12.8-13.7 km/s short, 3 of 3. The pressure is the half that matters, because a long shot's
-   to-gain rises on the schedule too, with the air thinning fast; asked of the to-gain alone, the guard re-flew every
-   GeoSat FAT shot from 1,600 km out. Rig only (`RisingToGainHandoverTests`); `docs/ICBM-OUTSTANDING.md` 1.17.
+   gain past `OutrunShareOfTheStack` (0.6) of what the stack holds, on a stage that can stop. A stack flown flat and
+   fast never reaches thin air in time: RealSRB4 at 1,000 km stayed on the schedule to 88 km and burned out 12.8-13.7
+   km/s short, 3 of 3. The share is what separates it, read off flown logs: RealSRB4 passed 0.6 at 240.7 s and 0.83
+   at 263 s, where a GeoSat FAT long shot's to-gain also rises on the schedule but peaks at 0.33. Neither the air
+   (dynamic pressure still falling when the stage already holds less than is left) nor a projection of the rates (the
+   core's 8 g spend extrapolated over the stack trips GeoSat FAT at its core's burnout) separated them in flight.
+   Rig and replayed logs only (`RisingToGainHandoverTests`); `docs/ICBM-OUTSTANDING.md` 1.17.
 3. **Done in thick air, it pauses and coasts out**, the loop still solving, and relights in thin air or at the
    top of the climb, so the cutoff that counts is made where the vacuum arc is true. Where the airflow will not let
    it point usefully it waits while climbing and stops once the climb is over; while it waits to turn it burns at

@@ -1192,9 +1192,9 @@ internal sealed partial class Ui
         {
             config.HandsOverWhenBurningAddsToTheShot = handsOver;
         }
-        Tip($"On: once burning on the pitch programme has raised the velocity to gain, and the air has stopped thinning, for "
-            + $"{IcbmProgram.RisingToGainSeconds:F0} s, on a stage that can stop and holds the rest, the closed loop takes over "
-            + "inside the air. Off: a stack flown flat and fast stays on the schedule until the stage burns out. Unflown.");
+        Tip("On: once burning on the pitch programme has raised the velocity to gain past "
+            + $"{IcbmProgram.OutrunShareOfTheStack:P0} of what the stack holds, on a stage that can stop, the closed loop takes "
+            + "over inside the air. Off: a stack flown flat and fast stays on the schedule until it burns out. Unflown.");
 
         bool waitsOut = config.TrimWaitsOutTheStack;
         if (ImGui.Checkbox("Trim waits for the spent stack to open", ref waitsOut))

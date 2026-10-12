@@ -42,14 +42,14 @@ public class RisingToGainHandoverTests
         Assert.True(program.ResidualAtCutoff < 2.0, $"cut off {program.ResidualAtCutoff:F1} m/s short");
     }
 
-    // A long shot's velocity to gain rises on the schedule too, with the air thinning fast; the guard must not see it.
+    // A long shot's velocity to gain rises on the schedule too, but stays a small share of the stack; the guard must not see it.
     [Theory]
     [InlineData("game", 1600.0)]
     [InlineData("game", 2000.0)]
     [InlineData("game", 6000.0)]
     [InlineData("srb4", 418.0)]
     [InlineData("srb4", 700.0)]
-    public void WhereTheAirThinsTheGuardChangesNothing(string stack, double km)
+    public void WhereTheStackHasRoomTheGuardChangesNothing(string stack, double km)
     {
         IcbmFlightRig Rig() => stack == "game" ? GameStackShortRangeTests.GameStack(true) : RealSrb4();
         IcbmFlightRig.Flight off = Fly(Rig(), km, guard: false).Flight;

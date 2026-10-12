@@ -217,13 +217,19 @@ internal sealed partial class IcbmProgram
     public const double AscentReserveSeconds = 15.0;
 
     /// <summary>
-    /// How far the velocity to gain must climb without falling, and for how long with the dynamic pressure not falling either,
-    /// before the ascent hands over.
+    /// How far the velocity to gain must climb without falling, and for how long, before the ascent asks whether the shot
+    /// is outrunning the stack.
     /// </summary>
     public const double RisingToGainMarginMetresPerSecond = 10.0;
 
     /// <inheritdoc cref="RisingToGainMarginMetresPerSecond"/>
     public const double RisingToGainSeconds = 2.0;
+
+    /// <summary>
+    /// The share of the stack's delta-v a rising velocity to gain may reach on the schedule before the closed loop takes
+    /// over. Flown, GeoSat FAT long shots peak at 0.33 and RealSRB4 at 1,000 km passed 0.6 at 243 s.
+    /// </summary>
+    public const double OutrunShareOfTheStack = 0.6;
 
     /// <summary>Inside this much of cutoff, solve every step. It is thirty frames and it decides the shot.</summary>
     public const double SolveEveryStepWithin = 0.75;
@@ -470,8 +476,6 @@ internal sealed partial class IcbmProgram
     private double _risingFrom;
     private double _lastRisingToGain;
     private double _risingSeconds;
-    private double _lastPressurePa;
-    private double _pressureRisingSeconds;
 
     // What the running stage cannot be stopped from adding, as of the last solve, and whether the
     // arc was lofted to need exactly that.
@@ -792,8 +796,6 @@ internal sealed partial class IcbmProgram
         _risingFrom = 0.0;
         _lastRisingToGain = 0.0;
         _risingSeconds = 0.0;
-        _lastPressurePa = 0.0;
-        _pressureRisingSeconds = 0.0;
         _unavoidable = 0.0;
         _absorbing = false;
         _handedOverInTheAir = false;
