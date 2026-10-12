@@ -69,6 +69,7 @@ internal sealed partial class IcbmComputer
     private double _trimFloor = double.NaN;
     private int _trimFloorForPass = -1;
     private bool _resumedForCoast;
+    private bool _aimResetForTheOutrun;
     private bool _trimAbandoned;
     private double _departsIn;
     private double _coastedToRelease;
@@ -546,6 +547,7 @@ internal sealed partial class IcbmComputer
         _trimFloor = double.NaN;
         _trimFloorForPass = -1;
         _resumedForCoast = false;
+        _aimResetForTheOutrun = false;
         _trimAbandoned = false;
         _trimShape = "";
         _saidTrim = "";
@@ -730,6 +732,7 @@ internal sealed partial class IcbmComputer
         _trimFloor = double.NaN;
         _trimFloorForPass = -1;
         _resumedForCoast = false;
+        _aimResetForTheOutrun = false;
         _trimAbandoned = false;
         _trimShape = "";
         _saidTrim = "";
@@ -923,6 +926,15 @@ internal sealed partial class IcbmComputer
                      // perfectly was never going to help.
                      + PredictedImpactSaid()
                      + $" :: {Command.Hold}");
+        }
+
+        // Read off a schedule that was adding to the shot, which the closed loop is about to stop flying.
+        if (Program.OutranTheStack && !_aimResetForTheOutrun)
+        {
+            _aimResetForTheOutrun = true;
+            Log.Info($"{KsaWorld.DisplayName(Craft)} ICBM: the schedule outran the stack; the aim correction starts again "
+                     + $"from a bias of {Distance.Say(Vec.Len(_aim.BiasCci))}");
+            _aim.Reset();
         }
 
         // The aim stops moving when the arrival stops being free. They are one problem solved in

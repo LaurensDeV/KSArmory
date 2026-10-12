@@ -1783,7 +1783,9 @@ a flown failure first:
    at 263 s, where a GeoSat FAT long shot's to-gain also rises on the schedule but peaks at 0.33. Neither the air
    (dynamic pressure still falling when the stage already holds less than is left) nor a projection of the rates (the
    core's 8 g spend extrapolated over the stack trips GeoSat FAT at its core's burnout) separated them in flight.
-   Rig and replayed logs only (`RisingToGainHandoverTests`); `docs/ICBM-OUTSTANDING.md` 1.17.
+   Such a handover has most of its burn ahead of it, so its arrival latches as a long shot's does and the aim correction
+   starts again: pinned like a short shot's, it froze the aim on the schedule's bias and landed 1.035 km out. Flown
+   once with both, six of six within 2.1 mm; `RisingToGainHandoverTests`, `docs/ICBM-OUTSTANDING.md` 1.17.
 3. **Done in thick air, it pauses and coasts out**, the loop still solving, and relights in thin air or at the
    top of the climb, so the cutoff that counts is made where the vacuum arc is true. Where the airflow will not let
    it point usefully it waits while climbing and stops once the climb is over; while it waits to turn it burns at

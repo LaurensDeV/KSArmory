@@ -1,3 +1,4 @@
+using Brutal.Numerics;
 using Xunit;
 
 namespace KSArmory.Tests;
@@ -40,6 +41,40 @@ public class RisingToGainHandoverTests
         (IcbmFlightRig.Flight flight, IcbmProgram program) = Fly(RealSrb4(), km, guard: true);
         Assert.True(flight.Reached, $"never cut off: {flight.Hold}");
         Assert.True(program.ResidualAtCutoff < 2.0, $"cut off {program.ResidualAtCutoff:F1} m/s short");
+    }
+
+    // Handed over with most of its burn ahead, the arrival waits for the aim as a long shot's does; pinned at the handover
+    // like a short shot's, it froze the aim on what the schedule had taught it, and the flight landed 1.035 km out.
+    [Fact]
+    public void AnOutrunShotLeavesItsArrivalFreeForTheAim()
+    {
+        IcbmFlightRig rig = RealSrb4();
+        NeverSteady aim = new();
+        rig.AimLoop = aim;
+        (IcbmFlightRig.Flight flight, IcbmProgram program) = Fly(rig, 1000.0, guard: true);
+
+        Assert.True(program.OutranTheStack, "the guard never handed over");
+        Assert.True(flight.Reached, $"never cut off: {flight.Hold}");
+        Assert.True(aim.LatchedAt - aim.HandedOverAt >= IcbmProgram.LatchArrivalWithinSeconds - 1.0,
+                    $"latched {aim.LatchedAt - aim.HandedOverAt:F1} s after the handover");
+    }
+
+    private sealed class NeverSteady : IcbmFlightRig.IAimLoop
+    {
+        private double _elapsed;
+        public double HandedOverAt = double.NaN;
+        public double LatchedAt = double.NaN;
+
+        public double3 Apply(double3 aimNowCci) => aimNowCci;
+
+        public bool IsSteady => false;
+
+        public void AfterUpdate(IcbmProgram program, in IcbmCommand command, double3 aimNowCci, double stepSeconds)
+        {
+            _elapsed += stepSeconds;
+            if (double.IsNaN(HandedOverAt) && program.Phase == IcbmPhase.ClosedLoop) HandedOverAt = _elapsed;
+            if (double.IsNaN(LatchedAt) && double.IsFinite(program.CommittedArrivalFromNow)) LatchedAt = _elapsed;
+        }
     }
 
     // A long shot's velocity to gain rises on the schedule too, but stays a small share of the stack; the guard must not see it.

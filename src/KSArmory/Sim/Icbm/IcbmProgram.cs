@@ -585,6 +585,12 @@ internal sealed partial class IcbmProgram
     /// </summary>
     public bool IsShortShot => _shortShot;
 
+    /// <summary>
+    /// Whether the ascent handed over because the schedule was outrunning the stack. Such a shot still has most of its
+    /// burn ahead of it, so its arrival latches as a long shot's does, and what the aim learned on the schedule is void.
+    /// </summary>
+    public bool OutranTheStack { get; private set; }
+
     /// <summary>Whether this flight cut off in the air as a short shot, and so releases at cutoff.</summary>
     public bool ReleasesAtCutoff => _releasesAtCutoff;
 
@@ -799,6 +805,7 @@ internal sealed partial class IcbmProgram
         _unavoidable = 0.0;
         _absorbing = false;
         _handedOverInTheAir = false;
+        OutranTheStack = false;
         _shortShot = false;
         _releasesAtCutoff = false;
         _paused = false;

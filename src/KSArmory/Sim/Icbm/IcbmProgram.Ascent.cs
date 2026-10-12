@@ -91,6 +91,7 @@ internal sealed partial class IcbmProgram
             || (state.DynamicPressurePa <= Config.HandoverPressurePa && clear))
         {
             _handedOverInTheAir = (climbOver || complete || adding) && state.DynamicPressurePa > Config.HandoverPressurePa;
+            OutranTheStack = adding && !climbOver && !complete;
             _shortShot |= _handedOverInTheAir;
             Phase = IcbmPhase.ClosedLoop;
             _lineCarriedOver = true;
