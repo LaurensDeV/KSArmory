@@ -78,8 +78,8 @@ internal sealed class IcbmConfig
 
     /// <summary>
     /// Warp the ballistic coast without being asked, stopping a settling margin short of the release
-    /// (<see cref="IcbmProgram.SteadyBeforeReleaseSeconds"/>). On, because this config is not saved, so off
-    /// would be a tick box to find on every launch. <c>docs/ICBM-GUIDANCE.md</c>, "Automatic only if
+    /// (<see cref="IcbmProgram.SteadyBeforeReleaseSeconds"/>). On, so a coast is warped without a tick box to find
+    /// first. <c>docs/ICBM-GUIDANCE.md</c>, "Automatic only if
     /// somebody said so".
     /// </summary>
     public bool WarpTheCoast = true;
@@ -274,8 +274,8 @@ internal sealed class IcbmConfig
 
     /// <summary>
     /// Fly a shot of any range on any stack: loft the arc until it needs at least what a solid stage will
-    /// add, and hand a stage that cannot stop or is at its floor to the closed loop. On; every shot from
-    /// 25 to 2,000 km landed. <c>docs/SHORT-RANGE.md</c>.
+    /// add, and hand a stage that cannot stop or is at its floor to the closed loop. On; 25 to 2,000 km have
+    /// landed, though RealSRB4 cannot finish 1,000 km (<c>docs/ICBM-OUTSTANDING.md</c> 1.17). <c>docs/SHORT-RANGE.md</c>.
     /// </summary>
     public bool FlyAnyRange = true;
 
@@ -387,7 +387,8 @@ internal sealed class IcbmConfig
     /// to <see cref="IcbmProgram.ReleaseGate"/> before arrival (<see cref="ReleaseCoast"/>) -- rather than at cutoff or
     /// wherever the bus is now. Off, the kick is given the whole coast to grow in: flown to 40 N, 10 E from
     /// <c>ORBIT 300</c>, a four-hour coast, the burn's aim absorbed 1.6 km of it, the release found 2 km the trim could
-    /// not pay so close in, and the warheads landed 1.93 km out. Not yet flown. <c>docs/ICBM-OUTSTANDING.md</c> 1.14.
+    /// not pay so close in, and the warheads landed 1.93 km out. Flown 2026-10-12: trim 0.30x at 6,181 km and that coast in millimetres; it
+    /// ships only with a later release gate, the landing being 1.21x without one. <c>docs/ICBM-OUTSTANDING.md</c> 1.14.
     /// </summary>
     public bool KickAtTheRelease = false;
 
@@ -395,7 +396,7 @@ internal sealed class IcbmConfig
     /// When the burn commits its arrival, freeze the aim on the best of the last ten readings if it missed by less than the banked best,
     /// rather than always reverting to the best. The flat 250 m band banks nothing under 250 m, so on the 2026-10-11
     /// 6,181 km night every rocket converged to 1-6 m and was reverted to a best two minutes stale, cut off 4.2 km off
-    /// its own prediction, and spent 16-18 m/s of trim where the split asked 2.5-3. Not yet flown.
+    /// its own prediction, and spent 16-18 m/s of trim where the split asked 2.5-3. Flown 2026-10-12: trim 0.54x.
     /// <c>docs/ICBM-OUTSTANDING.md</c> 1.16.
     /// </summary>
     public bool FreezeKeepsABetterRecentAim = false;

@@ -686,7 +686,7 @@ internal sealed class BallisticScenario
         // for a step here instead pins the entire pre-release cruise -- forty minutes of flight in
         // which nothing is integrated and any step is free -- and cost four times the wall clock a
         // shot for no accuracy at all. The step that matters is the trim's, and BusTrim.MaxFaithfulStep
-        // is where it is now asked for, which is the span it is actually needed across.
+        // only records it: asked for, the world cannot run slow enough and the burn is abandoned.
         if (AskForSpeed(roomToWarp ? CoastWarpFactor : 1.0))
         {
             _say(roomToWarp

@@ -187,7 +187,7 @@ internal sealed partial class IcbmProgram
     /// <summary>
     /// The longest step a guided burn survives.
     ///
-    /// <para>An engine can only be shut down on a frame boundary, so the velocity left at cutoff is
+    /// <para>This mod shuts an engine down on a frame boundary, so the velocity left at cutoff is
     /// whatever the last step added — <c>acceleration x step x throttle</c>. At the 170-second steps
     /// high timewarp hands out that is kilometres per second, and the shot lands on another
     /// continent. So a burn is something warp has to be held down for, exactly as rounds in the air
@@ -318,7 +318,7 @@ internal sealed partial class IcbmProgram
     /// <summary>
     /// How much full-throttle burn is left when the throttle starts coming back.
     ///
-    /// <para>An engine can only be shut down on a frame boundary, so the velocity error left at
+    /// <para>This mod shuts an engine down on a frame boundary, so the velocity error left at
     /// cutoff is whatever the last frame added. Coming back to a fraction of thrust for the last
     /// moment divides that error by the same fraction, and costs a fraction of a second of
     /// burn.</para>
