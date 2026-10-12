@@ -1009,55 +1009,88 @@ internal static class CloudPass
     // THE TARGETING RINGS, painted on the ground: KSArmoryRing.comp. One dispatch per ring, over its
     // own patch of screen, so a ring costs what it covers. None once the UI pass has stopped handing
     // them over, which is what hiding the UI does.
+    //
+    // A ring's ink is a multiple of the ground under it, so where rings stack each would multiply the
+    // last one's ink again; the patch they cover is copied first and every ring reads its ground there.
     private static void Rings(CommandBuffer commandBuffer, IViewport viewport, Camera camera, View view,
                               IRenderImage depth, int width, int height, ref int marks)
     {
         if (GroundRings.Count == 0 || !GroundRings.Fresh) return;
         if (view.Rings is null && !BuildRings(view, depth)) return;
 
+        _rings.Clear();
+        int left = int.MaxValue, top = int.MaxValue, right = 0, bottom = 0;
+
+        for (int i = 0; i < GroundRings.Count; i++)
+        {
+            if (!GroundRings.TryAt(i, out double3 centreEcl, out double3 up, out double radius,
+                                   out double inner, out float4 colour, out int dashes,
+                                   out double3 major, out double minor)) continue;
+
+            double3 centre = centreEcl - camera.PositionEcl;
+            if (!Vec.IsFinite(centre)) continue;
+
+            Tile tile = TileFor(camera, centre, Vec.AnyPerpendicular(up), radius, RingTileReach,
+                                width, height);
+            if (tile.Empty) continue;
+
+            RingPush push = new()
+            {
+                InvViewProj = camera.VPInv.viewProjection,
+                CentreRadius = new float4((float)centre.X, (float)centre.Y, (float)centre.Z, (float)radius),
+                UpInner = new float4((float)up.X, (float)up.Y, (float)up.Z, (float)inner),
+                Colour = colour,
+                TileWidth = new float4(tile.OriginX, tile.OriginY, RingHalfWidthPixels, dashes),
+            };
+
+            // An ellipse: both directions packed into the four floats the up and the inner ring
+            // take, and the short radius where the dashes go, negative to say which this is.
+            if (minor > 0.0)
+            {
+                float2 upPacked = OctahedralPack(up);
+                float2 majorPacked = OctahedralPack(major);
+                push.UpInner = new float4(upPacked.X, upPacked.Y, majorPacked.X, majorPacked.Y);
+                push.TileWidth.W = -(float)minor;
+            }
+
+            _rings.Add((push, tile));
+            left = Math.Min(left, tile.OriginX);
+            top = Math.Min(top, tile.OriginY);
+            right = Math.Max(right, tile.OriginX + (tile.GroupsX * Group));
+            bottom = Math.Max(bottom, tile.OriginY + (tile.GroupsY * Group));
+        }
+
+        if (_rings.Count == 0) return;
+
+        Span<VkImageMemoryBarrier2> one = stackalloc VkImageMemoryBarrier2[1];
+
         using (commandBuffer.TagRegion(GpuTag))
         using (commandBuffer.TagRegion(RingsTag))
         {
-            for (int i = 0; i < GroundRings.Count; i++)
+            if (marks > 0) Hazard(commandBuffer);
+
+            BarrierBatch copy = new(one);
+            copy.Add(view.SceneCopy, ImageBarrierInfo.Presets.StorageReadWriteC);
+            copy.SubmitAndFlush(commandBuffer);
+
+            // A negative half-width is the shader's copy.
+            RingPush copyPush = new() { TileWidth = new float4(left, top, -1f, 0f) };
+            view.Rings!.BindPipeline(commandBuffer, viewport.ShaderSlot, default, default, copyPush);
+            commandBuffer.Dispatch((right - left + Group - 1) / Group, (bottom - top + Group - 1) / Group, 1);
+
+            for (int i = 0; i < _rings.Count; i++)
             {
-                if (!GroundRings.TryAt(i, out double3 centreEcl, out double3 up, out double radius,
-                                       out double inner, out float4 colour, out int dashes,
-                                       out double3 major, out double minor)) continue;
+                Hazard(commandBuffer);
 
-                double3 centre = centreEcl - camera.PositionEcl;
-                if (!Vec.IsFinite(centre)) continue;
-
-                Tile tile = TileFor(camera, centre, Vec.AnyPerpendicular(up), radius, RingTileReach,
-                                    width, height);
-                if (tile.Empty) continue;
-
-                if (marks > 0) Hazard(commandBuffer);
-
-                RingPush push = new()
-                {
-                    InvViewProj = camera.VPInv.viewProjection,
-                    CentreRadius = new float4((float)centre.X, (float)centre.Y, (float)centre.Z, (float)radius),
-                    UpInner = new float4((float)up.X, (float)up.Y, (float)up.Z, (float)inner),
-                    Colour = colour,
-                    TileWidth = new float4(tile.OriginX, tile.OriginY, RingHalfWidthPixels, dashes),
-                };
-
-                // An ellipse: both directions packed into the four floats the up and the inner ring
-                // take, and the short radius where the dashes go, negative to say which this is.
-                if (minor > 0.0)
-                {
-                    float2 upPacked = OctahedralPack(up);
-                    float2 majorPacked = OctahedralPack(major);
-                    push.UpInner = new float4(upPacked.X, upPacked.Y, majorPacked.X, majorPacked.Y);
-                    push.TileWidth.W = -(float)minor;
-                }
-
-                view.Rings!.BindPipeline(commandBuffer, viewport.ShaderSlot, default, default, push);
+                (RingPush push, Tile tile) = _rings[i];
+                view.Rings.BindPipeline(commandBuffer, viewport.ShaderSlot, default, default, push);
                 commandBuffer.Dispatch(tile.GroupsX, tile.GroupsY, 1);
                 marks++;
             }
         }
     }
+
+    private static readonly List<(RingPush Push, Tile Tile)> _rings = [];
 
     [StructLayout(LayoutKind.Sequential, Pack = 4)]
     private struct HolePush
@@ -1763,7 +1796,7 @@ internal static class CloudPass
 
         Renderer renderer = Program.GetRenderer();
 
-        IRenderImage[] storageTargets = [view.Target];
+        IRenderImage[] storageTargets = [view.Target, view.SceneCopy];
         IRenderImage[] depthTargets = [depth];
         VkPushConstantRange[] ranges =
         [
