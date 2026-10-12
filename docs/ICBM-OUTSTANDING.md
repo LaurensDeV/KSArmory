@@ -159,7 +159,7 @@ Re-ranked 2026-10-12, morning. Done since the last ranking: 1.14 and 1.16 (flown
 one), 4.5 (measured), and before that 0.8, 1.4, 1.5, 1.11 (on), 1.13, 1.15, 2.2's frame rate, 2.3, 2.5, 2.7, 4.3 (lost)
 and 4.4.
 
-1. **The 1.14/1.16 package at a 350 s gate**: a walk night and a short-range check with `KickAtTheRelease`,
+1. **The 1.14/1.16 package at a 350 s gate -- flown and not shipped 2026-10-12; the trim-only question is open**: a walk night and a short-range check with `KickAtTheRelease`,
    `FreezeKeepsABetterRecentAim` and `ReleaseBeforeArrivalSeconds` 350, since the walk is counted back from the gate;
    then the three defaults move together or not at all. **Declared and flying 2026-10-12 (`~/shots/2026-10-12-pkg`):**
    `base|pkg` on the 4 km six-target set from `SOLVER SCALE 8`, 8 blocks; then the three Real stacks at 25, 418 and
@@ -191,7 +191,15 @@ and 4.4.
    `base|pkg2` with pkg2 = the two switches and the single gate at 350 -- 6 blocks at Chaco, one target, and 2 on the
    walk set. pkg2 ships as the default if the Chaco landing ratio's upper bound is under 1.0 (this morning's `late` was
    0.74x [0.63, 0.94]), every warhead within 10 mm, and on the walk set pkg2 plans the same stop counts as base, every
-   warhead within 10 mm.
+   warhead within 10 mm. **Flown 2026-10-12, and the landing gain did not replicate.** Chaco, 6 blocks, 48 rockets:
+   landing **1.06x [0.74, 1.15]**, 2 of 6 won, both arms at 2.5-2.6 mm, against the declared upper bound under 1.0;
+   trim **0.20x [0.19, 0.22]**, 6 of 6 won. pkg2 released 305-316 s out against base's 333-348, so the arm flew as
+   meant. Every pkg2 warhead within 7.8 mm; a base rocket put two at 31 and 39 mm in one block. Walk set, 2 blocks:
+   pkg2 walked 5 stops on 8 of 8 buses, base on 7 of 8 (one at the budget's edge), every warhead within 8.5 mm, so the
+   single gate leaves walks alone. **Defaults not moved:** the declared landing condition failed. What has now held
+   on three nights is the trim -- 0.27x, 0.24x and 0.20x -- with the landing neutral on two of three, so `late`'s 0.74x
+   reads as that night's. Shipping the two switches would buy back about 13 m/s of trim a shot for no landing either
+   way; it was never the declared question, so it is left for a decision.
 2. **1.18**: the stack, diagnosed -- its upper bell strikes the interstage on every flight. Decide between a stack fix and a computer-side hold on the upper's steering after a staging; read what RealLiquid3 does differently first.
 3. **2.1's second night**: the cells not yet flown (100, 150, 200, 300 km, and GeoSat FAT and the Any stacks), one
    flight each, completion first. 1.12 and 3.2 belong to it.
