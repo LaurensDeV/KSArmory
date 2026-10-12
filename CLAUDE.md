@@ -692,18 +692,18 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/CIWS-REALISM.md` | **a plan, not a record** — what the real Phalanx does that the mod does not: detection only as the search beam passes, and closed-loop spotting of its own rounds, with why each waits and **what would make spotting worth building** |
 | `docs/LAY-COST.md` | **a plan, not a record** — what a gun lay beyond reach costs a frame, and four measured ways to make it cheaper, none merged |
 | `docs/ICBM-GUIDANCE.md` | **the ballistic computer** — the algorithm, the frames, the cutoff, and what has not been flown |
-| `docs/ACCURACY-PLAN.md` | **the ranked plan, and the one to read first** — what four investigations found on 2026-08-30, including the bug that was the long-range bimodality and the sub-frame cutoff the engine has and the mod never reached |
-| `docs/EIGHT-ROCKETS.md` | **the plan for accuracy at eight rockets** — where the instrument stands, what limits it, and what to fly next, ranked |
-| `docs/MIRV-NEXT.md` | **the backlog for the bus**, and item **7g** is the flown account of the aim freeze — and of the crest the night turned out to be measuring |
+| `docs/ACCURACY-PLAN.md` | **a record** — the dated notebook of every accuracy night and finding since 2026-08-30, numbered entries (3aq, 3fh, ...) that code comments cite; the live ranking is `docs/ICBM-OUTSTANDING.md` |
+| `docs/EIGHT-ROCKETS.md` | **a record, superseded** — accuracy at eight rockets, 2026-08-27 to 08-30: where the instrument stood and what limited it |
+| `docs/MIRV-NEXT.md` | **a record** — the bus's numbered backlog of 2026-08, cited by item; item **7g** is the flown account of the aim freeze — and of the crest the night turned out to be measuring |
 | `docs/FRAME-DEPENDENCE-AUDIT.md` | **every guidance constant that carries the frame**, sorted into the policy that must not, the quantity that genuinely is one frame's worth, and the solver count that is neither — with what to fly and the geometry each one hides at |
 | `docs/SHOT-PROTOCOL.md` | **how to spend a night of shots** — how many a difference costs, why the baseline is re-flown all night, and the rule that says when to stop |
-| `docs/ARRIVAL-ANGLE.md` | **what a steeper arrival is worth** — precision, impact speed and propellant against the angle a round comes in at, why seven degrees is the air's answer rather than the guidance's, and the control that asks for another |
+| `docs/ARRIVAL-ANGLE.md` | **what a steeper arrival is worth** — precision, impact speed and propellant against the angle a round comes in at, why twelve degrees is the air's answer rather than the guidance's, and the control that asks for another |
 | `docs/KINETIC-FLOOR.md` | **how accurate a round could possibly be** — the terms no amount of guidance work removes, and why the arrival angle is the whole lever |
 | `docs/WHAT-THE-PLAYER-SETS.md` | **a plan, partly built** — the ballistic computer with almost nothing to configure: what it derives, what it shows, and the one trade left for the player |
-| `docs/SHORT-RANGE.md` | **a plan, not a record** — 100–1,000 km shots: why every short target flies one identical cutoff, and why the answer is to loft the shot above the air rather than teach the computer to fly in it |
+| `docs/SHORT-RANGE.md` | **mostly a record** — 25–1,000 km shots: why every short target once flew one identical cutoff, the loft that answered it, and the flights since; what is open is in `docs/ICBM-OUTSTANDING.md` 2.1, 1.17 and 1.18 |
 | `docs/MIRV-TARGETS.md` | **mostly built** — up to six targets for one bus: the reach drawn on the ground and refused outside it, what spare warheads do, and the release loop that diverts between targets |
 | `docs/ICBM-OUTSTANDING.md` | **a plan, not a record** — everything still open for the ballistic computer and the bus, ranked into tiers with the evidence for each, a **release gate** for merging `dev` into `main`, and the order of work; read it before picking up ICBM/MIRV work |
-| `docs/METRE-LEVEL.md` | **the route from today's kilometre to a metre**, as a ladder of arrival angles with a gate on each rung — what blocks each one, the orbit and target matrix that tests it, and **why the ladder stops at rung C**: the wall clock cannot be bought with frame rate, because a flight is CPU-bound and the GPU is idle |
+| `docs/METRE-LEVEL.md` | **a record, largely superseded** — the 2026-09 route from a kilometre to a metre as a ladder of arrival angles; its own header lists what is now wrong in it, and §5b's model of sim rate against frame time is the part still current |
 | `docs/GUIDANCE-SECTION.md` | **a plan, half built** — the ballistic computer as a part you bolt on. The `Guidance` role, distinct from `FireControl`, is built and the bus provides it; the 3 m interstage ring that would take it over is not, and its mass is a split of the bus's rather than an addition to it |
 | `docs/NUCLEAR-EFFECT.md` | which of KSA's four volumetric renderers a mod can reach, and what a mushroom cloud actually looks like |
 | `docs/NUCLEAR-ALTITUDE.md` | **a record** — what a burst does at every height from the surface to space, sourced, against what the mod did, and the twenty steps that closed the gap, each with what flying it showed; what is still open is at the end of its build order |
@@ -1838,7 +1838,7 @@ at 40. A shot aimed along the track has no out-of-plane work left to freeze, so 
 nothing and the residual grows exactly linearly with the step; aimed **26° off the plane** the
 residual is **59–93% square to the thrust line** and grows **5.9x over a 4x step**. Flown at
 12,902 km the cross-track share is 81% at 23 ms and 94% at 28, which is the off-plane figure — and
-every cutoff fixture flies equator to equator, where it is identically zero. **In flight the 5 m/s
+the other cutoff fixtures fly equator to equator, where it is identically zero. **In flight the 5 m/s
 cap binds first**, so the freeze lasts the same 0.4 s at either frame rate, and a rig flown off the plane
 at the flown cutoff does not reproduce the flown rise; a seconds-valued freeze was built and deleted
 unflown (`docs/ACCURACY-PLAN.md` 3fl, 3fo).

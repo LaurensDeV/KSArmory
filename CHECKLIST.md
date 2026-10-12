@@ -2385,7 +2385,8 @@ now 0.02 km — the six warheads land closer to each other than any of them land
 **What is left, in order.** The release probe's own miss, about 50 m, which is what the aim
 correction leaves behind; the round's own integrator at 5 ms, which a screen priced at tens of
 metres and which is now below what one shot resolves; and everything in
-`docs/KINETIC-FLOOR.md`, whose irreducible floor at this 7.1° arrival is about 5 m.
+`docs/KINETIC-FLOOR.md`, whose irreducible floor at the 7.1° arrival it priced is about 5 m. Since then the
+mod arrives at 32° and lands in millimetres; `docs/ICBM-OUTSTANDING.md` has where it stands.
 
 **And accuracy has stopped buying anything.** The Mk 21's lethal radius is 2,000 m, so at 50 m every
 warhead is 40× inside it. Further work here is craft rather than capability.
