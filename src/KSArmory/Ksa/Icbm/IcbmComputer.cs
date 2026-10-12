@@ -871,8 +871,8 @@ internal sealed partial class IcbmComputer
             return;
         }
 
-        // A walk's first release is gate + (N-1) x 65 s, so the LAST lands on the setting, or the start of the coast
-        // with WalkStartsAtCutoff. NaN leaves the program reading the setting live.
+        // A walk's first release is gate + (N-1) x 65 s, so the LAST lands on the setting. NaN leaves the program
+        // reading the setting live.
         Program.ReleaseGateSeconds = _walker.GateOverrideSeconds(Config, _targets.Count);
 
         bool wasBurning = Program.IsBurning;

@@ -171,7 +171,6 @@ public class ShotArmsTests
         IcbmConfig shipped = new();
 
         Assert.Equal(0.0, shipped.WarheadSubStepMs);
-        Assert.False(shipped.WalkStartsAtCutoff);
 
         // The one that is on, because it is the one that was resolved: 11 of 13 paired shots at
         // p=0.022. A baseline arm naming nothing therefore ships WITH it, which is what makes it

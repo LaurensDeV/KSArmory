@@ -516,7 +516,7 @@ the planner prices a 6.5 km hop at **17.6 m/s** against the one pass's 10, so it
 `a hop wants 17.6 m/s and one pass will fly 10`. The coast re-flies the reach at ~955 m per m/s, prices
 the same hop at 6.8, and the plan is replaced, because nothing commits it until a warhead leaves.
 
-**`IcbmConfig.WalkStartsAtCutoff`** (`5f8e9e87`, off; flown 2026-10-11 and lost, `ICBM-OUTSTANDING.md` 4.3) puts a walk's first release at the start of the
+**`IcbmConfig.WalkStartsAtCutoff`** (`5f8e9e87`; flown 2026-10-11 and lost, `ICBM-OUTSTANDING.md` 4.3; removed 2026-10-12) put a walk's first release at the start of the
 coast instead of ending its last on `ReleaseBeforeArrivalSeconds`. A hop bought early moves the landing
 further per m/s (1,076 m against 688 at 6,179 km), so a chain could be spaced ~8.5 km rather than ~4.5, for a
 per-warhead floor nearer 55 m than 14.

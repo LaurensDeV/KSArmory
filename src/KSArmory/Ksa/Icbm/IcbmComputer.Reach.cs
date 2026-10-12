@@ -57,7 +57,6 @@ internal sealed partial class IcbmComputer
         Reach = ReachDisplay.For(_reachFootprint, PlacedTargets(),
                                  new ReleaseItinerary.Bus(Config.ReleaseBeforeArrivalSeconds,
                                                           coast, WarheadsAboard,
-                                                          FromCutoff: Config.WalkStartsAtCutoff,
                                                           ReserveAfterFirstStopMetresPerSecond:
                                                               Config.SpendTheSplitReserveAfterTheFirstStop
                                                                   ? ReleaseLoop.SplitNullReserveMetresPerSecond

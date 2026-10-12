@@ -410,7 +410,6 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
         ReachDisplay reach = ReachDisplay.For(
             _footprint, placed,
             new ReleaseItinerary.Bus(Config.ReleaseBeforeArrivalSeconds, coast, WarheadsAboard,
-                                     FromCutoff: Config.WalkStartsAtCutoff,
                                      ReserveAfterFirstStopMetresPerSecond: Config.SpendTheSplitReserveAfterTheFirstStop
                                                                                ? ReleaseLoop.SplitNullReserveMetresPerSecond
                                                                                : 0.0),

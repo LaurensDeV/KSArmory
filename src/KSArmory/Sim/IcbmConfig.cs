@@ -153,13 +153,6 @@ internal sealed class IcbmConfig
     public bool TrimCountsTheCommandInFlight = true;
 
     /// <summary>
-    /// Whether a walk between several targets starts at cutoff rather than ending on
-    /// <see cref="ReleaseBeforeArrivalSeconds"/>: about twice the spacing, a worse floor per warhead.
-    /// <b>Off: flown 2026-10-11 and lost.</b> <c>docs/ICBM-OUTSTANDING.md</c> 4.3.
-    /// </summary>
-    public bool WalkStartsAtCutoff;
-
-    /// <summary>
     /// Whether the walk planner prices each hop at the reach of the slot it is flown in, scaled down
     /// from the reach measured now, rather than every hop at that one reach. On, with
     /// <see cref="PriceHopsAtWhatTheTrimPays"/>: flown at 4 km, 7 of 8 walks flew every stop planned, against
