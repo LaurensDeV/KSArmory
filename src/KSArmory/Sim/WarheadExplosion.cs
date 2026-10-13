@@ -42,15 +42,15 @@ public static class WarheadExplosion
     // The fireball volume's peak radius in Core's ExplosionAssets.xml, at the reference energy, and
     // the conflagration stage's own intensity multiplier. PopSmallExplosion has no fireball.
     private const double SmallFireFireballMetres = 10.0;
-    private const double ConflagrationFireballMetres = 56.0;
-    private const double ConflagrationFireballIntensity = 1.2;
+    private const double ConflagrationFireballMetres = 30.0;
+    private const double ConflagrationFireballIntensity = 1.0;
 
     /// <summary>
     /// The preset a charge goes off as, or null for a round that carries none.
     ///
     /// <para>Chosen by the warhead's own <see cref="Warhead.FireballRadius"/> against each preset's
     /// fireball at KSA's floor, nearest on a log scale, and a pop below half of SmallFire's. That
-    /// puts the change-overs at about 0.36 kg and 41 kg.</para>
+    /// puts the change-overs at about 0.36 kg and 15 kg.</para>
     /// </summary>
     public static string? PresetFor(double chargeKg)
     {
