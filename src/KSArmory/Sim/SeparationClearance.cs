@@ -1,3 +1,5 @@
+using Brutal.Numerics;
+
 namespace KSArmory;
 
 /// <summary>Whether the thing that let go has got far enough away to act, and what to say about it.</summary>
@@ -53,6 +55,15 @@ internal static class SeparationClearance
     /// </summary>
     public const double TimeoutSeconds = 20.0;
 
+    /// <summary>What a coast must leave the trim before the release, once it waits for the stack to open.</summary>
+    public const double TrimNeedsSeconds = 30.0;
+
+    /// <summary>
+    /// How long past the expected release the gap must still hold: the passes can outrun their estimate, and a gap
+    /// sized to reach the keep-out exactly at the release was crossed 0.1 m inside it in <c>PastCutoffTests</c>.
+    /// </summary>
+    public const double PastTheReleaseSeconds = 20.0;
+
     /// <param name="metresApart">
     /// How far apart the two are, or NaN when the discarded stage cannot be read.
     ///
@@ -67,7 +78,38 @@ internal static class SeparationClearance
     /// what the coarse contact test uses, so it is the distance that has to be beaten rather than
     /// any number somebody picked.
     /// </param>
-    public static Clearance Check(double metresApart, double stageRadiusMetres, double secondsSinceSplit)
+    /// <summary>
+    /// How far a bus must have coasted from its stack before it pays what the trim owes, when paying it closes the
+    /// pair: far enough that, closing at the speed the trim leaves, they reach the keep-out no sooner than the release.
+    /// Zero when the trim opens the pair or the release is not known.
+    ///
+    /// <para>A bus braking nose-retrograde has its stack directly behind it, so what it owes its solution points back
+    /// at the stack. Flown from a 300 km orbit, 0.73 and 1.04 m/s owed brought the pair to 10.6 m and into contact ~30 s
+    /// after the split; 0.27-0.57 m/s did not. <c>docs/ICBM-OUTSTANDING.md</c> 1.8.</para>
+    /// </summary>
+    public static double ForTheTrimMetres(double keepOutMetres, double closingAfterTrim, double secondsToRelease)
+        => closingAfterTrim > 0.0 && double.IsFinite(keepOutMetres) && double.IsFinite(secondsToRelease)
+           && secondsToRelease > 0.0
+               ? keepOutMetres + (closingAfterTrim * (secondsToRelease + PastTheReleaseSeconds))
+               : 0.0;
+
+    /// <summary>
+    /// The same distance from the pair's geometry: the bus's position and velocity relative to the stack, what the trim
+    /// owes, and the time to the release. Zero inside <see cref="TrimNeedsSeconds"/> of the release, which must leave the
+    /// trim time to fly.
+    /// </summary>
+    public static double ForTheTrimMetres(double keepOutMetres, double3 fromStackCci, double3 relativeCci,
+                                          double3 trimOwesCci, double secondsToRelease)
+    {
+        if (!(secondsToRelease > TrimNeedsSeconds)) return 0.0;
+        if (!Vec.IsFinite(fromStackCci) || !Vec.IsFinite(relativeCci) || fromStackCci.Equals(Vec.Zero)) return 0.0;
+
+        double closing = -Vec.Dot(relativeCci + trimOwesCci, Vec.Unit(fromStackCci));
+        return ForTheTrimMetres(keepOutMetres, closing, secondsToRelease);
+    }
+
+    public static Clearance Check(double metresApart, double stageRadiusMetres, double secondsSinceSplit,
+                                  double forTheTrimMetres = 0.0)
     {
         double wanted = double.IsFinite(stageRadiusMetres) && stageRadiusMetres > 0.0
                             ? stageRadiusMetres + ClearOfTheSphereMetres
@@ -75,6 +117,13 @@ internal static class SeparationClearance
 
         bool known = double.IsFinite(metresApart) && metresApart >= 0.0;
         bool late = secondsSinceSplit >= TimeoutSeconds;
+
+        if (known && metresApart >= wanted && metresApart < forTheTrimMetres)
+        {
+            return new Clearance(false, OnTheClock: false,
+                                 $"letting the spent stack open to {forTheTrimMetres:F0} m before trimming back "
+                                 + $"toward it, {metresApart:F1} m now");
+        }
 
         if (known && metresApart >= wanted)
         {

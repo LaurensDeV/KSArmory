@@ -36,19 +36,11 @@ namespace KSArmory;
 internal static class AttitudeHook
 {
     /// <summary>What a vehicle should be pointed at, until told otherwise.</summary>
-    internal readonly record struct Aim(double3 DirectionCci, double3 RollReferenceCci);
+    internal readonly record struct Aim(double3 DirectionCci, double3 RollReferenceCci, bool Loosely);
 
     private const string HarmonyId = "com.kesslersystems.ksarmory.attitude";
 
     private static readonly Dictionary<Vehicle, Aim> Wanted = [];
-
-    // Craft whose attitude is actively cancelled each frame rather than pointed.
-    private static readonly HashSet<Vehicle> Quieted = [];
-
-    // Those whose quiet should also assert rails. A subset of Quieted rather than a parallel state:
-    // any commanded actuator flips rails straight back off, so asserting it anywhere else would be
-    // a write the next sub-step undoes.
-    private static readonly HashSet<Vehicle> Railed = [];
 
     // Craft whose manual thrust is in the engine's pulse mode this frame. Held here rather than
     // written where the trim decides it, because the flight computer is copied over wholesale when
@@ -72,6 +64,9 @@ internal static class AttitudeHook
     // under it throws "Update task failed" out of SequencePerformanceList.Recompute.
     private static readonly HashSet<Vehicle> Staging = [];
 
+    // Craft owed a stage only once a move of the staging list has gone through, in the same window.
+    private static readonly Dictionary<Vehicle, Func<bool>> StagingAfter = [];
+
     // Craft owed a blast's push, as an impulse and an angular impulse about the centre of mass in
     // the craft's assembly frame. Written here for the reason attitude is: a velocity written from
     // any other hook is overwritten by the worker's results before anything reads it.
@@ -79,6 +74,14 @@ internal static class AttitudeHook
 
     // Which way a craft's throttle key is held this frame, for the frames KSA clears held keys on the craft being flown.
     private static readonly Dictionary<Vehicle, int> ThrottleKeys = [];
+
+    // Crafts whose held translation jets are put back after KSA clears them, and what was held this frame.
+    private static readonly HashSet<Vehicle> JetsThroughTheClear = [];
+    private static readonly Dictionary<Vehicle, ThrusterMapFlags> HeldJets = [];
+
+    private const ThrusterMapFlags Translation = ThrusterMapFlags.TranslateForward | ThrusterMapFlags.TranslateBackward
+                                                 | ThrusterMapFlags.TranslateRight | ThrusterMapFlags.TranslateLeft
+                                                 | ThrusterMapFlags.TranslateDown | ThrusterMapFlags.TranslateUp;
 
     // Shoves written, read back two steps later, once the worker that integrated them has had its
     // results applied: what the craft's velocity did against what was written, because a frame
@@ -128,8 +131,11 @@ internal static class AttitudeHook
             MethodInfo prefix = typeof(AttitudeHook).GetMethod(
                 nameof(BeforePrepareWorker), BindingFlags.NonPublic | BindingFlags.Static)!;
 
+            MethodInfo postfix = typeof(AttitudeHook).GetMethod(
+                nameof(AfterPrepareWorker), BindingFlags.NonPublic | BindingFlags.Static)!;
+
             _harmony = new Harmony(HarmonyId);
-            _harmony.Patch(target, prefix: new HarmonyMethod(prefix));
+            _harmony.Patch(target, prefix: new HarmonyMethod(prefix), postfix: new HarmonyMethod(postfix));
 
             Installed = true;
             Trouble = "";
@@ -146,6 +152,7 @@ internal static class AttitudeHook
     {
         Wanted.Clear();
         Staging.Clear();
+        StagingAfter.Clear();
         Shoves.Clear();
 
         try
@@ -162,43 +169,10 @@ internal static class AttitudeHook
     }
 
     /// <summary>Point this craft here, every frame, until <see cref="Release"/>.</summary>
-    public static void Hold(Vehicle craft, double3 directionCci, double3 rollReferenceCci)
+    public static void Hold(Vehicle craft, double3 directionCci, double3 rollReferenceCci, bool loosely = false)
     {
         if (!KsaWorld.IsAlive(craft)) return;
-        Wanted[craft] = new Aim(directionCci, rollReferenceCci);
-    }
-
-    /// <summary>
-    /// Actively stop the flight computer tracking, every frame, until <see cref="Release"/>.
-    ///
-    /// <para>Not the same as <see cref="Release"/>. Dropping the standing aim only stops this mod
-    /// <em>writing</em> a target; the computer keeps the one it has and goes on firing thrusters to
-    /// hold it, which keeps <c>anyActuatorCommanded</c> set and the vehicle off rails. Measured:
-    /// a craft with <c>aimed=False</c> still read <c>Auto/Custom</c> and still spent 276 of 376
-    /// coast probes off rails, against the pointed arm's 282. Cancelling has to be a write, and it
-    /// has to happen in this window like every other one.</para>
-    /// </summary>
-    public static void Quiet(Vehicle craft)
-    {
-        if (!KsaWorld.IsAlive(craft)) return;
-
-        Wanted.Remove(craft);
-        Quieted.Add(craft);
-    }
-
-    /// <summary>
-    /// Assert rails as well as going quiet, so the coast is propagated rather than integrated.
-    ///
-    /// <para>Only meaningful alongside <see cref="Quiet"/>, and refused otherwise: a commanded
-    /// actuator puts the vehicle off rails on the same sub-step, so asserting it while anything is
-    /// still pointing is a write undone immediately.</para>
-    /// </summary>
-    public static void QuietOnRails(Vehicle craft)
-    {
-        if (!KsaWorld.IsAlive(craft)) return;
-
-        Quiet(craft);
-        Railed.Add(craft);
+        Wanted[craft] = new Aim(directionCci, rollReferenceCci, loosely);
     }
 
     /// <summary>
@@ -233,6 +207,33 @@ internal static class AttitudeHook
     {
         if (direction == 0) ThrottleKeys.Remove(craft);
         else ThrottleKeys[craft] = direction;
+    }
+
+    /// <summary>
+    /// Keep a craft's held translation jets through KSA's clear of held keys, as <see cref="ThrottleKey"/> keeps its
+    /// throttle moving: the clear zeroes them inside <c>PrepareWorker</c>, after the prefix.
+    /// </summary>
+    public static void KeepJetsThroughTheClear(Vehicle craft, bool keep)
+    {
+        if (keep) JetsThroughTheClear.Add(craft);
+        else JetsThroughTheClear.Remove(craft);
+    }
+
+    /// <summary>
+    /// Fire this craft's next stage when its worker is next prepared, if <paramref name="first"/> succeeds there first --
+    /// a change to the staging list has to be made in the same window the stage is.
+    /// </summary>
+    public static void StageAfter(Vehicle craft, Func<bool> first)
+    {
+        if (!KsaWorld.IsAlive(craft)) return;
+
+        if (!Installed)
+        {
+            if (first()) VehicleCommand.Stage(craft);
+            return;
+        }
+
+        StagingAfter[craft] = first;
     }
 
     /// <summary>
@@ -322,18 +323,32 @@ internal static class AttitudeHook
         }
     }
 
-    /// <summary>Stop pointing it, and stop quieting it. The vehicle is the player's again.</summary>
+    /// <summary>Stop pointing it. The vehicle is the player's again.</summary>
     public static void Release(Vehicle craft)
     {
         Wanted.Remove(craft);
-        Quieted.Remove(craft);
-        Railed.Remove(craft);
 
         // Left in pulse mode, the player's own translation keys would fire in millisecond taps. The
         // write is owed to the prefix rather than made here, because one made outside that window is
         // copied over before anything reads it.
         Pulsing.Remove(craft);
         if (Pulsed.Remove(craft)) Restore.Add(craft);
+    }
+
+    // After the clear and after the worker's copy is taken, so the jets go into both.
+    private static void AfterPrepareWorker(Vehicle __instance)
+    {
+        try
+        {
+            if (HeldJets.Count > 0 && HeldJets.Remove(__instance, out ThrusterMapFlags jets) && jets != ThrusterMapFlags.None)
+            {
+                KsaWorld.TryRestoreJets(__instance, jets);
+            }
+        }
+        catch (Exception e)
+        {
+            Log.Error("held jets could not be put back", e);
+        }
     }
 
     // Runs inside KSA's frame loop, immediately before the flight computer is snapshotted for the
@@ -343,6 +358,16 @@ internal static class AttitudeHook
         try
         {
             if (Staging.Count > 0 && Staging.Remove(__instance)) VehicleCommand.Stage(__instance);
+            if (StagingAfter.Count > 0 && StagingAfter.Remove(__instance, out Func<bool>? first) && first())
+            {
+                VehicleCommand.Stage(__instance);
+            }
+
+            if (JetsThroughTheClear.Count > 0 && JetsThroughTheClear.Contains(__instance)
+                && KsaWorld.DiscardsHeldControls(__instance, out _))
+            {
+                HeldJets[__instance] = __instance.GetThrusterFlags() & Translation;
+            }
 
             // The clear runs inside PrepareWorker after this and takes the held keys, never the throttle value, so the
             // step the key would have made is made here, at KSA's own 0.7 a second of the player's frame.
@@ -389,39 +414,20 @@ internal static class AttitudeHook
                 VehicleCommand.SetPulseMode(__instance, pulsing: false);
             }
 
-            if (Quieted.Contains(__instance))
-            {
-                VehicleCommand.ReleaseAttitude(__instance);
-
-                // Releasing the actuator is necessary and not sufficient. PhysicsStates'
-                // TryToPutOnRails returns a coasting vehicle to rails only when the bubble origin
-                // is Cci, and in a Ccf bubble there is no path back at all -- so a bus quieted
-                // inside one stays integrated for the rest of the coast, which is what 3ay
-                // measured as 276 of 376 probes off rails against a pointed arm's 282.
-                //
-                // Asserting rails is the other half. It does not leave the bubble; it makes the
-                // bubble irrelevant, because a rails Freefall vehicle takes ApplyFreefallMotion and
-                // an exact conic whatever the frame. docs/ACCURACY-PLAN.md 3bv.
-                if (Railed.Contains(__instance)) VehicleCommand.TryAssertRails(__instance);
-
-                return;
-            }
-
             if (Wanted.Count == 0) return;
             if (!Wanted.TryGetValue(__instance, out Aim aim)) return;
 
-            VehicleCommand.TryAim(__instance, aim.DirectionCci, aim.RollReferenceCci);
+            VehicleCommand.TryAim(__instance, aim.DirectionCci, aim.RollReferenceCci, aim.Loosely);
         }
         catch (Exception e)
         {
             // Stand down rather than throwing again next frame. One report, then silence.
             Wanted.Remove(__instance);
-            Quieted.Remove(__instance);
-            Railed.Remove(__instance);
             Pulsing.Remove(__instance);
             Pulsed.Remove(__instance);
             Restore.Remove(__instance);
             Staging.Remove(__instance);
+            StagingAfter.Remove(__instance);
             Shoves.Remove(__instance);
 
             if (_complained) return;

@@ -647,7 +647,7 @@ public class ProbeGapTests(ITestOutputHelper Out)
     /// <summary>
     /// The surface the round stops on against the surface the prediction flies to, which over water
     /// are not the same thing: <c>Ksa/GroundTest.cs</c> clamps the height field to the waterline and
-    /// <c>Ksa/IcbmComputer.cs</c>'s <c>TerrainRadiusAt</c> does not.
+    /// <c>Ksa/Icbm/IcbmComputer.cs</c>'s <c>TerrainRadiusAt</c> does not.
     ///
     /// <para>Zero on a shot that arrives over dry land, which is what this one does — so it is not
     /// what the 1.6 km is. <c>SurfaceAgreementTests</c> prices the case where it is not zero, at

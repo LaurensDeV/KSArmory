@@ -45,7 +45,7 @@ public class PostBoostObserverTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// The aim correction as <c>Ksa/IcbmComputer.cs</c> rides it during the burn, so the cutoff the
+    /// The aim correction as <c>Ksa/Icbm/IcbmComputer.cs</c> rides it during the burn, so the cutoff the
     /// sweeps run from is the one the guidance actually converges on rather than an ideal arc.
     /// </summary>
     private sealed class Loop : IcbmFlightRig.IAimLoop

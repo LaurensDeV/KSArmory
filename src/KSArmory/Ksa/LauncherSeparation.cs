@@ -66,6 +66,97 @@ internal static class LauncherSeparation
     }
 
     /// <summary>
+    /// How many stages with parts are still to fire after the one that lets this launcher off, or zero when it is last,
+    /// has fired, or cannot be read. More than zero is a stack that will drop its rounds before its burn is done.
+    /// </summary>
+    public static int StagesAfterTheRelease(Vehicle? craft, Part? launcher)
+    {
+        if (craft is null || !TryFind(launcher, out Decoupler decoupler)) return 0;
+
+        try
+        {
+            craft.Parts.EnsureDerived(DerivedData.Sequences);
+            ReadOnlySpan<Sequence> sequences = craft.Parts.SequenceList.Sequences;
+            int after = -1;
+
+            for (int i = 0; i < sequences.Length; i++)
+            {
+                Sequence sequence = sequences[i];
+                if (sequence.Activated || sequence.Parts.IsEmpty) continue;
+
+                if (after >= 0) after++;
+                else if (Holds(sequence, decoupler)) after = 0;
+            }
+
+            return Math.Max(after, 0);
+        }
+        catch (Exception e)
+        {
+            Log.Error("could not read the staging list", e);
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// Move the stage that lets this launcher off to the end of the staging list, as dragging it there in KSA's own list
+    /// does. Only when that stage holds the joint alone: moving it moves everything in it, and an engine moved with it
+    /// would wait for the release.
+    /// </summary>
+    /// <returns>Whether it moved; <paramref name="why"/> says what happened either way.</returns>
+    public static bool TryMoveReleaseLast(Vehicle? craft, Part? launcher, out string why)
+    {
+        why = "";
+        if (craft is null || !TryFind(launcher, out Decoupler decoupler))
+        {
+            why = "the launcher has no joint to move";
+            return false;
+        }
+
+        try
+        {
+            craft.Parts.EnsureDerived(DerivedData.Sequences);
+            SequenceList list = craft.Parts.SequenceList;
+            ReadOnlySpan<Sequence> sequences = list.Sequences;
+
+            for (int i = 0; i < sequences.Length; i++)
+            {
+                Sequence sequence = sequences[i];
+                if (sequence.Activated || !Holds(sequence, decoupler)) continue;
+
+                if (sequence.Parts.Length != 1)
+                {
+                    why = $"stage {sequence.Number} fires {sequence.Parts.Length} parts with the release, and moving it would move them too";
+                    return false;
+                }
+
+                int from = sequence.Number;
+                list.MoveSequence(sequence, null);
+                why = $"the release was stage {from}; it is now the last";
+                return true;
+            }
+
+            why = "the release is not in the staging list";
+            return false;
+        }
+        catch (Exception e)
+        {
+            why = $"the staging list could not be changed ({e.Message})";
+            return false;
+        }
+    }
+
+    private static bool Holds(Sequence sequence, Decoupler decoupler)
+    {
+        ReadOnlySpan<Part> parts = sequence.Parts;
+        for (int p = 0; p < parts.Length; p++)
+        {
+            if (ReferenceEquals(parts[p], decoupler.Parent)) return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// The decoupler on the joint that holds this launcher on, if there is one.
     ///
     /// <para>Deliberately only that joint. Walking further up the tree finds the interstage, and

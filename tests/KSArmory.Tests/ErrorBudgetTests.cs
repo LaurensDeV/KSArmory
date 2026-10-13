@@ -551,7 +551,7 @@ public class ErrorBudgetTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// The whole loop — guidance, the aim correction wired as <c>Ksa/IcbmComputer.cs</c> wires it,
+    /// The whole loop — guidance, the aim correction wired as <c>Ksa/Icbm/IcbmComputer.cs</c> wires it,
     /// and a warhead flown off the cutoff state — with one thing varied: whether what the
     /// correction observes has been brought to the same epoch as what it is scored against.
     ///

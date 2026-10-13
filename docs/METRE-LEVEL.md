@@ -13,7 +13,7 @@
 > | `cot γ` is 4.37, or 8.03 at the 7.1° the tables price | **1.60** — every height-driven column below is ~5x what it should be |
 > | rung A (~80 m) and B (~30 m) are ahead | **both passed.** A lone rocket flies **10 m median, 30 m worst**, 20 of 20 (3bl) |
 > | the miss is `residual x arc sensitivity` | that is the **open-loop** shot. The flown loop realises **36 m per m/s against the arc's 884** (3x), and lands at 10-20 m while carrying 2.6 m/s owed |
-> | rung D needs a 1 ms sub-step and ground per sub-step | the sub-step **shipped** (`065907a`). Ground per sub-step was refuted on the rig's erosion fixture and is **back**: near impact it takes the stop from metres off the true surface to 0.0 m and the walk to ~2 m in flight — plan 3cr, night pending |
+> | rung D needs a 1 ms sub-step and ground per sub-step | the sub-step **shipped** (`065907a`). Ground per sub-step was refuted on the rig's erosion fixture and now **ships** (`IcbmConfig.ResampleGroundAtImpact`): near impact it takes the stop from metres off the true surface to 0.0 m — plan 3cr, 3cs |
 > | B1's item 3, the aim bias re-priced at a steeper arc | **refuted.** Every geometric sensitivity *falls* as the arc steepens (3bs) |
 > | B5, the tube cant | **dead** — the bus was straightened, all six axes read `(1,0,0)` |
 > | "a fifth of worlds do not get to fly the ladder" | that fifth is bound up with the **multi-rocket harness**, and N=1 against N=8 is p=0.145, not significant (3bn) |
@@ -55,9 +55,8 @@
 > in the wrong variable.** Expressed as coast duration the ladder would have shown the cliff between
 > 44° and 54° that 3bo measured.
 
-**A plan, not a record — with one exception.** Nothing here has been flown except §5, whose
-proposal was tested on 2026-08-25 and refuted; that section is now a record and the ladder stops at
-rung C because of it. `docs/MIRV-NEXT.md` is what the shot costs
+**Written as a plan.** §5's proposal was flown on 2026-08-25 and refuted, and rungs A to C have
+since been met — see the header above. `docs/MIRV-NEXT.md` is what the shot costs
 today; `docs/KINETIC-FLOOR.md` is what is left when every item on that list has landed;
 `docs/ARRIVAL-ANGLE.md` is the lever this plan is mostly about. This file is the route between
 them, the campaign that tests it, and the three pieces of harness the campaign needs before it can
@@ -148,8 +147,8 @@ now stands: 16 of those 80 landed at **84 km**, all of them from the two worlds 
 > `ACCURACY-PLAN.md` 3cn has the cause — a physics bubble spanning the near-surface radius, which
 > takes the rotating frame from a landed member and strips the fictitious forces from a bus a
 > thousand kilometres up — and the detector that catches it 4 of 4 with no false positive in 114
-> sound shots. **RocketWerkz has fixed it in revision 5429**, not released as of 2026-09-11, so this
-> blocker lifts with the next KSA build rather than with anything built here. `docs/ACCURACY-PLAN.md` 3ar has the mechanism — the coast is integrated rather
+> sound shots. **RocketWerkz fixed it in revision 5429**, released in 2026.9.10.5438
+> (`docs/BLOCKED-ON-KSA.md`), so this blocker lifted with a KSA build rather than with anything built here. `docs/ACCURACY-PLAN.md` 3ar has the mechanism — the coast is integrated rather
 than propagated for 70% of its length in an affected world — and item 19 is the one thing left
 between here and a reliable rung B.
 
@@ -170,7 +169,7 @@ otherwise.
 > **Stale in two places, and the premise is now in doubt — 2026-08-26.**
 >
 > **Item 2 has landed.** `9b48bd1` made `BusTrim.MaxMetresPerSecond` a *floor* under a ceiling the
-> caller sizes per job (`BusTrim.cs:419-421`, wired at `IcbmComputer.cs:1127-1133`, pinned by
+> caller sizes per job (`BusTrim.cs:419-421`, wired in `IcbmComputer.DriveTrim`, pinned by
 > `BusTrimTests.TheCallerMaySizeThePerSolveCeilingButNeverBelowTheConstant`). The failure quoted
 > below — `MaxMetresPerSecond declined it whole` — cannot recur.
 >
@@ -434,6 +433,9 @@ the flown 15° shots had 0.00–0.03 km of spread against 0.07–0.14.
 
 ## 4. Not driving the bus into the stack it just dropped
 
+*Built: `Sim/ProximityWatch.cs`, the keep-out interlock (`IcbmConfig.KeepOutCoversTheClearance`, on), and the
+`trim.Done` null is gone. What follows is the plan as written.*
+
 **It has happened, once, and it was diagnosed.** 2026-08-25: a clearance latch was added on the
 argument that separation only ever opens, the trim then ran on a stale reading, and the bus hit its
 own spent stack — 28 seconds of thrashing and `nothing left aboard moves the bus`. The latch was
@@ -444,7 +446,7 @@ What is *still* wrong is the other half, and `docs/MIRV-NEXT.md` item 7g names i
 build it:
 
 ```csharp
-if (trim.Done) _separatedFrom = null;        // Ksa/IcbmComputer.cs:982
+if (trim.Done) _separatedFrom = null;        // IcbmComputer.DriveTrim
 ```
 
 Once the first trim pass reports done, the reference to the discarded stage is dropped. Every pass
@@ -708,8 +710,8 @@ rocket:
 A tenth of the wall clock on a *single* rocket, where the vehicle count was never the binding cost.
 The lever is at N: eight rockets shed twenty-four stages, and at the measured ~2.0 ms per vehicle
 that is roughly 48 ms off a 78.7 ms frame — which is the whole distance between the 3.2x above and
-the straight 8x that "get frames under 33 ms" promises. **Not yet measured at N**, which is the next
-thing to fly.
+the straight 8x that "get frames under 33 ms" promises. Measured at eight on 2026-08-27: 17
+vehicles at 1.00x (`docs/MIRV-NEXT.md` 8v).
 
 **The half a MIRV bus drops is never taken**, whatever the setting says: `SeparationClearance` reads
 an unreadable distance as a blind clock rather than as clearance, so removing the stack would
@@ -780,7 +782,7 @@ under the game install. So the *first* craft is the operator's.
    a judgement about what to spend a night on, and is not a thing to automate.
 
 Everything between them is `shot-batch.sh --orbits <matrix> --arms <...> --blocks <n>` and a
-`shot-report.py` in the morning. And per the batch protocol's own hard-won rule, the batch builds and
+`shot-report.py` in the morning. `--orbits` and the orbit matrix were never built (`docs/ICBM-OUTSTANDING.md` 2.2). And per the batch protocol's own hard-won rule, the batch builds and
 stashes every arm **before the first shot flies**, so the tree is free all night and nothing done to
 it can reach a shot in flight.
 

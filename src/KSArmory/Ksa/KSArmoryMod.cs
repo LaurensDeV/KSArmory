@@ -166,10 +166,6 @@ public sealed class KSArmoryMod
         // bundle, so at that point there is no part in the world to check a profile against.
         foreach (PackFault fault in Catalogue.Audit(new DeclaredParts())) Log.Warn(fault.ToString());
 
-        // Before anything can load a save: one listing more subparts than a part now declares closes
-        // the game on load. The part templates are loaded by now, which is what it asks.
-        SaveRepairs.RunAll();
-
         // Before anything is crewed: without it nothing this mod does can point a vehicle, and the
         // panel says so rather than leaving a rocket that refuses to steer unexplained.
         AttitudeHook.Install();
@@ -183,6 +179,9 @@ public sealed class KSArmoryMod
         // The only way to see a save load: StarMap has no hook for one, and the mod never leaves
         // the flight scene across it. A refusal costs one reload's worth of stale rounds.
         WorldReloadHook.Install();
+
+        // Which save is open and when the game writes one, which the settings kept in a save follow.
+        SaveHook.Install();
 
         // A round's body is a part of its launcher, and KSA draws none of a craft under a pixel across.
         // A refusal leaves that cull, so a long shot's body vanishes where it always did.
@@ -981,7 +980,11 @@ public sealed class KSArmoryMod
         // half a second, and a load in that window loses the settings twice over, once because
         // they were never written for that save and again when a later check writes the
         // freshly-defaulted ones over the file. It is a file timestamp, not work.
-        _roster.Remember();
+        switch (_roster.Remember())
+        {
+            case WeaponSystems.SettingsMoment.Saved: _icbms?.WriteDown(); break;
+            case WeaponSystems.SettingsMoment.Reopened: _icbms?.Adopt(); break;
+        }
         }
     }
 
@@ -1015,6 +1018,7 @@ public sealed class KSArmoryMod
         // Markers pin the craft they are showing, so a destroyed one stays reachable otherwise.
         Markers.Forget();
 
+        _icbms?.WriteDown();
         _roster?.Clear();
         _armaments.Clear();
         _heads?.Clear();
@@ -1027,6 +1031,7 @@ public sealed class KSArmoryMod
         AttitudeHook.Remove();
         PreRenderHook.Remove();
         WorldReloadHook.Remove();
+        SaveHook.Remove();
         RoundBodyDrawHook.Remove();
         LooseBodyDrawHook.Remove();
         KsaWorld.ResetSimStepTracking();
@@ -1421,7 +1426,9 @@ public sealed class KSArmoryMod
                 if (KsaWorld.SetSimulationSpeed(d.Speed))
                 {
                     Log.Info(d.Action == WarpAction.Slow
-                                 ? $"timewarp held at {d.Speed:F1}x - {d.Why}"
+                                 ? $"timewarp held at {d.Speed:F1}x - {d.Why} --"
+                                   + $"{(anyInFlight ? $" rounds{_roster.WhoHasRoundsUp()}" : "")}"
+                                   + $"{(anyBurning ? $" flights{_icbms?.WhoNeedsShortSteps()}" : "")}"
                                  : $"timewarp restored to {d.Speed:F0}x - {d.Why}");
                 }
                 break;
@@ -1458,6 +1465,7 @@ public sealed class KSArmoryMod
         if (_faults < FaultLimit) return;
 
         _disabled = true;
+        _icbms?.WriteDown();
         _roster?.Clear();
         _armaments.Clear();
         _heads?.Clear();
@@ -1470,6 +1478,7 @@ public sealed class KSArmoryMod
         AttitudeHook.Remove();
         PreRenderHook.Remove();
         WorldReloadHook.Remove();
+        SaveHook.Remove();
         RoundBodyDrawHook.Remove();
         LooseBodyDrawHook.Remove();
         Log.Error("too many faults - air defence disabled for this session");

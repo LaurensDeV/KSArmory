@@ -26,15 +26,15 @@ public class ShotArmsTests
     [Fact]
     public void AnArmCarriesTheSettingsItVaries()
     {
-        ShotArms arms = Parse("base|trim:TrimCeilingFromBudget=true,TrimBudgetMetresPerSecond=90");
+        ShotArms arms = Parse("base|sub:WarheadSubStepMs=2,TrimBudgetMetresPerSecond=90");
 
         Assert.Equal(2, arms.Count);
 
-        ShotArms.Arm trim = arms.For(1);
-        Assert.Equal("trim", trim.Name);
-        Assert.Equal(2, trim.Settings.Count);
-        Assert.Equal("TrimCeilingFromBudget", trim.Settings[0].Field);
-        Assert.Equal("90", trim.Settings[1].Value);
+        ShotArms.Arm sub = arms.For(1);
+        Assert.Equal("sub", sub.Name);
+        Assert.Equal(2, sub.Settings.Count);
+        Assert.Equal("WarheadSubStepMs", sub.Settings[0].Field);
+        Assert.Equal("90", sub.Settings[1].Value);
     }
 
     /// <summary>
@@ -170,29 +170,37 @@ public class ShotArmsTests
     {
         IcbmConfig shipped = new();
 
-        Assert.False(shipped.TrimCeilingFromBudget);
-        Assert.False(shipped.AimWithinTrimBudget);
+        Assert.Equal(0.0, shipped.WarheadSubStepMs);
 
         // The one that is on, because it is the one that was resolved: 11 of 13 paired shots at
         // p=0.022. A baseline arm naming nothing therefore ships WITH it, which is what makes it
         // the baseline rather than a fourth variant.
         Assert.True(shipped.KeepOutCoversTheClearance);
 
-        ShotArms arms = Parse("base|ceiling:TrimCeilingFromBudget=true");
+        // And the walk's two prices, resolved together on a 4 km walk: 7 of 8 flew every stop planned against
+        // 0 of 16.
+        Assert.True(shipped.PriceEachHopAtItsSlot);
+        Assert.True(shipped.PriceHopsAtWhatTheTrimPays);
+        Assert.True(shipped.StackWaitsOnlyForTheSplit);
+
+        // And the split reserve on a walk's later hops: 12 of 12 buses walked five stops against four on all 12 without.
+        Assert.True(shipped.SpendTheSplitReserveAfterTheFirstStop);
+
+        ShotArms arms = Parse("base|sub:WarheadSubStepMs=2");
         Assert.True(ShotArms.TryApply(arms.For(0), shipped, out _));
-        Assert.False(shipped.TrimCeilingFromBudget);
+        Assert.Equal(0.0, shipped.WarheadSubStepMs);
 
         Assert.True(ShotArms.TryApply(arms.For(1), shipped, out _));
-        Assert.True(shipped.TrimCeilingFromBudget);
+        Assert.Equal(2.0, shipped.WarheadSubStepMs);
     }
 
     [Fact]
     public void AnArmSaysWhatItVariesSoTheLogCanAttributeAShot()
     {
-        ShotArms arms = Parse("base|trim:TrimCeilingFromBudget=true");
+        ShotArms arms = Parse("base|sub:WarheadSubStepMs=2");
 
         Assert.Equal("base", arms.For(0).Describe());
-        Assert.Contains("TrimCeilingFromBudget=true", arms.For(1).Describe());
+        Assert.Contains("WarheadSubStepMs=2", arms.For(1).Describe());
     }
 
     /// <summary>

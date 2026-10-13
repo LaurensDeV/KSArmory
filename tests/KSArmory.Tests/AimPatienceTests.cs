@@ -14,7 +14,7 @@ namespace KSArmory.Tests;
 /// <para><b>The counter was never reset by a pass that was neither better nor worse</b>, so it
 /// accumulated across a whole flight and twelve scattered excursions stopped the loop as readily as
 /// one run of twelve. It was unreachable while the band was a flat 250 m — nothing at this shot's
-/// scale is 250 m worse than the best — and <c>AimThresholdTracksTheMiss</c> is what makes both
+/// scale is 250 m worse than the best — and the band that tracks the miss is what makes both
 /// branches live: <c>docs/ACCURACY-PLAN.md</c> 3bz.</para>
 /// </summary>
 public class AimPatienceTests

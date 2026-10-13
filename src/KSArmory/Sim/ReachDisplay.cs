@@ -80,7 +80,7 @@ internal enum ReachVerdict
 ///
 /// <para><b>Pinned, and there is no choice about it.</b> The flight latches the arrival at
 /// closed-loop handover, so <see cref="DivertFootprint.ArrivalClock.Free"/> would draw a region 2
-/// to 12 times too long along the track. <c>docs/MIRV-TARGETS.md</c>.</para>
+/// to 12 times too long along the track. <c>docs/ICBM-GUIDANCE.md</c>, "Several targets".</para>
 ///
 /// <para><b>And pinned, it can be drawn before the burn as well as after it.</b> Free-clock the long
 /// axis is <c>450 · cot γ</c> and belongs to the arc actually flown; pinned both axes collapse onto
@@ -124,7 +124,7 @@ internal enum ReachVerdict
 /// </param>
 /// <param name="SpacingMetres">
 /// The closest two targets are allowed to be, which is the warhead's lethal radius — overlapping
-/// blast is the player's business and overlapping kill is not. <c>docs/MIRV-TARGETS.md</c>.
+/// blast is the player's business and overlapping kill is not. <c>docs/ICBM-GUIDANCE.md</c>, "Several targets".
 /// </param>
 /// <param name="NextHopAlongMetres">
 /// Downrange from the landing to the stop the next hop leaves from, which is where the ring is
@@ -177,10 +177,20 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
     /// What to say when no footprint came in. The caller knows which of the two ways of knowing one
     /// it was asking for, and they fail for different reasons.
     /// </param>
+    /// <param name="pricePerSlot">
+    /// <see cref="IcbmConfig.PriceEachHopAtItsSlot"/>: each hop, and the ring, at the reach of the slot
+    /// it is flown in rather than at the reach the footprint was measured with.
+    /// </param>
+    /// <param name="priceAtTheTrim">
+    /// <see cref="IcbmConfig.PriceHopsAtWhatTheTrimPays"/>: each hop at
+    /// <see cref="DivertFootprint.TrimCostMetresPerSecond"/>, and the ring, the refusal and the readouts at
+    /// the worst bearing's, so a point the ring takes is one the planner can pay for.
+    /// </param>
     public static ReachDisplay For(DivertFootprint? footprint, IReadOnlyList<Placed>? placed,
-                                   in ReleaseItinerary.Bus bus, IcbmPhase phase, bool salvoAway,
+                                   in ReleaseItinerary.Bus means, IcbmPhase phase, bool salvoAway,
                                    int maxTargets, double spacingMetres, int lead,
-                                   ReachHold unpriced)
+                                   ReachHold unpriced, bool pricePerSlot = false,
+                                   bool priceAtTheTrim = false)
     {
         int targets = placed?.Count ?? 0;
 
@@ -188,13 +198,23 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
         if (phase == IcbmPhase.NoSolution) return None(ReachHold.NoShot, targets);
         if (footprint is not { } reach) return None(unpriced, targets);
 
-        // One number for the whole coast rather than one per slot, and the smaller axis of the two.
-        // The itinerary then prices every hop at the reach the ring is drawn at, so the readout and
-        // the picture cannot disagree -- and pinned the two axes agree to within 3% anyway.
+        ReleaseItinerary.Bus bus = pricePerSlot ? means with { ReachMeasuredAtSeconds = reach.FlightSeconds }
+                                                : means;
+
+        // The smaller axis, which pinned is within 3% of the other. One number, which the itinerary
+        // scales per slot under pricePerSlot exactly as the ring is, so the two cannot disagree.
         double perMetrePerSecond = reach.SemiMinorMetresPerMetrePerSecond;
         double[] atEachSlot = [perMetrePerSecond];
 
-        Walk walk = Order(placed, lead);
+        double axisFactor = priceAtTheTrim ? reach.WorstAxisFactor() : 1.0;
+
+        // In metres the straight-line reach would charge the same as the trim pays, so the itinerary's own
+        // division by the reach, and its per-slot scaling, carry over unchanged.
+        Func<double, double, double>? hopMetres = priceAtTheTrim
+            ? (along, cross) => reach.TrimCostMetresPerSecond(along, cross) * perMetrePerSecond
+            : null;
+
+        Walk walk = Order(placed, lead, hopMetres);
         ReleaseItinerary itinerary = ReleaseItinerary.Plan(walk.Set, bus, atEachSlot);
 
         // Planned off the same ordered set the ring is drawn from, rather than built again beside
@@ -203,14 +223,20 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
         ReleaseWalk flown = ReleaseLoop.Plan(walk.Set, bus, atEachSlot, lead);
 
         double left = itinerary.LeftMetresPerSecond;
-        double hop = Math.Min(left, BusTrim.MaxMetresPerSecond);
-        int room = Math.Max(0, ReleaseItinerary.TargetsWithin(spacingMetres, atEachSlot, bus) - targets);
+        double hop = Math.Min(left / axisFactor, BusTrim.MaxMetresPerSecond);
+        int room = Math.Max(0, ReleaseItinerary.TargetsWithin(spacingMetres, [perMetrePerSecond / axisFactor], bus)
+                               - targets);
 
-        ReachDisplay display = new(ReachHold.Drawn, reach, left, hop, itinerary.LeftBuysMetres,
+        // The next add is the new last stop, so the ring is drawn at the reach of that slot.
+        double ringScale = bus.PricesEachSlot ? bus.SlotReachScale(bus.GateSeconds) : 1.0;
+
+        ReachDisplay display = new(ReachHold.Drawn, reach, left, hop, itinerary.LeftBuysMetres / axisFactor,
                                    targets, room, spacingMetres,
                                    walk.AlongMetres, walk.CrossMetres, walk.FromTarget)
         {
             Flown = flown,
+            SlotReachScale = ringScale,
+            AxisFactor = axisFactor,
         };
 
         if (targets >= maxTargets) return display with { Hold = ReachHold.Full };
@@ -228,6 +254,22 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
     /// the display stops being drawn, and the plan behind the bus must not change anyway.</para>
     /// </summary>
     public ReleaseWalk Flown { get; init; }
+
+    /// <summary>
+    /// The share of <see cref="Footprint"/> the next hop is drawn and refused at — one unless
+    /// <see cref="IcbmConfig.PriceEachHopAtItsSlot"/> prices it at a later slot than the footprint was
+    /// measured at.
+    /// </summary>
+    public double SlotReachScale { get; init; }
+
+    /// <summary>
+    /// What the budget left is divided by before it sizes the ring, for the trim paying a divert axis by axis —
+    /// one unless <see cref="IcbmConfig.PriceHopsAtWhatTheTrimPays"/>. One pass's own ceiling is a length and is
+    /// not divided.
+    /// </summary>
+    public double AxisFactor { get; init; } = 1.0;
+
+    private double RingScale => SlotReachScale is > 0.0 and <= 1.0 ? SlotReachScale : 1.0;
 
     /// <summary>Whether there is a region on the ground at all.</summary>
     public bool HasRegion => Hold == ReachHold.Drawn;
@@ -247,11 +289,11 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
 
     /// <summary>How far the ring reaches along its long axis, in metres.</summary>
     public double SemiMajorMetres
-        => HasRegion ? Footprint.SemiMajorMetresPerMetrePerSecond * HopMetresPerSecond : 0.0;
+        => HasRegion ? Footprint.SemiMajorMetresPerMetrePerSecond * HopMetresPerSecond * RingScale : 0.0;
 
     /// <summary>The same across it.</summary>
     public double SemiMinorMetres
-        => HasRegion ? Footprint.SemiMinorMetresPerMetrePerSecond * HopMetresPerSecond : 0.0;
+        => HasRegion ? Footprint.SemiMinorMetresPerMetrePerSecond * HopMetresPerSecond * RingScale : 0.0;
 
     /// <summary>
     /// What a click at a ground offset from the landing would do.
@@ -281,7 +323,7 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
         // Against one hop's ceiling, which is what the ring is drawn at: a refusal measured on the
         // whole budget would refuse ground inside the outline and take clicks outside it.
         return Footprint.Reaches(alongMetres - NextHopAlongMetres, crossMetres - NextHopCrossMetres,
-                                 HopMetresPerSecond)
+                                 HopMetresPerSecond * RingScale)
                    ? ReachVerdict.Adds
                    : ReachVerdict.OutsideReach;
     }
@@ -458,7 +500,12 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
     /// <para><c>Plan</c> re-sorts on <see cref="ReleaseItinerary.Target.ReachMetres"/>, so the rank
     /// is emitted descending to reproduce exactly this order.</para>
     /// </remarks>
-    public static Walk Order(IReadOnlyList<Placed>? placed, int lead)
+    /// <param name="hopMetres">
+    /// What a hop of this many metres along and across is charged as, in straight-line metres; null charges its
+    /// length.
+    /// </param>
+    public static Walk Order(IReadOnlyList<Placed>? placed, int lead,
+                             Func<double, double, double>? hopMetres = null)
     {
         if (placed is null || placed.Count == 0) return new Walk([], 0.0, 0.0, 0);
 
@@ -522,10 +569,13 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
             Placed to = placed[order[k]];
             double along = Finite(to.AlongMetres), cross = Finite(to.CrossMetres);
 
-            double hop = Math.Sqrt(((along - atAlong) * (along - atAlong))
-                                   + ((cross - atCross) * (cross - atCross)));
+            double length = Math.Sqrt(((along - atAlong) * (along - atAlong))
+                                      + ((cross - atCross) * (cross - atCross)));
 
-            set[order[k]] = new ReleaseItinerary.Target(to.Warheads, order.Count - k, hop);
+            set[order[k]] = hopMetres is null
+                ? new ReleaseItinerary.Target(to.Warheads, order.Count - k, length)
+                : new ReleaseItinerary.Target(to.Warheads, order.Count - k, hopMetres(along - atAlong, cross - atCross),
+                                              HopLengthMetres: length);
 
             atAlong = along;
             atCross = cross;

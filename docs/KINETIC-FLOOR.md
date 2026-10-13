@@ -14,49 +14,73 @@ term could not be measured it says so rather than being estimated.
 the eight real terms are heights, and a height becomes ground in proportion to `cot(gamma)`. A
 7-degree deorbit multiplies every one of them by eight; a vertical drop multiplies them by nothing.
 
-**The mod's flown shot arrives at 32.0 degrees**, on every night since 2026-09-03, since
-`ArrivalPreference` shipped at 0.5. The 7.1 here was a reconstruction that nothing ever flew, and
-the 12.9 it was corrected to is a generation behind as well. `cot` is **1.60** rather than 8.03, so
-**every column priced off the seven is five times what it should be** — which is the single most
-important thing to know before reading any number below.
+**The mod's flown shot arrives at 32.0 degrees** (`IcbmConfig.ArrivalPreference` 0.5, every night
+since 2026-09-03), where `cot` is **1.600**. A released warhead sub-steps at **1 ms, second order**
+(`MunitionProfile.SubStepSeconds` on the Mk 21, `IcbmConfig.SecondOrderWarheads`) and re-reads the
+ground every sub-step within 200 m of it (`IcbmConfig.ResampleGroundAtImpact`). The budget below is
+priced there. It was first priced at a 7.1-degree arrival that nothing flew and a 5 ms first-order
+round; those figures stay beside it as what they measured.
 
-**And the largest term in the budget is gone**: the Mk 21 ships a 1 ms sub-step (`065907a`), where
-this file prices it at five. Between the two, the arithmetic here is a ceiling on a shot the mod no
-longer flies.
+**Priced at the shipped shot, the floor is millimetres** — about 5 mm of integrator bias and a few
+millimetres of walk scatter on gentle ground (see [The two numbers](#the-two-numbers)). Flown at
+6,181 km, the landing's median is **2.1–3.0 mm** (`docs/ICBM-OUTSTANDING.md` 1.14, 2026-10-12).
 
 ---
 
 ## The budget
 
-Two columns of numbers, because the terms behave differently: what one costs on a **7.1-degree**
-arrival, and on an **88-degree** one — the same 200 km pickup with the whole orbital velocity taken
-out, which is what a rod actually is.
+Two columns: what a term cost as first priced — a **7.1-degree** arrival and a 5 ms first-order
+round, `ErrorBudgetTests`' cheapest unfloored deorbit — and what it costs on the **shipped** shot,
+32 degrees and 1 ms second order. A height-driven term converts as `ground = height x cot(gamma)`,
+8.03 at 7.1 degrees and **1.600** at 32. Where a term was re-measured the shipped column is the
+test's output, run 2026-10-12; slopes are the fixtures' own.
 
-**7.1 degrees is the rig's cheapest unfloored deorbit, not what anything flies.** `ErrorBudgetTests`
-measures that arrival and the column is arithmetic at it; the flown shots arrive at **12.9 to 17.5**,
-where `cot` is 4.37 rather than 8.03. Every height-driven term below therefore costs about
-**0.54x** what its 7.1-degree entry says. The two-column shape is what carries the argument — a
-height becomes ground in proportion to `cot(gamma)`, and that is the lever — and it survives the
-correction with the span narrowed rather than removed.
-
-| limit | at 7.1 deg | at 88 deg | what sets it | reducible? |
+| limit | first priced: 7.1 deg, 5 ms | **shipped: 32 deg, 1 ms second order** | what sets it | reducible? |
 | --- | --- | --- | --- | --- |
-| **the round's integrator** | **82–153 m** | **1.1 m** | `Interceptor.SubStep` = 5 ms, symplectic Euler in `Sim/Slug.cs` | yes, linear in the step — 10x the sub-steps for 10x the accuracy |
-| **the ground sampled once a frame** | 10–39 m | 0.2–0.8 m | `Slug.Update` calls `IGroundTest` before the sub-step loop | yes, at one height query per sub-step |
-| **the height field's own quantum** | 2.40 m | 0.01 m | `R16_UNORM` over 19,561 m = 0.2985 m | **no** — it is the shipped texture |
-| **the predictor's ground crossing** | 2.01 m | 0.01 m | `ImpactPredictor.CrossingToleranceMetres` = 0.25 m | yes, for no lookup, by placing the crossing between the samples that bracket it — `IcbmConfig.PredictionStopsOnTheSurface`, on |
-| **the float terrain staircase** | ≤ 0.9 m | ≤ 0.02 m | `Celestial.cs:833` packs the direction to `float3`. **This is a horizontal tread (~0.38 m of ground) times the local slope, not a vertical quantum** — centimetres on ordinary ground, and it does not belong beside the 0.2985 m vertical quantum as if it were the same kind of term | **no** — inside the engine |
-| **the ecliptic's own arithmetic** | 1.8 mm | 1.8 mm | `double3` at 1.5e11 m; ulp 30.5 um | no, and it does not matter |
-| **the engine clock** | ≤ 104 mm | ≤ 104 mm | `UniverseTime` is Int128 ns; `SimStep.DeltaTime` is the unrounded double | no, and it does not matter |
-| **naming the target** | 0.2 m – 1.9 km | same | one pixel of the player's viewport, through `SiteDesignator` | yes — zoom, or a coordinate entry that does not exist |
-| **the terrain's own gain** | 1.2x to unbounded | 1.02–1.12x | `slope / tan(gamma)`, a fixed point with no solution above 1 | only by arriving steeply |
-| *(the harness's ruler)* | *13.4 cm* | *13.4 cm* | `R * Vec.AngleBetween` is an arc cosine | *n/a — a floor on the measurement, not the shot* |
+| **the round's integrator** | 82–153 m | **5.4 mm**, one-signed down; sd 0.002 mm across 20 release states (`SubStepConvergenceTests`) | `MunitionProfile.SubStepSeconds` = 1 ms on the Mk 21, `Slug.SecondOrder` | yes, linear in the step: 2.5 mm at 0.5 ms, 1.1 at 0.25 |
+| **the ground sampled once a frame** | 10–39 m | **gone** — re-read every sub-step within 200 m; what is left is the crossing solved on the chord across one sub-step's 5.5 m, which is inside the walk below | `IcbmConfig.ResampleGroundAtImpact` | — |
+| **the walk: landing against its own prediction over relief** | not priced | **sd 1.3 mm at slope 0.05, 5.8 mm at 0.15, 36 mm at 0.80**; bias −4.9, −6.6, +13.8 mm (`WalkFloorTests`, float-packed relief) | the chord crossing, the staircase and the integrator's bias together | partly — by arriving steeper (section 5) |
+| **the height field's own quantum** | 2.40 m | 0.48 m (0.2985 x 1.600), **only if** the aim and the round read different texels; no disagreement has been seen | `R16_UNORM` over 19,561 m = 0.2985 m | **no** — it is the shipped texture |
+| **the predictor's ground crossing** | 2.01 m | 0.40 m worst and 0.20 m mean with the flag off (0.25 x 1.600; flown 0.20 m long at 32°). **Shipped on: 0.3 mm** — the crossing's height 0.176 mm at slope 0.122 x 1.600 (`ProbeCrossingFloorTests`); flown, the landing's step fell from −0.212 m to −0.007 | `ImpactPredictor.CrossingToleranceMetres` = 0.25 m; `IcbmConfig.PredictionStopsOnTheSurface` | done |
+| **the float terrain staircase** | ≤ 0.9 m | **adds 0.9 mm at slope 0.05 and 3.9 mm at 0.15** in quadrature to the walk's sd — packed against exact, 1.27–1.48x (`WalkFloorTests`). A horizontal tread (~0.38 m) times the slope, not a vertical quantum | `Celestial.cs:833` packs the direction to `float3` | **no** — inside the engine |
+| **the ecliptic's own arithmetic** | 1.8 mm | **16.5 mm** — the rig's round at its 1 ms sub-step adds five times as often; re-run of `TheEclipticIsWhereAKineticRoundKeepsItsPosition` | `double3` at 1.5e11 m; ulp 30.5 um | no; deterministic, and how much of it the flight shares with its aim is not measured |
+| **the engine clock** | ≤ 104 mm | ≤ 69.5 mm if every frame rounds one way, **0.49 mm** as a random walk (19,861 frames of 25 ms) | `UniverseTime` is Int128 ns; `SimStep.DeltaTime` is the unrounded double | no |
+| **naming the target** | 0.2 m – 1.9 km | same | one pixel of the player's viewport, through `SiteDesignator` | yes — zoom, or the panel's coordinate entry |
+| **the terrain's own gain** | 1.2x to unbounded | `s x 1.600`: 1.09x at 5%, **1.31x** at the 0.149 median measured in section 5; unbounded above slope 0.625 | `slope / tan(gamma)`, a fixed point with no solution above 1 | only by arriving steeply |
+| *(the harness's ruler)* | *13.4 cm* | *none at this scale* — `Vec.AngleBetween` is now `atan2`, and reads 3.12 cm as 3.12 cm | the miss is scored as `R x Vec.AngleBetween` | *n/a* |
 
 Everything below is that table with its evidence.
 
 ---
 
-## 1. The round's own integrator — the largest real term
+## 1. The round's own integrator
+
+### As shipped: 5.4 mm at 32 degrees
+
+A released warhead steps second order at the Mk 21's 1 ms (`IcbmConfig.SecondOrderWarheads`,
+`Slug.SecondOrder`). Flown from an 877 km release arriving at about 32 degrees, 35 ms frames, against
+its own 0.0625 ms flight (`SubStepConvergenceTests`, a study):
+
+| sub-step | down bias | sd over 20 release states |
+| --- | --- | --- |
+| 4 ms | −21.9 mm | 0.012 mm |
+| 2 ms | −10.8 mm | 0.004 mm |
+| **1 ms** | **−5.4 mm** | **0.002 mm** |
+| 0.5 ms | −2.5 mm | 0.001 mm |
+| 0.25 ms | −1.1 mm | 0.001 mm |
+
+Still linear in the step — 5.4 mm per ms — but the coefficient is 30.6 m per ms on the first-order
+round below, so second order took the term down about five thousand fold. It is a bias, not a
+scatter, and it does not move with the frame (8–300 ms frames all read −4.9 to −5.4 mm). Against
+the conic in vacuum the second-order warhead lands 0.000 m off, where first order is 1.986 m short
+(`RoundIntegratorOrderTests`).
+
+### As first measured: the first-order 5 ms round
+
+Everything from here to section 2 is that round, kept as measured. **`KineticFloorTests` no longer
+reproduces it**: the Mk 21's own `SubStepSeconds` now caps the sub-step at 1 ms, so its "5 ms" rows
+fly a first-order 1 ms round — re-run, 22.8 m on the 3,459 km deorbit, 0.16 m at 88.2 degrees, 0.50 m
+at 36.9 and 0.09 m at 30.
 
 `Sim/Slug.cs` integrates with **symplectic Euler** at `Interceptor.SubStep` (5 ms), holding gravity
 and the air's motion across the sub-steps of one frame. `Sim/ImpactPredictor.cs` is **RK4** and
@@ -81,6 +105,14 @@ On the 3,459 km deorbit every budget in this repository is measured on
 **153 m** from a converged flight of the same round, and the extrapolation is a fit rather than a
 guess.
 
+**Re-flown 2026-10-12, and the table above is wrong where the step exceeds 1 ms.** The rig handed the
+round its step as the frame, and the round sub-steps at its own 1 ms whatever the frame is, so every
+row above 1 ms flew at 1 ms. Flown at the stated sub-step (`Arsenal.RoundAtSubStep`), on this harness's
+first-order round: 5 ms 68.7 m, 2.5 ms 30.5 m, 1 ms 22.9 m, 0.5 ms 7.6 m -- not linear, and the
+shipped Mk 21 is the 1 ms row, 22.9 m on this first-order flight. The 153 m and every figure built on
+it below are an artefact; the integrator term the table at the top carries, 5.4 mm, is the
+second-order round's and is unaffected.
+
 ### It is a wrong place, not a wrong time — and that is why the angle helps
 
 A 5 ms round arrives 20.6 ms early. The ground turns 9.6 m under it in that, against a 145 m miss,
@@ -100,8 +132,8 @@ Flown whole, from the same 200 km pickup, with the deorbit burn deciding the ang
 | 90% | 3,094 km | 7.8 deg | 489 s | 81.66 m | 5.65 m |
 
 **At a vertical arrival the whole term collapses onto the timing residue** — 1.11 m of miss against
-1.10 m of ground rotation under a 2.4 ms arrival error. There is nothing else left. And that
-residue is first order in the step too, so a 1 ms sub-step takes it to about 0.2 m.
+1.10 m of ground rotation under a 2.4 ms arrival error. There is nothing else left. That residue is
+first order in the step too: the same flight at a first-order 1 ms reads 0.16 m.
 
 ### What a finer sub-step costs
 
@@ -118,11 +150,11 @@ air by `Medium.FaithfulStepInAir`:
 
 Three hundred vector updates a frame for a six-warhead group is not a lot. **A hundred and fifty
 CIWS shells at 1 ms is 7,500**, which is the case that would have to be measured before the constant
-moved — and `Sim/MunitionProfile.cs` carries `SubStepSeconds`, so the per-round step exists and
-nothing in the arsenal asks for one.
+moved — and `Sim/MunitionProfile.cs` carries `SubStepSeconds`, so the per-round step exists; the
+Mk 21 is the one round that asks for one, at 1 ms.
 
-The 64-sub-step clamp never binds on entry: it caps one `Update` at 0.32 s, which is six times the
-step `WarpPolicy` already holds the world to once there is air.
+The sub-step clamp never binds on entry: `MunitionProfile.MaxSubSteps` is derived so a frame of
+`MaxFaithfulStepSeconds` is always covered, and in air `WarpPolicy` holds the world well under that.
 
 ---
 
@@ -133,6 +165,12 @@ centre and a radius — for the whole frame. That is deliberate and documented: 
 the expensive call. The consequence is that the round stops on the height that was under it at the
 *top* of the frame, and over sloping ground that is stale by the track it covered.
 
+A released warhead re-reads the ground every sub-step within 200 m of it
+(`IcbmConfig.ResampleGroundAtImpact`, `Slug.GroundResampleBandMetres`), so `d` below is one 1 ms
+sub-step rather than a frame, and the crossing is solved on the chord between the two samples — exact
+on a constant slope. What the chord misses is the relief's curvature across it, which is part of the
+walk measured in section 5. The table is the round without the re-read.
+
 With slope `s`, arrival `gamma` and a frame's ground track `d`, the stopping error is
 `s.d / (tan gamma + s)`. Measured through that at 2,713 m/s
 (`TheGroundSphereIsSampledOnceAFrameAndHeldFlat`):
@@ -141,6 +179,7 @@ With slope `s`, arrival `gamma` and a frame's ground track `d`, the stopping err
 | --- | --- | --- | --- | --- |
 | 50 ms (`FaithfulStepInAir`) | 7.1 deg | 10.0 m | 38.6 m | 83.0 m |
 | 50 ms | 30 deg | 2.0 m | 9.4 m | 30.2 m |
+| 25 ms | 30 deg | 1.0 m | 4.7 m | 15.1 m |
 | 50 ms | 70 deg | 0.17 m | 0.83 m | 3.15 m |
 | 17 ms | 7.1 deg | 3.3 m | 12.9 m | 27.7 m |
 | 320 ms | 7.1 deg | 64.0 m | 246.8 m | 530.9 m |
@@ -167,11 +206,13 @@ Both are heights, so both are `cot(gamma)` of ground
 
 **The predictor's crossing tolerance** is `ImpactPredictor.CrossingToleranceMetres` = 0.25 m, a
 deliberate bias rather than a symmetric error — the bisection stops on how deep the answer is, and
-the answer is always below the surface, so always downrange. `ErrorBudgetTests` measures it at 18 cm
-actual at that 7.1-degree arrival, and about half of it at the angle the mod flies. Flown at 32° it
-is 0.20 m long on average. Placing the crossing between the two samples that bracket it removes it
-for no lookup — `IcbmConfig.PredictionStopsOnTheSurface`, on: flown, the landing's step below the late
-re-flies went from −0.212 m to −0.007 (`ACCURACY-PLAN.md` 3dg).
+the answer is always below the surface, so always downrange. `ErrorBudgetTests` measured it at 18 cm
+actual at the 7.1-degree arrival. Flown at 32° it is 0.20 m long on average — half the tolerance
+times 1.600. Placing the crossing between the two samples that bracket it removes it for no lookup —
+`IcbmConfig.PredictionStopsOnTheSurface`, on: flown, the landing's step below the late re-flies went
+from −0.212 m to −0.007 (`ACCURACY-PLAN.md` 3dg). Headless with it on, the crossing sits 0.002 mm,
+0.176 mm and 0.710 mm off the ground at slopes 0.03, 0.122 and 0.35 (`ProbeCrossingFloorTests`):
+0.003, 0.28 and 1.1 mm of ground at 32 degrees.
 
 | arrival | m of ground per m of height | quantum | crossing | both |
 | --- | --- | --- | --- | --- |
@@ -179,6 +220,7 @@ re-flies went from −0.212 m to −0.007 (`ACCURACY-PLAN.md` 3dg).
 | **7.1 deg** | 8.03 | 2.40 m | 2.01 m | **4.40 m** |
 | 15 deg | 3.73 | 1.11 m | 0.93 m | 2.05 m |
 | 30 deg | 1.73 | 0.52 m | 0.43 m | 0.95 m |
+| **32 deg (shipped)** | 1.600 | 0.48 m | 0.40 m | 0.88 m |
 | 45 deg | 1.00 | 0.30 m | 0.25 m | 0.55 m |
 | 80 deg | 0.18 | 0.05 m | 0.04 m | 0.10 m |
 | **90 deg** | 0.00 | **0** | **0** | **0** |
@@ -265,7 +307,8 @@ the same failure, with the same gain, as the cursor's ground-point iteration in
 That was open until the mod's own release log was read as a slope instrument. Every MIRV release
 prints the ground's rise from the aim to the impact beside the probe's miss, so `|rise| / miss` is a
 slope at the scale the miss actually spans — a **0.47 m median baseline**, which is the metre scale
-this section was asking about. Over 558 warheads at the flown site (26.485S, 68.148W):
+this section was asking about. Over 558 warheads at the site flown then (26.485S, 68.148W, in the
+Andes; the shots have flown the flat Chaco since):
 
 | | local slope | loop gain `s/tan(gamma)` | amplification at the flown 31.7 deg |
 | --- | --- | --- | --- |
@@ -300,21 +343,24 @@ above would predict, and the strongest found on the walk in this programme.
 
 ## 6. Two candidates that turned out to be worth nothing
 
-Both were worth checking and both are now closed.
+Both were worth checking. The clock is closed; the ecliptic, re-run at the shipped 1 ms, is not.
 
 **Floating point in the ecliptic.** A `double` at 1 AU has a spacing of **30.5 um**, and a round's
 `PositionEcl` is exactly that: every sub-step adds tens of metres to a number of 1.5e11, and every
 ground test subtracts two such numbers. Flown identically with the planet moved out and left still
-(`TheEclipticIsWhereAKineticRoundKeepsItsPosition`):
+(`TheEclipticIsWhereAKineticRoundKeepsItsPosition`), first at a 5 ms sub-step and re-run at the Mk 21's
+1 ms, which adds five times as often:
 
-| planet at | miss against the origin flight |
-| --- | --- |
-| 1e9 m | 0.042 mm |
-| 1 AU | **1.803 mm** |
-| Saturn's 1.43e12 m | 224 mm |
+| planet at | at 5 ms | at 1 ms |
+| --- | --- | --- |
+| 1e9 m | 0.042 mm | 0.131 mm |
+| 1 AU | 1.803 mm | **16.5 mm** |
+| Saturn's 1.43e12 m | 224 mm | 1,092 mm |
 
-Two millimetres at Earth. It becomes a real term past Jupiter and nowhere nearer. The mod's own
-ballistic maths already works in `Cci` (`Sim/BallisticBody.cs`), where the carrier is subtracted;
+At 1 ms that is **above the flown 2.1–3.0 mm**, so it cannot be landing whole on the flown shot;
+it is deterministic for a given release, and whether the flight's aim loop shares it — or the
+rig's first-order round accumulates it differently from a second-order one — is not measured. The
+mod's own ballistic maths works in `Cci` (`Sim/BallisticBody.cs`), where the carrier is subtracted;
 only the round itself is in `Ecl`, and this is the price of that.
 
 CLAUDE.md's note about part transforms packed to `float` at Ego magnitude is **drawing only** —
@@ -325,12 +371,12 @@ round's integration reads a drawn transform back.
 `UniverseTime operator +(UniverseTime, double)` rounds to a whole nanosecond — while
 `SimStep.DeltaTime`, which is what `KsaWorld.ConsumeSimStep` hands the mod, is the *unrounded*
 double that was added. So the mod integrates by one number and the world advanced by the other, by
-up to half a nanosecond per frame. Over the 29,792 frames of a 497 s flight
-(`TheEngineClockIsQuantisedToTheNanosecond`): **104 mm** if every frame rounded the same way,
-**0.6 mm** as a random walk. And `GetElapsedSeconds()`'s own decay is 26 um at a year of universe
+up to half a nanosecond per frame. Over the 19,861 25 ms frames of a 497 s flight
+(`TheEngineClockIsQuantisedToTheNanosecond`): **69.5 mm** if every frame rounded the same way,
+**0.49 mm** as a random walk. And `GetElapsedSeconds()`'s own decay is 26 um at a year of universe
 time, 3.3 mm at a century.
 
-Both are ruled out for Earth.
+The clock is ruled out for Earth; the ecliptic is not, at the shipped sub-step.
 
 ---
 
@@ -355,8 +401,8 @@ Two things that are *not* floors, checked and cleared:
 
 - `Sim/AimSite.cs` stores latitude and longitude as `double`. `Describe()` prints three decimal
   places — 0.001 degrees of latitude is 111 m — but that is display only and is never read back.
-- The aim point is **not persisted at all**: `Sim/IcbmConfig.cs` carries no site, so there is no
-  serialisation to quantise it.
+- The aim point is persisted as JSON doubles in `ballistic.json` (`Sim/BallisticSettings.cs`), so
+  saving it does not quantise it either. The panel also takes a typed latitude and longitude, as doubles.
 
 The refinement loop in `TryCursorGroundPoint` has its own limit, and it is item 5's gain by another
 name: its fixed-point iteration converges only while `slope / tan(depression) < 1`, which from
@@ -388,9 +434,9 @@ The couple of metres it settles on is **entirely the step**, not the law
 
 | nav constant | 5 ms | 1 ms | 0.25 ms |
 | --- | --- | --- | --- |
-| 3 | 2.32 m | 0.47 m | 0.09 m |
-| 4 | 2.32 m | 0.46 m | 0.09 m |
-| 6 | 2.32 m | 0.46 m | 0.00 m |
+| 3 | 2.32 m | 0.46 m | 0.12 m |
+| 4 | 2.32 m | 0.46 m | 0.12 m |
+| 6 | 2.32 m | 0.46 m | 0.12 m |
 
 First order in the sub-step at 0.465 m per ms, and flat in the nav constant. **The steering law
 contributes nothing of its own** — a steered round is bounded by the integrator, by where it thinks
@@ -399,16 +445,16 @@ the target is, and by the same ground model as an unguided one, and by nothing e
 ### And it removes the arrival angle, which is the whole of the unguided budget
 
 The headline of this file is that five of the eight terms are heights and `cot(gamma)` turns them
-into ground, so an unguided round cannot be precise at seven degrees at any price.
+into ground, so the first-order 5 ms round could not be precise at seven degrees at any price.
 **That does not survive terminal guidance** (`WhetherTerminalGuidanceRemovesTheNeedForASteepArrival`,
 a 500 m release error steered out at each arrival):
 
 | arrival | `cot γ` | unguided | 2 g at 5 ms | at 1 ms | at 0.25 ms |
 | --- | --- | --- | --- | --- | --- |
-| **7.1 deg** | 8.03 | 498.40 m | **2.32 m** | 0.46 m | 0.00 m |
-| 15 deg | 3.73 | 499.59 m | 2.32 m | 0.46 m | 0.09 m |
-| 30 deg | 1.73 | 499.89 m | 2.32 m | 0.46 m | 0.09 m |
-| 60 deg | 0.58 | 499.96 m | 2.32 m | 0.47 m | 0.16 m |
+| **7.1 deg** | 8.03 | 498.40 m | **2.32 m** | 0.46 m | 0.12 m |
+| 15 deg | 3.73 | 499.59 m | 2.32 m | 0.46 m | 0.12 m |
+| 30 deg | 1.73 | 499.89 m | 2.32 m | 0.46 m | 0.12 m |
+| 60 deg | 0.58 | 499.96 m | 2.32 m | 0.46 m | 0.12 m |
 
 **The arrival angle is worth a couple of centimetres to a steered round and a factor of eight to a
 ballistic one.** The reason is what `cot(gamma)` actually multiplies: errors the round *cannot see*.
@@ -456,9 +502,34 @@ file.
 
 ### An unguided kinetic round
 
-**About 1.2 m, on a near-vertical arrival, as the mod ships.**
+**About 5.5 mm at the shipped 32 degrees and 1 ms second order, on gentle ground** — 7.9 mm where the
+ground runs at 15%.
 
-Root-sum-square at 88 degrees, a 17 ms frame, 5% ground slope and an exactly-known aim point:
+Root-sum-square of the headless terms at 32 degrees and an exactly-known aim point:
+
+| | slope 0.05 | slope 0.15 |
+| --- | --- | --- |
+| integrator bias (`SubStepConvergenceTests`) | 5.4 mm | 5.4 mm |
+| walk sd: chord crossing, relief, staircase (`WalkFloorTests`) | 1.3 mm | 5.8 mm |
+| predictor crossing, flag on | 0.1 mm | 0.3 mm |
+| engine clock, random walk | 0.5 mm | 0.5 mm |
+| **root sum square** | **≈ 5.5 mm** | **≈ 7.9 mm** |
+
+The terrain gain multiplies the walk on top: 1.09x at 5% and 1.31x at the median slope of section 5.
+Left out are the height quantum — 0.48 m if the aim and the round ever read different texels, which
+a millimetre landing says they do not — and the ecliptic's 16.5 mm, which a millimetre landing says
+cannot be arriving whole.
+
+**Flown, the landing is 2.1–3.0 mm** (median, 6,181 km, the flat Chaco; `docs/ICBM-OUTSTANDING.md`
+1.14). That is at the walk's floor for gentle ground and under the rig's 5.4 mm integrator bias. The
+rig flies an exponential atmosphere on a planet at the origin, so the two are not the same flight,
+and which of the one-signed terms cancel in flight has not been measured. No term in the shipped
+column sits above the flown miss except the two just left out.
+
+#### First priced: 88 degrees, 5 ms first order
+
+**About 1.2 m, on a near-vertical arrival**, kept as measured. Root-sum-square at 88 degrees, a 17 ms
+frame, 5% ground slope and an exactly-known aim point:
 
 | | |
 | --- | --- |
@@ -469,16 +540,11 @@ Root-sum-square at 88 degrees, a 17 ms frame, 5% ground slope and an exactly-kno
 | ecliptic doubles, engine clock | 0.002 m |
 | **root sum square** | **≈ 1.2 m** |
 
-Take `Interceptor.SubStep` to 1 ms and it becomes **≈ 0.4 m**; to 0.25 ms, **≈ 0.3 m**, at which
-point the frame-held ground sample and the float staircase are the whole of it and further
-integration accuracy buys nothing.
-
-**On a 7.1-degree arrival the same budget is ≈ 160 m** — 153 m of integrator, 4.4 m of quanta,
-10–39 m of frame-held ground, the whole lot multiplied by a terrain gain of 1.2x to unbounded. At
-the **12.9 degrees** the mod actually arrives at, the height-driven terms come down by 0.54x and the
-total with them; the figure has not been re-measured there and is not worth guessing at, because the
-conclusion does not turn on it. It is not a precision weapon at either angle, and no amount of
-guidance work makes it one; the geometry has to change.
+**On a 7.1-degree arrival the same budget was ≈ 160 m** — 153 m of integrator, 4.4 m of quanta,
+10–39 m of frame-held ground, the whole lot multiplied by a terrain gain of 1.2x to unbounded. What
+took it to millimetres was not a steeper geometry alone: the second-order sub-step, the ground
+re-read near impact and the crossing placed on the surface each removed a term that 32 degrees only
+divides by five.
 
 ### A terminally guided kinetic round
 
@@ -492,10 +558,11 @@ round can pull 2 g in the last twenty seconds. That is the case for building one
 the floor, but reaching the floor at all from a shot that would otherwise be a kilometre out.
 
 **And it is the cheap route to a metre, because it does not need the trajectory changed.** The
-unguided path to 1.2 m is a near-vertical arrival, which from orbit means taking out essentially the
-whole orbital velocity — about 7.8 km/s, with downrange collapsing from 3,094 km to 96. A steered
-round reaches 0.46 m on a seven-degree arrival, for a tail kit and a finer sub-step, and does better
-than that at the shallowest angle anything here flies. The propellant a steep arrival costs buys accuracy only for a round that cannot steer.
+first-order 5 ms round's path to 1.2 m was a near-vertical arrival, which from orbit means taking out
+essentially the whole orbital velocity — about 7.8 km/s, with downrange collapsing from 3,094 km to 96.
+A steered round reaches 0.46 m on a seven-degree arrival, for a tail kit and a finer sub-step. The
+shipped unguided round took the other cheap route — a second-order 1 ms step, which reaches
+millimetres at 32 degrees for no propellant at all.
 
 ### The honest caveats on both
 
@@ -505,12 +572,11 @@ than that at the shallowest angle anything here flies. The propellant a steep ar
   run-to-run variation is **not** pacing. It is a single latched `WarpPolicy` decision that either
   happens or does not, worth 0.7-2.6 km; `docs/MIRV-NEXT.md` item 7e has the measurement and
   conditioning on the coast step leaves 10-88 m.
-- **Nothing here is flown.** It is all headless, and the rig's planet is at the origin.
-- **The 13 cm ruler.** Every budget in this repository scores a miss with
-  `R * Vec.AngleBetween`, an arc cosine, whose resolution at Earth's radius is **13.4 cm**
-  (`TheHarnessCannotScoreAMissUnderThirteenCentimetres`). No measurement taken through it can report
-  a smaller miss than that, whatever the round did. The sub-metre numbers above are near it and
-  anything under about 30 cm should be read as "below the ruler".
+- **Nothing here is flown but the sub-step**, below. It is headless, and the rig's planet is at the origin.
+- **The ruler.** Every budget in this repository scores a miss with `R * Vec.AngleBetween`. As an arc
+  cosine that could not read under **13.4 cm**, and the 5 ms figures above were taken through it;
+  `Vec.AngleBetween` is now `atan2`, and `TheHarnessReadsMillimetreMissesAsTheyAre` reads 3.12 cm as
+  3.12 cm.
 
 ---
 

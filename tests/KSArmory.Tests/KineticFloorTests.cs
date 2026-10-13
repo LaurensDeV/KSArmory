@@ -46,9 +46,8 @@ public class KineticFloorTests(ITestOutputHelper Out)
     /// <summary>
     /// What the round's own integrator costs, as a function of the step it is given.
     ///
-    /// <para><see cref="Slug"/> is symplectic Euler at <see cref="Interceptor.SubStep"/>, and a
-    /// frame shorter than one sub-step is integrated in one — so handing <c>Update</c> a step under
-    /// 5 ms <em>is</em> the round with a finer sub-step, with no production change to make it.</para>
+    /// <para>Each row flies a copy of the round whose own sub-step is the row's, since a round sub-steps at
+    /// <see cref="MunitionProfile.SubStep"/> whatever frame it is handed.</para>
     /// </summary>
     [Fact]
     public void TheSubStepIsTheWholeOfTheIntegratorsOwnError()
@@ -58,30 +57,29 @@ public class KineticFloorTests(ITestOutputHelper Out)
         // The finest flight this can afford, as the thing every coarser one is measured against.
         // First order in the step, so the reference's own error is one twentieth of the 1 ms
         // flight's and a fiftieth of the shipped one's.
-        (double3 reference, double refSeconds) = DeorbitShot.FlyTheRound(from, arc.RequiredVelocityCci, 0.00025);
+        (double3 reference, double refSeconds) = DeorbitShot.FlyTheRound(from, arc.RequiredVelocityCci, 0.00025, AtStep(0.00025));
 
         Out.WriteLine($"reference: 0.25 ms step, {refSeconds:F1} s of flight, "
                       + $"{refSeconds / 0.00025:N0} sub-steps");
 
-        double coefficient = double.NaN;
+        double shipped = double.NaN;
 
         foreach (double h in new[] { 0.005, 0.0025, 0.001, 0.0005, 0.00025 })
         {
-            (double3 landed, _) = DeorbitShot.FlyTheRound(from, arc.RequiredVelocityCci, h);
+            (double3 landed, _) = DeorbitShot.FlyTheRound(from, arc.RequiredVelocityCci, h, AtStep(h));
             double off = GroundMetres(landed, reference);
 
             // Symplectic Euler is first order, so the miss against a reference at h0 is
             // C * (h - h0) and every row gives the same C. Reporting C rather than the raw gap is
             // what turns five numbers into one, and what makes the h -> 0 answer sayable.
             double c = off / ((h - 0.00025) * 1000.0);
-            if (h > 0.00025) coefficient = c;
+            if (Math.Abs(h - Warhead.SubStep) < 1e-6) shipped = off;
 
             Out.WriteLine($"{h * 1000,6:F2} ms sub-step: {off,8:F1} m from the reference"
                           + (h > 0.00025 ? $"   ({c:F1} m per ms of step)" : ""));
         }
 
-        Out.WriteLine($"first order and clean, so the shipped {Interceptor.SubStep * 1000:F0} ms sub-step is "
-                      + $"{coefficient * Interceptor.SubStep * 1000:F0} m from a converged flight of the same round");
+        Out.WriteLine($"the shipped {Warhead.SubStep * 1000:F0} ms sub-step lands {shipped:F1} m from the 0.25 ms flight");
     }
 
     /// <summary>
@@ -127,14 +125,13 @@ public class KineticFloorTests(ITestOutputHelper Out)
     {
         BallisticArc.Solution arc = DeorbitShot.Shot(out double3 from, out _);
 
-        (double3 fine, double tFine) = DeorbitShot.FlyTheRound(from, arc.RequiredVelocityCci, 0.00025);
-        (double3 coarse, double tCoarse) = DeorbitShot.FlyTheRound(from, arc.RequiredVelocityCci,
-                                                                   Interceptor.SubStep);
+        (double3 fine, double tFine) = DeorbitShot.FlyTheRound(from, arc.RequiredVelocityCci, 0.00025, AtStep(0.00025));
+        (double3 coarse, double tCoarse) = DeorbitShot.FlyTheRound(from, arc.RequiredVelocityCci, Warhead.SubStep);
 
         double late = tCoarse - tFine;
         double carried = DeorbitShot.EarthSpin * R * Math.Abs(late);
 
-        Out.WriteLine($"5 ms against 0.25 ms: {GroundMetres(coarse, fine):F1} m of ground, "
+        Out.WriteLine($"{Warhead.SubStep * 1000:F0} ms against 0.25 ms: {GroundMetres(coarse, fine):F2} m of ground, "
                       + $"arriving {late * 1000:F1} ms {(late > 0 ? "late" : "early")}");
         Out.WriteLine($"the ground turns {carried:F1} m under it in that time at the equator");
         Out.WriteLine("what is left is a genuinely different arc, and only that part answers to a "
@@ -160,13 +157,11 @@ public class KineticFloorTests(ITestOutputHelper Out)
         Arrival(arrivalDeg, out double3 r, out double3 v);
 
         (double3 reference, _) = FlyFrom(r, v, 0.00025);
-        (double3 shipped, _) = FlyFrom(r, v, Interceptor.SubStep);
+        (double3 shipped, _) = FlyFrom(r, v, Warhead.SubStep);
 
         double off = GroundMetres(shipped, reference);
-        double ruler = R * Math.Sqrt(2.0 * Math.ScaleB(1.0, -52));
 
-        Out.WriteLine($"{arrivalDeg,5:F1} deg arrival: the 5 ms round lands {off:F2} m from a 0.25 ms one"
-                      + (off < ruler ? "  (below the ruler -- see TheHarnessCannotScore...)" : ""));
+        Out.WriteLine($"{arrivalDeg,5:F1} deg arrival: the shipped round lands {off:F2} m from a 0.25 ms one");
     }
 
     /// <summary>
@@ -191,7 +186,7 @@ public class KineticFloorTests(ITestOutputHelper Out)
         double3 velocity = new(0, circular * horizontalFraction, 0);
 
         (double3 fine, double tFine) = FlyFrom(from, velocity, 0.00025);
-        (double3 coarse, double tCoarse) = FlyFrom(from, velocity, Interceptor.SubStep);
+        (double3 coarse, double tCoarse) = FlyFrom(from, velocity, Warhead.SubStep);
 
         double range = GroundMetres(fine, Vec.Unit(from) * R);
         double miss = GroundMetres(coarse, fine);
@@ -203,7 +198,7 @@ public class KineticFloorTests(ITestOutputHelper Out)
 
         Out.WriteLine($"{horizontalFraction * 100,4:F0}% of circular: {range / 1000.0,7:N0} km downrange, "
                       + $"{gamma,5:F1} deg arrival, {tFine,6:F1} s of flight");
-        Out.WriteLine($"    the 5 ms round lands {miss,8:F2} m from a 0.25 ms one, "
+        Out.WriteLine($"    the shipped round lands {miss,8:F2} m from a 0.25 ms one, "
                       + $"{(tCoarse - tFine) * 1000:F1} ms apart — the ground turns {turned:F2} m in that");
     }
 
@@ -243,37 +238,29 @@ public class KineticFloorTests(ITestOutputHelper Out)
 
         BallisticArc.Solution arc = DeorbitShot.Shot(out double3 from, out _);
 
-        (double3 atOrigin, double t0) = FlyOffset(from, arc.RequiredVelocityCci, Interceptor.SubStep, Vec.Zero);
+        (double3 atOrigin, double t0) = FlyOffset(from, arc.RequiredVelocityCci, Warhead.SubStep, Vec.Zero);
 
         foreach (double distance in new[] { 1.0e9, au, 1.43e12 })
         {
             double3 offset = new(distance * 0.6, distance * 0.8, 0.0);
-            (double3 moved, double t1) = FlyOffset(from, arc.RequiredVelocityCci, Interceptor.SubStep, offset);
+            (double3 moved, double t1) = FlyOffset(from, arc.RequiredVelocityCci, Warhead.SubStep, offset);
 
-            // Straight-line, not great-circle: GroundMetres goes through an arc cosine and cannot
-            // resolve anything under about 13 cm at this radius -- see
-            // TheHarnessCannotScoreAMissUnderThirteenCentimetres, which is a floor on the ruler
-            // rather than on the shot.
             Out.WriteLine($"planet at {distance:E1} m: lands {Vec.Len(moved - atOrigin) * 1000:F3} mm "
                           + $"from the origin flight, {(t1 - t0) * 1e6:F1} us apart");
         }
     }
 
     /// <summary>
-    /// The floor under the ruler rather than under the shot.
-    ///
-    /// <para>Every budget in this repository scores a miss with <c>DeorbitShot.GroundMetres</c>,
-    /// which is <c>R * Vec.AngleBetween</c>, which is an arc cosine. Near zero the cosine is flat,
-    /// so a dot product one ulp under 1.0 is already <c>sqrt(2 * eps)</c> of angle — and no
-    /// measurement taken through it can report a smaller miss than that, whatever the round did.
-    /// </para>
+    /// The floor under the ruler rather than under the shot. <c>DeorbitShot.GroundMetres</c> is
+    /// <c>R * Vec.AngleBetween</c>; as an arc cosine it could not read under 13.4 cm at Earth's radius, and as
+    /// <c>atan2</c> it reads millimetres as they are.
     /// </summary>
     [Fact]
-    public void TheHarnessCannotScoreAMissUnderThirteenCentimetres()
+    public void TheHarnessReadsMillimetreMissesAsTheyAre()
     {
         double floor = R * Math.Sqrt(2.0 * Math.ScaleB(1.0, -52));
 
-        Out.WriteLine($"arc-cosine resolution at Earth's radius: {floor * 100:F1} cm");
+        Out.WriteLine($"an arc cosine's resolution at Earth's radius, for comparison: {floor * 100:F1} cm");
 
         double3 a = new(R, 0, 0);
         double smallest = double.MaxValue;
@@ -585,7 +572,7 @@ public class KineticFloorTests(ITestOutputHelper Out)
     {
         Arrival(30.0, out double3 r, out double3 v);
 
-        (double3 unguided, _) = FlyFrom(r, v, Interceptor.SubStep);
+        (double3 unguided, _) = FlyFrom(r, v, Warhead.SubStep);
         double3 target = unguided;
 
         // Displace the release across the track, so the whole of it has to be steered out.
@@ -602,7 +589,7 @@ public class KineticFloorTests(ITestOutputHelper Out)
             Out.WriteLine($"  {g,4:F1} g of fin authority: {GroundMetres(landed, target),10:N2} m from the aim point");
         }
 
-        (double3 nothing, _) = FlyFrom(offset, v, Interceptor.SubStep);
+        (double3 nothing, _) = FlyFrom(offset, v, Warhead.SubStep);
         Out.WriteLine($"  unguided:                {GroundMetres(nothing, target),10:N2} m");
     }
 
@@ -648,8 +635,8 @@ public class KineticFloorTests(ITestOutputHelper Out)
     /// on the arrival the mod already flies then the propellant a steep arrival costs buys
     /// nothing.</para>
     ///
-    /// <para><b>It does.</b> A steered round lands 2.32 m from the aim at the shipped 5 ms sub-step
-    /// and about 0.46 m at 1 ms, and those numbers are the same at 7.1 degrees as at 60 — the
+    /// <para><b>It does.</b> A steered round flown in 5 ms frames lands 2.32 m from the aim, and about
+    /// 0.46 m in 1 ms frames, and those numbers are the same at 7.1 degrees as at 60 — the
     /// arrival angle, which is the whole of the unguided budget, is worth a couple of centimetres
     /// here. Two g is enough for a 500 m release error and more buys nothing.</para>
     ///
@@ -683,7 +670,7 @@ public class KineticFloorTests(ITestOutputHelper Out)
         double3 across = Vec.Unit(Vec.Cross(r, v));
         double3 offset = r + across * 500.0;
 
-        (double3 nothing, _) = FlyFrom(offset, v, Interceptor.SubStep);
+        (double3 nothing, _) = FlyFrom(offset, v, Warhead.SubStep);
 
         Out.WriteLine($"{arrivalDeg,4:F1} deg arrival, released 500 m across the track "
                       + $"(cot {1.0 / Math.Tan(arrivalDeg * Math.PI / 180.0):F2}):");
@@ -766,6 +753,8 @@ public class KineticFloorTests(ITestOutputHelper Out)
         };
     }
 
+    private static DeorbitShot.Refresh AtStep(double seconds) => new() { StepSeconds = seconds };
+
     private static (double3 GroundFixed, double Seconds) FlyFrom(double3 fromCci, double3 velocityCci, double dt)
         => FlyOffset(fromCci, velocityCci, dt, Vec.Zero);
 
@@ -781,9 +770,11 @@ public class KineticFloorTests(ITestOutputHelper Out)
     {
         BallisticBody body = Earth;
 
+        MunitionProfile stepped = Arsenal.RoundAtSubStep(Warhead, dt);
+
         Slug round = new(fromCci + centre, velocityCci, null, 1, fromCci + centre, Vec.Zero)
         {
-            Munition = Warhead,
+            Munition = stepped,
             Ground = new ShiftedBall(centre),
             AirDensityAt = (pos, _) => DeorbitShot.DensityAt(pos - centre),
         };
@@ -795,7 +786,7 @@ public class KineticFloorTests(ITestOutputHelper Out)
             double3 local = round.PositionEcl - centre;
 
             round.Update(dt, null, body.GravityCci(local), body.GroundVelocityCci(local),
-                         fromCci + centre, Warhead, DeorbitShot.DensityAt(local));
+                         fromCci + centre, stepped, DeorbitShot.DensityAt(local));
             elapsed += dt;
         }
 

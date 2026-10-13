@@ -83,7 +83,7 @@ internal readonly record struct ReleaseWalk(ReleaseItinerary Itinerary, ReleaseW
 
             ReleaseWalkHold.Walking =>
                 $"{Stops} stops, {Itinerary.NeedsMetresPerSecond:F1} m/s of "
-                + $"{Itinerary.Means.BudgetMetresPerSecond:F0}"
+                + $"{Itinerary.Means.WalkBudgetMetresPerSecond:F0}"
                 + (Dropped > 0
                        ? $" -- {Dropped} target{(Dropped == 1 ? "" : "s")} dropped, "
                          + "their warheads stay aboard"
@@ -118,7 +118,8 @@ internal readonly record struct ReleaseWalk(ReleaseItinerary Itinerary, ReleaseW
 internal readonly record struct ReleaseStep(int Target, int Warheads, int Away, bool ReleaseHere,
                                             bool Handover, bool Finished, int NextTarget,
                                             double HopMetresPerSecond, double BeforeArrivalSeconds,
-                                            double NextHopMetresPerSecond = 0.0)
+                                            double NextHopMetresPerSecond = 0.0,
+                                            double NextPassMetresPerSecond = 0.0)
 {
     /// <summary>The line a night is scored off: which warheads went where, and what it cost.</summary>
     public string Say(int stop, int stops, double spentMetresPerSecond, double leftMetresPerSecond)
@@ -159,6 +160,30 @@ internal readonly record struct ReleaseStep(int Target, int Warheads, int Away, 
 internal static class ReleaseLoop
 {
     /// <summary>
+    /// What the tank keeps beyond the trim budget for nulling the split, in metres a second: one null
+    /// at the most a pass will fly, which <c>PostBoostAimTests.TheBudgetLeavesEnoughToNullASeparation</c>
+    /// holds the budget to.
+    /// </summary>
+    public const double SplitNullReserveMetresPerSecond = BusTrim.MaxMetresPerSecond;
+
+    /// <summary>
+    /// What the budget gains once a walk's first stop has let its warheads go, which is after the split
+    /// has been nulled — <see cref="IcbmConfig.SpendTheSplitReserveAfterTheFirstStop"/>.
+    /// </summary>
+    public static double ReserveReleased(bool spendIt, bool firstStopAway)
+        => spendIt && firstStopAway ? SplitNullReserveMetresPerSecond : 0.0;
+
+    /// <summary>
+    /// A flight's trim budget with <paramref name="reserveMetresPerSecond"/> added — never to one that is
+    /// none (zero) or unlimited (negative), whose meaning a reserve does not change.
+    /// </summary>
+    public static double BudgetWithReserve(double budgetMetresPerSecond, double reserveMetresPerSecond)
+        => budgetMetresPerSecond > 0.0 && double.IsFinite(budgetMetresPerSecond)
+           && reserveMetresPerSecond > 0.0 && double.IsFinite(reserveMetresPerSecond)
+               ? budgetMetresPerSecond + reserveMetresPerSecond
+               : budgetMetresPerSecond;
+
+    /// <summary>
     /// Plan a walk, or say why there is not one.
     /// </summary>
     /// <param name="targets">
@@ -190,7 +215,7 @@ internal static class ReleaseLoop
         double dearest = 0.0;
         for (int k = 0; k < plan.Count; k++)
         {
-            dearest = Math.Max(dearest, plan.Stops[k].HopMetresPerSecond);
+            dearest = Math.Max(dearest, plan.Stops[k].PassFlies);
         }
 
         return dearest > BusTrim.MaxMetresPerSecond
@@ -238,7 +263,8 @@ internal static class ReleaseLoop
         return new ReleaseStep(at.Target, at.Warheads, away, owes, !owes && more, !owes && !more,
                                more ? walk.Itinerary.Stops[stop + 1].Target : -1,
                                at.HopMetresPerSecond, at.BeforeArrivalSeconds,
-                               more ? walk.Itinerary.Stops[stop + 1].HopMetresPerSecond : 0.0);
+                               more ? walk.Itinerary.Stops[stop + 1].HopMetresPerSecond : 0.0,
+                               more ? walk.Itinerary.Stops[stop + 1].PassFlies : 0.0);
     }
 
     /// <summary>
@@ -290,13 +316,20 @@ internal static class ReleaseLoop
     /// <para>The whole pass has to be payable, not merely its first metre: a budget that runs out
     /// part way leaves the warhead between two targets, which is worse than either.</para>
     /// </remarks>
+    /// <param name="passMetresPerSecond">
+    /// What the pass flies for the hop where that is less than its price — <see cref="ReleaseStep.NextPassMetresPerSecond"/>.
+    /// NaN judges the pass on the price.
+    /// </param>
     public static HopHold CanFlyTheHop(double hopMetresPerSecond, double owedMetresPerSecond,
                                        double ceilingMetresPerSecond, double spentMetresPerSecond,
-                                       double budgetMetresPerSecond)
+                                       double budgetMetresPerSecond, double passMetresPerSecond = double.NaN)
     {
         double wants = PassMustFly(hopMetresPerSecond, owedMetresPerSecond);
+        double flies = double.IsFinite(passMetresPerSecond) && passMetresPerSecond > 0.0
+                           ? PassMustFly(passMetresPerSecond, owedMetresPerSecond)
+                           : wants;
 
-        if (wants > BusTrim.CeilingFor(ceilingMetresPerSecond)) return HopHold.BeyondOnePass;
+        if (flies > BusTrim.CeilingFor(ceilingMetresPerSecond)) return HopHold.BeyondOnePass;
 
         // A nanometre a second of slack, for ReleaseItinerary's own reason: the affordable spacing
         // is the exact root of this comparison and lands on either side of it by one ulp.

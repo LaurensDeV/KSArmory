@@ -136,7 +136,7 @@ internal sealed class WarpPolicy
     /// is, and from here that refusal is indistinguishable from a slow write — which is what the
     /// abandon guard below counts. So nothing is asked for and nothing is counted: the rounds take
     /// whatever step the warp hands out, which is the same trade
-    /// <c>Ksa/IcbmComputers.cs</c> already makes for a holding burn.
+    /// <c>Ksa/Icbm/IcbmComputers.cs</c> already makes for a holding burn.
     /// </param>
     public WarpDecision Decide(double dtSim, double currentSpeed, bool roundsInFlight, bool enabled,
                                double faithfulStep = Interceptor.MaxFaithfulStep,

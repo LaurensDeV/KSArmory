@@ -19,7 +19,8 @@ internal static class JitWarmup
     // the day KSA's first destroy runs warm; docs/BLOCKED-ON-KSA.md has the check.
     private static readonly Type[] EngineTypes =
     [
-        typeof(Universe), typeof(PartFailure), typeof(ExplosionSystem), typeof(ExplosionVolumeSystem),
+        typeof(Universe), typeof(PartFailure), typeof(ExplosionSystem), typeof(ExplosionVolumeManager),
+        typeof(ExplosionVolumeSpawner), typeof(ExplosionVolumeStore),
         typeof(ExplosionFlashSystem), typeof(Vehicle),
     ];
 

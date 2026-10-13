@@ -10,7 +10,7 @@ namespace KSArmory.Tests;
 /// is asserted here on the numbers the flight reads rather than on the plan: a walker holding a
 /// one-stop plan gives the gate as NaN — so <c>IcbmProgram</c> reads the setting live — the
 /// magazine untouched, and the lead as the target of every round. That is the whole of
-/// what <c>Ksa/IcbmComputer.cs</c> asks it, so nothing in the loop can execute without
+/// what <c>Ksa/Icbm/IcbmComputer.cs</c> asks it, so nothing in the loop can execute without
 /// <see cref="ReleaseWalker.Walking"/>, which is false for every one-stop set.</para>
 /// </summary>
 public class ReleaseWalkerTests(ITestOutputHelper Out)
@@ -85,6 +85,21 @@ public class ReleaseWalkerTests(ITestOutputHelper Out)
             Assert.Equal(6, walker.TubesLeft(6));
             Assert.Equal(3, walker.TargetIndex(3));
         }
+    }
+
+    [Fact]
+    public void OnlyOneTargetTakesTheSingleTargetGate()
+    {
+        IcbmConfig config = new() { SingleTargetReleaseBeforeArrivalSeconds = 350.0 };
+
+        Assert.Equal(350.0, new ReleaseWalker().GateOverrideSeconds(config, targets: 1));
+        Assert.True(double.IsNaN(new ReleaseWalker().GateOverrideSeconds(config, targets: 2)));
+        Assert.True(double.IsNaN(new ReleaseWalker().GateOverrideSeconds(
+            new IcbmConfig { SingleTargetReleaseBeforeArrivalSeconds = -1.0 }, targets: 1)));
+
+        ReleaseWalker walking = Walking(4);
+        Assert.Equal(walking.GateOverrideSeconds(Gate), walking.GateOverrideSeconds(config, targets: 4));
+        Assert.True(walking.GateOverrideSeconds(config, targets: 4) > Gate);
     }
 
     /// <summary>

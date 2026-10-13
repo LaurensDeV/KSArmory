@@ -176,7 +176,7 @@ so `--paired` gives four rockets the change and four the baseline in one run, an
 bus, the arrival and the release timing are all back inside the comparison.
 
 ```bash
-./tools/shot-batch.sh --paired 'base|ceiling:TrimCeilingFromBudget=true' --blocks 6
+./tools/shot-batch.sh --paired 'base|sub:WarheadSubStepMs=2' --blocks 6
 ./tools/shot-report.py ~/shots/<night> --paired
 ```
 
@@ -196,8 +196,8 @@ Three things make the paired version work, and the third is the one that is easy
 * **The change must be a *setting*, not a branch.** One build flies the whole night; the arms differ
   by what `IcbmConfig` says. A branch cannot be two things in one world.
 * **The variants alternate down the roster, and the phase rotates between shots.** A rocket's place
-  in the roster is worth **175x** in miss, monotone (8y), so handing one arm the first four rockets
-  measures the gradient and calls it the change. `Sim/ShotArms.cs` does both.
+  in the roster was worth **175x** in miss, monotone (8y), until the interlock removed the gradient
+  (8ag; 8ai re-measured it flat over 96 flights); any such gradient handed to one arm is measured as the change. `Sim/ShotArms.cs` does both.
 
 What it cannot compare is anything the rockets share: the build, the system, the terrain under the
 target. Those still need a night.
@@ -237,8 +237,8 @@ a null.
 100x — and lets `WarpPolicy` take it back wherever something is being integrated, which is the span
 that matters. Asking for a *step* instead was tried and reverted: it pinned the whole pre-release
 cruise, forty minutes in which nothing is integrated and any step is free, and cost four times the
-wall clock a shot for no accuracy. The step that matters is the trim's, and it is asked for where it
-is needed, as `BusTrim.MaxFaithfulStep`. So the frame-time screen stays: it still says what a night
+wall clock a shot for no accuracy. The step that matters is the trim's, and `BusTrim.MaxFaithfulStep` records it without
+asking `WarpPolicy` for it, because that demand abandoned burns (`Ksa/Icbm/IcbmComputers.cs`). So the frame-time screen stays: it still says what a night
 cost and what regime it ran in.
 
 It marks the *session*, not the shot: within a night the rank correlation between a shot's frame
@@ -566,6 +566,14 @@ distance — the 0.86 m tube ring through 3db's gains (1.85 downrange, 0.93 cros
 inequality breaks on any of the 160 flights. That night reads `dispersion` at 0.98x because the model
 gave both arms one ring: the construction, not a finding.
 
+### `--endpoint trim`: what the bus's jets paid
+
+Every other endpoint asks where the warheads went, and a change that moves the shot's prediction rather than its
+landing pays in trim instead: the post-boost passes take the difference back and the landing reads the same. This
+reads the `release summary`'s `(N m/s spent)` per flight. On 2026-10-11's 6,181 km night (`pulse-chaco`) seats 2-8
+spent ~17 m/s against the split's 2.5-3 and seat 1, whose burn freeze did not revert, 9-11 -- so the seat levels it
+divides out can be most of the effect, and a `--per-seat` reading is worth looking at beside it.
+
 ### A salvo sent to several places
 
 **The FLIGHT line carries no group statistics at all for one, on purpose.** `worst .. best .. mean ..
@@ -682,8 +690,10 @@ Arm names are `+`-joined factor names, and the report pools on them:
 ### What an arm actually edits
 
 An arm is a commit, so a one-constant arm is a one-line commit on a branch. The scenario sets
-`IcbmConfig.Armed` and **nothing else** — every other setting flies at the default declared in its
-own file, which is what makes a constant an arm at all. The knobs `MIRV-NEXT.md` currently ranks:
+`IcbmConfig.Armed`, an 8 g `MaxAccelerationGee` where the craft has none, and `MinArrivalAngleDeg`
+and `CorrectAim` at their shipped defaults — every other setting flies at the default declared in its
+own file, which is what makes a constant an arm at all. The knobs `MIRV-NEXT.md` ranked in 2026-08; dated — the 1 ms sub-step has shipped, and a setting is now flown
+as a `--paired` arm (`Sim/ShotArms.cs`) rather than a commit:
 
 | the arm | file, and what to change |
 | --- | --- |
@@ -694,7 +704,7 @@ own file, which is what makes a constant an arm at all. The knobs `MIRV-NEXT.md`
 | what a pass has to beat, and what one costs | `AimCorrection.ImprovedByFraction`/`ImprovedByFloorMetres`, `PostBoostAim.HoldingCostsMetresPerSecond`, `BusTrim.SettledMetresPerSecond` — **one arm, not three**: the bar cannot go below the trim's leavings, because those are what moves the reading it is judging. Item 7f. |
 | the warhead's own sub-step | `src/KSArmory/Sim/Arsenal.cs`, `ReentryVehicleMk21.SubStepSeconds`. First order at 30.6 m per ms, and `ProbeGapTests` says it *widens* the round-versus-probe gap alone (591 -> 754 m) — the same cancelling-pair shape as item 2d. Fly it paired or not at all. |
 | predicting the warhead with the warhead's integrator | `src/KSArmory/Sim/ImpactPredictor.cs` — the other side of the same gap, 591 -> 47 m headless. Item 2h. |
-| re-pointing between releases | `src/KSArmory/Sim/IcbmConfig.cs`, `RepointBetweenReleases` |
+| re-pointing between releases | removed 2026-10-06 (`RepointBetweenReleases`, off on a flown verdict); `Sim/ReleaseSequence.cs` would have to be wired back in |
 | the arrival-angle floor | `src/KSArmory/Sim/IcbmConfig.cs`, `MinArrivalAngleDeg` — the largest lever there is, and it changes every other term's price, so it is a poor thing to have as a *factor* alongside others. Fly it as its own night. |
 | the ejection kick | `src/KSArmory/Sim/Arsenal.cs`, `ReentryVehicleMk21.LaunchSpeed` |
 
@@ -741,6 +751,16 @@ half of the night.
 `shot-report.py` reduces all of it to one line per arm and, with `--shots`, one line per shot. The
 raw logs stay under `shots/` so a surprising line can be read in full.
 
+Two cautions on reading it:
+
+* **A line's absence is evidence only if the line could have been printed.** Four findings on the
+  separation were artefacts of an instrument with one output, among them a clearance that "never
+  succeeded" because its success sentence was discarded on the branch producing it (MIRV-NEXT 8w;
+  `docs/ACCURACY-PLAN.md` "Ranked highly on reasoning since refuted").
+* **`mod frame:` (`Sim/FrameBudget.cs`) reports each span's worst frame separately**, so per-span
+  worsts come from different frames and do not add up. It is written only at `Debug`, so a night
+  logged above it has no frame budget at all.
+
 ## 5. Contamination, and why the tree is frozen
 
 Three batches in the last session were contaminated by the tree being edited, or a second batch
@@ -775,9 +795,10 @@ The tree must be **clean** when the batch starts — `shot-batch.sh` refuses oth
 from uncommitted work is a binary nobody can rebuild, and the entire night hangs on being able to
 say what flew.
 
-Editing the tree *after* the arms are built is harmless and still not advised: `git checkout` of
-another branch mid-batch would only confuse the operator, and `--resume` needs the batch directory
-rather than the tree.
+Editing the tree *after* the arms are built is harmless **except for `tools/*.sh`**, which every shot
+still runs from the tree: bash reads a script as it goes, so a running `scenario.sh` resumes into the
+middle of the edited file. `git checkout` of another branch mid-batch would only confuse the
+operator, and `--resume` needs the batch directory rather than the tree.
 
 ### Before starting
 
@@ -792,6 +813,10 @@ rather than the tree.
   the shot times out 40 minutes later. `KittenSpaceAgency.log` says `a new version of KSA is
   available` when it applies. `ScenarioRunner` closes KSA's popups while it runs, and the smoke's
   output says `closed KSA's UpdateAvailablePopup` when it did.
+- **The system is the one the comparison wants.** `scenario.sh` flies `mirv` in `SolLite`, Earth
+  and the Moon, unless `KSARMORY_SCENARIO_SYSTEM` says otherwise, and `shot-batch.sh` records it in
+  `batch.tsv`. Patched conics, so it cannot change an Earth trajectory; the 25-body `Sol` costs frame
+  time, and frame time is the shot (MIRV-NEXT 8ac).
 - One shot flown by hand end to end, to confirm the aim point produces a verdict rather than a
   timeout. Fifty timeouts is the same information as one.
 - **Check the ground under the aim point**, on that one hand-flown shot:
@@ -802,7 +827,7 @@ rather than the tree.
 
 A round arriving at `g` below the horizontal covers `cot(g)` of ground for every unit it descends,
 so ground falling away downrange at `tan(a)` moves the impact by `1/(tan g - tan a)` per unit of
-trajectory error. Flat ground gives `cot(g)` — 8.0 at the 7.1° this scenario arrives at. As `tan(a)`
+trajectory error. Flat ground gives `cot(g)` — 8.0 at a 7.1° arrival and 1.6 at 32°. As `tan(a)`
 approaches `tan(g)` the trajectory and the ground become parallel and the impact point diverges.
 
 This is not a bias that averages out over a night. It is a **degenerate intersection**: a few tens of

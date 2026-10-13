@@ -2320,6 +2320,12 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// <inheritdoc cref="IManualFire.NextStageSeparatesIt"/>
     public bool NextStageSeparatesIt => LauncherSeparation.NextStageSeparates(Platform, Launcher);
 
+    /// <inheritdoc cref="IManualFire.StagesAfterTheRelease"/>
+    public int StagesAfterTheRelease => LauncherSeparation.StagesAfterTheRelease(Platform, Launcher);
+
+    /// <inheritdoc cref="IManualFire.MoveReleaseLast"/>
+    public bool MoveReleaseLast(out string why) => LauncherSeparation.TryMoveReleaseLast(Platform, Launcher, out why);
+
     /// <inheritdoc cref="IManualFire.Separate"/>
     public bool Separate() => LauncherSeparation.Separate(Platform, Launcher);
 

@@ -4,7 +4,7 @@ Everything below is either measured in flight or explicitly marked as untested. 
 `CHECKLIST.md` §12.7 has the in-flight list. This file is only the backlog.
 
 **Most of it is now a record rather than a plan**, and the item numbers are the addressing scheme —
-forty-three references from other docs and from source comments point at them, so a section keeps
+over a hundred references from other docs, tests and source comments point at them, so a section keeps
 its number wherever its state ends up. **The table below is historical as of 2026-10-06**; what is open now for
 the ballistic computer and the bus is ranked in `docs/ICBM-OUTSTANDING.md`. What was open when it was written:
 
@@ -209,7 +209,7 @@ Both are dwarfed by what the loop itself is worth, which is why that is as far a
 The finer step is item 2's own candidate flown at the wrong value, and it doubled the miss. `f619daa`
 later measured why: the round's disagreement with its predictor is two terms of opposite sign, so it
 crosses zero near a 138 ms frame and overshoots the other way below it — shortening the coast frame
-without bound is a regression. `PreferredStepSeconds` now sits at **0.225**, the reachable frame
+without bound is a regression. `PreferredStepSeconds` then sat at **0.225** (0.180 since item 7e), the reachable frame
 nearest that crossing, flown five against five for a median 1.66 -> 1.06 km.
 
 ## -1a. Two errors were cancelling — and it was not the round against its predictor
@@ -972,7 +972,7 @@ Four candidates for the remaining ~1.3 km, none of them measurable in a rig whos
 `ModelInputAgreementTests` is the other half of `ProbeGapTests`: that one hands both models one
 world and prices what their integrators do differently, this one asks whether the game hands them
 one world at all. In flight the round takes its inputs through `Ksa/WeaponSystem.cs` in `Ecl` and
-the prediction takes its own through `Ksa/IcbmComputer.cs` in `Cci`, and those are different code
+the prediction takes its own through `Ksa/Icbm/IcbmComputer.cs` in `Cci`, and those are different code
 paths reading different engine calls.
 
 **Four of the five agree, and three of them agree exactly rather than closely:**
@@ -1025,7 +1025,7 @@ long, it is not.
 its `Ecl` frame consistent with the planet's and leaves only the solar tide (0.009% of the term).
 That is a behaviour change reaching every round the mod fires, and belongs in a flight.
 - **The waterline — closed, and worth keeping as the shape.** `Ksa/GroundTest.cs` clamps the height
-  field to sea level and `Ksa/IcbmComputer.cs`'s `TerrainRadiusAt` now does too, through the same
+  field to sea level and `Ksa/Icbm/IcbmComputer.cs`'s `TerrainRadiusAt` now does too, through the same
   `GroundSurface.Height`. While it did not, a round over water stopped kilometres above the surface
   the prediction flew to — 35 km of ground at the mean depth, and zero over dry land, so a shot that
   arrived inland saw none of it. `SurfaceAgreementTests` prices it. The class of fault is not closed:
@@ -1191,7 +1191,7 @@ reproduces: the rig gives 4.2 and this flight ~15.
    **307 m for 76 seconds of the player's evening**, and the next 44 m costs another 138. The
    sign risk this claimed not to have is real: the round's error is *not* monotone in the frame —
    it is two terms of opposite sign, crossing zero near 138 ms and overshooting the other way below
-   it, which is why `PreferredStepSeconds` sits at 0.225 rather than lower. **Not done** — it
+   it, which is why `PreferredStepSeconds` sat at 0.225 rather than lower (0.180 since item 7e). **Not done** — it
    trades against a decision `WarpPolicy` made deliberately. The trace now puts the frame-driven
    share at ~680 m of a 1,943 m gap, so this is worth more than the table claims and still not most
    of it.
@@ -1507,7 +1507,7 @@ tens of degrees a second — so the guard was sized by one transient and held th
 coast. `VehicleCommand.TryAim` assigns the attitude profile every frame and KSA's own `max`
 re-establishes the real floor on the same frame. Flown 22 August, eight shots an arm interleaved:
 band a median 9.62 -> 0.37 degrees, walk from the release probe 1169 -> 363 m, median miss
-0.94 -> 0.38 km, ratio 0.37 (97% interval 0.26-0.57, p 0.002). `CLAUDE.md` has the engine mechanism.
+0.94 -> 0.38 km, ratio 0.37 (97% interval 0.26-0.57, p 0.002). `docs/ICBM-GUIDANCE.md`, *What it commands, and what it does not*, has the engine mechanism.
 
 So the reason this item was closed has gone: a six-degree turn is no longer inside the dead zone.
 What closes it instead is that **there is no longer a cant to correct.** `ab6584d` straightened the
@@ -1516,9 +1516,9 @@ bus's six tubes — every axis is now `(1, 0, 0)` — and `ReleasePointing.Repoi
 between releases turns the vehicle by nothing. The cheaper answer was to stop creating the spread,
 and it was taken.
 
-The machinery stays, behind `RepointBetweenReleases` and still off, because a weapon pack may
-register a launcher that *is* canted; `CantedRing` exists as the test specimen for exactly that,
-and five suites fly against it.
+The machinery stays in `Sim/ReleaseSequence.cs` because a weapon pack may register a launcher that
+*is* canted; `CantedRing` exists as the test specimen for exactly that, and five suites fly against
+it. The switch that wired it into the flight, `RepointBetweenReleases`, was removed on 2026-10-06.
 
 ```
 Rocket_1 control: None/None/None, roll Decoupled, control part NONE
@@ -1551,8 +1551,8 @@ straight tubes do not create. They are priced here against the cant that was —
 this term was worth **233 m** of spread, not the 2.69 km an earlier pass priced it at on an arc
 nobody flies — and that is what any canted launcher would be buying back.
 
-The mod-side defect 5a found is still worth having and stays in, behind `RepointBetweenReleases`
-and still off: the turn is now built from the live tube axis rather than the commanded one, so if a
+The mod-side defect 5a found is still worth having and stays in `Sim/ReleaseSequence.cs`, unwired since
+`RepointBetweenReleases` was removed on 2026-10-06: the turn is now built from the live tube axis rather than the commanded one, so if a
 bus ever exists that can hold the command, it will hold the right one.
 
 ## 5-old. Re-pointing — off again, and this time flown
@@ -1758,6 +1758,8 @@ separated bus, which closed the item: the correction needed a turn the vehicle's
 would not make. It now reads **0.31**, because the band was a deadband latched at the separation
 transient rather than a property of what is aboard — item 5. So the corrected command is worth
 switching on and the ~0.9 km of spread is back on the table.
+
+*Superseded by item 5: the tubes are straight, so there is no cant to correct, and the switch is gone.*
 
 ## 5b. Firing each tube on its own crossing — tried on paper, does not win
 
@@ -2222,7 +2224,7 @@ is the first flown evidence for the case that document makes.
 
 1. **Do not merge `neverfreeze` or the pair.** Settled, twice over.
 2. **Do not judge `ownint` at this target.** Its 21 shots measure a hillside. It is right on
-   principle — `CLAUDE.md` already says a prediction modelling drag its own way is a second flight
+   principle — `docs/ICBM-GUIDANCE.md` already says a prediction modelling drag its own way is a second flight
    model — but this night neither confirms nor refutes it. Re-fly it somewhere the arrival is not
    parallel to the ground, or at a steeper arrival.
 3. **`arm/arr15` is not refused, and it is expensive.** The headless check is done — see *A 15°
@@ -3746,7 +3748,7 @@ of the five floored shots stopped on the same line:**
 post-boost: released on 40 m/s of trim, which is the bus's budget for correcting
 ```
 
-`PostBoostAim.MaxTrimMetresPerSecond` is 40 and `IcbmConfig.TrimBudgetMetresPerSecond` defaults to
+`PostBoostAim.MaxTrimMetresPerSecond` was 40 (60 now) and `IcbmConfig.TrimBudgetMetresPerSecond` defaults to
 it. What each was still owed when it ran out:
 
 | shot | passes | owed at release | bias | miss |
@@ -4227,7 +4229,7 @@ seven degrees; this shot geometry already arrives at 13.6 without any floor at a
 buying 13.6 -> 17.8 and not 7 -> 15. `docs/ARRIVAL-ANGLE.md` prices the gain steeply in the angle,
 so most of what 8t measured had already been collected before the arm was flown.
 
-**So the 18x figure in `docs/EIGHT-ROCKETS.md` was not wrong, it was spent.** Any future claim for
+**So 8t's 18x figure was not wrong, it was spent.** Any future claim for
 the arrival floor has to state the baseline angle it is against, because that is the number the
 whole effect lives on.
 
@@ -4577,7 +4579,7 @@ against a 60 m/s budget.
 
 Two and a half to twelve times more aim than the actuator can follow, at every range this mod
 shoots at. `Sim/AimAuthority.cs` prices it from the trajectory — two transfers, differenced, nothing
-to tune — and `IcbmConfig.AimWithinTrimBudget` holds the loop to it. Off by default and **unflown**.
+to tune — and `IcbmConfig.AimWithinTrimBudget` held the loop to it. *(Flown since and lost, 1.11x, ACCURACY-PLAN 3br; removed 2026-10-06.)*
 
 **What it cannot do** is make a shot want a nearer aim. If the correction genuinely needs 200 km it
 clamps and the shot still misses, with the propellant unspent rather than wasted. The argument for
@@ -4656,7 +4658,7 @@ prints the session's frame time and refuses to let a null pass quietly above 24 
 **And the cause was the system, not the machine — 2026-08-29.** KSA loads `lastSystemId`, which was
 `Sol`: twenty-five bodies, every one of them work the engine does per frame and work this mod does
 per ground lookup, for a ballistic shot that needs Earth. `SolLite` is Earth and the Moon. The lever
-was documented in `EIGHT-ROCKETS.md` and left opt-in, so every night in this file was flown on
+was documented in the eight-rocket plan and left opt-in, so every night in this file was flown on
 whichever system the operator last picked, unrecorded.
 
 `scenario.sh` now defaults `mirv` to `SolLite` and `shot-batch.sh` writes the system into
@@ -4687,7 +4689,7 @@ regimes rather than about the integrator.
 
 Every piece of the post-cutoff chain is already in `Sim/` — `BusTrim`, `PostBoostAim`,
 `AimCorrection`, `SeparationClearance`, `IcbmProgram`. What is **not** is the sequencing that runs
-them, which lives in `Ksa/IcbmComputer.cs` and therefore cannot be tested at all: whether a pass is
+them, which lives in `Ksa/Icbm/IcbmComputer.cs` and therefore cannot be tested at all: whether a pass is
 taken, what the ceiling is sized from, when the trim is resumed, what ends the loop. That is exactly
 the decision 8z measured at **140 m against 5–45 km**, and it is reachable only by flying.
 
@@ -4873,7 +4875,7 @@ The endpoint agrees without resolving: `both` is 1.22x with four shots at **53.9
 104.78** times the baseline. A sign test cannot see that — it won 5 of 12, p=0.774 — but four
 catastrophes in twelve is not a distribution anyone should fly again.
 
-**So: do not fly `TrimCeilingFromBudget`.** It is off by default and stays off.
+**So: do not fly `TrimCeilingFromBudget`.** It stayed off, and was removed on 2026-10-06.
 
 ### And `payback` is now measured three times
 
@@ -5160,7 +5162,7 @@ directly. Tonight: 29.8 ms, 2 passes, 0.10 km.
 
 `MirvBudgetTests` re-measures the whole group now that every term the 11 km budget was dominated by
 has been fixed. It flies the real `IcbmProgram` through `IcbmFlightRig` with the aim correction wired
-as `Ksa/IcbmComputer.cs` wires it, takes the state the engines actually stopped in, and puts six
+as `Ksa/Icbm/IcbmComputer.cs` wires it, takes the state the engines actually stopped in, and puts six
 warheads off it — six real `Slug`s at the step `WarpPolicy` holds the world to.
 
 **The rig reproduces the flown bias and does not reproduce the flown spread.** Flown as the game
@@ -5250,10 +5252,14 @@ kick to its prediction.
 
 ### Ranked, cheapest first
 
+*Superseded: 1 by item 2 (gravity per sub-step won once paired with the mid-frame aim), 2 by item 8
+(`PostBoostAim` reopens the aim after cutoff), 4 by item 5 (no cant on the shipped bus). The live ranking
+is `docs/ICBM-OUTSTANDING.md`.*
+
 1. ~~**Re-read gravity per sub-step, or cap the coast step.**~~ **Both halves have flown.** The
    gravity re-read lost three times out of three (item 2d), and item 2's decomposition says why: it
    removes the term that was cancelling the round's own integration error, so the two halves have to
-   go together or neither. The coast step is capped — `PreferredStepSeconds` at **0.225**, flown for
+   go together or neither. The coast step is capped — `PreferredStepSeconds` at **0.225** (0.180 since item 7e), flown for
    a median 1.66 -> 1.06 km — and is not the same field as `MaxFaithfulStepSeconds`, which flew at
    48-60 km. The pricing below stands; ~160 m of bias at 8x and the whole 1x/8x split with it, one
    argument becoming a lambda with `Mu` already to hand.

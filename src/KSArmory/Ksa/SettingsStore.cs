@@ -4,7 +4,8 @@ namespace KSArmory;
 
 /// <summary>
 /// Remembers each system's settings, in a folder of the mod's own <b>inside the save</b>:
-/// <c>saves/&lt;save&gt;/KSArmory/systems.json</c>.
+/// <c>saves/&lt;save&gt;/KSArmory/systems.json</c>, and each ballistic computer's setup beside it in
+/// <c>ballistic.json</c>, keyed the same way.
 ///
 /// <para><b>Keyed on the craft's display name, which is not unique.</b> A squadron built from one
 /// blueprint shares an Id, so those craft share one entry: they all restore the same settings and
@@ -36,6 +37,7 @@ internal static class SettingsStore
     // Named for what the panel calls them, not for the class that happens to run one today.
     // A fixed emplacement or a sensor mast is a weapons system and is not a battery.
     private const string FileName = "systems.json";
+    private const string BallisticFileName = "ballistic.json";
 
     /// <summary>Reported as the scope when no save is open.</summary>
     public const string NoSave = "(no save)";
@@ -43,6 +45,7 @@ internal static class SettingsStore
     private static readonly JsonSerializerOptions Options = new() { WriteIndented = true };
 
     private static Dictionary<string, SystemSettings> _stored = [];
+    private static Dictionary<string, BallisticSettings> _ballistic = [];
 
     // Which file _stored came from. Re-read when it changes: that is a different save's settings,
     // and holding the previous one's would write them into it.
@@ -83,6 +86,25 @@ internal static class SettingsStore
         return true;
     }
 
+    /// <summary>What was last written down for a craft's ballistic computer in the open save, or null.</summary>
+    public static BallisticSettings? BallisticFor(string craftId)
+    {
+        Load();
+        return _ballistic.TryGetValue(craftId, out BallisticSettings? s) ? s : null;
+    }
+
+    /// <returns>True if the store changed and needs saving.</returns>
+    public static bool RememberBallistic(string craftId, BallisticSettings now)
+    {
+        if (string.IsNullOrWhiteSpace(craftId)) return false;
+
+        Load();
+        if (_ballistic.TryGetValue(craftId, out BallisticSettings? was) && !now.Differs(was)) return false;
+
+        _ballistic[craftId] = now;
+        return true;
+    }
+
     /// <summary>Forgets a craft, so it starts from defaults again.</summary>
     public static void Forget(string craftId)
     {
@@ -105,6 +127,14 @@ internal static class SettingsStore
             }
 
             File.WriteAllText(path, JsonSerializer.Serialize(_stored, Options));
+
+            // Only once there is something to say, so a save with no computer gets no file.
+            string ballistic = Sibling(path, BallisticFileName);
+            if (_ballistic.Count > 0 || File.Exists(ballistic))
+            {
+                File.WriteAllText(ballistic, BallisticSettings.Write(_ballistic));
+            }
+
             _loadedFrom = path;
         }
         catch (Exception e)
@@ -121,13 +151,16 @@ internal static class SettingsStore
 
         _loadedFrom = path;
         _stored = [];
+        _ballistic = [];
 
         try
         {
             if (File.Exists(path))
             {
                 _stored = ReadOrEmpty(path);
-                Log.Info($"settings: loaded {_stored.Count} system(s) from {path}");
+                _ballistic = ReadBallistic(Sibling(path, BallisticFileName));
+                Log.Info($"settings: loaded {_stored.Count} system(s) and {_ballistic.Count} "
+                         + $"ballistic computer(s) from {path}");
                 return;
             }
 
@@ -136,12 +169,15 @@ internal static class SettingsStore
             if (InSave())
             {
                 _stored = ReadOrEmpty(LoosePath());
-                Log.Info($"settings: {path} is new; carrying {_stored.Count} system(s) in");
+                _ballistic = ReadBallistic(Sibling(LoosePath(), BallisticFileName));
+                Log.Info($"settings: {path} is new; carrying {_stored.Count} system(s) and "
+                         + $"{_ballistic.Count} ballistic computer(s) in");
             }
         }
         catch (Exception e)
         {
             _stored = [];
+            _ballistic = [];
             Log.Warn($"settings: could not read {path} ({e.Message}); starting from defaults");
         }
     }
@@ -163,6 +199,33 @@ internal static class SettingsStore
             return [];
         }
     }
+
+    private static Dictionary<string, BallisticSettings> ReadBallistic(string path)
+    {
+        try
+        {
+            if (!File.Exists(path)) return [];
+
+            List<string> faults = [];
+            if (!BallisticSettings.TryRead(File.ReadAllText(path), out Dictionary<string, BallisticSettings> read,
+                                           out string why, faults))
+            {
+                Log.Warn($"settings: {path} ignored, {why}");
+                return [];
+            }
+
+            foreach (string fault in faults) Log.Warn($"settings: {path}: {fault}");
+            return read;
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"settings: could not read {path} ({e.Message})");
+            return [];
+        }
+    }
+
+    private static string Sibling(string path, string fileName)
+        => System.IO.Path.Combine(System.IO.Path.GetDirectoryName(path) ?? "", fileName);
 
     private static bool InSave() => CurrentScope != NoSave;
 

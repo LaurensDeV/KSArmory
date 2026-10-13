@@ -4,11 +4,19 @@
 Every large term in the miss budget is the arrival angle multiplied by something. This is what a
 steeper arrival is worth, what it costs, and how the guidance is told to fly one.
 
-**Where the mod actually arrives: 32.0 degrees**, on every night flown since 2026-09-03. Not the
-seven this file was written around, which was reconstructed and never flown, and no longer the
-12.9–17.5 it was corrected to — `ArrivalPreference` shipped at 0.5 and took the flown arrival with
-it. The parametric tables below stand as arithmetic at the angle each states; **read the `cot γ`
-columns at 30 rather than at 7**, which is a factor of five between them.
+**Where the mod actually arrives: 32.0 degrees at 6,181 km** (Chaco, 24 S 62 W), on every night
+flown since 2026-09-03; **37.8–38.1 at 3,459 km**, **38.3 from `ORBIT 300`** 2,416 km downrange
+(`docs/ICBM-OUTSTANDING.md` 1.3), and **47.4** on the 2026-10-12 far coast from `ORBIT 300`
+(`~/shots/2026-10-12-night/far-both.KSArmory.log`). Not the seven this file was written around, which
+was reconstructed and never flown, and no longer the 12.9–17.5 it was corrected to —
+`ArrivalPreference` shipped at 0.5 and took the flown arrival with it.
+
+**The tables below are a deorbit, and the mod flies a launch to a fixed target.** They stand as
+arithmetic at the angle each states. For a deorbit steeper is shorter and cheaper; for the shot flown,
+steeper is *longer* — 969 s at 32 degrees against 1,861 s at 51 — and the aim's cost in velocity rises
+with the angle (`docs/ACCURACY-PLAN.md` 3cx). So the `cot γ` columns carry over, read at 30–32 rather
+than at 7, which is a factor of five; the velocity-sensitivity, propellant and downrange columns do not.
+None of the sweeps was run at 32 itself, and the 30° rows are the nearest measured.
 
 **The control that ships is `IcbmConfig.ArrivalPreference`, at 0.5** — half the steepest arrival
 `ArrivalBudget` says the stack can pay for. It won twice: 0.48x at 2,000 km and 0.69x at 6,269 km
@@ -23,12 +31,12 @@ item 5e are that wall and the one thing that might move it.
 
 **Everything below is measured** by `tests/KSArmory.Tests/ArrivalAngleTests.cs`,
 `ArrivalFloorTests.cs` — the search — and `ArrivalFloorFlightTests.cs`, which flies the whole program
-at a floor. Only the two shots under *Flown* have left the ground. `docs/ICBM-GUIDANCE.md` is the
+at a floor. Only the shots under *Flown* and *Built 2026-10-10* have left the ground. `docs/ICBM-GUIDANCE.md` is the
 guidance itself; `docs/KSA-TERRAIN.md` is where the surface numbers come from.
 
 **What the rig cannot see.** The planet sits at the origin and does not move, which is the one case
 where a frame carrier is identically zero — so nothing here can measure an epoch fault, including the
-open one in `docs/ICBM-GUIDANCE.md` about the ground a round meets. What it *can* say is that such a
+one about the ground a round meets in `docs/ACCURACY-PLAN.md`, "Moved from ICBM-GUIDANCE" (fixed since, `IcbmConfig.ResampleGroundAtImpact`). What it *can* say is that such a
 fault, if it is a height error, is multiplied by the same `cot γ` as everything else on this page,
 and that is 8.1 at seven degrees, 4.4 at 12.9, and **1.6 at the 32.0 the mod now flies**.
 
@@ -58,8 +66,8 @@ shallower at all — measured across every retrograde brake from 120 m/s to a fu
 
 So **five degrees is not reachable with a Mk 21** — that stands, and more strongly — and twelve is not
 a choice the guidance made: it is the shallowest thing the shipped round can do. It is a **floor**, not a flown figure — every shot this mod
-has flown arrives at 12.9 to 17.5 degrees, comfortably above it, because the arc it is put on is
-steeper than the cheapest deorbit rather than because entry bent it.
+has flown arrives well above it, at 32 degrees and steeper since `ArrivalPreference` shipped, because the
+arc it is put on is steeper than the cheapest deorbit rather than because entry bent it.
 
 The floor belongs to the *round*, and moves a long way with its sectional density:
 
@@ -158,6 +166,8 @@ From **400 km**, through the real drag model and the real `ImpactPredictor`:
 
 The last two columns are the whole shot in quadrature: the stated residual times the root-mean-square
 sensitivity, plus the drag-model term, plus one metre of disagreement about where the surface is.
+`WhatPrecisionArrivalAngleBuys` sweeps a fixed list of angles and 32 is not on it, so there is no
+32° row: not re-measured, and the 30° row is the nearest.
 
 300 km and 500 km give the same shape with the downrange scaled — at 300 km a 20° arrival reaches
 1,540 km and costs 2,956 m/s; at 500 km it reaches 2,472 km and costs 2,305.
@@ -169,19 +179,24 @@ leaves the bus on is 1,789 / 3,442 / 390, which sits between the 10° and 15° r
 
 ### Three separate things improve, at three different rates
 
-| term | 7.5° → 20° |
-| --- | --- |
-| **velocity sensitivity** — every metre a second at cutoff, the trim residual, the release kick, the tube cant | 5,614 → 686, a factor of **8** |
-| **surface** — the height quantum, the held terrain sample, the sea the clamp now catches, any height-shaped epoch fault | `cot γ` 7.60 → 2.75, a factor of **2.8** |
-| **the drag model** — the part no correction loop can remove, because its only observer shares the model | 1,795 m → 29 m, a factor of **62** |
+| term | 7.5° → 20° | 20° → 30°, the nearest row to the flown 32 |
+| --- | --- | --- |
+| **velocity sensitivity** — every metre a second at cutoff, the trim residual, the release kick, the tube cant | 5,614 → 686, a factor of **8** | 686 → 415, **1.7** |
+| **surface** — the height quantum, the held terrain sample, the sea the clamp now catches, any height-shaped epoch fault | `cot γ` 7.60 → 2.75, a factor of **2.8** | 2.75 → 1.73, **1.6**; 1.60 at 32 |
+| **the drag model** — the part no correction loop can remove, because its only observer shares the model | 1,795 m → 29 m, a factor of **62** | 29 m → 8 m, **3.6** |
 
 The third one is the surprise and it is the biggest. A correction loop can only remove what its
 observer can see, and the observer is `ImpactPredictor` running the round's own `Medium.Drag`. So
 whatever that model has wrong survives the loop intact. At 7.5° the drag is worth 13.4 km of range
-and a ten per cent error in it is **1.8 km on the ground** — larger than the entire flown miss. At 15°
-the drag is worth 0.3 km and the same error is 77 m. At 20° it is 29 m and stops being a term at all.
+and a ten per cent error in it is **1.8 km on the ground** — larger than the whole flown miss of
+2026-08. At 15° the drag is worth 0.3 km and the same error is 77 m. At 20° it is 29 m, and at 30° 8 m.
 
-The surface terms, from `docs/KSA-TERRAIN.md` put through `cot γ`:
+**Past 20° all three have taken most of their fall**: the second column is less than a factor of two
+on the two terms that matter, where the first is eight and sixty-two.
+
+The surface terms, from `docs/KSA-TERRAIN.md` put through `cot γ` — ground per metre of height
+`cot γ`, the quantum `0.2985 · cot γ`, the held sample `0.05 · 30 m / (tan γ + 0.05)` (one 60 fps
+frame of track on a 5% slope), the sea `3,776 m · cot γ`:
 
 | arrival | ground per m of height | the field's own 0.2985 m quantum | one held terrain sample, 5% slope | the mean sea depth, which the clamp takes out |
 | --- | --- | --- | --- | --- |
@@ -189,6 +204,7 @@ The surface terms, from `docs/KSA-TERRAIN.md` put through `cot γ`:
 | 15° | 3.73 m | 1.11 m | 4.72 m | 14.1 km |
 | 20° | 2.75 m | 0.82 m | 3.62 m | 10.4 km |
 | 30° | 1.73 m | 0.52 m | 2.39 m | 6.5 km |
+| **32°, flown** | **1.60 m** | **0.48 m** | **2.22 m** | **6.0 km** |
 | 60° | 0.58 m | 0.17 m | 0.84 m | 2.2 km |
 
 ### And there is a fourth thing, which is not a multiplier but a degeneracy — flown 2026-08-25
@@ -268,6 +284,9 @@ cutoff:
 | 9.00 | 65.75° | 8,546 | 6,464 km | 15.75 | 931 | 36 |
 | 12.00 | 66.10° | 8,897 | 8,663 km | 17.64 | 1,027 | **−275** |
 
+The shipped `ArrivalPreference` 0.5 flies this range at 37.8–38.1°, between the 1.80 and 2.50 rows,
+from a pad rather than this 200 km cutoff.
+
 **Range sets a floor under the sensitivity that no amount of steepening reaches.** A shot that has to
 cover 3,459 km has a long lever whatever angle it comes in at, so the curve bottoms out near 930 and
 then *rises* — past loft 9 the arc is long enough that flight time gives the gain back. Inside the
@@ -277,7 +296,8 @@ panel's own 0.6–1.8 range, going from 7° to 27° costs 3.2 km/s and buys a fa
 first kilometre a second buys thousands of metres per metre a second; the next buys hundreds; past 20°
 it buys tens. Nothing about the guidance gets worse as the shot steepens — the cutoff residual is one
 frame of thrust and does not care how long the burn was — so there is no accuracy penalty to weigh.
-What steepening costs is reach and propellant, and that is the whole trade.
+What steepening costs is reach and propellant, and that is the whole trade — for a deorbit. On the
+launch the mod flies it also costs flight time, and the release term grows with it (`docs/ACCURACY-PLAN.md` 3cx).
 
 ---
 
@@ -293,6 +313,8 @@ What steepening costs is reach and propellant, and that is the whole trade.
 | 4,200 | 1,148 km | 32.62° | 3,684 m/s | 1,986 m/s | 6.79 MJ/kg |
 | 6,400 | 380 km | 62.23° | 2,677 m/s | 2,368 m/s | 3.58 MJ/kg |
 | 7,673 | 0 km | 88.73° | 2,414 m/s | 2,414 m/s | 2.91 MJ/kg |
+
+The 32.62° row is the nearest to the flown 32; the sweep is by brake, so there is no row at 32 itself.
 
 **Total impact speed peaks at 16°** and falls away either side: shallower and drag has eaten it,
 steeper and the brake has. A vertical drop arrives with **a third of the energy** of the fastest
@@ -482,51 +504,69 @@ arc arrives at 17 deg"*.
   arc under the bound, which hands the cycle back to the constrained search and re-commits to an
   arrival that satisfies it. **Gated on the bound being set**, so nothing on the default path can
   reach it; `ArrivalFloorFlightTests.AHeldArrivalIsHeldWhateverItArrivesAtWhenNoFloorIsSet` is where
-  that is decided rather than in a downstream miss. Unflown.
+  that is decided rather than in a downstream miss. Flown under a floor only in *Built 2026-10-10* below.
 - **It does not know about propellant.** A floor that turns a 150 m/s deorbit into a 3.5 km/s one is
   accepted by the search and then reported as `ShortOfPropellant` by `AssessReach`, which is the
   right division of labour and still two readouts to look at rather than one.
-- **The coast half of it does not work.** The search flies the constrained arc and the shot cuts off
-  on it; what follows is *Flown* at the bottom of this page.
+- **The coast half of it did not work when first flown.** The search flies the constrained arc and the
+  shot cuts off on it; what follows is *Flown* at the bottom of this page, and *Built 2026-10-10* is
+  the later flight that lands a 15° floor in centimetres.
 
 ---
 
 ## Recommendation
 
-**Fly a 15–20 degree arrival, deorbited by braking hard onto a target 2,000–2,700 km ahead.** Set
-`MinArrivalAngleDeg` to 15 or 20 and leave `Loft` at one: the floor asks for the angle directly,
-where loft asks for a flight time and lets the angle fall out of it.
+**Keep `ArrivalPreference` at 0.5 and leave `MinArrivalAngleDeg` and `Loft` alone.** From 32 degrees a
+steeper arrival is worth almost nothing that can be measured, and the two steeper settings flown have
+not paid:
 
-| | at the flown 7.1° | at 15° | at 20° |
-| --- | --- | --- | --- |
-| velocity sensitivity, rms | 5,614 | 1,072 | 686 |
-| a 10% error in the drag model | 1,795 m | 77 m | 29 m |
-| one metre of surface disagreement | 8.1 m | 3.7 m | 2.8 m |
-| whole shot at the trimmed 0.017 m/s residual | **1,797 m** | **79 m** | **31 m** |
-| whole shot at a 0.5 m/s residual | 3,332 m | 542 m | 344 m |
-| downrange from a 400 km platform | 6,379 km | 2,736 km | 2,015 km |
-| brake | 473 m/s | 1,774 m/s | 2,576 m/s |
-| fraction of the stack that arrives | 85.8% | 56.4% | 43.6% |
-| impact speed | 3,330 m/s | **4,407 m/s** | 4,321 m/s |
+- **The miss is millimetres already.** Worst warhead per rocket, median over rockets, is 1.4–6.9 mm
+  from 25 km to 12,900 km (`docs/ICBM-OUTSTANDING.md`, "Where it stands"). The terms this page
+  multiplies were cut at their source — the trim's settle band, the ground re-read, the spin, the
+  kick — not divided down by the angle.
+- **What is left of the lever is `cot γ` on the fall alone**, 1.60 at 32° against 1.19 at 40° and 0.73
+  at 54°. The release term grows with the angle on a launch to a fixed target, which is why 60° priced
+  worse than 32 when the miss was metres (`docs/ACCURACY-PLAN.md` 3cx).
+- **Flown steeper, it did not win.** `ArrivalPreference` 0.65, arriving 41.7°, had no demonstrable
+  effect on any endpoint over 46 paired shots (3ck); 0.8, arriving 53.6°, lost 5.55x.
 
-Fifteen to twenty degrees is where four separate things are simultaneously true, which is why it is
-the answer rather than "steeper is better":
+| | at 7.5° | at 15° | at 20° | at 30°, the nearest row to the flown 32 |
+| --- | --- | --- | --- | --- |
+| velocity sensitivity, rms | 5,614 | 1,072 | 686 | 415 |
+| a 10% error in the drag model | 1,795 m | 77 m | 29 m | 8 m |
+| one metre of surface disagreement | 7.6 m | 3.7 m | 2.8 m | 1.7 m; 1.6 at 32 |
+| whole shot at the trimmed 0.017 m/s residual | **1,797 m** | **79 m** | **31 m** | **11 m** |
+| whole shot at a 0.5 m/s residual | 3,332 m | 542 m | 344 m | 208 m |
+| downrange from a 400 km platform | 6,379 km | 2,736 km | 2,015 km | 1,272 km |
+| brake | 473 m/s | 1,774 m/s | 2,576 m/s | 3,911 m/s |
+| fraction of the stack that arrives | 85.8% | 56.4% | 43.6% | 28.3% |
+| impact speed | 3,330 m/s | **4,407 m/s** | 4,321 m/s | 3,821 m/s |
 
-- **The drag model stops mattering** — 62x down, from a term larger than the whole flown miss to one
-  smaller than the height field's own quantisation.
+These are the deorbit's rows, and only the first four carry over to the shot flown. The whole-shot
+rows are not a prediction of the flown miss, which is three orders of magnitude under 11 m: they are
+the rig's residual and model terms in quadrature, and both have since been measured far smaller in
+flight.
+
+**From orbit with `ArrivalPreference` 0, the one case a floor binds, 15–20 degrees is still the knee
+of a deorbit.** It is where four things hold at once:
+
+- **The drag model stops mattering** — 62x down by 20°, from a term larger than the 2026-08 flown miss
+  to one smaller than the height field's own quantisation.
 - **Impact speed is at its maximum.** 4,410 m/s at 16.4°, against 3,330 at seven degrees and 2,414
   straight down. The steep end of the table is the *slow* end.
-- **The sensitivity has taken most of the fall it is going to take.** 8x by 20°; another 2.8x costs
-  4 km/s more and the whole of the reach.
+- **The sensitivity has taken most of the fall it is going to take.** 8x by 20°; the next 1.7x, to
+  30°, costs 1.3 km/s more and over a third of the reach.
 - **The downrange is still a weapon.** 2,000–2,700 km from one pass, against 418 km at 60°.
 
-**What the miss would be** is not measurable here, because the flown 0.45–0.59 km is made of terms
-this rig does not all carry — `docs/MIRV-NEXT.md` item 9 has them. What can be said is how each
-scales: every velocity-side term (the trim residual, the release kick, the tube cant, the frozen
-gravity) falls with the sensitivity, so by **8x**; every surface-side term falls with `cot γ`, so by
-**2.8x**; and the aim correction's own frozen residue — the largest single term at 760 m — is the
-loop taking out a drag loss that is 13.4 km at 7.5° and 0.3 km at 15°, so it should very nearly
-vanish. A few hundred metres becoming a few tens is the shape to expect, and it has to be flown.
+Set `MinArrivalAngleDeg` to 15 or 20 there rather than `Loft`: the floor asks for the angle directly,
+where loft asks for a flight time and lets the angle fall out of it. On a pad shot, or from `ORBIT 300`
+on the shipped preference, the arrival is already steeper and a 15–20° floor does not bind
+(`docs/ICBM-OUTSTANDING.md` 1.3).
+
+**Written in 2026-08, this section predicted** that a flown miss of 0.45–0.59 km, at seven degrees,
+would become a few tens of metres at fifteen. The flown miss went to millimetres at 32°, but through
+many fixes as well as the angle (`docs/ACCURACY-PLAN.md`), so that is not a test of the
+prediction.
 
 **Steeper than 20° only if the rod is normal-component limited.** 45° gives 2,204 m/s square to the
 ground against 1,410 at 20°, for 2.7 km/s and two thirds of the reach. That is a penetration
@@ -541,17 +581,18 @@ velocity it throws away to get there.
 
 ## What is not settled
 
-- **Only the floor has been flown, twice.** Everything else here is measured through the real
+- **Only the floor and the preference have been flown** (*Flown* and *Built 2026-10-10* below, and
+  `docs/ICBM-OUTSTANDING.md` 1.3). Everything else here is measured through the real
   solver, the real drag model and the real `ImpactPredictor`, on a planet that sits at the origin —
   which is exactly the case a frame carrier cannot show up in.
 - **The drag model itself is exponential and unvalidated.** The 10% column prices an error in it; it
   does not say the model has one. What it does say is that at seven degrees the question matters and
-  at fifteen it does not — and the mod already flies 12.9 to 17.5, so it is nearer the end where the
-  question does not matter than this file was written assuming.
+  at fifteen it does not — and the mod already flies 32 degrees and steeper, so it is at the end where
+  the question does not matter.
 - **The sea clamp is what the last column of that table used to cost.** All three surfaces now go
   through `GroundSurface.Height`, so it is taken out rather than steepened away. What is left is the
   wave displacement KSA's own physics uses and the mod does not — metres, which is tens of metres of
-  ground at seven degrees and about half that at the angle the mod flies.
+  ground at seven degrees and a fifth of that at the 32 the mod flies.
 - **The floor is the Mk 21's.** A dedicated rod would want its own `MunitionProfile`, and a denser one
   moves the floor the wrong way — see the table at the top.
 - **What a constrained arc does to the aim-correction loop is the thing a flight had to show**, and
@@ -560,6 +601,8 @@ velocity it throws away to get there.
 
 
 ## Flown: the floor works and the coast correction will not fly it
+
+Superseded by *Built 2026-10-10* below, where floored shots land in centimetres.
 
 Two shots at `MinArrivalAngleDeg = 15`, against the same pick-up every other measurement here uses.
 
@@ -672,3 +715,58 @@ is there so the next attempt starts from a rig that can see it.
 surviving the latch — gated on the bound, unreachable by default. Anything touching the correction
 wants flights, and `docs/MIRV-NEXT.md` item 7d says six of them settle a change worth a kilometre and
 settle nothing worth two hundred metres.
+
+### Built 2026-10-10, and off: the burn sits out under a floor
+
+**The search does not walk, it hops.** Traced cycle by cycle from orbit at 3,459 km, a floored search
+alternates between an arc on the bound, with a drag shortfall of 10–35 km, and one a few degrees
+steeper losing under one; each hop moves the cutoff by 15–20 s. And **the preference is a floor too**,
+so the shipped `ArrivalPreference` 0.5 has the same fault on this geometry: 2.26 km over rough ground
+against 0.07 uncorrected.
+
+**Waiting for the search to settle does not fix it.** A gate that took no reading until the cutoff had
+stood still for 2 s opened on a quiet stretch of the first kind of arc, banked its shortfall, and the
+search then hopped: 12.5 km at 15°, and 15.2 km at preference 0.5 against 2.26 shipped.
+`docs/ICBM-OUTSTANDING.md` 1.8 records the same result from a flight.
+
+**And the latch is load-bearing.** Holding the readings leaves the aim never steady, so the arrival
+stays free for the whole of `IcbmProgram.LatchArrivalWithinSeconds`; at 2,000 km and preference 0.5
+the search walked onto a 15,183 s arc in that time and the shot missed by 5,003 km.
+
+**`IcbmConfig.AimWaitsForCutoffUnderAFloor`** takes no aim reading while the engines burn whenever a
+floor is asked or preferred, and latches the arrival without waiting for one; the passes after cutoff
+still correct. It is the "correction off" row above where there is a floor and the shipped one where
+there is none (`ArrivalFloorFlightTests.UnderAFloorSittingOutTheBurnLandsWhereTheArcGoes` and
+`WithNoFloorSittingOutTheBurnChangesNothing`). Over rough ground, from orbit, to the cutoff state:
+
+| | shipped | switch on |
+| --- | --- | --- |
+| 3,459 km, floor 15° | 8.53 km | 0.018 km |
+| 3,459 km, floor 20° | 20.33 km | 0.084 km |
+| 3,459 km, preference 0.5 | 2.26 km | 0.074 km |
+| 5,000 km, floor 20° | 7.33 km | 1.50 km |
+| 7,645 km, floor 15° | 1.16 km | 1.40 km |
+| 2,000 km, preference 0.5 | 0.10 km | 0.10 km |
+
+In the rig the latch alone carries it, because the aim freezes once the arrival commits. From the pad
+the correction reads during the pitch programme, before any latch, which is what the reading gate is
+for. **It changes every shipped shot, pad or orbit**, because 0.5 is a floor; what a flight has to
+show is that the post-boost passes remove what the burn no longer does.
+
+**Flown 2026-10-10, and the rig's kilometres are not the flown stack's.** `~/shots/2026-10-10-floor/`, `d866e85c`.
+
+| | arm | bias at cutoff | trim spent | worst warhead |
+| --- | --- | --- | --- | --- |
+| `ORBIT 300`, preference 0.5 | shipped, 2 shots | 653, 522 m | 7.71, 7.87 m/s | 3.2, 3.4 mm |
+| | switch on, 2 shots | 0, 0 | 7.32, 9.44 m/s | 8.6, 4.3 mm |
+| `ORBIT 300`, floor 15°, preference 0 | shipped, 2 shots | 0, 984 m | 19.11, 12.87 m/s | 0.157, 0.063 m |
+| | switch on, 2 shots | 0, 0 | 19.46, 19.45 m/s | 0.155, 0.175 m |
+| `SOLVER SCALE 8` pad, Chaco, preference 0.5 | 2 worlds paired, 8 a side | -- | -- | landing 2.57 against 2.38 mm, 0.95x unresolved |
+
+Every one of the 24 rockets arrived, and no KSA log carries an exception. At a 15° floor the shipped burn took at most
+one reading, so there was nothing for the switch to remove, and the floored shot lands in centimetres rather than
+the 2.28-2.68 km above -- for 13-19 m/s of trim against 7-9, the post-cutoff loop walking 2.6-2.7 km of bias. Why
+the burn reads so little is not established. The likeliest reason is that `ORBIT 300` deorbits on a solid that
+cannot stop, which pins the arrival on every solve and freezes the aim with it, where the rig's bus is a liquid
+stage whose arrival stays free. **The switch stays off**: on this stack it is neutral at best, and what it was
+built for wants a pick-up with a liquid deorbit stage, which no save has.

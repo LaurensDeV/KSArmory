@@ -15,7 +15,7 @@ namespace KSArmory.Tests;
 /// shallow arrival a kilometre of height is eight to eleven kilometres of ground.</para>
 ///
 /// <para>These are pricing tests rather than regression guards: they take both surfaces as
-/// arguments, so they hold whether or not the wiring in <c>Ksa/IcbmComputer.cs</c> ever asks
+/// arguments, so they hold whether or not the wiring in <c>Ksa/Icbm/IcbmComputer.cs</c> ever asks
 /// <see cref="GroundSurface"/> the same question. <c>docs/KSA-TERRAIN.md</c> has the measurement
 /// they are calibrated against — 71.2% of Earth's shipped height cubemap is below its waterline, at
 /// a mean depth of 3,776 m.</para>

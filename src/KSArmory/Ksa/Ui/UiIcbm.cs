@@ -285,6 +285,31 @@ internal sealed partial class Ui
                 + "velocity that burn left ungained.");
         }
 
+        if (computer.StagesAfterTheRelease is > 0 and int after && !computer.Program.IsBurning
+            && computer.Program.Phase != IcbmPhase.Coast)
+        {
+            ImGui.TextColored(Bad, $"The bus's release is staged before {after} more stage{(after == 1 ? "" : "s")}"
+                                       + (computer.Config.MovesAnEarlyRelease
+                                              ? ": it will be moved to the end when the burn reaches it"
+                                              : ": the burn will stop there and the shot fall short"));
+            Tip("The staging list fires the decoupler holding the bus before the stages after it, which would let the "
+                + "warheads go with the burn unfinished. Drag it to the end of the staging list to fix it before launch.");
+        }
+
+        IcbmProgram program = computer.Program;
+        if (program.Phase is IcbmPhase.Idle or IcbmPhase.NoSolution or IcbmPhase.Holding
+            && double.IsFinite(program.NeedMetresPerSecond) && double.IsFinite(program.HaveMetresPerSecond))
+        {
+            ImGui.TextDisabled($"Delta-v: needs {program.NeedMetresPerSecond:F0} m/s, has {program.HaveMetresPerSecond:F0} m/s"
+                               + (program.HaveIsTheWholeStack ? "" : " (one stage's reckoning)"));
+            Tip(program.HaveIsTheWholeStack
+                    ? "Needs: what the solved shot asks of the stack from here. Has: the engine's own figure for the "
+                      + "whole stack, across the stages it has not yet flown."
+                    : "Needs: what the solved shot asks of the stack from here. Has: the running stage's exhaust velocity "
+                      + "over all the propellant, because the engine reports the whole stack only for the craft being "
+                      + "flown. That reads a staged rocket low, so a shortfall here may not be one.");
+        }
+
         // Its own line because it is the one unreachable a setting on this panel can fix, and
         // reading it as "no trajectory" sends the operator after a different target instead.
         if (command.Reach == IcbmReach.TooShallow)
@@ -493,6 +518,11 @@ internal sealed partial class Ui
         {
             ImGui.TextDisabled($"{what}: it is still on the ground");
         }
+        else if (computer.Program.Phase == IcbmPhase.Holding)
+        {
+            // Released now a holding bus stays in orbit, which is true and says nothing about the plan.
+            ImGui.TextDisabled($"{what}: after the burn in {IcbmProgram.Clock(computer.Command.SecondsToBurn)}");
+        }
         else
         {
             ImGui.TextColored(Bad, $"{what}: it never comes down");
@@ -534,6 +564,14 @@ internal sealed partial class Ui
         Tip("On: one at a time from the coast, once past the release altitude. Off: nothing leaves the "
             + "bus until Release one warhead is pressed.");
         if (!config.AutoRelease) ImGui.TextDisabled("  nothing leaves the bus until the button above is pressed");
+
+        if (computer.Munition is { } warhead)
+        {
+            ImGui.TextDisabled(warhead.BurstHeightMetres > 0f
+                                   ? $"Warheads burst {warhead.BurstHeightMetres:F0} m over the ground"
+                                   : "Warheads burst on the ground");
+            Tip("Set by the burst height on the Tuning tab, which every warhead of this kind shares.");
+        }
 
         bool autoStage = config.AutoStage;
         if (ImGui.Checkbox("Stage automatically", ref autoStage)) config.AutoStage = autoStage;
@@ -610,13 +648,14 @@ internal sealed partial class Ui
             + "it is off: the arrival is whatever the cheapest arc gives, or the minimum above.");
 
         // Closed, the only fold on the tab, and a developer's alone. What is above it is what a
-        // player decides; what is under it has a right answer the shipped defaults already hold, and
-        // stays reachable so a shot night can still fly it as an arm.
+        // player decides; what is under it has a right answer the shipped defaults already hold. The
+        // research switches are not here at all: a shot spec sets them by name.
         if (!Build.Developer) return;
 
         bool engineering = ImGui.CollapsingHeader("Engineering");
-        Tip("Sequencing, the ascent, and the switches paired shot nights fly as arms. The defaults are "
-            + "what ships; changing one here changes the shot, and nothing else on this tab will say so.");
+        Tip("The shot, the release and the ascent. The defaults are what ships; changing one here changes "
+            + "the shot, and nothing else on this tab will say so. The research switches paired shot nights fly "
+            + "as arms are set from the shot spec, not here.");
         if (!engineering) return;
 
         ImGui.SeparatorText("Shot");
@@ -669,20 +708,28 @@ internal sealed partial class Ui
         }
         Tip("The warheads are held until this long before arrival, so the ejection kick has less "
             + "flight to grow in. At 0 they go as soon as the altitude allows, which is early on the "
-            + "way up.");
+            + "way up. A walk between several targets ends its last release here.");
+
+        bool ownGate = config.SingleTargetReleaseBeforeArrivalSeconds >= 0.0;
+        if (ImGui.Checkbox("One target releases on its own gate", ref ownGate))
+        {
+            config.SingleTargetReleaseBeforeArrivalSeconds = ownGate ? 350.0 : -1.0;
+        }
+        if (ownGate)
+        {
+            float single = (float)config.SingleTargetReleaseBeforeArrivalSeconds;
+            if (ImGui.SliderFloat("One target at", ref single, 0f, 900f, "%.0f s before arrival"))
+            {
+                config.SingleTargetReleaseBeforeArrivalSeconds = single;
+            }
+        }
+        Tip("On: a shot at one target lets its warheads go at this gate instead. A walk keeps the gate above, "
+            + "since a later one shortens every stop's fall and prices its hops past what one pass flies.");
 
         bool trim = config.TrimBeforeRelease;
         if (ImGui.Checkbox("Trim the bus before releasing", ref trim)) config.TrimBeforeRelease = trim;
         Tip("On: thrusters put it back on the solution after the split, which the burn cannot. Off: the "
             + "warheads leave on whatever the cutoff and the decoupler left the bus doing.");
-
-        bool repoint = config.RepointBetweenReleases;
-        if (ImGui.Checkbox("Aim each tube before it fires", ref repoint))
-        {
-            config.RepointBetweenReleases = repoint;
-        }
-        Tip("On: turns between releases so every round leaves on the same line. Off: all rounds leave on "
-            + "the attitude the burn ended on, and spread by the tube cant.");
 
         float budget = (float)config.TrimBudgetMetresPerSecond;
         if (ImGui.SliderFloat("Trim budget", ref budget, 0f,
@@ -695,24 +742,6 @@ internal sealed partial class Ui
             + "warheads go on the aim as the burn left it. The bus reserves "
             + $"{PostBoostAim.MaxTrimMetresPerSecond:F0} m/s anyway, so a budget under that is the one "
             + "that binds.");
-
-        bool fromBudget = config.TrimCeilingFromBudget;
-        if (ImGui.Checkbox("First pass may spend the budget", ref fromBudget))
-        {
-            config.TrimCeilingFromBudget = fromBudget;
-        }
-        Tip("On: the pass that nulls the separation may spend what the budget has left. Off: that pass "
-            + $"is capped at {BusTrim.MaxMetresPerSecond:F0} m/s, and a bus that owes more releases "
-            + "untrimmed.");
-
-        bool affordable = config.AimWithinTrimBudget;
-        if (ImGui.Checkbox("Aim only where the trim can reach", ref affordable))
-        {
-            config.AimWithinTrimBudget = affordable;
-        }
-        Tip("On: the correction stops at the aim the remaining budget can fly it to. Off: the "
-            + $"correction may walk {AimCorrection.MaxMetres / 1000.0:F0} km, which one budget cannot "
-            + "fly at any range.");
 
         bool keepOut = config.KeepOutCoversTheClearance;
         if (ImGui.Checkbox("Keep trimming past the clearance", ref keepOut))
@@ -783,502 +812,6 @@ internal sealed partial class Ui
         {
             config.DeployAltitudeMetres = deploy;
         }
-
-        ImGui.SeparatorText("Coast");
-
-        bool quiet = config.QuietCoast;
-        if (ImGui.Checkbox("Let go of the attitude while coasting", ref quiet))
-        {
-            config.QuietCoast = quiet;
-        }
-        Tip($"On: stops pointing inside {config.QuietCoastDeg:F1} deg and points again past "
-            + $"{config.ReacquireCoastDeg:F1} deg. A commanded thruster is what takes the bus off "
-            + "rails, and off rails it is integrated rather than coasted. Off: the bus is pointed "
-            + "every frame of the coast, which keeps it off rails throughout.");
-
-        if (config.QuietCoast)
-        {
-            bool afterCorrection = config.QuietCoastAfterCorrection;
-            if (ImGui.Checkbox("  Wait for the correction to finish", ref afterCorrection))
-            {
-                config.QuietCoastAfterCorrection = afterCorrection;
-            }
-            Tip("On: the correction runs the whole coast, so this leaves almost no window -- measured in "
-                + "flight at 417 of 429 coast probes still holding. Off: quiet between trim passes; the "
-                + "trim itself always takes the attitude back.");
-
-            float go = (float)config.QuietCoastDeg;
-            if (ImGui.SliderFloat("  Let go inside (deg)", ref go, 0.05f, 5.0f, "%.2f"))
-            {
-                config.QuietCoastDeg = go;
-            }
-
-            float back = (float)config.ReacquireCoastDeg;
-            if (ImGui.SliderFloat("  Take it back past (deg)", ref back, 0.1f, 20.0f, "%.1f"))
-            {
-                config.ReacquireCoastDeg = back;
-            }
-
-            float ends = (float)config.QuietCoastEndsBeforeReleaseSeconds;
-            if (ImGui.SliderFloat("  Re-point before release (s)", ref ends, 0.0f, 240.0f, "%.0f"))
-            {
-                config.QuietCoastEndsBeforeReleaseSeconds = ends;
-            }
-            Tip($"Back under command {config.QuietCoastEndsBeforeReleaseSeconds:F0} s before the release "
-                + "approach: the release waits for the bus to be steady, and steady is not pointed.");
-
-            bool rails = config.RailsDuringCoast;
-            if (ImGui.Checkbox("  Assert rails while quiet", ref rails))
-            {
-                config.RailsDuringCoast = rails;
-            }
-            Tip("On: the coast is propagated as an exact conic rather than integrated -- the half going "
-                + "quiet alone cannot do, because a Ccf bubble never puts a coasting craft back on rails. "
-                + "Off: quiet only; in a Ccf bubble the engine will not return it to rails on its own.");
-        }
-
-        ImGui.SeparatorText("Research switches");
-
-        bool tracks = config.AimThresholdTracksTheMiss;
-        if (ImGui.Checkbox("Aim threshold follows the miss", ref tracks))
-        {
-            config.AimThresholdTracksTheMiss = tracks;
-        }
-        Tip($"On: a cycle counts if it closes max({AimCorrection.ImprovedByFloorMetres:F0} m, "
-            + $"{AimCorrection.ImprovedByFraction:P0} of the best), so the loop can still see itself "
-            + "improving at ten metres. Off: a cycle counts only if it closes "
-            + $"{AimCorrection.ImprovedByMetres:F0} m, which no cycle can at a ten-metre miss.");
-
-        bool carry = config.CarryAimBiasAcrossHops;
-        if (ImGui.Checkbox("Carry the aim bias across a hop", ref carry))
-        {
-            config.CarryAimBiasAcrossHops = carry;
-        }
-        Tip("On: a bus walking between targets starts each stop's aim correction from the bias the "
-            + "last stop walked to. Off: each stop starts from no bias and corrects it again from "
-            + "scratch. A set of one target never hops, so it is the same either way.");
-
-        bool inFlight = config.TrimCountsTheCommandInFlight;
-        if (ImGui.Checkbox("Trim counts the command in flight", ref inFlight))
-        {
-            config.TrimCountsTheCommandInFlight = inFlight;
-        }
-        Tip("On: the trim allows for the frame of thrust its last command has still to deliver, "
-            + "which stops it overshooting back and forth at long frame steps. Off: it chooses on the "
-            + "velocity alone, and under timewarp chases its own overshoot between opposite jets.");
-
-        bool fromCutoff = config.WalkStartsAtCutoff;
-        if (ImGui.Checkbox("Start a walk at cutoff", ref fromCutoff))
-        {
-            config.WalkStartsAtCutoff = fromCutoff;
-        }
-        Tip("On: a bus with several targets lets the first go as soon as the coast begins, where its "
-            + "fuel moves a landing furthest, so its targets can be spread wider. Off: the walk ends on "
-            + "the release gate, where each warhead lands most precisely. One target is the same either way.");
-
-        bool onReading = config.DecideOnTheReading;
-        if (ImGui.Checkbox("Decide each pass on its reading", ref onReading))
-        {
-            config.DecideOnTheReading = onReading;
-        }
-        Tip("On: a pass is decided on the reading that follows the flown correction. Off: the frame "
-            + "the trim settles on spends the flight before its reading arrives, so each later reading "
-            + $"waits {PostBoostAim.FlownWithinSeconds:F0} s and the warheads leave on one that old.");
-
-        bool inside = config.ReleaseInsideTheTrimFloor;
-        if (ImGui.Checkbox("Release inside the trim's floor", ref inside))
-        {
-            config.ReleaseInsideTheTrimFloor = inside;
-        }
-        Tip("On: a reading inside what the trim can resolve -- its settle band carried to the ground -- "
-            + "is released on, and a pass still closing at the metre scale keeps going. Off: the loop "
-            + "trims on readings the trim cannot improve, and stops three passes after the last 250 m "
-            + "improvement whatever they read.");
-
-        bool pulsing = config.PulseTrim;
-        if (ImGui.Checkbox("Finish the trim in pulses", ref pulsing))
-        {
-            config.PulseTrim = pulsing;
-        }
-        Tip($"On: inside its settle band the trim taps the jets for {config.PulseSeconds * 1000.0:F0} ms "
-            + "at a time -- the engine's own pulse mode -- instead of firing them for whole frames, "
-            + "which is what sets the floor under the correction. Off: a held frame is the smallest "
-            + "correction it can make.");
-
-        float pulseMs = (float)(config.PulseSeconds * 1000.0);
-        if (ImGui.SliderFloat("Pulse length (ms)", ref pulseMs, 1.0f, 50.0f))
-        {
-            config.PulseSeconds = Math.Max(0.001, pulseMs / 1000.0);
-        }
-        Tip("How long one tap lasts. The engine floors a thruster's own minimum at a millisecond, "
-            + "which is what the shipped bus declares; a bus with coarser jets wants its own number, "
-            + "and one set too short stalls the phase rather than misfiring it.");
-
-        float freezeMs = (float)(config.HoldDirectionSeconds * 1000.0);
-        if (ImGui.SliderFloat("Hold the thrust line for (ms, 0 = frames)", ref freezeMs, 0.0f, 800.0f))
-        {
-            config.HoldDirectionSeconds = freezeMs < 1.0f ? 0.0 : freezeMs / 1000.0;
-        }
-        Tip(config.HoldDirectionSeconds > 0.0
-                ? $"The last {config.HoldDirectionSeconds * 1000.0:F0} ms of burning are flown on the "
-                  + "direction the guidance last meant, whatever the frame rate is."
-                : $"0: the line is frozen for {IcbmProgram.HoldDirectionFrames:F0} frames instead, which "
-                  + "is 0.22 s at 63 fps and 0.29 s at 47 -- so a slower machine holds it longer and "
-                  + "leaves more square to it. Off the orbit plane that is 59-93% of what the cutoff "
-                  + "leaves, and it grows 5.9x over a 4x step against 4.1x in plane. Unflown.");
-
-        float reserve = (float)config.AscentReserveSeconds;
-        if (ImGui.SliderFloat("Ascent keeps for the closed loop (s, 0 = off)", ref reserve, 0.0f, 30.0f))
-        {
-            config.AscentReserveSeconds = reserve < 0.5f ? 0.0 : reserve;
-        }
-        Tip(config.AscentReserveSeconds > 0.0
-                ? $"The pitch programme throttles back once less than {config.AscentReserveSeconds:F0} s "
-                  + "of burning is left, so a short shot reaches thin air with something still to gain "
-                  + "rather than kilometres a second too much."
-                : "0: 15 s while flying any range is on, which supplies it; wide open only with that off, where a "
-                  + "short shot overshoots and spends the upper stage braking -- flown at 418 km, it ran dry.");
-
-        bool separateEarly = config.SeparateAtCutoff;
-        if (ImGui.Checkbox("Drop the spent stack at cutoff", ref separateEarly))
-        {
-            config.SeparateAtCutoff = separateEarly;
-        }
-        Tip("On: the empty stack comes off when the burn ends, so the bus does not spend its own "
-            + "thrusters holding it through the coast. Off: it comes off when the release gate opens. "
-            + "The trim waits for the gate either way. A short shot always drops it at cutoff. Unflown.");
-
-        bool anyRange = config.FlyAnyRange;
-        if (ImGui.Checkbox("Fly any range on any stack", ref anyRange))
-        {
-            config.FlyAnyRange = anyRange;
-        }
-        Tip("On: a solid stage's remaining delta-v is absorbed by lofting the arc, an engine that cannot "
-            + "throttle low enough is lofted against its floor, the closed loop takes over at the top of a "
-            + "climb that stays in the air, and a stage that can stop waits for the vehicle to turn before "
-            + "burning. A long shot is flown exactly as with it off.");
-
-        float slowLine = (float)config.ShortShotSlowsLineSeconds;
-        if (ImGui.SliderFloat("Short shot slows its line within (s, 0 = off)", ref slowLine, 0.0f, 2.0f))
-        {
-            config.ShortShotSlowsLineSeconds = slowLine < 0.05f ? 0.0 : slowLine;
-        }
-        Tip(config.ShortShotSlowsLineSeconds > 0.0
-                ? $"Once less than {config.ShortShotSlowsLineSeconds:F2} s of the thrust being made is left to gain, "
-                  + $"the thrust line turns at most {IcbmProgram.SlowLineDegPerSec:F0} deg/s and the burn runs on the part "
-                  + "along it, so a stack at its throttle floor cannot chase what is left into a spin."
-                : "0: the line follows what is left to gain to the end. On a short shot at the throttle floor that "
-                  + "chases: flown, every core that ran dry separated spinning, and twice the spent core knocked the "
-                  + "upper's engine off.");
-
-        bool inTheAir = config.ShortShotFinishesInTheAir;
-        if (ImGui.Checkbox("Short shot finishes in the air", ref inTheAir))
-        {
-            config.ShortShotFinishesInTheAir = inTheAir;
-        }
-        Tip("On: a short shot whose burn ends in thick air cuts off and releases there, instead of pausing to "
-            + "coast out of the air and lighting again -- the relight is where the stack starts spinning again. "
-            + "Pair it with solving the arc with drag, or it falls short by the drag.");
-
-        bool withDrag = config.ShortShotSolvesWithDrag;
-        if (ImGui.Checkbox("Short shot solves its arc with drag", ref withDrag))
-        {
-            config.ShortShotSolvesWithDrag = withDrag;
-        }
-        Tip($"On: in the last {IcbmProgram.DragSolveWithinSeconds:F0} s of a short shot's burn, each arc is flown with "
-            + "the warhead's drag and the aim moved until it lands on the target, so a cutoff in the air does not "
-            + "fall short by the drag.");
-
-        bool resample = config.ResampleGroundAtImpact;
-        if (ImGui.Checkbox("Warheads re-read the ground as they meet it", ref resample))
-        {
-            config.ResampleGroundAtImpact = resample;
-        }
-        Tip($"On: within {Slug.GroundResampleBandMetres:F0} m of the ground every sub-step asks where "
-            + "it is. Off: a warhead stops on the ground it had under it at the top of the frame, which "
-            + "on a slope is tens of metres from where it meets it.");
-
-        bool secondOrder = config.SecondOrderWarheads;
-        if (ImGui.Checkbox("Warheads integrate their fall to second order", ref secondOrder))
-        {
-            config.SecondOrderWarheads = secondOrder;
-        }
-        Tip("On: each sub-step reads gravity half-way through it and moves on the mean of its two "
-            + "velocities. Off: it reads gravity where the step begins and moves on the velocity it "
-            + "ends with, which carries an extra half-step of gravity for the whole fall -- about 2 m "
-            + "short over six minutes.");
-
-        bool midDrag = config.DragAtMidpointVelocity;
-        if (ImGui.Checkbox("Warheads take their drag at the sub-step's midpoint", ref midDrag))
-        {
-            config.DragAtMidpointVelocity = midDrag;
-        }
-        Tip("On: the speed the drag is taken at is read half a sub-step on, where the air and the pull "
-            + "already are. Off: it is the speed the sub-step begins with, and since drag goes as its "
-            + "square and a re-entering warhead sheds about 450 m/s2, that speed is always the larger "
-            + "and the drag always too big -- one-signed, every sub-step, for the whole fall. Headless "
-            + "it takes the round's disagreement with its own prediction from 4.669 mm to 0.001, and "
-            + "flown it moved the landing +4.70 mm against 4.67 predicted.");
-
-        bool onTerrain = config.StopWarheadsOnTheTerrain;
-        if (ImGui.Checkbox("Warheads stop on the terrain, not a chord of it", ref onTerrain))
-        {
-            config.StopWarheadsOnTheTerrain = onTerrain;
-        }
-        Tip("On: once the crossing is bracketed, the ground is read again where it actually is and the "
-            + "crossing solved from that. Off: it is solved between two height samples a whole sub-step "
-            + "apart -- 5.5 m of ground at a re-entry speed -- so the round stops where that chord meets "
-            + "its path while its prediction point-samples the height field, and the two differ by the "
-            + "ground's curvature over the span. Headless on ground rolling a metre every forty: 31.4 mm "
-            + "off the surface against 0.4. Flat ground is unchanged. Two height queries on the frame a "
-            + "round lands, and none on any other.");
-
-        bool airPerStep = config.WarheadAirVelocityPerSubStep;
-        if (ImGui.Checkbox("Warheads read the air's motion per sub-step", ref airPerStep))
-        {
-            config.WarheadAirVelocityPerSubStep = airPerStep;
-        }
-        Tip("On: the air's own motion is read where the round is, as its density and the pull already "
-            + "are. Off: the frame's first sample is held for every sub-step of it, so a re-entering "
-            + "round -- which crosses about 150 m of ground in a frame -- has its drag measured "
-            + "against air it has left. The error is square to the airspeed, so it tilts the "
-            + "deceleration rather than resizing it. Flown it took the group's centre from about 4 mm "
-            + "off the aim to 1.4. Warheads "
-            + "only; a cannon's shells live seconds over ground metres away, where it is nothing.");
-
-        bool ownEpoch = config.GroundQueryAtOwnEpoch;
-        if (ImGui.Checkbox("Warheads ask the ground at their own instant", ref ownEpoch))
-        {
-            config.GroundQueryAtOwnEpoch = ownEpoch;
-        }
-        Tip("On: a terrain query is walked forward by the ground's full velocity -- the body's travel "
-            + "and its spin at that radius -- so it lands where the engine's frame-end rotation will "
-            + "put it. Off: only the travel comes off, and the query reads ground that has turned "
-            + "under the round by a few metres.");
-
-        bool onSurface = config.PredictionStopsOnTheSurface;
-        if (ImGui.Checkbox("Predictions stop on the surface", ref onSurface))
-        {
-            config.PredictionStopsOnTheSurface = onSurface;
-        }
-        Tip("On: a predicted impact is placed where the arc meets the ground, between the last step "
-            + "above it and the first below, as a warhead places its own. Off: it is the first step "
-            + $"found up to {ImpactPredictor.CrossingToleranceMetres:F2} m under the ground, so every "
-            + "prediction the aim reads is long by that depth times cot of the arrival angle -- about "
-            + "0.2 m at 32 deg -- and the warheads land that much short.");
-
-        bool insideIsDone = config.StoppingInsideTheBandIsDone;
-        if (ImGui.Checkbox("Stopping inside the band is finishing, not giving up", ref insideIsDone))
-        {
-            config.StoppingInsideTheBandIsDone = insideIsDone;
-        }
-        Tip("On: a trim that stops improving while already inside its own stop band reports done. Off: "
-            + "it reports a give-up, which the aim correction reads as having no actuator left and ends "
-            + "with no passes -- forfeiting about 3 km of correction to avoid a residual worth 4 to 12 m.");
-
-        bool fallBack = config.StallFallsBackToHolding;
-        if (ImGui.Checkbox("A pulse phase that stops closing holds instead", ref fallBack))
-        {
-            config.StallFallsBackToHolding = fallBack;
-        }
-        Tip("On: the trim drops back to holding its jets on, which is 150 times a pulse's authority, and "
-            + "gives the null a fresh run at its own clock. Off: the 10 s stall clock ends the whole "
-            + "null first -- at 12,902 km that cost 20 of 56 rockets between 1.2 and 5.4 km.");
-
-        bool predictOnTerrain = config.PredictionStopsOnTheTerrain;
-        if (ImGui.Checkbox("Predictions stop on the terrain too", ref predictOnTerrain))
-        {
-            config.PredictionStopsOnTheTerrain = predictOnTerrain;
-        }
-        Tip("On: that crossing is put on the ground under itself, one extra height lookup, the way a "
-            + "warhead's own stop is. Off: it sits on the chord between the ground under the two samples "
-            + "around it, which on level ground is the same point and on a slope is up to half a step of "
-            + "the terrain's own tread -- worth cot(gamma) times as much ground, because the separation "
-            + "kick is solved against this prediction. Flown at both sites: on rough ground it takes the "
-            + "median rocket's walk from 10.45 mm to 3.45, and on the flat it cannot move anything.");
-
-        bool focus = config.FocusTubesOnTheAim;
-        if (ImGui.Checkbox("Warheads are kicked onto the tubes' mean impact", ref focus))
-        {
-            config.FocusTubesOnTheAim = focus;
-        }
-        Tip("On: each warhead leaves its tube with a few millimetres a second of its own, solved so "
-            + "the ring the tubes sit on does not land around the aim point. Off: every warhead leaves "
-            + "its own mouth with the same velocity, and the group lands as that ring's image -- a "
-            + "couple of metres across, turned by the bus's roll.");
-
-        bool cancelSpin = config.CancelSpinAtSeparation;
-        if (ImGui.Checkbox("Warheads leave the bus's spin behind", ref cancelSpin))
-        {
-            config.CancelSpinAtSeparation = cancelSpin;
-        }
-        Tip("On: each warhead is given back the velocity the bus's rotation threw it with at its mouth, "
-            + "so it leaves on the state the release prediction flew. Off: it keeps it -- a few "
-            + "millimetres a second that move the group's centre a metre or more and turn the ring "
-            + "that is left.");
-
-        bool cancelMiss = config.CancelProbeMissAtSeparation;
-        if (ImGui.Checkbox("Warheads are kicked off the release probe's miss", ref cancelMiss))
-        {
-            config.CancelProbeMissAtSeparation = cancelMiss;
-        }
-        Tip("On: each warhead leaves with the least velocity that moves the release probe's predicted "
-            + "impact onto the aim point along the ground -- millimetres to centimetres a second, refused "
-            + "past the kick caps below. Off: the warheads leave on "
-            + "the state the aim loop stopped at, which it predicts to land a metre or so short.");
-
-        float shortCap = (float)(config.ShortShotMissKickMetresPerSecond * 1000.0);
-        if (ImGui.SliderFloat("Short shot's kick cap (mm/s)", ref shortCap, 0f, 500f, "%.0f"))
-        {
-            config.ShortShotMissKickMetresPerSecond = shortCap / 1000.0;
-        }
-        Tip("A salvo released at cutoff in the air may be kicked up to this much off each warhead's probe miss. "
-            + $"0 keeps the {ReleaseFocus.MaxMissKickMetresPerSecond * 1000.0:F0} mm/s every other salvo has.");
-
-        float longCap = (float)(config.LongShotMissKickMetresPerSecond * 1000.0);
-        if (ImGui.SliderFloat("Long shot's kick cap (mm/s)", ref longCap, 0f, 1000f, "%.0f"))
-        {
-            config.LongShotMissKickMetresPerSecond = longCap / 1000.0;
-        }
-        Tip("A long shot's salvo may be kicked up to this much off each warhead's probe miss. "
-            + $"0 keeps the {ReleaseFocus.MaxMissKickMetresPerSecond * 1000.0:F0} mm/s.");
-
-        bool waitsForSolids = config.AimWaitsForTheSolids;
-        if (ImGui.Checkbox("Aim correction waits for the solids", ref waitsForSolids))
-        {
-            config.AimWaitsForTheSolids = waitsForSolids;
-        }
-        Tip("On: a long shot does not correct its aim while solids that cannot stop are burning, since the arc is "
-            + "held by what they must deliver. Off: it may, on the craft whose stage delta-v KSA reports.");
-
-        bool afterTrim = config.ShortShotKickCapAfterTheTrim;
-        if (ImGui.Checkbox("Short shot's kick cap after the trim too", ref afterTrim))
-        {
-            config.ShortShotKickCapAfterTheTrim = afterTrim;
-        }
-        Tip("On: a short shot released above the air after the bus trim gets the short shot's kick cap as well. "
-            + $"Off: it keeps the {ReleaseFocus.MaxMissKickMetresPerSecond * 1000.0:F0} mm/s a long shot has.");
-
-        bool backstop = config.ShortShotBackstopsAtTheTrim;
-        if (ImGui.Checkbox("Short shot's backstop arms at the trim's reach", ref backstop))
-        {
-            config.ShortShotBackstopsAtTheTrim = backstop;
-        }
-        Tip("On: on an arc that releases after the trim, what is left turning back up anywhere under the trim's "
-            + "reach ends the burn and the trim finishes it. Off: only under 2 m/s.");
-
-        bool throughClear = config.ThrottleThroughTheKeyboardClear;
-        if (ImGui.Checkbox("Throttle keeps moving while a window has the keyboard", ref throughClear))
-        {
-            config.ThrottleThroughTheKeyboardClear = throughClear;
-        }
-        Tip("On: while KSA drops the flown craft's held keys -- a modal, the console or a text field has the keyboard -- "
-            + "the step the throttle key would have made is written to the throttle directly. Off: the throttle freezes "
-            + "where it was until the window closes.");
-
-        bool together = config.ShortShotReleasesTogether;
-        if (ImGui.Checkbox("Short shot releases its salvo in one frame", ref together))
-        {
-            config.ShortShotReleasesTogether = together;
-        }
-        Tip("On: a single-target salvo released at cutoff in the air goes in the frame the first warhead does. "
-            + "Off: one a frame, each leaving a stack the air has slowed a little more.");
-
-        float solidsLeave = (float)config.SolidsLeaveMetresPerSecond;
-        if (ImGui.SliderFloat("Solids leave for the next stage (m/s)", ref solidsLeave, 0f, 100f, "%.0f"))
-        {
-            config.SolidsLeaveMetresPerSecond = solidsLeave;
-        }
-        Tip("Above 0: solids that cannot be stopped are steered along what is left to gain and asked to "
-            + "leave this much for the stage after them, so it lights with what is left ahead of its nose. "
-            + "0: the arc is matched to them exactly and they fly the schedule.");
-
-        bool dropSolids = config.DropSolidsUnderWeight;
-        if (ImGui.Checkbox("Drop solids once they push less than the stack weighs", ref dropSolids))
-        {
-            config.DropSolidsUnderWeight = dropSolids;
-        }
-        Tip("On, on a short shot: solids tailing off under the stack's weight are dropped and the stage after "
-            + "them lit at its floor, rather than carried through seconds that only sag the path.");
-
-        bool followGround = config.ProbeMissFollowsTheGround;
-        if (ImGui.Checkbox("Measure that miss over the ground as it lies", ref followGround))
-        {
-            config.ProbeMissFollowsTheGround = followGround;
-        }
-        Tip("On: the miss the warheads are kicked off is the chord between the probe's impact and the aim "
-            + "point on the real ground, so a slope under the target does not scale the correction. Off: it is "
-            + "measured square to local up, and ground sloping 0.1 lands a fifth of the miss short or long. "
-            + "Does nothing unless the kick above is on.");
-
-        bool shapeDrag = config.WarheadDragFromItsShape;
-        if (ImGui.Checkbox("Warheads drag as what they are", ref shapeDrag))
-        {
-            config.WarheadDragFromItsShape = shapeDrag;
-        }
-        Tip("On, and shipped: this rocket's warheads fly, and are predicted, with a Mk 21's drag from its 270 kg on "
-            + "a 55 cm base at a slender cone's 0.1 -- 3.6 times the constant they are registered with. Flown over 20 "
-            + "paired blocks: the worst warhead of a group 0.80x, the spread lower on 17 of 20 shots. Off is the old "
-            + "hand-typed constant, which is what a paired night now flies as its comparator. Needs the kick below, "
-            + "which is why they went on together.");
-
-        bool shed = config.ShedWarheadMass;
-        if (ImGui.Checkbox("Warheads take their mass with them", ref shed)) config.ShedWarheadMass = shed;
-        Tip("On, and shipped: each warhead's 250 kg comes off the bus as it leaves, as on the real vehicle. "
-            + "Flown no worse on one target and on a four-target walk. Off keeps the bus at its loaded mass "
-            + "throughout, which is what nights before 2026-10-03 flew.");
-
-        bool throughTheAir = config.KickThroughTheAir;
-        if (ImGui.Checkbox("Solve the separation kicks through the air", ref throughTheAir))
-        {
-            config.KickThroughTheAir = throughTheAir;
-        }
-        Tip("On: the kicks that focus the ring and cancel the probe's miss are solved on landings flown with the "
-            + "warheads' own drag -- seven predictions on the salvo's first release, carried to the rest, and the "
-            + "log says what they cost. Off: solved on a vacuum coast, which ends kilometres under the ground and "
-            + "leaves about 2 mm of each group's spread on the constant drag and 9 mm on the drag from the shape. "
-            + "Flown: a median 0.74 ms of frame per rocket, worst 1.51, and the ring term it exists to remove went "
-            + "from 0.151% of the image to -0.017%. On an airless body it can only cost, never help.");
-
-        float subStepMs = (float)config.WarheadSubStepMs;
-        if (ImGui.SliderFloat("Warhead sub-step (ms)", ref subStepMs, 0f, 5f, "%.3f"))
-        {
-            config.WarheadSubStepMs = subStepMs;
-        }
-        Tip($"How finely this rocket's warheads integrate their own fall. {config.WarheadSubStepMs:F3} ms; "
-            + "0 leaves the round's own 1 ms. FLOWN AND IT MOVES NO LANDING: three arms at 4, 1 and 0.25 ms "
-            + "over 15 shots read p = 0.91 and p = 0.57 on the worst warhead against the shipped step, so "
-            + "sixteen times the integration work buys nothing measurable. It moves the WALK by 21 mm, which "
-            + "is a different thing. What it costs is sub-steps: six warheads at 1 ms is about 300 a frame, "
-            + "at 0.25 ms about 3,700 -- and that slowed the world 16%, so watch the frame time.");
-
-        float footprint = (float)config.WarheadFootprintMetres;
-        if (ImGui.SliderFloat("Warhead footprint (m)", ref footprint, 0f, 5f, "%.2f"))
-        {
-            config.WarheadFootprintMetres = footprint;
-        }
-        Tip($"The radius of the ring this rocket's warheads are aimed at. "
-            + $"{config.WarheadFootprintMetres:F2} m; 0 puts all six on the designation, which is what "
-            + "ships -- and six 1.8 m reentry vehicles then arrive about 9 mm apart, passing "
-            + "through each other and bursting as one. Spreading them is worth more as measurement than "
-            + "as realism: a kick asked to put every warhead in one place cannot be checked, where one "
-            + "asked for a known ring can. The separation cap is shared with the probe's own miss kick, "
-            + "so refusals begin under 3 m on a 345 s flight, and the log says when one was refused. "
-            + "Flown at 2 m, every warhead landed on its ring. It is NOT a MIRV footprint -- the fireball "
-            + "alone is 706 m -- and real per-target spread needs the bus to manoeuvre between releases.");
-
-        float shrink = (float)config.ShrinkMissKickToTheGroup;
-        if (ImGui.SliderFloat("Shrink miss kick to the group", ref shrink, 0f, 1f, "%.2f"))
-        {
-            config.ShrinkMissKickToTheGroup = shrink;
-        }
-        Tip($"How much of a warhead's own release-probe miss kick to replace with what its siblings "
-            + $"already asked for. {config.ShrinkMissKickToTheGroup:F2}; 0 is its own, which is every flight "
-            + "so far. The shared part of that kick is worth 459 mm of centre and is always kept; the part "
-            + "that differs between siblings behaves as injected noise, and the landing regresses on it at "
-            + "-1.09. Counterfactually 0.5 is 0.89x on the median worst warhead and 0.93x on ground steep "
-            + "enough to amplify without bound. NEVER FLOWN -- every one of those numbers is arithmetic on "
-            + "logged shots rather than a flight.");
     }
 
     private static float4 PhaseColour(IcbmPhase phase) => phase switch

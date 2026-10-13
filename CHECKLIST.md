@@ -123,6 +123,44 @@ Four things changed shape and need watching, worst first:
 
 Also unflown on this build: everything the previous retarget listed as unwatched, and the turret.
 
+**Retargeted to KSA `2026.10.13.5602` — two renames, one data drift, and two flight-model changes
+that compile clean.** `Vehicle.Ctrl2Body` is `Helm2Body` (same expression), and the static
+`ExplosionVolumeSystem` became `Program.Instance.ExplosionVolumes`. Core's conflagration fireball
+went from 56 m to 30 m at intensity 1, so `WarheadExplosion` moved with it and the 57E6 now goes off
+as `Explosion_Conflagration`. No XML element or attribute the mod writes moved, and the frame order,
+the `PrepareWorker` window, the render cull, `SunbloomRenderer.Render`, every reflected member and
+the drag model read the same.
+
+**Flown on 2026.10.13.5602:** `head-on` **PASS**, the AIM-9J bursting 14 m from the drone and
+destroying it. All seven patches installed, every warhead preset resolved, the trail renderer
+bound, and the stamp read `built for KSA 2026.10.13.5602, running 2026.10.13.5602 - reporting on`.
+Also flown: `gunnery` PASS, each of four drones killed by its first Mk 42 shell striking it; `drop`
+PASS 0 m from the ring. Not flown or looked at:
+
+- [x] **A gimbaled burn steers on its thrust line.** KSA's control frame is now `Tnm` (the helm
+      turned onto the trimmed net thrust) whenever a gimbaled engine makes thrust, and RCS is mapped
+      against it; `KsaWorld.TryControlFrameCci` still reads the helm. Coast and the bus's trim are
+      unaffected (no gimbals); `docs/KSA-MODDING-NOTES.md` has the engine code. **Flown on
+      2026.10.13.5602**, four shots of 2026-10-13's night re-flown on rockets with gimbaled EngineA2/A3
+      or SRB-E, worst warhead and cutoff residual against that night's: GeoSat FAT 200 km 5.1 mm /
+      0.94 m/s (11.1 / 0.93), RealLiquid2 200 km 2.8 mm / 0.25 (2.1 / 0.17), Any LowTWR 200 km
+      12.6 mm / 0.79 (247 m / 2.81), ORBIT 300 to 40N 10E 1.0 mm / 0.01 (1.8 / 0.01). Six of six
+      arrived every time, no engine exception.
+- [x] **A warp raise or unpause now ramps.** The sim step grows at most 2x per frame, so
+      `WarpPolicy` calibrates on a step still climbing. **Flown on 2026.10.13.5602**: a 57E6 at a
+      point with 50x asked mid-flight stepped 50 -> 17.7 -> 4.3 -> 2.4 -> 1.4x in 0.5 s and burst
+      12 m from its aim, and `drop:6000,30,guided,,800` stepped 800 -> 270 -> 11.4 -> 3.9 -> 2.3 ->
+      1.2x and landed 0 m from the ring. The same cascade is in the 2026-10-10 logs, before this
+      build: it is the in-air step, not the ramp. Nothing abandoned.
+- [ ] **The 57E6's burst is a conflagration** — 30 m fireball at KSA's floor. Flown, not watched:
+      `KABOOM` `passing` set off `Explosion_Conflagration` for 20 kg at 52 kPa, 19 m from the drone,
+      9 parts broken off. Look at one.
+- [ ] **A camera window's terrain should be unshadowed and still** while the main camera turns —
+      `docs/BLOCKED-ON-KSA.md`.
+- [ ] **Motor and flare smoke cast shadows** through KSA's new trail shadow cascades (the
+      `PlumeTrailShadows` setting), and a trail laid at rest now creeps to its expanded radius over
+      120 s. Look at a flare salvo and a motor trail, and read the cost off `FrameBudget`.
+
 **Retargeted to KSA `2026.9.22.5482` — nothing the mod binds to moved, and five things compile
 clean and still have to be watched.** No member of the surface is missing, no XML element or
 attribute the mod writes was renamed, and every contract in the `upgrade-ksa` table reads the same:
@@ -182,7 +220,8 @@ clean and still has to be flown or looked at:
       site and one at altitude.
 - [ ] **A warhead goes off as KSA's own explosion**, flash and sound included: `PopSmallExplosion`
       for a cannon shell, `SmallFire` for a missile or the 5"/54, `Explosion_Conflagration` from
-      41 kg up and for a nuclear yield. Look at one of each, and grep the newest
+      15 kg up (the 57E6 included, since 2026.10.13.5602 cut Core's conflagration fireball from 56 m
+      to 30 m) and for a nuclear yield. Look at one of each, and grep the newest
       `KittenSpaceAgency.*.log` for `ExplosionSystem:`, which is where a dropped one says so.
       Flown, not watched: `head-on` set off `SmallFire` for the AIM-9J at 43 kPa and
       `gunnery:1,overhead,30,300,1500` for all seven 5"/54 shells at 47 kPa, with every preset
@@ -2385,7 +2424,8 @@ now 0.02 km — the six warheads land closer to each other than any of them land
 **What is left, in order.** The release probe's own miss, about 50 m, which is what the aim
 correction leaves behind; the round's own integrator at 5 ms, which a screen priced at tens of
 metres and which is now below what one shot resolves; and everything in
-`docs/KINETIC-FLOOR.md`, whose irreducible floor at this 7.1° arrival is about 5 m.
+`docs/KINETIC-FLOOR.md`, whose irreducible floor at the 7.1° arrival it priced is about 5 m. Since then the
+mod arrives at 32° and lands in millimetres; `docs/ICBM-OUTSTANDING.md` has where it stands.
 
 **And accuracy has stopped buying anything.** The Mk 21's lethal radius is 2,000 m, so at 50 m every
 warhead is 40× inside it. Further work here is craft rather than capability.
@@ -2400,6 +2440,8 @@ Fit a KSArmory weapon to any rocket — the MIRV bus is the one it is for — an
       vanishes over the sky. Clicking sets a latitude and longitude that match what KSA's own
       readouts say for that place.
 - [ ] The ring greys out over a body that is not the one being flown around.
+- [ ] A target on another body is refused: the tab says `designated on <body>, which is not the body this
+      vehicle is flying around`, and nothing is flown at it.
 - [ ] With the tool off, world clicks do nothing to the target. A click on the panel never does,
       either way.
 - [ ] Typing coordinates and pressing **Designate those coordinates** works independently of it.
@@ -2413,6 +2455,8 @@ Fit a KSArmory weapon to any rocket — the MIRV bus is the one it is for — an
       appear, and both are plausible (hundreds of kilometres, tens of minutes).
 - [ ] A target on the far side of the planet says `not enough in the tanks` with two numbers, or
       solves — either is fine, a wrong-looking apogee is not.
+- [ ] Before the burn, `Delta-v: needs N m/s, has M m/s` sits under the reach lines, with *has* the
+      stack's figure on the craft being flown and close to the sum of its stages in the editor.
 - [ ] The **Loft** slider moves the apogee and the flight time together, and 1.00 is the lowest
       *To gain* of any setting.
 - [ ] The trajectory is drawn in the world as an arc, with a ring on the aim point.
@@ -2474,6 +2518,10 @@ trying to fly a vertical rise.
 - [x] `IMPACT IN` counts down and keeps counting through the burn, the cutoff and the coast.
 - [ ] The mark on the target stays on screen, and points from the edge when it is out of view.
 - [ ] A target the stack cannot afford reads `TARGET UNREACHABLE` with a shortfall in m/s.
+- [ ] With **Prediction adds the kick at the release** on (`IcbmConfig.KickAtTheRelease`), a target far off the
+      plane from `ORBIT 300` (40 N, 10 E: a four-hour coast) keeps a steady predicted miss through the coast and
+      lands inside 5 mm, where off it walked 0.35 -> 4.4 -> 1.35 km and landed 1.93 km out
+      (`docs/ICBM-OUTSTANDING.md` 1.14).
 
 ### 12.7 It lets go of its stack
 
@@ -2545,7 +2593,7 @@ the axes latching properly: commanding six degrees off the held line made the ve
 six tubes releasing at 5.2, 2.1, 8.2, 12.8, 14.1 and 11.7 degrees off it — against the six degrees
 of cant the turn exists to remove. The sweep never came under the gate, every release was a
 timeout, and the salvo took three minutes, against 1.7–0.3 km on the same shot without it. So
-`RepointBetweenReleases` stays **off**, and the ~1 km spread is the cant.
+`RepointBetweenReleases` stayed **off** and was removed on 2026-10-06; the ~1 km spread is the cant.
 
 Reopening it means a different bus — finer RCS, more inertia, or thrusters placed for translation
 — which is a craft design change rather than a mod one. `docs/MIRV-NEXT.md` §5 and §5a carry the
@@ -2670,12 +2718,40 @@ Fly a MIRV shot, and once the burn is over and the bus is coasting:
 - [ ] Turning **Show what the bus can still divert to** off stops both: no outline, and no
       `reach on <craft>` lines.
 
+### 12.7g A walk between targets, priced at what the bus spends — flown 2026-10-10
+
+Hops are priced at what the trim pays on the bus's own axes and at the reach of the slot each is flown in, and the
+stack wait holds only the split. `docs/MIRV-TARGETS.md`, "six stops to the ground".
+
+- [x] Six targets 4 km apart from the pad: every bus plans the stops it can pay for (four), keeps the other warheads
+      aboard, and releases every stop it planned, millimetres from each target. Scenario, two worlds, 16 of 16.
+- [x] Seat 1 walks like the rest: nothing holds a hop off the spent stack once the first warhead is away.
+- [x] At 12,900 km the stack wait no longer holds the first correction: 2.3 mm median against 26 mm, and from orbit
+      every bus still keeps to its keep-out.
+- [ ] By hand: with six targets placed, the panel says how many stops the walk will fly and that the rest stay
+      aboard, before launch.
+- [ ] The reach ring on the ground is smaller than it was before the per-axis price, and a click inside it is a stop
+      the walk then flies rather than one it drops mid-flight.
+
 ### 12.6 It gives the vehicle back
 
 - [ ] **Abort** stops the engines and returns attitude control. Flying by hand works immediately
       afterwards.
 - [ ] Disarming mid-flight does the same.
 - [ ] Destroying the craft mid-flight does not throw, and nothing in the log complains afterwards.
+
+### 12.6a It survives a save — flown 2026-10-11
+
+- [x] Designate two or three targets, give them warheads, move the lead, change a setting (loft or
+      **Warp the coast**), save, and reload: the targets, their counts, the lead and the setting are
+      all back, and the log says `settings and N target(s) restored from the save, disarmed`.
+      `saves/<save>/KSArmory/ballistic.json` holds them under the craft's name.
+      *2026-10-11: two targets, Loft 1.15 and ArrivalPreference 0.4, saved under a new name mid-burn and
+      loaded in a fresh game: all back, "2 target(s) restored from the save, disarmed". It found that the
+      open save was never known (`Ksa/SaveHook.cs`).*
+- [x] The computer comes back **disarmed** even if it was armed when saved. *Saved armed and burning.*
+- [ ] Save mid-coast with the computer armed, reload: nothing throws, the computer is idle and
+      disarmed with its targets, and nothing fires the engines.
 
 ### 12.8 Timewarp
 
@@ -2688,8 +2764,9 @@ section that proves it, and it is the failure that produced a 3,255 km miss befo
       `timewarp not held`, rather than fighting you for the control frame by frame.
 - [ ] If a slowdown is refused outright, the burn is **abandoned** and the log says why. Check the
       vehicle is handed back rather than left pointing at a target it can no longer reach.
-- [ ] After cutoff the hold is released — the coast is not integrated by anything, so warping
-      through it is fine and should be allowed.
+- [x] After cutoff the hold is released — the coast is not integrated by anything, so warping
+      through it is fine and should be allowed. *2026-10-11: it was not -- the post-boost loop read as
+      correcting for the whole coast and held it at 6.8x; fixed, a four-hour coast now warps in nine seconds.*
 - [ ] `Config.LimitWarpInFlight` off restores the old behaviour. Expect a large miss; that is the
       point of the setting, not a bug.
 

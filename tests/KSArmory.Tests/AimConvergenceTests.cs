@@ -14,7 +14,7 @@ namespace KSArmory.Tests;
 /// the residue is not the correction failing to converge; something else moves after it stops.</para>
 ///
 /// <para>This flies the whole <see cref="IcbmProgram"/> with the correction in the loop, wired the
-/// way <c>Ksa/IcbmComputer.cs</c> wires it, so the candidates can be turned off one at a time.</para>
+/// way <c>Ksa/Icbm/IcbmComputer.cs</c> wires it, so the candidates can be turned off one at a time.</para>
 /// </summary>
 public class AimConvergenceTests(ITestOutputHelper Out)
 {

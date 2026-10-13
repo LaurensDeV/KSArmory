@@ -25,6 +25,8 @@ public class FloorHoldTests(ITestOutputHelper Out)
             Armed = true, MaxAccelerationGee = 8.0f, MinArrivalAngleDeg = 0.0, ArrivalPreference = 0.5,
             FlyAnyRange = true, ShortShotSlowsLineSeconds = slowLineSeconds, ShortShotFinishesInTheAir = finishInTheAir,
             ShortShotSolvesWithDrag = solveWithDrag, SolidsLeaveMetresPerSecond = 0.0, DropSolidsUnderWeight = false,
+            // These study a core held at its floor, so it is held there rather than pulsed under it.
+            PulsesBelowTheFloor = false,
         };
 
     internal readonly record struct Outcome(double FloorRateDegPerSec, double ResidualMetresPerSecond, double MissKm);

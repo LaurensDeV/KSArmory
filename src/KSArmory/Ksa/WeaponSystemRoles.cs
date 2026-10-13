@@ -314,6 +314,12 @@ internal interface IManualFire : IWeaponPlatform, IWeaponLoadout
     /// </summary>
     bool NextStageSeparatesIt { get; }
 
+    /// <summary>How many stages still fire after the one that lets the launcher off; zero when it is last.</summary>
+    int StagesAfterTheRelease { get; }
+
+    /// <summary>Move the launcher's release to the end of the staging list. Only from <c>AttitudeHook</c>'s window.</summary>
+    bool MoveReleaseLast(out string why);
+
     /// <summary>
     /// Let the launcher off that stack. False when there is no joint to let go of.
     ///

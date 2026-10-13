@@ -10,7 +10,7 @@ namespace KSArmory;
 /// magazine it was given and <see cref="TargetIndex"/> hands back the lead — each of them the value
 /// a flight with no walk reads. That is what makes a single-target shot the one every
 /// accuracy measurement on this mod was taken against, and it is pinned in
-/// <c>ReleaseWalkerTests</c> rather than left to reading <c>Ksa/IcbmComputer.cs</c>.</para>
+/// <c>ReleaseWalkerTests</c> rather than left to reading <c>Ksa/Icbm/IcbmComputer.cs</c>.</para>
 ///
 /// <para><b>A plan is committed by the first warhead leaving.</b> Until then the set can still be
 /// edited and the walk is re-planned as the reach is re-flown; after it the bus has already been
@@ -59,6 +59,12 @@ internal sealed class ReleaseWalker
     /// whichever place slid into the gap.</para>
     /// </summary>
     public bool Committed => _committed;
+
+    /// <summary>
+    /// Whether a walk's first stop has let all its warheads go, which is after the split has been
+    /// nulled. Never for a set of one.
+    /// </summary>
+    public bool FirstStopAway => _walk.Walks && (Stop > 0 || !Step.ReleaseHere);
 
     /// <summary>What this stop wants of the flight right now.</summary>
     public ReleaseStep Step => ReleaseLoop.Step(_walk, Stop, AwayThisStop);
@@ -170,6 +176,18 @@ internal sealed class ReleaseWalker
     /// </remarks>
     public double GateOverrideSeconds(double gateSeconds)
         => Walking ? ReleaseLoop.FirstBeforeArrivalSeconds(_walk, gateSeconds) : double.NaN;
+
+    /// <summary>
+    /// <see cref="GateOverrideSeconds"/>, or <see cref="IcbmConfig.SingleTargetReleaseBeforeArrivalSeconds"/> for a
+    /// computer with one target. Several targets keep the walk's gate even before a walk is planned, because the split and
+    /// the pricing of the first hop are both counted from it.
+    /// </summary>
+    public double GateOverrideSeconds(IcbmConfig config, int targets)
+    {
+        double walk = GateOverrideSeconds(config.ReleaseBeforeArrivalSeconds);
+        if (double.IsFinite(walk) || targets > 1) return walk;
+        return config.SingleTargetReleaseBeforeArrivalSeconds >= 0.0 ? config.SingleTargetReleaseBeforeArrivalSeconds : double.NaN;
+    }
 
     /// <summary>
     /// How much of the magazine <see cref="ReleaseSequence"/> may let go, which is this stop's quota

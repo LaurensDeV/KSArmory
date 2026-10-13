@@ -78,6 +78,23 @@ internal sealed class WeaponSystems(Config config)
         return false;
     }
 
+    /// <summary>Each system with rounds in the air and how many, for the warp log.</summary>
+    public string WhoHasRoundsUp()
+    {
+        string who = "";
+        foreach (Entry e in _entries.Values)
+        {
+            if (e.Weapon.Rounds.Count > 0) who += $" {e.Weapon.Profile.PartId}:{e.Weapon.Rounds.Count};";
+        }
+
+        for (int i = 0; i < _loose.Count; i++)
+        {
+            if (_loose[i].Rounds.Count > 0) who += $" loose {_loose[i].Profile.PartId}:{_loose[i].Rounds.Count};";
+        }
+
+        return who;
+    }
+
     /// <summary>
     /// The shortest step any round in the world needs, and whether there is anything up at all.
     ///
@@ -804,13 +821,27 @@ internal sealed class WeaponSystems(Config config)
         return null;
     }
 
+    /// <summary>What <see cref="Remember"/> found, so the ballistic computers follow the same save.</summary>
+    public enum SettingsMoment { Nothing, Saved, Reopened }
+
     /// <summary>
     /// Writes down anything that has changed. Cheap to call often: the store compares against what
     /// it already holds and only reports a change when there is one.
     /// </summary>
-    public void Remember()
+    public SettingsMoment Remember()
     {
         string scope = SettingsStore.CurrentScope;
+
+        // Seen directly where the hook is in, so a save under a new name is written into rather than
+        // adopted as though it had been loaded.
+        bool savedNow = SaveHook.ConsumeSaved();
+        if (savedNow)
+        {
+            _scope = scope;
+            _savedAt = KsaWorld.CurrentSaveStamp();
+            return WriteDown();
+        }
+
         if (_scope.Length == 0)
         {
             // First pass: Sync has already applied whatever this bucket holds.
@@ -822,21 +853,28 @@ internal sealed class WeaponSystems(Config config)
             _scope = scope;
             _savedAt = KsaWorld.CurrentSaveStamp();
             Adopt();
-            return;
+            return SettingsMoment.Reopened;
         }
+
+        if (SaveHook.Installed) return SettingsMoment.Nothing;
 
         // Only when the game saves. A load then finds the settings as they were at that moment,
         // because nothing has been written over them since.
         long stamp = KsaWorld.CurrentSaveStamp();
-        if (stamp == 0 || stamp == _savedAt) return;
+        if (stamp == 0 || stamp == _savedAt) return SettingsMoment.Nothing;
 
         bool firstSight = _savedAt == 0;
         _savedAt = stamp;
 
         // The first stamp seen is the save as it already was, not the player saving.
-        if (firstSight) return;
+        if (firstSight) return SettingsMoment.Nothing;
 
-        Log.Info("settings: the game saved, writing the systems' settings with it");
+        return WriteDown();
+    }
+
+    private SettingsMoment WriteDown()
+    {
+        Log.Info($"settings: the game saved {SettingsStore.CurrentScope}, writing the systems' settings with it");
 
         bool changed = false;
         foreach (KeyValuePair<(Vehicle Craft, int Ordinal), Entry> kv in _entries)
@@ -847,6 +885,7 @@ internal sealed class WeaponSystems(Config config)
         }
 
         if (changed) SettingsStore.Save();
+        return SettingsMoment.Saved;
     }
 
     // Re-reads every live system's settings from the store. Used when the save changes under a

@@ -283,7 +283,7 @@ water as well as over land.
 if (nearest.GetOceanReference() is { } sea && sea.Density > 0.0) { hasSea = true; seaLevel = sea.Level; }
 height = GroundSurface.Height(height, seaLevel, hasSea);
 
-// Ksa/IcbmComputer.cs -- SurfaceHeight, called by TerrainRadiusAt and by SurfacePointEcl
+// Ksa/Icbm/IcbmComputer.cs -- SurfaceHeight, called by TerrainRadiusAt and by SurfacePointEcl
 return body.GetOceanReference() is { } sea && sea.Density > 0.0
            ? GroundSurface.Height(terrainHeight, sea.Level, hasSea: true)
            : terrainHeight;

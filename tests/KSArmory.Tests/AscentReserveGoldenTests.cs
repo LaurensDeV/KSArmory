@@ -4,7 +4,7 @@ using Xunit;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// <see cref="IcbmConfig.AscentReserveSeconds"/> must leave a long shot exactly as it was: the same
+/// <see cref="IcbmProgram.AscentReserveSeconds"/> must leave a long shot exactly as it was: the same
 /// cutoff, bit for bit, flown on the same build with the setting off and on. Never against stored
 /// numbers, which would pin the flight rather than the setting.
 ///
@@ -59,7 +59,7 @@ public class AscentReserveGoldenTests
         string[] p = name.Split(' ');
         IcbmConfig config = new()
         {
-            Armed = true, AscentReserveSeconds = reserve, FlyAnyRange = anyRange, ShortShotSlowsLineSeconds = slowLine,
+            Armed = true, AscentReserveOverrideSeconds = reserve, FlyAnyRange = anyRange, ShortShotSlowsLineSeconds = slowLine,
             ShortShotFinishesInTheAir = slowLine > 0.0, ShortShotSolvesWithDrag = slowLine > 0.0,
         };
 

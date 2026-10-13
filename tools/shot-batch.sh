@@ -3,7 +3,7 @@
 # Flies a batch of ballistic shots overnight, interleaved between arms, and keeps every log.
 #
 #     ./tools/shot-batch.sh --aim 26.5S,64.0W --arms base=HEAD,grav=arm/gravity --blocks 6
-#     ./tools/shot-batch.sh --paired 'base|trim:TrimCeilingFromBudget=true' --blocks 6
+#     ./tools/shot-batch.sh --paired 'base|sub:WarheadSubStepMs=2' --blocks 6
 #     ./tools/shot-batch.sh --aim none --arms base=HEAD --blocks 6   # shoot whatever the save defends
 #     ./tools/shot-batch.sh --aim '24S,62W;24.04S,62W' ...          # one bus at two places
 #       -- QUOTE it: an unquoted ';' is the shell's own separator. The bar, if any, lands on
@@ -12,9 +12,9 @@
 #     ./tools/shot-batch.sh --plan-only --arms ... --blocks 6    # print the run order and stop
 #
 # docs/SHOT-PROTOCOL.md is why this exists and how to read what it writes. The short version:
-# run-to-run scatter on an identical pick-up is a factor of 1.7 either side of a 0.79 km median,
-# so a difference of 300 m needs about twenty-five shots an arm and a single shot each way settles
-# nothing at all. Everything here is in service of spending fifty shots so that they add up.
+# run-to-run scatter on an identical pick-up is a factor of about 1.7 either side of the median
+# (priced on 2026-08's 0.79 km), so a small difference needs about twenty-five shots an arm and a
+# single shot each way settles nothing at all. Everything here is in service of spending fifty shots so that they add up.
 #
 # --paired is the OTHER kind of night, and it is the one to prefer. Instead of a build per arm and
 # an arm per shot, it builds once and gives every rocket in the world its own variant -- so the two

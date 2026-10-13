@@ -208,6 +208,10 @@ internal sealed class BallisticScenario
                          : !_committed ? "waiting for a launch solution"
                          : $"{_reported}, {_board.Released} released, {_board.Arrived} down";
 
+    /// <summary>Whether the flight is waiting on a known instant: a burn window, or the release at the end of its coast.</summary>
+    public bool IsWaiting => _computer?.Program.Phase is IcbmPhase.Holding
+                             || (_computer?.Program.Phase == IcbmPhase.Coast && _board.Released == 0);
+
     /// <summary>Whatever this shot has come to so far, which is what a timeout reports as well.</summary>
     public ShotVerdict Judge() => _board.Judge(_shot.BarMetres);
 
@@ -594,18 +598,17 @@ internal sealed class BallisticScenario
         }
     }
 
-    // The computer never stages past a launcher that could come off, because the next sequence on
-    // somebody's craft might be the joint holding the warheads. So a stack that needs a second
-    // stage will not get one, and the shot falls short for a reason no phase line names.
+    // A stage the computer refuses because it would drop the launcher leaves the shot short for a
+    // reason no phase line names.
     private void ReportRefusedStaging(WeaponSystem? system)
     {
         if (_saidStaging || system is null || _computer is not { } computer) return;
-        if (!computer.Command.RequestStage || !system.CanSeparate) return;
+        if (!computer.RefusedAStage) return;
 
         _saidStaging = true;
 
-        _say("the program wants a stage and will not take one past a launcher that can separate -- "
-             + "a multi-stage stack has to be staged by hand from here");
+        _say("the program wants a stage that would drop the launcher, and will not fire it -- "
+             + "stage it by hand from here");
     }
 
     // Assigned rather than added to, and re-assigned whenever the system changes: a decoupler puts
@@ -683,7 +686,7 @@ internal sealed class BallisticScenario
         // for a step here instead pins the entire pre-release cruise -- forty minutes of flight in
         // which nothing is integrated and any step is free -- and cost four times the wall clock a
         // shot for no accuracy at all. The step that matters is the trim's, and BusTrim.MaxFaithfulStep
-        // is where it is now asked for, which is the span it is actually needed across.
+        // only records it: asked for, the world cannot run slow enough and the burn is abandoned.
         if (AskForSpeed(roomToWarp ? CoastWarpFactor : 1.0))
         {
             _say(roomToWarp
@@ -694,6 +697,17 @@ internal sealed class BallisticScenario
     }
 
     private bool _coasting;
+
+    // A bus holding for its window is pressed through it as a player would press the panel's button, which is the only
+    // way the wait passes: the computer never warps a hold by itself, so unpressed one sits at 1x for as long as it is.
+    private void WarpToTheBurnWindow()
+    {
+        // Pressed again whenever a long hold is not warping, as a player would: a window that moves after a warp has ended
+        // otherwise leaves the hold at 1x until the scenario times out.
+        if (_computer is not { } computer || computer.Command.Phase != IcbmPhase.Holding) return;
+
+        if (computer.TryWarpToWindow()) _say("pressed warp to the burn window");
+    }
 
     private IcbmComputers? _icbms;
 
@@ -850,6 +864,7 @@ internal sealed class BallisticScenario
         // held until the arrival is close. Warped through, and given back well before the first one
         // leaves: every warhead has to see the same frame in its opening seconds, which warping
         // between releases would break.
+        WarpToTheBurnWindow();
         CoastToTheReleasePoint();
 
         // Counted off the releases rather than off the magazine, because the magazine refills.

@@ -1750,7 +1750,7 @@ internal static class KsaWorld
     {
         try
         {
-            if (GameSaves.Selected?.Id is not { Length: > 0 } id) return 0;
+            if (CurrentSaveId() is not { Length: > 0 } id) return 0;
 
             string folder = Path.Combine(GameSaves.SaveFolderPath, id);
             string universe = Path.Combine(folder, "universe.xml");
@@ -1829,6 +1829,7 @@ internal static class KsaWorld
     {
         try
         {
+            if (SaveHook.Installed) return SaveHook.OpenSaveId ?? string.Empty;
             return GameSaves.Selected?.Id ?? string.Empty;
         }
         catch
@@ -1942,6 +1943,28 @@ internal static class KsaWorld
     }
 
     /// <summary>
+    /// How fast the craft's own jets can turn it, as its flight computer reckons it: the weaker of pitch and yaw's angular
+    /// acceleration, and the profile's rate limit, both in radians.
+    /// </summary>
+    public static bool TryRcsAuthority(Vehicle craft, out double accelRadPerS2, out double rateLimitRadPerS)
+    {
+        accelRadPerS2 = double.NaN;
+        rateLimitRadPerS = double.NaN;
+
+        try
+        {
+            FlightComputer computer = craft.FlightComputer;
+            accelRadPerS2 = Math.Min(computer.RcsTorqueAuthority.Y, computer.RcsTorqueAuthority.Z);
+            rateLimitRadPerS = computer.RateLimit;
+            return accelRadPerS2 > 0.0 && double.IsFinite(accelRadPerS2);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
     /// The craft's control frame, as three axes in the parent body's inertial frame: the nose, the
     /// starboard beam and the belly.
     ///
@@ -1961,7 +1984,7 @@ internal static class KsaWorld
 
         try
         {
-            doubleQuat ctrl2Body = craft.Ctrl2Body;
+            doubleQuat helm2Body = craft.Helm2Body;
             doubleQuat body2Cce = craft.Body2Cce;
             doubleQuat cce2Cci = parent.GetCce2Cci();
 
@@ -1973,7 +1996,7 @@ internal static class KsaWorld
                    && !noseCci.Equals(Vec.Zero) && !rightCci.Equals(Vec.Zero) && !downCci.Equals(Vec.Zero);
 
             double3 Axis(double3 ctrl)
-                => Vec.Unit(ctrl.Transform(ctrl2Body).Transform(body2Cce).Transform(cce2Cci));
+                => Vec.Unit(ctrl.Transform(helm2Body).Transform(body2Cce).Transform(cce2Cci));
         }
         catch
         {
@@ -5294,6 +5317,41 @@ internal static class KsaWorld
         }
     }
 
+    private static FieldInfo? _workerState;
+    private static FieldInfo? _workerInputs;
+    private static FieldInfo? _thrusterFlags;
+
+    /// <summary>
+    /// Put translation jets back on a craft after KSA has cleared its held keys: on the vehicle's own inputs and on
+    /// the copy its worker reads, both structs held by value. False where a private field cannot be reached.
+    /// </summary>
+    public static bool TryRestoreJets(Vehicle craft, ThrusterMapFlags jets)
+    {
+        try
+        {
+            _manualInputs ??= typeof(Vehicle).GetField("_manualControlInputs", BindingFlags.NonPublic | BindingFlags.Instance);
+            _workerState ??= typeof(Vehicle).GetField("_threadWorkerUpdateState", BindingFlags.NonPublic | BindingFlags.Instance);
+            if (_manualInputs is null || _workerState?.GetValue(craft) is not { } state) return false;
+
+            _workerInputs ??= state.GetType().GetField("ManualControlInputs", BindingFlags.Public | BindingFlags.Instance);
+            _thrusterFlags ??= typeof(ManualControlInputs).GetField("ThrusterCommandFlags", BindingFlags.Public | BindingFlags.Instance);
+            if (_workerInputs is null || _thrusterFlags is null) return false;
+
+            object own = _manualInputs.GetValue(craft)!;
+            _thrusterFlags.SetValue(own, (ThrusterMapFlags)_thrusterFlags.GetValue(own)! | jets);
+            _manualInputs.SetValue(craft, own);
+
+            object worker = _workerInputs.GetValue(state)!;
+            _thrusterFlags.SetValue(worker, (ThrusterMapFlags)_thrusterFlags.GetValue(worker)! | jets);
+            _workerInputs.SetValue(state, worker);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     /// <summary>Claim the keyboard for the UI on the next frame, as a modal or a focused text field does.</summary>
     public static void HoldTheKeyboard() => Brutal.ImGuiApi.ImGui.SetNextFrameWantCaptureKeyboard(true);
 
@@ -5948,7 +6006,7 @@ internal static class KsaWorld
     /// Give a craft a control part if it has none and one of ours can serve.
     ///
     /// <para><b>A craft with no control part steers against the wrong axes.</b> KSA builds the
-    /// thruster control map in the control part's frame — <c>Ctrl2Body</c> is
+    /// thruster control map in the control part's frame — <c>Helm2Body</c> is
     /// <c>ControlConnector ?? ControlPart ?? Identity</c> — so with none it resolves every attitude
     /// command against the raw assembly axes. A correction then comes out about a different axis
     /// from the one that was wrong, which grows the error rather than cancelling it: measured on

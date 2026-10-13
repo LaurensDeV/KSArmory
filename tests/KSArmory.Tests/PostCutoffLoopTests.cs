@@ -1,3 +1,4 @@
+using Brutal.Numerics;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -181,5 +182,33 @@ public class PostCutoffLoopTests(ITestOutputHelper Out)
                       + $"({slow / fast:F2}x)");
 
         Assert.True(slow / fast > 1.3);
+    }
+
+    // A bus braking out of orbit, flown from ORBIT 300: thrown forward 2.3 m/s off the stack behind it, and owing its
+    // solution 0.8 m/s back toward it, so putting it on the solution closes the pair at 0.8 m/s for the rest of the coast.
+    private static PostCutoffRig OwingTowardTheStack(bool waits) => new()
+    {
+        ShoveCci = new double3(2.3, 0, 0), StackDriftCci = new double3(0.8, 0, 0), StageRadiusMetres = 3.5,
+        AccelerationMetresPerSecond2 = 0.55, CoastSeconds = 120.0, WaitsOutTheStack = waits,
+    };
+
+    [Fact]
+    public void TrimmingAsSoonAsClearDrivesTheBusBackInsideTheKeepOut()
+    {
+        PostCutoffRig.Outcome outcome = OwingTowardTheStack(waits: false).Run(120.0);
+
+        Assert.True(outcome.TrimFinished, outcome.Said);
+        Assert.True(outcome.ClosestOnceClearMetres < ProximityWatch.KeepOutFor(3.5),
+                    $"closest once clear {outcome.ClosestOnceClearMetres:F1} m");
+    }
+
+    [Fact]
+    public void WaitingOutTheStackKeepsTheBusOutsideTheKeepOutAndStillTrims()
+    {
+        PostCutoffRig.Outcome outcome = OwingTowardTheStack(waits: true).Run(120.0);
+
+        Assert.True(outcome.TrimFinished, outcome.Said);
+        Assert.True(outcome.ClosestOnceClearMetres >= ProximityWatch.KeepOutFor(3.5),
+                    $"closest once clear {outcome.ClosestOnceClearMetres:F1} m");
     }
 }

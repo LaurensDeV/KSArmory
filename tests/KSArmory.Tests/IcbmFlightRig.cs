@@ -65,6 +65,16 @@ internal sealed class IcbmFlightRig
     /// <summary>How often the attitude controller acts; KSA's gimbal wakes every 0.1 s.</summary>
     public double AttitudeControlPeriodSeconds = 0.1;
 
+    /// <summary>
+    /// Steer with KSA's own gimbal law (<see cref="KsaTvcLaw"/>) rather than the stand-in, under <see cref="AttitudeHasInertia"/>.
+    /// Its period is the law's adaptive steering interval, not <see cref="AttitudeControlPeriodSeconds"/>.
+    /// </summary>
+    public bool UsesKsaAttitudeLaw;
+
+    private readonly KsaTvcLaw _law = new();
+    private double3 _lawReference = new(0, 0, 1);
+    private double _sinceLawUpdate;
+
     /// <summary>The fastest the stack turned while the closed loop was flying it, under inertia.</summary>
     public double PeakClosedLoopRateDegPerSec { get; private set; }
 
@@ -74,12 +84,20 @@ internal sealed class IcbmFlightRig
     /// <summary>Called every closed-loop frame under inertia: time, throttle, velocity to gain, pointing error, rate.</summary>
     public Action<double, double, double, double, double, double3>? AttitudeTrace;
 
+    /// <summary>Called after every program update: time, phase, altitude, velocity to gain, throttle achieved.</summary>
+    public Action<double, IcbmPhase, double, double, double>? StepTrace;
+
     /// <summary>
     /// A drag area fixed to the airframe, divided by whatever the stack weighs now. Zero leaves
     /// <see cref="DragAreaOverMass"/> in charge, which holds the deceleration constant as the stack
     /// empties.
     /// </summary>
     public double DragAreaM2;
+
+    /// <summary>The drag area of what is still attached, a stage's own where it declares one.</summary>
+    public double DragAreaNowM2 => StageIndex < Stages.Count && Stages[StageIndex].DragAreaM2 > 0.0
+                                       ? Stages[StageIndex].DragAreaM2
+                                       : DragAreaM2;
 
     public double ScaleHeightMetres = 8000.0;
 
@@ -127,6 +145,12 @@ internal sealed class IcbmFlightRig
     /// creeps at that for the last couple of seconds.</para>
     /// </summary>
     public double MinThrottle;
+
+    /// <summary>
+    /// The thrust share the engine actually holds at its floor, where that is more than the <see cref="MinThrottle"/> it
+    /// reports; NaN for the same. Flown on four A2s, KSA's load at the floor ran 1.69x the thrust the program reckoned.
+    /// </summary>
+    public double FloorHeld = double.NaN;
 
     /// <summary>
     /// The throttle lever moves while solids burn, and the stage after them lights wherever it was
@@ -192,7 +216,7 @@ internal sealed class IcbmFlightRig
 
     /// <summary>
     /// Something riding the flight that moves the aim and watches what the shot does about it —
-    /// <see cref="AimCorrection"/> wired the way <c>Ksa/IcbmComputer.cs</c> wires it.
+    /// <see cref="AimCorrection"/> wired the way <c>Ksa/Icbm/IcbmComputer.cs</c> wires it.
     ///
     /// <para>Null is a vehicle aimed exactly where it was pointed, which is every other suite.</para>
     /// </summary>
@@ -235,6 +259,12 @@ internal sealed class IcbmFlightRig
         public required double ExhaustVelocity;
 
         public double MassFlow => ThrustNewtons / ExhaustVelocity;
+
+        /// <summary>
+        /// The stack's drag area while this stage is the one running, or zero for the rig's own. KSA's box is the
+        /// whole craft's, so it shrinks at every staging, and a stack with side boosters loses most of it at once.
+        /// </summary>
+        public double DragAreaM2;
 
         /// <summary>
         /// A solid motor: it ignores the throttle and burns to the end once lit, whatever the
@@ -436,6 +466,7 @@ internal sealed class IcbmFlightRig
                                       AimIsSteady: AimLoop?.IsSteady ?? true,
                                       StackDeltaV: ReportsStackDeltaV ? StackDeltaV() : double.NaN,
                                       StructuralLimitGee: StructuralLimitGee,
+                                      LoadGee: BoundingSphereRadiusMetres > 0.0 ? _filteredGee : double.NaN,
                                       RunningStageCanStop: StageIndex >= Stages.Count || !Stages[StageIndex].Solid,
                                       MinThrottle: MinThrottle,
                                       ThrustAxisCci: _pointing,
@@ -447,6 +478,8 @@ internal sealed class IcbmFlightRig
                                       OnlySolidsRunning: StageIndex < Stages.Count && Stages[StageIndex].Solid);
 
                 command = program.Update(elapsed == 0.0 ? 0.0 : h, state);
+                StepTrace?.Invoke(elapsed, program.Phase, Vec.Len(PositionCci) - Body.SurfaceRadius, program.VelocityToGain,
+                                  ThrottleAchieved);
 
                 // The next sequence, whatever it happens to be: on an unlit stack it is the
                 // ignition, and only after that does it drop what is below.
@@ -553,7 +586,7 @@ internal sealed class IcbmFlightRig
 
     private void SlewThrottle(in IcbmCommand command, double step)
     {
-        double wanted = command.EngineOn ? Math.Clamp(command.Throttle, MinThrottle, 1.0) : 1.0;
+        double wanted = command.EngineOn || command.Pulsing ? Math.Clamp(command.Throttle, MinThrottle, 1.0) : 1.0;
 
         bool solid = StageIndex < Stages.Count && Stages[StageIndex].Solid;
 
@@ -586,7 +619,9 @@ internal sealed class IcbmFlightRig
     {
         if (StageIndex >= Stages.Count) return 0.0;
         double mass = MassAbove(StageIndex);
-        return mass > 0.0 ? Stages[StageIndex].ThrustAt(density) * Math.Clamp(ThrottleAchieved, 0.0, 1.0) / mass : 0.0;
+        double share = Math.Clamp(ThrottleAchieved, 0.0, 1.0);
+        if (double.IsFinite(FloorHeld) && share > 0.0) share = Math.Max(share, FloorHeld);
+        return mass > 0.0 ? Stages[StageIndex].ThrustAt(density) * share / mass : 0.0;
     }
 
     // A sampled controller of the shape KSA's gimbal law has: the rate at which it could still stop
@@ -596,7 +631,12 @@ internal sealed class IcbmFlightRig
         _controlIn -= step;
         double3 want = Vec.Unit(wanted);
 
-        if (_controlIn <= 0.0 && !want.Equals(Vec.Zero))
+        if (UsesKsaAttitudeLaw)
+        {
+            _sinceLawUpdate += step;
+            if (_controlIn <= 0.0 && !want.Equals(Vec.Zero)) UpdateLaw(want, authority);
+        }
+        else if (_controlIn <= 0.0 && !want.Equals(Vec.Zero))
         {
             _controlIn += AttitudeControlPeriodSeconds;
 
@@ -614,6 +654,26 @@ internal sealed class IcbmFlightRig
 
         double turn = Vec.Len(_omega) * step;
         if (turn > 0.0) _pointing = Vec.Unit(doubleQuat.CreateFromAxisAngle(Vec.Unit(_omega), turn) * _pointing);
+    }
+
+    // In a frame carried with the nose, so the two axes do not flip as it swings past the reference.
+    private void UpdateLaw(double3 want, double authority)
+    {
+        double3 y = Vec.Cross(_pointing, _lawReference);
+        if (Vec.Len2(y) < 1e-12) y = Vec.Cross(_pointing, new double3(1, 0, 0));
+        y = Vec.Unit(y);
+        double3 z = Vec.Cross(_pointing, y);
+        _lawReference = z;
+
+        double angle = Vec.AngleBetween(want, _pointing);
+        double3 cross = Vec.Cross(want, _pointing);
+        double3 error = Vec.Len2(cross) > 1e-18 ? Vec.Unit(cross) * angle : Vec.Zero;
+
+        (double cy, double cz) = _law.Update(Vec.Dot(error, y), Vec.Dot(error, z), Vec.Dot(_omega, y), Vec.Dot(_omega, z),
+                                             authority, Vec.Dot(_alpha, y), Vec.Dot(_alpha, z), _sinceLawUpdate);
+        _sinceLawUpdate = 0.0;
+        _alpha = (y * cy + z * cz) * authority;
+        _controlIn += _law.SteeringInterval;
     }
 
     private void Swing(double3 wanted, double step, double rateDegPerSec)
@@ -652,7 +712,8 @@ internal sealed class IcbmFlightRig
         double mass = MassAbove(StageIndex);
         double3 acceleration = Body.GravityCci(PositionCci);
 
-        double areaOverMass = DragAreaM2 > 0.0 && mass > 0.0 ? DragAreaM2 / mass : DragAreaOverMass;
+        double area = DragAreaNowM2;
+        double areaOverMass = area > 0.0 && mass > 0.0 ? area / mass : DragAreaOverMass;
         if (areaOverMass > 0.0 && density > 0.0)
         {
             double speed = Vec.Len(airflow);
@@ -660,6 +721,7 @@ internal sealed class IcbmFlightRig
         }
 
         double throttle = Math.Clamp(ThrottleAchieved, 0.0, 1.0);
+        if (double.IsFinite(FloorHeld) && throttle > 0.0) throttle = Math.Max(throttle, FloorHeld);
 
         bool solid = StageIndex < Stages.Count && Stages[StageIndex].Solid && _lit;
 

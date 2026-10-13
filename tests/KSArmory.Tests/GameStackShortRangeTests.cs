@@ -91,7 +91,7 @@ public class GameStackShortRangeTests(ITestOutputHelper Out)
         => new()
         {
             Armed = true, MaxAccelerationGee = 8.0f, MinArrivalAngleDeg = 0.0, ArrivalPreference = arrivalPreference,
-            AscentReserveSeconds = ascentReserveSeconds, FlyAnyRange = flyAnyRange,
+            AscentReserveOverrideSeconds = ascentReserveSeconds, FlyAnyRange = flyAnyRange,
         };
 
     /// <summary>Watches the program without moving the aim, and records why the burn ended.</summary>
@@ -193,7 +193,7 @@ public class GameStackShortRangeTests(ITestOutputHelper Out)
     public void TheShortShotOnTheGamesStack(bool stackDeltaV, double arrivalPreference)
         => Sweep(stackDeltaV, arrivalPreference, 0.0);
 
-    /// <summary>The same sweep with <see cref="IcbmConfig.AscentReserveSeconds"/>, as the game flies it.</summary>
+    /// <summary>The same sweep with <see cref="IcbmProgram.AscentReserveSeconds"/>, as the game flies it.</summary>
     [Theory]
     [InlineData(5.0)]
     [InlineData(10.0)]

@@ -99,7 +99,7 @@ BODY_RADIUS_M = 6371000.0
 # seven. Silent undercounting reads exactly like a smaller night.
 PERFLIGHT = re.compile(r"FLIGHT (.+?) :: (PASS|FAIL) (.*)$", re.M)
 
-# "mirv: GeoSat FAT 2 flies arm trim (TrimCeilingFromBudget=true)". The craft is non-greedy and the
+# "mirv: GeoSat FAT 2 flies arm sub (WarheadSubStepMs=2)". The craft is non-greedy and the
 # arm is one token, because craft names carry spaces and arm names do not.
 FLIESARM = re.compile(r"^.*?: (.+?) flies arm (\S+)", re.M)
 
@@ -349,6 +349,7 @@ RELEASE_FIELDS = {
     "worse_for":    re.compile(r"worse for (\d+)"),
     "floor_deg":    re.compile(r"against a ([-\d.]+) deg floor"),
     "afford_deg":   re.compile(r"of the ([-\d.]+) deg the tanks could afford"),
+    "trim_spent":   re.compile(r"\(([\d.]+) m/s spent"),
 }
 
 
@@ -477,6 +478,43 @@ def read_targets(text, craft=None):
     return [latest[k] for k in sorted(latest)]
 
 
+def narrow_to_target(shots, k):
+    """Each flight cut down to the warheads it sent to target `k` (1-based), as though that were its
+    whole salvo, so every endpoint and the paired test read one target at a time.
+
+    A flight that never went to `k` is dropped rather than scored as a miss: a set of one has only
+    target 1, and a split flight that sent nothing there is already flagged by `say_targets`.
+    """
+    narrowed = []
+    for shot in shots:
+        if not shot.get("split"):
+            if k == 1:
+                narrowed.append(shot)
+            continue
+
+        row = next((r for r in shot["targets"] if r["k"] == k), None)
+        if row is None:
+            continue
+
+        mine = [i for i, t in enumerate(shot.get("group_target") or []) if t == k]
+        one = dict(shot)
+        one["split"] = False
+        one["targets"] = [row]
+        one["released"], one["arrived"] = row["released"], row["arrived"]
+        one["mean"], one["worst"], one["best"], one["spread"] = (
+            row["mean"], row["worst"], row["best"], row["spread"])
+        one["group_m"] = [shot["group_m"][i] for i in mine]
+        one["group_parts"] = [shot["group_parts"][i] for i in mine]
+        one["group_target"] = [k] * len(mine)
+        narrowed.append(one)
+    return narrowed
+
+
+def target_count(shots):
+    """How many places the night's split flights were sent to, or 1 for a night that flew one."""
+    return max((r["of"] for s in shots if s.get("split") for r in s["targets"]), default=1)
+
+
 def _fold_targets(shot):
     """Put a split flight's per-target groups back into the four columns everything else reads."""
     rows = shot["targets"]
@@ -574,7 +612,7 @@ def read_shot(out_path, log_path, craft=None):
             "arrived": None, "released": None, "pickup_km": None, "pickup_ms": None,
             "residual": None, "own_km": None, "trim_split": None, "trim_release": None,
             "arc_deg": [], "release_owed": [], "response": [], "raw_response": [],
-            "plant": [], "worse_for": [], "floor_deg": [], "afford_deg": [],
+            "plant": [], "worse_for": [], "floor_deg": [], "afford_deg": [], "trim_spent": [],
             "offline": [], "probe_km": [], "thrown": [], "arrival_deg": [],
             "arrival_ms": [], "trace_km": [], "walk_m": [], "walk_down": [], "walk_cross": [],
             "early_s": [], "final_down": [], "final_cross": [], "final_aim": [],
@@ -1065,7 +1103,7 @@ def _say_decomposition(shots, key, order, section=False):
         print()
 
 
-def paired(root, shots, endpoint="miss", levels_from=None, per_seat=False):
+def paired(root, shots, endpoint="miss", levels_from=None, per_seat=False, target=None):
     """Compare the variants flown INSIDE each shot, which is the only comparison this
     instrument currently supports.
 
@@ -1086,6 +1124,9 @@ def paired(root, shots, endpoint="miss", levels_from=None, per_seat=False):
 
     if spec in ("", "<none>"):
         sys.exit("this batch was not flown paired -- there is no within-run split to report")
+
+    if target is not None:
+        shots = narrow_to_target(shots, target)
 
     order = [piece.split(":")[0].strip() for piece in spec.split("|") if piece.strip()]
 
@@ -1118,6 +1159,8 @@ def paired(root, shots, endpoint="miss", levels_from=None, per_seat=False):
     label, unit, score, signed = ENDPOINTS[endpoint]
 
     print(f"== paired within {len(groups)} shot(s) in {root}")
+    if target is not None:
+        print(f"   TARGET {target} only: every flight scored on the warheads it sent there")
     print(f"   scored on the {label} ({unit})")
     if per_seat:
         print("   PER SEAT: every seat is compared only with itself, so nothing is levelled or pooled "
@@ -1232,6 +1275,8 @@ def paired(root, shots, endpoint="miss", levels_from=None, per_seat=False):
     # effect being chased, so which set is used has to be stated rather than assumed.
     if levels_from:
         other_root, other_shots = load(levels_from)
+        if target is not None:
+            other_shots = narrow_to_target(other_shots, target)
         outside, _ = fit(other_shots, score)
         missing = sorted(set(levels) - set(outside))
         if not outside:
@@ -1380,10 +1425,8 @@ def _say_coast(shots, order):
     126 healthy ones went off rails at some point, so a binary reading separates nothing; what
     separates them is how much of the coast, 70% against 1%.
 
-    And it is what makes a null readable. The quiet window is bounded at both ends
-    (`Sim/CoastQuiet.cs`), so how much of a coast it covers is a per-flight outcome — an arm that
-    changed nothing because it never engaged looks exactly like one that engaged and did not
-    matter, and only this table tells them apart.
+    And it is what makes a null readable: an arm that changed nothing because it never engaged
+    looks exactly like one that engaged and did not matter, and only this table tells them apart.
     """
     rows = [s for s in shots if s.get("within") and usable(s) and s.get("rails_probes")]
     if not rows:
@@ -2316,6 +2359,16 @@ RELEASE_FLOOR_M = 0.5
 SPREAD_FLOOR_M = 0.1
 
 
+def _trim_score(shot):
+    """What the bus's jets spent by the first release, in m/s, off the release summary.
+
+    The split's own debt is 2.5-3 m/s of it; on the 2026-10-11 6,181 km night the rest was 13-15
+    more, taking back an aim the burn's freeze reverted and a kick added at cutoff. Both are paid
+    in trim rather than in landing, so a night scored on the landing alone cannot see either.
+    """
+    return shot["trim_spent"][0] if shot.get("trim_spent") else None
+
+
 def _release_score(shot):
     """What this flight is already wrong by BEFORE the warheads are let go, in metres.
 
@@ -2608,6 +2661,7 @@ ENDPOINTS = {
     "miss": ("miss at the ground", "km", lambda s: s["mean"], False),
     "walk": ("downrange walk after release", "m", _walk_score, False),
     "release": ("miss the shot already has at release", "m", _release_score, False),
+    "trim": ("trim the bus spent by its first release", "m/s", _trim_score, False),
     "spread": ("spread within one rocket's group", "m", _spread_score, False),
     "landing": ("mean landing distance of one rocket's warheads", "m", _landing_score, False),
     "centre": ("distance of one rocket's group centre from the aim", "m", _centre_score, False),
@@ -3156,6 +3210,10 @@ def main():
                          "rocket's group, which is the only one the aim correction cannot reach, "
                          "or landing, centre and dispersion: the miss off each warhead's 0.1 m "
                          "line, and that miss split into where the group went and how wide it is")
+    ap.add_argument("--target", metavar="K", type=int,
+                    help="with --paired: score only the warheads each flight sent to target K "
+                         "(1-based). A night that went to several places is otherwise reported "
+                         "pooled and then once per target")
     ap.add_argument("--levels-from", metavar="DIR",
                     help="fit the seat levels from another night, so the divisor cannot absorb "
                          "any of the arm under test")
@@ -3196,8 +3254,24 @@ def main():
         main_effect(shots, args.main)
         return
 
+    if args.target is not None and not args.paired:
+        sys.exit("--target narrows what --paired scores; pass --paired too")
+
     if args.paired:
+        if args.target is not None:
+            paired(root, shots, args.endpoint, args.levels_from, args.per_seat, args.target)
+            return
+
         paired(root, shots, args.endpoint, args.levels_from, args.per_seat)
+
+        # Pooled, a walk is weighted by how many warheads each stop got; a target the arm made
+        # worse can hide under three it made better.
+        for k in range(1, target_count(shots) + 1) if target_count(shots) > 1 else ():
+            print(f"\n{'=' * 100}")
+            try:
+                paired(root, shots, args.endpoint, args.levels_from, args.per_seat, k)
+            except SystemExit as refused:
+                print(f"   TARGET {k}: {refused}")
         return
 
     if args.endpoint != "miss":

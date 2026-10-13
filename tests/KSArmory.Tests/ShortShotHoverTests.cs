@@ -6,18 +6,19 @@ namespace KSArmory.Tests;
 
 /// <summary>
 /// The 25 km hover in the rig: Real Liquid2 with the Mk 21 aboard, so the drag solve runs. At 30 and 45 m^2 it ends stood
-/// still over the target with its arrival re-pinned every other solve, as flown. <c>docs/SHORT-RANGE.md</c>.
+/// still over the target with its arrival re-pinned every other solve, as flown, unless
+/// <see cref="IcbmConfig.ShortShotPushesThroughAStall"/> pushes it through. <c>docs/SHORT-RANGE.md</c>.
 /// </summary>
 [Trait("kind", "study")]
 public class ShortShotHoverTests(ITestOutputHelper Out)
 {
     private const double Mu = 3.986004418e14;
     private const double R = 6_371_000.0;
-    private const double PadLatitudeDeg = 28.608;
+    internal const double PadLatitudeDeg = 28.608;
 
     private static BallisticBody Earth => new(Mu, R, new double3(0, 0, 1), 7.2921159e-5);
 
-    private static double3 At(double latitudeDeg)
+    internal static double3 At(double latitudeDeg)
     {
         double lat = double.DegreesToRadians(latitudeDeg);
         return new double3(R * Math.Cos(lat), 0.0, R * Math.Sin(lat));
@@ -25,7 +26,7 @@ public class ShortShotHoverTests(ITestOutputHelper Out)
 
     // TEST RealLiquid2 off its flown throttle lines (~/shots/2026-10-06-fourrockets): 125.4 t and 2.90 MN at
     // the pad with 5,361 m/s in the stage, the upper 736 kN on 31.1 t with 8,617 m/s; the engine held 0.112.
-    private static IcbmFlightRig RealLiquid2(double dragAreaM2)
+    internal static IcbmFlightRig RealLiquid2(double dragAreaM2)
     {
         double3 pad = At(PadLatitudeDeg);
         return new IcbmFlightRig
@@ -86,7 +87,7 @@ public class ShortShotHoverTests(ITestOutputHelper Out)
         {
             miss = $"{R * Vec.AngleBetween(hit.GroundFixedPointCci, Earth.CarryCci(aim, flight.CutoffSeconds)):F1} m";
         }
-        Out.WriteLine($"{km} km drag area {dragAreaM2}{(arm is null ? "" : " ON")}: closed loop {loop:F1} s, cut "
+        Out.WriteLine($"{km} km drag area {dragAreaM2}{(arm is null ? "" : " push off")}: closed loop {loop:F1} s, cut "
                       + $"{!double.IsNaN(clock.CutAt)}, residual {program.ResidualAtCutoff:F2} m/s at throttle "
                       + $"{program.ThrottleAtCutoff:F3}, lands {miss}");
         return (loop, !double.IsNaN(clock.CutAt));
@@ -96,6 +97,10 @@ public class ShortShotHoverTests(ITestOutputHelper Out)
     public void Study()
     {
         // Without the warhead the drag solve never runs and no area stalls; with it, 12 and 20 m^2 close and 30 and 45 hover.
-        foreach (double area in new[] { 12.0, 20.0, 30.0, 45.0 }) Fly(area, 25.0, trace: area == 30.0);
+        foreach (double area in new[] { 12.0, 20.0, 30.0, 45.0 })
+        {
+            Fly(area, 25.0, trace: area == 30.0, c => c.ShortShotPushesThroughAStall = false);
+        }
+        foreach (double area in new[] { 12.0, 20.0, 30.0, 45.0 }) Fly(area, 25.0, trace: false);
     }
 }

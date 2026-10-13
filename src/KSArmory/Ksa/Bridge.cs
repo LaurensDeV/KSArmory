@@ -251,6 +251,7 @@ internal sealed class Bridge : IViewPose
             "save" => SaveGame(command),
             "control" => Control(command),
             "remove" => RemoveCraft(command),
+            "orbit" => PutInOrbit(command),
             _ => Failed($"no command '{command.Name}'"),
         };
 
@@ -681,6 +682,34 @@ internal sealed class Bridge : IViewPose
         if (ReferenceEquals(craft, KsaWorld.ControlledVehicle)) return Failed("that craft is being flown; control another first");
         KsaWorld.Remove(craft);
         return Done(new() { ["removed"] = name });
+    }
+
+    // A named craft put on a circular orbit alt_km up, passing over lat/lon on heading_deg, as KSA's own
+    // Set Orbit window queues it -- so a scenario save can start a bus in orbit rather than on a pad.
+    private static Reply PutInOrbit(BridgeCommand command)
+    {
+        if (CraftNamed(command.String("craft")) is not { } craft) return Failed("no such craft");
+        if (Detonation.BodyFor(craft) is not Celestial body) return Failed("no body under the craft");
+
+        double altitude = command.Number("alt_km", 300.0) * 1000.0;
+        double heading = double.DegreesToRadians(command.Number("heading_deg", 180.0));
+        UniverseTime at = Universe.GetNextSimStep().NextTime;
+
+        double3 up = Vec.Unit(body.GetCcf2Cci(at) * body.GetDirCcfFromLatLon(command.Number("lat", 0.0), command.Number("lon", 0.0)));
+        double3 east = Vec.Unit(Vec.Cross(new double3(0, 0, 1), up));
+        double3 north = Vec.Cross(up, east);
+        if (!Vec.IsFinite(east)) return Failed("no heading exists over a pole");
+
+        double radius = body.MeanRadius + altitude;
+        double3 positionCci = up * radius;
+        double3 velocityCci = ((north * Math.Cos(heading)) + (east * Math.Sin(heading))) * Math.Sqrt(((IParentBody)body).Mu / radius);
+
+        Orbit orbit = Orbit.CreateFromStateCci(body, at, positionCci, velocityCci, craft.Orbit.OrbitLineColor);
+        InputEvents.TeleportInputBuffer.Add(new InputEvents.TeleportInputData
+        {
+            Vehicle = craft, Orbit = orbit, Body2Cce = null, BodyRates = double3.Zero,
+        });
+        return Done(new() { ["craft"] = KsaWorld.DisplayName(craft), ["periapsis_km"] = Math.Round((orbit.Periapsis - body.MeanRadius) / 1000.0, 1) });
     }
 
     // The game written to a save of this name, as KSA's own save console command writes it.

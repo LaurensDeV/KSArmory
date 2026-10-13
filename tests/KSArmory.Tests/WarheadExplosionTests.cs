@@ -27,7 +27,7 @@ public class WarheadExplosionTests
         Assert.Equal(WarheadExplosion.Pop, WarheadExplosion.PresetFor(BuiltIns.Cannon30Mm.ChargeKg));
         Assert.Equal(WarheadExplosion.SmallFire, WarheadExplosion.PresetFor(Arsenal.Shell5In54.ChargeKg));
         Assert.Equal(WarheadExplosion.SmallFire, WarheadExplosion.PresetFor(Arsenal.Missile9J.ChargeKg));
-        Assert.Equal(WarheadExplosion.SmallFire, WarheadExplosion.PresetFor(BuiltIns.Missile57E6.ChargeKg));
+        Assert.Equal(WarheadExplosion.Conflagration, WarheadExplosion.PresetFor(BuiltIns.Missile57E6.ChargeKg));
         Assert.Equal(WarheadExplosion.Conflagration, WarheadExplosion.PresetFor(Arsenal.MissileAgm88.ChargeKg));
 
         // And a charge that grows a cloud takes this mod's own, which is that same preset without
@@ -41,8 +41,8 @@ public class WarheadExplosionTests
     [Theory]
     [InlineData(0.30, WarheadExplosion.Pop)]
     [InlineData(0.42, WarheadExplosion.SmallFire)]
-    [InlineData(38.0, WarheadExplosion.SmallFire)]
-    [InlineData(45.0, WarheadExplosion.Conflagration)]
+    [InlineData(13.0, WarheadExplosion.SmallFire)]
+    [InlineData(17.0, WarheadExplosion.Conflagration)]
     public void TheChangeOversSitWhereTheFireballsMeet(double kg, string preset)
         => Assert.Equal(preset, WarheadExplosion.PresetFor(kg));
 

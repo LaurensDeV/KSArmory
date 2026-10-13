@@ -153,4 +153,117 @@ public class DeorbitTests
         Assert.True(double.IsFinite(command.SecondsToArrival),
                     "and it still knows when the warheads land");
     }
+
+    /// <summary>
+    /// The burn lights half its length before the window, so the world has to be slowed by then and
+    /// not by the window itself: a warp still running at ignition flies the first frame of the burn
+    /// on a step of minutes. Stepped at 30 s, as a warp does, on a stage weak enough that the lead is
+    /// several minutes, and slowed to 0.1 s once it asks, as the warp policy would.
+    /// </summary>
+    [Fact]
+    public void AHoldAsksForShortStepsBeforeItLightsTheBurn()
+    {
+        IcbmFlightRig orbit = InOrbit(300_000.0, 0.0);
+        IcbmFlightRig rig = new()
+        {
+            Body = Earth,
+            PositionCci = orbit.PositionCci,
+            VelocityCci = orbit.VelocityCci,
+            Stages = [new() { DryMassKg = 3_000, PropellantKg = 40_000, ThrustNewtons = 6_000, ExhaustVelocity = 3_100 }],
+        };
+        double3 aim = At(0.0, -0.6);
+
+        IcbmProgram program = new(new IcbmConfig { Armed = true, MinArrivalAngleDeg = 0.0 });
+        double3 position = rig.PositionCci, velocity = rig.VelocityCci;
+        bool heldOver = false, shortBefore = false;
+        double litOnStep = double.NaN;
+
+        for (double t = 0.0, step = 30.0; t < 20_000.0; t += step)
+        {
+            step = program.NeedsShortSteps ? 0.1 : 30.0;
+
+            IcbmState state = new(Earth, position, velocity, Earth.CarryCci(aim, t), HasAim: true,
+                                  rig.Performance(), 0.0, PropellantAvailable: true);
+
+            bool wasShort = program.NeedsShortSteps;
+            IcbmCommand command = program.Update(step, state);
+
+            if (command.Phase is not IcbmPhase.Holding and not IcbmPhase.Idle)
+            {
+                heldOver = true;
+                shortBefore = wasShort;
+                litOnStep = step;
+                break;
+            }
+
+            Assert.True(Kepler.TryCoast(Mu, position, velocity, step, out position, out velocity));
+        }
+
+        Assert.True(heldOver, "it never left the hold");
+        Assert.True(shortBefore, "it lit the burn with the world still free to warp");
+        Assert.True(litOnStep <= 1.0, $"it lit the burn on a {litOnStep:F0} s step");
+    }
+
+    /// <summary>
+    /// A kept window is refined where it is, not swapped: asked to keep a departure half a revolution from the cheapest,
+    /// it stays there. A fresh search would hand back the cheapest.
+    /// </summary>
+    [Fact]
+    public void AKeptWindowStaysWhereItWasChosen()
+    {
+        IcbmFlightRig rig = InOrbit(300_000.0, 0.0);
+        double3 aim = At(0.0, -0.6);
+
+        Assert.True(BurnWindow.TryFind(Earth, rig.PositionCci, rig.VelocityCci, aim, out BurnWindow.Window best));
+
+        double period = Kepler.PeriodSeconds(Mu, rig.PositionCci, rig.VelocityCci);
+        double kept = best.WaitSeconds + 0.5 * period;
+        Assert.True(BurnWindow.TryKeep(Earth, rig.PositionCci, rig.VelocityCci, aim, kept, out BurnWindow.Window held));
+
+        Assert.True(Math.Abs(held.WaitSeconds - kept) <= period / BurnWindow.NearSamples + 1.0,
+                    $"kept {kept:F0} s, came back {held.WaitSeconds:F0} s; the best is {best.WaitSeconds:F0} s");
+    }
+
+    /// <summary>
+    /// A hold whose nose is far off its burn line when the burn falls due waits for the turn -- at most
+    /// <see cref="IcbmProgram.WaitToTurnSeconds"/> -- rather than lighting mid-swing.
+    /// </summary>
+    [Fact]
+    public void AHoldDoesNotLightMidTurn()
+    {
+        IcbmFlightRig orbit = InOrbit(300_000.0, 0.0);
+        IcbmFlightRig rig = new()
+        {
+            Body = Earth, PositionCci = orbit.PositionCci, VelocityCci = orbit.VelocityCci,
+            Stages = [new() { DryMassKg = 3_000, PropellantKg = 40_000, ThrustNewtons = 300_000, ExhaustVelocity = 3_100 }],
+        };
+        double3 aim = At(0.0, -0.6);
+
+        IcbmProgram program = new(new IcbmConfig { Armed = true, MinArrivalAngleDeg = 0.0 });
+        double3 position = rig.PositionCci, velocity = rig.VelocityCci;
+        double lateBy = double.NaN;
+
+        for (double t = 0.0, step = 30.0; t < 20_000.0; t += step)
+        {
+            step = program.NeedsShortSteps ? 0.1 : 30.0;
+
+            // Pointed square to wherever the burn is, as a stack that has not started its turn would be.
+            double3 nose = Vec.PerpendicularTo(Vec.Unit(velocity), new double3(0, 0, 1));
+            IcbmState state = new(Earth, position, velocity, Earth.CarryCci(aim, t), HasAim: true, rig.Performance(), 0.0,
+                                  PropellantAvailable: true, ThrustAxisCci: nose);
+
+            double toBurn = program.SecondsToBurn;
+            IcbmCommand command = program.Update(step, state);
+
+            if (command.Phase is not IcbmPhase.Holding and not IcbmPhase.Idle)
+            {
+                lateBy = program.WaitedToTurnSeconds;
+                break;
+            }
+
+            Assert.True(Kepler.TryCoast(Mu, position, velocity, step, out position, out velocity));
+        }
+
+        Assert.True(lateBy >= IcbmProgram.WaitToTurnSeconds - 0.2, $"it lit after waiting {lateBy:F1} s for a turn that never came");
+    }
 }

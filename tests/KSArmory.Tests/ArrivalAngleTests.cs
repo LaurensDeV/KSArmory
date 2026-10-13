@@ -18,8 +18,8 @@ namespace KSArmory.Tests;
 /// after a change and compared.</para>
 ///
 /// <para><b>The planet sits at the origin and does not move</b>, which <see cref="DeorbitShot"/>
-/// says why of. So nothing here can see an epoch fault, and the open item in
-/// <c>docs/ICBM-GUIDANCE.md</c> about the ground a round meets is out of reach of this rig — what
+/// says why of. So nothing here can see an epoch fault, and the ground a round meets
+/// (<c>docs/ACCURACY-PLAN.md</c>, "Moved from ICBM-GUIDANCE") is out of reach of this rig — what
 /// is measured is the geometry that would multiply such a fault, not the fault.</para>
 /// </summary>
 public class ArrivalAngleTests(ITestOutputHelper Out)
@@ -30,7 +30,7 @@ public class ArrivalAngleTests(ITestOutputHelper Out)
     /// <summary>Exhaust velocity of the stage <c>DeorbitTests</c> flies, for the mass ratios.</summary>
     private const double ExhaustVelocity = 3_100.0;
 
-    /// <summary>The cutoff residual a trimmed bus was flown at, per <c>docs/ICBM-GUIDANCE.md</c>.</summary>
+    /// <summary>The cutoff residual a trimmed bus was flown at, per <c>docs/ACCURACY-PLAN.md</c>, "Moved from ICBM-GUIDANCE".</summary>
     private const double TrimmedResidual = 0.017;
 
     /// <summary>A residual an untrimmed split or a coarse cutoff leaves, for the pessimistic column.</summary>

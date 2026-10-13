@@ -45,6 +45,8 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
     /// </summary>
     public Track? Watched { get; private set; }
 
+    private object? _watchedHandle;
+
     /// <summary>
     /// What the operator picked from the track list, as an <see cref="IContact.Handle"/>, cleared
     /// when that contact leaves it. An object rather than a craft: a contact need not be one.
@@ -297,6 +299,8 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
             if (designated is not null)
             {
                 Locked = designated;
+                Watched = designated;
+                _watchedHandle = designated.Contact.Handle;
                 return;
             }
             ManualDesignation = null;
@@ -305,16 +309,21 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
         int first = ThreatModel.IndexOfFirstThreat(Tracks);
         Locked = first >= 0 ? Tracks[first] : null;
 
-        // What an instrument should look at, which is not what a weapon may shoot. Tracks are
-        // already sorted by priority, so the best thing on scope is the head of the list whether
-        // or not it qualifies as a threat.
+        // What an instrument should look at, which is not what a weapon may shoot: the best thing on
+        // scope whether or not it qualifies as a threat, held until another is clearly better
+        // (Sim/WatchChoice.cs).
         //
         // A weapon is right to hold fire at something that will never come close; a sight pointed
         // at it is doing its job. Without this a director watches nothing at all whenever the only
         // contact is a passer-by, and lags the launcher whenever a threat is still maturing —
         // fire control reaches its own verdict first and the missiles leave before the picture
         // has moved.
-        Watched = Locked ?? (Tracks.Count > 0 ? Tracks[0] : null);
+        int fresh = Locked is not null ? first : Tracks.Count > 0 ? 0 : -1;
+        int held = _watchedHandle is null ? -1 : Tracks.FindIndex(t => ReferenceEquals(t.Contact.Handle, _watchedHandle));
+        int watched = WatchChoice.Choose(Tracks, fresh, held);
+
+        Watched = watched >= 0 ? Tracks[watched] : null;
+        _watchedHandle = Watched?.Contact.Handle;
     }
 
     /// <summary>True when the locked contact has been held long enough to shoot at.</summary>
@@ -332,6 +341,7 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
         _acceleration.Clear();
         Locked = null;
         Watched = null;
+        _watchedHandle = null;
         ManualDesignation = null;
     }
 }

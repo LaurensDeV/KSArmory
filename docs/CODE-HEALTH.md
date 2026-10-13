@@ -13,7 +13,7 @@ not will be found again by the next reader.
 
 ## Remove the automatic save repair after the release that ships it
 
-- [ ] **Delete `Ksa/SaveRepairs.cs`, `Sim/SaveRepair.cs` and `SaveRepairTests.cs`, and the
+- [x] **Delete `Ksa/SaveRepairs.cs`, `Sim/SaveRepair.cs` and `SaveRepairTests.cs`, and the
   `SaveRepairs.RunAll()` call in `KSArmoryMod.OnFullyLoaded`, in the release after the first one to
   ship them** (the first release after v0.9.4). The owner's decision: the repair exists only to carry
   saves across the Mk 42 losing its twenty shell subparts, for one release. Remove the two layout
@@ -44,6 +44,20 @@ not will be found again by the next reader.
   separate shots, and flare cores lit again after sixteen had burnt at once against the twelve-core
   cap -- no `no free emitters` line, no sound warning, no exception in KSA's log.
 
+
+## The ballistic computer
+
+- [~] **`Ksa/Icbm/IcbmComputer.cs` was 4,337 lines and about 120 methods**, and everything after cutoff -- the split,
+  clearance, trim, post-boost passes, aim correction and release -- is orchestrated there, out of the tests' reach.
+  It is split into ten partials by concern, 1,531 lines left in the main file. `docs/ICBM-OUTSTANDING.md` 5.3. A rig that flies past cutoff (2.5) is the
+  other half: whatever of that orchestration is arithmetic belongs in `Sim/`, where it can be flown headlessly.
+- [x] **`Sim/Icbm/IcbmProgram.cs` was 1,966 lines**, the phase machine and every phase's rules in one class. Split by
+  phase into eight partials, 994 lines left in the main file. `docs/ICBM-OUTSTANDING.md` 5.3.
+- [~] **`Sim/IcbmConfig.cs` carries 65 settings.** Thirteen with flown or judged verdicts were removed on
+  2026-10-06 (5.1), and every doc comment is now its verdict and a pointer (5.2, 452 lines from 1,065). Several
+  that remain are off and unflown, and each is either flown and decided or removed.
+- [ ] **The body fall is summed over one link** (`KsaWorld.BodyFallEcl`): a round over the Moon keeps most of
+  Earth's fall around the Sun as an error. Unflown; `docs/MIRV-NEXT.md` 2g.
 
 ## Comment hygiene
 

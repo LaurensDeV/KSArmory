@@ -8,7 +8,7 @@ Each entry cites what the decompiled corpus says, so a claim can be rechecked af
 rather than taken on trust. **Recheck this file when the game moves** — the whole point of it is
 that some of these will quietly become possible.
 
-Findings are against KSA **2026.10.7.5541**. Paths are relative to
+Findings are against KSA **2026.10.13.5602**. Paths are relative to
 `../ksa-game-assemblies/current/src`.
 
 ## Recheck after a KSA update
@@ -19,7 +19,9 @@ happen rather than a member that moved.
 
 - [x] Secondary viewport gets the planet, atmosphere and lighting passes — **partly, in
   2026.10.7.5541**: terrain and sky, not clouds, ocean or clustered lights; see the entry below
-- [ ] A secondary viewport's terrain is shadowed by cascades fitted to its own camera, not the main one's
+- [x] A secondary viewport's terrain is shadowed by cascades fitted to its own camera, not the main one's
+  — **partly, in 2026.10.13.5602**: not shadowed at all unless `PlanetRenderer.ViewportShadows` is set,
+  which is the picture the entry below asked for; see it
 - [x] `Camera.NearbyCelestial` is set per camera rather than only for the frame viewport — **partly,
   in 2026.10.7.5541**: the field is still the frame camera's, but `Camera.GetEffectiveNearbyCelestial`
   resolves one for any camera, and the planet and atmosphere passes read that
@@ -54,10 +56,17 @@ happen rather than a member that moved.
   (ReadyToRun), or a debris split that no longer does first-time work -- **delete
   `JitWarmup.EngineTypes` the day it does**; see the entry below
 
+**Rechecked against 2026.10.13.5602: one entry moved, the rest is still blocked.** A camera window's
+terrain is now drawn unshadowed rather than through the main view's cascades. `PhysicsStates.cs`,
+`PhysicsEnvironment.cs`, `ConstraintSim.cs` and `NarrowPhaseCallbacks.cs` are unchanged, `Program.cs`'s
+viewport path moved by line shifts and a trail-shadow pass, `KSA.dll` is still IL-only, StarMap did
+not move, and there is still no public accessor for the trail renderer. Citations were re-derived
+only where this build moved what they cite; elsewhere they are against 2026.10.10.5554.
+
 **Rechecked against 2026.10.7.5541: everything open is still blocked except the camera window,
 which now draws terrain and a sky.** A secondary viewport is created with `RenderTerrain`
 (`Program.cs:952`) and runs the planet renderer and `RenderAtmosphereOnly` for its own slot
-(`Program.cs:4469-4572`), and the atmosphere LUTs are per viewport. Clouds, the ocean, ground clutter,
+(`Program.cs:4471-4574`), and the atmosphere LUTs are per viewport. Clouds, the ocean, ground clutter,
 volumetric trails and the clustered light pre-pass are still the main view's. `ComputeDrag` is
 byte-identical; a long-step RK8 integrator was added for vehicles outside the physics radius, where
 there is no drag. There is no new StarMap hook, and `KSA.dll` is still not ReadyToRun.
@@ -78,8 +87,8 @@ engine explosion (`PartFailureEvent.cs:38-67`, `Universe.cs:1909-1917`).
 `ExplosionSystem.SpawnPreset` fires a declared `<Explosion>` — emitters, volumes, a flash and a
 sound — from an anchor with no vehicle (`ExplosionSystem.cs:217`, `:471-476`). Its volumes draw
 through the volumetric trail renderer, over the camera's nearby body with or without air, behind
-their own `Graphics.Explosions` setting (`ExplosionVolumeSystem.cs:47-50`,
-`VolumetricTrailRenderer.cs:246`, `PlanetTransparenciesRenderer.cs:316-326`), and
+their own `Graphics.Explosions` setting (`ExplosionVolumeManager.cs:24`, `:41`,
+`VolumetricTrailRenderer.cs:294`, `PlanetTransparenciesRenderer.cs:316-326`), and
 its intensity clamps at 100x of 5e10 J, so a nuclear cloud would still be authored rather than
 scaled.
 
@@ -319,7 +328,7 @@ in every sensor mode including colour, so the mod's own pass is not involved. Se
 **Why.** The sun's shadow maps are built once a frame, for the main view:
 `SunShadowSystem.UpdateUniforms(RenderedViewport, ...)` and
 `_cascadedShadowSystem.UpdateUniforms(RenderedViewport.GetCamera(), ...)` run with
-`_frameViewport = MainViewport` (`Program.cs:4329-4331`). `PlanetRenderer.Render` binds the same
+`_frameViewport = MainViewport` (`Program.cs:4331-4333` on 2026.10.10.5554). `PlanetRenderer.Render` binds the same
 sun-shadow and cascade sets for whatever viewport it is drawing (`PlanetRenderer.cs:2016-2027`), so
 a window's terrain is shadowed through cascades fitted to another camera's frustum, and they move
 whenever that camera does. Part meshes are spared: `SuperMeshRenderSystem` reads `UseShadows` per
@@ -330,6 +339,13 @@ shadow systems that hold one set of uniforms per frame and are constructed by `P
 
 **What would unblock it.** Cascades per viewport, or the planet pass honouring `UseShadows` the way
 the part pass does — an unshadowed window is a better picture than one whose shadows move.
+
+**Partly lifted in 2026.10.13.5602, not yet looked at**: `PlanetRenderer.Render` binds the shadowed
+cloud, sun and cascade sets only for the main view or when the public static
+`PlanetRenderer.ViewportShadows` is set (default false), and the unshadowed sets otherwise
+(`PlanetRenderer.cs:2017-2031`); the shadow maps are still built for the main view alone
+(`Program.cs:4417-4418`). So a window's terrain should hold still and carry no shadows. Per-viewport
+cascades would still be the whole fix.
 
 ## Secondary viewport: no sky, clouds, atmosphere or terrain
 
@@ -349,24 +365,24 @@ any craft (`KSArmoryMod.DriveCameraWindows`). What follows is the account agains
 **What happens.** A secondary viewport shows a raw starfield above a hard horizon and a
 featureless grey ball, where the main view at the same position shows sky, clouds and terrain.
 
-**Why.** Secondary viewports go through `Program.RenderViewport` (`KSA/KSA/Program.cs:4415-4551`),
-a much shorter path than the main one. The loop that calls it ends at `Program.cs:4607`, and the
-next statement is `_renderedViewport = MainViewport` (`:4609`) — so every pass after it is pinned
+**Why.** Secondary viewports go through `Program.RenderViewport` (`KSA/KSA/Program.cs:4417-4553`),
+a much shorter path than the main one. The loop that calls it ends at `Program.cs:4609`, and the
+next statement is `_renderedViewport = MainViewport` (`:4611`) — so every pass after it is pinned
 to the main view whatever else is open: the planet renderer, the light and shadow passes, the
-ocean (`:4783`), and `_planetTransparenciesRenderer.Render` (`:4792`), the sole call site of the
+ocean (`:4785`), and `_planetTransparenciesRenderer.Render` (`:4794`), the sole call site of the
 atmosphere and cloud compute passes anywhere in the game.
 
 **`ViewportOptionFlags.RenderAtmosphere` is set on all four secondary viewports and does not mean
 this** (`Program.cs:949`). Inside `RenderViewport` it gates one call, `_sunbloomRenderer.Render`
-(`:4499-4509`), and nothing else. The flag is the first thing that looks like the fix and is not.
+(`:4501-4511`), and nothing else. The flag is the first thing that looks like the fix and is not.
 
 Two details explain the exact image:
 
-- The starfield is drawn because stars *are* in the reduced path (`Program.cs:4458-4469`).
+- The starfield is drawn because stars *are* in the reduced path (`Program.cs:4460-4471`).
 - The grey ball is not terrain. It is `StaticCelestial.RenderSphere` → `DistantSphereRenderer`, a
   sphere scaled to `MeanRadius` with no heightfield. It appears because
   `Camera.NearbyCelestial` is only ever assigned inside `OnFrameCelestials`
-  (`Program.cs:2696-2721`), which runs for the frame viewport — always the main one. The check
+  (`Program.cs:2698-2723`), which runs for the frame viewport — always the main one. The check
   that suppresses the planet you are standing on
   compares `camera.NearbyCelestial == orbiter` (`StaticCelestialDistanceRendering.cs:416`), and a
   secondary camera's is permanently `null`, so it never matches. The same `null` zeroes that
@@ -586,7 +602,7 @@ rather than the mod's gizmo tracers.
 
 **The declarative route is closed.** The XML tag is real — `<PlumeTrail Id="DefaultPlumeTrail"/>`
 inside a `<ReactionPlume>` — but the emitter only produces anything when
-`current.State.DutyCycle > 0f && current.State.ExhaustVelocity > 0f` (`KSA/KSA/Vehicle.cs:5712`), where `DutyCycle` is
+`current.State.DutyCycle > 0f && current.State.ExhaustVelocity > 0f` (`KSA/KSA/Vehicle.cs:5713`), where `DutyCycle` is
 accumulated by a **burning rocket core**. The mod's rounds have no motor, no propellant and no
 staging, and a real motor would apply real thrust to the launcher, since the round bodies are its
 subparts.
@@ -923,6 +939,6 @@ with the craft. What works today is a `<Grab>` rail from the ground to an `EVADo
 servoing its speed against the deck rather than the planet (`KittenServoPrecomp.cs:73-82`).
 
 Nor is there anything that pushes in water: a rocket nozzle reads atmospheric pressure alone and
-thrusts underwater as at sea level (`Rocket.cs:179`, `:205`), and no propeller or propellant-free
+thrusts underwater as at sea level (`Rocket.cs:181`, `:208`), and no propeller or propellant-free
 engine exists, so a boat is a mod writing velocity every frame.
 

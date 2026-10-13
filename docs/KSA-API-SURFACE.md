@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-297 types and 801 members across 11 assemblies.
+306 types and 815 members across 11 assemblies.
 
 ## BepuUtilities
 
@@ -516,6 +516,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 *referenced as a type only*
 
+### Brutal.VulkanApi.VkImageCreateFlags
+
+*referenced as a type only*
+
 ### Brutal.VulkanApi.VkImageMemoryBarrier2
 
 *referenced as a type only*
@@ -738,6 +742,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.doubleQuat GetCce2Cci()`
 - `Brutal.Numerics.doubleQuat GetCcf2Cce()`
 - `Brutal.Numerics.doubleQuat GetCcf2Cci()`
+- `Brutal.Numerics.doubleQuat GetCcf2Cci(KSA.UniverseTime)`
 - `Brutal.Numerics.doubleQuat GetCci2Cce()`
 - `Brutal.Numerics.doubleQuat GetCci2Ccf()`
 - `KSA.CelestialTemplate get_BodyTemplate()`
@@ -869,7 +874,15 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `void SpawnPreset(string, ref KSA.ExplosionContext)`
 
-### KSA.ExplosionVolumeSystem
+### KSA.ExplosionVolumeManager
+
+*referenced as a type only*
+
+### KSA.ExplosionVolumeSpawner
+
+*referenced as a type only*
+
+### KSA.ExplosionVolumeStore
 
 *referenced as a type only*
 
@@ -891,6 +904,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.float3 ErrorAngles`
 - `Brutal.Numerics.float3 ErrorRates`
 - `Brutal.Numerics.float3 RateBit`
+- `Brutal.Numerics.float3 RcsTorqueAuthority`
 - `KSA.ActiveEnginePerformance ActiveEnginePerformanceMax`
 - `KSA.FlightComputerAttitudeMode AttitudeMode`
 - `KSA.FlightComputerAttitudeTrackTarget AttitudeTrackTarget`
@@ -899,6 +913,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.PerAxisAttitudeControlSystem ActiveControlSystem`
 - `KSA.VehicleReferenceFrame AttitudeFrame`
 - `float AngleDeadband`
+- `float RateLimit`
 - `void ReadUpdatedVehicleConfiguration(KSA.Vehicle)`
 - `void SetAttitudeProfile(KSA.FlightComputerAttitudeProfile)`
 - `void SetManualThrustMode(KSA.FlightComputerManualThrustMode)`
@@ -966,6 +981,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.GameSave
 
 - `string get_Id()`
+- `void Load()`
 
 ### KSA.GameSaves
 
@@ -1085,6 +1101,21 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 *referenced as a type only*
 
+### KSA.InputEvents
+
+- `TypedBuffer`1<TeleportInputData> TeleportInputBuffer`
+
+### KSA.InputEvents+TeleportInputData
+
+- `KSA.Orbit Orbit`
+- `KSA.Vehicle Vehicle`
+- `System.Nullable`1<Brutal.Numerics.double3> BodyRates`
+- `System.Nullable`1<Brutal.Numerics.doubleQuat> Body2Cce`
+
+### KSA.InputEvents+TypedBuffer`1
+
+*referenced as a type only*
+
 ### KSA.JobSystems
 
 - `Brutal.Concurrency.Jobs.JobScheduler VehicleSolver`
@@ -1104,6 +1135,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `float StorageDensity`
 
 ### KSA.LookupCollection`1
+
+*referenced as a type only*
+
+### KSA.ManualControlInputs
 
 *referenced as a type only*
 
@@ -1196,6 +1231,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.Orbit
 
+- `Brutal.Numerics.byte4 OrbitLineColor`
 - `KSA.IParentBody get_Parent()`
 - `KSA.Orbit CreateFromStateCci(KSA.IParentBody, KSA.UniverseTime, Brutal.Numerics.double3, Brutal.Numerics.double3, Brutal.Numerics.byte4)`
 - `double get_Apoapsis()`
@@ -1277,7 +1313,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.PartInstance
 
-- `string InstanceOf`
+*referenced as a type only*
 
 ### KSA.PartModel
 
@@ -1514,7 +1550,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.Rendering.RenderImage
 
 - `Brutal.VulkanApi.VkImageView get_ImageView()`
-- `KSA.Rendering.RenderImage CreateColorStorage(RenderCore.IVulkanContext, string, Brutal.VulkanApi.VkExtent2D, Brutal.VulkanApi.VkFormat, int, int, KSA.Rendering.RenderImageViewMode)`
+- `KSA.Rendering.RenderImage CreateColorStorage(RenderCore.IVulkanContext, string, Brutal.VulkanApi.VkExtent2D, Brutal.VulkanApi.VkFormat, int, int, KSA.Rendering.RenderImageViewMode, Brutal.VulkanApi.VkImageCreateFlags)`
 - `void Dispose()`
 
 ### KSA.Rendering.RenderImageViewMode
@@ -1548,6 +1584,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `System.ReadOnlySpan`1<KSA.Part> get_Parts()`
 - `bool Activated`
+- `int Number`
 
 ### KSA.SequenceList
 
@@ -1555,6 +1592,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `int GetNextSequenceNumber()`
 - `int get_ActiveSequence()`
 - `void ActivateNextSequence(KSA.Vehicle)`
+- `void MoveSequence(KSA.Sequence, KSA.Sequence)`
 
 ### KSA.SequencePerformanceList
 
@@ -1639,16 +1677,25 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.TextureReference Get()`
 - `int get_BindlessHandle()`
 
+### KSA.ThrusterMapFlags
+
+*referenced as a type only*
+
 ### KSA.Transform3D
 
 - `Brutal.Numerics.double3 get_PositionEcl()`
 - `Brutal.Numerics.doubleQuat LocalRotation`
 - `void set_PositionEcl(Brutal.Numerics.double3)`
 
+### KSA.UncompressedSave
+
+- `KSA.GameSave Make(string)`
+
 ### KSA.Universe
 
 - `KSA.CelestialSystem get_CurrentSystem()`
 - `KSA.SimStep GetLastSimStep()`
+- `KSA.SimStep GetNextSimStep()`
 - `KSA.UniverseTime GetElapsedTime()`
 - `bool IsPaused()`
 - `bool get_IsAutoWarpActive()`
@@ -1685,7 +1732,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.double4x4 GetMatrixAsmb2Ego(KSA.Camera)`
 - `Brutal.Numerics.doubleQuat get_Asmb2Ego()`
 - `Brutal.Numerics.doubleQuat get_Body2Cce()`
-- `Brutal.Numerics.doubleQuat get_Ctrl2Body()`
+- `Brutal.Numerics.doubleQuat get_Helm2Body()`
 - `Brutal.Numerics.float3 get_BoundingBoxHalfExtentsAsmb()`
 - `KSA.FlightComputer get_FlightComputer()`
 - `KSA.FlightPlan get_FlightPlan()`
@@ -1695,6 +1742,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.PartTree get_Parts()`
 - `KSA.PhysicsStates GetPhysicsStatesMutable()`
 - `KSA.Situation get_Situation()`
+- `KSA.ThrusterMapFlags GetThrusterFlags()`
 - `KSA.Vehicle CreateVehicle(KSA.CelestialSystem, Brutal.Numerics.doubleQuat, Brutal.Numerics.double3, KSA.IParentBody, string, KSA.Part, KSA.Orbit)`
 - `KSA.Vehicle get_BubbleLeader()`
 - `bool IsAnyEnginePropellantAvailable()`
