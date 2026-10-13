@@ -689,6 +689,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
 | `docs/BLOCKED-ON-KSA.md` | **what the mod cannot build**, with the engine reason and what would unblock it |
 | `docs/SHARED-PICTURE.md` | **a plan, not a record** — a team's scopes showing what another installation's set holds: the display-only step first, and why firing on somebody else's track is a much bigger one |
+| `docs/MULTIPLAYER.md` | **a plan, not a record** — what KSA's networking skeleton does, why this mod's rounds have nothing to sync against until KSA replicates vehicles and time, and the two pieces worth doing first |
 | `docs/CIWS-REALISM.md` | **a plan, not a record** — what the real Phalanx does that the mod does not: detection only as the search beam passes, and closed-loop spotting of its own rounds, with why each waits and **what would make spotting worth building** |
 | `docs/LAY-COST.md` | **a plan, not a record** — what a gun lay beyond reach costs a frame, and four measured ways to make it cheaper, none merged |
 | `docs/ICBM-GUIDANCE.md` | **the reference for the ballistic computer and the bus as they work now** — the solve, the ascent, the cutoff, the hold, the coast, the trim, the release, several targets, short shots and the constants that carry the frame; the records are elsewhere and it says where |
