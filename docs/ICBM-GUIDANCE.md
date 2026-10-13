@@ -1028,6 +1028,17 @@ Six things it is careful about, and each is a way it went wrong first:
 
   It also takes no aim point at all, so the loop that once wound the trim and the aim correction
   together is gone by construction rather than by rule.
+
+  **Except on a long coast, where the reference is moved once, at the release gate.** Pinned in time,
+  a cutoff residual grows with the coast: 0.4 m/s short is seconds of arrival after four hours, and
+  the trim then spends tens of m/s restoring a clock rather than a landing -- flown from 800 km to
+  40 N 10 E, 0.22-0.32 m/s short owed 8-17 m/s at the split, the trim gave up and every warhead
+  landed 2.2 km out. So past `IcbmConfig.LongCoastSeconds` (4,000 s; a pad shot's coast is under
+  1,600) `IcbmProgram.FreeTheCoastArrival` solves the cheapest arc from the bus's own state, seeded
+  at the committed arrival, and commits to it if it asks less than the pinned one; the trim then
+  carries that conic forward as before. It is one solve with the arrival free, so it is not the
+  stale re-solve above. Flown: 0.19-0.40 m/s short, the arrival moved 2-4 s, owed 3.9-6.1, landed
+  within 2.6 mm (`LongCoastFreesTheArrival`, ICBM-OUTSTANDING 1.20).
 - **It resolves onto the vehicle's own axes rather than pointing at the answer.** By the coast the
   attitude *is* the release line, so turning to burn and turning back costs the whole settle twice
   and disturbs the thing the sequencer is about to latch. KSA maps a nozzle to
