@@ -122,6 +122,8 @@ internal sealed partial class IcbmComputer
                  + $"{Rate(_trim.AtReleaseMetresPerSecond)} on release "
                  + $"({Rate(_trim.SpentMetresPerSecond)} spent"
                  + (_trim.GaveUp ? ", GAVE UP" : _trim.Done ? ", done" : ", still running") + "), "
+                 + (double.IsFinite(Program.CoastArrivalMovedSeconds)
+                        ? $"coast arrival moved {Program.CoastArrivalMovedSeconds:F2} s, " : "")
                  + (double.IsFinite(arrival) ? $"arriving at {arrival:F1} deg" : "")
                  + FloorSaid()
                  + (double.IsFinite(arrival) ? ", " : "")
