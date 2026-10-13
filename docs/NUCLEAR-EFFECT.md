@@ -66,7 +66,7 @@ What makes it the best fit for a cloud that stands over a target:
 - Segments are stored in **CCF**, the body-fixed rotating frame, so a planted cloud stays over the
   ground for its whole life rather than being left behind by the planet.
 - Segment lifetime is **1200 s**, and the radius swells as a jet entraining air, so a segment
-  laid at rest never swells at all; `Ksa/PlumeSmoke.cs` throws each one back along the trail.
+  laid at rest only creeps to its expanded radius over 120 s; `Ksa/PlumeSmoke.cs` throws each one back along the trail.
 - After expansion the vertices advect through a **simplex wind field, sheared by altitude**. The cap
   drifts against the stem for free, which is otherwise choreography.
 - Erosion noise scale is derived from segment radius, so large capsules billow at a large scale

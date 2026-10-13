@@ -22,9 +22,9 @@ namespace KSArmory;
 /// mod-declared plume is the <c>isFlowing</c> argument, computed where the engine calls this for a
 /// nozzle. A caller passing its own never meets it: no nozzle, no propellant, no thrust.</para>
 ///
-/// <para><b>A segment only swells if it is thrown.</b> KSA grows a segment as a jet entraining
-/// air, <c>r = r₀·∛(1 + t/T)</c> with <c>T = r₀ / (3·k·v)</c> on its release speed <c>v</c>, and at
-/// rest it keeps its laid radius and full heat — a glowing wire. So each segment is thrown back
+/// <para><b>A segment only swells quickly if it is thrown.</b> KSA grows a segment as a jet entraining
+/// air, <c>r = r₀·∛(1 + t/T)</c> with <c>T = r₀ / (3·k·v)</c> on its release speed <c>v</c>; at rest
+/// it creeps to its expanded radius over 120 s at full heat — a glowing wire. So each segment is thrown back
 /// along the trail at the speed that reaches its expanded radius in <see cref="SwellSeconds"/>,
 /// which also moves it along its own line rather than off it.</para>
 ///

@@ -123,6 +123,36 @@ Four things changed shape and need watching, worst first:
 
 Also unflown on this build: everything the previous retarget listed as unwatched, and the turret.
 
+**Retargeted to KSA `2026.10.13.5602` — two renames, one data drift, and two flight-model changes
+that compile clean.** `Vehicle.Ctrl2Body` is `Helm2Body` (same expression), and the static
+`ExplosionVolumeSystem` became `Program.Instance.ExplosionVolumes`. Core's conflagration fireball
+went from 56 m to 30 m at intensity 1, so `WarheadExplosion` moved with it and the 57E6 now goes off
+as `Explosion_Conflagration`. No XML element or attribute the mod writes moved, and the frame order,
+the `PrepareWorker` window, the render cull, `SunbloomRenderer.Render`, every reflected member and
+the drag model read the same.
+
+**Flown on 2026.10.13.5602:** `head-on` **PASS**, the AIM-9J bursting 14 m from the drone and
+destroying it. All seven patches installed, every warhead preset resolved, the trail renderer
+bound, and the stamp read `built for KSA 2026.10.13.5602, running 2026.10.13.5602 - reporting on`.
+Not flown or looked at:
+
+- [ ] **A gimbaled burn steers on its thrust line.** KSA's control frame is now `Tnm` (the helm
+      turned onto the trimmed net thrust) whenever a gimbaled engine makes thrust, and RCS is mapped
+      against it; `KsaWorld.TryControlFrameCci` still reads the helm. Coast and the bus's trim are
+      unaffected (no gimbals). Fly a ballistic shot and compare the ascent and cutoff with the last
+      night's; `docs/KSA-MODDING-NOTES.md` has the engine code.
+- [ ] **A warp raise or unpause now ramps.** The sim step grows at most 2x per frame, so
+      `WarpPolicy` calibrates on a step still climbing. Fly a salvo through a warp change and watch
+      for repeated requests or an abandon.
+- [ ] **The 57E6's burst is a conflagration** — 30 m fireball at KSA's floor. Flown, not watched:
+      `KABOOM` `passing` set off `Explosion_Conflagration` for 20 kg at 52 kPa, 19 m from the drone,
+      9 parts broken off. Look at one.
+- [ ] **A camera window's terrain should be unshadowed and still** while the main camera turns —
+      `docs/BLOCKED-ON-KSA.md`.
+- [ ] **Motor and flare smoke cast shadows** through KSA's new trail shadow cascades (the
+      `PlumeTrailShadows` setting), and a trail laid at rest now creeps to its expanded radius over
+      120 s. Look at a flare salvo and a motor trail, and read the cost off `FrameBudget`.
+
 **Retargeted to KSA `2026.9.22.5482` — nothing the mod binds to moved, and five things compile
 clean and still have to be watched.** No member of the surface is missing, no XML element or
 attribute the mod writes was renamed, and every contract in the `upgrade-ksa` table reads the same:
@@ -182,7 +212,8 @@ clean and still has to be flown or looked at:
       site and one at altitude.
 - [ ] **A warhead goes off as KSA's own explosion**, flash and sound included: `PopSmallExplosion`
       for a cannon shell, `SmallFire` for a missile or the 5"/54, `Explosion_Conflagration` from
-      41 kg up and for a nuclear yield. Look at one of each, and grep the newest
+      15 kg up (the 57E6 included, since 2026.10.13.5602 cut Core's conflagration fireball from 56 m
+      to 30 m) and for a nuclear yield. Look at one of each, and grep the newest
       `KittenSpaceAgency.*.log` for `ExplosionSystem:`, which is where a dropped one says so.
       Flown, not watched: `head-on` set off `SmallFire` for the AIM-9J at 43 kPa and
       `gunnery:1,overhead,30,300,1500` for all seven 5"/54 shells at 47 kPa, with every preset

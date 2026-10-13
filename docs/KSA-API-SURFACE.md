@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-303 types and 815 members across 11 assemblies.
+306 types and 815 members across 11 assemblies.
 
 ## BepuUtilities
 
@@ -516,6 +516,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 *referenced as a type only*
 
+### Brutal.VulkanApi.VkImageCreateFlags
+
+*referenced as a type only*
+
 ### Brutal.VulkanApi.VkImageMemoryBarrier2
 
 *referenced as a type only*
@@ -870,7 +874,15 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `void SpawnPreset(string, ref KSA.ExplosionContext)`
 
-### KSA.ExplosionVolumeSystem
+### KSA.ExplosionVolumeManager
+
+*referenced as a type only*
+
+### KSA.ExplosionVolumeSpawner
+
+*referenced as a type only*
+
+### KSA.ExplosionVolumeStore
 
 *referenced as a type only*
 
@@ -1538,7 +1550,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.Rendering.RenderImage
 
 - `Brutal.VulkanApi.VkImageView get_ImageView()`
-- `KSA.Rendering.RenderImage CreateColorStorage(RenderCore.IVulkanContext, string, Brutal.VulkanApi.VkExtent2D, Brutal.VulkanApi.VkFormat, int, int, KSA.Rendering.RenderImageViewMode)`
+- `KSA.Rendering.RenderImage CreateColorStorage(RenderCore.IVulkanContext, string, Brutal.VulkanApi.VkExtent2D, Brutal.VulkanApi.VkFormat, int, int, KSA.Rendering.RenderImageViewMode, Brutal.VulkanApi.VkImageCreateFlags)`
 - `void Dispose()`
 
 ### KSA.Rendering.RenderImageViewMode
@@ -1720,7 +1732,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.double4x4 GetMatrixAsmb2Ego(KSA.Camera)`
 - `Brutal.Numerics.doubleQuat get_Asmb2Ego()`
 - `Brutal.Numerics.doubleQuat get_Body2Cce()`
-- `Brutal.Numerics.doubleQuat get_Ctrl2Body()`
+- `Brutal.Numerics.doubleQuat get_Helm2Body()`
 - `Brutal.Numerics.float3 get_BoundingBoxHalfExtentsAsmb()`
 - `KSA.FlightComputer get_FlightComputer()`
 - `KSA.FlightPlan get_FlightPlan()`

@@ -1984,7 +1984,7 @@ internal static class KsaWorld
 
         try
         {
-            doubleQuat ctrl2Body = craft.Ctrl2Body;
+            doubleQuat helm2Body = craft.Helm2Body;
             doubleQuat body2Cce = craft.Body2Cce;
             doubleQuat cce2Cci = parent.GetCce2Cci();
 
@@ -1996,7 +1996,7 @@ internal static class KsaWorld
                    && !noseCci.Equals(Vec.Zero) && !rightCci.Equals(Vec.Zero) && !downCci.Equals(Vec.Zero);
 
             double3 Axis(double3 ctrl)
-                => Vec.Unit(ctrl.Transform(ctrl2Body).Transform(body2Cce).Transform(cce2Cci));
+                => Vec.Unit(ctrl.Transform(helm2Body).Transform(body2Cce).Transform(cce2Cci));
         }
         catch
         {
@@ -6006,7 +6006,7 @@ internal static class KsaWorld
     /// Give a craft a control part if it has none and one of ours can serve.
     ///
     /// <para><b>A craft with no control part steers against the wrong axes.</b> KSA builds the
-    /// thruster control map in the control part's frame — <c>Ctrl2Body</c> is
+    /// thruster control map in the control part's frame — <c>Helm2Body</c> is
     /// <c>ControlConnector ?? ControlPart ?? Identity</c> — so with none it resolves every attitude
     /// command against the raw assembly axes. A correction then comes out about a different axis
     /// from the one that was wrong, which grows the error rather than cancelling it: measured on

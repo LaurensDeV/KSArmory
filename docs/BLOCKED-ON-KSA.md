@@ -8,7 +8,7 @@ Each entry cites what the decompiled corpus says, so a claim can be rechecked af
 rather than taken on trust. **Recheck this file when the game moves** — the whole point of it is
 that some of these will quietly become possible.
 
-Findings are against KSA **2026.10.10.5554**. Paths are relative to
+Findings are against KSA **2026.10.13.5602**. Paths are relative to
 `../ksa-game-assemblies/current/src`.
 
 ## Recheck after a KSA update
@@ -19,7 +19,9 @@ happen rather than a member that moved.
 
 - [x] Secondary viewport gets the planet, atmosphere and lighting passes — **partly, in
   2026.10.7.5541**: terrain and sky, not clouds, ocean or clustered lights; see the entry below
-- [ ] A secondary viewport's terrain is shadowed by cascades fitted to its own camera, not the main one's
+- [x] A secondary viewport's terrain is shadowed by cascades fitted to its own camera, not the main one's
+  — **partly, in 2026.10.13.5602**: not shadowed at all unless `PlanetRenderer.ViewportShadows` is set,
+  which is the picture the entry below asked for; see it
 - [x] `Camera.NearbyCelestial` is set per camera rather than only for the frame viewport — **partly,
   in 2026.10.7.5541**: the field is still the frame camera's, but `Camera.GetEffectiveNearbyCelestial`
   resolves one for any camera, and the planet and atmosphere passes read that
@@ -54,11 +56,12 @@ happen rather than a member that moved.
   (ReadyToRun), or a debris split that no longer does first-time work -- **delete
   `JitWarmup.EngineTypes` the day it does**; see the entry below
 
-**Rechecked against 2026.10.10.5554: everything open is still blocked.** The files under every
-open entry -- `PhysicsStates.cs`, `PhysicsEnvironment.cs`, `ConstraintSim.cs`,
-`NarrowPhaseCallbacks.cs` and `Program.cs`'s viewport path -- are unchanged but for profiler hooks
-and line shifts, `KSA.dll` is still IL-only, and StarMap did not move. Citations here are against
-this build.
+**Rechecked against 2026.10.13.5602: one entry moved, the rest is still blocked.** A camera window's
+terrain is now drawn unshadowed rather than through the main view's cascades. `PhysicsStates.cs`,
+`PhysicsEnvironment.cs`, `ConstraintSim.cs` and `NarrowPhaseCallbacks.cs` are unchanged, `Program.cs`'s
+viewport path moved by line shifts and a trail-shadow pass, `KSA.dll` is still IL-only, StarMap did
+not move, and there is still no public accessor for the trail renderer. Citations were re-derived
+only where this build moved what they cite; elsewhere they are against 2026.10.10.5554.
 
 **Rechecked against 2026.10.7.5541: everything open is still blocked except the camera window,
 which now draws terrain and a sky.** A secondary viewport is created with `RenderTerrain`
@@ -84,8 +87,8 @@ engine explosion (`PartFailureEvent.cs:38-67`, `Universe.cs:1909-1917`).
 `ExplosionSystem.SpawnPreset` fires a declared `<Explosion>` — emitters, volumes, a flash and a
 sound — from an anchor with no vehicle (`ExplosionSystem.cs:217`, `:471-476`). Its volumes draw
 through the volumetric trail renderer, over the camera's nearby body with or without air, behind
-their own `Graphics.Explosions` setting (`ExplosionVolumeSystem.cs:47-50`,
-`VolumetricTrailRenderer.cs:246`, `PlanetTransparenciesRenderer.cs:316-326`), and
+their own `Graphics.Explosions` setting (`ExplosionVolumeManager.cs:24`, `:41`,
+`VolumetricTrailRenderer.cs:294`, `PlanetTransparenciesRenderer.cs:316-326`), and
 its intensity clamps at 100x of 5e10 J, so a nuclear cloud would still be authored rather than
 scaled.
 
@@ -325,7 +328,7 @@ in every sensor mode including colour, so the mod's own pass is not involved. Se
 **Why.** The sun's shadow maps are built once a frame, for the main view:
 `SunShadowSystem.UpdateUniforms(RenderedViewport, ...)` and
 `_cascadedShadowSystem.UpdateUniforms(RenderedViewport.GetCamera(), ...)` run with
-`_frameViewport = MainViewport` (`Program.cs:4331-4333`). `PlanetRenderer.Render` binds the same
+`_frameViewport = MainViewport` (`Program.cs:4331-4333` on 2026.10.10.5554). `PlanetRenderer.Render` binds the same
 sun-shadow and cascade sets for whatever viewport it is drawing (`PlanetRenderer.cs:2016-2027`), so
 a window's terrain is shadowed through cascades fitted to another camera's frustum, and they move
 whenever that camera does. Part meshes are spared: `SuperMeshRenderSystem` reads `UseShadows` per
@@ -336,6 +339,13 @@ shadow systems that hold one set of uniforms per frame and are constructed by `P
 
 **What would unblock it.** Cascades per viewport, or the planet pass honouring `UseShadows` the way
 the part pass does — an unshadowed window is a better picture than one whose shadows move.
+
+**Partly lifted in 2026.10.13.5602, not yet looked at**: `PlanetRenderer.Render` binds the shadowed
+cloud, sun and cascade sets only for the main view or when the public static
+`PlanetRenderer.ViewportShadows` is set (default false), and the unshadowed sets otherwise
+(`PlanetRenderer.cs:2017-2031`); the shadow maps are still built for the main view alone
+(`Program.cs:4417-4418`). So a window's terrain should hold still and carry no shadows. Per-viewport
+cascades would still be the whole fix.
 
 ## Secondary viewport: no sky, clouds, atmosphere or terrain
 

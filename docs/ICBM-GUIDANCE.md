@@ -1057,7 +1057,7 @@ Six things it is careful about, and each is a way it went wrong first:
   attitude *is* the release line, so turning to burn and turning back costs the whole settle twice
   and disturbs the thing the sequencer is about to latch. KSA maps a nozzle to
   `TranslateForward`/`Right`/`Down` by which control-frame axis its thrust points along, so
-  `KsaWorld.TryControlFrameCci` reads `Ctrl2Body ∘ Body2Cce ∘ Cce2Cci` and the flags fall out. The
+  `KsaWorld.TryControlFrameCci` reads `Helm2Body ∘ Body2Cce ∘ Cce2Cci` and the flags fall out. The
   debt is mostly not axial: flown and decomposed onto the bus's axes, the radial term is three times
   the axial one — medians 1.71 m/s down against 0.63 along the nose — and only 20% of the total is
   axial (`docs/ACCURACY-PLAN.md` 3fh), so the lateral jets do most of the work.
