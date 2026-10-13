@@ -623,7 +623,27 @@ at 1, 2, 3, 4 s; Real Liquid2 and 3 at 25 km already 0.6 at 1 s; Real SRB4 at 25
 150 km 0.52 at 3.5 s; LowTWR at 700 km under 0.3 for its first ramp. `IcbmConfig.ShortShotPushesThroughAtDragShare`
 pushes once that share crosses a threshold, off. At 0.6 it would stay out of SRB4 at 25 km, where the 4 s gate cost
 14.1 mm against 1.9-2.7, but not SRB4 at 150 km (51.4 mm against 2.6), and it would not engage on LowTWR at 700 km,
-which the 4 s gate took from 2.3 km to 2.3 mm. On `FloorHoldTests`' game stack it spins 2 of 8 low arcs, the two the 10 s gate spins, where 4 s spins 5. Unflown. The rig does not decide it: fitted to the flown drag and on
+which the 4 s gate took from 2.3 km to 2.3 mm. On `FloorHoldTests`' game stack it spins 2 of 8 low arcs, the two the 10 s gate spins, where 4 s spins 5.
+
+**Flown 2026-10-13 evening, one flight a cell** (`~/shots/2026-10-13-share`), worst warhead:
+
+| cell | 10 s | 4 s | share 0.6 |
+| --- | --- | --- | --- |
+| LowTWR 200 km | 247-344 m (7 of 8) | 21-24 mm (6 of 6) | 9.9, 2.3 mm |
+| LowTWR 700 km | 2.3 km | 2.3 mm | 2.3 mm |
+| Real SRB4 25 km | 1.8 mm | 11.5 | 3.8 |
+| Real SRB4 150 km | 5.0 mm | 30.1 | **224 m** |
+| Real Liquid2 25 km | 3.3 mm | 2.5 | 1.4 |
+| Real Liquid2 150 km | 4.6 mm | 3.5 | 8.5 |
+| Real Liquid3 25 km | 7.5 mm | 3.9 | 3.7 |
+| Real Liquid3 150 km | 1.9 mm | 4.8 | 4.2 |
+
+The share gate engaged on LowTWR at 700 km after all, where the flown ramps read under 0.3, and landed it. On Real
+SRB4 at 150 km it engaged about 4 s in, as the 4 s gate does, and both made the cutoff worse: 0.75 m/s short at 10 s,
+2.21 at 4 s, 3.59 with the share (1.83 of it across). The 4 s flight's release probe needed 94 m, under the kick's
+cap; the share flight's needed 1.52 m/s and was refused, 224 m. So an early push costs SRB4 at 150 km its cutoff on
+both gates and what lands is whether the kick covers it. What the next gate has to tell apart is a ramp that closes on
+its own, which SRB4's does, from one that stalls; the share does not. The rig does not decide it: fitted to the flown drag and on
 KSA's own gimbal law, the LowTWR fixture cuts off 0.06-1.1 m/s short rather than 2.9 and ranks the arms the other way.
 
 **A hot core overshot its cutoff, fixed** (Real SRB4, 500 and 700 km; `IcbmConfig.ShortShotBackstopsAtTheTrim`,
