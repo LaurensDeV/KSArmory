@@ -611,6 +611,21 @@ finished, lands. What it costs is the hover's accidental precision: off, the sta
 1.6 km over the target, and lands closer. **Shipped on.** The 150 km ramp ran past the 10 s gate, so the switch may have acted there
 too; it says no harm on a ramp that closes, not that it stays out of one.
 
+**LowTWR at 200 km: the gate is the direction of what is left, not its size** (2026-10-13, `~/shots/2026-10-13-orbits`).
+Every flight cut off 2.85-3.01 m/s short, the gate at 10 s or at 4, and every cutoff was predicted 20 m out against
+the solved one. What the earlier push changes is which way the shortfall points: 2.5 along and -1.2 radial at 10 s,
+2.0 and -2.0 at 4, and a shortfall along the track is partly paid back by excess climb. The release probe then reads
+247-344 m against 113-115, a kick of 1.03-1.39 m/s against 0.45, and only the second is under the 1 m/s cap.
+Drag read off the load against q is 47-53 m^2.
+
+The share of the ramp's thrust that the measured push takes back reads, flown: LowTWR 200 km 0.40, 0.51, 0.60, 0.68
+at 1, 2, 3, 4 s; Real Liquid2 and 3 at 25 km already 0.6 at 1 s; Real SRB4 at 25 km never over 0.24; Real SRB4 at
+150 km 0.52 at 3.5 s; LowTWR at 700 km under 0.3 for its first ramp. `IcbmConfig.ShortShotPushesThroughAtDragShare`
+pushes once that share crosses a threshold, off. At 0.6 it would stay out of SRB4 at 25 km, where the 4 s gate cost
+14.1 mm against 1.9-2.7, but not SRB4 at 150 km (51.4 mm against 2.6), and it would not engage on LowTWR at 700 km,
+which the 4 s gate took from 2.3 km to 2.3 mm. On `FloorHoldTests`' game stack it spins 2 of 8 low arcs, the two the 10 s gate spins, where 4 s spins 5. Unflown. The rig does not decide it: fitted to the flown drag and on
+KSA's own gimbal law, the LowTWR fixture cuts off 0.06-1.1 m/s short rather than 2.9 and ranks the arms the other way.
+
 **A hot core overshot its cutoff, fixed** (Real SRB4, 500 and 700 km; `IcbmConfig.ShortShotBackstopsAtTheTrim`,
 on). Its core makes 7-13 g, and at its 0.12 floor still 0.8 g, so the ramp's last seconds are spent on the
 floor. Flown at 500 km it closed from 65 m/s to 2.4 m/s, with its thrust lagging the line by enough to leave
