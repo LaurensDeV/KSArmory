@@ -95,6 +95,7 @@ internal sealed partial class IcbmProgram
             double3 push = (command.ToGainVectorCci - _lastToGainCci) / sinceLastSolve
                          + axis * (state.Booster.AccelerationNow * Math.Clamp(state.ThrottleAchieved, 0.0, 1.0));
             _pushCci += (push - _pushCci) * Math.Clamp(sinceLastSolve / PushFilterSeconds, 0.0, 1.0);
+            LatchPushOnDragShare(state);
         }
         _lastToGainCci = command.ToGainVectorCci;
         if (_pulsing && sinceLastSolve <= _lastStep * 1.5) _pulseQuantum = Math.Max(_pulseQuantum, _toGain - command.VelocityToGain);

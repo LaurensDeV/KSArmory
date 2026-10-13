@@ -136,6 +136,7 @@ EXEMPT = {
 # and taken off the panel because the shipped default is the answer. ICBM-OUTSTANDING 5.5.
 RESEARCH = (
     "ShortShotPushesThroughAfterSeconds",
+    "ShortShotPushesThroughAtDragShare",
     "StagesIntoTheAirflow",
     "LongCoastFreesTheArrival",
     "LongCoastSeconds",

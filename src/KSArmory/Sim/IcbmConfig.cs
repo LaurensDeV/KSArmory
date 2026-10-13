@@ -378,12 +378,19 @@ internal sealed class IcbmConfig
 
     /// <summary>
     /// How long the throttle-down runs in the air before <see cref="ShortShotPushesThroughAStall"/> acts, in seconds.
-    /// LowTWR at 200 km stalls at its floor with the slowed line falling behind the drag, and cuts off 2.8 m/s short
-    /// 8 s into its ramp, before a push-through at 10 s can act: 7 of 8 such flights landed 247-344 m out. At 4 s, 6 of 6
-    /// within 24 mm, and 700 km in 2.3 mm against 2.3 km. Not the default: in the rig the game's stack held at its floor
-    /// spins on 5 of 8 low arcs at 4 s (<c>FloorHoldTests</c>). <c>docs/ICBM-OUTSTANDING.md</c> 1.12.
+    /// LowTWR at 200 km cuts off 2.9 m/s short at 10 s or at 4, and 7 of 8 flights at 10 s landed 247-344 m out; at 4 s
+    /// the shortfall points where the kick can take it back, 6 of 6 within 24 mm, and 700 km in 2.3 mm against 2.3 km.
+    /// Not the default: Real SRB4 at 25 and 150 km came in at 14 and 51 mm against 2-3. <c>docs/SHORT-RANGE.md</c>.
     /// </summary>
     public double ShortShotPushesThroughAfterSeconds = IcbmProgram.PushesThroughAfterSeconds;
+
+    /// <summary>
+    /// Also push through, earlier than <see cref="ShortShotPushesThroughAfterSeconds"/>, once the measured push along
+    /// the line is this share of the thrust the throttle-down is making; zero leaves only the time. The ramp settles
+    /// where the share reaches one. Flown LowTWR at 200 km reads 0.41, 0.52, 0.68 and 0.79 at 1, 2, 4 and 10 s.
+    /// <c>docs/ICBM-OUTSTANDING.md</c> 1.12.
+    /// </summary>
+    public double ShortShotPushesThroughAtDragShare;
 
     /// <summary>
     /// Hand the ascent to the closed loop once burning on the schedule has raised the velocity to gain past

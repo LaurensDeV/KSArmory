@@ -503,6 +503,7 @@ internal sealed partial class IcbmProgram
     private double _secondsInTheRamp;
     private double3 _lastToGainCci;
     private double3 _pushCci;
+    private bool _pushLatched;
     private bool _absorbing;
 
     // Whether the closed loop took over at the top of a climb still inside the air.
@@ -637,6 +638,9 @@ internal sealed partial class IcbmProgram
 
     /// <summary>Below this velocity to gain the steering direction is held, as of the last solve.</summary>
     public double HoldDirectionBelowNow { get; private set; } = double.NaN;
+
+    /// <summary>The measured push along the line over the throttle-down's thrust, as last read before the push latched.</summary>
+    public double DragShareOfTheRamp { get; private set; } = double.NaN;
 
     /// <summary>Whether the last solve turned the line at a bounded rate (<see cref="IcbmConfig.ShortShotSlowsLineSeconds"/>).</summary>
     public bool LineSlowed { get; private set; }
@@ -854,6 +858,8 @@ internal sealed partial class IcbmProgram
         _secondsInTheRamp = 0.0;
         _lastToGainCci = default;
         _pushCci = default;
+        _pushLatched = false;
+        DragShareOfTheRamp = double.NaN;
         _reachHold = "";
         _reachIfNoArc = IcbmReach.NoTrajectory;
         _sinceWindow = double.PositiveInfinity;

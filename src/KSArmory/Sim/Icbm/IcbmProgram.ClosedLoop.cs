@@ -148,8 +148,25 @@ internal sealed partial class IcbmProgram
     // left to gain, which on a liquid stack in the air never reaches the cutoff. docs/SHORT-RANGE.md.
     private bool PushesThrough(in IcbmState state)
         => Config.ShortShotPushesThroughAStall && _shortShot && Phase == IcbmPhase.ClosedLoop
-           && _secondsInTheRamp > Config.ShortShotPushesThroughAfterSeconds && state.AirDensityRatio >= Medium.NoticeableDensity
+           && _secondsInTheRamp > 0.0 && (_secondsInTheRamp > Config.ShortShotPushesThroughAfterSeconds || _pushLatched)
+           && state.AirDensityRatio >= Medium.NoticeableDensity
            && !_pushCci.Equals(Vec.Zero);
+
+    // Latched because pushing raises the throttle, which lowers the share that started it.
+    private void LatchPushOnDragShare(in IcbmState state)
+    {
+        if (_pushLatched || Config.ShortShotPushesThroughAtDragShare <= 0.0 || _secondsInTheRamp <= 0.0) return;
+        DragShareOfTheRamp = DragShare(state);
+        _pushLatched = DragShareOfTheRamp >= Config.ShortShotPushesThroughAtDragShare;
+    }
+
+    private double DragShare(in IcbmState state)
+    {
+        double thrust = state.Booster.AccelerationNow * Math.Clamp(state.ThrottleAchieved, state.MinThrottle, 1.0);
+        return _pushCci.Equals(Vec.Zero) || _thrustDirCci.Equals(Vec.Zero) || thrust <= 0.0
+            ? 0.0
+            : Math.Max(Vec.Dot(_pushCci, _thrustDirCci), 0.0) / thrust;
+    }
 
     private double PushAlongTheLine(in IcbmState state)
         => PushesThrough(state) && state.Booster.AccelerationNow > 0.0
