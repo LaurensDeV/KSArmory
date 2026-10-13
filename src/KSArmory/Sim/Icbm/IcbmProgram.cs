@@ -369,8 +369,8 @@ internal sealed partial class IcbmProgram
     public const double StalledRampSeconds = 30.0;
 
     /// <summary>
-    /// Seconds in the throttle-down before <see cref="IcbmConfig.ShortShotPushesThroughAStall"/> acts, by default. A closing
-    /// one lasts 10-15 s, so most flights never reach it; <see cref="IcbmConfig.ShortShotPushesThroughAfterSeconds"/> sets it.
+    /// Seconds in the throttle-down before <see cref="IcbmConfig.ShortShotPushesThroughAStall"/> acts, by default;
+    /// <see cref="IcbmConfig.ShortShotPushesThroughAfterSeconds"/> sets it.
     /// </summary>
     public const double PushesThroughAfterSeconds = 10.0;
 

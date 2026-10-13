@@ -379,8 +379,9 @@ internal sealed class IcbmConfig
     /// <summary>
     /// How long the throttle-down runs in the air before <see cref="ShortShotPushesThroughAStall"/> acts, in seconds.
     /// LowTWR at 200 km stalls at its floor with the slowed line falling behind the drag, and cuts off 2.8 m/s short
-    /// 8 s into its ramp -- 247 and 317 m out, flown twice -- before the push-through at 10 s can act.
-    /// <c>docs/ICBM-OUTSTANDING.md</c> 1.12.
+    /// 8 s into its ramp, before a push-through at 10 s can act: 7 of 8 such flights landed 247-344 m out. At 4 s, 6 of 6
+    /// within 24 mm, and 700 km in 2.3 mm against 2.3 km. Not the default: in the rig the game's stack held at its floor
+    /// spins on 5 of 8 low arcs at 4 s (<c>FloorHoldTests</c>). <c>docs/ICBM-OUTSTANDING.md</c> 1.12.
     /// </summary>
     public double ShortShotPushesThroughAfterSeconds = IcbmProgram.PushesThroughAfterSeconds;
 
