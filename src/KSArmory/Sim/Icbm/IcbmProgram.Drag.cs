@@ -124,6 +124,8 @@ internal sealed partial class IcbmProgram
     }
 
     private const double MissFreeProbeMetresPerSecond = 1.0;
+    private const double MissFreeLineAllowanceDeg = 2.0;
+    private const double MissFreeMinFlightSeconds = 120.0;
 
     // The direction of cutoff velocity along which the drag-flown landing does not move: the landing is two numbers
     // on the ground, so three velocity components leave one free.

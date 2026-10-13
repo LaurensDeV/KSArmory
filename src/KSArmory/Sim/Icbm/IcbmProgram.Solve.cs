@@ -102,8 +102,18 @@ internal sealed partial class IcbmProgram
         if (Config.ShortShotCutsOffOnTheMiss && dragGate && command.VelocityToGain <= CutsOffOnTheMissBelow
             && TryMissFreeLine(state, command, out double3 free))
         {
-            _fullToGainVectorCci = command.ToGainVectorCci;
-            command = OffTheLine(state, command, free);
+            // Only on a long fall, and only where the air lets the stack point along the line. Ending the burn early moves
+            // the cutoff off the solved one, which a pinned 60 s fall from 25 km pays 20 m for and a 200 s one does not;
+            // and flown at 9 km the airflow limit held the stack off the line and the burn ended 8.8 m/s short.
+            BurnoutGuidance.Command off = OffTheLine(state, command, free);
+            bool pointable = off.ToGainVectorCci.Equals(Vec.Zero)
+                             || Vec.AngleBetween(Limit(off.ThrustDirectionCci, state), off.ThrustDirectionCci)
+                                <= double.DegreesToRadians(MissFreeLineAllowanceDeg);
+            if (pointable && command.Arc.FlightSeconds >= MissFreeMinFlightSeconds)
+            {
+                _fullToGainVectorCci = command.ToGainVectorCci;
+                command = off;
+            }
         }
         if (_pulsing && sinceLastSolve <= _lastStep * 1.5) _pulseQuantum = Math.Max(_pulseQuantum, _toGain - command.VelocityToGain);
         _toGain = command.VelocityToGain;
