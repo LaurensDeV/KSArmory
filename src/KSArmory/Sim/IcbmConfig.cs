@@ -414,10 +414,11 @@ internal sealed class IcbmConfig
     /// On a coast longer than <see cref="LongCoastSeconds"/>, re-solve the arc from the bus's own state when the release
     /// gate opens, at the cheapest arrival near the committed one, and commit to that. Off, the trim nulls against the
     /// cutoff's conic at the cutoff's arrival, and a cutoff residual grows over the coast into a debt that is timing
-    /// rather than landing: flown from ORBIT 800, 0.44 m/s short at cutoff owed 23 m/s at the split four hours later.
+    /// rather than landing: flown from ORBIT 800 to 40 N 10 E, 0.22-0.32 m/s short at cutoff owed 8-17 m/s at the split
+    /// and landed 2.2 km out; on, 0.19-0.40 short landed within 2.6 mm, the arrival moved 2-4 s.
     /// <c>docs/ICBM-OUTSTANDING.md</c> 1.20.
     /// </summary>
-    public bool LongCoastFreesTheArrival = false;
+    public bool LongCoastFreesTheArrival = true;
 
     /// <summary>The coast after cutoff, in seconds, past which <see cref="LongCoastFreesTheArrival"/> acts.</summary>
     public double LongCoastSeconds = 4_000.0;
