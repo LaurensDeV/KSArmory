@@ -137,6 +137,7 @@ EXEMPT = {
 RESEARCH = (
     "ShortShotPushesThroughAfterSeconds",
     "ShortShotPushesThroughAtDragShare",
+    "ShortShotCutsOffOnTheMiss",
     "StagesIntoTheAirflow",
     "LongCoastFreesTheArrival",
     "LongCoastSeconds",

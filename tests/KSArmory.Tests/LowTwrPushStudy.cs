@@ -56,7 +56,7 @@ public class LowTwrPushStudy(ITestOutputHelper Out)
         }
     }
 
-    private readonly record struct Result(double Miss, double Residual, double Rate, double Engaged, double ToGain);
+    private readonly record struct Result(double Miss, double Residual, double OffLine, double Rate, double Engaged, double ToGain);
 
     private static Result Fly(IcbmFlightRig rig, double km, double step, Action<IcbmConfig> arm, bool pulses)
     {
@@ -75,7 +75,7 @@ public class LowTwrPushStudy(ITestOutputHelper Out)
         if (flight.Reached && ImpactPredictor.TryPredict(Earth, flight.CutoffPositionCci, thrown, 1.0, ImpactPredictor.DefaultMaxSeconds,
                 out ImpactPredictor.Impact hit, null, null, new ImpactPredictor.Drag(q => rig.DensityRatioAt(Earth.AltitudeOf(q)), rig.Warhead!)))
             miss = R * Vec.AngleBetween(hit.GroundFixedPointCci, Earth.CarryCci(aim, flight.CutoffSeconds));
-        return new Result(miss, program.ResidualAtCutoff, rig.PeakFloorRateDegPerSec, watch.EngagedAtRamp, watch.ToGainThen);
+        return new Result(miss, program.ResidualAtCutoff, program.ResidualOffTheMissFreeLine, rig.PeakFloorRateDegPerSec, watch.EngagedAtRamp, watch.ToGainThen);
     }
 
     private static readonly (string Name, Action<IcbmConfig> Arm)[] Arms =
@@ -84,10 +84,12 @@ public class LowTwrPushStudy(ITestOutputHelper Out)
         ("4 s", c => c.ShortShotPushesThroughAfterSeconds = 4.0),
         ("share .6", c => c.ShortShotPushesThroughAtDragShare = 0.6),
         ("share .7", c => c.ShortShotPushesThroughAtDragShare = 0.7),
+        ("miss", c => c.ShortShotCutsOffOnTheMiss = true),
+        ("miss 4 s", c => { c.ShortShotCutsOffOnTheMiss = true; c.ShortShotPushesThroughAfterSeconds = 4.0; }),
     ];
 
     private void Row(string what, Result r)
-        => Out.WriteLine($"  {what,-26} miss {r.Miss,7:F1} m  residual {r.Residual,5:F2} m/s  floor {r.Rate,5:F1} deg/s  pushed "
+        => Out.WriteLine($"  {what,-26} miss {r.Miss,7:F1} m  residual {r.Residual,5:F2} ({r.OffLine,5:F2} off) m/s  floor {r.Rate,5:F1} deg/s  pushed "
                          + (double.IsNaN(r.Engaged) ? "never" : $"{r.Engaged,4:F1} s in, {r.ToGain,5:F1} m/s left"));
 
     [Fact]
@@ -100,15 +102,17 @@ public class LowTwrPushStudy(ITestOutputHelper Out)
 
         Out.WriteLine("The game's stack at its floor, FloorHoldTests' low arcs:");
         int[] spun = new int[Arms.Length];
+        double[] missSum = new double[Arms.Length];
         foreach (double step in new[] { 0.02, 0.025 })
         foreach (double km in FloorHoldTests.LowArcs)
             for (int i = 0; i < Arms.Length; i++)
             {
                 Result r = Fly(GameStack(), km, step, Arms[i].Arm, pulses: false);
                 if (r.Rate > 20.0) spun[i]++;
+                missSum[i] += r.Miss;
                 Row($"{km,4:F0} km {step * 1000,2:F0} ms {Arms[i].Name}", r);
             }
 
-        for (int i = 0; i < Arms.Length; i++) Out.WriteLine($"{Arms[i].Name}: spun on {spun[i]} of 8");
+        for (int i = 0; i < Arms.Length; i++) Out.WriteLine($"{Arms[i].Name}: spun on {spun[i]} of 8, mean miss {missSum[i] / 8.0:F1} m");
     }
 }

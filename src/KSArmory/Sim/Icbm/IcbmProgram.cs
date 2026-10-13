@@ -662,6 +662,24 @@ internal sealed partial class IcbmProgram
     public double3 ResidualVectorCci { get; private set; }
 
     private double3 _toGainVectorCci;
+    private double3 _fullToGainVectorCci;
+
+    /// <summary>
+    /// What was still to gain at cutoff off the line that moves the landing nowhere, under
+    /// <see cref="IcbmConfig.ShortShotCutsOffOnTheMiss"/>; the whole residual otherwise.
+    /// </summary>
+    public double ResidualOffTheMissFreeLine { get; private set; } = double.NaN;
+
+    /// <summary>The velocity to gain below which <see cref="IcbmConfig.ShortShotCutsOffOnTheMiss"/> acts, in m/s.</summary>
+    public const double CutsOffOnTheMissBelow = 10.0;
+
+    private void LatchResidual()
+    {
+        bool projected = !_fullToGainVectorCci.Equals(Vec.Zero);
+        ResidualVectorCci = projected ? _fullToGainVectorCci : _toGainVectorCci;
+        ResidualAtCutoff = projected ? Vec.Len(_fullToGainVectorCci) : _toGain;
+        ResidualOffTheMissFreeLine = _toGain;
+    }
 
     /// <summary>What the stack could do at cutoff, latched with the residual to explain it.</summary>
     public double AccelerationAtCutoff { get; private set; } = double.NaN;
@@ -848,6 +866,8 @@ internal sealed partial class IcbmProgram
         _arrivalFloorUnaffordable = false;
         ResidualAtCutoff = double.NaN;
         ResidualVectorCci = Vec.Zero;
+        ResidualOffTheMissFreeLine = double.NaN;
+        _fullToGainVectorCci = default;
         AccelerationAtCutoff = double.NaN;
         StepAtCutoff = double.NaN;
         ThrottleAtCutoff = double.NaN;
@@ -961,8 +981,7 @@ internal sealed partial class IcbmProgram
         if (Config.FlyAnyRange && dry && _absorbing && _toGain <= BusTrim.MaxMetresPerSecond)
         {
             _releasesAtCutoff = state.AirDensityRatio >= Medium.NoticeableDensity || StaysUnderTheReleaseAltitude(state);
-            ResidualAtCutoff = _toGain;
-            ResidualVectorCci = _toGainVectorCci;
+            LatchResidual();
             AccelerationAtCutoff = state.Booster.AccelerationNow;
             StepAtCutoff = _lastStep;
             ThrottleAtCutoff = state.ThrottleAchieved;
@@ -973,8 +992,7 @@ internal sealed partial class IcbmProgram
         if (_drySeconds > DrySecondsBeforeGivingUp)
         {
             _fellShort = _toGain > BurnoutGuidance.CutoffMetresPerSecond;
-            ResidualAtCutoff = _toGain;
-            ResidualVectorCci = _toGainVectorCci;
+            LatchResidual();
             AccelerationAtCutoff = state.Booster.AccelerationNow;
             StepAtCutoff = _lastStep;
             ThrottleAtCutoff = state.ThrottleAchieved;

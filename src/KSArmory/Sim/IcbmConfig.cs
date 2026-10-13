@@ -393,6 +393,13 @@ internal sealed class IcbmConfig
     public double ShortShotPushesThroughAtDragShare;
 
     /// <summary>
+    /// In the last <see cref="IcbmProgram.CutsOffOnTheMissBelow"/> m/s of a short shot released at cutoff in the air, steer
+    /// and cut off on what is left once the one direction that moves the landing nowhere is taken out of it. The
+    /// shortfall a stack cannot gain at its floor is then left where it costs nothing. <c>docs/SHORT-RANGE.md</c>.
+    /// </summary>
+    public bool ShortShotCutsOffOnTheMiss;
+
+    /// <summary>
     /// Hand the ascent to the closed loop once burning on the schedule has raised the velocity to gain past
     /// <see cref="IcbmProgram.OutrunShareOfTheStack"/> of what the stack holds, on a stage that can stop. Flown 2026-10-12, RealSRB4
     /// at 1,000 km: off, 3 of 3 burned out 12.8-13.7 km/s short; on, 3 of 3 within 2.5 mm, and it never trips on GeoSat FAT at

@@ -84,8 +84,7 @@ internal sealed partial class IcbmProgram
             // engines stopped is the whole story of a shot that lands short on an otherwise
             // perfect trajectory, and reporting a zero says every burn closed perfectly - which is
             // exactly what a burn that ended forty metres a second early also says.
-            ResidualAtCutoff = _toGain;
-            ResidualVectorCci = _toGainVectorCci;
+            LatchResidual();
             AccelerationAtCutoff = state.Booster.AccelerationNow;
             StepAtCutoff = _lastStep;
             ThrottleAtCutoff = state.ThrottleAchieved;
@@ -115,8 +114,7 @@ internal sealed partial class IcbmProgram
             if (!usable && (!climbing || _toGain <= BusTrim.MaxMetresPerSecond))
             {
                 _releasesAtCutoff = state.AirDensityRatio >= Medium.NoticeableDensity || StaysUnderTheReleaseAltitude(state);
-                ResidualAtCutoff = _toGain;
-                ResidualVectorCci = _toGainVectorCci;
+                LatchResidual();
                 AccelerationAtCutoff = state.Booster.AccelerationNow;
                 StepAtCutoff = _lastStep;
                 ThrottleAtCutoff = state.ThrottleAchieved;

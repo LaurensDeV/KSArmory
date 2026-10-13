@@ -98,6 +98,13 @@ internal sealed partial class IcbmProgram
             LatchPushOnDragShare(state);
         }
         _lastToGainCci = command.ToGainVectorCci;
+        _fullToGainVectorCci = default;
+        if (Config.ShortShotCutsOffOnTheMiss && dragGate && command.VelocityToGain <= CutsOffOnTheMissBelow
+            && TryMissFreeLine(state, command, out double3 free))
+        {
+            _fullToGainVectorCci = command.ToGainVectorCci;
+            command = OffTheLine(state, command, free);
+        }
         if (_pulsing && sinceLastSolve <= _lastStep * 1.5) _pulseQuantum = Math.Max(_pulseQuantum, _toGain - command.VelocityToGain);
         _toGain = command.VelocityToGain;
         _toGainVectorCci = command.ToGainVectorCci;
