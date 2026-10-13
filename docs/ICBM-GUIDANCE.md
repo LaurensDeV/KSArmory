@@ -354,6 +354,13 @@ Three more rules come from that:
   15.74 for a loop that gave up inside the patch. Stopping early is not conservative: stopping makes
   `IsSteady` true, which commits the arrival, and the 3.34 km it stopped for measured 15.86 km one cycle
   later. `IcbmProgram.LatchArrivalWithinSeconds` bounds it above.
+- **Where solids burn out inside the closed loop, the latch waits them out** (`IcbmConfig.LatchWaitsOutTheSolids`).
+  The jettison moves the prediction in one cycle -- 1.1 m to 1.57 km on a four-hour coast from orbit -- so a
+  window counted from the loop's start latched on the step itself. The window and the steady aim count from the
+  burnout instead, the aim forgets a best banked on the solid stage (`AimCorrection.Rebase`), and a steady aim may
+  latch only `IcbmProgram.SteadyAfterTheSolidsSeconds` (12 s) later. From ORBIT 300 and ORBIT 800 to 40 N 10 E the
+  cutoff came 0.03-0.06 km off its own prediction against 1.0-1.6 without it; a pad shot's solids burn out in the
+  ascent, so it never fires there.
 
 **And the best-aim ratchet is dead below 250 m.** `AimCorrection` banks a new best only on beating the
 old by `ImprovedByMetres`, a flat 250 m, so once the best is 250 m or less improving on it would take a
@@ -1039,6 +1046,13 @@ Six things it is careful about, and each is a way it went wrong first:
   carries that conic forward as before. It is one solve with the arrival free, so it is not the
   stale re-solve above. Flown: 0.19-0.40 m/s short, the arrival moved 2-4 s, owed 3.9-6.1, landed
   within 2.6 mm (`LongCoastFreesTheArrival`, ICBM-OUTSTANDING 1.20).
+
+  **And a trim that refuses anyway takes the same solve.** Over its ceiling having spent nothing, it commits the
+  cheapest arc from the bus's state (`IcbmProgram.TryCommitTheCheapestArrival`) and resumes onto it
+  (`RefusedTrimTakesTheCheapestArrival`). Giving the arrival up instead, as it once did, opened the release gate on
+  the arc it had refused and stopped every later pass. It comes after the clearance, often 90 s and 260 s from
+  arrival, so it saves a refusal that is mostly timing -- 17.1 m/s asked, landed within 1.3 mm -- and not one that
+  is already kilometres of landing: 42.6 asked with 3.5 km in the miss still ships that miss.
 - **It resolves onto the vehicle's own axes rather than pointing at the answer.** By the coast the
   attitude *is* the release line, so turning to burn and turning back costs the whole settle twice
   and disturbs the thing the sequencer is about to latch. KSA maps a nozzle to
