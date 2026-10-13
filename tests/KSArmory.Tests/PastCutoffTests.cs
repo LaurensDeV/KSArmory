@@ -151,9 +151,13 @@ public class PastCutoffTests(ITestOutputHelper Out)
     // From 800 km, lofted to a coast of about 15,000 s, the length ORBIT 800 flew to 40 N 10 E; 0.4 m/s up at cutoff
     // is that night's worst residual. docs/ICBM-OUTSTANDING.md 1.20.
     private PastCutoffRig.Outcome LongCoast(bool freesTheArrival, double upAtCutoff, out PastCutoffRig rig,
-                                            double loft = 5.0)
+                                            double loft = 5.0, bool refusalTakesTheCheapest = false)
     {
-        IcbmProgram program = new(new IcbmConfig { Armed = true, Loft = loft, LongCoastFreesTheArrival = freesTheArrival });
+        IcbmProgram program = new(new IcbmConfig
+        {
+            Armed = true, Loft = loft, LongCoastFreesTheArrival = freesTheArrival,
+            RefusedTrimTakesTheCheapestArrival = refusalTakesTheCheapest,
+        });
         rig = PastCutoffRig.For(InOrbit(800_000.0), program, Mk21, DensityAt);
         rig.MaxSecondsAfterCutoff = 30_000.0;
         rig.ShoveMetresPerSecond = 0.7;
@@ -182,6 +186,19 @@ public class PastCutoffTests(ITestOutputHelper Out)
         Assert.True(shot.Released, shot.Said);
         Assert.True(shot.OwedAtSplitMetresPerSecond < 3.0, $"owed {shot.OwedAtSplitMetresPerSecond:F2} m/s");
         Assert.True(shot.TrimSpentMetresPerSecond < 10.0, $"spent {shot.TrimSpentMetresPerSecond:F2} m/s");
+        Assert.True(shot.LandedMetres < 1.0, $"landed {shot.LandedMetres:F2} m out");
+    }
+
+    // The gate's own free is off so that the trim meets the pinned arrival and refuses it, as it does on any coast too
+    // short for LongCoastSeconds.
+    [Fact]
+    public void ATrimRefusedOnALongCoastTakesTheCheapestArrivalAndLands()
+    {
+        PastCutoffRig.Outcome shot = LongCoast(freesTheArrival: false, upAtCutoff: 0.4, out _,
+                                               refusalTakesTheCheapest: true);
+
+        Assert.True(shot.Released, shot.Said);
+        Assert.True(shot.TrimSpentMetresPerSecond > 0.0, $"spent {shot.TrimSpentMetresPerSecond:F2} m/s");
         Assert.True(shot.LandedMetres < 1.0, $"landed {shot.LandedMetres:F2} m out");
     }
 

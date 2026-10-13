@@ -213,7 +213,7 @@ internal sealed partial class IcbmComputer
         //
         // The same call ReleaseImpulseCci() feeds the prediction, so what the sequencer watches for
         // steadiness is the term that actually moves the reading rather than a proxy for it.
-        ReleaseAnArrivalTheTrimCannotFly(trim);
+        ReleaseAnArrivalTheTrimCannotFly(trim, state);
 
         int passesBefore = _postBoost.Cycles;
 
@@ -318,9 +318,8 @@ internal sealed partial class IcbmComputer
     // the number; this one fires where the alternative is a certain 90 km, so being wrong about it
     // costs a re-solve.
     //
-    // Once. A second release would be the cycle the latch exists to prevent, and IcbmProgram
-    // re-latches nothing after cutoff, so this cannot become a loop.
-    private void ReleaseAnArrivalTheTrimCannotFly(in TrimCommand trim)
+    // Once a flight, so a re-committed arrival the trim also refuses cannot become a loop.
+    private void ReleaseAnArrivalTheTrimCannotFly(in TrimCommand trim, in IcbmState state)
     {
         if (_releasedTheArrival || !_trim.GaveUp) return;
         if (_trim.SpentMetresPerSecond > 0.0) return;
@@ -333,15 +332,32 @@ internal sealed partial class IcbmComputer
 
         _releasedTheArrival = true;
 
+        string asked = $"the trim was asked for {trim.ToGainMetresPerSecond:F1} m/s against a "
+                       + $"{BusTrim.MaxMetresPerSecond:F0} ceiling and had spent nothing, solving to an arrival "
+                       + $"{committed:F0} s away where the flown prediction says {flown:F0}";
+
+        if (Config.RefusedTrimTakesTheCheapestArrival)
+        {
+            if (!Program.TryCommitTheCheapestArrival(state))
+            {
+                Log.Info($"arrival kept on {KsaWorld.DisplayName(Craft)}: {asked}, and no cheaper arrival was found.");
+                return;
+            }
+
+            _trim.Resume();
+            Log.Info($"arrival moved on {KsaWorld.DisplayName(Craft)}: {asked}. Committed the cheapest arc from "
+                     + $"here, {Program.CoastArrivalMovedSeconds:F2} s from the old arrival.");
+            return;
+        }
+
         if (!Program.ReleaseArrival()) return;
 
         _trim.Begin();
 
-        Log.Info($"arrival released on {KsaWorld.DisplayName(Craft)}: the trim was asked for "
-                 + $"{trim.ToGainMetresPerSecond:F1} m/s against a {BusTrim.MaxMetresPerSecond:F0} "
-                 + $"ceiling and had spent nothing, solving to an arrival {committed:F0} s away "
-                 + $"where the flown prediction says {flown:F0}. Giving the arrival up and taking "
-                 + "the cheapest arc again.");
+        // Nothing after cutoff re-solves an arc and Begin is a no-op on an armed trim, so this leaves the trim given up
+        // on the arc it refused and opens the gate.
+        Log.Info($"arrival released on {KsaWorld.DisplayName(Craft)}: {asked}. Giving the arrival up, which "
+                 + "opens the release gate on the arc the trim refused.");
     }
 
     // The trim's debt at the split, decomposed into the four things that make it. `ACCURACY-PLAN.md`

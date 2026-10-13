@@ -139,6 +139,7 @@ RESEARCH = (
     "StagesIntoTheAirflow",
     "LongCoastFreesTheArrival",
     "LongCoastSeconds",
+    "RefusedTrimTakesTheCheapestArrival",
     "LatchWaitsOutTheSolids",
     "AimResumesAtCutoff",
     "AimWaitsForCutoffUnderAFloor",

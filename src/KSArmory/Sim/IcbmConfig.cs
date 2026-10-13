@@ -424,6 +424,14 @@ internal sealed class IcbmConfig
     public double LongCoastSeconds = 4_000.0;
 
     /// <summary>
+    /// When the trim refuses a correction over its ceiling having spent nothing, commit the cheapest arrival from the
+    /// bus's state rather than <c>IcbmProgram.ReleaseArrival</c>'s NaN. A NaN arrival opens the release gate and turns
+    /// every later post-boost pass into nothing, and the trim restarts against the arc it just refused: the shot goes
+    /// untrimmed. <c>docs/ICBM-OUTSTANDING.md</c> 1.20, <c>docs/ACCURACY-PLAN.md</c> 3bq.
+    /// </summary>
+    public bool RefusedTrimTakesTheCheapestArrival = false;
+
+    /// <summary>
     /// Resume the aim correction at cutoff rather than on the first frame the engines are off, which a hold for a burn
     /// window spends. In <c>PastCutoffRig</c>, an orbital bus aimed 400 km behind: off, 0 post-boost passes and released
     /// 404.6 m out; on, 4 passes and 1.3 m. Paired on the pad at 6,181 km, 1.07x [0.73, 1.59] over 32 rockets, both near

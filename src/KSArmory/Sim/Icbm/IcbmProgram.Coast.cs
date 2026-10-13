@@ -38,25 +38,31 @@ internal sealed partial class IcbmProgram
     }
 
     /// <summary>
-    /// How far <see cref="IcbmConfig.LongCoastFreesTheArrival"/> moved the arrival when the gate opened, in seconds,
-    /// later positive; NaN until it has.
+    /// How far <see cref="TryCommitTheCheapestArrival"/> last moved the arrival, in seconds, later positive; NaN until
+    /// it has.
     /// </summary>
     public double CoastArrivalMovedSeconds { get; private set; } = double.NaN;
 
-    // The arc from where the bus is to the aim, at the arrival nearest its own trajectory, committed in place of the
-    // cutoff's. Kept only if it asks less of the trim than the committed arrival does.
     private void FreeTheCoastArrival(in IcbmState state)
     {
         _coastArrivalFreed = true;
+        TryCommitTheCheapestArrival(state);
+    }
 
+    /// <summary>
+    /// Commit the arc from where the bus is to the aim, at the arrival nearest its own trajectory, in place of the
+    /// committed one -- kept only if it asks less of the trim. False leaves the committed arrival as it was.
+    /// </summary>
+    public bool TryCommitTheCheapestArrival(in IcbmState state)
+    {
         double remaining = CommittedArrivalFromNow;
-        if (!double.IsFinite(remaining)) return;
+        if (!double.IsFinite(remaining)) return false;
 
         if (!BallisticArc.TryCheapest(state.Body, state.PositionCci, state.VelocityCci, state.AimNowCci,
                                       out BallisticArc.Solution cheapest, longWay: LongWay,
                                       seedFlightSeconds: remaining))
         {
-            return;
+            return false;
         }
 
         double pinned = BallisticArc.TrySolve(state.Body, state.PositionCci, state.AimNowCci, remaining,
@@ -64,13 +70,14 @@ internal sealed partial class IcbmProgram
                             ? Vec.Len(held.VelocityToGain(state.VelocityCci))
                             : double.PositiveInfinity;
 
-        if (!(Vec.Len(cheapest.VelocityToGain(state.VelocityCci)) < pinned)) return;
+        if (!(Vec.Len(cheapest.VelocityToGain(state.VelocityCci)) < pinned)) return false;
 
         Arc = cheapest;
         ReferencePositionCci = state.PositionCci;
         SecondsSinceReference = 0.0;
         _arrivalFromLaunch = _sinceLaunch + cheapest.FlightSeconds;
         CoastArrivalMovedSeconds = cheapest.FlightSeconds - remaining;
+        return true;
     }
 
     private IcbmCommand Coasting(in IcbmState state)

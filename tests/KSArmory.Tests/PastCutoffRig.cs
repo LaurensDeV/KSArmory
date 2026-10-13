@@ -16,8 +16,8 @@ namespace KSArmory.Tests;
 /// so the split is an impulse on a chosen frame and the stack has no size but its radius; the halves pass through
 /// each other rather than colliding; one frame of command latency and nothing else of the engine's frame order;
 /// no tube offsets, ring or spin, so every warhead leaves the same state and one is flown; no release sequence, so
-/// the warheads go on the frame the trim lets them; no terrain; and none of the computer's readouts or its
-/// arrival release (<c>ReleaseAnArrivalTheTrimCannotFly</c>). A walk is flown either to stops it is given, one warhead
+/// the warheads go on the frame the trim lets them; no terrain; and none of the computer's readouts. Its arrival
+/// release (<c>ReleaseAnArrivalTheTrimCannotFly</c>) is flown without the flown prediction it also waits for. A walk is flown either to stops it is given, one warhead
 /// each, or to <see cref="PlannedTargets"/>, planned as the computer plans one. The warhead falls through
 /// <see cref="ImpactPredictor"/> at a finer step than the probe, not as a <see cref="Slug"/>.</para>
 /// </summary>
@@ -123,6 +123,7 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
     private int _trimFloorForPass = -1;
     private bool _mayTrim;
     private bool _trimAbandoned;
+    private bool _releasedTheArrival;
     private bool _postBoostSaid;
     private string _postBoostSaidWhy = "";
 
@@ -609,6 +610,24 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
     }
 
     // IcbmComputer.DriveTrim, less its logging.
+    // IcbmComputer.ReleaseAnArrivalTheTrimCannotFly, less its wait for a flown prediction.
+    private void ReleaseAnArrivalTheTrimCannotFly(in TrimCommand trim, in IcbmState state)
+    {
+        if (_releasedTheArrival || !_trim.GaveUp || _trim.SpentMetresPerSecond > 0.0) return;
+        if (!(trim.ToGainMetresPerSecond > BusTrim.MaxMetresPerSecond)) return;
+        if (!double.IsFinite(Program.CommittedArrivalFromNow)) return;
+
+        _releasedTheArrival = true;
+
+        if (!Config.RefusedTrimTakesTheCheapestArrival)
+        {
+            if (Program.ReleaseArrival()) _trim.Begin();
+            return;
+        }
+
+        if (Program.TryCommitTheCheapestArrival(state)) _trim.Resume();
+    }
+
     private TrimCommand DriveTrim(double step, in IcbmState state)
     {
         if (!Config.TrimBeforeRelease || !_command.ReadyToDeploy || Program.ReleasesAtCutoff) return default;
@@ -644,6 +663,8 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
             Config.PulseTrim ? Config.PulseSeconds : 0.0,
             Config.StallFallsBackToHolding,
             Config.TrimCountsTheCommandInFlight));
+
+        ReleaseAnArrivalTheTrimCannotFly(trim, state);
 
         int passesBefore = _postBoost.Cycles;
 

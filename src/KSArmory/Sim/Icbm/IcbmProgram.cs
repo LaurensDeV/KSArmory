@@ -758,7 +758,8 @@ internal sealed partial class IcbmProgram
         => double.IsFinite(_arrivalFromLaunch) ? _arrivalFromLaunch - _sinceLaunch : double.NaN;
 
     /// <summary>
-    /// Give up the committed arrival, so the next solve takes the cheapest arc again.
+    /// Give up the committed arrival. After cutoff nothing solves again, so this opens the release gate on the arc the
+    /// trim refused and stops every later post-boost pass; <see cref="TryCommitTheCheapestArrival"/> is the commit.
     ///
     /// <para><b>For the one state the latch cannot get itself out of.</b> The arrival is pinned
     /// during the burn and the two branches that can unpin it both live there, so after cutoff it
