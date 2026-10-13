@@ -1,3 +1,46 @@
+## [0.9.6](https://github.com/LaurensDeV/KSArmory/compare/v0.9.5...v0.9.6) (2026-10-13)
+
+### Features
+
+* **icbm:** keep the computer's targets and settings in the save ([ab8c9ce](https://github.com/LaurensDeV/KSArmory/commit/ab8c9cea1ca7107eeca5129ab2fc427d6b2745d8))
+* **icbm:** let the trim wait out the spent stack before closing on it ([5e8db1a](https://github.com/LaurensDeV/KSArmory/commit/5e8db1a0cfcf77d16724d086825d3c862f13d879))
+* **icbm:** show what the shot needs against what the stack has ([542168e](https://github.com/LaurensDeV/KSArmory/commit/542168e3c52464083897bba02ad6a1e7b306dc15))
+* **icbm:** wait out the spent stack, and trim through a held keyboard ([b78feb5](https://github.com/LaurensDeV/KSArmory/commit/b78feb562448dc089ebb30745b52538fcd1db902))
+* **mirv:** spend the split reserve on a walk's later hops ([b9cac9f](https://github.com/LaurensDeV/KSArmory/commit/b9cac9f5ceabef0e213a942f1425b163708a133e))
+* **ui:** say on the Ballistic tab where the warheads burst ([ca7c15c](https://github.com/LaurensDeV/KSArmory/commit/ca7c15ce1ab85851150f95b8723ba3d099198409))
+
+### Fixes
+
+* **effects:** pick warhead presets on Core's resized conflagration ([fd746eb](https://github.com/LaurensDeV/KSArmory/commit/fd746ebabda8993596dd7c25a06d231849932c14))
+* **icbm:** add the release kick where it happens, keep a recent aim, on ([9e28640](https://github.com/LaurensDeV/KSArmory/commit/9e286404bd13b966e56536c0063575de823b692c))
+* **icbm:** hand a stack outrunning its shot to the closed loop, on ([1586a87](https://github.com/LaurensDeV/KSArmory/commit/1586a87dd56398e60a98690a7177a03ca47782f8))
+* **icbm:** hold for a burn window without losing it or the jets ([b2cd576](https://github.com/LaurensDeV/KSArmory/commit/b2cd5761e7d930815c5e3ce7b964ee317923df17))
+* **icbm:** keep a hold's burn window, and light it only once turned ([d117411](https://github.com/LaurensDeV/KSArmory/commit/d1174117c1b321e5e31c8c36ac18f33d36499b14))
+* **icbm:** land a long coast from orbit on its aim, not its clock ([39d7a4e](https://github.com/LaurensDeV/KSArmory/commit/39d7a4e0f1042c639b29d3f5a7b7388986c9dd23))
+* **icbm:** latch a burn's arrival after its solids, from orbit too ([183c4ba](https://github.com/LaurensDeV/KSArmory/commit/183c4badcc5c1215ba2849858ea801a4b8f0a6c1))
+* **icbm:** let a coast warp while nothing is correcting ([ad02a27](https://github.com/LaurensDeV/KSArmory/commit/ad02a273c1ca0da8aa2b8563169f9dd15cb4a8de))
+* **icbm:** let an orbital hold warp to its burn window ([2066f3f](https://github.com/LaurensDeV/KSArmory/commit/2066f3fa1bda548b1b2a485605f84c9171929130))
+* **icbm:** light a held burn at real time, not inside a warp ([64d411f](https://github.com/LaurensDeV/KSArmory/commit/64d411fe6d853c0ef1051d4e438bc90497cbe5c5))
+* **icbm:** move a release staged too early to the end of the list ([02f37ba](https://github.com/LaurensDeV/KSArmory/commit/02f37ba62a3444990f079858f077d82d847e3362))
+* **icbm:** pulse a throttle below the floor rather than break the stack ([5ac7e5d](https://github.com/LaurensDeV/KSArmory/commit/5ac7e5dba5ad31ea786b4b2e47179578f59dac38))
+* **icbm:** push a liquid stack's stalled cutoff through at 25 km ([3d4f416](https://github.com/LaurensDeV/KSArmory/commit/3d4f416d251a5a48fc272ba56b995af5efe7fee2))
+* **icbm:** retrim a refused bus onto the cheapest arrival, not none ([4a07bce](https://github.com/LaurensDeV/KSArmory/commit/4a07bceb5a40122add40c82bced0ec05b99d7c39))
+* **icbm:** stop the stack wait holding long shots' post-boost correction ([516d301](https://github.com/LaurensDeV/KSArmory/commit/516d301f8e66859d6875af0e72d987e4df72c9db))
+* **icbm:** turn a holding stack onto its burn just in time ([0905442](https://github.com/LaurensDeV/KSArmory/commit/090544254ba05c65a74baebdfc8127ea9d6c2bdc))
+* **icbm:** turn into the airflow before dropping a spent stage in air ([87c6a29](https://github.com/LaurensDeV/KSArmory/commit/87c6a298b45de60655168337e7eace9cceac735f))
+* **mirv:** end the stack wait once the first warhead has left ([ac92bca](https://github.com/LaurensDeV/KSArmory/commit/ac92bca0ef3d4931b4ac7ad735235ccad1885e0a))
+* **mirv:** price a multi-target walk at what the bus actually spends ([016a5f3](https://github.com/LaurensDeV/KSArmory/commit/016a5f346433a7d8560b1bb06a4326c4516e6af7))
+* **mirv:** stop the coast's warp early enough for a walk to hop ([ea87a76](https://github.com/LaurensDeV/KSArmory/commit/ea87a76cd83a1807432931a8537fae295feb1f9a))
+* **rings:** stop stacked targeting rings compounding into a glow ([076a9ef](https://github.com/LaurensDeV/KSArmory/commit/076a9ef7ff73f18c467e0465a483d474502c42b2))
+* **settings:** follow the save the game loaded and wrote ([c4196c9](https://github.com/LaurensDeV/KSArmory/commit/c4196c99f03caf09e121e4552acc23f82bcbda86))
+* **ui:** say a holding bus's impact comes after its burn ([cf25c1e](https://github.com/LaurensDeV/KSArmory/commit/cf25c1e8acb3f116384ff6fb18c19557cb746423))
+
+### Build and packaging
+
+* **ksa:** retarget 2026.10.10.5554 ([ec1fe4e](https://github.com/LaurensDeV/KSArmory/commit/ec1fe4e6ce583d41bc47ad49618683d8ea7e4d61))
+* **ksa:** retarget 2026.10.13.5602 ([c4528ee](https://github.com/LaurensDeV/KSArmory/commit/c4528ee5713ac3c611fc6d68f7f078a585837499))
+* **saves:** remove the startup save repair after its one release ([5e1cab3](https://github.com/LaurensDeV/KSArmory/commit/5e1cab3a201584314aefbd685874c6f558cb7e08))
+
 ## [0.9.5](https://github.com/LaurensDeV/KSArmory/compare/v0.9.4...v0.9.5) (2026-10-06)
 
 ### Features
