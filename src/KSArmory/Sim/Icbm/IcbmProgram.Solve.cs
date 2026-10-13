@@ -99,7 +99,9 @@ internal sealed partial class IcbmProgram
         }
         _lastToGainCci = command.ToGainVectorCci;
         _fullToGainVectorCci = default;
-        if (Config.ShortShotCutsOffOnTheMiss && dragGate && command.VelocityToGain <= CutsOffOnTheMissBelow
+        // Only a ramp being pushed through a stall: one that closes on its own leaves almost nothing, and flown on Real
+        // SRB4 at 25 km, projected, it cut off with 1.03 m/s off the line and landed 167 m out against 0.9 mm.
+        if (Config.ShortShotCutsOffOnTheMiss && dragGate && PushesThrough(state) && command.VelocityToGain <= CutsOffOnTheMissBelow
             && TryMissFreeLine(state, command, out double3 free))
         {
             // Only on a long fall, and only where the air lets the stack point along the line. Ending the burn early moves

@@ -40,4 +40,30 @@ public class MissCutoffTests
         Assert.Equal(residualOff, residualOn, 9);
         Assert.Equal(missOff, missOn, 6);
     }
+
+    // A ramp that closes on its own is left alone: flown on Real SRB4 at 25 km, projected, it cut off with 1.03 m/s off
+    // the line and landed 167 m out against 0.9 mm. These arcs never push through, and projected they moved 4-20 m.
+    [Fact]
+    public void ARampThatClosesOnItsOwnIsCutOffAsWithoutTheSwitch()
+    {
+        foreach (double km in FloorHoldTests.LowArcs)
+        {
+            (double residualOff, double3 cutOff) = FlyGameStack(km, false);
+            (double residualOn, double3 cutOn) = FlyGameStack(km, true);
+            Assert.True(residualOff.Equals(residualOn) && cutOff.Equals(cutOn), $"{km:F0} km cut off differently with the switch");
+        }
+    }
+
+    private static (double Residual, double3 Velocity) FlyGameStack(double km, bool cutsOnTheMiss)
+    {
+        IcbmFlightRig rig = GameStackShortRangeTests.GameStack(true);
+        rig.AttitudeHasInertia = true;
+        rig.StepJitter = 0.5;
+        rig.Warhead = Arsenal.Mk21WithDragFromShape(Arsenal.ReentryVehicleMk21);
+        IcbmConfig config = FloorHoldTests.Config(0.5, true, true);
+        config.ShortShotCutsOffOnTheMiss = cutsOnTheMiss;
+        IcbmProgram program = new(config);
+        IcbmFlightRig.Flight flight = rig.Fly(program, GameStackShortRangeTests.South(km * 1000.0), 0.02, 6_000.0);
+        return (program.ResidualAtCutoff, flight.CutoffVelocityCci);
+    }
 }

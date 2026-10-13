@@ -393,9 +393,10 @@ internal sealed class IcbmConfig
     public double ShortShotPushesThroughAtDragShare;
 
     /// <summary>
-    /// In the last <see cref="IcbmProgram.CutsOffOnTheMissBelow"/> m/s of a short shot released at cutoff in the air, steer
-    /// and cut off on what is left once the one direction that moves the landing nowhere is taken out of it. The
-    /// shortfall a stack cannot gain at its floor is then left where it costs nothing. <c>docs/SHORT-RANGE.md</c>.
+    /// In the last <see cref="IcbmProgram.CutsOffOnTheMissBelow"/> m/s of a short shot pushed through a stall and released
+    /// at cutoff in the air, steer and cut off on what is left once the one direction that moves the landing nowhere is
+    /// taken out of it. The shortfall a stack cannot gain at its floor is then left where it costs nothing.
+    /// <c>docs/SHORT-RANGE.md</c>.
     /// </summary>
     public bool ShortShotCutsOffOnTheMiss;
 
