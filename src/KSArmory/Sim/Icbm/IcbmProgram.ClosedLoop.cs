@@ -148,7 +148,7 @@ internal sealed partial class IcbmProgram
     // left to gain, which on a liquid stack in the air never reaches the cutoff. docs/SHORT-RANGE.md.
     private bool PushesThrough(in IcbmState state)
         => Config.ShortShotPushesThroughAStall && _shortShot && Phase == IcbmPhase.ClosedLoop
-           && _secondsInTheRamp > PushesThroughAfterSeconds && state.AirDensityRatio >= Medium.NoticeableDensity
+           && _secondsInTheRamp > Config.ShortShotPushesThroughAfterSeconds && state.AirDensityRatio >= Medium.NoticeableDensity
            && !_pushCci.Equals(Vec.Zero);
 
     private double PushAlongTheLine(in IcbmState state)

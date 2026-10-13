@@ -377,6 +377,14 @@ internal sealed class IcbmConfig
     public bool ShortShotPushesThroughAStall = true;
 
     /// <summary>
+    /// How long the throttle-down runs in the air before <see cref="ShortShotPushesThroughAStall"/> acts, in seconds.
+    /// LowTWR at 200 km stalls at its floor with the slowed line falling behind the drag, and cuts off 2.8 m/s short
+    /// 8 s into its ramp -- 247 and 317 m out, flown twice -- before the push-through at 10 s can act.
+    /// <c>docs/ICBM-OUTSTANDING.md</c> 1.12.
+    /// </summary>
+    public double ShortShotPushesThroughAfterSeconds = IcbmProgram.PushesThroughAfterSeconds;
+
+    /// <summary>
     /// Hand the ascent to the closed loop once burning on the schedule has raised the velocity to gain past
     /// <see cref="IcbmProgram.OutrunShareOfTheStack"/> of what the stack holds, on a stage that can stop. Flown 2026-10-12, RealSRB4
     /// at 1,000 km: off, 3 of 3 burned out 12.8-13.7 km/s short; on, 3 of 3 within 2.5 mm, and it never trips on GeoSat FAT at
