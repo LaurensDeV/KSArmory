@@ -64,6 +64,15 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
     public double MaxSecondsAfterCutoff = 3_000.0;
 
     /// <summary>
+    /// What the burn left the bus off its cutoff, along local up: the rig cuts off on the bit, and a flown burn does
+    /// not. <c>docs/ICBM-OUTSTANDING.md</c> 1.20.
+    /// </summary>
+    public double CutoffErrorUpMetresPerSecond;
+
+    /// <summary>The committed arrival at cutoff, in seconds from it; NaN until the burn has cut off.</summary>
+    public double CoastSeconds { get; private set; } = double.NaN;
+
+    /// <summary>
     /// Further places to walk to after the lead, one warhead each, in the order flown; empty releases at the lead alone.
     /// The hand-over between them is <c>IcbmComputer.HandOverTo</c>'s.
     /// </summary>
@@ -241,7 +250,8 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
     private Outcome Coast(double3 aimAtEpoch, double cutoffSeconds)
     {
         _busPositionCci = Flight.PositionCci;
-        _busVelocityCci = Flight.VelocityCci;
+        _busVelocityCci = Flight.VelocityCci + Vec.Unit(Flight.PositionCci) * CutoffErrorUpMetresPerSecond;
+        CoastSeconds = Program.CommittedArrivalFromNow;
 
         Queue<TrimCommand> inFlight = new();
         double t = cutoffSeconds;

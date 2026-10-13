@@ -490,6 +490,7 @@ internal sealed partial class IcbmProgram
     private double _stageHeldForTheAirflow;
     private double _lastStep;
     private bool _resolveCoastArc;
+    private bool _coastArrivalFreed;
     private double _throttle = 1.0;
     private double _lowestToGain = double.PositiveInfinity;
     private double _risingFrom;
@@ -800,6 +801,8 @@ internal sealed partial class IcbmProgram
         ReferencePositionCci = Vec.Zero;
         SecondsSinceReference = 0.0;
         _resolveCoastArc = false;
+        _coastArrivalFreed = false;
+        CoastArrivalMovedSeconds = double.NaN;
         DownrangeCci = Vec.Zero;
         _cutoffSeed = 0.0;
         _flightSeed = double.NaN;

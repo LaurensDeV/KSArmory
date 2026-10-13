@@ -37,6 +37,42 @@ internal sealed partial class IcbmProgram
         SecondsSinceReference = 0.0;
     }
 
+    /// <summary>
+    /// How far <see cref="IcbmConfig.LongCoastFreesTheArrival"/> moved the arrival when the gate opened, in seconds,
+    /// later positive; NaN until it has.
+    /// </summary>
+    public double CoastArrivalMovedSeconds { get; private set; } = double.NaN;
+
+    // The arc from where the bus is to the aim, at the arrival nearest its own trajectory, committed in place of the
+    // cutoff's. Kept only if it asks less of the trim than the committed arrival does.
+    private void FreeTheCoastArrival(in IcbmState state)
+    {
+        _coastArrivalFreed = true;
+
+        double remaining = CommittedArrivalFromNow;
+        if (!double.IsFinite(remaining)) return;
+
+        if (!BallisticArc.TryCheapest(state.Body, state.PositionCci, state.VelocityCci, state.AimNowCci,
+                                      out BallisticArc.Solution cheapest, longWay: LongWay,
+                                      seedFlightSeconds: remaining))
+        {
+            return;
+        }
+
+        double pinned = BallisticArc.TrySolve(state.Body, state.PositionCci, state.AimNowCci, remaining,
+                                              out BallisticArc.Solution held, LongWay)
+                            ? Vec.Len(held.VelocityToGain(state.VelocityCci))
+                            : double.PositiveInfinity;
+
+        if (!(Vec.Len(cheapest.VelocityToGain(state.VelocityCci)) < pinned)) return;
+
+        Arc = cheapest;
+        ReferencePositionCci = state.PositionCci;
+        SecondsSinceReference = 0.0;
+        _arrivalFromLaunch = _sinceLaunch + cheapest.FlightSeconds;
+        CoastArrivalMovedSeconds = cheapest.FlightSeconds - remaining;
+    }
+
     private IcbmCommand Coasting(in IcbmState state)
     {
         if (_resolveCoastArc)
@@ -58,6 +94,15 @@ internal sealed partial class IcbmProgram
         double toArrival = CommittedArrivalFromNow;
         double gate = ReleaseGate;
         bool closeEnough = gate <= 0.0 || !double.IsFinite(toArrival) || toArrival <= gate;
+
+        // At the gate rather than at cutoff, so the arc is solved from the state the warheads will leave from.
+        if (closeEnough && !_coastArrivalFreed && Config.LongCoastFreesTheArrival && !_releasesAtCutoff
+            && _sinceCutoff >= Config.LongCoastSeconds)
+        {
+            FreeTheCoastArrival(state);
+            toArrival = CommittedArrivalFromNow;
+            closeEnough = gate <= 0.0 || !double.IsFinite(toArrival) || toArrival <= gate;
+        }
 
         // The altitude is a floor on the way *up* only. Applied on the descent it shuts the gate
         // exactly when the release is meant to happen -- the vehicle drops back through it on the

@@ -148,13 +148,65 @@ public class PastCutoffTests(ITestOutputHelper Out)
 
     private static double3 Downrange(double metres) => new(R * Math.Cos(metres / R), R * Math.Sin(metres / R), 0);
 
+    // From 800 km, lofted to a coast of about 15,000 s, the length ORBIT 800 flew to 40 N 10 E; 0.4 m/s up at cutoff
+    // is that night's worst residual. docs/ICBM-OUTSTANDING.md 1.20.
+    private PastCutoffRig.Outcome LongCoast(bool freesTheArrival, double upAtCutoff, out PastCutoffRig rig,
+                                            double loft = 5.0)
+    {
+        IcbmProgram program = new(new IcbmConfig { Armed = true, Loft = loft, LongCoastFreesTheArrival = freesTheArrival });
+        rig = PastCutoffRig.For(InOrbit(800_000.0), program, Mk21, DensityAt);
+        rig.MaxSecondsAfterCutoff = 30_000.0;
+        rig.ShoveMetresPerSecond = 0.7;
+        rig.ThrusterMetresPerSecond2 = 0.55;
+        rig.CutoffErrorUpMetresPerSecond = upAtCutoff;
+        PastCutoffRig.Outcome shot = Say(rig.Fly(Downrange(8_000_000.0)));
+        Out.WriteLine($"coast {rig.CoastSeconds:F0} s, arrival moved {program.CoastArrivalMovedSeconds:F2} s");
+        return shot;
+    }
+
+    [Fact]
+    public void ALongCoastsCutoffResidualIsOwedAsTimingAgainstThePinnedArrival()
+    {
+        PastCutoffRig.Outcome shot = LongCoast(freesTheArrival: false, upAtCutoff: 0.4, out PastCutoffRig rig);
+
+        Assert.True(rig.CoastSeconds > 12_000.0, $"coasted {rig.CoastSeconds:F0} s");
+        Assert.True(shot.OwedAtSplitMetresPerSecond > 10.0, $"owed {shot.OwedAtSplitMetresPerSecond:F2} m/s");
+        Assert.True(shot.LandedMetres > 1_000.0, $"landed {shot.LandedMetres:F1} m out");
+    }
+
+    [Fact]
+    public void ALongCoastFreedAtTheGateOwesLessThanOnePassMaySpend()
+    {
+        PastCutoffRig.Outcome shot = LongCoast(freesTheArrival: true, upAtCutoff: 0.4, out _);
+
+        Assert.True(shot.Released, shot.Said);
+        Assert.True(shot.OwedAtSplitMetresPerSecond < 3.0, $"owed {shot.OwedAtSplitMetresPerSecond:F2} m/s");
+        Assert.True(shot.TrimSpentMetresPerSecond < 10.0, $"spent {shot.TrimSpentMetresPerSecond:F2} m/s");
+        Assert.True(shot.LandedMetres < 1.0, $"landed {shot.LandedMetres:F2} m out");
+    }
+
+    [Theory]
+    [Trait("kind", "study")]
+    [InlineData(1.0)]
+    [InlineData(3.0)]
+    [InlineData(5.0)]
+    public void TheLongCoastAcrossLoftAndResidual(double loft)
+    {
+        foreach (bool on in new[] { false, true })
+        foreach (double up in new[] { 0.0, 0.2, 0.4, -0.4 })
+        {
+            Out.WriteLine($"loft {loft}, freed {on}, up {up}:");
+            LongCoast(on, up, out _, loft);
+        }
+    }
+
     // AimConvergenceTests' bus, with the game's actuator.
-    private static IcbmFlightRig InOrbit()
+    private static IcbmFlightRig InOrbit(double altitude = 300_000.0)
         => new()
         {
             Body = Earth,
-            PositionCci = new double3(R + 300_000.0, 0, 0),
-            VelocityCci = new double3(0, Math.Sqrt(Mu / (R + 300_000.0)), 0),
+            PositionCci = new double3(R + altitude, 0, 0),
+            VelocityCci = new double3(0, Math.Sqrt(Mu / (R + altitude)), 0),
             Stages = [new() { DryMassKg = 3_000, PropellantKg = 40_000, ThrustNewtons = 300_000, ExhaustVelocity = 3_100 }],
             CommandLatencyFrames = 1,
             ThrottleRatePerSecond = 2.0,

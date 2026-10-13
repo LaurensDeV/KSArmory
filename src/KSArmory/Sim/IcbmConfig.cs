@@ -411,6 +411,18 @@ internal sealed class IcbmConfig
     public bool StagesIntoTheAirflow = true;
 
     /// <summary>
+    /// On a coast longer than <see cref="LongCoastSeconds"/>, re-solve the arc from the bus's own state when the release
+    /// gate opens, at the cheapest arrival near the committed one, and commit to that. Off, the trim nulls against the
+    /// cutoff's conic at the cutoff's arrival, and a cutoff residual grows over the coast into a debt that is timing
+    /// rather than landing: flown from ORBIT 800, 0.44 m/s short at cutoff owed 23 m/s at the split four hours later.
+    /// <c>docs/ICBM-OUTSTANDING.md</c> 1.20.
+    /// </summary>
+    public bool LongCoastFreesTheArrival = false;
+
+    /// <summary>The coast after cutoff, in seconds, past which <see cref="LongCoastFreesTheArrival"/> acts.</summary>
+    public double LongCoastSeconds = 4_000.0;
+
+    /// <summary>
     /// Resume the aim correction at cutoff rather than on the first frame the engines are off, which a hold for a burn
     /// window spends. In <c>PastCutoffRig</c>, an orbital bus aimed 400 km behind: off, 0 post-boost passes and released
     /// 404.6 m out; on, 4 passes and 1.3 m. Paired on the pad at 6,181 km, 1.07x [0.73, 1.59] over 32 rockets, both near
