@@ -404,9 +404,10 @@ internal sealed class IcbmConfig
     /// Before dropping a dry stage inside the air during the closed loop, turn the nose into the airflow. Off, the
     /// stage goes at whatever angle of attack the guidance holds: RealLiquid2 at 1,000 km drops its core at 24 deg and
     /// 7.7 kPa, and the core's sideways drag carries it into the upper's bell, striking it every flight and breaking
-    /// the engine on four of six. <c>docs/ICBM-OUTSTANDING.md</c> 1.18.
+    /// the engine on four of six. On: dropped at 2.9-7.8 deg, no strike on three flights, and it never engaged on nine
+    /// other cells. <c>docs/ICBM-OUTSTANDING.md</c> 1.18.
     /// </summary>
-    public bool StagesIntoTheAirflow = false;
+    public bool StagesIntoTheAirflow = true;
 
     /// <summary>
     /// Resume the aim correction at cutoff rather than on the first frame the engines are off, which a hold for a burn
