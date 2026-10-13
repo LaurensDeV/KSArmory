@@ -134,16 +134,24 @@ the drag model read the same.
 **Flown on 2026.10.13.5602:** `head-on` **PASS**, the AIM-9J bursting 14 m from the drone and
 destroying it. All seven patches installed, every warhead preset resolved, the trail renderer
 bound, and the stamp read `built for KSA 2026.10.13.5602, running 2026.10.13.5602 - reporting on`.
-Not flown or looked at:
+Also flown: `gunnery` PASS, each of four drones killed by its first Mk 42 shell striking it; `drop`
+PASS 0 m from the ring. Not flown or looked at:
 
-- [ ] **A gimbaled burn steers on its thrust line.** KSA's control frame is now `Tnm` (the helm
+- [x] **A gimbaled burn steers on its thrust line.** KSA's control frame is now `Tnm` (the helm
       turned onto the trimmed net thrust) whenever a gimbaled engine makes thrust, and RCS is mapped
       against it; `KsaWorld.TryControlFrameCci` still reads the helm. Coast and the bus's trim are
-      unaffected (no gimbals). Fly a ballistic shot and compare the ascent and cutoff with the last
-      night's; `docs/KSA-MODDING-NOTES.md` has the engine code.
-- [ ] **A warp raise or unpause now ramps.** The sim step grows at most 2x per frame, so
-      `WarpPolicy` calibrates on a step still climbing. Fly a salvo through a warp change and watch
-      for repeated requests or an abandon.
+      unaffected (no gimbals); `docs/KSA-MODDING-NOTES.md` has the engine code. **Flown on
+      2026.10.13.5602**, four shots of 2026-10-13's night re-flown on rockets with gimbaled EngineA2/A3
+      or SRB-E, worst warhead and cutoff residual against that night's: GeoSat FAT 200 km 5.1 mm /
+      0.94 m/s (11.1 / 0.93), RealLiquid2 200 km 2.8 mm / 0.25 (2.1 / 0.17), Any LowTWR 200 km
+      12.6 mm / 0.79 (247 m / 2.81), ORBIT 300 to 40N 10E 1.0 mm / 0.01 (1.8 / 0.01). Six of six
+      arrived every time, no engine exception.
+- [x] **A warp raise or unpause now ramps.** The sim step grows at most 2x per frame, so
+      `WarpPolicy` calibrates on a step still climbing. **Flown on 2026.10.13.5602**: a 57E6 at a
+      point with 50x asked mid-flight stepped 50 -> 17.7 -> 4.3 -> 2.4 -> 1.4x in 0.5 s and burst
+      12 m from its aim, and `drop:6000,30,guided,,800` stepped 800 -> 270 -> 11.4 -> 3.9 -> 2.3 ->
+      1.2x and landed 0 m from the ring. The same cascade is in the 2026-10-10 logs, before this
+      build: it is the in-air step, not the ramp. Nothing abandoned.
 - [ ] **The 57E6's burst is a conflagration** — 30 m fireball at KSA's floor. Flown, not watched:
       `KABOOM` `passing` set off `Explosion_Conflagration` for 20 kg at 52 kPa, 19 m from the drone,
       9 parts broken off. Look at one.
