@@ -397,9 +397,10 @@ internal sealed class IcbmConfig
     /// Where solids burn out inside the closed loop, count the arrival's latch window and the steady aim from their
     /// burnout rather than from the loop's start. Off, the latch fires on the jettison's own frame, against a
     /// prediction the solid stage's projection made: flown from <c>ORBIT 300</c> to 40 N, 10 E, the miss jumped 1.1 m
-    /// to 1.57 km in that cycle and the loop froze on it. <c>docs/ICBM-OUTSTANDING.md</c> 1.14.
+    /// to 1.57 km in that cycle and the loop froze on it. On, ORBIT 300 and ORBIT 800 to there cut off 0.03-0.06 km off
+    /// their own prediction against 1.0-1.6, and it never fires on a pad shot. <c>docs/ICBM-OUTSTANDING.md</c> 1.14.
     /// </summary>
-    public bool LatchWaitsOutTheSolids = false;
+    public bool LatchWaitsOutTheSolids = true;
 
     /// <summary>
     /// Before dropping a dry stage inside the air during the closed loop, turn the nose into the airflow. Off, the
