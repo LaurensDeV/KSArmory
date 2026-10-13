@@ -324,9 +324,10 @@ internal sealed partial class IcbmProgram
     /// <summary>
     /// How long after the solids burn out inside the closed loop before a steady aim may latch the arrival, under
     /// <see cref="IcbmConfig.LatchWaitsOutTheSolids"/>: the aim read steady against the solid stage's projection, and
-    /// the jettison moves the prediction in one cycle -- 1.57 km on the four-hour coast from orbit.
+    /// the jettison moves the prediction in one cycle -- 1.57 km on the four-hour coast from orbit. At 3 s the loop had
+    /// taken it to 0.41-0.53 km when the latch froze it, flown twice; at the burn's start it needed about 6 s for 1.75 km.
     /// </summary>
-    public const double SteadyAfterTheSolidsSeconds = 3.0;
+    public const double SteadyAfterTheSolidsSeconds = 12.0;
 
     /// <summary>Long enough for the stack to settle before the next stage is considered.</summary>
     public const double StageCooldownSeconds = 1.5;
