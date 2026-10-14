@@ -816,6 +816,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         if (double.IsFinite(dt) && dt > 0.0) _finTestSeconds += dt;
 
         _clock += dt;
+        _frameSimStep = double.IsFinite(dt) ? dt : 0.0;
 
         FillIncoming(airborne);
 
@@ -1238,6 +1239,47 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// <summary>How far away what the gun is laid on this frame is, or zero when no gun lay is driving.</summary>
     public double GunLayRangeMetres => _gunLayRangeMetres;
 
+    private double _frameSimStep;
+    private readonly ContactHold _designatedContact = new();
+    private Vehicle? _contactOf;
+
+    private bool HeldContact(Vehicle designated, bool touching)
+    {
+        if (!ReferenceEquals(_contactOf, designated))
+        {
+            _contactOf = designated;
+            _designatedContact.Reset();
+        }
+        return _designatedContact.Update(touching, _frameSimStep);
+    }
+
+    private bool _lastTouching, _lastRests;
+    private int _touchFlips, _restFlips;
+    private double _contactSince;
+
+    // How often a designated craft's ground contact flips, raw and held, once a second under a verbose log: it decides
+    // both the acceleration the lay leads with and how the reach is searched.
+    private bool SayContact(Vehicle designated, bool touching, bool rests)
+    {
+        if (touching != _lastTouching) _touchFlips++;
+        if (rests != _lastRests) _restFlips++;
+        _lastTouching = touching;
+        _lastRests = rests;
+        _contactSince += _frameSimStep;
+        if (_contactSince >= 1.0)
+        {
+            if (_touchFlips > 0 || _restFlips > 0)
+            {
+                Log.Debug($"{KsaWorld.DisplayName(designated)}: ground contact flipped {_touchFlips} time(s) in "
+                          + $"{_contactSince:F1} s, the lay's {_restFlips}; resting now {rests}");
+            }
+            _touchFlips = 0;
+            _restFlips = 0;
+            _contactSince = 0.0;
+        }
+        return rests;
+    }
+
     // A place on the ground, which keeps its place as the ground turns.
     private bool TryGunGroundLay(double3 groundEcl, double3 groundVelocityEcl, out double3 partFrame)
     {
@@ -1590,11 +1632,13 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // So is a craft. Resting on something it moves with the ground under it; flying, it carries its
         // own acceleration, which the lead flies it along.
         if (Designation.Kind == AimpointKind.Vehicle && Designation.Handle is Vehicle designated
+            && KsaWorld.RestsOnSurface(designated) is var touching
+            && SayContact(designated, touching, HeldContact(designated, touching)) is var rests
             && TryGunLay(Designation.PositionEcl, Designation.VelocityEcl,
-                         KsaWorld.RestsOnSurface(designated)
+                         rests
                              ? KsaWorld.GroundAccelerationAt(Platform, Designation.PositionEcl)
                              : KsaWorld.AccelerationEcl(designated),
-                         onTheGround: KsaWorld.RestsOnSurface(designated), out partFrame))
+                         onTheGround: rests, out partFrame))
         {
             SayGunLaid("a gun laid on it");
             return true;
