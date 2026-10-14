@@ -129,7 +129,7 @@ first night), before Tier 3.
 | --- | --- | --- | --- |
 | 4.1 | **Expected-miss readout**, shown only in cells flown for completion and accuracy, at more than one frame rate -- or it advertises millimetres on rockets and hardware never flown. The cells are a matrix of range against arrival angle, one paired night each; outside a flown cell the pane shows the reach verdict and the propellant and no miss. The floor has a closed form, `axes x cycle x holding cost`, so the figure can be shown before launch. Depends on 2.1–2.3. | ACCURACY-PLAN 3n, 3o, 3w | L |
 | ~~4.2~~ | **Built 2026-10-09, not yet seen in game:** before the burn the panel prints `Delta-v: needs N m/s, has M m/s`, marked as one stage's reckoning where the engine does not report the whole stack (only the craft being flown has it), and nothing where it reports nothing, as an unlit stage does. CHECKLIST 12.2. | ICBM-GUIDANCE "What it tells the operator" | S–M |
-| ~~4.3~~ | **Flown 2026-10-11 and lost: `WalkStartsAtCutoff` removed 2026-10-12.** Re-declared as v3 (`~/shots/scripts-2026-10-02/DECLARE-walk-cutoff-v3.md`): five targets 4 km apart, which every bus reaches on the shipped settings, paired over 6 blocks of 8. Base walked all five stops on 24 of 24 buses at a median 61.8 m/s; early walked five on 12 and stopped at three on 12, so it truncates far more and loses by the declared rule. **What is worth keeping:** an early walk that completes spends a median 34-36 m/s, about 45% less, and every truncation is the planner refusing a hop priced 10.8 m/s against one pass's 10 -- a rule, not a fault. A first hop just over one pass is 1.12's shape again; letting it fly at the ceiling is what MIRV-NEXT 8ae lost. `~/shots/2026-10-11-day/walk-cutoff`. | MIRV-TARGETS last section | done |
+| ~~4.3~~ | **Flown 2026-10-11 and lost: `WalkStartsAtCutoff` removed 2026-10-12.** Re-declared as v3 (`~/shots/scripts-2026-10-02/DECLARE-walk-cutoff-v3.md`): five targets 4 km apart, which every bus reaches on the shipped settings, paired over 6 blocks of 8. Base walked all five stops on 24 of 24 buses at a median 61.8 m/s; early walked five on 12 and stopped at three on 12, so it truncates far more and loses by the declared rule. An early walk that completes spends a median 34-36 m/s, about 45% less. **Re-read 2026-10-14: the truncations were a fault, not the hop ceiling.** Every one is the cutoff plan `3 stops, 29.5 m/s of 70 -- 2 targets dropped`, from `ReleaseItinerary.CoastFits`: from cutoff the room is a whole number of hops, differenced back out of the coast it lands an ulp short, and the floor drops a stop (always at 2 and 4 stops, at 5 for about half of coasts). The `a hop wants 10.8 m/s` line fires on the pad, before any reach, and is replaced at the first coast frame. Fixed with 4.12 step 1, so the night measured the bug and not the schedule. `~/shots/2026-10-11-day/walk-cutoff`. | MIRV-TARGETS last section | done |
 | ~~4.4~~ | **Done 2026-10-11: the split reserve is on.** Per-slot pricing and the per-axis price shipped on 2026-10-10 (7 of 8 buses flew every stop planned against 0 of 16). `SpendTheSplitReserveAfterTheFirstStop`, flown paired on the 4 km six-target walk over 3 blocks of 8: 12 of 12 buses walked five stops against four on all 12 without it, every released warhead within 5 mm (`~/shots/2026-10-11-night/reserve-walk2`). | MIRV-TARGETS "six stops to the ground" | done |
 | 4.5 | **The missile's own reach before target 1** (37–68 ms a ring, spread over frames). **Held 2026-10-09:** a vacuum delta-v comparison would draw a ceiling, not the floor every other reach here is; it needs an ascent-loss allowance measured off flown shots (pad velocity-to-gain against delta-v spent by cutoff), which the `release summary` line carries from 2026-10-09, so every flight from now on adds to the table. **2026-10-10 (3fq): not on GeoSat FAT** -- it spends 1.9-3.3x the velocity to gain at ignition, because its solids cannot stop and a short shot burns the excess; the table wants a stack whose solids do not outrun the shot, or a count that leaves the burn-off out. **Tabulated 2026-10-11 over every `release summary` flown (635 flights, pad launches below; `~/shots`):** the extra is the burn's shaping, not the ascent, so no one allowance is a floor across ranges. Thrust spent against the velocity to gain, 700 km / 6,180 km: OneStage 5.6x / 1.4x, LowTWR 2.9 / 1.5, ThreeStage 2.4 / 1.6, SolidHeavy 2.7 / 1.8, SolidCore 4.0 / 1.8, BusEarly 2.0 / 1.5 (one or two flights each); GeoSat FAT 3.3x at 1,984 km falling to 1.9 at 6,179 and 1.6 at 12,902 (16-386 each). At 6,180 km the liquid stacks lose 2.4-4.0 km/s over what they gain, the solids 5.0-5.6. A floor would have to be per range band, from the stack's own flights, and below ~3,000 km the short shot's burn-off (3.2) is the term, so 4.5 waits on 2.1 and 3.2. | MIRV-TARGETS Phase 2 | M |
 | 4.6 | **How large an `ArrivalPreference` is safe**: 0.5 has flown as the default since 3aa (0.48x against 0.8); the safe fraction, and 0.5 at the long geometry, are what is open. | ACCURACY-PLAN 3aa, 3am | M |
@@ -138,6 +138,88 @@ first night), before Tier 3.
 | 4.9 | **The AIRS guidance ring** and its component pane (art, the `Guidance` role moved off the bus, a mass split needing its own night). | GUIDANCE-SECTION | L |
 | 4.10 | **The mod spawning the craft on the pad** (frame ordering of `CreateVehicleBuffer`; control past `FillSeats`). | CLAUDE.md | M |
 | ~~4.11~~ | **Done 2026-10-09.** `PastCutoffTests.ALunarShotLandsOnItsTarget` flies `IcbmFlightTests`' lunar stack on the shipped settings with the Mk 21 through the trim, three post-boost passes and the release, and lands under a metre; CHECKLIST 12.1 has the panel's refusal of a target on another body, which the panel already prints. | CLAUDE.md; memory "fly it on an airless body" | S |
+| 4.12 | **A wider MIRV spread without more propellant: divert earlier.** Today six targets sit 4.5 km apart at 6,179 km and 3.8 km at 12,902, 22.5 and 19.2 km end to end, on the gate-ending schedule. Pinned, a m/s moves the landing about `0.96 · t_go` metres, so the same 60 m/s spent from cutoff is worth 8.5 and 12.6 km spacing -- priced, not flown. What stops it is not the tank but the per-pass ceiling on every hop. Plan below. | ICBM-GUIDANCE "What bounds a set is its spacing"; 4.3 | M-L |
+
+### 4.12's plan: spend the bus's divert where it is worth most
+
+**Status, 2026-10-14 night: step 1 is built and passes in the rig; step 2 is declared and not flown.**
+`WalkStartsAtCutoff` is back (`1adf1aa9` reversed, panel row left out, listed in `check-tunables.py`'s `RESEARCH`), and
+`HopsFlyTheirOwnCeiling` is new, both off. With it on, the pass after a hand-over may spend
+`ReleaseLoop.HopCeilingFor` -- 1.25x the pass's price and never under the constant -- through
+`PostCutoffSequence.Decide`'s `hopCeilingMetresPerSecond`, in `IcbmComputer.Walk.cs`/`Trim.cs` and `PastCutoffRig` alike,
+and the planner and the ring are bounded by `ReleaseItinerary.Bus.PassCeilingMetresPerSecond` rather than the constant.
+
+What the rig said (`HopCeilingRigTests`, six targets at 6,181 km from cutoff):
+
+- **At 8-9 km the 10 m/s pass never binds**: the dearest pass prices 9.48 m/s at 8 km, and both arms walk 5 stops. The
+  pass first exceeds 10 m/s between 9 and 10 km, so the test flies 10 and 12 km: off is `HopBeyondOnePass` and
+  releases everything at the lead; on walks **4 stops**, every one landing under a centimetre, 43.1 and 51.4 m/s spent.
+- **`CoastFits` dropped a stop to rounding** -- the fault that lost 4.3 -- and is fixed (a nanosecond of slack;
+  `WalkFromCutoffTests.FromCutoffEveryStopTheChainCountsBackFitsTheCoast` fails without it at 2 and 4 stops). Before the
+  fix the on arm walked 3 at 10-12 km, a fourth stop the budget could pay for dropped.
+- **What a stop costs runs 1.13-1.29x its price** (12 km: priced 12.76, flown 16.0-16.5), all of it after the hop's
+  first pass -- corrections and recoil nulls at the budget's ceiling. So 1.25 is not the bound in danger; **the budget
+  is**: `CanFlyTheHop` admits the last hop at its price, and on a walk planned to the budget's edge the stop can run the
+  tank out with its warheads already assigned. Two follow-ups, neither built: refuse at the hand-over on the solved
+  demand rather than the price (with the flag on `BeyondOnePass` can no longer trip), and hold a correction reserve in
+  the budget check.
+- **ICBM-GUIDANCE's six-at-8.5 km is not what the shipped planner prices**: that table is along-track, straight-line and
+  60 m/s with no pass ceiling; priced at what the jets pay on the narrower axis, five fit at about 7.6 km and six at
+  about 6.1 on the budget alone.
+
+Drawn up 2026-10-14 from four read-only surveys. **More propellant is ruled out as the lever**: a bigger tank and a
+higher `PostBoostAim.MaxTrimMetresPerSecond` buy hops, not wider ones, while the per-pass ceiling holds. Every figure
+below is priced off ICBM-GUIDANCE's tables, extrapolated where it says so, and none is flown.
+
+**Why the walk cannot start early today.** Every hop restarts the post-boost passes, and
+`PostCutoffSequence.CeilingFor` returns NaN for the first pass, so `BusTrim.MaxMetresPerSecond` (10 m/s,
+`Sim/BusTrim.cs:237`) bounds it. `ReleaseLoop.Plan` refuses a walk whose dearest hop exceeds that
+(`HopBeyondOnePass`, `Sim/ReleaseLoop.cs:222`), and `ReachDisplay` clamps each hop to it (`Sim/ReachDisplay.cs:226`).
+The ceiling guards the aim correction and the trim winding each other up; a planned hop is a known change between
+two solutions. 4.3's lost night is no evidence either way: its truncations were `CoastFits` rounding. 50 km along-track costs
+18.2 m/s at cutoff against 72.5 at today's gate.
+
+1. **A hop gets its own ceiling; the aim correction keeps 10 m/s.** Either price the hop's first pass at the hop
+   (with a margin) or split a hop dearer than one pass into two re-aims. MIRV-NEXT 8ae is not evidence against it:
+   that widened the correction's first pass, and the correction then settled at 6.91 km instead of paying back.
+   **Rig first**: `WalkRigTests` with a cutoff-started walk whose hops price over 10 m/s, failing against today's
+   refusal; then the cutoff walk in `PastCutoffRig`. Effort S-M.
+2. **Re-fly 4.3's declaration** (`~/shots/scripts-2026-10-02/DECLARE-walk-cutoff-v3.md`), `WalkStartsAtCutoff`
+   restored as an arm: five targets 4 km apart, paired 6 blocks of 8. The bar is stops walked and landing; also report
+   trim spent (completed early walks spent 34-36 m/s against 61.8) and the per-warhead landing against the gate's.
+   **Then a wider spacing**, which the gate schedule cannot reach at all: **three targets 12 km apart** at 6,179 km,
+   cutoff-started with and without the flag, which isolates it -- at 4 km the hop's own ceiling never binds, and five
+   targets cannot test it at this range because the budget binds (~7.6 km) before a pass reaches 10 m/s (~8.4).
+   Declared in `~/shots/scripts-2026-10-14/DECLARE-hop-ceiling.md`. 12 km at 12,902 waits for step 3.
+3. **Lift `DivertFootprint.EpochMostSeconds`** (760 s, `Sim/DivertFootprint.cs:122`): a six-stop walk from cutoff
+   opens around 895 s before arrival, past where the pre-launch reach is priced, so the outline refuses what the
+   flight could do. Pinned reach falls off as `sin(ωt)/ω` -- 0.96 of `t_go` at 420 s, 0.76 at 1,200 -- so it wants
+   the falloff priced, not just the bound raised.
+4. **Use the trim's cheap direction.** The jets pay the L1 norm on the bus's axes
+   (`DivertFootprint.TrimCostMetresPerSecond`) and the ring is drawn at `WorstAxisFactor`, so on a good bearing it
+   understates reach by up to 1.7x. First draw the true cost contour or mark the cheap bearing (S-M, display only,
+   every hop still priced at what the trim pays); then, if worth it, roll the bus about its nose before a hop so the
+   lateral part lands on one jet axis, 1.0-1.41x instead of up to 1.73x (M, a turn and its attitude propellant per
+   stop, a paired walk night).
+5. **Later and separate: a free arrival per stop.** Along-track only -- 2.56x at 6,179 km and 11.94x at 12,902 from
+   cutoff, 1.00x across. Five things assume the arrival never moves (MIRV-TARGETS opening section): the release gate's
+   `toArrival`, `AimCorrection.IsSteady`, `_releasedTheArrival`, `PostBoostAim`'s per-flight counters and
+   `ResolveCoastArc`. The precedent is the free solve committed and re-pinned (`FreeTheCoastArrival`,
+   `TryCommitTheCheapestArrival`). Effort L, never flown.
+
+**Expected, priced not flown**: steps 1-3 roughly double the spacing at 6,179 km and triple it at 12,902; step 4 adds
+up to 1.2-1.7x on a good bearing. Five or six targets then sit clear of the Mk 21's 6.0 km blast radius, which on the
+gate schedule they barely do.
+
+**What it risks.** An earlier release is a longer fall: the trim's 0.02 m/s stop band is worth 55 m on the ground at
+cutoff against 14 m at the gate, which each stop's own correction and kick should take out -- a guess that the
+per-warhead landing moves from 2-3 mm to under a centimetre, to be measured in step 2. At 2,000 km the coast holds
+about three stops whatever the divert.
+
+**Ruled out**: aiming the booster at the set's centroid (it adds a hop, so a chain gets shorter); a shallower arrival
+(the pinned reach has no `γ` in it, 395-407 m per m/s across 13-52 deg, and precision falls); firing the jets as one
+vector (at most 1.73x, and it loses the per-direction observability the stop band rests on); an axial main engine on
+the bus.
 
 ## Tier 5 -- code health, after the release and after Tier 2
 
@@ -176,3 +258,5 @@ long warp, fixed and flown) and 1.12's 700 km face, closed by KSA 5602 like its 
 3. **1.22**, only if a shipped-setting flight shows the bus closing on its stack; the 1.3 setup is not one players fly.
 4. **Tier 3 only once Tier 2 names the largest term left**: the grid names none of them -- its median is 4.4 mm and
    its one miss was 1.21's -- so 3.2 and 3.3 stay parked. Tier 4 by what players ask for, 4.1 last.
+5. **4.12, the wider spread**, steps 1-3 in order: the hop ceiling in the rig, then a paired night, then the epoch
+   bound. It needs no art and no propellant, and step 2 is a bedtime batch.

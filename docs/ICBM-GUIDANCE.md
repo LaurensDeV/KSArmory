@@ -1739,7 +1739,9 @@ off the pinned footprint at each slot. Charging every hop `BusTrim.MaxMetresPerS
 on one *solve*, where a hop's real price is its ground distance over the reach at the slot it is bought in.
 Six 4 km apart at 6,179 km cost **36.9 m/s** started from cutoff and 55.1 ending on the gate.
 
-The whole budget spent on hops, six targets:
+The whole budget spent on hops, six targets -- **an upper bound, not the planner's answer**: these are along-track,
+straight-line and 60 m/s with no per-pass ceiling. Priced as the planner prices a hop (what the jets pay, on the reach's
+narrower axis) five fit at about 7.6 km from cutoff at 6,179 km and six at about 6.1 (`ICBM-OUTSTANDING.md` 4.12).
 
 | | reach per m/s, first → last | neighbour spacing | chain end to end |
 | --- | --- | --- | --- |
