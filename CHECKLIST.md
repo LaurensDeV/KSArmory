@@ -2509,9 +2509,15 @@ trying to fly a vertical rise.
 
 - [x] Arm it **in orbit** with a target ahead on the ground track: it goes straight to a deorbit
       burn, not a vertical rise.
-- [ ] Arm it with a target the craft has just **passed over**: it says
+- [x] Arm it with a target the craft has just **passed over**: it says
       `holding for the burn window, H:MM:SS away` and does **not** burn. Warp through the wait —
-      the mod should let you, then slow the world down as the window approaches.
+      the mod should let you, then slow the world down as the window approaches. **Flown by the
+      scenario on 2026.10.13.5602** (2.2's grid, the "passed" target at 200/400/800 km and three
+      inclinations): holds of 1-11 h warped through, every one burned and landed in millimetres.
+- [x] **The bus still has its jets after a long hold.** A craft picked up holding KSA's own attitude
+      fired them through the warp and emptied 133.8 kg over 11 h, so the trim could not fly (797 m).
+      Fixed in `dcdb5a70`; re-flown, the tank read 133.8 kg at the burn and the shot landed 2.6 mm.
+      The phase and turn lines in the log say `bus jets N kg`.
 - [ ] Arm it **halfway up an ascent** already under way: it takes over without pitching back to
       vertical.
 - [ ] Arm it on something already **on a ballistic arc**: it corrects rather than starting over.
@@ -2540,7 +2546,9 @@ of this section is the default path.
       arm state, its teams and its IFF policy. Six aboard after the handover, not refilled.
 - [x] The ballistic computer follows with it and keeps deploying — all six released.
 - [ ] The spent stack is left in `Manual/None` with its engine off, and is not still being pointed.
-- [ ] The spent stack drifts clear rather than staying alongside the bus.
+- [ ] The spent stack drifts clear rather than staying alongside the bus. **Not always**: with the
+      release already due, a large first aim correction backs the bus into it (ICBM-OUTSTANDING
+      1.22) -- six of six on the 15 deg floor from orbit, no damage, all landed within 9 mm.
 
 **Accuracy, flown 20 August.** With the trim in and tube re-pointing off, six warheads landed
 **431 m, 537 m, 607 m, 1.1 km, 1.2 km and 1.4 km** — against 3,100-4,100 m before the trim existed.
