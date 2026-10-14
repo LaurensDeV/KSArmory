@@ -170,9 +170,8 @@ countdown (built); 10-06's kick caps, solids hold, backstop and structure scorin
 Re-ranked 2026-10-14, midday. Done since the morning's ranking: 1.21 (a drifting hold keeps the bus's jets through a
 long warp, fixed and flown) and 1.12's 700 km face, closed by KSA 5602 like its 200 km one.
 
-1. **At the game**: 1.6's CHECKLIST §12 lines (67 of 96 unticked), the targeting-ring glow fix (`076a9ef7`) and 4.2's
-   delta-v line, both merged unseen, and the lock cue standing down over a spent launcher's rounds (built, not yet
-   seen).
+1. **At the game**: 1.6's CHECKLIST §12 lines (67 of 96 unticked) and 4.2's delta-v line, which is on the panel and
+   so beyond the bridge. The ring glow fix and the lock cue were seen in game on 2026-10-14.
 2. ~~1.3's last case~~, flown 2026-10-14: the floor lands in millimetres and costs trim.
 3. **1.22**, only if a shipped-setting flight shows the bus closing on its stack; the 1.3 setup is not one players fly.
 4. **Tier 3 only once Tier 2 names the largest term left**: the grid names none of them -- its median is 4.4 mm and

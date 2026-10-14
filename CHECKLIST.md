@@ -1386,6 +1386,15 @@ the mesh and the XML, and the suite.
 - [ ] A shell's burst is KSA's `SmallFire`, and sounds like it. The shell carries no burst sound of its
       own any more.
 - [ ] If a sound is silent, grep `KSArmory.log` for `does not resolve`.
+- [x] **A spent launcher's lock cue stands down while its rounds fly.** Chasing a MIRV's warheads after
+      the salvo used to bracket the target in red with `out of rounds` under it. **Seen in game on
+      2026.10.13.5602**, a LowTWR shot with the view held behind a falling warhead and the target in
+      frame: the target's own mark and `impact T+2:29`, and no bracket. It comes back once nothing
+      is in the air, and is untouched for a gun, whose magazine is always empty.
+- [x] **Stacked targeting rings do not compound into a glow** (`076a9ef7`). **Seen in game on
+      2026.10.13.5602**: three targets 4 km apart, their rings and divert outlines crossing, from high
+      above and down to impact -- thin lines throughout, nothing blooming where they overlap. Three
+      targets rather than the six seen from orbit when it was reported.
 - [ ] With shells committed and the chase camera riding one, the lock cue's `salvo committed` sits
       under its bracket and the chase's range beside the target, not on top of each other. Both
       were written to the right of the target at one height.
