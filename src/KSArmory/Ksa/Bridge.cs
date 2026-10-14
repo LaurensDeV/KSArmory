@@ -375,11 +375,19 @@ internal sealed class Bridge : IViewPose
         // shell leaves along the barrel's rest line, and a missile along the pods' and misses by
         // kilometres, since a 57E6 at speed cannot turn onto a point beside or behind it.
         bool belt = weapon.TriggerArmament == ArmamentKind.Belt;
+        if (command.String("at_craft") is { Length: > 0 } wanted && CraftNamed(wanted) is null)
+        {
+            return Failed($"no craft named {wanted} to designate");
+        }
+
         if ((belt || weapon.Profile.Trains) && command.Flag("lay", true))
         {
-            Aimpoint aim = KsaWorld.TryAnchorToGround(at, out object? anchorBody, out double3 anchor)
-                               ? Aimpoint.OnGround(anchorBody!, anchor, at, Vec.Zero)
-                               : Aimpoint.AtPoint(at);
+            Aimpoint aim = command.String("at_craft") is { Length: > 0 } named && CraftNamed(named) is { } target
+                               ? Aimpoint.OnVehicle(target, KsaWorld.PositionEcl(target), KsaWorld.VelocityEcl(target),
+                                                    KsaWorld.MeanRadius(target))
+                               : KsaWorld.TryAnchorToGround(at, out object? anchorBody, out double3 anchor)
+                                   ? Aimpoint.OnGround(anchorBody!, anchor, at, Vec.Zero)
+                                   : Aimpoint.AtPoint(at);
             weapon.Designate(aim, "a bridge point");
 
             int frames = 0;
