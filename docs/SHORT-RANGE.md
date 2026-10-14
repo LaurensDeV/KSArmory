@@ -643,7 +643,28 @@ SRB4 at 150 km it engaged about 4 s in, as the 4 s gate does, and both made the 
 2.21 at 4 s, 3.59 with the share (1.83 of it across). The 4 s flight's release probe needed 94 m, under the kick's
 cap; the share flight's needed 1.52 m/s and was refused, 224 m. So an early push costs SRB4 at 150 km its cutoff on
 both gates and what lands is whether the kick covers it. What the next gate has to tell apart is a ramp that closes on
-its own, which SRB4's does, from one that stalls; the share does not. The rig does not decide it: fitted to the flown drag and on
+its own, which SRB4's does, from one that stalls; the share does not.
+
+**The miss cutoff, 2026-10-13 and 14** (`IcbmConfig.ShortShotCutsOffOnTheMiss`, off). What decides the landing is the
+direction the shortfall is left in: fitted off LowTWR's two arms, a metre a second along the track costs ~180 m
+downrange and a metre a second of excess climb gives ~130 back, so one direction costs nothing. In the last 10 m/s of a
+ramp being pushed through, the drag-flown landing is probed against each component of the cutoff velocity (three
+predictions) and that direction is taken out of what is left to gain before it is steered and counted down. Three
+scopes were learned in flight (`~/shots/2026-10-13-miss`, `-miss2`, `2026-10-14-miss3`):
+
+* **Not on a short fall.** Ending the burn anywhere but the solved cutoff moves a pinned fall's landing: at 25 km
+  (a 60 s fall) the liquids landed 97 and 121 m out, and in the rig adding the whole residual back still left 20 m.
+  It needs a fall of 120 s or more, and a projected line the airflow lets the stack point along within 2 deg.
+* **Not on a ramp that closes on its own.** Real SRB4 at 25 km falls 168 s but never stalls (0.02 m/s on base);
+  projected it cut off 1.03 m/s off the line and landed 167 m out. It acts only while the push-through is engaged.
+
+**Declared and flown 2026-10-14** (`~/shots/2026-10-14-missnight/DECLARE.md`), base | miss, 3 blocks on 8 cells, 48
+flights, all arrived. Median worst warhead, mm: LowTWR 200 18.3 -> 3.2; SRB4 25 1.4 -> 1.7, 150 4.3 -> 7.1; Liquid2 25
+3.4 -> 3.1, 150 4.6 -> 5.0; Liquid3 25 8.0 -> 8.3, 150 3.4 -> 7.8; GeoSat FAT 200 6.0 -> 4.7. Every declared condition
+held. **It stays off**: on KSA 2026.10.13.5602 LowTWR at 200 km lands in millimetres on the shipped settings -- cut off
+0.49-1.54 m/s short over four flights, where every flight on 5554 cut off 2.81-3.01 short and missed by hundreds of
+metres -- so what is left to buy is 18 to 3 mm on LowTWR, against SRB4 and Liquid3 at 150 km worse in every block.
+What changed in KSA is not known; the mod's commits between the two builds touch only long coasts from orbit. The rig does not decide it: fitted to the flown drag and on
 KSA's own gimbal law, the LowTWR fixture cuts off 0.06-1.1 m/s short rather than 2.9 and ranks the arms the other way.
 
 **A hot core overshot its cutoff, fixed** (Real SRB4, 500 and 700 km; `IcbmConfig.ShortShotBackstopsAtTheTrim`,
