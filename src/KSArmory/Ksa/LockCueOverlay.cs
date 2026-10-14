@@ -46,6 +46,13 @@ internal static class LockCueOverlay
         Track? track = system.Radar.Locked;
         if (track is null || !track.Contact.IsAlive) return;
 
+        // A spent launcher whose rounds are still flying has nothing left to cue; their own marks say what is happening.
+        if (system.TriggerArmament == ArmamentKind.Tubes && system.TubeCount > 0 && system.Ammo <= 0
+            && system.RoundsInFlight > 0)
+        {
+            return;
+        }
+
         bool held = system.Hold is not null;
 
         LockPhase phase = LockCue.Phase(hasTrack: true,
