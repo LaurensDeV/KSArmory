@@ -490,7 +490,7 @@ internal sealed partial class IcbmComputer
         {
             Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)}: "
                      + (_pointingForTheBurn ? "turning onto the burn" : "drifting again, the window moved")
-                     + $", {toIgnition:F0} s before ignition against a {_pointLeadSeconds:F0} s lead");
+                     + $", {toIgnition:F0} s before ignition against a {_pointLeadSeconds:F0} s lead{BusJetsSaid()}");
         }
 
         return !_pointingForTheBurn;
@@ -921,7 +921,7 @@ internal sealed partial class IcbmComputer
                      + $"{(ArrivalIsIfReleasedNow ? "impact if released now in" : "impact in")} "
                      + $"{IcbmProgram.Clock(SecondsToArrival)}, "
                      + $"target {OffPlaneDegrees:F1} deg off plane ({PlaneChangeCost:F0} m/s), "
-                     + $"reach {Command.Reach}"
+                     + $"reach {Command.Reach}{BusJetsSaid()}"
                      + (double.IsFinite(Program.ResidualAtCutoff)
                             ? $", cut off {Program.ResidualAtCutoff:F2} m/s short{ResidualSaid()}"
                             : "")
@@ -1055,10 +1055,14 @@ internal sealed partial class IcbmComputer
         else
         {
             AttitudeHook.Release(Craft);
-            if (drifting && _driving)
+            if (drifting)
             {
-                VehicleCommand.ReleaseAttitude(Craft);
+                AttitudeHook.Drift(Craft);
                 _driving = false;
+            }
+            else
+            {
+                AttitudeHook.StopDrifting(Craft);
             }
         }
 
@@ -1395,6 +1399,17 @@ internal sealed partial class IcbmComputer
     }
 
     private static double Degrees(double radians) => radians * 180.0 / Math.PI;
+
+    // What the bus's own jets have left: the turn onto a burn is flown on them, and so is the trim after the split.
+    private string BusJetsSaid()
+    {
+        if (LauncherPart.Find(Craft) is not { } launcher || !KsaWorld.TryTankOf(launcher.Part, out Tank? tank)
+            || !KsaWorld.TryTankMassKg(tank, out double kg))
+        {
+            return "";
+        }
+        return $", bus jets {kg:F1} kg";
+    }
 
     // Something square to the vertical for the roll to clock to when the planet cannot supply one,
     // which is the whole of a vertical rise. Downrange is horizontal by construction; before there

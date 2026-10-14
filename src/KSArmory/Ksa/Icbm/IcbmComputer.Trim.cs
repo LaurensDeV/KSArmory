@@ -387,7 +387,7 @@ internal sealed partial class IcbmComputer
         double3 owed = _trim.ToGainCci;
 
         Log.Info($"split debt on {KsaWorld.DisplayName(Craft)}: "
-                 + $"owed {trim.ToGainMetresPerSecond:F3} m/s, "
+                 + $"owed {trim.ToGainMetresPerSecond:F3} m/s{BusJetsSaid()}, "
                  + $"{Program.SecondsSinceReference:F2} s since the reference, "
                  + $"{Vec.Len(offPosition) / 1000.0:F3} km from it, "
                  + $"{Vec.Len(offVelocity):F3} m/s off its velocity, "

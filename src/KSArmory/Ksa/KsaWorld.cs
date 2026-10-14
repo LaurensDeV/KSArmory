@@ -2893,6 +2893,23 @@ internal static class KsaWorld
     private static FieldInfo? _tankTemplateField;
     private static bool _tankTemplateProbed;
 
+    /// <summary>What a tank holds, in kg, off the craft's own resource states.</summary>
+    public static bool TryTankMassKg(Tank tank, out double kg)
+    {
+        kg = 0.0;
+        try
+        {
+            if (!TryCraftOf(tank.Parent, out Vehicle? craft)) return false;
+            ReadOnlySpan<MoleState> states = craft.Parts.Moles.States;
+            foreach (Mole mole in tank.Moles) kg += states[mole.StatesIdx].Mass;
+            return double.IsFinite(kg);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     /// <summary>The tank a part carries, on the part or any of its sub-parts.</summary>
     public static bool TryTankOf(Part part, [NotNullWhen(true)] out Tank? tank)
     {

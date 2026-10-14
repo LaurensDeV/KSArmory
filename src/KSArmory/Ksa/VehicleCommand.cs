@@ -98,6 +98,10 @@ internal static class VehicleCommand
         return true;
     }
 
+    /// <summary>The engine's flight computer is holding an attitude of any kind, whoever set it.</summary>
+    public static bool HoldsAttitude(Vehicle craft)
+        => KsaWorld.IsAlive(craft) && craft.FlightComputer.AttitudeMode != FlightComputerAttitudeMode.Manual;
+
     /// <summary>Give the vehicle back to whoever was flying it.</summary>
     public static void ReleaseAttitude(Vehicle craft)
     {
