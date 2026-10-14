@@ -11,7 +11,7 @@ nothing here goes unrun before a merge.
 A line appearing below is a claim that the test guards nothing. That is worth a second
 look in review: `ProbeCrossingFloorTests` reads exactly like a study and is not.
 
-24 tests:
+25 tests:
 
 - `CutoffStepStudy.TheResidualAgainstTheStepWhereTheFreezeIsCapped`
 - `FloorHoldStudy.TheSlowedLineAcrossStepsAndSettings`
@@ -23,6 +23,7 @@ look in review: `ProbeCrossingFloorTests` reads exactly like a study and is not.
 - `HotCoreTests.TheHotCoreUnderKsasOwnLaw`
 - `LowArcSensitivityStudy.WhatAMetreASecondAtCutoffCosts`
 - `LowTwrPushStudy.Study`
+- `MovingMountLayStudy.Study`
 - `PastCutoffTests.TheLongCoastAcrossLoftAndResidual`
 - `ShortRangeAscentTests.TheAscentFliesTheSameShapeWhateverTheRange`
 - `ShortRangeAscentTests.WhatAShortArcActuallyWants`
