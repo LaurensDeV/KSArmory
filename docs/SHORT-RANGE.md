@@ -664,7 +664,7 @@ flights, all arrived. Median worst warhead, mm: LowTWR 200 18.3 -> 3.2; SRB4 25 
 held. **It stays off**: on KSA 2026.10.13.5602 LowTWR at 200 km lands in millimetres on the shipped settings -- cut off
 0.49-1.54 m/s short over four flights, where every flight on 5554 cut off 2.81-3.01 short and missed by hundreds of
 metres -- so what is left to buy is 18 to 3 mm on LowTWR, against SRB4 and Liquid3 at 150 km worse in every block.
-What changed in KSA is not known; the mod's commits between the two builds touch only long coasts from orbit. The rig does not decide it: fitted to the flown drag and on
+What changed is KSA's: on 5602 a gimbaled burn is steered on its trimmed thrust line (the `Tnm` control frame, `docs/KSA-MODDING-NOTES.md`), and CHECKLIST recorded LowTWR at 12.6 mm on it on 10-13, before any of this was flown. The rig does not decide it: fitted to the flown drag and on
 KSA's own gimbal law, the LowTWR fixture cuts off 0.06-1.1 m/s short rather than 2.9 and ranks the arms the other way.
 
 **A hot core overshot its cutoff, fixed** (Real SRB4, 500 and 700 km; `IcbmConfig.ShortShotBackstopsAtTheTrim`,

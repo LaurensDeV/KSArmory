@@ -1880,6 +1880,9 @@ twelve-minute hover, which then landed 0.2-0.4 mm out.
 `IcbmProgram.PushesThroughAfterSeconds` (10 s) in the air: the push is measured from how the velocity to gain moved
 against what the thrust should have done, its component along the line is added to the throttle, the line is led
 across it by what it will add before the burn ends, and the steering freezes only under 1 m/s.
+Two other gates are built and off -- `ShortShotPushesThroughAtDragShare` and `ShortShotCutsOffOnTheMiss`, the
+second steering the last metres a second off the one direction that does not move the landing; SHORT-RANGE has the
+flights.
 
 ### Release and the kick
 
