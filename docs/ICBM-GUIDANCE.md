@@ -588,12 +588,15 @@ warheads to leave along it, and leaving it free is a vehicle drifting when it sh
 the bus's own jets, and at KSA's Strict deadband of 0.2 deg against a target turning with the orbit they
 fire continuously: flown from `ORBIT 300`, a minute of pointing at 1x left them 0.55 m/s2 and four and a
 half to five minutes left them at nothing, so the trim after cutoff could not pay 2.4-3.2 m/s and two
-holds landed 1.2-1.7 km out. Under KSA's warp the bus is on rails and burns nothing, so what drains it is
-real time spent pointed. `IcbmConfig.HoldDriftsUntilIgnition` (on) leaves the attitude free until the
+holds landed 1.2-1.7 km out. **A warp does not stop it**: with KSA's own attitude hold left on, the jets fired
+through the warp to the window at about 19 kg an hour, and an 11 h warp from `ORBIT 800` emptied the bus's
+133.8 kg. `IcbmConfig.HoldDriftsUntilIgnition` (on) leaves the attitude free until the
 turn onto the burn is due -- `HoldPointing.LeadSeconds`, the turn's time from the nose's angle and the jets'
 authority, with slack and a margin -- and lets it drift again if the window moves a minute or more away; the
 computer's own warp stops a minute before that turn rather than before ignition. Flown on three holds, the jets
-kept 0.54-0.57 m/s2 to the trim on all three. `HoldPointsLoosely` (off, five flights) points with the Balanced
+kept 0.54-0.57 m/s2 to the trim on all three. The drift drops KSA's own hold as well as the computer's,
+written from `AttitudeHook`'s window every frame (`AttitudeHook.Drift`): a craft picked up holding one kept it,
+which is how the 11 h warp emptied the jets; flown since, the tank held 133.8 kg through that hold. `HoldPointsLoosely` (off, five flights) points with the Balanced
 profile's 1 deg until the burn lights.
 
 ## Cutting off is a timing problem
