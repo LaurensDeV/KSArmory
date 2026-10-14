@@ -72,11 +72,18 @@ internal static class PostCutoffSequence
     /// time stops <em>waiting</em> rather than giving up: the trim fires on and the keep-out
     /// interlock answers the safety question a direction at a time.
     /// </param>
+    /// <param name="hopCeilingMetresPerSecond">
+    /// <see cref="ReleaseLoop.HopCeilingFor"/> for the hop just handed over to, which bounds the pass
+    /// before the correction's first; NaN leaves it the constant.
+    /// </param>
     public static Plan Decide(bool clearanceIsClear, bool clearanceAbandoned, int postBoostCycles,
                               double budgetMetresPerSecond, double spentMetresPerSecond,
-                              bool keepOutCoversTheClearance = false)
+                              bool keepOutCoversTheClearance = false,
+                              double hopCeilingMetresPerSecond = double.NaN)
     {
-        double ceiling = CeilingFor(postBoostCycles, budgetMetresPerSecond, spentMetresPerSecond);
+        double ceiling = postBoostCycles <= 0 && double.IsFinite(hopCeilingMetresPerSecond)
+                             ? hopCeilingMetresPerSecond
+                             : CeilingFor(postBoostCycles, budgetMetresPerSecond, spentMetresPerSecond);
 
         // Abandoning is what the timeout does when nothing else can answer "is it safe to fire".
         // The interlock can: it is computed in the same pass, it already knows which way the stack

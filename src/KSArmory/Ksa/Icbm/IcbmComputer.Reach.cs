@@ -57,10 +57,12 @@ internal sealed partial class IcbmComputer
         Reach = ReachDisplay.For(_reachFootprint, PlacedTargets(),
                                  new ReleaseItinerary.Bus(Config.ReleaseBeforeArrivalSeconds,
                                                           coast, WarheadsAboard,
+                                                          FromCutoff: Config.WalkStartsAtCutoff,
                                                           ReserveAfterFirstStopMetresPerSecond:
                                                               Config.SpendTheSplitReserveAfterTheFirstStop
                                                                   ? ReleaseLoop.SplitNullReserveMetresPerSecond
-                                                                  : 0.0),
+                                                                  : 0.0,
+                                                          HopsFlyTheirOwnCeiling: Config.HopsFlyTheirOwnCeiling),
                                  Program.Phase, SalvoIsOver, TargetSet.MaxTargets,
                                  Warhead.LethalRadius(_warhead!.ChargeKg), _targets.LeadIndex,
                                  coasting ? ReachHold.Unflown : ReachHold.EpochUnmeasured,

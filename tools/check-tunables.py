@@ -159,6 +159,7 @@ RESEARCH = (
     "HandsOverWhenBurningAddsToTheShot",
     "HoldDriftsUntilIgnition",
     "HoldKeepsItsWindow",
+    "HopsFlyTheirOwnCeiling",
     "HoldPointsLoosely",
     "JetsThroughTheKeyboardClear",
     "KickAtTheRelease",
@@ -197,6 +198,7 @@ RESEARCH = (
     "WarheadAirVelocityPerSubStep",
     "WarheadDragFromItsShape",
     "WarheadFootprintMetres",
+    "WalkStartsAtCutoff",
     "WarheadSubStepMs",
 )
 EXEMPT.update({f"IcbmConfig.{name}": "a research switch, flown from a shot spec; the default is what ships"

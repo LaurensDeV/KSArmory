@@ -127,7 +127,7 @@ internal sealed partial class IcbmComputer
         PostCutoffSequence.Plan plan = PostCutoffSequence.Decide(
             clearance.IsClear, clearance.Abandoned, _postBoost.Cycles,
             TrimBudgetMetresPerSecond, _trim.SpentMetresPerSecond,
-            Config.KeepOutCoversTheClearance);
+            Config.KeepOutCoversTheClearance, _hopCeilingMetresPerSecond);
 
         if (plan.Abandon)
         {

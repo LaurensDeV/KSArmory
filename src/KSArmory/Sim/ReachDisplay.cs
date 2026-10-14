@@ -223,12 +223,12 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
         ReleaseWalk flown = ReleaseLoop.Plan(walk.Set, bus, atEachSlot, lead);
 
         double left = itinerary.LeftMetresPerSecond;
-        double hop = Math.Min(left / axisFactor, BusTrim.MaxMetresPerSecond);
+        double hop = Math.Min(left / axisFactor, bus.PassCeilingMetresPerSecond);
         int room = Math.Max(0, ReleaseItinerary.TargetsWithin(spacingMetres, [perMetrePerSecond / axisFactor], bus)
                                - targets);
 
         // The next add is the new last stop, so the ring is drawn at the reach of that slot.
-        double ringScale = bus.PricesEachSlot ? bus.SlotReachScale(bus.GateSeconds) : 1.0;
+        double ringScale = bus.PricesEachSlot ? bus.SlotReachScale(bus.GateFor(itinerary.Count + 1)) : 1.0;
 
         ReachDisplay display = new(ReachHold.Drawn, reach, left, hop, itinerary.LeftBuysMetres / axisFactor,
                                    targets, room, spacingMetres,

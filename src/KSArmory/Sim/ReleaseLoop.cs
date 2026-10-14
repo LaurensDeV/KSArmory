@@ -151,11 +151,11 @@ internal readonly record struct ReleaseStep(int Target, int Warheads, int Away, 
 /// <see cref="DivertFootprint.ArrivalClock.Pinned"/> draws the reach on, so the ground the player is
 /// shown and the ground the bus can get to are the same ground.</para>
 ///
-/// <para><b>And nothing here raises a ceiling.</b> A hop is flown as a fresh null with the
-/// correction's pass count back at zero, so <see cref="PostCutoffSequence.CeilingFor"/> hands it
-/// <see cref="BusTrim.MaxMetresPerSecond"/> — the same 10 m/s <see cref="ReachDisplay"/> draws the
-/// ring at. The walk is checked against it and refused when a hop is over, rather than the trim
-/// discovering it with the warheads aboard.</para>
+/// <para><b>A hop's first pass is bounded by <see cref="BusTrim.MaxMetresPerSecond"/></b>, because it is
+/// flown as a fresh null with the correction's pass count back at zero — the same 10 m/s
+/// <see cref="ReachDisplay"/> draws the ring at. The walk is checked against it and refused when a hop
+/// is over, rather than the trim discovering it with the warheads aboard. Under
+/// <see cref="IcbmConfig.HopsFlyTheirOwnCeiling"/> the pass gets <see cref="HopCeilingFor"/> instead.</para>
 /// </summary>
 internal static class ReleaseLoop
 {
@@ -218,7 +218,7 @@ internal static class ReleaseLoop
             dearest = Math.Max(dearest, plan.Stops[k].PassFlies);
         }
 
-        return dearest > BusTrim.MaxMetresPerSecond
+        return dearest > bus.PassCeilingMetresPerSecond
                    ? new ReleaseWalk(plan, ReleaseWalkHold.HopBeyondOnePass, dropped, dearest)
                    : new ReleaseWalk(plan, ReleaseWalkHold.Walking, dropped, dearest);
     }
@@ -287,6 +287,34 @@ internal static class ReleaseLoop
     /// </remarks>
     public static double PassMustFly(double hopMetresPerSecond, double owedMetresPerSecond)
         => Math.Max(0.0, Finite(hopMetresPerSecond)) + Math.Max(0.0, Finite(owedMetresPerSecond));
+
+    /// <summary>
+    /// How far a priced hop's pass may run over what it was priced at before the trim refuses it.
+    /// The runaway the per-pass ceiling guards against grows tenfold in ten cycles, so a quarter is
+    /// still a bound on it.
+    /// </summary>
+    public const double HopCeilingMargin = 1.25;
+
+    /// <summary>
+    /// The ceiling for the first pass after a hand-over, or NaN for <see cref="BusTrim.MaxMetresPerSecond"/>.
+    /// </summary>
+    /// <remarks>
+    /// <b>The pass is a known velocity change between two solutions</b>, priced before the hand-over, so
+    /// it is bounded by that price rather than by the constant sized for a decoupler's shove.
+    /// <see cref="BusTrim.CeilingFor"/> never lets it below the constant, so a hop priced under it flies
+    /// exactly as it does with the setting off.
+    /// </remarks>
+    public static double HopCeilingFor(bool ownCeiling, double hopMetresPerSecond, double owedMetresPerSecond,
+                                       double passMetresPerSecond = double.NaN)
+    {
+        if (!ownCeiling) return double.NaN;
+
+        double flies = double.IsFinite(passMetresPerSecond) && passMetresPerSecond > 0.0
+                           ? PassMustFly(passMetresPerSecond, owedMetresPerSecond)
+                           : PassMustFly(hopMetresPerSecond, owedMetresPerSecond);
+
+        return HopCeilingMargin * flies;
+    }
 
     /// <summary>
     /// Whether one pass will fly it — the same comparison <see cref="BusTrim.Update"/> makes, on the

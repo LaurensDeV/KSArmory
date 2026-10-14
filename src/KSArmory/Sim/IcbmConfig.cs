@@ -154,6 +154,21 @@ internal sealed class IcbmConfig
     public bool TrimCountsTheCommandInFlight = true;
 
     /// <summary>
+    /// Whether a walk between several targets starts at cutoff rather than ending on
+    /// <see cref="ReleaseBeforeArrivalSeconds"/>: about twice the spacing, a worse floor per warhead.
+    /// <b>Off: lost alone on 2026-10-11</b>, its hops refused at the per-pass ceiling; flown again with
+    /// <see cref="HopsFlyTheirOwnCeiling"/>. <c>docs/ICBM-OUTSTANDING.md</c> 4.3 and 4.12.
+    /// </summary>
+    public bool WalkStartsAtCutoff;
+
+    /// <summary>
+    /// Whether a walk's hop is bounded by its own price (<see cref="ReleaseLoop.HopCeilingFor"/>) rather
+    /// than by <see cref="BusTrim.MaxMetresPerSecond"/>, which stays on the split null and the aim
+    /// correction. <b>Off until flown</b>: <c>docs/ICBM-OUTSTANDING.md</c> 4.12.
+    /// </summary>
+    public bool HopsFlyTheirOwnCeiling;
+
+    /// <summary>
     /// Whether the walk planner prices each hop at the reach of the slot it is flown in, scaled down
     /// from the reach measured now, rather than every hop at that one reach. On, with
     /// <see cref="PriceHopsAtWhatTheTrimPays"/>: flown at 4 km, 7 of 8 walks flew every stop planned, against

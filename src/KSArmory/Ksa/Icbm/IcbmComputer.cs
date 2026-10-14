@@ -384,6 +384,9 @@ internal sealed partial class IcbmComputer
     // rather than the flight's running total.
     private double _spentAtStopStart;
 
+    // The ceiling the hop just handed over to was priced at, for the pass before the correction's first.
+    private double _hopCeilingMetresPerSecond = double.NaN;
+
     // Which target each released warhead was sent to, by reference, for a harness scoring a walk.
     // At most one entry per warhead aboard, cleared with the flight.
     private readonly List<(IProjectile Round, int Target)> _sentTo = [];
@@ -586,6 +589,7 @@ internal sealed partial class IcbmComputer
         _flownKick = null;
         _walker.Reset();
         _spentAtStopStart = 0.0;
+        _hopCeilingMetresPerSecond = double.NaN;
         _sentTo.Clear();
         _wentTo.Clear();
         _saidWalk = "";
@@ -874,8 +878,8 @@ internal sealed partial class IcbmComputer
             return;
         }
 
-        // A walk's first release is gate + (N-1) x 65 s, so the LAST lands on the setting. NaN leaves the program
-        // reading the setting live.
+        // A walk's first release is gate + (N-1) x 65 s, so the LAST lands on the setting, or the start of the coast
+        // with WalkStartsAtCutoff. NaN leaves the program reading the setting live.
         Program.ReleaseGateSeconds = _walker.GateOverrideSeconds(Config, _targets.Count);
 
         bool wasBurning = Program.IsBurning;

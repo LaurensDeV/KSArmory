@@ -171,6 +171,7 @@ public class ShotArmsTests
         IcbmConfig shipped = new();
 
         Assert.Equal(0.0, shipped.WarheadSubStepMs);
+        Assert.False(shipped.WalkStartsAtCutoff);
 
         // The one that is on, because it is the one that was resolved: 11 of 13 paired shots at
         // p=0.022. A baseline arm naming nothing therefore ships WITH it, which is what makes it
@@ -246,5 +247,27 @@ public class ShotArmsTests
         IcbmConfig fine = new();
         Assert.True(ShotArms.TryApply(arms.For(1), fine, out fault), fault);
         Assert.Equal(0.125, fine.WarheadSubStepMs, 6);
+    }
+
+    /// <summary>
+    /// 4.12 step 2's two cells, pinned for the same reason. <c>docs/ICBM-OUTSTANDING.md</c> 4.12.
+    /// </summary>
+    [Theory]
+    [InlineData("base|arm:WalkStartsAtCutoff=true,HopsFlyTheirOwnCeiling=true", false, true)]
+    [InlineData("early:WalkStartsAtCutoff=true|own:WalkStartsAtCutoff=true,HopsFlyTheirOwnCeiling=true", true, true)]
+    public void TheHopCeilingSpecsParseAndSetTheWalk(string spec, bool firstFromCutoff, bool secondFromCutoff)
+    {
+        Assert.True(ShotArms.TryParse(spec, out ShotArms arms, out string fault), fault);
+        Assert.Equal(2, arms.Count);
+
+        IcbmConfig first = new();
+        Assert.True(ShotArms.TryApply(arms.For(0), first, out fault), fault);
+        Assert.Equal(firstFromCutoff, first.WalkStartsAtCutoff);
+        Assert.False(first.HopsFlyTheirOwnCeiling);
+
+        IcbmConfig second = new();
+        Assert.True(ShotArms.TryApply(arms.For(1), second, out fault), fault);
+        Assert.Equal(secondFromCutoff, second.WalkStartsAtCutoff);
+        Assert.True(second.HopsFlyTheirOwnCeiling);
     }
 }

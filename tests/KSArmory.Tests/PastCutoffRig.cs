@@ -102,6 +102,7 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
     private const double ReachIntervalSeconds = 5.0;
 
     private readonly ReleaseWalker _walker = new();
+    private double _hopCeilingMetresPerSecond = double.NaN;
     private DivertFootprint? _footprint;
     private double3 _landingNowCci;
     private double _landingAt = double.NaN;
@@ -310,8 +311,15 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
                         return released;
                     }
 
+                    double ceiling = ReleaseLoop.HopCeilingFor(Config.HopsFlyTheirOwnCeiling,
+                                                               step.NextHopMetresPerSecond,
+                                                               _trim.ToGainMetresPerSecond,
+                                                               step.NextPassMetresPerSecond);
+
                     if (ReleaseLoop.CanFlyTheHop(step.NextHopMetresPerSecond, _trim.ToGainMetresPerSecond,
-                                                 PostCutoffSequence.CeilingFor(0, Budget, _trim.SpentMetresPerSecond),
+                                                 double.IsFinite(ceiling)
+                                                     ? ceiling
+                                                     : PostCutoffSequence.CeilingFor(0, Budget, _trim.SpentMetresPerSecond),
                                                  _trim.SpentMetresPerSecond, Budget, step.NextPassMetresPerSecond)
                         != HopHold.WillFly)
                     {
@@ -322,6 +330,7 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
                     _walker.Advance();
                     aimAtEpoch = PlannedTargets[step.NextTarget].AimAtEpoch;
                     HandOverToPlanned();
+                    _hopCeilingMetresPerSecond = ceiling;
                 }
                 else
                 {
@@ -421,9 +430,11 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
         ReachDisplay reach = ReachDisplay.For(
             _footprint, placed,
             new ReleaseItinerary.Bus(Config.ReleaseBeforeArrivalSeconds, coast, WarheadsAboard,
+                                     FromCutoff: Config.WalkStartsAtCutoff,
                                      ReserveAfterFirstStopMetresPerSecond: Config.SpendTheSplitReserveAfterTheFirstStop
                                                                                ? ReleaseLoop.SplitNullReserveMetresPerSecond
-                                                                               : 0.0),
+                                                                               : 0.0,
+                                     HopsFlyTheirOwnCeiling: Config.HopsFlyTheirOwnCeiling),
             Program.Phase, false, TargetSet.MaxTargets, KSArmory.Warhead.LethalRadius(Warhead.ChargeKg), PlannedLead,
             ReachHold.Unflown, Config.PriceEachHopAtItsSlot, Config.PriceHopsAtWhatTheTrimPays);
         _reach = reach;
@@ -642,7 +653,7 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
 
         PostCutoffSequence.Plan plan = PostCutoffSequence.Decide(
             clearance.IsClear, clearance.Abandoned, _postBoost.Cycles,
-            Budget, _trim.SpentMetresPerSecond, Config.KeepOutCoversTheClearance);
+            Budget, _trim.SpentMetresPerSecond, Config.KeepOutCoversTheClearance, _hopCeilingMetresPerSecond);
 
         if (plan.Abandon)
         {
