@@ -378,25 +378,25 @@ internal sealed class IcbmConfig
 
     /// <summary>
     /// How long the throttle-down runs in the air before <see cref="ShortShotPushesThroughAStall"/> acts, in seconds.
-    /// LowTWR at 200 km cuts off 2.9 m/s short at 10 s or at 4, and 7 of 8 flights at 10 s landed 247-344 m out; at 4 s
-    /// the shortfall points where the kick can take it back, 6 of 6 within 24 mm, and 700 km in 2.3 mm against 2.3 km.
-    /// Not the default: Real SRB4 at 25 and 150 km came in at 14 and 51 mm against 2-3. <c>docs/SHORT-RANGE.md</c>.
+    /// On KSA 5554 LowTWR at 200 km landed 247-344 m out at 10 s and within 24 mm at 4; on 5602, which steers a gimbaled
+    /// burn on its thrust line, 10 s lands it in millimetres. Not the default: Real SRB4 at 25 and 150 km came in at 11-14
+    /// and 30-51 mm at 4 s against 1-5. <c>docs/SHORT-RANGE.md</c>.
     /// </summary>
     public double ShortShotPushesThroughAfterSeconds = IcbmProgram.PushesThroughAfterSeconds;
 
     /// <summary>
     /// Also push through, earlier than <see cref="ShortShotPushesThroughAfterSeconds"/>, once the measured push along
     /// the line is this share of the thrust the throttle-down is making; zero leaves only the time. The ramp settles
-    /// where the share reaches one. Flown LowTWR at 200 km reads 0.41, 0.52, 0.68 and 0.79 at 1, 2, 4 and 10 s.
-    /// <c>docs/ICBM-OUTSTANDING.md</c> 1.12.
+    /// where the share reaches one. Off: flown at 0.6 it landed LowTWR and the liquids and put Real SRB4 at 150 km 224 m
+    /// out. <c>docs/SHORT-RANGE.md</c>.
     /// </summary>
     public double ShortShotPushesThroughAtDragShare;
 
     /// <summary>
     /// In the last <see cref="IcbmProgram.CutsOffOnTheMissBelow"/> m/s of a short shot pushed through a stall and released
     /// at cutoff in the air, steer and cut off on what is left once the one direction that moves the landing nowhere is
-    /// taken out of it. The shortfall a stack cannot gain at its floor is then left where it costs nothing.
-    /// <c>docs/SHORT-RANGE.md</c>.
+    /// taken out of it. The shortfall a stack cannot gain at its floor is then left where it costs nothing. Off: a declared
+    /// night passed (LowTWR 18 -> 3 mm) but cost Real SRB4 and Liquid3 at 150 km 1.7x and 2.3x. <c>docs/SHORT-RANGE.md</c>.
     /// </summary>
     public bool ShortShotCutsOffOnTheMiss;
 
