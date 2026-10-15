@@ -142,7 +142,21 @@ first night), before Tier 3.
 
 ### 4.12's plan: spend the bus's divert where it is worth most
 
-**Status, 2026-10-14 night: step 1 is built and passes in the rig; step 2 is declared and not flown.**
+**Status, 2026-10-15: steps 1 and 2 are done; both flags still ship off.** Step 2 flew the night of 10-14
+(`~/shots/2026-10-14-night`, declared in `~/shots/scripts-2026-10-14/DECLARE-hop-ceiling.md`, `a41f96c3`), 6 blocks of 8
+a cell, every warhead released arrived and no exception in 22 KSA logs:
+
+- **Five targets 4 km apart, shipped against both flags: passes its declared bar.** Every bus walked five stops in both
+  arms (48 of 48; v3 lost half the early walks). Landing 3.78 mm against 2.88, **1.29x [1.07, 1.37]**, worse on all six
+  shots -- signed-rank p=0.031, the floor six pairs can reach, so formally unresolved under the 1.5 the declaration
+  allowed. Planned spend 43.4 m/s against 69.8; the stop-1 split null 2.92 against 3.75 (0.78x [0.77, 0.90]).
+  `--endpoint trim` reads only the first release summary, so a walk's whole spend is not on any one line.
+- **Three targets 12 km apart, cutoff-started with and without the hop ceiling: the rig to the bus.** Without it all
+  24 buses logged `a hop wants 13.1 m/s and one pass will fly 10` and released all six at the lead; with it all 24
+  planned three stops at ~54.5 of 70 and walked them, worst warhead 1.0 cm from its own target. No curtailed stop.
+
+So the walk from cutoff reaches spacings the gate schedule cannot, for about a millimetre per warhead. Turning both on
+is a release decision, not a measurement one.
 `WalkStartsAtCutoff` is back (`1adf1aa9` reversed, panel row left out, listed in `check-tunables.py`'s `RESEARCH`), and
 `HopsFlyTheirOwnCeiling` is new, both off. With it on, the pass after a hand-over may spend
 `ReleaseLoop.HopCeilingFor` -- 1.25x the pass's price and never under the constant -- through
