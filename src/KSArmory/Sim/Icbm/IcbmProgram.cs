@@ -17,6 +17,17 @@ internal enum IcbmPhase
     NoSolution,
 }
 
+internal enum CutoffTest
+{
+    None,
+    Threshold,
+    PulseQuantum,
+    Countdown,
+
+    /// <summary>The velocity to gain rose again past the lowest it reached.</summary>
+    Backstop,
+}
+
 /// <summary>Whether the shot can be made at all, which is three different answers.</summary>
 internal enum IcbmReach
 {
@@ -159,7 +170,10 @@ internal readonly record struct IcbmCommand(
     /// The engine is being switched on and off to average a throttle below its floor, so an off frame holds the lever at
     /// <see cref="Throttle"/> rather than winding it up for a relight.
     /// </summary>
-    bool Pulsing = false);
+    bool Pulsing = false,
+
+    /// <summary>The engine is off and will relight to finish the burn, so the lever is held at <see cref="Throttle"/> for it.</summary>
+    bool HoldsLever = false);
 
 /// <summary>
 /// The flight, from the pad to warhead release: a schedule while there is air, closed-loop
@@ -716,6 +730,11 @@ internal sealed partial class IcbmProgram
     /// </summary>
     public double ThrottleAtCutoff { get; private set; } = double.NaN;
 
+    /// <summary>Which of the closed loop's tests ended the burn; <see cref="CutoffTest.None"/> for any other way out.</summary>
+    public CutoffTest CutOffBy { get; private set; }
+
+    private CutoffTest _cutTest;
+
     /// <summary>
     /// The closest the target ever comes to the plane being flown in, in degrees, or NaN before
     /// anything has looked. A floor well above zero is an inclination this orbit does not have.
@@ -865,6 +884,7 @@ internal sealed partial class IcbmProgram
         _fellShort = false;
         _arrivalFloorUnaffordable = false;
         ResidualAtCutoff = double.NaN;
+        CutOffBy = CutoffTest.None;
         ResidualVectorCci = Vec.Zero;
         ResidualOffTheMissFreeLine = double.NaN;
         _fullToGainVectorCci = default;
@@ -1126,7 +1146,8 @@ internal sealed partial class IcbmProgram
         return new IcbmCommand(phase, direction, commanded, EngineOn: !waiting && !pulsedOff, stage,
                                _toGain, Math.Max(_countdown, 0.0), ReadyToDeploy: false, Hold: hold,
                                Reach: Reach, SecondsToArrival: SecondsToArrival, SecondsToBurn: 0.0,
-                               ShortfallMetresPerSecond: _shortfall, Pulsing: pulsing && !waiting);
+                               ShortfallMetresPerSecond: _shortfall, Pulsing: pulsing && !waiting,
+                               HoldsLever: waiting && _paused && Config.PauseHoldsTheThrottleDown);
     }
 
     // A dry stage dropped in the air at an angle of attack is pushed sideways by its own drag into what it leaves:

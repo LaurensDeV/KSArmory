@@ -116,7 +116,7 @@ internal sealed partial class IcbmComputer
         double arrival = Program.Arc?.ArrivalAngleDeg ?? double.NaN;
 
         Log.Info($"release summary on {KsaWorld.DisplayName(Craft)}: "
-                 + $"cut off {Program.ResidualAtCutoff:F3} m/s short, "
+                 + $"cut off {Program.ResidualAtCutoff:F3} m/s short by {Program.CutOffBy}, "
                  + (Program.ResidualOffTheMissFreeLine < Program.ResidualAtCutoff - 1e-6
                         ? $"{Program.ResidualOffTheMissFreeLine:F3} of it off the line that misses nothing, "
                         : "")

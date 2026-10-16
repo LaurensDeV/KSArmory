@@ -1200,7 +1200,7 @@ internal sealed partial class IcbmComputer
         else if (_driving)
         {
             VehicleCommand.SetEngine(Craft, running: false);
-            _throttleAchieved = VehicleCommand.DriveThrottle(Craft, Command.Pulsing ? Command.Throttle : 1.0,
+            _throttleAchieved = VehicleCommand.DriveThrottle(Craft, Command.Pulsing || Command.HoldsLever ? Command.Throttle : 1.0,
                                                              Config.ThrottleThroughTheKeyboardClear);
         }
 

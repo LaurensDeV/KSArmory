@@ -88,6 +88,7 @@ internal sealed partial class IcbmProgram
             AccelerationAtCutoff = state.Booster.AccelerationNow;
             StepAtCutoff = _lastStep;
             ThrottleAtCutoff = state.ThrottleAchieved;
+            CutOffBy = _cutTest;
             Phase = IcbmPhase.Coast;
             return Coasting(state);
         }
@@ -183,6 +184,7 @@ internal sealed partial class IcbmProgram
 
     private bool ShouldCutOff(in IcbmState state)
     {
+        _cutTest = CutoffTest.Threshold;
         if (_toGain <= BurnoutGuidance.CutoffMetresPerSecond) return true;
 
         // Pulsing, a frame on is a quantum the countdown cannot see -- the floor held 1.69x what the engine reported -- so
@@ -191,15 +193,19 @@ internal sealed partial class IcbmProgram
         // burn 76 m/s short.
         double frameAtTheFloor = state.MinThrottle * state.Booster.AccelerationNow * _lastStep;
         double quantum = Math.Min(_pulseQuantum, PulseQuantumOverTheFloor * frameAtTheFloor);
+        _cutTest = CutoffTest.PulseQuantum;
         if (_pulsing && quantum > 0.0 && _toGain <= 0.5 * quantum) return true;
 
         // Against the throttle the vehicle actually has, never the one that was asked for. A stack
         // whose motors do not throttle, or one still ramping down, would otherwise be cut off on a
         // prediction of how much velocity the last frame adds that is several times too small.
         double achieved = Math.Clamp(state.ThrottleAchieved, 0.0, 1.0);
+        _cutTest = CutoffTest.Countdown;
         if (_countdown <= 0.5 * _lastStep * Math.Max(achieved, 1e-3)) return true;
 
-        double oneStep = state.Booster.AccelerationNow * _lastStep;
+        _cutTest = CutoffTest.Backstop;
+        double oneStep = state.Booster.AccelerationNow * _lastStep
+                         * (Config.BackstopRisesOnTheThrottledFrame ? Math.Max(achieved, state.MinThrottle) : 1.0);
         return _lowestToGain < BackstopArmsBelow(state) && _toGain > _lowestToGain + Math.Max(oneStep, 1.0);
     }
 

@@ -392,6 +392,19 @@ internal sealed class IcbmConfig
     public bool ShortShotPushesThroughAStall = true;
 
     /// <summary>
+    /// While a short shot coasts out of the air, hold the lever at the floor rather than winding it to full for the
+    /// relight. Lit at full, the GeoSat FAT's core finishes its last 8 m/s inside one frame at 380 m/s2 and cuts off
+    /// 2-14 m/s short (ICBM-OUTSTANDING 1.23). Off until flown.
+    /// </summary>
+    public bool PauseHoldsTheThrottleDown;
+
+    /// <summary>
+    /// Size the backstop's rise on one frame at the throttle the stack has, not at full: at a 380 m/s2 core's floor the
+    /// full frame is 6-11 m/s, so a burn turning off its line runs that far past its lowest before it stops. Off until flown.
+    /// </summary>
+    public bool BackstopRisesOnTheThrottledFrame;
+
+    /// <summary>
     /// How long the throttle-down runs in the air before <see cref="ShortShotPushesThroughAStall"/> acts, in seconds.
     /// On KSA 5554 LowTWR at 200 km landed 247-344 m out at 10 s and within 24 mm at 4; on 5602, which steers a gimbaled
     /// burn on its thrust line, 10 s lands it in millimetres. Not the default: Real SRB4 at 25 and 150 km came in at 11-14
