@@ -254,6 +254,7 @@ internal sealed class Bridge : IViewPose
             "control" => Control(command),
             "remove" => RemoveCraft(command),
             "orbit" => PutInOrbit(command),
+            "attitude" => Attitude(command),
             _ => Failed($"no command '{command.Name}'"),
         };
 
@@ -720,6 +721,39 @@ internal sealed class Bridge : IViewPose
             Vehicle = craft, Orbit = orbit, Body2Cce = null, BodyRates = double3.Zero,
         });
         return Done(new() { ["craft"] = KsaWorld.DisplayName(craft), ["periapsis_km"] = Math.Round((orbit.Periapsis - body.MeanRadius) / 1000.0, 1) });
+    }
+
+    // KSA's own attitude hold on a craft, pressed as the navball's button is (track = prograde,
+    // retrograde, ... or none), and what its tracker holds: the deadband it settles inside and the error.
+    private static Reply Attitude(BridgeCommand command)
+    {
+        if (CraftNamed(command.String("craft")) is not { } craft) return Failed("no such craft");
+
+        string track = command.String("track");
+        if (track.Length > 0)
+        {
+            if (!Enum.TryParse(track, ignoreCase: true, out FlightComputerAttitudeTrackTarget target))
+                return Failed($"no track target '{track}'");
+            InputEvents.FlightComputerInputBuffer.Add(new InputEvents.FlightComputerInputData
+            {
+                Vehicle = craft, EnumValue = target,
+            });
+        }
+
+        FlightComputer computer = craft.FlightComputer;
+        static double Deg(float radians) => Math.Round(double.RadiansToDegrees(radians), 3);
+        return Done(new()
+        {
+            ["mode"] = computer.AttitudeMode.ToString(),
+            ["track"] = computer.AttitudeTrackTarget.ToString(),
+            ["control"] = $"{computer.ActiveControlSystem.X}/{computer.ActiveControlSystem.Y}/{computer.ActiveControlSystem.Z}",
+            ["deadband_deg"] = Deg(computer.AngleDeadband),
+            ["rate_limit_deg_s"] = Deg(computer.RateLimit),
+            ["rate_bit_deg_s"] = $"{Deg(computer.RateBit.X)}/{Deg(computer.RateBit.Y)}/{Deg(computer.RateBit.Z)}",
+            ["error_deg"] = $"{Deg(computer.ErrorAngles.X)}/{Deg(computer.ErrorAngles.Y)}/{Deg(computer.ErrorAngles.Z)}",
+            ["thrusters"] = computer.VehicleConfig.Thrusters.Count,
+            ["gimbals"] = computer.VehicleConfig.Gimbals.Count,
+        });
     }
 
     // The game written to a save of this name, as KSA's own save console command writes it.

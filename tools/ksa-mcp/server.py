@@ -472,6 +472,10 @@ TOOLS = {
                   "heading_deg (default 180, south), as KSA's own Set Orbit window does.",
                   {"craft": {"type": "string"}, "alt_km": _num("km"), "lat": _num("deg"), "lon": _num("deg"),
                    "heading_deg": _num("deg")}, ["lat", "lon"], lambda a: [_text(json.dumps(send("orbit", **a)))]),
+    "ksa_attitude": ("KSA's own attitude hold on a craft, pressed as the navball button is (track: prograde, "
+                     "retrograde, normal, ... none), and what its tracker holds: mode, deadband, rate limit, error.",
+                     {"craft": {"type": "string"}, "track": {"type": "string"}}, ["craft"],
+                     lambda a: [_text(json.dumps(send("attitude", **a), indent=1))]),
     "ksa_save": ("Write the game to a save of this name, as KSA's save console command does.",
                  {"name": {"type": "string"}}, ["name"], lambda a: [_text(json.dumps(send("save", **a)))]),
     "ksa_log": ("The mod's log, filtered.", {"pattern": {"type": "string"}, "lines": _num("count")}, [],
