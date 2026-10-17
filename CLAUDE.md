@@ -2210,7 +2210,7 @@ only grows a nuclear one. Whatever the burst kills gets KSA's own destruction ex
 
 **The launcher ships its own art, and the asset XML lives at the mod root.** Instancing Core's
 meshes by Id and shipping nothing works, and is the right answer for a part that can be assembled
-from Core's kit; a Pantsir cannot be. The mod carries eleven mesh atlases and their textures,
+from Core's kit; a Pantsir cannot be. The mod carries its own mesh atlases and their textures,
 declared with `<MeshAtlas>` and `<PbrMaterial>` exactly as Core does.
 
 The XML sits at `src/KSArmory/*.xml` rather than in an `Assets/` subfolder **on purpose**.
