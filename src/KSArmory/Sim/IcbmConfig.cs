@@ -187,8 +187,11 @@ internal sealed class IcbmConfig
     /// </summary>
     public bool PointRvsAtEntry;
 
-    /// <summary>How much earlier the bus splits so the turn does not come out of the first stop's slot.</summary>
-    public double TurnAllowanceSeconds = 20.0;
+    /// <summary>
+    /// How much earlier the bus splits so the turn does not come out of the first stop's slot. It has to hold the
+    /// clearance and the trim as well as the turn: flown at a 350 s gate, 5 s and 23 s before a turn could start.
+    /// </summary>
+    public double TurnAllowanceSeconds = 60.0;
 
     /// <summary>
     /// Whether the walk planner prices each hop at the reach of the slot it is flown in, scaled down
