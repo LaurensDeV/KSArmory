@@ -166,6 +166,18 @@
   </PbrMaterial>
 
   <!--
+    The post-boost bus atlas: the bus, its main engine, its RCS nozzle and its RV, which is the MIRV
+    bus's in outline with two spin nozzles cut into its base.
+  -->
+  <MeshAtlas Path="Meshes/KSArmory_PostBoostBus.glb" />
+
+  <PbrMaterial Id="KSArmory_PostBoostBus_Material">
+    <Diffuse Path="Textures/KSArmory_PostBoostBus_Diffuse.png" Category="Vessel" />
+    <Normal Path="Textures/KSArmory_PostBoostBus_Normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Textures/KSArmory_PostBoostBus_PBR.png" Category="Vessel" />
+  </PbrMaterial>
+
+  <!--
     The B61-12 atlas and its one material.
 
     Authored in Blender over MCP. Its airframe is the real weapon's to the published figures —
@@ -319,6 +331,50 @@
     </PartModel>
     <MeshView>
       <Mesh Id="KSArmory_Subpart_RcsNozzle_VM" />
+    </MeshView>
+  </SubPart>
+
+  <SubPart Id="KSArmory_PostBoostBus_SubPart">
+    <PartModel Id="KSArmory_Subpart_PostBoostBus_Model">
+      <Mesh Id="KSArmory_Subpart_PostBoostBus" />
+      <Material Id="KSArmory_PostBoostBus_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_PostBoostBus_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!-- The main engine, origin on its gimbal point. Fires along its own -X. -->
+  <SubPart Id="KSArmory_PostBoostEngine_SubPart">
+    <PartModel Id="KSArmory_Subpart_PostBoostEngine_Model">
+      <Mesh Id="KSArmory_Subpart_PostBoostEngine" />
+      <Material Id="KSArmory_PostBoostBus_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_PostBoostEngine_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!-- The post-boost bus's reentry vehicle, instanced seven times: centred on its own origin, nose
+       along +X, with two canted spin nozzles cut into its base. -->
+  <SubPart Id="KSArmory_PostBoostRv_SubPart">
+    <PartModel Id="KSArmory_Subpart_PostBoostRv_Model">
+      <Mesh Id="KSArmory_Subpart_PostBoostRv" />
+      <Material Id="KSArmory_PostBoostBus_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_PostBoostRv_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!-- One attitude-control nozzle, instanced twenty times. Fires along its own -X. -->
+  <SubPart Id="KSArmory_PostBoostRcs_SubPart">
+    <PartModel Id="KSArmory_Subpart_PostBoostRcsNozzle_Model">
+      <Mesh Id="KSArmory_Subpart_PostBoostRcsNozzle" />
+      <Material Id="KSArmory_PostBoostBus_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_PostBoostRcsNozzle_VM" />
     </MeshView>
   </SubPart>
 
@@ -1542,6 +1598,189 @@
       </Transform>
     </Connector>
 
+  </Part>
+
+  <!--
+    Heavy post-boost bus: seven reentry vehicles on a 3 m stack node, diverting on an axial main
+    engine with the MIRV bus's twenty nozzles kept for attitude. docs/POSTBOOST-BUS.md.
+
+    +X is up the stack. The bell fires along -X, so it thrusts up the stack.
+  -->
+  <Part Id="KSArmory_Prefab_PostBoostBus">
+    <SubPart Id="KSArmory_PostBoost_Bus" InstanceOf="KSArmory_PostBoostBus_SubPart" />
+
+    <!-- Mount face on the gimbal point; the bell fires along -X, so it thrusts up the stack. -->
+    <SubPart Id="KSArmory_PostBoost_Engine" InstanceOf="KSArmory_PostBoostEngine_SubPart">
+      <Transform>
+        <Position X="0.80000" />
+      </Transform>
+    </SubPart>
+
+    <!-- Seven RVs: the MIRV bus's 0.86 m ring plus one on the axis, all parallel.
+         Keep in step with Arsenal.PostBoostBus.Tubes. -->
+    <SubPart Id="KSArmory_PostBoost_Mirv_Rv00" InstanceOf="KSArmory_PostBoostRv_SubPart">
+      <Transform>
+        <Position X="2.14000" Y="0.86000" Z="0.00000" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_PostBoost_Mirv_Rv01" InstanceOf="KSArmory_PostBoostRv_SubPart">
+      <Transform>
+        <Position X="2.14000" Y="0.43000" Z="0.74478" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_PostBoost_Mirv_Rv02" InstanceOf="KSArmory_PostBoostRv_SubPart">
+      <Transform>
+        <Position X="2.14000" Y="-0.43000" Z="0.74478" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_PostBoost_Mirv_Rv03" InstanceOf="KSArmory_PostBoostRv_SubPart">
+      <Transform>
+        <Position X="2.14000" Y="-0.86000" Z="0.00000" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_PostBoost_Mirv_Rv04" InstanceOf="KSArmory_PostBoostRv_SubPart">
+      <Transform>
+        <Position X="2.14000" Y="-0.43000" Z="-0.74478" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_PostBoost_Mirv_Rv05" InstanceOf="KSArmory_PostBoostRv_SubPart">
+      <Transform>
+        <Position X="2.14000" Y="0.43000" Z="-0.74478" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_PostBoost_Mirv_Rv06" InstanceOf="KSArmory_PostBoostRv_SubPart">
+      <Transform>
+        <Position X="2.14000" Y="0.00000" Z="0.00000" />
+      </Transform>
+    </SubPart>
+
+    <!-- The MIRV bus's twenty nozzles, each moved only along its own thrust line onto its pad face,
+         so every lever arm about the ring plane matches it. -->
+    <SubPart Id="KSArmory_PostBoost_Rcs00" InstanceOf="KSArmory_PostBoostRcs_SubPart">
+      <Transform>
+        <Position X="0.67000" Y="1.10309" Z="1.10309" />
+        <Rotation Z="-3.14159" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_PostBoost_Rcs01" InstanceOf="KSArmory_PostBoostRcs_SubPart">
+      <Transform>
+        <Position X="0.37000" Y="1.10309" Z="1.10309" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_PostBoost_Rcs02" InstanceOf="KSArmory_PostBoostRcs_SubPart">
+      <Transform>
+        <Position X="0.52000" Y="0.99702" Z="1.20915" />
+        <Rotation Y="0.78540" Z="1.57080" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_PostBoost_Rcs03" InstanceOf="KSArmory_PostBoostRcs_SubPart">
+      <Transform>
+        <Position X="0.52000" Y="1.20915" Z="0.99702" />
+        <Rotation Y="-0.78540" Z="-1.57080" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_PostBoost_Rcs04" InstanceOf="KSArmory_PostBoostRcs_SubPart">
+      <Transform>
+        <Position X="0.67000" Y="-1.10309" Z="1.10309" />
+        <Rotation Z="-3.14159" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_PostBoost_Rcs05" InstanceOf="KSArmory_PostBoostRcs_SubPart">
+      <Transform>
+        <Position X="0.37000" Y="-1.10309" Z="1.10309" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_PostBoost_Rcs06" InstanceOf="KSArmory_PostBoostRcs_SubPart">
+      <Transform>
+        <Position X="0.52000" Y="-1.20915" Z="0.99702" />
+        <Rotation Y="-0.78540" Z="1.57080" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_PostBoost_Rcs07" InstanceOf="KSArmory_PostBoostRcs_SubPart">
+      <Transform>
+        <Position X="0.52000" Y="-0.99702" Z="1.20915" />
+        <Rotation Y="0.78540" Z="-1.57080" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_PostBoost_Rcs08" InstanceOf="KSArmory_PostBoostRcs_SubPart">
+      <Transform>
+        <Position X="0.67000" Y="-1.10309" Z="-1.10309" />
+        <Rotation Z="-3.14159" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_PostBoost_Rcs09" InstanceOf="KSArmory_PostBoostRcs_SubPart">
+      <Transform>
+        <Position X="0.37000" Y="-1.10309" Z="-1.10309" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_PostBoost_Rcs10" InstanceOf="KSArmory_PostBoostRcs_SubPart">
+      <Transform>
+        <Position X="0.52000" Y="-0.99702" Z="-1.20915" />
+        <Rotation Y="-0.78540" Z="-1.57080" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_PostBoost_Rcs11" InstanceOf="KSArmory_PostBoostRcs_SubPart">
+      <Transform>
+        <Position X="0.52000" Y="-1.20915" Z="-0.99702" />
+        <Rotation Y="0.78540" Z="1.57080" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_PostBoost_Rcs12" InstanceOf="KSArmory_PostBoostRcs_SubPart">
+      <Transform>
+        <Position X="0.67000" Y="1.10309" Z="-1.10309" />
+        <Rotation Z="-3.14159" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_PostBoost_Rcs13" InstanceOf="KSArmory_PostBoostRcs_SubPart">
+      <Transform>
+        <Position X="0.37000" Y="1.10309" Z="-1.10309" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_PostBoost_Rcs14" InstanceOf="KSArmory_PostBoostRcs_SubPart">
+      <Transform>
+        <Position X="0.52000" Y="1.20915" Z="-0.99702" />
+        <Rotation Y="0.78540" Z="-1.57080" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_PostBoost_Rcs15" InstanceOf="KSArmory_PostBoostRcs_SubPart">
+      <Transform>
+        <Position X="0.52000" Y="0.99702" Z="-1.20915" />
+        <Rotation Y="-0.78540" Z="1.57080" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_PostBoost_Rcs16" InstanceOf="KSArmory_PostBoostRcs_SubPart">
+      <Transform>
+        <Position X="0.52000" Y="1.18794" Z="1.18794" />
+        <Rotation Y="0.78540" Z="-1.57080" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_PostBoost_Rcs17" InstanceOf="KSArmory_PostBoostRcs_SubPart">
+      <Transform>
+        <Position X="0.52000" Y="-1.18794" Z="1.18794" />
+        <Rotation Y="0.78540" Z="1.57080" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_PostBoost_Rcs18" InstanceOf="KSArmory_PostBoostRcs_SubPart">
+      <Transform>
+        <Position X="0.52000" Y="-1.18794" Z="-1.18794" />
+        <Rotation Y="-0.78540" Z="1.57080" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_PostBoost_Rcs19" InstanceOf="KSArmory_PostBoostRcs_SubPart">
+      <Transform>
+        <Position X="0.52000" Y="1.18794" Z="-1.18794" />
+        <Rotation Y="-0.78540" Z="-1.57080" />
+      </Transform>
+    </SubPart>
+
+    <!-- Node attach at the mounting face. No ToSurface flag: this one stacks. -->
+    <Connector Id="_postBoostConnectorBase">
+      <Transform>
+        <Position X="0.00000" />
+        <Rotation X="3.14159" Z="3.14159" />
+        <Scale X="3.00000" Y="3.00000" Z="3.00000" />
+      </Transform>
+    </Connector>
   </Part>
 
 

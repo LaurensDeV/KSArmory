@@ -639,6 +639,120 @@
   </PartGameData>
 
 
+  <SubPartGameData Id="KSArmory_PostBoostRcs_SubPart">
+    <!-- KSArmory_MirvRcs_SubPart's tuned values; only the exhaust point follows this bell. -->
+    <RocketThrusterController Id="PostBoostACS">
+      <RocketReference Id="Thruster" />
+    </RocketThrusterController>
+    <Rocket Id="Thruster"><Core Id="Chamber" /><Nozzle Id="Nozzle" /></Rocket>
+    <Combustor Id="Chamber">
+      <FeedsFrom Parent="true" />
+      <Plumbing>Service</Plumbing>
+      <Reaction Id="MMH_NTO"><MixtureRatio>1.6</MixtureRatio></Reaction>
+      <MaxPressure Bar="7" />
+      <ThermalEfficiency Value="0.95" />
+      <MinimumPulseTime Seconds="0.001" />
+    </Combustor>
+    <DeLavalNozzle Id="Nozzle">
+      <ExitDiameter M="0.13" />
+      <FxExitDiameter M="0.10" />
+      <AreaRatio Value="40" />
+      <FlowEfficiency Value="1" />
+      <ExpansionEfficiency Value="0.70" />
+      <ExhaustLocation X="-0.158" Y="0.0" Z="0.0" />
+      <ExhaustDirection X="-1.0" Y="0.0" Z="0.0" />
+      <ReactionPlume Default="true"><VolumetricExhaust Id="RCS" /></ReactionPlume>
+      <SoundEvent Action="On" SoundId="DefaultRcsThruster" />
+    </DeLavalNozzle>
+  </SubPartGameData>
+
+  <SubPartGameData Id="KSArmory_PostBoostEngine_SubPart">
+    <Rocket Id="Engine"><Core Id="ThrustChamber" /><Nozzle Id="Nozzle" /></Rocket>
+    <Combustor Id="ThrustChamber">
+      <FeedsFrom Parent="true" />
+      <Reaction Id="MMH_NTO"><MixtureRatio>1.6</MixtureRatio></Reaction>
+      <MaxPressure Bar="7" />
+      <ThermalEfficiency Value="0.95" />
+      <MinimumThrottle Value="0.01" />
+    </Combustor>
+    <DeLavalNozzle Id="Nozzle">
+      <!-- Sets the thrust. 0.44 is the modelled bell and a placeholder: docs/POSTBOOST-BUS.md sizes it. -->
+      <ExitDiameter M="0.44" />
+      <FxExitDiameter M="0.44" />
+      <!-- The modelled bell: throat r 0.042, exit r 0.22. -->
+      <AreaRatio Value="27" />
+      <FlowEfficiency Value="1" />
+      <ExpansionEfficiency Value="1" />
+      <ExhaustLocation X="-0.770" Y="0.0" Z="0.0" />
+      <ExhaustDirection X="-1" Y="0" Z="0" />
+      <ReactionPlume Default="true"><VolumetricExhaust Id="EngineACompact" /></ReactionPlume>
+      <SoundEvent Action="On" SoundId="DefaultEngineSoundBehavior" />
+    </DeLavalNozzle>
+  </SubPartGameData>
+
+  <PartGameData Id="KSArmory_Prefab_PostBoostBus" DisplayName="Heavy Post-Boost Bus">
+    <EditorTag Value="Weapons" />
+    <Diameter M="3" />
+
+    <!--
+      Not drawn, so only its volume and centre matter: 0.591 m3, about 500 kg at the MIRV bus's
+      843 kg/m3, on the axis just above the thruster ring so the centre of mass stays near the ring
+      however full it is. A placeholder until docs/POSTBOOST-BUS.md settles the size.
+    -->
+    <Tank Id="PostBoostPropellant">
+      <SphericalTank>
+        <LocationAsmb X="0.72" Y="0.00" Z="0.00" />
+        <Material Id="Aluminum.2014(s)" />
+        <OuterRadius M="0.5247" />
+        <WallThickness Mm="4" />
+        <!-- Both, or the main engine draws nothing: a tank feeds only the roles it names (PartTree). -->
+        <RoleAffinity>Engine Thruster</RoleAffinity>
+      </SphericalTank>
+    </Tank>
+
+    <ConsumerFeedWiring Id="Chamber">
+      <FeedsFrom Container="PostBoostPropellant" />
+    </ConsumerFeedWiring>
+    <ConsumerFeedWiring Id="ThrustChamber" SubPartId="KSArmory_PostBoost_Engine">
+      <FeedsFrom Container="PostBoostPropellant" />
+    </ConsumerFeedWiring>
+    <RocketEngineController Id="PostBoostEngine">
+      <RocketReference Id="Engine" SubPartId="KSArmory_PostBoost_Engine" />
+    </RocketEngineController>
+    <!-- 5 degrees leaves 0.05 m between the swung bell and the bay wall. -->
+    <SubPart Id="KSArmory_PostBoost_Engine">
+      <Gimbal><MaxAngleY Degrees="5" /><MaxAngleZ Degrees="5" /><ConstrainToCircle Value="false" /></Gimbal>
+    </SubPart>
+
+    <Control />
+    <Battery><MaximumCapacity J="50000" /></Battery>
+    <Connector Id="_postBoostConnectorBase" />
+
+    <!-- Seven RVs at 250 kg and about 1,700 kg of structure and engine; the tanks carry the rest.
+         Seated in the RCS ring plane for the reason KSArmory_Prefab_MirvBus gives. -->
+    <SolidSphereMass>
+      <Mass Kg="3450" />
+      <Radius M="1.20" />
+      <LocationAsmb X="0.52" />
+    </SolidSphereMass>
+
+    <Collider Id="KSArmory_PostBoostCollider">
+      <!-- Body, mounting face to deck; the RCS clusters stand outside it, as on the old bus. -->
+      <Box Id="KSArmory_PostBoostBusCollider">
+        <LocationAsmb X="0.650" Y="0" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="1.30" /><LengthY M="3.00" /><LengthZ M="3.00" />
+      </Box>
+      <!-- The warhead cluster: RV tips reach radius 1.13 and X 3.04. -->
+      <Box Id="KSArmory_PostBoostWarheadCollider">
+        <LocationAsmb X="2.170" Y="0" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="1.74" /><LengthY M="2.27" /><LengthZ M="2.27" />
+      </Box>
+    </Collider>
+  </PartGameData>
+
+
   <PartGameData Id="KSArmory_Prefab_Mk42" DisplayName="5&quot;/54 Mk 42 mount">
     <EditorTag Value="Weapons" />
     <Diameter M="3" />

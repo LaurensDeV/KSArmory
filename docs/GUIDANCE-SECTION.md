@@ -43,8 +43,8 @@ carrying a guidance section and no weapon has the second alone. So, **as built**
 - `IsWeaponSystem` is left as it is, because the launchers are honest about what they carry.
 
 The Pantsir, the rails, the guns and the B61 rack have no computer, and no other roster moved.
-`ArsenalTests.OnlyTheBusIsGivenABallisticComputer` pins which part confers one, and has to change
-when the ring takes the role over.
+`ArsenalTests.OnlyABusIsGivenABallisticComputer` pins which parts confer one -- the MIRV bus and the
+post-boost bus -- and has to change when the ring takes the role over.
 
 ## Where it goes in the stack, and why that is not a detail
 

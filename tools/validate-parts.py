@@ -902,6 +902,7 @@ LAUNCHER_GEOMETRY = {
     "AmraamRail": (None, "AMRAAM rail"),      # authored -- see AUTHORED_LAUNCHERS below
     "HarmRail": (None, "HARM rail"),          # authored, as above
     "MirvBus": (None, "MIRV bus"),            # authored, clustered -- CLUSTER_LAUNCHERS
+    "PostBoostBus": (None, "post-boost bus"), # authored, clustered -- CLUSTER_LAUNCHERS
     "Mk42": (None, "Mk 42 mount"),            # authored gun -- AUTHORED_GUNS below
     "M197": (None, "M197 chin turret"),       # authored gun -- AUTHORED_GUNS below
 }
@@ -1169,6 +1170,8 @@ def check_authored_launcher_geometry(profile, part_id, seat_id, mesh_id, munitio
 CLUSTER_LAUNCHERS = {
     "MirvBus": ("KSArmory_Prefab_MirvBus", "KSArmory_Mirv_Rv",
                 "KSArmory_Subpart_Rv", "ReentryVehicleMk21", 6, "MIRV bus"),
+    "PostBoostBus": ("KSArmory_Prefab_PostBoostBus", "KSArmory_PostBoost_Mirv_Rv",
+                     "KSArmory_Subpart_PostBoostRv", "ReentryVehicleMk21", 7, "post-boost bus"),
 }
 
 

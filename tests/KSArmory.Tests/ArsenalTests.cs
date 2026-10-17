@@ -302,19 +302,20 @@ public class ArsenalTests
     }
 
     /// <summary>
-    /// Only the MIRV bus flies the rocket under it. Every other weapon is a weapons system with
+    /// Only a bus flies the rocket under it. Every other weapon is a weapons system with
     /// nothing to fly, and a ballistic computer crewed on it is a tab nobody can use.
     /// </summary>
     [Fact]
-    public void OnlyTheBusIsGivenABallisticComputer()
+    public void OnlyABusIsGivenABallisticComputer()
     {
         foreach (ComponentProfile component in Catalogue.Components)
         {
             List<SurveyedPart> parts = [new SurveyedPart(component.PartId, default, doubleQuat.Identity)];
+            bool isBus = component.PartId == Arsenal.MirvBus.PartId
+                         || component.PartId == Arsenal.PostBoostBus.PartId;
 
-            Assert.True(component.PartId == Arsenal.MirvBus.PartId
-                            == WeaponSurvey.Survey(parts, Catalogue.Components).HasGuidance,
-                        $"{component.DisplayName} gets a ballistic computer only if it is the bus");
+            Assert.True(isBus == WeaponSurvey.Survey(parts, Catalogue.Components).HasGuidance,
+                        $"{component.DisplayName} gets a ballistic computer only if it is a bus");
         }
     }
 

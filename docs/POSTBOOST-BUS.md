@@ -2,8 +2,8 @@
 
 **A plan, not a record.** What a second MIRV bus with an axial engine and a bigger tank would buy, how big to make it,
 and what the guidance needs before it can fly one. The art is on `dev` (`KSArmory_PostBoostBus.glb`, carrying its own
-RV with two spin nozzles in a dished base); nothing declares it yet. The declaration drafted with the art is
-`tools/model/PostBoostBus.draft.xml`.
+RV with two spin nozzles in a dished base). It is declared as `KSArmory_Prefab_PostBoostBus` and registered as
+`Arsenal.PostBoostBus`; the guidance flies it exactly as the old bus, on its nozzles, and nothing commands its engine.
 
 ## Why a second part
 
@@ -40,16 +40,34 @@ for the split's null and the corrections.
 
 ## How big a tank
 
-The rocket equation with a warhead's 250 kg leaving at each stop, an assumed exhaust velocity of 2,900 m/s (typical
-MMH/NTO; **not measured** -- KSA derives it from the combustor, see below), seven RVs and 1.5 t of structure:
+The rocket equation with a warhead's 250 kg leaving at each stop, seven RVs and 1.5 t of structure, and the exhaust
+velocities measured in game (below): **2,996 m/s for the main engine** and **2,912 m/s for the nozzles**. The hops are
+the engine's, so they are priced at 2,996:
 
 | propellant | hops it flies | spacing at 6,179 km | at 12,902 km |
 | --- | --- | --- | --- |
-| 500 kg (the draft's four 0.332 m spheres) | 509 m/s | ~44 km | ~66 km |
-| 1,000 kg | 948 m/s | ~83 km | ~126 km |
-| 1,500 kg | 1,334 m/s | ~117 km | ~177 km |
+| 500 kg (declared: one 0.5247 m sphere on the axis) | 526 m/s | ~45 km | ~69 km |
+| 1,000 kg | 979 m/s | ~86 km | ~130 km |
+| 1,500 kg | 1,378 m/s | ~122 km | ~184 km |
 
-So **the draft's 500 kg is the 50 km bus at long range**, and 100 km at 6,179 km wants about 1.2 t. The same arithmetic
+Measured 2026-10-17 on the bus alone in a 300 km orbit, with the bridge's `burn`: 20 s on the engine took 45.4 kg for
+34.30 m/s off the accelerometer (2.27 kg/s, ~6.8 kN), and 20 s on the four forward nozzles 10.7 kg for 7.92 m/s
+(~390 N a nozzle). Both match the ve KSA's own rocket model declares to the m/s, so the declared figure can be read
+for any later `ExitDiameter` without flying it.
+
+The tank is one container on the axis, and the art draws none: KSA lists each `<Tank>` as its own propellant in the
+part popup, with a flow rule between them, and four could drain unevenly and move the centre of mass off the axis. Its `RoleAffinity` is **`Engine Thruster`**, because a tank feeds only the roles it names
+(`PartTree`) -- declared `Thruster` alone, as the old bus's is, the engine can never draw. And KSA puts any engine with
+no sequence into stage 1, so a bus engine left unstaged lights with the first stage; `make-rocket.py` stages it with
+the release, after cutoff has switched the main engines off.
+
+**Flown 2026-10-17**, one target at 24.0 S 62.0 W (6,180 km) on `TEST PBB GeoSat FAT`, a GeoSat FAT stack
+(`make-rocket.py --bus postboost`) carrying the bus: twice PASS, 7 of 7 within 3.8 mm and then 6.2 mm of the aim,
+cutoff 0.07 and 0.04 m/s short, the trim nulled to 0.002 m/s. The second carried the engine staged with the release, and
+it stayed idle from the pad to impact: the computer lets the bus go by firing its joint directly, not by staging, so
+that stage is never reached.
+
+So **the declared 500 kg is the 50 km bus at long range**, and 100 km at 6,179 km wants about 1.2 t. The same arithmetic
 on the old bus (1.27 t structure, six RVs, 134 kg) gives **~167 m/s** of physical divert against the 60-70 the
 guidance allows itself: the current bus is already capped by the code, not the tank.
 
@@ -78,8 +96,10 @@ to match.
 
 ## Unknowns to settle before sizing is final
 
-- **The nozzles' and the engine's exhaust velocity in KSA.** Read it off the combustor model in the decompiled source,
-  or off one flight's jet mass against the trim's m/s. Every propellant figure above scales with it.
+- ~~The exhaust velocities.~~ Measured: engine 2,996 m/s, nozzles 2,912 m/s (above).
+- **Whether switching the engine on and off leaves the nozzles unfed.** After a measured engine burn on the bus alone,
+  KSA's own prograde and retrograde holds stopped working until the tank's Propellant Use was toggled. Seen once and
+  not explained; the release now switches the engine on, so a flight with the trim after the release is the test.
 - **The reach at hundreds of m/s.** The per-m/s figures are small-divert slopes; a 90 m/s hop is still under 2% of the
   velocity at cutoff, but the planner should be checked against a flown chain rather than trusted at 100 km.
 - **The coast.** Seven stops need a coast of the gate plus six slots, about 3,100 km and up today; faster hops shorten
