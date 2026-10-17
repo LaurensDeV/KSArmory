@@ -339,6 +339,8 @@ internal sealed partial class IcbmComputer
             double3 velocityCci = (KsaWorld.VelocityEcl(Craft) - parent.GetVelocityEcl()).Transform(cce2Cci)
                                   + ReleaseImpulseCci();
 
+            SayReleaseAttitude(positionCci, velocityCci);
+
             if (!ImpactPredictor.TryPredict(Body, positionCci, velocityCci, PredictStepSeconds,
                                             ImpactPredictor.DefaultMaxSeconds,
                                             out ImpactPredictor.Impact hit, out ImpactPredictor.Ending ending,

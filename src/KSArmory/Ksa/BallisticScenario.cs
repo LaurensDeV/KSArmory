@@ -673,8 +673,9 @@ internal sealed class BallisticScenario
 
         // The gate the flight is actually holding to, not the setting. A walk of N stops starts
         // (N-1) x 65 s earlier, so reading the setting would warp the world straight past the first
-        // release and the scenario would miss it. `ReleaseGate` is the setting when nothing walks.
-        double releaseAt = computer.Program.ReleaseGate;
+        // release and the scenario would miss it. `ReleaseGate` is the setting when nothing walks; the split
+        // comes the turn's allowance before it when the bus turns.
+        double releaseAt = computer.Program.SplitGate;
         if (!double.IsFinite(toArrival) || !double.IsFinite(releaseAt)) return;
 
         bool roomToWarp = toArrival > releaseAt + IcbmProgram.SteadyBeforeReleaseSeconds;

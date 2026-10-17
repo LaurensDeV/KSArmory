@@ -955,6 +955,21 @@ internal sealed partial class IcbmProgram
         => double.IsFinite(ReleaseGateSeconds) ? ReleaseGateSeconds
                                                : Config.ReleaseBeforeArrivalSeconds;
 
+    /// <summary>
+    /// Whether this flight turns its bus onto the entry airflow after the split -- never a short shot, which
+    /// splits in air at cutoff, one that releases at cutoff and never splits, or a walk from cutoff, whose
+    /// gate cannot open any earlier.
+    /// </summary>
+    public bool TurnsAtTheSplit
+        => Config.PointRvsAtEntry && !_shortShot && !_releasesAtCutoff && !Config.WalkStartsAtCutoff;
+
+    /// <summary>
+    /// When the bus splits, in seconds before arrival: the release gate, opened earlier by the turn's
+    /// allowance so the turn does not come out of the first stop. The release itself is still
+    /// <see cref="ReleaseGate"/>, which is where the prediction puts the warheads' departure.
+    /// </summary>
+    public double SplitGate => ReleaseGate + (TurnsAtTheSplit ? Math.Max(0.0, Config.TurnAllowanceSeconds) : 0.0);
+
     public IcbmCommand Update(double stepSeconds, in IcbmState state)
     {
         double step = double.IsFinite(stepSeconds) && stepSeconds > 0.0 ? stepSeconds : 0.0;

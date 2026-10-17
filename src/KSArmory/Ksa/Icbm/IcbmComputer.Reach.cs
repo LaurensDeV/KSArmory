@@ -34,6 +34,7 @@ internal sealed partial class IcbmComputer
         {
             _reachFootprint = null;
             _sinceReachWall = double.PositiveInfinity;
+            _reachDueAfterTurn = false;
             Reach = ReachDisplay.None(WhyNotWanted(), _targets.Count);
             return;
         }
@@ -42,7 +43,12 @@ internal sealed partial class IcbmComputer
         {
             _sinceReachWall += state.PlayerStepSeconds;
 
-            if (_sinceReachWall >= ReachIntervalSeconds) FlyTheReach(state);
+            // Once more as soon as a turn has settled, so the walk is priced on the axes it will be flown on.
+            if (_sinceReachWall >= ReachIntervalSeconds || _reachDueAfterTurn)
+            {
+                _reachDueAfterTurn = false;
+                FlyTheReach(state);
+            }
         }
         else
         {
@@ -62,7 +68,10 @@ internal sealed partial class IcbmComputer
                                                               Config.SpendTheSplitReserveAfterTheFirstStop
                                                                   ? ReleaseLoop.SplitNullReserveMetresPerSecond
                                                                   : 0.0,
-                                                          HopsFlyTheirOwnCeiling: Config.HopsFlyTheirOwnCeiling),
+                                                          HopsFlyTheirOwnCeiling: Config.HopsFlyTheirOwnCeiling,
+                                                          TurnSeconds: Program.TurnsAtTheSplit
+                                                                           ? Config.TurnAllowanceSeconds
+                                                                           : 0.0),
                                  Program.Phase, SalvoIsOver, TargetSet.MaxTargets,
                                  Warhead.LethalRadius(_warhead!.ChargeKg), _targets.LeadIndex,
                                  coasting ? ReachHold.Unflown : ReachHold.EpochUnmeasured,
@@ -73,7 +82,9 @@ internal sealed partial class IcbmComputer
         // release gate and put the gate back to the setting, which shuts ReadyToDeploy mid-walk.
         // The walker refuses everything once the first warhead has gone, so the plan behind the bus
         // cannot be re-ordered under it either.
-        if (Reach.Flown.Stops > 0 && _walker.Plan(Reach.Flown)) SayTheWalkIfItChanged();
+        // Once a turning bus has split, only a plan of the same stops: its gate is the one the split was timed on.
+        bool mayReplan = !(Program.TurnsAtTheSplit && _didSplit) || Reach.Flown.Stops == _walker.Walk.Stops;
+        if (Reach.Flown.Stops > 0 && mayReplan && _walker.Plan(Reach.Flown)) SayTheWalkIfItChanged();
     }
 
     // One line whenever the plan changes SHAPE, walking or not. A walk that stops being one is the

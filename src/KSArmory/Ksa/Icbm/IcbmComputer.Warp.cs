@@ -155,7 +155,7 @@ internal sealed partial class IcbmComputer
             double toArrival = Program.CommittedArrivalFromNow;
             if (!double.IsFinite(toArrival)) return double.NaN;
 
-            return toArrival - Program.ReleaseGate;
+            return toArrival - Program.SplitGate;
         }
     }
 

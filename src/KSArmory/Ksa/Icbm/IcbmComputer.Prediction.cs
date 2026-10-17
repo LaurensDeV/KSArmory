@@ -92,7 +92,7 @@ internal sealed partial class IcbmComputer
         _coastedToRelease = coasted;
 
         fromCci += ReleaseOffsetCci();
-        alongCci += ReleaseImpulseCci();
+        alongCci += PredictedReleaseImpulseCci(Body, fromCci, alongCci);
 
         // What the predictor is actually a function of. On a coast it is an exact function of this
         // pair, so any wander in its answer is a wander in here -- 0.4 to 2.9 km per m/s along track

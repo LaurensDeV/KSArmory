@@ -42,6 +42,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     // and there is no one turn between opposite directions.
     private readonly Dictionary<IProjectile, DrawnAttitude> _drawnAttitudes = new(ReferenceEqualityComparer.Instance);
 
+    // Rounds drawn with no air to turn them, until the frame the air first does.
+    private readonly HashSet<IProjectile> _inVacuum = new(ReferenceEqualityComparer.Instance);
+
     // The meshes a loose round is drawn with, taken off its subparts while the launcher was alive.
     private sealed record LooseBody(PartModel? Body, PartModel?[] Blades, PartModel? FinSet);
     private readonly Dictionary<IProjectile, LooseBody> _looseBodies = new(ReferenceEqualityComparer.Instance);
@@ -2956,6 +2959,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     {
         _roundSet.Remove(_rounds[index]);
         _drawnAttitudes.Remove(_rounds[index]);
+        _inVacuum.Remove(_rounds[index]);
         _seekers.Remove(_rounds[index]);
         _looseBodies.Remove(_rounds[index]);
         _rounds.RemoveAt(index);
@@ -2966,6 +2970,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         _rounds.Clear();
         _roundSet.Clear();
         _drawnAttitudes.Clear();
+        _inVacuum.Clear();
         _seekers.Clear();
         _looseBodies.Clear();
     }
@@ -3177,6 +3182,17 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     // by whatever its spin motors have added in between. The turn adds no roll, so the two compose.
     private DrawnAttitude Carry(DrawnAttitude was, IProjectile round, double density)
     {
+        // The nose the air first finds, which is what a bus turned onto the entry airflow is for: docs/RV-POINTING.md.
+        if (BodyAttitude.Authority(round.VelocityLocal, density) <= 0.0)
+        {
+            _inVacuum.Add(round);
+        }
+        else if (_inVacuum.Remove(round))
+        {
+            double off = double.RadiansToDegrees(Vec.AngleBetween(was.Ecl * FireGeometry.NoseAxis, round.VelocityLocal));
+            Log.Info($"{RoundLabel.For(round.Tube)} meets the air {round.Age:F0} s after release, nose {off:F1} deg off its airflow");
+        }
+
         doubleQuat turned = BodyAttitude.Turn(was.Ecl, round.VelocityLocal, density, round.Age - was.Age);
         if (Profile.ReleaseSpin is { } spin)
         {

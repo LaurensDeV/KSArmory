@@ -131,6 +131,10 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
     /// What the budget gains once the first stop's warheads are away —
     /// <see cref="IcbmConfig.SpendTheSplitReserveAfterTheFirstStop"/>. Zero leaves it the budget.
     /// </param>
+    /// <param name="TurnSeconds">
+    /// How long before the first release the bus splits to turn onto the entry airflow
+    /// (<see cref="IcbmProgram.SplitGate"/>): room the coast must hold, never part of a stop's slot.
+    /// </param>
     /// <param name="HopsFlyTheirOwnCeiling">
     /// <see cref="IcbmConfig.HopsFlyTheirOwnCeiling"/>: a hop is bounded by the budget alone rather than by
     /// <see cref="BusTrim.MaxMetresPerSecond"/>. See <see cref="PassCeilingMetresPerSecond"/>.
@@ -143,7 +147,8 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
                                         bool FromCutoff = false,
                                         double ReachMeasuredAtSeconds = double.NaN,
                                         double ReserveAfterFirstStopMetresPerSecond = 0.0,
-                                        bool HopsFlyTheirOwnCeiling = false)
+                                        bool HopsFlyTheirOwnCeiling = false,
+                                        double TurnSeconds = 0.0)
     {
         /// <summary>
         /// The most one hop's pass may fly. With its own ceiling a hop is bounded by the budget, which
@@ -421,7 +426,7 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
 
             // A nanosecond of slack: from cutoff the room is a whole number of hops by construction, and
             // differenced back out of the coast it lands an ulp under one for two and four stops.
-            double room = Means.CoastSeconds - Means.GateFor(Count);
+            double room = Means.CoastSeconds - Means.GateFor(Count) - Math.Max(0.0, Means.TurnSeconds);
             int fits = room < 0.0 ? 1 : 1 + (int)Math.Floor((room + 1e-9) / hop);
 
             return Math.Clamp(fits, 1, Count);
@@ -461,7 +466,7 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
 
     /// <summary>Whether the first release would have to happen before the bus is there to make it.</summary>
     public bool StartsBeforeCutoff => Count > 0 && double.IsFinite(Means.CoastSeconds)
-                                      && FirstBeforeArrivalSeconds > Means.CoastSeconds;
+                                      && FirstBeforeArrivalSeconds + Math.Max(0.0, Means.TurnSeconds) > Means.CoastSeconds;
 
     /// <summary>What the panel says about the itinerary, in one line, with every refusal named.</summary>
     public string Describe()

@@ -99,7 +99,7 @@ internal sealed partial class IcbmProgram
         // had the whole coast to converge. The altitude stays as the floor under it: it is what
         // stops a release inside the air, which the time alone would allow on a short shot.
         double toArrival = CommittedArrivalFromNow;
-        double gate = ReleaseGate;
+        double gate = SplitGate;
         bool closeEnough = gate <= 0.0 || !double.IsFinite(toArrival) || toArrival <= gate;
 
         // At the gate rather than at cutoff, so the arc is solved from the state the warheads will leave from.

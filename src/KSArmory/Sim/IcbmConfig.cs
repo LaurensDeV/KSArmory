@@ -179,6 +179,15 @@ internal sealed class IcbmConfig
     public double TurnCapSeconds = 150.0;
 
     /// <summary>
+    /// Whether the bus turns once after its split so every RV leaves along the airflow it will meet, and
+    /// holds that line through the walk. <b>Off until flown</b>: <c>docs/RV-POINTING.md</c>.
+    /// </summary>
+    public bool PointRvsAtEntry;
+
+    /// <summary>How much earlier the bus splits so the turn does not come out of the first stop's slot.</summary>
+    public double TurnAllowanceSeconds = 60.0;
+
+    /// <summary>
     /// Whether the walk planner prices each hop at the reach of the slot it is flown in, scaled down
     /// from the reach measured now, rather than every hop at that one reach. On, with
     /// <see cref="PriceHopsAtWhatTheTrimPays"/>: flown at 4 km, 7 of 8 walks flew every stop planned, against
