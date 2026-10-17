@@ -122,6 +122,7 @@ public sealed class KSArmoryMod
 
     private MotorSound _motors = null!;
     private readonly MotorPlume _plumes = new();
+    private readonly SpinPlume _spinPlumes = new();
     private MotorSmoke _smoke = null!;
     private readonly MuzzleFlash _flashes = new();
     private DecoyEffects _decoyEffects = null!;
@@ -874,6 +875,7 @@ public sealed class KSArmoryMod
         {
             _motors.Update(e.Weapon);
             _plumes.Update(e.Weapon);
+            _spinPlumes.Update(e.Weapon);
             _smoke.Update(e.Weapon);
             _flashes.Update(e.Weapon);
             ShellTracers.Collect(e.Weapon);
@@ -912,6 +914,7 @@ public sealed class KSArmoryMod
         for (int i = 0; i < loose.Count; i++)
         {
             _plumes.Update(loose[i]);
+            _spinPlumes.Update(loose[i]);
             _smoke.Update(loose[i]);
             ShellTracers.Collect(loose[i]);
         }
@@ -966,6 +969,7 @@ public sealed class KSArmoryMod
         // does not keep one for the session.
         _motors.Sweep(_roster);
         _plumes.Sweep(_roster);
+        _spinPlumes.Sweep(_roster);
         _smoke.Sweep(_roster);
         _flashes.Sweep(_roster);
         _gunSound.Sweep(_roster);
@@ -1012,6 +1016,7 @@ public sealed class KSArmoryMod
         _motors?.StopAll();
         _gunSound?.StopAll();
         _plumes?.ReleaseAll();
+        _spinPlumes?.ReleaseAll();
         _decoyEffects?.ReleaseAll();
         _flashes?.ReleaseAll();
 

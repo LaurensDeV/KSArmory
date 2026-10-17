@@ -417,6 +417,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/PointingDrive.cs` | a head that points rather than trains — two degrees of freedom, no axes of its own |
 | `Sim/FireGeometry.cs` | launch direction and round-body orientation |
 | `Sim/BodyAttitude.cs` | which way a round points, and how a released store noses over |
+| `Sim/RoundSpin.cs` | the roll a round's own spin motors give it as it leaves -- **drawn only**, a closed form of its age, on the launcher that seats the body carrying the motors |
 | `Sim/BombSight.cs` | where a store released now would land, flown rather than solved |
 | `Sim/Lambert.cs` | the transfer between two points in a stated time — **the one thing solved rather than flown** |
 | `Sim/BallisticBody.cs` | the planet an arc is flown around, and how it carries a point on its surface |
@@ -627,6 +628,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/MotorSound.cs` | the rocket motor you can hear, one spatialised channel per burning round |
 | `Ksa/EmitterPool.cs` | taking an endless emitter set from the engine's pool, pointing it and **giving it back, `Kill` first** — the one step whose omission leaves nothing in the world able to spawn particles; leaf functions shared by the plume, the muzzle flash and the flares |
 | `Ksa/MotorPlume.cs` | the flame at the nozzle, one pooled emitter per burning round |
+| `Ksa/SpinPlume.cs` | a released RV's spin-motor jets, one pooled emitter per nozzle while they burn, placed through the body's drawn attitude |
 | `Ksa/DecoyEffects.cs` | a flare's white-hot core and smoke trail, and chaff's faint grey puff — **at most twelve flare cores lit at once**, because each holds a pooled emitter |
 | `Ksa/MuzzleFlash.cs` | the flash at the cannon's muzzles, one pooled emitter per firing system |
 | `Ksa/SoundChannels.cs` | the listener, its pressure and a held channel moved or stopped — each guarded, shared by the motor and the cannon |

@@ -780,6 +780,20 @@ public static class Arsenal
 
         StoreMassKg = 250f,
 
+        // The RV's two base motors (KSArmory_Subpart_PostBoostRv): mouths at r 0.15 m, 45 and 225 deg
+        // round +X from +Y, each exhausting 45 deg round the axis from straight aft, so their sideways
+        // pushes cancel and their torques add about -X. The rate is a choice: half a turn a second
+        // reads as spin without blurring the paint.
+        ReleaseSpin = new RoundSpin
+        {
+            RateDegPerSecond = -180.0,
+            SpinUpSeconds = 0.6,
+            Nozzles =
+            [
+                new SpinNozzle(new(-0.876,  0.10607,  0.10607), new(-0.70711, -0.5,  0.5)),
+                new SpinNozzle(new(-0.876, -0.10607, -0.10607), new(-0.70711,  0.5, -0.5)),
+            ],
+        },
         TubeArmamentLabel = "Warheads",
         Tubes =
         [

@@ -2043,9 +2043,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                                                                                           round.LaunchAttitude),
                                                           0.0);
 
-            drawn = new DrawnAttitude(BodyAttitude.Turn(drawn.Ecl, round.VelocityLocal, density,
-                                                        round.Age - drawn.Age),
-                                      round.Age);
+            drawn = Carry(drawn, round, density);
             _drawnAttitudes[round] = drawn;
 
             if (!LauncherPart.TryPlaceMissile(platform, launcher, _missileBodies[index],
@@ -3171,9 +3169,28 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             if (!_looseBodies.ContainsKey(round) || !_drawnAttitudes.TryGetValue(round, out DrawnAttitude was)) continue;
 
             double density = KsaWorld.MediumDensityRatioAt(body, round.PositionEcl);
-            _drawnAttitudes[round] = new DrawnAttitude(
-                BodyAttitude.Turn(was.Ecl, round.VelocityLocal, density, round.Age - was.Age), round.Age);
+            _drawnAttitudes[round] = Carry(was, round, density);
         }
+    }
+
+    // A tube round's attitude, from where it was last drawn to its age now: onto the airflow, and rolled
+    // by whatever its spin motors have added in between. The turn adds no roll, so the two compose.
+    private DrawnAttitude Carry(DrawnAttitude was, IProjectile round, double density)
+    {
+        doubleQuat turned = BodyAttitude.Turn(was.Ecl, round.VelocityLocal, density, round.Age - was.Age);
+        if (Profile.ReleaseSpin is { } spin)
+        {
+            turned = BodyAttitude.Roll(turned, spin.RollRadAt(round.Age) - spin.RollRadAt(was.Age));
+        }
+        return new DrawnAttitude(turned, round.Age);
+    }
+
+    /// <inheritdoc cref="IEffectSource.TryRoundAttitudeEcl"/>
+    public bool TryRoundAttitudeEcl(IProjectile round, out doubleQuat attitudeEcl)
+    {
+        bool known = _drawnAttitudes.TryGetValue(round, out DrawnAttitude drawn);
+        attitudeEcl = known ? drawn.Ecl : doubleQuat.Identity;
+        return known;
     }
 
     /// <summary>

@@ -65,7 +65,9 @@ the release, after cutoff has switched the main engines off.
 (`make-rocket.py --bus postboost`) carrying the bus: twice PASS, 7 of 7 within 3.8 mm and then 6.2 mm of the aim,
 cutoff 0.07 and 0.04 m/s short, the trim nulled to 0.002 m/s. The second carried the engine staged with the release, and
 it stayed idle from the pad to impact: the computer lets the bus go by firing its joint directly, not by staging, so
-that stage is never reached.
+that stage is never reached. Each RV is spun by its base motors as it leaves (`LauncherProfile.ReleaseSpin`), drawn
+only: released one at a time from the bus alone at 85 km and 0.02x, both jets light for the 0.6 s burn and the
+body turns at half a turn a second after.
 
 So **the declared 500 kg is the 50 km bus at long range**, and 100 km at 6,179 km wants about 1.2 t. The same arithmetic
 on the old bus (1.27 t structure, six RVs, 134 kg) gives **~167 m/s** of physical divert against the 60-70 the

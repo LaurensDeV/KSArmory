@@ -78,6 +78,12 @@ internal interface IEffectSource : IRoundsInFlight
     /// </summary>
     bool TryRoundEffectEcl(IProjectile round, out double3 ecl);
 
+    /// <summary>
+    /// Which way a round's body was last drawn, mesh to Ecl -- what a nozzle on the body is placed through.
+    /// False before its body has been drawn once.
+    /// </summary>
+    bool TryRoundAttitudeEcl(IProjectile round, out doubleQuat attitudeEcl);
+
     /// <summary>The profile, for the rates and geometry an effect is sized from.</summary>
     LauncherProfile Profile { get; }
 

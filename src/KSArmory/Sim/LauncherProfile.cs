@@ -305,6 +305,13 @@ public sealed class LauncherProfile
     /// </summary>
     public float StoreMassKg;
 
+    /// <summary>
+    /// The spin the seated rounds' own motors give them as they leave, or null for none. On the launcher
+    /// rather than the munition because the motors are part of the round body this launcher seats: the
+    /// MIRV bus seats the same Mk 21 in a body that has none.
+    /// </summary>
+    public RoundSpin? ReleaseSpin;
+
     /// <summary>What one complete round in the belt weighs (kg), case and charge included; see <see cref="StoreMassKg"/>.</summary>
     public float GunRoundMassKg;
 
