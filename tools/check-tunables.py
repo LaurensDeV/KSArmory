@@ -198,6 +198,8 @@ RESEARCH = (
     "ThrottleThroughTheKeyboardClear",
     "TrimCountsTheCommandInFlight",
     "TrimWaitsOutTheStack",
+    "TurnCapSeconds",
+    "TurnTestDegrees",
     "WarheadAirVelocityPerSubStep",
     "WarheadDragFromItsShape",
     "WarheadFootprintMetres",

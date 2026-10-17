@@ -169,7 +169,8 @@ internal sealed partial class IcbmComputer
             Log.Info($"clearance on {KsaWorld.DisplayName(Craft)}: {clearance.Said}");
         }
 
-        _mayTrim = plan.MayTrim;
+        // The turn's jets and the trim's are kept apart: the trim's acceleration estimate assumes a steady frame.
+        _mayTrim = plan.MayTrim && !Turning;
 
         _trim.Begin();
 
@@ -204,6 +205,10 @@ internal sealed partial class IcbmComputer
         AttitudeHook.PulseMode(Craft, trim.Pulse);
         AttitudeHook.KeepJetsThroughTheClear(Craft, Config.JetsThroughTheKeyboardClear);
         VehicleCommand.DriveTranslation(Craft, trim.Fire);
+        _lastOwed = trim.ToGainMetresPerSecond;
+
+        // Stepped through a turn, the passes count it as the bus not holding still and end the correction.
+        if (Turning) return;
 
         // The post-boost passes. With the thrusters quiet and the nose steady the correction gets a
         // clean look at where the bus is actually going; moving the aim and re-solving the arc from

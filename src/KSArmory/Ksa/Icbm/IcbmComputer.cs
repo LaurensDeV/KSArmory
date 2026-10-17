@@ -558,6 +558,7 @@ internal sealed partial class IcbmComputer
         _aimRebasedForTheSolids = false;
         _trimAbandoned = false;
         _trimShape = "";
+        ResetTurn();
         _saidTrim = "";
         _separatedFrom = null;
         _didSplit = false;
@@ -745,6 +746,7 @@ internal sealed partial class IcbmComputer
         _aimRebasedForTheSolids = false;
         _trimAbandoned = false;
         _trimShape = "";
+        ResetTurn();
         _saidTrim = "";
         _separatedFrom = null;
         _didSplit = false;
@@ -996,6 +998,7 @@ internal sealed partial class IcbmComputer
                         && Program.IsShortShot;
         if ((Command.ReadyToDeploy && !atCutoff) || burnOver) SeparateOnce(release);
 
+        DriveTurn(simStep, state);
         DriveTrim(simStep, state, release);
 
         // Attitude is driven for every phase that is doing something, not only while an engine is

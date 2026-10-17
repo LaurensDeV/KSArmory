@@ -169,6 +169,16 @@ internal sealed class IcbmConfig
     public bool HopsFlyTheirOwnCeiling;
 
     /// <summary>
+    /// A measurement, not a behaviour: degrees the bus turns off its held line once its split is nulled,
+    /// holding the release and the post-boost passes until it settles, then turns back and flies on. Zero
+    /// is off. <c>docs/RV-POINTING.md</c> step 0.
+    /// </summary>
+    public double TurnTestDegrees;
+
+    /// <summary>The longest one commanded turn may take before the bus holds whatever attitude it reached.</summary>
+    public double TurnCapSeconds = 150.0;
+
+    /// <summary>
     /// Whether the walk planner prices each hop at the reach of the slot it is flown in, scaled down
     /// from the reach measured now, rather than every hop at that one reach. On, with
     /// <see cref="PriceHopsAtWhatTheTrimPays"/>: flown at 4 km, 7 of 8 walks flew every stop planned, against

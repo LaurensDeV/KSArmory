@@ -280,7 +280,7 @@ internal sealed partial class IcbmComputer
                                                                _trimAbandoned, Program.ReleasesAtCutoff,
                                                                _trim.Done, _postBoost.Correcting);
 
-        if (weapon is null || !Command.ReadyToDeploy || trimming)
+        if (weapon is null || !Command.ReadyToDeploy || trimming || Turning)
         {
             return new ReleaseCommand(held, roll, false, -1, 0.0, "");
         }

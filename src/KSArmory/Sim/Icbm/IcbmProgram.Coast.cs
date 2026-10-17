@@ -140,7 +140,8 @@ internal sealed partial class IcbmProgram
         // The line it was cut off on, not the airflow. The warheads leave along it, and a bus that
         // swings to prograde the moment the engines stop throws them off the solution it just spent
         // the whole burn arriving at.
-        double3 held = _thrustDirCci.Equals(Vec.Zero) ? Vec.Unit(state.AirflowCci) : _thrustDirCci;
+        double3 held = !CoastLineCci.Equals(Vec.Zero) ? CoastLineCci
+                     : _thrustDirCci.Equals(Vec.Zero) ? Vec.Unit(state.AirflowCci) : _thrustDirCci;
 
         return new IcbmCommand(IcbmPhase.Coast, held, 0.0, EngineOn: false,
                                RequestStage: false, VelocityToGain: shortBy, SecondsToCutoff: 0.0,

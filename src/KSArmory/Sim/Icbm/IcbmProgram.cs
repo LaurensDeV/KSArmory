@@ -917,6 +917,7 @@ internal sealed partial class IcbmProgram
         _shortfall = 0.0;
         _closestOffPlane = double.NaN;
         ReleaseGateSeconds = double.NaN;
+        CoastLineCci = Vec.Zero;
     }
 
     /// <summary>
@@ -930,6 +931,18 @@ internal sealed partial class IcbmProgram
     /// single-target flight leaves this NaN and reads the setting live as it always has.
     /// </remarks>
     public double ReleaseGateSeconds { get; set; } = double.NaN;
+
+    /// <summary>
+    /// The line the coast holds in place of the one the burn was cut off on; zero holds the cutoff line.
+    /// </summary>
+    /// <remarks>
+    /// Set by the computer, which alone knows when the bus has split and nulled its shove: a turn
+    /// commanded any earlier swings the whole stack, or turns before the shove is off the conic.
+    /// </remarks>
+    public double3 CoastLineCci { get; set; } = Vec.Zero;
+
+    /// <summary>The line the burn was cut off on, zero until a burn has set one.</summary>
+    public double3 CutoffLineCci => _thrustDirCci;
 
     /// <summary>
     /// The gate in force, which is the setting unless a walk has asked for an earlier one.
