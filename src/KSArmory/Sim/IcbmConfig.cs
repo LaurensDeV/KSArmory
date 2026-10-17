@@ -175,8 +175,11 @@ internal sealed class IcbmConfig
     /// </summary>
     public double TurnTestDegrees;
 
-    /// <summary>The longest one commanded turn may take before the bus holds whatever attitude it reached.</summary>
-    public double TurnCapSeconds = 150.0;
+    /// <summary>
+    /// The longest one commanded turn may take before the bus holds whatever attitude it reached. Flown, the
+    /// post-boost bus turned 90 deg and settled in 5.1 s, and back in 7.3.
+    /// </summary>
+    public double TurnCapSeconds = 30.0;
 
     /// <summary>
     /// Whether the bus turns once after its split so every RV leaves along the airflow it will meet, and
@@ -185,7 +188,7 @@ internal sealed class IcbmConfig
     public bool PointRvsAtEntry;
 
     /// <summary>How much earlier the bus splits so the turn does not come out of the first stop's slot.</summary>
-    public double TurnAllowanceSeconds = 60.0;
+    public double TurnAllowanceSeconds = 20.0;
 
     /// <summary>
     /// Whether the walk planner prices each hop at the reach of the slot it is flown in, scaled down
