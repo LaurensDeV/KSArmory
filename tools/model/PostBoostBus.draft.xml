@@ -36,6 +36,16 @@
     <Mesh Id="KSArmory_Subpart_PostBoostRcsNozzle_VM" />
   </MeshView>
 </SubPart>
+<!-- The old RV's outline, centred on its origin, with a dished base carrying two canted spin nozzles. -->
+<SubPart Id="KSArmory_PostBoostRv_SubPart">
+  <PartModel Id="KSArmory_Subpart_PostBoostRv_Model">
+    <Mesh Id="KSArmory_Subpart_PostBoostRv" />
+    <Material Id="KSArmory_PostBoostBus_Material" />
+  </PartModel>
+  <MeshView>
+    <Mesh Id="KSArmory_Subpart_PostBoostRv_VM" />
+  </MeshView>
+</SubPart>
 
 <Part Id="KSArmory_Prefab_PostBoostBus">
   <SubPart Id="KSArmory_PostBoost_Bus" InstanceOf="KSArmory_PostBoostBus_SubPart" />
@@ -48,37 +58,37 @@
   </SubPart>
 
   <!-- Seven RVs: a hexagon on the old bus's 0.86 m ring plus one on the axis, all parallel. -->
-  <SubPart Id="KSArmory_PostBoost_Rv00" InstanceOf="KSArmory_MirvRv_SubPart">
+  <SubPart Id="KSArmory_PostBoost_Rv00" InstanceOf="KSArmory_PostBoostRv_SubPart">
     <Transform>
       <Position X="2.14000" Y="0.86000" Z="0.00000" />
     </Transform>
   </SubPart>
-  <SubPart Id="KSArmory_PostBoost_Rv01" InstanceOf="KSArmory_MirvRv_SubPart">
+  <SubPart Id="KSArmory_PostBoost_Rv01" InstanceOf="KSArmory_PostBoostRv_SubPart">
     <Transform>
       <Position X="2.14000" Y="0.43000" Z="0.74478" />
     </Transform>
   </SubPart>
-  <SubPart Id="KSArmory_PostBoost_Rv02" InstanceOf="KSArmory_MirvRv_SubPart">
+  <SubPart Id="KSArmory_PostBoost_Rv02" InstanceOf="KSArmory_PostBoostRv_SubPart">
     <Transform>
       <Position X="2.14000" Y="-0.43000" Z="0.74478" />
     </Transform>
   </SubPart>
-  <SubPart Id="KSArmory_PostBoost_Rv03" InstanceOf="KSArmory_MirvRv_SubPart">
+  <SubPart Id="KSArmory_PostBoost_Rv03" InstanceOf="KSArmory_PostBoostRv_SubPart">
     <Transform>
       <Position X="2.14000" Y="-0.86000" Z="0.00000" />
     </Transform>
   </SubPart>
-  <SubPart Id="KSArmory_PostBoost_Rv04" InstanceOf="KSArmory_MirvRv_SubPart">
+  <SubPart Id="KSArmory_PostBoost_Rv04" InstanceOf="KSArmory_PostBoostRv_SubPart">
     <Transform>
       <Position X="2.14000" Y="-0.43000" Z="-0.74478" />
     </Transform>
   </SubPart>
-  <SubPart Id="KSArmory_PostBoost_Rv05" InstanceOf="KSArmory_MirvRv_SubPart">
+  <SubPart Id="KSArmory_PostBoost_Rv05" InstanceOf="KSArmory_PostBoostRv_SubPart">
     <Transform>
       <Position X="2.14000" Y="0.43000" Z="-0.74478" />
     </Transform>
   </SubPart>
-  <SubPart Id="KSArmory_PostBoost_Rv06" InstanceOf="KSArmory_MirvRv_SubPart">
+  <SubPart Id="KSArmory_PostBoost_Rv06" InstanceOf="KSArmory_PostBoostRv_SubPart">
     <Transform>
       <Position X="2.14000" Y="0.00000" Z="0.00000" />
     </Transform>

@@ -1,8 +1,9 @@
 # A post-boost bus with a main engine
 
 **A plan, not a record.** What a second MIRV bus with an axial engine and a bigger tank would buy, how big to make it,
-and what the guidance needs before it can fly one. The art is on `dev` (`03dcca4a`, `KSArmory_PostBoostBus.glb`);
-nothing declares it yet. The declaration drafted with the art is `tools/model/PostBoostBus.draft.xml`.
+and what the guidance needs before it can fly one. The art is on `dev` (`KSArmory_PostBoostBus.glb`, carrying its own
+RV with two spin nozzles in a dished base); nothing declares it yet. The declaration drafted with the art is
+`tools/model/PostBoostBus.draft.xml`.
 
 ## Why a second part
 
