@@ -117,7 +117,7 @@ internal readonly record struct ShotRequest(double LatitudeDeg, double Longitude
         {
             if (segments.Length > TargetSet.MaxTargets)
             {
-                trouble = $"a bus carries {TargetSet.MaxTargets} warheads, so it can be sent to at most "
+                trouble = $"no bus carries more than {TargetSet.MaxTargets} warheads, so it can be sent to at most "
                           + $"{TargetSet.MaxTargets} places; got {segments.Length}";
                 return false;
             }

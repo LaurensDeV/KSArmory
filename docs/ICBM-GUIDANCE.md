@@ -1270,7 +1270,7 @@ frame's velocity -- `docs/ACCURACY-PLAN.md`, "Moved from ICBM-GUIDANCE".
 
 ## Several targets
 
-**Up to six targets for one bus, and a set of one is the shot everything else is measured against.**
+**Up to one target per warhead aboard, seven at most, and a set of one is the shot everything else is measured against.**
 `TargetSet` is the list with its warhead counts, `TargetEdit` is when it may be edited, `IcbmComputer`
 holds one, and a click on the world adds to it before launch or during the coast. `DivertFootprint` is the
 reach on the ground, taken off the sensitivity columns `ReleaseFocus.FlownSensitivity` already flies once
@@ -1281,9 +1281,10 @@ it are `docs/MIRV-TARGETS.md`; what is open is `docs/ICBM-OUTSTANDING.md` (4.5, 
 
 ### What the player gets
 
-A MIRV rocket carries six reentry vehicles. With one target all six go to it and land within a few
-millimetres of each other (`docs/ACCURACY-PLAN.md` 3en). The player can pick **up to six
-targets**, and the bus flies between releases so each warhead falls on its own.
+A MIRV rocket carries six reentry vehicles on the Heavy MIRV Bus, seven on the post-boost bus. With one
+target all of them go to it and land within a few millimetres of each other (`docs/ACCURACY-PLAN.md` 3en).
+The player can pick **up to seven targets** (`TargetSet.MaxTargets`; on a six-RV bus a seventh gets
+nothing), and the bus flies between releases so each warhead falls on its own.
 
 From the player's side:
 

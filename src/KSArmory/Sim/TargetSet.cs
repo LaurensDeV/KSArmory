@@ -19,11 +19,12 @@ internal sealed class TargetSet
     /// <summary>
     /// How many places one bus may be sent to.
     ///
-    /// <para>Six because the bus carries six warheads, so past that a target gets nothing. It is not a
-    /// budget: reaching six targets is bounded by divert and by the coast's length long before this
+    /// <para>Seven because the post-boost bus carries seven warheads. A bus carrying fewer may hold a target
+    /// past its rack, which gets nothing: the release is bounded by what is loaded, not by this. It is not a
+    /// budget: reaching that many targets is bounded by divert and by the coast's length long before this
     /// is, and at 2,000 km only about three fit.</para>
     /// </summary>
-    public const int MaxTargets = 6;
+    public const int MaxTargets = 7;
 
     private readonly List<Entry> _entries = [];
 

@@ -219,7 +219,7 @@ public class ReachDisplayTests(ITestOutputHelper Out)
                 placed.Add(new ReachDisplay.Placed(along, cross, known ? 1 : 0));
             }
 
-            full = Display(placed);
+            full = Display(placed, warheads: TargetSet.MaxTargets);
             previous = full;
         }
 
@@ -229,7 +229,7 @@ public class ReachDisplayTests(ITestOutputHelper Out)
         Assert.Equal(TargetSet.MaxTargets, full.Flown.Stops);
     }
 
-    /// <summary>Six is all a bus goes to, and the region stops being drawn at it.</summary>
+    /// <summary>A full set is all a bus goes to, and the region stops being drawn at it.</summary>
     [Fact]
     public void AFullSetHasNoRegionAndTakesNoClick()
     {
