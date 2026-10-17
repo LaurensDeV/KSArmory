@@ -191,6 +191,12 @@ public sealed class Config
     public bool DrawPartHealth;
 
     /// <summary>
+    /// This mod's marks on KSA's own ground-track map. Today a calibration grid, which is what
+    /// proves the projection before anything is aimed with it.
+    /// </summary>
+    public bool DrawGroundTrackMarks;
+
+    /// <summary>
     /// Whether a nuclear fireball blacks out the radar beams that cross it, for as long as the air
     /// it ionised stays hot — see <see cref="FireballBlackout"/>. Only sets that transmit are
     /// blinded. Off, a burst is something radar looks straight through.

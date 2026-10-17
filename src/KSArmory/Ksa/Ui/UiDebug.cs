@@ -312,6 +312,17 @@ internal sealed partial class Ui
             + "camera, and over any damaged part further out: green whole, red nearly gone. The settings "
             + "window's Damage scale sets how fast it drains.");
 
+        if (Build.Developer)
+        {
+            ImGui.Checkbox("Ground-track map marks", ref _config.DrawGroundTrackMarks);
+            Tip("A calibration cross at each latitude and longitude KSA labels, drawn on its "
+                + "ground-track map (F3). Each must sit on its own grid crossing; one that does "
+                + "not means the crop arithmetic has drifted from KSA's.");
+
+            if (!GroundTrackHook.Installed && GroundTrackHook.Trouble.Length > 0)
+                ImGui.TextDisabled($"  not drawing: {GroundTrackHook.Trouble}");
+        }
+
         if (Build.Developer) DrawDiagnostics();
     }
 

@@ -455,6 +455,13 @@ TOOLS = {
                   "lay": {"type": "boolean"}, "rounds": _num("rounds"), "station": _num("launcher number"),
                   "at_craft": {"type": "string"}}, [],
                  lambda a: [_text(json.dumps(send("fire", **a)))]),
+    "ksa_ground_track": ("KSA's own ground-track map window, opened on a craft (default: the one being flown) "
+                        "and pointed somewhere. open=0 closes it. zoom is 1 (whole planet) to 5000; pan_x/pan_y "
+                        "are pixels and run from -(area*(zoom-1)) to 0, so centring at zoom z is about "
+                        "-(area*(z-1)/2). KSA re-clamps both as it draws.",
+                        {"craft": {"type": "string"}, "open": _num("0 or 1"), "zoom": _num("1-5000"),
+                         "pan_x": _num("px"), "pan_y": _num("px")}, [],
+                        lambda a: [_text(json.dumps(send("ground_track", **a)))]),
     "ksa_control": ("Fly the named craft: the camera follows it and the controls drive it.",
                     {"craft": {"type": "string"}}, ["craft"], lambda a: [_text(json.dumps(send("control", **a)))]),
     "ksa_remove": ("Take a named craft out of the world, leaving no debris. Refuses the craft being flown.",

@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-310 types and 825 members across 11 assemblies.
+313 types and 840 members across 11 assemblies.
 
 ## BepuUtilities
 
@@ -158,8 +158,14 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### Brutal.Numerics.float2
 
+- `Brutal.Numerics.float2 Clamp(Brutal.Numerics.float2, Brutal.Numerics.float2, Brutal.Numerics.float2)`
+- `Brutal.Numerics.float2 get_One()`
+- `Brutal.Numerics.float2 get_Zero()`
 - `Brutal.Numerics.float2 op_Addition(Brutal.Numerics.float2, Brutal.Numerics.float2)`
+- `Brutal.Numerics.float2 op_Division(Brutal.Numerics.float2, Brutal.Numerics.float2)`
 - `Brutal.Numerics.float2 op_Multiply(Brutal.Numerics.float2, float)`
+- `Brutal.Numerics.float2 op_Subtraction(Brutal.Numerics.float2, Brutal.Numerics.float2)`
+- `Brutal.Numerics.float2 op_UnaryNegation(Brutal.Numerics.float2)`
 - `float X`
 - `float Y`
 - `void .ctor(float, float)`
@@ -1007,6 +1013,12 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `bool Particles`
 
+### KSA.GenericImGuiViewport
+
+- `Brutal.Numerics.float2 GetPan()`
+- `float GetZoom()`
+- `void CreateDraggableZoomableViewport(Brutal.Numerics.float2, ref Brutal.Numerics.float2, ref Brutal.Numerics.float2)`
+
 ### KSA.GimbalController
 
 *referenced as a type only*
@@ -1021,6 +1033,11 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.VulkanApi.VkDescriptorSet get_DescriptorSet()`
 - `Brutal.VulkanApi.VkDescriptorSetLayout get_Layout()`
 - `int SamplerClampHandle`
+
+### KSA.GroundTrackWindow
+
+- `Brutal.Numerics.float2 ProjectOnImage(Brutal.Numerics.float2, Brutal.Numerics.float2, double, double, Brutal.Numerics.float2, Brutal.Numerics.float2)`
+- `KSA.GenericImGuiViewport Viewport`
 
 ### KSA.HapkeScatteringReference
 
@@ -1103,6 +1120,11 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `string get_Name()`
 - `void SetPosition(Brutal.Numerics.float2)`
 - `void SetVisible(bool)`
+
+### KSA.ImGuiWindow
+
+- `bool get_IsShown()`
+- `void DrawContent(KSA.IViewport)`
 
 ### KSA.InertMass
 
@@ -1774,6 +1796,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `bool get_IsDebris()`
 - `bool get_IsDisposed()`
 - `bool get_IsEditedVehicle()`
+- `bool get_ShowGroundTrack()`
 - `float GetManualThrottle()`
 - `float GetMinThrottle()`
 - `float get_PropellantMass()`
@@ -1790,6 +1813,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `void TeleportToLocation(KSA.Celestial, double, double)`
 - `void UpdateAfterPartTreeModification()`
 - `void UpdateRenderData(KSA.IViewport, int)`
+- `void set_ShowGroundTrack(bool)`
 
 ### KSA.VehicleDestructionCause
 

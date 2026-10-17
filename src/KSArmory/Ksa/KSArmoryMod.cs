@@ -181,6 +181,12 @@ public sealed class KSArmoryMod
         // the flight scene across it. A refusal costs one reload's worth of stale rounds.
         WorldReloadHook.Install();
 
+        GroundTrackHook.Install((window, at, size, cropMin, cropMax) =>
+        {
+            if (_config.DrawGroundTrackMarks)
+                GroundTrackMarks.Draw(window, at, size, cropMin, cropMax);
+        });
+
         // Which save is open and when the game writes one, which the settings kept in a save follow.
         SaveHook.Install();
 
@@ -1036,6 +1042,7 @@ public sealed class KSArmoryMod
         AttitudeHook.Remove();
         PreRenderHook.Remove();
         WorldReloadHook.Remove();
+        GroundTrackHook.Remove();
         SaveHook.Remove();
         RoundBodyDrawHook.Remove();
         LooseBodyDrawHook.Remove();
@@ -1483,6 +1490,7 @@ public sealed class KSArmoryMod
         AttitudeHook.Remove();
         PreRenderHook.Remove();
         WorldReloadHook.Remove();
+        GroundTrackHook.Remove();
         SaveHook.Remove();
         RoundBodyDrawHook.Remove();
         LooseBodyDrawHook.Remove();

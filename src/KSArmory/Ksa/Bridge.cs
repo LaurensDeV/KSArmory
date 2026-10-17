@@ -252,6 +252,7 @@ internal sealed class Bridge : IViewPose
             "ground" => Ground(command),
             "save" => SaveGame(command),
             "control" => Control(command),
+            "ground_track" => GroundTrack(command),
             "remove" => RemoveCraft(command),
             "orbit" => PutInOrbit(command),
             "attitude" => Attitude(command),
@@ -679,6 +680,39 @@ internal sealed class Bridge : IViewPose
     }
 
     // Fly the named craft: the camera follows it and the controls drive it.
+    // KSA's own ground-track map, opened on a craft and pointed somewhere -- so a change to what
+    // this mod draws on it can be flown and photographed without anybody pressing F3. The window
+    // is the game's; only its zoom and pan are written here, and KSA re-clamps both as it draws.
+    private static Reply GroundTrack(BridgeCommand command)
+    {
+        string name = command.String("craft");
+        Vehicle? craft = name.Length > 0 ? CraftNamed(name) : KsaWorld.ControlledVehicle;
+
+        if (craft is null) return Failed("no such craft, and none is being flown");
+
+        bool open = command.Number("open", 1.0) != 0.0;
+
+        if (!KsaWorld.TryShowGroundTrack(craft, open))
+            return Failed(open ? "the ground track window would not open" : "it would not close");
+
+        if (!open) return Done(new() { ["craft"] = KsaWorld.DisplayName(craft), ["open"] = false });
+
+        double? zoom = command.Has("zoom") ? command.Number("zoom", 1.0) : null;
+        double? panX = command.Has("pan_x") ? command.Number("pan_x", 0.0) : null;
+        double? panY = command.Has("pan_y") ? command.Number("pan_y", 0.0) : null;
+
+        if ((zoom.HasValue || panX.HasValue || panY.HasValue)
+            && !KsaWorld.TrySetGroundTrackView(craft, zoom, panX, panY, out string trouble))
+            return Failed(trouble);
+
+        return Done(new()
+        {
+            ["craft"] = KsaWorld.DisplayName(craft),
+            ["open"] = true,
+            ["asked_zoom"] = zoom ?? 0.0,
+        });
+    }
+
     private static Reply Control(BridgeCommand command)
         => CraftNamed(command.String("craft")) is { } craft && KsaWorld.GoTo(craft)
                ? Done(new() { ["craft"] = KsaWorld.DisplayName(craft) })
