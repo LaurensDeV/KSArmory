@@ -2750,6 +2750,16 @@ stack wait holds only the split. `docs/MIRV-TARGETS.md`, "six stops to the groun
 - [ ] The reach ring on the ground is smaller than it was before the per-axis price, and a click inside it is a stop
       the walk then flies rather than one it drops mid-flight.
 
+### 12.7h The heavy post-boost bus -- flown 2026-10-17
+
+`KSArmory_Prefab_PostBoostBus`, flown on its nozzles as the old bus; nothing commands its engine. `docs/POSTBOOST-BUS.md`.
+
+- [x] One target at 6,180 km on `TEST PBB GeoSat FAT`: 7 of 7, twice, 3.8 and 6.2 mm worst; the engine idle pad to impact.
+- [x] Seven targets 2.5 km apart: each warhead on its own target, worst 5.6 mm.
+- [x] Each RV's base motors light for 0.6 s on release and spin it at half a turn a second.
+- [ ] In the editor: listed under Weapons, stacks on a 3 m tank without sinking, seven RVs seated, colliders right.
+- [ ] By hand: switch the engine on and off from the popup's Active boxes, then prograde and retrograde still hold.
+
 ### 12.6 It gives the vehicle back
 
 - [ ] **Abort** stops the engines and returns attitude control. Flying by hand works immediately

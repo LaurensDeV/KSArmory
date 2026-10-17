@@ -56,7 +56,11 @@ Measured 2026-10-17 on the bus alone in a 300 km orbit, with the bridge's `burn`
 for any later `ExitDiameter` without flying it.
 
 The tank is one container on the axis, and the art draws none: KSA lists each `<Tank>` as its own propellant in the
-part popup, with a flow rule between them, and four could drain unevenly and move the centre of mass off the axis. Its `RoleAffinity` is **`Engine Thruster`**, because a tank feeds only the roles it names
+part popup, with a flow rule between them, and four could drain unevenly and move the centre of mass off the axis. It sits at X 0.72 rather than
+higher: the engine thrusts along the axis, so only the nozzles see the height, and the 3,450 kg seat is at the ring's
+X 0.52. Full, the centre of mass is at 0.545 loaded and 0.565 with the RVs gone, against 0.564 and 0.600 at X 0.87, and
+`checkring.py`'s analysis at those seats puts 0.107 and 0.193 of torque per unit of a lateral trim push against 0.188
+and 0.337 -- nearly twice the turn coupled into every sideways correction. Its `RoleAffinity` is **`Engine Thruster`**, because a tank feeds only the roles it names
 (`PartTree`) -- declared `Thruster` alone, as the old bus's is, the engine can never draw. And KSA puts any engine with
 no sequence into stage 1, so a bus engine left unstaged lights with the first stage; `make-rocket.py` stages it with
 the release, after cutoff has switched the main engines off.
@@ -67,7 +71,9 @@ cutoff 0.07 and 0.04 m/s short, the trim nulled to 0.002 m/s. The second carried
 it stayed idle from the pad to impact: the computer lets the bus go by firing its joint directly, not by staging, so
 that stage is never reached. Each RV is spun by its base motors as it leaves (`LauncherProfile.ReleaseSpin`), drawn
 only: released one at a time from the bus alone at 85 km and 0.02x, both jets light for the 0.6 s burn and the
-body turns at half a turn a second after.
+body turns at half a turn a second after. Then seven targets 2.5 km apart in a line from 24.0 S 62.0 W, once
+`TargetSet.MaxTargets` was raised to seven: PASS, every warhead to its own target and the worst 5.6 mm from it, the walk
+flown on the nozzles exactly as the old bus flies one.
 
 So **the declared 500 kg is the 50 km bus at long range**, and 100 km at 6,179 km wants about 1.2 t. The same arithmetic
 on the old bus (1.27 t structure, six RVs, 134 kg) gives **~167 m/s** of physical divert against the 60-70 the
@@ -87,6 +93,9 @@ to match.
    (`BusTrim.MaxMetresPerSecond`, 10), the per-hop clock (`BusTrim.MaxSeconds`, 120) and the hop slot are constants
    today. Each becomes a field the bus part provides, the old bus keeping today's values exactly, so nothing it flies
    moves. Also worth flying on its own: the old bus's budget raised toward its ~167 m/s, with the budget-edge reserve.
+   **Wanted with step 3, not before it.** The budget is already a per-craft setting
+   (`IcbmConfig.TrimBudgetMetresPerSecond`), and the pass ceiling, the hop clock and the slot bind only once a hop is
+   flown on the engine; moved onto the profile alone they change nothing anything can check.
 2. **The step-3 reach** (`ICBM-OUTSTANDING.md` 4.12): a walk from cutoff priced at the epoch it opens, with the
    `sin(wt)/w` falloff. At these spacings the first hops are long before 760 s.
 3. **Hops as burns.** Point the bus, fire the main engine for the hop's velocity, null the remainder on the small
@@ -96,12 +105,28 @@ to match.
    `Sim/Arsenal.cs`, `checkring.py` on the ring at X 0.52, and `validate-parts.py`.
 5. **Fly it** paired against the old bus at 6,179 and 12,902 km: stops walked, worst warhead, spacing reached.
 
+## Art notes for the next art session
+
+- `checkmesh.py` finds 256 near-coplanar pairs on the engine, all 1.76 mm apart (the bell's inner and outer skins),
+  and 35 on the RV, 0.6-1.7 mm apart near the base. Core's `EngineACompactVacAssembly` carries 447 of its own at
+  0.7-2.9 mm, so thin bell walls are Core's practice too and the count alone does not explain the fixed pattern seen
+  end-on: compare the two by eye before thickening anything.
+- The RV's orange dish edge is stair-stepped in the texture: more texels across it, or the colour change on a mesh edge.
+
 ## Unknowns to settle before sizing is final
 
 - ~~The exhaust velocities.~~ Measured: engine 2,996 m/s, nozzles 2,912 m/s (above).
-- **Whether switching the engine on and off leaves the nozzles unfed.** After a measured engine burn on the bus alone,
-  KSA's own prograde and retrograde holds stopped working until the tank's Propellant Use was toggled. Seen once and
-  not explained; the release now switches the engine on, so a flight with the trim after the release is the test.
+- **Whether switching the engine on and off breaks the nozzles' attitude hold.** Seen once by hand: after a measured
+  engine burn on the bus alone, KSA's own prograde and retrograde holds stopped working until the tank's Propellant Use
+  was toggled (which rebuilds the part tree's resource managers, `TankPropellantUseChangeData`). **Not reproduced on
+  the bridge's path, 2026-10-17**, bus alone at 300 km: prograde held inside its 1 deg deadband through a 10 s burn
+  (`burn` activates the engine, fires it and deactivates it) and after it, retrograde then slewed 100 deg and settled
+  to 0.3 deg in 45 s, and a jets burn either side of the engine burn gave the same 1.95 m/s at ve 2,911-2,913, so the
+  nozzles stay fed. The deadband stayed 1 deg throughout; the rate bit rose from 0.041 to 0.068 deg/s across the burn
+  and stayed, unexplained and harmless. The hand sighting went through the popup's Active boxes, which the bridge
+  does not, so that is what is left to try; `attitude` reads the tracker back. Nothing in flight switches the engine
+  on today: `make-rocket.py` stages it with the release, but the computer lets the bus go by firing its joint, so that
+  stage is never reached.
 - **The reach at hundreds of m/s.** The per-m/s figures are small-divert slopes; a 90 m/s hop is still under 2% of the
   velocity at cutoff, but the planner should be checked against a flown chain rather than trusted at 100 km.
 - **The coast.** Seven stops need a coast of the gate plus six slots, about 3,100 km and up today; faster hops shorten
