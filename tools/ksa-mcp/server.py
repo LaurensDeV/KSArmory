@@ -432,6 +432,11 @@ TOOLS = {
                  "engine": {"type": "boolean"},
                  "stop": {"type": "boolean"}}, [],
                 lambda a: [_text(json.dumps(send("fly", **a)))]),
+    "ksa_burn": ("A timed burn for the exhaust velocity: what=engine (activated for it, staged or not) or jets "
+                 "(forward translation) on craft for seconds of simulated time; dv off the accelerometer, "
+                 "ve = dv / ln(m0/m1), beside KSA's declared vacuum ve. With no what, the last burn's result.",
+                 {"craft": {"type": "string"}, "what": {"type": "string", "enum": ["engine", "jets"]},
+                  "seconds": _num("s")}, [], lambda a: [_text(json.dumps(send("burn", **a), indent=1))]),
     "ksa_watch": ("Hold the main view on one round in the air, crewed or loose (its launcher destroyed), "
                   "distance_m from it at azimuth_deg/elevation_deg about its flight -- 0/0 is straight "
                   "behind, 180 ahead. craft names the system (its craft's name, or the dead one's); "

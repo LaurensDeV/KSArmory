@@ -2162,6 +2162,57 @@ internal static class KsaWorld
         }
     }
 
+    /// <summary>What an accelerometer aboard reads, in Ecl: everything but gravity. Zero if unreadable.</summary>
+    public static double3 ProperAccelerationEcl(Vehicle vehicle)
+    {
+        try
+        {
+            double3 measured = vehicle.AccelerationBody.Transform(vehicle.Body2Cce);
+            return Vec.IsFinite(measured) ? measured : Vec.Zero;
+        }
+        catch
+        {
+            return Vec.Zero;
+        }
+    }
+
+    /// <summary>
+    /// The vacuum exhaust velocity KSA's rocket model gives the craft's engines, or its attitude
+    /// thrusters, at full throttle: summed thrust over summed mass flow. NaN if unreadable.
+    /// </summary>
+    public static double DeclaredVacuumExhaust(Vehicle craft, bool thrusters)
+    {
+        try
+        {
+            double thrust = 0.0, flow = 0.0;
+            if (thrusters)
+            {
+                Span<ThrusterController> jets = craft.Parts.Modules.Get<ThrusterController>();
+                for (int i = 0; i < jets.Length; i++)
+                {
+                    RocketControllerData d = RocketControllerData.ComputeFromCores(jets[i].Cores.AsSpan(), 0f, 1f);
+                    thrust += Vec.Len(new double3(d.ThrustMax.X, d.ThrustMax.Y, d.ThrustMax.Z));
+                    flow += d.MassFlowRateMax;
+                }
+            }
+            else
+            {
+                Span<EngineController> engines = craft.Parts.Modules.Get<EngineController>();
+                for (int i = 0; i < engines.Length; i++)
+                {
+                    RocketControllerData d = RocketControllerData.ComputeFromCores(engines[i].Cores.AsSpan(), 0f, 1f);
+                    thrust += Vec.Len(new double3(d.ThrustMax.X, d.ThrustMax.Y, d.ThrustMax.Z));
+                    flow += d.MassFlowRateMax;
+                }
+            }
+            return flow > 0.0 ? thrust / flow : double.NaN;
+        }
+        catch
+        {
+            return double.NaN;
+        }
+    }
+
     /// <summary>
     /// Whether a craft is resting on something — ground, water or another craft — and so moves with the
     /// surface under it rather than on its own.

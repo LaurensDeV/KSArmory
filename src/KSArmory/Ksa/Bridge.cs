@@ -101,6 +101,7 @@ internal sealed class Bridge : IViewPose
         try
         {
             HoldFlight();
+            StepBurn(dtSim);
 
             if (_pose is { } held && _orbitDegPerSecond != 0.0 && double.IsFinite(dtPlayer))
             {
@@ -244,6 +245,7 @@ internal sealed class Bridge : IViewPose
             "optic" => Optic(command),
             "dispense" => Dispense(command),
             "fly" => Fly(command),
+            "burn" => BeginBurn(command),
             "watch" => Watch(command),
             "fire" => Fire(command),
             "spawn" => Spawn(command),
@@ -888,6 +890,107 @@ internal sealed class Bridge : IViewPose
         if (command.Flag("stage", false)) AttitudeHook.Stage(craft);
 
         return Done(new() { ["flying"] = KsaWorld.DisplayName(craft) });
+    }
+
+    private sealed class MeasuredBurn
+    {
+        public required Vehicle Craft;
+        public required bool Jets;
+        public required double Seconds;
+        public required double MassBefore;
+        public required double DeclaredExhaust;
+        public double Elapsed;
+        public double3 DeltaV;
+        public double MassAfter = double.NaN;
+    }
+
+    private MeasuredBurn? _burn;
+
+    // The burn integrates the accelerometer this long past cutoff, so the thrust's tail and the
+    // mass it took are both counted before the mass is read.
+    private const double BurnSettleSeconds = 1.0;
+
+    // A timed burn on the main engine (activated for it, staged or not) or the forward jets, for the
+    // exhaust velocity: dv off the accelerometer, which leaves gravity out, and ve = dv / ln(m0/m1).
+    // With no "what" it reports the last burn.
+    private Reply BeginBurn(BridgeCommand command)
+    {
+        string what = command.String("what");
+        if (what.Length == 0) return BurnReport();
+        if (what is not ("engine" or "jets")) return Failed("what is engine or jets");
+        if (CraftNamed(command.String("craft")) is not { } craft) return Failed("no such craft");
+
+        bool jets = what == "jets";
+        _burn = new MeasuredBurn
+        {
+            Craft = craft,
+            Jets = jets,
+            Seconds = command.Number("seconds", 10.0),
+            MassBefore = KsaWorld.MassKg(craft),
+            DeclaredExhaust = KsaWorld.DeclaredVacuumExhaust(craft, thrusters: jets),
+        };
+        if (!jets)
+        {
+            VehicleCommand.SetEnginesActive(craft, true);
+            VehicleCommand.SetEngine(craft, running: true);
+        }
+
+        return BurnReport();
+    }
+
+    private void StepBurn(double dtSim)
+    {
+        if (_burn is not { } b || !double.IsNaN(b.MassAfter) || !double.IsFinite(dtSim) || dtSim <= 0.0) return;
+        if (!KsaWorld.IsAlive(b.Craft))
+        {
+            _burn = null;
+            return;
+        }
+
+        b.DeltaV += KsaWorld.ProperAccelerationEcl(b.Craft) * dtSim;
+        b.Elapsed += dtSim;
+
+        bool burning = b.Elapsed < b.Seconds;
+        if (b.Jets)
+        {
+            VehicleCommand.DriveTranslation(b.Craft, burning ? TrimAxes.Forward : TrimAxes.None);
+        }
+        else
+        {
+            VehicleCommand.DriveThrottle(b.Craft, burning ? 1.0 : 0.0);
+            if (!burning)
+            {
+                VehicleCommand.SetEngine(b.Craft, running: false);
+                VehicleCommand.SetEnginesActive(b.Craft, false);
+            }
+        }
+
+        if (b.Elapsed < b.Seconds + BurnSettleSeconds) return;
+
+        b.MassAfter = KsaWorld.MassKg(b.Craft);
+        Log.Info($"bridge: burn {(b.Jets ? "jets" : "engine")} {b.Elapsed:F2} s on {KsaWorld.DisplayName(b.Craft)}: "
+                 + $"{b.MassBefore:F1} -> {b.MassAfter:F1} kg, dv {Vec.Len(b.DeltaV):F3} m/s, "
+                 + $"ve {Vec.Len(b.DeltaV) / Math.Log(b.MassBefore / b.MassAfter):F0} m/s, "
+                 + $"declared {b.DeclaredExhaust:F0} m/s");
+    }
+
+    private Reply BurnReport()
+    {
+        if (_burn is not { } b) return Failed("no burn");
+
+        double dv = Vec.Len(b.DeltaV);
+        bool done = !double.IsNaN(b.MassAfter);
+        return Done(new()
+        {
+            ["what"] = b.Jets ? "jets" : "engine",
+            ["done"] = done,
+            ["elapsed_s"] = Math.Round(b.Elapsed, 3),
+            ["mass_before_kg"] = Math.Round(b.MassBefore, 3),
+            ["mass_after_kg"] = done ? Math.Round(b.MassAfter, 3) : null,
+            ["dv_ms"] = Math.Round(dv, 4),
+            ["ve_ms"] = done ? Math.Round(dv / Math.Log(b.MassBefore / b.MassAfter), 1) : null,
+            ["declared_ve_ms"] = double.IsFinite(b.DeclaredExhaust) ? Math.Round(b.DeclaredExhaust, 1) : null,
+        });
     }
 
     private void HoldFlight()

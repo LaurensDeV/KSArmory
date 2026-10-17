@@ -277,4 +277,22 @@ internal static class VehicleCommand
         if (!KsaWorld.IsAlive(craft)) return;
         craft.Parts.SequenceList.ActivateNextSequence(craft);
     }
+
+    /// <summary>
+    /// Switch every engine on the craft on or off as the part's Active box does, staged or not. For
+    /// the bridge's measured burn only: nothing that flies a shot may light an engine out of sequence.
+    /// </summary>
+    public static void SetEnginesActive(Vehicle craft, bool active)
+    {
+        if (!KsaWorld.IsAlive(craft)) return;
+        try
+        {
+            Span<EngineController> engines = craft.Parts.Modules.Get<EngineController>();
+            for (int i = 0; i < engines.Length; i++) engines[i].SetIsActive(craft, active);
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"engines: could not set active ({e.Message})");
+        }
+    }
 }
