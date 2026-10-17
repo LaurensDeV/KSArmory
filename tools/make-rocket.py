@@ -17,6 +17,7 @@ GeoSat FAT this way and compares it, part by part, to the craft the game saved.
     ./tools/make-rocket.py --out DIR --name "My Rocket" --stage A2x4:LF3W6HBx2 --stage A3:LF3W3HB --srb 4
     ./tools/make-rocket.py --out DIR --name "Bus Early" --stage A2x4:LF3W6HBx2 --stage A3:LF3W3HB --bus-after 1
     ./tools/make-rocket.py --out DIR --name "Solid Core" --solid-core 1 --stage A3:LF3W3HB
+    ./tools/make-rocket.py --out DIR --name "PBB Liquid2" --bus postboost --stage A2x4:LF3W6HBx2 --stage A3:LF3W3HB
     ./tools/make-rocket.py --check-reference
     ./tools/make-rocket.py --validate DIR/*/vehicle.xml
 
@@ -44,7 +45,6 @@ CORE = KSA_DIR / "Content" / "Core"
 
 ENGINE = "CorePropulsionA_Prefab_Engine"
 TANK = "CoreFuelTankA_Prefab_"
-BUS = "KSArmory_Prefab_MirvBus"
 BUS_DECOUPLER = "CoreCouplingA_Prefab_Decoupler3WA"
 BRIDGE_3W2W = "CoreFairingA_Prefab_InterstageBridge3W2WB"
 RADIAL_DECOUPLER = "CoreStructuralA_Prefab_RadialDecouplerLargeA"
@@ -93,10 +93,18 @@ SRB_GRAIN = {"CorePropulsionC_Prefab_SRBESegmentLargeA": 50057.6914,
 SOLID_SEGMENT = "CorePropulsionC_Prefab_SRBESegmentLargeA"
 SOLID_MOTOR = "CorePropulsionC_Prefab_SRBEThrustAssemblyA"
 
-# What the bus carries, as GeoSat FAT saves it.
-BUS_PROPELLANT = [("MMH(l)", 51.6452, 0.3846), ("N2O4(l)", 82.6323, 0.6154)]
+# What each bus carries: its tanks full of MMH/NTO, the mixture GeoSat FAT saves, and its mass all in.
+# The post-boost bus's 124.9 kg a sphere is the draft's 0.1478 m3 inside at the MIRV bus's 845 kg/m3.
+BUS_MIXTURE = [("MMH(l)", 0.3846), ("N2O4(l)", 0.6154)]
+BUSES = {
+    "mirv": dict(pid="KSArmory_Prefab_MirvBus", tanks={"MirvPropellant": 134.2775},
+                 mass=2750 + 134.3 + 16),  # declared lump, propellant, sphere tank structure
+    "postboost": dict(pid="KSArmory_Prefab_PostBoostBus",
+                      tanks={f"PostBoostPropellant{i}": 124.9 for i in range(4)},
+                      mass=3450 + 4 * 124.9 + 4 * 15.4),
+}
+BUS_PARTS = {b["pid"] for b in BUSES.values()}
 BUS_CHARGE_J = 50000
-BUS_MASS_KG = 2750 + 134.3 + 16  # declared lump, propellant, sphere tank structure
 
 HYDROLOX_H2 = 1.0 / 6.5  # mixture ratio 5.5, as every Core LR91 burns it
 G0 = 9.80665
@@ -441,8 +449,9 @@ def resource_groups(root):
 # Building a rocket
 
 class Rocket:
-    def __init__(self, lib, name, stages, srb=0, bus_after=None, solid_core=0):
+    def __init__(self, lib, name, stages, srb=0, bus_after=None, solid_core=0, bus="mirv"):
         self.lib, self.name, self.srb, self.bus_after = lib, name, srb, bus_after
+        self.bus = BUSES[bus]
         self.stages = [parse_stage(s) if isinstance(s, str) else s for s in stages]
         self.solid_core = solid_core
         self.solid_motor = None
@@ -537,7 +546,7 @@ class Rocket:
         if self.srb:
             self.add_boosters()
         solve(self.root)
-        bus = next(n for n in self.root.walk() if n.pid == BUS)
+        bus = next(n for n in self.root.walk() if n.pid == self.bus["pid"])
         shift = (BUS_BASE_X - bus.pos[0], 0.0, 0.0)
         solve(self.root, shift)
         self.sequence()
@@ -552,14 +561,19 @@ class Rocket:
             parent = parent.attach(Node(lib, BRIDGE_3W2W, (0.0, 0.0, math.pi)), 0, 1)
             conn = 0
         dec = parent.attach(Node(lib, BUS_DECOUPLER), conn, 1 - lib.decoupler_index(BUS_DECOUPLER))
-        bus = dec.attach(Node(lib, BUS, (math.pi, 0.0, 0.0)), lib.decoupler_index(BUS_DECOUPLER), 0)
+        pid = self.bus["pid"]
+        bus = dec.attach(Node(lib, pid, (math.pi, 0.0, 0.0)), lib.decoupler_index(BUS_DECOUPLER), 0)
         bus.modules = [
-            ("TankData", {"InstanceOf": "MirvPropellant"},
-             [("RoleAffinity", {}, "Thruster")] + [mole(s, kg, f) for s, kg, f in BUS_PROPELLANT]),
-            ("BatteryData", {"InstanceOf": BUS}, [("Charge", {"J": str(BUS_CHARGE_J)}, None)]),
-            ("ControlData", {"LocalInstanceId": "0", "VehicleName": self.name}, None),
-        ]
-        for i, sub in enumerate(lib.get(BUS).subparts):
+            ("TankData", {"InstanceOf": tank},
+             [("RoleAffinity", {}, "Thruster")] + [mole(s, kg * f, f) for s, f in BUS_MIXTURE])
+            for tank, kg in self.bus["tanks"].items()]
+        bus.modules.append(("BatteryData", {"InstanceOf": pid}, [("Charge", {"J": str(BUS_CHARGE_J)}, None)]))
+        # Sequence 0 is in no stage, so staging never lights the bus's own engine.
+        engine = lib.engine_controller(pid)
+        if engine:
+            bus.modules.append(("EngineController", {"InstanceOf": engine, "ActiveInStage": "false"}, None))
+        bus.modules.append(("ControlData", {"LocalInstanceId": "0", "VehicleName": self.name}, None))
+        for i, sub in enumerate(lib.get(pid).subparts):
             game = lib.subpart_game.get(sub)
             thrusters = game.findall("RocketThrusterController") if game is not None else []
             if thrusters:
@@ -692,7 +706,7 @@ class Rocket:
             dry += sum(lib.declared_mass(e.pid) for e in self.engines_by_stage[k])
             stage_mass.append((prop, dry))
         rows = []
-        above = BUS_MASS_KG
+        above = self.bus["mass"]
         masses = []
         for k in range(len(self.stages) - 1, -1, -1):
             prop, dry = stage_mass[k]
@@ -954,10 +968,10 @@ def validate(path, lib, reference=None):
                                     f"one way through connector {index}, which is not a surface "
                                     "connector")
     tanks = {el.get("Stage") for el, _ in parts if el.find("TankData") is not None
-             and el.get("InstanceOf") != BUS}
+             and el.get("InstanceOf") not in BUS_PARTS}
     for el, _ in parts:
         if el.find("EngineController") is not None and el.find("SolidMotorData") is None \
-                and el.get("Stage") not in tanks:
+                and el.get("InstanceOf") not in BUS_PARTS and el.get("Stage") not in tanks:
             problems.append(f"{short(el.get('InstanceOf'))} #{el.get('LocalInstanceId')} shares its "
                             f"resource group (Stage {el.get('Stage')}) with no tank")
     if reference is not None:
@@ -1112,6 +1126,7 @@ def main():
     ap.add_argument("--name", help="a rocket of your own: its name, which is also its folder")
     ap.add_argument("--stage", action="append", default=[], help="ENGINE[xN]:TANK[xN], bottom first")
     ap.add_argument("--srb", type=int, default=0, help="radial boosters on the first stage")
+    ap.add_argument("--bus", choices=sorted(BUSES), default="mirv", help="which bus the rocket carries")
     ap.add_argument("--bus-after", type=int, help="fire the bus decoupler straight after this stage, counted from 1")
     ap.add_argument("--solid-core", type=int, default=0,
                     help="a first stage of this many 2 m solid segments and a thrust assembly, under the --stage list")
@@ -1166,12 +1181,13 @@ def main():
             sys.exit(f"no preset {name!r}; --list names them")
         specs[name] = PRESETS[name]
     if a.name:
-        specs[a.name] = dict(stages=a.stage, srb=a.srb, bus_after=a.bus_after, solid_core=a.solid_core)
+        specs[a.name] = dict(stages=a.stage, srb=a.srb, bus_after=a.bus_after, solid_core=a.solid_core, bus=a.bus)
     if specs and not a.out:
         sys.exit("--out is required to write a rocket")
     build = game_build()
     for name, spec in specs.items():
-        rocket = Rocket(lib, name, spec["stages"], spec.get("srb", 0), spec.get("bus_after"), spec.get("solid_core", 0))
+        rocket = Rocket(lib, name, spec["stages"], spec.get("srb", 0), spec.get("bus_after"), spec.get("solid_core", 0),
+                        spec.get("bus", "mirv"))
         path = write(rocket, a.out, build)
         ok &= report(rocket, path, lib, references)
     if not (specs or a.validate or a.check_reference):
