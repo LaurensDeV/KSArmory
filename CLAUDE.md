@@ -450,6 +450,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/ReleaseCoast.cs` | where the predicted arc will be when the warheads leave it — the kick added there rather than at cutoff (`IcbmConfig.KickAtTheRelease`, off until flown) |
 | `Sim/HoldingCost.cs` | what a second of holding the warheads costs, **measured off the arc rather than typed**, because it runs from 0.82 m/s at 500 km to 21.79 at 12,900 |
 | `Sim/BusTrim.cs` | putting the bus back on its solution after the split — **the only thing that can**, because the burn is over |
+| `Sim/BusTurn.cs` | one commanded turn of the bus after its split — **judged on the nose the engine reports**, and held until it settles or the cap keeps whatever it reached |
+| `Sim/EntryDirection.cs` | the airflow a coasting RV meets where the air first turns it — **closed form on the conic**, so any coast state gives the same entry |
 | `Sim/PostCutoffSequence.cs` | what the loop after cutoff does next — **the decision that dominates where the warheads land** |
 | `Sim/ShedStage.cs` | which of the vehicles that just appeared is the half this stack let go of — **bounded and refusable**, because several rockets stage together and a foreign stage passes the clearance at once |
 | `Sim/SeparationClearance.cs` | whether what let go has got far enough away to manoeuvre — **the shove is the separation**, so nulling it ends it |
@@ -569,6 +571,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/Icbm/IcbmComputer.Warp.cs` | that computer's warp-ahead — **handed to KSA's own warp-to-a-time in hops**, and carried only while it is the computer's |
 | `Ksa/Icbm/IcbmComputer.Separation.cs` | letting the launcher go, the stages a split or a staging shed, and the clearance the trim waits on |
 | `Ksa/Icbm/IcbmComputer.Trim.cs` | driving `BusTrim` on the bus's own jets, the post-boost passes it feeds, and what the trim is said and measured to owe |
+| `Ksa/Icbm/IcbmComputer.Turn.cs` | turning the bus onto its RVs' entry airflow once the split is nulled (`IcbmConfig.PointRvsAtEntry`, off until flown), holding the release and the passes while it turns — **or keeping the cutoff line when the coast left no room** |
 | `Ksa/Icbm/IcbmComputer.Coast.cs` | the coast written down every ten simulated seconds — rails, the bubble, what is near — **measurement, not control** |
 | `Ksa/Icbm/IcbmComputer.Release.cs` | letting a warhead go, the line the launcher holds for it, and the once-a-flight release summary |
 | `Ksa/Icbm/IcbmComputer.Walk.cs` | the walk between targets as actuated — a stop's hand-over, and a hop the trim cannot fly refused |
@@ -686,7 +689,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 819 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 825 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -1285,7 +1288,7 @@ Do the private repo *before* pushing here, or CI fails on the lock it cannot sat
 member that keeps its name and signature and changes its *meaning* — a different reference
 frame, different units, a reordered enum — compiles clean and is wrong in flight. That is what
 the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from 684,000 lines to the files
-defining the 307 types this mod actually uses.
+defining the 310 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 45 in total, 14 MB —

@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-307 types and 819 members across 11 assemblies.
+310 types and 825 members across 11 assemblies.
 
 ## BepuUtilities
 
@@ -913,11 +913,17 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.FlightComputerRollMode RollMode`
 - `KSA.PerAxisAttitudeControlSystem ActiveControlSystem`
 - `KSA.VehicleReferenceFrame AttitudeFrame`
+- `VehicleConfigInfo get_VehicleConfig()`
 - `float AngleDeadband`
 - `float RateLimit`
 - `void ReadUpdatedVehicleConfiguration(KSA.Vehicle)`
 - `void SetAttitudeProfile(KSA.FlightComputerAttitudeProfile)`
 - `void SetManualThrustMode(KSA.FlightComputerManualThrustMode)`
+
+### KSA.FlightComputer+VehicleConfigInfo
+
+- `System.Collections.Generic.List`1<KSA.GimbalController> Gimbals`
+- `System.Collections.Generic.List`1<KSA.ThrusterController> Thrusters`
 
 ### KSA.FlightComputerAttitudeMode
 
@@ -1000,6 +1006,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.GameSettings+GraphicsSettings
 
 - `bool Particles`
+
+### KSA.GimbalController
+
+*referenced as a type only*
 
 ### KSA.GizmosRenderer
 
@@ -1104,7 +1114,13 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.InputEvents
 
+- `TypedBuffer`1<FlightComputerInputData> FlightComputerInputBuffer`
 - `TypedBuffer`1<TeleportInputData> TeleportInputBuffer`
+
+### KSA.InputEvents+FlightComputerInputData
+
+- `KSA.Vehicle Vehicle`
+- `System.Enum EnumValue`
 
 ### KSA.InputEvents+TeleportInputData
 
