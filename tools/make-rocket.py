@@ -94,14 +94,14 @@ SOLID_SEGMENT = "CorePropulsionC_Prefab_SRBESegmentLargeA"
 SOLID_MOTOR = "CorePropulsionC_Prefab_SRBEThrustAssemblyA"
 
 # What each bus carries: its tanks full of MMH/NTO, the mixture GeoSat FAT saves, and its mass all in.
-# The post-boost bus's 124.9 kg a sphere is the draft's 0.1478 m3 inside at the MIRV bus's 845 kg/m3.
+# The post-boost bus's 499.7 kg is its 0.5912 m3 inside at the MIRV bus's 845 kg/m3.
 BUS_MIXTURE = [("MMH(l)", 0.3846), ("N2O4(l)", 0.6154)]
 BUSES = {
-    "mirv": dict(pid="KSArmory_Prefab_MirvBus", tanks={"MirvPropellant": 134.2775},
+    "mirv": dict(pid="KSArmory_Prefab_MirvBus", tanks={"MirvPropellant": 134.2775}, roles="Thruster",
                  mass=2750 + 134.3 + 16),  # declared lump, propellant, sphere tank structure
     "postboost": dict(pid="KSArmory_Prefab_PostBoostBus",
-                      tanks={f"PostBoostPropellant{i}": 124.9 for i in range(4)},
-                      mass=3450 + 4 * 124.9 + 4 * 15.4),
+                      tanks={"PostBoostPropellant": 499.66}, roles="Engine Thruster",
+                      mass=3450 + 499.66 + 38.4),
 }
 BUS_PARTS = {b["pid"] for b in BUSES.values()}
 BUS_CHARGE_J = 50000
@@ -565,13 +565,17 @@ class Rocket:
         bus = dec.attach(Node(lib, pid, (math.pi, 0.0, 0.0)), lib.decoupler_index(BUS_DECOUPLER), 0)
         bus.modules = [
             ("TankData", {"InstanceOf": tank},
-             [("RoleAffinity", {}, "Thruster")] + [mole(s, kg * f, f) for s, f in BUS_MIXTURE])
+             [("RoleAffinity", {}, self.bus["roles"])] + [mole(s, kg * f, f) for s, f in BUS_MIXTURE])
             for tank, kg in self.bus["tanks"].items()]
         bus.modules.append(("BatteryData", {"InstanceOf": pid}, [("Charge", {"J": str(BUS_CHARGE_J)}, None)]))
-        # Sequence 0 is in no stage, so staging never lights the bus's own engine.
+        # KSA puts an unsequenced engine in stage 1, which lights it on the pad; sequence() puts it in
+        # the release's stage, after cutoff has switched the main engines off.
         engine = lib.engine_controller(pid)
         if engine:
             bus.modules.append(("EngineController", {"InstanceOf": engine, "ActiveInStage": "false"}, None))
+            self.bus_engine = bus.modules[-1][1]
+        else:
+            self.bus_engine = None
         bus.modules.append(("ControlData", {"LocalInstanceId": "0", "VehicleName": self.name}, None))
         for i, sub in enumerate(lib.get(pid).subparts):
             game = lib.subpart_game.get(sub)
@@ -640,6 +644,8 @@ class Rocket:
         self.bus_decoupler.modules = [("DecouplerData", {"Sequence": str(seq)}, None)]
         if self.bus_after is not None:
             self.misplace_the_bus()
+        if self.bus_engine is not None:
+            self.bus_engine["Sequence"] = self.bus_decoupler.modules[0][1]["Sequence"]
         self.last_sequence = seq
         for tanks in self.tanks_by_stage:
             for tank in tanks:
