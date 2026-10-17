@@ -405,6 +405,12 @@ internal sealed class IcbmConfig
     public bool BackstopRisesOnTheThrottledFrame;
 
     /// <summary>
+    /// A high short shot that finishes above <see cref="IcbmProgram.ThinAirDensity"/> cuts off there and releases after
+    /// the trim, rather than pausing to coast out of the air and relighting. Off until flown.
+    /// </summary>
+    public bool ShortShotCutsInThinAir;
+
+    /// <summary>
     /// How long the throttle-down runs in the air before <see cref="ShortShotPushesThroughAStall"/> acts, in seconds.
     /// On KSA 5554 LowTWR at 200 km landed 247-344 m out at 10 s and within 24 mm at 4; on 5602, which steers a gimbaled
     /// burn on its thrust line, 10 s lands it in millimetres. Not the default: Real SRB4 at 25 and 150 km came in at 11-14

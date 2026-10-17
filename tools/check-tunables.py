@@ -182,6 +182,7 @@ RESEARCH = (
     "SecondOrderWarheads",
     "ShedWarheadMass",
     "ShortShotBackstopsAtTheTrim",
+    "ShortShotCutsInThinAir",
     "ShortShotFinishesInTheAir",
     "ShortShotKickCapAfterTheTrim",
     "ShortShotMissKickMetresPerSecond",

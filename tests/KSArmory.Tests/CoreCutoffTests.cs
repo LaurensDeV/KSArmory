@@ -20,9 +20,10 @@ public class CoreCutoffTests(ITestOutputHelper Out)
         return rig;
     }
 
-    private static IcbmProgram Fly(double km, double step, bool holdsTheLever, bool throttledBackstop = false)
+    private static IcbmProgram Fly(double km, double step, bool holdsTheLever, bool throttledBackstop = false, bool thinAir = false)
     {
         IcbmConfig config = FlightConfig();
+        config.ShortShotCutsInThinAir = thinAir;
         config.PauseHoldsTheThrottleDown = holdsTheLever;
         config.BackstopRisesOnTheThrottledFrame = throttledBackstop;
         IcbmProgram program = new(config);
@@ -40,6 +41,28 @@ public class CoreCutoffTests(ITestOutputHelper Out)
 
         Assert.True(wound.ThrottleAtCutoff > 0.5, $"unheld, the core cut off at {wound.ThrottleAtCutoff:F2}: the fixture no longer winds the lever up");
         Assert.True(held.ThrottleAtCutoff < 0.15, $"held, the core still cut off at {held.ThrottleAtCutoff:F2}");
+    }
+
+    [Trait("kind", "study")]
+    [Fact]
+    public void CuttingOffInThinAir()
+    {
+        foreach ((bool thin, bool hold) in new[] { (false, false), (true, false), (true, true) })
+        {
+            List<double> residuals = [];
+            foreach (double km in new[] { 700.0, 800.0, 900.0, 1000.0, 1100.0, 1200.0 })
+            foreach (double step in new[] { 0.010, 0.016, 0.022, 0.028 })
+            {
+                IcbmProgram p = Fly(km, step, hold, thinAir: thin);
+                residuals.Add(p.ResidualAtCutoff);
+                Out.WriteLine($"{(thin ? "thin" : "-"),-4} {(hold ? "hold" : "-"),-4} {km,5:F0} km {step * 1000,2:F0} ms: by {p.CutOffBy,-12} residual "
+                          + $"{p.ResidualAtCutoff,6:F2} m/s at {p.ThrottleAtCutoff:F2} of {p.AccelerationAtCutoff:F0} m/s2");
+            }
+
+            residuals.Sort();
+            Out.WriteLine($"  median {residuals[residuals.Count / 2]:F2} m/s, {residuals.Count(r => r > BusTrim.MaxMetresPerSecond)} "
+                          + $"of {residuals.Count} over the trim's first pass, {residuals.Count(r => r > 5.0)} over 5");
+        }
     }
 
     [Trait("kind", "study")]

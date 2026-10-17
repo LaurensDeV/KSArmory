@@ -29,6 +29,12 @@ internal sealed partial class IcbmProgram
 
     private const double AlignBeforeBurningDeg = 15.0;
 
+    // About 55 km on Earth. A GeoSat FAT finishing at 58 km paused, coasted 10 s and relit its 45 g core at 0.92 for
+    // 8 m/s: one frame, and the trim then owed more than it flies.
+    public const double ThinAirDensity = 1e-3;
+
+    private double AirCountsAbove => Config.ShortShotCutsInThinAir ? ThinAirDensity : Medium.NoticeableDensity;
+
     // How far the airflow may hold the thrust off what is left to gain before burning stops helping.
     private const double UsefulThrustDeg = 30.0;
 
@@ -42,7 +48,7 @@ internal sealed partial class IcbmProgram
         // where the air counts: flown at 700 km, at 64 km, released from a stack still turning, with kicks
         // of 0.5-0.66 m/s against a 10 mm/s cap, 0.36 km out; cut off at 98 km the same shot landed 2.2 mm.
         bool highArc = Config.ShortShotFinishesInTheAir && !StaysUnderTheReleaseAltitude(state);
-        bool inTheAir = thickAir || (highArc && state.AirDensityRatio >= Medium.NoticeableDensity);
+        bool inTheAir = thickAir || (highArc && state.AirDensityRatio >= AirCountsAbove);
 
         // A stage that can stop and has finished the shot in thick air pauses instead of ending: the
         // stack coasts up out of the air with the loop still solving, and the engine lights again in
@@ -78,7 +84,7 @@ internal sealed partial class IcbmProgram
 
         if (ShouldCutOff(state))
         {
-            _releasesAtCutoff = _shortShot && (state.AirDensityRatio >= Medium.NoticeableDensity || StaysUnderTheReleaseAltitude(state));
+            _releasesAtCutoff = _shortShot && (state.AirDensityRatio >= AirCountsAbove || StaysUnderTheReleaseAltitude(state));
 
             // Recorded here rather than in Coasting, which clears it. What was left when the
             // engines stopped is the whole story of a shot that lands short on an otherwise
@@ -114,7 +120,7 @@ internal sealed partial class IcbmProgram
 
             if (!usable && (!climbing || _toGain <= BusTrim.MaxMetresPerSecond))
             {
-                _releasesAtCutoff = state.AirDensityRatio >= Medium.NoticeableDensity || StaysUnderTheReleaseAltitude(state);
+                _releasesAtCutoff = state.AirDensityRatio >= AirCountsAbove || StaysUnderTheReleaseAltitude(state);
                 LatchResidual();
                 AccelerationAtCutoff = state.Booster.AccelerationNow;
                 StepAtCutoff = _lastStep;
