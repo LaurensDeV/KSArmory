@@ -12,7 +12,8 @@ namespace KSArmory.Tests;
 ///
 /// <para>What it does not model, so a result here is about the loop's logic and never about whether KSA will fly
 /// it: the bus is a point mass, coasting in vacuum on <see cref="Kepler"/> and pushed by six ideal jets along a
-/// control frame that is exactly the held line, so there is no attitude, no turn and no settling; no part tree,
+/// control frame that is the modelled nose -- the held line, reached at <see cref="TurnRateDegPerSecond"/> after a
+/// commanded turn and otherwise exact, so there is no settling or overshoot; no part tree,
 /// so the split is an impulse on a chosen frame and the stack has no size but its radius; the halves pass through
 /// each other rather than colliding; one frame of command latency and nothing else of the engine's frame order;
 /// no tube offsets, ring or spin, so every warhead leaves the same state and one is flown; no release sequence, so
@@ -62,6 +63,18 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
     public int CommandLatencyFrames = 1;
 
     public double MaxSecondsAfterCutoff = 3_000.0;
+
+    /// <summary>How fast the modelled nose swings onto a new held line; flown, 90 deg took about 3 s.</summary>
+    public double TurnRateDegPerSecond = 30.0;
+
+    /// <summary>Where the air first turns an arriving RV, which is what <see cref="IcbmConfig.PointRvsAtEntry"/> points at.</summary>
+    public double EntryAltitudeMetres = 130_000.0;
+
+    /// <summary>The modelled nose against the released warhead's airflow at entry, one per release; NaN where unknown.</summary>
+    public List<double> NoseFromEntryDeg { get; } = [];
+
+    /// <summary>Whether any release left while a turn was still holding it.</summary>
+    public bool ReleasedTurning { get; private set; }
 
     /// <summary>
     /// What the burn left the bus off its cutoff, along local up: the rig cuts off on the bit, and a flown burn does
@@ -144,6 +157,12 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
     private bool _haveStack;
 
     private IcbmCommand _command;
+
+    // IcbmComputer.Turn.cs's twin: the modelled nose, the turn, and the line it latched.
+    private double3 _attitudeCci;
+    private readonly BusTurn _turn = new();
+    private int _turnLeg;
+    private double3 _entryLineCci;
     private double3 _trueAimCci;
 
     /// <summary>What one flight came to.</summary>
@@ -210,7 +229,8 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
         double3 fromCci = program.CutoffPositionCci;
         double departsIn = double.IsFinite(command.SecondsToCutoff) ? Math.Max(0.0, command.SecondsToCutoff) : 0.0;
 
-        if (!TryPredict(fromCci, arc.RequiredVelocityCci + ReleaseImpulseCci(), out ImpactPredictor.Impact hit)) return;
+        double3 alongCci = arc.RequiredVelocityCci;
+        if (!TryPredict(fromCci, alongCci + PredictedReleaseImpulseCci(fromCci, alongCci), out ImpactPredictor.Impact hit)) return;
 
         double3 landed = departsIn > 0.0 ? Body.CarryCci(hit.GroundFixedPointCci, -departsIn) : hit.GroundFixedPointCci;
 
@@ -237,8 +257,81 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
 
     private double3 ReleaseImpulseCci()
     {
-        double3 nose = _command.ThrustDirectionCci;
+        double3 nose = _attitudeCci.Equals(Vec.Zero) ? _command.ThrustDirectionCci : _attitudeCci;
         return nose.Equals(Vec.Zero) || !Vec.IsFinite(nose) ? Vec.Zero : Vec.Unit(nose) * Warhead.LaunchSpeed;
+    }
+
+    // IcbmComputer.PredictedReleaseImpulseCci: until the turn is done, the kick is thrown along the entry line.
+    private double3 PredictedReleaseImpulseCci(double3 releasePositionCci, double3 releaseVelocityCci)
+    {
+        double3 impulse = ReleaseImpulseCci();
+        if (impulse.Equals(Vec.Zero) || !Program.TurnsAtTheSplit || _turnLeg == 3) return impulse;
+
+        double3 line = _entryLineCci;
+        if (line.Equals(Vec.Zero) && !TryEntryAirflow(releasePositionCci, releaseVelocityCci, out line)) return impulse;
+
+        return Vec.RotationFromTo(Vec.Unit(impulse), Vec.Unit(line)) * impulse;
+    }
+
+    private bool TryEntryAirflow(double3 positionCci, double3 velocityCci, out double3 airflowCci)
+        => EntryDirection.TryAt(Body, positionCci, velocityCci, Body.SurfaceRadius + EntryAltitudeMetres,
+                                out airflowCci, out _);
+
+    // IcbmComputer.TurnIsDue and DriveTurn, for the entry turn only.
+    private void DriveTurn(double step, in IcbmState state, bool released)
+    {
+        if (!Program.TurnsAtTheSplit || _turnLeg == 3) return;
+
+        if (_turnLeg == 0)
+        {
+            bool due = _didSplit && !_awaitingSplit && _command.ReadyToDeploy && !released && _postBoost.Cycles == 0
+                       && (_trim.Done || _trimAbandoned || !Config.TrimBeforeRelease);
+            if (!due) return;
+
+            if (Program.CommittedArrivalFromNow < Program.ReleaseGate
+                || !TryEntryAirflow(state.PositionCci, state.VelocityCci, out double3 airflow))
+            {
+                _turnLeg = 3;
+                return;
+            }
+
+            _turnLeg = 1;
+            _entryLineCci = Vec.Unit(airflow);
+            _turn.Begin(_entryLineCci, Config.TurnCapSeconds);
+            Program.CoastLineCci = _entryLineCci;
+            _measureDue = false;
+            _freshMiss = double.NaN;
+            return;
+        }
+
+        BusTurn.Stage stage = _turn.Update(step, _attitudeCci);
+        if (stage == BusTurn.Stage.Turning) return;
+        if (stage == BusTurn.Stage.Capped) Program.CoastLineCci = _turn.ReachedCci;
+        _turnLeg = 3;
+    }
+
+    // The nose swings onto the held line at a fixed rate, and holds it exactly once there.
+    private void Slew(double seconds)
+    {
+        double3 want = Vec.Unit(_command.ThrustDirectionCci);
+        if (want.Equals(Vec.Zero)) return;
+        if (_attitudeCci.Equals(Vec.Zero))
+        {
+            _attitudeCci = want;
+            return;
+        }
+
+        double angle = Vec.AngleBetween(_attitudeCci, want);
+        double most = double.DegreesToRadians(TurnRateDegPerSecond) * seconds;
+        if (angle <= most)
+        {
+            _attitudeCci = want;
+            return;
+        }
+
+        double3 axis = Vec.Unit(Vec.Cross(_attitudeCci, want));
+        if (axis.Equals(Vec.Zero)) axis = Vec.PerpendicularTo(_attitudeCci, new double3(0, 0, 1));
+        _attitudeCci = Vec.Unit(doubleQuat.CreateFromAxisAngle(axis, most) * _attitudeCci);
     }
 
     private bool TryPredict(double3 fromCci, double3 alongCci, out ImpactPredictor.Impact hit)
@@ -285,11 +378,13 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
             bool burnOver = Program.Phase == IcbmPhase.Coast && !atCutoff && Program.IsShortShot;
             if ((_command.ReadyToDeploy && !atCutoff) || burnOver) SeparateOnce();
 
+            DriveTurn(h, state, Stops.Count > 0);
             TrimCommand trim = DriveTrim(h, state);
             if (_didSplit && double.IsNaN(splitAt)) splitAt = t;
             bool held = PostCutoffSequence.TrimHoldsTheRelease(Config.TrimBeforeRelease, _command.ReadyToDeploy,
                                                                _trimAbandoned, atCutoff, _trim.Done,
-                                                               _postBoost.Correcting);
+                                                               _postBoost.Correcting)
+                        || _turn.Holds;
 
             if (Config.AutoRelease && _command.ReadyToDeploy && !held)
             {
@@ -349,13 +444,14 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
             if (_splitPending)
             {
                 _splitPending = false;
-                double3 nose = Vec.Unit(_command.ThrustDirectionCci);
+                double3 nose = _attitudeCci.Equals(Vec.Zero) ? Vec.Unit(_command.ThrustDirectionCci) : _attitudeCci;
                 _stackPositionCci = _busPositionCci;
                 _stackVelocityCci = _busVelocityCci + nose * SharedErrorAlongNoseMetresPerSecond;
                 _busVelocityCci += nose * (SharedErrorAlongNoseMetresPerSecond + ShoveMetresPerSecond);
                 _haveStack = true;
             }
 
+            Slew(next);
             Advance(ref _busPositionCci, ref _busVelocityCci, next);
             if (_haveStack) Advance(ref _stackPositionCci, ref _stackVelocityCci, next);
             if (_haveStack) Knock();
@@ -540,10 +636,10 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
         return direction * (ThrusterMetresPerSecond2 * burn);
     }
 
-    // The held line, rolled to keep down toward the planet: a point mass has whatever attitude it is asked for.
+    // The modelled nose, rolled to keep down toward the planet.
     private void Frame(out double3 nose, out double3 right, out double3 down)
     {
-        nose = Vec.Unit(_command.ThrustDirectionCci);
+        nose = _attitudeCci.Equals(Vec.Zero) ? Vec.Unit(_command.ThrustDirectionCci) : _attitudeCci;
         double3 toward = -Vec.Unit(_busPositionCci);
         down = Vec.Unit(Vec.RejectFrom(toward, nose));
         if (down.Equals(Vec.Zero)) down = Vec.PerpendicularTo(nose, new double3(0, 0, 1));
@@ -570,7 +666,11 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
         if (!_measureDue) return;
 
         double3 fromCci = state.PositionCci;
-        if (!TryPredict(fromCci, state.VelocityCci + ReleaseImpulseCci(), out ImpactPredictor.Impact hit)) return;
+        if (!TryPredict(fromCci, state.VelocityCci + PredictedReleaseImpulseCci(fromCci, state.VelocityCci),
+                        out ImpactPredictor.Impact hit))
+        {
+            return;
+        }
 
         bool trimIsFiring = _trim.Armed && !_trim.Done && _mayTrim;
 
@@ -661,7 +761,7 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
             return default;
         }
 
-        _mayTrim = plan.MayTrim;
+        _mayTrim = plan.MayTrim && !_turn.Holds;
         _trim.Begin();
 
         Frame(out double3 nose, out double3 right, out double3 down);
@@ -676,6 +776,8 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
             Config.TrimCountsTheCommandInFlight));
 
         ReleaseAnArrivalTheTrimCannotFly(trim, state);
+
+        if (_turn.Holds) return trim;
 
         int passesBefore = _postBoost.Cycles;
 
@@ -761,6 +863,11 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
         double3 fromCci = _busPositionCci;
         double3 alongCci = _busVelocityCci + ReleaseImpulseCci();
         ImpactPredictor.Drag drag = new(DensityAt, Warhead);
+
+        ReleasedTurning |= _turn.Holds;
+        NoseFromEntryDeg.Add(TryEntryAirflow(fromCci, alongCci, out double3 entryAirflow) && !_attitudeCci.Equals(Vec.Zero)
+                                 ? double.RadiansToDegrees(Vec.AngleBetween(_attitudeCci, entryAirflow))
+                                 : double.NaN);
 
         double probeMiss = double.NaN;
         double3 kickCci = Vec.Zero;
