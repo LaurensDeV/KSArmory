@@ -41,14 +41,31 @@ public class TargetSetShiftTests
     }
 
     [Fact]
-    public void TakingOneForANewTargetTakesItFromTheLead()
+    public void TakingOneForANewTargetTakesItFromTheFullest()
     {
         TargetSet set = WithTwo();
 
         Assert.True(set.Shift(1, 1, Aboard));
 
         Assert.Equal(1, set.Entries[1].Warheads);
-        Assert.Equal(Aboard - 1, set.Entries[set.LeadIndex].Warheads);
+        Assert.Equal(Aboard - 1, set.Entries[0].Warheads);
+        Assert.Equal(Aboard, set.Assigned);
+    }
+
+    [Fact]
+    public void ANewTargetThatBecameTheLeadCanStillBeGivenWarheads()
+    {
+        // The case that broke it in play: AddTarget re-elects the lead to whichever target is
+        // farthest, so the empty new one often IS the lead by the time a warhead is wanted.
+        // Taking "from the lead" then took from a target holding nothing and refused, leaving the
+        // first target with all seven and every other with none.
+        TargetSet set = WithTwo();
+        set.SetLead(1);
+
+        Assert.True(set.Shift(1, 2, Aboard));
+
+        Assert.Equal(2, set.Entries[1].Warheads);
+        Assert.Equal(Aboard - 2, set.Entries[0].Warheads);
         Assert.Equal(Aboard, set.Assigned);
     }
 
@@ -67,14 +84,14 @@ public class TargetSetShiftTests
     }
 
     [Fact]
-    public void AnUnassignedRemainderIsSpentBeforeTheLeadIsTouched()
+    public void AnUnassignedRemainderIsSpentBeforeAnyTargetIsTouched()
     {
         TargetSet set = WithTwo();
         set.SetWarheads(0, 4, Aboard);      // three now ride to the lead unassigned
 
         Assert.True(set.Shift(1, 3, Aboard));
 
-        Assert.Equal(4, set.Entries[0].Warheads);   // the lead kept all of its own
+        Assert.Equal(4, set.Entries[0].Warheads);   // the full one kept all of its own
         Assert.Equal(3, set.Entries[1].Warheads);
     }
 
@@ -89,11 +106,12 @@ public class TargetSetShiftTests
     }
 
     [Fact]
-    public void TheLeadCannotTakeFromItself()
+    public void ATargetCannotTakeFromItself()
     {
         TargetSet set = WithTwo();
 
-        Assert.False(set.Shift(set.LeadIndex, 1, Aboard));
+        // Nothing else holds any, so there is nowhere for one to come from.
+        Assert.False(set.Shift(0, 1, Aboard));
     }
 
     [Fact]

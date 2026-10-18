@@ -5,11 +5,67 @@ namespace KSArmory;
 
 internal sealed partial class IcbmComputer
 {
+    /// <summary>
+    /// Somebody has this craft's target list open and is working on it, so the reach is worth
+    /// pricing even with one target placed.
+    /// </summary>
+    /// <remarks>
+    /// Said every frame a map window is open on this craft, and it decays rather than being
+    /// cleared, because the window draws in the UI pass and this is read in the step — a flag
+    /// cleared on use would be false on whichever of the two happened to run first.
+    ///
+    /// Without it a map cannot build a set at all: a second click only adds while the reach is
+    /// known, and the reach was only priced while designate-by-clicking was on, which is a world
+    /// control a map window has no business turning on.
+    /// </remarks>
+    public void NoteBeingEdited() => _editedFor = EditedFrames;
+
+    private bool BeingEdited => _editedFor > 0;
+
+    private const int EditedFrames = 4;
+
+    private int _editedFor;
+
     // The reach the overlay draws, the cursor is refused against and the panel reads -- re-flown
     // rarely and derived every frame, because the set of targets it is priced against changes on a
     // click and a readout a frame behind that reads as the click having done nothing.
+    /// <summary>
+    /// How far this stack could still throw a warhead, as <see cref="BoosterReach"/> bounds it —
+    /// a ceiling, and zero where nothing is asking. Priced only while a map is open on this craft,
+    /// because it is a bisection of arc solves and nothing else reads it.
+    /// </summary>
+    public double BoosterCeilingMetres { get; private set; }
+
+    private double _sinceCeiling = double.PositiveInfinity;
+
+    private const double CeilingIntervalSeconds = 1.0;
+
+    private void RefreshCeiling(in IcbmState state)
+    {
+        if (!BeingEdited)
+        {
+            BoosterCeilingMetres = 0.0;
+            _sinceCeiling = double.PositiveInfinity;
+            return;
+        }
+
+        _sinceCeiling += state.PlayerStepSeconds;
+        if (_sinceCeiling < CeilingIntervalSeconds) return;
+
+        _sinceCeiling = 0.0;
+
+        BoosterCeilingMetres = BoosterReach.CeilingMetres(state.Body, state.PositionCci,
+                                                          state.VelocityCci,
+                                                          state.Booster.DeltaVRemaining,
+                                                          Config.MinArrivalAngleDeg);
+    }
+
     private void RefreshReach(in IcbmState state)
     {
+        if (_editedFor > 0) _editedFor--;
+
+        RefreshCeiling(state);
+
         bool coasting = Program.Phase == IcbmPhase.Coast;
 
         // The coast's own LENGTH, latched at cutoff, never what is left of it: CoastFits asks
@@ -28,7 +84,7 @@ internal sealed partial class IcbmComputer
                       // The reach exists to place and to check targets, and neither is happening on a
                       // bus nobody is clicking at with a set of one. Seven predictor flights per
                       // rocket per interval is not a thing to spend on a rocket nobody is editing.
-                      && (Config.DesignateByClicking || _targets.Count > 1);
+                      && (Config.DesignateByClicking || _targets.Count > 1 || BeingEdited);
 
         if (!wanted)
         {

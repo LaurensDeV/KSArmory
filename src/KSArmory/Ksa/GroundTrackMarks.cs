@@ -25,6 +25,8 @@ internal static class GroundTrackMarks
     private static readonly ImColor8 Other = new(255, 170, 60, 170);
     private static readonly ImColor8 Count = new(255, 200, 130, 200);
     private static readonly ImColor8 Reach = new(90, 190, 255, 150);
+    private static readonly ImColor8 Craft = new(120, 255, 170, 230);
+    private static readonly ImColor8 Ceiling = new(120, 255, 170, 90);
 
     // Fireball, what it destroys, what it damages. Hottest in, faintest out -- the order they are
     // read in is outward, and the eye should land on the lethal one.
@@ -36,6 +38,7 @@ internal static class GroundTrackMarks
 
     private const float MarkPx = 5f;
     private const float CrossArmPx = 5f;
+    private const float CraftPx = 5f;
 
     // Enough that the longest reach reads as a curve rather than a polygon; it is one conversion
     // and one projection each, on a window nobody has open while flying.
@@ -72,6 +75,7 @@ internal static class GroundTrackMarks
             DrawReach(draw, computer, at, size, min, max);
             DrawEffects(draw, computer, at, size, min, max);
             DrawTargets(draw, computer, at, size, min, max);
+            DrawCraft(draw, computer, at, size, min, max);
 
             // Inside the clip, so the cursor's own line cannot spill over the window's chrome.
             GroundTrackDesignator.Update(computer, at, size, min, max);
@@ -137,8 +141,7 @@ internal static class GroundTrackMarks
         double charge = warhead.ChargeKg;
         if (!(charge > 0.0)) return;
 
-        double across = Math.Max(1e-6, max.Y - min.Y);
-        double perDegree = size.Y / (across * 180.0);
+        double perDegree = PixelsPerDegree(size, min, max);
 
         var entries = computer.Targets;
 
@@ -154,6 +157,11 @@ internal static class GroundTrackMarks
             Ring(draw, body, site, Warhead.FireballRadius(charge), perDegree, Fireball, at, size, min, max);
         }
     }
+
+    // How many pixels a degree of latitude is worth at this crop, which is what says whether a
+    // ring is worth walking at all.
+    private static double PixelsPerDegree(float2 size, float2 min, float2 max)
+        => size.Y / (Math.Max(1e-6, max.Y - min.Y) * 180.0);
 
     private static void Ring(ImDrawListPtr draw, Celestial body, AimSite site, double metres,
                              double pixelsPerDegree, ImColor8 colour,
@@ -183,6 +191,40 @@ internal static class GroundTrackMarks
             wasU = u;
             have = true;
         }
+    }
+
+    // The rocket itself, under which the whole map is otherwise anonymous: a target list says
+    // where the warheads go and nothing says where they leave from.
+    private static void DrawCraft(ImDrawListPtr draw, IcbmComputer computer,
+                                  float2 at, float2 size, float2 min, float2 max)
+    {
+        if (!KsaWorld.IsAlive(computer.Craft)) return;
+        if (!KsaWorld.TryLatitudeLongitude(KsaWorld.PositionEcl(computer.Craft), out _,
+                                           out double lat, out double lon))
+        {
+            return;
+        }
+
+        if (!MapViewport.Shows(MapViewport.ToUv(lon, lat), min, max)) return;
+
+        // How far it could throw one, round where it would throw it from. A ceiling rather than a
+        // line a shot will make -- see BoosterReach -- so it is drawn fainter than anything that
+        // refuses a click.
+        if (computer.BoosterCeilingMetres > 0.0 && computer.Parent is { } body)
+        {
+            Ring(draw, body, new AimSite(body.Id, lat, lon, ""), computer.BoosterCeilingMetres,
+                 PixelsPerDegree(size, min, max), Ceiling, at, size, min, max);
+        }
+
+        float2 point = GroundTrackWindow.ProjectOnImage(at, size, lon, lat, min, max);
+
+        // A chevron, so it cannot be read as one of the diamonds the warheads are going to.
+        draw.AddTriangleFilled(new float2(point.X, point.Y - CraftPx),
+                               new float2(point.X - CraftPx, point.Y + CraftPx),
+                               new float2(point.X + CraftPx, point.Y + CraftPx), Craft);
+
+        draw.AddText(new float2(point.X + CraftPx + 3f, point.Y - 6f), Craft,
+                     KsaWorld.DisplayName(computer.Craft));
     }
 
     private static void DrawTargets(ImDrawListPtr draw, IcbmComputer computer,
@@ -265,8 +307,18 @@ internal static class GroundTrackMarks
             segments++;
         }
 
+        // The centre is the booster's predicted landing, not the place that was clicked, so how
+        // far apart those are is the whole question of whether the ring sits where it belongs.
+        string offset = "";
+
+        if (computer.Targets.Count > 0
+            && computer.SiteEcl(computer.Targets[computer.LeadTarget].Site) is { } lead)
+        {
+            offset = $", centre {Vec.Len(centre - lead) / 1000.0:F2} km from the lead";
+        }
+
         SayReach($"{segments} point(s), semi-axes {Vec.Len(major) / 1000.0:F1} x "
-                 + $"{Vec.Len(minor) / 1000.0:F1} km");
+                 + $"{Vec.Len(minor) / 1000.0:F1} km{offset}");
     }
 
     // Said when the answer changes. Which of the three refusals it is matters: a bus on the pad

@@ -16,6 +16,11 @@ namespace KSArmory;
 /// so a press is the start of a pan as often as it is a click. The gesture is a release near where
 /// the press landed; anything further is the operator having moved the map, and designating there
 /// would put a warhead wherever the drag happened to end.</para>
+///
+/// <para><b>And it needs no arming.</b> <c>DesignateByClicking</c> gates the <em>world</em>
+/// designator, where a click already means other things and a mode is what separates them. A map
+/// window is the tool: there is nothing else a click on it could be for, so a switch there is a
+/// step that teaches nobody anything and leaves the window looking broken until it is found.</para>
 /// </summary>
 internal static class GroundTrackDesignator
 {
@@ -31,10 +36,6 @@ internal static class GroundTrackDesignator
     public static void Update(IcbmComputer computer, float2 at, float2 size,
                               float2 min, float2 max)
     {
-        // The same switch the world designator obeys, so the two cannot disagree about whether
-        // clicking is armed -- and so there is one control for it rather than two.
-        if (!computer.Config.DesignateByClicking) return;
-
         float2 mouse = ImGui.GetMousePos();
         bool over = MapViewport.TryPlace(at, size, min, max, mouse, out double lon, out double lat);
 
@@ -50,6 +51,14 @@ internal static class GroundTrackDesignator
             _pressed = mouse;
         }
 
+        // Right-click takes a target away whatever it holds. Shift-clicking a warhead off at a
+        // time is how it was done, and on a target holding all seven that is eight gestures.
+        if (over && mark >= 0 && ImGui.IsMouseReleased(ImGuiMouseButton.Right))
+        {
+            Drop(computer, mark);
+            return;
+        }
+
         if (!ImGui.IsMouseReleased(ImGuiMouseButton.Left)) return;
 
         bool wasClick = _pressing && over
@@ -61,6 +70,30 @@ internal static class GroundTrackDesignator
 
         if (mark >= 0) Weigh(computer, mark, ImGui.GetIO().KeyShift ? -1 : 1);
         else Take(computer, lon, lat);
+    }
+
+    // The lead cannot be removed -- the arc, the correction and the trim are all solved against
+    // it, so replacing it is a new shot rather than an edit. With one target it IS the lead, and
+    // then the only honest answer is to clear the set, which is what designating nothing does.
+    private static void Drop(IcbmComputer computer, int index)
+    {
+        if (computer.MayRemoveTarget(index))
+        {
+            computer.RemoveTarget(index);
+            Log.Debug($"ground-track map: target {index + 1} removed, "
+                      + $"{computer.Targets.Count} left");
+            return;
+        }
+
+        if (computer.Targets.Count == 1)
+        {
+            computer.Designate(AimSite.None);
+            Log.Debug("ground-track map: the last target was the lead, so the set is cleared");
+            return;
+        }
+
+        Log.Debug($"ground-track map: target {index + 1} is the lead and stays; "
+                  + "clear the set to start over");
     }
 
     // A click on a mark moves one warhead onto it; shift takes one back, and the click that would
@@ -167,9 +200,8 @@ internal static class GroundTrackDesignator
             bool back = ImGui.GetIO().KeyShift;
 
             string what = back
-                ? had == 0 ? computer.MayRemoveTarget(mark) ? "remove" : "the lead stays"
-                           : $"take one back ({had - 1})"
-                : $"one more here ({had + 1})";
+                ? had == 0 ? "right-click to remove" : $"take one back ({had - 1})"
+                : $"one more here ({had + 1})   right-click removes";
 
             list.AddText(spot, Takes, what);
             list.AddText(new float2(spot.X, spot.Y + 14f), Refused,

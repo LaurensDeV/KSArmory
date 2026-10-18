@@ -202,10 +202,11 @@ internal sealed class TargetSet
     /// Move warheads onto one target, by one or by several — what a click on a map does.
     /// </summary>
     /// <remarks>
-    /// <para><b>The lead is the pool.</b> A target that takes none still rides there
-    /// (<see cref="Describe"/>), and <c>Designate</c> hands it everything aboard, so there is
-    /// nowhere else for a warhead to come from. Taking spills from the unassigned remainder first
-    /// where there is one, and from the lead after.</para>
+    /// <para><b>It comes from whichever target holds the most</b>, after any unassigned remainder
+    /// is spent. Not from the lead: <c>Designate</c> puts everything aboard on the one target, but
+    /// adding another re-elects the lead to whichever is farthest, so by the time a warhead is
+    /// wanted the lead is often the empty new target and the full one is no longer it. Taking
+    /// "from the lead" then takes from a target holding nothing and refuses.</para>
     ///
     /// <para><b>Giving one back does not name a destination.</b> It simply stops being assigned,
     /// and an unassigned warhead already rides to the lead — crediting it explicitly would be the
@@ -228,21 +229,36 @@ internal sealed class TargetSet
         }
 
         int spare = Math.Max(0, available - Assigned);
-        int fromLead = delta - Math.Min(spare, delta);
+        int owed = delta - Math.Min(spare, delta);
 
-        if (fromLead > 0)
+        if (owed > 0)
         {
-            if (index == LeadIndex) return false;
-            if (_entries[LeadIndex].Warheads < fromLead) return false;
+            int from = Fullest(index);
+            if (from < 0 || _entries[from].Warheads < owed) return false;
 
-            _entries[LeadIndex] = _entries[LeadIndex] with
-            {
-                Warheads = _entries[LeadIndex].Warheads - fromLead,
-            };
+            _entries[from] = _entries[from] with { Warheads = _entries[from].Warheads - owed };
         }
 
         _entries[index] = _entries[index] with { Warheads = want };
         return true;
+    }
+
+    // Which other target has the most to give. Ties keep the earliest, which is the order the
+    // player stated them in.
+    private int Fullest(int besides)
+    {
+        int found = -1;
+        int most = 0;
+
+        for (int i = 0; i < _entries.Count; i++)
+        {
+            if (i == besides || _entries[i].Warheads <= most) continue;
+
+            most = _entries[i].Warheads;
+            found = i;
+        }
+
+        return found;
     }
 
     /// <summary>

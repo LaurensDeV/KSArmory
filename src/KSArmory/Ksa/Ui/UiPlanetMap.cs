@@ -74,6 +74,10 @@ internal sealed partial class Ui
         // Flat, not the real terminator: half a planet in darkness is no use for picking a place.
         _planetMap.SetLit(false);
 
+        // This window open is somebody editing the list, which is what prices the divert reach --
+        // and without a reach a click can only ever replace the set, never add to it.
+        computer.NoteBeingEdited();
+
         DrawPlanetMapHeader(computer);
 
         // Fitted, not filled. Filling the width squashes the picture whenever the window is
@@ -83,6 +87,16 @@ internal sealed partial class Ui
                                       LeastPx, out float inset);
 
         if (inset > 0f) ImGui.SetCursorPosX(ImGui.GetCursorPosX() + inset);
+
+        // Taken here because the pan is in pixels of the image, and only the draw knows how big
+        // that is. Before the viewport call, so this frame already shows the fitted view.
+        if (_fitWanted)
+        {
+            _fitWanted = false;
+            KsaWorld.SetMapView(_planetView, _fitZoom,
+                                new float2(_fitTo.X * size.X * _fitZoom,
+                                           _fitTo.Y * size.Y * _fitZoom));
+        }
 
         // Ours, so it may be called outright -- it consumes the drag and the wheel notch, which is
         // exactly why nothing may call it twice in a frame.
@@ -97,6 +111,13 @@ internal sealed partial class Ui
         GroundTrackMarks.Draw(computer, at, size, min, max, _config.DrawGroundTrackCalibration);
         GroundTrackDesignator.Update(computer, at, size, min, max);
 
+        // The first target placed is the one moment the reach is worth looking at and cannot be
+        // seen: it is kilometres across on a map forty thousand wide. Fitted once, on the click
+        // that creates the set, and never again -- the view is the operator's after that.
+        if (computer.Targets.Count == 1 && _hadTargets == 0) FitToReach(computer);
+
+        _hadTargets = computer.Targets.Count;
+
         DrawPlanetMapTargets(computer);
     }
 
@@ -109,13 +130,10 @@ internal sealed partial class Ui
         else ImGui.TextDisabled("safe");
 
         ImGui.SameLine();
-        bool picking = computer.Config.DesignateByClicking;
-        if (ImGui.Checkbox("Click to aim", ref picking)) computer.Config.DesignateByClicking = picking;
-        Tip("Click bare ground to put a target there, and click a target again to put another "
-            + "warhead on it -- the number beside the mark is how many clicks it has had. Shift "
-            + "takes one back, and shift on a target with none removes it. A warhead comes from "
-            + "the lead, which is where an unplaced one rides anyway. A refused click says why "
-            + "beside the pointer before it is made.");
+        if (ImGui.SmallButton("Clear")) computer.Designate(AimSite.None);
+        Tip("Forget every target and start the shot over. The lead cannot be removed on its own "
+            + "- the arc, the correction and the trim are solved against it - so with one target "
+            + "left this is the only way to take it off.");
 
         ImGui.SameLine();
         if (ImGui.SmallButton("Spread")) computer.BalanceTargets();
@@ -123,11 +141,61 @@ internal sealed partial class Ui
             + "click a mark to put one more on it; this is the whole-handful way.");
 
         ImGui.SameLine();
+        if (ImGui.SmallButton("Fit reach")) FitToReach(computer);
+        Tip("Zoom to the ground this bus can still divert to. A post-boost bus moves a landing by "
+            + "kilometres, not hundreds of them, so at whole-planet zoom that circle is a fraction "
+            + "of a pixel - which is why a second target has to go near the first.");
+
+        ImGui.SameLine();
         if (ImGui.SmallButton("Whole world")) _planetView.ResetView();
         Tip("Back to the whole planet. Drag to pan, wheel to zoom, middle-click to reset.");
 
+        // The number, always, because the circle itself is invisible at most zooms and a refused
+        // click is otherwise unexplainable.
+        if (computer.Reach.HasRegion)
+        {
+            ImGui.TextDisabled($"  another target must land within "
+                               + $"{Distance.Say(computer.Reach.SemiMinorMetres)} of this one");
+        }
+        else
+        {
+            ImGui.TextDisabled($"  {computer.Reach.Say()}");
+        }
+
         ImGui.Separator();
     }
+
+    // Zoom so the divert reach is a quarter of the picture, centred on the target it is measured
+    // around. The crop is one over the zoom across and down, so a ring of this many degrees wants
+    // a zoom of a quarter of the view divided by its diameter in the same units.
+    private void FitToReach(IcbmComputer computer)
+    {
+        if (computer.Parent is not { } body) return;
+        if (computer.Targets.Count == 0) return;
+        if (!computer.Reach.HasRegion) return;
+
+        AimSite lead = computer.Targets[computer.LeadTarget].Site;
+        if (!lead.IsSet) return;
+
+        double degrees = GroundCircle.HeightDeg(computer.Reach.SemiMajorMetres, body.MeanRadius);
+        if (!(degrees > 0.0)) return;
+
+        float zoom = (float)Math.Clamp(ShareOfView * 90.0 / degrees, 1.0, 5000.0);
+        float2 uv = MapViewport.ToUv(lead.LongitudeDeg, lead.LatitudeDeg);
+        float half = 0.5f / zoom;
+
+        _fitTo = new float2(-(uv.X - half), -(uv.Y - half));
+        _fitZoom = zoom;
+        _fitWanted = true;
+    }
+
+    // What share of the window the reach should fill when fitted.
+    private const double ShareOfView = 0.25;
+
+    private float2 _fitTo;
+    private float _fitZoom = 1f;
+    private bool _fitWanted;
+    private int _hadTargets;
 
     private void DrawPlanetMapTargets(IcbmComputer computer)
     {
@@ -154,6 +222,8 @@ internal sealed partial class Ui
         }
 
         ImGui.TextDisabled($"{entries.Count} target(s), {computer.Reach.Say()}");
+        ImGui.TextDisabled("  click to place, click again for another warhead, "
+                           + "shift-click to take one back, right-click to remove");
 
         for (int i = 0; i < entries.Count; i++)
         {
@@ -171,6 +241,12 @@ internal sealed partial class Ui
             {
                 ImGui.SameLine();
                 if (ImGui.SmallButton("drop")) computer.RemoveTarget(i);
+            }
+            else if (entries.Count == 1)
+            {
+                ImGui.SameLine();
+                if (ImGui.SmallButton("drop")) computer.Designate(AimSite.None);
+                Tip("The last target is the lead, so taking it off is clearing the set.");
             }
 
             ImGui.PopID();

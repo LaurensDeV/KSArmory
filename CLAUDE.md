@@ -512,6 +512,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/TerrainMask.cs` | whether a ridge hides a contact, and how few samples that can cost |
 | `Sim/TerrainRay.cs` | where the pointer meets the ground — **the first place the ray goes under it**, walked from the eye, because the mean sphere's hit refined by the height there lands behind a hill seen side-on |
 | `Sim/TerrainMap.cs` | a local east/north frame on a body, and the square of ground drawn around it |
+| `Sim/BoosterReach.cs` | how far a stack could still throw a warhead — **a ceiling, not a promise**: it prices the velocity still to be gained and knows nothing about what the climb costs, and a floor built on an unmeasured loss allowance would be worse than a bound that says what it is. Bisected with `BallisticArc.TryCheapest`, the solver the flight uses |
 | `Sim/GroundCircle.cs` | a ring of ground a fixed distance from a place — **walked on the sphere, because a blast radius is not a circle on an equirectangular map**: it widens with the cosine of the latitude and wraps whole at a pole |
 | `Sim/MapViewport.cs` | a place on an equirectangular planet map, and the visible crop of one — **the crop is KSA's own arithmetic restated, and only the fallback**: the live one is captured as the engine computes it, and these two are checked against each other once a session |
 | `Sim/Picking.cs` | what the cursor's ray meets, and what is nearest it on screen |
