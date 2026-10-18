@@ -38,8 +38,8 @@ internal static class GroundTrackMarks
     private static readonly double[] Latitudes = [45.0, 0.0, -45.0];
     private static readonly double[] Longitudes = [-90.0, 0.0, 90.0];
 
-    public static void Draw(IcbmComputers computers, GroundTrackWindow window,
-                            float2 at, float2 size, float2 min, float2 max, bool calibration)
+    public static void Draw(IcbmComputer? computer, float2 at, float2 size,
+                            float2 min, float2 max, bool calibration)
     {
         ImDrawListPtr draw = ImGui.GetWindowDrawList();
 
@@ -53,8 +53,7 @@ internal static class GroundTrackMarks
         {
             if (calibration) DrawCalibration(draw, at, size, min, max);
 
-            if (!KsaWorld.TryGroundTrackCraft(window, out Vehicle? craft)) return;
-            if (computers.For(craft) is not { } computer) return;
+            if (computer is null) return;
 
             // Under the targets: the region is context for them, and an outline crossing a mark
             // should not be the thing on top.

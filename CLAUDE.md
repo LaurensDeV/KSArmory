@@ -581,10 +581,12 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/Icbm/IcbmComputer.Prediction.cs` | the flown impact prediction the aim correction reads |
 | `Ksa/Icbm/IcbmComputer.Reach.cs` | the divert footprint flown, pinned at the epoch, and read back as offsets and axes for the panel and the overlay |
 | `Ksa/Icbm/IcbmComputers.cs` | one per craft carrying a part that provides `Guidance` — **the two buses alone today**, so a Pantsir or a rail gets none — crewed and forgotten with it |
-| `Ksa/AttitudeHook.cs` | **one of the nine places this mod patches the game** — the only window in which an attitude command survives |
+| `Ksa/AttitudeHook.cs` | **one of the ten places this mod patches the game** — the only window in which an attitude command survives |
 | `Ksa/PreRenderHook.cs` | the second — **a step before the render on a frame that draws no UI**, because StarMap has no hook that is both |
 | `Ksa/WorldReloadHook.cs` | the third — **that a save was loaded**, which nothing else can tell: the mod never leaves the flight scene across one |
 | `Ksa/GroundTrackHook.cs` | **what lets this mod draw on KSA's ground-track map** — a prefix measuring the image's rect, which `DrawContent` keeps in locals, a postfix that draws, and a third patch **taking the crop as the engine works it out**, so a mark and the picture under it cannot disagree. KSA already renders the planet, so owning an exporter would mean driving a Vulkan pass for a picture the game is drawing anyway |
+| `Ksa/PlanetMap.cs` | **this mod's own planet picture** — an equirectangular map from KSA's own exporter, built on demand and given back the moment nothing is looking at it, because it is a second planet render per frame |
+| `Ksa/PlanetMapHook.cs` | the instant one may be rendered — a postfix on `PlanetRenderer.ProcessExporter`, which the engine calls inside its `UpdatePlanetMaps` region with the command buffer, the body, the viewport and the frame index. **The only place a render pass may begin** |
 | `Ksa/GroundTrackDesignator.cs` | clicking that map to put the warheads somewhere — **the same decision as `Ksa/SiteDesignator.cs`**, through `TargetEdit.ClickDoes` and `ReachDisplay.Verdict`, so a click on the map and one on the ground behave alike down to the refusals. A release near its own press, because the map is the button KSA pans with |
 | `Ksa/GroundTrackMarks.cs` | what goes on that map — today a calibration cross at nine round coordinates, **placed with KSA's own `ProjectOnImage`** so a mark cannot disagree with the locations beside it. They sit on the ground they name, **not on KSA's grid lines**, which are spread across whatever is visible rather than drawn at round degrees |
 | `Ksa/SaveHook.cs` | **which save is open, and that the game just wrote one** — postfixes on `UncompressedSave.Load` and `Make`, because KSA keeps no record of the loaded save and `GameSaves.Selected` is only the row highlighted in its list, which a console load, a scenario and a save-as never set |
@@ -603,6 +605,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/Ui/UiDebug.cs` | test targets, moving craft, hand-fired bursts, the log |
 | `Ksa/Ui/UiMap.cs` | the ground under a director as shaded relief, with what it can see marked on it |
 | `Ksa/Ui/UiIcbm.cs` | the ballistic computer's pane — what it is aimed at, whether it will get there, and **everything a player need not touch under one closed Engineering fold**, shown only on a developer's install |
+| `Ksa/Ui/UiPlanetMap.cs` | the installation's own map window — the planet, the target list beside it, and KSA's own pan-and-zoom viewport **called directly**, so nothing has to work out what the picture is showing |
 | `Ksa/Ui/UiScope.cs` | the radar scope: what the *set* holds, craft-centred and polar, on the Radar tab |
 | `Ksa/Ui/UiWeapons.cs` | the weapon switcher — which of a craft's weapons the trigger is pointed at, with each one's ammo and arm state |
 | `Ksa/Ui/UiReport.cs` | the one window behind **Report bug** and **Feedback** |
@@ -693,7 +696,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 841 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 859 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -1293,7 +1296,7 @@ Do the private repo *before* pushing here, or CI fails on the lock it cannot sat
 member that keeps its name and signature and changes its *meaning* — a different reference
 frame, different units, a reordered enum — compiles clean and is wrong in flight. That is what
 the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from 684,000 lines to the files
-defining the 313 types this mod actually uses.
+defining the 318 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 45 in total, 14 MB —
@@ -1654,7 +1657,7 @@ the decisions not to re-open; the section named in each has the evidence.
 - **One computer per craft**, not per launcher, and **a shot short of propellant is flown, reported and
   holds its warheads** rather than refused at launch, since KSA reports only the running stage.
 
-**Attitude is written from a Harmony prefix, and it is one of nine patches.** KSA
+**Attitude is written from a Harmony prefix, and it is one of ten patches.** KSA
 double-buffers a vehicle's flight computer: `ApplyVehicleSolvers` writes the worker's result over
 it, `ExecuteNextVehicleSolvers` snapshots it for the next worker, and *then* the GUI pass runs — so
 a command written from any StarMap hook is not in the snapshot and is overwritten before anything

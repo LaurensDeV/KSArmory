@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-313 types and 841 members across 11 assemblies.
+318 types and 859 members across 11 assemblies.
 
 ## BepuUtilities
 
@@ -1018,7 +1018,9 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `Brutal.Numerics.float2 GetPan()`
 - `float GetZoom()`
+- `void .ctor()`
 - `void CreateDraggableZoomableViewport(Brutal.Numerics.float2, ref Brutal.Numerics.float2, ref Brutal.Numerics.float2)`
+- `void ResetView()`
 
 ### KSA.GimbalController
 
@@ -1431,6 +1433,29 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `ref KSA.VehicleProperties Props`
 - `void UpdateFromAnalytic(KSA.Orbit, ref KSA.StateVectors, Brutal.Numerics.doubleQuat, Brutal.Numerics.double3, KSA.Situation)`
 
+### KSA.PlanetMapExporter
+
+- `Brutal.ImGuiApi.ImTextureRef[] get_PlanetMapImGuiIds()`
+- `bool Enabled`
+- `void .ctor(Core.Renderer, KSA.PlanetRenderer, ViewportResolution)`
+- `void Dispose()`
+- `void OnFrame(KSA.Celestial, PushConstData)`
+- `void Render(Brutal.VulkanApi.CommandBuffer, KSA.Celestial, KSA.IViewport, int)`
+- `void SetMapLightingEnabled(bool)`
+- `void SetViewportMax(Brutal.Numerics.float2)`
+- `void SetViewportMin(Brutal.Numerics.float2)`
+- `void ToggleEnabled()`
+
+### KSA.PlanetMapExporter+ViewportResolution
+
+*referenced as a type only*
+
+### KSA.PlanetRenderer
+
+- `Brutal.Numerics.float4x4 GetRenderBillboardMatrix(KSA.Camera)`
+- `Brutal.Numerics.float4x4 GetRenderTextureMatrix(KSA.Camera)`
+- `void ProcessExporter(Brutal.VulkanApi.CommandBuffer, KSA.Celestial, KSA.IViewport, int)`
+
 ### KSA.PlanetTransparenciesRenderer
 
 - `KSA.Atmosphere.Rendering.CloudRenderer GetCloudRenderer()`
@@ -1474,6 +1499,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.GizmosRenderer GizmosRenderer`
 - `KSA.GpuTextureSystem TextureSystem`
 - `KSA.IGameViewport get_MainViewport()`
+- `KSA.PlanetRenderer GetPlanetRenderer()`
 - `KSA.PrePassRenderer PrePassRenderer`
 - `KSA.Program get_Instance()`
 - `KSA.Rendering.Lighting.ILightSystem LightSystem`
@@ -1586,6 +1612,15 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.Rendering.Particles.ParticleUpdateData
 
 *referenced as a type only*
+
+### KSA.Rendering.Planet.PlanetViewportData
+
+*referenced as a type only*
+
+### KSA.Rendering.Planet.PlanetViewportData+PushConstData
+
+- `Brutal.Numerics.float4x4 MeshMatrix`
+- `Brutal.Numerics.float4x4 TextureMatrix`
 
 ### KSA.Rendering.RenderImage
 

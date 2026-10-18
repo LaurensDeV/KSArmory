@@ -258,6 +258,7 @@ internal sealed class Bridge : IViewPose
             "control" => Control(command),
             "ground_track" => GroundTrack(command),
             "designate" => Designate(command),
+            "icbm_map" => IcbmMap(command),
             "remove" => RemoveCraft(command),
             "orbit" => PutInOrbit(command),
             "attitude" => Attitude(command),
@@ -685,6 +686,27 @@ internal sealed class Bridge : IViewPose
     }
 
     // Fly the named craft: the camera follows it and the controls drive it.
+    // This mod's own map window, opened on a craft -- the one a test drives, since the window is
+    // the mod's and the panel is the only other way in.
+    private Reply IcbmMap(BridgeCommand command)
+    {
+        string name = command.String("craft");
+        Vehicle? craft = name.Length > 0 ? CraftNamed(name) : KsaWorld.ControlledVehicle;
+
+        if (craft is null) return Failed("no such craft, and none is being flown");
+        if (_computerFor(craft) is not { } computer) return Failed("that craft has no ballistic computer");
+
+        bool open = command.Number("open", 1.0) != 0.0;
+        computer.Config.MapOpen = open;
+
+        return Done(new()
+        {
+            ["craft"] = KsaWorld.DisplayName(craft),
+            ["open"] = open,
+            ["render_hooked"] = PlanetMapHook.Installed,
+        });
+    }
+
     // Where a craft's warheads are aimed, set from outside -- the first target replaces the set,
     // and add=1 appends one. The panel does this by clicking the world; a test cannot click.
     private Reply Designate(BridgeCommand command)

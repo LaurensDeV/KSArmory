@@ -181,12 +181,18 @@ public sealed class KSArmoryMod
         // the flight scene across it. A refusal costs one reload's worth of stale rounds.
         WorldReloadHook.Install();
 
+        PlanetMapHook.Install(() => _ui?.PlanetMap);
+
         GroundTrackHook.Install((window, at, size, cropMin, cropMax) =>
         {
             if (_icbms is not { } computers) return;
             if (!_config.DrawGroundTrackMarks && !_config.DrawGroundTrackCalibration) return;
 
-            GroundTrackMarks.Draw(computers, window, at, size, cropMin, cropMax,
+            IcbmComputer? computer =
+                KsaWorld.TryGroundTrackCraft(window, out Vehicle? craft) ? computers.For(craft)
+                                                                        : null;
+
+            GroundTrackMarks.Draw(computer, at, size, cropMin, cropMax,
                                   _config.DrawGroundTrackCalibration);
         });
 
@@ -1046,6 +1052,7 @@ public sealed class KSArmoryMod
         PreRenderHook.Remove();
         WorldReloadHook.Remove();
         GroundTrackHook.Remove();
+        PlanetMapHook.Remove();
         SaveHook.Remove();
         RoundBodyDrawHook.Remove();
         LooseBodyDrawHook.Remove();
@@ -1494,6 +1501,7 @@ public sealed class KSArmoryMod
         PreRenderHook.Remove();
         WorldReloadHook.Remove();
         GroundTrackHook.Remove();
+        PlanetMapHook.Remove();
         SaveHook.Remove();
         RoundBodyDrawHook.Remove();
         LooseBodyDrawHook.Remove();

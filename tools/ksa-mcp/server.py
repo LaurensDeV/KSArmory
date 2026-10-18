@@ -455,6 +455,10 @@ TOOLS = {
                   "lay": {"type": "boolean"}, "rounds": _num("rounds"), "station": _num("launcher number"),
                   "at_craft": {"type": "string"}}, [],
                  lambda a: [_text(json.dumps(send("fire", **a)))]),
+    "ksa_icbm_map": ("Open or close this mod's own ICBM map window on a craft (default: the one being flown). "
+                    "open=0 shuts it, which also gives the planet texture back.",
+                    {"craft": {"type": "string"}, "open": _num("0 or 1")}, [],
+                    lambda a: [_text(json.dumps(send("icbm_map", **a)))]),
     "ksa_designate": ("Aim a craft's warheads at a latitude and longitude. The first call replaces the target "
                      "set; add=1 appends another, up to the bus's limit. What the panel does by clicking the "
                      "world, for a test that cannot click.",

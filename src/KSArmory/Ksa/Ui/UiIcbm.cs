@@ -86,6 +86,12 @@ internal sealed partial class Ui
             + "designating there would start the shot over on a bus that is already coasting. This "
             + "also arms clicking on the ground-track map.");
 
+        if (Toggle("Map", config.MapOpen)) config.MapOpen = !config.MapOpen;
+        Tip("A planet to put the warheads on, with the target list beside it. Drag to pan, wheel "
+            + "to zoom. It renders a second picture of the planet while it is open, so it is shut "
+            + "by default.");
+
+        ImGui.SameLine();
         ImGui.Checkbox("Show on the ground-track map", ref _config.DrawGroundTrackMarks);
         Tip("Draws the targets and the ground this bus can still divert to on KSA's own "
             + "ground-track map, which F3 opens. The lead target is filled and the number beside "

@@ -71,6 +71,12 @@ internal sealed class IcbmConfig
     public bool DesignateByClicking = false;
 
     /// <summary>
+    /// This installation's own map window — a planet to put the warheads on, with the target list
+    /// beside it. Shut by default: it is a second planet render for as long as it is open.
+    /// </summary>
+    public bool MapOpen = false;
+
+    /// <summary>
     /// Fire the next sequence when there is nothing to burn with: the ignition on the pad, and each
     /// spent stage after it.
     /// </summary>

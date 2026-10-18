@@ -303,6 +303,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         DrawReportWindow();
         DrawMapWindow();
         DrawScopeWindow();
+        DrawPlanetMapWindow();
         DrawWeaponsWindow();
     }
 
