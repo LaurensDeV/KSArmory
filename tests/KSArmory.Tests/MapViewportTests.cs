@@ -126,6 +126,91 @@ public class MapViewportTests
     }
 
     [Fact]
+    public void TheMiddleOfAnUncroppedMapIsNullIsland()
+    {
+        Assert.True(MapViewport.TryPlace(float2.Zero, new float2(360f, 180f), float2.Zero,
+                                         float2.One, new float2(180f, 90f),
+                                         out double lon, out double lat));
+
+        Assert.Equal(0.0, lon, 6);
+        Assert.Equal(0.0, lat, 6);
+    }
+
+    [Fact]
+    public void TheCornersOfAnUncroppedMapAreTheCornersOfTheWorld()
+    {
+        float2 size = new(360f, 180f);
+        float2 origin = new(40f, 25f);
+
+        Assert.True(MapViewport.TryPlace(origin, size, float2.Zero, float2.One, origin,
+                                         out double lon, out double lat));
+        Assert.Equal(-180.0, lon, 6);
+        Assert.Equal(90.0, lat, 6);
+
+        Assert.True(MapViewport.TryPlace(origin, size, float2.Zero, float2.One, origin + size,
+                                         out lon, out lat));
+        Assert.Equal(180.0, lon, 6);
+        Assert.Equal(-90.0, lat, 6);
+    }
+
+    [Theory]
+    [InlineData(0.0, 0.0)]
+    [InlineData(-62.0, -24.0)]
+    [InlineData(151.2, -33.9)]
+    [InlineData(-90.0, 45.0)]
+    public void APlaceSurvivesBeingDrawnAndThenClicked(double lon, double lat)
+    {
+        // The round trip a targeting map is: a place projected onto the picture, and the pixel it
+        // landed on read back. It has to come home to the metre, because what comes back is a
+        // designation -- see MapViewport.TryPlace on why this is all in double.
+        RoundTrip(lon, lat, float2.Zero, float2.One);
+    }
+
+    [Fact]
+    public void APlaceSurvivesTheRoundTripZoomedIn()
+    {
+        // Zoom 1 cannot fail this: the crop is 0..1 and the lerp is the identity. What this adds
+        // is a crop that is neither, around a place inside it.
+        MapViewport.FromPanZoom(Size, new float2(-1500f, -700f), 2.5f,
+                                out float2 min, out float2 max);
+
+        float2 middle = (min + max) * 0.5f;
+        double lon = (middle.X * 360.0) - 180.0;
+        double lat = 90.0 - (middle.Y * 180.0);
+
+        RoundTrip(lon, lat, min, max);
+    }
+
+    private static readonly float2 Origin = new(25f, 178f);
+    private static readonly float2 Size = new(1392f, 672f);
+
+    private static void RoundTrip(double lon, double lat, float2 min, float2 max)
+    {
+        float2 uv = MapViewport.ToUv(lon, lat);
+        Assert.True(MapViewport.Shows(uv, min, max), "the fixture put the place off the crop");
+
+        float2 pixel = new(
+            Origin.X + ((uv.X - min.X) / (max.X - min.X) * Size.X),
+            Origin.Y + ((uv.Y - min.Y) / (max.Y - min.Y) * Size.Y));
+
+        Assert.True(MapViewport.TryPlace(Origin, Size, min, max, pixel,
+                                         out double back, out double backLat));
+
+        Assert.Equal(lon, back, 3);
+        Assert.Equal(lat, backLat, 3);
+    }
+
+    [Fact]
+    public void AClickOffTheImageIsNotAPlace()
+    {
+        Assert.False(MapViewport.TryPlace(Origin, Size, float2.Zero, float2.One,
+                                          new float2(Origin.X - 1f, Origin.Y + 10f), out _, out _));
+        Assert.False(MapViewport.TryPlace(Origin, Size, float2.Zero, float2.One,
+                                          new float2(Origin.X + 10f, Origin.Y + Size.Y + 1f),
+                                          out _, out _));
+    }
+
+    [Fact]
     public void AMarkOutsideTheCropIsNotShown()
     {
         MapViewport.FromPanZoom(Area, float2.Zero, 2f, out float2 min, out float2 max);

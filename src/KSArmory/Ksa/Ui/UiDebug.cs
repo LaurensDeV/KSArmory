@@ -314,12 +314,7 @@ internal sealed partial class Ui
 
         if (Build.Developer)
         {
-            ImGui.Checkbox("Ground-track map marks", ref _config.DrawGroundTrackMarks);
-            Tip("Where this craft's warheads are going, and the ground its bus can still divert "
-                + "to, drawn on KSA's ground-track map (F3). The lead target is filled; the "
-                + "number beside each is how many warheads it gets.");
-
-            ImGui.Checkbox("  ...and the calibration grid", ref _config.DrawGroundTrackCalibration);
+            ImGui.Checkbox("Ground-track map calibration", ref _config.DrawGroundTrackCalibration);
             Tip("Nine crosses at round coordinates. They sit on the ground they name at any zoom "
                 + "- 0,-90 on the Galapagos - and deliberately not on KSA's grid lines, which are "
                 + "spread across whatever is visible rather than drawn at round degrees.");

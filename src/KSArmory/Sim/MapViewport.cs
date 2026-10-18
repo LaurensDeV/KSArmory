@@ -60,6 +60,38 @@ internal static class MapViewport
                && System.Math.Abs(aMax.Y - bMax.Y) < Tolerance;
     }
 
+    /// <summary>
+    /// The place under a point on the map, or false where that point is off the image.
+    /// </summary>
+    /// <remarks>
+    /// <b>In double throughout.</b> The inputs are the float the engine lays a window out in, but
+    /// the answer is a designation: <see cref="AimSite"/> is deliberately double because a float
+    /// latitude costs 0.21 m and a float longitude 1.70 m, and this is the one place a map could
+    /// throw that away. What a click cannot do is beat its own pixel — at the widest texture the
+    /// exporter renders, an unzoomed pixel is about 19 km at the equator — so the map picks a
+    /// place and the pane is still where an exact figure is typed.
+    /// </remarks>
+    public static bool TryPlace(float2 at, float2 size, float2 min, float2 max, float2 point,
+                                out double longitudeDeg, out double latitudeDeg)
+    {
+        longitudeDeg = 0.0;
+        latitudeDeg = 0.0;
+
+        if (!(size.X > 0f) || !(size.Y > 0f)) return false;
+        if (point.X < at.X || point.Y < at.Y) return false;
+        if (point.X > at.X + size.X || point.Y > at.Y + size.Y) return false;
+
+        double u = (point.X - (double)at.X) / size.X;
+        double v = (point.Y - (double)at.Y) / size.Y;
+
+        double across = min.X + ((max.X - (double)min.X) * u);
+        double down = min.Y + ((max.Y - (double)min.Y) * v);
+
+        longitudeDeg = (across * 360.0) - 180.0;
+        latitudeDeg = 90.0 - (down * 180.0);
+        return true;
+    }
+
     /// <summary>Whether a point's UV is inside the crop, so a mark off the edge is not drawn.</summary>
     public static bool Shows(float2 uv, float2 min, float2 max)
         => uv.X >= min.X && uv.X <= max.X && uv.Y >= min.Y && uv.Y <= max.Y;

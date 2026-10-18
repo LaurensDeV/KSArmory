@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-313 types and 840 members across 11 assemblies.
+313 types and 841 members across 11 assemblies.
 
 ## BepuUtilities
 
@@ -299,6 +299,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `bool IsItemHovered(Brutal.ImGuiApi.ImGuiHoveredFlags)`
 - `bool IsMouseClicked(Brutal.ImGuiApi.ImGuiMouseButton, bool)`
 - `bool IsMouseDown(Brutal.ImGuiApi.ImGuiMouseButton)`
+- `bool IsMouseReleased(Brutal.ImGuiApi.ImGuiMouseButton)`
 - `bool IsWindowAppearing()`
 - `bool IsWindowHovered(Brutal.ImGuiApi.ImGuiHoveredFlags)`
 - `bool MenuItem(Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImString, bool, bool)`

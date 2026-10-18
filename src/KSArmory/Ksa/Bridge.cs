@@ -735,6 +735,17 @@ internal sealed class Bridge : IViewPose
         double? panX = command.Has("pan_x") ? command.Number("pan_x", 0.0) : null;
         double? panY = command.Has("pan_y") ? command.Number("pan_y", 0.0) : null;
 
+        // Centring on a place rather than on a pixel. The pan is in pixels of an image whose size
+        // is the window's, so asking for it directly means solving for a number nothing reports.
+        if (command.Has("lat") || command.Has("lon"))
+        {
+            GroundTrackHook.CentreOn(command.Number("lat", 0.0), command.Number("lon", 0.0),
+                                     zoom ?? 1.0);
+            zoom = null;
+            panX = null;
+            panY = null;
+        }
+
         if ((zoom.HasValue || panX.HasValue || panY.HasValue)
             && !KsaWorld.TrySetGroundTrackView(craft, zoom, panX, panY, out string trouble))
             return Failed(trouble);
@@ -743,7 +754,7 @@ internal sealed class Bridge : IViewPose
         {
             ["craft"] = KsaWorld.DisplayName(craft),
             ["open"] = true,
-            ["asked_zoom"] = zoom ?? 0.0,
+            ["asked_zoom"] = command.Has("zoom") ? command.Number("zoom", 1.0) : 0.0,
         });
     }
 

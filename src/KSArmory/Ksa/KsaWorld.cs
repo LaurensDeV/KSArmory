@@ -3785,6 +3785,27 @@ internal static class KsaWorld
     }
 
     /// <summary>
+    /// A map viewport's zoom and pan, written straight onto the fields KSA drags and zooms. For
+    /// the one caller that already holds the viewport; <see cref="TrySetGroundTrackView"/> is the
+    /// form that finds it from a craft.
+    /// </summary>
+    public static void SetMapView(GenericImGuiViewport view, float zoom, float2 pan)
+    {
+        try
+        {
+            const BindingFlags Private = BindingFlags.NonPublic | BindingFlags.Instance;
+            Type type = typeof(GenericImGuiViewport);
+
+            type.GetField("_zoom", Private)?.SetValue(view, zoom);
+            type.GetField("_pan", Private)?.SetValue(view, pan);
+        }
+        catch
+        {
+            // Driving the map is a test's business; a refusal costs the view, not the frame.
+        }
+    }
+
+    /// <summary>
     /// Where that window is looking: its zoom, and its pan in pixels. Both are private fields of
     /// the viewport KSA drags and zooms, so this is reflection, and it reports rather than throws
     /// when a field moves — driving the map is a test's business, and a clear refusal is worth

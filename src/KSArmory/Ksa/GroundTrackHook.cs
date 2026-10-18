@@ -178,6 +178,21 @@ internal static class GroundTrackHook
         }
     }
 
+    /// <summary>
+    /// Put a place in the middle of the map at a zoom. Taken on the next frame that draws, because
+    /// the pan is in pixels of the image and only the draw knows how big that is.
+    /// </summary>
+    public static void CentreOn(double latitudeDeg, double longitudeDeg, double zoom)
+    {
+        _centreOn = MapViewport.ToUv(longitudeDeg, latitudeDeg);
+        _centreZoom = (float)Math.Clamp(zoom, 1.0, 5000.0);
+        _centreWanted = true;
+    }
+
+    private static float2 _centreOn;
+    private static float _centreZoom = 1f;
+    private static bool _centreWanted;
+
     private static void AfterCrop(GenericImGuiViewport __instance,
                                   float2 imGuiArea, ref float2 viewportMin, ref float2 viewportMax)
     {
@@ -185,6 +200,26 @@ internal static class GroundTrackHook
         _cropMin = viewportMin;
         _cropMax = viewportMax;
 
+
+        Check(__instance, imGuiArea, viewportMin, viewportMax);
+
+        // Last, and outside Check's early returns. Writing the view before the comparison leaves
+        // it reading this frame's pan against last frame's crop, which is a disagreement the mod
+        // caused and then reports -- flown, and it warned on the first centred frame.
+        if (!_centreWanted) return;
+
+        _centreWanted = false;
+
+        // The crop is one over the zoom wide, so its corner is half of that below the middle.
+        float half = 0.5f / _centreZoom;
+        KsaWorld.SetMapView(__instance, _centreZoom,
+                            new float2(-(_centreOn.X - half) * imGuiArea.X * _centreZoom,
+                                       -(_centreOn.Y - half) * imGuiArea.Y * _centreZoom));
+    }
+
+    private static void Check(GenericImGuiViewport __instance, float2 imGuiArea,
+                              float2 viewportMin, float2 viewportMax)
+    {
         if (_warnedCrop) return;
 
         // The same crop worked out from the pan and zoom, which are public. Checked against the

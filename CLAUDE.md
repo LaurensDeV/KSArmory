@@ -585,6 +585,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/PreRenderHook.cs` | the second — **a step before the render on a frame that draws no UI**, because StarMap has no hook that is both |
 | `Ksa/WorldReloadHook.cs` | the third — **that a save was loaded**, which nothing else can tell: the mod never leaves the flight scene across one |
 | `Ksa/GroundTrackHook.cs` | **what lets this mod draw on KSA's ground-track map** — a prefix measuring the image's rect, which `DrawContent` keeps in locals, a postfix that draws, and a third patch **taking the crop as the engine works it out**, so a mark and the picture under it cannot disagree. KSA already renders the planet, so owning an exporter would mean driving a Vulkan pass for a picture the game is drawing anyway |
+| `Ksa/GroundTrackDesignator.cs` | clicking that map to put the warheads somewhere — **the same decision as `Ksa/SiteDesignator.cs`**, through `TargetEdit.ClickDoes` and `ReachDisplay.Verdict`, so a click on the map and one on the ground behave alike down to the refusals. A release near its own press, because the map is the button KSA pans with |
 | `Ksa/GroundTrackMarks.cs` | what goes on that map — today a calibration cross at nine round coordinates, **placed with KSA's own `ProjectOnImage`** so a mark cannot disagree with the locations beside it. They sit on the ground they name, **not on KSA's grid lines**, which are spread across whatever is visible rather than drawn at round degrees |
 | `Ksa/SaveHook.cs` | **which save is open, and that the game just wrote one** — postfixes on `UncompressedSave.Load` and `Make`, because KSA keeps no record of the loaded save and `GameSaves.Selected` is only the row highlighted in its list, which a console load, a scenario and a save-as never set |
 | `Ksa/RoundBodyDrawHook.cs` | the fourth — **a launcher's rounds drawn after the engine has culled the launcher**, because a body is one of its parts and KSA draws none of a craft under a pixel across |
@@ -692,7 +693,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 840 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 841 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |

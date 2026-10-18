@@ -64,6 +64,9 @@ internal static class GroundTrackMarks
             // should not be the thing on top.
             DrawReach(draw, computer, at, size, min, max);
             DrawTargets(draw, computer, at, size, min, max);
+
+            // Inside the clip, so the cursor's own line cannot spill over the window's chrome.
+            GroundTrackDesignator.Update(computer, at, size, min, max);
         }
         finally
         {
